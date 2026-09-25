@@ -1,15 +1,15 @@
-{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
+{{- if eq (include "ztunnelSpireInstallEnabled" .) "true" -}}
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: spire-server
-  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
-  {{- if or .Values.authentication.mutual.spire.install.server.annotations .Values.authentication.mutual.spire.annotations }}
+  namespace: {{ .Values.encryption.ztunnel.spire.install.namespace }}
+  {{- if or .Values.encryption.ztunnel.spire.install.server.annotations .Values.encryption.ztunnel.spire.annotations }}
   annotations:
-    {{- with .Values.authentication.mutual.spire.annotations }}
+    {{- with .Values.encryption.ztunnel.spire.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- with .Values.authentication.mutual.spire.install.server.annotations }}
+    {{- with .Values.encryption.ztunnel.spire.install.server.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
@@ -18,7 +18,7 @@ metadata:
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- with .Values.authentication.mutual.spire.install.server.labels }}
+    {{- with .Values.encryption.ztunnel.spire.install.server.labels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
@@ -36,17 +36,17 @@ spec:
         {{- with .Values.commonLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        {{- with .Values.authentication.mutual.spire.install.server.labels }}
+        {{- with .Values.encryption.ztunnel.spire.install.server.labels }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.authentication.mutual.spire.install.server.priorityClassName "system-node-critical") }}
-      serviceAccountName: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.encryption.ztunnel.spire.install.server.priorityClassName "system-node-critical") }}
+      serviceAccountName: {{ .Values.encryption.ztunnel.spire.install.server.serviceAccount.name }}
       shareProcessNamespace: true
       {{- if (semverCompare ">= 1.33-0" .Capabilities.KubeVersion.Version) }}
       hostUsers: true
       {{- end }}
-      {{- with .Values.authentication.mutual.spire.install.server.podSecurityContext }}
+      {{- with .Values.encryption.ztunnel.spire.install.server.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -54,30 +54,30 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- if gt (len .Values.authentication.mutual.spire.install.server.initContainers) 0 }}
+      {{- if gt (len .Values.encryption.ztunnel.spire.install.server.initContainers) 0 }}
       initContainers:
-        {{- toYaml .Values.authentication.mutual.spire.install.server.initContainers | nindent 8 }}
+        {{- toYaml .Values.encryption.ztunnel.spire.install.server.initContainers | nindent 8 }}
       {{- end }}
       containers:
       - name: cilium-init
-        image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.initImage | quote }}
-        imagePullPolicy: {{ .Values.authentication.mutual.spire.install.initImage.pullPolicy }}
+        image: {{ include "cilium.image" .Values.encryption.ztunnel.spire.install.initImage | quote }}
+        imagePullPolicy: {{ .Values.encryption.ztunnel.spire.install.initImage.pullPolicy }}
         command:
           - /bin/sh
           - -c
           - |
             {{- tpl (.Files.Get "files/spire/init.bash") . | nindent 12 }}
       - name: spire-server
-        {{- if eq (typeOf .Values.authentication.mutual.spire.install.server.image) "string" }}
-        image: {{ .Values.authentication.mutual.spire.install.server.image }}
+        {{- if eq (typeOf .Values.encryption.ztunnel.spire.install.server.image) "string" }}
+        image: {{ .Values.encryption.ztunnel.spire.install.server.image }}
         {{- else }}
-        image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.server.image | quote }}
-        imagePullPolicy: {{ .Values.authentication.mutual.spire.install.server.image.pullPolicy }}
+        image: {{ include "cilium.image" .Values.encryption.ztunnel.spire.install.server.image | quote }}
+        imagePullPolicy: {{ .Values.encryption.ztunnel.spire.install.server.image.pullPolicy }}
         {{- end }}
         args:
         - -config
         - /run/spire/config/server.conf
-        {{- with .Values.authentication.mutual.spire.install.server.resources }}
+        {{- with .Values.encryption.ztunnel.spire.install.server.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
@@ -90,7 +90,7 @@ spec:
         - name: spire-config
           mountPath: /run/spire/config
           readOnly: true
-        {{- if .Values.authentication.mutual.spire.install.server.dataStorage.enabled }}
+        {{- if .Values.encryption.ztunnel.spire.install.server.dataStorage.enabled }}
         - name: spire-data
           mountPath: /run/spire/data
           readOnly: false
@@ -112,19 +112,19 @@ spec:
             port: http
           initialDelaySeconds: 5
           periodSeconds: 5
-        {{- with .Values.authentication.mutual.spire.install.server.securityContext }}
+        {{- with .Values.encryption.ztunnel.spire.install.server.securityContext }}
         securityContext:
           {{- toYaml . | nindent 10 }}
         {{- end }}
-      {{- with .Values.authentication.mutual.spire.install.server.affinity }}
+      {{- with .Values.encryption.ztunnel.spire.install.server.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.authentication.mutual.spire.install.server.nodeSelector }}
+      {{- with .Values.encryption.ztunnel.spire.install.server.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.authentication.mutual.spire.install.server.tolerations }}
+      {{- with .Values.encryption.ztunnel.spire.install.server.tolerations }}
       tolerations:
         {{- toYaml . | trim | nindent 8 }}
       {{- end }}
@@ -136,16 +136,16 @@ spec:
         hostPath:
           path: /var/run/spire-server/sockets
           type: DirectoryOrCreate
-  {{- if .Values.authentication.mutual.spire.install.server.dataStorage.enabled }}
+  {{- if .Values.encryption.ztunnel.spire.install.server.dataStorage.enabled }}
   volumeClaimTemplates:
   - metadata:
       name: spire-data
     spec:
       accessModes:
-      - {{ .Values.authentication.mutual.spire.install.server.dataStorage.accessMode | default "ReadWriteOnce" }}
+      - {{ .Values.encryption.ztunnel.spire.install.server.dataStorage.accessMode | default "ReadWriteOnce" }}
       resources:
         requests:
-          storage: {{ .Values.authentication.mutual.spire.install.server.dataStorage.size }}
-      storageClassName: {{ .Values.authentication.mutual.spire.install.server.dataStorage.storageClass }}
+          storage: {{ .Values.encryption.ztunnel.spire.install.server.dataStorage.size }}
+      storageClassName: {{ .Values.encryption.ztunnel.spire.install.server.dataStorage.storageClass }}
   {{- end }}
 {{- end }}

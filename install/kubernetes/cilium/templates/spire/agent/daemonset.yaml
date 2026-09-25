@@ -1,15 +1,15 @@
-{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
+{{- if eq (include "ztunnelSpireInstallEnabled" .) "true" -}}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: spire-agent
-  namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
-  {{- if or .Values.authentication.mutual.spire.install.server.annotations .Values.authentication.mutual.spire.annotations }}
+  namespace: {{ .Values.encryption.ztunnel.spire.install.namespace }}
+  {{- if or .Values.encryption.ztunnel.spire.install.server.annotations .Values.encryption.ztunnel.spire.annotations }}
   annotations:
-    {{- with .Values.authentication.mutual.spire.annotations }}
+    {{- with .Values.encryption.ztunnel.spire.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
-    {{- with .Values.authentication.mutual.spire.install.server.annotations }}
+    {{- with .Values.encryption.ztunnel.spire.install.server.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
   {{- end }}
@@ -18,7 +18,7 @@ metadata:
     {{- with .Values.commonLabels }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
-  {{- with .Values.authentication.mutual.spire.install.agent.labels }}
+  {{- with .Values.encryption.ztunnel.spire.install.agent.labels }}
     {{- toYaml . | nindent 4 }}
   {{- end }}
 spec:
@@ -27,22 +27,22 @@ spec:
       app: spire-agent
   template:
     metadata:
-      namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+      namespace: {{ .Values.encryption.ztunnel.spire.install.namespace }}
       labels:
         app: spire-agent
         {{- with .Values.commonLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        {{- with .Values.authentication.mutual.spire.install.agent.labels }}
+        {{- with .Values.encryption.ztunnel.spire.install.agent.labels }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
       hostPID: true
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
-      serviceAccountName: {{ .Values.authentication.mutual.spire.install.agent.serviceAccount.name }}
-      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.authentication.mutual.spire.install.agent.priorityClassName "system-node-critical") }}
-      {{- with .Values.authentication.mutual.spire.install.agent.podSecurityContext }}
+      serviceAccountName: {{ .Values.encryption.ztunnel.spire.install.agent.serviceAccount.name }}
+      priorityClassName: {{ include "cilium.priorityClass" (list $ .Values.encryption.ztunnel.spire.install.agent.priorityClassName "system-node-critical") }}
+      {{- with .Values.encryption.ztunnel.spire.install.agent.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -52,8 +52,8 @@ spec:
       {{- end }}
       initContainers:
         - name: init
-          image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.initImage | quote }}
-          imagePullPolicy: {{ .Values.authentication.mutual.spire.install.initImage.pullPolicy }}
+          image: {{ include "cilium.image" .Values.encryption.ztunnel.spire.install.initImage | quote }}
+          imagePullPolicy: {{ .Values.encryption.ztunnel.spire.install.initImage.pullPolicy }}
           command:
             - /bin/sh
             - -c
@@ -61,14 +61,14 @@ spec:
               {{- tpl (.Files.Get "files/spire/wait-for-spire.bash") . | nindent 14 }}
       containers:
         - name: spire-agent
-          {{- if eq (typeOf .Values.authentication.mutual.spire.install.agent.image) "string" }}
-          image: {{ .Values.authentication.mutual.spire.install.agent.image }}
+          {{- if eq (typeOf .Values.encryption.ztunnel.spire.install.agent.image) "string" }}
+          image: {{ .Values.encryption.ztunnel.spire.install.agent.image }}
           {{- else }}
-          image: {{ include "cilium.image" .Values.authentication.mutual.spire.install.agent.image | quote }}
-          imagePullPolicy: {{ .Values.authentication.mutual.spire.install.agent.image.pullPolicy }}
+          image: {{ include "cilium.image" .Values.encryption.ztunnel.spire.install.agent.image | quote }}
+          imagePullPolicy: {{ .Values.encryption.ztunnel.spire.install.agent.image.pullPolicy }}
           {{- end }}
           args: ["-config", "/run/spire/config/agent.conf"]
-          {{- with .Values.authentication.mutual.spire.install.agent.securityContext }}
+          {{- with .Values.encryption.ztunnel.spire.install.agent.securityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -88,7 +88,7 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: status.hostIP
-          {{- with .Values.authentication.mutual.spire.install.agent.resources }}
+          {{- with .Values.encryption.ztunnel.spire.install.agent.resources }}
           resources:
             {{- toYaml . | trim | nindent 12 }}
           {{- end }}
@@ -109,16 +109,16 @@ spec:
               port: http
             initialDelaySeconds: 5
             periodSeconds: 5
-      {{- with .Values.authentication.mutual.spire.install.agent.affinity }}
+      {{- with .Values.encryption.ztunnel.spire.install.agent.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      {{- with .Values.authentication.mutual.spire.install.agent.nodeSelector }}
+      {{- with .Values.encryption.ztunnel.spire.install.agent.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       tolerations:
-        {{- with .Values.authentication.mutual.spire.install.agent.tolerations }}
+        {{- with .Values.encryption.ztunnel.spire.install.agent.tolerations }}
           {{- toYaml . | trim | nindent 8 }}
         {{- end }}
         - key:  {{ .Values.agentNotReadyTaintKey | default "node.cilium.io/agent-not-ready" }}

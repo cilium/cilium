@@ -1482,16 +1482,16 @@ data:
   agent-not-ready-taint-key: {{ .Values.agentNotReadyTaintKey | quote }}
 {{- end }}
 
-{{- if .Values.authentication.mutual.spire.enabled }}
-  mesh-auth-spire-agent-socket: {{ .Values.authentication.mutual.spire.agentSocketPath | quote }}
-  {{- if .Values.authentication.mutual.spire.serverAddress }}
-  mesh-auth-spire-server-address: {{ .Values.authentication.mutual.spire.serverAddress | quote }}
+{{- if eq (include "ztunnelSpireEnabled" .) "true" }}
+  mesh-auth-spire-agent-socket: {{ .Values.encryption.ztunnel.spire.agentSocketPath | quote }}
+  {{- if .Values.encryption.ztunnel.spire.serverAddress }}
+  mesh-auth-spire-server-address: {{ .Values.encryption.ztunnel.spire.serverAddress | quote }}
   {{- else }}
-  mesh-auth-spire-server-address: "spire-server.{{ .Values.authentication.mutual.spire.install.namespace}}.svc:8081"
+  mesh-auth-spire-server-address: "spire-server.{{ .Values.encryption.ztunnel.spire.install.namespace}}.svc:8081"
   {{- end }}
-  mesh-auth-spire-server-connection-timeout: {{ .Values.authentication.mutual.spire.connectionTimeout }}
-  mesh-auth-spire-admin-socket: {{ .Values.authentication.mutual.spire.adminSocketPath | quote }}
-  mesh-auth-spiffe-trust-domain: {{ .Values.authentication.mutual.spire.trustDomain | quote }}
+  mesh-auth-spire-server-connection-timeout: {{ .Values.encryption.ztunnel.spire.connectionTimeout }}
+  mesh-auth-spire-admin-socket: {{ .Values.encryption.ztunnel.spire.adminSocketPath | quote }}
+  mesh-auth-spiffe-trust-domain: {{ .Values.encryption.ztunnel.spire.trustDomain | quote }}
 {{- end }}
 
   proxy-xff-num-trusted-hops-ingress: {{ .Values.envoy.xffNumTrustedHopsL7PolicyIngress | quote }}

@@ -64,182 +64,6 @@
      - The api-rate-limit option can be used to overwrite individual settings of the default configuration for rate limiting calls to the Cilium Agent API
      - string
      - ``nil``
-   * - :spelling:ignore:`authentication.mutual.spire.adminSocketPath`
-     - SPIRE socket path where the SPIRE delegated api agent is listening
-     - string
-     - ``"/run/spire/sockets/admin.sock"``
-   * - :spelling:ignore:`authentication.mutual.spire.agentSocketPath`
-     - SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator
-     - string
-     - ``"/run/spire/sockets/agent/agent.sock"``
-   * - :spelling:ignore:`authentication.mutual.spire.annotations`
-     - Annotations to be added to all top-level spire objects (resources under templates/spire)
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.connectionTimeout`
-     - SPIRE connection timeout
-     - string
-     - ``"30s"``
-   * - :spelling:ignore:`authentication.mutual.spire.enabled`
-     - Enable SPIRE integration (beta)
-     - bool
-     - ``false``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.affinity`
-     - SPIRE agent affinity configuration
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.annotations`
-     - SPIRE agent annotations
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.image`
-     - SPIRE agent image
-     - object
-     - ``{"digest":"sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.15.3","useDigest":true}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.labels`
-     - SPIRE agent labels
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.nodeSelector`
-     - SPIRE agent nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.podSecurityContext`
-     - Security context to be added to spire agent pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.priorityClassName`
-     - The priority class to use for the spire agent
-     - string
-     - ``""``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.resources`
-     - container resource limits & requests
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.securityContext`
-     - Security context to be added to spire agent containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.serviceAccount`
-     - SPIRE agent service account
-     - object
-     - ``{"create":true,"name":"spire-agent"}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.skipKubeletVerification`
-     - SPIRE Workload Attestor kubelet verification.
-     - bool
-     - ``true``
-   * - :spelling:ignore:`authentication.mutual.spire.install.agent.tolerations`
-     - SPIRE agent tolerations configuration By default it follows the same tolerations as the agent itself to allow the Cilium agent on this node to connect to SPIRE. ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-     - list
-     - ``[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/control-plane"},{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true"},{"key":"CriticalAddonsOnly","operator":"Exists"}]``
-   * - :spelling:ignore:`authentication.mutual.spire.install.enabled`
-     - Enable SPIRE installation. This will only take effect only if authentication.mutual.spire.enabled is true
-     - bool
-     - ``true``
-   * - :spelling:ignore:`authentication.mutual.spire.install.existingNamespace`
-     - SPIRE namespace already exists. Set to true if Helm should not create, manage, and import the SPIRE namespace.
-     - bool
-     - ``false``
-   * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
-     - init container image of SPIRE agent and server
-     - object
-     - ``{"digest":"sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.38.0","useDigest":true}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
-     - SPIRE namespace to install into
-     - string
-     - ``"cilium-spire"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.affinity`
-     - SPIRE server affinity configuration
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.annotations`
-     - SPIRE server annotations
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.ca.keyType`
-     - SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported
-     - string
-     - ``"rsa-4096"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.ca.subject`
-     - SPIRE CA Subject
-     - object
-     - ``{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.dataStorage.accessMode`
-     - Access mode of the SPIRE server data storage
-     - string
-     - ``"ReadWriteOnce"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.dataStorage.enabled`
-     - Enable SPIRE server data storage
-     - bool
-     - ``true``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.dataStorage.size`
-     - Size of the SPIRE server data storage
-     - string
-     - ``"1Gi"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.dataStorage.storageClass`
-     - StorageClass of the SPIRE server data storage
-     - string
-     - ``nil``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.image`
-     - SPIRE server image
-     - object
-     - ``{"digest":"sha256:4082f30d3e0ddc4000a171392c4ea174345ee44d161ee917c70b97b2ecfba141","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.15.3","useDigest":true}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.initContainers`
-     - SPIRE server init containers
-     - list
-     - ``[]``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.labels`
-     - SPIRE server labels
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.nodeSelector`
-     - SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.podSecurityContext`
-     - Security context to be added to spire server pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.priorityClassName`
-     - The priority class to use for the spire server
-     - string
-     - ``""``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.resources`
-     - container resource limits & requests
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.securityContext`
-     - Security context to be added to spire server containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.service.annotations`
-     - Annotations to be added to the SPIRE server service
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.service.labels`
-     - Labels to be added to the SPIRE server service
-     - object
-     - ``{}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.service.type`
-     - Service type for the SPIRE server service
-     - string
-     - ``"ClusterIP"``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.serviceAccount`
-     - SPIRE server service account
-     - object
-     - ``{"create":true,"name":"spire-server"}``
-   * - :spelling:ignore:`authentication.mutual.spire.install.server.tolerations`
-     - SPIRE server tolerations configuration ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
-     - list
-     - ``[]``
-   * - :spelling:ignore:`authentication.mutual.spire.serverAddress`
-     - SPIRE server address used by Cilium Operator  If k8s Service DNS along with port number is used (e.g. :raw-html-m2r:`<service-name>`.\ :raw-html-m2r:`<namespace>`.svc(.*):\ :raw-html-m2r:`<port-number>` format), Cilium Operator will resolve its address by looking up the clusterIP from Service resource.  Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
-     - string
-     - ``nil``
-   * - :spelling:ignore:`authentication.mutual.spire.trustDomain`
-     - SPIFFE trust domain to use for fetching certificates
-     - string
-     - ``"spiffe.cilium"``
    * - :spelling:ignore:`autoDirectNodeRoutes`
      - Enable installation of PodCIDR routes between worker nodes if worker nodes share a common L2 network segment.
      - bool
@@ -1387,7 +1211,7 @@
    * - :spelling:ignore:`encryption.ztunnel`
      - ztunnel encryption configuration. ztunnel is Istio's purpose-built, per-node proxy for handling L4 traffic in ambient mesh mode. These settings only apply when encryption.type is set to "ztunnel".
      - object
-     - ``{"affinity":{},"annotations":{},"ca":{"type":"internal"},"caAddress":"https://localhost:15012","extraEnv":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":15021,"image":{"digest":"sha256:884de5adde400e39f58e36c7a729f7690466ca4a8eb4c2a8daa9c1c025115b24","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/ztunnel","tag":"v1.0.0","useDigest":true},"minReadySeconds":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"priorityClassName":null,"readinessProbe":{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10},"resources":{"requests":{"cpu":"200m","memory":"512Mi"}},"secrets":{"bootstrapRootCert":null},"terminationGracePeriodSeconds":30,"tolerations":[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}}``
+     - ``{"affinity":{},"annotations":{},"ca":{"type":"internal"},"caAddress":"https://localhost:15012","extraEnv":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":15021,"image":{"digest":"sha256:884de5adde400e39f58e36c7a729f7690466ca4a8eb4c2a8daa9c1c025115b24","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/ztunnel","tag":"v1.0.0","useDigest":true},"minReadySeconds":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"priorityClassName":null,"readinessProbe":{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10},"resources":{"requests":{"cpu":"200m","memory":"512Mi"}},"secrets":{"bootstrapRootCert":null},"spire":{"adminSocketPath":"/run/spire/sockets/admin.sock","agentSocketPath":"/run/spire/sockets/agent/agent.sock","annotations":{},"connectionTimeout":"30s","install":{"agent":{"affinity":{},"annotations":{},"image":{"digest":"sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.15.3","useDigest":true},"labels":{},"nodeSelector":{},"podSecurityContext":{},"priorityClassName":"","resources":{},"securityContext":{},"serviceAccount":{"create":true,"name":"spire-agent"},"skipKubeletVerification":true,"tolerations":[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/control-plane"},{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true"},{"key":"CriticalAddonsOnly","operator":"Exists"}]},"enabled":true,"existingNamespace":false,"initImage":{"digest":"sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.38.0","useDigest":true},"namespace":"cilium-spire","server":{"affinity":{},"annotations":{},"ca":{"keyType":"rsa-4096","subject":{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}},"dataStorage":{"accessMode":"ReadWriteOnce","enabled":true,"size":"1Gi","storageClass":null},"image":{"digest":"sha256:4082f30d3e0ddc4000a171392c4ea174345ee44d161ee917c70b97b2ecfba141","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.15.3","useDigest":true},"initContainers":[],"labels":{},"nodeSelector":{},"podSecurityContext":{},"priorityClassName":"","resources":{},"securityContext":{},"service":{"annotations":{},"labels":{},"type":"ClusterIP"},"serviceAccount":{"create":true,"name":"spire-server"},"tolerations":[]}},"serverAddress":null,"trustDomain":"spiffe.cilium"},"terminationGracePeriodSeconds":30,"tolerations":[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}}``
    * - :spelling:ignore:`encryption.ztunnel.affinity`
      - Affinity for ztunnel pods.
      - object
@@ -1464,6 +1288,178 @@
      - Base64-encoded bootstrap root certificate content. If not provided, the secret must be created manually before deploying. @schema type: [null, string] @schema
      - string
      - ``nil``
+   * - :spelling:ignore:`encryption.ztunnel.spire.adminSocketPath`
+     - SPIRE socket path where the SPIRE delegated api agent is listening
+     - string
+     - ``"/run/spire/sockets/admin.sock"``
+   * - :spelling:ignore:`encryption.ztunnel.spire.agentSocketPath`
+     - SPIRE socket path where the SPIRE workload agent is listening. Applies to both the Cilium Agent and Operator
+     - string
+     - ``"/run/spire/sockets/agent/agent.sock"``
+   * - :spelling:ignore:`encryption.ztunnel.spire.annotations`
+     - Annotations to be added to all top-level spire objects (resources under templates/spire)
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.connectionTimeout`
+     - SPIRE connection timeout
+     - string
+     - ``"30s"``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.affinity`
+     - SPIRE agent affinity configuration
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.annotations`
+     - SPIRE agent annotations
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.image`
+     - SPIRE agent image
+     - object
+     - ``{"digest":"sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-agent","tag":"1.15.3","useDigest":true}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.labels`
+     - SPIRE agent labels
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.nodeSelector`
+     - SPIRE agent nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.podSecurityContext`
+     - Security context to be added to spire agent pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.priorityClassName`
+     - The priority class to use for the spire agent
+     - string
+     - ``""``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.resources`
+     - container resource limits & requests
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.securityContext`
+     - Security context to be added to spire agent containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.serviceAccount`
+     - SPIRE agent service account
+     - object
+     - ``{"create":true,"name":"spire-agent"}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.skipKubeletVerification`
+     - SPIRE Workload Attestor kubelet verification.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.agent.tolerations`
+     - SPIRE agent tolerations configuration By default it follows the same tolerations as the agent itself to allow the Cilium agent on this node to connect to SPIRE. ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[{"effect":"NoSchedule","key":"node.kubernetes.io/not-ready"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/master"},{"effect":"NoSchedule","key":"node-role.kubernetes.io/control-plane"},{"effect":"NoSchedule","key":"node.cloudprovider.kubernetes.io/uninitialized","value":"true"},{"key":"CriticalAddonsOnly","operator":"Exists"}]``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.enabled`
+     - Enable SPIRE installation. This only takes effect when encryption.enabled=true, encryption.type=ztunnel, and encryption.ztunnel.ca.type=spire.
+     - bool
+     - ``true``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.existingNamespace`
+     - SPIRE namespace already exists. Set to true if Helm should not create, manage, and import the SPIRE namespace.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.initImage`
+     - init container image of SPIRE agent and server
+     - object
+     - ``{"digest":"sha256:dc2d74b28e4cf8984fa52af1f39bc7c3d9c73760b41a74d629f5d11b1ab28616","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.38.0","useDigest":true}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.namespace`
+     - SPIRE namespace to install into
+     - string
+     - ``"cilium-spire"``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.affinity`
+     - SPIRE server affinity configuration
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.annotations`
+     - SPIRE server annotations
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.ca.keyType`
+     - SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported
+     - string
+     - ``"rsa-4096"``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.ca.subject`
+     - SPIRE CA Subject
+     - object
+     - ``{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.dataStorage.accessMode`
+     - Access mode of the SPIRE server data storage
+     - string
+     - ``"ReadWriteOnce"``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.dataStorage.enabled`
+     - Enable SPIRE server data storage
+     - bool
+     - ``true``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.dataStorage.size`
+     - Size of the SPIRE server data storage
+     - string
+     - ``"1Gi"``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.dataStorage.storageClass`
+     - StorageClass of the SPIRE server data storage
+     - string
+     - ``nil``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.image`
+     - SPIRE server image
+     - object
+     - ``{"digest":"sha256:4082f30d3e0ddc4000a171392c4ea174345ee44d161ee917c70b97b2ecfba141","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-server","tag":"1.15.3","useDigest":true}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.initContainers`
+     - SPIRE server init containers
+     - list
+     - ``[]``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.labels`
+     - SPIRE server labels
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.nodeSelector`
+     - SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.podSecurityContext`
+     - Security context to be added to spire server pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.priorityClassName`
+     - The priority class to use for the spire server
+     - string
+     - ``""``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.resources`
+     - container resource limits & requests
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.securityContext`
+     - Security context to be added to spire server containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.service.annotations`
+     - Annotations to be added to the SPIRE server service
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.service.labels`
+     - Labels to be added to the SPIRE server service
+     - object
+     - ``{}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.service.type`
+     - Service type for the SPIRE server service
+     - string
+     - ``"ClusterIP"``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.serviceAccount`
+     - SPIRE server service account
+     - object
+     - ``{"create":true,"name":"spire-server"}``
+   * - :spelling:ignore:`encryption.ztunnel.spire.install.server.tolerations`
+     - SPIRE server tolerations configuration ref: https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/
+     - list
+     - ``[]``
+   * - :spelling:ignore:`encryption.ztunnel.spire.serverAddress`
+     - SPIRE server address used by Cilium Operator  If k8s Service DNS along with port number is used (e.g. :raw-html-m2r:`<service-name>`.\ :raw-html-m2r:`<namespace>`.svc(.*):\ :raw-html-m2r:`<port-number>` format), Cilium Operator will resolve its address by looking up the clusterIP from Service resource.  Example values: 10.0.0.1:8081, spire-server.cilium-spire.svc:8081
+     - string
+     - ``nil``
+   * - :spelling:ignore:`encryption.ztunnel.spire.trustDomain`
+     - SPIFFE trust domain to use for fetching certificates
+     - string
+     - ``"spiffe.cilium"``
    * - :spelling:ignore:`encryption.ztunnel.terminationGracePeriodSeconds`
      - Configure termination grace period for ztunnel DaemonSet.
      - int
