@@ -28,6 +28,20 @@ type endpointRulesOperations struct {
 	localNodeStore  *node.LocalNodeStore
 }
 
+func newEndpointRulesOperations(
+	logger *slog.Logger,
+	ipamManager *ipam.IPAM,
+	endpointManager endpointmanager.EndpointManager,
+	localNodeStore *node.LocalNodeStore,
+) *endpointRulesOperations {
+	return &endpointRulesOperations{
+		logger:          logger,
+		ipam:            ipamManager,
+		endpointManager: endpointManager,
+		localNodeStore:  localNodeStore,
+	}
+}
+
 var _ statedbReconciler.Operations[*EndpointRules] = (*endpointRulesOperations)(nil)
 
 func (ops *endpointRulesOperations) Update(

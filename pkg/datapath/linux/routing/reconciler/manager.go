@@ -10,6 +10,7 @@ import (
 	"net/netip"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 	statedbReconciler "github.com/cilium/statedb/reconciler"
 
@@ -18,14 +19,19 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 const internalEndpointOwner = "internal"
 
 type endpointRulesManager struct {
+	enabled bool
+
 	logger          *slog.Logger
 	db              *statedb.DB
 	table           statedb.RWTable[*EndpointRules]
@@ -48,29 +54,61 @@ type pendingEndpointRules struct {
 
 var _ endpointmanager.Subscriber = (*endpointRulesManager)(nil)
 
-func newEndpointRulesManager(
-	logger *slog.Logger,
-	db *statedb.DB,
-	table statedb.RWTable[*EndpointRules],
-	ipam *ipam.IPAM,
-	endpointManager endpointmanager.EndpointManager,
-	restorer promise.Promise[endpointstate.Restorer],
-) *endpointRulesManager {
-	txn := db.WriteTxn(table)
-	initDone := table.RegisterInitializer(txn, "endpoint-restoration")
-	txn.Commit()
+type endpointRulesManagerParams struct {
+	cell.In
 
-	return &endpointRulesManager{
-		logger:          logger,
-		db:              db,
-		table:           table,
-		ipam:            ipam,
-		endpointManager: endpointManager,
-		restorer:        restorer,
-		initDone:        initDone,
+	Logger          *slog.Logger
+	Lifecycle       cell.Lifecycle
+	JobGroup        job.Group
+	DB              *statedb.DB
+	Table           statedb.RWTable[*EndpointRules]
+	DaemonConfig    *option.DaemonConfig
+	IPAM            *ipam.IPAM
+	EndpointManager endpointmanager.EndpointManager
+	Restorer        promise.Promise[endpointstate.Restorer]
+}
+
+func newEndpointRulesManager(p endpointRulesManagerParams) *endpointRulesManager {
+	manager := &endpointRulesManager{
+		logger:          p.Logger,
+		db:              p.DB,
+		table:           p.Table,
+		ipam:            p.IPAM,
+		endpointManager: p.EndpointManager,
+		restorer:        p.Restorer,
 		initializing:    true,
 		pending:         map[netip.Addr]pendingEndpointRules{},
 	}
+
+	if p.DaemonConfig.DryMode || p.DaemonConfig.IPAMMode() != ipamOption.IPAMENI {
+		return manager
+	}
+
+	manager.enabled = true
+
+	txn := p.DB.WriteTxn(p.Table)
+	manager.initDone = p.Table.RegisterInitializer(txn, "endpoint-restoration")
+	txn.Commit()
+
+	// Subscribe during cell registration so no restored endpoint event is lost.
+	manager.endpointManager.Subscribe(manager)
+	p.Lifecycle.Append(cell.Hook{
+		OnStop: func(ctx cell.HookContext) error {
+			manager.endpointManager.Unsubscribe(manager)
+			return nil
+		},
+	})
+
+	p.JobGroup.Add(job.OneShot(
+		"initialize-cloud-endpoint-routing-rules",
+		manager.initialize,
+		job.WithRetry(-1, &job.ExponentialBackoff{
+			Min: time.Second,
+			Max: time.Minute,
+		}),
+	))
+
+	return manager
 }
 
 func (mgr *endpointRulesManager) initialize(ctx context.Context, health cell.Health) error {
