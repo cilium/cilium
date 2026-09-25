@@ -35,6 +35,8 @@ type BPFLXC struct {
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Maintain packet and byte counters for every policy entry.
 	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
+	// Enable audit mode for policies.
+	EnablePolicyAuditMode bool `config:"enable_policy_audit_mode"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Enable source IP verification for endpoint egress.
