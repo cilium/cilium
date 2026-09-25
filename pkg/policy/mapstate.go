@@ -474,12 +474,13 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 			return idEntry, true
 		}
 
-		// 3. Two allow entries, select the one with more specific L4
-		// specific-id-entry must be selected if prefix lengths are the same!
-		if idKey.PrefixLength() > aggKey.PrefixLength() {
+		// 3. Two allow entries, select the one with longer LPM prefix.
+		// The aggregate entry wins if its prefix is longer (matches bpf/lib/policy.h).
+		// The specific-id entry wins when prefixes are equal or the specific-id entry has the longer prefix.
+		if aggKey.PrefixLength() > idKey.PrefixLength() {
 			return aggEntry, true
 		}
-		// 4. Two allow entries are equally specific port/proto or L3-entry is more specific
+		// 4. Prefixes equal or specific-id has longer prefix: select specific-id entry
 		return idEntry, true
 	}
 
