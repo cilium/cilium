@@ -10,6 +10,7 @@ import (
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_extensions_filters_network_hcm_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_extensions_transport_sockets_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,6 +20,63 @@ import (
 	"github.com/cilium/cilium/operator/pkg/model"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
+
+func TestToTransportSocketTLSOptions(t *testing.T) {
+	tests := []struct {
+		name       string
+		options    model.TLSOptions
+		wantParams bool
+		wantMin    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol
+		wantMax    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol
+	}{
+		{
+			name: "no options",
+		},
+		{
+			name:       "minimum only",
+			options:    model.TLSOptions{MinVersion: "1.3"},
+			wantParams: true,
+			wantMin:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_3,
+			wantMax:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLS_AUTO,
+		},
+		{
+			name:       "maximum only",
+			options:    model.TLSOptions{MaxVersion: "1.2"},
+			wantParams: true,
+			wantMin:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLS_AUTO,
+			wantMax:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2,
+		},
+		{
+			name:       "minimum and maximum",
+			options:    model.TLSOptions{MinVersion: "1.2", MaxVersion: "1.3"},
+			wantParams: true,
+			wantMin:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2,
+			wantMax:    envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			socket := toTransportSocket(
+				"cilium-secrets",
+				[]model.TLSSecret{{Name: "cert", Namespace: "default"}},
+				tt.options,
+			)
+
+			downstreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+			require.NoError(t, proto.Unmarshal(socket.GetTypedConfig().Value, downstreamTLS))
+			require.NotNil(t, downstreamTLS.CommonTlsContext)
+			if !tt.wantParams {
+				require.Nil(t, downstreamTLS.CommonTlsContext.TlsParams)
+				return
+			}
+
+			require.NotNil(t, downstreamTLS.CommonTlsContext.TlsParams)
+			assert.Equal(t, tt.wantMin, downstreamTLS.CommonTlsContext.TlsParams.TlsMinimumProtocolVersion)
+			assert.Equal(t, tt.wantMax, downstreamTLS.CommonTlsContext.TlsParams.TlsMaximumProtocolVersion)
+		})
+	}
+}
 
 func Test_getHostNetworkListenerAddresses(t *testing.T) {
 	testCases := []struct {

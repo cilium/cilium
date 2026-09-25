@@ -645,15 +645,71 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 				break
 			}
 		}
+
 		if l.Protocol == gatewayv1.TLSProtocolType && l.TLS.Mode != nil && *l.TLS.Mode == gatewayv1.TLSModeTerminate {
 			res.isValid = false
 			res.invalidMessages = append(res.invalidMessages, "Using TLSRoute with TLS.mode Terminate is unsupported.")
 			res.invalidReason = gatewayv1.ListenerReasonUnsupportedValue
 			res.supportedKinds = []gatewayv1.RouteGroupKind{}
 		}
+
+		if err := m.validateTLSOptions(&l); err != nil {
+			res.invalidMessages = append(res.invalidMessages, err.Error())
+			res.invalidReason = gatewayv1.ListenerReasonUnsupportedValue
+			res.isValid = false
+		}
 	}
 
 	return res
+}
+
+var (
+	supportedTLSOptions = map[string]struct{}{
+		model.TLSOptionsMinVersion: {},
+		model.TLSOptionsMaxVersion: {},
+	}
+	supportedTLSVersions = map[string]int{
+		"1.2": 2,
+		"1.3": 3,
+	}
+)
+
+func (m *ListenerStatusManager) validateTLSOptions(l *gatewayv1.Listener) error {
+	if l.TLS == nil {
+		return nil
+	}
+
+	options := l.TLS.Options
+	for option, value := range options {
+		// Validate only 'cilium.io/' options, other should be ignored.
+		if op := string(option); strings.HasPrefix(op, "cilium.io/") {
+			if helpers.IsTLSPassthroughListener(l) {
+				return fmt.Errorf("TLS option %s is not supported on TLS passthrough listeners", op)
+			}
+			if _, ok := supportedTLSOptions[op]; !ok {
+				return fmt.Errorf("TLS Option %s is not supported", op)
+			}
+			if _, ok := supportedTLSVersions[string(value)]; !ok {
+				return fmt.Errorf("TLS Value %s is not supported in %s", value, op)
+			}
+		}
+	}
+
+	min := model.TLSOptionsDefaultMinVersion
+	if v, ok := options[model.TLSOptionsMinVersion]; ok {
+		min = string(v)
+	}
+
+	max := model.TLSOptionsDefaultMaxVersion
+	if v, ok := options[model.TLSOptionsMaxVersion]; ok {
+		max = string(v)
+	}
+
+	if supportedTLSVersions[min] > supportedTLSVersions[max] {
+		return fmt.Errorf("TLS minimum version %s must not exceed maximum version %s", min, max)
+	}
+
+	return nil
 }
 
 func (m *ListenerStatusManager) validateTLSSecret(ctx context.Context, namespace, name string) error {
