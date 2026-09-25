@@ -12,4 +12,3 @@
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif
-#define TRACE_NOTIFY

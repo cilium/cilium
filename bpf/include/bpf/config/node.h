@@ -180,6 +180,7 @@ NODE_CONFIG(__u32, encap4_ifindex,
 NODE_CONFIG(__u32, encap6_ifindex,
 	    "Interface index of the IPv6 IPIP encapsulation device")
 
+NODE_CONFIG(bool, enable_trace_notify, "Enable trace notifications")
 NODE_CONFIG(bool, enable_sctp, "Enable SCTP support")
 
 NODE_CONFIG(bool, enable_drop_notify, "Enable drop notifications")
