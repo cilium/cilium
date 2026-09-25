@@ -46,9 +46,6 @@ inputs:
   host-fw:
     description: 'Enable host firewall'
     default: 'false'
-  mutual-auth:
-    description: 'Enable mTLS-based Mutual Authentication'
-    default: 'true'
   ingress-controller:
     description: 'Enable ingress controller, required kubeProxyReplacement'
     default: 'false'
@@ -97,7 +94,6 @@ runs:
             --helm-set=debug.metricsSamplingInterval=30s \
             --helm-set=hubble.eventBufferCapacity=65535 \
             --helm-set=cluster.name=default \
-            --helm-set=authentication.mutual.spire.enabled=${{ inputs.mutual-auth }} \
             --nodes-without-cilium \
             --helm-set-string=kubeProxyReplacement=${{ inputs.kpr }} \
             --helm-set=l2NeighDiscovery.enabled=true \
