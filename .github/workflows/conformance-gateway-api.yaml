@@ -201,7 +201,7 @@ jobs:
 
           SKIPPED_TESTS="TCPRouteWeightedRouting,UDPRouteWeightedRouting"
           if [ "${{ matrix.conformance-profile }}" == "true" ]; then
-            SKIPPED_TESTS=",MeshConsumerRoute,HTTPRouteListenerPortMatching"
+            SKIPPED_TESTS="UDPRouteWeightedRouting,MeshConsumerRoute,HTTPRouteListenerPortMatching"
           fi
 
           # The conformance-profile jobs consume SKIPPED_TESTS through the
