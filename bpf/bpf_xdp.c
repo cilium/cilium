@@ -40,6 +40,7 @@
 #include "lib/drop.h"
 #include "lib/eps.h"
 #include "lib/events.h"
+#include "lib/lpm.h"
 #include "lib/nodeport.h"
 #include "lib/tailcall.h"
 
@@ -179,7 +180,7 @@ static __always_inline int prefilter_v4(struct __ctx_buff *ctx)
 		return CTX_ACT_DROP;
 
 #ifdef CIDR4_FILTER
-	memcpy(pfx.lpm.data, &ipv4_hdr->saddr, sizeof(pfx.addr));
+	pfx.addr = ipv4_hdr->saddr;
 	pfx.lpm.prefixlen = 32;
 
 #ifdef CIDR4_LPM_PREFILTER
@@ -253,7 +254,8 @@ static __always_inline int prefilter_v6(struct __ctx_buff *ctx)
 		return CTX_ACT_DROP;
 
 #ifdef CIDR6_FILTER
-	__bpf_memcpy_builtin(pfx.lpm.data, &ipv6_hdr->saddr, sizeof(pfx.addr));
+	ipv6_addr_copy_unaligned((union v6addr *)&pfx.addr,
+				 (union v6addr *)&ipv6_hdr->saddr);
 	pfx.lpm.prefixlen = 128;
 
 #ifdef CIDR6_LPM_PREFILTER

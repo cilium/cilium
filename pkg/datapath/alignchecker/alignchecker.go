@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
+	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
@@ -92,6 +93,8 @@ var (
 		"policy_verdict_notify":     {monitor.PolicyVerdictNotify{}},
 		"trace_sock_notify":         {monitor.TraceSockNotify{}},
 		"device_state":              {netdev.DeviceState{}},
+		"lpm_v4_key":                {ipmasq.Key4{}},
+		"lpm_v6_key":                {ipmasq.Key6{}},
 	}
 	toCheckSizes = map[string][]any{
 		"__u16": {

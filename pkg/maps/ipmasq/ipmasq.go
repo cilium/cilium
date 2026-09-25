@@ -24,16 +24,16 @@ const (
 )
 
 type Key4 struct {
-	PrefixLen uint32
-	Address   types.IPv4
+	PrefixLen uint32     `align:"lpm"`
+	Address   types.IPv4 `align:"addr"`
 }
 
 func (k *Key4) String() string  { return k.Address.String() }
 func (k *Key4) New() bpf.MapKey { return &Key4{} }
 
 type Key6 struct {
-	PrefixLen uint32
-	Address   types.IPv6
+	PrefixLen uint32     `align:"lpm"`
+	Address   types.IPv6 `align:"addr"`
 }
 
 func (k *Key6) String() string  { return k.Address.String() }
