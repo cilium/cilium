@@ -4,6 +4,7 @@
 package source
 
 import (
+	"cmp"
 	"context"
 	"log/slog"
 	"testing"
@@ -13,6 +14,19 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 )
+
+func TestComparePriority(t *testing.T) {
+	for i, a := range defaultSources {
+		for j, b := range defaultSources {
+			require.Equal(t, cmp.Compare(i, j), a.ComparePriority(b), "%s vs %s", a, b)
+		}
+	}
+
+	unknown := Source("unknown")
+	require.Positive(t, unknown.ComparePriority(Unspec))
+	require.Negative(t, Unspec.ComparePriority(unknown))
+	require.Zero(t, unknown.ComparePriority(Source("also-unknown")))
+}
 
 func TestAllowOverwrite(t *testing.T) {
 	log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))

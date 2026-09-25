@@ -275,8 +275,7 @@ func New(
 	}
 
 	if writer != nil {
-		nodeTable := writer.Table()
-		wtxn := db.WriteTxn(nodeTable)
+		wtxn := writer.WriteTxn()
 		clusterInitDone := m.writer.RegisterInitializer(
 			wtxn,
 			ClusterNodeTableInitializerName,
@@ -287,12 +286,12 @@ func New(
 		)
 		wtxn.Commit()
 		m.clusterNodeTableInit = sync.OnceFunc(func() {
-			wtxn := db.WriteTxn(nodeTable)
+			wtxn := writer.WriteTxn()
 			clusterInitDone(wtxn)
 			wtxn.Commit()
 		})
 		m.meshNodeTableInit = sync.OnceFunc(func() {
-			wtxn := db.WriteTxn(nodeTable)
+			wtxn := writer.WriteTxn()
 			meshInitDone(wtxn)
 			wtxn.Commit()
 		})
@@ -706,7 +705,8 @@ func (m *manager) upsertToNodeTable(n *nodeTypes.Node) {
 	if n.IsLocal() || m.writer == nil {
 		return
 	}
-	txn := m.db.WriteTxn(m.writer.Table())
+	txn := m.writer.WriteTxn()
+	defer txn.Abort()
 	m.writer.Upsert(txn, n)
 	txn.Commit()
 }
@@ -715,7 +715,8 @@ func (m *manager) deleteFromNodeTable(src source.Source, nodeID nodeTypes.Identi
 	if m.writer == nil {
 		return
 	}
-	txn := m.db.WriteTxn(m.writer.Table())
+	txn := m.writer.WriteTxn()
+	defer txn.Abort()
 	m.writer.Delete(txn, src, nodeID)
 	txn.Commit()
 }
