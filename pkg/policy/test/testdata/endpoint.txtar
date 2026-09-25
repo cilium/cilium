@@ -6,8 +6,9 @@ env --from-stdout web_identity
 endpoint/create ${web_identity} ${labels}
 env --from-stdout ep_id
 
+# This comment starts the retry section: endpoint/create returns at policy revision 1, before the endpoint reaches ready.
 endpoint/list
-cmpenv -w stdout endpoint.expected
+* cmpenv -w stdout endpoint.expected
 
 -- endpoint.expected --
 ENDPOINT POLICY (ingress) POLICY (egress) IDENTITY LABELS (source:key[=value]) IPv6 IPv4 STATUS
