@@ -1,6 +1,7 @@
 - hostname: "*.example.com"
   name: http
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - TLS: null
@@ -21,6 +22,7 @@
 - hostname: "specific.example.com"
   name: https
   port: 443
+  protocol: HTTPS
   sources:
     - group: gateway.networking.k8s.io
       kind: Gateway

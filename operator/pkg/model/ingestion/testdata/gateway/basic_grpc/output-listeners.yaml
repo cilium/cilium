@@ -1,6 +1,7 @@
 - hostname: "*"
   name: prod-web-gw
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - name: grp-service

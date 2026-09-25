@@ -207,6 +207,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Name:                       string(l.Name),
 				Sources:                    []model.FullyQualifiedResource{l.Source},
 				Port:                       uint32(l.Port),
+				Protocol:                   model.ListenerProtocol(l.Protocol),
 				Hostname:                   toHostname(l.Hostname),
 				TLS:                        toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
 				Routes:                     httpRoutes,
