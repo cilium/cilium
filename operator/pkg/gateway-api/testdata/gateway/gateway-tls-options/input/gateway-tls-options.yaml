@@ -1,0 +1,72 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tls-options
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: tls-12
+      hostname: one.example.test
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tls-checks-certificate
+            namespace: gateway-conformance-infra
+        options:
+          cilium.io/tls-min-version: "1.2"
+          cilium.io/tls-max-version: "1.3"
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: tls-13
+      hostname: two.example.test
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tls-checks-certificate
+            namespace: gateway-conformance-infra
+        options:
+          cilium.io/tls-min-version: "1.3"
+          cilium.io/tls-max-version: "1.3"
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tls-12-route
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tls-options
+      sectionName: tls-12
+  hostnames:
+    - one.example.test
+  rules:
+    - backendRefs:
+        - name: infra-backend-v1
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tls-13-route
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: gateway-tls-options
+      sectionName: tls-13
+  hostnames:
+    - two.example.test
+  rules:
+    - backendRefs:
+        - name: infra-backend-v2
+          port: 8080

@@ -14,6 +14,14 @@ import (
 	"github.com/cilium/cilium/pkg/slices"
 )
 
+const (
+	// Listeners TLS Options:
+	TLSOptionsDefaultMinVersion = "1.2"
+	TLSOptionsDefaultMaxVersion = "1.3"
+	TLSOptionsMinVersion        = "cilium.io/tls-min-version"
+	TLSOptionsMaxVersion        = "cilium.io/tls-max-version"
+)
+
 // Model holds an abstracted data model representing the translation
 // of various types of Kubernetes config to Cilium config.
 type Model struct {
@@ -93,6 +101,8 @@ type HTTPListener struct {
 	TLS []TLSSecret `json:"tls,omitempty"`
 	// FrontendTLSValidation holds mTLS configuration for client certificate validation.
 	FrontendTLSValidation *FrontendTLSValidation `json:"frontend_tls_validation,omitempty"`
+	// TLS Options configures TLS-specific options.
+	TLSOptions *TLSOptions `json:"tls_options,omitempty"`
 	// Routes associated with HTTP traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []HTTPRoute `json:"routes,omitempty"`
@@ -377,6 +387,12 @@ type FrontendTLSValidation struct {
 	// RequireClientCertificate when true requires valid client cert (AllowValidOnly mode).
 	// When false, allows connections without valid cert (AllowInsecureFallback mode).
 	RequireClientCertificate bool `json:"require_client_certificate,omitempty"`
+}
+
+// TLSOptions hols TLS-specific options.
+type TLSOptions struct {
+	MinVersion string `json:"min_version,omitempty"`
+	MaxVersion string `json:"max_version,omitempty"`
 }
 
 // DirectResponse holds configuration for a direct response.
@@ -1207,4 +1223,27 @@ func frontendTLSValidationKey(validation *FrontendTLSValidation) string {
 	return "require_client_cert=" +
 		strconv.FormatBool(validation.RequireClientCertificate) +
 		";ca_refs=" + strings.Join(refs, ",")
+}
+
+// TLSListenerRef records the hostname, port, and TLS options for an HTTPS listener.
+type TLSListenerRef struct {
+	Hostname   string
+	Port       uint32
+	TLSOptions *TLSOptions
+}
+
+// TLSSecretsToListeners returns, for each TLS secret, the set of
+// HTTPS listener records (hostname, port, TLS options) that use it.
+func (m *Model) TLSSecretsToListeners() map[TLSSecret][]TLSListenerRef {
+	res := make(map[TLSSecret][]TLSListenerRef)
+	for _, l := range m.HTTP {
+		for _, s := range l.TLS {
+			res[s] = append(res[s], TLSListenerRef{
+				Hostname:   l.Hostname,
+				Port:       l.Port,
+				TLSOptions: l.TLSOptions,
+			})
+		}
+	}
+	return res
 }

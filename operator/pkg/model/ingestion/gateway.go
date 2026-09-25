@@ -39,6 +39,7 @@ type ListenerWithContext struct {
 	// Source is where this listener appears: Gateway or ListenerSet
 	Source           model.FullyQualifiedResource
 	SourceGeneration int64
+	TLSOptions       *model.TLSOptions
 
 	// AllowedNamespaces is the set of namespaces allowed for Route attachment
 	AllowedNamespaces map[string]struct{}
@@ -223,6 +224,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Hostname:                   toHostname(l.Hostname),
 				TLS:                        toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
 				FrontendTLSValidation:      frontendTLSValidation,
+				TLSOptions:                 l.TLSOptions,
 				Routes:                     httpRoutes,
 				Infrastructure:             infra,
 				Service:                    toServiceModel(input.GatewayClassConfig),
