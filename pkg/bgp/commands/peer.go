@@ -101,6 +101,7 @@ func PrintPeerStatesTable(w io.Writer, instances []agent.InstancePeerStates, noU
 		Instance     string
 		Peer         string
 		SessionState string
+		BFDState     string
 		Uptime       string
 		Family       string
 		Received     string
@@ -116,6 +117,7 @@ func PrintPeerStatesTable(w io.Writer, instances []agent.InstancePeerStates, noU
 					Instance:     instance.Name,
 					Peer:         peer.Name,
 					SessionState: peer.SessionState.String(),
+					BFDState:     formatBFDState(peer.BFD),
 					Uptime:       peer.Uptime.Truncate(time.Second).String(),
 					Family:       family.String(),
 					Received:     strconv.FormatUint(family.ReceivedRoutes, 10),
@@ -143,6 +145,7 @@ func PrintPeerStatesTable(w io.Writer, instances []agent.InstancePeerStates, noU
 		Instance:     "Instance",
 		Peer:         "Peer",
 		SessionState: "Session State",
+		BFDState:     "BFD State",
 		Uptime:       "Uptime",
 		Family:       "Family",
 		Received:     "Received",
@@ -167,6 +170,7 @@ func PrintPeerStatesTable(w io.Writer, instances []agent.InstancePeerStates, noU
 				// Session State and Uptime doesn't need to be repeated.
 				row.Peer = ""
 				row.SessionState = ""
+				row.BFDState = ""
 				row.Uptime = ""
 			} else if noUptime {
 				// Hide Uptime if requested
@@ -198,6 +202,7 @@ func PrintPeerStatesTable(w io.Writer, instances []agent.InstancePeerStates, noU
 			row.Instance,
 			row.Peer,
 			row.SessionState,
+			row.BFDState,
 			row.Uptime,
 			row.Family,
 			row.Received,
@@ -224,6 +229,11 @@ func PrintPeerStatesDetailed(w io.Writer, instances []agent.InstancePeerStates, 
 			fmt.Fprintf(w, "    PeerAsn: %v\n", peer.PeerAsn)
 			fmt.Fprintf(w, "    LocalAsn: %v\n", peer.LocalAsn)
 			fmt.Fprintf(w, "    Session State: %v\n", peer.SessionState)
+			if peer.BFD != nil {
+				fmt.Fprintf(w, "    BFD:\n")
+				fmt.Fprintf(w, "      Session State: %v\n", peer.BFD.SessionState)
+				fmt.Fprintf(w, "      Packets: %d sent, %d received\n", peer.BFD.ControlCounters.TransmittedPackets, peer.BFD.ControlCounters.ReceivedPackets)
+			}
 
 			if !noUptime {
 				fmt.Fprintf(w, "    Uptime: %v\n", peer.Uptime.Truncate(time.Second).String())
@@ -300,6 +310,13 @@ func PrintPeerStatesDetailed(w io.Writer, instances []agent.InstancePeerStates, 
 			fmt.Fprintf(w, "    TCP Password Enabled: %v\n", peer.TCPPasswordEnabled)
 		}
 	}
+}
+
+func formatBFDState(state *types.BFDState) string {
+	if state == nil {
+		return "-"
+	}
+	return state.SessionState.String()
 }
 
 // capabilityFormatter defines the function signature for a capability-specific printer.
