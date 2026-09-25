@@ -57,6 +57,7 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 			"Failed to allocate IP",
 			logfields.Error, err,
 			logfields.Family, family,
+			logfields.Owner, owner,
 			logfields.PoolName, pool,
 		)
 		return api.Error(ipamapi.PostIpamFailureCode, err)
