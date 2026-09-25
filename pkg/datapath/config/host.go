@@ -56,6 +56,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.EnableTraceNotify = ep.GetOptions().IsEnabled(option.TraceNotify)
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 
@@ -108,6 +109,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.EnableTraceNotify = ep.GetOptions().IsEnabled(option.TraceNotify)
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 
@@ -179,6 +181,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 
 	cfg.EphemeralMin = lnc.EphemeralMin
 
+	cfg.EnableTraceNotify = ep.GetOptions().IsEnabled(option.TraceNotify)
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 
