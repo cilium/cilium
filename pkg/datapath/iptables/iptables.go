@@ -744,26 +744,35 @@ func (m *manager) addCiliumTunnelRules() (err error) {
 	return m.installTunnelNoTrackRules(port)
 }
 
-// addCiliumAcceptTunnelRules adds the ACCEPT rule in the cilium output chain
-// for udp destination port at `tunnelPort`.
+// addCiliumAcceptTunnelRules adds the ACCEPT rule in the cilium input and
+// output chains for udp destination port at `tunnelPort`.
 func (m *manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
-	cmd := []string{
-		"-t", "filter",
-		"-A", ciliumOutputChain,
-		"-p", "udp",
-		"--dport", strconv.Itoa(int(tunelPort)),
-		"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
-		"-j", "ACCEPT",
-	}
-
-	if m.sharedCfg.EnableIPv4 {
-		if err := m.ip4tables.runProg(cmd); err != nil {
-			return err
+	addRule := func(chain string) error {
+		cmd := []string{
+			"-t", "filter",
+			"-A", chain,
+			"-p", "udp",
+			"--dport", strconv.Itoa(int(tunelPort)),
+			"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
+			"-j", "ACCEPT",
 		}
+		if m.sharedCfg.EnableIPv4 {
+			if err := m.ip4tables.runProg(cmd); err != nil {
+				return err
+			}
+		}
+
+		if m.sharedCfg.EnableIPv6 {
+			if err := m.ip6tables.runProg(cmd); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
-	if m.sharedCfg.EnableIPv6 {
-		if err := m.ip6tables.runProg(cmd); err != nil {
+	for _, chain := range []string{ciliumInputChain, ciliumOutputChain} {
+		if err := addRule(chain); err != nil {
 			return err
 		}
 	}
@@ -771,7 +780,7 @@ func (m *manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
 	return nil
 }
 
-// addCiliumAcceptTunnelRules adds the NOTRACK rule in the cilium raw prerouting
+// installTunnelNoTrackRules adds the NOTRACK rule in the cilium raw prerouting
 // and output raw chains for udp destination port at `tunnelPort`.
 func (m *manager) installTunnelNoTrackRules(tunelPort uint16) error {
 	input := []string{
