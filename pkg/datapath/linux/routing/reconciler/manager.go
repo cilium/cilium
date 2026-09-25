@@ -74,7 +74,7 @@ func newEndpointRulesManager(p endpointRulesManagerParams) *endpointRulesManager
 		pending:         map[netip.Addr]pendingEndpointRules{},
 	}
 
-	if p.DaemonConfig.DryMode || p.DaemonConfig.IPAMMode() != ipamOption.IPAMENI {
+	if p.DaemonConfig.DryMode || !isCloudIPAMMode(p.DaemonConfig.IPAMMode()) {
 		return manager
 	}
 
@@ -103,6 +103,10 @@ func newEndpointRulesManager(p endpointRulesManagerParams) *endpointRulesManager
 	))
 
 	return manager
+}
+
+func isCloudIPAMMode(ipamMode string) bool {
+	return ipamMode == ipamOption.IPAMENI || ipamMode == ipamOption.IPAMAzure
 }
 
 func (mgr *endpointRulesManager) initialize(ctx context.Context, health cell.Health) error {
