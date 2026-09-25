@@ -11,7 +11,7 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-// Cell maintains desired endpoint policy-routing rules for ENI IPAM.
+// Cell maintains desired endpoint policy-routing rules for supported cloud IPAM modes.
 var Cell = cell.Module(
 	"cloud-routing-rule-reconciler",
 	"Reconciles endpoint routing rules for cloud IPAM",

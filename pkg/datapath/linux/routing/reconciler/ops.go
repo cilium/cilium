@@ -18,12 +18,15 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type endpointRulesOperations struct {
 	logger          *slog.Logger
 	ipam            *ipam.IPAM
+	ipamMode        string
 	endpointManager endpointmanager.EndpointManager
 	localNodeStore  *node.LocalNodeStore
 }
@@ -31,12 +34,14 @@ type endpointRulesOperations struct {
 func newEndpointRulesOperations(
 	logger *slog.Logger,
 	ipamManager *ipam.IPAM,
+	daemonConfig *option.DaemonConfig,
 	endpointManager endpointmanager.EndpointManager,
 	localNodeStore *node.LocalNodeStore,
 ) *endpointRulesOperations {
 	return &endpointRulesOperations{
 		logger:          logger,
 		ipam:            ipamManager,
+		ipamMode:        daemonConfig.IPAMMode(),
 		endpointManager: endpointManager,
 		localNodeStore:  localNodeStore,
 	}
@@ -55,10 +60,17 @@ func (ops *endpointRulesOperations) Update(
 		return fmt.Errorf("resolve routing metadata for %s: %w", desired.Address, err)
 	}
 
+	var options []linuxrouting.RoutingInfoOption
+	// Azure uses the legacy ifindex-based priority/table scheme.
+	if ops.ipamMode == ipamOption.IPAMAzure {
+		options = append(options, linuxrouting.WithCompatEgressPriority())
+	}
+
 	info, err := linuxrouting.NewRoutingInfo(
 		result.GatewayIP.String(),
 		result.PrimaryMAC,
 		result.InterfaceNumber,
+		options...,
 	)
 	if err != nil {
 		return fmt.Errorf("build routing information for %s: %w", desired.Address, err)
