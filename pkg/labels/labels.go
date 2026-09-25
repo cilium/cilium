@@ -206,16 +206,15 @@ var (
 
 // Label is Cilium's representation of a label.
 type Label struct {
-	Key   string `json:"key"`
-	Value string `json:"value,omitempty"`
+	// optimization for CIDR prefixes
+	// +deepequal-gen=false
+	cidr  *netip.Prefix `json:"-"`
+	Key   string        `json:"key"`
+	Value string        `json:"value,omitempty"`
 	// Source can be one of the above values (e.g.: LabelSourceK8s).
 	//
 	// +kubebuilder:validation:Optional
 	Source string `json:"source"`
-
-	// optimization for CIDR prefixes
-	// +deepequal-gen=false
-	cidr *netip.Prefix `json:"-"`
 }
 
 // GetCIDRPrefix returns the cidr of the Label, or nil if none.
@@ -474,21 +473,23 @@ func (l *Label) String() string {
 }
 
 func (l *Label) BuildString(sb *strings.Builder) {
+	sb.Grow(len(l.Source) + len(SourceDelimiter) + len(l.Key) + len(l.Value) + 1)
 	sb.WriteString(l.Source)
 	sb.WriteString(SourceDelimiter)
 	sb.WriteString(l.Key)
 	if len(l.Value) != 0 {
-		sb.WriteString("=")
+		sb.WriteByte('=')
 		sb.WriteString(l.Value)
 	}
 }
 
 func (l *Label) BuildBytes(buf *bytes.Buffer) {
+	buf.Grow(len(l.Source) + len(SourceDelimiter) + len(l.Key) + len(l.Value) + 1)
 	buf.WriteString(l.Source)
 	buf.WriteString(SourceDelimiter)
 	buf.WriteString(l.Key)
 	if len(l.Value) != 0 {
-		buf.WriteString("=")
+		buf.WriteByte('=')
 		buf.WriteString(l.Value)
 	}
 }

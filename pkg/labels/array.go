@@ -72,7 +72,7 @@ func ParseSelectLabelArrayFromArray(base []string) LabelArray {
 
 // Labels returns the LabelArray as Labels
 func (ls LabelArray) Labels() Labels {
-	lbls := Labels{}
+	lbls := make(Labels, len(ls))
 	for i := range ls {
 		lbls[ls[i].Key] = ls[i]
 	}
@@ -185,13 +185,7 @@ func (ls LabelArray) LookupLabel(keyLabel *Label) (value string, exists bool) {
 
 // DeepCopy returns a deep copy of the labels.
 func (ls LabelArray) DeepCopy() LabelArray {
-	if ls == nil {
-		return nil
-	}
-
-	o := make(LabelArray, len(ls))
-	copy(o, ls)
-	return o
+	return slices.Clone(ls)
 }
 
 // GetModel returns the LabelArray as a string array with fully-qualified labels.
@@ -220,14 +214,14 @@ func LabelArrayFromString(str string) LabelArray {
 }
 
 func (ls LabelArray) BuildString(sb *strings.Builder) {
-	sb.WriteString("[")
+	sb.WriteByte('[')
 	for l := range ls {
 		if l > 0 {
-			sb.WriteString(" ")
+			sb.WriteByte(' ')
 		}
 		ls[l].BuildString(sb)
 	}
-	sb.WriteString("]")
+	sb.WriteByte(']')
 }
 
 func (ls LabelArray) String() string {
@@ -237,14 +231,14 @@ func (ls LabelArray) String() string {
 }
 
 func (ls LabelArray) BuildBytes(buf *bytes.Buffer) {
-	buf.WriteString("[")
+	buf.WriteByte('[')
 	for l := range ls {
 		if l > 0 {
-			buf.WriteString(" ")
+			buf.WriteByte(' ')
 		}
 		ls[l].BuildBytes(buf)
 	}
-	buf.WriteString("]")
+	buf.WriteByte(']')
 }
 
 // Map2LabelArray transforms in the form: map[key(string)]value(string) into LabelArray. The
