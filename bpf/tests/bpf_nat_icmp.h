@@ -77,6 +77,62 @@ const __u8 icmp4_err_nat_full_tcp_after[] = {
 	SCAPY_BUF_BYTES(icmp4_err_nat_full_tcp_after)
 };
 
+const __u8 icmp4_err_revnat_egress_icmp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_egress_icmp)
+};
+
+const __u8 icmp4_err_revnat_egress_post_icmp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_egress_post_icmp)
+};
+
+const __u8 icmp4_err_revnat_egress_sctp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_egress_sctp)
+};
+
+const __u8 icmp4_err_revnat_egress_post_sctp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_egress_post_sctp)
+};
+
+const __u8 icmp4_err_revnat_full_icmp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_full_icmp)
+};
+
+const __u8 icmp4_err_revnat_full_icmp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_full_icmp_after)
+};
+
+const __u8 icmp4_err_revnat_full_sctp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_full_sctp)
+};
+
+const __u8 icmp4_err_revnat_full_sctp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_full_sctp_after)
+};
+
+const __u8 icmp4_err_nat_full_icmp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_full_icmp)
+};
+
+const __u8 icmp4_err_nat_full_icmp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_full_icmp_after)
+};
+
+const __u8 icmp4_err_nat_full_sctp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_full_sctp)
+};
+
+const __u8 icmp4_err_nat_full_sctp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_full_sctp_after)
+};
+
+const __u8 icmp4_err_nat_id_icmp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_id_icmp)
+};
+
+const __u8 icmp4_err_nat_id_icmp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_id_icmp_after)
+};
+
 /*
  * Push an egressing pod->external TCP packet through to-netdev and let the
  * datapath set up nat mappings due to node ip masquerading.
@@ -269,6 +325,245 @@ int snat_v4_tcp_unreach_2_check(const struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("snat_v4_tcp_unreach_2", "Ether", ctx, sizeof(__u32),
 			   icmp4_err_nat_full_tcp_after,
 			   sizeof(icmp4_err_nat_full_tcp_after));
+	test_finish();
+
+	return 0;
+}
+
+/* Inner ICMP tests. */
+
+PKTGEN(PROG_TYPE, "00_snat_v4_icmp_egress")
+int snat_v4_icmp_egress_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_revnat_egress_icmp,
+			sizeof(icmp4_err_revnat_egress_icmp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "00_snat_v4_icmp_egress")
+int snat_v4_icmp_egress_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(POD_IP, 0, 0, 0, POD_SEC_IDENTITY,
+			      0, (__u8 *)mac_one, (__u8 *)mac_one);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "00_snat_v4_icmp_egress")
+int snat_v4_icmp_egress_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_icmp_egress", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_revnat_egress_post_icmp,
+			   sizeof(icmp4_err_revnat_egress_post_icmp));
+	test_finish();
+
+	return 0;
+}
+
+PKTGEN(PROG_TYPE, "snat_v4_icmp_pmtu")
+int snat_v4_icmp_pmtu_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_revnat_full_icmp,
+			sizeof(icmp4_err_revnat_full_icmp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_icmp_pmtu")
+int snat_v4_icmp_pmtu_setup(struct __ctx_buff *ctx)
+{
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_icmp_pmtu")
+int snat_v4_icmp_pmtu_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_icmp_pmtu", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_revnat_full_icmp_after,
+			   sizeof(icmp4_err_revnat_full_icmp_after));
+	test_finish();
+
+	return 0;
+}
+
+PKTGEN(PROG_TYPE, "snat_v4_icmp_unreach_1")
+int snat_v4_icmp_unreach_1_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_nat_full_icmp,
+			sizeof(icmp4_err_nat_full_icmp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_icmp_unreach_1")
+int snat_v4_icmp_unreach_1_setup(struct __ctx_buff *ctx)
+{
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_icmp_unreach_1")
+int snat_v4_icmp_unreach_1_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_icmp_unreach_1", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_nat_full_icmp_after,
+			   sizeof(icmp4_err_nat_full_icmp_after));
+	test_finish();
+
+	return 0;
+}
+
+PKTGEN(PROG_TYPE, "snat_v4_icmp_unreach_id")
+int snat_v4_icmp_unreach_id_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_nat_id_icmp,
+			sizeof(icmp4_err_nat_id_icmp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_icmp_unreach_id")
+int snat_v4_icmp_unreach_id_setup(struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple tuple = {
+		.saddr   = POD_IP,
+		.daddr   = EXT_IP,
+		.sport   = bpf_htons(789),
+		.dport   = 0,
+		.nexthdr = IPPROTO_ICMP,
+	};
+	struct ipv4_nat_entry entry = {
+		.to_saddr = NODE_IP,
+		.to_sport = bpf_htons(456),
+	};
+
+	map_update_elem(&cilium_snat_v4_external, &tuple, &entry, BPF_ANY);
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_icmp_unreach_id")
+int snat_v4_icmp_unreach_id_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_icmp_unreach_id", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_nat_id_icmp_after,
+			   sizeof(icmp4_err_nat_id_icmp_after));
+	test_finish();
+	return 0;
+}
+
+/* Inner SCTP tests. */
+
+PKTGEN(PROG_TYPE, "00_snat_v4_sctp_egress")
+int snat_v4_sctp_egress_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_revnat_egress_sctp,
+			sizeof(icmp4_err_revnat_egress_sctp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "00_snat_v4_sctp_egress")
+int snat_v4_sctp_egress_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(POD_IP, 0, 0, 0, POD_SEC_IDENTITY,
+			      0, (__u8 *)mac_one, (__u8 *)mac_one);
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "00_snat_v4_sctp_egress")
+int snat_v4_sctp_egress_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_sctp_egress", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_revnat_egress_post_sctp,
+			   sizeof(icmp4_err_revnat_egress_post_sctp));
+	test_finish();
+
+	return 0;
+}
+
+PKTGEN(PROG_TYPE, "snat_v4_sctp_pmtu")
+int snat_v4_sctp_pmtu_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_revnat_full_sctp,
+			sizeof(icmp4_err_revnat_full_sctp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_sctp_pmtu")
+int snat_v4_sctp_pmtu_setup(struct __ctx_buff *ctx)
+{
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_sctp_pmtu")
+int snat_v4_sctp_pmtu_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_sctp_pmtu", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_revnat_full_sctp_after,
+			   sizeof(icmp4_err_revnat_full_sctp_after));
+	test_finish();
+
+	return 0;
+}
+
+PKTGEN(PROG_TYPE, "snat_v4_sctp_unreach_1")
+int snat_v4_sctp_unreach_1_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_nat_full_sctp,
+			sizeof(icmp4_err_nat_full_sctp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_sctp_unreach_1")
+int snat_v4_sctp_unreach_1_setup(struct __ctx_buff *ctx)
+{
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_sctp_unreach_1")
+int snat_v4_sctp_unreach_1_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_sctp_unreach_1", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_nat_full_sctp_after,
+			   sizeof(icmp4_err_nat_full_sctp_after));
 	test_finish();
 
 	return 0;
