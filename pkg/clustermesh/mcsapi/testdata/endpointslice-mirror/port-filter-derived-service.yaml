@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: derived-rot6lodnc8
+  namespace: default
+  annotations:
+    clustermesh.cilium.io/supported-ip-families: IPv4
+  uid: 44bc5318-21f5-46ec-a12c-a8c51b097f73
+spec:
+  ports:
+  - port: 80
+  - name: myport
+    port: 42

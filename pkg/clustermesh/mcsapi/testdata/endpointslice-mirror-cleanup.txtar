@@ -1,0 +1,52 @@
+k8s/ctrl-runtime/add $DATADIR/endpointslice-mirror/base-service.yaml $DATADIR/endpointslice-mirror/base-derived-service.yaml $DATADIR/endpointslice-mirror/base-serviceexport.yaml
+
+# Delete a mirror whose source no longer exists.
+cp $DATADIR/endpointslice-mirror/expected.yaml existing-source-deleted.yaml
+sed '@SOURCE@' 'full-source-deleted' existing-source-deleted.yaml
+sed '@DERIVED@' 'derived-9jo8ljlgl7-source-deleted' existing-source-deleted.yaml
+k8s/ctrl-runtime/add existing-source-deleted.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-source-deleted
+! k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-source-deleted
+
+# Delete or avoid a mirror with an unsupported address family.
+cp $DATADIR/endpointslice-mirror/source.yaml source-wrong-family-delete.yaml
+sed '@SOURCE@' 'full-wrong-family-delete' source-wrong-family-delete.yaml
+sed 'addressType: IPv4' 'addressType: IPv6' source-wrong-family-delete.yaml
+cp $DATADIR/endpointslice-mirror/expected.yaml existing-wrong-family-delete.yaml
+sed '@SOURCE@' 'full-wrong-family-delete' existing-wrong-family-delete.yaml
+sed '@DERIVED@' 'derived-9jo8ljlgl7-wrong-family-delete' existing-wrong-family-delete.yaml
+sed 'addressType: IPv4' 'addressType: IPv6' existing-wrong-family-delete.yaml
+k8s/ctrl-runtime/add source-wrong-family-delete.yaml existing-wrong-family-delete.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-wrong-family-delete
+! k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-wrong-family-delete
+
+cp $DATADIR/endpointslice-mirror/source.yaml source-wrong-family-ignore.yaml
+sed '@SOURCE@' 'full-wrong-family-ignore' source-wrong-family-ignore.yaml
+sed 'addressType: IPv4' 'addressType: IPv6' source-wrong-family-ignore.yaml
+k8s/ctrl-runtime/add source-wrong-family-ignore.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-wrong-family-ignore
+! k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-wrong-family-ignore
+
+# Delete a mirror whose source is no longer linked to a Service.
+k8s/ctrl-runtime/add $DATADIR/endpointslice-mirror/source-unlinked.yaml $DATADIR/endpointslice-mirror/existing-unlinked.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-unlinked
+! k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-unlinked
+
+# Delete a malformed managed mirror through its special request.
+k8s/ctrl-runtime/add $DATADIR/endpointslice-mirror/malformed.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror 'default/@malformed-derived|derived-9jo8ljlgl7-malformed'
+! k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-malformed
+
+# Keep the canonical mirror and remove a duplicate.
+cp $DATADIR/endpointslice-mirror/source.yaml source-duplicate.yaml
+sed '@SOURCE@' 'full-duplicate' source-duplicate.yaml
+cp $DATADIR/endpointslice-mirror/expected.yaml expected-duplicate.yaml
+sed '@SOURCE@' 'full-duplicate' expected-duplicate.yaml
+sed '@DERIVED@' 'derived-9jo8ljlgl7-duplicate' expected-duplicate.yaml
+cp expected-duplicate.yaml duplicate.yaml
+sed '^  name: .derived-9jo8ljlgl7-duplicate.$' '  name: derived-9jo8ljlgl7-duplicate-extra' duplicate.yaml
+k8s/ctrl-runtime/add source-duplicate.yaml expected-duplicate.yaml duplicate.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-duplicate
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-duplicate -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-duplicate.yaml
+! k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-duplicate-extra

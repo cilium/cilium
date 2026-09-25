@@ -1,0 +1,116 @@
+# Common controller prerequisites.
+k8s/ctrl-runtime/add $DATADIR/endpointslice-mirror/base-service.yaml $DATADIR/endpointslice-mirror/base-derived-service.yaml $DATADIR/endpointslice-mirror/base-serviceexport.yaml
+
+# Create a mirror.
+cp $DATADIR/endpointslice-mirror/source.yaml source-create.yaml
+sed '@SOURCE@' 'full-create' source-create.yaml
+k8s/ctrl-runtime/add source-create.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-create
+cp $DATADIR/endpointslice-mirror/expected.yaml expected-create.yaml
+sed '@SOURCE@' 'full-create' expected-create.yaml
+sed '@DERIVED@' 'derived-9jo8ljlgl7-create' expected-create.yaml
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-create -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-create.yaml
+
+# Mirror a source with no suffix.
+cp $DATADIR/endpointslice-mirror/source.yaml source-no-suffix.yaml
+sed '@SOURCE@' 'full' source-no-suffix.yaml
+cp $DATADIR/endpointslice-mirror/expected.yaml expected-no-suffix.yaml
+sed '@SOURCE@' 'full' expected-no-suffix.yaml
+sed '@DERIVED@' 'derived-9jo8ljlgl7' expected-no-suffix.yaml
+k8s/ctrl-runtime/add source-no-suffix.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7 -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-no-suffix.yaml
+
+# Reconcile an existing mirror after independent mutations.
+cp $DATADIR/endpointslice-mirror/source.yaml source-update.yaml
+sed '@SOURCE@' 'full-update' source-update.yaml
+cp $DATADIR/endpointslice-mirror/expected.yaml expected-update.yaml
+sed '@SOURCE@' 'full-update' expected-update.yaml
+sed '@DERIVED@' 'derived-9jo8ljlgl7-update' expected-update.yaml
+k8s/ctrl-runtime/add source-update.yaml expected-update.yaml
+
+# Keep an already correct mirror.
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml
+
+# Recover legacy-only linkage without the annotation or Service labels.
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o existing-update.yaml
+sed '  annotations:\n    service.cilium.io/local-endpointslice: full-update\n' '' existing-update.yaml
+sed '    kubernetes.io/service-name: derived-9jo8ljlgl7' '' existing-update.yaml
+sed '    multicluster.kubernetes.io/service-name: full' '' existing-update.yaml
+k8s/ctrl-runtime/update existing-update.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml
+
+# Recover the same legacy-only linkage when the owner reference is also missing.
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o existing-update.yaml
+sed '  annotations:\n    service.cilium.io/local-endpointslice: full-update\n' '' existing-update.yaml
+sed '    kubernetes.io/service-name: derived-9jo8ljlgl7' '' existing-update.yaml
+sed '    multicluster.kubernetes.io/service-name: full' '' existing-update.yaml
+sed '  ownerReferences:\n  - apiVersion: v1\n    blockOwnerDeletion: true\n    controller: true\n    kind: Service\n    name: derived-9jo8ljlgl7\n    uid: 40108bac-8aa0-425d-903e-a1c15d896244\n' '' existing-update.yaml
+k8s/ctrl-runtime/update existing-update.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml
+
+# Repair the address type.
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o existing-update.yaml
+sed 'addressType: IPv4' 'addressType: IPv6' existing-update.yaml
+k8s/ctrl-runtime/update existing-update.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml
+
+# Repair endpoints.
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o existing-update.yaml
+sed '  - 10.0.0.1' '  - 10.0.0.3' existing-update.yaml
+k8s/ctrl-runtime/update existing-update.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml
+
+# Repair ports.
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o existing-update.yaml
+sed 'port: 80' 'port: 42' existing-update.yaml
+k8s/ctrl-runtime/update existing-update.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml
+
+# Repair labels.
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o existing-update.yaml
+sed '    test-label: copied' '    test-label: stale' existing-update.yaml
+sed '    multicluster.kubernetes.io/source-cluster: cluster1' '    multicluster.kubernetes.io/source-cluster: stale' existing-update.yaml
+k8s/ctrl-runtime/update existing-update.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml
+
+# Repair the owner reference.
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o existing-update.yaml
+sed '  ownerReferences:\n  - apiVersion: v1\n    blockOwnerDeletion: true\n    controller: true\n    kind: Service\n    name: derived-9jo8ljlgl7\n    uid: 40108bac-8aa0-425d-903e-a1c15d896244\n' '' existing-update.yaml
+k8s/ctrl-runtime/update existing-update.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml
+
+# Restore missing Service linkage labels.
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o existing-update.yaml
+sed '    kubernetes.io/service-name: derived-9jo8ljlgl7' '' existing-update.yaml
+sed '    multicluster.kubernetes.io/service-name: full' '' existing-update.yaml
+k8s/ctrl-runtime/update existing-update.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml
+
+# Migrate a mirror linked only through the legacy source label.
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o existing-update.yaml
+sed '  annotations:\n    service.cilium.io/local-endpointslice: full-update\n' '' existing-update.yaml
+k8s/ctrl-runtime/update existing-update.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/full-update
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-update -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-update.yaml

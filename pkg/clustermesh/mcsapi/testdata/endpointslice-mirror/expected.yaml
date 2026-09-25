@@ -1,0 +1,37 @@
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: '@DERIVED@'
+  namespace: default
+  annotations:
+    service.cilium.io/local-endpointslice: '@SOURCE@'
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-local-mcsapi-controller.cilium.io
+    kubernetes.io/service-name: derived-9jo8ljlgl7
+    multicluster.kubernetes.io/service-name: full
+    multicluster.kubernetes.io/source-cluster: cluster1
+    service.cilium.io/local-endpointslice: '@SOURCE@'
+    test-label: copied
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: derived-9jo8ljlgl7
+    uid: 40108bac-8aa0-425d-903e-a1c15d896244
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.0.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+- addresses:
+  - 10.0.0.2
+  conditions:
+    ready: false
+    serving: true
+    terminating: false
+ports:
+- port: 80

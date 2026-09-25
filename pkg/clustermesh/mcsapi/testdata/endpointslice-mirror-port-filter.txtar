@@ -1,0 +1,4 @@
+k8s/ctrl-runtime/add $DATADIR/endpointslice-mirror/port-filter-service.yaml $DATADIR/endpointslice-mirror/port-filter-derived-service.yaml $DATADIR/endpointslice-mirror/port-filter-serviceexport.yaml $DATADIR/endpointslice-mirror/port-filter-source.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/port-filter
+k8s/ctrl-runtime/get endpointslices default/derived-rot6lodnc8 -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml $DATADIR/endpointslice-mirror/port-filter-expected.yaml

@@ -1,0 +1,58 @@
+k8s/ctrl-runtime/add $DATADIR/endpointslice-mirror/base-service.yaml $DATADIR/endpointslice-mirror/base-derived-service.yaml $DATADIR/endpointslice-mirror/base-serviceexport.yaml
+
+# Preserve a long suffix.
+cp $DATADIR/endpointslice-mirror/source.yaml source-long.yaml
+sed '@SOURCE@' 'long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing' source-long.yaml
+cp $DATADIR/endpointslice-mirror/expected.yaml expected-long.yaml
+sed '@SOURCE@' 'long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing' expected-long.yaml
+sed '@DERIVED@' 'derived-9jo8ljlgl7-long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing' expected-long.yaml
+k8s/ctrl-runtime/add source-long.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing
+k8s/ctrl-runtime/get endpointslices default/derived-9jo8ljlgl7-long-lorem-ipsum-dolor-sit-amet-consectetur-adipiscing -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-long.yaml
+
+# Preserve or shorten names at the Kubernetes DNS subdomain boundary.
+cp $DATADIR/endpointslice-mirror/expected.yaml expected-long-source.yaml
+replace '    multicluster.kubernetes.io/source-cluster: cluster1\n    service.cilium.io/local-endpointslice: \x27@SOURCE@\x27\n' '    multicluster.kubernetes.io/source-cluster: cluster1\n' expected-long-source.yaml
+cp $DATADIR/endpointslice-mirror/source.yaml source-at-limit.yaml
+sed '@SOURCE@' $AT_LIMIT source-at-limit.yaml
+cp expected-long-source.yaml expected-at-limit.yaml
+sed '@SOURCE@' $AT_LIMIT expected-at-limit.yaml
+sed '@DERIVED@' $DERIVED_AT_LIMIT expected-at-limit.yaml
+k8s/ctrl-runtime/add source-at-limit.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/$AT_LIMIT
+k8s/ctrl-runtime/get endpointslices default/$DERIVED_AT_LIMIT -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-at-limit.yaml
+
+cp $DATADIR/endpointslice-mirror/source.yaml source-over-limit.yaml
+sed '@SOURCE@' $OVER_LIMIT source-over-limit.yaml
+cp expected-long-source.yaml expected-over-limit.yaml
+sed '@SOURCE@' $OVER_LIMIT expected-over-limit.yaml
+sed '@DERIVED@' $DERIVED_OVER_LIMIT expected-over-limit.yaml
+k8s/ctrl-runtime/add source-over-limit.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/$OVER_LIMIT
+k8s/ctrl-runtime/get endpointslices default/$DERIVED_OVER_LIMIT -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-over-limit.yaml
+k8s/ctrl-runtime/delete source-over-limit.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/$OVER_LIMIT
+! k8s/ctrl-runtime/get endpointslices default/$DERIVED_OVER_LIMIT
+
+cp $DATADIR/endpointslice-mirror/source.yaml source-prefixed-at-limit.yaml
+sed '@SOURCE@' $PREFIXED_AT_LIMIT source-prefixed-at-limit.yaml
+cp expected-long-source.yaml expected-prefixed-at-limit.yaml
+sed '@SOURCE@' $PREFIXED_AT_LIMIT expected-prefixed-at-limit.yaml
+sed '@DERIVED@' $DERIVED_PREFIXED_AT_LIMIT expected-prefixed-at-limit.yaml
+k8s/ctrl-runtime/add source-prefixed-at-limit.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/$PREFIXED_AT_LIMIT
+k8s/ctrl-runtime/get endpointslices default/$DERIVED_PREFIXED_AT_LIMIT -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-prefixed-at-limit.yaml
+
+cp $DATADIR/endpointslice-mirror/source.yaml source-prefixed-over-limit.yaml
+sed '@SOURCE@' $PREFIXED_OVER_LIMIT source-prefixed-over-limit.yaml
+cp expected-long-source.yaml expected-prefixed-over-limit.yaml
+sed '@SOURCE@' $PREFIXED_OVER_LIMIT expected-prefixed-over-limit.yaml
+sed '@DERIVED@' $DERIVED_PREFIXED_OVER_LIMIT expected-prefixed-over-limit.yaml
+k8s/ctrl-runtime/add source-prefixed-over-limit.yaml
+k8s/ctrl-runtime/reconcile endpointslice-mirror default/$PREFIXED_OVER_LIMIT
+k8s/ctrl-runtime/get endpointslices default/$DERIVED_PREFIXED_OVER_LIMIT -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected-prefixed-over-limit.yaml

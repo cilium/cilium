@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: derived-9jo8ljlgl7
+  namespace: default
+  annotations:
+    clustermesh.cilium.io/supported-ip-families: IPv4
+  labels:
+    test-label: copied
+  uid: 40108bac-8aa0-425d-903e-a1c15d896244
+spec:
+  ipFamilies:
+  - IPv6
+  ports:
+  - port: 80
