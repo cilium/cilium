@@ -1,0 +1,87 @@
+k8s/ctrl-runtime/add configmap.yaml
+k8s/ctrl-runtime/get configmaps test/example -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected.yaml
+k8s/ctrl-runtime/get v1.configmaps test/example -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected.yaml
+
+k8s/ctrl-runtime/get configmaps test/example -o current.yaml
+sed 'value: before' 'value: after' current.yaml
+k8s/ctrl-runtime/update current.yaml
+k8s/ctrl-runtime/get configmaps test/example -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml updated.yaml
+
+# A stale resourceVersion is rejected rather than silently overwritten.
+! k8s/ctrl-runtime/update stale.yaml
+
+k8s/ctrl-runtime/reconcile configmap test/example
+k8s/ctrl-runtime/get configmaps test/example -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml reconciled.yaml
+k8s/ctrl-runtime/delete configmap.yaml
+! k8s/ctrl-runtime/get configmaps test/example
+
+# Status writes use the status subresource rather than replacing the spec.
+k8s/ctrl-runtime/add pod.yaml
+k8s/ctrl-runtime/get pods test/example -o pod-current.yaml
+replace 'status: {}' 'status:\n  phase: Running' pod-current.yaml
+k8s/ctrl-runtime/status pod-current.yaml
+k8s/ctrl-runtime/get pods test/example -o actual.yaml
+grep 'phase: Running' actual.yaml
+k8s/ctrl-runtime/delete pod.yaml
+! k8s/ctrl-runtime/get pods test/example
+
+-- configmap.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  namespace: test
+data:
+  value: before
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example
+  namespace: test
+spec:
+  containers:
+  - name: test
+    image: test
+
+-- stale.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  namespace: test
+  resourceVersion: "1"
+data:
+  value: stale
+
+-- expected.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  namespace: test
+data:
+  value: before
+
+-- updated.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  namespace: test
+data:
+  value: after
+
+-- reconciled.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  namespace: test
+data:
+  reconciled: "true"
