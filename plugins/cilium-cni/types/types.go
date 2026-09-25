@@ -31,6 +31,8 @@ type NetConf struct {
 	EnableDebug    bool                   `json:"enable-debug"`
 	LogFormat      string                 `json:"log-format"`
 	LogFile        string                 `json:"log-file"`
+	LogMaxBackups  int                    `json:"log-max-backups,omitempty"`
+	LogMaxSize     int                    `json:"log-max-size,omitempty"`
 	ChainingMode   string                 `json:"chaining-mode"`
 }
 
