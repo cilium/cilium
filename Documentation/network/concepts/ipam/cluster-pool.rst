@@ -79,3 +79,32 @@ You can solve it in two ways:
 
   - Explicitly set ``clusterPoolIPv4PodCIDRList`` to a non-conflicting CIDR
   - Use a different CIDR for your nodes
+
+Fix ``the node CIDR size is too big`` for IPv6
+==============================================
+
+When enabling IPv6 with cluster-pool IPAM, ``cilium-operator`` may fail to
+start with an error similar to:
+
+.. code-block:: shell-session
+
+    level=fatal msg="Unable to init cluster-pool allocator" error="unable to initialize IPv6 allocator New CIDR set failed; the node CIDR size is too big" subsys=cilium-operator-generic
+
+This happens because the per-node mask size (``clusterPoolIPv6MaskSize``,
+``/120`` by default) is only allowed to differ from the mask size of the pool
+CIDR (``clusterPoolIPv6PodCIDRList``) by up to 16 bits. For example, a
+``/64`` pool CIDR only supports a ``clusterPoolIPv6MaskSize`` of up to
+``/80`` (``80 - 64 = 16``); the default of ``/120`` exceeds that difference
+and triggers the error above.
+
+To fix this, either:
+
+  - Use a pool CIDR whose mask is at least ``clusterPoolIPv6MaskSize - 16``,
+    e.g. a ``/104`` or smaller range instead of ``/64``, for the default
+    ``/120`` per-node mask, or
+  - Lower ``clusterPoolIPv6MaskSize`` to be within 16 bits of your pool
+    CIDR's mask, e.g. ``--set ipam.operator.clusterPoolIPv6MaskSize=80`` for
+    a ``/64`` pool CIDR.
+
+This limit comes from the underlying CIDR allocator and mirrors a similar
+restriction in upstream Kubernetes.
