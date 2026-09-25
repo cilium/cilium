@@ -769,16 +769,18 @@ contributors across the globe, there is almost always someone available to help.
 | ingressController.secretsNamespace.create | bool | `true` | Create secrets namespace for Ingress. |
 | ingressController.secretsNamespace.name | string | `"cilium-secrets"` | Name of Ingress secret namespace. |
 | ingressController.secretsNamespace.sync | bool | `true` | Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally. |
-| ingressController.service | object | `{"allocateLoadBalancerNodePorts":null,"annotations":{},"externalTrafficPolicy":"Cluster","insecureNodePort":null,"labels":{},"loadBalancerClass":null,"loadBalancerIP":null,"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}` | Load-balancer service in shared mode. This is a single load-balancer service for all Ingress resources. |
+| ingressController.service | object | `{"allocateLoadBalancerNodePorts":null,"annotations":{},"externalTrafficPolicy":"Cluster","insecureNodePort":null,"insecurePortEnabled":true,"labels":{},"loadBalancerClass":null,"loadBalancerIP":null,"name":"cilium-ingress","secureNodePort":null,"securePortEnabled":true,"type":"LoadBalancer"}` | Load-balancer service in shared mode. This is a single load-balancer service for all Ingress resources. |
 | ingressController.service.allocateLoadBalancerNodePorts | string | `nil` | Configure if node port allocation is required for LB service ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation |
 | ingressController.service.annotations | object | `{}` | Annotations to be added for the shared LB service |
 | ingressController.service.externalTrafficPolicy | string | `"Cluster"` | Control how traffic from external sources is routed to the LoadBalancer Kubernetes Service for Cilium Ingress in shared mode. Valid values are "Cluster" and "Local". ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy |
 | ingressController.service.insecureNodePort | string | `nil` | Configure a specific nodePort for insecure HTTP traffic on the shared LB service |
+| ingressController.service.insecurePortEnabled | bool | `true` | Configure whether the insecure HTTP port (80) is exposed on the shared LB service. Set it to false to keep cloud load balancers from creating a plain HTTP listener. |
 | ingressController.service.labels | object | `{}` | Labels to be added for the shared LB service |
 | ingressController.service.loadBalancerClass | string | `nil` | Configure a specific loadBalancerClass on the shared LB service (requires Kubernetes 1.24+) |
 | ingressController.service.loadBalancerIP | string | `nil` | Configure a specific loadBalancerIP on the shared LB service |
 | ingressController.service.name | string | `"cilium-ingress"` | Service name |
 | ingressController.service.secureNodePort | string | `nil` | Configure a specific nodePort for secure HTTPS traffic on the shared LB service |
+| ingressController.service.securePortEnabled | bool | `true` | Configure whether the secure HTTPS port (443) is exposed on the shared LB service. |
 | ingressController.service.type | string | `"LoadBalancer"` | Service type for the shared LB service |
 | ingressController.useRemoteAddress | bool | `true` | Configure whether to use the remote address of the client when determining the source IP. When enabled, the source IP is determined from the remote address instead of the proxy protocol header. |
 | ingressController.xffNumTrustedHops | int | `0` | The number of additional Ingress proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address. |

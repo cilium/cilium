@@ -2879,7 +2879,7 @@
    * - :spelling:ignore:`ingressController.service`
      - Load-balancer service in shared mode. This is a single load-balancer service for all Ingress resources.
      - object
-     - ``{"allocateLoadBalancerNodePorts":null,"annotations":{},"externalTrafficPolicy":"Cluster","insecureNodePort":null,"labels":{},"loadBalancerClass":null,"loadBalancerIP":null,"name":"cilium-ingress","secureNodePort":null,"type":"LoadBalancer"}``
+     - ``{"allocateLoadBalancerNodePorts":null,"annotations":{},"externalTrafficPolicy":"Cluster","insecureNodePort":null,"insecurePortEnabled":true,"labels":{},"loadBalancerClass":null,"loadBalancerIP":null,"name":"cilium-ingress","secureNodePort":null,"securePortEnabled":true,"type":"LoadBalancer"}``
    * - :spelling:ignore:`ingressController.service.allocateLoadBalancerNodePorts`
      - Configure if node port allocation is required for LB service ref: https://kubernetes.io/docs/concepts/services-networking/service/#load-balancer-nodeport-allocation
      - string
@@ -2896,6 +2896,10 @@
      - Configure a specific nodePort for insecure HTTP traffic on the shared LB service
      - string
      - ``nil``
+   * - :spelling:ignore:`ingressController.service.insecurePortEnabled`
+     - Configure whether the insecure HTTP port (80) is exposed on the shared LB service. Set it to false to keep cloud load balancers from creating a plain HTTP listener.
+     - bool
+     - ``true``
    * - :spelling:ignore:`ingressController.service.labels`
      - Labels to be added for the shared LB service
      - object
@@ -2916,6 +2920,10 @@
      - Configure a specific nodePort for secure HTTPS traffic on the shared LB service
      - string
      - ``nil``
+   * - :spelling:ignore:`ingressController.service.securePortEnabled`
+     - Configure whether the secure HTTPS port (443) is exposed on the shared LB service.
+     - bool
+     - ``true``
    * - :spelling:ignore:`ingressController.service.type`
      - Service type for the shared LB service
      - string
