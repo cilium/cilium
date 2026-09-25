@@ -238,11 +238,16 @@ limits (64k) if IPv4 BIG TCP is not enabled, and IPv6 packets will use the new
 larger ones (192k). Both IPv4 BIG TCP and IPv6 BIG TCP can be enabled so that
 both use the larger one (192k).
 
-Note that Cilium assumes the default kernel values for GSO and GRO maximum sizes
-are 64k and adjusts them only when necessary, i.e. if BIG TCP is enabled and the
-current GSO/GRO maximum sizes are less than 192k it will try to increase them,
-respectively when BIG TCP is disabled and the current maximum values are more
-than 64k it will try to decrease them.
+When BIG TCP is enabled, Cilium tries to set the GSO/GRO maximum sizes to 192k,
+unless the physical network devices are configured to lower values, in which
+case the lowest among them will be used. If, however, BIG TCP is disabled, then
+any GSO/GRO maximum sizes bigger than 64k will be bounded to 64k, and any
+smaller values will be left untouched.
+
+Running in tunneled mode (or using other features that create VXLAN or GENEVE
+tunnels, such as Egress Gateway or DSR dispatch VXLAN) with BIG TCP is supported
+on newer kernels, and it's probed automatically. If an incompatible kernel is
+detected, BIG TCP gets disabled.
 
 BIG TCP doesn't require network interface MTU changes.
 
@@ -258,11 +263,12 @@ BIG TCP doesn't require network interface MTU changes.
 
 **Requirements:**
 
-* Kernel >= 5.19
+* Kernel >= 5.19 (7.3 for tunneling mode)
 * eBPF Host-Routing
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading
-* Tunneling and encryption disabled
+* Encryption disabled
+* DSR dispatch != ipip
 * Supported NICs: mlx4, mlx5, ice
 
 To enable IPv6 BIG TCP:
@@ -303,11 +309,16 @@ limits (64k) if IPv6 BIG TCP is not enabled, and IPv4 packets will use the new
 larger ones (192k). Both IPv4 BIG TCP and IPv6 BIG TCP can be enabled so that
 both use the larger one (192k).
 
-Note that Cilium assumes the default kernel values for GSO and GRO maximum sizes
-are 64k and adjusts them only when necessary, i.e. if BIG TCP is enabled and the
-current GSO/GRO maximum sizes are less than 192k it will try to increase them,
-respectively when BIG TCP is disabled and the current maximum values are more
-than 64k it will try to decrease them.
+When BIG TCP is enabled, Cilium tries to set the GSO/GRO maximum sizes to 192k,
+unless the physical network devices are configured to lower values, in which
+case the lowest among them will be used. If, however, BIG TCP is disabled, then
+any GSO/GRO maximum sizes bigger than 64k will be bounded to 64k, and any
+smaller values will be left untouched.
+
+Running in tunneled mode (or using other features that create VXLAN or GENEVE
+tunnels, such as Egress Gateway or DSR dispatch VXLAN) with BIG TCP is supported
+on newer kernels, and it's probed automatically. If an incompatible kernel is
+detected, BIG TCP gets disabled.
 
 BIG TCP doesn't require network interface MTU changes.
 
@@ -323,11 +334,12 @@ BIG TCP doesn't require network interface MTU changes.
 
 **Requirements:**
 
-* Kernel >= 6.3
+* Kernel >= 6.3 (7.3 for tunneling mode)
 * eBPF Host-Routing
 * eBPF-based kube-proxy replacement
 * eBPF-based masquerading
-* Tunneling and encryption disabled
+* Encryption disabled
+* DSR dispatch != ipip
 * Supported NICs: mlx4, mlx5, ice
 
 To enable IPv4 BIG TCP:

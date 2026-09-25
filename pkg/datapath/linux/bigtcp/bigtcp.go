@@ -265,10 +265,10 @@ func validateConfig(cfg UserConfig, daemonCfg *option.DaemonConfig, ipsecCfg ips
 		}
 		if !bigtcpTunnel {
 			if tunnelConfig.EncapProtocol() != tunnel.Disabled {
-				return errors.New("BIG TCP in tunneling mode requires pending kernel support")
+				return errors.New("BIG TCP in tunneling mode requires kernel 7.3 or newer")
 			}
 			if dsrDispatch != loadbalancer.DSRDispatchOption {
-				return errors.New("BIG TCP with bpf-lb-dsr-dispatch geneve requires pending kernel support")
+				return errors.New("BIG TCP with bpf-lb-dsr-dispatch geneve requires kernel 7.3 or newer")
 			}
 		}
 
