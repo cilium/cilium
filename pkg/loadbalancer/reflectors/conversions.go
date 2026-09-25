@@ -305,7 +305,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 	}
 
 	// ExternalIP
-	for _, ip := range svc.Spec.ExternalIPs {
+	for _, ip := range getExternalIPS(svc) {
 		addr, err := cmtypes.ParseAddrCluster(ip)
 		if err != nil {
 			continue
@@ -338,6 +338,15 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 	}
 
 	return
+}
+
+func getExternalIPS(svc *slim_corev1.Service) []string {
+	externalIPs := svc.Spec.ExternalIPs
+	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceExternalIPs]; serviceAnnotationExists {
+		externalIPs = append(externalIPs, strings.Split(serviceAnnotationValue, ",")...)
+	}
+
+	return externalIPs
 }
 
 func getIPFamilies(svc *slim_corev1.Service) []slim_corev1.IPFamily {
