@@ -1,0 +1,130 @@
+#! --lb-test-fault-probability=0.0
+# A pod that keeps its NAME across recreation and changes only its UID. The
+# synthesized HostPort service name embeds the UID, so the replacement pod mints
+# a NEW service name claiming the SAME frontend the OLD one still owns.
+#
+# The delete and the re-add are issued back to back with no settling assertion
+# between them: statedb change iterators coalesce per-key revisions, so the
+# reflector observes only the latest revision and never sees the deletion as a
+# separate event.
+
+db/insert node-addresses addrv4.yaml
+hive start
+
+k8s/add pod.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+k8s/delete pod.yaml
+k8s/add pod2.yaml
+
+db/cmp services services2.table
+db/cmp frontends frontends2.table
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- services.table --
+Name                                                                  Source
+default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8    k8s
+
+-- services2.table --
+Name                                                                  Source
+default/my-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8    k8s
+
+-- frontends.table --
+Address           Type      Status  ServiceName                                                         Backends
+0.0.0.0:4444/TCP  HostPort  Done    default/my-app:host-port:4444:11111111-2e9b-4c61-8454-ae81344876d8  10.244.1.113:80/TCP
+
+-- frontends2.table --
+Address           Type      Status  ServiceName                                                         Backends
+0.0.0.0:4444/TCP  HostPort  Done    default/my-app:host-port:4444:22222222-2e9b-4c61-8454-ae81344876d8  10.244.1.200:80/TCP
+
+-- pod.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2024-07-10T16:20:42Z"
+  labels:
+    run: my-app
+  name: my-app
+  namespace: default
+  resourceVersion: "100491"
+  uid: 11111111-2e9b-4c61-8454-ae81344876d8
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: my-app
+    ports:
+    - containerPort: 80
+      hostPort: 4444
+      protocol: TCP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: testnode
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.1.113
+  podIPs:
+  - ip: 10.244.1.113
+
+-- pod2.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: "2024-07-10T16:20:42Z"
+  labels:
+    run: my-app
+  name: my-app
+  namespace: default
+  resourceVersion: "100492"
+  uid: 22222222-2e9b-4c61-8454-ae81344876d8
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: my-app
+    ports:
+    - containerPort: 80
+      hostPort: 4444
+      protocol: TCP
+    resources: {}
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+  dnsPolicy: ClusterFirst
+  enableServiceLinks: true
+  nodeName: testnode
+  preemptionPolicy: PreemptLowerPriority
+  priority: 0
+  restartPolicy: Always
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  podIP: 10.244.1.200
+  podIPs:
+  - ip: 10.244.1.200
