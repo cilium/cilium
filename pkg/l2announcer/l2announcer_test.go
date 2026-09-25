@@ -1250,6 +1250,130 @@ func TestUpdateService_ExternalTrafficPolicyLocal_NoLocalBackends(t *testing.T) 
 	assert.Empty(t, entries)
 }
 
+func TestUpdateService_ExternalTrafficPolicyLocal_LocalProxy(t *testing.T) {
+	fix := newFixture(t)
+
+	fix.announcer.devices = []string{"eno01"}
+	require.NoError(t, fix.announcer.processDevicesChanged(context.Background()))
+	require.NoError(t, fix.announcer.upsertLocalNode(context.Background(), blueNode()))
+
+	policy := bluePolicy()
+	policy.Spec.ExternalIPs = false
+	policy.Spec.LoadBalancerIPs = true
+	fix.fakePolicyStore.slice = append(fix.fakePolicyStore.slice, policy)
+	require.NoError(t, fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
+		Kind:   resource.Upsert,
+		Key:    resource.NewKey(policy),
+		Object: policy,
+		Done:   func(error) {},
+	}))
+
+	svc, fe, _ := blueService()
+	svc.ExtTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+	fe.Type = loadbalancer.SVCTypeLoadBalancer
+	fix.insertService(svc)
+	fix.insertFrontends(fe)
+
+	err := fix.announcer.processSvcEvent(fix.stateDB.ReadTxn(), statedb.Change[*loadbalancer.Service]{
+		Deleted: false,
+		Object:  svc,
+	})
+	require.NoError(t, err)
+	require.Empty(t, fix.announcer.selectedServices)
+
+	svc = svc.Clone()
+	svc.ProxyRedirects = loadbalancer.ProxyRedirects{{ProxyPort: 10000, Ports: []uint16{80}}}
+	fe = fe.Clone()
+	fe.Service = svc
+	fix.insertService(svc)
+	fix.insertFrontends(fe)
+
+	err = fix.announcer.processSvcEvent(fix.stateDB.ReadTxn(), statedb.Change[*loadbalancer.Service]{
+		Deleted: false,
+		Object:  svc,
+	})
+	require.NoError(t, err)
+	require.Contains(t, fix.announcer.selectedServices, serviceKey(svc))
+
+	err = fix.announcer.processLeaderEvent(leaderElectionEvent{
+		typ:             leaderElectionLeading,
+		selectedService: fix.announcer.selectedServices[serviceKey(svc)],
+	})
+	require.NoError(t, err)
+
+	rtx := fix.stateDB.ReadTxn()
+	entries := statedb.Collect(fix.proxyNeighborTable.All(rtx))
+	assert.Equal(t, []*tables.L2AnnounceEntry{{
+		L2AnnounceKey: tables.L2AnnounceKey{
+			IP:               fe.Address.Addr(),
+			NetworkInterface: policy.Spec.Interfaces[0],
+		},
+		Origins: []types.NamespacedName{serviceKey(svc)},
+	}}, entries)
+
+	svc = svc.Clone()
+	svc.ProxyRedirects = nil
+	fe = fe.Clone()
+	fe.Service = svc
+	fix.insertService(svc)
+	fix.insertFrontends(fe)
+
+	err = fix.announcer.processSvcEvent(fix.stateDB.ReadTxn(), statedb.Change[*loadbalancer.Service]{
+		Deleted: false,
+		Object:  svc,
+	})
+	require.NoError(t, err)
+	require.NotContains(t, fix.announcer.selectedServices, serviceKey(svc))
+
+	rtx = fix.stateDB.ReadTxn()
+	entries = statedb.Collect(fix.proxyNeighborTable.All(rtx))
+	assert.Empty(t, entries)
+}
+
+func TestUpdatePolicy_ExternalTrafficPolicyLocal_LocalProxy(t *testing.T) {
+	fix := newFixture(t)
+
+	fix.announcer.devices = []string{"eno01"}
+	require.NoError(t, fix.announcer.processDevicesChanged(context.Background()))
+	require.NoError(t, fix.announcer.upsertLocalNode(context.Background(), blueNode()))
+
+	svc, fe, _ := blueService()
+	svc.ExtTrafficPolicy = loadbalancer.SVCTrafficPolicyLocal
+	svc.ProxyRedirects = loadbalancer.ProxyRedirects{{ProxyPort: 10000, Ports: []uint16{80}}}
+	fe.Type = loadbalancer.SVCTypeLoadBalancer
+	fix.insertService(svc)
+	fix.insertFrontends(fe)
+
+	policy := bluePolicy()
+	policy.Spec.ExternalIPs = false
+	policy.Spec.LoadBalancerIPs = true
+	fix.fakePolicyStore.slice = append(fix.fakePolicyStore.slice, policy)
+	err := fix.announcer.processPolicyEvent(context.Background(), resource.Event[*v2alpha1.CiliumL2AnnouncementPolicy]{
+		Kind:   resource.Upsert,
+		Key:    resource.NewKey(policy),
+		Object: policy,
+		Done:   func(error) {},
+	})
+	require.NoError(t, err)
+	require.Contains(t, fix.announcer.selectedServices, serviceKey(svc))
+
+	err = fix.announcer.processLeaderEvent(leaderElectionEvent{
+		typ:             leaderElectionLeading,
+		selectedService: fix.announcer.selectedServices[serviceKey(svc)],
+	})
+	require.NoError(t, err)
+
+	rtx := fix.stateDB.ReadTxn()
+	entries := statedb.Collect(fix.proxyNeighborTable.All(rtx))
+	assert.Equal(t, []*tables.L2AnnounceEntry{{
+		L2AnnounceKey: tables.L2AnnounceKey{
+			IP:               fe.Address.Addr(),
+			NetworkInterface: policy.Spec.Interfaces[0],
+		},
+		Origins: []types.NamespacedName{serviceKey(svc)},
+	}}, entries)
+}
+
 // Test that when a service with external traffic policy local only has unhealthy local backends, its not selected and not announced.
 func TestUpdateService_ExternalTrafficPolicyLocal_UnhealthyLocalBackends(t *testing.T) {
 	fix := baseUpdateSetup(t)
