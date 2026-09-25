@@ -1,6 +1,8 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
+import struct
+
 from scapy.all import *
 
 from pkt_defs_common import *
@@ -38,7 +40,7 @@ icmp4_err_revnat_egress_post_tcp = (
 icmp4_err_revnat_full_tcp = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_ext_one, dst=v4_node_one) /
-    ICMP(type=3, code=4, nexthopmtu=1500) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
     IPerror(**_ip_hdr_egress_post.fields) /
     TCPerror(**_tcp_hdr_egress_post.fields) /
     Raw(default_data)
@@ -49,7 +51,7 @@ icmp4_err_revnat_full_tcp = (
 icmp4_err_revnat_full_tcp_after = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_ext_one, dst=v4_pod_one) /
-    ICMP(type=3, code=4, nexthopmtu=1500) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
     IPerror(**_ip_hdr_egress.fields) /
     TCPerror(**_tcp_hdr_egress.fields) /
     Raw(default_data)
@@ -60,8 +62,8 @@ _tcp_hdr_min = bytes(TCP(sport=tcp_src_two, dport=tcp_dst_one, seq=tcp_default_s
 icmp4_err_revnat_min_tcp = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_ext_one, dst=v4_node_one) /
-    ICMP(type=3, code=4, nexthopmtu=1500) /
-    IPerror(src=v4_node_one, dst=v4_ext_one, flags="DF", proto=6) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_node_one, dst=v4_ext_one, flags="DF", proto="tcp") /
     Raw(_tcp_hdr_min)
 )
 
@@ -70,8 +72,8 @@ _tcp_hdr_min_after = bytes(TCP(sport=tcp_src_two, dport=tcp_dst_one, seq=tcp_def
 icmp4_err_revnat_min_tcp_after = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_ext_one, dst=v4_pod_one) /
-    ICMP(type=3, code=4, nexthopmtu=1500) /
-    IPerror(src=v4_pod_one, dst=v4_ext_one, flags="DF", proto=6) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_pod_one, dst=v4_ext_one, flags="DF", proto="tcp") /
     Raw(_tcp_hdr_min_after)
 )
 
@@ -101,6 +103,110 @@ icmp4_err_nat_full_tcp_after = (
     IP(src=v4_node_one, dst=v4_ext_one) /
     ICMP(type="dest-unreach", code="communication-prohibited") /
     IPerror(bytes(icmp4_tcp_ingress[IP]))
+)
+
+# IPv4 ICMP error packets embedding ICMP Echo.
+# Ingress/revNAT: router -> host, quoting the NATed endpoint -> external packet.
+icmp4_err_revnat_full_icmp = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_node_one, dst=v4_ext_one, proto="icmp") /
+    ICMP(type="echo-request", id=123)
+)
+
+# After revSNAT: outer destination -> pod, inner source -> pod.
+icmp4_err_revnat_full_icmp_after = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_pod_one, dst=v4_ext_one, proto="icmp") /
+    ICMP(type="echo-request", id=123)
+)
+
+# IPv4 ICMP error packets embedding the 4-byte SCTP port tuple.
+# Ingress/revNAT: router -> host, quoting the NATed endpoint -> external packet.
+icmp4_err_revnat_full_sctp = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_node_one, dst=v4_ext_one, proto="sctp") /
+    Raw(load=struct.pack("!HH", tcp_src_two, tcp_dst_one))
+)
+
+# After revSNAT: outer destination -> pod, inner source -> pod.
+icmp4_err_revnat_full_sctp_after = (
+    Ether(src=mac_two, dst=mac_one) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_pod_one, dst=v4_ext_one, proto="sctp") /
+    Raw(load=struct.pack("!HH", tcp_src_two, tcp_dst_one))
+)
+
+# IPv4 ICMP error packets on the SNAT egress path, embedding ICMP Echo Reply.
+icmp4_err_nat_full_icmp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_pod_one, proto="icmp") /
+    ICMP(type="echo-reply", id=123)
+)
+
+# After SNAT: outer source -> node, inner destination -> node.
+icmp4_err_nat_full_icmp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_node_one, proto="icmp") /
+    ICMP(type="echo-reply", id=123)
+)
+
+# IPv4 ICMP error packets on the SNAT egress path, embedding the 4-byte SCTP port tuple.
+icmp4_err_nat_full_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_pod_one, proto="sctp") /
+    Raw(load=struct.pack("!HH", tcp_dst_one, tcp_src_two))
+)
+
+# After SNAT: outer source -> node, inner destination -> node; SCTP ports unchanged.
+icmp4_err_nat_full_sctp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_node_one, proto="sctp") /
+    Raw(load=struct.pack("!HH", tcp_dst_one, tcp_src_two))
+)
+
+# Plain IPv4 ICMP Echo packets used to establish SNAT state.
+icmp4_err_revnat_egress_icmp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one, flags="DF") /
+    ICMP(type="echo-request", id=123) /
+    Raw(default_data)
+)
+
+icmp4_err_revnat_egress_post_icmp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one, flags="DF") /
+    ICMP(type="echo-request", id=123) /
+    Raw(default_data)
+)
+
+# Plain IPv4 SCTP packet used to establish SNAT state.
+icmp4_err_revnat_egress_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one, flags="DF") /
+    SCTP(sport=tcp_src_two, dport=tcp_dst_one, tag=0) /
+    Raw(default_data)
+)
+
+icmp4_err_revnat_egress_post_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one, flags="DF") /
+    SCTP(sport=tcp_src_two, dport=tcp_dst_one, tag=0) /
+    Raw(default_data)
 )
 
 # Shared header layers for the IPv6 egress flow, pre- and post-masquerade.
@@ -185,7 +291,7 @@ icmp6_err_revnat_full_udp_after = _icmp6_revnat_after_pkt(
 icmp4_err_frag_needed_for_revnat = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_pod_two, dst=v4_pod_one) /
-    ICMP(type=3, code=4, nexthopmtu=1500) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
     IP(src=v4_pod_one, dst=v4_pod_two, flags="DF") /
     TCP(sport=32768, dport=80)  # NODEPORT_PORT_MIN_NAT (SNAT'd port)
 )
@@ -194,7 +300,21 @@ icmp4_err_frag_needed_for_revnat = (
 icmp4_err_frag_needed_after_revnat = (
     Ether(src=mac_one, dst=mac_two) /
     IP(src=v4_pod_two, dst=v4_node_one) /
-    ICMP(type=3, code=4, nexthopmtu=1500) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
     IP(src=v4_node_one, dst=v4_pod_two, flags="DF") /
     TCP(sport=3030, dport=80)  # original port restored
+)
+icmp4_err_nat_id_icmp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_pod_one, proto="icmp") /
+    ICMP(type="echo-reply", id=789)
+)
+icmp4_err_nat_id_icmp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(src=v4_ext_one, dst=v4_node_one, proto="icmp") /
+    ICMP(type="echo-reply", id=456)
 )
