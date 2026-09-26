@@ -33,7 +33,7 @@
 #endif
 
 #if defined(ENABLE_EGRESS_GATEWAY)
-#define ENABLE_EGRESS_GATEWAY_COMMON
+#define ENABLE_EGRESS_GATEWAY_COMMON 1
 #endif
 
 #if defined(ENCAP_IFINDEX) || defined(ENABLE_EGRESS_GATEWAY_COMMON) || \

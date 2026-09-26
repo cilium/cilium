@@ -88,8 +88,8 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	if (IS_ERR(ret))
 		goto out;
 
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
-	if (args->target.egress_gateway) {
+	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST) &&
+	    args->target.egress_gateway) {
 		if (ctx_egw_done(ctx))
 			goto apply_snat;
 
@@ -104,7 +104,6 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 		if (ret != CTX_ACT_OK)
 			return ret;
 	}
-#endif
 
 apply_snat:
 	ipv6_addr_copy(saddr, &args->tuple.saddr);
@@ -399,8 +398,8 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	if (IS_ERR(ret))
 		goto out;
 
-#if defined(ENABLE_EGRESS_GATEWAY_COMMON) && defined(IS_BPF_HOST)
-	if (args->target.egress_gateway) {
+	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && is_defined(IS_BPF_HOST) &&
+	    args->target.egress_gateway) {
 		/* from-overlay has already picked the correct egress interface: */
 		if (ctx_egw_done(ctx))
 			goto apply_snat;
@@ -419,7 +418,6 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 	}
-#endif
 
 apply_snat:
 	*saddr = args->tuple.saddr;
