@@ -68,6 +68,17 @@ var (
 	getNetnsCookie = true
 )
 
+// Queue 0 carries the regular Cilium datapath. Queue 1 is available for a
+// physical RX queue lease when the Network Driver is enabled.
+const netkitPeerRXQueueCount = 2
+
+func netkitPeerRXQueues(config map[string]any, mode connector.Mode) int {
+	if enabled, _ := config["EnableNetworkDriver"].(bool); enabled && mode.IsNetkit() {
+		return netkitPeerRXQueueCount
+	}
+	return 0
+}
+
 // Cmd provides methods for the CNI ADD, DEL and CHECK commands.
 type Cmd struct {
 	logger  *slog.Logger
@@ -765,6 +776,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 	}
 
 	cniID := ep.ContainerID + ":" + ep.ContainerInterfaceName
+	linkMode := connector.ModeByName(string(conf.DatapathMode))
 	linkConfig := connector.LinkConfig{
 		EndpointID:     cniID,
 		PeerIfName:     args.IfName,
@@ -777,6 +789,7 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		DeviceHeadroom: uint16(conf.DeviceHeadroom),
 		DeviceTailroom: uint16(conf.DeviceTailroom),
 	}
+	linkConfig.PeerRXQueues = netkitPeerRXQueues(conf.DaemonConfigurationMap, linkMode)
 
 	for _, hook := range cmd.onLinkConfigReady {
 		if err := hook.OnLinkConfigReady(&linkConfig); err != nil {
@@ -784,7 +797,6 @@ func (cmd *Cmd) Add(args *skel.CmdArgs) (err error) {
 		}
 	}
 
-	linkMode := connector.ModeByName(string(conf.DatapathMode))
 	linkPair, err := connector.NewLinkPair(scopedLogger, linkMode, linkConfig, sysctl)
 	if err != nil {
 		return fmt.Errorf("unable to set up link on host side: %w", err)

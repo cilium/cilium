@@ -69,6 +69,7 @@ func setupNetkitPair(defaultLogger *slog.Logger, cfg LinkConfig, l2Mode bool, sy
 	peerAttr := &netlink.LinkAttrs{
 		Name:         cfg.PeerIfName,
 		HardwareAddr: epLXCMAC.HardwareAddr(),
+		NumRxQueues:  cfg.PeerRXQueues,
 	}
 	netkit.SetPeerAttrs(peerAttr)
 
