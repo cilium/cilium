@@ -516,6 +516,18 @@ jobs:
           # next run; the Prometheus pod itself is left alone.
           kubectl --namespace monitoring delete secret prometheus-token --ignore-not-found
 
+      - name: Collect baseline Cilium agent node logs
+        id: baseline-node-logs
+        if: ${{ always() && steps.run-baseline.outcome != 'skipped' && steps.run-baseline.outcome != 'cancelled' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: ./.github/actions/collect-node-logs
+        with:
+          node: ${{ steps.prepare-cluster.outputs.test_node_name }}
+          pod-selector: k8s-app=cilium
+          output-path: ./perf-tests/clusterloader2/report/baseline
+          archive-name: node-logs.zip
+
       - name: Baseline results heading
         if: ${{ always() && steps.run-baseline.outcome != 'skipped' }}
         run: |
@@ -583,6 +595,18 @@ jobs:
           echo "time_end=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
 
           sudo chmod --recursive +r "${REPORT_DIR}"
+
+      - name: Collect test tag Cilium agent node logs
+        id: test-node-logs
+        if: ${{ always() && steps.run-test.outcome != 'skipped' && steps.run-test.outcome != 'cancelled' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: ./.github/actions/collect-node-logs
+        with:
+          node: ${{ steps.prepare-cluster.outputs.test_node_name }}
+          pod-selector: k8s-app=cilium
+          output-path: ./perf-tests/clusterloader2/report/test
+          archive-name: node-logs.zip
 
       - name: Test tag results heading
         if: ${{ always() && steps.run-test.outcome != 'skipped' }}
@@ -684,6 +708,14 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           archive: false
+
+      - name: Upload test Cilium agent node logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cilium-logs-${{ steps.vars.outputs.scenario }}-${{ github.run_attempt }}
+          path: ./perf-tests/clusterloader2/report/*/node-logs.zip
+          if-no-files-found: warn
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
