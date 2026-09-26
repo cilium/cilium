@@ -15,6 +15,18 @@ inputs:
     description: ''
     required: false
     default: 2
+  timeout_minutes:
+    description: 'Budget for this action, matching the caller step timeout-minutes.'
+    required: false
+    default: 48
+  attempt_deadline:
+    description: 'Seconds the first create may stay in Creating before this action abandons it.'
+    required: false
+    default: 1200
+  retry_deadline:
+    description: 'Seconds the second create may stay in Creating.'
+    required: false
+    default: 800
   pod_cidrs:
     description: 'Comma-separated PodCIDRs managed by the installed CNI.'
     required: true
@@ -30,6 +42,10 @@ inputs:
     description: 'Node pool OS SKU to pass to "az aks create --os-sku" (e.g. AzureLinux). Empty uses the AKS default (Ubuntu).'
     required: false
     default: ''
+outputs:
+  cluster_name:
+    description: 'Name of the cluster that provisioned.'
+    value: ${{ steps.create.outputs.cluster_name }}
 runs:
   using: composite
   steps:
@@ -41,6 +57,7 @@ runs:
         parsing: text
 
     - name: Create AKS cluster
+      id: create
       shell: bash
       run: |
         TAGS=""
@@ -65,28 +82,117 @@ runs:
           --location ${{ inputs.location }} \
           $TAGS
 
-        # Create AKS cluster. The PodCIDRs must match the ranges managed by the
-        # CNI so the control plane can route traffic to pods.
-        az aks create \
-          --resource-group ${{ inputs.cluster_name }} \
-          --name ${{ inputs.cluster_name }} \
-          --location ${{ inputs.location }} \
-          $VERSION \
-          $OS_SKU \
-          --network-plugin none \
-          --node-count "$(( ${{ inputs.node_count }} + 2 ))" \
-          --ip-families ipv4,ipv6 \
-          --pod-cidrs "${{ inputs.pod_cidrs }}" \
-          ${{ inputs.taints }} \
-          --generate-ssh-keys \
-          --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.cidr }}
+        resource_group="${{ inputs.cluster_name }}"
+        interval=30
+
+        # Both attempts, the teardown between them and the node waits in the
+        # steps below all share this step's timeout-minutes.
+        budget=$(( ${{ inputs.timeout_minutes }} * 60 ))
+        required=$(( ${{ inputs.attempt_deadline }} + ${{ inputs.retry_deadline }} + 820 ))
+        if [ "${budget}" -lt "${required}" ]; then
+          echo "::error::timeout_minutes gives ${budget}s and the create needs ${required}s"
+          exit 1
+        fi
+
+        # Submit one create and poll it. 0 provisioned, 1 hit the deadline,
+        # 2 ended somewhere a retry cannot clear.
+        create_and_wait() {
+          cluster="$1"
+          deadline="$2"
+          started="${SECONDS}"
+          state=unknown
+
+          # The PodCIDRs must match the ranges managed by the CNI so the
+          # control plane can route traffic to pods.
+          timeout 300 az aks create \
+            --resource-group "${resource_group}" \
+            --name "${cluster}" \
+            --location ${{ inputs.location }} \
+            $VERSION \
+            $OS_SKU \
+            --network-plugin none \
+            --node-count "$(( ${{ inputs.node_count }} + 2 ))" \
+            --ip-families ipv4,ipv6 \
+            --pod-cidrs "${{ inputs.pod_cidrs }}" \
+            ${{ inputs.taints }} \
+            --generate-ssh-keys \
+            --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.cidr }} \
+            --no-wait || return 2
+
+          echo "waiting up to ${deadline}s for ${cluster} to provision"
+          while true; do
+            elapsed=$(( SECONDS - started ))
+
+            # Checked before the query below, so a slow az cannot overshoot it.
+            if [ "${elapsed}" -ge "${deadline}" ]; then
+              echo "::error::cluster ${cluster} still ${state} after ${elapsed}s, abandoning"
+              # --no-wait, because cancelling an AKS create starts another long
+              # running operation.
+              timeout 60 az aks operation-abort \
+                --resource-group "${resource_group}" \
+                --name "${cluster}" --no-wait || true
+              # Cancelling keeps the nodes AKS already built, so drop the
+              # cluster too and leave the delete running behind us.
+              timeout 60 az aks delete \
+                --resource-group "${resource_group}" \
+                --name "${cluster}" --yes --no-wait || true
+              return 1
+            fi
+
+            # Bounded, so a hung az still lets the deadline check above run.
+            state="$(timeout 60 az aks show \
+              --resource-group "${resource_group}" \
+              --name "${cluster}" \
+              --query provisioningState -o tsv 2>/dev/null || true)"
+            [ -n "${state}" ] || state=ShowFailed
+            echo "${cluster} provisioningState=${state} (${elapsed}s)"
+
+            case "${state}" in
+              Succeeded)
+                return 0
+                ;;
+              Failed|Canceled)
+                echo "::error::cluster ${cluster} ended in ${state} after ${elapsed}s"
+                return 2
+                ;;
+            esac
+
+            sleep "${interval}"
+          done
+        }
+
+        # az aks create refuses a name that already exists, so each attempt
+        # takes a fresh cluster inside the one resource group.
+        attempt=0
+        winner=""
+        for deadline in ${{ inputs.attempt_deadline }} ${{ inputs.retry_deadline }}; do
+          attempt=$(( attempt + 1 ))
+          candidate="${resource_group}-a${attempt}"
+          rc=0
+          create_and_wait "${candidate}" "${deadline}" || rc=$?
+          if [ "${rc}" -eq 0 ]; then
+            winner="${candidate}"
+            break
+          fi
+          if [ "${rc}" -eq 2 ]; then
+            break
+          fi
+          echo "attempt ${attempt} never left Creating, trying a fresh cluster"
+        done
+
+        if [ -z "${winner}" ]; then
+          echo "::error::no cluster provisioned after ${attempt} attempts"
+          exit 1
+        fi
+        echo "provisioned ${winner} after ${attempt} attempt(s)"
+        echo "cluster_name=${winner}" >> "$GITHUB_OUTPUT"
 
     - name: Get cluster credentials
       shell: bash
       run: |
         az aks get-credentials \
           --resource-group ${{ inputs.cluster_name }} \
-          --name ${{ inputs.cluster_name }}
+          --name ${{ steps.create.outputs.cluster_name }}
 
     - name: Wait for all nodes to register with the API server
       shell: bash

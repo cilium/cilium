@@ -105,6 +105,7 @@ concurrency:
 env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ inputs.UID }}-${{ github.run_attempt }}
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 64
+  create_timeout_minutes: 48
   ipv4_pod_cidr: 192.168.0.0/16
   ipv6_pod_cidr: fd00::/104
   test_concurrency: 5
@@ -335,10 +336,12 @@ jobs:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
       - name: Create AKS cluster
-        timeout-minutes: 20
+        id: create-cluster
+        timeout-minutes: ${{ fromJSON(env.create_timeout_minutes) }}
         uses: ./.github/actions/setup-aks-cluster
         with:
           cluster_name: ${{ env.name }}
+          timeout_minutes: ${{ env.create_timeout_minutes }}
           location: ${{ matrix.location }}
           version: ${{ matrix.version }}
           pod_cidrs: ${{ env.ipv4_pod_cidr }},${{ env.ipv6_pod_cidr }}
@@ -359,7 +362,7 @@ jobs:
           # destination is a Pod IP rather than the node IP itself.
           NODE_RESOURCE_GROUP=$(az aks show \
             --resource-group "${{ env.name }}" \
-            --name "${{ env.name }}" \
+            --name "${{ steps.create-cluster.outputs.cluster_name }}" \
             --query nodeResourceGroup \
             --output tsv)
           mapfile -t VMSS_NAMES < <(az vmss list \
@@ -471,7 +474,7 @@ jobs:
           # each overlay PodCIDR.
           NODE_RESOURCE_GROUP=$(az aks show \
             --resource-group "${{ env.name }}" \
-            --name "${{ env.name }}" \
+            --name "${{ steps.create-cluster.outputs.cluster_name }}" \
             --query nodeResourceGroup \
             --output tsv)
           mapfile -t SUBNET_IDS < <(az vmss list \
@@ -549,7 +552,7 @@ jobs:
         run: |
           NODERG=$(az aks show \
             --resource-group ${{ env.name }} \
-            --name ${{ env.name }} \
+            --name ${{ steps.create-cluster.outputs.cluster_name }} \
             --query 'nodeResourceGroup' \
             -o tsv)
           CIDRV4=$(az network vnet list \
