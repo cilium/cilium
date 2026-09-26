@@ -5,7 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"log/slog"
 	"net/netip"
 	"slices"
 	"strconv"
@@ -13,20 +12,15 @@ import (
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
-	"github.com/cilium/cilium/pkg/ipmasq"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 // allocationResult derives ENI-specific AllocationResult metadata
 // (PrimaryMAC, GatewayIP, InterfaceNumber) by finding which ENI owns the given
 // IP.
 func allocationResult(
-	logger *slog.Logger,
 	allocatedAddr netip.Addr,
 	pool ipam.Pool,
 	enis map[string]awsTypes.ENI,
-	conf *option.DaemonConfig,
-	ipMasqAgent *ipmasq.IPMasqAgent,
 ) (*ipam.AllocationResult, error) {
 	for _, eni := range enis {
 		if !eniContainsIP(eni, allocatedAddr) {
