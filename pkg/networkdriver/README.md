@@ -9,7 +9,9 @@ can claim devices via the standard DRA framework.
 
 ## Requirements
 
-- Kubernetes v1.34+
+- Kubernetes v1.34+. Device managers that publish consumable capacity also
+  require the `DRAConsumableCapacity` feature gate. Enable it explicitly on
+  Kubernetes v1.34 and v1.35; it is enabled by default starting in v1.36.
 - Container Runtime NRI support (and have it enabled). The agent 
   depends on `/var/run/nri/nri.sock` for plugin registration.
 - Cilium agent with `--enable-network-driver` (set automatically
@@ -37,6 +39,66 @@ Available device managers:
 |-----------------|----------------|----------------------------|-----------------------------------------------------------|
 | `sriov`         | `sriov`        | `sr-iov`                   | SR-IOV Virtual Functions (legacy mode)                    |
 | `dummy`         | `dummy`        | `dummy`                    | Linux dummy interfaces                                    |
+
+Both current managers publish exclusive devices. Each published dummy device
+or SR-IOV Virtual Function can be allocated to one claim at a time.
+
+### Device allocation model
+
+A device manager controls how Kubernetes Dynamic Resource Allocation (DRA)
+treats each device it publishes:
+
+- `GetCapacity` returns the named capacity available on the device.
+- `AllowMultipleAllocations` determines whether several independent claims
+  may consume that capacity.
+- `Setup` receives the allocation selected by the scheduler and returns the
+  device prepared for that allocation.
+- `Recover` re-creates missing kernel state for an allocation restored from
+  `ResourceClaim` status. It must return the same logical allocation because
+  recovery does not rewrite that status.
+- `Free` receives the same allocation context during cleanup.
+
+An exclusive device returns no consumable capacity and does not allow multiple
+allocations. `Setup` may return the advertised device itself. This is the
+existing model used by the dummy and SR-IOV managers.
+
+A shareable device publishes capacity and sets `allowMultipleAllocations` in
+its `ResourceSlice`. The Kubernetes scheduler may then allocate the same
+published device to more than one `ResourceClaim`. Each allocation result has
+a `ShareID` and the amount of capacity consumed by that share. The network
+driver passes both values to the device manager; it does not choose the share
+or perform the scheduler's capacity accounting.
+
+```text
+ResourceSlice device
+  ├─ attributes
+  ├─ capacity
+  └─ allowMultipleAllocations
+               │
+               │ Kubernetes scheduler
+               ▼
+ResourceClaim allocation result
+  ├─ pool + device
+  ├─ shareID
+  └─ consumedCapacity
+               │
+               │ PrepareResourceClaims
+               ▼
+DRAAllocation
+  ├─ advertised device identity
+  ├─ scheduler allocation identity and capacity
+  └─ allocation-specific prepared device
+```
+
+`ShareID` distinguishes allocations of the same advertised device. It is not
+a physical subdevice identifier. The device manager decides how the consumed
+capacity maps onto hardware and may return a different prepared device for
+each share.
+
+The driver rejects shareable devices on Kubernetes versions older than v1.34.
+It cannot inspect the API server's feature-gate configuration. On v1.34 or
+later with `DRAConsumableCapacity` disabled, `ResourceSlice` publication
+reports an error when the API server omits the feature-gated fields.
 
 ### SR-IOV device manager
 
@@ -114,20 +176,28 @@ a Kubernetes Dynamic Resource Allocation (DRA) `ResourceClaim`:
 
 ```go
 type DRAAllocation struct {
-    DeviceName     string
-    Manager        types.DeviceManagerType
-    PreparedDevice types.Device
-    Pool           string
-    PodUID         kube_types.UID
-    ClaimUID       kube_types.UID
-    Config         types.DeviceConfig
+    DeviceName       string
+    Manager          types.DeviceManagerType
+    PreparedDevice   types.Device
+    Pool             string
+    PodUID           kube_types.UID
+    ClaimUID         kube_types.UID
+    Config           types.DeviceConfig
+    ShareID          kube_types.UID
+    ConsumedCapacity map[resourceapi.QualifiedName]apiresource.Quantity
 }
 ```
 
-The primary key is `AllocationKey(Pool, DeviceName)`. Secondary indexes
-support lookups by claim UID, device name, and pod UID. `PreparedDevice`
-holds the device state after setup, while `Config` records claim-specific
-settings such as the pod interface name or VLAN.
+The primary key is `AllocationKey(Pool, DeviceName, ShareID)`. This permits
+several prepared shares of one advertised device to coexist. Exclusive
+devices use an empty `ShareID` and still have one allocation row per device.
+Secondary indexes support lookups by claim UID, device name, and pod UID.
+
+`ClaimUID` identifies the Kubernetes `ResourceClaim`. `ShareID` identifies
+one scheduler allocation of a shareable device, and `ConsumedCapacity` records
+the capacity assigned to that share. `PreparedDevice` holds the current
+allocation-specific device returned by `Setup` or `Recover`, while `Config`
+records driver settings such as the pod interface name or VLAN.
 
 The allocation table has a different lifetime from device inventory. An
 inventory row answers, “What does the device manager see now?” An allocation
@@ -142,7 +212,10 @@ Device manager goroutine
   └─ Run(ctx, publish)
        └─ publish([]types.Device)
             └─ driver.onDevices()
-                 ├─ merges prepared state found by device name
+                 ├─ for an exclusive device, merges prepared state found by
+                 │  device name
+                 ├─ leaves allocation-specific shares out of their parent
+                 │  device's inventory state
                  ├─ upserts Name/Manager/Dev in networkdriver-dra-devices
                  └─ removes missing inventory rows
                     (networkdriver-dra-allocations is unchanged)
@@ -150,26 +223,34 @@ Device manager goroutine
 PrepareResourceClaims (kubelet → DRA plugin)
   └─ for each scheduler-selected device
        ├─ reads the DRADevice from networkdriver-dra-devices
-       ├─ calls Device.Setup(Config)
-       ├─ serializes the prepared device to ResourceClaim.Status.Devices
-       └─ after the status update, inserts a DRAAllocation in
-          networkdriver-dra-allocations
+       ├─ calls Device.Setup with Config, ShareID, and ConsumedCapacity
+       ├─ receives the allocation-specific prepared device
+       ├─ records ShareID in ResourceClaim.Status.Devices
+       ├─ serializes the prepared device, Config, and ConsumedCapacity into
+       │  the status entry
+       └─ after the status update, inserts a DRAAllocation keyed by
+          Pool/DeviceName/ShareID in networkdriver-dra-allocations
 
 RunPodSandbox (container runtime → NRI plugin)
   └─ finds allocations by PodUID
+       ├─ if a prepared link is missing, calls Device.Recover with
+       │  Config, ShareID, and ConsumedCapacity
+       │    └─ replaces PreparedDevice in StateDB; ResourceClaim
+       │       status remains unchanged
        └─ configures their devices in the pod network namespace
 
 UnprepareResourceClaims (kubelet → DRA plugin)
   └─ finds allocations by ClaimUID
-       └─ calls Device.Free(Config)
+       └─ calls Device.Free with Config, ShareID, and ConsumedCapacity
             ├─ success → deletes the DRAAllocation
             └─ failure → retains the row for a later retry
 
 ResourceSlice publication (a change to either table wakes this loop)
   ├─ networkdriver-dra-devices
-  │    └─ supplies the current device and its attributes
+  │    └─ supplies the current device, attributes, capacity, and whether it
+  │       allows multiple allocations
   ├─ networkdriver-dra-allocations
-  │    └─ pins a prepared device to its recorded pool
+  │    └─ pins every prepared allocation of a device to its recorded pool
   └─ buildPoolsFromTable()
        └─ draPlugin.PublishResources()
 
@@ -177,7 +258,9 @@ Agent restart
   ├─ local pods
   │    └─ resolve direct or template-generated ResourceClaims
   │         └─ ResourceClaim.Status.Devices
-  │              └─ DeviceManager.RestoreDevice()
+  │              ├─ restores ShareID from AllocatedDeviceStatus
+  │              ├─ DeviceManager.RestoreDevice deserializes PreparedDevice
+  │              └─ restores Config and ConsumedCapacity from serialized data
   │                   └─ rebuilds networkdriver-dra-allocations
   ├─ device managers rebuild networkdriver-dra-devices independently
   └─ DRA and NRI registration starts after both tables are initialized
@@ -190,9 +273,18 @@ restore. The driver logs a warning on restart because that device may require
 manual cleanup. If the status update succeeds but the agent stops before the
 StateDB write, restart recovery can rebuild the allocation from the status.
 
+`DeviceManager.RestoreDevice` reconstructs the device object from the durable
+status; it does not re-create missing kernel state. If a node reboot removes an
+on-demand link, `RunPodSandbox` calls `Device.Recover` when the replacement
+sandbox starts. Recovery updates `PreparedDevice` in StateDB but not the
+`ResourceClaim` status, so the device manager must return the same logical
+allocation.
+
 Changes to either table trigger a new `ResourceSlice` publication. If one
-device has allocation rows that name different pools, the state is ambiguous.
-The driver logs the conflict and does not advertise that device.
+shareable device has several allocation rows in the same pool, publication
+keeps the parent device in that pool. If its rows name different pools, the
+state is ambiguous. The driver logs the conflict and does not advertise that
+device.
 
 ### Inspecting state at runtime
 
@@ -202,7 +294,8 @@ kubectl -n kube-system exec <cilium-pod> -c cilium-agent -- \
   jq '{
     inventory: .["networkdriver-dra-devices"] | map({Name, Manager}),
     allocations: .["networkdriver-dra-allocations"] |
-      map({DeviceName, Manager, Pool, PodUID, ClaimUID, Config})
+      map({DeviceName, Manager, Pool, ShareID, ConsumedCapacity,
+           PodUID, ClaimUID, Config})
   }'
 ```
 
@@ -221,6 +314,8 @@ Example output for one prepared SR-IOV Virtual Function:
       "DeviceName": "0000-03-00-1",
       "Manager": "sr-iov",
       "Pool": "sriov-pool",
+      "ShareID": "",
+      "ConsumedCapacity": null,
       "PodUID": "a1b2c3d4-...",
       "ClaimUID": "e5f6a7b8-...",
       "Config": {
@@ -236,6 +331,10 @@ An empty allocation list means StateDB currently tracks no prepared devices.
 A retained allocation row can also indicate that cleanup failed; check the
 agent log before treating it as an active pod allocation.
 
+A shareable device may have several rows with the same `DeviceName` and
+`Pool`. Distinct `ShareID` values key those rows; each row records its consumed
+capacity, claim UID, and prepared device.
+
 ## How to use the Network Driver
 
 ### 1. Enable the feature
@@ -249,7 +348,7 @@ helm upgrade cilium cilium/cilium \
   --set networkDriver.enabled=true
 ```
 
-This sets `--enable-cilium-network-driver` on the agent.
+This sets `--enable-network-driver` on the agent.
 
 ### 2. Provide a node configuration
 
@@ -496,6 +595,13 @@ spec:
             vlan: 1001
             podIfName: sriov0
 ```
+
+This example requests an exclusive SR-IOV Virtual Function. A device manager
+that publishes consumable capacity also defines the qualified capacity names
+that applications request under `exactly.capacity.requests`. Kubernetes
+selects the device, assigns a share ID, and records the capacity consumed by
+the claim. The network driver receives those values during preparation and
+passes them to the selected device manager.
 
 ### 4. Request a device from a pod
 

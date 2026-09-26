@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"path"
 	"slices"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/containerd/nri/pkg/stub"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
@@ -38,7 +40,8 @@ import (
 )
 
 var (
-	defaultDriverPluginPath = "/var/lib/kubelet/plugins/"
+	defaultDriverPluginPath         = "/var/lib/kubelet/plugins/"
+	minConsumableCapacityK8sVersion = semver.Version{Major: 1, Minor: 34}
 )
 
 func driverPluginPath(driverName string) string {
@@ -74,20 +77,24 @@ type Driver struct {
 }
 
 type allocation struct {
-	Device     types.Device
-	DeviceName string
-	Pool       string
-	Manager    types.DeviceManagerType
-	Config     types.DeviceConfig
+	Device           types.Device
+	DeviceName       string
+	Pool             string
+	Manager          types.DeviceManagerType
+	Config           types.DeviceConfig
+	ShareID          kube_types.UID
+	ConsumedCapacity map[resourceapi.QualifiedName]apiresource.Quantity
 }
 
 func allocationFromRow(row *DRAAllocation) allocation {
 	return allocation{
-		Device:     row.PreparedDevice,
-		DeviceName: row.DeviceName,
-		Pool:       row.Pool,
-		Manager:    row.Manager,
-		Config:     row.Config,
+		Device:           row.PreparedDevice,
+		DeviceName:       row.DeviceName,
+		Pool:             row.Pool,
+		Manager:          row.Manager,
+		Config:           row.Config,
+		ShareID:          row.ShareID,
+		ConsumedCapacity: maps.Clone(row.ConsumedCapacity),
 	}
 }
 
@@ -263,6 +270,9 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			case <-watch:
 			}
 		}
+		if err := driver.validateConsumableCapacityVersion(version.Version()); err != nil {
+			return err
+		}
 
 		driver.logger.DebugContext(ctx, "device and allocation tables initialized")
 
@@ -330,12 +340,39 @@ func (driver *Driver) runPublishLoop(ctx context.Context, publish func(context.C
 // and pushes it to the kubelet plugin API.
 func (driver *Driver) publish(ctx context.Context) error {
 	return driver.withLock(func() error {
+		if err := driver.validateConsumableCapacityVersion(version.Version()); err != nil {
+			return err
+		}
+
 		pools := driver.buildPoolsFromTable()
 
 		driver.logger.DebugContext(ctx, "publishing resourceslices", logfields.Count, len(pools))
 
 		return driver.draPlugin.PublishResources(ctx, resourceslice.DriverResources{Pools: pools})
 	})
+}
+
+// validateConsumableCapacityVersion prevents a device manager from relying on
+// consumable capacity before Kubernetes supports it. On Kubernetes 1.34 and
+// 1.35, the DRAConsumableCapacity feature gate must also be enabled; the DRA
+// ResourceSlice controller detects and reports when the API server drops the
+// feature-gated fields.
+func (driver *Driver) validateConsumableCapacityVersion(k8sVersion semver.Version) error {
+	if !k8sVersion.LT(minConsumableCapacityK8sVersion) {
+		return nil
+	}
+
+	txn := driver.db.ReadTxn()
+	for d := range driver.deviceTable.All(txn) {
+		if d.Dev != nil && d.Dev.AllowMultipleAllocations() {
+			return fmt.Errorf(
+				"device %q requires DRA consumable capacity, which needs Kubernetes v%s or later (detected v%s)",
+				d.Name, minConsumableCapacityK8sVersion, k8sVersion,
+			)
+		}
+	}
+
+	return nil
 }
 
 func (driver *Driver) withLock(f func() error) error {
@@ -367,12 +404,16 @@ func (driver *Driver) onDevices(mgrType types.DeviceManagerType, devices []types
 		}
 		seen[ifname] = struct{}{}
 
-		// Allocation rows are restored before discovery starts. Merge prepared
-		// state into the live device so managers such as SR-IOV retain
-		// information that is no longer visible from the root namespace.
-		for allocation := range AllocationsByDeviceName(driver.allocationTable, wtxn, ifname) {
-			if allocation.Manager == mgrType && allocation.PreparedDevice != nil {
-				dev.Merge(allocation.PreparedDevice)
+		// Allocation rows are restored before discovery starts. For an
+		// indivisible device, merge its prepared state into the live device so
+		// managers such as SR-IOV retain information that is no longer visible
+		// from the root namespace. Prepared shares are allocation-specific and
+		// must not be merged into their shared parent device.
+		if !dev.AllowMultipleAllocations() {
+			for allocation := range AllocationsByDeviceName(driver.allocationTable, wtxn, ifname) {
+				if allocation.Manager == mgrType && allocation.PreparedDevice != nil {
+					dev.Merge(allocation.PreparedDevice)
+				}
 			}
 		}
 
@@ -423,7 +464,7 @@ func (driver *Driver) allocationsForPod(podUID kube_types.UID) []allocation {
 }
 
 func allocationTableKey(a allocation) string {
-	return AllocationKey(a.Pool, a.DeviceName)
+	return AllocationKey(a.Pool, a.DeviceName, a.ShareID)
 }
 
 // storeAllocations records devices after their ResourceClaim status has been
@@ -438,13 +479,15 @@ func (driver *Driver) storeAllocations(allocs []allocation, podUID, claimUID kub
 		}
 
 		driver.allocationTable.Insert(wtxn, &DRAAllocation{
-			DeviceName:     a.DeviceName,
-			Manager:        a.Manager,
-			PreparedDevice: a.Device,
-			Pool:           a.Pool,
-			PodUID:         podUID,
-			ClaimUID:       claimUID,
-			Config:         a.Config,
+			DeviceName:       a.DeviceName,
+			Manager:          a.Manager,
+			PreparedDevice:   a.Device,
+			Pool:             a.Pool,
+			PodUID:           podUID,
+			ClaimUID:         claimUID,
+			Config:           a.Config,
+			ShareID:          a.ShareID,
+			ConsumedCapacity: maps.Clone(a.ConsumedCapacity),
 		})
 	}
 }
@@ -460,6 +503,25 @@ func (driver *Driver) deleteAllocations(allocs []allocation) {
 			driver.allocationTable.Delete(wtxn, row)
 		}
 	}
+}
+
+// updateAllocationDevice replaces a prepared device that NRI recovered on
+// demand after a reboot.
+func (driver *Driver) updateAllocationDevice(a allocation) {
+	if a.Device == nil || a.DeviceName == "" || a.Pool == "" {
+		return
+	}
+
+	wtxn := driver.db.WriteTxn(driver.allocationTable)
+	defer wtxn.Commit()
+
+	row, _, found := driver.allocationTable.Get(wtxn, allocationByKey.Query(allocationTableKey(a)))
+	if !found {
+		return
+	}
+	updated := row.Clone()
+	updated.PreparedDevice = a.Device
+	driver.allocationTable.Insert(wtxn, updated)
 }
 
 // resolvePool returns the single pool name the device should be assigned to.
@@ -554,17 +616,23 @@ func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 			continue
 		}
 
-		attrs := d.Dev.GetAttrs()
+		attrs := maps.Clone(d.Dev.GetAttrs())
 		if attrs == nil {
 			attrs = make(map[resourceapi.QualifiedName]resourceapi.DeviceAttribute)
 		}
 		attrs[resourceapi.QualifiedName(types.PoolNameLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(pool)}
 		attrs[resourceapi.QualifiedName(types.DeviceManagerLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.Manager.String())}
 
-		entry.Slices[0].Devices = append(entry.Slices[0].Devices, resourceapi.Device{
+		published := resourceapi.Device{
 			Name:       d.Name,
 			Attributes: attrs,
-		})
+			Capacity:   maps.Clone(d.Dev.GetCapacity()),
+		}
+		if d.Dev.AllowMultipleAllocations() {
+			published.AllowMultipleAllocations = ptr.To(true)
+		}
+
+		entry.Slices[0].Devices = append(entry.Slices[0].Devices, published)
 		pools[pool] = entry
 	}
 
@@ -572,27 +640,34 @@ func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 }
 
 func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatus) (allocation, error) {
-	devMgrType, devRaw, devCfg, err := deserializeDevice(devStatus.Data.Raw)
+	serialized, err := deserializeDevice(devStatus.Data.Raw)
 	if err != nil {
-		return allocation{}, fmt.Errorf("failed to deserialize device from pool %s using device manager type %s", devStatus.Pool, devMgrType)
+		return allocation{}, fmt.Errorf("failed to deserialize device from pool %s: %w", devStatus.Pool, err)
 	}
 
-	devMgr, found := driver.deviceManagers[devMgrType]
+	devMgr, found := driver.deviceManagers[serialized.Manager]
 	if !found {
-		return allocation{}, fmt.Errorf("unknown device manager type %s", devMgrType)
+		return allocation{}, fmt.Errorf("unknown device manager type %s", serialized.Manager)
 	}
 
-	dev, err := devMgr.RestoreDevice(devRaw)
+	dev, err := devMgr.RestoreDevice(serialized.Dev)
 	if err != nil {
-		return allocation{}, fmt.Errorf("failed to restore device from pool %s using device manager type %s", devStatus.Pool, devMgrType)
+		return allocation{}, fmt.Errorf("failed to restore device from pool %s using device manager type %s: %w", devStatus.Pool, serialized.Manager, err)
+	}
+
+	var shareID kube_types.UID
+	if devStatus.ShareID != nil {
+		shareID = kube_types.UID(*devStatus.ShareID)
 	}
 
 	return allocation{
-		Device:     dev,
-		DeviceName: devStatus.Device,
-		Config:     devCfg,
-		Manager:    devMgrType,
-		Pool:       devStatus.Pool,
+		Device:           dev,
+		DeviceName:       devStatus.Device,
+		Pool:             devStatus.Pool,
+		Config:           serialized.Config,
+		Manager:          serialized.Manager,
+		ShareID:          shareID,
+		ConsumedCapacity: maps.Clone(serialized.ConsumedCapacity),
 	}, nil
 }
 
@@ -636,13 +711,15 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 		// Restore allocation state before DRA/NRI callbacks can arrive. Device
 		// manager discovery populates the independent inventory table.
 		driver.allocationTable.Insert(wtxn, &DRAAllocation{
-			DeviceName:     alloc.DeviceName,
-			Manager:        alloc.Manager,
-			PreparedDevice: alloc.Device,
-			Pool:           pool,
-			PodUID:         podUID,
-			ClaimUID:       claim.UID,
-			Config:         alloc.Config,
+			DeviceName:       alloc.DeviceName,
+			Manager:          alloc.Manager,
+			PreparedDevice:   alloc.Device,
+			Pool:             pool,
+			PodUID:           podUID,
+			ClaimUID:         claim.UID,
+			Config:           alloc.Config,
+			ShareID:          alloc.ShareID,
+			ConsumedCapacity: maps.Clone(alloc.ConsumedCapacity),
 		})
 
 		driver.logger.Debug("allocation device restored",
