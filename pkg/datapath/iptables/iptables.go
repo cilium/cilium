@@ -527,7 +527,7 @@ func (m *Manager) removeRules(prefix string) error {
 // renameChains renames iptables chains installed by Cilium.
 func (m *Manager) renameChains(prefix string) error {
 	for _, c := range ciliumChains {
-		if err := c.rename(true, m.haveIp6tables, prefix+c.name); err != nil {
+		if err := c.rename(true, m.haveIp6tables, prefix+c.name, ip4tables, ip6tables); err != nil {
 			return err
 		}
 	}

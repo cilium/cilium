@@ -162,7 +162,7 @@ func (c *customChain) doRename(prog runnable, newName string) error {
 	return nil
 }
 
-func (c *customChain) rename(ipv4, ipv6 bool, name string) error {
+func (c *customChain) rename(ipv4, ipv6 bool, name string, ip4tables, ip6tables runnable) error {
 	if ipv4 {
 		if err := c.doRename(ip4tables, name); err != nil {
 			return err
@@ -170,7 +170,7 @@ func (c *customChain) rename(ipv4, ipv6 bool, name string) error {
 	}
 	if ipv6 && c.ipv6 {
 		if err := c.doRename(ip6tables, name); err != nil {
-			return nil
+			return err
 		}
 	}
 
