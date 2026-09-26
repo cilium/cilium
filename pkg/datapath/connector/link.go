@@ -30,6 +30,9 @@ type LinkConfig struct {
 	// PeerIfName defines the interface name as seen in the container namespace.
 	PeerIfName string
 
+	// PeerRXQueues is the number of receive queues created on the netkit peer.
+	PeerRXQueues int
+
 	// PeerNamespace defines the namespace the peer link should be moved into.
 	PeerNamespace *netns.NetNS
 
