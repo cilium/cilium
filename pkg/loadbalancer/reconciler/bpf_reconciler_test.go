@@ -74,6 +74,12 @@ var (
 		80,
 		loadbalancer.ScopeExternal,
 	)
+	backend3 = loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		types.MustParseAddrCluster("10.1.0.3"),
+		80,
+		loadbalancer.ScopeExternal,
+	)
 
 	// frontendAddrs are assigned to the <auto>/autoAddr. Each test set is run with
 	// each of these.
@@ -165,12 +171,16 @@ type testCase struct {
 // faultyLBMaps wraps an LBMaps and can inject errors on map operations.
 type faultyLBMaps struct {
 	maps.LBMaps
-	fail              bool
-	failDeleteService bool
+	fail                    bool
+	failDeleteService       bool
+	failUpdateBackend       bool
+	shouldFailUpdateService func(maps.ServiceKey) bool
 }
 
 func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValue) error {
-	if m.fail && key.GetBackendSlot() > 0 {
+	hostKey := key.ToHost()
+	if hostKey.GetBackendSlot() > 0 &&
+		(m.fail || m.shouldFailUpdateService != nil && m.shouldFailUpdateService(hostKey)) {
 		return errors.New("update service failed")
 	}
 	return m.LBMaps.UpdateService(key, value)
@@ -181,6 +191,13 @@ func (m *faultyLBMaps) DeleteService(key maps.ServiceKey) error {
 		return errors.New("delete service failed")
 	}
 	return m.LBMaps.DeleteService(key)
+}
+
+func (m *faultyLBMaps) UpdateBackend(key maps.BackendKey, value maps.BackendValue) error {
+	if m.failUpdateBackend {
+		return errors.New("update backend failed")
+	}
+	return m.LBMaps.UpdateBackend(key, value)
 }
 
 var testServiceName = loadbalancer.NewServiceName("test", "test")
@@ -1098,7 +1115,7 @@ var sessionAffinityTestCases = []testCase{
 // mapErrorTestCases exercises the UpdateService error path.
 var mapErrorTestCases = []testCase{
 	// Step 1: Create a ClusterIP with one backend. This succeeds and establishes
-	// backendReferences[fe] = {backend1}.
+	// frontendStates[fe].backendReferences = {backend1}.
 	newTestCase(
 		"MapError_setup_1_backend",
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
@@ -1119,10 +1136,10 @@ var mapErrorTestCases = []testCase{
 		false,
 	),
 
-	// Step 2: Switch to backend2 with an error injected. updateBackendRevision
-	// runs for backend2 (creating backendStates[backend2]) but upsertService
-	// fails on the slot, so updateReferences is skipped. The invariant check
-	// in runTests verifies that backendStates[backend2].addr is still set.
+	// Step 2: Switch to backend2 with an error injected. Backend state and the
+	// frontend reference are recorded before upsertService fails on the slot,
+	// so the invariant check in runTests verifies that backendStates[backend2].addr
+	// is still set for cleanup or retry.
 	newTestCase(
 		"MapError_update_service_fails",
 		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
@@ -1168,6 +1185,136 @@ var mapErrorTestCases = []testCase{
 	),
 }
 
+// mapErrorDeleteTestCases verifies that deleting a frontend after a failed
+// update, but before the update is retried, does not leak the newly upserted
+// backend in the BPF maps or in BPFOps bookkeeping.
+var mapErrorDeleteTestCases = []testCase{
+	// Step 1: Create a ClusterIP with one backend. This succeeds and establishes
+	// frontendStates[fe].backendReferences = {backend1}.
+	newTestCase(
+		"MapErrorDelete_setup_1_backend",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = autoAddr
+			return false, []loadbalancer.Backend{
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+			}
+		},
+		[]maps.MapDump{
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"REV: ID=1 ADDR=<auto>",
+			"SVC: ID=0 ADDR=<auto>/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+		},
+		nil,
+		false,
+	),
+
+	// Step 2: Switch to backend2 and fail while updating its service slot. The
+	// backend map upsert has already succeeded and the new reference is retained
+	// so deletion can clean it up before a retry.
+	newTestCase(
+		"MapErrorDelete_update_service_fails",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = autoAddr
+			return false, []loadbalancer.Backend{
+				newTestBackend(backend2, loadbalancer.BackendStateActive),
+			}
+		},
+		nil, // maps not checked on error
+		nil,
+		true,
+	),
+
+	// Step 3: Delete the frontend before the failed update is retried. Pruning
+	// and the final runTests assertions verify that no BPF or in-memory state
+	// remains for either backend.
+	newTestCase(
+		"MapErrorDelete_delete_before_retry",
+		deleteFrontend(autoAddr, ClusterIP),
+		[]maps.MapDump{},
+		nil,
+		false,
+	),
+}
+
+// mapErrorShrinkTestCases verifies that releasing backend references does not
+// lose the number of service slots that still need to be removed after a
+// failed update.
+var mapErrorShrinkTestCases = []testCase{
+	newTestCase(
+		"MapErrorShrink_setup_3_backends",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = autoAddr
+			return false, []loadbalancer.Backend{
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+				newTestBackend(backend2, loadbalancer.BackendStateActive),
+				newTestBackend(backend3, loadbalancer.BackendStateActive),
+			}
+		},
+		[]maps.MapDump{
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"BE: ID=2 ADDR=10.1.0.2:80/TCP STATE=active",
+			"BE: ID=3 ADDR=10.1.0.3:80/TCP STATE=active",
+			"REV: ID=1 ADDR=<auto>",
+			"SVC: ID=0 ADDR=<auto>/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=3 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=3 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+		},
+		nil,
+		false,
+	),
+
+	// The backend references are released before updating slot 1. The slot
+	// update then fails, so the separately tracked slot count must remain 3.
+	newTestCase(
+		"MapErrorShrink_update_service_fails",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = autoAddr
+			return false, []loadbalancer.Backend{
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+			}
+		},
+		nil,
+		nil,
+		true,
+	),
+
+	newTestCase(
+		"MapErrorShrink_retry_cleans_old_slots",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (bool, []loadbalancer.Backend) {
+			fe.Type = ClusterIP
+			fe.Address = autoAddr
+			return false, []loadbalancer.Backend{
+				newTestBackend(backend1, loadbalancer.BackendStateActive),
+			}
+		},
+		[]maps.MapDump{
+			"BE: ID=1 ADDR=10.1.0.1:80/TCP STATE=active",
+			"REV: ID=1 ADDR=<auto>",
+			"SVC: ID=0 ADDR=<auto>/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+			"SVC: ID=1 ADDR=<auto>/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+InternalLocal+non-routable",
+		},
+		nil,
+		false,
+	),
+
+	newTestCase(
+		"MapErrorShrink_cleanup",
+		deleteFrontend(autoAddr, ClusterIP),
+		[]maps.MapDump{},
+		nil,
+		false,
+	),
+}
+
 var testCases = [][]testCase{
 	clusterIPTestCases,
 	quarantineTestCases,
@@ -1180,6 +1327,8 @@ var testCases = [][]testCase{
 	localRedirectTestCases,
 	sessionAffinityTestCases,
 	mapErrorTestCases,
+	mapErrorDeleteTestCases,
+	mapErrorShrinkTestCases,
 }
 
 type setWithAlgo struct {
@@ -1326,6 +1475,403 @@ var perServiceAlgorithmCases = []setWithAlgo{
 	},
 }
 
+type bpfOpsLeakTestFixture struct {
+	ops    *BPFOps
+	db     *statedb.DB
+	lbmaps maps.LBMaps
+}
+
+func newBPFOpsLeakTestFixture(
+	t *testing.T,
+	lbmaps maps.LBMaps,
+	nodeAddresses []netip.Addr,
+	configure func(*loadbalancer.Config, *loadbalancer.ExternalConfig),
+) bpfOpsLeakTestFixture {
+	t.Helper()
+
+	lc := hivetest.Lifecycle(t)
+	log := hivetest.Logger(t)
+	maglevCfg, err := maglev.UserConfig{
+		TableSize: 1021,
+		HashSeed:  maglev.DefaultHashSeed,
+	}.ToConfig()
+	require.NoError(t, err, "ToConfig")
+	maglev := maglev.New(maglevCfg, lc)
+
+	extCfg := loadbalancer.ExternalConfig{
+		ZoneMapper:           &option.DaemonConfig{},
+		EnableIPv4:           true,
+		EnableIPv6:           true,
+		KubeProxyReplacement: true,
+		DefaultLBServiceIPAM: "lbipam",
+		EnableLBIPAM:         true,
+	}
+	cfg, err := loadbalancer.NewConfig(log, loadbalancer.DefaultUserConfig, &option.DaemonConfig{})
+	require.NoError(t, err, "NewConfig")
+	if configure != nil {
+		configure(&cfg, &extCfg)
+	}
+
+	db := statedb.New()
+	nodeAddrs, err := tables.NewNodeAddressTable(db)
+	require.NoError(t, err, "NewNodeAddressTable")
+	frontends, err := loadbalancer.NewFrontendsTable(cfg, db)
+	require.NoError(t, err, "NewFrontendsTable")
+	if len(nodeAddresses) > 0 {
+		wtxn := db.WriteTxn(nodeAddrs)
+		for _, addr := range nodeAddresses {
+			_, _, err := nodeAddrs.Insert(wtxn, tables.NodeAddress{
+				Addr:       addr,
+				NodePort:   true,
+				Primary:    true,
+				DeviceName: "test0",
+			})
+			require.NoError(t, err, "insert node address")
+		}
+		wtxn.Commit()
+	}
+
+	if lbmaps == nil {
+		lbmaps = maps.NewFakeLBMaps()
+	}
+	ops := newBPFOps(bpfOpsParams{
+		Lifecycle:      lc,
+		Log:            log,
+		Config:         cfg,
+		ExternalConfig: extCfg,
+		LBMaps:         lbmaps,
+		Maglev:         maglev,
+		DB:             db,
+		NodeAddresses:  nodeAddrs,
+		Frontends:      frontends,
+		Metrics:        newReconcilerMetrics(),
+	})
+
+	return bpfOpsLeakTestFixture{ops: ops, db: db, lbmaps: lbmaps}
+}
+
+func newLeakTestFrontend(
+	addr loadbalancer.L3n4Addr,
+	typ loadbalancer.SVCType,
+	backends ...loadbalancer.Backend,
+) loadbalancer.Frontend {
+	svc := baseService
+	fe := baseFrontend
+	fe.Address = addr
+	fe.Type = typ
+	fe.Service = &svc
+	for i := range backends {
+		fe.Backends = concatBe(fe.Backends, backends[i], statedb.Revision(i+1))
+	}
+	return fe
+}
+
+func hasWildcardService(t *testing.T, lbmaps maps.LBMaps, addr loadbalancer.L3n4Addr) bool {
+	t.Helper()
+	found := false
+	err := lbmaps.DumpService(func(key maps.ServiceKey, _ maps.ServiceValue) {
+		key = key.ToHost()
+		found = found || key.GetAddress() == addr.Addr() &&
+			key.GetPort() == WildcardPortNumber &&
+			key.GetProtocol() == uint8(WildcardProtoNumber)
+	})
+	require.NoError(t, err, "DumpService")
+	return found
+}
+
+func maglevEntryCount(t *testing.T, lbmaps maps.LBMaps) int {
+	t.Helper()
+	count := 0
+	err := lbmaps.DumpMaglev(func(
+		maps.MaglevOuterKey,
+		maps.MaglevOuterVal,
+		maps.MaglevInnerKey,
+		*maps.MaglevInnerVal,
+		bool,
+	) {
+		count++
+	})
+	require.NoError(t, err, "DumpMaglev")
+	return count
+}
+
+func affinityEntryCount(t *testing.T, lbmaps maps.LBMaps) int {
+	t.Helper()
+	count := 0
+	err := lbmaps.DumpAffinityMatch(func(*maps.AffinityMatchKey, *maps.AffinityMatchValue) {
+		count++
+	})
+	require.NoError(t, err, "DumpAffinityMatch")
+	return count
+}
+
+func TestBPFOpsLeakRegressions(t *testing.T) {
+	t.Run("partial NodePort expansion is deleted", func(t *testing.T) {
+		firstNodeAddr := netip.MustParseAddr("10.0.0.3")
+		failingNodeAddr := netip.MustParseAddr("10.0.0.4")
+		fakeMaps := maps.NewFakeLBMaps()
+		faultMaps := &faultyLBMaps{
+			LBMaps: fakeMaps,
+			shouldFailUpdateService: func(key maps.ServiceKey) bool {
+				return key.GetAddress() == failingNodeAddr
+			},
+		}
+		fixture := newBPFOpsLeakTestFixture(
+			t,
+			faultMaps,
+			[]netip.Addr{firstNodeAddr, failingNodeAddr},
+			nil,
+		)
+
+		parentAddr := loadbalancer.NewL3n4Addr(
+			loadbalancer.TCP,
+			types.MustParseAddrCluster("0.0.0.0"),
+			30080,
+			loadbalancer.ScopeExternal,
+		)
+		frontend := newLeakTestFrontend(parentAddr, NodePort, baseBackend)
+		err := fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend)
+		require.Error(t, err, "Update")
+
+		successfulExpansion := loadbalancer.NewL3n4Addr(
+			parentAddr.Protocol(),
+			types.AddrClusterFrom(firstNodeAddr, 0),
+			parentAddr.Port(),
+			parentAddr.Scope(),
+		)
+		failedExpansion := loadbalancer.NewL3n4Addr(
+			parentAddr.Protocol(),
+			types.AddrClusterFrom(failingNodeAddr, 0),
+			parentAddr.Port(),
+			parentAddr.Scope(),
+		)
+		require.Contains(t, fixture.ops.serviceIDAlloc.addrToId, successfulExpansion,
+			"first expanded frontend was not programmed before the injected failure")
+		require.Contains(t, fixture.ops.frontendStates, failedExpansion,
+			"failed expanded frontend did not create partial state")
+		key := nodePortAddrKey{
+			family:   parentAddr.IsIPv6(),
+			protocol: loadbalancer.L4TypeAsProtocolNumber(parentAddr.Protocol()),
+			port:     parentAddr.Port(),
+		}
+		require.ElementsMatch(t, []netip.Addr{firstNodeAddr, failingNodeAddr},
+			fixture.ops.nodePortAddrByPort[key], "partially attempted expansions were not tracked")
+
+		faultMaps.shouldFailUpdateService = nil
+		require.NoError(t, fixture.ops.Delete(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Delete")
+
+		remainingMaps := dumpLBMapsWithReplace(fakeMaps, parentAddr, false)
+		if len(remainingMaps) != 0 || !fixture.ops.StateIsEmpty() {
+			t.Fatalf("NodePort deletion leaked state after a partial expansion\nBPF maps:\n%sinternal state:\n%s",
+				showMaps(remainingMaps), fixture.ops.StateSummary())
+		}
+	})
+
+	t.Run("wildcard is removed when frontend becomes ineligible", func(t *testing.T) {
+		fixture := newBPFOpsLeakTestFixture(t, nil, nil, func(cfg *loadbalancer.Config, _ *loadbalancer.ExternalConfig) {
+			cfg.EnableWildcardEntries = true
+		})
+		frontend := newLeakTestFrontend(extraFrontend, LoadBalancer)
+
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "initial Update")
+		require.True(t, hasWildcardService(t, fixture.lbmaps, frontend.Address), "wildcard service was not programmed")
+
+		otherClass := "example.com/other"
+		frontend.Service.LoadBalancerClass = &otherClass
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "class Update")
+
+		parentState := fixture.ops.frontendStates[frontend.Address]
+		wildcardAddr := wildcardStateAddr(frontend.Address)
+		if hasWildcardService(t, fixture.lbmaps, frontend.Address) ||
+			parentState == nil || parentState.wildcardRefCount != 0 ||
+			fixture.ops.frontendStates[wildcardAddr] != nil {
+			t.Fatalf("wildcard ownership remained after the frontend became ineligible\n%s", fixture.ops.StateSummary())
+		}
+	})
+
+	t.Run("Maglev is removed when algorithm changes", func(t *testing.T) {
+		fixture := newBPFOpsLeakTestFixture(t, nil, nil, func(cfg *loadbalancer.Config, _ *loadbalancer.ExternalConfig) {
+			cfg.AlgorithmAnnotation = true
+			cfg.LBAlgorithm = loadbalancer.LBAlgorithmRandom
+		})
+		frontend := newLeakTestFrontend(extraFrontend, LoadBalancer, baseBackend)
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmMaglev,
+		}
+
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Maglev Update")
+		require.Equal(t, 1, maglevEntryCount(t, fixture.lbmaps), "Maglev entries after initial Update")
+
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmRandom,
+		}
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "random Update")
+		require.Zero(t, maglevEntryCount(t, fixture.lbmaps), "stale Maglev entries after algorithm change")
+	})
+
+	t.Run("startup prune removes stale Maglev", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		configure := func(cfg *loadbalancer.Config, _ *loadbalancer.ExternalConfig) {
+			cfg.AlgorithmAnnotation = true
+			cfg.LBAlgorithm = loadbalancer.LBAlgorithmRandom
+		}
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, configure)
+		frontend := newLeakTestFrontend(extraFrontend, LoadBalancer, baseBackend)
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmMaglev,
+		}
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Maglev Update")
+		require.Equal(t, 1, maglevEntryCount(t, lbmaps), "Maglev entries before restart")
+
+		fixture = newBPFOpsLeakTestFixture(t, lbmaps, nil, configure)
+		frontend = newLeakTestFrontend(extraFrontend, LoadBalancer, baseBackend)
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmRandom,
+		}
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "random Update")
+		require.Equal(t, 1, maglevEntryCount(t, lbmaps), "Maglev should remain until Prune")
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+		require.Zero(t, maglevEntryCount(t, lbmaps), "stale Maglev entries after Prune")
+	})
+
+	t.Run("failed startup update preserves Maglev", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		configure := func(cfg *loadbalancer.Config, _ *loadbalancer.ExternalConfig) {
+			cfg.AlgorithmAnnotation = true
+			cfg.LBAlgorithm = loadbalancer.LBAlgorithmRandom
+		}
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, configure)
+		frontend := newLeakTestFrontend(extraFrontend, LoadBalancer, baseBackend)
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmMaglev,
+		}
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Maglev Update")
+		require.Equal(t, 1, maglevEntryCount(t, lbmaps), "Maglev entries before restart")
+
+		faultMaps := &faultyLBMaps{LBMaps: lbmaps, fail: true}
+		fixture = newBPFOpsLeakTestFixture(t, faultMaps, nil, configure)
+		frontend = newLeakTestFrontend(extraFrontend, LoadBalancer, baseBackend)
+		frontend.Service.Annotations = map[string]string{
+			annotation.ServiceLoadBalancingAlgorithm: loadbalancer.LBAlgorithmMaglev,
+		}
+		require.Error(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "failed Maglev Update")
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+		require.Equal(t, 1, maglevEntryCount(t, lbmaps), "Maglev entries after failed startup Update")
+	})
+
+	t.Run("startup prune removes stale session affinity", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		frontend := newLeakTestFrontend(extraFrontend, ClusterIP, baseBackend)
+		frontend.Service.SessionAffinity = true
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "affinity Update")
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "affinity entries before restart")
+
+		fixture = newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		frontend = newLeakTestFrontend(extraFrontend, ClusterIP, baseBackend)
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "non-affinity Update")
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "affinity entry should remain until Prune")
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+		require.Zero(t, affinityEntryCount(t, lbmaps), "stale affinity entries after Prune")
+	})
+
+	t.Run("failed startup update preserves session affinity", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		frontend := newLeakTestFrontend(extraFrontend, ClusterIP, baseBackend)
+		frontend.Service.SessionAffinity = true
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "affinity Update")
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "affinity entries before restart")
+
+		faultMaps := &faultyLBMaps{LBMaps: lbmaps, failUpdateBackend: true}
+		fixture = newBPFOpsLeakTestFixture(t, faultMaps, nil, nil)
+		frontend = newLeakTestFrontend(extraFrontend, ClusterIP, baseBackend)
+		frontend.Service.SessionAffinity = true
+		require.Error(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "failed affinity Update")
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+		require.Equal(t, 1, affinityEntryCount(t, lbmaps), "affinity entries after failed startup Update")
+	})
+
+	programQuarantinedFrontend := func(t *testing.T, lbmaps maps.LBMaps) loadbalancer.L3n4Addr {
+		t.Helper()
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		quarantinedBackend := newTestBackend(backend1, loadbalancer.BackendStateActive)
+		quarantinedBackend.Unhealthy = true
+		frontend := newLeakTestFrontend(extraFrontend, ClusterIP, quarantinedBackend)
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "quarantined Update")
+		return frontend.Address
+	}
+
+	t.Run("restored quarantine drops backends omitted by frontend", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		frontendAddr := programQuarantinedFrontend(t, lbmaps)
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+
+		restoredState := fixture.ops.frontendStates[frontendAddr]
+		require.NotNil(t, restoredState, "restored frontend state")
+		require.Contains(t, restoredState.restoredQuarantinedBackends, backend1,
+			"quarantined backend was not restored")
+
+		frontend := newLeakTestFrontend(frontendAddr, ClusterIP,
+			newTestBackend(backend2, loadbalancer.BackendStateActive))
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Update")
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+
+		state := fixture.ops.frontendStates[frontendAddr]
+		require.NotNil(t, state, "updated frontend state")
+		require.Empty(t, state.restoredQuarantinedBackends,
+			"restored quarantine state for an omitted backend remains")
+	})
+
+	t.Run("restored quarantine retains referenced backends", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		firstBackend := newTestBackend(backend1, loadbalancer.BackendStateActive)
+		firstBackend.Unhealthy = true
+		secondBackend := newTestBackend(backend2, loadbalancer.BackendStateActive)
+		secondBackend.Unhealthy = true
+		frontend := newLeakTestFrontend(extraFrontend, ClusterIP, firstBackend, secondBackend)
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "quarantined Update")
+
+		fixture = newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+		state := fixture.ops.frontendStates[frontend.Address]
+		require.NotNil(t, state, "restored frontend state")
+		require.Contains(t, state.restoredQuarantinedBackends, backend1,
+			"first quarantined backend was not restored")
+		require.Contains(t, state.restoredQuarantinedBackends, backend2,
+			"second quarantined backend was not restored")
+
+		frontend = newLeakTestFrontend(extraFrontend, ClusterIP,
+			newTestBackend(backend2, loadbalancer.BackendStateActive))
+		require.NoError(t, fixture.ops.Update(context.TODO(), fixture.db.ReadTxn(), 0, &frontend), "Update")
+
+		state = fixture.ops.frontendStates[frontend.Address]
+		require.NotNil(t, state, "updated frontend state")
+		require.NotContains(t, state.restoredQuarantinedBackends, backend1,
+			"restored quarantine state for an omitted backend remains")
+		require.Contains(t, state.restoredQuarantinedBackends, backend2,
+			"restored quarantine state for a referenced backend was dropped")
+	})
+
+	t.Run("startup prune removes restore-only quarantine state", func(t *testing.T) {
+		lbmaps := maps.NewFakeLBMaps()
+		frontendAddr := programQuarantinedFrontend(t, lbmaps)
+		fixture := newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
+
+		restoredState := fixture.ops.frontendStates[frontendAddr]
+		require.NotNil(t, restoredState, "restored frontend state")
+		require.Contains(t, restoredState.restoredQuarantinedBackends, backend1,
+			"quarantined backend was not restored")
+
+		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
+		remainingMaps := dumpLBMapsWithReplace(lbmaps, frontendAddr, false)
+		if len(remainingMaps) != 0 || !fixture.ops.StateIsEmpty() {
+			t.Fatalf("startup pruning leaked restore-only quarantine state\nBPF maps:\n%sinternal state:\n%s",
+				showMaps(remainingMaps), fixture.ops.StateSummary())
+		}
+	})
+}
+
 func TestBPFOps(t *testing.T) {
 	lc := hivetest.Lifecycle(t)
 	log := hivetest.Logger(t)
@@ -1437,8 +1983,7 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remains")
-		require.Empty(t, ops.backendReferences, "Backend references remain")
-		require.Empty(t, ops.wildcardReferences, "Wildcard references remain")
+		require.Empty(t, ops.frontendStates, "Frontend state remains")
 	})
 
 	runTests := func(ops *BPFOps, testCaseSet []testCase, algo string, addr loadbalancer.L3n4Addr, validateMaglev bool) {
@@ -1554,7 +2099,7 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
 		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remain")
-		require.Empty(t, ops.backendReferences, "Backend references remain")
+		require.Empty(t, ops.frontendStates, "Frontend state remains")
 		require.Empty(t, ops.nodePortAddrByPort, "NodePort addrs state remain")
 	}
 
