@@ -107,6 +107,7 @@ mock_ctx_gso_size(const struct __sk_buff *ctx __maybe_unused)
 # include "lib/bpf_host.h"
 #endif /* ATTACHMENT_XDP */
 
+ASSIGN_CONFIG(bool, enable_dsr, true)
 #if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
 ASSIGN_CONFIG(__u16, tunnel_port, 6081)

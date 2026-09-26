@@ -20,7 +20,6 @@
 
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
-#define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 

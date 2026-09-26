@@ -168,6 +168,8 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
 
+	node.EnableDSR = lnc.LBConfig.LoadBalancerUsesDSR()
+
 	node.EnableSCTP = option.Config.EnableSCTP
 
 	return node

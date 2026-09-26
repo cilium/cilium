@@ -9,7 +9,6 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION
-#define ENABLE_DSR		1
 
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_GENEVE	3
@@ -82,6 +81,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
+ASSIGN_CONFIG(bool, enable_dsr, true)
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)

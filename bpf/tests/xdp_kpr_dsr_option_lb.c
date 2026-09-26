@@ -6,7 +6,6 @@
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 #define ENABLE_NODEPORT			1
-#define ENABLE_DSR			1
 #define DSR_ENCAP_GENEVE		3
 
 #define ENABLE_NODEPORT_ACCELERATION	1
