@@ -1,6 +1,10 @@
 name: Resource Churn Test
 
 on:
+  push:
+    branches:
+      - pr/fristonio/ci/resource-churn
+
   workflow_dispatch:
     inputs:
       test-tag:
@@ -23,6 +27,7 @@ on:
           - selectors-churn
           - l7-policy-identity-churn
           - l7-identity-churn
+          - test-scenario
 
 permissions:
   # To be able to trigger eks-cluster-pool-manager.yaml workflow
@@ -69,8 +74,8 @@ jobs:
       CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
       CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "false"
 
-      CL2_TEST_DURATION_SECONDS: "1200"
-      CL2_KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS: "600"
+      CL2_TEST_DURATION_SECONDS: "600"
+      CL2_KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS: "300"
       CL2_ENABLE_VIOLATIONS: "false"
     steps:
       - name: Checkout context ref (trusted)
@@ -89,8 +94,8 @@ jobs:
           SCENARIO: ${{ inputs.scenario }}
         run: |
           if [ "${GITHUB_EVENT_NAME}" == "push" ]; then
-            : "${TEST_TAG:=}"
-            : "${BASE_TAG:=}"
+            : "${TEST_TAG:=9a3c26f57f39dea81acf33b7a3e3cd50eb0194f1}"
+            : "${BASE_TAG:=04eeeebce24672eff21de550aabdbe884f35c947}"
           fi
           : "${SCENARIO:=test-scenario}"
 
