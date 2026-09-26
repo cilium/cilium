@@ -1,0 +1,35 @@
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: pool-with-invalid-epp
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    matchLabels:
+      app: primary-inference-model-server
+  targetPorts:
+  - number: 3000
+  endpointPickerRef:
+    name: non-existent-epp-svc
+    kind: Service
+    port:
+      number: 9002
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-for-invalid-epp-pool
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - name: conformance-primary
+    namespace: inference-conformance-infra
+  rules:
+  - backendRefs:
+    - name: pool-with-invalid-epp
+      kind: InferencePool
+      group: inference.networking.k8s.io
+    matches:
+    - path:
+        type: PathPrefix
+        value: /invalid-epp-test

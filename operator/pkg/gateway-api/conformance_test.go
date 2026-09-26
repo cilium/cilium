@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	gie "sigs.k8s.io/gateway-api-inference-extension/conformance"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance"
 	"sigs.k8s.io/gateway-api/pkg/features"
@@ -77,4 +78,43 @@ func TestConformance(t *testing.T) {
 	options.UsableNetworkAddresses = usableNetworkAddresses
 	options.SkipTests = append(options.SkipTests, skipTests...)
 	conformance.RunConformanceWithOptions(t, options)
+}
+
+func TestGIEConformance(t *testing.T) {
+	testutils.GIEConformanceTest(t)
+	var skipTests []string
+	options := gie.DefaultOptions(t)
+	var usableNetworkAddresses []v1.GatewaySpecAddress
+	var unusableNetworkAddresses []v1.GatewaySpecAddress
+	usableAddresses := os.Getenv(usableNetworkAddressesEnv)
+	if usableAddresses == "" {
+		t.Logf("Set %s to run this test", features.SupportGatewayStaticAddresses)
+		skipTests = append(skipTests, string(features.SupportGatewayStaticAddresses))
+	} else {
+		addressType := v1.IPAddressType
+		for value := range strings.SplitSeq(usableAddresses, ",") {
+			usableNetworkAddresses = append(usableNetworkAddresses, v1.GatewaySpecAddress{
+				Type:  &addressType,
+				Value: value,
+			})
+		}
+	}
+	unusableAddresses := os.Getenv(unusableNetworkAddressesEnv)
+	if unusableAddresses == "" {
+		t.Logf("Set %s to run this test", features.SupportGatewayStaticAddresses)
+		skipTests = append(skipTests, string(features.SupportGatewayStaticAddresses))
+	} else {
+		addressType := v1.IPAddressType
+		for value := range strings.SplitSeq(unusableAddresses, ",") {
+			unusableNetworkAddresses = append(unusableNetworkAddresses, v1.GatewaySpecAddress{
+				Type:  &addressType,
+				Value: value,
+			})
+		}
+	}
+	options.TimeoutConfig.DefaultPollInterval = 1 * time.Second
+	options.UnusableNetworkAddresses = unusableNetworkAddresses
+	options.UsableNetworkAddresses = usableNetworkAddresses
+	options.SkipTests = append(options.SkipTests, skipTests...)
+	gie.RunConformanceWithOptions(t, options)
 }

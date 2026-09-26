@@ -14,6 +14,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -42,20 +43,22 @@ type gatewayReconciler struct {
 	scheme     *runtime.Scheme
 	translator translation.Translator
 
-	inputLoader                   *loading.TranslationInputLoader
-	gatewayStatusManager          *GatewayStatusManager
-	listenerStatusManager         *ListenerStatusManager
-	routeStatusManager            *RouteStatusManager
-	backendTLSPolicyStatusManager *BackendTLSPolicyStatusManager
-	logger                        *slog.Logger
-	controllerName                string
-	tcpUDPRouteSupport            bool
-	tcpUDPUnsupportedReason       string
-	hostNetworkEnabled            bool
-	hostNetworkLabel              metav1.LabelSelector
+	inputLoader                         *loading.TranslationInputLoader
+	gatewayStatusManager                *GatewayStatusManager
+	listenerStatusManager               *ListenerStatusManager
+	routeStatusManager                  *RouteStatusManager
+	backendTLSPolicyStatusManager       *BackendTLSPolicyStatusManager
+	inferencePoolStatusManager          *InferencePoolStatusManager
+	logger                              *slog.Logger
+	controllerName                      string
+	tcpUDPRouteSupport                  bool
+	tcpUDPUnsupportedReason             string
+	hostNetworkEnabled                  bool
+	hostNetworkLabel                    metav1.LabelSelector
+	gatewayAPIInferenceExtensionEnabled bool
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector, gatewayAPIInferenceExtensionEnabled bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 	includeTCPRoutes := helpers.HasTCPRouteSupport(mgr.GetScheme())
 	includeUDPRoutes := helpers.HasUDPRouteSupport(mgr.GetScheme())
@@ -70,6 +73,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 			IncludeUDPRoutes:      includeUDPRoutes,
 			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
 			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
+			IncludeInferencePools: helpers.HasInferencePoolSupport(mgr.GetScheme()),
 		}),
 		gatewayStatusManager: NewGatewayStatusManager(mgr.GetClient(), scopedLog, hostNetworkLabel),
 		listenerStatusManager: NewListenerStatusManager(
@@ -91,13 +95,15 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
 			},
 		),
-		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
-		logger:                        scopedLog,
-		controllerName:                controllerName,
-		tcpUDPRouteSupport:            tcpUDPRouteSupport,
-		tcpUDPUnsupportedReason:       hostNetworkTCPUDPRouteUnsupportedReason,
-		hostNetworkEnabled:            hostNetworkEnabled,
-		hostNetworkLabel:              hostNetworkLabel,
+		backendTLSPolicyStatusManager:       NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
+		inferencePoolStatusManager:          NewInferencePoolStatusManager(mgr.GetClient(), controllerName),
+		logger:                              scopedLog,
+		controllerName:                      controllerName,
+		tcpUDPRouteSupport:                  tcpUDPRouteSupport,
+		tcpUDPUnsupportedReason:             hostNetworkTCPUDPRouteUnsupportedReason,
+		hostNetworkEnabled:                  hostNetworkEnabled,
+		hostNetworkLabel:                    hostNetworkLabel,
+		gatewayAPIInferenceExtensionEnabled: gatewayAPIInferenceExtensionEnabled,
 	}
 }
 
@@ -111,6 +117,7 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	udpRouteEnabled := helpers.HasUDPRouteSupport(scheme)
 	serviceImportEnabled := helpers.HasServiceImportSupport(scheme)
 	listenerSetEnabled := helpers.HasListenerSetSupport(scheme)
+	inferencePoolEnabled := helpers.HasInferencePoolSupport(scheme)
 
 	if err := r.inputLoader.SetupIndexes(mgr); err != nil {
 		return err
@@ -172,5 +179,10 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		gatewayBuilder = gatewayBuilder.Watches(&mcsapiv1beta1.ServiceImport{}, watchhandlers.EnqueueRequestForBackendServiceImport(r.client, *r.logger, r.controllerName))
 	}
 
+	if inferencePoolEnabled {
+		// Watch for changes to InferencePool and InferenceObjective
+		gatewayBuilder = gatewayBuilder.Watches(&gateway_inf_ext.InferencePool{}, watchhandlers.EnqueueRequestForOwningInferencePool(r.client, r.logger, r.controllerName)).
+			Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName))
+	}
 	return gatewayBuilder.Complete(r)
 }

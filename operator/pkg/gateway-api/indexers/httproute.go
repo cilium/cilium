@@ -88,6 +88,10 @@ func GenerateIndexerHTTPRouteByBackendService(c helpers.ClientReader, logger *sl
 
 		for _, rule := range route.Spec.Rules {
 			for _, backend := range rule.BackendRefs {
+				// check that it is not an inference pool. If it is, skip
+				if helpers.IsInferencePool(backend.BackendObjectReference) {
+					continue
+				}
 				namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
 				backendServiceName, err := helpers.GetBackendServiceName(c, namespace, backend.BackendObjectReference)
 				if err != nil {
@@ -193,4 +197,26 @@ func IndexHTTPRouteByBackendServiceImport(rawObj client.Object) []string {
 		}
 	}
 	return backendServiceImports
+}
+
+// GenerateIndexerHTTPRouteByInferencePool makes a client.IndexerFunc that takes a single HTTPRoute and
+// returns all referenced InferencePool full names (`namespace/name`) to add to the relevant index.
+func GenerateIndexerHTTPRouteByInferencePool(rawObj client.Object) []string {
+	httpRoute, ok := rawObj.(*gatewayv1.HTTPRoute)
+	if !ok {
+		return nil
+	}
+	var infPools []string
+	for _, rule := range httpRoute.Spec.Rules {
+		for _, backend := range rule.BackendRefs {
+			if !helpers.IsInferencePool(backend.BackendObjectReference) {
+				continue
+			}
+			infPools = append(infPools, types.NamespacedName{
+				Namespace: helpers.NamespaceDerefOr(backend.Namespace, httpRoute.Namespace),
+				Name:      string(backend.Name),
+			}.String())
+		}
+	}
+	return infPools
 }

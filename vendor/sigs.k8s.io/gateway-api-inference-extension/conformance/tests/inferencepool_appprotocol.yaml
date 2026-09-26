@@ -1,0 +1,71 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-for-inferencepool-appprotocol-h2c
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+    sectionName: http
+  hostnames:
+  - "appprotocol-h2c.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: appprotocol-h2c-inference-pool
+    matches:
+    - path:
+        type: PathPrefix
+        value: /inferencepool-app-protocol-h2c
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-for-inferencepool-appprotocol-http
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+    sectionName: http
+  hostnames:
+  - "appprotocol-http.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: appprotocol-http-inference-pool
+    matches:
+    - path:
+        type: PathPrefix
+        value: /inferencepool-app-protocol-http
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-for-inferencepool-appprotocol-default
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+    sectionName: http
+  hostnames:
+  - "appprotocol-default.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: primary-inference-pool
+    matches:
+    - path:
+        type: PathPrefix
+        value: /inferencepool-app-protocol-default
