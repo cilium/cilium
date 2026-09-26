@@ -1,0 +1,156 @@
+name: Collect node logs
+description: |
+  Archives the kubelet-rotated logs (/var/log/pods) of the pods matching a
+  selector on one node into <output-path>/<archive-name>. Unlike `kubectl logs`
+  these survive log rotation, so they cover a whole long-running test.
+
+inputs:
+  node:
+    description: 'Name of the node to collect the logs from.'
+    required: true
+  pod-selector:
+    description: 'Label selector of the pods on the node whose logs are collected, eg k8s-app=cilium.'
+    required: true
+  output-path:
+    description: 'Directory the archive is written to, as <output-path>/<archive-name>.'
+    required: true
+  archive-name:
+    description: 'File name of the written archive, <node>.zip when left empty.'
+    required: false
+    default: ''
+  collector-namespace:
+    description: 'Namespace the throw-away collector pod runs in.'
+    required: false
+    default: 'kube-system'
+
+outputs:
+  archive:
+    description: 'Path of the written archive.'
+    value: ${{ steps.archive.outputs.archive }}
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve the log directories of the selected pods
+      id: resolve
+      shell: bash
+      env:
+        NODE: ${{ inputs.node }}
+        POD_SELECTOR: ${{ inputs.pod-selector }}
+      run: |
+        # kubelet keeps the logs of a pod under: /var/log/pods/<namespace>_<name>_<uid>
+        log_dirs=()
+        while read -r namespace name uid; do
+          [[ -n "${name}" ]] || continue
+          log_dirs+=("${namespace}_${name}_${uid}")
+        done < <(
+          kubectl get pods \
+            --all-namespaces \
+            --selector "${POD_SELECTOR}" \
+            --field-selector "spec.nodeName=${NODE}" \
+            --output 'jsonpath={range .items[*]}{.metadata.namespace} {.metadata.name} {.metadata.uid}{"\n"}{end}'
+        )
+
+        if [[ "${#log_dirs[@]}" -eq 0 ]]; then
+          echo "Error: no pod matching '${POD_SELECTOR}' found on node ${NODE}" >&2
+          exit 1
+        fi
+
+        printf 'Collecting /var/log/pods/%s\n' "${log_dirs[@]}"
+        echo "log_dirs=${log_dirs[*]}" >> "$GITHUB_OUTPUT"
+
+    - name: Start the node log collector pod
+      shell: bash
+      env:
+        NODE: ${{ inputs.node }}
+        COLLECTOR_NAMESPACE: ${{ inputs.collector-namespace }}
+      run: |
+        set -euo pipefail
+
+        kubectl apply --filename - <<EOF
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: node-log-collector
+          namespace: ${COLLECTOR_NAMESPACE}
+        spec:
+          nodeName: ${NODE}
+          hostNetwork: true
+          tolerations:
+            - operator: Exists
+          restartPolicy: Never
+          terminationGracePeriodSeconds: 0
+          containers:
+            - name: collector
+              image: docker.io/library/busybox:1.37.0
+              command: ["sh", "-c", "sleep 600"]
+              securityContext:
+                privileged: true
+                runAsUser: 0
+                runAsNonRoot: false
+              volumeMounts:
+                - name: node-logs
+                  mountPath: /node-logs
+                  readOnly: true
+          volumes:
+            - name: node-logs
+              hostPath:
+                path: /var/log/pods
+                type: Directory
+        EOF
+
+        kubectl wait pod node-log-collector \
+          --namespace "${COLLECTOR_NAMESPACE}" \
+          --for=condition=Ready \
+          --timeout=2m
+
+    - name: Collect the node logs into a staging directory
+      id: collect
+      shell: bash
+      env:
+        COLLECTOR_NAMESPACE: ${{ inputs.collector-namespace }}
+        LOG_DIRS: ${{ steps.resolve.outputs.log_dirs }}
+      run: |
+        staging="$(mktemp --directory "${RUNNER_TEMP}/node-log-collector.XXXXXX")"
+
+        read -r -a log_dirs <<< "${LOG_DIRS}"
+        kubectl exec --namespace "${COLLECTOR_NAMESPACE}" node-log-collector \
+          -- tar -C /node-logs -cf - "${log_dirs[@]}" \
+          | tar -C "${staging}" -xf -
+
+        echo "staging=${staging}" >> "$GITHUB_OUTPUT"
+
+    - name: Archive the node logs
+      id: archive
+      shell: bash
+      env:
+        NODE: ${{ inputs.node }}
+        OUTPUT_PATH: ${{ inputs.output-path }}
+        ARCHIVE_NAME: ${{ inputs.archive-name }}
+        STAGING: ${{ steps.collect.outputs.staging }}
+      run: |
+        mkdir -p "${OUTPUT_PATH}"
+        archive="$(realpath "${OUTPUT_PATH}")/${ARCHIVE_NAME:-${NODE}.zip}"
+        rm -f "${archive}"
+
+        (cd "${STAGING}" && zip --recurse-paths --quiet "${archive}" .)
+        chmod a+r "${archive}"
+        unzip -l "${archive}"
+
+        echo "archive=${archive}" >> "$GITHUB_OUTPUT"
+
+    - name: Delete the node log collector pod and the staging directory
+      if: always()
+      shell: bash
+      env:
+        COLLECTOR_NAMESPACE: ${{ inputs.collector-namespace }}
+        STAGING: ${{ steps.collect.outputs.staging }}
+      run: |
+        kubectl delete pod node-log-collector \
+          --namespace "${COLLECTOR_NAMESPACE}" \
+          --ignore-not-found \
+          --wait=false
+
+        if [[ -n "${STAGING}" ]]; then
+          rm -rf "${STAGING}"
+        fi
