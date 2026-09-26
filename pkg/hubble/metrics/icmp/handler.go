@@ -13,9 +13,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 )
 
@@ -62,9 +62,9 @@ func (h *icmpHandler) ListMetricVec() []*prometheus.MetricVec {
 	return []*prometheus.MetricVec{h.icmp.MetricVec}
 }
 
-func (h *icmpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
-	l4 := flow.GetL4()
-	if l4 == nil {
+func (h *icmpHandler) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
+	l4 := flow.L4
+	if l4.IsEmpty() {
 		return nil
 	}
 
@@ -77,13 +77,13 @@ func (h *icmpHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error 
 		return err
 	}
 
-	if icmp := l4.GetICMPv4(); icmp != nil {
+	if icmp := l4.ICMPv4; !icmp.IsEmpty() {
 		labels := []string{"IPv4", layers.CreateICMPv4TypeCode(uint8(icmp.Type), uint8(icmp.Code)).String()}
 		labels = append(labels, labelValues...)
 		h.icmp.WithLabelValues(labels...).Inc()
 	}
 
-	if icmp := l4.GetICMPv6(); icmp != nil {
+	if icmp := l4.ICMPv6; !icmp.IsEmpty() {
 		labels := []string{"IPv6", layers.CreateICMPv6TypeCode(uint8(icmp.Type), uint8(icmp.Code)).String()}
 		labels = append(labels, labelValues...)
 		h.icmp.WithLabelValues(labels...).Inc()

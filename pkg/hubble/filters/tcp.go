@@ -12,8 +12,15 @@ import (
 
 func filterByTCPFlags(flags []*flowpb.TCPFlags) FilterFunc {
 	return func(ev *v1.Event) bool {
-		flowFlags := ev.GetFlow().GetL4().GetTCP().GetFlags()
-		if flowFlags == nil {
+		if ev == nil {
+			return false
+		}
+		fl := ev.GetFlow()
+		if fl == nil {
+			return false
+		}
+		flowFlags := fl.L4.TCP.Flags
+		if flowFlags.IsEmpty() {
 			return false
 		}
 		// check if the TCP event has any of the flags mentioned in flowfilter

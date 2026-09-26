@@ -8,6 +8,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestPodFilter(t *testing.T) {
@@ -28,10 +29,10 @@ func TestPodFilter(t *testing.T) {
 					{SourcePod: []string{"xwing", "default/tiefighter"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{Source: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"}}},
-					{Event: &flowpb.Flow{Source: &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"}}},
-					{Event: &flowpb.Flow{Source: &flowpb.Endpoint{Namespace: "kube-system", PodName: "xwing"}}},
-					{Event: &flowpb.Flow{Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"}}},
+					{Event: &ir.Flow{Source: ir.Endpoint{Namespace: "default", PodName: "xwing"}}},
+					{Event: &ir.Flow{Source: ir.Endpoint{Namespace: "default", PodName: "tiefighter"}}},
+					{Event: &ir.Flow{Source: ir.Endpoint{Namespace: "kube-system", PodName: "xwing"}}},
+					{Event: &ir.Flow{Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"}}},
 				},
 			},
 			want: []bool{
@@ -48,10 +49,10 @@ func TestPodFilter(t *testing.T) {
 					{DestinationPod: []string{"xwing", "default/tiefighter"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"}}},
-					{Event: &flowpb.Flow{Destination: &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"}}},
-					{Event: &flowpb.Flow{Destination: &flowpb.Endpoint{Namespace: "kube-system", PodName: "xwing"}}},
-					{Event: &flowpb.Flow{Source: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"}}},
+					{Event: &ir.Flow{Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"}}},
+					{Event: &ir.Flow{Destination: ir.Endpoint{Namespace: "default", PodName: "tiefighter"}}},
+					{Event: &ir.Flow{Destination: ir.Endpoint{Namespace: "kube-system", PodName: "xwing"}}},
+					{Event: &ir.Flow{Source: ir.Endpoint{Namespace: "default", PodName: "xwing"}}},
 				},
 			},
 			want: []bool{
@@ -71,21 +72,21 @@ func TestPodFilter(t *testing.T) {
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "deathstar"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "xwing"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "deathstar"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "deathstar"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "deathstar"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "deathstar"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "deathstar"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"},
 					}},
 				},
 			},
@@ -104,21 +105,21 @@ func TestPodFilter(t *testing.T) {
 					{DestinationPod: []string{"deathstar"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "deathstar"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "xwing"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "deathstar"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "deathstar"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "deathstar"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "deathstar"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "deathstar"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"},
 					}},
 				},
 			},
@@ -137,21 +138,21 @@ func TestPodFilter(t *testing.T) {
 					{DestinationPod: []string{"kube-system/"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns"},
-						Destination: &flowpb.Endpoint{Namespace: "kube-system", PodName: "kube-proxy"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "kube-system", PodName: "coredns"},
+						Destination: ir.Endpoint{Namespace: "kube-system", PodName: "kube-proxy"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "kube-system", PodName: "coredns"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "kube-system", PodName: "coredns"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"},
 					}},
 				},
 			},
@@ -169,20 +170,20 @@ func TestPodFilter(t *testing.T) {
 					{SourcePod: []string{"xwing", "kube-system/coredns-"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{
-						Source: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source: ir.Endpoint{Namespace: "default", PodName: "xwing"},
 					}},
-					{Event: &flowpb.Flow{
-						Source: &flowpb.Endpoint{Namespace: "default", PodName: "xwing-t-65b"},
+					{Event: &ir.Flow{
+						Source: ir.Endpoint{Namespace: "default", PodName: "xwing-t-65b"},
 					}},
-					{Event: &flowpb.Flow{
-						Source: &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns-12345"},
+					{Event: &ir.Flow{
+						Source: ir.Endpoint{Namespace: "kube-system", PodName: "coredns-12345"},
 					}},
-					{Event: &flowpb.Flow{
-						Source: &flowpb.Endpoint{Namespace: "kube-system", PodName: "-coredns-12345"},
+					{Event: &ir.Flow{
+						Source: ir.Endpoint{Namespace: "kube-system", PodName: "-coredns-12345"},
 					}},
-					{Event: &flowpb.Flow{
-						Source: &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
+					{Event: &ir.Flow{
+						Source: ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
 					}},
 				},
 			},
@@ -203,8 +204,8 @@ func TestPodFilter(t *testing.T) {
 				ev: []*v1.Event{
 					nil,
 					{},
-					{Event: &flowpb.Flow{}},
-					{Event: &flowpb.Flow{Source: &flowpb.Endpoint{Namespace: "", PodName: "xwing"}}},
+					{Event: &ir.Flow{}},
+					{Event: &ir.Flow{Source: ir.Endpoint{Namespace: "", PodName: "xwing"}}},
 				},
 			},
 			want: []bool{
@@ -240,29 +241,29 @@ func TestPodFilter(t *testing.T) {
 					{DestinationPod: []string{"/xwing"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns"},
-						Destination: &flowpb.Endpoint{Namespace: "kube-system", PodName: "kube-proxy"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "kube-system", PodName: "coredns"},
+						Destination: ir.Endpoint{Namespace: "kube-system", PodName: "kube-proxy"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "kube-system", PodName: "coredns"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "kube-system", PodName: "coredns"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "kube-system", PodName: "coredns"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "xwing"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "hoth", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "endor", PodName: "xwing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "hoth", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "endor", PodName: "xwing"},
 					}},
-					{Event: &flowpb.Flow{
-						Source:      &flowpb.Endpoint{Namespace: "default", PodName: "tiefighter"},
-						Destination: &flowpb.Endpoint{Namespace: "default", PodName: "ywing"},
+					{Event: &ir.Flow{
+						Source:      ir.Endpoint{Namespace: "default", PodName: "tiefighter"},
+						Destination: ir.Endpoint{Namespace: "default", PodName: "ywing"},
 					}},
 				},
 			},
@@ -310,10 +311,10 @@ func TestServiceFilter(t *testing.T) {
 					{SourceService: []string{"deathstar", "kube-system/kube-dns"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{SourceService: &flowpb.Service{Namespace: "default", Name: "xwing"}}},
-					{Event: &flowpb.Flow{SourceService: &flowpb.Service{Namespace: "default", Name: "deathstar"}}},
-					{Event: &flowpb.Flow{SourceService: &flowpb.Service{Namespace: "kube-system", Name: "kube-dns"}}},
-					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "kube-system", Name: "deathstar"}}},
+					{Event: &ir.Flow{SourceService: ir.Service{Namespace: "default", Name: "xwing"}}},
+					{Event: &ir.Flow{SourceService: ir.Service{Namespace: "default", Name: "deathstar"}}},
+					{Event: &ir.Flow{SourceService: ir.Service{Namespace: "kube-system", Name: "kube-dns"}}},
+					{Event: &ir.Flow{DestinationService: ir.Service{Namespace: "kube-system", Name: "deathstar"}}},
 				},
 			},
 			want: []bool{
@@ -330,10 +331,10 @@ func TestServiceFilter(t *testing.T) {
 					{DestinationService: []string{"default/", "kube-system/kube-"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "default", Name: "xwing"}}},
-					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "default", Name: "deathstar"}}},
-					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "kube-system", Name: "kube-dns"}}},
-					{Event: &flowpb.Flow{SourceService: &flowpb.Service{Namespace: "kube-system", Name: "deathstar"}}},
+					{Event: &ir.Flow{DestinationService: ir.Service{Namespace: "default", Name: "xwing"}}},
+					{Event: &ir.Flow{DestinationService: ir.Service{Namespace: "default", Name: "deathstar"}}},
+					{Event: &ir.Flow{DestinationService: ir.Service{Namespace: "kube-system", Name: "kube-dns"}}},
+					{Event: &ir.Flow{SourceService: ir.Service{Namespace: "kube-system", Name: "deathstar"}}},
 				},
 			},
 			want: []bool{
@@ -350,11 +351,11 @@ func TestServiceFilter(t *testing.T) {
 					{DestinationService: []string{"/kube-"}},
 				},
 				ev: []*v1.Event{
-					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "default", Name: "xwing"}}},
-					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "default", Name: "deathstar"}}},
-					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "kube-system", Name: "kube-dns"}}},
-					{Event: &flowpb.Flow{SourceService: &flowpb.Service{Namespace: "kube-system", Name: "deathstar"}}},
-					{Event: &flowpb.Flow{DestinationService: &flowpb.Service{Namespace: "monitoring", Name: "kube-prometheus"}}},
+					{Event: &ir.Flow{DestinationService: ir.Service{Namespace: "default", Name: "xwing"}}},
+					{Event: &ir.Flow{DestinationService: ir.Service{Namespace: "default", Name: "deathstar"}}},
+					{Event: &ir.Flow{DestinationService: ir.Service{Namespace: "kube-system", Name: "kube-dns"}}},
+					{Event: &ir.Flow{SourceService: ir.Service{Namespace: "kube-system", Name: "deathstar"}}},
+					{Event: &ir.Flow{DestinationService: ir.Service{Namespace: "monitoring", Name: "kube-prometheus"}}},
 				},
 			},
 			want: []bool{
