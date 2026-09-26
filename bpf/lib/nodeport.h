@@ -358,7 +358,10 @@ static __always_inline bool nodeport_skip_xlate6(const struct lb6_service *svc,
 	return skip_xlate;
 }
 
-#ifdef ENABLE_DSR
+/* DSR_ENCAP_MODE values IPIP, NONE, and GENEVE imply DSR mode. */
+#if defined(DSR_ENCAP_MODE) && ((DSR_ENCAP_MODE == DSR_ENCAP_IPIP) || \
+    (DSR_ENCAP_MODE == DSR_ENCAP_NONE) || \
+    (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE))
 # if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 static __always_inline int
 dsr_set_ipip6_dev(struct __ctx_buff *ctx, const union v6addr *tunnel_ep,
@@ -858,7 +861,7 @@ create_ct:
 
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_DSR */
+#endif /* DSR_ENCAP_MODE */
 
 static __always_inline bool
 nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
@@ -1693,7 +1696,9 @@ static __always_inline bool nodeport_skip_xlate4(const struct lb4_service *svc,
 	return skip_xlate;
 }
 
-#ifdef ENABLE_DSR
+#if defined(DSR_ENCAP_MODE) && ((DSR_ENCAP_MODE == DSR_ENCAP_IPIP) || \
+    (DSR_ENCAP_MODE == DSR_ENCAP_NONE) || \
+    (DSR_ENCAP_MODE == DSR_ENCAP_GENEVE))
 # if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 static __always_inline int
 dsr_set_ipip4_dev(struct __ctx_buff *ctx, __u32 tunnel_ep, __u32 seclabel)
@@ -2172,7 +2177,7 @@ create_ct:
 
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_DSR */
+#endif /* DSR_ENCAP_MODE */
 
 static __always_inline bool
 nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
