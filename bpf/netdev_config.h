@@ -5,7 +5,8 @@
  * This is just a dummy header with dummy values to allow for test
  * compilation without the full code generation engine backend.
  */
-#define DROP_NOTIFY
+#include "lib/utils.h"
+
 #ifndef SKIP_DEBUG
 #define DEBUG
 #endif

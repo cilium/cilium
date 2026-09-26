@@ -151,6 +151,7 @@ func NodeConfig(lnc *Config) Node {
 	node.EnableConntrackAccounting = lnc.EnableConntrackAccounting
 
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
+	node.EnableDropNotify = option.Config.Opts.IsEnabled(option.DropNotify)
 
 	node.HashInit4Seed = lnc.MaglevConfig.SeedJhash0
 	node.HashInit6Seed = lnc.MaglevConfig.SeedJhash1
