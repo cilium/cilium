@@ -260,7 +260,7 @@ func getGRPCExtAuthBackends(m *model.Model) []model.Backend {
 // The ports are sorted and unique.
 func getNamespaceNamePortsMapForTLS(m *model.Model) map[string]map[string][]string {
 	namespaceNamePortMap := map[string]map[string][]string{}
-	for _, l := range m.TLSPassthrough {
+	for _, l := range m.TLS {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}
