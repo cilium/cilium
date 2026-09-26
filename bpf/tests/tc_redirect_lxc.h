@@ -142,6 +142,44 @@ ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 #endif
 
+/* Deal with testing endpoint routes on or off. */
+#ifdef __CONFIG_ENABLE_ENDPOINT_ROUTES
+#define TEST_EPROUTES_NAME "+epr"
+ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
+#else
+#define TEST_EPROUTES_NAME ""
+ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
+#endif
+
+/* These tests target a ClusterIP, so bpf_lxc has to do the translation. */
+#ifndef ENABLE_PER_PACKET_LB
+#error "tc_redirect_lxc tests target a ClusterIP and require per-packet LB"
+#endif
+
+#ifdef ENABLE_SOCKET_LB_HOST_ONLY
+#define TEST_PPLB_NAME "+hostlb"
+#else
+#define TEST_PPLB_NAME "+pplb"
+#endif
+
+#define TEST_CONFIG_NAME TEST_DRIVER_NAME TEST_EPROUTES_NAME TEST_PPLB_NAME
+
+/* Expected {tailcall, redirect, redirect_peer}. Whichever program is reached
+ * enforces ingress policy, and it must be reached exactly once.
+ */
+#if defined(__CONFIG_ENABLE_NETKIT) && defined(__CONFIG_ENABLE_ENDPOINT_ROUTES)
+/* netkit runs at TC egress and cannot redirect_peer() for pod -> pod, so the
+ * plain redirect() reaches cil_to_container. No tail-call.
+ */
+#define TEST_EXPECTED_CALLS {0, 1, 0}
+#elif defined(__CONFIG_ENABLE_NETKIT)
+/* No cil_to_container on the device, so the tail-call enforces. */
+#define TEST_EXPECTED_CALLS {1, 1, 0}
+#else
+/* redirect_peer() skips cil_to_container, so the tail-call enforces. */
+#define TEST_EXPECTED_CALLS {1, 0, 1}
+#endif
+
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -208,11 +246,7 @@ int tc_redirect_lxc_ipv4_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "tc_redirect_lxc_ipv4")
 int tc_redirect_lxc_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-#ifdef __CONFIG_ENABLE_NETKIT
-	const unsigned int expected[RECORD__MAX] = {1, 1, 0};
-#else
-	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
-#endif
+	const unsigned int expected[RECORD__MAX] = TEST_EXPECTED_CALLS;
 	void *data;
 	void *data_end;
 	__u32 *status_code;
@@ -232,17 +266,17 @@ int tc_redirect_lxc_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(*status_code == CTX_ACT_REDIRECT);
 
 	/* Test redirect usage */
-	test_log(TEST_DRIVER_NAME ": num_calls %u/%u/%u (tailcall/redirect/redirect_peer)",
+	test_log(TEST_CONFIG_NAME ": num_calls %u/%u/%u (tailcall/redirect/redirect_peer)",
 		 num_calls[RECORD_TAILCALL],
 		 num_calls[RECORD_REDIRECT],
 		 num_calls[RECORD_REDIRECT_PEER]);
 
 	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of tail calls");
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of tail calls");
 	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect() calls")
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of bpf_redirect() calls")
 	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect nunmber of bpf_redirect_peer() calls")
+		test_fatal(TEST_CONFIG_NAME ": Incorrect nunmber of bpf_redirect_peer() calls")
 
 	/* Check the packet. */
 	ASSERT_CTX_BUF_OFF("tc_redirect_lxc_ipv4_post",
@@ -318,11 +352,7 @@ int tc_redirect_lxc_ipv6_setup(struct __ctx_buff *ctx)
 CHECK(PROG_TYPE, "tc_redirect_lxc_ipv6")
 int tc_redirect_lxc_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-#ifdef __CONFIG_ENABLE_NETKIT
-	const unsigned int expected[RECORD__MAX] = {1, 1, 0};
-#else
-	const unsigned int expected[RECORD__MAX] = {1, 0, 1};
-#endif
+	const unsigned int expected[RECORD__MAX] = TEST_EXPECTED_CALLS;
 	const union v6addr pod_ip = { .addr = v6_pod_one_addr };
 	void *data;
 	void *data_end;
@@ -343,17 +373,17 @@ int tc_redirect_lxc_ipv6_check(__maybe_unused const struct __ctx_buff *ctx)
 	assert(*status_code == CTX_ACT_REDIRECT);
 
 	/* Test redirect usage */
-	test_log(TEST_DRIVER_NAME ": num_calls %u/%u/%u (tailcall/redirect/redirect_peer)",
+	test_log(TEST_CONFIG_NAME ": num_calls %u/%u/%u (tailcall/redirect/redirect_peer)",
 		 num_calls[RECORD_TAILCALL],
 		 num_calls[RECORD_REDIRECT],
 		 num_calls[RECORD_REDIRECT_PEER]);
 
 	if (num_calls[RECORD_TAILCALL] != expected[RECORD_TAILCALL])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of tail calls");
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of tail calls");
 	if (num_calls[RECORD_REDIRECT] != expected[RECORD_REDIRECT])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect number of bpf_redirect() calls")
+		test_fatal(TEST_CONFIG_NAME ": Incorrect number of bpf_redirect() calls")
 	if (num_calls[RECORD_REDIRECT_PEER] != expected[RECORD_REDIRECT_PEER])
-		test_fatal(TEST_DRIVER_NAME ": Incorrect nunmber of bpf_redirect_peer() calls")
+		test_fatal(TEST_CONFIG_NAME ": Incorrect nunmber of bpf_redirect_peer() calls")
 
 	/* Check the packet. */
 	ASSERT_CTX_BUF_OFF("tc_redirect_lxc_ipv6_post",
