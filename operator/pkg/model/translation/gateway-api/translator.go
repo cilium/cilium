@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	discoveryv1 "k8s.io/api/discovery/v1"
@@ -381,7 +382,16 @@ func decorateCEC(cec *ciliumv2.CiliumEnvoyConfig, resource *model.FullyQualified
 	}
 	cec.Labels = mergeMap(cec.Labels, labels)
 	cec.Labels[gatewayNameLabel] = shortener.ShortenK8sResourceName(resource.Name)
-	cec.Annotations = mergeMap(cec.Annotations, annotations)
+
+	// Listener infrastructure annotations originate from user-controlled Gateway
+	// or Service metadata. Do not let them set CEC controls that can change proxy
+	// and policy behavior. Clone the map because it is also used for the generated
+	// Service.
+	cecAnnotations := maps.Clone(annotations)
+	maps.DeleteFunc(cecAnnotations, func(key, _ string) bool {
+		return strings.HasPrefix(key, annotation.CECPrefix+"/")
+	})
+	cec.Annotations = mergeMap(cec.Annotations, cecAnnotations)
 
 	return nil
 }

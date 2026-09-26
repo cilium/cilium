@@ -350,6 +350,12 @@ Informational Notes
 General Notes
 #############
 
+* Annotations in the ``cec.cilium.io/*`` namespace supplied through Gateway or
+  GAMMA infrastructure metadata are no longer propagated to internally
+  generated ``CiliumEnvoyConfig`` resources. They remain on generated Services,
+  where they have no effect, to preserve Gateway API infrastructure metadata
+  propagation. This prevents user-controlled infrastructure metadata from
+  changing proxy and policy behavior.
 * If you run Cilium with IPsec, Kube-Proxy Replacement, and BPF Masquerading enabled,
   `eBPF_Host_Routing` will be automatically enabled. That was already the case when running without
   IPsec. Running BPF Host Routing with IPsec however requires
