@@ -25,6 +25,10 @@ inputs:
     description: 'Space-separated list of add-ons to include'
     required: false
     default: 'coredns kube-proxy vpc-cni'
+  control_plane_scaling_tier:
+    description: 'EKS Provisioned Control Plane scaling tier (standard, tier-xl, tier-2xl, tier-4xl, tier-8xl). Leave empty to use the default Standard (auto-scaling) control plane. Only applies when a new cluster is created.'
+    required: false
+    default: ''
 outputs:
   cluster_name:
     description: 'Actual cluster name (from pool or newly created)'
@@ -174,6 +178,13 @@ runs:
           for zone in ${{ inputs.zones }}; do
             echo "- $zone" >> eks-config.yaml
           done
+        fi
+
+        if [[ -n "${{ inputs.control_plane_scaling_tier }}" ]]; then
+          cat <<EOF >> eks-config.yaml
+        controlPlaneScalingConfig:
+          tier: ${{ inputs.control_plane_scaling_tier }}
+        EOF
         fi
 
         eksctl create cluster -f ./eks-config.yaml
