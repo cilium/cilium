@@ -228,6 +228,11 @@ networking:
   apiServerAddress: ${apiserver_addr}
   apiServerPort: ${apiserver_port}
 
+containerdConfigPatches:
+  - |
+    [plugins."io.containerd.grpc.v1.cri"]
+      image_pull_progress_timeout = "60s"
+
 kubeadmConfigPatches:
   - |
     kind: ClusterConfiguration
