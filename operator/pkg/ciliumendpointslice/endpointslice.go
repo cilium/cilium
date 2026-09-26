@@ -160,7 +160,7 @@ func (c *DefaultController) Start(ctx cell.HookContext) error {
 
 	cepStore, _ := c.ciliumEndpoint.Store(ctx)
 	cesStore, _ := c.ciliumEndpointSlice.Store(ctx)
-	c.reconciler = newDefaultReconciler(c.clientset.CiliumV2alpha1(), c.manager, c.logger, cepStore, cesStore, c.metrics)
+	c.reconciler = newDefaultReconciler(c.sharedCfg, c.clientset.CiliumV2alpha1(), c.manager, c.logger, cepStore, cesStore, c.metrics)
 	c.doReconciler = c.reconciler
 
 	c.initializeQueue()
@@ -235,7 +235,7 @@ func (c *SlimController) Start(ctx cell.HookContext) error {
 	ciStore, _ := c.ciliumIdentity.Store(ctx)
 	cnodeStore, _ := c.ciliumNodes.Store(ctx)
 	namespaceStore, _ := c.namespace.Store(ctx)
-	c.reconciler = newSlimReconciler(c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.clusterInfo, cesStore, podStore, ciStore, cnodeStore, namespaceStore, c.metrics, c.ipsecEnabled, c.wgEnabled)
+	c.reconciler = newSlimReconciler(c.sharedCfg, c.clientset.CiliumV2alpha1(), c.manager, c.logger, c.clusterInfo, cesStore, podStore, ciStore, cnodeStore, namespaceStore, c.metrics, c.ipsecEnabled, c.wgEnabled)
 	c.doReconciler = c.reconciler
 
 	c.initializeQueue()

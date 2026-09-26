@@ -54,6 +54,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/nodeipam"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/operator/pkg/ztunnel"
+	ztunnelconfig "github.com/cilium/cilium/operator/pkg/ztunnel/config"
 	"github.com/cilium/cilium/operator/unmanagedpods"
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
@@ -161,9 +162,11 @@ var (
 
 		cell.Provide(func(
 			daemonCfg *option.DaemonConfig,
+			ztunnelCfg ztunnelconfig.Config,
 		) ciliumendpointslice.SharedConfig {
 			return ciliumendpointslice.SharedConfig{
 				EnableCiliumEndpointSlice: daemonCfg.EnableCiliumEndpointSlice,
+				EnableZTunnel:             ztunnelCfg.EnableZTunnel,
 			}
 		}),
 

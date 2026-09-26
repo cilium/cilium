@@ -56,6 +56,7 @@ type params struct {
 type Controller struct {
 	logger      *slog.Logger
 	clusterInfo cmtypes.ClusterInfo
+	sharedCfg   SharedConfig
 
 	// Cilium kubernetes clients to access V2 and V2alpha1 resources
 	clientset           k8sClient.Clientset
@@ -153,6 +154,7 @@ func registerController(p params) error {
 	cesController := &Controller{
 		logger:                   p.Logger,
 		clusterInfo:              p.ClusterInfo,
+		sharedCfg:                p.SharedCfg,
 		clientset:                clientset,
 		ciliumEndpointSlice:      p.CiliumEndpointSlice,
 		ciliumNodes:              p.CiliumNodes,

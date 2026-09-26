@@ -54,7 +54,7 @@ func TestReconcileCreateDefault(t *testing.T) {
 	hive.Start(tlog, t.Context())
 	cepStore, _ := ciliumEndpoint.Store(t.Context())
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
-	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
+	r = newDefaultReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
 
 	var createdSlice *cilium_v2a1.CiliumEndpointSlice
 	fakeClient.CiliumFakeClientset.PrependReactor("create", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -115,7 +115,7 @@ func TestReconcileUpdateDefault(t *testing.T) {
 	hive.Start(tlog, t.Context())
 	cepStore, _ := ciliumEndpoint.Store(t.Context())
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
-	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
+	r = newDefaultReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
 
 	var updatedSlice *cilium_v2a1.CiliumEndpointSlice
 	fakeClient.CiliumFakeClientset.PrependReactor("update", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -180,7 +180,7 @@ func TestReconcileDeleteDefault(t *testing.T) {
 	hive.Start(tlog, t.Context())
 	cepStore, _ := ciliumEndpoint.Store(t.Context())
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
-	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
+	r = newDefaultReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
 
 	var deletedSlice string
 	fakeClient.CiliumFakeClientset.PrependReactor("delete", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -242,7 +242,7 @@ func TestReconcileNoopDefault(t *testing.T) {
 	hive.Start(tlog, t.Context())
 	cepStore, _ := ciliumEndpoint.Store(t.Context())
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
-	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
+	r = newDefaultReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
 
 	noRequest := true
 	fakeClient.CiliumFakeClientset.PrependReactor("*", "*", func(action k8sTesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -311,7 +311,7 @@ func TestReconcileCreate(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	ciliumNodeStore, _ := ciliumNode.Store(t.Context())
 
 	var createdSlice *cilium_v2a1.CiliumEndpointSlice
@@ -409,7 +409,7 @@ func TestReconcileUpdate(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	ciliumNodeStore, _ := ciliumNode.Store(t.Context())
 
 	var updatedSlice *cilium_v2a1.CiliumEndpointSlice
@@ -507,7 +507,7 @@ func TestReconcileDelete(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	ciliumNodeStore, _ := ciliumNode.Store(t.Context())
 
 	var deletedSlice string
@@ -597,7 +597,7 @@ func TestReconcileNoop(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	ciliumNodeStore, _ := ciliumNode.Store(t.Context())
 
 	noRequest := true
@@ -639,4 +639,139 @@ func TestReconcileNoop(t *testing.T) {
 	assert.True(t, noRequest)
 
 	hive.Stop(tlog, t.Context())
+}
+
+func TestReconciler_GetCoreEndpointFromStore_ServiceAccount(t *testing.T) {
+	tests := []struct {
+		name          string
+		enableZTunnel bool
+		expectedSA    string
+	}{
+		{
+			name:          "ztunnel disabled",
+			enableZTunnel: false,
+			expectedSA:    "",
+		},
+		{
+			name:          "ztunnel enabled",
+			enableZTunnel: true,
+			expectedSA:    "test-sa",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sharedCfg := SharedConfig{
+				EnableZTunnel: tt.enableZTunnel,
+			}
+
+			t.Run("default reconciler", func(t *testing.T) {
+				var fakeClient *k8sClient.FakeClientset
+				var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+				var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+				var cesMetrics *Metrics
+				h := hive.New(
+					k8sClient.FakeClientCell(),
+					k8s.ResourcesCell,
+					metrics.Metric(NewMetrics),
+					cell.Invoke(func(
+						c *k8sClient.FakeClientset,
+						cep resource.Resource[*cilium_v2.CiliumEndpoint],
+						ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+						metrics *Metrics,
+					) error {
+						fakeClient = c
+						ciliumEndpoint = cep
+						ciliumEndpointSlice = ces
+						cesMetrics = metrics
+						return nil
+					}),
+				)
+				tlog := hivetest.Logger(t)
+				h.Start(tlog, t.Context())
+				defer h.Stop(tlog, t.Context())
+
+				m := newDefaultManager(2, tlog)
+				cepStore, _ := ciliumEndpoint.Store(t.Context())
+				cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+				r := newDefaultReconciler(sharedCfg, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, tlog, cepStore, cesStore, cesMetrics)
+
+				cep := tu.CreateStoreEndpoint("cep1", "ns", 1)
+				cep.Status.ServiceAccount = "test-sa"
+				cepStore.CacheStore().Add(cep)
+
+				coreCEP := r.getCoreEndpointFromStore(NewCEPName("cep1", "ns"))
+				assert.NotNil(t, coreCEP)
+				assert.Equal(t, tt.expectedSA, coreCEP.ServiceAccount)
+			})
+
+			t.Run("slim reconciler", func(t *testing.T) {
+				var fakeClient *k8sClient.FakeClientset
+				var pods resource.Resource[*slim_corev1.Pod]
+				var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+				var ciliumNode resource.Resource[*cilium_v2.CiliumNode]
+				var namespace resource.Resource[*slim_corev1.Namespace]
+				var ciliumIdentity resource.Resource[*cilium_v2.CiliumIdentity]
+				var cesMetrics *Metrics
+				h := hive.New(
+					k8sClient.FakeClientCell(),
+					k8s.ResourcesCell,
+					metrics.Metric(NewMetrics),
+					cell.Invoke(func(
+						c *k8sClient.FakeClientset,
+						p resource.Resource[*slim_corev1.Pod],
+						ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+						cn resource.Resource[*cilium_v2.CiliumNode],
+						ns resource.Resource[*slim_corev1.Namespace],
+						ci resource.Resource[*cilium_v2.CiliumIdentity],
+						metrics *Metrics,
+					) error {
+						fakeClient = c
+						pods = p
+						ciliumEndpointSlice = ces
+						ciliumNode = cn
+						namespace = ns
+						ciliumIdentity = ci
+						cesMetrics = metrics
+						return nil
+					}),
+				)
+				tlog := hivetest.Logger(t)
+				h.Start(tlog, t.Context())
+				defer h.Stop(tlog, t.Context())
+				labelsfilter.ParseLabelPrefixCfg(tlog, nil, nil, "")
+
+				m := newSlimManager(2, tlog)
+				cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+				podStore, _ := pods.Store(t.Context())
+				cidStore, _ := ciliumIdentity.Store(t.Context())
+				nodeStore, _ := ciliumNode.Store(t.Context())
+				nsStore, _ := namespace.Store(t.Context())
+				r := newSlimReconciler(sharedCfg, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, tlog, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+
+				node := tu.CreateStoreNode("node1")
+				nodeStore.CacheStore().Add(node)
+				m.mapping.insertNode(NodeName("node1"), EncryptionKey(0))
+
+				ns1 := cidtest.NewNamespace("ns", nil)
+				nsStore.CacheStore().Add(ns1)
+
+				pod := cidtest.NewPod("pod1", "ns", tu.TestLbsA, "node1")
+				pod.Spec.ServiceAccountName = "test-sa"
+				podStore.CacheStore().Add(pod)
+
+				cid1 := cidtest.NewCIDWithNamespace("1", pod, ns1)
+				cidStore.CacheStore().Add(cid1)
+
+				_, gidA := cidToGidLabels(cid1)
+				m.mapping.insertCES(CESName("ces1"), "ns")
+				m.mapping.insertCID("1", gidA)
+				m.mapping.addCEP(NewCEPName("pod1", "ns"), CESName("ces1"), "node1", gidA)
+
+				coreCEP := r.getCoreEndpointFromStore(NewCEPName("pod1", "ns"))
+				assert.NotNil(t, coreCEP)
+				assert.Equal(t, tt.expectedSA, coreCEP.ServiceAccount)
+			})
+		})
+	}
 }
