@@ -17,6 +17,12 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 )
 
+func TestRoundRobinLBAlgorithm(t *testing.T) {
+	assert.Equal(t, SVCLoadBalancingAlgorithmRoundRobin, ToSVCLoadBalancingAlgorithm(LBAlgorithmRoundRobin))
+	assert.Equal(t, LBAlgorithmRoundRobin, SVCLoadBalancingAlgorithmRoundRobin.String())
+	assert.False(t, SVCLoadBalancingAlgorithmRoundRobin.UseMaglev())
+}
+
 func TestL4Addr_Equals(t *testing.T) {
 	type args struct {
 		o L4Addr

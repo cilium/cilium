@@ -2578,7 +2578,8 @@ monitor:
 # -- Configure service load balancing
 loadBalancer:
   # -- algorithm is the name of the load balancing algorithm for backend
-  # selection e.g. random or maglev
+  # selection e.g. random or maglev. Round-robin is available per service
+  # through service.cilium.io/lb-algorithm when bpf.lbAlgorithmAnnotation=true.
   # algorithm: random
 
   # -- mode is the operation mode of load balancing for remote backends
