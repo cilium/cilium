@@ -1,0 +1,54 @@
+{{$image := .image}}
+
+{{$ciliumNamespace := .ciliumNamespace}}
+{{$ciliumConfigMapName := .ciliumConfigMapName}}
+
+{{$svcAccountRefName := printf "%s-%d" .svcAccountRefName .Index}}
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: kwok-controller
+spec:
+  # A bare pod is never rescheduled onto another node, but restartPolicy
+  # Always still has the kubelet restart the container in place whenever kwok
+  # exits or the liveness probe below trips, which is what keeps the fake
+  # nodes of a run alive.
+  restartPolicy: Always
+  serviceAccountName: {{$svcAccountRefName}}
+  nodeSelector:
+    role.scaffolding/test-infra: "true"
+  containers:
+  - name: kwok-controller
+    image: {{$image}}
+    command: ["/usr/local/bin/kwok"]
+    args:
+    - --kubeconfig=
+    - --enable-crds=Stage
+    - --node-port=10247
+    - --manage-nodes-with-label-selector=kfuzz.cilium.io/fake-node=true
+    - --cni-enabled=true
+    - --cni-namespace={{$ciliumNamespace}}
+    - --cni-configmap-name={{$ciliumConfigMapName}}
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 10247
+      initialDelaySeconds: 10
+      periodSeconds: 30
+      timeoutSeconds: 5
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 10247
+      initialDelaySeconds: 2
+      periodSeconds: 10
+      timeoutSeconds: 5
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+  terminationGracePeriodSeconds: 10
+

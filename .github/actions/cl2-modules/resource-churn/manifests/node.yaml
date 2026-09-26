@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Node
+metadata:
+  name: {{.Name}}
+  annotations:
+    kwok.x-k8s.io/node: fake
+    node.alpha.kubernetes.io/ttl: "0"
+    cilium.io/do-not-gc: "true"
+    ipam.cilium.io/ignore: "true"
+  labels:
+    kubernetes.io/arch: amd64
+    kubernetes.io/os: linux
+    kubernetes.io/hostname: {{.Name}}
+    kfuzz.cilium.io/fake-node: "true"
+    type: kwok
+spec:
+  providerID: "kwok://{{.Name}}"
+  taints:
+  - key: "kfuzz.cilium.io/block"
+    value: "true"
+    effect: "NoSchedule"
+status:
+  allocatable:
+    cpu: "32"
+    memory: 256Gi
+    pods: "256"
+  capacity:
+    cpu: "32"
+    memory: 256Gi
+    pods: "256"
+  nodeInfo:
+    architecture: amd64
+    containerRuntimeVersion: ""
+    kernelVersion: ""
+    kubeProxyVersion: fake
+    kubeletVersion: fake
+    machineID: ""
+    operatingSystem: linux
+    osImage: ""
+    systemUUID: ""
+  phase: Running
