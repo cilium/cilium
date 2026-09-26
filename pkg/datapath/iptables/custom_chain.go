@@ -170,7 +170,7 @@ func (c *customChain) rename(ipv4, ipv6 bool, name string, ip4tables, ip6tables 
 	}
 	if ipv6 && c.ipv6 {
 		if err := c.doRename(ip6tables, name); err != nil {
-			return nil
+			return err
 		}
 	}
 
