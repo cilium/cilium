@@ -1,0 +1,67 @@
+{{$image := .image}}
+
+{{$svcAccountRefName := printf "%s-%d" .svcAccountRefName .Index}}
+{{$configMapRefName := printf "%s-%d" .configMapRefName .Index}}
+
+{{$tickInterval := .tickInterval}}
+{{$clientTuningSet := .clientTuningSet}}
+{{$clientQPS := .clientQPS}}
+{{$clientBurstSize := .clientBurstSize}}
+{{$clientStepDelay := .clientStepDelay}}
+{{$testDurationSeconds := .testDurationSeconds}}
+{{$terminationGracePeriodSeconds := .terminationGracePeriodSeconds}}
+{{$skipCleanup := .skipResourceCleanup}}
+
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{.Name}}
+  labels:
+    app.kubernetes.io/name: kfuzz
+spec:
+  # One pod, run once, never replaced: a crashed kfuzz leaves its churn half
+  # cleaned up, and restarting it on top of that would only produce noise in
+  # the measurements.
+  completions: 1
+  parallelism: 1
+  backoffLimit: 0
+  activeDeadlineSeconds: {{AddInt $testDurationSeconds $terminationGracePeriodSeconds 60}}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kfuzz
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{$svcAccountRefName}}
+      nodeSelector:
+        role.scaffolding/test-infra: "true"
+      containers:
+      - name: kfuzz
+        image: {{$image}}
+        command: ["/usr/local/bin/kfuzz"]
+        args:
+        - --config-file=/etc/kfuzz/config.json
+        # kfuzz stops churning, cleans up what it churned and exits 0 on its own
+        # once this is up, which is what lands the job in Succeeded.
+        - --run-duration={{$testDurationSeconds}}s
+        - --tick-interval={{$tickInterval}}
+        - --seed=42
+        - --client-tuning-set={{$clientTuningSet}}
+        - --client-qps={{$clientQPS}}
+        - --client-burst-size={{$clientBurstSize}}
+        - --client-step-delay={{$clientStepDelay}}
+        - --skip-cleanup={{$skipCleanup}}
+        volumeMounts:
+        - name: kfuzz-config
+          mountPath: /etc/kfuzz
+          readOnly: true
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+      terminationGracePeriodSeconds: {{$terminationGracePeriodSeconds}}
+      volumes:
+      - name: kfuzz-config
+        configMap:
+          name: {{$configMapRefName}}
+
