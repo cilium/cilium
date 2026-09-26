@@ -163,7 +163,7 @@ spec:
           containerPort: 2379
           protocol: TCP
         {{- if .Values.clustermesh.apiserver.metrics.etcd.enabled }}
-        - name: etcd-metrics
+        - name: {{ .Values.clustermesh.apiserver.metrics.etcd.portName | quote }}
           containerPort: {{ .Values.clustermesh.apiserver.metrics.etcd.port }}
           protocol: TCP
         {{- end }}
@@ -264,7 +264,7 @@ spec:
           containerPort: {{ .Values.clustermesh.apiserver.healthPort }}
           protocol: TCP
         {{- if .Values.clustermesh.apiserver.metrics.enabled }}
-        - name: apiserv-metrics
+        - name: {{ .Values.clustermesh.apiserver.metrics.portName | quote }}
           containerPort: {{ .Values.clustermesh.apiserver.metrics.port }}
           protocol: TCP
         {{- end }}
@@ -355,7 +355,7 @@ spec:
           containerPort: {{ .Values.clustermesh.apiserver.kvstoremesh.healthPort }}
           protocol: TCP
         {{- if .Values.clustermesh.apiserver.metrics.kvstoremesh.enabled }}
-        - name: kvmesh-metrics
+        - name: {{ .Values.clustermesh.apiserver.metrics.kvstoremesh.portName | quote }}
           containerPort: {{ .Values.clustermesh.apiserver.metrics.kvstoremesh.port }}
           protocol: TCP
         {{- end }}

@@ -180,7 +180,7 @@ The template needs to allow overriding ports spec not just adding.
 {{- define "envoy.ports" -}}
         {{- if .Values.envoy.prometheus.enabled }}
         ports:
-        - name: envoy-metrics
+        - name: {{ .Values.envoy.prometheus.portName | quote }}
           containerPort: {{ .Values.envoy.prometheus.port }}
           hostPort: {{ .Values.envoy.prometheus.port }}
           protocol: TCP

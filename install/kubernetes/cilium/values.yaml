@@ -1496,6 +1496,8 @@ hubble:
     enableOpenMetrics: false
     # -- Configure the port the hubble metric server listens on.
     port: 9965
+    # -- Name of the Hubble metrics container port.
+    portName: hubble-metrics
     tls:
       # Enable hubble metrics server TLS.
       enabled: false
@@ -1947,6 +1949,8 @@ hubble:
     prometheus:
       enabled: false
       port: 9966
+      # -- Name of the hubble-relay Prometheus container port.
+      portName: prometheus
       serviceMonitor:
         # -- Enable service monitors.
         # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
@@ -2686,6 +2690,8 @@ prometheus:
   metricsService: false
   enabled: false
   port: 9962
+  # -- Name of the cilium-agent Prometheus container port.
+  portName: prometheus
   serviceMonitor:
     # -- Enable service monitors.
     # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
@@ -3111,6 +3117,8 @@ envoy:
       metricRelabelings: ~
     # -- Serve prometheus metrics for cilium-envoy on the configured port
     port: "9964"
+    # -- Name of the Envoy Prometheus container port, for both standalone and embedded Envoy.
+    portName: envoy-metrics
 # -- Enable/Disable use of node label based identity
 nodeSelectorLabels: false
 # To include or exclude matched resources from cilium node identity evaluation
@@ -3441,6 +3449,8 @@ operator:
     metricsService: false
     enabled: true
     port: 9963
+    # -- Name of the cilium-operator Prometheus container port.
+    portName: prometheus
     serviceMonitor:
       # -- Enable service monitors.
       # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
@@ -4258,11 +4268,15 @@ clustermesh:
       enabled: true
       # -- Configure the port the apiserver metric server listens on.
       port: 9962
+      # -- Name of the clustermesh-apiserver metrics container port.
+      portName: apiserv-metrics
       kvstoremesh:
         # -- Enables exporting KVStoreMesh metrics in OpenMetrics format.
         enabled: true
         # -- Configure the port the KVStoreMesh metric server listens on.
         port: 9964
+        # -- Name of the KVStoreMesh metrics container port.
+        portName: kvmesh-metrics
       etcd:
         # -- Enables exporting etcd metrics in OpenMetrics format.
         enabled: true
@@ -4270,6 +4284,8 @@ clustermesh:
         mode: basic
         # -- Configure the port the etcd metric server listens on.
         port: 9963
+        # -- Name of the etcd metrics container port.
+        portName: etcd-metrics
       serviceMonitor:
         # -- Enable service monitor.
         # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
