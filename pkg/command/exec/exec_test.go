@@ -13,11 +13,21 @@ import (
 )
 
 const (
+	// timeout is deliberately short: TestCombinedOutputFailedTimeout waits it
+	// out to exercise the expiry path, so lengthening it slows that test by the
+	// same amount.
 	timeout = 250 * time.Millisecond
+
+	// runTimeout is used where the command has to actually start before the
+	// budget expires. WithTimeout starts its clock at construction, so the
+	// budget covers process startup as well as the run; 250ms is exhausted by
+	// scheduling delay on a loaded runner, and Start then fails with "context
+	// deadline exceeded" instead of the command being killed.
+	runTimeout = 2 * time.Second
 )
 
 func TestWithTimeout(t *testing.T) {
-	cmd := WithTimeout(timeout, "sleep", "inf")
+	cmd := WithTimeout(runTimeout, "sleep", "inf")
 	err := cmd.Start()
 	require.NoError(t, err)
 	err = cmd.Wait()
