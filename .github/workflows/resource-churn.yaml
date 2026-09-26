@@ -630,6 +630,95 @@ jobs:
           role-to-assume: ${{ secrets.AWS_PR_ASSUME_ROLE }}
           aws-region: ${{ steps.vars.outputs.eks_region }}
 
+      - name: Render the result dashboards
+        id: render-dashboards
+        if: ${{ always() && steps.run-test.outcome != 'skipped' && steps.run-test.outcome != 'cancelled' }}
+        continue-on-error: true
+        timeout-minutes: 10
+        working-directory: ./.github/actions/cl2-modules/resource-churn
+        env:
+          BASELINE_START_MS: ${{ steps.run-baseline.outputs.time_start }}
+          BASELINE_END_MS: ${{ steps.run-baseline.outputs.time_end }}
+          TEST_START_MS: ${{ steps.run-test.outputs.time_start }}
+          TEST_END_MS: ${{ steps.run-test.outputs.time_end }}
+          REPORT_ROOT: ${{ github.workspace }}/perf-tests/clusterloader2/report
+          SCENARIO: ${{ steps.vars.outputs.scenario }}
+          BASELINE_TAG_SHORT: ${{ steps.vars.outputs.base_tag_short }}
+          TEST_TAG_SHORT: ${{ steps.vars.outputs.test_tag_short }}
+        run: |
+          if [ -z "${TEST_START_MS}" ]; then
+            echo "::error::The test tag run never started, there is nothing to render"
+            exit 1
+          fi
+
+          NOW=$(date +%s%3N)
+          # A run that failed never recorded its end, so graph up to now.
+          : "${TEST_END_MS:=${NOW}}"
+          # A minute of margin on both sides keeps the churn from touching the edge of the graphs.
+          PAD=60000
+
+          render() {
+            echo "::group::Rendering ${3}"
+            DASHBOARD_FROM_MS="$((${1} - PAD))" \
+            DASHBOARD_TO_MS="$((${2} + PAD))" \
+            OUTPUT_PATH="${3}" \
+              bash ./dashboard/render.sh "${CL2_TEST_NODE_NAME}"
+            echo "::endgroup::"
+          }
+
+          test_dashboard_path="${REPORT_ROOT}/test/${SCENARIO}-${TEST_TAG_SHORT}-dashboard.png"
+          render "${TEST_START_MS}" "${TEST_END_MS}" "${test_dashboard_path}"
+          echo "test_dashboard_path=${test_dashboard_path}" >> "${GITHUB_OUTPUT}"
+
+          if [ -n "${BASELINE_START_MS}" ]; then
+            : "${BASELINE_END_MS:=${NOW}}"
+
+            baseline_dashboard_path="${REPORT_ROOT}/baseline/${SCENARIO}-${BASELINE_TAG_SHORT}-dashboard.png"
+            comparison_dashboard_path="${REPORT_ROOT}/test/${SCENARIO}-${BASELINE_TAG_SHORT}-vs-${TEST_TAG_SHORT}-dashboard.png"
+
+            render "${BASELINE_START_MS}" "${BASELINE_END_MS}" "${baseline_dashboard_path}"
+            render "${BASELINE_START_MS}" "${TEST_END_MS}" "${comparison_dashboard_path}"
+
+            {
+              echo "baseline_dashboard_path=${baseline_dashboard_path}"
+              echo "comparison_dashboard_path=${comparison_dashboard_path}"
+            } >> "${GITHUB_OUTPUT}"
+          else
+            echo "::notice::No baseline run, rendering the test tag dashboard only"
+          fi
+
+      # Github doesn't support adding images in github summary.
+      # For now upload as separate artifacts so its easy to access.
+      - name: Upload test result dashboard
+        if: ${{ always() && steps.render-dashboards.outputs.test_dashboard_path != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-dashboard-${{ steps.vars.outputs.scenario }}-${{ github.run_attempt }}
+          path: ${{ steps.render-dashboards.outputs.test_dashboard_path }}
+          if-no-files-found: warn
+          retention-days: 7
+          archive: false
+
+      - name: Upload baseline result dashboard
+        if: ${{ always() && steps.render-dashboards.outputs.baseline_dashboard_path != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: baseline-dashboard-${{ steps.vars.outputs.scenario }}-${{ github.run_attempt }}
+          path: ${{ steps.render-dashboards.outputs.baseline_dashboard_path }}
+          if-no-files-found: warn
+          retention-days: 7
+          archive: false
+
+      - name: Upload comparison result dashboard
+        if: ${{ always() && steps.render-dashboards.outputs.comparison_dashboard_path != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: comparison-dashboard-${{ steps.vars.outputs.scenario }}-${{ github.run_attempt }}
+          path: ${{ steps.render-dashboards.outputs.comparison_dashboard_path }}
+          if-no-files-found: warn
+          retention-days: 7
+          archive: false
+
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
         run: |
