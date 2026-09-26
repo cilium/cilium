@@ -499,10 +499,17 @@ func (driver *Driver) prepareClaimDevice(
 	return alloc, &built, nil
 }
 
+// prepareDeviceAllocation sets up the kernel device for a newly allocated
+// claim device result. result.Pool is the DRA ResourceSlice pool name the
+// scheduler allocated the device from; it is NOT the same thing as the
+// logical Cilium pool (driver.config.Pools) used for CEL selectors, so it is
+// deliberately not carried into the allocation — the logical pool is instead
+// resolved fresh from the device's own attributes, exactly like
+// buildPoolsFromTable does. See allocation.LogicalPool for the full
+// explanation of the distinction.
 func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string, result resourceapi.DeviceRequestAllocationResult, cfg types.DeviceConfig) (allocation, error) {
 	alloc := allocation{
 		DeviceName: result.Device,
-		Pool:       result.Pool,
 		Config:     cfg,
 	}
 
@@ -514,6 +521,7 @@ func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string,
 
 	alloc.Manager = row.Manager
 	alloc.Device = row.Dev
+	alloc.LogicalPool = driver.resolvePool(row.Dev, driver.sortedConfiguredPools())
 
 	if err := alloc.Device.Setup(alloc.Config); err != nil {
 		driver.logger.ErrorContext(ctx, "failed to set up device",
