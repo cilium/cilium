@@ -171,8 +171,8 @@ ASSIGN_CONFIG(bool, enable_ipip_termination, true)
  * fix up the OUTER nexthdr to NEXTHDR_IPV6 manually.
  */
 static __always_inline int
-pktgen_ipip_v6(struct __ctx_buff *ctx, const void *outer_dst,
-	       const void *inner_dst)
+__pktgen_ipip_v6(struct __ctx_buff *ctx, const void *outer_src,
+		 const void *outer_dst, const void *inner_dst, __be16 inner_dport)
 {
 	struct pktgen builder;
 	struct ipv6hdr *outer_l3, *inner_l3;
@@ -190,7 +190,7 @@ pktgen_ipip_v6(struct __ctx_buff *ctx, const void *outer_dst,
 	outer_l3 = pktgen__push_default_ipv6hdr(&builder);
 	if (!outer_l3)
 		return TEST_ERROR;
-	memcpy(&outer_l3->saddr, (void *)v6_node_one, 16);
+	memcpy(&outer_l3->saddr, outer_src, 16);
 	memcpy(&outer_l3->daddr, outer_dst, 16);
 
 	inner_l3 = pktgen__push_default_ipv6hdr(&builder);
@@ -203,7 +203,7 @@ pktgen_ipip_v6(struct __ctx_buff *ctx, const void *outer_dst,
 	if (!l4)
 		return TEST_ERROR;
 	l4->source = CLIENT_PORT;
-	l4->dest = FRONTEND_PORT;
+	l4->dest = inner_dport;
 	l4->syn = 1;
 
 	data = pktgen__push_data(&builder, default_data, sizeof(default_data));
@@ -228,6 +228,15 @@ pktgen_ipip_v6(struct __ctx_buff *ctx, const void *outer_dst,
 	}
 
 	return 0;
+}
+
+/* Cilium's own DSR-IPIP dispatch: outer src is the LB node. */
+static __always_inline int
+pktgen_ipip_v6(struct __ctx_buff *ctx, const void *outer_dst,
+	       const void *inner_dst)
+{
+	return __pktgen_ipip_v6(ctx, (void *)v6_node_one, outer_dst, inner_dst,
+				FRONTEND_PORT);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -510,6 +519,245 @@ int ipip_term_v6_xdp_handoff_check(struct __ctx_buff *ctx)
 		test_fatal("post-decap nexthdr is %u, expected TCP", l3->nexthdr);
 	if (memcmp(&l3->daddr, (void *)v6_pod_two, 16) != 0)
 		test_fatal("post-decap dst IP is not BACKEND - forced-backend DNAT skipped (stale skip-nodeport hint from XDP)");
+
+	test_finish();
+}
+
+/* -------------------------------------------------------------------------- */
+/* External L4LB tests, mirroring the IPv4 sibling file; see there for the    */
+/* rationale. The outer dst is the LB's real, a LoadBalancer frontend of the  */
+/* service, so it is a delivery target: strip without forcing a backend and   */
+/* let ordinary selection on the inner tuple pick the Pod.                    */
+/* -------------------------------------------------------------------------- */
+
+#define EXT_BACKEND_PORT	tcp_svc_two		/* != FRONTEND_PORT */
+#define EXT_OTHER_PORT		__bpf_htons(9999)	/* no frontend on it */
+
+static const __u8 ext_lb_ip6[16]   = {0x20, 0x01, 0, 0, 0, 0, 0, 0,
+				      0, 0, 0, 0, 0, 0, 0, 1};
+static const __u8 ext_vip6[16]     = v6_svc_three_addr;
+static const __u8 ext_real_ip6[16] = {0xfd, 0x10, 0, 0, 0, 0, 0, 0,
+				      0, 0, 0, 0, 0, 0, 0x99, 9};
+
+static __always_inline int ext_lb6_setup(struct __ctx_buff *ctx, __u8 real_flags)
+{
+	union v6addr vip, real, backend, host;
+
+	memcpy(&vip, (void *)ext_vip6, 16);
+	memcpy(&real, (void *)ext_real_ip6, 16);
+	memcpy(&backend, (void *)v6_pod_two, 16);
+	memcpy(&host, (void *)v6_node_one, 16);
+
+	lb_v6_add_service_with_flags(&vip, FRONTEND_PORT, IPPROTO_TCP, 1, 3,
+				     SVC_FLAG_ROUTABLE | SVC_FLAG_EXTERNAL_IP, 0);
+	lb_v6_add_backend(&vip, FRONTEND_PORT, 1, 300, &backend,
+			  EXT_BACKEND_PORT, IPPROTO_TCP, 0);
+
+	lb_v6_add_service_with_flags(&real, FRONTEND_PORT, IPPROTO_TCP, 1, 4,
+				     SVC_FLAG_ROUTABLE | real_flags, 0);
+	lb_v6_add_backend(&real, FRONTEND_PORT, 1, 300, &backend,
+			  EXT_BACKEND_PORT, IPPROTO_TCP, 0);
+
+	endpoint_v6_add_entry(&backend, BACKEND_IFACE, BACKEND_EP_ID, 0, 0,
+			      (__u8 *)backend_mac, (__u8 *)node_mac);
+	ipcache_v6_add_entry(&backend, 0, 112233, 0, 0);
+
+	endpoint_v6_add_entry(&host, 0, 0, ENDPOINT_F_HOST, HOST_ID, NULL, NULL);
+	ipcache_v6_add_entry(&host, 0, HOST_ID, 0, 0);
+
+	num_calls[RECORD_REDIRECT] = 0;
+	num_calls[RECORD_REDIRECT_PEER] = 0;
+	num_calls[RECORD_TAILCALL] = 0;
+	xdp_xfer_flags = 0;
+
+	return netdev_receive_packet(ctx);
+}
+
+static __always_inline void ext_lb6_teardown(void)
+{
+	endpoint_v6_del_entry((const union v6addr *)v6_pod_two);
+	endpoint_v6_del_entry((const union v6addr *)v6_node_one);
+}
+
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v6_ext_lb_real")
+int ipip_term_v6_ext_lb_real_pktgen(struct __ctx_buff *ctx)
+{
+	return __pktgen_ipip_v6(ctx, (void *)ext_lb_ip6, (void *)ext_real_ip6,
+				(void *)ext_vip6, FRONTEND_PORT);
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v6_ext_lb_real")
+int ipip_term_v6_ext_lb_real_setup(struct __ctx_buff *ctx)
+{
+	return ext_lb6_setup(ctx, SVC_FLAG_LOADBALANCER);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v6_ext_lb_real")
+int ipip_term_v6_ext_lb_real_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	__u32 *status_code;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	ext_lb6_teardown();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+	status_code = data;
+
+	assert(*status_code == CTX_ACT_REDIRECT);
+	if (num_calls[RECORD_TAILCALL] != 1)
+		test_fatal("want 1 policy tail-call, got %u",
+			   num_calls[RECORD_TAILCALL]);
+	if (num_calls[RECORD_REDIRECT_PEER] != 1)
+		test_fatal("want 1 ctx_redirect_peer, got %u",
+			   num_calls[RECORD_REDIRECT_PEER]);
+	if (num_calls[RECORD_REDIRECT] != 0)
+		test_fatal("want 0 plain ctx_redirect, got %u",
+			   num_calls[RECORD_REDIRECT]);
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->nexthdr != IPPROTO_TCP)
+		test_fatal("nexthdr is %u, want TCP: outer not stripped",
+			   l3->nexthdr);
+	if (memcmp(&l3->saddr, (void *)v6_pod_one, 16) != 0)
+		test_fatal("src IP is not CLIENT");
+	if (memcmp(&l3->daddr, (void *)v6_pod_two, 16) != 0)
+		test_fatal("dst IP is not BACKEND: real was forced as backend");
+
+	l4 = (void *)l3 + sizeof(struct ipv6hdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port has changed");
+	if (l4->dest != EXT_BACKEND_PORT)
+		test_fatal("dport %u, want backend port: forced path ran",
+			   bpf_ntohs(l4->dest));
+
+	test_finish();
+}
+
+/* A node IP is a host endpoint, not a delivery target: forced path, port
+ * untranslated.
+ */
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v6_ext_lb_node_ip")
+int ipip_term_v6_ext_lb_node_ip_pktgen(struct __ctx_buff *ctx)
+{
+	return __pktgen_ipip_v6(ctx, (void *)ext_lb_ip6, (void *)v6_node_one,
+				(void *)ext_vip6, FRONTEND_PORT);
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v6_ext_lb_node_ip")
+int ipip_term_v6_ext_lb_node_ip_setup(struct __ctx_buff *ctx)
+{
+	return ext_lb6_setup(ctx, SVC_FLAG_LOADBALANCER);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v6_ext_lb_node_ip")
+int ipip_term_v6_ext_lb_node_ip_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+	struct tcphdr *l4;
+
+	test_init();
+
+	ext_lb6_teardown();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	if (num_calls[RECORD_REDIRECT_PEER] != 0)
+		test_fatal("redirected to a Pod, want the forced host path");
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->nexthdr != IPPROTO_TCP)
+		test_fatal("nexthdr is %u, want TCP: outer not stripped",
+			   l3->nexthdr);
+	if (memcmp(&l3->daddr, (void *)v6_node_one, 16) != 0)
+		test_fatal("dst is not NODE_IP: gate fired on a host endpoint");
+
+	l4 = (void *)l3 + sizeof(struct ipv6hdr);
+	if ((void *)l4 + sizeof(struct tcphdr) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if (l4->dest != FRONTEND_PORT)
+		test_fatal("dport %u, want frontend port", bpf_ntohs(l4->dest));
+
+	test_finish();
+}
+
+/* The real is a frontend, but not on the inner port: not stripped. */
+PKTGEN(PROG_TYPE, "tc_nodeport_ipip_term_v6_ext_lb_port_mismatch")
+int ipip_term_v6_ext_lb_port_mismatch_pktgen(struct __ctx_buff *ctx)
+{
+	return __pktgen_ipip_v6(ctx, (void *)ext_lb_ip6, (void *)ext_real_ip6,
+				(void *)ext_vip6, EXT_OTHER_PORT);
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_ipip_term_v6_ext_lb_port_mismatch")
+int ipip_term_v6_ext_lb_port_mismatch_setup(struct __ctx_buff *ctx)
+{
+	return ext_lb6_setup(ctx, SVC_FLAG_LOADBALANCER);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_ipip_term_v6_ext_lb_port_mismatch")
+int ipip_term_v6_ext_lb_port_mismatch_check(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct ethhdr *l2;
+	struct ipv6hdr *l3;
+
+	test_init();
+
+	ext_lb6_teardown();
+
+	data = (void *)(long)ctx_data(ctx);
+	data_end = (void *)(long)ctx->data_end;
+
+	if (data + sizeof(__u32) > data_end)
+		test_fatal("status code out of bounds");
+
+	if (num_calls[RECORD_REDIRECT_PEER] != 0)
+		test_fatal("redirected to a Pod, want no termination");
+
+	l2 = data + sizeof(__u32);
+	if ((void *)l2 + sizeof(struct ethhdr) > data_end)
+		test_fatal("l2 out of bounds");
+
+	l3 = (void *)l2 + sizeof(struct ethhdr);
+	if ((void *)l3 + sizeof(struct ipv6hdr) > data_end)
+		test_fatal("l3 out of bounds");
+
+	if (l3->nexthdr != NEXTHDR_IPV6)
+		test_fatal("nexthdr is %u, want IPV6: outer was stripped",
+			   l3->nexthdr);
 
 	test_finish();
 }
