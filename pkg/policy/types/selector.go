@@ -517,9 +517,10 @@ func hasCIDRLabel(lbls labels.Labels, is4 bool) bool {
 func (p *CIDRSelector) Matches(lbls labels.Labels) bool {
 	isWorld := lbls.HasWorldLabel()
 	isNode := lbls.HasHostLabel() || lbls.HasRemoteNodeLabel()
+	isPod := !isNode
 	allowed := isWorld ||
 		(isNode && option.Config.PolicyCIDRMatchesNodes()) ||
-		(!isWorld && !isNode && option.Config.PolicyCIDRMatchesPods())
+		(isPod && option.Config.PolicyCIDRMatchesPods())
 
 	if !allowed {
 		return false
@@ -543,9 +544,9 @@ func (p *CIDRSelector) Matches(lbls labels.Labels) bool {
 }
 
 // matchesCIDRWildcard returns true if the requirement is a wildcard and matches
-// the target under the PolicyCIDRMatchesPods configuration.
+// the target.
 func matchesCIDRWildcard(req *Requirement, lbls labels.Labels) bool {
-	if !option.Config.PolicyCIDRMatchesPods() || req.key.Source != labels.LabelSourceReserved {
+	if req.key.Source != labels.LabelSourceReserved {
 		return false
 	}
 
