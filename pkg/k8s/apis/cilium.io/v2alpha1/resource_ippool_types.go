@@ -5,6 +5,8 @@ package v2alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
 // +genclient
@@ -14,8 +16,8 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:storageversion
 
-// CiliumResourceIPPool defines an IP pool that can be used for pooled IPAM (i.e. the multi-pool IPAM
-// mode).
+// CiliumResourceIPPool defines an IP pool that can be used for Multi-Pool
+// Resource IPAM by the Cilium Network Driver.
 type CiliumResourceIPPool struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
@@ -31,12 +33,32 @@ type ResourceIPPoolSpec struct {
 	// IPv4 specifies the IPv4 CIDRs and mask sizes of the pool
 	//
 	// +kubebuilder:validation:Optional
-	IPv4 *IPv4PoolSpec `json:"ipv4"`
+	IPv4 *ciliumv2.IPv4PoolSpec `json:"ipv4,omitempty"`
 
 	// IPv6 specifies the IPv6 CIDRs and mask sizes of the pool
 	//
 	// +kubebuilder:validation:Optional
-	IPv6 *IPv6PoolSpec `json:"ipv6"`
+	IPv6 *ciliumv2.IPv6PoolSpec `json:"ipv6,omitempty"`
+
+	// AllowFirstIP allows the first IP of each delegated CIDR to be used. If
+	// unset or false, this IP is reserved. This field is ignored for /{31,32}
+	// and /{127,128} CIDRs since reserving the first and last IPs would make
+	// the CIDRs unusable. This field is immutable.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="allowFirstIP is immutable"
+	AllowFirstIP bool `json:"allowFirstIP,omitempty"`
+
+	// AllowLastIP allows the last IP of each delegated CIDR to be used. If
+	// unset or false, this IP is reserved. This field is ignored for /{31,32}
+	// and /{127,128} CIDRs since reserving the first and last IPs would make
+	// the CIDRs unusable. This field is immutable.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="allowLastIP is immutable"
+	AllowLastIP bool `json:"allowLastIP,omitempty"`
 }
 
 // CiliumResourceIPPoolList is a list of CiliumResourceIPPool objects.

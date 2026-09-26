@@ -22,6 +22,7 @@ import (
 	cilium_v2alpha1_api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	cilium_v2alpha1 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2alpha1"
+	networkdriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -190,7 +191,7 @@ func registerDriverNodeConfigReconciler(
 	tbl statedb.RWTable[*driverNodeConfig],
 	daemonCfg *option.DaemonConfig,
 	cs k8sClient.Clientset,
-	cfg NetworkDriverConfig,
+	cfg networkdriverConfig.Config,
 ) error {
 	if !cs.IsEnabled() || !cfg.Enabled {
 		return nil
