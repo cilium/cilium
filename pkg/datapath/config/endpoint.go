@@ -76,9 +76,12 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 
 	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
 
-	if lnc.KPRConfig.EnableSocketLB &&
-		!option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly {
-		cfg.EnableSocketLBFull = true
+	if lnc.KPRConfig.EnableSocketLB {
+		if option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly {
+			cfg.EnableSocketLBHostNSOnly = true
+		} else {
+			cfg.EnableSocketLBFull = true
+		}
 	}
 
 	return cfg

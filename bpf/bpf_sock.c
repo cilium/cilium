@@ -23,6 +23,7 @@
 #include "lib/sock.h"
 #include "lib/trace_sock.h"
 #include "lib/health_check.h"
+#include "lib/socket_lb.h"
 
 #define SYS_REJECT	0
 #define SYS_PROCEED	1
@@ -327,7 +328,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb4_backend l7backend;
 #endif
 
-	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
+	if (CONFIG(enable_socket_lb_hostns_only) && !in_hostns)
 		return -ENXIO;
 
 	if (!udp_only && !sock_proto_enabled(protocol))
@@ -1068,7 +1069,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb6_backend l7backend;
 #endif
 
-	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
+	if (CONFIG(enable_socket_lb_hostns_only) && !in_hostns)
 		return -ENXIO;
 
 	if (!udp_only && !sock_proto_enabled(protocol))
