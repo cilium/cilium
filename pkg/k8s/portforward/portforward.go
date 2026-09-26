@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
@@ -67,18 +69,39 @@ type PortForwardResult struct {
 	ForwardedPorts []ForwardedPort
 }
 
+// createDialer builds a dialer that tries WebSocket and falls back to SPDY,
+// since some proxies in front of the kube-apiserver do not support SPDY.
+func createDialer(config *rest.Config, url *url.URL) (httpstream.Dialer, error) {
+	dialerWebsocket, errWebsocket := portforward.NewSPDYOverWebsocketDialer(url, config)
+
+	roundTripper, upgrader, errSPDY := spdy.RoundTripperFor(config)
+	dialerSPDY := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, url)
+
+	if errSPDY != nil && errWebsocket == nil {
+		return dialerWebsocket, nil
+	}
+	if errWebsocket != nil && errSPDY == nil {
+		return dialerSPDY, nil
+	}
+	if errSPDY != nil && errWebsocket != nil {
+		return nil, fmt.Errorf("error while creating k8s dialer: (websocket) %w, (spdy) %w", errWebsocket, errSPDY)
+	}
+
+	return portforward.NewFallbackDialer(dialerSPDY, dialerWebsocket, func(err error) bool {
+		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
+	}), nil
+}
+
 // PortForward executes in a goroutine a port forward command.
 // To stop the port-forwarding, use the context by cancelling it.
 func (pf *PortForwarder) PortForward(ctx context.Context, p PortForwardParameters) (*PortForwardResult, error) {
 	req := pf.clientset.CoreV1().RESTClient().Post().Namespace(p.Namespace).
 		Resource("pods").Name(p.Pod).SubResource(strings.ToLower("PortForward"))
 
-	roundTripper, upgrader, err := spdy.RoundTripperFor(pf.config)
+	dialer, err := createDialer(pf.config, req.URL())
 	if err != nil {
 		return nil, err
 	}
-
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, req.URL())
 	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
 	if len(p.Addresses) == 0 {
 		p.Addresses = []string{"localhost"}
