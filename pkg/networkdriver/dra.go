@@ -29,8 +29,8 @@ import (
 )
 
 func (driver *Driver) startDRA(ctx context.Context) error {
-	driver.logger.DebugContext(
-		ctx, "starting driver",
+	driver.logger.InfoContext(
+		ctx, "starting DRA plugin",
 		logfields.DriverName, driver.config.DriverName,
 	)
 
@@ -103,9 +103,8 @@ func (driver *Driver) startDRA(ctx context.Context) error {
 		return fmt.Errorf("DRA plugin registration failed: %w", err)
 	}
 
-	driver.logger.DebugContext(ctx,
+	driver.logger.InfoContext(ctx,
 		"DRA plugin registration successful",
-		logfields.DriverName, driver.config.DriverName,
 	)
 
 	return nil
@@ -129,38 +128,45 @@ func (d *Driver) WatchHealthStatus(ctx context.Context, reports chan<- kubeletpl
 
 // PrepareResourceClaims gets called when we have a request to allocate a resource claim. we also need to have a way to remember
 // the allocations elsewhere so allocation state persist across restarts in the plugin.
-func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (result map[kube_types.UID]kubeletplugin.PrepareResult, err error) {
+func (driver *Driver) PrepareResourceClaims(ctx context.Context, claims []*resourceapi.ResourceClaim) (map[kube_types.UID]kubeletplugin.PrepareResult, error) {
 	driver.logger.DebugContext(ctx, fmt.Sprintf("PrepareResourceClaims called with %d claims", len(claims)))
 
-	result = make(map[kube_types.UID]kubeletplugin.PrepareResult)
+	result := make(map[kube_types.UID]kubeletplugin.PrepareResult)
 
-	err = driver.withLock(func() error {
+	driver.withLockNoErr(func() {
 		for _, c := range claims {
 			l := driver.logger.With(
 				logfields.K8sNamespace, c.Namespace,
 				logfields.UID, c.UID,
 				logfields.Name, c.Name,
 			)
-			result[c.UID] = driver.prepareResourceClaim(ctx, c)
+			claimResult := driver.prepareResourceClaim(ctx, c)
+			result[c.UID] = claimResult
 
-			l.DebugContext(ctx, "allocation for claim",
-				logfields.Result, result[c.UID],
+			// If there is an error we want to log it here the kubelet won't do it for us.
+			// Ref: https://github.com/kubernetes/kubernetes/blob/v1.37.0/pkg/kubelet/cm/dra/manager.go#L425-L436
+			if claimResult.Err != nil {
+				l.ErrorContext(ctx, "failed to prepare resources for claim",
+					logfields.Error, claimResult.Err,
+				)
+				continue
+			}
+			l.DebugContext(ctx, "successful allocation for claim",
+				logfields.Result, claimResult,
 			)
 		}
-
-		return nil
 	})
 
-	return result, err
+	return result, nil
 }
 
 // UnprepareResourceClaims gets called whenever we have a request to deallocate a resource claim. ex: pod goes away.
-func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (result map[kube_types.UID]error, err error) {
+func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kubeletplugin.NamespacedObject) (map[kube_types.UID]error, error) {
 	driver.logger.DebugContext(ctx, fmt.Sprintf("UnprepareResourceClaims called with %d claims", len(claims)))
 
-	result = make(map[kube_types.UID]error, len(claims))
+	result := make(map[kube_types.UID]error, len(claims))
 
-	err = driver.withLock(func() error {
+	driver.withLockNoErr(func() {
 		for _, c := range claims {
 			err := driver.unprepareResourceClaim(ctx, c)
 			if err != nil {
@@ -181,11 +187,9 @@ func (driver *Driver) UnprepareResourceClaims(ctx context.Context, claims []kube
 			}
 			result[c.UID] = err
 		}
-
-		return nil
 	})
 
-	return result, err
+	return result, nil
 }
 
 // unprepareResourceClaim removes an allocation and frees up the device.
