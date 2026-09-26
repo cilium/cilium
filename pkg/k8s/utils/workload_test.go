@@ -11,6 +11,7 @@
 package utils
 
 import (
+	"maps"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -209,7 +210,7 @@ func TestDeploymentConfigMetadata(t *testing.T) {
 			wantObjectMetadata: slim_metav1.ObjectMeta{
 				Name:         "deploy",
 				GenerateName: "deploy-rc-pod",
-				Labels:       map[string]string{},
+				Labels:       map[string]string{"deploymentconfig": "deploy"},
 			},
 		},
 		{
@@ -221,7 +222,7 @@ func TestDeploymentConfigMetadata(t *testing.T) {
 			wantObjectMetadata: slim_metav1.ObjectMeta{
 				Name:         "deploy2",
 				GenerateName: "deploy2-rc-pod",
-				Labels:       map[string]string{},
+				Labels:       map[string]string{"deploymentconfig": "deploy2"},
 			},
 		},
 		{
@@ -240,12 +241,19 @@ func TestDeploymentConfigMetadata(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotObjectMeta, gotTypeMeta, ok := GetWorkloadMetaFromPod(tt.pod)
-			if !ok {
-				t.Fatalf("expected ok=true, got ok=%t", ok)
+			podLabels := maps.Clone(tt.pod.Labels)
+			// Call twice to catch the original mutation: the first lookup identified
+			// the DeploymentConfig, but deleting the shared label made the next lookup
+			// identify the immediate ReplicationController instead.
+			for range 2 {
+				gotObjectMeta, gotTypeMeta, ok := GetWorkloadMetaFromPod(tt.pod)
+				if !ok {
+					t.Fatalf("expected ok=true, got ok=%t", ok)
+				}
+				assert.Equal(t, tt.wantObjectMetadata, gotObjectMeta, "Object metadata")
+				assert.Equal(t, tt.wantTypeMetadata, gotTypeMeta, "Type metadata")
 			}
-			assert.Equal(t, tt.wantObjectMetadata, gotObjectMeta, "Object metadata")
-			assert.Equal(t, tt.wantTypeMetadata, gotTypeMeta, "Type metadata")
+			assert.Equal(t, podLabels, tt.pod.Labels, "Input Pod labels must not be mutated")
 		})
 	}
 }
