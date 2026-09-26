@@ -37,6 +37,24 @@ func (f *fakeAction) Fatalf(format string, args ...any) {
 	panic(fakeActionError{fmt.Errorf(format, args...)})
 }
 
+func TestBuildExecCommandDuration(t *testing.T) {
+	for _, tc := range []struct {
+		duration time.Duration
+		want     string
+	}{
+		{30 * time.Second, "30s"},
+		{time.Minute, "60s"},
+		{2 * time.Minute, "120s"},
+		{5 * time.Minute, "300s"},
+		{time.Hour, "3600s"},
+	} {
+		t.Run(tc.duration.String(), func(t *testing.T) {
+			command := buildExecCommand("TCP_STREAM", "1.2.3.4", tc.duration, nil)
+			require.Equal(t, tc.want, command[4])
+		})
+	}
+}
+
 func TestNetperfCmd(t *testing.T) {
 	const (
 		dst      = "1.2.3.4"

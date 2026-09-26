@@ -247,6 +247,9 @@ func newCmdConnectivityPerf(hooks api.Hooks) *cobra.Command {
 		Short: "Test network performance",
 		Long:  ``,
 		PreRunE: func(_ *cobra.Command, _ []string) error {
+			if duration := params.PerfParameters.Duration; duration%time.Second != 0 {
+				return fmt.Errorf("invalid --duration %s: fractional seconds are not supported", duration)
+			}
 			// This is a bit of hack that allows us to override default values
 			// of these parameters that are not visible in perf subcommand options
 			// as we can't have different defaults specified in test and perf subcommands

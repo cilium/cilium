@@ -112,6 +112,34 @@ func TestConnectivityTestFlags(t *testing.T) {
 	require.Equal(t, map[string]string{"a": "b", "c": "d"}, params.NodeSelector)
 }
 
+func TestPerfDurationValidation(t *testing.T) {
+	saved := params
+	t.Cleanup(func() { params = saved })
+	for _, tc := range []struct {
+		duration string
+		wantErr  bool
+	}{
+		{"30s", false},
+		{"60s", false},
+		{"1m0s", false},
+		{"1.5m", false},
+		{"500ms", true},
+		{"1.5s", true},
+		{"60.5s", true},
+	} {
+		t.Run(tc.duration, func(t *testing.T) {
+			cmd := newCmdConnectivityPerf(&api.NopHooks{})
+			require.NoError(t, cmd.Flags().Set("duration", tc.duration))
+			err := cmd.PreRunE(cmd, nil)
+			if tc.wantErr {
+				require.ErrorContains(t, err, "fractional seconds are not supported")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestPrintImageArtifacts(t *testing.T) {
 	ct := newCmdConnectivityTest(&api.NopHooks{})
 	var buf bytes.Buffer
