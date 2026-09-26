@@ -187,7 +187,7 @@ func (*fakeXdsServer) RemoveAllNetworkPolicies() {
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
+func (*fakeXdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) {
 	panic("unimplemented")
 }
 

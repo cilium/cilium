@@ -6,10 +6,8 @@ package xds
 import (
 	"context"
 	"fmt"
-	"maps"
 	"strings"
 
-	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -40,9 +38,8 @@ type XDSServer interface {
 	AddMetricsListener(ctx context.Context, port uint16, wg *completion.WaitGroup)
 
 	// RemoveListener removes an existing Envoy listener by name.
-	// The completion is signaled on 'wg'. Returns a revert function that can be called
-	// to undo the removal.
-	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) AckingResourceMutatorRevertFunc
+	// The completion is signaled on 'wg'.
+	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup)
 
 	// UpsertEnvoyResources inserts or updates Envoy resources (listeners, routes, clusters,
 	// endpoints, secrets) in the xDS cache, from where they will be delivered to Envoy via
@@ -73,15 +70,14 @@ type XDSServer interface {
 }
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD.
-// Each resource type is stored in a map keyed by resource name.
+// Each resource type is stored in a map keyed by resource name. Once passed to
+// an xDS server, the stored protobuf values must be treated as immutable.
 type Resources struct {
-	Listeners          map[string]*envoy_config_listener.Listener
-	Secrets            map[string]*envoy_config_tls.Secret
-	Routes             map[string]*envoy_config_route.RouteConfiguration
-	Clusters           map[string]*envoy_config_cluster.Cluster
-	Endpoints          map[string]*envoy_config_endpoint.ClusterLoadAssignment
-	NetworkPolicies    map[string]*cilium.NetworkPolicy
-	NetworkPolicyHosts map[string]*cilium.NetworkPolicyHosts
+	Listeners map[string]*envoy_config_listener.Listener
+	Secrets   map[string]*envoy_config_tls.Secret
+	Routes    map[string]*envoy_config_route.RouteConfiguration
+	Clusters  map[string]*envoy_config_cluster.Cluster
+	Endpoints map[string]*envoy_config_endpoint.ClusterLoadAssignment
 
 	// Callback functions that confirm newly allocated primary proxy ports after
 	// the corresponding Listener change is successfully ACKed by Envoy. A
@@ -97,24 +93,13 @@ func NewResources() Resources {
 		Routes:                  make(map[string]*envoy_config_route.RouteConfiguration),
 		Clusters:                make(map[string]*envoy_config_cluster.Cluster),
 		Endpoints:               make(map[string]*envoy_config_endpoint.ClusterLoadAssignment),
-		NetworkPolicies:         make(map[string]*cilium.NetworkPolicy),
-		NetworkPolicyHosts:      make(map[string]*cilium.NetworkPolicyHosts),
 		PortAllocationCallbacks: make(map[string]func(context.Context) error),
 	}
 }
 
-// DeepCopy returns a copy of the Resources with cloned maps.
-// Protobuf values are shared (not deep-copied) since they are treated as immutable once published.
-func cloneOrInit[K comparable, V any](m map[K]V) map[K]V {
-	if m == nil {
-		return make(map[K]V)
-	}
-	return maps.Clone(m)
-}
-
 // DebugInfo returns aggregated info about the underlying envoy resources in the object
 func (r *Resources) DebugInfo() string {
-	resourcesInfo := make([]string, 0, 7)
+	resourcesInfo := make([]string, 0, 5)
 
 	if len(r.Listeners) > 0 {
 		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d listeners", len(r.Listeners)))
@@ -131,30 +116,8 @@ func (r *Resources) DebugInfo() string {
 	if len(r.Secrets) > 0 {
 		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d listeners", len(r.Secrets)))
 	}
-	if len(r.NetworkPolicies) > 0 {
-		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d networkpolicies", len(r.NetworkPolicies)))
-	}
-	if len(r.NetworkPolicyHosts) > 0 {
-		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d networkpolicyhosts", len(r.NetworkPolicyHosts)))
-	}
 
 	return strings.Join(resourcesInfo, ", ")
-}
-
-func (r *Resources) DeepCopy() *Resources {
-	if r == nil {
-		return nil
-	}
-	return &Resources{
-		Listeners:               cloneOrInit(r.Listeners),
-		Secrets:                 cloneOrInit(r.Secrets),
-		Routes:                  cloneOrInit(r.Routes),
-		Clusters:                cloneOrInit(r.Clusters),
-		Endpoints:               cloneOrInit(r.Endpoints),
-		NetworkPolicies:         cloneOrInit(r.NetworkPolicies),
-		NetworkPolicyHosts:      cloneOrInit(r.NetworkPolicyHosts),
-		PortAllocationCallbacks: cloneOrInit(r.PortAllocationCallbacks),
-	}
 }
 
 // ListenersAddedOrDeleted returns 'true' if a listener is added or removed when updating from 'old'
