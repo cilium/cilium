@@ -9,7 +9,7 @@ Cilium updates its xDS cache before Envoy has accepted the resulting configurati
 
 The rollback system must handle both cases without:
 
-- reverting newer resource updates;
+- reverting unrelated newer resource updates;
 - confusing repeated content states in an A → B → A sequence;
 - losing rollback state when a caller times out;
 - retaining a complete cache snapshot for every mutation;
@@ -18,7 +18,8 @@ The rollback system must handle both cases without:
 The cache applies resource mutations immediately but finalizes snapshots only
 when an Envoy watch can consume them. It uses sparse inverse mutations,
 internal generation numbers, separate caller and response lifetimes, and
-per-resource generation checks.
+per-resource generation checks. Response rollback preserves dependencies
+across the resource types changed by one caller transaction.
 
 ## Terminology
 
@@ -96,8 +97,8 @@ resources when a response is encoded.
 Responses coalesced from one snapshot are forwarded to an ADS stream in xDS
 dependency order (CDS before EDS, LDS before RDS). Cilium orders the relay
 batch itself because go-control-plane's non-strict cache iterates open watches
-in map order; enabling its strict ADS option solely for ordering would also
-hold partial named SotW requests when the snapshot contains orphan resources.
+in map order. Strict ADS also enables go-control-plane's ADS option, which
+holds a partial named SotW request until it covers the snapshot resources.
 
 Incremental finalization shallow-copies the fixed slots and replaces only the
 affected resource groups. Within an affected group, the immutable resource map
@@ -288,11 +289,16 @@ expected generation == 42
 
 the rollback skips that resource.
 
-This is the central safety rule:
+This is the central safety rule for caller rollback and for the resource type
+whose xDS response was NACKed:
 
 > A rollback may change a resource only while that resource still belongs to the generation being reverted.
 
 Generation checks are performed per resource name. A rollback may therefore restore some resources while skipping others that have been updated more recently.
+Response rollback has one dependency exception: a newer Route or Endpoint
+introduced by the rejected Listener or Cluster can be reverted with its parent
+when that parent's rollback removes the last reference. A child edit made and
+even ACKed in the meantime still depends on the rejected parent.
 
 ## Two independent rollback lifetimes
 
@@ -413,32 +419,46 @@ generation supplies an empty CLA for an EDS cluster; wildcard `:*` endpoints
 without a matching cluster are filtered from the snapshot.
 
 This validation also applies when caller or response rollback changes desired
-resources. Other resource types do not pay for the check. The finalized
-snapshot's consistency check remains a defensive backstop; a failed
-publication restores the reference index along with desired resources.
+resources. Other resource types do not pay for the check. A failed publication
+restores the reference index along with desired resources. When agent debug
+logging is enabled, the finalized snapshot is checked again as a defensive
+projection-invariant check. In strict ADS mode, go-control-plane's ADS response
+gate delays partial named responses; it does not check snapshot consistency or
+call `Consistent()`.
 
 ## TypeURL-scoped rollback
 
-Response rollback is divided by directly changed TypeURL.
+An ACK or NACK is reported by Envoy for one TypeURL, but a caller's
+`ApplyResources` transaction may change several resource types. Each changed
+TypeURL therefore carries a generation-fenced rollback of the whole caller
+transaction. A NACK first selects still-current resources of the rejected
+TypeURL. If none remain, it does not revert companions from that transaction.
 
 Replacing a Cluster, or adding another Cluster that uses an already-subscribed
 EDS name, may advance the aggregate SotW Endpoint version even if the CLA did
 not change. This does not change the CLA protobuf or register a rollback for it.
 
-However, an Envoy NACK rejects one TypeURL at a time. The cache therefore retains rollback only for resource types directly mutated by the transaction.
+The cache registers response rollback only for TypeURLs directly mutated by
+the transaction, but each registered rollback contains its entire inverse.
 
 Consequently:
 
-- a Secret NACK reverts Secret changes;
-- a Listener NACK reverts Listener changes;
-- a Secret NACK cannot roll back a NetworkPolicy merely because both appeared in the same snapshot.
+- a Secret NACK reverts Secret changes and any other resources changed in the
+  same caller transaction;
+- a Listener NACK restores its still-current Listeners; Routes changed by the
+  same caller transaction are reverted only where those Listener rollbacks
+  remove a Route reference. If the restored Listener still refers to a Route,
+  that Route keeps its current contents;
+- a Cluster NACK applies the same rule to its Endpoint dependencies;
+- a Secret NACK cannot roll back a NetworkPolicy from an unrelated transaction
+  merely because both appeared in the same snapshot.
 
-Strict ADS adds one deliberate exception for go-control-plane snapshot
-consistency. CDS and EDS form one consistency pair, as do LDS and RDS. A
-rollback registered for either member also captures companion resources
-changed by the same transaction, so rejecting CDS can restore the matching EDS
-state and rejecting LDS can restore the matching RDS state. This does not pull
-unrelated resource types into the rollback.
+If another parent still refers to a child, the child keeps its current
+contents. Conversely, if a rollback restores a parent reference and its child
+is absent, the child's previous value is restored. Other same-transaction
+resource types still use their per-resource generation fences. In strict ADS
+mode, the mutation-time consistency check validates the resulting desired
+state before committing the NACK rollback.
 
 ## Staged, published-but-unsent, and response-owned states
 
@@ -529,9 +549,9 @@ When Envoy NACKs a response:
 1. The callback verifies the stream and nonce.
 2. Only rollback state for the rejected TypeURL is selected.
 3. Coalesced rollback lifecycles are processed newest-first.
-4. Each resource is checked against its expected generation.
-5. Resources that still belong to the rejected update are restored.
-6. Resources superseded by newer updates are skipped.
+4. Resources of the rejected TypeURL are checked against their expected generation; if none remain current, no companion is rolled back.
+5. For Listener/Cluster NACKs, Route/Endpoint companions are selected by comparing references before and after restoring the parent. A child whose last reference disappears can be reverted even after a newer child update; a still-referenced child is preserved.
+6. Other resources superseded by newer updates are skipped.
 7. The restored desired state is staged for delivery to Envoy.
 8. Completions attached to the rejected response fail with the NACK error.
 
@@ -560,7 +580,7 @@ P = {
 
 If Envoy NACKs the generation-42 response, its rollback expects generation 42.
 
-Because the current resource is generation 43, the old NACK does not touch `P2`. A later response will carry `P2` and receive its own ACK or NACK.
+Because the current resource is generation 43, the old NACK does not touch `P2`. A later response will carry `P2` and receive its own ACK or NACK. This example concerns the rejected resource itself, not a Route or Endpoint whose parent is rolled back as described above.
 
 This differs from updates coalesced into one response:
 
@@ -870,10 +890,14 @@ The design relies on the following invariants:
 2. Every real mutation receives a generation.
 3. Every resource name records the generation that last changed it.
 4. Rollback state is sparse and contains only affected resources.
-5. A rollback changes a resource only if its expected generation still matches.
+5. Caller rollback and the NACKed resource type are generation-fenced. A
+   response-driven Listener/Cluster rollback may also restore dependent
+   Routes/Endpoints after a later child edit if it removes their last reference.
 6. Caller-owned and response-owned rollback have independent lifetimes.
 7. Caller timeout or finalization cannot disable a later NACK rollback.
-8. ACK or NACK of an old response cannot overwrite a newer resource generation.
+8. ACK or NACK of an old response cannot overwrite a newer version of the
+   rejected resource type; a dependent child can be reverted when the parent
+   reference that justified it is removed.
 9. Response rollback is scoped to the rejected TypeURL.
 10. Staged and unsent rollback is coalesced by TypeURL and resource name.
 11. Removal tombstones exist only while some rollback lifecycle requires them.

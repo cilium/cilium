@@ -488,7 +488,13 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	for name, policy := range adsTestNetworkPolicies {
 		upsertADSTestNetworkPolicy(t, xdsServer, name, policy)
 	}
-	err = xdsServer.UpsertEnvoyResources(ctx, ADS_RESOURCES, s.waitGroup)
+	// The deliberately invalid Secret is a separate caller transaction. Its
+	// later NACK must not roll back the otherwise accepted base resources.
+	baseResources := ADS_RESOURCES
+	baseResources.Secrets = nil
+	err = xdsServer.UpsertEnvoyResources(ctx, baseResources, s.waitGroup)
+	require.NoError(t, err)
+	err = xdsServer.UpsertEnvoyResources(ctx, xds.Resources{Secrets: ADS_RESOURCES.Secrets}, nil)
 	require.NoError(t, err)
 
 	err = s.waitForProxyCompletion()

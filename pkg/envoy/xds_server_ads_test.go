@@ -1334,7 +1334,7 @@ func TestStrictADSNACKRestoresSnapshotConsistency(t *testing.T) {
 	}
 }
 
-func TestStrictADSClusterNACKRollsBackEndpointUpdate(t *testing.T) {
+func TestStrictADSClusterNACKKeepsEndpointStillReferencedAfterRollback(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
@@ -1360,13 +1360,365 @@ func TestStrictADSClusterNACKRollsBackEndpointUpdate(t *testing.T) {
 	require.True(t, exists)
 	endpoint := endpointResource.(*envoy_config_endpoint.ClusterLoadAssignment)
 	require.Equal(t, "old", cluster.GetAltStatName())
-	require.Equal(t, "old", endpoint.GetEndpoints()[0].GetLocality().GetRegion(),
-		"strict ADS must conservatively roll back EDS with a rejected CDS update")
+	require.Equal(t, "new", endpoint.GetEndpoints()[0].GetLocality().GetRegion(),
+		"the restored cluster still refers to this endpoint")
 
 	createADSWatchResponse(t, cache, ClusterTypeURL, rejectedVersion)
 	snapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 	require.NoError(t, xdsnew.CheckSnapshotConsistency(snapshot))
+}
+
+func TestStrictADSClusterNACKRevertsOnlyDependentEndpoint(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	cache := newADSCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeStrictADS,
+	}, nil, nil)
+
+	old := adsTestEDSResources("existing", "old")
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), old, nil))
+	acceptedVersion := ackADSResourceVersion(t, cache, 1, ClusterTypeURL)
+
+	changed := adsTestEDSResources("existing", "new")
+	added := adsTestEDSResources("added", "new")
+	maps.Copy(changed.Clusters, added.Clusters)
+	maps.Copy(changed.Endpoints, added.Endpoints)
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	updateTrackedADSSnapshot(t, server, changed, wg, ClusterTypeURL)
+
+	rejectedVersion := nackADSResourceVersion(t, cache, 1, ClusterTypeURL, acceptedVersion, "rejected clusters")
+	require.Error(t, wg.Wait())
+	clusterResource, exists := cache.GetResource(localNodeID, typeurl.Cluster, "existing")
+	require.True(t, exists)
+	require.Equal(t, "old", clusterResource.(*envoy_config_cluster.Cluster).GetAltStatName())
+	endpointResource, exists := cache.GetResource(localNodeID, typeurl.Endpoint, "existing")
+	require.True(t, exists)
+	require.Equal(t, "new", endpointResource.(*envoy_config_endpoint.ClusterLoadAssignment).GetEndpoints()[0].GetLocality().GetRegion(),
+		"the restored cluster still refers to this endpoint")
+	requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "added")
+	requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "added")
+
+	createADSWatchResponse(t, cache, ClusterTypeURL, rejectedVersion)
+	snapshot, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.NoError(t, xdsnew.CheckSnapshotConsistency(snapshot))
+}
+
+func TestStrictADSEndpointNACKAfterClusterAndEndpointRemoval(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	cache := newADSCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeStrictADS,
+	}, nil, nil)
+
+	resources := adsTestEDSResources("cluster", "accepted")
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+	ackADSResourceVersion(t, cache, 1, ClusterTypeURL)
+	acceptedEndpointVersion := ackADSResourceVersionFrom(t, cache, 1, EndpointTypeURL, "")
+
+	// CDS and EDS are removed by one transaction. An EDS NACK must not
+	// restore an authoritative CLA without its matching cluster in strict ADS.
+	require.NoError(t, server.DeleteEnvoyResources(t.Context(), resources, nil))
+	requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster")
+	requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster")
+
+	rejectedVersion := nackADSResourceVersion(t, cache, 1, EndpointTypeURL, acceptedEndpointVersion, "rejected endpoint removal")
+	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster")
+	requireCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster")
+
+	createADSWatchResponse(t, cache, EndpointTypeURL, rejectedVersion)
+	snapshot, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.NoError(t, xdsnew.CheckSnapshotConsistency(snapshot))
+	_, clusterExists := cache.GetResource(localNodeID, typeurl.Cluster, "cluster")
+	_, endpointExists := cache.GetResource(localNodeID, typeurl.Endpoint, "cluster")
+	require.True(t, clusterExists, "the EDS rollback must restore the matching cluster")
+	require.True(t, endpointExists, "the EDS rollback must restore the rejected CLA removal")
+}
+
+func TestStrictADSEndpointNACKRevertsClusterFromSameTransaction(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	cache := newADSCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeStrictADS,
+	}, nil, nil)
+
+	old := adsTestEDSResources("cluster", "old")
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), old, nil))
+	ackADSResourceVersion(t, cache, 1, ClusterTypeURL)
+	acceptedEndpointVersion := ackADSResourceVersionFrom(t, cache, 1, EndpointTypeURL, "")
+
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	updateTrackedADSSnapshot(t, server, adsTestEDSResources("cluster", "new"), wg, EndpointTypeURL)
+	rejectedVersion := nackADSResourceVersion(t, cache, 1, EndpointTypeURL, acceptedEndpointVersion, "rejected endpoint")
+	require.Error(t, wg.Wait())
+
+	clusterResource, exists := cache.GetResource(localNodeID, typeurl.Cluster, "cluster")
+	require.True(t, exists)
+	require.Equal(t, "old", clusterResource.(*envoy_config_cluster.Cluster).GetAltStatName(),
+		"a NACK must revert every still-current change from the caller transaction")
+	endpointResource, exists := cache.GetResource(localNodeID, typeurl.Endpoint, "cluster")
+	require.True(t, exists)
+	require.Equal(t, "old", endpointResource.(*envoy_config_endpoint.ClusterLoadAssignment).GetEndpoints()[0].GetLocality().GetRegion())
+
+	createADSWatchResponse(t, cache, EndpointTypeURL, rejectedVersion)
+	snapshot, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.NoError(t, xdsnew.CheckSnapshotConsistency(snapshot))
+}
+
+func TestStrictADSRouteNACKRevertsRequiredListener(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	cache := newADSCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeStrictADS,
+	}, nil, nil)
+
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	updateTrackedADSSnapshot(t, server, adsTestRDSResources("listener", "route"), wg, RouteTypeURL)
+	rejectedVersion := nackADSResourceVersion(t, cache, 1, RouteTypeURL, "", "rejected route")
+	require.Error(t, wg.Wait())
+	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener")
+	requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "route")
+
+	createADSWatchResponse(t, cache, RouteTypeURL, rejectedVersion)
+	snapshot, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.NoError(t, xdsnew.CheckSnapshotConsistency(snapshot))
+}
+
+func TestStrictADSListenerNACKKeepsRouteStillReferencedAfterRollback(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	cache := newADSCache(logger, true)
+	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeStrictADS,
+	}, nil, nil)
+
+	old := adsTestRDSResources("listener", "route")
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), old, nil))
+	acceptedVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+
+	changed := adsTestRDSResources("listener", "route")
+	changed.Listeners["listener"].TrafficDirection = envoy_config_core_v3.TrafficDirection_INBOUND
+	changed.Routes["route"].VirtualHosts = []*envoy_config_route.VirtualHost{{Name: "updated"}}
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	updateTrackedADSSnapshot(t, server, changed, wg, ListenerTypeURL)
+	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, acceptedVersion, "rejected listener")
+	require.Error(t, wg.Wait())
+
+	listenerResource, exists := cache.GetResource(localNodeID, typeurl.Listener, "listener")
+	require.True(t, exists)
+	require.Equal(t, envoy_config_core_v3.TrafficDirection_UNSPECIFIED,
+		listenerResource.(*envoy_config_listener.Listener).GetTrafficDirection())
+	routeResource, exists := cache.GetResource(localNodeID, typeurl.Route, "route")
+	require.True(t, exists)
+	virtualHosts := routeResource.(*envoy_config_route.RouteConfiguration).GetVirtualHosts()
+	require.Len(t, virtualHosts, 1, "the restored listener still refers to this route")
+	require.Equal(t, "updated", virtualHosts[0].GetName(),
+		"the restored listener still refers to this route")
+}
+
+func TestADSListenerNACKRevertsLaterRouteEdit(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	for _, mode := range []config.XDSMode{config.EnvoyXDSModeADS, config.EnvoyXDSModeStrictADS} {
+		for _, routeACKed := range []bool{false, true} {
+			name := string(mode) + "/route-pending"
+			if routeACKed {
+				name = string(mode) + "/route-acked"
+			}
+			t.Run(name, func(t *testing.T) {
+				cache := newADSCache(logger, mode.IsStrictADS())
+				server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{envoyXDSMode: mode}, nil, nil)
+				wg := completion.NewWaitGroup(t.Context())
+				t.Cleanup(wg.Cancel)
+				updateTrackedADSSnapshot(t, server, adsTestRDSResources("l1", "r1"), wg, ListenerTypeURL)
+
+				response := createADSWatchResponse(t, cache, ListenerTypeURL, "")
+				version := response.GetResponseVersion()
+				const nonce = "original-listener"
+				cache.GetCompletionCallbacks().OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
+					&envoy_service_discovery.DiscoveryResponse{TypeUrl: ListenerTypeURL, VersionInfo: version, Nonce: nonce})
+
+				later := xds.NewResources()
+				later.Routes["r1"] = &envoy_config_route.RouteConfiguration{
+					Name: "r1", VirtualHosts: []*envoy_config_route.VirtualHost{{Name: "later"}},
+				}
+				require.NoError(t, server.UpsertEnvoyResources(t.Context(), later, nil))
+				if routeACKed {
+					ackADSResourceVersionFrom(t, cache, 1, RouteTypeURL, "")
+				}
+
+				require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+					Node:          &envoy_config_core_v3.Node{Id: localNodeID},
+					TypeUrl:       ListenerTypeURL,
+					ResponseNonce: nonce,
+					ErrorDetail:   &status.Status{Message: "rejected original l1"},
+				}))
+				require.Error(t, wg.Wait())
+				requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "l1")
+				requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "r1")
+			})
+		}
+	}
+}
+
+func TestADSListenerNACKLeavesSupersedingListenerAndRoute(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	for _, mode := range []config.XDSMode{config.EnvoyXDSModeADS, config.EnvoyXDSModeStrictADS} {
+		t.Run(string(mode), func(t *testing.T) {
+			cache := newADSCache(logger, mode.IsStrictADS())
+			server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{envoyXDSMode: mode}, nil, nil)
+			wg := completion.NewWaitGroup(t.Context())
+			t.Cleanup(wg.Cancel)
+			updateTrackedADSSnapshot(t, server, adsTestRDSResources("l1", "r1"), wg, ListenerTypeURL)
+
+			response := createADSWatchResponse(t, cache, ListenerTypeURL, "")
+			const nonce = "superseded-listener"
+			cache.GetCompletionCallbacks().OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
+				&envoy_service_discovery.DiscoveryResponse{TypeUrl: ListenerTypeURL, VersionInfo: response.GetResponseVersion(), Nonce: nonce})
+
+			later := adsTestRDSResources("l1", "r1")
+			later.Listeners["l1"].TrafficDirection = envoy_config_core_v3.TrafficDirection_INBOUND
+			require.NoError(t, server.UpsertEnvoyResources(t.Context(), later, nil))
+			require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+				Node:          &envoy_config_core_v3.Node{Id: localNodeID},
+				TypeUrl:       ListenerTypeURL,
+				ResponseNonce: nonce,
+				ErrorDetail:   &status.Status{Message: "rejected superseded l1"},
+			}))
+			require.Error(t, wg.Wait())
+			require.Equal(t, envoy_config_core_v3.TrafficDirection_INBOUND,
+				cachedListener(t, cache, localNodeID, "l1").GetTrafficDirection())
+			requireCachedResource(t, cache, localNodeID, RouteTypeURL, "r1")
+		})
+	}
+}
+
+func TestADSListenerNACKRestoresPreviousRouteReference(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	for _, mode := range []config.XDSMode{config.EnvoyXDSModeADS, config.EnvoyXDSModeStrictADS} {
+		for _, newerRoute := range []bool{false, true} {
+			name := string(mode) + "/restore-removed-route"
+			if newerRoute {
+				name = string(mode) + "/keep-newer-route"
+			}
+			t.Run(name, func(t *testing.T) {
+				cache := newADSCache(logger, mode.IsStrictADS())
+				server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{envoyXDSMode: mode}, nil, nil)
+				original := adsTestRDSResources("l1", "r0")
+				require.NoError(t, server.UpsertEnvoyResources(t.Context(), original, nil))
+				acceptedVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
+
+				wg := completion.NewWaitGroup(t.Context())
+				t.Cleanup(wg.Cancel)
+				replacement := adsTestRDSResources("l1", "r1")
+				var callbacks xdsnew.TypeURLCallbacks
+				callbacks.Set(typeurl.Listener, nil)
+				server.mutex.Lock()
+				err := cache.ApplyResources(t.Context(), localNodeID,
+					xdsnew.ResourceMutations{Removed: original, Upserted: replacement}, wg, callbacks)
+				server.mutex.Unlock()
+				require.NoError(t, err)
+				response := createADSWatchResponse(t, cache, ListenerTypeURL, acceptedVersion)
+				const nonce = "replaced-route"
+				cache.GetCompletionCallbacks().OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
+					&envoy_service_discovery.DiscoveryResponse{TypeUrl: ListenerTypeURL, VersionInfo: response.GetResponseVersion(), Nonce: nonce})
+				if newerRoute {
+					// A later listener introduces a newer r0. Restoring l1's old
+					// reference must not overwrite the Route it can already use.
+					later := adsTestRDSResources("l2", "r0")
+					later.Routes["r0"].VirtualHosts = []*envoy_config_route.VirtualHost{{Name: "newer"}}
+					require.NoError(t, server.UpsertEnvoyResources(t.Context(), later, nil))
+				}
+
+				require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+					Node:          &envoy_config_core_v3.Node{Id: localNodeID},
+					TypeUrl:       ListenerTypeURL,
+					ResponseNonce: nonce,
+					ErrorDetail:   &status.Status{Message: "rejected new route reference"},
+				}))
+				require.Error(t, wg.Wait())
+				require.True(t, proto.Equal(original.Listeners["l1"], cachedListener(t, cache, localNodeID, "l1")))
+				route, exists := cache.GetResource(localNodeID, typeurl.Route, "r0")
+				require.True(t, exists)
+				if newerRoute {
+					require.Equal(t, "newer", route.(*envoy_config_route.RouteConfiguration).GetVirtualHosts()[0].GetName())
+					requireCachedResource(t, cache, localNodeID, ListenerTypeURL, "l2")
+				}
+				requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "r1")
+			})
+		}
+	}
+}
+
+func TestADSListenerNACKKeepsRouteReferencedByAnotherListener(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	for _, mode := range []config.XDSMode{config.EnvoyXDSModeADS, config.EnvoyXDSModeStrictADS} {
+		t.Run(string(mode), func(t *testing.T) {
+			cache := newADSCache(logger, mode.IsStrictADS())
+			server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{envoyXDSMode: mode}, nil, nil)
+			wg := completion.NewWaitGroup(t.Context())
+			t.Cleanup(wg.Cancel)
+			updateTrackedADSSnapshot(t, server, adsTestRDSResources("l1", "r1"), wg, ListenerTypeURL)
+			response := createADSWatchResponse(t, cache, ListenerTypeURL, "")
+			const nonce = "shared-route"
+			cache.GetCompletionCallbacks().OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
+				&envoy_service_discovery.DiscoveryResponse{TypeUrl: ListenerTypeURL, VersionInfo: response.GetResponseVersion(), Nonce: nonce})
+
+			// l2 belongs to a later caller transaction, but depends on r1.
+			other := adsTestRDSResources("l2", "r1")
+			other.Routes["r1"].VirtualHosts = []*envoy_config_route.VirtualHost{{Name: "used-by-l2"}}
+			require.NoError(t, server.UpsertEnvoyResources(t.Context(), other, nil))
+			require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
+				Node:          &envoy_config_core_v3.Node{Id: localNodeID},
+				TypeUrl:       ListenerTypeURL,
+				ResponseNonce: nonce,
+				ErrorDetail:   &status.Status{Message: "rejected l1"},
+			}))
+			require.Error(t, wg.Wait())
+			requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "l1")
+			requireCachedResource(t, cache, localNodeID, ListenerTypeURL, "l2")
+			route, exists := cache.GetResource(localNodeID, typeurl.Route, "r1")
+			require.True(t, exists)
+			require.Equal(t, "used-by-l2", route.(*envoy_config_route.RouteConfiguration).GetVirtualHosts()[0].GetName())
+		})
+	}
+}
+
+func TestADSResponseNACKRevertsWholeCallerTransaction(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	for _, mode := range []config.XDSMode{config.EnvoyXDSModeADS, config.EnvoyXDSModeStrictADS} {
+		t.Run(string(mode), func(t *testing.T) {
+			cache := newADSCache(logger, mode.IsStrictADS())
+			server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
+				envoyXDSMode: mode,
+			}, nil, nil)
+
+			resources := adsTestRDSResources("listener", "route")
+			resources.Secrets["related"] = &envoy_config_tls.Secret{Name: "related"}
+			wg := completion.NewWaitGroup(t.Context())
+			t.Cleanup(wg.Cancel)
+			updateTrackedADSSnapshot(t, server, resources, wg, ListenerTypeURL)
+
+			// A later, unrelated transaction may be coalesced into the same
+			// snapshot, but it must not be reverted with this caller's update.
+			unrelated := xds.NewResources()
+			unrelated.Secrets["unrelated"] = &envoy_config_tls.Secret{Name: "unrelated"}
+			require.NoError(t, server.UpsertEnvoyResources(t.Context(), unrelated, nil))
+
+			nackADSResourceVersion(t, cache, 1, ListenerTypeURL, "", "rejected listener")
+			require.Error(t, wg.Wait())
+			requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener")
+			requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "route")
+			requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "related")
+			requireCachedResource(t, cache, localNodeID, SecretTypeURL, "unrelated")
+		})
+	}
 }
 
 func TestStrictADSEndpointNACKKeepsCluster(t *testing.T) {

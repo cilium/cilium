@@ -1155,7 +1155,7 @@ func TestPreparedResourceRevertsCarryTargetEntries(t *testing.T) {
 				for name, entry := range targets {
 					rollback[typeurl.NetworkPolicy][name] = rollbackEntry{previous: entry, expectedGeneration: 10}
 				}
-				changes = state.resourceRevert(rollback)
+				changes = state.resourceRevert(rollback, typeurl.NetworkPolicy)
 			}
 			require.Len(t, changes.more, 3)
 			require.Equal(t, current, state.resourceEntries(typeurl.NetworkPolicy), "preparation must not mutate entries")
@@ -1863,6 +1863,7 @@ func TestStrictADSCacheHoldsPartialNamedRequest(t *testing.T) {
 	t.Cleanup(cancel)
 	require.Empty(t, responses, "strict ADS holds a watch until its named request covers the snapshot")
 	cancel()
+
 	fullResponses := make(chan cache.Response, 1)
 	fullCancel, err := c.CreateWatch(&cache.Request{
 		Node:          &envoy_config_core.Node{Id: nodeID},
@@ -2959,6 +2960,22 @@ func TestNetworkPolicyWaitCompletesWhenLastListenerIsReverted(t *testing.T) {
 	require.True(t, exists)
 }
 
+func TestCloneStagedRollbacksIncludesStrictADSCompanions(t *testing.T) {
+	var rollback rollbackResources
+	rollback[typeurl.Listener] = map[string]rollbackEntry{"listener": {expectedGeneration: 1}}
+	rollback[typeurl.Route] = map[string]rollbackEntry{"route": {expectedGeneration: 1}}
+	var original typeurl.Map[rollbackResources]
+	original.Set(typeurl.Listener, rollback)
+
+	cloned := cloneStagedRollbacks(original)
+	clonedRollback, _ := cloned.Get(typeurl.Listener)
+	clonedRollback[typeurl.Listener]["listener"] = rollbackEntry{expectedGeneration: 2}
+	clonedRollback[typeurl.Route]["route"] = rollbackEntry{expectedGeneration: 2}
+	originalRollback, _ := original.Get(typeurl.Listener)
+	require.Equal(t, uint64(1), originalRollback[typeurl.Listener]["listener"].expectedGeneration)
+	require.Equal(t, uint64(1), originalRollback[typeurl.Route]["route"].expectedGeneration)
+}
+
 func TestApplyResourcesCoalescesStagedRollbackState(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
 	const updates = 1000
@@ -3774,7 +3791,7 @@ func TestStagedRollbackDropsSemanticEndpointABA(t *testing.T) {
 		"a distinct protobuf pointer with the original contents needs no rollback")
 }
 
-func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
+func TestPublishedUnsentRollbackKeepsOtherTransactionChangesAfterNetZeroEndpoint(t *testing.T) {
 	c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
 	const nodeID = "node1"
 	node := &envoy_config_core.Node{Id: nodeID}
@@ -3819,7 +3836,10 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 
 	state := c.nodeStates[nodeID]
 	require.NotNil(t, state)
-	require.True(t, state.unsentRollbacks.Empty(), "the net-zero EDS rollback must be discarded")
+	endpointRollback, exists := state.unsentRollbacks.Get(typeurl.Endpoint)
+	require.True(t, exists, "an EDS NACK must still be able to revert the whole second transaction")
+	require.Empty(t, (*endpointRollback.resources)[typeurl.Endpoint], "the net-zero endpoint change needs no rollback")
+	require.Contains(t, (*endpointRollback.resources)[typeurl.Cluster], "another-cluster")
 	require.True(t, state.rollbackOwners.Empty())
 	require.Empty(t, state.resources[typeurl.Endpoint].entries)
 }

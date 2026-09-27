@@ -188,6 +188,33 @@ func (changes resourceChanges) resourceAfter(typeURL typeurl.Index, name string,
 	return current
 }
 
+// referenceDelta reports which child references change when parent resources
+// are rolled back. A content-only parent change leaves its children alone.
+func (changes resourceChanges) referenceDelta(childTypeURL typeurl.Index) map[string]int {
+	var delta map[string]int
+	visit := func(change resourceChange) {
+		for name := range strictParentReferences(change.previous.resource, childTypeURL) {
+			if delta == nil {
+				delta = make(map[string]int)
+			}
+			delta[name]--
+		}
+		for name := range strictParentReferences(change.next.resource, childTypeURL) {
+			if delta == nil {
+				delta = make(map[string]int)
+			}
+			delta[name]++
+		}
+	}
+	if !changes.empty() {
+		visit(changes.first)
+		for _, change := range changes.more {
+			visit(change)
+		}
+	}
+	return delta
+}
+
 // strictParentReferences uses the same extractor as the final snapshot check,
 // including RDS references in default filter chains and scoped routes.
 func strictParentReferences(parent cache_types.Resource, childTypeURL typeurl.Index) map[string]bool {
@@ -946,7 +973,13 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 }
 
 func NewCache(logger *slog.Logger, strictAdsMode bool, options ...CacheOption) Cache {
-	snapshotCache := cache.NewSnapshotCache(strictAdsMode, cache.IDHash{}, snapshotCacheLogger(logger))
+	snapshotCache := cache.NewSnapshotCache(
+		// strictAdsMode == true triggerts both ordered watch iteration and suppression of
+		// outdated named watches; it does not validate snapshot consistency.
+		strictAdsMode,
+		cache.IDHash{},
+		snapshotCacheLogger(logger),
+	)
 
 	c := &cacheImpl{
 		SnapshotCache: snapshotCache,
@@ -1509,34 +1542,17 @@ func mergeTypeURLWaits(base typeurl.Set, additions typeURLWaits) typeurl.Set {
 	return base
 }
 
-// strictADSConsistencyCompanion returns the other resource type that must be
-// rolled back together with typeURL to preserve go-control-plane snapshot
-// consistency. Strict ADS requires the EDS resources referenced by CDS and the
-// RDS resources referenced by LDS to match exactly.
-func strictADSConsistencyCompanion(typeURL typeurl.Index) (typeurl.Index, bool) {
-	switch typeURL {
-	case typeurl.Listener:
-		return typeurl.Route, true
-	case typeurl.Route:
-		return typeurl.Listener, true
-	case typeurl.Cluster:
-		return typeurl.Endpoint, true
-	default:
-		return typeurl.Count, false
-	}
-}
-
-func (state *nodeState) mergeStagedRollbacks(base typeurl.Map[rollbackResources], typeURLs typeurl.Set, inverse inverseResources, generation uint64, strictADS bool) typeurl.Map[rollbackResources] {
+// mergeStagedRollbacks gives every changed TypeURL a rollback of the entire
+// caller transaction. An ACK or NACK is per TypeURL, but an ApplyResources
+// mutation must not be left partially applied after a NACK.
+func (state *nodeState) mergeStagedRollbacks(base typeurl.Map[rollbackResources], typeURLs typeurl.Set, inverse inverseResources, generation uint64) typeurl.Map[rollbackResources] {
 	if typeURLs.Empty() {
 		return base
 	}
 	for typeURL := range typeURLs.Members() {
 		rollback, _ := base.Get(typeURL)
-		rollback = rollback.mergeTypeURL(state, typeURL, inverse, generation)
-		if strictADS {
-			if companion, ok := strictADSConsistencyCompanion(typeURL); ok {
-				rollback = rollback.mergeTypeURL(state, companion, inverse, generation)
-			}
+		for changedTypeURL := range typeurl.Indices() {
+			rollback = rollback.mergeTypeURL(state, changedTypeURL, inverse, generation)
 		}
 		if rollback.empty() {
 			base.Remove(typeURL)
@@ -1547,8 +1563,8 @@ func (state *nodeState) mergeStagedRollbacks(base typeurl.Map[rollbackResources]
 	return base
 }
 
-// clone copies every map in a staged rollback. In strict ADS mode, a rollback
-// slot can also contain resources of a companion TypeURL.
+// clone preserves every resource-type map in a staged rollback during a
+// publication attempt. A response rollback can cover an entire transaction.
 func (rollback rollbackResources) clone() rollbackResources {
 	for typeURL := range typeurl.Indices() {
 		rollback[typeURL] = maps.Clone(rollback[typeURL])
@@ -1809,23 +1825,85 @@ func (rollback rollbackResources) mergeHistory(state *nodeState, newer rollbackR
 	return rollback
 }
 
-func (state *nodeState) resourceRevert(rollback rollbackResources) resourceChanges {
+// resourceRevert restores the rejected TypeURL's still-current resources and
+// the changes from their caller transactions that still depend on them. A
+// child introduced by a rejected Listener or Cluster is removed even if its
+// Route or Endpoint has since changed: that later update depends on the
+// rejected parent's reference. An unchanged reference preserves the child.
+func (state *nodeState) resourceRevert(rollback rollbackResources, responseType typeurl.Index) resourceChanges {
 	if state == nil {
 		return resourceChanges{}
 	}
 	var changes resourceChanges
+	// A response can cover several caller transactions, but a later version of
+	// the rejected resource must not cause its older dependent resources to be
+	// rolled back on their own.
+	current := state.resourceEntries(responseType)
+	for name, entry := range rollback[responseType] {
+		previous := current[name]
+		if previous.generation != entry.expectedGeneration || entry.previousEquals(previous.resource) {
+			continue
+		}
+		changes.add(responseType, name, previous, entry.previous)
+	}
+	if changes.empty() {
+		return changes
+	}
+	var childType typeurl.Index
+	switch responseType {
+	case typeurl.Listener:
+		childType = typeurl.Route
+	case typeurl.Cluster:
+		childType = typeurl.Endpoint
+	default:
+		childType = typeurl.Count
+	}
+	var childRefDelta map[string]int
+	if childType < typeurl.Count {
+		childRefDelta = changes.referenceDelta(childType)
+	}
 	for typeURL := range typeurl.Indices() {
+		if typeURL == responseType {
+			continue
+		}
 		current := state.resourceEntries(typeURL)
 		for name, entry := range rollback[typeURL] {
 			previous := current[name]
-			if previous.generation != entry.expectedGeneration ||
-				entry.previousEquals(previous.resource) {
+			if typeURL == childType {
+				// If rollback drops the last reference, even a newer child edit
+				// depends on the rejected parent and must be reverted. If it
+				// restores a reference, only restore the child when absent; a
+				// newer existing child need not lose its content. Unchanged or
+				// shared references leave the child alone.
+				delta := childRefDelta[name]
+				if delta == 0 ||
+					(delta < 0 && state.referencedAfter(changes, responseType, childType, name)) ||
+					(delta > 0 && previous.resource != nil) {
+					continue
+				}
+			} else if previous.generation != entry.expectedGeneration {
+				continue
+			}
+			if entry.previousEquals(previous.resource) {
 				continue
 			}
 			changes.add(typeURL, name, previous, entry.previous)
 		}
 	}
 	return changes
+}
+
+// referencedAfter checks the resulting parent state before removing a child
+// introduced by a rejected transaction. Another parent may still use it.
+func (state *nodeState) referencedAfter(changes resourceChanges, parentType, childType typeurl.Index, childName string) bool {
+	current := state.resourceEntries(parentType)
+	for name, entry := range current {
+		parent := changes.resourceAfter(parentType, name, entry.resource)
+		if strictParentReferences(parent, childType)[childName] {
+			return true
+		}
+	}
+	return false
 }
 
 func (state *nodeState) resourceRevertInverse(generation uint64, inverse inverseResources) resourceChanges {
@@ -2460,7 +2538,7 @@ func (lifecycle *rollbackLifecycle) Revert() error {
 	if resources == nil {
 		changes = state.resourceRevertInverse(lifecycle.generation, inverse)
 	} else {
-		changes = state.resourceRevert(*resources)
+		changes = state.resourceRevert(*resources, lifecycle.typeURL)
 	}
 	if state != nil {
 		if resources == nil {
@@ -2490,7 +2568,13 @@ func (lifecycle *rollbackLifecycle) Revert() error {
 	changedTypeURLs := changes.typeURLs()
 	err := tx.updateResourceChangesLocked(changes, inverseResources{}, snapshotTypesChangedBy(changedTypeURLs), changedTypeURLs,
 		nil, typeURLWaits{}, noRollbackTracking)
-	tx.listenerChanges = committedListenerChanges(changes)
+	if err == nil {
+		tx.listenerChanges = committedListenerChanges(changes)
+	} else {
+		// Validation can reject a response-driven revert before any mutation.
+		// Do not report its proposed Listener changes to the observer.
+		tx.updateErr = err
+	}
 	tx.complete()
 	if err != nil {
 		c.logger.Error("Failed to revert snapshot",
@@ -2615,8 +2699,9 @@ func (c *cacheImpl) generateSnapshotForUpdate(state *nodeState, previous cache.R
 	if err != nil {
 		return nil, err
 	}
-	// Mutation-time validation maintains the strict ADS invariant. The full
-	// snapshot check is a projection invariant check for agent debug mode.
+	// Mutation-time validation maintains the strict ADS invariant. Checking
+	// the whole finalized snapshot is useful as a projection invariant check,
+	// but should not impose a full-cache scan outside agent debug mode.
 	if c.strictAdsMode && c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
 		if err := CheckSnapshotConsistency(snapshot); err != nil {
 			return nil, fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
@@ -2694,7 +2779,7 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 	}
 	completionTypeURLs = mergeTypeURLWaits(completionTypeURLs, waits)
 	if tracking != noRollbackTracking {
-		rollbacks = state.mergeStagedRollbacks(rollbacks, rollbackTypeURLs, inverse, tx.generation, c.strictAdsMode)
+		rollbacks = state.mergeStagedRollbacks(rollbacks, rollbackTypeURLs, inverse, tx.generation)
 	}
 	staged := oldStaged
 	if staged == nil {
