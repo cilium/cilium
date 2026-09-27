@@ -1399,6 +1399,28 @@ func (CapacityManagerStatus) Values() []CapacityManagerStatus {
 	}
 }
 
+type CapacityReservationAdjustmentStatus string
+
+// Enum values for CapacityReservationAdjustmentStatus
+const (
+	CapacityReservationAdjustmentStatusRequested CapacityReservationAdjustmentStatus = "requested"
+	CapacityReservationAdjustmentStatusApplied   CapacityReservationAdjustmentStatus = "applied"
+	CapacityReservationAdjustmentStatusRejected  CapacityReservationAdjustmentStatus = "rejected"
+)
+
+// Values returns all known values for CapacityReservationAdjustmentStatus. Note
+// that this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityReservationAdjustmentStatus) Values() []CapacityReservationAdjustmentStatus {
+	return []CapacityReservationAdjustmentStatus{
+		"requested",
+		"applied",
+		"rejected",
+	}
+}
+
 type CapacityReservationBillingRequestStatus string
 
 // Enum values for CapacityReservationBillingRequestStatus
@@ -1552,6 +1574,26 @@ func (CapacityReservationInstancePlatform) Values() []CapacityReservationInstanc
 		"RHEL with HA and SQL Server Standard",
 		"RHEL with HA and SQL Server Enterprise",
 		"Ubuntu Pro",
+	}
+}
+
+type CapacityReservationModificationQuoteState string
+
+// Enum values for CapacityReservationModificationQuoteState
+const (
+	CapacityReservationModificationQuoteStateActive  CapacityReservationModificationQuoteState = "active"
+	CapacityReservationModificationQuoteStateExpired CapacityReservationModificationQuoteState = "expired"
+)
+
+// Values returns all known values for CapacityReservationModificationQuoteState.
+// Note that this can be expanded in the future, and so it is only as up to date as
+// the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityReservationModificationQuoteState) Values() []CapacityReservationModificationQuoteState {
+	return []CapacityReservationModificationQuoteState{
+		"active",
+		"expired",
 	}
 }
 
@@ -10676,6 +10718,7 @@ const (
 	ResourceTypeIpamPoolAllocation                                     ResourceType = "ipam-pool-allocation"
 	ResourceTypeCapacityReservationCancellationQuote                   ResourceType = "capacity-reservation-cancellation-quote"
 	ResourceTypeApplicationStatusCheck                                 ResourceType = "application-status-check"
+	ResourceTypeCapacityReservationModificationQuote                   ResourceType = "capacity-reservation-modification-quote"
 )
 
 // Values returns all known values for ResourceType. Note that this can be
@@ -10795,6 +10838,7 @@ func (ResourceType) Values() []ResourceType {
 		"ipam-pool-allocation",
 		"capacity-reservation-cancellation-quote",
 		"application-status-check",
+		"capacity-reservation-modification-quote",
 	}
 }
 

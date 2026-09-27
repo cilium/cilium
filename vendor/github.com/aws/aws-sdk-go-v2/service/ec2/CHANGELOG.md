@@ -1,3 +1,7 @@
+# v1.336.0 (2026-09-22)
+
+* **Feature**: Amazon EC2 now supports quote-based start date changes for future-dated Capacity Reservations
+
 # v1.335.0 (2026-09-18)
 
 * **Feature**: This release adds documentation for the T8i instance family to the EC2 ModifyDefaultCreditSpecification and GetDefaultCreditSpecification APIs.

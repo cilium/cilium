@@ -1270,6 +1270,26 @@ func (m *validateOpCreateCapacityReservationCancellationQuote) HandleInitialize(
 	return next.HandleInitialize(ctx, in)
 }
 
+type validateOpCreateCapacityReservationDateChangeQuote struct {
+}
+
+func (*validateOpCreateCapacityReservationDateChangeQuote) ID() string {
+	return "OperationInputValidation"
+}
+
+func (m *validateOpCreateCapacityReservationDateChangeQuote) HandleInitialize(ctx context.Context, in middleware.InitializeInput, next middleware.InitializeHandler) (
+	out middleware.InitializeOutput, metadata middleware.Metadata, err error,
+) {
+	input, ok := in.Parameters.(*CreateCapacityReservationDateChangeQuoteInput)
+	if !ok {
+		return out, metadata, fmt.Errorf("unknown input parameters type %T", in.Parameters)
+	}
+	if err := validateOpCreateCapacityReservationDateChangeQuoteInput(input); err != nil {
+		return out, metadata, err
+	}
+	return next.HandleInitialize(ctx, in)
+}
+
 type validateOpCreateCapacityReservationFleet struct {
 }
 
@@ -11502,6 +11522,10 @@ func addOpCreateCapacityReservationCancellationQuoteValidationMiddleware(stack *
 	return stack.Initialize.Add(&validateOpCreateCapacityReservationCancellationQuote{}, middleware.After)
 }
 
+func addOpCreateCapacityReservationDateChangeQuoteValidationMiddleware(stack *middleware.Stack) error {
+	return stack.Initialize.Add(&validateOpCreateCapacityReservationDateChangeQuote{}, middleware.After)
+}
+
 func addOpCreateCapacityReservationFleetValidationMiddleware(stack *middleware.Stack) error {
 	return stack.Initialize.Add(&validateOpCreateCapacityReservationFleet{}, middleware.After)
 }
@@ -15617,6 +15641,24 @@ func validateOpCreateCapacityReservationCancellationQuoteInput(v *CreateCapacity
 	invalidParams := smithy.InvalidParamsError{Context: "CreateCapacityReservationCancellationQuoteInput"}
 	if v.CapacityReservationId == nil {
 		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
+	}
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	} else {
+		return nil
+	}
+}
+
+func validateOpCreateCapacityReservationDateChangeQuoteInput(v *CreateCapacityReservationDateChangeQuoteInput) error {
+	if v == nil {
+		return nil
+	}
+	invalidParams := smithy.InvalidParamsError{Context: "CreateCapacityReservationDateChangeQuoteInput"}
+	if v.CapacityReservationId == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("CapacityReservationId"))
+	}
+	if v.NewStartDate == nil {
+		invalidParams.Add(smithy.NewErrParamRequired("NewStartDate"))
 	}
 	if invalidParams.Len() > 0 {
 		return invalidParams

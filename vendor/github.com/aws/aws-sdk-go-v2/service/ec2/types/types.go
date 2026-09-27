@@ -2166,6 +2166,23 @@ type CapacityManagerTagDimension struct {
 // Describes a Capacity Reservation.
 type CapacityReservation struct {
 
+	// The configuration that the Capacity Reservation will have after the requested
+	// adjustment is applied.
+	AdjustmentDetails *CapacityReservationAdjustmentDetails
+
+	// The status of the most recent modification to the Capacity Reservation. A
+	// Capacity Reservation can have one of the following adjustment statuses:
+	//
+	//   - requested - The modification was requested and is being processed.
+	//
+	//   - applied - The modification was applied to the Capacity Reservation.
+	//
+	//   - rejected - The modification was not applied and the Capacity Reservation
+	//   keeps its existing configuration.
+	//
+	// This field is not returned if the Capacity Reservation has never been modified.
+	AdjustmentStatus CapacityReservationAdjustmentStatus
+
 	// The Availability Zone in which the capacity is reserved.
 	AvailabilityZone *string
 
@@ -2264,6 +2281,11 @@ type CapacityReservation struct {
 	//  Information about the interruption configuration and association with the
 	// source reservation for interruptible Capacity Reservations.
 	InterruptionInfo *InterruptionInfo
+
+	// The start date that you originally requested for the Capacity Reservation, in
+	// the ISO8601 format in the UTC time zone ( YYYY-MM-DDThh:mm:ss.sssZ ). This value
+	// doesn't change when you push out the start date.
+	OriginalStartDate *time.Time
 
 	// The Amazon Resource Name (ARN) of the Outpost on which the Capacity Reservation
 	// was created.
@@ -2364,6 +2386,37 @@ type CapacityReservation struct {
 	noSmithyDocumentSerde
 }
 
+// Describes the configuration that a Capacity Reservation will have after a
+// pending adjustment is applied.
+type CapacityReservationAdjustmentDetails struct {
+
+	// The commitment duration, in seconds, that the Capacity Reservation will have
+	// after the adjustment.
+	CommitmentDuration *int64
+
+	// The date and time at which the commitment duration will expire after the
+	// adjustment.
+	CommitmentEndDate *time.Time
+
+	// The end date that the Capacity Reservation will have after the adjustment.
+	EndDate *time.Time
+
+	// Indicates the way in which the Capacity Reservation will end after the
+	// adjustment. Possible values are:
+	//
+	//   - unlimited - The Capacity Reservation remains active until you explicitly
+	//   cancel it.
+	//
+	//   - limited - The Capacity Reservation expires automatically at the date and
+	//   time given by endDate .
+	EndDateType *string
+
+	// The start date that the Capacity Reservation will have after the adjustment.
+	StartDate *time.Time
+
+	noSmithyDocumentSerde
+}
+
 // Information about a request to assign billing of the unused capacity of a
 // Capacity Reservation.
 type CapacityReservationBillingRequest struct {
@@ -2430,6 +2483,11 @@ type CapacityReservationCancellationQuote struct {
 
 // Information about your commitment for a future-dated Capacity Reservation.
 type CapacityReservationCommitmentInfo struct {
+
+	// The commitment duration, in seconds, for the future-dated Capacity Reservation.
+	// This is the minimum duration for which you commit to having the Capacity
+	// Reservation in the active state in your account after it has been delivered.
+	CommitmentDuration *int64
 
 	// The date and time at which the commitment duration expires, in the ISO8601
 	// format in the UTC time zone ( YYYY-MM-DDThh:mm:ss.sssZ ). You can't decrease the
@@ -2592,6 +2650,45 @@ type CapacityReservationInfo struct {
 
 	// The tenancy of the Capacity Reservation.
 	Tenancy CapacityReservationTenancy
+
+	noSmithyDocumentSerde
+}
+
+// Describes a Capacity Reservation modification quote, which provides the terms
+// for changing the start date or the commitment of a future-dated Capacity
+// Reservation.
+type CapacityReservationModificationQuote struct {
+
+	// The ID of the Capacity Reservation associated with the modification quote.
+	CapacityReservationId *string
+
+	// The ID of the modification quote.
+	CapacityReservationModificationQuoteId *string
+
+	// The date and time at which the modification quote was created.
+	CreateTime *time.Time
+
+	// The configuration that the Capacity Reservation has at the time the quote was
+	// generated.
+	CurrentConfiguration *ModificationQuoteCurrentConfiguration
+
+	// The date and time at which the modification quote expires.
+	ExpirationTime *time.Time
+
+	// The terms of the modification, including the configuration that the Capacity
+	// Reservation will have if you accept them by using ModifyCapacityReservation .
+	ModificationTerms *ModificationTerms
+
+	// The state of the modification quote itself. Possible values are:
+	//
+	//   - active - The quote can still be used.
+	//
+	//   - expired - The quote can no longer be used. A quote becomes expired at its
+	//   expirationTime .
+	QuoteState CapacityReservationModificationQuoteState
+
+	// The tags assigned to the modification quote.
+	Tags []Tag
 
 	noSmithyDocumentSerde
 }
@@ -16128,6 +16225,57 @@ type MetricValue struct {
 
 	//  The numerical value of the metric for the specified statistic and time period.
 	Value *float64
+
+	noSmithyDocumentSerde
+}
+
+// Describes the configuration that a Capacity Reservation has at the time a
+// modification quote is generated.
+type ModificationQuoteCurrentConfiguration struct {
+
+	// The number of instances in the Capacity Reservation.
+	InstanceCount *int32
+
+	// The start date that the Capacity Reservation was originally requested with.
+	// This value does not change when you push out the start date.
+	OriginalStartDate *time.Time
+
+	// The current state of the Capacity Reservation.
+	ReservationState *string
+
+	// The start date that the Capacity Reservation has before the quoted modification
+	// is applied.
+	StartDate *time.Time
+
+	noSmithyDocumentSerde
+}
+
+// Describes the changes that a Capacity Reservation modification quote will apply
+// to a Capacity Reservation.
+type ModificationReservationUpdate struct {
+
+	// The commitment duration, in seconds, that the Capacity Reservation will have
+	// after the modification.
+	NewCommitmentDuration *int32
+
+	// The date and time at which the commitment duration will expire after the
+	// modification, in the ISO8601 format in the UTC time zone (
+	// YYYY-MM-DDThh:mm:ss.sssZ ).
+	NewCommitmentEndDate *time.Time
+
+	// The start date that the Capacity Reservation will have after the modification,
+	// in the ISO8601 format in the UTC time zone ( YYYY-MM-DDThh:mm:ss.sssZ ).
+	NewStartDate *time.Time
+
+	noSmithyDocumentSerde
+}
+
+// Describes the terms of a Capacity Reservation modification quote.
+type ModificationTerms struct {
+
+	// The changes that will be applied to the Capacity Reservation if you accept the
+	// modification terms.
+	ReservationUpdate *ModificationReservationUpdate
 
 	noSmithyDocumentSerde
 }
