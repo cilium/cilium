@@ -96,7 +96,12 @@ func (s *JWTSource) GetJWTBundleForTrustDomain(trustDomain spiffeid.TrustDomain)
 	if err := s.checkClosed(); err != nil {
 		return nil, err
 	}
-	return s.bundles.GetJWTBundleForTrustDomain(trustDomain)
+
+	s.mtx.RLock()
+	bundles := s.bundles
+	s.mtx.RUnlock()
+
+	return bundles.GetJWTBundleForTrustDomain(trustDomain)
 }
 
 // WaitUntilUpdated waits until the source is updated or the context is done,
