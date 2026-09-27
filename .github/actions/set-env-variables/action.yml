@@ -39,7 +39,7 @@ runs:
         echo "CILIUM_RUNTIME_IMAGE_PREFIX=quay.io/cilium/" >> $GITHUB_ENV
 
         # renovate: datasource=docker
-        KIND_FAKE_EXTERNAL_TARGET_IMAGE="library/nginx:1.31.6-alpine-slim@sha256:80149a0e5bc9fa0b8beaff5b8a453f71ba8ba038895d418381297ffa5cd57782"
+        KIND_FAKE_EXTERNAL_TARGET_IMAGE="library/nginx:1.31.6-alpine-slim@sha256:f761b94f2cb9e8e05e2943d5f773609596113ef69b54e2433a996d109a8f78b7"
         echo "KIND_FAKE_EXTERNAL_TARGET_IMAGE=$KIND_FAKE_EXTERNAL_TARGET_IMAGE" >> $GITHUB_ENV
 
         # renovate: datasource=github-releases depName=kubernetes-sigs/kind
