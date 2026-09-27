@@ -70,7 +70,7 @@ jobs:
           cp -r .github/actions/set-runtime-image ../cilium-base-branch
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       # Docker Hub trades the OIDC token for an access token on its own
       # identity endpoint, which the action does for us as long as no password
@@ -149,7 +149,7 @@ jobs:
           repository: ${{ env.CILIUM_RUNTIME_IMAGE_PREFIX }}
 
       - name: Release Build ${{ matrix.name }}
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         id: docker_build_release
         with:
           provenance: false
