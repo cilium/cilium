@@ -4,6 +4,7 @@
 package source
 
 import (
+	"cmp"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -90,19 +91,25 @@ var getSourcePriorities = sync.OnceValue(func() map[Source]int {
 	return m
 })
 
+// ComparePriority returns a negative value if s has higher precedence than other,
+// zero if they have equal precedence, and a positive value if s has lower
+// precedence. Unknown sources have lower precedence than all known sources
+// and compare equal to one another.
+func (s Source) ComparePriority(other Source) int {
+	priorities := getSourcePriorities()
+	priority := func(src Source) int {
+		if p, ok := priorities[src]; ok {
+			return p
+		}
+		return len(defaultSources)
+	}
+	return cmp.Compare(priority(s), priority(other))
+}
+
 // AllowOverwrite returns true if new state from a particular source is allowed
 // to overwrite existing state from another source
 func AllowOverwrite(existing, next Source) bool {
-	priorities := getSourcePriorities()
-	pNext, ok := priorities[next]
-	if !ok {
-		pNext = len(defaultSources)
-	}
-	pExisting, ok := priorities[existing]
-	if !ok {
-		pExisting = len(defaultSources)
-	}
-	return pNext <= pExisting
+	return next.ComparePriority(existing) <= 0
 }
 
 var Cell = cell.Module(

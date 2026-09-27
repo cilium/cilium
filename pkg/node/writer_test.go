@@ -6,13 +6,17 @@ package node
 import (
 	"context"
 	"errors"
+	"fmt"
 	"maps"
+	"math/rand/v2"
 	"net"
 	"net/netip"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -25,20 +29,78 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
+type writerTest struct {
+	t     *testing.T
+	db    *statedb.DB
+	nodes statedb.RWTable[*Node]
+	w     *Writer
+}
+
+func newWriterTest(t *testing.T) *writerTest {
+	t.Helper()
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	return &writerTest{t, db, nodes, NewWriter(hivetest.Logger(t), db, nodes)}
+}
+
+func (wt *writerTest) upsert(n *types.Node) bool {
+	wt.t.Helper()
+	revision := wt.nodes.Revision(wt.db.ReadTxn())
+	txn := wt.w.WriteTxn()
+	wt.w.Upsert(txn, n)
+	txn.Commit()
+	return wt.nodes.Revision(wt.db.ReadTxn()) != revision
+}
+
+func (wt *writerTest) delete(src source.Source, identity types.Identity) bool {
+	wt.t.Helper()
+	revision := wt.nodes.Revision(wt.db.ReadTxn())
+	txn := wt.w.WriteTxn()
+	wt.w.Delete(txn, src, identity)
+	txn.Commit()
+	return wt.nodes.Revision(wt.db.ReadTxn()) != revision
+}
+
+func (wt *writerTest) requireNode(name string) *Node {
+	wt.t.Helper()
+	n, _, found := wt.nodes.Get(wt.db.ReadTxn(), NodeByName(name))
+	require.True(wt.t, found, name)
+	return n
+}
+
+func (wt *writerTest) requireNoNode(name string) {
+	wt.t.Helper()
+	_, _, found := wt.nodes.Get(wt.db.ReadTxn(), NodeByName(name))
+	require.False(wt.t, found, name)
+}
+
+func testNode(name string, src source.Source, addresses ...string) *types.Node {
+	n := &types.Node{Name: name, Source: src}
+	for _, address := range addresses {
+		n.IPAddresses = append(n.IPAddresses, types.Address{IP: net.ParseIP(address)})
+	}
+	return n
+}
+
 func TestSourceWriter(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
 	require.NoError(t, err)
 	w := NewWriter(hivetest.Logger(t), db, nodes)
 	upsert := func(n *types.Node) bool {
-		txn := db.WriteTxn(nodes)
-		defer txn.Commit()
-		return w.Upsert(txn, n)
+		revision := nodes.Revision(db.ReadTxn())
+		txn := w.WriteTxn()
+		w.Upsert(txn, n)
+		txn.Commit()
+		return nodes.Revision(db.ReadTxn()) != revision
 	}
 	deleteNode := func(src source.Source, identity types.Identity) bool {
-		txn := db.WriteTxn(nodes)
-		defer txn.Commit()
-		return w.Delete(txn, src, identity)
+		revision := nodes.Revision(db.ReadTxn())
+		txn := w.WriteTxn()
+		w.Delete(txn, src, identity)
+		txn.Commit()
+		return nodes.Revision(db.ReadTxn()) != revision
 	}
 
 	n := &types.Node{Name: "node-1", Source: source.Kubernetes}
@@ -86,6 +148,309 @@ func TestSourceWriter(t *testing.T) {
 	require.False(t, found)
 }
 
+func TestWriterRestoresSourceFallback(t *testing.T) {
+	wt := newWriterTest(t)
+	wt.w.RegisterReconciler("test")
+	requireSource := func(name string, src source.Source) *Node {
+		n := wt.requireNode(name)
+		require.Equal(t, src, n.Source)
+		return n
+	}
+
+	k8s := &types.Node{Name: "node-1", Source: source.Kubernetes}
+	require.True(t, wt.upsert(k8s))
+
+	// Restoring a displaced candidate starts a new reconciliation attempt.
+	txn := wt.db.WriteTxn(wt.nodes)
+	active, _, found := wt.nodes.Get(txn, NodeByName("node-1"))
+	require.True(t, found)
+	updated := active.DeepCopy()
+	updated.Statuses = updated.Statuses.Set("test", reconciler.StatusDone())
+	_, _, err := wt.nodes.Insert(txn, updated)
+	require.NoError(t, err)
+	txn.Commit()
+
+	kvstore := k8s.DeepCopy()
+	kvstore.Source = source.KVStore
+	require.True(t, wt.upsert(kvstore))
+	requireSource("node-1", source.KVStore)
+	require.True(t, wt.delete(source.KVStore, kvstore.Identity()))
+	restored := requireSource("node-1", source.Kubernetes)
+	require.Equal(t, reconciler.StatusKindPending, restored.Statuses.Get("test").Kind)
+
+	// A rejected candidate is also restored after its winner disappears.
+	mesh := k8s.DeepCopy()
+	mesh.Source = source.ClusterMesh
+	require.False(t, wt.upsert(mesh))
+	require.True(t, wt.delete(source.Kubernetes, k8s.Identity()))
+	requireSource("node-1", source.ClusterMesh)
+
+	// Deleting a shadowed candidate prevents it from being restored later.
+	require.True(t, wt.upsert(k8s))
+	require.False(t, wt.delete(source.ClusterMesh, mesh.Identity()))
+	require.True(t, wt.delete(source.Kubernetes, k8s.Identity()))
+	wt.requireNoNode("node-1")
+}
+
+func TestWriterAbortDiscardsCandidates(t *testing.T) {
+	wt := newWriterTest(t)
+
+	winner := &types.Node{Name: "node-1", Source: source.Kubernetes}
+	txn := wt.w.WriteTxn()
+	wt.w.Upsert(txn, winner)
+	txn.Commit()
+
+	shadowed := winner.DeepCopy()
+	shadowed.Source = source.ClusterMesh
+	txn = wt.w.WriteTxn()
+	wt.w.Upsert(txn, shadowed)
+	txn.Abort()
+
+	txn = wt.w.WriteTxn()
+	wt.w.Delete(txn, winner.Source, winner.Identity())
+	txn.Commit()
+	wt.requireNoNode(winner.Fullname())
+}
+
+func TestWriterNetNoOpTransactionDoesNotReconcile(t *testing.T) {
+	wt := newWriterTest(t)
+
+	transient := &types.Node{Name: "transient", Source: source.Kubernetes}
+	revision := wt.nodes.Revision(wt.db.ReadTxn())
+	txn := wt.w.WriteTxn()
+	wt.w.Upsert(txn, transient)
+	wt.w.Delete(txn, transient.Source, transient.Identity())
+	txn.Commit()
+	require.Equal(t, revision, wt.nodes.Revision(wt.db.ReadTxn()))
+	_, _, found := wt.w.candidates.Get(
+		wt.db.ReadTxn(),
+		nodeCandidateByID((nodeCandidateKey{transient.Identity(), transient.Source}).String()),
+	)
+	require.False(t, found)
+
+	original := &types.Node{Name: "node-1", Source: source.Kubernetes}
+	txn = wt.w.WriteTxn()
+	wt.w.Upsert(txn, original)
+	txn.Commit()
+
+	wtxn := wt.db.WriteTxn(wt.nodes)
+	active, _, found := wt.nodes.Get(wtxn, NodeByName(original.Fullname()))
+	require.True(t, found)
+	active = active.DeepCopy()
+	active.Statuses = active.Statuses.Set("test", reconciler.StatusDone())
+	_, _, err := wt.nodes.Insert(wtxn, active)
+	require.NoError(t, err)
+	wtxn.Commit()
+
+	revision = wt.nodes.Revision(wt.db.ReadTxn())
+	updated := original.DeepCopy()
+	updated.EncryptionKey = 42
+	txn = wt.w.WriteTxn()
+	wt.w.Upsert(txn, updated)
+	wt.w.Upsert(txn, original)
+	txn.Commit()
+	require.Equal(t, revision, wt.nodes.Revision(wt.db.ReadTxn()))
+	active, _, found = wt.nodes.Get(wt.db.ReadTxn(), NodeByName(original.Fullname()))
+	require.True(t, found)
+	require.Equal(t, reconciler.StatusKindDone, active.Statuses.Get("test").Kind)
+}
+
+func TestWriterIncrementalSelectionMatchesReference(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+
+	sources := []source.Source{
+		source.KubeAPIServer,
+		source.Local,
+		source.KVStore,
+		source.Kubernetes,
+		source.ClusterMesh,
+	}
+	rng := rand.New(rand.NewPCG(1, 2))
+	for iteration := range 500 {
+		txn := w.WriteTxn()
+		for range 1 + rng.IntN(3) {
+			slot := rng.IntN(40)
+			src := sources[slot%len(sources)]
+			name := fmt.Sprintf("node-%02d", slot%16)
+			if rng.IntN(4) == 0 {
+				w.Delete(txn, src, types.Identity{Name: name})
+				continue
+			}
+
+			n := &types.Node{
+				Name:          name,
+				Source:        src,
+				EncryptionKey: uint8(iteration%255 + 1),
+			}
+			for range rng.IntN(4) {
+				address := rng.IntN(24) + 1
+				n.IPAddresses = append(n.IPAddresses, types.Address{
+					Type: addressing.NodeInternalIP,
+					IP:   net.IPv4(10, 0, 0, byte(address)),
+				})
+			}
+			w.Upsert(txn, n)
+		}
+		txn.Commit()
+		requireWriterMatchesReference(t, w, db.ReadTxn())
+	}
+}
+
+// referenceSelectedCandidates intentionally scans the complete candidate
+// table. It is the simple reference implementation for testing incremental
+// conflict-component reconciliation.
+func referenceSelectedCandidates(w *Writer, txn statedb.ReadTxn) map[string]*nodeCandidate {
+	selected := map[string]*nodeCandidate{}
+	addressOwners := map[cmtypes.AddrCluster]*nodeCandidate{}
+	var candidates []*nodeCandidate
+	for candidate := range w.candidates.All(txn) {
+		candidates = append(candidates, candidate)
+	}
+	slices.SortFunc(candidates, compareCandidatePrecedence)
+	for _, candidate := range candidates {
+		name := candidate.node.Fullname()
+		if selected[name] != nil {
+			continue
+		}
+		conflict := false
+		for _, address := range candidate.conflictAddresses {
+			if addressOwners[address] != nil {
+				conflict = true
+				break
+			}
+		}
+		if conflict {
+			continue
+		}
+		selected[name] = candidate
+		for _, address := range candidate.conflictAddresses {
+			addressOwners[address] = candidate
+		}
+	}
+	return selected
+}
+
+func requireWriterMatchesReference(t *testing.T, w *Writer, txn statedb.ReadTxn) {
+	t.Helper()
+	expected := referenceSelectedCandidates(w, txn)
+	require.Equal(t, len(expected), w.nodes.NumObjects(txn))
+	for name, candidate := range expected {
+		actual, _, found := w.nodes.Get(txn, NodeByName(name))
+		require.True(t, found, name)
+		require.True(t, sameDesiredNode(actual, candidate), name)
+	}
+}
+
+func TestWriterReportsShadowedCandidates(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+	health := &writerHealth{}
+	w.health = health
+
+	winner := &types.Node{Name: "node-1", Source: source.Kubernetes}
+	txn := w.WriteTxn()
+	w.Upsert(txn, winner)
+	txn.Commit()
+	update := health.popUpdate(t)
+	require.Equal(t, cell.StatusOK, update.level)
+	require.Equal(t, "1 nodes (0 conflicts)", update.reason)
+
+	shadowed := winner.DeepCopy()
+	shadowed.Source = source.ClusterMesh
+	txn = w.WriteTxn()
+	w.Upsert(txn, shadowed)
+	txn.Commit()
+
+	update = health.popUpdate(t)
+	require.Equal(t, cell.StatusDegraded, update.level)
+	require.Equal(t, "1 nodes (1 conflicts): node-1", update.reason)
+	require.EqualError(t, update.err, "node conflicts: 1")
+
+	txn = w.WriteTxn()
+	w.Delete(txn, shadowed.Source, shadowed.Identity())
+	txn.Commit()
+
+	update = health.popUpdate(t)
+	require.Equal(t, cell.StatusOK, update.level)
+	require.Equal(t, "1 nodes (0 conflicts)", update.reason)
+
+	addressOwner := &types.Node{
+		Name:        "address-owner",
+		Source:      source.Kubernetes,
+		IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+	}
+	txn = w.WriteTxn()
+	w.Upsert(txn, addressOwner)
+	txn.Commit()
+	update = health.popUpdate(t)
+	require.Equal(t, cell.StatusOK, update.level)
+	require.Equal(t, "2 nodes (0 conflicts)", update.reason)
+
+	addressShadowed := &types.Node{
+		Name:        "address-shadowed",
+		Source:      source.ClusterMesh,
+		IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+	}
+	txn = w.WriteTxn()
+	w.Upsert(txn, addressShadowed)
+	txn.Commit()
+	update = health.popUpdate(t)
+	require.Equal(t, cell.StatusDegraded, update.level)
+	require.Equal(t, "2 nodes (1 conflicts): address-shadowed", update.reason)
+	require.EqualError(t, update.err, "node conflicts: 1")
+
+	aborted := &types.Node{Name: "aborted", Source: source.ClusterMesh}
+	txn = w.WriteTxn()
+	w.Upsert(txn, aborted)
+	txn.Abort()
+	require.Empty(t, health.updates)
+
+	txn = w.WriteTxn()
+	txn.Commit()
+	require.Empty(t, health.updates)
+}
+
+type writerHealthUpdate struct {
+	level  cell.Level
+	reason string
+	err    error
+}
+
+type writerHealth struct {
+	updates []writerHealthUpdate
+}
+
+func (h *writerHealth) popUpdate(t *testing.T) writerHealthUpdate {
+	t.Helper()
+	require.NotEmpty(t, h.updates)
+	update := h.updates[0]
+	h.updates = h.updates[1:]
+	return update
+}
+
+func (h *writerHealth) OK(reason string) {
+	h.updates = append(h.updates, writerHealthUpdate{level: cell.StatusOK, reason: reason})
+}
+
+func (h *writerHealth) Degraded(reason string, err error) {
+	h.updates = append(h.updates, writerHealthUpdate{
+		level:  cell.StatusDegraded,
+		reason: reason,
+		err:    err,
+	})
+}
+
+func (*writerHealth) Stopped(string) {}
+
+func (h *writerHealth) NewScope(string) cell.Health { return h }
+
+func (*writerHealth) Close() {}
+
 func TestWriterReconcilerRegistration(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
@@ -93,9 +458,11 @@ func TestWriterReconcilerRegistration(t *testing.T) {
 	w := NewWriter(hivetest.Logger(t), db, nodes)
 
 	upsert := func(n *types.Node) bool {
-		txn := db.WriteTxn(nodes)
-		defer txn.Commit()
-		return w.Upsert(txn, n)
+		revision := nodes.Revision(db.ReadTxn())
+		txn := w.WriteTxn()
+		w.Upsert(txn, n)
+		txn.Commit()
+		return nodes.Revision(db.ReadTxn()) != revision
 	}
 	get := func(name string) *Node {
 		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
@@ -225,11 +592,11 @@ func TestWriterWaitUntilReconciled(t *testing.T) {
 		name string,
 	) {
 		t.Helper()
-		txn := db.WriteTxn(nodes)
-		require.True(t, w.Upsert(txn, &types.Node{
+		txn := w.WriteTxn()
+		w.Upsert(txn, &types.Node{
 			Name:   name,
 			Source: source.Kubernetes,
-		}))
+		})
 		txn.Commit()
 	}
 	setStatus := func(
@@ -313,7 +680,7 @@ func TestWriterWaitUntilReconciled(t *testing.T) {
 	})
 }
 
-func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
+func TestSourceWriterRespectsLocalNodePriority(t *testing.T) {
 	db := statedb.New()
 	nodes, err := NewNodeTable(db)
 	require.NoError(t, err)
@@ -327,132 +694,219 @@ func TestSourceWriterDoesNotOverwriteLocalNode(t *testing.T) {
 		},
 		Local: &LocalNodeInfo{},
 	}
-	txn := db.WriteTxn(nodes)
-	_, _, err = nodes.Insert(txn, local)
-	require.NoError(t, err)
+	txn := w.WriteTxn()
+	w.upsertLocal(txn, nil, local)
 	txn.Commit()
 
-	remote := &types.Node{Name: "local", Source: source.KubeAPIServer}
-	txn = db.WriteTxn(nodes)
-	require.False(t, w.Upsert(txn, remote))
-	require.False(t, w.Delete(txn, source.Local, remote.Identity()))
+	remote := &types.Node{Name: "local", Source: source.Kubernetes}
+	txn = w.WriteTxn()
+	w.Upsert(txn, remote)
+	w.Delete(txn, source.Local, remote.Identity())
 	txn.Commit()
 	got, _, found := nodes.Get(db.ReadTxn(), NodeByName("local"))
 	require.True(t, found)
 	require.NotNil(t, got.Local)
 
-	// The local row also owns its addresses regardless of source priority.
+	// The local row also owns its addresses against lower-priority sources.
 	remote = &types.Node{
 		Name:        "remote",
-		Source:      source.KubeAPIServer,
+		Source:      source.Kubernetes,
 		IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
 	}
-	txn = db.WriteTxn(nodes)
-	require.False(t, w.Upsert(txn, remote))
+	txn = w.WriteTxn()
+	w.Upsert(txn, remote)
 	txn.Commit()
 	_, _, found = nodes.Get(db.ReadTxn(), NodeByName("remote"))
 	require.False(t, found)
+
+	// KubeAPIServer has higher source priority than Local. It is not used as a
+	// node-table source in production, but follows the normal ordering here.
+	apiServer := &types.Node{
+		Name:        "api-server",
+		Source:      source.KubeAPIServer,
+		IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+	}
+	txn = w.WriteTxn()
+	w.Upsert(txn, apiServer)
+	txn.Commit()
+	_, _, found = nodes.Get(db.ReadTxn(), LocalNodeQuery)
+	require.False(t, found)
+	_, _, found = nodes.Get(db.ReadTxn(), NodeByName("api-server"))
+	require.True(t, found)
 }
 
 func TestWriterAddressConflicts(t *testing.T) {
-	db := statedb.New()
-	nodes, err := NewNodeTable(db)
-	require.NoError(t, err)
-	w := NewWriter(hivetest.Logger(t), db, nodes)
-
-	upsert := func(n *types.Node) bool {
-		txn := db.WriteTxn(nodes)
-		defer txn.Commit()
-		return w.Upsert(txn, n)
+	wt := newWriterTest(t)
+	upsert := wt.upsert
+	deleteNode := func(n *types.Node) bool {
+		return wt.delete(n.Source, n.Identity())
 	}
-	requireNode := func(name string) *Node {
-		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
-		require.True(t, found, name)
-		return n
-	}
-	requireNoNode := func(name string) {
-		_, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
-		require.False(t, found, name)
-	}
-	newNode := func(name string, src source.Source, addresses ...string) *types.Node {
-		n := &types.Node{Name: name, Source: src}
-		for _, address := range addresses {
-			n.IPAddresses = append(n.IPAddresses, types.Address{IP: net.ParseIP(address)})
-		}
-		return n
-	}
+	requireNode := wt.requireNode
+	requireNoNode := wt.requireNoNode
+	newNode := testNode
 
 	// A stronger source takes the address and removes the weaker node.
-	require.True(t, upsert(newNode("mesh", source.ClusterMesh, "10.0.0.1")))
-	require.True(t, upsert(newNode("k8s", source.Kubernetes, "10.0.0.1")))
+	mesh := newNode("mesh", source.ClusterMesh, "10.0.0.1")
+	k8s := newNode("k8s", source.Kubernetes, "10.0.0.1")
+	require.True(t, upsert(mesh))
+	require.True(t, upsert(k8s))
 	requireNoNode("mesh")
 	require.Equal(t, source.Kubernetes, requireNode("k8s").Source)
 
 	// A weaker source cannot take an address from its current owner.
-	require.False(t, upsert(newNode("weaker", source.ClusterMesh, "10.0.0.1")))
+	weaker := newNode("weaker", source.ClusterMesh, "10.0.0.1")
+	require.False(t, upsert(weaker))
 	requireNoNode("weaker")
 	requireNode("k8s")
 
-	// At equal priority the latest update wins.
-	require.True(t, upsert(newNode("latest", source.Kubernetes, "10.0.0.1")))
-	requireNoNode("k8s")
-	requireNode("latest")
+	// At equal priority the node identity is the deterministic tie-breaker.
+	latest := newNode("latest", source.Kubernetes, "10.0.0.1")
+	require.False(t, upsert(latest))
+	requireNode("k8s")
+	requireNoNode("latest")
+
+	// Fallback respects source priority first and node identity within one
+	// priority. Remove the shadowed Kubernetes candidate before testing the
+	// ClusterMesh candidates.
+	require.False(t, deleteNode(latest))
+	require.True(t, deleteNode(k8s))
+	requireNode("mesh")
+	requireNoNode("weaker")
+	require.True(t, deleteNode(mesh))
+	requireNode("weaker")
 
 	// Health and ingress addresses participate in the same ownership checks.
 	health := newNode("health", source.Kubernetes)
 	health.IPv4HealthIP = iputil.AddrFrom(netip.MustParseAddr("10.0.0.4"))
 	require.True(t, upsert(health))
-	require.True(t, upsert(newNode("health-latest", source.Kubernetes, "10.0.0.4")))
-	requireNoNode("health")
-	requireNode("health-latest")
+	require.False(t, upsert(newNode("health-latest", source.Kubernetes, "10.0.0.4")))
+	requireNode("health")
+	requireNoNode("health-latest")
 
 	ingress := newNode("ingress", source.Kubernetes)
 	ingress.IPv4IngressIP = iputil.AddrFrom(netip.MustParseAddr("10.0.0.5"))
 	require.True(t, upsert(ingress))
-	require.True(t, upsert(newNode("ingress-latest", source.Kubernetes, "10.0.0.5")))
-	requireNoNode("ingress")
-	requireNode("ingress-latest")
+	require.False(t, upsert(newNode("ingress-latest", source.Kubernetes, "10.0.0.5")))
+	requireNode("ingress")
+	requireNoNode("ingress-latest")
 
 	// Four-byte IPv4 and IPv4-mapped IPv6 representations are equivalent.
 	mapped := newNode("mapped", source.Kubernetes)
 	mapped.IPAddresses = []types.Address{{IP: net.IP{10, 0, 0, 6}}}
 	require.True(t, upsert(mapped))
-	require.True(t, upsert(newNode("mapped-latest", source.Kubernetes, "10.0.0.6")))
-	requireNoNode("mapped")
-	requireNode("mapped-latest")
+	require.False(t, upsert(newNode("mapped-latest", source.Kubernetes, "10.0.0.6")))
+	requireNode("mapped")
+	requireNoNode("mapped-latest")
 
 	// Check all conflicts before deleting anything. This update could replace
 	// the mesh node, but is rejected because it cannot replace the KVStore node.
 	require.True(t, upsert(newNode("mesh-2", source.ClusterMesh, "10.0.0.2")))
-	require.True(t, upsert(newNode("kvstore", source.KVStore, "10.0.0.3")))
+	kvstore := newNode("kvstore", source.KVStore, "10.0.0.3")
+	require.True(t, upsert(kvstore))
 	require.False(t, upsert(newNode(
 		"mixed", source.Kubernetes, "10.0.0.2", "10.0.0.3",
 	)))
 	requireNode("mesh-2")
 	requireNode("kvstore")
 	requireNoNode("mixed")
+
+	// Removing the blocker restores the mixed candidate, which can then replace
+	// the weaker node that shares its other address.
+	require.True(t, deleteNode(kvstore))
+	requireNoNode("mesh-2")
+	requireNode("mixed")
+}
+
+func TestWriterRestoresFallbackWhenAddressIsReleased(t *testing.T) {
+	wt := newWriterTest(t)
+
+	winner := testNode("winner", source.Kubernetes, "10.0.0.1")
+	fallback := testNode("fallback", source.ClusterMesh, "10.0.0.1")
+	require.True(t, wt.upsert(winner))
+	require.False(t, wt.upsert(fallback))
+
+	winner = testNode("winner", source.Kubernetes, "10.0.0.2")
+	require.True(t, wt.upsert(winner))
+	for _, name := range []string{"winner", "fallback"} {
+		wt.requireNode(name)
+	}
+}
+
+func TestWriterConflictWinnerIndependentOfOrder(t *testing.T) {
+	for _, order := range [][]string{{"z-node", "a-node"}, {"a-node", "z-node"}} {
+		t.Run(strings.Join(order, "-then-"), func(t *testing.T) {
+			wt := newWriterTest(t)
+
+			for _, name := range order {
+				txn := wt.w.WriteTxn()
+				wt.w.Upsert(txn, &types.Node{
+					Name:        name,
+					Source:      source.Kubernetes,
+					IPAddresses: []types.Address{{IP: net.ParseIP("10.0.0.1")}},
+				})
+				txn.Commit()
+			}
+
+			wt.requireNode("a-node")
+			wt.requireNoNode("z-node")
+
+			txn := wt.w.WriteTxn()
+			wt.w.Delete(txn, source.Kubernetes, types.Identity{Name: "a-node"})
+			txn.Commit()
+			wt.requireNode("z-node")
+		})
+	}
+}
+
+func TestWriterPreservesLatestShadowedProducerUpdate(t *testing.T) {
+	wt := newWriterTest(t)
+
+	original := testNode("node", source.Kubernetes, "10.0.0.1")
+	blocker := testNode("blocker", source.Local, "10.0.0.2")
+	require.True(t, wt.upsert(original))
+	require.True(t, wt.upsert(blocker))
+
+	updated := testNode("node", source.Kubernetes, "10.0.0.2")
+	updated.EncryptionKey = 42
+	require.True(t, wt.upsert(updated))
+	wt.requireNoNode("node")
+
+	// The old active version is no longer a candidate. Once the blocker is
+	// removed, the latest update from the producer becomes active.
+	require.True(t, wt.upsert(testNode("competitor", source.KVStore, "10.0.0.1")))
+	require.True(t, wt.delete(blocker.Source, blocker.Identity()))
+	got := wt.requireNode("node")
+	require.Equal(t, updated.EncryptionKey, got.EncryptionKey)
+	require.Equal(t, updated.IPAddresses, got.IPAddresses)
+}
+
+func TestWriterRestoresCascadingFallbacks(t *testing.T) {
+	wt := newWriterTest(t)
+
+	active := testNode("active", source.Kubernetes, "10.0.0.1", "10.0.0.2")
+	blocker := testNode("blocker", source.Local, "10.0.0.3")
+	bridge := testNode("bridge", source.KVStore, "10.0.0.1", "10.0.0.3")
+	fallback := testNode("fallback", source.ClusterMesh, "10.0.0.2")
+
+	require.True(t, wt.upsert(active))
+	require.True(t, wt.upsert(blocker))
+	require.False(t, wt.upsert(bridge))
+	require.False(t, wt.upsert(fallback))
+
+	// Restoring bridge displaces active and releases 10.0.0.2. The lower
+	// priority fallback must observe that release later in the same pass.
+	require.True(t, wt.delete(blocker.Source, blocker.Identity()))
+	wt.requireNoNode("active")
+	wt.requireNoNode("blocker")
+	wt.requireNode("bridge")
+	wt.requireNode("fallback")
 }
 
 func TestWriterClusterAwareAddressConflicts(t *testing.T) {
-	db := statedb.New()
-	nodes, err := NewNodeTable(db)
-	require.NoError(t, err)
-	w := NewWriter(hivetest.Logger(t), db, nodes)
-
-	upsert := func(n *types.Node) bool {
-		txn := db.WriteTxn(nodes)
-		defer txn.Commit()
-		return w.Upsert(txn, n)
-	}
-	requireNode := func(name string) *Node {
-		n, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
-		require.True(t, found, name)
-		return n
-	}
-	requireNoNode := func(name string) {
-		_, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
-		require.False(t, found, name)
-	}
+	wt := newWriterTest(t)
+	upsert := wt.upsert
+	requireNode := wt.requireNode
+	requireNoNode := wt.requireNoNode
 	newNode := func(
 		name, cluster string,
 		addressType addressing.AddressType,
@@ -472,7 +926,7 @@ func TestWriterClusterAwareAddressConflicts(t *testing.T) {
 
 	// The hook is installed during Hive invoke time, before producers write to
 	// the table.
-	w.SetPrefixClusterMutatorFn(func(n *types.Node) []cmtypes.PrefixClusterOpts {
+	wt.w.SetPrefixClusterMutatorFn(func(n *types.Node) []cmtypes.PrefixClusterOpts {
 		clusterIDs := map[string]uint32{"cluster-1": 1, "cluster-2": 2}
 		return []cmtypes.PrefixClusterOpts{cmtypes.WithClusterID(clusterIDs[n.Cluster])}
 	})
@@ -482,13 +936,13 @@ func TestWriterClusterAwareAddressConflicts(t *testing.T) {
 	require.True(t, upsert(newNode(
 		"node-1", "cluster-1", addressing.NodeCiliumInternalIP, "10.0.0.1",
 	)))
-	_, _, found := nodes.Get(
-		db.ReadTxn(),
+	_, _, found := wt.nodes.Get(
+		wt.db.ReadTxn(),
 		NodeByAddress(cmtypes.AddrClusterFrom(netip.MustParseAddr("10.0.0.1"), 0)),
 	)
 	require.False(t, found)
-	_, _, found = nodes.Get(
-		db.ReadTxn(),
+	_, _, found = wt.nodes.Get(
+		wt.db.ReadTxn(),
 		NodeByAddress(cmtypes.AddrClusterFrom(netip.MustParseAddr("10.0.0.1"), 1)),
 	)
 	require.True(t, found)
@@ -512,19 +966,16 @@ func TestWriterClusterAwareAddressConflicts(t *testing.T) {
 	require.True(t, upsert(newNode(
 		"underlay-1", "cluster-1", addressing.NodeInternalIP, "192.0.2.1",
 	)))
-	require.True(t, upsert(newNode(
+	require.False(t, upsert(newNode(
 		"underlay-2", "cluster-2", addressing.NodeInternalIP, "192.0.2.1",
 	)))
-	requireNoNode("cluster-1/underlay-1")
-	requireNode("cluster-2/underlay-2")
+	requireNode("cluster-1/underlay-1")
+	requireNoNode("cluster-2/underlay-2")
 }
 
 func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
-	db := statedb.New()
-	nodes, err := NewNodeTable(db)
-	require.NoError(t, err)
-	w := NewWriter(hivetest.Logger(t), db, nodes)
-	w.isStaticLocalRouterIP = func(ip string) bool {
+	wt := newWriterTest(t)
+	wt.w.isStaticLocalRouterIP = func(ip string) bool {
 		return ip == "169.254.23.0" || ip == "fe80::"
 	}
 
@@ -544,24 +995,22 @@ func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
 		},
 		Local: &LocalNodeInfo{},
 	}
-	txn := db.WriteTxn(nodes)
-	_, _, err = nodes.Insert(txn, local)
-	require.NoError(t, err)
+	txn := wt.w.WriteTxn()
+	wt.w.upsertLocal(txn, nil, local)
 	txn.Commit()
 
 	for _, name := range []string{"remote-1", "remote-2"} {
-		txn = db.WriteTxn(nodes)
-		require.True(t, w.Upsert(txn, &types.Node{
+		txn = wt.w.WriteTxn()
+		wt.w.Upsert(txn, &types.Node{
 			Name:        name,
 			Source:      source.CustomResource,
 			IPAddresses: slices.Clone(routerAddresses),
-		}))
+		})
 		txn.Commit()
 	}
 
 	for _, name := range []string{"local", "remote-1", "remote-2"} {
-		_, _, found := nodes.Get(db.ReadTxn(), NodeByName(name))
-		require.True(t, found, name)
+		wt.requireNode(name)
 	}
 	for _, address := range []netip.Addr{
 		netip.MustParseAddr("169.254.23.0"),
@@ -569,7 +1018,7 @@ func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
 	} {
 		var owners []string
 		addrCluster := cmtypes.AddrClusterFrom(address, 0)
-		for n := range nodes.List(db.ReadTxn(), NodeByAddress(addrCluster)) {
+		for n := range wt.nodes.List(wt.db.ReadTxn(), NodeByAddress(addrCluster)) {
 			owners = append(owners, n.Name)
 		}
 		require.ElementsMatch(t, []string{"local", "remote-1", "remote-2"}, owners)
@@ -577,28 +1026,28 @@ func TestWriterAllowsSharedLocalRouterIP(t *testing.T) {
 
 	// Matching a local node address alone is not enough: only the configured
 	// Cilium internal router addresses may be shared.
-	txn = db.WriteTxn(nodes)
-	require.False(t, w.Upsert(txn, &types.Node{
+	txn = wt.w.WriteTxn()
+	wt.w.Upsert(txn, &types.Node{
 		Name:   "conflict",
 		Source: source.CustomResource,
 		IPAddresses: []types.Address{{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   net.ParseIP("10.0.0.1"),
 		}},
-	}))
+	})
 	txn.Commit()
 
 	// The configured address remains conflicting when it is not advertised as
 	// a Cilium internal IP.
-	txn = db.WriteTxn(nodes)
-	require.False(t, w.Upsert(txn, &types.Node{
+	txn = wt.w.WriteTxn()
+	wt.w.Upsert(txn, &types.Node{
 		Name:   "wrong-type",
 		Source: source.CustomResource,
 		IPAddresses: []types.Address{{
 			Type: addressing.NodeInternalIP,
 			IP:   net.ParseIP("169.254.23.0"),
 		}},
-	}))
+	})
 	txn.Commit()
 }
 
