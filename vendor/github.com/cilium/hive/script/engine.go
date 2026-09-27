@@ -86,6 +86,11 @@ type Engine struct {
 
 	// MaxRetryInterval is the maximum time to wait before retrying.
 	MaxRetryInterval time.Duration
+
+	// MaxRetries is the maximum number of times (excluding the first one) a
+	// retrying command marked with '*' is executed before giving up. If zero,
+	// the number of retries is bound only by the context.
+	MaxRetries uint
 }
 
 // NewEngine returns an Engine configured with a basic set of commands and conditions.
@@ -360,12 +365,17 @@ func (e *Engine) Execute(s *State, file string, script *bufio.Reader, log io.Wri
 				// Command wants retries. Retry the whole section
 				backoff := exponentialBackoff{max: maxRetryInterval, interval: retryInterval}
 				for err != nil {
+					if e.MaxRetries != 0 && s.RetryCount >= int(e.MaxRetries) {
+						s.RetryCount = 0
+						return lineErr(err)
+					}
+
 					retryDuration := backoff.get()
 					fmt.Fprintf(log, "(command %q failed, retrying in %s...)\n", line, retryDuration)
 					select {
 					case <-s.Context().Done():
 						s.RetryCount = 0
-						return lineErr(s.Context().Err())
+						return lineErr(err)
 					case <-time.After(retryDuration):
 					}
 					s.RetryCount++

@@ -70,6 +70,16 @@ type Options struct {
 	// threshold, it will be logged at Info level. Otherwise it is logged
 	// at Debug level.
 	LogThreshold time.Duration
+
+	// Lifecycle is an optional custom [cell.Lifecycle] implementation to use
+	// instead of [cell.DefaultLifecycle]. It is provided to the cells as-is and
+	// the hive starts and stops it, which allows nesting a hive inside another
+	// lifecycle or instrumenting the hooks. If nil, a DefaultLifecycle with
+	// the configured LogThreshold is used. Note that [cell.Module] only wraps
+	// a *[cell.DefaultLifecycle] to tag the hooks with the module ID, so hooks
+	// appended through a custom Lifecycle are not annotated with the module ID
+	// in [cell.Lifecycle.PrintHooks] output or in the logs.
+	Lifecycle cell.Lifecycle
 }
 
 func DefaultOptions() Options {
@@ -127,17 +137,20 @@ func New(cells ...cell.Cell) *Hive {
 
 func NewWithOptions(opts Options, cells ...cell.Cell) *Hive {
 	h := &Hive{
-		opts:      opts,
-		container: dig.New(dig.DeferAcyclicVerification()),
-		cells:     cells,
-		viper:     viper.New(),
-		flags:     pflag.NewFlagSet("", pflag.ContinueOnError),
-		lifecycle: &cell.DefaultLifecycle{
-			LogThreshold: opts.LogThreshold,
-		},
+		opts:            opts,
+		container:       dig.New(dig.DeferAcyclicVerification()),
+		cells:           cells,
+		viper:           viper.New(),
+		flags:           pflag.NewFlagSet("", pflag.ContinueOnError),
+		lifecycle:       opts.Lifecycle,
 		metrics:         NopMetrics{},
 		shutdown:        make(chan error, 1),
 		configOverrides: nil,
+	}
+	if h.lifecycle == nil {
+		h.lifecycle = &cell.DefaultLifecycle{
+			LogThreshold: opts.LogThreshold,
+		}
 	}
 
 	if err := h.provideDefaults(); err != nil {
