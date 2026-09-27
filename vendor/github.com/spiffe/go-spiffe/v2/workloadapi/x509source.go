@@ -85,7 +85,11 @@ func (s *X509Source) GetX509BundleForTrustDomain(trustDomain spiffeid.TrustDomai
 		return nil, err
 	}
 
-	return s.bundles.GetX509BundleForTrustDomain(trustDomain)
+	s.mtx.RLock()
+	bundles := s.bundles
+	s.mtx.RUnlock()
+
+	return bundles.GetX509BundleForTrustDomain(trustDomain)
 }
 
 // WaitUntilUpdated waits until the source is updated or the context is done,

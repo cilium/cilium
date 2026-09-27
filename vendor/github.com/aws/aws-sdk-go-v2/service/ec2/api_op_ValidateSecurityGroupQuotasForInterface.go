@@ -9,8 +9,9 @@ import (
 
 // Validates whether the specified security groups can be associated with a single
 // network interface. The operation checks Amazon Virtual Private Cloud (Amazon
-// VPC) quotas for inbound or outbound rules per security group and security groups
-// per network interface. Only authorized AWS services can call this operation.
+// VPC) quotas. It checks inbound or outbound rules per security group and security
+// groups per network interface. Only authorized Amazon Web Services services can
+// call this operation.
 //
 // For more information about security group quotas, see [Amazon VPC quotas] in the Amazon VPC User
 // Guide.
@@ -52,9 +53,9 @@ type ValidateSecurityGroupQuotasForInterfaceInput struct {
 
 type ValidateSecurityGroupQuotasForInterfaceOutput struct {
 
-	// The operation returns true if the specified security groups can be associated
-	// with a single network interface without exceeding the quotas. It returns an
-	// error if associating the security groups would exceed a quota.
+	// Specifies whether the specified security groups can be associated with a single
+	// network interface without exceeding the quotas. If associating the security
+	// groups would exceed a quota, the operation returns an error.
 	Valid *bool
 
 	// Metadata pertaining to the operation's result.
