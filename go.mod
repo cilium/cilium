@@ -120,7 +120,7 @@ require (
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	k8s.io/api v0.35.8
 	k8s.io/apiextensions-apiserver v0.35.8
-	k8s.io/apimachinery v0.35.8
+	k8s.io/apimachinery v0.35.9
 	k8s.io/cli-runtime v0.35.8
 	k8s.io/client-go v0.35.8
 	k8s.io/component-base v0.35.8
