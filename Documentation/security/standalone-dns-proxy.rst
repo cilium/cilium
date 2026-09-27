@@ -264,6 +264,15 @@ If there are communication issues between the proxy and agent, review agent logs
 
    $ kubectl -n kube-system logs -l k8s-app=cilium --tail=100 | grep -i "fqdn.sdp-grpc-server"
 
+When the standalone DNS proxy is enabled, the agent's ``/healthz`` endpoint
+reports unhealthy until the gRPC server binds its listener. A bind failure,
+such as ``address already in use``, therefore prevents the agent from becoming
+ready. The agent also reports unhealthy if the server stops serving.
+
+This check verifies the agent-side listener, not end-to-end DNS policy
+synchronization with the standalone proxy. Disabling the standalone DNS proxy
+does not add a listener requirement to agent readiness.
+
 API Reference
 =============
 

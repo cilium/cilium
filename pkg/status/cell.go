@@ -24,6 +24,7 @@ import (
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/fqdn/service"
 	"github.com/cilium/cilium/pkg/health"
 	hubblecell "github.com/cilium/cilium/pkg/hubble/cell"
 	hubblemetricscell "github.com/cilium/cilium/pkg/hubble/metrics/cell"
@@ -90,6 +91,7 @@ type statusParams struct {
 	DB               *statedb.DB
 	Devices          statedb.Table[*datapathTables.Device]
 	DirectRoutingDev datapathTables.DirectRoutingDevice
+	FQDNDataServer   *service.FQDNDataServer
 	Hubble           hubblecell.HubbleIntegration
 	HubbleMetrics    hubblemetricscell.Server
 	IPAM             *ipam.IPAM

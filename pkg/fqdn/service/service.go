@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/netip"
 	"strings"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -75,6 +76,7 @@ type FQDNDataServer struct {
 
 	// listener is used to create a net.Listener when starting the grpc server
 	listener listenConfig
+	ready    atomic.Bool
 
 	// enabled indicates whether the standalone DNS proxy is enabled
 	// This field is set to true only when ALL the following conditions are met:
@@ -556,6 +558,12 @@ func (s *FQDNDataServer) IsEnabled() bool {
 	return s != nil && s.enabled
 }
 
+// IsReady reports whether the standalone DNS proxy server has bound its listener.
+// A nil server means the feature is disabled and must not block agent readiness.
+func (s *FQDNDataServer) IsReady() bool {
+	return s == nil || s.ready.Load()
+}
+
 // buildDNSPoliciesForIdentity extracts DNS policies from a selector policy
 func (s *FQDNDataServer) buildDNSPoliciesForIdentity(selectorPolicy policy.SelectorPolicy) ([]*pb.DNSPolicy, error) {
 	dnsPolicies := make([]*pb.DNSPolicy, 0)
@@ -825,27 +833,29 @@ func errorFromProtoType(et pb.ProxyErrorType, msg string) error {
 
 // ListenAndServe starts the Standalone DNS Proxy gRPC server on the given port
 func (s *FQDNDataServer) ListenAndServe(ctx context.Context, health cell.Health) error {
-	listenErrs := make(chan error)
+	address := fmt.Sprintf("localhost:%d", s.port)
+	s.log.Info("Starting Standalone DNS Proxy server on", logfields.Address, address)
+	lis, err := s.listener.Listen(ctx, "tcp", address)
+	if err != nil {
+		s.log.Error("Failed to listen", logfields.Error, err)
+		return err
+	}
+
+	s.ready.Store(true)
+	defer s.ready.Store(false)
+	health.OK(fmt.Sprintf("Serving at %d", s.port))
+
+	listenErrs := make(chan error, 1)
 	go func() {
 		defer close(listenErrs)
 
-		address := fmt.Sprintf("localhost:%d", s.port)
-		s.log.Info("Starting Standalone DNS Proxy server on", logfields.Address, address)
-		lis, err := s.listener.Listen(ctx, "tcp", address)
+		err := s.grpcServer.Serve(lis)
+		s.ready.Store(false)
 		if err != nil {
-			s.log.Error("Failed to listen", logfields.Error, err)
-			listenErrs <- err
-			return
-		}
-
-		if err := s.grpcServer.Serve(lis); err != nil {
 			s.log.Error("Failed to serve the standalone DNS Proxy gRPC server", logfields.Error, err)
-			listenErrs <- err
-
 		}
+		listenErrs <- err
 	}()
-
-	health.OK(fmt.Sprintf("Serving at %d", s.port))
 
 	select {
 	case err := <-listenErrs:
@@ -858,6 +868,7 @@ func (s *FQDNDataServer) ListenAndServe(ctx context.Context, health cell.Health)
 }
 
 func (s *FQDNDataServer) Stop() {
+	s.ready.Store(false)
 	if s.grpcServer == nil {
 		return
 	}
