@@ -45,8 +45,8 @@ type nodeState struct {
 	// pendingPublication is non-nil while desired state has unpublished changes
 	// or completion bookkeeping awaiting snapshot construction and installation.
 	pendingPublication *pendingPublication
-	// typeStates groups node-local bookkeeping by resource type, separate
-	// from the desired resource maps shared with sparse inverse containers.
+	// typeStates groups publication and rollback bookkeeping by resource type,
+	// separate from the desired maps shared with sparse inverse containers.
 	typeStates typeurl.Slots[resourceTypeState]
 }
 
@@ -409,6 +409,10 @@ type pendingPublication struct {
 	// finalize only (including publications made by a revert). Absent types
 	// require neither.
 	rollbacks typeurl.Map[rollbackResources]
+	// dependents is allocated only for transactions reusing pending resource
+	// values. Each entry follows the prerequisite type's response outcome.
+	// Empty rollbacks entries require finalization but create no prerequisites.
+	dependents *typeurl.Map[rollbackResources]
 }
 
 // commitResourceEntry updates desired state and records the name for incremental

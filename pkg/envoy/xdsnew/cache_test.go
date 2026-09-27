@@ -184,8 +184,7 @@ func publishedResponseForTest(t *testing.T, c *cacheImpl, node *envoy_config_cor
 	response, err := responder.Fetch(t.Context(), &cache.Request{Node: node, TypeUrl: index.URL()})
 	require.NoError(t, err)
 	response = callbacks.WithResponseCoverage(response, c.getNodeState(node.Id).snapshotGeneration, snapshot)
-	state := c.getNodeState(node.Id)
-	state.rollbacks.claimResponseLocked(c, state, index, response)
+	c.getNodeState(node.Id).rollbacks.claimResponseLocked(c, c.getNodeState(node.Id), index, response)
 	return response
 }
 
@@ -1004,6 +1003,7 @@ func TestGenerateSnapshotForUpdateChecksConsistencyOnlyInStrictDebugMode(t *test
 		}
 	}
 }
+
 func TestNewCache(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
@@ -3273,6 +3273,70 @@ func TestNodeEpochSurvivesStreamGapWithDesiredState(t *testing.T) {
 	}
 	c.completionCbs.OnStreamClosed(2, node)
 }
+
+func TestNamedResponseRetainsSharedDependentUntilEveryPrerequisiteResolves(t *testing.T) {
+	for _, removed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("removed=%t", removed), func(t *testing.T) {
+			c := NewCache(hivetest.Logger(t), false, WithNodeIDs("node1")).(*cacheImpl)
+			node := &envoy_config_core.Node{Id: "node1"}
+			watch := func(typeURL typeurl.Index, names []string) cache.Response {
+				t.Helper()
+				responses := make(chan cache.Response, 1)
+				cancel, err := c.CreateWatch(&cache.Request{Node: node, TypeUrl: typeURL.URL(), ResourceNames: names},
+					stream.NewSotwSubscription(names, len(names) == 0), responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				select {
+				case response := <-responses:
+					return response
+				case <-time.After(5 * time.Second):
+					t.Fatal("no response for ", typeURL.URL(), names)
+					return nil
+				}
+			}
+			listener := &envoy_config_listener.Listener{Name: "dependent"}
+			if removed {
+				require.NoError(t, c.ApplyResource(t.Context(), node.Id, typeurl.Listener, listener.Name, listener, nil, nil))
+				acknowledgeResponse(t, c, 1, watch(typeurl.Listener, nil), "initial-listener")
+			}
+			s1, s2 := &envoy_config_tls.Secret{Name: "s1"}, &envoy_config_tls.Secret{Name: "s2"}
+			require.NoError(t, c.ApplyResource(t.Context(), node.Id, typeurl.Secret, s1.Name, s1, nil, nil))
+			require.NoError(t, c.ApplyResource(t.Context(), node.Id, typeurl.Secret, s2.Name, s2, nil, nil))
+			mutations := ResourceMutations{Upserted: xds.Resources{
+				Secrets: map[string]*envoy_config_tls.Secret{s1.Name: s1, s2.Name: s2},
+			}}
+			if removed {
+				mutations.Removed.Listeners = map[string]*envoy_config_listener.Listener{listener.Name: listener}
+			} else {
+				mutations.Upserted.Listeners = map[string]*envoy_config_listener.Listener{listener.Name: listener}
+			}
+			require.NoError(t, c.ApplyResources(t.Context(), node.Id, mutations, nil, TypeURLCallbacks{}))
+			// Partitioning the SDS group must retain the dependent inverse on
+			// both sides. Accepting s1 cannot release s2's recovery payload,
+			// including the generation-tagged tombstone for a removed Listener.
+			acknowledgeResponse(t, c, 1, watch(typeurl.Secret, []string{s1.Name}), "accepted-s1")
+			require.Equal(t, !removed, c.GetResource(node.Id, typeurl.Listener, listener.Name) != nil)
+			response := watch(typeurl.Secret, []string{s2.Name})
+			rejected, err := response.GetDiscoveryResponse()
+			require.NoError(t, err)
+			rejected.Nonce = "rejected-s2"
+			c.completionCbs.OnStreamResponse(response.GetContext(), 1, response.GetRequest(), rejected)
+			require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+				Node: node, TypeUrl: typeurl.Secret.URL(), ResponseNonce: rejected.Nonce,
+				ErrorDetail: &status.Status{Message: "rejected second prerequisite"},
+			}))
+			current := c.GetResource(node.Id, typeurl.Listener, listener.Name)
+			require.Equal(t, removed, current != nil)
+			if removed {
+				require.Same(t, listener, current)
+			}
+			require.NotNil(t, c.GetResource(node.Id, typeurl.Secret, s1.Name), "accepted independent Secret must survive")
+			require.Nil(t, c.GetResource(node.Id, typeurl.Secret, s2.Name))
+		})
+	}
+}
+
+// --- Fetch ---
 
 func TestXDSVersionFormatAndEpochParsing(t *testing.T) {
 	require.Equal(t, "e1:g2", formatXDSVersion(1, 2))

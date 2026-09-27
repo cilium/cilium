@@ -251,7 +251,7 @@ func TestNACKRecoveryRebasesWholeTransaction(t *testing.T) {
 					t.Cleanup(func() { c.completionCbs.OnStreamClosed(1, nil); c.completionCbs.OnStreamClosed(2, nil) })
 					transaction := func(contents string) ResourceMutations {
 						mutations := ResourceMutations{Upserted: xds.Resources{Secrets: map[string]*secret.Secret{
-							"root": {Name: "root", Type: &secret.Secret_GenericSecret{GenericSecret: &secret.GenericSecret{
+							"triggering-change": {Name: "triggering-change", Type: &secret.Secret_GenericSecret{GenericSecret: &secret.GenericSecret{
 								Secret: &core.DataSource{Specifier: &core.DataSource_InlineString{InlineString: contents}},
 							}}},
 							"sibling": {Name: "sibling", Type: &secret.Secret_GenericSecret{GenericSecret: &secret.GenericSecret{
@@ -272,11 +272,11 @@ func TestNACKRecoveryRebasesWholeTransaction(t *testing.T) {
 					if crossType {
 						second.typeURL = typeurl.Cluster.URL()
 					}
-					firstNames, secondNames := []string{"root"}, []string{"sibling"}
+					firstNames, secondNames := []string{"triggering-change"}, []string{"sibling"}
 					if !crossType && strict {
 						// The strict go-control-plane backend requires the subscription to
 						// include the full group. Non-strict mode exercises partial names.
-						firstNames, secondNames = []string{"root", "sibling"}, []string{"root", "sibling"}
+						firstNames, secondNames = []string{"triggering-change", "sibling"}, []string{"triggering-change", "sibling"}
 					}
 					require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", baseline, nil, TypeURLCallbacks{}))
 					first.reply(t, first.receive(t, firstNames...), "", firstNames...)
@@ -338,22 +338,22 @@ func TestNACKRecoveryRebasesWholeTransaction(t *testing.T) {
 func TestFailedNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 	c := newCoverageCache(t)
 	first := coverageStream{cache: c, id: 1, typeURL: typeurl.Secret.URL()}
-	baseline := &secret.Secret{Name: "root"}
+	baseline := &secret.Secret{Name: "triggering-change"}
 	baselineSibling := &secret.Secret{Name: "sibling"}
-	apply := func(root, sibling *secret.Secret) {
+	apply := func(triggeringChange, sibling *secret.Secret) {
 		t.Helper()
 		require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", ResourceMutations{Upserted: xds.Resources{
-			Secrets: map[string]*secret.Secret{"root": root, "sibling": sibling},
+			Secrets: map[string]*secret.Secret{"triggering-change": triggeringChange, "sibling": sibling},
 		}}, nil, TypeURLCallbacks{}))
 	}
 	apply(baseline, baselineSibling)
-	first.reply(t, first.receive(t, "root", "sibling"), "", "root", "sibling")
-	a, aSibling := &secret.Secret{Name: "root", Type: &secret.Secret_GenericSecret{GenericSecret: &secret.GenericSecret{}}},
+	first.reply(t, first.receive(t, "triggering-change", "sibling"), "", "triggering-change", "sibling")
+	a, aSibling := &secret.Secret{Name: "triggering-change", Type: &secret.Secret_GenericSecret{GenericSecret: &secret.GenericSecret{}}},
 		&secret.Secret{Name: "sibling", Type: &secret.Secret_GenericSecret{GenericSecret: &secret.GenericSecret{}}}
 	apply(a, aSibling)
-	responseA := first.receive(t, "root", "sibling")
-	b := &secret.Secret{Name: "root", Type: &secret.Secret_TlsCertificate{TlsCertificate: &secret.TlsCertificate{}}}
-	callerB, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", typeurl.Secret, "root", b, nil, nil)
+	responseA := first.receive(t, "triggering-change", "sibling")
+	b := &secret.Secret{Name: "triggering-change", Type: &secret.Secret_TlsCertificate{TlsCertificate: &secret.TlsCertificate{}}}
+	callerB, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", typeurl.Secret, "triggering-change", b, nil, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		if callerB != nil {
@@ -361,7 +361,7 @@ func TestFailedNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 		}
 	})
 	second := coverageStream{cache: c, id: 2, typeURL: typeurl.Secret.URL()}
-	responseB := second.receive(t, "root", "sibling")
+	responseB := second.receive(t, "triggering-change", "sibling")
 	backend := c.SnapshotCache
 	failed := newMockSnapshotCache()
 	failed.snapshots["coverage-node"] = mustSnapshot(t, c, "coverage-node")
@@ -372,26 +372,26 @@ func TestFailedNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 	// as snapshot installation failure.
 	cancel, err := c.CreateWatch(&cache.Request{
 		Node: &core.Node{Id: "coverage-node"}, TypeUrl: typeurl.Secret.URL(),
-		ResourceNames: []string{"root", "sibling"}, VersionInfo: responseB.VersionInfo,
+		ResourceNames: []string{"triggering-change", "sibling"}, VersionInfo: responseB.VersionInfo,
 	}, second.sub, make(chan cache.Response, 1))
 	require.NoError(t, err)
 	t.Cleanup(cancel)
 	require.ErrorIs(t, c.completionCbs.OnStreamRequest(first.id, &discovery.DiscoveryRequest{
 		TypeUrl: typeurl.Secret.URL(), ResponseNonce: responseA.Nonce,
-		ResourceNames: []string{"root", "sibling"}, ErrorDetail: &status.Status{Message: "invalid secret"},
+		ResourceNames: []string{"triggering-change", "sibling"}, ErrorDetail: &status.Status{Message: "invalid secret"},
 	}), failure)
 	c.SnapshotCache = backend
 	// Failed recovery retains A's own inverse for retry. But rejection is
 	// definitive: B's caller rollback must bypass A even after that failure.
-	require.Same(t, b, c.GetResource("coverage-node", typeurl.Secret, "root"))
+	require.Same(t, b, c.GetResource("coverage-node", typeurl.Secret, "triggering-change"))
 	require.Same(t, aSibling, c.GetResource("coverage-node", typeurl.Secret, "sibling"))
 	require.NoError(t, callerB.Revert())
 	callerB = nil
-	require.Same(t, baseline, c.GetResource("coverage-node", typeurl.Secret, "root"))
+	require.Same(t, baseline, c.GetResource("coverage-node", typeurl.Secret, "triggering-change"))
 	require.Same(t, aSibling, c.GetResource("coverage-node", typeurl.Secret, "sibling"))
 	// The next NACK retries A's still-current sibling through the retained
 	// response-owned recovery. Rebasing B did not consume that recovery state.
-	first.reply(t, first.receive(t, "root", "sibling"), "invalid secret", "root", "sibling")
-	require.Same(t, baseline, c.GetResource("coverage-node", typeurl.Secret, "root"))
+	first.reply(t, first.receive(t, "triggering-change", "sibling"), "invalid secret", "triggering-change", "sibling")
+	require.Same(t, baseline, c.GetResource("coverage-node", typeurl.Secret, "triggering-change"))
 	require.Same(t, baselineSibling, c.GetResource("coverage-node", typeurl.Secret, "sibling"))
 }

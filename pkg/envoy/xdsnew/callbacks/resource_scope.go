@@ -110,6 +110,23 @@ func (scope *ResourceScope) acknowledge(coverage *responseCoverage, generation G
 	return len(scope.more) == 0
 }
 
+// acknowledgeAccepted removes previously accepted prerequisites from a live
+// caller wait. Unlike response rollback, a wait need not retain ACKed members
+// for transaction membership after their outcome is known.
+func (scope *ResourceScope) acknowledgeAccepted(group acceptedResourceGroup, index typeurl.Index) bool {
+	if scope.name != "" {
+		_, _, accepted := group.resource(scope.name, index)
+		return accepted != 0 && accepted >= scope.revision.revision
+	}
+	for name, required := range scope.more {
+		_, _, accepted := group.resource(name, index)
+		if accepted != 0 && accepted >= required.revision {
+			delete(scope.more, name)
+		}
+	}
+	return len(scope.more) == 0
+}
+
 // acknowledgeRollback remembers successful members without forgetting their
 // transaction membership: another response can still NACK one of them while
 // other members are pending. Mutation generations are positive, so zero marks
@@ -250,7 +267,7 @@ func responseCoverageFromContext(ctx context.Context) *responseCoverage {
 }
 
 // ResponseCoversResource is used under the cache lock to freeze only inverse
-// entries which this exact response can test, including observable removals.
+// entries whose state this exact response conveys, including observable removals.
 // The transaction must be within the response boundary and its name must be
 // represented; numerical ordering alone does not prove resource coverage.
 func ResponseCoversResource(response cache.Response, name string, transaction TransactionID) bool {
@@ -264,9 +281,9 @@ func ResponseCoversType(response cache.Response, generation Generation) bool {
 }
 
 // SnapshotResourceStateIsObservable reports whether a SotW response from this
-// snapshot can communicate a resource's presence or removal. EDS/RDS/SDS omission
-// is not a removal, so an absent name must not acquire a response-owned removal
-// obligation.
+// snapshot can communicate a resource's presence or removal. EDS/RDS/SDS
+// omission is not a removal, so an absent name must not acquire a response-owned
+// removal obligation.
 // Other changed members of its API transaction still retain the full inverse.
 func SnapshotResourceStateIsObservable(snapshot cache.ResourceSnapshot, index typeurl.Index, name string) bool {
 	if typeHasDeletionSemantics(index) {

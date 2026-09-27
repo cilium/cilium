@@ -40,6 +40,8 @@ response communicates, including deletions where omission signals removal.
 - Reverts change an entry only if its `transaction` still matches the expected
   API transaction. They restore the previous value and transaction but assign a
   fresh revision. Older ACKs cannot accept restored state.
+- Strict response recovery can additionally revert newer dependent resources
+  to preserve reference consistency.
 - Cache mutations and completion registration are serialized under the cache
   lock. Response delivery and completion callbacks run after unlocking.
 - Each NACK selects its inverses and applies their final correction under that
@@ -62,15 +64,19 @@ response communicates, including deletions where omission signals removal.
 
 `nodeState` owns desired entries, desired/published generations, epoch negotiation,
 optional `pendingPublication` bookkeeping, open watches, and the strict reference
-index. Its `rollbackState` contains live caller and response inverses for
-predecessor rebasing. The `typeStates` slots group aggregate generations,
-first-request epochs, and changed names; each slot's `resourceRollbackState`
-owns its unsent inverse and tombstone-owner counts. Rollback methods borrow
-desired-state or transaction context and share the cache lock; they neither lock
-nor invoke user callbacks. Finalization clears changed names, not independent
-rollback; publication failure restores saved generations without replacing whole
-records. Protocol strings are converted to array indexes and bit sets at the
-boundary.
+index. Its embedded `rollbackState` manages live caller and response inverses,
+transaction dependencies, and predecessor rebasing. Each `typeStates` slot groups
+aggregate generations, first-request epochs, changed names, and an embedded
+`resourceRollbackState` for unsent rollback and tombstone ownership. Rollback
+maintenance lives in `rollback.go` and uses the existing cache lock; transaction
+validation, desired-state changes, and publication remain in the cache.
+A secondary name index selects response owners of dependent inverses without
+scanning unrelated lifecycles. It retains only live relationships, is maintained
+under the same cache lock, and applies in both strict and non-strict ADS modes.
+Finalization clears changed names, not independent rollback; publication failure
+restores saved generations without replacing whole records. Protocol strings
+are converted to array indexes and bit sets at the boundary.
+
 Requests for unsupported TypeURLs from configured nodes call the embedded
 go-control-plane cache's `CreateWatch`, without Cilium's per-TypeURL tracking.
 Cilium never publishes resources for these types. An initial request with an
@@ -109,13 +115,16 @@ caller lifecycle; all mutation APIs independently retain needed NACK state.
 
 A transaction holds the cache write lock while it:
 
-1. Compares candidates with desired state and prepares actual changes.
-2. Reserves a generation and validates affected references in strict ADS mode.
-3. Commits desired entries and reference counts, and registers ACK waits.
-4. Coalesces response inverses into pending publication bookkeeping and records
-   changed resource names.
-5. Finalizes immediately if a directly affected watch is open.
-6. Creates a caller lifecycle, if requested, after a successful commit/publication.
+1. Compares candidates with desired state, preserving canonical pointers for
+   semantic no-ops.
+2. Prepares changes, records pending values reused unchanged, and reserves a
+   generation when something changes.
+3. Validates affected LDS/RDS and CDS/EDS references in strict ADS mode.
+4. Commits entries, marks changed names, and registers ACK waits.
+5. Coalesces sparse response inverses and their dependent transactions into
+   `nodeState.pendingPublication`.
+6. Finalizes immediately if a directly affected watch is open.
+7. Creates any requested caller lifecycle after a successful commit/publication.
 
 Readers cannot observe partial changes. Publication failure restores previous
 entries, reference counts, changed names, and previous pending publication
@@ -135,9 +144,13 @@ desired state or registering rollback ownership. Missing CLAs are allowed:
 publication synthesizes empty assignments without inserting them into desired
 state. Compensating mutations use the same validation and publication path.
 
-Non-strict mode and unrelated types skip the reference index. A full snapshot
-consistency check runs only with both strict ADS and agent debug logging enabled;
-transaction safety does not depend on that projection check.
+Non-strict mode and unrelated types skip the reference index. Only strict ADS
+expands response rollback to preserve reference consistency. Losing the last
+parent removes its child, and removing a Route restores or removes Listeners
+that still require it. Shared children survive; content-only child reverts do
+not cascade to parents. A full snapshot consistency check runs only with both
+strict ADS and agent debug logging enabled; transaction safety does not depend
+on that projection check.
 
 ### On-demand finalization
 
@@ -303,6 +316,54 @@ including while publication is still pending.
 ACK releases response-owned rollback state only after all required
 resource names have been acknowledged.
 
+### Triggering resource changes and transaction members
+
+A **triggering resource change** is a tracked change belonging to the NACKed
+response's TypeURL, not a transaction or necessarily the particular resource
+Envoy found invalid. If one API transaction adds a Listener and a Cluster, the
+Listener change can trigger rollback on an LDS NACK, and the Cluster change can
+trigger it on a CDS NACK. Both are members of the same transaction.
+
+Coalescing several transactions into one response does not merge their rollback
+eligibility. A triggering resource change that still matches desired state makes
+its transaction's other still-current members eligible for rollback. Changes
+superseded by another change in the same rejected batch retain their predecessor
+chain. An independently superseded triggering change does not, by itself, make its
+transaction’s other members eligible for rollback.
+
+For example, transaction A adds Listener `l1` and Cluster `c1`, and B adds `l2`
+and `c2`. Both Listeners are sent together, and CDS ACKs both Clusters. If another
+transaction replaces `l1` before the LDS NACK, the NACK reverts `l2` and `c2`,
+but preserves the newer `l1` and A's `c1`. Later inverses which restore `c1`
+must also keep that target. The rejected old `l1` is still bypassed in later
+inverses, so reverting its replacement cannot resurrect it.
+
+If a later inverse would restore a rejected triggering value and other values
+from that same predecessor transaction together, rebasing bypasses that whole
+predecessor. An independent inverse restoring only a preserved member does not.
+
+Transaction-member selection applies in both ADS modes. **Companion** refers
+only to the additional resource changes required for strict-ADS consistency,
+not to members of an API transaction.
+
+In both ADS modes, a NACK reverts the rejected transaction and later transactions
+that reused its pending values, including transactions without a WaitGroup.
+Dependencies are transitive and survive caller finalization and ACKs for other
+resource types. Outstanding dependent waits also fail. Caller waits remain
+independent of inverse coalescing, so replacing a pending value cannot lose
+earlier waits.
+
+For example, transaction A adds Listener `l1`; B supplies the same pending `l1`
+and adds Secret `s1`. An LDS NACK for A also reverts B's still-current `s1`,
+even if SDS already ACKed it.
+An independently newer `l1` can skip A's inverse without protecting B's
+still-current dependent `s1`.
+
+Named responses acknowledge only prerequisites they contain. If a transaction
+has multiple pending prerequisites, ACKing one does not release recovery state
+for the others; a NACK for any of them triggers rollback. Bookkeeping retains
+only live dependency relationships, not a history of earlier mutations.
+
 NACK recovery uses the ordinary cache transaction. It takes the cache lock
 before revalidating the response and claiming inverses under the callbacks
 lock, then releases the callbacks lock to prepare one final correction.
@@ -312,23 +373,24 @@ cannot be delivered or acquire new waits.
 
 Selected inverse targets are composed oldest first, bypassing rejected
 predecessors in pending-publication, live response, and caller inverses.
-Superseding API transactions remain guarded. For example, if A is rejected after B replaces it,
-B remains desired, but its later rollback restores the value before A, not A.
-This applies to unsent responses and caller rollback after B is ACKed too.
-Only live inverses are retained, not a history of rejected values.
+Superseding API transactions remain guarded. For example, if A is rejected
+after B replaces it, B remains desired, but its later rollback restores the
+value before A, not A. This applies to unsent responses and caller rollback
+after B is ACKed too. Only live inverses are retained, not a history of
+rejected values.
 
 Successful recovery consumes the selected inverses together and commits one
 corrective generation. A matching open watch can consume it immediately;
-otherwise finalization waits for the next watch. Restored values receive fresh
-revisions even when a sent A-B-A chain restores identical protobuf contents.
-Response delivery and application callbacks run after unlocking.
+otherwise finalization waits for the next watch. Response delivery and
+application callbacks run after unlocking.
 
 Failed validation or publication leaves desired state unchanged and retains
 the batch's response inverses for a later response. Rejected predecessors are
 still bypassed in other inverse targets: rejection is definitive even if
 corrective publication fails. Caller waits receive the original NACK, and the
 recovery error closes the stream. An ACK can release retained recovery state;
-there is no background retry loop.
+there is no background retry loop. Caller reverts remain transaction-fenced and
+may still fail validation.
 
 ### Removal tombstones
 

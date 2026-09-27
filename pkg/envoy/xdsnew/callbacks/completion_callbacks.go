@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
 	"math"
 	"slices"
 
@@ -224,6 +225,9 @@ type pendingCompletion struct {
 	// attached to a response already in flight.
 	responseGeneration Generation
 	scope              ResourceScope
+	// Prerequisite names and revisions belong to this live wait, independently
+	// of coalesced inverses. Removing the wait drops this bookkeeping too.
+	dependencies *typeurl.Map[ResourceScope]
 
 	// typeURL is the type URL of the resources to be ACKed.
 	typeURL typeurl.Index
@@ -235,6 +239,30 @@ func (pc *pendingCompletion) ID() string {
 
 func (pc *pendingCompletion) CleanupAfterWait(c *completion.Completion) {
 	pc.callbacks.RemoveTypeGenerationCompletion(c)
+}
+
+// AddCompletionDependencies associates a registered wait with pending values
+// reused by its transaction. The cache calls this before releasing its lock,
+// after a successful commit/publication. An ACK which already arrived removes
+// the corresponding prerequisites; canceled or completed waits are ignored.
+func (cb *CompletionCallbacks) AddCompletionDependencies(comp *completion.Completion, dependencies typeurl.Map[ResourceScope]) {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	pc := cb.pendingCompletions[comp]
+	if pc == nil {
+		return
+	}
+	for index, scope := range dependencies.All() {
+		scope.more = maps.Clone(scope.more)
+		state := cb.typeURLState(pc.nodeID, index)
+		if state != nil && scope.acknowledgeAccepted(state.acceptedResources, index) {
+			continue
+		}
+		if pc.dependencies == nil {
+			pc.dependencies = new(typeurl.Map[ResourceScope])
+		}
+		pc.dependencies.Set(index, scope)
+	}
 }
 
 // pendingGeneration is a resource-changing snapshot generation which may be
@@ -792,6 +820,18 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	var finalizers []Rollback
 	debugEnabled := cb.Log.Enabled(context.Background(), slog.LevelDebug)
 	for c, pc := range cb.pendingCompletions {
+		if pc.nodeID == nodeID && pc.dependencies != nil && acceptedGeneration != 0 {
+			if scope, found := pc.dependencies.Get(typeIndex); found {
+				if scope.acknowledge(coverage, acceptedGeneration) {
+					pc.dependencies.Remove(typeIndex)
+				} else {
+					pc.dependencies.Set(typeIndex, scope)
+				}
+				if pc.dependencies.Empty() {
+					pc.dependencies = nil
+				}
+			}
+		}
 		if pc.nodeID != nodeID || pc.typeURL != typeIndex ||
 			acceptedGeneration == 0 {
 			continue
@@ -865,7 +905,7 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 
 	// A NACK rejects the entire response. Select every update coalesced into it
 	// and pass its inverses newest first to the cache, which composes one final
-	// correction while preserving superseding API transactions.
+	// correction including dependent transactions and strict reference closure.
 	var rejectedTransactions set.Set[TransactionID]
 	for generation, pending := range typeState.pendingGenerations {
 		if rejectedGeneration == 0 || generation > rejectedGeneration || !pending.scope.intersects(coverage, rejectedGeneration) {
@@ -886,7 +926,12 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 			continue
 		}
 		direct := pc.typeURL == typeIndex && (!pc.scope.wholeType() || pc.generation <= coveredGeneration) && pc.scope.intersects(coverage, coveredGeneration)
-		if !direct && !pc.generation.inTransactions(rejectedTransactions) {
+		dependent := false
+		if pc.dependencies != nil {
+			scope, found := pc.dependencies.Get(typeIndex)
+			dependent = found && scope.intersects(coverage, rejectedGeneration)
+		}
+		if !direct && !dependent && !pc.generation.inTransactions(rejectedTransactions) {
 			continue
 		}
 		completed = append(completed, c)

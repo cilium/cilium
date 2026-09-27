@@ -571,15 +571,16 @@ type resourceTransaction struct {
 
 	// generation is reserved for this mutation, including corrective reverts.
 	// Only API mutations also use it as the changed entries' TransactionID.
-	generation            callbacks.Generation
-	deliveries            []responseDelivery
-	finalized             []finalizedCompletion
-	registeredCompletions set.Set[*completion.Completion]
-	immediateCompletions  []immediateCompletion
-	listenerChanges       []ListenerChange
-	updateErr             error
-	acceptedCallback      func(error)   // single callback common case
-	acceptedCallbacks     []func(error) // additional callbacks
+	generation             callbacks.Generation
+	deliveries             []responseDelivery
+	finalized              []finalizedCompletion
+	registeredCompletions  set.Set[*completion.Completion]
+	immediateCompletions   []immediateCompletion
+	listenerChanges        []ListenerChange
+	dependencyTransactions *typeurl.Map[set.Set[callbacks.TransactionID]]
+	updateErr              error
+	acceptedCallback       func(error)   // single callback common case
+	acceptedCallbacks      []func(error) // additional callbacks
 }
 
 func (c *cacheImpl) beginResourceTransaction(ctx context.Context, nodeID string) resourceTransaction {
@@ -691,7 +692,7 @@ type finalizedCompletion struct {
 	err        error
 }
 
-// snapshotTypesChangedBy includes snapshot companions of changed parent types.
+// snapshotTypesChangedBy includes dependent snapshot groups of changed parent types.
 // Both zero and initialized-empty sets mean that no resource types changed.
 func snapshotTypesChangedBy(changedTypeURLs typeurl.Set) typeurl.Set {
 	regenerate := changedTypeURLs
@@ -928,6 +929,7 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 	}, wg); err != nil {
 		return nil, err
 	}
+	tx.state.rollbacks.pruneAbsentDependentChanges(tx.state, changes)
 	if accepted {
 		tx.addAcceptedCallback(wg, callback)
 	}
@@ -975,6 +977,12 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 		return nil, nil
 	}
 
+	reused, dependencyScopes := state.rollbacks.prepareDependenciesLocked(tx, &mutations, &inverse, len(changes.more)+1, wg != nil)
+	var dependencies *typeurl.Map[callbacks.ResourceScope]
+	if wg != nil && reused.first.name != "" {
+		dependencies = &dependencyScopes
+	}
+
 	tx.generation = c.nextResourceGenerationLocked()
 
 	var changedWaits typeURLWaits
@@ -1015,8 +1023,11 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 		tx.listenerChanges = committedListenerChanges(changes)
 	}
 
+	state.rollbacks.attachDependenciesLocked(tx, reused, inverse, dependencies)
+	tx.state.rollbacks.pruneAbsentDependentChanges(tx.state, changes)
+
 	if tracking == callerAndResponseRollbackTracking {
-		return tx.state.rollbacks.newCallerLocked(tx, inverse), nil
+		return state.rollbacks.newCallerLocked(tx, inverse), nil
 	}
 	return nil, nil
 }
@@ -1053,7 +1064,7 @@ func (tx *resourceTransaction) revertLocked(rollbacks []Rollback) error {
 		}
 		err = tx.updateResourceChangesLocked(changes, resourceUpdateOptions{}, nil)
 	}
-	state.rollbacks.finishRevertLocked(state, rollbacks, err)
+	state.rollbacks.finishRevertLocked(state, rollbacks, changes, err)
 
 	if err == nil {
 		tx.listenerChanges = committedListenerChanges(changes)

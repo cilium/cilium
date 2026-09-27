@@ -275,6 +275,37 @@ func validateResourceMapNames[V any](removed, upserted map[string]V) error {
 	return nil
 }
 
+// set extends or replaces a prepared response rollback without adding a second
+// change for the same name. previous remains the original desired entry so
+// validation, commit, and publication-failure recovery each see one transition.
+func (changes *resourceChanges) set(typeURL typeurl.Index, name string, previous, next resourceEntry) {
+	if changes.first.typeURL == typeURL && changes.first.name == name {
+		changes.first.next = next
+		return
+	}
+	for i := range changes.more {
+		if changes.more[i].typeURL == typeURL && changes.more[i].name == name {
+			changes.more[i].next = next
+			return
+		}
+	}
+	changes.add(typeURL, name, previous, next)
+}
+
+// resourceAfter returns the proposed value without committing the rollback.
+// Names not affected by the prepared changes retain their current value.
+func (changes resourceChanges) resourceAfter(typeURL typeurl.Index, name string, current cache_types.Resource) cache_types.Resource {
+	if changes.first.typeURL == typeURL && changes.first.name == name {
+		return changes.first.next.resource
+	}
+	for _, change := range changes.more {
+		if change.typeURL == typeURL && change.name == name {
+			return change.next.resource
+		}
+	}
+	return current
+}
+
 func validateResourceMutations(mutations ResourceMutations) error {
 	removed, upserted := mutations.Removed, mutations.Upserted
 	if err := validateResourceMapNames(removed.Listeners, upserted.Listeners); err != nil {
