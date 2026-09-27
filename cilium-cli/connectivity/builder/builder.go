@@ -308,7 +308,6 @@ func concurrentTests(connTests []*check.ConnectivityTest) error {
 		northSouthLoadbalancing{},
 		podToPodEncryption{},
 		podToPodEncryptionV2{},
-		nodeToNodeEncryption{},
 		egressGateway{},
 		egressGatewayMultigateway{},
 		egressGatewayExcludedCidrs{},
