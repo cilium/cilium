@@ -613,6 +613,11 @@ func (d *statusCollector) GetStatus(brief bool, requireK8sConnectivity bool) mod
 			State: models.StatusStateWarning,
 			Msg:   fmt.Sprintf("%s    %s", ciliumVer, msg),
 		}
+	case !d.statusParams.FQDNDataServer.IsReady():
+		sr.Cilium = &models.Status{
+			State: models.StatusStateFailure,
+			Msg:   "Standalone DNS proxy gRPC server is not ready",
+		}
 	case d.statusResponse.Kvstore != nil &&
 		d.statusResponse.Kvstore.State != models.StatusStateOk &&
 		d.statusResponse.Kvstore.State != models.StatusStateDisabled:
