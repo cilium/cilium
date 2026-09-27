@@ -17,8 +17,8 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -29,7 +29,6 @@ type Writer struct {
 	db    *statedb.DB
 	nodes statedb.RWTable[*Node]
 
-	isStaticLocalRouterIP  func(string) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
 
 	requiredReconcilers []NodeReconciler
@@ -59,18 +58,13 @@ func NewWriter(log *slog.Logger, db *statedb.DB, nodes statedb.RWTable[*Node]) *
 type writerParams struct {
 	cell.In
 
-	Log          *slog.Logger
-	DB           *statedb.DB
-	Nodes        statedb.RWTable[*Node]
-	DaemonConfig *option.DaemonConfig `optional:"true"`
+	Log   *slog.Logger
+	DB    *statedb.DB
+	Nodes statedb.RWTable[*Node]
 }
 
 func provideWriter(p writerParams) *Writer {
-	w := NewWriter(p.Log, p.DB, p.Nodes)
-	if p.DaemonConfig != nil {
-		w.isStaticLocalRouterIP = p.DaemonConfig.IsLocalRouterIP
-	}
-	return w
+	return NewWriter(p.Log, p.DB, p.Nodes)
 }
 
 // Table returns read-only access to the node table.
@@ -222,12 +216,10 @@ func (w *Writer) waitUntilReconciled(
 			if _, found := targets[node.Fullname()]; found {
 				finished := true
 				if reconcilers == nil {
-					for _, status := range node.Statuses.All() {
-						if status.Kind != reconciler.StatusKindDone &&
-							(requireDone || status.Kind != reconciler.StatusKindError) {
-							finished = false
-							break
-						}
+					if requireDone {
+						finished = node.Statuses.IsDone()
+					} else {
+						finished = !node.Statuses.IsPendingOrRefreshing()
 					}
 				} else {
 					for _, name := range reconcilers {
@@ -304,9 +296,10 @@ func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) err
 
 // Upsert takes ownership of n and inserts or updates it if its source is
 // allowed to overwrite the current owner. The caller must not modify n after
-// calling Upsert. It reports whether the table changed. Conflicting weaker
-// objects are not retained, so their producer must upsert them again if the
-// winning object is later deleted.
+// calling Upsert. It reports whether the table changed. Updates whose internal
+// or external node IP conflicts with the local node are rejected, as are
+// updates whose allocation CIDRs overlap the local node's allocation CIDRs or
+// contain one of those protected local addresses.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
 	obj := &Node{
@@ -331,40 +324,24 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 		}
 	}
 
-	// Resolve all address conflicts before changing the table. This keeps the
-	// operation atomic when an incoming node overlaps multiple existing nodes:
-	// a single stronger owner rejects the update without deleting weaker ones.
-	conflicts := map[string]*Node{}
-	for addrCluster := range obj.addressClusters(w.isStaticLocalRouterIP) {
-		for candidate := range w.nodes.List(txn, NodeByAddress(addrCluster)) {
-			if candidate.Fullname() == obj.Fullname() {
-				continue
-			}
-			if _, found := conflicts[candidate.Fullname()]; found {
-				continue
-			}
-			w.log.Warn("Node address conflicts with another node",
-				logfields.IPAddr, addrCluster,
+	if local, _, localFound := w.nodes.Get(txn, LocalNodeQuery); localFound {
+		if addr, conflict := conflictingLocalNodeAddress(local, obj); conflict {
+			w.log.Warn("Ignoring node update that conflicts with local node address",
+				logfields.IPAddr, addr,
 				logfields.Node, obj.Fullname(),
 				logfields.Source, obj.Source,
-				logfields.ConflictingResource, candidate.Fullname(),
-				logfields.NodeOwner, candidate.Source,
+				logfields.ConflictingResource, local.Fullname(),
+				logfields.NodeOwner, local.Source,
 			)
-			conflicts[candidate.Fullname()] = candidate
-		}
-	}
-	for _, candidate := range conflicts {
-		if candidate.Local != nil || !source.AllowOverwrite(candidate.Source, obj.Source) {
 			return false
 		}
-	}
-
-	for _, candidate := range conflicts {
-		if _, _, err := w.nodes.Delete(txn, candidate); err != nil {
-			w.log.Error("Failed to delete node with conflicting address",
-				logfields.Error, err,
-				logfields.Node, candidate.Name,
-				logfields.Source, candidate.Source,
+		if cidr, conflict := conflictingLocalNodeCIDR(local, obj); conflict {
+			w.log.Warn("Ignoring node update whose allocation CIDR conflicts with local node",
+				logfields.CIDR, cidr,
+				logfields.Node, obj.Fullname(),
+				logfields.Source, obj.Source,
+				logfields.ConflictingResource, local.Fullname(),
+				logfields.NodeOwner, local.Source,
 			)
 			return false
 		}
@@ -383,6 +360,59 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 		return false
 	}
 	return true
+}
+
+func conflictingLocalNodeAddress(local, remote *Node) (netip.Addr, bool) {
+	for _, remoteAddress := range remote.IPAddresses {
+		if !protectedNodeAddressType(remoteAddress.Type) {
+			continue
+		}
+		remoteIP, ok := netip.AddrFromSlice(remoteAddress.IP)
+		if !ok {
+			continue
+		}
+		remoteIP = remoteIP.Unmap()
+
+		for _, localAddress := range local.IPAddresses {
+			if !protectedNodeAddressType(localAddress.Type) {
+				continue
+			}
+			localIP, ok := netip.AddrFromSlice(localAddress.IP)
+			if ok && remoteIP == localIP.Unmap() {
+				return remoteIP, true
+			}
+		}
+	}
+	return netip.Addr{}, false
+}
+
+func protectedNodeAddressType(addressType addressing.AddressType) bool {
+	return addressType == addressing.NodeInternalIP ||
+		addressType == addressing.NodeExternalIP
+}
+
+func conflictingLocalNodeCIDR(local, remote *Node) (netip.Prefix, bool) {
+	localCIDRs := slices.Concat(local.GetIPv4AllocCIDRs(), local.GetIPv6AllocCIDRs())
+	remoteCIDRs := slices.Concat(remote.GetIPv4AllocCIDRs(), remote.GetIPv6AllocCIDRs())
+
+	for _, remoteCIDR := range remoteCIDRs {
+		for _, localCIDR := range localCIDRs {
+			if remoteCIDR.Overlaps(localCIDR) {
+				return remoteCIDR, true
+			}
+		}
+
+		for _, localAddress := range local.IPAddresses {
+			if !protectedNodeAddressType(localAddress.Type) {
+				continue
+			}
+			localIP, ok := netip.AddrFromSlice(localAddress.IP)
+			if ok && remoteCIDR.Contains(localIP.Unmap()) {
+				return remoteCIDR, true
+			}
+		}
+	}
+	return netip.Prefix{}, false
 }
 
 // Delete removes a remote node if this writer's source still owns it. It
