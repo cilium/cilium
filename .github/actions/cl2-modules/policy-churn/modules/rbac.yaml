@@ -1,0 +1,25 @@
+{{$replicas := DefaultParam .replicas 1}}
+
+{{$actionName := .actionName}}
+{{$tuningSet := .tuningSet}}
+
+{{$saName := .serviceAccountName}}
+{{$saNamespace := .serviceAccountNamespace}}
+
+steps:
+- name: {{$actionName}} {{$saName}} ServiceAccount and CRB
+  phases:
+  - namespaceList: [{{$saNamespace}}]
+    replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: {{$saName}}
+      objectTemplatePath: ./manifests/service-account.yaml
+
+  - replicasPerNamespace: {{$replicas}}
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: {{$saName}}
+      objectTemplatePath: ./manifests/admin-role.yaml
+      templateFillMap:
+        targetNamespace: {{$saNamespace}}
