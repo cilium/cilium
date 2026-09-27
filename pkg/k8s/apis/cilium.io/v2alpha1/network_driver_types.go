@@ -198,6 +198,11 @@ type CiliumNetworkDriverDeviceManagerConfig struct {
 	// +kubebuilder:validation:Optional
 	SRIOV *SRIOVDeviceManagerConfig `json:"sriov,omitempty"`
 
+	// Configuration for the eswitch SR-IOV device manager
+	//
+	// +kubebuilder:validation:Optional
+	EswitchSRIOV *EswitchSRIOVDeviceManagerConfig `json:"eswitchSriov,omitempty"`
+
 	// Configuration for the dummy device manager
 	//
 	// +kubebuilder:validation:Optional
@@ -239,6 +244,87 @@ type SRIOVDeviceConfig struct {
 	//
 	// +kubebuilder:validation:Required
 	IfName string `json:"ifName"`
+}
+
+// Configuration for the eswitch SR-IOV device manager. Manages PFs whose NIC
+// supports switchdev/eswitch offload mode (e.g. Mellanox/NVIDIA ConnectX):
+// VFs are represented in the host by a representor netdev, and per-VF
+// isolation (VLAN, etc.) is enforced via Linux bridge VLAN filtering on the
+// representor rather than ndo_set_vf_vlan, which switchdev-mode NICs
+// typically reject for non-zero VLANs.
+//
+// +deepequal-gen=true
+type EswitchSRIOVDeviceManagerConfig struct {
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:Optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	SysPCIDevicesPath string `json:"sysBusPCIDevPath,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=ifName
+	Ifaces []EswitchSRIOVDeviceConfig `json:"ifaces,omitempty"`
+
+	// Bridges defines the Linux bridges available to be attached to PFs
+	// managed by this device manager, keyed by Name. A single bridge may be
+	// referenced by BridgeName from multiple EswitchSRIOVDeviceConfig entries,
+	// in which case all their PF uplinks and VF representors are attached to
+	// the same bridge.
+	//
+	// +kubebuilder:validation:Optional
+	// +listType=map
+	// +listMapKey=name
+	Bridges []EswitchBridgeConfig `json:"bridges,omitempty"`
+}
+
+// Configuration for a PF managed by the eswitch SR-IOV device manager.
+type EswitchSRIOVDeviceConfig struct {
+	// Kernel ifname of the PF.
+	//
+	// +kubebuilder:validation:Required
+	IfName string `json:"ifName"`
+
+	// Number of VFs to be spawned for this PF.
+	//
+	// +kubebuilder:default=0
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="VFCount is immutable"
+	VFCount int `json:"vfCount"`
+
+	// Name of the bridge (from EswitchSRIOVDeviceManagerConfig.Bridges) that
+	// this PF's uplink and VF representors are attached to. Required for
+	// VLAN isolation to be enforced; if empty, devices on this PF are
+	// advertised but VLAN configuration is rejected.
+	//
+	// +kubebuilder:validation:Optional
+	BridgeName string `json:"bridgeName,omitempty"`
+}
+
+// Configuration for a Linux bridge managed by the eswitch SR-IOV device
+// manager. May be attached to more than one PF's uplink/representors by
+// being referenced from multiple EswitchSRIOVDeviceConfig entries.
+//
+// +deepequal-gen=true
+type EswitchBridgeConfig struct {
+	// Name of the Linux bridge. If it does not already exist it is created;
+	// if it exists, its parameters are reconciled to match Params.
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Arbitrary Linux bridge parameters to apply when creating or
+	// reconciling the bridge, e.g. "vlan_filtering": "1",
+	// "multicast_snooping": "0", "stp_state": "0". Keys correspond to the
+	// bridge's sysfs attribute names under
+	// /sys/class/net/<bridge>/bridge/, letting any bridge parameter be set
+	// without requiring an API change; unrecognized keys are rejected at
+	// reconcile time rather than at admission. Values are the string form
+	// written to the corresponding sysfs file.
+	//
+	// +kubebuilder:validation:Optional
+	Params map[string]string `json:"params,omitempty"`
 }
 
 // Configuration for the dummy device manager.

@@ -127,6 +127,83 @@ spec:
                             default: false
                             type: boolean
                         type: object
+                      eswitchSriov:
+                        description: Configuration for the eswitch SR-IOV device manager
+                        properties:
+                          bridges:
+                            description: |-
+                              Bridges defines the Linux bridges available to be attached to PFs
+                              managed by this device manager, keyed by Name. A single bridge may be
+                              referenced by BridgeName from multiple EswitchSRIOVDeviceConfig entries,
+                              in which case all their PF uplinks and VF representors are attached to
+                              the same bridge.
+                            items:
+                              description: |-
+                                Configuration for a Linux bridge managed by the eswitch SR-IOV device
+                                manager. May be attached to more than one PF's uplink/representors by
+                                being referenced from multiple EswitchSRIOVDeviceConfig entries.
+                              properties:
+                                name:
+                                  description: |-
+                                    Name of the Linux bridge. If it does not already exist it is created;
+                                    if it exists, its parameters are reconciled to match Params.
+                                  type: string
+                                params:
+                                  additionalProperties:
+                                    type: string
+                                  description: |-
+                                    Arbitrary Linux bridge parameters to apply when creating or
+                                    reconciling the bridge, e.g. "vlan_filtering": "1",
+                                    "multicast_snooping": "0", "stp_state": "0". Keys correspond to the
+                                    bridge's sysfs attribute names under
+                                    /sys/class/net/<bridge>/bridge/, letting any bridge parameter be set
+                                    without requiring an API change; unrecognized keys are rejected at
+                                    reconcile time rather than at admission. Values are the string form
+                                    written to the corresponding sysfs file.
+                                  type: object
+                              required:
+                              - name
+                              type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - name
+                            x-kubernetes-list-type: map
+                          enabled:
+                            default: false
+                            type: boolean
+                          ifaces:
+                            items:
+                              description: Configuration for a PF managed by the eswitch
+                                SR-IOV device manager.
+                              properties:
+                                bridgeName:
+                                  description: |-
+                                    Name of the bridge (from EswitchSRIOVDeviceManagerConfig.Bridges) that
+                                    this PF's uplink and VF representors are attached to. Required for
+                                    VLAN isolation to be enforced; if empty, devices on this PF are
+                                    advertised but VLAN configuration is rejected.
+                                  type: string
+                                ifName:
+                                  description: Kernel ifname of the PF.
+                                  type: string
+                                vfCount:
+                                  default: 0
+                                  description: Number of VFs to be spawned for this
+                                    PF.
+                                  type: integer
+                                  x-kubernetes-validations:
+                                  - message: VFCount is immutable
+                                    rule: self == oldSelf
+                              required:
+                              - ifName
+                              type: object
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - ifName
+                            x-kubernetes-list-type: map
+                          sysBusPCIDevPath:
+                            type: string
+                        type: object
                       macvlan:
                         description: Configuration for the macvlan device manager
                         properties:
