@@ -10,7 +10,7 @@ static __u64 __now;
 
 #include "common.h"
 
-#define ENABLE_IPV4
+#define ENABLE_IPV4 1
 #define ENABLE_NODEPORT
 
 #include <bpf/config/node.h>

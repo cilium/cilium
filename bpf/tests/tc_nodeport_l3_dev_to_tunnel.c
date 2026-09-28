@@ -6,7 +6,7 @@
 #include "pktgen.h"
 
 #define ETH_HLEN 0
-#define ENABLE_IPV4
+#define ENABLE_IPV4 1
 #define ENABLE_IPV6
 #define TUNNEL_MODE	1
 #define ENCAP_IFINDEX	42
