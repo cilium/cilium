@@ -30,6 +30,7 @@
 #include "fib.h"
 #include "srv6.h"
 #include "vtep.h"
+#include "pmtu.h"
 
 DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
@@ -1630,6 +1631,7 @@ skip_service_lookup:
 #endif
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
+
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
@@ -2919,6 +2921,21 @@ skip_service_lookup:
 	 * the reverse NAT.
 	 */
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
+
+	/* Relay an ICMP frag-needed addressed to a service VIP to the endpoint
+	 * that must lower its PMTU; see pmtu.h. On CTX_ACT_REDIRECT the outer
+	 * destination is the DSR backend: recircle through from-netdev so normal
+	 * pod routing delivers it. */
+	if (!is_svc_proto && ip4->protocol == IPPROTO_ICMP) {
+		ret = handle_icmp_svc_pmtu_v4(ctx, ip4, l4_off);
+		if (ret == CTX_ACT_REDIRECT) {
+			ctx_skip_nodeport_set(ctx);
+			return tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV,
+						  ext_err);
+		}
+		if (IS_ERR(ret))
+			return ret;
+	}
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
