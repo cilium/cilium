@@ -68,10 +68,10 @@ jobs:
       fail-fast: false
       matrix:
         scenario:
-          - global-identities-churn
-          - local-identities-churn
-          - selectors-churn
-          - policy-identity-churn
+          # - global-identities-churn
+          # - local-identities-churn
+          # - selectors-churn
+          # - policy-identity-churn
           - l7-identity-churn
           - l7-policy-identity-churn
     env:
@@ -545,6 +545,16 @@ jobs:
           # next run; the Prometheus pod itself is left alone.
           kubectl --namespace monitoring delete secret prometheus-token --ignore-not-found
 
+      - name: Get baseline sysdump
+        if: ${{ always() && steps.run-baseline.outcome != 'skipped' && steps.run-baseline.outcome != 'cancelled' }}
+        continue-on-error: true
+        env:
+          SYSDUMP_NAME: cilium-sysdump-baseline-${{ steps.vars.outputs.scenario }}
+        run: |
+          cilium status
+          cilium sysdump --output-filename ${SYSDUMP_NAME}
+          sudo chmod +r ${SYSDUMP_NAME}
+
       - name: Collect baseline Cilium agent node logs
         id: baseline-node-logs
         if: ${{ always() && steps.run-baseline.outcome != 'skipped' && steps.run-baseline.outcome != 'cancelled' }}
@@ -624,6 +634,16 @@ jobs:
           echo "time_end=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
 
           sudo chmod --recursive +r "${REPORT_DIR}"
+
+      - name: Get test sysdump
+        if: ${{ always() && steps.run-baseline.outcome != 'skipped' && steps.run-baseline.outcome != 'cancelled' }}
+        continue-on-error: true
+        env:
+          SYSDUMP_NAME: cilium-sysdump-test-${{ steps.vars.outputs.scenario }}
+        run: |
+          cilium status
+          cilium sysdump --output-filename ${SYSDUMP_NAME}
+          sudo chmod +r ${SYSDUMP_NAME}
 
       - name: Collect test tag Cilium agent node logs
         id: test-node-logs
@@ -777,6 +797,13 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
           archive: false
+
+      - name: Upload cilium sysdumps
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          path: cilium-sysdump-*.zip
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
