@@ -121,7 +121,9 @@ test/echo  [2002::2]:8080/TCP
     }
   ],
   "ID": 1,
-  "RedirectTo": null
+  "RedirectTo": null,
+  "SourceRanges": null,
+  "SourceRangesPolicy": "allow"
 }
 {
   "Address": "[2001::1]:80/TCP",
@@ -169,7 +171,9 @@ test/echo  [2002::2]:8080/TCP
     }
   ],
   "ID": 2,
-  "RedirectTo": null
+  "RedirectTo": null,
+  "SourceRanges": null,
+  "SourceRangesPolicy": "allow"
 }
 -- backends-expected.json --
 {
@@ -262,6 +266,8 @@ healthcheckbackends:
       unhealthyupdatedat: null
 id: 1
 redirectto: null
+sourceranges: []
+sourcerangespolicy: allow
 ---
 frontendparams:
     address: '[2001::1]:80/TCP'
@@ -301,6 +307,8 @@ healthcheckbackends:
       unhealthyupdatedat: null
 id: 2
 redirectto: null
+sourceranges: []
+sourcerangespolicy: allow
 -- backends-expected.yaml --
 servicename: test/echo
 address: 10.244.1.1:8080/TCP

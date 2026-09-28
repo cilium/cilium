@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -182,6 +183,86 @@ func TestWriter_Service_UpsertDelete(t *testing.T) {
 
 		wtxn.Abort()
 	}
+}
+
+func TestWriter_FrontendSourceRanges(t *testing.T) {
+	name := loadbalancer.NewServiceName("test", "source-ranges")
+	frontendAddr := loadbalancer.NewL3n4Addr(
+		loadbalancer.TCP,
+		intToAddr(1),
+		80,
+		loadbalancer.ScopeExternal,
+	)
+	serviceRanges := []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}
+	overrideRanges := []netip.Prefix{netip.MustParsePrefix("192.0.2.0/24")}
+	updatedServiceRanges := []netip.Prefix{netip.MustParsePrefix("198.51.100.0/24")}
+
+	createServiceAndFrontend := func(t testing.TB, p testParams) {
+		t.Helper()
+		wtxn := p.Writer.WriteTxn()
+		require.NoError(t, p.Writer.UpsertServiceAndFrontends(
+			wtxn,
+			&loadbalancer.Service{
+				Name:         name,
+				Source:       source.Kubernetes,
+				SourceRanges: serviceRanges,
+				Annotations: map[string]string{
+					annotation.ServiceSourceRangesPolicy: string(loadbalancer.SVCSourceRangesPolicyDeny),
+				},
+			},
+			loadbalancer.FrontendParams{
+				Address: frontendAddr,
+				Type:    loadbalancer.SVCTypeLoadBalancer,
+			},
+		))
+		wtxn.Commit()
+	}
+
+	updateService := func(t testing.TB, p testParams) {
+		t.Helper()
+		wtxn := p.Writer.WriteTxn()
+		_, err := p.Writer.UpsertService(wtxn, &loadbalancer.Service{
+			Name:         name,
+			Source:       source.Kubernetes,
+			SourceRanges: updatedServiceRanges,
+		})
+		require.NoError(t, err)
+		wtxn.Commit()
+	}
+
+	assertFrontend := func(t testing.TB, p testParams, wantRanges []netip.Prefix, wantPolicy loadbalancer.SVCSourceRangesPolicy) {
+		t.Helper()
+		fe, _, found := p.FrontendTable.Get(p.DB.ReadTxn(), loadbalancer.FrontendByAddress(frontendAddr))
+		require.True(t, found)
+		require.Equal(t, wantRanges, fe.SourceRanges)
+		require.Equal(t, wantPolicy, fe.SourceRangesPolicy)
+	}
+
+	t.Run("from service", func(t *testing.T) {
+		p := fixture(t)
+		p.Writer.SetFrontendSourceRangesFunc(func(*loadbalancer.Service, *loadbalancer.Frontend) (loadbalancer.SVCSourceRangesPolicy, []netip.Prefix, bool) {
+			return "", nil, false
+		})
+
+		createServiceAndFrontend(t, p)
+		assertFrontend(t, p, serviceRanges, loadbalancer.SVCSourceRangesPolicyDeny)
+
+		updateService(t, p)
+		assertFrontend(t, p, updatedServiceRanges, loadbalancer.SVCSourceRangesPolicyAllow)
+	})
+
+	t.Run("with overrides", func(t *testing.T) {
+		p := fixture(t)
+		p.Writer.SetFrontendSourceRangesFunc(func(*loadbalancer.Service, *loadbalancer.Frontend) (loadbalancer.SVCSourceRangesPolicy, []netip.Prefix, bool) {
+			return loadbalancer.SVCSourceRangesPolicyAllow, overrideRanges, true
+		})
+
+		createServiceAndFrontend(t, p)
+		assertFrontend(t, p, overrideRanges, loadbalancer.SVCSourceRangesPolicyAllow)
+
+		updateService(t, p)
+		assertFrontend(t, p, overrideRanges, loadbalancer.SVCSourceRangesPolicyAllow)
+	})
 }
 
 func TestWriter_Backend_UpsertDelete(t *testing.T) {
