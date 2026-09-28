@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"slices"
 
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/stream"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/net"
@@ -64,35 +65,38 @@ type NodeDiscovery struct {
 	config           config
 }
 
-// NewNodeDiscovery returns a pointer to new node discovery object
-func NewNodeDiscovery(
-	logger *slog.Logger,
-	manager nodemanager.NodeManager,
-	clientset client.Clientset,
-	kvstoreClient kvstore.Client,
-	lns *node.LocalNodeStore,
-	cniConfigManager cni.CNIConfigManager,
-	k8sNodeWatcher *watchers.K8sCiliumNodeWatcher,
-	daemonConfig *option.DaemonConfig,
-	c config,
-) *NodeDiscovery {
+type nodeDiscoveryParams struct {
+	cell.In
+
+	Logger           *slog.Logger
+	Manager          nodemanager.NodeManager
+	Clientset        client.Clientset
+	KVStoreClient    kvstore.Client
+	LocalNodeStore   *node.LocalNodeStore
+	CNIConfigManager cni.CNIConfigManager
+	K8sNodeWatcher   *watchers.K8sCiliumNodeWatcher
+	DaemonConfig     *option.DaemonConfig
+	Config           config
+}
+
+func newNodeDiscovery(params nodeDiscoveryParams) *NodeDiscovery {
 	if !option.Config.EnableCiliumNodeCRD {
-		logger.Info("CiliumNode CRD is disabled; skipping CiliumNode resource management")
+		params.Logger.Info("CiliumNode CRD is disabled; skipping CiliumNode resource management")
 		return &NodeDiscovery{}
 	}
 
 	return &NodeDiscovery{
-		logger:           logger,
-		manager:          manager,
-		localNodeStore:   lns,
+		logger:           params.Logger,
+		manager:          params.Manager,
+		localNodeStore:   params.LocalNodeStore,
 		registered:       make(chan struct{}),
-		cniConfigManager: cniConfigManager,
-		clientset:        clientset,
-		kvstoreClient:    kvstoreClient,
+		cniConfigManager: params.CNIConfigManager,
+		clientset:        params.Clientset,
+		kvstoreClient:    params.KVStoreClient,
 		ctrlmgr:          controller.NewManager(),
-		k8sGetters:       k8sNodeWatcher,
-		daemonConfig:     daemonConfig,
-		config:           c,
+		k8sGetters:       params.K8sNodeWatcher,
+		daemonConfig:     params.DaemonConfig,
+		config:           params.Config,
 	}
 }
 

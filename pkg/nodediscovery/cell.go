@@ -18,7 +18,7 @@ var Cell = cell.Module(
 	"Communicate changes in local node information to the API server or KVStore",
 
 	// Node discovery communicates changes in local node information to the API server or KVStore
-	cell.Provide(NewNodeDiscovery),
+	cell.Provide(newNodeDiscovery),
 
 	// Register node discovery to the fence to ensure that we wait for node
 	// synchronization from the kvstore (when enabled) before endpoint regen,
