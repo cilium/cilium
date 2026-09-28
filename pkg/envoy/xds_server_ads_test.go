@@ -1711,8 +1711,7 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 	require.Empty(t, resources.NetworkPolicies)
 }
 
-// TestRemoveAllNetworkPolicies verifies that all network policies can be removed
-func TestRemoveAllNetworkPolicies(t *testing.T) {
+func TestRemoveNetworkPoliciesIndividually(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
@@ -1746,7 +1745,8 @@ func TestRemoveAllNetworkPolicies(t *testing.T) {
 	require.NotNil(t, resources.NetworkPolicies["40"])
 	require.NotNil(t, resources.NetworkPolicies["1"])
 
-	server.RemoveAllNetworkPolicies()
+	server.RemoveNetworkPolicy(ctx, &mockEndpointInfoSource{})
+	server.RemoveNetworkPolicy(ctx, mockEp)
 	resources = cache.GetAllResources(localNodeID)
 	require.Empty(t, resources.NetworkPolicies)
 }
