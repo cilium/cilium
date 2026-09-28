@@ -5,8 +5,6 @@ package agent
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"log/slog"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -14,79 +12,34 @@ import (
 	awsMetadata "github.com/cilium/cilium/pkg/aws/metadata"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 )
 
-func init() {
-	nodediscovery.RegisterENIMutator(mutate)
+// newENIMutator provides pkg/nodediscovery with the function populating the
+// ENI-specific fields of the node's CiliumNode, backed by the instance metadata
+// the cell owns.
+func newENIMutator(m *instanceMetadata) nodediscovery.ENIMutator {
+	return m.mutateENINode
 }
 
-type metadataClient interface {
-	GetInstanceMetadata(ctx context.Context) (awsMetadata.MetaDataInfo, error)
-}
-
-// instanceFacts fetches the EC2 instance metadata once and remembers it.
-type instanceFacts struct {
-	mu     lock.Mutex
-	newFn  func(ctx context.Context) (metadataClient, error)
-	client metadataClient
-	info   *awsMetadata.MetaDataInfo
-}
-
-var facts = &instanceFacts{
-	newFn: func(ctx context.Context) (metadataClient, error) {
-		return awsMetadata.NewClient(ctx)
-	},
-}
-
-// get returns the metadata of the EC2 instance the agent runs on.
-func (f *instanceFacts) get(ctx context.Context) (awsMetadata.MetaDataInfo, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.info != nil {
-		return *f.info, nil
-	}
-
-	if f.client == nil {
-		client, err := f.newFn(ctx)
-		if err != nil {
-			return awsMetadata.MetaDataInfo{}, fmt.Errorf("unable to create EC2 metadata client: %w", err)
-		}
-		f.client = client
-	}
-
-	info, err := f.client.GetInstanceMetadata(ctx)
-	if err != nil {
-		return awsMetadata.MetaDataInfo{}, fmt.Errorf("unable to retrieve InstanceID of own EC2 instance: %w", err)
-	}
-	if info.InstanceID == "" {
-		return awsMetadata.MetaDataInfo{}, errors.New("InstanceID of own EC2 instance is empty")
-	}
-
-	f.info = &info
-	return info, nil
-}
-
-// mutate populates the ENI-specific fields of nodeResource using EC2 IMDS
-// metadata and the agent configuration carried in in.
-func mutate(ctx context.Context, in nodediscovery.ENIMutateInputs, nodeResource *ciliumv2.CiliumNode) error {
-	info, err := facts.get(ctx)
+// mutateENINode populates the ENI-specific fields of nodeResource using EC2
+// IMDS metadata and the agent configuration carried in in.
+func (m *instanceMetadata) mutateENINode(ctx context.Context, in nodediscovery.ENIMutateInputs, nodeResource *ciliumv2.CiliumNode) error {
+	info, err := m.get(ctx)
 	if err != nil {
 		return err
 	}
 
-	apply(in, info, nodeResource)
+	applyENISpec(in, info, nodeResource)
 	return nil
 }
 
-// apply writes the ENI-specific fields of nodeResource from the instance
+// applyENISpec writes the ENI-specific fields of nodeResource from the instance
 // metadata in info and the agent configuration in in. It is separated from
-// mutate so that the precedence rules between the agent configuration, the
-// CNI configuration file and the instance metadata are testable without an
+// mutateENINode so that the precedence rules between the agent configuration,
+// the CNI configuration file and the instance metadata are testable without an
 // IMDS endpoint.
 //
 // Precedence is expressed as the order of the three stages below rather than
@@ -95,7 +48,7 @@ func mutate(ctx context.Context, in nodediscovery.ENIMutateInputs, nodeResource 
 // applyAgentConfiguration, since applyInstanceFacts runs last and
 // unconditionally. Fields describing the instance the agent runs on therefore
 // belong in applyInstanceFacts, which no configuration can override.
-func apply(in nodediscovery.ENIMutateInputs, info awsMetadata.MetaDataInfo, nodeResource *ciliumv2.CiliumNode) {
+func applyENISpec(in nodediscovery.ENIMutateInputs, info awsMetadata.MetaDataInfo, nodeResource *ciliumv2.CiliumNode) {
 	applyAgentConfiguration(in, &nodeResource.Spec)
 	if c := in.CNIConfigManager.GetCustomNetConf(); c != nil {
 		overrideFromNetConf(in.Logger, &nodeResource.Spec, c, info)
