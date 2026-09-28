@@ -79,7 +79,7 @@ jobs:
           sha: ${{ inputs.SHA || github.sha }}
 
   setup-and-test:
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     name: Setup & Test
     strategy:
       fail-fast: false
