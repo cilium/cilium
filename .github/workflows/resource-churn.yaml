@@ -64,6 +64,16 @@ jobs:
     runs-on: ubuntu-24.04
     name: Cilium Resource Churn Test
     timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - global-identities-churn
+          - local-identities-churn
+          - selectors-churn
+          - policy-identity-churn
+          - l7-identity-churn
+          - l7-policy-identity-churn
     env:
       CL2_ENABLE_PVS: "false"
       CL2_PROMETHEUS_PVC_ENABLED: "false"
@@ -74,8 +84,8 @@ jobs:
       CL2_PROMETHEUS_SCRAPE_CILIUM_OPERATOR: "true"
       CL2_PROMETHEUS_SCRAPE_CILIUM_AGENT: "false"
 
-      CL2_TEST_DURATION_SECONDS: "600"
-      CL2_KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS: "300"
+      CL2_TEST_DURATION_SECONDS: "1500"
+      CL2_KFUZZ_TERMINATION_GRACE_PERIOD_SECONDS: "600"
       CL2_ENABLE_VIOLATIONS: "false"
     steps:
       - name: Checkout context ref (trusted)
@@ -97,7 +107,9 @@ jobs:
             : "${TEST_TAG:=9a3c26f57f39dea81acf33b7a3e3cd50eb0194f1}"
             : "${BASE_TAG:=04eeeebce24672eff21de550aabdbe884f35c947}"
           fi
-          : "${SCENARIO:=test-scenario}"
+
+          : "${SCENARIO:=${{ matrix.scenario }}}"
+          echo "Running test scenario: ${SCENARIO}"
 
           RUN_BASELINE=false
           tag_inputs=("${TEST_TAG}")
@@ -125,7 +137,7 @@ jobs:
           OWNER="${{ github.ref_name }}"
           OWNER="${OWNER//[.\/]/-}"
 
-          CLUSTER_NAME="scale-churn-${{ github.run_id }}-${{ github.run_attempt }}"
+          CLUSTER_NAME="scale-churn-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}"
 
           eks_version_and_region=$(yq '.include | sort_by(.version) | reverse | .[0] | "\(.version),\(.region)"' .github/actions/eks/k8s-versions.yaml)
           EKS_VERSION=$(echo "$eks_version_and_region" | cut -d',' -f1)
