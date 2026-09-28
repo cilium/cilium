@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
