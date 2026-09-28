@@ -66,9 +66,6 @@ type XDSServer interface {
 	// endpoint from the set published to L7 proxies, and stops listening for
 	// acks for policies on this endpoint.
 	RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource)
-
-	// RemoveAllNetworkPolicies removes all network policies from the set published to L7 proxies.
-	RemoveAllNetworkPolicies()
 }
 
 // Resources contains all Envoy resources parsed from a CiliumEnvoyConfig CRD.

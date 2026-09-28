@@ -366,8 +366,6 @@ func (ds *DaemonSuite) testUpdateConsumerMap(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
-
 	ds.policyImport(rules)
 
 	// Prepare the identities necessary for testing
@@ -545,8 +543,6 @@ func (ds *DaemonSuite) testL4L7Shadowing(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
-
 	ds.policyImport(rules)
 
 	// Prepare endpoints
@@ -637,8 +633,6 @@ func (ds *DaemonSuite) testL4L7ShadowingShortCircuit(t *testing.T) {
 	for i := range rules {
 		rules[i].Sanitize()
 	}
-
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
@@ -738,8 +732,6 @@ func (ds *DaemonSuite) testL3DependentL7(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
-
 	ds.policyImport(rules)
 
 	// Prepare endpoints
@@ -834,8 +826,6 @@ func (ds *DaemonSuite) testRemovePolicy(t *testing.T) {
 		rules[i].Sanitize()
 	}
 
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
-
 	ds.policyImport(rules)
 
 	cleanup, err2 := prepareEndpointDirs()
@@ -903,8 +893,6 @@ func (ds *DaemonSuite) testIncrementalPolicy(t *testing.T) {
 	for i := range rules {
 		rules[i].Sanitize()
 	}
-
-	ds.envoyXdsServer.RemoveAllNetworkPolicies()
 
 	ds.policyImport(rules)
 
