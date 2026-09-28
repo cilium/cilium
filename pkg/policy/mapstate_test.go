@@ -2837,6 +2837,38 @@ func TestMapState_orderedMapStateValidation(t *testing.T) {
 	}
 }
 
+// TestMapState_lookupAggregatePrefix verifies that lookup() resolves the
+// aggregate-vs-specific identity precedence for equal-precedence allow entries
+// the same way the BPF datapath does: the entry with the longer LPM prefix
+// (more specific L4) wins, regardless of whether it is stored under the
+// aggregate identity.
+func TestMapState_lookupAggregatePrefix(t *testing.T) {
+	// A local-scope identity aggregates to the world aggregate.
+	id := localIdentity(1111)
+	agg := identity.ReservedIdentityAggregateWorld
+
+	ms := emptyMapState(hivetest.Logger(t))
+
+	// Specific-identity allow with a broader L4 (ports 80-81), precedence 1000.
+	idEntry := proxyEntryHTTP(1234)
+	idEntry.Precedence = 1000
+	ms.insert(egressKey(id, 6, 80, 15), idEntry)
+
+	// Aggregate allow with a longer, more specific L4 prefix (port 80 only),
+	// at the same precedence so the L4-specificity tie-break is exercised.
+	aggEntry := allowEntry()
+	aggEntry.Precedence = 1000
+	ms.insert(egressKey(agg, 6, 80, 16), aggEntry)
+
+	got, found := ms.lookup(egressKey(id, 6, 80, 16))
+	require.True(t, found)
+
+	want := allowEntry()
+	got.Precedence = 0
+	want.Precedence = 0
+	require.Equal(t, want.MapStateEntry, got.MapStateEntry)
+}
+
 func TestMapState_passValidation(t *testing.T) {
 	// identities used in tests
 	identity1111 := localIdentity(1111)
