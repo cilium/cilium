@@ -1057,12 +1057,13 @@
       ]
     },
     {
-      // Separate patch version updates, so that renovate can update the patch
-      // versions on stable branches.
+      // Separate major, minor, and patch updates, so that Renovate can update
+      // patch versions on stable branches.
       "groupName": "auto-merge-trusted-deps",
       "matchDepNames": [
         "gcr.io/etcd-development/etcd"
       ],
+      "separateMajorMinor": true,
       "separateMinorPatch": true
     },
     {
