@@ -1,12 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-// Package eni wires the ENI-specific CiliumNode mutator (using the EC2 IMDS
-// client and the AWS SDK helpers) into pkg/nodediscovery. It is imported
-// (with a blank import) by the cilium-agent so that ENI IPAM works at
-// runtime, while keeping the AWS SDK out of non-AWS binaries (notably
-// cilium-operator-generic) which do not import this package.
-package eni
+package agent
 
 import (
 	"context"

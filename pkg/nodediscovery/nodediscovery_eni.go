@@ -16,7 +16,7 @@ import (
 // ENI-specific fields of a CiliumNode resource. It deliberately uses only
 // plain Go types (no AWS SDK types) so that this file does not pull in any
 // AWS dependency. The actual mutator implementation, registered from
-// pkg/nodediscovery/eni, is what links against the AWS SDK and the EC2 IMDS
+// pkg/aws/agent, is what links against the AWS SDK and the EC2 IMDS
 // client.
 type ENIMutateInputs struct {
 	Logger                  *slog.Logger
@@ -36,7 +36,7 @@ type ENIMutateInputs struct {
 }
 
 // ENIMutator populates the ENI-specific fields of nodeResource. It is
-// registered from pkg/nodediscovery/eni's init() so that the AWS SDK and
+// registered from pkg/aws/agent's init() so that the AWS SDK and
 // EC2 IMDS client are only linked into binaries that import that package
 // (notably cilium-agent), keeping them out of cilium-operator-generic.
 type ENIMutator func(ctx context.Context, in ENIMutateInputs, nodeResource *ciliumv2.CiliumNode) error
@@ -44,19 +44,19 @@ type ENIMutator func(ctx context.Context, in ENIMutateInputs, nodeResource *cili
 var eniMutator ENIMutator
 
 // RegisterENIMutator installs the function used to populate the ENI fields
-// of a CiliumNode. It is called from pkg/nodediscovery/eni's init().
+// of a CiliumNode. It is called from pkg/aws/agent's init().
 func RegisterENIMutator(fn ENIMutator) {
 	eniMutator = fn
 }
 
 // mutateENINodeResource dispatches to the registered ENIMutator. If none is
-// registered (e.g. in cilium-operator-generic, which does not blank-import
-// pkg/nodediscovery/eni), it fatals — ENI IPAM is only supported by the
+// registered (e.g. in cilium-operator-generic, which does not import
+// pkg/aws/agent), it fatals — ENI IPAM is only supported by the
 // cilium-agent binary and the AWS-specific operator.
 func (n *NodeDiscovery) mutateENINodeResource(ctx context.Context, nodeResource *ciliumv2.CiliumNode) error {
 	if eniMutator == nil {
 		logging.Fatal(n.logger, "ENI IPAM mode requires the cilium-agent binary; "+
-			"ensure pkg/nodediscovery/eni is imported (operator binaries must use the AWS-specific operator)")
+			"ensure pkg/aws/agent is imported (operator binaries must use the AWS-specific operator)")
 		return nil
 	}
 	return eniMutator(ctx, ENIMutateInputs{
