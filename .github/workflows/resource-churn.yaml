@@ -487,6 +487,9 @@ jobs:
             2>&1 | tee cl2-output-baseline.txt
           echo "time_end=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
 
+          cilium status
+          cilium sysdump --output-filename ${REPORT_DIR}/cilium-sysdump
+
           sudo chmod --recursive +r "${REPORT_DIR}"
 
           # Ensure no state is left behind from baseline run.
@@ -593,6 +596,9 @@ jobs:
             ${CLUSTERLOADER_ARGS} --report-dir="${REPORT_DIR}" \
             2>&1 | tee cl2-output-test.txt
           echo "time_end=$(date +%s%3N)" >> "$GITHUB_OUTPUT"
+
+          cilium status
+          cilium sysdump --output-filename ${REPORT_DIR}/cilium-sysdump
 
           sudo chmod --recursive +r "${REPORT_DIR}"
 
@@ -717,7 +723,37 @@ jobs:
           path: ./perf-tests/clusterloader2/report/*/node-logs.zip
           if-no-files-found: warn
 
+      - name: Upload cilium sysdumps
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: cilium-sysdumps-${{ steps.vars.outputs.scenario }}-${{ github.run_attempt }}
+          path: ./perf-tests/clusterloader2/report/*/cilium-sysdump.zip
+          if-no-files-found: warn
+
       - name: Cleanup cluster
         if: ${{ always() && steps.deploy-cluster.outcome != 'skipped' }}
         run: |
           eksctl delete cluster --name ${{ steps.vars.outputs.cluster_name }} --region ${{ steps.vars.outputs.eks_region }}
+
+  merge-artifacts:
+    if: ${{ always() }}
+    name: Merge Artifacts
+    runs-on: ubuntu-24.04
+    needs: resource-churn
+    steps:
+      - name: Merge Sysdumps
+        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        with:
+          name: cilium-sysdumps
+          pattern: cilium-sysdumps-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          separate-directories: false
+
+      - name: Merge Logs
+        uses: cilium/cilium/.github/actions/merge-artifacts@main # main
+        with:
+          name: cilium-logs
+          pattern: cilium-logs-*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          separate-directories: false
