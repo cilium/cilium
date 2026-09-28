@@ -419,6 +419,23 @@ func (c *Client) ListAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.In
 	return append(networkInterfaces, vmInterfaces...), nil
 }
 
+// isMacValid reports whether a parsed interface has a valid MAC.
+func isMacValid(logger *slog.Logger, i *types.AzureInterface) bool {
+	if i == nil {
+		return false
+	}
+	if !i.MAC.IsValid() {
+		logger.Warn(
+			"Ignoring interface without a MAC address, it is likely still provisioning",
+			logfields.Interface, i.Name,
+			logfields.ID, i.ID,
+		)
+		return false
+	}
+
+	return true
+}
+
 // ParseInterfacesIntoInstanceMap parses network interfaces into an InstanceMap
 // This allows re-parsing the same network interface data with different subnet maps
 // without making additional Azure API calls
@@ -426,9 +443,11 @@ func (c *Client) ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.
 	instances := ipamTypes.NewInstanceMap()
 
 	for _, iface := range networkInterfaces {
-		if instanceID, azureInterface := parseInterface(c.logger, iface, subnets, c.usePrimary); instanceID != "" {
-			instances.Update(instanceID, azureInterface)
+		instanceID, azureInterface := parseInterface(c.logger, iface, subnets, c.usePrimary)
+		if instanceID == "" || !isMacValid(c.logger, azureInterface) {
+			continue
 		}
+		instances.Update(instanceID, azureInterface)
 	}
 
 	return instances
@@ -457,6 +476,9 @@ func (c *Client) ParseInterfacesIntoInstance(networkInterfaces []*armnetwork.Int
 
 	for _, networkInterface := range networkInterfaces {
 		_, azureInterface := parseInterface(c.logger, networkInterface, subnets, c.usePrimary)
+		if !isMacValid(c.logger, azureInterface) {
+			continue
+		}
 		instance.Interfaces[azureInterface.ID] = azureInterface
 	}
 
