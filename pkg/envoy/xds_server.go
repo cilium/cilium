@@ -808,10 +808,6 @@ func (s *xdsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	s.localEndpointStore.removeLocalEndpoint(ep)
 }
 
-func (s *xdsServer) RemoveAllNetworkPolicies() {
-	s.networkPolicyCache.Clear(NetworkPolicyTypeURL)
-}
-
 func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
 	s.logger.Debug("UpsertEnvoyResources: Upserting Envoy Resources",
 		logfields.Resource, resources.DebugInfo())

@@ -717,22 +717,6 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	s.updateSnapshot(ctx, resources, localNodeID, nil, nil, changes)
 }
 
-func (s *adsServer) RemoveAllNetworkPolicies() {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	resources := s.cache.GetAllResources(localNodeID)
-	if resources == nil {
-		return
-	}
-	newResources := resources.DeepCopy()
-	newResources.NetworkPolicies = map[string]*cilium.NetworkPolicy{}
-
-	if err := s.updateSnapshot(context.Background(), newResources, localNodeID, nil, nil, computeChanges(resources, newResources)); err != nil {
-		s.logger.Error("Failed to remove all network policies", logfields.Error, err)
-	}
-}
-
 func (s *adsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
