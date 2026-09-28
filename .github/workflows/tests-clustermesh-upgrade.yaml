@@ -106,7 +106,7 @@ jobs:
   upgrade-and-downgrade:
     name: "Upgrade and Downgrade Test"
     needs: wait-for-images
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     timeout-minutes: 60
     env:
       job_name: "Installation and Connectivity Test"
