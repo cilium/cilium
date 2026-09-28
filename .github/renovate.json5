@@ -1242,6 +1242,21 @@
       "packageNameTemplate": "ubuntu"
     },
     {
+      // Runner variables such as UBUNTU_2404_4CPU_16GB encode 24.04 as 2404.
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/.github/workflows/.*\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "vars\\.UBUNTU_(?<major>[0-9]{2})(?<minor>[0-9]{2})_"
+      ],
+      "currentValueTemplate": "{{{major}}}.{{{minor}}}",
+      "autoReplaceStringTemplate": "vars.UBUNTU_{{{replace '[.]' '' newValue}}}_",
+      "datasourceTemplate": "github-runners",
+      "depNameTemplate": "ubuntu",
+      "packageNameTemplate": "ubuntu"
+    },
+    {
       "customType": "regex",
       "managerFilePatterns": [
         "/^\\.custom-gcl\\.yaml$/"
