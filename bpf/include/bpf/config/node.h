@@ -202,6 +202,8 @@ struct dsr_config {
 	bool enable;
 	/* Enable sending ICMP fragmentation-needed replies to the client. */
 	bool enable_icmp_errors;
+	/* Relay ICMP fragmentation-needed errors addressed to a service VIP to the DSR backend. */
+	bool enable_pmtu_relay;
 	/* Enable the common datapath for Hybrid-DSR+SNAT and Annotation-based+DSR+SNAT modes. */
 	bool enable_by_user;
 };
