@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/azure/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
@@ -171,6 +172,83 @@ func TestParseInterface(t *testing.T) {
 			} else {
 				require.Equal(t, tt.expectedAddrs, gotAddrs)
 			}
+		})
+	}
+}
+
+// newInterfaceWithMAC builds an armnetwork.Interface attached to the given VM,
+// with macAddress reported by the Azure API verbatim (empty means the API
+// returned no MAC, as happens while the interface is still provisioning).
+func newInterfaceWithMAC(id, vmID, macAddress string) *armnetwork.Interface {
+	iface := &armnetwork.Interface{
+		ID:   new(id),
+		Name: new(id),
+		Properties: &armnetwork.InterfacePropertiesFormat{
+			VirtualMachine: &armnetwork.SubResource{ID: new(vmID)},
+		},
+	}
+	if macAddress != "" {
+		iface.Properties.MacAddress = new(macAddress)
+	}
+	return iface
+}
+
+func TestParseInterfacesIntoInstanceMapSkipsInterfacesWithoutMAC(t *testing.T) {
+	const vmID = "/subscriptions/xxx/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1"
+
+	c := &Client{logger: hivetest.Logger(t)}
+	instances := c.ParseInterfacesIntoInstanceMap([]*armnetwork.Interface{
+		newInterfaceWithMAC("nic-ready", vmID, "AA-BB-CC-DD-EE-FF"),
+		newInterfaceWithMAC("nic-provisioning", vmID, ""),
+	}, nil)
+
+	got := []string{}
+	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+		got = append(got, interfaceID)
+		return nil
+	})
+	require.Equal(t, []string{"nic-ready"}, got)
+}
+
+func TestParseInterfacesIntoInstanceSkipsInterfacesWithoutMAC(t *testing.T) {
+	const vmID = "/subscriptions/xxx/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1"
+
+	c := &Client{logger: hivetest.Logger(t)}
+	instance := c.ParseInterfacesIntoInstance([]*armnetwork.Interface{
+		newInterfaceWithMAC("nic-ready", vmID, "AA-BB-CC-DD-EE-FF"),
+		newInterfaceWithMAC("nic-provisioning", vmID, ""),
+	}, nil)
+
+	require.Len(t, instance.Interfaces, 1)
+	require.Contains(t, instance.Interfaces, "nic-ready")
+}
+
+func TestIsMacValid(t *testing.T) {
+	tests := []struct {
+		name     string
+		iface    *types.AzureInterface
+		expected bool
+	}{
+		{
+			name:     "nil interface",
+			iface:    nil,
+			expected: false,
+		},
+		{
+			name:     "unset MAC",
+			iface:    &types.AzureInterface{Name: "nic1", ID: "/nic1"},
+			expected: false,
+		},
+		{
+			name:     "valid MAC",
+			iface:    &types.AzureInterface{Name: "nic1", ID: "/nic1", MAC: "aa:bb:cc:dd:ee:ff"},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, isMacValid(hivetest.Logger(t), tt.iface))
 		})
 	}
 }
