@@ -636,14 +636,18 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 	require.Contains(t, policies, "10.0.0.2")
 	t.Log("completed removing network policy for endpoint 40")
 
-	// Step 6: RemoveAllNetworkPolicies
-	t.Log("removing all network policies")
-	xdsServer.RemoveAllNetworkPolicies()
+	// Step 6: Remove the remaining endpoint's policy.
+	t.Log("removing network policy for endpoint 30")
+	xdsServer.RemoveNetworkPolicy(ctx, &standaloneTestEndpointInfoSource{
+		id:          30,
+		ipv4:        "10.0.0.2",
+		policyNames: []string{"30"},
+	})
 
 	policies, err = xdsServer.GetNetworkPolicies(nil)
 	require.NoError(t, err)
 	require.Empty(t, policies)
-	t.Log("completed removing all network policies")
+	t.Log("completed removing remaining network policy")
 
 	t.Log("stopping Envoy")
 	stopEnvoy()
