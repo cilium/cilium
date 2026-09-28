@@ -6,7 +6,7 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4
+#define ENABLE_IPV4 1
 #define ENABLE_NODEPORT
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>

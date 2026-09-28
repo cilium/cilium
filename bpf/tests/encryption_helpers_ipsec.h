@@ -5,7 +5,7 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4
+#define ENABLE_IPV4 1
 #define ENABLE_IPV6
 #define ENABLE_IPSEC 1
 

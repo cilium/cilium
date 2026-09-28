@@ -6,7 +6,7 @@
 #include "pktgen.h"
 
 /* Enable code paths under test */
-#define ENABLE_IPV4
+#define ENABLE_IPV4 1
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION
 #define TEST_LB_MAGLEV_MAP_MAX_ENTRIES 65536

@@ -6,7 +6,7 @@
 # error "At least one of ENABLE_WIREGUARD or ENABLE_IPSEC must be defined
 #endif
 
-#define ENABLE_IPV4
+#define ENABLE_IPV4 1
 #define ENABLE_IPV6
 
 #include <bpf/ctx/skb.h>
