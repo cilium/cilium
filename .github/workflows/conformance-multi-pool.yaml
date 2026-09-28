@@ -139,7 +139,7 @@ jobs:
     name: Install and Connectivity Test
     env:
       job_name: "Install and Connectivity Test"
-    runs-on: ${{ vars.GH_RUNNER_EXTRA_POWER_UBUNTU_LATEST || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     timeout-minutes: 120
     steps:
       - name: Set commit status to pending
