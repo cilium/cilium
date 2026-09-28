@@ -63,6 +63,7 @@ type NodeDiscovery struct {
 	ctrlmgr          *controller.Manager
 	daemonConfig     *option.DaemonConfig
 	config           config
+	eniMutator       ENIMutator
 }
 
 type nodeDiscoveryParams struct {
@@ -77,12 +78,20 @@ type nodeDiscoveryParams struct {
 	K8sNodeWatcher   *watchers.K8sCiliumNodeWatcher
 	DaemonConfig     *option.DaemonConfig
 	Config           config
+
+	// ENIMutator is only needed in ENI IPAM mode, and only provided by the
+	// cells of the AWS integration.
+	ENIMutator ENIMutator `optional:"true"`
 }
 
-func newNodeDiscovery(params nodeDiscoveryParams) *NodeDiscovery {
+func newNodeDiscovery(params nodeDiscoveryParams) (*NodeDiscovery, error) {
 	if !option.Config.EnableCiliumNodeCRD {
 		params.Logger.Info("CiliumNode CRD is disabled; skipping CiliumNode resource management")
-		return &NodeDiscovery{}
+		return &NodeDiscovery{}, nil
+	}
+
+	if option.Config.IPAM == ipamOption.IPAMENI && params.ENIMutator == nil {
+		return nil, errNoENIMutator
 	}
 
 	return &NodeDiscovery{
@@ -97,7 +106,8 @@ func newNodeDiscovery(params nodeDiscoveryParams) *NodeDiscovery {
 		k8sGetters:       params.K8sNodeWatcher,
 		daemonConfig:     params.DaemonConfig,
 		config:           params.Config,
-	}
+		eniMutator:       params.ENIMutator,
+	}, nil
 }
 
 // start configures the local node and starts node discovery. This is called on

@@ -11,7 +11,7 @@ import (
 
 // Cell provides the agent-side AWS integration. It is the home of everything
 // AWS-specific the agent needs, currently the ENI customization of the
-// multi-pool IPAM allocator.
+// multi-pool IPAM allocator and of the node's CiliumNode.
 //
 // Registering it is unconditional: the parts it contributes declare what they
 // handle (the IPAM provider declares its IPAM mode) and are only selected when
@@ -20,7 +20,11 @@ var Cell = cell.Module(
 	"aws-agent",
 	"Agent-side AWS integration",
 
-	cell.Provide(newProvider),
+	cell.ProvidePrivate(newInstanceMetadata),
+	cell.Provide(
+		newProvider,
+		newENIMutator,
+	),
 )
 
 // newProvider is deliberately free of side effects: it runs in every agent,
