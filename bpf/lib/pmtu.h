@@ -35,6 +35,10 @@
 #include "conntrack.h"
 #include "eps.h"
 #include "l4.h"
+#ifdef ENABLE_IPV6
+#include "ipv6.h"
+#include "icmp6.h"
+#endif
 
 /* The relay hooks into nodeport_lb{4,6}() on the from-netdev path of bpf_host
  * (TC) and bpf_xdp, the programs owning the CILIUM_CALL_IPV{4,6}_FROM_NETDEV
@@ -248,6 +252,157 @@ handle_icmp_svc_pmtu_v4(struct __ctx_buff *ctx, struct iphdr *ip4, int l4_off)
 }
 
 #endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+
+/*
+ * IPv6 counterpart. The mechanics mirror the IPv4 path with two differences:
+ *  - the trigger is ICMPv6 "packet too big" (ICMPV6_PKT_TOOBIG);
+ *  - the ICMPv6 checksum has a pseudo-header, so every outer-address rewrite
+ *    must amend it. snat_v6_rewrite_headers() does that (it applies the address
+ *    diff at the ICMPv6 checksum offset with BPF_F_PSEUDO_HDR), so the outer
+ *    destination is rewritten through it. The embedded rewrite needs no
+ *    separate outer-checksum fix: IPv6 has no L3 checksum, so the embedded
+ *    address change and the embedded L4 checksum change cancel out in the
+ *    enclosing ICMPv6 checksum (as in snat_v6_rev_nat_handle_icmp_pkt_toobig()).
+ */
+static __always_inline int
+handle_icmp_svc_pmtu_v6(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l4_off)
+{
+	__u32 inner_l3_off = (__u32)(l4_off + sizeof(struct icmp6hdr));
+	struct ipv6hdr inner;
+	struct lb6_key key = {};	/* key.address == the VIP */
+	const struct lb6_service *svc;
+	const struct lb6_backend *backend;
+	struct ipv6_ct_tuple tuple __align_stack_8 = {};
+	union v6addr backend_addr;
+	__be16 ports[2];	/* embedded sport = svc_port, dport = client port */
+	__be16 l4_csum = 0;
+	__u8 inner_nexthdr, type;
+	__u32 backend_id, icmp_l4_off;
+	fraginfo_t fraginfo;
+	int hdrlen, ret;
+
+	if (icmp6_load_type(ctx, l4_off, &type) < 0)
+		return DROP_INVALID;
+	if (type != ICMPV6_PKT_TOOBIG)
+		return CTX_ACT_OK;
+
+	/* Inner packet = the original reply: src = VIP:svc_port, dst = client. */
+	if (ctx_load_bytes(ctx, inner_l3_off, &inner, sizeof(inner)) < 0)
+		return DROP_INVALID;
+
+	/* Loop guard: only the original error, addressed to the VIP that sourced
+	 * the embedded packet (see the IPv4 path). */
+	if (!ipv6_addr_equals((union v6addr *)&ip6->daddr,
+			      (union v6addr *)&inner.saddr))
+		return CTX_ACT_OK;
+
+	inner_nexthdr = inner.nexthdr;
+	hdrlen = ipv6_hdrlen_offset(ctx, (int)inner_l3_off, &inner_nexthdr,
+				    &fraginfo);
+	if (hdrlen < 0)
+		return DROP_INVALID;
+	icmp_l4_off = inner_l3_off + (__u32)hdrlen;
+
+	if (inner_nexthdr != IPPROTO_TCP && inner_nexthdr != IPPROTO_UDP)
+		return CTX_ACT_OK;
+	if (!ipfrag_has_l4_header(fraginfo))
+		return CTX_ACT_OK;
+	if (l4_load_ports(ctx, (int)icmp_l4_off, ports) < 0)
+		return DROP_INVALID;
+
+	ipv6_addr_copy(&key.address, (union v6addr *)&inner.saddr);
+	key.dport = ports[0];
+	key.proto = inner_nexthdr;
+	svc = lb6_lookup_service(&key, false);
+	if (!svc)
+		return CTX_ACT_OK;
+
+	if (lb6_svc_is_l7_loadbalancer(svc))
+		return CTX_ACT_OK;			/* see the IPv4 path */
+
+	if (!lb6_svc_uses_dsr(svc))
+		return CTX_ACT_OK;			/* SNAT-mode: out of scope */
+
+	/* Only Maglev re-derives the same backend on any node (see IPv4 path). */
+	if (lb_resolve_algorithm(lb6_algorithm(svc)) != LB_SELECTION_MAGLEV)
+		return CTX_ACT_OK;
+
+	/* Rewriting the embedded packet keeps the outer ICMPv6 checksum valid only
+	 * because the embedded address change and the embedded L4 checksum change
+	 * cancel (IPv6 has no L3 checksum). A UDP reply with checksum 0 ("no
+	 * checksum") has no L4 checksum to cancel the address/port change, so the
+	 * rewrite would leave the outer ICMPv6 checksum wrong and the backend would
+	 * drop the relayed error. Don't emit a malformed error for that rare case;
+	 * leave it to the stack. Likewise when the error embeds only the first 8
+	 * L4 bytes: the embedded TCP checksum is absent. */
+	if (inner_nexthdr == IPPROTO_UDP) {
+		if (udp_load_csum(ctx, (int)icmp_l4_off, &l4_csum) < 0)
+			return DROP_INVALID;
+		if (l4_csum == 0)
+			return CTX_ACT_OK;
+	}
+	if (inner_nexthdr == IPPROTO_TCP &&
+	    (__u32)ctx_full_len(ctx) - inner_l3_off <
+	    (__u32)hdrlen + TCP_CSUM_OFF + TCP_CSUM_SIZE)
+		return CTX_ACT_OK;
+
+	/* Re-derive the backend statelessly (Maglev; see the IPv4 path). */
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&inner.daddr);	/* client */
+	ipv6_addr_copy(&tuple.daddr, &key.address);			/* VIP */
+	tuple.nexthdr = inner_nexthdr;
+	tuple.sport = ports[0];
+	tuple.dport = ports[1];
+
+	/* Prefer the affinity pin when this node holds it (see the IPv4 path). */
+	backend_id = 0;
+	if (lb6_svc_is_affinity(svc)) {
+		union lb6_affinity_client_id client_id;
+
+		ipv6_addr_copy(&client_id.client_ip, &tuple.saddr);
+		backend_id = lb6_affinity_backend_id_peek(svc, &client_id);
+	}
+	if (!backend_id)
+		backend_id = lb6_select_backend_id(ctx, &key, &tuple, svc);
+	if (!backend_id)
+		return CTX_ACT_OK;
+	backend = __lb6_lookup_backend(backend_id);
+	if (!backend)
+		return CTX_ACT_OK;
+	ipv6_addr_copy(&backend_addr, (union v6addr *)&backend->address);
+#if DSR_ENCAP_MODE != DSR_ENCAP_NONE
+	if (!__lookup_ip6_endpoint(&backend_addr))
+		return CTX_ACT_OK;	/* see the IPv4 path */
+#endif
+
+	if (pmtu_relay_ratelimited(svc->rev_nat_index))
+		return DROP_RATE_LIMITED;
+
+	/* (1) Rewrite the embedded packet: inner src VIP:svc_port -> backend.
+	 * The embedded L4 checksum is fixed; the outer ICMPv6 checksum is left
+	 * unchanged (the inner address and inner L4 checksum changes cancel). */
+	ret = snat_v6_rewrite_headers(ctx, inner_nexthdr, (int)inner_l3_off, true,
+				      (int)icmp_l4_off, &key.address, &backend_addr,
+				      IPV6_SADDR_OFF, ports[0], backend->port,
+				      TCP_SPORT_OFF, 0);
+	if (IS_ERR(ret))
+		return ret;
+
+	/* (2) Rewrite the outer dst VIP -> backend and amend the ICMPv6 checksum
+	 * for the address change. The old outer daddr == VIP == key.address, a
+	 * stack value. */
+	ret = snat_v6_rewrite_headers(ctx, IPPROTO_ICMPV6, ETH_HLEN, true, l4_off,
+				      &key.address, &backend_addr, IPV6_DADDR_OFF,
+				      0, 0, 0, 0);
+	if (IS_ERR(ret))
+		return ret;
+
+	update_metrics(ctx_full_len(ctx), METRIC_EGRESS, REASON_MTU_ERROR_MSG);
+	return CTX_ACT_REDIRECT;
+}
+
+#endif /* ENABLE_IPV6 */
 
 #else /* !(ENABLE_SVC_ICMP_PMTU_RELAY && (IS_BPF_HOST || IS_BPF_XDP)) */
 

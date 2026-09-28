@@ -1631,6 +1631,20 @@ skip_service_lookup:
 #endif
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
+	/* Relay an ICMPv6 packet-too-big addressed to a service VIP to the
+	 * endpoint that must lower its PMTU; see pmtu.h. On CTX_ACT_REDIRECT the
+	 * outer destination is the DSR backend: recircle through from-netdev so
+	 * normal pod routing delivers it. */
+	if (!is_svc_proto && tuple.nexthdr == IPPROTO_ICMPV6) {
+		ret = handle_icmp_svc_pmtu_v6(ctx, ip6, l4_off);
+		if (ret == CTX_ACT_REDIRECT) {
+			ctx_skip_nodeport_set(ctx);
+			return tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV,
+						  ext_err);
+		}
+		if (IS_ERR(ret))
+			return ret;
+	}
 
 #ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
