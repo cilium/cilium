@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"net/netip"
 	"slices"
 	"strings"
 	"unsafe"
@@ -73,10 +74,25 @@ type Frontend struct {
 	// is redirected to a local pod instead.
 	RedirectTo *ServiceName
 
+	// SourceRanges if non-empty will restrict access to the frontend for the specified client addresses.
+	SourceRanges []netip.Prefix
+
+	// SourceRangesPolicy enforces the source ranges associated with the frontend.
+	SourceRangesPolicy SVCSourceRangesPolicy
+
 	// Service associated with the frontend. If service is updated
 	// this pointer to the service will update as well and the
 	// frontend is marked for reconciliation.
 	Service *Service `json:"-" yaml:"-"`
+}
+
+func (fe *Frontend) GetSourceRangesEnabled(lbSourceRangeAllTypes bool) bool {
+	if lbSourceRangeAllTypes {
+		return len(fe.SourceRanges) > 0
+	}
+	// loadBalancerSourceRanges also applies to ExternalIPs frontends of a LoadBalancer service.
+	return len(fe.SourceRanges) > 0 &&
+		(fe.FrontendParams.Type == SVCTypeLoadBalancer || fe.FrontendParams.Type == SVCTypeExternalIPs)
 }
 
 // IsFrontendUpdated returns true if the frontend needs to be updated given

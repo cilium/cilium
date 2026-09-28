@@ -897,6 +897,37 @@ var loadBalancerTestCases = []testCase{
 	),
 }
 
+var sourceRangesTestCases = []testCase{
+	newTestCase(
+		"SourceRanges",
+		func(svc *loadbalancer.Service, fe *loadbalancer.Frontend) (delete bool, bes []loadbalancer.Backend) {
+			fe.Type = LoadBalancer
+			fe.Address = extraFrontend
+			fe.ServicePort = 80
+			fe.SourceRanges = []netip.Prefix{
+				netip.MustParsePrefix("198.51.100.0/24"),
+			}
+			return false, nil
+		},
+		[]maps.MapDump{
+			"REV: ID=1 ADDR=10.0.0.2:80",
+			"SRCRANGE: ID=1 CIDR=198.51.100.0/24",
+			"SVC: ID=0 ADDR=10.0.0.2:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+non-routable",
+			"SVC: ID=1 ADDR=10.0.0.2:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=LoadBalancer+Local+InternalLocal+check source-range",
+		},
+		nil,
+		false,
+	),
+
+	newTestCase(
+		"SourceRanges_cleanup",
+		deleteFrontend(extraFrontend, LoadBalancer),
+		[]maps.MapDump{},
+		nil,
+		false,
+	),
+}
+
 var externalIPTestCases = []testCase{
 	newTestCase(
 		"ExternalIPs",
@@ -1176,6 +1207,7 @@ var testCases = [][]testCase{
 	proxyTestCases,
 	miscFlagsTestCases,
 	loadBalancerTestCases,
+	sourceRangesTestCases,
 	externalIPTestCases,
 	localRedirectTestCases,
 	sessionAffinityTestCases,
