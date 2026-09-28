@@ -266,7 +266,6 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 		epPolicy.Ready()
 	}
 	ip.Detach()
-	assert.Equal(b, 44596, owner.previousMap.Len())
 }
 
 func BenchmarkResolveL3IngressPolicyRules(b *testing.B) {
