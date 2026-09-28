@@ -42,15 +42,6 @@ concurrency:
 env:
   bench-packages: |
     ./pkg/policy
-  # How many times the whole set of benchmarks is repeated per branch. benchstat
-  # needs at least 6 samples per side to report a confidence interval, and at
-  # least 4 to detect a difference at the default alpha level.
-  bench-count: '6'
-  # Value for 'go test -benchtime'. Together with bench-count this is the knob
-  # that trades job duration for sensitivity
-  # Longer samples narrow the spread benchstat sees, more samples give it more power.
-  bench-time: 500ms
-  # Per-package value for 'go test -timeout'.
   bench-timeout: 20m
 
 jobs:
@@ -80,7 +71,7 @@ jobs:
       matrix:
         arch:
           - ${{ vars.UBUNTU_2404_AMD64_4CPU_16GB }}
-          - ${{ vars.UBUNTU_2404_ARM64_4CPU_16GB }}
+          # - ${{ vars.UBUNTU_2404_ARM64_4CPU_16GB }}
 
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 60
@@ -160,8 +151,6 @@ jobs:
           GOCACHE: "/tmp/.cache/go/.cache/go-build"
           GOMODCACHE: "/tmp/.cache/go/pkg"
           BENCH_PACKAGES: ${{ env.bench-packages }}
-          BENCH_COUNT: ${{ env.bench-count }}
-          BENCH_TIME: ${{ env.bench-time }}
           BENCH_TIMEOUT: ${{ env.bench-timeout }}
         run: |
           packages=()
@@ -183,28 +172,15 @@ jobs:
           : > "${results}/base.txt"
           : > "${results}/pull.txt"
 
-          run_bench() {
-            local tree="$1"
-            # PRIVILEGED_TESTS and INTEGRATION_TESTS are deliberately left
-            # unset: benchmarks gated behind them skip themselves.
-            (cd "${GITHUB_WORKSPACE}/${tree}" &&
-              go test -run='^$' -bench=. -benchmem -count=1 \
-                -benchtime="${BENCH_TIME}" -timeout="${BENCH_TIMEOUT}" \
-                "${packages[@]}") | tee -a "${results}/${tree}.txt"
-          }
+          (
+            cd "${GITHUB_WORKSPACE}/base" &&
+            go test -run='^$' -bench=. -benchmem -count=10 -timeout=15m "${packages[@]}"
+          ) | tee -a "${results}/base.txt"
 
-          # Alternate between the two trees instead of collecting all the base
-          # samples before the PR ones. The runners are shared, so a drift in
-          # their throughput over the course of the job is then spread across
-          # both sides rather than being reported as a change caused by the PR.
-          for i in $(seq 1 "${BENCH_COUNT}"); do
-            echo "::group::Round ${i}/${BENCH_COUNT} on the base branch"
-            run_bench base
-            echo "::endgroup::"
-            echo "::group::Round ${i}/${BENCH_COUNT} on the pull request branch"
-            run_bench pull
-            echo "::endgroup::"
-          done
+          (
+            cd "${GITHUB_WORKSPACE}/pull" &&
+            go test -run='^$' -bench=. -benchmem -count=10 -timeout=15m "${packages[@]}"
+          ) | tee -a "${results}/pull.txt"
 
       - name: Compare benchmark results
         if: ${{ always() && steps.run-benchmarks.outcome != 'skipped' }}
@@ -215,10 +191,6 @@ jobs:
           PULL_SHA: ${{ inputs.SHA || github.sha }}
         run: |
           results="${GITHUB_WORKSPACE}/bench-results"
-
-          # Both runs append to their file as they go, so a job that ran into a
-          # failing benchmark still has partial results worth comparing. Warnings
-          # go to stderr, keep them out of the table but report them.
           if ! benchstat "base=${results}/base.txt" "pull=${results}/pull.txt" \
                > "${results}/benchstat.txt" 2> "${results}/benchstat.warnings"; then
             echo "benchstat failed:"
@@ -228,9 +200,6 @@ jobs:
 
           {
             echo "## Go benchmarks (${RUNNER_ARCH})"
-            echo
-            echo "\`base\` is ${BASE_SHA}, \`pull\` is ${PULL_SHA}, ${BENCH_COUNT} samples per side."
-            echo "A \`~\` in a \`vs base\` column means the difference is indistinguishable from runner noise."
             echo
             echo '```'
             cat "${results}/benchstat.txt"
@@ -251,7 +220,7 @@ jobs:
         if: ${{ always() && steps.run-benchmarks.outcome != 'skipped' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: go-bench-results-${{ runner.arch }}
+          name: bench-results-${{ runner.arch }}
           path: bench-results
           retention-days: 5
 
