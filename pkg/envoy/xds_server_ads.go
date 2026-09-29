@@ -103,7 +103,10 @@ type adsServer struct {
 	restorerPromise promise.Promise[endpointstate.Restorer]
 }
 
-func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
+func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) (*adsServer, error) {
+	if !cache.HasNode(localNodeID) {
+		return nil, fmt.Errorf("local ADS node %q is not initialized", localNodeID)
+	}
 	adsServer := &adsServer{
 		logger:             logger,
 		cache:              cache,
@@ -117,12 +120,17 @@ func newADSServerWithCache(cache xdsnew.Cache, logger *slog.Logger, ipCache IPCa
 		listenerCount:      make(map[string]uint),
 		npdsListeners:      make(npdsListenersTracker),
 	}
-	return adsServer
+	return adsServer, nil
+}
+
+func newADSCache(logger *slog.Logger, strictAdsMode bool) xdsnew.Cache {
+	return xdsnew.NewCache(logger, strictAdsMode,
+		xdsnew.WithNodeIDs(localNodeID))
 }
 
 // newADSServer creates a new ADS GRPC server.
-func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
-	return newADSServerWithCache(xdsnew.NewCache(logger, config.envoyXDSMode.IsStrictADS()), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
+func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) (*adsServer, error) {
+	return newADSServerWithCache(newADSCache(logger, config.envoyXDSMode.IsStrictADS()), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
 }
 
 func (s *adsServer) run(ctx context.Context) error {

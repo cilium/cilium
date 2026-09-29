@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,6 +35,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
@@ -152,21 +154,19 @@ func (m *mockSnapshotCache) Fetch(ctx context.Context, request *cache.Request) (
 func newTestCache(mockedCache *mockSnapshotCache) cacheImpl {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	return cacheImpl{
-		SnapshotCache:       mockedCache,
-		mutex:               &lock.RWMutex{},
-		resourcesInSnapshot: make(map[string]*xds.Resources),
-		openWatches:         make(map[string]*nodeWatchState),
-		watchRelays:         make(map[chan cache.Response]*watchRelay),
-		logger:              logger,
-		hasher:              nil, // not needed for tests that don't call hash/GetVersion
-		completionCbs:       callbacks.NewCompletionCallbacks(logger),
+		SnapshotCache: mockedCache,
+		mutex:         &lock.RWMutex{},
+		nodeStates:    set.NewSet(&nodeState{nodeID: "node1"}),
+		watchRelays:   make(map[chan cache.Response]*watchRelay),
+		logger:        logger,
+		hasher:        nil, // not needed for tests that don't call hash/GetVersion
+		completionCbs: callbacks.NewCompletionCallbacks(logger),
 	}
 }
 
-func newTestCacheWithHasher(mock *mockSnapshotCache) *cacheImpl {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})), false).(*cacheImpl)
+func newInitializedTestCache(mock *mockSnapshotCache) *cacheImpl {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})), false, WithNodeIDs("node1")).(*cacheImpl)
 	c.SnapshotCache = mock
-	c.resourcesInSnapshot = make(map[string]*xds.Resources)
 	return c
 }
 
@@ -283,7 +283,7 @@ func TestNormalizeSnapshotResourcesAddsMissingClusterLoadAssignmentWithoutMutati
 
 func TestGenerateSnapshotEndpointVersionChangesWhenEDSClusterReferenceChanges(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, false).(*cacheImpl)
+	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	resources.Endpoints["backend"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "backend"}
 	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
@@ -312,7 +312,7 @@ func TestGenerateSnapshotEndpointVersionChangesWhenEDSClusterReferenceChanges(t 
 
 func TestGenerateSnapshotEndpointVersionChangesWhenQualifiedEDSClusterReferenceChanges(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, false).(*cacheImpl)
+	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	resources.Endpoints["backend"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "backend"}
 	resources.Clusters["cec-a/shared-cluster"] = &envoy_config_cluster.Cluster{
@@ -341,7 +341,7 @@ func TestGenerateSnapshotEndpointVersionChangesWhenQualifiedEDSClusterReferenceC
 
 func TestGenerateSnapshotRouteVersionChangesWhenRDSListenerReferenceChanges(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, false).(*cacheImpl)
+	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	resources.Routes["route1"] = &envoy_config_route.RouteConfiguration{Name: "route1"}
 
@@ -371,7 +371,7 @@ func TestGenerateSnapshotRouteVersionChangesWhenRDSListenerReferenceChanges(t *t
 
 func TestGenerateSnapshotSecretVersionChangesWhenSDSListenerReferenceChanges(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, false).(*cacheImpl)
+	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	resources.Secrets["secret1"] = &envoy_config_tls.Secret{Name: "secret1"}
 
@@ -403,7 +403,7 @@ func TestGenerateSnapshotSecretVersionChangesWhenSDSListenerReferenceChanges(t *
 
 func TestGenerateSnapshotClusterVersionChangesWhenTCPProxyListenerReferenceChanges(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, false).(*cacheImpl)
+	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{Name: "cluster1"}
 
@@ -431,7 +431,7 @@ func TestGenerateSnapshotClusterVersionChangesWhenTCPProxyListenerReferenceChang
 
 func TestCheckSnapshotConsistency(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, false).(*cacheImpl)
+	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
 		Name: "cluster1",
@@ -448,7 +448,7 @@ func TestCheckSnapshotConsistency(t *testing.T) {
 
 func TestCheckSnapshotConsistencyRejectsMissingEndpoint(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, false).(*cacheImpl)
+	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
 		Name: "cluster1",
@@ -467,7 +467,7 @@ func TestCheckSnapshotConsistencyRejectsMissingEndpoint(t *testing.T) {
 }
 
 func TestCiliumSnapshotIndexedResourceVersionMaps(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	resources.NetworkPolicies["np1"] = &cilium.NetworkPolicy{EndpointId: 1}
 
@@ -490,7 +490,7 @@ func TestCiliumSnapshotIndexedResourceVersionMaps(t *testing.T) {
 }
 
 func TestGenerateSnapshotContentVersionMapsMatchPublishedResources(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+	c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
 	resources.Routes["route"] = &envoy_config_route.RouteConfiguration{Name: "route"}
@@ -529,7 +529,7 @@ func TestGenerateSnapshotContentVersionMapsMatchPublishedResources(t *testing.T)
 }
 
 func TestGenerateSnapshotRejectsInvalidResourceContent(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+	c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1")).(*cacheImpl)
 	resources := emptyResources()
 	// Protobuf binary encoding rejects invalid UTF-8. The failure must be
 	// reported during construction, not later when a watch consumes the snapshot.
@@ -541,16 +541,136 @@ func TestGenerateSnapshotRejectsInvalidResourceContent(t *testing.T) {
 
 func TestNewCache(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, false).(*cacheImpl)
+	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
 
 	assert.NotNil(t, c.SnapshotCache)
 	assert.NotNil(t, c.logger)
 	assert.NotNil(t, c.hasher)
+	require.True(t, c.HasNode("node1"))
+	require.False(t, c.HasNode("unknown"))
+	_, err := c.GetSnapshot("node1")
+	require.Error(t, err, "known-node initialization must not build snapshots")
+}
+
+func TestCacheRejectsUnknownNodes(t *testing.T) {
+	for _, nodeID := range []string{"unknown", ""} {
+		for _, operation := range []string{"resources", "snapshot", "update", "watch", "empty-secret-watch", "unknown-type-watch"} {
+			t.Run(fmt.Sprintf("node=%q/%s", nodeID, operation), func(t *testing.T) {
+				c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1"))
+				ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+				t.Cleanup(cancel)
+				wg := completion.NewWaitGroup(ctx)
+				t.Cleanup(wg.Cancel)
+				callbackCalls := 0
+				listener := &envoy_config_listener.Listener{Name: "listener"}
+				resources := &xds.Resources{
+					Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
+				}
+				var err error
+				switch operation {
+				case "resources":
+					// This setter has no error return, but must not create a node.
+					c.SetResources(nodeID, resources)
+				case "snapshot":
+					err = c.SetSnapshot(t.Context(), nodeID, &cache.Snapshot{})
+				case "update":
+					err = c.UpdateSnapshot(t.Context(), nodeID, &cache.Snapshot{}, wg,
+						map[string]func(error){typeurl.Listener.URL(): func(error) { callbackCalls++ }}, nil)
+				default:
+					typeURL := typeurl.Listener.URL()
+					if operation == "empty-secret-watch" {
+						typeURL = typeurl.Secret.URL()
+					} else if operation == "unknown-type-watch" {
+						typeURL = "type.googleapis.com/example.Unknown"
+					}
+					var cancel func()
+					cancel, err = c.CreateWatch(&cache.Request{
+						Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeURL,
+					}, stream.NewSotwSubscription(nil, operation == "watch"), make(chan cache.Response, 1))
+					require.Nil(t, cancel)
+				}
+				if operation != "resources" {
+					require.ErrorContains(t, err, "unknown xDS node")
+				}
+				require.False(t, c.HasNode(nodeID))
+				require.True(t, c.HasNode("node1"))
+				_, exists := c.GetResource(nodeID, typeurl.Listener, listener.Name)
+				require.False(t, exists)
+				require.Nil(t, c.GetStatusInfo(nodeID), "unknown requests must not establish watches")
+				_, err = c.GetSnapshot(nodeID)
+				require.Error(t, err)
+				require.Zero(t, c.GetCompletionCallbacks().PendingCompletionCount())
+				require.Zero(t, callbackCalls)
+				require.NoError(t, wg.Wait(), "rejected updates must not register waits")
+			})
+		}
+	}
+}
+
+func TestCreateWatchPublishesDesiredResources(t *testing.T) {
+	for _, strictADS := range []bool{false, true} {
+		for _, clearSnapshot := range []bool{false, true} {
+			t.Run(fmt.Sprintf("strict-ads=%t/clear=%t", strictADS, clearSnapshot), func(t *testing.T) {
+				c := NewCache(slog.New(slog.DiscardHandler), strictADS, WithNodeIDs("node1"))
+				listener := &envoy_config_listener.Listener{Name: "listener"}
+				resources := &xds.Resources{
+					Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
+				}
+				c.SetResources("node1", resources)
+				if clearSnapshot {
+					snapshot, err := c.GenerateSnapshot(resources, slog.New(slog.DiscardHandler))
+					require.NoError(t, err)
+					require.NoError(t, c.SetSnapshot(t.Context(), "node1", snapshot))
+					c.ClearSnapshot("node1")
+				}
+				require.True(t, c.HasNode("node1"))
+				_, err := c.GetSnapshot("node1")
+				require.Error(t, err)
+				responses := make(chan cache.Response, 1)
+				cancel, err := c.CreateWatch(&cache.Request{
+					Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Listener.URL(),
+				}, stream.NewSotwSubscription(nil, true), responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				select {
+				case response := <-responses:
+					require.Contains(t, response.GetReturnedResources(), listener.Name,
+						"missing delivery state must not synthesize an empty response over desired resources")
+				default:
+					t.Fatal("expected an immediate response with the desired listener")
+				}
+				current, exists := c.GetResource("node1", typeurl.Listener, listener.Name)
+				require.True(t, exists)
+				require.Same(t, listener, current)
+			})
+		}
+	}
+}
+
+func TestWithNodeIDsPreservesIndependentNodeState(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1", "node2"), WithNodeIDs("node1"))
+	for _, nodeID := range []string{"node1", "node2"} {
+		listener := &envoy_config_listener.Listener{Name: nodeID}
+		c.SetResources(nodeID, &xds.Resources{
+			Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
+		})
+		current, exists := c.GetResource(nodeID, typeurl.Listener, listener.Name)
+		require.True(t, exists)
+		require.Same(t, listener, current)
+	}
+	c.SetResources("node1", nil)
+	c.ClearSnapshot("node1")
+	require.True(t, c.HasNode("node1"), "empty desired and delivery state must not forget the consumer")
+	require.True(t, c.HasNode("node2"))
+	_, exists := c.GetResource("node1", typeurl.Listener, "node1")
+	require.False(t, exists)
+	_, exists = c.GetResource("node2", typeurl.Listener, "node2")
+	require.True(t, exists, "clearing one node must not affect another node's resources")
 }
 
 func TestGetSnapshot_ExistingNode(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	// Pre-populate a snapshot in the mock
 	resources := emptyResources()
@@ -605,7 +725,7 @@ func TestGetSnapshot_NonExistingNode(t *testing.T) {
 
 func TestSetSnapshot_Success(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	snap, err := c.GenerateSnapshot(resources, c.logger)
@@ -643,7 +763,7 @@ func TestSetResources(t *testing.T) {
 
 	c.SetResources("node1", resources)
 
-	storedResources := c.resourcesInSnapshot["node1"]
+	storedResources := c.GetAllResources("node1")
 	require.NotNil(t, storedResources)
 	assert.Contains(t, storedResources.Listeners, "listener1")
 }
@@ -655,7 +775,7 @@ func TestSetResources_OverwriteExisting(t *testing.T) {
 	res1 := emptyResources()
 	res1.Listeners["old-listener"] = &envoy_config_listener.Listener{Name: "old-listener"}
 	c.SetResources("node1", res1)
-	storedResources := c.resourcesInSnapshot["node1"]
+	storedResources := c.GetAllResources("node1")
 	require.NotNil(t, storedResources)
 	assert.Len(t, storedResources.Listeners, 1)
 	assert.Contains(t, storedResources.Listeners, "old-listener")
@@ -664,7 +784,7 @@ func TestSetResources_OverwriteExisting(t *testing.T) {
 	res2.Listeners["new-listener"] = &envoy_config_listener.Listener{Name: "new-listener"}
 	c.SetResources("node1", res2)
 
-	storedResources = c.resourcesInSnapshot["node1"]
+	storedResources = c.GetAllResources("node1")
 	require.NotNil(t, storedResources)
 	assert.Len(t, storedResources.Listeners, 1)
 	assert.Contains(t, storedResources.Listeners, "new-listener")
@@ -682,7 +802,7 @@ func TestGetAllResources_ExistingNode(t *testing.T) {
 	resources.Endpoints["endpoint1"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint1"}
 	resources.Secrets["secret1"] = &envoy_config_tls.Secret{Name: "secret1"}
 	resources.NetworkPolicies["np1"] = &cilium.NetworkPolicy{EndpointId: 1}
-	c.resourcesInSnapshot["node1"] = resources
+	c.SetResources("node1", resources)
 
 	result := c.GetAllResources("node1")
 	require.NotNil(t, result)
@@ -709,7 +829,7 @@ func TestGetAllResources_NonExistingNode(t *testing.T) {
 }
 
 func TestGetResourceByTypeAndName(t *testing.T) {
-	c := newTestCacheWithHasher(newMockSnapshotCache())
+	c := newInitializedTestCache(newMockSnapshotCache())
 	resources := emptyResources()
 	resources.Endpoints["endpoint"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
 	resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster"}
@@ -754,7 +874,7 @@ func TestGetResourceByTypeAndName(t *testing.T) {
 }
 
 func TestResourceIterators(t *testing.T) {
-	c := newTestCacheWithHasher(newMockSnapshotCache())
+	c := newInitializedTestCache(newMockSnapshotCache())
 	resources := emptyResources()
 	listener := &envoy_config_listener.Listener{Name: "listener"}
 	route := &envoy_config_route.RouteConfiguration{Name: "route"}
@@ -786,11 +906,11 @@ func TestResourceIterators(t *testing.T) {
 
 func TestClearSnapshot(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	resources.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
-	c.resourcesInSnapshot["node1"] = resources
+	c.SetResources("node1", resources)
 
 	snap, _ := c.GenerateSnapshot(resources, c.logger)
 	_ = mock.SetSnapshot(context.Background(), "node1", snap)
@@ -802,16 +922,14 @@ func TestClearSnapshot(t *testing.T) {
 	require.Len(t, mock.clearSnapshotCalls, 1)
 	assert.Equal(t, "node1", mock.clearSnapshotCalls[0])
 
-	// Verify resourcesInSnapshot was reset to empty
-	stored := c.resourcesInSnapshot["node1"]
-	require.NotNil(t, stored)
-	assert.Empty(t, stored.Listeners)
-	assert.Empty(t, stored.Clusters)
+	// Clearing delivery state must preserve the known consumer and desired state.
+	require.True(t, c.HasNode("node1"))
+	require.Same(t, resources, c.GetAllResources("node1"))
 }
 
 func TestGenerateSnapshot_WithAllResourceTypes(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	resources.Endpoints["cluster1"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "cluster1"}
@@ -836,7 +954,7 @@ func TestGenerateSnapshot_WithAllResourceTypes(t *testing.T) {
 
 func TestGenerateSnapshot_AddsEmptyClusterLoadAssignmentForEDSCluster(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
@@ -860,7 +978,7 @@ func TestGenerateSnapshot_AddsEmptyClusterLoadAssignmentForEDSCluster(t *testing
 
 func TestGenerateSnapshot_AddsEmptyClusterLoadAssignmentForEDSServiceName(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
@@ -887,7 +1005,7 @@ func TestGenerateSnapshot_AddsEmptyClusterLoadAssignmentForEDSServiceName(t *tes
 
 func TestGenerateSnapshot_DoesNotOverwriteExistingClusterLoadAssignment(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	existingCLA := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "cluster1"}
 	resources := emptyResources()
@@ -909,7 +1027,7 @@ func TestGenerateSnapshot_DoesNotOverwriteExistingClusterLoadAssignment(t *testi
 func TestGenerateSnapshot_PreservesEndpointNames(t *testing.T) {
 	for _, name := range []string{"service1", "service1:*"} {
 		t.Run(name, func(t *testing.T) {
-			c := newTestCacheWithHasher(newMockSnapshotCache())
+			c := newInitializedTestCache(newMockSnapshotCache())
 			resources := emptyResources()
 			cla := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
 			resources.Endpoints[name] = cla
@@ -940,7 +1058,7 @@ func TestGenerateSnapshot_PreservesEndpointNames(t *testing.T) {
 
 func TestGenerateSnapshot_DoesNotAddClusterLoadAssignmentForNonEDSCluster(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
@@ -957,7 +1075,7 @@ func TestGenerateSnapshot_DoesNotAddClusterLoadAssignmentForNonEDSCluster(t *tes
 
 func TestUpdateSnapshot_StoresNetworkPoliciesWhenTypeChanged(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	resources.NetworkPolicies["np1"] = &cilium.NetworkPolicy{EndpointId: 1}
@@ -976,7 +1094,7 @@ func TestUpdateSnapshot_StoresNetworkPoliciesWhenTypeChanged(t *testing.T) {
 
 func TestUpdateSnapshot_ClearsNetworkPoliciesWhenTypeChangedToEmpty(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	snap, err := c.GenerateSnapshot(resources, c.logger)
@@ -992,7 +1110,7 @@ func TestUpdateSnapshot_ClearsNetworkPoliciesWhenTypeChangedToEmpty(t *testing.T
 
 func TestUpdateSnapshot_StoresNetworkPoliciesWithoutTypeChange(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	policy := &cilium.NetworkPolicy{EndpointId: 1}
@@ -1011,7 +1129,7 @@ func TestUpdateSnapshot_StoresNetworkPoliciesWithoutTypeChange(t *testing.T) {
 
 func TestUpdateSnapshot_RegistersNetworkPolicyCompletionForPolicyChange(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	resources.NetworkPolicies["np1"] = &cilium.NetworkPolicy{EndpointId: 1}
@@ -1031,7 +1149,7 @@ func TestUpdateSnapshot_RegistersNetworkPolicyCompletionForPolicyChange(t *testi
 
 func TestUpdateSnapshot_CompletesAlreadyAckedNetworkPolicyVersion(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	const nodeID = "node1"
 	_, snap := networkPolicySnapshot(t, c, 1)
@@ -1059,7 +1177,7 @@ func TestUpdateSnapshot_CompletesAlreadyAckedNetworkPolicyVersion(t *testing.T) 
 
 func TestUpdateSnapshot_CompletesAlreadyAckedListenerVersion(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	const nodeID = "node1"
 	_, snap := listenerSnapshot(t, c, "listener1")
@@ -1086,7 +1204,7 @@ func TestUpdateSnapshot_CompletesAlreadyAckedListenerVersion(t *testing.T) {
 
 func TestUpdateSnapshot_CompletesUnsentCoalescedNetworkPolicyUpdates(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	const nodeID = "node1"
 	_, snapA := networkPolicySnapshot(t, c, 1)
@@ -1128,7 +1246,7 @@ func TestUpdateSnapshot_CompletesUnsentCoalescedNetworkPolicyUpdates(t *testing.
 
 func TestUpdateSnapshot_TrackedPolicyCompletionFollowsUntrackedNewerVersion(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	const nodeID = "node1"
 	_, snapA := networkPolicySnapshot(t, c, 1)
@@ -1158,7 +1276,7 @@ func TestUpdateSnapshot_TrackedPolicyCompletionFollowsUntrackedNewerVersion(t *t
 
 func TestUpdateSnapshot_UntrackedAlreadyAcceptedVersionCompletesPendingUpdate(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	const nodeID = "node1"
 	_, snapA := networkPolicySnapshot(t, c, 1)
@@ -1182,7 +1300,7 @@ func TestUpdateSnapshot_UntrackedAlreadyAcceptedVersionCompletesPendingUpdate(t 
 
 func TestUpdateSnapshot_FailedUntrackedUpdateRemovesVersionMarker(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	const nodeID = "node1"
 	_, snapA := networkPolicySnapshot(t, c, 1)
@@ -1209,7 +1327,7 @@ func TestUpdateSnapshot_FailedUntrackedUpdateRemovesVersionMarker(t *testing.T) 
 
 func TestUpdateSnapshot_EmptyPolicySnapshotCompletesPendingUpdate(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	const nodeID = "node1"
 	_, nonemptySnapshot := networkPolicySnapshot(t, c, 1)
@@ -1231,7 +1349,7 @@ func TestUpdateSnapshot_EmptyPolicySnapshotCompletesPendingUpdate(t *testing.T) 
 
 func TestUpdateSnapshot_ErrorAfterStoreKeepsVersionMarker(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	const nodeID = "node1"
 	_, snapA := networkPolicySnapshot(t, c, 1)
@@ -1259,7 +1377,7 @@ func TestUpdateSnapshot_ErrorAfterStoreKeepsVersionMarker(t *testing.T) {
 
 func TestGetVersion_DifferentResourcesProduceDifferentVersions(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	res1 := emptyResources()
 	res1.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
@@ -1277,7 +1395,7 @@ func TestGetVersion_DifferentResourcesProduceDifferentVersions(t *testing.T) {
 
 func TestGetVersion_SameResourcesProduceSameVersion(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	res1 := emptyResources()
 	res1.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
@@ -1295,7 +1413,7 @@ func TestGetVersion_SameResourcesProduceSameVersion(t *testing.T) {
 
 func TestAreDifferentSnapshots_Identical(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	resources.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
@@ -1310,7 +1428,7 @@ func TestAreDifferentSnapshots_Identical(t *testing.T) {
 
 func TestAreDifferentSnapshots_Different(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	res1 := emptyResources()
 	res1.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
@@ -1330,19 +1448,132 @@ func TestAreDifferentSnapshots_Different(t *testing.T) {
 
 func TestCreateWatch_DelegatesToSnapshotCache(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	respChan := make(chan cache.Response, 1)
-	cancel, err := c.CreateWatch(&cache.Request{TypeUrl: envoy_resource.ListenerType}, nil, respChan)
+	cancel, err := c.CreateWatch(&cache.Request{Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: envoy_resource.ListenerType}, nil, respChan)
 	require.NoError(t, err)
 	require.NotNil(t, cancel)
 
 	assert.Equal(t, 1, mock.createWatchCalls)
 }
 
+func TestCreateWatchPublishesKnownNodeState(t *testing.T) {
+	for _, strictADS := range []bool{false, true} {
+		for _, clientVersion := range []string{"", "stale-version"} {
+			t.Run(fmt.Sprintf("strict-ads=%t/client-version=%q", strictADS, clientVersion), func(t *testing.T) {
+				logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+				const nodeID = "node-without-resources"
+				c := NewCache(logger, strictADS, WithNodeIDs(nodeID)).(*cacheImpl)
+				node := &envoy_config_core.Node{Id: nodeID}
+				subscription := stream.NewSotwSubscription(nil, true)
+				responses := make(chan cache.Response, 1)
+
+				firstRequest := &cache.Request{
+					Node: node, TypeUrl: envoy_resource.ListenerType, VersionInfo: clientVersion,
+				}
+				cancel, err := c.CreateWatch(firstRequest, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				firstResponse := <-responses
+				require.Empty(t, firstResponse.GetReturnedResources())
+				snapshot, err := c.GetSnapshot(nodeID)
+				require.NoError(t, err)
+				require.Equal(t, snapshot.GetVersion(envoy_resource.ListenerType), firstResponse.GetResponseVersion())
+				require.True(t, c.HasNode(nodeID))
+
+				subscription.SetReturnedResources(firstResponse.GetReturnedResources())
+				secondRequest := &cache.Request{
+					Node: node, TypeUrl: envoy_resource.ListenerType, VersionInfo: firstResponse.GetResponseVersion(),
+				}
+				cancel, err = c.CreateWatch(secondRequest, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				require.Equal(t, 1, c.GetStatusInfo(nodeID).GetNumWatches())
+				select {
+				case <-responses:
+					t.Fatal("current version must establish a watch, not send another response")
+				default:
+				}
+
+				resources := xds.NewResources()
+				resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
+				updatedSnapshot, err := c.GenerateSnapshot(&resources, logger)
+				require.NoError(t, err)
+				require.NoError(t, c.SetSnapshot(t.Context(), nodeID, updatedSnapshot))
+				require.Equal(t, updatedSnapshot.GetVersion(envoy_resource.ListenerType), (<-responses).GetResponseVersion())
+			})
+		}
+	}
+}
+
+func TestCreateWatchPreservesExistingNonemptySnapshot(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	const nodeID = "node-with-listener"
+	c := NewCache(logger, false, WithNodeIDs(nodeID)).(*cacheImpl)
+	resources := xds.NewResources()
+	resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
+	snapshot, err := c.GenerateSnapshot(&resources, logger)
+	require.NoError(t, err)
+	c.SetResources(nodeID, &resources)
+	require.NoError(t, c.SetSnapshot(t.Context(), nodeID, snapshot))
+
+	responses := make(chan cache.Response, 1)
+	request := &cache.Request{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.ListenerType,
+	}
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	select {
+	case response := <-responses:
+		require.Contains(t, response.GetReturnedResources(), "listener")
+		require.Equal(t, snapshot.GetVersion(envoy_resource.ListenerType), response.GetResponseVersion())
+	default:
+		t.Fatal("expected an immediate response containing the existing listener")
+	}
+
+	storedSnapshot, err := c.GetSnapshot(nodeID)
+	require.NoError(t, err)
+	require.Same(t, snapshot, storedSnapshot, "the watch must not replace the published snapshot")
+	require.Same(t, &resources, c.GetAllResources(nodeID), "the watch must not replace desired resources")
+}
+
+func TestCreateWatchInitialSnapshotPublicationError(t *testing.T) {
+	for _, stored := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stored=%t", stored), func(t *testing.T) {
+			mock := newMockSnapshotCache()
+			mock.setSnapshotErr = errors.New("response delivery failed")
+			mock.storeSnapshotBeforeError = stored
+			c := newInitializedTestCache(mock)
+			request := &cache.Request{
+				Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: envoy_resource.ListenerType,
+			}
+			cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
+			if stored {
+				require.NoError(t, err, "a stored snapshot is committed despite a delivery error")
+			} else {
+				require.ErrorContains(t, err, "response delivery failed")
+			}
+			require.True(t, c.HasNode("node1"))
+		})
+	}
+}
+
+func TestWithNodeIDsIgnoresEmptyID(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("", "node1", "node1"))
+	require.False(t, c.HasNode(""))
+	require.True(t, c.HasNode("node1"))
+	_, err := c.GetSnapshot("node1")
+	require.Error(t, err, "registration must not generate a snapshot")
+}
+
 func TestCreateWatchForUnknownTypeURLBypassesCiliumTracking(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 	request := &cache.Request{
 		Node:    &envoy_config_core.Node{Id: "node1"},
 		TypeUrl: "type.googleapis.com/example.Unknown",
@@ -1354,21 +1585,21 @@ func TestCreateWatchForUnknownTypeURLBypassesCiliumTracking(t *testing.T) {
 	t.Cleanup(cancel)
 	require.Equal(t, 1, mock.createWatchCalls)
 	require.Empty(t, mock.setSnapshotCalls)
-	require.NotContains(t, c.resourcesInSnapshot, "node1")
-	require.Empty(t, c.openWatches)
+	require.True(t, c.HasNode("node1"))
+	require.True(t, c.getNodeState("node1").openWatches.Empty())
 	require.Empty(t, c.watchRelays)
 }
 
 func TestCreateWatchRejectsNilRequest(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 	cancel, err := c.CreateWatch(nil, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
 	require.ErrorContains(t, err, "nil xDS request")
 	require.Nil(t, cancel)
 	require.Zero(t, mock.createWatchCalls)
 	require.Empty(t, mock.getSnapshotCalls)
 	require.Empty(t, mock.setSnapshotCalls)
-	require.Empty(t, c.openWatches)
+	require.True(t, c.getNodeState("node1").openWatches.Empty())
 }
 
 func TestCreateWatchEmptyNamedSubscription(t *testing.T) {
@@ -1393,7 +1624,7 @@ func TestCreateWatchEmptyNamedSubscription(t *testing.T) {
 	for typeURL := range resources {
 		for _, populated := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/populated=%t", typeurl.Index(typeURL).URL(), populated), func(t *testing.T) {
-				c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+				c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1")).(*cacheImpl)
 				if populated {
 					snapshot, err := c.GenerateSnapshot(resourceSet, c.logger)
 					require.NoError(t, err)
@@ -1410,7 +1641,7 @@ func TestCreateWatchEmptyNamedSubscription(t *testing.T) {
 				cancel()
 				cancel()
 				require.Empty(t, responses, "an empty subscription must not receive full state")
-				require.Empty(t, c.openWatches)
+				require.True(t, c.getNodeState("node1").openWatches.Empty())
 				require.Empty(t, c.watchRelays)
 				after, err := c.GetSnapshot("node1")
 				if beforeErr != nil {
@@ -1423,11 +1654,6 @@ func TestCreateWatchEmptyNamedSubscription(t *testing.T) {
 				// A named subscription must still be answered, even when its
 				// resource does not exist yet. A following current-version watch
 				// can then consume the resource's first update.
-				if !populated {
-					emptySnapshot, err := c.GenerateSnapshot(nil, c.logger)
-					require.NoError(t, err)
-					require.NoError(t, c.SetSnapshot(t.Context(), "node1", emptySnapshot))
-				}
 				request.ResourceNames = []string{"resource"}
 				subscription := stream.NewSotwSubscription(request.ResourceNames, false)
 				cancel, err = c.CreateWatch(request, subscription, responses)
@@ -1456,7 +1682,7 @@ func TestCreateWatchEmptyNamedSubscription(t *testing.T) {
 				require.NoError(t, err)
 				t.Cleanup(cancel)
 				require.Empty(t, responses)
-				require.Empty(t, c.openWatches)
+				require.True(t, c.getNodeState("node1").openWatches.Empty())
 				require.Zero(t, c.GetStatusInfo("node1").GetNumWatches())
 			})
 		}
@@ -1509,7 +1735,7 @@ func TestCreateWatchPreservesWildcardSubscriptions(t *testing.T) {
 			} {
 				t.Run(fmt.Sprintf("%s/strict=%t/%s", typeurl.Index(typeURL).URL(), strict, subscription.name), func(t *testing.T) {
 					logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
-					c := NewCache(logger, strict)
+					c := NewCache(logger, strict, WithNodeIDs("node1"))
 					snapshot, err := c.GenerateSnapshot(resourceSet, logger)
 					require.NoError(t, err)
 					require.NoError(t, c.SetSnapshot(t.Context(), "node1", snapshot))
@@ -1541,7 +1767,7 @@ func TestCreateWatchPreservesWildcardSubscriptions(t *testing.T) {
 
 func TestCreateWatchWildcardNormalizationPreservesRequestFields(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	c := NewCache(logger, false)
+	c := NewCache(logger, false, WithNodeIDs("node1"))
 	snapshot, err := c.GenerateSnapshot(&xds.Resources{
 		Listeners: map[string]*envoy_config_listener.Listener{"listener": {Name: "listener"}},
 	}, logger)
@@ -1594,7 +1820,7 @@ func TestCreateDeltaWatch_DelegatesToSnapshotCache(t *testing.T) {
 
 func TestFetch_DelegatesToSnapshotCache(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	_, err := c.Fetch(context.Background(), &cache.Request{TypeUrl: envoy_resource.ListenerType})
 	// Our mock returns an error
@@ -1630,7 +1856,7 @@ func TestGetStatusKeys_DelegatesToSnapshotCache(t *testing.T) {
 
 func TestSetAndGetSnapshotRoundTrip(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 	ctx := context.Background()
 
 	resources := emptyResources()
@@ -1682,37 +1908,11 @@ func TestSetAndGetAllResourcesRoundTrip(t *testing.T) {
 	assert.Contains(t, result.Secrets, "s1")
 }
 
-// --- Integration-style: ClearSnapshot resets and delegates ---
-
-func TestClearSnapshot_ResetsResourcesAndDelegates(t *testing.T) {
-	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
-
-	resources := emptyResources()
-	resources.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
-	c.resourcesInSnapshot["node1"] = resources
-
-	snap, _ := c.GenerateSnapshot(resources, c.logger)
-	_ = mock.SetSnapshot(context.Background(), "node1", snap)
-	mock.setSnapshotCalls = nil
-
-	c.ClearSnapshot("node1")
-
-	// ClearSnapshot on the mock should have been called
-	require.Len(t, mock.clearSnapshotCalls, 1)
-	assert.Equal(t, "node1", mock.clearSnapshotCalls[0])
-
-	// Resources should be reset to empty
-	stored := c.resourcesInSnapshot["node1"]
-	require.NotNil(t, stored)
-	assert.Empty(t, stored.Listeners)
-}
-
 // --- GenerateSnapshot versions are deterministic ---
 
 func TestGenerateSnapshot_VersionIsDeterministic(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	resources := emptyResources()
 	resources.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
@@ -1739,7 +1939,7 @@ func TestGenerateSnapshot_VersionIsDeterministic(t *testing.T) {
 
 func TestGenerateSnapshot_ResourceContents(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newTestCacheWithHasher(mock)
+	c := newInitializedTestCache(mock)
 
 	listener := &envoy_config_listener.Listener{Name: "l1"}
 	cluster := &envoy_config_cluster.Cluster{
@@ -1781,7 +1981,7 @@ func TestSetResources_DoesNotCallSnapshotCache(t *testing.T) {
 	resources := emptyResources()
 	c.SetResources("node1", resources)
 
-	// SetResources should only update resourcesInSnapshot, not call the underlying snapshot cache
+	// SetResources should only update desired resources, not call the underlying snapshot cache
 	assert.Empty(t, mock.setSnapshotCalls)
 	assert.Empty(t, mock.getSnapshotCalls)
 	assert.Empty(t, mock.clearSnapshotCalls)
