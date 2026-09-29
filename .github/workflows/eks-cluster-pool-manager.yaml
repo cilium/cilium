@@ -177,7 +177,7 @@ jobs:
 
                 # Remove kubeconfig from S3 pool
                 echo "Removing kubeconfigs for cluster ${cluster} from S3 bucket ${S3_BUCKET}"
-                aws s3 rm "s3://${S3_BUCKET}/kubeconfig-pool/" --recursive --exclude "*" --include "${cluster}-*" --region ${REGION} || true
+                aws s3 rm "s3://${S3_BUCKET}/kubeconfig-pool/" --recursive --exclude "*" --include "*/${cluster}-*.yaml" --region ${REGION} || true
               fi
 
               # Trigger the eks-cluster-delete workflow to delete the cluster
