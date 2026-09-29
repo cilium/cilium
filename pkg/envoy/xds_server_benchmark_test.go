@@ -728,9 +728,8 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 		backend = benchmarkXDSBackend{
 			server: server,
 			networkPolicies: func() []*cilium.NetworkPolicy {
-				resources := xdsCache.GetAllResources(localNodeID)
-				policies := make([]*cilium.NetworkPolicy, 0, len(resources.NetworkPolicies))
-				for _, networkPolicy := range resources.NetworkPolicies {
+				var policies []*cilium.NetworkPolicy
+				for _, networkPolicy := range xdsCache.NetworkPolicies(localNodeID) {
 					policies = append(policies, networkPolicy)
 				}
 				return policies
