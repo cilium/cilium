@@ -15,12 +15,14 @@ func (t echoIngress) build(ct *check.ConnectivityTest, _ map[string]string) {
 	newTest("echo-ingress", ct).
 		WithCiliumPolicy(echoIngressFromOtherClientPolicyYAML).
 		WithScenarios(tests.PodToPod()).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {
-				// TCP handshake fails both in egress and ingress when
-				// L3(/L4) policy drops at either location.
-				return check.ResultDropCurlTimeout, check.ResultDropCurlTimeout
-			}
-			return check.ResultOK, check.ResultOK
-		})
+		WithExpectations(echoIngressExpectations)
+}
+
+func echoIngressExpectations(a *check.Action) (egress, ingress check.Result) {
+	if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {
+		// TCP handshake fails both in egress and ingress when
+		// L3(/L4) policy drops at either location.
+		return check.ResultDropCurlTimeout, check.ResultDropCurlTimeout
+	}
+	return check.ResultOK, check.ResultOK
 }

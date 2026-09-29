@@ -38,6 +38,7 @@ func PodToPod(opts ...Option) check.Scenario {
 		sourceLabels:      options.sourceLabels,
 		destinationLabels: options.destinationLabels,
 		method:            options.method,
+		crossClusterOnly:  options.crossClusterOnly,
 	}
 }
 
@@ -48,6 +49,7 @@ type podToPod struct {
 	sourceLabels      map[string]string
 	destinationLabels map[string]string
 	method            string
+	crossClusterOnly  bool
 }
 
 func (s *podToPod) Name() string {
@@ -66,8 +68,20 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 			if !hasAllLabels(echo, s.destinationLabels) {
 				continue
 			}
+			if s.crossClusterOnly && client.K8sClient.ClusterName() == echo.K8sClient.ClusterName() {
+				continue
+			}
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
-				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam).Run(func(a *check.Action) {
+				actionName := podToPodActionName(ipFam, i)
+				if s.crossClusterOnly {
+					actionName = podToPodCrossClusterActionName(
+						ipFam,
+						i,
+						client.K8sClient.ClusterName(),
+						echo.K8sClient.ClusterName(),
+					)
+				}
+				t.NewAction(s, actionName, &client, echo, ipFam).Run(func(a *check.Action) {
 					if s.method == "" {
 						a.ExecInPod(ctx, a.CurlCommand(echo))
 					} else {
@@ -84,6 +98,10 @@ func (s *podToPod) Run(ctx context.Context, t *check.Test) {
 
 			i++
 		}
+	}
+
+	if s.crossClusterOnly && i == 0 {
+		t.Fatalf("pod-to-pod cross-cluster scenario requires at least one remote destination pod")
 	}
 }
 
@@ -104,6 +122,7 @@ func PodToPodWithEndpoints(opts ...Option) check.Scenario {
 		method:            options.method,
 		path:              options.path,
 		retryCondition:    rc,
+		crossClusterOnly:  options.crossClusterOnly,
 	}
 }
 
@@ -116,6 +135,7 @@ type podToPodWithEndpoints struct {
 	method            string
 	path              string
 	retryCondition    *retryCondition
+	crossClusterOnly  bool
 }
 
 func (s *podToPodWithEndpoints) Name() string {
@@ -134,14 +154,42 @@ func (s *podToPodWithEndpoints) Run(ctx context.Context, t *check.Test) {
 			if !hasAllLabels(echo, s.destinationLabels) {
 				continue
 			}
+			if s.crossClusterOnly && client.K8sClient.ClusterName() == echo.K8sClient.ClusterName() {
+				continue
+			}
 
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
-				s.curlEndpoints(ctx, t, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, echo, ipFam)
+				actionName := podToPodActionName(ipFam, i)
+				if s.crossClusterOnly {
+					actionName = podToPodCrossClusterActionName(
+						ipFam,
+						i,
+						client.K8sClient.ClusterName(),
+						echo.K8sClient.ClusterName(),
+					)
+				}
+				s.curlEndpoints(ctx, t, actionName, &client, echo, ipFam)
 			})
 
 			i++
 		}
 	}
+
+	if s.crossClusterOnly && i == 0 {
+		t.Fatalf("pod-to-pod cross-cluster scenario requires at least one remote destination pod")
+	}
+}
+
+func podToPodActionName(ipFam features.IPFamily, index int) string {
+	return fmt.Sprintf("curl-%s-%d", ipFam, index)
+}
+
+func podToPodCrossClusterActionName(
+	ipFam features.IPFamily,
+	index int,
+	sourceCluster, destinationCluster string,
+) string {
+	return fmt.Sprintf("curl-%s-%s-to-%s-%d", ipFam, sourceCluster, destinationCluster, index)
 }
 
 func (s *podToPodWithEndpoints) curlEndpoints(ctx context.Context, t *check.Test, name string,

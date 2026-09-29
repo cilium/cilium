@@ -17,7 +17,7 @@ var echoIngressL7HTTPPolicyYAML string
 
 type echoIngressL7 struct{}
 
-func expectation(a *check.Action) (egress, ingress check.Result) {
+func echoIngressL7Expectations(a *check.Action) (egress, ingress check.Result) {
 	if a.Source().HasLabel("other", "client") { // Only client2 is allowed to make HTTP calls.
 		// Trying to access private endpoint without "secret" header set
 		// should lead to a drop.
@@ -40,7 +40,7 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, templates map[string]st
 		WithFeatureRequirements(features.RequireEnabled(features.L7Proxy)).
 		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(tests.PodToPodWithEndpoints()).
-		WithExpectations(expectation)
+		WithExpectations(echoIngressL7Expectations)
 
 	newTest("echo-ingress-l7-via-hostport", ct).
 		WithMultiNodeOnly().
@@ -73,7 +73,7 @@ func (t echoIngressL7) build(ct *check.ConnectivityTest, templates map[string]st
 		}).
 		WithCiliumPolicy(echoIngressL7HTTPPolicyYAML). // L7 allow policy with HTTP introspection
 		WithScenarios(tests.PodToHostPort()).
-		WithExpectations(expectation)
+		WithExpectations(echoIngressL7Expectations)
 
 	newTest("echo-ingress-from-client-tiered-wildcard-pass-l7", ct).
 		WithResources(templates["echoIngressFromClientTieredWildcardPassL7YAML"]).

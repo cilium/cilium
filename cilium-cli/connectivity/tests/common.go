@@ -22,6 +22,7 @@ type labelsOption struct {
 	method            string
 	path              string
 	retryCondition    []RetryOption
+	crossClusterOnly  bool
 }
 
 func WithMethod(method string) Option {
@@ -39,6 +40,12 @@ func WithSourceLabelsOption(sourceLabels map[string]string) Option {
 func WithDestinationLabelsOption(destinationLabels map[string]string) Option {
 	return func(option *labelsOption) {
 		option.destinationLabels = destinationLabels
+	}
+}
+
+func WithCrossClusterOnly() Option {
+	return func(option *labelsOption) {
+		option.crossClusterOnly = true
 	}
 }
 

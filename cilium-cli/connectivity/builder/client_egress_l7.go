@@ -40,22 +40,26 @@ func clientEgressL7Test(ct *check.ConnectivityTest, templates map[string]string,
 				tests.WithRetryPodLabel("other", "client"),
 			),
 		).
-		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
-			if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
-				// Outbound HTTP to set domain-name defaults to one.one.one.one is L7-introspected and allowed.
-				(a.Destination().Port() == 80 && a.Destination().Address(features.GetIPFamily(ct.Params().ExternalTarget)) == ct.Params().ExternalTarget ||
-					a.Destination().Port() == 8080) { // 8080 is traffic to echo Pod.
-				if a.Destination().Path() == "/" || a.Destination().Path() == "" {
-					egress = check.ResultOK
-					// Expect all curls from client2 to be proxied and to be GET calls.
-					egress.HTTP = check.HTTP{
-						Method: "GET",
-					}
-					return egress, check.ResultNone
+		WithExpectations(clientEgressL7Expectations(ct))
+}
+
+func clientEgressL7Expectations(ct *check.ConnectivityTest) check.ExpectationsFunc {
+	return func(a *check.Action) (egress, ingress check.Result) {
+		if a.Source().HasLabel("other", "client") && // Only client2 is allowed to make HTTP calls.
+			// Outbound HTTP to set domain-name defaults to one.one.one.one is L7-introspected and allowed.
+			(a.Destination().Port() == 80 && a.Destination().Address(features.GetIPFamily(ct.Params().ExternalTarget)) == ct.Params().ExternalTarget ||
+				a.Destination().Port() == 8080) { // 8080 is traffic to echo Pod.
+			if a.Destination().Path() == "/" || a.Destination().Path() == "" {
+				egress = check.ResultOK
+				// Expect all curls from client2 to be proxied and to be GET calls.
+				egress.HTTP = check.HTTP{
+					Method: "GET",
 				}
-				// Else expect HTTP drop by proxy
-				return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
+				return egress, check.ResultNone
 			}
-			return check.ResultDefaultDenyEgressDrop, check.ResultNone
-		})
+			// Else expect HTTP drop by proxy
+			return check.ResultDNSOKDropCurlHTTPError, check.ResultNone
+		}
+		return check.ResultDefaultDenyEgressDrop, check.ResultNone
+	}
 }
