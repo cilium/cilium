@@ -741,6 +741,7 @@ recv
 regenerations
 regexes
 reinitialization
+releaseExcessIPs
 relocations
 removeNodeTaints
 reparsing
