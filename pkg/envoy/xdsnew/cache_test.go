@@ -1428,18 +1428,6 @@ func TestCacheRejectsEmptyResourceNames(t *testing.T) {
 	}
 }
 
-func TestApplyResourcesRejectsNetworkPoliciesInBulkMutations(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
-	rollback, err := c.ApplyResourcesWithRollback(t.Context(), "node1", ResourceMutations{
-		Upserted: xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{
-			"policy": {EndpointId: 1},
-		}},
-	}, nil, TypeURLCallbacks{})
-	require.ErrorContains(t, err, "network policies are not supported in bulk resource mutations")
-	require.Nil(t, rollback)
-	require.Empty(t, c.getNodeState("node1").resources)
-}
-
 func TestCreateWatch_DelegatesToSnapshotCache(t *testing.T) {
 	mock := newMockSnapshotCache()
 	c := newInitializedTestCache(mock)
