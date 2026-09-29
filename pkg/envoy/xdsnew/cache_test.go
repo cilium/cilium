@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"os"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -69,6 +70,24 @@ type mockSnapshotCache struct {
 	createWatchCalls   int
 	createDeltaCalls   int
 	fetchCalls         int
+}
+
+// snapshotPublicationCounter counts publication attempts without adding a
+// replaceable snapshot-construction callback to production cache state.
+type snapshotPublicationCounter struct {
+	cache.SnapshotCache
+	publications int
+}
+
+func (counter *snapshotPublicationCounter) SetSnapshot(ctx context.Context, node string, snapshot cache.ResourceSnapshot) error {
+	counter.publications++
+	return counter.SnapshotCache.SetSnapshot(ctx, node, snapshot)
+}
+
+func (c *cacheImpl) trackSnapshotPublications() *snapshotPublicationCounter {
+	counter := &snapshotPublicationCounter{SnapshotCache: c.SnapshotCache}
+	c.SnapshotCache = counter
+	return counter
 }
 
 type setSnapshotCall struct {
@@ -257,6 +276,15 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, generatio
 	err := tx.updateResourceChangesLocked(changes, inverseResources{}, snapshotTypesChangedBy(changedTypeURLs), changes.typeURLs(),
 		wg, waits, noRollbackTracking)
 	tx.complete()
+	if err != nil {
+		return err
+	}
+	c.mutex.Lock()
+	_, finalized, err := c.finalizeStagedSnapshotLocked(ctx, nodeID)
+	deliveries := c.collectResponseDeliveriesLocked()
+	c.mutex.Unlock()
+	c.deliverResponses(deliveries)
+	c.completeFinalized(nodeID, finalized)
 	return err
 }
 
@@ -511,6 +539,196 @@ func TestGenerateSnapshotClusterVersionChangesWhenTCPProxyListenerReferenceChang
 	require.NotEqual(t, before.GetVersion(envoy_resource.ClusterType), after.GetVersion(envoy_resource.ClusterType))
 }
 
+func TestGenerateSnapshotIncrementallyReusesUnchangedResources(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	state := &nodeState{}
+	state.seedResource(typeurl.Listener, "listener1", &envoy_config_listener.Listener{Name: "listener1"})
+	state.seedResource(typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 1})
+	equalOriginal := &cilium.NetworkPolicy{EndpointId: 2}
+	state.seedResource(typeurl.NetworkPolicy, "equal", equalOriginal)
+	state.seedResource(typeurl.NetworkPolicy, "removed", &cilium.NetworkPolicy{EndpointId: 4})
+
+	previous, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	previousSnapshot := previous.(*ciliumSnapshot)
+
+	changedPolicy := &cilium.NetworkPolicy{EndpointId: 3}
+	addedPolicy := &cilium.NetworkPolicy{EndpointId: 5}
+	// A different pointer with equal protobuf content must retain the already
+	// published object and its cached content version.
+	equalPolicy := proto.Clone(equalOriginal).(*cilium.NetworkPolicy)
+	var changes resourceChanges
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 1, state.resourceEntries(typeurl.NetworkPolicy),
+		map[string]*cilium.NetworkPolicy{"removed": nil},
+		map[string]*cilium.NetworkPolicy{
+			"changed": changedPolicy,
+			"equal":   equalPolicy,
+			"added":   addedPolicy,
+		})
+	changedTypeURLs := changes.typeURLs()
+	state.commitResourceMutation(changes)
+
+	next, err := c.generateSnapshotFromStateIncrementally(state, previous, changedTypeURLs)
+	require.NoError(t, err)
+	nextSnapshot := next.(*ciliumSnapshot)
+
+	for typeURL := range typeurl.Indices() {
+		if typeURL == typeurl.NetworkPolicy {
+			continue
+		}
+		require.Equal(t,
+			reflect.ValueOf(previousSnapshot[typeURL].resources.Items).Pointer(),
+			reflect.ValueOf(nextSnapshot[typeURL].resources.Items).Pointer(),
+			"resource map for %s was copied", typeURL,
+		)
+	}
+	require.NotEqual(t,
+		reflect.ValueOf(previousSnapshot[typeurl.NetworkPolicy].resources.Items).Pointer(),
+		reflect.ValueOf(nextSnapshot[typeurl.NetworkPolicy].resources.Items).Pointer(),
+	)
+	require.Same(t,
+		previousSnapshot[typeurl.NetworkPolicy].resources.Items["equal"].Resource,
+		nextSnapshot[typeurl.NetworkPolicy].resources.Items["equal"].Resource,
+	)
+	require.Same(t,
+		changedPolicy,
+		nextSnapshot[typeurl.NetworkPolicy].resources.Items["changed"].Resource,
+	)
+	require.NotContains(t, nextSnapshot[typeurl.NetworkPolicy].resources.Items, "removed")
+	require.NotContains(t, nextSnapshot[typeurl.NetworkPolicy].versions, "removed")
+	require.Same(t,
+		addedPolicy,
+		nextSnapshot[typeurl.NetworkPolicy].resources.Items["added"].Resource,
+	)
+	require.Contains(t, nextSnapshot[typeurl.NetworkPolicy].versions, "added")
+	require.NotEqual(t,
+		previousSnapshot[typeurl.NetworkPolicy].versions["changed"],
+		nextSnapshot[typeurl.NetworkPolicy].versions["changed"],
+	)
+	require.Equal(t,
+		previousSnapshot[typeurl.NetworkPolicy].versions["equal"],
+		nextSnapshot[typeurl.NetworkPolicy].versions["equal"],
+	)
+	versionMap := reflect.ValueOf(nextSnapshot[typeurl.NetworkPolicy].versions).Pointer()
+	require.NoError(t, next.ConstructVersionMap())
+	require.Equal(t, versionMap, reflect.ValueOf(nextSnapshot[typeurl.NetworkPolicy].versions).Pointer())
+	for name, item := range nextSnapshot[typeurl.NetworkPolicy].resources.Items {
+		marshaled, err := cache.MarshalResource(item.Resource)
+		require.NoError(t, err)
+		require.Equal(t, cache.HashResource(marshaled), next.GetVersionMap(NetworkPolicyTypeURL)[name])
+	}
+
+	fullyGenerated, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	require.False(t, c.areDifferentSnapshots(next, fullyGenerated))
+}
+
+func TestGenerateSnapshotFromStateIncrementallyUsesPublishedCopyOnWriteMaps(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	state := &nodeState{}
+	state.seedResource(typeurl.Listener, "listener", &envoy_config_listener.Listener{Name: "listener"})
+	state.resources[typeurl.NetworkPolicy].entries = map[string]resourceEntry{
+		"changed":   {resource: &cilium.NetworkPolicy{EndpointId: 1}, generation: 1},
+		"unchanged": {resource: &cilium.NetworkPolicy{EndpointId: 2}, generation: 1},
+		"removed":   {resource: &cilium.NetworkPolicy{EndpointId: 3}, generation: 1},
+	}
+
+	previous, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	previousSnapshot := previous.(*ciliumSnapshot)
+
+	changedPolicy := &cilium.NetworkPolicy{EndpointId: 4}
+	addedPolicy := &cilium.NetworkPolicy{EndpointId: 5}
+	var changes resourceChanges
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 2, state.resourceEntries(typeurl.NetworkPolicy),
+		map[string]*cilium.NetworkPolicy{"removed": nil},
+		map[string]*cilium.NetworkPolicy{
+			"changed": changedPolicy,
+			"added":   addedPolicy,
+		})
+	changedTypeURLs := changes.typeURLs()
+	state.commitResourceMutation(changes)
+
+	next, err := c.generateSnapshotFromStateIncrementally(state, previous, changedTypeURLs)
+	require.NoError(t, err)
+	nextSnapshot := next.(*ciliumSnapshot)
+
+	for typeURL := range typeurl.Indices() {
+		if typeURL == typeurl.NetworkPolicy {
+			continue
+		}
+		require.Equal(t,
+			reflect.ValueOf(previousSnapshot[typeURL].resources.Items).Pointer(),
+			reflect.ValueOf(nextSnapshot[typeURL].resources.Items).Pointer(),
+			"published resource map for %s was copied", typeURL,
+		)
+	}
+	require.NotEqual(t,
+		reflect.ValueOf(previousSnapshot[typeurl.NetworkPolicy].resources.Items).Pointer(),
+		reflect.ValueOf(nextSnapshot[typeurl.NetworkPolicy].resources.Items).Pointer(),
+	)
+	require.NotEqual(t,
+		reflect.ValueOf(previousSnapshot[typeurl.NetworkPolicy].versions).Pointer(),
+		reflect.ValueOf(nextSnapshot[typeurl.NetworkPolicy].versions).Pointer(),
+	)
+	require.Same(t,
+		previousSnapshot[typeurl.NetworkPolicy].resources.Items["unchanged"].Resource,
+		nextSnapshot[typeurl.NetworkPolicy].resources.Items["unchanged"].Resource,
+	)
+	require.Same(t, changedPolicy, nextSnapshot[typeurl.NetworkPolicy].resources.Items["changed"].Resource)
+	require.Same(t, addedPolicy, nextSnapshot[typeurl.NetworkPolicy].resources.Items["added"].Resource)
+	require.NotContains(t, nextSnapshot[typeurl.NetworkPolicy].resources.Items, "removed")
+	require.Equal(t,
+		previousSnapshot[typeurl.NetworkPolicy].versions["unchanged"],
+		nextSnapshot[typeurl.NetworkPolicy].versions["unchanged"],
+	)
+
+	fullyGenerated, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	require.False(t, c.areDifferentSnapshots(next, fullyGenerated))
+}
+
+func TestGenerateSnapshotFromStateIncrementallyReusesPublishedMapAfterCoalescedABA(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	policyA := &cilium.NetworkPolicy{EndpointId: 1}
+	state := &nodeState{}
+	state.resources[typeurl.NetworkPolicy].entries = map[string]resourceEntry{
+		"policy": {resource: policyA, generation: 1},
+	}
+
+	previous, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	previousSnapshot := previous.(*ciliumSnapshot)
+
+	var changes resourceChanges
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 2, state.resourceEntries(typeurl.NetworkPolicy),
+		(map[string]*cilium.NetworkPolicy)(nil), map[string]*cilium.NetworkPolicy{"policy": {EndpointId: 2}})
+	state.commitResourceMutation(changes)
+	changes = resourceChanges{}
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 3, state.resourceEntries(typeurl.NetworkPolicy),
+		(map[string]*cilium.NetworkPolicy)(nil), map[string]*cilium.NetworkPolicy{"policy": policyA})
+	changedTypeURLs := changes.typeURLs()
+	state.commitResourceMutation(changes)
+	require.Equal(t, 1, state.resources[typeurl.NetworkPolicy].changed.Len())
+	require.True(t, state.resources[typeurl.NetworkPolicy].changed.Has("policy"))
+
+	next, err := c.generateSnapshotFromStateIncrementally(state, previous, changedTypeURLs)
+	require.NoError(t, err)
+	nextSnapshot := next.(*ciliumSnapshot)
+	require.Equal(t,
+		reflect.ValueOf(previousSnapshot[typeurl.NetworkPolicy].resources.Items).Pointer(),
+		reflect.ValueOf(nextSnapshot[typeurl.NetworkPolicy].resources.Items).Pointer(),
+	)
+	require.Equal(t,
+		reflect.ValueOf(previousSnapshot[typeurl.NetworkPolicy].versions).Pointer(),
+		reflect.ValueOf(nextSnapshot[typeurl.NetworkPolicy].versions).Pointer(),
+	)
+	require.Equal(t, previousSnapshot.GetVersion(NetworkPolicyTypeURL), nextSnapshot.GetVersion(NetworkPolicyTypeURL))
+}
+
 func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 	current := xds.Resources{
 		Listeners: map[string]*envoy_config_listener.Listener{"listener": {Name: "listener"}},
@@ -575,6 +793,15 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 		typeurl.Cluster,
 		typeurl.Secret,
 	), changedTypeURLs)
+	require.Equal(t, 1, state.resources[typeurl.Listener].changed.Len())
+	require.True(t, state.resources[typeurl.Listener].changed.Has("listener"))
+	require.Equal(t, 1, state.resources[typeurl.Cluster].changed.Len())
+	require.True(t, state.resources[typeurl.Cluster].changed.Has("cluster"))
+	require.Equal(t, 1, state.resources[typeurl.Secret].changed.Len())
+	require.True(t, state.resources[typeurl.Secret].changed.Has("new-secret"))
+	require.Empty(t, state.resources[typeurl.Route].changed)
+	require.Empty(t, state.resources[typeurl.Endpoint].changed)
+	require.Empty(t, state.resources[typeurl.NetworkPolicyHosts].changed)
 	inverseListener, _ := inverse.get(typeurl.Listener, "listener")
 	inverseCluster, _ := inverse.get(typeurl.Cluster, "cluster")
 	inverseSecret, _ := inverse.get(typeurl.Secret, "new-secret")
@@ -716,6 +943,169 @@ func TestRemoveNetworkPoliciesKeepsOtherResourceTypes(t *testing.T) {
 		require.NoError(t, removalRollbacks[i].Revert())
 	}
 	require.Len(t, maps.Collect(c.NetworkPolicies("node1")), 2)
+}
+
+func TestGenerateSnapshotIncrementallyUsesContentVersions(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	policyA := &cilium.NetworkPolicy{EndpointId: 1}
+	state := &nodeState{}
+	state.seedResource(typeurl.NetworkPolicy, "np1", policyA)
+
+	snapshotA, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+
+	var changes resourceChanges
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 1, state.resourceEntries(typeurl.NetworkPolicy),
+		(map[string]*cilium.NetworkPolicy)(nil), map[string]*cilium.NetworkPolicy{"np1": {EndpointId: 2}})
+	changedTypeURLs := changes.typeURLs()
+	state.commitResourceMutation(changes)
+	snapshotB, err := c.generateSnapshotFromStateIncrementally(state, snapshotA, changedTypeURLs)
+	require.NoError(t, err)
+	require.NotEqual(t, snapshotA.GetVersion(NetworkPolicyTypeURL), snapshotB.GetVersion(NetworkPolicyTypeURL))
+
+	changes = resourceChanges{}
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 2, state.resourceEntries(typeurl.NetworkPolicy),
+		(map[string]*cilium.NetworkPolicy)(nil), map[string]*cilium.NetworkPolicy{"np1": policyA})
+	changedTypeURLs = changes.typeURLs()
+	state.commitResourceMutation(changes)
+	snapshotAAgain, err := c.generateSnapshotFromStateIncrementally(state, snapshotB, changedTypeURLs)
+	require.NoError(t, err)
+	require.Equal(t, snapshotA.GetVersion(NetworkPolicyTypeURL), snapshotAAgain.GetVersion(NetworkPolicyTypeURL))
+}
+
+func TestGenerateSnapshotIncrementallyReturnsPreviousForKnownNoChanges(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	state := &nodeState{}
+	state.seedResource(typeurl.NetworkPolicy, "np1", &cilium.NetworkPolicy{EndpointId: 1})
+
+	previous, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	next, err := c.generateSnapshotFromStateIncrementally(state, previous, typeurl.NewSet())
+	require.NoError(t, err)
+	require.Same(t, previous, next)
+}
+
+func TestGenerateSnapshotIncrementallyInvalidatesListenerDependencies(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	state := &nodeState{}
+	state.seedResource(typeurl.Route, "route1", &envoy_config_route.RouteConfiguration{Name: "route1"})
+	state.seedResource(typeurl.Cluster, "cluster1", &envoy_config_cluster.Cluster{Name: "cluster1"})
+	state.seedResource(typeurl.Secret, "secret1", &envoy_config_tls.Secret{Name: "secret1"})
+
+	previous, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+
+	listener := &envoy_config_listener.Listener{
+		Name: "listener1",
+		FilterChains: []*envoy_config_listener.FilterChain{{
+			TransportSocket: &envoy_config_core.TransportSocket{
+				Name: "envoy.transport_sockets.tls",
+				ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+					TypedConfig: mustAny(t, &envoy_config_tls.DownstreamTlsContext{
+						CommonTlsContext: &envoy_config_tls.CommonTlsContext{
+							TlsCertificateSdsSecretConfigs: []*envoy_config_tls.SdsSecretConfig{{Name: "secret1"}},
+						},
+					}),
+				},
+			},
+			Filters: []*envoy_config_listener.Filter{
+				{
+					Name: "envoy.filters.network.http_connection_manager",
+					ConfigType: &envoy_config_listener.Filter_TypedConfig{
+						TypedConfig: mustAny(t, &envoy_config_http.HttpConnectionManager{
+							RouteSpecifier: &envoy_config_http.HttpConnectionManager_Rds{
+								Rds: &envoy_config_http.Rds{RouteConfigName: "route1"},
+							},
+						}),
+					},
+				},
+				{
+					Name: "envoy.filters.network.tcp_proxy",
+					ConfigType: &envoy_config_listener.Filter_TypedConfig{
+						TypedConfig: mustAny(t, &envoy_extensions_filters_network_tcp_proxy.TcpProxy{
+							ClusterSpecifier: &envoy_extensions_filters_network_tcp_proxy.TcpProxy_Cluster{Cluster: "cluster1"},
+						}),
+					},
+				},
+			},
+		}},
+	}
+
+	changes, changedTypeURLs, _ := state.prepareResourceMutation(ResourceMutations{
+		Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{"listener1": listener}},
+	}, 1)
+	state.commitResourceMutation(changes)
+	incremental, err := c.generateSnapshotFromStateIncrementally(state, previous, changedTypeURLs)
+	require.NoError(t, err)
+	fullyGenerated, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+
+	for typeURL := range typeurl.Indices() {
+		require.Equal(t, fullyGenerated.GetVersion(typeURL.URL()), incremental.GetVersion(typeURL.URL()), typeURL.URL())
+	}
+	for _, typeURL := range []string{
+		envoy_resource.ListenerType,
+		envoy_resource.RouteType,
+		envoy_resource.ClusterType,
+		envoy_resource.SecretType,
+	} {
+		require.NotEqual(t, previous.GetVersion(typeURL), incremental.GetVersion(typeURL), typeURL)
+	}
+	require.Equal(t, previous.GetVersion(envoy_resource.EndpointType), incremental.GetVersion(envoy_resource.EndpointType))
+}
+
+func TestGenerateSnapshotIncrementallyInvalidatesClusterDependencies(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	state := &nodeState{}
+	state.seedResource(typeurl.Endpoint, "backend", &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "backend"})
+	state.seedResource(typeurl.Cluster, "cluster1", &envoy_config_cluster.Cluster{Name: "cluster1"})
+	state.seedResource(typeurl.Secret, "secret1", &envoy_config_tls.Secret{Name: "secret1"})
+
+	previous, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+
+	cluster := &envoy_config_cluster.Cluster{
+		Name: "cluster1",
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{
+			Type: envoy_config_cluster.Cluster_EDS,
+		},
+		EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{ServiceName: "backend"},
+		TransportSocket: &envoy_config_core.TransportSocket{
+			Name: "envoy.transport_sockets.tls",
+			ConfigType: &envoy_config_core.TransportSocket_TypedConfig{
+				TypedConfig: mustAny(t, &envoy_config_tls.UpstreamTlsContext{
+					CommonTlsContext: &envoy_config_tls.CommonTlsContext{
+						TlsCertificateSdsSecretConfigs: []*envoy_config_tls.SdsSecretConfig{{Name: "secret1"}},
+					},
+				}),
+			},
+		},
+	}
+
+	changes, changedTypeURLs, _ := state.prepareResourceMutation(ResourceMutations{
+		Upserted: xds.Resources{Clusters: map[string]*envoy_config_cluster.Cluster{"cluster1": cluster}},
+	}, 1)
+	state.commitResourceMutation(changes)
+	incremental, err := c.generateSnapshotFromStateIncrementally(state, previous, changedTypeURLs)
+	require.NoError(t, err)
+	fullyGenerated, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+
+	for typeURL := range typeurl.Indices() {
+		require.Equal(t, fullyGenerated.GetVersion(typeURL.URL()), incremental.GetVersion(typeURL.URL()), typeURL.URL())
+	}
+	for _, typeURL := range []string{
+		envoy_resource.ClusterType,
+		envoy_resource.EndpointType,
+		envoy_resource.SecretType,
+	} {
+		require.NotEqual(t, previous.GetVersion(typeURL), incremental.GetVersion(typeURL), typeURL)
+	}
+	require.Equal(t, previous.GetVersion(envoy_resource.ListenerType), incremental.GetVersion(envoy_resource.ListenerType))
 }
 
 func TestCheckSnapshotConsistency(t *testing.T) {
@@ -1001,46 +1391,72 @@ func TestStrictADSReferenceIndexRestoredAfterPublicationFailure(t *testing.T) {
 }
 
 func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
-	mock := newMockSnapshotCache()
-	c := newInitializedTestCache(mock)
-	const nodeID = "node1"
-	listener := &envoy_config_listener.Listener{Name: "listener"}
-	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+	for _, stagedEndpoint := range []bool{false, true} {
+		name := "published"
+		if stagedEndpoint {
+			name = "staged"
+		}
+		t.Run(name, func(t *testing.T) {
+			mock := newMockSnapshotCache()
+			c := newInitializedTestCache(mock)
+			const nodeID = "node1"
+			listener := &envoy_config_listener.Listener{Name: "listener"}
+			endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
 
-	err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
-		Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
-		Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{endpoint.ClusterName: endpoint},
-	}}, nil, TypeURLCallbacks{})
-	require.NoError(t, err)
+			err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
+				Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
+				Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{endpoint.ClusterName: endpoint},
+			}}, nil, TypeURLCallbacks{})
+			require.NoError(t, err)
 
-	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
-	t.Cleanup(cancelContext)
-	wg := completion.NewWaitGroup(ctx)
-	t.Cleanup(wg.Cancel)
-	var callbackErr error
-	var waits TypeURLCallbacks
-	waits.Set(typeurl.Listener, nil)
-	waits.Set(typeurl.Endpoint, func(err error) { callbackErr = err })
-	publicationErr := errors.New("snapshot publication failed")
-	mock.setSnapshotErr = publicationErr
-	rollback, err := c.ApplyResourcesWithRollback(ctx, nodeID, ResourceMutations{Upserted: xds.Resources{
-		Listeners: map[string]*envoy_config_listener.Listener{
-			listener.Name: {Name: listener.Name, TrafficDirection: envoy_config_core.TrafficDirection_OUTBOUND},
-		},
-		// The identical endpoint waits for its already published EDS version.
-		Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{endpoint.ClusterName: endpoint},
-	}}, wg, waits)
-	require.ErrorIs(t, err, publicationErr)
-	require.Nil(t, rollback)
-	require.Zero(t, c.completionCbs.PendingCompletionCount())
-	require.ErrorIs(t, wg.Wait(), publicationErr)
-	require.ErrorIs(t, callbackErr, publicationErr)
-	current, exists := c.GetResource(nodeID, typeurl.Listener, listener.Name)
-	require.True(t, exists)
-	require.Same(t, listener, current)
-	current, exists = c.GetResource(nodeID, typeurl.Endpoint, endpoint.ClusterName)
-	require.True(t, exists)
-	require.Same(t, endpoint, current)
+			// Keep an LDS watch open so the next listener change publishes immediately.
+			responses := make(chan cache.Response, 1)
+			cancel, err := c.CreateWatch(&cache.Request{
+				Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.ListenerType,
+			}, stream.NewSotwSubscription(nil, false), responses)
+			require.NoError(t, err)
+			t.Cleanup(cancel)
+
+			if stagedEndpoint {
+				// An EDS-only change remains staged because only LDS has an open watch.
+				endpoint = &envoy_config_endpoint.ClusterLoadAssignment{
+					ClusterName: endpoint.ClusterName,
+					Endpoints:   []*envoy_config_endpoint.LocalityLbEndpoints{{}},
+				}
+				err = c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, endpoint.ClusterName, endpoint, nil, nil)
+				require.NoError(t, err)
+				require.NotNil(t, c.nodeStates[nodeID].staged)
+			}
+
+			ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
+			t.Cleanup(cancelContext)
+			wg := completion.NewWaitGroup(ctx)
+			t.Cleanup(wg.Cancel)
+			var callbackErr error
+			var waits TypeURLCallbacks
+			waits.Set(typeurl.Listener, nil)
+			waits.Set(typeurl.Endpoint, func(err error) { callbackErr = err })
+			publicationErr := errors.New("snapshot publication failed")
+			mock.setSnapshotErr = publicationErr
+			err = c.ApplyResources(ctx, nodeID, ResourceMutations{Upserted: xds.Resources{
+				Listeners: map[string]*envoy_config_listener.Listener{
+					listener.Name: {Name: listener.Name, TrafficDirection: envoy_config_core.TrafficDirection_OUTBOUND},
+				},
+				// The identical endpoint waits for its staged or published EDS version.
+				Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{endpoint.ClusterName: endpoint},
+			}}, wg, waits)
+			require.ErrorIs(t, err, publicationErr)
+			require.Zero(t, c.completionCbs.PendingCompletionCount())
+			require.ErrorIs(t, wg.Wait(), publicationErr)
+			require.ErrorIs(t, callbackErr, publicationErr)
+			current, exists := c.GetResource(nodeID, typeurl.Listener, listener.Name)
+			require.True(t, exists)
+			require.Same(t, listener, current)
+			current, exists = c.GetResource(nodeID, typeurl.Endpoint, endpoint.ClusterName)
+			require.True(t, exists)
+			require.Same(t, endpoint, current)
+		})
+	}
 }
 
 func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T) {
@@ -1050,6 +1466,13 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 			c := newInitializedTestCache(mock)
 			const nodeID = "node1"
 			node := &envoy_config_core.Node{Id: nodeID}
+			// The mock keeps this watch open, making both mutations and reverts
+			// finalize synchronously. Without an open watch, the injected
+			// publication failure would be deferred until the next CreateWatch.
+			cancel, err := c.CreateWatch(&cache.Request{Node: node, TypeUrl: envoy_resource.RouteType},
+				stream.NewSotwSubscription(nil, false), make(chan cache.Response, 1))
+			require.NoError(t, err)
+			t.Cleanup(cancel)
 			initial := xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{
 				"replaced": {Name: "replaced"},
 				"removed":  {Name: "removed"},
@@ -1121,6 +1544,21 @@ func TestStrictADSIgnoresUnrelatedResourceMutations(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, c.nodeStates["node1"].strictRefs,
 		"unrelated mutations should not initialize the consistency index")
+}
+
+func TestCloneStagedRollbacksClonesStrictADSCompanion(t *testing.T) {
+	var staged typeurl.Map[rollbackResources]
+	var rollback rollbackResources
+	rollback[typeurl.Listener] = map[string]rollbackEntry{"listener": {expectedGeneration: 1}}
+	rollback[typeurl.Route] = map[string]rollbackEntry{"route": {expectedGeneration: 1}}
+	staged.Set(typeurl.Listener, rollback)
+
+	cloned := cloneStagedRollbacks(staged)
+	clonedRollback, _ := cloned.Get(typeurl.Listener)
+	delete(clonedRollback[typeurl.Route], "route")
+
+	originalRollback, _ := staged.Get(typeurl.Listener)
+	require.Contains(t, originalRollback[typeurl.Route], "route")
 }
 
 func TestNewCache(t *testing.T) {
@@ -1947,6 +2385,85 @@ func mustSnapshot(t *testing.T, c *cacheImpl, nodeID string) cache.ResourceSnaps
 	return snapshot
 }
 
+func TestUpsertNetworkPolicyFinalizesLatestGenerationOnCreateWatch(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	publications := c.trackSnapshotPublications()
+	for _, endpointID := range []uint64{1, 2} {
+		err := c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: endpointID}, nil, nil)
+		require.NoError(t, err)
+	}
+
+	require.Zero(t, publications.publications)
+	_, err := c.SnapshotCache.GetSnapshot("node1")
+	require.Error(t, err)
+	require.Equal(t, uint64(2), maps.Collect(c.NetworkPolicies("node1"))["policy"].EndpointId)
+
+	request := &cache.Request{
+		Node:    &envoy_config_core.Node{Id: "node1"},
+		TypeUrl: NetworkPolicyTypeURL,
+	}
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+
+	var response cache.Response
+	select {
+	case response = <-responses:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for finalized snapshot")
+	}
+	require.Equal(t, 1, publications.publications)
+	require.Equal(t, response.GetResponseVersion(), mustSnapshot(t, c, "node1").GetVersion(NetworkPolicyTypeURL))
+	policy := mustSnapshot(t, c, "node1").GetResources(NetworkPolicyTypeURL)["policy"].(*cilium.NetworkPolicy)
+	require.Equal(t, uint64(2), policy.EndpointId)
+}
+
+func TestApplyResourcesKeepsChangedNamesUntilFinalization(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	publications := c.trackSnapshotPublications()
+
+	policyA := &cilium.NetworkPolicy{EndpointId: 1}
+	err := c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", policyA, nil, nil)
+	require.NoError(t, err)
+	require.Zero(t, publications.publications)
+	state := c.nodeStates["node1"]
+	require.Same(t, policyA, state.resources[typeurl.NetworkPolicy].entries["policy"].resource)
+	resourceMap := reflect.ValueOf(state.resources[typeurl.NetworkPolicy].entries).Pointer()
+	require.Equal(t, 1, state.resources[typeurl.NetworkPolicy].changed.Len())
+	require.True(t, state.resources[typeurl.NetworkPolicy].changed.Has("policy"))
+
+	policyB := &cilium.NetworkPolicy{EndpointId: 2}
+	err = c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", policyB, nil, nil)
+	require.NoError(t, err)
+	require.Zero(t, publications.publications)
+	require.Equal(t, resourceMap, reflect.ValueOf(state.resources[typeurl.NetworkPolicy].entries).Pointer())
+	require.Equal(t, 1, state.resources[typeurl.NetworkPolicy].changed.Len())
+	require.True(t, state.resources[typeurl.NetworkPolicy].changed.Has("policy"))
+	require.Equal(t, uint64(2), state.resourceGeneration)
+	require.Zero(t, state.snapshotGeneration)
+	require.NotNil(t, state.staged)
+	resource, exists := c.GetResource("node1", typeurl.NetworkPolicy, "policy")
+	require.True(t, exists)
+	require.Same(t, policyB, resource)
+
+	request := &cache.Request{
+		Node:    &envoy_config_core.Node{Id: "node1"},
+		TypeUrl: NetworkPolicyTypeURL,
+	}
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	response := <-responses
+	require.NotEmpty(t, response.GetResponseVersion())
+	require.Equal(t, 1, publications.publications, "all staged updates must be published by one finalization")
+	require.Equal(t, state.resourceGeneration, state.snapshotGeneration)
+	require.Nil(t, state.staged)
+	require.Same(t, policyB, state.resources[typeurl.NetworkPolicy].entries["policy"].resource)
+	require.Empty(t, state.resources[typeurl.NetworkPolicy].changed)
+}
+
 type testNPDSListenerObserver struct {
 	nodeID  string
 	matches func(*envoy_config_listener.Listener) bool
@@ -2130,6 +2647,29 @@ func TestNetworkPolicyWaitCompletesWhenLastListenerIsReverted(t *testing.T) {
 	require.True(t, exists)
 }
 
+func TestApplyResourcesCoalescesStagedRollbackState(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	const updates = 1000
+
+	for endpointID := uint64(1); endpointID <= updates; endpointID++ {
+		err := c.ApplyResource(
+			t.Context(), "node1", typeurl.NetworkPolicy,
+			"policy", &cilium.NetworkPolicy{EndpointId: endpointID}, nil, nil)
+
+		require.NoError(t, err)
+	}
+
+	state := c.nodeStates["node1"]
+	require.NotNil(t, state)
+	require.NotNil(t, state.staged)
+	require.Equal(t, 1, state.staged.rollbacks.Len())
+	policyRollback, exists := state.staged.rollbacks.Get(typeurl.NetworkPolicy)
+	require.True(t, exists)
+	require.Len(t, policyRollback[typeurl.NetworkPolicy], 1,
+		"staging must retain one inverse per changed resource, not one per update")
+	require.True(t, state.rollbackOwners.Empty(), "non-removal updates need no tombstone ownership")
+}
+
 func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
@@ -2150,10 +2690,10 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 	}
 
 	state := c.nodeStates["node1"]
-	policyRollback, exists := state.unsentRollbacks.Get(typeurl.NetworkPolicy)
+	require.NotNil(t, state.staged)
+	policyRollback, exists := state.staged.rollbacks.Get(typeurl.NetworkPolicy)
 	require.True(t, exists)
-	require.NotNil(t, policyRollback.resources)
-	coldStartRollback := (*policyRollback.resources)[typeurl.NetworkPolicy]
+	coldStartRollback := policyRollback[typeurl.NetworkPolicy]
 	require.Len(t, coldStartRollback, 2)
 	for _, rollback := range coldStartRollback {
 		require.Nil(t, rollback.previous.resource,
@@ -2201,6 +2741,11 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 		require.NoError(t, err)
 		rollback.Finalize()
 	}
+	c.mutex.Lock()
+	_, finalized, err := c.finalizeStagedSnapshotLocked(t.Context(), "node1")
+	c.mutex.Unlock()
+	require.NoError(t, err)
+	c.completeFinalized("node1", finalized)
 	initial := mustSnapshot(t, c, "node1")
 	ackNetworkPolicyVersion(t, c, "node1", initial.GetVersion(NetworkPolicyTypeURL))
 
@@ -2210,6 +2755,11 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 		require.NoError(t, err)
 		rollback.Finalize()
 	}
+	c.mutex.Lock()
+	_, finalized, err = c.finalizeStagedSnapshotLocked(t.Context(), "node1")
+	c.mutex.Unlock()
+	require.NoError(t, err)
+	c.completeFinalized("node1", finalized)
 	removed := mustSnapshot(t, c, "node1")
 	ackNetworkPolicyVersion(t, c, "node1", removed.GetVersion(NetworkPolicyTypeURL))
 
@@ -2230,6 +2780,11 @@ func TestAcceptedRemovalReleasesResponseTombstone(t *testing.T) {
 
 	require.NoError(t, err)
 	rollback.Finalize()
+	c.mutex.Lock()
+	_, finalized, err := c.finalizeStagedSnapshotLocked(ctx, "node1")
+	c.mutex.Unlock()
+	require.NoError(t, err)
+	c.completeFinalized("node1", finalized)
 	initial := mustSnapshot(t, c, "node1")
 	ackNetworkPolicyVersion(t, c, "node1", initial.GetVersion(NetworkPolicyTypeURL))
 
@@ -2279,6 +2834,11 @@ func TestNACKedRemovalRestoresResourceAfterCallerCompletion(t *testing.T) {
 	rollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy", policy, nil, nil)
 	require.NoError(t, err)
 	rollback.Finalize()
+	c.mutex.Lock()
+	_, finalized, err := c.finalizeStagedSnapshotLocked(ctx, "node1")
+	c.mutex.Unlock()
+	require.NoError(t, err)
+	c.completeFinalized("node1", finalized)
 	initial := mustSnapshot(t, c, "node1")
 	initialVersion := initial.GetVersion(NetworkPolicyTypeURL)
 	ackNetworkPolicyVersion(t, c, "node1", initialVersion)
@@ -2326,6 +2886,11 @@ func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 	rollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy", policyA, nil, nil)
 	require.NoError(t, err)
 	rollback.Finalize()
+	c.mutex.Lock()
+	_, finalized, err := c.finalizeStagedSnapshotLocked(ctx, "node1")
+	c.mutex.Unlock()
+	require.NoError(t, err)
+	c.completeFinalized("node1", finalized)
 	initial := mustSnapshot(t, c, "node1")
 	initialVersion := initial.GetVersion(NetworkPolicyTypeURL)
 	ackNetworkPolicyVersion(t, c, "node1", initialVersion)
@@ -2456,19 +3021,36 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 			c := newCache(t)
 			applyPlain(t, c, routes(map[string]uint64{"newer": 1, "unchanged": 1}))
 			node := &envoy_config_core.Node{Id: "node-a"}
-			baseline := mustSnapshot(t, c, node.Id)
-			acceptPublishedSnapshotVersions(t, c, 1, node, baseline)
+			request := &cache.Request{Node: node, TypeUrl: envoy_resource.RouteType}
+			subscription := stream.NewSotwSubscription(nil, false)
+			responses := make(chan cache.Response, 1)
+			// Let a real watch finalize the staged baseline before accepting it.
+			cancel, err := c.CreateWatch(request, subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
+			require.Len(t, responses, 1)
+			baseline := <-responses
+			subscription.SetReturnedResources(baseline.GetReturnedResources())
+			acknowledgeResponse(t, c, 1, baseline, "accepted-routes")
+			request.VersionInfo = baseline.GetResponseVersion()
+			cancel, err = c.CreateWatch(request, subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
 			rollback := apply(t, c, routes(map[string]uint64{"newer": 2, "unchanged": 2}))
 			if mode == "NACK-driven" {
 				defer rollback.Finalize()
 			}
 			// Bind the response before the newer resource is changed, so its
 			// NACK must not include the later update.
-			snapshot := mustSnapshot(t, c, node.Id)
-			c.completionCbs.OnStreamResponse(callbacks.WithSnapshotGeneration(t.Context(), c.resourceGeneration), 1,
-				&discovery.DiscoveryRequest{Node: node, TypeUrl: envoy_resource.RouteType},
+			require.Len(t, responses, 1)
+			response := <-responses
+			c.completionCbs.OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
 				&discovery.DiscoveryResponse{
-					VersionInfo: snapshot.GetVersion(envoy_resource.RouteType),
+					VersionInfo: response.GetResponseVersion(),
 					TypeUrl:     envoy_resource.RouteType,
 					Nonce:       "rejected-routes",
 				})
@@ -2478,7 +3060,7 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 				require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
 					Node:          node,
 					TypeUrl:       envoy_resource.RouteType,
-					VersionInfo:   baseline.GetVersion(envoy_resource.RouteType),
+					VersionInfo:   baseline.GetResponseVersion(),
 					ResponseNonce: "rejected-routes",
 					ErrorDetail:   &status.Status{Message: "rejected routes"},
 				}))
@@ -2565,6 +3147,51 @@ func TestApplyResourcesRevertCoversEnvoyResourceTypes(t *testing.T) {
 		require.True(t, found)
 		require.Same(t, resource.older, actual)
 	}
+}
+
+func TestUpsertNetworkPolicyFinalizesOncePerAvailableWatch(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	publications := c.trackSnapshotPublications()
+	request := &cache.Request{
+		Node:    &envoy_config_core.Node{Id: "node1"},
+		TypeUrl: NetworkPolicyTypeURL,
+	}
+	subscription := stream.NewSotwSubscription(nil, false)
+	responses := make(chan cache.Response, 1)
+
+	err := c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
+	require.NoError(t, err)
+	cancel, err := c.CreateWatch(request, subscription, responses)
+	require.NoError(t, err)
+	responseA := <-responses
+	subscription.SetReturnedResources(responseA.GetReturnedResources())
+	cancel()
+	require.Equal(t, 1, publications.publications)
+
+	request.VersionInfo = responseA.GetResponseVersion()
+	cancel, err = c.CreateWatch(request, subscription, responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+
+	err = c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: 2}, nil, nil)
+	require.NoError(t, err)
+	responseB := <-responses
+	subscription.SetReturnedResources(responseB.GetReturnedResources())
+	require.Equal(t, 2, publications.publications)
+
+	// The B response consumed the only NPDS watch. C remains staged while the
+	// simulated client processes B, even though its response channel is empty.
+	err = c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: 3}, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, publications.publications)
+
+	request.VersionInfo = responseB.GetResponseVersion()
+	cancel, err = c.CreateWatch(request, subscription, responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	responseC := <-responses
+	require.Equal(t, 3, publications.publications)
+	require.NotEqual(t, responseB.GetResponseVersion(), responseC.GetResponseVersion())
 }
 
 func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
@@ -2669,7 +3296,34 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 	require.Zero(t, c.completionCbs.PendingCompletionCount())
 }
 
-func TestListenerMutationReleasesUnchangedDependencies(t *testing.T) {
+func TestUpsertNetworkPolicyIgnoresUnrelatedOpenWatch(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	publications := c.trackSnapshotPublications()
+	node := &envoy_config_core.Node{Id: "node1"}
+
+	err := c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
+	require.NoError(t, err)
+	npResponses := make(chan cache.Response, 1)
+	_, err = c.CreateWatch(&cache.Request{Node: node, TypeUrl: NetworkPolicyTypeURL},
+		stream.NewSotwSubscription(nil, false), npResponses)
+	require.NoError(t, err)
+	<-npResponses
+	require.Equal(t, 1, publications.publications)
+
+	listenerVersion := mustSnapshot(t, c, "node1").GetVersion(envoy_resource.ListenerType)
+	listenerResponses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(&cache.Request{
+		Node: node, TypeUrl: envoy_resource.ListenerType, VersionInfo: listenerVersion,
+	}, stream.NewSotwSubscription(nil, false), listenerResponses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+
+	err = c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: 2}, nil, nil)
+	require.NoError(t, err)
+	require.Equal(t, 1, publications.publications)
+}
+
+func TestListenerMutationWaitsForListenerWatchAndReleasesUnchangedDependencies(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
@@ -2697,7 +3351,8 @@ func TestListenerMutationReleasesUnchangedDependencies(t *testing.T) {
 	require.True(t, c.nodeStates[node.GetId()].unsentRollbacks.Empty())
 
 	// This RDS watch is idle: removing a listener with no RDS reference does
-	// not change the RDS version and must not consume this watch.
+	// not change the RDS version. It must not make the cache believe Envoy can
+	// consume a new listener snapshot.
 	routeResponses := make(chan cache.Response, 1)
 	cancelRoute, err := c.CreateWatch(&cache.Request{
 		Node: node, TypeUrl: envoy_resource.RouteType,
@@ -2709,14 +3364,15 @@ func TestListenerMutationReleasesUnchangedDependencies(t *testing.T) {
 
 	err = c.ApplyResource(ctx, node.GetId(), typeurl.Listener, listener.GetName(), nil, nil, nil)
 	require.NoError(t, err)
-	require.Greater(t, c.nodeStates[node.GetId()].snapshotGeneration, initialGeneration)
+	require.Equal(t, initialGeneration, c.nodeStates[node.GetId()].snapshotGeneration)
+	require.NotNil(t, c.nodeStates[node.GetId()].staged)
 	select {
 	case <-routeResponses:
 		t.Fatal("unchanged RDS watch unexpectedly consumed the listener update")
 	default:
 	}
 
-	// A listener watch now consumes the published removal. Only LDS has a changed
+	// A listener watch now consumes the staged removal. Only LDS has a changed
 	// version, so its ACK must release the last response rollback and tombstone.
 	listenerResponses = make(chan cache.Response, 1)
 	cancelListener, err = c.CreateWatch(&cache.Request{
@@ -2738,6 +3394,64 @@ func TestListenerMutationReleasesUnchangedDependencies(t *testing.T) {
 		t.Fatal("unchanged RDS watch unexpectedly received the listener update")
 	default:
 	}
+}
+
+func TestStagedRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+	const nodeID = "node1"
+	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "orphan"}
+
+	err := c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "orphan", endpoint, nil, nil)
+	require.NoError(t, err)
+	staged, exists := c.nodeStates[nodeID].staged.rollbacks.Get(typeurl.Endpoint)
+	require.True(t, exists)
+	require.Len(t, staged[typeurl.Endpoint], 1)
+
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "orphan", nil, nil, nil)
+	require.NoError(t, err)
+	state := c.nodeStates[nodeID]
+	require.NotNil(t, state)
+	require.True(t, state.staged.rollbacks.Empty(), "a never-sent add/remove has no rollback target")
+	require.True(t, state.rollbackOwners.Empty())
+	require.Empty(t, state.resources[typeurl.Endpoint].entries, "the removal tombstone must be released")
+}
+
+func TestStagedRollbackRetainsOriginalEndpointAfterRemoval(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+	const nodeID = "node1"
+	original := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+	c.nodeStates[nodeID] = &nodeState{}
+	c.nodeStates[nodeID].seedResource(typeurl.Endpoint, "endpoint", original)
+
+	changed := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint", Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{}}}
+	err := c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "endpoint", changed, nil, nil)
+	require.NoError(t, err)
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "endpoint", nil, nil, nil)
+	require.NoError(t, err)
+
+	state := c.nodeStates[nodeID]
+	staged, exists := state.staged.rollbacks.Get(typeurl.Endpoint)
+	require.True(t, exists)
+	require.Same(t, original, staged[typeurl.Endpoint]["endpoint"].previous.resource,
+		"a removal is not a net no-op when the resource existed before the unsent changes")
+}
+
+func TestStagedRollbackDropsSemanticEndpointABA(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+	const nodeID = "node1"
+	original := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+	c.nodeStates[nodeID] = &nodeState{}
+	c.nodeStates[nodeID].seedResource(typeurl.Endpoint, "endpoint", original)
+
+	changed := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint", Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{}}}
+	err := c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "endpoint", changed, nil, nil)
+	require.NoError(t, err)
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "endpoint",
+		&envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}, nil, nil)
+	require.NoError(t, err)
+
+	require.True(t, c.nodeStates[nodeID].staged.rollbacks.Empty(),
+		"a distinct protobuf pointer with the original contents needs no rollback")
 }
 
 func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
@@ -2899,7 +3613,7 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 	require.True(t, c.nodeStates[nodeID].rollbackOwners.Empty())
 }
 
-func TestUpsertNetworkPolicyCompletesCoalescedABAWithoutAnotherResponse(t *testing.T) {
+func TestUpsertNetworkPolicyCompletesCoalescedABAOnCreateWatch(t *testing.T) {
 	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
 	node := &envoy_config_core.Node{Id: "node1"}
 	subscription := stream.NewSotwSubscription(nil, false)
@@ -2933,16 +3647,16 @@ func TestUpsertNetworkPolicyCompletesCoalescedABAWithoutAnotherResponse(t *testi
 	t.Cleanup(wgA.Cancel)
 	err = c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", policyA, wgA, nil)
 	require.NoError(t, err)
-	// Returning to the already accepted A completes both intermediate
-	// generations without requiring another Envoy response.
-	require.NoError(t, wgB.Wait())
-	require.NoError(t, wgA.Wait())
-	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	// The return to accepted A completes immediately, but B needs the next
+	// watch to finalize the coalesced update.
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
 	published, err := c.SnapshotCache.GetSnapshot(node.GetId())
 	require.NoError(t, err)
 	require.Equal(t, responseA.GetResponseVersion(), published.GetVersion(NetworkPolicyTypeURL))
 
-	// CreateWatch opens a watch without emitting another response.
+	// Finalization returns to the already ACKed contents. CreateWatch therefore
+	// opens a watch without emitting another response, while both folded
+	// generations complete successfully.
 	cancel, err := c.CreateWatch(&cache.Request{
 		Node: node, TypeUrl: NetworkPolicyTypeURL, VersionInfo: responseA.GetResponseVersion(),
 	}, subscription, responses)
@@ -2950,10 +3664,14 @@ func TestUpsertNetworkPolicyCompletesCoalescedABAWithoutAnotherResponse(t *testi
 	t.Cleanup(cancel)
 	afterWatch, err := c.SnapshotCache.GetSnapshot(node.GetId())
 	require.NoError(t, err)
-	require.Same(t, published, afterWatch, "CreateWatch must not publish another snapshot")
+	require.NoError(t, wgB.Wait())
+	require.NoError(t, wgA.Wait())
+	require.Zero(t, c.completionCbs.PendingCompletionCount())
+	require.NotSame(t, published, afterWatch, "CreateWatch must finalize the staged snapshot")
+	require.Equal(t, responseA.GetResponseVersion(), afterWatch.GetVersion(NetworkPolicyTypeURL))
 	select {
 	case <-responses:
-		t.Fatal("unexpected response for already accepted contents")
+		t.Fatal("unexpected response for already accepted finalized contents")
 	default:
 	}
 }
@@ -3276,12 +3994,19 @@ func TestCreateWatchPreservesExistingNonemptySnapshot(t *testing.T) {
 	listener := &envoy_config_listener.Listener{Name: "listener"}
 	err := c.ApplyResource(t.Context(), nodeID, typeurl.Listener, listener.Name, listener, nil, nil)
 	require.NoError(t, err)
-	snapshot := mustSnapshot(t, c, nodeID)
-
-	responses := make(chan cache.Response, 1)
 	request := &cache.Request{
 		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.ListenerType,
 	}
+	// The first watch finalizes the staged state. A subsequent watch must use
+	// that published snapshot rather than replacing it.
+	initialResponses := make(chan cache.Response, 1)
+	initialCancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), initialResponses)
+	require.NoError(t, err)
+	t.Cleanup(initialCancel)
+	<-initialResponses
+	snapshot := mustSnapshot(t, c, nodeID)
+
+	responses := make(chan cache.Response, 1)
 	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), responses)
 	require.NoError(t, err)
 	t.Cleanup(cancel)
