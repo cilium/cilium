@@ -142,7 +142,7 @@ type snapshotPublication struct {
 
 // WithSnapshotPublication retains the exact publication while go-control-plane
 // constructs responses. Keep generation and resources in one context value:
-// eager publications must not allocate a second context for every mutation.
+// publication need not allocate a second context just to capture response coverage.
 // Each delivered response's coverage retains only its own TypeURL group.
 func WithSnapshotPublication(ctx context.Context, generation Generation, snapshot cache.ResourceSnapshot) context.Context {
 	return context.WithValue(ctx, snapshotGenerationContextKey{}, &snapshotPublication{generation: generation, snapshot: snapshot})

@@ -18,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
 
 // BenchmarkBulkResourceWaitPreparation measures production bulk transactions,
@@ -133,6 +134,48 @@ func BenchmarkSnapshotCLAProjection(b *testing.B) {
 			b.ResetTimer()
 			for range b.N {
 				if _, err := c.generateSnapshotFromState(state); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkSnapshotCLAProjectionIncrementally retargets an existing EDS
+// population. Finalization must remove old synthetic assignments and project
+// the new ones without scanning every Cluster for each missing assignment.
+func BenchmarkSnapshotCLAProjectionIncrementally(b *testing.B) {
+	for _, count := range []int{32, 256, 1024} {
+		b.Run(fmt.Sprintf("clusters=%d", count), func(b *testing.B) {
+			const nodeID = "benchmark-node"
+			c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID)).(*cacheImpl)
+			var input [2]ResourceMutations
+			for version := range input {
+				clusters := make(map[string]*cluster.Cluster, count)
+				for i := range count {
+					name := fmt.Sprintf("cluster-%d", i)
+					clusters[name] = &cluster.Cluster{
+						Name: name, ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+						EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{ServiceName: fmt.Sprintf("service-%d-%d", version, i)},
+					}
+				}
+				input[version].Upserted.Clusters = clusters
+			}
+			if err := c.ApplyResources(b.Context(), nodeID, input[0], nil, TypeURLCallbacks{}); err != nil {
+				b.Fatal(err)
+			}
+			state := c.getNodeState(nodeID)
+			previous, err := c.generateSnapshotFromStateIncrementally(state, nil, typeurl.All())
+			if err != nil {
+				b.Fatal(err)
+			}
+			if err := c.ApplyResources(b.Context(), nodeID, input[1], nil, TypeURLCallbacks{}); err != nil {
+				b.Fatal(err)
+			}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				if _, err := c.generateSnapshotFromStateIncrementally(state, previous, typeurl.NewSet(typeurl.Cluster)); err != nil {
 					b.Fatal(err)
 				}
 			}

@@ -217,14 +217,16 @@ func TestUnobservedSotWRemovalsDoNotAccumulateRollbackState(t *testing.T) {
 }
 func TestUnsentRollbackHistoryIsBounded(t *testing.T) {
 	for _, test := range []struct {
-		name      string
-		typeURL   typeurl.Index
-		names     []string
-		updates   int
-		unrelated bool
+		name         string
+		typeURL      typeurl.Index
+		names        []string
+		updates      int
+		unrelated    bool
+		coalescedABA bool
 	}{
 		{name: "without-unrelated-acks/single-policy", typeURL: typeurl.NetworkPolicy, names: []string{"policy"}, updates: 1000},
 		{name: "without-unrelated-acks/bulk-endpoints", typeURL: typeurl.Endpoint, names: []string{"a", "b"}, updates: 100},
+		{name: "unrelated/coalesced-policy-aba", typeURL: typeurl.NetworkPolicy, names: []string{"policy"}, updates: 10, unrelated: true, coalescedABA: true},
 		{name: "unrelated/single-policy", typeURL: typeurl.NetworkPolicy, names: []string{"policy"}, updates: 1000, unrelated: true},
 		{name: "unrelated/bulk-endpoints", typeURL: typeurl.Endpoint, names: []string{"a", "b"}, updates: 100, unrelated: true},
 	} {
@@ -233,8 +235,16 @@ func TestUnsentRollbackHistoryIsBounded(t *testing.T) {
 			lds := coverageStream{cache: c, id: 2, typeURL: typeurl.Listener.URL()}
 			for update := range test.updates {
 				if test.typeURL == typeurl.NetworkPolicy {
+					value := uint64(update + 1)
+					if test.coalescedABA {
+						value = 1
+					}
 					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", test.typeURL, test.names[0],
-						&cilium.NetworkPolicy{EndpointId: uint64(update + 1)}, nil, nil))
+						&cilium.NetworkPolicy{EndpointId: value}, nil, nil))
+					if test.coalescedABA {
+						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", test.typeURL, test.names[0], &cilium.NetworkPolicy{EndpointId: 2}, nil, nil))
+						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", test.typeURL, test.names[0], &cilium.NetworkPolicy{EndpointId: value}, nil, nil))
+					}
 				} else {
 					endpoints := make(map[string]*envoy_config_endpoint.ClusterLoadAssignment)
 					for _, name := range test.names {
@@ -260,10 +270,19 @@ func TestUnsentRollbackHistoryIsBounded(t *testing.T) {
 			// transactions. Observable resource absence cannot detect this leak.
 			state := c.getNodeState("coverage-node")
 			state.requireNoRollbackOwners(t)
-			unsent := state.typeStates[test.typeURL].rollbacks.unsent
-			require.NotNil(t, unsent)
-			require.Len(t, unsent.resources, len(test.names))
-			require.Equal(t, 1, state.rollbacks.responses.Len())
+			if test.unrelated {
+				unsent := state.typeStates[test.typeURL].rollbacks.unsent
+				require.NotNil(t, unsent)
+				require.Len(t, unsent.resources, len(test.names))
+				require.Equal(t, 1, state.rollbacks.responses.Len())
+			} else {
+				state.requireNoUnsentRollbacks(t)
+				require.NotNil(t, state.pendingPublication)
+				rollback, exists := state.pendingPublication.rollbacks.Get(test.typeURL)
+				require.True(t, exists)
+				require.Len(t, rollback, len(test.names))
+				require.True(t, state.rollbacks.responses.Empty())
+			}
 			s := coverageStream{cache: c, id: 1, typeURL: test.typeURL.URL()}
 			for i, name := range test.names {
 				var names []string

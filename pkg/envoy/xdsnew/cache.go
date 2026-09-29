@@ -10,6 +10,7 @@ import (
 	"hash/fnv"
 	"iter"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 
@@ -142,8 +143,8 @@ type cacheImpl struct {
 	cache.SnapshotCache
 
 	// mutex protects cache state and serializes complete resource mutations.
-	// Mutations hold the write lock from semantic comparison through publication,
-	// then release it before delivering responses or completions.
+	// Mutations hold the write lock from semantic comparison through commit and
+	// any immediate publication, then release it before responses or completions.
 	// When both are needed, this lock precedes go-control-plane's internal
 	// locks. Tracked response sends must not wait for a stream consumer while
 	// either lock is held.
@@ -164,18 +165,6 @@ type cacheImpl struct {
 	// listenerObserver is supplied by the ADS server. A nil observer leaves
 	// standalone cache users' explicit ACK waits unchanged.
 	listenerObserver ListenerObserver
-}
-
-// snapshotPublication binds pending waits to a published version and transfers
-// response rollback ownership when installing a snapshot for generation.
-type snapshotPublication struct {
-	generation callbacks.Generation
-	// Each present type binds pending waits and generations to the published
-	// version, including unchanged referenced types whose version changes.
-	// Nonempty values also supply response-owned rollback state; empty values
-	// request version association only (including publications made by a revert).
-	// Absent types need neither.
-	resourceTypes typeurl.Map[rollbackResources]
 }
 
 // nodeWatchState indexes open watches by resource type. Each type can have
@@ -228,9 +217,11 @@ type snapshotResourceGroup struct {
 }
 
 // ciliumSnapshot implements go-control-plane's ResourceSnapshot interface for
-// both Envoy core resources and Cilium-specific xDS resources. Its version maps
-// are constructed with the resource groups, so creating a watch does not need
-// to marshal and hash the resources again or mutate the published snapshot.
+// both Envoy core resources and Cilium-specific xDS resources. Resource groups
+// are the published copy-on-write state in the same representations used by
+// go-control-plane's native Snapshot. Their version maps are constructed during
+// finalization, so creating a watch does not need to marshal and hash the
+// resources again or mutate the published snapshot.
 type ciliumSnapshot typeurl.Slots[snapshotResourceGroup]
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
@@ -647,6 +638,64 @@ func clusterEndpointName(name string, cluster *envoy_config_cluster.Cluster) str
 	return serviceName
 }
 
+func (c *cacheImpl) updateResourceEntries(typeURL typeurl.Index, changed set.Set[string], desired map[string]resourceEntry, endpointReferences set.Set[string], previous cache.Resources, previousVersions map[string]string, versionContexts ...string) (cache.Resources, map[string]string, error) {
+	items := previous.Items
+	versions := previousVersions
+	cloned := false
+	clone := func() {
+		if cloned {
+			return
+		}
+		items = maps.Clone(items)
+		versions = maps.Clone(versions)
+		cloned = true
+	}
+	for name := range changed.Members() {
+		resource := desired[name].resource
+		if resource == nil && endpointReferences.Has(name) {
+			// Missing EDS assignments exist only in the published projection.
+			resource = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
+		}
+		exists := resource != nil
+		previousItem, resourceExists := items[name]
+		previousVersion, versionExists := versions[name]
+		if !exists {
+			if !resourceExists && !versionExists {
+				continue
+			}
+			clone()
+			delete(items, name)
+			delete(versions, name)
+			continue
+		}
+		if resourceExists && versionExists &&
+			previousItem.Resource == resource {
+			continue
+		}
+		version, err := resourceContentVersion(resource)
+		if err != nil {
+			return cache.Resources{}, nil, err
+		}
+		if resourceExists && versionExists && previousVersion == version {
+			continue
+		}
+		clone()
+		if items == nil {
+			items = make(map[string]cache_types.ResourceWithTTL)
+		}
+		if versions == nil {
+			versions = make(map[string]string)
+		}
+		items[name] = cache_types.ResourceWithTTL{Resource: resource}
+		versions[name] = version
+	}
+	version := c.resourceVersion(typeURL, versions, versionContexts...)
+	if !cloned && version == previous.Version {
+		return previous, previousVersions, nil
+	}
+	return cache.Resources{Version: version, Items: items}, versions, nil
+}
+
 func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceSnapshot, error) {
 	view := cacheSnapshotResourceView{resources: &state.resources}
 	var resourceGroups typeurl.Slots[snapshotResourceGroup]
@@ -729,6 +778,60 @@ func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceS
 	return newCiliumSnapshot(resourceGroups), nil
 }
 
+func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) (cache.ResourceSnapshot, error) {
+	previousSnapshot, ok := previous.(*ciliumSnapshot)
+	if !ok || previousSnapshot == nil || !changedTypeURLs.Known() {
+		return c.generateSnapshotFromState(state)
+	}
+	regenerate := snapshotTypesChangedBy(changedTypeURLs)
+	if regenerate.Empty() {
+		return previousSnapshot, nil
+	}
+
+	view := cacheSnapshotResourceView{resources: &state.resources}
+	resourceGroups := typeurl.Slots[snapshotResourceGroup](*previousSnapshot)
+	for typeURL := range regenerate.Members() {
+		context := snapshotVersionContext(view, typeURL)
+		var revertContext string
+		if generation := state.typeStates[typeURL].revertGeneration; generation != 0 {
+			// Incremental publication must fence restored contents just like a
+			// full snapshot, even when their content-version maps are reused.
+			revertContext = fmt.Sprintf("revert:%d", generation)
+		}
+		previousGroup := previousSnapshot[typeURL]
+		changed := state.typeStates[typeURL].changedResourceNames
+		var endpointReferences set.Set[string]
+		if typeURL == typeurl.Endpoint {
+			changed = state.resources.changedEndpointResourceNames(previousSnapshot,
+				state.typeStates[typeurl.Cluster].changedResourceNames, state.typeStates[typeurl.Endpoint].changedResourceNames)
+			// Index references only if a changed name needs synthesis or removal.
+			// Scan Clusters once, not once per missing CLA (quadratic for a
+			// bulk CDS retarget). Explicit assignments need no reference lookup.
+			for name := range changed.Members() {
+				if state.resources[typeurl.Endpoint][name].resource != nil {
+					continue
+				}
+				for clusterName, entry := range state.resources[typeurl.Cluster] {
+					if assignment := clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource)); assignment != "" {
+						endpointReferences.Insert(assignment)
+					}
+				}
+				break
+			}
+		}
+		group, versions, err := c.updateResourceEntries(typeURL, changed, state.resources[typeURL], endpointReferences,
+			previousGroup.resources, previousGroup.versions, context, revertContext)
+		if err != nil {
+			return nil, err
+		}
+		resourceGroups[typeURL] = snapshotResourceGroup{
+			resources: group,
+			versions:  versions,
+		}
+	}
+	return newCiliumSnapshot(resourceGroups), nil
+}
+
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
 	return c.completionCbs
 }
@@ -757,7 +860,7 @@ func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cac
 
 // generationWait describes one ACK/NACK wait. generation is the snapshot
 // boundary needed to cover the required resource revisions, or the current
-// published boundary for a whole-TypeURL wait.
+// pending/published boundary for a whole-TypeURL wait.
 type generationWait struct {
 	callback   func(error)
 	generation callbacks.Generation
@@ -864,53 +967,34 @@ func (tx *resourceTransaction) complete() {
 	}
 }
 
-func (c *cacheImpl) registerGenerationCompletions(nodeID string, snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, waits typeURLWaits) (set.Set[*completion.Completion], []immediateCompletion) {
-	var completions set.Set[*completion.Completion]
-	// Do not preallocate: immediate completions are uncommon, and reserving
-	// capacity here adds an allocation to every resource update.
-	var immediateCompletions []immediateCompletion
-	if wg != nil && !waits.Empty() {
-		for typeURL, wait := range waits.All() {
-			owner := c.completionCbs.NewTypeGenerationCompletionOwner(nodeID, typeURL, wait.generation, wait.scope)
-			comp := wg.AddCompletionWithCallback(owner, wait.callback)
-			version := snapshot.GetVersion(typeURL.URL())
-			registered, err := c.completionCbs.AddPreparedTypeGenerationCompletion(comp, owner, version, false)
-			if !registered {
-				immediateCompletions = append(immediateCompletions, immediateCompletion{
-					comp: comp, err: err,
-				})
-				continue
-			}
-			completions.Insert(comp)
-		}
-	}
-	return completions, immediateCompletions
-}
-
-func (c *cacheImpl) registerPrepublicationCompletions(nodeID string, wg *completion.WaitGroup, waits typeURLWaits) (set.Set[*completion.Completion], []immediateCompletion) {
-	var completions set.Set[*completion.Completion]
-	// Do not preallocate: immediate completions are uncommon, and reserving
-	// capacity here adds an allocation to every resource update.
-	var immediateCompletions []immediateCompletion
+// registerGenerationCompletions uses the same prepared owner for the WaitGroup
+// and callback bookkeeping. A nil snapshot denotes unpublished changes: scope
+// revisions are filled from committed desired entries, without another node lookup.
+func (tx *resourceTransaction) registerGenerationCompletions(snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, waits typeURLWaits) {
 	if wg == nil || waits.Empty() {
-		return completions, immediateCompletions
+		return
 	}
-	state := c.getNodeState(nodeID)
-
+	c := tx.cache
 	for typeURL, wait := range waits.All() {
-		wait.scope = wait.scope.WithRevisions(func(name string) callbacks.Revision { return state.resourceWaitEntry(typeURL, name).revision })
-		owner := c.completionCbs.NewTypeGenerationCompletionOwner(nodeID, typeURL, wait.generation, wait.scope)
-		comp := wg.AddCompletionWithCallback(owner, wait.callback)
-		registered, err := c.completionCbs.AddPreparedTypeGenerationCompletion(comp, owner, "", true)
-		if !registered {
-			immediateCompletions = append(immediateCompletions, immediateCompletion{
-				comp: comp, err: err,
+		version := ""
+		if snapshot == nil {
+			wait.scope = wait.scope.WithRevisions(func(name string) callbacks.Revision {
+				return tx.state.resourceWaitEntry(typeURL, name).revision
 			})
-			continue
+		} else {
+			version = snapshot.GetVersion(typeURL.URL())
 		}
-		completions.Insert(comp)
+		owner := c.completionCbs.NewTypeGenerationCompletionOwner(tx.state.nodeID, typeURL, wait.generation, wait.scope)
+		comp := wg.AddCompletionWithCallback(owner, wait.callback)
+		registered, err := c.completionCbs.AddPreparedTypeGenerationCompletion(comp, owner, version, snapshot == nil)
+		if registered {
+			tx.registeredCompletions.Insert(comp)
+		} else {
+			// Do not preallocate: immediately satisfied waits are uncommon and
+			// reserving capacity adds an allocation to every resource update.
+			tx.immediateCompletions = append(tx.immediateCompletions, immediateCompletion{comp: comp, err: err})
+		}
 	}
-	return completions, immediateCompletions
 }
 
 type finalizedCompletion struct {
@@ -923,35 +1007,42 @@ type finalizedCompletion struct {
 // incorporate references from a changed parent type.
 // Both zero and initialized-empty sets mean that no resource types changed.
 func snapshotTypesChangedBy(changedTypeURLs typeurl.Set) typeurl.Set {
-	result := changedTypeURLs
+	regenerate := changedTypeURLs
 	if changedTypeURLs.Has(typeurl.Listener) {
-		result = result.Union(listenerDependentTypeURLs)
+		regenerate = regenerate.Union(listenerDependentTypeURLs)
 	}
 	if changedTypeURLs.Has(typeurl.Cluster) {
-		result = result.Union(clusterDependentTypeURLs)
+		regenerate = regenerate.Union(clusterDependentTypeURLs)
 	}
-	return result
+	return regenerate
 }
 
-// publishSnapshotLocked constructs and installs a snapshot for an accepted
-// mutation. The caller holds c.mutex; callbacks are completed after unlocking.
-func (c *cacheImpl) publishSnapshotLocked(ctx context.Context, nodeID string, publication snapshotPublication) ([]finalizedCompletion, error) {
+// finalizePendingPublicationLocked constructs and installs a snapshot of the
+// latest desired state for nodeID. The caller must hold c.mutex. Completion
+// resolution is returned so callbacks can run after the cache lock is released.
+func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID string) ([]finalizedCompletion, error) {
 	state := c.getNodeState(nodeID)
+	if state == nil || state.pendingPublication == nil {
+		return nil, nil
+	}
+	pending := state.pendingPublication
+
 	oldSnapshot, _ := c.SnapshotCache.GetSnapshot(nodeID)
-	newSnapshot, err := c.generateSnapshotFromState(state)
+	newSnapshot, err := c.generateSnapshotFromStateIncrementally(state, oldSnapshot, pending.changedTypeURLs)
 	if err != nil {
 		return nil, err
 	}
-
 	// SetSnapshot may synchronously queue responses. Capture this snapshot and
 	// generation in their context so delayed delivery cannot associate them
 	// with a newer publication. Commit callback metadata only after installation.
-	err = c.SnapshotCache.SetSnapshot(callbacks.WithSnapshotPublication(ctx, publication.generation, newSnapshot), nodeID, newSnapshot)
+	err = c.SnapshotCache.SetSnapshot(callbacks.WithSnapshotPublication(ctx, pending.generation, newSnapshot), nodeID, newSnapshot)
 	if err != nil {
-		// Ignore delivery errors if the intended snapshot was installed.
+		// SnapshotCache stores the snapshot before delivering watch responses. A
+		// canceled delivery may therefore return an error after publication has
+		// committed; keep generation state in that case.
 		currentSnapshot, getErr := c.SnapshotCache.GetSnapshot(nodeID)
 		// SetSnapshot stores the exact snapshot object. Equal content versions
-		// alone are not installation evidence.
+		// alone are not installation evidence, especially for a coalesced A-B-A.
 		committed := getErr == nil && currentSnapshot == newSnapshot
 		if !committed {
 			return nil, err
@@ -964,44 +1055,36 @@ func (c *cacheImpl) publishSnapshotLocked(ctx context.Context, nodeID string, pu
 	// finishes, so expose the snapshot to callbacks only once it is committed.
 	c.completionCbs.SetPublishedSnapshot(nodeID, newSnapshot)
 
-	state.snapshotGeneration = publication.generation
-	for typeURL, rollback := range publication.resourceTypes.All() {
-		if len(rollback) == 0 {
-			continue
-		}
-		versionChanged := oldSnapshot == nil ||
-			oldSnapshot.GetVersion(typeURL.URL()) != newSnapshot.GetVersion(typeURL.URL())
-		if !versionChanged {
-			state.rollbacks.release(state, typeURL, rollback)
-			continue
-		}
-		state.rollbacks.retainUnsentLocked(c, state, typeURL, publication.generation, rollback, newSnapshot)
+	state.snapshotGeneration = pending.generation
+	state.pendingPublication = nil
+	for typeURL := range typeurl.Count {
+		state.typeStates[typeURL].changedResourceNames.Clear()
 	}
-	if oldSnapshot == nil {
-		// Waits registered before a baseline exists can concern types outside
-		// this mutation. Bind all of them to the newly installed full snapshot.
-		for typeURL := range typeurl.Count {
-			if !publication.resourceTypes.Has(typeURL) {
-				publication.resourceTypes.Set(typeURL, rollbackResources{})
-			}
-		}
-	}
+	state.rollbacks.publishedLocked(c, state, pending, oldSnapshot, newSnapshot)
 	// Do not preallocate: most publications have no immediately satisfied waits,
 	// so reserving space here adds allocations to the common churn path.
 	var finalized []finalizedCompletion
-	for typeURL := range publication.resourceTypes.Keys() {
+	for typeURL := range typeurl.Count {
+		// Before a baseline exists, waits can concern types outside the unpublished
+		// mutations. Bind all of them to the newly installed full snapshot.
+		if oldSnapshot != nil && !pending.rollbacks.Has(typeURL) {
+			continue
+		}
 		version := newSnapshot.GetVersion(typeURL.URL())
 		versionChanged := oldSnapshot == nil || oldSnapshot.GetVersion(typeURL.URL()) != version
 		complete, completeErr := c.completionCbs.FinalizeTypeGeneration(
-			nodeID, typeURL, publication.generation, version, versionChanged)
+			nodeID, typeURL, pending.generation, version, versionChanged)
 		if complete {
 			finalized = append(finalized, finalizedCompletion{
-				typeURL: typeURL, generation: publication.generation, err: completeErr,
+				typeURL:    typeURL,
+				generation: pending.generation,
+				err:        completeErr,
 			})
 		}
 	}
 	return finalized, nil
 }
+
 func (c *cacheImpl) completeFinalized(nodeID string, finalized []finalizedCompletion) {
 	for _, result := range finalized {
 		c.completionCbs.CompleteCompletionsThroughGeneration(
@@ -1030,8 +1113,9 @@ func committedListenerChanges(changes resourceChanges) []ListenerChange {
 
 // ApplyResources applies sparse removals and upserts to the cache-private
 // desired state. It is the authority for semantic no-op detection, changed
-// resource names and transaction-fenced reverts. Changed transactions publish a
-// snapshot before returning; published maps remain immutable.
+// resource names and transaction-fenced reverts. Changed transactions accumulate
+// unpublished changes and construct a snapshot when a watch can consume it;
+// published maps remain immutable.
 func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) error {
 	_, err := c.applyResources(ctx, nodeID, mutations, wg, updatedTypeURLs, responseRollbackTracking)
 	return err
@@ -1253,8 +1337,9 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 }
 
 // HandleNACK uses the same transaction boundary as API mutations. Selection is
-// inside the cache lock, and the entire correction is published once. complete
-// delivers responses and invokes callbacks only after releasing that lock.
+// inside the cache lock, and the entire correction commits once, finalizing only
+// if a watch can consume it. complete delivers responses and invokes callbacks
+// only after releasing that lock.
 func (c *cacheImpl) HandleNACK(nodeID string, process func(callbacks.RevertBatch) error) error {
 	state := c.getNodeState(nodeID)
 	if state == nil {
@@ -1395,20 +1480,18 @@ type resourceUpdateOptions struct {
 	tracking rollbackTracking
 }
 
-// updateResourceChangesLocked commits one prepared mutation and publishes its
-// snapshot before returning. Caller rollback tracking retains the inverse
-// through publication; the lifecycle is created only after this succeeds.
-// Caller must hold c.mutex; post-lock work is kept on tx.
+// updateResourceChangesLocked commits one prepared mutation and optionally
+// publishes it for an open watch. Caller rollback tracking retains the inverse
+// until the caller lifecycle is created after a successful commit or publication.
+// Caller must hold the cache mutex; post-lock work is accumulated on tx.
 func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChanges, options resourceUpdateOptions, wg *completion.WaitGroup) error {
-	c := tx.cache
-	state := tx.state
+	c, state := tx.cache, tx.state
 	changedTypeURLs := changes.typeURLs()
-	dirtyTypeURLs := snapshotTypesChangedBy(changedTypeURLs)
 	oldResourceGeneration := state.resourceGeneration
 	var previousReverts typeurl.Slots[callbacks.Generation]
 	if options.tracking == noRollbackTracking {
-		// Only caller- or response-driven reverts use noRollbackTracking.
-		// Record their fresh generation for corrective versions and absence waits.
+		// Reverts assign fresh revisions; preserve the previous corrective versions
+		// in case immediate publication fails before installation.
 		for typeURL := range changedTypeURLs.Members() {
 			previousReverts[typeURL] = state.typeStates[typeURL].revertGeneration
 			state.typeStates[typeURL].revertGeneration = tx.generation
@@ -1418,29 +1501,13 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 	if options.tracking == callerAndResponseRollbackTracking {
 		state.rollbacks.acquireInverse(state, options.inverse, tx.generation.TransactionID())
 	}
-	completions, immediateCompletions := c.registerPrepublicationCompletions(
-		tx.state.nodeID, wg, options.waits)
-	publication := snapshotPublication{generation: tx.generation}
-	if options.tracking != noRollbackTracking {
-		for typeURL := range changedTypeURLs.Members() {
-			rollback := make(rollbackResources, options.inverse.len(typeURL))
-			for name, previous := range options.inverse.resources(typeURL) {
-				rollback[name] = rollbackEntry{previous: previous, expectedTransaction: tx.generation.TransactionID()}
-				if state.resources[typeURL][name].resource == nil {
-					state.typeStates[typeURL].rollbacks.addOwner(rollbackOwnerKey{name: name, transaction: tx.generation.TransactionID()})
-				}
-			}
-			publication.resourceTypes.Set(typeURL, rollback)
-		}
+	tx.registerGenerationCompletions(nil, wg, options.waits)
+	oldPending, oldPendingValue, willFinalize := state.rollbacks.preparePublicationLocked(tx, changedTypeURLs, options)
+	var finalized []finalizedCompletion
+	var err error
+	if willFinalize {
+		finalized, err = c.finalizePendingPublicationLocked(tx.ctx, state.nodeID)
 	}
-	// Record version-association-only entries for affected types without rollback.
-	// Preserve any rollback already stored for the same type.
-	for typeURL := range typeurl.Count {
-		if !publication.resourceTypes.Has(typeURL) && (dirtyTypeURLs.Has(typeURL) || options.waits.Has(typeURL)) {
-			publication.resourceTypes.Set(typeURL, rollbackResources{})
-		}
-	}
-	finalized, err := c.publishSnapshotLocked(tx.ctx, tx.state.nodeID, publication)
 	deliveries := c.collectResponseDeliveriesLocked()
 	if err != nil {
 		if options.tracking == noRollbackTracking {
@@ -1451,16 +1518,17 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		if options.tracking == callerAndResponseRollbackTracking {
 			state.rollbacks.releaseInverse(state, options.inverse, tx.generation.TransactionID())
 		}
-		// Prepared previous entries also recover failed rollback publications,
-		// without allocating inverse maps or materializing a singleton.
+		// Prepared entries recover failed publication without materializing an inverse.
 		if !changes.empty() {
 			change := changes.first
-			state.resources.commitEntry(change.typeURL, change.name, change.previous)
+			state.commitResourceEntry(change.typeURL, change.name, change.previous)
 		}
 		for _, change := range changes.more {
-			state.resources.commitEntry(change.typeURL, change.name, change.previous)
+			state.commitResourceEntry(change.typeURL, change.name, change.previous)
 		}
-		state.rollbacks.releaseSet(state, publication.resourceTypes)
+		state.rollbacks.restorePublicationLocked(state, oldPending, oldPendingValue)
+		published, _ := c.SnapshotCache.GetSnapshot(state.nodeID)
+		state.reconcileChangedResourceNames(changes, published)
 		state.resourceGeneration = oldResourceGeneration
 	} else {
 		state.resourceGeneration = tx.generation
@@ -1468,33 +1536,47 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 	}
 	tx.deliveries = deliveries
 	tx.finalized = finalized
-	tx.registeredCompletions.Merge(completions)
-	tx.immediateCompletions = append(tx.immediateCompletions, immediateCompletions...)
 	tx.updateErr = err
 	return err
 }
 
-// awaitCurrentVersionLocked registers no-op waits against published state, or
-// desired revisions if no baseline exists. Caller holds c.mutex; callbacks
-// are completed after unlocking.
+// awaitCurrentVersionLocked registers no-op waits against published or
+// unpublished desired revisions. Caller holds c.mutex; callbacks are completed
+// after unlocking.
 func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGroup, waits typeURLWaits) {
 	if wg == nil || waits.Empty() {
 		return
 	}
-	c := tx.cache
-	currentSnapshot, err := c.SnapshotCache.GetSnapshot(tx.state.nodeID)
-	var registered set.Set[*completion.Completion]
-	var immediateCompletions []immediateCompletion
-	if err != nil {
-		// Before the first publication or after ClearSnapshot, an unchanged
-		// resource still has authoritative desired state. Await its next
-		// publication rather than failing or forcing snapshot construction.
-		registered, immediateCompletions = c.registerPrepublicationCompletions(tx.state.nodeID, wg, waits)
-	} else {
-		registered, immediateCompletions = c.registerGenerationCompletions(tx.state.nodeID, currentSnapshot, wg, waits)
+	c, state := tx.cache, tx.state
+	var unpublishedWaits, publishedWaits typeURLWaits
+	for typeURL, wait := range waits.All() {
+		if state.pendingPublication != nil && state.pendingPublication.changedTypeURLs.Has(typeURL) {
+			unpublishedWaits.Set(typeURL, wait)
+		} else {
+			publishedWaits.Set(typeURL, wait)
+		}
 	}
-	tx.registeredCompletions.Merge(registered)
-	tx.immediateCompletions = append(tx.immediateCompletions, immediateCompletions...)
+	if !publishedWaits.Empty() {
+		snapshot, err := c.SnapshotCache.GetSnapshot(state.nodeID)
+		if err == nil {
+			tx.registerGenerationCompletions(snapshot, wg, publishedWaits)
+		} else {
+			// Desired state remains authoritative before a first publication or after
+			// ClearSnapshot. Register against that state without building a snapshot.
+			if state.pendingPublication == nil {
+				state.pendingPublication = &pendingPublication{
+					generation: state.resourceGeneration, changedTypeURLs: typeurl.All(), watchTypeURLs: typeurl.All(),
+				}
+			}
+			for typeURL, wait := range publishedWaits.All() {
+				unpublishedWaits.Set(typeURL, wait)
+				if !state.pendingPublication.rollbacks.Has(typeURL) {
+					state.pendingPublication.rollbacks.Set(typeURL, nil)
+				}
+			}
+		}
+	}
+	tx.registerGenerationCompletions(nil, wg, unpublishedWaits)
 }
 
 func (c *cacheImpl) ClearSnapshot(nodeID string) {
@@ -1722,11 +1804,21 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 
 	c.mutex.Lock()
 	var finalized []finalizedCompletion
-	if _, getErr := c.SnapshotCache.GetSnapshot(nodeID); getErr != nil {
-		// No snapshot exists, create one from the desired state.
-		finalized, err = c.publishSnapshotLocked(context.Background(), nodeID, snapshotPublication{
-			generation: state.resourceGeneration,
-		})
+	_, getErr := c.SnapshotCache.GetSnapshot(nodeID)
+	if getErr != nil && state.pendingPublication == nil {
+		// Known nodes own persistent desired state, not prebuilt snapshots. An
+		// initial or explicitly cleared snapshot must use that state, never a
+		// detached empty node. Reuse normal finalization even for an empty node.
+		state.pendingPublication = &pendingPublication{
+			generation:      state.resourceGeneration,
+			changedTypeURLs: typeurl.All(),
+			watchTypeURLs:   typeurl.All(),
+		}
+	}
+	if state.pendingPublication != nil && (getErr != nil || state.pendingPublication.watchTypeURLs.Has(typeURL)) {
+		// The first watch needs a complete baseline even when it requests a
+		// different type from the first mutation.
+		finalized, err = c.finalizePendingPublicationLocked(context.Background(), nodeID)
 		if err != nil {
 			deliveries := c.collectResponseDeliveriesLocked()
 			c.mutex.Unlock()
@@ -1734,6 +1826,7 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 			return nil, err
 		}
 	}
+
 	// Register before calling go-control-plane: CreateWatch may immediately
 	// queue a response rather than establish a deferred watch. Its relay keeps
 	// that response buffered until we retire the watch and release the locks.
