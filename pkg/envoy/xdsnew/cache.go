@@ -65,6 +65,36 @@ type Cache interface {
 	NetworkPolicies(nodeID string) iter.Seq2[string, *cilium.NetworkPolicy]
 	AreDifferentSnapshots(left, right cache.ResourceSnapshot) bool
 	GetCompletionCallbacks() *callbacks.CompletionCallbacks
+	// HasNode reports whether this consumer was configured at cache construction.
+	// An empty desired state remains authoritative across stream reconnects.
+	HasNode(nodeID string) bool
+}
+
+// CacheOption configures a cache before it can receive resource mutations.
+type CacheOption func(*cacheImpl)
+
+// WithNodeIDs initializes persistent desired state for the intended consumers.
+// Requests and mutations cannot introduce additional nodes. Empty IDs are not
+// valid xDS consumers and are ignored. No snapshots are generated here.
+func WithNodeIDs(nodeIDs ...string) CacheOption {
+	return func(c *cacheImpl) {
+		for _, nodeID := range nodeIDs {
+			if nodeID != "" && !c.HasNode(nodeID) {
+				c.nodeStates.Insert(&nodeState{nodeID: nodeID})
+			}
+		}
+	}
+}
+
+// nodeState owns desired resources and watch tracking for a consumer configured
+// at cache construction. It persists even with no resources or connected streams.
+// Apart from the immutable nodeID, its fields are protected by cacheImpl.mutex.
+type nodeState struct {
+	nodeID string
+	// resources holds the immutable desired resources, protected by the cache
+	// lock. A nil pointer represents an empty desired state, not an unknown node.
+	resources   *xds.Resources
+	openWatches nodeWatchState
 }
 
 type cacheImpl struct {
@@ -76,13 +106,15 @@ type cacheImpl struct {
 	// locks. Tracked response sends must not wait for a stream consumer while
 	// either lock is held.
 	mutex *lock.RWMutex
-	// resourcesInSnapshot holds the last set of resources (keyed by nodeID) pushed to Envoy.
-	resourcesInSnapshot map[string]*xds.Resources
-	openWatches         map[string]*nodeWatchState
-	watchRelays         map[chan cache.Response]*watchRelay
-	logger              *slog.Logger
-	hasher              hash.Hash32
-	completionCbs       *callbacks.CompletionCallbacks
+	// nodeStates is immutable after construction, so membership and nodeID reads
+	// need no cache lock. The usual single local node is stored inline by Set.
+	nodeStates set.Set[*nodeState]
+	// A response channel can serve watches from several nodes, so relays are
+	// channel-owned rather than belonging to any one nodeState.
+	watchRelays   map[chan cache.Response]*watchRelay
+	logger        *slog.Logger
+	hasher        hash.Hash32
+	completionCbs *callbacks.CompletionCallbacks
 }
 
 // nodeWatchState indexes open watches by resource type. Each type can have
@@ -106,7 +138,7 @@ type watchRelay struct {
 }
 
 type trackedWatch struct {
-	nodeID  string
+	state   *nodeState
 	typeURL typeurl.Index
 	request *cache.Request
 	relay   *watchRelay
@@ -278,19 +310,21 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 	}
 }
 
-func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
+func NewCache(logger *slog.Logger, strictAdsMode bool, options ...CacheOption) Cache {
 	snapshotCache := cache.NewSnapshotCache(strictAdsMode, cache.IDHash{}, snapshotCacheLogger(logger))
 
-	return &cacheImpl{
-		SnapshotCache:       snapshotCache,
-		mutex:               &lock.RWMutex{},
-		resourcesInSnapshot: make(map[string]*xds.Resources),
-		openWatches:         make(map[string]*nodeWatchState),
-		watchRelays:         make(map[chan cache.Response]*watchRelay),
-		logger:              logger,
-		hasher:              fnv.New32a(),
-		completionCbs:       callbacks.NewCompletionCallbacks(logger),
+	c := &cacheImpl{
+		SnapshotCache: snapshotCache,
+		mutex:         &lock.RWMutex{},
+		watchRelays:   make(map[chan cache.Response]*watchRelay),
+		logger:        logger,
+		hasher:        fnv.New32a(),
+		completionCbs: callbacks.NewCompletionCallbacks(logger),
 	}
+	for _, option := range options {
+		option(c)
+	}
+	return c
 }
 
 func (c *cacheImpl) hash(resources map[string]string) string {
@@ -693,15 +727,24 @@ func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
 }
 
 func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
+	state := c.getNodeState(nodeID)
+	if state == nil {
+		c.logger.Warn("Cannot set resources for an unknown xDS node", logfields.NodeID, nodeID)
+		return
+	}
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	c.resourcesInSnapshot[nodeID] = resources
+	state.resources = resources
 }
 
-// SetSnapshot serializes publication with watch registration and cancellation.
-// Response handoff happens after both cache locks have been released.
+// SetSnapshot serializes publication and hands off responses only after both
+// cache locks have been released.
 func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot) error {
 	c.mutex.Lock()
+	if !c.HasNode(nodeID) {
+		c.mutex.Unlock()
+		return fmt.Errorf("unknown xDS node %q", nodeID)
+	}
 	err := c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot)
 	// Collect even on error: go-control-plane may already have installed the
 	// snapshot and queued some responses before failing a later delivery.
@@ -712,6 +755,9 @@ func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cac
 }
 
 func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFuncs map[string]func()) error {
+	if !c.HasNode(nodeID) {
+		return fmt.Errorf("unknown xDS node %q", nodeID)
+	}
 	type immediateCompletion struct {
 		comp                      *completion.Completion
 		typeURL                   string
@@ -782,7 +828,7 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 	if err != nil {
 		// go-control-plane stores a snapshot before delivering responses and can
 		// return an error after the new snapshot is already observable. Treat that
-		// case as committed so callback ordering and resourcesInSnapshot stay in
+		// case as committed so callback ordering and desired resources stay in
 		// sync with the underlying cache.
 		currentSnapshot, getErr := c.GetSnapshot(nodeID)
 		committed := getErr == nil && !c.AreDifferentSnapshots(currentSnapshot, newSnapshot)
@@ -815,10 +861,11 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 func (c *cacheImpl) ClearSnapshot(nodeID string) {
 	c.mutex.Lock()
 	c.SnapshotCache.ClearSnapshot(nodeID)
-	c.resourcesInSnapshot[nodeID] = &xds.Resources{}
+	// Clearing delivery state does not forget a known consumer or its desired
+	// resources. A later watch republishes those resources.
 	var cancels []func()
-	if state := c.openWatches[nodeID]; state != nil {
-		for _, watches := range state.All() {
+	if state := c.getNodeState(nodeID); state != nil {
+		for _, watches := range state.openWatches.All() {
 			for watch := range watches.Members() {
 				if watch.cancel != nil {
 					cancels = append(cancels, watch.cancel)
@@ -854,24 +901,19 @@ func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRe
 	return relay
 }
 
-func (c *cacheImpl) addTrackedWatchLocked(request *cache.Request, typeURL typeurl.Index, responseChannel chan cache.Response) *trackedWatch {
+func (c *cacheImpl) addTrackedWatchLocked(state *nodeState, request *cache.Request, typeURL typeurl.Index, responseChannel chan cache.Response) *trackedWatch {
 	relay := c.relayForLocked(responseChannel)
 	watch := &trackedWatch{
-		nodeID:  request.GetNode().GetId(),
+		state:   state,
 		typeURL: typeURL,
 		request: request,
 		relay:   relay,
 	}
-	state := c.openWatches[watch.nodeID]
-	if state == nil {
-		state = &nodeWatchState{}
-		c.openWatches[watch.nodeID] = state
-	}
-	watches, _ := state.Get(watch.typeURL)
+	watches, _ := state.openWatches.Get(watch.typeURL)
 	watches.Insert(watch)
 	// Sets are stored by value; persist the header when their representation
 	// changes between an inline singleton and a map.
-	state.Set(watch.typeURL, watches)
+	state.openWatches.Set(watch.typeURL, watches)
 	relay.watches.Insert(watch)
 	return watch
 }
@@ -880,18 +922,14 @@ func (c *cacheImpl) removeTrackedWatchLocked(watch *trackedWatch) {
 	if watch == nil {
 		return
 	}
-	if state := c.openWatches[watch.nodeID]; state != nil {
-		watches, exists := state.Get(watch.typeURL)
-		if exists {
-			watches.Remove(watch)
-			if watches.Empty() {
-				state.Remove(watch.typeURL)
-			} else {
-				state.Set(watch.typeURL, watches)
-			}
-		}
-		if state.Empty() {
-			delete(c.openWatches, watch.nodeID)
+	state := watch.state
+	watches, exists := state.openWatches.Get(watch.typeURL)
+	if exists {
+		watches.Remove(watch)
+		if watches.Empty() {
+			state.openWatches.Remove(watch.typeURL)
+		} else {
+			state.openWatches.Set(watch.typeURL, watches)
 		}
 	}
 	if watch.relay != nil {
@@ -971,11 +1009,34 @@ func (c *cacheImpl) deliverResponses(deliveries []responseDelivery) {
 	}
 }
 
+// getNodeState scans the immutable known-node set. Cilium normally serves only
+// its local node, avoiding a map allocation and string hash for that case.
+func (c *cacheImpl) getNodeState(nodeID string) *nodeState {
+	for state := range c.nodeStates.Members() {
+		if state.nodeID == nodeID {
+			return state
+		}
+	}
+	return nil
+}
+
+// HasNode uses desired-state ownership, not publication or connection state,
+// to identify the consumers configured at construction. The node index is
+// immutable after construction, so membership reads need no cache lock.
+func (c *cacheImpl) HasNode(nodeID string) bool {
+	return c.getNodeState(nodeID) != nil
+}
+
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
 	if request == nil {
 		return nil, errors.New("nil xDS request")
 	}
-	if request.GetNode() == nil || sub == nil {
+	nodeID := request.GetNode().GetId()
+	state := c.getNodeState(nodeID)
+	if state == nil {
+		return nil, fmt.Errorf("unknown xDS node %q", nodeID)
+	}
+	if sub == nil {
 		return c.SnapshotCache.CreateWatch(request, sub, respChan)
 	}
 	typeURL, supported := typeurl.FromURL(request.GetTypeUrl())
@@ -1012,6 +1073,27 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	}
 
 	c.mutex.Lock()
+	if _, getErr := c.SnapshotCache.GetSnapshot(nodeID); getErr != nil {
+		// No snapshot exists, create one from the desired state.
+		var snapshot cache.ResourceSnapshot
+		snapshot, err = c.GenerateSnapshot(state.resources, c.logger)
+		if err == nil {
+			err = c.SnapshotCache.SetSnapshot(context.Background(), nodeID, snapshot)
+			if err != nil {
+				// Ignore delivery errors if the intended snapshot was installed.
+				current, getErr := c.SnapshotCache.GetSnapshot(nodeID)
+				if getErr == nil && !c.AreDifferentSnapshots(current, snapshot) {
+					err = nil
+				}
+			}
+		}
+		if err != nil {
+			deliveries := c.collectResponseDeliveriesLocked()
+			c.mutex.Unlock()
+			c.deliverResponses(deliveries)
+			return nil, err
+		}
+	}
 	// Register before calling go-control-plane: CreateWatch may immediately
 	// queue a response rather than establish a deferred watch. Its relay keeps
 	// that response buffered until we retire the watch and release the locks.
@@ -1019,7 +1101,7 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	// rules: go-control-plane withholds a named response unless the request names
 	// include every resource of that type in the snapshot. Disjoint subscriptions
 	// on separate streams can therefore be tracked without receiving responses.
-	watch := c.addTrackedWatchLocked(request, typeURL, respChan)
+	watch := c.addTrackedWatchLocked(state, request, typeURL, respChan)
 	watch.cancel, err = c.SnapshotCache.CreateWatch(request, sub, watch.relay.inner)
 	if err != nil {
 		c.removeTrackedWatchLocked(watch)
@@ -1036,16 +1118,23 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 func (c *cacheImpl) GetAllResources(nodeID string) *xds.Resources {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	return c.resourcesInSnapshot[nodeID]
+	if state := c.getNodeState(nodeID); state != nil {
+		return state.resources
+	}
+	return nil
 }
 
 func (c *cacheImpl) GetResource(nodeID string, typeURL typeurl.Index, resourceName string) (cache_types.Resource, bool) {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	resources := c.resourcesInSnapshot[nodeID]
-	if resources == nil {
+	return c.getNodeState(nodeID).getResource(typeURL, resourceName)
+}
+
+func (state *nodeState) getResource(typeURL typeurl.Index, resourceName string) (cache_types.Resource, bool) {
+	if state == nil || state.resources == nil {
 		return nil, false
 	}
+	resources := state.resources
 	switch typeURL {
 	case typeurl.Endpoint:
 		if resource := resources.Endpoints[resourceName]; resource != nil {
@@ -1083,8 +1172,8 @@ func (c *cacheImpl) Listeners(nodeID string) iter.Seq2[string, *envoy_config_lis
 	return func(yield func(string, *envoy_config_listener.Listener) bool) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
-		if resources := c.resourcesInSnapshot[nodeID]; resources != nil {
-			for name, resource := range resources.Listeners {
+		if state := c.getNodeState(nodeID); state != nil && state.resources != nil {
+			for name, resource := range state.resources.Listeners {
 				if resource != nil && !yield(name, resource) {
 					return
 				}
@@ -1097,8 +1186,8 @@ func (c *cacheImpl) Routes(nodeID string) iter.Seq2[string, *envoy_config_route.
 	return func(yield func(string, *envoy_config_route.RouteConfiguration) bool) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
-		if resources := c.resourcesInSnapshot[nodeID]; resources != nil {
-			for name, resource := range resources.Routes {
+		if state := c.getNodeState(nodeID); state != nil && state.resources != nil {
+			for name, resource := range state.resources.Routes {
 				if resource != nil && !yield(name, resource) {
 					return
 				}
@@ -1111,8 +1200,8 @@ func (c *cacheImpl) NetworkPolicies(nodeID string) iter.Seq2[string, *cilium.Net
 	return func(yield func(string, *cilium.NetworkPolicy) bool) {
 		c.mutex.RLock()
 		defer c.mutex.RUnlock()
-		if resources := c.resourcesInSnapshot[nodeID]; resources != nil {
-			for name, resource := range resources.NetworkPolicies {
+		if state := c.getNodeState(nodeID); state != nil && state.resources != nil {
+			for name, resource := range state.resources.NetworkPolicies {
 				if resource != nil && !yield(name, resource) {
 					return
 				}

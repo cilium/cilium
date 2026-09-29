@@ -182,6 +182,8 @@ func newNPHDSIPCacheListenerCallbacks(logger *slog.Logger, ipCache IPCacheEventS
 		StreamRequestFunc: func(_ int64, req *discovery.DiscoveryRequest) error {
 			if req.GetTypeUrl() == NetworkPolicyHostsTypeURL {
 				once.Do(func() {
+					// AddListener synchronously dumps the existing mappings before
+					// CreateWatch can answer this first, already validated request.
 					startNPHDSIPCacheListener(logger, ipCache, store)
 				})
 			}

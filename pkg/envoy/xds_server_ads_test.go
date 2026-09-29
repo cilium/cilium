@@ -50,6 +50,20 @@ func GetLocalEndpointStoreForTest() *LocalEndpointStore {
 	}
 }
 
+func newTestADSServer(t testing.TB, logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
+	t.Helper()
+	server, err := newADSServer(logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
+	require.NoError(t, err)
+	return server
+}
+
+func newTestADSServerWithCache(t testing.TB, cache xdsnew.Cache, logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) *adsServer {
+	t.Helper()
+	server, err := newADSServerWithCache(cache, logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
+	require.NoError(t, err)
+	return server
+}
+
 var (
 	DEFAULT_CLA = envoy_config_endpoint.ClusterLoadAssignment{
 		ClusterName: "cluster1",
@@ -265,13 +279,25 @@ func TestNewADSServer(t *testing.T) {
 		metrics:              nil,
 	}
 
-	server := newADSServer(logger, nil, nil, config, nil, nil)
+	server := newTestADSServer(t, logger, nil, nil, config, nil, nil)
 
 	require.NotNil(t, server)
 	require.NotNil(t, server.logger)
 	require.NotNil(t, &server.cache)
 	assert.NotEmpty(t, server.socketPath)
 	assert.NotEmpty(t, server.accessLogPath)
+	require.True(t, server.cache.HasNode(localNodeID))
+	_, err := server.cache.GetSnapshot(localNodeID)
+	require.Error(t, err, "construction must not generate an unused snapshot")
+	require.Empty(t, cachedListeners(server.cache, localNodeID))
+}
+
+func TestNewADSServerRequiresKnownLocalNode(t *testing.T) {
+	logger := slog.New(slog.DiscardHandler)
+	cache := xdsnew.NewCache(logger, false)
+	server, err := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	require.ErrorContains(t, err, "is not initialized")
+	require.Nil(t, server, "a server without initialized local state must not be exposed")
 }
 
 func TestAddListener(t *testing.T) {
@@ -281,9 +307,9 @@ func TestAddListener(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 
-	cache := xdsnew.NewCache(logger, true)
+	cache := newADSCache(logger, true)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	wg := completion.NewWaitGroup(ctx)
@@ -324,8 +350,8 @@ func TestAddListenerCompletesCallbackOnACK(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 	wg := completion.NewWaitGroup(ctx)
 	t.Cleanup(wg.Cancel)
@@ -367,9 +393,9 @@ func TestAddListenerCompletesCallbackOnACK(t *testing.T) {
 
 func TestAddListenerDuringRestoreWaitsForACK(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cache := xdsnew.NewCache(logger, true)
+	cache := newADSCache(logger, true)
 	_, restorerPromise := promise.New[endpointstate.Restorer]()
-	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, restorerPromise)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, restorerPromise)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
 
@@ -389,8 +415,8 @@ func TestAddListenerDuringRestoreWaitsForACK(t *testing.T) {
 
 func TestADSNACKRevertsOnlyRejectedResourceType(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 	ctx := t.Context()
 
 	tracked := xds.NewResources()
@@ -436,8 +462,8 @@ func TestADSNACKRevertsOnlyRejectedResourceType(t *testing.T) {
 
 func TestADSNACKRevertsUnchangedResourcesIndividually(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
 	first := xds.NewResources()
 	first.Listeners["l1"] = &envoy_config_listener.Listener{Name: "l1"}
@@ -487,8 +513,8 @@ func TestADSNACKRevertsUnchangedResourcesIndividually(t *testing.T) {
 
 func TestADSNACKDoesNotRevertSupersededResource(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
 	first := xds.NewResources()
 	first.Listeners["l1"] = &envoy_config_listener.Listener{
@@ -572,8 +598,8 @@ func TestStrictADSNACKRestoresSnapshotConsistency(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-			cache := xdsnew.NewCache(logger, true)
-			server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
+			cache := newADSCache(logger, true)
+			server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{
 				envoyXDSMode: config.EnvoyXDSModeStrictADS,
 			}, nil, nil)
 			wg := completion.NewWaitGroup(t.Context())
@@ -606,8 +632,8 @@ func TestStrictADSNACKRestoresSnapshotConsistency(t *testing.T) {
 
 func TestStrictADSClusterNACKRollsBackEndpointUpdate(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{
 		envoyXDSMode: config.EnvoyXDSModeStrictADS,
 	}, nil, nil)
 
@@ -640,8 +666,8 @@ func TestStrictADSClusterNACKRollsBackEndpointUpdate(t *testing.T) {
 
 func TestStrictADSEndpointNACKKeepsCluster(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{
 		envoyXDSMode: config.EnvoyXDSModeStrictADS,
 	}, nil, nil)
 
@@ -686,8 +712,8 @@ func TestAddListenerWithoutWaitGroupCallsCallback(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	var calls atomic.Int32
@@ -706,9 +732,9 @@ func TestAddAdminListener(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 
-	cache := xdsnew.NewCache(logger, true)
+	cache := newADSCache(logger, true)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 	wg := completion.NewWaitGroup(ctx)
 
@@ -743,9 +769,9 @@ func TestAddMetricsListener(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 
-	cache := xdsnew.NewCache(logger, true)
+	cache := newADSCache(logger, true)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 	wg := completion.NewWaitGroup(ctx)
 
@@ -777,9 +803,9 @@ func TestRemoveListener(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
+	cache := newADSCache(logger, true)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 	wg := completion.NewWaitGroup(ctx)
 
@@ -798,8 +824,8 @@ func TestRemoveListener(t *testing.T) {
 
 func TestRemoveListenerReferenceCount(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 	ctx := t.Context()
 
 	require.NoError(t, server.AddListener(ctx, "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil, nil))
@@ -819,9 +845,9 @@ func TestUpsertEnvoyResources(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
+	cache := newADSCache(logger, true)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
@@ -846,9 +872,9 @@ func TestUpdateEnvoyResources(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 	}
 
-	cache := xdsnew.NewCache(logger, true)
+	cache := newADSCache(logger, true)
 
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	oldResources := DEFAULT_RESOURCES
@@ -1001,8 +1027,8 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 						policyRestoreTimeout: 30 * time.Second,
 						envoyXDSMode:         mode.mode,
 					}
-					cache := xdsnew.NewCache(logger, mode.strict)
-					server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+					cache := newADSCache(logger, mode.strict)
+					server := newTestADSServerWithCache(t, cache, logger, nil, nil, serverConfig, nil, nil)
 
 					oldResources := adsTestResources(addressChange.oldListener)
 					require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
@@ -1048,9 +1074,9 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 
 func TestUpdateEnvoyResourcesDuringRestoreDoesNotStageListenerDeletion(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cache := xdsnew.NewCache(logger, false)
+	cache := newADSCache(logger, false)
 	_, restorerPromise := promise.New[endpointstate.Restorer]()
-	server := newADSServerWithCache(cache, logger, nil, nil, xdsServerConfig{}, nil, restorerPromise)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, restorerPromise)
 
 	oldResources := adsTestResources(adsTestListener(80, 8443))
 	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
@@ -1080,8 +1106,8 @@ func TestUpdateEnvoyResourcesRestoresListenerWhenDeletionTimesOut(t *testing.T) 
 		policyRestoreTimeout: 30 * time.Second,
 		envoyXDSMode:         config.EnvoyXDSModeADS,
 	}
-	cache := xdsnew.NewCache(logger, false)
-	server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+	cache := newADSCache(logger, false)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, serverConfig, nil, nil)
 
 	oldResources := adsTestResources(adsTestListener(80, 8443))
 	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
@@ -1104,8 +1130,8 @@ func TestUpdateEnvoyResourcesRestoresListenerWhenReplacementIsRejected(t *testin
 		policyRestoreTimeout: 30 * time.Second,
 		envoyXDSMode:         config.EnvoyXDSModeADS,
 	}
-	cache := xdsnew.NewCache(logger, false)
-	server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+	cache := newADSCache(logger, false)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, serverConfig, nil, nil)
 
 	oldResources := adsTestResources(adsTestListener(80, 8443))
 	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
@@ -1144,8 +1170,8 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 		policyRestoreTimeout: 30 * time.Second,
 		envoyXDSMode:         config.EnvoyXDSModeADS,
 	}
-	cache := xdsnew.NewCache(logger, false)
-	server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
+	cache := newADSCache(logger, false)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, serverConfig, nil, nil)
 
 	oldResources := adsTestResources(adsTestListener(80, 8443))
 	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
@@ -1194,8 +1220,8 @@ func TestUpdateEnvoyResourcesWithoutExplicitCallbackDoesNotWaitForCDSOrRDS(t *te
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -1221,8 +1247,8 @@ func TestUpdateEnvoyResourcesWaitsForListenerACKWithPortAllocationCallback(t *te
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -1273,8 +1299,8 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -1345,8 +1371,8 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -1390,8 +1416,8 @@ func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testi
 		policyRestoreTimeout: 30 * time.Second,
 		envoyXDSMode:         config.EnvoyXDSModeStrictADS,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 
 	resources := xds.NewResources()
 	resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
@@ -1406,8 +1432,8 @@ func TestDeleteEnvoyResources(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	xdsResources := xds.Resources{
@@ -1428,6 +1454,9 @@ func TestDeleteEnvoyResources(t *testing.T) {
 	requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "endpoint1")
 	requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
+	snapshot, err := cache.GetSnapshot(localNodeID)
+	require.NoError(t, err)
+	require.Empty(t, snapshot.GetResources(ListenerTypeURL))
 
 	// Add some resources and then delete them.
 	err = server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
@@ -1460,8 +1489,8 @@ func TestGetNetworkPolicies(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, config, nil, nil)
 	ctx := context.Background()
 
 	server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
@@ -1492,8 +1521,8 @@ func TestUpdateNetworkPolicy(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
 	assert.NoError(t, err)
@@ -1528,8 +1557,8 @@ func TestUpdateNetworkPolicyWithoutNPDSListenersCompletesImmediately(t *testing.
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 	require.NoError(t, server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil))
 	require.True(t, server.npdsListeners.Empty())
@@ -1551,9 +1580,9 @@ func TestUpdateNetworkPolicyWithoutNPDSListenersCompletesImmediately(t *testing.
 
 func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	cache := xdsnew.NewCache(logger, true)
+	cache := newADSCache(logger, true)
 	_, restorerPromise := promise.New[endpointstate.Restorer]()
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), restorerPromise)
+	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), restorerPromise)
 
 	resources := xds.NewResources()
 	resources.Listeners["npds-listener"] = server.getListenerConf("npds-listener", policy.ParserTypeHTTP, 12345, false, false)
@@ -1604,8 +1633,8 @@ func TestUpdateNetworkPolicyWithNPDSListenerWaitsForACK(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 
 	resources := xds.NewResources()
@@ -1636,8 +1665,8 @@ func TestNPDSListenerTrackingFromBulkResources(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 
 	resources := xds.NewResources()
@@ -1664,8 +1693,8 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, nil, nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), config, nil, nil)
 
 	ctx := context.Background()
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
@@ -1690,8 +1719,8 @@ func TestRemoveNetworkPoliciesIndividually(t *testing.T) {
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
 	}
-	cache := xdsnew.NewCache(logger, true)
-	server := newADSServerWithCache(cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
+	cache := newADSCache(logger, true)
+	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), config, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
 	assert.NoError(t, err)
@@ -1803,7 +1832,7 @@ func TestStartAdsGRPCServerWithRestorerSuccess(t *testing.T) {
 	}
 
 	resolver, restorerPromise := promise.New[endpointstate.Restorer]()
-	server := newADSServer(logger, nil, nil, config, nil, restorerPromise)
+	server := newTestADSServer(t, logger, nil, nil, config, nil, restorerPromise)
 
 	ctx := t.Context()
 
@@ -1834,7 +1863,7 @@ func TestStartAdsGRPCServerWithRestorerDeadlineExceeded(t *testing.T) {
 	}
 
 	resolver, restorerPromise := promise.New[endpointstate.Restorer]()
-	server := newADSServer(logger, nil, nil, config, nil, restorerPromise)
+	server := newTestADSServer(t, logger, nil, nil, config, nil, restorerPromise)
 
 	ctx := t.Context()
 
@@ -1864,7 +1893,7 @@ func TestStartAdsGRPCServerWithRestorerCanceled(t *testing.T) {
 	}
 
 	resolver, restorerPromise := promise.New[endpointstate.Restorer]()
-	server := newADSServer(logger, nil, nil, config, nil, restorerPromise)
+	server := newTestADSServer(t, logger, nil, nil, config, nil, restorerPromise)
 
 	ctx := t.Context()
 
@@ -1887,7 +1916,7 @@ func TestStartAdsGRPCServerWithNilRestorerPromise(t *testing.T) {
 		policyRestoreTimeout: 5 * time.Second,
 	}
 
-	server := newADSServer(logger, nil, nil, config, nil, nil)
+	server := newTestADSServer(t, logger, nil, nil, config, nil, nil)
 
 	ctx := t.Context()
 
@@ -1914,7 +1943,7 @@ func TestStartAdsGRPCServerContextCanceledBeforeResolve(t *testing.T) {
 	}
 
 	_, restorerPromise := promise.New[endpointstate.Restorer]()
-	server := newADSServer(logger, nil, nil, config, nil, restorerPromise)
+	server := newTestADSServer(t, logger, nil, nil, config, nil, restorerPromise)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
