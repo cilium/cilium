@@ -3436,6 +3436,206 @@ func TestMapState_passValidation(t *testing.T) {
 	}
 }
 
+// TestMapState_lookupSpecificAndAggregate checks that when a flow matches both an entry with the
+// specific remote identity and an entry with the aggregate identity of that remote identity,
+// lookup() selects the same entry as the bpf datapath (__policy_can_access() in
+// bpf/lib/policy.h):
+//
+//  1. The specific-identity entry is selected if it has the highest possible precedence (a
+//     priority 0 deny), without looking at the aggregate entry.
+//  2. Otherwise, the entry with the higher precedence is selected.
+//  3. On the same precedence, the entry with the longer L4 prefix is selected.
+//  4. If the L4 prefixes are equally long, the specific-identity entry is selected.
+//
+// The entries are labeled, since two allow entries without a proxy redirect are otherwise
+// indistinguishable, but the selected entry is what policy verdict correlation (e.g., Hubble)
+// reports the flow as being allowed by.
+func TestMapState_lookupSpecificAndAggregate(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	// An in-cluster identity and its aggregate identity.
+	id := identity.NumericIdentity(1001)
+	agg := identity.ReservedIdentityAggregateCluster
+	require.Equal(t, agg, aggregateFor(id))
+
+	specificLabels := labels.LabelArrayList{labels.ParseLabelArray("rule=specific")}
+	aggregateLabels := labels.LabelArrayList{labels.ParseLabelArray("rule=aggregate")}
+
+	// Flow to 'id' on TCP port 80.
+	flow := egressKey(id, 6, 80, 16)
+
+	tests := []struct {
+		name     string
+		idKey    Key
+		idEntry  mapStateEntry
+		aggKey   Key
+		aggEntry mapStateEntry
+		wantAgg  bool // true if the datapath selects the aggregate entry
+	}{
+		{
+			name:     "allow: aggregate has the more specific L4 (ANY vs. TCP/80)",
+			idKey:    egressKey(id, 0, 0, 0),
+			idEntry:  allowEntry(),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: allowEntry(),
+			wantAgg:  true,
+		},
+		{
+			name:     "allow: aggregate has the more specific L4 (TCP/ANY vs. TCP/80)",
+			idKey:    egressKey(id, 6, 0, 0),
+			idEntry:  allowEntry(),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: allowEntry(),
+			wantAgg:  true,
+		},
+		{
+			name:     "allow: aggregate has the more specific L4 (TCP/80-81 vs. TCP/80)",
+			idKey:    egressKey(id, 6, 80, 15),
+			idEntry:  allowEntry(),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: allowEntry(),
+			wantAgg:  true,
+		},
+		{
+			name:     "allow: specific has the more specific L4 (TCP/80 vs. ANY)",
+			idKey:    egressKey(id, 6, 80, 16),
+			idEntry:  allowEntry(),
+			aggKey:   egressKey(agg, 0, 0, 0),
+			aggEntry: allowEntry(),
+			wantAgg:  false,
+		},
+		{
+			name:     "allow: specific has the more specific L4 (TCP/80 vs. TCP/ANY)",
+			idKey:    egressKey(id, 6, 80, 16),
+			idEntry:  allowEntry(),
+			aggKey:   egressKey(agg, 6, 0, 0),
+			aggEntry: allowEntry(),
+			wantAgg:  false,
+		},
+		{
+			name:     "allow: equally specific L4 (TCP/80)",
+			idKey:    egressKey(id, 6, 80, 16),
+			idEntry:  allowEntry(),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: allowEntry(),
+			wantAgg:  false,
+		},
+		{
+			name:     "allow: equally specific L4 (ANY)",
+			idKey:    egressKey(id, 0, 0, 0),
+			idEntry:  allowEntry(),
+			aggKey:   egressKey(agg, 0, 0, 0),
+			aggEntry: allowEntry(),
+			wantAgg:  false,
+		},
+		{
+			name:     "proxy redirects with the same listener priority: aggregate has the more specific L4",
+			idKey:    egressKey(id, 6, 0, 0),
+			idEntry:  proxyEntryHTTP(1111),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: proxyEntryHTTP(2222),
+			wantAgg:  true,
+		},
+		{
+			name:     "proxy redirects with the same listener priority: specific has the more specific L4",
+			idKey:    egressKey(id, 6, 80, 16),
+			idEntry:  proxyEntryHTTP(1111),
+			aggKey:   egressKey(agg, 6, 0, 0),
+			aggEntry: proxyEntryHTTP(2222),
+			wantAgg:  false,
+		},
+		{
+			name:     "higher precedence: specific proxy redirect over aggregate allow with the more specific L4",
+			idKey:    egressKey(id, 6, 0, 0),
+			idEntry:  proxyEntryHTTP(1111),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: allowEntry(),
+			wantAgg:  false,
+		},
+		{
+			name:     "higher precedence: aggregate proxy redirect over specific allow with the more specific L4",
+			idKey:    egressKey(id, 6, 80, 16),
+			idEntry:  allowEntry(),
+			aggKey:   egressKey(agg, 6, 0, 0),
+			aggEntry: proxyEntryHTTP(2222),
+			wantAgg:  true,
+		},
+		{
+			name:     "higher precedence: specific allow on a higher priority over aggregate allow with the more specific L4",
+			idKey:    egressKey(id, 0, 0, 0),
+			idEntry:  allowEntry().withLevel(5),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: allowEntry().withLevel(10),
+			wantAgg:  false,
+		},
+		{
+			name:     "higher precedence: aggregate allow on a higher priority over specific allow with the more specific L4",
+			idKey:    egressKey(id, 6, 80, 16),
+			idEntry:  allowEntry().withLevel(10),
+			aggKey:   egressKey(agg, 0, 0, 0),
+			aggEntry: allowEntry().withLevel(5),
+			wantAgg:  true,
+		},
+		{
+			name:     "higher precedence: specific deny over aggregate allow with the more specific L4",
+			idKey:    egressKey(id, 0, 0, 0),
+			idEntry:  denyEntry(),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: allowEntry(),
+			wantAgg:  false,
+		},
+		{
+			name:     "higher precedence: aggregate deny over specific allow with the more specific L4",
+			idKey:    egressKey(id, 6, 80, 16),
+			idEntry:  allowEntry(),
+			aggKey:   egressKey(agg, 0, 0, 0),
+			aggEntry: denyEntry(),
+			wantAgg:  true,
+		},
+		{
+			name:     "priority 0 denies: specific is selected even if aggregate has the more specific L4",
+			idKey:    egressKey(id, 0, 0, 0),
+			idEntry:  denyEntry(),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: denyEntry(),
+			wantAgg:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			idEntry := tt.idEntry.withLabels(specificLabels)
+			aggEntry := tt.aggEntry.withLabels(aggregateLabels)
+
+			// Test setup: both entries must match the flow on their own.
+			for _, e := range []struct {
+				key   Key
+				entry mapStateEntry
+			}{{tt.idKey, idEntry}, {tt.aggKey, aggEntry}} {
+				ms := emptyMapState(logger)
+				ms.insert(e.key, e.entry)
+				got, found := ms.lookup(flow)
+				require.True(t, found, "test setup: %s does not match flow %s", e.key, flow)
+				require.Equal(t, e.entry.MapStateEntry, got.MapStateEntry)
+			}
+
+			ms := emptyMapState(logger)
+			ms.insert(tt.idKey, idEntry)
+			ms.insert(tt.aggKey, aggEntry)
+
+			want := idEntry
+			if tt.wantAgg {
+				want = aggEntry
+			}
+			got, found := ms.lookup(flow)
+			require.True(t, found)
+			require.Equal(t, want.derivedFromRules.Value().LabelArray(), got.derivedFromRules.Value().LabelArray(),
+				"lookup() selected a different entry than the datapath would.\nMapState:\n%s", ms)
+			require.Equal(t, want.MapStateEntry, got.MapStateEntry)
+		})
+	}
+}
+
 func permutations(arr []int) [][]int {
 	var helper func([]int, int)
 	res := [][]int{}

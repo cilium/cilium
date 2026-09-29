@@ -1451,6 +1451,83 @@ func TestRuleLog(t *testing.T) {
 
 }
 
+// TestRuleLogSpecificAndAggregateEntries checks that a flow that is allowed by both a rule
+// selecting the remote endpoint and a rule selecting all endpoints, but with different L4 matches,
+// is attributed to the rule of the policy map entry that the bpf datapath selects: the one with the
+// more specific L4 match.
+func TestRuleLogSpecificAndAggregateEntries(t *testing.T) {
+	flowAToB90 := types.Flow{From: idA, To: idB, Proto: u8proto.TCP, Dport: 90}
+
+	egressRule := func(to api.EndpointSelector, port string, log string) *api.Rule {
+		rule := &api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Egress: []api.EgressRule{{
+				EgressCommonRule: api.EgressCommonRule{
+					ToEndpoints: []api.EndpointSelector{to},
+				},
+			}},
+			Log: api.LogConfig{Value: log},
+		}
+		if port != "" {
+			rule.Egress[0].ToPorts = api.PortRules{{
+				Ports: []api.PortProtocol{{Port: port, Protocol: api.ProtoTCP}},
+			}}
+		}
+		return rule
+	}
+
+	type check struct {
+		flow    types.Flow
+		wantLog []string
+	}
+	tests := []struct {
+		name   string
+		rules  api.Rules
+		checks []check
+	}{
+		{
+			// Entries: (b, ANY) and (aggregate, TCP/80)
+			name: "rule selecting all endpoints has the more specific L4",
+			rules: api.Rules{
+				egressRule(endpointSelectorB, "", "b-any-port"),
+				egressRule(api.WildcardEndpointSelector, "80", "all-tcp-80"),
+			},
+			checks: []check{
+				{flowAToB, []string{"all-tcp-80"}},
+				{flowAToB90, []string{"b-any-port"}},
+				{flowAToC, []string{"all-tcp-80"}},
+			},
+		},
+		{
+			// Entries: (b, TCP/80) and (aggregate, ANY)
+			name: "rule selecting the remote endpoint has the more specific L4",
+			rules: api.Rules{
+				egressRule(endpointSelectorB, "80", "b-tcp-80"),
+				egressRule(api.WildcardEndpointSelector, "", "all-any-port"),
+			},
+			checks: []check{
+				{flowAToB, []string{"b-tcp-80"}},
+				{flowAToB90, []string{"all-any-port"}},
+				{flowAToC, []string{"all-any-port"}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			td := newTestData(t, hivetest.Logger(t)).withIDs(ruleTestIDs)
+			td.repo.MustAddList(tt.rules)
+
+			for _, c := range tt.checks {
+				verdict, egress, _, err := LookupFlow(td.repo.logger, td.repo, td.identityManager, c.flow)
+				require.NoError(t, err)
+				require.True(t, verdict.Allowed(), "flow %d -> %d port %d", c.flow.From.ID, c.flow.To.ID, c.flow.Dport)
+				require.Equal(t, c.wantLog, egress.Log(), "flow %d -> %d port %d", c.flow.From.ID, c.flow.To.ID, c.flow.Dport)
+			}
+		})
+	}
+}
+
 var (
 	labelsA = labels.LabelArray{
 		labels.NewLabel("id", "a", labels.LabelSourceK8s),
