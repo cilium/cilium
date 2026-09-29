@@ -31,14 +31,15 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 const (
 	// NetworkPolicyTypeURL is the type URL of NetworkPolicy resources.
-	NetworkPolicyTypeURL      = "type.googleapis.com/cilium.NetworkPolicy"
-	NetworkPolicyHostsTypeURL = "type.googleapis.com/cilium.NetworkPolicyHosts"
+	NetworkPolicyTypeURL      = typeurl.NetworkPolicyURL
+	NetworkPolicyHostsTypeURL = typeurl.NetworkPolicyHostsURL
 	logFieldComponent         = "component"
 )
 
@@ -68,12 +69,17 @@ type cacheImpl struct {
 
 var _ Cache = &cacheImpl{}
 
+// snapshotResourceGroup keeps a resource type's published resources and
+// per-resource versions together. Versions are populated on demand while
+// snapshots are still generated eagerly.
+type snapshotResourceGroup struct {
+	resources cache.Resources
+	versions  map[string]string
+}
+
 // ciliumSnapshot implements go-control-plane's ResourceSnapshot interface for
 // both Envoy core resources and Cilium-specific xDS resources.
-type ciliumSnapshot struct {
-	Resources  map[string]cache.Resources
-	VersionMap map[string]map[string]string
-}
+type ciliumSnapshot typeurl.Slots[snapshotResourceGroup]
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
 var _ cache.ResourceSnapshot = &ciliumSnapshot{}
@@ -89,22 +95,17 @@ var snapshotResourceTypes = []envoy_resource.Type{
 	NetworkPolicyHostsTypeURL,
 }
 
-func newCiliumSnapshot(resources map[string]cache.Resources) *ciliumSnapshot {
-	w := &ciliumSnapshot{
-		Resources: make(map[string]cache.Resources, len(snapshotResourceTypes)),
-	}
-	for _, typeURL := range snapshotResourceTypes {
-		w.Resources[typeURL] = resources[typeURL]
-	}
-	return w
+func newCiliumSnapshot(resourceGroups typeurl.Slots[snapshotResourceGroup]) *ciliumSnapshot {
+	snapshot := ciliumSnapshot(resourceGroups)
+	return &snapshot
 }
 
-func (w *ciliumSnapshot) GetVersion(typeURL string) string {
-	group, ok := w.Resources[typeURL]
+func (w *ciliumSnapshot) GetVersion(typeURLString string) string {
+	typeURL, ok := typeurl.FromURL(typeURLString)
 	if !ok {
 		return ""
 	}
-	return group.Version
+	return w[typeURL].resources.Version
 }
 
 func (w *ciliumSnapshot) GetResources(typeURL string) map[string]cache_types.Resource {
@@ -119,44 +120,45 @@ func (w *ciliumSnapshot) GetResources(typeURL string) map[string]cache_types.Res
 	return out
 }
 
-func (w *ciliumSnapshot) GetResourcesAndTTL(typeURL string) map[string]cache_types.ResourceWithTTL {
-	group, ok := w.Resources[typeURL]
+func (w *ciliumSnapshot) GetResourcesAndTTL(typeURLString string) map[string]cache_types.ResourceWithTTL {
+	typeURL, ok := typeurl.FromURL(typeURLString)
 	if !ok {
 		return nil
 	}
-	return group.Items
+	return w[typeURL].resources.Items
 }
 
 func (w *ciliumSnapshot) ConstructVersionMap() error {
 	if w == nil {
 		return fmt.Errorf("missing snapshot")
 	}
-	if w.VersionMap != nil {
-		return nil
-	}
-
-	w.VersionMap = make(map[string]map[string]string, len(w.Resources))
-	for typeURL, group := range w.Resources {
-		if len(group.Items) == 0 {
+	for typeURL := range typeurl.Indices() {
+		group := &w[typeURL]
+		if len(group.resources.Items) == 0 || group.versions != nil {
 			continue
 		}
-		w.VersionMap[typeURL] = make(map[string]string, len(group.Items))
-		for name, resource := range group.Items {
+		versions := make(map[string]string, len(group.resources.Items))
+		for name, resource := range group.resources.Items {
 			marshaledResource, err := cache.MarshalResource(resource.Resource)
 			if err != nil {
 				return err
 			}
-			w.VersionMap[typeURL][name] = cache.HashResource(marshaledResource)
+			versions[name] = cache.HashResource(marshaledResource)
 		}
+		group.versions = versions
 	}
 	return nil
 }
 
-func (w *ciliumSnapshot) GetVersionMap(typeURL string) map[string]string {
-	if w == nil || w.VersionMap == nil {
+func (w *ciliumSnapshot) GetVersionMap(typeURLString string) map[string]string {
+	if w == nil {
 		return nil
 	}
-	return w.VersionMap[typeURL]
+	typeURL, ok := typeurl.FromURL(typeURLString)
+	if !ok {
+		return nil
+	}
+	return w[typeURL].versions
 }
 
 func (w *ciliumSnapshot) Consistent() error {
@@ -165,8 +167,9 @@ func (w *ciliumSnapshot) Consistent() error {
 	}
 
 	var resourceGroups [cache_types.UnknownType]cache.Resources
-	for typeURL, resources := range w.Resources {
-		responseType := cache.GetResponseType(envoy_resource.Type(typeURL))
+	for typeURL := range typeurl.Indices() {
+		resources := w[typeURL].resources
+		responseType := cache.GetResponseType(envoy_resource.Type(typeURL.URL()))
 		if responseType == cache_types.UnknownType {
 			continue
 		}
@@ -576,20 +579,21 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 		secrets[name] = r
 	}
 
-	resourceGroups := map[string]map[string]cache_types.Resource{
-		envoy_resource.EndpointType: endpoints,
-		envoy_resource.ClusterType:  clusters,
-		envoy_resource.RouteType:    routes,
-		envoy_resource.ListenerType: listeners,
-		envoy_resource.SecretType:   secrets,
-		NetworkPolicyTypeURL:        networkPolicies,
-		NetworkPolicyHostsTypeURL:   networkPolicyHosts,
+	resourceGroups := typeurl.Slots[map[string]cache_types.Resource]{
+		typeurl.Endpoint:           endpoints,
+		typeurl.Cluster:            clusters,
+		typeurl.Route:              routes,
+		typeurl.Listener:           listeners,
+		typeurl.Secret:             secrets,
+		typeurl.NetworkPolicy:      networkPolicies,
+		typeurl.NetworkPolicyHosts: networkPolicyHosts,
 	}
 
-	versionedResources := make(map[string]cache.Resources, len(resourceGroups))
-	for typeURL, resourceMap := range resourceGroups {
+	var versionedResources typeurl.Slots[snapshotResourceGroup]
+	for typeURL := range typeurl.Indices() {
+		resourceMap := resourceGroups[typeURL]
 		var versionContext string
-		if typeURL == envoy_resource.EndpointType {
+		if typeURL == typeurl.Endpoint {
 			// Envoy creates one EDS subscription per EDS-backed cluster. A new
 			// parent can request a dependent resource that the ADS stream has already
 			// seen at the current version, so go-control-plane may open the new watch
@@ -597,18 +601,18 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 			// in dependent resource versions so new subscriptions receive the current
 			// resource immediately.
 			versionContext = edsClusterReferenceVersionContext(resources)
-		} else if typeURL == envoy_resource.RouteType {
+		} else if typeURL == typeurl.Route {
 			versionContext = rdsListenerReferenceVersionContext(resources)
-		} else if typeURL == envoy_resource.SecretType {
+		} else if typeURL == typeurl.Secret {
 			versionContext = sdsReferenceVersionContext(resources)
-		} else if typeURL == envoy_resource.ClusterType {
+		} else if typeURL == typeurl.Cluster {
 			versionContext = listenerClusterReferenceVersionContext(resources)
 		}
-		version, err := c.resourceVersion(typeURL, resourceMap, versionContext)
+		version, err := c.resourceVersion(typeURL.URL(), resourceMap, versionContext)
 		if err != nil {
 			return nil, err
 		}
-		versionedResources[typeURL] = resourceGroup(version, resourceMap)
+		versionedResources[typeURL].resources = resourceGroup(version, resourceMap)
 	}
 
 	return newCiliumSnapshot(versionedResources), nil
