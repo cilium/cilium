@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -456,9 +457,30 @@ func TestCheckSnapshotConsistencyRejectsMissingEndpoint(t *testing.T) {
 	require.NoError(t, err)
 	generatedSnapshot, ok := snap.(*ciliumSnapshot)
 	require.True(t, ok)
-	generatedSnapshot.Resources[envoy_resource.EndpointType] = cache.Resources{Version: "missing-endpoints"}
+	generatedSnapshot[typeurl.Endpoint].resources = cache.Resources{Version: "missing-endpoints"}
 
 	require.ErrorContains(t, CheckSnapshotConsistency(snap), envoy_resource.EndpointType)
+}
+
+func TestCiliumSnapshotIndexedResourceVersionMaps(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false).(*cacheImpl)
+	resources := emptyResources()
+	resources.NetworkPolicies["np1"] = &cilium.NetworkPolicy{EndpointId: 1}
+
+	snapshot, err := c.GenerateSnapshot(resources, c.logger)
+	require.NoError(t, err)
+	require.Equal(t, resources.NetworkPolicies["np1"], snapshot.GetResources(NetworkPolicyTypeURL)["np1"])
+	require.Nil(t, snapshot.GetVersionMap(NetworkPolicyTypeURL))
+	require.Empty(t, snapshot.GetVersion("type.googleapis.com/unknown.Resource"))
+	require.Nil(t, snapshot.GetResourcesAndTTL("type.googleapis.com/unknown.Resource"))
+
+	require.NoError(t, snapshot.ConstructVersionMap())
+	marshaled, err := cache.MarshalResource(resources.NetworkPolicies["np1"])
+	require.NoError(t, err)
+	require.Equal(t, cache.HashResource(marshaled), snapshot.GetVersionMap(NetworkPolicyTypeURL)["np1"])
+	require.Nil(t, snapshot.GetVersionMap(envoy_resource.EndpointType))
+	require.Nil(t, snapshot.GetVersionMap("type.googleapis.com/unknown.Resource"))
+	require.NoError(t, snapshot.ConstructVersionMap())
 }
 
 func TestNewCache(t *testing.T) {
