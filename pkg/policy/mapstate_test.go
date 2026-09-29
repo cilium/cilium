@@ -3198,6 +3198,30 @@ func TestMapState_lookupSpecificAndAggregate(t *testing.T) {
 			aggEntry: denyEntry(),
 			wantAgg:  false,
 		},
+		{
+			name:     "denies on the same priority: aggregate has the more specific L4",
+			idKey:    egressKey(id, 0, 0, 0),
+			idEntry:  denyEntry().withLevel(5),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: denyEntry().withLevel(5),
+			wantAgg:  true,
+		},
+		{
+			name:     "denies on the same priority: specific has the more specific L4",
+			idKey:    egressKey(id, 6, 80, 16),
+			idEntry:  denyEntry().withLevel(5),
+			aggKey:   egressKey(agg, 0, 0, 0),
+			aggEntry: denyEntry().withLevel(5),
+			wantAgg:  false,
+		},
+		{
+			name:     "denies on the same priority: equally specific L4",
+			idKey:    egressKey(id, 6, 80, 16),
+			idEntry:  denyEntry().withLevel(5),
+			aggKey:   egressKey(agg, 6, 80, 16),
+			aggEntry: denyEntry().withLevel(5),
+			wantAgg:  false,
+		},
 	}
 
 	for _, tt := range tests {
