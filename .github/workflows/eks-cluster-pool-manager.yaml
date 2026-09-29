@@ -231,13 +231,25 @@ jobs:
             if [ -n "${eip_info}" ]; then
               ALLOCATION_ID=$(echo "${eip_info}" | jq -r '.[0]')
 
-              aws ec2 release-address \
+              # eksctl tags the address "<stack>/NATIP".
+              STACK=$(echo "${eip_info}" | jq -r '.[1] | split("/")[0]')
+              STATUS=$(aws cloudformation describe-stacks \
                 --region "${REGION}" \
-                --allocation-id "${ALLOCATION_ID}" || {
-                echo "Failed to release EIP ${ALLOCATION_ID}, continuing..."
-              }
+                --stack-name "${STACK}" \
+                --query 'Stacks[0].StackStatus' \
+                --output text 2>/dev/null || echo "GONE")
+              if [[ "${STATUS}" == *_IN_PROGRESS ]]; then
+                echo "Skipping EIP ${ALLOCATION_ID}: stack ${STACK} is ${STATUS}"
+                continue
+              fi
 
-              echo "Successfully released EIP: ${ALLOCATION_ID}"
+              if aws ec2 release-address \
+                --region "${REGION}" \
+                --allocation-id "${ALLOCATION_ID}"; then
+                echo "Successfully released EIP: ${ALLOCATION_ID}"
+              else
+                echo "Failed to release EIP ${ALLOCATION_ID}, continuing..."
+              fi
             fi
           done
 
