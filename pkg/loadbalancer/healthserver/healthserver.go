@@ -9,10 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
 	"strconv"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -62,7 +64,12 @@ type healthServerParams struct {
 // responds with 200 OK if there are local endpoints for the service, or with
 // 503 Service Unavailable if the service does not have any local endpoints.
 type healthServer struct {
-	params           healthServerParams
+	params healthServerParams
+
+	// mu guards serverByPort. The control loop is the only writer, but
+	// listener jobs read the map to validate that they are still the
+	// registered listener for their port before (re)binding.
+	mu               sync.Mutex
 	serverByPort     map[uint16]*httpHealthServer
 	portByService    map[lb.ServiceName]uint16
 	nodeName         string
@@ -229,7 +236,9 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 				}
 			}
 		}
+		s.mu.Lock()
 		health.OK(fmt.Sprintf("%d health servers running", len(s.serverByPort)))
+		s.mu.Unlock()
 
 		select {
 		case <-ctx.Done():
@@ -240,7 +249,9 @@ func (s *healthServer) controlLoop(ctx context.Context, health cell.Health) erro
 }
 
 func (s *healthServer) addListener(svc *lb.Service, port uint16) {
+	s.mu.Lock()
 	if srv, exists := s.serverByPort[port]; exists {
+		s.mu.Unlock()
 		s.params.Log.Warn("HealthServer: Listener already exists",
 			logfields.Port, port,
 			logfields.New, svc.Name,
@@ -264,25 +275,17 @@ func (s *healthServer) addListener(svc *lb.Service, port uint16) {
 		Addr:    bindAddr,
 		Handler: srv,
 	}
+	// Register the server before starting its job: the job validates that
+	// its server is still the registered one before binding, so the map
+	// entry must be visible first.
+	s.serverByPort[port] = srv
+	s.mu.Unlock()
+
 	s.params.Jobs.Add(
 		job.OneShot(
 			fmt.Sprintf("listener-%d", port),
 			func(ctx context.Context, health cell.Health) error {
-				errs := make(chan error, 1)
-				go func() {
-					defer close(errs)
-					errs <- srv.ListenAndServe()
-				}()
-				defer srv.Shutdown(ctx)
-				select {
-				case <-ctx.Done():
-					return nil
-				case err := <-errs:
-					if !errors.Is(err, http.ErrServerClosed) {
-						return err
-					}
-				}
-				return nil
+				return s.serveListener(ctx, srv, port)
 			},
 			job.WithRetry(-1, &job.ExponentialBackoff{
 				Min: 200 * time.Millisecond,
@@ -290,13 +293,64 @@ func (s *healthServer) addListener(svc *lb.Service, port uint16) {
 			}),
 		),
 	)
-	s.serverByPort[port] = srv
+}
+
+// serveListener runs the HTTP health server for a single HealthCheckNodePort.
+//
+// The job is retried indefinitely (WithRetry(-1)) since the port may become
+// available later, but it must only ever run while its server is the one
+// registered in serverByPort. A stale job whose server was removed or
+// replaced would otherwise race the current listener's bind, and whichever
+// side loses keeps retrying "address already in use" forever without anyone
+// left to cancel it (see #47024).
+func (s *healthServer) serveListener(ctx context.Context, srv *httpHealthServer, port uint16) error {
+	// Hold mu across the registration check and the bind. A concurrent
+	// removeListener then either runs first (and this job observes that it
+	// is no longer registered and never binds) or runs after the bind (and
+	// its Shutdown reliably tears down the listener created here).
+	s.mu.Lock()
+	if s.serverByPort[port] != srv {
+		s.mu.Unlock()
+		// Replaced or removed while this job was waiting to (re)try.
+		// Leave the port to the registered listener.
+		return nil
+	}
+	ln, err := net.Listen("tcp", srv.Addr)
+	s.mu.Unlock()
+	if err != nil {
+		return err
+	}
+
+	errs := make(chan error, 1)
+	go func() {
+		defer close(errs)
+		errs <- srv.Serve(ln)
+	}()
+	defer srv.Shutdown(ctx)
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errs:
+		if !errors.Is(err, http.ErrServerClosed) {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *healthServer) removeListener(ctx context.Context, port uint16) {
-	if srv, ok := s.serverByPort[port]; ok {
-		srv.shutdown(ctx)
+	s.mu.Lock()
+	srv, ok := s.serverByPort[port]
+	if ok {
 		delete(s.serverByPort, port)
+	}
+	s.mu.Unlock()
+	if ok {
+		// Shutdown outside of mu: it blocks until connections drain, and
+		// any pending serveListener retry for this port will now observe
+		// that the server is no longer registered and exit instead of
+		// rebinding.
+		srv.shutdown(ctx)
 	}
 }
 
