@@ -47,9 +47,10 @@ must not prevent a later Envoy NACK from correcting the cache.
 
 `ApplyResource` takes a resource type, name, and protobuf; nil removes the resource.
 `ApplyResources` accepts sparse transactions containing Listeners (LDS), Routes
-(RDS), Clusters (CDS), Endpoints (EDS), and Secrets (SDS). NetworkPolicies (NPDS) and
-NetworkPolicyHosts (NPHDS) use the single-resource API, so one transaction cannot
-mix Listener and NetworkPolicy changes.
+(RDS), Clusters (CDS), Endpoints (EDS), and Secrets (SDS). Its `xds.Resources` input
+excludes NetworkPolicies (NPDS) and NetworkPolicyHosts (NPHDS), which use the
+single-resource API. One transaction therefore cannot mix Listener and
+NetworkPolicy changes.
 
 Callers may supply a WaitGroup to wait for Envoy's response. Only the
 `WithRollback` variants also return a caller lifecycle, on which the caller

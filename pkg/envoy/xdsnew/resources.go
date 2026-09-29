@@ -272,12 +272,6 @@ func validateResourceMapNames[V any](removed, upserted map[string]V) error {
 
 func validateResourceMutations(mutations ResourceMutations) error {
 	removed, upserted := mutations.Removed, mutations.Upserted
-	// Network policies are updated through ApplyResource, not bulk Envoy
-	// transactions. Keep the legacy input fields from silently dropping them.
-	if len(removed.NetworkPolicies) != 0 || len(upserted.NetworkPolicies) != 0 ||
-		len(removed.NetworkPolicyHosts) != 0 || len(upserted.NetworkPolicyHosts) != 0 {
-		return errors.New("network policies are not supported in bulk resource mutations")
-	}
 	if err := validateResourceMapNames(removed.Listeners, upserted.Listeners); err != nil {
 		return err
 	}
