@@ -35,6 +35,7 @@ import (
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -720,23 +721,23 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 func (s *adsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	// Host proxy uses "127.0.0.1" as the nodeID
-	resources := s.cache.GetAllResources(localNodeID)
-
-	policies := resources.NetworkPolicies
+	// Key by IP address to match the old implementation's contract. Callers
+	// expect map keys to be endpoint IP addresses, not endpoint IDs.
+	result := make(map[string]*cilium.NetworkPolicy)
 	if len(resourceNames) > 0 {
-		policies = make(map[string]*cilium.NetworkPolicy, len(resourceNames))
 		for _, name := range resourceNames {
-			if policy, ok := resources.NetworkPolicies[name]; ok {
-				policies[name] = policy
+			resource, exists := s.cache.GetResource(localNodeID, typeurl.NetworkPolicy, name)
+			if !exists {
+				continue
+			}
+			policy := resource.(*cilium.NetworkPolicy)
+			for _, ip := range policy.EndpointIps {
+				result[ip] = policy
 			}
 		}
+		return result, nil
 	}
-
-	// Key by IP address to match the old implementation's contract.
-	// Callers expect map keys to be endpoint IP addresses, not endpoint IDs.
-	result := make(map[string]*cilium.NetworkPolicy, len(policies))
-	for _, policy := range policies {
+	for _, policy := range s.cache.NetworkPolicies(localNodeID) {
 		for _, ip := range policy.EndpointIps {
 			result[ip] = policy
 		}
