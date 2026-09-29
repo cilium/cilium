@@ -46,7 +46,7 @@ type AzureAPI interface {
 // by calling Resync() regularly.
 type InstancesManager struct {
 	logger *slog.Logger
-	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
+	// resyncLock keeps incremental resync and cache updates out of a full API resync
 	resyncLock lock.RWMutex
 
 	// usePrimary mirrors the --azure-use-primary-address operator flag; when
@@ -234,6 +234,9 @@ func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) 
 
 // DeleteInstance delete instance from m.instances
 func (m *InstancesManager) DeleteInstance(instanceID string) {
+	m.resyncLock.RLock()
+	defer m.resyncLock.RUnlock()
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.instances.Delete(instanceID)

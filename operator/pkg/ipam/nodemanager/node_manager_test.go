@@ -63,6 +63,9 @@ type allocationImplementationMock struct {
 	// hasInstance is returned by HasInstance to simulate an instance being
 	// present in or dropped from the instance cache.
 	hasInstance bool
+
+	// deleteInstanceHook, when set, runs inside DeleteInstance.
+	deleteInstanceHook func()
 }
 
 func newAllocationImplementationMock() *allocationImplementationMock {
@@ -121,6 +124,9 @@ func (a *allocationImplementationMock) setHasInstance(hasInstance bool) {
 }
 
 func (a *allocationImplementationMock) DeleteInstance(instanceID string) {
+	if a.deleteInstanceHook != nil {
+		a.deleteInstanceHook()
+	}
 }
 
 type nodeOperationsMock struct {
@@ -575,6 +581,59 @@ func (k *k8sMock) Get(node string) (*v2.CiliumNode, error) {
 
 func (k *k8sMock) Create(*v2.CiliumNode) (*v2.CiliumNode, error) {
 	return &v2.CiliumNode{}, nil
+}
+
+// TestNodeManagerDeleteInstanceWithoutMutex blocks DeleteInstance, as an in-flight
+// full resync does, and checks that Delete has already released the NodeManager mutex.
+func TestNodeManagerDeleteInstanceWithoutMutex(t *testing.T) {
+	am := newAllocationImplementationMock()
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
+	require.NoError(t, err)
+
+	node1 := newCiliumNode("node-foo", 0, 0, 0)
+	node1.Spec.InstanceID = "i-testNodeManagerDeleteInstanceWithoutMutex"
+	mngr.Upsert(node1)
+	require.NotNil(t, mngr.Get("node-foo"))
+
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	am.deleteInstanceHook = func() {
+		close(entered)
+		<-release
+	}
+	deleted := make(chan struct{})
+	go func() {
+		defer close(deleted)
+		mngr.Delete(node1)
+	}()
+
+	select {
+	case <-entered:
+	case <-time.After(10 * time.Second):
+		close(release)
+		t.Fatal("Delete did not reach DeleteInstance within 10s")
+	}
+
+	got := make(chan bool, 1)
+	go func() {
+		mngr.InstancesAPIIsReady()
+		got <- mngr.Get("node-foo") == nil
+	}()
+	select {
+	case ok := <-got:
+		require.True(t, ok, "node-foo is still known while its instance is being deleted")
+	case <-time.After(10 * time.Second):
+		close(release)
+		<-deleted
+		t.Fatal("the NodeManager mutex is held while DeleteInstance waits")
+	}
+
+	close(release)
+	select {
+	case <-deleted:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Delete did not return within 10s of DeleteInstance returning")
+	}
 }
 
 func newCiliumNode(node string, preAllocate, minAllocate, used int) *v2.CiliumNode {

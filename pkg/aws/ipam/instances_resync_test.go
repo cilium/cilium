@@ -133,3 +133,29 @@ func TestFullResyncKeepsConcurrentENIUpdate(t *testing.T) {
 
 	require.ElementsMatch(t, []string{attachedENI, createdENI}, cachedENIIDs(instances, instanceID))
 }
+
+// TestFullResyncKeepsConcurrentInstanceDelete deletes an instance inside a full resync's fetch window.
+func TestFullResyncKeepsConcurrentInstanceDelete(t *testing.T) {
+	const instanceID = "i-testFullResyncKeepsConcurrentInstanceDelete"
+
+	ec2api := apiMock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
+	hooked := &hookedEC2API{EC2API: ec2api}
+	instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), hooked, metadataMockapi)
+	require.NoError(t, err)
+
+	eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 4, testSubnet.ID, "desc", []string{"sg-1"}, false, false)
+	require.NoError(t, err)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID)
+	require.NoError(t, err)
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
+	require.True(t, instances.HasInstance(instanceID))
+
+	runDuringFullResync(t, hooked, instances,
+		func() error { return nil },
+		func() {
+			instances.DeleteInstance(instanceID)
+		})
+
+	require.False(t, instances.HasInstance(instanceID))
+}

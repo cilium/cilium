@@ -84,3 +84,19 @@ func TestFullResyncKeepsConcurrentENIUpdate(t *testing.T) {
 
 	require.ElementsMatch(t, append(before, createdENI), cachedENIIDs(mngr, instanceID))
 }
+
+// TestFullResyncKeepsConcurrentInstanceDelete deletes an instance inside a full resync's fetch window.
+func TestFullResyncKeepsConcurrentInstanceDelete(t *testing.T) {
+	const instanceID = "i-1"
+
+	_, hooked, mngr := newHookedInstancesManager(t)
+	require.True(t, mngr.HasInstance(instanceID))
+
+	runDuringFullResync(t, hooked, mngr,
+		func() error { return nil },
+		func() {
+			mngr.DeleteInstance(instanceID)
+		})
+
+	require.False(t, mngr.HasInstance(instanceID))
+}
