@@ -121,7 +121,8 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 
 	var xdsServer runnableXDSServer
 	if params.EnvoyProxyConfig.ADSModeEnabled() {
-		xdsServer = newADSServer(
+		var err error
+		xdsServer, err = newADSServer(
 			params.Logger,
 			params.IPCache,
 			params.LocalEndpointStore,
@@ -129,6 +130,9 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			params.SecretManager,
 			params.RestorerPromise,
 		)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		xdsServer = newXDSServer(
 			params.Logger,

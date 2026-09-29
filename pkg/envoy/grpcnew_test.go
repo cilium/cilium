@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -19,13 +20,16 @@ import (
 	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
-	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -35,11 +39,7 @@ func newTestADSClient(t *testing.T, server *adsServer) discovery.AggregatedDisco
 	transport := bufconn.Listen(1024 * 1024)
 	t.Cleanup(func() { require.NoError(t, transport.Close()) })
 	grpcServer := grpc.NewServer()
-	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, envoy_server.NewServer(t.Context(), server.cache, callbacks.ChainedCallbacks{
-		callbacks.LoggingCallbacks{Log: server.logger},
-		server.cache.GetCompletionCallbacks(),
-		newNPHDSIPCacheListenerCallbacks(server.logger, server.ipCache, server),
-	},
+	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, envoy_server.NewServer(t.Context(), server.cache, server.newCallbacks(),
 		sotw.WithOrderedADS(),
 		sotw.DeactivateLegacyWildcardForTypes([]string{EndpointTypeURL, RouteTypeURL, SecretTypeURL}),
 	))
@@ -75,7 +75,7 @@ func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
 		},
 	} {
 		t.Run(test.typeURL.URL(), func(t *testing.T) {
-			server := newADSServer(hivetest.Logger(t), nil, nil, xdsServerConfig{}, nil, nil)
+			server := newTestADSServer(t, hivetest.Logger(t), nil, nil, xdsServerConfig{}, nil, nil)
 			client := newTestADSClient(t, server)
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
@@ -151,9 +151,115 @@ func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
 	}
 }
 
+func TestADSRejectsUnknownNodes(t *testing.T) {
+	for _, strictADS := range []bool{false, true} {
+		mode := config.EnvoyXDSModeADS
+		if strictADS {
+			mode = config.EnvoyXDSModeStrictADS
+		}
+		t.Run(string(mode), func(t *testing.T) {
+			ipCache := &mockIPCacheEventSource{}
+			server := newTestADSServer(t, hivetest.Logger(t), ipCache, nil, xdsServerConfig{envoyXDSMode: mode}, nil, nil)
+			client := newTestADSClient(t, server)
+			for _, test := range []struct {
+				name string
+				node *core.Node
+				code codes.Code
+			}{
+				{"unknown", &core.Node{Id: "unknown-node"}, codes.NotFound},
+				{"empty", &core.Node{}, codes.InvalidArgument},
+				{"missing", nil, codes.InvalidArgument},
+			} {
+				t.Run(test.name, func(t *testing.T) {
+					ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+					defer cancel()
+					stream, err := client.StreamAggregatedResources(ctx)
+					require.NoError(t, err)
+					require.NoError(t, stream.Send(&discovery.DiscoveryRequest{Node: test.node, TypeUrl: NetworkPolicyHostsTypeURL}))
+					_, err = stream.Recv()
+					require.Equal(t, test.code, status.Code(err))
+					require.Nil(t, server.cache.GetStatusInfo(test.node.GetId()), "rejected requests must not create watches")
+					_, err = server.cache.GetSnapshot(test.node.GetId())
+					require.Error(t, err, "rejected requests must not create snapshots")
+				})
+			}
+			require.Zero(t, ipCache.listenerCount, "rejected NPHDS requests must not start the IPCache listener")
+			require.Zero(t, server.cache.GetCompletionCallbacks().PendingCompletionCount())
+		})
+	}
+}
+
+func TestADSKnownNodeEmptyStateAndReconnect(t *testing.T) {
+	server := newTestADSServer(t, hivetest.Logger(t), nil, nil, xdsServerConfig{}, nil, nil)
+	client := newTestADSClient(t, server)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	stream, err := client.StreamAggregatedResources(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
+		Node: &core.Node{Id: localNodeID}, TypeUrl: ListenerTypeURL, VersionInfo: "stale-version",
+	}))
+	empty, err := stream.Recv()
+	require.NoError(t, err)
+	require.Empty(t, empty.GetResources())
+	require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
+		// A subsequent request can omit Node; go-control-plane retains it.
+		TypeUrl: ListenerTypeURL, VersionInfo: empty.GetVersionInfo(), ResponseNonce: empty.GetNonce(),
+	}))
+	resources := xds.NewResources()
+	resources.Listeners["listener"] = &listener.Listener{Name: "listener"}
+	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+	added, err := stream.Recv()
+	require.NoError(t, err)
+	require.Len(t, added.GetResources(), 1)
+	require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
+		TypeUrl: ListenerTypeURL, VersionInfo: added.GetVersionInfo(), ResponseNonce: added.GetNonce(),
+	}))
+	require.NoError(t, server.DeleteEnvoyResources(t.Context(), resources, nil))
+	removed, err := stream.Recv()
+	require.NoError(t, err)
+	require.Empty(t, removed.GetResources())
+	cancel()
+
+	ctx, cancel = context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	stream, err = client.StreamAggregatedResources(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
+		Node: &core.Node{Id: localNodeID}, TypeUrl: ListenerTypeURL, VersionInfo: added.GetVersionInfo(),
+	}))
+	reconnected, err := stream.Recv()
+	require.NoError(t, err)
+	require.Empty(t, reconnected.GetResources(), "the empty local node remains known across disconnects")
+}
+
+func TestADSRecognizesInitializedNodes(t *testing.T) {
+	const nodeID = "another-known-node"
+	logger := hivetest.Logger(t)
+	cache := xdsnew.NewCache(logger, false, xdsnew.WithNodeIDs(localNodeID, nodeID))
+	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	resources := xds.NewResources()
+	resources.Listeners["listener"] = &listener.Listener{Name: "listener"}
+	snapshot, err := server.cache.GenerateSnapshot(&resources, server.logger)
+	require.NoError(t, err)
+	require.NoError(t, server.cache.SetSnapshot(t.Context(), nodeID, snapshot))
+	client := newTestADSClient(t, server)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	stream, err := client.StreamAggregatedResources(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&discovery.DiscoveryRequest{Node: &core.Node{Id: nodeID}, TypeUrl: ListenerTypeURL}))
+	response, err := stream.Recv()
+	require.NoError(t, err)
+	require.Len(t, response.GetResources(), 1, "initialized node state, not the local node ID, establishes a known node")
+	stored, err := server.cache.GetSnapshot(nodeID)
+	require.NoError(t, err)
+	require.Same(t, snapshot, stored, "serving a known node must not replace its seeded snapshot")
+}
+
 func TestADSGRPCServerStopsOnContextCancel(t *testing.T) {
 	logger := hivetest.Logger(t)
-	server := newADSServer(logger, nil, nil, xdsServerConfig{
+	server := newTestADSServer(t, logger, nil, nil, xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		proxyGID:             os.Getgid(),
 		policyRestoreTimeout: time.Second,

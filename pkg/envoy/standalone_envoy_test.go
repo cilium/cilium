@@ -282,7 +282,7 @@ func TestEnvoyAds(t *testing.T) {
 	flowdebug.Enable()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -413,7 +413,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -546,7 +546,7 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -679,7 +679,7 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelWarn))
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1385,7 +1385,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1507,7 +1507,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1607,7 +1607,7 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1704,7 +1704,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1807,7 +1807,7 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
