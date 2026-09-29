@@ -11,6 +11,7 @@ import (
 	"maps"
 	"net/http"
 	"net/netip"
+	"slices"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v12"
@@ -40,6 +41,8 @@ type AzureAPI interface {
 	ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.InstanceMap
 	ListVMNetworkInterfaces(ctx context.Context, instanceID string) ([]*armnetwork.Interface, error)
 	ParseInterfacesIntoInstance(networkInterfaces []*armnetwork.Interface, subnets ipamTypes.SubnetMap) *ipamTypes.Instance
+	UnassignPrivateIpAddressesVM(ctx context.Context, interfaceName string, addresses []netip.Addr) error
+	UnassignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, interfaceName string, addresses []netip.Addr) error
 }
 
 // InstancesManager maintains the list of instances. It must be kept up to date
@@ -73,7 +76,7 @@ func NewInstancesManager(logger *slog.Logger, api AzureAPI, usePrimary bool) *In
 
 // CreateNode is called on discovery of a new node
 func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, _ *nodemanager.Node) nodemanager.NodeOperations {
-	return &Node{manager: m, instanceID: obj.InstanceID()}
+	return &Node{manager: m, instanceID: obj.InstanceID(), k8sObj: obj}
 }
 
 // HasInstance returns whether the instance is in instances
@@ -242,6 +245,28 @@ func (m *InstancesManager) lockInstance(instanceID string) lock.UnlockFunc {
 		m.resyncLock.RUnlock()
 		unlockInstance()
 	}
+}
+
+func (m *InstancesManager) removeIPsFromInterface(instanceID, interfaceID string, addresses []netip.Addr) {
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	iface, ok := m.instances.GetInterface(instanceID, interfaceID)
+	if !ok {
+		return
+	}
+	azureIface, ok := iface.(*types.AzureInterface)
+	if !ok {
+		return
+	}
+	updated := azureIface.DeepCopy()
+	updated.Addresses = slices.DeleteFunc(updated.Addresses, func(addr types.AzureAddress) bool {
+		return slices.Contains(addresses, addr.IP.Addr)
+	})
+	m.instances.Update(instanceID, updated)
 }
 
 // DeleteInstance delete instance from m.instances
