@@ -498,7 +498,9 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	t.Log("Updating Envoy resources")
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	updatedResources := ADS_RESOURCES.DeepCopy()
+	updatedResources := ADS_RESOURCES
+	updatedResources.Secrets = maps.Clone(ADS_RESOURCES.Secrets)
+	updatedResources.NetworkPolicies = maps.Clone(ADS_RESOURCES.NetworkPolicies)
 	for k := range updatedResources.Secrets {
 		delete(updatedResources.Secrets, k)
 	}
@@ -506,7 +508,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 		EndpointId:  40,
 		EndpointIps: []string{"10.0.0.9"},
 	}
-	err = xdsServer.UpdateEnvoyResources(ctx, ADS_RESOURCES, *updatedResources, s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, ADS_RESOURCES, updatedResources, s.waitGroup)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 
@@ -718,11 +720,12 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	require.NotNil(t, envoyProxy)
 	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
 
-	resources := ADS_RESOURCES.DeepCopy()
+	resources := ADS_RESOURCES
+	resources.NetworkPolicies = maps.Clone(ADS_RESOURCES.NetworkPolicies)
 	delete(resources.NetworkPolicies, "30")
 
 	t.Log("upserting a listener and its network policy")
-	err = xdsServer.UpsertEnvoyResources(ctx, *resources, s.waitGroup)
+	err = xdsServer.UpsertEnvoyResources(ctx, resources, s.waitGroup)
 	require.NoError(t, err)
 	require.NoError(t, s.waitForProxyCompletion())
 	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "NetworkPoliciesConfigDump", "10.0.0.1")
@@ -1432,8 +1435,8 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	t.Log("completed adding good-listener")
 
 	// Verify the listener exists in the snapshot.
-	resources := xdsServer.cache.GetAllResources(localNodeID)
-	require.Contains(t, resources.Listeners, "good-listener")
+	listeners := cachedListeners(xdsServer.cache, localNodeID)
+	require.Contains(t, listeners, "good-listener")
 
 	// Step 2: Add a listener on port 22 which Envoy cannot bind (privileged port) — should NACK.
 	// Wire the cb callback to verify it is invoked with the NACK error.
@@ -1460,11 +1463,11 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// Step 4: Verify the bad listener was reverted out of the snapshot.
-	resources = xdsServer.cache.GetAllResources(localNodeID)
-	require.NotContains(t, resources.Listeners, "bad-listener",
+	listeners = cachedListeners(xdsServer.cache, localNodeID)
+	require.NotContains(t, listeners, "bad-listener",
 		"bad-listener should have been reverted from the snapshot after NACK")
 	// The good listener should still be present.
-	require.Contains(t, resources.Listeners, "good-listener",
+	require.Contains(t, listeners, "good-listener",
 		"good-listener should still exist after NACK revert")
 	t.Log("verified snapshot was reverted after NACK")
 
@@ -1476,9 +1479,9 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 
-	resources = xdsServer.cache.GetAllResources(localNodeID)
-	require.Contains(t, resources.Listeners, "post-revert-listener")
-	require.Contains(t, resources.Listeners, "good-listener")
+	listeners = cachedListeners(xdsServer.cache, localNodeID)
+	require.Contains(t, listeners, "post-revert-listener")
+	require.Contains(t, listeners, "good-listener")
 	t.Log("successfully added listener after NACK revert — xDS server is healthy")
 
 	t.Log("stopping Envoy")
@@ -1573,9 +1576,9 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	require.Equal(t, 0, pendingCount, "expected no pending completions after ACK of latest version")
 
 	// Verify all listeners exist in the snapshot.
-	resources := xdsServer.cache.GetAllResources(localNodeID)
+	listeners := cachedListeners(xdsServer.cache, localNodeID)
 	for _, name := range listenerNames {
-		require.Contains(t, resources.Listeners, name)
+		require.Contains(t, listeners, name)
 	}
 	t.Log("all rapid listeners present and all completions resolved")
 
@@ -1773,11 +1776,11 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	require.Equal(t, 0, pendingCount, "expected no pending completions after NACK")
 
 	// Step 5: Verify the bad listener was reverted from the snapshot.
-	resources := xdsServer.cache.GetAllResources(localNodeID)
-	require.NotContains(t, resources.Listeners, "bad",
+	listeners := cachedListeners(xdsServer.cache, localNodeID)
+	require.NotContains(t, listeners, "bad",
 		"bad listener should have been reverted from snapshot after NACK")
 	// The baseline should still be present.
-	require.Contains(t, resources.Listeners, "baseline",
+	require.Contains(t, listeners, "baseline",
 		"baseline listener should still exist after NACK revert")
 	t.Log("verified snapshot was reverted after NACK, no completions stuck")
 

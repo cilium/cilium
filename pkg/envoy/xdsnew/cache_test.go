@@ -25,6 +25,7 @@ import (
 	envoy_extensions_filters_network_tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
@@ -650,6 +651,82 @@ func TestGetAllResources_NonExistingNode(t *testing.T) {
 
 	result := c.GetAllResources("nonexistent")
 	assert.Nil(t, result)
+}
+
+func TestGetResourceByTypeAndName(t *testing.T) {
+	c := newTestCacheWithHasher(newMockSnapshotCache())
+	resources := emptyResources()
+	resources.Endpoints["endpoint"] = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+	resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster"}
+	resources.Routes["route"] = &envoy_config_route.RouteConfiguration{Name: "route"}
+	resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
+	resources.Secrets["secret"] = &envoy_config_tls.Secret{Name: "secret"}
+	resources.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 1}
+	resources.NetworkPolicyHosts["hosts"] = &cilium.NetworkPolicyHosts{}
+	c.SetResources("node1", resources)
+
+	for _, tt := range []struct {
+		typeURL typeurl.Index
+		name    string
+		want    cache_types.Resource
+	}{
+		{typeurl.Endpoint, "endpoint", resources.Endpoints["endpoint"]},
+		{typeurl.Cluster, "cluster", resources.Clusters["cluster"]},
+		{typeurl.Route, "route", resources.Routes["route"]},
+		{typeurl.Listener, "listener", resources.Listeners["listener"]},
+		{typeurl.Secret, "secret", resources.Secrets["secret"]},
+		{typeurl.NetworkPolicy, "policy", resources.NetworkPolicies["policy"]},
+		{typeurl.NetworkPolicyHosts, "hosts", resources.NetworkPolicyHosts["hosts"]},
+	} {
+		got, ok := c.GetResource("node1", tt.typeURL, tt.name)
+		require.True(t, ok, "%s %s", tt.typeURL.URL(), tt.name)
+		require.Same(t, tt.want, got)
+	}
+	for _, tt := range []struct {
+		nodeID  string
+		typeURL typeurl.Index
+		name    string
+	}{
+		{"unknown", typeurl.Listener, "listener"},
+		{"node1", typeurl.Listener, "missing"},
+		{"node1", typeurl.Route, "listener"},
+		{"node1", typeurl.Count, "listener"},
+	} {
+		got, ok := c.GetResource(tt.nodeID, tt.typeURL, tt.name)
+		require.False(t, ok)
+		require.Nil(t, got)
+	}
+}
+
+func TestResourceIterators(t *testing.T) {
+	c := newTestCacheWithHasher(newMockSnapshotCache())
+	resources := emptyResources()
+	listener := &envoy_config_listener.Listener{Name: "listener"}
+	route := &envoy_config_route.RouteConfiguration{Name: "route"}
+	policy := &cilium.NetworkPolicy{EndpointId: 1}
+	resources.Listeners["listener"] = listener
+	resources.Routes["route"] = route
+	resources.NetworkPolicies["policy"] = policy
+	c.SetResources("node1", resources)
+
+	for name, got := range c.Listeners("node1") {
+		require.Equal(t, "listener", name)
+		require.Same(t, listener, got)
+		break
+	}
+	// Early termination must release the read lock before another update.
+	c.SetResources("node1", resources)
+	for name, got := range c.Routes("node1") {
+		require.Equal(t, "route", name)
+		require.Same(t, route, got)
+	}
+	for name, got := range c.NetworkPolicies("node1") {
+		require.Equal(t, "policy", name)
+		require.Same(t, policy, got)
+	}
+	for range c.Listeners("unknown") {
+		t.Fatal("unknown node must have no resources")
+	}
 }
 
 func TestClearSnapshot(t *testing.T) {

@@ -6,6 +6,7 @@ package envoy
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"os"
 	"sync/atomic"
 	"testing"
@@ -24,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/promise"
@@ -294,11 +296,10 @@ func TestAddListener(t *testing.T) {
 
 	require.NoError(t, err)
 
-	resources := cache.GetAllResources(localNodeID)
-	require.NotNil(t, resources)
-	require.Len(t, resources.Listeners, 1)
+	listeners := cachedListeners(cache, localNodeID)
+	require.Len(t, listeners, 1)
 
-	actualListener := resources.Listeners["test-listener"]
+	actualListener := listeners["test-listener"]
 	require.NotNil(t, actualListener)
 
 	// Build the expected listener via the same production code path.
@@ -429,10 +430,8 @@ func TestADSNACKRevertsOnlyRejectedResourceType(t *testing.T) {
 	}))
 	require.Error(t, wg.Wait())
 
-	current := cache.GetAllResources(localNodeID)
-	require.Empty(t, current.Listeners)
-	require.Contains(t, current.NetworkPolicies, "policy",
-		"a Listener NACK must not revert NetworkPolicy from the coalesced untracked update")
+	require.Empty(t, cachedListeners(cache, localNodeID))
+	requireCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "policy")
 }
 
 func TestADSNACKRevertsUnchangedResourcesIndividually(t *testing.T) {
@@ -480,9 +479,9 @@ func TestADSNACKRevertsUnchangedResourcesIndividually(t *testing.T) {
 	}))
 	require.Error(t, wg.Wait())
 
-	current := cache.GetAllResources(localNodeID)
-	require.NotContains(t, current.Listeners, "l1")
-	require.Contains(t, current.Listeners, "l2",
+	current := cachedListeners(cache, localNodeID)
+	require.NotContains(t, current, "l1")
+	require.Contains(t, current, "l2",
 		"an unrelated later Listener update must survive the l1 rollback")
 }
 
@@ -531,9 +530,8 @@ func TestADSNACKDoesNotRevertSupersededResource(t *testing.T) {
 	}))
 	require.Error(t, wg.Wait())
 
-	current := cache.GetAllResources(localNodeID)
 	require.Equal(t, envoy_config_core_v3.TrafficDirection_OUTBOUND,
-		current.Listeners["l1"].GetTrafficDirection(),
+		cachedListener(t, cache, localNodeID, "l1").GetTrafficDirection(),
 		"the NACK of an older l1 must not overwrite its newer value")
 }
 
@@ -543,16 +541,18 @@ func TestStrictADSNACKRestoresSnapshotConsistency(t *testing.T) {
 		typeURL          string
 		tracked          xds.Resources
 		untracked        xds.Resources
-		assertRolledBack func(*testing.T, *xds.Resources)
+		assertRolledBack func(*testing.T, xdsnew.Cache)
 	}{
 		{
 			name:      "CDS and EDS",
 			typeURL:   ClusterTypeURL,
 			tracked:   adsTestEDSResources("cluster-1", "tracked"),
 			untracked: adsTestEDSResources("cluster-2", "untracked"),
-			assertRolledBack: func(t *testing.T, resources *xds.Resources) {
-				require.Empty(t, resources.Clusters)
-				require.Empty(t, resources.Endpoints)
+			assertRolledBack: func(t *testing.T, cache xdsnew.Cache) {
+				requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster-1")
+				requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster-2")
+				requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster-1")
+				requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster-2")
 			},
 		},
 		{
@@ -560,9 +560,11 @@ func TestStrictADSNACKRestoresSnapshotConsistency(t *testing.T) {
 			typeURL:   ListenerTypeURL,
 			tracked:   adsTestRDSResources("listener-1", "route-1"),
 			untracked: adsTestRDSResources("listener-2", "route-2"),
-			assertRolledBack: func(t *testing.T, resources *xds.Resources) {
-				require.Empty(t, resources.Listeners)
-				require.Empty(t, resources.Routes)
+			assertRolledBack: func(t *testing.T, cache xdsnew.Cache) {
+				requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener-1")
+				requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener-2")
+				requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "route-1")
+				requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "route-2")
 			},
 		},
 	}
@@ -592,9 +594,8 @@ func TestStrictADSNACKRestoresSnapshotConsistency(t *testing.T) {
 			nackADSResourceVersion(t, cache, 1, tt.typeURL, "", "rejected parent resource")
 			require.Error(t, wg.Wait())
 
-			current := cache.GetAllResources(localNodeID)
-			tt.assertRolledBack(t, current)
-			require.Contains(t, current.NetworkPolicies, "policy")
+			tt.assertRolledBack(t, cache)
+			requireCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "policy")
 
 			snapshot, err = cache.GetSnapshot(localNodeID)
 			require.NoError(t, err)
@@ -622,9 +623,14 @@ func TestStrictADSClusterNACKRollsBackEndpointUpdate(t *testing.T) {
 	nackADSResourceVersion(t, cache, 1, ClusterTypeURL, acceptedVersion, "rejected cluster")
 	require.Error(t, wg.Wait())
 
-	current := cache.GetAllResources(localNodeID)
-	require.Equal(t, "old", current.Clusters["cluster"].GetAltStatName())
-	require.Equal(t, "old", current.Endpoints["cluster"].GetEndpoints()[0].GetLocality().GetRegion(),
+	clusterResource, exists := cache.GetResource(localNodeID, typeurl.Cluster, "cluster")
+	require.True(t, exists)
+	cluster := clusterResource.(*envoy_config_cluster.Cluster)
+	endpointResource, exists := cache.GetResource(localNodeID, typeurl.Endpoint, "cluster")
+	require.True(t, exists)
+	endpoint := endpointResource.(*envoy_config_endpoint.ClusterLoadAssignment)
+	require.Equal(t, "old", cluster.GetAltStatName())
+	require.Equal(t, "old", endpoint.GetEndpoints()[0].GetLocality().GetRegion(),
 		"strict ADS must conservatively roll back EDS with a rejected CDS update")
 
 	snapshot, err := cache.GetSnapshot(localNodeID)
@@ -647,7 +653,8 @@ func TestStrictADSEndpointNACKKeepsCluster(t *testing.T) {
 	ackADSResourceVersion(t, cache, 1, ClusterTypeURL)
 	acceptedEndpointVersion := ackADSResourceVersion(t, cache, 1, EndpointTypeURL)
 
-	withEndpoints := clusterOnly.DeepCopy()
+	withEndpoints := clusterOnly
+	withEndpoints.Endpoints = maps.Clone(clusterOnly.Endpoints)
 	withEndpoints.Endpoints["cluster"] = &envoy_config_endpoint.ClusterLoadAssignment{
 		ClusterName: "cluster",
 		Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
@@ -656,16 +663,13 @@ func TestStrictADSEndpointNACKKeepsCluster(t *testing.T) {
 	}
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	updateTrackedADSSnapshot(t, server, *withEndpoints, wg, EndpointTypeURL)
+	updateTrackedADSSnapshot(t, server, withEndpoints, wg, EndpointTypeURL)
 
 	nackADSResourceVersion(t, cache, 1, EndpointTypeURL, acceptedEndpointVersion, "rejected endpoints")
 	require.Error(t, wg.Wait())
 
-	current := cache.GetAllResources(localNodeID)
-	require.Contains(t, current.Clusters, "cluster",
-		"an EDS NACK must not roll back an accepted CDS cluster")
-	require.Empty(t, current.Endpoints,
-		"the rejected CLA must be removed from authoritative resources")
+	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster")
+	requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster")
 
 	snapshot, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
@@ -714,14 +718,14 @@ func TestAddAdminListener(t *testing.T) {
 	// Test with valid port
 	server.AddAdminListener(ctx, 9000, wg)
 
-	resources := cache.GetAllResources(localNodeID)
-	actualListener := resources.Listeners["envoy-admin-listener"]
+	listeners := cachedListeners(cache, localNodeID)
+	actualListener := listeners["envoy-admin-listener"]
 
 	// Build the expected listener via the same production code path.
 	expectedListener := server.getAdminListenerConfig(9000)
 
 	require.NotNil(t, actualListener)
-	require.Len(t, resources.Listeners, 1)
+	require.Len(t, listeners, 1)
 	assert.Equal(t, expectedListener.Name, actualListener.Name)
 	assert.True(t, proto.Equal(expectedListener.Address, actualListener.Address))
 	for i, addr := range expectedListener.AdditionalAddresses {
@@ -751,14 +755,14 @@ func TestAddMetricsListener(t *testing.T) {
 	// Test with valid port
 	server.AddMetricsListener(ctx, 9001, wg)
 
-	resources := cache.GetAllResources(localNodeID)
-	actualListener := resources.Listeners["envoy-prometheus-metrics-listener"]
+	listeners := cachedListeners(cache, localNodeID)
+	actualListener := listeners["envoy-prometheus-metrics-listener"]
 
 	// Build the expected listener via the same production code path.
 	expectedListener := server.getMetricsListenerConfig(9001)
 
 	require.NotNil(t, actualListener)
-	require.Len(t, resources.Listeners, 1)
+	require.Len(t, listeners, 1)
 	assert.Equal(t, expectedListener.Name, actualListener.Name)
 	assert.True(t, proto.Equal(expectedListener.Address, actualListener.Address))
 	for i, addr := range expectedListener.AdditionalAddresses {
@@ -782,14 +786,14 @@ func TestRemoveListener(t *testing.T) {
 	err := server.AddListener(ctx, "test-listener", policy.ParserTypeHTTP, 8080, false, false, wg, func(err error) {})
 	require.NoError(t, err)
 
-	resources := cache.GetAllResources(localNodeID)
-	require.Len(t, resources.Listeners, 1)
-	require.NotNil(t, resources.Listeners["test-listener"])
+	listeners := cachedListeners(cache, localNodeID)
+	require.Len(t, listeners, 1)
+	require.NotNil(t, listeners["test-listener"])
 
 	server.RemoveListener(ctx, "test-listener", wg)
 
-	resources = cache.GetAllResources(localNodeID)
-	require.Empty(t, resources.Listeners)
+	listeners = cachedListeners(cache, localNodeID)
+	require.Empty(t, listeners)
 }
 
 func TestRemoveListenerReferenceCount(t *testing.T) {
@@ -823,19 +827,16 @@ func TestUpsertEnvoyResources(t *testing.T) {
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
 	assert.NoError(t, err)
 
-	resources := cache.GetAllResources(localNodeID)
-	require.Len(t, resources.Listeners, 1)
-	require.NotNil(t, resources.Listeners["listener1"])
-	require.Len(t, resources.Clusters, 1)
-	require.NotNil(t, resources.Clusters["cluster1"])
-	require.Len(t, resources.Secrets, 1)
-	require.NotNil(t, resources.Secrets["secret1"])
-	require.Len(t, resources.Routes, 1)
-	require.NotNil(t, resources.Routes["routeConfig1"])
-	require.Len(t, resources.Endpoints, 1)
-	require.NotNil(t, resources.Endpoints["endpoint1"])
-	require.Len(t, resources.NetworkPolicies, 1)
-	require.NotNil(t, resources.NetworkPolicies["40"])
+	listeners := cachedListeners(cache, localNodeID)
+	require.Len(t, listeners, 1)
+	require.NotNil(t, listeners["listener1"])
+	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
+	requireCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
+	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
+	requireCachedResource(t, cache, localNodeID, EndpointTypeURL, "endpoint1")
+	policies := cachedNetworkPolicies(cache, localNodeID)
+	require.Len(t, policies, 1)
+	require.NotNil(t, policies["40"])
 }
 
 func TestUpdateEnvoyResources(t *testing.T) {
@@ -930,19 +931,19 @@ func TestUpdateEnvoyResources(t *testing.T) {
 
 	err := server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
 	assert.NoError(t, err)
-	resources := cache.GetAllResources(localNodeID)
-	require.Len(t, resources.Listeners, 1)
-	require.NotNil(t, resources.Listeners["listener1"])
-	require.Len(t, resources.Clusters, 1)
-	require.NotNil(t, resources.Clusters["cluster1"])
-	require.Empty(t, resources.Secrets)
-	require.Len(t, resources.Routes, 2)
-	require.NotNil(t, resources.Routes["routeConfig1"])
-	require.NotNil(t, resources.Routes["routeConfig2"])
-	require.Len(t, resources.Endpoints, 1)
-	require.NotNil(t, resources.Endpoints["endpoint1"])
-	require.Len(t, resources.NetworkPolicies, 1)
-	require.NotNil(t, resources.NetworkPolicies["40"])
+	listeners := cachedListeners(cache, localNodeID)
+	require.Len(t, listeners, 1)
+	require.NotNil(t, listeners["listener1"])
+	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
+	requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
+	routes := maps.Collect(cache.Routes(localNodeID))
+	require.Len(t, routes, 2)
+	require.NotNil(t, routes["routeConfig1"])
+	require.NotNil(t, routes["routeConfig2"])
+	requireCachedResource(t, cache, localNodeID, EndpointTypeURL, "endpoint1")
+	policies := cachedNetworkPolicies(cache, localNodeID)
+	require.Len(t, policies, 1)
+	require.NotNil(t, policies["40"])
 }
 
 func TestADSListenersRequiringRecreate(t *testing.T) {
@@ -1021,16 +1022,14 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 					}()
 
 					require.Eventually(t, func() bool {
-						resources := cache.GetAllResources(localNodeID)
-						return resources != nil && len(resources.Listeners) == 0 &&
+						return len(cachedListeners(cache, localNodeID)) == 0 &&
 							cache.GetCompletionCallbacks().PendingCompletionCount() == 1
 					}, time.Second, 10*time.Millisecond)
 					require.Equal(t, uint64(0), callbackCount.Load())
 					deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
 
 					require.Eventually(t, func() bool {
-						resources := cache.GetAllResources(localNodeID)
-						listener := resources.Listeners["listener1"]
+						listener := cachedListeners(cache, localNodeID)["listener1"]
 						return listener != nil && listenerAddressesEqual(listener, newResources.Listeners["listener1"]) &&
 							cache.GetCompletionCallbacks().PendingCompletionCount() == 1
 					}, time.Second, 10*time.Millisecond)
@@ -1065,8 +1064,7 @@ func TestUpdateEnvoyResourcesDuringRestoreDoesNotStageListenerDeletion(t *testin
 	t.Cleanup(wg.Cancel)
 
 	require.NoError(t, server.UpdateEnvoyResources(t.Context(), oldResources, newResources, wg))
-	resources := cache.GetAllResources(localNodeID)
-	require.Same(t, newResources.Listeners["listener1"], resources.Listeners["listener1"])
+	require.Same(t, newResources.Listeners["listener1"], cachedListener(t, cache, localNodeID, "listener1"))
 	require.Equal(t, uint64(0), callbackCount.Load())
 	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
 	ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
@@ -1094,9 +1092,8 @@ func TestUpdateEnvoyResourcesRestoresListenerWhenDeletionTimesOut(t *testing.T) 
 	err := server.UpdateEnvoyResources(ctx, oldResources, newResources, nil)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
-	resources := cache.GetAllResources(localNodeID)
-	require.NotNil(t, resources)
-	require.True(t, listenerAddressesEqual(resources.Listeners["listener1"], oldResources.Listeners["listener1"]))
+	listener := cachedListener(t, cache, localNodeID, "listener1")
+	require.True(t, listenerAddressesEqual(listener, oldResources.Listeners["listener1"]))
 	require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
 }
 
@@ -1122,23 +1119,21 @@ func TestUpdateEnvoyResourcesRestoresListenerWhenReplacementIsRejected(t *testin
 	}()
 
 	require.Eventually(t, func() bool {
-		resources := cache.GetAllResources(localNodeID)
-		return resources != nil && len(resources.Listeners) == 0 &&
+		listeners := cachedListeners(cache, localNodeID)
+		return len(listeners) == 0 &&
 			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
 	}, time.Second, 10*time.Millisecond)
 	deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
 
 	require.Eventually(t, func() bool {
-		resources := cache.GetAllResources(localNodeID)
-		return resources.Listeners["listener1"] != nil &&
+		return cachedListeners(cache, localNodeID)["listener1"] != nil &&
 			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
 	}, time.Second, 10*time.Millisecond)
 	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, deleteVersion, "rejected listener")
 	require.ErrorContains(t, <-result, "rejected listener")
 
-	resources := cache.GetAllResources(localNodeID)
-	require.NotNil(t, resources)
-	require.True(t, listenerAddressesEqual(resources.Listeners["listener1"], oldResources.Listeners["listener1"]))
+	listener := cachedListener(t, cache, localNodeID, "listener1")
+	require.True(t, listenerAddressesEqual(listener, oldResources.Listeners["listener1"]))
 	require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
 }
 
@@ -1164,15 +1159,14 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 	}()
 
 	require.Eventually(t, func() bool {
-		resources := cache.GetAllResources(localNodeID)
-		return resources != nil && len(resources.Listeners) == 0 &&
+		listeners := cachedListeners(cache, localNodeID)
+		return len(listeners) == 0 &&
 			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
 	}, time.Second, 10*time.Millisecond)
 	deleteVersion := ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
 
 	require.Eventually(t, func() bool {
-		resources := cache.GetAllResources(localNodeID)
-		return resources.Listeners["listener1"] != nil &&
+		return cachedListeners(cache, localNodeID)["listener1"] != nil &&
 			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
 	}, time.Second, 10*time.Millisecond)
 	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, deleteVersion, "cannot bind: Address already in use")
@@ -1180,19 +1174,17 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 	// The rejected desired version is first replaced with the accepted deletion
 	// version, then published again after the retry delay.
 	require.Eventually(t, func() bool {
-		resources := cache.GetAllResources(localNodeID)
-		return resources != nil && len(resources.Listeners) == 0
+		return len(cachedListeners(cache, localNodeID)) == 0
 	}, time.Second, 10*time.Millisecond)
 	require.Eventually(t, func() bool {
-		resources := cache.GetAllResources(localNodeID)
-		return resources.Listeners["listener1"] != nil &&
+		return cachedListeners(cache, localNodeID)["listener1"] != nil &&
 			cache.GetCompletionCallbacks().PendingCompletionCount() == 1
 	}, time.Second, 10*time.Millisecond)
 	ackADSResourceVersion(t, cache, 1, ListenerTypeURL)
 
 	require.NoError(t, <-result)
-	resources := cache.GetAllResources(localNodeID)
-	require.True(t, listenerAddressesEqual(resources.Listeners["listener1"], newResources.Listeners["listener1"]))
+	listener := cachedListener(t, cache, localNodeID, "listener1")
+	require.True(t, listenerAddressesEqual(listener, newResources.Listeners["listener1"]))
 	require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
 }
 
@@ -1286,7 +1278,8 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
-	resources := DEFAULT_RESOURCES.DeepCopy()
+	resources := DEFAULT_RESOURCES
+	resources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
 	var callbackCount atomic.Uint64
 	resources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
 		callbackCount.Add(1)
@@ -1294,7 +1287,7 @@ func TestUpdateEnvoyResourcesWithPortAllocationWaitsForClusterAndListenerACK(t *
 	}
 
 	wg := completion.NewWaitGroup(ctx)
-	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), *resources, wg))
+	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), resources, wg))
 
 	require.Eventually(t, func() bool {
 		return cache.GetCompletionCallbacks().PendingCompletionCount() == 2
@@ -1360,7 +1353,10 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 	oldResources := DEFAULT_RESOURCES
 	require.NoError(t, server.UpsertEnvoyResources(ctx, oldResources, nil))
 
-	newResources := DEFAULT_RESOURCES.DeepCopy()
+	newResources := DEFAULT_RESOURCES
+	newResources.Routes = maps.Clone(DEFAULT_RESOURCES.Routes)
+	newResources.Clusters = maps.Clone(DEFAULT_RESOURCES.Clusters)
+	newResources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
 	newResources.Routes["routeConfig2"] = &envoy_config_route.RouteConfiguration{Name: "routeConfig2"}
 	newResources.Clusters["cluster2"] = &envoy_config_cluster.Cluster{
 		Name: "cluster2",
@@ -1375,15 +1371,16 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 	}
 
 	wg := completion.NewWaitGroup(ctx)
-	require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, *newResources, wg))
+	require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, wg))
 
 	require.NoError(t, wg.Wait())
 	require.Equal(t, uint64(0), callbackCount.Load())
 	require.Equal(t, 0, cache.GetCompletionCallbacks().PendingCompletionCount())
 
-	resources := cache.GetAllResources(localNodeID)
-	require.Contains(t, resources.Routes, "routeConfig2")
-	require.Contains(t, resources.Clusters, "cluster2")
+	_, routeExists := cache.GetResource(localNodeID, typeurl.Route, "routeConfig2")
+	require.True(t, routeExists)
+	_, clusterExists := cache.GetResource(localNodeID, typeurl.Cluster, "cluster2")
+	require.True(t, clusterExists)
 }
 
 func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testing.T) {
@@ -1425,41 +1422,36 @@ func TestDeleteEnvoyResources(t *testing.T) {
 	// Deleting empty resources should be no-op.
 	err := server.DeleteEnvoyResources(ctx, xdsResources, nil)
 	assert.NoError(t, err)
-	resources := cache.GetAllResources(localNodeID)
-	require.Empty(t, resources.Listeners)
-	require.Empty(t, resources.Clusters)
-	require.Empty(t, resources.Routes)
-	require.Empty(t, resources.Endpoints)
-	require.Empty(t, resources.Secrets)
-	require.Empty(t, resources.NetworkPolicies)
+	require.Empty(t, cachedListeners(cache, localNodeID))
+	require.Empty(t, maps.Collect(cache.Routes(localNodeID)))
+	require.Empty(t, cachedNetworkPolicies(cache, localNodeID))
+	requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
+	requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "endpoint1")
+	requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
 
 	// Add some resources and then delete them.
 	err = server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
 	assert.NoError(t, err)
 
-	resources = cache.GetAllResources(localNodeID)
-	require.Len(t, resources.Listeners, 1)
-	require.NotNil(t, resources.Listeners["listener1"])
-	require.Len(t, resources.Clusters, 1)
-	require.NotNil(t, resources.Clusters["cluster1"])
-	require.Len(t, resources.Secrets, 1)
-	require.NotNil(t, resources.Secrets["secret1"])
-	require.Len(t, resources.Routes, 1)
-	require.NotNil(t, resources.Routes["routeConfig1"])
-	require.Len(t, resources.Endpoints, 1)
-	require.NotNil(t, resources.Endpoints["endpoint1"])
-	require.Len(t, resources.NetworkPolicies, 1)
-	require.NotNil(t, resources.NetworkPolicies["40"])
+	listeners := cachedListeners(cache, localNodeID)
+	require.Len(t, listeners, 1)
+	require.NotNil(t, listeners["listener1"])
+	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
+	requireCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
+	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
+	requireCachedResource(t, cache, localNodeID, EndpointTypeURL, "endpoint1")
+	policies := cachedNetworkPolicies(cache, localNodeID)
+	require.Len(t, policies, 1)
+	require.NotNil(t, policies["40"])
 
 	err = server.DeleteEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
 	assert.NoError(t, err)
-	resources = cache.GetAllResources(localNodeID)
-	require.Empty(t, resources.Listeners)
-	require.Empty(t, resources.Clusters)
-	require.Empty(t, resources.Routes)
-	require.Empty(t, resources.Endpoints)
-	require.Empty(t, resources.Secrets)
-	require.Empty(t, resources.NetworkPolicies)
+	require.Empty(t, cachedListeners(cache, localNodeID))
+	require.Empty(t, maps.Collect(cache.Routes(localNodeID)))
+	require.Empty(t, cachedNetworkPolicies(cache, localNodeID))
+	requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
+	requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
+	requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "endpoint1")
 }
 
 func TestGetNetworkPolicies(t *testing.T) {
@@ -1522,12 +1514,12 @@ func TestUpdateNetworkPolicy(t *testing.T) {
 		assert.NotNil(t, revertible)
 	}
 
-	resources := cache.GetAllResources(localNodeID)
-	require.Len(t, resources.NetworkPolicies, 2)
-	require.NotNil(t, resources.NetworkPolicies["40"])
-	assert.Equal(t, uint64(40), resources.NetworkPolicies["40"].EndpointId)
-	require.NotNil(t, resources.NetworkPolicies["1"])
-	assert.Equal(t, uint64(1), resources.NetworkPolicies["1"].EndpointId)
+	policies := cachedNetworkPolicies(cache, localNodeID)
+	require.Len(t, policies, 2)
+	require.NotNil(t, policies["40"])
+	assert.Equal(t, uint64(40), policies["40"].EndpointId)
+	require.NotNil(t, policies["1"])
+	assert.Equal(t, uint64(1), policies["1"].EndpointId)
 }
 
 func TestUpdateNetworkPolicyWithoutNPDSListenersCompletesImmediately(t *testing.T) {
@@ -1679,8 +1671,8 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 	err := server.UpsertEnvoyResources(ctx, DEFAULT_RESOURCES, nil)
 	assert.NoError(t, err)
 
-	resources := cache.GetAllResources(localNodeID)
-	require.Len(t, resources.NetworkPolicies, 1)
+	policies := cachedNetworkPolicies(cache, localNodeID)
+	require.Len(t, policies, 1)
 
 	// Create a mock endpoint info source
 	mockEp := &mockEndpointInfoSource{}
@@ -1688,8 +1680,8 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 	// Should not panic
 	server.RemoveNetworkPolicy(ctx, mockEp)
 
-	resources = cache.GetAllResources(localNodeID)
-	require.Empty(t, resources.NetworkPolicies)
+	policies = cachedNetworkPolicies(cache, localNodeID)
+	require.Empty(t, policies)
 }
 
 func TestRemoveNetworkPoliciesIndividually(t *testing.T) {
@@ -1720,15 +1712,15 @@ func TestRemoveNetworkPoliciesIndividually(t *testing.T) {
 		assert.NotNil(t, revertible)
 	}
 
-	resources := cache.GetAllResources(localNodeID)
-	require.Len(t, resources.NetworkPolicies, 2)
-	require.NotNil(t, resources.NetworkPolicies["40"])
-	require.NotNil(t, resources.NetworkPolicies["1"])
+	policies := cachedNetworkPolicies(cache, localNodeID)
+	require.Len(t, policies, 2)
+	require.NotNil(t, policies["40"])
+	require.NotNil(t, policies["1"])
 
 	server.RemoveNetworkPolicy(ctx, &mockEndpointInfoSource{})
 	server.RemoveNetworkPolicy(ctx, mockEp)
-	resources = cache.GetAllResources(localNodeID)
-	require.Empty(t, resources.NetworkPolicies)
+	policies = cachedNetworkPolicies(cache, localNodeID)
+	require.Empty(t, policies)
 }
 
 // Mock types for testing
