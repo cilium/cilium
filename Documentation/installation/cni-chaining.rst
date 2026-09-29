@@ -17,6 +17,16 @@ is managed by the non-Cilium CNI plugin, but Cilium attaches eBPF programs to th
 network devices created by the non-Cilium plugin to provide L3/L4 network
 visibility, policy enforcement and other advanced features.
 
+.. note::
+
+   When using CNI chaining with :ref:`encryption_wg`,
+   :ref:`encryption_ipsec` (if supported by the chaining mode), or
+   :ref:`egress-gateway` with a gateway on another node, set the Helm option
+   ``cni.enableRouteMTUForCNIChaining`` to ``true``. This makes Cilium
+   account for encryption or tunneling overhead in Pod route MTUs and helps
+   avoid packet fragmentation. Egress Gateway can tunnel traffic even when
+   native routing is enabled.
+
 .. toctree::
    :maxdepth: 1
    :glob:
