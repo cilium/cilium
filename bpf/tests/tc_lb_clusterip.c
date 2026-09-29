@@ -29,12 +29,16 @@
 #define BACKEND_ID		124
 
 #include "lib/bpf_host.h"
+#include "lib/drop.h"
 #include "lib/endpoint.h"
 #include "lib/lb.h"
 #include "scapy.h"
 
 /* For checking statistics in conntrack map. */
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
+
+/* To enable drop notifications */
+ASSIGN_CONFIG(bool, enable_drop_notify, true)
 
 /* packet defined in ./scapy/lb_pkt_defs.py */
 const __u8 lb4_clusterip[] = {

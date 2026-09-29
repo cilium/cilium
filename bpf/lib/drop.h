@@ -7,8 +7,6 @@
  * API:
  * int send_drop_notify(ctx, src, dst, dst_id, reason, exitcode, enum metric_dir direction)
  * int send_drop_notify_error(ctx, error, exitcode, enum metric_dir direction)
- *
- * If DROP_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
 
 #pragma once
@@ -49,7 +47,6 @@ struct drop_notify {
 	DROP_EXTENSION
 };
 
-#ifdef DROP_NOTIFY
 /*
  * We pass information in the meta area as follows:
  *
@@ -131,7 +128,8 @@ int tail_drop_notify(struct __ctx_buff *ctx)
  *
  * Generate a notification to indicate a packet was dropped.
  *
- * NOTE: This is terminal function and will cause the BPF program to exit
+ * NOTE: If CONFIG(enable_drop_notify) is set, this is a terminal function and
+ * will cause the BPF program to exit
  */
 static __always_inline int
 _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
@@ -150,29 +148,22 @@ _send_drop_notify(__u8 file, __u16 line, struct __ctx_buff *ctx,
 	if (dst_id != 0 && (!__builtin_constant_p(direction) || direction != METRIC_INGRESS))
 		__throw_build_bug();
 
+	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
+
+	if (!CONFIG(enable_drop_notify))
+		return exitcode;
+
 	ctx_store_meta(ctx, 0, src);
 	ctx_store_meta(ctx, 1, dst);
 	ctx_store_meta(ctx, 2, reason);
 	ctx_store_meta(ctx, 3, dst_id);
 	ctx_store_meta(ctx, 4, exitcode | file << 8 | line << 16);
 
-	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
 	ret = tail_call_internal(ctx, CILIUM_CALL_DROP_NOTIFY, NULL);
 	/* ignore the returned error, use caller-provided exitcode */
 
 	return exitcode;
 }
-#else
-static __always_inline
-int _send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
-		      struct __ctx_buff *ctx, __u32 src __maybe_unused,
-		      __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
-		      __u32 reason, __u32 exitcode, enum metric_dir direction)
-{
-	_update_metrics(ctx_full_len(ctx), direction, (__u8)reason, line, file);
-	return exitcode;
-}
-#endif /* DROP_NOTIFY */
 
 /*
  * The following macros are required in order to pass source file/line
