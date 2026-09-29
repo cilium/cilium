@@ -21,7 +21,6 @@ jobs:
       # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
       id-token: write
     uses: ./.github/workflows/build-images-base.yaml
-    secrets: inherit
     with:
       # Build the base images from this environment which is set up specifically
       # for renovate.

@@ -18,11 +18,6 @@ on:
   # run from a different environment than 'release-base-images'. See
   # build-images-base-renovate.yaml
   workflow_call:
-    secrets:
-      AUTO_COMMITTER_PEM_202411:
-        required: true
-      AUTO_COMMITTER_APP_ID_202411:
-        required: true
     inputs:
       environment:
         required: true
