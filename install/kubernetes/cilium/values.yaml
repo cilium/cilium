@@ -1296,7 +1296,7 @@ endpointLockdownOnMapOverflow: false
 eni:
   # -- Enable Elastic Network Interface (ENI) integration.
   enabled: false
-  # -- Release IPs not used from the ENI
+  # -- Release IPs not used from the ENI (deprecated, please use 'ipam.operator.releaseExcessIPs' instead)
   awsReleaseExcessIPs: false
   # -- Enable ENI prefix delegation
   awsEnablePrefixDelegation: false
@@ -2372,6 +2372,15 @@ ipam:
     # refill the bucket up to the burst size capacity.
     # @default -- `4.0`
     externalAPILimitQPS: ~
+    # -- Release excess IP addresses from cloud provider interfaces.
+    releaseExcessIPs: false
+    # @schema
+    # type: [null, integer]
+    # @schema
+    # -- (int) Number of seconds the operator waits before releasing an IP
+    # address previously marked as excess.
+    # @default -- `180`
+    excessIPReleaseDelay: ~
   # -- NodeSpec configuration for the IPAM
   nodeSpec:
     # -- IPAM min allocate

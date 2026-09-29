@@ -46,6 +46,7 @@ var defaultAlibabaCloudConfig = AlibabaCloudConfig{
 func (cfg AlibabaCloudConfig) Flags(flags *pflag.FlagSet) {
 	flags.String(operatorOption.AlibabaCloudVPCID, defaultAlibabaCloudConfig.AlibabaCloudVPCID, "Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator")
 	flags.Bool(operatorOption.AlibabaCloudReleaseExcessIPs, defaultAlibabaCloudConfig.AlibabaCloudReleaseExcessIPs, "Enable releasing excess free IP addresses from Alibaba Cloud ENI.")
+	flags.MarkDeprecated(operatorOption.AlibabaCloudReleaseExcessIPs, "Use --ipam-release-excess-ips instead. Will be removed in v1.22.")
 }
 
 type alibabaParams struct {
@@ -67,11 +68,14 @@ type alibabaParams struct {
 func startAlibabaAllocator(p alibabaParams) {
 	alloc := &alibabacloud.AllocatorAlibabaCloud{
 		AlibabaCloudVPCID:            p.AlibabaCfg.AlibabaCloudVPCID,
-		AlibabaCloudReleaseExcessIPs: p.AlibabaCfg.AlibabaCloudReleaseExcessIPs,
+		AlibabaCloudReleaseExcessIPs: p.AlibabaCfg.AlibabaCloudReleaseExcessIPs || p.Cfg.IPAMReleaseExcessIPs,
 		ParallelAllocWorkers:         p.Cfg.ParallelAllocWorkers,
 		LimitIPAMAPIBurst:            p.Cfg.LimitIPAMAPIBurst,
 		LimitIPAMAPIQPS:              p.Cfg.LimitIPAMAPIQPS,
 		AlibabaMetrics:               p.AlibabaMetrics,
+	}
+	if p.Cfg.IPAMReleaseExcessIPs {
+		alloc.ExcessIPReleaseDelay = p.Cfg.ExcessIPReleaseDelay
 	}
 
 	startCloudAllocator(cloudAllocatorBootstrap{

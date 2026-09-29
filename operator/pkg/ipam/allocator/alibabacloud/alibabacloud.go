@@ -31,6 +31,7 @@ var subsysLogAttr = []any{logfields.LogSubsys, "ipam-allocator-alibaba-cloud"}
 type AllocatorAlibabaCloud struct {
 	AlibabaCloudVPCID            string
 	AlibabaCloudReleaseExcessIPs bool
+	ExcessIPReleaseDelay         int
 	ParallelAllocWorkers         int64
 	LimitIPAMAPIBurst            int
 	LimitIPAMAPIQPS              float64
@@ -95,7 +96,7 @@ func (a *AllocatorAlibabaCloud) Start(ctx context.Context, getterUpdater allocat
 
 	instances := ipam.NewInstancesManager(a.rootLogger, a.client)
 	nodeManager, err := nodemanager.NewNodeManager(a.logger, instances, getterUpdater, iMetrics,
-		a.ParallelAllocWorkers, a.AlibabaCloudReleaseExcessIPs, 0, false)
+		a.ParallelAllocWorkers, a.AlibabaCloudReleaseExcessIPs, a.ExcessIPReleaseDelay, false)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize AlibabaCloud node manager: %w", err)
 	}

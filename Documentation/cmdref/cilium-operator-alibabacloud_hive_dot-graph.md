@@ -17,7 +17,6 @@ cilium-operator-alibabacloud hive dot-graph [flags]
 ### Options inherited from parent commands
 
 ```
-      --alibaba-cloud-release-excess-ips                           Enable releasing excess free IP addresses from Alibaba Cloud ENI.
       --alibaba-cloud-vpc-id string                                Specific VPC ID for AlibabaCloud ENI. If not set use same VPC as operator
       --auto-create-cilium-resource-ip-pools stringToString        Automatically create CiliumResourceIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size>[;allow-first-ip:<bool>][;allow-last-ip:<bool>] (multiple pools can also be passed by repeating the CLI flag) (default [])
       --bgp-router-id-allocation-ip-pool string                    IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
@@ -68,6 +67,7 @@ cilium-operator-alibabacloud hive dot-graph [flags]
       --enable-wireguard                                           Enable WireGuard
       --enable-ztunnel                                             Use zTunnel as Cilium's encryption infrastructure
       --enforce-ingress-https                                      Enforces https for host having matching TLS host in Ingress. Incoming traffic to http listener will return 308 http error code with respective location in header. (default true)
+      --excess-ip-release-delay int                                Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
       --gateway-api-hostnetwork-enabled                            Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string           Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --gateway-api-secrets-namespace string                       Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
@@ -97,6 +97,7 @@ cilium-operator-alibabacloud hive dot-graph [flags]
       --ingress-secrets-namespace string                           Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
       --ingress-shared-lb-service-name string                      Name of shared LB service name for Ingress. (default "cilium-ingress")
       --ingress-use-remote-address                                 Use the immediate client's IP address as the origin client's IP address (default true)
+      --ipam-release-excess-ips                                    Enable releasing excess free IP addresses from cloud provider interfaces
       --k8s-api-server-urls strings                                Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration                  Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration                     Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)

@@ -614,9 +614,6 @@ data:
   enable-endpoint-routes: "true"
   {{- end }}
   auto-create-cilium-node-resource: "true"
-{{- if .Values.eni.awsReleaseExcessIPs }}
-  aws-release-excess-ips: "true"
-{{- end }}
 {{- if .Values.eni.awsEnablePrefixDelegation }}
   aws-enable-prefix-delegation: "true"
 {{- end }}
@@ -1270,6 +1267,12 @@ data:
 {{- end }}
 {{- if .Values.ipam.operator.externalAPILimitQPS }}
   limit-ipam-api-qps: {{ .Values.ipam.operator.externalAPILimitQPS | quote }}
+{{- end }}
+{{- if or .Values.ipam.operator.releaseExcessIPs (and .Values.eni.enabled .Values.eni.awsReleaseExcessIPs) }}
+  ipam-release-excess-ips: "true"
+{{- end }}
+{{- if not (kindIs "invalid" .Values.ipam.operator.excessIPReleaseDelay) }}
+  excess-ip-release-delay: {{ .Values.ipam.operator.excessIPReleaseDelay | quote }}
 {{- end }}
 
 {{- if .Values.nodeIPAM.enabled }}

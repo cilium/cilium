@@ -1505,7 +1505,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`eni.awsReleaseExcessIPs`
-     - Release IPs not used from the ENI
+     - Release IPs not used from the ENI (deprecated, please use 'ipam.operator.releaseExcessIPs' instead)
      - bool
      - ``false``
    * - :spelling:ignore:`eni.ec2APIEndpoint`
@@ -3016,6 +3016,10 @@
      - IPv6 CIDR list range to delegate to individual nodes for IPAM.
      - list
      - ``["fd00::/104"]``
+   * - :spelling:ignore:`ipam.operator.excessIPReleaseDelay`
+     - Number of seconds the operator waits before releasing an IP address previously marked as excess.
+     - int
+     - ``180``
    * - :spelling:ignore:`ipam.operator.externalAPILimitBurstSize`
      - The maximum burst size when rate limiting access to external APIs. Also known as the token bucket capacity.
      - int
@@ -3024,6 +3028,10 @@
      - The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity.
      - float
      - ``4.0``
+   * - :spelling:ignore:`ipam.operator.releaseExcessIPs`
+     - Release excess IP addresses from cloud provider interfaces.
+     - bool
+     - ``false``
    * - :spelling:ignore:`iptablesRandomFully`
      - Configure iptables--random-fully. Disabled by default. View https://github.com/cilium/cilium/issues/13037 for more information.
      - bool
