@@ -42,7 +42,6 @@ var (
 	}
 
 	specDropNotify = Option{
-		Define:      "DROP_NOTIFY",
 		Description: "Enable drop notifications",
 	}
 
