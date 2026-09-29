@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -71,13 +70,11 @@ type XDSServer interface {
 // Each resource type is stored in a map keyed by resource name. Once passed to
 // an xDS server, the stored protobuf values must be treated as immutable.
 type Resources struct {
-	Listeners          map[string]*envoy_config_listener.Listener
-	Secrets            map[string]*envoy_config_tls.Secret
-	Routes             map[string]*envoy_config_route.RouteConfiguration
-	Clusters           map[string]*envoy_config_cluster.Cluster
-	Endpoints          map[string]*envoy_config_endpoint.ClusterLoadAssignment
-	NetworkPolicies    map[string]*cilium.NetworkPolicy
-	NetworkPolicyHosts map[string]*cilium.NetworkPolicyHosts
+	Listeners map[string]*envoy_config_listener.Listener
+	Secrets   map[string]*envoy_config_tls.Secret
+	Routes    map[string]*envoy_config_route.RouteConfiguration
+	Clusters  map[string]*envoy_config_cluster.Cluster
+	Endpoints map[string]*envoy_config_endpoint.ClusterLoadAssignment
 
 	// Callback functions that confirm newly allocated primary proxy ports after
 	// the corresponding Listener change is successfully ACKed by Envoy. A
@@ -93,15 +90,13 @@ func NewResources() Resources {
 		Routes:                  make(map[string]*envoy_config_route.RouteConfiguration),
 		Clusters:                make(map[string]*envoy_config_cluster.Cluster),
 		Endpoints:               make(map[string]*envoy_config_endpoint.ClusterLoadAssignment),
-		NetworkPolicies:         make(map[string]*cilium.NetworkPolicy),
-		NetworkPolicyHosts:      make(map[string]*cilium.NetworkPolicyHosts),
 		PortAllocationCallbacks: make(map[string]func(context.Context) error),
 	}
 }
 
 // DebugInfo returns aggregated info about the underlying envoy resources in the object
 func (r *Resources) DebugInfo() string {
-	resourcesInfo := make([]string, 0, 7)
+	resourcesInfo := make([]string, 0, 5)
 
 	if len(r.Listeners) > 0 {
 		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d listeners", len(r.Listeners)))
@@ -117,12 +112,6 @@ func (r *Resources) DebugInfo() string {
 	}
 	if len(r.Secrets) > 0 {
 		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d listeners", len(r.Secrets)))
-	}
-	if len(r.NetworkPolicies) > 0 {
-		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d networkpolicies", len(r.NetworkPolicies)))
-	}
-	if len(r.NetworkPolicyHosts) > 0 {
-		resourcesInfo = append(resourcesInfo, fmt.Sprintf("%d networkpolicyhosts", len(r.NetworkPolicyHosts)))
 	}
 
 	return strings.Join(resourcesInfo, ", ")
