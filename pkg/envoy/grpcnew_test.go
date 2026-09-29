@@ -218,8 +218,8 @@ func TestADSRecognizesInitializedNodes(t *testing.T) {
 	cache := xdsnew.NewCache(logger, false, xdsnew.WithNodeIDs(localNodeID, nodeID))
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 	require.NoError(t, cache.ApplyResource(t.Context(), nodeID, typeurl.Listener, "listener", &listener.Listener{Name: "listener"}, nil, nil))
-	snapshot, err := cache.GetSnapshot(nodeID)
-	require.NoError(t, err)
+	_, err := cache.GetSnapshot(nodeID)
+	require.Error(t, err, "initial resources remain unpublished until a watch can consume them")
 	client := newTestADSClient(t, server)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
@@ -231,7 +231,8 @@ func TestADSRecognizesInitializedNodes(t *testing.T) {
 	require.Len(t, response.GetResources(), 1, "initialized node state, not the local node ID, establishes a known node")
 	stored, err := server.cache.GetSnapshot(nodeID)
 	require.NoError(t, err)
-	require.Same(t, snapshot, stored, "serving a known node must not replace its seeded snapshot")
+	require.Equal(t, stored.GetVersion(ListenerTypeURL), response.GetVersionInfo())
+	require.Contains(t, stored.GetResources(ListenerTypeURL), "listener", "serving a known node must publish its desired resources")
 }
 
 func TestADSGRPCServerStopsOnContextCancel(t *testing.T) {

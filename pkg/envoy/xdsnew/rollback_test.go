@@ -115,7 +115,7 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 		require.NoError(t, err)
 		rollback.Finalize()
 	}
-	initial := mustSnapshot(t, c, "node1")
+	initial := requestSnapshotForTest(t, c, "node1", typeurl.NetworkPolicy)
 	ackNetworkPolicyVersion(t, c, "node1", initial.GetVersion(NetworkPolicyTypeURL))
 
 	for id := range resources {
@@ -124,7 +124,7 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 		require.NoError(t, err)
 		rollback.Finalize()
 	}
-	removed := mustSnapshot(t, c, "node1")
+	removed := requestSnapshotForTest(t, c, "node1", typeurl.NetworkPolicy)
 	ackNetworkPolicyVersion(t, c, "node1", removed.GetVersion(NetworkPolicyTypeURL))
 
 	state := c.getNodeState("node1")
@@ -144,7 +144,7 @@ func TestAcceptedRemovalReleasesResponseTombstone(t *testing.T) {
 
 	require.NoError(t, err)
 	rollback.Finalize()
-	initial := mustSnapshot(t, c, "node1")
+	initial := requestSnapshotForTest(t, c, "node1", typeurl.NetworkPolicy)
 	ackNetworkPolicyVersion(t, c, "node1", initial.GetVersion(NetworkPolicyTypeURL))
 
 	request := &cache.Request{
@@ -427,14 +427,17 @@ func TestResponseRevertRetainsStateAfterStrictConsistencyFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	request := &discovery.DiscoveryRequest{Node: node, TypeUrl: envoy_resource.ListenerType}
-	// Use real response coverage to transfer the unsent inverse to the response,
-	// just as watch collection does; a version string alone does not prove which
-	// resources Envoy received.
-	response := publishedResponseForTest(t, c, node, typeurl.Listener)
-	c.completionCbs.OnStreamResponse(response.GetContext(),
-		1, response.GetRequest(), &discovery.DiscoveryResponse{
-			TypeUrl: envoy_resource.ListenerType, VersionInfo: response.GetResponseVersion(), Nonce: "rejected-listeners",
-		})
+	// Mutations remain pending until a watch can consume them. Use the actual
+	// response and its captured generation rather than assuming eager publication.
+	responses := make(chan cache.Response, 1)
+	cancelWatch, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancelWatch)
+	response := <-responses
+	discoveryResponse, err := response.GetDiscoveryResponse()
+	require.NoError(t, err)
+	discoveryResponse.Nonce = "rejected-listeners"
+	c.completionCbs.OnStreamResponse(response.GetContext(), 1, request, discoveryResponse)
 	// The Listener response owns A's rollback, but B's newer route prevents
 	// restoring it consistently. Caller waits still receive the original NACK;
 	// response recovery must survive the validation error and stream closure.
@@ -475,11 +478,14 @@ func TestResponseRevertRetainsStateAfterStrictConsistencyFailure(t *testing.T) {
 
 	c.completionCbs.OnStreamClosed(1, node)
 	require.NoError(t, c.completionCbs.OnStreamRequest(2, request))
-	response = publishedResponseForTest(t, c, node, typeurl.Listener)
-	c.completionCbs.OnStreamResponse(response.GetContext(),
-		2, response.GetRequest(), &discovery.DiscoveryResponse{
-			TypeUrl: envoy_resource.ListenerType, VersionInfo: response.GetResponseVersion(), Nonce: "retry-listeners",
-		})
+	cancelWatch, err = c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancelWatch)
+	response = <-responses
+	discoveryResponse, err = response.GetDiscoveryResponse()
+	require.NoError(t, err)
+	discoveryResponse.Nonce = "retry-listeners"
+	c.completionCbs.OnStreamResponse(response.GetContext(), 2, request, discoveryResponse)
 	require.NoError(t, c.completionCbs.OnStreamRequest(2, &discovery.DiscoveryRequest{
 		Node: node, TypeUrl: envoy_resource.ListenerType, ResponseNonce: "retry-listeners",
 		ErrorDetail: &status.Status{Message: "rejected listener again"},
@@ -496,12 +502,18 @@ func TestFailedCallerRevertReleasesRemovalTombstone(t *testing.T) {
 			var logs strings.Builder
 			c.logger = slog.New(slog.NewTextHandler(&logs, nil))
 			const nodeID = "node1"
+			// The mock keeps the watch open, forcing reverts to publish so
+			// the injected transport error occurs during the caller's attempt.
+			cancel, err := c.CreateWatch(&cache.Request{
+				Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.RouteType,
+			}, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
+			require.NoError(t, err)
+			t.Cleanup(cancel)
 			route := &envoy_config_route.RouteConfiguration{Name: "removed"}
 			require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Route, route.Name, route, nil, nil))
 			acceptPublishedSnapshotVersions(t, c, 1, &envoy_config_core.Node{Id: nodeID}, mustSnapshot(t, c, nodeID))
 
 			var rollback Rollback
-			var err error
 			if api == "ApplyResourceWithRollback" {
 				rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Route, route.Name, nil, nil, nil)
 			} else {
@@ -539,15 +551,26 @@ func TestFailedCallerRevertReleasesRemovalTombstone(t *testing.T) {
 func TestCallerRevertAfterCancellation(t *testing.T) {
 	mock := newMockSnapshotCache()
 	c := newInitializedTestCache(mock)
+	const nodeID = "node1"
+	// The mock leaves this watch open so the revert publishes synchronously.
+	// Otherwise it only commits unpublished compensation and never exercises delivery
+	// with the canceled caller's context.
+	cancelWatch, err := c.CreateWatch(&cache.Request{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: NetworkPolicyTypeURL,
+	}, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
+	require.NoError(t, err)
+	t.Cleanup(cancelWatch)
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
-	rollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy",
+	rollback, err := c.ApplyResourceWithRollback(ctx, nodeID, typeurl.NetworkPolicy, "policy",
 		&cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
 	require.NoError(t, err)
 	cancel()
 
+	publications := len(mock.setSnapshotCalls)
 	require.NoError(t, rollback.Revert())
-	require.Nil(t, c.GetResource("node1", typeurl.NetworkPolicy, "policy"))
+	require.Len(t, mock.setSnapshotCalls, publications+1)
+	require.Nil(t, c.GetResource(nodeID, typeurl.NetworkPolicy, "policy"))
 	// The publication context must still permit delivering the compensating
 	// response. The expired mutation context must not cancel that delivery.
 	require.NoError(t, mock.setSnapshotCalls[len(mock.setSnapshotCalls)-1].Err())
@@ -604,10 +627,10 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 	}
 
 	state := c.getNodeState("node1")
-	policyRollback := state.typeStates[typeurl.NetworkPolicy].rollbacks.unsent
-	require.NotNil(t, policyRollback)
-	require.NotNil(t, policyRollback.resources)
-	coldStartRollback := (*policyRollback.resources)[typeurl.NetworkPolicy]
+	require.NotNil(t, state.pendingPublication)
+	policyRollback, exists := state.pendingPublication.rollbacks.Get(typeurl.NetworkPolicy)
+	require.True(t, exists)
+	coldStartRollback := policyRollback[typeurl.NetworkPolicy]
 	require.Len(t, coldStartRollback, 2)
 	for _, rollback := range coldStartRollback {
 		require.Nil(t, rollback.previous.resource,
@@ -651,7 +674,7 @@ func TestNACKedRemovalRestoresResourceAfterCallerCompletion(t *testing.T) {
 	rollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy", policy, nil, nil)
 	require.NoError(t, err)
 	rollback.Finalize()
-	initial := mustSnapshot(t, c, "node1")
+	initial := requestSnapshotForTest(t, c, "node1", typeurl.NetworkPolicy)
 	initialVersion := initial.GetVersion(NetworkPolicyTypeURL)
 	ackNetworkPolicyVersion(t, c, "node1", initialVersion)
 
@@ -700,7 +723,7 @@ func TestNACKRevertsAfterWaitCancellationAndCallerFinalize(t *testing.T) {
 	rollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy", policyA, nil, nil)
 	require.NoError(t, err)
 	rollback.Finalize()
-	initial := mustSnapshot(t, c, "node1")
+	initial := requestSnapshotForTest(t, c, "node1", typeurl.NetworkPolicy)
 	initialVersion := initial.GetVersion(NetworkPolicyTypeURL)
 	ackNetworkPolicyVersion(t, c, "node1", initialVersion)
 
@@ -833,17 +856,34 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 			c := newCache(t)
 			applyPlain(t, c, routes(map[string]uint64{"newer": 1, "unchanged": 1}))
 			node := &envoy_config_core.Node{Id: "node-a"}
-			baseline := mustSnapshot(t, c, node.Id)
-			acceptPublishedSnapshotVersions(t, c, 1, node, baseline)
+			request := &cache.Request{Node: node, TypeUrl: envoy_resource.RouteType}
+			subscription := stream.NewSotwSubscription(nil, true)
+			responses := make(chan cache.Response, 1)
+			// Let a real watch finalize the pending baseline before accepting it.
+			cancel, err := c.CreateWatch(request, subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
+			require.Len(t, responses, 1)
+			baseline := <-responses
+			subscription.SetReturnedResources(baseline.GetReturnedResources())
+			acknowledgeResponse(t, c, 1, baseline, "accepted-routes")
+			request.VersionInfo = baseline.GetResponseVersion()
+			cancel, err = c.CreateWatch(request, subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
 			rollback := apply(t, c, routes(map[string]uint64{"newer": 2, "unchanged": 2}))
 			if mode == "NACK-driven" {
 				defer rollback.Finalize()
 			}
 			// Bind the response before the newer resource is changed, so its
 			// NACK must not include the later update.
-			response := publishedResponseForTest(t, c, node, typeurl.Route)
-			c.completionCbs.OnStreamResponse(response.GetContext(), 1,
-				response.GetRequest(),
+			require.Len(t, responses, 1)
+			response := <-responses
+			c.completionCbs.OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
 				&discovery.DiscoveryResponse{
 					VersionInfo: response.GetResponseVersion(),
 					TypeUrl:     envoy_resource.RouteType,
@@ -855,7 +895,7 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 				require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
 					Node:          node,
 					TypeUrl:       envoy_resource.RouteType,
-					VersionInfo:   baseline.GetVersion(envoy_resource.RouteType),
+					VersionInfo:   baseline.GetResponseVersion(),
 					ResponseNonce: "rejected-routes",
 					ErrorDetail:   &status.Status{Message: "rejected routes"},
 				}))
@@ -1034,6 +1074,23 @@ func TestCallerRevertRestoresPreviouslyAbsentResources(t *testing.T) {
 			// prior absence as an explicit zero entry. Dropping that entry would
 			// leave the newly added resource behind when the caller reverts.
 			require.NoError(t, rollback.Revert())
+			_, err = c.GetSnapshot(nodeID)
+			require.Error(t, err, "reverting desired state must not eagerly publish a snapshot")
+
+			// The first watch finalizes the reverted desired state, not the
+			// resources added before the caller rollback.
+			responses := make(chan cache.Response, 1)
+			cancel, err := c.CreateWatch(&cache.Request{
+				Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Cluster.URL(),
+			}, stream.NewSotwSubscription(nil, true), responses)
+			require.NoError(t, err)
+			t.Cleanup(cancel)
+			select {
+			case response := <-responses:
+				require.Empty(t, response.GetReturnedResources())
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for reverted snapshot")
+			}
 			snapshot, err := c.GetSnapshot(nodeID)
 			require.NoError(t, err)
 			for typeURL := range typeURLs.Members() {
@@ -1042,4 +1099,118 @@ func TestCallerRevertRestoresPreviouslyAbsentResources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestApplyResourcesCoalescesPendingRollbackState(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), false, WithNodeIDs("node1")).(*cacheImpl)
+	const updates = 1000
+
+	for endpointID := uint64(1); endpointID <= updates; endpointID++ {
+		err := c.ApplyResource(
+			t.Context(), "node1", typeurl.NetworkPolicy,
+			"policy", &cilium.NetworkPolicy{EndpointId: endpointID}, nil, nil)
+
+		require.NoError(t, err)
+	}
+
+	state := c.getNodeState("node1")
+	require.NotNil(t, state)
+	require.NotNil(t, state.pendingPublication)
+	require.Equal(t, 1, state.pendingPublication.rollbacks.Len())
+	policyRollback, exists := state.pendingPublication.rollbacks.Get(typeurl.NetworkPolicy)
+	require.True(t, exists)
+	require.Len(t, policyRollback[typeurl.NetworkPolicy], 1,
+		"pending publication must retain one inverse per changed resource, not one per update")
+	state.requireNoRollbackOwners(t)
+}
+
+func TestClonePendingRollbacksKeepsIndependentRecoveryState(t *testing.T) {
+	var pending typeurl.Map[rollbackResources]
+	var rollback rollbackResources
+	rollback[typeurl.Listener] = map[string]rollbackEntry{"listener": {expectedTransaction: callbacks.Generation(1).TransactionID()}}
+	rollback[typeurl.Route] = map[string]rollbackEntry{"route": {expectedTransaction: callbacks.Generation(1).TransactionID()}}
+	entry := rollback[typeurl.Route]["route"]
+	entry.transactions.Insert(callbacks.Generation(1).TransactionID())
+	entry.transactions.Insert(callbacks.Generation(2).TransactionID()) // Exercise a map-backed membership set.
+	rollback[typeurl.Route]["route"] = entry
+	pending.Set(typeurl.Listener, rollback)
+
+	cloned := clonePendingRollbacks(pending)
+	clonedRollback, _ := cloned.Get(typeurl.Listener)
+	entry = clonedRollback[typeurl.Route]["route"]
+	entry.transactions.Insert(callbacks.Generation(3).TransactionID())
+	clonedRollback[typeurl.Route]["route"] = entry
+	originalRollback, _ := pending.Get(typeurl.Listener)
+	require.False(t, originalRollback[typeurl.Route]["route"].transactions.Has(callbacks.Generation(3).TransactionID()), "failed publication must not change the prior recovery relationships")
+	delete(clonedRollback[typeurl.Route], "route")
+
+	require.Contains(t, originalRollback[typeurl.Route], "route")
+}
+
+func TestPendingRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1")).(*cacheImpl)
+	const nodeID = "node1"
+	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "orphan"}
+
+	err := c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "orphan", endpoint, nil, nil)
+	require.NoError(t, err)
+	pending, exists := c.getNodeState(nodeID).pendingPublication.rollbacks.Get(typeurl.Endpoint)
+	require.True(t, exists)
+	require.Len(t, pending[typeurl.Endpoint], 1)
+
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "orphan", nil, nil, nil)
+	require.NoError(t, err)
+	state := c.getNodeState(nodeID)
+	require.NotNil(t, state)
+	pending, exists = state.pendingPublication.rollbacks.Get(typeurl.Endpoint)
+	require.True(t, exists, "the pending type still needs completion finalization")
+	require.True(t, pending.empty(), "a never-sent add/remove has no rollback target")
+	state.requireNoRollbackOwners(t)
+	require.Empty(t, state.resources[typeurl.Endpoint], "the removal tombstone must be released")
+}
+
+func TestPendingRollbackRetainsRemovedEndpointForTransactionSibling(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1")).(*cacheImpl)
+	const nodeID = "node1"
+	original := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+	c.getNodeState(nodeID).seedResource(typeurl.Endpoint, "endpoint", original)
+
+	changed := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint", Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{}}}
+	err := c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "endpoint", changed, nil, nil)
+	require.NoError(t, err)
+	// EDS omission alone cannot be NACKed. A changed Cluster in the same API
+	// transaction can reject the removal, so its response rollback must retain
+	// the Endpoint's original value across the coalesced changes.
+	err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{
+		Removed: xds.Resources{Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{"endpoint": nil}},
+		Upserted: xds.Resources{Clusters: map[string]*envoy_config_cluster.Cluster{
+			"cluster": {Name: "cluster"},
+		}},
+	}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+
+	state := c.getNodeState(nodeID)
+	pending, exists := state.pendingPublication.rollbacks.Get(typeurl.Endpoint)
+	require.True(t, exists)
+	require.Same(t, original, pending[typeurl.Endpoint]["endpoint"].previous.resource,
+		"a removal is not a net no-op when the resource existed before the unsent changes")
+}
+
+func TestPendingRollbackDropsSemanticEndpointABA(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false, WithNodeIDs("node1")).(*cacheImpl)
+	const nodeID = "node1"
+	original := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+	c.getNodeState(nodeID).seedResource(typeurl.Endpoint, "endpoint", original)
+
+	changed := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint", Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{}}}
+	err := c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "endpoint", changed, nil, nil)
+	require.NoError(t, err)
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "endpoint",
+		&envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}, nil, nil)
+	require.NoError(t, err)
+
+	pending, exists := c.getNodeState(nodeID).pendingPublication.rollbacks.Get(typeurl.Endpoint)
+	require.True(t, exists, "the pending type still needs completion finalization")
+	require.True(t, pending.empty(),
+		"a distinct protobuf pointer with the original contents needs no rollback")
 }

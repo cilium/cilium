@@ -241,17 +241,22 @@ func updateTrackedADSSnapshot(t *testing.T, server *adsServer, resources xds.Res
 	require.NoError(t, err)
 }
 
-// ackADSResourceVersion simulates a first request for the currently published
-// version. The mock client has not consumed that version yet, even when it was
-// published before this watch was created.
+// ackADSResourceVersion simulates an ACK from an Envoy which has already
+// consumed the currently published version. An affected unpublished update is
+// finalized when the resulting watch is created and produces the newer version
+// which is then ACKed below.
 func ackADSResourceVersion(t *testing.T, cache xdsnew.Cache, streamID int64, typeURL string) string {
 	t.Helper()
-	return ackADSResourceVersionFrom(t, cache, streamID, typeURL, "")
+	acceptedVersion := ""
+	if snapshot, err := cache.GetSnapshot(localNodeID); err == nil {
+		acceptedVersion = snapshot.GetVersion(typeURL)
+	}
+	return ackADSResourceVersionFrom(t, cache, streamID, typeURL, acceptedVersion)
 }
 
 // ackADSResourceVersionFrom is the explicit-client-state variant. A TypeURL can
 // already have a version in a strict ADS snapshot because another resource type
-// caused the whole consistent snapshot to be published, even though Envoy has
+// caused the whole consistent snapshot to be finalized, even though Envoy has
 // not requested or received this TypeURL yet. Such a first request must report
 // an empty acceptedVersion rather than copying the server's published version.
 func ackADSResourceVersionFrom(t *testing.T, cache xdsnew.Cache, streamID int64, typeURL, acceptedVersion string) string {
@@ -507,6 +512,9 @@ func TestSnapshotRevert(t *testing.T) {
 
 		require.NoError(t, newerRevert.Revert())
 		require.Equal(t, uint64(2), cachedNetworkPolicy(t, cache, localNodeID, "policy").EndpointId)
+		// Snapshots are finalized on demand. Consume the reverted state before
+		// checking that a duplicate revert does not publish another snapshot.
+		createADSWatchResponse(t, cache, NetworkPolicyTypeURL, "")
 		afterRevert, err := cache.GetSnapshot(localNodeID)
 		require.NoError(t, err)
 
@@ -652,7 +660,7 @@ func TestSnapshotRevert(t *testing.T) {
 		require.NotContains(t, current, "listener-3")
 	})
 
-	t.Run("NACK reverts an untracked generation published before a tracked generation", func(t *testing.T) {
+	t.Run("NACK reverts an unpublished untracked generation before a tracked generation", func(t *testing.T) {
 		server, cache := newServer(t)
 		ctx := t.Context()
 		listenerResources := func(name string) xds.Resources {
@@ -681,8 +689,8 @@ func TestSnapshotRevert(t *testing.T) {
 			ResponseNonce: "baseline",
 		}))
 
-		// Envoy has not requested the untracked mutation before the later tracked
-		// one is published. Both enter the same response and must therefore be
+		// Lazy finalization lets an untracked mutation remain unpublished until a
+		// later tracked one. Both enter the same response and must therefore be
 		// rolled back together if Envoy rejects it.
 		require.NoError(t, server.UpsertEnvoyResources(ctx, listenerResources("listener-2"), nil))
 		wg := completion.NewWaitGroup(ctx)
@@ -767,8 +775,8 @@ func TestSnapshotRevert(t *testing.T) {
 				Nonce:       "nonce-2",
 			})
 
-		// This update is published after the response under test was sent. Its own
-		// ACK/NACK will arrive with a later response.
+		// This update remains unpublished after the response under test was sent.
+		// Its own ACK/NACK will arrive with a later response.
 		apply(map[string]uint64{"newer": 3}, nil)
 		require.NoError(t, cache.GetCompletionCallbacks().OnStreamRequest(1, &envoy_service_discovery.DiscoveryRequest{
 			Node:          node,
@@ -1390,15 +1398,15 @@ func TestStrictADSEndpointNACKKeepsCluster(t *testing.T) {
 		envoyXDSMode: config.EnvoyXDSModeStrictADS,
 	}, nil, nil)
 
-	// Publish and accept an EDS cluster without authoritative endpoints. The
-	// strict ADS snapshot contains the synthetic empty CLA required by the EDS
-	// reference.
+	// Publish and accept an EDS cluster without authoritative endpoints. The CDS
+	// watch finalizes the whole consistent strict ADS snapshot, and snapshot
+	// normalization supplies the empty CLA required by the EDS reference.
 	clusterOnly := adsTestEDSResources("cluster", "accepted")
 	delete(clusterOnly.Endpoints, "cluster")
 	require.NoError(t, server.UpsertEnvoyResources(t.Context(), clusterOnly, nil))
 	ackADSResourceVersion(t, cache, 1, ClusterTypeURL)
 	// Envoy has not received EDS yet. The EDS version in the server snapshot
-	// belongs to the synthetic empty CLA published before the preceding CDS watch;
+	// belongs to the synthetic empty CLA finalized for the preceding CDS watch;
 	// it is not evidence that the client has consumed that EDS version. Model the
 	// first EDS request with an empty client version so go-control-plane returns
 	// the synthetic CLA rather than opening a watch for an apparently current
@@ -1419,9 +1427,10 @@ func TestStrictADSEndpointNACKKeepsCluster(t *testing.T) {
 
 	rejectedEndpointVersion := nackADSResourceVersion(t, cache, 1, EndpointTypeURL, acceptedEndpointVersion, "rejected endpoints")
 	require.Error(t, wg.Wait())
-	// The cache revert immediately publishes a replacement snapshot. In the real
-	// server the NACK request installs a watch after OnStreamRequest returns.
-	// This test drives callbacks and cache watches separately, so create the follow-up watch
+	// The cache revert updates desired state immediately but defers snapshot
+	// construction until another EDS watch can consume it. In the real server the
+	// NACK request installs that watch after OnStreamRequest returns. This test drives
+	// callbacks and cache watches separately, so create the follow-up watch
 	// explicitly. Requesting from the rejected version makes the helper wait for
 	// the replacement response, whose normalization restores the empty CLA.
 	createADSWatchResponse(t, cache, EndpointTypeURL, rejectedEndpointVersion)
@@ -2548,6 +2557,9 @@ func TestUpdateNetworkPolicyReusesIdempotentCacheRevert(t *testing.T) {
 	// regeneration reports failure to its caller.
 	require.NoError(t, cache.rollbacks[0].Revert())
 	require.Same(t, previousPolicy, cachedNetworkPolicy(t, cache, localNodeID, "1"))
+	// Consume the reverted state; a lazy cache has no published snapshot until
+	// a watch can receive it.
+	createADSWatchResponse(t, cache, NetworkPolicyTypeURL, "")
 	afterNACK, err := cache.GetSnapshot(localNodeID)
 	require.NoError(t, err)
 
@@ -2678,8 +2690,8 @@ func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 	require.Equal(t, 1, cache.GetCompletionCallbacks().PendingCompletionCount())
 	require.Equal(t, uint64(1), mockEp.proxyPolicyUpdateCount.Load())
 
-	// The policy snapshot is already published. The no-op update above must
-	// remain pending until Envoy ACKs its first NPDS response.
+	// Opening the first NPDS watch publishes the accumulated policy changes. The
+	// no-op update above must remain pending until Envoy ACKs that snapshot.
 	seededVersion := ackADSResourceVersion(t, cache, 1, NetworkPolicyTypeURL)
 	require.NotEmpty(t, seededVersion)
 	require.NoError(t, wg.Wait())

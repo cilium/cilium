@@ -155,7 +155,6 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 			t.Run(api.name+"/"+outcome.name, func(t *testing.T) {
 				c := newCoverageCache(t)
 				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", api.index, "resource", api.value, nil, nil))
-				published := mustSnapshot(t, c, "coverage-node")
 				s := coverageStream{cache: c, id: 1, typeURL: api.index.URL()}
 				var response *discovery.DiscoveryResponse
 				if outcome.phase != "before-response" {
@@ -165,6 +164,7 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 					s.reply(t, response, "")
 				}
 
+				published, _ := c.GetSnapshot("coverage-node")
 				ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 				t.Cleanup(cancel)
 				wg := completion.NewWaitGroup(ctx)
@@ -183,7 +183,12 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 				} else {
 					require.NoError(t, c.ApplyResource(ctx, "coverage-node", api.index, "resource", candidate, wg, callback))
 				}
-				require.Same(t, published, mustSnapshot(t, c, "coverage-node"), "a semantic no-op must not publish")
+				currentSnapshot, _ := c.GetSnapshot("coverage-node")
+				if published == nil {
+					require.Nil(t, currentSnapshot, "a pending no-op must not publish")
+				} else {
+					require.Same(t, published, currentSnapshot, "a semantic no-op must not publish")
+				}
 				current := c.GetResource("coverage-node", api.index, "resource")
 				require.NotNil(t, current)
 				require.Same(t, api.value, current, "a no-op must keep the canonical protobuf")
@@ -227,6 +232,13 @@ func TestNoOpUpdateAfterFailedNACKCompletesWithRejection(t *testing.T) {
 	c.SnapshotCache = &mockSnapshotCache{
 		snapshots: map[string]cache.ResourceSnapshot{"coverage-node": published}, setSnapshotErr: publicationErr,
 	}
+	// Keep a policy watch available so response recovery attempts publication
+	// now. Otherwise the compensation commits unpublished changes for the next watch.
+	cancelWatch, err := c.CreateWatch(&cache.Request{
+		Node: &core.Node{Id: "coverage-node"}, TypeUrl: s.typeURL, VersionInfo: response.VersionInfo,
+	}, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
+	require.NoError(t, err)
+	t.Cleanup(cancelWatch)
 	require.ErrorIs(t, c.completionCbs.OnStreamRequest(s.id, &discovery.DiscoveryRequest{
 		TypeUrl: s.typeURL, VersionInfo: s.version, ResponseNonce: response.Nonce,
 		ErrorDetail: &status.Status{Message: "invalid policy"},
@@ -642,6 +654,14 @@ func TestFailedPublicationPreservesPartialACKForNoOp(t *testing.T) {
 	failed.snapshots["coverage-node"] = previous
 	failed.setSnapshotErr = publicationErr
 	c.SnapshotCache = failed
+	// Keep an EDS watch open so failure is exercised by this mutation, not
+	// deferred to a later request. The mock never consumes this watch.
+	cancelWatch, err := c.CreateWatch(&cache.Request{
+		Node: &core.Node{Id: "coverage-node"}, TypeUrl: typeurl.Endpoint.URL(),
+		ResourceNames: []string{"a"}, VersionInfo: previous.GetVersion(typeurl.Endpoint.URL()),
+	}, stream.NewSotwSubscription([]string{"a"}, false), make(chan cache.Response, 1))
+	require.NoError(t, err)
+	t.Cleanup(cancelWatch)
 	err = c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", nil, nil, nil)
 	c.SnapshotCache = backend
 	require.ErrorIs(t, err, publicationErr)
@@ -765,11 +785,11 @@ func TestRepeatedRemovalWaitsForPendingOutcome(t *testing.T) {
 					require.NoError(t, remove(first, func(err error) { firstDone <- err }))
 					requireCoveragePending(t, firstDone)
 					require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, "a"))
-					published := mustSnapshot(t, c, "coverage-node")
 					var response *discovery.DiscoveryResponse
 					if phase == "after-response" {
 						response = s.receive(t)
 					}
+					published := mustSnapshot(t, c, "coverage-node")
 					// The second removal is a no-op, but its absence has not yet been
 					// accepted. Typed nil must attach to the same pending outcome.
 					require.NoError(t, remove(second, func(err error) { secondDone <- err }))
@@ -1220,15 +1240,13 @@ func TestPartialResponseRollbackMembershipIsBoundedBeforeConnection(t *testing.T
 	// Inspect only the lifetime invariant: without any connected Envoy, memory
 	// must depend on the two live resources, not the hundred API transactions.
 	state := c.getNodeState("coverage-node")
-	for typeURL := range typeurl.Indices() {
-		if typeURL != typeurl.Endpoint {
-			require.Nil(t, state.typeStates[typeURL].rollbacks.unsent)
-		}
-	}
-	rollback := state.typeStates[typeurl.Endpoint].rollbacks.unsent
-	require.NotNil(t, rollback)
-	require.Len(t, (*rollback.resources)[typeurl.Endpoint], 2)
-	for _, entry := range (*rollback.resources)[typeurl.Endpoint] {
+	state.requireNoUnsentRollbacks(t, "there is no published snapshot before the first watch")
+	require.NotNil(t, state.pendingPublication)
+	require.Equal(t, 1, state.pendingPublication.rollbacks.Len())
+	rollback, exists := state.pendingPublication.rollbacks.Get(typeurl.Endpoint)
+	require.True(t, exists)
+	require.Len(t, rollback[typeurl.Endpoint], 2)
+	for _, entry := range rollback[typeurl.Endpoint] {
 		require.Equal(t, 1, entry.transactions.Len())
 	}
 	// The first response can still reject the coalesced transaction, including

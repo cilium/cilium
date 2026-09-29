@@ -133,7 +133,7 @@ func TestNACKRevalidatesAfterAcquiringCacheLock(t *testing.T) {
 
 func TestNACKBatchPublishesOnlyFinalState(t *testing.T) {
 	for _, strict := range []bool{false, true} {
-		for _, shape := range []string{"chain", "aba", "absence", "cross-type"} {
+		for _, shape := range []string{"chain", "aba", "absence", "cross-type", "deferred"} {
 			t.Run(fmt.Sprintf("strict=%t/%s", strict, shape), func(t *testing.T) {
 				c, _ := newGatedNACKCache(t, strict)
 				t.Cleanup(func() { c.completionCbs.OnStreamClosed(1, nil); c.completionCbs.OnStreamClosed(2, nil) })
@@ -164,16 +164,20 @@ func TestNACKBatchPublishesOnlyFinalState(t *testing.T) {
 				apply(b)
 				responseB := second.receive(t, "secret")
 				before := c.getNodeState("coverage-node").resourceGeneration
+				published := mustSnapshot(t, c, "coverage-node")
 
 				// A watch ready before recovery would observe the intermediate A
 				// with per-lifecycle publication. It must receive only the final baseline.
 				responses := make(chan cache.Response, 2)
-				cancel, err := c.CreateWatch(&cache.Request{
+				request := &cache.Request{
 					Node: &core.Node{Id: "coverage-node"}, TypeUrl: second.typeURL,
 					ResourceNames: []string{"secret"}, VersionInfo: responseB.VersionInfo,
-				}, second.sub, responses)
-				require.NoError(t, err)
-				t.Cleanup(cancel)
+				}
+				if shape != "deferred" {
+					cancel, err := c.CreateWatch(request, second.sub, responses)
+					require.NoError(t, err)
+					t.Cleanup(cancel)
+				}
 				second.reply(t, responseB, "invalid secret", "secret")
 				require.Equal(t, before+1, c.getNodeState("coverage-node").resourceGeneration, "one corrective generation for the whole batch")
 				if baseline == nil {
@@ -184,19 +188,19 @@ func TestNACKBatchPublishesOnlyFinalState(t *testing.T) {
 				if shape == "cross-type" {
 					require.Equal(t, "accepted", c.GetResource("coverage-node", typeurl.Cluster, "sibling").(*cluster.Cluster).AltStatName)
 				}
-				require.Len(t, responses, 1)
-				correction := second.deliver(t, <-responses)
-				if baseline == nil {
-					require.Empty(t, correction.Resources)
-				} else {
-					require.Len(t, correction.Resources, 1)
-					value := &secret.Secret{}
-					require.NoError(t, correction.Resources[0].UnmarshalTo(value))
-					require.Equal(t, "accepted", value.GetGenericSecret().GetSecret().GetInlineString())
-
-					wg := completion.NewWaitGroup(t.Context())
+				if shape == "deferred" {
+					// Recovery must commit without a ready watch, consume the selected
+					// inverses, and leave the previous published snapshot untouched.
+					require.Same(t, published, mustSnapshot(t, c, "coverage-node"))
+					require.Empty(t, responses)
+					require.True(t, c.getNodeState("coverage-node").rollbacks.responses.Empty())
+				}
+				var wg *completion.WaitGroup
+				var done chan error
+				if baseline != nil {
+					wg = completion.NewWaitGroup(t.Context())
 					t.Cleanup(wg.Cancel)
-					done := make(chan error, 1)
+					done = make(chan error, 1)
 					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Secret, "secret", baseline, wg, func(err error) {
 						// Completion callbacks must run after the cache lock is released.
 						c.GetResource("coverage-node", typeurl.Secret, "secret")
@@ -206,6 +210,21 @@ func TestNACKBatchPublishesOnlyFinalState(t *testing.T) {
 					first.reply(t, responseA, "", "secret")
 					second.reply(t, responseB, "", "secret")
 					requireCoveragePending(t, done)
+				}
+				if shape == "deferred" {
+					cancel, err := c.CreateWatch(request, second.sub, responses)
+					require.NoError(t, err)
+					t.Cleanup(cancel)
+				}
+				require.Len(t, responses, 1)
+				correction := second.deliver(t, <-responses)
+				if baseline == nil {
+					require.Empty(t, correction.Resources)
+				} else {
+					require.Len(t, correction.Resources, 1)
+					value := &secret.Secret{}
+					require.NoError(t, correction.Resources[0].UnmarshalTo(value))
+					require.Equal(t, "accepted", value.GetGenericSecret().GetSecret().GetInlineString())
 					second.reply(t, correction, "", "secret")
 					require.NoError(t, wg.Wait())
 					require.NoError(t, <-done)
@@ -323,6 +342,14 @@ func TestFailedNACKBatchRetainsAllInverses(t *testing.T) {
 	failed.snapshots["coverage-node"] = mustSnapshot(t, c, "coverage-node")
 	failed.setSnapshotErr = failure
 	c.SnapshotCache = failed
+	// Recovery finalizes synchronously only if an open watch can consume the
+	// correction. The mock retains this watch without sending a response.
+	cancelWatch, err := c.CreateWatch(&cache.Request{
+		Node: &core.Node{Id: "coverage-node"}, TypeUrl: second.typeURL,
+		ResourceNames: []string{"secret"}, VersionInfo: response.VersionInfo,
+	}, second.sub, make(chan cache.Response, 1))
+	require.NoError(t, err)
+	t.Cleanup(cancelWatch)
 	require.ErrorIs(t, c.completionCbs.OnStreamRequest(second.id, &discovery.DiscoveryRequest{
 		TypeUrl: second.typeURL, ResponseNonce: response.Nonce, ResourceNames: []string{"secret"},
 		ErrorDetail: &status.Status{Message: "invalid secret"},

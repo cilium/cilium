@@ -3,14 +3,15 @@
 ## Overview
 
 The cache stores xDS resources Cilium wants before Envoy accepts them. It owns the
-transaction that changes desired resources, publishes an immutable snapshot,
+transaction that changes desired resources, accumulates unpublished changes,
 and retains enough information to recover from either a caller failure or an
-Envoy NACK. go-control-plane constructs and delivers protocol responses.
+Envoy NACK. A matching watch triggers snapshot construction and publication;
+go-control-plane constructs and delivers protocol responses.
 
 ```text
-Cilium update → cache transaction → published snapshot → response → ACK/NACK
-                    │                                    │
-             caller lifecycle                    response-owned rollback
+Cilium update → desired state → watch → snapshot → response → ACK/NACK
+                       │                              │
+                caller lifecycle              response-owned rollback
 ```
 
 These are three distinct resource views:
@@ -45,6 +46,8 @@ response communicates, including deletions where omission signals removal.
   same lock. No caller can interleave and no intermediate snapshot is published.
 - Strict ADS validates affected references before changing desired state. A
   debug-only full snapshot check verifies the published projection separately.
+- A matching open watch or the next request finalizes accumulated mutations.
+  Without one, mutations do not construct snapshots or compute content versions.
 - ACK/NACK processing uses the response's exact generation, named-resource
   coverage, stream, and nonce. A partial response cannot acknowledge names
   outside its subscription. For types supporting deletion by omission,
@@ -57,14 +60,15 @@ response communicates, including deletions where omission signals removal.
 
 ## State and ownership
 
-`nodeState` owns desired entries, desired/published generations, open watches,
-the strict reference index, and a `rollbackState` containing live caller and
-response inverses for predecessor rebasing. Each TypeURL's `resourceRollbackState`
-owns its unsent inverse and tombstone-owner counts. Rollback methods borrow
-desired-state or transaction context and share the cache lock; they neither lock
-nor invoke user callbacks.
-Supported types use fixed array slots and bit sets; TypeURL strings are converted
-at the boundary.
+`nodeState` owns desired entries, desired/published generations, optional
+`pendingPublication` bookkeeping, open watches, the strict reference index,
+and a `rollbackState` containing live caller and response inverses for predecessor
+rebasing. Each TypeURL's `resourceRollbackState` owns its unsent inverse and
+tombstone-owner counts. Rollback methods borrow desired-state or transaction
+context and share the cache lock; they neither lock nor invoke user callbacks.
+Supported types use fixed array slots and bit sets; protocol strings are converted
+at the boundary. Each `typeStates` slot also tracks changed names for incremental
+publication; finalization clears names, not independent rollback.
 Requests for unsupported TypeURLs from configured nodes call the embedded
 go-control-plane cache's `CreateWatch`, without Cilium's per-TypeURL tracking.
 Cilium never publishes resources for these types. An initial request with an
@@ -106,14 +110,17 @@ A transaction holds the cache write lock while it:
 1. Compares candidates with desired state and prepares actual changes.
 2. Reserves a generation and validates affected references in strict ADS mode.
 3. Commits desired entries and reference counts, and registers ACK waits.
-4. Constructs and installs a snapshot, recording successful publication.
-5. Creates a caller lifecycle, if requested, only after publication succeeds.
+4. Coalesces response inverses into pending publication bookkeeping and records
+   changed resource names.
+5. Finalizes immediately if a directly affected watch is open.
+6. Creates a caller lifecycle, if requested, after a successful commit/publication.
 
 Readers cannot observe partial changes. Publication failure restores previous
-entries and reference counts, and detaches this transaction's waits; a failed
-apply returns no caller lifecycle. A delivery error after go-control-plane
-installed the intended snapshot is treated as a committed update.
-Installation is confirmed by exact snapshot identity, not matching content versions.
+entries, reference counts, changed names, and previous pending publication
+bookkeeping, and detaches this transaction's waits; a failed apply returns no
+caller lifecycle. A delivery error after go-control-plane installed the intended
+snapshot is treated as a committed update. Installation is confirmed by exact
+snapshot identity, not matching content versions.
 Unchanged-resource waits prepared earlier in a mixed transaction are also
 detached on validation failure; unrelated pending state remains owned.
 
@@ -130,12 +137,29 @@ Non-strict mode and unrelated types skip the reference index. A full snapshot
 consistency check runs only with both strict ADS and agent debug logging enabled;
 transaction safety does not depend on that projection check.
 
-### Snapshot delivery
+### On-demand finalization
 
-A successful real mutation installs a snapshot before returning. An open watch
-may consume it immediately; otherwise it is available to later requests. Known
-nodes start with desired state, not a prebuilt empty snapshot. Their first
-supported active subscription publishes desired state if no snapshot exists.
+A successful mutation commits desired state before returning, not necessarily
+a snapshot. While Envoy processes a response, subsequent mutations coalesce
+without snapshot construction. A directly affected open watch or the next
+matching request finalizes the pending publication. An unrelated watch does not
+trigger it.
+
+`pendingPublication` holds metadata and rollback state, not a snapshot or a
+second resource map. Unpublished changes are already in desired state. Its
+indexed `rollbacks` map also marks types needing completion finalization.
+A present, empty value requires finalization but no new inverse,
+including coalesced A-B-A changes and compensating publications.
+
+Known nodes start with desired state, not a prebuilt empty snapshot. Their first
+supported active subscription publishes desired state if no snapshot exists;
+explicitly cleared delivery state is handled the same way. Empty groups are
+supplied only when the corresponding desired group is empty.
+
+Incremental finalization reuses unchanged groups and clones changed groups'
+resource and content-version maps together. Only changed resources are marshaled
+for version computation. Missing CLAs are projected with one Cluster-reference
+pass, preserving explicit assignments and shared EDS names.
 
 Each snapshot group contains `cache.Resources` and its per-resource content
 versions, constructed together from the published projection, including
@@ -149,6 +173,12 @@ Cache relays buffer responses produced synchronously by `SetSnapshot` or
 `CreateWatch`. Their exact generation, named-resource coverage, and rollback ownership are
 captured before delivery outside the lock. Publication metadata becomes visible
 only after successful installation. A slow consumer cannot hold up mutations.
+
+A failed request-driven finalization keeps desired state and pending publication
+bookkeeping for the next attempt or a caller revert. Serialization errors can
+therefore occur after a mutation was accepted. After installation succeeds,
+`snapshotGeneration` advances and pending publication bookkeeping and changed-name
+sets are cleared.
 
 ## Generations and no-op waits
 
@@ -192,9 +222,9 @@ Single-resource waits use the entry's revision directly.
 Restored absence uses the type's latest corrective generation without retaining
 per-name tombstones solely for waiting. Bulk waits use matching names
 per type, retaining only names whose desired contents are not already accepted.
-Changing one name must not make unchanged, ACKed names wait again. The published
-generation is the fallback for a whole-type wait.
-If no published baseline exists, waits register against desired revisions
+Changing one name must not make unchanged, ACKed names wait again. The pending
+publication or published snapshot generation is the fallback for a whole-type
+wait. If no published baseline exists, waits register against desired revisions
 and acquire their content version at the next successful publication. A no-op
 does not force publication merely to register a wait. Removals from a pristine
 known node still complete immediately because no mutation needs acknowledgment.
@@ -243,7 +273,8 @@ transaction can be NACKed and require the whole transaction to be undone.
 
 Removing a CLA still referenced by a cached Cluster is different: the
 snapshot supplies a named, empty CLA, explicitly replacing its old endpoint
-list. That change can be ACKed or NACKed and retains its response inverse.
+list. That change can be ACKed or NACKed and retains its response inverse,
+including while publication is still pending.
 
 ACK releases response-owned rollback state only after all required
 resource names have been acknowledged.
@@ -252,20 +283,21 @@ NACK recovery uses the ordinary cache transaction. It takes the cache lock
 before revalidating the response and claiming inverses under the callbacks
 lock, then releases the callbacks lock to prepare one final correction.
 The cache lock prevents caller mutations and other NACKs from interleaving.
-Only the final state is validated and published; intermediate restored values
+Only the final state is validated and committed; intermediate restored values
 cannot be delivered or acquire new waits.
 
 Selected inverse targets are composed oldest first, bypassing rejected
-predecessors in all live response and caller inverses. Superseding API
-transactions remain guarded. For example, if A is rejected after B replaces it,
+predecessors in pending-publication, live response, and caller inverses.
+Superseding API transactions remain guarded. For example, if A is rejected after B replaces it,
 B remains desired, but its later rollback restores the value before A, not A.
 This applies to unsent responses and caller rollback after B is ACKed too.
 Only live inverses are retained, not a history of rejected values.
 
-Successful recovery consumes the selected inverses together and publishes one
-corrective generation. Restored values receive fresh revisions even when a
-sent A-B-A chain restores identical protobuf contents. Response delivery and
-application callbacks run after unlocking.
+Successful recovery consumes the selected inverses together and commits one
+corrective generation. A matching open watch can consume it immediately;
+otherwise finalization waits for the next watch. Restored values receive fresh
+revisions even when a sent A-B-A chain restores identical protobuf contents.
+Response delivery and application callbacks run after unlocking.
 
 Failed validation or publication leaves desired state unchanged and retains
 the batch's response inverses for a later response. Rejected predecessors are
@@ -278,9 +310,9 @@ there is no background retry loop.
 
 A nil resource with a nonzero transaction identifies a removal. Node-local owner
 counts, keyed by type, name, and transaction, retain tombstones for caller,
-unsent, and response inverses. The last owner releases the tombstone. Unsent
-add/remove chains that become no-ops can release their inverse and tombstone
-without consuming independently owned caller rollback.
+pending publication, unsent, and response inverses. The last owner releases the
+tombstone. Unsent add/remove chains that become no-ops can release their inverse
+and tombstone without consuming independently owned caller rollback.
 
 ## Disconnect, reconnect, and startup
 
@@ -320,8 +352,8 @@ This success resolves ACK waits only, not acceptance or rollback ownership.
 ## Code organization
 
 - `resources.go`: containers, prepared changes, input validation.
-- `node_state.go`: desired mutations, reference validation, rollback coalescing,
-  tombstone ownership.
+- `node_state.go`: desired mutations, changed names, pending publication, reference
+  validation, rollback coalescing, tombstone ownership.
 - `cache.go`: transactions, publication, response delivery, rollback lifecycles.
 - `callbacks/`: response identity, named-resource coverage, accepted state,
   waits, and NACK recovery phases in `nack.go`.

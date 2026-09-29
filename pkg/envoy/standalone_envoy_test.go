@@ -1677,14 +1677,12 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	require.NoError(t, xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup, nil))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
 
-	// Publish a newer generation without a waiter before Envoy connects. The
-	// first LDS watch must receive the latest snapshot containing both listeners.
+	// Stage a newer generation without a waiter before Envoy connects. The first
+	// LDS watch must finalize one snapshot containing both generations.
 	require.NoError(t, xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
-	snapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
-	require.NoError(t, err)
-	require.Contains(t, snapshot.GetResources(ListenerTypeURL), "tracked-listener")
-	require.Contains(t, snapshot.GetResources(ListenerTypeURL), "untracked-listener")
+	_, err = xdsServer.cache.GetSnapshot(localNodeID)
+	require.Error(t, err, "snapshot generation must remain lazy until Envoy opens a watch")
 
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{

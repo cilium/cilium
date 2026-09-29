@@ -163,7 +163,7 @@ func TestStrictADSParentReferenceChanges(t *testing.T) {
 			require.ErrorContains(t, c.ApplyResource(t.Context(), nodeID, parentType, "parent", updated, nil, nil), "inconsistent")
 			rollback, err := c.ApplyResourcesWithRollback(t.Context(), nodeID, replacement, nil, TypeURLCallbacks{})
 			require.NoError(t, err)
-			require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+			require.NoError(t, CheckSnapshotConsistency(requestSnapshotForTest(t, c, nodeID, parentType)))
 			require.ErrorContains(t, c.ApplyResource(t.Context(), nodeID, childType, "old", orphan, nil, nil), "orphan")
 			// A successful caller revert must restore the reference index as well
 			// as the protobufs: the now-unreferenced new child must be rejected.
@@ -174,7 +174,7 @@ func TestStrictADSParentReferenceChanges(t *testing.T) {
 				newChild = replacement.Upserted.Endpoints["new"]
 			}
 			require.ErrorContains(t, c.ApplyResource(t.Context(), nodeID, childType, "new", newChild, nil, nil), "orphan")
-			require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+			require.NoError(t, CheckSnapshotConsistency(requestSnapshotForTest(t, c, nodeID, parentType)))
 			require.ErrorContains(t, c.ApplyResource(t.Context(), nodeID, parentType, "parent", nil, nil, nil), "orphan")
 		})
 	}
@@ -220,7 +220,7 @@ func TestStrictADSListenerReferenceForms(t *testing.T) {
 			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Removed: xds.Resources{
 				Listeners: map[string]*listener.Listener{"parent": nil}, Routes: routes,
 			}}, nil, TypeURLCallbacks{}))
-			require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+			require.NoError(t, CheckSnapshotConsistency(requestSnapshotForTest(t, c, nodeID, typeurl.Listener)))
 		})
 	}
 }
@@ -248,9 +248,9 @@ func TestStrictADSClusterReferenceForms(t *testing.T) {
 				require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Endpoint, name, nil, nil, nil),
 					"removing an explicit assignment restores its synthesized empty CLA")
 			}
-			require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, "node1")))
+			require.NoError(t, CheckSnapshotConsistency(requestSnapshotForTest(t, c, "node1", typeurl.Cluster)))
 			require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Cluster, "parent", nil, nil, nil))
-			require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, "node1")))
+			require.NoError(t, CheckSnapshotConsistency(requestSnapshotForTest(t, c, "node1", typeurl.Cluster)))
 		})
 	}
 }
@@ -260,7 +260,7 @@ func TestStrictADSRejectionCleansPreviouslyRegisteredUnchangedWait(t *testing.T)
 	c := NewCache(hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), true, WithNodeIDs(nodeID)).(*cacheImpl)
 	secret := &tls.Secret{Name: "secret"}
 	require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Secret, secret.Name, secret, nil, nil))
-	snapshot := mustSnapshot(t, c, nodeID)
+	snapshot := requestSnapshotForTest(t, c, nodeID, typeurl.Cluster)
 	secretRollback := c.getNodeState(nodeID).typeStates[typeurl.Secret].rollbacks.unsent
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancel)
@@ -324,8 +324,8 @@ func TestStrictADSReferenceIndexRestoredAfterPublicationFailure(t *testing.T) {
 					}
 				}
 				require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: initial}, nil, TypeURLCallbacks{}))
-				// Keep an affected parent watch open across publications. The mock
-				// leaves it open so the failed update exercises the watch path too.
+				// Publication failure is synchronous only while the directly
+				// affected parent has an open watch. The mock leaves it open.
 				cancelWatch, watchErr := c.CreateWatch(&cache.Request{
 					Node: &core.Node{Id: nodeID}, TypeUrl: parentType.URL(),
 				}, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
@@ -349,7 +349,7 @@ func TestStrictADSReferenceIndexRestoredAfterPublicationFailure(t *testing.T) {
 				require.ErrorContains(t, c.ApplyResource(t.Context(), nodeID, parentType, "parent", nil, nil, nil), "orphan")
 				require.ErrorContains(t, c.ApplyResource(t.Context(), nodeID, childType, "new", newChild, nil, nil), "orphan")
 				require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Removed: initial}, nil, TypeURLCallbacks{}))
-				require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+				require.NoError(t, CheckSnapshotConsistency(requestSnapshotForTest(t, c, nodeID, typeurl.Cluster)))
 			})
 		}
 	}
@@ -381,7 +381,7 @@ func TestStrictADSNACKBatchRestoresReferenceIndex(t *testing.T) {
 				baseline, a, b := pair("baseline"), pair("a"), pair("b")
 				require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: baseline}, nil, TypeURLCallbacks{}))
 				baselineParent := c.GetResource(nodeID, parentType, "parent")
-				acceptPublishedSnapshotVersions(t, c, 1, &core.Node{Id: nodeID}, mustSnapshot(t, c, nodeID))
+				acceptPublishedSnapshotVersions(t, c, 1, &core.Node{Id: nodeID}, requestSnapshotForTest(t, c, nodeID, parentType))
 				first := coverageStream{cache: c, id: 1, typeURL: parentType.URL()}
 				second := coverageStream{cache: c, id: 2, typeURL: parentType.URL()}
 				require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Removed: baseline, Upserted: a}, nil, TypeURLCallbacks{}))
@@ -397,6 +397,14 @@ func TestStrictADSNACKBatchRestoresReferenceIndex(t *testing.T) {
 					failure := errors.New("corrective publication failed")
 					failed.setSnapshotErr = failure
 					c.SnapshotCache = failed
+					// An open watch makes corrective publication synchronous;
+					// without it, recovery commits only desired state.
+					cancelWatch, err := c.CreateWatch(&cache.Request{
+						Node: &core.Node{Id: nodeID}, TypeUrl: parentType.URL(),
+						ResourceNames: []string{"parent"}, VersionInfo: response.VersionInfo,
+					}, second.sub, make(chan cache.Response, 1))
+					require.NoError(t, err)
+					t.Cleanup(cancelWatch)
 					require.ErrorIs(t, c.completionCbs.OnStreamRequest(second.id, &discovery.DiscoveryRequest{
 						TypeUrl: parentType.URL(), ResponseNonce: response.Nonce, ResourceNames: []string{"parent"},
 						ErrorDetail: &status.Status{Message: "rejected parent"},
@@ -414,7 +422,7 @@ func TestStrictADSNACKBatchRestoresReferenceIndex(t *testing.T) {
 				second.reply(t, response, "rejected parent", "parent")
 				require.Equal(t, beforeCorrection+1, c.getNodeState(nodeID).resourceGeneration, "one final correction for both inverses")
 				require.Same(t, baselineParent, c.GetResource(nodeID, parentType, "parent"))
-				require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+				require.NoError(t, CheckSnapshotConsistency(requestSnapshotForTest(t, c, nodeID, parentType)))
 				// Only the baseline reference may survive. If either the failed
 				// correction or intermediate inverse left counts behind, these
 				// unreferenced children could be accepted, or removal could fail.
@@ -431,7 +439,7 @@ func TestStrictADSNACKBatchRestoresReferenceIndex(t *testing.T) {
 						child, nil, nil), "orphan")
 				}
 				require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Removed: baseline}, nil, TypeURLCallbacks{}))
-				require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+				require.NoError(t, CheckSnapshotConsistency(requestSnapshotForTest(t, c, nodeID, parentType)))
 			})
 		}
 	}

@@ -95,6 +95,15 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 		typeurl.Cluster,
 		typeurl.Secret,
 	), changedTypeURLs)
+	require.Equal(t, 1, state.typeStates[typeurl.Listener].changedResourceNames.Len())
+	require.True(t, state.typeStates[typeurl.Listener].changedResourceNames.Has("listener"))
+	require.Equal(t, 1, state.typeStates[typeurl.Cluster].changedResourceNames.Len())
+	require.True(t, state.typeStates[typeurl.Cluster].changedResourceNames.Has("cluster"))
+	require.Equal(t, 1, state.typeStates[typeurl.Secret].changedResourceNames.Len())
+	require.True(t, state.typeStates[typeurl.Secret].changedResourceNames.Has("new-secret"))
+	require.Empty(t, state.typeStates[typeurl.Route].changedResourceNames)
+	require.Empty(t, state.typeStates[typeurl.Endpoint].changedResourceNames)
+	require.Empty(t, state.typeStates[typeurl.NetworkPolicyHosts].changedResourceNames)
 	inverseListener, _ := inverse.get(typeurl.Listener, "listener")
 	inverseCluster, _ := inverse.get(typeurl.Cluster, "cluster")
 	inverseSecret, _ := inverse.get(typeurl.Secret, "new-secret")

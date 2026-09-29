@@ -167,7 +167,7 @@ type snapshotPublication struct {
 
 // WithSnapshotPublication retains the exact publication while go-control-plane
 // constructs responses. Keep generation and resources in one context value:
-// eager publications must not allocate a second context for every mutation.
+// publication need not allocate a second context just to capture response coverage.
 // Each delivered response's coverage retains only its own TypeURL group.
 func WithSnapshotPublication(ctx context.Context, generation Generation, snapshot cache.ResourceSnapshot) context.Context {
 	return context.WithValue(ctx, snapshotGenerationContextKey{}, &snapshotPublication{generation: generation, snapshot: snapshot})
@@ -263,11 +263,12 @@ func ResponseCoversType(response cache.Response, generation Generation) bool {
 	return generation <= snapshotGenerationFromContext(ctx) && responseCoverageFromContext(ctx).complete()
 }
 
-// SnapshotCanTestResource reports whether a SotW response from this snapshot
-// can test a resource mutation at all. EDS/RDS/SDS omission is not a removal,
-// so an absent name must not acquire a response-owned removal obligation.
+// SnapshotResourceStateIsObservable reports whether a SotW response from this
+// snapshot can communicate a resource's presence or removal. EDS/RDS/SDS omission
+// is not a removal, so an absent name must not acquire a response-owned removal
+// obligation.
 // Other changed members of its API transaction still retain the full inverse.
-func SnapshotCanTestResource(snapshot cache.ResourceSnapshot, index typeurl.Index, name string) bool {
+func SnapshotResourceStateIsObservable(snapshot cache.ResourceSnapshot, index typeurl.Index, name string) bool {
 	if typeHasDeletionSemantics(index) {
 		return true
 	}

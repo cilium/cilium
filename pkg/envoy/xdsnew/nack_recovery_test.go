@@ -93,7 +93,7 @@ func TestNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 		}
 		for _, order := range []string{
 			"sequential", "overlap-older-first", "overlap-newer-first", "caller-after-nack",
-			"unsent", "caller-after-ack", "newer-after-nacks", "prior-absence",
+			"unsent", "unsent-without-caller", "caller-after-ack", "newer-after-nacks", "prior-absence",
 		} {
 			t.Run(mode+"/"+order, func(t *testing.T) {
 				c, handler := newGatedNACKCache(t, strict)
@@ -116,15 +116,22 @@ func TestNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 				}
 				require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", a, nil, nil))
 				responseA := first.receive(t, "secret")
-				callerB, err := c.ApplyResourceWithRollback(ctx, "coverage-node", typeurl.Secret, "secret", b, nil, nil)
-				require.NoError(t, err)
+				var callerB Rollback
+				if order == "unsent-without-caller" {
+					require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", b, nil, nil))
+				} else {
+					var err error
+					callerB, err = c.ApplyResourceWithRollback(ctx, "coverage-node", typeurl.Secret, "secret", b, nil, nil)
+					require.NoError(t, err)
+				}
 				t.Cleanup(func() {
 					if callerB != nil {
 						callerB.Finalize()
 					}
 				})
 				var responseB *discovery.DiscoveryResponse
-				if order != "unsent" {
+				unsent := order == "unsent" || order == "unsent-without-caller"
+				if !unsent {
 					responseB = second.receive(t, "secret")
 				}
 				nack := func(id int64, response *discovery.DiscoveryResponse) error {
@@ -172,7 +179,7 @@ func TestNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 						require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", newest, nil, nil))
 					}
 					require.NoError(t, nack(1, responseA))
-					if order == "unsent" {
+					if unsent {
 						// B is still desired, but its unsent inverse must now
 						// bypass A before the next watch claims that inverse.
 						require.Same(t, b, c.GetResource("coverage-node", typeurl.Secret, "secret"))
@@ -230,7 +237,7 @@ func TestNACKRecoveryRebasesWholeTransaction(t *testing.T) {
 			if crossType {
 				shape = "cross-type"
 			}
-			for _, outcome := range []string{"nack", "caller-after-ack"} {
+			for _, outcome := range []string{"nack", "unsent-nack", "caller-after-ack"} {
 				t.Run(mode+"/"+shape+"/"+outcome, func(t *testing.T) {
 					c := NewCache(slog.New(slog.DiscardHandler), strict, WithNodeIDs("coverage-node")).(*cacheImpl)
 					t.Cleanup(func() { c.completionCbs.OnStreamClosed(1, nil); c.completionCbs.OnStreamClosed(2, nil) })
@@ -275,8 +282,16 @@ func TestNACKRecoveryRebasesWholeTransaction(t *testing.T) {
 							callerB.Finalize()
 						}
 					})
-					responseB := second.receive(t, secondNames...)
+					var responseB *discovery.DiscoveryResponse
+					if outcome != "unsent-nack" {
+						responseB = second.receive(t, secondNames...)
+					}
 					first.reply(t, responseA, "invalid resource", firstNames...)
+					if outcome == "unsent-nack" {
+						// Every member of B is still unpublished when A is rejected.
+						// Its future response inverse must bypass A for all types.
+						responseB = second.receive(t, secondNames...)
+					}
 					if outcome == "caller-after-ack" {
 						second.reply(t, responseB, "", secondNames...)
 						require.NoError(t, callerB.Revert())
