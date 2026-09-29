@@ -170,9 +170,7 @@ spec:
     "Secrets": {},
     "Routes": {},
     "Clusters": {},
-    "Endpoints": {},
-    "NetworkPolicies": {},
-    "NetworkPolicyHosts": {}
+    "Endpoints": {}
   }
 }
 -- envoy-resources-expected.json --
@@ -220,9 +218,7 @@ spec:
           }
         ]
       }
-    },
-    "NetworkPolicies": null,
-    "NetworkPolicyHosts": null
+    }
   },
   "ReconciledResources": {
     "Listeners": null,
@@ -256,9 +252,7 @@ spec:
           }
         ]
       }
-    },
-    "NetworkPolicies": null,
-    "NetworkPolicyHosts": null
+    }
   },
   "Redirects": [],
   "ReconciledRedirects": [],
@@ -321,9 +315,7 @@ spec:
     "Secrets": {},
     "Routes": {},
     "Clusters": {},
-    "Endpoints": {},
-    "NetworkPolicies": {},
-    "NetworkPolicyHosts": {}
+    "Endpoints": {}
   },
   "ReconciledResources": {
     "Listeners": {
@@ -370,9 +362,7 @@ spec:
     "Secrets": {},
     "Routes": {},
     "Clusters": {},
-    "Endpoints": {},
-    "NetworkPolicies": {},
-    "NetworkPolicyHosts": {}
+    "Endpoints": {}
   },
   "Redirects": [
     {

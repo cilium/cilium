@@ -91,10 +91,10 @@ Those previous entries also restore failed publications without allocating
 another inverse.
 
 `ApplyResource` takes a TypeURL index, name, and protobuf; nil removes it.
-`ApplyResources` accepts sparse LDS/RDS/CDS/EDS/SDS transactions and rejects
-NPDS/NPHDS input, so a transaction cannot mix Listener and NetworkPolicy changes.
-Only `WithRollback` variants return a caller lifecycle. Every mutation API
-independently retains necessary response-owned NACK state.
+`ApplyResources` accepts sparse LDS/RDS/CDS/EDS/SDS transactions. Its
+`xds.Resources` input has no NPDS/NPHDS fields, so one transaction cannot mix
+Listener and NetworkPolicy changes. Only `WithRollback` variants return a
+caller lifecycle; all mutation APIs independently retain needed NACK state.
 
 ## Transactions and publication
 
