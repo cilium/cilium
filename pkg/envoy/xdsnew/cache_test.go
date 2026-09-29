@@ -1176,6 +1176,112 @@ func TestCreateWatch_DelegatesToSnapshotCache(t *testing.T) {
 	assert.Equal(t, 1, mock.createWatchCalls)
 }
 
+func TestCreateWatchPublishesEmptySnapshotForUnknownNode(t *testing.T) {
+	for _, strictADS := range []bool{false, true} {
+		for _, clientVersion := range []string{"", "stale-version"} {
+			t.Run(fmt.Sprintf("strict-ads=%t/client-version=%q", strictADS, clientVersion), func(t *testing.T) {
+				logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+				c := NewCache(logger, strictADS).(*cacheImpl)
+				const nodeID = "node-without-resources"
+				node := &envoy_config_core.Node{Id: nodeID}
+				subscription := stream.NewSotwSubscription(nil, false)
+				responses := make(chan cache.Response, 1)
+
+				firstRequest := &cache.Request{
+					Node: node, TypeUrl: envoy_resource.ListenerType, VersionInfo: clientVersion,
+				}
+				cancel, err := c.CreateWatch(firstRequest, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				firstResponse := <-responses
+				require.Empty(t, firstResponse.GetReturnedResources())
+				snapshot, err := c.GetSnapshot(nodeID)
+				require.NoError(t, err)
+				require.Equal(t, snapshot.GetVersion(envoy_resource.ListenerType), firstResponse.GetResponseVersion())
+				require.Nil(t, c.GetAllResources(nodeID), "connecting must not create desired resource state")
+
+				subscription.SetReturnedResources(firstResponse.GetReturnedResources())
+				secondRequest := &cache.Request{
+					Node: node, TypeUrl: envoy_resource.ListenerType, VersionInfo: firstResponse.GetResponseVersion(),
+				}
+				cancel, err = c.CreateWatch(secondRequest, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				require.Equal(t, 1, c.GetStatusInfo(nodeID).GetNumWatches())
+				select {
+				case <-responses:
+					t.Fatal("current version must establish a watch, not send another response")
+				default:
+				}
+
+				resources := xds.NewResources()
+				resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
+				updatedSnapshot, err := c.GenerateSnapshot(&resources, logger)
+				require.NoError(t, err)
+				require.NoError(t, c.SetSnapshot(t.Context(), nodeID, updatedSnapshot))
+				require.Equal(t, updatedSnapshot.GetVersion(envoy_resource.ListenerType), (<-responses).GetResponseVersion())
+			})
+		}
+	}
+}
+
+func TestCreateWatchPreservesExistingNonemptySnapshot(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	c := NewCache(logger, false).(*cacheImpl)
+	const nodeID = "node-with-listener"
+	resources := xds.NewResources()
+	resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
+	snapshot, err := c.GenerateSnapshot(&resources, logger)
+	require.NoError(t, err)
+	c.SetResources(nodeID, &resources)
+	require.NoError(t, c.SetSnapshot(t.Context(), nodeID, snapshot))
+
+	responses := make(chan cache.Response, 1)
+	request := &cache.Request{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.ListenerType,
+	}
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	select {
+	case response := <-responses:
+		require.Contains(t, response.GetReturnedResources(), "listener")
+		require.Equal(t, snapshot.GetVersion(envoy_resource.ListenerType), response.GetResponseVersion())
+	default:
+		t.Fatal("expected an immediate response containing the existing listener")
+	}
+
+	storedSnapshot, err := c.GetSnapshot(nodeID)
+	require.NoError(t, err)
+	require.Same(t, snapshot, storedSnapshot, "the watch must not replace the published snapshot")
+	require.Same(t, &resources, c.GetAllResources(nodeID), "the watch must not replace desired resources")
+}
+
+func TestCreateWatchUnknownNodeSnapshotPublicationError(t *testing.T) {
+	for _, stored := range []bool{false, true} {
+		t.Run(fmt.Sprintf("stored=%t", stored), func(t *testing.T) {
+			mock := newMockSnapshotCache()
+			mock.setSnapshotErr = errors.New("response delivery failed")
+			mock.storeSnapshotBeforeError = stored
+			c := newTestCacheWithHasher(mock)
+			request := &cache.Request{
+				Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: envoy_resource.ListenerType,
+			}
+			cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), make(chan cache.Response, 1))
+			if stored {
+				require.NoError(t, err, "a stored snapshot is committed despite a delivery error")
+				require.NotNil(t, cancel)
+				require.Equal(t, 1, mock.createWatchCalls)
+			} else {
+				require.ErrorContains(t, err, "response delivery failed")
+				require.Nil(t, cancel)
+				require.Zero(t, mock.createWatchCalls)
+			}
+			require.Nil(t, c.GetAllResources("node1"))
+		})
+	}
+}
+
 func TestCreateWatch_IgnoresEmptySecretSubscription(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
 	c := NewCache(logger, false)

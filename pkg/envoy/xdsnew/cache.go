@@ -635,6 +635,15 @@ func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
 	c.resourcesInSnapshot[nodeID] = resources
 }
 
+// SetSnapshot serializes publication with the initial empty snapshot installed
+// by CreateWatch. Otherwise a first request could overwrite a concurrent
+// resource update with an empty snapshot.
+func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot)
+}
+
 func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFuncs map[string]func()) error {
 	type immediateCompletion struct {
 		comp                      *completion.Completion
@@ -737,9 +746,9 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 }
 
 func (c *cacheImpl) ClearSnapshot(nodeID string) {
-	c.SnapshotCache.ClearSnapshot(nodeID)
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
+	c.SnapshotCache.ClearSnapshot(nodeID)
 	c.resourcesInSnapshot[nodeID] = &xds.Resources{}
 }
 
@@ -757,12 +766,46 @@ func normalizeCustomWildcardRequest(request *cache.Request, sub cache.Subscripti
 	}
 }
 
+// ensureSnapshotForWatchLocked gives a newly connected node an authoritative
+// empty response even if the agent has not published desired resources for it.
+// A watch alone must not create an entry in resourcesInSnapshot. Caller holds
+// c.mutex, which also serializes normal snapshot publication.
+func (c *cacheImpl) ensureSnapshotForWatchLocked(nodeID string) error {
+	if _, err := c.SnapshotCache.GetSnapshot(nodeID); err == nil {
+		return nil
+	}
+	emptySnapshot, err := c.GenerateSnapshot(nil, c.logger)
+	if err != nil {
+		return err
+	}
+	err = c.SnapshotCache.SetSnapshot(context.Background(), nodeID, emptySnapshot)
+	if err == nil {
+		return nil
+	}
+	// SetSnapshot may return a delivery error after storing the snapshot.
+	currentSnapshot, getErr := c.SnapshotCache.GetSnapshot(nodeID)
+	if getErr == nil && !c.AreDifferentSnapshots(currentSnapshot, emptySnapshot) {
+		return nil
+	}
+	return err
+}
+
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
 	if request != nil && request.GetTypeUrl() == envoy_resource.SecretType && len(request.GetResourceNames()) == 0 {
 		c.logger.Debug("Ignoring empty ADS SDS watch")
 		return func() {}, nil
 	}
 	request = normalizeCustomWildcardRequest(request, sub)
+	if request != nil && request.GetNode() != nil && sub != nil {
+		if _, supported := typeurl.FromURL(request.GetTypeUrl()); supported {
+			c.mutex.Lock()
+			err = c.ensureSnapshotForWatchLocked(request.GetNode().GetId())
+			c.mutex.Unlock()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	return c.SnapshotCache.CreateWatch(request, sub, respChan)
 }
 
