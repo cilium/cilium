@@ -66,9 +66,9 @@ The following options have been introduced in this version of Cilium:
   :ref:`update_existing_ciliumpodippools_with_reservedranges`.
 * The operator option ``--ipam-release-excess-ips`` (Helm value
   ``ipam.operator.releaseExcessIPs``) enables releasing excess IP addresses for
-  AWS ENI and Alibaba Cloud IPAM. ``--excess-ip-release-delay`` (Helm value
-  ``ipam.operator.excessIPReleaseDelay``) now also applies to Alibaba Cloud when
-  release is enabled with ``--ipam-release-excess-ips``;
+  AWS ENI, Azure and Alibaba Cloud IPAM. ``--excess-ip-release-delay`` (Helm
+  value ``ipam.operator.excessIPReleaseDelay``) now also applies to Alibaba
+  Cloud when release is enabled with ``--ipam-release-excess-ips``;
   ``--alibaba-cloud-release-excess-ips`` keeps releasing without a delay.
 
 Changed Options
