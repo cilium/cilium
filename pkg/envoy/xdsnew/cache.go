@@ -8,16 +8,19 @@ import (
 	"fmt"
 	"hash"
 	"hash/fnv"
+	"iter"
 	"log/slog"
 	"maps"
 	"slices"
 	"strings"
 
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	"github.com/davecgh/go-spew/spew"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_extensions_filters_network_tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -51,6 +54,14 @@ type Cache interface {
 	UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFuncs map[string]func()) error
 	SetResources(nodeID string, resources *xds.Resources)
 	GetAllResources(nodeID string) *xds.Resources
+	// GetResource returns one immutable resource without exposing the containing map.
+	GetResource(nodeID string, typeURL typeurl.Index, resourceName string) (cache_types.Resource, bool)
+	// Resource iterators expose immutable protobufs without copying or exposing
+	// the containing maps. Iteration holds the cache read lock, so loop bodies
+	// must not call back into the cache.
+	Listeners(nodeID string) iter.Seq2[string, *envoy_config_listener.Listener]
+	Routes(nodeID string) iter.Seq2[string, *envoy_config_route.RouteConfiguration]
+	NetworkPolicies(nodeID string) iter.Seq2[string, *cilium.NetworkPolicy]
 	AreDifferentSnapshots(left, right cache.ResourceSnapshot) bool
 	GetCompletionCallbacks() *callbacks.CompletionCallbacks
 }
@@ -763,6 +774,88 @@ func (c *cacheImpl) GetAllResources(nodeID string) *xds.Resources {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.resourcesInSnapshot[nodeID]
+}
+
+func (c *cacheImpl) GetResource(nodeID string, typeURL typeurl.Index, resourceName string) (cache_types.Resource, bool) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	resources := c.resourcesInSnapshot[nodeID]
+	if resources == nil {
+		return nil, false
+	}
+	switch typeURL {
+	case typeurl.Endpoint:
+		if resource := resources.Endpoints[resourceName]; resource != nil {
+			return resource, true
+		}
+	case typeurl.Cluster:
+		if resource := resources.Clusters[resourceName]; resource != nil {
+			return resource, true
+		}
+	case typeurl.Route:
+		if resource := resources.Routes[resourceName]; resource != nil {
+			return resource, true
+		}
+	case typeurl.Listener:
+		if resource := resources.Listeners[resourceName]; resource != nil {
+			return resource, true
+		}
+	case typeurl.Secret:
+		if resource := resources.Secrets[resourceName]; resource != nil {
+			return resource, true
+		}
+	case typeurl.NetworkPolicy:
+		if resource := resources.NetworkPolicies[resourceName]; resource != nil {
+			return resource, true
+		}
+	case typeurl.NetworkPolicyHosts:
+		if resource := resources.NetworkPolicyHosts[resourceName]; resource != nil {
+			return resource, true
+		}
+	}
+	return nil, false
+}
+
+func (c *cacheImpl) Listeners(nodeID string) iter.Seq2[string, *envoy_config_listener.Listener] {
+	return func(yield func(string, *envoy_config_listener.Listener) bool) {
+		c.mutex.RLock()
+		defer c.mutex.RUnlock()
+		if resources := c.resourcesInSnapshot[nodeID]; resources != nil {
+			for name, resource := range resources.Listeners {
+				if resource != nil && !yield(name, resource) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func (c *cacheImpl) Routes(nodeID string) iter.Seq2[string, *envoy_config_route.RouteConfiguration] {
+	return func(yield func(string, *envoy_config_route.RouteConfiguration) bool) {
+		c.mutex.RLock()
+		defer c.mutex.RUnlock()
+		if resources := c.resourcesInSnapshot[nodeID]; resources != nil {
+			for name, resource := range resources.Routes {
+				if resource != nil && !yield(name, resource) {
+					return
+				}
+			}
+		}
+	}
+}
+
+func (c *cacheImpl) NetworkPolicies(nodeID string) iter.Seq2[string, *cilium.NetworkPolicy] {
+	return func(yield func(string, *cilium.NetworkPolicy) bool) {
+		c.mutex.RLock()
+		defer c.mutex.RUnlock()
+		if resources := c.resourcesInSnapshot[nodeID]; resources != nil {
+			for name, resource := range resources.NetworkPolicies {
+				if resource != nil && !yield(name, resource) {
+					return
+				}
+			}
+		}
+	}
 }
 
 func (c *cacheImpl) AreDifferentSnapshots(left, right cache.ResourceSnapshot) bool {
