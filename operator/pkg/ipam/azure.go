@@ -76,6 +76,8 @@ func startAzureAllocator(p azureParams) {
 		AzureResourceGroup:          p.AzureCfg.AzureResourceGroup,
 		AzureUserAssignedIdentityID: p.AzureCfg.AzureUserAssignedIdentityID,
 		AzureUsePrimaryAddress:      p.AzureCfg.AzureUsePrimaryAddress,
+		ReleaseExcessIPs:            p.Cfg.IPAMReleaseExcessIPs,
+		ExcessIPReleaseDelay:        p.Cfg.ExcessIPReleaseDelay,
 		ParallelAllocWorkers:        p.Cfg.ParallelAllocWorkers,
 		LimitIPAMAPIBurst:           p.Cfg.LimitIPAMAPIBurst,
 		LimitIPAMAPIQPS:             p.Cfg.LimitIPAMAPIQPS,

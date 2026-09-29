@@ -467,3 +467,150 @@ func TestParseSubnetID(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveInterfaceIPConfigurations(t *testing.T) {
+	ipConfig := func(name, address string, primary bool) *armnetwork.InterfaceIPConfiguration {
+		return &armnetwork.InterfaceIPConfiguration{
+			Name: new(name),
+			Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{
+				PrivateIPAddress: new(address),
+				Primary:          new(primary),
+			},
+		}
+	}
+	primary := ipConfig("primary", "10.0.0.4", true)
+	second := ipConfig("second", "10.0.0.5", false)
+	third := ipConfig("third", "10.0.0.6", false)
+	noName := &armnetwork.InterfaceIPConfiguration{
+		Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{PrivateIPAddress: new("10.0.0.7")},
+	}
+	noProperties := &armnetwork.InterfaceIPConfiguration{Name: new("no-properties")}
+	noAddress := &armnetwork.InterfaceIPConfiguration{
+		Name:       new("no-address"),
+		Properties: &armnetwork.InterfaceIPConfigurationPropertiesFormat{},
+	}
+
+	tests := []struct {
+		name        string
+		configs     []*armnetwork.InterfaceIPConfiguration
+		addresses   []string
+		wantKept    []*armnetwork.InterfaceIPConfiguration
+		wantRemoved []string
+		wantErr     bool
+	}{
+		{
+			name:        "match by address",
+			configs:     []*armnetwork.InterfaceIPConfiguration{primary, second, third},
+			addresses:   []string{"10.0.0.5"},
+			wantKept:    []*armnetwork.InterfaceIPConfiguration{primary, third},
+			wantRemoved: []string{"second"},
+		},
+		{
+			name:        "absent address skipped",
+			configs:     []*armnetwork.InterfaceIPConfiguration{primary, second, third},
+			addresses:   []string{"10.0.0.6", "10.0.0.99"},
+			wantKept:    []*armnetwork.InterfaceIPConfiguration{primary, second},
+			wantRemoved: []string{"third"},
+		},
+		{
+			name:      "nothing to remove",
+			configs:   []*armnetwork.InterfaceIPConfiguration{primary, second},
+			addresses: []string{"10.0.0.99"},
+			wantKept:  []*armnetwork.InterfaceIPConfiguration{primary, second},
+		},
+		{
+			name:      "primary match errors",
+			configs:   []*armnetwork.InterfaceIPConfiguration{primary, second},
+			addresses: []string{"10.0.0.4", "10.0.0.5"},
+			wantErr:   true,
+		},
+		{
+			name:      "nil name on match errors",
+			configs:   []*armnetwork.InterfaceIPConfiguration{primary, noName},
+			addresses: []string{"10.0.0.7"},
+			wantErr:   true,
+		},
+		{
+			name:        "nil entry, properties and address kept",
+			configs:     []*armnetwork.InterfaceIPConfiguration{nil, noProperties, noAddress, second},
+			addresses:   []string{"10.0.0.5"},
+			wantKept:    []*armnetwork.InterfaceIPConfiguration{nil, noProperties, noAddress},
+			wantRemoved: []string{"second"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			addresses := make([]netip.Addr, 0, len(test.addresses))
+			for _, a := range test.addresses {
+				addresses = append(addresses, netip.MustParseAddr(a))
+			}
+			kept, removed, err := removeInterfaceIPConfigurations(test.configs, addresses)
+			if test.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.wantKept, kept)
+			require.Equal(t, test.wantRemoved, removed)
+		})
+	}
+}
+
+func TestRemoveVMSSIPConfigurations(t *testing.T) {
+	ipConfig := func(name string, primary bool) *armcompute.VirtualMachineScaleSetIPConfiguration {
+		return &armcompute.VirtualMachineScaleSetIPConfiguration{
+			Name:       new(name),
+			Properties: &armcompute.VirtualMachineScaleSetIPConfigurationProperties{Primary: new(primary)},
+		}
+	}
+	primary := ipConfig("primary", true)
+	second := ipConfig("second", false)
+	third := ipConfig("third", false)
+	noName := &armcompute.VirtualMachineScaleSetIPConfiguration{}
+
+	tests := []struct {
+		name     string
+		configs  []*armcompute.VirtualMachineScaleSetIPConfiguration
+		names    []string
+		wantKept []*armcompute.VirtualMachineScaleSetIPConfiguration
+		wantErr  bool
+	}{
+		{
+			name:     "drop by name",
+			configs:  []*armcompute.VirtualMachineScaleSetIPConfiguration{primary, second, third},
+			names:    []string{"second", "third"},
+			wantKept: []*armcompute.VirtualMachineScaleSetIPConfiguration{primary},
+		},
+		{
+			name:    "missing name errors",
+			configs: []*armcompute.VirtualMachineScaleSetIPConfiguration{primary, second},
+			names:   []string{"second", "third"},
+			wantErr: true,
+		},
+		{
+			name:    "primary errors",
+			configs: []*armcompute.VirtualMachineScaleSetIPConfiguration{primary, second},
+			names:   []string{"primary"},
+			wantErr: true,
+		},
+		{
+			name:     "nil entries kept",
+			configs:  []*armcompute.VirtualMachineScaleSetIPConfiguration{nil, noName, second},
+			names:    []string{"second"},
+			wantKept: []*armcompute.VirtualMachineScaleSetIPConfiguration{nil, noName},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			kept, err := removeVMSSIPConfigurations(test.configs, test.names)
+			if test.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, test.wantKept, kept)
+		})
+	}
+}
