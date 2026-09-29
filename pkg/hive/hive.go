@@ -5,8 +5,6 @@ package hive
 
 import (
 	"log/slog"
-	"net/netip"
-	"reflect"
 	"runtime/pprof"
 	"slices"
 
@@ -113,7 +111,6 @@ func New(cells ...cell.Cell) *Hive {
 			EnvPrefix:              "CILIUM_",
 			ModulePrivateProviders: modulePrivateProviders,
 			ModuleDecorators:       moduleDecorators,
-			DecodeHooks:            decodeHooks,
 			StartTimeout:           defaults.HiveStartTimeout,
 			StopTimeout:            defaults.HiveStopTimeout,
 			LogThreshold:           defaults.HiveLogThreshold,
@@ -139,21 +136,6 @@ func GetOptions(cfg option.HiveConfig) []upstream.RunOptionFunc {
 		upstream.WithStopTimeout(cfg.StopTimeout),
 		upstream.WithLogThreshold(cfg.LogThreshold),
 	}
-}
-
-var decodeHooks = cell.DecodeHooks{
-	// Decode netip.Prefix fields
-	// TODO: move to github.com/cilium/hive/cell.decoderConfig default decode hooks once
-	// https://github.com/go-viper/mapstructure/pull/85 is merged.
-	func(from reflect.Type, to reflect.Type, data any) (any, error) {
-		if from.Kind() != reflect.String {
-			return data, nil
-		}
-		if to != reflect.TypeFor[netip.Prefix]() {
-			return data, nil
-		}
-		return netip.ParsePrefix(data.(string))
-	},
 }
 
 func AddConfigOverride[Cfg cell.Flagger](h *Hive, override func(*Cfg)) {
