@@ -5,6 +5,7 @@ package compute
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/cilium/statedb"
@@ -165,17 +166,27 @@ func (r *IdentityPolicyComputer) notifyTrigger() {
 	}
 }
 
+var ErrIdentityNotRegistered = errors.New("identity is not registered with the identity manager")
+
 // RecomputeIdentityPolicy schedules a policy recomputation for identity at
 // toRev. The returned channel closes once the result is committed to the
 // table. A pending request for the same identity is reused, bumping its toRev
 // to max(existing, toRev), so there is at most one in-flight request per
-// identity.
+// identity. Returns ErrIdentityNotRegistered if the identity manager does not
+// have the identity.
 func (r *IdentityPolicyComputer) RecomputeIdentityPolicy(identity *identity.Identity, toRev uint64) (<-chan struct{}, error) {
+	if r.idmanager.Get(&identity.ID) == nil {
+		return nil, ErrIdentityNotRegistered
+	}
+	return r.recompute(identity, toRev), nil
+}
+
+func (r *IdentityPolicyComputer) recompute(identity *identity.Identity, toRev uint64) <-chan struct{} {
 	r.reqsMu.Lock()
 	done := r.enqueueLocked(identity, toRev)
 	r.reqsMu.Unlock()
 	r.notifyTrigger()
-	return done, nil
+	return done
 }
 
 // RecomputeIdentityPolicyForAllIdentities recomputes policy for all local identities.
@@ -371,7 +382,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 // recomputation, otherwise policy will not be computed properly.
 func (r *IdentityPolicyComputer) LocalEndpointIdentityAdded(id *identity.Identity) {
 	r.repo.UpdateIdentities(identity.IdentityMap{id.ID: id.Labels}, nil)
-	_, _ = r.RecomputeIdentityPolicy(id, 0)
+	r.recompute(id, 0)
 }
 
 // LocalEndpointIdentityRemoved is part of the identitymanager.Observer interface.
