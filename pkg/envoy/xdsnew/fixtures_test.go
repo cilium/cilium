@@ -390,3 +390,17 @@ func (state *nodeState) requireNoUnsentRollbacks(t *testing.T, msgAndArgs ...any
 		require.Nil(t, state.typeStates[typeURL].rollbacks.unsent, msgAndArgs...)
 	}
 }
+
+// requestSnapshotForTest drives publication through a real supported watch.
+func requestSnapshotForTest(t *testing.T, c Cache, nodeID string, typeURL typeurl.Index) cache.ResourceSnapshot {
+	t.Helper()
+	cancel, err := c.CreateWatch(&cache.Request{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeURL.URL(), ResourceNames: []string{"*"},
+	}, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+	cancel()
+	snapshot, err := c.GetSnapshot(nodeID)
+	require.NoError(t, err)
+	return snapshot
+}

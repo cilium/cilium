@@ -60,7 +60,7 @@ func TestNewADSServer(t *testing.T) {
 	assert.NotEmpty(t, server.socketPath)
 	assert.NotEmpty(t, server.accessLogPath)
 	require.True(t, server.cache.HasNode(localNodeID))
-	require.Empty(t, cachedListeners(server.cache, localNodeID))
+	require.Empty(t, createADSWatchResponse(t, server.cache, ListenerTypeURL, "").GetReturnedResources())
 }
 
 func TestNewADSServerRequiresKnownLocalNode(t *testing.T) {
@@ -99,9 +99,7 @@ func TestAddListener(t *testing.T) {
 			if tc.wait {
 				done = waitForADSCompletion(t, wg)
 			}
-			listeners := cachedListeners(cache, localNodeID)
-			require.Len(t, listeners, 1)
-			actual := listeners["test-listener"]
+			actual := cachedListener(t, cache, localNodeID, "test-listener")
 			expected := server.getListenerConf("test-listener", policy.ParserTypeHTTP, 8080, false, false)
 			require.True(t, proto.Equal(expected, actual))
 			require.Len(t, actual.ListenerFilters, 2)
@@ -218,12 +216,10 @@ func TestAddDiagnosticListener(t *testing.T) {
 			server, cache := newADSServerFixture(t)
 			wg := completion.NewWaitGroup(t.Context())
 			tc.add(server, t.Context(), 0, wg)
-			require.Empty(t, cachedListeners(cache, localNodeID), "port zero disables the listener")
+			requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, tc.name)
 			tc.add(server, t.Context(), tc.port, wg)
 			done := waitForADSCompletion(t, wg)
-			listeners := cachedListeners(cache, localNodeID)
-			require.Len(t, listeners, 1)
-			actual := listeners[tc.name]
+			actual := cachedListener(t, cache, localNodeID, tc.name)
 			require.True(t, proto.Equal(tc.expected(server, tc.port), actual))
 			require.Len(t, actual.FilterChains, 1)
 			if tc.name == "envoy-admin-listener" {
@@ -251,7 +247,7 @@ func TestRemoveListener(t *testing.T) {
 				if remaining != 0 {
 					require.NotNil(t, cachedListener(t, cache, localNodeID, "test-listener"))
 				} else {
-					require.Empty(t, cachedListeners(cache, localNodeID))
+					requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "test-listener")
 					requireADSCompletionPending(t, done)
 					ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, version)
 				}
@@ -286,9 +282,7 @@ func TestUpsertEnvoyResources(t *testing.T) {
 	err := server.UpsertEnvoyResources(ctx, adsDefaultResources(), nil)
 	assert.NoError(t, err)
 
-	listeners := cachedListeners(cache, localNodeID)
-	require.Len(t, listeners, 1)
-	require.NotNil(t, listeners["listener1"])
+	requireCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
 	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
@@ -311,14 +305,11 @@ func TestUpdateEnvoyResources(t *testing.T) {
 				RouteSpecifier: &envoy_config_http.HttpConnectionManager_Rds{Rds: &envoy_config_http.Rds{RouteConfigName: "routeConfig2"}}}),
 		}})
 	require.NoError(t, server.UpdateEnvoyResources(t.Context(), old, next, nil))
-	require.Len(t, cachedListeners(cache, localNodeID), 1)
 	requireCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
-	routes := publishedResources(cache, localNodeID, typeurl.Route)
-	require.Len(t, routes, 2)
-	require.Contains(t, routes, "routeConfig1")
-	require.Contains(t, routes, "routeConfig2")
+	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
+	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig2")
 	requireCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster1")
 	require.Len(t, cachedNetworkPolicies(cache, localNodeID), 1)
 	require.Contains(t, cachedNetworkPolicies(cache, localNodeID), "40")
@@ -382,13 +373,13 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 			}()
 
 			require.Eventually(t, func() bool {
-				return len(cachedListeners(cache, localNodeID)) == 0
+				return cache.GetResource(localNodeID, typeurl.Listener, "listener1") == nil
 			}, time.Second, 10*time.Millisecond)
 			require.Equal(t, uint64(0), callbackCount.Load())
 			deleteVersion := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 
 			require.Eventually(t, func() bool {
-				listener := cachedListeners(cache, localNodeID)["listener1"]
+				listener, _ := cache.GetResource(localNodeID, typeurl.Listener, "listener1").(*envoy_config_listener.Listener)
 				return listener != nil && listenerAddressesEqual(listener, newResources.Listeners["listener1"])
 			}, time.Second, 10*time.Millisecond)
 			require.Equal(t, uint64(0), callbackCount.Load())
@@ -443,10 +434,10 @@ func TestUpdateEnvoyResourcesAddressChangePreservesNewerListenerOnDelayedNACK(t 
 	desired := adsTestResources(adsTestListener(80, 8444))
 	result := make(chan error, 1)
 	go func() { result <- server.UpdateEnvoyResources(ctx, tracked, desired, nil) }()
-	require.Eventually(t, func() bool { return len(cachedListeners(cache, localNodeID)) == 0 }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool { return cache.GetResource(localNodeID, typeurl.Listener, "listener1") == nil }, time.Second, time.Millisecond)
 	deleted := ackADSResourceVersionFrom(t, cache, 2, ListenerTypeURL, accepted)
 	require.Eventually(t, func() bool {
-		listener := cachedListeners(cache, localNodeID)["listener1"]
+		listener, _ := cache.GetResource(localNodeID, typeurl.Listener, "listener1").(*envoy_config_listener.Listener)
 		return listener != nil && listenerAddressesEqual(listener, desired.Listeners["listener1"])
 	}, time.Second, time.Millisecond)
 	ackADSResourceVersionFrom(t, cache, 2, ListenerTypeURL, deleted)
@@ -482,10 +473,10 @@ func TestUpdateEnvoyResourcesRestoresListenerAfterAddressChangeFailure(t *testin
 			result := make(chan error, 1)
 			go func() { result <- server.UpdateEnvoyResources(ctx, old, next, nil) }()
 			if tc.name != "deletion-timeout" {
-				require.Eventually(t, func() bool { return len(cachedListeners(cache, localNodeID)) == 0 }, time.Second, time.Millisecond)
+				require.Eventually(t, func() bool { return cache.GetResource(localNodeID, typeurl.Listener, "listener1") == nil }, time.Second, time.Millisecond)
 				if tc.replacement {
 					accepted = ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, accepted)
-					require.Eventually(t, func() bool { return cachedListeners(cache, localNodeID)["listener1"] != nil }, time.Second, time.Millisecond)
+					require.Eventually(t, func() bool { return cache.GetResource(localNodeID, typeurl.Listener, "listener1") != nil }, time.Second, time.Millisecond)
 				}
 				if tc.canceled {
 					cancel()
@@ -540,13 +531,12 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 	}()
 
 	require.Eventually(t, func() bool {
-		listeners := cachedListeners(cache, localNodeID)
-		return len(listeners) == 0
+		return cache.GetResource(localNodeID, typeurl.Listener, "listener1") == nil
 	}, time.Second, 10*time.Millisecond)
 	deleteVersion := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 
 	require.Eventually(t, func() bool {
-		return cachedListeners(cache, localNodeID)["listener1"] != nil
+		return cache.GetResource(localNodeID, typeurl.Listener, "listener1") != nil
 	}, time.Second, 10*time.Millisecond)
 	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, deleteVersion, "cannot bind: Address already in use")
 
@@ -554,7 +544,7 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 	// contents under a new generation version. ACK that rollback response before
 	// opening the watch which consumes the retried replacement.
 	require.Eventually(t, func() bool {
-		return len(cachedListeners(cache, localNodeID)) == 0
+		return cache.GetResource(localNodeID, typeurl.Listener, "listener1") == nil
 	}, time.Second, 10*time.Millisecond)
 	rollbackVersion := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, deleteVersion)
 	require.NotEqual(t, deleteVersion, rollbackVersion)
@@ -650,8 +640,8 @@ func TestDeleteEnvoyResources(t *testing.T) {
 	// Deleting empty resources should be no-op.
 	err := server.DeleteEnvoyResources(ctx, xdsResources, nil)
 	assert.NoError(t, err)
-	require.Empty(t, cachedListeners(cache, localNodeID))
-	require.Empty(t, publishedResources(cache, localNodeID, typeurl.Route))
+	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
+	requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
 	require.Empty(t, cachedNetworkPolicies(cache, localNodeID))
 	requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster1")
@@ -662,9 +652,7 @@ func TestDeleteEnvoyResources(t *testing.T) {
 	assert.NoError(t, err)
 	seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 40, ipv4: "10.0.0.1"})
 
-	listeners := cachedListeners(cache, localNodeID)
-	require.Len(t, listeners, 1)
-	require.NotNil(t, listeners["listener1"])
+	requireCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
 	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
@@ -675,8 +663,8 @@ func TestDeleteEnvoyResources(t *testing.T) {
 
 	err = server.DeleteEnvoyResources(ctx, adsDefaultResources(), nil)
 	assert.NoError(t, err)
-	require.Empty(t, cachedListeners(cache, localNodeID))
-	require.Empty(t, publishedResources(cache, localNodeID, typeurl.Route))
+	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
+	requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
 	require.Contains(t, cachedNetworkPolicies(cache, localNodeID), "40", "Envoy resource deletion must not remove NPDS")
 	requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
@@ -907,7 +895,7 @@ func TestUpdateNetworkPolicyDoesNotWaitForListenerRejectedBeforeRegistration(t *
 		t.Fatal("NetworkPolicy upsert did not reach the cache")
 	}
 	replyADSResponse(t, cache, 1, listenerResponse, listenerDelivery, "rejected NPDS listener")
-	require.Empty(t, cachedListeners(cache, localNodeID))
+	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener")
 	close(cache.continueUpsert)
 	select {
 	case update := <-result:
@@ -990,7 +978,9 @@ func TestNPDSListenerChangesKeepWaitsUntilLastListenerDisappears(t *testing.T) {
 	require.NoError(t, server.DeleteEnvoyResources(t.Context(), replacement, nil))
 	require.NoError(t, <-done)
 	require.Eventually(t, func() bool { return ep.proxyPolicyUpdateCount.Load() == 1 }, time.Second, time.Millisecond)
-	require.Empty(t, cachedListeners(cache, localNodeID))
+	for i := range 3 {
+		requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, fmt.Sprintf("npds-listener-%d", i+1))
+	}
 }
 
 func TestRemoveNetworkPolicy(t *testing.T) {

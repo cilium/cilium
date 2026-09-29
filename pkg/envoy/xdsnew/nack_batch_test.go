@@ -315,6 +315,14 @@ func TestFailedNACKBatchRetainsAllInverses(t *testing.T) {
 	failed.snapshots["coverage-node"] = mustSnapshot(t, c, "coverage-node")
 	failed.setSnapshotErr = failure
 	c.SnapshotCache = failed
+	// Recovery finalizes synchronously only if an open watch can consume the
+	// correction. The mock retains this watch without sending a response.
+	cancelWatch, err := c.CreateWatch(&cache.Request{
+		Node: &core.Node{Id: "coverage-node"}, TypeUrl: second.typeURL,
+		ResourceNames: []string{"secret"}, VersionInfo: response.VersionInfo,
+	}, second.sub, make(chan cache.Response, 1))
+	require.NoError(t, err)
+	t.Cleanup(cancelWatch)
 	require.ErrorIs(t, c.completionCbs.OnStreamRequest(second.id, &discovery.DiscoveryRequest{
 		TypeUrl: second.typeURL, ResponseNonce: response.Nonce, ResourceNames: []string{"secret"},
 		ErrorDetail: &status.Status{Message: "invalid secret"},

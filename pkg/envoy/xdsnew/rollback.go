@@ -6,8 +6,10 @@ package xdsnew
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 
@@ -91,6 +93,143 @@ type rollbackEntry struct {
 // Caller rollback retains the complete API transaction separately.
 type rollbackResources map[string]rollbackEntry
 
+// preparePublicationLocked coalesces rollback ownership for committed entries.
+// Save recovery maps only when immediate publication can fail. The node is
+// borrowed from tx; the ledger does not allocate another owner or retain a
+// back-pointer to desired state. Caller must hold cacheImpl.mutex.
+func (r *rollbackState) preparePublicationLocked(tx *resourceTransaction, changedTypeURLs typeurl.Set, options resourceUpdateOptions) (oldPending *pendingPublication, oldPendingValue pendingPublication, willFinalize bool) {
+	state := tx.state
+	dirtyTypeURLs := snapshotTypesChangedBy(changedTypeURLs)
+	watchTypeURLs := changedTypeURLs
+	oldPending = state.pendingPublication
+	mergedTypeURLs := dirtyTypeURLs
+	var rollbacks typeurl.Map[rollbackResources]
+	if oldPending != nil {
+		oldPendingValue = *oldPending
+		mergedTypeURLs = oldPending.changedTypeURLs.Union(dirtyTypeURLs)
+		watchTypeURLs = oldPending.watchTypeURLs.Union(watchTypeURLs)
+		rollbacks = oldPending.rollbacks
+	}
+	willFinalize = state.hasOpenWatchLocked(watchTypeURLs)
+	if willFinalize && oldPending != nil {
+		// Only immediate publication can fail after committing desired entries.
+		// Clone recovery maps here, avoiding copies on every deferred mutation.
+		for typeURL, rollback := range oldPending.rollbacks.All() {
+			oldPendingValue.rollbacks.Set(typeURL, maps.Clone(rollback))
+		}
+	}
+	if options.tracking != noRollbackTracking {
+		for typeURL := range changedTypeURLs.Members() {
+			current, _ := rollbacks.Get(typeURL)
+			if current == nil {
+				current = make(rollbackResources, options.inverse.len(typeURL))
+			}
+			owners := &state.typeStates[typeURL].rollbacks
+			transaction := tx.generation.TransactionID()
+			for name, previous := range options.inverse.resources(typeURL) {
+				entry, exists := current[name]
+				if !exists {
+					entry.previous = previous
+				} else if entry.previousEquals(state.resources[typeURL][name].resource) {
+					// No response saw this chain. Returning to its original contents
+					// eliminates response recovery while retaining caller ownership.
+					owners.removeOwner(rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
+					delete(current, name)
+					continue
+				}
+				if state.resources[typeURL][name].resource == nil {
+					owners.addOwner(rollbackOwnerKey{name: name, transaction: transaction})
+				}
+				if exists {
+					owners.removeOwner(rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
+				}
+				entry.expectedTransaction = transaction
+				current[name] = entry
+			}
+			current.pruneUnobservableResources(state, typeURL, nil)
+			if len(current) == 0 {
+				current = nil
+			}
+			rollbacks.Set(typeURL, current)
+		}
+	} else {
+		// Compensation can shorten an unpublished chain or restore an earlier
+		// API value. Keep its existing baseline guarded by the restored origin.
+		for typeURL := range changedTypeURLs.Members() {
+			rollback, _ := rollbacks.Get(typeURL)
+			rollback.reconcileDesiredState(state, typeURL)
+			rollback.pruneUnobservableResources(state, typeURL, nil)
+			if len(rollback) == 0 {
+				rollback = nil
+			}
+			rollbacks.Set(typeURL, rollback)
+		}
+	}
+	// Record version-association-only entries for affected types without rollback.
+	// Preserve any rollback already stored for the same type.
+	for typeURL := range typeurl.Count {
+		if !rollbacks.Has(typeURL) && (dirtyTypeURLs.Has(typeURL) || options.waits.Has(typeURL)) {
+			rollbacks.Set(typeURL, nil)
+		}
+	}
+	pending := oldPending
+	if pending == nil {
+		pending = &pendingPublication{}
+	}
+	*pending = pendingPublication{
+		generation: tx.generation, changedTypeURLs: mergedTypeURLs,
+		watchTypeURLs: watchTypeURLs, rollbacks: rollbacks,
+	}
+	state.pendingPublication = pending
+	return oldPending, oldPendingValue, willFinalize
+}
+
+// restorePublicationLocked reacquires saved ownership before releasing the
+// failed replacement, so shared tombstones remain continuously guarded.
+func (r *rollbackState) restorePublicationLocked(state *nodeState, oldPending *pendingPublication, oldPendingValue pendingPublication) {
+	if oldPending != nil {
+		for typeURL, rollback := range oldPendingValue.rollbacks.All() {
+			owners := &state.typeStates[typeURL].rollbacks
+			for name, entry := range rollback {
+				if state.resources[typeURL][name].resource == nil {
+					owners.addOwner(rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
+				}
+			}
+		}
+	}
+	r.releaseSet(state, state.pendingPublication.rollbacks)
+	if oldPending == nil {
+		state.pendingPublication = nil
+	} else {
+		*oldPending = oldPendingValue
+		state.pendingPublication = oldPending
+	}
+}
+
+// publishedLocked transfers pending inverses to unsent response ownership only
+// after snapshot installation succeeds. Caller must hold cacheImpl.mutex.
+func (r *rollbackState) publishedLocked(c *cacheImpl, state *nodeState, pending *pendingPublication, oldSnapshot, newSnapshot cache.ResourceSnapshot) {
+	// Transfer new rollback when versions change. An existing unsent chain must
+	// also follow coalesced A-B-A values whose content version stayed the same.
+	// Until go-control-plane actually produces a response, repeated published
+	// generations are coalesced into one rollback per type. An older mutation
+	// without a WaitGroup may precede a tracked mutation in the same eventual
+	// response, and a NACK must restore the state before that whole batch.
+	for typeURL, rollback := range pending.rollbacks.All() {
+		existing := state.typeStates[typeURL].rollbacks.unsent
+		if len(rollback) == 0 && existing == nil {
+			continue
+		}
+		versionChanged := oldSnapshot == nil ||
+			oldSnapshot.GetVersion(typeURL.URL()) != newSnapshot.GetVersion(typeURL.URL())
+		if !versionChanged && existing == nil {
+			r.release(state, typeURL, rollback)
+			continue
+		}
+		r.retainUnsentLocked(c, state, typeURL, pending.generation, rollback, newSnapshot)
+	}
+}
+
 // retainUnsentLocked keeps one coalesced rollback for a resource type
 // until go-control-plane produces a response carrying the current version.
 // Register it before delivery so the response can acquire its inverse even
@@ -101,6 +240,11 @@ func (r *rollbackState) retainUnsentLocked(c *cacheImpl, state *nodeState, typeU
 	nodeID := state.nodeID
 	if existing := state.typeStates[typeURL].rollbacks.unsent; existing != nil && (existing.resources != nil || !existing.inverse.empty()) {
 		if c.completionCbs.CoalesceUnsentTypeGeneration(nodeID, typeURL, existing.generation, generation, nil) {
+			if len(rollback) == 0 {
+				// A deferred A-B-A can leave no new inverse while this unsent
+				// publication still owns the earlier rollback baseline.
+				existing.resources.reconcileDesiredState(state, typeURL)
+			}
 			existing.resources = existing.resources.mergeHistory(state, typeURL, rollback)
 			existing.resources.pruneUnobservableResources(state, typeURL, snapshot)
 			existing.generation = generation
@@ -285,7 +429,7 @@ func (r *rollbackState) prepareRevertLocked(tx *resourceTransaction, rollbacks [
 	for _, rollback := range slices.Backward(rollbacks) {
 		lifecycle := rollback.(*rollbackLifecycle)
 		if lifecycle.resources != nil {
-			r.rebaseRejected(lifecycle.typeURL, lifecycle.resources)
+			r.rebaseRejected(state, lifecycle.typeURL, lifecycle.resources)
 		}
 	}
 
@@ -375,6 +519,27 @@ func (r *rollbackState) releaseSet(state *nodeState, rollbacks typeurl.Map[rollb
 	}
 }
 
+// reconcileDesiredState coalesces compensation into an unclaimed rollback:
+// drop net no-ops and move existing removal ownership to the restored API value.
+// It must not be used on a chain already claimed by a response. Cache lock required.
+func (rollback *rollbackResources) reconcileDesiredState(state *nodeState, typeURL typeurl.Index) {
+	owners := &state.typeStates[typeURL].rollbacks
+	for name, entry := range *rollback {
+		current := state.resources[typeURL][name]
+		if entry.previousEquals(current.resource) {
+			owners.removeOwner(rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
+			delete(*rollback, name)
+		} else if entry.expectedTransaction != current.transaction {
+			owners.removeOwner(rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
+			if current.resource == nil {
+				owners.addOwner(rollbackOwnerKey{name: name, transaction: current.transaction})
+			}
+			entry.expectedTransaction = current.transaction
+			(*rollback)[name] = entry
+		}
+	}
+}
+
 // mergeHistory folds a newer, independently owned rollback into an
 // older unsent one. The oldest previous value remains the rollback target,
 // while the newest expected transaction fences the combined rollback. Ownership
@@ -446,7 +611,17 @@ func (r *rollbackState) resourceRevertInverse(state *nodeState, transaction call
 // Only inverse targets change; expected transactions and tombstone ownership do
 // not. No rejection history survives beyond these live inverses.
 // Caller must hold cacheImpl.mutex.
-func (r *rollbackState) rebaseRejected(typeURL typeurl.Index, rejected rollbackResources) {
+func (r *rollbackState) rebaseRejected(state *nodeState, typeURL typeurl.Index, rejected rollbackResources) {
+	if pending := state.pendingPublication; pending != nil {
+		rollback, _ := pending.rollbacks.Get(typeURL)
+		for name, rejectedEntry := range rejected {
+			entry, exists := rollback[name]
+			if exists && entry.previous.transaction == rejectedEntry.expectedTransaction {
+				entry.previous = rejectedEntry.previous
+				rollback[name] = entry
+			}
+		}
+	}
 	for lifecycle := range r.responses.Members() {
 		if lifecycle.typeURL != typeURL {
 			continue
@@ -559,13 +734,38 @@ func (entry rollbackEntry) previousEquals(resource cache_types.Resource) bool {
 		(previous != nil && resource != nil && xds.ResourceEqual(previous, resource))
 }
 
+// resourceStateIsObservable uses the snapshot when published, or desired state
+// before publication. Referenced EDS removals remain observable because their
+// projection supplies a named empty CLA.
+func (r *rollbackState) resourceStateIsObservable(state *nodeState, snapshot cache.ResourceSnapshot, index typeurl.Index, name string) bool {
+	if snapshot != nil {
+		return callbacks.SnapshotResourceStateIsObservable(snapshot, index, name)
+	}
+	switch index {
+	case typeurl.Listener, typeurl.Cluster, typeurl.NetworkPolicy, typeurl.NetworkPolicyHosts:
+		return true
+	case typeurl.Endpoint:
+		if state.resources[index][name].resource != nil {
+			return true
+		}
+		for clusterName, entry := range state.resources[typeurl.Cluster] {
+			if clusterEndpointName(clusterName, typedResource[*cluster.Cluster](entry.resource)) == name {
+				return true
+			}
+		}
+		return false
+	default:
+		return state.resources[index][name].resource != nil
+	}
+}
+
 // SotW omission cannot reject an EDS/RDS/SDS removal. Release its response
 // inverse; caller rollback retains separate ownership. Synthesized empty CLAs
 // remain observable and therefore retain response recovery.
 func (rollback *rollbackResources) pruneUnobservableResources(state *nodeState, index typeurl.Index, snapshot cache.ResourceSnapshot) {
 	typeState := &state.typeStates[index]
 	for name, entry := range *rollback {
-		if callbacks.SnapshotResourceStateIsObservable(snapshot, index, name) {
+		if state.rollbacks.resourceStateIsObservable(state, snapshot, index, name) {
 			continue
 		}
 		typeState.rollbacks.removeOwner(rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})

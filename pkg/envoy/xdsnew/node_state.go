@@ -4,8 +4,12 @@
 package xdsnew
 
 import (
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
+	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 
+	"github.com/cilium/cilium/pkg/container/set"
+	"github.com/cilium/cilium/pkg/envoy/xds"
 	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
@@ -17,28 +21,36 @@ import (
 type nodeState struct {
 	nodeID      string
 	openWatches nodeWatchState
-	// Every successful mutation publishes eagerly, so these generations advance
-	// together. Both are retained for completion and rollback bookkeeping.
+	// resourceGeneration identifies the latest desired state, while
+	// snapshotGeneration identifies the state most recently published to Envoy.
 	resourceGeneration callbacks.Generation
 	snapshotGeneration callbacks.Generation
 	// resources owns the current desired state, including revision-tagged
 	// removal tombstones.
 	resources resourceMaps
 	rollbacks rollbackState
+	// pendingPublication is non-nil while desired state has unpublished changes
+	// or completion bookkeeping awaiting snapshot construction and installation.
+	pendingPublication *pendingPublication
 	// typeStates groups node-local bookkeeping by resource type, separate
 	// from the desired resource maps shared with sparse inverse containers.
 	typeStates typeurl.Slots[resourceTypeState]
 }
 
 // resourceTypeState owns bookkeeping for one node and resource type. Its fields
-// are protected by cacheImpl.mutex; the zero value has no rollback ownership.
+// are protected by cacheImpl.mutex; the zero value has no pending changes or
+// rollback ownership.
 type resourceTypeState struct {
-	// revertGeneration identifies the latest successfully published revert that
-	// changed resources of this type, or zero if none. It distinguishes restored
-	// contents from earlier identical snapshots and provides a conservative wait
-	// generation for absent names without retaining per-name tombstones.
+	// revertGeneration identifies the latest committed revert that changed
+	// resources of this type, or zero if none. It distinguishes restored contents
+	// from earlier identical snapshots and provides a conservative wait revision
+	// for absent names without retaining per-name tombstones.
 	revertGeneration callbacks.Generation
-	rollbacks        resourceRollbackState
+	// changedResourceNames tracks names which may differ from the last published
+	// snapshot. Successful publication clears the set while preserving
+	// rollback ownership.
+	changedResourceNames set.Set[string]
+	rollbacks            resourceRollbackState
 }
 
 func (state *nodeState) resourceEntries(typeURL typeurl.Index) map[string]resourceEntry {
@@ -74,7 +86,7 @@ func (state *nodeState) prepareResourceMutation(mutations ResourceMutations, gen
 
 func (state *nodeState) commitResourceMutation(changes resourceChanges) {
 	commit := func(change resourceChange) {
-		state.resources.commitEntry(change.typeURL, change.name, change.next)
+		state.commitResourceEntry(change.typeURL, change.name, change.next)
 	}
 	if !changes.empty() {
 		commit(changes.first)
@@ -84,13 +96,17 @@ func (state *nodeState) commitResourceMutation(changes resourceChanges) {
 	}
 }
 
-// generationForType returns the generation of the snapshot which currently
-// represents typeURL. Eager publication makes it the same for every type.
+// generationForType returns the pending publication's generation, or the
+// published snapshot's generation, which currently represents typeURL.
 func (state *nodeState) generationForType(typeURL typeurl.Index) callbacks.Generation {
 	if state == nil {
 		return 0
 	}
-	_ = typeURL
+	if state.pendingPublication != nil {
+		if state.pendingPublication.changedTypeURLs.Has(typeURL) {
+			return state.pendingPublication.generation
+		}
+	}
 	return state.snapshotGeneration
 }
 
@@ -99,4 +115,94 @@ func (state *nodeState) getResource(typeURL typeurl.Index, resourceName string) 
 		return nil
 	}
 	return state.resources[typeURL][resourceName].resource
+}
+
+func (state *nodeState) reconcileChangedResourceNames(changes resourceChanges, published cache.ResourceSnapshot) {
+	reconcile := func(change resourceChange) {
+		changed := &state.typeStates[change.typeURL].changedResourceNames
+		resource := state.resources[change.typeURL][change.name].resource
+		var publishedResources map[string]cache_types.ResourceWithTTL
+		if published != nil {
+			publishedResources = published.GetResourcesAndTTL(change.typeURL.URL())
+		}
+		publishedResource, publishedExists := publishedResources[change.name]
+		if resource == nil {
+			if !publishedExists {
+				changed.Remove(change.name)
+			}
+			return
+		}
+		if publishedExists &&
+			(publishedResource.Resource == resource || xds.ResourceEqual(publishedResource.Resource, resource)) {
+			changed.Remove(change.name)
+		}
+	}
+	if !changes.empty() {
+		reconcile(changes.first)
+	}
+	for _, change := range changes.more {
+		reconcile(change)
+	}
+}
+
+// hasOpenWatchLocked reports whether a watch can consume unpublished changes.
+// Caller must hold cacheImpl.mutex.
+func (state *nodeState) hasOpenWatchLocked(typeURLs typeurl.Set) bool {
+	for typeURL := range typeURLs.Members() {
+		watches, _ := state.openWatches.Get(typeURL)
+		if !watches.Empty() {
+			return true
+		}
+	}
+	return false
+}
+
+func (resources *resourceMaps) changedEndpointResourceNames(previous *ciliumSnapshot, changedClusters, changedEndpoints set.Set[string]) set.Set[string] {
+	if changedClusters.Empty() {
+		return changedEndpoints
+	}
+	names := changedEndpoints.Clone()
+	previousClusters := previous[typeurl.Cluster].resources.Items
+	for name := range changedClusters.Members() {
+		if item, exists := previousClusters[name]; exists {
+			cluster, ok := item.Resource.(*cluster.Cluster)
+			if ok {
+				if oldName := clusterEndpointName(name, cluster); oldName != "" {
+					names.Insert(oldName)
+				}
+			}
+		}
+		if entry := resources[typeurl.Cluster][name]; entry.resource != nil {
+			cluster := typedResource[*cluster.Cluster](entry.resource)
+			if newName := clusterEndpointName(name, cluster); newName != "" {
+				names.Insert(newName)
+			}
+		}
+	}
+	return names
+}
+
+// pendingPublication records the generation, affected types and rollback state
+// awaiting publication. Desired resources live in nodeState.resources; no
+// snapshot is constructed until a matching watch can consume it.
+type pendingPublication struct {
+	generation callbacks.Generation
+	// changedTypeURLs includes dependent types whose version context may need
+	// regeneration. watchTypeURLs contains the directly mutated types which can
+	// justify finalizing the publication when Envoy has capacity for them.
+	changedTypeURLs typeurl.Set
+	watchTypeURLs   typeurl.Set
+	// Each present type binds pending waits and generations to the published
+	// version, including unchanged referenced types whose version changes.
+	// Nonempty values also supply response-owned rollback state; empty values
+	// request version association only (including publications made by a revert).
+	// Absent types need neither.
+	rollbacks typeurl.Map[rollbackResources]
+}
+
+// commitResourceEntry updates desired state and records the name for incremental
+// snapshot publication. Caller must hold cacheImpl.mutex.
+func (state *nodeState) commitResourceEntry(typeURL typeurl.Index, name string, entry resourceEntry) {
+	state.resources.commitEntry(typeURL, name, entry)
+	state.typeStates[typeURL].changedResourceNames.Insert(name)
 }
