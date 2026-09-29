@@ -281,6 +281,9 @@ func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTy
 
 // DeleteInstance delete instance from m.instances
 func (m *InstancesManager) DeleteInstance(instanceID string) {
+	m.resyncLock.RLock()
+	defer m.resyncLock.RUnlock()
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.instances.Delete(instanceID)
