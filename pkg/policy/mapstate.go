@@ -465,17 +465,24 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 	// both specific and aggregate matches found
 	if haveID && haveAgg {
 		// Precedence rules of the bpf datapath between two policy entries:
-		// 1. higher precedence level entry wins, but auth may need to be propagated.
-		// 2. if Deny at same precedence level, no further processing is needed
-		// 3. if both entries are allows at the same precedence level, the one with more
-		//    specific L4 is selected
-		// 4. If the two allows on the same precedence level have equal port/proto, then
+		// 1. specific-id-entry with the highest possible precedence (a priority 0 deny) wins
+		//    without looking at the aggregate entry.
+		// 2. higher precedence level entry wins.
+		// 3. if both entries are on the same precedence level (then both are denies or both
+		//    are allows), the one with more specific L4 is selected
+		// 4. If the two entries on the same precedence level have equal port/proto, then
 		//    the policy for a specific L3 is selected (rather than the L4-only entry)
 		//
 		// If the selected entry has non-explicit auth type, it gets the auth type from the
 		// other entry, if the other entry's auth type is numerically higher.
 
-		// 1. Entry with higher precedence level is selected.
+		// 1. The datapath does not look up the aggregate entry at all if the
+		// specific-id-entry has the highest possible precedence.
+		if idEntry.Precedence == types.MaxPrecedence {
+			return idEntry, true
+		}
+
+		// 2. Entry with higher precedence level is selected.
 		//    Auth requirement does not propagate from a lower precedence rule to a
 		//    higher precedence rule!
 		if idEntry.Precedence > aggEntry.Precedence {
@@ -485,19 +492,12 @@ func (ms *mapState) lookup(key Key) (mapStateEntry, bool) {
 			return aggEntry, true
 		}
 
-		// 2. Entries at the same precedence,
-		// Check for the specific deny first to match the datapath behavior
-		if idEntry.IsDeny() {
-			return idEntry, true
-		}
-
-		// 3. Two allow entries, select the one with more specific L4
+		// 3. Two entries at the same precedence, select the one with more specific L4
 		// specific-id-entry must be selected if prefix lengths are the same!
 		if aggKey.PrefixLength() > idKey.PrefixLength() {
 			return authOverride(aggEntry, idEntry), true
 		}
-		// 4. Two allow entries are equally specific port/proto or specific-id-entry is more
-		// specific
+		// 4. Two entries are equally specific port/proto or specific-id-entry is more specific
 		return authOverride(idEntry, aggEntry), true
 	}
 
