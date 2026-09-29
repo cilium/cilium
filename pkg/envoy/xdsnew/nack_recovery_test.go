@@ -269,7 +269,7 @@ func TestNACKRecoveryRebasesOnlyRejectedNames(t *testing.T) {
 				first.reply(t, responseA, "invalid resource", firstNames...)
 				if outcome == "unsent-nack" {
 					// B's pending rollback must bypass the rejected value even
-					// before B's rollback state has been claimed by a response.
+					// before B has been published or claimed by a response.
 					responseB = second.receive(t, secondNames...)
 				}
 

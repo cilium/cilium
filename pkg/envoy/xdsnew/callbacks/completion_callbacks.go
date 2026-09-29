@@ -395,9 +395,11 @@ func (cb *CompletionCallbacks) CompleteCompletionsThroughGeneration(nodeID strin
 	}
 }
 
-// SetPublishedSnapshot records successfully published resources and prunes obsolete
-// sparse acceptance evidence. It does not infer acceptance from echoed versions.
-// The cache calls it after snapshot installation commits, before relaying responses.
+// SetPublishedSnapshot records a committed published snapshot and prunes
+// obsolete sparse acceptance evidence. It does not infer acceptance from echoed
+// versions. The cache calls it after confirming SetSnapshot installed the
+// snapshot, before delivering buffered responses. A nil snapshot clears the
+// publication and acceptance evidence, without removing pending rollback state.
 func (cb *CompletionCallbacks) SetPublishedSnapshot(nodeID string, snapshot cache.ResourceSnapshot) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
