@@ -2779,7 +2779,9 @@ func (c *cacheImpl) generateSnapshotForUpdate(state *nodeState, previous cache.R
 	if err != nil {
 		return nil, err
 	}
-	if c.strictAdsMode {
+	// Mutation-time validation maintains the strict ADS invariant. The full
+	// snapshot check is a projection invariant check for agent debug mode.
+	if c.strictAdsMode && c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
 		if err := CheckSnapshotConsistency(snapshot); err != nil {
 			return nil, fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
 		}

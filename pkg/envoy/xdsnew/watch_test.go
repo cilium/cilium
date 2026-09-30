@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -273,7 +274,8 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 	for _, strictADS := range []bool{false, true} {
 		t.Run(fmt.Sprintf("strict=%t", strictADS), func(t *testing.T) {
-			c := NewCache(slog.New(slog.DiscardHandler), strictADS).(*cacheImpl)
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+			c := NewCache(logger, strictADS).(*cacheImpl)
 			const nodeID = "node1"
 			responses := make(chan cache.Response, 2)
 			cancel, err := c.CreateWatch(&cache.Request{

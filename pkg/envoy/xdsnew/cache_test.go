@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1255,7 +1256,7 @@ func strictTestEDSCluster(name, endpoint string) *envoy_config_cluster.Cluster {
 }
 
 func TestStrictADSValidatesRouteMutationsBeforeCommit(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), true).(*cacheImpl)
+	c := NewCache(hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), true).(*cacheImpl)
 	const nodeID = "node1"
 	listener := strictTestListener(t, "listener1", "route1")
 	route := &envoy_config_route.RouteConfiguration{Name: "route1"}
@@ -1308,7 +1309,7 @@ func TestStrictADSValidatesRouteMutationsBeforeCommit(t *testing.T) {
 }
 
 func TestStrictADSValidatesEndpointMutationsBeforeCommit(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), true).(*cacheImpl)
+	c := NewCache(hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), true).(*cacheImpl)
 	const nodeID = "node1"
 	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
 
@@ -1356,6 +1357,7 @@ func TestStrictADSReferenceIndexRestoredAfterPublicationFailure(t *testing.T) {
 	mock := newMockSnapshotCache()
 	c := newInitializedTestCache(mock)
 	c.strictAdsMode = true
+	c.logger = hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	const nodeID = "node1"
 	route := &envoy_config_route.RouteConfiguration{Name: "route1"}
 	listener1 := strictTestListener(t, "listener1", "route1")
@@ -1538,12 +1540,35 @@ func TestNonStrictADSAllowsOrphanEndpoint(t *testing.T) {
 }
 
 func TestStrictADSIgnoresUnrelatedResourceMutations(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), true).(*cacheImpl)
+	c := NewCache(hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), true).(*cacheImpl)
 	err := c.ApplyResource(t.Context(), "node1", typeurl.Secret, "secret1",
 		&envoy_config_tls.Secret{Name: "secret1"}, nil, nil)
 	require.NoError(t, err)
 	require.Nil(t, c.nodeStates["node1"].strictRefs,
 		"unrelated mutations should not initialize the consistency index")
+}
+
+func TestGenerateSnapshotForUpdateChecksConsistencyOnlyInStrictDebugMode(t *testing.T) {
+	for _, strictADS := range []bool{false, true} {
+		for _, level := range []slog.Level{slog.LevelInfo, slog.LevelDebug} {
+			t.Run(fmt.Sprintf("strict-ads=%t/level=%s", strictADS, level), func(t *testing.T) {
+				logger := hivetest.Logger(t, hivetest.LogLevel(level))
+				c := NewCache(logger, strictADS).(*cacheImpl)
+				state := &nodeState{}
+				// Deliberately bypass mutation-time validation to exercise the
+				// full snapshot check with an orphan route in the projection.
+				state.seedResource(typeurl.Route, "orphan", &envoy_config_route.RouteConfiguration{Name: "orphan"})
+				snapshot, err := c.generateSnapshotForUpdate(state, nil, typeurl.NewSet(typeurl.Route))
+				if strictADS && level == slog.LevelDebug {
+					require.ErrorContains(t, err, "generated ADS snapshot is inconsistent")
+					require.Nil(t, snapshot)
+				} else {
+					require.NoError(t, err)
+					require.NotNil(t, snapshot)
+				}
+			})
+		}
+	}
 }
 
 func TestCloneStagedRollbacksClonesStrictADSCompanion(t *testing.T) {
@@ -3945,7 +3970,7 @@ func TestCreateWatchPublishesEmptyListenerSnapshotForUnknownNode(t *testing.T) {
 	for _, strictADS := range []bool{false, true} {
 		for _, clientVersion := range []string{"", "stale-version"} {
 			t.Run(fmt.Sprintf("strict-ads=%t/client-version=%q", strictADS, clientVersion), func(t *testing.T) {
-				logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+				logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 				c := NewCache(logger, strictADS).(*cacheImpl)
 				const nodeID = "node-without-resources"
 				node := &envoy_config_core.Node{Id: nodeID}
