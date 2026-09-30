@@ -320,6 +320,7 @@ type daemonSetParameters struct {
 	Affinity       *corev1.Affinity
 	ReadinessProbe *corev1.Probe
 	Labels         map[string]string
+	Annotations    map[string]string
 	HostNetwork    bool
 	Tolerations    []corev1.Toleration
 	Capabilities   []corev1.Capability
@@ -343,6 +344,7 @@ func newDaemonSet(p daemonSetParameters) *appsv1.DaemonSet {
 						"name": p.Name,
 						"kind": p.Kind,
 					},
+					Annotations: p.Annotations,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -913,6 +915,7 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 					},
 					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 				},
+				NodeSelector:   ct.params.NodeSelector,
 				Tolerations:    ct.params.GetTolerations(),
 				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
 			})
@@ -1108,6 +1111,7 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 				Annotations:  ct.params.DeploymentAnnotations.Match(ccnpDeploymentName),
 				Affinity:     &corev1.Affinity{NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity()},
 				NodeSelector: ct.params.NodeSelector,
+				Tolerations:  ct.params.GetTolerations(),
 			})
 			_, err = clientccnp.CreateServiceAccount(ctx, namespaceName, k8s.NewServiceAccount(ccnpDeploymentName), metav1.CreateOptions{})
 			if err != nil {
@@ -1398,6 +1402,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				},
 				NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 			},
+			NodeSelector:   ct.params.NodeSelector,
 			Tolerations:    ct.params.GetTolerations(),
 			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
 		}, ct.params.DNSTestServerImage)
@@ -1523,7 +1528,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Image:       ct.params.CurlImage,
 			Command:     []string{"/usr/bin/pause"},
 			Labels:      map[string]string{"other": "client"},
-			Annotations: ct.params.DeploymentAnnotations.Match(client2DeploymentName),
+			Annotations: ct.params.DeploymentAnnotations.Match(clientCPDeployment),
 			NodeSelector: map[string]string{
 				"node-role.kubernetes.io/control-plane": "",
 			},
@@ -1625,12 +1630,15 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			if err != nil {
 				ct.Logf("✨ [%s] Deploying %s daemonset...", hostNetNSDeploymentName, client.ClusterName())
 				ds := newDaemonSet(daemonSetParameters{
-					Name:        hostNetNSDeploymentName,
-					Kind:        kindHostNetNS,
-					Image:       ct.params.CurlImage,
-					Labels:      map[string]string{"other": "host-netns"},
-					Command:     []string{"/usr/bin/pause"},
-					HostNetwork: true,
+					Name:         hostNetNSDeploymentName,
+					Kind:         kindHostNetNS,
+					Image:        ct.params.CurlImage,
+					Labels:       map[string]string{"other": "host-netns"},
+					Annotations:  ct.params.DeploymentAnnotations.Match(hostNetNSDeploymentName),
+					Command:      []string{"/usr/bin/pause"},
+					HostNetwork:  true,
+					NodeSelector: ct.params.NodeSelector,
+					Tolerations:  ct.params.GetTolerations(),
 				})
 				_, err = client.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
 				if err != nil {
@@ -1649,6 +1657,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				Kind:        kindHostNetNS,
 				Image:       ct.params.CurlImage,
 				Labels:      map[string]string{"other": "host-netns"},
+				Annotations: ct.params.DeploymentAnnotations.Match(hostNetNSDeploymentNameNonCilium),
 				Command:     []string{"/usr/bin/pause"},
 				HostNetwork: true,
 				Tolerations: []corev1.Toleration{
@@ -1868,7 +1877,8 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Args: []string{
 				"--tcp=9090", "--port=8080", "--grpc=7070", "--port=8443", "--tls=8443", "--crt=/cert.crt", "--key=/cert.key",
 			},
-			Labels: map[string]string{"kind": "l7-lb"},
+			Labels:      map[string]string{"kind": "l7-lb"},
+			Annotations: ct.params.DeploymentAnnotations.Match(loadbalancerL7DeploymentName),
 			Affinity: &corev1.Affinity{
 				PodAffinity: &corev1.PodAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -1884,6 +1894,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				},
 				NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 			},
+			NodeSelector:   ct.params.NodeSelector,
 			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
 			Tolerations:    ct.params.GetTolerations(),
 		}, ct.params.DNSTestServerImage)
@@ -2034,7 +2045,9 @@ func (ct *ConnectivityTest) createTestConnDisruptServerDeployAndSvc(ctx context.
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
 			},
-			Tolerations: ct.params.GetTolerations(),
+			Annotations:  ct.params.DeploymentAnnotations.Match(deployName),
+			NodeSelector: ct.params.NodeSelector,
+			Tolerations:  ct.params.GetTolerations(),
 		}
 		if isExternal {
 			param.NodeSelector = map[string]string{defaults.CiliumNoScheduleLabel: "true"}
@@ -2125,7 +2138,9 @@ func (ct *ConnectivityTest) createTestConnDisruptClientDeployment(ctx context.Co
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{corev1.ResourceCPU: *resource.NewMilliQuantity(100, resource.DecimalSI)},
 			},
-			Tolerations: ct.params.GetTolerations(),
+			Annotations:  ct.params.DeploymentAnnotations.Match(deployName),
+			NodeSelector: ct.params.NodeSelector,
+			Tolerations:  ct.params.GetTolerations(),
 		}
 		if isExternal {
 			param.NodeSelector = map[string]string{defaults.CiliumNoScheduleLabel: "true"}
@@ -2413,7 +2428,7 @@ func (ct *ConnectivityTest) createProfilingPerfDeployment(ctx context.Context, n
 		ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels},
 		Spec: appsv1.DeploymentSpec{
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				ObjectMeta: metav1.ObjectMeta{Labels: labels, Annotations: ct.params.DeploymentAnnotations.Match(name)},
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{{
 						Name:            "init",
