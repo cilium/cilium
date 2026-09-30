@@ -18,6 +18,8 @@ import (
 
 	awsMetadata "github.com/cilium/cilium/pkg/aws/metadata"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/defaults"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -106,6 +108,43 @@ func apply(in nodediscovery.ENIMutateInputs, info awsMetadata.MetaDataInfo, node
 		overrideFromNetConf(in.Logger, &nodeResource.Spec, c, info)
 	}
 	applyInstanceFacts(&nodeResource.Spec, info)
+	seedPoolRequest(in, &nodeResource.Spec)
+}
+
+// seedPoolRequest writes an initial demand for the default pool, unless one
+// is already present. The multi-pool manager only writes the actual demand
+// once it has observed the CiliumNode, and until then the operator falls back
+// to the CRD allocator logic, which pre-allocates IPv4 addresses whether or
+// not the agent uses IPv4. Seeding the demand when the CiliumNode is created
+// lets the operator see from its first event which families the agent
+// requests.
+func seedPoolRequest(in nodediscovery.ENIMutateInputs, spec *ciliumv2.NodeSpec) {
+	for _, req := range spec.IPAM.Pools.Requested {
+		if req.Pool == defaults.IPAMDefaultIPPool {
+			return
+		}
+	}
+
+	preAllocate := spec.IPAM.PreAllocate
+	if preAllocate == 0 {
+		preAllocate = defaults.IPAMPreAllocation
+	}
+
+	var demand ipamTypes.IPAMPoolDemand
+	if in.IPv4Enabled {
+		demand.IPv4Addrs = preAllocate
+	}
+	if in.IPv6Enabled {
+		demand.IPv6Addrs = preAllocate
+	}
+	if demand.IPv4Addrs == 0 && demand.IPv6Addrs == 0 {
+		return
+	}
+
+	spec.IPAM.Pools.Requested = append(spec.IPAM.Pools.Requested, ipamTypes.IPAMPoolRequest{
+		Pool:   defaults.IPAMDefaultIPPool,
+		Needed: demand,
+	})
 }
 
 // applyAgentConfiguration writes the fields chosen by the agent
