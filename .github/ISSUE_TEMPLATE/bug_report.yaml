@@ -112,11 +112,28 @@ body:
       options:
         - label: Are you a user of Cilium? Please add yourself to the [Users doc](https://github.com/cilium/cilium/blob/main/USERS.md)
           required: false
+  - type: dropdown
+    id: ail
+    attributes:
+      label: AI Influence Level
+      description: Please disclose use of generative AI for creating this issue on the [AI Influence Level scale](https://danielmiessler.com/blog/ai-influence-level-ail).
+      options:
+        - AIL:0 (Human Created)
+        - AIL:1 (Human Created, Minor AI Assistance)
+        - AIL:2 (Human Created, Major AI Augmentation)
+        - AIL:3 (AI Created, Human Full Structure)
+        - AIL:4 (AI Created, Human Basic Idea)
+        - AIL:5 (AI Created, Human Request)
+        - AIL:6 (AI initiated, No Human Involvement)
+        - Undisclosed
+      default: 7
+    validations:
+      required: true
   - type: checkboxes
     id: terms
     attributes:
       label: Code of Conduct
-      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/cilium/cilium/blob/main/CODE_OF_CONDUCT.md)
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/cilium/cilium/blob/main/CODE_OF_CONDUCT.md) and [Generative AI Policy](https://github.com/cilium/community/blob/main/AI-POLICY.md).
       options:
-        - label: I agree to follow this project's Code of Conduct
+        - label: I agree to follow this project's Code of Conduct and Generative AI Policy
           required: true
