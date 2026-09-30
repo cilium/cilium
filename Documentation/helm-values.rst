@@ -2569,7 +2569,7 @@
      - string
      - ``"helm"``
    * - :spelling:ignore:`hubble.tls.auto.privateKey`
-     - Private key options. These include the key algorithm and size, the used encoding and the rotation policy used when hubble.tls.auto.method=certmanager. https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.CertificatePrivateKey
+     - Private key options. These include the key algorithm and size, the used encoding and the rotation policy used when hubble.tls.auto.method=certmanager. ``rotationPolicy`` defaults to ``Always`` unless set here. https://cert-manager.io/docs/reference/api-docs/#cert-manager.io/v1.CertificatePrivateKey
      - object
      - ``{}``
    * - :spelling:ignore:`hubble.tls.auto.schedule`
