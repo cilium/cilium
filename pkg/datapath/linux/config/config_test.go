@@ -400,9 +400,8 @@ func TestPrivilegedWriteNodeConfigIPv4Only(t *testing.T) {
 }
 
 // TestPrivilegedWriteNodeConfigBPFMasquerade verifies that when BPF masquerade
-// is enabled, the correct ENABLE_MASQUERADE_IPV4 and
-// ENABLE_IP_MASQ_AGENT_IPV4 defines are generated.
-// This covers the BPF masquerading with ip-masq-agent scenarios previously
+// is enabled, the correct ENABLE_MASQUERADE_IPV4 defines are generated.
+// This covers the BPF masquerading scenarios previously
 // tested by K8sDatapathConfig.
 func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
 	testutils.PrivilegedTest(t)
@@ -414,52 +413,30 @@ func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
 		origBPFMasq := option.Config.EnableBPFMasquerade
 		origIPv4Masq := option.Config.EnableIPv4Masquerade
 		origIPv6Masq := option.Config.EnableIPv6Masquerade
-		origIPMasqAgent := option.Config.EnableIPMasqAgent
 		origNativeRoutingCIDR := option.Config.IPv4NativeRoutingCIDR
 		t.Cleanup(func() {
 			option.Config.EnableBPFMasquerade = origBPFMasq
 			option.Config.EnableIPv4Masquerade = origIPv4Masq
 			option.Config.EnableIPv6Masquerade = origIPv6Masq
-			option.Config.EnableIPMasqAgent = origIPMasqAgent
 			option.Config.IPv4NativeRoutingCIDR = origNativeRoutingCIDR
 		})
 
-		t.Run("BPF masquerade with ip-masq-agent", func(t *testing.T) {
+		t.Run("BPF masquerade", func(t *testing.T) {
 			option.Config.EnableBPFMasquerade = true
 			option.Config.EnableIPv4Masquerade = true
 			option.Config.EnableIPv6Masquerade = false
-			option.Config.EnableIPMasqAgent = true
 			option.Config.IPv4NativeRoutingCIDR = netip.MustParsePrefix("10.0.0.0/8")
 
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
 			require.Contains(t, output, "define ENABLE_MASQUERADE_IPV4 1\n",
 				"Expected ENABLE_MASQUERADE_IPV4 define with BPF masquerade")
-			require.Contains(t, output, "define ENABLE_IP_MASQ_AGENT_IPV4 1\n",
-				"Expected ENABLE_IP_MASQ_AGENT_IPV4 define with ip-masq-agent enabled")
 			require.Contains(t, output, "define ENABLE_NODEPORT 1\n",
 				"Expected ENABLE_NODEPORT define with BPF masquerade")
-		})
-
-		t.Run("BPF masquerade without ip-masq-agent", func(t *testing.T) {
-			option.Config.EnableBPFMasquerade = true
-			option.Config.EnableIPv4Masquerade = true
-			option.Config.EnableIPv6Masquerade = false
-			option.Config.EnableIPMasqAgent = false
-
-			nodeCfg := dummyNodeCfg
-			nodeCfg.NativeRoutingCIDRIPv4 = netip.MustParsePrefix("10.0.0.0/8")
-
-			output := writeNodeConfigToBuffer(t, &nodeCfg)
-			require.Contains(t, output, "define ENABLE_MASQUERADE_IPV4 1\n",
-				"Expected ENABLE_MASQUERADE_IPV4 define with BPF masquerade")
-			require.NotContains(t, output, "ENABLE_IP_MASQ_AGENT",
-				"Expected no ENABLE_IP_MASQ_AGENT define without ip-masq-agent")
 		})
 
 		t.Run("BPF masquerade disabled", func(t *testing.T) {
 			option.Config.EnableBPFMasquerade = false
 			option.Config.EnableIPv4Masquerade = true
-			option.Config.EnableIPMasqAgent = false
 
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
 			require.NotContains(t, output, "ENABLE_MASQUERADE_IPV4",
