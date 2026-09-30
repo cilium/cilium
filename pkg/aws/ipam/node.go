@@ -528,6 +528,12 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.Alloc
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
+	// ipv6Candidate is an ENI which can take an IPv6 prefix, regardless of
+	// its IPv4 capacity. It is only used when no ENI with IPv4 capacity is
+	// found, so that an IPv6 prefix can be assigned to an existing ENI
+	// instead of creating a new one.
+	var ipv6Candidate string
+
 	for key, e := range n.enis {
 		scopedLog.Debug(
 			"Considering ENI for allocation",
@@ -544,6 +550,10 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.Alloc
 				fieldEniID, e.ID,
 			)
 			continue
+		}
+
+		if ipv6Candidate == "" && len(e.IPv6Prefixes) < limits.IPv6 {
+			ipv6Candidate = key
 		}
 
 		_, effectiveLimits := n.getEffectiveIPLimits(&e, limits.IPv4)
@@ -573,6 +583,13 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.Alloc
 				a.IPv4.AvailableForAllocation = min(subnet.AvailableAddresses, availableOnENI)
 			}
 		}
+	}
+	if a.InterfaceID == "" && ipv6Candidate != "" {
+		// No IPv4 addresses can be allocated on an existing ENI, so
+		// AvailableForAllocation is left at 0 and only an IPv6 prefix
+		// is assigned to this interface, if one is needed.
+		a.InterfaceID = ipv6Candidate
+		a.PoolID = ipamTypes.PoolID(n.enis[ipv6Candidate].Subnet.ID)
 	}
 	a.EmptyInterfaceSlots = limits.Adapters - len(n.enis)
 

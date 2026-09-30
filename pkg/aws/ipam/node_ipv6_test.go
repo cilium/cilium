@@ -118,6 +118,39 @@ func TestAllocateIPs_NoIPv6WhenNotRequested(t *testing.T) {
 	require.Empty(t, attachedIPv6Prefixes(t, n, instances))
 }
 
+func TestPrepareIPAllocation_IPv6PrefixOnFullENI(t *testing.T) {
+	n, ec2api, instances := newWiredNode(t, "i-prepare-ipv6-full", "m5.large")
+	eniID := primaryENIID(t, n)
+
+	// Use up the IPv4 capacity of the only ENI.
+	limits, ok := n.getLimits()
+	require.True(t, ok)
+	_, err := ec2api.AssignPrivateIpAddresses(t.Context(), eniID, int32(limits.IPv4))
+	require.NoError(t, err)
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
+	_, _, err = n.ResyncInterfacesAndIPs(t.Context(), hivetest.Logger(t))
+	require.NoError(t, err)
+
+	a, err := n.PrepareIPAllocation(hivetest.Logger(t))
+	require.NoError(t, err)
+
+	// The ENI cannot take more IPv4 addresses, but it can still host an
+	// IPv6 prefix, so it must be selected instead of creating a new ENI.
+	require.Equal(t, eniID, a.InterfaceID)
+	require.Equal(t, ipamTypes.PoolID(testSubnet.ID), a.PoolID)
+	require.Zero(t, a.IPv4.AvailableForAllocation)
+	require.Zero(t, a.IPv4.InterfaceCandidates)
+
+	a.IPv6.MaxPrefixesToAllocate = 1
+	require.NoError(t, n.AllocateIPs(t.Context(), a))
+	require.Len(t, attachedIPv6Prefixes(t, n, instances), 1)
+
+	n.mutex.RLock()
+	require.Len(t, n.enis, 1, "no ENI must be created to host the IPv6 prefix")
+	n.mutex.RUnlock()
+}
+
 func TestCreateInterface_IPv6Only(t *testing.T) {
 	// Request a new ENI for IPv6 only (no IPv4 addresses).
 	n, _, instances := newWiredNode(t, "i-create-ipv6", "m5.large")
