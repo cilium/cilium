@@ -149,7 +149,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	}, job.WithShutdown()))
 
 	if !option.Config.ExternalEnvoyProxy {
-		return &onDemandXdsStarter{
+		starter := &onDemandXdsStarter{
 			XDSServer:                      xdsServer,
 			logger:                         params.Logger,
 			runDir:                         option.Config.RunDir,
@@ -171,7 +171,15 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			maxPendingRequests:             params.EnvoyProxyConfig.ProxyClusterMaxPendingRequests,
 			xdsMode:                        params.EnvoyProxyConfig.EnvoyXDSMode,
 			localNodeStore:                 params.LocalNodeStore,
-		}, nil
+		}
+		// Stop Envoy before xDS serving shuts down, and wait for it to release
+		// its base-ID socket before the next agent or test instance can start.
+		params.Lifecycle.Append(cell.Hook{
+			OnStop: func(cell.HookContext) error {
+				return starter.stopStandaloneEnvoy()
+			},
+		})
+		return starter, nil
 	}
 
 	return xdsServer, nil
