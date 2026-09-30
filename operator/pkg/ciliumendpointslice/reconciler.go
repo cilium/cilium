@@ -280,6 +280,17 @@ func (r *reconciler) reconcileCESDelete(ctx context.Context, ces *cilium_v2a1.Ci
 	return
 }
 
+// isEndpointOutdated reports whether an endpoint stored in an existing CES
+// differs from what reconcileCESUpdate would write for it. It is used while
+// bootstrapping the CES cache to find CESs that drifted while the operator was
+// not running, or that were written with a different configuration.
+//
+// It must stay in sync with the comparison in reconcileCESUpdate: a nil desired
+// endpoint also counts as outdated, since reconciling would drop it.
+func (r *reconciler) isEndpointOutdated(stored *cilium_v2a1.CoreCiliumEndpoint, cepName CEPName) bool {
+	return !stored.DeepEqual(r.endpointGetter.getCoreEndpointFromStore(cepName))
+}
+
 // sanitizeCoreCEP clears CoreCiliumEndpoint fields that no enabled consumer reads.
 //
 // ServiceAccount is only consumed by the ztunnel xDS workload API, so it is omitted

@@ -12,6 +12,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sTesting "k8s.io/client-go/testing"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/operator/k8s"
 	tu "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
@@ -772,6 +773,177 @@ func TestReconciler_GetCoreEndpointFromStore_ServiceAccount(t *testing.T) {
 				assert.NotNil(t, coreCEP)
 				assert.Equal(t, tt.expectedSA, coreCEP.ServiceAccount)
 			})
+		})
+	}
+}
+
+type fakeEndpointGetter struct {
+	ep *cilium_v2a1.CoreCiliumEndpoint
+}
+
+func (f *fakeEndpointGetter) getCoreEndpointFromStore(cepName CEPName) *cilium_v2a1.CoreCiliumEndpoint {
+	return f.ep
+}
+
+func TestIsEndpointOutdated(t *testing.T) {
+	baseEndpoint := func() cilium_v2a1.CoreCiliumEndpoint {
+		return cilium_v2a1.CoreCiliumEndpoint{
+			Name:       "cep1",
+			IdentityID: 100,
+			PodUID:     "uid-1",
+			Networking: &cilium_v2.EndpointNetworking{
+				NodeIP: "10.0.0.1",
+				Addressing: cilium_v2.AddressPairList{
+					{IPV4: "172.0.0.1"},
+				},
+			},
+			Encryption: cilium_v2.EncryptionSpec{
+				Key: 1,
+			},
+			NamedPorts: models.NamedPorts{
+				{
+					Name:     "http",
+					Protocol: "TCP",
+					Port:     80,
+				},
+			},
+			ServiceAccount: "sa-1",
+		}
+	}
+
+	tests := []struct {
+		name     string
+		stored   func() *cilium_v2a1.CoreCiliumEndpoint
+		desired  func() *cilium_v2a1.CoreCiliumEndpoint
+		expected bool
+	}{
+		{
+			name: "equal -> false",
+			stored: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			desired: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			expected: false,
+		},
+		{
+			name: "name differs -> true",
+			stored: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				ep.Name = "different-name"
+				return &ep
+			},
+			desired: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			expected: true,
+		},
+		{
+			name: "identityID differs -> true",
+			stored: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				ep.IdentityID = 999
+				return &ep
+			},
+			desired: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			expected: true,
+		},
+		{
+			name: "podUID differs -> true",
+			stored: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				ep.PodUID = "different-uid"
+				return &ep
+			},
+			desired: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			expected: true,
+		},
+		{
+			name: "networking differs -> true",
+			stored: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				ep.Networking = &cilium_v2.EndpointNetworking{NodeIP: "10.0.0.2"}
+				return &ep
+			},
+			desired: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			expected: true,
+		},
+		{
+			name: "encryption differs -> true",
+			stored: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				ep.Encryption.Key = 2
+				return &ep
+			},
+			desired: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			expected: true,
+		},
+		{
+			name: "namedPorts differs -> true",
+			stored: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				ep.NamedPorts = models.NamedPorts{
+					{Name: "https", Protocol: "TCP", Port: 443},
+				}
+				return &ep
+			},
+			desired: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			expected: true,
+		},
+		{
+			name: "serviceAccount differs -> true",
+			stored: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				ep.ServiceAccount = "different-sa"
+				return &ep
+			},
+			desired: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			expected: true,
+		},
+		{
+			name: "desired nil (CEP missing from store) -> true",
+			stored: func() *cilium_v2a1.CoreCiliumEndpoint {
+				ep := baseEndpoint()
+				return &ep
+			},
+			desired: func() *cilium_v2a1.CoreCiliumEndpoint {
+				return nil
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &reconciler{
+				endpointGetter: &fakeEndpointGetter{
+					ep: tt.desired(),
+				},
+			}
+			outdated := r.isEndpointOutdated(tt.stored(), NewCEPName("cep1", "ns"))
+			assert.Equal(t, tt.expected, outdated)
 		})
 	}
 }
