@@ -24,6 +24,7 @@ on:
     branches:
       - main
       - ft/main/**
+      - pr/aanm/ctmap-gc-observability
     paths-ignore:
       - 'Documentation/**'
   # Run every 8 hours
@@ -188,13 +189,13 @@ jobs:
       # Load Golang cache build from GitHub
       - name: Load Golang cache build from GitHub
         if: ${{ matrix.focus == 'privileged' }}
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: go-cache
         with:
           path: /tmp/.cache/go
-          key: ${{ runner.os }}-go-unit-tests-cache-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-unit-tests-cache-v2-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-unit-tests-cache-
+            ${{ runner.os }}-go-unit-tests-cache-v2-
 
       # A restore-keys match delivers the tarballs just as an exact key match does.
       - name: Move Go cache into the host mount
@@ -352,6 +353,15 @@ jobs:
         uses: aanm/junit2md@332ebf0fddd34e91b03a832cfafaa826306558f9 # v0.0.3
         with:
           junit-directory: "cilium-junits"
+
+      # Only a trusted event may publish a cache entry, since these tarballs are
+      # built by compiling and running the pull request's own code.
+      - name: Store Golang cache build in GitHub
+        if: ${{ ( github.event_name == 'push' || github.event_name == 'schedule' ) && ( steps.go-cache.outputs.cache-hit != 'true' || steps.deliver-go-cache.outputs.delivered != 'true' ) && matrix.focus == 'privileged' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: /tmp/.cache/go
+          key: ${{ steps.go-cache.outputs.cache-primary-key }}
 
   merge-upload:
     if: ${{ always() }}
