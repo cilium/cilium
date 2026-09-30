@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/cilium/lumberjack/v2"
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -172,6 +173,7 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 	// case no one reader reads it.
 	started := make(chan bool, 1)
 	go func() {
+		defer close(envoy.errCh)
 		var logWriter io.WriteCloser
 		var logFormat string
 		if config.logPath != "" {
@@ -209,7 +211,17 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 		envoyStarterArgs = append(envoyStarterArgs, envoyArgs...)
 
 		for {
+			select {
+			case <-envoy.stopCh:
+				return
+			default:
+			}
+
 			cmd := exec.Command(ciliumEnvoyStarter, envoyStarterArgs...)
+			// The starter spawns Envoy. Keep both in a dedicated process group so
+			// an early shutdown can terminate the child if the admin socket is
+			// not ready yet.
+			cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 			cmd.Stderr = logWriter
 			cmd.Stdout = logWriter
 
@@ -234,10 +246,10 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 			}
 
 			// We do not return after a successful start, but watch the Envoy process
-			// and restart it if it crashes.
+			// and restart it if it exits unexpectedly.
 			// Waiting for the process execution is done in the goroutime.
 			// The purpose of the "crash channel" is to inform the loop about their
-			// Envoy process crash - after closing that channel by the goroutime,
+			// Envoy process exit - after closing that channel by the goroutime,
 			// the loop continues, the channel is recreated and the new process
 			// is watched again.
 			crashCh := make(chan struct{})
@@ -247,8 +259,6 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 						logfields.PID, cmd.Process.Pid,
 						logfields.Error, err,
 					)
-					// Avoid busy loop & hogging CPU resources by waiting before restarting envoy.
-					time.Sleep(100 * time.Millisecond)
 				} else {
 					o.logger.Info("Envoy: Proxy terminated",
 						logfields.PID, cmd.Process.Pid,
@@ -259,25 +269,46 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 
 			select {
 			case <-crashCh:
-				// Start Envoy again
+				// Even a clean exit can be an early startup failure (for example,
+				// a base-ID conflict), so always back off before restarting.
+				select {
+				case <-envoy.stopCh:
+					return
+				case <-time.After(100 * time.Millisecond):
+				}
 				continue
 			case <-envoy.stopCh:
 				o.logger.Info("Envoy: Stopping standalone Envoy proxy",
 					logfields.PID, cmd.Process.Pid,
 				)
+				var stopErr error
 				if err := envoy.admin.quit(); err != nil {
 					o.logger.Error("Envoy: Envoy admin quit failed, killing process",
 						logfields.PID, cmd.Process.Pid,
 						logfields.Error, err,
 					)
-					if err := cmd.Process.Kill(); err != nil {
+					if err := killEnvoyProcessGroup(cmd.Process.Pid); err != nil {
 						o.logger.Error("Envoy: Stopping Envoy failed",
 							logfields.Error, err,
 						)
-						envoy.errCh <- err
+						stopErr = err
 					}
 				}
-				close(envoy.errCh)
+				// Wait for the process to release its base-ID socket.
+				select {
+				case <-crashCh:
+				case <-time.After(5 * time.Second):
+					if err := killEnvoyProcessGroup(cmd.Process.Pid); err != nil {
+						if stopErr == nil {
+							stopErr = err
+						}
+					} else {
+						<-crashCh
+					}
+				}
+				if stopErr != nil {
+					envoy.errCh <- stopErr
+				}
 				return
 			}
 		}
@@ -288,6 +319,14 @@ func (o *onDemandXdsStarter) startStandaloneEnvoyInternal(config standaloneEnvoy
 	}
 
 	return nil, errors.New("failed to start standalone Envoy server")
+}
+
+func killEnvoyProcessGroup(pid int) error {
+	err := syscall.Kill(-pid, syscall.SIGKILL)
+	if errors.Is(err, syscall.ESRCH) {
+		return nil
+	}
+	return err
 }
 
 func isExpectedEnvoyWarning(logMsg string, adsMode bool) bool {

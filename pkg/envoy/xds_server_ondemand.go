@@ -5,6 +5,7 @@ package envoy
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 
@@ -41,10 +42,14 @@ type onDemandXdsStarter struct {
 	xdsMode                        config.XDSMode
 	localNodeStore                 *node.LocalNodeStore
 
-	envoyOnce sync.Once
+	envoyOnce     sync.Once
+	envoy         *StandaloneEnvoy
+	envoyStartErr error
 }
 
 var _ XDSServer = &onDemandXdsStarter{}
+
+var errEnvoyStopped = errors.New("standalone Envoy has already stopped")
 
 func (o *onDemandXdsStarter) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
 	if err := o.startStandaloneEnvoy(ctx, nil); err != nil {
@@ -77,11 +82,9 @@ func (o *onDemandXdsStarter) UpdateEnvoyResources(ctx context.Context, old, new 
 }
 
 func (o *onDemandXdsStarter) startStandaloneEnvoy(ctx context.Context, wg *completion.WaitGroup) error {
-	var startErr error
-
 	o.envoyOnce.Do(func() {
 		// Start standalone Envoy on first invocation
-		_, startErr = o.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
+		o.envoy, o.envoyStartErr = o.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
 			runDir:                         o.runDir,
 			logPath:                        o.envoyLogPath,
 			defaultLogLevel:                o.envoyDefaultLogLevel,
@@ -121,5 +124,15 @@ func (o *onDemandXdsStarter) startStandaloneEnvoy(ctx context.Context, wg *compl
 		}
 	})
 
-	return startErr
+	return o.envoyStartErr
+}
+
+func (o *onDemandXdsStarter) stopStandaloneEnvoy() error {
+	// Wait for any in-progress start before reading the process handle. If Envoy
+	// was never needed, keep it from starting after shutdown has begun.
+	o.envoyOnce.Do(func() { o.envoyStartErr = errEnvoyStopped })
+	if o.envoy == nil {
+		return nil
+	}
+	return o.envoy.Stop()
 }
