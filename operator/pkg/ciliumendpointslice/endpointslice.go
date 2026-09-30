@@ -548,6 +548,12 @@ cesLoop:
 				cepKey := NewCEPName(cep.Name, ces.Namespace).key()
 				if _, exists := livecep[cepKey]; exists {
 					c.manager.initializeMappingCEPtoCES(&cep, ces.Namespace, cesName)
+					if c.reconciler.isEndpointOutdated(&cep, NewCEPName(cep.Name, ces.Namespace)) {
+						c.logger.Debug("CEP in CES is outdated, marking CES for reconciliation",
+							logfields.CESName, ces.Name,
+							logfields.CEPName, cep.Name)
+						stale = true
+					}
 					delete(livecep, cepKey)
 				} else {
 					c.logger.Debug("Skipping stale CEP in CES during bootstrap",
@@ -710,6 +716,14 @@ cesLoop:
 				}
 
 				c.manager.initializeMappingPodToNode(NewCEPName(cep.Name, ces.Namespace), NodeName(nodeName), CESName(ces.Name), CID(identityid), Labels(labels), EncryptionKey(cep.Encryption.Key))
+				// Compare only after the mapping is seeded: the desired endpoint
+				// is built from the CID and node encryption key registered above.
+				if c.reconciler.isEndpointOutdated(&cep, cepName) {
+					c.logger.Debug("CEP in CES is outdated, marking CES for reconciliation",
+						logfields.CESName, ces.Name,
+						logfields.CEPName, cep.Name)
+					stale = true
+				}
 				// The pod is now accounted for in the CES cache; drop it
 				// from livepods so phase 5 doesn't try to place it again.
 				delete(livepods, cepName)
