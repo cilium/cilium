@@ -91,6 +91,7 @@ runs:
       id: derive-config
       run: |
         DEFAULTS="--wait \
+            --wait-duration=360s \
             --chart-directory=${{ inputs.chart-dir }} \
             --helm-set=debug.enabled=true \
             --helm-set=debug.verbose=envoy \
