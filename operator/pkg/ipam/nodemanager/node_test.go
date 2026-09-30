@@ -547,6 +547,7 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 			ops:                            mock,
 			excessIPReleaseDelay:           5 * time.Second,
 			multiPoolCIDRsMarkedForRelease: marked,
+			stats:                          Statistics{IPv4: IPStatistics{ExcessIPs: 1 << 16}},
 		}
 		n.logger.Store(n.rootLogger)
 		cn := &v2.CiliumNode{}
@@ -779,5 +780,42 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 		require.True(t, mutated)
 		require.Len(t, mock.releaseCalls, 2)
 		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
+	})
+
+	t.Run("does not release below min-allocate", func(t *testing.T) {
+		const (
+			available   = 28
+			used        = 4
+			preAllocate = 1
+			minAllocate = 20
+		)
+		var marked []netip.Prefix
+		for i := used; i < available; i++ {
+			marked = append(marked, netip.PrefixFrom(netip.AddrFrom4([4]byte{10, 0, 0, byte(10 + i)}), 32))
+		}
+		mock := &multiPoolOpsMock{
+			prepare: func(released []netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{
+					InterfaceID:    "eni-1",
+					CIDRsToRelease: append([]netip.Prefix(nil), released...),
+				}}
+			},
+		}
+		markedMap := make(map[netip.Prefix]time.Time, len(marked))
+		for _, cidr := range marked {
+			markedMap[cidr] = past()
+		}
+		n := setupNode(t, mock, markedMap, true)
+		n.stats.IPv4.ExcessIPs = calculateExcessIPs(available, used, preAllocate, minAllocate, 0)
+
+		_, err := n.handleMultiPoolCIDRRelease(context.Background())
+		require.NoError(t, err)
+
+		releasedCount := 0
+		for _, call := range mock.releaseCalls {
+			releasedCount += len(call.CIDRsToRelease)
+		}
+		require.Equal(t, available-minAllocate, releasedCount)
+		require.Len(t, n.multiPoolCIDRsMarkedForRelease, len(marked)-(available-minAllocate))
 	})
 }
