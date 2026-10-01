@@ -156,6 +156,7 @@ func compileXDPProg(ctx context.Context, logger *slog.Logger) (string, error) {
 		Source:     xdpProg,
 		Output:     xdpObj,
 		OutputType: outputObject,
+		Reusable:   true,
 	}
 
 	return compile(ctx, logger, prog, dirs)
