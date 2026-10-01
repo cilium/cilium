@@ -68,6 +68,75 @@ type EndpointSuite struct {
 	mgr          *cache.CachingIdentityAllocator
 }
 
+func TestAPICanModifyConfig(t *testing.T) {
+	tests := []struct {
+		name       string
+		dropNotify bool
+		options    models.ConfigurationMap
+		wantErr    string
+	}{
+		{
+			name:       "disable drop notifications",
+			dropNotify: true,
+			options:    models.ConfigurationMap{option.DropNotify: "0"},
+		},
+		{
+			name:    "enable drop notifications",
+			options: models.ConfigurationMap{option.DropNotify: "1"},
+		},
+		{
+			name:       "unchanged drop notifications",
+			dropNotify: true,
+			options:    models.ConfigurationMap{option.DropNotify: "1"},
+		},
+		{
+			name:    "enable trace notifications",
+			options: models.ConfigurationMap{option.TraceNotify: "1"},
+		},
+		{
+			name:    "unchanged protected option",
+			options: models.ConfigurationMap{option.SourceIPVerification: "1"},
+		},
+		{
+			name:    "change protected option",
+			options: models.ConfigurationMap{option.SourceIPVerification: "0"},
+			wantErr: "SourceIPVerification cannot be modified for endpoints with reserved labels",
+		},
+		{
+			name:       "change drop notifications and protected option",
+			dropNotify: true,
+			options: models.ConfigurationMap{
+				option.DropNotify:           "0",
+				option.SourceIPVerification: "0",
+			},
+			wantErr: "SourceIPVerification cannot be modified for endpoints with reserved labels",
+		},
+	}
+
+	lib := option.GetEndpointMutableOptionLibrary()
+	for _, label := range []string{"host", "health"} {
+		for _, tt := range tests {
+			t.Run(label+"/"+tt.name, func(t *testing.T) {
+				ep := &Endpoint{
+					labels: labels.OpLabels{
+						OrchestrationIdentity: labels.Map2Labels(map[string]string{label: ""}, labels.LabelSourceReserved),
+					},
+					Options: option.NewIntOptions(&lib),
+				}
+				ep.Options.SetBool(option.DropNotify, tt.dropNotify)
+				ep.Options.SetBool(option.SourceIPVerification, true)
+
+				err := ep.APICanModifyConfig(tt.options)
+				if tt.wantErr != "" {
+					require.EqualError(t, err, tt.wantErr)
+				} else {
+					require.NoError(t, err)
+				}
+			})
+		}
+	}
+}
+
 func TestGetPolicyNamesCachesAddresses(t *testing.T) {
 	tests := []struct {
 		name string

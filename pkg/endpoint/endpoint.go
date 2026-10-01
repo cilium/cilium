@@ -1797,7 +1797,7 @@ func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
 			if config != option.Debug && config != option.DebugLB &&
 				config != option.TraceNotify && config != option.PolicyVerdictNotify &&
 				config != option.PolicyAuditMode && config != option.MonitorAggregation &&
-				config != option.PolicyTracing {
+				config != option.PolicyTracing && config != option.DropNotify {
 				return fmt.Errorf("%s cannot be modified for endpoints with reserved labels", config)
 			}
 		}
