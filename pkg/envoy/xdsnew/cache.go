@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
@@ -69,13 +70,58 @@ type Cache interface {
 type cacheImpl struct {
 	cache.SnapshotCache
 
-	// mutex protects accesses to the configuration resources below.
+	// mutex protects configuration resources and watch tracking. Responses are
+	// collected under the lock, but handed to stream consumers after unlocking.
+	// When both are needed, this lock precedes go-control-plane's internal
+	// locks. Tracked response sends must not wait for a stream consumer while
+	// either lock is held.
 	mutex *lock.RWMutex
 	// resourcesInSnapshot holds the last set of resources (keyed by nodeID) pushed to Envoy.
 	resourcesInSnapshot map[string]*xds.Resources
+	openWatches         map[string]*nodeWatchState
+	watchRelays         map[chan cache.Response]*watchRelay
 	logger              *slog.Logger
 	hasher              hash.Hash32
 	completionCbs       *callbacks.CompletionCallbacks
+}
+
+// nodeWatchState indexes open watches by resource type. Each type can have
+// multiple watches because several streams can subscribe to different named
+// subsets for the same node. Within one ADS stream, go-control-plane maintains
+// one current watch per type containing the requested names; a subsequent
+// request replaces that watch rather than adding a watch per resource.
+// Index watch pointers, not requests: independent watches may share a request.
+type nodeWatchState = typeurl.Map[set.Set[*trackedWatch]]
+
+// watchRelay buffers go-control-plane's synchronous responses until the caller
+// can retire served watches and release the cache locks. Sharing a relay per
+// stream response channel preserves the order of a publication's responses
+// across resource types, without a separate forwarding goroutine.
+type watchRelay struct {
+	// inner is cache-owned; go-control-plane sends here while holding its locks.
+	inner chan cache.Response
+	// outer belongs to the stream; forwarding here may block on its consumer.
+	outer   chan cache.Response
+	watches set.Set[*trackedWatch]
+}
+
+type trackedWatch struct {
+	nodeID  string
+	typeURL typeurl.Index
+	request *cache.Request
+	relay   *watchRelay
+	cancel  func()
+}
+
+// isOpen reports whether the watch is still owned by its relay. Caller must
+// hold cacheImpl.mutex.
+func (watch *trackedWatch) isOpen() bool {
+	return watch != nil && watch.relay != nil && watch.relay.watches.Has(watch)
+}
+
+type responseDelivery struct {
+	channel   chan cache.Response
+	responses []cache.Response
 }
 
 var _ Cache = &cacheImpl{}
@@ -239,6 +285,8 @@ func NewCache(logger *slog.Logger, strictAdsMode bool) Cache {
 		SnapshotCache:       snapshotCache,
 		mutex:               &lock.RWMutex{},
 		resourcesInSnapshot: make(map[string]*xds.Resources),
+		openWatches:         make(map[string]*nodeWatchState),
+		watchRelays:         make(map[chan cache.Response]*watchRelay),
 		logger:              logger,
 		hasher:              fnv.New32a(),
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
@@ -650,6 +698,19 @@ func (c *cacheImpl) SetResources(nodeID string, resources *xds.Resources) {
 	c.resourcesInSnapshot[nodeID] = resources
 }
 
+// SetSnapshot serializes publication with watch registration and cancellation.
+// Response handoff happens after both cache locks have been released.
+func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot) error {
+	c.mutex.Lock()
+	err := c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot)
+	// Collect even on error: go-control-plane may already have installed the
+	// snapshot and queued some responses before failing a later delivery.
+	deliveries := c.collectResponseDeliveriesLocked()
+	c.mutex.Unlock()
+	c.deliverResponses(deliveries)
+	return err
+}
+
 func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapshot cache.ResourceSnapshot, wg *completion.WaitGroup, updatedTypeURLS map[string]func(err error), revertFuncs map[string]func()) error {
 	type immediateCompletion struct {
 		comp                      *completion.Completion
@@ -752,10 +813,24 @@ func (c *cacheImpl) UpdateSnapshot(ctx context.Context, nodeID string, newSnapsh
 }
 
 func (c *cacheImpl) ClearSnapshot(nodeID string) {
-	c.SnapshotCache.ClearSnapshot(nodeID)
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.SnapshotCache.ClearSnapshot(nodeID)
 	c.resourcesInSnapshot[nodeID] = &xds.Resources{}
+	var cancels []func()
+	if state := c.openWatches[nodeID]; state != nil {
+		for _, watches := range state.All() {
+			for watch := range watches.Members() {
+				if watch.cancel != nil {
+					cancels = append(cancels, watch.cancel)
+				}
+				c.removeTrackedWatchLocked(watch)
+			}
+		}
+	}
+	c.mutex.Unlock()
+	for _, cancel := range cancels {
+		cancel()
+	}
 }
 
 func normalizeCustomWildcardRequest(request *cache.Request, sub cache.Subscription) *cache.Request {
@@ -772,13 +847,181 @@ func normalizeCustomWildcardRequest(request *cache.Request, sub cache.Subscripti
 	}
 }
 
+func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRelay {
+	if relay := c.watchRelays[responseChannel]; relay != nil {
+		return relay
+	}
+	// Allow a full ADS response batch (one watch per supported type) plus an
+	// immediate CreateWatch response to be queued before forwarding anything.
+	// Keep at least the stream channel's capacity to avoid reducing its buffering.
+	// This relies on go-control-plane's one current watch per type per ADS
+	// stream. Direct cache callers sharing a channel across more watches must
+	// size that channel for the maximum responses from one publication:
+	// overflowing inner would block publication before we can drain it, while
+	// both cache locks are still held.
+	capacity := max(cap(responseChannel), int(typeurl.Count)+1)
+	relay := &watchRelay{
+		inner: make(chan cache.Response, capacity),
+		outer: responseChannel,
+	}
+	c.watchRelays[responseChannel] = relay
+	return relay
+}
+
+func (c *cacheImpl) addTrackedWatchLocked(request *cache.Request, typeURL typeurl.Index, responseChannel chan cache.Response) *trackedWatch {
+	relay := c.relayForLocked(responseChannel)
+	watch := &trackedWatch{
+		nodeID:  request.GetNode().GetId(),
+		typeURL: typeURL,
+		request: request,
+		relay:   relay,
+	}
+	state := c.openWatches[watch.nodeID]
+	if state == nil {
+		state = &nodeWatchState{}
+		c.openWatches[watch.nodeID] = state
+	}
+	watches, _ := state.Get(watch.typeURL)
+	watches.Insert(watch)
+	// Sets are stored by value; persist the header when their representation
+	// changes between an inline singleton and a map.
+	state.Set(watch.typeURL, watches)
+	relay.watches.Insert(watch)
+	return watch
+}
+
+func (c *cacheImpl) removeTrackedWatchLocked(watch *trackedWatch) {
+	if watch == nil {
+		return
+	}
+	if state := c.openWatches[watch.nodeID]; state != nil {
+		watches, exists := state.Get(watch.typeURL)
+		if exists {
+			watches.Remove(watch)
+			if watches.Empty() {
+				state.Remove(watch.typeURL)
+			} else {
+				state.Set(watch.typeURL, watches)
+			}
+		}
+		if state.Empty() {
+			delete(c.openWatches, watch.nodeID)
+		}
+	}
+	if watch.relay != nil {
+		watch.relay.watches.Remove(watch)
+		if watch.relay.watches.Empty() && len(watch.relay.inner) == 0 {
+			// Drop our reference, but close neither channel: outer belongs to
+			// the stream, and a canceled go-control-plane watch may still send
+			// to inner before its underlying cancellation finishes.
+			delete(c.watchRelays, watch.relay.outer)
+		}
+	}
+}
+
+func (c *cacheImpl) cancelTrackedWatch(watch *trackedWatch) {
+	c.mutex.Lock()
+	if !watch.isOpen() {
+		c.mutex.Unlock()
+		return
+	}
+	cancel := watch.cancel
+	// Retire tracking while serialized with publication. The underlying
+	// cancellation takes go-control-plane's locks and runs after unlocking.
+	c.removeTrackedWatchLocked(watch)
+	c.mutex.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+// collectResponseDeliveriesLocked drains responses which go-control-plane has
+// synchronously produced. Draining retires the corresponding type watch before
+// another resource update can mistake it for available Envoy capacity.
+// Caller holds mutex so collecting responses and retiring watches are atomic
+// with respect to watch registration, cancellation, and snapshot publication.
+func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
+	var deliveries []responseDelivery
+	for _, relay := range c.watchRelays {
+		var responses []cache.Response
+		for {
+			select {
+			case response := <-relay.inner:
+				responses = append(responses, response)
+				var matched *trackedWatch
+				for watch := range relay.watches.Members() {
+					if watch.request == response.GetRequest() {
+						matched = watch
+						break
+					}
+				}
+				if matched != nil {
+					c.removeTrackedWatchLocked(matched)
+				}
+			default:
+				if len(responses) > 0 {
+					deliveries = append(deliveries, responseDelivery{
+						channel:   relay.outer,
+						responses: responses,
+					})
+				}
+				goto nextRelay
+			}
+		}
+	nextRelay:
+	}
+	return deliveries
+}
+
+// deliverResponses synchronously hands off responses after watch bookkeeping
+// is complete. Caller must have released mutex and returned from go-control-plane:
+// a stream consumer may block or need to read the cache before accepting a
+// response. Only the handoff may wait for that consumer, not either cache lock.
+func (c *cacheImpl) deliverResponses(deliveries []responseDelivery) {
+	for _, delivery := range deliveries {
+		for _, response := range delivery.responses {
+			delivery.channel <- response
+		}
+	}
+}
+
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
 	if request != nil && request.GetTypeUrl() == envoy_resource.SecretType && len(request.GetResourceNames()) == 0 {
 		c.logger.Debug("Ignoring empty ADS SDS watch")
 		return func() {}, nil
 	}
 	request = normalizeCustomWildcardRequest(request, sub)
-	return c.SnapshotCache.CreateWatch(request, sub, respChan)
+	if request == nil || request.GetNode() == nil || sub == nil {
+		return c.SnapshotCache.CreateWatch(request, sub, respChan)
+	}
+	typeURL, supported := typeurl.FromURL(request.GetTypeUrl())
+	if !supported {
+		// Unknown protocol types are outside Cilium's fixed ADS resource set.
+		// Preserve go-control-plane behavior without creating internal tracking
+		// state which could never be addressed by an indexed mutation.
+		return c.SnapshotCache.CreateWatch(request, sub, respChan)
+	}
+
+	c.mutex.Lock()
+	// Register before calling go-control-plane: CreateWatch may immediately
+	// queue a response rather than establish a deferred watch. Its relay keeps
+	// that response buffered until we retire the watch and release the locks.
+	// Tracking independent named watches does not override strict ADS delivery
+	// rules: go-control-plane withholds a named response unless the request names
+	// include every resource of that type in the snapshot. Disjoint subscriptions
+	// on separate streams can therefore be tracked without receiving responses.
+	watch := c.addTrackedWatchLocked(request, typeURL, respChan)
+	watch.cancel, err = c.SnapshotCache.CreateWatch(request, sub, watch.relay.inner)
+	if err != nil {
+		c.removeTrackedWatchLocked(watch)
+	}
+	deliveries := c.collectResponseDeliveriesLocked()
+	c.mutex.Unlock()
+	c.deliverResponses(deliveries)
+	if err != nil {
+		return nil, err
+	}
+	return func() { c.cancelTrackedWatch(watch) }, nil
 }
 
 func (c *cacheImpl) GetAllResources(nodeID string) *xds.Resources {
