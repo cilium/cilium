@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrlRuntime "sigs.k8s.io/controller-runtime"
+	ctrlRuntimeCache "sigs.k8s.io/controller-runtime/pkg/cache"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -76,6 +77,11 @@ func newManager(params managerParams) (ctrlRuntime.Manager, error) {
 		// Disable controller metrics server in favour of cilium's metrics server.
 		Metrics: metricsserver.Options{
 			BindAddress: "0",
+		},
+		Cache: ctrlRuntimeCache.Options{
+			// This mirrors what resources.NormalizeMetadata() does for the
+			// informers of pkg/k8s/resource and pkg/k8s/informer.
+			DefaultTransform: ctrlRuntimeCache.TransformStripManagedFields(),
 		},
 	})
 	if err != nil {
