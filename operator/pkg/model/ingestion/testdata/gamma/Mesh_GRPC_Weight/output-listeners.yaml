@@ -1,6 +1,7 @@
 - hostname: "*"
   name: gateway-conformance-mesh-echo-7070
   port: 7070
+  protocol: HTTP
   routes:
     - backends:
         - app_protocol: grpc

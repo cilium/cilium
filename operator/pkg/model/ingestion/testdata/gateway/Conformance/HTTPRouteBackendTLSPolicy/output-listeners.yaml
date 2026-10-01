@@ -1,6 +1,7 @@
 - hostname: "*"
   name: http
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - TLS:

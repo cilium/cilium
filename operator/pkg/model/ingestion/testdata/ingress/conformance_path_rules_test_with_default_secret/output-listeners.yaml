@@ -1,6 +1,7 @@
 - hostname: exact-path-rules
   name: ing-path-rules-random-namespace-exact-path-rules
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: foo-exact
@@ -18,6 +19,7 @@
 - hostname: mixed-path-rules
   name: ing-path-rules-random-namespace-mixed-path-rules
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: foo-prefix
@@ -43,6 +45,7 @@
 - hostname: prefix-path-rules
   name: ing-path-rules-random-namespace-prefix-path-rules
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: foo-prefix
@@ -76,6 +79,7 @@
 - hostname: trailing-slash-path-rules
   name: ing-path-rules-random-namespace-trailing-slash-path-rules
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: aaa-slash-bbb-slash-prefix
