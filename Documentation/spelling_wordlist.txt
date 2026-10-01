@@ -474,6 +474,7 @@ ip
 ipBlock
 ipam
 ipcache
+ipip
 ipmasq
 iproute
 ipsec

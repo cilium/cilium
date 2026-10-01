@@ -830,7 +830,8 @@ var HaveBIGTCPTunnel = sync.OnceValue(func() error {
 		return fmt.Errorf("failed to fetch the probe GENEVE device: %w", err)
 	}
 
-	// (Pending) Kernel commit XXXXXXXXXXXX ("geneve: Enable BIG TCP packets").
+	// Kernel commit 03ebe91b0f61 ("geneve: Enable BIG TCP packets").
+	// Patch 08/09 of the series "BIG TCP for UDP tunnels".
 	//
 	// VXLAN tunnels are less suitable as a probe, because they may call
 	// netif_inherit_tso_max() and inherit tso_max_size from the physical
