@@ -54,6 +54,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = lnc.SNATCollisionRetries
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.DebugLB = ep.GetOptions().IsEnabled(option.DebugLB)
