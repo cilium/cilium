@@ -83,6 +83,23 @@ func (ipam *IPAM) ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*Allocatio
 	return resolver.ResolveRoutingMetadata(addr, PoolOrDefault(string(pool)))
 }
 
+// IsAllocatedIP reports whether addr is currently owned in any IPAM pool.
+func (ipam *IPAM) IsAllocatedIP(addr netip.Addr) bool {
+	if !addr.IsValid() {
+		return false
+	}
+	addr = addr.Unmap()
+
+	ipam.allocatorMutex.RLock()
+	defer ipam.allocatorMutex.RUnlock()
+	for key := range ipam.owner {
+		if key.ip == addr {
+			return true
+		}
+	}
+	return false
+}
+
 // AllocateIPString is identical to AllocateIP but takes a string
 func (ipam *IPAM) AllocateIPString(ipAddr, owner string, pool Pool) error {
 	addr, err := netip.ParseAddr(ipAddr)
