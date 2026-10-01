@@ -439,6 +439,19 @@ func (n *Node) isMultiPoolNodeLocked() bool {
 	return hasPoolRequest && len(n.resource.Status.IPAM.Used) == 0
 }
 
+// isIPv6OnlyNodeLocked returns true if this node's agent uses the multi-pool
+// allocator with IPv4 disabled. With IPv4 enabled, the agent always requests
+// at least PreAllocate IPv4 addresses, which is never 0, so a request for no
+// IPv4 and some IPv6 addresses can only come from an IPv6-only agent. Caller
+// must hold n.mutex (at least RLock).
+func (n *Node) isIPv6OnlyNodeLocked() bool {
+	if !n.isMultiPoolNodeLocked() {
+		return false
+	}
+	requestedIPv4, requestedIPv6, _ := poolRequestedIPs(n.resource)
+	return requestedIPv4 == 0 && requestedIPv6 > 0
+}
+
 // trackMultiPoolAllocatedLocked updates previousAllocatedCIDRs and detects
 // CIDRs the agent has removed from Spec.IPAM.Pools.Allocated. Removed CIDRs
 // are added to multiPoolCIDRsMarkedForRelease with the current timestamp.
@@ -712,8 +725,13 @@ func (n *Node) recalculate(ctx context.Context) {
 	} else {
 		n.stats.IPv4.UsedIPs = len(n.resource.Status.IPAM.Used)
 	}
-	n.stats.IPv4.NeededIPs = calculateNeededIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
-	n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
+	if n.isIPv6OnlyNodeLocked() {
+		n.stats.IPv4.NeededIPs = 0
+		n.stats.IPv4.ExcessIPs = 0
+	} else {
+		n.stats.IPv4.NeededIPs = calculateNeededIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
+		n.stats.IPv4.ExcessIPs = calculateExcessIPs(n.stats.IPv4.AvailableIPs, n.stats.IPv4.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
+	}
 
 	scopedLog.Debug(
 		"Recalculated needed addresses",
@@ -952,6 +970,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	// handled by handleMultiPoolCIDRRelease.
 	n.mutex.RLock()
 	isMultiPool := n.isMultiPoolNodeLocked()
+	ipv6Only := n.isIPv6OnlyNodeLocked()
 	n.mutex.RUnlock()
 	if !isMultiPool && n.manager.releaseExcessIPs && stats.IPv4.ExcessIPs > 0 {
 		a.release = n.ops.PrepareIPRelease(stats.IPv4.ExcessIPs, n.logger.Load())
@@ -971,24 +990,25 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 		return nil, err
 	}
 
-	surgeAllocate := 0
-	numPendingPods, err := getPendingPodCount(n.name)
-	if err != nil {
-		if n.logLimiter.Allow() {
-			n.logger.Load().Warn(
-				"Unable to compute pending pods, will not surge-allocate",
-				logfields.Error, err,
-			)
+	if !ipv6Only {
+		surgeAllocate := 0
+		numPendingPods, err := getPendingPodCount(n.name)
+		if err != nil {
+			if n.logLimiter.Allow() {
+				n.logger.Load().Warn(
+					"Unable to compute pending pods, will not surge-allocate",
+					logfields.Error, err,
+				)
+			}
+		} else if numPendingPods > stats.IPv4.NeededIPs {
+			surgeAllocate = numPendingPods - stats.IPv4.NeededIPs
 		}
-	} else if numPendingPods > stats.IPv4.NeededIPs {
-		surgeAllocate = numPendingPods - stats.IPv4.NeededIPs
+		n.mutex.RLock()
+		// handleIPAllocation() takes a min of MaxIPsToAllocate and IPs available for allocation on the interface.
+		// This makes sure we don't try to allocate more than what's available.
+		a.allocation.IPv4.MaxIPsToAllocate = stats.IPv4.NeededIPs + n.getMaxAboveWatermark() + surgeAllocate
+		n.mutex.RUnlock()
 	}
-
-	n.mutex.RLock()
-	// handleIPAllocation() takes a min of MaxIPsToAllocate and IPs available for allocation on the interface.
-	// This makes sure we don't try to allocate more than what's available.
-	a.allocation.IPv4.MaxIPsToAllocate = stats.IPv4.NeededIPs + n.getMaxAboveWatermark() + surgeAllocate
-	n.mutex.RUnlock()
 
 	a.allocation.IPv6.MaxPrefixesToAllocate = stats.IPv6.NeededPrefixes
 

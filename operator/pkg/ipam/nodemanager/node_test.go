@@ -319,6 +319,102 @@ func enisToCIDRs(enis map[string]awsTypes.ENI) []netip.Prefix {
 	return out
 }
 
+// newPoolDemandNode returns a node whose agent uses the multi-pool allocator
+// and requests the given number of addresses from the default pool. The node
+// has no IPv4 addresses or IPv6 prefixes available yet.
+func newPoolDemandNode(t *testing.T, requestedIPv4, requestedIPv6 int) *Node {
+	t.Helper()
+
+	cn := newCiliumNode("test-node", 8, 16, 0)
+	cn.Spec.IPAM.MaxAboveWatermark = 4
+	cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
+		{
+			Pool: defaults.IPAMDefaultIPPool,
+			Needed: ipamTypes.IPAMPoolDemand{
+				IPv4Addrs: requestedIPv4,
+				IPv6Addrs: requestedIPv6,
+			},
+		},
+	}
+	n := &Node{
+		rootLogger: hivetest.Logger(t),
+		name:       "test-node",
+		manager:    &NodeManager{releaseExcessIPs: true},
+		logLimiter: logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
+		resource:   cn,
+		ops:        &nodeOperationsMock{allocator: newAllocationImplementationMock()},
+	}
+	n.updateLogger()
+	return n
+}
+
+func TestRecalculateIPv6Only(t *testing.T) {
+	t.Run("IPv6-only node needs no IPv4 addresses", func(t *testing.T) {
+		n := newPoolDemandNode(t, 0, 8)
+		n.recalculate(t.Context())
+
+		stats := n.Stats()
+		require.Zero(t, stats.IPv4.NeededIPs, "pre-allocate and min-allocate must not apply to IPv4")
+		require.Zero(t, stats.IPv4.ExcessIPs)
+		require.Equal(t, 1, stats.IPv6.NeededPrefixes)
+		require.True(t, n.allocationNeeded())
+	})
+
+	t.Run("dual-stack node still pre-allocates IPv4", func(t *testing.T) {
+		n := newPoolDemandNode(t, 8, 8)
+		n.recalculate(t.Context())
+
+		stats := n.Stats()
+		require.Equal(t, 16, stats.IPv4.NeededIPs, "min-allocate must apply to IPv4")
+		require.Equal(t, 1, stats.IPv6.NeededPrefixes)
+	})
+
+	t.Run("IPv4-only request is not IPv6-only", func(t *testing.T) {
+		n := newPoolDemandNode(t, 8, 0)
+		n.recalculate(t.Context())
+
+		stats := n.Stats()
+		require.Equal(t, 16, stats.IPv4.NeededIPs)
+		require.Zero(t, stats.IPv6.NeededPrefixes)
+	})
+
+	t.Run("CRD allocator node is not IPv6-only", func(t *testing.T) {
+		// Status.IPAM.Used being populated means the agent still uses
+		// the CRD allocator, whatever Pools.Requested contains.
+		n := newPoolDemandNode(t, 0, 8)
+		n.resource.Status.IPAM.Used[iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))] = ipamTypes.AllocationIP{Owner: "pod"}
+		n.recalculate(t.Context())
+
+		require.Equal(t, 16, n.Stats().IPv4.NeededIPs)
+	})
+}
+
+func TestDetermineMaintenanceActionIPv6Only(t *testing.T) {
+	t.Run("IPv6-only node allocates no IPv4 addresses", func(t *testing.T) {
+		n := newPoolDemandNode(t, 0, 8)
+		n.recalculate(t.Context())
+
+		a, err := n.determineMaintenanceAction()
+		require.NoError(t, err)
+		require.NotNil(t, a)
+		require.NotNil(t, a.allocation)
+		require.Zero(t, a.allocation.IPv4.MaxIPsToAllocate, "max-above-watermark and surge must not apply to IPv4")
+		require.Equal(t, 1, a.allocation.IPv6.MaxPrefixesToAllocate)
+	})
+
+	t.Run("dual-stack node allocates IPv4 up to the watermark", func(t *testing.T) {
+		n := newPoolDemandNode(t, 8, 8)
+		n.recalculate(t.Context())
+
+		a, err := n.determineMaintenanceAction()
+		require.NoError(t, err)
+		require.NotNil(t, a)
+		require.NotNil(t, a.allocation)
+		require.Equal(t, 16+4, a.allocation.IPv4.MaxIPsToAllocate)
+		require.Equal(t, 1, a.allocation.IPv6.MaxPrefixesToAllocate)
+	})
+}
+
 func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
 	t.Run("no-op for non-multi-pool node", func(t *testing.T) {
 		n := &Node{
