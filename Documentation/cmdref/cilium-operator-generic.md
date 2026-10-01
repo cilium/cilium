@@ -12,6 +12,7 @@ cilium-operator-generic [flags]
 
 ```
       --auto-create-cilium-pod-ip-pools stringToString             Automatically create CiliumPodIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size>[;allow-first-ip:<bool>][;allow-last-ip:<bool>] (multiple pools can also be passed by repeating the CLI flag) (default [])
+      --auto-create-cilium-resource-ip-pools stringToString        Automatically create CiliumResourceIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size>[;allow-first-ip:<bool>][;allow-last-ip:<bool>] (multiple pools can also be passed by repeating the CLI flag) (default [])
       --bgp-router-id-allocation-ip-pool string                    IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
       --bgp-router-id-allocation-mode string                       BGP router-id allocation mode. Currently supported values: 'default' or 'ip-pool' (default "default")
       --bgp-secrets-namespace string                               Kubernetes namespace to get BGP control plane secrets from
@@ -65,7 +66,9 @@ cilium-operator-generic [flags]
       --enable-l7-proxy                                            Enable L7 proxy for L7 policy enforcement (default true)
       --enable-lb-ipam                                             Enable LB IPAM (default true)
       --enable-metrics                                             Enable Prometheus metrics
-      --enable-network-driver                                      enable network driver to assign interfaces via Dynamic Resource Allocation
+      --enable-network-driver                                      Enable the Cilium Network Driver to assign interfaces via Dynamic Resource Allocation
+      --enable-network-driver-ipv4                                 Enable IPv4 address assignment for Cilium Network Driver resources (default true)
+      --enable-network-driver-ipv6                                 Enable IPv6 address assignment for Cilium Network Driver resources
       --enable-node-ipam                                           Enable Node IPAM
       --enable-node-selector-labels                                Enable use of node label based identity
       --enable-policy string                                       Enable policy enforcement (default "default")

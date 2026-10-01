@@ -234,6 +234,20 @@ type PoolSpecAccessors struct {
 	ToResource func(*ciliumv2.CiliumNode, types.IPAMPoolSpec) bool
 }
 
+// OperatorStatusAccessors reads and writes the OperatorStatus in the CiliumNode.
+//
+// This is needed to reuse the same multi-pool manager for different implementations,
+// since each frontend targets a different field when reading and writing the operator
+// status.
+type OperatorStatusAccessors struct {
+	// FromResource returns the OperatorStatus error from the CiliumNode
+	FromResource func(*ciliumv2.CiliumNode) string
+
+	// ToResource writes the OperatorStatus error to the CiliumNode.
+	// It returns true if the error has been updated, false otherwise.
+	ToResource func(*ciliumv2.CiliumNode, string) bool
+}
+
 // SkipMasqueradeForPoolFn is the type of a function that, given a pool
 // returns true if the addresses of that pool should be excluded from
 // masquerading, false otherwise.

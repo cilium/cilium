@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package config
+package ipam
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"maps"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
@@ -18,14 +19,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/cilium/cilium/operator/k8s"
+	operatorK8s "github.com/cilium/cilium/operator/k8s"
 	"github.com/cilium/cilium/pkg/hive"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/logging"
 	networkdriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var debug = flag.Bool("debug", false, "Enable debug logging")
@@ -33,57 +32,45 @@ var debug = flag.Bool("debug", false, "Enable debug logging")
 func TestScript(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
-	now := time.Now
-	time.Now = func() time.Time {
-		return time.Date(2000, 1, 1, 10, 30, 0, 0, time.UTC)
-	}
-	t.Cleanup(func() {
-		time.Now = now
-	})
-	t.Setenv("TZ", "")
-
 	setup := func(t testing.TB, args []string) *script.Engine {
 		h := hive.New(
 			k8sClient.FakeClientCell(),
-			cell.Provide(
-				k8s.CiliumNodeResource,
-				func() *option.DaemonConfig {
-					return &option.DaemonConfig{}
-				},
-			),
+			operatorK8s.ResourcesCell,
 			cell.Config(networkdriverConfig.DefaultConfig),
 			Cell,
 		)
 
-		hive.AddConfigOverride(
-			h,
-			func(cfg *networkdriverConfig.Config) {
-				cfg.Enabled = true
-			})
-
 		flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 		h.RegisterFlags(flags)
+		require.NoError(t, flags.Parse(args), "flags.Parse")
 
-		var opts []hivetest.LogOption
+		var options []hivetest.LogOption
 		if *debug {
-			opts = append(opts, hivetest.LogLevel(slog.LevelDebug))
+			options = append(options, hivetest.LogLevel(slog.LevelDebug))
 			logging.SetLogLevel(slog.LevelDebug)
 		}
-		log := hivetest.Logger(t, opts...)
+		logger := hivetest.Logger(t, options...)
 
 		t.Cleanup(func() {
-			assert.NoError(t, h.Stop(log, context.TODO()))
+			assert.NoError(t, h.Stop(logger, context.Background()))
 		})
 
-		cmds, err := h.ScriptCommands(log)
+		commands, err := h.ScriptCommands(logger)
 		require.NoError(t, err, "ScriptCommands")
-		maps.Insert(cmds, maps.All(script.DefaultCmds()))
+		maps.Insert(commands, maps.All(script.DefaultCmds()))
 
-		return &script.Engine{Cmds: cmds}
+		return &script.Engine{
+			Cmds:          commands,
+			RetryInterval: 10 * time.Millisecond,
+		}
 	}
 
-	scripttest.Test(t,
-		t.Context(),
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	t.Cleanup(cancel)
+
+	scripttest.Test(
+		t,
+		ctx,
 		setup,
 		[]string{},
 		"testdata/*.txtar",

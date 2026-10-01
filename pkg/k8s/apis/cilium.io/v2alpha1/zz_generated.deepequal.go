@@ -2077,6 +2077,13 @@ func (in *ResourceIPPoolSpec) DeepEqual(other *ResourceIPPoolSpec) bool {
 		}
 	}
 
+	if in.AllowFirstIP != other.AllowFirstIP {
+		return false
+	}
+	if in.AllowLastIP != other.AllowLastIP {
+		return false
+	}
+
 	return true
 }
 
