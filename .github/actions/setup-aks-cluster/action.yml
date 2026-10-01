@@ -35,34 +35,12 @@ runs:
 
     - name: Create AKS cluster
       shell: bash
-      run: |
-        TAGS=""
-        VERSION=""
-
-        if [[ -n "${{ inputs.tags }}" ]]; then
-          TAGS="--tags ${{ inputs.tags }}"
-        fi
-
-        if [[ -n "${{ inputs.version }}" ]]; then
-          VERSION="--kubernetes-version ${{ inputs.version }}"
-        fi
-
-        # Create group
-        az group create \
-          --name ${{ inputs.cluster_name }} \
-          --location ${{ inputs.location }} \
-          $TAGS
-
-        # Create AKS cluster
-        az aks create \
-          --resource-group ${{ inputs.cluster_name }} \
-          --name ${{ inputs.cluster_name }} \
-          --location ${{ inputs.location }} \
-          $VERSION \
-          --network-plugin none \
-          --node-count ${{ inputs.node_count }} \
-          --ip-families ipv4,ipv6 \
-          ${{ inputs.taints }} \
-          --generate-ssh-keys \
-          --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.cidr }}
-
+      env:
+        CLUSTER_NAME: ${{ inputs.cluster_name }}
+        LOCATION: ${{ inputs.location }}
+        K8S_VERSION: ${{ inputs.version }}
+        NODE_COUNT: ${{ inputs.node_count }}
+        TAGS: ${{ inputs.tags }}
+        TAINTS: ${{ inputs.taints }}
+        AUTHORIZED_IP_RANGES: ${{ steps.get-runner-ip.outputs.cidr }}
+      run: bash "${{ github.action_path }}/action.sh"
