@@ -14,7 +14,7 @@
 
 ASSIGN_CONFIG(bool, enable_lrp, true)
 ASSIGN_CONFIG(__u64, endpoint_netns_cookie, NETNS_COOKIE)
-ASSIGN_CONFIG(bool, enable_socket_lb_hostns_only, true)
+ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
 
 #include "lib/lb.h"
 #include "lib/ipcache.h"

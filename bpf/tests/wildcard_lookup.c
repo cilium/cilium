@@ -30,7 +30,7 @@ __net_cookie test_get_netns_cookie(__maybe_unused void *ctx)
 
 /* Hardcode the host netns cookie to 42 */
 ASSIGN_CONFIG(__u64, host_netns_cookie, HOST_NETNS_COOKIE)
-ASSIGN_CONFIG(bool, enable_socket_lb_hostns_only, true)
+ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
 
 enum {
 	NODEPORT_LOOKUP = 0,

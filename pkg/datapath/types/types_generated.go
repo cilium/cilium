@@ -917,6 +917,12 @@ type SkipLB6Key struct {
 	Pad2 uint16
 }
 
+// SocketLBConfig is generated from the BPF C type socket_lb_config.
+type SocketLBConfig struct {
+	_          structs.HostLayout
+	HostNSOnly bool
+}
+
 // SRv6PolicyKey4 is generated from the BPF C type srv6_policy_key4.
 type SRv6PolicyKey4 struct {
 	_   structs.HostLayout

@@ -3,5 +3,9 @@
 
 #pragma once
 
-DECLARE_CONFIG(bool, enable_socket_lb_hostns_only,
-	       "Skip socket LB for svcs when inside pod ns, in favor of svc LB at the pod iface")
+struct socket_lb_config {
+	/* Only run the socketlb in the host network namespace. */
+	bool hostns_only;
+};
+
+DECLARE_CONFIG(struct socket_lb_config, socket_lb, "Socket-based LB for E/W traffic")

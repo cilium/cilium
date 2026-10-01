@@ -23,7 +23,7 @@
 
 #include "lib/bpf_lxc.h"
 
-ASSIGN_CONFIG(bool, enable_socket_lb_hostns_only, true)
+ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
 #else
 # error "Test direction not defined"
 #endif

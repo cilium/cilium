@@ -123,7 +123,7 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
-	cfg.EnableSocketLBHostNSOnly = lnc.KPRConfig.EnableSocketLB &&
+	cfg.SocketLB.HostNSOnly = lnc.KPRConfig.EnableSocketLB &&
 		option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly
 
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
