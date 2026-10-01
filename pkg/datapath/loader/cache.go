@@ -118,6 +118,36 @@ func (o *objectCache) serialize(key string) *cachedSpec {
 	return obj
 }
 
+// objectPath returns the path of the template object for hash.
+func (o *objectCache) objectPath(cfg endpoint.Config, hash string) string {
+	prog := epProg
+	if cfg.IsHost() {
+		prog = hostEpProg
+	}
+	return prog.AbsoluteOutput(&directoryInfo{Output: filepath.Join(o.workingDirectory, hash)})
+}
+
+// loadSpec parses the object at path and precomputes its Blocks.
+func (o *objectCache) loadSpec(path string) (*ebpf.CollectionSpec, error) {
+	spec, err := ebpf.LoadCollectionSpec(path)
+	if err != nil {
+		return nil, fmt.Errorf("load eBPF ELF %s: %w", path, err)
+	}
+
+	// Precompute the Blocks for each ProgramSpec in the CollectionSpec so
+	// downstream callers don't need to compute them again. This is expensive to
+	// run, so do it only once per compilation. Control flow isn't expected to
+	// be changed after compilation.
+	for name, prog := range spec.Programs {
+		if _, err := analyze.MakeBlocks(prog.Instructions); err != nil {
+			return nil, fmt.Errorf("making Blocks for ProgramSpec %s: %w", name, err)
+		}
+		o.logger.Debug("Precomputed Blocks", logfields.Object, name)
+	}
+
+	return spec, nil
+}
+
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
 func (o *objectCache) build(ctx context.Context, cfg endpoint.Config, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
@@ -129,12 +159,7 @@ func (o *objectCache) build(ctx context.Context, cfg endpoint.Config, stats *met
 		Output:  templatePath,
 		State:   templatePath,
 	}
-	prog := epProg
-	if isHost {
-		prog = hostEpProg
-	}
-
-	objectPath := prog.AbsoluteOutput(dir)
+	objectPath := o.objectPath(cfg, hash)
 
 	if err := os.MkdirAll(dir.Output, defaults.StateDirRights); err != nil {
 		return "", fmt.Errorf("failed to create template directory: %w", err)
@@ -227,20 +252,9 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg endpoint.Config, d
 
 	obj.path = path
 
-	obj.spec, err = ebpf.LoadCollectionSpec(path)
+	obj.spec, err = o.loadSpec(path)
 	if err != nil {
-		return nil, "", fmt.Errorf("load eBPF ELF %s: %w", path, err)
-	}
-
-	// Precompute the Blocks for each ProgramSpec in the CollectionSpec so
-	// downstream callers don't need to compute them again. This is expensive to
-	// run, so do it only once per compilation. Control flow isn't expected to
-	// be changed after compilation.
-	for name, prog := range obj.spec.Programs {
-		if _, err := analyze.MakeBlocks(prog.Instructions); err != nil {
-			return nil, "", fmt.Errorf("making Blocks for ProgramSpec %s: %w", name, err)
-		}
-		o.logger.Debug("Precomputed Blocks", logfields.Object, name)
+		return nil, "", err
 	}
 
 	return obj.spec.Copy(), hash, nil
