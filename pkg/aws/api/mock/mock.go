@@ -354,6 +354,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 			panic("Unable to allocate IPv6 from allocator")
 		}
 		eni.IPv6Prefixes = append(eni.IPv6Prefixes, iputil.PrefixFrom(pfx))
+		eni.IPv6 = iputil.AddrFrom(eni.DeriveIPv6FromPrefixes())
 	}
 
 	subnet.AvailableAddresses -= numAddresses
@@ -672,6 +673,7 @@ func (e *API) AssignENIIPv6Prefix(ctx context.Context, eniID string) error {
 				return fmt.Errorf("unable to allocate IPv6 prefix: %w", err)
 			}
 			eni.IPv6Prefixes = append(eni.IPv6Prefixes, iputil.PrefixFrom(pfx))
+			eni.IPv6 = iputil.AddrFrom(eni.DeriveIPv6FromPrefixes())
 			return nil
 		}
 	}
