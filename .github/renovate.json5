@@ -1111,6 +1111,7 @@
       "managerFilePatterns": [
         "/images/builder/install-protoc.sh/",
         "/images/builder/install-protoplugins.sh/",
+        "/images/runtime/build-cni.sh/",
         "/images/runtime/build-gops.sh/"
       ],
       // These regexes manage version and digest strings in shell scripts,
