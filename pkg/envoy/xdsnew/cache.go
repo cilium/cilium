@@ -80,16 +80,18 @@ type cacheImpl struct {
 
 var _ Cache = &cacheImpl{}
 
-// snapshotResourceGroup keeps a resource type's published resources and
-// per-resource versions together. Versions are populated on demand while
-// snapshots are still generated eagerly.
+// snapshotResourceGroup keeps the published resources and their per-resource
+// versions together. Every resource in resources.Items has a corresponding
+// entry in versions.
 type snapshotResourceGroup struct {
 	resources cache.Resources
 	versions  map[string]string
 }
 
 // ciliumSnapshot implements go-control-plane's ResourceSnapshot interface for
-// both Envoy core resources and Cilium-specific xDS resources.
+// both Envoy core resources and Cilium-specific xDS resources. Its version maps
+// are constructed with the resource groups, so creating a watch does not need
+// to marshal and hash the resources again or mutate the published snapshot.
 type ciliumSnapshot typeurl.Slots[snapshotResourceGroup]
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
@@ -142,21 +144,6 @@ func (w *ciliumSnapshot) GetResourcesAndTTL(typeURLString string) map[string]cac
 func (w *ciliumSnapshot) ConstructVersionMap() error {
 	if w == nil {
 		return fmt.Errorf("missing snapshot")
-	}
-	for typeURL := range typeurl.Indices() {
-		group := &w[typeURL]
-		if len(group.resources.Items) == 0 || group.versions != nil {
-			continue
-		}
-		versions := make(map[string]string, len(group.resources.Items))
-		for name, resource := range group.resources.Items {
-			marshaledResource, err := cache.MarshalResource(resource.Resource)
-			if err != nil {
-				return err
-			}
-			versions[name] = cache.HashResource(marshaledResource)
-		}
-		group.versions = versions
 	}
 	return nil
 }
@@ -279,18 +266,27 @@ func (c *cacheImpl) GetVersion(resources *xds.Resources) string {
 	return c.hash(encodedResources)
 }
 
-func resourceGroup(version string, resources map[string]cache_types.Resource) cache.Resources {
-	if len(resources) == 0 {
-		return cache.Resources{Version: version}
-	}
+func (c *cacheImpl) resourceGroup(typeURL typeurl.Index, resources map[string]cache_types.Resource, versionContext string) (cache.Resources, map[string]string, error) {
 	items := make(map[string]cache_types.ResourceWithTTL, len(resources))
+	versions := make(map[string]string, len(resources))
 	for name, resource := range resources {
+		version, err := resourceContentVersion(resource)
+		if err != nil {
+			return cache.Resources{}, nil, err
+		}
 		items[name] = cache_types.ResourceWithTTL{Resource: resource}
+		versions[name] = version
+	}
+	if len(items) == 0 {
+		items = nil
+	}
+	if len(versions) == 0 {
+		versions = nil
 	}
 	return cache.Resources{
-		Version: version,
+		Version: c.resourceVersion(typeURL, versions, versionContext),
 		Items:   items,
-	}
+	}, versions, nil
 }
 
 func addResourceReference(refs map[string]map[string]struct{}, parent, resource string) {
@@ -303,14 +299,21 @@ func addResourceReference(refs map[string]map[string]struct{}, parent, resource 
 	refs[parent][resource] = struct{}{}
 }
 
+func sortedMapKeys[V any](values map[string]V) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	return keys
+}
+
 func resourceReferencesVersionContext(refs map[string]map[string]struct{}) string {
-	parents := slices.Collect(maps.Keys(refs))
-	slices.Sort(parents)
+	parents := sortedMapKeys(refs)
 
 	var sb strings.Builder
 	for _, parent := range parents {
-		children := slices.Collect(maps.Keys(refs[parent]))
-		slices.Sort(children)
+		children := sortedMapKeys(refs[parent])
 		for _, child := range children {
 			sb.WriteString(parent)
 			sb.WriteByte(0)
@@ -477,28 +480,33 @@ func sdsReferenceVersionContext(resources *xds.Resources) string {
 	return resourceReferencesVersionContext(refs)
 }
 
-func (c *cacheImpl) resourceVersion(typeURL string, resources map[string]cache_types.Resource, versionContext ...string) (string, error) {
-	keys := slices.Collect(maps.Keys(resources))
-	slices.Sort(keys)
+func resourceContentVersion(resource cache_types.Resource) (string, error) {
+	marshaledResource, err := cache.MarshalResource(resource)
+	if err != nil {
+		return "", err
+	}
+	return cache.HashResource(marshaledResource), nil
+}
+
+func (c *cacheImpl) resourceVersion(typeURL typeurl.Index, resourceVersions map[string]string, versionContext ...string) string {
+	keys := sortedMapKeys(resourceVersions)
 	var sb strings.Builder
 	for _, name := range keys {
-		encodedResource, err := marshal(resources[name])
-		if err != nil {
-			return "", err
-		}
 		sb.WriteString(name)
-		sb.WriteString(encodedResource)
+		sb.WriteByte(0)
+		sb.WriteString(resourceVersions[name])
+		sb.WriteByte(0)
 	}
 	for _, context := range versionContext {
 		if context == "" {
 			continue
 		}
-		sb.WriteByte(0)
 		sb.WriteString("version-context")
 		sb.WriteByte(0)
 		sb.WriteString(context)
+		sb.WriteByte(0)
 	}
-	return c.hash(map[string]string{typeURL: sb.String()}), nil
+	return c.hash(map[string]string{typeURL.URL(): sb.String()})
 }
 
 // normalizeSnapshotResources returns the resource view used to build an ADS
@@ -626,11 +634,14 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 		} else if typeURL == typeurl.Cluster {
 			versionContext = listenerClusterReferenceVersionContext(resources)
 		}
-		version, err := c.resourceVersion(typeURL.URL(), resourceMap, versionContext)
+		group, versions, err := c.resourceGroup(typeURL, resourceMap, versionContext)
 		if err != nil {
 			return nil, err
 		}
-		versionedResources[typeURL].resources = resourceGroup(version, resourceMap)
+		versionedResources[typeURL] = snapshotResourceGroup{
+			resources: group,
+			versions:  versions,
+		}
 	}
 
 	return newCiliumSnapshot(versionedResources), nil
