@@ -15,6 +15,18 @@ inputs:
     description: ''
     required: false
     default: 2
+  timeout_minutes:
+    description: 'Budget for this action, matching the caller step timeout-minutes.'
+    required: false
+    default: 54
+  attempt_deadline:
+    description: 'Seconds the first create may stay in Creating before this action abandons it.'
+    required: false
+    default: 1200
+  retry_deadline:
+    description: 'Seconds the second create may stay in Creating.'
+    required: false
+    default: 1200
   pod_cidrs:
     description: 'Comma-separated PodCIDRs managed by the installed CNI.'
     required: true
@@ -30,6 +42,10 @@ inputs:
     description: 'Node pool OS SKU to pass to "az aks create --os-sku" (e.g. AzureLinux). Empty uses the AKS default (Ubuntu).'
     required: false
     default: ''
+outputs:
+  cluster_name:
+    description: 'Name of the cluster that provisioned.'
+    value: ${{ steps.create.outputs.cluster_name }}
 runs:
   using: composite
   steps:
@@ -41,12 +57,16 @@ runs:
         parsing: text
 
     - name: Create AKS cluster
+      id: create
       shell: bash
       env:
         CLUSTER_NAME: ${{ inputs.cluster_name }}
         LOCATION: ${{ inputs.location }}
         K8S_VERSION: ${{ inputs.version }}
         NODE_COUNT: ${{ inputs.node_count }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        ATTEMPT_DEADLINE: ${{ inputs.attempt_deadline }}
+        RETRY_DEADLINE: ${{ inputs.retry_deadline }}
         POD_CIDRS: ${{ inputs.pod_cidrs }}
         TAGS: ${{ inputs.tags }}
         TAINTS: ${{ inputs.taints }}
@@ -59,7 +79,7 @@ runs:
       run: |
         az aks get-credentials \
           --resource-group ${{ inputs.cluster_name }} \
-          --name ${{ inputs.cluster_name }}
+          --name ${{ steps.create.outputs.cluster_name }}
 
     - name: Wait for all nodes to register with the API server
       shell: bash
