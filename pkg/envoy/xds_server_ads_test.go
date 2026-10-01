@@ -12,6 +12,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -911,7 +912,7 @@ func TestNewADSServerRequiresKnownLocalNode(t *testing.T) {
 }
 
 func TestAddListener(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -955,7 +956,7 @@ func TestAddListener(t *testing.T) {
 }
 
 func TestAddListenerCompletesCallbackOnACK(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -999,7 +1000,7 @@ func TestAddListenerCompletesCallbackOnACK(t *testing.T) {
 }
 
 func TestAddListenerDuringRestoreWaitsForACK(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	_, restorerPromise := promise.New[endpointstate.Restorer]()
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, restorerPromise)
@@ -1021,7 +1022,7 @@ func TestAddListenerDuringRestoreWaitsForACK(t *testing.T) {
 }
 
 func TestNoOpListenerAlreadyAcceptedDoesNotWaitForUnrelatedListener(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 	ctx := t.Context()
@@ -1123,7 +1124,7 @@ func TestUpdateEnvoyResourcesNoOpListenerWaitsForCurrentACK(t *testing.T) {
 }
 
 func TestADSNACKRevertsUnchangedResourcesIndividually(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
@@ -1174,7 +1175,7 @@ func TestADSNACKRevertsUnchangedResourcesIndividually(t *testing.T) {
 }
 
 func TestADSNACKDoesNotRevertSupersededResource(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
@@ -1222,7 +1223,7 @@ func TestADSNACKDoesNotRevertSupersededResource(t *testing.T) {
 }
 
 func TestADSNACKDoesNotRevertUnpublishedABAResource(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
@@ -1314,7 +1315,7 @@ func TestStrictADSNACKRestoresSnapshotConsistency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 			cache := newADSCache(logger, true)
 			server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{
 				envoyXDSMode: config.EnvoyXDSModeStrictADS,
@@ -1348,7 +1349,7 @@ func TestStrictADSNACKRestoresSnapshotConsistency(t *testing.T) {
 }
 
 func TestStrictADSClusterNACKRollsBackEndpointUpdate(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{
 		envoyXDSMode: config.EnvoyXDSModeStrictADS,
@@ -1383,7 +1384,7 @@ func TestStrictADSClusterNACKRollsBackEndpointUpdate(t *testing.T) {
 }
 
 func TestStrictADSEndpointNACKKeepsCluster(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{
 		envoyXDSMode: config.EnvoyXDSModeStrictADS,
@@ -1438,7 +1439,7 @@ func TestStrictADSEndpointNACKKeepsCluster(t *testing.T) {
 }
 
 func TestAddListenerWithoutWaitGroupCallsCallback(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -1457,7 +1458,7 @@ func TestAddListenerWithoutWaitGroupCallsCallback(t *testing.T) {
 }
 
 func TestAddAdminListener(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -1494,7 +1495,7 @@ func TestAddAdminListener(t *testing.T) {
 }
 
 func TestAddMetricsListener(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -1529,7 +1530,7 @@ func TestAddMetricsListener(t *testing.T) {
 }
 
 func TestRemoveListener(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -1559,7 +1560,7 @@ func TestRemoveListener(t *testing.T) {
 }
 
 func TestRemoveListenerReferenceCount(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 	ctx := t.Context()
@@ -1623,7 +1624,7 @@ func TestRemoveListenerNACKRestoresResponseState(t *testing.T) {
 
 // TestUpsertEnvoyResources verifies that Envoy resources can be upserted
 func TestUpsertEnvoyResources(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -1648,7 +1649,7 @@ func TestUpsertEnvoyResources(t *testing.T) {
 }
 
 func TestUpdateEnvoyResources(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -1799,7 +1800,7 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 		t.Run(mode.name, func(t *testing.T) {
 			for _, addressChange := range addressChanges {
 				t.Run(addressChange.name, func(t *testing.T) {
-					logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+					logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 					serverConfig := xdsServerConfig{
 						envoySocketDir:       t.TempDir(),
 						policyRestoreTimeout: 30 * time.Second,
@@ -2379,7 +2380,7 @@ func TestUpdateEnvoyResourcesWithConfirmedPortAllocationDoesNotWaitForChangedClu
 }
 
 func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -2392,12 +2393,12 @@ func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testi
 	resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
 
 	require.ErrorContains(t, server.UpsertEnvoyResources(context.Background(), resources, nil),
-		"generated ADS snapshot is inconsistent")
+		"missing RDS resource \"routeConfig1\"")
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 }
 
 func TestDeleteEnvoyResources(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -2453,7 +2454,7 @@ func TestDeleteEnvoyResources(t *testing.T) {
 }
 
 func TestGetNetworkPolicies(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -2486,7 +2487,7 @@ func TestGetNetworkPolicies(t *testing.T) {
 }
 
 func TestUpdateNetworkPolicy(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -2523,7 +2524,7 @@ func TestUpdateNetworkPolicy(t *testing.T) {
 }
 
 func TestUpdateNetworkPolicyReusesIdempotentCacheRevert(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := &revertCapturingADSCache{Cache: newADSCache(logger, true)}
 	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := t.Context()
@@ -2559,7 +2560,7 @@ func TestUpdateNetworkPolicyReusesIdempotentCacheRevert(t *testing.T) {
 }
 
 func TestUpdateNetworkPolicyRevertAfterLaterResourceUpdate(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := t.Context()
@@ -2590,7 +2591,7 @@ func TestUpdateNetworkPolicyRevertAfterLaterResourceUpdate(t *testing.T) {
 }
 
 func TestUpdateNetworkPolicyRevertPreservesNewerPolicy(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := t.Context()
@@ -2618,7 +2619,7 @@ func TestUpdateNetworkPolicyRevertPreservesNewerPolicy(t *testing.T) {
 }
 
 func TestUpdateNetworkPolicyWithoutNPDSListenersCompletesImmediately(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -2645,7 +2646,7 @@ func TestUpdateNetworkPolicyWithoutNPDSListenersCompletesImmediately(t *testing.
 }
 
 func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	_, restorerPromise := promise.New[endpointstate.Restorer]()
 	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), restorerPromise)
@@ -2689,7 +2690,7 @@ func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 }
 
 func TestUpdateNetworkPolicyWaitCompletesWhenLastNPDSListenerIsRemoved(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -2768,7 +2769,7 @@ func TestLastNPDSListenerRemovalKeepsSentPolicyNACKRollback(t *testing.T) {
 }
 
 func TestUpdateNetworkPolicyCancelsWaitWhenLastNPDSListenerIsRemovedBeforeRegistration(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	baseCache := newADSCache(logger, true)
 	cache := &blockingNetworkPolicyADSCache{
 		Cache:          baseCache,
@@ -2829,7 +2830,7 @@ func TestUpdateNetworkPolicyCancelsWaitWhenLastNPDSListenerIsRemovedBeforeRegist
 }
 
 func TestUpdateNetworkPolicyNoOpWaitsForCurrentACKWithoutPublishing(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -2894,7 +2895,7 @@ func TestUpdateNetworkPolicyNoOpWaitsForCurrentACKWithoutPublishing(t *testing.T
 }
 
 func TestUpdateNetworkPolicyPreservesUnchangedResources(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx := context.Background()
@@ -2925,7 +2926,7 @@ func TestUpdateNetworkPolicyPreservesUnchangedResources(t *testing.T) {
 }
 
 func TestNPDSListenerStateFromBulkResources(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -2953,7 +2954,7 @@ func TestNPDSListenerStateFromBulkResources(t *testing.T) {
 }
 
 func TestNPDSListenerCountFromBulkResources(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	cache := newADSCache(logger, true)
 	server := newTestADSServerWithCache(t, cache, logger, nil, GetLocalEndpointStoreForTest(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
 
@@ -2983,7 +2984,7 @@ func TestNPDSListenerCountFromBulkResources(t *testing.T) {
 }
 
 func TestRemoveNetworkPolicy(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
@@ -3010,7 +3011,7 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 }
 
 func TestRemoveNetworkPoliciesIndividually(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,

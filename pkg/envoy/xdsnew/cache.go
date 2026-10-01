@@ -1438,7 +1438,9 @@ func (c *cacheImpl) generateSnapshotForUpdate(state *nodeState) (cache.ResourceS
 	if err != nil {
 		return nil, err
 	}
-	if c.strictAdsMode {
+	// Mutation-time validation maintains the strict ADS invariant. The full
+	// snapshot check is a projection invariant check for agent debug mode.
+	if c.strictAdsMode && c.logger != nil && c.logger.Enabled(context.Background(), slog.LevelDebug) {
 		if err := CheckSnapshotConsistency(snapshot); err != nil {
 			return nil, fmt.Errorf("generated ADS snapshot is inconsistent: %w", err)
 		}
@@ -1464,6 +1466,16 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 	state := tx.state
 	changedTypeURLs := changes.typeURLs()
 	dirtyTypeURLs := snapshotTypesChangedBy(changedTypeURLs)
+	checkStrictConsistency := c.strictAdsMode && changes.affectsStrictConsistency()
+	var strictChanges strictConsistencyChanges
+	if checkStrictConsistency {
+		var err error
+		strictChanges, err = state.validateStrictConsistency(changes)
+		if err != nil {
+			tx.updateErr = fmt.Errorf("strict ADS cache mutation is inconsistent: %w", err)
+			return tx.updateErr
+		}
+	}
 	oldResourceGeneration := state.resourceGeneration
 	var previousReverts typeurl.Slots[callbacks.Generation]
 	if options.tracking == noRollbackTracking {
@@ -1475,6 +1487,9 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		}
 	}
 	state.commitResourceMutation(changes)
+	if checkStrictConsistency {
+		state.strictRefs.apply(strictChanges, 1)
+	}
 	if options.tracking == callerAndResponseRollbackTracking {
 		state.rollbacks.updateInverseOwners(state, options.inverse, tx.generation.TransactionID(), 1)
 	}
@@ -1510,6 +1525,9 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		}
 		for _, change := range changes.more {
 			state.resources.commitEntry(change.typeURL, change.name, change.previous)
+		}
+		if checkStrictConsistency {
+			state.strictRefs.apply(strictChanges, -1)
 		}
 		state.rollbacks.releaseSet(state, publication.resourceTypes)
 		state.resourceGeneration = oldResourceGeneration

@@ -192,6 +192,11 @@ func (changes resourceChanges) typeURLs() typeurl.Set {
 	return changes.types
 }
 
+func (changes resourceChanges) affectsStrictConsistency() bool {
+	return changes.types.Has(typeurl.Listener) || changes.types.Has(typeurl.Route) ||
+		changes.types.Has(typeurl.Cluster) || changes.types.Has(typeurl.Endpoint)
+}
+
 func (changes resourceChanges) inverse() resources {
 	if changes.empty() {
 		return resources{}

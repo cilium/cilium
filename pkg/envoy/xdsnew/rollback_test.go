@@ -375,10 +375,10 @@ func TestCallerRevertIsTerminalAfterStrictConsistencyFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	// A's revert can remove l1, but its transaction fence skips B's r1.
-	// Snapshot validation rejects the orphan route and restores desired state
-	// before returning. The caller receives the failure, but its lifecycle
+	// Incremental validation rejects the orphan route before committing or
+	// publishing anything. The caller receives the failure, but its lifecycle
 	// is terminal: it must release its inverse rather than require a retry.
-	require.ErrorContains(t, first.Revert(), "inconsistent")
+	require.ErrorContains(t, first.Revert(), "strict ADS cache mutation is inconsistent: orphan RDS resource \"r1\"")
 	current := c.GetResource(nodeID, typeurl.Listener, "l1")
 	require.NotNil(t, current)
 	require.Same(t, listener, current)
@@ -406,6 +406,86 @@ func TestCallerRevertIsTerminalAfterStrictConsistencyFailure(t *testing.T) {
 	current = c.GetResource(nodeID, typeurl.Route, "r1")
 	require.NotNil(t, current)
 	require.Same(t, route, current)
+}
+
+func TestResponseRevertRetainsStateAfterStrictConsistencyFailure(t *testing.T) {
+	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})), true, WithNodeIDs("node1")).(*cacheImpl)
+	const nodeID = "node1"
+	node := &envoy_config_core.Node{Id: nodeID}
+	listener := strictTestListener(t, "l1", "r1")
+	route := &envoy_config_route.RouteConfiguration{Name: "r1"}
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	var waits TypeURLCallbacks
+	waits.Set(typeurl.Listener, nil)
+	require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
+		Listeners: map[string]*envoy_config_listener.Listener{"l1": listener},
+		Routes:    map[string]*envoy_config_route.RouteConfiguration{"r1": route},
+	}}, wg, waits))
+	newRoute := &envoy_config_route.RouteConfiguration{Name: "r1", IgnorePortInHostMatching: true}
+	second, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Route, "r1", newRoute, nil, nil)
+	require.NoError(t, err)
+
+	request := &discovery.DiscoveryRequest{Node: node, TypeUrl: envoy_resource.ListenerType}
+	// Use real response coverage to transfer the unsent inverse to the response,
+	// just as watch collection does; a version string alone does not prove which
+	// resources Envoy received.
+	response := publishedResponseForTest(t, c, node, typeurl.Listener)
+	c.completionCbs.OnStreamResponse(response.GetContext(),
+		1, response.GetRequest(), &discovery.DiscoveryResponse{
+			TypeUrl: envoy_resource.ListenerType, VersionInfo: response.GetResponseVersion(), Nonce: "rejected-listeners",
+		})
+	// The Listener response owns A's rollback, but B's newer route prevents
+	// restoring it consistently. Caller waits still receive the original NACK;
+	// response recovery must survive the validation error and stream closure.
+	require.ErrorContains(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node: node, TypeUrl: envoy_resource.ListenerType, ResponseNonce: "rejected-listeners",
+		ErrorDetail: &status.Status{Message: "rejected listener"},
+	}), "strict ADS cache mutation is inconsistent: orphan RDS resource \"r1\"")
+	require.ErrorContains(t, wg.Wait(), "rejected listener")
+	current := c.GetResource(nodeID, typeurl.Listener, "l1")
+	require.NotNil(t, current)
+	require.Same(t, listener, current)
+	current = c.GetResource(nodeID, typeurl.Route, "r1")
+	require.NotNil(t, current)
+	require.Same(t, newRoute, current)
+
+	// A was rejected, so B's inverse no longer restores A's rejected route.
+	// Removing just that route would strand the still-present listener and must
+	// fail atomically. The caller is terminal, but response recovery remains live.
+	require.ErrorContains(t, second.Revert(), "missing RDS resource \"r1\"")
+	require.Same(t, listener, c.GetResource(nodeID, typeurl.Listener, "l1"))
+	require.Same(t, newRoute, c.GetResource(nodeID, typeurl.Route, "r1"))
+
+	// RDS covers both API transactions. Rejecting it composes their inverses
+	// before strict validation, removing the listener and route together rather
+	// than attempting either inconsistent intermediate state.
+	routeResponse := publishedResponseForTest(t, c, node, typeurl.Route)
+	c.completionCbs.OnStreamResponse(routeResponse.GetContext(),
+		1, routeResponse.GetRequest(), &discovery.DiscoveryResponse{
+			TypeUrl: envoy_resource.RouteType, VersionInfo: routeResponse.GetResponseVersion(), Nonce: "rejected-routes",
+		})
+	require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
+		Node: node, TypeUrl: envoy_resource.RouteType, ResponseNonce: "rejected-routes",
+		ErrorDetail: &status.Status{Message: "rejected routes"},
+	}))
+	require.Nil(t, c.GetResource(nodeID, typeurl.Listener, "l1"))
+	require.Nil(t, c.GetResource(nodeID, typeurl.Route, "r1"))
+	require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+
+	c.completionCbs.OnStreamClosed(1, node)
+	require.NoError(t, c.completionCbs.OnStreamRequest(2, request))
+	response = publishedResponseForTest(t, c, node, typeurl.Listener)
+	c.completionCbs.OnStreamResponse(response.GetContext(),
+		2, response.GetRequest(), &discovery.DiscoveryResponse{
+			TypeUrl: envoy_resource.ListenerType, VersionInfo: response.GetResponseVersion(), Nonce: "retry-listeners",
+		})
+	require.NoError(t, c.completionCbs.OnStreamRequest(2, &discovery.DiscoveryRequest{
+		Node: node, TypeUrl: envoy_resource.ListenerType, ResponseNonce: "retry-listeners",
+		ErrorDetail: &status.Status{Message: "rejected listener again"},
+	}))
+	require.Nil(t, c.GetResource(nodeID, typeurl.Listener, "l1"))
+	require.Nil(t, c.GetResource(nodeID, typeurl.Route, "r1"), "the retried response rollback must restore both sides of A")
 }
 
 func TestFailedCallerRevertReleasesRemovalTombstone(t *testing.T) {

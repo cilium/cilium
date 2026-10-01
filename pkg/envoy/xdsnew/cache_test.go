@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -515,6 +516,113 @@ func TestGenerateSnapshotRejectsInvalidResourceContent(t *testing.T) {
 	require.Nil(t, snapshot)
 }
 
+func strictTestListener(t *testing.T, name, route string) *envoy_config_listener.Listener {
+	t.Helper()
+	return &envoy_config_listener.Listener{
+		Name: name,
+		FilterChains: []*envoy_config_listener.FilterChain{{
+			Filters: []*envoy_config_listener.Filter{{
+				Name: "envoy.filters.network.http_connection_manager",
+				ConfigType: &envoy_config_listener.Filter_TypedConfig{
+					TypedConfig: mustAny(t, &envoy_config_http.HttpConnectionManager{
+						RouteSpecifier: &envoy_config_http.HttpConnectionManager_Rds{
+							Rds: &envoy_config_http.Rds{RouteConfigName: route},
+						},
+					}),
+				},
+			}},
+		}},
+	}
+}
+
+func strictTestEDSCluster(name, endpoint string) *envoy_config_cluster.Cluster {
+	return &envoy_config_cluster.Cluster{
+		Name:                 name,
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+		EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{
+			ServiceName: endpoint,
+		},
+	}
+}
+
+func TestStrictADSValidatesRouteMutationsBeforeCommit(t *testing.T) {
+	c := NewCache(hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), true, WithNodeIDs("node1")).(*cacheImpl)
+	const nodeID = "node1"
+	listener := strictTestListener(t, "listener1", "route1")
+	route := &envoy_config_route.RouteConfiguration{Name: "route1"}
+
+	// Applying both sides in one transaction is valid regardless of map order.
+	err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
+		Listeners: map[string]*envoy_config_listener.Listener{"listener1": listener},
+		Routes:    map[string]*envoy_config_route.RouteConfiguration{"route1": route},
+	}}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(&cache.Request{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.ListenerType,
+	}, stream.NewSotwSubscription(nil, true), responses)
+	require.NoError(t, err)
+	<-responses
+	cancel()
+	require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Listener, "listener2",
+		strictTestListener(t, "listener2", "route1"), nil, nil)
+	require.NoError(t, err)
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Listener, "listener1", nil, nil, nil)
+	require.NoError(t, err, "the second listener still references route1")
+	rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Listener, "listener2", nil, nil, nil)
+	require.ErrorContains(t, err, "orphan RDS resource \"route1\"")
+	require.Nil(t, rollback)
+	require.NotNil(t, c.GetResource(nodeID, typeurl.Listener, "listener2"), "a rejected mutation must leave the listener intact")
+
+	err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{Removed: xds.Resources{
+		Listeners: map[string]*envoy_config_listener.Listener{"listener2": strictTestListener(t, "listener2", "route1")},
+		Routes:    map[string]*envoy_config_route.RouteConfiguration{"route1": route},
+	}}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+	require.Nil(t, c.GetResource(nodeID, typeurl.Route, "route1"))
+}
+
+func TestStrictADSValidatesEndpointMutationsBeforeCommit(t *testing.T) {
+	c := NewCache(hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug)), true, WithNodeIDs("node1")).(*cacheImpl)
+	const nodeID = "node1"
+	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+
+	// An EDS Cluster without an explicit CLA is valid: publication synthesizes
+	// an empty assignment for its reference.
+	cluster1 := strictTestEDSCluster("cluster1", "endpoint")
+	err := c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster1", cluster1, nil, nil)
+	require.NoError(t, err)
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(&cache.Request{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.ClusterType,
+	}, stream.NewSotwSubscription(nil, true), responses)
+	require.NoError(t, err)
+	<-responses
+	cancel()
+	require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "endpoint", endpoint, nil, nil)
+	require.NoError(t, err)
+	cluster2 := strictTestEDSCluster("cluster2", "endpoint")
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster2", cluster2, nil, nil)
+	require.NoError(t, err)
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster1", nil, nil, nil)
+	require.NoError(t, err, "the second cluster still references the CLA")
+	rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Cluster, "cluster2", nil, nil, nil)
+	require.ErrorContains(t, err, "orphan EDS resource \"endpoint\"")
+	require.Nil(t, rollback)
+
+	// Removing both the final reference and the explicit CLA is atomic.
+	err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{Removed: xds.Resources{
+		Clusters:  map[string]*envoy_config_cluster.Cluster{"cluster2": cluster2},
+		Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{"endpoint": endpoint},
+	}}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+	require.Nil(t, c.GetResource(nodeID, typeurl.Endpoint, "endpoint"))
+}
+
 func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
 	mock := newMockSnapshotCache()
 	c := newInitializedTestCache(mock)
@@ -720,6 +828,55 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 	}
 }
 
+func TestUnrelatedMutationsDoNotInitializeStrictReferenceIndex(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		strictADS bool
+		typeURL   typeurl.Index
+		resource  proto.Message
+	}{
+		{"non-strict-orphan-endpoint", false, typeurl.Endpoint, &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "resource"}},
+		{"non-strict-orphan-route", false, typeurl.Route, &envoy_config_route.RouteConfiguration{Name: "resource"}},
+		{"strict-secret", true, typeurl.Secret, &envoy_config_tls.Secret{Name: "resource"}},
+		{"strict-policy", true, typeurl.NetworkPolicy, &cilium.NetworkPolicy{EndpointId: 1}},
+		{"strict-hosts", true, typeurl.NetworkPolicyHosts, &cilium.NetworkPolicyHosts{Policy: 1}},
+		{"strict-noop-removal", true, typeurl.Listener, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := slog.New(slog.DiscardHandler)
+			if tc.strictADS {
+				logger = hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+			}
+			c := NewCache(logger, tc.strictADS, WithNodeIDs("node1")).(*cacheImpl)
+			require.NoError(t, c.ApplyResource(t.Context(), "node1", tc.typeURL, "resource", tc.resource, nil, nil))
+			require.Nil(t, c.getNodeState("node1").strictRefs,
+				"non-strict, unrelated, and no-op mutations should not initialize the reference index")
+		})
+	}
+}
+
+func TestGenerateSnapshotForUpdateChecksConsistencyOnlyInStrictDebugMode(t *testing.T) {
+	for _, strictADS := range []bool{false, true} {
+		for _, level := range []slog.Level{slog.LevelInfo, slog.LevelDebug} {
+			t.Run(fmt.Sprintf("strict-ads=%t/level=%s", strictADS, level), func(t *testing.T) {
+				logger := hivetest.Logger(t, hivetest.LogLevel(level))
+				c := NewCache(logger, strictADS, WithNodeIDs("node1")).(*cacheImpl)
+				state := c.getNodeState("node1")
+				// Deliberately bypass mutation-time validation to exercise the
+				// full snapshot check with an orphan route in the projection.
+				state.seedResource(typeurl.Route, "orphan", &envoy_config_route.RouteConfiguration{Name: "orphan"})
+				snapshot, err := c.generateSnapshotForUpdate(state)
+				if strictADS && level == slog.LevelDebug {
+					require.ErrorContains(t, err, "generated ADS snapshot is inconsistent")
+					require.Nil(t, snapshot)
+				} else {
+					require.NoError(t, err)
+					require.NotNil(t, snapshot)
+				}
+			})
+		}
+	}
+}
 func TestNewCache(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	c := NewCache(logger, false, WithNodeIDs("node1")).(*cacheImpl)
@@ -796,7 +953,11 @@ func TestCacheRejectsUnknownNodes(t *testing.T) {
 func TestCreateWatchRepublishesDesiredStateAfterClear(t *testing.T) {
 	for _, strictADS := range []bool{false, true} {
 		t.Run(fmt.Sprintf("strict-ads=%t", strictADS), func(t *testing.T) {
-			c := NewCache(slog.New(slog.DiscardHandler), strictADS, WithNodeIDs("node1"))
+			logger := slog.New(slog.DiscardHandler)
+			if strictADS {
+				logger = hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+			}
+			c := NewCache(logger, strictADS, WithNodeIDs("node1"))
 			listener := &envoy_config_listener.Listener{Name: "listener"}
 			require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Listener, listener.Name, listener, nil, nil))
 			c.ClearSnapshot("node1")
@@ -1793,6 +1954,9 @@ func TestCreateWatchPublishesKnownNodeState(t *testing.T) {
 		for _, clientVersion := range []string{"", "stale-version"} {
 			t.Run(fmt.Sprintf("strict-ads=%t/client-version=%q", strictADS, clientVersion), func(t *testing.T) {
 				logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+				if strictADS {
+					logger = hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+				}
 				const nodeID = "node-without-resources"
 				c := NewCache(logger, strictADS, WithNodeIDs(nodeID)).(*cacheImpl)
 				node := &envoy_config_core.Node{Id: nodeID}

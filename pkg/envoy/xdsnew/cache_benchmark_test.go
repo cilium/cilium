@@ -13,11 +13,15 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
 
 // BenchmarkBulkResourceWaitPreparation measures production bulk transactions,
@@ -87,6 +91,63 @@ func BenchmarkBulkResourceWaitPreparation(b *testing.B) {
 					}
 				})
 			}
+		}
+	}
+}
+
+// BenchmarkStrictADSReferenceValidation isolates the production incremental
+// check from eager snapshot construction. One parent changes regardless of the
+// total resource count; all parents share the same child. The index is warmed
+// outside the measurement, as it is after the first relevant cache transaction.
+func BenchmarkStrictADSReferenceValidation(b *testing.B) {
+	for _, count := range []int{1, 64, 1024} {
+		for _, parentType := range []typeurl.Index{typeurl.Cluster, typeurl.Listener} {
+			b.Run(fmt.Sprintf("parents=%d/%s", count, parentType.URL()), func(b *testing.B) {
+				const nodeID = "benchmark-node"
+				c := NewCache(slog.New(slog.DiscardHandler), true, WithNodeIDs(nodeID)).(*cacheImpl)
+				var seed xds.Resources
+				var update ResourceMutations
+				if parentType == typeurl.Cluster {
+					seed.Clusters = make(map[string]*cluster.Cluster, count)
+					for i := range count {
+						name := fmt.Sprintf("parent-%d", i)
+						seed.Clusters[name] = strictTestEDSCluster(name, "child")
+					}
+					changed := proto.Clone(seed.Clusters["parent-0"]).(*cluster.Cluster)
+					changed.PerConnectionBufferLimitBytes = wrapperspb.UInt32(1)
+					update.Upserted.Clusters = map[string]*cluster.Cluster{changed.Name: changed}
+				} else {
+					config, err := anypb.New(&http.HttpConnectionManager{RouteSpecifier: &http.HttpConnectionManager_Rds{
+						Rds: &http.Rds{RouteConfigName: "child"},
+					}})
+					if err != nil {
+						b.Fatal(err)
+					}
+					seed.Listeners = make(map[string]*listener.Listener, count)
+					for i := range count {
+						name := fmt.Sprintf("parent-%d", i)
+						seed.Listeners[name] = &listener.Listener{Name: name, FilterChains: []*listener.FilterChain{{
+							Filters: []*listener.Filter{{ConfigType: &listener.Filter_TypedConfig{TypedConfig: config}}},
+						}}}
+					}
+					seed.Routes = map[string]*route.RouteConfiguration{"child": {Name: "child"}}
+					changed := proto.Clone(seed.Listeners["parent-0"]).(*listener.Listener)
+					changed.PerConnectionBufferLimitBytes = wrapperspb.UInt32(1)
+					update.Upserted.Listeners = map[string]*listener.Listener{changed.Name: changed}
+				}
+				if err := c.ApplyResources(b.Context(), nodeID, ResourceMutations{Upserted: seed}, nil, TypeURLCallbacks{}); err != nil {
+					b.Fatal(err)
+				}
+				state := c.getNodeState(nodeID)
+				changes, _, _ := state.prepareResourceMutation(update, c.resourceGeneration+1)
+				b.ReportAllocs()
+				b.ResetTimer()
+				for range b.N {
+					if _, err := state.validateStrictConsistency(changes); err != nil {
+						b.Fatal(err)
+					}
+				}
+			})
 		}
 	}
 }

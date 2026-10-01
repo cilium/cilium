@@ -43,6 +43,8 @@ response communicates, including deletions where omission signals removal.
   lock. Response delivery and completion callbacks run after unlocking.
 - Each NACK selects its inverses and applies their final correction under that
   same lock. No caller can interleave and no intermediate snapshot is published.
+- Strict ADS validates affected references before changing desired state. A
+  debug-only full snapshot check verifies the published projection separately.
 - ACK/NACK processing uses the response's exact generation, named-resource
   coverage, stream, and nonce. A partial response cannot acknowledge names
   outside its subscription. For types supporting deletion by omission,
@@ -56,12 +58,13 @@ response communicates, including deletions where omission signals removal.
 ## State and ownership
 
 `nodeState` owns desired entries, desired/published generations, open watches,
-and a `rollbackState` containing live caller and response inverses for predecessor
-rebasing. Each TypeURL's `resourceRollbackState` owns its unsent inverse and
-tombstone-owner counts. Rollback methods borrow desired-state or transaction
-context and share the cache lock; they neither lock nor invoke user callbacks.
-Supported types use
-fixed array slots and bit sets; TypeURL strings are converted at the boundary.
+the strict reference index, and a `rollbackState` containing live caller and
+response inverses for predecessor rebasing. Each TypeURL's `resourceRollbackState`
+owns its unsent inverse and tombstone-owner counts. Rollback methods borrow
+desired-state or transaction context and share the cache lock; they neither lock
+nor invoke user callbacks.
+Supported types use fixed array slots and bit sets; TypeURL strings are converted
+at the boundary.
 Requests for unsupported TypeURLs from configured nodes call the embedded
 go-control-plane cache's `CreateWatch`, without Cilium's per-TypeURL tracking.
 Cilium never publishes resources for these types. An initial request with an
@@ -101,22 +104,31 @@ caller lifecycle; all mutation APIs independently retain needed NACK state.
 A transaction holds the cache write lock while it:
 
 1. Compares candidates with desired state and prepares actual changes.
-2. Reserves a generation, commits desired entries, and registers ACK waits.
-3. Constructs a snapshot and checks full consistency in strict ADS mode.
-4. Installs it and records successful publication.
+2. Reserves a generation and validates affected references in strict ADS mode.
+3. Commits desired entries and reference counts, and registers ACK waits.
+4. Constructs and installs a snapshot, recording successful publication.
 5. Creates a caller lifecycle, if requested, only after publication succeeds.
 
 Readers cannot observe partial changes. Publication failure restores previous
-entries and detaches this transaction's waits; a failed apply returns no caller
-lifecycle. A delivery error after go-control-plane installed the intended
-snapshot is treated as a committed update. Installation is confirmed by exact
-snapshot identity, not matching content versions.
+entries and reference counts, and detaches this transaction's waits; a failed
+apply returns no caller lifecycle. A delivery error after go-control-plane
+installed the intended snapshot is treated as a committed update.
+Installation is confirmed by exact snapshot identity, not matching content versions.
+Unchanged-resource waits prepared earlier in a mixed transaction are also
+detached on validation failure; unrelated pending state remains owned.
 
-Strict mode rejects missing Routes and orphan Routes/Endpoints synchronously,
-restoring desired state before returning an error. Missing CLAs are allowed:
-snapshot construction synthesizes empty assignments without inserting them into
-desired state. Non-strict mode skips the explicit consistency check.
-Compensating mutations use the same validation and publication path.
+A per-node reference index counts Listeners referring to each Route and
+Clusters referring to each Endpoint. It starts empty with the node and changes
+only with committed mutations. Strict mode validates only child names affected
+by a transaction, evaluating parent and child changes together. Missing
+Routes and orphan Routes/Endpoints are rejected synchronously, before changing
+desired state or registering rollback ownership. Missing CLAs are allowed:
+publication synthesizes empty assignments without inserting them into desired
+state. Compensating mutations use the same validation and publication path.
+
+Non-strict mode and unrelated types skip the reference index. A full snapshot
+consistency check runs only with both strict ADS and agent debug logging enabled;
+transaction safety does not depend on that projection check.
 
 ### Snapshot delivery
 
@@ -308,7 +320,8 @@ This success resolves ACK waits only, not acceptance or rollback ownership.
 ## Code organization
 
 - `resources.go`: containers, prepared changes, input validation.
-- `node_state.go`: desired mutations, rollback coalescing, tombstone ownership.
+- `node_state.go`: desired mutations, reference validation, rollback coalescing,
+  tombstone ownership.
 - `cache.go`: transactions, publication, response delivery, rollback lifecycles.
 - `callbacks/`: response identity, named-resource coverage, accepted state,
   waits, and NACK recovery phases in `nack.go`.
