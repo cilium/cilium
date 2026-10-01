@@ -369,7 +369,7 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	}
 
 	// Record the hash only once node_config.h, which carries the tunnel ifindex, is on disk.
-	if err := l.templateCache.UpdateDatapathHash(lnc); err != nil {
+	if err := l.templateCache.UpdateDatapathHash(ctx, lnc); err != nil {
 		l.logger.Warn("Unable to hash the datapath configuration", logfields.Error, err)
 	}
 

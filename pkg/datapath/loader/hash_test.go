@@ -6,8 +6,11 @@ package loader
 import (
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
@@ -24,21 +27,51 @@ var (
 // configuration objects.
 func TestHashDatapath(t *testing.T) {
 	// Error from ConfigWriter is forwarded.
-	_, err := hashDatapath(fakeConfigWriter{}, nil)
+	_, err := hashDatapath(fakeConfigWriter{}, nil, nil)
 	require.Error(t, err)
 
 	// Ensure we get different hashes when config is changed
-	a, err := hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg)
+	a, err := hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg, nil)
 	require.NoError(t, err)
 
-	b, err := hashDatapath(fakeConfigWriter("b"), &dummyNodeCfg)
+	b, err := hashDatapath(fakeConfigWriter("b"), &dummyNodeCfg, nil)
 	require.NoError(t, err)
 	require.NotEqual(t, a, b)
 
 	// Ensure we get the same base hash when config is the same.
-	b, err = hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg)
+	b, err = hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg, nil)
 	require.NoError(t, err)
 	require.Equal(t, a, b)
+
+	// A different producer must not share the hash.
+	c, err := hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg, []byte("producer"))
+	require.NoError(t, err)
+	require.NotEqual(t, a, c)
+}
+
+func TestHashProducer(t *testing.T) {
+	setupCompilationDirectories(t)
+	logger := hivetest.Logger(t)
+	ctx := t.Context()
+
+	dir := t.TempDir()
+	source := filepath.Join(dir, "include", endpointProg)
+	require.NoError(t, os.MkdirAll(filepath.Dir(source), 0755))
+	require.NoError(t, os.WriteFile(source, []byte("one"), 0644))
+
+	a, err := hashProducer(ctx, logger, dir)
+	require.NoError(t, err)
+	b, err := hashProducer(ctx, logger, dir)
+	require.NoError(t, err)
+	require.Equal(t, a, b)
+
+	require.NoError(t, os.WriteFile(source, []byte("two"), 0644))
+	c, err := hashProducer(ctx, logger, dir)
+	require.NoError(t, err)
+	require.NotEqual(t, a, c)
+
+	_, err = hashProducer(ctx, logger, filepath.Join(dir, "absent"))
+	require.Error(t, err)
 }
 
 func TestHashEndpoint(t *testing.T) {

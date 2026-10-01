@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/cilium/ebpf"
+	"github.com/google/renameio/v2"
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/common"
@@ -23,6 +24,7 @@ import (
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // objectCache amortises the cost of BPF compilation for endpoints.
@@ -32,10 +34,13 @@ type objectCache struct {
 	lock.Mutex
 	linuxConfig.Writer
 
-	// The directory used for caching. Must not be accessed by another process.
+	// The directory used for caching. Must not be accessed concurrently by another process.
 	workingDirectory string
 
 	baseHash datapathHash
+
+	// producer digests the BPF sources and compiler, or is nil if hashProducer failed.
+	producer []byte
 
 	// The cached objects.
 	objects map[string]*cachedSpec
@@ -61,21 +66,37 @@ func newObjectCache(logger *slog.Logger, c linuxConfig.Writer, workingDir string
 	}
 }
 
-// UpdateDatapathHash invalidates the object cache if the configuration of the
-// datapath has changed.
-func (o *objectCache) UpdateDatapathHash(nodeCfg *config.Config) error {
-	newHash, err := hashDatapath(o.Writer, nodeCfg)
-	if err != nil {
-		return fmt.Errorf("hash datapath config: %w", err)
-	}
-
+// UpdateDatapathHash keeps the templates a previous process built under the same hash and wipes them otherwise.
+func (o *objectCache) UpdateDatapathHash(ctx context.Context, nodeCfg *config.Config) error {
 	// Prevent new compilation from starting.
 	o.Lock()
 	defer o.Unlock()
 
+	if o.baseHash == nil {
+		var err error
+		o.producer, err = hashProducer(ctx, o.logger, option.Config.BpfDir)
+		if err != nil {
+			o.logger.Warn("Cannot hash the BPF sources and compiler, BPF templates will be recompiled", logfields.Error, err)
+		}
+	}
+
+	newHash, err := hashDatapath(o.Writer, nodeCfg, o.producer)
+	if err != nil {
+		return fmt.Errorf("hash datapath config: %w", err)
+	}
+
 	// Don't invalidate if the hash is the same.
 	if bytes.Equal(newHash, o.baseHash) {
 		return nil
+	}
+
+	// Keep the templates an earlier agent process compiled under the same hash.
+	if o.baseHash == nil && o.producer != nil {
+		if prev, err := os.ReadFile(o.keyPath()); err == nil && string(prev) == newHash.String() {
+			o.logger.Info("Reusing BPF templates from a previous agent process", logfields.Path, o.workingDirectory)
+			o.baseHash = newHash
+			return nil
+		}
 	}
 
 	// Wait until all concurrent compilation has finished.
@@ -83,22 +104,36 @@ func (o *objectCache) UpdateDatapathHash(nodeCfg *config.Config) error {
 		obj.Lock()
 	}
 
-	if err := os.RemoveAll(o.workingDirectory); err != nil {
-		for _, obj := range o.objects {
-			obj.Unlock()
-		}
-
-		return err
+	if _, err := os.Stat(o.workingDirectory); err == nil {
+		o.logger.Info("Removing BPF templates compiled for a different datapath", logfields.Path, o.workingDirectory)
+	}
+	err = os.Remove(o.keyPath())
+	if err == nil || errors.Is(err, os.ErrNotExist) {
+		err = os.RemoveAll(o.workingDirectory)
 	}
 	// Unlock all objects so that race detector doesn't complain about potential
 	// deadlocks.
 	for _, obj := range o.objects {
 		obj.Unlock()
 	}
+	if err != nil {
+		return err
+	}
 
 	o.baseHash = newHash
 	o.objects = make(map[string]*cachedSpec)
+
+	if o.producer != nil {
+		if err := renameio.WriteFile(o.keyPath(), []byte(newHash.String()), 0o600); err != nil {
+			o.logger.Warn("Failed to record the BPF template hash", logfields.Error, err)
+		}
+	}
 	return nil
+}
+
+// keyPath returns the file recording the base hash of the working directory.
+func (o *objectCache) keyPath() string {
+	return o.workingDirectory + ".key"
 }
 
 // serialize access to an abitrary key.
@@ -232,6 +267,21 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg endpoint.Config, d
 	if obj.spec != nil {
 		o.logger.Debug("Using cached BPF template", logfields.Object, obj.path)
 		return obj.spec.Copy(), hash, nil
+	}
+
+	// UpdateDatapathHash has validated or emptied the working directory.
+	if o.baseHash != nil {
+		path := o.objectPath(cfg, hash)
+		spec, err := o.loadSpec(path)
+		if err == nil {
+			o.logger.Info("Reusing BPF template from a previous agent process", logfields.Object, path)
+			obj.path = path
+			obj.spec = spec
+			return obj.spec.Copy(), hash, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			o.logger.Warn("Recompiling BPF template that failed to load", logfields.Error, err)
+		}
 	}
 
 	if stats == nil {
