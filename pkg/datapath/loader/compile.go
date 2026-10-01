@@ -203,6 +203,8 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 		"-o", "-", // Always output to stdout
 	)
 
+	outputPath := prog.AbsoluteOutput(dir)
+
 	logger.Debug(
 		"Launching compiler",
 		logfields.Target, compiler,
@@ -211,10 +213,12 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 
 	compileCmd := exec.CommandContext(ctx, compiler, compileArgs...)
 
-	output, err := os.Create(prog.AbsoluteOutput(dir))
+	// Write to a temporary file so that a killed compiler leaves no partial object.
+	output, err := os.Create(outputPath + ".tmp")
 	if err != nil {
 		return "", err
 	}
+	defer os.Remove(output.Name())
 	defer output.Close()
 	compileCmd.Stdout = output
 
@@ -258,12 +262,18 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 		logger.Debug(
 			"Compilation had peak RSS",
 			logfields.CompilerPID, compileCmd.Process.Pid,
-			logfields.Output, output.Name(),
+			logfields.Output, outputPath,
 			logfields.RssBytes, usage.Maxrss,
 		)
 	}
 
-	return output.Name(), nil
+	if err := output.Sync(); err != nil {
+		return "", err
+	}
+	if err := os.Rename(output.Name(), outputPath); err != nil {
+		return "", err
+	}
+	return outputPath, nil
 }
 
 // compileDatapath invokes the compiler and linker to create all state files for
