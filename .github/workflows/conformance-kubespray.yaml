@@ -176,6 +176,13 @@ jobs:
           kube_node
           EOF
 
+      - name: Remove the runner's CNI configuration
+        run: |
+          # Cilium is the only CNI here, so nothing else may sandbox a pod.
+          sudo ls -l /etc/cni/net.d || true
+          sudo mkdir -p /etc/cni/net.d
+          sudo find /etc/cni/net.d -mindepth 1 -delete
+
       - name: Deploy Kubernetes cluster
         id: deploy-cluster
         run: |
@@ -264,11 +271,31 @@ jobs:
 
       - name: Wait for Cilium to be ready
         run: |
+          trap 'kubectl get pods --all-namespaces -o wide' EXIT
           cilium status --wait --interactive=false --wait-duration=2m
-          # Cilium provides the pod network now, so CoreDNS has to converge.
           kubectl wait --for=condition=Ready node --all --timeout=5m
-          kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=5m
-          kubectl get pods --all-namespaces -o wide
+
+          # Cilium provides the pod network now, so kube-system has to converge.
+          deadline=$(( SECONDS + 5 * 60 ))
+
+          # kubeadm runs the control plane as static pods, which have no rollout.
+          kubectl wait --for=condition=Ready pod -n kube-system \
+            -l tier=control-plane --timeout="$(( deadline - SECONDS ))s"
+
+          # Wait on the workload objects, so no pod name is held across a restart.
+          workloads="$(kubectl get -n kube-system deployment,daemonset,statefulset -o name)"
+          if [ -z "${workloads}" ]; then
+            echo "::error::Found no kube-system workload to wait for"
+            exit 1
+          fi
+          for workload in ${workloads}; do
+            if (( SECONDS >= deadline )); then
+              echo "::error::Ran out of time waiting for kube-system to converge"
+              exit 1
+            fi
+            kubectl rollout status -n kube-system "${workload}" \
+              --timeout="$(( deadline - SECONDS ))s"
+          done
 
       - name: Make JUnit report directory
         run: |
