@@ -154,6 +154,8 @@ func newTestCache(mockedCache *mockSnapshotCache) cacheImpl {
 		SnapshotCache:       mockedCache,
 		mutex:               &lock.RWMutex{},
 		resourcesInSnapshot: make(map[string]*xds.Resources),
+		openWatches:         make(map[string]*nodeWatchState),
+		watchRelays:         make(map[chan cache.Response]*watchRelay),
 		logger:              logger,
 		hasher:              nil, // not needed for tests that don't call hash/GetVersion
 		completionCbs:       callbacks.NewCompletionCallbacks(logger),
@@ -1355,6 +1357,25 @@ func TestCreateWatchPublishesEmptySnapshotForUnknownNode(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestCreateWatchForUnknownTypeURLBypassesCiliumTracking(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+	request := &cache.Request{
+		Node:    &envoy_config_core.Node{Id: "node1"},
+		TypeUrl: "type.googleapis.com/example.Unknown",
+	}
+
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), make(chan cache.Response, 1))
+	require.NoError(t, err)
+	require.NotNil(t, cancel)
+	t.Cleanup(cancel)
+	require.Equal(t, 1, mock.createWatchCalls)
+	require.Empty(t, mock.setSnapshotCalls)
+	require.NotContains(t, c.resourcesInSnapshot, "node1")
+	require.Empty(t, c.openWatches)
+	require.Empty(t, c.watchRelays)
 }
 
 func TestCreateWatchPreservesExistingNonemptySnapshot(t *testing.T) {
