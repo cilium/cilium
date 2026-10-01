@@ -13,10 +13,12 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/containerd/nri/pkg/stub"
+	"github.com/spf13/afero"
 	"github.com/vishvananda/netlink"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
@@ -204,6 +206,10 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 					return err
 				}
 
+				if err := driver.configureSysctl(l, a.Config); err != nil {
+					return fmt.Errorf("failed to configure sysctl for device %s: %w", l.Attrs().Name, err)
+				}
+
 				return nil
 			}); err != nil {
 				log.ErrorContext(ctx, "failed to configure device",
@@ -380,6 +386,18 @@ func configureIfName(l netlink.Link, newIfName string) (netlink.Link, error) {
 	}
 
 	return l, nil
+}
+
+// configureSysctl applies the device config's interface-scoped sysctl
+// settings inside the current (pod) netns. Must run after the interface has
+// its final pod-facing name. Per-netns sysctls are torn down with the
+// namespace, so StopPodSandbox has no corresponding revert.
+func (driver *Driver) configureSysctl(l netlink.Link, cfg types.DeviceConfig) error {
+	settings := buildSysctlSettings(cfg, l.Attrs().Name)
+	if len(settings) == 0 {
+		return nil
+	}
+	return sysctl.NewDirectSysctl(afero.NewOsFs(), driver.hostProcPath).ApplySettings(settings)
 }
 
 // validateInterfaceNames checks if a pod's set of allocated devices

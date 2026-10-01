@@ -613,6 +613,28 @@ func TestPrepare(t *testing.T) {
 		requireNoAllocations(t, driver)
 	})
 
+	t.Run("test invalid interface sysctl leaf is not set up", func(t *testing.T) {
+		cs, _ := k8sClient.NewFakeClientset(tlog)
+		dev := &trackedDevice{name: prepTestDev0}
+
+		rawParam, _ := json.Marshal(map[string]any{
+			"interfaceSysctlIPv4": map[string]string{
+				"arp filter": "1", // invalid character
+			},
+		})
+		claim := buildPrepClaim(prepTestDev0)
+		claim.Status.Allocation.Devices.Config[0].Opaque.Parameters = runtime.RawExtension{Raw: rawParam}
+		createPrepClaim(t, cs, claim)
+
+		driver := buildPrepDriver(t, cs, dev)
+		result := prepOne(t, driver, claim)
+		require.Error(t, result.Err)
+
+		require.EqualValues(t, 0, dev.setupCalls.Load(),
+			"Setup must not be called when interfaceSysctl validation fails")
+		requireNoAllocations(t, driver)
+	})
+
 	t.Run("wrong reservedFor length in claim, we only allow one claim consumer", func(t *testing.T) {
 		cs, _ := k8sClient.NewFakeClientset(tlog)
 		dev := &trackedDevice{name: prepTestDev0}
