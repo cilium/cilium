@@ -17,6 +17,7 @@ import (
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	testk8s "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	policyutils "github.com/cilium/cilium/pkg/policy/utils"
@@ -40,6 +41,12 @@ import (
 //     after a first, untimed one.
 func BenchmarkUpdatePolicyThroughput(b *testing.B) {
 	version.Force(testk8s.DefaultVersion)
+
+	// slogloggercheck: saves the global logger, restored once the benchmark ends.
+	defer func(prev *slog.Logger) { logging.DefaultSlogLogger = prev }(logging.DefaultSlogLogger)
+	// Discard logging from endpoint so as to not pollute benchmark test run output for benchstat.
+	// slogloggercheck: replaced to keep test run output benchstat parsable.
+	logging.DefaultSlogLogger = slog.New(slog.DiscardHandler)
 
 	for _, numEPs := range []int{100, 1000} {
 		for _, numIDs := range []int{10, 100, 1000} {
