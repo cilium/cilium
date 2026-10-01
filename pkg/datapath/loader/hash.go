@@ -4,26 +4,110 @@
 package loader
 
 import (
+	"bytes"
+	"context"
 	"crypto/sha256"
+	"debug/elf"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"log/slog"
+	"os"
+	"os/exec"
+	"path/filepath"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/defaults"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 )
+
+// compilerEnv lists the environment variables that change what clang compiles.
+var compilerEnv = []string{"CPATH", "C_INCLUDE_PATH", "CCC_OVERRIDE_OPTIONS"}
 
 // datapathHash represents a unique enumeration of the datapath configuration.
 type datapathHash []byte
 
-// hashDatapath returns a new datapath hash based on the specified datapath.
-func hashDatapath(c linuxConfig.Writer, nodeCfg *config.Config) (datapathHash, error) {
+// hashDatapath hashes the node configuration and the hashProducer digest.
+func hashDatapath(c linuxConfig.Writer, nodeCfg *config.Config, producer []byte) (datapathHash, error) {
 	d := sha256.New()
 	err := c.WriteNodeConfig(d, nodeCfg)
 	if err != nil {
 		return nil, err
 	}
+	_, _ = d.Write(producer)
 	return datapathHash(d.Sum(nil)), nil
+}
+
+// hashProducer digests the BPF sources in bpfDir, the compiler, its flags, its environment and the agent binary.
+func hashProducer(ctx context.Context, logger *slog.Logger, bpfDir string) ([]byte, error) {
+	h := sha256.New()
+
+	err := filepath.WalkDir(bpfDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		sum, err := hashFile(path)
+		fmt.Fprintf(h, "%s\x00%s\n", path, sum)
+		return err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("hashing BPF sources in %s: %w", bpfDir, err)
+	}
+
+	// clang -### prints its version, the configuration files it reads and the cc1 flags.
+	ctx, cancel := context.WithTimeout(ctx, defaults.ExecTimeout)
+	defer cancel()
+	jobs, err := exec.CommandContext(ctx, compiler, "--target=bpf", "-g", "-###", "-c", "-x", "c", os.DevNull).CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("probing %s: %w: %s", compiler, err, bytes.TrimSpace(jobs))
+	}
+	_, _ = h.Write(jobs)
+
+	buildID, err := agentBuildID()
+	if err != nil {
+		return nil, fmt.Errorf("reading the agent build ID: %w", err)
+	}
+	_, _ = h.Write(buildID)
+
+	for _, k := range compilerEnv {
+		v, ok := os.LookupEnv(k)
+		fmt.Fprintf(h, "%s %t %q\n", k, ok, v)
+	}
+	fmt.Fprintf(h, "%q %q %q %q %s", testIncludes, StandardCFlags, epProg.Options,
+		hostEpProg.Options, getBPFCPU(logger))
+
+	return h.Sum(nil), nil
+}
+
+// agentBuildID returns the Go build ID of the running binary.
+func agentBuildID() ([]byte, error) {
+	f, err := elf.Open("/proc/self/exe")
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	s := f.Section(".note.go.buildid")
+	if s == nil {
+		return nil, errors.New("no Go build ID")
+	}
+	return s.Data()
+}
+
+// hashFile returns the hex SHA-256 of the file at path.
+func hashFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func (d datapathHash) hashEndpoint(c linuxConfig.Writer, nodeCfg *config.Config, epCfg endpoint.Config) (string, error) {
