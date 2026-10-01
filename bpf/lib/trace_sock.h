@@ -21,6 +21,7 @@
 #include "ratelimit.h"
 #include "sock.h"
 #include "time.h"
+#include "socket_lb.h"
 
 /* Trace aggregation levels for socket traces (sock context only). */
 enum {
@@ -33,8 +34,6 @@ enum {
 #define TRACE_SOCK_EXTENSION
 #define trace_sock_extension_hook(ctx, msg) do {} while (0)
 #endif
-
-DECLARE_CONFIG(bool, enable_socket_lb_tracing, "Enable socket-based service load-balancing tracing")
 
 /* L4 protocol for the trace event */
 enum l4_protocol {
@@ -168,7 +167,7 @@ send_trace_sock_notify4(struct __ctx_sock *ctx,
 			__u32 dst_ip, __u16 dst_port,
 			bool is_connect)
 {
-	if (!CONFIG(enable_socket_lb_tracing))
+	if (!CONFIG(socket_lb).enable_tracing)
 		return;
 	__send_trace_sock_notify4(ctx, xlate_point, dst_ip, dst_port, is_connect);
 }
@@ -227,7 +226,7 @@ send_trace_sock_notify6(struct __ctx_sock *ctx,
 			__u16 dst_port,
 			bool is_connect)
 {
-	if (!CONFIG(enable_socket_lb_tracing))
+	if (!CONFIG(socket_lb).enable_tracing)
 		return;
 	__send_trace_sock_notify6(ctx, xlate_point, dst_addr, dst_port, is_connect);
 }
