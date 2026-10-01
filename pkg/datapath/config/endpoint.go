@@ -78,7 +78,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 
 	if lnc.KPRConfig.EnableSocketLB {
 		if option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly {
-			cfg.EnableSocketLBHostNSOnly = true
+			cfg.SocketLB.HostNSOnly = true
 		} else {
 			cfg.EnableSocketLBFull = true
 		}

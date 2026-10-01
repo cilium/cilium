@@ -53,7 +53,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 			t.EnableVTEP = true
 			t.EnableServiceNoBackendResponse = true
 			t.EnableSIPVerification = true
-			t.EnableSocketLBHostNSOnly = true
+			t.SocketLB.HostNSOnly = true
 		}),
 
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
@@ -131,7 +131,7 @@ func baseSockPermutations() *loadPermutationBuilder {
 			t.EnableSocketLBTracing = true
 			t.EnableVTEP = true
 			t.EnableServiceNoBackendResponse = true
-			t.EnableSocketLBHostNSOnly = true
+			t.SocketLB.HostNSOnly = true
 		}),
 		Increment(func(t *config.BPFSock, v bool) {
 			if v {

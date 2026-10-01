@@ -23,7 +23,7 @@
 
 # include "lib/bpf_lxc.h"
 
-ASSIGN_CONFIG(bool, enable_socket_lb_hostns_only, true)
+ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
 #else
 # error "Needs to be included with either NORTH_SOUTH_TEST or EAST_WEST_TEST defined"
 #endif

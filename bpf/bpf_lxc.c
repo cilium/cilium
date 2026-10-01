@@ -89,7 +89,7 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
  * enable per-packet LB is SCTP is enabled.
  */
 #define ENABLE_PER_PACKET_LB (!CONFIG(enable_socket_lb_full) || \
-    CONFIG(enable_socket_lb_hostns_only)   || \
+    CONFIG(socket_lb).hostns_only          || \
     is_defined(ENABLE_L7_LB)               || \
     CONFIG(enable_sctp)                    || \
     is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING))

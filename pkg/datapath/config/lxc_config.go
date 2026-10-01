@@ -43,9 +43,6 @@ type BPFLXC struct {
 	EnableServiceNoBackendResponse bool `config:"enable_service_no_backend_response"`
 	// Enable socket-based LB for E/W traffic.
 	EnableSocketLBFull bool `config:"enable_socket_lb_full"`
-	// Skip socket LB for svcs when inside pod ns, in favor of svc LB at the pod
-	// iface.
-	EnableSocketLBHostNSOnly bool `config:"enable_socket_lb_hostns_only"`
 	// Enable VTEP integration.
 	EnableVTEP bool `config:"enable_vtep"`
 	// The endpoint's security ID.
@@ -78,6 +75,8 @@ type BPFLXC struct {
 	RtInfo uint32 `config:"rt_info"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
+	// Socket-based LB for E/W traffic.
+	SocketLB types.SocketLBConfig `config:"socket_lb"`
 	// Port number used for the overlay network.
 	TunnelPort uint16 `config:"tunnel_port"`
 	// The identifier of the tunnel protocol used for the overlay network.
@@ -90,11 +89,12 @@ type BPFLXC struct {
 
 func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{false, 0x0, false, false, false, false, false, false, false, false,
-		false, false, false, false, false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, false, false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		0x0, false, 0x0, 0x0, 0x0, 0x0, 0x0, node}
+		0x0, false, 0x0, 0x0, cast[types.SocketLBConfig]([]byte{0x0}),
+		0x0, 0x0, 0x0, node}
 }
