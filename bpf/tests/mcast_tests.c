@@ -9,7 +9,7 @@
 #include "lib/eth.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV4
+#define ENABLE_IPV4 1
 #define ENABLE_MULTICAST 1
 #define ENCAP_IFINDEX 1
 
