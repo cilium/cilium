@@ -2349,7 +2349,7 @@ func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testi
 	resources.Listeners["listener1"] = proto.Clone(DEFAULT_RESOURCES.Listeners["listener1"]).(*envoy_config_listener.Listener)
 
 	require.ErrorContains(t, server.UpsertEnvoyResources(context.Background(), resources, nil),
-		"generated ADS snapshot is inconsistent")
+		"missing RDS resource \"routeConfig1\"")
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 }
 

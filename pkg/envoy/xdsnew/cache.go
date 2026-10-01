@@ -121,6 +121,27 @@ type resourceChanges struct {
 	types typeurl.Set
 }
 
+// strictReferenceCounts indexes the children referenced by the desired LDS and
+// CDS resources. Strict ADS checks only names touched by a transaction; the
+// index is built once per node and then updated alongside committed resources.
+type strictReferenceCounts struct {
+	routes    map[string]int
+	endpoints map[string]int
+}
+
+type strictConsistencyCandidate struct {
+	referenceDelta int
+	resource       cache_types.Resource
+	// A nil resource denotes removal, so it cannot also indicate that the
+	// transaction left this child untouched.
+	changed bool
+}
+
+type strictConsistencyChanges struct {
+	routes    map[string]strictConsistencyCandidate
+	endpoints map[string]strictConsistencyCandidate
+}
+
 func (changes *resourceChanges) add(typeURL typeurl.Index, name string, previous, next resourceEntry) {
 	change := resourceChange{typeURL: typeURL, name: name, previous: previous, next: next}
 	if changes.first.name == "" {
@@ -152,6 +173,199 @@ func (changes resourceChanges) typeURLs() typeurl.Set {
 		return typeurl.NewSet()
 	}
 	return changes.types
+}
+
+func (changes resourceChanges) affectsStrictConsistency() bool {
+	return changes.types.Has(typeurl.Listener) || changes.types.Has(typeurl.Route) ||
+		changes.types.Has(typeurl.Cluster) || changes.types.Has(typeurl.Endpoint)
+}
+
+func (changes resourceChanges) resourceAfter(typeURL typeurl.Index, name string, current cache_types.Resource) cache_types.Resource {
+	if !changes.empty() && changes.first.typeURL == typeURL && changes.first.name == name {
+		return changes.first.next.resource
+	}
+	for _, change := range changes.more {
+		if change.typeURL == typeURL && change.name == name {
+			return change.next.resource
+		}
+	}
+	return current
+}
+
+// strictParentReferences uses the same extractor as the final snapshot check,
+// including RDS references in default filter chains and scoped routes.
+func strictParentReferences(parent cache_types.Resource, childTypeURL typeurl.Index) map[string]bool {
+	if parent == nil {
+		return nil
+	}
+	return cache.GetResourceReferences(map[string]cache_types.ResourceWithTTL{
+		"": {Resource: parent},
+	})[envoy_resource.Type(childTypeURL.URL())]
+}
+
+func (state *nodeState) ensureStrictReferences() *strictReferenceCounts {
+	if state.strictRefs != nil {
+		return state.strictRefs
+	}
+	refs := &strictReferenceCounts{}
+	for _, entry := range state.resources[typeurl.Listener].entries {
+		for name := range strictParentReferences(entry.resource, typeurl.Route) {
+			if refs.routes == nil {
+				refs.routes = make(map[string]int)
+			}
+			refs.routes[name]++
+		}
+	}
+	for _, entry := range state.resources[typeurl.Cluster].entries {
+		for name := range strictParentReferences(entry.resource, typeurl.Endpoint) {
+			if refs.endpoints == nil {
+				refs.endpoints = make(map[string]int)
+			}
+			refs.endpoints[name]++
+		}
+	}
+	state.strictRefs = refs
+	return refs
+}
+
+func (changes *strictConsistencyChanges) addRouteReference(name string, delta int) {
+	if changes.routes == nil {
+		changes.routes = make(map[string]strictConsistencyCandidate)
+	}
+	candidate := changes.routes[name]
+	candidate.referenceDelta += delta
+	changes.routes[name] = candidate
+}
+
+func (changes *strictConsistencyChanges) addEndpointReference(name string, delta int) {
+	if changes.endpoints == nil {
+		changes.endpoints = make(map[string]strictConsistencyCandidate)
+	}
+	candidate := changes.endpoints[name]
+	candidate.referenceDelta += delta
+	changes.endpoints[name] = candidate
+}
+
+func (changes *strictConsistencyChanges) add(change resourceChange) {
+	switch change.typeURL {
+	case typeurl.Listener:
+		for name := range strictParentReferences(change.previous.resource, typeurl.Route) {
+			changes.addRouteReference(name, -1)
+		}
+		for name := range strictParentReferences(change.next.resource, typeurl.Route) {
+			changes.addRouteReference(name, 1)
+		}
+	case typeurl.Route:
+		changes.addRouteReference(change.name, 0)
+		candidate := changes.routes[change.name]
+		candidate.resource, candidate.changed = change.next.resource, true
+		changes.routes[change.name] = candidate
+	case typeurl.Cluster:
+		for name := range strictParentReferences(change.previous.resource, typeurl.Endpoint) {
+			changes.addEndpointReference(name, -1)
+		}
+		for name := range strictParentReferences(change.next.resource, typeurl.Endpoint) {
+			changes.addEndpointReference(name, 1)
+		}
+		// The presence of a Cluster with this exact map key determines whether
+		// a legacy :* CLA is included or filtered from the snapshot.
+		if strings.HasSuffix(change.name, ":*") {
+			changes.addEndpointReference(change.name, 0)
+		}
+	case typeurl.Endpoint:
+		changes.addEndpointReference(change.name, 0)
+		candidate := changes.endpoints[change.name]
+		candidate.resource, candidate.changed = change.next.resource, true
+		changes.endpoints[change.name] = candidate
+	}
+}
+
+func (state *nodeState) validateStrictConsistency(changes resourceChanges) (strictConsistencyChanges, error) {
+	refs := state.ensureStrictReferences()
+	var proposed strictConsistencyChanges
+	proposed.add(changes.first)
+	for _, change := range changes.more {
+		proposed.add(change)
+	}
+
+	for name, candidate := range proposed.routes {
+		count := refs.routes[name] + candidate.referenceDelta
+		if count < 0 {
+			return strictConsistencyChanges{}, fmt.Errorf("negative RDS reference count for %q", name)
+		}
+		resource := state.resources[typeurl.Route].entries[name].resource
+		if candidate.changed {
+			resource = candidate.resource
+		}
+		if count == 0 && resource != nil {
+			return strictConsistencyChanges{}, fmt.Errorf("orphan RDS resource %q", name)
+		}
+		if count > 0 && (name == "" || resource == nil) {
+			return strictConsistencyChanges{}, fmt.Errorf("missing RDS resource %q", name)
+		}
+	}
+
+	for name, candidate := range proposed.endpoints {
+		count := refs.endpoints[name] + candidate.referenceDelta
+		if count < 0 {
+			return strictConsistencyChanges{}, fmt.Errorf("negative EDS reference count for %q", name)
+		}
+		if count > 0 && name == "" {
+			return strictConsistencyChanges{}, fmt.Errorf("missing EDS resource %q", name)
+		}
+		resource := state.resources[typeurl.Endpoint].entries[name].resource
+		if candidate.changed {
+			resource = candidate.resource
+		}
+		// An absent CLA is synthesized for its EDS Cluster. An explicit :*
+		// CLA, however, is filtered unless a Cluster has the same map key.
+		projected := count > 0 && resource == nil
+		if resource != nil {
+			projected = true
+			if strings.HasSuffix(name, ":*") {
+				cluster := changes.resourceAfter(typeurl.Cluster, name, state.resources[typeurl.Cluster].entries[name].resource)
+				projected = cluster != nil
+			}
+		}
+		if count == 0 && projected {
+			return strictConsistencyChanges{}, fmt.Errorf("orphan EDS resource %q", name)
+		}
+		if count > 0 && !projected {
+			return strictConsistencyChanges{}, fmt.Errorf("missing EDS resource %q", name)
+		}
+	}
+	return proposed, nil
+}
+
+func (refs *strictReferenceCounts) apply(changes strictConsistencyChanges, factor int) {
+	for name, candidate := range changes.routes {
+		if candidate.referenceDelta == 0 {
+			continue
+		}
+		count := refs.routes[name] + factor*candidate.referenceDelta
+		if count == 0 {
+			delete(refs.routes, name)
+		} else {
+			if refs.routes == nil {
+				refs.routes = make(map[string]int)
+			}
+			refs.routes[name] = count
+		}
+	}
+	for name, candidate := range changes.endpoints {
+		if candidate.referenceDelta == 0 {
+			continue
+		}
+		count := refs.endpoints[name] + factor*candidate.referenceDelta
+		if count == 0 {
+			delete(refs.endpoints, name)
+		} else {
+			if refs.endpoints == nil {
+				refs.endpoints = make(map[string]int)
+			}
+			refs.endpoints[name] = count
+		}
+	}
 }
 
 func (changes resourceChanges) inverse() inverseResources {
@@ -263,6 +477,9 @@ type nodeState struct {
 	// resources owns the current desired state, including generation-tagged
 	// removal tombstones.
 	resources cacheResources
+	// strictRefs is allocated only for strict ADS nodes when a mutation first
+	// touches LDS/RDS or CDS/EDS consistency. Nil means not yet indexed.
+	strictRefs *strictReferenceCounts
 	// unsentRollbacks retains at most one coalesced response rollback per
 	// resource type until go-control-plane produces a response carrying it.
 	// Once a response is observed, ownership moves exclusively to the
@@ -2293,12 +2510,25 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 	if state == nil {
 		state = &nodeState{}
 	}
+	checkStrictConsistency := c.strictAdsMode && changes.affectsStrictConsistency()
+	var strictChanges strictConsistencyChanges
+	if checkStrictConsistency {
+		var err error
+		strictChanges, err = state.validateStrictConsistency(changes)
+		if err != nil {
+			tx.updateErr = fmt.Errorf("strict ADS cache mutation is inconsistent: %w", err)
+			return tx.updateErr
+		}
+	}
 	if !stateExisted {
 		c.nodeStates[tx.nodeID] = state
 		tx.state = state
 	}
 	oldResourceGeneration := state.resourceGeneration
 	state.commitResourceMutation(changes)
+	if checkStrictConsistency {
+		state.strictRefs.apply(strictChanges, 1)
+	}
 	if tracking == callerAndResponseRollbackTracking {
 		state.updateInverseRollbackOwners(inverse, tx.generation, 1)
 	}
@@ -2331,6 +2561,9 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 			}
 			for _, change := range changes.more {
 				state.resources[change.typeURL].commitEntry(change.name, change.previous)
+			}
+			if checkStrictConsistency {
+				state.strictRefs.apply(strictChanges, -1)
 			}
 			state.releaseRollbackSet(rollbacks)
 			state.resourceGeneration = oldResourceGeneration

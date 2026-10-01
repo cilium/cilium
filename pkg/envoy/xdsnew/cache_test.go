@@ -835,6 +835,171 @@ func TestGenerateSnapshotRejectsInvalidResourceContent(t *testing.T) {
 	require.Nil(t, snapshot)
 }
 
+func strictTestListener(t *testing.T, name, route string) *envoy_config_listener.Listener {
+	t.Helper()
+	return &envoy_config_listener.Listener{
+		Name: name,
+		FilterChains: []*envoy_config_listener.FilterChain{{
+			Filters: []*envoy_config_listener.Filter{{
+				Name: "envoy.filters.network.http_connection_manager",
+				ConfigType: &envoy_config_listener.Filter_TypedConfig{
+					TypedConfig: mustAny(t, &envoy_config_http.HttpConnectionManager{
+						RouteSpecifier: &envoy_config_http.HttpConnectionManager_Rds{
+							Rds: &envoy_config_http.Rds{RouteConfigName: route},
+						},
+					}),
+				},
+			}},
+		}},
+	}
+}
+
+func strictTestEDSCluster(name, endpoint string) *envoy_config_cluster.Cluster {
+	return &envoy_config_cluster.Cluster{
+		Name:                 name,
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+		EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{
+			ServiceName: endpoint,
+		},
+	}
+}
+
+func TestStrictADSValidatesRouteMutationsBeforeCommit(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), true).(*cacheImpl)
+	const nodeID = "node1"
+	listener := strictTestListener(t, "listener1", "route1")
+	route := &envoy_config_route.RouteConfiguration{Name: "route1"}
+
+	rollback, err := c.ApplyResourcesWithRollback(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
+		Routes: map[string]*envoy_config_route.RouteConfiguration{"route1": route},
+	}}, nil, TypeURLCallbacks{})
+	require.ErrorContains(t, err, "orphan RDS resource \"route1\"")
+	require.Nil(t, rollback)
+	require.Nil(t, c.nodeStates[nodeID], "rejection must not create desired state")
+
+	rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Listener, "listener1", listener, nil, nil)
+	require.ErrorContains(t, err, "missing RDS resource \"route1\"")
+	require.Nil(t, rollback)
+	require.Nil(t, c.nodeStates[nodeID])
+
+	// Applying both sides in one transaction is valid regardless of map order.
+	err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
+		Listeners: map[string]*envoy_config_listener.Listener{"listener1": listener},
+		Routes:    map[string]*envoy_config_route.RouteConfiguration{"route1": route},
+	}}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(&cache.Request{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.ListenerType,
+	}, stream.NewSotwSubscription(nil, false), responses)
+	require.NoError(t, err)
+	<-responses
+	cancel()
+	require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Listener, "listener2",
+		strictTestListener(t, "listener2", "route1"), nil, nil)
+	require.NoError(t, err)
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Listener, "listener1", nil, nil, nil)
+	require.NoError(t, err, "the second listener still references route1")
+	rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Listener, "listener2", nil, nil, nil)
+	require.ErrorContains(t, err, "orphan RDS resource \"route1\"")
+	require.Nil(t, rollback)
+	_, exists := c.GetResource(nodeID, typeurl.Listener, "listener2")
+	require.True(t, exists, "a rejected mutation must leave the listener intact")
+
+	err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{Removed: xds.Resources{
+		Listeners: map[string]*envoy_config_listener.Listener{"listener2": strictTestListener(t, "listener2", "route1")},
+		Routes:    map[string]*envoy_config_route.RouteConfiguration{"route1": route},
+	}}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+	_, exists = c.GetResource(nodeID, typeurl.Route, "route1")
+	require.False(t, exists)
+}
+
+func TestStrictADSValidatesEndpointMutationsBeforeCommit(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), true).(*cacheImpl)
+	const nodeID = "node1"
+	endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
+
+	rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Endpoint, "endpoint", endpoint, nil, nil)
+	require.ErrorContains(t, err, "orphan EDS resource \"endpoint\"")
+	require.Nil(t, rollback)
+	require.Nil(t, c.nodeStates[nodeID])
+
+	// An EDS Cluster without an explicit CLA is valid: publication synthesizes
+	// an empty assignment for its reference.
+	cluster1 := strictTestEDSCluster("cluster1", "endpoint")
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster1", cluster1, nil, nil)
+	require.NoError(t, err)
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(&cache.Request{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.ClusterType,
+	}, stream.NewSotwSubscription(nil, false), responses)
+	require.NoError(t, err)
+	<-responses
+	cancel()
+	require.NoError(t, CheckSnapshotConsistency(mustSnapshot(t, c, nodeID)))
+
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Endpoint, "endpoint", endpoint, nil, nil)
+	require.NoError(t, err)
+	cluster2 := strictTestEDSCluster("cluster2", "endpoint")
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster2", cluster2, nil, nil)
+	require.NoError(t, err)
+	err = c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster1", nil, nil, nil)
+	require.NoError(t, err, "the second cluster still references the CLA")
+	rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Cluster, "cluster2", nil, nil, nil)
+	require.ErrorContains(t, err, "orphan EDS resource \"endpoint\"")
+	require.Nil(t, rollback)
+
+	// Removing both the final reference and the explicit CLA is atomic.
+	err = c.ApplyResources(t.Context(), nodeID, ResourceMutations{Removed: xds.Resources{
+		Clusters:  map[string]*envoy_config_cluster.Cluster{"cluster2": cluster2},
+		Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{"endpoint": endpoint},
+	}}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+	_, exists := c.GetResource(nodeID, typeurl.Endpoint, "endpoint")
+	require.False(t, exists)
+}
+
+func TestStrictADSReferenceIndexRestoredAfterPublicationFailure(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newInitializedTestCache(mock)
+	c.strictAdsMode = true
+	const nodeID = "node1"
+	route := &envoy_config_route.RouteConfiguration{Name: "route1"}
+	listener1 := strictTestListener(t, "listener1", "route1")
+	err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
+		Listeners: map[string]*envoy_config_listener.Listener{"listener1": listener1},
+		Routes:    map[string]*envoy_config_route.RouteConfiguration{"route1": route},
+	}}, nil, TypeURLCallbacks{})
+	require.NoError(t, err)
+
+	// The mock leaves the listener watch open, so the next mutation attempts
+	// synchronous publication and can exercise its restoration path.
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(&cache.Request{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: envoy_resource.ListenerType,
+	}, stream.NewSotwSubscription(nil, false), responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+
+	mock.setSnapshotErr = errors.New("snapshot publication failed")
+	rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Listener, "listener2",
+		strictTestListener(t, "listener2", "route1"), nil, nil)
+	require.ErrorContains(t, err, "snapshot publication failed")
+	require.Nil(t, rollback)
+	_, exists := c.GetResource(nodeID, typeurl.Listener, "listener2")
+	require.False(t, exists)
+	mock.setSnapshotErr = nil
+
+	// If the failed transaction left a phantom reference in the index, this
+	// removal would be incorrectly accepted and orphan the route.
+	rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Listener, "listener1", nil, nil, nil)
+	require.ErrorContains(t, err, "orphan RDS resource \"route1\"")
+	require.Nil(t, rollback)
+}
+
 func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
 	mock := newMockSnapshotCache()
 	c := newInitializedTestCache(mock)
@@ -939,6 +1104,23 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 			require.Greater(t, c.resourceGeneration, previousGeneration, "global generations are never rewound")
 		})
 	}
+}
+
+func TestNonStrictADSAllowsOrphanEndpoint(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+	err := c.ApplyResource(t.Context(), "node1", typeurl.Endpoint, "orphan",
+		&envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "orphan"}, nil, nil)
+	require.NoError(t, err)
+	require.Nil(t, c.nodeStates["node1"].strictRefs)
+}
+
+func TestStrictADSIgnoresUnrelatedResourceMutations(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), true).(*cacheImpl)
+	err := c.ApplyResource(t.Context(), "node1", typeurl.Secret, "secret1",
+		&envoy_config_tls.Secret{Name: "secret1"}, nil, nil)
+	require.NoError(t, err)
+	require.Nil(t, c.nodeStates["node1"].strictRefs,
+		"unrelated mutations should not initialize the consistency index")
 }
 
 func TestNewCache(t *testing.T) {
