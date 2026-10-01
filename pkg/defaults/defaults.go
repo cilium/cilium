@@ -140,11 +140,6 @@ const (
 	// datapath is updated with the new IP information.
 	FQDNProxyResponseMaxDelay = 100 * time.Millisecond
 
-	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
-	// global cache on startup.
-	// The file is not re-read after agent start.
-	ToFQDNsPreCache = ""
-
 	// DNSProxyEnableTransparentMode enables transparent mode for the DNS proxy.
 	DNSProxyEnableTransparentMode = false
 

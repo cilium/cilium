@@ -1859,9 +1859,6 @@
         "preAllocateIdentities": {
           "type": "boolean"
         },
-        "preCache": {
-          "type": "string"
-        },
         "proxyPort": {
           "type": "integer"
         },

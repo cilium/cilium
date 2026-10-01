@@ -1268,10 +1268,6 @@
      - Pre-allocate ToFQDN identities. This reduces DNS proxy tail latency, at the potential cost of some unnecessary policymap entries. Disable this if you have a large (200+) number of unique ToFQDN selectors.
      - bool
      - ``true``
-   * - :spelling:ignore:`dnsProxy.preCache`
-     - DNS cache data at this path is preloaded on agent startup. (deprecated: will be removed in v1.21)
-     - string
-     - ``""``
    * - :spelling:ignore:`dnsProxy.proxyPort`
      - Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
      - int

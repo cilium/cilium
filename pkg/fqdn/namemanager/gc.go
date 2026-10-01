@@ -6,7 +6,6 @@ package namemanager
 import (
 	"context"
 	"net/netip"
-	"os"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -15,7 +14,6 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -160,27 +158,8 @@ func (n *manager) doGC(ctx context.Context) error {
 }
 
 // RestorationNotify implements endpointstate.RestorationNotifier and loads cache state from the restored system:
-// - adds any pre-cached DNS entries
 // - repopulates the cache from the (persisted) endpoint DNS cache and zombies
 func (n *manager) RestorationNotify(possibleEndpoints map[uint16]*endpoint.Endpoint) {
-	// Prefill the cache with the CLI provided pre-cache data. This allows various bridging arrangements during upgrades, or just ensure critical DNS mappings remain.
-	// TODO: remove this; it was needed for the v1.3-v1.4 upgrade
-	preCachePath := option.Config.ToFQDNsPreCache
-	if preCachePath != "" {
-		n.logger.Info("Reading toFQDNs pre-cache data")
-		precache, err := readPreCache(preCachePath)
-		if err != nil {
-			n.logger.Error("Cannot parse toFQDNs pre-cache data. Please ensure the file is JSON and follows the documented format",
-				logfields.Error, err,
-				logfields.Path, preCachePath,
-			)
-			// We do not stop the agent here. It is safer to continue with best effort
-			// than to enter crash backoffs when this file is broken.
-		} else {
-			n.cache.UpdateFromCache(precache)
-		}
-	}
-
 	// Prefill the cache with DNS lookups from restored endpoints. This is needed
 	// to maintain continuity of which IPs are allowed. The GC cascade logic
 	// below mimics the logic found in the dns-garbage-collector controller.
@@ -214,19 +193,4 @@ func (n *manager) RestorationNotify(possibleEndpoints map[uint16]*endpoint.Endpo
 			}
 		}
 	}
-}
-
-// readPreCache returns a fqdn.DNSCache object created from the json data at
-// preCachePath
-func readPreCache(preCachePath string) (cache *fqdn.DNSCache, err error) {
-	data, err := os.ReadFile(preCachePath)
-	if err != nil {
-		return nil, err
-	}
-
-	cache = fqdn.NewDNSCache(0) // no per-host limit here
-	if err = cache.UnmarshalJSON(data); err != nil {
-		return nil, err
-	}
-	return cache, nil
 }

@@ -374,11 +374,6 @@ const (
 	// previously active connections with expired DNS lookups are still considered alive
 	ToFQDNsIdleConnectionGracePeriod = "tofqdns-idle-connection-grace-period"
 
-	// ToFQDNsPreCache is a path to a file with DNS cache data to insert into the
-	// global cache on startup.
-	// The file is not re-read after agent start.
-	ToFQDNsPreCache = "tofqdns-pre-cache"
-
 	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
 	// DNS proxy at any given point in time.
 	DNSProxyConcurrencyLimit = "dnsproxy-concurrency-limit"
@@ -1480,9 +1475,6 @@ type DaemonConfig struct {
 	// FQDNRegexCompileLRUSize is the size of the FQDN regex compilation LRU.
 	// Useful for heavy but repeated FQDN MatchName or MatchPattern use.
 	FQDNRegexCompileLRUSize uint
-
-	// Path to a file with DNS cache data to preload on startup
-	ToFQDNsPreCache string
 
 	// DNSProxyConcurrencyLimit limits parallel processing of DNS messages in
 	// DNS proxy at any given point in time.
@@ -2664,7 +2656,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 		c.ToFQDNsMinTTL = defaults.ToFQDNsMinTTL
 	}
 	c.ToFQDNsProxyPort = vp.GetInt(ToFQDNsProxyPort)
-	c.ToFQDNsPreCache = vp.GetString(ToFQDNsPreCache)
 	c.ToFQDNsIdleConnectionGracePeriod = vp.GetDuration(ToFQDNsIdleConnectionGracePeriod)
 	c.FQDNProxyResponseMaxDelay = vp.GetDuration(FQDNProxyResponseMaxDelay)
 	c.DNSProxyConcurrencyLimit = vp.GetInt(DNSProxyConcurrencyLimit)
