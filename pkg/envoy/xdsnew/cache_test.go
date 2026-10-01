@@ -471,17 +471,69 @@ func TestCiliumSnapshotIndexedResourceVersionMaps(t *testing.T) {
 	snapshot, err := c.GenerateSnapshot(resources, c.logger)
 	require.NoError(t, err)
 	require.Equal(t, resources.NetworkPolicies["np1"], snapshot.GetResources(NetworkPolicyTypeURL)["np1"])
-	require.Nil(t, snapshot.GetVersionMap(NetworkPolicyTypeURL))
 	require.Empty(t, snapshot.GetVersion("type.googleapis.com/unknown.Resource"))
 	require.Nil(t, snapshot.GetResourcesAndTTL("type.googleapis.com/unknown.Resource"))
 
-	require.NoError(t, snapshot.ConstructVersionMap())
 	marshaled, err := cache.MarshalResource(resources.NetworkPolicies["np1"])
 	require.NoError(t, err)
+	// Content versions are ready before the snapshot is published. The
+	// go-control-plane hook must not marshal resources or mutate this state.
 	require.Equal(t, cache.HashResource(marshaled), snapshot.GetVersionMap(NetworkPolicyTypeURL)["np1"])
 	require.Nil(t, snapshot.GetVersionMap(envoy_resource.EndpointType))
 	require.Nil(t, snapshot.GetVersionMap("type.googleapis.com/unknown.Resource"))
 	require.NoError(t, snapshot.ConstructVersionMap())
+	require.NoError(t, snapshot.ConstructVersionMap())
+	require.Equal(t, cache.HashResource(marshaled), snapshot.GetVersionMap(NetworkPolicyTypeURL)["np1"])
+}
+
+func TestGenerateSnapshotContentVersionMapsMatchPublishedResources(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+	resources := emptyResources()
+	resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
+	resources.Routes["route"] = &envoy_config_route.RouteConfiguration{Name: "route"}
+	resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{
+		Name:                 "cluster",
+		ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+	}
+	resources.Secrets["secret"] = &envoy_config_tls.Secret{Name: "secret"}
+	resources.NetworkPolicies["policy"] = &cilium.NetworkPolicy{EndpointId: 1}
+	resources.NetworkPolicyHosts["hosts"] = &cilium.NetworkPolicyHosts{Policy: 1}
+
+	snapshot, err := c.GenerateSnapshot(resources, c.logger)
+	require.NoError(t, err)
+	for typeURL := range typeurl.Indices() {
+		published := snapshot.GetResourcesAndTTL(typeURL.URL())
+		versions := snapshot.GetVersionMap(typeURL.URL())
+		require.Len(t, published, 1, "resource type %s", typeURL.URL())
+		require.Len(t, versions, len(published), "resource type %s", typeURL.URL())
+		for name, resource := range published {
+			marshaled, err := cache.MarshalResource(resource.Resource)
+			require.NoError(t, err)
+			require.Equal(t, cache.HashResource(marshaled), versions[name])
+		}
+	}
+	// The generated empty CLA is versioned without changing the authoritative
+	// input resource maps.
+	require.Contains(t, snapshot.GetVersionMap(envoy_resource.EndpointType), "cluster")
+	require.Empty(t, resources.Endpoints)
+
+	emptySnapshot, err := c.GenerateSnapshot(nil, c.logger)
+	require.NoError(t, err)
+	for typeURL := range typeurl.Indices() {
+		require.Nil(t, emptySnapshot.GetResourcesAndTTL(typeURL.URL()))
+		require.Nil(t, emptySnapshot.GetVersionMap(typeURL.URL()))
+	}
+}
+
+func TestGenerateSnapshotRejectsInvalidResourceContent(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+	resources := emptyResources()
+	// Protobuf binary encoding rejects invalid UTF-8. The failure must be
+	// reported during construction, not later when a watch consumes the snapshot.
+	resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "\xff"}
+	snapshot, err := c.GenerateSnapshot(resources, c.logger)
+	require.Error(t, err)
+	require.Nil(t, snapshot)
 }
 
 func TestNewCache(t *testing.T) {
