@@ -97,6 +97,7 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	cfg.DisableExternalIPMitigation = option.Config.DisableExternalIPMitigation
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
+	cfg.EnableScaleToZero = lnc.LBConfig.EnableScaleToZero
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort

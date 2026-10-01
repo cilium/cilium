@@ -417,6 +417,12 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.EnableWildcardEntries != other.EnableWildcardEntries {
 		return false
 	}
+	if in.EnableScaleToZero != other.EnableScaleToZero {
+		return false
+	}
+	if in.ScaleToZeroIdleTimeout != other.ScaleToZeroIdleTimeout {
+		return false
+	}
 
 	return true
 }

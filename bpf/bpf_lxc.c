@@ -86,12 +86,17 @@ lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
  * in bpf_sock, so we must check for those via per packet LB as well.
  * Furthermore, since SCTP cannot be handled as part of bpf_sock, also
  * enable per-packet LB is SCTP is enabled.
+ * Scale-to-zero needs it too: a connection held while the service had no
+ * backends keeps the service address for its whole lifetime, because bpf_sock
+ * let it through untranslated, so the DNAT has to happen per packet once the
+ * backends show up.
  */
 #define ENABLE_PER_PACKET_LB (!CONFIG(enable_socket_lb_full) || \
     is_defined(ENABLE_SOCKET_LB_HOST_ONLY) || \
     is_defined(ENABLE_L7_LB)               || \
     CONFIG(enable_sctp)                    || \
-    is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING))
+    is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING) || \
+    CONFIG(enable_scale_to_zero))
 
 struct nodeport_nat_info {
 	union v6addr nat_addr;

@@ -16,6 +16,7 @@ struct {
 enum {
 	SIGNAL_NAT_FILL_UP = 0,
 	UNUSED,
+	SIGNAL_SCALE_FROM_ZERO,
 };
 
 enum {
@@ -29,6 +30,7 @@ struct signal_msg {
 		struct {
 			__u32 proto;
 		};
+		__u32 rev_nat_index;
 	};
 };
 
@@ -51,4 +53,10 @@ static __always_inline void send_signal_nat_fill_up(const struct __ctx_buff *ctx
 						    __u32 proto)
 {
 	SEND_SIGNAL(ctx, SIGNAL_NAT_FILL_UP, proto, proto);
+}
+
+static __always_inline void send_signal_scale_from_zero(const struct __ctx_buff *ctx,
+							__u16 rev_nat_index)
+{
+	SEND_SIGNAL(ctx, SIGNAL_SCALE_FROM_ZERO, rev_nat_index, rev_nat_index);
 }
