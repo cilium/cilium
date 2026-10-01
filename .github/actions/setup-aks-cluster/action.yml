@@ -15,6 +15,18 @@ inputs:
     description: ''
     required: false
     default: 2
+  timeout_minutes:
+    description: 'Budget for this action, matching the caller step timeout-minutes.'
+    required: false
+    default: 54
+  attempt_deadline:
+    description: 'Seconds the first create may stay in Creating before this action abandons it.'
+    required: false
+    default: 1200
+  retry_deadline:
+    description: 'Seconds the second create may stay in Creating.'
+    required: false
+    default: 1200
   tags:
     description: ''
     required: false
@@ -23,6 +35,10 @@ inputs:
     description: ''
     required: false
     default: ''
+outputs:
+  cluster_name:
+    description: 'Name of the cluster that provisioned.'
+    value: ${{ steps.create.outputs.cluster_name }}
 runs:
   using: composite
   steps:
@@ -34,12 +50,16 @@ runs:
         parsing: text
 
     - name: Create AKS cluster
+      id: create
       shell: bash
       env:
         CLUSTER_NAME: ${{ inputs.cluster_name }}
         LOCATION: ${{ inputs.location }}
         K8S_VERSION: ${{ inputs.version }}
         NODE_COUNT: ${{ inputs.node_count }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        ATTEMPT_DEADLINE: ${{ inputs.attempt_deadline }}
+        RETRY_DEADLINE: ${{ inputs.retry_deadline }}
         TAGS: ${{ inputs.tags }}
         TAINTS: ${{ inputs.taints }}
         AUTHORIZED_IP_RANGES: ${{ steps.get-runner-ip.outputs.cidr }}

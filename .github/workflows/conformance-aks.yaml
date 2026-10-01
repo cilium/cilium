@@ -95,6 +95,7 @@ concurrency:
 env:
   name: ${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
   cost_reduction: --node-vm-size Standard_B2s --node-osdisk-size 64
+  create_timeout_minutes: 54
   test_concurrency: 5
 
 jobs:
@@ -305,10 +306,12 @@ jobs:
           creds: ${{ secrets.AZURE_PR_SP_CREDS }}
 
       - name: Create AKS cluster
-        timeout-minutes: 20
+        id: create-cluster
+        timeout-minutes: ${{ fromJSON(env.create_timeout_minutes) }}
         uses: ./.github/actions/setup-aks-cluster
         with:
           cluster_name: ${{ env.name }}
+          timeout_minutes: ${{ env.create_timeout_minutes }}
           location: ${{ matrix.location }}
           version: ${{ matrix.version }}
           tags: "usage=${{ github.repository_owner }}-${{ github.event.repository.name }} owner=${{ steps.vars.outputs.owner }}"
@@ -318,7 +321,7 @@ jobs:
         run: |
           az aks get-credentials \
             --resource-group ${{ env.name }} \
-            --name ${{ env.name }}
+            --name ${{ steps.create-cluster.outputs.cluster_name }}
 
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
