@@ -118,13 +118,13 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 		cfg.HostNetNSCookie = cookie
 	}
 
-	cfg.EnableSocketLBTracing = option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
 	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 	cfg.SocketLB.HostNSOnly = lnc.KPRConfig.EnableSocketLB &&
 		option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly
+	cfg.SocketLB.EnableTracing = option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
 
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 

@@ -83,6 +83,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 			cfg.EnableSocketLBFull = true
 		}
 	}
+	cfg.SocketLB.EnableTracing = option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
 
 	return cfg
 }
