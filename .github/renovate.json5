@@ -93,7 +93,11 @@
     // 'auto-merge-trusted-deps' membership below would otherwise re-pin the
     // digest back to v3.0.0 and silently revert it. Drop this entry once
     // upstream tags a release above v3.0.0 containing that fix.
-    "google-github-actions/auth"
+    "google-github-actions/auth",
+    // We update this dependency manually together with envoy proxy updates
+    "github.com/cilium/proxy",
+    // We update this dependency manually together with conformance test changes
+    "sigs.k8s.io/gateway-api"
   ],
   "pinDigests": true,
   // We don't want to separate major and minor upgrades in separate PRs since
@@ -476,10 +480,6 @@
         "github.com/cilium/gobgp/v3",
 
         "github.com/cilium/client-go",
-        // We update this dependency manually together with envoy proxy updates
-        "github.com/cilium/proxy",
-        // We update this dependency manually together with conformance test changes
-        "sigs.k8s.io/gateway-api",
         // We can't update these libraries until github.com/shoenig/go-m1cpu
         // is added as an exception to the list of licenses into CNCF.
         "/.*google/gops/*/",
