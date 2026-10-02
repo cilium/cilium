@@ -8,12 +8,60 @@ import (
 	"net/netip"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
+
+type dnsEndpointManager struct {
+	endpointmanager.EndpointManager
+	endpoints map[uint16]*endpoint.Endpoint
+}
+
+func (m dnsEndpointManager) LookupCiliumID(id uint16) *endpoint.Endpoint {
+	return m.endpoints[id]
+}
+
+func TestPayloadGetters_GetNamesOfUsesEndpointState(t *testing.T) {
+	db := statedb.New()
+	table, err := fqdn.NewEndpointFQDNStateTable(db)
+	require.NoError(t, err)
+	ip := netip.MustParseAddr("1.1.1.1")
+	otherIP := netip.MustParseAddr("2.2.2.2")
+	now := time.Now()
+	rows := []fqdn.EndpointFQDNMapping{
+		{EndpointID: 42, Name: "example.com.", IP: ip, ExpirationTime: now.Add(time.Minute)},
+		{EndpointID: 43, Name: "example.org.", IP: ip, ExpirationTime: now.Add(time.Minute)},
+		{EndpointID: 42, Name: "expired.example.", IP: ip, ExpirationTime: now.Add(-time.Minute)},
+		{EndpointID: 42, Name: "other.example.", IP: otherIP, ExpirationTime: now.Add(time.Minute)},
+	}
+	txn := db.WriteTxn(table)
+	for _, row := range rows {
+		_, _, err := table.Insert(txn, row)
+		require.NoError(t, err)
+	}
+	txn.Commit()
+
+	getter := payloadGetters{
+		db:                db,
+		endpointFQDNTable: table.ToTable(),
+		endpointManager: dnsEndpointManager{endpoints: map[uint16]*endpoint.Endpoint{
+			42: {ID: 42},
+			43: {ID: 43},
+		}},
+	}
+	require.Equal(t, []string{"example.com"}, getter.GetNamesOf(42, ip))
+	require.Equal(t, []string{"example.org"}, getter.GetNamesOf(43, ip))
+	require.Nil(t, getter.GetNamesOf(44, ip))
+	require.Nil(t, getter.GetNamesOf(0x1002a, ip))
+	require.Nil(t, getter.GetNamesOf(42, netip.Addr{}))
+}
 
 func TestPayloadGetters_GetServiceByAddr(t *testing.T) {
 	db := statedb.New()

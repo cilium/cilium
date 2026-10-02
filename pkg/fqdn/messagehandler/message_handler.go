@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/cilium/dns"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -79,6 +80,8 @@ type dnsMessageHandler struct {
 	logger            *slog.Logger
 	nameManager       namemanager.NameManager
 	proxyAccessLogger accesslog.ProxyAccessLogger
+	db                *statedb.DB
+	endpointFQDNTable statedb.RWTable[fqdn.EndpointFQDNMapping]
 	DNSRequestHandler DNSMessageHandler
 
 	bindPort uint16
@@ -341,6 +344,7 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		}
 		ep.SyncEndpointHeaderFile()
 	}
+	h.updateEndpointFQDNState(ep.ID, qname, responseIPs, lookupTime, TTL, ep.DNSHistory.MinTTL())
 	stat.UpdateEpCacheTime.End(true)
 
 	h.logger.Debug("Updating DNS name in cache from response to query",
@@ -376,4 +380,37 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		logfields.EndpointID, ep.GetID(),
 		logfields.DNSName, qname,
 	)
+}
+
+func (h *dnsMessageHandler) updateEndpointFQDNState(endpointID uint16, name string, ips []netip.Addr, lookupTime time.Time, ttl, minTTL int) {
+	if h.db == nil || h.endpointFQDNTable == nil || name == "" || ttl < 0 {
+		return
+	}
+	if minTTL > ttl {
+		ttl = minTTL
+	}
+
+	txn := h.db.WriteTxn(h.endpointFQDNTable)
+	expirationTime := lookupTime.Add(time.Duration(ttl) * time.Second)
+	for _, ip := range ips {
+		mapping := fqdn.EndpointFQDNMapping{
+			EndpointID:     endpointID,
+			Name:           name,
+			IP:             ip.Unmap(),
+			LookupTime:     lookupTime,
+			TTL:            uint32(ttl),
+			ExpirationTime: expirationTime,
+		}
+		_, _, err := h.endpointFQDNTable.Modify(txn, mapping, func(old, new fqdn.EndpointFQDNMapping) fqdn.EndpointFQDNMapping {
+			if old.ExpirationTime.After(new.ExpirationTime) {
+				return old
+			}
+			return new
+		})
+		if err != nil {
+			h.logger.Warn("Unable to persist endpoint FQDN mapping", logfields.Error, err,
+				logfields.EndpointID, endpointID, logfields.DNSName, name, logfields.IPAddr, ip)
+		}
+	}
+	txn.Commit()
 }
