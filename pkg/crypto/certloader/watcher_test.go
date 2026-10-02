@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/testutils"
@@ -49,7 +50,9 @@ func TestNewWatcher(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, caCertPool); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 }
 
 func TestRotation(t *testing.T) {
@@ -92,7 +95,9 @@ func TestRotation(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, caCertPool); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 }
 
 func TestFutureWatcherImmediately(t *testing.T) {
@@ -123,7 +128,9 @@ func TestFutureWatcherImmediately(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, caCertPool); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 }
 
 func TestFutureWatcher(t *testing.T) {
@@ -165,7 +172,9 @@ func TestFutureWatcher(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, caCertPool); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 }
 
 func TestFutureWatcherShutdownBeforeReady(t *testing.T) {
@@ -229,7 +238,9 @@ func TestKubernetesMount(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedInitialKeypair, keypair)
-	assert.Equal(t, expectedInitialCaCertPool.Subjects(), caCertPool.Subjects())
+	if diff := cmp.Diff(expectedInitialCaCertPool, caCertPool); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 
 	prevKeypairGeneration, prevCaCertPoolGeneration := w.generations()
 	k8sRotate(t, dir)
@@ -257,5 +268,7 @@ func TestKubernetesMount(t *testing.T) {
 
 	keypair, caCertPool = w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedRotatedKeypair, keypair)
-	assert.Equal(t, expectedRotatedCaCertPool.Subjects(), caCertPool.Subjects())
+	if diff := cmp.Diff(expectedRotatedCaCertPool, caCertPool); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 }

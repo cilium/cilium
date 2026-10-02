@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -379,7 +380,9 @@ func TestKeypairAndCACertPool(t *testing.T) {
 			keypair, caCertPool := r.KeypairAndCACertPool()
 			assert.Equal(t, tt.expectedKeypair, keypair)
 			if tt.expectedCaCertPool != nil {
-				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+				if diff := cmp.Diff(tt.expectedCaCertPool, caCertPool); diff != "" {
+					t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+				}
 			} else {
 				assert.Nil(t, caCertPool)
 			}
@@ -456,7 +459,9 @@ func TestPrivilegedReload(t *testing.T) {
 			assert.Equal(t, tt.expectedKeypair, keypair)
 			// caCertPool check
 			if tt.expectedCaCertPool != nil {
-				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+				if diff := cmp.Diff(tt.expectedCaCertPool, caCertPool); diff != "" {
+					t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+				}
 			} else {
 				assert.Nil(t, caCertPool)
 			}
@@ -476,7 +481,9 @@ func TestPrivilegedReload(t *testing.T) {
 			keypair, caCertPool = r.KeypairAndCACertPool()
 			assert.Equal(t, tt.expectedKeypair, keypair)
 			if tt.expectedCaCertPool != nil {
-				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+				if diff := cmp.Diff(tt.expectedCaCertPool, caCertPool); diff != "" {
+					t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+				}
 			} else {
 				assert.Nil(t, caCertPool)
 			}
@@ -613,7 +620,9 @@ func TestReloadCA(t *testing.T) {
 			assert.NoError(t, err)
 			// caCertPool check
 			if tt.expectedCaCertPool != nil {
-				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+				if diff := cmp.Diff(tt.expectedCaCertPool, caCertPool); diff != "" {
+					t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+				}
 			} else {
 				assert.Nil(t, caCertPool)
 			}
@@ -628,7 +637,9 @@ func TestReloadCA(t *testing.T) {
 			keypair, caCertPool := r.KeypairAndCACertPool()
 			assert.Nil(t, keypair)
 			if tt.expectedCaCertPool != nil {
-				assert.Equal(t, tt.expectedCaCertPool.Subjects(), caCertPool.Subjects())
+				if diff := cmp.Diff(tt.expectedCaCertPool, caCertPool); diff != "" {
+					t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+				}
 			} else {
 				assert.Nil(t, caCertPool)
 			}
@@ -657,7 +668,9 @@ func TestReloadError(t *testing.T) {
 
 	keypair, caCertPool := r.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, caCertPool); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 
 	// delete one of the keypair file, so that reloading the keypair should
 	// fail.
@@ -672,7 +685,9 @@ func TestReloadError(t *testing.T) {
 	// we expect keypair and caCertPool to not have changed on failed reload.
 	keypair, caCertPool = r.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, caCertPool); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 	// generations should not have changed
 	keypairGeneration, caCertPoolGeneration := r.generations()
 	assert.Equal(t, prevKeypairGeneration, keypairGeneration)

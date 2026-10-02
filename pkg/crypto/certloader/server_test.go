@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/testutils"
@@ -138,7 +139,9 @@ func TestNewWatchedServerConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, tlsConfig)
 	assert.Equal(t, []tls.Certificate{expectedKeypair}, tlsConfig.Certificates)
-	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.ClientCAs.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, tlsConfig.ClientCAs); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 	assert.Equal(t, tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
@@ -193,7 +196,9 @@ func TestWatchedServerConfigRotation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, tlsConfig)
 	assert.Equal(t, []tls.Certificate{expectedKeypair}, tlsConfig.Certificates)
-	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.ClientCAs.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, tlsConfig.ClientCAs); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 	assert.Equal(t, tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
