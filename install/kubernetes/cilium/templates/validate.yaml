@@ -55,6 +55,13 @@
   {{- fail "Both k8sServiceHostRef and k8sServiceHost are set. Please set only one of them." }}
 {{- end }}
 
+{{/* validate ingress controller shared service ports */}}
+{{- if .Values.ingressController.enabled }}
+  {{- if and (not .Values.ingressController.service.insecurePortEnabled) (not .Values.ingressController.service.securePortEnabled) }}
+    {{- fail "ingressController.service.insecurePortEnabled and ingressController.service.securePortEnabled cannot both be false. A Service needs at least one port." }}
+  {{- end }}
+{{- end }}
+
 {{/* validate hubble config */}}
 {{- if and .Values.hubble.ui.enabled (not .Values.hubble.ui.standalone.enabled) }}
   {{- if not .Values.hubble.relay.enabled }}
