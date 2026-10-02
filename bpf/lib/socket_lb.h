@@ -3,7 +3,10 @@
 
 #pragma once
 
+/* Note: enable_full and hostns_only are mutually exclusive. */
 struct socket_lb_config {
+	/* Enable full socketlb. */
+	bool enable_full;
 	/* Only run the socketlb in the host network namespace. */
 	bool hostns_only;
 	/* Enable tracing. */

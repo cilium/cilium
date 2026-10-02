@@ -914,6 +914,7 @@ type SkipLB6Key struct {
 // SocketLBConfig is generated from the BPF C type socket_lb_config.
 type SocketLBConfig struct {
 	_             structs.HostLayout
+	EnableFull    bool
 	HostNSOnly    bool
 	EnableTracing bool
 }

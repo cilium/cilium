@@ -48,6 +48,6 @@ type BPFSock struct {
 
 func NewBPFSock(node Node) *BPFSock {
 	return &BPFSock{false, false, false, false, false, false, false, false, false,
-		0x0, 0x0, cast[types.SocketLBConfig]([]byte{0x0, 0x0}), 0x0,
-		0x0, 0x0, node}
+		0x0, 0x0, cast[types.SocketLBConfig]([]byte{0x0, 0x0, 0x0}),
+		0x0, 0x0, 0x0, node}
 }
