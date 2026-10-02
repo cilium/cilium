@@ -1466,9 +1466,6 @@ data:
   {{- if .Values.dnsProxy.minTtl }}
   tofqdns-min-ttl: {{ .Values.dnsProxy.minTtl | quote }}
   {{- end }}
-  {{- if .Values.dnsProxy.preCache }}
-  tofqdns-pre-cache: {{ .Values.dnsProxy.preCache | quote }}
-  {{- end }}
   {{- if .Values.dnsProxy.proxyPort }}
   tofqdns-proxy-port: {{ .Values.dnsProxy.proxyPort | quote }}
   {{- end }}

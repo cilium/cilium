@@ -4444,8 +4444,6 @@ dnsProxy:
   # overwrites the TTL with this value. Setting this value to zero means that
   # Cilium will honor the TTLs returned by the upstream DNS server.
   minTtl: 0
-  # -- DNS cache data at this path is preloaded on agent startup. (deprecated: will be removed in v1.21)
-  preCache: ""
   # -- Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.
   proxyPort: 0
   # -- The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information.

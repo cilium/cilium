@@ -112,6 +112,11 @@ from Cilium.
 * The previously deprecated ``clustermesh.apiserver.kvstoremesh.enabled`` helm
   value has been removed, and KVStoreMesh is now unconditionally enabled when the
   clustermesh-apiserver is enabled.
+* The ``--tofqdns-pre-cache`` agent flag and the corresponding Helm value
+  ``dnsProxy.preCache`` have been removed. The pre-cache file was only ever
+  needed to carry DNS mappings across the v1.3 to v1.4 upgrade. Agents restore
+  their DNS cache from the persisted per-endpoint DNS history on restart, so no
+  replacement is required.
 
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
