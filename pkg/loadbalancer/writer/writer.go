@@ -9,6 +9,7 @@ import (
 	"io"
 	"iter"
 	"log/slog"
+	"net/netip"
 	"slices"
 	"strings"
 	"sync"
@@ -47,11 +48,14 @@ type Writer struct {
 
 	selectBackendsFunc         SelectBackendsFunc
 	isServiceHealthCheckedFunc IsServiceHealthCheckedFunc
+	frontendSourceRangesFunc   FrontendSourceRangesFunc
 }
 
 type SelectBackendsFunc = func(statedb.ReadTxn, iter.Seq2[*loadbalancer.Backend, statedb.Revision], *loadbalancer.Service, *loadbalancer.Frontend) iter.Seq2[*loadbalancer.Backend, statedb.Revision]
 
 type IsServiceHealthCheckedFunc = func(*loadbalancer.Service) bool
+
+type FrontendSourceRangesFunc = func(*loadbalancer.Service, *loadbalancer.Frontend) (loadbalancer.SVCSourceRangesPolicy, []netip.Prefix, bool)
 
 // Backends for the local cluster are associated with ID 0, regardless of the real cluster id.
 const LocalClusterID = 0
@@ -94,6 +98,10 @@ func (w *Writer) SetSelectBackendsFunc(fn SelectBackendsFunc) {
 
 func (w *Writer) SetIsServiceHealthCheckedFunc(fn IsServiceHealthCheckedFunc) {
 	w.isServiceHealthCheckedFunc = fn
+}
+
+func (w *Writer) SetFrontendSourceRangesFunc(fn FrontendSourceRangesFunc) {
+	w.frontendSourceRangesFunc = fn
 }
 
 // SelectBackends filters backends associated with [svc]. If [optionalFrontend] is non-nil, then backends are further filtered
@@ -307,6 +315,8 @@ func (w *Writer) upsertFrontendParams(txn WriteTxn, params loadbalancer.Frontend
 	if found {
 		fe.ID = old.ID
 		fe.RedirectTo = old.RedirectTo
+		fe.SourceRanges = old.SourceRanges
+		fe.SourceRangesPolicy = old.SourceRangesPolicy
 	}
 
 	w.refreshFrontend(txn, fe)
@@ -406,6 +416,7 @@ func (w *Writer) updateServiceReferences(txn WriteTxn, svc *loadbalancer.Service
 		fe = fe.Clone()
 		fe.Status = reconciler.StatusPending()
 		fe.Service = svc
+		w.refreshFrontendSourceRanges(fe)
 		if _, _, err := w.fes.Insert(txn, fe); err != nil {
 			return err
 		}
@@ -415,6 +426,7 @@ func (w *Writer) updateServiceReferences(txn WriteTxn, svc *loadbalancer.Service
 
 func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *loadbalancer.Frontend) {
 	fe.Status = reconciler.StatusPending()
+	w.refreshFrontendSourceRanges(fe)
 	svc := fe.Service
 	if fe.RedirectTo != nil {
 		var found bool
@@ -426,6 +438,21 @@ func (w *Writer) refreshFrontend(txn statedb.ReadTxn, fe *loadbalancer.Frontend)
 	bes, _ := w.BackendsForService(txn, svc.Name)
 	fe.Backends = loadbalancer.BackendsSeq2(w.SelectBackends(txn, bes, svc, fe))
 	fe.HealthCheckBackends = loadbalancer.BackendsSeq2(w.SelectBackendsForHealthChecking(txn, bes, svc, fe))
+}
+
+func (w *Writer) refreshFrontendSourceRanges(fe *loadbalancer.Frontend) {
+	if w.frontendSourceRangesFunc != nil {
+		// frontendSourceRangesFunc can override sourceRanges enforcement per frontend
+		policy, sourceRanges, ok := w.frontendSourceRangesFunc(fe.Service, fe)
+		if ok {
+			fe.SourceRangesPolicy = policy
+			fe.SourceRanges = slices.Clone(sourceRanges)
+			return
+		}
+	}
+
+	fe.SourceRangesPolicy = fe.Service.GetSourceRangesPolicy()
+	fe.SourceRanges = slices.Clone(fe.Service.SourceRanges)
 }
 
 func (w *Writer) RefreshFrontends(txn WriteTxn, name loadbalancer.ServiceName) error {
