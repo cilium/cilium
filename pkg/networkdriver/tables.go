@@ -31,7 +31,7 @@ var deviceByName = statedb.Index[*DRADevice, string]{
 var allocationByKey = statedb.Index[*DRAAllocation, string]{
 	Name: "id",
 	FromObject: func(a *DRAAllocation) index.KeySet {
-		return index.NewKeySet(index.String(AllocationKey(a.Pool, a.DeviceName)))
+		return index.NewKeySet(index.String(AllocationKey(a.LogicalPool, a.DeviceName)))
 	},
 	FromKey:    index.String,
 	FromString: index.FromString,
@@ -68,7 +68,8 @@ var allocationByPodUID = statedb.Index[*DRAAllocation, string]{
 	Unique:     false,
 }
 
-// AllocationKey returns the primary key for a device allocation.
+// AllocationKey returns the primary key for a device allocation. pool is the
+// logical (user-configured) Cilium pool, not the DRA ResourceSlice pool name.
 func AllocationKey(pool, deviceName string) string {
 	return pool + "/" + deviceName
 }
@@ -115,10 +116,13 @@ type DRAAllocation struct {
 	DeviceName     string
 	Manager        types.DeviceManagerType
 	PreparedDevice types.Device
-	Pool           string
-	PodUID         kube_types.UID
-	ClaimUID       kube_types.UID
-	Config         types.DeviceConfig
+	// LogicalPool is the user-configured Cilium pool the device was matched
+	// against at allocation time — not the DRA ResourceSlice pool name (see
+	// allocation.LogicalPool for the full explanation).
+	LogicalPool string
+	PodUID      kube_types.UID
+	ClaimUID    kube_types.UID
+	Config      types.DeviceConfig
 }
 
 func (a *DRAAllocation) Clone() *DRAAllocation {
@@ -127,12 +131,12 @@ func (a *DRAAllocation) Clone() *DRAAllocation {
 }
 
 func (a *DRAAllocation) TableHeader() []string {
-	return []string{"Device", "Manager", "Pool", "PodUID", "ClaimUID", "PodIfName"}
+	return []string{"Device", "Manager", "LogicalPool", "PodUID", "ClaimUID", "PodIfName"}
 }
 
 func (a *DRAAllocation) TableRow() []string {
 	return []string{
-		a.DeviceName, a.Manager.String(), a.Pool,
+		a.DeviceName, a.Manager.String(), a.LogicalPool,
 		string(a.PodUID), string(a.ClaimUID), a.Config.PodIfName,
 	}
 }

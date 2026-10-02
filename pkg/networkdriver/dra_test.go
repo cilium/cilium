@@ -247,7 +247,7 @@ func TestPrepareResourceClaim(t *testing.T) {
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		driver.allocationTable.Insert(wtxn, &DRAAllocation{
 			DeviceName:     "existing-device",
-			Pool:           prepTestPool,
+			LogicalPool:    prepTestPool,
 			Manager:        types.DeviceManagerTypeMock,
 			PreparedDevice: &trackedDevice{name: "existing-device"},
 			PodUID:         podUID,
