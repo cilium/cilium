@@ -392,9 +392,97 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	return calculatedPolicy, nil
 }
 
-// computePolicyEnforcementAndRules returns whether policy applies at ingress or ingress
-// for the given security identity, as well as a sorted list of any rules which select
-// the set of labels of the given security identity.
+// policyDirectionSpec describes the policy defaults for one traffic direction.
+//
+// The enforcement state is derived from the rules and policy mode, while this specification
+// contains the direction-specific policy semantics. Keeping the two separate makes it possible
+// to synthesize rules from effective enforcement state, even when there are no explicit rules.
+type policyDirectionSpec struct {
+	ingress        bool
+	allowLocalhost bool
+	allowAllLabels labels.LabelArray
+	denyAllLabels  labels.LabelArray
+}
+
+// policyDirection is the effective policy state for one traffic direction.
+type policyDirection struct {
+	spec        policyDirectionSpec
+	rules       ruleSlice
+	enabled     bool
+	defaultDeny bool
+	passVerdict bool
+}
+
+func newPolicyDirection(spec policyDirectionSpec) policyDirection {
+	return policyDirection{
+		spec:  spec,
+		rules: ruleSlice{},
+	}
+}
+
+func (d *policyDirection) addRule(r *rule) {
+	d.enabled = true
+	d.defaultDeny = d.defaultDeny || r.DefaultDeny
+	d.passVerdict = d.passVerdict || r.Verdict == types.Pass
+	d.rules = append(d.rules, r)
+}
+
+func (d *policyDirection) enableDefaultDeny() {
+	d.enabled = true
+	d.defaultDeny = true
+}
+
+func (d *policyDirection) synthesizeDefaultRules(logger *slog.Logger, subject *identity.Identity) {
+	if !d.enabled {
+		return
+	}
+
+	if d.defaultDeny {
+		if d.spec.allowLocalhost && option.Config.AlwaysAllowLocalhost() && subject.ID != identity.ReservedIdentityHost {
+			d.addDefaultRule(subject, types.HostSelectors, LabelsLocalHostIngress, types.Allow)
+			logger.Debug("Localhost allowed for k8s, synthesizing ingress host-allow rule",
+				logfields.Identity, subject,
+			)
+		}
+		if d.passVerdict {
+			d.addDefaultRule(subject, types.WildcardSelectors, d.spec.denyAllLabels, types.Deny)
+			logger.Debug("Only default-deny policies, synthesizing wildcard-deny rule",
+				logfields.Identity, subject,
+			)
+		}
+		return
+	}
+
+	d.addDefaultRule(subject, types.WildcardSelectors, d.spec.allowAllLabels, types.Allow)
+	logger.Debug("Only default-allow policies, synthesizing wildcard-allow rule",
+		logfields.Identity, subject,
+	)
+}
+
+func (d *policyDirection) addDefaultRule(subject *identity.Identity, peers types.Selectors, lbls labels.LabelArray, verdict types.Verdict) {
+	var priority float64
+	if len(d.rules) > 0 {
+		lastRule := d.rules[len(d.rules)-1]
+		if lastRule.Tier == types.DefaultPolicy {
+			priority = lastRule.Priority + 1
+		}
+	}
+
+	d.rules = append(d.rules, &rule{
+		PolicyEntry: types.PolicyEntry{
+			Tier:     types.DefaultPolicy,
+			Priority: priority,
+			Verdict:  verdict,
+			Ingress:  d.spec.ingress,
+			Subject:  types.NewLabelSelectorFromLabels(subject.LabelArray...),
+			L3:       peers,
+			Labels:   lbls,
+		},
+	})
+}
+
+// computePolicyEnforcementAndRules returns whether policy applies at ingress or egress
+// for the given security identity, as well as sorted rules which select the identity.
 //
 // Must be called with repo mutex held for reading.
 func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (
@@ -417,30 +505,24 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 		return false, false, false, false, nil, nil
 	}
 
-	rulesIngress = []*rule{}
-	rulesEgress = []*rule{}
-
-	var hasIngressPassVerdict, hasEgressPassVerdict bool
+	ingress := newPolicyDirection(policyDirectionSpec{
+		ingress:        true,
+		allowLocalhost: true,
+		allowAllLabels: LabelsAllowAnyIngress,
+		denyAllLabels:  LabelsDenyAnyIngress,
+	})
+	egress := newPolicyDirection(policyDirectionSpec{
+		allowAllLabels: LabelsAllowAnyEgress,
+		denyAllLabels:  LabelsDenyAnyEgress,
+	})
 
 	processKey := func(rKey ruleKey) {
 		r := p.rules[rKey]
 		if r.matchesSubject(securityIdentity) {
 			if r.Ingress {
-				if r.DefaultDeny {
-					hasIngressDefaultDeny = true
-				}
-				if r.Verdict == types.Pass {
-					hasIngressPassVerdict = true
-				}
-				rulesIngress = append(rulesIngress, r)
+				ingress.addRule(r)
 			} else {
-				if r.DefaultDeny {
-					hasEgressDefaultDeny = true
-				}
-				if r.Verdict == types.Pass {
-					hasEgressPassVerdict = true
-				}
-				rulesEgress = append(rulesEgress, r)
+				egress.addRule(r)
 			}
 		}
 	}
@@ -459,13 +541,15 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	// If no rules enable default-deny, then all traffic is allowed except that
 	// explicitly denied by a Deny rule.
 	//
-	// There are three possible cases _per direction_:
+	// There are three possible cases for explicit rules _per direction_:
 	// 1: No rules are present,
 	// 2: At least one default-deny rule is present. Then, policy is enabled
 	// 3: Only non-default-deny rules are present. Then, policy is enabled, but we must
 	//    insert an additional allow-all rule. We must do this, even if all traffic is
 	//    allowed, because rules may have additional effects such as enabling L7 proxy.
 	//    The wildcard rule is inserted to the last tier and priority.
+	// The daemon policy mode may also enable a direction without any explicit rules. The effective
+	// direction state below is what determines which defaults must be synthesized.
 	namespace, _ := lbls.LookupLabel(&podNamespaceLabel)
 	if namespace != "" {
 		for rKey := range p.rulesByNamespace[namespace] {
@@ -474,88 +558,24 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 	}
 
 	// sort rules (in place) by priority
-	rulesIngress.sort()
-	rulesEgress.sort()
-
-	hasIngress = len(rulesIngress) > 0
-	hasEgress = len(rulesEgress) > 0
+	ingress.rules.sort()
+	egress.rules.sort()
 
 	// If policy enforcement is enabled for the daemon, then it has to be
 	// enabled for the endpoint.
 	// If the endpoint has the reserved:init label, i.e. if it has not yet
 	// received any labels, always enforce policy (default deny).
 	if policyMode == option.AlwaysEnforce || lbls.Has(labels.IDNameInit) {
-		hasIngress = true
-		hasEgress = true
-		hasIngressDefaultDeny = true
-		hasEgressDefaultDeny = true
+		ingress.enableDefaultDeny()
+		egress.enableDefaultDeny()
 	}
 
-	// Insert a wildcard rule if there are any ingress rules
-	if len(rulesIngress) > 0 {
-		if !hasIngressDefaultDeny {
-			rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsAllowAnyIngress, types.Allow)
-			p.logger.Debug("Only default-allow policies, synthesizing ingress wildcard-allow rule",
-				logfields.Identity, securityIdentity,
-			)
-		} else {
-			// insert localhost allow for k8s if the policy subject is not the host
-			if option.Config.AlwaysAllowLocalhost() && securityIdentity.ID != identity.ReservedIdentityHost {
-				rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.HostSelectors, LabelsLocalHostIngress, types.Allow)
-				p.logger.Debug("Localhost allowed for k8s, synthesizing ingress host-allow rule",
-					logfields.Identity, securityIdentity,
-				)
-			}
-			if hasIngressPassVerdict {
-				// Explicit default deny is only needed for PASS verdict compatibility
-				rulesIngress = rulesIngress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsDenyAnyIngress, types.Deny)
-				p.logger.Debug("Only default-deny policies, synthesizing ingress wildcard-deny rule",
-					logfields.Identity, securityIdentity,
-				)
-			}
-		}
-	}
+	ingress.synthesizeDefaultRules(p.logger, securityIdentity)
+	egress.synthesizeDefaultRules(p.logger, securityIdentity)
 
-	// Same for egress -- synthesize a wildcard rule
-	if len(rulesEgress) > 0 {
-		if !hasEgressDefaultDeny {
-			rulesEgress = rulesEgress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsAllowAnyEgress, types.Allow)
-			p.logger.Debug("Only default-allow policies, synthesizing egress wildcard-allow rule",
-				logfields.Identity, securityIdentity,
-			)
-		} else if hasEgressPassVerdict {
-			// Explicit default deny is only needed for PASS verdict compatibility
-			rulesEgress = rulesEgress.addDefaultRule(securityIdentity, types.WildcardSelectors, LabelsDenyAnyEgress, types.Deny)
-			p.logger.Debug("Only default-deny policies, synthesizing egress wildcard-deny rule",
-				logfields.Identity, securityIdentity,
-			)
-		}
-	}
-
-	return
-}
-
-// addDefaultRule appends a default policy tier wildcard rule that only selects the given subject
-// identity.
-func (rules ruleSlice) addDefaultRule(subject *identity.Identity, peers types.Selectors, lbls labels.LabelArray, verdict types.Verdict) ruleSlice {
-	var priority float64
-	lastRule := rules[len(rules)-1]
-	if lastRule.Tier == types.DefaultPolicy {
-		priority = lastRule.Priority + 1
-	}
-	ingress := lastRule.Ingress
-
-	return append(rules, &rule{
-		PolicyEntry: types.PolicyEntry{
-			Tier:     types.DefaultPolicy,
-			Priority: priority,
-			Verdict:  verdict,
-			Ingress:  ingress,
-			Subject:  types.NewLabelSelectorFromLabels(subject.LabelArray...),
-			L3:       peers,
-			Labels:   lbls,
-		},
-	})
+	return ingress.enabled, egress.enabled,
+		ingress.defaultDeny, egress.defaultDeny,
+		ingress.rules, egress.rules
 }
 
 // ComputeSelectorPolicy resolves the SelectorPolicy for the given identity at
