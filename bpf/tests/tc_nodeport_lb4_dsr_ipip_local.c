@@ -29,7 +29,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
@@ -167,6 +166,7 @@ ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_NODE_IP })
+ASSIGN_CONFIG(bool, enable_dsr, true)
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
