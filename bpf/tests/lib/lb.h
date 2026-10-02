@@ -315,3 +315,12 @@ lb_v6_add_l7_service(const union v6addr *addr, __be16 port, __u8 proto,
 	map_update_elem(&cilium_lb6_reverse_nat, &rev_nat_index, &revnat_value, BPF_ANY);
 }
 #endif
+
+/* Marks a service as opted into scale-to-zero, as the agent would. last_wake
+ * seeds the wake signal rate limiter, 0 meaning "never signalled".
+ */
+static __always_inline void
+lb_track_scale_to_zero(__u16 rev_nat_index, __u64 last_wake)
+{
+	map_update_elem(&cilium_scale_to_zero, &rev_nat_index, &last_wake, BPF_ANY);
+}

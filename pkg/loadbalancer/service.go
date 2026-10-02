@@ -159,6 +159,16 @@ func (svc *Service) GetSourceRangesPolicy() SVCSourceRangesPolicy {
 	return SVCSourceRangesPolicyAllow
 }
 
+// GetScaleToZero returns whether the service opted into scale-to-zero, that is
+// whether the datapath should hold new connections to it while it has no
+// backends instead of rejecting them.
+func (svc *Service) GetScaleToZero() bool {
+	if value, ok := annotation.Get(svc, annotation.ServiceScaleToZero); ok {
+		return strings.ToLower(value) == "true"
+	}
+	return false
+}
+
 func (svc *Service) GetSourceRangesEnabled(svcType SVCType, lbSourceRangeAllTypes bool) bool {
 	if lbSourceRangeAllTypes {
 		return len(svc.SourceRanges) > 0
