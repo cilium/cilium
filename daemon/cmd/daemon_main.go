@@ -719,10 +719,6 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.DisableExternalIPMitigation, false, "Disable ExternalIP mitigation (CVE-2020-8554, default false)")
 	option.BindEnv(vp, option.DisableExternalIPMitigation)
 
-	flags.Bool(option.BypassIPAvailabilityUponRestore, false, "Bypasses the IP availability error within IPAM upon endpoint restore")
-	flags.MarkHidden(option.BypassIPAvailabilityUponRestore)
-	option.BindEnv(vp, option.BypassIPAvailabilityUponRestore)
-
 	flags.Bool(option.EnableCiliumEndpointSlice, false, "Enable the CiliumEndpointSlice watcher in place of the CiliumEndpoint watcher (beta)")
 	option.BindEnv(vp, option.EnableCiliumEndpointSlice)
 
@@ -1089,31 +1085,6 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 		// only be an IPv4 CIDR at the moment.
 		if !option.Config.EnableIPv4 {
 			logging.Fatal(logger, fmt.Sprintf("%s requires IPv4 support.", option.InstallNoConntrackIptRules))
-		}
-	}
-
-	// Ensure that the user does not turn on this mode unless it's for an IPAM
-	// mode which support the bypass.
-	if option.Config.BypassIPAvailabilityUponRestore {
-		switch option.Config.IPAMMode() {
-		case ipamOption.IPAMENI, ipamOption.IPAMAzure:
-			logger.Info(
-				"Running with bypass of IP not available errors upon endpoint " +
-					"restore. Be advised that this mode is intended to be " +
-					"temporary to ease upgrades. Consider restarting the pods " +
-					"which have IPs not from the pool.",
-			)
-		default:
-			option.Config.BypassIPAvailabilityUponRestore = false
-			logger.Warn(
-				fmt.Sprintf(
-					"Bypassing IP allocation upon endpoint restore (%q) is enabled with"+
-						"unintended IPAM modes. This bypass is only intended "+
-						"to work for CRD-based IPAM modes such as ENI. Disabling "+
-						"bypass.",
-					option.BypassIPAvailabilityUponRestore,
-				),
-			)
 		}
 	}
 }
