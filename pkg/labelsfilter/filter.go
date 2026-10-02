@@ -111,7 +111,6 @@ func parseLabelPrefix(label string) (*LabelPrefix, error) {
 func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, file string) error {
 	var cfg, nodeCfg *labelPrefixCfg
 	var err error
-	var fromCustomFile bool
 
 	// Use default label prefix if configuration file not provided
 	if file == "" {
@@ -126,8 +125,6 @@ func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, f
 		if err != nil {
 			return fmt.Errorf("unable to read label prefix file: %w", err)
 		}
-
-		fromCustomFile = true
 	}
 
 	nodeCfg = &labelPrefixCfg{}
@@ -171,21 +168,22 @@ func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, f
 		cfg.LabelPrefixes = append(cfg.LabelPrefixes, p)
 	}
 
-	if fromCustomFile {
-		found := false
-		for _, label := range cfg.LabelPrefixes {
-			if label.Source+":"+label.Prefix == reservedLabelsPattern {
-				found = true
-				break
+	hasReservedInclude := false
+	hasReservedExclude := false
+	for _, label := range cfg.LabelPrefixes {
+		if label.Source+":"+label.Prefix == reservedLabelsPattern {
+			if label.Ignore {
+				hasReservedExclude = true
+			} else {
+				hasReservedInclude = true
 			}
 		}
-
-		if !found {
-			logger.Error(
-				fmt.Sprintf("'%s' needs to be included in the final label list for "+
-					"Cilium to work properly.", reservedLabelsPattern),
-			)
-		}
+	}
+	if (cfg.whitelist && !hasReservedInclude) || (!cfg.whitelist && hasReservedExclude) {
+		logger.Error(
+			fmt.Sprintf("'%s' needs to be included in the final label list for "+
+				"Cilium to work properly.", reservedLabelsPattern),
+		)
 	}
 
 	validLabelPrefixes = cfg
