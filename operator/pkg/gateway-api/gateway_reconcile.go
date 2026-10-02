@@ -128,6 +128,7 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		req.NamespacedName,
 		inputs.BackendTLSPolicies,
 		inputs.AttachedHTTPRoutes(gw),
+		inputs.AttachedGRPCRoutes(gw),
 	)
 	if err != nil {
 		return controllerruntime.Fail(fmt.Errorf("failed to update BackendTLSPolicy status: %w", err))
