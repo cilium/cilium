@@ -31,7 +31,10 @@ type MonitorEvent struct {
 	UUID uuid.UUID
 	// Timestamp when the event was received by the consumer
 	Timestamp time.Time
-	// NodeName where the event occurred
+	// NodeName where the event occurred.
+	//
+	// Deprecated: Hubble now derives the node name from the LocalNodeStore
+	// via the parser's LocalNodeWatcher.
 	NodeName string
 	// Payload is one of: AgentEvent, PerfEvent or LostEvent
 	Payload any
