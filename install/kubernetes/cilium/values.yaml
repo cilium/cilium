@@ -246,9 +246,9 @@ image:
   # type: [null, string]
   # @schema
   override: ~
-  repository: "quay.io/cilium/cilium-ci"
-  tag: "latest"
-  pullPolicy: "Always"
+  repository: "quay.io/cilium/cilium"
+  tag: "v1.21.0-pre.3"
+  pullPolicy: "IfNotPresent"
   # cilium-digest
   digest: ""
   useDigest: false
@@ -1207,7 +1207,7 @@ encryption:
       override: ~
       repository: "quay.io/cilium/ztunnel"
       tag: "v1.0.0"
-      pullPolicy: "Always"
+      pullPolicy: "IfNotPresent"
       digest: "sha256:884de5adde400e39f58e36c7a729f7690466ca4a8eb4c2a8daa9c1c025115b24"
       useDigest: true
     # -- CA server address for certificate requests.
@@ -1407,7 +1407,7 @@ certgen:
     tag: "v0.4.11"
     digest: "sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0"
     useDigest: true
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
   # @schema
   # type: [null, integer]
   # @schema
@@ -1770,12 +1770,12 @@ hubble:
       # type: [null, string]
       # @schema
       override: ~
-      repository: "quay.io/cilium/hubble-relay-ci"
-      tag: "latest"
+      repository: "quay.io/cilium/hubble-relay"
+      tag: "v1.21.0-pre.3"
       # hubble-relay-digest
       digest: ""
       useDigest: false
-      pullPolicy: "Always"
+      pullPolicy: "IfNotPresent"
     # -- Specifies the resources for the hubble-relay pods
     resources: {}
     # -- Number of replicas run for the hubble-relay deployment.
@@ -2063,7 +2063,7 @@ hubble:
         tag: "v0.13.6"
         digest: "sha256:83b3fc763f3d49948c306bf49b08277383e195904b9ca5c0c0022b2112628787"
         useDigest: true
-        pullPolicy: "Always"
+        pullPolicy: "IfNotPresent"
       # -- Hubble-ui backend security context.
       securityContext:
         # readOnlyRootFilesystem: true
@@ -2096,7 +2096,7 @@ hubble:
         tag: "v0.13.6"
         digest: "sha256:049a80a03585c043d0c3121bdc518c72b0fd42bae07e4bcce0fdb8f1e88041d0"
         useDigest: true
-        pullPolicy: "Always"
+        pullPolicy: "IfNotPresent"
       # -- Hubble-ui frontend security context.
       securityContext:
         # readOnlyRootFilesystem: true
@@ -2880,7 +2880,7 @@ envoy:
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
     tag: "v1.39.1-1790794634-fbfb16f5f9d4c09131542931999a2cbe79a863f8"
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
     digest: "sha256:0c59f308419ac92d18d61d381a8bb3004ba8ea0d5c2a03c5283626871b26953e"
     useDigest: true
   # -- Init containers added to the cilium Envoy DaemonSet.
@@ -3288,7 +3288,7 @@ operator:
     # @schema
     override: ~
     repository: "quay.io/cilium/operator"
-    tag: "latest"
+    tag: "v1.21.0-pre.3"
     # operator-generic-digest
     genericDigest: ""
     # operator-azure-digest
@@ -3298,8 +3298,8 @@ operator:
     # operator-alibabacloud-digest
     alibabacloudDigest: ""
     useDigest: false
-    pullPolicy: "Always"
-    suffix: "-ci"
+    pullPolicy: "IfNotPresent"
+    suffix: ""
   # -- Number of replicas to run for the cilium-operator deployment
   replicas: 2
   # -- The priority class to use for cilium-operator
@@ -3541,7 +3541,7 @@ nodeinit:
     tag: "1782916218-36ae25f"
     digest: "sha256:f99e2beda7324e93ba04d6240d9626a6b9ab023d7d56e3b029d3d9c823ce63ef"
     useDigest: true
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
   # -- The priority class to use for the nodeinit pod.
   priorityClassName: ""
   # -- Minimum number of seconds for which a newly created node-init pod should be ready
@@ -3631,12 +3631,12 @@ preflight:
     # type: [null, string]
     # @schema
     override: ~
-    repository: "quay.io/cilium/cilium-ci"
-    tag: "latest"
+    repository: "quay.io/cilium/cilium"
+    tag: "v1.21.0-pre.3"
     # cilium-digest
     digest: ""
     useDigest: false
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
   envoy:
     # -- Envoy pre-flight image.
     image:
@@ -3646,7 +3646,7 @@ preflight:
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
       tag: "v1.39.1-1790794634-fbfb16f5f9d4c09131542931999a2cbe79a863f8"
-      pullPolicy: "Always"
+      pullPolicy: "IfNotPresent"
       digest: "sha256:0c59f308419ac92d18d61d381a8bb3004ba8ea0d5c2a03c5283626871b26953e"
       useDigest: true
   # -- The priority class to use for the preflight pod.
@@ -3913,12 +3913,12 @@ clustermesh:
       # type: [null, string]
       # @schema
       override: ~
-      repository: "quay.io/cilium/clustermesh-apiserver-ci"
-      tag: "latest"
+      repository: "quay.io/cilium/clustermesh-apiserver"
+      tag: "v1.21.0-pre.3"
       # clustermesh-apiserver-digest
       digest: ""
       useDigest: false
-      pullPolicy: "Always"
+      pullPolicy: "IfNotPresent"
     # -- TCP port for the clustermesh-apiserver health API.
     healthPort: 9880
     # -- Configuration for the clustermesh-apiserver readiness probe.
@@ -4443,7 +4443,7 @@ authentication:
           tag: "1.38.0"
           digest: "sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e"
           useDigest: true
-          pullPolicy: "Always"
+          pullPolicy: "IfNotPresent"
         # SPIRE agent configuration
         agent:
           # -- The priority class to use for the spire agent
@@ -4458,7 +4458,7 @@ authentication:
             tag: "1.15.3"
             digest: "sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff"
             useDigest: true
-            pullPolicy: "Always"
+            pullPolicy: "IfNotPresent"
           # -- SPIRE agent service account
           serviceAccount:
             create: true
@@ -4513,7 +4513,7 @@ authentication:
             tag: "1.15.3"
             digest: "sha256:4082f30d3e0ddc4000a171392c4ea174345ee44d161ee917c70b97b2ecfba141"
             useDigest: true
-            pullPolicy: "Always"
+            pullPolicy: "IfNotPresent"
           # -- SPIRE server service account
           serviceAccount:
             create: true
@@ -4636,7 +4636,7 @@ standaloneDnsProxy:
     tag: ""
     digest: ""
     useDigest: false
-    pullPolicy: "Always"
+    pullPolicy: "IfNotPresent"
 # -- Enable the Network Driver feature
 networkDriver:
   enabled: false
