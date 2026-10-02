@@ -1,0 +1,28 @@
+# This policy allows packets towards {{.ExternalIPv4}} and {{.ExternalIPv6}} by cidrgroup
+
+apiVersion: "cilium.io/v2"
+kind: CiliumCIDRGroup
+metadata:
+  name: cilium-test-external-cidr-label-allow
+  labels:
+    destination/external-allow: ""
+spec:
+  externalCIDRs:
+    - "{{.ExternalCIDRv4}}"
+    - "{{.ExternalCIDRv6}}"
+
+---
+
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-cidrgroup
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toCIDRSet:
+    - cidrGroupSelector:
+        matchLabels:
+          destination/external-allow: ""
