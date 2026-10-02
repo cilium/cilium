@@ -878,11 +878,6 @@ const (
 	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
 	EnableICMPRules = "enable-icmp-rules"
 
-	// BypassIPAvailabilityUponRestore bypasses the IP availability error
-	// within IPAM upon endpoint restore and allows the use of the restored IP
-	// regardless of whether it's available in the pool.
-	BypassIPAvailabilityUponRestore = "bypass-ip-availability-upon-restore"
-
 	// EnableVTEP enables cilium VXLAN VTEP integration
 	EnableVTEP = "enable-vtep"
 
@@ -1722,11 +1717,6 @@ type DaemonConfig struct {
 
 	// EnableICMPRules enables ICMP-based rule support for Cilium Network Policies.
 	EnableICMPRules bool
-
-	// BypassIPAvailabilityUponRestore bypasses the IP availability error
-	// within IPAM upon endpoint restore and allows the use of the restored IP
-	// regardless of whether it's available in the pool.
-	BypassIPAvailabilityUponRestore bool
 
 	// EnableVTEP enable Cilium VXLAN VTEP integration
 	EnableVTEP bool
@@ -2812,7 +2802,6 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.MaxControllerInterval = vp.GetUint(MaxCtrlIntervalName)
 	c.EndpointQueueSize = sanitizeIntParam(logger, vp, EndpointQueueSize, defaults.EndpointQueueSize)
 	c.EnableICMPRules = vp.GetBool(EnableICMPRules)
-	c.BypassIPAvailabilityUponRestore = vp.GetBool(BypassIPAvailabilityUponRestore)
 
 	// VTEP integration enable option
 	c.EnableVTEP = vp.GetBool(EnableVTEP)

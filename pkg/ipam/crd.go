@@ -579,7 +579,7 @@ func (n *nodeStore) allocate(addr netip.Addr) (*ipamTypes.AllocationIP, error) {
 
 	ipInfo, ok := n.ownNode.Spec.IPAM.Pool[ip.AddrFrom(addr)]
 	if !ok {
-		return nil, NewIPNotAvailableInPoolError(addr)
+		return nil, fmt.Errorf("IP %s is not available", addr)
 	}
 
 	return &ipInfo, nil
@@ -899,35 +899,4 @@ func (a *crdAllocator) RestoreFinished() {
 	a.store.restoreCloseOnce.Do(func() {
 		close(a.store.restoreFinished)
 	})
-}
-
-// NewIPNotAvailableInPoolError returns an error representing the given IP not
-// being available in the IPAM pool.
-func NewIPNotAvailableInPoolError(addr netip.Addr) error {
-	return &ErrIPNotAvailableInPool{addr: addr}
-}
-
-// ErrIPNotAvailableInPool represents an error when an IP is not available in
-// the pool.
-type ErrIPNotAvailableInPool struct {
-	addr netip.Addr
-}
-
-func (e *ErrIPNotAvailableInPool) Error() string {
-	return fmt.Sprintf("IP %s is not available", e.addr)
-}
-
-// Is provides this error type with the logic for use with errors.Is.
-func (e *ErrIPNotAvailableInPool) Is(target error) bool {
-	if e == nil || target == nil {
-		return false
-	}
-	t, ok := target.(*ErrIPNotAvailableInPool)
-	if !ok {
-		return ok
-	}
-	if t == nil {
-		return false
-	}
-	return t.addr == e.addr
 }
