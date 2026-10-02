@@ -454,6 +454,56 @@ func TestSortableRoute(t *testing.T) {
 	}, namesAfterSort)
 }
 
+func TestDesiredVirtualHostRouteOrderIsDeterministic(t *testing.T) {
+	routes := []model.HTTPRoute{
+		{
+			PathMatch: model.StringMatch{Prefix: "/bbb"},
+			Backends: []model.Backend{{
+				Name:      "backend-b",
+				Namespace: "default",
+				Port:      &model.BackendPort{Port: 8080},
+			}},
+		},
+		{
+			PathMatch: model.StringMatch{Prefix: "/aaa"},
+			Backends: []model.Backend{{
+				Name:      "backend-a",
+				Namespace: "default",
+				Port:      &model.BackendPort{Port: 8080},
+			}},
+		},
+		{
+			PathMatch: model.StringMatch{Prefix: "/ccc"},
+			Backends: []model.Backend{{
+				Name:      "backend-c",
+				Namespace: "default",
+				Port:      &model.BackendPort{Port: 8080},
+			}},
+		},
+	}
+
+	translator := &cecTranslator{}
+	params := VirtualHostParameter{
+		HostNames:    []string{"shared.example.com"},
+		ListenerPort: 80,
+	}
+	want := translator.desiredVirtualHost(routes, params)
+	wantBytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(want)
+	require.NoError(t, err)
+
+	permutations := [][]model.HTTPRoute{
+		{routes[2], routes[1], routes[0]},
+		{routes[1], routes[0], routes[2]},
+		{routes[0], routes[2], routes[1]},
+	}
+	for _, permutation := range permutations {
+		got := translator.desiredVirtualHost(permutation, params)
+		gotBytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(got)
+		require.NoError(t, err)
+		require.Equal(t, wantBytes, gotBytes, "virtual host differs for route permutation")
+	}
+}
+
 func buildNameSlice(arr []*envoy_config_route_v3.Route) []string {
 	var names []string
 
