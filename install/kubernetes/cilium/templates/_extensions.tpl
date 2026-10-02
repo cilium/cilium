@@ -4,6 +4,25 @@ to modify or extend the default chart behaviors.
 */}}
 
 {{/*
+Allow packagers to add Hubble Relay configuration entries.
+*/}}
+{{- define "hubble-relay.config.extra" -}}
+{{- end -}}
+
+{{/*
+Allow packagers to set the Hubble Relay gRPC container port name.
+*/}}
+{{- define "hubble-relay.port.name" -}}
+grpc
+{{- end -}}
+
+{{/*
+Allow packagers to add Hubble Relay volume mounts.
+*/}}
+{{- define "hubble-relay.volumeMounts.extra" -}}
+{{- end -}}
+
+{{/*
 Allow packagers to add extra volumes to cilium-agent.
 */}}
 {{- define "cilium-agent.volumes.extra" }}

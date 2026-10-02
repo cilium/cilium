@@ -52,4 +52,7 @@ data:
     {{- if .Values.hubble.relay.logOptions.level }}
     log-level: {{ .Values.hubble.relay.logOptions.level }}
     {{- end }}
+    {{- with include "hubble-relay.config.extra" . }}
+    {{- . | nindent 4 }}
+    {{- end }}
 {{- end }}
