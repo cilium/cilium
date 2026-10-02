@@ -453,7 +453,24 @@ func (m *Map) doGCForFamily(filter GCFilter, next4, next6 func(GCEvent), ipv6 bo
 	return stats
 }
 
-func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
+// errDeferredReopened reports that purgeCtEntry skipped a delete because the
+// datapath reopened the entry mid-GC; benign and expected under churn.
+var errDeferredReopened = errors.New("entry reopened by datapath")
+
+func (m *Map) purgeCtEntry(key CtKey, tupleKey tupleKeyAccessor, scratch *CtEntry, filter GCFilter, natMap *nat.Map, next func(event GCEvent), actCountFailed func(uint16, uint32)) error {
+	// Re-lookup the entry immediately before deletion and re-run the filter
+	// against its current value. The datapath may have refreshed or replaced
+	// the entry since the batch read, so the snapshot may no longer justify
+	// deletion. This narrows the race window, but the datapath can still
+	// modify the entry between this lookup and DeleteLocked.
+	if err := m.LookupInto(key, scratch); err != nil {
+		return err
+	}
+
+	if m.filterEntry(filter, tupleKey, scratch) == noAction {
+		return errDeferredReopened
+	}
+
 	err := m.DeleteLocked(key)
 	if err != nil {
 		return err
@@ -463,12 +480,12 @@ func (m *Map) purgeCtEntry(key CtKey, entry *CtEntry, natMap *nat.Map, next func
 	tupleType := t.GetFlags()
 
 	if tupleType == tuple.TUPLE_F_SERVICE && ACT != nil {
-		actCountFailed(entry.RevNAT, uint32(entry.Union0[1]))
+		actCountFailed(scratch.RevNAT, uint32(scratch.Union0[1]))
 	}
 
 	next(GCEvent{
 		Key:    key,
-		Entry:  entry,
+		Entry:  scratch,
 		NatMap: natMap,
 	})
 
@@ -506,6 +523,10 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 			countFailedFn = ACT.CountFailed6
 		}
 	}
+	// Reusing a single buffer for purgeCtEntry's re-lookups reduces memory
+	// allocations so that the lookups are faster. The callbacks run sequentially
+	// within a single GC pass, so reuse is safe.
+	scratch := &CtEntry{}
 	return func(key bpf.MapKey, value bpf.MapValue) {
 		// TODO: These type assertions are a bit dangerous, make more of this well typed
 		// to avoid having to make these assertions.
@@ -513,27 +534,24 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 		ctKey := key.(CtKey)
 		entry := value.(*CtEntry)
 
-		// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
-		// the destination of the packet received, therefore it's the packet's
-		// destination IP
-		srcIP := NetAddr{Addr: tupleKey.GetDestAddr(), NetID: m.networkID}
-		dstIP := NetAddr{Addr: tupleKey.GetSourceAddr(), NetID: m.networkID}
-		action := filter.doFiltering(srcIP, dstIP,
-			tupleKey.GetDestPort(), tupleKey.GetSourcePort(),
-			uint8(tupleKey.GetNextHeader()), tupleKey.GetFlags(), entry)
-
-		switch action {
+		switch m.filterEntry(filter, tupleKey, entry) {
 		case deleteEntry:
-			err := m.purgeCtEntry(ctKey, entry, natMap, next, countFailedFn)
+			err := m.purgeCtEntry(ctKey, tupleKey, scratch, filter, natMap, next, countFailedFn)
 			if err != nil {
-				if errors.Is(err, ebpf.ErrKeyNotExist) {
+				switch {
+				case errors.Is(err, ebpf.ErrKeyNotExist):
 					m.Logger.Debug("key is missing, likely due to lru eviction - skipping",
 						logfields.Error, err,
 						logfields.Key, ctKey.ToHost(),
 					)
 					stats.skipped++
-				} else {
-					m.Logger.Error("key is missing, likely due to lru eviction - skipping",
+				case errors.Is(err, errDeferredReopened):
+					m.Logger.Debug("deferring CT entry delete: reopened between batch read and delete",
+						logfields.Key, ctKey.ToHost(),
+					)
+					stats.aliveEntries++
+				default:
+					m.Logger.Error("failed to purge CT entry",
 						logfields.Error, err,
 						logfields.Key, ctKey.ToHost(),
 					)
@@ -545,6 +563,19 @@ func (m *Map) cleanup(filter GCFilter, natMap *nat.Map, stats *gcStats, next fun
 			stats.aliveEntries++
 		}
 	}
+}
+
+// filterEntry runs filter against a single CT entry.
+//
+// In CT entries, the source address of the conntrack entry (`SourceAddr`) is
+// the destination of the packet received, therefore it's the packet's
+// destination IP.
+func (m *Map) filterEntry(filter GCFilter, tupleKey tupleKeyAccessor, entry *CtEntry) action {
+	srcIP := NetAddr{Addr: tupleKey.GetDestAddr(), NetID: m.networkID}
+	dstIP := NetAddr{Addr: tupleKey.GetSourceAddr(), NetID: m.networkID}
+	return filter.doFiltering(srcIP, dstIP,
+		tupleKey.GetDestPort(), tupleKey.GetSourcePort(),
+		uint8(tupleKey.GetNextHeader()), tupleKey.GetFlags(), entry)
 }
 
 func (f GCFilter) doFiltering(srcIP, dstIP NetAddr, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
