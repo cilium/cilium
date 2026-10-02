@@ -1,0 +1,74 @@
+#! --lb-test-fault-probability=0.5
+# This test adds a service with 10 backends with high fault injection probability and
+# then removes the service after something has been reconciled to the maps and then
+# asserts that eventually all BPF map entries and internal reconciler state is
+# cleaned up. As this is a probabilistic check this is intended for catching
+# leaks when run with stress.sh.
+
+hive start
+
+# Add a service with 10 backends
+k8s/add service.yaml endpointslice.yaml
+
+# Wait until something was reconciled into the BPF maps
+!* lb/maps-empty
+
+# Delete the frontend before the pending update has necessarily succeeded.
+k8s/delete service.yaml
+
+# Verify that eventually maps and state has been cleaned up
+* db/empty services frontends
+* lb/maps-empty
+* test/bpfops-state-empty
+
+####
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 10.244.1.2
+  - 10.244.1.3
+  - 10.244.1.4
+  - 10.244.1.5
+  - 10.244.1.6
+  - 10.244.1.7
+  - 10.244.1.8
+  - 10.244.1.9
+  - 10.244.1.10
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
