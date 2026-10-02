@@ -147,6 +147,7 @@ func updateReconcileRequestsForBackendTLSPolicy(ctx context.Context,
 		}
 	}
 	httpRoutes := []gatewayv1.HTTPRoute{}
+	grpcRoutes := []gatewayv1.GRPCRoute{}
 
 	for _, svcName := range serviceRefs {
 		// Then, fetch all HTTPRoutes that reference this service, using the backendServiceIndex
@@ -160,8 +161,21 @@ func updateReconcileRequestsForBackendTLSPolicy(ctx context.Context,
 		}
 
 		httpRoutes = append(httpRoutes, hrList.Items...)
+
+		grpcRouteList := &gatewayv1.GRPCRouteList{}
+		if err := c.List(ctx, grpcRouteList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceGRPCRouteIndex, svcName),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Failed to get related GRPCRoutes", logfields.Error, err)
+			return
+		}
+
+		grpcRoutes = append(grpcRoutes, grpcRouteList.Items...)
 	}
 	for _, hr := range httpRoutes {
 		helpers.UpdateReconcileRequestsForParentRefs(ctx, c, hr.Spec.ParentRefs, hr.Namespace, allGatewaysSet, rrSet)
+	}
+	for _, grpcRoute := range grpcRoutes {
+		helpers.UpdateReconcileRequestsForParentRefs(ctx, c, grpcRoute.Spec.ParentRefs, grpcRoute.Namespace, allGatewaysSet, rrSet)
 	}
 }
