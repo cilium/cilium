@@ -144,7 +144,7 @@ func (driver *Driver) watchConfig(ctx context.Context) <-chan v2alpha1.CiliumNet
 				continue
 			}
 
-			driver.logger.DebugContext(ctx, "network driver configuration found")
+			driver.logger.InfoContext(ctx, "network driver configuration found")
 
 			handled = true
 			ch <- *cfg
@@ -172,17 +172,25 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			return nil
 		}
 
-		driver.config = &cfg
-
-		driver.logger.DebugContext(
-			ctx, "Starting network driver...",
+		// store relevant configuration information for logging purposes.
+		configLogInfo := struct {
+			DriverName                          string
+			DRARegistrationRetryIntervalSeconds int64
+			DRARegistrationTimeoutSeconds       int64
+			DRARegistrationMaxAttempts          int64
+		}{
+			DriverName:                          cfg.DriverName,
+			DRARegistrationRetryIntervalSeconds: cfg.DraRegistrationRetryIntervalSeconds,
+			DRARegistrationTimeoutSeconds:       cfg.DraRegistrationTimeoutSeconds,
+			DRARegistrationMaxAttempts:          cfg.DraRegistrationMaxAttempts,
+		}
+		driver.logger.InfoContext(
+			ctx, "Processing network driver config",
 			logfields.K8sAPIVersion, version.Version(),
-			logfields.DriverName, driver.config.DriverName,
+			logfields.Config, configLogInfo,
 		)
 
-		driver.logger.DebugContext(ctx,
-			"starting driver with config",
-			logfields.Config, driver.config)
+		driver.config = &cfg
 
 		if err := validateConfig(driver.config); err != nil {
 			driver.logger.ErrorContext(
@@ -343,6 +351,12 @@ func (driver *Driver) withLock(f func() error) error {
 	defer driver.lock.Unlock()
 
 	return f()
+}
+
+func (driver *Driver) withLockNoErr(f func()) {
+	driver.lock.Lock()
+	defer driver.lock.Unlock()
+	f()
 }
 
 // onDevices is called by a device manager whenever its device set changes.
