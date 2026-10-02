@@ -6,11 +6,13 @@ package linux
 import (
 	"context"
 	"log/slog"
+	"net/netip"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath/neighbor"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -66,6 +68,8 @@ func syncBackendNeighbors(p backendNeighborSyncParams, ctx context.Context, init
 		return err
 	}
 
+	refcounts := make(counter.Counter[netip.Addr])
+
 	// Process the changes in batches every 50 milliseconds.
 	limiter := rate.NewLimiter(50*time.Millisecond, 1)
 	defer limiter.Stop()
@@ -75,26 +79,28 @@ func syncBackendNeighbors(p backendNeighborSyncParams, ctx context.Context, init
 
 		changes, watch := changeIter.Next(rx)
 		for change := range changes {
+			addr := change.Object.Address.Addr()
 			owner := neighbor.ForwardableIPOwner{
 				Type: neighbor.ForwardableIPOwnerService,
 				ID:   change.Object.Address.StringID(),
 			}
 
 			if change.Deleted {
-				err := p.ForwardableIPManager.Delete(
-					change.Object.Address.Addr(),
-					owner,
-				)
-				if err != nil {
-					p.Logger.Error("Failed to delete forwardable IP", logfields.Error, err)
+				if !refcounts.Has(addr) {
+					continue
+				}
+				if refcounts.Delete(addr) {
+					err := p.ForwardableIPManager.Delete(addr, owner)
+					if err != nil {
+						p.Logger.Error("Failed to delete forwardable IP", logfields.Error, err)
+					}
 				}
 			} else {
-				err := p.ForwardableIPManager.Insert(
-					change.Object.Address.Addr(),
-					owner,
-				)
-				if err != nil {
-					p.Logger.Error("Failed to insert forwardable IP", logfields.Error, err)
+				if refcounts.Add(addr) {
+					err := p.ForwardableIPManager.Insert(addr, owner)
+					if err != nil {
+						p.Logger.Error("Failed to insert forwardable IP", logfields.Error, err)
+					}
 				}
 			}
 		}

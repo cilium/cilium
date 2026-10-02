@@ -121,7 +121,7 @@ func BenchmarkInsertBackend(b *testing.B) {
 				wtxn,
 				name,
 				source.Kubernetes,
-				slices.Values([]loadbalancer.BackendParams{
+				slices.Values([]loadbalancer.Backend{
 					{
 						Address: beAddr,
 						State:   loadbalancer.BackendStateActive,
@@ -163,7 +163,7 @@ func BenchmarkReplaceBackend(b *testing.B) {
 		wtxn,
 		name,
 		source.Kubernetes,
-		slices.Values([]loadbalancer.BackendParams{
+		slices.Values([]loadbalancer.Backend{
 			{
 				Address: beAddr,
 				State:   loadbalancer.BackendStateActive,
@@ -172,16 +172,17 @@ func BenchmarkReplaceBackend(b *testing.B) {
 	wtxn.Commit()
 
 	wtxn = p.Writer.WriteTxn()
+	params := slices.Values([]loadbalancer.Backend{
+		{
+			Address: beAddr,
+			State:   loadbalancer.BackendStateActive,
+		}})
 	for b.Loop() {
 		p.Writer.UpsertBackends(
 			wtxn,
 			name,
 			source.Kubernetes,
-			slices.Values([]loadbalancer.BackendParams{
-				{
-					Address: beAddr,
-					State:   loadbalancer.BackendStateActive,
-				}}),
+			params,
 		)
 	}
 	wtxn.Abort()
@@ -235,4 +236,38 @@ func BenchmarkReplaceService(b *testing.B) {
 
 	b.StopTimer()
 	b.ReportMetric(float64(b.N)/b.Elapsed().Seconds(), "objects/sec")
+}
+
+func Benchmark_UpsertBackends_SharedBackendManyServices(b *testing.B) {
+	p := fixture(b)
+
+	const (
+		numServices = 2000
+		numBackends = 1
+	)
+
+	names := make([]loadbalancer.ServiceName, numServices)
+	for i := range numServices {
+		names[i] = loadbalancer.NewServiceName("ns", fmt.Sprintf("svc-%d", i))
+	}
+
+	bes := make([]loadbalancer.Backend, numBackends)
+	for i := range numBackends {
+		addr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1000+i), 8080, loadbalancer.ScopeExternal)
+		bes[i] = loadbalancer.Backend{
+			Address: addr,
+			State:   loadbalancer.BackendStateActive,
+		}
+	}
+
+	for b.Loop() {
+		wtxn := p.Writer.WriteTxn()
+		for _, svc := range names {
+			if err := p.Writer.UpsertBackends(wtxn, svc, source.Kubernetes, slices.Values(bes)); err != nil {
+				wtxn.Abort()
+				b.Fatal(err)
+			}
+		}
+		wtxn.Commit()
+	}
 }

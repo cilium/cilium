@@ -26,13 +26,13 @@ db/cmp backends backends_v2.table
 ###
 
 -- backends.table --
-Address              Instances         NodeName
-20.0.0.2:9090/TCP    test/echo (tcp)
+Address              PortNames  NodeName
+20.0.0.2:9090/TCP    tcp
 
 -- backends_v2.table --
-Address              Instances         NodeName
-20.0.0.2:9090/TCP    test/echo (tcp)
-20.0.0.3:9090/TCP    test/echo (tcp)
+Address              PortNames  NodeName
+20.0.0.2:9090/TCP    tcp
+20.0.0.3:9090/TCP    tcp
 
 -- frontends.table --
 Address            Type       ServiceName   Status  Backends

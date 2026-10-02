@@ -89,9 +89,9 @@ spec:
   type: ClusterIP
 
 -- backends.table --
-Address             Instances            NodeName
-10.244.1.1:80/TCP   test/echo (http)     nodeport-worker
-10.244.1.2:80/TCP   test/echo (http)     nodeport-worker2
+Service    Address            NodeName
+test/echo  10.244.1.1:80/TCP  nodeport-worker
+test/echo  10.244.1.2:80/TCP  nodeport-worker2
 
 -- endpointslice.yaml --
 apiVersion: discovery.k8s.io/v1

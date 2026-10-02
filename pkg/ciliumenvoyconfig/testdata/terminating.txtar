@@ -44,19 +44,19 @@ Name        Flags
 test/echo   ProxyRedirect=1000 (ports: [80])
 
 -- backends.table --
-Address              Instances
-10.244.1.1:8080/TCP  test/echo (http)
-10.244.1.2:8080/TCP  test/echo (http)
+Address              State        PortNames
+10.244.1.1:8080/TCP  active       http
+10.244.1.2:8080/TCP  active       http
 
 -- backends-1-terminating.table --
-Address              Instances
-10.244.1.1:8080/TCP  test/echo [terminating] (http)
-10.244.1.2:8080/TCP  test/echo (http)
+Address              State        PortNames
+10.244.1.1:8080/TCP  terminating  http
+10.244.1.2:8080/TCP  active       http
 
 -- backends-both-terminating.table --
-Address              Instances
-10.244.1.1:8080/TCP  test/echo [terminating] (http)
-10.244.1.2:8080/TCP  test/echo [terminating] (http)
+Address              State        PortNames
+10.244.1.1:8080/TCP  terminating  http
+10.244.1.2:8080/TCP  terminating  http
 
 -- frontends.table --
 Address               Type        ServiceName   PortName   Status  Backends
@@ -205,4 +205,3 @@ ports:
 - name: http
   port: 8080
   protocol: TCP
-
