@@ -1,4 +1,4 @@
-tls_passthrough:
+tls:
   - hostname: "*"
     name: listener-empty-hostname
     port: 443

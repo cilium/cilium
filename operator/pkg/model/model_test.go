@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var testTLSListener = TLSPassthroughListener{
+var testTLSListener = TLSListener{
 	Name: "test-tls-listener",
 	Port: 443,
 }
 
-var testTLSListener2 = TLSPassthroughListener{
+var testTLSListener2 = TLSListener{
 	Name: "test-tls-listener2",
 	Port: 443,
 }
@@ -44,7 +44,7 @@ var testL4Listener2 = L4Listener{
 func TestModel_GetListeners(t *testing.T) {
 	type fields struct {
 		HTTP []HTTPListener
-		TLS  []TLSPassthroughListener
+		TLS  []TLSListener
 		L4   []L4Listener
 	}
 	tests := []struct {
@@ -56,7 +56,7 @@ func TestModel_GetListeners(t *testing.T) {
 			name: "Combine HTTP and TLS listeners",
 			fields: fields{
 				HTTP: []HTTPListener{testHTTPListener, testHTTPListener2},
-				TLS:  []TLSPassthroughListener{testTLSListener, testTLSListener2},
+				TLS:  []TLSListener{testTLSListener, testTLSListener2},
 				L4:   []L4Listener{testL4Listener, testL4Listener2},
 			},
 			want: []Listener{&testHTTPListener, &testHTTPListener2, &testTLSListener, &testTLSListener2, &testL4Listener, &testL4Listener2},
@@ -71,7 +71,7 @@ func TestModel_GetListeners(t *testing.T) {
 		{
 			name: "Only TLS listeners",
 			fields: fields{
-				TLS: []TLSPassthroughListener{testTLSListener, testTLSListener2},
+				TLS: []TLSListener{testTLSListener, testTLSListener2},
 			},
 			want: []Listener{&testTLSListener, &testTLSListener2},
 		},
@@ -91,9 +91,9 @@ func TestModel_GetListeners(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Model{
-				HTTP:           tt.fields.HTTP,
-				TLSPassthrough: tt.fields.TLS,
-				L4:             tt.fields.L4,
+				HTTP: tt.fields.HTTP,
+				TLS:  tt.fields.TLS,
+				L4:   tt.fields.L4,
 			}
 			got := m.GetListeners()
 			assert.Equal(t, tt.want, got)
@@ -214,7 +214,7 @@ func TestModel_GRPCWebTranslationEnabled(t *testing.T) {
 	}
 }
 
-func TestIsTLSPassthroughListenerConfigured(t *testing.T) {
+func TestIsTLSListenerConfigured(t *testing.T) {
 	tests := []struct {
 		name  string
 		model Model
@@ -228,8 +228,8 @@ func TestIsTLSPassthroughListenerConfigured(t *testing.T) {
 		{
 			name: "listener with routes",
 			model: Model{
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"example.com"}}}},
+				TLS: []TLSListener{
+					{Port: 443, Routes: []TLSRoute{{Hostnames: []string{"example.com"}}}},
 				},
 			},
 			want: true,
@@ -237,7 +237,7 @@ func TestIsTLSPassthroughListenerConfigured(t *testing.T) {
 		{
 			name: "listener without routes",
 			model: Model{
-				TLSPassthrough: []TLSPassthroughListener{
+				TLS: []TLSListener{
 					{Port: 443},
 				},
 			},
@@ -246,9 +246,9 @@ func TestIsTLSPassthroughListenerConfigured(t *testing.T) {
 		{
 			name: "mixed — one with routes, one without",
 			model: Model{
-				TLSPassthrough: []TLSPassthroughListener{
+				TLS: []TLSListener{
 					{Port: 443},
-					{Port: 8443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"example.com"}}}},
+					{Port: 8443, Routes: []TLSRoute{{Hostnames: []string{"example.com"}}}},
 				},
 			},
 			want: true,
@@ -256,7 +256,7 @@ func TestIsTLSPassthroughListenerConfigured(t *testing.T) {
 		{
 			name: "multiple listeners all without routes",
 			model: Model{
-				TLSPassthrough: []TLSPassthroughListener{
+				TLS: []TLSListener{
 					{Port: 443},
 					{Port: 8443},
 				},
@@ -266,12 +266,12 @@ func TestIsTLSPassthroughListenerConfigured(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.model.IsTLSPassthroughListenerConfigured())
+			assert.Equal(t, tt.want, tt.model.IsTLSListenerConfigured())
 		})
 	}
 }
 
-func TestTLSPassthroughPorts(t *testing.T) {
+func TestTLSPorts(t *testing.T) {
 	tests := []struct {
 		name  string
 		model Model
@@ -285,9 +285,9 @@ func TestTLSPassthroughPorts(t *testing.T) {
 		{
 			name: "listeners with routes",
 			model: Model{
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 8443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"a.com"}}}},
-					{Port: 443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"b.com"}}}},
+				TLS: []TLSListener{
+					{Port: 8443, Routes: []TLSRoute{{Hostnames: []string{"a.com"}}}},
+					{Port: 443, Routes: []TLSRoute{{Hostnames: []string{"b.com"}}}},
 				},
 			},
 			want: []uint32{443, 8443},
@@ -295,9 +295,9 @@ func TestTLSPassthroughPorts(t *testing.T) {
 		{
 			name: "routeless listeners excluded",
 			model: Model{
-				TLSPassthrough: []TLSPassthroughListener{
+				TLS: []TLSListener{
 					{Port: 443},
-					{Port: 8443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"a.com"}}}},
+					{Port: 8443, Routes: []TLSRoute{{Hostnames: []string{"a.com"}}}},
 					{Port: 9443},
 				},
 			},
@@ -306,7 +306,7 @@ func TestTLSPassthroughPorts(t *testing.T) {
 		{
 			name: "all routeless",
 			model: Model{
-				TLSPassthrough: []TLSPassthroughListener{
+				TLS: []TLSListener{
 					{Port: 443},
 					{Port: 8443},
 				},
@@ -316,9 +316,9 @@ func TestTLSPassthroughPorts(t *testing.T) {
 		{
 			name: "duplicate ports deduplicated",
 			model: Model{
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"a.com"}}}},
-					{Port: 443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"b.com"}}}},
+				TLS: []TLSListener{
+					{Port: 443, Routes: []TLSRoute{{Hostnames: []string{"a.com"}}}},
+					{Port: 443, Routes: []TLSRoute{{Hostnames: []string{"b.com"}}}},
 				},
 			},
 			want: []uint32{443},
@@ -326,7 +326,7 @@ func TestTLSPassthroughPorts(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.model.TLSPassthroughPorts())
+			assert.Equal(t, tt.want, tt.model.TLSPorts())
 		})
 	}
 }
@@ -469,8 +469,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 		{
 			name: "TLS passthrough only",
 			model: Model{
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Hostname: "api.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Hostname: "api.example.test", Routes: []TLSRoute{{Hostnames: []string{"api.example.test"}}}},
 				},
 			},
 			want: false,
@@ -481,8 +481,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "api.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Hostname: "api.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Hostname: "api.example.test", Routes: []TLSRoute{{Hostnames: []string{"api.example.test"}}}},
 				},
 			},
 			want: true,
@@ -493,8 +493,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "api.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 443, Hostname: "api.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 443, Hostname: "api.example.test", Routes: []TLSRoute{{Hostnames: []string{"api.example.test"}}}},
 				},
 			},
 			want: false,
@@ -505,8 +505,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "web.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Hostname: "tls.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"tls.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Hostname: "tls.example.test", Routes: []TLSRoute{{Hostnames: []string{"tls.example.test"}}}},
 				},
 			},
 			want: false,
@@ -517,8 +517,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "shared.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"shared.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Routes: []TLSRoute{{Hostnames: []string{"shared.example.test"}}}},
 				},
 			},
 			want: true,
@@ -529,8 +529,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"*"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Hostname: "*", Routes: []TLSRoute{{Hostnames: []string{"*"}}}},
 				},
 			},
 			want: true,
@@ -541,8 +541,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Hostname: "", Routes: []TLSPassthroughRoute{{Hostnames: []string{""}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Hostname: "", Routes: []TLSRoute{{Hostnames: []string{""}}}},
 				},
 			},
 			want: true,
@@ -553,8 +553,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"tls.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 443, Hostname: "*", Routes: []TLSRoute{{Hostnames: []string{"tls.example.test"}}}},
 				},
 			},
 			want: false,
@@ -565,8 +565,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"tls.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Hostname: "*", Routes: []TLSRoute{{Hostnames: []string{"tls.example.test"}}}},
 				},
 			},
 			want: true,
@@ -577,8 +577,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "web.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"*"}}}},
+				TLS: []TLSListener{
+					{Port: 443, Hostname: "*", Routes: []TLSRoute{{Hostnames: []string{"*"}}}},
 				},
 			},
 			want: false,
@@ -589,8 +589,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "web.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Hostname: "*", Routes: []TLSPassthroughRoute{{Hostnames: []string{"*"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Hostname: "*", Routes: []TLSRoute{{Hostnames: []string{"*"}}}},
 				},
 			},
 			want: true,
@@ -601,8 +601,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Hostname: "tls.example.test", Routes: []TLSPassthroughRoute{{}}},
+				TLS: []TLSListener{
+					{Port: 9443, Hostname: "tls.example.test", Routes: []TLSRoute{{}}},
 				},
 			},
 			want: true,
@@ -613,8 +613,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "*", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Hostname: "tls.example.test", Routes: []TLSPassthroughRoute{{Hostnames: []string{"*"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Hostname: "tls.example.test", Routes: []TLSRoute{{Hostnames: []string{"*"}}}},
 				},
 			},
 			want: true,
@@ -625,8 +625,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "*.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 443, Routes: []TLSRoute{{Hostnames: []string{"api.example.test"}}}},
 				},
 			},
 			want: false,
@@ -637,8 +637,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "*.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Routes: []TLSRoute{{Hostnames: []string{"api.example.test"}}}},
 				},
 			},
 			want: true,
@@ -649,8 +649,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "*.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"api.example.org"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Routes: []TLSRoute{{Hostnames: []string{"api.example.org"}}}},
 				},
 			},
 			want: false,
@@ -661,8 +661,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "api.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"*.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 443, Routes: []TLSRoute{{Hostnames: []string{"*.example.test"}}}},
 				},
 			},
 			want: false,
@@ -673,8 +673,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "api.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"*.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Routes: []TLSRoute{{Hostnames: []string{"*.example.test"}}}},
 				},
 			},
 			want: true,
@@ -685,8 +685,8 @@ func TestNeedsCrossProtocolSplit(t *testing.T) {
 				HTTP: []HTTPListener{
 					{Port: 443, Hostname: "*.example.test", TLS: []TLSSecret{{Name: "cert", Namespace: "ns"}}},
 				},
-				TLSPassthrough: []TLSPassthroughListener{
-					{Port: 9443, Routes: []TLSPassthroughRoute{{Hostnames: []string{"*.example.test"}}}},
+				TLS: []TLSListener{
+					{Port: 9443, Routes: []TLSRoute{{Hostnames: []string{"*.example.test"}}}},
 				},
 			},
 			want: true,
