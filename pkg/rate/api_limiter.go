@@ -45,6 +45,9 @@ const (
 	// the time between when the request has finished waiting (or being
 	// delayed), to when the underlying action has finished.
 	logProcessingDuration = "processingDuration"
+	// logUnaccountedDuration is the part of logProcessingDuration that the
+	// caller reported as shared with the rest of the node.
+	logUnaccountedDuration = "unaccountedDuration"
 	// logParallelRequests is the number of allowed parallel requests. See
 	// APILimiter.parallelRequests.
 	logParallelRequests = "parallelRequests"
@@ -116,6 +119,14 @@ type APILimiter struct {
 	// processingDurations is the last params.MeanOver processing durations
 	processingDurations []time.Duration
 
+	// meanServiceDuration is the mean of serviceDurations. It drives the
+	// automatic adjustment.
+	meanServiceDuration float64
+
+	// serviceDurations is the last params.MeanOver processing durations
+	// without the part the caller reported as unaccounted
+	serviceDurations []time.Duration
+
 	// meanWaitDuration is the latest mean wait duration, calculated based
 	// on waitDurations
 	meanWaitDuration float64
@@ -130,7 +141,7 @@ type APILimiter struct {
 
 	// adjustmentFactor is the latest adjustment factor. It is the ratio
 	// between params.EstimatedProcessingDuration and
-	// meanProcessingDuration.
+	// meanServiceDuration.
 	adjustmentFactor float64
 
 	// limiter is the rate limiter based on params.RateLimit and
@@ -435,7 +446,7 @@ func (l *APILimiter) delayedAdjustment(current, min, max float64) (n float64) {
 }
 
 func (l *APILimiter) calculateAdjustmentFactor() float64 {
-	f := l.params.EstimatedProcessingDuration.Seconds() / l.meanProcessingDuration
+	f := l.params.EstimatedProcessingDuration.Seconds() / l.meanServiceDuration
 	f = min(f, l.params.MaxAdjustmentFactor)
 	f = max(f, 1.0/l.params.MaxAdjustmentFactor)
 	return f
@@ -479,6 +490,7 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error, code int) {
 		logAPICallName, l.name,
 		logUUID, r.uuid,
 		logProcessingDuration, processingDuration,
+		logUnaccountedDuration, r.unaccounted,
 		logTotalDuration, totalDuration,
 		logWaitDurationTotal, r.waitDuration,
 	)
@@ -511,6 +523,12 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error, code int) {
 			l.processingDurations = l.processingDurations[exceed:]
 		}
 		l.meanProcessingDuration = calcMeanDuration(l.processingDurations)
+
+		l.serviceDurations = append(l.serviceDurations, max(0, processingDuration-r.unaccounted))
+		if exceed := len(l.serviceDurations) - l.params.MeanOver; exceed > 0 {
+			l.serviceDurations = l.serviceDurations[exceed:]
+		}
+		l.meanServiceDuration = calcMeanDuration(l.serviceDurations)
 
 		l.waitDurations = append(l.waitDurations, r.waitDuration)
 		if exceed := len(l.waitDurations) - l.params.MeanOver; exceed > 0 {
@@ -569,12 +587,13 @@ func calcMeanDuration(durations []time.Duration) float64 {
 // LimitedRequest represents a request that is being limited. It is returned
 // by Wait() and the caller of Wait() is responsible to call Done() or Error()
 // when the API call has been processed or resulted in an error. It is safe to
-// call Error() and then Done(). It is not safe to call Done(), Error(), or
-// WaitDuration() concurrently.
+// call Error() and then Done(). It is not safe to call Done(), Error(),
+// WaitDuration() or Unaccounted() concurrently.
 type LimitedRequest interface {
 	Done()
 	Error(err error, code int)
 	WaitDuration() time.Duration
+	Unaccounted(d time.Duration)
 }
 
 type limitedRequest struct {
@@ -582,6 +601,7 @@ type limitedRequest struct {
 	startTime           time.Time
 	scheduleTime        time.Time
 	waitDuration        time.Duration
+	unaccounted         time.Duration
 	waitSemaphoreWeight int64
 	uuid                string
 	finished            bool
@@ -591,6 +611,12 @@ type limitedRequest struct {
 // WaitDuration returns the duration the request had to wait
 func (l *limitedRequest) WaitDuration() time.Duration {
 	return l.waitDuration
+}
+
+// Unaccounted reports that d of the processing duration went to work shared
+// with the rest of the node, so the automatic adjustment leaves it out.
+func (l *limitedRequest) Unaccounted(d time.Duration) {
+	l.unaccounted += d
 }
 
 // Done must be called when the API request has been successfully processed
@@ -669,7 +695,7 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 	}
 
 	parallelRequests := l.parallelRequests
-	meanProcessingDuration := l.meanProcessingDuration
+	meanServiceDuration := l.meanServiceDuration
 	l.mutex.Unlock()
 
 	if l.params.Log {
@@ -734,11 +760,11 @@ func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) 
 		}
 
 		// Instead of returning immediately, pace the caller by
-		// sleeping for the mean processing duration. This helps
+		// sleeping for the mean service duration. This helps
 		// against callers who disrespect 429 error codes and retry
 		// immediately.
-		if meanProcessingDuration > 0.0 {
-			time.Sleep(time.Duration(meanProcessingDuration * float64(time.Second)))
+		if meanServiceDuration > 0.0 {
+			time.Sleep(time.Duration(meanServiceDuration * float64(time.Second)))
 		}
 
 		req.outcome = outcomeLimitMaxWait
@@ -895,6 +921,7 @@ type dummyRequest struct{}
 func (d dummyRequest) WaitDuration() time.Duration { return 0 }
 func (d dummyRequest) Done()                       {}
 func (d dummyRequest) Error(err error, code int)   {}
+func (d dummyRequest) Unaccounted(_ time.Duration) {}
 
 // Wait invokes Wait() on the APILimiter with the given name. If the limiter
 // does not exist, a dummy limiter is used which will not impose any
