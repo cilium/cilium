@@ -143,10 +143,9 @@ func maybeUnloadObsoleteXDPPrograms(logger *slog.Logger, keep []string, xdpMode 
 	}
 }
 
-// compileAndLoadXDPProg compiles bpf_xdp.c for the given XDP device and loads it.
-func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger,
-	reg *registry.MapRegistry, collLoader *bpfCollectionLoader,
-	lnc *config.Config, xdpDev string, xdpMode xdp.Mode) error {
+// compileXDPProg compiles bpf_xdp.c. The object is not specialized per device,
+// so one compile serves every XDP device.
+func compileXDPProg(ctx context.Context, logger *slog.Logger) (string, error) {
 	dirs := &directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
@@ -159,14 +158,13 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger,
 		OutputType: outputObject,
 	}
 
-	objPath, err := compile(ctx, logger, prog, dirs)
-	if err != nil {
-		return err
-	}
-	if err := ctx.Err(); err != nil {
-		return err
-	}
+	return compile(ctx, logger, prog, dirs)
+}
 
+// loadXDPProg loads the object at objPath and attaches it to the given XDP device.
+func loadXDPProg(ctx context.Context, logger *slog.Logger,
+	reg *registry.MapRegistry, collLoader *bpfCollectionLoader,
+	lnc *config.Config, objPath string, xdpDev string, xdpMode xdp.Mode) error {
 	iface, err := safenetlink.LinkByName(xdpDev)
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", xdpDev, err)
