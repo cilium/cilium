@@ -105,7 +105,7 @@ func initServerFlags() {
 		KeyPortForward,
 		"P",
 		false,
-		"Automatically forward the relay port to the local machine. Analoguous to running: 'cilium hubble port-forward'.",
+		"Automatically forward the relay port to the local machine. Analogous to running: 'cilium hubble port-forward'.",
 	)
 	ServerFlags.Uint16(
 		KeyPortForwardPort,
