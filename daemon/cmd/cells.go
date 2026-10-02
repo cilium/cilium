@@ -49,6 +49,7 @@ import (
 	"github.com/cilium/cilium/pkg/gops"
 	"github.com/cilium/cilium/pkg/health"
 	"github.com/cilium/cilium/pkg/healthconfig"
+	hiveHealth "github.com/cilium/cilium/pkg/hive/health"
 	hubble "github.com/cilium/cilium/pkg/hubble/cell"
 	identity "github.com/cilium/cilium/pkg/identity/cell"
 	ipamcell "github.com/cilium/cilium/pkg/ipam/cell"
@@ -83,13 +84,6 @@ import (
 	noderestapi "github.com/cilium/cilium/pkg/node/restapi"
 	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
-
-	// Side-effect import: registers the EC2 IMDS-based AWS metadata fetcher
-	// with pkg/nodediscovery so ENI IPAM works at runtime in the agent.
-	// Kept out of cilium-operator-generic (which does not import the daemon
-	// package) to avoid pulling the AWS SDK into non-AWS operator builds.
-	hiveHealth "github.com/cilium/cilium/pkg/hive/health"
-	_ "github.com/cilium/cilium/pkg/nodediscovery/eni"
 	"github.com/cilium/cilium/pkg/nodeipamconfig"
 	"github.com/cilium/cilium/pkg/option"
 	policy "github.com/cilium/cilium/pkg/policy/cell"

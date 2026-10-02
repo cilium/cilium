@@ -5,19 +5,18 @@ package nodediscovery
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 // ENIMutateInputs carries the agent configuration needed to populate the
 // ENI-specific fields of a CiliumNode resource. It deliberately uses only
 // plain Go types (no AWS SDK types) so that this file does not pull in any
-// AWS dependency. The actual mutator implementation, registered from
-// pkg/nodediscovery/eni, is what links against the AWS SDK and the EC2 IMDS
-// client.
+// AWS dependency. The actual mutator implementation, provided by
+// pkg/aws/agent, is what links against the AWS SDK and the EC2 IMDS client.
 type ENIMutateInputs struct {
 	Logger                  *slog.Logger
 	FirstInterfaceIndex     int
@@ -36,30 +35,21 @@ type ENIMutateInputs struct {
 }
 
 // ENIMutator populates the ENI-specific fields of nodeResource. It is
-// registered from pkg/nodediscovery/eni's init() so that the AWS SDK and
-// EC2 IMDS client are only linked into binaries that import that package
-// (notably cilium-agent), keeping them out of cilium-operator-generic.
+// provided by the pkg/aws/agent cell, so that the AWS SDK and the EC2 IMDS
+// client are only linked into the binaries registering that cell, and injected
+// into NodeDiscovery as an optional dependency: newNodeDiscovery rejects its
+// absence in ENI IPAM mode only.
 type ENIMutator func(ctx context.Context, in ENIMutateInputs, nodeResource *ciliumv2.CiliumNode) error
 
-var eniMutator ENIMutator
+// errNoENIMutator is returned by newNodeDiscovery when the agent runs in ENI
+// IPAM mode without any cell providing an ENIMutator.
+var errNoENIMutator = errors.New("ENI IPAM mode requires the AWS agent integration (pkg/aws/agent.Cell), which is not registered")
 
-// RegisterENIMutator installs the function used to populate the ENI fields
-// of a CiliumNode. It is called from pkg/nodediscovery/eni's init().
-func RegisterENIMutator(fn ENIMutator) {
-	eniMutator = fn
-}
-
-// mutateENINodeResource dispatches to the registered ENIMutator. If none is
-// registered (e.g. in cilium-operator-generic, which does not blank-import
-// pkg/nodediscovery/eni), it fatals — ENI IPAM is only supported by the
-// cilium-agent binary and the AWS-specific operator.
+// mutateENINodeResource populates the ENI-specific fields of nodeResource
+// through the injected ENIMutator, which newNodeDiscovery guarantees is set in
+// ENI IPAM mode.
 func (n *NodeDiscovery) mutateENINodeResource(ctx context.Context, nodeResource *ciliumv2.CiliumNode) error {
-	if eniMutator == nil {
-		logging.Fatal(n.logger, "ENI IPAM mode requires the cilium-agent binary; "+
-			"ensure pkg/nodediscovery/eni is imported (operator binaries must use the AWS-specific operator)")
-		return nil
-	}
-	return eniMutator(ctx, ENIMutateInputs{
+	return n.eniMutator(ctx, ENIMutateInputs{
 		Logger:                  n.logger,
 		FirstInterfaceIndex:     n.config.ENIFirstInterfaceIndex,
 		UsePrimaryAddress:       n.config.ENIUsePrimaryAddress,
