@@ -122,9 +122,12 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	if option.Config.EnableVTEP {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
-	cfg.SocketLB.HostNSOnly = lnc.KPRConfig.EnableSocketLB &&
-		option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly
-	cfg.SocketLB.EnableTracing = option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
+
+	if lnc.KPRConfig.EnableSocketLB {
+		cfg.SocketLB.EnableFull = !option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly
+		cfg.SocketLB.HostNSOnly = option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly
+		cfg.SocketLB.EnableTracing = option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
+	}
 
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 
