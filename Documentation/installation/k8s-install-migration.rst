@@ -167,6 +167,7 @@ Preparation
         operator:
           unmanagedPodWatcher:
             restart: false # Migration: Don't restart unmigrated pods
+            # observeOnly: true # Migration: Optional: count and report unmanaged pods via the cilium_operator_unmanaged_pods metric without restarting them
         routingMode: tunnel # Migration: Optional: default is tunneling, configure as needed
         tunnelProtocol: vxlan # Migration: Optional: default is VXLAN, configure as needed
         tunnelPort: 8473 # Migration: Optional, change only if both networks use the same port by default
