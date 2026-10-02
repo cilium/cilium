@@ -759,14 +759,7 @@ func listenerSetFQR(ls *gatewayv1.ListenerSet) model.FullyQualifiedResource {
 
 func sortListenerSets(sets []gatewayv1.ListenerSet) {
 	sort.Slice(sets, func(i, j int) bool {
-		ti := sets[i].CreationTimestamp.Time
-		tj := sets[j].CreationTimestamp.Time
-		if !ti.Equal(tj) {
-			return ti.Before(tj)
-		}
-		ni := sets[i].GetNamespace() + "/" + sets[i].GetName()
-		nj := sets[j].GetNamespace() + "/" + sets[j].GetName()
-		return ni < nj
+		return helpers.CompareByCreationTimestampAndObjectKey(sets[i].ObjectMeta, sets[j].ObjectMeta) < 0
 	})
 }
 
