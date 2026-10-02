@@ -61,6 +61,12 @@ const (
 	// defaultLogMaxBackups is to make sure that we have an upper bound on disk space used by
 	// CNI file logging (e.g. < 7 * 100 MB).
 	defaultLogMaxBackups = 7
+	// defaultLogMaxSize is the default maximum size in MB of a single CNI log file
+	// before it gets rotated. It is kept small relative to the lumberjack default
+	// (100 MB) so that the worst-case disk usage of retained logs (MaxBackups * MaxSize
+	// plus the active file) stays well below the size of the /run tmpfs (10% of RAM,
+	// e.g. ~795 MB on an 8 GB node) that /var/run resolves to on most distros.
+	defaultLogMaxSize = 10
 )
 
 var (
@@ -461,12 +467,21 @@ func (cmd *Cmd) setupLogging(n *types.NetConf) error {
 	}
 
 	if len(n.LogFile) != 0 {
+		maxBackups := n.LogMaxBackups
+		if maxBackups == 0 {
+			maxBackups = defaultLogMaxBackups
+		}
+		maxSize := n.LogMaxSize
+		if maxSize == 0 {
+			maxSize = defaultLogMaxSize
+		}
 		logging.AddHandlers(hooks.NewFileRotationLogHook(
 			// slogloggercheck: the logger has been initialized with default settings
 			logging.GetSlogLevel(logging.DefaultSlogLogger),
 			n.LogFile,
 			hooks.EnableCompression(),
-			hooks.WithMaxBackups(defaultLogMaxBackups),
+			hooks.WithMaxBackups(maxBackups),
+			hooks.WithMaxSize(maxSize),
 		))
 	}
 
