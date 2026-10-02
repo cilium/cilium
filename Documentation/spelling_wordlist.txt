@@ -590,6 +590,7 @@ mediabot
 memcache
 memcached
 memcd
+memlock
 microservice
 microservices
 minikube
