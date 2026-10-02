@@ -3,11 +3,13 @@ off on commits in the Cilium repository:
 
 1602077                                 jack.charlie.munday@cern.ch
 a5r0n                                   a5r0n@users.noreply.github.com
+Aaron Campbell                          aaron@monkey.org
 Aaron Ecay                              aaron.ecay@sky.uk
 Aaron Groom                             150026554+aarongroom@users.noreply.github.com
 Aaron Miller                            aaron@nebius.com
 Àbéjídé Àyodélé                         abejideayodele@gmail.com
 Abirdcfly                               fp544037857@gmail.com
+Abraão Teixeira                         abraaoteixeira0101@gmail.com
 Adam Bocim                              adam.bocim@seznam.cz
 Adam Korcz                              adam@adalogics.com
 Adam Wathieu                            awathieu@google.com
@@ -60,7 +62,7 @@ alingse                                 alingse@foxmail.com
 alisdairbr                              alisdairbr@users.noreply.github.com
 Alkama Hasan                            gl3118@myamu.ac.in
 Alois Petutschnig                       alois@petutschnig.net
-Alvaro Aleman                           alvaroaleman@users.noreply.github.com
+Alvaro Aleman                           alv2412+ciliumgithub@googlemail.com
 Alvaro Muñoz                            pwntester@github.com
 Alvaro Uria                             alvaro.uria@isovalent.com
 Amaan Ul Haq Siddiqui                   amaan@sudoconsultants.com
@@ -71,9 +73,11 @@ Amir Kheirkhahan                        amir.kheirkhahan@dbschenker.com
 amitmavgupta                            115551423+amitmavgupta@users.noreply.github.com
 Amol Ambekar                            ambekara@google.com
 Amre Shakimov                           amre@covalent.io
+amrut-asm                               amrutrn1@gmail.com
 Anand Kumar Shaw                        anandkrshawheritage@gmail.com
 Anderson, David L                       david.l.anderson@intel.com
 Andor Nemeth                            andor_nemeth@swissre.com
+Andrea Lattuada                         alattuad@isovalent.com
 Andreas Mårtensson                      andreas@addem.se
 Andrea Terzolo                          andreaterzolo3@gmail.com
 André Costa                             ancosta@gmail.com
@@ -104,9 +108,11 @@ Animesh Pathak                          53110238+Sonichigo@users.noreply.github.
 Aniruddha Amit Dutta                    duttaaniruddha31@gmail.com
 Anish Shah                              anishshah@google.com
 Anit Gandhi                             anitgandhi@gmail.com
+Ankita Ojha                             ankitaojha@google.com
 Ankur Kothiwal                          ankur.kothiwal@accuknox.com
 Anna Kapuscinska                        anna@isovalent.com
 Anshul Chelapurath                      achelapurath@google.com
+Anthony Nash                            nash.ant@gmail.com
 Anthony Rabbito                         hello@anthonyrabbito.com
 anthony-unicare                         anthony.dipietro@unicarehealth.com.au
 Antoine Coetsier                        acr@exoscale.ch
@@ -155,6 +161,7 @@ Aviral Agarwal                          aviral.agarwal@sprinklr.com
 AwesomePatrol                           AwesomePatrol@users.noreply.github.com
 ayesha khaliq                           ayeshakhaliqrana@gmail.com
 Ayush Dwivedi                           ayush.dwivedi@accuknox.com
+Ayush Meel                              ayushmeel.dev@gmail.com
 Azeez Syed                              syedazeez337@gmail.com
 bakito                                  github@bakito.ch
 balashovm                               balashovm@yandex-team.ru
@@ -295,6 +302,7 @@ Darren Foo                              darren.foo@shopify.com
 Darren Mackintosh                       unixdaddy@gmail.com
 Darshan Chaudhary                       deathbullet@gmail.com
 DaShaun                                 826271+dashaun@users.noreply.github.com
+Dasmat Hansda                           gptdasmat@gmail.com
 David Ackroyd                           dackroyd@nine.com.au
 David Bimmler                           david.bimmler@isovalent.com
 David Birks                             davidebirks@gmail.com
@@ -369,6 +377,7 @@ Elias Hernandez                         elirayhernandez@gmail.com
 eliranw                                 39266788+eliranw@users.noreply.github.com
 Ellie Springsteen                       ellie.springsteen@appian.com
 Eloy Coto                               eloy.coto@acalustra.com
+elskow                                  helmyl.work@gmail.com
 Emile Savard                            emile.savard@bell.ca
 Emily Shepherd                          emily@redcoat.dev
 Emin Aktas                              eminaktas34@gmail.com
@@ -388,6 +397,7 @@ Eric Mountain                           eric.mountain@datadoghq.com
 Eric M. Yanulis                         eric@eyanulis.net
 Eric Ripa                               eric@ripa.io
 Erik Chang                              erik.chang@nordstrom.com
+Ethan Ermovick                          61568556+Arleee1@users.noreply.github.com
 Eugene Starchenko                       17835122+eugenestarchenko@users.noreply.github.com
 Ewout Prangsma                          ewout@prangsma.net
 exherb                                  i@4leaf.me
@@ -398,6 +408,7 @@ Fabio Sebastiano                        info@verbano.eu
 Faiyaz Ahmed                            faiyaza@gmail.com
 Fankaixi Li                             fankaixi.li@bytedance.com
 f.domain                                f.domain@criteo.com
+fds7280                                 ayushmanrout27@gmail.com
 Federico Hernandez                      f@ederi.co
 feifeifei                               wangyufeimoon@gamil.com
 Felipe Yepez                            felipeyepez@google.com
@@ -437,6 +448,7 @@ Gaurav Yadav                            gaurav.dev.iiitm@gmail.com
 Gaute Osaland Hådem                     gauteoh@gmail.com
 Gavin McNair                            gavin.mcnair@kaluza.com
 geanttechnology                         geanttechnology@gmail.com
+George Campbell                         gcampbell@palantir.com
 George Gaál                             gb12335@gmail.com
 George Kontridze                        gkontridze@plaid.com
 Gerald Pape                             gerald@giantswarm.io
@@ -648,6 +660,7 @@ Kazuki Suda                             kazuki.suda@gmail.com
 Kc Balusu                               kcbalusu@meta.com
 Keisuke Kondo                           k.gryphus@gmail.com
 Kenshin Chen                            smwyzi@qq.com
+Keresztes Péter-Zoltán                  zozo6015@gmail.com
 kerthcet                                kerthcet@gmail.com
 Kevin Burke                             kevin@burke.dev
 Kevin Holditch                          82885135+kevholditch-f3@users.noreply.github.com
@@ -655,9 +668,11 @@ Kevin Reeuwijk                          kevin.reeuwijk@spectrocloud.com
 Kevin Vu                                vietcgi@gmail.com
 khaddict                                contact@khaddict.com
 Kiran Bondalapati                       kiran@bondalapati.com
+Kiril Angov                             kangov@seatgeek.com
 Kir Kolyshkin                           kolyshkin@gmail.com
 Koichiro Den                            den@klaipeden.com
 Konstantin Aksenov                      konstantin.aksenov@flant.com
+Konstantin Khlopkov                     konstantin.khlopkov93@gmail.com
 Kornilios Kourtis                       kornilios@isovalent.com
 kunal.behbudzade                        kunal.behbudzade@btsgrp.com
 kwakubiney                              kebiney@hotmail.com
@@ -671,6 +686,7 @@ ldelossa                                louis.delos@gmail.com
 Lehner Florian                          dev@der-flo.net
 Leiw                                    steven.l.wang@linux.intel.com
 Leonard Cohnen                          lc@edgeless.systems
+Leonardo Di Giovanna                    leonardodigiovanna1@gmail.com
 leonliao                                xiaobo.liao@gmail.com
 Liam Connery                            lconnery@google.com
 Liam Parker                             liamchat500@gmail.com
@@ -790,6 +806,7 @@ Maximilian Bischoff                     maximilian.bischoff@inovex.de
 Maximilian Mack                         max@mack.io
 Maxim Krasilnikov                       m.krasilnikov@space307.com
 Maxim Mikityanskiy                      maxtram95@gmail.com
+Maxim Skokov                            skokovmaksimevg@gmail.com
 Max Körbächer                           16919345+mkorbi@users.noreply.github.com
 MeherRushi                              sudharushi0@gmail.com
 mehrdadbn9                              mehrdadbiukian@gmail.com
@@ -836,6 +853,7 @@ MukundaKatta                            mukundakatta@users.noreply.github.com
 murali509                               139368561+murali509@users.noreply.github.com
 Murat Parlakisik                        parlakisik@gmail.com
 mvtab                                   mvtabilitas@protonmail.com
+Naoki Take                              naoki-take@cybozu.co.jp
 Natalia Reka Ivanko                     natalia@isovalent.com
 Nate Sweet                              nathanjsweet@pm.me
 Nate Taylor                             ntaylor1781@gmail.com
@@ -889,6 +907,7 @@ Olga Mirensky                           5200844+olga-mir@users.noreply.github.co
 Oliver Hofmann                          91730056+olinux-dev@users.noreply.github.com
 Oliver Ni                               oliver.ni@gmail.com
 Oliver Wang                             a0924100192@gmail.com
+Olivier Calzi                           olivier.calzi@calzi.eu
 Omar Aloraini                           ooraini.dev@gmail.com
 Ondrej Blazek                           ondrej.blazek@firma.seznam.cz
 Ondrej Sika                             ondrej@ondrejsika.com
@@ -940,6 +959,7 @@ Pierre-Yves Aillet                      pyaillet@gmail.com
 Pieter van der Giessen                  pieter@pionative.com
 Pinaki Raj                              pinakiraj15@gamil.com
 Pooja Trivedi                           poojatrivedi@gmail.com
+Potato                                  tanxinyu@apache.org
 Pouya Dolatabadi                        pooyadowlat@gmail.com
 poyeks                                  poyekunl@cisco.com
 Prabhakhar Kaliyamurthy (PK)            prabhakhar@gmail.com
@@ -1140,6 +1160,7 @@ Synte-Peng                              synte4028@gmail.com
 Taeung Song                             treeze.taeung@gmail.com
 Taizeng Wu                              wutaizeng@gmail.com
 Takayoshi Nishida                       takayoshi.nishida@gmail.com
+tamilmani1989                           tamanoha@microsoft.com
 Tamilmani                               tamanoha@microsoft.com
 Tam Mach                                tam.mach@cilium.io
 Tasdik Rahman                           prodicus@outlook.com
@@ -1274,6 +1295,7 @@ Yann ILAS                               yann.ilas@gmail.com
 Yash Israni                             yashisrani52@gmail.com
 Yash Shetty                             yashshetty@google.com
 Ye Sijun                                junnplus@gmail.com
+Yevhen Kyriukha                         kirgene@gmail.com
 Yiannis Yiakoumis                       yiannis@selfienetworks.com
 yimengwang                              yimengwang@google.com
 Yingnan Zhang                           342144303@qq.com
@@ -1314,6 +1336,7 @@ zhikuodu                                duzhk@qq.com
 Zhiyuan Hou                             zhiyuan2048@linux.alibaba.com
 zhouhaibing089                          zhouhaibing089@gmail.com
 Zhu Yan                                 hackzhuyan@gmail.com
+Zihan Hossain                           zihanhossain99@gmail.com
 Zihong Zheng                            zihongz@google.com
 Zijian Zhang                            zijianzhang@bytedance.com
 Zisis Lianas                            zl@consol.de
