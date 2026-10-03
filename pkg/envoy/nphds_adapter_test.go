@@ -17,6 +17,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 )
@@ -24,17 +25,18 @@ import (
 func newTestNPHDSAdapter(t *testing.T) *nphdsCacheAdapter {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	server := newADSServerWithCache(xdsnew.NewCache(logger, false), logger, nil, nil, xdsServerConfig{}, nil, nil)
+	server := newADSServerWithCache(newADSCache(logger, false), logger, nil, nil, xdsServerConfig{}, nil, nil)
 	return newNPHDSCacheAdapter(logger, server)
 }
 
 func lookupNPHDS(t *testing.T, adapter *nphdsCacheAdapter, identityStr string) *envoyAPI.NetworkPolicyHosts {
 	t.Helper()
-	resources := adapter.store.networkPolicyHosts()
-	res, ok := resources[identityStr]
+	resource, ok := testADSNPHDSCache(t, adapter).GetResource(localNodeID, typeurl.NetworkPolicyHosts, identityStr)
 	if !ok {
 		return nil
 	}
+	res, ok := resource.(*envoyAPI.NetworkPolicyHosts)
+	require.True(t, ok)
 	return res
 }
 
@@ -72,12 +74,30 @@ func TestNPHDSAdapterHandleIPUpsert(t *testing.T) {
 	assert.Equal(t, "::1/128", npHost.HostAddresses[1])
 
 	// Duplicate is a no-op
+	before := npHost
 	err = adapter.handleIPUpsert("123", "1.2.3.0/32", 123)
 	require.NoError(t, err)
 
 	npHost = lookupNPHDS(t, adapter, "123")
+	assert.Same(t, before, npHost)
 	require.NotNil(t, npHost)
 	assert.Len(t, npHost.HostAddresses, 2)
+}
+
+func TestNPHDSAdapterUpdatesOnlyMatchingIdentity(t *testing.T) {
+	adapter := newTestNPHDSAdapter(t)
+	require.NoError(t, adapter.handleIPUpsert("123", "1.2.3.0/32", 123))
+	require.NoError(t, adapter.handleIPUpsert("456", "4.5.6.0/32", 456))
+	unrelated := lookupNPHDS(t, adapter, "456")
+	priorResource := lookupNPHDS(t, adapter, "123")
+
+	require.NoError(t, adapter.handleIPUpsert("123", "1.2.3.1/32", 123))
+	assert.Equal(t, []string{"1.2.3.0/32"}, priorResource.HostAddresses)
+	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))
+	require.NoError(t, adapter.handleIPDelete("123", "1.2.3.0/32"))
+	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))
+	require.NoError(t, adapter.handleIPDelete("123", "1.2.3.1/32"))
+	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))
 }
 
 func TestNPHDSAdapterHandleIPDelete(t *testing.T) {
@@ -109,8 +129,10 @@ func TestNPHDSAdapterHandleIPDelete(t *testing.T) {
 
 	// Delete non-existent IP returns error
 	require.NoError(t, adapter.handleIPUpsert("456", "10.0.0.1/32", 456))
+	before := lookupNPHDS(t, adapter, "456")
 	err = adapter.handleIPDelete("456", "10.0.0.2/32")
 	require.Error(t, err)
+	assert.Same(t, before, lookupNPHDS(t, adapter, "456"))
 }
 
 func TestNPHDSAdapterOnIPIdentityCacheChange(t *testing.T) {
@@ -225,7 +247,7 @@ func TestNPHDSAdapterPublishesFullStateResponses(t *testing.T) {
 
 func TestStartNPHDSIPCacheListener(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	adsCache := xdsnew.NewCache(logger, false)
+	adsCache := newADSCache(logger, false)
 	server := newADSServerWithCache(adsCache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
 	// nil ipCache should be a no-op

@@ -631,6 +631,15 @@ const (
 	// XDSCurrentVersion is the current version of an xDS resource.
 	XDSCurrentVersion = "xdsCurrentVersion"
 
+	// XDSCurrentGeneration is the current generation of an xDS resource.
+	XDSCurrentGeneration = "xdsCurrentGeneration"
+
+	// XDSGeneration is the generation of an xDS resource.
+	XDSGeneration = "xdsGeneration"
+
+	// XDSPushedGeneration is the generation of an xDS resource that has been pushed.
+	XDSPushedGeneration = "xdsPushedGeneration"
+
 	// XDSPushedVersion is the version of an xDS resource that has been pushed.
 	XDSPushedVersion = "xdsPushedVersion"
 

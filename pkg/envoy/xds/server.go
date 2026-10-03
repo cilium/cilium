@@ -17,7 +17,6 @@ import (
 
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpointstate"
@@ -560,20 +559,14 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				logfields.XDSNonce, resp.Version,
 			)
 
-			resources := make([]*anypb.Any, len(resp.VersionedResources))
-
-			// Marshall the resources into protobuf's Any type.
-			for i := range resp.VersionedResources {
-				any, err := anypb.New(resp.VersionedResources[i].Resource)
-				if err != nil {
-					responseLog.Error(
-						"error marshalling xDS response with resources",
-						logfields.Error, err,
-						logfields.Resources, len(resp.VersionedResources),
-					)
-					return err
-				}
-				resources[i] = any
+			out, err := resp.DiscoveryResponse(state.typeURL)
+			if err != nil {
+				responseLog.Error(
+					"error marshalling xDS response with resources",
+					logfields.Error, err,
+					logfields.Resources, len(resp.VersionedResources),
+				)
+				return err
 			}
 
 			responseLog.Debug(
@@ -581,15 +574,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *slog.Logge
 				logfields.Resources, len(resp.VersionedResources),
 			)
 
-			versionStr := strconv.FormatUint(resp.Version, 10)
-			out := &envoy_service_discovery.DiscoveryResponse{
-				VersionInfo: versionStr,
-				Resources:   resources,
-				Canary:      resp.Canary,
-				TypeUrl:     state.typeURL,
-				Nonce:       versionStr,
-			}
-			err := stream.Send(out)
+			err = stream.Send(out)
 			if err != nil {
 				return err
 			}
@@ -1065,42 +1050,22 @@ func (s *Server) processDeltaRequestStream(ctx context.Context, streamLog *slog.
 				logfields.XDSNonce, state.nonce,
 			)
 
-			resources := make([]*envoy_service_discovery.Resource, len(resp.VersionedResources))
-
-			// Marshall the resources into protobuf's Any type.
-			for i := range resp.VersionedResources {
-				any, err := anypb.New(resp.VersionedResources[i].Resource)
-				if err != nil {
-					responseLog.Error(
-						"error marshalling xDS response with resources",
-						logfields.Error, err,
-						logfields.Resources, len(resp.VersionedResources),
-					)
-					return err
-				}
-				versionStr := strconv.FormatUint(resp.VersionedResources[i].Version, 10)
-
-				resources[i] = &envoy_service_discovery.Resource{
-					Name:     resp.VersionedResources[i].Name,
-					Version:  versionStr,
-					Resource: any,
-				}
+			out, err := resp.DeltaDiscoveryResponse(state.typeURL, state.nonce)
+			if err != nil {
+				responseLog.Error(
+					"error marshalling xDS response with resources",
+					logfields.Error, err,
+					logfields.Resources, len(resp.VersionedResources),
+				)
+				return err
 			}
 
 			responseLog.Debug(
 				"sending xDS response with resources",
-				logfields.Resources, len(resources),
+				logfields.Resources, len(out.Resources),
 			)
 
-			versionStr := strconv.FormatUint(resp.Version, 10)
-			out := &envoy_service_discovery.DeltaDiscoveryResponse{
-				TypeUrl:           state.typeURL,
-				Resources:         resources,
-				RemovedResources:  resp.RemovedNames,
-				Nonce:             state.nonce,
-				SystemVersionInfo: versionStr,
-			}
-			err := stream.Send(out)
+			err = stream.Send(out)
 			if err != nil {
 				return err
 			}
