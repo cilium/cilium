@@ -413,19 +413,16 @@ func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
 		origBPFMasq := option.Config.EnableBPFMasquerade
 		origIPv4Masq := option.Config.EnableIPv4Masquerade
 		origIPv6Masq := option.Config.EnableIPv6Masquerade
-		origNativeRoutingCIDR := option.Config.IPv4NativeRoutingCIDR
 		t.Cleanup(func() {
 			option.Config.EnableBPFMasquerade = origBPFMasq
 			option.Config.EnableIPv4Masquerade = origIPv4Masq
 			option.Config.EnableIPv6Masquerade = origIPv6Masq
-			option.Config.IPv4NativeRoutingCIDR = origNativeRoutingCIDR
 		})
 
 		t.Run("BPF masquerade", func(t *testing.T) {
 			option.Config.EnableBPFMasquerade = true
 			option.Config.EnableIPv4Masquerade = true
 			option.Config.EnableIPv6Masquerade = false
-			option.Config.IPv4NativeRoutingCIDR = netip.MustParsePrefix("10.0.0.0/8")
 
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
 			require.Contains(t, output, "define ENABLE_MASQUERADE_IPV4 1\n",
