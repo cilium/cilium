@@ -42,6 +42,9 @@ const (
 	DNSRulesTableName         = "sdp-dns-rules"
 	IPtoEndpointTableName     = "sdp-ip-to-endpoint"
 	PrefixToIdentityTableName = "sdp-prefix-to-identity"
+	// The agent sends the complete policy state in one message. Keep a bound on
+	// the stream while allowing snapshots larger than gRPC's 4 MiB default.
+	maxPolicyStateRecvMsgSize = 64 << 20
 )
 
 func DNSRulesCompositeKey(epID uint32, pp restore.PortProto) uint64 {
@@ -288,7 +291,7 @@ func (c *GRPCClient) createPolicyStream(ctx context.Context) error {
 		}()
 
 		fqdnClient := pb.NewFQDNDataClient(c.client)
-		stream, err := fqdnClient.StreamPolicyState(context.Background())
+		stream, err := fqdnClient.StreamPolicyState(context.Background(), grpc.MaxCallRecvMsgSize(maxPolicyStateRecvMsgSize))
 		if err != nil {
 			c.logger.Error("Failed to open policy stream", logfields.Error, err)
 			c.metrics.CiliumAgentConnection.WithLabelValues(sdpmetrics.LabelErrorOpenPolicyStream).Inc()
