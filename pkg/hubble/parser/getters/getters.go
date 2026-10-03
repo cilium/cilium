@@ -21,6 +21,12 @@ type DNSGetter interface {
 	// the endpoint with ID sourceEpID. The returned names must not have
 	// trailing dots.
 	GetNamesOf(sourceEpID uint32, ip netip.Addr) (names []string)
+	// GetZombieNamesOf fetches the zombie FQDNs of a given IP from the
+	// perspective of the endpoint with ID sourceEpID. Zombie names have
+	// expired from the DNS cache but are still in use by a connection, so
+	// they may be stale. Names returned by GetNamesOf are not repeated. The
+	// returned names must not have trailing dots.
+	GetZombieNamesOf(sourceEpID uint32, ip netip.Addr) (names []string)
 }
 
 // EndpointGetter ...

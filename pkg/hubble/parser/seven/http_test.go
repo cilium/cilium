@@ -65,6 +65,16 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 			}
 			return nil
 		},
+		OnGetZombieNamesOf: func(epID uint32, ip netip.Addr) (names []string) {
+			ipStr := ip.String()
+			switch {
+			case epID == uint32(fakeSourceEndpoint.ID) && ipStr == fakeDestinationEndpoint.IPv4:
+				return []string{"zombie-1234"}
+			case epID == uint32(fakeDestinationEndpoint.ID) && ipStr == fakeSourceEndpoint.IPv4:
+				return []string{"zombie-4321"}
+			}
+			return nil
+		},
 	}
 	IPGetter := &testutils.FakeIPGetter{
 		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
@@ -111,6 +121,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 	assert.Equal(t, fakeSourceEndpoint.IPv4, f.GetIP().GetSource())
 	assert.Equal(t, uint32(56789), f.GetL4().GetTCP().GetSourcePort())
 	assert.Equal(t, []string{"endpoint-4321"}, f.GetSourceNames())
+	assert.Equal(t, []string{"zombie-4321"}, f.GetSourceNamesZombie())
 	assert.Equal(t, fakeSourceEndpoint.Labels.GetModel(), f.GetSource().GetLabels())
 	assert.Empty(t, f.GetSource().GetNamespace())
 	assert.Empty(t, f.GetSource().GetPodName())
@@ -121,6 +132,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 	assert.Equal(t, fakeDestinationEndpoint.IPv4, f.GetIP().GetDestination())
 	assert.Equal(t, uint32(80), f.GetL4().GetTCP().GetDestinationPort())
 	assert.Equal(t, []string{"endpoint-1234"}, f.GetDestinationNames())
+	assert.Equal(t, []string{"zombie-1234"}, f.GetDestinationNamesZombie())
 	assert.Equal(t, fakeDestinationEndpoint.Labels.GetModel(), f.GetDestination().GetLabels())
 	assert.Equal(t, "default", f.GetDestination().GetNamespace())
 	assert.Equal(t, "pod-1234", f.GetDestination().GetPodName())

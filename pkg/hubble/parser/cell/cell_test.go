@@ -8,12 +8,66 @@ import (
 	"net/netip"
 	"runtime"
 	"testing"
+	"time"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 )
+
+// fakeEndpointManager only implements LookupCiliumID, any other method panics.
+type fakeEndpointManager struct {
+	endpointmanager.EndpointManager
+	endpoints map[uint16]*endpoint.Endpoint
+}
+
+func (f *fakeEndpointManager) LookupCiliumID(id uint16) *endpoint.Endpoint {
+	return f.endpoints[id]
+}
+
+func TestPayloadGetters_GetNamesOf(t *testing.T) {
+	const epID = 42
+	now := time.Now()
+	ip := netip.MustParseAddr("1.1.1.1")
+
+	ep := &endpoint.Endpoint{
+		DNSHistory: fqdn.NewDNSCache(0),
+		DNSZombies: fqdn.NewDNSZombieMappings(hivetest.Logger(t), 100, 100),
+	}
+	pg := payloadGetters{endpointManager: &fakeEndpointManager{
+		endpoints: map[uint16]*endpoint.Endpoint{epID: ep},
+	}}
+
+	// Names in DNSHistory are current: they are reported by GetNamesOf only.
+	ep.DNSHistory.Update(now, "current.example.com.", []netip.Addr{ip}, 3600)
+	require.Equal(t, []string{"current.example.com"}, pg.GetNamesOf(epID, ip))
+	require.Empty(t, pg.GetZombieNamesOf(epID, ip))
+
+	// Names in DNSZombies are historical: they are reported by
+	// GetZombieNamesOf only, without trailing dot.
+	zombieIP := netip.MustParseAddr("2.2.2.2")
+	ep.DNSZombies.Upsert(now, zombieIP, "zombie.example.com.")
+	require.Empty(t, pg.GetNamesOf(epID, zombieIP))
+	require.Equal(t, []string{"zombie.example.com"}, pg.GetZombieNamesOf(epID, zombieIP))
+
+	// A name that is both current and a zombie is reported as current only.
+	ep.DNSZombies.Upsert(now, ip, "current.example.com.", "stale.example.com.")
+	require.Equal(t, []string{"current.example.com"}, pg.GetNamesOf(epID, ip))
+	require.Equal(t, []string{"stale.example.com"}, pg.GetZombieNamesOf(epID, ip))
+
+	// If every zombie name is also current, there is nothing to report.
+	ep.DNSHistory.Update(now, "stale.example.com.", []netip.Addr{ip}, 3600)
+	require.Empty(t, pg.GetZombieNamesOf(epID, ip))
+
+	// Unknown endpoints and invalid addresses resolve to nothing.
+	require.Empty(t, pg.GetZombieNamesOf(epID+1, zombieIP))
+	require.Empty(t, pg.GetZombieNamesOf(epID, netip.Addr{}))
+}
 
 func TestPayloadGetters_GetServiceByAddr(t *testing.T) {
 	db := statedb.New()
