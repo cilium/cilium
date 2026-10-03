@@ -223,6 +223,15 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		cDefinesMap["DSR_ENCAP_IPIP"] = fmt.Sprintf("%d", dsrEncapIPIP)
 		cDefinesMap["DSR_ENCAP_GENEVE"] = fmt.Sprintf("%d", dsrEncapGeneve)
 		cDefinesMap["DSR_ENCAP_NONE"] = fmt.Sprintf("%d", dsrEncapNone)
+
+		// Relay inbound ICMP "fragmentation needed" / "packet too big" errors
+		// addressed to a service VIP to the DSR backend that must lower its
+		// path MTU. The datapath self-gates per service, so this is independent
+		// of the load-balancer forwarding mode.
+		if option.Config.EnablePMTUDiscovery {
+			cDefinesMap["ENABLE_SVC_ICMP_PMTU_RELAY"] = "1"
+		}
+
 		if cfg.LBConfig.LoadBalancerUsesDSR() {
 			cDefinesMap["ENABLE_DSR"] = "1"
 			if option.Config.EnablePMTUDiscovery {
