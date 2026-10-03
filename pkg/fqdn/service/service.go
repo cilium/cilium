@@ -696,7 +696,9 @@ func (s *FQDNDataServer) UpdateMappingRequest(ctx context.Context, mappings *pb.
 
 	msgDetails, serverAddrPort, epIPPort, serverID, protocol, allowed := s.reconstructNotifyArgs(mappings, sourceIP)
 
-	if err := s.updateOnDNSMsg.NotifyOnDNSMsg(now, ep, epIPPort, serverID, serverAddrPort, msgDetails, protocol, allowed, &stat); err != nil {
+	serverIdentity := &identity.Identity{ID: serverID}
+
+	if err := s.updateOnDNSMsg.NotifyOnDNSMsg(now, ep, epIPPort, serverIdentity, serverAddrPort, msgDetails, protocol, allowed, &stat); err != nil {
 		s.log.Error("Failed to process DNS message",
 			logfields.Error, err,
 			logfields.DNSName, mappings.GetFqdn(),
