@@ -116,6 +116,80 @@ var (
 		},
 	}
 
+	// unnumberedPeer65001 peers over an interface, at the IPv6 link-local address
+	// discovered on it. Both are filled in by the DefaultGatewayReconciler.
+	unnumberedPeer65001 = v2.CiliumBGPNodePeer{
+		Name:          "red-peer-65001",
+		PeerAddress:   ptr.To[string]("fe80::1%eth0"),
+		PeerInterface: ptr.To[string]("eth0"),
+		PeerConfigRef: &v2.PeerConfigReference{
+			Name: "peer-config-red",
+		},
+	}
+	unnumberedPeer65001Address = netip.MustParseAddr("fe80::1%eth0")
+
+	unnumberedPeer65001v4PodCIDRRoutePolicy = &bgpTables.DesiredRoutePolicy{
+		Instance:   "fake-instance",
+		Peer:       unnumberedPeer65001.Name,
+		PolicyType: types.RoutePolicyTypeExport,
+		Priority:   PodCIDRReconcilerPriority,
+		Owner:      PodCIDRReconcilerName,
+		Statement: &types.RoutePolicyStatement{
+			Name: PolicyStatementName(v2.BGPPodCIDRAdvert, "") + "-ipv4",
+			Conditions: types.RoutePolicyConditions{
+				MatchNeighbors: &types.RoutePolicyNeighborMatch{
+					Type:      types.RoutePolicyMatchAny,
+					Neighbors: []netip.Addr{unnumberedPeer65001Address},
+				},
+				MatchPrefixes: &types.RoutePolicyPrefixMatch{
+					Type: types.RoutePolicyMatchAny,
+					Prefixes: []types.RoutePolicyPrefix{
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR1v4),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR1v4).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR1v4).Bits(),
+						},
+					},
+				},
+			},
+			Actions: types.RoutePolicyActions{
+				RouteAction:    types.RoutePolicyActionAccept,
+				AddCommunities: []string{"65000:100"},
+			},
+		},
+	}
+
+	unnumberedPeer65001v6PodCIDRRoutePolicy = &bgpTables.DesiredRoutePolicy{
+		Instance:   "fake-instance",
+		Peer:       unnumberedPeer65001.Name,
+		PolicyType: types.RoutePolicyTypeExport,
+		Priority:   PodCIDRReconcilerPriority,
+		Owner:      PodCIDRReconcilerName,
+		Statement: &types.RoutePolicyStatement{
+			Name: PolicyStatementName(v2.BGPPodCIDRAdvert, "") + "-ipv6",
+			Conditions: types.RoutePolicyConditions{
+				MatchNeighbors: &types.RoutePolicyNeighborMatch{
+					Type:      types.RoutePolicyMatchAny,
+					Neighbors: []netip.Addr{unnumberedPeer65001Address},
+				},
+				MatchPrefixes: &types.RoutePolicyPrefixMatch{
+					Type: types.RoutePolicyMatchAny,
+					Prefixes: []types.RoutePolicyPrefix{
+						{
+							CIDR:         netip.MustParsePrefix(podCIDR1v6),
+							PrefixLenMin: netip.MustParsePrefix(podCIDR1v6).Bits(),
+							PrefixLenMax: netip.MustParsePrefix(podCIDR1v6).Bits(),
+						},
+					},
+				},
+			},
+			Actions: types.RoutePolicyActions{
+				RouteAction:    types.RoutePolicyActionAccept,
+				AddCommunities: []string{"65000:100"},
+			},
+		},
+	}
+
 	bluePeer65001v4PodCIDRRoutePolicy = &bgpTables.DesiredRoutePolicy{
 		Instance:   "fake-instance",
 		Peer:       bluePeer65001.Name,
@@ -291,6 +365,45 @@ func Test_PodCIDRAdvertisement(t *testing.T) {
 				redPeer65001v6PodCIDRRoutePolicy,
 				bluePeer65001v4PodCIDRRoutePolicy,
 				bluePeer65001v6PodCIDRRoutePolicy,
+			},
+		},
+		{
+			name: "pod cidr advertisement to an unnumbered peer",
+			peerConfig: []*v2.CiliumBGPPeerConfig{
+				redPeerConfig,
+			},
+			advertisements: []*v2.CiliumBGPAdvertisement{
+				redAdvert,
+			},
+			preconfiguredPaths: map[types.Family]map[string]struct{}{},
+			testCiliumNode: &v2.CiliumNode{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: "Test Node",
+				},
+				Spec: v2.NodeSpec{
+					IPAM: ipamtypes.IPAMSpec{
+						PodCIDRs: mustNewIPPrefixes(podCIDR1v4, podCIDR1v6),
+					},
+				},
+			},
+			testBGPInstanceConfig: &v2.CiliumBGPNodeInstance{
+				Name:     "bgp-65001",
+				LocalASN: ptr.To[int64](65001),
+				Peers: []v2.CiliumBGPNodePeer{
+					unnumberedPeer65001,
+				},
+			},
+			expectedPaths: map[types.Family]map[string]struct{}{
+				{Afi: types.AfiIPv4, Safi: types.SafiUnicast}: {
+					podCIDR1v4: struct{}{},
+				},
+				{Afi: types.AfiIPv6, Safi: types.SafiUnicast}: {
+					podCIDR1v6: struct{}{},
+				},
+			},
+			expectedRPs: []*bgpTables.DesiredRoutePolicy{
+				unnumberedPeer65001v4PodCIDRRoutePolicy,
+				unnumberedPeer65001v6PodCIDRRoutePolicy,
 			},
 		},
 		{

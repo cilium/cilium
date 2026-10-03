@@ -21,9 +21,6 @@ import (
 )
 
 const (
-	wildcardIPv4Addr = "0.0.0.0"
-	wildcardIPv6Addr = "::"
-
 	// idleHoldTimeAfterResetSeconds defines time BGP session will stay idle after neighbor reset.
 	idleHoldTimeAfterResetSeconds = 5
 

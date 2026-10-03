@@ -68,6 +68,9 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateR
 					// If unmarshal is not successful, we
 					// ignore and do not set Name field.
 					state.Name = pd.Name
+					// The peering interface of an unnumbered
+					// peer, empty for every other peer.
+					state.Interface = pd.Interface
 				}
 			}
 			// We can just ignore error here. In that case, the
