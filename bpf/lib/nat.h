@@ -737,8 +737,7 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		return NAT_PUNT_TO_STACK;
 
 	/* Do not SNAT if dst belongs to any ip-masq-agent subnet. */
-#ifdef ENABLE_IP_MASQ_AGENT_IPV4
-	{
+	if (CONFIG(enable_ip_masq_agent_ipv4)) {
 		struct lpm_v4_key pfx;
 
 		pfx.lpm.prefixlen = 32;
@@ -746,7 +745,6 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		if (map_lookup_elem(&cilium_ipmasq_v4, &pfx))
 			return NAT_PUNT_TO_STACK;
 	}
-#endif
 
 	/* Masquerading for pod-to-remote-node traffic depends on the
 	 * datapath configuration (native vs overlay routing):

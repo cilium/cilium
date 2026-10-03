@@ -118,6 +118,7 @@ func NodeConfig(lnc *Config) Node {
 			excludeCIDR := lnc.NativeRoutingCIDRIPv4
 			if option.Config.EnableIPMasqAgent {
 				excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+				node.EnableIPMasqAgentIPv4 = true
 			}
 
 			if excludeCIDR.IsValid() {

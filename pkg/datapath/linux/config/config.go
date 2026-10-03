@@ -271,11 +271,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 		if option.Config.EnableIPv4Masquerade {
 			cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
-
-			// ip-masq-agent depends on bpf-masq
-			if option.Config.EnableIPMasqAgent {
-				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV4"] = "1"
-			}
 		}
 		if option.Config.EnableIPv6Masquerade {
 			cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
