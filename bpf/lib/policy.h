@@ -170,6 +170,64 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_policy __section_maps_btf;
 
+#define SHARED_POLICY_FULL_PREFIX 96
+#define SHARED_POLICY_BASE_PREFIX 72
+
+struct shared_policy_key {
+	struct bpf_lpm_trie_key lpm_key;  /* Must be first */
+	__u32 rule_set_id;                /* Identifies the rule set (for sharing) */
+	__u32 sec_label;                  /* Remote identity (0 for L4-only) */
+	__u8  egress;                     /* Direction: 0=ingress, 1=egress */
+	__u8  protocol;                   /* L4 protocol (can be LPM wildcarded) */
+	__be16 dport;                     /* Destination port (can be LPM wildcarded) */
+} __packed;
+
+/* Shared policy map lookup maps Rule Set ID + Packet Details -> policy_entry */
+struct {
+	__uint(type, BPF_MAP_TYPE_LPM_TRIE);
+	__type(key, struct shared_policy_key);
+	__type(value, struct policy_entry);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, 131072);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_policy_shared __section_maps_btf;
+
+/* Overlay map maps Endpoint ID -> Rule Set ID */
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u32);
+	__type(value, __u32);
+	__uint(pinning, LIBBPF_PIN_BY_NAME);
+	__uint(max_entries, POLICY_MAP_SIZE);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+} cilium_policy_overlay __section_maps_btf;
+
+/* Look up 'key' in cilium_policy_shared under the endpoint's rule set if the shared policy
+ * map is enabled and the endpoint has an overlay entry ('rule_set_id' non-NULL). Otherwise
+ * look it up in the per-endpoint policy map 'map', exactly as without the shared policy map.
+ * Both maps store the same policy_entry values with the same L4 LPM semantics, so callers
+ * apply the exact same selection logic to the result.
+ */
+static __always_inline const struct policy_entry *
+__policy_lookup(const void *map, const struct policy_key *key, const __u32 *rule_set_id)
+{
+	struct shared_policy_key skey;
+
+	if (!CONFIG(enable_shared_policy) || !rule_set_id)
+		return map_lookup_elem(map, key);
+
+	/* Zero the whole key so that padding is initialized for the verifier. */
+	memset(&skey, 0, sizeof(skey));
+	skey.lpm_key.prefixlen = SHARED_POLICY_FULL_PREFIX;
+	skey.rule_set_id = *rule_set_id;
+	skey.sec_label = key->sec_label;
+	skey.egress = key->egress;
+	skey.protocol = key->protocol;
+	skey.dport = key->dport;
+
+	return map_lookup_elem(&cilium_policy_shared, &skey);
+}
+
 /* Return a verdict for the chosen 'policy'. Always called with non-NULL 'policy'. */
 static __always_inline int
 __policy_check(const struct policy_entry *policy, __u16 *proxy_port, __u32 *cookie)
@@ -215,6 +273,7 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 		.protocol = proto,
 		.dport = dport,
 	};
+	const __u32 *rule_set_id = NULL; /* Overlay entry, if using cilium_policy_shared */
 	__u8 p_len;
 
 	if (CONFIG(allow_icmp_frag_needed) || CONFIG(enable_icmp_rule)) {
@@ -271,10 +330,20 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 	 * they can only match entries that have fully wildcarded ports.
 	 */
 
+	/* With the shared policy map enabled, the endpoint's entries are stored in
+	 * cilium_policy_shared under the rule set given by its overlay entry.
+	 * Endpoints without an overlay entry keep using their per-endpoint map.
+	 */
+	if (CONFIG(enable_shared_policy)) {
+		__u32 ep_id = EFFECTIVE_EP_ID;
+
+		rule_set_id = map_lookup_elem(&cilium_policy_overlay, &ep_id);
+	}
+
 	/* Specific lookup: an exact match on L3 identity and LPM match on
 	 * L4 proto and port.
 	 */
-	policy = map_lookup_elem(map, &key);
+	policy = __policy_lookup(map, &key, rule_set_id);
 
 	/* Specific-ID policy can be chosen without the 2nd lookup if it has the
 	 * highest possible precedence value (which implies that it is a deny).
@@ -289,14 +358,14 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 	 */
 	key.sec_label = aggregate_for_identity(remote_id);
 	if (likely(key.sec_label != remote_id))
-		agg_policy = map_lookup_elem(map, &key);
+		agg_policy = __policy_lookup(map, &key, rule_set_id);
 
 	/* fallback: we have no policy, but the aggregated ID was not 0.
 	 * Try an ID-0 lookup too.
 	 */
 	if (unlikely(!agg_policy && !policy && key.sec_label != 0)) {
 		key.sec_label = 0;
-		agg_policy = map_lookup_elem(map, &key);
+		agg_policy = __policy_lookup(map, &key, rule_set_id);
 	}
 
 	/* The found aggregate policy is chosen if:
