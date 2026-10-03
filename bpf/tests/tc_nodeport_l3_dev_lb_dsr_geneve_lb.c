@@ -10,7 +10,6 @@
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
 #define ENABLE_NODEPORT		1
-#define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_GENEVE	3
 #define DSR_ENCAP_MODE		DSR_ENCAP_GENEVE
@@ -49,6 +48,8 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+
+ASSIGN_CONFIG(bool, enable_dsr, true)
 
 /* Test that a SVC request that is LBed to a DSR remote backend
  * - gets DNATed,
