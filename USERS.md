@@ -1029,3 +1029,9 @@ Users (Alphabetically)
       D: Zero Hash is using Cilium as CNI for networking, security and monitoring features for Kubernetes clusters
       U: CNI/ENI Networking, Network policies, Hubble
       Q: @eugenestarchenko
+
+    * N: Sadhanet
+      D: Sadhanet uses Cilium for Kubernetes networking and network security.
+      U: eBPF, Kubernetes CNI, Load Balancing, Network Policies, Encryption, Observability, Service Mesh
+      L: https://sadhanet.com
+      Q: @sadhanet
