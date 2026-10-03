@@ -123,10 +123,12 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	decoded.L4 = decodeL4(sock.L4Proto, srcPort, dstPort)
 	decoded.Source = srcEndpoint
 	decoded.SourceNames = p.resolveNames(dstEndpoint.GetID(), srcIP)
+	decoded.SourceNamesZombie = p.resolveZombieNames(dstEndpoint.GetID(), srcIP)
 	decoded.SourceService = p.decodeService(srcIP, srcPort)
 	decoded.Destination = dstEndpoint
 	decoded.DestinationService = p.decodeService(dstIP, dstPort)
 	decoded.DestinationNames = p.resolveNames(srcEndpoint.GetID(), dstIP)
+	decoded.DestinationNamesZombie = p.resolveZombieNames(srcEndpoint.GetID(), dstIP)
 	decoded.Type = flowpb.FlowType_SOCK
 	decoded.EventType = decodeCiliumEventType(sock.Type, sock.XlatePoint)
 	decoded.SockXlatePoint = flowpb.SocketTranslationPoint(sock.XlatePoint)
@@ -220,6 +222,14 @@ func decodeL4(proto uint8, srcPort, dstPort uint16) *flowpb.Layer4 {
 func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	if p.dnsGetter != nil {
 		return p.dnsGetter.GetNamesOf(epID, ip)
+	}
+
+	return nil
+}
+
+func (p *Parser) resolveZombieNames(epID uint32, ip netip.Addr) (names []string) {
+	if p.dnsGetter != nil {
+		return p.dnsGetter.GetZombieNamesOf(epID, ip)
 	}
 
 	return nil
