@@ -125,6 +125,39 @@ func TestRenameCustomChain(t *testing.T) {
 	}
 }
 
+func TestRenameCustomChainIPv6Error(t *testing.T) {
+	errRename := errors.New("exit status 1")
+	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
+	mockIp4tables.expectations = []expectation{
+		{
+			args: "-t mangle -S CILIUM_PRE_mangle",
+		},
+		{
+			args: "-t mangle -E CILIUM_PRE_mangle OLD_CILIUM_PRE_mangle",
+		},
+	}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+	mockIp6tables.expectations = []expectation{
+		{
+			args: "-t mangle -S CILIUM_PRE_mangle",
+		},
+		{
+			args: "-t mangle -E CILIUM_PRE_mangle OLD_CILIUM_PRE_mangle",
+			out:  []byte("ip6tables: File exists.\n"),
+			err:  errRename,
+		},
+	}
+	chain := &customChain{
+		table: "mangle",
+		name:  "CILIUM_PRE_mangle",
+		ipv6:  true,
+	}
+	err := chain.rename(true, true, "OLD_CILIUM_PRE_mangle", mockIp4tables, mockIp6tables)
+	require.ErrorIs(t, err, errRename)
+	require.NoError(t, mockIp4tables.checkExpectations())
+	require.NoError(t, mockIp6tables.checkExpectations())
+}
+
 func TestCopyProxyRulesv4(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp4tables.expectations = []expectation{
