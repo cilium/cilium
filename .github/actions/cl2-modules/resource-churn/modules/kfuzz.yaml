@@ -1,0 +1,127 @@
+{{$tuningSet := .tuningSet}}
+
+{{$ciliumNamespace := .ciliumNamespace}}
+
+{{$image := .image}}
+{{$testNodeName := .testNodeName}}
+{{$scenario := .scenario}}
+{{$tickInterval := .tickInterval}}
+{{$clientTuningSet := .clientTuningSet}}
+{{$clientQPS := .clientQPS}}
+{{$clientBurstSize := .clientBurstSize}}
+{{$clientStepDelay := .clientStepDelay}}
+{{$testDurationSeconds := .testDurationSeconds}}
+{{$terminationGracePeriodSeconds := .terminationGracePeriodSeconds}}
+{{$skipResourceCleanup := .skipResourceCleanup}}
+
+# One full kfuzz run: scaffolding, churn for testDurationSeconds, teardown.
+# kfuzz ends the run on its own, see ./manifests/kfuzz-job.yaml, so the caller
+# only invokes this module once and it returns when the churn is over.
+
+steps:
+
+- name: Create kfuzz scenario configmap {{$scenario}}
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: 1
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-config
+      objectTemplatePath: ./scenarios/{{$scenario}}.yaml
+      templateFillMap:
+        testNodeName: {{$testNodeName}}
+        kfuzzNamespace: {{$ciliumNamespace}}
+
+- module:
+    path: ./modules/rbac.yaml
+    params:
+      replicas: 1
+      actionName: create
+      tuningSet: {{$tuningSet}}
+      serviceAccountName: kfuzz
+      serviceAccountNamespace: {{$ciliumNamespace}}
+
+# Both have to be started before the job exists: the first one watches its pod
+# come up, the second one the job reaching a terminal state.
+- name: Starting measurements for the kfuzz job
+  measurements:
+  - identifier: WaitForKfuzzRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: start
+      apiVersion: batch/v1
+      kind: Job
+      namespace: {{$ciliumNamespace}}
+      labelSelector: app.kubernetes.io/name=kfuzz
+      operationTimeout: 1m
+  - identifier: WaitForKfuzzJobFinished
+    method: WaitForFinishedJobs
+    params:
+      action: start
+      namespace: {{$ciliumNamespace}}
+      labelSelector: app.kubernetes.io/name=kfuzz
+
+- name: Create kfuzz job
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: 1
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz
+      objectTemplatePath: ./manifests/kfuzz-job.yaml
+      templateFillMap:
+        image: {{$image}}
+        svcAccountRefName: kfuzz
+        configMapRefName: kfuzz-config
+        tickInterval: {{$tickInterval}}
+        clientTuningSet: {{$clientTuningSet}}
+        clientQPS: {{$clientQPS}}
+        clientBurstSize: {{$clientBurstSize}}
+        clientStepDelay: {{$clientStepDelay}}
+        testDurationSeconds: {{$testDurationSeconds}}
+        terminationGracePeriodSeconds: {{$terminationGracePeriodSeconds}}
+        skipResourceCleanup: {{$skipResourceCleanup}}
+
+- name: Waiting for kfuzz to finish churning resources
+  measurements:
+  - identifier: WaitForKfuzzRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: gather
+  - identifier: WaitForKfuzzJobFinished
+    method: WaitForFinishedJobs
+    params:
+      action: gather
+      timeout: {{AddInt $testDurationSeconds $terminationGracePeriodSeconds 300}}s
+
+{{if not $skipResourceCleanup}}
+
+- name: Delete kfuzz job
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: 0
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz
+      objectTemplatePath: ./manifests/kfuzz-job.yaml
+
+- module:
+    path: ./modules/rbac.yaml
+    params:
+      replicas: 0
+      actionName: delete
+      tuningSet: {{$tuningSet}}
+      serviceAccountName: kfuzz
+      serviceAccountNamespace: {{$ciliumNamespace}}
+
+- name: Delete kfuzz scenario configmap {{$scenario}}
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: 0
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kfuzz-config
+      objectTemplatePath: ./scenarios/{{$scenario}}.yaml
+
+{{end}}
+
