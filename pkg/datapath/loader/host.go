@@ -18,6 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
@@ -79,19 +80,34 @@ func ciliumHostConfiguration(ep endpoint.Config, lnc *config.Config) (configs []
 	return configs
 }
 
+// filterOptionalMapRenames removes optional maps (such as cilium_calls_bpf_overlay
+// when native BPF Geneve is disabled) that are not present in the compiled ELF spec.
+func filterOptionalMapRenames(spec *ebpf.CollectionSpec, renames []map[string]string) []map[string]string {
+	if spec == nil {
+		return renames
+	}
+	if _, ok := spec.Maps["cilium_calls_bpf_overlay"]; !ok {
+		for _, m := range renames {
+			delete(m, "cilium_calls_bpf_overlay")
+		}
+	}
+	return renames
+}
+
 // ciliumHostMapRenames returns the merged map of host map renames yielded by all registered rename providers.
-func ciliumHostMapRenames(ep endpoint.Config, lnc *config.Config) (renames []map[string]string) {
+func ciliumHostMapRenames(ep endpoint.Config, lnc *config.Config, spec *ebpf.CollectionSpec) (renames []map[string]string) {
 	for f := range ciliumHostRenames.all() {
 		renames = append(renames, f(ep, lnc))
 	}
-	return renames
+	return filterOptionalMapRenames(spec, renames)
 }
 
 func defaultCiliumHostMapRenames(ep endpoint.Config, lnc *config.Config) map[string]string {
 	return map[string]string{
 		// Rename calls and policy maps to include the host endpoint's id.
-		"cilium_calls":  bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
-		"cilium_policy": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+		"cilium_calls":             bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID())),
+		"cilium_calls_bpf_overlay": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
+		"cilium_policy":            bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
 	}
 }
 
@@ -112,7 +128,7 @@ func attachCiliumHost(ctx context.Context, logger *slog.Logger, reg *registry.Ma
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:      ciliumHostConfiguration(ep, lnc),
-		MapRenames:     ciliumHostMapRenames(ep, lnc),
+		MapRenames:     ciliumHostMapRenames(ep, lnc, spec),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(ep.InterfaceName()), hostEndpointConfig),
 	}, lnc, attachmentContextHost(ep, host), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), host))
 	if err != nil {
@@ -131,6 +147,7 @@ func attachCiliumHost(ctx context.Context, logger *slog.Logger, reg *registry.Ma
 		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_INGRESS, option.Config.EnableTCX); err != nil {
 		return fmt.Errorf("interface %s ingress: %w", ep.InterfaceName(), err)
 	}
+
 	// Attach cil_from_host to cilium_host egress.
 	if err := attachSKBProgram(logger, host, hostObj.FromHost, symbolFromHostEp,
 		bpffsDeviceLinksDir(bpf.CiliumPath(), host), netlink.HANDLE_MIN_EGRESS, option.Config.EnableTCX); err != nil {
@@ -151,7 +168,7 @@ var ciliumNetConfigs funcRegistry[func(endpoint.Config, *config.Config, netlink.
 // ciliumNetRenames holds functions that yield BPF map renames for cilium_net.
 var ciliumNetRenames funcRegistry[func(endpoint.Config, *config.Config, netlink.Link) map[string]string]
 
-// ciliumNetConfiguration returns a slice of BPF configuration objects yielded
+// ciliumNetConfiguration returns a slice of host configuration objects yielded
 // by all registered config providers of [ciliumNetConfigs].
 func ciliumNetConfiguration(ep endpoint.Config, lnc *config.Config, link netlink.Link) (configs []any) {
 	for f := range ciliumNetConfigs.all() {
@@ -161,19 +178,20 @@ func ciliumNetConfiguration(ep endpoint.Config, lnc *config.Config, link netlink
 }
 
 // ciliumHostMapRenames returns the merged map of cilium_net map renames yielded by all registered rename providers.
-func ciliumNetMapRenames(ep endpoint.Config, lnc *config.Config, link netlink.Link) (renames []map[string]string) {
+func ciliumNetMapRenames(ep endpoint.Config, lnc *config.Config, link netlink.Link, spec *ebpf.CollectionSpec) (renames []map[string]string) {
 	for f := range ciliumNetRenames.all() {
 		renames = append(renames, f(ep, lnc, link))
 	}
-	return renames
+	return filterOptionalMapRenames(spec, renames)
 }
 
 func defaultCiliumNetMapRenames(ep endpoint.Config, lnc *config.Config, link netlink.Link) map[string]string {
 	return map[string]string{
 		// Rename the calls map to include cilium_net's ifindex.
-		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(link.Attrs().Index)),
+		"cilium_calls":             bpf.LocalMapName(callsmap.NetdevMapName, uint16(link.Attrs().Index)),
+		"cilium_calls_bpf_overlay": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 		// Rename the policy map to include the host endpoint's id.
-		"cilium_policy": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+		"cilium_policy":            bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
 	}
 }
 
@@ -193,7 +211,7 @@ func attachCiliumNet(ctx context.Context, logger *slog.Logger, reg *registry.Map
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		Constants:      ciliumNetConfiguration(ep, lnc, net),
-		MapRenames:     ciliumNetMapRenames(ep, lnc, net),
+		MapRenames:     ciliumNetMapRenames(ep, lnc, net, spec),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(defaults.SecondHostDevice), hostEndpointConfig),
 	}, lnc, attachmentContextHost(ep, net), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), net))
 	if err != nil {
@@ -233,19 +251,20 @@ func netdevConfiguration(ep endpoint.Config, lnc *config.Config, link netlink.Li
 }
 
 // netdevMapRenames returns the merged map of netdev map renames yielded by all registered rename providers.
-func netdevMapRenames(ep endpoint.Config, lnc *config.Config, link netlink.Link) (renames []map[string]string) {
+func netdevMapRenames(ep endpoint.Config, lnc *config.Config, link netlink.Link, spec *ebpf.CollectionSpec) (renames []map[string]string) {
 	for f := range netdevRenames.all() {
 		renames = append(renames, f(ep, lnc, link))
 	}
-	return renames
+	return filterOptionalMapRenames(spec, renames)
 }
 
 func defaultNetdevMapRenames(ep endpoint.Config, lnc *config.Config, link netlink.Link) map[string]string {
 	return map[string]string{
 		// Rename the calls map to include the device's ifindex.
-		"cilium_calls": bpf.LocalMapName(callsmap.NetdevMapName, uint16(link.Attrs().Index)),
+		"cilium_calls":             bpf.LocalMapName(callsmap.NetdevMapName, uint16(link.Attrs().Index)),
+		"cilium_calls_bpf_overlay": fmt.Sprintf("cilium_calls_overlay_%d", identity.ReservedIdentityWorld),
 		// Rename the policy map to include the host's endpoint id.
-		"cilium_policy": bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
+		"cilium_policy":            bpf.LocalMapName(policymap.MapName, uint16(ep.GetID())),
 	}
 }
 
@@ -278,7 +297,7 @@ func attachNetworkDevices(ctx context.Context, logger *slog.Logger, reg *registr
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
 			Constants:      netdevConfiguration(ep, lnc, iface, masq4, masq6),
-			MapRenames:     netdevMapRenames(ep, lnc, iface),
+			MapRenames:     netdevMapRenames(ep, lnc, iface, spec),
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), hostEndpointConfig),
 		}, lnc, attachmentContextHost(ep, iface), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), iface))
 		if err != nil {

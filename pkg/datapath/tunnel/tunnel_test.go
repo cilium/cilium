@@ -174,6 +174,35 @@ func TestConfig(t *testing.T) {
 			deviceName:     defaults.VxlanDevice,
 			shouldAdaptMTU: true,
 		},
+		{
+			name:           "tunnel enabled, geneve, eth inner protocol",
+			ucfg:           userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(Geneve), GeneveInnerProtocol: "eth", TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dcfg:           daemonCfgIPv46,
+			enablers:       []any{enabler(true)},
+			underlay:       IPv4,
+			proto:          Geneve,
+			port:           defaults.TunnelPortGeneve,
+			deviceName:     defaults.GeneveDevice,
+			shouldAdaptMTU: true,
+		},
+		{
+			name:           "tunnel enabled, geneve, ip inner protocol",
+			ucfg:           userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(Geneve), GeneveInnerProtocol: "ip", TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dcfg:           daemonCfgIPv46,
+			enablers:       []any{enabler(true)},
+			underlay:       IPv4,
+			proto:          Geneve,
+			port:           defaults.TunnelPortGeneve,
+			deviceName:     defaults.GeneveDevice,
+			shouldAdaptMTU: true,
+		},
+		{
+			name:      "tunnel enabled, geneve, invalid inner protocol",
+			ucfg:      userCfg{UnderlayProtocol: string(IPv4), TunnelProtocol: string(Geneve), GeneveInnerProtocol: "invalid", TunnelPort: 0, TunnelSourcePortRange: defaults.TunnelSourcePortRange},
+			dcfg:      daemonCfgIPv46,
+			enablers:  []any{enabler(true)},
+			shallFail: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -199,6 +228,55 @@ func TestConfig(t *testing.T) {
 			assert.Equal(t, tt.port, out.Port())
 			assert.Equal(t, tt.deviceName, out.DeviceName())
 			assert.Equal(t, tt.shouldAdaptMTU, out.ShouldAdaptMTU())
+			if tt.ucfg.GeneveInnerProtocol != "" {
+				assert.Equal(t, GeneveInnerProtocol(tt.ucfg.GeneveInnerProtocol), out.GeneveInnerProtocol())
+			} else {
+				assert.Equal(t, GeneveInnerProtoETH, out.GeneveInnerProtocol())
+			}
 		})
 	}
 }
+
+func TestGeneveDefineConfigs(t *testing.T) {
+	cfgEth := Config{
+		protocol:            Geneve,
+		port:                defaults.TunnelPortGeneve,
+		enableBPFGeneve:     true,
+		geneveInnerProtocol: GeneveInnerProtoETH,
+	}
+	nodeOutEth, _ := cfgEth.datapathConfigProvider()
+	assert.Equal(t, "1", nodeOutEth.NodeDefines["ENABLE_BPF_GENEVE"])
+	assert.Equal(t, "1", nodeOutEth.NodeDefines["GENEVE_INNER_PROTOCOL"])
+	assert.False(t, cfgEth.IsL3InnerProtocol())
+
+	cfgIP := Config{
+		protocol:            Geneve,
+		port:                defaults.TunnelPortGeneve,
+		enableBPFGeneve:     true,
+		geneveInnerProtocol: GeneveInnerProtoIP,
+	}
+	nodeOutIP, _ := cfgIP.datapathConfigProvider()
+	assert.Equal(t, "1", nodeOutIP.NodeDefines["ENABLE_BPF_GENEVE"])
+	assert.Equal(t, "2", nodeOutIP.NodeDefines["GENEVE_INNER_PROTOCOL"])
+	assert.True(t, cfgIP.IsL3InnerProtocol())
+
+	cfgKernel := Config{
+		protocol:            Geneve,
+		port:                defaults.TunnelPortGeneve,
+		enableBPFGeneve:     false,
+		geneveInnerProtocol: GeneveInnerProtoETH,
+	}
+	nodeOutKernel, _ := cfgKernel.datapathConfigProvider()
+	_, hasBpfGeneve := nodeOutKernel.NodeDefines["ENABLE_BPF_GENEVE"]
+	assert.False(t, hasBpfGeneve)
+	assert.False(t, cfgKernel.IsL3InnerProtocol())
+
+	cfgKernelIP := Config{
+		protocol:            Geneve,
+		port:                defaults.TunnelPortGeneve,
+		enableBPFGeneve:     false,
+		geneveInnerProtocol: GeneveInnerProtoIP,
+	}
+	assert.False(t, cfgKernelIP.IsL3InnerProtocol())
+}
+

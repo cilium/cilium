@@ -44,9 +44,12 @@ func checkUnspecifiedPrograms(spec *ebpf.CollectionSpec) error {
 }
 
 // isEntrypoint returns true if the program is marked with the __section_entry
-// annotation.
+// annotation or is a BPF test entrypoint (/setup, /check, /pktgen).
 func isEntrypoint(prog *ebpf.ProgramSpec) bool {
-	return strings.HasSuffix(prog.SectionName, "/entry")
+	return strings.HasSuffix(prog.SectionName, "/entry") ||
+		strings.HasSuffix(prog.SectionName, "/setup") ||
+		strings.HasSuffix(prog.SectionName, "/check") ||
+		strings.HasSuffix(prog.SectionName, "/pktgen")
 }
 
 // IsTailCall returns true if the program is marked with the __declare_tail()
@@ -57,55 +60,66 @@ func IsTailCall(prog *ebpf.ProgramSpec) bool {
 
 // tailCallSlot returns the tail call slot for the given program, which must be
 // marked with the __declare_tail() annotation. The slot is the index in the
-// calls map that the program will be called from.
-func tailCallSlot(prog *ebpf.ProgramSpec) (uint32, error) {
+// tailCallSlot returns the map name and slot in the calls map that the program
+// will be called from.
+func tailCallSlot(prog *ebpf.ProgramSpec) (string, uint32, error) {
 	if !IsTailCall(prog) {
-		return 0, fmt.Errorf("program %s is not a tail call", prog.Name)
+		return "", 0, fmt.Errorf("program %s is not a tail call", prog.Name)
 	}
 
 	fn := btf.FuncMetadata(&prog.Instructions[0])
 	if fn == nil {
-		return 0, fmt.Errorf("program %s has no function metadata", prog.Name)
+		return "", 0, fmt.Errorf("program %s has no function metadata", prog.Name)
 	}
 
 	for _, tag := range fn.Tags {
+		rest, ok := strings.CutPrefix(tag, "tail:")
+		if !ok {
+			continue
+		}
+		mapName, slotStr, ok := strings.Cut(rest, "/")
+		if !ok {
+			continue
+		}
 		var slot uint32
-		if _, err := fmt.Sscanf(tag, fmt.Sprintf("tail:%s/%%v", callsMap), &slot); err == nil {
-			return slot, nil
+		if _, err := fmt.Sscanf(slotStr, "%v", &slot); err == nil {
+			return mapName, slot, nil
 		}
 	}
 
-	return 0, fmt.Errorf("program %s has no tail call slot", prog.Name)
+	return "", 0, fmt.Errorf("program %s has no tail call slot", prog.Name)
 }
 
-// resolveTailCalls populates the calls map with Programs marked with the
-// __declare_tail annotation.
+// resolveTailCalls populates the calls maps with Programs marked with the
+// __declare_tail or __declare_overlay_tail annotation.
 func resolveTailCalls(spec *ebpf.CollectionSpec) error {
-	// If cilium_calls map is missing, do nothing.
-	ms := spec.Maps[callsMap]
-	if ms == nil {
-		return nil
-	}
-
-	if ms.Type != ebpf.ProgramArray {
-		return fmt.Errorf("%s is not a program array, got %s", callsMap, ms.Type)
-	}
-
-	slots := make(map[uint32]struct{})
+	slotsByMap := make(map[string]map[uint32]struct{})
 	for name, prog := range spec.Programs {
 		if !IsTailCall(prog) {
 			continue
 		}
 
-		slot, err := tailCallSlot(prog)
+		mapName, slot, err := tailCallSlot(prog)
 		if err != nil {
 			return fmt.Errorf("getting tail call slot: %w", err)
 		}
 
-		if _, ok := slots[slot]; ok {
-			return fmt.Errorf("duplicate tail call slot %d", slot)
+		ms := spec.Maps[mapName]
+		if ms == nil {
+			continue
 		}
-		slots[slot] = struct{}{}
+
+		if ms.Type != ebpf.ProgramArray {
+			return fmt.Errorf("%s is not a program array, got %s", mapName, ms.Type)
+		}
+
+		if slotsByMap[mapName] == nil {
+			slotsByMap[mapName] = make(map[uint32]struct{})
+		}
+		if _, ok := slotsByMap[mapName][slot]; ok {
+			return fmt.Errorf("duplicate tail call slot %d in map %s", slot, mapName)
+		}
+		slotsByMap[mapName][slot] = struct{}{}
 
 		ms.Contents = append(ms.Contents, ebpf.MapKV{Key: slot, Value: name})
 	}

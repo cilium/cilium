@@ -133,12 +133,15 @@ func newForCell(lc cell.Lifecycle, p mtuParams, cc Config) (MTU, error) {
 		OnStart: func(ctx cell.HookContext) error {
 			tunnelOverIPv6 := option.Config.TunnelingEnabled() &&
 				p.TunnelConfig.UnderlayProtocol() == tunnel.IPv6
-			*c = NewConfiguration(
+			tunnelL3Inner := option.Config.TunnelingEnabled() &&
+				p.TunnelConfig.IsL3InnerProtocol()
+			*c = NewConfigurationWithL3Tunnel(
 				p.IPsec.AuthKeySize(),
 				p.IPsec.Enabled(),
 				p.TunnelConfig.ShouldAdaptMTU(),
 				p.WgConfig.Enabled(),
 				tunnelOverIPv6,
+				tunnelL3Inner,
 			)
 
 			configuredMTU := cc.MTU

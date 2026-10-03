@@ -1133,6 +1133,20 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			}
 		}
 
+#if defined(ENABLE_BPF_GENEVE)
+		if (!from_host && ip6->nexthdr == IPPROTO_UDP) {
+			__be16 dport;
+
+			if (l4_load_port(ctx, ETH_HLEN + sizeof(struct ipv6hdr) + UDP_DPORT_OFF, &dport) == 0 &&
+			    dport == bpf_htons(bpf_geneve_dport())) {
+				ret = tail_call_internal(ctx, CILIUM_CALL_GENEVE_DECAP6, &ext_err);
+				return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret,
+										ext_err, CTX_ACT_OK,
+										METRIC_INGRESS);
+			}
+		}
+#endif
+
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 
@@ -1226,6 +1240,20 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 				ctx_skip_nodeport_clear(ctx);
 			}
 		}
+
+#if defined(ENABLE_BPF_GENEVE)
+		if (!from_host && ip4->protocol == IPPROTO_UDP) {
+			__be16 dport;
+
+			if (l4_load_port(ctx, ETH_HLEN + ipv4_hdrlen(ip4) + UDP_DPORT_OFF, &dport) == 0 &&
+			    dport == bpf_htons(bpf_geneve_dport())) {
+				ret = tail_call_internal(ctx, CILIUM_CALL_GENEVE_DECAP4, &ext_err);
+				return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret,
+										ext_err, CTX_ACT_OK,
+										METRIC_INGRESS);
+			}
+		}
+#endif
 
 		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid);
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);

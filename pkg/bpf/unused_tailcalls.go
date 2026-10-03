@@ -39,27 +39,30 @@ func removeUnusedTailcalls(spec *ebpf.CollectionSpec, reach reachables, logger *
 // tailCallSlots returns a map of tail call slot indices to reachableSpecs.
 // Used for stepping into a ProgramSpec when its tail call slot appears in the
 // instruction stream of a calling program.
-func tailCallSlots(reach reachables) (map[uint32]*reachableSpec, error) {
-	// Build a map of tail call slots to reachableSpecs.
-	tails := make(map[uint32]*reachableSpec)
+func tailCallSlots(reach reachables) (map[string]map[uint32]*reachableSpec, error) {
+	// Build a map of mapName -> tail call slots -> reachableSpecs.
+	tails := make(map[string]map[uint32]*reachableSpec)
 	for _, r := range reach {
 		if !IsTailCall(r.prog) {
 			continue
 		}
 
-		slot, err := tailCallSlot(r.prog)
+		mapName, slot, err := tailCallSlot(r.prog)
 		if err != nil {
 			return nil, err
 		}
 
-		tails[slot] = r
+		if tails[mapName] == nil {
+			tails[mapName] = make(map[uint32]*reachableSpec)
+		}
+		tails[mapName][slot] = r
 	}
 
 	return tails, nil
 }
 
 // livePrograms returns all programs reachable from entrypoints via tail calls.
-func livePrograms(reach reachables, tails map[uint32]*reachableSpec, logger *slog.Logger) (*set.Set[*ebpf.ProgramSpec], error) {
+func livePrograms(reach reachables, tails map[string]map[uint32]*reachableSpec, logger *slog.Logger) (*set.Set[*ebpf.ProgramSpec], error) {
 	visited := &set.Set[*ebpf.ProgramSpec]{}
 	for _, r := range reach {
 		if !isEntrypoint(r.prog) {
@@ -74,7 +77,7 @@ func livePrograms(reach reachables, tails map[uint32]*reachableSpec, logger *slo
 	return visited, nil
 }
 
-func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) error {
+func visitProgram(r *reachableSpec, tails map[string]map[uint32]*reachableSpec, visited *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) error {
 	if visited.Has(r.prog) {
 		return nil
 	}
@@ -126,8 +129,16 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 		}
 		ref := mapPtr.Reference()
 
-		// Only consider calls into cilium_calls. Some programs statically call into
-		// the policy map, only if the slot (endpoint id) is known at compile time.
+		if tails[ref] != nil {
+			if tail := tails[ref][slot]; tail != nil {
+				if err := visitProgram(tail, tails, visited, logger); err != nil {
+					return err
+				}
+				continue
+			}
+		}
+
+		// Only fail on missed tail calls into cilium_calls; other maps may be populated externally.
 		if ref != callsMap {
 			logger.Debug("Ignoring tail call into map",
 				logfields.Reference, ref,
@@ -136,13 +147,7 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 			continue
 		}
 
-		if tail := tails[slot]; tail != nil {
-			if err := visitProgram(tail, tails, visited, logger); err != nil {
-				return err
-			}
-		} else {
-			return fmt.Errorf("missed tail call in program %s to slot %d at insn %d", r.prog.Name, slot, iter.InstructionIndex())
-		}
+		return fmt.Errorf("missed tail call in program %s to slot %d at insn %d", r.prog.Name, slot, iter.InstructionIndex())
 	}
 
 	return nil

@@ -70,6 +70,15 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, reg *regis
 		return fmt.Errorf("loading eBPF ELF %s: %w", overlayObj, err)
 	}
 
+	if _, hasBPFGeneve := spec.Maps["cilium_calls_bpf_overlay"]; hasBPFGeneve {
+		// Share the pinned cilium_calls_overlay_2 prog_array map in-place with
+		// bpf_host's cilium_calls_bpf_overlay so cross-program tail calls from
+		// bpf_host into bpf_overlay never reference a replaced pin.
+		if m, ok := spec.Maps["cilium_calls"]; ok {
+			m.Pinning = ebpf.PinByName
+		}
+	}
+
 	var obj overlayObjects
 	commit, cleanup, err := collLoader.LoadAndAssign(ctx, logger, &obj, spec, &bpf.CollectionOptions{
 

@@ -69,4 +69,16 @@ func TestNewConfiguration(t *testing.T) {
 	conf = NewConfiguration(32, false, true, true, false)
 	require.Equal(t, 1400, conf.getDeviceMTU(1400))
 	require.Equal(t, conf.getDeviceMTU(1400)-(WireguardOverhead+TunnelOverheadIPv4), conf.getRouteMTU(1400))
+
+	// Add routes with native BPF Geneve in L3 inner protocol mode (--geneve-inner-protocol=ip):
+	// omits 14B inner Ethernet header -> 36B overhead (IPv4) / 56B overhead (IPv6)
+	conf = NewConfigurationWithL3Tunnel(0, false, true, false, false, true)
+	require.Equal(t, 1500, conf.getDeviceMTU(1500))
+	require.Equal(t, 1464, conf.getRouteMTU(1500))
+	require.Equal(t, 1500-TunnelOverheadL3IPv4, conf.getRouteMTU(1500))
+
+	conf = NewConfigurationWithL3Tunnel(0, false, true, false, true, true)
+	require.Equal(t, 1500, conf.getDeviceMTU(1500))
+	require.Equal(t, 1444, conf.getRouteMTU(1500))
+	require.Equal(t, 1500-TunnelOverheadL3IPv6, conf.getRouteMTU(1500))
 }

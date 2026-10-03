@@ -39,6 +39,7 @@
 #include "lib/drop.h"
 #include "lib/identity.h"
 #include "lib/mcast.h"
+#include "lib/encap.h"
 #include "lib/nodeport.h"
 #include "lib/nodeport_egress.h"
 #include "lib/clustermesh.h"
@@ -46,7 +47,6 @@
 #include "lib/tailcall.h"
 #include "lib/vtep.h"
 #include "lib/arp.h"
-#include "lib/encap.h"
 
 #ifdef ENABLE_IPV6
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
