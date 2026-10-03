@@ -151,8 +151,18 @@ func (h *payloadGetters) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 	if !ip.IsValid() {
 		return nil
 	}
-	names := ep.DNSHistory.LookupIP(ip)
-
+	var names []string
+	// The reverse lookup of DNS names by IP to store in a flow is only useful
+	// if a small number of domains maps to that IP. We don't want to allocate
+	// potentially large slices of domain names which are then retained due to
+	// the ringbuffer, see cilium/cilium#47128.
+	//
+	// Note that this is TOCTOU racy - there's no guarantee that we don't get
+	// more than 9 domain names back, as concurrent processing may introduce a
+	// new mapping including this IP. That's fine, though.
+	if ep.DNSHistory.CountNamesForIP(ip) < 10 {
+		names = ep.DNSHistory.LookupIP(ip)
+	}
 	for i := range names {
 		names[i] = strings.TrimSuffix(names[i], ".")
 	}
