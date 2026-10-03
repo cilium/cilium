@@ -15,6 +15,18 @@ inputs:
     description: ''
     required: false
     default: 2
+  timeout_minutes:
+    description: 'Budget for this action, matching the caller step timeout-minutes.'
+    required: false
+    default: 54
+  attempt_deadline:
+    description: 'Seconds the first create may stay in Creating before this action abandons it.'
+    required: false
+    default: 1200
+  retry_deadline:
+    description: 'Seconds the second create may stay in Creating.'
+    required: false
+    default: 1200
   pod_cidrs:
     description: 'Comma-separated PodCIDRs managed by the installed CNI.'
     required: true
@@ -30,6 +42,10 @@ inputs:
     description: 'Node pool OS SKU to pass to "az aks create --os-sku" (e.g. AzureLinux). Empty uses the AKS default (Ubuntu).'
     required: false
     default: ''
+outputs:
+  cluster_name:
+    description: 'Name of the cluster that provisioned.'
+    value: ${{ steps.create.outputs.cluster_name }}
 runs:
   using: composite
   steps:
@@ -41,52 +57,29 @@ runs:
         parsing: text
 
     - name: Create AKS cluster
+      id: create
       shell: bash
-      run: |
-        TAGS=""
-        VERSION=""
-        OS_SKU=""
-
-        if [[ -n "${{ inputs.tags }}" ]]; then
-          TAGS="--tags ${{ inputs.tags }}"
-        fi
-
-        if [[ -n "${{ inputs.version }}" ]]; then
-          VERSION="--kubernetes-version ${{ inputs.version }}"
-        fi
-
-        if [[ -n "${{ inputs.os_sku }}" ]]; then
-          OS_SKU="--os-sku ${{ inputs.os_sku }}"
-        fi
-
-        # Create group
-        az group create \
-          --name ${{ inputs.cluster_name }} \
-          --location ${{ inputs.location }} \
-          $TAGS
-
-        # Create AKS cluster. The PodCIDRs must match the ranges managed by the
-        # CNI so the control plane can route traffic to pods.
-        az aks create \
-          --resource-group ${{ inputs.cluster_name }} \
-          --name ${{ inputs.cluster_name }} \
-          --location ${{ inputs.location }} \
-          $VERSION \
-          $OS_SKU \
-          --network-plugin none \
-          --node-count "$(( ${{ inputs.node_count }} + 2 ))" \
-          --ip-families ipv4,ipv6 \
-          --pod-cidrs "${{ inputs.pod_cidrs }}" \
-          ${{ inputs.taints }} \
-          --generate-ssh-keys \
-          --api-server-authorized-ip-ranges ${{ steps.get-runner-ip.outputs.cidr }}
+      env:
+        CLUSTER_NAME: ${{ inputs.cluster_name }}
+        LOCATION: ${{ inputs.location }}
+        K8S_VERSION: ${{ inputs.version }}
+        NODE_COUNT: ${{ inputs.node_count }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        ATTEMPT_DEADLINE: ${{ inputs.attempt_deadline }}
+        RETRY_DEADLINE: ${{ inputs.retry_deadline }}
+        POD_CIDRS: ${{ inputs.pod_cidrs }}
+        TAGS: ${{ inputs.tags }}
+        TAINTS: ${{ inputs.taints }}
+        OS_SKU: ${{ inputs.os_sku }}
+        AUTHORIZED_IP_RANGES: ${{ steps.get-runner-ip.outputs.cidr }}
+      run: bash "${{ github.action_path }}/action.sh"
 
     - name: Get cluster credentials
       shell: bash
       run: |
         az aks get-credentials \
           --resource-group ${{ inputs.cluster_name }} \
-          --name ${{ inputs.cluster_name }}
+          --name ${{ steps.create.outputs.cluster_name }}
 
     - name: Wait for all nodes to register with the API server
       shell: bash
