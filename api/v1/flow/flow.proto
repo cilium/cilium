@@ -53,8 +53,18 @@ message Flow {
 
     // all names the source IP can have.
     repeated string source_names = 13;
+    // Expired names the source IP can have. These are names whose DNS entries
+    // have expired, but whose IP is still in use by a connection that outlived
+    // the DNS TTL, so the name may be stale. Names listed in source_names are
+    // not repeated here.
+    repeated string source_names_expired = 44;
     // all names the destination IP can have.
     repeated string destination_names = 14;
+    // Expired names the destination IP can have. These are names whose DNS
+    // entries have expired, but whose IP is still in use by a connection that
+    // outlived the DNS TTL, so the name may be stale. Names listed in
+    // destination_names are not repeated here.
+    repeated string destination_names_expired = 45;
 
     // L7 information. This field is set if and only if FlowType is L7.
     Layer7 l7 = 15;

@@ -290,7 +290,9 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.Destination = dstEndpoint
 	decoded.Type = pb.FlowType_L3_L4
 	decoded.SourceNames = p.resolveNames(dstEndpoint.ID, srcIP)
+	decoded.SourceNamesExpired = p.resolveExpiredNames(dstEndpoint.ID, srcIP)
 	decoded.DestinationNames = p.resolveNames(srcEndpoint.ID, dstIP)
+	decoded.DestinationNamesExpired = p.resolveExpiredNames(srcEndpoint.ID, dstIP)
 	decoded.L7 = nil
 	decoded.IsReply = decodeIsReply(tn, pvn)
 	decoded.Reply = decoded.GetIsReply().GetValue() // false if GetIsReply() is nil
@@ -315,6 +317,14 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	if p.dnsGetter != nil {
 		return p.dnsGetter.GetNamesOf(epID, ip)
+	}
+
+	return nil
+}
+
+func (p *Parser) resolveExpiredNames(epID uint32, ip netip.Addr) (names []string) {
+	if p.dnsGetter != nil {
+		return p.dnsGetter.GetExpiredNamesOf(epID, ip)
 	}
 
 	return nil

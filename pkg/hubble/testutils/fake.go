@@ -261,6 +261,9 @@ type FakeFQDNCache struct {
 	OnInitializeFrom func(entries []*models.DNSLookup)
 	OnAddDNSLookup   func(epID uint32, lookupTime time.Time, domainName string, ips []net.IP, ttl uint32)
 	OnGetNamesOf     func(epID uint32, ip netip.Addr) []string
+	// OnGetExpiredNamesOf is optional: GetExpiredNamesOf returns no names when
+	// it is not set.
+	OnGetExpiredNamesOf func(epID uint32, ip netip.Addr) []string
 }
 
 // InitializeFrom implements FQDNCache.InitializeFrom.
@@ -287,6 +290,14 @@ func (f *FakeFQDNCache) GetNamesOf(epID uint32, ip netip.Addr) []string {
 		return f.OnGetNamesOf(epID, ip)
 	}
 	panic("GetNamesOf(uint32, netip.Addr) should not have been called since it was not defined")
+}
+
+// GetExpiredNamesOf implements DNSGetter.GetExpiredNamesOf.
+func (f *FakeFQDNCache) GetExpiredNamesOf(epID uint32, ip netip.Addr) []string {
+	if f.OnGetExpiredNamesOf != nil {
+		return f.OnGetExpiredNamesOf(epID, ip)
+	}
+	return nil
 }
 
 // NoopDNSGetter always returns an empty response.
