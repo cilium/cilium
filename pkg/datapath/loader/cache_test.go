@@ -5,6 +5,9 @@ package loader
 
 import (
 	"context"
+	"net/netip"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
@@ -13,9 +16,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	datapathConfig "github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	fakeNodeMap "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -56,6 +62,67 @@ func TestObjectCache(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, hash, hash4)
 	require.NotSame(t, fourth, first)
+}
+
+func TestObjectCacheReuse(t *testing.T) {
+	workDir := filepath.Join(t.TempDir(), "templates")
+
+	setupCompilationDirectories(t)
+	ctx := t.Context()
+
+	ep := testutils.NewTestEndpoint(t)
+	writer := configWriterForTest(t)
+	dir := getDirs(t)
+
+	restart := func(nodeCfg *datapathConfig.Config) (*objectCache, string, *metrics.SpanStat) {
+		cache := newObjectCache(hivetest.Logger(t), writer, workDir)
+		require.NoError(t, cache.UpdateDatapathHash(ctx, nodeCfg))
+		stats := &metrics.SpanStat{}
+		_, hash, err := cache.fetchOrCompile(ctx, &ep, dir, stats)
+		require.NoError(t, err)
+		return cache, hash, stats
+	}
+
+	_, hash, stats := restart(&localNodeConfig)
+	require.NotZero(t, stats.BpfCompilation.Total())
+
+	// A restarted agent loads the object its predecessor compiled.
+	cache, reused, stats := restart(&localNodeConfig)
+	require.Equal(t, hash, reused)
+	require.Zero(t, stats.BpfCompilation.Total())
+
+	// The cache recompiles an object that does not parse.
+	require.NoError(t, os.Truncate(cache.objectPath(&ep, hash), 0))
+	_, _, stats = restart(&localNodeConfig)
+	require.NotZero(t, stats.BpfCompilation.Total())
+
+	// A different base hash wipes the old templates.
+	otherCfg := localNodeConfig
+	otherCfg.NodeIPv4 = netip.MustParseAddr("192.0.2.1")
+	_, other, _ := restart(&otherCfg)
+	require.NotEqual(t, hash, other)
+	require.NoDirExists(t, filepath.Join(workDir, hash))
+
+	// Without the recorded base hash the cache reuses nothing.
+	require.NoError(t, os.Remove(workDir+".key"))
+	_, _, stats = restart(&otherCfg)
+	require.NotZero(t, stats.BpfCompilation.Total())
+
+	// A compiler environment change recompiles the templates.
+	t.Setenv("CCC_OVERRIDE_OPTIONS", "# +-DCACHE_TEST_ENV")
+	_, envHash, stats := restart(&otherCfg)
+	require.NotEqual(t, other, envHash)
+	require.NotZero(t, stats.BpfCompilation.Total())
+
+	// Without a producer digest the cache records and reuses nothing.
+	bpfDir := option.Config.BpfDir
+	option.Config.BpfDir = filepath.Join(t.TempDir(), "absent")
+	t.Cleanup(func() { option.Config.BpfDir = bpfDir })
+	for range 2 {
+		_, _, stats = restart(&otherCfg)
+		require.NotZero(t, stats.BpfCompilation.Total())
+		require.NoFileExists(t, workDir+".key")
+	}
 }
 
 func TestObjectCacheParallel(t *testing.T) {
