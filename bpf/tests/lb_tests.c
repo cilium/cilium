@@ -19,6 +19,25 @@
 
 #include "lib/lb.h"
 
+CHECK(PROG_TYPE, "lb_round_robin")
+int test_lb_round_robin(__maybe_unused struct __ctx_buff *ctx)
+{
+	const __u16 rev_nat_index = 123;
+
+	test_init();
+
+	map_delete_elem(&cilium_lb_round_robin, &rev_nat_index);
+
+	assert(lb_select_backend_slot_round_robin(rev_nat_index, 3) == 1);
+	assert(lb_select_backend_slot_round_robin(rev_nat_index, 3) == 2);
+	assert(lb_select_backend_slot_round_robin(rev_nat_index, 3) == 3);
+	assert(lb_select_backend_slot_round_robin(rev_nat_index, 3) == 1);
+
+	map_delete_elem(&cilium_lb_round_robin, &rev_nat_index);
+
+	test_finish();
+}
+
 /* TCP Service, single-scope */
 CHECK(PROG_TYPE, "lb4_tcp_single_scope")
 int test_lb4_tcp_single_scope(__maybe_unused struct __ctx_buff *ctx)
