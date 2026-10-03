@@ -23,6 +23,7 @@
 #include "eps.h"
 #include "icmp.h"
 #include "icmp6.h"
+#include "lpm.h"
 #include "nat_46x64.h"
 #include "signal.h"
 #include "subnet.h"
@@ -742,7 +743,8 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 		struct lpm_v4_key pfx;
 
 		pfx.lpm.prefixlen = 32;
-		memcpy(pfx.lpm.data, &tuple->daddr, sizeof(pfx.addr));
+		pfx.addr = tuple->daddr;
+
 		if (map_lookup_elem(&cilium_ipmasq_v4, &pfx))
 			return NAT_PUNT_TO_STACK;
 	}
@@ -1798,14 +1800,8 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 		struct lpm_v6_key pfx __align_stack_8;
 
 		pfx.lpm.prefixlen = sizeof(pfx.addr) * 8;
-		/* pfx.lpm is aligned on 8 bytes on the stack, but pfx.lpm.data
-		 * is on 4 (after pfx.lpm.prefixlen). As the CT tuple is on the
-		 * stack as well, we need to copy piece-by-piece.
-		 */
-		memcpy(pfx.lpm.data, &tuple->daddr.p1, 4);
-		memcpy(pfx.lpm.data + 4, &tuple->daddr.p2, 4);
-		memcpy(pfx.lpm.data + 8, &tuple->daddr.p3, 4);
-		memcpy(pfx.lpm.data + 12, &tuple->daddr.p4, 4);
+		ipv6_addr_copy_unaligned((union v6addr *)&pfx.addr, &tuple->daddr);
+
 		if (map_lookup_elem(&cilium_ipmasq_v6, &pfx))
 			return NAT_PUNT_TO_STACK;
 	}
