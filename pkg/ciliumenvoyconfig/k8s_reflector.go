@@ -60,6 +60,33 @@ const (
 	k8sAPIGroupCiliumClusterwideEnvoyConfigV2 = "cilium/v2::CiliumClusterwideEnvoyConfig"
 )
 
+// scopeServiceNamespaces sets the namespace of service references without one
+// to namespace, as documented in the CRD. With override, listener services
+// always get namespace, so that a CiliumEnvoyConfig can only redirect services
+// in its own namespace. spec comes from the informer cache and is copied only
+// if modified.
+func scopeServiceNamespaces(spec *ciliumv2.CiliumEnvoyConfigSpec, namespace string, override bool) *ciliumv2.CiliumEnvoyConfigSpec {
+	out := spec
+	ensureCopy := func() {
+		if out == spec {
+			out = spec.DeepCopy()
+		}
+	}
+	for i, l := range spec.Services {
+		if l.Namespace != namespace && (override || l.Namespace == "") {
+			ensureCopy()
+			out.Services[i].Namespace = namespace
+		}
+	}
+	for i, l := range spec.BackendServices {
+		if l.Namespace == "" {
+			ensureCopy()
+			out.BackendServices[i].Namespace = namespace
+		}
+	}
+	return out
+}
+
 // registerCECK8sReflector registers reflectors to Table[CEC] from CiliumEnvoyConfig and
 // CiliumClusterwideEnvoyConfig.
 func registerCECK8sReflector(
@@ -101,10 +128,10 @@ func registerCECK8sReflector(
 		switch cecObj := obj.(type) {
 		case *ciliumv2.CiliumEnvoyConfig:
 			objMeta = &cecObj.ObjectMeta
-			spec = &cecObj.Spec
+			spec = scopeServiceNamespaces(&cecObj.Spec, cecObj.Namespace, true)
 		case *ciliumv2.CiliumClusterwideEnvoyConfig:
 			objMeta = &cecObj.ObjectMeta
-			spec = &cecObj.Spec
+			spec = scopeServiceNamespaces(&cecObj.Spec, "default", false)
 		}
 
 		selectsLocalNode := true
