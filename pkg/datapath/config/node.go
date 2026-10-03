@@ -171,5 +171,8 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableSCTP = option.Config.EnableSCTP
 
+	node.EnableDSRICMPErrors = lnc.KPRConfig.KubeProxyReplacement &&
+		lnc.LBConfig.LoadBalancerUsesDSR() && option.Config.EnablePMTUDiscovery
+
 	return node
 }
