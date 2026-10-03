@@ -16,8 +16,6 @@
  * @reason:	reason for forwarding the packet (TRACE_REASON_*),
  *		e.g. return value of ct_lookup or TRACE_REASON_ENCRYPTED
  * @monitor:	monitor aggregation value, e.g. the 'monitor' output of ct_lookup
- *
- * If TRACE_NOTIFY is not defined, the API will be compiled in as a NOP.
  */
 #pragma once
 
@@ -167,14 +165,15 @@ struct trace_notify {
 	TRACE_EXTENSION
 } __align_stack_8;
 
-#ifdef TRACE_NOTIFY
-
 /* Trace notify version 2 includes IP Trace support. */
 #define NOTIFY_TRACE_VER 2
 
 static __always_inline bool
 emit_trace_notify(enum trace_point obs_point, __u32 monitor)
 {
+	if (!CONFIG(enable_trace_notify))
+		return false;
+
 	if (CONFIG(monitor_aggregation) >= TRACE_AGGREGATE_RX) {
 		switch (obs_point) {
 		case TRACE_FROM_LXC:
@@ -299,39 +298,6 @@ _send_trace_notify6(const struct __ctx_buff *ctx, enum trace_point obs_point,
 				   ifindex, reason, monitor, bpf_htons(ETH_P_IPV6),
 				   line, file);
 }
-#else
-static __always_inline void
-_send_trace_notify(const struct __ctx_buff *ctx, enum trace_point obs_point,
-		   __u32 src __maybe_unused, __u32 dst __maybe_unused,
-		   __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
-		   enum trace_reason reason, __u32 monitor __maybe_unused,
-		   __be16 proto __maybe_unused, __u16 line, __u8 file)
-{
-	_update_trace_metrics(ctx, obs_point, reason, line, file);
-}
-
-static __always_inline void
-_send_trace_notify4(const struct __ctx_buff *ctx, enum trace_point obs_point,
-		    __u32 src __maybe_unused, __u32 dst __maybe_unused,
-		    __be32 orig_addr __maybe_unused, __u16 dst_id __maybe_unused,
-		    __u32 ifindex __maybe_unused, enum trace_reason reason,
-		    __u32 monitor __maybe_unused,
-		    __u16 line, __u8 file)
-{
-	_update_trace_metrics(ctx, obs_point, reason, line, file);
-}
-
-static __always_inline void
-_send_trace_notify6(const struct __ctx_buff *ctx, enum trace_point obs_point,
-		    __u32 src __maybe_unused, __u32 dst __maybe_unused,
-		    union v6addr *orig_addr __maybe_unused,
-		    __u16 dst_id __maybe_unused, __u32 ifindex __maybe_unused,
-		    enum trace_reason reason, __u32 monitor __maybe_unused,
-		    __u16 line, __u8 file)
-{
-	_update_trace_metrics(ctx, obs_point, reason, line, file);
-}
-#endif /* TRACE_NOTIFY */
 
 /* send_trace_notify emits a generic trace notify. */
 #define send_trace_notify(ctx, obs_point, src, dst, dst_id, ifindex, reason, monitor, proto) \

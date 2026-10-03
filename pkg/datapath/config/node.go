@@ -150,6 +150,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableConntrackAccounting = lnc.EnableConntrackAccounting
 
+	node.EnableTraceNotify = option.Config.Opts.IsEnabled(option.TraceNotify)
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
 	node.EnableDropNotify = option.Config.Opts.IsEnabled(option.DropNotify)
 
