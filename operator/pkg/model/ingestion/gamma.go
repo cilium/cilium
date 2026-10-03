@@ -318,7 +318,8 @@ func toGammaGRPCRoutes(
 					Type: string(corev1.ServiceTypeClusterIP),
 				}
 				res.Gamma = true
-				res.Routes = append(res.Routes, extractGRPCRoutes([]string{res.Hostname}, grpcr, services, []mcsapiv1beta1.ServiceImport{}, grants)...)
+				emptyBackendTLSPolicyMap := make(helpers.BackendTLSPolicyServiceMap)
+				res.Routes = append(res.Routes, extractGRPCRoutes(log, []string{res.Hostname}, grpcr, services, []mcsapiv1beta1.ServiceImport{}, grants, emptyBackendTLSPolicyMap)...)
 				resGRPC = append(resGRPC, res)
 			}
 
