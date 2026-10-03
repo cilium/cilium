@@ -90,6 +90,9 @@ The following options can be used to configure encapsulation:
   are enabled. The underlying network must support that protocol.
 * ``tunnel-port``: Set the port for the encapsulation protocol. Defaults
   to ``8472`` for ``vxlan`` and ``6081`` for ``geneve``.
+* ``bpf.geneveDatapath``: Enable the :ref:`bpf_geneve_datapath`, performing
+  Geneve encapsulation and decapsulation entirely in eBPF to bypass the kernel
+  ``cilium_geneve`` netdev for higher throughput and reduced latency.
 
 .. _arch_direct_routing:
 .. _native_routing:
