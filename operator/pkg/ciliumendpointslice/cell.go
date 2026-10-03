@@ -60,4 +60,8 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 type SharedConfig struct {
 	// EnableCiliumEndpointSlice enables the cilium endpoint slicing feature and the CES Controller.
 	EnableCiliumEndpointSlice bool
+
+	// EnableZTunnel enables ztunnel encryption support, including populating the
+	// ServiceAccount field in CiliumEndpointSlice objects for ztunnel workload identity.
+	EnableZTunnel bool
 }
