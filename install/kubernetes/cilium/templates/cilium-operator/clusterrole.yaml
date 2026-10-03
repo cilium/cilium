@@ -423,6 +423,23 @@ rules:
   - list
   - watch  
 {{- end }}
+{{- if and .Values.gatewayAPI.enabled .Values.gatewayAPI.gatewayAPIInferenceExtension.enabled }}
+- apiGroups:
+  - inference.networking.k8s.io
+  resources:
+  - inferencepools
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - inference.networking.k8s.io
+  resources:
+  - inferencepools/status
+  verbs:
+  - update
+  - patch
+{{- end }}
 {{- if or .Values.gatewayAPI.enabled .Values.clustermesh.mcsapi.enabled }}
 - apiGroups:
   - multicluster.x-k8s.io
