@@ -90,6 +90,10 @@ func (ms *MapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	filename := filepath.Base(path)
 
+	if filename == policymap.SharedPolicyMapName || filename == policymap.PolicyOverlayMapName {
+		return nil
+	}
+
 	mapPrefix := []string{
 		policymap.MapName,
 		callsmap.MapName,
@@ -110,6 +114,9 @@ func (ms *MapSweeper) CollectStaleMapGarbage() {
 	if err := filepath.Walk(bpf.TCGlobalsPath(), ms.walk); err != nil {
 		ms.logger.Warn("Error while scanning for stale maps", logfields.Error, err)
 	}
+	if err := policymap.RemoveStaleEndpointOverlays(ms.EndpointExists); err != nil {
+		ms.logger.Warn("Error while removing stale shared policy overlay entries", logfields.Error, err)
+	}
 }
 
 // RemoveDisabledMaps removes BPF maps in the filesystem for features that have
@@ -129,7 +136,7 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_auth_map",
 		}
 		prefixedMaps = []PrefixedMap{
-			{"cilium_policy_", []string{policymap.MapName}},
+			{"cilium_policy_", []string{policymap.MapName, policymap.SharedPolicyMapName, policymap.PolicyOverlayMapName}},
 		}
 	)
 
@@ -232,6 +239,13 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			cidrmap.MapName + "v6_dyn",
 			cidrmap.MapName + "v6_fix",
 		}...)
+	}
+
+	// Remove the shared policy maps when the shared policy map is disabled, so that their
+	// contents can't take effect again if it is re-enabled later. Endpoints then start
+	// from their per-endpoint policy maps again, see bpf/lib/policy.h.
+	if !option.Config.EnableSharedPolicy {
+		maps = append(maps, policymap.SharedPolicyMapName, policymap.PolicyOverlayMapName)
 	}
 
 	// helper func to check if a map name match any excludes
