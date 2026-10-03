@@ -110,6 +110,7 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	destinationIP, _ := netip.ParseAddr(ip.Destination)
 	var sourceNames, destinationNames []string
 	var sourceNamespace, sourcePod, sourcePodUID, destinationNamespace, destinationPod, destinationPodUID string
+	var sourceWorkloads, destinationWorkloads []*flowpb.Workload
 	if p.dnsGetter != nil {
 		sourceNames = p.dnsGetter.GetNamesOf(uint32(r.DestinationEndpoint.ID), sourceIP)
 		destinationNames = p.dnsGetter.GetNamesOf(uint32(r.SourceEndpoint.ID), destinationIP)
@@ -117,13 +118,21 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	if p.ipGetter != nil {
 		if meta := p.ipGetter.GetK8sMetadata(sourceIP); meta != nil {
 			sourceNamespace, sourcePod, sourcePodUID = meta.Namespace, meta.PodName, meta.PodUID
+			if meta.Workload != nil {
+				sourceWorkloads = []*flowpb.Workload{{Name: meta.Workload.Name, Kind: meta.Workload.Kind}}
+			}
 		}
 		if meta := p.ipGetter.GetK8sMetadata(destinationIP); meta != nil {
 			destinationNamespace, destinationPod, destinationPodUID = meta.Namespace, meta.PodName, meta.PodUID
+			if meta.Workload != nil {
+				destinationWorkloads = []*flowpb.Workload{{Name: meta.Workload.Name, Kind: meta.Workload.Kind}}
+			}
 		}
 	}
 	srcEndpoint := decodeEndpoint(r.SourceEndpoint, sourceNamespace, sourcePod, sourcePodUID)
 	dstEndpoint := decodeEndpoint(r.DestinationEndpoint, destinationNamespace, destinationPod, destinationPodUID)
+	srcEndpoint.Workloads = sourceWorkloads
+	dstEndpoint.Workloads = destinationWorkloads
 
 	if p.endpointGetter != nil {
 		p.updateEndpointFromLocal(sourceIP, srcEndpoint)
@@ -235,6 +244,7 @@ func (p *Parser) updateEndpointFromLocal(ip netip.Addr, endpoint *flowpb.Endpoin
 		endpoint.Namespace = ep.GetK8sNamespace()
 		endpoint.PodName = ep.GetK8sPodName()
 		endpoint.PodUid = ep.GetK8sPodUID()
+		endpoint.Workloads = nil
 		if pod := ep.GetPod(); pod != nil {
 			workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
 			if ok {

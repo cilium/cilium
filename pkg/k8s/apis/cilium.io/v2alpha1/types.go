@@ -52,6 +52,9 @@ type CoreCiliumEndpoint struct {
 	// ServiceAccount is the service account of the endpoint.
 	// +kubebuilder:validation:Optional
 	ServiceAccount string `json:"service-account,omitempty"`
+	// Workload identifies the Kubernetes workload which owns the endpoint's Pod.
+	// +kubebuilder:validation:Optional
+	Workload *cilium_v2.EndpointWorkload `json:"workload,omitempty"`
 }
 
 // +genclient

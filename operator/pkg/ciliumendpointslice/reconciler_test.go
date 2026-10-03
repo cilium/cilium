@@ -22,6 +22,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/metrics"
 )
@@ -64,6 +65,7 @@ func TestReconcileCreateDefault(t *testing.T) {
 	})
 
 	cep1 := tu.CreateStoreEndpoint("cep1", "ns", 1)
+	cep1.Status.Workload = &cilium_v2.EndpointWorkload{Name: "workload-1", Kind: "Deployment"}
 	cepStore.CacheStore().Add(cep1)
 	cep2 := tu.CreateStoreEndpoint("cep2", "ns", 2)
 	cepStore.CacheStore().Add(cep2)
@@ -82,6 +84,11 @@ func TestReconcileCreateDefault(t *testing.T) {
 	eps := []string{createdSlice.Endpoints[0].Name, createdSlice.Endpoints[1].Name}
 	assert.Contains(t, eps, "cep1")
 	assert.Contains(t, eps, "cep2")
+	for _, endpoint := range createdSlice.Endpoints {
+		if endpoint.Name == "cep1" {
+			assert.Equal(t, &cilium_v2.EndpointWorkload{Name: "workload-1", Kind: "Deployment"}, endpoint.Workload)
+		}
+	}
 
 	hive.Stop(tlog, t.Context())
 }
@@ -328,6 +335,14 @@ func TestReconcileCreate(t *testing.T) {
 	ns1 := cidtest.NewNamespace("ns", nil)
 	nsStore.CacheStore().Add(ns1)
 	pod1 := cidtest.NewPod("pod1", "ns", tu.TestLbsA, "node1")
+	controller := true
+	pod1.GenerateName = "workload-1-7c9f55d4b9-"
+	pod1.Labels["pod-template-hash"] = "7c9f55d4b9"
+	pod1.OwnerReferences = []slim_metav1.OwnerReference{{
+		Kind:       "ReplicaSet",
+		Name:       "workload-1-7c9f55d4b9",
+		Controller: &controller,
+	}}
 	podStore.CacheStore().Add(pod1)
 	cid1 := cidtest.NewCIDWithNamespace("1", pod1, ns1)
 	cidStore.CacheStore().Add(cid1)
@@ -364,6 +379,11 @@ func TestReconcileCreate(t *testing.T) {
 	eps := []string{createdSlice.Endpoints[0].Name, createdSlice.Endpoints[1].Name}
 	assert.Contains(t, eps, "pod1")
 	assert.Contains(t, eps, "pod2")
+	for _, endpoint := range createdSlice.Endpoints {
+		if endpoint.Name == "pod1" {
+			assert.Equal(t, &cilium_v2.EndpointWorkload{Name: "workload-1", Kind: "Deployment"}, endpoint.Workload)
+		}
+	}
 
 	hive.Stop(tlog, t.Context())
 }

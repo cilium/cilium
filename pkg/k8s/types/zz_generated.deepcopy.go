@@ -45,6 +45,11 @@ func (in *CiliumEndpoint) DeepCopyInto(out *CiliumEndpoint) {
 			}
 		}
 	}
+	if in.Workload != nil {
+		in, out := &in.Workload, &out.Workload
+		*out = new(v2.EndpointWorkload)
+		**out = **in
+	}
 	return
 }
 
