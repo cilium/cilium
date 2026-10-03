@@ -891,6 +891,28 @@ Name                                                 Labels                     
 
 All metrics are enabled only when the BGP Control Plane is enabled.
 
+.. _metrics_ztunnel:
+
+Ztunnel
+~~~~~~~
+
+============================================= ============ ========== ===================================================================
+Name                                          Labels       Default    Description
+============================================= ============ ========== ===================================================================
+``ztunnel_zds_enrollment_total``                           Disabled   Total number of endpoint enrollment attempts to ztunnel
+``ztunnel_zds_enrollment_failures_total``     ``status``   Disabled   Total number of endpoint enrollment failures to ztunnel by status
+``ztunnel_zds_connection_active``                          Disabled   Whether the ztunnel connection is active (1) or not (0)
+``ztunnel_xds_enrollment_failures_total``     ``status``   Disabled   Total number of workload enrollment failures to ztunnel via xDS by status
+============================================= ============ ========== ===================================================================
+
+The ``status`` label reports the failure mode: ``netns_failed``,
+``iptables_failed``, ``conversion_failed`` or ``send_failed`` for
+``ztunnel_zds_enrollment_failures_total``, and ``send_failed`` or
+``nack_received`` for ``ztunnel_xds_enrollment_failures_total``.
+
+All metrics are enabled only when ztunnel is enabled. See
+:ref:`encryption_ztunnel` for details.
+
 cilium-operator
 ---------------
 
