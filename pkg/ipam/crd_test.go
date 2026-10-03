@@ -4,7 +4,6 @@
 package ipam
 
 import (
-	"errors"
 	"fmt"
 	"net/netip"
 	"testing"
@@ -26,42 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 )
-
-func TestIPNotAvailableInPoolError(t *testing.T) {
-	err := NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
-	err2 := NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
-	assert.Equal(t, err, err2)
-	assert.ErrorIs(t, err, err2)
-
-	err = NewIPNotAvailableInPoolError(netip.MustParseAddr("2.1.1.1"))
-	err2 = NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
-	assert.NotEqual(t, err, err2)
-	assert.NotErrorIs(t, err, err2)
-
-	err = NewIPNotAvailableInPoolError(netip.MustParseAddr("2.1.1.1"))
-	err2 = errors.New("another error")
-	assert.NotEqual(t, err, err2)
-	assert.NotErrorIs(t, err, err2)
-
-	err = errors.New("another error")
-	err2 = NewIPNotAvailableInPoolError(netip.MustParseAddr("2.1.1.1"))
-	assert.NotEqual(t, err, err2)
-	assert.NotErrorIs(t, err, err2)
-
-	err = NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
-	err2 = nil
-	assert.NotErrorIs(t, err, err2)
-
-	err = nil
-	err2 = NewIPNotAvailableInPoolError(netip.MustParseAddr("1.1.1.1"))
-	assert.NotErrorIs(t, err, err2)
-
-	// We don't match against strings. It must be the sentinel value.
-	err = errors.New("IP 2.1.1.1 is not available")
-	err2 = NewIPNotAvailableInPoolError(netip.MustParseAddr("2.1.1.1"))
-	assert.NotEqual(t, err, err2)
-	assert.NotErrorIs(t, err, err2)
-}
 
 func testDaemonConfig() *option.DaemonConfig {
 	return &option.DaemonConfig{

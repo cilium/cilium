@@ -5,7 +5,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -707,28 +706,7 @@ func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) 
 	if option.Config.EnableIPv4 && ep.IPv4.IsValid() {
 		ipv4Pool := ipam.PoolOrDefault(ep.IPv4IPAMPool)
 		_, err = r.ipamManager.AllocateIPWithoutSyncUpstream(ep.IPv4, ep.HumanString()+" [restored]", ipv4Pool)
-		switch {
-		// We only check for BypassIPAllocUponRestore for IPv4 because we
-		// assume that this flag is only turned on for IPv4-only IPAM modes
-		// such as ENI.
-		//
-		// Additionally, only check for a specific error which can be caused by
-		// https://github.com/cilium/cilium/pull/15453. Other errors are not
-		// bypassed.
-		case err != nil &&
-			errors.Is(err, ipam.NewIPNotAvailableInPoolError(ep.IPv4)) &&
-			option.Config.BypassIPAvailabilityUponRestore:
-			r.logger.Warn(
-				"Bypassing IP not available error on endpoint restore. This is "+
-					"to prevent errors upon Cilium upgrade and should not be "+
-					"relied upon. Consider restarting this pod in order to get "+
-					"a fresh IP from the pool.",
-				logfields.Error, err,
-				logfields.IPAddr, ep.IPv4,
-				logfields.EndpointID, ep.ID,
-				logfields.CEPName, ep.GetK8sNamespaceAndCEPName(),
-			)
-		case err != nil:
+		if err != nil {
 			return fmt.Errorf("unable to reallocate %s IPv4 address: %w", ep.IPv4, err)
 		}
 	}

@@ -112,6 +112,10 @@ from Cilium.
 * The previously deprecated ``clustermesh.apiserver.kvstoremesh.enabled`` helm
   value has been removed, and KVStoreMesh is now unconditionally enabled when the
   clustermesh-apiserver is enabled.
+* The hidden ``--bypass-ip-availability-upon-restore`` agent flag has been
+  removed. It was a temporary workaround for an ENI IPAM upgrade issue
+  introduced in v1.10, and has had no effect in ENI mode since the agent moved
+  to the multi-pool allocator in v1.20, nor in Azure mode with this release.
 
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
