@@ -131,7 +131,7 @@ func (sdp *StandaloneDNSProxy) WatchConnection(ctx context.Context, _ cell.Healt
 
 // WatchDNSRulesTable watches the DNS rules table for changes and updates the DNS proxy accordingly
 func (sdp *StandaloneDNSProxy) WatchDNSRulesTable(ctx context.Context, _ cell.Health) error {
-	limiter := rate.NewLimiter(time.Second, 1)
+	limiter := rate.NewLimiter(100*time.Millisecond, 1)
 	defer limiter.Stop()
 
 	rulesWatch := func() <-chan struct{} {
