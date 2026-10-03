@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-SUBDIRS := cilium-cni
+SUBDIRS := cilium-cni bpf-geneve-datapath
 
 .PHONY: all $(SUBDIRS) clean install
 

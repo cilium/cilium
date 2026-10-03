@@ -1,0 +1,52 @@
+apiVersion: cilium.io/v2alpha1
+kind: CiliumDatapathPlugin
+metadata:
+  name: bpf-geneve-datapath
+spec:
+  attachmentPolicy: Always
+  socket: /var/run/cilium/plugins/bpf-geneve-datapath.sock
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cilium-datapath-plugin-geneve
+  namespace: kube-system
+  labels:
+    k8s-app: cilium-datapath-plugin-geneve
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-datapath-plugin-geneve
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium-datapath-plugin-geneve
+    spec:
+      hostNetwork: true
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: datapath-plugin
+          image: quay.io/cilium/bpf-geneve-datapath:latest
+          command:
+            - /usr/local/bin/bpf-geneve-datapath
+            - --unix-socket-path=/var/run/cilium/plugins/bpf-geneve-datapath.sock
+          securityContext:
+            privileged: true
+          volumeMounts:
+            - name: cilium-plugins-dir
+              mountPath: /var/run/cilium/plugins
+            - name: bpf-fs
+              mountPath: /sys/fs/bpf
+              mountPropagation: HostToContainer
+      volumes:
+        - name: cilium-plugins-dir
+          hostPath:
+            path: /var/run/cilium/plugins
+            type: DirectoryOrCreate
+        - name: bpf-fs
+          hostPath:
+            path: /sys/fs/bpf
+            type: Directory
