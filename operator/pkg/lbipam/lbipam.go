@@ -944,7 +944,10 @@ func (ipam *LBIPAM) satisfySpecificIPRequests(sv *ServiceView) (statusModified b
 
 		if cluster, exists := lbRange.alloc.Get(reqIP); exists {
 			// The IP is already assigned to another service, if we have a sharing key we might be able to share it.
-			if sv.SharingKey == "" {
+			// A nil cluster means the IP is reserved (e.g. the first/last IP of a
+			// pool with AllowFirstLastIPs: No) rather than allocated to a service,
+			// so it can never be shared regardless of a sharing key.
+			if sv.SharingKey == "" || cluster == nil {
 				msg := fmt.Sprintf("The IP '%s' is already allocated to another service", reqIP)
 				reason := "already_allocated"
 				if ipam.setSVCSatisfiedCondition(sv, false, reason, msg) {
