@@ -6,7 +6,6 @@ package getters
 import (
 	"net/netip"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -48,7 +47,7 @@ type IPGetter interface {
 
 // ServiceGetter fetches service metadata.
 type ServiceGetter interface {
-	GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service
+	GetServiceByAddr(ip netip.Addr, port uint16) FQN
 }
 
 // LinkGetter fetches local link information.

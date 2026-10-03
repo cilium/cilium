@@ -10,6 +10,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 func TestNetworkInterfaceFilter(t *testing.T) {
@@ -44,8 +45,8 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 						{},
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Interface: &flowpb.NetworkInterface{
+				ev: &v1.Event{Event: &ir.Flow{
+					Interface: ir.NetworkInterface{
 						Index: 1,
 						Name:  "eth1",
 					},
@@ -61,7 +62,7 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 						{},
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{}},
+				ev: &v1.Event{Event: &ir.Flow{}},
 			},
 			want: false,
 		},
@@ -73,8 +74,8 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 						{},
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Interface: &flowpb.NetworkInterface{
+				ev: &v1.Event{Event: &ir.Flow{
+					Interface: ir.NetworkInterface{
 						Index: 1,
 						Name:  "eth1",
 					},
@@ -92,8 +93,8 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 						},
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Interface: &flowpb.NetworkInterface{
+				ev: &v1.Event{Event: &ir.Flow{
+					Interface: ir.NetworkInterface{
 						Index: 1,
 						Name:  "eth1",
 					},
@@ -111,8 +112,8 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 						},
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Interface: &flowpb.NetworkInterface{
+				ev: &v1.Event{Event: &ir.Flow{
+					Interface: ir.NetworkInterface{
 						Index: 1,
 						Name:  "eth1",
 					},
@@ -131,8 +132,8 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 						},
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Interface: &flowpb.NetworkInterface{
+				ev: &v1.Event{Event: &ir.Flow{
+					Interface: ir.NetworkInterface{
 						Index: 1,
 						Name:  "eth1",
 					},
@@ -150,8 +151,8 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 						},
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Interface: &flowpb.NetworkInterface{
+				ev: &v1.Event{Event: &ir.Flow{
+					Interface: ir.NetworkInterface{
 						Index: 1,
 						Name:  "eth1",
 					},
@@ -169,8 +170,8 @@ func TestNetworkInterfaceFilter(t *testing.T) {
 						},
 					},
 				}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					Interface: &flowpb.NetworkInterface{
+				ev: &v1.Event{Event: &ir.Flow{
+					Interface: ir.NetworkInterface{
 						Index: 1,
 						Name:  "eth1",
 					},

@@ -15,18 +15,39 @@ import (
 )
 
 func sourceLabels(ev *v1.Event) k8sLabels.Labels {
-	labels := ev.GetFlow().GetSource().GetLabels()
-	return ciliumLabels.ParseK8sLabelArrayFromArray(labels)
+	if ev == nil {
+		return nil
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return nil
+	}
+
+	return ciliumLabels.ParseK8sLabelArrayFromArray(fl.Source.Labels)
 }
 
 func destinationLabels(ev *v1.Event) k8sLabels.Labels {
-	labels := ev.GetFlow().GetDestination().GetLabels()
-	return ciliumLabels.ParseK8sLabelArrayFromArray(labels)
+	if ev == nil {
+		return nil
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return nil
+	}
+
+	return ciliumLabels.ParseK8sLabelArrayFromArray(fl.Destination.Labels)
 }
 
 func nodeLabels(ev *v1.Event) k8sLabels.Labels {
-	labels := ev.GetFlow().GetNodeLabels()
-	return ciliumLabels.ParseK8sLabelArrayFromArray(labels)
+	if ev == nil {
+		return nil
+	}
+	fl := ev.GetFlow()
+	if fl == nil {
+		return nil
+	}
+
+	return ciliumLabels.ParseK8sLabelArrayFromArray(fl.NodeLabels)
 }
 
 func parseSelector(selector string) (k8sLabels.Selector, error) {

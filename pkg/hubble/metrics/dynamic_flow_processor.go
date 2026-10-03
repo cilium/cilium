@@ -11,7 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -31,13 +31,13 @@ type DynamicFlowProcessor struct {
 }
 
 // ProcessFlow implements FlowProcessor.
-func (p *DynamicFlowProcessor) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+func (p *DynamicFlowProcessor) ProcessFlow(ctx context.Context, flow *ir.Flow) error {
 	_, err := p.OnDecodedFlow(ctx, flow)
 	return err
 }
 
 // OnDecodedEvent distributes events across all managed exporters.
-func (d *DynamicFlowProcessor) OnDecodedFlow(ctx context.Context, flow *flowpb.Flow) (bool, error) {
+func (d *DynamicFlowProcessor) OnDecodedFlow(ctx context.Context, flow *ir.Flow) (bool, error) {
 	select {
 	case <-ctx.Done():
 		return false, d.Stop()
