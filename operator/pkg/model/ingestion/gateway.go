@@ -196,6 +196,10 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 	for _, l := range listeners {
 		switch l.Protocol {
 		case gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType, gatewayv1.TLSProtocolType:
+			var frontendTLSValidation *model.FrontendTLSValidation
+			if l.Protocol == gatewayv1.HTTPSProtocolType {
+				frontendTLSValidation = toFrontendTLSValidation(&input.Gateway, l.Port, input.ReferenceGrants)
+			}
 			filteredHTTPRoutes := l.FilterHTTPRoutes(input.HTTPRoutes)
 			filteredGRPCRoutes := l.FilterGRPCRoutes(input.GRPCRoutes)
 
@@ -209,6 +213,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Port:                       uint32(l.Port),
 				Hostname:                   toHostname(l.Hostname),
 				TLS:                        toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
+				FrontendTLSValidation:      frontendTLSValidation,
 				Routes:                     httpRoutes,
 				Infrastructure:             infra,
 				Service:                    toServiceModel(input.GatewayClassConfig),
@@ -1356,6 +1361,42 @@ func toTLS(tls *gatewayv1.ListenerTLSConfig, grants []gatewayv1.ReferenceGrant, 
 		})
 	}
 	return res
+}
+
+// toFrontendTLSValidation converts Gateway API FrontendTLSValidation to model.FrontendTLSValidation
+// for client certificate validation (mTLS).
+func toFrontendTLSValidation(gw *gatewayv1.Gateway, listenerPort gatewayv1.PortNumber, grants []gatewayv1.ReferenceGrant) *model.FrontendTLSValidation {
+	validation := helpers.FrontendTLSValidationForPort(gw, listenerPort)
+	if validation == nil {
+		return nil
+	}
+
+	ref, ok := helpers.FirstFrontendTLSCACertificateRef(validation)
+	if !ok {
+		return nil
+	}
+	if !helpers.IsObjectRefConfigMap(ref) {
+		return nil
+	}
+
+	refNs := helpers.NamespaceDerefOr(ref.Namespace, gw.Namespace)
+	if refNs != gw.Namespace && !helpers.IsObjectRefAllowed(gw.Namespace, ref,
+		gatewayv1.SchemeGroupVersion.WithKind("Gateway"),
+		corev1.SchemeGroupVersion.WithKind("ConfigMap"), grants) {
+		return nil
+	}
+
+	caCertRef := model.FullyQualifiedResource{
+		Group:     string(ref.Group),
+		Kind:      string(ref.Kind),
+		Name:      string(ref.Name),
+		Namespace: refNs,
+	}
+
+	return &model.FrontendTLSValidation{
+		CACertRefs:               []model.FullyQualifiedResource{caCertRef},
+		RequireClientCertificate: validation.Mode != gatewayv1.AllowInsecureFallback,
+	}
 }
 
 func toHTTPHeaders(headers []gatewayv1.HTTPHeader) []model.Header {
