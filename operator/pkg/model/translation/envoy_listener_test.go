@@ -937,3 +937,125 @@ func TestDesiredEnvoyListenerSingleHTTPS(t *testing.T) {
 	hcm1 := decodeHCM(l.FilterChains[1])
 	require.Equal(t, "listener-secure", hcm1.GetRds().GetRouteConfigName())
 }
+
+// TestDesiredEnvoyListenerHTTPSAndTLSPassthroughSamePort checks that a port
+// carrying both an HTTPS (Terminate) listener and a TLS passthrough listener
+// emits a single Envoy Listener whose filter chains are merged, instead of two
+// listeners named "listener-<port>" (GH-48269).
+func TestDesiredEnvoyListenerHTTPSAndTLSPassthroughSamePort(t *testing.T) {
+	i := &cecTranslator{
+		Config: Config{
+			SecretsNamespace: "cilium-secrets",
+		},
+	}
+
+	// Two distinct TLS passthrough ports force NeedsPerPortTLSPassthroughListeners()
+	// (and therefore the per-port translation path); the HTTPS + passthrough pair
+	// on port 443 is what previously produced a duplicate "listener-443".
+	m := &model.Model{
+		HTTP: []model.HTTPListener{
+			{
+				Port:     443,
+				Hostname: "c.example.com",
+				TLS: []model.TLSSecret{
+					{Name: "c-tls", Namespace: "default"},
+				},
+			},
+		},
+		TLSPassthrough: []model.TLSPassthroughListener{
+			{
+				Port: 8443,
+				Routes: []model.TLSPassthroughRoute{
+					{
+						Hostnames: []string{"a.example.com"},
+						Backends: []model.Backend{
+							{Name: "tls-backend-8443", Namespace: "default", Port: &model.BackendPort{Port: 9443}},
+						},
+					},
+				},
+			},
+			{
+				Port: 8883,
+				Routes: []model.TLSPassthroughRoute{
+					{
+						Hostnames: []string{"b.example.com"},
+						Backends: []model.Backend{
+							{Name: "tls-backend-8883", Namespace: "default", Port: &model.BackendPort{Port: 9443}},
+						},
+					},
+				},
+			},
+			{
+				Port: 443,
+				Routes: []model.TLSPassthroughRoute{
+					{
+						Hostnames: []string{"d.example.com"},
+						Backends: []model.Backend{
+							{Name: "tls-backend-443", Namespace: "default", Port: &model.BackendPort{Port: 9443}},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	res, err := i.desiredEnvoyListener(m)
+	require.NoError(t, err)
+
+	// listener-443 (merged HTTPS + TLS passthrough), listener-8443, listener-8883.
+	require.Len(t, res, 3)
+
+	decodeListener := func(r ciliumv2.XDSResource) *envoy_config_listener.Listener {
+		l := &envoy_config_listener.Listener{}
+		require.NoError(t, proto.Unmarshal(r.Value, l))
+		return l
+	}
+	decodeHCM := func(fc *envoy_config_listener.FilterChain) *envoy_extensions_filters_network_hcm_v3.HttpConnectionManager {
+		require.Len(t, fc.Filters, 1)
+		hcm := &envoy_extensions_filters_network_hcm_v3.HttpConnectionManager{}
+		require.NoError(t, proto.Unmarshal(fc.Filters[0].GetTypedConfig().GetValue(), hcm))
+		return hcm
+	}
+	getTCPProxy := func(t *testing.T, fc *envoy_config_listener.FilterChain) *envoy_extensions_filters_network_tcp_v3.TcpProxy {
+		require.Len(t, fc.Filters, 1)
+		tcpProxy := &envoy_extensions_filters_network_tcp_v3.TcpProxy{}
+		require.NoError(t, proto.Unmarshal(fc.Filters[0].GetTypedConfig().GetValue(), tcpProxy))
+		return tcpProxy
+	}
+
+	// The 443 listener must carry both the HTTPS filter chain (ServerNames
+	// c.example.com) and the TLS passthrough filter chain (d.example.com),
+	// and must appear exactly once.
+	var l443 *envoy_config_listener.Listener
+	names := map[string]int{}
+	for _, r := range res {
+		l := decodeListener(r)
+		names[l.Name]++
+		if l.Name == "listener-443" {
+			l443 = l
+		}
+	}
+	for name, count := range names {
+		require.Equal(t, 1, count, "listener %q must appear exactly once", name)
+	}
+
+	require.NotNil(t, l443, "listener-443 should exist")
+	require.Len(t, l443.FilterChains, 2, "listener-443: HTTPS + TLS passthrough filter chains merged")
+
+	httpsSNIs := []string{}
+	tlsSNIs := []string{}
+	for _, fc := range l443.FilterChains {
+		switch fc.Filters[0].GetName() {
+		case httpConnectionManagerType:
+			hcm := decodeHCM(fc)
+			require.Equal(t, "listener-443", hcm.GetRds().GetRouteConfigName())
+			httpsSNIs = append(httpsSNIs, fc.FilterChainMatch.GetServerNames()...)
+		case tcpProxyType:
+			tp := getTCPProxy(t, fc)
+			require.Equal(t, "default:tls-backend-443:9443", tp.GetCluster())
+			tlsSNIs = append(tlsSNIs, fc.FilterChainMatch.GetServerNames()...)
+		}
+	}
+	require.Equal(t, []string{"c.example.com"}, httpsSNIs)
+	require.Equal(t, []string{"d.example.com"}, tlsSNIs)
+}

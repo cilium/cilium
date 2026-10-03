@@ -469,21 +469,35 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 		allResources = append(allResources, res)
 	}
 
-	// one Listener per HTTPS port
+	// one Listener per HTTPS port, merging any same-port TLS passthrough
+	// filter chains into the same Listener so the listener name stays
+	// unique. A port can carry both an HTTPS (Terminate) and a TLS
+	// passthrough listener; emitting two Listeners named "listener-<port>"
+	// would produce a duplicate Envoy Listener name and cause the whole
+	// CiliumEnvoyConfig to be rejected (see GH-48269).
 	for _, port := range m.HTTPSPortsSorted() {
 		lName := listenerNameForPort(port)
+
+		var filterChains []*envoy_config_listener.FilterChain
 
 		httpsFC, err := i.httpsFilterChainsForPort(lName, port, m)
 		if err != nil {
 			return nil, err
 		}
-		if len(httpsFC) == 0 {
+		filterChains = append(filterChains, httpsFC...)
+
+		if needsPerPortTLS {
+			tlsFC := tlsPassthroughFilterChainsForPort(port, m)
+			filterChains = append(filterChains, tlsFC...)
+		}
+
+		if len(filterChains) == 0 {
 			continue
 		}
 
 		httpsListener := &envoy_config_listener.Listener{
 			Name:         lName,
-			FilterChains: httpsFC,
+			FilterChains: filterChains,
 			ListenerFilters: []*envoy_config_listener.ListenerFilter{
 				{
 					Name: tlsInspectorType,
@@ -503,9 +517,17 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 		allResources = append(allResources, res)
 	}
 
-	// One Listener per TLS passthrough port.
+	// One Listener per TLS passthrough port that is not already covered by
+	// an HTTPS listener on the same port (those were merged above).
 	if needsPerPortTLS {
+		httpsPorts := make(map[uint32]struct{}, len(m.HTTPSPortsSorted()))
+		for _, p := range m.HTTPSPortsSorted() {
+			httpsPorts[p] = struct{}{}
+		}
 		for _, port := range m.TLSPassthroughPorts() {
+			if _, isHTTPSPort := httpsPorts[port]; isHTTPSPort {
+				continue
+			}
 			lName := listenerNameForPort(port)
 
 			tlsFC := tlsPassthroughFilterChainsForPort(port, m)
