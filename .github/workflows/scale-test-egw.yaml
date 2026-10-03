@@ -85,19 +85,17 @@ env:
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
-  echo-inputs:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
-    name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Echo Workflow Dispatch Inputs
-        run: |
-          echo '${{ tojson(inputs) }}'
-
   commit-status-start:
     name: Commit Status Start
     runs-on: ubuntu-24.04
     steps:
+      - name: Echo Workflow Dispatch Inputs
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          INPUTS: ${{ tojson(inputs) }}
+        run: |
+          echo "${INPUTS}"
+
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
         with:
