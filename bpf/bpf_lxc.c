@@ -48,6 +48,7 @@
 #include "lib/nat.h"
 #include "lib/fib.h"
 #include "lib/nodeport.h"
+#include "lib/nodeport_egress.h"
 #include "lib/policy_log.h"
 #include "lib/vtep.h"
 #include "lib/subnet.h"
@@ -712,6 +713,23 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		if (ep) {
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
 			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING))) {
+#if defined(ENABLE_NODEPORT) && defined(ENABLE_DSR)
+				if (ct_status == CT_REPLY) {
+					void *data, *data_end;
+					bool snat_done = false;
+
+					ret = nodeport_rev_dnat_fwd_ipv6(ctx, &snat_done, true,
+									 trace, ext_err);
+					if (IS_ERR(ret))
+						return ret;
+					if (snat_done)
+						return lxc_redirect_to_host(ctx, SECLABEL_IPV6,
+									    bpf_htons(ETH_P_IPV6),
+									    trace);
+					if (!revalidate_data(ctx, &data, &data_end, &ip6))
+						return DROP_INVALID;
+				}
+#endif
 				if (is_defined(ENABLE_ROUTING) &&
 				    is_defined(ENABLE_HOST_FIREWALL) &&
 				    dst_sec_identity == HOST_ID)
@@ -1186,6 +1204,23 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		if (ep) {
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
 			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING))) {
+#if defined(ENABLE_NODEPORT) && defined(ENABLE_DSR)
+				if (ct_status == CT_REPLY) {
+					void *data, *data_end;
+					bool snat_done = false;
+
+					ret = nodeport_rev_dnat_fwd_ipv4(ctx, &snat_done, true,
+									 trace, ext_err);
+					if (IS_ERR(ret))
+						return ret;
+					if (snat_done)
+						return lxc_redirect_to_host(ctx, SECLABEL_IPV4,
+									    bpf_htons(ETH_P_IP),
+									    trace);
+					if (!revalidate_data(ctx, &data, &data_end, &ip4))
+						return DROP_INVALID;
+				}
+#endif
 				if (is_defined(ENABLE_ROUTING) &&
 				    is_defined(ENABLE_HOST_FIREWALL) &&
 				    dst_sec_identity == HOST_ID)

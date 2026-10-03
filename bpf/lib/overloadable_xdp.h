@@ -5,8 +5,12 @@
 
 #include <linux/udp.h>
 #include <linux/ip.h>
+#include <linux/ipv6.h>
 #include "identity.h"
 #include "tunnel.h"
+#undef ctx_pull_data
+#define ctx_pull_data(ctx, ...) ({ 0; })
+#include "geneve_encap.h"
 
 static __always_inline __maybe_unused void
 bpf_clear_meta(struct xdp_md *ctx __maybe_unused)
@@ -156,104 +160,173 @@ static __always_inline bool ctx_snat_done(struct xdp_md *ctx)
 	return ctx_load_meta(ctx, XFER_MARKER) & XFER_PKT_SNAT_DONE;
 }
 
+static __always_inline int
+bpf_geneve_xdp_insert_opt(struct xdp_md *ctx, const void *opt, __u32 opt_len);
+
+static __always_inline __maybe_unused int
+ctx_set_tunnel_opt(struct xdp_md *ctx, const void *opt, __u32 opt_len)
+{
+	return bpf_geneve_xdp_insert_opt(ctx, opt, opt_len);
+}
 static __always_inline __maybe_unused int
 ctx_set_encap_info4(struct xdp_md *ctx, __u32 src_ip, __be16 src_port,
 		    __u32 daddr, __u32 seclabel, __u32 vni __maybe_unused,
-		    void *opt, __u32 opt_len)
+		    const void *opt, __u32 opt_len)
 {
-	__u32 inner_len = (__u32)ctx_full_len(ctx);
-	__u32 tunnel_hdr_len = 8; /* geneve / vxlan */
+	__u32 pkt_len = (__u32)ctx_full_len(ctx);
+	__u32 tunnel_hdr_len = 8; /* vxlan */
+	struct ethhdr inner_eth;
 	void *data, *data_end;
+	__be16 inner_proto;
+	struct vxlanhdr *vxlan;
 	struct ethhdr *eth;
 	struct udphdr *udp;
 	struct iphdr *ip4;
-	__u32 outer_len;
+	__u32 inner_ip_len;
+	__u32 hdr_len;
+	__u8 tun_proto;
+	__be32 vni_be;
+	__u16 dport;
 
-	/* Add space in front (50 bytes + options) */
-	outer_len = sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len + opt_len;
-
-	if (ctx_adjust_hroom(ctx, outer_len, BPF_ADJ_ROOM_MAC, BPF_F_ADJ_ROOM_NO_CSUM_RESET))
+	if (pkt_len < ETH_HLEN || ctx_load_bytes(ctx, 0, &inner_eth, ETH_HLEN) < 0)
 		return DROP_INVALID;
 
-	/* validate access to outer headers: */
+	inner_proto = inner_eth.h_proto;
+	if (!src_ip)
+		src_ip = CONFIG(ipv4_direct_routing).be32;
+
+	tun_proto = CONFIG(tunnel_protocol);
+#ifdef TUNNEL_PROTOCOL
+	if (!tun_proto)
+		tun_proto = TUNNEL_PROTOCOL;
+#endif
+#if defined(ENABLE_BPF_GENEVE) || (defined(DSR_ENCAP_MODE) && defined(DSR_ENCAP_GENEVE) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	if (!tun_proto)
+		tun_proto = TUNNEL_PROTOCOL_GENEVE;
+#endif
+
+	if (tun_proto == TUNNEL_PROTOCOL_GENEVE) {
+		__u32 tunnel_vni = vni != 0 ? get_tunnel_id(vni) : get_tunnel_id(seclabel);
+		int ret = bpf_geneve_encap4_with_sport(ctx, src_ip, daddr,
+						       tunnel_vni, inner_proto,
+						       src_port, opt, opt_len);
+		return ret < 0 ? ret : CTX_ACT_REDIRECT;
+	}
+
+	if (opt_len > 0 || tun_proto != TUNNEL_PROTOCOL_VXLAN)
+		return DROP_INVALID;
+
+	inner_ip_len = pkt_len - ETH_HLEN;
+	hdr_len = sizeof(struct iphdr) + sizeof(struct udphdr) + tunnel_hdr_len;
+
+	if (ctx_adjust_hroom(ctx, (__s32)(ETH_HLEN + hdr_len), BPF_ADJ_ROOM_MAC,
+			     BPF_F_ADJ_ROOM_NO_CSUM_RESET))
+		return DROP_INVALID;
+
 	data = ctx_data(ctx);
 	data_end = ctx_data_end(ctx);
-
-	if (data + outer_len > data_end)
+	if (data + ETH_HLEN + hdr_len > data_end)
 		return DROP_INVALID;
 
 	eth = data;
 	ip4 = (void *)eth + sizeof(*eth);
 	udp = (void *)ip4 + sizeof(*ip4);
+	vxlan = (void *)udp + sizeof(*udp);
 
-	memset(data, 0, sizeof(*eth) + sizeof(*ip4) + sizeof(*udp) + tunnel_hdr_len);
+	*eth = inner_eth;
+	eth->h_proto = bpf_htons(ETH_P_IP);
 
-	switch (CONFIG(tunnel_protocol)) {
-	case TUNNEL_PROTOCOL_GENEVE:
-		{
-			struct genevehdr *geneve = (void *)udp + sizeof(*udp);
-
-			if (opt_len > 0)
-				memcpy((void *)geneve + sizeof(*geneve), opt, opt_len);
-
-			geneve->opt_len = (__u8)(opt_len >> 2);
-			geneve->protocol_type = bpf_htons(ETH_P_TEB);
-
-			seclabel = sec_identity_to_tunnel_vni(get_tunnel_id(seclabel));
-			memcpy(&geneve->vni, &seclabel, sizeof(__u32));
-		}
-		break;
-	case TUNNEL_PROTOCOL_VXLAN:
-		if (opt_len > 0)
-			return DROP_INVALID;
-
-		{
-			struct vxlanhdr *vxlan = (void *)udp + sizeof(*udp);
-
-			vxlan->vx_flags = bpf_htonl(1U << 27);
-
-			seclabel = sec_identity_to_tunnel_vni(get_tunnel_id(seclabel));
-			memcpy(&vxlan->vx_vni, &seclabel, sizeof(__u32));
-		}
-		break;
-	}
+#ifdef TUNNEL_PORT
+	dport = CONFIG(tunnel_port) ? CONFIG(tunnel_port) : TUNNEL_PORT;
+#else
+	dport = CONFIG(tunnel_port);
+#endif
 
 	udp->source = src_port;
-	udp->dest = bpf_htons(CONFIG(tunnel_port));
-	udp->len = bpf_htons((__u16)(sizeof(*udp) + tunnel_hdr_len + opt_len + inner_len));
-	udp->check = 0; /* we use BPF_F_ZERO_CSUM_TX */
+	udp->dest = bpf_htons(dport);
+	udp->len = bpf_htons((__u16)(sizeof(*udp) + tunnel_hdr_len + ETH_HLEN + inner_ip_len));
+	udp->check = 0;
 
 	ip4->ihl = 5;
 	ip4->version = IPVERSION;
+	ip4->tos = 0;
 	ip4->tot_len = bpf_htons((__u16)(sizeof(*ip4) + bpf_ntohs(udp->len)));
+	ip4->id = 0;
+	ip4->frag_off = 0;
 	ip4->ttl = IPDEFTTL;
 	ip4->protocol = IPPROTO_UDP;
 	ip4->saddr = src_ip;
 	ip4->daddr = daddr;
-	ip4->check = csum_fold(csum_diff(NULL, 0, ip4, sizeof(*ip4), 0));
+	ip4->check = 0;
+	ip4->check = bpf_geneve_ipv4_csum(ip4);
 
-	eth->h_proto = bpf_htons(ETH_P_IP);
+	vxlan->vx_flags = bpf_htonl(1U << 27);
+	vni_be = sec_identity_to_tunnel_vni(get_tunnel_id(seclabel));
+	memcpy(&vxlan->vx_vni, &vni_be, sizeof(__u32));
+
+	if (ctx_store_bytes(ctx, ETH_HLEN + hdr_len, &inner_eth, ETH_HLEN, 0) < 0)
+		return DROP_INVALID;
 
 	return CTX_ACT_REDIRECT;
 }
 
-/* Encapsulation towards an IPv6 tunnel endpoint is not implemented on the
- * XDP path yet. Unlike the skb path we cannot defer to
- * bpf_skb_set_tunnel_key(); we would have to build the outer IPv6 header
- * here, which additionally requires resolving an outer source address
- * (fib_lookup_src_v6()) and an IPv6-aware FIB redirect in the callers.
- *
- * Until then, return an error. Returning 0 is not an option: 0 does not
- * satisfy IS_ERR(), so callers treat the packet as successfully handled.
- * tail_nodeport_nat_egress_ipv6() for instance then jumps to its fib_ipv4
- * label and performs an AF_INET FIB lookup over what is still an
- * unencapsulated IPv6 packet.
- */
 static __always_inline __maybe_unused int
-ctx_set_encap_info6(struct xdp_md *ctx __maybe_unused,
-		    const union v6addr *tunnel_endpoint __maybe_unused,
-		    __u32 seclabel __maybe_unused, void *opt __maybe_unused,
-		    __u32 opt_len __maybe_unused)
+__ctx_set_encap_info6(struct xdp_md *ctx, const union v6addr *src_ip,
+		      __be16 src_port, const union v6addr *daddr,
+		      __u32 seclabel, const void *opt, __u32 opt_len,
+		      bool has_src_arg)
 {
-	return DROP_INVALID;
+	struct ethhdr inner_eth;
+	union v6addr saddr = {};
+	__u8 tun_proto = CONFIG(tunnel_protocol);
+	int ret;
+
+#ifdef TUNNEL_PROTOCOL
+	if (!tun_proto)
+		tun_proto = TUNNEL_PROTOCOL;
+#endif
+#if defined(ENABLE_BPF_GENEVE) || (defined(DSR_ENCAP_MODE) && defined(DSR_ENCAP_GENEVE) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
+	if (!tun_proto)
+		tun_proto = TUNNEL_PROTOCOL_GENEVE;
+#endif
+	if (tun_proto != TUNNEL_PROTOCOL_GENEVE ||
+	    ctx_load_bytes(ctx, 0, &inner_eth, ETH_HLEN) < 0)
+		return DROP_INVALID;
+
+	if (src_ip && (src_ip->p1 || src_ip->p2 || src_ip->p3 || src_ip->p4)) {
+		saddr = *src_ip;
+	} else {
+#ifdef ENABLE_IPV6
+		saddr = CONFIG(ipv6_direct_routing);
+#ifdef ENABLE_ROUTING
+		if (!saddr.p1 && !saddr.p2 && !saddr.p3 && !saddr.p4)
+			saddr = CONFIG(router_ipv6);
+#endif
+#endif
+		if (!has_src_arg && !saddr.p1 && !saddr.p2 && !saddr.p3 && !saddr.p4)
+			return DROP_INVALID;
+	}
+
+	ret = bpf_geneve_encap6_with_sport(ctx, &saddr, daddr,
+					   get_tunnel_id(seclabel),
+					   inner_eth.h_proto, src_port,
+					   opt, opt_len);
+	return ret < 0 ? ret : CTX_ACT_REDIRECT;
+}
+
+static __always_inline __maybe_unused int
+ctx_set_encap_info6_with_src(struct xdp_md *ctx, const union v6addr *src_ip,
+			     __be16 src_port, const union v6addr *daddr,
+			     __u32 seclabel, const void *opt, __u32 opt_len)
+{
+	return __ctx_set_encap_info6(ctx, src_ip, src_port, daddr, seclabel,
+				     opt, opt_len, true);
+}
+
+static __always_inline __maybe_unused int
+ctx_set_encap_info6(struct xdp_md *ctx, const union v6addr *daddr,
+		    __u32 seclabel, const void *opt, __u32 opt_len)
+{
+	return __ctx_set_encap_info6(ctx, NULL, 0, daddr, seclabel,
+				     opt, opt_len, false);
 }

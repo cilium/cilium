@@ -132,6 +132,8 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 	if (!ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 		void *data, *data_end;
+		int l3_off = ETH_HLEN;
+		__be16 inner_proto __maybe_unused = bpf_htons(ETH_P_IP);
 		struct iphdr *ip4;
 		bool is_dsr = false;
 
@@ -140,8 +142,33 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 			goto out;
 		}
 
-		ret = nodeport_lb4(ctx, ip4, UNKNOWN_ID, &punt_to_stack,
-				   &ext_err, &is_dsr);
+		bpf_geneve_xdp_find_inner_l3(ctx, &l3_off, &inner_proto);
+
+#ifdef ENABLE_IPV6
+		if (l3_off > ETH_HLEN && inner_proto == bpf_htons(ETH_P_IPV6)) {
+			struct ipv6hdr *ip6;
+
+			if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip6, l3_off)) {
+				ret = DROP_INVALID;
+				goto out;
+			}
+			ret = nodeport_lb6_l3_off(ctx, ip6, l3_off, UNKNOWN_ID,
+						  &punt_to_stack, &ext_err, &is_dsr);
+			if (IS_ERR(ret))
+				ret = xdp_frag_not_found_world_v6(ret, ip6);
+			goto out;
+		}
+#endif
+
+		if (l3_off > ETH_HLEN) {
+			if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip4, l3_off)) {
+				ret = DROP_INVALID;
+				goto out;
+			}
+		}
+
+		ret = nodeport_lb4_l3_off(ctx, ip4, l3_off, UNKNOWN_ID, &punt_to_stack,
+					  &ext_err, &is_dsr);
 		if (IS_ERR(ret))
 			ret = xdp_frag_not_found_world_v4(ret, ip4);
 	}
@@ -207,6 +234,8 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 
 	if (!ctx_skip_nodeport(ctx)) {
 		void *data, *data_end;
+		int l3_off = ETH_HLEN;
+		__be16 inner_proto __maybe_unused = bpf_htons(ETH_P_IPV6);
 		struct ipv6hdr *ip6;
 		bool is_dsr = false;
 
@@ -215,7 +244,35 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 			goto drop_err;
 		}
 
-		ret = nodeport_lb6(ctx, ip6, UNKNOWN_ID, &punt_to_stack, &ext_err, &is_dsr);
+		bpf_geneve_xdp_find_inner_l3(ctx, &l3_off, &inner_proto);
+
+#ifdef ENABLE_IPV4
+		if (l3_off > ETH_HLEN && inner_proto == bpf_htons(ETH_P_IP)) {
+			struct iphdr *ip4;
+
+			if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip4, l3_off)) {
+				ret = DROP_INVALID;
+				goto drop_err;
+			}
+			ret = nodeport_lb4_l3_off(ctx, ip4, l3_off, UNKNOWN_ID,
+						  &punt_to_stack, &ext_err, &is_dsr);
+			if (IS_ERR(ret)) {
+				ret = xdp_frag_not_found_world_v4(ret, ip4);
+				goto drop_err;
+			}
+			return bpf_xdp_exit(ctx, ret);
+		}
+#endif
+
+		if (l3_off > ETH_HLEN) {
+			if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip6, l3_off)) {
+				ret = DROP_INVALID;
+				goto drop_err;
+			}
+		}
+
+		ret = nodeport_lb6_l3_off(ctx, ip6, l3_off, UNKNOWN_ID, &punt_to_stack,
+					  &ext_err, &is_dsr);
 		if (IS_ERR(ret)) {
 			ret = xdp_frag_not_found_world_v6(ret, ip6);
 			goto drop_err;

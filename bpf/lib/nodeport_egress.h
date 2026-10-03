@@ -15,8 +15,10 @@
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_CRYPTO
 #elif defined(IS_BPF_HOST)
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_NETWORK
+#elif defined(IS_BPF_LXC)
+#define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_OVERLAY
 #else
-#error "nodeport_egress.h only supports inclusion from bpf_host, bpf_overlay, or bpf_wireguard"
+#error "nodeport_egress.h only supports inclusion from bpf_host, bpf_overlay, bpf_wireguard, or bpf_lxc"
 #endif
 
 #ifdef ENABLE_IPV6

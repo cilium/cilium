@@ -291,45 +291,16 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 	__u32 move_len = 0;
 	int ret;
 
-	/* Note: when bumping len_diff, consider headroom on popular NICs. */
-	build_bug_on(len_diff <= 0 || len_diff >= 128);
+	if (len_diff <= 0 || len_diff > 256)
+		return -EINVAL;
 
 	ret = xdp_adjust_head(ctx, -len_diff);
 	if (ret)
 		return ret;
 
-	/* XXX: Note, this hack is currently tailored to NodePort DSR
-	 * requirements and not a generic helper. If needed elsewhere,
-	 * this must be made more generic.
-	 */
-
-	/* Based on the specified `mode` and `len_diff`, we now *guess* at what
-	 * location the free space is needed.
-	 *
-	 * We either want to push some additional headers to the front
-	 * (move_len == 0), or insert headers at an offset (move_len > 0).
-	 */
 	switch (mode) {
 	case BPF_ADJ_ROOM_MAC:
 		move_len = sizeof(struct ethhdr);
-
-		switch (len_diff) {
-		/* ICMP error reply */
-		case 28: /* struct {iphdr + icmphdr} */
-		case 48: /* struct {ipv6hdr + icmp6hdr} */
-			break;
-
-		/* IPv4 Overlay encap: */
-		case 50: /* struct {ethhdr + iphdr + udphdr + genevehdr / vxlanhdr} */
-			break;
-
-		/* Geneve DSR: */
-		case 50 + 12: /* geneve with IPv4 DSR option */
-		case 50 + 24: /* geneve with IPv6 DSR option */
-			break;
-		default:
-			__throw_build_bug();
-		}
 		break;
 	case BPF_ADJ_ROOM_NET:
 		switch (len_diff) {
@@ -363,7 +334,8 @@ ctx_adjust_hroom(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		void *data_end = ctx_data_end(ctx);
 		void *data = ctx_data(ctx);
 
-		if (data + len_diff + move_len <= data_end)
+		if (data + move_len <= data_end &&
+		    data + len_diff + move_len <= data_end)
 			__bpf_memmove_fwd(data, data + len_diff, move_len);
 		else
 			ret = -EFAULT;

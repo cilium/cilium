@@ -33,7 +33,10 @@
 
 DECLARE_CONFIG(bool, enable_no_service_endpoints_routable,
 	       "Enable routes when service has 0 endpoints")
+#ifndef __DEVICE_MTU_CONFIG_DECLARED
+#define __DEVICE_MTU_CONFIG_DECLARED
 DECLARE_CONFIG(__u16, device_mtu, "MTU of the device the bpf program is attached to")
+#endif
 
 #ifdef IS_BPF_XDP
 DECLARE_CONFIG(union v4addr, ipv4_rss_prefix,
@@ -56,6 +59,29 @@ ASSIGN_CONFIG(__u8, ipv6_rss_prefix_bits, 128)
 #  define DSR_ENCAP_IPIP 2
 #  define DSR_ENCAP_GENEVE 3
 # endif
+#endif
+
+static __always_inline __maybe_unused bool
+__revalidate_data_l3_off(const struct __ctx_buff *ctx, void **data_,
+			 void **data_end_, void **l3, const __u32 l3_off,
+			 const __u32 l3_len)
+{
+	void *data_end = ctx_data_end(ctx);
+	void *data = ctx_data(ctx);
+	void *p = data + (l3_off & 0x1ff);
+
+	if (p + l3_len > data_end)
+		return false;
+
+	*data_ = data;
+	*data_end_ = data_end;
+	*l3 = p;
+	return true;
+}
+
+#ifndef revalidate_data_l3_off
+# define revalidate_data_l3_off(ctx, data, data_end, ip, l3_off)		\
+	__revalidate_data_l3_off(ctx, data, data_end, (void **)ip, (__u32)(l3_off), sizeof(**ip))
 #endif
 
 /* Evaluate the input values for detecting compilation errors.
@@ -154,15 +180,6 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 			      enum trace_reason ct_reason, __u32 monitor,
 			      int *ifindex, __be16 proto)
 {
-	/* Let kernel choose the outer source ip */
-	if (ctx_is_skb())
-		src_ip = 0;
-#ifdef ENABLE_IPV4
-	else
-		/* no-op if failure, no need for capturing results */
-		fib_lookup_src_v4(ctx, &src_ip, info->tunnel_endpoint.ip4.be32);
-#endif /* ENABLE_IPV4 */
-
 	/* Append L2 hdr before redirecting to tunnel netdev.
 	 * Otherwise, the kernel will drop such request in
 	 * https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/net/core/filter.c?h=v6.7.4#n2147
@@ -174,6 +191,40 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 		if (ret != 0)
 			return ret;
 	}
+
+#if __ctx_is == __ctx_xdp && defined(ENABLE_IPV6)
+	if (info->flag_ipv6_tunnel_ep) {
+		union v6addr src_ip6 = CONFIG(ipv6_direct_routing);
+		__u32 seclabel = src_sec_identity;
+
+#ifdef ENABLE_ROUTING
+		if (!src_ip6.p1 && !src_ip6.p2 && !src_ip6.p3 && !src_ip6.p4)
+			src_ip6 = CONFIG(router_ipv6);
+#endif
+		fib_lookup_src_v6(ctx, (struct in6_addr *)&src_ip6,
+				  (const struct in6_addr *)&info->tunnel_endpoint.ip6);
+
+		if (seclabel == HOST_ID)
+			seclabel = LOCAL_NODE_ID;
+
+		*ifindex = 0;
+		send_trace_notify(ctx, TRACE_TO_OVERLAY, seclabel, info->sec_identity,
+				  TRACE_EP_ID_UNKNOWN, *ifindex, ct_reason, monitor, proto);
+
+		return ctx_set_encap_info6_with_src(ctx, &src_ip6, src_port,
+						    &info->tunnel_endpoint.ip6,
+						    seclabel, opt, opt_len);
+	}
+#endif
+
+	/* Let kernel choose the outer source ip */
+	if (ctx_is_skb())
+		src_ip = 0;
+#ifdef ENABLE_IPV4
+	else
+		/* no-op if failure, no need for capturing results */
+		fib_lookup_src_v4(ctx, &src_ip, info->tunnel_endpoint.ip4.be32);
+#endif /* ENABLE_IPV4 */
 
 	return __encap_with_nodeid(ctx, src_ip, src_port, info,
 				   src_sec_identity, info->sec_identity, NOT_VTEP_DST,
@@ -523,13 +574,22 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	struct geneve_dsr_opt6 gopt;
 	union v6addr *dst;
+	__u16 inner_eth_len = (bpf_geneve_inner_proto_mode() == GENEVE_INNER_PROTO_ETH) ?
+			      ETH_HLEN : 0;
 	__u16 encap_len = sizeof(struct ipv6hdr) + sizeof(struct udphdr) +
-		sizeof(struct genevehdr) + ETH_HLEN;
+		sizeof(struct genevehdr) + inner_eth_len;
 	__u16 payload_len = bpf_ntohs(ip6->payload_len) + sizeof(*ip6);
 	fraginfo_t fraginfo = 0;
 	__u32 total_len = 0;
 	__be16 src_port;
 	int l4_off, ret;
+#  if __ctx_is == __ctx_xdp
+	struct bpf_geneve_metadata *meta = bpf_geneve_get_meta_slot(BPF_GENEVE_DIR_INGRESS);
+	bool has_encap = (meta && meta->inner_l3_off > ETH_HLEN);
+	int inner_l3_off = has_encap ? meta->inner_l3_off : ETH_HLEN;
+#  else
+	int inner_l3_off = ETH_HLEN;
+#  endif
 
 	build_bug_on((sizeof(gopt) % 4) != 0);
 
@@ -539,17 +599,24 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 		return DROP_NO_TUNNEL_ENDPOINT;
 
 	tuple.nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	ret = (inner_l3_off == ETH_HLEN) ?
+		ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo) :
+		ipv6_hdrlen_offset(ctx, inner_l3_off, &tuple.nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
-	l4_off = ETH_HLEN + ret;
+	l4_off = inner_l3_off + ret;
 
 	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret))
 		return ret;
 
 	src_port = tunnel_gen_src_port_v6(&tuple);
+
+#  if __ctx_is == __ctx_xdp
+	if (has_encap)
+		encap_len = (__u16)(inner_l3_off - ETH_HLEN);
+#  endif
 
 	if (need_opt) {
 		encap_len += sizeof(struct geneve_dsr_opt6);
@@ -564,6 +631,15 @@ static __always_inline int encap_geneve_dsr_opt6(struct __ctx_buff *ctx,
 		*ohead = encap_len;
 		return DROP_FRAG_NEEDED;
 	}
+
+#  if __ctx_is == __ctx_xdp
+	if (has_encap)
+		return bpf_geneve_xdp_rewrite_outer_and_opt(ctx,
+							    &info->tunnel_endpoint.ip6,
+							    info->tunnel_endpoint.ip4.be32,
+							    need_opt ? &gopt : NULL,
+							    need_opt ? sizeof(gopt) : 0);
+#  endif
 
 	if (need_opt)
 		return nodeport_add_tunnel_encap_opt(ctx,
@@ -630,10 +706,13 @@ static __always_inline int
 nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			struct ipv6hdr *ip6 __maybe_unused,
 			const struct ipv6_ct_tuple *tuple, int l4_off,
-			fraginfo_t fraginfo, union v6addr *addr, __be16 *port,
-			bool *dsr)
+			fraginfo_t fraginfo, union v6addr *addr __maybe_unused,
+			__be16 *port, bool *dsr)
 {
-#if defined(IS_BPF_OVERLAY)
+#if (defined(ENABLE_BPF_GENEVE) || __ctx_is == __ctx_xdp) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	if (bpf_geneve_extract_dsr_v6(ctx, addr, port, dsr) == 0 && *dsr)
+		return 0;
+#elif defined(IS_BPF_OVERLAY)
 	{
 		struct geneve_dsr_opt6 gopt;
 		int ret = ctx_get_tunnel_opt(ctx, &gopt, sizeof(gopt));
@@ -649,7 +728,7 @@ nodeport_extract_dsr_v6(struct __ctx_buff *ctx,
 			}
 		}
 	}
-#else
+#elif DSR_ENCAP_MODE != DSR_ENCAP_GENEVE
 	{
 		struct dsr_opt_v6 opt __align_stack_8 = {};
 		int ret;
@@ -752,12 +831,23 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	bool need_dsr_info __maybe_unused = tmp & NEED_DSR_INFO;
 	__be16 port = tmp & 0xffff;
 	int ret, oif = 0, ohead = 0;
+	int l3_off = ETH_HLEN;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr addr __align_stack_8 = {};
 	__s8 ext_err = 0;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+#if __ctx_is == __ctx_xdp
+	{
+		struct bpf_geneve_metadata *meta =
+			bpf_geneve_get_meta_slot(BPF_GENEVE_DIR_INGRESS);
+
+		if (meta && meta->inner_l3_off > ETH_HLEN)
+			l3_off = meta->inner_l3_off;
+	}
+#endif
+
+	if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip6, l3_off)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
@@ -785,6 +875,22 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 			return dsr_reply_icmp6(ctx, ip6, &addr, port, ret, ohead);
 		goto drop_err;
 	}
+
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE && defined(ENABLE_IPV6)
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+	if (data + sizeof(struct ethhdr) <= data_end &&
+	    ((struct ethhdr *)data)->h_proto == bpf_htons(ETH_P_IPV6)) {
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, &ext_err, &oif, 0);
+		if (fib_ok(ret))
+			return ret;
+		goto drop_err;
+	}
+#endif
 
 	if (fib_params.l.family == AF_INET) {
 		struct iphdr *ip4;
@@ -1572,26 +1678,36 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 }
 
 /* See nodeport_lb4(). */
-static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
-					struct ipv6hdr *ip6,
-					__u32 src_sec_identity,
-					bool *punt_to_stack,
-					__s8 *ext_err,
-					bool __maybe_unused *dsr)
+static __always_inline int
+nodeport_lb6_l3_off(struct __ctx_buff *ctx, struct ipv6hdr *ip6, int l3_off,
+		    __u32 src_sec_identity, bool *punt_to_stack,
+		    __s8 *ext_err, bool __maybe_unused *dsr)
 {
 	bool is_svc_proto __maybe_unused = true;
-	int ret, l3_off = ETH_HLEN, l4_off;
+	int ret, l4_off;
 	struct ipv6_ct_tuple tuple __align_stack_8 = {};
 	const struct lb6_service *svc;
 	fraginfo_t fraginfo = 0;
 	struct lb6_key key = {};
 
+#if __ctx_is == __ctx_xdp
+	{
+		struct bpf_geneve_metadata *meta =
+			bpf_geneve_get_meta_slot(BPF_GENEVE_DIR_INGRESS);
+
+		if (meta)
+			meta->inner_l3_off = (l3_off == ETH_HLEN) ? 0 : (__u16)l3_off;
+	}
+#endif
+
 	tuple.nexthdr = ip6->nexthdr;
-	ret = ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo);
+	ret = (l3_off == ETH_HLEN) ?
+		ipv6_hdrlen_with_fraginfo(ctx, &tuple.nexthdr, &fraginfo) :
+		ipv6_hdrlen_offset(ctx, l3_off, &tuple.nexthdr, &fraginfo);
 	if (ret < 0)
 		return ret;
 
-	l4_off = ETH_HLEN + ret;
+	l4_off = l3_off + ret;
 
 	ret = lb6_extract_tuple(ctx, ip6, fraginfo, l4_off, &tuple);
 	if (IS_ERR(ret)) {
@@ -1631,7 +1747,7 @@ skip_service_lookup:
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 #ifdef ENABLE_DSR
-#if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
+#if ((defined(IS_BPF_OVERLAY) || defined(ENABLE_BPF_GENEVE)) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
 	if (is_svc_proto) {
@@ -1656,6 +1772,17 @@ skip_service_lookup:
 	}
 
 	return CTX_ACT_OK;
+}
+
+static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
+					struct ipv6hdr *ip6,
+					__u32 src_sec_identity,
+					bool *punt_to_stack,
+					__s8 *ext_err,
+					bool __maybe_unused *dsr)
+{
+	return nodeport_lb6_l3_off(ctx, ip6, ETH_HLEN, src_sec_identity,
+				   punt_to_stack, ext_err, dsr);
 }
 #endif /* ENABLE_IPV6 */
 
@@ -1875,14 +2002,19 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 {
 	const struct remote_endpoint_info *info;
 	struct geneve_dsr_opt4 gopt __align_stack_8 = { };
+	__u16 inner_eth_len = (bpf_geneve_inner_proto_mode() == GENEVE_INNER_PROTO_ETH) ?
+			      ETH_HLEN : 0;
 	__u16 encap_len = sizeof(struct iphdr) + sizeof(struct udphdr) +
-		sizeof(struct genevehdr) + ETH_HLEN;
+		sizeof(struct genevehdr) + inner_eth_len;
 	__u16 total_len = bpf_ntohs(ip4->tot_len);
 	__u32 src_sec_identity = WORLD_IPV4_ID;
 	__be16 src_port = 0;
 #  if __ctx_is == __ctx_xdp
+	struct bpf_geneve_metadata *meta = bpf_geneve_get_meta_slot(BPF_GENEVE_DIR_INGRESS);
+	bool has_encap = (meta && meta->inner_l3_off > ETH_HLEN);
+	int inner_l3_off = has_encap ? meta->inner_l3_off : ETH_HLEN;
 	fraginfo_t fraginfo = ipfrag_encode_ipv4(ip4);
-	int l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	int l4_off = inner_l3_off + ipv4_hdrlen(ip4);
 	struct ipv4_ct_tuple tuple = {};
 	int ret;
 
@@ -1899,6 +2031,15 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 	if (!info || !info->flag_has_tunnel_ep)
 		return DROP_NO_TUNNEL_ENDPOINT;
 
+	if (info->flag_ipv6_tunnel_ep)
+		encap_len = sizeof(struct ipv6hdr) + sizeof(struct udphdr) +
+			sizeof(struct genevehdr) + inner_eth_len;
+
+#  if __ctx_is == __ctx_xdp
+	if (has_encap)
+		encap_len = (__u16)(inner_l3_off - ETH_HLEN);
+#  endif
+
 	if (need_opt) {
 		encap_len += sizeof(struct geneve_dsr_opt4);
 		set_geneve_dsr_opt4(svc_port, svc_addr, &gopt);
@@ -1911,6 +2052,15 @@ static __always_inline int encap_geneve_dsr_opt4(struct __ctx_buff *ctx, struct 
 		*ohead = encap_len;
 		return DROP_FRAG_NEEDED;
 	}
+
+#  if __ctx_is == __ctx_xdp
+	if (has_encap)
+		return bpf_geneve_xdp_rewrite_outer_and_opt(ctx,
+							    &info->tunnel_endpoint.ip6,
+							    info->tunnel_endpoint.ip4.be32,
+							    need_opt ? &gopt : NULL,
+							    need_opt ? sizeof(gopt) : 0);
+#  endif
 
 	if (need_opt)
 		return nodeport_add_tunnel_encap_opt(ctx,
@@ -1941,14 +2091,17 @@ static __always_inline int
 nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 			const struct iphdr *ip4 __maybe_unused,
 			const struct ipv4_ct_tuple *tuple, int l4_off,
-			fraginfo_t fraginfo,  __be32 *addr, __be16 *port,
-			bool *dsr)
+			fraginfo_t fraginfo, __be32 *addr __maybe_unused,
+			__be16 *port, bool *dsr)
 {
 	/* Parse DSR info from the packet, to get the addr/port of the
 	 * addressed service. We need this for RevDNATing the backend's replies.
 	 */
 
-#if defined(IS_BPF_OVERLAY)
+#if (defined(ENABLE_BPF_GENEVE) || __ctx_is == __ctx_xdp) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	if (bpf_geneve_extract_dsr_v4(ctx, addr, port, dsr) == 0 && *dsr)
+		return 0;
+#elif defined(IS_BPF_OVERLAY)
 	{
 		struct geneve_dsr_opt4 gopt;
 		int ret = 0;
@@ -1965,7 +2118,7 @@ nodeport_extract_dsr_v4(struct __ctx_buff *ctx,
 			}
 		}
 	}
-#else
+#elif DSR_ENCAP_MODE != DSR_ENCAP_GENEVE
 	/* Check whether IPv4 header contains a 64-bit option (IPv4 header
 	 * w/o option (5 x 32-bit words) + the DSR option (2 x 32-bit words)).
 	 */
@@ -2075,13 +2228,24 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	bool need_dsr_info __maybe_unused = tmp & NEED_DSR_INFO;
 	__be16 port = tmp & 0xffff;
 	void *data, *data_end;
+	int l3_off = ETH_HLEN;
 	struct iphdr *ip4;
 	int ret, oif = 0;
 	__be16 ohead = 0;
 	__s8 ext_err = 0;
 	__be32 addr;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+#if __ctx_is == __ctx_xdp
+	{
+		struct bpf_geneve_metadata *meta =
+			bpf_geneve_get_meta_slot(BPF_GENEVE_DIR_INGRESS);
+
+		if (meta && meta->inner_l3_off > ETH_HLEN)
+			l3_off = meta->inner_l3_off;
+	}
+#endif
+
+	if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip4, l3_off)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
@@ -2107,6 +2271,23 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 			return dsr_reply_icmp4(ctx, ip4, addr, port, ret, ohead);
 		goto drop_err;
 	}
+#ifdef ENABLE_IPV6
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+	if (data + sizeof(struct ethhdr) <= data_end &&
+	    ((struct ethhdr *)data)->h_proto == bpf_htons(ETH_P_IPV6)) {
+		struct ipv6hdr *ip6;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
+			ret = DROP_INVALID;
+			goto drop_err;
+		}
+		ret = fib_redirect_v6(ctx, ETH_HLEN, ip6, false, false, &ext_err, &oif, 0);
+		if (fib_ok(ret))
+			return ret;
+		goto drop_err;
+	}
+#endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
@@ -2531,7 +2712,7 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
 	struct ipv4_nat_entry *state = NULL;
-	int ret, l4_off, oif = 0;
+	int ret, l3_off = ETH_HLEN, l4_off, oif = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	fraginfo_t fraginfo;
@@ -2544,15 +2725,25 @@ int tail_nodeport_nat_egress_ipv4(struct __ctx_buff *ctx)
 	__be32 tunnel_endpoint = 0;
 #endif
 
+#if __ctx_is == __ctx_xdp
+	{
+		struct bpf_geneve_metadata *meta =
+			bpf_geneve_get_meta_slot(BPF_GENEVE_DIR_INGRESS);
+
+		if (meta && meta->inner_l3_off > ETH_HLEN)
+			l3_off = meta->inner_l3_off;
+	}
+#endif
+
 	select_nat_port_range_ipv4(&target);
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
+	if (!revalidate_data_l3_off(ctx, &data, &data_end, &ip4, l3_off)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
-	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+	l4_off = l3_off + ipv4_hdrlen(ip4);
 
 #ifdef TUNNEL_MODE
 	info = lookup_ip4_remote_endpoint(ip4->daddr, cluster_id);
@@ -2597,20 +2788,47 @@ skip_source_lookup:
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-	ret = ipv4_l3(ctx, ETH_HLEN, NULL, NULL, ip4);
+	ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
 		goto drop_err;
 
-	ret = __snat_v4_nat(ctx, &tuple, state, fraginfo, l4_off, true,
-			    &target, TCP_SPORT_OFF, 0, &trace, &ext_err);
-	if (CONFIG(nodeport_port_max_nat_ext) &&
-	    ret == DROP_NAT_NO_MAPPING) {
-		swap_nat_port_range_ipv4(&target);
+#if __ctx_is == __ctx_xdp
+	if (l3_off > ETH_HLEN) {
+		struct ipv4_nat_entry tmp_nat;
+
+		ret = snat_v4_nat_handle_mapping(ctx, &tuple, fraginfo, &state,
+						 &tmp_nat, l4_off, &target,
+						 &trace, &ext_err);
+		if (CONFIG(nodeport_port_max_nat_ext) && ret == DROP_NAT_NO_MAPPING) {
+			swap_nat_port_range_ipv4(&target);
+			ret = snat_v4_nat_handle_mapping(ctx, &tuple, fraginfo, &state,
+							 &tmp_nat, l4_off, &target,
+							 &trace, &ext_err);
+		}
+		if (ret < 0)
+			goto drop_err;
+		ret = snat_v4_rewrite_headers(ctx, tuple.nexthdr, l3_off,
+					      ipfrag_has_l4_header(fraginfo), l4_off,
+					      tuple.saddr, state->to_saddr, IPV4_SADDR_OFF,
+					      tuple.sport, state->to_sport, TCP_SPORT_OFF, 0);
+		if (IS_ERR(ret))
+			goto drop_err;
+		tuple.saddr = state->to_saddr;
+		tuple.sport = state->to_sport;
+	} else
+#endif
+	{
 		ret = __snat_v4_nat(ctx, &tuple, state, fraginfo, l4_off, true,
 				    &target, TCP_SPORT_OFF, 0, &trace, &ext_err);
+		if (CONFIG(nodeport_port_max_nat_ext) &&
+		    ret == DROP_NAT_NO_MAPPING) {
+			swap_nat_port_range_ipv4(&target);
+			ret = __snat_v4_nat(ctx, &tuple, state, fraginfo, l4_off, true,
+					    &target, TCP_SPORT_OFF, 0, &trace, &ext_err);
+		}
+		if (IS_ERR(ret))
+			goto drop_err;
 	}
-	if (IS_ERR(ret))
-		goto drop_err;
 
 	/* This is also needed for from-overlay, to avoid a second SNAT by
 	 * to-overlay or to-netdev.
@@ -2619,31 +2837,43 @@ skip_source_lookup:
 
 #ifdef TUNNEL_MODE
 	if (info && tunnel_endpoint) {
-		__be16 src_port;
+#if __ctx_is == __ctx_xdp
+		if (l3_off > ETH_HLEN) {
+			ret = bpf_geneve_xdp_rewrite_outer_and_opt(ctx,
+								    &info->tunnel_endpoint.ip6,
+								    tunnel_endpoint,
+								    NULL, 0);
+			if (IS_ERR(ret))
+				goto drop_err;
+		} else
+#endif
+		{
+			__be16 src_port;
 
-		src_port = tunnel_gen_src_port_v4(&tuple);
+			src_port = tunnel_gen_src_port_v4(&tuple);
 
-		/* The request came from outside, so we need to
-		 * set the security id in the tunnel header to WORLD_ID.
-		 * Otherwise, the remote node will assume, that the
-		 * request originated from a cluster node which will
-		 * bypass any netpol which disallows LB requests from
-		 * outside.
-		 */
-		ret = nodeport_add_tunnel_encap(ctx,
-						CONFIG(ipv4_direct_routing).be32,
-						src_port,
-						info,
-						src_sec_identity,
-						trace.reason,
-						trace.monitor,
-						&oif,
-						bpf_htons(ETH_P_IP));
-		if (IS_ERR(ret))
-			goto drop_err;
+			/* The request came from outside, so we need to
+			 * set the security id in the tunnel header to WORLD_ID.
+			 * Otherwise, the remote node will assume, that the
+			 * request originated from a cluster node which will
+			 * bypass any netpol which disallows LB requests from
+			 * outside.
+			 */
+			ret = nodeport_add_tunnel_encap(ctx,
+							CONFIG(ipv4_direct_routing).be32,
+							src_port,
+							info,
+							src_sec_identity,
+							trace.reason,
+							trace.monitor,
+							&oif,
+							bpf_htons(ETH_P_IP));
+			if (IS_ERR(ret))
+				goto drop_err;
 
-		if (ret == CTX_ACT_REDIRECT && oif)
-			return ctx_redirect(ctx, oif, 0);
+			if (ret == CTX_ACT_REDIRECT && oif)
+				return ctx_redirect(ctx, oif, 0);
+		}
 	}
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
@@ -2868,20 +3098,27 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
  * which handles the case of: i) backend is local EP, ii) backend is remote EP,
  * iii) reply from remote backend EP.
  */
-static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
-					struct iphdr *ip4,
-					__u32 src_sec_identity,
-					bool *punt_to_stack,
-					__s8 *ext_err,
-					bool __maybe_unused *dsr)
+static __always_inline int
+nodeport_lb4_l3_off(struct __ctx_buff *ctx, struct iphdr *ip4, int l3_off,
+		    __u32 src_sec_identity, bool *punt_to_stack,
+		    __s8 *ext_err, bool __maybe_unused *dsr)
 {
 	fraginfo_t fraginfo;
 	struct ipv4_ct_tuple tuple = {};
 	bool is_svc_proto = true;
 	const struct lb4_service *svc;
 	struct lb4_key key = {};
-	int l3_off = ETH_HLEN;
 	int ret, l4_off;
+
+#if __ctx_is == __ctx_xdp
+	{
+		struct bpf_geneve_metadata *meta =
+			bpf_geneve_get_meta_slot(BPF_GENEVE_DIR_INGRESS);
+
+		if (meta)
+			meta->inner_l3_off = (l3_off == ETH_HLEN) ? 0 : (__u16)l3_off;
+	}
+#endif
 
 	fraginfo = ipfrag_encode_ipv4(ip4);
 	l4_off = l3_off + ipv4_hdrlen(ip4);
@@ -2919,7 +3156,7 @@ skip_service_lookup:
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 #ifdef ENABLE_DSR
-#if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
+#if ((defined(IS_BPF_OVERLAY) || defined(ENABLE_BPF_GENEVE)) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
 	if (is_svc_proto) {
@@ -2970,6 +3207,17 @@ skip_service_lookup:
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS, ext_err);
 
 	return CTX_ACT_OK;
+}
+
+static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
+					struct iphdr *ip4,
+					__u32 src_sec_identity,
+					bool *punt_to_stack,
+					__s8 *ext_err,
+					bool __maybe_unused *dsr)
+{
+	return nodeport_lb4_l3_off(ctx, ip4, ETH_HLEN, src_sec_identity,
+				   punt_to_stack, ext_err, dsr);
 }
 #endif /* ENABLE_IPV4 */
 
