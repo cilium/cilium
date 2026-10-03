@@ -104,6 +104,14 @@ func (d DummyDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.Device
 	return result
 }
 
+func (d DummyDevice) GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {
+	return nil
+}
+
+func (d DummyDevice) AllowMultipleAllocations() bool {
+	return false
+}
+
 // Setup creates the dummy link in the root network namespace. The caller
 // (RunPodSandbox) subsequently moves it into the pod netns.
 //
@@ -112,40 +120,45 @@ func (d DummyDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.Device
 // when it is a dummy (e.g. a leftover from a prior, partially-completed
 // allocation), otherwise we delete and recreate it so we never adopt a stale
 // device of the wrong type.
-func (d DummyDevice) Setup(cfg types.DeviceConfig) error {
+func (d DummyDevice) Setup(_ types.DeviceAllocation) (types.Device, error) {
 	dummy := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{Name: d.Name},
 	}
 
 	err := netlinkLinkAdd(dummy)
 	if err == nil {
-		return nil
+		return &d, nil
 	}
 	if !errors.Is(err, unix.EEXIST) {
-		return fmt.Errorf("failed to create dummy interface %s: %w", d.Name, err)
+		return nil, fmt.Errorf("failed to create dummy interface %s: %w", d.Name, err)
 	}
 
 	// The interface already exists. Adopt it if it is a dummy, otherwise
 	// replace it.
 	existing, lookupErr := netlinkLinkByName(d.Name)
 	if lookupErr != nil {
-		return fmt.Errorf("dummy interface %s exists but could not be read: %w", d.Name, lookupErr)
+		return nil, fmt.Errorf("dummy interface %s exists but could not be read: %w", d.Name, lookupErr)
 	}
 
 	if _, ok := existing.(*netlink.Dummy); ok {
 		// Same type; adopt the existing device.
-		return nil
+		return &d, nil
 	}
 
 	// Stale or mismatched device. Delete and recreate it.
 	if delErr := netlinkLinkDel(existing); delErr != nil {
-		return fmt.Errorf("failed to delete stale dummy interface %s: %w", d.Name, delErr)
+		return nil, fmt.Errorf("failed to delete stale dummy interface %s: %w", d.Name, delErr)
 	}
 	if addErr := netlinkLinkAdd(dummy); addErr != nil {
-		return fmt.Errorf("failed to recreate dummy interface %s: %w", d.Name, addErr)
+		return nil, fmt.Errorf("failed to recreate dummy interface %s: %w", d.Name, addErr)
 	}
 
-	return nil
+	return &d, nil
+}
+
+// Recover re-creates or adopts the same named dummy link.
+func (d DummyDevice) Recover(allocation types.DeviceAllocation) (types.Device, error) {
+	return d.Setup(allocation)
 }
 
 // Free deletes the dummy link. This is best-effort cleanup for a device that was
@@ -153,7 +166,7 @@ func (d DummyDevice) Setup(cfg types.DeviceConfig) error {
 // after prepare): once the interface is moved into a pod netns and that netns is
 // reaped, the kernel destroys the dummy automatically, so the root-namespace
 // lookup here simply finds nothing and returns nil.
-func (d DummyDevice) Free(cfg types.DeviceConfig) error {
+func (d DummyDevice) Free(_ types.DeviceAllocation) error {
 	l, err := netlinkLinkByName(d.Name)
 	if err != nil {
 		if errors.As(err, &netlink.LinkNotFoundError{}) {

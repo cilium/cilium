@@ -80,10 +80,9 @@ func (driver *Driver) startNRI(ctx context.Context) error {
 // Synchronize is invoked by the runtime when the NRI plugin (re)connects — notably right
 // after an agent restart — with every running pod. The sandbox tasks are alive here, so
 // the netns is populated; we capture it so a later StopPodSandbox can recover the netns
-// on containerd < 2.1 even across an agent restart. This mirrors how the statedb
-// device table is rebuilt from ResourceClaims on restart: node-local runtime state
-// reconstructed from a durable source rather than persisted to disk. We request no
-// container updates.
+// on containerd < 2.1 even across an agent restart. This mirrors how allocation state is
+// rebuilt from ResourceClaims on restart: node-local runtime state reconstructed from a
+// durable source rather than persisted to disk. We request no container updates.
 func (driver *Driver) Synchronize(ctx context.Context, pods []*api.PodSandbox, _ []*api.Container) ([]*api.ContainerUpdate, error) {
 	err := driver.withLock(func() error {
 		n := 0
@@ -152,26 +151,17 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 			return fmt.Errorf("pod interface allocations is invalid: %w", err)
 		}
 
-		for _, a := range podAllocations {
+		for i := range podAllocations {
+			a := &podAllocations[i]
 			l, err := safenetlink.LinkByName(a.Device.KernelIfName())
 			if err != nil {
-				// The kernel link can be absent here when the node
-				// rebooted: the reboot reaped the pod netns (and with
-				// it any on-demand device such as a dummy
-				// device), and the restore path rebuilt the
-				// in-memory allocation WITHOUT re-creating the kernel
-				// device — Device.Setup runs only on the prepare path,
-				// which is short-circuited for a restored allocation.
+				// A node reboot removes the pod netns and any on-demand link moved
+				// into it, while restore reconstructs the allocation from the
+				// ResourceClaim without recreating the link. Re-create the missing
+				// device when the replacement sandbox starts.
 				//
-				// Only the (re)creation of the sandbox drives
-				// RunPodSandbox, so this is the one moment that
-				// unambiguously means "the device must exist now but
-				// doesn't". An agent restart leaves the sandbox intact
-				// and never reaches here, so re-creating on demand
-				// cannot duplicate a healthy in-pod link. Every
-				// Device.Setup is idempotent (dummy adopts/recreates
-				// via EEXIST, sr-iov re-applies VLAN, dummy is a no-op),
-				// so this is safe to retry.
+				// An agent-only restart synchronizes the existing sandbox and does not
+				// reach this path, so this cannot duplicate a healthy in-pod link.
 				if !errors.As(err, &netlink.LinkNotFoundError{}) {
 					return err
 				}
@@ -179,8 +169,8 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 				log.InfoContext(ctx, "allocated device link not found; re-creating on demand",
 					logfields.Device, a.Device.KernelIfName())
 
-				if setupErr := a.Device.Setup(a.Config); setupErr != nil {
-					return fmt.Errorf("failed to re-create device %s on demand: %w", a.Device.KernelIfName(), setupErr)
+				if err := driver.recoverAllocationDevice(a); err != nil {
+					return err
 				}
 
 				l, err = safenetlink.LinkByName(a.Device.KernelIfName())
@@ -207,7 +197,7 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 				return nil
 			}); err != nil {
 				log.ErrorContext(ctx, "failed to configure device",
-					logfields.Device, a.Device.IfName,
+					logfields.Device, a.Device.IfName(),
 					logfields.Error, err)
 				return err
 			}
@@ -217,6 +207,21 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 	})
 
 	return err
+}
+
+func (driver *Driver) recoverAllocationDevice(a *allocation) error {
+	name := a.Device.KernelIfName()
+	recovered, err := a.Device.Recover(a.deviceAllocation())
+	if err != nil {
+		return fmt.Errorf("failed to re-create device %s on demand: %w", name, err)
+	}
+	if recovered == nil {
+		return fmt.Errorf("device %s returned no recovered device", name)
+	}
+
+	a.Device = recovered
+	driver.updateAllocationDevice(*a)
+	return nil
 }
 
 // StopPodSandbox is called when a pod sandbox is stopped.

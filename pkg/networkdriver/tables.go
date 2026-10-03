@@ -5,9 +5,12 @@ package networkdriver
 
 import (
 	"iter"
+	"maps"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
+	resourceapi "k8s.io/api/resource/v1"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	kube_types "k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -31,7 +34,7 @@ var deviceByName = statedb.Index[*DRADevice, string]{
 var allocationByKey = statedb.Index[*DRAAllocation, string]{
 	Name: "id",
 	FromObject: func(a *DRAAllocation) index.KeySet {
-		return index.NewKeySet(index.String(AllocationKey(a.Pool, a.DeviceName)))
+		return index.NewKeySet(index.String(AllocationKey(a.Pool, a.DeviceName, a.ShareID)))
 	},
 	FromKey:    index.String,
 	FromString: index.FromString,
@@ -69,8 +72,8 @@ var allocationByPodUID = statedb.Index[*DRAAllocation, string]{
 }
 
 // AllocationKey returns the primary key for a device allocation.
-func AllocationKey(pool, deviceName string) string {
-	return pool + "/" + deviceName
+func AllocationKey(pool, deviceName string, shareID kube_types.UID) string {
+	return pool + "/" + deviceName + "/" + string(shareID)
 }
 
 // AllocationsByDeviceName returns all allocations for the given device.
@@ -112,27 +115,30 @@ func (d *DRADevice) TableRow() []string {
 
 // DRAAllocation records a device prepared for a ResourceClaim held by a pod.
 type DRAAllocation struct {
-	DeviceName     string
-	Manager        types.DeviceManagerType
-	PreparedDevice types.Device
-	Pool           string
-	PodUID         kube_types.UID
-	ClaimUID       kube_types.UID
-	Config         types.DeviceConfig
+	DeviceName       string
+	Manager          types.DeviceManagerType
+	PreparedDevice   types.Device
+	Pool             string
+	PodUID           kube_types.UID
+	ClaimUID         kube_types.UID
+	Config           types.DeviceConfig
+	ShareID          kube_types.UID
+	ConsumedCapacity map[resourceapi.QualifiedName]apiresource.Quantity
 }
 
 func (a *DRAAllocation) Clone() *DRAAllocation {
 	c := *a
+	c.ConsumedCapacity = maps.Clone(a.ConsumedCapacity)
 	return &c
 }
 
 func (a *DRAAllocation) TableHeader() []string {
-	return []string{"Device", "Manager", "Pool", "PodUID", "ClaimUID", "PodIfName"}
+	return []string{"Device", "Manager", "Pool", "ShareID", "PodUID", "ClaimUID", "PodIfName"}
 }
 
 func (a *DRAAllocation) TableRow() []string {
 	return []string{
-		a.DeviceName, a.Manager.String(), a.Pool,
+		a.DeviceName, a.Manager.String(), a.Pool, string(a.ShareID),
 		string(a.PodUID), string(a.ClaimUID), a.Config.PodIfName,
 	}
 }
