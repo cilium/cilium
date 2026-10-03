@@ -592,6 +592,48 @@ jobs:
         run: |
           mkdir -p cilium-junits
 
+      - name: Wait for AKS to finish rolling konnectivity-agent
+        run: |
+          set -euo pipefail
+
+          start=$(date +%s)
+          if ! created=$(kubectl -n kube-system get deploy konnectivity-agent \
+              -o jsonpath='{.metadata.creationTimestamp}'); then
+            echo "::warning::kube-system/konnectivity-agent not found"
+            exit 0
+          fi
+          deadline=$(( $(date -d "$created" +%s) + 21 * 60 ))
+
+          # AKS adds this annotation in a roll that SIGKILLs the old agents and cuts their exec streams.
+          echo "Waiting until $(date -u -d "@$deadline" +%T) for the checksum/service-account-key roll"
+          until kubectl -n kube-system get deploy konnectivity-agent -o json \
+              | jq -e '.spec.template.metadata.annotations["checksum/service-account-key"]' > /dev/null; do
+            if [[ $(date +%s) -ge $deadline ]]; then
+              echo "::warning::AKS did not roll konnectivity-agent within 21m of its creation at $created"
+              break
+            fi
+            sleep 10
+          done
+
+          kubectl -n kube-system rollout status deploy/konnectivity-agent --timeout=5m \
+            || echo "::warning::konnectivity-agent rollout did not complete within 5m"
+
+          # rollout status stops counting an old pod once it has a deletionTimestamp.
+          terminating_deadline=$(( $(date +%s) + 120 ))
+          until [[ $(kubectl -n kube-system get pods -l app=konnectivity-agent -o json \
+              | jq '[.items[] | select(.metadata.deletionTimestamp)] | length') == 0 ]]; do
+            if [[ $(date +%s) -ge $terminating_deadline ]]; then
+              echo "::warning::old konnectivity-agent pods are still terminating"
+              break
+            fi
+            sleep 10
+          done
+
+          echo "Waited $(( $(date +%s) - start ))s. ReplicaSets, relative to the Deployment's creation at $created:"
+          kubectl -n kube-system get rs -l app=konnectivity-agent -o json \
+            | jq -r --arg created "$created" '.items | sort_by(.metadata.creationTimestamp)[]
+                | "\(.metadata.name) +\((.metadata.creationTimestamp | fromdate) - ($created | fromdate))s replicas=\(.status.replicas)"'
+
       - name: Run concurrent connectivity test (${{ join(matrix.*, ', ') }})
         id: run-tests
         run: |
