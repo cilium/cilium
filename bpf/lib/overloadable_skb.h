@@ -167,14 +167,11 @@ static __always_inline bool ctx_is_decrypt(const struct __sk_buff *ctx)
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT;
 }
 
-#ifdef ENABLE_EGRESS_GATEWAY_COMMON
 static __always_inline bool ctx_egw_done(const struct __sk_buff *ctx)
 {
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_EGW_DONE;
 }
-#endif /* ENABLE_EGRESS_GATEWAY_COMMON */
 
-#ifdef HAVE_ENCAP
 static __always_inline __maybe_unused int
 ctx_set_encap_info(struct __sk_buff *ctx, struct bpf_tunnel_key *key,
 		   __u32 key_size, void *opt, __u32 opt_len, __u32 flags)
@@ -236,4 +233,3 @@ ctx_set_encap_info6(struct __sk_buff *ctx, const union v6addr *tunnel_endpoint,
 	return ctx_set_encap_info(ctx, &key, key_size, opt, opt_len,
 				  BPF_F_TUNINFO_IPV6);
 }
-#endif /* HAVE_ENCAP */
