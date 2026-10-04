@@ -581,8 +581,7 @@ func (d *RXQueueDevice) Free(allocation types.DeviceAllocation) error {
 		return fmt.Errorf("%w: %s/%d", errActiveLease, d.PhysicalIfName, d.PhysicalQueueID)
 	}
 
-	d.releaseReservation()
-	return nil
+	return d.releaseReservation()
 }
 
 func (d *RXQueueDevice) Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool {
