@@ -52,7 +52,7 @@ func TestSnapshotResponseDeliveryDoesNotHoldCacheLocks(t *testing.T) {
 	request := &cache.Request{
 		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
 	}
-	subscription := stream.NewSotwSubscription(nil, false)
+	subscription := stream.NewSotwSubscription(nil, true)
 	// Use the initial response to establish the client's version before opening
 	// the watch whose response handoff will be deliberately blocked.
 	initialResponses := make(chan cache.Response, 1)
@@ -145,7 +145,7 @@ func TestCreateWatchImmediateResponseRetiresTracking(t *testing.T) {
 		Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Listener.URL(),
 	}
 	responses := make(chan cache.Response, 1)
-	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), responses)
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
 	require.NoError(t, err)
 	response := <-responses
 	require.Same(t, request, response.GetRequest())
@@ -170,7 +170,7 @@ func TestTrackedWatchRemovalPreservesOtherNodes(t *testing.T) {
 				request := &cache.Request{
 					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
 				}
-				subscription := stream.NewSotwSubscription(nil, false)
+				subscription := stream.NewSotwSubscription(nil, true)
 				cancel, err := c.CreateWatch(request, subscription, responses)
 				require.NoError(t, err)
 				t.Cleanup(cancel)
@@ -217,7 +217,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 					VersionInfo: snapshot.GetVersion(typeurl.Listener.URL()),
 				}
 				responses := make(chan cache.Response, watchCount)
-				subscription := stream.NewSotwSubscription(nil, false)
+				subscription := stream.NewSotwSubscription(nil, true)
 				var cancels []func()
 				for range watchCount {
 					cancel, err := c.CreateWatch(request, subscription, responses)
@@ -299,7 +299,7 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 			responses := make(chan cache.Response, 2)
 			cancel, err := c.CreateWatch(&cache.Request{
 				Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
-			}, stream.NewSotwSubscription(nil, false), responses)
+			}, stream.NewSotwSubscription(nil, true), responses)
 			require.NoError(t, err)
 			t.Cleanup(cancel)
 			<-responses
@@ -312,7 +312,7 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeURL.URL(),
 					VersionInfo: snapshot.GetVersion(typeURL.URL()),
 				}
-				cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), responses)
+				cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), responses)
 				require.NoError(t, err)
 				t.Cleanup(cancel)
 			}
@@ -357,7 +357,7 @@ func TestCreateWatchFailureRetiresTracking(t *testing.T) {
 	request := &cache.Request{
 		Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Listener.URL(),
 	}
-	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), make(chan cache.Response, 1))
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
 	require.ErrorContains(t, err, "watch creation failed")
 	require.Nil(t, cancel)
 	require.Empty(t, c.openWatches)
@@ -375,7 +375,7 @@ func BenchmarkTrackedWatchLifecycle(b *testing.B) {
 				Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Listener.URL(),
 			}
 			responses := make(chan cache.Response, watchCount)
-			subscription := stream.NewSotwSubscription(nil, false)
+			subscription := stream.NewSotwSubscription(nil, true)
 			cancel, err := c.CreateWatch(request, subscription, responses)
 			if err != nil {
 				b.Fatal(err)
