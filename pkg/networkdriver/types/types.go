@@ -233,6 +233,13 @@ type RXQueuePodEndpoint struct {
 	Protocol corev1.Protocol `json:"protocol"`
 }
 
+// RXQueueFlow identifies traffic to steer to an allocated RX queue.
+type RXQueueFlow struct {
+	DestinationIP   netip.Addr      `json:"destinationIP"`
+	DestinationPort uint16          `json:"destinationPort"`
+	Protocol        corev1.Protocol `json:"protocol"`
+}
+
 // DeviceAllocation contains scheduler and driver parameters for one allocation.
 type DeviceAllocation struct {
 	Config DeviceConfig
