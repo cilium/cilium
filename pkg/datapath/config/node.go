@@ -171,5 +171,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableSCTP = option.Config.EnableSCTP
 
+	node.EnableSharedPolicy = option.Config.EnableSharedPolicy
+
 	return node
 }
