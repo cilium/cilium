@@ -17,6 +17,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -63,6 +64,7 @@ type networkDriverParams struct {
 	ResourceClaims  resource.Resource[*resourceapi.ResourceClaim]
 	Pods            resource.Resource[*corev1.Pod]
 	ConnectorConfig connector.Config
+	XDPConfig       xdp.Config
 	DaemonCfg       *option.DaemonConfig
 	DB              *statedb.DB
 	DeviceTable     statedb.RWTable[*DRADevice]
@@ -135,6 +137,7 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		resourceClaims:  params.ResourceClaims,
 		pods:            params.Pods,
 		datapathMode:    params.ConnectorConfig.GetOperationalMode(),
+		xdpMode:         params.XDPConfig.AccelerationMode(),
 		kubeClient:      params.ClientSet,
 		deviceManagers:  make(map[types.DeviceManagerType]types.DeviceManager),
 		configCRD:       params.Configs,
