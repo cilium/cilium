@@ -25,6 +25,7 @@ import (
 const (
 	testPhysicalIfName = "eth0"
 	testPhysicalIndex  = 10
+	testPeerIndex      = 21
 	testShareID        = kube_types.UID("11111111-2222-3333-4444-555555555555")
 )
 
@@ -175,6 +176,10 @@ func (f *fakeNetlink) install(t *testing.T) {
 		}
 		return nil
 	}
+}
+
+func testDevice(total int) *RXQueueDevice {
+	return testDeviceWithCount(total, defaultReservedRXQueues)
 }
 
 func testDeviceWithCount(total, count int) *RXQueueDevice {
