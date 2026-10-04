@@ -1,3 +1,7 @@
+# v1.338.0 (2026-09-29)
+
+* **Feature**: Adds the LaunchStatus field to CapacityReservation in the DescribeCapacityReservations response. This field indicates whether you can currently launch instances into an UltraServer.
+
 # v1.337.0 (2026-09-28)
 
 * **Feature**: API changes to AWS Client VPN to support device posture assessment and Cedar authorization policies

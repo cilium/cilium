@@ -1577,6 +1577,26 @@ func (CapacityReservationInstancePlatform) Values() []CapacityReservationInstanc
 	}
 }
 
+type CapacityReservationLaunchStatus string
+
+// Enum values for CapacityReservationLaunchStatus
+const (
+	CapacityReservationLaunchStatusLaunchable   CapacityReservationLaunchStatus = "launchable"
+	CapacityReservationLaunchStatusUnlaunchable CapacityReservationLaunchStatus = "unlaunchable"
+)
+
+// Values returns all known values for CapacityReservationLaunchStatus. Note that
+// this can be expanded in the future, and so it is only as up to date as the
+// client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (CapacityReservationLaunchStatus) Values() []CapacityReservationLaunchStatus {
+	return []CapacityReservationLaunchStatus{
+		"launchable",
+		"unlaunchable",
+	}
+}
+
 type CapacityReservationModificationQuoteState string
 
 // Enum values for CapacityReservationModificationQuoteState
