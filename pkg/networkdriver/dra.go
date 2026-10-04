@@ -293,6 +293,12 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	if err := validateDeviceConfigs(claim, deviceCfgs); err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
 	}
+	if ifName := driver.conflictingRXQueueInterfaceForPod(
+		pod.UID, claim.UID, claim.Status.Allocation.Devices.Results, deviceCfgs,
+	); ifName != "" {
+		return kubeletplugin.PrepareResult{Err: fmt.Errorf(
+			"Pod interface %s already has an RX queue allocation", ifName)}
+	}
 
 	// Precompute what is already done so retries skip completed work.
 	state := driver.newClaimPrepState(pod, claim)
@@ -412,6 +418,9 @@ func deviceConfigsFromAllocation(deviceAllocation *resourceapi.DeviceAllocationR
 					string(cfg.Opaque.Parameters.Raw), err)
 			}
 			if requestCfg.RXQueue != nil {
+				if requestCfg.PodIfName == "" {
+					requestCfg.PodIfName = types.DefaultRXQueuePodIfName
+				}
 				if err := validateRXQueueConfig(requestCfg.RXQueue); err != nil {
 					return nil, fmt.Errorf("invalid RX queue config for request %s: %w", requestName, err)
 				}
@@ -823,6 +832,44 @@ func (driver *Driver) conflictingDeviceForPod(podUID kube_types.UID, skipClaimUI
 				return result.Device
 			}
 		}
+	}
+	return ""
+}
+
+func (driver *Driver) conflictingRXQueueInterfaceForPod(
+	podUID, skipClaimUID kube_types.UID,
+	results []resourceapi.DeviceRequestAllocationResult,
+	configs map[string]types.DeviceConfig,
+) string {
+	used := make(map[string]struct{})
+	txn := driver.db.ReadTxn()
+	for row := range AllocationsByPodUID(driver.allocationTable, txn, podUID) {
+		if row.ClaimUID == skipClaimUID || row.Manager != types.DeviceManagerTypeRXQueue {
+			continue
+		}
+		ifName := row.Config.PodIfName
+		if ifName == "" {
+			ifName = types.DefaultRXQueuePodIfName
+		}
+		used[ifName] = struct{}{}
+	}
+
+	for _, result := range results {
+		if result.Driver != driver.config.DriverName {
+			continue
+		}
+		config := configs[result.Request]
+		if config.RXQueue == nil {
+			continue
+		}
+		ifName := config.PodIfName
+		if ifName == "" {
+			ifName = types.DefaultRXQueuePodIfName
+		}
+		if _, exists := used[ifName]; exists {
+			return ifName
+		}
+		used[ifName] = struct{}{}
 	}
 	return ""
 }

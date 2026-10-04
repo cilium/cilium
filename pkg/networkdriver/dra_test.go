@@ -464,6 +464,7 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 		}, testDriverName)
 		require.NoError(t, err)
 		require.Equal(t, "9000", configs["req"].RXQueue.PodEndpoint.Port)
+		require.Equal(t, types.DefaultRXQueuePodIfName, configs["req"].PodIfName)
 	})
 
 	t.Run("invalid RX queue endpoint", func(t *testing.T) {
