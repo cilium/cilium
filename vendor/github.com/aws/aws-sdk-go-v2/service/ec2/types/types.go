@@ -2282,6 +2282,17 @@ type CapacityReservation struct {
 	// source reservation for interruptible Capacity Reservations.
 	InterruptionInfo *InterruptionInfo
 
+	// Only supported for UltraServers.
+	//
+	// Indicates whether you can launch instances into the Capacity Reservation. A
+	// Capacity Reservation can have the following launch statuses:
+	//
+	//   - launchable - You can launch instances into the Capacity Reservation.
+	//
+	//   - unlaunchable - You can't launch instances into the Capacity Reservation. For
+	//   example, the Capacity Reservation is not active.
+	LaunchStatus CapacityReservationLaunchStatus
+
 	// The start date that you originally requested for the Capacity Reservation, in
 	// the ISO8601 format in the UTC time zone ( YYYY-MM-DDThh:mm:ss.sssZ ). This value
 	// doesn't change when you push out the start date.

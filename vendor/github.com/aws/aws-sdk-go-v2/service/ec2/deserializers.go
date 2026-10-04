@@ -89571,6 +89571,19 @@ func awsEc2query_deserializeDocumentCapacityReservation(v **types.CapacityReserv
 				return err
 			}
 
+		case strings.EqualFold("launchStatus", t.Name.Local):
+			val, err := decoder.Value()
+			if err != nil {
+				return err
+			}
+			if val == nil {
+				break
+			}
+			{
+				xtv := string(val)
+				sv.LaunchStatus = types.CapacityReservationLaunchStatus(xtv)
+			}
+
 		case strings.EqualFold("originalStartDate", t.Name.Local):
 			val, err := decoder.Value()
 			if err != nil {
