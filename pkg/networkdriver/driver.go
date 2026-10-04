@@ -29,6 +29,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -62,6 +63,7 @@ type Driver struct {
 	resourceClaims resource.Resource[*resourceapi.ResourceClaim]
 	pods           resource.Resource[*corev1.Pod]
 	datapathMode   connector.Mode
+	xdpMode        xdp.AccelerationMode
 
 	configCRD resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig]
 	config    *v2alpha1.CiliumNetworkDriverNodeConfigSpec
@@ -222,7 +224,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 		}
 		driver.setConfig(&cfg)
 
-		if err := validateRXQueueDatapath(driver.config.DeviceManagerConfigs, driver.datapathMode); err != nil {
+		if err := validateRXQueueDatapath(driver.config.DeviceManagerConfigs, driver.datapathMode, driver.xdpMode); err != nil {
 			return err
 		}
 
@@ -401,10 +403,12 @@ func (driver *Driver) validateConsumableCapacityVersion(k8sVersion semver.Versio
 	return nil
 }
 
-// validateRXQueueDatapath requires netkit when RX queue management is enabled.
+// validateRXQueueDatapath rejects datapath settings that cannot coexist
+// with RX queue leasing.
 func validateRXQueueDatapath(
 	configs *v2alpha1.CiliumNetworkDriverDeviceManagerConfig,
 	mode connector.Mode,
+	xdpMode xdp.AccelerationMode,
 ) error {
 	if configs == nil || configs.RXQueue == nil || !configs.RXQueue.Enabled {
 		return nil
@@ -413,6 +417,15 @@ func validateRXQueueDatapath(
 		return fmt.Errorf(
 			"RX queue device manager requires the netkit or netkit-l2 datapath, got %q",
 			mode,
+		)
+	}
+	// The kernel refuses XDP programs without multi-buffer support on a
+	// device using TCP header/data splitting, and refuses every XDP program
+	// while an io_uring memory provider is bound to one of its queues.
+	if xdpMode != xdp.AccelerationModeDisabled {
+		return fmt.Errorf(
+			"RX queue device manager is incompatible with XDP acceleration mode %q",
+			xdpMode,
 		)
 	}
 	return nil
