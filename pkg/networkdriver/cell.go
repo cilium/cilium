@@ -47,9 +47,13 @@ var Cell = cell.Module(
 		podResource,
 		newDeviceTable,
 		newAllocationTable,
+		newRXQueueFlowsTable,
 	),
 	networkdriverIPAM.Cell,
-	cell.Invoke(registerNetworkDriver),
+	cell.Invoke(
+		registerNetworkDriver,
+		registerRXQueueFlowReconciler,
+	),
 )
 
 type networkDriverParams struct {
