@@ -238,7 +238,7 @@ type Config struct {
 	EncryptNode bool
 
 	// EnablePolicyAccounting enables maintaining packet and byte counters for every
-	// policy entry
+	// network endpoint.
 	EnablePolicyAccounting bool
 
 	// Enable per flow (conntrack) statistics
