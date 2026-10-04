@@ -93,6 +93,11 @@ type CreateClientVpnEndpointInput struct {
 	// A brief description of the Client VPN endpoint.
 	Description *string
 
+	// The device posture options for the Client VPN endpoint. Use this parameter to
+	// specify the device trust providers that the endpoint uses to evaluate the
+	// security posture of connecting devices.
+	DevicePostureOptions *types.DevicePostureOptions
+
 	// Indicates whether the client VPN session is disconnected after the maximum
 	// timeout specified in SessionTimeoutHours is reached. If true , users are
 	// prompted to reconnect client VPN. If false , client VPN attempts to reconnect

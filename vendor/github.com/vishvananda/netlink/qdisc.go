@@ -12,6 +12,7 @@ const (
 	HANDLE_ROOT      = 0xFFFFFFFF
 	PRIORITY_MAP_LEN = 16
 )
+
 const (
 	HANDLE_MIN_INGRESS = 0xFFFFFFF2
 	HANDLE_MIN_EGRESS  = 0xFFFFFFF3
@@ -68,12 +69,26 @@ func HandleStr(handle uint32) string {
 	}
 }
 
+// Percentage2u32 converts a percentage (0-100) to a kernel format uint32 value.
+// This is the inverse of u32ToPercentage.
 func Percentage2u32(percentage float32) uint32 {
-	// FIXME this is most likely not the best way to convert from % to uint32
-	if percentage == 100 {
+	if percentage >= 100 {
 		return math.MaxUint32
 	}
-	return uint32(math.MaxUint32 * (percentage / 100))
+	if percentage <= 0 {
+		return 0
+	}
+	return uint32(float64(percentage) * math.MaxUint32 / 100)
+}
+
+// u32ToPercentage converts a kernel format uint32 value back to a percentage.
+// This is the inverse of Percentage2u32.
+func u32ToPercentage(value uint32) float32 {
+	percentage := float32(float64(value) * 100 / float64(math.MaxUint32))
+	if value < math.MaxUint32 && percentage == 100 {
+		return math.Nextafter32(100, 0)
+	}
+	return percentage
 }
 
 // PfifoFast is the default qdisc created by the kernel if one has not

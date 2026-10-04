@@ -6,8 +6,8 @@ package armcompute
 
 const (
 	version20210701 string = "2021-07-01"
-	version20251203 string = "2025-12-03"
 	version20260302 string = "2026-03-02"
+	version20260303 string = "2026-03-03"
 	version20260401 string = "2026-04-01"
 )
 
@@ -259,6 +259,11 @@ func PossibleCapacityReservationTypeValues() []CapacityReservationType {
 type ConfidentialVMEncryptionType string
 
 const (
+	// ConfidentialVMEncryptionTypeDataDiskEncryptedWithCmk - Confidential VM Encryption Type which should be used for encrypting
+	// the data disks with customer managed keys. This Encryption type should only be used for data disks, and should not be used
+	// for OS disk encryption. When this encryption type is used for data disk encryption.Subscriptions need to be enrolled for
+	// Confidential VM with data encryption through following AFEC - Microsoft.Compute/ConfidentialVMDataDiskEncryptionPreview
+	ConfidentialVMEncryptionTypeDataDiskEncryptedWithCmk         ConfidentialVMEncryptionType = "DataDiskEncryptedWithCmk"
 	ConfidentialVMEncryptionTypeEncryptedVMGuestStateOnlyWithPmk ConfidentialVMEncryptionType = "EncryptedVMGuestStateOnlyWithPmk"
 	ConfidentialVMEncryptionTypeEncryptedWithCmk                 ConfidentialVMEncryptionType = "EncryptedWithCmk"
 	ConfidentialVMEncryptionTypeEncryptedWithPmk                 ConfidentialVMEncryptionType = "EncryptedWithPmk"
@@ -268,6 +273,7 @@ const (
 // PossibleConfidentialVMEncryptionTypeValues returns the possible values for the ConfidentialVMEncryptionType const type.
 func PossibleConfidentialVMEncryptionTypeValues() []ConfidentialVMEncryptionType {
 	return []ConfidentialVMEncryptionType{
+		ConfidentialVMEncryptionTypeDataDiskEncryptedWithCmk,
 		ConfidentialVMEncryptionTypeEncryptedVMGuestStateOnlyWithPmk,
 		ConfidentialVMEncryptionTypeEncryptedWithCmk,
 		ConfidentialVMEncryptionTypeEncryptedWithPmk,
@@ -1045,6 +1051,25 @@ func PossibleGalleryExtendedLocationTypeValues() []GalleryExtendedLocationType {
 	}
 }
 
+// GalleryImageVersionState - The state of a gallery image version, derived from its soft-delete status.
+type GalleryImageVersionState string
+
+const (
+	// GalleryImageVersionStateActive - The gallery image version is active and available for use.
+	GalleryImageVersionStateActive GalleryImageVersionState = "Active"
+	// GalleryImageVersionStateSoftDeleted - The gallery image version has been soft-deleted. It is available for use only when
+	// a specific version is requested, and it will not be resolved as the latest version.
+	GalleryImageVersionStateSoftDeleted GalleryImageVersionState = "SoftDeleted"
+)
+
+// PossibleGalleryImageVersionStateValues returns the possible values for the GalleryImageVersionState const type.
+func PossibleGalleryImageVersionStateValues() []GalleryImageVersionState {
+	return []GalleryImageVersionState{
+		GalleryImageVersionStateActive,
+		GalleryImageVersionStateSoftDeleted,
+	}
+}
+
 // GalleryProvisioningState - The provisioning state, which only appears in the response.
 type GalleryProvisioningState string
 
@@ -1455,6 +1480,24 @@ func PossibleMaintenanceOperationResultCodeTypesValues() []MaintenanceOperationR
 		MaintenanceOperationResultCodeTypesMaintenanceCompleted,
 		MaintenanceOperationResultCodeTypesNone,
 		MaintenanceOperationResultCodeTypesRetryLater,
+	}
+}
+
+// MetadataType - The type of metadata associated with the image.
+type MetadataType string
+
+const (
+	// MetadataTypeSecretsProvisioningImageMetadata - Metadata related to secrets provisioning for the image.
+	MetadataTypeSecretsProvisioningImageMetadata MetadataType = "SecretsProvisioningImageMetadata"
+	// MetadataTypeUserProvidedSecretsProvisioningMetadata - Metadata related to user-provided secrets provisioning for the image.
+	MetadataTypeUserProvidedSecretsProvisioningMetadata MetadataType = "UserProvidedSecretsProvisioningMetadata"
+)
+
+// PossibleMetadataTypeValues returns the possible values for the MetadataType const type.
+func PossibleMetadataTypeValues() []MetadataType {
+	return []MetadataType{
+		MetadataTypeSecretsProvisioningImageMetadata,
+		MetadataTypeUserProvidedSecretsProvisioningMetadata,
 	}
 }
 
@@ -2441,6 +2484,30 @@ func PossibleScriptShellTypesValues() []ScriptShellTypes {
 	return []ScriptShellTypes{
 		ScriptShellTypesDefault,
 		ScriptShellTypesPowershell7,
+	}
+}
+
+// SecretsProvisioningComponentName - The name of a component involved in secrets provisioning.
+type SecretsProvisioningComponentName string
+
+const (
+	// SecretsProvisioningComponentNameAzureGuestAgent - The Azure guest agent.
+	SecretsProvisioningComponentNameAzureGuestAgent SecretsProvisioningComponentName = "AzureGuestAgent"
+	// SecretsProvisioningComponentNameCloudInit - The cloud-init provisioning agent.
+	SecretsProvisioningComponentNameCloudInit SecretsProvisioningComponentName = "CloudInit"
+	// SecretsProvisioningComponentNameOS - The guest operating system.
+	SecretsProvisioningComponentNameOS SecretsProvisioningComponentName = "OS"
+	// SecretsProvisioningComponentNameSecretsProvisioningLibrary - The secrets provisioning library.
+	SecretsProvisioningComponentNameSecretsProvisioningLibrary SecretsProvisioningComponentName = "SecretsProvisioningLibrary"
+)
+
+// PossibleSecretsProvisioningComponentNameValues returns the possible values for the SecretsProvisioningComponentName const type.
+func PossibleSecretsProvisioningComponentNameValues() []SecretsProvisioningComponentName {
+	return []SecretsProvisioningComponentName{
+		SecretsProvisioningComponentNameAzureGuestAgent,
+		SecretsProvisioningComponentNameCloudInit,
+		SecretsProvisioningComponentNameOS,
+		SecretsProvisioningComponentNameSecretsProvisioningLibrary,
 	}
 }
 

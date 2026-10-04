@@ -83,14 +83,10 @@ func (stp *STP) NextLayerType() gopacket.LayerType {
 
 // Check if the priority value is correct.
 func checkPriority(prio uint16) (uint16, error) {
-	if prio == 0 {
-		return prio, errors.New("Invalid Priority value must be in the rage <4096-61440> with an increment of 4096")
-	}
 	if prio%4096 == 0 {
 		return prio, nil
-	} else {
-		return prio, errors.New("Invalid Priority value must be in the rage <4096-61440> with an increment of 4096")
 	}
+	return prio, errors.New("Invalid Priority value must be in the range <0-61440> with an increment of 4096")
 }
 
 // SerializeTo writes the serialized form of this layer into the
@@ -115,10 +111,10 @@ func (s *STP) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 
 	prioRoot, err := checkPriority(s.RouteID.Priority)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if s.RouteID.SysID >= 4096 {
-		panic("Invalid VlanID value ..!")
+		return errors.New("Invalid VlanID value ..!")
 	}
 	binary.BigEndian.PutUint16(bytes[5:7], prioRoot|s.RouteID.SysID)
 	copy(bytes[7:13], s.RouteID.HwAddr)
@@ -127,10 +123,10 @@ func (s *STP) SerializeTo(b gopacket.SerializeBuffer, opts gopacket.SerializeOpt
 
 	prioBridge, err := checkPriority(s.BridgeID.Priority)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if s.BridgeID.SysID >= 4096 {
-		panic("Invalid VlanID value ..!")
+		return errors.New("Invalid VlanID value ..!")
 	}
 	binary.BigEndian.PutUint16(bytes[17:19], prioBridge|s.BridgeID.SysID)
 	copy(bytes[19:25], s.BridgeID.HwAddr)

@@ -572,7 +572,8 @@ func (o DHCPv6Option) String() string {
 		return fmt.Sprintf("Option(%s:[%s])", o.Code, duid.String())
 	case DHCPv6OptOro:
 		options := ""
-		for i := 0; i < int(o.Length); i += 2 {
+		// Only whole 2-byte codes; an odd-length ORO would read one past Data.
+		for i := 0; i+2 <= len(o.Data); i += 2 {
 			if options != "" {
 				options += ","
 			}

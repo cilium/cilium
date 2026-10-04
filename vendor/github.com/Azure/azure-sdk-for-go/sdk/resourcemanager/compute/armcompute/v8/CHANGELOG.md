@@ -1,5 +1,27 @@
 # Release History
 
+## 8.4.0 (2026-09-20)
+### Features Added
+
+- New value `ConfidentialVMEncryptionTypeDataDiskEncryptedWithCmk` added to enum type `ConfidentialVMEncryptionType`
+- New enum type `GalleryImageVersionState` with values `GalleryImageVersionStateActive`, `GalleryImageVersionStateSoftDeleted`
+- New enum type `MetadataType` with values `MetadataTypeSecretsProvisioningImageMetadata`, `MetadataTypeUserProvidedSecretsProvisioningMetadata`
+- New enum type `SecretsProvisioningComponentName` with values `SecretsProvisioningComponentNameAzureGuestAgent`, `SecretsProvisioningComponentNameCloudInit`, `SecretsProvisioningComponentNameOS`, `SecretsProvisioningComponentNameSecretsProvisioningLibrary`
+- New struct `DataDiskImageSecurityProfile`
+- New struct `ImageMetadataProfile`
+- New struct `MetadataKeyValue`
+- New struct `SecretsProvisioningComponent`
+- New struct `SecretsProvisioningSettings`
+- New field `ConsumptionEndTime`, `ImageState` in struct `CommunityGalleryImageVersionProperties`
+- New field `SecurityProfile` in struct `DataDiskImageEncryption`
+- New field `ImageMetadataProfiles` in struct `GalleryImageVersionProperties`
+- New field `BypassSoftDelete` in struct `GalleryImageVersionsClientBeginDeleteOptions`
+- New field `ConsumptionEndTime`, `HardDeletionTargetTime` in struct `GallerySoftDeletedResourceProperties`
+- New field `SecretsProvisioningSettings` in struct `ImageVersionSecurityProfile`
+- New field `ConsumptionEndTime`, `ImageState` in struct `SharedGalleryImageVersionProperties`
+- New field `GracePeriodInDays`, `RetentionPeriodInDays` in struct `SoftDeletePolicy`
+
+
 ## 8.3.0 (2026-08-12)
 ### Features Added
 

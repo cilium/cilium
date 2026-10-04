@@ -1,4 +1,4 @@
-arp [![Build Status](https://github.com/mdlayher/arp/workflows/Tests/badge.svg)](https://github.com/mdlayher/arp/actions?query=workflow%3ATests) [![GoDoc](https://pkg.go.dev/badge/github.com/mdlayher/arp)](https://pkg.go.dev/github.com/mdlayher/arp) [![Go Report Card](https://goreportcard.com/badge/github.com/mdlayher/arp)](https://goreportcard.com/report/github.com/mdlayher/arp)
+arp [![Build Status](https://github.com/mdlayher/arp/workflows/Tests/badge.svg)](https://github.com/mdlayher/arp/actions?query=workflow%3ATests+branch%3Amaster) [![GoDoc](https://pkg.go.dev/badge/github.com/mdlayher/arp)](https://pkg.go.dev/github.com/mdlayher/arp)
 ===
 
 Package `arp` implements the ARP protocol, as described in RFC 826.

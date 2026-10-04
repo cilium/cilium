@@ -832,6 +832,14 @@ type CommunityGalleryImageVersionProperties struct {
 
 	// Describes the storage profile of the image version.
 	StorageProfile *SharedGalleryImageVersionStorageProfile
+
+	// READ-ONLY; The timestamp after which a soft-deleted gallery image version is no longer consumable for VM/VMSS creation
+	// or VMSS scale out. It is calculated from the soft-deleted time plus the retention period, and is not present for active
+	// gallery image versions. In dateTime offset format.
+	ConsumptionEndTime *time.Time
+
+	// READ-ONLY; The state of the gallery image version, derived from its soft-delete status.
+	ImageState *GalleryImageVersionState
 }
 
 // CommunityGalleryInfo - Information of community gallery if current gallery is shared to community
@@ -1037,6 +1045,18 @@ type DataDiskImageEncryption struct {
 
 	// A relative URI containing the resource ID of the disk encryption set.
 	DiskEncryptionSetID *string
+
+	// This property specifies the security profile of a data disk image.
+	SecurityProfile *DataDiskImageSecurityProfile
+}
+
+// DataDiskImageSecurityProfile - Contains security profile for a DataDisk image.
+type DataDiskImageSecurityProfile struct {
+	// confidential VM encryption types
+	ConfidentialVMEncryptionType *ConfidentialVMEncryptionType
+
+	// secure VM disk encryption set id
+	SecureVMDiskEncryptionSetID *string
 }
 
 // DataDisksToAttach - Describes the data disk to be attached.
@@ -2602,6 +2622,9 @@ type GalleryImageVersionProperties struct {
 	// The security profile of a gallery image version
 	SecurityProfile *ImageVersionSecurityProfile
 
+	// READ-ONLY; The image metadata profiles associated with the gallery image version.
+	ImageMetadataProfiles []*ImageMetadataProfile
+
 	// READ-ONLY; The provisioning state, which only appears in the response.
 	ProvisioningState *GalleryProvisioningState
 
@@ -3153,6 +3176,14 @@ type GallerySoftDeletedResourceProperties struct {
 
 	// The timestamp for when the resource is soft-deleted. In dateTime offset format.
 	SoftDeletedTime *string
+
+	// READ-ONLY; The timestamp after which a soft-deleted gallery image version is no longer consumable for VM/VMSS creation
+	// or VMSS scale out. It is calculated from the soft-deleted time plus the retention period. In dateTime offset format.
+	ConsumptionEndTime *time.Time
+
+	// READ-ONLY; The timestamp at which a soft-deleted gallery image version is permanently (hard) deleted and can no longer
+	// be recovered. In dateTime offset format.
+	HardDeletionTargetTime *time.Time
 }
 
 type GalleryTargetExtendedLocation struct {
@@ -3341,6 +3372,20 @@ type ImageListResult struct {
 	NextLink *string
 }
 
+// ImageMetadataProfile - Describes the metadata profile of an image.
+type ImageMetadataProfile struct {
+	// REQUIRED; The type of metadata.
+	Type *MetadataType
+
+	// The list of internal metadata key-value pairs. Contains non-sensitive service-internal metadata for diagnostics and tracking.
+	// No secret material is emitted in this list.
+	InternalMetadataList []*MetadataKeyValue
+
+	// The list of public metadata key-value pairs. Contains non-sensitive image capability metadata such as supported OS, component
+	// names, and versions. No secret material is emitted in this list.
+	PublicMetadataList []*MetadataKeyValue
+}
+
 // ImageOSDisk - Describes an Operating System disk.
 type ImageOSDisk struct {
 	// REQUIRED; The OS State. For managed images, use Generalized.
@@ -3467,6 +3512,10 @@ type ImageUpdate struct {
 
 // ImageVersionSecurityProfile - The security profile of a gallery image version
 type ImageVersionSecurityProfile struct {
+	// Specifies the secrets provisioning settings for the gallery image version. Used on create or update to configure secrets
+	// provisioning.
+	SecretsProvisioningSettings *SecretsProvisioningSettings
+
 	// Contains UEFI settings for the image version.
 	UefiSettings *GalleryImageVersionUefiSettings
 }
@@ -3892,6 +3941,18 @@ type MaxInstancePercentPerZonePolicy struct {
 
 	// Limit on the number of instances in each zone as a percentage of the total capacity of the virtual machine scale set.
 	Value *int32
+}
+
+// MetadataKeyValue - Describes a key-value pair for image metadata.
+type MetadataKeyValue struct {
+	// REQUIRED; The metadata key. Known keys emitted by the service include 'Linux.AzureSecretsProvisioning.Enabled', 'OS.Name',
+	// and '{componentName}.Version' (e.g., 'AzureGuestAgent.Version'). All values are non-sensitive configuration; no secrets,
+	// credentials, or cryptographic material transit this field.
+	MetadataKey *string
+
+	// The metadata value. Contains non-sensitive configuration such as capability flags ('true'/'false'), OS names ('Linux',
+	// 'Windows'), and version strings (e.g., '1.0.0').
+	MetadataValue *string
 }
 
 // MigrateToVirtualMachineScaleSetInput - Describes the Virtual Machine Scale Set to migrate from Availability Set.
@@ -5518,6 +5579,27 @@ type ScriptSource struct {
 	Parameters []*GalleryScriptParameter
 }
 
+// SecretsProvisioningComponent - Describes a component involved in secrets provisioning.
+type SecretsProvisioningComponent struct {
+	// The name of the component.
+	Name *SecretsProvisioningComponentName
+
+	// The version of the component.
+	Version *string
+}
+
+// SecretsProvisioningSettings - Describes the secrets provisioning settings for a gallery image version.
+type SecretsProvisioningSettings struct {
+	// The list of component versions involved in secrets provisioning.
+	Components []*SecretsProvisioningComponent
+
+	// Specifies whether the image version supports secrets provisioning.
+	IsSupported *bool
+
+	// The name of the operating system (e.g., "mariner").
+	OSName *string
+}
+
 // SecurityPostureReference - Specifies the security posture to be used in the scale set. Minimum api-version: 2023-03-01
 type SecurityPostureReference struct {
 	// REQUIRED; The security posture reference id in the form of /CommunityGalleries/{communityGalleryName}/securityPostures/{securityPostureName}/versions/{major.minor.patch}|latest
@@ -5723,6 +5805,14 @@ type SharedGalleryImageVersionProperties struct {
 
 	// Describes the storage profile of the image version.
 	StorageProfile *SharedGalleryImageVersionStorageProfile
+
+	// READ-ONLY; The timestamp after which a soft-deleted gallery image version is no longer consumable for VM/VMSS creation
+	// or VMSS scale out. It is calculated from the soft-deleted time plus the retention period, and is not present for active
+	// gallery image versions. In dateTime offset format.
+	ConsumptionEndTime *time.Time
+
+	// READ-ONLY; The state of the gallery image version, derived from its soft-delete status.
+	ImageState *GalleryImageVersionState
 }
 
 // SharedGalleryImageVersionStorageProfile - This is the storage profile of a Gallery Image Version.
@@ -5987,8 +6077,16 @@ type SnapshotUpdateProperties struct {
 
 // SoftDeletePolicy - Contains information about the soft deletion policy of the gallery.
 type SoftDeletePolicy struct {
+	// The grace period in days for a simulated hard-deleted resource. During this period the gallery image version is unusable
+	// but can still be recovered if required. After this period elapses, the gallery image version is permanently (hard) deleted.
+	GracePeriodInDays *int32
+
 	// Enables soft-deletion for resources in this gallery, allowing them to be recovered within retention time.
 	IsSoftDeleteEnabled *bool
+
+	// The retention period in days for a soft-deleted resource. After this period elapses, the soft-deleted gallery image version
+	// transitions to a simulated hard-deleted state.
+	RetentionPeriodInDays *int32
 }
 
 // SourceVault - The vault id is an Azure Resource Manager Resource id in the form /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.KeyVault/vaults/{vaultName}

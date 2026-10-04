@@ -253,12 +253,20 @@ type OSPFv3 struct {
 	Reserved uint8
 }
 
+// lsaHeaderLen is the fixed LSA header size shared by OSPFv2 and OSPFv3.
+const lsaHeaderLen = 20
+
 // getLSAsv2 parses the LSA information from the packet for OSPFv2
 func getLSAsv2(num uint32, data []byte) ([]LSA, error) {
 	var lsas []LSA
 	var i uint32 = 0
 	var offset uint32 = 0
 	for ; i < num; i++ {
+		// The LSA count comes from the packet; stop when the buffer runs out
+		// before the 20-byte LSA header.
+		if int(offset)+lsaHeaderLen > len(data) {
+			return nil, fmt.Errorf("LSA %d header truncated: %d bytes left, %d required", i, len(data)-int(offset), lsaHeaderLen)
+		}
 		lstype := uint16(data[offset+3])
 		lsalength := binary.BigEndian.Uint16(data[offset+18 : offset+20])
 		content, err := extractLSAInformation(lstype, lsalength, data[offset:])
@@ -454,6 +462,11 @@ func getLSAs(num uint32, data []byte) ([]LSA, error) {
 	var i uint32 = 0
 	var offset uint32 = 0
 	for ; i < num; i++ {
+		// The LSA count comes from the packet; stop when the buffer runs out
+		// before the 20-byte LSA header.
+		if int(offset)+lsaHeaderLen > len(data) {
+			return nil, fmt.Errorf("LSA %d header truncated: %d bytes left, %d required", i, len(data)-int(offset), lsaHeaderLen)
+		}
 		var content interface{}
 		lstype := binary.BigEndian.Uint16(data[offset+2 : offset+4])
 		lsalength := binary.BigEndian.Uint16(data[offset+18 : offset+20])
