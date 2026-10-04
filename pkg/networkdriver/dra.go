@@ -411,6 +411,11 @@ func deviceConfigsFromAllocation(deviceAllocation *resourceapi.DeviceAllocationR
 				return nil, fmt.Errorf("failed to unmarshal config parameters %s: %w",
 					string(cfg.Opaque.Parameters.Raw), err)
 			}
+			if requestCfg.RXQueue != nil {
+				if err := validateRXQueueConfig(requestCfg.RXQueue); err != nil {
+					return nil, fmt.Errorf("invalid RX queue config for request %s: %w", requestName, err)
+				}
+			}
 		}
 		devicesCfg[requestName] = requestCfg
 	}

@@ -454,6 +454,28 @@ func TestDeviceConfigsFromAllocation(t *testing.T) {
 			require.Equal(t, tc.expectedDevConfs, devConf)
 		})
 	}
+
+	t.Run("valid RX queue endpoint", func(t *testing.T) {
+		configs, err := deviceConfigsFromAllocation(&resourceapi.DeviceAllocationResult{
+			Results: []resourceapi.DeviceRequestAllocationResult{result(testDriverName, "req")},
+			Config: []resourceapi.DeviceAllocationConfiguration{
+				opaqueConfig(`{"rxQueue":{"podEndpoint":{"port":"9000","protocol":"TCP"}}}`, "req"),
+			},
+		}, testDriverName)
+		require.NoError(t, err)
+		require.Equal(t, "9000", configs["req"].RXQueue.PodEndpoint.Port)
+	})
+
+	t.Run("invalid RX queue endpoint", func(t *testing.T) {
+		_, err := deviceConfigsFromAllocation(&resourceapi.DeviceAllocationResult{
+			Results: []resourceapi.DeviceRequestAllocationResult{result(testDriverName, "req")},
+			Config: []resourceapi.DeviceAllocationConfiguration{
+				opaqueConfig(`{"rxQueue":{"podEndpoint":{"port":"65536","protocol":"TCP"}}}`, "req"),
+			},
+		}, testDriverName)
+		require.ErrorIs(t, err, errUnexpectedInput)
+		require.ErrorContains(t, err, "invalid podEndpoint port")
+	})
 }
 
 func TestClaimWrongReservation(t *testing.T) {
