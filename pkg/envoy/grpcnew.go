@@ -36,7 +36,9 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 	}
 	server := envoy_server.NewServer(context.Background(), s.cache, callbacks,
 		sotw.WithOrderedADS(),
-		sotw.DeactivateLegacyWildcardForTypes([]string{SecretTypeURL}),
+		// EDS, RDS and SDS use named subscriptions; an initial empty list
+		// means no subscription. LDS, CDS, NPDS and NPHDS retain wildcard mode.
+		sotw.DeactivateLegacyWildcardForTypes([]string{EndpointTypeURL, RouteTypeURL, SecretTypeURL}),
 	)
 
 	grpcServer := grpc.NewServer()
