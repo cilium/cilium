@@ -75,7 +75,7 @@ cilium connectivity test [flags]
       --secondary-network-iface string                             Secondary network iface name (e.g., to test NodePort BPF on multiple networks)
       --service-type string                                        Type of Kubernetes Services created for connectivity tests (default "NodePort")
       --single-node                                                Limit to tests able to run on a single node
-      --socat-image string                                         Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.1.3@sha256:5ffbd6ae916cbad86a58fabe0d6d5a6fd5c2b47ddf031e82996baac9300e732f")
+      --socat-image string                                         Image path to use for multicast tests (default "docker.io/alpine/socat:1.8.1.3@sha256:82ad20f6f6e29b91ff33b6662d24063522b1378f08fd8569cd3ab412cac13f50")
       --sysdump-cilium-bugtool-flags stringArray                   Optional set of flags to pass to cilium-bugtool command.
       --sysdump-cilium-daemon-set-label-selector string            The labels used to target Cilium daemon set (default "k8s-app=cilium")
       --sysdump-cilium-envoy-label-selector string                 The labels used to target Cilium Envoy pods (default "k8s-app=cilium-envoy")

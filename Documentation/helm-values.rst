@@ -3367,7 +3367,7 @@
    * - :spelling:ignore:`nodeinit.image`
      - node-init image.
      - object
-     - ``{"digest":"sha256:f99e2beda7324e93ba04d6240d9626a6b9ab023d7d56e3b029d3d9c823ce63ef","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1782916218-36ae25f","useDigest":true}``
+     - ``{"digest":"sha256:e6d4d88b5958069f4528b02f0168740cfd074850b383ad1b617c1347e6a889ea","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/startup-script","tag":"1790907923-29f9511","useDigest":true}``
    * - :spelling:ignore:`nodeinit.minReadySeconds`
      - Minimum number of seconds for which a newly created node-init pod should be ready before it is considered available.
      - int
