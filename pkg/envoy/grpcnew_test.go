@@ -5,14 +5,151 @@ package envoy
 
 import (
 	"context"
+	"net"
 	"os"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
+	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/envoy/xds"
+	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/time"
 )
+
+func newTestADSClient(t *testing.T, server *adsServer) discovery.AggregatedDiscoveryServiceClient {
+	t.Helper()
+	transport := bufconn.Listen(1024 * 1024)
+	t.Cleanup(func() { require.NoError(t, transport.Close()) })
+	grpcServer := grpc.NewServer()
+	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, envoy_server.NewServer(t.Context(), server.cache, callbacks.ChainedCallbacks{
+		callbacks.LoggingCallbacks{Log: server.logger},
+		server.cache.GetCompletionCallbacks(),
+		newNPHDSIPCacheListenerCallbacks(server.logger, server.ipCache, server),
+	},
+		sotw.WithOrderedADS(),
+		sotw.DeactivateLegacyWildcardForTypes([]string{EndpointTypeURL, RouteTypeURL, SecretTypeURL}),
+	))
+	go func() { _ = grpcServer.Serve(transport) }()
+	t.Cleanup(grpcServer.Stop)
+	conn, err := grpc.NewClient("passthrough:///ads-test", grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) { return transport.DialContext(ctx) }))
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	return discovery.NewAggregatedDiscoveryServiceClient(conn)
+}
+
+func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
+	for _, test := range []struct {
+		typeURL typeurl.Index
+		initial proto.Message
+		updated proto.Message
+	}{
+		{
+			typeURL: typeurl.Endpoint,
+			initial: &endpoint.ClusterLoadAssignment{ClusterName: "resource"},
+			updated: &endpoint.ClusterLoadAssignment{ClusterName: "resource", Endpoints: []*endpoint.LocalityLbEndpoints{{Priority: 1}}},
+		},
+		{
+			typeURL: typeurl.Route,
+			initial: &route.RouteConfiguration{Name: "resource"},
+			updated: &route.RouteConfiguration{Name: "resource", IgnorePortInHostMatching: true},
+		},
+		{
+			typeURL: typeurl.Secret,
+			initial: &tls.Secret{Name: "resource"},
+			updated: &tls.Secret{Name: "resource", Type: &tls.Secret_GenericSecret{GenericSecret: &tls.GenericSecret{}}},
+		},
+	} {
+		t.Run(test.typeURL.URL(), func(t *testing.T) {
+			server := newADSServer(hivetest.Logger(t), nil, nil, xdsServerConfig{}, nil, nil)
+			client := newTestADSClient(t, server)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			wg := completion.NewWaitGroup(ctx)
+			t.Cleanup(wg.Cancel)
+			resources := xds.NewResources()
+			switch resource := test.initial.(type) {
+			case *endpoint.ClusterLoadAssignment:
+				resources.Endpoints["resource"] = resource
+			case *route.RouteConfiguration:
+				resources.Routes["resource"] = resource
+			case *tls.Secret:
+				resources.Secrets["resource"] = resource
+			}
+			// Observe the named resource's ACK directly; bulk server updates only
+			// infer listener waits unless a completion type is explicitly supplied.
+			snapshot, err := server.cache.GenerateSnapshot(&resources, server.logger)
+			require.NoError(t, err)
+			require.NoError(t, server.cache.UpdateSnapshot(ctx, localNodeID, snapshot, wg, map[string]func(error){test.typeURL.URL(): nil}, nil))
+			stream, err := client.StreamAggregatedResources(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
+				Node: &core.Node{Id: localNodeID}, TypeUrl: test.typeURL.URL(),
+			}))
+			// A response to the following LDS request proves the preceding empty
+			// subscription was processed without responding. Requests on this ADS
+			// stream are handled in order, so no sleeps or receive timeouts are needed.
+			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{TypeUrl: ListenerTypeURL}))
+			marker, err := stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, ListenerTypeURL, marker.GetTypeUrl())
+			require.Equal(t, 1, server.cache.GetCompletionCallbacks().PendingCompletionCount())
+
+			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{TypeUrl: test.typeURL.URL(), ResourceNames: []string{"resource"}}))
+			response, err := stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, test.typeURL.URL(), response.GetTypeUrl())
+			require.Len(t, response.GetResources(), 1)
+			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
+				TypeUrl: test.typeURL.URL(), VersionInfo: response.GetVersionInfo(), ResponseNonce: response.GetNonce(),
+			}))
+			// This request ACKs the response and unsubscribes at the same time.
+			// CDS provides another ordered marker, proving that ACK processing
+			// occurred even though no new watch or full-state response was created.
+			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{TypeUrl: ClusterTypeURL}))
+			marker, err = stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, ClusterTypeURL, marker.GetTypeUrl())
+			require.NoError(t, wg.Wait())
+			require.Zero(t, server.cache.GetCompletionCallbacks().PendingCompletionCount())
+			require.Zero(t, server.cache.GetStatusInfo(localNodeID).GetNumWatches())
+
+			switch resource := test.updated.(type) {
+			case *endpoint.ClusterLoadAssignment:
+				resources.Endpoints["resource"] = resource
+			case *route.RouteConfiguration:
+				resources.Routes["resource"] = resource
+			case *tls.Secret:
+				resources.Secrets["resource"] = resource
+			}
+			require.NoError(t, server.UpsertEnvoyResources(ctx, resources, nil))
+			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
+				TypeUrl: test.typeURL.URL(), ResourceNames: []string{"resource"}, VersionInfo: response.GetVersionInfo(),
+			}))
+			response, err = stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, test.typeURL.URL(), response.GetTypeUrl())
+			require.Len(t, response.GetResources(), 1)
+			resource, err := response.GetResources()[0].UnmarshalNew()
+			require.NoError(t, err)
+			require.True(t, proto.Equal(test.updated, resource), "resubscribing must return the latest resource")
+		})
+	}
+}
 
 func TestADSGRPCServerStopsOnContextCancel(t *testing.T) {
 	logger := hivetest.Logger(t)
