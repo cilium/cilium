@@ -24,6 +24,7 @@ import (
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/networkdriver/config"
 	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
@@ -74,6 +75,8 @@ type networkDriverParams struct {
 	DB              *statedb.DB
 	DeviceTable     statedb.RWTable[*DRADevice]
 	AllocationTable statedb.RWTable[*DRAAllocation]
+	RXQueueFlows    statedb.RWTable[*RXQueueFlows]
+	LocalPods       statedb.Table[k8sTables.LocalPod]
 	LocalNodeStore  *node.LocalNodeStore
 	MultiPoolMgr    *ipam.MultiPoolManager
 
@@ -171,6 +174,8 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		ipv6Enabled:     params.CellCfg.IPv6Enabled,
 		ipamMode:        params.DaemonCfg.IPAM,
 		configModifiers: params.ConfigModifiers,
+		rxQueueFlows:    params.RXQueueFlows,
+		localPods:       params.LocalPods,
 
 		endpoints:        params.Endpoints,
 		endpointRestorer: params.EndpointRestorer,
