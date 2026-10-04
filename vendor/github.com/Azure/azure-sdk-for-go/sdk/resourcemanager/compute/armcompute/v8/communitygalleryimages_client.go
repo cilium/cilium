@@ -19,7 +19,7 @@ import (
 // CommunityGalleryImagesClient contains the methods for the CommunityGalleryImages group.
 // Don't use this type directly, use NewCommunityGalleryImagesClient() instead.
 //
-// Generated from API version 2025-12-03
+// Generated from API version 2026-03-03
 type CommunityGalleryImagesClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -30,6 +30,9 @@ type CommunityGalleryImagesClient struct {
 //   - credential - used to authorize requests. Usually a credential from azidentity.
 //   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewCommunityGalleryImagesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*CommunityGalleryImagesClient, error) {
+	if subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
 		return nil, err
@@ -69,7 +72,7 @@ func (client *CommunityGalleryImagesClient) Get(ctx context.Context, location st
 func (client *CommunityGalleryImagesClient) getCreateRequest(ctx context.Context, location string, publicGalleryName string, galleryImageName string, _ *CommunityGalleryImagesClientGetOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Compute/locations/{location}/communityGalleries/{publicGalleryName}/images/{galleryImageName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if location == "" {
@@ -89,7 +92,7 @@ func (client *CommunityGalleryImagesClient) getCreateRequest(ctx context.Context
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20251203)
+	reqQP.Set("api-version", version20260303)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -145,7 +148,7 @@ func (client *CommunityGalleryImagesClient) listCreateRequest(ctx context.Contex
 	if firstPage {
 		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Compute/locations/{location}/communityGalleries/{publicGalleryName}/images"
 		if client.subscriptionID == "" {
-			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 		if location == "" {
@@ -165,7 +168,7 @@ func (client *CommunityGalleryImagesClient) listCreateRequest(ctx context.Contex
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20251203)
+		reqQP.Set("api-version", version20260303)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}

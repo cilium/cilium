@@ -60,72 +60,46 @@ func (m *MDP) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	offset := 28
 	m.PreambleData = data[:offset]
 
-	for {
-		if offset >= m.Length {
+	// Each TLV is <type><length><value>; both header bytes and the value are
+	// bounded against the frame before use.
+	for offset < m.Length {
+		t := data[offset]
+		if t == MdpTlvEnd {
 			break
 		}
-		t := data[offset]
+		if offset+2 > m.Length {
+			df.SetTruncated()
+			return fmt.Errorf("MDP TLV %d header truncated at offset %d", t, offset)
+		}
+		length = int(data[offset+1])
+		if offset+2+length > m.Length {
+			df.SetTruncated()
+			return fmt.Errorf("MDP TLV %d length %d exceeds frame at offset %d", t, length, offset)
+		}
+		value := data[offset+2 : offset+2+length]
+
 		switch t {
 		case MdpTlvDeviceInfo:
-			offset += 2
-			length = int(data[offset-1])
-			m.Contents = append(m.Contents, data[offset-2:offset+length]...)
-			m.DeviceInfo = string(data[offset : offset+length])
-			offset += length
-			break
+			m.Contents = append(m.Contents, data[offset:offset+2+length]...)
+			m.DeviceInfo = string(value)
 		case MdpTlvNetworkInfo:
-			offset += 2
-			length = int(data[offset-1])
-			m.NetworkInfo = string(data[offset : offset+length])
-			offset += length
-			break
+			m.NetworkInfo = string(value)
 		case MdpTlvLongitude:
-			offset += 2
-			length = int(data[offset-1])
-			m.Longitude, _ = strconv.ParseFloat(string(data[offset:offset+length]), 64)
-			offset += length
-			break
+			m.Longitude, _ = strconv.ParseFloat(string(value), 64)
 		case MdpTlvLatitude:
-			offset += 2
-			length = int(data[offset-1])
-			m.Latitude, _ = strconv.ParseFloat(string(data[offset:offset+length]), 64)
-			offset += length
-			break
+			m.Latitude, _ = strconv.ParseFloat(string(value), 64)
 		case MdpTlvType6:
-			offset += 2
-			length = int(data[offset-1])
-			m.Type6UUID = string(data[offset : offset+length])
-			offset += length
-			break
+			m.Type6UUID = string(value)
 		case MdpTlvType7:
-			offset += 2
-			length = int(data[offset-1])
-			m.Type7UUID = string(data[offset : offset+length])
-			offset += length
-			break
+			m.Type7UUID = string(value)
 		case MdpTlvIP:
-			offset += 2
-			length = int(data[offset-1])
-			m.IPAddress = net.ParseIP(string(data[offset : offset+length]))
-			offset += length
-			break
+			m.IPAddress = net.ParseIP(string(value))
 		case MdpTlvUnknownBool:
-			offset += 2
-			length = int(data[offset-1])
-			m.Type13Bool, _ = strconv.ParseBool(string(data[offset : offset+length]))
-			offset += length
-			break
-		case MdpTlvEnd:
-			offset = m.Length
-			break
+			m.Type13Bool, _ = strconv.ParseBool(string(value))
 		default:
 			// Skip over unknown junk
-			offset += 2
-			length = int(data[offset-1])
-			offset += length
-			break
-
 		}
+		offset += 2 + length
 	}
 	m.BaseLayer = BaseLayer{Contents: data, Payload: nil}
 	return nil

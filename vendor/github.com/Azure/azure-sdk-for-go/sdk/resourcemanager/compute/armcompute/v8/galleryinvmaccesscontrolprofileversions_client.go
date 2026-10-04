@@ -19,7 +19,7 @@ import (
 // GalleryInVMAccessControlProfileVersionsClient contains the methods for the GalleryInVMAccessControlProfileVersions group.
 // Don't use this type directly, use NewGalleryInVMAccessControlProfileVersionsClient() instead.
 //
-// Generated from API version 2025-12-03
+// Generated from API version 2026-03-03
 type GalleryInVMAccessControlProfileVersionsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -30,6 +30,9 @@ type GalleryInVMAccessControlProfileVersionsClient struct {
 //   - credential - used to authorize requests. Usually a credential from azidentity.
 //   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewGalleryInVMAccessControlProfileVersionsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*GalleryInVMAccessControlProfileVersionsClient, error) {
+	if subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
 		return nil, err
@@ -94,7 +97,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) createOrUpdate(ctx 
 func (client *GalleryInVMAccessControlProfileVersionsClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, galleryName string, inVMAccessControlProfileName string, inVMAccessControlProfileVersionName string, galleryInVMAccessControlProfileVersion GalleryInVMAccessControlProfileVersion, _ *GalleryInVMAccessControlProfileVersionsClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/galleries/{galleryName}/inVMAccessControlProfiles/{inVMAccessControlProfileName}/versions/{inVMAccessControlProfileVersionName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -118,7 +121,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) createOrUpdateCreat
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20251203)
+	reqQP.Set("api-version", version20260303)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -179,7 +182,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) deleteOperation(ctx
 func (client *GalleryInVMAccessControlProfileVersionsClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, galleryName string, inVMAccessControlProfileName string, inVMAccessControlProfileVersionName string, _ *GalleryInVMAccessControlProfileVersionsClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/galleries/{galleryName}/inVMAccessControlProfiles/{inVMAccessControlProfileName}/versions/{inVMAccessControlProfileVersionName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -203,7 +206,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) deleteCreateRequest
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20251203)
+	reqQP.Set("api-version", version20260303)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
@@ -237,7 +240,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) Get(ctx context.Con
 func (client *GalleryInVMAccessControlProfileVersionsClient) getCreateRequest(ctx context.Context, resourceGroupName string, galleryName string, inVMAccessControlProfileName string, inVMAccessControlProfileVersionName string, _ *GalleryInVMAccessControlProfileVersionsClientGetOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/galleries/{galleryName}/inVMAccessControlProfiles/{inVMAccessControlProfileName}/versions/{inVMAccessControlProfileVersionName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -261,7 +264,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) getCreateRequest(ct
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20251203)
+	reqQP.Set("api-version", version20260303)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -318,7 +321,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) listByGalleryInVMAc
 	if firstPage {
 		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/galleries/{galleryName}/inVMAccessControlProfiles/{inVMAccessControlProfileName}/versions"
 		if client.subscriptionID == "" {
-			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 		if resourceGroupName == "" {
@@ -342,7 +345,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) listByGalleryInVMAc
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20251203)
+		reqQP.Set("api-version", version20260303)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -413,7 +416,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) update(ctx context.
 func (client *GalleryInVMAccessControlProfileVersionsClient) updateCreateRequest(ctx context.Context, resourceGroupName string, galleryName string, inVMAccessControlProfileName string, inVMAccessControlProfileVersionName string, galleryInVMAccessControlProfileVersion GalleryInVMAccessControlProfileVersionUpdate, _ *GalleryInVMAccessControlProfileVersionsClientBeginUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/galleries/{galleryName}/inVMAccessControlProfiles/{inVMAccessControlProfileName}/versions/{inVMAccessControlProfileVersionName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -437,7 +440,7 @@ func (client *GalleryInVMAccessControlProfileVersionsClient) updateCreateRequest
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20251203)
+	reqQP.Set("api-version", version20260303)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}

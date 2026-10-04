@@ -30,6 +30,9 @@ type InterconnectBlocksClient struct {
 //   - credential - used to authorize requests. Usually a credential from azidentity.
 //   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewInterconnectBlocksClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*InterconnectBlocksClient, error) {
+	if subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
 		return nil, err
@@ -93,7 +96,7 @@ func (client *InterconnectBlocksClient) createOrUpdate(ctx context.Context, reso
 func (client *InterconnectBlocksClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, interconnectBlockName string, resource InterconnectBlock, _ *InterconnectBlocksClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/interconnectBlocks/{interconnectBlockName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -170,7 +173,7 @@ func (client *InterconnectBlocksClient) deleteOperation(ctx context.Context, res
 func (client *InterconnectBlocksClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, interconnectBlockName string, _ *InterconnectBlocksClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/interconnectBlocks/{interconnectBlockName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -217,7 +220,7 @@ func (client *InterconnectBlocksClient) Get(ctx context.Context, resourceGroupNa
 func (client *InterconnectBlocksClient) getCreateRequest(ctx context.Context, resourceGroupName string, interconnectBlockName string, options *InterconnectBlocksClientGetOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/interconnectBlocks/{interconnectBlockName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -292,7 +295,7 @@ func (client *InterconnectBlocksClient) listByResourceGroupCreateRequest(ctx con
 	if firstPage {
 		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/interconnectBlocks"
 		if client.subscriptionID == "" {
-			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 		if resourceGroupName == "" {
@@ -364,7 +367,7 @@ func (client *InterconnectBlocksClient) listBySubscriptionCreateRequest(ctx cont
 	if firstPage {
 		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Compute/interconnectBlocks"
 		if client.subscriptionID == "" {
-			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
@@ -445,7 +448,7 @@ func (client *InterconnectBlocksClient) update(ctx context.Context, resourceGrou
 func (client *InterconnectBlocksClient) updateCreateRequest(ctx context.Context, resourceGroupName string, interconnectBlockName string, properties InterconnectBlockUpdate, _ *InterconnectBlocksClientBeginUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/interconnectBlocks/{interconnectBlockName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {

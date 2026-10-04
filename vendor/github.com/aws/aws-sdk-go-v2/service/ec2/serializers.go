@@ -12548,6 +12548,76 @@ func (m *awsEc2query_serializeOpDeleteClientVpnEndpoint) HandleSerialize(ctx con
 	return next.HandleSerialize(ctx, in)
 }
 
+type awsEc2query_serializeOpDeleteClientVpnEndpointAuthorizationPolicy struct {
+}
+
+func (*awsEc2query_serializeOpDeleteClientVpnEndpointAuthorizationPolicy) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpDeleteClientVpnEndpointAuthorizationPolicy) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	_, span := tracing.StartSpan(ctx, "OperationSerializer")
+	endTimer := startMetricTimer(ctx, "client.call.serialization_duration")
+	defer endTimer()
+	defer span.End()
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*DeleteClientVpnEndpointAuthorizationPolicyInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("DeleteClientVpnEndpointAuthorizationPolicy")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentDeleteClientVpnEndpointAuthorizationPolicyInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	endTimer()
+	span.End()
+	return next.HandleSerialize(ctx, in)
+}
+
 type awsEc2query_serializeOpDeleteClientVpnRoute struct {
 }
 
@@ -39288,6 +39358,76 @@ func (m *awsEc2query_serializeOpGetCapacityReservationUsage) HandleSerialize(ctx
 	return next.HandleSerialize(ctx, in)
 }
 
+type awsEc2query_serializeOpGetClientVpnEndpointAuthorizationPolicy struct {
+}
+
+func (*awsEc2query_serializeOpGetClientVpnEndpointAuthorizationPolicy) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpGetClientVpnEndpointAuthorizationPolicy) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	_, span := tracing.StartSpan(ctx, "OperationSerializer")
+	endTimer := startMetricTimer(ctx, "client.call.serialization_duration")
+	defer endTimer()
+	defer span.End()
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*GetClientVpnEndpointAuthorizationPolicyInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("GetClientVpnEndpointAuthorizationPolicy")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentGetClientVpnEndpointAuthorizationPolicyInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	endTimer()
+	span.End()
+	return next.HandleSerialize(ctx, in)
+}
+
 type awsEc2query_serializeOpGetCoipPoolUsage struct {
 }
 
@@ -45146,6 +45286,76 @@ func (m *awsEc2query_serializeOpModifyClientVpnEndpoint) HandleSerialize(ctx con
 	body.Key("Version").String("2016-11-15")
 
 	if err := awsEc2query_serializeOpDocumentModifyClientVpnEndpointInput(input, bodyEncoder.Value); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	err = bodyEncoder.Encode()
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request, err = request.SetStream(bytes.NewReader(bodyWriter.Bytes())); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+
+	if request.Request, err = httpBindingEncoder.Encode(request.Request); err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	in.Request = request
+
+	endTimer()
+	span.End()
+	return next.HandleSerialize(ctx, in)
+}
+
+type awsEc2query_serializeOpModifyClientVpnEndpointAuthorizationPolicy struct {
+}
+
+func (*awsEc2query_serializeOpModifyClientVpnEndpointAuthorizationPolicy) ID() string {
+	return "OperationSerializer"
+}
+
+func (m *awsEc2query_serializeOpModifyClientVpnEndpointAuthorizationPolicy) HandleSerialize(ctx context.Context, in middleware.SerializeInput, next middleware.SerializeHandler) (
+	out middleware.SerializeOutput, metadata middleware.Metadata, err error,
+) {
+	_, span := tracing.StartSpan(ctx, "OperationSerializer")
+	endTimer := startMetricTimer(ctx, "client.call.serialization_duration")
+	defer endTimer()
+	defer span.End()
+	request, ok := in.Request.(*smithyhttp.Request)
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown transport type %T", in.Request)}
+	}
+
+	input, ok := in.Parameters.(*ModifyClientVpnEndpointAuthorizationPolicyInput)
+	_ = input
+	if !ok {
+		return out, metadata, &smithy.SerializationError{Err: fmt.Errorf("unknown input parameters type %T", in.Parameters)}
+	}
+
+	operationPath := "/"
+	if len(request.Request.URL.Path) == 0 {
+		request.Request.URL.Path = operationPath
+	} else {
+		request.Request.URL.Path = path.Join(request.Request.URL.Path, operationPath)
+		if request.Request.URL.Path != "/" && operationPath[len(operationPath)-1] == '/' {
+			request.Request.URL.Path += "/"
+		}
+	}
+	request.Request.Method = "POST"
+	httpBindingEncoder, err := httpbinding.NewEncoder(request.URL.Path, request.URL.RawQuery, request.Header)
+	if err != nil {
+		return out, metadata, &smithy.SerializationError{Err: err}
+	}
+	httpBindingEncoder.SetHeader("Content-Type").String("application/x-www-form-urlencoded")
+
+	bodyWriter := bytes.NewBuffer(nil)
+	bodyEncoder := query.NewEncoder(bodyWriter)
+	body := bodyEncoder.Object()
+	body.Key("Action").String("ModifyClientVpnEndpointAuthorizationPolicy")
+	body.Key("Version").String("2016-11-15")
+
+	if err := awsEc2query_serializeOpDocumentModifyClientVpnEndpointAuthorizationPolicyInput(input, bodyEncoder.Value); err != nil {
 		return out, metadata, &smithy.SerializationError{Err: err}
 	}
 
@@ -57395,6 +57605,43 @@ func awsEc2query_serializeDocumentClientVpnSecurityGroupIdSet(v []string, value 
 	return nil
 }
 
+func awsEc2query_serializeDocumentClientVpnTrustProviderRequest(v *types.ClientVpnTrustProviderRequest, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.PublicSigningKeyUrl != nil {
+		objectKey := object.Key("PublicSigningKeyUrl")
+		objectKey.String(*v.PublicSigningKeyUrl)
+	}
+
+	if v.TenantId != nil {
+		objectKey := object.Key("TenantId")
+		objectKey.String(*v.TenantId)
+	}
+
+	if len(v.TrustProviderType) > 0 {
+		objectKey := object.Key("TrustProviderType")
+		objectKey.String(string(v.TrustProviderType))
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentClientVpnTrustProviderRequestList(v []types.ClientVpnTrustProviderRequest, value query.Value) error {
+	if len(v) == 0 {
+		return nil
+	}
+	array := value.Array("Item")
+
+	for i := range v {
+		av := array.Value()
+		if err := awsEc2query_serializeDocumentClientVpnTrustProviderRequest(&v[i], av); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func awsEc2query_serializeDocumentCloudWatchLogOptionsSpecification(v *types.CloudWatchLogOptionsSpecification, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -57475,6 +57722,11 @@ func awsEc2query_serializeDocumentConnectionLogOptions(v *types.ConnectionLogOpt
 	if v.Enabled != nil {
 		objectKey := object.Key("Enabled")
 		objectKey.Boolean(*v.Enabled)
+	}
+
+	if v.IncludeAuthorizationPolicyContext != nil {
+		objectKey := object.Key("IncludeAuthorizationPolicyContext")
+		objectKey.Boolean(*v.IncludeAuthorizationPolicyContext)
 	}
 
 	return nil
@@ -58260,6 +58512,25 @@ func awsEc2query_serializeDocumentDestinationOptionsRequest(v *types.Destination
 	if v.PerHourPartition != nil {
 		objectKey := object.Key("PerHourPartition")
 		objectKey.Boolean(*v.PerHourPartition)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeDocumentDevicePostureOptions(v *types.DevicePostureOptions, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.Enabled != nil {
+		objectKey := object.Key("Enabled")
+		objectKey.Boolean(*v.Enabled)
+	}
+
+	if v.TrustProviders != nil {
+		objectKey := object.FlatKey("TrustProvider")
+		if err := awsEc2query_serializeDocumentClientVpnTrustProviderRequestList(v.TrustProviders, objectKey); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -71225,6 +71496,13 @@ func awsEc2query_serializeOpDocumentCreateClientVpnEndpointInput(v *CreateClient
 		objectKey.String(*v.Description)
 	}
 
+	if v.DevicePostureOptions != nil {
+		objectKey := object.Key("DevicePostureOptions")
+		if err := awsEc2query_serializeDocumentDevicePostureOptions(v.DevicePostureOptions, objectKey); err != nil {
+			return err
+		}
+	}
+
 	if v.DisconnectOnSessionTimeout != nil {
 		objectKey := object.Key("DisconnectOnSessionTimeout")
 		objectKey.Boolean(*v.DisconnectOnSessionTimeout)
@@ -75877,6 +76155,23 @@ func awsEc2query_serializeOpDocumentDeleteCarrierGatewayInput(v *DeleteCarrierGa
 	if v.CarrierGatewayId != nil {
 		objectKey := object.Key("CarrierGatewayId")
 		objectKey.String(*v.CarrierGatewayId)
+	}
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	return nil
+}
+
+func awsEc2query_serializeOpDocumentDeleteClientVpnEndpointAuthorizationPolicyInput(v *DeleteClientVpnEndpointAuthorizationPolicyInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.ClientVpnEndpointId != nil {
+		objectKey := object.Key("ClientVpnEndpointId")
+		objectKey.String(*v.ClientVpnEndpointId)
 	}
 
 	if v.DryRun != nil {
@@ -86575,6 +86870,23 @@ func awsEc2query_serializeOpDocumentGetCapacityReservationUsageInput(v *GetCapac
 	return nil
 }
 
+func awsEc2query_serializeOpDocumentGetClientVpnEndpointAuthorizationPolicyInput(v *GetClientVpnEndpointAuthorizationPolicyInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.ClientVpnEndpointId != nil {
+		objectKey := object.Key("ClientVpnEndpointId")
+		objectKey.String(*v.ClientVpnEndpointId)
+	}
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeOpDocumentGetCoipPoolUsageInput(v *GetCoipPoolUsageInput, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -89199,6 +89511,43 @@ func awsEc2query_serializeOpDocumentModifyCapacityReservationInput(v *ModifyCapa
 	return nil
 }
 
+func awsEc2query_serializeOpDocumentModifyClientVpnEndpointAuthorizationPolicyInput(v *ModifyClientVpnEndpointAuthorizationPolicyInput, value query.Value) error {
+	object := value.Object()
+	_ = object
+
+	if v.ClientToken != nil {
+		objectKey := object.Key("ClientToken")
+		objectKey.String(*v.ClientToken)
+	}
+
+	if v.ClientVpnEndpointId != nil {
+		objectKey := object.Key("ClientVpnEndpointId")
+		objectKey.String(*v.ClientVpnEndpointId)
+	}
+
+	if v.Description != nil {
+		objectKey := object.Key("Description")
+		objectKey.String(*v.Description)
+	}
+
+	if v.DryRun != nil {
+		objectKey := object.Key("DryRun")
+		objectKey.Boolean(*v.DryRun)
+	}
+
+	if v.PolicyDocument != nil {
+		objectKey := object.Key("PolicyDocument")
+		objectKey.String(*v.PolicyDocument)
+	}
+
+	if len(v.ShadowMode) > 0 {
+		objectKey := object.Key("ShadowMode")
+		objectKey.String(string(v.ShadowMode))
+	}
+
+	return nil
+}
+
 func awsEc2query_serializeOpDocumentModifyClientVpnEndpointInput(v *ModifyClientVpnEndpointInput, value query.Value) error {
 	object := value.Object()
 	_ = object
@@ -89239,6 +89588,13 @@ func awsEc2query_serializeOpDocumentModifyClientVpnEndpointInput(v *ModifyClient
 	if v.Description != nil {
 		objectKey := object.Key("Description")
 		objectKey.String(*v.Description)
+	}
+
+	if v.DevicePostureOptions != nil {
+		objectKey := object.Key("DevicePostureOptions")
+		if err := awsEc2query_serializeDocumentDevicePostureOptions(v.DevicePostureOptions, objectKey); err != nil {
+			return err
+		}
 	}
 
 	if v.DisconnectOnSessionTimeout != nil {

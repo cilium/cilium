@@ -72,16 +72,33 @@ type CreateVpcEndpointInput struct {
 	// : enableDnsHostnames and enableDnsSupport . Use ModifyVpcAttribute to set the VPC attributes.
 	PrivateDnsEnabled *bool
 
-	// The Amazon Resource Name (ARN) of a resource configuration that will be
-	// associated with the VPC endpoint of type resource.
+	// (Resource and Tunnel endpoints only) The Amazon Resource Name (ARN) of a
+	// resource configuration associated with the VPC endpoint. The type of resource
+	// configuration depends on the endpoint type:
+	//
+	//   - For a Resource endpoint, you can specify a resource configuration that is
+	//   of type SINGLE , GROUP , or ARN . To reach a resource that belongs to a group,
+	//   specify the parent GROUP resource configuration.
+	//
+	//   - For a Tunnel endpoint, you can specify a resource configuration that is of
+	//   type CIDR .
+	//
+	// For more information about the types of resource configurations, see [Types of resource configurations] in the
+	// Amazon Web Services PrivateLink User Guide.
+	//
+	// This request fails if a VPC endpoint owned by a different Amazon Web Services
+	// account already exists on a resource gateway that is enabled for
+	// ResourceGatewayCharges payer responsibility.
+	//
+	// [Types of resource configurations]: https://docs.aws.amazon.com/vpc/latest/privatelink/resource-configuration.html
 	ResourceConfigurationArn *string
 
 	// (Gateway endpoint) The route table IDs.
 	RouteTableIds []string
 
-	// (Interface endpoint) The IDs of the security groups to associate with the
-	// endpoint network interfaces. If this parameter is not specified, we use the
-	// default security group for the VPC.
+	// (Interface, Resource, ServiceNetwork, and Tunnel endpoints only) The IDs of the
+	// security groups to associate with the endpoint network interfaces. If this
+	// parameter is not specified, we use the default security group for the VPC.
 	SecurityGroupIds []string
 
 	// The name of the endpoint service.
@@ -97,9 +114,13 @@ type CreateVpcEndpointInput struct {
 	// The subnet configurations for the endpoint.
 	SubnetConfigurations []types.SubnetConfiguration
 
-	// (Interface and Gateway Load Balancer endpoints) The IDs of the subnets in which
-	// to create endpoint network interfaces. For a Gateway Load Balancer endpoint, you
-	// can specify only one subnet.
+	// (Interface, Gateway Load Balancer endpoints, Resource, ServiceNetwork, and
+	// Tunnel endpoints only) The IDs of the subnets in which to create endpoint
+	// network interfaces. For a Gateway Load Balancer endpoint, you can specify only
+	// one subnet. For a Tunnel endpoint, the subnets must be in the Availability
+	// Zones of the resource gateway associated with the shared resource configuration.
+	// An endpoint network interface is created only in an Availability Zone that the
+	// resource gateway is also in.
 	SubnetIds []string
 
 	// The tags to associate with the endpoint.
@@ -107,7 +128,12 @@ type CreateVpcEndpointInput struct {
 
 	// The type of endpoint.
 	//
+	// For more information about the types of VPC endpoints, see [VPC endpoints] in the Amazon Web
+	// Services PrivateLink User Guide.
+	//
 	// Default: Gateway
+	//
+	// [VPC endpoints]: https://docs.aws.amazon.com/vpc/latest/privatelink/concepts.html#concepts-vpc-endpoints
 	VpcEndpointType types.VpcEndpointType
 
 	noSmithyDocumentSerde

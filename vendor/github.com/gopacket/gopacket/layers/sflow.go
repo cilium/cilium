@@ -323,6 +323,10 @@ func (s *SFlowDatagram) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback)
 		return fmt.Errorf("SFlow Datagram has invalid sample length: %d", s.SampleCount)
 	}
 	for i := uint32(0); i < s.SampleCount; i++ {
+		if err := sflowNeed(&data, 4, "sample header"); err != nil {
+			df.SetTruncated()
+			return err
+		}
 		sdf := SFlowDataFormat(binary.BigEndian.Uint32(data[:4]))
 		_, sampleType := sdf.decode()
 		switch sampleType {
@@ -459,14 +463,52 @@ func (fs SFlowFlowSample) GetType() SFlowSampleType {
 	return SFlowTypeFlowSample
 }
 
+// sflowNeed returns an error when fewer than n bytes remain in data. Every
+// count and length in an sFlow datagram is attacker-controlled, so each
+// fixed-size read is bounded before it happens.
+func sflowNeed(data *[]byte, n int, what string) error {
+	if len(*data) < n {
+		return fmt.Errorf("SFlow %s truncated: need %d bytes, have %d", what, n, len(*data))
+	}
+	return nil
+}
+
+// sflowPadded returns n rounded up to a 4-byte boundary, or an error when n
+// (or its padded size) exceeds the bytes remaining.
+func sflowPadded(data *[]byte, n uint32, what string) (int, error) {
+	if n > uint32(len(*data)) {
+		return 0, fmt.Errorf("SFlow %s length %d exceeds remaining %d bytes", what, n, len(*data))
+	}
+	padded := int(n)
+	if n%4 != 0 {
+		padded += int(4 - n%4)
+	}
+	if padded > len(*data) {
+		return 0, fmt.Errorf("SFlow %s padded length %d exceeds remaining %d bytes", what, padded, len(*data))
+	}
+	return padded, nil
+}
+
 func skipRecord(data *[]byte) {
+	if len(*data) < 8 {
+		*data = (*data)[:0]
+		return
+	}
 	recordLength := int(binary.BigEndian.Uint32((*data)[4:]))
-	*data = (*data)[(recordLength+((4-recordLength)%4))+8:]
+	skip := (recordLength + ((4 - recordLength) % 4)) + 8
+	if skip < 0 || skip > len(*data) {
+		*data = (*data)[:0]
+		return
+	}
+	*data = (*data)[skip:]
 }
 
 func decodeFlowSample(data *[]byte, expanded bool) (SFlowFlowSample, error) {
 	s := SFlowFlowSample{}
 	var sdf SFlowDataFormat
+	if err := sflowNeed(data, 4, "FlowSample"); err != nil {
+		return SFlowFlowSample{}, err
+	}
 	*data, sdf = (*data)[4:], SFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	var sdc SFlowDataSource
 
@@ -541,6 +583,9 @@ func decodeFlowSample(data *[]byte, expanded bool) (SFlowFlowSample, error) {
 	*data, s.RecordCount = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 
 	for i := uint32(0); i < s.RecordCount; i++ {
+		if err := sflowNeed(data, 4, "flow record header"); err != nil {
+			return s, err
+		}
 		rdf := SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 		enterpriseID, flowRecordType := rdf.decode()
 
@@ -795,6 +840,13 @@ func decodeCounterSample(data *[]byte, expanded bool) (SFlowCounterSample, error
 	var sdce SFlowDataSourceExpanded
 	var sdf SFlowDataFormat
 
+	need := 20
+	if expanded {
+		need = 24
+	}
+	if err := sflowNeed(data, need, "counter sample header"); err != nil {
+		return SFlowCounterSample{}, err
+	}
 	*data, sdf = (*data)[4:], SFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	s.EnterpriseID, s.Format = sdf.decode()
 	*data, s.SampleLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -809,6 +861,9 @@ func decodeCounterSample(data *[]byte, expanded bool) (SFlowCounterSample, error
 	*data, s.RecordCount = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 
 	for i := uint32(0); i < s.RecordCount; i++ {
+		if err := sflowNeed(data, 4, "counter record header"); err != nil {
+			return s, err
+		}
 		cdf := SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 		_, counterRecordType := cdf.decode()
 		switch counterRecordType {
@@ -1075,6 +1130,9 @@ func decodeRawPacketFlowRecord(data *[]byte) (SFlowRawPacketFlowRecord, error) {
 	header := []byte{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 24, "RawPacketFlowRecord"); err != nil {
+		return SFlowRawPacketFlowRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	rec.EnterpriseID, rec.Format = fdf.decode()
 	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -1082,7 +1140,10 @@ func decodeRawPacketFlowRecord(data *[]byte) (SFlowRawPacketFlowRecord, error) {
 	*data, rec.FrameLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, rec.PayloadRemoved = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, rec.HeaderLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	headerLenWithPadding := int(rec.HeaderLength + ((4 - rec.HeaderLength) % 4))
+	headerLenWithPadding, err := sflowPadded(data, rec.HeaderLength, "raw packet header")
+	if err != nil {
+		return SFlowRawPacketFlowRecord{}, err
+	}
 	*data, header = (*data)[headerLenWithPadding:], (*data)[:headerLenWithPadding]
 	rec.Header = gopacket.NewPacket(header, LayerTypeEthernet, gopacket.Default)
 	return rec, nil
@@ -1121,6 +1182,9 @@ func decodeExtendedSwitchFlowRecord(data *[]byte) (SFlowExtendedSwitchFlowRecord
 	es := SFlowExtendedSwitchFlowRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 24, "ExtendedSwitchFlowRecord"); err != nil {
+		return SFlowExtendedSwitchFlowRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	es.EnterpriseID, es.Format = fdf.decode()
 	*data, es.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -1164,10 +1228,16 @@ func decodeExtendedRouterFlowRecord(data *[]byte) (SFlowExtendedRouterFlowRecord
 	var fdf SFlowFlowDataFormat
 	var extendedRouterAddressType SFlowIPType
 
+	if err := sflowNeed(data, 12, "ExtendedRouterFlowRecord"); err != nil {
+		return SFlowExtendedRouterFlowRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	er.EnterpriseID, er.Format = fdf.decode()
 	*data, er.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, extendedRouterAddressType = (*data)[4:], SFlowIPType(binary.BigEndian.Uint32((*data)[:4]))
+	if err := sflowNeed(data, extendedRouterAddressType.Length()+8, "extended router next hop"); err != nil {
+		return SFlowExtendedRouterFlowRecord{}, err
+	}
 	*data, er.NextHop = (*data)[extendedRouterAddressType.Length():], (*data)[:extendedRouterAddressType.Length()]
 	*data, er.NextHopSourceMask = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, er.NextHopDestinationMask = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -1280,6 +1350,9 @@ func (asd SFlowASDestination) String() string {
 }
 
 func (ad *SFlowASDestination) decodePath(data *[]byte) error {
+	if err := sflowNeed(data, 8, "Path"); err != nil {
+		return err
+	}
 	*data, ad.Type = (*data)[4:], SFlowASPathType(binary.BigEndian.Uint32((*data)[:4]))
 	*data, ad.Count = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	// ad.Count is an attacker-controlled 32-bit field and each member that
@@ -1305,10 +1378,16 @@ func decodeExtendedGatewayFlowRecord(data *[]byte) (SFlowExtendedGatewayFlowReco
 	var communitiesLength uint32
 	var community uint32
 
+	if err := sflowNeed(data, 12, "ExtendedGatewayFlowRecord"); err != nil {
+		return SFlowExtendedGatewayFlowRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	eg.EnterpriseID, eg.Format = fdf.decode()
 	*data, eg.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, extendedGatewayAddressType = (*data)[4:], SFlowIPType(binary.BigEndian.Uint32((*data)[:4]))
+	if err := sflowNeed(data, extendedGatewayAddressType.Length()+16, "extended gateway header"); err != nil {
+		return SFlowExtendedGatewayFlowRecord{}, err
+	}
 	*data, eg.NextHop = (*data)[extendedGatewayAddressType.Length():], (*data)[:extendedGatewayAddressType.Length()]
 	*data, eg.AS = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, eg.SourceAS = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -1320,6 +1399,9 @@ func decodeExtendedGatewayFlowRecord(data *[]byte) (SFlowExtendedGatewayFlowReco
 			return eg, err
 		}
 		eg.ASPath = append(eg.ASPath, asPath)
+	}
+	if err := sflowNeed(data, 4, "extended gateway communities"); err != nil {
+		return SFlowExtendedGatewayFlowRecord{}, err
 	}
 	*data, communitiesLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	// communitiesLength is an attacker-controlled 32-bit field and each
@@ -1334,6 +1416,9 @@ func decodeExtendedGatewayFlowRecord(data *[]byte) (SFlowExtendedGatewayFlowReco
 	for j := uint32(0); j < communitiesLength; j++ {
 		*data, community = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 		eg.Communities[j] = community
+	}
+	if err := sflowNeed(data, 4, "extended gateway local pref"); err != nil {
+		return SFlowExtendedGatewayFlowRecord{}, err
 	}
 	*data, eg.LocalPref = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	return eg, nil
@@ -1391,16 +1476,28 @@ func decodeExtendedURLRecord(data *[]byte) (SFlowExtendedURLRecord, error) {
 	var urlBytes []byte
 	var hostBytes []byte
 
+	if err := sflowNeed(data, 16, "ExtendedURLRecord"); err != nil {
+		return SFlowExtendedURLRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	eur.EnterpriseID, eur.Format = fdf.decode()
 	*data, eur.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, eur.Direction = (*data)[4:], SFlowURLDirection(binary.BigEndian.Uint32((*data)[:4]))
 	*data, urlLen = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	urlLenWithPad = int(urlLen + ((4 - urlLen) % 4))
+	urlLenWithPad, err := sflowPadded(data, urlLen, "URL")
+	if err != nil {
+		return SFlowExtendedURLRecord{}, err
+	}
 	*data, urlBytes = (*data)[urlLenWithPad:], (*data)[:urlLenWithPad]
 	eur.URL = string(urlBytes[:urlLen])
+	if err := sflowNeed(data, 4, "URL host length"); err != nil {
+		return SFlowExtendedURLRecord{}, err
+	}
 	*data, hostLen = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	hostLenWithPad = int(hostLen + ((4 - hostLen) % 4))
+	hostLenWithPad, err = sflowPadded(data, hostLen, "URL host")
+	if err != nil {
+		return SFlowExtendedURLRecord{}, err
+	}
 	*data, hostBytes = (*data)[hostLenWithPad:], (*data)[:hostLenWithPad]
 	eur.Host = string(hostBytes[:hostLen])
 	return eur, nil
@@ -1707,17 +1804,29 @@ func decodeExtendedUserFlow(data *[]byte) (SFlowExtendedUserFlow, error) {
 	var dstUserLenWithPad int
 	var dstUserBytes []byte
 
+	if err := sflowNeed(data, 16, "ExtendedUserFlow"); err != nil {
+		return SFlowExtendedUserFlow{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	eu.EnterpriseID, eu.Format = fdf.decode()
 	*data, eu.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, eu.SourceCharSet = (*data)[4:], SFlowCharSet(binary.BigEndian.Uint32((*data)[:4]))
 	*data, srcUserLen = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	srcUserLenWithPad = int(srcUserLen + ((4 - srcUserLen) % 4))
+	srcUserLenWithPad, err := sflowPadded(data, srcUserLen, "source user")
+	if err != nil {
+		return SFlowExtendedUserFlow{}, err
+	}
 	*data, srcUserBytes = (*data)[srcUserLenWithPad:], (*data)[:srcUserLenWithPad]
 	eu.SourceUserID = string(srcUserBytes[:srcUserLen])
+	if err := sflowNeed(data, 8, "destination user"); err != nil {
+		return SFlowExtendedUserFlow{}, err
+	}
 	*data, eu.DestinationCharSet = (*data)[4:], SFlowCharSet(binary.BigEndian.Uint32((*data)[:4]))
 	*data, dstUserLen = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	dstUserLenWithPad = int(dstUserLen + ((4 - dstUserLen) % 4))
+	dstUserLenWithPad, err = sflowPadded(data, dstUserLen, "destination user")
+	if err != nil {
+		return SFlowExtendedUserFlow{}, err
+	}
 	*data, dstUserBytes = (*data)[dstUserLenWithPad:], (*data)[:dstUserLenWithPad]
 	eu.DestinationUserID = string(dstUserBytes[:dstUserLen])
 	return eu, nil
@@ -1769,6 +1878,9 @@ type SFlowIpv4Record struct {
 func decodeSFlowIpv4Record(data *[]byte) (SFlowIpv4Record, error) {
 	si := SFlowIpv4Record{}
 
+	if err := sflowNeed(data, 32, "SFlowIpv4Record"); err != nil {
+		return SFlowIpv4Record{}, err
+	}
 	*data, si.Length = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, si.Protocol = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, si.IPSrc = (*data)[4:], net.IP((*data)[:4])
@@ -1827,6 +1939,9 @@ type SFlowIpv6Record struct {
 func decodeSFlowIpv6Record(data *[]byte) (SFlowIpv6Record, error) {
 	si := SFlowIpv6Record{}
 
+	if err := sflowNeed(data, 56, "SFlowIpv6Record"); err != nil {
+		return SFlowIpv6Record{}, err
+	}
 	*data, si.Length = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, si.Protocol = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
 	*data, si.IPSrc = (*data)[16:], net.IP((*data)[:16])
@@ -1863,10 +1978,17 @@ func decodeExtendedIpv4TunnelEgress(data *[]byte) (SFlowExtendedIpv4TunnelEgress
 	rec := SFlowExtendedIpv4TunnelEgressRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 8, "ExtendedIpv4TunnelEgress"); err != nil {
+		return SFlowExtendedIpv4TunnelEgressRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	rec.EnterpriseID, rec.Format = fdf.decode()
 	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	rec.SFlowIpv4Record, _ = decodeSFlowIpv4Record(data)
+	var err error
+	rec.SFlowIpv4Record, err = decodeSFlowIpv4Record(data)
+	if err != nil {
+		return SFlowExtendedIpv4TunnelEgressRecord{}, err
+	}
 
 	return rec, nil
 }
@@ -1895,10 +2017,17 @@ func decodeExtendedIpv4TunnelIngress(data *[]byte) (SFlowExtendedIpv4TunnelIngre
 	rec := SFlowExtendedIpv4TunnelIngressRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 8, "ExtendedIpv4TunnelIngress"); err != nil {
+		return SFlowExtendedIpv4TunnelIngressRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	rec.EnterpriseID, rec.Format = fdf.decode()
 	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	rec.SFlowIpv4Record, _ = decodeSFlowIpv4Record(data)
+	var err error
+	rec.SFlowIpv4Record, err = decodeSFlowIpv4Record(data)
+	if err != nil {
+		return SFlowExtendedIpv4TunnelIngressRecord{}, err
+	}
 
 	return rec, nil
 }
@@ -1927,10 +2056,17 @@ func decodeExtendedIpv6TunnelEgress(data *[]byte) (SFlowExtendedIpv6TunnelEgress
 	rec := SFlowExtendedIpv6TunnelEgressRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 8, "ExtendedIpv6TunnelEgress"); err != nil {
+		return SFlowExtendedIpv6TunnelEgressRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	rec.EnterpriseID, rec.Format = fdf.decode()
 	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	rec.SFlowIpv6Record, _ = decodeSFlowIpv6Record(data)
+	var err error
+	rec.SFlowIpv6Record, err = decodeSFlowIpv6Record(data)
+	if err != nil {
+		return SFlowExtendedIpv6TunnelEgressRecord{}, err
+	}
 
 	return rec, nil
 }
@@ -1959,10 +2095,17 @@ func decodeExtendedIpv6TunnelIngress(data *[]byte) (SFlowExtendedIpv6TunnelIngre
 	rec := SFlowExtendedIpv6TunnelIngressRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 8, "ExtendedIpv6TunnelIngress"); err != nil {
+		return SFlowExtendedIpv6TunnelIngressRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	rec.EnterpriseID, rec.Format = fdf.decode()
 	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	rec.SFlowIpv6Record, _ = decodeSFlowIpv6Record(data)
+	var err error
+	rec.SFlowIpv6Record, err = decodeSFlowIpv6Record(data)
+	if err != nil {
+		return SFlowExtendedIpv6TunnelIngressRecord{}, err
+	}
 
 	return rec, nil
 }
@@ -1990,6 +2133,9 @@ func decodeExtendedDecapsulateEgress(data *[]byte) (SFlowExtendedDecapsulateEgre
 	rec := SFlowExtendedDecapsulateEgressRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 12, "ExtendedDecapsulateEgress"); err != nil {
+		return SFlowExtendedDecapsulateEgressRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	rec.EnterpriseID, rec.Format = fdf.decode()
 	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2023,6 +2169,9 @@ func decodeExtendedDecapsulateIngress(data *[]byte) (SFlowExtendedDecapsulateIng
 	rec := SFlowExtendedDecapsulateIngressRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 12, "ExtendedDecapsulateIngress"); err != nil {
+		return SFlowExtendedDecapsulateIngressRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	rec.EnterpriseID, rec.Format = fdf.decode()
 	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2056,6 +2205,9 @@ func decodeExtendedVniEgress(data *[]byte) (SFlowExtendedVniEgressRecord, error)
 	rec := SFlowExtendedVniEgressRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 12, "ExtendedVniEgress"); err != nil {
+		return SFlowExtendedVniEgressRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	rec.EnterpriseID, rec.Format = fdf.decode()
 	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2089,6 +2241,9 @@ func decodeExtendedVniIngress(data *[]byte) (SFlowExtendedVniIngressRecord, erro
 	rec := SFlowExtendedVniIngressRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 12, "ExtendedVniIngress"); err != nil {
+		return SFlowExtendedVniIngressRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	rec.EnterpriseID, rec.Format = fdf.decode()
 	*data, rec.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2225,6 +2380,9 @@ func decodeGenericInterfaceCounters(data *[]byte) (SFlowGenericInterfaceCounters
 	gic := SFlowGenericInterfaceCounters{}
 	var cdf SFlowCounterDataFormat
 
+	if err := sflowNeed(data, 96, "GenericInterfaceCounters"); err != nil {
+		return SFlowGenericInterfaceCounters{}, err
+	}
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	gic.EnterpriseID, gic.Format = cdf.decode()
 	*data, gic.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2285,6 +2443,9 @@ func decodeEthernetCounters(data *[]byte) (SFlowEthernetCounters, error) {
 	ec := SFlowEthernetCounters{}
 	var cdf SFlowCounterDataFormat
 
+	if err := sflowNeed(data, 4, "EthernetCounters"); err != nil {
+		return SFlowEthernetCounters{}, err
+	}
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	ec.EnterpriseID, ec.Format = cdf.decode()
 	if len(*data) < 4 {
@@ -2362,6 +2523,9 @@ func decodeVLANCounters(data *[]byte) (SFlowVLANCounters, error) {
 	vc := SFlowVLANCounters{}
 	var cdf SFlowCounterDataFormat
 
+	if err := sflowNeed(data, 36, "VLANCounters"); err != nil {
+		return SFlowVLANCounters{}, err
+	}
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	vc.EnterpriseID, vc.Format = cdf.decode()
 	vc.EnterpriseID, vc.Format = cdf.decode()
@@ -2401,6 +2565,9 @@ func decodeLACPCounters(data *[]byte) (SFlowLACPCounters, error) {
 	la := SFlowLACPCounters{}
 	var cdf SFlowCounterDataFormat
 
+	if err := sflowNeed(data, 64, "LACPCounters"); err != nil {
+		return SFlowLACPCounters{}, err
+	}
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	la.EnterpriseID, la.Format = cdf.decode()
 	*data, la.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2458,6 +2625,9 @@ func decodeProcessorCounters(data *[]byte) (SFlowProcessorCounters, error) {
 	var cdf SFlowCounterDataFormat
 	var high32, low32 uint32
 
+	if err := sflowNeed(data, 36, "ProcessorCounters"); err != nil {
+		return SFlowProcessorCounters{}, err
+	}
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	pc.EnterpriseID, pc.Format = cdf.decode()
 	*data, pc.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2505,6 +2675,9 @@ func decodeEthernetFrameFlowRecord(data *[]byte) (SFlowEthernetFrameFlowRecord, 
 	es := SFlowEthernetFrameFlowRecord{}
 	var fdf SFlowFlowDataFormat
 
+	if err := sflowNeed(data, 32, "EthernetFrameFlowRecord"); err != nil {
+		return SFlowEthernetFrameFlowRecord{}, err
+	}
 	*data, fdf = (*data)[4:], SFlowFlowDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	es.EnterpriseID, es.Format = fdf.decode()
 	*data, es.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2527,6 +2700,9 @@ func decodeOpenflowportCounters(data *[]byte) (SFlowOpenflowPortCounters, error)
 	ofp := SFlowOpenflowPortCounters{}
 	var cdf SFlowCounterDataFormat
 
+	if err := sflowNeed(data, 20, "OpenflowportCounters"); err != nil {
+		return SFlowOpenflowPortCounters{}, err
+	}
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	ofp.EnterpriseID, ofp.Format = cdf.decode()
 	*data, ofp.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2553,6 +2729,9 @@ func decodeAppresourcesCounters(data *[]byte) (SFlowAppresourcesCounters, error)
 	app := SFlowAppresourcesCounters{}
 	var cdf SFlowCounterDataFormat
 
+	if err := sflowNeed(data, 48, "AppresourcesCounters"); err != nil {
+		return SFlowAppresourcesCounters{}, err
+	}
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	app.EnterpriseID, app.Format = cdf.decode()
 	*data, app.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2583,6 +2762,9 @@ func decodeOVSDPCounters(data *[]byte) (SFlowOVSDPCounters, error) {
 	dp := SFlowOVSDPCounters{}
 	var cdf SFlowCounterDataFormat
 
+	if err := sflowNeed(data, 32, "OVSDPCounters"); err != nil {
+		return SFlowOVSDPCounters{}, err
+	}
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	dp.EnterpriseID, dp.Format = cdf.decode()
 	*data, dp.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
@@ -2603,24 +2785,37 @@ type SFlowPORTNAME struct {
 	Str string
 }
 
-func decodeString(data *[]byte) (len uint32, str string) {
-	*data, len = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	str = string((*data)[:len])
-	if (len % 4) != 0 {
-		len += 4 - len%4
+func decodeString(data *[]byte) (uint32, string, error) {
+	if err := sflowNeed(data, 4, "string length"); err != nil {
+		return 0, "", err
 	}
-	*data = (*data)[len:]
-	return
+	var n uint32
+	*data, n = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
+	padded, err := sflowPadded(data, n, "string")
+	if err != nil {
+		return 0, "", err
+	}
+	str := string((*data)[:n])
+	*data = (*data)[padded:]
+	// Callers have always seen the padded length here; keep it.
+	return uint32(padded), str, nil
 }
 
 func decodePortnameCounters(data *[]byte) (SFlowPORTNAME, error) {
 	pn := SFlowPORTNAME{}
 	var cdf SFlowCounterDataFormat
 
+	if err := sflowNeed(data, 8, "PortnameCounters"); err != nil {
+		return SFlowPORTNAME{}, err
+	}
 	*data, cdf = (*data)[4:], SFlowCounterDataFormat(binary.BigEndian.Uint32((*data)[:4]))
 	pn.EnterpriseID, pn.Format = cdf.decode()
 	*data, pn.FlowDataLength = (*data)[4:], binary.BigEndian.Uint32((*data)[:4])
-	pn.Len, pn.Str = decodeString(data)
+	var err error
+	pn.Len, pn.Str, err = decodeString(data)
+	if err != nil {
+		return SFlowPORTNAME{}, err
+	}
 
 	return pn, nil
 }

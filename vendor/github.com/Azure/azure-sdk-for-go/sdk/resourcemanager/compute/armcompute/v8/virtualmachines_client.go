@@ -31,6 +31,9 @@ type VirtualMachinesClient struct {
 //   - credential - used to authorize requests. Usually a credential from azidentity.
 //   - options - Contains optional client configuration. Pass nil to accept the default values.
 func NewVirtualMachinesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*VirtualMachinesClient, error) {
+	if subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
 	cl, err := arm.NewClient(moduleName, moduleVersion, credential, options)
 	if err != nil {
 		return nil, err
@@ -91,7 +94,7 @@ func (client *VirtualMachinesClient) assessPatches(ctx context.Context, resource
 func (client *VirtualMachinesClient) assessPatchesCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientBeginAssessPatchesOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/assessPatches"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -163,7 +166,7 @@ func (client *VirtualMachinesClient) attachDetachDataDisks(ctx context.Context, 
 func (client *VirtualMachinesClient) attachDetachDataDisksCreateRequest(ctx context.Context, resourceGroupName string, vmName string, parameters AttachDetachDataDisksRequest, _ *VirtualMachinesClientBeginAttachDetachDataDisksOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/attachDetachDataDisks"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -241,7 +244,7 @@ func (client *VirtualMachinesClient) capture(ctx context.Context, resourceGroupN
 func (client *VirtualMachinesClient) captureCreateRequest(ctx context.Context, resourceGroupName string, vmName string, parameters VirtualMachineCaptureParameters, _ *VirtualMachinesClientBeginCaptureOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/capture"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -318,7 +321,7 @@ func (client *VirtualMachinesClient) convertToManagedDisks(ctx context.Context, 
 func (client *VirtualMachinesClient) convertToManagedDisksCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientBeginConvertToManagedDisksOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/convertToManagedDisks"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -391,7 +394,7 @@ func (client *VirtualMachinesClient) createOrUpdate(ctx context.Context, resourc
 func (client *VirtualMachinesClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, vmName string, parameters VirtualMachine, options *VirtualMachinesClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -474,7 +477,7 @@ func (client *VirtualMachinesClient) deallocate(ctx context.Context, resourceGro
 func (client *VirtualMachinesClient) deallocateCreateRequest(ctx context.Context, resourceGroupName string, vmName string, options *VirtualMachinesClientBeginDeallocateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/deallocate"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -550,7 +553,7 @@ func (client *VirtualMachinesClient) deleteOperation(ctx context.Context, resour
 func (client *VirtualMachinesClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, vmName string, options *VirtualMachinesClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -606,7 +609,7 @@ func (client *VirtualMachinesClient) Generalize(ctx context.Context, resourceGro
 func (client *VirtualMachinesClient) generalizeCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientGeneralizeOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/generalize"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -653,7 +656,7 @@ func (client *VirtualMachinesClient) Get(ctx context.Context, resourceGroupName 
 func (client *VirtualMachinesClient) getCreateRequest(ctx context.Context, resourceGroupName string, vmName string, options *VirtualMachinesClientGetOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -740,7 +743,7 @@ func (client *VirtualMachinesClient) installPatches(ctx context.Context, resourc
 func (client *VirtualMachinesClient) installPatchesCreateRequest(ctx context.Context, resourceGroupName string, vmName string, installPatchesInput VirtualMachineInstallPatchesParameters, _ *VirtualMachinesClientBeginInstallPatchesOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/installPatches"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -793,7 +796,7 @@ func (client *VirtualMachinesClient) InstanceView(ctx context.Context, resourceG
 func (client *VirtualMachinesClient) instanceViewCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientInstanceViewOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/instanceView"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -865,7 +868,7 @@ func (client *VirtualMachinesClient) listCreateRequest(ctx context.Context, reso
 	if firstPage {
 		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines"
 		if client.subscriptionID == "" {
-			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 		if resourceGroupName == "" {
@@ -943,7 +946,7 @@ func (client *VirtualMachinesClient) listAllCreateRequest(ctx context.Context, n
 	if firstPage {
 		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Compute/virtualMachines"
 		if client.subscriptionID == "" {
-			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
@@ -1021,7 +1024,7 @@ func (client *VirtualMachinesClient) listAvailableSizesCreateRequest(ctx context
 	if firstPage {
 		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/vmSizes"
 		if client.subscriptionID == "" {
-			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 		if resourceGroupName == "" {
@@ -1097,7 +1100,7 @@ func (client *VirtualMachinesClient) listByLocationCreateRequest(ctx context.Con
 	if firstPage {
 		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Compute/locations/{location}/virtualMachines"
 		if client.subscriptionID == "" {
-			return nil, errors.New("parameter client.subscriptionID cannot be empty")
+			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
 		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 		if location == "" {
@@ -1181,7 +1184,7 @@ func (client *VirtualMachinesClient) migrateToVMScaleSet(ctx context.Context, re
 func (client *VirtualMachinesClient) migrateToVMScaleSetCreateRequest(ctx context.Context, resourceGroupName string, vmName string, options *VirtualMachinesClientBeginMigrateToVMScaleSetOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/migrateToVirtualMachineScaleSet"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1258,7 +1261,7 @@ func (client *VirtualMachinesClient) performMaintenance(ctx context.Context, res
 func (client *VirtualMachinesClient) performMaintenanceCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientBeginPerformMaintenanceOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/performMaintenance"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1330,7 +1333,7 @@ func (client *VirtualMachinesClient) powerOff(ctx context.Context, resourceGroup
 func (client *VirtualMachinesClient) powerOffCreateRequest(ctx context.Context, resourceGroupName string, vmName string, options *VirtualMachinesClientBeginPowerOffOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/powerOff"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1403,7 +1406,7 @@ func (client *VirtualMachinesClient) reapply(ctx context.Context, resourceGroupN
 func (client *VirtualMachinesClient) reapplyCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientBeginReapplyOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/reapply"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1473,7 +1476,7 @@ func (client *VirtualMachinesClient) redeploy(ctx context.Context, resourceGroup
 func (client *VirtualMachinesClient) redeployCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientBeginRedeployOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/redeploy"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1551,7 +1554,7 @@ func (client *VirtualMachinesClient) reimage(ctx context.Context, resourceGroupN
 func (client *VirtualMachinesClient) reimageCreateRequest(ctx context.Context, resourceGroupName string, vmName string, options *VirtualMachinesClientBeginReimageOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/reimage"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1628,7 +1631,7 @@ func (client *VirtualMachinesClient) restart(ctx context.Context, resourceGroupN
 func (client *VirtualMachinesClient) restartCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientBeginRestartOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/restart"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1676,7 +1679,7 @@ func (client *VirtualMachinesClient) RetrieveBootDiagnosticsData(ctx context.Con
 func (client *VirtualMachinesClient) retrieveBootDiagnosticsDataCreateRequest(ctx context.Context, resourceGroupName string, vmName string, options *VirtualMachinesClientRetrieveBootDiagnosticsDataOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/retrieveBootDiagnosticsData"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1763,7 +1766,7 @@ func (client *VirtualMachinesClient) runCommand(ctx context.Context, resourceGro
 func (client *VirtualMachinesClient) runCommandCreateRequest(ctx context.Context, resourceGroupName string, vmName string, parameters RunCommandInput, _ *VirtualMachinesClientBeginRunCommandOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/runCommand"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1819,7 +1822,7 @@ func (client *VirtualMachinesClient) SimulateEviction(ctx context.Context, resou
 func (client *VirtualMachinesClient) simulateEvictionCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientSimulateEvictionOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/simulateEviction"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1889,7 +1892,7 @@ func (client *VirtualMachinesClient) start(ctx context.Context, resourceGroupNam
 func (client *VirtualMachinesClient) startCreateRequest(ctx context.Context, resourceGroupName string, vmName string, _ *VirtualMachinesClientBeginStartOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}/start"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {
@@ -1960,7 +1963,7 @@ func (client *VirtualMachinesClient) update(ctx context.Context, resourceGroupNa
 func (client *VirtualMachinesClient) updateCreateRequest(ctx context.Context, resourceGroupName string, vmName string, parameters VirtualMachineUpdate, options *VirtualMachinesClientBeginUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Compute/virtualMachines/{vmName}"
 	if client.subscriptionID == "" {
-		return nil, errors.New("parameter client.subscriptionID cannot be empty")
+		return nil, errors.New("parameter subscriptionID cannot be empty")
 	}
 	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
 	if resourceGroupName == "" {

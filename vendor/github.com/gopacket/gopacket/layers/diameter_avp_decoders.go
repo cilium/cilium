@@ -6,8 +6,20 @@ import (
 	"fmt"
 )
 
+// maxDiameterGroupedDepth bounds how far decodeDiameterAVP descends into
+// nested Grouped AVPs. Real messages nest two or three levels; a crafted
+// message can nest thousands, and each level copies the remaining payload.
+const maxDiameterGroupedDepth = 32
+
 // decodeDiameterAVP decodes a single AVP and returns it along with bytes consumed
 func decodeDiameterAVP(data []byte) (DiameterAVP, int, error) {
+	return decodeDiameterAVPDepth(data, 0)
+}
+
+// decodeDiameterAVPDepth is decodeDiameterAVP with the current Grouped
+// nesting depth. Past maxDiameterGroupedDepth the AVP keeps its raw Data and
+// is not descended into.
+func decodeDiameterAVPDepth(data []byte, depth int) (DiameterAVP, int, error) {
 	if len(data) < 8 {
 		return DiameterAVP{}, 0, errors.New("AVP too short")
 	}
@@ -68,11 +80,11 @@ func decodeDiameterAVP(data []byte) (DiameterAVP, int, error) {
 
 	// Check if this is a Grouped AVP and decode sub-AVPs
 	// Use vendor-aware type detection
-	if avpType, ok := GetDiameterAVPType(avp.Code, avp.VendorID); ok && avpType == DiameterAVPTypeGrouped {
+	if avpType, ok := GetDiameterAVPType(avp.Code, avp.VendorID); ok && avpType == DiameterAVPTypeGrouped && depth < maxDiameterGroupedDepth {
 		avp.GroupedAVPs = []DiameterAVP{}
 		subAVPData := avp.Data
 		for len(subAVPData) >= 8 {
-			subAVP, consumed, err := decodeDiameterAVP(subAVPData)
+			subAVP, consumed, err := decodeDiameterAVPDepth(subAVPData, depth+1)
 			if err != nil {
 				break
 			}

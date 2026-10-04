@@ -81,6 +81,28 @@ func NewNetem(attrs QdiscAttrs, nattrs NetemQdiscAttrs) *Netem {
 	}
 }
 
+// ToNetemQdiscAttrs converts the Netem struct back to human-readable NetemQdiscAttrs.
+// This is useful when reading qdisc settings from the kernel, as the values stored
+// in Netem are in kernel format (ticks for time, uint32 for percentages).
+func (netem *Netem) ToNetemQdiscAttrs() NetemQdiscAttrs {
+	return NetemQdiscAttrs{
+		Latency:       tick2Time(netem.Latency),
+		DelayCorr:     u32ToPercentage(netem.DelayCorr),
+		Limit:         netem.Limit,
+		Loss:          u32ToPercentage(netem.Loss),
+		LossCorr:      u32ToPercentage(netem.LossCorr),
+		Gap:           netem.Gap,
+		Duplicate:     u32ToPercentage(netem.Duplicate),
+		DuplicateCorr: u32ToPercentage(netem.DuplicateCorr),
+		Jitter:        tick2Time(netem.Jitter),
+		ReorderProb:   u32ToPercentage(netem.ReorderProb),
+		ReorderCorr:   u32ToPercentage(netem.ReorderCorr),
+		CorruptProb:   u32ToPercentage(netem.CorruptProb),
+		CorruptCorr:   u32ToPercentage(netem.CorruptCorr),
+		Rate64:        netem.Rate64,
+	}
+}
+
 // QdiscDel will delete a qdisc from the system.
 // Equivalent to: `tc qdisc del $qdisc`
 func QdiscDel(qdisc Qdisc) error {

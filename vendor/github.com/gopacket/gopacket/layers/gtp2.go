@@ -69,15 +69,21 @@ func (g *GTPv2) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
 	hLen += 4
 	cIndex += 4
 
-	for cIndex < uint16(dLen) {
+	for int(cIndex) < dLen {
+		// Need the full 4-byte IE header; int arithmetic so a 16-bit length
+		// cannot wrap past the bound.
+		if int(cIndex)+4 > dLen {
+			return fmt.Errorf("GTPv2 IE header truncated at offset %d", cIndex)
+		}
 		ieType := data[cIndex]
-		ieLength := binary.BigEndian.Uint16(data[cIndex+1 : cIndex+3])
-		if cIndex+4+uint16(ieLength) > uint16(dLen) {
+		ieLength := int(binary.BigEndian.Uint16(data[cIndex+1 : cIndex+3]))
+		ieEnd := int(cIndex) + 4 + ieLength
+		if ieEnd > dLen {
 			return fmt.Errorf("IE %d exceeds packet length", ieType)
 		}
-		ieContent := data[cIndex+4 : cIndex+4+uint16(ieLength)]
+		ieContent := data[int(cIndex)+4 : ieEnd]
 		g.IEs = append(g.IEs, IE{Type: ieType, Content: ieContent})
-		cIndex += 4 + uint16(ieLength)
+		cIndex = uint16(ieEnd)
 	}
 
 	g.BaseLayer = BaseLayer{Contents: data[:cIndex], Payload: data[cIndex:]}
