@@ -24,6 +24,8 @@ func XDP(lnc *Config, link netlink.Link) any {
 		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
 	}
 
+	cfg.EnableNAT46X64 = option.Config.NodePortNat46X64 && lnc.KPRConfig.KubeProxyReplacement
+
 	cfg.EphemeralMin = lnc.EphemeralMin
 
 	cfg.EnableXDPPrefilter = option.Config.EnableXDPPrefilter

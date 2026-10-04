@@ -24,6 +24,8 @@ type BPFSock struct {
 	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable support for Local Redirect Policy.
 	EnableLRP bool `config:"enable_lrp"`
+	// Enable NAT46/NAT64 translation for NodePort services.
+	EnableNAT46X64 bool `config:"enable_nat_46x64"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Reply with ICMP to traffic to a service with no backends.
@@ -48,6 +50,6 @@ type BPFSock struct {
 
 func NewBPFSock(node Node) *BPFSock {
 	return &BPFSock{false, false, false, false, false, false, false, false, false,
-		0x0, 0x0, cast[types.SocketLBConfig]([]byte{0x0, 0x0, 0x0}),
+		false, 0x0, 0x0, cast[types.SocketLBConfig]([]byte{0x0, 0x0, 0x0}),
 		0x0, 0x0, 0x0, node}
 }

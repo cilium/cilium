@@ -31,6 +31,8 @@ type BPFHost struct {
 	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable L2 Announcements.
 	EnableL2Announcements bool `config:"enable_l2_announcements"`
+	// Enable NAT46/NAT64 translation for NodePort services.
+	EnableNAT46X64 bool `config:"enable_nat_46x64"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
@@ -86,7 +88,8 @@ type BPFHost struct {
 
 func NewBPFHost(node Node) *BPFHost {
 	return &BPFHost{false, 0x0, false, false, false, false, false, false, false, false,
-		false, false, false, false, false, 0x0, 0xe, 0x0, false, 0x0,
+		false, false, false, false, false, false, 0x0, 0xe, 0x0, false,
+		0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
