@@ -29,6 +29,7 @@ import (
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
+	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
@@ -1358,48 +1359,222 @@ func TestCreateWatchForUnknownTypeURLBypassesCiliumTracking(t *testing.T) {
 	require.Empty(t, c.watchRelays)
 }
 
-func TestCreateWatch_IgnoresEmptySecretSubscription(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError}))
+func TestCreateWatchRejectsNilRequest(t *testing.T) {
+	mock := newMockSnapshotCache()
+	c := newTestCacheWithHasher(mock)
+	cancel, err := c.CreateWatch(nil, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
+	require.ErrorContains(t, err, "nil xDS request")
+	require.Nil(t, cancel)
+	require.Zero(t, mock.createWatchCalls)
+	require.Empty(t, mock.getSnapshotCalls)
+	require.Empty(t, mock.setSnapshotCalls)
+	require.Empty(t, c.openWatches)
+}
+
+func TestCreateWatchEmptyNamedSubscription(t *testing.T) {
+	resources := typeurl.Slots[proto.Message]{
+		typeurl.Endpoint:           &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "resource"},
+		typeurl.Cluster:            &envoy_config_cluster.Cluster{Name: "resource"},
+		typeurl.Route:              &envoy_config_route.RouteConfiguration{Name: "resource"},
+		typeurl.Listener:           &envoy_config_listener.Listener{Name: "resource"},
+		typeurl.Secret:             &envoy_config_tls.Secret{Name: "resource"},
+		typeurl.NetworkPolicy:      &cilium.NetworkPolicy{EndpointId: 1},
+		typeurl.NetworkPolicyHosts: &cilium.NetworkPolicyHosts{Policy: 1},
+	}
+	resourceSet := &xds.Resources{
+		Listeners:          map[string]*envoy_config_listener.Listener{"resource": resources[typeurl.Listener].(*envoy_config_listener.Listener)},
+		Routes:             map[string]*envoy_config_route.RouteConfiguration{"resource": resources[typeurl.Route].(*envoy_config_route.RouteConfiguration)},
+		Clusters:           map[string]*envoy_config_cluster.Cluster{"resource": resources[typeurl.Cluster].(*envoy_config_cluster.Cluster)},
+		Endpoints:          map[string]*envoy_config_endpoint.ClusterLoadAssignment{"resource": resources[typeurl.Endpoint].(*envoy_config_endpoint.ClusterLoadAssignment)},
+		Secrets:            map[string]*envoy_config_tls.Secret{"resource": resources[typeurl.Secret].(*envoy_config_tls.Secret)},
+		NetworkPolicies:    map[string]*cilium.NetworkPolicy{"resource": resources[typeurl.NetworkPolicy].(*cilium.NetworkPolicy)},
+		NetworkPolicyHosts: map[string]*cilium.NetworkPolicyHosts{"resource": resources[typeurl.NetworkPolicyHosts].(*cilium.NetworkPolicyHosts)},
+	}
+	for typeURL := range resources {
+		for _, populated := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/populated=%t", typeurl.Index(typeURL).URL(), populated), func(t *testing.T) {
+				c := NewCache(slog.New(slog.DiscardHandler), false).(*cacheImpl)
+				if populated {
+					snapshot, err := c.GenerateSnapshot(resourceSet, c.logger)
+					require.NoError(t, err)
+					require.NoError(t, c.SetSnapshot(t.Context(), "node1", snapshot))
+				}
+				before, beforeErr := c.GetSnapshot("node1")
+				request := &cache.Request{
+					Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Index(typeURL).URL(),
+				}
+				responses := make(chan cache.Response, 1)
+				cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(nil, false), responses)
+				require.NoError(t, err)
+				require.NotNil(t, cancel)
+				cancel()
+				cancel()
+				require.Empty(t, responses, "an empty subscription must not receive full state")
+				require.Empty(t, c.openWatches)
+				require.Empty(t, c.watchRelays)
+				after, err := c.GetSnapshot("node1")
+				if beforeErr != nil {
+					require.Error(t, err, "an empty subscription must not trigger snapshot publication")
+				} else {
+					require.NoError(t, err)
+					require.Same(t, before, after)
+				}
+
+				// A named subscription must still be answered, even when its
+				// resource does not exist yet. A following current-version watch
+				// can then consume the resource's first update.
+				if !populated {
+					emptySnapshot, err := c.GenerateSnapshot(nil, c.logger)
+					require.NoError(t, err)
+					require.NoError(t, c.SetSnapshot(t.Context(), "node1", emptySnapshot))
+				}
+				request.ResourceNames = []string{"resource"}
+				subscription := stream.NewSotwSubscription(request.ResourceNames, false)
+				cancel, err = c.CreateWatch(request, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				response := <-responses
+				require.Equal(t, populated, len(response.GetReturnedResources()) == 1)
+				request.VersionInfo = response.GetResponseVersion()
+				subscription.SetReturnedResources(response.GetReturnedResources())
+				cancel, err = c.CreateWatch(request, subscription, responses)
+				require.NoError(t, err)
+				require.Equal(t, 1, c.GetStatusInfo("node1").GetNumWatches())
+				if !populated {
+					snapshot, err := c.GenerateSnapshot(resourceSet, c.logger)
+					require.NoError(t, err)
+					require.NoError(t, c.SetSnapshot(t.Context(), "node1", snapshot))
+					require.Contains(t, (<-responses).GetReturnedResources(), "resource")
+				}
+				cancel()
+
+				// After an explicit subscription, empty names are an unsubscribe,
+				// not a request to fall back to wildcard mode.
+				subscription.SetResourceSubscription(nil)
+				request.ResourceNames = nil
+				cancel, err = c.CreateWatch(request, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				require.Empty(t, responses)
+				require.Empty(t, c.openWatches)
+				require.Zero(t, c.GetStatusInfo("node1").GetNumWatches())
+			})
+		}
+	}
+}
+
+func TestCreateWatchPreservesWildcardSubscriptions(t *testing.T) {
+	resources := typeurl.Slots[proto.Message]{
+		typeurl.Endpoint: &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "resource"},
+		typeurl.Cluster: &envoy_config_cluster.Cluster{
+			Name:                 "resource",
+			ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+		},
+		typeurl.Route:              &envoy_config_route.RouteConfiguration{Name: "resource"},
+		typeurl.Listener:           &envoy_config_listener.Listener{Name: "resource"},
+		typeurl.Secret:             &envoy_config_tls.Secret{Name: "resource"},
+		typeurl.NetworkPolicy:      &cilium.NetworkPolicy{EndpointId: 1},
+		typeurl.NetworkPolicyHosts: &cilium.NetworkPolicyHosts{Policy: 1},
+	}
+	// Keep CDS/EDS and LDS/RDS references consistent so explicit wildcard
+	// handling is also exercised with go-control-plane's ADS coverage check.
+	resources[typeurl.Listener].(*envoy_config_listener.Listener).FilterChains = []*envoy_config_listener.FilterChain{{
+		Filters: []*envoy_config_listener.Filter{{
+			Name: "envoy.filters.network.http_connection_manager",
+			ConfigType: &envoy_config_listener.Filter_TypedConfig{TypedConfig: mustAny(t, &envoy_config_http.HttpConnectionManager{
+				RouteSpecifier: &envoy_config_http.HttpConnectionManager_Rds{
+					Rds: &envoy_config_http.Rds{RouteConfigName: "resource"},
+				},
+			})},
+		}},
+	}}
+	resourceSet := &xds.Resources{
+		Listeners:          map[string]*envoy_config_listener.Listener{"resource": resources[typeurl.Listener].(*envoy_config_listener.Listener)},
+		Routes:             map[string]*envoy_config_route.RouteConfiguration{"resource": resources[typeurl.Route].(*envoy_config_route.RouteConfiguration)},
+		Clusters:           map[string]*envoy_config_cluster.Cluster{"resource": resources[typeurl.Cluster].(*envoy_config_cluster.Cluster)},
+		Endpoints:          map[string]*envoy_config_endpoint.ClusterLoadAssignment{"resource": resources[typeurl.Endpoint].(*envoy_config_endpoint.ClusterLoadAssignment)},
+		Secrets:            map[string]*envoy_config_tls.Secret{"resource": resources[typeurl.Secret].(*envoy_config_tls.Secret)},
+		NetworkPolicies:    map[string]*cilium.NetworkPolicy{"resource": resources[typeurl.NetworkPolicy].(*cilium.NetworkPolicy)},
+		NetworkPolicyHosts: map[string]*cilium.NetworkPolicyHosts{"resource": resources[typeurl.NetworkPolicyHosts].(*cilium.NetworkPolicyHosts)},
+	}
+	for typeURL := range resources {
+		for _, strict := range []bool{false, true} {
+			for _, subscription := range []struct {
+				name  string
+				names []string
+			}{
+				{name: "implicit"},
+				{name: "explicit", names: []string{"*"}},
+				{name: "mixed", names: []string{"missing", "*"}},
+			} {
+				t.Run(fmt.Sprintf("%s/strict=%t/%s", typeurl.Index(typeURL).URL(), strict, subscription.name), func(t *testing.T) {
+					logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+					c := NewCache(logger, strict)
+					snapshot, err := c.GenerateSnapshot(resourceSet, logger)
+					require.NoError(t, err)
+					require.NoError(t, c.SetSnapshot(t.Context(), "node1", snapshot))
+					request := &cache.Request{
+						Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Index(typeURL).URL(), ResourceNames: subscription.names,
+					}
+					responses := make(chan cache.Response, 1)
+					cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(subscription.names, len(subscription.names) == 0), responses)
+					require.NoError(t, err)
+					t.Cleanup(cancel)
+					select {
+					case response := <-responses:
+						require.Contains(t, response.GetReturnedResources(), "resource")
+						require.Empty(t, response.GetRequest().ResourceNames)
+						if len(subscription.names) == 0 {
+							require.Same(t, request, response.GetRequest(), "implicit wildcards need no copy")
+						} else {
+							require.NotSame(t, request, response.GetRequest())
+						}
+					default:
+						t.Fatal("expected an immediate wildcard response")
+					}
+					require.Equal(t, subscription.names, request.ResourceNames, "wildcard normalization must not mutate the caller's request")
+				})
+			}
+		}
+	}
+}
+
+func TestCreateWatchWildcardNormalizationPreservesRequestFields(t *testing.T) {
+	logger := slog.New(slog.DiscardHandler)
 	c := NewCache(logger, false)
-	resources := emptyResources()
-	resources.Secrets["secret1"] = &envoy_config_tls.Secret{Name: "secret1"}
-
-	snap, err := c.GenerateSnapshot(resources, logger)
+	snapshot, err := c.GenerateSnapshot(&xds.Resources{
+		Listeners: map[string]*envoy_config_listener.Listener{"listener": {Name: "listener"}},
+	}, logger)
 	require.NoError(t, err)
-	require.NoError(t, c.SetSnapshot(context.Background(), "node1", snap))
-
-	req := &cache.Request{
-		Node:    &envoy_config_core.Node{Id: "node1"},
-		TypeUrl: envoy_resource.SecretType,
+	require.NoError(t, c.SetSnapshot(t.Context(), "node1", snapshot))
+	request := &cache.Request{
+		VersionInfo:   "client-version",
+		Node:          &envoy_config_core.Node{Id: "node1", Cluster: "cluster", Locality: &envoy_config_core.Locality{Zone: "zone"}},
+		ResourceNames: []string{"*"},
+		ResourceLocators: []*discovery.ResourceLocator{{
+			Name: "locator", DynamicParameters: map[string]string{"key": "value"},
+		}},
+		TypeUrl:       envoy_resource.ListenerType,
+		ResponseNonce: "nonce",
+		ErrorDetail:   &status.Status{Code: 3, Message: "diagnostic"},
 	}
-	respChan := make(chan cache.Response, 1)
-	cancel, err := c.CreateWatch(req, stream.NewSotwSubscription(req.GetResourceNames(), false), respChan)
+	original := proto.Clone(request).(*cache.Request)
+	expected := proto.Clone(request).(*cache.Request)
+	expected.ResourceNames = nil
+	responses := make(chan cache.Response, 1)
+	cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(request.ResourceNames, false), responses)
 	require.NoError(t, err)
-	require.NotNil(t, cancel)
-	defer cancel()
-
+	t.Cleanup(cancel)
 	select {
-	case resp := <-respChan:
-		t.Fatalf("unexpected empty SDS subscription response: %#v", resp.GetReturnedResources())
+	case response := <-responses:
+		normalized := response.GetRequest()
+		require.True(t, proto.Equal(expected, normalized), "only resource names may change")
+		require.True(t, proto.Equal(original, request), "the caller's protobuf must remain unchanged")
+		require.Same(t, request.Node, normalized.Node)
+		require.Same(t, request.ErrorDetail, normalized.ErrorDetail)
+		require.Same(t, request.ResourceLocators[0], normalized.ResourceLocators[0])
 	default:
-	}
-
-	namedReq := &cache.Request{
-		Node:          &envoy_config_core.Node{Id: "node1"},
-		TypeUrl:       envoy_resource.SecretType,
-		ResourceNames: []string{"secret1"},
-	}
-	namedRespChan := make(chan cache.Response, 1)
-	cancel, err = c.CreateWatch(namedReq, stream.NewSotwSubscription(namedReq.GetResourceNames(), false), namedRespChan)
-	require.NoError(t, err)
-	require.NotNil(t, cancel)
-	defer cancel()
-
-	select {
-	case resp := <-namedRespChan:
-		require.Contains(t, resp.GetReturnedResources(), "secret1")
-	default:
-		t.Fatal("expected named SDS subscription response")
+		t.Fatal("expected an immediate wildcard response")
 	}
 }
 

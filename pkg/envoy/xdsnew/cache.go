@@ -5,6 +5,7 @@ package xdsnew
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"hash"
 	"hash/fnv"
@@ -28,7 +29,6 @@ import (
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	controlplanelog "github.com/envoyproxy/go-control-plane/pkg/log"
 	envoy_resource "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -833,20 +833,6 @@ func (c *cacheImpl) ClearSnapshot(nodeID string) {
 	}
 }
 
-func normalizeCustomWildcardRequest(request *cache.Request, sub cache.Subscription) *cache.Request {
-	if request == nil || sub == nil || !sub.IsWildcard() || len(request.GetResourceNames()) == 0 {
-		return request
-	}
-	switch request.GetTypeUrl() {
-	case NetworkPolicyTypeURL, NetworkPolicyHostsTypeURL:
-		normalized := proto.Clone(request).(*cache.Request)
-		normalized.ResourceNames = nil
-		return normalized
-	default:
-		return request
-	}
-}
-
 func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRelay {
 	if relay := c.watchRelays[responseChannel]; relay != nil {
 		return relay
@@ -986,12 +972,10 @@ func (c *cacheImpl) deliverResponses(deliveries []responseDelivery) {
 }
 
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
-	if request != nil && request.GetTypeUrl() == envoy_resource.SecretType && len(request.GetResourceNames()) == 0 {
-		c.logger.Debug("Ignoring empty ADS SDS watch")
-		return func() {}, nil
+	if request == nil {
+		return nil, errors.New("nil xDS request")
 	}
-	request = normalizeCustomWildcardRequest(request, sub)
-	if request == nil || request.GetNode() == nil || sub == nil {
+	if request.GetNode() == nil || sub == nil {
 		return c.SnapshotCache.CreateWatch(request, sub, respChan)
 	}
 	typeURL, supported := typeurl.FromURL(request.GetTypeUrl())
@@ -1000,6 +984,31 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 		// Preserve go-control-plane behavior without creating internal tracking
 		// state which could never be addressed by an indexed mutation.
 		return c.SnapshotCache.CreateWatch(request, sub, respChan)
+	}
+	// Empty named subscriptions are not wildcard subscriptions. In particular,
+	// EDS, RDS and SDS can unsubscribe by sending an empty list. The server has
+	// already processed any ACK/NACK before creating this watch. Do not let
+	// go-control-plane interpret the empty request names as a full-state request,
+	// or retain a watch that could trigger unnecessary snapshot publication.
+	if !sub.IsWildcard() && len(sub.SubscribedResources()) == 0 {
+		return func() {}, nil
+	}
+
+	// go-control-plane parses "*" as a wildcard, but SnapshotCache filters
+	// resources and checks ADS request coverage using literal request names.
+	// Use its empty-name wildcard spelling for every supported type. Current
+	// Envoy clients already send empty wildcard names, so this is defensive.
+	if sub.IsWildcard() && len(request.GetResourceNames()) > 0 {
+		// Share read-only known fields in a fresh protobuf: a struct copy would copy
+		// protobuf runtime state, while proto.Clone would deep-copy needlessly.
+		request = &cache.Request{
+			VersionInfo:      request.VersionInfo,
+			Node:             request.Node,
+			ResourceLocators: request.ResourceLocators,
+			TypeUrl:          request.TypeUrl,
+			ResponseNonce:    request.ResponseNonce,
+			ErrorDetail:      request.ErrorDetail,
+		}
 	}
 
 	c.mutex.Lock()
