@@ -95,12 +95,27 @@ func (driver *Driver) startNRI(ctx context.Context) error {
 // on containerd < 2.1 even across an agent restart. This mirrors how allocation state is
 // rebuilt from ResourceClaims on restart: node-local runtime state reconstructed from a
 // durable source rather than persisted to disk. We request no container updates.
+//
+// A sandbox that started while the agent was down never reached RunPodSandbox, so
+// RX queues are leased here as well. Leasing an already leased queue is a no-op.
 func (driver *Driver) Synchronize(ctx context.Context, pods []*api.PodSandbox, _ []*api.Container) ([]*api.ContainerUpdate, error) {
 	driver.withLockNoErr(func() {
 		n := 0
 		for _, pod := range pods {
-			if driver.rememberNetworkNamespace(pod) != "" {
-				n++
+			networkNamespace := driver.rememberNetworkNamespace(pod)
+			if networkNamespace == "" {
+				continue
+			}
+			n++
+
+			podAllocations := driver.allocationsForPod(kube_types.UID(pod.Uid))
+			nsPath := path.Join(podNetNSPath, path.Base(networkNamespace))
+			if err := leaseRXQueues(nsPath, podAllocations); err != nil {
+				driver.logger.WarnContext(ctx, "NRI Synchronize: failed to lease RX queue",
+					logfields.K8sNamespace, pod.GetNamespace(),
+					logfields.K8sPodName, pod.GetName(),
+					logfields.Error, err,
+				)
 			}
 		}
 		driver.logger.DebugContext(ctx, "NRI Synchronize: cached pod network namespaces",
@@ -143,6 +158,15 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		nsPath := path.Join(podNetNSPath, path.Base(networkNamespace))
 
+		// Lease RX queues before any container starts, so a workload can
+		// register the leased queue as soon as it runs.
+		if err := leaseRXQueues(nsPath, podAllocations); err != nil {
+			return err
+		}
+		if !hasNRIManagedInterface(podAllocations) {
+			return nil
+		}
+
 		podNs, err := netns.OpenPinned(nsPath)
 		if err != nil {
 			return fmt.Errorf("failed to open pinned netns at %s: %w", nsPath, err)
@@ -163,6 +187,10 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		for i := range podAllocations {
 			a := &podAllocations[i]
+			if a.Manager == types.DeviceManagerTypeRXQueue {
+				// The RX queue was leased to the existing interface created by CNI.
+				continue
+			}
 			l, err := safenetlink.LinkByName(a.Device.KernelIfName())
 			if err != nil {
 				// A node reboot removes the pod netns and any on-demand link moved
@@ -273,6 +301,9 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 			log.DebugContext(ctx, "no allocation found")
 			return nil
 		}
+		if !hasNRIManagedInterface(podAllocations) {
+			return nil
+		}
 
 		nsPath := path.Join(podNetNSPath, path.Base(networkNamespace))
 
@@ -292,6 +323,10 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 
 		if err := podNs.Do(func() error {
 			for _, a := range podAllocations {
+				if a.Manager == types.DeviceManagerTypeRXQueue {
+					// CNI owns the Pod netkit and tears it down with the sandbox.
+					continue
+				}
 				if a.Manager == types.DeviceManagerTypeDummy {
 					// dummy device is an on-demand virtual device: the
 					// netns delete that follows tears them down, so there is
@@ -421,6 +456,49 @@ func (driver *Driver) configureSysctl(l netlink.Link, cfg types.DeviceConfig) er
 	return sysctl.NewDirectSysctl(afero.NewOsFs(), driver.hostProcPath).ApplySettings(settings)
 }
 
+// rxQueueLeaser is implemented by prepared RX queue devices.
+type rxQueueLeaser interface {
+	LeaseRXQueue(*netns.NetNS) error
+}
+
+var openPodNetNS = netns.OpenPinned
+
+// leaseRXQueues leases each RX queue allocated to a Pod to its existing
+// interface in the Pod network namespace at nsPath.
+func leaseRXQueues(nsPath string, allocations []allocation) error {
+	var podNs *netns.NetNS
+	for _, a := range allocations {
+		if a.Manager != types.DeviceManagerTypeRXQueue {
+			continue
+		}
+		leaser, ok := a.Device.(rxQueueLeaser)
+		if !ok {
+			return fmt.Errorf("RX queue device %s does not support leasing", a.DeviceName)
+		}
+		if podNs == nil {
+			ns, err := openPodNetNS(nsPath)
+			if err != nil {
+				return fmt.Errorf("failed to open pinned netns at %s: %w", nsPath, err)
+			}
+			defer ns.Close()
+			podNs = ns
+		}
+		if err := leaser.LeaseRXQueue(podNs); err != nil {
+			return fmt.Errorf("failed to lease RX queue from device %s: %w", a.DeviceName, err)
+		}
+	}
+	return nil
+}
+
+func hasNRIManagedInterface(allocations []allocation) bool {
+	for _, allocation := range allocations {
+		if allocation.Manager != types.DeviceManagerTypeRXQueue {
+			return true
+		}
+	}
+	return false
+}
+
 // validateInterfaceNames checks if a pod's set of allocated devices
 // contain valid interface names, that dont collide with interfaces in the pod namespace.
 func validateInterfaceNames(alloc []allocation) error {
@@ -436,6 +514,9 @@ func validateInterfaceNames(alloc []allocation) error {
 
 	// Check if any of our planned renames would collide with existing interfaces
 	for _, a := range alloc {
+		if a.Manager == types.DeviceManagerTypeRXQueue {
+			continue
+		}
 		if a.Config.PodIfName != "" && existingNames[a.Config.PodIfName] {
 			return fmt.Errorf(
 				"interface name collision: %q already exists in pod namespace (possibly from CNI)",

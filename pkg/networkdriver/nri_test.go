@@ -16,6 +16,7 @@ package networkdriver
 // integration test suite (which has a real kernel).
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -25,6 +26,7 @@ import (
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
@@ -112,6 +114,59 @@ func TestRecoverAllocationDevice(t *testing.T) {
 	rows := allocatedRowsForClaim(t, driver, prepTestClaimUID)
 	require.Len(t, rows, 1)
 	require.Same(t, recovered, rows[0].PreparedDevice)
+}
+
+// leasingDevice is a prepared RX queue device that records lease requests.
+type leasingDevice struct {
+	trackedDevice
+	leases   int
+	leaseErr error
+}
+
+func (d *leasingDevice) LeaseRXQueue(*netns.NetNS) error {
+	d.leases++
+	return d.leaseErr
+}
+
+func TestRunPodSandboxLeasesRXQueue(t *testing.T) {
+	const podUID = kubetypes.UID("rx-queue-pod")
+	originalOpen := openPodNetNS
+	t.Cleanup(func() { openPodNetNS = originalOpen })
+	var opened []string
+	openPodNetNS = func(path string) (*netns.NetNS, error) {
+		opened = append(opened, path)
+		return &netns.NetNS{}, nil
+	}
+
+	driver := buildNRIDriver(t)
+	device := &leasingDevice{trackedDevice: trackedDevice{name: types.DefaultRXQueuePodIfName}}
+	wtxn := driver.db.WriteTxn(driver.allocationTable)
+	driver.allocationTable.Insert(wtxn, &DRAAllocation{
+		DeviceName:     "physical0",
+		LogicalPool:    "rx-queues",
+		Manager:        types.DeviceManagerTypeRXQueue,
+		PreparedDevice: device,
+		PodUID:         podUID,
+		ClaimUID:       "rx-queue-claim",
+		Config:         types.DeviceConfig{PodIfName: types.DefaultRXQueuePodIfName},
+	})
+	wtxn.Commit()
+
+	sandbox := podSandbox(string(podUID), "/run/netns/cni-1234")
+	require.NoError(t, driver.RunPodSandbox(t.Context(), sandbox))
+	require.Equal(t, 1, device.leases)
+	require.Equal(t, []string{podNetNSPath + "/cni-1234"}, opened)
+
+	_, err := driver.Synchronize(t.Context(), []*api.PodSandbox{sandbox}, nil)
+	require.NoError(t, err)
+	require.Equal(t, 2, device.leases, "Synchronize leases queues of running sandboxes")
+
+	device.leaseErr = errors.New("lease failed")
+	require.ErrorIs(t, driver.RunPodSandbox(t.Context(), sandbox), device.leaseErr)
+
+	// CNI owns the Pod netkit, so stopping the sandbox leaves it in place.
+	require.NoError(t, driver.StopPodSandbox(t.Context(), sandbox))
+	require.NotContains(t, driver.podNetns, podUID)
 }
 
 // ---------------------------------------------------------------------------
