@@ -6,6 +6,7 @@ package rxqueue
 import (
 	"context"
 	"errors"
+	"maps"
 	"net"
 	"slices"
 	"testing"
@@ -53,6 +54,15 @@ type fakeNetlink struct {
 	ringsSetError  error
 	ignoreRSSSet   bool
 	ignoreRingsSet bool
+	flows          map[uint32]netlink.NetDevRxFlow
+	flowGetErrors  map[uint32]error
+	// flowActions overrides the queue action derived from a rule.
+	flowActions   map[uint32]netlink.NetDevRxFlowAction
+	flowInserts   int
+	flowDeletes   int
+	flowTableSize uint32
+	// flowSpecialLocations reports driver-chosen rule locations as supported.
+	flowSpecialLocations bool
 }
 
 func newFakeNetlink(maxRXQueues, realRXQueues int, _ ...kube_types.UID) *fakeNetlink {
@@ -73,8 +83,14 @@ func newFakeNetlink(maxRXQueues, realRXQueues int, _ ...kube_types.UID) *fakeNet
 		links: map[string]netlink.Link{
 			testPhysicalIfName: physical,
 		},
-		leases:       make(map[uint32]*netlink.NetDevQueueLease),
-		realRXQueues: realRXQueues,
+		leases:        make(map[uint32]*netlink.NetDevQueueLease),
+		flows:         make(map[uint32]netlink.NetDevRxFlow),
+		flowGetErrors: make(map[uint32]error),
+		flowActions:   make(map[uint32]netlink.NetDevRxFlowAction),
+		flowTableSize: 1024,
+		// Like bnxt, the fake driver chooses rule locations itself.
+		flowSpecialLocations: true,
+		realRXQueues:         realRXQueues,
 		rss: netlink.NetDevRSS{
 			HashFunction:        netlink.NetDevRSSHashFunctionToeplitz,
 			IndirectionTable:    indirectionTable,
@@ -101,7 +117,19 @@ func (f *fakeNetlink) install(t *testing.T) {
 	originalRSSSet := netlinkNetDevRSSSet
 	originalRingsGet := netlinkNetDevRingsGet
 	originalRingsSet := netlinkNetDevRingsSet
+	originalFlowInsert := netlinkNetDevRxFlowInsert
+	originalFlowDelete := netlinkNetDevRxFlowDelete
+	originalFlowList := netlinkNetDevRxFlowList
+	originalFlowGet := netlinkNetDevRxFlowGet
+	originalFlowTableGet := netlinkNetDevRxFlowTableGet
+	originalFlowActionGet := netlinkNetDevRxFlowActionGet
 	t.Cleanup(func() {
+		netlinkNetDevRxFlowInsert = originalFlowInsert
+		netlinkNetDevRxFlowDelete = originalFlowDelete
+		netlinkNetDevRxFlowList = originalFlowList
+		netlinkNetDevRxFlowGet = originalFlowGet
+		netlinkNetDevRxFlowTableGet = originalFlowTableGet
+		netlinkNetDevRxFlowActionGet = originalFlowActionGet
 		netlinkLinkByName = originalLinkByName
 		netlinkNetDevQueueGet = originalQueueGet
 		netlinkNetDevRSSGet = originalRSSGet
@@ -110,6 +138,7 @@ func (f *fakeNetlink) install(t *testing.T) {
 		netlinkNetDevRingsSet = originalRingsSet
 	})
 
+	f.installFlows()
 	netlinkLinkByName = func(name string) (netlink.Link, error) {
 		link, exists := f.links[name]
 		if !exists {
@@ -175,6 +204,72 @@ func (f *fakeNetlink) install(t *testing.T) {
 			f.rings.HDSThreshold = *config.HDSThreshold
 		}
 		return nil
+	}
+}
+
+// installFlows replaces the ethtool RX flow steering calls with an in-memory
+// rule table. Locations returned for RX_CLS_LOC_ANY start at 100.
+func (f *fakeNetlink) installFlows() {
+	netlinkNetDevRxFlowInsert = func(ifName string, flow netlink.NetDevRxFlow) (uint32, error) {
+		if ifName != testPhysicalIfName {
+			return 0, unix.ENODEV
+		}
+		f.flowInserts++
+		if flow.Location == netlink.RX_CLS_LOC_ANY && !f.flowSpecialLocations {
+			return 0, unix.EINVAL
+		}
+		if flow.Location == netlink.RX_CLS_LOC_ANY {
+			flow.Location = 100
+			for f.flows[flow.Location].Match != nil {
+				flow.Location++
+			}
+		}
+		f.flows[flow.Location] = flow
+		return flow.Location, nil
+	}
+	netlinkNetDevRxFlowDelete = func(ifName string, location uint32) error {
+		if _, found := f.flows[location]; !found {
+			return unix.ENOENT
+		}
+		f.flowDeletes++
+		delete(f.flows, location)
+		return nil
+	}
+	netlinkNetDevRxFlowList = func(ifName string) ([]uint32, error) {
+		if ifName != testPhysicalIfName {
+			return nil, unix.ENODEV
+		}
+		return slices.Sorted(maps.Keys(f.flows)), nil
+	}
+	netlinkNetDevRxFlowTableGet = func(ifName string) (*netlink.NetDevRxFlowTable, error) {
+		if ifName != testPhysicalIfName {
+			return nil, unix.ENODEV
+		}
+		return &netlink.NetDevRxFlowTable{
+			Rules:            uint32(len(f.flows)),
+			Size:             f.flowTableSize,
+			SpecialLocations: f.flowSpecialLocations,
+		}, nil
+	}
+	netlinkNetDevRxFlowActionGet = func(ifName string, location uint32) (*netlink.NetDevRxFlowAction, error) {
+		flow, found := f.flows[location]
+		if !found {
+			return nil, unix.ENOENT
+		}
+		if action, overridden := f.flowActions[location]; overridden {
+			return &action, nil
+		}
+		return &flow.Action, nil
+	}
+	netlinkNetDevRxFlowGet = func(ifName string, location uint32) (*netlink.NetDevRxFlow, error) {
+		if err := f.flowGetErrors[location]; err != nil {
+			return nil, err
+		}
+		flow, found := f.flows[location]
+		if !found {
+			return nil, unix.ENOENT
+		}
+		return &flow, nil
 	}
 }
 
