@@ -1,5 +1,5 @@
 # renovate: datasource=docker depName=golangci/golangci-lint
-version: v2.13.2
+version: v2.14.0
 name: golangci-lint-kubeapi
 destination: ./tools/golangci-lint-kubeapi
 plugins:
