@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
@@ -692,9 +693,13 @@ func TestClaimConfigModifier(t *testing.T) {
 			registerNetworkDriver,
 			newDeviceTable,
 			newAllocationTable,
+			newRXQueueFlowsTable,
 			promise.New[endpointstate.Restorer],
 			func() endpointmanager.EndpointsLookup { return nil },
 			func() *ipam.IPAM { return &ipam.IPAM{} },
+			func(db *statedb.DB) (statedb.Table[k8sTables.LocalPod], error) {
+				return k8sTables.NewPodTable(db)
+			},
 			fake.NewVeth,
 			func() xdp.Config { return xdp.Config{} },
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },
