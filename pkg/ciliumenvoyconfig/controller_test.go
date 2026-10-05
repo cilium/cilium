@@ -261,9 +261,8 @@ func TestComputeLoadAssignmentsDraining(t *testing.T) {
 		}
 
 		assignments := computeLoadAssignments(svcName, anyPortRefs, portNames, backends)
-		require.Len(t, assignments, 2)
-		require.Equal(t, "test/echo:*", assignments[0].ClusterName)
-		require.Equal(t, "test/echo", assignments[1].ClusterName)
+		require.Len(t, assignments, 1)
+		require.Equal(t, "test/echo", assignments[0].ClusterName)
 
 		for _, assignment := range assignments {
 			statusByAddr := map[string]envoy_config_core.HealthStatus{}

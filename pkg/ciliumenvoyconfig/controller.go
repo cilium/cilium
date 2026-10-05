@@ -572,18 +572,18 @@ func computeLoadAssignments(
 		}
 
 		endpoints := []*envoy_config_endpoint.LocalityLbEndpoints{{LbEndpoints: lbEndpoints}}
-		assignments = append(assignments,
-			&envoy_config_endpoint.ClusterLoadAssignment{
-				ClusterName: fmt.Sprintf("%s:%s", serviceName.String(), port),
-				Endpoints:   endpoints,
-			})
-
-		// for backward compatibility, if any port is allowed, publish one more
-		// endpoint having cluster name as service name.
+		// for backward compatibility, if any port is allowed, endpoint is published without
+		// the trailing colon and asterisk, i.e., having cluster name as service name.
 		if port == anyPort {
 			assignments = append(assignments,
 				&envoy_config_endpoint.ClusterLoadAssignment{
 					ClusterName: serviceName.String(),
+					Endpoints:   endpoints,
+				})
+		} else {
+			assignments = append(assignments,
+				&envoy_config_endpoint.ClusterLoadAssignment{
+					ClusterName: fmt.Sprintf("%s:%s", serviceName.String(), port),
 					Endpoints:   endpoints,
 				})
 		}
