@@ -220,8 +220,8 @@ func PrintPeerStatesDetailed(w io.Writer, instances []agent.InstancePeerStates, 
 		for _, peer := range instance.Peers {
 			fmt.Fprintf(w, "  Peer: %v\n", peer.Name)
 			fmt.Fprintf(w, "    Address: %v\n", peer.Address)
-			if peer.Interface != "" {
-				fmt.Fprintf(w, "    Interface: %v\n", peer.Interface)
+			if peer.Address.Zone() != "" {
+				fmt.Fprintf(w, "    Interface: %v\n", peer.Address.Zone())
 			}
 			fmt.Fprintf(w, "    Port: %v\n", peer.Port)
 			fmt.Fprintf(w, "    PeerAsn: %v\n", peer.PeerAsn)
