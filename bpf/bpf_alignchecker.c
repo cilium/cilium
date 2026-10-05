@@ -5,6 +5,8 @@
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>
 
+#define IS_BPF_ALIGNCHECKER	1
+
 /*
  * The __COUNTER__ macro expands to an integer value which is increasing every
  * time the macro is used.  Extra macros are required so that the __COUNTER__

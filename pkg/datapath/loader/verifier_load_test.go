@@ -85,6 +85,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 			t.EnableNAT46X64Gateway = true
 			t.EnableBPFRouting = true
 			t.EnablePolicyAuditMode = true
+			t.EnablePolicyVerdictNotification = true
 		}),
 
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
@@ -113,6 +114,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 			t.EnableServiceNoBackendResponse = true
 			t.EnableNAT46X64 = true
 			t.EnableNAT46X64Gateway = true
+			t.EnablePolicyVerdictNotification = true
 		}),
 
 		Increment(func(t *config.BPFHost, v bool) { t.Node.PolicyDenyResponseEnabled = v }),

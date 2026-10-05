@@ -43,6 +43,8 @@ type BPFLXC struct {
 	EnablePolicyAccounting bool `config:"enable_policy_accounting"`
 	// Enable audit mode for policies.
 	EnablePolicyAuditMode bool `config:"enable_policy_audit_mode"`
+	// Enable policy verdict notifications.
+	EnablePolicyVerdictNotification bool `config:"enable_policy_verdict_notification"`
 	// Masquerade traffic to remote nodes.
 	EnableRemoteNodeMasquerade bool `config:"enable_remote_node_masquerade"`
 	// Enable source IP verification for endpoint egress.
@@ -98,7 +100,7 @@ type BPFLXC struct {
 func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{false, 0x0, false, false, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
-		0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
