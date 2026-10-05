@@ -101,10 +101,12 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 	var errs error
 	if newPol.Spec != nil {
 		errs = errors.Join(errs, newPol.Spec.Sanitize())
+		errs = errors.Join(errs, validateCNPNodeSelector(newPol.Spec))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
 		errs = errors.Join(errs, r.Sanitize())
+		errs = errors.Join(errs, validateCNPNodeSelector(r))
 		errs = errors.Join(errs, pv.checkMutalAuthUsage(r))
 	}
 
@@ -199,6 +201,18 @@ func (pv *policyValidator) checkMutalAuthUsage(spec *api.Rule) error {
 		}
 	}
 	return nil
+}
+
+// validateCNPNodeSelector rejects rules of a CiliumNetworkPolicy that use a
+// nodeSelector. Node selectors are only supported by
+// CiliumClusterwideNetworkPolicy, and the agent rejects such rules when parsing
+// a CiliumNetworkPolicy, which would otherwise leave the policy silently
+// ineffective while being reported as valid.
+func validateCNPNodeSelector(spec *api.Rule) error {
+	if spec == nil || spec.NodeSelector.LabelSelector == nil {
+		return nil
+	}
+	return errors.New("CiliumNetworkPolicy rule cannot have NodeSelector, use CiliumClusterwideNetworkPolicy instead")
 }
 
 // updateCondition creates or updates the policy validation condition in Conditions, setting
