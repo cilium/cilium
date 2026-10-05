@@ -265,10 +265,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		}
 		if option.Config.EnableIPv6Masquerade {
 			cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
-
-			if option.Config.EnableIPMasqAgent {
-				cDefinesMap["ENABLE_IP_MASQ_AGENT_IPV6"] = "1"
-			}
 		}
 	}
 
