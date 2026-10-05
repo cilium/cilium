@@ -9,6 +9,7 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
 	"github.com/spf13/pflag"
 
 	policyRestAPI "github.com/cilium/cilium/api/v1/server/restapi/policy"
@@ -73,15 +74,19 @@ type NameManagerLocalConfig struct {
 type ManagerParams struct {
 	cell.In
 
-	JobGroup job.Group
+	Lifecycle cell.Lifecycle
+	JobGroup  job.Group
 
-	PolicyRepo      policy.PolicyRepository
-	Logger          *slog.Logger
-	Config          NameManagerConfig
-	IPCache         ipc
-	EPMgr           endpoints
-	RestorerPromise promise.Promise[endpointstate.Restorer]
-	Allocator       cache.IdentityAllocator
+	PolicyRepo        policy.PolicyRepository
+	Logger            *slog.Logger
+	Config            NameManagerConfig
+	IPCache           ipc
+	EPMgr             endpoints
+	RestorerPromise   promise.Promise[endpointstate.Restorer]
+	Allocator         cache.IdentityAllocator
+	DB                *statedb.DB                               `optional:"true"`
+	FQDNTable         statedb.RWTable[fqdn.FQDNMapping]         `optional:"true"`
+	EndpointFQDNTable statedb.RWTable[fqdn.EndpointFQDNMapping] `optional:"true"`
 }
 
 func adaptors(ipcache *ipcache.IPCache, epLookup endpointmanager.EndpointsLookup) (ipc, endpoints) {

@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -18,6 +20,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
 	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
@@ -43,6 +46,7 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 		log:               params.Log,
 		db:                params.DB,
 		frontends:         params.Frontends,
+		endpointFQDNTable: params.EndpointFQDNTable,
 		identityAllocator: params.IdentityAllocator,
 		endpointManager:   params.EndpointManager,
 		ipcache:           params.Ipcache,
@@ -84,6 +88,7 @@ type payloadParserParams struct {
 
 	DB                *statedb.DB
 	Frontends         statedb.Table[*loadbalancer.Frontend]
+	EndpointFQDNTable statedb.Table[fqdn.EndpointFQDNMapping] `optional:"true"`
 	IdentityAllocator identitycell.CachingIdentityAllocator
 	EndpointManager   endpointmanager.EndpointManager
 	Ipcache           *ipcache.IPCache
@@ -103,6 +108,7 @@ type payloadGetters struct {
 	ipcache           *ipcache.IPCache
 	db                *statedb.DB
 	frontends         statedb.Table[*loadbalancer.Frontend]
+	endpointFQDNTable statedb.Table[fqdn.EndpointFQDNMapping]
 }
 
 // GetIdentity implements IdentityGetter. It looks up identity by ID from
@@ -141,8 +147,11 @@ func (h *payloadGetters) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.
 }
 
 // GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given
-// IP from the FQDN cache of an endpoint specified by sourceEpID.
+// IP from the FQDN state of an endpoint specified by sourceEpID.
 func (h *payloadGetters) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
+	if sourceEpID > 0xffff {
+		return nil
+	}
 	ep := h.endpointManager.LookupCiliumID(uint16(sourceEpID))
 	if ep == nil {
 		return nil
@@ -151,7 +160,23 @@ func (h *payloadGetters) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 	if !ip.IsValid() {
 		return nil
 	}
-	names := ep.DNSHistory.LookupIP(ip)
+	var names []string
+	if h.endpointFQDNTable == nil {
+		// Keep standalone parser configurations working without the FQDN module.
+		names = ep.DNSHistory.LookupIP(ip)
+	} else {
+		now := time.Now()
+		query := fqdn.QueryEndpointFQDNByEndpointIP(fqdn.EndpointFQDNIPKey{
+			EndpointID: ep.ID,
+			IP:         ip.Unmap(),
+		})
+		for row := range h.endpointFQDNTable.List(h.db.ReadTxn(), query) {
+			if row.ExpirationTime.After(now) {
+				names = append(names, row.Name)
+			}
+		}
+		slices.Sort(names)
+	}
 
 	for i := range names {
 		names[i] = strings.TrimSuffix(names[i], ".")
