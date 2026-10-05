@@ -108,8 +108,7 @@ func TestToGoBGPPeer(t *testing.T) {
 			// travels in the description.
 			name: "BGP unnumbered",
 			neighbor: &types.Neighbor{
-				Address:   netip.MustParseAddr("fe80::1%eth0"),
-				Interface: "eth0",
+				Address: netip.MustParseAddr("fe80::1%eth0"),
 			},
 			expected: &gobgp.Peer{
 				Conf: &gobgp.PeerConf{
@@ -241,8 +240,7 @@ func TestToGoBGPPeer(t *testing.T) {
 			// from the zone of the neighbor address.
 			name: "Unnumbered transport keeps empty local address",
 			neighbor: &types.Neighbor{
-				Address:   netip.MustParseAddr("fe80::1%eth0"),
-				Interface: "eth0",
+				Address: netip.MustParseAddr("fe80::1%eth0"),
 				Transport: &types.NeighborTransport{
 					RemotePort: 1179,
 				},

@@ -580,10 +580,10 @@ func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
 	// future extensibility). gobgp keeps neither anywhere else: it has no
 	// notion of a peer name, and the interface cannot be handed to it as
 	// NeighborInterface (see below).
-	if n.Name != "" || n.Interface != "" {
+	if n.Name != "" || n.Address.Zone() != "" {
 		pd := peerDescription{
 			Name:      n.Name,
-			Interface: n.Interface,
+			Interface: n.Address.Zone(),
 		}
 		desc, err := json.Marshal(pd)
 		if err == nil {

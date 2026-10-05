@@ -299,7 +299,6 @@ func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, pass
 
 	neighbor.Name = np.Name
 	neighbor.Address = toPeerAddressV2(*np.PeerAddress)
-	neighbor.Interface = neighbor.Address.Zone()
 	neighbor.ASN = uint32(*np.PeerASN)
 	neighbor.AuthPassword = password
 	neighbor.EbgpMultihop = toNeighborEbgpMultihopV2(pc.EBGPMultihop)

@@ -84,13 +84,9 @@ func (p *Path) Age() time.Duration {
 type Neighbor struct {
 	Name string
 	// Address is the peer address. For BGP unnumbered peering it is the peer's
-	// IPv6 link-local address discovered on Interface, carrying that interface
+	// IPv6 link-local address, carrying the peering interface
 	// as an IPv6 zone (e.g. "fe80::1%eth0").
-	Address netip.Addr
-	// Interface is the local interface for BGP unnumbered peering, empty for a
-	// peer configured with an explicit address. It accompanies rather than
-	// replaces Address, which the router needs to reach the peer.
-	Interface       string
+	Address         netip.Addr
 	ASN             uint32
 	AuthPassword    string
 	EbgpMultihop    *NeighborEbgpMultihop

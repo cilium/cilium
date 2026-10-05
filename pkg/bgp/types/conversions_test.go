@@ -274,9 +274,8 @@ func TestToNeighbor(t *testing.T) {
 			},
 			peerConfig: &v2.CiliumBGPPeerConfigSpec{},
 			expected: &Neighbor{
-				Address:   netip.MustParseAddr("fe80::1%eth0"),
-				Interface: "eth0",
-				ASN:       64512,
+				Address: netip.MustParseAddr("fe80::1%eth0"),
+				ASN:     64512,
 			},
 		},
 	}
