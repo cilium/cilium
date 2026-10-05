@@ -109,3 +109,29 @@ func TestGetSourceRangesEnabled(t *testing.T) {
 		})
 	}
 }
+
+func TestFrontendTableSourceRanges(t *testing.T) {
+	var addr L3n4Addr
+	addr.ParseFromString("10.0.0.1:80/TCP")
+	fe := &Frontend{
+		FrontendParams: FrontendParams{Address: addr},
+		Backends:       func(func(*Backend, statedb.Revision) bool) {},
+		SourceRanges: []netip.Prefix{
+			netip.MustParsePrefix("10.0.0.0/8"),
+			netip.MustParsePrefix("192.0.2.0/24"),
+		},
+		SourceRangesPolicy: SVCSourceRangesPolicyDeny,
+	}
+
+	require.Equal(t, "Flags", fe.TableHeader()[6])
+	require.Equal(t,
+		"SourceRanges=10.0.0.0/8, 192.0.2.0/24, SourceRangesPolicy=deny",
+		fe.TableRow()[6],
+	)
+
+	fe.SourceRangesPolicy = SVCSourceRangesPolicyAllow
+	require.Equal(t, "SourceRanges=10.0.0.0/8, 192.0.2.0/24", fe.TableRow()[6])
+
+	fe.SourceRanges = nil
+	require.Empty(t, fe.TableRow()[6])
+}
