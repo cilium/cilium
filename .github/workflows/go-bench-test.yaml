@@ -1,0 +1,266 @@
+name: Go benchmark tests (go-bench)
+
+on:
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: true
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+  # Test workflow against branch push.
+  push:
+    branches:
+      - pr/fristonio/ci/gotest-bench
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To read actions state with cilium/workflow-telemetry-action
+  actions: read
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+
+concurrency:
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{ github.event.inputs.PR-number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  bench-packages: |
+    ./pkg/labels/...
+  bench-timeout: 20m
+
+  bench-warn-threshold: '10'
+  bench-fail-threshold: '25'
+
+  test-base-SHA: 625f6f6cb15784e523a0b43f0e37ae01b0048aee
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ${{ vars.UBUNTU_2404_AMD64_4CPU_16GB }}
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Commit Status Start
+    runs-on: ${{ vars.UBUNTU_2404_AMD64_4CPU_16GB }}
+    steps:
+      - name: Set initial commit status
+        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  benchmark:
+    name: Go Benchmarks
+
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - ${{ vars.UBUNTU_2404_AMD64_4CPU_16GB }}
+          - ${{ vars.UBUNTU_2404_ARM64_4CPU_16GB }}
+
+    runs-on: ${{ matrix.arch }}
+    timeout-minutes: 60
+    steps:
+      - name: Set commit status to pending
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+
+      - name: Install Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          cache: false
+          # renovate: datasource=golang-version depName=go
+          go-version: 1.27.1
+
+      # Load Golang cache build from GitHub
+      - name: Load Golang cache build from GitHub
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: go-cache
+        with:
+          path: /tmp/.cache/go
+          key: ${{ runner.os }}-go-bench-test-cache-${{ runner.arch }}-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-bench-test-cache-${{ runner.arch }}-
+
+      - name: Create cache directories if they don't exist
+        if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        shell: bash
+        run: |
+          mkdir -p "${GOCACHE}"
+          mkdir -p "${GOMODCACHE}"
+
+      - name: Install benchstat
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+        shell: bash
+        run: |
+          # renovate: datasource=go depName=golang.org/x/perf
+          go install golang.org/x/perf/cmd/benchstat@v0.0.0-20260908200009-22c9c6c9d4da
+
+      - name: Checkout base branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.base-SHA || env.test-base-SHA }}
+          persist-credentials: false
+          path: ./base
+
+      # Warning: since this is a privileged workflow, subsequent workflow job
+      # steps must take care not to execute untrusted code.
+      - name: Checkout pull request branch (NOT TRUSTED)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.SHA || github.sha }}
+          persist-credentials: false
+          # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
+          allow-unsafe-pr-checkout: true
+          path: ./pull
+
+      - name: Run benchmarks
+        id: run-benchmarks
+        shell: bash
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+          BENCH_PACKAGES: ${{ env.bench-packages }}
+          BENCH_TIMEOUT: ${{ env.bench-timeout }}
+        run: |
+          packages=()
+          while IFS= read -r line; do
+            line="${line//[[:space:]]/}"
+            if [ -n "${line}" ]; then
+              packages+=("${line}")
+            fi
+          done <<< "${BENCH_PACKAGES}"
+
+          if [ "${#packages[@]}" -eq 0 ]; then
+            echo "bench-packages is empty, nothing to benchmark."
+            exit 1
+          fi
+          echo "Benchmarking ${#packages[@]} package(s): ${packages[*]}"
+
+          results="${GITHUB_WORKSPACE}/bench-results"
+          mkdir -p "${results}"
+
+          (
+            cd "${GITHUB_WORKSPACE}/base" &&
+            go test -run='^$' -bench=. -benchmem -count=5 -timeout=30m "${packages[@]}"
+          ) | tee -a "${results}/base.txt"
+
+          (
+            cd "${GITHUB_WORKSPACE}/pull" &&
+            go test -run='^$' -bench=. -benchmem -count=5 -timeout=30m "${packages[@]}"
+          ) | tee -a "${results}/pull.txt"
+
+      - name: Compare benchmark results
+        id: compare
+        if: ${{ always() && steps.run-benchmarks.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          results="${GITHUB_WORKSPACE}/bench-results"
+
+          benchstat "base=${results}/base.txt" "pull=${results}/pull.txt" \
+            > "${results}/benchstat.txt"
+          benchstat -format csv "base=${results}/base.txt" "pull=${results}/pull.txt" \
+            > "${results}/benchstat.csv"
+
+      - name: Check benchmark deltas
+        if: ${{ always() && steps.compare.outcome != 'skipped' }}
+        shell: bash
+        env:
+          GOCACHE: "/tmp/.cache/go/.cache/go-build"
+          GOMODCACHE: "/tmp/.cache/go/pkg"
+          WARN_THRESHOLD: ${{ env.bench-warn-threshold }}
+          FAIL_THRESHOLD: ${{ env.bench-fail-threshold }}
+        run: |
+          results="${GITHUB_WORKSPACE}/bench-results"
+
+          # Run from the trusted checkout, not from ./pull: the pull request
+          # must not get to choose the code that decides whether it passes.
+          go run ./tools/benchstat-diff \
+            -title "Go benchmarks (${RUNNER_ARCH})" \
+            -warn-threshold "${WARN_THRESHOLD}" \
+            -fail-threshold "${FAIL_THRESHOLD}" \
+            "${results}/benchstat.csv" \
+            | tee -a "${GITHUB_STEP_SUMMARY}"
+
+      - name: Publish raw benchstat output
+        if: ${{ always() && steps.compare.outcome != 'skipped' }}
+        shell: bash
+        env:
+          BASE_SHA: ${{ inputs.base-SHA || env.test-base-SHA }}
+          PULL_SHA: ${{ inputs.SHA || github.sha }}
+        run: |
+          results="${GITHUB_WORKSPACE}/bench-results"
+
+          {
+            echo "<details><summary>benchstat output</summary>"
+            echo
+            echo "\`base\` is ${BASE_SHA}, \`pull\` is ${PULL_SHA}."
+            echo
+            echo '```'
+            cat "${results}/benchstat.txt"
+            echo '```'
+            echo
+            echo '</details>'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload benchmark results
+        if: ${{ always() && steps.run-benchmarks.outcome != 'skipped' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: bench-results-${{ runner.arch }}
+          path: bench-results
+          retention-days: 7
+
+  commit-status-final:
+    if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+    name: Commit Status Final
+    needs: benchmark
+    runs-on: ${{ vars.UBUNTU_2404_AMD64_4CPU_16GB }}
+    steps:
+      - name: Set final commit status
+        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+          status: ${{ needs.benchmark.result }}
