@@ -66,7 +66,7 @@ func init() {
 	selectorFlags.BoolVarP(&selectorOpts.follow, "follow", "f", false, "Follow flows output")
 	selectorFlags.StringVar(&selectorOpts.since,
 		"since", "",
-		fmt.Sprintf(`Filter flows since a specific date. The format is relative (e.g. 3s, 4m, 1h43,, ...) or one of:
+		fmt.Sprintf(`Filter flows since a specific date. The format is relative (e.g. 3s, 4m, 1h43m, ...) or one of:
   StampMilli:             %s
   YearMonthDay:           %s
   YearMonthDayHour:       %s
@@ -90,7 +90,7 @@ func init() {
 	)
 	selectorFlags.StringVar(&selectorOpts.until,
 		"until", "",
-		fmt.Sprintf(`Filter flows until a specific date. The format is relative (e.g. 3s, 4m, 1h43,, ...) or one of:
+		fmt.Sprintf(`Filter flows until a specific date. The format is relative (e.g. 3s, 4m, 1h43m, ...) or one of:
   StampMilli:             %s
   YearMonthDay:           %s
   YearMonthDayHour:       %s
