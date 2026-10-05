@@ -752,6 +752,38 @@ func TestGenerateSnapshot_DoesNotOverwriteExistingClusterLoadAssignment(t *testi
 	assert.Same(t, existingCLA, cla)
 }
 
+func TestGenerateSnapshot_PreservesEndpointNames(t *testing.T) {
+	for _, name := range []string{"service1", "service1:*"} {
+		t.Run(name, func(t *testing.T) {
+			c := newTestCacheWithHasher(newMockSnapshotCache())
+			resources := emptyResources()
+			cla := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
+			resources.Endpoints[name] = cla
+
+			// Orphan Endpoints remain visible to the ordinary consistency check;
+			// their names must not cause snapshot generation to silently drop them.
+			snap, err := c.GenerateSnapshot(resources, c.logger)
+			require.NoError(t, err)
+			require.Contains(t, snap.GetResources(envoy_resource.EndpointType), name)
+			require.Same(t, cla, snap.GetResources(envoy_resource.EndpointType)[name])
+			require.ErrorContains(t, CheckSnapshotConsistency(snap), envoy_resource.EndpointType)
+
+			// An EDS service name may differ from its Cluster's name. Preserve the
+			// referenced CLA regardless of any suffix in its name.
+			resources.Clusters["cluster1"] = &envoy_config_cluster.Cluster{
+				Name:                 "cluster1",
+				ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+				EdsClusterConfig:     &envoy_config_cluster.Cluster_EdsClusterConfig{ServiceName: name},
+			}
+			snap, err = c.GenerateSnapshot(resources, c.logger)
+			require.NoError(t, err)
+			require.Contains(t, snap.GetResources(envoy_resource.EndpointType), name)
+			require.Same(t, cla, snap.GetResources(envoy_resource.EndpointType)[name])
+			require.NoError(t, CheckSnapshotConsistency(snap))
+		})
+	}
+}
+
 func TestGenerateSnapshot_DoesNotAddClusterLoadAssignmentForNonEDSCluster(t *testing.T) {
 	mock := newMockSnapshotCache()
 	c := newTestCacheWithHasher(mock)
