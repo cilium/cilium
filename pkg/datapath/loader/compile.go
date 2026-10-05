@@ -12,13 +12,13 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
 
-	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -146,6 +146,17 @@ func getBPFCPU(logger *slog.Logger) string {
 	return nameBPFCPU
 }
 
+func getCompilerVersion(ctx context.Context) ([]byte, error) {
+	out, err := exec.CommandContext(ctx, compiler, "--version").CombinedOutput()
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		err = ctxErr
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %s version: %w: %s", compiler, err, bytes.TrimSpace(out))
+	}
+	return out, nil
+}
+
 func pidFromProcess(proc *os.Process) string {
 	result := "not-started"
 	if proc != nil {
@@ -190,8 +201,7 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 		logfields.Args, compileArgs,
 	)
 
-	compileCmd, cancelCompile := exec.WithCancel(ctx, compiler, compileArgs...)
-	defer cancelCompile()
+	compileCmd := exec.CommandContext(ctx, compiler, compileArgs...)
 
 	output, err := os.Create(prog.AbsoluteOutput(dir))
 	if err != nil {
@@ -258,8 +268,7 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 func compileDatapath(ctx context.Context, logger *slog.Logger, dirs *directoryInfo, isHost bool) error {
 	scopedLog := logger.With(logfields.Debug, true)
 
-	versionCmd := exec.CommandContext(ctx, compiler, "--version")
-	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	compilerVersion, err := getCompilerVersion(ctx)
 	if err != nil {
 		return err
 	}
@@ -343,8 +352,7 @@ func compileOverlay(ctx context.Context, logger *slog.Logger) error {
 	}
 	scopedLog := logger.With(logfields.Debug, true)
 
-	versionCmd := exec.CommandContext(ctx, compiler, "--version")
-	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	compilerVersion, err := getCompilerVersion(ctx)
 	if err != nil {
 		return err
 	}
@@ -379,8 +387,7 @@ func compileWireguard(ctx context.Context, logger *slog.Logger) (err error) {
 	}
 	scopedLog := logger.With(logfields.Debug, true)
 
-	versionCmd := exec.CommandContext(ctx, compiler, "--version")
-	compilerVersion, err := versionCmd.CombinedOutput(scopedLog, true)
+	compilerVersion, err := getCompilerVersion(ctx)
 	if err != nil {
 		return err
 	}
