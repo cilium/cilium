@@ -117,7 +117,7 @@ var (
 	}
 
 	// unnumberedPeer65001 peers over an interface, at the IPv6 link-local address
-	// discovered on it. Both are filled in by the DefaultGatewayReconciler.
+	// discovered on it. Both are filled in by the UnnumberedReconciler.
 	unnumberedPeer65001 = v2.CiliumBGPNodePeer{
 		Name:        "red-peer-65001",
 		PeerAddress: ptr.To[string]("fe80::1%eth0"),
