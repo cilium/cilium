@@ -472,8 +472,15 @@ func (l *Label) String() string {
 	return l.Source + SourceDelimiter + l.Key
 }
 
+func (l *Label) formatLen() int {
+	n := len(l.Source) + len(SourceDelimiter) + len(l.Key)
+	if len(l.Value) != 0 {
+		n += 1 + len(l.Value)
+	}
+	return n
+}
+
 func (l *Label) BuildString(sb *strings.Builder) {
-	sb.Grow(len(l.Source) + len(SourceDelimiter) + len(l.Key) + len(l.Value) + 1)
 	sb.WriteString(l.Source)
 	sb.WriteString(SourceDelimiter)
 	sb.WriteString(l.Key)
@@ -484,7 +491,6 @@ func (l *Label) BuildString(sb *strings.Builder) {
 }
 
 func (l *Label) BuildBytes(buf *bytes.Buffer) {
-	buf.Grow(len(l.Source) + len(SourceDelimiter) + len(l.Key) + len(l.Value) + 1)
 	buf.WriteString(l.Source)
 	buf.WriteString(SourceDelimiter)
 	buf.WriteString(l.Key)
@@ -721,8 +727,6 @@ func (l Label) formatForKVStoreInto(buf *bytes.Buffer) {
 // DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS KEY IN
 // THE KEY-VALUE STORE.
 func (l Labels) SortedList() []byte {
-	// Pre-size the key slice: slices.Sorted(maps.Keys(l)) cannot see the map
-	// length and regrows the slice from nil, which dominates this function.
 	keys := make([]string, 0, len(l))
 	for k := range l {
 		keys = append(keys, k)
