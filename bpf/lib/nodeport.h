@@ -891,7 +891,7 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 		return false;
 	}
 
-	if (is_defined(ENABLE_DSR) && entry->dsr_internal) {
+	if (CONFIG(enable_dsr) && entry->dsr_internal) {
 		struct ipv6_nat_entry *dsr_entry;
 		struct ipv6_ct_tuple dsr_tuple;
 
@@ -1221,24 +1221,27 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) && (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
+	if (!CONFIG(enable_dsr) || is_defined(ENABLE_DSR_BYUSER) ||
+	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
 
-	if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
-	    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS, &ext_err);
-	else
-		ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
+		if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+		    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
+			ret = tail_call_internal(ctx,
+						 CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS,
+						 &ext_err);
+		else
+			ret = nodeport_rev_dnat_ingress_ipv6(ctx, &trace, &ext_err);
 
-	if (IS_ERR(ret))
-		goto drop_err;
+		if (IS_ERR(ret))
+			goto drop_err;
 
-	if (ret == CTX_ACT_OK)
-		goto recircle;
+		if (ret == CTX_ACT_OK)
+			goto recircle;
 
-	edt_set_aggregate(ctx, 0);
-	return ret;
-#endif
+		edt_set_aggregate(ctx, 0);
+		return ret;
+	}
 
 recircle:
 	ctx_skip_nodeport_set(ctx);
@@ -1633,11 +1636,10 @@ skip_service_lookup:
 #endif
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
-#ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
-	if (is_svc_proto) {
+	if (CONFIG(enable_dsr) && is_svc_proto) {
 		ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
 					      fraginfo, &key.address,
 					      &key.dport, dsr);
@@ -1649,7 +1651,6 @@ skip_service_lookup:
 							 ext_err);
 	}
 #endif
-#endif /* ENABLE_DSR */
 
 	if (is_defined(ENABLE_MASQUERADE_IPV6) || is_svc_proto) {
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
@@ -2206,7 +2207,7 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 		return false;
 	}
 
-	if (is_defined(ENABLE_DSR) && entry->dsr_internal) {
+	if (CONFIG(enable_dsr) && entry->dsr_internal) {
 		struct ipv4_nat_entry *dsr_entry;
 		struct ipv4_ct_tuple dsr_tuple;
 
@@ -2483,9 +2484,9 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Otherwise, we would have tail-called back to
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
-#if !defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||	\
-    (defined(ENABLE_EGRESS_GATEWAY_COMMON) &&						\
-     (defined(IS_BPF_XDP) || defined(IS_BPF_HOST)))
+	if (!CONFIG(enable_dsr) || is_defined(ENABLE_DSR_BYUSER) ||
+	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
+	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
 
 	/* If we're not in full DSR mode, reply traffic from remote backends
 	 * might pass back through the LB node and requires revDNAT.
@@ -2493,22 +2494,22 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
 	 * reply traffic into tunnel (see there for details).
 	 */
-	if (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST))
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT, &ext_err);
-	else
-		ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
+		if (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST))
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT, &ext_err);
+		else
+			ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
 
-	if (IS_ERR(ret))
-		goto drop_err;
+		if (IS_ERR(ret))
+			goto drop_err;
 
 	/* No redirect needed: */
-	if (ret == CTX_ACT_OK)
-		goto recircle;
+		if (ret == CTX_ACT_OK)
+			goto recircle;
 
 	/* Redirected to egress interface: */
-	edt_set_aggregate(ctx, 0);
-	return ret;
-#endif
+		edt_set_aggregate(ctx, 0);
+		return ret;
+	}
 
 recircle:
 	ctx_skip_nodeport_set(ctx);
@@ -2925,11 +2926,10 @@ skip_service_lookup:
 	 */
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
-#ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
-	if (is_svc_proto) {
+	if (CONFIG(enable_dsr) && is_svc_proto) {
 		/* Check if packet has embedded DSR info, or belongs to
 		 * an established DSR connection:
 		 */
@@ -2945,7 +2945,6 @@ skip_service_lookup:
 							 ext_err);
 	}
 #endif
-#endif /* ENABLE_DSR */
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 	/* For NAT64 we might see an IPv4 reply from the backend to

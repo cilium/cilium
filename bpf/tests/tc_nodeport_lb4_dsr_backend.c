@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
-#define ENABLE_DSR		1
 #define DSR_ENCAP_GENEVE	3
 
 #define CLIENT_IP		v4_ext_one
@@ -106,6 +105,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+ASSIGN_CONFIG(bool, enable_dsr, true)
 
 /* Test that a remote node
  * - doesn't touch a DSR request,

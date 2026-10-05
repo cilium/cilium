@@ -676,15 +676,11 @@ bool lb6_svc_is_itp_local(const struct lb6_service *svc)
 static __always_inline bool
 lb_svc_uses_dsr(bool flip __maybe_unused)
 {
-#ifdef ENABLE_DSR
-# ifdef ENABLE_DSR_BYUSER
-	return flip;
-# else
+	if (!CONFIG(enable_dsr))
+		return false;
+	if (is_defined(ENABLE_DSR_BYUSER))
+		return flip;
 	return true;
-# endif
-#else
-	return false;
-#endif
 }
 
 static __always_inline bool

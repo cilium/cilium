@@ -29,7 +29,6 @@
 #define ENABLE_IPV4
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION	/* exercise the XFER_PKT_NO_SVC handoff */
-#define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
@@ -205,6 +204,7 @@ ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 ASSIGN_CONFIG(bool, enable_ipip_termination, true)
+ASSIGN_CONFIG(bool, enable_dsr, true)
 
 /*
  * Build an IPIP-encapped TCP SYN with:

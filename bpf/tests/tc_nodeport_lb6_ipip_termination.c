@@ -21,7 +21,6 @@
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_NODEPORT_ACCELERATION	/* exercise the XFER_PKT_NO_SVC handoff */
-#define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
@@ -165,6 +164,7 @@ ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 ASSIGN_CONFIG(bool, enable_ipip_termination, true)
+ASSIGN_CONFIG(bool, enable_dsr, true)
 
 /* Build a v6-in-v6 DSR-IPIP TCP SYN. pktgen's IPv6 finisher only sets nexthdr
  * based on the next layer it knows about (TCP/UDP/...). For stacked IPv6 we

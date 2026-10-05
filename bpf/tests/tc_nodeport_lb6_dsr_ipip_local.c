@@ -20,7 +20,6 @@
 
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
-#define ENABLE_DSR		1
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
@@ -154,6 +153,7 @@ int mock_tail_policy(struct __ctx_buff *ctx)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_netkit, true)
+ASSIGN_CONFIG(bool, enable_dsr, true)
 
 /* Plain client -> svc TCP SYN, no IPIP wrapping. */
 static __always_inline int
