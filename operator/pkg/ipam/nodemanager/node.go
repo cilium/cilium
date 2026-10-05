@@ -511,18 +511,12 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 // has elapsed.
 func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 	n.mutex.Lock()
-	if !n.isMultiPoolNodeLocked() || len(n.multiPoolCIDRsMarkedForRelease) == 0 {
+	if !n.isMultiPoolNodeLocked() || len(n.multiPoolCIDRsMarkedForRelease) == 0 || !n.resyncNeeded.IsZero() {
 		n.mutex.Unlock()
 		return false, nil
 	}
 
-	now := time.Now()
-	var readyCIDRs []netip.Prefix
-	for cidr, ts := range n.multiPoolCIDRsMarkedForRelease {
-		if now.Sub(ts) >= n.excessIPReleaseDelay {
-			readyCIDRs = append(readyCIDRs, cidr)
-		}
-	}
+	readyCIDRs := n.readyMultiPoolCIDRsLocked()
 	n.mutex.Unlock()
 
 	if len(readyCIDRs) == 0 {
@@ -531,11 +525,26 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 
 	scopedLog := n.logger.Load()
 	actions := n.ops.PrepareCIDRRelease(readyCIDRs)
+
+	eligible := sets.New[netip.Prefix]()
+	for _, action := range actions {
+		eligible.Insert(action.CIDRsToRelease...)
+	}
+	n.mutex.Lock()
+	now := time.Now()
+	for _, cidr := range readyCIDRs {
+		if _, ok := n.multiPoolCIDRsMarkedForRelease[cidr]; ok && !eligible.Has(cidr) {
+			n.multiPoolCIDRsMarkedForRelease[cidr] = now
+		}
+	}
+	n.mutex.Unlock()
+
 	if len(actions) == 0 {
 		return false, nil
 	}
 
 	mutated := false
+	releasedAddrs := 0
 	for _, action := range actions {
 		// Re-check membership in multiPoolCIDRsMarkedForRelease immediately
 		// before each EC2 release. The agent may have re-added a CIDR to
@@ -544,9 +553,10 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 		// map. Detaching it would leave the agent's view inconsistent with
 		// the ENI state.
 		n.mutex.Lock()
+		releasable := capMultiPoolCIDRs(n.readyMultiPoolCIDRsLocked(), n.stats.IPv4.ExcessIPs-releasedAddrs)
 		filtered := action.CIDRsToRelease[:0]
 		for _, cidr := range action.CIDRsToRelease {
-			if _, ok := n.multiPoolCIDRsMarkedForRelease[cidr]; ok {
+			if slices.Contains(releasable, cidr) {
 				filtered = append(filtered, cidr)
 			}
 		}
@@ -566,6 +576,10 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 		n.mutex.Lock()
 		for _, cidr := range released {
 			delete(n.multiPoolCIDRsMarkedForRelease, cidr)
+			releasedAddrs += multiPoolCIDRSize(cidr)
+		}
+		if len(released) > 0 || err != nil {
+			n.resyncNeeded = time.Now()
 		}
 		n.mutex.Unlock()
 		if len(released) > 0 {
@@ -582,6 +596,38 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 	}
 
 	return mutated, nil
+}
+
+func (n *Node) readyMultiPoolCIDRsLocked() []netip.Prefix {
+	now := time.Now()
+	var ready []netip.Prefix
+	for cidr, ts := range n.multiPoolCIDRsMarkedForRelease {
+		if now.Sub(ts) >= n.excessIPReleaseDelay {
+			ready = append(ready, cidr)
+		}
+	}
+	slices.SortFunc(ready, func(a, b netip.Prefix) int {
+		if c := n.multiPoolCIDRsMarkedForRelease[a].Compare(n.multiPoolCIDRsMarkedForRelease[b]); c != 0 {
+			return c
+		}
+		return a.Compare(b)
+	})
+	return ready
+}
+
+func capMultiPoolCIDRs(cidrs []netip.Prefix, budget int) []netip.Prefix {
+	capped := cidrs[:0]
+	for _, cidr := range cidrs {
+		if size := multiPoolCIDRSize(cidr); size <= budget {
+			budget -= size
+			capped = append(capped, cidr)
+		}
+	}
+	return capped
+}
+
+func multiPoolCIDRSize(cidr netip.Prefix) int {
+	return 1 << (cidr.Addr().BitLen() - cidr.Bits())
 }
 
 func (n *Node) requirePoolMaintenance() {
@@ -753,21 +799,20 @@ func (n *Node) allocationNeeded() bool {
 // releaseNeeded returns true if this node requires IPs to be released
 func (n *Node) releaseNeeded() (needed bool) {
 	n.mutex.RLock()
-	needed = n.manager.releaseExcessIPs && !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.ExcessIPs > 0
+	defer n.mutex.RUnlock()
+
+	canRelease := n.manager.releaseExcessIPs && !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero()
+	if canRelease {
+		if n.isMultiPoolNodeLocked() {
+			needed = len(capMultiPoolCIDRs(n.readyMultiPoolCIDRsLocked(), n.stats.IPv4.ExcessIPs)) > 0
+		} else {
+			needed = n.stats.IPv4.ExcessIPs > 0
+		}
+	}
 	if n.resource != nil {
 		releaseInProgress := len(n.resource.Status.IPAM.ReleaseIPs) > 0
 		needed = needed || releaseInProgress
 	}
-	if !needed && len(n.multiPoolCIDRsMarkedForRelease) > 0 {
-		now := time.Now()
-		for _, ts := range n.multiPoolCIDRsMarkedForRelease {
-			if now.Sub(ts) >= n.excessIPReleaseDelay {
-				needed = true
-				break
-			}
-		}
-	}
-	n.mutex.RUnlock()
 	return
 }
 

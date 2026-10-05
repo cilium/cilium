@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/netip"
+	"slices"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -547,6 +548,7 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 			ops:                            mock,
 			excessIPReleaseDelay:           5 * time.Second,
 			multiPoolCIDRsMarkedForRelease: marked,
+			stats:                          Statistics{IPv4: IPStatistics{ExcessIPs: 1 << 16}},
 		}
 		n.logger.Store(n.rootLogger)
 		cn := &v2.CiliumNode{}
@@ -779,5 +781,97 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 		require.True(t, mutated)
 		require.Len(t, mock.releaseCalls, 2)
 		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
+	})
+
+	t.Run("does not release below min-allocate", func(t *testing.T) {
+		const (
+			available   = 28
+			used        = 4
+			preAllocate = 1
+			minAllocate = 20
+		)
+		var marked []netip.Prefix
+		for i := used; i < available; i++ {
+			marked = append(marked, netip.PrefixFrom(netip.AddrFrom4([4]byte{10, 0, 0, byte(10 + i)}), 32))
+		}
+		mock := &multiPoolOpsMock{
+			prepare: func(released []netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{
+					InterfaceID:    "eni-1",
+					CIDRsToRelease: slices.Clone(released),
+				}}
+			},
+		}
+		markedMap := make(map[netip.Prefix]time.Time, len(marked))
+		for _, cidr := range marked {
+			markedMap[cidr] = past()
+		}
+		n := setupNode(t, mock, markedMap, true)
+		n.stats.IPv4.ExcessIPs = calculateExcessIPs(available, used, preAllocate, minAllocate, 0)
+
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+
+		releasedCount := 0
+		for _, call := range mock.releaseCalls {
+			releasedCount += len(call.CIDRsToRelease)
+		}
+		require.Equal(t, available-minAllocate, releasedCount)
+		require.Len(t, n.multiPoolCIDRsMarkedForRelease, len(marked)-(available-minAllocate))
+	})
+
+	t.Run("waits for resync before releasing", func(t *testing.T) {
+		mock := &multiPoolOpsMock{
+			prepare: func(released []netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{InterfaceID: "eni-1", CIDRsToRelease: slices.Clone(released)}}
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{
+			netip.MustParsePrefix("10.0.0.1/32"): past(),
+		}, true)
+		n.resyncNeeded = time.Now()
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
+		require.Len(t, n.multiPoolCIDRsMarkedForRelease, 1)
+	})
+
+	t.Run("failed release requires resync", func(t *testing.T) {
+		mock := &multiPoolOpsMock{
+			prepare: func(released []netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{InterfaceID: "eni-1", CIDRsToRelease: slices.Clone(released)}}
+			},
+			releaseFn: func(*ReleaseAction) ([]netip.Prefix, error) {
+				return nil, errors.New("timeout")
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{
+			netip.MustParsePrefix("10.0.0.1/32"): past(),
+		}, true)
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.Error(t, err)
+		require.False(t, mutated)
+		require.False(t, n.resyncNeeded.IsZero())
+	})
+
+	t.Run("releaseNeeded waits for pool maintenance and resync", func(t *testing.T) {
+		n := setupNode(t, &multiPoolOpsMock{}, map[netip.Prefix]time.Time{
+			netip.MustParsePrefix("10.0.0.1/32"): past(),
+		}, true)
+		n.manager = &NodeManager{releaseExcessIPs: true}
+		require.True(t, n.releaseNeeded())
+
+		n.waitingForPoolMaintenance = true
+		require.False(t, n.releaseNeeded())
+
+		n.waitingForPoolMaintenance = false
+		n.resyncNeeded = time.Now()
+		require.False(t, n.releaseNeeded())
+
+		n.updateLastResync(time.Now().Add(time.Second))
+		require.True(t, n.releaseNeeded())
 	})
 }

@@ -509,8 +509,8 @@ type ipResyncStats struct {
 }
 
 func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time, instancesAPIReady bool) {
-	node.updateLastResync(syncTime)
 	node.recalculate(ctx)
+	node.updateLastResync(syncTime)
 	if instancesAPIReady && !n.instancesAPI.HasInstance(node.InstanceID()) {
 		// Recover a node dropped from the instance cache. The caller
 		// holds the NodeManager mutex, so the instances API readiness
