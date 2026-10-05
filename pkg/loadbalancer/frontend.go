@@ -138,6 +138,7 @@ func (fe *Frontend) TableHeader() []string {
 		"PortName",
 		"Backends",
 		"RedirectTo",
+		"Flags",
 		"Status",
 		"Since",
 		"Error",
@@ -149,6 +150,19 @@ func (fe *Frontend) TableRow() []string {
 	if fe.RedirectTo != nil {
 		redirectTo = fe.RedirectTo.String()
 	}
+
+	var flags []string
+	if len(fe.SourceRanges) > 0 {
+		ranges := make([]string, len(fe.SourceRanges))
+		for i, sourceRange := range fe.SourceRanges {
+			ranges[i] = sourceRange.String()
+		}
+		flags = append(flags, "SourceRanges="+strings.Join(ranges, ", "))
+	}
+	if fe.SourceRangesPolicy == SVCSourceRangesPolicyDeny {
+		flags = append(flags, "SourceRangesPolicy=deny")
+	}
+
 	return []string{
 		fe.Address.StringWithProtocol(),
 		string(fe.Type),
@@ -156,6 +170,7 @@ func (fe *Frontend) TableRow() []string {
 		string(fe.PortName),
 		showBackends(fe.Backends),
 		redirectTo,
+		strings.Join(flags, ", "),
 		fe.Status.Kind.String(),
 		duration.HumanDuration(time.Since(fe.Status.UpdatedAt)),
 		fe.Status.GetError(),

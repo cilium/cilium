@@ -6,6 +6,7 @@ hive start
 k8s/add service.yaml endpointslice.yaml
 db/cmp services services.table
 db/cmp frontends frontends.table
+db/cmp frontends frontend_ranges.table
 db/cmp backends backends.table 
 
 # Validate map contents
@@ -16,6 +17,7 @@ lb/maps-dump lbmaps.actual
 sed 'placeholder: placeholder' 'service.cilium.io/src-ranges-policy: deny' service.yaml
 k8s/update service.yaml
 db/cmp services services_deny.table
+db/cmp frontends frontend_ranges_deny.table
 
 # Validate that the master service entries now have 'source-range+deny' set.
 lb/maps-dump lbmaps.actual
@@ -25,6 +27,7 @@ lb/maps-dump lbmaps.actual
 sed 'service.cilium.io/src-ranges-policy: deny' 'service.cilium.io/src-ranges-policy: allow' service.yaml
 k8s/update service.yaml
 db/cmp services services.table
+db/cmp frontends frontend_ranges.table
 
 # Validate that the service entries are back to allow.
 lb/maps-dump lbmaps.actual
@@ -51,6 +54,16 @@ test/echo   k8s      http=80    Cluster         SourceRanges=10.0.0.0/8, SourceR
 Address               Type          ServiceName   PortName   Backends            Status
 10.0.0.1:80/TCP       ClusterIP     test/echo     http       10.244.1.1:80/TCP   Done
 10.0.0.2:80/TCP       LoadBalancer  test/echo     http       10.244.1.1:80/TCP   Done
+
+-- frontend_ranges.table --
+Address                Flags
+10.0.0.1:80/TCP        SourceRanges=10.0.0.0/8
+10.0.0.2:80/TCP        SourceRanges=10.0.0.0/8
+
+-- frontend_ranges_deny.table --
+Address                Flags
+10.0.0.1:80/TCP        SourceRanges=10.0.0.0/8, SourceRangesPolicy=deny
+10.0.0.2:80/TCP        SourceRanges=10.0.0.0/8, SourceRangesPolicy=deny
 
 -- backends.table --
 Service    Address            NodeName
