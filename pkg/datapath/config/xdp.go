@@ -25,6 +25,7 @@ func XDP(lnc *Config, link netlink.Link) any {
 	}
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = lnc.SNATCollisionRetries
 
 	cfg.EnableXDPPrefilter = option.Config.EnableXDPPrefilter
 
