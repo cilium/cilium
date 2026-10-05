@@ -328,8 +328,7 @@ func Test_GetAdvertisements(t *testing.T) {
 						PeerConfigRef: &v2.PeerConfigReference{
 							Name: "peer-config-red",
 						},
-						PeerAddress:   ptr.To("fe80::1%eth0"),
-						PeerInterface: ptr.To("eth0"),
+						PeerAddress: ptr.To("fe80::1%eth0"),
 					},
 				},
 			},

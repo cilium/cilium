@@ -448,9 +448,8 @@ func TestSamePeer(t *testing.T) {
 			name:    "unnumbered peer matches on name",
 			running: &models.BgpPeer{Name: "dpu-unnumbered", PeerAddress: "fe80::43:57ff:fec5:c00d%enp193s0np0"},
 			configured: v2.CiliumBGPNodePeer{
-				Name:          "dpu-unnumbered",
-				PeerAddress:   ptr.To("fe80::43:57ff:fec5:c00d%enp193s0np0"),
-				PeerInterface: ptr.To("enp193s0np0"),
+				Name:        "dpu-unnumbered",
+				PeerAddress: ptr.To("fe80::43:57ff:fec5:c00d%enp193s0np0"),
 			},
 			want: true,
 		},
@@ -535,10 +534,9 @@ func TestGetInstanceStatusPeers(t *testing.T) {
 			// Unnumbered: the address was discovered on the node, zoned with
 			// the interface it was discovered on.
 			{
-				Name:          "dpu-unnumbered",
-				PeerASN:       ptr.To[int64](4290246000),
-				PeerAddress:   ptr.To("fe80::43:57ff:fec5:c00d%enp193s0np0"),
-				PeerInterface: ptr.To("enp193s0np0"),
+				Name:        "dpu-unnumbered",
+				PeerASN:     ptr.To[int64](4290246000),
+				PeerAddress: ptr.To("fe80::43:57ff:fec5:c00d%enp193s0np0"),
 			},
 			// Non-canonical spelling of the address gobgp reports as "fc00::".
 			{Name: "dpu-ipv6", PeerASN: ptr.To[int64](4290246000), PeerAddress: ptr.To("fc00::0")},

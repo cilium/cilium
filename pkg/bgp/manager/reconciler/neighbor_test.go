@@ -493,9 +493,9 @@ func TestNeighborReconciler_UnnumberedIgnoresLocalAddress(t *testing.T) {
 
 	unnumberedPeer := &v2.CiliumBGPNodePeer{
 		Name:          "unnumbered-peer",
+		AutoDiscovery: &v2.BGPAutoDiscovery{Mode: v2.BGPUnnumberedMode, Unnumbered: &v2.BGPUnnumbered{Interface: "eth0"}},
 		PeerASN:       ptr.To[int64](64124),
 		PeerAddress:   ptr.To("fe80::1%eth0"),
-		PeerInterface: ptr.To("eth0"),
 		LocalAddress:  ptr.To("10.100.100.100"),
 		PeerConfigRef: &v2.PeerConfigReference{Name: "peer-config"},
 	}
@@ -667,10 +667,9 @@ func TestNeighborReconciler_neighborID(t *testing.T) {
 			// different interfaces routinely share the same address.
 			name: "unnumbered peer uses the zoned link-local address",
 			peer: &v2.CiliumBGPNodePeer{
-				Name:          "p",
-				PeerAddress:   ptr.To("fe80::1%eth0"),
-				PeerInterface: ptr.To("eth0"),
-				PeerASN:       ptr.To[int64](64512),
+				Name:        "p",
+				PeerAddress: ptr.To("fe80::1%eth0"),
+				PeerASN:     ptr.To[int64](64512),
 			},
 			expdt: "pfe80::1%eth064512",
 		},

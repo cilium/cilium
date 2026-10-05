@@ -270,8 +270,7 @@ func TestToNeighbor(t *testing.T) {
 				// Both discovered by the DefaultGatewayReconciler: the
 				// interface, and the peer's link-local address on it, zoned
 				// with that interface.
-				PeerAddress:   ptr.To("fe80::1%eth0"),
-				PeerInterface: ptr.To("eth0"),
+				PeerAddress: ptr.To("fe80::1%eth0"),
 			},
 			peerConfig: &v2.CiliumBGPPeerConfigSpec{},
 			expected: &Neighbor{

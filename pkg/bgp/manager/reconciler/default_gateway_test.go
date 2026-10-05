@@ -207,12 +207,9 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 			err: nil,
 		},
 		{
-			// Unnumbered mode: the reconciler copies the configured interface
-			// into PeerInterface. net0 is not in the device table, so no peer
-			// address can be discovered on it - the interface is set anyway,
-			// because the Router Advertisements which eventually populate the
-			// neighbor entry are sent over it.
-			name:   "unnumbered peer sets PeerInterface from config",
+			// An absent interface leaves the peer address unresolved. The RA
+			// sender reads the interface directly from autoDiscovery.
+			name:   "unnumbered peer waits for configured interface",
 			routes: defaultRouteTable,
 			peers: []v2.CiliumBGPNodePeer{
 				{
@@ -226,8 +223,7 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 			},
 			expectedPeers: []v2.CiliumBGPNodePeer{
 				{
-					Name:          "peer-unnum",
-					PeerInterface: ptr.To[string]("net0"),
+					Name: "peer-unnum",
 					AutoDiscovery: &v2.BGPAutoDiscovery{
 						Mode:       v2.BGPUnnumberedMode,
 						Unnumbered: &v2.BGPUnnumbered{Interface: "net0"},
@@ -247,8 +243,7 @@ func TestDefaultGatewayReconciler_Reconcile(t *testing.T) {
 			},
 			expectedNewPeers: []v2.CiliumBGPNodePeer{
 				{
-					Name:          "peer-unnum",
-					PeerInterface: ptr.To[string]("net0"),
+					Name: "peer-unnum",
 					AutoDiscovery: &v2.BGPAutoDiscovery{
 						Mode:       v2.BGPUnnumberedMode,
 						Unnumbered: &v2.BGPUnnumbered{Interface: "net0"},
@@ -564,7 +559,7 @@ func TestDefaultGatewayReconciler_DiscoveryFailureReporting(t *testing.T) {
 	// interface is set regardless, so the RAs that populate the entry are sent.
 	setTables(reconciler, nil)
 	config := reconcile(reconciler)
-	req.Equal("eth0", ptr.Deref(config.Peers[0].PeerInterface, ""))
+	req.Equal("eth0", config.Peers[0].AutoDiscovery.Unnumbered.Interface)
 	req.Nil(config.Peers[0].PeerAddress)
 	req.Contains(reconciler.discoveryFailed, "test-instance/peer-unnum")
 
@@ -575,7 +570,7 @@ func TestDefaultGatewayReconciler_DiscoveryFailureReporting(t *testing.T) {
 	// The neighbor appears: the peer is configured and no longer tracked.
 	setTables(reconciler, []*tables.Neighbor{peerNeighbor("fe80::1", 123)})
 	config = reconcile(reconciler)
-	req.Equal("eth0", ptr.Deref(config.Peers[0].PeerInterface, ""))
+	req.Equal("eth0", config.Peers[0].AutoDiscovery.Unnumbered.Interface)
 	req.Equal("fe80::1%eth0", ptr.Deref(config.Peers[0].PeerAddress, ""))
 	req.Empty(reconciler.discoveryFailed)
 
@@ -708,7 +703,7 @@ func TestDefaultGatewayReconciler_UnnumberedPeerAddress(t *testing.T) {
 			// The interface is set either way: the Router Advertisements the peer
 			// learns this node's own address from depend on it, and they are what
 			// eventually populates the neighbor entry looked for here.
-			req.Equal("eth0", ptr.Deref(config.Peers[0].PeerInterface, ""))
+			req.Equal("eth0", config.Peers[0].AutoDiscovery.Unnumbered.Interface)
 			// And the link is watched either way, so the neighbor appearing later
 			// triggers another round.
 			req.Equal(map[string]int{"test-instance/peer-unnum": linkIndex}, reconciler.unnumberedLinks)
@@ -1094,12 +1089,8 @@ func validatePeers(req *require.Assertions, expected, actual []v2.CiliumBGPNodeP
 				if expPeer.PeerASN != nil {
 					req.NotNil(actPeer.PeerASN)
 					req.Equal(*expPeer.PeerASN, *actPeer.PeerASN)
-				}
-				if expPeer.PeerInterface != nil {
-					req.NotNil(actPeer.PeerInterface)
-					req.Equal(*expPeer.PeerInterface, *actPeer.PeerInterface)
 				} else {
-					req.Nil(actPeer.PeerInterface, "peer %s: unexpected PeerInterface", expPeer.Name)
+					req.Nil(actPeer.PeerASN, "peer %s: unexpected PeerASN", expPeer.Name)
 				}
 				break
 			}

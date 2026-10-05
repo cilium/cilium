@@ -809,11 +809,6 @@ func (in *CiliumBGPNodePeer) DeepCopyInto(out *CiliumBGPNodePeer) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.PeerInterface != nil {
-		in, out := &in.PeerInterface, &out.PeerInterface
-		*out = new(string)
-		**out = **in
-	}
 	if in.PeerConfigRef != nil {
 		in, out := &in.PeerConfigRef, &out.PeerConfigRef
 		*out = new(PeerConfigReference)

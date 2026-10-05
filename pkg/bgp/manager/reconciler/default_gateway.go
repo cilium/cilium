@@ -192,12 +192,6 @@ func (r *DefaultGatewayReconciler) Reconcile(ctx context.Context, p ReconcilePar
 			// Neighbor Discovery learned for it.
 			iface := peer.AutoDiscovery.Unnumbered.Interface
 
-			// Set the interface even if the peer address cannot be resolved yet:
-			// the UnnumberedRAReconciler keys the Router Advertisements it sends
-			// off it, and those are what let the peer learn this node's own
-			// link-local address.
-			p.DesiredConfig.Peers[i].PeerInterface = &iface
-
 			peerAddress, linkIndex, err := r.getUnnumberedPeerAddress(iface)
 			if linkIndex != 0 {
 				// Watch the link even when no address could be resolved on it,

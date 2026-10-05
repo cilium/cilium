@@ -207,7 +207,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		// link-local for. A localAddress override (from
 		// CiliumBGPNodeConfigOverride) would replace that derivation with an
 		// address the peer is not reachable from, so ignore it.
-		if n.PeerInterface != nil && ptr.Deref(peer.LocalAddress, "") != "" {
+		if n.AutoDiscovery != nil && n.AutoDiscovery.Mode == v2.BGPUnnumberedMode && ptr.Deref(peer.LocalAddress, "") != "" {
 			l.Warn("Ignoring localAddress override for unnumbered peer; the local address is derived from the peering interface",
 				logfields.Address, *peer.LocalAddress)
 			peer = peer.DeepCopy()
