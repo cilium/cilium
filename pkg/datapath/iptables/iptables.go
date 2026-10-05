@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"net/netip"
 	"os"
+	"os/exec"
 	"regexp"
 	"slices"
 	"strconv"
@@ -27,7 +28,6 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -154,8 +154,9 @@ func (ipt *ipt) getMode() string {
 }
 
 func (ipt *ipt) getVersion(ctx context.Context) (semver.Version, error) {
-	b, err := exec.CommandContext(ctx, ipt.prog, "--version").CombinedOutput(ipt.logger, false)
-	if err != nil {
+	cmd := exec.CommandContext(ctx, ipt.prog, "--version")
+	b, err := cmd.CombinedOutput()
+	if err = ipt.commandError(ctx, cmd, err); err != nil {
 		return semver.Version{}, err
 	}
 	v := regexp.MustCompile(`v([0-9]+(\.[0-9]+)+)`)
@@ -167,8 +168,9 @@ func (ipt *ipt) getVersion(ctx context.Context) (semver.Version, error) {
 }
 
 func (ipt *ipt) getIPtablesMode(ctx context.Context) (string, error) {
-	b, err := exec.CommandContext(ctx, ipt.prog, "--version").CombinedOutput(ipt.logger, false)
-	if err != nil {
+	cmd := exec.CommandContext(ctx, ipt.prog, "--version")
+	b, err := cmd.CombinedOutput()
+	if err = ipt.commandError(ctx, cmd, err); err != nil {
 		return "", err
 	}
 	if strings.Contains(string(b), "nf_tables") {
@@ -186,12 +188,30 @@ func (ipt *ipt) runProgOutput(args []string) (string, error) {
 	iptArgs := make([]string, 0, len(ipt.waitArgs)+len(args))
 	iptArgs = append(iptArgs, ipt.waitArgs...)
 	iptArgs = append(iptArgs, args...)
-	out, err := exec.WithTimeout(defaults.ExecTimeout, ipt.prog, iptArgs...).Output(ipt.logger, false)
+	ctx, cancel := context.WithTimeout(context.Background(), defaults.ExecTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, ipt.prog, iptArgs...)
+	out, err := cmd.Output()
 
-	if err != nil {
+	if err = ipt.commandError(ctx, cmd, err); err != nil {
 		return "", fmt.Errorf("unable to run '%s' iptables command: %w", fullCommand, err)
 	}
 	return string(out), nil
+}
+
+func (ipt *ipt) commandError(ctx context.Context, cmd *exec.Cmd, err error) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		if !errors.Is(ctxErr, context.Canceled) {
+			ipt.logger.Error("Command execution failed",
+				logfields.Error, err,
+				logfields.Cmd, cmd.Args)
+		}
+		return fmt.Errorf("command execution failed for %s: %w", cmd.Args, ctxErr)
+	}
+	if exitErr, ok := errors.AsType[*exec.ExitError](err); ok && len(exitErr.Stderr) > 0 {
+		return fmt.Errorf("%w stderr=%q", err, exitErr.Stderr)
+	}
+	return err
 }
 
 func (ipt *ipt) runProg(args []string) error {
