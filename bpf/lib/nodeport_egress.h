@@ -243,15 +243,15 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 src_id __maybe_unused,
 	if (ret != CTX_ACT_OK || revdnat_only)
 		return ret;
 
-#if !defined(ENABLE_DSR) ||						\
-    (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||		\
-     defined(ENABLE_MASQUERADE_IPV6)
-	if (!snat_done) {
-		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD,
-					 ext_err);
-	}
-#endif
+	if (!is_defined(ENABLE_DSR) || CONFIG(enable_dsr_byuser) ||
+	    is_defined(ENABLE_MASQUERADE_IPV6)) {
+		if (!snat_done) {
+			ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
+			ret = tail_call_internal(ctx,
+						 CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD,
+						 ext_err);
+		}
+}
 
 	if (is_defined(IS_BPF_HOST) && snat_done)
 		ctx_snat_done_set(ctx);
@@ -569,17 +569,14 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 	if (ret != CTX_ACT_OK || revdnat_only)
 		return ret;
 
-#if !defined(ENABLE_DSR) ||						\
-    (defined(ENABLE_DSR) && defined(ENABLE_DSR_BYUSER)) ||		\
-     defined(ENABLE_MASQUERADE_IPV4) ||					\
-    (defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT))
-	if (!snat_done) {
+	if ((!is_defined(ENABLE_DSR) || CONFIG(enable_dsr_byuser) ||
+	     is_defined(ENABLE_MASQUERADE_IPV4) ||
+	     (is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING) &&
+	      is_defined(ENABLE_INTER_CLUSTER_SNAT))) && !snat_done) {
 		ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD,
-					 ext_err);
-	}
-#endif
+		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD, ext_err);
+    }
 
 	if (is_defined(IS_BPF_HOST) && snat_done)
 		ctx_snat_done_set(ctx);

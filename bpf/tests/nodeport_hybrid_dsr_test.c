@@ -8,13 +8,13 @@
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_DSR
-#define ENABLE_DSR_BYUSER
 #define DSR_ENCAP_MODE DSR_ENCAP_IPIP
 #define DSR_ENCAP_IPIP 1
 
 #include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
+ASSIGN_CONFIG(bool, enable_dsr_byuser, true)
 
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
