@@ -38,6 +38,7 @@ func setBasePermutations(t *config.Node) {
 	t.EnableSCTP = true
 	t.EnableDropNotify = true
 	t.EnableIPMasqAgentIPv4 = true
+	t.EnableIPMasqAgentIPv6 = true
 }
 
 func baseLXCPermutations() *loadPermutationBuilder {
