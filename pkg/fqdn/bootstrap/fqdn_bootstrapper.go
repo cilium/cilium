@@ -60,6 +60,8 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) endpointstate.
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
 	// operations require privileges not available in all unit tests.
 	if option.Config.DryMode || !option.Config.EnableL7Proxy {
+		// No DNS proxy will come up, so unblock DNS redirect creation immediately.
+		b.proxyPorts.SignalDNSProxyReady()
 		return endpointstate.RestorationNotifierOut{}
 	}
 
@@ -156,6 +158,8 @@ func (b *fqdnProxyBootstrapper) startProxy(ctx context.Context, health cell.Heal
 	if err := b.proxyPorts.AckProxyPortWithReference(ctx, proxytypes.DNSProxyName); err != nil {
 		return fmt.Errorf("failed to ack DNS proxy port: %w", err)
 	}
+
+	b.proxyPorts.SignalDNSProxyReady()
 
 	health.OK(fmt.Sprintf("DNS proxy successfully initialized on port %d", bindPort))
 	return nil

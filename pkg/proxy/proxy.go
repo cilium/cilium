@@ -120,6 +120,15 @@ func (p *Proxy) CreateOrUpdateRedirect(
 ) (
 	uint16, error, revert.RevertFunc,
 ) {
+	// Only DNS Redirects should wait for the DNS proxy to allocate a port.
+	if types.ProxyType(l4.GetL7Parser()) == types.ProxyTypeDNS {
+		select {
+		case <-p.proxyPorts.DNSProxyReady():
+		case <-ctx.Done():
+			return 0, ctx.Err(), nil
+		}
+	}
+
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
