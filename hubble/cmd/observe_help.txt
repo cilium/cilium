@@ -14,7 +14,7 @@ Selectors Flags:
       --first uint     Get first N flows stored in Hubble's buffer. When querying against Hubble Relay, this gets N flows per instance of Hubble connected to that Relay.
   -f, --follow         Follow flows output
       --last uint      Get last N flows stored in Hubble's buffer (default 20). When querying against Hubble Relay, this gets N flows per instance of Hubble connected to that Relay.
-      --since string   Filter flows since a specific date. The format is relative (e.g. 3s, 4m, 1h43,, ...) or one of:
+      --since string   Filter flows since a specific date. The format is relative (e.g. 3s, 4m, 1h43m, ...) or one of:
                          StampMilli:             Jan _2 15:04:05.000
                          YearMonthDay:           2006-01-02
                          YearMonthDayHour:       2006-01-02T15-07:00
@@ -25,7 +25,7 @@ Selectors Flags:
                          RFC3339Nano:            2006-01-02T15:04:05.999999999-07:00
                          RFC1123Z:               Mon, 02 Jan 2006 15:04:05 -0700
                         
-      --until string   Filter flows until a specific date. The format is relative (e.g. 3s, 4m, 1h43,, ...) or one of:
+      --until string   Filter flows until a specific date. The format is relative (e.g. 3s, 4m, 1h43m, ...) or one of:
                          StampMilli:             Jan _2 15:04:05.000
                          YearMonthDay:           2006-01-02
                          YearMonthDayHour:       2006-01-02T15-07:00
