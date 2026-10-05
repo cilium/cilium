@@ -484,11 +484,9 @@ func TestNeighborReconciler_SourceInterfaceAddress(t *testing.T) {
 	}
 }
 
-// TestNeighborReconciler_UnnumberedIgnoresLocalAddress ensures a localAddress override is
-// not applied to an unnumbered peer. The peer is reached at an IPv6 link-local address, so
-// the router sources the session from the peering interface's own link-local; an explicit
-// local address would replace that derivation with one the peer cannot be reached from.
-func TestNeighborReconciler_UnnumberedIgnoresLocalAddress(t *testing.T) {
+// TestNeighborReconciler_UnnumberedPreservesLocalAddress verifies that explicit
+// source selection is honored for unnumbered peers too.
+func TestNeighborReconciler_UnnumberedPreservesLocalAddress(t *testing.T) {
 	req := require.New(t)
 
 	unnumberedPeer := &v2.CiliumBGPNodePeer{
@@ -496,7 +494,7 @@ func TestNeighborReconciler_UnnumberedIgnoresLocalAddress(t *testing.T) {
 		AutoDiscovery: &v2.BGPAutoDiscovery{Mode: v2.BGPUnnumberedMode, Unnumbered: &v2.BGPUnnumbered{Interface: "eth0"}},
 		PeerASN:       ptr.To[int64](64124),
 		PeerAddress:   ptr.To("fe80::1%eth0"),
-		LocalAddress:  ptr.To("10.100.100.100"),
+		LocalAddress:  ptr.To("fe80::2%eth0"),
 		PeerConfigRef: &v2.PeerConfigReference{Name: "peer-config"},
 	}
 
@@ -533,9 +531,9 @@ func TestNeighborReconciler_UnnumberedIgnoresLocalAddress(t *testing.T) {
 
 	running := neighborReconciler.getMetadata(testInstance)[unnumberedPeer.Name]
 	req.NotNil(running, "unnumbered peer is missing from the metadata")
-	req.Nil(running.Peer.LocalAddress, "localAddress override should have been ignored")
-	// The configured peer must not be mutated: the override is dropped on a copy.
-	req.Equal("10.100.100.100", ptr.Deref(unnumberedPeer.LocalAddress, ""))
+	req.Equal("fe80::2%eth0", ptr.Deref(running.Peer.LocalAddress, ""))
+	// The configured peer must not be mutated.
+	req.Equal("fe80::2%eth0", ptr.Deref(unnumberedPeer.LocalAddress, ""))
 }
 
 func setupNeighbors(t *testing.T, peers []PeerData) (NeighborReconcilerIn, *v2.CiliumBGPNodeInstance) {

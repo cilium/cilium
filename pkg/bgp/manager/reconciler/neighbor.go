@@ -202,18 +202,6 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			peer.LocalAddress = &localAddr
 		}
 
-		// An unnumbered peer is reached at an IPv6 link-local address, which the
-		// router can only source the session from the peering interface's own
-		// link-local for. A localAddress override (from
-		// CiliumBGPNodeConfigOverride) would replace that derivation with an
-		// address the peer is not reachable from, so ignore it.
-		if n.AutoDiscovery != nil && n.AutoDiscovery.Mode == v2.BGPUnnumberedMode && ptr.Deref(peer.LocalAddress, "") != "" {
-			l.Warn("Ignoring localAddress override for unnumbered peer; the local address is derived from the peering interface",
-				logfields.Address, *peer.LocalAddress)
-			peer = peer.DeepCopy()
-			peer.LocalAddress = nil
-		}
-
 		if h, ok = nset[key]; !ok {
 			nset[key] = &member{
 				new: &PeerData{
