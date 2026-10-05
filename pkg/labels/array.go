@@ -213,7 +213,16 @@ func LabelArrayFromString(str string) LabelArray {
 	return nil
 }
 
+func (ls LabelArray) formatLen() int {
+	n := 2 + max(len(ls)-1, 0)
+	for l := range ls {
+		n += ls[l].formatLen()
+	}
+	return n
+}
+
 func (ls LabelArray) BuildString(sb *strings.Builder) {
+	sb.Grow(ls.formatLen())
 	sb.WriteByte('[')
 	for l := range ls {
 		if l > 0 {
@@ -231,6 +240,7 @@ func (ls LabelArray) String() string {
 }
 
 func (ls LabelArray) BuildBytes(buf *bytes.Buffer) {
+	buf.Grow(ls.formatLen())
 	buf.WriteByte('[')
 	for l := range ls {
 		if l > 0 {

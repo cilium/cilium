@@ -96,7 +96,12 @@ type LabelArrayListString string
 
 // ArrayListString returns the LabelArrayList as a structured string
 func (ls LabelArrayList) ArrayListString() LabelArrayListString {
+	n := 2 * max(len(ls)-1, 0)
+	for i := range ls {
+		n += ls[i].formatLen()
+	}
 	var sb strings.Builder
+	sb.Grow(n)
 	for i := range ls {
 		if i > 0 {
 			sb.WriteString(", ")
