@@ -21,8 +21,8 @@ const (
 	BGPDefaultGatewayMode BGPAutoDiscoveryMode = "DefaultGateway"
 
 	// BGPUnnumberedMode when configured, Cilium peers over the named interface
-	// without a configured peer address (BGP unnumbered). gobgp discovers the
-	// peer's IPv6 link-local address on that interface via IPv6 ND.
+	// without a configured peer address (BGP unnumbered). The peer's IPv6
+	// link-local address is discovered on that interface via IPv6 ND.
 	BGPUnnumberedMode BGPAutoDiscoveryMode = "Unnumbered"
 )
 
