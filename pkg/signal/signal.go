@@ -27,12 +27,15 @@ const (
 	// SignalNatFillUp denotes potential congestion on the NAT table
 	SignalNatFillUp SignalType = iota
 	Unused
+	// SignalScaleFromZero denotes demand for a service that is scaled to zero
+	SignalScaleFromZero
 	SignalTypeMax
 )
 
 var signalName = [SignalTypeMax]string{
-	SignalNatFillUp: "nat_fill_up",
-	Unused:          "unused",
+	SignalNatFillUp:     "nat_fill_up",
+	Unused:              "unused",
+	SignalScaleFromZero: "scale_from_zero",
 }
 
 // SignalHandler parses signal data from the perf message via a reader.

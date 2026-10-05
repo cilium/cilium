@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/scaletozero"
 	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -108,11 +109,12 @@ func newBPFReconciler(p reconciler.Params, jobs job.Registry, health cell.Health
 }
 
 type BPFOps struct {
-	LBMaps    maps.LBMaps
-	log       rateLimitingLogger
-	db        *statedb.DB
-	nodeAddrs statedb.Table[tables.NodeAddress]
-	frontends statedb.Table[*loadbalancer.Frontend]
+	LBMaps         maps.LBMaps
+	scaleToZeroMap scaletozero.Map
+	log            rateLimitingLogger
+	db             *statedb.DB
+	nodeAddrs      statedb.Table[tables.NodeAddress]
+	frontends      statedb.Table[*loadbalancer.Frontend]
 
 	cfg           loadbalancer.Config
 	extCfg        loadbalancer.ExternalConfig
@@ -148,6 +150,10 @@ type BPFOps struct {
 	// prevSourceRanges is the source ranges that were previously reconciled.
 	// This is used when updating to remove orphans.
 	prevSourceRanges map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]
+
+	// trackedScaleToZero are the services that were reconciled into the
+	// scale-to-zero map. This is used when pruning to remove orphans.
+	trackedScaleToZero sets.Set[loadbalancer.ServiceID]
 
 	// wildcardReferences maps a Netip.Addr to a set of parent LoadBalancer or ClusterIP
 	// Service IDs. This is used to keep track of the relationship between real service
@@ -185,6 +191,7 @@ type bpfOpsParams struct {
 	Config         loadbalancer.Config
 	ExternalConfig loadbalancer.ExternalConfig
 	LBMaps         maps.LBMaps
+	ScaleToZeroMap scaletozero.Map
 	Maglev         *maglev.Maglev
 	DB             *statedb.DB
 	NodeAddresses  statedb.Table[tables.NodeAddress]
@@ -200,15 +207,16 @@ const (
 
 func newBPFOps(p bpfOpsParams) *BPFOps {
 	ops := &BPFOps{
-		cfg:       p.Config,
-		extCfg:    p.ExternalConfig,
-		maglev:    p.Maglev,
-		log:       newRateLimitingLogger(p.Log),
-		LBMaps:    p.LBMaps,
-		db:        p.DB,
-		nodeAddrs: p.NodeAddresses,
-		frontends: p.Frontends,
-		metrics:   p.Metrics,
+		cfg:            p.Config,
+		extCfg:         p.ExternalConfig,
+		maglev:         p.Maglev,
+		log:            newRateLimitingLogger(p.Log),
+		LBMaps:         p.LBMaps,
+		scaleToZeroMap: p.ScaleToZeroMap,
+		db:             p.DB,
+		nodeAddrs:      p.NodeAddresses,
+		frontends:      p.Frontends,
+		metrics:        p.Metrics,
 	}
 	ops.setLastUpdatedAt()
 
@@ -254,6 +262,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.wildcardReferences = map[netip.Addr][]loadbalancer.ServiceID{}
 	ops.nodePortAddrByPort = map[nodePortAddrKey][]netip.Addr{}
 	ops.prevSourceRanges = map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{}
+	ops.trackedScaleToZero = sets.New[loadbalancer.ServiceID]()
 
 	// Restore backend IDs
 	backendIDToAddress := map[loadbalancer.BackendID]loadbalancer.L3n4Addr{}
@@ -531,6 +540,13 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	}
 	delete(ops.prevSourceRanges, fe.Address)
 
+	if ops.trackedScaleToZero.Has(feID) {
+		if err := ops.scaleToZeroMap.Untrack(feID); err != nil {
+			return fmt.Errorf("untrack scale-to-zero service %d: %w", feID, err)
+		}
+		ops.trackedScaleToZero.Delete(feID)
+	}
+
 	// Cleanup any wildcard entries this fe might be associated with.
 	if loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(fe.Service) {
 		if err := ops.deleteWildcard(fe, feID); err != nil {
@@ -700,6 +716,27 @@ func (ops *BPFOps) pruneSourceRanges() error {
 	return nil
 }
 
+func (ops *BPFOps) pruneScaleToZero() error {
+	toDelete := []loadbalancer.ServiceID{}
+	cb := func(id loadbalancer.ServiceID, _ uint64) {
+		if !ops.trackedScaleToZero.Has(id) {
+			ops.log.Debug("pruneScaleToZero: enqueing for deletion", logfields.ID, id)
+			toDelete = append(toDelete, id)
+		}
+	}
+	err := ops.scaleToZeroMap.Dump(cb)
+	if err != nil {
+		return err
+	}
+	for _, id := range toDelete {
+		err := ops.scaleToZeroMap.Untrack(id)
+		if err != nil {
+			ops.log.Warn("Failed to delete from scale-to-zero map", logfields.Error, err)
+		}
+	}
+	return nil
+}
+
 func (ops *BPFOps) pruneMaglev() error {
 	type outerKeyWithIPVersion struct {
 		maps.MaglevOuterKey
@@ -741,6 +778,7 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 		ops.pruneBackendMaps(),
 		ops.pruneRevNat(),
 		ops.pruneSourceRanges(),
+		ops.pruneScaleToZero(),
 		ops.pruneMaglev(),
 	)
 }
@@ -929,6 +967,13 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		forwardingMode = svc.ForwardingMode
 	}
 
+	l7LoadBalancer := svc.ProxyRedirects.Redirects(fe.ServicePort)
+
+	// A service that is redirected to Envoy is never held: the connection the
+	// datapath sees is terminated by the proxy, not by a backend, so it does
+	// not tell whether the service is in demand.
+	scaleToZero := ops.cfg.EnableScaleToZero && svc.GetScaleToZero() && !l7LoadBalancer
+
 	masterFlagParams := &loadbalancer.SvcFlagParam{
 		SvcType:          svcType,
 		SvcNatPolicy:     svc.NatPolicy,
@@ -939,7 +984,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		IsRoutable:       isRoutable,
 		CheckSourceRange: checkSourceRange,
 		SourceRangeDeny:  checkSourceRange && svc.GetSourceRangesPolicy() == loadbalancer.SVCSourceRangesPolicyDeny,
-		L7LoadBalancer:   svc.ProxyRedirects.Redirects(fe.ServicePort),
+		L7LoadBalancer:   l7LoadBalancer,
 		LoopbackHostport: svc.LoopbackHostPort || proxyDelegation != loadbalancer.SVCProxyDelegationNone,
 		Quarantined:      false,
 	}
@@ -1142,6 +1187,30 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		}
 
 		prevSourceRanges.Delete(cidr)
+	}
+
+	// Update the scale-to-zero membership. Only the membership is reconciled:
+	// the value of an entry is the timestamp with which the datapath rate
+	// limits its scale-up requests and rewriting it would reset the limiter.
+	// Entries left behind by an opt-out that happened while the agent was down
+	// are not visible here, since the set starts empty; the startup prune
+	// removes them.
+	//
+	// The name is what the wake signal is attributed to. This runs once per
+	// datapath entry, which for a NodePort/LoadBalancer/ExternalIP service
+	// includes the per-node-address frontends [BPFOps.Update] expands it into;
+	// those are clones of the surrogate and carry the same service name, which
+	// is the only place the expanded IDs can pick one up.
+	if scaleToZero {
+		if err := ops.scaleToZeroMap.Track(feID, fe.ServiceName); err != nil {
+			return fmt.Errorf("track scale-to-zero service %d: %w", feID, err)
+		}
+		ops.trackedScaleToZero.Insert(feID)
+	} else if ops.trackedScaleToZero.Has(feID) {
+		if err := ops.scaleToZeroMap.Untrack(feID); err != nil {
+			return fmt.Errorf("untrack scale-to-zero service %d: %w", feID, err)
+		}
+		ops.trackedScaleToZero.Delete(feID)
 	}
 
 	// Update RevNat
@@ -1694,6 +1763,7 @@ func (ops *BPFOps) StateSummary() string {
 	fmt.Fprintf(&b, "backendReferences: %d\n", len(ops.backendReferences))
 	fmt.Fprintf(&b, "nodePortAddrByPort: %d\n", len(ops.nodePortAddrByPort))
 	fmt.Fprintf(&b, "prevSourceRanges: %d\n", len(ops.prevSourceRanges))
+	fmt.Fprintf(&b, "trackedScaleToZero: %d\n", len(ops.trackedScaleToZero))
 	fmt.Fprintf(&b, "restoredQuarantines: %d\n", len(ops.restoredQuarantinedBackends))
 	fmt.Fprintf(&b, "wildcardReferences: %d\n", len(ops.wildcardReferences))
 

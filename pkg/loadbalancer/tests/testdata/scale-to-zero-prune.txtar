@@ -1,0 +1,101 @@
+#! --lb-test-fault-probability=0.0 --enable-scale-to-zero
+
+# Privileged mode uses real BPF maps, which are attached to the hive lifecycle.
+# Stop this test in privileged mode because we can't simulate the agent restarting
+# against BPF state that is not retained.
+[privileged] stop
+
+hive/start
+k8s/add service.yaml endpointslice.yaml
+test/init-wait
+
+# Confirm that the old agent held the service before it stopped.
+db/cmp frontends frontends.table
+lb/scale-to-zero-dump scale-to-zero.actual
+* cmp scale-to-zero.actual scale-to-zero.expected
+
+hive/stop
+
+# The service goes away while the agent is down, so the replacement agent never
+# sees a deletion event for it. The EndpointSlice is left behind deliberately,
+# the absence of the Service alone must be enough to release the service.
+k8s/delete service.yaml
+
+hive/recreate
+
+# The replacement hive has a fresh StateDB and sees the retained map contents
+# before startup reconciliation gets an opportunity to prune them.
+db/empty services frontends
+lb/scale-to-zero-dump retained.actual
+cmp retained.actual scale-to-zero.expected
+
+hive/start
+test/init-wait
+
+# The fresh StateDB has no service to reconcile, so only pruning can release
+# the identifiers held by the previous agent.
+* db/empty services frontends
+* lb/maps-empty
+lb/scale-to-zero-dump scale-to-zero.actual
+* cmp scale-to-zero.actual scale-to-zero_empty.expected
+
+hive/stop
+
+#####
+
+-- frontends.table --
+Address               Type         ServiceName   PortName   Status  Backends
+0.0.0.0:30781/TCP     NodePort     test/echo     http       Done    10.244.1.1:80/TCP
+10.96.50.104:80/TCP   ClusterIP    test/echo     http       Done    10.244.1.1:80/TCP
+172.16.1.1:80/TCP     LoadBalancer test/echo     http       Done    10.244.1.1:80/TCP
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.cilium.io/scale-to-zero: "true"
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: LoadBalancer
+status:
+  loadBalancer:
+    ingress:
+    - ip: 172.16.1.1
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- scale-to-zero.expected --
+SCALETOZERO: ID=1
+SCALETOZERO: ID=2
+SCALETOZERO: ID=3
+-- scale-to-zero_empty.expected --

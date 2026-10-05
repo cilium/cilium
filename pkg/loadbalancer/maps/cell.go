@@ -15,6 +15,11 @@ var Cell = cell.Module(
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
 	cell.Provide(newLBMaps),
 
+	// Provide the map of the services that opted into scale-to-zero. It is
+	// reconciled alongside the load-balancing maps, so it follows them in
+	// being faked when the load balancer runs without a datapath.
+	cell.Provide(newScaleToZeroMap),
+
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),
 
