@@ -104,8 +104,7 @@ func TestToGoBGPPeer(t *testing.T) {
 		{
 			// BGP unnumbered: the peer's discovered link-local address is
 			// configured as-is, zoned with the peering interface. The
-			// interface is not handed to gobgp as NeighborInterface, it only
-			// travels in the description.
+			// interface travels only in the address zone.
 			name: "BGP unnumbered",
 			neighbor: &types.Neighbor{
 				Address: netip.MustParseAddr("fe80::1%eth0"),
@@ -113,7 +112,6 @@ func TestToGoBGPPeer(t *testing.T) {
 			expected: &gobgp.Peer{
 				Conf: &gobgp.PeerConf{
 					NeighborAddress: "fe80::1%eth0",
-					Description:     `{"name":"","interface":"eth0"}`,
 				},
 				AfiSafis: defaultAfiSafi,
 			},
@@ -248,7 +246,6 @@ func TestToGoBGPPeer(t *testing.T) {
 			expected: &gobgp.Peer{
 				Conf: &gobgp.PeerConf{
 					NeighborAddress: "fe80::1%eth0",
-					Description:     `{"name":"","interface":"eth0"}`,
 				},
 				Transport: &gobgp.Transport{
 					RemotePort: 1179,

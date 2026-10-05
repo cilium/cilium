@@ -563,8 +563,6 @@ func ToGoBGPPeer(n *types.Neighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
 
 type peerDescription struct {
 	Name string `json:"name"`
-	// Interface is the peering interface of an unnumbered peer, empty otherwise.
-	Interface string `json:"interface,omitempty"`
 }
 
 func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
@@ -575,16 +573,11 @@ func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
 		conf = oldPeer.Conf
 	}
 
-	// Encode the neighbor name (inherited from the CRD) and the peering
-	// interface of an unnumbered peer into the description field as JSON (for
-	// future extensibility). gobgp keeps neither anywhere else: it has no
-	// notion of a peer name, and the interface cannot be handed to it as
-	// NeighborInterface (see below).
-	if n.Name != "" || n.Address.Zone() != "" {
-		pd := peerDescription{
-			Name:      n.Name,
-			Interface: n.Address.Zone(),
-		}
+	// Encode the neighbor name (inherited from the CRD) into the description
+	// field as JSON, since GoBGP has no peer-name field. The peering interface
+	// is already carried by the zone in NeighborAddress.
+	if n.Name != "" {
+		pd := peerDescription{Name: n.Name}
 		desc, err := json.Marshal(pd)
 		if err == nil {
 			// We ignore error here because this field is not
