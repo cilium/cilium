@@ -78,6 +78,12 @@ type CiliumEnvoyConfigSpec struct {
 	// type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment, and
 	// type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret.
 	//
+	// The agent removes a trailing ":*" wildcard-port suffix from Cluster names
+	// and supported Cluster references, EDS service names, and ClusterLoadAssignment
+	// names. Prefer names without this suffix.
+	// A configuration is rejected if normalization causes duplicate resource names
+	// or health-check Cluster map keys.
+	//
 	// +kubebuilder:validation:Required
 	Resources []XDSResource `json:"resources,omitempty"`
 
@@ -102,8 +108,9 @@ type Service struct {
 	// +kubebuilder:validation:Optional
 	Namespace string `json:"namespace,omitempty"`
 
-	// Ports is a set of port numbers, which can be used for filtering in case of underlying
-	// is exposing multiple port numbers.
+	// Ports selects service ports by name or number. If omitted, all backend
+	// ports are included in the EDS assignment named "namespace/name".
+	// Otherwise, assignments are named "namespace/name:port".
 	//
 	// +kubebuilder:validation:Optional
 	Ports []string `json:"number,omitempty"`
@@ -128,6 +135,10 @@ type ServiceListener struct {
 
 	// Ports is a set of service's frontend ports that should be redirected to the Envoy
 	// listener. By default all frontend ports of the service are redirected.
+	//
+	// These ports also select the backends published via EDS, with assignments
+	// named "namespace/name:port". If omitted, all backend ports are included in
+	// the EDS assignment named "namespace/name".
 	//
 	// +kubebuilder:validation:Optional
 	Ports []uint16 `json:"ports,omitempty"`
