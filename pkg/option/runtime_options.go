@@ -51,7 +51,6 @@ var (
 	}
 
 	specPolicyVerdictNotify = Option{
-		Define:      "POLICY_VERDICT_NOTIFY",
 		Description: "Enable policy verdict notifications",
 	}
 
