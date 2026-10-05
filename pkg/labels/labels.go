@@ -721,7 +721,13 @@ func (l Label) formatForKVStoreInto(buf *bytes.Buffer) {
 // DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS KEY IN
 // THE KEY-VALUE STORE.
 func (l Labels) SortedList() []byte {
-	keys := slices.Sorted(maps.Keys(l))
+	// Pre-size the key slice: slices.Sorted(maps.Keys(l)) cannot see the map
+	// length and regrows the slice from nil, which dominates this function.
+	keys := make([]string, 0, len(l))
+	for k := range l {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
 
 	// Labels can have arbitrary size. However, when many CIDR identities are in
 	// the system, for example due to a FQDN policy matching S3, CIDR labels
