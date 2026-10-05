@@ -79,6 +79,7 @@ update-versions: update-chart cilium/values.yaml # Update the Helm values file t
 CRDS := $(foreach path,$(patsubst %.yaml,%,$(CRD_FILES)),$(shell basename $(path)))
 RAND_FILES := $(shell grep -R -l -e "rand" -e "shuffle" -e "genPrivateKey" -e "genCA" -e "genSignedCert" -e "UUID" -e "cilium.ca.setup" --include="*.yaml" $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates)
 RAND_SECRETS := $(foreach rand_file,$(RAND_FILES),$(shell grep -l -e 'kind: Secret' $(rand_file)))
+# Verify which ServiceMonitor exposes Envoy metrics in embedded and standalone modes.
 test-servicemonitor:
 	$(ECHO_CHECK) $@
 	$(QUIET)set -e; \
