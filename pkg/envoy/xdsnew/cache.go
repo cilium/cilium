@@ -555,13 +555,6 @@ func (c *cacheImpl) GenerateSnapshot(resources *xds.Resources, logger *slog.Logg
 	secrets := make(map[string]cache_types.Resource, len(resources.Secrets))
 
 	for name, r := range resources.Endpoints {
-		// Skip wildcard :* endpoints that have no matching cluster,
-		// as they cause snapshot inconsistency (EDS count > CDS references).
-		// These are generated for backward compatibility with the old per-type
-		// xDS caches but are not needed in the ADS snapshot.
-		if _, hasCluster := resources.Clusters[name]; !hasCluster && len(name) > 2 && name[len(name)-2:] == ":*" {
-			continue
-		}
 		endpoints[name] = r
 	}
 	for name, r := range resources.Clusters {
