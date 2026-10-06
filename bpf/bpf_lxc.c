@@ -1831,8 +1831,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 					   &ct_state->nat_addr, ct_state->nat_port,
 					   ct_state->loopback,
 					   tuple,
-					   ipfrag_has_l4_header(ct_buffer->fraginfo),
-					   CT_INGRESS);
+					   ipfrag_has_l4_header(ct_buffer->fraginfo));
 			if (IS_ERR(ret2))
 				return ret2;
 		}

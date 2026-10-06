@@ -32,6 +32,7 @@ static int BPF_STUB(l3_csum_replace, struct xdp_md *xdp, __u32 off,
 		    __u32 from, __u32 to, __u32 flags);
 static int BPF_STUB(l4_csum_replace, struct xdp_md *xdp, __u32 off,
 		    __u32 from, __u32 to, __u32 flags);
+static int BPF_STUB(csum_update, struct xdp_md *xdp, __u32 csum);
 
 static int BPF_STUB(xdp_adjust_room, struct xdp_md *xdp, __s32 len_diff,
 		    __u32 mode, __u64 flags);
