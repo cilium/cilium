@@ -747,23 +747,26 @@ func (m *manager) addCiliumTunnelRules() (err error) {
 // addCiliumAcceptTunnelRules adds the ACCEPT rule in the cilium input and
 // output chains for udp destination port at `tunnelPort`.
 func (m *manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
-	addRule := func(chain string) error {
-		cmd := []string{
-			"-t", "filter",
-			"-A", chain,
-			"-p", "udp",
-			"--dport", strconv.Itoa(int(tunelPort)),
-			"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
-			"-j", "ACCEPT",
+	addRule := func(chain, ipsetDir string) error {
+		cmd := func(ipset string) []string {
+			return []string{"-t", "filter",
+				"-A", chain,
+				"-p", "udp",
+				"--dport", strconv.Itoa(int(tunelPort)),
+				"-m", "set", "--match-set", ipset, ipsetDir,
+				"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
+				"-j", "ACCEPT",
+			}
 		}
+
 		if m.sharedCfg.EnableIPv4 {
-			if err := m.ip4tables.runProg(cmd); err != nil {
+			if err := m.ip4tables.runProg(cmd(m.ip4tables.getIpset())); err != nil {
 				return err
 			}
 		}
 
 		if m.sharedCfg.EnableIPv6 {
-			if err := m.ip6tables.runProg(cmd); err != nil {
+			if err := m.ip6tables.runProg(cmd(m.ip6tables.getIpset())); err != nil {
 				return err
 			}
 		}
@@ -772,7 +775,14 @@ func (m *manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
 	}
 
 	for _, chain := range []string{ciliumInputChain, ciliumOutputChain} {
-		if err := addRule(chain); err != nil {
+		// match remote nodes with ipset: input direction allows sources, whereas
+		// output direction allows destinations.
+		ipsetDir := "dst"
+		if chain == ciliumInputChain {
+			ipsetDir = "src"
+		}
+
+		if err := addRule(chain, ipsetDir); err != nil {
 			return err
 		}
 	}
