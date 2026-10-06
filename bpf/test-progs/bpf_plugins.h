@@ -52,6 +52,8 @@ __section(SECTION)                                            \
 int NAME(CTX_TYPE ctx __maybe_unused)                         \
 {                                                             \
 	NAME##_seq = inc();                                   \
+	if (CONFIG(policy_outbound_enabled))                  \
+		tail_call_static(ctx, cilium_calls, 13);      \
 	return 1;                                             \
 }
 
@@ -65,6 +67,25 @@ int program_##NAME(CTX_TYPE ctx __maybe_unused)                                 
 		tail_call_static(ctx, MAP_NAME, SLOT);                            \
 	return 1;                                                                 \
 }
+
+#define MULTI_TAIL_PROGRAM_CALLER(SECTION, NAME, MAP_NAME, SLOT_A, SLOT_B,   \
+				  CTX_TYPE, CONFIG_VAR)                      \
+int NAME##_second_target;                                                    \
+int program_##NAME##_seq;                                                    \
+__section(SECTION)                                                           \
+int program_##NAME(CTX_TYPE ctx __maybe_unused)                              \
+{                                                                            \
+	program_##NAME##_seq = inc();                                        \
+	if (CONFIG(CONFIG_VAR)) {                                            \
+		if (NAME##_second_target) {                                  \
+			tail_call_static(ctx, MAP_NAME, SLOT_B);             \
+		} else {                                                     \
+			tail_call_static(ctx, MAP_NAME, SLOT_A);             \
+		}                                                            \
+	}                                                                    \
+	return 1;                                                            \
+}
+
 static int __maybe_unused clamp(int ret, int min, int max)
 {
 	if (ret < min)
@@ -103,3 +124,18 @@ int after_program_##NAME(CTX_TYPE ctx __maybe_unused, int ret) \
 		     MIN_RET,                                  \
 		     MAX_RET);                                 \
 }
+
+#define TAIL_CALL_POLICY(SECTION, NAME, CTX_TYPE, MIN_RET, MAX_RET) \
+int tail_call_##NAME##_seq;                                              \
+int tail_call_##NAME##_ret;                                              \
+__section(SECTION)                                                       \
+int tail_call_##NAME(CTX_TYPE ctx __maybe_unused)                         \
+{                                                                        \
+	tail_call_##NAME##_seq = inc();                                  \
+	return clamp(tail_call_##NAME##_ret,                             \
+		     MIN_RET,                                            \
+		     MAX_RET);                                           \
+}
+
+#define TAIL_CALL(SECTION, NAME, CTX_TYPE, MIN_RET, MAX_RET) \
+	TAIL_CALL_POLICY(SECTION, program_##NAME, CTX_TYPE, MIN_RET, MAX_RET)
