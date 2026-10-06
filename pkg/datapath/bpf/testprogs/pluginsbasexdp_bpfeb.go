@@ -16,21 +16,22 @@ import (
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
-	PluginsBaseXdpMapCiliumCallPolicy          = "cilium_call_policy"
-	PluginsBaseXdpMapCiliumCalls               = "cilium_calls"
-	PluginsBaseXdpMapSeq                       = "seq"
-	PluginsBaseXdpProgCilLxcPolicyEgress       = "cil_lxc_policy_egress"
-	PluginsBaseXdpProgProgramTailXdp           = "program_tail_xdp"
-	PluginsBaseXdpProgProgramXdp               = "program_xdp"
-	PluginsBaseXdpProgProgramXdpCaller         = "program_xdp_caller"
-	PluginsBaseXdpProgProgramXdpPolicyCaller   = "program_xdp_policy_caller"
-	PluginsBaseXdpVarConfigPolicyCallerEnabled = "__config_policy_caller_enabled"
-	PluginsBaseXdpVarConfigTailCallEnabled     = "__config_tail_call_enabled"
-	PluginsBaseXdpVarCilLxcPolicyEgressSeq     = "cil_lxc_policy_egress_seq"
-	PluginsBaseXdpVarProgramTailXdpSeq         = "program_tail_xdp_seq"
-	PluginsBaseXdpVarProgramXdpCallerSeq       = "program_xdp_caller_seq"
-	PluginsBaseXdpVarProgramXdpPolicyCallerSeq = "program_xdp_policy_caller_seq"
-	PluginsBaseXdpVarProgramXdpSeq             = "program_xdp_seq"
+	PluginsBaseXdpMapCiliumCallPolicy            = "cilium_call_policy"
+	PluginsBaseXdpMapCiliumCalls                 = "cilium_calls"
+	PluginsBaseXdpMapSeq                         = "seq"
+	PluginsBaseXdpProgCilLxcPolicyEgress         = "cil_lxc_policy_egress"
+	PluginsBaseXdpProgProgramTailXdp             = "program_tail_xdp"
+	PluginsBaseXdpProgProgramXdp                 = "program_xdp"
+	PluginsBaseXdpProgProgramXdpCaller           = "program_xdp_caller"
+	PluginsBaseXdpProgProgramXdpPolicyCaller     = "program_xdp_policy_caller"
+	PluginsBaseXdpVarConfigPolicyCallerEnabled   = "__config_policy_caller_enabled"
+	PluginsBaseXdpVarConfigPolicyOutboundEnabled = "__config_policy_outbound_enabled"
+	PluginsBaseXdpVarConfigTailCallEnabled       = "__config_tail_call_enabled"
+	PluginsBaseXdpVarCilLxcPolicyEgressSeq       = "cil_lxc_policy_egress_seq"
+	PluginsBaseXdpVarProgramTailXdpSeq           = "program_tail_xdp_seq"
+	PluginsBaseXdpVarProgramXdpCallerSeq         = "program_xdp_caller_seq"
+	PluginsBaseXdpVarProgramXdpPolicyCallerSeq   = "program_xdp_policy_caller_seq"
+	PluginsBaseXdpVarProgramXdpSeq               = "program_xdp_seq"
 )
 
 // LoadPluginsBaseXdp returns the embedded CollectionSpec for PluginsBaseXdp.
@@ -95,13 +96,14 @@ type PluginsBaseXdpMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type PluginsBaseXdpVariableSpecs struct {
-	ConfigPolicyCallerEnabled *ebpf.VariableSpec `ebpf:"__config_policy_caller_enabled"`
-	ConfigTailCallEnabled     *ebpf.VariableSpec `ebpf:"__config_tail_call_enabled"`
-	CilLxcPolicyEgressSeq     *ebpf.VariableSpec `ebpf:"cil_lxc_policy_egress_seq"`
-	ProgramTailXdpSeq         *ebpf.VariableSpec `ebpf:"program_tail_xdp_seq"`
-	ProgramXdpCallerSeq       *ebpf.VariableSpec `ebpf:"program_xdp_caller_seq"`
-	ProgramXdpPolicyCallerSeq *ebpf.VariableSpec `ebpf:"program_xdp_policy_caller_seq"`
-	ProgramXdpSeq             *ebpf.VariableSpec `ebpf:"program_xdp_seq"`
+	ConfigPolicyCallerEnabled   *ebpf.VariableSpec `ebpf:"__config_policy_caller_enabled"`
+	ConfigPolicyOutboundEnabled *ebpf.VariableSpec `ebpf:"__config_policy_outbound_enabled"`
+	ConfigTailCallEnabled       *ebpf.VariableSpec `ebpf:"__config_tail_call_enabled"`
+	CilLxcPolicyEgressSeq       *ebpf.VariableSpec `ebpf:"cil_lxc_policy_egress_seq"`
+	ProgramTailXdpSeq           *ebpf.VariableSpec `ebpf:"program_tail_xdp_seq"`
+	ProgramXdpCallerSeq         *ebpf.VariableSpec `ebpf:"program_xdp_caller_seq"`
+	ProgramXdpPolicyCallerSeq   *ebpf.VariableSpec `ebpf:"program_xdp_policy_caller_seq"`
+	ProgramXdpSeq               *ebpf.VariableSpec `ebpf:"program_xdp_seq"`
 }
 
 // PluginsBaseXdpObjects contains all objects after they have been loaded into the kernel.
@@ -141,13 +143,14 @@ func (m *PluginsBaseXdpMaps) Close() error {
 //
 // It can be passed to LoadPluginsBaseXdpObjects or ebpf.CollectionSpec.LoadAndAssign.
 type PluginsBaseXdpVariables struct {
-	ConfigPolicyCallerEnabled *ebpf.Variable `ebpf:"__config_policy_caller_enabled"`
-	ConfigTailCallEnabled     *ebpf.Variable `ebpf:"__config_tail_call_enabled"`
-	CilLxcPolicyEgressSeq     *ebpf.Variable `ebpf:"cil_lxc_policy_egress_seq"`
-	ProgramTailXdpSeq         *ebpf.Variable `ebpf:"program_tail_xdp_seq"`
-	ProgramXdpCallerSeq       *ebpf.Variable `ebpf:"program_xdp_caller_seq"`
-	ProgramXdpPolicyCallerSeq *ebpf.Variable `ebpf:"program_xdp_policy_caller_seq"`
-	ProgramXdpSeq             *ebpf.Variable `ebpf:"program_xdp_seq"`
+	ConfigPolicyCallerEnabled   *ebpf.Variable `ebpf:"__config_policy_caller_enabled"`
+	ConfigPolicyOutboundEnabled *ebpf.Variable `ebpf:"__config_policy_outbound_enabled"`
+	ConfigTailCallEnabled       *ebpf.Variable `ebpf:"__config_tail_call_enabled"`
+	CilLxcPolicyEgressSeq       *ebpf.Variable `ebpf:"cil_lxc_policy_egress_seq"`
+	ProgramTailXdpSeq           *ebpf.Variable `ebpf:"program_tail_xdp_seq"`
+	ProgramXdpCallerSeq         *ebpf.Variable `ebpf:"program_xdp_caller_seq"`
+	ProgramXdpPolicyCallerSeq   *ebpf.Variable `ebpf:"program_xdp_policy_caller_seq"`
+	ProgramXdpSeq               *ebpf.Variable `ebpf:"program_xdp_seq"`
 }
 
 // PluginsBaseXdpPrograms contains all programs after they have been loaded into the kernel.

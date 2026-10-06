@@ -59,6 +59,13 @@ const (
 	PluginsHooksProgBeforeProgramXdp                   = "before_program_xdp"
 	PluginsHooksProgBeforeProgramXdpCaller             = "before_program_xdp_caller"
 	PluginsHooksProgBeforeProgramXdpPolicyCaller       = "before_program_xdp_policy_caller"
+	PluginsHooksProgTailCallCilLxcPolicy               = "tail_call_cil_lxc_policy"
+	PluginsHooksProgTailCallCilLxcPolicyEgress         = "tail_call_cil_lxc_policy_egress"
+	PluginsHooksProgTailCallProgramPolicyCaller        = "tail_call_program_policy_caller"
+	PluginsHooksProgTailCallProgramTcCaller            = "tail_call_program_tc_caller"
+	PluginsHooksProgTailCallProgramTcMultiCaller       = "tail_call_program_tc_multi_caller"
+	PluginsHooksProgTailCallProgramXdpCaller           = "tail_call_program_xdp_caller"
+	PluginsHooksProgTailCallProgramXdpPolicyCaller     = "tail_call_program_xdp_policy_caller"
 	PluginsHooksVarAfterProgramBind4Ret                = "after_program_bind4_ret"
 	PluginsHooksVarAfterProgramBind4RetParam           = "after_program_bind4_ret_param"
 	PluginsHooksVarAfterProgramBind4Seq                = "after_program_bind4_seq"
@@ -162,6 +169,20 @@ const (
 	PluginsHooksVarBeforeProgramXdpPolicyCallerSeq     = "before_program_xdp_policy_caller_seq"
 	PluginsHooksVarBeforeProgramXdpRet                 = "before_program_xdp_ret"
 	PluginsHooksVarBeforeProgramXdpSeq                 = "before_program_xdp_seq"
+	PluginsHooksVarTailCallCilLxcPolicyEgressRet       = "tail_call_cil_lxc_policy_egress_ret"
+	PluginsHooksVarTailCallCilLxcPolicyEgressSeq       = "tail_call_cil_lxc_policy_egress_seq"
+	PluginsHooksVarTailCallCilLxcPolicyRet             = "tail_call_cil_lxc_policy_ret"
+	PluginsHooksVarTailCallCilLxcPolicySeq             = "tail_call_cil_lxc_policy_seq"
+	PluginsHooksVarTailCallProgramPolicyCallerRet      = "tail_call_program_policy_caller_ret"
+	PluginsHooksVarTailCallProgramPolicyCallerSeq      = "tail_call_program_policy_caller_seq"
+	PluginsHooksVarTailCallProgramTcCallerRet          = "tail_call_program_tc_caller_ret"
+	PluginsHooksVarTailCallProgramTcCallerSeq          = "tail_call_program_tc_caller_seq"
+	PluginsHooksVarTailCallProgramTcMultiCallerRet     = "tail_call_program_tc_multi_caller_ret"
+	PluginsHooksVarTailCallProgramTcMultiCallerSeq     = "tail_call_program_tc_multi_caller_seq"
+	PluginsHooksVarTailCallProgramXdpCallerRet         = "tail_call_program_xdp_caller_ret"
+	PluginsHooksVarTailCallProgramXdpCallerSeq         = "tail_call_program_xdp_caller_seq"
+	PluginsHooksVarTailCallProgramXdpPolicyCallerRet   = "tail_call_program_xdp_policy_caller_ret"
+	PluginsHooksVarTailCallProgramXdpPolicyCallerSeq   = "tail_call_program_xdp_policy_caller_seq"
 )
 
 // LoadPluginsHooks returns the embedded CollectionSpec for PluginsHooks.
@@ -206,48 +227,55 @@ type PluginsHooksSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type PluginsHooksProgramSpecs struct {
-	AfterProgramBind4            *ebpf.ProgramSpec `ebpf:"after_program_bind4"`
-	AfterProgramBind6            *ebpf.ProgramSpec `ebpf:"after_program_bind6"`
-	AfterProgramConnect4         *ebpf.ProgramSpec `ebpf:"after_program_connect4"`
-	AfterProgramConnect6         *ebpf.ProgramSpec `ebpf:"after_program_connect6"`
-	AfterProgramGetpeername4     *ebpf.ProgramSpec `ebpf:"after_program_getpeername4"`
-	AfterProgramGetpeername6     *ebpf.ProgramSpec `ebpf:"after_program_getpeername6"`
-	AfterProgramPolicyCaller     *ebpf.ProgramSpec `ebpf:"after_program_policy_caller"`
-	AfterProgramPostBind4        *ebpf.ProgramSpec `ebpf:"after_program_post_bind4"`
-	AfterProgramPostBind6        *ebpf.ProgramSpec `ebpf:"after_program_post_bind6"`
-	AfterProgramRecvmsg4         *ebpf.ProgramSpec `ebpf:"after_program_recvmsg4"`
-	AfterProgramRecvmsg6         *ebpf.ProgramSpec `ebpf:"after_program_recvmsg6"`
-	AfterProgramSendmsg4         *ebpf.ProgramSpec `ebpf:"after_program_sendmsg4"`
-	AfterProgramSendmsg6         *ebpf.ProgramSpec `ebpf:"after_program_sendmsg6"`
-	AfterProgramSockRelease      *ebpf.ProgramSpec `ebpf:"after_program_sock_release"`
-	AfterProgramTc               *ebpf.ProgramSpec `ebpf:"after_program_tc"`
-	AfterProgramTcCaller         *ebpf.ProgramSpec `ebpf:"after_program_tc_caller"`
-	AfterProgramXdp              *ebpf.ProgramSpec `ebpf:"after_program_xdp"`
-	AfterProgramXdpCaller        *ebpf.ProgramSpec `ebpf:"after_program_xdp_caller"`
-	AfterProgramXdpPolicyCaller  *ebpf.ProgramSpec `ebpf:"after_program_xdp_policy_caller"`
-	BeforeCilLxcPolicy           *ebpf.ProgramSpec `ebpf:"before_cil_lxc_policy"`
-	BeforeCilLxcPolicyEgress     *ebpf.ProgramSpec `ebpf:"before_cil_lxc_policy_egress"`
-	BeforeProgramBind4           *ebpf.ProgramSpec `ebpf:"before_program_bind4"`
-	BeforeProgramBind6           *ebpf.ProgramSpec `ebpf:"before_program_bind6"`
-	BeforeProgramConnect4        *ebpf.ProgramSpec `ebpf:"before_program_connect4"`
-	BeforeProgramConnect6        *ebpf.ProgramSpec `ebpf:"before_program_connect6"`
-	BeforeProgramGetpeername4    *ebpf.ProgramSpec `ebpf:"before_program_getpeername4"`
-	BeforeProgramGetpeername6    *ebpf.ProgramSpec `ebpf:"before_program_getpeername6"`
-	BeforeProgramPolicyCaller    *ebpf.ProgramSpec `ebpf:"before_program_policy_caller"`
-	BeforeProgramPostBind4       *ebpf.ProgramSpec `ebpf:"before_program_post_bind4"`
-	BeforeProgramPostBind6       *ebpf.ProgramSpec `ebpf:"before_program_post_bind6"`
-	BeforeProgramRecvmsg4        *ebpf.ProgramSpec `ebpf:"before_program_recvmsg4"`
-	BeforeProgramRecvmsg6        *ebpf.ProgramSpec `ebpf:"before_program_recvmsg6"`
-	BeforeProgramSendmsg4        *ebpf.ProgramSpec `ebpf:"before_program_sendmsg4"`
-	BeforeProgramSendmsg6        *ebpf.ProgramSpec `ebpf:"before_program_sendmsg6"`
-	BeforeProgramSockRelease     *ebpf.ProgramSpec `ebpf:"before_program_sock_release"`
-	BeforeProgramTailTc          *ebpf.ProgramSpec `ebpf:"before_program_tail_tc"`
-	BeforeProgramTailXdp         *ebpf.ProgramSpec `ebpf:"before_program_tail_xdp"`
-	BeforeProgramTc              *ebpf.ProgramSpec `ebpf:"before_program_tc"`
-	BeforeProgramTcCaller        *ebpf.ProgramSpec `ebpf:"before_program_tc_caller"`
-	BeforeProgramXdp             *ebpf.ProgramSpec `ebpf:"before_program_xdp"`
-	BeforeProgramXdpCaller       *ebpf.ProgramSpec `ebpf:"before_program_xdp_caller"`
-	BeforeProgramXdpPolicyCaller *ebpf.ProgramSpec `ebpf:"before_program_xdp_policy_caller"`
+	AfterProgramBind4              *ebpf.ProgramSpec `ebpf:"after_program_bind4"`
+	AfterProgramBind6              *ebpf.ProgramSpec `ebpf:"after_program_bind6"`
+	AfterProgramConnect4           *ebpf.ProgramSpec `ebpf:"after_program_connect4"`
+	AfterProgramConnect6           *ebpf.ProgramSpec `ebpf:"after_program_connect6"`
+	AfterProgramGetpeername4       *ebpf.ProgramSpec `ebpf:"after_program_getpeername4"`
+	AfterProgramGetpeername6       *ebpf.ProgramSpec `ebpf:"after_program_getpeername6"`
+	AfterProgramPolicyCaller       *ebpf.ProgramSpec `ebpf:"after_program_policy_caller"`
+	AfterProgramPostBind4          *ebpf.ProgramSpec `ebpf:"after_program_post_bind4"`
+	AfterProgramPostBind6          *ebpf.ProgramSpec `ebpf:"after_program_post_bind6"`
+	AfterProgramRecvmsg4           *ebpf.ProgramSpec `ebpf:"after_program_recvmsg4"`
+	AfterProgramRecvmsg6           *ebpf.ProgramSpec `ebpf:"after_program_recvmsg6"`
+	AfterProgramSendmsg4           *ebpf.ProgramSpec `ebpf:"after_program_sendmsg4"`
+	AfterProgramSendmsg6           *ebpf.ProgramSpec `ebpf:"after_program_sendmsg6"`
+	AfterProgramSockRelease        *ebpf.ProgramSpec `ebpf:"after_program_sock_release"`
+	AfterProgramTc                 *ebpf.ProgramSpec `ebpf:"after_program_tc"`
+	AfterProgramTcCaller           *ebpf.ProgramSpec `ebpf:"after_program_tc_caller"`
+	AfterProgramXdp                *ebpf.ProgramSpec `ebpf:"after_program_xdp"`
+	AfterProgramXdpCaller          *ebpf.ProgramSpec `ebpf:"after_program_xdp_caller"`
+	AfterProgramXdpPolicyCaller    *ebpf.ProgramSpec `ebpf:"after_program_xdp_policy_caller"`
+	BeforeCilLxcPolicy             *ebpf.ProgramSpec `ebpf:"before_cil_lxc_policy"`
+	BeforeCilLxcPolicyEgress       *ebpf.ProgramSpec `ebpf:"before_cil_lxc_policy_egress"`
+	BeforeProgramBind4             *ebpf.ProgramSpec `ebpf:"before_program_bind4"`
+	BeforeProgramBind6             *ebpf.ProgramSpec `ebpf:"before_program_bind6"`
+	BeforeProgramConnect4          *ebpf.ProgramSpec `ebpf:"before_program_connect4"`
+	BeforeProgramConnect6          *ebpf.ProgramSpec `ebpf:"before_program_connect6"`
+	BeforeProgramGetpeername4      *ebpf.ProgramSpec `ebpf:"before_program_getpeername4"`
+	BeforeProgramGetpeername6      *ebpf.ProgramSpec `ebpf:"before_program_getpeername6"`
+	BeforeProgramPolicyCaller      *ebpf.ProgramSpec `ebpf:"before_program_policy_caller"`
+	BeforeProgramPostBind4         *ebpf.ProgramSpec `ebpf:"before_program_post_bind4"`
+	BeforeProgramPostBind6         *ebpf.ProgramSpec `ebpf:"before_program_post_bind6"`
+	BeforeProgramRecvmsg4          *ebpf.ProgramSpec `ebpf:"before_program_recvmsg4"`
+	BeforeProgramRecvmsg6          *ebpf.ProgramSpec `ebpf:"before_program_recvmsg6"`
+	BeforeProgramSendmsg4          *ebpf.ProgramSpec `ebpf:"before_program_sendmsg4"`
+	BeforeProgramSendmsg6          *ebpf.ProgramSpec `ebpf:"before_program_sendmsg6"`
+	BeforeProgramSockRelease       *ebpf.ProgramSpec `ebpf:"before_program_sock_release"`
+	BeforeProgramTailTc            *ebpf.ProgramSpec `ebpf:"before_program_tail_tc"`
+	BeforeProgramTailXdp           *ebpf.ProgramSpec `ebpf:"before_program_tail_xdp"`
+	BeforeProgramTc                *ebpf.ProgramSpec `ebpf:"before_program_tc"`
+	BeforeProgramTcCaller          *ebpf.ProgramSpec `ebpf:"before_program_tc_caller"`
+	BeforeProgramXdp               *ebpf.ProgramSpec `ebpf:"before_program_xdp"`
+	BeforeProgramXdpCaller         *ebpf.ProgramSpec `ebpf:"before_program_xdp_caller"`
+	BeforeProgramXdpPolicyCaller   *ebpf.ProgramSpec `ebpf:"before_program_xdp_policy_caller"`
+	TailCallCilLxcPolicy           *ebpf.ProgramSpec `ebpf:"tail_call_cil_lxc_policy"`
+	TailCallCilLxcPolicyEgress     *ebpf.ProgramSpec `ebpf:"tail_call_cil_lxc_policy_egress"`
+	TailCallProgramPolicyCaller    *ebpf.ProgramSpec `ebpf:"tail_call_program_policy_caller"`
+	TailCallProgramTcCaller        *ebpf.ProgramSpec `ebpf:"tail_call_program_tc_caller"`
+	TailCallProgramTcMultiCaller   *ebpf.ProgramSpec `ebpf:"tail_call_program_tc_multi_caller"`
+	TailCallProgramXdpCaller       *ebpf.ProgramSpec `ebpf:"tail_call_program_xdp_caller"`
+	TailCallProgramXdpPolicyCaller *ebpf.ProgramSpec `ebpf:"tail_call_program_xdp_policy_caller"`
 }
 
 // PluginsHooksMapSpecs contains maps before they are loaded into the kernel.
@@ -364,6 +392,20 @@ type PluginsHooksVariableSpecs struct {
 	BeforeProgramXdpPolicyCallerSeq     *ebpf.VariableSpec `ebpf:"before_program_xdp_policy_caller_seq"`
 	BeforeProgramXdpRet                 *ebpf.VariableSpec `ebpf:"before_program_xdp_ret"`
 	BeforeProgramXdpSeq                 *ebpf.VariableSpec `ebpf:"before_program_xdp_seq"`
+	TailCallCilLxcPolicyEgressRet       *ebpf.VariableSpec `ebpf:"tail_call_cil_lxc_policy_egress_ret"`
+	TailCallCilLxcPolicyEgressSeq       *ebpf.VariableSpec `ebpf:"tail_call_cil_lxc_policy_egress_seq"`
+	TailCallCilLxcPolicyRet             *ebpf.VariableSpec `ebpf:"tail_call_cil_lxc_policy_ret"`
+	TailCallCilLxcPolicySeq             *ebpf.VariableSpec `ebpf:"tail_call_cil_lxc_policy_seq"`
+	TailCallProgramPolicyCallerRet      *ebpf.VariableSpec `ebpf:"tail_call_program_policy_caller_ret"`
+	TailCallProgramPolicyCallerSeq      *ebpf.VariableSpec `ebpf:"tail_call_program_policy_caller_seq"`
+	TailCallProgramTcCallerRet          *ebpf.VariableSpec `ebpf:"tail_call_program_tc_caller_ret"`
+	TailCallProgramTcCallerSeq          *ebpf.VariableSpec `ebpf:"tail_call_program_tc_caller_seq"`
+	TailCallProgramTcMultiCallerRet     *ebpf.VariableSpec `ebpf:"tail_call_program_tc_multi_caller_ret"`
+	TailCallProgramTcMultiCallerSeq     *ebpf.VariableSpec `ebpf:"tail_call_program_tc_multi_caller_seq"`
+	TailCallProgramXdpCallerRet         *ebpf.VariableSpec `ebpf:"tail_call_program_xdp_caller_ret"`
+	TailCallProgramXdpCallerSeq         *ebpf.VariableSpec `ebpf:"tail_call_program_xdp_caller_seq"`
+	TailCallProgramXdpPolicyCallerRet   *ebpf.VariableSpec `ebpf:"tail_call_program_xdp_policy_caller_ret"`
+	TailCallProgramXdpPolicyCallerSeq   *ebpf.VariableSpec `ebpf:"tail_call_program_xdp_policy_caller_seq"`
 }
 
 // PluginsHooksObjects contains all objects after they have been loaded into the kernel.
@@ -502,54 +544,75 @@ type PluginsHooksVariables struct {
 	BeforeProgramXdpPolicyCallerSeq     *ebpf.Variable `ebpf:"before_program_xdp_policy_caller_seq"`
 	BeforeProgramXdpRet                 *ebpf.Variable `ebpf:"before_program_xdp_ret"`
 	BeforeProgramXdpSeq                 *ebpf.Variable `ebpf:"before_program_xdp_seq"`
+	TailCallCilLxcPolicyEgressRet       *ebpf.Variable `ebpf:"tail_call_cil_lxc_policy_egress_ret"`
+	TailCallCilLxcPolicyEgressSeq       *ebpf.Variable `ebpf:"tail_call_cil_lxc_policy_egress_seq"`
+	TailCallCilLxcPolicyRet             *ebpf.Variable `ebpf:"tail_call_cil_lxc_policy_ret"`
+	TailCallCilLxcPolicySeq             *ebpf.Variable `ebpf:"tail_call_cil_lxc_policy_seq"`
+	TailCallProgramPolicyCallerRet      *ebpf.Variable `ebpf:"tail_call_program_policy_caller_ret"`
+	TailCallProgramPolicyCallerSeq      *ebpf.Variable `ebpf:"tail_call_program_policy_caller_seq"`
+	TailCallProgramTcCallerRet          *ebpf.Variable `ebpf:"tail_call_program_tc_caller_ret"`
+	TailCallProgramTcCallerSeq          *ebpf.Variable `ebpf:"tail_call_program_tc_caller_seq"`
+	TailCallProgramTcMultiCallerRet     *ebpf.Variable `ebpf:"tail_call_program_tc_multi_caller_ret"`
+	TailCallProgramTcMultiCallerSeq     *ebpf.Variable `ebpf:"tail_call_program_tc_multi_caller_seq"`
+	TailCallProgramXdpCallerRet         *ebpf.Variable `ebpf:"tail_call_program_xdp_caller_ret"`
+	TailCallProgramXdpCallerSeq         *ebpf.Variable `ebpf:"tail_call_program_xdp_caller_seq"`
+	TailCallProgramXdpPolicyCallerRet   *ebpf.Variable `ebpf:"tail_call_program_xdp_policy_caller_ret"`
+	TailCallProgramXdpPolicyCallerSeq   *ebpf.Variable `ebpf:"tail_call_program_xdp_policy_caller_seq"`
 }
 
 // PluginsHooksPrograms contains all programs after they have been loaded into the kernel.
 //
 // It can be passed to LoadPluginsHooksObjects or ebpf.CollectionSpec.LoadAndAssign.
 type PluginsHooksPrograms struct {
-	AfterProgramBind4            *ebpf.Program `ebpf:"after_program_bind4"`
-	AfterProgramBind6            *ebpf.Program `ebpf:"after_program_bind6"`
-	AfterProgramConnect4         *ebpf.Program `ebpf:"after_program_connect4"`
-	AfterProgramConnect6         *ebpf.Program `ebpf:"after_program_connect6"`
-	AfterProgramGetpeername4     *ebpf.Program `ebpf:"after_program_getpeername4"`
-	AfterProgramGetpeername6     *ebpf.Program `ebpf:"after_program_getpeername6"`
-	AfterProgramPolicyCaller     *ebpf.Program `ebpf:"after_program_policy_caller"`
-	AfterProgramPostBind4        *ebpf.Program `ebpf:"after_program_post_bind4"`
-	AfterProgramPostBind6        *ebpf.Program `ebpf:"after_program_post_bind6"`
-	AfterProgramRecvmsg4         *ebpf.Program `ebpf:"after_program_recvmsg4"`
-	AfterProgramRecvmsg6         *ebpf.Program `ebpf:"after_program_recvmsg6"`
-	AfterProgramSendmsg4         *ebpf.Program `ebpf:"after_program_sendmsg4"`
-	AfterProgramSendmsg6         *ebpf.Program `ebpf:"after_program_sendmsg6"`
-	AfterProgramSockRelease      *ebpf.Program `ebpf:"after_program_sock_release"`
-	AfterProgramTc               *ebpf.Program `ebpf:"after_program_tc"`
-	AfterProgramTcCaller         *ebpf.Program `ebpf:"after_program_tc_caller"`
-	AfterProgramXdp              *ebpf.Program `ebpf:"after_program_xdp"`
-	AfterProgramXdpCaller        *ebpf.Program `ebpf:"after_program_xdp_caller"`
-	AfterProgramXdpPolicyCaller  *ebpf.Program `ebpf:"after_program_xdp_policy_caller"`
-	BeforeCilLxcPolicy           *ebpf.Program `ebpf:"before_cil_lxc_policy"`
-	BeforeCilLxcPolicyEgress     *ebpf.Program `ebpf:"before_cil_lxc_policy_egress"`
-	BeforeProgramBind4           *ebpf.Program `ebpf:"before_program_bind4"`
-	BeforeProgramBind6           *ebpf.Program `ebpf:"before_program_bind6"`
-	BeforeProgramConnect4        *ebpf.Program `ebpf:"before_program_connect4"`
-	BeforeProgramConnect6        *ebpf.Program `ebpf:"before_program_connect6"`
-	BeforeProgramGetpeername4    *ebpf.Program `ebpf:"before_program_getpeername4"`
-	BeforeProgramGetpeername6    *ebpf.Program `ebpf:"before_program_getpeername6"`
-	BeforeProgramPolicyCaller    *ebpf.Program `ebpf:"before_program_policy_caller"`
-	BeforeProgramPostBind4       *ebpf.Program `ebpf:"before_program_post_bind4"`
-	BeforeProgramPostBind6       *ebpf.Program `ebpf:"before_program_post_bind6"`
-	BeforeProgramRecvmsg4        *ebpf.Program `ebpf:"before_program_recvmsg4"`
-	BeforeProgramRecvmsg6        *ebpf.Program `ebpf:"before_program_recvmsg6"`
-	BeforeProgramSendmsg4        *ebpf.Program `ebpf:"before_program_sendmsg4"`
-	BeforeProgramSendmsg6        *ebpf.Program `ebpf:"before_program_sendmsg6"`
-	BeforeProgramSockRelease     *ebpf.Program `ebpf:"before_program_sock_release"`
-	BeforeProgramTailTc          *ebpf.Program `ebpf:"before_program_tail_tc"`
-	BeforeProgramTailXdp         *ebpf.Program `ebpf:"before_program_tail_xdp"`
-	BeforeProgramTc              *ebpf.Program `ebpf:"before_program_tc"`
-	BeforeProgramTcCaller        *ebpf.Program `ebpf:"before_program_tc_caller"`
-	BeforeProgramXdp             *ebpf.Program `ebpf:"before_program_xdp"`
-	BeforeProgramXdpCaller       *ebpf.Program `ebpf:"before_program_xdp_caller"`
-	BeforeProgramXdpPolicyCaller *ebpf.Program `ebpf:"before_program_xdp_policy_caller"`
+	AfterProgramBind4              *ebpf.Program `ebpf:"after_program_bind4"`
+	AfterProgramBind6              *ebpf.Program `ebpf:"after_program_bind6"`
+	AfterProgramConnect4           *ebpf.Program `ebpf:"after_program_connect4"`
+	AfterProgramConnect6           *ebpf.Program `ebpf:"after_program_connect6"`
+	AfterProgramGetpeername4       *ebpf.Program `ebpf:"after_program_getpeername4"`
+	AfterProgramGetpeername6       *ebpf.Program `ebpf:"after_program_getpeername6"`
+	AfterProgramPolicyCaller       *ebpf.Program `ebpf:"after_program_policy_caller"`
+	AfterProgramPostBind4          *ebpf.Program `ebpf:"after_program_post_bind4"`
+	AfterProgramPostBind6          *ebpf.Program `ebpf:"after_program_post_bind6"`
+	AfterProgramRecvmsg4           *ebpf.Program `ebpf:"after_program_recvmsg4"`
+	AfterProgramRecvmsg6           *ebpf.Program `ebpf:"after_program_recvmsg6"`
+	AfterProgramSendmsg4           *ebpf.Program `ebpf:"after_program_sendmsg4"`
+	AfterProgramSendmsg6           *ebpf.Program `ebpf:"after_program_sendmsg6"`
+	AfterProgramSockRelease        *ebpf.Program `ebpf:"after_program_sock_release"`
+	AfterProgramTc                 *ebpf.Program `ebpf:"after_program_tc"`
+	AfterProgramTcCaller           *ebpf.Program `ebpf:"after_program_tc_caller"`
+	AfterProgramXdp                *ebpf.Program `ebpf:"after_program_xdp"`
+	AfterProgramXdpCaller          *ebpf.Program `ebpf:"after_program_xdp_caller"`
+	AfterProgramXdpPolicyCaller    *ebpf.Program `ebpf:"after_program_xdp_policy_caller"`
+	BeforeCilLxcPolicy             *ebpf.Program `ebpf:"before_cil_lxc_policy"`
+	BeforeCilLxcPolicyEgress       *ebpf.Program `ebpf:"before_cil_lxc_policy_egress"`
+	BeforeProgramBind4             *ebpf.Program `ebpf:"before_program_bind4"`
+	BeforeProgramBind6             *ebpf.Program `ebpf:"before_program_bind6"`
+	BeforeProgramConnect4          *ebpf.Program `ebpf:"before_program_connect4"`
+	BeforeProgramConnect6          *ebpf.Program `ebpf:"before_program_connect6"`
+	BeforeProgramGetpeername4      *ebpf.Program `ebpf:"before_program_getpeername4"`
+	BeforeProgramGetpeername6      *ebpf.Program `ebpf:"before_program_getpeername6"`
+	BeforeProgramPolicyCaller      *ebpf.Program `ebpf:"before_program_policy_caller"`
+	BeforeProgramPostBind4         *ebpf.Program `ebpf:"before_program_post_bind4"`
+	BeforeProgramPostBind6         *ebpf.Program `ebpf:"before_program_post_bind6"`
+	BeforeProgramRecvmsg4          *ebpf.Program `ebpf:"before_program_recvmsg4"`
+	BeforeProgramRecvmsg6          *ebpf.Program `ebpf:"before_program_recvmsg6"`
+	BeforeProgramSendmsg4          *ebpf.Program `ebpf:"before_program_sendmsg4"`
+	BeforeProgramSendmsg6          *ebpf.Program `ebpf:"before_program_sendmsg6"`
+	BeforeProgramSockRelease       *ebpf.Program `ebpf:"before_program_sock_release"`
+	BeforeProgramTailTc            *ebpf.Program `ebpf:"before_program_tail_tc"`
+	BeforeProgramTailXdp           *ebpf.Program `ebpf:"before_program_tail_xdp"`
+	BeforeProgramTc                *ebpf.Program `ebpf:"before_program_tc"`
+	BeforeProgramTcCaller          *ebpf.Program `ebpf:"before_program_tc_caller"`
+	BeforeProgramXdp               *ebpf.Program `ebpf:"before_program_xdp"`
+	BeforeProgramXdpCaller         *ebpf.Program `ebpf:"before_program_xdp_caller"`
+	BeforeProgramXdpPolicyCaller   *ebpf.Program `ebpf:"before_program_xdp_policy_caller"`
+	TailCallCilLxcPolicy           *ebpf.Program `ebpf:"tail_call_cil_lxc_policy"`
+	TailCallCilLxcPolicyEgress     *ebpf.Program `ebpf:"tail_call_cil_lxc_policy_egress"`
+	TailCallProgramPolicyCaller    *ebpf.Program `ebpf:"tail_call_program_policy_caller"`
+	TailCallProgramTcCaller        *ebpf.Program `ebpf:"tail_call_program_tc_caller"`
+	TailCallProgramTcMultiCaller   *ebpf.Program `ebpf:"tail_call_program_tc_multi_caller"`
+	TailCallProgramXdpCaller       *ebpf.Program `ebpf:"tail_call_program_xdp_caller"`
+	TailCallProgramXdpPolicyCaller *ebpf.Program `ebpf:"tail_call_program_xdp_policy_caller"`
 }
 
 func (p *PluginsHooksPrograms) Close() error {
@@ -596,6 +659,13 @@ func (p *PluginsHooksPrograms) Close() error {
 		p.BeforeProgramXdp,
 		p.BeforeProgramXdpCaller,
 		p.BeforeProgramXdpPolicyCaller,
+		p.TailCallCilLxcPolicy,
+		p.TailCallCilLxcPolicyEgress,
+		p.TailCallProgramPolicyCaller,
+		p.TailCallProgramTcCaller,
+		p.TailCallProgramTcMultiCaller,
+		p.TailCallProgramXdpCaller,
+		p.TailCallProgramXdpPolicyCaller,
 	)
 }
 

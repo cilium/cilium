@@ -7,3 +7,4 @@ package testprogs
 //go:generate go tool github.com/cilium/ebpf/cmd/bpf2go PluginsBase ../../../../bpf/test-progs/bpf_plugins_base.c
 //go:generate go tool github.com/cilium/ebpf/cmd/bpf2go PluginsBaseXdp ../../../../bpf/test-progs/bpf_plugins_base_xdp.c
 //go:generate go tool github.com/cilium/ebpf/cmd/bpf2go PluginsHooks ../../../../bpf/test-progs/bpf_plugins_hooks.c
+//go:generate go tool github.com/cilium/ebpf/cmd/bpf2go PluginsMultiTail ../../../../bpf/test-progs/bpf_plugins_multi_tail.c

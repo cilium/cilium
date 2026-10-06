@@ -10,6 +10,7 @@
 
 DECLARE_CONFIG(int, tail_call_enabled, "enable tail call in caller program")
 DECLARE_CONFIG(int, policy_caller_enabled, "enable tail call in policy caller program")
+DECLARE_CONFIG(int, policy_outbound_enabled, "enable outbound tail call in policy program")
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -30,6 +31,8 @@ __section("xdp/entry")
 int cil_lxc_policy_egress(struct xdp_md *ctx __maybe_unused)
 {
 	cil_lxc_policy_egress_seq = inc();
+	if (CONFIG(policy_outbound_enabled))
+		tail_call_static(ctx, cilium_calls, 13);
 	return 1;
 }
 

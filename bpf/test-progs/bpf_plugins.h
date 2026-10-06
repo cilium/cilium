@@ -95,3 +95,18 @@ int after_program_##NAME(CTX_TYPE ctx __maybe_unused, int ret) \
 		     MIN_RET,                                  \
 		     MAX_RET);                                 \
 }
+
+#define TAIL_CALL_POLICY(SECTION, NAME, CTX_TYPE, MIN_RET, MAX_RET) \
+int tail_call_##NAME##_seq;                                              \
+int tail_call_##NAME##_ret;                                              \
+__section(SECTION)                                                       \
+int tail_call_##NAME(CTX_TYPE ctx __maybe_unused)                         \
+{                                                                        \
+	tail_call_##NAME##_seq = inc();                                  \
+	return clamp(tail_call_##NAME##_ret,                             \
+		     MIN_RET,                                            \
+		     MAX_RET);                                           \
+}
+
+#define TAIL_CALL(SECTION, NAME, CTX_TYPE, MIN_RET, MAX_RET) \
+	TAIL_CALL_POLICY(SECTION, program_##NAME, CTX_TYPE, MIN_RET, MAX_RET)
