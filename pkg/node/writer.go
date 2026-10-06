@@ -32,6 +32,8 @@ type Writer struct {
 	isStaticLocalRouterIP  func(netip.Addr) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
 
+	updatePolicy UpdatePolicy
+
 	requiredReconcilers []NodeReconciler
 }
 
@@ -89,6 +91,10 @@ func (w *Writer) Table() statedb.Table[*Node] { return w.nodes }
 // This hook must be set during Hive invoke time.
 func (w *Writer) SetPrefixClusterMutatorFn(mutator PrefixClusterMutatorFn) {
 	w.prefixClusterMutatorFn = mutator
+}
+
+func (w *Writer) SetUpdatePolicy(p UpdatePolicy) {
+	w.updatePolicy = p
 }
 
 func deriveAddressClusterID(mutator PrefixClusterMutatorFn, n *nodeTypes.Node) uint32 {
@@ -317,6 +323,11 @@ func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) err
 // objects are not retained, so their producer must upsert them again if the
 // winning object is later deleted.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
+	if w.updatePolicy != nil && !w.updatePolicy.Upsert(n) {
+		// Policy rejected the update due to conflict.
+		return false
+	}
+
 	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
 	obj := &Node{
 		Node:             *n,
@@ -394,14 +405,20 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 	return true
 }
 
-// Delete removes a remote node if this writer's source still owns it. It
-// reports whether the table changed.
+// Delete removes a remote node if the policy accepts the deletion, or, without
+// a policy, if src still owns the table row. It reports whether the table changed.
 func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool {
-	old, _, found := w.nodes.Get(txn, NodeByName(identity.String()))
+	if w.updatePolicy != nil {
+		if !w.updatePolicy.Delete(src, identity) {
+			return false
+		}
+	}
+	n := &nodeTypes.Node{Name: identity.Name, Cluster: identity.Cluster}
+	old, _, found := w.nodes.Get(txn, NodeByName(n.Fullname()))
 	if !found {
 		return false
 	}
-	if old.Local != nil || old.Source != src {
+	if old.Local != nil || (w.updatePolicy == nil && old.Source != src) {
 		w.log.Warn("Ignoring node deletion from source that does not own node",
 			logfields.Node, identity.Name,
 			logfields.Source, src,
