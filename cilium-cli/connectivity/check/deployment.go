@@ -767,6 +767,7 @@ func (ct *ConnectivityTest) deployNamespace(ctx context.Context, client *k8s.Cli
 		namespace.Annotations[annotation.GlobalNamespace] = "true"
 	}
 	if err == nil { // Namespace already exists.
+		namespace.Labels = labels.Merge(namespace.Labels, ct.params.NamespaceLabels)
 		_, err = client.UpdateNamespace(ctx, namespace, metav1.UpdateOptions{})
 		if err != nil {
 			return fmt.Errorf("unable to update namespace %s: %w", namespaceName, err)
@@ -822,6 +823,7 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 		_, err = client.GetNamespace(ctx, nsConfig.name, metav1.GetOptions{})
 		if err != nil {
 			ct.Logf("✨ [%s] Creating namespace %s...", client.ClusterName(), nsConfig.name)
+			nsConfig.obj.Labels = maps.Clone(ct.params.NamespaceLabels)
 			_, err = client.CreateNamespace(ctx, nsConfig.obj, metav1.CreateOptions{})
 			if err != nil {
 				return fmt.Errorf("unable to create namespace %s: %w", nsConfig.name, err)
@@ -1006,6 +1008,7 @@ func (ct *ConnectivityTest) deployNonGlobalNS(ctx context.Context, ns string) er
 			ct.Logf("✨ [%s] Creating non-global namespace %s...", client.ClusterName(), ns)
 			nsObj := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 				Name:        ns,
+				Labels:      maps.Clone(ct.params.NamespaceLabels),
 				Annotations: map[string]string{annotation.GlobalNamespace: "false"},
 			}}
 			if _, err = client.CreateNamespace(ctx, nsObj, metav1.CreateOptions{}); err != nil {
