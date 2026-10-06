@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -40,10 +39,6 @@ type nodeEvent struct {
 	event    string
 	prefix   netip.Prefix
 	metadata ipcache.IPMetadata
-}
-
-func testClusterSizeDependantInterval(interval time.Duration) time.Duration {
-	return interval
 }
 
 type ipcacheMock struct {
@@ -119,12 +114,11 @@ func TestNodeLifecycle(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
 
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
+	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -149,25 +143,20 @@ func TestNodeLifecycle(t *testing.T) {
 	}
 	mngr.NodeUpdated(n2)
 
-	nodes := mngr.GetNodes()
-	n, ok := nodes[n1.Identity()]
-	require.True(t, ok)
-	require.Equal(t, n1, n)
+	n, _, found := nodeTable.Get(db.ReadTxn(), node.NodeByName(n1.Fullname()))
+	require.True(t, found)
+	require.Equal(t, n1, n.Node)
 
 	mngr.NodeDeleted(n1)
-	nodes = mngr.GetNodes()
-	_, ok = nodes[n1.Identity()]
-	require.False(t, ok)
+	_, _, found = nodeTable.Get(db.ReadTxn(), node.NodeByName(n1.Fullname()))
+	require.False(t, found)
 
-	err = mngr.Stop(context.TODO())
-	require.NoError(t, err)
 }
 
 func TestNodeLabels(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
 
 	nodeLabels := map[string]string{
 		"test-label":  "test-value",
@@ -191,7 +180,7 @@ func TestNodeLabels(t *testing.T) {
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
 
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
+	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 	mngr.NodeUpdated(nRemote)
 
@@ -284,7 +273,6 @@ func TestNodeCIDRLabels(t *testing.T) {
 	logger := hivetest.Logger(t)
 	labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, "")
 
-	h, _ := cell.NewSimpleHealth()
 	ipc := ipcache.NewIPCache(&ipcache.Configuration{
 		Context:           t.Context(),
 		Logger:            logger,
@@ -295,7 +283,7 @@ func TestNodeCIDRLabels(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
+	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	nodeTypes.SetName("localNode")
@@ -493,13 +481,11 @@ func TestMultipleSources(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
+	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
-	defer mngr.Stop(context.TODO())
 
 	n1k8s := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Kubernetes, IPAddresses: []nodeTypes.Address{
 		{
@@ -518,35 +504,19 @@ func TestMultipleSources(t *testing.T) {
 	mngr.NodeUpdated(n1agent)
 	// kubernetes cannot overwrite local node
 	mngr.NodeUpdated(n1k8s)
-	require.Equal(t, n1agent, mngr.GetNodes()[n1agent.Identity()])
+	stored, _, found := nodeTable.Get(db.ReadTxn(), node.NodeByName(n1agent.Fullname()))
+	require.True(t, found)
+	require.Equal(t, n1agent, stored.Node)
 
 	// delete from kubernetes, should not remove local node
 	mngr.NodeDeleted(n1k8s)
-	require.Equal(t, n1agent, mngr.GetNodes()[n1agent.Identity()])
+	stored, _, found = nodeTable.Get(db.ReadTxn(), node.NodeByName(n1agent.Fullname()))
+	require.True(t, found)
+	require.Equal(t, n1agent, stored.Node)
 
 	mngr.NodeDeleted(n1agent)
-	_, found := mngr.GetNodes()[n1agent.Identity()]
+	_, _, found = nodeTable.Get(db.ReadTxn(), node.NodeByName(n1agent.Fullname()))
 	require.False(t, found)
-}
-
-func BenchmarkUpdateAndDeleteCycle(b *testing.B) {
-	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
-	logger := hivetest.Logger(b)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), h, nil, nil, nil, fakewireguard.Config{}, nil, testClusterSizeDependantInterval)
-	require.NoError(b, err)
-	defer mngr.Stop(context.TODO())
-
-	for i := 0; b.Loop(); i++ {
-		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
-		mngr.NodeUpdated(n)
-	}
-
-	for i := 0; b.Loop(); i++ {
-		n := nodeTypes.Node{Name: fmt.Sprintf("%d", i), Source: source.Local}
-		mngr.NodeDeleted(n)
-	}
-	b.StopTimer()
 }
 
 func expectIPCacheUpdate(
@@ -573,14 +543,12 @@ func expectIPCacheUpdate(
 
 func TestIpcache(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
+	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
-	defer mngr.Stop(context.TODO())
 
 	n1 := nodeTypes.Node{
 		Name:    "node1",
@@ -719,14 +687,12 @@ func TestIpcache(t *testing.T) {
 
 func TestIpcacheHealthIP(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
+	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
-	defer mngr.Stop(context.TODO())
 
 	n1 := nodeTypes.Node{
 		Name:    "node1",
@@ -766,15 +732,13 @@ func TestNodeEncryption(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
 	mngr, err := New(logger, &option.DaemonConfig{
 		EncryptNode: true,
-	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
+	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
-	defer mngr.Stop(context.TODO())
 
 	n1 := nodeTypes.Node{
 		Name:    "node1",
@@ -889,14 +853,12 @@ func TestNodeEncryption(t *testing.T) {
 
 func TestNode(t *testing.T) {
 	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
 	logger := hivetest.Logger(t)
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
+	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
-	defer mngr.Stop(context.TODO())
 
 	n1 := nodeTypes.Node{
 		Name:    "node1",
@@ -953,12 +915,15 @@ func TestNode(t *testing.T) {
 	case <-time.After(1 * time.Second):
 	}
 
-	nodes := mngr.GetNodes()
-	require.Len(t, nodes, 1)
-	n, ok := nodes[n1.Identity()]
-	require.True(t, ok)
+	count := 0
+	for range nodeTable.All(db.ReadTxn()) {
+		count++
+	}
+	require.Equal(t, 1, count)
+	n, _, found := nodeTable.Get(db.ReadTxn(), node.NodeByName(n1.Fullname()))
+	require.True(t, found)
 	// Needs to be the same as n2
-	require.Equal(t, *n1V2, n)
+	require.Equal(t, *n1V2, n.Node)
 }
 
 type mockUpdater struct{}
@@ -980,15 +945,13 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 		IdentityUpdater:   &mockUpdater{},
 	})
 	defer cancel()
-	h, _ := cell.NewSimpleHealth()
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
 	mngr, err := New(logger, &option.DaemonConfig{
 		LocalRouterIPv4: "169.254.4.6",
-	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcache, NewNodeMetrics(), h, nil, db, nil, fakewireguard.Config{}, writer, testClusterSizeDependantInterval)
+	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcache, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
-	defer mngr.Stop(context.TODO())
 
 	n1 := nodeTypes.Node{
 		Name:    "node1",
@@ -1042,7 +1005,6 @@ func TestNodeTableMirroring(t *testing.T) {
 	writer := node.NewWriter(logger, db, nodeTable)
 
 	ipcacheMock := newIPcacheMock()
-	h, _ := cell.NewSimpleHealth()
 	mngr, err := New(
 		logger,
 		&option.DaemonConfig{},
@@ -1050,13 +1012,9 @@ func TestNodeTableMirroring(t *testing.T) {
 		tunnel.Config{},
 		ipcacheMock,
 		NewNodeMetrics(),
-		h,
-		nil,
 		db,
-		nil,
 		fakewireguard.Config{},
 		writer,
-		testClusterSizeDependantInterval,
 	)
 	require.NoError(t, err)
 
@@ -1167,7 +1125,6 @@ func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 			require.NoError(t, err)
 			writer := node.NewWriter(hivetest.Logger(t), db, nodeTable)
 
-			health, _ := cell.NewSimpleHealth()
 			mngr, err := New(
 				hivetest.Logger(t),
 				&option.DaemonConfig{},
@@ -1175,13 +1132,9 @@ func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
 				tunnel.Config{},
 				newIPcacheMock(),
 				NewNodeMetrics(),
-				health,
-				nil,
 				db,
-				nil,
 				fakewireguard.Config{},
 				writer,
-				testClusterSizeDependantInterval,
 			)
 			require.NoError(t, err)
 

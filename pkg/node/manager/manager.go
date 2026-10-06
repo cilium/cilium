@@ -10,13 +10,9 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/ipcache"
 	ipcacheTypes "github.com/cilium/cilium/pkg/ipcache/types"
@@ -106,18 +102,8 @@ type manager struct {
 	// ipcache is the set operations performed against the ipcache
 	ipcache IPCache
 
-	// controllerManager manages the controllers that are launched within the
-	// Manager.
-	controllerManager *controller.Manager
-
-	// health reports on the current health status of the node manager module.
-	health cell.Health
-
 	// Reference to the StateDB
 	db *statedb.DB
-
-	// The devices table
-	devices statedb.Table[*tables.Device]
 
 	// writer owns all remote-node table access.
 	writer *node.Writer
@@ -172,13 +158,9 @@ func New(
 	tunnelConf tunnel.Config,
 	ipCache IPCache,
 	nodeMetrics *nodeMetrics,
-	health cell.Health,
-	jobGroup job.Group,
 	db *statedb.DB,
-	devices statedb.Table[*tables.Device],
 	wgCfg types.Config,
 	writer *node.Writer,
-	clusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc,
 ) (*manager, error) {
 	m := &manager{
 		logger:                 logger,
@@ -187,12 +169,9 @@ func New(
 		conf:                   c,
 		clusterInfo:            clusterInfo,
 		underlay:               tunnelConf.UnderlayProtocol(),
-		controllerManager:      controller.NewManager(),
 		ipcache:                ipCache,
 		metrics:                nodeMetrics,
-		health:                 health,
 		db:                     db,
-		devices:                devices,
 		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
 		wgConfig:               wgCfg,
 	}
@@ -224,15 +203,6 @@ func New(
 	}
 
 	return m, nil
-}
-
-func (m *manager) Start(cell.HookContext) error {
-	return nil
-}
-
-// Stop shuts down a node manager
-func (m *manager) Stop(cell.HookContext) error {
-	return nil
 }
 
 func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
@@ -454,35 +424,6 @@ func (m *manager) MeshNodeSync() {
 	if m.meshNodeTableInit != nil {
 		m.meshNodeTableInit()
 	}
-}
-
-// GetNodeIdentities returns a list of all node identities store in node
-// manager.
-func (m *manager) GetNodeIdentities() []nodeTypes.Identity {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	nodes := make([]nodeTypes.Identity, 0, len(m.nodes))
-	for nodeIdentity := range m.nodes {
-		nodes = append(nodes, nodeIdentity)
-	}
-
-	return nodes
-}
-
-// GetNodes returns a copy of all of the nodes as a map from Identity to Node.
-func (m *manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	nodes := make(map[nodeTypes.Identity]nodeTypes.Node, len(m.nodes))
-	for nodeIdentity, entry := range m.nodes {
-		entry.mutex.Lock()
-		nodes[nodeIdentity] = entry.node
-		entry.mutex.Unlock()
-	}
-
-	return nodes
 }
 
 // SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
