@@ -790,10 +790,9 @@ static __always_inline __u32 lb_default_algorithm(void)
 #ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_l4_csum_update(struct __ctx_buff *ctx, int l4_off, union v6addr *old_addr,
-		    const union v6addr *new_addr, struct csum_offset *csum_off,
-		    enum ct_dir dir)
+		    const union v6addr *new_addr, struct csum_offset *csum_off)
 {
-	int flag = 0, ret;
+	int ret;
 	__be32 sum;
 
 	sum = csum_diff(old_addr->addr, 16, new_addr->addr, 16, 0);
@@ -808,25 +807,33 @@ ipv6_l4_csum_update(struct __ctx_buff *ctx, int l4_off, union v6addr *old_addr,
 		return ret;
 
 	/* We need this to workaround a bug in bpf_l4_csum_replace's usage of
-	 * inet_proto_csum_replace_by_diff. In short, for IPv6 we don't want to
-	 * update skb->csum when CHECKSUM_COMPLETE (for the reason explained above
-	 * inet_proto_csum_replace16). Unfortunately,
-	 * inet_proto_csum_replace_by_diff does update skb->csum in that case. So
-	 * we don't set BPF_F_PSEUDO_HDR to work around that.
-	 * On egress, however, we might be in CHECKSUM_PARTIAL state, in which
-	 * case we need to set BPF_F_PSEUDO_HDR or the L4 checksum won't be
-	 * updated.
+	 * inet_proto_csum_replace_by_diff on kernels < 6.12. In short, for IPv6
+	 * we don't want to update skb->csum when CHECKSUM_COMPLETE (for the
+	 * reason explained above inet_proto_csum_replace16). Unfortunately,
+	 * inet_proto_csum_replace_by_diff subtracts sum from skb->csum in that
+	 * case when BPF_F_PSEUDO_HDR is set, while omitting BPF_F_PSEUDO_HDR
+	 * skips updating the L4 header checksum when CHECKSUM_PARTIAL.
+	 *
+	 * Pass BPF_F_PSEUDO_HDR so the L4 header checksum is always updated,
+	 * and call csum_update(ctx, sum) to add sum back to skb->csum.
+	 * bpf_csum_update() only modifies skb->csum when skb->ip_summed ==
+	 * CHECKSUM_COMPLETE; when skb->ip_summed == CHECKSUM_PARTIAL (where
+	 * the sk_buff union holds csum_start/csum_offset instead of skb->csum,
+	 * and the pseudo-header seed in the L4 header was already updated by
+	 * csum_l4_replace) or CHECKSUM_NONE/CHECKSUM_UNNECESSARY,
+	 * bpf_csum_update() is a no-op and returns -ENOTSUPP.
 	 */
-	if (dir == CT_EGRESS)
-		flag = BPF_F_PSEUDO_HDR;
+	ret = csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
+	if (!ret)
+		csum_update(ctx, sum);
 
-	return csum_l4_replace(ctx, l4_off, csum_off, 0, sum, flag);
+	return ret;
 }
 
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct ipv6_ct_tuple *tuple,
 					 const struct lb6_reverse_nat *nat,
-					 bool has_l4_header, enum ct_dir dir,
+					 bool has_l4_header,
 					 bool loopback __maybe_unused)
 {
 	union v6addr old_saddr __align_stack_8;
@@ -858,7 +865,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 
 			if (csum_off.offset &&
 			    ipv6_l4_csum_update(ctx, l4_off, &old_daddr, &old_saddr,
-						&csum_off, dir) < 0)
+						&csum_off) < 0)
 				return DROP_CSUM_L4;
 		}
 	}
@@ -882,7 +889,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 
 		if (csum_off.offset &&
 		    ipv6_l4_csum_update(ctx, l4_off, &old_saddr, &nat->address,
-					&csum_off, dir) < 0)
+					&csum_off) < 0)
 			return DROP_CSUM_L4;
 	}
 
@@ -906,14 +913,12 @@ lb6_lookup_rev_nat_entry(const struct __ctx_buff *ctx __maybe_unused, __u16 inde
  * @arg loopback	loopback connection
  * @arg tuple		tuple
  * @arg has_l4_header	packet has L4 header
- * @arg dir		connection direction
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 				       __u16 rev_nat_index,
 				       const union v6addr *nat_addr, __be16 nat_port,
 				       bool loopback,
-				       struct ipv6_ct_tuple *tuple, bool has_l4_header,
-				       enum ct_dir dir)
+				       struct ipv6_ct_tuple *tuple, bool has_l4_header)
 {
 	struct lb6_reverse_nat nat_info;
 	const struct lb6_reverse_nat *nat = NULL;
@@ -930,7 +935,7 @@ static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 			return 0;
 	}
 
-	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header, dir, loopback);
+	return __lb6_rev_nat(ctx, l4_off, tuple, nat, has_l4_header, loopback);
 }
 
 static __always_inline void

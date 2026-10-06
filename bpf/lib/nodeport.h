@@ -981,7 +981,7 @@ drop_err:
 #endif /* ENABLE_NAT_46X64_GATEWAY */
 
 static __always_inline int
-nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
+nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir __maybe_unused,
 		       struct trace_ctx *trace, __s8 *ext_err)
 {
 	struct bpf_fib_lookup_padded fib_params = {
@@ -1037,8 +1037,7 @@ nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir,
 
 		ret = lb6_rev_nat(ctx, l4_off,
 				  ct_state.rev_nat_index, NULL, 0,
-				  false, &tuple, ipfrag_has_l4_header(fraginfo),
-				  dir);
+				  false, &tuple, ipfrag_has_l4_header(fraginfo));
 		if (IS_ERR(ret))
 			return ret;
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))

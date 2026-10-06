@@ -239,6 +239,17 @@ l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 }
 
 static __always_inline __maybe_unused int
+csum_update(const struct xdp_md *ctx __maybe_unused, __u32 csum __maybe_unused)
+{
+	/* bpf_csum_update() only updates the sk_buff metadata field skb->csum
+	 * when skb->ip_summed == CHECKSUM_COMPLETE. In XDP (struct xdp_md), no
+	 * sk_buff exists yet and l4_csum_replace() above only updates the L4
+	 * header checksum in the packet buffer, so this is a no-op.
+	 */
+	return 0;
+}
+
+static __always_inline __maybe_unused int
 ctx_change_proto(struct xdp_md *ctx __maybe_unused,
 		 const __be16 proto __maybe_unused,
 		 const __u64 flags __maybe_unused)
