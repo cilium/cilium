@@ -439,7 +439,14 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools types.IPAMPoolSpec
 				}
 			} else {
 				// pool cannot be found: it must be a pool deleted before the operator restarted.
-				// Mark the CIDR as orphan to preserve node allocations.
+				// If the node still requests the pool, mark the CIDR as orphan to preserve
+				// node allocations. Otherwise drop it, so that the release loop below frees
+				// any orphan previously recorded for it.
+				if !slices.ContainsFunc(pools.Requested, func(r types.IPAMPoolRequest) bool {
+					return r.Pool == allocatedPool.Pool
+				}) {
+					continue
+				}
 				p.markOrphan(nodeName, allocatedPool.Pool, prefix, allocatedPool.AllowFirstIP, allocatedPool.AllowLastIP)
 				err = errors.Join(err,
 					fmt.Errorf("unable to find pool %s, prefix %s is still allocated to the node but is marked as orphan",
