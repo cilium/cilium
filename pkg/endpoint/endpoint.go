@@ -3041,7 +3041,7 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 		dnsRulesAPI:        e.dnsRulesAPI,
 		epBuildQueue:       e.epBuildQueue,
 		forcePolicyCompute: e.forcePolicyCompute,
-		hasBPFProgram:      e.hasBPFProgram,
+		hasBPFProgram:      make(chan struct{}),
 		identityManager:    e.identityManager,
 		ifIndex:            e.ifIndex,
 		ifName:             e.ifName,
