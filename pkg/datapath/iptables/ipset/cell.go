@@ -54,7 +54,7 @@ var Cell = cell.Module(
 		},
 
 		func(cfg *option.DaemonConfig) config {
-			return config{NodeIPSetNeeded: cfg.NodeIpsetNeeded()}
+			return config{NodeIPSetNeeded: cfg.NodeIpsetNeeded() || cfg.TunnelingEnabled()}
 		},
 	),
 )

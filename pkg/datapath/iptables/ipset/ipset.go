@@ -159,7 +159,7 @@ func newIPSetManager(
 			}
 
 			// When NodeIPSetNeeded is set, node ipsets must be created even if empty,
-			// to avoid failures when referencing them in iptables masquerading rules.
+			// to avoid failures when referencing them in iptables rules.
 			if err := ipset.create(ctx, CiliumNodeIPSetV4, string(INetFamily)); err != nil {
 				return fmt.Errorf("error while creating ipset %s", CiliumNodeIPSetV4)
 			}
