@@ -35,6 +35,15 @@ type Writer struct {
 	requiredReconcilers []NodeReconciler
 }
 
+// UpdatePolicy preserves the legacy remote-node update ordering. It retains
+// ownership of conflict resolution and any state it needs.
+type UpdatePolicy interface {
+	Upsert(node *nodeTypes.Node) (publish bool)
+	// Delete reports whether the source owns the cached node and its published
+	// row may be removed, even if that row still has an older source.
+	Delete(src source.Source, identity nodeTypes.Identity) (remove bool)
+}
+
 // PrefixClusterMutatorFn derives cluster-aware addressing options from a
 // serialized node.
 type PrefixClusterMutatorFn = func(*nodeTypes.Node) []cmtypes.PrefixClusterOpts
