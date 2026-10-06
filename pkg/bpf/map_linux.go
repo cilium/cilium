@@ -1477,12 +1477,18 @@ func (m *Map) DeleteAll() error {
 	}
 
 	mk := m.key.New()
-	mv := make([]byte, m.ValueSize())
+	var mv any
+	if m.hasPerCPUValue() {
+		mv = m.value.(MapPerCPUValue).NewSlice()
+	} else {
+		mvBytes := make([]byte, m.ValueSize())
+		mv = &mvBytes
+	}
 
 	defer m.deleteAllMapEvent()
 
 	i := m.m.Iterate()
-	for i.Next(mk, &mv) {
+	for i.Next(mk, mv) {
 		err := m.m.Delete(mk)
 
 		m.deleteCacheEntry(mk, err)

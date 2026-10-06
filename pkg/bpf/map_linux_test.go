@@ -106,6 +106,32 @@ func setupPerCPU(tb testing.TB) *Map {
 	return testMap
 }
 
+func setupPerCPUHash(tb testing.TB) *Map {
+	testutils.PrivilegedTest(tb)
+
+	CheckOrMountFS(hivetest.Logger(tb), "")
+
+	err := rlimit.RemoveMemlock()
+	require.NoError(tb, err)
+
+	testMap := NewMap("cilium_test_percpu_hash",
+		ebpf.PerCPUHash,
+		&TestKey{},
+		&TestValue{},
+		3,
+		0,
+	)
+
+	err = testMap.OpenOrCreate()
+	require.NoError(tb, err, "Failed to create map")
+
+	tb.Cleanup(func() {
+		require.NoError(tb, testMap.Close())
+	})
+
+	return testMap
+}
+
 var (
 	maxEntries = 16
 )
@@ -538,7 +564,7 @@ func TestPrivilegedDumpPerCPU(t *testing.T) {
 	key2 := &TestKey{Key: 2}
 	value2 := &TestValue{Value: 206}
 
-	func() {
+	populate := func() {
 		testMap.lock.Lock()
 		defer testMap.lock.Unlock()
 		err := testMap.m.Update(key1, []any{value1}, ebpf.UpdateAny)
@@ -547,7 +573,8 @@ func TestPrivilegedDumpPerCPU(t *testing.T) {
 		require.NoError(t, err)
 		err = testMap.m.Update(key2, []any{value2}, ebpf.UpdateAny)
 		require.NoError(t, err)
-	}()
+	}
+	populate()
 
 	dump := map[string][]uint32{}
 	customCb := func(key MapKey, values any) {
@@ -577,6 +604,62 @@ func TestPrivilegedDumpPerCPU(t *testing.T) {
 		"key=1": {0},
 		"key=2": {0},
 	}, dump)
+
+	require.Error(t, testMap.DeleteAll())
+}
+
+// Different than TestPrivilegedDumpPerCPU, this test uses a per-CPU hash map.
+// We expect ClearAll() to simply reinitialize entries to zero, while the
+// DeleteAll() to actually remove the entries from the map.
+func TestPrivilegedDumpPerCPUHash(t *testing.T) {
+	testMap := setupPerCPUHash(t)
+
+	key1 := &TestKey{Key: 0}
+	value1 := []*TestValue{{Value: 205}, {Value: 10}}
+	key2 := &TestKey{Key: 2}
+	value2 := []*TestValue{{Value: 206}, {Value: 11}}
+
+	populate := func() {
+		testMap.lock.Lock()
+		defer testMap.lock.Unlock()
+		err := testMap.m.Update(key1, value1, ebpf.UpdateAny)
+		require.NoError(t, err)
+		err = testMap.m.Update(key2, value1, ebpf.UpdateAny)
+		require.NoError(t, err)
+		err = testMap.m.Update(key2, value2, ebpf.UpdateAny)
+		require.NoError(t, err)
+	}
+	populate()
+
+	dump := map[string][]uint32{}
+	customCb := func(key MapKey, values any) {
+		dump[key.String()] = []uint32{}
+		for _, v := range *values.(*TestValues) {
+			if v.Value != 0 {
+				dump[key.String()] = append(dump[key.String()], v.Value)
+			}
+		}
+	}
+	testMap.DumpPerCPUWithCallback(customCb)
+	require.Equal(t, map[string][]uint32{
+		"key=0": {205, 10},
+		"key=2": {206, 11},
+	}, dump)
+
+	require.NoError(t, testMap.ClearAll())
+	dump = map[string][]uint32{}
+	testMap.DumpPerCPUWithCallback(customCb)
+	require.Equal(t, map[string][]uint32{
+		"key=0": {},
+		"key=2": {},
+	}, dump)
+
+	populate()
+	require.NoError(t, testMap.DeleteAll())
+
+	dump = map[string][]uint32{}
+	testMap.DumpPerCPUWithCallback(customCb)
+	require.Empty(t, dump)
 }
 
 // TestPrivilegedDumpReliablyWithCallbackOverlapping attempts to test that DumpReliablyWithCallback
