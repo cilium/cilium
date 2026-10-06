@@ -92,10 +92,12 @@ message AttachmentContext {
 
 enum HookType {
     UNKNOWN = 0;
-    // pre hooks run before the main Cilium program.
+    // pre hooks run before the target program.
     PRE = 1;
     // post hooks run after the main Cilium program.
     POST = 2;
+    // tail call hooks run before the target program tail calls somewhere.
+    TAIL_CALL = 4;
 }
 
 // Phase 1: As Cilium loads and prepares a collection for a particular
@@ -154,6 +156,9 @@ message PrepareCollectionResponse {
         // various plugins will be arranged in an order that respects all
         // ordering constraints.
         repeated OrderingConstraint constraints = 3;
+        // Optional filter for TAIL_CALL hooks. Only tail calls targeting this BPF program name
+        // (e.g. "tail_ipv4_to_endpoint") are intercepted by the hook.
+        string tail_call_target = 5;
     }
 
     // list of hooks that should be added to the collection.
