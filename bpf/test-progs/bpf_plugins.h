@@ -110,3 +110,18 @@ int tail_call_##NAME(CTX_TYPE ctx __maybe_unused)                         \
 
 #define TAIL_CALL(SECTION, NAME, CTX_TYPE, MIN_RET, MAX_RET) \
 	TAIL_CALL_POLICY(SECTION, program_##NAME, CTX_TYPE, MIN_RET, MAX_RET)
+
+#define EXIT_POLICY(SECTION, NAME, CTX_TYPE, MIN_RET, MAX_RET) \
+int exit_##NAME##_seq;                                         \
+int exit_##NAME##_ret;                                         \
+__section(SECTION)                                             \
+int exit_##NAME(CTX_TYPE ctx __maybe_unused)                   \
+{                                                              \
+	exit_##NAME##_seq = inc();                             \
+	return clamp(exit_##NAME##_ret,                        \
+		     MIN_RET,                                  \
+		     MAX_RET);                                 \
+}
+
+#define EXIT(SECTION, NAME, CTX_TYPE, MIN_RET, MAX_RET) \
+	EXIT_POLICY(SECTION, program_##NAME, CTX_TYPE, MIN_RET, MAX_RET)

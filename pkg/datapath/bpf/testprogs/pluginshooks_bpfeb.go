@@ -59,6 +59,14 @@ const (
 	PluginsHooksProgBeforeProgramXdp                   = "before_program_xdp"
 	PluginsHooksProgBeforeProgramXdpCaller             = "before_program_xdp_caller"
 	PluginsHooksProgBeforeProgramXdpPolicyCaller       = "before_program_xdp_policy_caller"
+	PluginsHooksProgExitCilLxcPolicy                   = "exit_cil_lxc_policy"
+	PluginsHooksProgExitCilLxcPolicyEgress             = "exit_cil_lxc_policy_egress"
+	PluginsHooksProgExitProgramPolicyCaller            = "exit_program_policy_caller"
+	PluginsHooksProgExitProgramTc                      = "exit_program_tc"
+	PluginsHooksProgExitProgramTcCaller                = "exit_program_tc_caller"
+	PluginsHooksProgExitProgramXdp                     = "exit_program_xdp"
+	PluginsHooksProgExitProgramXdpCaller               = "exit_program_xdp_caller"
+	PluginsHooksProgExitProgramXdpPolicyCaller         = "exit_program_xdp_policy_caller"
 	PluginsHooksProgTailCallCilLxcPolicy               = "tail_call_cil_lxc_policy"
 	PluginsHooksProgTailCallCilLxcPolicyEgress         = "tail_call_cil_lxc_policy_egress"
 	PluginsHooksProgTailCallProgramPolicyCaller        = "tail_call_program_policy_caller"
@@ -169,6 +177,22 @@ const (
 	PluginsHooksVarBeforeProgramXdpPolicyCallerSeq     = "before_program_xdp_policy_caller_seq"
 	PluginsHooksVarBeforeProgramXdpRet                 = "before_program_xdp_ret"
 	PluginsHooksVarBeforeProgramXdpSeq                 = "before_program_xdp_seq"
+	PluginsHooksVarExitCilLxcPolicyEgressRet           = "exit_cil_lxc_policy_egress_ret"
+	PluginsHooksVarExitCilLxcPolicyEgressSeq           = "exit_cil_lxc_policy_egress_seq"
+	PluginsHooksVarExitCilLxcPolicyRet                 = "exit_cil_lxc_policy_ret"
+	PluginsHooksVarExitCilLxcPolicySeq                 = "exit_cil_lxc_policy_seq"
+	PluginsHooksVarExitProgramPolicyCallerRet          = "exit_program_policy_caller_ret"
+	PluginsHooksVarExitProgramPolicyCallerSeq          = "exit_program_policy_caller_seq"
+	PluginsHooksVarExitProgramTcCallerRet              = "exit_program_tc_caller_ret"
+	PluginsHooksVarExitProgramTcCallerSeq              = "exit_program_tc_caller_seq"
+	PluginsHooksVarExitProgramTcRet                    = "exit_program_tc_ret"
+	PluginsHooksVarExitProgramTcSeq                    = "exit_program_tc_seq"
+	PluginsHooksVarExitProgramXdpCallerRet             = "exit_program_xdp_caller_ret"
+	PluginsHooksVarExitProgramXdpCallerSeq             = "exit_program_xdp_caller_seq"
+	PluginsHooksVarExitProgramXdpPolicyCallerRet       = "exit_program_xdp_policy_caller_ret"
+	PluginsHooksVarExitProgramXdpPolicyCallerSeq       = "exit_program_xdp_policy_caller_seq"
+	PluginsHooksVarExitProgramXdpRet                   = "exit_program_xdp_ret"
+	PluginsHooksVarExitProgramXdpSeq                   = "exit_program_xdp_seq"
 	PluginsHooksVarTailCallCilLxcPolicyEgressRet       = "tail_call_cil_lxc_policy_egress_ret"
 	PluginsHooksVarTailCallCilLxcPolicyEgressSeq       = "tail_call_cil_lxc_policy_egress_seq"
 	PluginsHooksVarTailCallCilLxcPolicyRet             = "tail_call_cil_lxc_policy_ret"
@@ -269,6 +293,14 @@ type PluginsHooksProgramSpecs struct {
 	BeforeProgramXdp               *ebpf.ProgramSpec `ebpf:"before_program_xdp"`
 	BeforeProgramXdpCaller         *ebpf.ProgramSpec `ebpf:"before_program_xdp_caller"`
 	BeforeProgramXdpPolicyCaller   *ebpf.ProgramSpec `ebpf:"before_program_xdp_policy_caller"`
+	ExitCilLxcPolicy               *ebpf.ProgramSpec `ebpf:"exit_cil_lxc_policy"`
+	ExitCilLxcPolicyEgress         *ebpf.ProgramSpec `ebpf:"exit_cil_lxc_policy_egress"`
+	ExitProgramPolicyCaller        *ebpf.ProgramSpec `ebpf:"exit_program_policy_caller"`
+	ExitProgramTc                  *ebpf.ProgramSpec `ebpf:"exit_program_tc"`
+	ExitProgramTcCaller            *ebpf.ProgramSpec `ebpf:"exit_program_tc_caller"`
+	ExitProgramXdp                 *ebpf.ProgramSpec `ebpf:"exit_program_xdp"`
+	ExitProgramXdpCaller           *ebpf.ProgramSpec `ebpf:"exit_program_xdp_caller"`
+	ExitProgramXdpPolicyCaller     *ebpf.ProgramSpec `ebpf:"exit_program_xdp_policy_caller"`
 	TailCallCilLxcPolicy           *ebpf.ProgramSpec `ebpf:"tail_call_cil_lxc_policy"`
 	TailCallCilLxcPolicyEgress     *ebpf.ProgramSpec `ebpf:"tail_call_cil_lxc_policy_egress"`
 	TailCallProgramPolicyCaller    *ebpf.ProgramSpec `ebpf:"tail_call_program_policy_caller"`
@@ -392,6 +424,22 @@ type PluginsHooksVariableSpecs struct {
 	BeforeProgramXdpPolicyCallerSeq     *ebpf.VariableSpec `ebpf:"before_program_xdp_policy_caller_seq"`
 	BeforeProgramXdpRet                 *ebpf.VariableSpec `ebpf:"before_program_xdp_ret"`
 	BeforeProgramXdpSeq                 *ebpf.VariableSpec `ebpf:"before_program_xdp_seq"`
+	ExitCilLxcPolicyEgressRet           *ebpf.VariableSpec `ebpf:"exit_cil_lxc_policy_egress_ret"`
+	ExitCilLxcPolicyEgressSeq           *ebpf.VariableSpec `ebpf:"exit_cil_lxc_policy_egress_seq"`
+	ExitCilLxcPolicyRet                 *ebpf.VariableSpec `ebpf:"exit_cil_lxc_policy_ret"`
+	ExitCilLxcPolicySeq                 *ebpf.VariableSpec `ebpf:"exit_cil_lxc_policy_seq"`
+	ExitProgramPolicyCallerRet          *ebpf.VariableSpec `ebpf:"exit_program_policy_caller_ret"`
+	ExitProgramPolicyCallerSeq          *ebpf.VariableSpec `ebpf:"exit_program_policy_caller_seq"`
+	ExitProgramTcCallerRet              *ebpf.VariableSpec `ebpf:"exit_program_tc_caller_ret"`
+	ExitProgramTcCallerSeq              *ebpf.VariableSpec `ebpf:"exit_program_tc_caller_seq"`
+	ExitProgramTcRet                    *ebpf.VariableSpec `ebpf:"exit_program_tc_ret"`
+	ExitProgramTcSeq                    *ebpf.VariableSpec `ebpf:"exit_program_tc_seq"`
+	ExitProgramXdpCallerRet             *ebpf.VariableSpec `ebpf:"exit_program_xdp_caller_ret"`
+	ExitProgramXdpCallerSeq             *ebpf.VariableSpec `ebpf:"exit_program_xdp_caller_seq"`
+	ExitProgramXdpPolicyCallerRet       *ebpf.VariableSpec `ebpf:"exit_program_xdp_policy_caller_ret"`
+	ExitProgramXdpPolicyCallerSeq       *ebpf.VariableSpec `ebpf:"exit_program_xdp_policy_caller_seq"`
+	ExitProgramXdpRet                   *ebpf.VariableSpec `ebpf:"exit_program_xdp_ret"`
+	ExitProgramXdpSeq                   *ebpf.VariableSpec `ebpf:"exit_program_xdp_seq"`
 	TailCallCilLxcPolicyEgressRet       *ebpf.VariableSpec `ebpf:"tail_call_cil_lxc_policy_egress_ret"`
 	TailCallCilLxcPolicyEgressSeq       *ebpf.VariableSpec `ebpf:"tail_call_cil_lxc_policy_egress_seq"`
 	TailCallCilLxcPolicyRet             *ebpf.VariableSpec `ebpf:"tail_call_cil_lxc_policy_ret"`
@@ -544,6 +592,22 @@ type PluginsHooksVariables struct {
 	BeforeProgramXdpPolicyCallerSeq     *ebpf.Variable `ebpf:"before_program_xdp_policy_caller_seq"`
 	BeforeProgramXdpRet                 *ebpf.Variable `ebpf:"before_program_xdp_ret"`
 	BeforeProgramXdpSeq                 *ebpf.Variable `ebpf:"before_program_xdp_seq"`
+	ExitCilLxcPolicyEgressRet           *ebpf.Variable `ebpf:"exit_cil_lxc_policy_egress_ret"`
+	ExitCilLxcPolicyEgressSeq           *ebpf.Variable `ebpf:"exit_cil_lxc_policy_egress_seq"`
+	ExitCilLxcPolicyRet                 *ebpf.Variable `ebpf:"exit_cil_lxc_policy_ret"`
+	ExitCilLxcPolicySeq                 *ebpf.Variable `ebpf:"exit_cil_lxc_policy_seq"`
+	ExitProgramPolicyCallerRet          *ebpf.Variable `ebpf:"exit_program_policy_caller_ret"`
+	ExitProgramPolicyCallerSeq          *ebpf.Variable `ebpf:"exit_program_policy_caller_seq"`
+	ExitProgramTcCallerRet              *ebpf.Variable `ebpf:"exit_program_tc_caller_ret"`
+	ExitProgramTcCallerSeq              *ebpf.Variable `ebpf:"exit_program_tc_caller_seq"`
+	ExitProgramTcRet                    *ebpf.Variable `ebpf:"exit_program_tc_ret"`
+	ExitProgramTcSeq                    *ebpf.Variable `ebpf:"exit_program_tc_seq"`
+	ExitProgramXdpCallerRet             *ebpf.Variable `ebpf:"exit_program_xdp_caller_ret"`
+	ExitProgramXdpCallerSeq             *ebpf.Variable `ebpf:"exit_program_xdp_caller_seq"`
+	ExitProgramXdpPolicyCallerRet       *ebpf.Variable `ebpf:"exit_program_xdp_policy_caller_ret"`
+	ExitProgramXdpPolicyCallerSeq       *ebpf.Variable `ebpf:"exit_program_xdp_policy_caller_seq"`
+	ExitProgramXdpRet                   *ebpf.Variable `ebpf:"exit_program_xdp_ret"`
+	ExitProgramXdpSeq                   *ebpf.Variable `ebpf:"exit_program_xdp_seq"`
 	TailCallCilLxcPolicyEgressRet       *ebpf.Variable `ebpf:"tail_call_cil_lxc_policy_egress_ret"`
 	TailCallCilLxcPolicyEgressSeq       *ebpf.Variable `ebpf:"tail_call_cil_lxc_policy_egress_seq"`
 	TailCallCilLxcPolicyRet             *ebpf.Variable `ebpf:"tail_call_cil_lxc_policy_ret"`
@@ -606,6 +670,14 @@ type PluginsHooksPrograms struct {
 	BeforeProgramXdp               *ebpf.Program `ebpf:"before_program_xdp"`
 	BeforeProgramXdpCaller         *ebpf.Program `ebpf:"before_program_xdp_caller"`
 	BeforeProgramXdpPolicyCaller   *ebpf.Program `ebpf:"before_program_xdp_policy_caller"`
+	ExitCilLxcPolicy               *ebpf.Program `ebpf:"exit_cil_lxc_policy"`
+	ExitCilLxcPolicyEgress         *ebpf.Program `ebpf:"exit_cil_lxc_policy_egress"`
+	ExitProgramPolicyCaller        *ebpf.Program `ebpf:"exit_program_policy_caller"`
+	ExitProgramTc                  *ebpf.Program `ebpf:"exit_program_tc"`
+	ExitProgramTcCaller            *ebpf.Program `ebpf:"exit_program_tc_caller"`
+	ExitProgramXdp                 *ebpf.Program `ebpf:"exit_program_xdp"`
+	ExitProgramXdpCaller           *ebpf.Program `ebpf:"exit_program_xdp_caller"`
+	ExitProgramXdpPolicyCaller     *ebpf.Program `ebpf:"exit_program_xdp_policy_caller"`
 	TailCallCilLxcPolicy           *ebpf.Program `ebpf:"tail_call_cil_lxc_policy"`
 	TailCallCilLxcPolicyEgress     *ebpf.Program `ebpf:"tail_call_cil_lxc_policy_egress"`
 	TailCallProgramPolicyCaller    *ebpf.Program `ebpf:"tail_call_program_policy_caller"`
@@ -659,6 +731,14 @@ func (p *PluginsHooksPrograms) Close() error {
 		p.BeforeProgramXdp,
 		p.BeforeProgramXdpCaller,
 		p.BeforeProgramXdpPolicyCaller,
+		p.ExitCilLxcPolicy,
+		p.ExitCilLxcPolicyEgress,
+		p.ExitProgramPolicyCaller,
+		p.ExitProgramTc,
+		p.ExitProgramTcCaller,
+		p.ExitProgramXdp,
+		p.ExitProgramXdpCaller,
+		p.ExitProgramXdpPolicyCaller,
 		p.TailCallCilLxcPolicy,
 		p.TailCallCilLxcPolicyEgress,
 		p.TailCallProgramPolicyCaller,

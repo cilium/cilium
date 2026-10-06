@@ -8,11 +8,13 @@
 
 PRE("freplace", tc, struct __sk_buff *, -1, 3)
 POST(tc, struct __sk_buff *, -1, 3)
+EXIT("tc", tc, struct __sk_buff *, -1, 3)
 
 PRE("freplace", tc_caller, struct __sk_buff *, -1, 3)
 POST(tc_caller, struct __sk_buff *, -1, 3)
 PRE("tc", tail_tc, struct __sk_buff *, -1, 3)
 TAIL_CALL("tc", tc_caller, struct __sk_buff *, -1, 3)
+EXIT("tc", tc_caller, struct __sk_buff *, -1, 3)
 
 TAIL_CALL("tc", tc_multi_caller, struct __sk_buff *, -1, 3)
 
@@ -21,20 +23,26 @@ PRE_POLICY("tc", cil_lxc_policy, struct __sk_buff *, -1, 3)
 POST(policy_caller, struct __sk_buff *, -1, 3)
 TAIL_CALL("tc", policy_caller, struct __sk_buff *, -1, 3)
 TAIL_CALL_POLICY("tc", cil_lxc_policy, struct __sk_buff *, -1, 3)
+EXIT("tc", policy_caller, struct __sk_buff *, -1, 3)
+EXIT_POLICY("tc", cil_lxc_policy, struct __sk_buff *, -1, 3)
 
 PRE("freplace", xdp, struct xdp_md *, -1, 3)
 POST(xdp, struct xdp_md *, -1, 3)
+EXIT("xdp/tail", xdp, struct xdp_md *, -1, 3)
 
 PRE("freplace", xdp_caller, struct xdp_md *, -1, 3)
 POST(xdp_caller, struct xdp_md *, -1, 3)
 PRE("xdp/tail", tail_xdp, struct xdp_md *, -1, 3)
 TAIL_CALL("xdp/tail", xdp_caller, struct xdp_md *, -1, 3)
+EXIT("xdp/tail", xdp_caller, struct xdp_md *, -1, 3)
 
 PRE("freplace", xdp_policy_caller, struct xdp_md *, -1, 3)
 PRE_POLICY("xdp/tail", cil_lxc_policy_egress, struct xdp_md *, -1, 3)
 POST(xdp_policy_caller, struct xdp_md *, -1, 3)
 TAIL_CALL("xdp/tail", xdp_policy_caller, struct xdp_md *, -1, 3)
 TAIL_CALL_POLICY("xdp/tail", cil_lxc_policy_egress, struct xdp_md *, -1, 3)
+EXIT("xdp/tail", xdp_policy_caller, struct xdp_md *, -1, 3)
+EXIT_POLICY("xdp/tail", cil_lxc_policy_egress, struct xdp_md *, -1, 3)
 
 PRE("freplace", connect4, struct bpf_sock_addr *, 0, 1)
 POST(connect4, struct bpf_sock_addr *, 0, 1)
