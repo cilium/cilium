@@ -11,7 +11,7 @@
 #include <bpf/config/global.h>
 #include <bpf/config/node.h>
 
-#define DEBUG
+ASSIGN_CONFIG(bool, debug, true)
 
 /* Flags for this test case: Remote Node Masquerade ENABLED */
 /* Note: Remote node masquerade is configured via ASSIGN_CONFIG below */

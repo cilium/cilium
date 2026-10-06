@@ -67,7 +67,9 @@ int mock_skb_get_tunnel_key(struct __ctx_buff *ctx __maybe_unused, struct bpf_tu
  * and breaks the skb->cb test.
  */
 
-#define DEBUG
+#include <lib/dbg.h>
+ASSIGN_CONFIG(bool, debug, true)
+
 #include <lib/drop.h>
 
 #define _send_drop_notify mock_send_drop_notify

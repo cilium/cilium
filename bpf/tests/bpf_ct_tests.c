@@ -9,7 +9,7 @@
 #define ENABLE_NODEPORT
 #include <bpf/config/node.h>
 
-#define DEBUG
+ASSIGN_CONFIG(bool, debug, true)
 
 #include <lib/dbg.h>
 #include <lib/conntrack.h>

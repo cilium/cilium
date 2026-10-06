@@ -7,7 +7,6 @@
 /* Enable CT debug output */
 #undef QUIET_CT
 
-#define DEBUG
 
 #include "pktgen.h"
 
@@ -57,6 +56,7 @@ mock_redirect_neigh(int ifindex,
 #include "lib/ipcache.h"
 
 ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
+ASSIGN_CONFIG(bool, debug, true)
 
 /* Setup for this test:
  *

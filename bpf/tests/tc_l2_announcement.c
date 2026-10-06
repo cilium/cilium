@@ -4,8 +4,6 @@
 #include <bpf/ctx/skb.h>
 #include "common.h"
 
-/* Enable debug output */
-#define DEBUG
 
 /* Enable CT debug output */
 #undef QUIET_CT
@@ -31,6 +29,7 @@ const __u8 l2_announce_arp_reply[] = {
 ASSIGN_CONFIG(__u64, l2_announcements_max_liveness, 3000000000ULL)
 ASSIGN_CONFIG(bool, enable_l2_announcements, true)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
+ASSIGN_CONFIG(bool, debug, true)
 
 /* Setup for this test:
  * +-------------------------+   +--------------------------------------+    +--------------------------+

@@ -11,3 +11,5 @@
 
 #include "bpf_nat_icmp.h"
 #include "bpf_nat_icmp6.h"
+
+ASSIGN_CONFIG(bool, debug, true)
