@@ -96,6 +96,8 @@ enum HookType {
     PRE = 1;
     // post hooks run after the main Cilium program.
     POST = 2;
+    // exit hooks run when the target program exits to the kernel.
+    EXIT = 3;
     // tail call hooks run before the target program tail calls somewhere.
     TAIL_CALL = 4;
 }
