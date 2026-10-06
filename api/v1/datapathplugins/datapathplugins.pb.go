@@ -29,10 +29,12 @@ type HookType int32
 
 const (
 	HookType_UNKNOWN HookType = 0
-	// pre hooks run before the main Cilium program.
+	// pre hooks run before the target program.
 	HookType_PRE HookType = 1
 	// post hooks run after the main Cilium program.
 	HookType_POST HookType = 2
+	// tail call hooks run before the target program tail calls somewhere.
+	HookType_TAIL_CALL HookType = 4
 )
 
 // Enum value maps for HookType.
@@ -41,11 +43,13 @@ var (
 		0: "UNKNOWN",
 		1: "PRE",
 		2: "POST",
+		4: "TAIL_CALL",
 	}
 	HookType_value = map[string]int32{
-		"UNKNOWN": 0,
-		"PRE":     1,
-		"POST":    2,
+		"UNKNOWN":   0,
+		"PRE":       1,
+		"POST":      2,
+		"TAIL_CALL": 4,
 	}
 )
 
@@ -1134,9 +1138,12 @@ type PrepareCollectionResponse_HookSpec struct {
 	// plugins want to place a hook at this same hook point, hooks from
 	// various plugins will be arranged in an order that respects all
 	// ordering constraints.
-	Constraints   []*PrepareCollectionResponse_HookSpec_OrderingConstraint `protobuf:"bytes,3,rep,name=constraints,proto3" json:"constraints,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Constraints []*PrepareCollectionResponse_HookSpec_OrderingConstraint `protobuf:"bytes,3,rep,name=constraints,proto3" json:"constraints,omitempty"`
+	// Optional filter for TAIL_CALL hooks. Only tail calls targeting this BPF program name
+	// (e.g. "tail_ipv4_to_endpoint") are intercepted by the hook.
+	TailCallTarget string `protobuf:"bytes,5,opt,name=tail_call_target,json=tailCallTarget,proto3" json:"tail_call_target,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PrepareCollectionResponse_HookSpec) Reset() {
@@ -1188,6 +1195,13 @@ func (x *PrepareCollectionResponse_HookSpec) GetConstraints() []*PrepareCollecti
 		return x.Constraints
 	}
 	return nil
+}
+
+func (x *PrepareCollectionResponse_HookSpec) GetTailCallTarget() string {
+	if x != nil {
+		return x.TailCallTarget
+	}
+	return ""
 }
 
 // An OrderingConstraint is a constraint about where this hook should
@@ -1574,14 +1588,15 @@ const file_datapathplugins_datapathplugins_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2D.datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramSpecR\x05value:\x028\x01\x1ay\n" +
 	"\tMapsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12V\n" +
-	"\x05value\x18\x02 \x01(\v2@.datapathplugins.PrepareCollectionRequest.CollectionSpec.MapSpecR\x05value:\x028\x01\"\xfc\x03\n" +
+	"\x05value\x18\x02 \x01(\v2@.datapathplugins.PrepareCollectionRequest.CollectionSpec.MapSpecR\x05value:\x028\x01\"\xa6\x04\n" +
 	"\x19PrepareCollectionResponse\x12I\n" +
 	"\x05hooks\x18\x01 \x03(\v23.datapathplugins.PrepareCollectionResponse.HookSpecR\x05hooks\x12\x16\n" +
-	"\x06cookie\x18\x02 \x01(\tR\x06cookie\x1a\xfb\x02\n" +
+	"\x06cookie\x18\x02 \x01(\tR\x06cookie\x1a\xa5\x03\n" +
 	"\bHookSpec\x12-\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x19.datapathplugins.HookTypeR\x04type\x12\x16\n" +
 	"\x06target\x18\x02 \x01(\tR\x06target\x12h\n" +
-	"\vconstraints\x18\x03 \x03(\v2F.datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraintR\vconstraints\x1a\xbd\x01\n" +
+	"\vconstraints\x18\x03 \x03(\v2F.datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraintR\vconstraints\x12(\n" +
+	"\x10tail_call_target\x18\x05 \x01(\tR\x0etailCallTarget\x1a\xbd\x01\n" +
 	"\x12OrderingConstraint\x12b\n" +
 	"\x05order\x18\x01 \x01(\x0e2L.datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraint.OrderR\x05order\x12\x16\n" +
 	"\x06plugin\x18\x02 \x01(\tR\x06plugin\"+\n" +
@@ -1622,11 +1637,12 @@ const file_datapathplugins_datapathplugins_proto_rawDesc = "" +
 	"\n" +
 	"program_id\x18\x01 \x01(\rR\tprogramId\x12!\n" +
 	"\fsubprog_name\x18\x02 \x01(\tR\vsubprogName\"\x1e\n" +
-	"\x1cInstrumentCollectionResponse**\n" +
+	"\x1cInstrumentCollectionResponse*9\n" +
 	"\bHookType\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\a\n" +
 	"\x03PRE\x10\x01\x12\b\n" +
-	"\x04POST\x10\x022\xf5\x01\n" +
+	"\x04POST\x10\x02\x12\r\n" +
+	"\tTAIL_CALL\x10\x042\xf5\x01\n" +
 	"\x0eDatapathPlugin\x12l\n" +
 	"\x11PrepareCollection\x12).datapathplugins.PrepareCollectionRequest\x1a*.datapathplugins.PrepareCollectionResponse\"\x00\x12u\n" +
 	"\x14InstrumentCollection\x12,.datapathplugins.InstrumentCollectionRequest\x1a-.datapathplugins.InstrumentCollectionResponse\"\x00B1Z/github.com/cilium/cilium/api/v1/datapathpluginsb\x06proto3"

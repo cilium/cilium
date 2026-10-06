@@ -467,6 +467,7 @@ them, and informs Cilium in the PrepareHooksResponse.
 | type | [HookType](#datapathplugins-HookType) |  | position of the hook relative to the target program. |
 | target | [string](#string) |  | name of the program that should be instrumented. |
 | constraints | [PrepareCollectionResponse.HookSpec.OrderingConstraint](#datapathplugins-PrepareCollectionResponse-HookSpec-OrderingConstraint) | repeated | constraints is a list of ordering constraints for this hook. If other plugins want to place a hook at this same hook point, hooks from various plugins will be arranged in an order that respects all ordering constraints. |
+| tail_call_target | [string](#string) |  | Optional filter for TAIL_CALL hooks. Only tail calls targeting this BPF program name (e.g. &#34;tail_ipv4_to_endpoint&#34;) are intercepted by the hook. |
 
 
 
@@ -500,8 +501,9 @@ go at this hook point relative to other plugins&#39; hooks.
 | Name | Number | Description |
 | ---- | ------ | ----------- |
 | UNKNOWN | 0 |  |
-| PRE | 1 | pre hooks run before the main Cilium program. |
+| PRE | 1 | pre hooks run before the target program. |
 | POST | 2 | post hooks run after the main Cilium program. |
+| TAIL_CALL | 4 | tail call hooks run before the target program tail calls somewhere. |
 
 
 
