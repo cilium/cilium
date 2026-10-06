@@ -12,4 +12,12 @@ int before(struct __ctx_buff *ctx __maybe_unused)
 	return TC_ACT_UNSPEC;
 }
 
+__section("classifier")
+int tail_call_hook(struct __ctx_buff *ctx __maybe_unused)
+{
+	printk("tail_call %s\n", attachment_context);
+
+	return TC_ACT_UNSPEC;
+}
+
 BPF_LICENSE("Dual BSD/GPL");
