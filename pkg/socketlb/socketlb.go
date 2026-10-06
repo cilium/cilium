@@ -68,7 +68,9 @@ func cgroupPluginsLinkPath() string {
 
 func attachmentContextSocket() *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
-		Context: &datapathplugins.AttachmentContext_Socket_{},
+		Context: &datapathplugins.AttachmentContext_Socket_{
+			Socket: &datapathplugins.AttachmentContext_Socket{},
+		},
 	}
 }
 
