@@ -33,8 +33,9 @@ const (
 	logKeyTraceId       = "traceId"
 	logKeyError         = "error"
 
-	preHookName  = "before"
-	postHookName = "after"
+	preHookName      = "before"
+	postHookName     = "after"
+	tailCallHookName = "tail_call_hook"
 )
 
 type cookie struct {
@@ -199,6 +200,10 @@ func prepareSKBAndXDPHooks(programs map[string]*datapathplugins.PrepareCollectio
 				Type:   datapathplugins.HookType_PRE,
 				Target: name,
 			},
+			&datapathplugins.PrepareCollectionResponse_HookSpec{
+				Type:   datapathplugins.HookType_TAIL_CALL,
+				Target: name,
+			},
 		)
 
 		if !strings.HasSuffix(prog.SectionName, "/entry") {
@@ -242,11 +247,20 @@ func prepareSockHooks(programs map[string]*datapathplugins.PrepareCollectionRequ
 
 func hookProgName(hook *datapathplugins.InstrumentCollectionRequest_Hook) string {
 	switch hook.Type {
+	case datapathplugins.HookType_TAIL_CALL:
+		return tailCallHookName
 	case datapathplugins.HookType_PRE:
 		return preHookName
 	default:
 		return postHookName
 	}
+}
+
+func hookSpecKey(hook *datapathplugins.InstrumentCollectionRequest_Hook) string {
+	if hook.GetAttachTarget().GetSubprogName() == "" {
+		return hook.Target + "/tailcall"
+	}
+	return hook.Target + "/freplace"
 }
 
 func loadAndPin(ac *datapathplugins.AttachmentContext, hooks []*datapathplugins.InstrumentCollectionRequest_Hook, pinPath string, targetAttachTypes map[string]ebpf.AttachType) error {
@@ -257,15 +271,16 @@ func loadAndPin(ac *datapathplugins.AttachmentContext, hooks []*datapathplugins.
 
 	specByTarget := map[string]*ebpf.CollectionSpec{}
 	for _, hook := range hooks {
-		if specByTarget[hook.Target] == nil {
+		key := hookSpecKey(hook)
+		if specByTarget[key] == nil {
 			spec, err := collectionSpec(ac, hook.Target, hook)
 			if err != nil {
 				return fmt.Errorf("loading specs: %w", err)
 			}
-			specByTarget[hook.Target] = spec
+			specByTarget[key] = spec
 		}
 
-		spec := specByTarget[hook.Target]
+		spec := specByTarget[key]
 
 		progName := hookProgName(hook)
 		progSpec := spec.Programs[progName]
@@ -302,18 +317,21 @@ func loadAndPin(ac *datapathplugins.AttachmentContext, hooks []*datapathplugins.
 		}
 		defer coll.Close()
 		objsByTarget[target] = coll
-		if err := coll.Variables["attachment_context"].Set(strToByte256(fmt.Sprintf("%s %s()", acStr, target))); err != nil {
-			return fmt.Errorf("setting attachment_context for %s: %w", target, err)
+		if err := coll.Variables["attachment_context"].Set(strToByte256(fmt.Sprintf("%s %s()", acStr, strings.Split(target, "/")[0]))); err != nil {
+			return fmt.Errorf("setting attachment_context for %s: %w", strings.Split(target, "/")[0], err)
 		}
 	}
 
 	for _, hook := range hooks {
-		coll := objsByTarget[hook.Target]
+		coll := objsByTarget[hookSpecKey(hook)]
 
 		var prog *ebpf.Program
-		if hook.Type == datapathplugins.HookType_PRE {
+		switch hook.Type {
+		case datapathplugins.HookType_TAIL_CALL:
+			prog = coll.Programs[tailCallHookName]
+		case datapathplugins.HookType_PRE:
 			prog = coll.Programs[preHookName]
-		} else {
+		default:
 			prog = coll.Programs[postHookName]
 		}
 
