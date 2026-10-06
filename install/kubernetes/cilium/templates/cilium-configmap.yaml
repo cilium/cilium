@@ -1370,6 +1370,8 @@ data:
   vlan-bpf-bypass: {{ .Values.bpf.vlanBypass | join " " | quote }}
 {{- end }}
 
+  enable-external-ips: {{ .Values.enableExternalIPs | quote }}
+
 {{- if .Values.bpf.disableExternalIPMitigation }}
   disable-external-ip-mitigation: {{ .Values.bpf.disableExternalIPMitigation | quote }}
 {{- end }}

@@ -305,7 +305,7 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 	}
 
 	// ExternalIP
-	for _, ip := range getExternalIPS(svc) {
+	for _, ip := range getExternalIPS(cfg, svc) {
 		addr, err := cmtypes.ParseAddrCluster(ip)
 		if err != nil {
 			continue
@@ -340,7 +340,12 @@ func convertService(cfg loadbalancer.Config, extCfg loadbalancer.ExternalConfig,
 	return
 }
 
-func getExternalIPS(svc *slim_corev1.Service) []string {
+func getExternalIPS(cfg loadbalancer.Config, svc *slim_corev1.Service) []string {
+	if !cfg.EnableExternalIPs {
+		return []string{}
+	}
+
+	// TODO: initialize the `externalIPs` variable with an empty slice once kubernetes completely removes the externalIPs field of Service resources
 	externalIPs := svc.Spec.ExternalIPs
 	if serviceAnnotationValue, serviceAnnotationExists := svc.Annotations[annotation.ServiceExternalIPs]; serviceAnnotationExists {
 		externalIPs = append(externalIPs, strings.Split(serviceAnnotationValue, ",")...)
