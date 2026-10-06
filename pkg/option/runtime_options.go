@@ -32,7 +32,6 @@ var (
 	}
 
 	specDebugPolicy = Option{
-		Define:      "POLICY_DEBUG",
 		Description: "Enable debugging trace statements for policy enforcement",
 	}
 
