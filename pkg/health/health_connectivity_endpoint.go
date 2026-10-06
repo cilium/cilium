@@ -5,7 +5,6 @@ package health
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -388,17 +387,15 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 
 	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAlibabaCloud {
 		ri, riv6 := h.infraIPAllocator.GetHealthEndpointRouting()
-		if healthIP.Is6() {
-			ri = riv6
+		if ri != nil && ln.IPv4HealthIP.IsValid() {
+			if err := ri.Configure(ln.IPv4HealthIP.Addr, false); err != nil {
+				return nil, fmt.Errorf("Error while configuring health endpoint IPv4 rules and routes: %w", err)
+			}
 		}
-		if ri == nil {
-			return nil, errors.New("failed to configure health endpoint routing - no IP allocated")
-		}
-		if err := ri.Configure(
-			healthIP,
-			false,
-		); err != nil {
-			return nil, fmt.Errorf("Error while configuring health endpoint rules and routes: %w", err)
+		if riv6 != nil && ln.IPv6HealthIP.IsValid() {
+			if err := riv6.Configure(ln.IPv6HealthIP.Addr, false); err != nil {
+				return nil, fmt.Errorf("Error while configuring health endpoint IPv6 rules and routes: %w", err)
+			}
 		}
 	}
 
