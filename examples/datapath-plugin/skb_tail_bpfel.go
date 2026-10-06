@@ -17,6 +17,7 @@ import (
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
 	skb_tailProgBefore           = "before"
+	skb_tailProgExitHook         = "exit_hook"
 	skb_tailProgTailCallHook     = "tail_call_hook"
 	skb_tailVarAttachmentContext = "attachment_context"
 )
@@ -64,6 +65,7 @@ type skb_tailSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type skb_tailProgramSpecs struct {
 	Before       *ebpf.ProgramSpec `ebpf:"before"`
+	ExitHook     *ebpf.ProgramSpec `ebpf:"exit_hook"`
 	TailCallHook *ebpf.ProgramSpec `ebpf:"tail_call_hook"`
 }
 
@@ -118,12 +120,14 @@ type skb_tailVariables struct {
 // It can be passed to loadSkb_tailObjects or ebpf.CollectionSpec.LoadAndAssign.
 type skb_tailPrograms struct {
 	Before       *ebpf.Program `ebpf:"before"`
+	ExitHook     *ebpf.Program `ebpf:"exit_hook"`
 	TailCallHook *ebpf.Program `ebpf:"tail_call_hook"`
 }
 
 func (p *skb_tailPrograms) Close() error {
 	return _Skb_tailClose(
 		p.Before,
+		p.ExitHook,
 		p.TailCallHook,
 	)
 }

@@ -18,6 +18,7 @@ import (
 const (
 	xdp_tailMapCiliumXdpScratch  = "cilium_xdp_scratch"
 	xdp_tailProgBefore           = "before"
+	xdp_tailProgExitHook         = "exit_hook"
 	xdp_tailProgTailCallHook     = "tail_call_hook"
 	xdp_tailVarAttachmentContext = "attachment_context"
 )
@@ -65,6 +66,7 @@ type xdp_tailSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type xdp_tailProgramSpecs struct {
 	Before       *ebpf.ProgramSpec `ebpf:"before"`
+	ExitHook     *ebpf.ProgramSpec `ebpf:"exit_hook"`
 	TailCallHook *ebpf.ProgramSpec `ebpf:"tail_call_hook"`
 }
 
@@ -123,12 +125,14 @@ type xdp_tailVariables struct {
 // It can be passed to loadXdp_tailObjects or ebpf.CollectionSpec.LoadAndAssign.
 type xdp_tailPrograms struct {
 	Before       *ebpf.Program `ebpf:"before"`
+	ExitHook     *ebpf.Program `ebpf:"exit_hook"`
 	TailCallHook *ebpf.Program `ebpf:"tail_call_hook"`
 }
 
 func (p *xdp_tailPrograms) Close() error {
 	return _Xdp_tailClose(
 		p.Before,
+		p.ExitHook,
 		p.TailCallHook,
 	)
 }
