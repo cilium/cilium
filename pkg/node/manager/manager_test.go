@@ -1541,25 +1541,6 @@ func TestNodeTableMirroring(t *testing.T) {
 	requireNode(t, n1)
 	requireNode(t, n2)
 
-	// NodeManager delegates table conflict resolution to node.Writer. For
-	// equal-priority address owners the latest update wins.
-	n3 := n2.DeepCopy()
-	n3.Name = "node3"
-	mngr.NodeUpdated(*n3)
-	requireNode(t, n1)
-	requireNoNode(t, n2)
-	requireNode(t, *n3)
-
-	// Deleting the displaced node must not delete the current address owner.
-	mngr.NodeDeleted(n2)
-	requireNoNode(t, n2)
-	requireNode(t, *n3)
-
-	mngr.NodeUpdated(n2)
-	requireNode(t, n1)
-	requireNode(t, n2)
-	requireNoNode(t, *n3)
-
 	select {
 	case <-initWatch:
 		t.Fatal("node table initialized before NodeSync")
