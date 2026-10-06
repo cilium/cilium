@@ -321,20 +321,21 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi.ResourceClaim) (map[string]types.DeviceConfig, error) {
 	devicesCfg := map[string]types.DeviceConfig{}
 	for _, cfg := range claim.Status.Allocation.Devices.Config {
-		if cfg.Opaque != nil && cfg.Opaque.Parameters.Raw != nil {
-			c := types.DeviceConfig{}
-			if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &c); err != nil {
-				driver.logger.ErrorContext(
-					ctx, "failed to parse config",
-					logfields.Request, cfg.Requests,
-					logfields.Params, cfg.Opaque.Parameters,
-					logfields.Error, err,
-				)
-				return nil, fmt.Errorf("failed to unmarshal config for %s: %w", path.Join(claim.Namespace, claim.Name), err)
-			}
-			for _, request := range cfg.Requests {
-				devicesCfg[request] = c
-			}
+		if cfg.Opaque == nil || cfg.Opaque.Parameters.Raw == nil {
+			continue
+		}
+		c := types.DeviceConfig{}
+		if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &c); err != nil {
+			driver.logger.ErrorContext(
+				ctx, "failed to parse config",
+				logfields.Request, cfg.Requests,
+				logfields.Params, cfg.Opaque.Parameters,
+				logfields.Error, err,
+			)
+			return nil, fmt.Errorf("failed to unmarshal config for %s: %w", path.Join(claim.Namespace, claim.Name), err)
+		}
+		for _, request := range cfg.Requests {
+			devicesCfg[request] = c
 		}
 	}
 	return devicesCfg, nil
