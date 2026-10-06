@@ -36,7 +36,6 @@ import (
 	k8stestutils "github.com/cilium/cilium/pkg/k8s/testutils"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
-	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/node/types"
 	agentOption "github.com/cilium/cilium/pkg/option"
 )
@@ -56,7 +55,6 @@ type ControlPlaneTest struct {
 	clients             *k8sClient.FakeClientset
 	trackers            []trackerAndDecoder
 	agentHandle         *agentHandle
-	FakeNodeHandler     *fakenode.Handler
 	establishedWatchers *lock.Map[string, struct{}]
 }
 
@@ -139,16 +137,12 @@ func (cpt *ControlPlaneTest) StartAgent(modConfig func(*agentOption.DaemonConfig
 	if err := cpt.agentHandle.hive.Start(cpt.agentHandle.log, context.TODO()); err != nil {
 		cpt.t.Fatalf("Failed to start cilium agent: %s", err)
 	}
-	cpt.FakeNodeHandler = cpt.agentHandle.fnh
-
 	return cpt
 }
 
 func (cpt *ControlPlaneTest) StopAgent() *ControlPlaneTest {
 	cpt.agentHandle.tearDown()
 	cpt.agentHandle = nil
-	cpt.FakeNodeHandler = nil
-
 	return cpt
 }
 
