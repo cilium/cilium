@@ -46,7 +46,6 @@ import (
 	fakemtu "github.com/cilium/cilium/pkg/mtu/fake"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
-	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/time"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/types"
@@ -60,10 +59,8 @@ var Cell = cell.Module(
 	"Fake Datapath",
 
 	cell.Provide(
-		func(lifecycle cell.Lifecycle, na node.Addressing, nodeManager manager.NodeManager) (node.IDHandler, node.Handler, *fakenode.Handler) {
-			fakeNodeHandler := fakenode.NewHandler()
-			nodeManager.Subscribe(fakeNodeHandler)
-			return fakeNodeHandler, fakeNodeHandler, fakeNodeHandler
+		func() node.IDHandler {
+			return fakenode.NewIDHandler()
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() encrypt.EncryptMap { return fakeencrypt.NewFakeEncryptMap() },

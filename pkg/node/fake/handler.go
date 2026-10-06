@@ -7,64 +7,26 @@ import (
 	"net/netip"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/node/types"
 )
 
-type Handler struct {
-	mu    lock.Mutex
-	Nodes map[string]types.Node
-}
+type IDHandler struct{}
 
-func (n *Handler) GetNodeID(_ netip.Addr) (uint16, bool) {
+func (n *IDHandler) GetNodeID(_ netip.Addr) (uint16, bool) {
 	return 0, true
 }
 
-// NewHandler returns a fake NodeHandler that stores the nodes,
-// but performs no other actions.
-func NewHandler() *Handler {
-	return &Handler{Nodes: make(map[string]types.Node)}
+// NewIDHandler returns a fake node ID handler.
+func NewIDHandler() *IDHandler {
+	return &IDHandler{}
 }
 
-func (n *Handler) Name() string {
-	return "fake-node-handler"
-}
-
-func (n *Handler) NodeAdd(newNode types.Node) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.Nodes[newNode.Name] = newNode
-	return nil
-}
-
-func (n *Handler) NodeUpdate(oldNode, newNode types.Node) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.Nodes[newNode.Name] = newNode
-	return nil
-}
-
-func (n *Handler) NodeDelete(node types.Node) error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	delete(n.Nodes, node.Name)
-	return nil
-}
-
-func (n *Handler) AllNodeValidateImplementation() {
-}
-
-func (n *Handler) NodeValidateImplementation(node types.Node) error {
-	return nil
-}
-
-func (n *Handler) GetNodeIP(_ uint16) string {
+func (n *IDHandler) GetNodeIP(_ uint16) string {
 	return ""
 }
 
-func (n *Handler) DumpNodeIDs() []*models.NodeID {
+func (n *IDHandler) DumpNodeIDs() []*models.NodeID {
 	return nil
 }
 
-func (n *Handler) RestoreNodeIDs() {
+func (n *IDHandler) RestoreNodeIDs() {
 }
