@@ -41,6 +41,8 @@ const (
 	bpfLoaderGCRetryInterval               = time.Minute
 	preHookDispatcherProgPrefix            = "pre_dispatcher_"
 	staticTailCallHookDispatcherProgPrefix = "tail_call_static_dispatcher_"
+	exitHookDispatcherProgPrefix           = "exit_dispatcher_"
+	pluginStateMapName                     = "plugin_state_map"
 )
 
 func linkToInterfaceInfo(l netlink.Link) *datapathplugins.AttachmentContext_InterfaceInfo {
@@ -350,7 +352,7 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 				continue
 			}
 
-			if h.Type != datapathplugins.HookType_PRE && h.Type != datapathplugins.HookType_POST && h.Type != datapathplugins.HookType_TAIL_CALL {
+			if h.Type != datapathplugins.HookType_PRE && h.Type != datapathplugins.HookType_POST && h.Type != datapathplugins.HookType_TAIL_CALL && h.Type != datapathplugins.HookType_EXIT {
 				err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): invalid hook type %v", r.plugin.Name(), h.Type))
 
 				continue
@@ -419,7 +421,7 @@ func canInstrument(cs *ebpf.CollectionSpec, prog *ebpf.ProgramSpec, hookType dat
 		return fmt.Errorf("cannot instrument tail call programs with POST hooks; inside a PROG_ARRAY map, so we have to limit POST hook instrumentation to __section_entry programs.")
 	}
 
-	if (hookType == datapathplugins.HookType_TAIL_CALL ||
+	if (hookType == datapathplugins.HookType_EXIT || hookType == datapathplugins.HookType_TAIL_CALL ||
 		(hookType == datapathplugins.HookType_PRE && (bpf.IsTailCall(prog) || isPolicyProgram(prog.Name)))) && bpf.CallsMapSpec(cs) == nil {
 		return fmt.Errorf("cannot instrument with %s hooks: collection has no calls map to hold the dispatcher", hookType)
 	}
@@ -699,10 +701,15 @@ func staticTailCallHookSubprogName(pluginName string, origSlot uint32) string {
 	return fmt.Sprintf("__tail_call_hook_%s_to_%d__", pluginName, origSlot)
 }
 
+func exitHookSubprogName(pluginName string) string {
+	return fmt.Sprintf("__exit_hook_%s__", pluginName)
+}
+
 // hooksSpec tracks inter-plugin dependencies and applies them to instrument
 // programs in BPF collections with appropriate dispatchers.
 type hooksSpec struct {
-	hooks map[string]map[datapathplugins.HookType]*pluginDependencyGraph
+	hooks        map[string]map[datapathplugins.HookType]*pluginDependencyGraph
+	hasExitHooks bool
 	// tailCallTargets maps source program -> plugin -> resolved tail_call_target
 	// filters for that plugin's TAIL_CALL hooks on the source program. A plugin
 	// without an entry is unfiltered and intercepts all outbound static tail calls.
@@ -740,15 +747,38 @@ func (hs *hooksSpec) tailCallMatches(src, plugin string, tgt target) bool {
 // (target, hookType). Consumers can then add constraints or plugins to this
 // dependency graph.
 func (hs *hooksSpec) hook(target string, hookType datapathplugins.HookType) *pluginDependencyGraph {
+	if hookType == datapathplugins.HookType_EXIT {
+		hs.hasExitHooks = true
+	}
+
 	if hs.hooks[target] == nil {
 		hs.hooks[target] = map[datapathplugins.HookType]*pluginDependencyGraph{
 			datapathplugins.HookType_PRE:       {},
 			datapathplugins.HookType_POST:      {},
 			datapathplugins.HookType_TAIL_CALL: {},
+			datapathplugins.HookType_EXIT:      {},
 		}
 	}
 
 	return hs.hooks[target][hookType]
+}
+
+func (hs *hooksSpec) requirePluginStateMap(opts *bpf.CollectionOptions) {
+	if !opts.Keep.Has(pluginStateMapName) {
+		opts.Keep.Insert(pluginStateMapName)
+		opts.CollectionPatches = append(opts.CollectionPatches, func(cs *ebpf.CollectionSpec) error {
+			if cs.Maps[pluginStateMapName] == nil {
+				cs.Maps[pluginStateMapName] = &ebpf.MapSpec{
+					Name:       pluginStateMapName,
+					Type:       ebpf.PerCPUArray,
+					KeySize:    4,
+					ValueSize:  8,
+					MaxEntries: 1,
+				}
+			}
+			return nil
+		})
+	}
 }
 
 // instrumentCollection prepares an InstrumentCollectionRequest for each plugin
@@ -765,6 +795,25 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec, opts *bpf.Col
 	opts.CollectionPatches = make([]func(*ebpf.CollectionSpec) error, 0)
 	if opts.Keep == nil {
 		opts.Keep = &set.Set[string]{}
+	}
+
+	if hs.hasExitHooks {
+		hs.requirePluginStateMap(opts)
+		// Tail-called programs with EXIT hooks record their exit dispatcher slot in
+		// plugin_state_map and unwind back to the root entrypoint program to execute
+		// the exit tail call. Ensure all entrypoint programs (including policy
+		// entrypoints) enter instrumentProgram() so they emit the exit-slot handling
+		// wrapper even if no hooks target the entrypoint directly.
+		for name, prog := range cs.Programs {
+			if bpf.IsEntrypoint(prog) && hs.hooks[name] == nil {
+				hs.hooks[name] = map[datapathplugins.HookType]*pluginDependencyGraph{
+					datapathplugins.HookType_PRE:       {},
+					datapathplugins.HookType_POST:      {},
+					datapathplugins.HookType_TAIL_CALL: {},
+					datapathplugins.HookType_EXIT:      {},
+				}
+			}
+		}
 	}
 
 	var callsMap *ebpf.MapSpec
@@ -791,7 +840,13 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec, opts *bpf.Col
 
 			continue
 		}
-		if patchErr := hs.instrumentProgram(cs.Programs[hookTarget], pre, post, tailcalls, hooks, hookSlots, opts, callsMap); patchErr != nil {
+		exits, sortErr := hookTypes[datapathplugins.HookType_EXIT].sort()
+		if sortErr != nil {
+			err = errors.Join(err, fmt.Errorf("%s/%s: %w", hookTarget, datapathplugins.HookType_EXIT, sortErr))
+
+			continue
+		}
+		if patchErr := hs.instrumentProgram(cs.Programs[hookTarget], pre, post, tailcalls, exits, hooks, hookSlots, opts, callsMap); patchErr != nil {
 			err = errors.Join(err, fmt.Errorf("instrumenting %s: %w", hookTarget, patchErr))
 
 			continue
@@ -810,28 +865,34 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec, opts *bpf.Col
 	return hooks, hookSlots, err
 }
 
-func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, tailcalls []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
+func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, tailcalls []string, exits []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
 	if err := hs.instrumentOutboundTailCalls(ps, pre, tailcalls, hooks, hookSlots, opts, callsMap); err != nil {
 		return err
 	}
 
 	if isPolicyProgram(ps.Name) {
-		return hs.instrumentPolicyProgram(ps, pre, hooks, hookSlots, opts, callsMap)
+		return hs.instrumentPolicyProgram(ps, pre, exits, hooks, hookSlots, opts, callsMap)
+	}
+
+	if err := hs.instrumentExitHooks(ps, exits, hooks, hookSlots, opts, callsMap); err != nil {
+		return err
 	}
 
 	if bpf.IsTailCall(ps) {
 		return hs.injectPreHooksBeforeTailCallProgram(ps, pre, hooks, hookSlots, opts, callsMap)
 	}
 
-	return hs.instrumentEntrypointProgram(ps, pre, post, hooks, opts)
+	return hs.instrumentEntrypointProgram(ps, pre, post, hooks, opts, hs.hasExitHooks, callsMap)
 }
 
-// instrumentPolicyProgram orchestrates PRE hooks on a policy program (cil_lxc_policy, etc.):
+// instrumentPolicyProgram orchestrates PRE and EXIT hooks on a policy program (cil_lxc_policy, etc.):
 //  1. Relocates the original policy program to a slot in callsMap.
 //  2. Builds a policy dispatcher that sits at the original entrypoint.
-//  3. Executes PRE hooks in subprograms and tail-calls the relocated policy program.
-func (hs *hooksSpec) instrumentPolicyProgram(ps *ebpf.ProgramSpec, pre []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
-	if len(pre) == 0 {
+//  3. If EXIT hooks are present on the policy program, builds an EXIT-hook dispatcher at exitDispatcherSlot.
+//  4. Executes PRE hooks in subprograms, invokes the relocated policy program in a subprogram,
+//     and tail-calls the exit dispatcher if exit hooks were triggered.
+func (hs *hooksSpec) instrumentPolicyProgram(ps *ebpf.ProgramSpec, pre []string, exits []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
+	if len(pre) == 0 && !hs.hasExitHooks {
 		return nil
 	}
 
@@ -845,19 +906,28 @@ func (hs *hooksSpec) instrumentPolicyProgram(ps *ebpf.ProgramSpec, pre []string,
 	firstPreSlot := relocatedSlot + 1
 	callsMap.MaxEntries += uint32(1 + len(pre))
 
-	for idx, pluginName := range pre {
+	exitDispatcherSlot := callsMap.MaxEntries
+	firstExitSlot := exitDispatcherSlot + 1
+	if len(exits) > 0 {
+		callsMap.MaxEntries += uint32(1 + len(exits))
+	}
+
+	registerHook := func(pluginName string, hookType datapathplugins.HookType, slot uint32) {
 		if hooks[pluginName] == nil {
 			hooks[pluginName] = &datapathplugins.InstrumentCollectionRequest{}
 		}
-		h := &datapathplugins.InstrumentCollectionRequest_Hook{
-			Type:   datapathplugins.HookType_PRE,
-			Target: ps.Name,
-		}
+		h := &datapathplugins.InstrumentCollectionRequest_Hook{Type: hookType, Target: ps.Name}
 		hooks[pluginName].Hooks = append(hooks[pluginName].Hooks, h)
-		hookSlots[h] = firstPreSlot + uint32(idx)
+		hookSlots[h] = slot
+	}
+	for i, plugin := range pre {
+		registerHook(plugin, datapathplugins.HookType_PRE, firstPreSlot+uint32(i))
+	}
+	for i, plugin := range exits {
+		registerHook(plugin, datapathplugins.HookType_EXIT, firstExitSlot+uint32(i))
 	}
 
-	dispatcherProg, err := buildPolicyDispatcher(ps, callsMap.Name, relocatedSlot, firstPreSlot, pre)
+	dispatcherProg, err := buildPolicyDispatcher(ps, callsMap.Name, relocatedSlot, firstPreSlot, pre, hs.hasExitHooks)
 	if err != nil {
 		return fmt.Errorf("building policy dispatcher for %s: %w", ps.Name, err)
 	}
@@ -867,6 +937,18 @@ func (hs *hooksSpec) instrumentPolicyProgram(ps *ebpf.ProgramSpec, pre []string,
 	opts.Keep.Insert(ps.Name)
 	opts.Keep.Insert(relocatedName)
 	opts.Keep.Insert(dispatcherProg.Name)
+
+	var exitDispatcherProg *ebpf.ProgramSpec
+	if len(exits) > 0 {
+		exitDispatcherProg, err = buildExitDispatcher(ps, callsMap.Name, exitDispatcherSlot, firstExitSlot, exits)
+		if err != nil {
+			return fmt.Errorf("building exit dispatcher for %s: %w", ps.Name, err)
+		}
+		opts.Keep.Insert(exitDispatcherProg.Name)
+		opts.ProgramPatches[relocatedName] = append(opts.ProgramPatches[relocatedName], func(insns asm.Instructions) (asm.Instructions, error) {
+			return spliceExitHooks(insns, exitDispatcherSlot)
+		})
+	}
 
 	opts.CollectionPatches = append(opts.CollectionPatches, func(cs *ebpf.CollectionSpec) error {
 		target := cs.Programs[ps.Name]
@@ -885,30 +967,44 @@ func (hs *hooksSpec) instrumentPolicyProgram(ps *ebpf.ProgramSpec, pre []string,
 
 		cs.Programs[target.Name] = target
 		cs.Programs[ps.Name] = dispatcherProg
+		if exitDispatcherProg != nil {
+			cs.Programs[exitDispatcherProg.Name] = exitDispatcherProg
+		}
 		return nil
 	})
 
 	return nil
 }
 
-// buildPolicyDispatcher constructs the ebpf.ProgramSpec for a PRE-hook dispatcher
-// on a policy program (e.g. cil_lxc_policy, cil_host_policy, cil_lxc_policy_egress).
-// The dispatcher sits at the original policy entrypoint, sequentially invokes each
-// registered PRE hook via a subprogram wrapper, and concludes with a tail call to the
-// relocated policy program. Something like this:
+// buildPolicyDispatcher constructs the ebpf.ProgramSpec for a unified PRE and EXIT hook
+// dispatcher on a policy program (e.g. cil_lxc_policy, cil_host_policy, cil_lxc_policy_egress).
+// The dispatcher sits at the original policy entrypoint, resets state->exit_slot = 0,
+// sequentially invokes each registered PRE hook via a subprogram wrapper, invokes the relocated
+// policy program in a subprogram wrapper, checks if the policy program or any tail-called
+// program exited by inspecting state->exit_slot != 0, and tail-calls the exit dispatcher.
+// Something like this:
 //
 //	int cil_lxc_policy(void *ctx) {
-//	    int ret;
+//	    int orig_ret, ret;
+//
+//	    struct plugin_state *state = bpf_map_lookup_elem(&plugin_state_map, &zero);
+//	    if (state)
+//	        state->exit_slot = 0;
 //
 //	    ret = __pre_hook_plugin_a__(ctx);
 //	    if (ret != RET_PROCEED)
 //	        return ret;
-//	    ret = __pre_hook_plugin_b__(ctx);
-//	    if (ret != RET_PROCEED)
-//	        return ret;
-//	    ...
-//	    tail_call(ctx, &cilium_calls, RELOCATED_SLOT);
-//	    return CTX_ACT_DROP;
+//
+//	    orig_ret = __target_cil_lxc_policy__(ctx);
+//
+//	    if (state && state->exit_slot != 0) {
+//	        __u32 slot = state->exit_slot;
+//	        state->exit_slot = 0;
+//	        tail_call(ctx, &cilium_calls, slot);
+//	        return DROP; // only reached if the tail call misses
+//	    }
+//
+//	    return orig_ret;
 //	}
 //
 //	static int __pre_hook_plugin_a__(void *ctx) {
@@ -916,11 +1012,11 @@ func (hs *hooksSpec) instrumentPolicyProgram(ps *ebpf.ProgramSpec, pre []string,
 //	    return CTX_ACT_DROP;
 //	}
 //
-//	static int __pre_hook_plugin_b__(void *ctx) {
-//	    tail_call(ctx, &cilium_calls, PLUGIN_B_SLOT);
+//	static int __target_cil_lxc_policy__(void *ctx) {
+//	    tail_call(ctx, &cilium_calls, RELOCATED_SLOT);
 //	    return CTX_ACT_DROP;
 //	}
-func buildPolicyDispatcher(ps *ebpf.ProgramSpec, mapName string, relocatedSlot uint32, firstPluginSlot uint32, plugins []string) (*ebpf.ProgramSpec, error) {
+func buildPolicyDispatcher(ps *ebpf.ProgramSpec, mapName string, relocatedSlot uint32, firstPreSlot uint32, pre []string, hasExitHooks bool) (*ebpf.ProgramSpec, error) {
 	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
 	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
 	if !hasFuncProto {
@@ -939,12 +1035,19 @@ func buildPolicyDispatcher(ps *ebpf.ProgramSpec, mapName string, relocatedSlot u
 		),
 	)
 
+	if hasExitHooks {
+		// state = bpf_map_lookup_elem(&plugin_state_map, &zero);
+		// if (state)
+		//     state->exit_slot = 0;
+		mainInsns = append(mainInsns, emitClearExitSlot()...)
+	}
+
 	var subprogInsns asm.Instructions
-	if len(plugins) > 0 {
+	if len(pre) > 0 {
 		// Sequentially invoke each registered PRE plugin via dedicated subprogram wrapper
-		for i, pluginName := range plugins {
+		for i, pluginName := range pre {
 			subprogLabel := preHookSubprogName(pluginName)
-			pluginSlot := firstPluginSlot + uint32(i)
+			pluginSlot := firstPreSlot + uint32(i)
 			mainInsns = append(mainInsns,
 				asm.Mov.Reg(asm.R1, asm.R6),
 				asm.Call.Label(subprogLabel),
@@ -955,21 +1058,53 @@ func buildPolicyDispatcher(ps *ebpf.ProgramSpec, mapName string, relocatedSlot u
 		}
 	}
 
-	// Final handoff: static tail call to the relocated target program
-	mainInsns = append(mainInsns,
-		asm.Mov.Reg(asm.R1, asm.R6),
-		asm.LoadMapPtr(asm.R2, 0).WithReference(mapName),
-		asm.Mov.Imm(asm.R3, int32(relocatedSlot)),
-		asm.FnTailCall.Call(),
-		asm.Ja.Label("policy_fallback"),
+	if hasExitHooks {
+		// Execute target policy in subprogram and capture verdict in R7
+		targetSubprogLabel := fmt.Sprintf("__target_%s__", ps.Name)
+		mainInsns = append(mainInsns,
+			asm.Mov.Reg(asm.R1, asm.R6),
+			asm.Call.Label(targetSubprogLabel),
+			asm.Mov.Reg(asm.R7, asm.R0),
+		)
+		subprogInsns = append(subprogInsns, emitWrappedTailCall(targetSubprogLabel, mapName, relocatedSlot, ps, funcProto)...)
 
-		// Fallback if final tail call misses
-		asm.Mov.Imm(asm.R0, retValDrop(ps)).WithSymbol("policy_fallback"),
-		asm.Return(),
+		mainInsns = append(mainInsns, lookupPluginState()...)
+		mainInsns = append(mainInsns,
+			// If map lookup returned NULL (R0 == 0), jump to exit_fallback
+			asm.JEq.Imm(asm.R0, 0, "exit_fallback"),
 
-		// Return explicit verdict if non-proceed
-		asm.Return().WithSymbol("return"),
-	)
+			// Check if state->exit_slot != 0
+			asm.LoadMem(asm.R3, asm.R0, 0, asm.Word),
+			asm.JEq.Imm(asm.R3, 0, "return_verdict"),
+
+			// Clear; state->exit_slot = 0
+			asm.StoreImm(asm.R0, 0, 0, asm.Word),
+
+			// Tail call to exit dispatcher at slot R3
+			asm.Mov.Reg(asm.R1, asm.R6),
+			asm.LoadMapPtr(asm.R2, 0).WithReference(mapName),
+			asm.FnTailCall.Call(),
+
+			// Fallback if the exit dispatcher tail call misses
+			asm.Mov.Imm(asm.R0, retValDrop(ps)).WithSymbol("exit_fallback"),
+			asm.Ja.Label("return"),
+
+			asm.Mov.Reg(asm.R0, asm.R7).WithSymbol("return_verdict"),
+			asm.Return().WithSymbol("return"),
+		)
+	} else {
+		// Final handoff: static tail call to the relocated target program
+		mainInsns = append(mainInsns,
+			asm.Mov.Reg(asm.R1, asm.R6),
+			asm.LoadMapPtr(asm.R2, 0).WithReference(mapName),
+			asm.Mov.Imm(asm.R3, int32(relocatedSlot)),
+			asm.FnTailCall.Call(),
+
+			// Fallback if final tail call misses
+			asm.Mov.Imm(asm.R0, retValDrop(ps)),
+			asm.Return().WithSymbol("return"),
+		)
+	}
 
 	prog := ps.Copy()
 	prog.Name = ps.Name
@@ -1222,7 +1357,7 @@ func (hs *hooksSpec) instrumentOutboundTailCalls(ps *ebpf.ProgramSpec, pre []str
 	}
 
 	targetName := ps.Name
-	if isPolicyProgram(ps.Name) && len(pre) > 0 {
+	if isPolicyProgram(ps.Name) && (len(pre) > 0 || hs.hasExitHooks) {
 		targetName = "relocated_" + ps.Name
 	}
 
@@ -1330,12 +1465,234 @@ func spliceOutboundTailCalls(insns asm.Instructions, callsMapName string, calls 
 	return insns
 }
 
+// instrumentExitHooks orchestrates EXIT hooks on a target program:
+// 1. Ensures plugin_state_map is present in cs.Maps.
+// 2. Allocates a DispatcherSlot in cilium_calls and PluginSlots for each EXIT plugin.
+// 3. Builds the EXIT-hook dispatcher and registers it in cs.Programs.
+// 4. Splices the target program's EXIT instructions to jump to an exit epilogue.
+// 5. Populates req.Hooks for each EXIT plugin.
+func (hs *hooksSpec) instrumentExitHooks(ps *ebpf.ProgramSpec, exit []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
+	if len(exit) == 0 {
+		return nil
+	}
+
+	dispatcherSlot := callsMap.MaxEntries
+	firstPluginSlot := dispatcherSlot + 1
+	callsMap.MaxEntries += uint32(1 + len(exit))
+
+	dispatcherProg, err := buildExitDispatcher(ps, callsMap.Name, dispatcherSlot, firstPluginSlot, exit)
+	if err != nil {
+		return fmt.Errorf("building exit dispatcher for %s: %w", ps.Name, err)
+	}
+
+	opts.Keep.Insert(dispatcherProg.Name)
+	opts.CollectionPatches = append(opts.CollectionPatches, func(cs *ebpf.CollectionSpec) error {
+		cs.Programs[dispatcherProg.Name] = dispatcherProg
+		return nil
+	})
+
+	for idx, pluginName := range exit {
+		if hooks[pluginName] == nil {
+			hooks[pluginName] = &datapathplugins.InstrumentCollectionRequest{}
+		}
+		h := &datapathplugins.InstrumentCollectionRequest_Hook{
+			Type:   datapathplugins.HookType_EXIT,
+			Target: ps.Name,
+		}
+		hooks[pluginName].Hooks = append(hooks[pluginName].Hooks, h)
+		hookSlots[h] = firstPluginSlot + uint32(idx)
+	}
+
+	opts.ProgramPatches[ps.Name] = append(opts.ProgramPatches[ps.Name], func(insns asm.Instructions) (asm.Instructions, error) {
+		return spliceExitHooks(insns, dispatcherSlot)
+	})
+
+	return nil
+}
+
+// buildExitDispatcher constructs the ebpf.ProgramSpec for an EXIT-hook dispatcher.
+// When an instrumented program returns, its exit point writes the original return
+// value to plugin_state_map and tail-calls the exit dispatcher at dispatcherSlot.
+// The exit dispatcher retrieves the original return value, sequentially invokes
+// each registered EXIT plugin hook via a subprogram wrapper, and returns either a
+// non-proceed verdict from a hook or the original program's return value. Something like this:
+//
+//	int exit_dispatcher_<target>(void *ctx) {
+//	    struct plugin_state *state = bpf_map_lookup_elem(&plugin_state_map, &zero);
+//	    if (!state)
+//	        return RET_PROCEED;
+//
+//	    int orig_ret = state->orig_ret;
+//	    int ret;
+//
+//	    ret = __exit_hook_plugin_a__(ctx);
+//	    if (ret != -1)
+//	        return ret;
+//	    ret = __exit_hook_plugin_b__(ctx);
+//	    if (ret != -1)
+//	        return ret;
+//	    ...
+//	    return orig_ret;
+//	}
+//
+//	static int __exit_hook_plugin_a__(void *ctx) {
+//	    tail_call(ctx, &cilium_calls, PLUGIN_A_SLOT);
+//	    return -1;
+//	}
+//
+//	static int __exit_hook_plugin_b__(void *ctx) {
+//	    tail_call(ctx, &cilium_calls, PLUGIN_B_SLOT);
+//	    return -1;
+//	}
+func buildExitDispatcher(ps *ebpf.ProgramSpec, mapName string, dispatcherSlot uint32, firstPluginSlot uint32, plugins []string) (*ebpf.ProgramSpec, error) {
+	progName := fmt.Sprintf("%s%s", exitHookDispatcherProgPrefix, ps.Name)
+
+	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
+	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
+	if !hasFuncProto {
+		return nil, fmt.Errorf("unable to extract function BTF info for target program")
+	}
+
+	var mainInsns asm.Instructions
+	mainInsns = append(mainInsns,
+		btf.WithFuncMetadata(
+			asm.Mov.Reg(asm.R6, asm.R1).WithSymbol(progName).WithSource(asm.Comment(progName)),
+			&btf.Func{
+				Name:    progName,
+				Linkage: btf.GlobalFunc,
+				Type:    funcProto,
+				Tags:    []string{fmt.Sprintf("tail:%s/%d", mapName, dispatcherSlot)},
+			},
+		),
+	)
+
+	mainInsns = append(mainInsns, lookupPluginState()...)
+	mainInsns = append(mainInsns,
+		// If map lookup returned NULL (R0 == 0), jump to exit_fallback
+		asm.JEq.Imm(asm.R0, 0, "exit_fallback"),
+
+		// Retrieve original return verdict from state->orig_ret (offset 4) into callee-saved R7
+		asm.LoadMem(asm.R7, asm.R0, 4, asm.Word),
+	)
+
+	var subprogInsns asm.Instructions
+	if len(plugins) > 0 {
+		for i, pluginName := range plugins {
+			subprogLabel := exitHookSubprogName(pluginName)
+			pluginSlot := firstPluginSlot + uint32(i)
+
+			mainInsns = append(mainInsns,
+				asm.Mov.Reg(asm.R1, asm.R6),
+				asm.Call.Label(subprogLabel),
+				asm.JNE.Imm32(asm.R0, retValProceed(ps), "return"),
+			)
+
+			subprogInsns = append(subprogInsns, emitWrappedTailCall(subprogLabel, mapName, pluginSlot, ps, funcProto)...)
+		}
+	}
+
+	mainInsns = append(mainInsns,
+		asm.Mov.Reg(asm.R0, asm.R7),
+		asm.Ja.Label("return"),
+
+		asm.Mov.Imm(asm.R0, retValDrop(ps)).WithSymbol("exit_fallback"),
+		asm.Return().WithSymbol("return"),
+	)
+
+	prog := ps.Copy()
+	prog.Name = progName
+	prog.SectionName = resolveSectionName(ps.Type)
+	prog.Instructions = append(mainInsns, subprogInsns...)
+
+	return prog, nil
+}
+
+// spliceExitHooks rewrites EXIT instructions in program spec with jumps to an exit epilogue
+// that records dispatcherSlot into offset 0 of plugin_state_map.
+//
+// The epilogue is inserted at the end of the root function rather than at the end of the
+// instruction stream. After [ebpf-go flattens a program], the stream holds the entrypoint
+// followed by every out-of-line bpf2bpf subprogram it calls (e.g. helpers declared
+// __noinline, which the compiler emits into .text), each introduced by its own btf.Func:
+//
+//	[0..rootEnd)      root function
+//	[rootEnd..len)    out-of-line subprograms
+//
+// The kernel partitions a program into subprograms using BTF func_info (check_subprogs in
+// kernel/bpf/verifier.c) and rejects any jump whose target lands outside the jumping
+// instruction's own subprogram. Appending the epilogue to the end of the stream would place
+// it inside the *last* subprogram, turning every rewritten return in the root into an
+// out-of-range jump.
+func spliceExitHooks(insns asm.Instructions, dispatcherSlot uint32) (asm.Instructions, error) {
+	rootFunc := btf.FuncMetadata(&insns[0])
+	inRootFunc := true
+	hasExit := false
+	rootEnd := -1
+
+	for i := range insns {
+		ins := &insns[i]
+		if fn := btf.FuncMetadata(ins); fn != nil {
+			if rootFunc != nil {
+				inRootFunc = (fn == rootFunc)
+			} else {
+				inRootFunc = (i == 0)
+			}
+			if !inRootFunc && rootEnd < 0 {
+				rootEnd = i
+			}
+		}
+		if inRootFunc && ins.OpCode == asm.Return().OpCode {
+			hasExit = true
+			sym := ins.Symbol()
+			jumpIns := asm.Ja.Label("exit_epilogue")
+			if sym != "" {
+				jumpIns = jumpIns.WithSymbol(sym)
+			}
+			insns[i] = jumpIns
+		}
+	}
+	if !hasExit {
+		return insns, nil
+	}
+	if rootEnd < 0 {
+		rootEnd = len(insns)
+	}
+
+	var epilogue asm.Instructions
+	epilogue = append(epilogue,
+		asm.Mov.Reg(asm.R8, asm.R0).WithSymbol("exit_epilogue"),
+	)
+	epilogue = append(epilogue, lookupPluginState()...)
+	epilogue = append(epilogue,
+		// If map lookup returned NULL (R0 == 0), jump back to original fall-through path
+		asm.JEq.Imm(asm.R0, 0, "skip_record"),
+		asm.StoreImm(asm.R0, 0, int64(dispatcherSlot), asm.Word),
+		asm.StoreMem(asm.R0, 4, asm.R8, asm.Word),
+
+		// Save orig_ret into R0 and exit
+		asm.Mov.Reg(asm.R0, asm.R8).WithSymbol("skip_record"),
+		asm.Return(),
+	)
+
+	out := make(asm.Instructions, 0, len(insns)+len(epilogue))
+	out = append(out, insns[:rootEnd]...)
+	out = append(out, epilogue...)
+	out = append(out, insns[rootEnd:]...)
+
+	return out, nil
+}
+
 // instrumentEntrypointProgram generates a program patcher that prepends a dispatcher that
-// invokes pre-program hooks, then invokes the original program, and finally
-// invokes post-program hooks. Something like this:
+// invokes pre-program hooks, then invokes the original program, checks for triggered EXIT hooks,
+// and finally invokes post-program hooks. Something like this:
 //
 //	int dispatch(void *ctx) {
 //	    int orig_ret, ret;
+//
+//	    // Only emitted when the collection has EXIT hooks:
+//	    struct plugin_state *state = bpf_map_lookup_elem(&plugin_state_map, &zero);
+//	    if (state)
+//	        state->exit_slot = 0;
 //
 //	    ret = __pre_hook_plugin_a__(ctx);
 //	    if (ret != RET_PROCEED)
@@ -1346,6 +1703,15 @@ func spliceOutboundTailCalls(insns asm.Instructions, callsMapName string, calls 
 //	    ...
 //	    orig_ret = original_cilium_prog(ctx);
 //	    ...
+//	    // Only emitted when the collection has EXIT hooks:
+//	    state = bpf_map_lookup_elem(&plugin_state_map, &zero);
+//	    if (state && state->exit_slot != 0) {
+//	        __u32 slot = state->exit_slot;
+//	        ret = do_exit_tail_call(ctx, slot);
+//	        if (ret != RET_PROCEED)
+//	            orig_ret = ret;
+//	    }
+//
 //	    ret = __post_hook_plugin_a__(ctx, orig_ret);
 //	    if (ret != RET_PROCEED)
 //	        return ret;
@@ -1358,6 +1724,11 @@ func spliceOutboundTailCalls(insns asm.Instructions, callsMapName string, calls 
 //
 //	int original_cilium_prog(void *ctx) {
 //	    ...
+//	}
+//
+//	int do_exit_tail_call(void *ctx, __u32 slot) {
+//	    bpf_tail_call(ctx, &cilium_calls, slot);
+//	    return CTX_ACT_DROP;
 //	}
 //
 //	int __pre_hook_plugin_a__(void *ctx) {
@@ -1379,7 +1750,11 @@ func spliceOutboundTailCalls(insns asm.Instructions, callsMapName string, calls 
 //	    volatile int ret = RET_PROCEED;
 //	    return ret;
 //	}
-func (hs *hooksSpec) instrumentEntrypointProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, opts *bpf.CollectionOptions) error {
+func (hs *hooksSpec) instrumentEntrypointProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, opts *bpf.CollectionOptions, hasExitHooks bool, callsMap *ebpf.MapSpec) error {
+	if len(pre) == 0 && len(post) == 0 && !hasExitHooks {
+		return nil
+	}
+
 	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
 	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
 	if !hasFuncProto {
@@ -1390,6 +1765,13 @@ func (hs *hooksSpec) instrumentEntrypointProgram(ps *ebpf.ProgramSpec, pre []str
 
 	// Preserve ctx in R6, callee saved register.
 	prologue = append(prologue, asm.Mov.Reg(asm.R6, asm.R1))
+
+	if hasExitHooks {
+		// state = bpf_map_lookup_elem(&plugin_state_map, &zero);
+		// if (state)
+		//     state->exit_slot = 0;
+		prologue = append(prologue, emitClearExitSlot()...)
+	}
 
 	for _, plugin := range pre {
 		// ret = __pre_hook_xxx__(ctx);
@@ -1420,6 +1802,36 @@ func (hs *hooksSpec) instrumentEntrypointProgram(ps *ebpf.ProgramSpec, pre []str
 		asm.Mov.Reg(asm.R7, asm.R0),
 	)
 
+	if hasExitHooks {
+		// state = bpf_map_lookup_elem(&plugin_state_map, &zero);
+		// if (state && state->exit_slot != 0) {
+		//     __u32 slot = state->exit_slot;
+		//     ret = do_exit_tail_call(ctx, slot);
+		//     if (ret != RET_VAL_PROCEED)
+		//         orig_ret = ret;
+		// }
+		subprogLabel := "do_exit_tail_call_" + ps.Name
+		prologue = append(prologue, lookupPluginState()...)
+		prologue = append(prologue,
+			// If map lookup returned NULL (R0 == 0), jump to exit_fallback
+			asm.JEq.Imm(asm.R0, 0, "exit_fallback"),
+
+			// Check if state->exit_slot != 0
+			asm.LoadMem(asm.R2, asm.R0, 0, asm.Word),
+			asm.JEq.Imm(asm.R2, 0, "skip_exit"),
+
+			// Invoke exit tail call dispatcher in subprogram wrapper
+			asm.Mov.Reg(asm.R1, asm.R6),
+			asm.Call.Label(subprogLabel),
+
+			// If exit hook overrides return verdict, update orig_ret in R7
+			asm.JEq.Imm(asm.R0, retValProceed(ps), "skip_exit"),
+			asm.Mov.Reg(asm.R7, asm.R0),
+
+			asm.Mov.Reg(asm.R6, asm.R6).WithSymbol("skip_exit"),
+		)
+	}
+
 	for _, plugin := range post {
 		// ret = __post_hook_xxx__(ctx, orig_ret);
 		// if (ret != RET_VAL_PROCEED)
@@ -1445,6 +1857,13 @@ func (hs *hooksSpec) instrumentEntrypointProgram(ps *ebpf.ProgramSpec, pre []str
 
 	prologue = append(prologue, asm.Mov.Reg(asm.R0, asm.R7))
 	prologue = append(prologue, clampAndReturn(ps, "return")...)
+
+	if hasExitHooks {
+		prologue = append(prologue,
+			asm.Mov.Imm(asm.R0, retValDrop(ps)).WithSymbol("exit_fallback"),
+			asm.Ja.Label("return"),
+		)
+	}
 
 	entryName := fmt.Sprintf("__%s__", btfMeta.Name)
 	prologue[0] = btf.WithFuncMetadata(
@@ -1473,6 +1892,30 @@ func (hs *hooksSpec) instrumentEntrypointProgram(ps *ebpf.ProgramSpec, pre []str
 	for _, plugin := range post {
 		hookName := postHookSubprogName(plugin)
 		epilogue = append(epilogue, freplaceSubProg(hookName, &postHookProto, ps)...)
+	}
+
+	if hasExitHooks {
+		// int do_exit_tail_call(void *ctx, __u32 slot) {
+		//     bpf_tail_call(ctx, &cilium_calls, slot);
+		//     return CTX_ACT_DROP;
+		// }
+		subprogLabel := "do_exit_tail_call_" + ps.Name
+		epilogue = append(epilogue,
+			btf.WithFuncMetadata(
+				asm.Mov.Reg(asm.R3, asm.R2).WithSymbol(subprogLabel).WithSource(asm.Comment(subprogLabel)),
+				&btf.Func{
+					Name:    subprogLabel,
+					Linkage: btf.StaticFunc,
+					Type: &btf.FuncProto{
+						Return: &btf.Int{Name: "int", Size: 4, Encoding: btf.Signed},
+					},
+				},
+			),
+			asm.LoadMapPtr(asm.R2, 0).WithReference(callsMap.Name),
+			asm.FnTailCall.Call(),
+			asm.Mov.Imm(asm.R0, retValDrop(ps)),
+			asm.Return(),
+		)
 	}
 
 	opts.ProgramPatches[ps.Name] = append(opts.ProgramPatches[ps.Name], func(insns asm.Instructions) (asm.Instructions, error) {
@@ -1548,6 +1991,27 @@ func emitWrappedTailCall(subprogLabel string, mapName string, slot uint32, ps *e
 		asm.Mov.Imm(asm.R0, retValDrop(ps)),
 		asm.Return(),
 	}
+}
+
+func lookupPluginState() asm.Instructions {
+	return asm.Instructions{
+		// Lookup plugin_state_map (key = 0) on stack: fp - 8 = 0
+		asm.Mov.Reg(asm.R2, asm.R10),
+		asm.Add.Imm(asm.R2, -8),
+		asm.StoreImm(asm.R2, 0, 0, asm.Word),
+		asm.LoadMapPtr(asm.R1, 0).WithReference(pluginStateMapName),
+		asm.FnMapLookupElem.Call(),
+	}
+}
+
+func emitClearExitSlot() asm.Instructions {
+	insns := lookupPluginState()
+	return append(insns,
+		// If map lookup returned NULL (R0 == 0), skip the store.
+		asm.JEq.Imm(asm.R0, 0, "skip_clear"),
+		asm.StoreImm(asm.R0, 0, 0, asm.Word),
+		asm.Mov.Reg(asm.R6, asm.R6).WithSymbol("skip_clear"),
+	)
 }
 
 func retValProceed(ps *ebpf.ProgramSpec) int32 {
