@@ -286,6 +286,7 @@ func TestPrivilegedSocketTermination_Datapath(t *testing.T) {
 			func() loadbalancer.ExternalConfig { return extConfig },
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },
 			func() *loadbalancer.TestConfig { return &loadbalancer.TestConfig{} },
+			func() kpr.KPRConfig { return kpr.KPRConfig{} },
 		),
 		cell.Invoke(func(m lbmaps.LBMaps) {
 			lbmap = m
