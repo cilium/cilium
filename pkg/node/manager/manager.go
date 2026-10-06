@@ -4,9 +4,6 @@
 package manager
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"iter"
 	"log/slog"
 	"net/netip"
@@ -16,7 +13,6 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
-	"golang.org/x/time/rate"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/controller"
@@ -28,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/node"
@@ -36,7 +31,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -48,8 +42,6 @@ const (
 	// nodes in remote clusters has been received.
 	MeshNodeTableInitializerName = "node-manager-mesh"
 )
-
-var baseBackgroundSyncInterval = time.Minute
 
 type nodeEntry struct {
 	// mutex serves two purposes:
@@ -72,8 +64,6 @@ type IPCache interface {
 	UpsertMetadataBatch(updates ...ipcache.MU) (revision uint64)
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
 }
-
-var _ Notifier = (*manager)(nil)
 
 // manager is the entity that manages a collection of nodes
 type manager struct {
@@ -100,18 +90,6 @@ type manager struct {
 
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[nodeTypes.Identity]*nodeEntry
-
-	// nodeHandlersMu protects the nodeHandlers map against concurrent access.
-	nodeHandlersMu lock.RWMutex
-	// nodeHandlers has a slice containing all node handlers subscribed to node
-	// events.
-	nodeHandlers map[node.Handler]struct{}
-
-	// group of jobs, tied to the lifecycle of the manager
-	jobGroup job.Group
-	// clusterSizeDependantInterval computes background sync intervals from the
-	// current size of the node table.
-	clusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
 
 	// metrics to track information about the node manager
 	metrics *nodeMetrics
@@ -156,45 +134,6 @@ type manager struct {
 	wgConfig types.Config
 }
 
-// Subscribe subscribes the given node handler to node events.
-func (m *manager) Subscribe(nh node.Handler) {
-	m.nodeHandlersMu.Lock()
-	m.nodeHandlers[nh] = struct{}{}
-	m.nodeHandlersMu.Unlock()
-	// Add all nodes already received by the manager.
-	m.mutex.RLock()
-	for _, v := range m.nodes {
-		v.mutex.Lock()
-		if err := nh.NodeAdd(v.node); err != nil {
-			m.logger.Error(
-				"Failed applying node handler following initial subscribe. Cilium may have degraded functionality. See error message for more details.",
-				logfields.Error, err,
-				logfields.Handler, nh.Name(),
-				logfields.Node, v.node.Name,
-			)
-		}
-		v.mutex.Unlock()
-	}
-	m.mutex.RUnlock()
-}
-
-// Unsubscribe unsubscribes the given node handler with node events.
-func (m *manager) Unsubscribe(nh node.Handler) {
-	m.nodeHandlersMu.Lock()
-	delete(m.nodeHandlers, nh)
-	m.nodeHandlersMu.Unlock()
-}
-
-// Iter executes the given function in all subscribed node handlers.
-func (m *manager) Iter(f func(nh node.Handler)) {
-	m.nodeHandlersMu.RLock()
-	defer m.nodeHandlersMu.RUnlock()
-
-	for nh := range m.nodeHandlers {
-		f(nh)
-	}
-}
-
 type nodeMetrics struct {
 	// metricEventsReceived is the prometheus metric to track the number of
 	// node events received
@@ -203,10 +142,6 @@ type nodeMetrics struct {
 	// metricNumNodes is the prometheus metric to track the number of nodes
 	// being managed
 	NumNodes metric.Gauge
-
-	// metricDatapathValidations is the prometheus metric to track the
-	// number of datapath node validation calls
-	DatapathValidations metric.Counter
 }
 
 func NewNodeMetrics() *nodeMetrics {
@@ -225,14 +160,6 @@ func NewNodeMetrics() *nodeMetrics {
 			Subsystem:  "nodes",
 			Name:       "all_num",
 			Help:       "Number of nodes managed",
-		}),
-
-		DatapathValidations: metric.NewCounter(metric.CounterOpts{
-			ConfigName: metrics.Namespace + "_" + "nodes_all_datapath_validations_total",
-			Namespace:  metrics.Namespace,
-			Subsystem:  "nodes",
-			Name:       "all_datapath_validations_total",
-			Help:       "Number of validation calls to implement the datapath implementation of a node",
 		}),
 	}
 }
@@ -254,23 +181,20 @@ func New(
 	clusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc,
 ) (*manager, error) {
 	m := &manager{
-		logger:                       logger,
-		nodes:                        map[nodeTypes.Identity]*nodeEntry{},
-		writer:                       writer,
-		conf:                         c,
-		clusterInfo:                  clusterInfo,
-		underlay:                     tunnelConf.UnderlayProtocol(),
-		controllerManager:            controller.NewManager(),
-		nodeHandlers:                 map[node.Handler]struct{}{},
-		ipcache:                      ipCache,
-		metrics:                      nodeMetrics,
-		health:                       health,
-		jobGroup:                     jobGroup,
-		clusterSizeDependantInterval: clusterSizeDependantInterval,
-		db:                           db,
-		devices:                      devices,
-		prefixClusterMutatorFn:       func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
-		wgConfig:                     wgCfg,
+		logger:                 logger,
+		nodes:                  map[nodeTypes.Identity]*nodeEntry{},
+		writer:                 writer,
+		conf:                   c,
+		clusterInfo:            clusterInfo,
+		underlay:               tunnelConf.UnderlayProtocol(),
+		controllerManager:      controller.NewManager(),
+		ipcache:                ipCache,
+		metrics:                nodeMetrics,
+		health:                 health,
+		db:                     db,
+		devices:                devices,
+		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
+		wgConfig:               wgCfg,
 	}
 	m.policy = &updatePolicy{manager: m}
 	m.writer.SetUpdatePolicy(m.policy)
@@ -303,99 +227,12 @@ func New(
 }
 
 func (m *manager) Start(cell.HookContext) error {
-	m.jobGroup.Add(job.OneShot("backgroundSync", m.backgroundSync))
-
 	return nil
 }
 
 // Stop shuts down a node manager
 func (m *manager) Stop(cell.HookContext) error {
 	return nil
-}
-
-// backgroundSync ensures that local node has a valid datapath in-place for
-// each node in the cluster. See NodeValidateImplementation().
-func (m *manager) backgroundSync(ctx context.Context, health cell.Health) error {
-	for {
-		syncInterval := m.clusterSizeDependantInterval(baseBackgroundSyncInterval)
-		startWaiting := time.After(syncInterval)
-		m.logger.Debug(
-			"Starting new iteration of background sync",
-			logfields.SyncInterval, syncInterval,
-		)
-		err := m.singleBackgroundLoop(ctx, syncInterval)
-		m.logger.Debug(
-			"Finished iteration of background sync",
-			logfields.SyncInterval, syncInterval,
-		)
-
-		select {
-		case <-ctx.Done():
-			return nil
-		// This handles cases when we didn't fetch nodes yet (e.g. on bootstrap)
-		// but also case when we have 1 node, in which case rate.Limiter doesn't
-		// throttle anything.
-		case <-startWaiting:
-		}
-
-		if err != nil {
-			health.Degraded("Failed to apply node validation", err)
-		} else {
-			health.OK("Node validation successful")
-		}
-	}
-}
-
-func (m *manager) singleBackgroundLoop(ctx context.Context, expectedLoopTime time.Duration) error {
-	var errs error
-	// get a copy of the node identities to avoid locking the entire manager
-	// throughout the process of running the datapath validation.
-	nodes := m.GetNodeIdentities()
-	limiter := rate.NewLimiter(
-		rate.Limit(float64(len(nodes))/float64(expectedLoopTime.Seconds())),
-		1, // One token in bucket to amortize for latency of the operation
-	)
-	for _, nodeIdentity := range nodes {
-		if err := limiter.Wait(ctx); err != nil {
-			m.logger.Debug(
-				"Error while rate limiting backgroundSync updates",
-				logfields.Error, err,
-			)
-		}
-
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-		// Retrieve latest node information in case any event
-		// changed the node since the call to GetNodes()
-		m.mutex.RLock()
-		entry, ok := m.nodes[nodeIdentity]
-		if !ok {
-			m.mutex.RUnlock()
-			continue
-		}
-		entry.mutex.Lock()
-		m.mutex.RUnlock()
-		{
-			m.Iter(func(nh node.Handler) {
-				if err := nh.NodeValidateImplementation(entry.node); err != nil {
-					m.logger.Error(
-						"Failed to apply node handler during background sync. Cilium may have degraded functionality. See error message for details.",
-						logfields.Error, err,
-						logfields.Handler, nh.Name(),
-						logfields.Node, entry.node.Name,
-					)
-					errs = errors.Join(errs, fmt.Errorf("failed while handling %s on node %s: %w", nh.Name(), entry.node.Name, err))
-				}
-			})
-		}
-		entry.mutex.Unlock()
-
-		m.metrics.DatapathValidations.Inc()
-	}
-	return errs
 }
 
 func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
@@ -473,8 +310,7 @@ func worldLabelForPrefix(prefix netip.Prefix) labels.Labels {
 
 // NodeUpdated is called after the information of a node has been updated. The
 // node in the manager is added or updated if the source is allowed to update
-// the node. If an update or addition has occurred, NodeUpdate() of the datapath
-// interface is invoked.
+// the node.
 func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	txn := m.db.WriteTxn(m.writer.Table())
 	m.writer.Upsert(txn, &n)
@@ -599,8 +435,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 
 // NodeDeleted is called after a node has been deleted. It removes the node
 // from the manager if the node is still owned by the source of which the event
-// origins from. If the node was removed, NodeDelete() is invoked of the
-// datapath interface.
+// originates.
 func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	txn := m.db.WriteTxn(m.writer.Table())
 	m.writer.Delete(txn, n.Source, n.Identity())

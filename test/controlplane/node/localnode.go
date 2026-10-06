@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -22,6 +23,8 @@ import (
 	"github.com/cilium/cilium/test/controlplane"
 	"github.com/cilium/cilium/test/controlplane/suite"
 )
+
+var podCIDR = netip.MustParsePrefix("10.0.1.0/24")
 
 var (
 	localNodeObject = &corev1.Node{

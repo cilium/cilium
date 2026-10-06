@@ -31,23 +31,7 @@ var Cell = cell.Module(
 	metrics.Metric(NewNodeMetrics),
 )
 
-// Notifier is the interface the wraps Subscribe and Unsubscribe. An
-// implementation of this interface notifies subscribers of nodes being added,
-// updated or deleted.
-type Notifier interface {
-	// Subscribe adds the given NodeHandler to the list of subscribers that are
-	// notified of node changes. Upon call to this method, the NodeHandler is
-	// being notified of all nodes that are already in the cluster by calling
-	// the NodeHandler's NodeAdd callback.
-	Subscribe(node.Handler)
-
-	// Unsubscribe removes the given NodeHandler from the list of subscribers.
-	Unsubscribe(node.Handler)
-}
-
 type NodeManager interface {
-	Notifier
-
 	// GetNodes returns a copy of all the nodes as a map from Identity to Node.
 	GetNodes() map[types.Identity]types.Node
 

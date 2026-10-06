@@ -5,7 +5,6 @@ package manager
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
@@ -187,28 +186,6 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		m.mutex.Unlock()
 		oldNode := entry.node
 		entry.node = *n
-		if dpUpdate {
-			var errs error
-			m.Iter(func(nh node.Handler) {
-				if err := nh.NodeUpdate(oldNode, entry.node); err != nil {
-					m.logger.Error(
-						"Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.",
-						logfields.Error, err,
-						logfields.Handler, nh.Name(),
-						logfields.Node, entry.node.Name,
-					)
-					errs = errors.Join(errs, err)
-				}
-			})
-
-			hr := m.health.NewScope("nodes-update")
-			if errs != nil {
-				hr.Degraded("Failed to update nodes", errs)
-			} else {
-				hr.OK("Node updates successful")
-			}
-		}
-
 		m.removeNodeFromIPCache(
 			oldNode,
 			resource,
@@ -227,27 +204,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		entry.mutex.Lock()
 		m.nodes[nodeIdentifier] = entry
 		m.mutex.Unlock()
-		var errs error
-		if dpUpdate {
-			m.Iter(func(nh node.Handler) {
-				if err := nh.NodeAdd(entry.node); err != nil {
-					m.logger.Error(
-						"Failed to handle node update event while applying handler. Cilium may be have degraded functionality. See error message for details.",
-						logfields.Error, err,
-						logfields.Handler, nh.Name(),
-						logfields.Node, entry.node.Name,
-					)
-					errs = errors.Join(errs, err)
-				}
-			})
-		}
 		entry.mutex.Unlock()
-		hr := m.health.NewScope("nodes-add")
-		if errs != nil {
-			hr.Degraded("Failed to add nodes", errs)
-		} else {
-			hr.OK("Node adds successful")
-		}
 
 	}
 	return dpUpdate
@@ -302,24 +259,5 @@ func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identi
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
 	m.mutex.Unlock()
-	var errs error
-	m.Iter(func(nh node.Handler) {
-		if err := nh.NodeDelete(n); err != nil {
-			m.logger.Error(
-				"Failed to handle node delete event while applying handler. Cilium may be have degraded functionality.",
-				logfields.Error, err,
-				logfields.Handler, nh.Name(),
-				logfields.Node, n.Name,
-			)
-			errs = errors.Join(errs, err)
-		}
-	})
 	entry.mutex.Unlock()
-
-	hr := m.health.NewScope("nodes-delete")
-	if errs != nil {
-		hr.Degraded("Failed to delete nodes", errs)
-	} else {
-		hr.OK("Node deletions successful")
-	}
 }
