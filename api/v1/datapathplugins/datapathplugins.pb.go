@@ -33,6 +33,8 @@ const (
 	HookType_PRE HookType = 1
 	// post hooks run after the main Cilium program.
 	HookType_POST HookType = 2
+	// exit hooks run when the target program exits to the kernel.
+	HookType_EXIT HookType = 3
 	// tail call hooks run before the target program tail calls somewhere.
 	HookType_TAIL_CALL HookType = 4
 )
@@ -43,12 +45,14 @@ var (
 		0: "UNKNOWN",
 		1: "PRE",
 		2: "POST",
+		3: "EXIT",
 		4: "TAIL_CALL",
 	}
 	HookType_value = map[string]int32{
 		"UNKNOWN":   0,
 		"PRE":       1,
 		"POST":      2,
+		"EXIT":      3,
 		"TAIL_CALL": 4,
 	}
 )
@@ -1637,11 +1641,12 @@ const file_datapathplugins_datapathplugins_proto_rawDesc = "" +
 	"\n" +
 	"program_id\x18\x01 \x01(\rR\tprogramId\x12!\n" +
 	"\fsubprog_name\x18\x02 \x01(\tR\vsubprogName\"\x1e\n" +
-	"\x1cInstrumentCollectionResponse*9\n" +
+	"\x1cInstrumentCollectionResponse*C\n" +
 	"\bHookType\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\a\n" +
 	"\x03PRE\x10\x01\x12\b\n" +
-	"\x04POST\x10\x02\x12\r\n" +
+	"\x04POST\x10\x02\x12\b\n" +
+	"\x04EXIT\x10\x03\x12\r\n" +
 	"\tTAIL_CALL\x10\x042\xf5\x01\n" +
 	"\x0eDatapathPlugin\x12l\n" +
 	"\x11PrepareCollection\x12).datapathplugins.PrepareCollectionRequest\x1a*.datapathplugins.PrepareCollectionResponse\"\x00\x12u\n" +

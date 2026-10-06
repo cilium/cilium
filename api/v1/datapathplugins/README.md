@@ -503,6 +503,7 @@ go at this hook point relative to other plugins&#39; hooks.
 | UNKNOWN | 0 |  |
 | PRE | 1 | pre hooks run before the target program. |
 | POST | 2 | post hooks run after the main Cilium program. |
+| EXIT | 3 | exit hooks run when the target program exits to the kernel. |
 | TAIL_CALL | 4 | tail call hooks run before the target program tail calls somewhere. |
 
 
