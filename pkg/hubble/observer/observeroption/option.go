@@ -13,6 +13,7 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -74,14 +75,14 @@ func (f OnMonitorEventFunc) OnMonitorEvent(ctx context.Context, event *observerT
 
 // OnDecodedFlow is invoked after a flow has been decoded
 type OnDecodedFlow interface {
-	OnDecodedFlow(context.Context, *pb.Flow) (stop, error)
+	OnDecodedFlow(context.Context, *ir.Flow) (stop, error)
 }
 
 // OnDecodedFlowFunc implements OnDecodedFlow for a single function
-type OnDecodedFlowFunc func(context.Context, *pb.Flow) (stop, error)
+type OnDecodedFlowFunc func(context.Context, *ir.Flow) (stop, error)
 
 // OnDecodedFlow is invoked after a flow has been decoded
-func (f OnDecodedFlowFunc) OnDecodedFlow(ctx context.Context, flow *pb.Flow) (stop, error) {
+func (f OnDecodedFlowFunc) OnDecodedFlow(ctx context.Context, flow *ir.Flow) (stop, error) {
 	return f(ctx, flow)
 }
 
@@ -187,7 +188,7 @@ func WithOnDecodedFlow(f OnDecodedFlow) Option {
 }
 
 // WithOnDecodedFlowFunc adds a new callback to be invoked after decoding
-func WithOnDecodedFlowFunc(f func(context.Context, *pb.Flow) (stop, error)) Option {
+func WithOnDecodedFlowFunc(f func(context.Context, *ir.Flow) (stop, error)) Option {
 	return WithOnDecodedFlow(OnDecodedFlowFunc(f))
 }
 

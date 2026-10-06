@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 )
 
 // Event represents a single event observed and stored by Hubble
@@ -18,13 +19,17 @@ type Event struct {
 }
 
 // GetFlow returns the decoded flow, or nil if the event is nil or not a flow
-func (ev *Event) GetFlow() *pb.Flow {
+func (ev *Event) GetFlow() *ir.Flow {
 	if ev == nil || ev.Event == nil {
 		return nil
 	}
-	if f, ok := ev.Event.(*pb.Flow); ok {
+	if f, ok := ev.Event.(*ir.Flow); ok {
 		return f
 	}
+	if f, ok := ev.Event.(*pb.Flow); ok {
+		return ir.ProtoToFlow(f)
+	}
+
 	return nil
 }
 

@@ -15,6 +15,7 @@ import (
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/ir"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -84,11 +85,10 @@ func BenchmarkL7Decode(b *testing.B) {
 	parser, err := New(hivetest.Logger(b), dnsGetter, ipGetter, serviceGetter, endpointGetter)
 	require.NoError(b, err)
 
-	f := &flowpb.Flow{}
+	var f ir.Flow
 	b.ReportAllocs()
-
 	for b.Loop() {
-		_ = parser.Decode(lr, f)
+		_ = parser.Decode(lr, &f)
 	}
 }
 
@@ -113,7 +113,7 @@ func Test_decodeEndpoint(t *testing.T) {
 			"k8s:app.kubernetes.io/part-of=cilium",
 		),
 	}
-	expected := &flowpb.Endpoint{
+	expected := ir.Endpoint{
 		ID:          1234,
 		Identity:    9876,
 		ClusterName: "default",
@@ -127,13 +127,13 @@ func Test_decodeEndpoint(t *testing.T) {
 			"k8s:k8s-app=hubble-ui",
 		},
 		PodName: "hubble-ui",
-		PodUid:  "hubble-ui-uid",
+		PodUID:  "hubble-ui-uid",
 	}
 	ep := decodeEndpoint(epi, "kube-system", "hubble-ui", "hubble-ui-uid")
 	assert.Equal(t, expected, ep)
 
 	ep = decodeEndpoint(epi, "kube-system", "hubble-ui", "")
-	assert.Empty(t, ep.GetPodUid())
+	assert.Empty(t, ep.PodUID)
 }
 
 func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
@@ -150,7 +150,7 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 			}},
 		}}
 	}
-	localWorkload := []*flowpb.Workload{{Kind: "StatefulSet", Name: "local-workload"}}
+	localWorkload := []ir.Workload{{Kind: "StatefulSet", Name: "local-workload"}}
 	tests := []struct {
 		name            string
 		endpointID      uint32
@@ -162,7 +162,7 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 		wantNamespace   string
 		wantPodName     string
 		wantPodUID      string
-		wantWorkloads   []*flowpb.Workload
+		wantWorkloads   ir.Workloads
 	}{
 		{
 			name:            "CNI UID overrides IPCache metadata",
@@ -227,19 +227,19 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 					},
 				},
 			}
-			endpoint := &flowpb.Endpoint{
+			endpoint := ir.Endpoint{
 				ID:        tt.endpointID,
 				Namespace: "ipcache-namespace",
 				PodName:   "ipcache-pod",
-				PodUid:    "ipcache-pod-uid",
+				PodUID:    "ipcache-pod-uid",
 			}
 
-			parser.updateEndpointFromLocal(ip, endpoint)
+			parser.updateEndpointWorkloads(ip, &endpoint)
 
-			assert.Equal(t, tt.wantNamespace, endpoint.GetNamespace())
-			assert.Equal(t, tt.wantPodName, endpoint.GetPodName())
-			assert.Equal(t, tt.wantPodUID, endpoint.GetPodUid())
-			assert.Equal(t, tt.wantWorkloads, endpoint.GetWorkloads())
+			assert.Equal(t, tt.wantNamespace, endpoint.Namespace)
+			assert.Equal(t, tt.wantPodName, endpoint.PodName)
+			assert.Equal(t, tt.wantPodUID, endpoint.PodUID)
+			assert.Equal(t, tt.wantWorkloads, endpoint.Workloads)
 		})
 	}
 }
