@@ -761,7 +761,7 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 //	    return ret;
 //	}
 //
-//	int __post_hook_plugin_a__(void *ctx, int orig_ret) {
+//	int __post_hook_plugin_b__(void *ctx, int orig_ret) {
 //	    volatile int ret = RET_PROCEED;
 //	    return ret;
 //	}
