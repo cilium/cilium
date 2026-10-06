@@ -175,5 +175,9 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableSCTP = option.Config.EnableSCTP
 
+	node.DSRCfg = types.DSRConfig{
+		EnableICMPErrors: lnc.LBConfig.DSRConfig.EnableICMPErrors,
+	}
+
 	return node
 }
