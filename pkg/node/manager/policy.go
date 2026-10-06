@@ -28,23 +28,10 @@ type updatePolicy struct {
 	manager *manager
 }
 
-// Delete implements [node.UpdatePolicy].
-func (p *updatePolicy) Delete(node *nodeTypes.Node) {
-	p.nodeDeleted(*node, false)
-}
-
-// Upsert implements [node.UpdatePolicy].
-func (p *updatePolicy) Upsert(node *nodeTypes.Node) (publish bool) {
-	return p.nodeUpdated(*node, false)
-}
-
 var _ node.UpdatePolicy = &updatePolicy{}
 
-func (p *updatePolicy) NodeUpdated(n nodeTypes.Node) {
-	p.nodeUpdated(n, true)
-}
-
-func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUpdate bool) {
+// Upsert implements [node.UpdatePolicy].
+func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 	m := p.manager
 	m.logger.Info(
 		"Node updated",
@@ -60,7 +47,7 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 	}
 
 	nodeIdentifier := n.Identity()
-	dpUpdate = true
+	dpUpdate := true
 	var nodeIP netip.Addr
 	if nIP := n.GetNodeIP(m.underlay == tunnel.IPv6); nIP.IsValid() {
 		// GH-24829: Support IPv6-only nodes.
@@ -68,7 +55,7 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 	}
 
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-	nodeLabels := m.nodeIdentityLabels(n)
+	nodeLabels := m.nodeIdentityLabels(*n)
 
 	var nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix
 
@@ -76,7 +63,7 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 		prefix := netip.PrefixFrom(address.IP.Addr, address.IP.BitLen())
 		var prefixCluster cmtypes.PrefixCluster
 		if address.Type == addressing.NodeCiliumInternalIP {
-			prefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&n)...)
+			prefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)
 		} else {
 			prefixCluster = cmtypes.NewLocalPrefixCluster(prefix)
 		}
@@ -133,11 +120,11 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 		ipv6PodCIDRs := n.GetIPv6AllocCIDRs()
 
 		mu := make([]ipcache.MU, 0, len(ipv4PodCIDRs)+len(ipv6PodCIDRs))
-		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(&n, ipv4PodCIDRs...), nodeIP, n.EncryptionKey) {
+		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(n, ipv4PodCIDRs...), nodeIP, n.EncryptionKey) {
 			mu = append(mu, entry)
 			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix.AsPrefix())
 		}
-		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(&n, ipv6PodCIDRs...), nodeIP, n.EncryptionKey) {
+		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(n, ipv6PodCIDRs...), nodeIP, n.EncryptionKey) {
 			mu = append(mu, entry)
 			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix.AsPrefix())
 		}
@@ -150,7 +137,7 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&n)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)
 
 		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
@@ -159,7 +146,7 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 		m.ipcache.UpsertMetadata(prefixCluster, n.Source, resource,
 			labels.LabelHealth,
 			ipcacheTypes.TunnelPeer{Addr: nodeIP},
-			m.endpointEncryptionKey(&n))
+			m.endpointEncryptionKey(n))
 		healthIPsAdded = append(healthIPsAdded, prefixCluster.AsPrefix())
 	}
 
@@ -169,7 +156,7 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&n)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)
 
 		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
@@ -178,7 +165,7 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 		m.ipcache.UpsertMetadata(prefixCluster, n.Source, resource,
 			labels.LabelIngress,
 			ipcacheTypes.TunnelPeer{Addr: nodeIP},
-			m.endpointEncryptionKey(&n))
+			m.endpointEncryptionKey(n))
 		ingressIPsAdded = append(ingressIPsAdded, prefixCluster.AsPrefix())
 	}
 
@@ -199,10 +186,7 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 		entry.mutex.Lock()
 		m.mutex.Unlock()
 		oldNode := entry.node
-		entry.node = n
-		if upsertIntoTable {
-			m.upsertToNodeTable(&entry.node)
-		}
+		entry.node = *n
 		if dpUpdate {
 			var errs error
 			m.Iter(func(nh node.Handler) {
@@ -239,12 +223,9 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
 		m.metrics.NumNodes.Inc()
 
-		entry = &nodeEntry{node: n}
+		entry = &nodeEntry{node: *n}
 		entry.mutex.Lock()
 		m.nodes[nodeIdentifier] = entry
-		if upsertIntoTable {
-			m.upsertToNodeTable(&entry.node)
-		}
 		m.mutex.Unlock()
 		var errs error
 		if dpUpdate {
@@ -269,27 +250,23 @@ func (p *updatePolicy) nodeUpdated(n nodeTypes.Node, upsertIntoTable bool) (dpUp
 		}
 
 	}
-	return
-}
-func (p *updatePolicy) NodeDeleted(n nodeTypes.Node) {
-	p.nodeDeleted(n, true)
+	return dpUpdate
 }
 
-func (p *updatePolicy) nodeDeleted(n nodeTypes.Node, deleteFromTable bool) {
+// Delete implements [node.UpdatePolicy].
+func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identity) {
 	m := p.manager
 	m.logger.Info(
 		"Node deleted",
-		logfields.ClusterName, n.Cluster,
-		logfields.NodeName, n.Name,
+		logfields.ClusterName, nodeIdentifier.Cluster,
+		logfields.NodeName, nodeIdentifier.Name,
 	)
 	m.logger.Debug(
 		"Received node delete event",
-		logfields.Source, n.Source,
+		logfields.Source, src,
 	)
 
-	m.metrics.EventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
-
-	nodeIdentifier := n.Identity()
+	m.metrics.EventsReceived.WithLabelValues("delete", string(src)).Inc()
 
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentifier]
@@ -297,20 +274,21 @@ func (p *updatePolicy) nodeDeleted(n nodeTypes.Node, deleteFromTable bool) {
 		m.mutex.Unlock()
 		return
 	}
+	n := entry.node
 
 	// If the source is Kubernetes and the node is the node we are running on
 	// Kubernetes is giving us a hint it is about to delete our node. Close down
 	// the agent gracefully in this case.
-	if n.Source != entry.node.Source {
+	if src != entry.node.Source {
 		m.mutex.Unlock()
-		if n.IsLocal() && n.Source == source.Kubernetes {
+		if entry.node.IsLocal() && src == source.Kubernetes {
 			m.logger.Debug("Kubernetes is deleting local node, close manager")
 			m.Stop(context.Background())
 		} else {
 			m.logger.Debug(
 				"Ignoring delete event of node",
-				logfields.Name, n.Name,
-				logfields.Source, n.Source,
+				logfields.Name, nodeIdentifier.Name,
+				logfields.Source, src,
 				logfields.NodeOwner, entry.node.Source,
 			)
 		}
@@ -323,9 +301,6 @@ func (p *updatePolicy) nodeDeleted(n nodeTypes.Node, deleteFromTable bool) {
 
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
-	if deleteFromTable {
-		m.deleteFromNodeTable(n.Source, nodeIdentifier)
-	}
 	m.mutex.Unlock()
 	var errs error
 	m.Iter(func(nh node.Handler) {

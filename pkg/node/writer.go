@@ -32,6 +32,8 @@ type Writer struct {
 	isStaticLocalRouterIP  func(netip.Addr) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
 
+	updatePolicy UpdatePolicy
+
 	requiredReconcilers []NodeReconciler
 }
 
@@ -87,6 +89,10 @@ func (w *Writer) Table() statedb.Table[*Node] { return w.nodes }
 // This hook must be set during Hive invoke time.
 func (w *Writer) SetPrefixClusterMutatorFn(mutator PrefixClusterMutatorFn) {
 	w.prefixClusterMutatorFn = mutator
+}
+
+func (w *Writer) SetUpdatePolicy(p UpdatePolicy) {
+	w.updatePolicy = p
 }
 
 func deriveAddressClusterID(mutator PrefixClusterMutatorFn, n *nodeTypes.Node) uint32 {
@@ -315,6 +321,11 @@ func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) err
 // objects are not retained, so their producer must upsert them again if the
 // winning object is later deleted.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
+	if w.updatePolicy != nil && !w.updatePolicy.Upsert(n) {
+		// Policy rejected the update due to conflict.
+		return false
+	}
+
 	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
 	obj := &Node{
 		Node:             *n,
@@ -395,6 +406,9 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 // Delete removes a remote node if this writer's source still owns it. It
 // reports whether the table changed.
 func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool {
+	if w.updatePolicy != nil {
+		defer w.updatePolicy.Delete(src, identity)
+	}
 	old, _, found := w.nodes.Get(txn, NodeByName(identity.String()))
 	if !found {
 		return false

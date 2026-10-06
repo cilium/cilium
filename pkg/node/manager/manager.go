@@ -273,6 +273,7 @@ func New(
 		wgConfig:                     wgCfg,
 	}
 	m.policy = &updatePolicy{manager: m}
+	m.writer.SetUpdatePolicy(m.policy)
 
 	if writer != nil {
 		nodeTable := writer.Table()
@@ -475,24 +476,8 @@ func worldLabelForPrefix(prefix netip.Prefix) labels.Labels {
 // the node. If an update or addition has occurred, NodeUpdate() of the datapath
 // interface is invoked.
 func (m *manager) NodeUpdated(n nodeTypes.Node) {
-	m.policy.NodeUpdated(n)
-}
-
-func (m *manager) upsertToNodeTable(n *nodeTypes.Node) {
-	if n.IsLocal() || m.writer == nil {
-		return
-	}
 	txn := m.db.WriteTxn(m.writer.Table())
-	m.writer.Upsert(txn, n)
-	txn.Commit()
-}
-
-func (m *manager) deleteFromNodeTable(src source.Source, nodeID nodeTypes.Identity) {
-	if m.writer == nil {
-		return
-	}
-	txn := m.db.WriteTxn(m.writer.Table())
-	m.writer.Delete(txn, src, nodeID)
+	m.writer.Upsert(txn, &n)
 	txn.Commit()
 }
 
@@ -617,7 +602,9 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 // origins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
 func (m *manager) NodeDeleted(n nodeTypes.Node) {
-	m.policy.NodeDeleted(n)
+	txn := m.db.WriteTxn(m.writer.Table())
+	m.writer.Delete(txn, n.Source, n.Identity())
+	txn.Commit()
 }
 
 // NodeSync signals that the initial local-cluster node listing is complete.
