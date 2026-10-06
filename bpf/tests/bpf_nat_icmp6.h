@@ -20,7 +20,6 @@
 
 #include <bpf/config/node.h>
 
-#define DEBUG
 
 #include <lib/dbg.h>
 #include <lib/eps.h>
@@ -383,4 +382,3 @@ int snat_v6_pmtu_sctp_check(const struct __ctx_buff *ctx)
 
 	return 0;
 }
-

@@ -5,8 +5,9 @@
 #include "common.h"
 #include "pktgen.h"
 #include "node_config.h"
+#include <lib/dbg.h>
+ASSIGN_CONFIG(bool, debug, true)
 
-#define DEBUG
 #include <lib/ip_options.h>
 
 /* Used to define IP options for packet generation. */

@@ -23,7 +23,6 @@ const (
 
 var (
 	specDebug = Option{
-		Define:      "DEBUG",
 		Description: "Enable debugging trace statements",
 	}
 

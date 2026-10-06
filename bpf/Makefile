@@ -13,7 +13,6 @@ BPF_SIMPLE_OPTIONS ?= \
 
 # The following option combinations are compile tested
 LB_OPTIONS = \
-	-DSKIP_DEBUG: \
 	-DENABLE_IPV4: \
 	-DENABLE_IPV4:-DENCAP_IFINDEX:-DTUNNEL_MODE: \
 	-DENABLE_IPV6: \
@@ -33,7 +32,7 @@ LB_OPTIONS = \
 
 # These options are intended to max out the BPF program complexity. it is load
 # tested as well.
-MAX_BASE_OPTIONS = -DSKIP_DEBUG=1 -DENABLE_IPV4=1 -DENABLE_IPV6=1 -DENABLE_ROUTING=1 \
+MAX_BASE_OPTIONS = -DENABLE_IPV4=1 -DENABLE_IPV6=1 -DENABLE_ROUTING=1 \
 	-DPOLICY_VERDICT_NOTIFY=1 \
 	-DENABLE_HOST_FIREWALL=1 -DENABLE_SRV6=1 -DENABLE_L7_LB=1 -DENABLE_MASQUERADE_IPV4=1 \
 	-DENABLE_MASQUERADE_IPV6=1 \
@@ -97,7 +96,6 @@ endif
 
 # The following option combinations are compile tested
 LXC_OPTIONS = \
-	 -DSKIP_DEBUG: \
 	 -DENABLE_IPV4: \
 	 -DENABLE_IPV6: \
 	 -DENABLE_IPV4:-DENABLE_IPV6:-DPOLICY_VERDICT_NOTIFY: \

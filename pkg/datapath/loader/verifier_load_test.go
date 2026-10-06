@@ -31,6 +31,7 @@ func setBasePermutations(t *config.Node) {
 	t.MonitorReportInterval = 5
 	t.MonitorReportFlags = 0xff
 	t.TracingIPOptionType = 1
+	t.Debug = true
 	t.DebugLB = true
 	t.EventsMapRateLimit = 1000
 	t.EnableIdentityMark = true
@@ -107,6 +108,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 				t.StrictEgressEncryption.AllowRemoteNodes = true
 			}
 		}),
+		IncrementOrPermute(func(t *config.BPFHost, v bool) { t.Node.Debug = v }),
 	)
 	return b
 }

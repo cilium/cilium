@@ -385,10 +385,8 @@ ctx_redirect_to_proxy_host_egress(struct __ctx_buff *ctx, __be16 proxy_port)
 static __always_inline bool tc_index_from_ingress_proxy(const struct __ctx_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
-#ifdef DEBUG
 	if (tc_index & TC_INDEX_F_FROM_INGRESS_PROXY)
 		cilium_dbg(ctx, DBG_SKIP_PROXY, tc_index, 0);
-#endif
 
 	return tc_index & TC_INDEX_F_FROM_INGRESS_PROXY;
 }
@@ -399,10 +397,8 @@ static __always_inline bool tc_index_from_ingress_proxy(const struct __ctx_buff 
 static __always_inline bool tc_index_from_egress_proxy(const struct __ctx_buff *ctx)
 {
 	volatile __u32 tc_index = ctx->tc_index;
-#ifdef DEBUG
 	if (tc_index & TC_INDEX_F_FROM_EGRESS_PROXY)
 		cilium_dbg(ctx, DBG_SKIP_PROXY, tc_index, 0);
-#endif
 
 	return tc_index & TC_INDEX_F_FROM_EGRESS_PROXY;
 }

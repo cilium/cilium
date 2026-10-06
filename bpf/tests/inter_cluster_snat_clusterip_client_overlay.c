@@ -69,8 +69,9 @@ int mock_skb_get_tunnel_key(struct __ctx_buff *ctx __maybe_unused, struct bpf_tu
  * Mock out send_drop_notify. This is because it uses ctx_store_meta internally
  * and breaks the skb->cb test.
  */
+#include <lib/dbg.h>
+ASSIGN_CONFIG(bool, debug, true)
 
-#define DEBUG
 #include <lib/drop.h>
 
 #define _send_drop_notify mock_send_drop_notify

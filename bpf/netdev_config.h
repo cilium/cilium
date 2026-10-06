@@ -2,7 +2,3 @@
 /* Copyright Authors of Cilium */
 
 #pragma once
-
-#ifndef SKIP_DEBUG
-#define DEBUG
-#endif

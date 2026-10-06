@@ -22,7 +22,6 @@
 
 #include <bpf/config/node.h>
 
-#define DEBUG
 
 #include <lib/dbg.h>
 #include <lib/eps.h>

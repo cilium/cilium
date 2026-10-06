@@ -14,8 +14,6 @@
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
 
-#define DEBUG
-
 #include <lib/dbg.h>
 #include <lib/eps.h>
 #include <lib/nat.h>
@@ -23,6 +21,8 @@
 
 #include "bpf_nat_tuples.h"
 #include "scapy.h"
+
+ASSIGN_CONFIG(bool, debug, true)
 
 /* packet defined in ./scapy/icmp_err_revnat_pkt_defs.py */
 const __u8 icmp4_err_frag_needed_for_revnat[] = {

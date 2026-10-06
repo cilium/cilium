@@ -13,9 +13,6 @@
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
-
-#define DEBUG
-
 #include <lib/dbg.h>
 #include <lib/eps.h>
 #include <lib/nat.h>
@@ -34,6 +31,7 @@ static char pkt[100];
 
 #include <lib/nodeport.h>
 
+ASSIGN_CONFIG(bool, debug, true)
 ASSIGN_CONFIG(__u16, device_mtu, 1500);
 
 ASSIGN_CONFIG(bool, enable_sctp, true)
