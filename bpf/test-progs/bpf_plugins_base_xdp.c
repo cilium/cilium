@@ -10,6 +10,7 @@
 
 DECLARE_CONFIG(int, tail_call_enabled, "enable tail call in caller program")
 DECLARE_CONFIG(int, policy_caller_enabled, "enable tail call in policy caller program")
+DECLARE_CONFIG(int, policy_outbound_enabled, "enable outbound tail call in policy program")
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -26,8 +27,10 @@ struct {
 } cilium_call_policy __section_maps_btf;
 
 PROGRAM("xdp/entry", xdp, struct xdp_md *)
-TAIL_PROGRAM_CALLER("xdp/entry", xdp_caller, cilium_calls, 13, struct xdp_md *, tail_call_enabled)
+MULTI_TAIL_PROGRAM_CALLER("xdp/entry", xdp_caller, cilium_calls, 13, 14,
+			  struct xdp_md *, tail_call_enabled)
 TAIL_PROGRAM("xdp/tail", tail_xdp, struct xdp_md *, 13)
+TAIL_PROGRAM("xdp/tail", tail_xdp_b, struct xdp_md *, 14)
 TAIL_PROGRAM_CALLER("xdp/entry", xdp_policy_caller, cilium_call_policy, 42,
 		    struct xdp_md *, policy_caller_enabled)
 POLICY_PROGRAM("xdp/entry", cil_lxc_policy_egress, struct xdp_md *)

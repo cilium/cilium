@@ -16,49 +16,53 @@ import (
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
-	PluginsBaseMapCiliumCallPolicy          = "cilium_call_policy"
-	PluginsBaseMapCiliumCalls               = "cilium_calls"
-	PluginsBaseMapSeq                       = "seq"
-	PluginsBaseProgCilLxcPolicy             = "cil_lxc_policy"
-	PluginsBaseProgProgramBind4             = "program_bind4"
-	PluginsBaseProgProgramBind6             = "program_bind6"
-	PluginsBaseProgProgramConnect4          = "program_connect4"
-	PluginsBaseProgProgramConnect6          = "program_connect6"
-	PluginsBaseProgProgramGetpeername4      = "program_getpeername4"
-	PluginsBaseProgProgramGetpeername6      = "program_getpeername6"
-	PluginsBaseProgProgramPolicyCaller      = "program_policy_caller"
-	PluginsBaseProgProgramPostBind4         = "program_post_bind4"
-	PluginsBaseProgProgramPostBind6         = "program_post_bind6"
-	PluginsBaseProgProgramRecvmsg4          = "program_recvmsg4"
-	PluginsBaseProgProgramRecvmsg6          = "program_recvmsg6"
-	PluginsBaseProgProgramSendmsg4          = "program_sendmsg4"
-	PluginsBaseProgProgramSendmsg6          = "program_sendmsg6"
-	PluginsBaseProgProgramSockRelease       = "program_sock_release"
-	PluginsBaseProgProgramTailTc            = "program_tail_tc"
-	PluginsBaseProgProgramTc                = "program_tc"
-	PluginsBaseProgProgramTcCaller          = "program_tc_caller"
-	PluginsBaseProgProgramXdp               = "program_xdp"
-	PluginsBaseVarConfigPolicyCallerEnabled = "__config_policy_caller_enabled"
-	PluginsBaseVarConfigTailCallEnabled     = "__config_tail_call_enabled"
-	PluginsBaseVarCilLxcPolicySeq           = "cil_lxc_policy_seq"
-	PluginsBaseVarProgramBind4Seq           = "program_bind4_seq"
-	PluginsBaseVarProgramBind6Seq           = "program_bind6_seq"
-	PluginsBaseVarProgramConnect4Seq        = "program_connect4_seq"
-	PluginsBaseVarProgramConnect6Seq        = "program_connect6_seq"
-	PluginsBaseVarProgramGetpeername4Seq    = "program_getpeername4_seq"
-	PluginsBaseVarProgramGetpeername6Seq    = "program_getpeername6_seq"
-	PluginsBaseVarProgramPolicyCallerSeq    = "program_policy_caller_seq"
-	PluginsBaseVarProgramPostBind4Seq       = "program_post_bind4_seq"
-	PluginsBaseVarProgramPostBind6Seq       = "program_post_bind6_seq"
-	PluginsBaseVarProgramRecvmsg4Seq        = "program_recvmsg4_seq"
-	PluginsBaseVarProgramRecvmsg6Seq        = "program_recvmsg6_seq"
-	PluginsBaseVarProgramSendmsg4Seq        = "program_sendmsg4_seq"
-	PluginsBaseVarProgramSendmsg6Seq        = "program_sendmsg6_seq"
-	PluginsBaseVarProgramSockReleaseSeq     = "program_sock_release_seq"
-	PluginsBaseVarProgramTailTcSeq          = "program_tail_tc_seq"
-	PluginsBaseVarProgramTcCallerSeq        = "program_tc_caller_seq"
-	PluginsBaseVarProgramTcSeq              = "program_tc_seq"
-	PluginsBaseVarProgramXdpSeq             = "program_xdp_seq"
+	PluginsBaseMapCiliumCallPolicy            = "cilium_call_policy"
+	PluginsBaseMapCiliumCalls                 = "cilium_calls"
+	PluginsBaseMapSeq                         = "seq"
+	PluginsBaseProgCilLxcPolicy               = "cil_lxc_policy"
+	PluginsBaseProgProgramBind4               = "program_bind4"
+	PluginsBaseProgProgramBind6               = "program_bind6"
+	PluginsBaseProgProgramConnect4            = "program_connect4"
+	PluginsBaseProgProgramConnect6            = "program_connect6"
+	PluginsBaseProgProgramGetpeername4        = "program_getpeername4"
+	PluginsBaseProgProgramGetpeername6        = "program_getpeername6"
+	PluginsBaseProgProgramPolicyCaller        = "program_policy_caller"
+	PluginsBaseProgProgramPostBind4           = "program_post_bind4"
+	PluginsBaseProgProgramPostBind6           = "program_post_bind6"
+	PluginsBaseProgProgramRecvmsg4            = "program_recvmsg4"
+	PluginsBaseProgProgramRecvmsg6            = "program_recvmsg6"
+	PluginsBaseProgProgramSendmsg4            = "program_sendmsg4"
+	PluginsBaseProgProgramSendmsg6            = "program_sendmsg6"
+	PluginsBaseProgProgramSockRelease         = "program_sock_release"
+	PluginsBaseProgProgramTailTc              = "program_tail_tc"
+	PluginsBaseProgProgramTailTcB             = "program_tail_tc_b"
+	PluginsBaseProgProgramTc                  = "program_tc"
+	PluginsBaseProgProgramTcCaller            = "program_tc_caller"
+	PluginsBaseProgProgramXdp                 = "program_xdp"
+	PluginsBaseVarConfigPolicyCallerEnabled   = "__config_policy_caller_enabled"
+	PluginsBaseVarConfigPolicyOutboundEnabled = "__config_policy_outbound_enabled"
+	PluginsBaseVarConfigTailCallEnabled       = "__config_tail_call_enabled"
+	PluginsBaseVarCilLxcPolicySeq             = "cil_lxc_policy_seq"
+	PluginsBaseVarProgramBind4Seq             = "program_bind4_seq"
+	PluginsBaseVarProgramBind6Seq             = "program_bind6_seq"
+	PluginsBaseVarProgramConnect4Seq          = "program_connect4_seq"
+	PluginsBaseVarProgramConnect6Seq          = "program_connect6_seq"
+	PluginsBaseVarProgramGetpeername4Seq      = "program_getpeername4_seq"
+	PluginsBaseVarProgramGetpeername6Seq      = "program_getpeername6_seq"
+	PluginsBaseVarProgramPolicyCallerSeq      = "program_policy_caller_seq"
+	PluginsBaseVarProgramPostBind4Seq         = "program_post_bind4_seq"
+	PluginsBaseVarProgramPostBind6Seq         = "program_post_bind6_seq"
+	PluginsBaseVarProgramRecvmsg4Seq          = "program_recvmsg4_seq"
+	PluginsBaseVarProgramRecvmsg6Seq          = "program_recvmsg6_seq"
+	PluginsBaseVarProgramSendmsg4Seq          = "program_sendmsg4_seq"
+	PluginsBaseVarProgramSendmsg6Seq          = "program_sendmsg6_seq"
+	PluginsBaseVarProgramSockReleaseSeq       = "program_sock_release_seq"
+	PluginsBaseVarProgramTailTcB_seq          = "program_tail_tc_b_seq"
+	PluginsBaseVarProgramTailTcSeq            = "program_tail_tc_seq"
+	PluginsBaseVarProgramTcCallerSeq          = "program_tc_caller_seq"
+	PluginsBaseVarProgramTcSeq                = "program_tc_seq"
+	PluginsBaseVarProgramXdpSeq               = "program_xdp_seq"
+	PluginsBaseVarTcCallerSecondTarget        = "tc_caller_second_target"
 )
 
 // LoadPluginsBase returns the embedded CollectionSpec for PluginsBase.
@@ -119,6 +123,7 @@ type PluginsBaseProgramSpecs struct {
 	ProgramSendmsg6     *ebpf.ProgramSpec `ebpf:"program_sendmsg6"`
 	ProgramSockRelease  *ebpf.ProgramSpec `ebpf:"program_sock_release"`
 	ProgramTailTc       *ebpf.ProgramSpec `ebpf:"program_tail_tc"`
+	ProgramTailTcB      *ebpf.ProgramSpec `ebpf:"program_tail_tc_b"`
 	ProgramTc           *ebpf.ProgramSpec `ebpf:"program_tc"`
 	ProgramTcCaller     *ebpf.ProgramSpec `ebpf:"program_tc_caller"`
 	ProgramXdp          *ebpf.ProgramSpec `ebpf:"program_xdp"`
@@ -137,27 +142,30 @@ type PluginsBaseMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type PluginsBaseVariableSpecs struct {
-	ConfigPolicyCallerEnabled *ebpf.VariableSpec `ebpf:"__config_policy_caller_enabled"`
-	ConfigTailCallEnabled     *ebpf.VariableSpec `ebpf:"__config_tail_call_enabled"`
-	CilLxcPolicySeq           *ebpf.VariableSpec `ebpf:"cil_lxc_policy_seq"`
-	ProgramBind4Seq           *ebpf.VariableSpec `ebpf:"program_bind4_seq"`
-	ProgramBind6Seq           *ebpf.VariableSpec `ebpf:"program_bind6_seq"`
-	ProgramConnect4Seq        *ebpf.VariableSpec `ebpf:"program_connect4_seq"`
-	ProgramConnect6Seq        *ebpf.VariableSpec `ebpf:"program_connect6_seq"`
-	ProgramGetpeername4Seq    *ebpf.VariableSpec `ebpf:"program_getpeername4_seq"`
-	ProgramGetpeername6Seq    *ebpf.VariableSpec `ebpf:"program_getpeername6_seq"`
-	ProgramPolicyCallerSeq    *ebpf.VariableSpec `ebpf:"program_policy_caller_seq"`
-	ProgramPostBind4Seq       *ebpf.VariableSpec `ebpf:"program_post_bind4_seq"`
-	ProgramPostBind6Seq       *ebpf.VariableSpec `ebpf:"program_post_bind6_seq"`
-	ProgramRecvmsg4Seq        *ebpf.VariableSpec `ebpf:"program_recvmsg4_seq"`
-	ProgramRecvmsg6Seq        *ebpf.VariableSpec `ebpf:"program_recvmsg6_seq"`
-	ProgramSendmsg4Seq        *ebpf.VariableSpec `ebpf:"program_sendmsg4_seq"`
-	ProgramSendmsg6Seq        *ebpf.VariableSpec `ebpf:"program_sendmsg6_seq"`
-	ProgramSockReleaseSeq     *ebpf.VariableSpec `ebpf:"program_sock_release_seq"`
-	ProgramTailTcSeq          *ebpf.VariableSpec `ebpf:"program_tail_tc_seq"`
-	ProgramTcCallerSeq        *ebpf.VariableSpec `ebpf:"program_tc_caller_seq"`
-	ProgramTcSeq              *ebpf.VariableSpec `ebpf:"program_tc_seq"`
-	ProgramXdpSeq             *ebpf.VariableSpec `ebpf:"program_xdp_seq"`
+	ConfigPolicyCallerEnabled   *ebpf.VariableSpec `ebpf:"__config_policy_caller_enabled"`
+	ConfigPolicyOutboundEnabled *ebpf.VariableSpec `ebpf:"__config_policy_outbound_enabled"`
+	ConfigTailCallEnabled       *ebpf.VariableSpec `ebpf:"__config_tail_call_enabled"`
+	CilLxcPolicySeq             *ebpf.VariableSpec `ebpf:"cil_lxc_policy_seq"`
+	ProgramBind4Seq             *ebpf.VariableSpec `ebpf:"program_bind4_seq"`
+	ProgramBind6Seq             *ebpf.VariableSpec `ebpf:"program_bind6_seq"`
+	ProgramConnect4Seq          *ebpf.VariableSpec `ebpf:"program_connect4_seq"`
+	ProgramConnect6Seq          *ebpf.VariableSpec `ebpf:"program_connect6_seq"`
+	ProgramGetpeername4Seq      *ebpf.VariableSpec `ebpf:"program_getpeername4_seq"`
+	ProgramGetpeername6Seq      *ebpf.VariableSpec `ebpf:"program_getpeername6_seq"`
+	ProgramPolicyCallerSeq      *ebpf.VariableSpec `ebpf:"program_policy_caller_seq"`
+	ProgramPostBind4Seq         *ebpf.VariableSpec `ebpf:"program_post_bind4_seq"`
+	ProgramPostBind6Seq         *ebpf.VariableSpec `ebpf:"program_post_bind6_seq"`
+	ProgramRecvmsg4Seq          *ebpf.VariableSpec `ebpf:"program_recvmsg4_seq"`
+	ProgramRecvmsg6Seq          *ebpf.VariableSpec `ebpf:"program_recvmsg6_seq"`
+	ProgramSendmsg4Seq          *ebpf.VariableSpec `ebpf:"program_sendmsg4_seq"`
+	ProgramSendmsg6Seq          *ebpf.VariableSpec `ebpf:"program_sendmsg6_seq"`
+	ProgramSockReleaseSeq       *ebpf.VariableSpec `ebpf:"program_sock_release_seq"`
+	ProgramTailTcB_seq          *ebpf.VariableSpec `ebpf:"program_tail_tc_b_seq"`
+	ProgramTailTcSeq            *ebpf.VariableSpec `ebpf:"program_tail_tc_seq"`
+	ProgramTcCallerSeq          *ebpf.VariableSpec `ebpf:"program_tc_caller_seq"`
+	ProgramTcSeq                *ebpf.VariableSpec `ebpf:"program_tc_seq"`
+	ProgramXdpSeq               *ebpf.VariableSpec `ebpf:"program_xdp_seq"`
+	TcCallerSecondTarget        *ebpf.VariableSpec `ebpf:"tc_caller_second_target"`
 }
 
 // PluginsBaseObjects contains all objects after they have been loaded into the kernel.
@@ -197,27 +205,30 @@ func (m *PluginsBaseMaps) Close() error {
 //
 // It can be passed to LoadPluginsBaseObjects or ebpf.CollectionSpec.LoadAndAssign.
 type PluginsBaseVariables struct {
-	ConfigPolicyCallerEnabled *ebpf.Variable `ebpf:"__config_policy_caller_enabled"`
-	ConfigTailCallEnabled     *ebpf.Variable `ebpf:"__config_tail_call_enabled"`
-	CilLxcPolicySeq           *ebpf.Variable `ebpf:"cil_lxc_policy_seq"`
-	ProgramBind4Seq           *ebpf.Variable `ebpf:"program_bind4_seq"`
-	ProgramBind6Seq           *ebpf.Variable `ebpf:"program_bind6_seq"`
-	ProgramConnect4Seq        *ebpf.Variable `ebpf:"program_connect4_seq"`
-	ProgramConnect6Seq        *ebpf.Variable `ebpf:"program_connect6_seq"`
-	ProgramGetpeername4Seq    *ebpf.Variable `ebpf:"program_getpeername4_seq"`
-	ProgramGetpeername6Seq    *ebpf.Variable `ebpf:"program_getpeername6_seq"`
-	ProgramPolicyCallerSeq    *ebpf.Variable `ebpf:"program_policy_caller_seq"`
-	ProgramPostBind4Seq       *ebpf.Variable `ebpf:"program_post_bind4_seq"`
-	ProgramPostBind6Seq       *ebpf.Variable `ebpf:"program_post_bind6_seq"`
-	ProgramRecvmsg4Seq        *ebpf.Variable `ebpf:"program_recvmsg4_seq"`
-	ProgramRecvmsg6Seq        *ebpf.Variable `ebpf:"program_recvmsg6_seq"`
-	ProgramSendmsg4Seq        *ebpf.Variable `ebpf:"program_sendmsg4_seq"`
-	ProgramSendmsg6Seq        *ebpf.Variable `ebpf:"program_sendmsg6_seq"`
-	ProgramSockReleaseSeq     *ebpf.Variable `ebpf:"program_sock_release_seq"`
-	ProgramTailTcSeq          *ebpf.Variable `ebpf:"program_tail_tc_seq"`
-	ProgramTcCallerSeq        *ebpf.Variable `ebpf:"program_tc_caller_seq"`
-	ProgramTcSeq              *ebpf.Variable `ebpf:"program_tc_seq"`
-	ProgramXdpSeq             *ebpf.Variable `ebpf:"program_xdp_seq"`
+	ConfigPolicyCallerEnabled   *ebpf.Variable `ebpf:"__config_policy_caller_enabled"`
+	ConfigPolicyOutboundEnabled *ebpf.Variable `ebpf:"__config_policy_outbound_enabled"`
+	ConfigTailCallEnabled       *ebpf.Variable `ebpf:"__config_tail_call_enabled"`
+	CilLxcPolicySeq             *ebpf.Variable `ebpf:"cil_lxc_policy_seq"`
+	ProgramBind4Seq             *ebpf.Variable `ebpf:"program_bind4_seq"`
+	ProgramBind6Seq             *ebpf.Variable `ebpf:"program_bind6_seq"`
+	ProgramConnect4Seq          *ebpf.Variable `ebpf:"program_connect4_seq"`
+	ProgramConnect6Seq          *ebpf.Variable `ebpf:"program_connect6_seq"`
+	ProgramGetpeername4Seq      *ebpf.Variable `ebpf:"program_getpeername4_seq"`
+	ProgramGetpeername6Seq      *ebpf.Variable `ebpf:"program_getpeername6_seq"`
+	ProgramPolicyCallerSeq      *ebpf.Variable `ebpf:"program_policy_caller_seq"`
+	ProgramPostBind4Seq         *ebpf.Variable `ebpf:"program_post_bind4_seq"`
+	ProgramPostBind6Seq         *ebpf.Variable `ebpf:"program_post_bind6_seq"`
+	ProgramRecvmsg4Seq          *ebpf.Variable `ebpf:"program_recvmsg4_seq"`
+	ProgramRecvmsg6Seq          *ebpf.Variable `ebpf:"program_recvmsg6_seq"`
+	ProgramSendmsg4Seq          *ebpf.Variable `ebpf:"program_sendmsg4_seq"`
+	ProgramSendmsg6Seq          *ebpf.Variable `ebpf:"program_sendmsg6_seq"`
+	ProgramSockReleaseSeq       *ebpf.Variable `ebpf:"program_sock_release_seq"`
+	ProgramTailTcB_seq          *ebpf.Variable `ebpf:"program_tail_tc_b_seq"`
+	ProgramTailTcSeq            *ebpf.Variable `ebpf:"program_tail_tc_seq"`
+	ProgramTcCallerSeq          *ebpf.Variable `ebpf:"program_tc_caller_seq"`
+	ProgramTcSeq                *ebpf.Variable `ebpf:"program_tc_seq"`
+	ProgramXdpSeq               *ebpf.Variable `ebpf:"program_xdp_seq"`
+	TcCallerSecondTarget        *ebpf.Variable `ebpf:"tc_caller_second_target"`
 }
 
 // PluginsBasePrograms contains all programs after they have been loaded into the kernel.
@@ -240,6 +251,7 @@ type PluginsBasePrograms struct {
 	ProgramSendmsg6     *ebpf.Program `ebpf:"program_sendmsg6"`
 	ProgramSockRelease  *ebpf.Program `ebpf:"program_sock_release"`
 	ProgramTailTc       *ebpf.Program `ebpf:"program_tail_tc"`
+	ProgramTailTcB      *ebpf.Program `ebpf:"program_tail_tc_b"`
 	ProgramTc           *ebpf.Program `ebpf:"program_tc"`
 	ProgramTcCaller     *ebpf.Program `ebpf:"program_tc_caller"`
 	ProgramXdp          *ebpf.Program `ebpf:"program_xdp"`
@@ -263,6 +275,7 @@ func (p *PluginsBasePrograms) Close() error {
 		p.ProgramSendmsg6,
 		p.ProgramSockRelease,
 		p.ProgramTailTc,
+		p.ProgramTailTcB,
 		p.ProgramTc,
 		p.ProgramTcCaller,
 		p.ProgramXdp,
