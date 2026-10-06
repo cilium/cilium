@@ -21,8 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-// updatePolicy groups the node-update policy while it continues to use the
-// Manager-owned state. Later patches will make this policy the Writer policy.
+// updatePolicy implements Writer's publication and deletion policy using
+// IPCache and the manager-owned accepted-node cache.
 type updatePolicy struct {
 	manager *manager
 }
@@ -241,8 +241,7 @@ func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identi
 	if src != entry.node.Source {
 		m.mutex.Unlock()
 		if entry.node.IsLocal() && src == source.Kubernetes {
-			m.logger.Debug("Kubernetes is deleting local node, close manager")
-			m.Stop(context.Background())
+			m.logger.Debug("Kubernetes is deleting local node")
 		} else {
 			m.logger.Debug(
 				"Ignoring delete event of node",
