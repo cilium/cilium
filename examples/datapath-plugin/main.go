@@ -36,6 +36,7 @@ const (
 	preHookName      = "before"
 	postHookName     = "after"
 	tailCallHookName = "tail_call_hook"
+	exitHookName     = "exit_hook"
 )
 
 type cookie struct {
@@ -204,6 +205,10 @@ func prepareSKBAndXDPHooks(programs map[string]*datapathplugins.PrepareCollectio
 				Type:   datapathplugins.HookType_TAIL_CALL,
 				Target: name,
 			},
+			&datapathplugins.PrepareCollectionResponse_HookSpec{
+				Type:   datapathplugins.HookType_EXIT,
+				Target: name,
+			},
 		)
 
 		if !strings.HasSuffix(prog.SectionName, "/entry") {
@@ -247,6 +252,8 @@ func prepareSockHooks(programs map[string]*datapathplugins.PrepareCollectionRequ
 
 func hookProgName(hook *datapathplugins.InstrumentCollectionRequest_Hook) string {
 	switch hook.Type {
+	case datapathplugins.HookType_EXIT:
+		return exitHookName
 	case datapathplugins.HookType_TAIL_CALL:
 		return tailCallHookName
 	case datapathplugins.HookType_PRE:
@@ -329,6 +336,8 @@ func loadAndPin(ac *datapathplugins.AttachmentContext, hooks []*datapathplugins.
 		switch hook.Type {
 		case datapathplugins.HookType_TAIL_CALL:
 			prog = coll.Programs[tailCallHookName]
+		case datapathplugins.HookType_EXIT:
+			prog = coll.Programs[exitHookName]
 		case datapathplugins.HookType_PRE:
 			prog = coll.Programs[preHookName]
 		default:
