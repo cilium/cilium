@@ -126,6 +126,9 @@ func (in *Config) DeepEqual(other *Config) bool {
 	if in.NodePortMaxNATExt != other.NodePortMaxNATExt {
 		return false
 	}
+	if in.DSRConfig != other.DSRConfig {
+		return false
+	}
 
 	return true
 }

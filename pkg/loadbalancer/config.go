@@ -280,6 +280,12 @@ var ConfigCell = cell.Group(
 	),
 )
 
+// DSRConfig holds the DSR-specific configuration.
+type DSRConfig struct {
+	// EnableICMPErrors enables sending ICMP fragmentation-needed replies to the client.
+	EnableICMPErrors bool
+}
+
 // Config for load-balancing
 // +deepequal-gen=true
 type Config struct {
@@ -296,12 +302,16 @@ type Config struct {
 
 	// NodePortMaxNATExt is the maximum port address for the extended masquerade port range
 	NodePortMaxNATExt uint16
+
+	DSRConfig DSRConfig
+}
+
+func loadBalancerUsesDSR(lbMode string, lbModeAnnotation bool) bool {
+	return lbMode == LBModeDSR || lbMode == LBModeHybrid || lbModeAnnotation
 }
 
 func (c *Config) LoadBalancerUsesDSR() bool {
-	return c.LBMode == LBModeDSR ||
-		c.LBMode == LBModeHybrid ||
-		c.LBModeAnnotation
+	return loadBalancerUsesDSR(c.LBMode, c.LBModeAnnotation)
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
@@ -398,8 +408,13 @@ func parsePortRange(portRange []string) (uint16, uint16, error) {
 
 // NewConfig takes the user-provided configuration, validates and processes it to produce the final
 // configuration for load-balancing.
-func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfig) (cfg Config, err error) {
+func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfig, krpCfg kpr.KPRConfig) (cfg Config, err error) {
 	cfg.UserConfig = userConfig
+
+	lbUsesDSR := krpCfg.KubeProxyReplacement && loadBalancerUsesDSR(cfg.LBMode, cfg.LBModeAnnotation)
+	if lbUsesDSR {
+		cfg.DSRConfig.EnableICMPErrors = dcfg.EnablePMTUDiscovery
+	}
 
 	if cfg.LBMapEntries <= 0 {
 		return Config{}, fmt.Errorf("specified LBMap max entries %d must be a value greater than 0", cfg.LBMapEntries)
