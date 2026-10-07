@@ -59,25 +59,75 @@ func (cache Cache) UpdateMany(endpoints iter.Seq[Endpoints]) {
 
 // Orphans returns backend addresses that exist in the cache but are not present
 // in the supplied newEndpoints.
+//
+// All endpoints passed here are expected to target the same service. The cache
+// may additionally hold endpoint slices of that service that were not part of
+// this batch (slices that did not change); their backends are still current
+// and are not reported as orphaned. In particular, a backend referenced by
+// multiple endpoint slices is only orphaned once no slice references it
+// anymore.
 func (cache Cache) Orphans(newEndpoints iter.Seq[Endpoints]) iter.Seq[loadbalancer.L3n4Addr] {
 	return func(yield func(loadbalancer.L3n4Addr) bool) {
+		var svc loadbalancer.ServiceName
+		changed := map[EndpointsNamespacedName]struct{}{}
+		present := map[loadbalancer.L3n4Addr]struct{}{}
 		for ep := range newEndpoints {
-			previous, found := cache[ep.Name]
-			if !found {
+			svc = ep.ServiceName
+			changed[ep.Name] = struct{}{}
+			for addr, be := range ep.Backends {
+				for l4Addr := range be.Ports {
+					present[loadbalancer.NewL3n4Addr(
+						l4Addr.Protocol,
+						addr,
+						l4Addr.Port,
+						loadbalancer.ScopeExternal,
+					)] = struct{}{}
+				}
+			}
+		}
+
+		// Account for the cached slices of this service that were not part of
+		// this batch. Their backends are still current.
+		for name, ep := range cache {
+			if ep.ServiceName != svc {
 				continue
 			}
+			if _, ok := changed[name]; ok {
+				continue
+			}
+			for addr, be := range ep.Backends {
+				for l4Addr := range be.Ports {
+					present[loadbalancer.NewL3n4Addr(
+						l4Addr.Protocol,
+						addr,
+						l4Addr.Port,
+						loadbalancer.ScopeExternal,
+					)] = struct{}{}
+				}
+			}
+		}
 
-			for addr, prevBe := range previous.Backends {
-				be, foundBe := ep.Backends[addr]
-				for l4Addr := range prevBe.Ports {
-					foundPort := false
-					if foundBe {
-						_, foundPort = be.Ports[l4Addr]
+		// Yield the cached backend addresses of this service that are gone.
+		// A backend may be referenced by multiple cached slices, so mark each
+		// yielded address as present to avoid duplicates.
+		for _, ep := range cache {
+			if ep.ServiceName != svc {
+				continue
+			}
+			for addr, be := range ep.Backends {
+				for l4Addr := range be.Ports {
+					l3n4Addr := loadbalancer.NewL3n4Addr(
+						l4Addr.Protocol,
+						addr,
+						l4Addr.Port,
+						loadbalancer.ScopeExternal,
+					)
+					if _, ok := present[l3n4Addr]; ok {
+						continue
 					}
-					if !foundPort {
-						if !yield(loadbalancer.NewL3n4Addr(l4Addr.Protocol, addr, l4Addr.Port, loadbalancer.ScopeExternal)) {
-							return
-						}
+					present[l3n4Addr] = struct{}{}
+					if !yield(l3n4Addr) {
+						return
 					}
 				}
 			}
