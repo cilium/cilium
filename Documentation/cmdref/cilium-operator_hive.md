@@ -24,6 +24,7 @@ cilium-operator hive [flags]
       --bgp-router-id-allocation-ip-pool string                    IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
       --bgp-router-id-allocation-mode string                       BGP router-id allocation mode. Currently supported values: 'default' or 'ip-pool' (default "default")
       --bgp-secrets-namespace string                               Kubernetes namespace to get BGP control plane secrets from
+      --ces-empty-before-delete-threshold int                      Write a CES without endpoints before deleting it if its last written version still lists at least this many endpoints. The DELETED watch event every node receives carries that last version; this sends a small MODIFIED and a small DELETED event instead. 0 disables it. (default 10)
       --ces-max-ciliumendpoints-per-ces int                        Maximum number of CiliumEndpoints allowed in a CES (default 100)
       --ces-rate-limits string                                     Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string. (default "[{\"nodes\":0,\"limit\":10,\"burst\":20}]")
       --cilium-endpoint-gc-interval duration                       GC interval for cilium endpoints (default 5m0s)
