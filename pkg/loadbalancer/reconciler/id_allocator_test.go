@@ -81,7 +81,7 @@ func TestIDAllocatorMetrics(t *testing.T) {
 		1,
 		loadbalancer.ScopeExternal,
 	)
-	firstAllocatedID, err := alloc.acquireLocalID(addr)
+	_, err := alloc.acquireLocalID(addr)
 	require.NoError(t, err)
 	require.Equal(t, float64(1), allocations.Get())
 	require.Equal(t, float64(1), allocationAttempts.Get())
@@ -115,7 +115,7 @@ func TestIDAllocatorMetrics(t *testing.T) {
 		3,
 		loadbalancer.ScopeExternal,
 	)
-	thirdID, err := alloc.acquireLocalID(thirdAddr)
+	_, err = alloc.acquireLocalID(thirdAddr)
 	require.NoError(t, err)
 	require.Equal(t, float64(3), allocations.Get())
 	require.Equal(t, float64(2), allocationAttempts.Get())
@@ -136,17 +136,17 @@ func TestIDAllocatorMetrics(t *testing.T) {
 	require.Equal(t, float64(3), allocationAttempts.Get())
 	require.Equal(t, float64(1), allocationFailures.Get())
 
-	// Verify deleting IDs updates the gauge, while deleting an unknown ID doesn't.
-	alloc.deleteLocalID(firstAllocatedID)
+	// Verify deleting IDs updates the gauge, while deleting an unknown address doesn't.
+	alloc.deleteLocalID(addr)
 	require.Equal(t, float64(2), allocations.Get())
 
-	alloc.deleteLocalID(firstAllocatedID)
+	alloc.deleteLocalID(addr)
 	require.Equal(t, float64(2), allocations.Get())
 
-	alloc.deleteLocalID(restoredID)
+	alloc.deleteLocalID(restoredAddr)
 	require.Equal(t, float64(1), allocations.Get())
 
-	alloc.deleteLocalID(thirdID)
+	alloc.deleteLocalID(thirdAddr)
 	require.Zero(t, allocations.Get())
 
 	// Recreating an allocator resets its gauges, but not cumulative counters.
