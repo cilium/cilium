@@ -304,16 +304,22 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 
 		id := loadbalancer.ServiceID(master.GetRevNat())
 
+		// Reserve the ID for every address that may claim it, so that
+		// no other frontend is allocated the ID before the restored one is updated.
+		// The wildcard entries have no ID (0), which is never allocated.
+		restore := func(alias loadbalancer.L3n4Addr) {
+			ops.restoredServiceIDs[alias] = id
+			if id != 0 {
+				ops.serviceIDAlloc.reserveID(alias, id)
+			}
+		}
 		if addr.Protocol() == loadbalancer.ANY {
 			// Migrate from 'ANY' protocol by reusing the ID.
-			addr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addr.AddrCluster(), addr.Port(), addr.Scope())
-			ops.restoredServiceIDs[addr2] = id
-			addr2 = loadbalancer.NewL3n4Addr(loadbalancer.UDP, addr.AddrCluster(), addr.Port(), addr.Scope())
-			ops.restoredServiceIDs[addr2] = id
-			addr2 = loadbalancer.NewL3n4Addr(loadbalancer.SCTP, addr.AddrCluster(), addr.Port(), addr.Scope())
-			ops.restoredServiceIDs[addr2] = id
+			restore(loadbalancer.NewL3n4Addr(loadbalancer.TCP, addr.AddrCluster(), addr.Port(), addr.Scope()))
+			restore(loadbalancer.NewL3n4Addr(loadbalancer.UDP, addr.AddrCluster(), addr.Port(), addr.Scope()))
+			restore(loadbalancer.NewL3n4Addr(loadbalancer.SCTP, addr.AddrCluster(), addr.Port(), addr.Scope()))
 		} else {
-			ops.restoredServiceIDs[addr] = id
+			restore(addr)
 		}
 		ops.serviceIDAlloc.nextID = max(ops.serviceIDAlloc.nextID, id+1)
 
@@ -457,8 +463,17 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	// Drop any restored quarantine state
 	ops.deleteRestoredQuarantinedBackends(fe.Address)
 
+	// The ID can be shared with restored protocol aliases of this frontend, which
+	// may not have been updated yet. State keyed by the ID alone is only removed
+	// together with the last owner of the IP family, as the reverse NAT and Maglev
+	// maps are separate for IPv4 and IPv6. State keyed by the ID and something else is
+	// removed unless another owner of the ID still refers to it.
+	lastOwner := !ops.serviceIDAlloc.otherOwnerMatches(fe.Address, feID, func(owner loadbalancer.L3n4Addr) bool {
+		return owner.IsIPv6() == fe.Address.IsIPv6()
+	})
+
 	// Delete Maglev.
-	if ops.useMaglev(fe) {
+	if lastOwner && ops.useMaglev(fe) {
 		if err := ops.LBMaps.DeleteMaglev(maps.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
 		}
@@ -468,8 +483,19 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	// whether or not SessionAffinity is enabled as it might've been toggled by
 	// the user. Could optimize this by holding some more state if needed.
 	for addr := range ops.backendReferences[fe.Address] {
-		err := ops.deleteAffinityMatch(feID, ops.backendStates[addr].id)
-		if err != nil {
+		beID := ops.backendStates[addr].id
+		usedByOtherOwner := ops.serviceIDAlloc.otherClaimedOwnerMatches(fe.Address, feID, func(owner loadbalancer.L3n4Addr) bool {
+			for beAddr := range ops.backendReferences[owner] {
+				if ops.backendStates[beAddr].id == beID {
+					return true
+				}
+			}
+			return false
+		})
+		if usedByOtherOwner {
+			continue
+		}
+		if err := ops.deleteAffinityMatch(feID, beID); err != nil {
 			return fmt.Errorf("delete affinity match %d: %w", feID, err)
 		}
 	}
@@ -479,7 +505,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend %d: %w", orphanState.id, err)
 		}
-		ops.releaseBackend(orphanState.id, orphanState.addr)
+		ops.releaseBackend(orphanState.addr)
 	}
 
 	var svcKey maps.ServiceKey
@@ -513,13 +539,21 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
-	err = ops.LBMaps.DeleteRevNat(revNatKey.ToNetwork())
-	if err != nil {
-		return fmt.Errorf("delete reverse nat %d: %w", feID, err)
+	if lastOwner {
+		err = ops.LBMaps.DeleteRevNat(revNatKey.ToNetwork())
+		if err != nil {
+			return fmt.Errorf("delete reverse nat %d: %w", feID, err)
+		}
 	}
 
 	for cidr := range ops.prevSourceRanges[fe.Address] {
 		if cidr.Addr().Is6() != fe.Address.IsIPv6() {
+			continue
+		}
+		usedByOtherOwner := ops.serviceIDAlloc.otherClaimedOwnerMatches(fe.Address, feID, func(owner loadbalancer.L3n4Addr) bool {
+			return ops.prevSourceRanges[owner].Has(cidr)
+		})
+		if usedByOtherOwner {
 			continue
 		}
 		err := ops.LBMaps.DeleteSourceRange(
@@ -531,17 +565,20 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	}
 	delete(ops.prevSourceRanges, fe.Address)
 
-	// Cleanup any wildcard entries this fe might be associated with.
+	// Cleanup any wildcard entries this fe might be associated with. The wildcard
+	// is referenced by the ID and shared with the aliases on the same IP.
 	if loadbalancer.IsWildcardCandidate(fe) && ops.isWildcardClass(fe.Service) {
-		if err := ops.deleteWildcard(fe, feID); err != nil {
-			return fmt.Errorf("delete wildcard: %w", err)
+		if !ops.serviceIDAlloc.hasOtherOwnerOnIP(fe.Address, feID) {
+			if err := ops.deleteWildcard(fe.Address, feID); err != nil {
+				return fmt.Errorf("delete wildcard: %w", err)
+			}
 		}
 	}
 
 	// Decrease the backend reference counts and drop state associated with the frontend.
 	ops.updateBackendRefCounts(fe.Address, nil)
 	delete(ops.backendReferences, fe.Address)
-	ops.serviceIDAlloc.deleteLocalID(feID)
+	ops.serviceIDAlloc.deleteLocalID(fe.Address)
 
 	return nil
 }
@@ -592,23 +629,26 @@ func (ops *BPFOps) pruneServiceMaps() error {
 
 			// Drop restored quarantined state
 			if svcKey.GetBackendSlot() > 0 {
-				if beAddr, found := ops.backendIDAlloc.idToAddr[svcValue.GetBackendID()]; found {
+				for beAddr := range ops.backendIDAlloc.idToAddrs[svcValue.GetBackendID()] {
 					ops.deleteRestoredQuarantinedBackends(addr, beAddr)
 				}
 			}
 		}
 	}
 
+	var errs []error
 	if err := ops.LBMaps.DumpService(svcCB); err != nil {
 		ops.log.Warn("Failed to dump service maps", logfields.Error, err)
+		errs = append(errs, fmt.Errorf("dump service maps: %w", err))
 	}
 
 	for _, key := range toDelete {
 		if err := ops.LBMaps.DeleteService(key); err != nil {
 			ops.log.Warn("Failed to delete from service map while pruning", logfields.Error, err)
+			errs = append(errs, fmt.Errorf("delete from service map: %w", err))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (ops *BPFOps) pruneBackendMaps() error {
@@ -636,19 +676,47 @@ func (ops *BPFOps) pruneBackendMaps() error {
 	return nil
 }
 
+// pruneRestoredIDs drops the restored IDs that no frontend has claimed. It must only
+// be called once the stale service slots, source ranges and Maglev entries keyed by
+// these IDs have been removed, as the IDs can be allocated again afterwards.
 func (ops *BPFOps) pruneRestoredIDs() error {
-	ops.restoredServiceIDs = nil
+	var errs []error
+	// An address restored with more than one ID is claimed with only one of them.
+	for id, owners := range ops.serviceIDAlloc.idToAddrs {
+		for addr := range owners {
+			if ops.serviceIDAlloc.addrToId[addr] == id {
+				continue
+			}
+			// The wildcard entry is shared by all aliases on the IP. Remove it with the last one.
+			if !ops.serviceIDAlloc.hasOtherOwnerOnIP(addr, id) {
+				if err := ops.deleteWildcard(addr, id); err != nil {
+					// Keep the ID reserved and retry on the next prune.
+					errs = append(errs, fmt.Errorf("delete wildcard: %w", err))
+					continue
+				}
+			}
+			ops.serviceIDAlloc.releaseID(addr, id)
+		}
+	}
+	// Forget the restored IDs that were released or never reserved.
+	for addr, id := range ops.restoredServiceIDs {
+		if !ops.serviceIDAlloc.idToAddrs[id].Has(addr) {
+			delete(ops.restoredServiceIDs, addr)
+		}
+	}
 	ops.metrics.setIDMappingsPendingRestore(idAllocTypeService, len(ops.restoredServiceIDs))
 	ops.restoredBackendIDs = nil
 	ops.metrics.setIDMappingsPendingRestore(idAllocTypeBackend, len(ops.restoredBackendIDs))
-	return nil
+	return errors.Join(errs...)
 }
 
 func (ops *BPFOps) pruneRevNat() error {
 	toDelete := []maps.RevNatKey{}
 	cb := func(key maps.RevNatKey, value maps.RevNatValue) {
 		key = key.ToHost()
-		if _, ok := ops.serviceIDAlloc.idToAddr[key.GetKey()]; !ok {
+		// Restored IDs that no frontend has claimed are stale.
+		_, ipv6 := key.(*maps.RevNat6Key)
+		if !ops.serviceIDAlloc.hasClaimedOwner(key.GetKey(), ipv6) {
 			ops.log.Debug("pruneRevNat: enqueing for deletion", logfields.ID, key.GetKey())
 			toDelete = append(toDelete, key)
 		}
@@ -671,15 +739,12 @@ func (ops *BPFOps) pruneSourceRanges() error {
 	cb := func(key maps.SourceRangeKey, value *maps.SourceRangeValue) {
 		key = key.ToHost()
 
-		// A SourceRange is OK if there's a service with this ID and the
-		// CIDR is part of the current set.
-		addr, ok := ops.serviceIDAlloc.idToAddr[key.GetRevNATID()]
-		if ok {
-			prefix := key.GetPrefix()
-			var cidrs sets.Set[netip.Prefix]
-			cidrs, ok = ops.prevSourceRanges[addr]
-			ok = ok && cidrs.Has(prefix)
-		}
+		// A SourceRange is OK if one of the frontends claimed with this ID has
+		// the CIDR in its current set.
+		prefix := key.GetPrefix()
+		ok := ops.serviceIDAlloc.claimedOwnerMatches(key.GetRevNATID(), func(owner loadbalancer.L3n4Addr) bool {
+			return ops.prevSourceRanges[owner].Has(prefix)
+		})
 		if !ok {
 			ops.log.Debug("pruneSourceRanges: enqueing for deletion",
 				logfields.ID, key.GetRevNATID(),
@@ -691,13 +756,15 @@ func (ops *BPFOps) pruneSourceRanges() error {
 	if err != nil {
 		return err
 	}
+	var errs []error
 	for _, key := range toDelete {
 		err := ops.LBMaps.DeleteSourceRange(key.ToNetwork())
 		if err != nil {
 			ops.log.Warn("Failed to delete from source range map", logfields.Error, err)
+			errs = append(errs, fmt.Errorf("delete from source range map: %w", err))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (ops *BPFOps) pruneMaglev() error {
@@ -707,7 +774,7 @@ func (ops *BPFOps) pruneMaglev() error {
 	}
 	toDelete := []outerKeyWithIPVersion{}
 	cb := func(key maps.MaglevOuterKey, _ maps.MaglevOuterVal, _ maps.MaglevInnerKey, _ *maps.MaglevInnerVal, ipv6 bool) {
-		if _, ok := ops.serviceIDAlloc.idToAddr[loadbalancer.ServiceID(key.RevNatID)]; !ok {
+		if !ops.serviceIDAlloc.hasClaimedOwner(loadbalancer.ServiceID(key.RevNatID), ipv6) {
 			ops.log.Debug("pruneMaglev: enqueing for deletion", logfields.ID, key.RevNatID)
 			toDelete = append(toDelete, outerKeyWithIPVersion{key, ipv6})
 		}
@@ -735,14 +802,18 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 	defer ops.mu.Unlock()
 	defer func() { ops.pruneCount.Add(1) }()
 	ops.log.Debug("Pruning")
-	return errors.Join(
-		ops.pruneRestoredIDs(),
+	// The restored IDs are only dropped once the stale service slots, source ranges and
+	// Maglev entries keyed by them are gone.
+	if err := errors.Join(
 		ops.pruneServiceMaps(),
 		ops.pruneBackendMaps(),
 		ops.pruneRevNat(),
 		ops.pruneSourceRanges(),
 		ops.pruneMaglev(),
-	)
+	); err != nil {
+		return err
+	}
+	return ops.pruneRestoredIDs()
 }
 
 // Update implements reconciler.Operations.
@@ -977,7 +1048,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 		if err := ops.deleteAffinityMatch(feID, orphanState.id); err != nil {
 			return fmt.Errorf("delete affinity match: %w", err)
 		}
-		ops.releaseBackend(orphanState.id, orphanState.addr)
+		ops.releaseBackend(orphanState.addr)
 	}
 
 	activeCount, terminatingCount, inactiveCount := 0, 0, 0
@@ -1173,7 +1244,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend, isLocalAddr func(ne
 				return fmt.Errorf("upsert wildcard: %w", err)
 			}
 		} else {
-			if err := ops.deleteWildcard(fe, feID); err != nil {
+			if err := ops.deleteWildcard(fe.Address, feID); err != nil {
 				return fmt.Errorf("delete wildcard: %w", err)
 			}
 		}
@@ -1487,11 +1558,12 @@ func (ops *BPFOps) upsertWildcard(fe *loadbalancer.Frontend, feID loadbalancer.S
 	return nil
 }
 
-// Delete a wildcard entry based on the deletion of a Frontend.
-// See upsertWildcard() for semantics. This does the reverse.
-func (ops *BPFOps) deleteWildcard(fe *loadbalancer.Frontend, feID loadbalancer.ServiceID) error {
+// deleteWildcard removes feID from the wildcard references of the IP of feAddr and
+// deletes the wildcard service entry if it was the last parent. It does nothing if
+// feID holds no reference. See upsertWildcard() for semantics.
+func (ops *BPFOps) deleteWildcard(feAddr loadbalancer.L3n4Addr, feID loadbalancer.ServiceID) error {
 	// Identify the wildcardReferences slice to use by Frontend Address.
-	addr := fe.Address.Addr()
+	addr := feAddr.Addr()
 	wildRefs := ops.wildcardReferences[addr]
 	numParents := len(wildRefs)
 
@@ -1516,10 +1588,10 @@ func (ops *BPFOps) deleteWildcard(fe *loadbalancer.Frontend, feID loadbalancer.S
 
 		if addr.Is6() {
 			wildcardKey = maps.NewService6Key(addr, WildcardPortNumber,
-				WildcardProtoNumber, fe.Address.Scope(), 0)
+				WildcardProtoNumber, feAddr.Scope(), 0)
 		} else {
 			wildcardKey = maps.NewService4Key(addr, WildcardPortNumber,
-				WildcardProtoNumber, fe.Address.Scope(), 0)
+				WildcardProtoNumber, feAddr.Scope(), 0)
 		}
 
 		ops.log.Debug("Delete wildcard service entry for last parent service",
@@ -1602,9 +1674,9 @@ func (ops *BPFOps) updateBackendRevision(id loadbalancer.BackendID, addr loadbal
 
 // releaseBackend releases the backends information and the ID when it has been deleted
 // successfully.
-func (ops *BPFOps) releaseBackend(id loadbalancer.BackendID, addr loadbalancer.L3n4Addr) {
+func (ops *BPFOps) releaseBackend(addr loadbalancer.L3n4Addr) {
 	delete(ops.backendStates, addr)
-	ops.backendIDAlloc.deleteLocalID(id)
+	ops.backendIDAlloc.deleteLocalID(addr)
 }
 
 func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer.BackendID, error) {
@@ -1686,9 +1758,9 @@ func (ops *BPFOps) StateIsEmpty() bool {
 func (ops *BPFOps) StateSummary() string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "serviceIDs: %d\n", len(ops.serviceIDAlloc.idToAddr))
+	fmt.Fprintf(&b, "serviceIDs: %d\n", len(ops.serviceIDAlloc.idToAddrs))
 	fmt.Fprintf(&b, "restoredServiceIDs: %d\n", len(ops.restoredServiceIDs))
-	fmt.Fprintf(&b, "backendIDs: %d\n", len(ops.backendIDAlloc.idToAddr))
+	fmt.Fprintf(&b, "backendIDs: %d\n", len(ops.backendIDAlloc.idToAddrs))
 	fmt.Fprintf(&b, "restoredBackendIDs: %d\n", len(ops.restoredBackendIDs))
 	fmt.Fprintf(&b, "backendStates: %d\n", len(ops.backendStates))
 	fmt.Fprintf(&b, "backendReferences: %d\n", len(ops.backendReferences))
