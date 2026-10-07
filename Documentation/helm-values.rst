@@ -3868,6 +3868,10 @@
      - Set to ``true`` and helm will not check for monitoring.coreos.com/v1 CRDs before deploying
      - bool
      - ``false``
+   * - :spelling:ignore:`rbac.aggregate.enabled`
+     - Create ClusterRoles that aggregate Cilium custom resources into the builtin ``view`` (read access) and ``edit``\ /\ ``admin`` (read access plus write access to CiliumNetworkPolicy and Envoy configs) ClusterRoles. Requires ``rbac.create``.
+     - bool
+     - ``true``
    * - :spelling:ignore:`rbac.create`
      - Enable creation of Resource-Based Access Control configuration.
      - bool
