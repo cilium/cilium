@@ -6,6 +6,7 @@ package agent
 import (
 	"context"
 	"iter"
+	"net/netip"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -27,7 +28,40 @@ func (a *Agent) Update(
 	if n.WireguardPubKey == "" {
 		return a.deletePeer(n.Fullname())
 	}
-	return a.updatePeer(n.Fullname(), n.WireguardPubKey, n.GetNodeIP(false).AsSlice(), n.GetNodeIP(true).AsSlice())
+	return a.updatePeer(
+		n.Fullname(),
+		n.WireguardPubKey,
+		n.GetNodeIP(false).AsSlice(),
+		n.GetNodeIP(true).AsSlice(),
+		nodeOwnedAllowedIPs(n)...,
+	)
+}
+
+// nodeOwnedAllowedIPs returns the remote node's health, ingress, and pod
+// allocation prefixes that must be present in the WireGuard peer AllowedIPs
+// when running in native routing mode. These prefixes are published on the
+// CiliumNode object and cover traffic that is otherwise missing from the
+// IPCache-driven AllowedIPs path (see https://github.com/cilium/cilium/issues/44915).
+func nodeOwnedAllowedIPs(n *node.Node) []netip.Prefix {
+	if n == nil {
+		return nil
+	}
+
+	prefixes := make([]netip.Prefix, 0, 4+len(n.GetIPv4AllocCIDRs())+len(n.GetIPv6AllocCIDRs()))
+	for _, addr := range []netip.Addr{
+		n.IPv4HealthIP.Addr,
+		n.IPv6HealthIP.Addr,
+		n.IPv4IngressIP.Addr,
+		n.IPv6IngressIP.Addr,
+	} {
+		if !addr.IsValid() {
+			continue
+		}
+		prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
+	}
+	prefixes = append(prefixes, n.GetIPv4AllocCIDRs()...)
+	prefixes = append(prefixes, n.GetIPv6AllocCIDRs()...)
+	return prefixes
 }
 
 func (a *Agent) Delete(
