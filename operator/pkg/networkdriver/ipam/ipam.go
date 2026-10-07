@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/allocator/multipool"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
-	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	ciliumv2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -28,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	networkdriverConfig "github.com/cilium/cilium/pkg/networkdriver/config"
+	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
 )
 
 type allocatorParams struct {
@@ -44,19 +44,6 @@ type allocatorParams struct {
 }
 
 var (
-	resourceMultiPoolAccessor = ipam.PoolSpecAccessors{
-		FromResource: func(node *ciliumv2.CiliumNode) ipamTypes.IPAMPoolSpec {
-			return node.Spec.IPAM.ResourcePools
-		},
-		ToResource: func(node *ciliumv2.CiliumNode, spec ipamTypes.IPAMPoolSpec) bool {
-			if node.Spec.IPAM.ResourcePools.DeepEqual(&spec) {
-				return false
-			}
-			node.Spec.IPAM.ResourcePools = spec
-			return true
-		},
-	}
-
 	resourceMultiPoolStatusAccessor = ipam.OperatorStatusAccessors{
 		FromResource: func(node *ciliumv2.CiliumNode) string {
 			return node.Status.IPAM.OperatorStatus.ResourceIPAMError
@@ -83,7 +70,7 @@ func registerAllocator(p allocatorParams) {
 		p.Logger,
 		allocator,
 		p.Clientset.CiliumV2().CiliumNodes(),
-		resourceMultiPoolAccessor,
+		networkdriverIPAM.ResourceMultiPoolAccessor,
 		resourceMultiPoolStatusAccessor,
 	)
 
