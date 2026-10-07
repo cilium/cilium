@@ -1875,21 +1875,15 @@ int cil_to_host(struct __ctx_buff *ctx)
 #endif /* !TUNNEL_MODE */
 
 # ifdef ENABLE_NODEPORT
-	if (!ctx_is_encrypt(ctx))
-		goto skip_ipsec_nodeport_revdnat;
-
-	if (!validate_ethertype(ctx, &proto))
-		goto skip_ipsec_nodeport_revdnat;
-
-	/* handle_nat_fwd() tail calls in the majority of cases, so control
-	 * might never return to this program. Since IPsec is not compatible
-	 * iwth Host Firewall, this won't be an issue.
-	 */
-	ret = handle_nat_fwd(ctx, 0, src_id, proto, true, &trace, &ext_err);
-	if (IS_ERR(ret))
-		goto out;
-
-skip_ipsec_nodeport_revdnat:
+	if (ctx_is_encrypt(ctx) && validate_ethertype(ctx, &proto)) {
+		/* handle_nat_fwd() tail calls in the majority of cases, so control
+		 * might never return to this program. Since IPsec is not compatible
+		 * iwth Host Firewall, this won't be an issue.
+		 */
+		ret = handle_nat_fwd(ctx, 0, src_id, proto, true, &trace, &ext_err);
+		if (IS_ERR(ret))
+			goto out;
+	}
 # endif /* ENABLE_NODEPORT */
 
 #endif /* ENABLE_IPSEC */
