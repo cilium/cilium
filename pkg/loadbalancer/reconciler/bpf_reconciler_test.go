@@ -170,6 +170,8 @@ type faultyLBMaps struct {
 	failDeleteService     bool
 	failDeleteWildcard    bool
 	failDeleteSourceRange bool
+	failDeleteAffinity    bool
+	failDumpAffinity      bool
 	failDumpService       bool
 }
 
@@ -201,6 +203,20 @@ func (m *faultyLBMaps) DeleteSourceRange(key maps.SourceRangeKey) error {
 		return errors.New("delete source range failed")
 	}
 	return m.LBMaps.DeleteSourceRange(key)
+}
+
+func (m *faultyLBMaps) DeleteAffinityMatch(key *maps.AffinityMatchKey) error {
+	if m.failDeleteAffinity {
+		return errors.New("delete affinity match failed")
+	}
+	return m.LBMaps.DeleteAffinityMatch(key)
+}
+
+func (m *faultyLBMaps) DumpAffinityMatch(cb func(*maps.AffinityMatchKey, *maps.AffinityMatchValue)) error {
+	if m.failDumpAffinity {
+		return errors.New("dump affinity match failed")
+	}
+	return m.LBMaps.DumpAffinityMatch(cb)
 }
 
 var testServiceName = loadbalancer.NewServiceName("test", "test")
