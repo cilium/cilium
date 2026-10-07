@@ -168,21 +168,11 @@ func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, f
 		cfg.LabelPrefixes = append(cfg.LabelPrefixes, p)
 	}
 
-	hasReservedInclude := false
-	hasReservedExclude := false
-	for _, label := range cfg.LabelPrefixes {
-		if label.Source+":"+label.Prefix == reservedLabelsPattern {
-			if label.Ignore {
-				hasReservedExclude = true
-			} else {
-				hasReservedInclude = true
-			}
-		}
-	}
-	if (cfg.whitelist && !hasReservedInclude) || (!cfg.whitelist && hasReservedExclude) {
+	if identity, _ := cfg.filterLabels(labels.LabelHost); len(identity) == 0 {
 		logger.Error(
-			fmt.Sprintf("'%s' needs to be included in the final label list for "+
-				"Cilium to work properly.", reservedLabelsPattern),
+			fmt.Sprintf("Reserved labels must not be excluded for Cilium to work properly. "+
+				"Add '%s' or '%s' to your label configuration.",
+				reservedLabelsPattern, labels.LabelHost.String()),
 		)
 	}
 
