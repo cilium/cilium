@@ -163,14 +163,42 @@ type testCase struct {
 // faultyLBMaps wraps an LBMaps and can inject errors on UpdateService.
 type faultyLBMaps struct {
 	maps.LBMaps
-	fail bool
+	fail                    bool
+	failDeleteService       bool
+	failDeleteSourceRange   bool
+	failDumpService         bool
+	shouldFailUpdateService func(maps.ServiceKey) bool
 }
 
 func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValue) error {
 	if m.fail && key.GetBackendSlot() > 0 {
 		return errors.New("update service failed")
 	}
+	if m.shouldFailUpdateService != nil && m.shouldFailUpdateService(key) {
+		return errors.New("update service failed")
+	}
 	return m.LBMaps.UpdateService(key, value)
+}
+
+func (m *faultyLBMaps) DeleteService(key maps.ServiceKey) error {
+	if m.failDeleteService {
+		return errors.New("delete service failed")
+	}
+	return m.LBMaps.DeleteService(key)
+}
+
+func (m *faultyLBMaps) DumpService(cb func(maps.ServiceKey, maps.ServiceValue)) error {
+	if m.failDumpService {
+		return errors.New("dump service failed")
+	}
+	return m.LBMaps.DumpService(cb)
+}
+
+func (m *faultyLBMaps) DeleteSourceRange(key maps.SourceRangeKey) error {
+	if m.failDeleteSourceRange {
+		return errors.New("delete source range failed")
+	}
+	return m.LBMaps.DeleteSourceRange(key)
 }
 
 var testServiceName = loadbalancer.NewServiceName("test", "test")
@@ -1365,8 +1393,8 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, maps, "BPF maps not empty")
 
 		// Verify that all internal state has been cleaned up.
-		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
-		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddrs, "Backend ID allocations remain")
+		require.Empty(t, ops.serviceIDAlloc.idToAddrs, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remain")
 		require.Empty(t, ops.backendReferences, "Backend references remain")
 		require.Empty(t, ops.nodePortAddrByPort, "NodePort addrs state remain")

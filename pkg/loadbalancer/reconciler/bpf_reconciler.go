@@ -155,6 +155,9 @@ type BPFOps struct {
 	// This is used when updating to remove orphans.
 	prevSourceRanges map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]
 
+	// frontendFeatures records which ID-keyed maps a frontend may have used.
+	frontendFeatures map[loadbalancer.L3n4Addr]frontendFeatures
+
 	// nodePortAddrByPort are the last used NodePort addresses for a given NodePort
 	// (or HostPort) service (by port).
 	nodePortAddrByPort map[nodePortAddrKey][]netip.Addr
@@ -177,6 +180,13 @@ type backendState struct {
 	refCount int
 	id       loadbalancer.BackendID
 }
+
+type frontendFeatures uint8
+
+const (
+	frontendFeatureSessionAffinity frontendFeatures = 1 << iota
+	frontendFeatureMaglev
+)
 
 type bpfOpsParams struct {
 	cell.In
@@ -238,6 +248,7 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 	ops.backendReferences = map[loadbalancer.L3n4Addr]sets.Set[loadbalancer.L3n4Addr]{}
 	ops.nodePortAddrByPort = map[nodePortAddrKey][]netip.Addr{}
 	ops.prevSourceRanges = map[loadbalancer.L3n4Addr]sets.Set[netip.Prefix]{}
+	ops.frontendFeatures = map[loadbalancer.L3n4Addr]frontendFeatures{}
 
 	// Restore backend IDs
 	backendIDToAddress := map[loadbalancer.BackendID]loadbalancer.L3n4Addr{}
@@ -287,16 +298,22 @@ func (ops *BPFOps) ResetAndRestore() (err error) {
 
 		id := loadbalancer.ServiceID(master.GetRevNat())
 
+		// Reserve the ID for every address that may claim it, so that
+		// no other frontend is allocated the ID before the restored one is updated.
+		// The wildcard entries have no ID (0), which is never allocated.
+		restore := func(alias loadbalancer.L3n4Addr) {
+			ops.restoredServiceIDs[alias] = id
+			if id != 0 {
+				ops.serviceIDAlloc.reserveID(alias, id)
+			}
+		}
 		if addr.Protocol() == loadbalancer.ANY {
 			// Migrate from 'ANY' protocol by reusing the ID.
-			addr2 := loadbalancer.NewL3n4Addr(loadbalancer.TCP, addr.AddrCluster(), addr.Port(), addr.Scope())
-			ops.restoredServiceIDs[addr2] = id
-			addr2 = loadbalancer.NewL3n4Addr(loadbalancer.UDP, addr.AddrCluster(), addr.Port(), addr.Scope())
-			ops.restoredServiceIDs[addr2] = id
-			addr2 = loadbalancer.NewL3n4Addr(loadbalancer.SCTP, addr.AddrCluster(), addr.Port(), addr.Scope())
-			ops.restoredServiceIDs[addr2] = id
+			restore(loadbalancer.NewL3n4Addr(loadbalancer.TCP, addr.AddrCluster(), addr.Port(), addr.Scope()))
+			restore(loadbalancer.NewL3n4Addr(loadbalancer.UDP, addr.AddrCluster(), addr.Port(), addr.Scope()))
+			restore(loadbalancer.NewL3n4Addr(loadbalancer.SCTP, addr.AddrCluster(), addr.Port(), addr.Scope()))
 		} else {
-			ops.restoredServiceIDs[addr] = id
+			restore(addr)
 		}
 		ops.serviceIDAlloc.nextID = max(ops.serviceIDAlloc.nextID, id+1)
 
@@ -418,8 +435,16 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	// Drop any restored quarantine state
 	ops.deleteRestoredQuarantinedBackends(fe.Address)
 
-	// Delete Maglev.
-	if ops.useMaglev(fe) {
+	// The ID can be shared with restored protocol aliases of this frontend, which
+	// may not have been updated yet. State keyed by the ID alone is only removed
+	// together with the last owner of the IP family, as the reverse NAT and Maglev
+	// maps are separate for IPv4 and IPv6. State keyed by the ID and something else is
+	// removed unless another owner of the ID still refers to it.
+	lastOwner := !ops.serviceIDAlloc.otherOwnerMatches(fe.Address, feID, func(owner loadbalancer.L3n4Addr) bool {
+		return owner.IsIPv6() == fe.Address.IsIPv6()
+	})
+
+	if lastOwner && ops.frontendFeatures[fe.Address]&frontendFeatureMaglev != 0 {
 		if err := ops.LBMaps.DeleteMaglev(maps.MaglevOuterKey{RevNatID: uint16(feID)}, fe.Address.IsIPv6()); err != nil {
 			return fmt.Errorf("ops.LBMaps.DeleteMaglev failed: %w", err)
 		}
@@ -430,7 +455,7 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		// whether or not SessionAffinity is enabled as it might've been toggled by
 		// the user. Could optimize this by holding some more state if needed.
 		for addr := range ops.backendReferences[fe.Address] {
-			err := ops.deleteAffinityMatch(feID, ops.backendStates[addr].id)
+			err := ops.deleteAffinityMatch(fe.Address, feID, ops.backendStates[addr].id)
 			if err != nil {
 				return fmt.Errorf("delete affinity match %d: %w", feID, err)
 			}
@@ -476,14 +501,21 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 
-	err = ops.LBMaps.DeleteRevNat(revNatKey.ToNetwork())
-	if err != nil {
-		return fmt.Errorf("delete reverse nat %d: %w", feID, err)
+	if lastOwner {
+		err = ops.LBMaps.DeleteRevNat(revNatKey.ToNetwork())
+		if err != nil {
+			return fmt.Errorf("delete reverse nat %d: %w", feID, err)
+		}
 	}
 
 	if ops.extCfg.EnableSVCSourceRangeCheck {
 		for cidr := range ops.prevSourceRanges[fe.Address] {
 			if cidr.Addr().Is6() != fe.Address.IsIPv6() {
+				continue
+			}
+			if ops.serviceIDAlloc.otherClaimedOwnerMatches(fe.Address, feID, func(owner loadbalancer.L3n4Addr) bool {
+				return ops.prevSourceRanges[owner].Has(cidr)
+			}) {
 				continue
 			}
 			err := ops.LBMaps.DeleteSourceRange(
@@ -499,12 +531,37 @@ func (ops *BPFOps) deleteFrontend(fe *loadbalancer.Frontend) error {
 	// Decrease the backend reference counts and drop state associated with the frontend.
 	ops.updateBackendRefCounts(fe.Address, nil)
 	delete(ops.backendReferences, fe.Address)
-	ops.serviceIDAlloc.deleteLocalID(feID)
+	delete(ops.frontendFeatures, fe.Address)
+	ops.serviceIDAlloc.deleteLocalID(fe.Address)
 
 	return nil
 }
 
-func (ops *BPFOps) pruneServiceMaps() error {
+// usesAffinityMatch returns true if the frontend may have an affinity match for a backend
+// with the ID, which is the case for the backends it references while it uses session affinity.
+func (ops *BPFOps) usesAffinityMatch(fe loadbalancer.L3n4Addr, beID loadbalancer.BackendID) bool {
+	if ops.frontendFeatures[fe]&frontendFeatureSessionAffinity == 0 {
+		return false
+	}
+	for beAddr := range ops.backendReferences[fe] {
+		if ops.backendStates[beAddr].id == beID {
+			return true
+		}
+	}
+	return false
+}
+
+// serviceIDUse is a service ID that an entry of the frontend in the service map still has.
+type serviceIDUse struct {
+	addr loadbalancer.L3n4Addr
+	id   loadbalancer.ServiceID
+}
+
+// pruneServiceMaps deletes the stale service entries. It returns the IDs that the entries
+// it kept still have although their frontend was updated with another one, which is the
+// case if the update did not rewrite them yet. These IDs are not released.
+func (ops *BPFOps) pruneServiceMaps() (inUse sets.Set[serviceIDUse], _ error) {
+	inUse = sets.New[serviceIDUse]()
 	toDelete := []maps.ServiceKey{}
 	svcCB := func(svcKey maps.ServiceKey, svcValue maps.ServiceValue) {
 		svcKey = svcKey.ToHost()
@@ -524,6 +581,10 @@ func (ops *BPFOps) pruneServiceMaps() error {
 		expectedSlots := 0
 		if bes, ok := ops.backendReferences[addr]; ok {
 			expectedSlots = 1 + len(bes)
+		} else if _, claimed := ops.serviceIDAlloc.addrToId[addr]; claimed {
+			// A failed first update may not have recorded its backend references
+			// yet. Keep its master entry and the restored ID it still refers to.
+			expectedSlots = 1
 		}
 		if svcKey.GetBackendSlot()+1 > expectedSlots {
 			ops.log.Debug("pruneServiceMaps: deleting",
@@ -531,24 +592,30 @@ func (ops *BPFOps) pruneServiceMaps() error {
 				logfields.Address, addr)
 			toDelete = append(toDelete, svcKey.ToNetwork())
 
-			// Drop restored quarantined state
+			// Drop restored quarantined state.
 			if svcKey.GetBackendSlot() > 0 {
-				if beAddr, found := ops.backendIDAlloc.idToAddr[svcValue.GetBackendID()]; found {
+				for beAddr := range ops.backendIDAlloc.idToAddrs[svcValue.GetBackendID()].Members() {
 					ops.deleteRestoredQuarantinedBackends(addr, beAddr)
 				}
 			}
+		} else if id := loadbalancer.ServiceID(svcValue.GetRevNat()); id != 0 && ops.serviceIDAlloc.addrToId[addr] != id {
+			inUse.Insert(serviceIDUse{addr: addr, id: id})
 		}
 	}
+
+	var errs []error
 	if err := ops.LBMaps.DumpService(svcCB); err != nil {
 		ops.log.Warn("Failed to dump service maps", logfields.Error, err)
+		errs = append(errs, fmt.Errorf("dump service maps: %w", err))
 	}
 
 	for _, key := range toDelete {
 		if err := ops.LBMaps.DeleteService(key); err != nil {
 			ops.log.Warn("Failed to delete from service map while pruning", logfields.Error, err)
+			errs = append(errs, fmt.Errorf("delete from service map: %w", err))
 		}
 	}
-	return nil
+	return inUse, errors.Join(errs...)
 }
 
 func (ops *BPFOps) pruneBackendMaps() error {
@@ -576,17 +643,59 @@ func (ops *BPFOps) pruneBackendMaps() error {
 	return nil
 }
 
-func (ops *BPFOps) pruneRestoredIDs() error {
+func (ops *BPFOps) pruneAffinityMatches() error {
+	toDelete := []maps.AffinityMatchKey{}
+	cb := func(key *maps.AffinityMatchKey, _ *maps.AffinityMatchValue) {
+		key = key.ToHost()
+		// An affinity match is OK if one of the frontends claimed with this ID uses it.
+		ok := ops.serviceIDAlloc.claimedOwnerMatches(loadbalancer.ServiceID(key.RevNATID), func(owner loadbalancer.L3n4Addr) bool {
+			return ops.usesAffinityMatch(owner, key.BackendID)
+		})
+		if !ok {
+			ops.log.Debug("pruneAffinityMatches: enqueuing for deletion",
+				logfields.ID, key.RevNATID,
+				logfields.BackendID, key.BackendID)
+			toDelete = append(toDelete, *key)
+		}
+	}
+	if err := ops.LBMaps.DumpAffinityMatch(cb); err != nil {
+		return err
+	}
+
+	var errs []error
+	for _, key := range toDelete {
+		if err := ops.LBMaps.DeleteAffinityMatch(key.ToNetwork()); err != nil {
+			ops.log.Warn("Failed to delete from affinity match map",
+				logfields.ID, key.RevNATID,
+				logfields.BackendID, key.BackendID,
+				logfields.Error, err)
+			errs = append(errs, err)
+		}
+	}
+	return errors.Join(errs...)
+}
+
+// pruneRestoredIDs releases the restored IDs that no frontend has claimed, except the ones
+// that the entries of a frontend still have (inUse). It must only be called once the stale
+// state keyed by these IDs has been removed, as the IDs can be allocated again afterwards.
+func (ops *BPFOps) pruneRestoredIDs(inUse sets.Set[serviceIDUse]) {
+	ops.serviceIDAlloc.releaseUnclaimed(func(addr loadbalancer.L3n4Addr, id loadbalancer.ServiceID) bool {
+		return inUse.Has(serviceIDUse{addr: addr, id: id})
+	})
 	ops.restoredServiceIDs = nil
 	ops.restoredBackendIDs = nil
-	return nil
 }
 
 func (ops *BPFOps) pruneRevNat() error {
 	toDelete := []maps.RevNatKey{}
 	cb := func(key maps.RevNatKey, value maps.RevNatValue) {
 		key = key.ToHost()
-		if _, ok := ops.serviceIDAlloc.idToAddr[key.GetKey()]; !ok {
+		// The IDs that no frontend has claimed are stale.
+		_, ipv6 := key.(*maps.RevNat6Key)
+		claimed := ops.serviceIDAlloc.claimedOwnerMatches(key.GetKey(), func(owner loadbalancer.L3n4Addr) bool {
+			return owner.IsIPv6() == ipv6
+		})
+		if !claimed {
 			ops.log.Debug("pruneRevNat: enqueing for deletion", logfields.ID, key.GetKey())
 			toDelete = append(toDelete, key)
 		}
@@ -613,18 +722,15 @@ func (ops *BPFOps) pruneSourceRanges() error {
 	cb := func(key maps.SourceRangeKey, value *maps.SourceRangeValue) {
 		key = key.ToHost()
 
-		// A SourceRange is OK if there's a service with this ID and the
-		// CIDR is part of the current set.
-		addr, ok := ops.serviceIDAlloc.idToAddr[key.GetRevNATID()]
-		if ok {
-			cidr := key.GetCIDR()
-			cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
-			ones, _ := cidr.Mask.Size()
-			prefix := netip.PrefixFrom(cidrAddr, ones)
-			var cidrs sets.Set[netip.Prefix]
-			cidrs, ok = ops.prevSourceRanges[addr]
-			ok = ok && cidrs.Has(prefix)
-		}
+		// A SourceRange is OK if one of the frontends claimed with this ID has
+		// the CIDR in its current set.
+		cidr := key.GetCIDR()
+		cidrAddr, _ := netip.AddrFromSlice(cidr.IP)
+		ones, _ := cidr.Mask.Size()
+		prefix := netip.PrefixFrom(cidrAddr, ones)
+		ok := ops.serviceIDAlloc.claimedOwnerMatches(key.GetRevNATID(), func(owner loadbalancer.L3n4Addr) bool {
+			return ops.prevSourceRanges[owner].Has(prefix)
+		})
 		if !ok {
 			ops.log.Debug("pruneSourceRanges: enqueing for deletion",
 				logfields.ID, key.GetRevNATID(),
@@ -636,13 +742,15 @@ func (ops *BPFOps) pruneSourceRanges() error {
 	if err != nil {
 		return err
 	}
+	var errs []error
 	for _, key := range toDelete {
 		err := ops.LBMaps.DeleteSourceRange(key.ToNetwork())
 		if err != nil {
 			ops.log.Warn("Failed to delete from source range map", logfields.Error, err)
+			errs = append(errs, fmt.Errorf("delete from source range map: %w", err))
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (ops *BPFOps) pruneMaglev() error {
@@ -652,7 +760,12 @@ func (ops *BPFOps) pruneMaglev() error {
 	}
 	toDelete := []outerKeyWithIPVersion{}
 	cb := func(key maps.MaglevOuterKey, _ maps.MaglevOuterVal, _ maps.MaglevInnerKey, _ *maps.MaglevInnerVal, ipv6 bool) {
-		if _, ok := ops.serviceIDAlloc.idToAddr[loadbalancer.ServiceID(key.RevNatID)]; !ok {
+		// A Maglev table is OK if one of the frontends of this IP family claimed with
+		// this ID may have it.
+		ok := ops.serviceIDAlloc.claimedOwnerMatches(loadbalancer.ServiceID(key.RevNatID), func(owner loadbalancer.L3n4Addr) bool {
+			return owner.IsIPv6() == ipv6 && ops.frontendFeatures[owner]&frontendFeatureMaglev != 0
+		})
+		if !ok {
 			ops.log.Debug("pruneMaglev: enqueing for deletion", logfields.ID, key.RevNatID)
 			toDelete = append(toDelete, outerKeyWithIPVersion{key, ipv6})
 		}
@@ -680,14 +793,21 @@ func (ops *BPFOps) Prune(_ context.Context, _ statedb.ReadTxn, _ iter.Seq2[*load
 	defer ops.mu.Unlock()
 	defer func() { ops.pruneCount.Add(1) }()
 	ops.log.Debug("Pruning")
-	return errors.Join(
-		ops.pruneRestoredIDs(),
-		ops.pruneServiceMaps(),
+	// The restored IDs are only dropped once the stale service slots, source ranges,
+	// affinity matches and Maglev entries keyed by them are gone.
+	inUse, svcErr := ops.pruneServiceMaps()
+	if err := errors.Join(
+		svcErr,
+		ops.pruneAffinityMatches(),
 		ops.pruneBackendMaps(),
 		ops.pruneRevNat(),
 		ops.pruneSourceRanges(),
 		ops.pruneMaglev(),
-	)
+	); err != nil {
+		return err
+	}
+	ops.pruneRestoredIDs(inUse)
+	return nil
 }
 
 // Update implements reconciler.Operations.
@@ -799,6 +919,12 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		}
 	}
 	fe.ID = loadbalancer.ServiceID(feID)
+	if ops.extCfg.EnableSessionAffinity && svc.SessionAffinity {
+		ops.frontendFeatures[fe.Address] |= frontendFeatureSessionAffinity
+	}
+	if ops.useMaglev(fe) {
+		ops.frontendFeatures[fe.Address] |= frontendFeatureMaglev
+	}
 
 	var svcKey maps.ServiceKey
 	var svcVal maps.ServiceValue
@@ -872,16 +998,25 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		backendAddrs.Insert(be.Address)
 	}
 
+	// Affinity matches can be shared by restored aliases even when a backend
+	// remains referenced elsewhere.
+	if ops.extCfg.EnableSessionAffinity {
+		for addr := range ops.backendReferences[fe.Address] {
+			if backendAddrs.Has(addr) {
+				continue
+			}
+			beID := ops.backendStates[addr].id
+			if err := ops.deleteAffinityMatch(fe.Address, feID, beID); err != nil {
+				return fmt.Errorf("delete affinity match: %w", err)
+			}
+		}
+	}
+
 	for _, orphanState := range ops.orphanBackends(fe.Address, backendAddrs) {
 		ops.log.Debug("Delete orphan backend", logfields.Address, orphanState.addr)
 		ops.deleteRestoredQuarantinedBackends(fe.Address, orphanState.addr)
 		if err := ops.deleteBackend(orphanState.addr.IsIPv6(), orphanState.id); err != nil {
 			return fmt.Errorf("delete backend: %w", err)
-		}
-		if ops.extCfg.EnableSessionAffinity {
-			if err := ops.deleteAffinityMatch(feID, orphanState.id); err != nil {
-				return fmt.Errorf("delete affinity match: %w", err)
-			}
 		}
 		ops.releaseBackend(orphanState.id, orphanState.addr)
 	}
@@ -971,7 +1106,7 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 			} else {
 				// SessionAffinity either disabled or backend not active, no matter which
 				// clean up any affinity match that might exist.
-				if err := ops.deleteAffinityMatch(feID, beID); err != nil {
+				if err := ops.deleteAffinityMatch(fe.Address, feID, beID); err != nil {
 					return fmt.Errorf("delete affinity match: %w", err)
 				}
 			}
@@ -993,6 +1128,9 @@ func (ops *BPFOps) updateFrontend(fe *loadbalancer.Frontend) error {
 		slotID++
 	}
 	backendCount := slotID - 1
+	if !svc.SessionAffinity {
+		ops.frontendFeatures[fe.Address] &^= frontendFeatureSessionAffinity
+	}
 
 	if activeCount == 0 {
 		// If there are no active backends we can use the terminating backends.
@@ -1234,7 +1372,13 @@ func (ops *BPFOps) upsertAffinityMatch(id loadbalancer.ServiceID, beID loadbalan
 	return ops.LBMaps.UpdateAffinityMatch(key.ToNetwork(), &value)
 }
 
-func (ops *BPFOps) deleteAffinityMatch(id loadbalancer.ServiceID, beID loadbalancer.BackendID) error {
+func (ops *BPFOps) deleteAffinityMatch(fe loadbalancer.L3n4Addr, id loadbalancer.ServiceID, beID loadbalancer.BackendID) error {
+	// Restored aliases can share the match even when they have different backend addresses.
+	if ops.serviceIDAlloc.otherClaimedOwnerMatches(fe, id, func(owner loadbalancer.L3n4Addr) bool {
+		return ops.usesAffinityMatch(owner, beID)
+	}) {
+		return nil
+	}
 	key := &maps.AffinityMatchKey{
 		BackendID: beID,
 		RevNATID:  uint16(id),
@@ -1350,7 +1494,7 @@ func (ops *BPFOps) updateBackendRevision(id loadbalancer.BackendID, addr loadbal
 // successfully.
 func (ops *BPFOps) releaseBackend(id loadbalancer.BackendID, addr loadbalancer.L3n4Addr) {
 	delete(ops.backendStates, addr)
-	ops.backendIDAlloc.deleteLocalID(id)
+	ops.backendIDAlloc.deleteLocalID(addr)
 }
 
 func (ops *BPFOps) computeMaglevTable(bes []backendWithRevision) ([]loadbalancer.BackendID, error) {
@@ -1429,9 +1573,9 @@ func (ops *BPFOps) StateIsEmpty() bool {
 func (ops *BPFOps) StateSummary() string {
 	var b strings.Builder
 
-	fmt.Fprintf(&b, "serviceIDs: %d\n", len(ops.serviceIDAlloc.idToAddr))
+	fmt.Fprintf(&b, "serviceIDs: %d\n", len(ops.serviceIDAlloc.idToAddrs))
 	fmt.Fprintf(&b, "restoredServiceIDs: %d\n", len(ops.restoredServiceIDs))
-	fmt.Fprintf(&b, "backendIDs: %d\n", len(ops.backendIDAlloc.idToAddr))
+	fmt.Fprintf(&b, "backendIDs: %d\n", len(ops.backendIDAlloc.idToAddrs))
 	fmt.Fprintf(&b, "restoredBackendIDs: %d\n", len(ops.restoredBackendIDs))
 	fmt.Fprintf(&b, "backendStates: %d\n", len(ops.backendStates))
 	fmt.Fprintf(&b, "backendReferences: %d\n", len(ops.backendReferences))
