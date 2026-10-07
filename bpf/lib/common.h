@@ -192,6 +192,8 @@ enum metric_dir {
  * The 4 bits at 0xF000 provide
  *  - the key index to use for encryption when multiple keys are in-flight.
  *    In the IPsec case this becomes the SPI on the wire.
+ *  - the 2 local-scope identity bits at 0x3000 when the mark carries a
+ *    security identity.
  */
 /*						Packet mark content: */
 #define MARK_MAGIC_HOST_MASK		0x0F00

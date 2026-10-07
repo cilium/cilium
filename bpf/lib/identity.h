@@ -60,6 +60,9 @@ static __always_inline __u32 world_ipv6_id(void)
  */
 #define CIDR_IDENTITY_RANGE_END ((1 << 24) + (1 << 16) - 1)
 
+#define MARK_IDENTITY_LOCAL_SCOPE_MASK 0x3000
+#define MARK_IDENTITY_LOCAL_SCOPE_SHIFT 12
+
 /**
  * get_identity - returns source identity from the mark field
  *
@@ -69,11 +72,12 @@ static __always_inline __u32 world_ipv6_id(void)
  * we need to rearrange it back to the original format.
  *
  * Example mark containing identity, where I is a bit for identity, C is a bit
- * for cluster_id, and X is a bit that should not be touched by this function:
- * IIIIIIII IIIIIIII XXXXXXXX CCCCCCCC
+ * for cluster_id, S is a bit for local scope, and X is a bit that should not
+ * be touched by this function:
+ * IIIIIIII IIIIIIII XXSSXXXX CCCCCCCC
  *
  * This function should return an identity that looks like the following:
- * CCCCCCCC IIIIIIII IIIIIIII
+ * 000000SS CCCCCCCC IIIIIIII IIIIIIII
  *
  * The agent flag 'max-connected-clusters' can effect the allocation of bits
  * for identity and cluster_id in the mark (see comment in set_identity_mark).
@@ -87,20 +91,23 @@ get_identity(const struct __ctx_buff *ctx __maybe_unused)
 	__u32 cluster_id_upper = (ctx->mark & get_cluster_id_upper_mask()) >>
 				      (8 + IDENTITY_LOCAL_BITS);
 	__u32 identity = (ctx->mark >> 16) & IDENTITY_LOCAL_MAX;
+	__u32 local_scope = (ctx->mark & MARK_IDENTITY_LOCAL_SCOPE_MASK) <<
+			    MARK_IDENTITY_LOCAL_SCOPE_SHIFT;
 
-	return (cluster_id_lower | cluster_id_upper) << IDENTITY_LOCAL_BITS | identity;
+	return local_scope | (cluster_id_lower | cluster_id_upper) << IDENTITY_LOCAL_BITS |
+	       identity;
 #else /* __ctx_is == __ctx_xdp */
 	return 0;
 #endif /* __ctx_is == __ctx_xdp */
 }
 
 /**
- * set_identity_mark - pushes 24 bit identity into ctx mark value.
+ * set_identity_mark - pushes 24 bit identity and 2 local-scope bits into ctx mark value.
  *
  * Identity in the mark looks like the following, where I is a bit for
- * identity, C is a bit for cluster_id, and X is a bit that should not be
- * touched by this function:
- * IIIIIIII IIIIIIII XXXXXXXX CCCCCCCC
+ * identity, C is a bit for cluster_id, S is a bit for local scope, and X is a
+ * bit that should not be touched by this function:
+ * IIIIIIII IIIIIIII XXSSXXXX CCCCCCCC
  *
  * With the agent flag 'max-connected-clusters', it is possible to extend the
  * cluster_id range by sacrificing some bits of the identity. When this is set
@@ -109,7 +116,7 @@ get_identity(const struct __ctx_buff *ctx __maybe_unused)
  *
  * An agent with 'max-connected-clusters=511' would set identity in the mark
  * like the following:
- * CIIIIIII IIIIIIII XXXXXXXX CCCCCCCC
+ * CIIIIIII IIIIIIII XXSSXXXX CCCCCCCC
  */
 static __always_inline __maybe_unused void
 set_identity_mark(struct __ctx_buff *ctx __maybe_unused, __u32 identity __maybe_unused,
@@ -120,6 +127,8 @@ set_identity_mark(struct __ctx_buff *ctx __maybe_unused, __u32 identity __maybe_
 
 	ctx->mark = format_cluster_id_mark(cluster_id);
 	ctx->mark |= magic & MARK_MAGIC_KEY_MASK;
+	ctx->mark |= (identity >> MARK_IDENTITY_LOCAL_SCOPE_SHIFT) &
+		     MARK_IDENTITY_LOCAL_SCOPE_MASK;
 	ctx->mark |= (identity & IDENTITY_LOCAL_MAX) << 16;
 #endif
 }
