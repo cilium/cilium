@@ -165,12 +165,19 @@ type testCase struct {
 // faultyLBMaps wraps an LBMaps and can inject errors on map operations.
 type faultyLBMaps struct {
 	maps.LBMaps
-	fail              bool
-	failDeleteService bool
+	fail                    bool
+	failDeleteService       bool
+	failDeleteSourceRange   bool
+	failDumpService         bool
+	failUpdateBackend       bool
+	shouldFailUpdateService func(maps.ServiceKey) bool
 }
 
 func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValue) error {
 	if m.fail && key.GetBackendSlot() > 0 {
+		return errors.New("update service failed")
+	}
+	if m.shouldFailUpdateService != nil && m.shouldFailUpdateService(key.ToHost()) {
 		return errors.New("update service failed")
 	}
 	return m.LBMaps.UpdateService(key, value)
@@ -181,6 +188,27 @@ func (m *faultyLBMaps) DeleteService(key maps.ServiceKey) error {
 		return errors.New("delete service failed")
 	}
 	return m.LBMaps.DeleteService(key)
+}
+
+func (m *faultyLBMaps) DumpService(cb func(maps.ServiceKey, maps.ServiceValue)) error {
+	if m.failDumpService {
+		return errors.New("dump service failed")
+	}
+	return m.LBMaps.DumpService(cb)
+}
+
+func (m *faultyLBMaps) DeleteSourceRange(key maps.SourceRangeKey) error {
+	if m.failDeleteSourceRange {
+		return errors.New("delete source range failed")
+	}
+	return m.LBMaps.DeleteSourceRange(key)
+}
+
+func (m *faultyLBMaps) UpdateBackend(key maps.BackendKey, value maps.BackendValue) error {
+	if m.failUpdateBackend {
+		return errors.New("update backend failed")
+	}
+	return m.LBMaps.UpdateBackend(key, value)
 }
 
 var testServiceName = loadbalancer.NewServiceName("test", "test")
@@ -1426,15 +1454,15 @@ func TestBPFOps(t *testing.T) {
 		faultMaps.failDeleteService = false
 		require.Error(t, err)
 		require.NotZero(t, frontend.ID, "Frontend ID after failed withdrawal")
-		require.Equal(t, frontend.Address, ops.serviceIDAlloc.idToAddr[frontend.ID],
+		require.Equal(t, []loadbalancer.L3n4Addr{frontend.Address}, ops.serviceIDAlloc.idToAddrs[frontend.ID].AsSlice(),
 			"Frontend ID allocation after failed withdrawal")
 
 		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
 
 		require.Zero(t, frontend.ID, "withdrawn Frontend ID")
 		require.True(t, lbmaps.IsEmpty(), "BPF maps after Update")
-		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
-		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
+		require.Empty(t, ops.serviceIDAlloc.idToAddrs, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddrs, "Backend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remains")
 		require.Empty(t, ops.backendReferences, "Backend references remain")
 		require.Empty(t, ops.wildcardReferences, "Wildcard references remain")
@@ -1550,8 +1578,8 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, maps, "BPF maps not empty")
 
 		// Verify that all internal state has been cleaned up.
-		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
-		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddrs, "Backend ID allocations remain")
+		require.Empty(t, ops.serviceIDAlloc.idToAddrs, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remain")
 		require.Empty(t, ops.backendReferences, "Backend references remain")
 		require.Empty(t, ops.nodePortAddrByPort, "NodePort addrs state remain")
