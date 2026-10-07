@@ -149,12 +149,6 @@ metadata:
     kubernetes.io/hostname: test-node1
   name: test-node1
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -165,13 +159,6 @@ spec:
       - needed:
           ipv4-addrs: 4
         pool: green-pool
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- expected-v2.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -180,12 +167,6 @@ metadata:
     kubernetes.io/hostname: test-node1
   name: test-node1
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -204,13 +185,6 @@ spec:
       - needed:
           ipv4-addrs: 36
         pool: red-pool
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- expected-v3.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -219,12 +193,6 @@ metadata:
     kubernetes.io/hostname: test-node2
   name: test-node2
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -235,13 +203,6 @@ spec:
       - needed:
           ipv4-addrs: 4
         pool: green-pool
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- expected-v4.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -250,12 +211,6 @@ metadata:
     kubernetes.io/hostname: test-node3
   name: test-node3
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -266,10 +221,3 @@ spec:
       - needed:
           ipv4-addrs: 4
         pool: blue-pool
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}

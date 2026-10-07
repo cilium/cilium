@@ -104,14 +104,7 @@ kind: CiliumNode
 metadata:
   name: node-one
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
-    pools: {}
     resourcePools:
       allocated:
       - allowFirstIP: true
@@ -127,12 +120,6 @@ spec:
           ipv4-addrs: 5
           ipv6-addrs: 5
         pool: blue
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- node-one-return-red.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -189,14 +176,7 @@ kind: CiliumNode
 metadata:
   name: node-two
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
-    pools: {}
     resourcePools:
       allocated:
       - allowFirstIP: true
@@ -224,12 +204,6 @@ spec:
           ipv4-addrs: 5
           ipv6-addrs: 5
         pool: red
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- node-two-return-blue.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -282,14 +256,7 @@ kind: CiliumNode
 metadata:
   name: node-one
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
-    pools: {}
     resourcePools:
       allocated:
       - allowFirstIP: true
@@ -309,12 +276,6 @@ spec:
           ipv4-addrs: 13
           ipv6-addrs: 13
         pool: blue
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- node-one-two-pools.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -348,14 +309,7 @@ kind: CiliumNode
 metadata:
   name: node-one
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
-    pools: {}
     resourcePools:
       allocated:
       - allowFirstIP: true
@@ -383,12 +337,6 @@ spec:
           ipv4-addrs: 5
           ipv6-addrs: 5
         pool: red
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- node-two.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -409,14 +357,7 @@ kind: CiliumNode
 metadata:
   name: node-two
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
-    pools: {}
     resourcePools:
       allocated:
       - allowFirstIP: true
@@ -432,9 +373,3 @@ spec:
           ipv4-addrs: 5
           ipv6-addrs: 5
         pool: blue
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}

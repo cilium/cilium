@@ -108,12 +108,6 @@ metadata:
     kubernetes.io/hostname: test-node
   name: test-node
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -126,13 +120,6 @@ spec:
           ipv4-addrs: 16
           ipv6-addrs: 16
         pool: default
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- expected-after-pods-cilium-node.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -141,12 +128,6 @@ metadata:
     kubernetes.io/hostname: test-node
   name: test-node
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -159,13 +140,6 @@ spec:
           ipv4-addrs: 24
           ipv6-addrs: 24
         pool: default
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- operator-expanded-cilium-node.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -196,12 +170,6 @@ metadata:
     kubernetes.io/hostname: test-node
   name: test-node
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -216,13 +184,6 @@ spec:
           ipv4-addrs: 24
           ipv6-addrs: 24
         pool: default
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- expected-after-more-pods-cilium-node.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -231,12 +192,6 @@ metadata:
     kubernetes.io/hostname: test-node
   name: test-node
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -251,13 +206,6 @@ spec:
           ipv4-addrs: 32
           ipv6-addrs: 32
         pool: default
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- expected-ipam-dump.json --
 {
   "ipv4": {
