@@ -606,11 +606,17 @@ func TestPrivilegedDumpPerCPU(t *testing.T) {
 	}, dump)
 
 	require.Error(t, testMap.DeleteAll())
+
+	ok, _, err := testMap.LookupAndDelete(key1)
+	require.Error(t, err)
+	require.False(t, ok)
 }
 
 // Different than TestPrivilegedDumpPerCPU, this test uses a per-CPU hash map.
 // We expect ClearAll() to simply reinitialize entries to zero, while the
 // DeleteAll() to actually remove the entries from the map.
+// Also, LookupAndDelete() should correctly remove individual entries from the
+// map, differently than in previous test where it is not supported.
 func TestPrivilegedDumpPerCPUHash(t *testing.T) {
 	testMap := setupPerCPUHash(t)
 
@@ -655,6 +661,11 @@ func TestPrivilegedDumpPerCPUHash(t *testing.T) {
 	}, dump)
 
 	populate()
+
+	ok, _, err := testMap.LookupAndDelete(key1)
+	require.NoError(t, err)
+	require.True(t, ok)
+
 	require.NoError(t, testMap.DeleteAll())
 
 	dump = map[string][]uint32{}

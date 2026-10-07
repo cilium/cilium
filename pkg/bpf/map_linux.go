@@ -801,6 +801,48 @@ func (m *Map) DumpPerCPUWithCallback(cb DumpPerCPUCallback) error {
 	return i.Err()
 }
 
+// LookupAndDelete atomically looks up and deletes the entry for key.
+// For per-CPU maps, value is the slice of values observed across all CPUs
+// just before deletion. If the key does not exist, deleted is false and
+// value is nil, with a nil error.
+func (m *Map) LookupAndDelete(key MapKey) (deleted bool, value any, err error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if err = m.open(); err != nil {
+		return false, nil, err
+	}
+
+	var mv any
+	if m.hasPerCPUValue() {
+		mv = m.value.(MapPerCPUValue).NewSlice()
+	} else {
+		mv = m.value.New()
+	}
+
+	var duration *spanstat.SpanStat
+	if metrics.BPFSyscallDuration.IsEnabled() {
+		duration = spanstat.Start()
+	}
+
+	err = m.m.LookupAndDelete(key, mv)
+
+	if metrics.BPFSyscallDuration.IsEnabled() {
+		metrics.BPFSyscallDuration.WithLabelValues(metricOpDelete, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
+	}
+
+	if errors.Is(err, ebpf.ErrKeyNotExist) {
+		return false, nil, nil
+	}
+	if err != nil {
+		return false, nil, fmt.Errorf("unable to lookup and delete element %s from map %s: %w", key, m.name, err)
+	}
+
+	m.deleteMapEvent(key, nil)
+
+	return true, mv, nil
+}
+
 // DumpWithCallbackIfExists is similar to DumpWithCallback, but returns earlier
 // if the given map does not exist.
 func (m *Map) DumpWithCallbackIfExists(cb DumpCallback) error {
