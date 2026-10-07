@@ -31,6 +31,17 @@ import (
 
 const waitForPoolInStateDBTimeout = time.Minute
 
+// ErrPoolNotFound indicates that a pool is absent from the local StateDB table.
+type ErrPoolNotFound struct {
+	Pool Pool
+	// Synced reports whether the table's initial synchronization has completed.
+	Synced bool
+}
+
+func (e *ErrPoolNotFound) Error() string {
+	return fmt.Sprintf("IP pool '%s' not found in stateDB table", e.Pool)
+}
+
 var (
 	MultiPoolAccessor = PoolSpecAccessors{
 		FromResource: func(cn *ciliumv2.CiliumNode) types.IPAMPoolSpec {
@@ -165,9 +176,11 @@ func shouldSkipMasqForPool(db *statedb.DB, podIPPools statedb.Table[podippool.Lo
 			return true, nil
 		}
 		// Lookup the IP pool from stateDB and check if it has the explicit annotations
-		podIPPool, _, found := podIPPools.Get(db.ReadTxn(), podippool.ByName(string(pool)))
+		txn := db.ReadTxn()
+		podIPPool, _, found := podIPPools.Get(txn, podippool.ByName(string(pool)))
 		if !found {
-			return false, fmt.Errorf("IP pool '%s' not found in stateDB table", string(pool))
+			synced, _ := podIPPools.Initialized(txn)
+			return false, &ErrPoolNotFound{Pool: pool, Synced: synced}
 		}
 		if v, ok := podIPPool.Annotations[annotation.IPAMSkipMasquerade]; ok && v == "true" {
 			return true, nil

@@ -24,7 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-var errAllCIDRsExhausted = errors.New("all CIDR ranges are exhausted")
+// ErrAllCIDRsExhausted indicates that no CIDR in the pool has an available IP.
+var ErrAllCIDRsExhausted = errors.New("all CIDR ranges are exhausted")
 
 // A cidrPool manages the allocation of IPs in multiple CIDRs.
 // It maintains one IP allocator for each CIDR in the pool.
@@ -105,7 +106,7 @@ func (p *cidrPool) allocateNext() (netip.Addr, error) {
 		return ipAllocator.AllocateNext()
 	}
 
-	return netip.Addr{}, errAllCIDRsExhausted
+	return netip.Addr{}, ErrAllCIDRsExhausted
 }
 
 func (p *cidrPool) release(addr netip.Addr) {

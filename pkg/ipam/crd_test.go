@@ -154,6 +154,45 @@ func TestNodeStoreStaticIPStatus(t *testing.T) {
 	}
 }
 
+func TestNodeStoreAllocationErrors(t *testing.T) {
+	for _, tc := range []struct {
+		mode string
+		msg  string
+	}{
+		{ipamOption.IPAMCRD, "no IPs currently available on the node, allocation will be retried once IPs are added to CiliumNode spec.ipam.pool"},
+		{ipamOption.IPAMAlibabaCloud, "no IPs currently available on the node, allocation will be retried once Cilium Operator allocates more IPs"},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			store := &nodeStore{
+				conf:    &option.DaemonConfig{IPAM: tc.mode},
+				ownNode: &ciliumv2.CiliumNode{},
+			}
+			addr := netip.MustParseAddr("10.0.0.1")
+			allocatedAddr, info, err := store.allocateNext(nil, IPv4, "ns/pod")
+			require.False(t, allocatedAddr.IsValid())
+			require.Nil(t, info)
+			var noIPs *ErrNoAvailableIPs
+			require.ErrorAs(t, err, &noIPs)
+			require.Equal(t, tc.mode, noIPs.IPAMMode)
+			require.EqualError(t, err, tc.msg)
+
+			store.ownNode.Spec.IPAM.Pool = ipamTypes.AllocationMap{iputil.AddrFrom(addr): {Resource: "eni-1"}}
+			allocatedAddr, info, err = store.allocateNext(nil, IPv4, "ns/pod")
+			require.NoError(t, err)
+			require.Equal(t, addr, allocatedAddr)
+			require.Equal(t, "eni-1", info.Resource)
+
+			allocated := ipamTypes.AllocationMap{iputil.AddrFrom(addr): *info}
+			allocatedAddr, info, err = store.allocateNext(allocated, IPv4, "ns/pod")
+			require.False(t, allocatedAddr.IsValid())
+			require.Nil(t, info)
+			require.ErrorAs(t, err, &noIPs)
+			require.Equal(t, tc.mode, noIPs.IPAMMode)
+			require.EqualError(t, err, tc.msg)
+		})
+	}
+}
+
 func TestAutoDetectIPv4NativeRoutingCIDR(t *testing.T) {
 	const vpcCIDR = "10.10.0.0/16"
 
