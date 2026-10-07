@@ -4,12 +4,16 @@
 package ciliumendpointslice
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	k8sTesting "k8s.io/client-go/testing"
 
 	"github.com/cilium/cilium/operator/k8s"
@@ -208,6 +212,346 @@ func TestReconcileDeleteDefault(t *testing.T) {
 	assert.Equal(t, "ces1", deletedSlice)
 
 	hive.Stop(tlog, t.Context())
+}
+
+func TestReconcileDeleteEmptiesCESFirst(t *testing.T) {
+	var r *defaultReconciler
+	var fakeClient *k8sClient.FakeClientset
+	m := newDefaultManager(100, hivetest.Logger(t))
+	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+	var cesMetrics *Metrics
+	hive := hive.New(
+		k8sClient.FakeClientCell(),
+		k8s.ResourcesCell,
+		metrics.Metric(NewMetrics),
+		cell.Invoke(func(
+			c *k8sClient.FakeClientset,
+			cep resource.Resource[*cilium_v2.CiliumEndpoint],
+			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			metrics *Metrics,
+		) error {
+			fakeClient = c
+			ciliumEndpoint = cep
+			ciliumEndpointSlice = ces
+			cesMetrics = metrics
+			return nil
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	hive.Start(tlog, t.Context())
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
+	r.emptyBeforeDeleteThreshold = 3
+
+	fakeClient.CiliumFakeClientset.PrependReactor("update", "ciliumendpointslices", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+		written := action.(k8sTesting.UpdateAction).GetObject().(*cilium_v2a1.CiliumEndpointSlice).DeepCopy()
+		written.ResourceVersion = "6"
+		return true, written, nil
+	})
+	fakeClient.CiliumFakeClientset.PrependReactor("delete", "ciliumendpointslices", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+		return true, nil, nil
+	})
+
+	endpoints := make([]cilium_v2a1.CoreCiliumEndpoint, 0, 3)
+	for i := range 3 {
+		endpoints = append(endpoints, tu.CreateManagerEndpoint("cep"+strconv.Itoa(i), int64(i+1), "node1"))
+	}
+	ces := tu.CreateStoreEndpointSlice("ces1", "ns", endpoints)
+	ces.UID = types.UID("uid-ces1")
+	ces.ResourceVersion = "5"
+	cesStore.CacheStore().Add(ces)
+	m.mapping.insertCES(CESName("ces1"), "ns")
+
+	assert.NoError(t, r.reconcileCES(t.Context(), CESName("ces1")))
+
+	var writes []k8sTesting.Action
+	for _, action := range fakeClient.CiliumFakeClientset.Actions() {
+		if action.GetResource().Resource == "ciliumendpointslices" {
+			switch action.GetVerb() {
+			case "create", "update", "delete":
+				writes = append(writes, action)
+			}
+		}
+	}
+	assert.Len(t, writes, 2)
+
+	assert.Equal(t, "update", writes[0].GetVerb())
+	emptied := writes[0].(k8sTesting.UpdateAction).GetObject().(*cilium_v2a1.CiliumEndpointSlice)
+	assert.Equal(t, "ces1", emptied.Name)
+	assert.Equal(t, "ns", emptied.Namespace)
+	assert.Equal(t, "5", emptied.ResourceVersion, "the update must be based on the version in the store")
+	assert.NotNil(t, emptied.Endpoints, "endpoints is a required field")
+	assert.Empty(t, emptied.Endpoints)
+
+	assert.Equal(t, "delete", writes[1].GetVerb())
+	del := writes[1].(k8sTesting.DeleteAction)
+	assert.Equal(t, "ces1", del.GetName())
+	pre := del.GetDeleteOptions().Preconditions
+	assert.NotNil(t, pre, "the delete must be limited to the emptied version")
+	assert.Equal(t, types.UID("uid-ces1"), *pre.UID)
+	assert.Equal(t, "6", *pre.ResourceVersion)
+
+	// The object in the store must not have been modified.
+	assert.Len(t, ces.Endpoints, 3)
+
+	assert.NoError(t, hive.Stop(tlog, t.Context()))
+}
+
+func TestReconcileDeleteSmallCESDirectly(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		threshold int
+		endpoints int
+	}{
+		{name: "below threshold", threshold: 10, endpoints: 9},
+		{name: "disabled", threshold: 0, endpoints: 100},
+		{name: "negative threshold", threshold: -1, endpoints: 100},
+		{name: "no endpoints", threshold: 1, endpoints: 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var r *defaultReconciler
+			var fakeClient *k8sClient.FakeClientset
+			m := newDefaultManager(100, hivetest.Logger(t))
+			var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+			var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+			var cesMetrics *Metrics
+			hive := hive.New(
+				k8sClient.FakeClientCell(),
+				k8s.ResourcesCell,
+				metrics.Metric(NewMetrics),
+				cell.Invoke(func(
+					c *k8sClient.FakeClientset,
+					cep resource.Resource[*cilium_v2.CiliumEndpoint],
+					ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+					metrics *Metrics,
+				) error {
+					fakeClient = c
+					ciliumEndpoint = cep
+					ciliumEndpointSlice = ces
+					cesMetrics = metrics
+					return nil
+				}),
+			)
+
+			tlog := hivetest.Logger(t)
+			hive.Start(tlog, t.Context())
+			cepStore, _ := ciliumEndpoint.Store(t.Context())
+			cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+			r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
+			r.emptyBeforeDeleteThreshold = tc.threshold
+
+			fakeClient.CiliumFakeClientset.PrependReactor("update", "ciliumendpointslices", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+				written := action.(k8sTesting.UpdateAction).GetObject().(*cilium_v2a1.CiliumEndpointSlice).DeepCopy()
+				written.ResourceVersion = "6"
+				return true, written, nil
+			})
+			fakeClient.CiliumFakeClientset.PrependReactor("delete", "ciliumendpointslices", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+				return true, nil, nil
+			})
+
+			endpoints := make([]cilium_v2a1.CoreCiliumEndpoint, 0, tc.endpoints)
+			for i := range tc.endpoints {
+				endpoints = append(endpoints, tu.CreateManagerEndpoint("cep"+strconv.Itoa(i), int64(i+1), "node1"))
+			}
+			ces := tu.CreateStoreEndpointSlice("ces1", "ns", endpoints)
+			ces.UID = types.UID("uid-ces1")
+			ces.ResourceVersion = "5"
+			cesStore.CacheStore().Add(ces)
+			m.mapping.insertCES(CESName("ces1"), "ns")
+
+			assert.NoError(t, r.reconcileCES(t.Context(), CESName("ces1")))
+
+			var writes []k8sTesting.Action
+			for _, action := range fakeClient.CiliumFakeClientset.Actions() {
+				if action.GetResource().Resource == "ciliumendpointslices" {
+					switch action.GetVerb() {
+					case "create", "update", "delete":
+						writes = append(writes, action)
+					}
+				}
+			}
+			assert.Len(t, writes, 1)
+			assert.Equal(t, "delete", writes[0].GetVerb())
+			del := writes[0].(k8sTesting.DeleteAction)
+			assert.Equal(t, "ces1", del.GetName())
+			assert.Nil(t, del.GetDeleteOptions().Preconditions)
+
+			assert.NoError(t, hive.Stop(tlog, t.Context()))
+		})
+	}
+}
+
+func TestReconcileDeleteEmptyingFails(t *testing.T) {
+	var r *defaultReconciler
+	var fakeClient *k8sClient.FakeClientset
+	m := newDefaultManager(100, hivetest.Logger(t))
+	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+	var cesMetrics *Metrics
+	hive := hive.New(
+		k8sClient.FakeClientCell(),
+		k8s.ResourcesCell,
+		metrics.Metric(NewMetrics),
+		cell.Invoke(func(
+			c *k8sClient.FakeClientset,
+			cep resource.Resource[*cilium_v2.CiliumEndpoint],
+			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			metrics *Metrics,
+		) error {
+			fakeClient = c
+			ciliumEndpoint = cep
+			ciliumEndpointSlice = ces
+			cesMetrics = metrics
+			return nil
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	hive.Start(tlog, t.Context())
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
+	r.emptyBeforeDeleteThreshold = 1
+
+	fakeClient.CiliumFakeClientset.PrependReactor("update", "ciliumendpointslices", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+		return true, nil, k8serrors.NewConflict(schema.GroupResource{Group: "cilium.io", Resource: "ciliumendpointslices"}, "ces1", nil)
+	})
+	fakeClient.CiliumFakeClientset.PrependReactor("delete", "ciliumendpointslices", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+		return true, nil, nil
+	})
+
+	endpoints := make([]cilium_v2a1.CoreCiliumEndpoint, 0, 5)
+	for i := range 5 {
+		endpoints = append(endpoints, tu.CreateManagerEndpoint("cep"+strconv.Itoa(i), int64(i+1), "node1"))
+	}
+	ces := tu.CreateStoreEndpointSlice("ces1", "ns", endpoints)
+	ces.UID = types.UID("uid-ces1")
+	ces.ResourceVersion = "5"
+	cesStore.CacheStore().Add(ces)
+	m.mapping.insertCES(CESName("ces1"), "ns")
+
+	// The error is returned so that the CES is reconciled again, and the CES
+	// is not deleted with its endpoints still listed.
+	err := r.reconcileCES(t.Context(), CESName("ces1"))
+	assert.Error(t, err)
+	assert.True(t, k8serrors.IsConflict(err))
+
+	var writes []k8sTesting.Action
+	for _, action := range fakeClient.CiliumFakeClientset.Actions() {
+		if action.GetResource().Resource == "ciliumendpointslices" {
+			switch action.GetVerb() {
+			case "create", "update", "delete":
+				writes = append(writes, action)
+			}
+		}
+	}
+	assert.Len(t, writes, 1)
+	assert.Equal(t, "update", writes[0].GetVerb())
+
+	assert.NoError(t, hive.Stop(tlog, t.Context()))
+}
+
+// TestReconcileDeleteRetryAfterEmptied covers a failure between the two
+// writes: the CES has been written empty, but the delete (limited to that
+// version) fails. The error must be returned, and the retry, which sees the
+// emptied version in the store, must delete the CES directly, without
+// writing it again.
+func TestReconcileDeleteRetryAfterEmptied(t *testing.T) {
+	var r *defaultReconciler
+	var fakeClient *k8sClient.FakeClientset
+	m := newDefaultManager(100, hivetest.Logger(t))
+	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+	var cesMetrics *Metrics
+	hive := hive.New(
+		k8sClient.FakeClientCell(),
+		k8s.ResourcesCell,
+		metrics.Metric(NewMetrics),
+		cell.Invoke(func(
+			c *k8sClient.FakeClientset,
+			cep resource.Resource[*cilium_v2.CiliumEndpoint],
+			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			metrics *Metrics,
+		) error {
+			fakeClient = c
+			ciliumEndpoint = cep
+			ciliumEndpointSlice = ces
+			cesMetrics = metrics
+			return nil
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	hive.Start(tlog, t.Context())
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cepStore, cesStore, cesMetrics)
+	r.emptyBeforeDeleteThreshold = 3
+
+	fakeClient.CiliumFakeClientset.PrependReactor("update", "ciliumendpointslices", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+		written := action.(k8sTesting.UpdateAction).GetObject().(*cilium_v2a1.CiliumEndpointSlice).DeepCopy()
+		written.ResourceVersion = "6"
+		return true, written, nil
+	})
+	deletes := 0
+	fakeClient.CiliumFakeClientset.PrependReactor("delete", "ciliumendpointslices", func(action k8sTesting.Action) (bool, runtime.Object, error) {
+		deletes++
+		if deletes == 1 {
+			return true, nil, k8serrors.NewConflict(schema.GroupResource{Group: "cilium.io", Resource: "ciliumendpointslices"}, "ces1", nil)
+		}
+		return true, nil, nil
+	})
+
+	endpoints := make([]cilium_v2a1.CoreCiliumEndpoint, 0, 5)
+	for i := range 5 {
+		endpoints = append(endpoints, tu.CreateManagerEndpoint("cep"+strconv.Itoa(i), int64(i+1), "node1"))
+	}
+	ces := tu.CreateStoreEndpointSlice("ces1", "ns", endpoints)
+	ces.UID = types.UID("uid-ces1")
+	ces.ResourceVersion = "5"
+	cesStore.CacheStore().Add(ces)
+	m.mapping.insertCES(CESName("ces1"), "ns")
+
+	err := r.reconcileCES(t.Context(), CESName("ces1"))
+	assert.Error(t, err)
+	assert.True(t, k8serrors.IsConflict(err))
+
+	cesWrites := func() []k8sTesting.Action {
+		var writes []k8sTesting.Action
+		for _, action := range fakeClient.CiliumFakeClientset.Actions() {
+			if action.GetResource().Resource == "ciliumendpointslices" {
+				switch action.GetVerb() {
+				case "create", "update", "delete":
+					writes = append(writes, action)
+				}
+			}
+		}
+		return writes
+	}
+
+	writes := cesWrites()
+	assert.Len(t, writes, 2)
+	assert.Equal(t, "update", writes[0].GetVerb())
+	assert.Equal(t, "delete", writes[1].GetVerb())
+	assert.NotNil(t, writes[1].(k8sTesting.DeleteAction).GetDeleteOptions().Preconditions)
+
+	// The informer delivers the emptied version before the retry.
+	emptied := writes[0].(k8sTesting.UpdateAction).GetObject().(*cilium_v2a1.CiliumEndpointSlice).DeepCopy()
+	emptied.ResourceVersion = "6"
+	assert.NoError(t, cesStore.CacheStore().Update(emptied))
+
+	assert.NoError(t, r.reconcileCES(t.Context(), CESName("ces1")))
+	writes = cesWrites()
+	assert.Len(t, writes, 3, "the retry must not write the CES again")
+	assert.Equal(t, "delete", writes[2].GetVerb())
+	del := writes[2].(k8sTesting.DeleteAction)
+	assert.Equal(t, "ces1", del.GetName())
+	assert.Nil(t, del.GetDeleteOptions().Preconditions)
+
+	assert.NoError(t, hive.Stop(tlog, t.Context()))
 }
 
 func TestReconcileNoopDefault(t *testing.T) {

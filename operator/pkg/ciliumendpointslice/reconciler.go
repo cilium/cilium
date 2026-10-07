@@ -42,6 +42,11 @@ type reconciler struct {
 
 	cesManager     Manager
 	endpointGetter endpointGetter
+
+	// emptyBeforeDeleteThreshold: a CES whose last written version still
+	// lists at least this many endpoints is written empty before it is
+	// deleted. 0 disables it. See reconcileCESDelete.
+	emptyBeforeDeleteThreshold int
 }
 
 type defaultReconciler struct {
@@ -264,8 +269,35 @@ func (r *reconciler) reconcileCESUpdate(ctx context.Context, cesName CESName, ce
 func (r *reconciler) reconcileCESDelete(ctx context.Context, ces *cilium_v2a1.CiliumEndpointSlice) (err error) {
 	r.logger.DebugContext(ctx, "Reconciling CES Delete", logfields.CESName, ces.Name)
 	r.metrics.CiliumEndpointsChangeCount.WithLabelValues(LabelValueCEPRemove).Observe(float64(len(ces.Endpoints)))
+	deleteOptions := meta_v1.DeleteOptions{}
+
+	// Check if it's better to firstly UPDATE then DELETE CES. This avoids an
+	// expensive DELETE event that contains all endpoints of a CES.
+	if r.emptyBeforeDeleteThreshold > 0 && len(ces.Endpoints) >= r.emptyBeforeDeleteThreshold {
+		emptied := ces.DeepCopy()
+		// Not nil: endpoints is a required field.
+		emptied.Endpoints = []cilium_v2a1.CoreCiliumEndpoint{}
+		var updated *cilium_v2a1.CiliumEndpointSlice
+		if updated, err = r.client.CiliumEndpointSlices().Update(
+			ctx, emptied, meta_v1.UpdateOptions{}); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				r.logger.InfoContext(ctx,
+					"Unable to empty CiliumEndpointSlice before deleting it in k8s-apiserver",
+					logfields.CESName, ces.Name,
+					logfields.Error, err)
+			}
+			return
+		}
+		// delete the version written above
+		if updated != nil && updated.UID != "" && updated.ResourceVersion != "" {
+			deleteOptions.Preconditions = &meta_v1.Preconditions{
+				UID:             &updated.UID,
+				ResourceVersion: &updated.ResourceVersion,
+			}
+		}
+	}
 	if err = r.client.CiliumEndpointSlices().Delete(
-		ctx, ces.Name, meta_v1.DeleteOptions{}); err != nil && !errors.Is(err, context.Canceled) {
+		ctx, ces.Name, deleteOptions); err != nil && !errors.Is(err, context.Canceled) {
 		r.logger.InfoContext(ctx,
 			"Unable to delete CiliumEndpointSlice in k8s-apiserver",
 			logfields.CESName, ces.Name,
