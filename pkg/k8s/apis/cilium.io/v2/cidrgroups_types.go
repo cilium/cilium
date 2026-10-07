@@ -23,16 +23,20 @@ import (
 type CiliumCIDRGroup struct {
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
+	// metadata is the standard object metadata.
+	//
 	// +deepequal-gen=false
 	// +kubebuilder:validation:Optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
+	// spec defines the external CIDRs in the group.
+	//
 	// +kubebuilder:validation:Required
 	Spec CiliumCIDRGroupSpec `json:"spec"`
 }
 
 type CiliumCIDRGroupSpec struct {
-	// ExternalCIDRs is a list of CIDRs selecting peers outside the clusters.
+	// externalCIDRs is a list of CIDRs selecting peers outside the clusters.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=0

@@ -22,6 +22,7 @@ linters:
             enable:
               - optionalorrequired
               - duplicatemarkers
+              - commentstart
           lintersConfig:
             optionalorrequired:
               preferredOptionalMarker: "kubebuilder:validation:Optional"
@@ -29,6 +30,11 @@ linters:
 
   exclusions:
     rules:
+      # Adopt commentstart incrementally, starting with CiliumCIDRGroup.
+      - linters:
+          - kubeapilinter
+        path-except: pkg/k8s/apis/cilium\.io/(v2|v2alpha1)/cidrgroups_types\.go
+        text: '^commentstart:'
       - linters:
           - kubeapilinter
         path-except: pkg/k8s/apis/cilium\.io/(v2|v2alpha1)/.*types\.go

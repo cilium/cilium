@@ -44,9 +44,10 @@ spec:
           metadata:
             type: object
           spec:
+            description: spec defines the external CIDRs in the group.
             properties:
               externalCIDRs:
-                description: ExternalCIDRs is a list of CIDRs selecting peers outside
+                description: externalCIDRs is a list of CIDRs selecting peers outside
                   the clusters.
                 items:
                   description: |-
@@ -91,9 +92,10 @@ spec:
           metadata:
             type: object
           spec:
+            description: spec defines the external CIDRs in the group.
             properties:
               externalCIDRs:
-                description: ExternalCIDRs is a list of CIDRs selecting peers outside
+                description: externalCIDRs is a list of CIDRs selecting peers outside
                   the clusters.
                 items:
                   description: |-
