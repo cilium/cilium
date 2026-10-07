@@ -103,22 +103,18 @@ Before the migration, each ``CiliumNode`` stores its per-node allocation in
   $ kubectl get ciliumnode kind-worker -o yaml | yq .spec.ipam
   podCIDRs:
     - 10.0.3.0/24
-  pools: {}
 
   $ kubectl get ciliumnode kind-worker2 -o yaml | yq .spec.ipam
   podCIDRs:
     - 10.0.0.0/24
-  pools: {}
 
   $ kubectl get ciliumnode kind-worker3 -o yaml | yq .spec.ipam
   podCIDRs:
     - 10.0.1.0/24
-  pools: {}
 
   $ kubectl get ciliumnode kind-control-plane -o yaml | yq .spec.ipam
   podCIDRs:
     - 10.0.2.0/24
-  pools: {}
 
 Upgrade the Cilium Helm release to switch to multi-pool IPAM mode and enable
 the operator migration. This example uses
