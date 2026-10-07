@@ -16,12 +16,14 @@ import (
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/networkdriver/config"
+	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
@@ -44,6 +46,7 @@ var Cell = cell.Module(
 		newDeviceTable,
 		newAllocationTable,
 	),
+	networkdriverIPAM.Cell,
 	cell.Invoke(registerNetworkDriver),
 )
 
@@ -63,6 +66,7 @@ type networkDriverParams struct {
 	DeviceTable     statedb.RWTable[*DRADevice]
 	AllocationTable statedb.RWTable[*DRAAllocation]
 	LocalNodeStore  *node.LocalNodeStore
+	MultiPoolMgr    *ipam.MultiPoolManager
 }
 
 func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, cfg config.Config) resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig] {
@@ -137,6 +141,9 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		allocationTable: params.AllocationTable,
 		localNodeStore:  params.LocalNodeStore,
 		hostProcPath:    params.DaemonCfg.ProcFs,
+		multiPoolMgr:    params.MultiPoolMgr,
+		ipv4Enabled:     params.CellCfg.IPv4Enabled,
+		ipv6Enabled:     params.CellCfg.IPv6Enabled,
 	}
 
 	params.Lifecycle.Append(driver)
