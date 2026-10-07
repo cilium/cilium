@@ -40,7 +40,10 @@ func setBasePermutations(t *config.Node) {
 	t.EnableDropNotify = true
 	t.EnableIPMasqAgentIPv4 = true
 	t.EnableIPMasqAgentIPv6 = true
-	t.DSRCfg.EnableICMPErrors = true
+	t.DSRCfg = types.DSRConfig{
+		EnableICMPErrors: true,
+		EnableByUser:     true,
+	}
 	t.EnableIPSec = true
 }
 

@@ -1220,7 +1220,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
-	if (!is_defined(ENABLE_DSR) || (is_defined(ENABLE_DSR) && is_defined(ENABLE_DSR_BYUSER)) ||
+	if (!is_defined(ENABLE_DSR) || CONFIG(dsr_cfg).enable_by_user ||
 	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
 	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
 		if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
@@ -2489,7 +2489,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Otherwise, we would have tail-called back to
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
-	if (!is_defined(ENABLE_DSR) || (is_defined(ENABLE_DSR) && is_defined(ENABLE_DSR_BYUSER)) ||
+	if (!is_defined(ENABLE_DSR) || CONFIG(dsr_cfg).enable_by_user ||
 	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
 	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
 		/* If we're not in full DSR mode, reply traffic from remote backends
