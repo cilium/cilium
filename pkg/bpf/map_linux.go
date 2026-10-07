@@ -1263,7 +1263,9 @@ func (m *Map) DumpIfExists(hash map[string][]string) error {
 	return nil
 }
 
-func (m *Map) Lookup(key MapKey) (MapValue, error) {
+// Lookup looks up the entry for key.
+// For per-CPU maps, value is the slice of values observed across all CPUs.
+func (m *Map) Lookup(key MapKey) (any, error) {
 	if err := m.Open(); err != nil {
 		return nil, err
 	}
@@ -1276,7 +1278,12 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 		duration = spanstat.Start()
 	}
 
-	value := m.value.New()
+	var value any
+	if m.hasPerCPUValue() {
+		value = m.value.(MapPerCPUValue).NewSlice()
+	} else {
+		value = m.value.New()
+	}
 	err := m.m.Lookup(key, value)
 
 	if metrics.BPFSyscallDuration.IsEnabled() {

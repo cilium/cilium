@@ -595,6 +595,16 @@ func TestPrivilegedDumpPerCPU(t *testing.T) {
 		"key=2": {206},
 	}, dump)
 
+	value, err := testMap.Lookup(key2)
+	require.NoError(t, err)
+	var vals []uint32
+	for _, v := range *value.(*TestValues) {
+		if v.Value != 0 {
+			vals = append(vals, v.Value)
+		}
+	}
+	require.ElementsMatch(t, []uint32{206}, vals)
+
 	require.NoError(t, testMap.ClearAll())
 
 	dump = map[string][]uint32{}
@@ -661,6 +671,16 @@ func TestPrivilegedDumpPerCPUHash(t *testing.T) {
 	}, dump)
 
 	populate()
+
+	value, err := testMap.Lookup(key2)
+	require.NoError(t, err)
+	var vals []uint32
+	for _, v := range *value.(*TestValues) {
+		if v.Value != 0 {
+			vals = append(vals, v.Value)
+		}
+	}
+	require.ElementsMatch(t, []uint32{206, 11}, vals)
 
 	ok, _, err := testMap.LookupAndDelete(key1)
 	require.NoError(t, err)
