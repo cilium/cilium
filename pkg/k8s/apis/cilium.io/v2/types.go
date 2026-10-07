@@ -41,7 +41,7 @@ type CiliumEndpoint struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// +kubebuilder:validation:Optional
-	Status EndpointStatus `json:"status,omitempty"`
+	Status EndpointStatus `json:"status,omitzero"`
 }
 
 // EndpointPolicyState defines the state of the Policy mode: "enforcing", "non-enforcing", "disabled"
@@ -101,7 +101,7 @@ type EndpointStatus struct {
 	// Encryption is the encryption configuration of the node
 	//
 	// +kubebuilder:validation:Optional
-	Encryption EncryptionSpec `json:"encryption,omitempty"`
+	Encryption EncryptionSpec `json:"encryption,omitzero"`
 
 	// +kubebuilder:validation:Optional
 	Policy *EndpointPolicy `json:"policy,omitempty"`
@@ -151,7 +151,7 @@ type ControllerStatus struct {
 	// Status is the status of the controller
 	//
 	// +kubebuilder:validation:Optional
-	Status ControllerStatusStatus `json:"status,omitempty"`
+	Status ControllerStatusStatus `json:"status,omitzero"`
 
 	// UUID is the UUID of the controller
 	//
