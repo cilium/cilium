@@ -540,7 +540,7 @@ func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
 	// Shrink pool to a single CIDR
 	newCIDRs := []netip.Prefix{netip.MustParsePrefix("10.1.0.0/16")}
 
-	updated, err := p.updateCIDRSets(false, pool.v4, newCIDRs, 24)
+	updated, _, err := p.computeNewCIDRSets(false, pool.v4, newCIDRs, 24)
 	require.NoError(t, err)
 	require.Len(t, updated, 1)
 	require.True(t, updated[0].IsClusterCIDR(newCIDRs[0]))
