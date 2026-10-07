@@ -5,6 +5,7 @@ package networkdriver
 
 import (
 	"context"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -67,6 +68,65 @@ func TestSerializeDevice(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, dev.IfName(), restored.IfName())
 	})
+}
+
+func TestBuildDeviceStatus(t *testing.T) {
+	claim := &resourceapi.ResourceClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "claim", Namespace: "default"},
+	}
+	result := resourceapi.DeviceRequestAllocationResult{
+		Pool:   "pool",
+		Device: "device",
+	}
+	a := allocation{
+		Device:  &trackedDevice{name: "eth0"},
+		Manager: types.DeviceManagerTypeMock,
+		Config: types.DeviceConfig{
+			IPv4Addr: netip.MustParsePrefix("10.0.0.1/32"),
+			IPv6Addr: netip.MustParsePrefix("fd00::1/128"),
+		},
+	}
+
+	tests := []struct {
+		name        string
+		ipv4Enabled bool
+		ipv6Enabled bool
+		wantIPs     []string
+	}{
+		{
+			name:        "ipv4 only",
+			ipv4Enabled: true,
+			wantIPs:     []string{"10.0.0.1/32"},
+		},
+		{
+			name:        "ipv6 only",
+			ipv6Enabled: true,
+			wantIPs:     []string{"fd00::1/128"},
+		},
+		{
+			name:        "dual stack",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			wantIPs:     []string{"10.0.0.1/32", "fd00::1/128"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			driver := &Driver{
+				config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
+					DriverName: "testdriver",
+				},
+				ipv4Enabled: tt.ipv4Enabled,
+				ipv6Enabled: tt.ipv6Enabled,
+			}
+
+			status, err := driver.buildDeviceStatus(claim, result, a)
+			require.NoError(t, err)
+			require.NotNil(t, status.NetworkData)
+			require.ElementsMatch(t, tt.wantIPs, status.NetworkData.IPs)
+		})
+	}
 }
 
 func TestDeviceClaimConfigs(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"regexp"
 	"strings"
 
@@ -189,8 +190,11 @@ type DeviceManager interface {
 }
 
 type DeviceConfig struct {
-	PodIfName string `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
-	Vlan      int32  `json:"vlan,omitempty"`      // VLAN ID to assign to the device (0 = untagged / no change)
+	PodIfName string       `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
+	Vlan      int32        `json:"vlan,omitempty"`      // VLAN ID to assign to the device (0 = untagged / no change)
+	IPv4Addr  netip.Prefix `json:"ipv4Addr"`
+	IPv6Addr  netip.Prefix `json:"ipv6Addr"`
+	IPPool    string       `json:"ip-pool"`
 
 	// InterfaceSysctlIPv4/IPv6 hold leaf sysctl parameters (e.g.
 	// "arp_filter") applied under net.<family>.conf.<interface>. for the
@@ -202,9 +206,20 @@ type DeviceConfig struct {
 }
 
 func (d *DeviceConfig) Empty() bool {
-	return d == nil ||
-		(d.PodIfName == "" && d.Vlan == 0 &&
-			len(d.InterfaceSysctlIPv4) == 0 && len(d.InterfaceSysctlIPv6) == 0)
+	if d == nil {
+		return true
+	}
+	return d.PodIfName == "" &&
+		d.Vlan == 0 &&
+		!d.IPv4Addr.IsValid() &&
+		!d.IPv6Addr.IsValid() &&
+		d.IPPool == "" &&
+		len(d.InterfaceSysctlIPv4) == 0 &&
+		len(d.InterfaceSysctlIPv6) == 0
+}
+
+func (d *DeviceConfig) HasPool() bool {
+	return d.IPPool != ""
 }
 
 type SerializedDevice struct {
