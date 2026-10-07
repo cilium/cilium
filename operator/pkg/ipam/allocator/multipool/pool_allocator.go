@@ -297,23 +297,34 @@ func cidrPrefixes(cidrs []poolCIDRConfig) []netip.Prefix {
 	return prefixes
 }
 
-func setReservedRanges(allocators []cidralloc.CIDRAllocator, cidrs []poolCIDRConfig) error {
+type rangesReservation struct {
+	allocator cidralloc.CIDRAllocator
+	ranges    cidralloc.RangesToReserve
+}
+
+// computeRangesToReserve computes, for each allocator, the ranges that must be reserved.
+func computeRangesToReserve(allocators []cidralloc.CIDRAllocator, cidrs []poolCIDRConfig) ([]rangesReservation, error) {
 	reservedRanges := make(map[netip.Prefix][]netipx.IPRange, len(cidrs))
 	for i := range cidrs {
 		cidrConfig := &cidrs[i]
 		reservedRanges[cidrConfig.cidr] = cidrConfig.reservedRanges
 	}
 
+	allocatorsRangesToReserve := make([]rangesReservation, 0, len(reservedRanges))
 	for i := range allocators {
 		prefix := allocators[i].Prefix()
 		rangesToReserve, err := allocators[i].ComputeRangesToReserve(reservedRanges[prefix])
 		if err != nil {
-			return fmt.Errorf("failed to compute ranges to reserve for CIDR %s: %w", prefix, err)
+			return nil, fmt.Errorf("failed to compute ranges to reserve for CIDR %s: %w", prefix, err)
 		}
-		allocators[i].SetReservedRanges(rangesToReserve)
+
+		allocatorsRangesToReserve = append(allocatorsRangesToReserve, rangesReservation{
+			allocator: allocators[i],
+			ranges:    rangesToReserve,
+		})
 	}
 
-	return nil
+	return allocatorsRangesToReserve, nil
 }
 
 func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, ipv4MaskSize int, ipv6CIDRs []poolCIDRConfig, ipv6MaskSize int, opts ...PoolOption) error {
@@ -360,11 +371,20 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, 
 		return err
 	}
 
-	if err := setReservedRanges(v4, ipv4CIDRs); err != nil {
+	v4RangesToReserve, err := computeRangesToReserve(v4, ipv4CIDRs)
+	if err != nil {
 		return err
 	}
-	if err := setReservedRanges(v6, ipv6CIDRs); err != nil {
+	v6RangesToReserve, err := computeRangesToReserve(v6, ipv6CIDRs)
+	if err != nil {
 		return err
+	}
+
+	for _, rangesToReserve := range v4RangesToReserve {
+		rangesToReserve.allocator.SetReservedRanges(rangesToReserve.ranges)
+	}
+	for _, rangesToReserve := range v6RangesToReserve {
+		rangesToReserve.allocator.SetReservedRanges(rangesToReserve.ranges)
 	}
 
 	p.pools[poolName] = cidrPool{
