@@ -26,6 +26,7 @@ import (
 	"k8s.io/dynamic-resource-allocation/resourceslice"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/k8s/version"
@@ -35,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/node"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -72,6 +74,10 @@ type Driver struct {
 	allocationTable statedb.RWTable[*DRAAllocation]
 	localNodeStore  *node.LocalNodeStore
 	hostProcPath    string
+
+	multiPoolMgr *ipam.MultiPoolManager
+	ipv4Enabled  bool
+	ipv6Enabled  bool
 }
 
 type allocation struct {
@@ -644,6 +650,40 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 			errs = append(errs, fmt.Errorf("unexpected ReservedFor length %d for claim, should be 1", len(claim.Status.ReservedFor)))
 			continue
 		}
+
+		// if we cannot restore the IP address, the device may not function correctly, so we skip further processing for this device.
+		if alloc.Config.IPv4Addr.IsValid() && alloc.Config.HasPool() {
+			if _, err := driver.multiPoolMgr.AllocateIP(
+				alloc.Config.IPv4Addr.Addr(),
+				alloc.Device.IfName(),
+				ipam.Pool(alloc.Config.IPPool),
+				ipam.IPv4,
+				false,
+			); err != nil {
+				errs = append(errs,
+					fmt.Errorf("failed to restore device IP address %s from pool %s: %w",
+						alloc.Config.IPv4Addr.Addr(), alloc.Config.IPPool, err),
+				)
+				continue
+			}
+		}
+
+		if alloc.Config.IPv6Addr.IsValid() && alloc.Config.HasPool() {
+			if _, err := driver.multiPoolMgr.AllocateIP(
+				alloc.Config.IPv6Addr.Addr(),
+				alloc.Device.IfName(),
+				ipam.Pool(alloc.Config.IPPool),
+				ipam.IPv6,
+				false,
+			); err != nil {
+				errs = append(errs,
+					fmt.Errorf("failed to restore device IP address %s from pool %s: %w",
+						alloc.Config.IPv6Addr.Addr(), alloc.Config.IPPool, err),
+				)
+				continue
+			}
+		}
+
 		podUID := claim.Status.ReservedFor[0].UID
 
 		pool := alloc.Pool
@@ -696,6 +736,11 @@ func podResourceClaimNames(pod *corev1.Pod) ([]string, error) {
 }
 
 func (driver *Driver) restoreDevices(ctx context.Context, markRestoreDone func(statedb.WriteTxn)) error {
+	// wait for local node to be updated so that the in use CIDRs of the IP
+	// pools are restored. The pools status must be up to date before restoring
+	// the IP addresses of the allocated devices.
+	waitForLocalNodeUpdate(ctx, driver.logger, driver.multiPoolMgr)
+
 	podsStore, err := driver.pods.Store(ctx)
 	if err != nil {
 		return err
@@ -743,9 +788,31 @@ func (driver *Driver) restoreDevices(ctx context.Context, markRestoreDone func(s
 		}
 	}
 
+	// All IP addresses of previously allocated devices are restored,
+	// mark the IPAM status as ready to allocate addresses for new devices.
+	if driver.ipv4Enabled {
+		driver.multiPoolMgr.RestoreFinished(ipam.IPv4)
+	}
+	if driver.ipv6Enabled {
+		driver.multiPoolMgr.RestoreFinished(ipam.IPv6)
+	}
+
 	// Mark "restore" initializer done. All restored rows are in this WriteTxn;
 	// they become visible atomically when Commit() is called above (deferred).
 	markRestoreDone(wtxn)
 
 	return errors.Join(errs...)
+}
+
+func waitForLocalNodeUpdate(ctx context.Context, logger *slog.Logger, mgr *ipam.MultiPoolManager) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-mgr.LocalNodeUpdated():
+			return
+		case <-time.After(5 * time.Second):
+			logger.Info("Waiting for local CiliumNode resource to be updated")
+		}
+	}
 }
