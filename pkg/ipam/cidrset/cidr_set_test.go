@@ -813,7 +813,7 @@ func TestCountUnavailableCIDRs(t *testing.T) {
 	}
 }
 
-func TestSetReservedRanges(t *testing.T) {
+func TestComputeRangesToReserve(t *testing.T) {
 	cases := []struct {
 		description    string
 		clusterCIDR    string
@@ -854,9 +854,11 @@ func TestSetReservedRanges(t *testing.T) {
 				netip.MustParseAddr(tc.reservedFrom),
 				netip.MustParseAddr(tc.reservedTo),
 			)
-			if err := cidrSet.SetReservedRanges([]netipx.IPRange{reserved}); err != nil {
-				t.Fatalf("SetReservedRanges() returned an unexpected error: %v", err)
+			rangesToReserve, err := cidrSet.ComputeRangesToReserve([]netipx.IPRange{reserved})
+			if err != nil {
+				t.Fatalf("ComputeRangesToReserve() returned an unexpected error: %v", err)
 			}
+			cidrSet.SetReservedRanges(rangesToReserve)
 			assert.Equal(t, 1, cidrSet.unavailableCIDRs)
 
 			allocated, err := cidrSet.AllocateNext()
@@ -870,9 +872,11 @@ func TestSetReservedRanges(t *testing.T) {
 			_, err = cidrSet.AllocateNext()
 			assert.ErrorIs(t, err, ErrCIDRRangeNoCIDRsRemaining)
 
-			if err := cidrSet.SetReservedRanges(nil); err != nil {
-				t.Fatalf("SetReservedRanges(nil) returned an unexpected error: %v", err)
+			rangesToReserve, err = cidrSet.ComputeRangesToReserve(nil)
+			if err != nil {
+				t.Fatalf("ComputeRangesToReserve(nil) returned an unexpected error: %v", err)
 			}
+			cidrSet.SetReservedRanges(rangesToReserve)
 			assert.Equal(t, 1, cidrSet.unavailableCIDRs)
 			assert.False(t, cidrSet.IsFull())
 
@@ -903,9 +907,11 @@ func TestSetReservedRangesOverlap(t *testing.T) {
 		netip.MustParseAddr("10.0.0.0"),
 		netip.MustParseAddr("10.0.0.1"),
 	)
-	if err := cidrSet.SetReservedRanges([]netipx.IPRange{reserved}); err != nil {
-		t.Fatalf("SetReservedRanges() returned an unexpected error: %v", err)
+	rangesToReserve, err := cidrSet.ComputeRangesToReserve([]netipx.IPRange{reserved})
+	if err != nil {
+		t.Fatalf("ComputeRangesToReserve() returned an unexpected error: %v", err)
 	}
+	cidrSet.SetReservedRanges(rangesToReserve)
 	assert.Equal(t, 1, cidrSet.unavailableCIDRs)
 
 	if err := cidrSet.Release(first); err != nil {
@@ -913,9 +919,11 @@ func TestSetReservedRangesOverlap(t *testing.T) {
 	}
 	assert.Equal(t, 1, cidrSet.unavailableCIDRs)
 
-	if err := cidrSet.SetReservedRanges(nil); err != nil {
-		t.Fatalf("SetReservedRanges(nil) returned an unexpected error: %v", err)
+	rangesToReserve, err = cidrSet.ComputeRangesToReserve(nil)
+	if err != nil {
+		t.Fatalf("ComputeRangesToReserve(nil) returned an unexpected error: %v", err)
 	}
+	cidrSet.SetReservedRanges(rangesToReserve)
 	assert.Equal(t, 0, cidrSet.unavailableCIDRs)
 }
 
