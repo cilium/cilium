@@ -24,9 +24,12 @@ func TestOccupyReservedCIDR(t *testing.T) {
 		netip.MustParseAddr("10.0.0.0"),
 		netip.MustParseAddr("10.0.0.3"),
 	)
-	if err := allocator.SetReservedRanges([]netipx.IPRange{reserved}); err != nil {
-		t.Fatalf("SetReservedRanges() returned an unexpected error: %v", err)
+
+	rangesToReserve, err := allocator.ComputeRangesToReserve([]netipx.IPRange{reserved})
+	if err != nil {
+		t.Fatalf("ComputeRangesToReserve() returned an unexpected error: %v", err)
 	}
+	allocator.SetReservedRanges(rangesToReserve)
 
 	cidr := netip.MustParsePrefix("10.0.0.0/31")
 	if err := occupyCIDR([]cidralloc.CIDRAllocator{allocator}, cidr); err != nil {

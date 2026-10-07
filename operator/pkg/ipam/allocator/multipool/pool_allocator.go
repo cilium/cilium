@@ -306,9 +306,11 @@ func setReservedRanges(allocators []cidralloc.CIDRAllocator, cidrs []poolCIDRCon
 
 	for i := range allocators {
 		prefix := allocators[i].Prefix()
-		if err := allocators[i].SetReservedRanges(reservedRanges[prefix]); err != nil {
-			return fmt.Errorf("failed to set reserved ranges for CIDR %s: %w", prefix, err)
+		rangesToReserve, err := allocators[i].ComputeRangesToReserve(reservedRanges[prefix])
+		if err != nil {
+			return fmt.Errorf("failed to compute ranges to reserve for CIDR %s: %w", prefix, err)
 		}
+		allocators[i].SetReservedRanges(rangesToReserve)
 	}
 
 	return nil
