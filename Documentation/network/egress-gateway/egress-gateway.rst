@@ -82,6 +82,12 @@ Egress gateway is not compatible with the CiliumEndpointSlice feature
 Enable egress gateway
 =====================
 
+.. note::
+
+   When using :ref:`CNI chaining <cni_chaining>`, set
+   ``cni.enableRouteMTUForCNIChaining=true`` to account for the encapsulation
+   overhead of traffic redirected through the egress gateway.
+
 The egress gateway feature and all the requirements can be enabled as follow:
 
 .. tabs::
@@ -543,4 +549,3 @@ Troubleshooting SNAT Connection Limits
 --------------------------------------
 
 For more advanced troubleshooting topics please see advanced egress gateway troubleshooting topic for :ref:`SNAT connection limits<snat_connection_limits>`.
-
