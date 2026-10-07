@@ -9,13 +9,15 @@
  *                                 is_ipv6, verdict, proxy_port, match_type,
  *                                 is_audited, cookie)
  *
- * If POLICY_VERDICT_NOTIFY is not defined, the API will be a non-op.
+ * If enable_policy_verdict_notification is disabled, the API will be a non-op.
  */
 #pragma once
 
 #include "auxvars.h"
 #include "common.h"
 #include "ratelimit.h"
+
+DECLARE_CONFIG(bool, enable_policy_verdict_notification, "Enable policy verdict notifications")
 
 #if defined(IS_BPF_LXC)
 DECLARE_CONFIG(__u32, policy_verdict_log_filter, "The log level for policy verdicts in workload endpoints")
@@ -46,7 +48,6 @@ struct policy_verdict_notify {
 	POLICY_VERDICT_EXTENSION
 };
 
-#ifdef POLICY_VERDICT_NOTIFY
 static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 {
 	/* Make dir being volatile to avoid compiler optimizing out
@@ -70,6 +71,9 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 			   __u8 proto, __u8 dir, __u8 is_ipv6, int verdict, __u16 proxy_port,
 			   __u8 match_type, __u8 is_audited, __u32 cookie)
 {
+	if (!CONFIG(enable_policy_verdict_notification))
+		return;
+
 	struct send_policy_verdict_notify_vars *vars =
 		AUX(send_policy_verdict_notify_vars);
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -93,8 +97,8 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 #elif defined(IS_BPF_LXC)
 	if (!policy_verdict_filter_allow(POLICY_VERDICT_LOG_FILTER, dir))
 		return;
-#else
-	#error "policy_log.h only supports inclusion from bpf_host or bpf_lxc"
+#elif !defined(IS_BPF_ALIGNCHECKER)
+	#error "policy_log.h only supports inclusion from bpf_host, bpf_lxc and bpf_alignchecker"
 #endif
 
 	if (CONFIG(events_map_rate_limit) > 0) {
@@ -130,15 +134,3 @@ send_policy_verdict_notify(const struct __ctx_buff *ctx, __u32 remote_label, __u
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 msg, sizeof(*msg));
 }
-#else
-static __always_inline void
-send_policy_verdict_notify(const struct __ctx_buff *ctx __maybe_unused,
-			   __u32 remote_label __maybe_unused, __u16 dst_port __maybe_unused,
-			   __u8 proto __maybe_unused, __u8 dir __maybe_unused,
-			   __u8 is_ipv6 __maybe_unused, int verdict __maybe_unused,
-			   __u16 proxy_port __maybe_unused,
-			   __u8 match_type __maybe_unused, __u8 is_audited __maybe_unused,
-			   __u32 cookie __maybe_unused)
-{
-}
-#endif /* POLICY_VERDICT_NOTIFY */
