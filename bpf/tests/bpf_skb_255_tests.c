@@ -28,6 +28,16 @@ int check_get_identity(struct __ctx_buff *ctx)
 	if (cluster_id != TEST_CLUSTER_ID)
 		test_fatal("cluster_id should be %u, got %u", TEST_CLUSTER_ID, cluster_id);
 
+	set_identity_mark(ctx, CIDR_IDENTITY_RANGE_START, MARK_MAGIC_IDENTITY);
+	identity = get_identity(ctx);
+	if (identity != UNKNOWN_ID)
+		test_fatal("skb->mark should contain identity %u, got %u", UNKNOWN_ID, identity);
+
+	set_identity_mark(ctx, IDENTITY_LOCAL_SCOPE_REMOTE_NODE | 1, MARK_MAGIC_IDENTITY);
+	identity = get_identity(ctx);
+	if (identity != UNKNOWN_ID)
+		test_fatal("skb->mark should contain identity %u, got %u", UNKNOWN_ID, identity);
+
 	test_finish();
 }
 
