@@ -38,9 +38,10 @@ func registerReconciler(
 	devices statedb.Table[*tables.Device],
 	log *slog.Logger,
 	config *option.DaemonConfig,
+	pruneExclusions *PruneExclusion,
 ) (reconciler.Reconciler[*DesiredRoute], RouteReconcilerMetrics, error) {
 	metrics := reconciler.NewUnpublishedExpVarMetrics()
-	ops := newOps(lc, params.DB, tbl, devices, log, config)
+	ops := newOps(lc, params.DB, tbl, devices, log, config, pruneExclusions)
 	rec, err := reconciler.Register(
 		params,
 		tbl,
@@ -62,12 +63,14 @@ func newOps(
 	devices statedb.Table[*tables.Device],
 	log *slog.Logger,
 	conf *option.DaemonConfig,
+	pruneExclusions *PruneExclusion,
 ) *ops {
 	ops := &ops{
-		db:      db,
-		tbl:     tbl,
-		devices: devices,
-		log:     log,
+		db:              db,
+		tbl:             tbl,
+		devices:         devices,
+		log:             log,
+		pruneExclusions: pruneExclusions,
 
 		persistedKeys: make(map[DesiredRouteKey]struct{}),
 	}
@@ -180,6 +183,8 @@ type ops struct {
 	handle        *netlink.Handle
 	wal           *wal.Writer[reconcilerEvent]
 	persistedKeys map[DesiredRouteKey]struct{}
+
+	pruneExclusions *PruneExclusion
 }
 
 var errDeviceNotFound = errors.New("device no longer exists")
@@ -340,23 +345,35 @@ func (ops *ops) DeleteBatch(ctx context.Context, txn statedb.ReadTxn, batch []re
 }
 
 func (ops *ops) Prune(ctx context.Context, txn statedb.ReadTxn, objects iter.Seq2[*DesiredRoute, statedb.Revision]) error {
+	// this is useful only for the first pruning operation after startup.
+	// If Prune is called multiple times `pruneExclusions` will be nil.
+	pruneExclusions := ops.pruneExclusions.consume()
+
 	// If we have a set of keys from a previous run, we need to check if we still desire them.
 	// If not, we need to delete any route that we previously installed but no longer desire.
 	if len(ops.persistedKeys) != 0 {
 		for key := range ops.persistedKeys {
-			_, _, found := ops.tbl.Get(txn, DesiredRouteTablePrefixIndex.Query(key))
-			if !found {
-				routes, _ := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
-					//nolint:forbidigo
-					return ops.handle.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{
-						Table:    int(key.Table),
-						Dst:      netipx.PrefixIPNet(key.Prefix),
-						Priority: int(key.Priority),
-					}, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_DST|netlink.RT_FILTER_PRIORITY)
-				})
-				for _, r := range routes {
-					ops.handle.RouteDel(&r)
-				}
+			if _, _, found := ops.tbl.Get(txn, DesiredRouteTablePrefixIndex.Query(key)); found {
+				continue
+			}
+			if _, excluded := pruneExclusions[key]; excluded {
+				ops.log.InfoContext(ctx, "found entry to exclude from pruning",
+					logfields.Prefix, key.Prefix,
+					logfields.Table, key.Table,
+					logfields.Priority, key.Priority,
+				)
+				continue
+			}
+			routes, _ := safenetlink.WithRetryResult(func() ([]netlink.Route, error) {
+				//nolint:forbidigo
+				return ops.handle.RouteListFiltered(netlink.FAMILY_ALL, &netlink.Route{
+					Table:    int(key.Table),
+					Dst:      netipx.PrefixIPNet(key.Prefix),
+					Priority: int(key.Priority),
+				}, netlink.RT_FILTER_TABLE|netlink.RT_FILTER_DST|netlink.RT_FILTER_PRIORITY)
+			})
+			for _, r := range routes {
+				ops.handle.RouteDel(&r)
 			}
 		}
 
