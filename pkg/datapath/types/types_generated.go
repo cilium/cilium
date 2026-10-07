@@ -125,6 +125,7 @@ type DropNotify struct {
 type DSRConfig struct {
 	_                structs.HostLayout
 	EnableICMPErrors bool
+	EnableByUser     bool
 }
 
 // EDTID is generated from the BPF C type edt_id.

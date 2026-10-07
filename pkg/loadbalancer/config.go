@@ -284,6 +284,10 @@ var ConfigCell = cell.Group(
 type DSRConfig struct {
 	// EnableICMPErrors enables sending ICMP fragmentation-needed replies to the client.
 	EnableICMPErrors bool
+
+	// EnableByUser enables the common datapath for Hybrid-DSR+SNAT and Annotation-based+DSR+SNAT
+	// modes.
+	EnableByUser bool
 }
 
 // Config for load-balancing
@@ -414,6 +418,7 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 	lbUsesDSR := krpCfg.KubeProxyReplacement && loadBalancerUsesDSR(cfg.LBMode, cfg.LBModeAnnotation)
 	if lbUsesDSR {
 		cfg.DSRConfig.EnableICMPErrors = dcfg.EnablePMTUDiscovery
+		cfg.DSRConfig.EnableByUser = cfg.LBMode == LBModeHybrid || cfg.LBModeAnnotation
 	}
 
 	if cfg.LBMapEntries <= 0 {
