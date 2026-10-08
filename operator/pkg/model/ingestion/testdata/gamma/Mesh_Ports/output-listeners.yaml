@@ -1,6 +1,7 @@
 - hostname: '*'
   name: gateway-conformance-mesh-echo-v1-80
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - app_protocol: http

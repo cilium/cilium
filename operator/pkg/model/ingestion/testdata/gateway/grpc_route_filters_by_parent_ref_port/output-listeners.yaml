@@ -1,6 +1,7 @@
 - hostname: "*"
   name: grpc-443
   port: 443
+  protocol: HTTPS
   sources:
   - group: gateway.networking.k8s.io
     kind: Gateway
@@ -10,6 +11,7 @@
 - hostname: "*"
   name: grpc-8443
   port: 8443
+  protocol: HTTPS
   routes:
   - backends:
     - name: podinfo

@@ -85,6 +85,8 @@ type HTTPListener struct {
 	Address string `json:"address,omitempty"`
 	// Port on which the service can be expected to be accessed by clients.
 	Port uint32 `json:"port,omitempty"`
+	// Protocol of the source listener.
+	Protocol ListenerProtocol `json:"protocol,omitempty"`
 	// Hostname that the listener should match.
 	// Wildcards are supported in prefix or suffix forms, or the special wildcard `*`.
 	// An empty list means that the Listener should match all hostnames.
@@ -241,6 +243,15 @@ func (l TLSPassthroughListener) GetService() *Service {
 func (l TLSPassthroughListener) GetProtocol() L4Protocol {
 	return L4ProtocolTCP
 }
+
+// ListenerProtocol is the application protocol an HTTPListener was built from.
+type ListenerProtocol string
+
+const (
+	ListenerProtocolHTTP  ListenerProtocol = "HTTP"
+	ListenerProtocolHTTPS ListenerProtocol = "HTTPS"
+	ListenerProtocolTLS   ListenerProtocol = "TLS"
+)
 
 type L4Protocol string
 

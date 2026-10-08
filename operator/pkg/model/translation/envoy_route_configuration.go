@@ -33,6 +33,8 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 
 	portHostNameRedirect := map[string][]hostnameRedirect{}
 	hostNamePortRoutes := map[string]map[string][]model.HTTPRoute{}
+	// Listeners that disagree on protocol under one port key fall back to HTTP.
+	portProtocol := map[string]model.ListenerProtocol{}
 
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
@@ -43,6 +45,11 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 				} else {
 					port = secureHost
 				}
+			}
+			if p, ok := portProtocol[port]; ok && p != l.Protocol {
+				portProtocol[port] = model.ListenerProtocolHTTP
+			} else if !ok {
+				portProtocol[port] = l.Protocol
 			}
 
 			if len(r.Hostnames) == 0 {
@@ -165,6 +172,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 				HostNames:                    []string{h.hostname},
 				HTTPSRedirect:                false,
 				ListenerPort:                 m.HTTP[0].Port,
+				ListenerProtocol:             portProtocol[port],
 				AllAuthFilters:               allAuthFilters,
 				StatefulSessionFilterEnabled: statefulSessionFilterEnabled,
 			})

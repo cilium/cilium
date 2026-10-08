@@ -1,6 +1,7 @@
 - hostname: '*.foo.com'
   name: ing-host-rules-random-namespace-*.foo.com
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: wildcard-foo-com
@@ -18,6 +19,7 @@
 - hostname: foo.bar.com
   name: ing-host-rules-random-namespace-foo.bar.com
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: foo-bar-com
@@ -35,6 +37,7 @@
 - hostname: foo.bar.com
   name: ing-host-rules-random-namespace-foo.bar.com
   port: 443
+  protocol: HTTPS
   routes:
   - backends:
     - name: foo-bar-com
