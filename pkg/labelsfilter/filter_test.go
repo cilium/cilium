@@ -327,7 +327,7 @@ func TestParseLabelPrefixCfgReservedLabelWarning(t *testing.T) {
 			wantErrorLog:    true,
 		},
 		{ // Label prefixes from v1 files are not treated as patterns. See https://github.com/cilium/cilium/issues/47918
-			name:            "file fails to excludes reserved host label by pattern",
+			name:            "file fails to exclude reserved host label by pattern",
 			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"reserved","prefix":".*","invert":true}]}`,
 			filterLabels:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
 			wantIdentity:    labels.FromSlice(reservedHostLabel, myLabel, someLabel),
@@ -430,7 +430,7 @@ func TestParseLabelPrefixCfgReservedLabelWarning(t *testing.T) {
 				assert.NotContains(t, logs.String(), reservedLabelsPattern)
 			}
 
-			// Run Filter() to confirm wether reserved:host is or is not
+			// Run Filter() to confirm whether reserved:host is or is not
 			// considered an identity label with the given config and labels.
 			gotIdentityLabels, _ := Filter(tt.filterLabels)
 			if diff := cmp.Diff(tt.wantIdentity.ToSlice(), gotIdentityLabels.ToSlice(), cmp.AllowUnexported(labels.Label{})); diff != "" {
