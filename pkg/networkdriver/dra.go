@@ -220,16 +220,8 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 		errs  []error
 	)
 	for _, dev := range devices {
-		// First we free the device and then we release the IP.
-		if dev.Device != nil {
-			if err := dev.Device.Free(dev.Config); err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			dev.Device = nil
-		}
-		if err := d.releaseAddrs(dev.Config); err != nil {
-			errs = append(errs, err)
+		if err := d.cleanupAllocation(dev); err != nil {
+			errs = append(errs, fmt.Errorf("failed to release device: %w", err))
 			continue
 		}
 		freed = append(freed, dev)
@@ -286,7 +278,12 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			if _, reused := state.existingByDevice[a.DeviceName]; reused {
 				continue
 			}
-			driver.rollbackDevice(a)
+			if err := driver.cleanupAllocation(a); err != nil {
+				driver.logger.Warn("failed to rollback device",
+					logfields.Device, a.DeviceName,
+					logfields.Error, err,
+				)
+			}
 		}
 	}()
 
@@ -442,30 +439,22 @@ func validateDeviceConfigs(
 	return nil
 }
 
-// rollbackDevice undoes the setup of a single device: it frees the device and
-// releases any pool-allocated addresses. Failures are logged rather than
-// returned, and the call is a safe no-op when there is nothing to undo — a
-// zero-value allocation (no device set up) is ignored, and releaseAddrs already
-// no-ops for configs without a pool. This lets every error path roll back
-// unconditionally without first checking whether work was actually done.
-func (driver *Driver) rollbackDevice(a allocation) {
+// cleanupAllocation undoes a device allocation: it frees the device and
+// releases any pool-allocated addresses. The call is a safe no-op when
+// there is nothing to undo.
+func (driver *Driver) cleanupAllocation(a allocation) error {
+	var errs []error
 	if err := driver.releaseAddrs(a.Config); err != nil {
-		driver.logger.Warn("failed to free IP addresses during rollback",
-			logfields.Device, a.DeviceName,
-			logfields.Error, err,
-		)
+		errs = append(errs, fmt.Errorf("failed to release addresses: %w", err))
 	}
-	if a.Device == nil {
-		return
+	if a.Device != nil {
+		if err := a.Device.Free(a.Config); err != nil {
+			errs = append(errs, fmt.Errorf("failed to free device: %w", err))
+		} else {
+			a.Device = nil
+		}
 	}
-	if err := a.Device.Free(a.Config); err != nil {
-		driver.logger.Warn("failed to free device during rollback",
-			logfields.Device, a.DeviceName,
-			logfields.Error, err,
-		)
-		return
-	}
-	a.Device = nil
+	return errors.Join(errs...)
 }
 
 // prepareClaimDevice processes a single device result of a claim. It returns the
@@ -528,7 +517,12 @@ func (driver *Driver) getNewAllocation(
 				logfields.PoolName, cfg.IPPool,
 				logfields.Error, err,
 			)
-			driver.rollbackDevice(alloc)
+			if err := driver.cleanupAllocation(alloc); err != nil {
+				driver.logger.Warn("failed to rollback device",
+					logfields.Device, alloc.DeviceName,
+					logfields.Error, err,
+				)
+			}
 		}
 	}()
 
