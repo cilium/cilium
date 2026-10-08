@@ -662,6 +662,10 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 		e.realizedPolicy = e.desiredPolicy
 	}
 
+	// Record before setPolicyRevision wakes up the endpoint-create handler.
+	// BpfWaitForELF encloses the template compilation, whichever endpoint runs it.
+	e.recordSharedBuildDuration(stats.datapathWait + stats.datapathRealization.BpfWaitForELF.Total())
+
 	// Mark the endpoint to be running the policy revision it was
 	// compiled for
 	e.setPolicyRevision(revision)
@@ -670,6 +674,20 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	e.dnsRulesAPI.RemoveRestoredDNSRules(e.ID)
 
 	return nil
+}
+
+// recordSharedBuildDuration keeps the node-wide build waits of the endpoint's
+// first successful regeneration.
+func (e *Endpoint) recordSharedBuildDuration(d time.Duration) {
+	if e.sharedBuildRecorded.CompareAndSwap(false, true) {
+		e.sharedBuildDuration.Store(int64(d))
+	}
+}
+
+// SharedBuildDuration returns how long the endpoint's first successful
+// regeneration waited for the node's base datapath and for its template.
+func (e *Endpoint) SharedBuildDuration() time.Duration {
+	return time.Duration(e.sharedBuildDuration.Load())
 }
 
 func (e *Endpoint) updateRegenerationStatistics(ctx *regenerationContext, err error) {

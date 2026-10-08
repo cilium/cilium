@@ -363,6 +363,11 @@ type Endpoint struct {
 	// deletion during builds
 	buildMutex lock.Mutex
 
+	// sharedBuildDuration is how long the endpoint's first successful
+	// regeneration waited for the node's base datapath and for its template.
+	sharedBuildDuration atomic.Int64
+	sharedBuildRecorded atomic.Bool
+
 	// loggerAttrs are attributes.
 	loggerAttrs lock.Map[string, any]
 
