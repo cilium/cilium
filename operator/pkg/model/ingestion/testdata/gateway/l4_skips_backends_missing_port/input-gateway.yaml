@@ -1,0 +1,16 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: platform
+  namespace: app-ns
+spec:
+  gatewayClassName: ""
+  listeners:
+  - name: tcp
+    port: 9000
+    protocol: TCP
+  - name: udp
+    port: 9001
+    protocol: UDP
+status: {}

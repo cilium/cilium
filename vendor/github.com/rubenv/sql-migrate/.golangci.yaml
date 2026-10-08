@@ -1,0 +1,133 @@
+version: "2"
+run:
+  tests: true
+linters:
+  default: none
+  enable:
+    - asciicheck
+    - depguard
+    - errcheck
+    - errorlint
+    - exhaustive
+    - gocritic
+    - govet
+    - ineffassign
+    - nolintlint
+    - revive
+    - staticcheck
+    - unparam
+    - unused
+    - whitespace
+  settings:
+    depguard:
+      rules:
+        main:
+          allow:
+            - $gostd
+            - github.com/denisenkom/go-mssqldb
+            - github.com/go-sql-driver/mysql
+            - github.com/go-gorp/gorp/v3
+            - github.com/lib/pq
+            - github.com/mattn/go-sqlite3
+            - github.com/mitchellh/cli
+            - github.com/olekukonko/tablewriter
+            - github.com/rubenv/sql-migrate
+            - gopkg.in/check.v1
+            - gopkg.in/yaml.v2
+    exhaustive:
+      default-signifies-exhaustive: true
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+    govet:
+      disable:
+        - fieldalignment
+      enable-all: true
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+      allow-no-explanation:
+        - depguard
+      allow-unused: false
+    revive:
+      enable-all-rules: false
+      rules:
+        - name: atomic
+        - name: blank-imports
+        - name: bool-literal-in-expr
+        - name: call-to-gc
+        - name: constant-logical-expr
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: duplicated-imports
+        - name: empty-block
+        - name: empty-lines
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: exported
+        - name: identical-branches
+        - name: imports-blocklist
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: modifies-parameter
+        - name: modifies-value-receiver
+        - name: package-comments
+        - name: range
+        - name: range-val-address
+        - name: range-val-in-closure
+        - name: receiver-naming
+        - name: string-format
+        - name: string-of-int
+        - name: struct-tag
+        - name: time-naming
+        - name: unconditional-recursion
+        - name: unexported-naming
+        - name: unexported-return
+        - name: superfluous-else
+        - name: unreachable-code
+        - name: var-declaration
+        - name: waitgroup-by-value
+        - name: unused-receiver
+        - name: unnecessary-stmt
+        - name: unused-parameter
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - path: (.+)\.go$
+        text: declaration of "err" shadows declaration at
+      - path: (.+)\.go$
+        text: 'error-strings: error strings should not be capitalized or end with punctuation or a newline'
+      - path: (.+)\.go$
+        text: 'ST1005: error strings should not end with punctuation or newline'
+      - path: (.+)\.go$
+        text: 'ST1005: error strings should not be capitalized'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 10000
+  max-same-issues: 10000
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/rubenv/sql-migrate
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

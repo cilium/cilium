@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package agent
+
+import (
+	"net/netip"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	azureTypes "github.com/cilium/cilium/pkg/azure/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/mac"
+)
+
+func TestAllocationResult(t *testing.T) {
+	interfaces := []azureTypes.AzureInterface{
+		{
+			ID:      "azure-interface-1",
+			MAC:     mac.MustParseMAC("00:00:5e:00:53:01"),
+			Gateway: iputil.AddrFrom(netip.MustParseAddr("10.10.1.1")),
+			Subnet: azureTypes.AzureSubnet{
+				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.10.1.0/24")),
+			},
+			Addresses: []azureTypes.AzureAddress{
+				{IP: iputil.AddrFrom(netip.MustParseAddr("10.10.1.5")), State: azureTypes.StateSucceeded},
+			},
+		},
+		{
+			ID:      "azure-interface-2",
+			MAC:     mac.MustParseMAC("00:00:5e:00:53:02"),
+			Gateway: iputil.AddrFrom(netip.MustParseAddr("10.20.1.1")),
+			Subnet: azureTypes.AzureSubnet{
+				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.20.1.0/24")),
+			},
+			Addresses: []azureTypes.AzureAddress{
+				{IP: iputil.AddrFrom(netip.MustParseAddr("10.20.1.5")), State: azureTypes.StateSucceeded},
+				{IP: iputil.AddrFrom(netip.MustParseAddr("10.20.1.6")), State: "updating"},
+			},
+		},
+	}
+
+	pool := ipam.Pool("default")
+	result, err := allocationResult(
+		netip.MustParseAddr("10.20.1.5"),
+		pool,
+		interfaces,
+	)
+	require.NoError(t, err)
+	require.Equal(t, netip.MustParseAddr("10.20.1.5"), result.IP)
+	require.Equal(t, pool, result.IPPoolName)
+	require.Equal(t, mac.MustParseMAC("00:00:5e:00:53:02"), result.PrimaryMAC)
+	require.Equal(t, netip.MustParseAddr("10.20.1.1"), result.GatewayIP)
+	require.Equal(t, "0", result.InterfaceNumber)
+
+	_, err = allocationResult(
+		netip.MustParseAddr("10.20.1.6"),
+		pool,
+		interfaces,
+	)
+	require.ErrorContains(t, err, "unable to find Azure interface for IP 10.20.1.6")
+
+	_, err = allocationResult(
+		netip.MustParseAddr("10.30.1.5"),
+		pool,
+		interfaces,
+	)
+	require.ErrorContains(t, err, "unable to find Azure interface for IP 10.30.1.5")
+}

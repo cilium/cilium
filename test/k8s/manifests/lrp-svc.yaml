@@ -1,0 +1,27 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-svc"
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: lrp-demo-service
+      namespace: default
+      toPorts:
+        - name: http
+          port: "80"
+          protocol: TCP
+        - name: tftp
+          port: "69"
+          protocol: UDP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        role: backend
+    toPorts:
+      - name: http
+        port: "80"
+        protocol: TCP
+      - name: tftp
+        port: "69"
+        protocol: UDP

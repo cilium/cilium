@@ -1,0 +1,47 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: matching
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /
+    - headers:
+      - name: version
+        value: one
+  - backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /v2
+    - headers:
+      - name: version
+        value: two
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace

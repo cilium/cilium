@@ -1,0 +1,178 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package config
+
+import (
+	"net"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/option"
+)
+
+func NodeConfig(lnc *Config) Node {
+	node := *NewNode()
+	node.ClusterIDBits = lnc.ClusterIDBits
+
+	node.CiliumHostIfIndex = lnc.CiliumHostIfIndex
+	node.CiliumHostMAC.Addr = lnc.CiliumHostMAC
+	node.CiliumNetIfIndex = lnc.CiliumNetIfIndex
+	node.CiliumNetMAC.Addr = lnc.CiliumNetMAC
+
+	node.CTTimeouts = types.CTTimeoutConfig{
+		ConnectionLifetimeTCP:    uint32(option.Config.CTMapEntriesTimeoutTCP.Seconds()),
+		ConnectionLifetimeNonTCP: uint32(option.Config.CTMapEntriesTimeoutAny.Seconds()),
+		ServiceLifetimeTCP:       uint32(option.Config.CTMapEntriesTimeoutSVCTCP.Seconds()),
+		ServiceLifetimeNonTCP:    uint32(option.Config.CTMapEntriesTimeoutSVCAny.Seconds()),
+		ServiceCloseRebalance:    uint32(option.Config.CTMapEntriesTimeoutSVCTCPGrace.Seconds()),
+		SYNTimeout:               uint32(option.Config.CTMapEntriesTimeoutSYN.Seconds()),
+		CloseTimeout:             uint32(option.Config.CTMapEntriesTimeoutFIN.Seconds()),
+	}
+
+	if lnc.ServiceLoopbackIPv4.IsValid() {
+		node.ServiceLoopbackIPv4.Addr = lnc.ServiceLoopbackIPv4.As4()
+	}
+
+	if lnc.CiliumInternalIPv4.IsValid() {
+		node.RouterIPv4.Addr = lnc.CiliumInternalIPv4.As4()
+	}
+
+	if lnc.ServiceLoopbackIPv6.IsValid() {
+		node.ServiceLoopbackIPv6.Addr = lnc.ServiceLoopbackIPv6.As16()
+	}
+
+	if lnc.CiliumInternalIPv6.IsValid() {
+		node.RouterIPv6.Addr = lnc.CiliumInternalIPv6.As16()
+	}
+
+	node.ClusterID = lnc.ClusterID
+	node.MonitorAggregation = uint8(option.Config.Opts.GetValue(option.MonitorAggregation))
+	node.MonitorReportInterval = uint32(option.Config.MonitorAggregationInterval.Seconds())
+	node.MonitorReportFlags = option.Config.MonitorAggregationFlags
+	node.TracePayloadLen = uint32(option.Config.TracePayloadlen)
+	node.TracePayloadLenOverlay = uint32(option.Config.TracePayloadlenOverlay)
+
+	if lnc.DirectRoutingDevice != nil {
+		node.DirectRoutingDevIfIndex = uint32(lnc.DirectRoutingDevice.Index)
+		if option.Config.EnableIPv4 {
+			ipv4 := tables.PreferredIPv4Address(lnc.DirectRoutingDevice.Addrs)
+			if ipv4.IsValid() {
+				node.IPv4DirectRouting.Addr = ipv4.As4()
+			}
+		}
+		if option.Config.EnableIPv6 {
+			ipv6 := tables.PreferredIPv6Address(lnc.DirectRoutingDevice.Addrs)
+			if ipv6.IsValid() {
+				node.IPv6DirectRouting.Addr = ipv6.As16()
+			}
+		}
+	}
+
+	node.SupportsFIBLookupSkipNeigh = probes.HaveFibLookupSkipNeigh() == nil
+	node.SupportsFIBLookupSrc = probes.HaveFibLookupSrc() == nil
+
+	// Terminate inbound IPIP in BPF on netdev ingress for any outer dst that
+	// resolves to a local endpoint - pod IP (DSR-IPIP) or host IP (hostNetwork
+	// backend, --enable-ipip-termination Envoy target). With this in place,
+	// cilium_ipip{4,6} are TX-only (egress encap on the LB side) and bpf_host
+	// is not attached to them on RX. The inner packet is delivered with
+	// skb->dev set to the physical netdev rather than cilium_ipip{4,6}, so any
+	// host-side listener that depended on SO_BINDTODEVICE against
+	// cilium_ipip{4,6} will no longer match decapped traffic.
+	node.EnableIPIPTermination = option.Config.EnableIPIPTermination
+
+	node.EnableNodeportSourceLookup = lnc.LBConfig.NodePortEnableDynamicSourceLookup
+
+	node.LBDefaultAlg = uint8(loadbalancer.SVCLoadBalancingAlgorithmRandom)
+	if lnc.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
+		node.LBDefaultAlg = uint8(loadbalancer.SVCLoadBalancingAlgorithmMaglev)
+	}
+	node.LBSelectionPerService = lnc.LBConfig.AlgorithmAnnotation
+
+	node.TracingIPOptionType = uint8(option.Config.IPTracingOptionType)
+
+	if option.Config.PolicyDenyResponse == option.PolicyDenyResponseIcmp {
+		node.PolicyDenyResponseEnabled = true
+	} else {
+		node.PolicyDenyResponseEnabled = false
+	}
+
+	node.NodeportPortMin = lnc.LBConfig.NodePortMin
+	node.NodeportPortMax = lnc.LBConfig.NodePortMax
+	node.NodeportPortMinNATExt = lnc.LBConfig.NodePortMinNATExt
+	node.NodeportPortMaxNATExt = lnc.LBConfig.NodePortMaxNATExt
+
+	if option.Config.EnableNat46X64Gateway {
+		node.NAT46X64Prefix.Addr = option.Config.IPv6NAT46x64CIDRBase.As4()
+	}
+
+	if lnc.NodeIPv4.Is4() {
+		node.IPv4InterClusterSNAT.Addr = lnc.NodeIPv4.As4()
+	}
+
+	if option.Config.EnableBPFMasquerade {
+		if option.Config.EnableIPv4Masquerade {
+			excludeCIDR := lnc.NativeRoutingCIDRIPv4
+			if option.Config.EnableIPMasqAgent {
+				excludeCIDR = option.Config.IPv4NativeRoutingCIDR
+				node.EnableIPMasqAgentIPv4 = true
+			}
+
+			if excludeCIDR.IsValid() {
+				node.IPv4SNATExclusion.DstAddr.Addr = excludeCIDR.Addr().As4()
+				node.IPv4SNATExclusion.Bits = uint8(excludeCIDR.Bits())
+				node.IPv4SNATExclusion.Enabled = true
+			}
+		}
+
+		if option.Config.EnableIPv6Masquerade {
+			excludeCIDR := lnc.NativeRoutingCIDRIPv6
+			if option.Config.EnableIPMasqAgent {
+				excludeCIDR = option.Config.IPv6NativeRoutingCIDR
+				node.EnableIPMasqAgentIPv6 = true
+			}
+
+			if excludeCIDR.IsValid() {
+				node.IPv6SNATExclusion.DstAddr.Addr = excludeCIDR.Addr().As16()
+				mask := net.CIDRMask(excludeCIDR.Bits(), excludeCIDR.Addr().BitLen())
+				copy(node.IPv6SNATExclusion.DstMask.Addr[:], mask)
+				node.IPv6SNATExclusion.Enabled = true
+			}
+		}
+	}
+
+	node.Encap4IfIndex = lnc.Encap4IfIndex
+	node.Encap6IfIndex = lnc.Encap6IfIndex
+
+	node.EnableJiffies = option.Config.ClockSource == option.ClockSourceJiffies
+	node.KernelHz = uint32(option.Config.KernelHz)
+
+	node.EnableConntrackAccounting = lnc.EnableConntrackAccounting
+
+	node.EnableTraceNotify = option.Config.Opts.IsEnabled(option.TraceNotify)
+	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
+	node.EnableDropNotify = option.Config.Opts.IsEnabled(option.DropNotify)
+
+	node.HashInit4Seed = lnc.MaglevConfig.SeedJhash0
+	node.HashInit6Seed = lnc.MaglevConfig.SeedJhash1
+
+	node.EnableTproxy = option.Config.EnableBPFTProxy
+
+	node.EventsMapRateLimit = option.Config.BPFEventsDefaultRateLimit
+	node.EventsMapBurstLimit = option.Config.BPFEventsDefaultBurstLimit
+
+	node.EnableEndpointRoutes = option.Config.EnableEndpointRoutes
+
+	node.EnableIdentityMark = option.Config.EnableIdentityMark
+
+	node.EnableBPFHostRouting = !option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting
+
+	node.EncryptionStrictIngress = option.Config.EnableEncryptionStrictModeIngress
+
+	node.EnableSCTP = option.Config.EnableSCTP
+
+	return node
+}

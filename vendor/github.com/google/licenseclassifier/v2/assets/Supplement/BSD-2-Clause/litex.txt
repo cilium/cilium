@@ -1,0 +1,5 @@
+Other authors retain ownership of their contributions. If a submission can
+reasonably be considered independently copyrightable, it's yours and we
+encourage you to claim it with appropriate copyright notices. This submission
+then falls under the "otherwise noted" category. All submissions are strongly
+encouraged to use the two-clause BSD license reproduced above.

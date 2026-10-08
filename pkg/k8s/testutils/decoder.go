@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package testutils
+
+import (
+	"os"
+	"sync"
+
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/client-go/kubernetes/fake"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
+	gatewayv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	mcsapi_fake "sigs.k8s.io/mcs-api/pkg/client/clientset/versioned/fake"
+	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
+
+	cilium_fake "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
+	slim_fake "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/fake"
+)
+
+var (
+	// Scheme for object types used in Cilium. Excludes the core Kubernetes schema
+	// in favour of the slim one.
+	//
+	// The scheme can be extended by init() functions since [Decoder] is
+	// lazily constructed.
+	Scheme = runtime.NewScheme()
+
+	// KubernetesScheme is the core Kubernetes scheme.
+	KubernetesScheme = runtime.NewScheme()
+
+	decoderOnce sync.Once
+	decoder     runtime.Decoder
+
+	kubernetesDecoderOnce sync.Once
+	kubernetesDecoder     runtime.Decoder
+
+	strictDecoderOnce sync.Once
+	strictDecoder     runtime.Decoder
+)
+
+// Decoder returns an object decoder for Cilium and Slim objects.
+// The [DecodeObject] and [DecodeFile] functions are provided as
+// shorthands for decoding from bytes and files respectively.
+//
+// Not strict, as the slim types leave out fields that are valid in the full
+// Kubernetes ones. See [StrictDecoder].
+func Decoder() runtime.Decoder {
+	decoderOnce.Do(func() {
+		decoder = serializer.NewCodecFactory(Scheme).UniversalDeserializer()
+	})
+	return decoder
+}
+
+// KubernetesDecoder returns a decoder for the core Kubernetes objects. Unlike
+// [Decoder] it rejects unknown fields, which the full types can afford as they
+// are not trimmed the way the slim ones are.
+func KubernetesDecoder() runtime.Decoder {
+	kubernetesDecoderOnce.Do(func() {
+		kubernetesDecoder = serializer.NewCodecFactory(KubernetesScheme, serializer.EnableStrict).UniversalDeserializer()
+	})
+	return kubernetesDecoder
+}
+
+// StrictDecoder is like [Decoder], but rejects unknown fields instead of
+// dropping them.
+func StrictDecoder() runtime.Decoder {
+	strictDecoderOnce.Do(func() {
+		strictDecoder = serializer.NewCodecFactory(Scheme, serializer.EnableStrict).UniversalDeserializer()
+	})
+	return strictDecoder
+}
+
+func init() {
+	// Add corev1, discovery* and networking.
+	slim_fake.AddToScheme(Scheme)
+
+	// Add apiextensionsv1
+	apiextensionsv1.AddToScheme(Scheme)
+
+	// Add ciliumv2 and ciliumv2alpha1
+	cilium_fake.AddToScheme(Scheme)
+
+	// Add gateway*
+	gatewayv1.Install(Scheme)
+	gatewayv1alpha2.Install(Scheme)
+	gatewayv1beta1.Install(Scheme)
+
+	// Add mcsapi
+	mcsapi_fake.AddToScheme(Scheme)
+
+	// Add policy.networking.k8s.io/v1alpha2
+	policyv1alpha2.AddToScheme(Scheme)
+
+	fake.AddToScheme(KubernetesScheme)
+}
+
+func DecodeObject(bytes []byte) (runtime.Object, error) {
+	obj, _, err := Decoder().Decode(bytes, nil, nil)
+	return obj, err
+}
+
+func DecodeObjectGVK(bytes []byte) (runtime.Object, *schema.GroupVersionKind, error) {
+	obj, gvk, err := Decoder().Decode(bytes, nil, nil)
+	if err == nil {
+		return obj, gvk, err
+	} else if !runtime.IsNotRegisteredError(err) {
+		// If we get a legitimate parse error in a CRD, surface that instead of a generic "unknown
+		// kind" from the fallback below.
+		return nil, nil, err
+	}
+	return DecodeKubernetesObject(bytes)
+}
+
+func DecodeKubernetesObject(bytes []byte) (runtime.Object, *schema.GroupVersionKind, error) {
+	return KubernetesDecoder().Decode(bytes, nil, nil)
+}
+
+func DecodeFile(path string) (runtime.Object, error) {
+	bs, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return DecodeObject(bs)
+}

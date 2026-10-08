@@ -1,0 +1,80 @@
+HTK END USER LICENSE AGREEMENT
+
+1. Definitions
+
+Licensed Software:  All source code, object or executable code,
+associated technical documentation and any
+data files in this HTK distribution.
+
+Licensor         :  University of Cambridge
+
+Licensee         :  The person/organisation who downloads the HTK
+distribution or any part of it.
+
+
+2. License Rights and Obligations
+
+2.1 The Licensor hereby grants the Licensee a non-exclusive license to a)
+make copies of the Licensed Software in source and object code form for use
+within the Licensee's organisation; b) modify copies of the Licensed Software
+to create derivative works thereof for use within the Licensee's
+organisation.
+
+2.2 The Licensed Software either in whole or in part can not be distributed
+or sub-licensed to any third party in any form.
+
+2.3 The Licensee agrees not to remove any copyright, trademark or patent
+notices that appear in the Licensed Software.
+
+2.4 THE LICENSED SOFTWARE IS PROVIDED "AS IS" WITHOUT ANY WARRANTY OF ANY
+KIND. TO THE MAXIMUM EXTENT PERMITTED BY LAW, ANY AND ALL EXPRESS AND IMPLIED
+WARRANTIES OF ANY KIND WHATSOEVER, INCLUDING BUT NOT LIMITED TO THOSE OF
+MERCHANTABILITY, OF FITNESS FOR A PARTICULAR PURPOSE, OF ACCURACY OR
+COMPLETENESS OF RESPONSES, OF RESULTS, OF REASONABLE CARE OR WORKMANLIKE
+EFFORT, OF LACK OF NEGLIGENCE, AND/OR OF A LACK OF VIRUSES, ALL WITH REGARD
+TO THE LICENSED SOFTWARE, ARE EXPRESSLY EXCLUDED.  NEITHER LICENSOR, ENTROPIC
+OR MICROSOFT MAKE ANY WARRANTY THAT THE LICENSED SOFTWARE WILL OPERATE
+PROPERLY AS INTEGRATED IN YOUR PRODUCT(S) OR ON ANY CUSTOMER SYSTEM(S).
+
+2.5 THE LICENSEE AGREES THAT NEITHER LICENSOR, ENTROPIC OR MICROSOFT SHALL BE
+LIABLE FOR ANY CONSEQUENTIAL, INCIDENTAL, INDIRECT, ECONOMIC OR PUNITIVE
+DAMAGES WHATSOEVER (INCLUDING BUT NOT LIMITED TO DAMAGES FOR LOSS OF BUSINESS
+OR PERSONAL PROFITS, BUSINESS INTERRUPTION, LOSS OF BUSINESS OR PERSONAL OR
+CONFIDENTIAL INFORMATION, OR ANY OTHER PECUNIARY LOSS, DAMAGES FOR LOSS OF
+PRIVACY, OR FOR FAILURE TO MEET ANY DUTY, INCLUDING ANY DUTY OF GOOD FAITH,
+OR TO EXERCISE COMMERCIALLY REASONABLE CARE OR FOR NEGLIGENCE) ARISING OUT OF
+OR IN ANY WAY RELATED TO THE USE OF OR INABILITY TO USE THE LICENSED
+SOFTWARE, EVEN IF ENTROPIC HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH
+DAMAGES.
+
+
+3. Term of Agreement
+
+This agreement is effective upon the download of the Licensed Software and
+shall remain in effect until terminated. Termination by the Licensee should
+be accompanied by the complete destruction of the Licensed Software and any
+complete or partial copies thereof. The Licensor may only terminate this
+agreement if the Licensee has failed to abide by the terms of this agreement
+in which case termination may be without notice. All provisions of this
+agreement relating to disclaimers of warranties, limitation of liability,
+remedies or damage and the Licensor's proprietary rights shall survive
+termination.
+
+
+4. Governing Law
+
+This agreement shall be construed and interpreted in accordance with the laws
+of England.
+
+
+5. Though not a license condition, Licensees are strongly encouraged to
+a) report all bugs, where possible with bug fixes, that are found.
+b) reference the use of HTK in any publications that use the Licensed
+Software.
+
+
+6. Contributions to HTK
+
+We strongly encourage contributions to the HTK source code base. These will
+in general be additional tools or library modules which will not fall under
+his HTK License Agreement.

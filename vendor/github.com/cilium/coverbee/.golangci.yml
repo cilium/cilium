@@ -1,0 +1,66 @@
+run:
+  tests: false
+
+linters-settings:
+  errcheck:
+    # report about not checking of errors in type assertions: `a := b.(MyStruct)`;
+    # default is false: such cases aren't reported by default.
+    check-type-assertions: true
+    # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
+    # default is false: such cases aren't reported by default.
+    check-blank: true
+
+  govet:
+    # report about shadowed variables
+    check-shadowing: true
+    # Enable all analyzers
+    enable-all: true
+
+  lll:
+    # max line length, lines longer will be reported. Default is 120.
+    # '\t' is counted as 1 character by default, and can be changed with the tab-width option
+    line-length: 120
+    # tab width in spaces. Default to 1.
+    tab-width: 4
+
+  misspell:
+    # Correct spellings using locale preferences for US or UK.
+    # Default is to use a neutral variety of English.
+    # Setting locale to US will correct the British spelling of 'colour' to 'color'.
+    locale: US
+    ignore-words: []
+
+linters:
+  # please, do not use `enable-all`: it's deprecated and will be removed soon.
+  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
+  disable-all: true
+  enable:
+    - govet # Check for common errors
+    - errcheck # Check for missing error handling
+    - staticcheck # Adds extra checks on top of govet
+    - gosimple # Check for code which can be simpeler
+    - structcheck # Check for unused struct fields
+    - varcheck # Check for unused globals and consts
+    - ineffassign # Check for ineffectual assignments
+    - deadcode # Check for dead/unreachable code
+    - bodyclose # Check for unclosed HTTP bodies (causes resource leaking)
+    - gofmt # Check for code formatting
+    - gofumpt # Is stricter than gofmt
+    - gosec # Inspects source code for security problems
+    - unconvert # Remove unnecessary type conversions
+    - misspell # Finds commonly misspelled English words in comments
+    - lll # Reports long lines
+    - revive # A maintained replacement for golint
+    - depguard # Make sure we don't accidentally dependencies
+
+    # DO NOT ENABLE
+    # unused gives lots of false positives
+    # - unused        # Check for unused consts, variables, functions and types
+    # golint is deprecated
+    # - golint        # Golint differs from gofmt. Gofmt reformats Go source code, whereas golint prints out style mistakes
+issues:
+  exclude-rules:
+    # fieldalignment is an optimization which often is traded of for readability of a struct
+    - text: "fieldalignment:"
+      linters:
+        - govet

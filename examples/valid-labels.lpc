@@ -1,0 +1,13 @@
+{
+    "version": 1,
+    "valid-prefixes": [
+        {
+            "prefix": "io.cilium",
+            "source": ""
+        },
+        {
+            "prefix": "id.",
+            "source": ""
+        }
+    ]
+}

@@ -1,0 +1,43 @@
+name: Feature status report
+description: Reports all features enabled on the agent
+
+inputs:
+  cilium-cli:
+    required: false
+    default: "/usr/local/bin/cilium"
+    description: 'Path to the Cilium CLI binary'
+  title:
+    required: true
+    description: 'Title for the summary description'
+  json-filename:
+    required: true
+    description: 'Title for the JSON filename (without .json extension)'
+
+runs:
+  using: composite
+  steps:
+    - name: Report features enabled on the agent from host
+      if: ${{ always() }}
+      # A lost report is not worth failing a pull request over. Scheduled runs
+      # dispatch with a vX-Y PR-number and keep failing hard, since they are what
+      # corgi reads.
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
+      shell: bash
+      run: |
+        ${{ inputs.cilium-cli }} features status -o markdown --output-file="feature-status.md"
+        ${{ inputs.cilium-cli }} features status -o json --output-file="features-tested-${{ inputs.json-filename }}.json"
+
+    - name: Report summary for features enabled on the agent
+      if: ${{ always() }}
+      # Not worth failing a pull request over; see the comment above.
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
+      shell: bash
+      run: |
+        echo ""                                        >> "$GITHUB_STEP_SUMMARY"
+        echo "## ${{ inputs.title }}"                  >> "$GITHUB_STEP_SUMMARY"
+        echo ""                                        >> "$GITHUB_STEP_SUMMARY"
+        echo "<details>"                               >> "$GITHUB_STEP_SUMMARY"
+        echo "  <summary>Click here to see</summary>"  >> "$GITHUB_STEP_SUMMARY"
+        echo ""                                        >> "$GITHUB_STEP_SUMMARY"
+        cat feature-status.md                          >> "$GITHUB_STEP_SUMMARY"
+        echo "</details>"                              >> "$GITHUB_STEP_SUMMARY"

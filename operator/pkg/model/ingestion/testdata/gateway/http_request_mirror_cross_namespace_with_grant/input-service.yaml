@@ -1,0 +1,18 @@
+- metadata:
+    creationTimestamp: null
+    name: main
+    namespace: app-ns
+  spec:
+    ports:
+    - port: 8080
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: mirror
+    namespace: mirror-ns
+  spec:
+    ports:
+    - port: 8081
+  status:
+    loadBalancer: {}

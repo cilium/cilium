@@ -1,0 +1,9 @@
+- metadata:
+    creationTimestamp: null
+    name: backend
+    namespace: app-ns
+  spec:
+    ports:
+    - port: 8080
+  status:
+    loadBalancer: {}

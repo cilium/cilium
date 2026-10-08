@@ -1,0 +1,8 @@
+kubeProxyReplacement: "true"
+# Talk to the API server directly instead of via the kubernetes ClusterIP,
+# which is not reachable until the agent itself is up when kube-proxy
+# replacement is enabled (see kubeproxy-free docs for kind).
+k8sServiceHost: kind-control-plane
+k8sServicePort: 6443
+loadBalancer:
+  serviceTopology: true

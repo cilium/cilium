@@ -1,0 +1,41 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: omit-sectionName-listeners 
+  namespace: gateway-conformance-infra-label
+spec:
+  parentRefs:
+  - name: gateway-omit-sectionName-listeners
+    namespace: gateway-conformance-infra-label
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port: 8080
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: Cross namespace references are not allowed
+      reason: RefNotPermitted
+      status: "False"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: gateway-omit-sectionName-listeners
+      namespace: gateway-conformance-infra-label
+      group: gateway.networking.k8s.io
+      Kind: Gateway
+

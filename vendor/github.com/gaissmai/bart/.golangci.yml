@@ -1,0 +1,60 @@
+version: '2'
+run:
+  timeout: 5m
+linters:
+  enable:
+    - decorder
+    - errorlint
+    - gocyclo
+    - govet
+    - gosec
+    - gosmopolitan
+    - intrange
+    - misspell
+    - predeclared
+    - reassign
+    - staticcheck
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - copyloopvar
+    - tparallel
+    - gochecknoglobals
+    - nolintlint
+    - modernize
+  settings:
+    govet:
+      enable:
+        - shadow
+    gocyclo:
+      min-complexity: 30
+    gosec:
+      excludes:
+        - G404             # deterministic RNG in tests/benchmarks only
+  exclusions:
+    rules:
+      - path: '(.+)_test\.go'
+        linters:
+          - gochecknoglobals
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

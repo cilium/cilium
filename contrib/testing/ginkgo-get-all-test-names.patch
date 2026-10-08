@@ -1,0 +1,60 @@
+diff --git a/test/ginkgo-ext/scopes.go b/test/ginkgo-ext/scopes.go
+index cec4b72f28..4a944b80a7 100644
+--- a/test/ginkgo-ext/scopes.go
++++ b/test/ginkgo-ext/scopes.go
+@@ -663,35 +663,17 @@ func FailWithToggle(message string, callerSkip ...int) {
+ // SkipDescribeIf is a wrapper for the Describe block which is being executed
+ // if the given condition is NOT met.
+ func SkipDescribeIf(condition func() bool, text string, body func()) bool {
+-	if condition() {
+-		return It(text, func() {
+-			Skip("skipping due to unmet condition")
+-		})
+-	}
+-
+ 	return Describe(text, body)
+ }
+ 
+ // SkipContextIf is a wrapper for the Context block which is being executed
+ // if the given condition is NOT met.
+ func SkipContextIf(condition func() bool, text string, body func()) bool {
+-	if condition() {
+-		return It(text, func() {
+-			Skip("skipping due to unmet condition")
+-		})
+-	}
+-
+ 	return Context(text, body)
+ }
+ 
+ // SkipItIf executes the given body if the given condition is NOT met.
+ func SkipItIf(condition func() bool, text string, body func(), timeout ...float64) bool {
+-	if condition() {
+-		return It(text, func() {
+-			Skip("skipping due to unmet condition")
+-		})
+-	}
+-
+ 	return It(text, body, timeout...)
+ }
+ 
+diff --git a/vendor/github.com/onsi/ginkgo/internal/spec_iterator/serial_spec_iterator.go b/vendor/github.com/onsi/ginkgo/internal/spec_iterator/serial_spec_iterator.go
+index a51c93b8b6..b1f33d9ad4 100644
+--- a/vendor/github.com/onsi/ginkgo/internal/spec_iterator/serial_spec_iterator.go
++++ b/vendor/github.com/onsi/ginkgo/internal/spec_iterator/serial_spec_iterator.go
+@@ -2,6 +2,7 @@ package spec_iterator
+ 
+ import (
+ 	"github.com/onsi/ginkgo/internal/spec"
++	"fmt"
+ )
+ 
+ type SerialIterator struct {
+@@ -37,6 +38,7 @@ func (s *SerialIterator) NumberOfSpecsToProcessIfKnown() (int, bool) {
+ func (s *SerialIterator) NumberOfSpecsThatWillBeRunIfKnown() (int, bool) {
+ 	count := 0
+ 	for _, s := range s.specs {
++		fmt.Printf("TestRun%+v\n", s.ConcatenatedString())
+ 		if !s.Skipped() && !s.Pending() {
+ 			count += 1
+ 		}

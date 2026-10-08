@@ -1,0 +1,714 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package gobgp
+
+import (
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/netip"
+	"strings"
+
+	gobgp "github.com/osrg/gobgp/v4/api"
+	"github.com/osrg/gobgp/v4/pkg/apiutil"
+	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
+
+	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/bgp/types"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+// ToGoBGPPath converts the Agent Path type to the GoBGP Path type
+func ToGoBGPPath(p *types.Path) (*apiutil.Path, error) {
+	createdAt := p.CreatedAt
+	if createdAt.IsZero() {
+		// GoBGP's Age field is a Unix creation timestamp in seconds;
+		// zero would mean 1970-01-01, not an unset timestamp.
+		createdAt = time.Now()
+	}
+	return &apiutil.Path{
+		Family:  bgp.NewFamily(uint16(p.Family.Afi), uint8(p.Family.Safi)),
+		Nlri:    p.NLRI,
+		Attrs:   p.PathAttributes,
+		Age:     createdAt.Unix(),
+		Best:    p.Best,
+		PeerASN: p.SourceASN,
+	}, nil
+}
+
+// ToAgentPath converts the GoBGP Path type to the Agent Path type
+func ToAgentPath(p *apiutil.Path) (*types.Path, error) {
+	return &types.Path{
+		Family: types.Family{
+			Afi:  types.Afi(p.Family.Afi()),
+			Safi: types.Safi(p.Family.Safi()),
+		},
+		NLRI:           p.Nlri,
+		PathAttributes: p.Attrs,
+		CreatedAt:      time.Unix(p.Age, 0), // GoBGP's Age field is a Unix creation timestamp in seconds.
+		Best:           p.Best,
+		SourceASN:      p.PeerASN,
+	}, nil
+}
+
+// ToAgentPaths converts slice of the GoBGP Path type to slice of the Agent Path type
+func ToAgentPaths(paths []*apiutil.Path) ([]*types.Path, error) {
+	errs := []error{}
+	ps := []*types.Path{}
+
+	for _, path := range paths {
+		p, err := ToAgentPath(path)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		ps = append(ps, p)
+	}
+
+	if len(errs) != 0 {
+		return nil, errors.Join(errs...)
+	}
+
+	return ps, nil
+}
+
+func toGoBGPFamily(family types.Family) *gobgp.Family {
+	return &gobgp.Family{
+		Afi:  toGoBGPAfi(family.Afi),
+		Safi: toGoBGPSafi(family.Safi),
+	}
+}
+
+func toGoBGPAfi(a types.Afi) gobgp.Family_Afi {
+	switch a {
+	case types.AfiUnknown:
+		return gobgp.Family_AFI_UNSPECIFIED
+	case types.AfiIPv4:
+		return gobgp.Family_AFI_IP
+	case types.AfiIPv6:
+		return gobgp.Family_AFI_IP6
+	case types.AfiL2VPN:
+		return gobgp.Family_AFI_L2VPN
+	case types.AfiLS:
+		return gobgp.Family_AFI_LS
+	case types.AfiOpaque:
+		return gobgp.Family_AFI_OPAQUE
+	default:
+		return gobgp.Family_AFI_UNSPECIFIED
+	}
+}
+
+func toGoBGPSafi(s types.Safi) gobgp.Family_Safi {
+	switch s {
+	case types.SafiUnknown:
+		return gobgp.Family_SAFI_UNSPECIFIED
+	case types.SafiUnicast:
+		return gobgp.Family_SAFI_UNICAST
+	case types.SafiMulticast:
+		return gobgp.Family_SAFI_MULTICAST
+	case types.SafiMplsLabel:
+		return gobgp.Family_SAFI_MPLS_LABEL
+	case types.SafiEncapsulation:
+		return gobgp.Family_SAFI_ENCAPSULATION
+	case types.SafiVpls:
+		return gobgp.Family_SAFI_VPLS
+	case types.SafiEvpn:
+		return gobgp.Family_SAFI_EVPN
+	case types.SafiLs:
+		return gobgp.Family_SAFI_LS
+	case types.SafiSrPolicy:
+		return gobgp.Family_SAFI_SR_POLICY
+	case types.SafiMup:
+		return gobgp.Family_SAFI_MUP
+	case types.SafiMplsVpn:
+		return gobgp.Family_SAFI_MPLS_VPN
+	case types.SafiMplsVpnMulticast:
+		return gobgp.Family_SAFI_MPLS_VPN_MULTICAST
+	case types.SafiRouteTargetConstraints:
+		return gobgp.Family_SAFI_ROUTE_TARGET_CONSTRAINTS
+	case types.SafiFlowSpecUnicast:
+		return gobgp.Family_SAFI_FLOW_SPEC_UNICAST
+	case types.SafiFlowSpecVpn:
+		return gobgp.Family_SAFI_FLOW_SPEC_VPN
+	case types.SafiKeyValue:
+		return gobgp.Family_SAFI_KEY_VALUE
+	default:
+		return gobgp.Family_SAFI_UNSPECIFIED
+	}
+}
+
+func toGoBGPPolicy(apiPolicy *types.RoutePolicy) (*gobgp.Policy, []*gobgp.DefinedSet) {
+	var definedSets []*gobgp.DefinedSet
+
+	policy := &gobgp.Policy{
+		Name: apiPolicy.Name,
+	}
+	for i, stmt := range apiPolicy.Statements {
+		name := stmt.Name
+		if name == "" {
+			// use statement index as the default name
+			name = fmt.Sprintf("stmt%d", i)
+		}
+		name = scopedPolicyStatementName(apiPolicy.Name, name)
+		statement, dSets := toGoBGPPolicyStatement(stmt, name)
+		policy.Statements = append(policy.Statements, statement)
+		definedSets = append(definedSets, dSets...)
+	}
+
+	return policy, definedSets
+}
+
+func toAgentPolicy(p *gobgp.Policy, definedSets map[string]*gobgp.DefinedSet, assignment *gobgp.PolicyAssignment) *types.RoutePolicy {
+	policy := &types.RoutePolicy{
+		Name: p.Name,
+		Type: toAgentPolicyType(assignment.Direction),
+	}
+	for _, s := range p.Statements {
+		statement := toAgentPolicyStatement(s, definedSets)
+		statement.Name = unscopedPolicyStatementName(p.Name, statement.Name)
+		policy.Statements = append(policy.Statements, statement)
+	}
+	return policy
+}
+
+func toGoBGPPolicyStatement(apiStatement *types.RoutePolicyStatement, name string) (*gobgp.Statement, []*gobgp.DefinedSet) {
+	var definedSets []*gobgp.DefinedSet
+
+	s := &gobgp.Statement{
+		Name:       name,
+		Conditions: &gobgp.Conditions{},
+		Actions: &gobgp.Actions{
+			RouteAction: toGoBGPRouteAction(apiStatement.Actions.RouteAction),
+		},
+	}
+
+	// defined set to match neighbor
+	if apiStatement.Conditions.MatchNeighbors != nil && len(apiStatement.Conditions.MatchNeighbors.Neighbors) > 0 {
+		neighbors := []string{}
+		for _, addr := range apiStatement.Conditions.MatchNeighbors.Neighbors {
+			neighbors = append(neighbors, netip.PrefixFrom(addr, addr.BitLen()).String())
+		}
+		ds := &gobgp.DefinedSet{
+			DefinedType: gobgp.DefinedType_DEFINED_TYPE_NEIGHBOR,
+			Name:        policyNeighborDefinedSetName(name),
+			List:        neighbors,
+		}
+		s.Conditions.NeighborSet = &gobgp.MatchSet{
+			Type: toGoBGPPolicyMatchType(apiStatement.Conditions.MatchNeighbors.Type),
+			Name: ds.Name,
+		}
+		definedSets = append(definedSets, ds)
+	}
+
+	// defined set to match prefixes
+	if apiStatement.Conditions.MatchPrefixes != nil && len(apiStatement.Conditions.MatchPrefixes.Prefixes) > 0 {
+		ds := &gobgp.DefinedSet{
+			DefinedType: gobgp.DefinedType_DEFINED_TYPE_PREFIX,
+			Name:        policyPrefixDefinedSetName(name),
+		}
+		for _, prefix := range apiStatement.Conditions.MatchPrefixes.Prefixes {
+			p := &gobgp.Prefix{
+				IpPrefix:      prefix.CIDR.String(),
+				MaskLengthMin: uint32(prefix.PrefixLenMin),
+				MaskLengthMax: uint32(prefix.PrefixLenMax),
+			}
+			ds.Prefixes = append(ds.Prefixes, p)
+		}
+		s.Conditions.PrefixSet = &gobgp.MatchSet{
+			Type: toGoBGPPolicyMatchType(apiStatement.Conditions.MatchPrefixes.Type),
+			Name: ds.Name,
+		}
+		definedSets = append(definedSets, ds)
+	}
+
+	// match address families
+	if len(apiStatement.Conditions.MatchFamilies) > 0 {
+		for _, family := range apiStatement.Conditions.MatchFamilies {
+			s.Conditions.AfiSafiIn = append(s.Conditions.AfiSafiIn, toGoBGPFamily(family))
+		}
+	}
+
+	// community actions
+	if len(apiStatement.Actions.AddCommunities) > 0 {
+		s.Actions.Community = &gobgp.CommunityAction{
+			Type:        gobgp.CommunityAction_TYPE_ADD,
+			Communities: apiStatement.Actions.AddCommunities,
+		}
+	}
+	if len(apiStatement.Actions.AddLargeCommunities) > 0 {
+		s.Actions.LargeCommunity = &gobgp.CommunityAction{
+			Type:        gobgp.CommunityAction_TYPE_ADD,
+			Communities: apiStatement.Actions.AddLargeCommunities,
+		}
+	}
+
+	// local preference actions
+	if apiStatement.Actions.SetLocalPreference != nil {
+		// Local preference only makes sense for iBGP sessions. However, it can be applied
+		// unconditionally here - it would have no effect on eBGP peers matching this policy.
+		s.Actions.LocalPref = &gobgp.LocalPrefAction{
+			Value: uint32(*apiStatement.Actions.SetLocalPreference),
+		}
+	}
+
+	if apiStatement.Actions.NextHop != nil {
+		s.Actions.Nexthop = &gobgp.NexthopAction{
+			Self:      apiStatement.Actions.NextHop.Self,
+			Unchanged: apiStatement.Actions.NextHop.Unchanged,
+		}
+	}
+
+	return s, definedSets
+}
+
+func toAgentPolicyStatement(s *gobgp.Statement, definedSets map[string]*gobgp.DefinedSet) *types.RoutePolicyStatement {
+	stmt := &types.RoutePolicyStatement{
+		Name: s.Name,
+	}
+
+	if s.Conditions != nil {
+		if s.Conditions.NeighborSet != nil && definedSets[s.Conditions.NeighborSet.Name] != nil {
+			neighbors := []netip.Addr{}
+			for _, addr := range definedSets[s.Conditions.NeighborSet.Name].List {
+				neighbor, err := netip.ParsePrefix(addr)
+				if err != nil {
+					continue
+				}
+				neighbors = append(neighbors, neighbor.Addr())
+			}
+			stmt.Conditions.MatchNeighbors = &types.RoutePolicyNeighborMatch{
+				Type:      toAgentPolicyMatchType(s.Conditions.NeighborSet.Type),
+				Neighbors: neighbors,
+			}
+		}
+		if s.Conditions.PrefixSet != nil && definedSets[s.Conditions.PrefixSet.Name] != nil {
+			prefixes := make([]types.RoutePolicyPrefix, 0, len(definedSets[s.Conditions.PrefixSet.Name].Prefixes))
+			for _, pfx := range definedSets[s.Conditions.PrefixSet.Name].Prefixes {
+				cidr, err := netip.ParsePrefix(pfx.IpPrefix)
+				if err == nil {
+					prefixes = append(prefixes, types.RoutePolicyPrefix{
+						CIDR:         cidr,
+						PrefixLenMin: int(pfx.MaskLengthMin),
+						PrefixLenMax: int(pfx.MaskLengthMax),
+					})
+				}
+			}
+			stmt.Conditions.MatchPrefixes = &types.RoutePolicyPrefixMatch{
+				Type:     toAgentPolicyMatchType(s.Conditions.PrefixSet.Type),
+				Prefixes: prefixes,
+			}
+		}
+		for _, family := range s.Conditions.AfiSafiIn {
+			stmt.Conditions.MatchFamilies = append(stmt.Conditions.MatchFamilies, toAgentFamily(family))
+		}
+	}
+	if s.Actions != nil {
+		stmt.Actions.RouteAction = toAgentRouteAction(s.Actions.RouteAction)
+		if s.Actions.Community != nil {
+			stmt.Actions.AddCommunities = s.Actions.Community.Communities
+		}
+		if s.Actions.LargeCommunity != nil {
+			stmt.Actions.AddLargeCommunities = s.Actions.LargeCommunity.Communities
+		}
+		if s.Actions.LocalPref != nil {
+			localPref := int64(s.Actions.LocalPref.Value)
+			stmt.Actions.SetLocalPreference = &localPref
+		}
+		if s.Actions.Nexthop != nil {
+			stmt.Actions.NextHop = &types.RoutePolicyActionNextHop{
+				Self:      s.Actions.Nexthop.Self,
+				Unchanged: s.Actions.Nexthop.Unchanged,
+			}
+		}
+	}
+	return stmt
+}
+
+// GoBGP stores statement names globally, so scope the caller's policy-local statement name with the policy name at the GoBGP adapter boundary.
+func scopedPolicyStatementName(policyName, statementName string) string {
+	return policyName + "_" + statementName
+}
+
+// Remove prefix added by GoBGP adapter (scopedPolicyStatementName) to restore policy-local statement name.
+func unscopedPolicyStatementName(policyName, statementName string) string {
+	return strings.TrimPrefix(statementName, policyName+"_")
+}
+
+func policyNeighborDefinedSetName(policyStatementName string) string {
+	return policyStatementName + "-neighbor"
+}
+
+func policyPrefixDefinedSetName(policyStatementName string) string {
+	return policyStatementName + "-prefix"
+}
+
+func toGoBGPRouteAction(a types.RoutePolicyAction) gobgp.RouteAction {
+	switch a {
+	case types.RoutePolicyActionAccept:
+		return gobgp.RouteAction_ROUTE_ACTION_ACCEPT
+	case types.RoutePolicyActionReject:
+		return gobgp.RouteAction_ROUTE_ACTION_REJECT
+	}
+	return gobgp.RouteAction_ROUTE_ACTION_UNSPECIFIED
+}
+
+func toAgentRouteAction(a gobgp.RouteAction) types.RoutePolicyAction {
+	switch a {
+	case gobgp.RouteAction_ROUTE_ACTION_ACCEPT:
+		return types.RoutePolicyActionAccept
+	case gobgp.RouteAction_ROUTE_ACTION_REJECT:
+		return types.RoutePolicyActionReject
+	}
+	return types.RoutePolicyActionNone
+}
+
+func toGoBGPPolicyDirection(policyType types.RoutePolicyType) gobgp.PolicyDirection {
+	switch policyType {
+	case types.RoutePolicyTypeExport:
+		return gobgp.PolicyDirection_POLICY_DIRECTION_EXPORT
+	case types.RoutePolicyTypeImport:
+		return gobgp.PolicyDirection_POLICY_DIRECTION_IMPORT
+	}
+	return gobgp.PolicyDirection_POLICY_DIRECTION_UNSPECIFIED
+}
+
+func toAgentPolicyType(d gobgp.PolicyDirection) types.RoutePolicyType {
+	if d == gobgp.PolicyDirection_POLICY_DIRECTION_IMPORT {
+		return types.RoutePolicyTypeImport
+	}
+	return types.RoutePolicyTypeExport
+}
+
+func toGoBGPPolicyMatchType(apiType types.RoutePolicyMatchType) gobgp.MatchSet_Type {
+	switch apiType {
+	case types.RoutePolicyMatchAny:
+		return gobgp.MatchSet_TYPE_ANY
+	case types.RoutePolicyMatchAll:
+		return gobgp.MatchSet_TYPE_ALL
+	case types.RoutePolicyMatchInvert:
+		return gobgp.MatchSet_TYPE_INVERT
+	}
+	return gobgp.MatchSet_TYPE_ANY
+}
+
+func toAgentPolicyMatchType(t gobgp.MatchSet_Type) types.RoutePolicyMatchType {
+	switch t {
+	case gobgp.MatchSet_TYPE_ANY:
+		return types.RoutePolicyMatchAny
+	case gobgp.MatchSet_TYPE_ALL:
+		return types.RoutePolicyMatchAll
+	case gobgp.MatchSet_TYPE_INVERT:
+		return types.RoutePolicyMatchInvert
+	}
+	return types.RoutePolicyMatchAny
+}
+
+func toGoBGPSoftResetDirection(direction types.SoftResetDirection) gobgp.ResetPeerRequest_Direction {
+	switch direction {
+	case types.SoftResetDirectionIn:
+		return gobgp.ResetPeerRequest_DIRECTION_IN
+	case types.SoftResetDirectionOut:
+		return gobgp.ResetPeerRequest_DIRECTION_OUT
+	}
+	return gobgp.ResetPeerRequest_DIRECTION_BOTH
+}
+
+// toAgentSessionState translates gobgp session state to cilium bgp session state.
+func toAgentSessionState(s gobgp.PeerState_SessionState) types.SessionState {
+	switch s {
+	case gobgp.PeerState_SESSION_STATE_UNSPECIFIED:
+		return types.SessionUnknown
+	case gobgp.PeerState_SESSION_STATE_IDLE:
+		return types.SessionIdle
+	case gobgp.PeerState_SESSION_STATE_CONNECT:
+		return types.SessionConnect
+	case gobgp.PeerState_SESSION_STATE_ACTIVE:
+		return types.SessionActive
+	case gobgp.PeerState_SESSION_STATE_OPENSENT:
+		return types.SessionOpenSent
+	case gobgp.PeerState_SESSION_STATE_OPENCONFIRM:
+		return types.SessionOpenConfirm
+	case gobgp.PeerState_SESSION_STATE_ESTABLISHED:
+		return types.SessionEstablished
+	default:
+		return types.SessionUnknown
+	}
+}
+
+func toAgentCap(s []*gobgp.Capability) []bgp.ParameterCapabilityInterface {
+	caps, err := apiutil.UnmarshalCapabilities(s)
+	if err != nil {
+		return nil
+	}
+
+	return caps
+}
+
+func toAgentCapLegacy(s []*gobgp.Capability) []*models.BgpCapabilities {
+	caps, err := apiutil.UnmarshalCapabilities(s)
+	if err != nil {
+		return nil
+	}
+	agentCaps := make([]*models.BgpCapabilities, 0, len(caps))
+
+	for _, cap := range caps {
+		// similar to NLRI, we need to serialize the capability to get the binary data
+		// because OpenAPI 2.0 spec doesn't support Union type and we don't have any way
+		// to express the API response field which can be a multiple types
+		bin, err := cap.Serialize()
+		if err != nil {
+			return nil
+		}
+		agentCaps = append(agentCaps, &models.BgpCapabilities{
+			Capabilities: base64.StdEncoding.EncodeToString(bin),
+		})
+	}
+
+	return agentCaps
+}
+
+func toAgentFamily(family *gobgp.Family) types.Family {
+	return types.Family{
+		Afi:  toAgentAfi(family.Afi),
+		Safi: toAgentSafi(family.Safi),
+	}
+}
+
+// toAgentAfi translates gobgp AFI to cilium bgp AFI.
+func toAgentAfi(a gobgp.Family_Afi) types.Afi {
+	switch a {
+	case gobgp.Family_AFI_UNSPECIFIED:
+		return types.AfiUnknown
+	case gobgp.Family_AFI_IP:
+		return types.AfiIPv4
+	case gobgp.Family_AFI_IP6:
+		return types.AfiIPv6
+	case gobgp.Family_AFI_L2VPN:
+		return types.AfiL2VPN
+	case gobgp.Family_AFI_LS:
+		return types.AfiLS
+	case gobgp.Family_AFI_OPAQUE:
+		return types.AfiOpaque
+	default:
+		return types.AfiUnknown
+	}
+}
+
+func toAgentSafi(s gobgp.Family_Safi) types.Safi {
+	switch s {
+	case gobgp.Family_SAFI_UNSPECIFIED:
+		return types.SafiUnknown
+	case gobgp.Family_SAFI_UNICAST:
+		return types.SafiUnicast
+	case gobgp.Family_SAFI_MULTICAST:
+		return types.SafiMulticast
+	case gobgp.Family_SAFI_MPLS_LABEL:
+		return types.SafiMplsLabel
+	case gobgp.Family_SAFI_ENCAPSULATION:
+		return types.SafiEncapsulation
+	case gobgp.Family_SAFI_VPLS:
+		return types.SafiVpls
+	case gobgp.Family_SAFI_EVPN:
+		return types.SafiEvpn
+	case gobgp.Family_SAFI_LS:
+		return types.SafiLs
+	case gobgp.Family_SAFI_SR_POLICY:
+		return types.SafiSrPolicy
+	case gobgp.Family_SAFI_MUP:
+		return types.SafiMup
+	case gobgp.Family_SAFI_MPLS_VPN:
+		return types.SafiMplsVpn
+	case gobgp.Family_SAFI_MPLS_VPN_MULTICAST:
+		return types.SafiMplsVpnMulticast
+	case gobgp.Family_SAFI_ROUTE_TARGET_CONSTRAINTS:
+		return types.SafiRouteTargetConstraints
+	case gobgp.Family_SAFI_FLOW_SPEC_UNICAST:
+		return types.SafiFlowSpecUnicast
+	case gobgp.Family_SAFI_FLOW_SPEC_VPN:
+		return types.SafiFlowSpecVpn
+	case gobgp.Family_SAFI_KEY_VALUE:
+		return types.SafiKeyValue
+	default:
+		return types.SafiUnknown
+	}
+}
+
+func toGoBGPTableType(t types.TableType) (gobgp.TableType, error) {
+	switch t {
+	case types.TableTypeLocRIB:
+		return gobgp.TableType_TABLE_TYPE_LOCAL, nil
+	case types.TableTypeAdjRIBIn:
+		return gobgp.TableType_TABLE_TYPE_ADJ_IN, nil
+	case types.TableTypeAdjRIBOut:
+		return gobgp.TableType_TABLE_TYPE_ADJ_OUT, nil
+	default:
+		return gobgp.TableType_TABLE_TYPE_LOCAL, fmt.Errorf("unknown table type %d", t)
+	}
+}
+
+func ToGoBGPPeer(n *types.Neighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
+	newPeer := &gobgp.Peer{}
+
+	newPeer.Conf = toGoBGPPeerConf(n, oldPeer)
+	newPeer.EbgpMultihop = toGoBGPEbgpMultihop(n.EbgpMultihop)
+	newPeer.Timers = toGoBGPTimers(n.Timers)
+	newPeer.Transport = toGoBGPTransport(n.Transport, oldPeer, v4)
+	newPeer.GracefulRestart = toGoBGPGracefulRestart(n.GracefulRestart)
+	newPeer.AfiSafis = toGoBGPAfiSafi(n.AfiSafis, newPeer.GracefulRestart)
+
+	return newPeer
+}
+
+type peerDescription struct {
+	Name string `json:"name"`
+}
+
+func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
+	conf := &gobgp.PeerConf{}
+
+	// Inherit the default values from existing peer configuration
+	if oldPeer != nil && oldPeer.Conf != nil {
+		conf = oldPeer.Conf
+	}
+
+	// Encode neighbor name (inherited from the CRD) into the description
+	// field as JSON (for future extensibility). This is useful for the
+	// discovered peers where we cannot obtain IP address from the CRD.
+	if n.Name != "" {
+		pd := peerDescription{
+			Name: n.Name,
+		}
+		desc, err := json.Marshal(pd)
+		if err == nil {
+			// We ignore error here because this field is not
+			// critical for operation. Caller should handle the
+			// case when description is not set.
+			conf.Description = string(desc)
+		}
+	}
+
+	if n.Address.IsValid() {
+		conf.NeighborAddress = n.Address.String()
+	} else {
+		// GoBGP cannot handle non-empty, but invalid address (it
+		// panics). Set empty address in that case.
+		conf.NeighborAddress = ""
+	}
+
+	conf.AuthPassword = n.AuthPassword
+	conf.PeerAsn = n.ASN
+
+	return conf
+}
+
+func toGoBGPEbgpMultihop(n *types.NeighborEbgpMultihop) *gobgp.EbgpMultihop {
+	if n == nil {
+		return nil
+	}
+	return &gobgp.EbgpMultihop{
+		Enabled:     true,
+		MultihopTtl: n.TTL,
+	}
+}
+
+func toGoBGPTimers(n *types.NeighborTimers) *gobgp.Timers {
+	if n == nil {
+		return nil
+	}
+	return &gobgp.Timers{
+		Config: &gobgp.TimersConfig{
+			ConnectRetry:           n.ConnectRetry,
+			HoldTime:               n.HoldTime,
+			KeepaliveInterval:      n.KeepaliveInterval,
+			IdleHoldTimeAfterReset: idleHoldTimeAfterResetSeconds,
+		},
+	}
+}
+
+func toGoBGPTransport(n *types.NeighborTransport, oldPeer *gobgp.Peer, v4 bool) *gobgp.Transport {
+	if n == nil {
+		return nil
+	}
+
+	transport := &gobgp.Transport{}
+
+	// Inherit the default values from existing peer configuration
+	if oldPeer != nil && oldPeer.Transport != nil {
+		transport = oldPeer.Transport
+	}
+
+	if n.LocalPort > 0 {
+		transport.LocalPort = n.LocalPort
+	}
+
+	if n.RemotePort > 0 {
+		transport.RemotePort = n.RemotePort
+	}
+
+	if n.LocalAddress == "" {
+		// If local address is not set, set it to wildcard
+		if v4 {
+			transport.LocalAddress = wildcardIPv4Addr
+		} else {
+			transport.LocalAddress = wildcardIPv6Addr
+		}
+	} else {
+		transport.LocalAddress = n.LocalAddress
+	}
+
+	return transport
+}
+
+func toGoBGPGracefulRestart(n *types.NeighborGracefulRestart) *gobgp.GracefulRestart {
+	if n == nil {
+		return nil
+	}
+	if !n.Enabled {
+		return &gobgp.GracefulRestart{}
+	}
+	return &gobgp.GracefulRestart{
+		Enabled:             true,
+		RestartTime:         n.RestartTime,
+		NotificationEnabled: true,
+		LocalRestarting:     true,
+	}
+}
+
+func toGoBGPAfiSafi(fams []*types.Family, gr *gobgp.GracefulRestart) []*gobgp.AfiSafi {
+	if len(fams) == 0 {
+		res := make([]*gobgp.AfiSafi, len(defaultAfiSafi))
+		for i, v := range defaultAfiSafi {
+			res[i] = &gobgp.AfiSafi{
+				Config: &gobgp.AfiSafiConfig{
+					Family: &gobgp.Family{
+						Afi:  gobgp.Family_Afi(v.Config.Family.Afi),
+						Safi: gobgp.Family_Safi(v.Config.Family.Safi),
+					},
+				},
+			}
+		}
+		return res
+	}
+	afisafis := make([]*gobgp.AfiSafi, 0, len(fams))
+	for _, fam := range fams {
+		afisafi := &gobgp.AfiSafi{
+			Config: &gobgp.AfiSafiConfig{
+				Family: &gobgp.Family{
+					Afi:  gobgp.Family_Afi(fam.Afi),
+					Safi: gobgp.Family_Safi(fam.Safi),
+				},
+			},
+		}
+		if gr != nil {
+			afisafi.MpGracefulRestart = &gobgp.MpGracefulRestart{
+				Config: &gobgp.MpGracefulRestartConfig{
+					Enabled: gr.Enabled,
+				},
+			}
+		}
+		afisafis = append(afisafis, afisafi)
+	}
+	return afisafis
+}

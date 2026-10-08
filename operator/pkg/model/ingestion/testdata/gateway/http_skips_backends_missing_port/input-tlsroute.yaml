@@ -1,0 +1,13 @@
+- metadata:
+    creationTimestamp: null
+    name: tls
+    namespace: app-ns
+  spec:
+    parentRefs:
+    - name: platform
+      sectionName: tls
+    rules:
+    - backendRefs:
+      - name: backend
+  status:
+    parents: null

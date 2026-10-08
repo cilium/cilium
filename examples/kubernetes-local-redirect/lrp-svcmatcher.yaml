@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-svc"
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: my-service
+      namespace: default
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP

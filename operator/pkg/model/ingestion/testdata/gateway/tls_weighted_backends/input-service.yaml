@@ -1,0 +1,14 @@
+- metadata:
+    creationTimestamp: null
+    name: backend-v1
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}
+- metadata:
+    creationTimestamp: null
+    name: backend-v2
+    namespace: default
+  spec: {}
+  status:
+    loadBalancer: {}

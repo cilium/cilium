@@ -1,0 +1,15 @@
+- metadata:
+    creationTimestamp: null
+    name: udp-route
+    namespace: default
+  spec:
+    parentRefs:
+    - name: gw
+      port: 5353
+      sectionName: udp-listener
+    rules:
+    - backendRefs:
+      - name: udp-backend
+        port: 5353
+  status:
+    parents: null

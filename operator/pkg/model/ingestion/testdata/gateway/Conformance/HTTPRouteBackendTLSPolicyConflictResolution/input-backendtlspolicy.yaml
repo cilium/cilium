@@ -1,0 +1,42 @@
+policies:
+  - svcName: gateway-conformance-infra/backendtlspolicy-not-conflicted-test
+    valid:
+      "https-1":
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: BackendTLSPolicy
+        metadata:
+          name: not-conflicted-with-section-name
+          namespace: gateway-conformance-infra
+        spec:
+          targetRefs:
+            - group: ""
+              kind: Service
+              name: "backendtlspolicy-not-conflicted-test"
+              sectionName: "https-1"
+          validation:
+            caCertificateRefs:
+              - group: ""
+                kind: ConfigMap
+                # This ConfigMap is generated dynamically by the test suite.
+                # It contains the CA certificate used to sign the tls-backend serving certificate.
+                name: "tls-checks-ca-certificate"
+            hostname: "other.example.com"
+      "":
+        apiVersion: gateway.networking.k8s.io/v1
+        kind: BackendTLSPolicy
+        metadata:
+          name: not-conflicted-without-section-name
+          namespace: gateway-conformance-infra
+        spec:
+          targetRefs:
+            - group: ""
+              kind: Service
+              name: "backendtlspolicy-not-conflicted-test"
+          validation:
+            caCertificateRefs:
+              - group: ""
+                kind: ConfigMap
+                # This ConfigMap is generated dynamically by the test suite.
+                # It contains the CA certificate used to sign the tls-backend serving certificate.
+                name: "tls-checks-ca-certificate"
+            hostname: "abc.example.com"

@@ -1,0 +1,45 @@
+- metadata:
+    name: backendtlspolicy-conflict-resolution
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+      - name: same-namespace
+    hostnames:
+      - abc.example.com
+    rules:
+      - backendRefs:
+          - group: ""
+            kind: Service
+            name: backendtlspolicy-conflicted-without-section-name-test
+            port: 443
+        matches:
+          - path:
+              type: Exact
+              value: /backendtlspolicy-conflicted-without-section-name
+      - backendRefs:
+          - group: ""
+            kind: Service
+            name: backendtlspolicy-conflicted-with-section-name-test
+            port: 443
+        matches:
+          - path:
+              type: Exact
+              value: /backendtlspolicy-conflicted-with-section-name
+      - backendRefs:
+          - group: ""
+            kind: Service
+            name: backendtlspolicy-not-conflicted-test
+            port: 443
+        matches:
+          - path:
+              type: Exact
+              value: /backendtlspolicy-not-conflicted-with-section-name
+      - backendRefs:
+          - group: ""
+            kind: Service
+            name: backendtlspolicy-not-conflicted-test
+            port: 8443
+        matches:
+          - path:
+              type: Exact
+              value: /backendtlspolicy-not-conflicted-without-section-name

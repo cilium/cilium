@@ -1,0 +1,105 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-with-invalid-client-cert-validation
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - kind: ConfigMap
+            group: ""
+            name: tls-validity-checks-ca-certificate
+      perPort:
+      - port: 7443
+        tls:
+          validation:
+            caCertificateRefs:
+            - kind: ConfigMap
+              group: ""
+              name: non-exisitng-cm
+      - port: 8443
+        tls:
+          validation:
+            caCertificateRefs:
+            - kind: Service
+              group: ""
+              name: infra-backend-v2
+      - port: 6443
+        tls:
+          validation:
+            caCertificateRefs:
+            - kind: ConfigMap
+              group: ""
+              name: web-backend-cm
+              namespace: gateway-conformance-web-backend
+  listeners:
+  - name: https
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: Same
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls-validity-checks-certificate
+        namespace: gateway-conformance-infra
+  - name: https-unresolved
+    port: 7443
+    hostname: first-example.org
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: Same
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls-validity-checks-certificate
+        namespace: gateway-conformance-infra
+  - name: https-invalid-kind
+    port: 8443
+    hostname: second-example.org
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: Same
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls-validity-checks-certificate
+        namespace: gateway-conformance-infra
+  - name: https-grant-missing
+    port: 6443
+    hostname: fourth-example.org
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: Same
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls-validity-checks-certificate
+        namespace: gateway-conformance-infra
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: misconfigured-client-certificate-validation-https-test
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: client-validation-invalid
+  hostnames:
+  - example.org
+  rules:
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080

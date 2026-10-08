@@ -1,0 +1,18 @@
+hive/start
+
+identity/allocate k8s:app=foo
+identity/list
+stdout 'ID\s+LABELS'
+stdout '\d+\s+k8s:app=foo'
+
+env labels=k8s:io.kubernetes.pod.namespace=default,k8s:app=web
+identity/allocate ${labels}
+env --from-stdout web_identity
+endpoint/create ${web_identity} ${labels}
+idm/list
+cmpenv -w stdout idm.expected
+
+-- idm.expected --
+ID LABELS REFCOUNT
+$web_identity k8s:app=web 1
+k8s:io.kubernetes.pod.namespace=default

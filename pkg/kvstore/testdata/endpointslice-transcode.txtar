@@ -1,0 +1,40 @@
+kvstore/update cilium/state/endpointslices/v1/cluster-a/default/backend endpointslice.json
+
+# Test JSON transcoding with explicit json output and auto
+kvstore/list -o json --values-only cilium/state/endpointslices/v1 endpointslice-json.actual
+cmp endpointslice-json.actual endpointslice.json
+
+# If transcoding wasn't applied the output should be pretty-printed, let's test
+# that it's not the case
+kvstore/list --values-only cilium/state/endpointslices/v1 endpointslice-plain.actual
+cmp endpointslice-plain.actual endpointslice-plain.expected
+
+-- endpointslice.json --
+{
+  "cluster": "cluster-a",
+  "clusterID": 1,
+  "namespace": "default",
+  "name": "backend",
+  "addressType": "IPv4",
+  "endpoints": [
+    {
+      "addresses": [
+        "10.0.0.1"
+      ],
+      "conditions": {
+        "ready": true,
+        "serving": true,
+        "terminating": false
+      }
+    }
+  ],
+  "ports": [
+    {
+      "name": "http",
+      "protocol": "TCP",
+      "port": 80
+    }
+  ]
+}
+-- endpointslice-plain.expected --
+{"cluster":"cluster-a","clusterID":1,"namespace":"default","name":"backend","addressType":"IPv4","endpoints":[{"addresses":["10.0.0.1"],"conditions":{"ready":true,"serving":true,"terminating":false}}],"ports":[{"name":"http","protocol":"TCP","port":80}]}

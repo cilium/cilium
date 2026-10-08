@@ -1,0 +1,19 @@
+- metadata:
+    name: backendtlspolicy
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+      - name: same-namespace
+        namespace: gateway-conformance-infra
+    hostnames:
+      - abc.example.com
+    rules:
+      - backendRefs:
+          - group: ""
+            kind: Service
+            name: backendtlspolicy-test
+            port: 443
+        matches:
+          - path:
+              type: Exact
+              value: /backendtlspolicy

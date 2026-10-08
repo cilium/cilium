@@ -1,0 +1,86 @@
+- metadata:
+    creationTimestamp: null
+    name: rewrite-path
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      filters:
+      - type: URLRewrite
+        urlRewrite:
+          path:
+            replacePrefixMatch: /one
+            type: ReplacePrefixMatch
+      matches:
+      - path:
+          type: PathPrefix
+          value: /prefix/one
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      filters:
+      - type: URLRewrite
+        urlRewrite:
+          path:
+            replaceFullPath: /one
+            type: ReplaceFullPath
+      matches:
+      - path:
+          type: PathPrefix
+          value: /full/one
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      filters:
+      - type: URLRewrite
+        urlRewrite:
+          path:
+            replaceFullPath: /test
+            type: ReplaceFullPath
+      - requestHeaderModifier:
+          add:
+          - name: X-Header-Add
+            value: header-val-1
+          - name: X-Header-Add-Append
+            value: header-val-2
+          remove:
+          - X-Header-Remove
+          set:
+          - name: X-Header-Set
+            value: set-overwrites-values
+        type: RequestHeaderModifier
+      matches:
+      - path:
+          type: PathPrefix
+          value: /full/rewrite-path-and-modify-headers
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      filters:
+      - type: URLRewrite
+        urlRewrite:
+          path:
+            replacePrefixMatch: /prefix
+            type: ReplacePrefixMatch
+      - requestHeaderModifier:
+          add:
+          - name: X-Header-Add
+            value: header-val-1
+          - name: X-Header-Add-Append
+            value: header-val-2
+          remove:
+          - X-Header-Remove
+          set:
+          - name: X-Header-Set
+            value: set-overwrites-values
+        type: RequestHeaderModifier
+      matches:
+      - path:
+          type: PathPrefix
+          value: /prefix/rewrite-path-and-modify-headers
+  status:
+    parents: null

@@ -1,0 +1,34 @@
+http:
+  - hostname: "*"
+    name: prod-web-gw
+    port: 80
+    routes:
+      - backends:
+          - name: my-service
+            namespace: default
+            port:
+              port: 8080
+        external_auth:
+          backend:
+            name: auth-service
+            namespace: default
+            port:
+              port: 9001
+            TLS:
+              SNI: auth-service.example.com
+              CACertRef:
+                name: ca-cert
+                namespace: default
+          protocol: GRPC
+        path_match:
+          prefix: /
+        timeout: {}
+    service:
+      type: LoadBalancer
+      load_balancer_source_ranges_policy: Allow
+    sources:
+      - group: gateway.networking.k8s.io
+        kind: Gateway
+        name: my-gateway
+        namespace: default
+        version: v1

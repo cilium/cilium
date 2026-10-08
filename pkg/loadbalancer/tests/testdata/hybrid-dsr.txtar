@@ -1,0 +1,131 @@
+#! --lb-test-fault-probability=0.0 --bpf-lb-mode=hybrid
+
+# Start the test application
+hive start
+
+# Add TCP and UDP services. Add TCP first and wait for it to be
+# reconciled for consistent ID allocation order.
+k8s/add service-tcp.yaml endpointslice-tcp.yaml
+db/cmp frontends frontends-tcp.table
+k8s/add service-udp.yaml endpointslice-udp.yaml
+db/cmp frontends frontends.table
+db/cmp services services.table
+
+# Check maps - TCP should have DSR flag, UDP should not
+lb/maps-dump maps.actual
+* cmp maps.actual maps.expected
+
+#####
+
+-- services.table --
+Name          Source   TrafficPolicy   Flags
+test/echo-tcp k8s      Cluster
+test/echo-udp k8s      Cluster
+
+-- frontends-tcp.table --
+Address               Type         ServiceName    PortName   Status  Backends
+0.0.0.0:30781/TCP     NodePort     test/echo-tcp  http       Done    10.244.1.1:80/TCP
+10.96.50.104:80/TCP   ClusterIP    test/echo-tcp  http       Done    10.244.1.1:80/TCP
+
+-- frontends.table --
+Address               Type         ServiceName    PortName   Status  Backends
+0.0.0.0:30781/TCP     NodePort     test/echo-tcp  http       Done    10.244.1.1:80/TCP
+0.0.0.0:30782/UDP     NodePort     test/echo-udp  dns        Done    10.244.1.2:53/UDP
+10.96.50.104:80/TCP   ClusterIP    test/echo-tcp  http       Done    10.244.1.1:80/TCP
+10.96.50.105:53/UDP   ClusterIP    test/echo-udp  dns        Done    10.244.1.2:53/UDP
+
+-- service-tcp.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-tcp
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo-tcp
+  sessionAffinity: None
+  type: NodePort
+
+-- endpointslice-tcp.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo-tcp
+  name: echo-tcp-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- service-udp.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-udp
+  namespace: test
+spec:
+  clusterIP: 10.96.50.105
+  clusterIPs:
+  - 10.96.50.105
+  ports:
+  - name: dns
+    nodePort: 30782
+    port: 53
+    protocol: UDP
+    targetPort: 53
+  selector:
+    name: echo-udp
+  sessionAffinity: None
+  type: NodePort
+
+-- endpointslice-udp.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo-udp
+  name: echo-udp-abc123
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.2
+  nodeName: nodeport-worker
+ports:
+- name: dns
+  port: 53
+  protocol: UDP
+
+-- maps.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.1.2:53/UDP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30781
+REV: ID=2 ADDR=10.96.50.104:80
+REV: ID=3 ADDR=0.0.0.0:30782
+REV: ID=4 ADDR=10.96.50.105:53
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=0 ADDR=10.96.50.105:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable+dsr
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable+dsr
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable+dsr
+SVC: ID=2 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable+dsr
+SVC: ID=3 ADDR=0.0.0.0:30782/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30782/UDP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=4 ADDR=10.96.50.105:53/UDP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=4 ADDR=10.96.50.105:53/UDP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable

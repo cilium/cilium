@@ -1,0 +1,34 @@
+#! --devices=dummy+ --force-device-detection
+
+# Tests the behavior of device detection when forced detection is enabled.
+
+# Start the hive
+hive start
+
+# Add dummy0 interface - matches devices wildcard, should be selected.
+exec ip link add dummy0 type dummy
+exec ip addr add 192.168.0.1/24 dev dummy0
+exec ip link set dummy0 up
+
+# Add dummy1 interface - matches devices wildcard, should be selected.
+exec ip link add dummy1 type dummy
+exec ip addr add 192.168.1.1/24 dev dummy1
+exec ip link set dummy1 up
+
+# Add eth0 interface - does not match devices wildcard, but still should be selected
+# because the force-device-detection option is enabled.
+exec ip link add eth0 type dummy
+exec ip addr add 1.2.3.4/24 dev eth0
+exec ip link set eth0 up
+
+# Verify selected devices. All 3 of them should be selected.
+db/cmp --grep='^(lo|dummy|eth)' devices devices.table
+
+# ---------------------------------------------
+
+-- devices.table --
+Name        Selected   Type
+lo          false      device
+dummy0      true       dummy
+dummy1      true       dummy
+eth0        true       dummy

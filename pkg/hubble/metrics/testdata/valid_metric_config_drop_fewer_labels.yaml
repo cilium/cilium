@@ -1,0 +1,5 @@
+metrics:
+- name: "drop"
+  contextOptions:
+  - name: "labelsContext"
+    values: ["source_namespace", "source_pod"]

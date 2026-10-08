@@ -1,0 +1,157 @@
+#!
+
+hive/start
+
+# Add object
+k8s/add service.v1.yaml
+
+# By default, both get and list should redact the UID and resource version fields.
+k8s/get v1.services test/echo -o actual.yaml
+cmp service-get-redacted.yaml actual.yaml
+
+k8s/list v1.services test -o actual.yaml
+cmp service-list-redacted.yaml actual.yaml
+
+# The non-redacted version can be retrieved using the dedicated flag.
+k8s/get v1.services test/echo -o actual.yaml --show-redacted=resource-version,uid
+cmp service-get.yaml actual.yaml
+
+k8s/list v1.services test -o actual.yaml --show-redacted=resource-version,uid
+cmp service-list.yaml actual.yaml
+
+# Check the redaction of individual fields
+k8s/get v1.services test/echo -o actual.yaml --show-redacted=resource-version
+cmp service-get-redacted-uid.yaml actual.yaml
+k8s/get v1.services test/echo -o actual.yaml --show-redacted=uid
+cmp service-get-redacted-resource-version.yaml actual.yaml
+
+k8s/list v1.services test -o actual.yaml --show-redacted=resource-version
+cmp service-list-redacted-uid.yaml actual.yaml
+k8s/list v1.services test -o actual.yaml --show-redacted=uid
+cmp service-list-redacted-resource-version.yaml actual.yaml
+
+###
+
+-- service.v1.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5
+spec:
+  clusterIP: 10.96.1.1
+
+-- service-get-redacted.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.1.1
+status:
+  loadBalancer: {}
+-- EOF --
+
+-- service-get.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  resourceVersion: "2"
+  uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5
+spec:
+  clusterIP: 10.96.1.1
+status:
+  loadBalancer: {}
+-- EOF --
+
+-- service-get-redacted-uid.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  resourceVersion: "2"
+spec:
+  clusterIP: 10.96.1.1
+status:
+  loadBalancer: {}
+-- EOF --
+
+-- service-get-redacted-resource-version.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5
+spec:
+  clusterIP: 10.96.1.1
+status:
+  loadBalancer: {}
+-- EOF --
+
+-- service-list-redacted.yaml --
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: echo
+    namespace: test
+  spec:
+    clusterIP: 10.96.1.1
+  status:
+    loadBalancer: {}
+metadata: {}
+-- EOF --
+
+-- service-list.yaml --
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: echo
+    namespace: test
+    resourceVersion: "2"
+    uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5
+  spec:
+    clusterIP: 10.96.1.1
+  status:
+    loadBalancer: {}
+metadata:
+  resourceVersion: "3"
+-- EOF --
+
+-- service-list-redacted-uid.yaml --
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: echo
+    namespace: test
+    resourceVersion: "2"
+  spec:
+    clusterIP: 10.96.1.1
+  status:
+    loadBalancer: {}
+metadata:
+  resourceVersion: "3"
+-- EOF --
+
+-- service-list-redacted-resource-version.yaml --
+items:
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: echo
+    namespace: test
+    uid: 3e5a3605-a4ff-4fc2-b244-d5baee6180a5
+  spec:
+    clusterIP: 10.96.1.1
+  status:
+    loadBalancer: {}
+metadata: {}
+-- EOF --

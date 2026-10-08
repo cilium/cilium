@@ -1,0 +1,95 @@
+http:
+- hostname: '*'
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /set
+    response_header_modifier:
+      headers_to_set:
+      - name: X-Header-Set
+        value: set-overwrites-values
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /add
+    response_header_modifier:
+      headers_to_add:
+      - name: X-Header-Add
+        value: add-appends-values
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /remove
+    response_header_modifier:
+      headers_to_remove:
+      - X-Header-Remove
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /multiple
+    response_header_modifier:
+      headers_to_add:
+      - name: X-Header-Add-1
+        value: header-add-1
+      - name: X-Header-Add-2
+        value: header-add-2
+      - name: X-Header-Add-3
+        value: header-add-3
+      headers_to_remove:
+      - X-Header-Remove-1
+      - X-Header-Remove-2
+      headers_to_set:
+      - name: X-Header-Set-1
+        value: header-set-1
+      - name: X-Header-Set-2
+        value: header-set-2
+    timeout: {}
+  - backends:
+    - name: infra-backend-v1
+      namespace: gateway-conformance-infra
+      port:
+        port: 8080
+    path_match:
+      prefix: /case-insensitivity
+    response_header_modifier:
+      headers_to_add:
+      - name: X-Header-Add
+        value: header-add
+      - name: x-lowercase-add
+        value: lowercase-add
+      - name: x-Mixedcase-ADD-1
+        value: mixedcase-add-1
+      - name: X-mixeDcase-add-2
+        value: mixedcase-add-2
+      - name: X-UPPERCASE-ADD
+        value: uppercase-add
+      headers_to_remove:
+      - X-Header-Remove
+      headers_to_set:
+      - name: X-Header-Set
+        value: header-set
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: same-namespace
+    namespace: gateway-conformance-infra
+    version: v1

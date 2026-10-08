@@ -1,0 +1,15 @@
+- hostname: '*'
+  port: 80
+  routes:
+  - backends:
+    - name: default-backend
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: load-balancing-request-timeout-invalid-annotation
+    namespace: random-namespace
+    version: v1

@@ -1,0 +1,379 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package identity
+
+import (
+	"encoding/json"
+	"net"
+	"net/netip"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
+)
+
+func TestIPIdentityPairK8sMetadataJSONCompatibility(t *testing.T) {
+	pair := IPIdentityPair{
+		IP:           net.ParseIP("10.0.0.1"),
+		K8sNamespace: "default",
+		K8sPodName:   "echo",
+	}
+
+	withoutPodUIDAndWorkload, err := pair.Marshal()
+	require.NoError(t, err)
+	assert.NotContains(t, string(withoutPodUIDAndWorkload), "K8sPodUID")
+	assert.NotContains(t, string(withoutPodUIDAndWorkload), "K8sWorkloadName")
+	assert.NotContains(t, string(withoutPodUIDAndWorkload), "K8sWorkloadKind")
+
+	var decoded IPIdentityPair
+	require.NoError(t, json.Unmarshal(withoutPodUIDAndWorkload, &decoded))
+	assert.Empty(t, decoded.K8sPodUID)
+
+	pair.K8sPodUID = "90b3d76d-3c14-42ce-b132-d2aad6789d47"
+	pair.K8sWorkloadName = "echo"
+	pair.K8sWorkloadKind = "Deployment"
+	withPodUIDAndWorkload, err := pair.Marshal()
+	require.NoError(t, err)
+	assert.Contains(t, string(withPodUIDAndWorkload), `"K8sPodUID":"90b3d76d-3c14-42ce-b132-d2aad6789d47"`)
+	assert.Contains(t, string(withPodUIDAndWorkload), `"K8sWorkloadName":"echo"`)
+	assert.Contains(t, string(withPodUIDAndWorkload), `"K8sWorkloadKind":"Deployment"`)
+
+	require.NoError(t, json.Unmarshal(withPodUIDAndWorkload, &decoded))
+	assert.Equal(t, pair.K8sPodUID, decoded.K8sPodUID)
+	assert.Equal(t, pair.K8sWorkloadName, decoded.K8sWorkloadName)
+	assert.Equal(t, pair.K8sWorkloadKind, decoded.K8sWorkloadKind)
+}
+
+func TestReservedID(t *testing.T) {
+	i := GetReservedID("host")
+	require.Equal(t, NumericIdentity(1), i)
+	require.Equal(t, "host", i.String())
+
+	i = GetReservedID("world")
+	require.Equal(t, NumericIdentity(2), i)
+	require.Equal(t, "world", i.String())
+
+	// This is an obsoleted identity, we verify that it returns 0
+	i = GetReservedID("cluster")
+	require.Equal(t, NumericIdentity(0), i)
+	require.Equal(t, "unknown", i.String())
+
+	i = GetReservedID("health")
+	require.Equal(t, NumericIdentity(4), i)
+	require.Equal(t, "health", i.String())
+
+	i = GetReservedID("init")
+	require.Equal(t, NumericIdentity(5), i)
+	require.Equal(t, "init", i.String())
+
+	i = GetReservedID("unmanaged")
+	require.Equal(t, NumericIdentity(3), i)
+	require.Equal(t, "unmanaged", i.String())
+
+	i = GetReservedID("kube-apiserver")
+	require.Equal(t, NumericIdentity(7), i)
+	require.Equal(t, "kube-apiserver", i.String())
+
+	require.Equal(t, IdentityUnknown, GetReservedID("unknown"))
+	unknown := NumericIdentity(700)
+	require.Equal(t, "700", unknown.String())
+}
+
+func TestIsReservedIdentity(t *testing.T) {
+	require.True(t, ReservedIdentityKubeAPIServer.IsReservedIdentity())
+	require.True(t, ReservedIdentityHealth.IsReservedIdentity())
+	require.True(t, ReservedIdentityHost.IsReservedIdentity())
+	require.True(t, ReservedIdentityWorld.IsReservedIdentity())
+	require.True(t, ReservedIdentityInit.IsReservedIdentity())
+	require.True(t, ReservedIdentityUnmanaged.IsReservedIdentity())
+
+	require.False(t, NumericIdentity(123456).IsReservedIdentity())
+}
+
+func TestScopeForLabels(t *testing.T) {
+	tests := []struct {
+		lbls  labels.Labels
+		scope NumericIdentity
+	}{
+		{
+			lbls:  labels.GetCIDRLabels(netip.MustParsePrefix("0.0.0.0/0")),
+			scope: IdentityScopeLocal,
+		},
+		{
+			lbls:  labels.GetCIDRLabels(netip.MustParsePrefix("192.168.23.0/24")),
+			scope: IdentityScopeLocal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"k8s:foo=bar"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:world"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:unmanaged"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:health"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:init"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:ingress"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:remote-node"}),
+			scope: IdentityScopeRemoteNode,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"reserved:remote-node", "reserved:kube-apiserver"}),
+			scope: IdentityScopeRemoteNode,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"k8s:ingress=allowed"}),
+			scope: IdentityScopeGlobal,
+		},
+	}
+
+	for i, test := range tests {
+		// ScopeForLabels requires this to return nil
+		id := LookupReservedIdentityByLabels(test.lbls)
+		if id != nil {
+			continue
+		}
+		scope := ScopeForLabels(test.lbls)
+		require.Equal(t, test.scope, scope, "%d / labels %s", i, test.lbls.String())
+	}
+}
+
+func TestNewIdentityFromLabelArray(t *testing.T) {
+	id := NewIdentityFromLabelArray(NumericIdentity(1001),
+		labels.NewLabelArrayFromSortedList("unspec:a=;unspec:b;unspec:c=d"))
+
+	lbls := labels.Labels{
+		"a": labels.ParseLabel("a"),
+		"c": labels.ParseLabel("c=d"),
+		"b": labels.ParseLabel("b"),
+	}
+	require.Equal(t, NumericIdentity(1001), id.ID)
+	require.Equal(t, lbls, id.Labels)
+	require.Equal(t, lbls.LabelArray(), id.LabelArray)
+}
+
+func TestLookupReservedIdentityByLabels(t *testing.T) {
+	type want struct {
+		id     NumericIdentity
+		labels labels.Labels
+	}
+	tests := []struct {
+		name           string
+		args           labels.Labels
+		want           *want
+		nodeCIDRPolicy bool
+	}{
+		{
+			name: "nil",
+			args: nil,
+			want: nil,
+		},
+		{
+			name: "host",
+			args: labels.LabelHost,
+			want: &want{
+				id:     ReservedIdentityHost,
+				labels: labels.LabelHost,
+			},
+		},
+		{
+			name: "non-reserved",
+			args: labels.NewLabelsFromModel([]string{"foo"}),
+			want: nil,
+		},
+		{
+			name: "non-reserved-2",
+			args: labels.NewLabelsFromModel([]string{"reserved:init", "foo"}),
+			want: nil,
+		},
+		{
+			name: "health",
+			args: labels.LabelHealth,
+			want: &want{
+				id:     ReservedIdentityHealth,
+				labels: labels.LabelHealth,
+			},
+		},
+		{
+			name: "world",
+			args: labels.LabelWorld,
+			want: &want{
+				id:     ReservedIdentityWorld,
+				labels: labels.LabelWorld,
+			},
+		},
+		{
+			name: "remote-node",
+			args: labels.LabelRemoteNode,
+			want: &want{
+				id:     ReservedIdentityRemoteNode,
+				labels: labels.LabelRemoteNode,
+			},
+		},
+		{
+			name: "kube-apiserver",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelKubeAPIServer.String(): "",
+				labels.LabelRemoteNode.String():    "",
+			}, ""),
+			want: &want{
+				id: ReservedIdentityKubeAPIServer,
+				labels: labels.Map2Labels(map[string]string{
+					labels.LabelKubeAPIServer.String(): "",
+					labels.LabelRemoteNode.String():    "",
+				}, ""),
+			},
+		},
+		{
+			name: "kube-apiserver-and-host",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelKubeAPIServer.String(): "",
+				labels.LabelHost.String():          "",
+			}, ""),
+			want: &want{ // Should always still be host reserved identity
+				id: ReservedIdentityHost,
+				labels: labels.Map2Labels(map[string]string{
+					labels.LabelKubeAPIServer.String(): "",
+					labels.LabelHost.String():          "",
+				}, ""),
+			},
+		},
+		{
+			name: "host-and-kube-apiserver",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelHost.String():          "",
+				labels.LabelKubeAPIServer.String(): "",
+			}, ""),
+			want: &want{ // Should always still be host reserved identity
+				id: ReservedIdentityHost,
+				labels: labels.Map2Labels(map[string]string{
+					labels.LabelHost.String():          "",
+					labels.LabelKubeAPIServer.String(): "",
+				}, ""),
+			},
+		},
+		{
+			name: "kube-apiserver-and-remote-node",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelKubeAPIServer.String(): "",
+				labels.LabelRemoteNode.String():    "",
+			}, ""),
+			want: &want{
+				id: ReservedIdentityKubeAPIServer,
+				labels: labels.Map2Labels(map[string]string{
+					labels.LabelKubeAPIServer.String(): "",
+					labels.LabelRemoteNode.String():    "",
+				}, ""),
+			},
+		},
+		{
+			name: "remote-node-and-kube-apiserver",
+			args: labels.Map2Labels(map[string]string{
+				labels.LabelRemoteNode.String():    "",
+				labels.LabelKubeAPIServer.String(): "",
+			}, ""),
+			want: &want{
+				id: ReservedIdentityKubeAPIServer,
+				labels: labels.Map2Labels(map[string]string{
+					labels.LabelRemoteNode.String():    "",
+					labels.LabelKubeAPIServer.String(): "",
+				}, ""),
+			},
+		},
+		{
+			name: "ingress",
+			args: labels.LabelIngress,
+			want: &want{
+				id:     ReservedIdentityIngress,
+				labels: labels.LabelIngress,
+			},
+		},
+		{
+			name: "cidr",
+			args: labels.NewLabelsFromModel([]string{
+				"reserved:world",
+				"cidr:10.0.0.0/24",
+			}),
+			want: nil,
+		},
+		{
+			name:           "remote-node-with-cidr-policy-no-cidrs",
+			args:           labels.LabelRemoteNode,
+			nodeCIDRPolicy: true,
+			want: &want{
+				id:     ReservedIdentityRemoteNode,
+				labels: labels.LabelRemoteNode,
+			},
+		},
+		{
+			name: "remote-node-with-cidr-policy-with-cidrs",
+			args: labels.NewLabelsFromModel([]string{
+				"reserved:remote-node",
+				"cidr:10.0.0.0/24",
+			}),
+			nodeCIDRPolicy: true,
+			want:           nil,
+		},
+		{
+			name: "kube-apiserver-and-remote-node-cidr-policy-no-cidrs",
+			args: labels.NewLabelsFromModel([]string{
+				"reserved:remote-node",
+				"reserved:kube-apiserver",
+			}),
+			nodeCIDRPolicy: true,
+			want: &want{
+				id:     ReservedIdentityKubeAPIServer,
+				labels: reservedIdentityLabels[ReservedIdentityKubeAPIServer],
+			},
+		},
+		{
+			name: "kube-apiserver-and-remote-node-cidr-policy",
+			args: labels.NewLabelsFromModel([]string{
+				"reserved:remote-node",
+				"reserved:kube-apiserver",
+				"cidr:10.0.0.0/24",
+			}),
+			nodeCIDRPolicy: true,
+			want:           nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			oldVal := option.Config.PolicyCIDRMatchMode
+			defer func() {
+				option.Config.PolicyCIDRMatchMode = oldVal
+			}()
+			if tt.nodeCIDRPolicy {
+				option.Config.PolicyCIDRMatchMode = []string{"nodes"}
+			} else {
+				option.Config.PolicyCIDRMatchMode = []string{}
+			}
+			id := LookupReservedIdentityByLabels(tt.args)
+			if tt.want == nil {
+				assert.Nil(t, id)
+				return
+			}
+			assert.NotNil(t, id)
+			assert.Equal(t, tt.want.id, id.ID)
+			assert.Equal(t, tt.want.labels, id.Labels)
+		})
+	}
+}

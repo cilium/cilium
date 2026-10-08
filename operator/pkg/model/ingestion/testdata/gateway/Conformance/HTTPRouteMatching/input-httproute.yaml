@@ -1,0 +1,30 @@
+- metadata:
+    creationTimestamp: null
+    name: matching
+    namespace: gateway-conformance-infra
+  spec:
+    parentRefs:
+    - name: same-namespace
+    rules:
+    - backendRefs:
+      - name: infra-backend-v1
+        port: 8080
+      matches:
+      - headers:
+        - name: version
+          value: one
+        path:
+          type: Exact
+          value: /
+    - backendRefs:
+      - name: infra-backend-v2
+        port: 8080
+      matches:
+      - headers:
+        - name: version
+          value: two
+        path:
+          type: Exact
+          value: /v2
+  status:
+    parents: null

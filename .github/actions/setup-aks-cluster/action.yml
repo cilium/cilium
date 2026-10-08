@@ -1,0 +1,127 @@
+name: Create an AKS cluster
+description: Create an AKS cluster
+inputs:
+  cluster_name:
+    description: ''
+    required: true
+  location:
+    description: ''
+    required: true
+  version:
+    description: ''
+    required: false
+    default: ''
+  node_count:
+    description: ''
+    required: false
+    default: 2
+  timeout_minutes:
+    description: 'Budget for this action, matching the caller step timeout-minutes.'
+    required: false
+    default: 54
+  attempt_deadline:
+    description: 'Seconds the first create may stay in Creating before this action abandons it.'
+    required: false
+    default: 1200
+  retry_deadline:
+    description: 'Seconds the second create may stay in Creating.'
+    required: false
+    default: 1200
+  pod_cidrs:
+    description: 'Comma-separated PodCIDRs managed by the installed CNI.'
+    required: true
+  tags:
+    description: ''
+    required: false
+    default: ''
+  taints:
+    description: ''
+    required: false
+    default: ''
+  os_sku:
+    description: 'Node pool OS SKU to pass to "az aks create --os-sku" (e.g. AzureLinux). Empty uses the AKS default (Ubuntu).'
+    required: false
+    default: ''
+outputs:
+  cluster_name:
+    description: 'Name of the cluster that provisioned.'
+    value: ${{ steps.create.outputs.cluster_name }}
+runs:
+  using: composite
+  steps:
+    - name: Get runner public IP
+      id: get-runner-ip
+      uses: ./.github/actions/get-runner-ip
+      with:
+        source: https://checkip.amazonaws.com
+        parsing: text
+
+    - name: Create AKS cluster
+      id: create
+      shell: bash
+      env:
+        CLUSTER_NAME: ${{ inputs.cluster_name }}
+        LOCATION: ${{ inputs.location }}
+        K8S_VERSION: ${{ inputs.version }}
+        NODE_COUNT: ${{ inputs.node_count }}
+        TIMEOUT_MINUTES: ${{ inputs.timeout_minutes }}
+        ATTEMPT_DEADLINE: ${{ inputs.attempt_deadline }}
+        RETRY_DEADLINE: ${{ inputs.retry_deadline }}
+        POD_CIDRS: ${{ inputs.pod_cidrs }}
+        TAGS: ${{ inputs.tags }}
+        TAINTS: ${{ inputs.taints }}
+        OS_SKU: ${{ inputs.os_sku }}
+        AUTHORIZED_IP_RANGES: ${{ steps.get-runner-ip.outputs.cidr }}
+      run: bash "${{ github.action_path }}/action.sh"
+
+    - name: Get cluster credentials
+      shell: bash
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ inputs.cluster_name }} \
+          --name ${{ steps.create.outputs.cluster_name }}
+
+    - name: Wait for all nodes to register with the API server
+      shell: bash
+      run: |
+        # az aks get-credentials returns as soon as the control plane is
+        # reachable, but the VMSS instances boot kubelet and register with the
+        # API server on a stagger. The next step labels the first two nodes as
+        # nodes-without-cilium and never re-labels, so it has to run only once
+        # the full expected topology (node_count + 2) is present. Otherwise it
+        # labels a single early node and generic-external-targets later reads
+        # .items[1] off a one-element list and aborts with an out-of-bounds
+        # jsonpath error.
+        expected=$(( ${{ inputs.node_count }} + 2 ))
+        timeout=300; elapsed=0
+        until [ "$(kubectl get nodes --no-headers 2>/dev/null | wc -l)" -ge "$expected" ]; do
+          if [ "$elapsed" -ge "$timeout" ]; then
+            echo "::error::only $(kubectl get nodes --no-headers 2>/dev/null | wc -l)/$expected nodes registered after ${timeout}s"
+            kubectl get nodes -o wide
+            exit 1
+          fi
+          echo "waiting for nodes to register ($(kubectl get nodes --no-headers 2>/dev/null | wc -l)/$expected)..."
+          sleep 10; elapsed=$((elapsed + 10))
+        done
+
+    - name: Patch nodes without Cilium
+      uses: ./.github/actions/nodes-without-cilium
+
+    - name: Make nodes-without-cilium Ready and isolate them
+      shell: bash
+      run: |
+        # The nodes-without-cilium nodes run with --network-plugin none and no
+        # cilium-agent, so kubelet reports NotReady ("cni plugin not
+        # initialized"). A node that stays NotReady trips AKS node auto-repair,
+        # which reboots the VM and takes the external test targets down
+        # mid-test. Taint the nodes first so external-vs-in-cluster topology no
+        # longer depends on the transient node.kubernetes.io/not-ready taint,
+        # then drop a dummy CNI conf via a hostNetwork DaemonSet so kubelet turns
+        # Ready and auto-repair stops rebooting them. This runs before "cilium
+        # install" and the "cilium status --wait", so the nodes flip Ready well
+        # inside the auto-repair window instead of sitting NotReady across it.
+        kubectl taint nodes -l cilium.io/no-schedule=true \
+          cilium.io/no-schedule=true:NoSchedule --overwrite
+        kubectl apply -f "${{ github.action_path }}/dummy-cni-daemonset.yaml"
+        kubectl -n kube-system rollout status daemonset/dummy-cni --timeout=180s
+        kubectl wait --for=condition=Ready node -l cilium.io/no-schedule=true --timeout=180s

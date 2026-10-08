@@ -1,0 +1,718 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package part
+
+import (
+	"bytes"
+	"fmt"
+	"math/bits"
+	"strings"
+	"unsafe"
+)
+
+type nodeKind uint8
+
+const (
+	nodeKindUnknown = iota
+	nodeKindLeaf
+	nodeKind4
+	nodeKind16
+	nodeKind64
+	nodeKind128
+	nodeKind256
+)
+
+// header is the common header shared by all node kinds.
+type header[T any] struct {
+	flags     uint16 // kind(4b) | unused(3b) | size(9b)
+	prefixLen uint16
+	prefixP   *byte            // the compressed prefix, [0] is the key
+	watch     lazyWatchChannel // watch that is closed when this node mutates
+}
+
+func (n *header[T]) key() byte {
+	return *n.prefixP
+}
+
+func (n *header[T]) prefix() []byte {
+	return unsafe.Slice(n.prefixP, n.prefixLen)
+}
+
+func (n *header[T]) isPrefixOf(key []byte) bool {
+	switch n.prefixLen {
+	case 0:
+		return true
+	case 1:
+		return len(key) > 0 && *n.prefixP == key[0]
+	default:
+		// This is essentially same as bytes.HasPrefix(key, this.prefix()), but slight bit
+		// faster as we don't need to construct the slice header for length comparison.
+		return uint16(len(key)) >= n.prefixLen && unsafe.String(n.prefixP, n.prefixLen) == string(key[:n.prefixLen])
+	}
+}
+
+func (n *header[T]) setPrefix(p []byte) {
+	if len(p) > 0 {
+		n.prefixP = &p[0]
+	}
+	n.prefixLen = uint16(len(p))
+}
+
+const kindMask = uint16(0b1111_000_00000000_0)
+
+func (n *header[T]) kind() nodeKind {
+	return nodeKind(n.flags >> 12)
+}
+
+func (n *header[T]) setKind(k nodeKind) {
+	n.flags = (n.flags & ^kindMask) | (uint16(k&0b1111) << 12)
+}
+
+const sizeMask = uint16(0b0000_000_1111_1111_1)
+
+func (n *header[T]) cap() int {
+	switch n.kind() {
+	case nodeKindLeaf:
+		return 0
+	case nodeKind4:
+		return 4
+	case nodeKind16:
+		return 16
+	case nodeKind64:
+		return 64
+	case nodeKind128:
+		return 128
+	case nodeKind256:
+		return 256
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+}
+
+func (n *header[T]) isLeaf() bool {
+	return n.kind() == nodeKindLeaf
+}
+
+func (n *header[T]) getLeaf() *leaf[T] {
+	switch n.kind() {
+	case nodeKindLeaf:
+		return (*leaf[T])(unsafe.Pointer(n))
+	case nodeKind4:
+		return n.node4().leaf
+	case nodeKind16:
+		return n.node16().leaf
+	case nodeKind64:
+		return n.node64().leaf
+	case nodeKind128:
+		return n.node128().leaf
+	case nodeKind256:
+		return n.node256().leaf
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+}
+
+func (n *header[T]) setLeaf(l *leaf[T]) {
+	switch n.kind() {
+	case nodeKindLeaf:
+		panic("cannot setLeaf on a leaf[T]")
+	case nodeKind4:
+		n.node4().leaf = l
+	case nodeKind16:
+		n.node16().leaf = l
+	case nodeKind64:
+		n.node64().leaf = l
+	case nodeKind128:
+		n.node128().leaf = l
+	case nodeKind256:
+		n.node256().leaf = l
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+}
+
+func (n *header[T]) size() int {
+	return int(n.flags & sizeMask)
+}
+
+func (n *header[T]) setSize(size int) {
+	n.flags = (n.flags & ^sizeMask) | uint16(size)&sizeMask
+}
+
+func (n *header[T]) self() *header[T] {
+	return n
+}
+
+func (n *header[T]) node4() *node4[T] {
+	return (*node4[T])(unsafe.Pointer(n))
+}
+
+func (n *header[T]) node16() *node16[T] {
+	return (*node16[T])(unsafe.Pointer(n))
+}
+
+func (n *header[T]) node64() *node64[T] {
+	return (*node64[T])(unsafe.Pointer(n))
+}
+
+func (n *header[T]) node128() *node128[T] {
+	return (*node128[T])(unsafe.Pointer(n))
+}
+
+func (n *header[T]) node256() *node256[T] {
+	return (*node256[T])(unsafe.Pointer(n))
+}
+
+func (n *header[T]) txnID() uint64 {
+	switch n.kind() {
+	case nodeKindLeaf:
+		return 0
+	case nodeKind4:
+		return n.node4().txnID
+	case nodeKind16:
+		return n.node16().txnID
+	case nodeKind64:
+		return n.node64().txnID
+	case nodeKind128:
+		return n.node128().txnID
+	case nodeKind256:
+		return n.node256().txnID
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+}
+
+func (n *header[T]) setTxnID(txnID uint64) {
+	switch n.kind() {
+	case nodeKindLeaf:
+		return
+	case nodeKind4:
+		n.node4().txnID = txnID
+	case nodeKind16:
+		n.node16().txnID = txnID
+	case nodeKind64:
+		n.node64().txnID = txnID
+	case nodeKind128:
+		n.node128().txnID = txnID
+	case nodeKind256:
+		n.node256().txnID = txnID
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+}
+
+// clone returns a shallow clone of the node.
+// We are working on the assumption here that only
+// value-types are mutated in the returned clone.
+func (n *header[T]) clone(watch bool) *header[T] {
+	var nCopy *header[T]
+	switch n.kind() {
+	case nodeKindLeaf:
+		src := n.getLeaf()
+		l := &leaf[T]{value: src.value, keyLen: src.keyLen, keyP: src.keyP}
+		n.cloneHeaderTo(&l.header, watch)
+		nCopy = l.self()
+	case nodeKind4:
+		src := n.node4()
+		n4 := &node4[T]{txnID: src.txnID, leaf: src.leaf, children: src.children, keys: src.keys}
+		n.cloneHeaderTo(&n4.header, watch)
+		nCopy = n4.self()
+	case nodeKind16:
+		src := n.node16()
+		n16 := &node16[T]{txnID: src.txnID, leaf: src.leaf, children: src.children, keys: src.keys}
+		n.cloneHeaderTo(&n16.header, watch)
+		nCopy = n16.self()
+	case nodeKind64:
+		src := n.node64()
+		n64 := &node64[T]{txnID: src.txnID, leaf: src.leaf, children: src.children, bitmap: src.bitmap}
+		n.cloneHeaderTo(&n64.header, watch)
+		nCopy = n64.self()
+	case nodeKind128:
+		src := n.node128()
+		n128 := &node128[T]{txnID: src.txnID, leaf: src.leaf, children: src.children, bitmap: src.bitmap}
+		n.cloneHeaderTo(&n128.header, watch)
+		nCopy = n128.self()
+	case nodeKind256:
+		src := n.node256()
+		n256 := &node256[T]{txnID: src.txnID, leaf: src.leaf, children: src.children}
+		n.cloneHeaderTo(&n256.header, watch)
+		nCopy = n256.self()
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+	return nCopy
+}
+
+func (n *header[T]) cloneHeaderTo(h *header[T], watch bool) {
+	h.flags = n.flags
+	h.prefixLen = n.prefixLen
+	h.prefixP = n.prefixP
+	if !watch {
+		h.watch.disable()
+	}
+}
+
+func (n *header[T]) cloneWithSharedWatch() *header[T] {
+	clone := n.clone(true)
+	clone.watch.shareFrom(&n.watch)
+	return clone
+}
+
+func (n *header[T]) promote(txnID uint64) *header[T] {
+	switch n.kind() {
+	case nodeKindLeaf:
+		node4 := &node4[T]{}
+		node4.prefixLen = n.prefixLen
+		node4.prefixP = n.prefixP
+		node4.leaf = n.getLeaf()
+		node4.txnID = txnID
+		node4.setKind(nodeKind4)
+		if !n.watch.enabled() {
+			node4.watch.disable()
+		}
+		return node4.self()
+	case nodeKind4:
+		node4 := n.node4()
+		node16 := &node16[T]{}
+		n.cloneHeaderTo(&node16.header, n.watch.enabled())
+		node16.txnID = txnID
+		node16.setKind(nodeKind16)
+		node16.leaf = n.getLeaf()
+		size := node4.size()
+		copy(node16.children[:], node4.children[:size])
+		copy(node16.keys[:], node4.keys[:size])
+		return node16.self()
+	case nodeKind16:
+		node16 := n.node16()
+		node64 := &node64[T]{}
+		n.cloneHeaderTo(&node64.header, n.watch.enabled())
+		node64.txnID = txnID
+		node64.setKind(nodeKind64)
+		node64.leaf = n.getLeaf()
+		copy(node64.children[:], node16.children[:node16.size()])
+		for _, k := range node16.keys[:node16.size()] {
+			node64.bitmap[k/64] |= uint64(1) << (k % 64)
+		}
+		return node64.self()
+	case nodeKind64:
+		node64 := n.node64()
+		node128 := &node128[T]{}
+		n.cloneHeaderTo(&node128.header, n.watch.enabled())
+		node128.txnID = txnID
+		node128.setKind(nodeKind128)
+		node128.leaf = n.getLeaf()
+		copy(node128.children[:], node64.children[:node64.size()])
+		node128.bitmap = node64.bitmap
+		return node128.self()
+	case nodeKind128:
+		node128 := n.node128()
+		node256 := &node256[T]{}
+		n.cloneHeaderTo(&node256.header, n.watch.enabled())
+		node256.txnID = txnID
+		node256.setKind(nodeKind256)
+		node256.leaf = n.getLeaf()
+
+		// Since Node256 has children indexed directly, iterate over the children
+		// to assign them to the right index.
+		for _, child := range node128.children[:node128.size()] {
+			node256.children[child.prefix()[0]] = child
+		}
+		return node256.self()
+	case nodeKind256:
+		panic("BUG: should not need to promote node256")
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+}
+
+// bitmapIndex returns the packed child index for key and whether key is present.
+func bitmapIndex(bitmap *[4]uint64, key byte) (idx int, found bool) {
+	word := key / 64
+	bit := uint(key % 64)
+	mask := uint64(1) << bit
+	found = bitmap[word]&mask != 0
+	idx = bits.OnesCount64(bitmap[word] & (mask - 1))
+	switch word {
+	case 3:
+		idx += bits.OnesCount64(bitmap[2])
+		fallthrough
+	case 2:
+		idx += bits.OnesCount64(bitmap[1])
+		fallthrough
+	case 1:
+		idx += bits.OnesCount64(bitmap[0])
+	}
+	return
+}
+
+func (n *header[T]) printTree(level int) {
+	if n == nil {
+		return
+	}
+	fmt.Print(strings.Repeat(" ", level))
+
+	var children []*header[T]
+	switch n.kind() {
+	case nodeKindLeaf:
+		fmt.Printf("leaf[%x]:", n.prefix())
+	case nodeKind4:
+		fmt.Printf("node4[%x]:", n.prefix())
+		children = n.node4().children[:n.size()]
+	case nodeKind16:
+		fmt.Printf("node16[%x]:", n.prefix())
+		children = n.node16().children[:n.size()]
+	case nodeKind64:
+		fmt.Printf("node64[%x]:", n.prefix())
+		children = n.node64().children[:n.size()]
+	case nodeKind128:
+		fmt.Printf("node128[%x]:", n.prefix())
+		children = n.node128().children[:n.size()]
+	case nodeKind256:
+		fmt.Printf("node256[%x]:", n.prefix())
+		children = n.node256().children[:]
+	default:
+		panic("unknown node kind")
+	}
+	if leaf := n.getLeaf(); leaf != nil {
+		fmt.Printf(" %x -> %v (L:%p W:%p %v)", leaf.fullKey(), leaf.value, leaf, &leaf.watch, leaf.watch.isClosed())
+	}
+	fmt.Printf(" (N:%p, W:%p %v)\n", n, &n.watch, n.watch.isClosed())
+
+	for _, child := range children {
+		if child != nil {
+			child.printTree(level + 1)
+		}
+	}
+}
+
+func (n *header[T]) children() []*header[T] {
+	switch n.kind() {
+	case nodeKindLeaf:
+		return nil
+	case nodeKind4:
+		return n.node4().children[0:n.size():4]
+	case nodeKind16:
+		return n.node16().children[0:n.size():16]
+	case nodeKind64:
+		return n.node64().children[0:n.size():64]
+	case nodeKind128:
+		return n.node128().children[0:n.size():128]
+	case nodeKind256:
+		return n.node256().children[:]
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+}
+
+func (n *header[T]) findIndex(key byte) (*header[T], int) {
+	switch n.kind() {
+	case nodeKindLeaf:
+		return nil, 0
+	case nodeKind4:
+		n4 := n.node4()
+		size := n4.size()
+		i := size
+		switch {
+		case n4.keys[0] >= key:
+			i = 0
+		case n4.keys[1] >= key:
+			i = 1
+		case n4.keys[2] >= key:
+			i = 2
+		case n4.keys[3] >= key:
+			i = 3
+		}
+		if i < size && n4.keys[i] == key {
+			return n4.children[i], i
+		}
+		return nil, i
+	case nodeKind16:
+		n16 := n.node16()
+		size := n16.size()
+		for i := 0; i < int(size); i++ {
+			k := n16.keys[i]
+			if k >= key {
+				if k == key {
+					return n16.children[i], i
+				}
+				return nil, i
+			}
+		}
+		return nil, size
+	case nodeKind64:
+		n64 := n.node64()
+		idx, found := bitmapIndex(&n64.bitmap, key)
+		if found {
+			return n64.children[idx], idx
+		}
+		return nil, idx
+	case nodeKind128:
+		n128 := n.node128()
+		idx, found := bitmapIndex(&n128.bitmap, key)
+		if found {
+			return n128.children[idx], idx
+		}
+		return nil, idx
+	case nodeKind256:
+		return n.node256().children[key], int(key)
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+}
+
+func (n *header[T]) find(key byte) *header[T] {
+	switch n.kind() {
+	case nodeKindLeaf:
+		return nil
+	case nodeKind4:
+		n4 := n.node4()
+		keys := n4.keys
+		switch key {
+		case keys[0]:
+			return n4.children[0]
+		case keys[1]:
+			return n4.children[1]
+		case keys[2]:
+			return n4.children[2]
+		case keys[3]:
+			return n4.children[3]
+		}
+		return nil
+	case nodeKind16:
+		n16 := n.node16()
+		if idx := bytes.IndexByte(n16.keys[:n16.size()], key); idx >= 0 {
+			return n16.children[idx]
+		}
+		return nil
+	case nodeKind64:
+		n64 := n.node64()
+		idx, found := bitmapIndex(&n64.bitmap, key)
+		if !found {
+			return nil
+		}
+		return n64.children[idx]
+	case nodeKind128:
+		n128 := n.node128()
+		idx, found := bitmapIndex(&n128.bitmap, key)
+		if !found {
+			return nil
+		}
+		return n128.children[idx]
+	case nodeKind256:
+		return n.node256().children[key]
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+}
+
+func (n *header[T]) insert(idx int, child *header[T]) {
+	size := n.size()
+	newSize := size + 1
+	switch n.kind() {
+	case nodeKind4:
+		n4 := n.node4()
+		// Shift to make room
+		copy(n4.children[idx+1:newSize], n4.children[idx:newSize])
+		copy(n4.keys[idx+1:newSize], n4.keys[idx:newSize])
+		n4.children[idx] = child
+		n4.keys[idx] = child.key()
+	case nodeKind16:
+		n16 := n.node16()
+		// Shift to make room
+		copy(n16.children[idx+1:newSize], n16.children[idx:newSize])
+		copy(n16.keys[idx+1:newSize], n16.keys[idx:newSize])
+		n16.children[idx] = child
+		n16.keys[idx] = child.key()
+	case nodeKind64:
+		// Shift to make room
+		n64 := n.node64()
+		copy(n64.children[idx+1:newSize], n64.children[idx:size])
+		n64.children[idx] = child
+		key := child.key()
+		n64.bitmap[key/64] |= uint64(1) << (key % 64)
+	case nodeKind128:
+		// Shift to make room
+		n128 := n.node128()
+		copy(n128.children[idx+1:newSize], n128.children[idx:size])
+		n128.children[idx] = child
+		key := child.key()
+		n128.bitmap[key/64] |= uint64(1) << (key % 64)
+	case nodeKind256:
+		n.node256().children[child.key()] = child
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+	n.setSize(size + 1)
+}
+
+func (n *header[T]) remove(idx int) {
+	newSize := n.size() - 1
+	switch n.kind() {
+	case nodeKind4:
+		size := n.size()
+		n4 := n.node4()
+		copy(n4.keys[idx:size], n4.keys[idx+1:size])
+		copy(n4.children[idx:size], n4.children[idx+1:size])
+		n4.children[newSize] = nil
+		n4.keys[newSize] = 255
+	case nodeKind16:
+		size := n.size()
+		n16 := n.node16()
+		copy(n16.keys[idx:size], n16.keys[idx+1:size])
+		copy(n16.children[idx:size], n16.children[idx+1:size])
+		n16.children[newSize] = nil
+		n16.keys[newSize] = 255
+	case nodeKind64:
+		children := n.children()
+		key := children[idx].key()
+		n64 := n.node64()
+		copy(children[idx:newSize], children[idx+1:newSize+1])
+		n64.bitmap[key/64] &^= uint64(1) << (key % 64)
+		children[newSize] = nil
+	case nodeKind128:
+		children := n.children()
+		key := children[idx].key()
+		n128 := n.node128()
+		copy(children[idx:newSize], children[idx+1:newSize+1])
+		n128.bitmap[key/64] &^= uint64(1) << (key % 64)
+		children[newSize] = nil
+	case nodeKind256:
+		n.node256().children[idx] = nil
+	default:
+		panic(fmt.Sprintf("unknown node kind: %x", n.kind()))
+	}
+	n.setSize(newSize)
+}
+
+type leaf[T any] struct {
+	header[T]
+	value  T
+	keyLen uint16
+	keyP   *byte // the full key
+}
+
+func (l *leaf[T]) fullKey() []byte {
+	return unsafe.Slice(l.keyP, l.keyLen)
+}
+
+func newLeaf[T any](o options, prefix, key []byte, value T) *leaf[T] {
+	var keyP *byte
+	if len(key) > 0 {
+		keyP = &key[0]
+	}
+	leaf := &leaf[T]{keyLen: uint16(len(key)), keyP: keyP, value: value}
+	leaf.setPrefix(prefix)
+	leaf.setKind(nodeKindLeaf)
+	if o.rootOnlyWatch() {
+		leaf.watch.disable()
+	}
+
+	return leaf
+}
+
+type node4[T any] struct {
+	header[T]
+	txnID    uint64   // transaction ID that last mutated this node
+	leaf     *leaf[T] // non-nil if this node contains a value
+	children [4]*header[T]
+	keys     [4]byte
+}
+
+type node16[T any] struct {
+	header[T]
+	txnID    uint64   // transaction ID that last mutated this node
+	leaf     *leaf[T] // non-nil if this node contains a value
+	children [16]*header[T]
+	keys     [16]byte
+}
+
+type node64[T any] struct {
+	header[T]
+	txnID    uint64 // transaction ID that last mutated this node
+	children [64]*header[T]
+	leaf     *leaf[T] // non-nil if this node contains a value
+	bitmap   [4]uint64
+}
+
+type node128[T any] struct {
+	header[T]
+	txnID    uint64 // transaction ID that last mutated this node
+	children [128]*header[T]
+	leaf     *leaf[T] // non-nil if this node contains a value
+	bitmap   [4]uint64
+}
+
+type node256[T any] struct {
+	header[T]
+	txnID    uint64   // transaction ID that last mutated this node
+	leaf     *leaf[T] // non-nil if this node contains a value
+	children [256]*header[T]
+}
+
+func search[T any](this *header[T], key []byte) (value T, ok bool) {
+	for this != nil {
+		if !this.isPrefixOf(key) {
+			return
+		}
+
+		key = key[this.prefixLen:]
+		if len(key) == 0 {
+			if leaf := this.getLeaf(); leaf != nil {
+				return leaf.value, true
+			}
+			return
+		}
+
+		this = this.find(key[0])
+	}
+	return
+}
+
+func searchWatch[T any](root *header[T], rootWatch *atomicWatchPointer, key []byte) (value T, watch watchTarget, ok bool) {
+	this := root
+	watch = watchTarget{direct: rootWatch}
+	if root == nil {
+		return
+	}
+	for {
+		if !this.isPrefixOf(key) {
+			return
+		}
+
+		// Consume the prefix
+		key = key[this.prefixLen:]
+
+		if len(key) == 0 {
+			if leaf := this.getLeaf(); leaf != nil {
+				value = leaf.value
+				if leaf.watch.enabled() {
+					watch = watchTarget{lazy: &leaf.watch}
+				}
+				ok = true
+			}
+			return
+		}
+
+		// Prefix matched. Remember this as the closest watch channel as we traverse
+		// further.
+		if this.watch.enabled() && !this.isLeaf() {
+			watch = watchTarget{lazy: &this.watch}
+		}
+
+		this = this.find(key[0])
+		if this == nil {
+			return
+		}
+	}
+}
+
+func commonPrefix(a, b []byte) []byte {
+	n := min(len(a), len(b))
+	for i := range n {
+		if a[i] != b[i] {
+			return a[:i]
+		}
+	}
+	return a[:n]
+}

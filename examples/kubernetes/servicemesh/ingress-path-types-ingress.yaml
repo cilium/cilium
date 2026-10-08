@@ -1,0 +1,47 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: multiple-path-types
+  namespace: default
+spec:
+  ingressClassName: cilium
+  rules:
+  - host: "pathtypes.example.com"
+    http:
+      paths:
+      - backend:
+          service:
+            name: exactpath
+            port:
+              number: 80
+        path: /exact
+        pathType: Exact
+      - backend:
+          service:
+            name: prefixpath
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+      - backend:
+          service:
+            name: prefixpath2
+            port:
+              number: 80
+        path: /prefix
+        pathType: Prefix
+      - backend:
+          service:
+            name: implpath
+            port:
+              number: 80
+        path: /impl
+        pathType: ImplementationSpecific
+      - backend:
+          service:
+            name: implpath2
+            port:
+              number: 80
+        path: /impl.+
+        pathType: ImplementationSpecific

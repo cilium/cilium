@@ -1,0 +1,124 @@
+#! --cluster-id=1 --cluster-name=cluster1
+
+hive/start
+
+# Create a service to which to add the external backends with multiple ports.
+k8s/add service.yaml
+
+# Add a remote cluster service with multiple backend IPs and ports.
+# Some ports are the same and should be added to a single backend entry
+# containing all the associated port names.
+kvstore/update cilium/state/services/v1/cluster2/test/echo clusterservice2.json
+db/cmp backends backends.table
+db/cmp frontends frontends-with-clusterservice.table
+
+# Remove the cluster service
+kvstore/delete cilium/state/services/v1/cluster2/test/echo
+
+# Frontends should no longer have backends, and backends should be empty
+db/cmp frontends frontends-without-clusterservice.table
+db/empty backends
+
+###
+
+-- backends.table --
+Address              PortNames                           NodeName
+20.0.0.2:80/TCP      http-alt,http-direct,http-remapped
+20.0.0.2:443/TCP     https
+20.0.0.3:80/TCP      http-alt,http-direct,http-remapped
+20.0.0.3:443/TCP     https
+
+-- frontends-with-clusterservice.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:80/TCP    ClusterIP  test/echo     Done    20.0.0.2:80/TCP, 20.0.0.3:80/TCP
+10.0.0.1:443/TCP   ClusterIP  test/echo     Done    20.0.0.2:443/TCP, 20.0.0.3:443/TCP
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done    20.0.0.2:80/TCP, 20.0.0.3:80/TCP
+10.0.0.1:9090/TCP  ClusterIP  test/echo     Done    20.0.0.2:80/TCP, 20.0.0.3:80/TCP
+
+-- frontends-without-clusterservice.table --
+Address            Type       ServiceName   Status  Backends
+10.0.0.1:80/TCP    ClusterIP  test/echo     Done
+10.0.0.1:443/TCP   ClusterIP  test/echo     Done
+10.0.0.1:8080/TCP  ClusterIP  test/echo     Done
+10.0.0.1:9090/TCP  ClusterIP  test/echo     Done
+
+-- clusterservice2.json --
+{
+  "name": "echo",
+  "namespace": "test",
+  "includeExternal": true,
+  "shared": true,
+  "cluster": "cluster2",
+  "clusterID": 2,
+  "backends": {
+    "20.0.0.2": {
+      "http-alt": {
+        "Protocol": "TCP",
+        "Port": 80
+      },
+      "http-direct": {
+        "Protocol": "TCP",
+        "Port": 80
+      },
+      "http-remapped": {
+        "Protocol": "TCP",
+        "Port": 80
+      },
+      "https": {
+        "Protocol": "TCP",
+        "Port": 443
+      }
+    },
+    "20.0.0.3": {
+      "http-alt": {
+        "Protocol": "TCP",
+        "Port": 80
+      },
+      "http-direct": {
+        "Protocol": "TCP",
+        "Port": 80
+      },
+      "http-remapped": {
+        "Protocol": "TCP",
+        "Port": 80
+      },
+      "https": {
+        "Protocol": "TCP",
+        "Port": 443
+      }
+    }
+  }
+}
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    service.cilium.io/global: "true"
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.0.0.1
+  clusterIPs:
+  - 10.0.0.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ports:
+  - name: http-direct
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: http-remapped
+    port: 8080
+    protocol: TCP
+    targetPort: 80
+  - name: http-alt
+    port: 9090
+    protocol: TCP
+    targetPort: 80
+  - name: https
+    port: 443
+    protocol: TCP
+    targetPort: 443
+  type: ClusterIP

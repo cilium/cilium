@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package config
+
+import (
+	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/option"
+)
+
+// Overlay returns a [BPFOverlay].
+func Overlay(lnc *Config, link netlink.Link) any {
+	cfg := NewBPFOverlay(NodeConfig(lnc))
+
+	cfg.InterfaceIfIndex = uint32(link.Attrs().Index)
+	cfg.DeviceMTU = uint16(lnc.DeviceMTU)
+
+	if em, err := mac.FromHardwareAddr(link.Attrs().HardwareAddr); err == nil {
+		cfg.InterfaceMAC.Addr = em
+	}
+
+	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
+	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
+	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
+	cfg.EnableNetkit = lnc.DatapathIsNetkit
+	cfg.EnableNAT46X64 = option.Config.NodePortNat46X64 && lnc.KPRConfig.KubeProxyReplacement
+
+	cfg.EnableVTEP = option.Config.EnableVTEP
+	if option.Config.EnableVTEP {
+		cfg.VTEPMask = byteorder.NetIPAddrToHost32(option.Config.VtepCidrMask)
+	}
+
+	cfg.EphemeralMin = lnc.EphemeralMin
+
+	cfg.TunnelProtocol = lnc.TunnelProtocol
+	cfg.TunnelPort = lnc.TunnelPort
+
+	cfg.EnableIPv4Fragments = option.Config.EnableIPv4FragmentsTracking
+	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
+
+	return cfg
+}

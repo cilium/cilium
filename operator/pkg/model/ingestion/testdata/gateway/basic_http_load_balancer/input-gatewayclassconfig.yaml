@@ -1,0 +1,17 @@
+kind: CiliumGatewayClassConfig
+metadata:
+  name: cilium-gateway-config
+  namespace: default
+spec:
+  service:
+    type: LoadBalancer
+    externalTrafficPolicy: Local
+    loadBalancerClass: cilium
+    loadBalancerSourceRanges:
+    - 10.0.0.0/8
+    ipFamilies:
+    - IPv4
+    - IPv6
+    ipFamilyPolicy: PreferDualStack
+    allocateLoadBalancerNodePorts: true
+    trafficDistribution: PreferClose

@@ -1,0 +1,89 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: session-persistence-http
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - path:
+        type: Exact
+        value: /exact
+    sessionPersistence:
+      cookieConfig:
+        lifetimeType: Session
+      sessionName: exact-session
+      type: Cookie
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /prefix
+    sessionPersistence: {}
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    sessionPersistence:
+      sessionName: fallback-session
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /same
+    sessionPersistence:
+      sessionName: same-session-a
+  - backendRefs:
+    - name: infra-backend-v2
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /same
+    sessionPersistence:
+      sessionName: same-session-b
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    matches:
+    - path:
+        type: PathPrefix
+        value: /plain
+  - filters:
+    - requestRedirect: {}
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /redirect
+    sessionPersistence: {}
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /direct
+    sessionPersistence: {}
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2026-08-17T16:39:26Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-08-17T16:39:26Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace

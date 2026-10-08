@@ -1,0 +1,98 @@
+link/add dummy0 dummy
+link/set dummy0 hwaddr=aa:02:03:04:05:06
+addr/add 192.168.0.2/24 dummy0
+addr/add 00FF::AA01/112 dummy0
+link/set dummy0 up
+route/add 0.0.0.0/0 --gateway 192.168.0.1 --dev dummy0
+route/add ::/0 --gateway 00FF::AA00 --dev dummy0
+
+link/add dummy1 dummy
+link/set dummy1 hwaddr=aa:0b:0c:0d:0e:0f
+addr/add 192.168.1.2/24 dummy1
+addr/add 00CC::AA01/112 dummy1
+link/set dummy1 up
+route/add 200.0.0.0/16 --gateway 192.168.1.1 --dev dummy1
+route/add DDDD:EEEE::/16 --gateway 00CC::AA00 --dev dummy1
+
+hive start
+db/initialized
+
+db/show devices
+
+# Insert a forwardable IP, which should only use the default route
+db/insert forwardable-ip node2-ipv4.yaml
+
+# Result should be 1 desired neighbor, for the next hop of dummy0
+db/cmp desired-neighbors node2-neighbors.table
+
+# Add another forwardable IP, which is reachable over both interfaces but via different
+# next hops.
+db/insert forwardable-ip node1-ipv4.yaml
+
+# Result should be 2 desired neighbors, one for each link, with their respective next hops
+db/cmp desired-neighbors both-node-neighbors.table
+
+# Add IPv6 forwardable IPs
+db/insert forwardable-ip node1-ipv6.yaml
+
+# Result should be 4 desired neighbors, one for each link, each protocol, with their respective next hops
+db/cmp desired-neighbors with-v6-neighbors.table
+
+# Change the default gateway of dummy1
+route/del 200.0.0.0/16
+route/add 200.0.0.0/16 --gateway 192.168.1.200 --dev dummy1
+
+# The desired neighbors should reflect the route change
+db/cmp desired-neighbors new-gateway-neighbors.table
+
+# Delete dummy1
+link/del dummy1
+
+# The desired neighbors should reflect the route change
+db/cmp desired-neighbors no-dummy1-neighbors.table
+
+-- no-dummy1-neighbors.table --
+IP              Link
+192.168.0.1     2
+ff::aa00        2
+
+-- new-gateway-neighbors.table --
+IP              Link
+192.168.0.1     2
+ff::aa00        2
+192.168.1.200   3
+cc::aa00        3
+
+-- with-v6-neighbors.table --
+IP            Link
+192.168.0.1   2
+ff::aa00      2
+192.168.1.1   3
+cc::aa00      3
+
+-- both-node-neighbors.table --
+IP            Link
+192.168.0.1   2
+192.168.1.1   3
+
+-- node2-neighbors.table --
+IP            Link
+192.168.0.1   2
+
+-- node1-ipv4.yaml --
+ip: 200.0.0.123
+owners:
+  - type: node
+    id: 1
+
+-- node1-ipv6.yaml --
+ip: DDDD:EEEE::123
+owners:
+  - type: node
+    id: 1
+
+-- node2-ipv4.yaml --
+ip: 100.0.0.123
+owners:
+  - type: node
+    id: 2

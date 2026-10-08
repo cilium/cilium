@@ -1,0 +1,61 @@
+hive/start
+
+identity/allocate reserved:kube-apiserver
+env --from-stdout apiserver_id
+
+env pod_labels=k8s:io.kubernetes.pod.namespace=default,k8s:app=test
+identity/allocate ${pod_labels}
+env --from-stdout pod_id
+endpoint/create ${pod_id} ${pod_labels}
+
+policy/import default-deny-egress.yaml
+policy/import allow-kube-apiserver.yaml
+policy/import allow-kube-apiserver-2.yaml
+endpoint/regen-all 4
+endpoint/wait-for-policy-revision 4
+
+policy/lookup-flow --egress ${pod_id} ${apiserver_id} tcp 443
+stdout allowed
+
+policy/remove allow-kube-apiserver.yaml
+endpoint/regen-all 5
+endpoint/wait-for-policy-revision 5
+
+# Regression for cilium/cilium#17829: duplicate allow policy must keep access.
+policy/lookup-flow --egress ${pod_id} ${apiserver_id} tcp 443
+stdout allowed
+
+-- default-deny-egress.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: cnp-default-deny-egress
+  namespace: default
+spec:
+  endpointSelector: {}
+  egress:
+  - {}
+
+-- allow-kube-apiserver.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: to-entities-kube-apiserver
+  namespace: default
+spec:
+  endpointSelector: {}
+  egress:
+  - toEntities:
+    - kube-apiserver
+
+-- allow-kube-apiserver-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: to-entities-kube-apiserver-2
+  namespace: default
+spec:
+  endpointSelector: {}
+  egress:
+  - toEntities:
+    - kube-apiserver

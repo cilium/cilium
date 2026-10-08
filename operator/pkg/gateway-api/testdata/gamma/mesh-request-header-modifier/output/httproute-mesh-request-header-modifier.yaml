@@ -1,0 +1,114 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: mesh-request-header-modifier
+  namespace: gateway-conformance-mesh
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: echo
+    port: 80
+  rules:
+  - backendRefs:
+    - name: echo-v1
+      port: 8080
+    filters:
+    - requestHeaderModifier:
+        set:
+        - name: X-Header-Set
+          value: set-overwrites-values
+      type: RequestHeaderModifier
+    matches:
+    - path:
+        type: PathPrefix
+        value: /set
+  - backendRefs:
+    - name: echo-v1
+      port: 8080
+    filters:
+    - requestHeaderModifier:
+        add:
+        - name: X-Header-Add
+          value: add-appends-values
+      type: RequestHeaderModifier
+    matches:
+    - path:
+        type: PathPrefix
+        value: /add
+  - backendRefs:
+    - name: echo-v1
+      port: 8080
+    filters:
+    - requestHeaderModifier:
+        remove:
+        - X-Header-Remove
+      type: RequestHeaderModifier
+    matches:
+    - path:
+        type: PathPrefix
+        value: /remove
+  - backendRefs:
+    - name: echo-v1
+      port: 8080
+    filters:
+    - requestHeaderModifier:
+        add:
+        - name: X-Header-Add-1
+          value: header-add-1
+        - name: X-Header-Add-2
+          value: header-add-2
+        - name: X-Header-Add-3
+          value: header-add-3
+        remove:
+        - X-Header-Remove-1
+        - X-Header-Remove-2
+        set:
+        - name: X-Header-Set-1
+          value: header-set-1
+        - name: X-Header-Set-2
+          value: header-set-2
+      type: RequestHeaderModifier
+    matches:
+    - path:
+        type: PathPrefix
+        value: /multiple
+  - backendRefs:
+    - name: echo-v1
+      port: 8080
+    filters:
+    - requestHeaderModifier:
+        add:
+        - name: X-Header-Add
+          value: header-add
+        remove:
+        - X-Header-Remove
+        set:
+        - name: X-Header-Set
+          value: header-set
+      type: RequestHeaderModifier
+    matches:
+    - path:
+        type: PathPrefix
+        value: /case-insensitivity
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-06-19T03:31:18Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-06-19T03:31:18Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: echo
+      port: 80

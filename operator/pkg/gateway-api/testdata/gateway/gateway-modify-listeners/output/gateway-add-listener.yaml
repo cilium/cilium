@@ -1,0 +1,59 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: gateway-add-listener
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: secure.test.com
+      name: https
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tls-validity-checks-certificate
+            namespace: gateway-conformance-infra
+status:
+  conditions:
+    - lastTransitionTime: "2025-07-01T05:49:49Z"
+      message: No Accepted Listeners
+      reason: ListenersNotValid
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T05:49:49Z"
+      message: No Accepted Listeners
+      reason: ListenersNotValid
+      status: "False"
+      type: Programmed
+  listeners:
+    - attachedRoutes: 1
+      conditions:
+        - lastTransitionTime: "2025-07-01T05:49:49Z"
+          message: Invalid CertificateRef
+          reason: InvalidCertificateRef
+          status: "False"
+          type: ResolvedRefs
+        - lastTransitionTime: "2025-07-01T05:49:49Z"
+          message: Listener not valid. Invalid CertificateRef, secrets "tls-validity-checks-certificate" not found
+          reason: Invalid
+          status: "False"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T05:49:49Z"
+          message: Address not ready yet
+          reason: Pending
+          status: "False"
+          type: Programmed
+      name: https
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute

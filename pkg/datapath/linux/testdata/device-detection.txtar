@@ -1,0 +1,79 @@
+# Tests the behavior of device detection without providing explicit --devices option.
+
+# Start the hive
+hive start
+
+# Create veth0 + veth1 interfaces without default route - should not be selected.
+exec ip link add veth0 type veth peer name veth1
+exec ip addr add 192.168.0.1/24 dev veth0
+exec ip link set veth0 up
+
+# Verify selected devices - none should be selected.
+db/cmp --grep='^(lo|veth|bond|br)' devices devices_veth_unselected.table
+
+# Add default route for veth0.
+exec ip route add default via 192.168.0.254 dev veth0
+
+# Verify selected devices - veth0 now should be selected.
+db/cmp --grep='^(lo|veth|bond|br)' devices devices_veth_selected.table
+
+# Add bond device and add veth0 into it.
+exec ip link add bond0 type bond
+exec ip addr add 192.168.2.1/24 dev bond0
+exec ip link set veth0 down
+exec ip link set veth0 master bond0
+exec ip link set bond0 up
+
+# Verify selected devices - only bond should be selected now.
+db/cmp --grep='^(lo|veth|bond|br)' devices devices_bond.table
+
+# Delete the bond interface.
+exec ip link del bond0
+exec ip link set veth0 up
+
+# Verify selected devices - veth0 now should be selected again.
+db/cmp --grep='^(lo|veth|bond|br)' devices devices_veth_selected.table
+
+# Add bridge interface and add veth0 into it.
+exec ip link add br0 type bridge
+exec ip addr add 192.168.3.1/24 dev br0
+exec ip link set veth0 down
+exec ip link set veth0 master br0
+exec ip link set br0 up
+
+# Verify selected devices - none should be selected as bridge devices are skipped.
+db/cmp --grep='^(lo|veth|bond|br)' devices devices_bridge.table
+
+# Test different queries on the device table
+db/get devices --index=id --columns=Name,Index 1
+stdout 'lo\ +1'
+db/get devices --index=name --columns=Name,Index lo
+stdout 'lo\ +1'
+
+# ---------------------------------------------
+
+-- devices_veth_unselected.table --
+Name     Selected   Type
+lo       false      device
+veth1    false      veth
+veth0    false      veth
+
+-- devices_veth_selected.table --
+Name     Selected   Type
+lo       false      device
+veth1    false      veth
+veth0    true       veth
+
+-- devices_bond.table --
+Name     Selected   Type
+lo       false      device
+veth1    false      veth
+veth0    false      veth
+bond0    true       bond
+
+-- devices_bridge.table --
+Name     Selected   Type
+lo       false      device
+veth1    false      veth
+veth0    false      device
+br0      false      bridge

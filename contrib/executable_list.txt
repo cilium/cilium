@@ -1,0 +1,6 @@
+./bpf/tests/builtin_gen
+./contrib/k8s/nsexec
+./contrib/backporting/start-backport
+./contrib/backporting/submit-backport
+./contrib/backporting/cherry-pick
+./contrib/backporting/check-stable

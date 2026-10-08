@@ -1,0 +1,235 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testds
+spec:
+  selector:
+    matchLabels:
+      zgroup: testDS
+  template:
+    metadata:
+      labels:
+        zgroup: testDS
+    spec:
+      containers:
+      - name: web
+        image: quay.io/cilium/echoserver:1.10.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+      - name: udp
+        image: quay.io/cilium/echoserver-udp:v2020.01.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 69
+          protocol: UDP
+      terminationGracePeriodSeconds: 0
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/master
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+      - effect: NoSchedule
+        key: node.cloudprovider.kubernetes.io/uninitialized
+        value: "true"
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: testclient
+spec:
+  selector:
+    matchLabels:
+      zgroup: testDSClient
+  template:
+    metadata:
+      labels:
+        zgroup: testDSClient
+    spec:
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: web
+        image: quay.io/cilium/demo-client:1.0
+        imagePullPolicy: IfNotPresent
+        command: [ "sleep" ]
+        args:
+          - "1000h"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-k8s2
+spec:
+  selector:
+    matchLabels:
+      zgroup: test-k8s2
+  template:
+    metadata:
+      labels:
+        zgroup: test-k8s2
+    spec:
+      containers:
+      - name: web
+        image: quay.io/cilium/echoserver:1.10.1
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          hostPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+      - name: udp
+        image: quay.io/cilium/echoserver-udp:v2020.01.30
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 69
+          hostPort: 6969
+          protocol: UDP
+      terminationGracePeriodSeconds: 0
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: testds-service
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: tftp
+    port: 69
+    targetPort: 69
+    protocol: UDP
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport
+spec:
+  type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-affinity
+spec:
+  type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  sessionAffinity: ClientIP
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-local
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-local-k8s2
+spec:
+  type: NodePort
+  externalTrafficPolicy: Local
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: test-k8s2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-nodeport-k8s2
+spec:
+  type: NodePort
+  ports:
+  - port: 10080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 10069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  selector:
+    zgroup: test-k8s2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-lb
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    zgroup: testDS
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-lb-local-k8s2
+spec:
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    zgroup: test-k8s2

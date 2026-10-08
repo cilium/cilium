@@ -1,0 +1,18 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+metadata:
+  name: init
+specs:
+  - endpointSelector:
+      matchLabels:
+        "reserved:init": ""
+    ingress:
+    - fromEntities:
+      - host
+    egress:
+    - toEntities:
+      - all
+      toPorts:
+      - ports:
+        - port: "53"
+          protocol: UDP

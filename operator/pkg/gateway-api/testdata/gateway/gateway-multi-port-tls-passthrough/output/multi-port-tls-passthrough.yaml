@@ -1,0 +1,89 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: multi-port-tls-passthrough
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+      hostname: "tls.example.test"
+      name: tls-443
+      port: 443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+    - allowedRoutes:
+        namespaces:
+          from: Same
+        kinds:
+          - kind: TLSRoute
+      hostname: "tls.example.test"
+      name: tls-9443
+      port: 9443
+      protocol: TLS
+      tls:
+        mode: Passthrough
+status:
+  addresses:
+    - type: IPAddress
+      value: 172.18.255.200
+  conditions:
+    - lastTransitionTime: "2026-04-29T00:00:00Z"
+      message: Gateway successfully scheduled
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-04-29T00:00:00Z"
+      message: Gateway Programmed
+      reason: Programmed
+      status: "True"
+      type: Programmed
+  listeners:
+    - attachedRoutes: 1
+      conditions:
+        - lastTransitionTime: "2026-04-29T00:00:00Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2026-04-29T00:00:00Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2026-04-29T00:00:00Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
+          type: Programmed
+      name: tls-443
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: TLSRoute
+    - attachedRoutes: 1
+      conditions:
+        - lastTransitionTime: "2026-04-29T00:00:00Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2026-04-29T00:00:00Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2026-04-29T00:00:00Z"
+          message: Listener Programmed
+          reason: Programmed
+          status: "True"
+          type: Programmed
+      name: tls-9443
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: TLSRoute

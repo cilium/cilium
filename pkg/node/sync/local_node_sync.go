@@ -1,0 +1,347 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package sync
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"maps"
+	"net/netip"
+
+	"github.com/cilium/hive/cell"
+
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
+	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/k8s"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/node/addressing"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/source"
+)
+
+var LocalNodeSyncCell = cell.Module(
+	"local-node-sync",
+	"Provides LocalNodeSynchronizer that syncs the LocalNodeStore with the K8s Node",
+
+	// Provides a newLocalNodeSynchronizer that is invoked when LocalNodeStore is started.
+	// This fills in the initial state before it is accessed by other sub-systems.
+	// Then, it takes care of keeping selected fields (e.g., labels, annotations)
+	// synchronized with the corresponding kubernetes object.
+	cell.Provide(newLocalNodeSynchronizer),
+)
+
+// InitFunc is called before during startup to fill in the local node before other
+// sub-systems can access it. This is called after the [node.LocalNode] is filled in
+// from configuration and k8s node.
+type InitFunc func(context.Context, *node.LocalNode) error
+
+type localNodeSynchronizerParams struct {
+	cell.In
+
+	Logger             *slog.Logger
+	Config             *option.DaemonConfig
+	ClusterInfo        cmtypes.ClusterInfo
+	TunnelConfig       tunnel.Config
+	K8sLocalNode       agentK8s.LocalNodeResource
+	K8sCiliumLocalNode agentK8s.LocalCiliumNodeResource
+	IPsecConfig        ipsec.Config
+	ExtraInitFuncs     []InitFunc `group:"init-funcs"`
+}
+
+// localNodeSynchronizer performs the bootstrapping of the LocalNodeStore,
+// which contains information about the local Cilium node populated from
+// configuration and Kubernetes. Additionally, it also takes care of keeping
+// the selected fields of the LocalNodeStore synchronized with Kubernetes.
+type localNodeSynchronizer struct {
+	localNodeSynchronizerParams
+	old node.LocalNode
+}
+
+func (ini *localNodeSynchronizer) InitLocalNode(ctx context.Context, n *node.LocalNode) error {
+	n.Source = source.Local
+
+	if err := ini.initFromConfig(n); err != nil {
+		return err
+	}
+
+	n.Local.UnderlayProtocol = ini.TunnelConfig.UnderlayProtocol()
+
+	if err := ini.initFromK8s(ctx, n); err != nil {
+		return err
+	}
+
+	n.BootID = node.GetBootID(ini.Logger)
+	if ini.IPsecConfig.Enabled() && n.BootID == "" {
+		return fmt.Errorf("IPSec requires a valid BootID")
+	}
+
+	for _, fn := range ini.ExtraInitFuncs {
+		if err := fn(ctx, n); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ini *localNodeSynchronizer) SyncLocalNode(ctx context.Context, store *node.LocalNodeStore) {
+	if ini.K8sLocalNode == nil {
+		return
+	}
+
+	for ev := range ini.K8sLocalNode.Events(ctx) {
+		if ev.Kind == resource.Upsert {
+			ini.Logger.Debug("Received Local Node upsert event", logfields.Node, ev.Object)
+			isBeingDeleted := ev.Object.DeletionTimestamp != nil
+			if isBeingDeleted {
+				// Update LocalNode to mark it as being deleted
+				store.Update(func(ln *node.LocalNode) {
+					ln.Local.IsBeingDeleted = true
+				})
+			}
+			new := parseNode(ini.Logger, ev.Object, ini.ClusterInfo)
+			if !ini.mutableFieldsEqual(new) {
+				store.Update(func(ln *node.LocalNode) {
+					ini.syncFromK8s(ln, new)
+				})
+			}
+		} else if ev.Kind == resource.Delete {
+			ini.Logger.Info("Received Local node Delete event", logfields.Node, ev.Object)
+			// Mark as being deleted on explicit delete events too
+			store.Update(func(ln *node.LocalNode) {
+				ln.Local.IsBeingDeleted = true
+			})
+		}
+
+		ev.Done(nil)
+	}
+}
+
+func newLocalNodeSynchronizer(p localNodeSynchronizerParams) node.LocalNodeSynchronizer {
+	return &localNodeSynchronizer{
+		localNodeSynchronizerParams: p,
+		old:                         node.LocalNode{Local: &node.LocalNodeInfo{}},
+	}
+}
+
+func (ini *localNodeSynchronizer) initFromConfig(n *node.LocalNode) error {
+	n.Cluster = ini.ClusterInfo.Name
+	n.ClusterID = ini.ClusterInfo.ID
+	n.Name = nodeTypes.GetName()
+
+	n.Local.IPv4NativeRoutingCIDR = ini.Config.IPv4NativeRoutingCIDR
+	n.Local.IPv6NativeRoutingCIDR = ini.Config.IPv6NativeRoutingCIDR
+
+	// Initialize node IP addresses from configuration.
+	if ini.Config.IPv6NodeAddr != "auto" {
+		if ip, err := netip.ParseAddr(ini.Config.IPv6NodeAddr); err != nil {
+			return fmt.Errorf("invalid IPv6 node address: %q", ini.Config.IPv6NodeAddr)
+		} else {
+			if !ip.IsGlobalUnicast() {
+				return fmt.Errorf("Invalid IPv6 node address: %q not a global unicast address", ip)
+			}
+			n.SetNodeInternalIP(ip)
+		}
+	}
+	if ini.Config.IPv4NodeAddr != "auto" {
+		if ip, err := netip.ParseAddr(ini.Config.IPv4NodeAddr); err != nil {
+			return fmt.Errorf("Invalid IPv4 node address: %q", ini.Config.IPv4NodeAddr)
+		} else {
+			n.SetNodeInternalIP(ip)
+		}
+	}
+	return nil
+}
+
+func (ini *localNodeSynchronizer) getK8sLocalNode(ctx context.Context) (*slim_corev1.Node, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	for ev := range ini.K8sLocalNode.Events(ctx) {
+		ev.Done(nil)
+		if ev.Kind == resource.Upsert {
+			return ev.Object, nil
+		}
+	}
+	return nil, ctx.Err()
+}
+
+// getK8sLocalCiliumNode returns the CiliumNode object for the local node if it exists at the type
+// of the call.
+// In the case that the resource event is synced without a ciliumnode upsert event, we return nil.
+func (ini *localNodeSynchronizer) getK8sLocalCiliumNode(ctx context.Context) *v2.CiliumNode {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	select {
+	case <-ctx.Done():
+		return nil
+	case ev := <-ini.K8sCiliumLocalNode.Events(ctx):
+		ev.Done(nil)
+		switch ev.Kind {
+		case resource.Upsert:
+			return ev.Object
+		case resource.Sync:
+			ini.Logger.Debug("sync event received before local ciliumnode upsert, skipping ciliumnode sync")
+			return nil
+		}
+	}
+	return nil
+}
+
+func (ini *localNodeSynchronizer) initFromK8s(ctx context.Context, node *node.LocalNode) error {
+	if ini.K8sLocalNode == nil {
+		return nil
+	}
+
+	k8sNode, err := ini.getK8sLocalNode(ctx)
+	if err != nil {
+		return err
+	}
+	parsedNode := parseNode(ini.Logger, k8sNode, ini.ClusterInfo)
+
+	// Initialize the fields in local node where the source of truth is in Kubernetes.
+	// Later stages will deal with updating rest of the fields depending on configuration.
+	//
+	// The fields left uninitialized/unrestored here:
+	//   - Cilium internal IPs (restored from cilium_host or allocated by IPAM)
+	//   - Health IPs (allocated by IPAM)
+	//   - WireGuard key (set by WireGuard agent)
+	//   - IPsec key (set by IPsec)
+	//   - alloc CIDRs (depends on IPAM mode; restored from Node or CiliumNode)
+	node.Name = parsedNode.Name
+	for _, addr := range parsedNode.IPAddresses {
+		if addr.Type == addressing.NodeInternalIP {
+			node.SetNodeInternalIP(addr.IP.Addr)
+		} else if addr.Type == addressing.NodeExternalIP {
+			node.SetNodeExternalIP(addr.IP.Addr)
+		}
+	}
+	// The Ingress IPs parsed from Kubernetes Node annotations are only a fallback.
+	// The local CiliumNode fetched immediately below overrides them when available.
+	// A later bootstrap stage gives addresses restored from the BPF ipcache map
+	// highest precedence; IPAM allocates new addresses only if none could be restored.
+	if ini.Config.EnableEnvoyConfig {
+		if ini.Config.EnableIPv4 {
+			node.IPv4IngressIP = parsedNode.IPv4IngressIP
+		}
+		if ini.Config.EnableIPv6 {
+			node.IPv6IngressIP = parsedNode.IPv6IngressIP
+		}
+	}
+	ini.syncFromK8s(node, parsedNode)
+
+	// In cases where no local CiliumNode exists (such as on a fresh node) we skip restoring
+	// the CiliumNode information from k8s.
+	k8sCiliumNode := ini.getK8sLocalCiliumNode(ctx)
+	if k8sCiliumNode != nil {
+		for _, addr := range k8sCiliumNode.Spec.Addresses {
+			if addr.Type == addressing.NodeCiliumInternalIP {
+				node.SetCiliumInternalIP(addr.Addr())
+			}
+		}
+
+		if ini.Config.EnableHealthChecking && ini.Config.EnableEndpointHealthChecking {
+			if ini.Config.EnableIPv4 {
+				addr, _ := netip.ParseAddr(k8sCiliumNode.Spec.HealthAddressing.IPv4)
+				node.IPv4HealthIP = iputil.AddrFrom(addr)
+			}
+
+			if ini.Config.EnableIPv6 {
+				addr, _ := netip.ParseAddr(k8sCiliumNode.Spec.HealthAddressing.IPv6)
+				node.IPv6HealthIP = iputil.AddrFrom(addr)
+			}
+		}
+
+		// Prefer the durable local CiliumNode values over the Kubernetes Node
+		// annotation fallback. The BPF ipcache restoration runs later and may
+		// override these with the addresses used by the previous datapath.
+		if ini.Config.EnableEnvoyConfig {
+			if ini.Config.EnableIPv4 {
+				if addr, err := netip.ParseAddr(k8sCiliumNode.Spec.IngressAddressing.IPV4); err == nil {
+					node.IPv4IngressIP = iputil.AddrFrom(addr)
+				}
+			}
+
+			if ini.Config.EnableIPv6 {
+				if addr, err := netip.ParseAddr(k8sCiliumNode.Spec.IngressAddressing.IPV6); err == nil {
+					node.IPv6IngressIP = iputil.AddrFrom(addr)
+				}
+			}
+		}
+	} else {
+		ini.Logger.Info("no local ciliumnode found, will not restore cilium internal and health ips from k8s")
+	}
+
+	return nil
+}
+
+func (ini *localNodeSynchronizer) mutableFieldsEqual(new *node.LocalNode) bool {
+	return maps.Equal(ini.old.Labels, new.Labels) &&
+		maps.Equal(ini.old.Annotations, new.Annotations) &&
+		ini.old.Local.UID == new.Local.UID && ini.old.Local.ProviderID == new.Local.ProviderID
+}
+
+// syncFromK8s synchronizes the fields that can be mutated at runtime
+func (ini *localNodeSynchronizer) syncFromK8s(ln, new *node.LocalNode) {
+	filter := func(old, new map[string]string, key string) bool {
+		_, oldExists := old[key]
+		_, newExists := new[key]
+		return oldExists && !newExists
+	}
+
+	ini.Logger.Debug(
+		"Syncing local node with new labels",
+		logfields.NodeLabels, ln.Labels,
+		logfields.OldLabels, ini.old.Labels,
+		logfields.NewLabels, new.Labels,
+	)
+
+	// Create a clone, so that we don't mutate the current labels/annotations,
+	// as LocalNodeStore.Update emits a shallow copy of the whole object.
+	ln.Labels = maps.Clone(ln.Labels)
+	maps.DeleteFunc(ln.Labels, func(key, _ string) bool { return filter(ini.old.Labels, new.Labels, key) })
+	maps.Copy(ln.Labels, new.Labels)
+	ini.old.Labels = new.Labels
+
+	ini.Logger.Debug(
+		"Syncing local node with new annotations",
+		logfields.Annotations, ln.Annotations,
+		logfields.OldAnnotations, ini.old.Annotations,
+		logfields.NewAnnotations, new.Annotations,
+	)
+
+	ln.Annotations = maps.Clone(ln.Annotations)
+	maps.DeleteFunc(ln.Annotations, func(key, _ string) bool { return filter(ini.old.Annotations, new.Annotations, key) })
+	maps.Copy(ln.Annotations, new.Annotations)
+	ini.old.Annotations = new.Annotations
+
+	ini.old.Local.UID = new.Local.UID
+	ini.old.Local.ProviderID = new.Local.ProviderID
+	ln.Local.UID = new.Local.UID
+	ln.Local.ProviderID = new.Local.ProviderID
+
+	ini.Logger.Debug(
+		"Local node UID and ProviderID updated",
+		logfields.UID, ln.Local.UID,
+		logfields.ProviderID, ln.Local.ProviderID,
+	)
+}
+
+func parseNode(logger *slog.Logger, k8sNode *slim_corev1.Node, clusterInfo cmtypes.ClusterInfo) *node.LocalNode {
+	return &node.LocalNode{
+		Node: *k8s.ParseNode(logger, k8sNode, source.Kubernetes, clusterInfo),
+		Local: &node.LocalNodeInfo{
+			UID:        k8sNode.GetUID(),
+			ProviderID: k8sNode.Spec.ProviderID,
+		},
+	}
+}

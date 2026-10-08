@@ -1,0 +1,31 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: session-persistence-header
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8081
+    sessionPersistence:
+      type: Header
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2026-08-17T16:39:26Z"
+      message: Cilium only supports cookie-based session persistence
+      reason: UnsupportedValue
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: "2026-08-17T16:39:26Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace

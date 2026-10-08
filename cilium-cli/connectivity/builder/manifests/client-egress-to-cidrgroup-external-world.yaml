@@ -1,0 +1,28 @@
+# This policy allows packets towards world via cidrgroup
+
+apiVersion: "cilium.io/v2"
+kind: CiliumCIDRGroup
+metadata:
+  name: cilium-test-world
+  labels:
+    destination/world: ""
+spec:
+  externalCIDRs:
+    - "0.0.0.0/0"
+    - "::/0"
+
+---
+
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-to-cidrgroup-world
+spec:
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  - toCIDRSet:
+    - cidrGroupSelector:
+        matchLabels:
+          destination/world: ""

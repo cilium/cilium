@@ -1,0 +1,14 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled (not .Values.authentication.mutual.spire.install.existingNamespace) -}}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.authentication.mutual.spire.install.namespace }}
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

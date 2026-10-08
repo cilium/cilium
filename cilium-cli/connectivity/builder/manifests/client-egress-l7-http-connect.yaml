@@ -1,0 +1,126 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: http-connect-proxy
+  namespace: cilium-test
+data:
+  proxy.js: |
+    const http = require("http");
+    const net = require("net");
+
+    const server = http.createServer((request, response) => {
+      if (request.url === "/healthz") {
+        response.writeHead(200);
+        response.end("ok");
+        return;
+      }
+      response.writeHead(405);
+      response.end();
+    });
+
+    server.on("connect", (request, downstream, head) => {
+      let target;
+      try {
+        target = new URL(`http://${request.url}`);
+      } catch (_) {
+        downstream.end("HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n");
+        return;
+      }
+
+      const host = target.hostname.replace(/^\[|\]$/g, "");
+      const port = Number(target.port || 80);
+      const upstream = net.connect({ host, port }, () => {
+        downstream.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+        if (head.length > 0) {
+          upstream.write(head);
+        }
+        downstream.pipe(upstream);
+        upstream.pipe(downstream);
+      });
+
+      upstream.on("error", () => {
+        if (!downstream.destroyed) {
+          downstream.end("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n");
+        }
+      });
+      downstream.on("error", () => upstream.destroy());
+    });
+
+    server.requestTimeout = 0;
+    server.listen(8080);
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: http-connect-proxy
+  namespace: cilium-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: http-connect-proxy
+  template:
+    metadata:
+      labels:
+        kind: http-connect-proxy
+        name: http-connect-proxy
+    spec:
+      containers:
+      - name: http-connect-proxy
+        image: "{{.JSONMockImage}}"
+        command: ["node", "/proxy/proxy.js"]
+        ports:
+        - name: http
+          containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 1
+        volumeMounts:
+        - name: proxy-script
+          mountPath: /proxy
+          readOnly: true
+      volumes:
+      - name: proxy-script
+        configMap:
+          name: http-connect-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: http-connect-proxy
+  namespace: cilium-test
+  labels:
+    kind: http-connect-proxy
+spec:
+  ipFamilyPolicy: PreferDualStack
+  selector:
+    name: http-connect-proxy
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: client-egress-l7-http-connect
+  namespace: cilium-test
+spec:
+  description: "Allow client2 to establish tunnels through the HTTP proxy"
+  endpointSelector:
+    matchLabels:
+      other: client
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        kind: http-connect-proxy
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "CONNECT"

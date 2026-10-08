@@ -1,0 +1,43 @@
+# .readthedocs.yaml
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+# Required
+version: 2
+
+# Set the version of Python and other tools you might need
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+
+# Build documentation with Sphinx
+sphinx:
+  configuration: Documentation/conf.py
+  builder: "dirhtml"
+
+# We recommend specifying your dependencies to enable reproducible builds:
+# https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
+python:
+  install:
+  - requirements: Documentation/requirements.txt
+
+search:
+   ignore:
+     - '*.inc'
+     - 'alpha.rst'
+     - 'beta.rst'
+     - 'installation/cli-download.rst'
+     - 'installation/cli-status.rst'
+     - 'installation/cni-chaining-limitations.rst'
+     - 'installation/k8s-install-download-release.rst'
+     - 'installation/k8s-install-validate.rst'
+     - 'installation/next-steps.rst'
+     - 'installation/requirements-*.rst'
+     - 'network/kubernetes/compatibility-table.rst'
+     - 'network/servicemesh/gateway-api/demo-app.rst'
+     - 'network/servicemesh/gateway-api/tls-cert.rst'
+     - 'network/servicemesh/installation.rst'
+     - 'network/servicemesh/warning.rst'
+     - 'security/gsg_requirements.rst'
+     - 'security/gsg_sw_demo.rst'

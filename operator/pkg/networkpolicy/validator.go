@@ -1,0 +1,273 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+// The networkpolicy package performs basic policy validation and updates
+// the policy's Status field as relevant.
+
+package networkpolicy
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"slices"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/job"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8s_client "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
+)
+
+type ValidatorParams struct {
+	cell.In
+
+	Logger       *slog.Logger
+	JobGroup     job.Group
+	Clientset    k8s_client.Clientset
+	DaemonConfig *option.DaemonConfig
+
+	Cfg Config
+
+	CNPResource  resource.Resource[*cilium_api_v2.CiliumNetworkPolicy]
+	CCNPResource resource.Resource[*cilium_api_v2.CiliumClusterwideNetworkPolicy]
+}
+
+// The policyValidator validates network policy and reports the results in to the
+// policy's Status field. It validates both CiliumNetworkPolicy and CilumClusterwideNetworkPolicy
+type policyValidator struct {
+	params *ValidatorParams
+}
+
+func registerPolicyValidator(params ValidatorParams) {
+	if !params.Cfg.ValidateNetworkPolicy {
+		params.Logger.Debug("CNP / CCNP validator disabled")
+		return
+	}
+
+	if !option.Config.EnableCiliumNetworkPolicy && !option.Config.EnableCiliumClusterwideNetworkPolicy {
+		params.Logger.Info(fmt.Sprintf("Skipping CNP/CCNP validator registration as both %s and %s are disabled", option.EnableCiliumNetworkPolicy, option.EnableCiliumClusterwideNetworkPolicy))
+		return
+	}
+
+	pv := &policyValidator{
+		params: &params,
+	}
+
+	if option.Config.EnableCiliumNetworkPolicy {
+		params.Logger.Info("Registering CNP validator")
+		params.JobGroup.Add(job.Observer(
+			"cnp-validation",
+			pv.handleCNPEvent,
+			params.CNPResource,
+		))
+	}
+	if option.Config.EnableCiliumClusterwideNetworkPolicy {
+		params.Logger.Info("Registering CCNP validator")
+		params.JobGroup.Add(job.Observer(
+			"ccnp-validation",
+			pv.handleCCNPEvent,
+			params.CCNPResource,
+		))
+	}
+}
+
+func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Event[*cilium_api_v2.CiliumNetworkPolicy]) error {
+	var err error
+	defer func() {
+		event.Done(err)
+	}()
+	if event.Kind != resource.Upsert {
+		return nil
+	}
+
+	pol := event.Object
+	log := pv.params.Logger.With(
+		logfields.K8sNamespace, pol.Namespace,
+		logfields.CiliumNetworkPolicyName, pol.Name,
+	)
+
+	newPol := pol.DeepCopy()
+
+	var errs error
+	if newPol.Spec != nil {
+		errs = errors.Join(errs, newPol.Spec.Validate())
+		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, newPol.Spec))
+		errs = errors.Join(errs, validateCNPNodeSelector(newPol.Spec))
+	}
+	for _, r := range newPol.Specs {
+		errs = errors.Join(errs, r.Validate())
+		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, r))
+		errs = errors.Join(errs, validateCNPNodeSelector(r))
+	}
+
+	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
+	if newPol.Status.DeepEqual(&pol.Status) {
+		return nil
+	}
+
+	if errs != nil {
+		log.ErrorContext(ctx, "Detected invalid CNP, setting condition", logfields.Error, errs)
+	} else {
+		log.DebugContext(ctx, "CNP now valid, setting condition")
+	}
+	// Using the UpdateStatus subresource will prevent the generation from being bumped.
+	_, err = pv.params.Clientset.CiliumV2().CiliumNetworkPolicies(pol.Namespace).UpdateStatus(
+		ctx,
+		newPol,
+		metav1.UpdateOptions{},
+	)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		log.ErrorContext(ctx, "failed to update CNP status", logfields.Error, err)
+	}
+
+	return err
+}
+
+func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.Event[*cilium_api_v2.CiliumClusterwideNetworkPolicy]) error {
+	var err error
+	defer func() {
+		event.Done(err)
+	}()
+	if event.Kind != resource.Upsert {
+		return nil
+	}
+
+	pol := event.Object
+	log := pv.params.Logger.With(
+		logfields.K8sNamespace, pol.Namespace,
+		logfields.CiliumClusterwideNetworkPolicyName, pol.Name,
+	)
+
+	newPol := pol.DeepCopy()
+
+	var errs error
+	if newPol.Spec != nil {
+		errs = errors.Join(errs, newPol.Spec.Validate())
+	}
+	for _, r := range newPol.Specs {
+		errs = errors.Join(errs, r.Validate())
+	}
+
+	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
+	if newPol.Status.DeepEqual(&pol.Status) {
+		return nil
+	}
+
+	if errs != nil {
+		log.DebugContext(ctx, "Detected invalid CCNP, setting condition", logfields.Error, errs)
+	} else {
+		log.DebugContext(ctx, "CCNP now valid, setting condition")
+	}
+	// Using the UpdateStatus subresource will prevent the generation from being bumped.
+	_, err = pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies().UpdateStatus(
+		ctx,
+		newPol,
+		metav1.UpdateOptions{},
+	)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		log.ErrorContext(ctx, "failed to update CCNP status", logfields.Error, err)
+	}
+
+	return err
+}
+
+// validateCNPEndpointSelectorNamespace checks that the endpointSelector of a
+// CiliumNetworkPolicy does not select a namespace other than the one the
+// policy is defined in. The endpointSelector always applies in the namespace
+// of the policy resource, so a selector on a different namespace can never
+// select any endpoints.
+func validateCNPEndpointSelectorNamespace(namespace string, spec *api.Rule) error {
+	if spec == nil || spec.EndpointSelector.LabelSelector == nil {
+		return nil
+	}
+	for _, key := range []string{
+		labels.LabelSourceK8sKeyPrefix + k8sConst.PodNamespaceLabel,
+		labels.LabelSourceAnyKeyPrefix + k8sConst.PodNamespaceLabel,
+	} {
+		selectedNamespaces, present := spec.EndpointSelector.GetMatch(key)
+		if !present {
+			continue
+		}
+		if len(selectedNamespaces) == 1 && selectedNamespaces[0] == namespace {
+			continue
+		}
+		return fmt.Errorf("CiliumNetworkPolicy endpointSelector matches namespace(s) %v, but the endpointSelector can only select endpoints in the policy's own namespace %q", selectedNamespaces, namespace)
+	}
+	return nil
+}
+
+// validateCNPNodeSelector rejects rules of a CiliumNetworkPolicy that use a
+// nodeSelector. Node selectors are only supported by
+// CiliumClusterwideNetworkPolicy, and the agent rejects such rules when parsing
+// a CiliumNetworkPolicy, which would otherwise leave the policy silently
+// ineffective while being reported as valid.
+func validateCNPNodeSelector(spec *api.Rule) error {
+	if spec == nil || spec.NodeSelector.LabelSelector == nil {
+		return nil
+	}
+	return errors.New("CiliumNetworkPolicy rule cannot have NodeSelector, use CiliumClusterwideNetworkPolicy instead")
+}
+
+// updateCondition creates or updates the policy validation condition in Conditions, setting
+// the transition time as necessary.
+func updateCondition(conditions []cilium_api_v2.NetworkPolicyCondition, errs error) []cilium_api_v2.NetworkPolicyCondition {
+	wantCondition := corev1.ConditionTrue
+	message := "Policy validation succeeded"
+	if errs != nil {
+		wantCondition = corev1.ConditionFalse
+		message = errs.Error()
+	}
+
+	// look for the condition type already existing.
+	foundIdx := -1
+	for i, cond := range conditions {
+		if cond.Type == cilium_api_v2.PolicyConditionValid {
+			foundIdx = i
+			// If nothing important changed, short-circuit
+			if cond.Status == wantCondition && cond.Message == message {
+				return conditions
+			}
+			break
+		}
+	}
+
+	// Otherwise, set / update the condition
+	newCond := cilium_api_v2.NetworkPolicyCondition{
+		Type:               cilium_api_v2.PolicyConditionValid,
+		Status:             wantCondition,
+		LastTransitionTime: slimv1.Now(),
+		Message:            message,
+	}
+
+	out := slices.Clone(conditions)
+
+	if foundIdx >= 0 {
+		// If the status did not change (just the message), don't bump the
+		// LastTransitionTime.
+		if out[foundIdx].Status == newCond.Status {
+			newCond.LastTransitionTime = out[foundIdx].LastTransitionTime
+		}
+		out[foundIdx] = newCond
+	} else {
+		out = append(out, newCond)
+	}
+	return out
+}

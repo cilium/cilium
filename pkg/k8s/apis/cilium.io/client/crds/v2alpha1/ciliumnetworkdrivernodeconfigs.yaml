@@ -1,0 +1,226 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+  name: ciliumnetworkdrivernodeconfigs.cilium.io
+spec:
+  group: cilium.io
+  names:
+    categories:
+    - cilium
+    kind: CiliumNetworkDriverNodeConfig
+    listKind: CiliumNetworkDriverNodeConfigList
+    plural: ciliumnetworkdrivernodeconfigs
+    shortNames:
+    - ndnc
+    singular: ciliumnetworkdrivernodeconfig
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v2alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          CiliumNetworkDriverNodeConfig is a Kubernetes third-party resource used to
+          configure the Cilium Network Driver feature.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              deviceManagerConfigs:
+                description: Device manager configurations
+                properties:
+                  dummy:
+                    description: Configuration for the dummy device manager
+                    properties:
+                      count:
+                        default: 0
+                        description: |-
+                          Number of dummy links to create and advertise. The driver synthesises
+                          Count discrete devices named dummy0..dummy<Count-1>; each is created on
+                          demand when a claim is prepared and destroyed with the pod netns. The
+                          (Count+1)th claim stays Pending.
+                        minimum: 0
+                        type: integer
+                      enabled:
+                        default: false
+                        type: boolean
+                    type: object
+                  macvlan:
+                    description: Configuration for the macvlan device manager
+                    properties:
+                      enabled:
+                        default: false
+                        type: boolean
+                      ifaces:
+                        items:
+                          description: Configuration for macvlan devices
+                          properties:
+                            count:
+                              default: 0
+                              description: Number of macvlan sub-interfaces to create
+                                for this parent interface.
+                              type: integer
+                            mode:
+                              default: bridge
+                              description: Macvlan mode (private, vepa, bridge, passthru,
+                                source). Defaults to bridge.
+                              enum:
+                              - private
+                              - vepa
+                              - bridge
+                              - passthru
+                              - source
+                              type: string
+                            parentIfName:
+                              description: Parent interface name (kernel ifname)
+                              type: string
+                          required:
+                          - parentIfName
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - parentIfName
+                        x-kubernetes-list-type: map
+                    type: object
+                  sriov:
+                    description: Configuration for the SR-IOV device manager
+                    properties:
+                      enabled:
+                        default: false
+                        type: boolean
+                      ifaces:
+                        items:
+                          description: Configuration for SR-IOV devices
+                          properties:
+                            ifName:
+                              description: Kernel ifname
+                              type: string
+                            vfCount:
+                              default: 0
+                              description: Number of VF to be spawned for this PF.
+                              type: integer
+                              x-kubernetes-validations:
+                              - message: VFCount is immutable
+                                rule: self == oldSelf
+                          required:
+                          - ifName
+                          type: object
+                        type: array
+                        x-kubernetes-list-map-keys:
+                        - ifName
+                        x-kubernetes-list-type: map
+                      sysBusPCIDevPath:
+                        type: string
+                    type: object
+                type: object
+              draRegistrationMaxAttempts:
+                default: 10
+                description: |-
+                  Maximum number of DRA registration attempts before giving up.
+                  Each failed attempt recreates the plugin sockets so that kubelet's
+                  inotify-based plugin watcher is retriggered.
+                format: int64
+                type: integer
+              draRegistrationRetryInterval:
+                default: 1
+                description: Interval between DRA registration retries
+                format: int64
+                type: integer
+              draRegistrationTimeout:
+                default: 5
+                description: |-
+                  Max amount of time waiting for DRA registration to succeed per attempt.
+                  If a single attempt times out the plugin sockets are recreated to retrigger
+                  kubelet's plugin-watcher inotify, and a new attempt is started.
+                format: int64
+                type: integer
+              driverName:
+                default: networkdriver.cilium.io
+                description: |-
+                  Driver name used to register to DRA and with the container runtime.
+                  Is also the driver that shows up in the ResourceSlice resources advertised by the node.
+                  Format: FQDN
+                type: string
+              pools:
+                description: |-
+                  Definition of device pools to be advertised by the Network Driver.
+                  Pool names must be unique.
+                items:
+                  description: |-
+                    Pool configuration. Devices matched by the filter are advertised
+                    with the pool name as a ResourceSlice.
+                  properties:
+                    filter:
+                      description: |-
+                        Criteria to match devices that are to be advertised as part of a pool.
+                        All conditions must match for a device to be selected by the filter.
+                      properties:
+                        deviceIDs:
+                          items:
+                            type: string
+                          type: array
+                        deviceManagers:
+                          items:
+                            type: string
+                          type: array
+                        drivers:
+                          items:
+                            type: string
+                          type: array
+                        ifNames:
+                          items:
+                            type: string
+                          type: array
+                        parentIfNames:
+                          items:
+                            type: string
+                          type: array
+                        pciAddrs:
+                          items:
+                            type: string
+                          type: array
+                        pfNames:
+                          items:
+                            type: string
+                          type: array
+                        vendorIDs:
+                          items:
+                            type: string
+                          type: array
+                      type: object
+                    name:
+                      pattern: ^[^/]+$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources: {}

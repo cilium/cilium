@@ -1,0 +1,14 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "l4-port-range-rule"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: myService
+  egress:
+    - toPorts:
+      - ports:
+        - port: "80"
+          endPort: 444
+          protocol: TCP

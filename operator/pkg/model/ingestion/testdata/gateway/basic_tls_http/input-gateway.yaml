@@ -1,0 +1,13 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: my-gateway
+  namespace: default
+spec:
+  gatewayClassName: ""
+  listeners:
+  - name: prod-web-gw
+    port: 443
+    protocol: TLS
+status: {}

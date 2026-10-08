@@ -1,0 +1,22 @@
+metadata:
+  creationTimestamp: null
+  labels:
+    gateway.networking.k8s.io/gateway-name: httproute-hostname-intersection
+    io.cilium.gateway/owning-gateway: httproute-hostname-intersection
+  name: cilium-gateway-httproute-hostname-intersection
+  namespace: gateway-conformance-infra
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1
+    controller: true
+    kind: Gateway
+    name: httproute-hostname-intersection
+    uid: ""
+spec:
+  ports:
+  - name: port-80
+    port: 80
+    protocol: TCP
+    targetPort: 0
+  type: LoadBalancer
+status:
+  loadBalancer: {}

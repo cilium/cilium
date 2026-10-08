@@ -1,0 +1,235 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: exactpath
+  namespace: default
+  labels:
+    app: exactpath
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: exactpath
+  template:
+    metadata:
+      labels:
+        app: exactpath
+    spec:
+      containers:
+      - name: exactpath
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prefixpath
+  namespace: default
+  labels:
+    app: prefixpath
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prefixpath
+  template:
+    metadata:
+      labels:
+        app: prefixpath
+    spec:
+      containers:
+      - name: prefixpath
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prefixpath2
+  namespace: default  
+  labels:
+    app: prefixpath2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prefixpath2
+  template:
+    metadata:
+      labels:
+        app: prefixpath2
+    spec:
+      containers:
+      - name: prefixpath2
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: implpath
+  namespace: default
+  labels:
+    app: implpath
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: implpath
+  template:
+    metadata:
+      labels:
+        app: implpath
+    spec:
+      containers:
+      - name: implpath
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: implpath2
+  namespace: default
+  labels:
+    app: implpath2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: implpath2
+  template:
+    metadata:
+      labels:
+        app: implpath2
+    spec:
+      containers:
+      - name: implpath2
+        image: gcr.io/k8s-staging-gateway-api/echo-basic:v20240412-v1.0.0-394-g40c666fd
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        resources:
+          requests:
+            cpu: 10m
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefixpath
+  namespace: default  
+spec:
+  type: ClusterIP
+  selector:
+    app: prefixpath
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefixpath2
+  namespace: default  
+spec:
+  type: ClusterIP
+  selector:
+    app: prefixpath2
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: exactpath
+  namespace: default  
+spec:
+  type: ClusterIP
+  selector:
+    app: exactpath
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: implpath
+  namespace: default  
+spec:
+  type: ClusterIP
+  selector:
+    app: implpath
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: implpath2
+  namespace: default  
+spec:
+  type: ClusterIP
+  selector:
+    app: implpath2
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 3000

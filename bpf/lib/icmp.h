@@ -1,0 +1,129 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/* Copyright Authors of Cilium */
+
+#pragma once
+
+#include <linux/icmp.h>
+#include <linux/icmpv6.h>
+
+#include "bpf/compiler.h"
+#include "icmp_wsum.h"
+#include "csum.h"
+#include "dbg.h"
+#include "eth.h"
+#include "overloadable.h"
+#ifdef ENABLE_IPV4
+
+static __always_inline int icmp_load_type(const struct __ctx_buff *ctx, int l4_off,
+					  __u8 *type)
+{
+	return ctx_load_bytes(ctx, l4_off + offsetof(struct icmphdr, type),
+			      type, sizeof(*type));
+}
+
+#define ICMP_PACKET_MAX_SAMPLE_SIZE 8
+#define ICMP4_MAX_DATAGRAM_LEN 576
+#define ICMP4_MAX_SAMPLE_LEN (ICMP4_MAX_DATAGRAM_LEN - \
+			      sizeof(struct iphdr) - \
+			      sizeof(struct icmphdr))
+
+static __always_inline
+int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
+			 __u32 icmp_data)
+{
+	__u64 full_len = ctx_full_len(ctx);
+	struct iphdr *ip4, *inner_ip4;
+	__u64 new_len, sample_len;
+	void *data, *data_end;
+	struct ethhdr *ethhdr;
+	struct icmphdr *icmphdr;
+	__wsum csum;
+	int ret;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	/* Trim down to sample size (IPv4 header + 8 bytes datagram) */
+	if (full_len < sizeof(struct ethhdr))
+		return DROP_INVALID;
+
+	sample_len = ipv4_hdrlen(ip4) + ICMP_PACKET_MAX_SAMPLE_SIZE;
+	/* On tc, ctx_adjust_troom calls __bpf_skb_min_len
+	 * which rejects the resize with -EINVAL if the result is too
+	 * short to hold the partial checksum bytes.
+	 * Bump sample_len to the RFC 1812 maximum so the resize succeeds
+	 * and the ICMP datagram stays within the 576-byte RFC cap.
+	 */
+	if (ctx_is_skb())
+		sample_len = ICMP4_MAX_SAMPLE_LEN;
+	new_len = sizeof(struct ethhdr) + sample_len;
+	if (new_len > full_len) {
+		new_len = full_len;
+		sample_len = full_len - sizeof(struct ethhdr);
+	}
+
+	if (ctx_adjust_troom(ctx, (__s32)(new_len - full_len)) < 0)
+		return DROP_INVALID;
+
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	/* Calculate the checksum of the ICMP sample */
+	csum = icmp_wsum_accumulate(data + sizeof(struct ethhdr), data_end, (int)sample_len);
+
+	/* We need to insert a IPv4 and ICMP header before the original packet.
+	 * Make that room.
+	 */
+
+	ret = ctx_adjust_hroom(ctx, sizeof(*ip4) + sizeof(*icmphdr),
+			       BPF_ADJ_ROOM_MAC, BPF_F_ADJ_ROOM_NO_CSUM_RESET);
+	if (ret < 0)
+		return DROP_INVALID;
+
+	/* changing size invalidates pointers, so we need to re-fetch them. */
+	data = ctx_data(ctx);
+	data_end = ctx_data_end(ctx);
+
+	/* Bound check all headers at once. */
+	ethhdr = data;
+	ip4 = (void *)ethhdr + sizeof(*ethhdr);
+	icmphdr = (void *)ip4 + sizeof(*ip4);
+	inner_ip4 = (void *)icmphdr + sizeof(*icmphdr);
+	if ((void *)inner_ip4 + sizeof(*inner_ip4) > data_end)
+		return DROP_INVALID;
+
+	/* Write reversed eth header, ready for egress */
+	eth_flip_addrs(ethhdr);
+	ethhdr->h_proto = bpf_htons(ETH_P_IP);
+
+	/* Write reversed ip header, ready for egress */
+	ip4->version = 4;
+	ip4->ihl = sizeof(struct iphdr) >> 2;
+	ip4->tos = inner_ip4->tos;
+	ip4->tot_len = bpf_htons(sizeof(struct iphdr) + sizeof(struct icmphdr) +
+		       (__u16)sample_len);
+	ip4->id = 0;
+	ip4->frag_off = 0;
+	ip4->ttl = IPDEFTTL;
+	ip4->protocol = IPPROTO_ICMP;
+	ip4->check = 0;
+	ip4->daddr = inner_ip4->saddr;
+	ip4->saddr = inner_ip4->daddr;
+	ip4->check = csum_fold(csum_diff(ip4, 0, ip4, sizeof(struct iphdr), 0));
+
+	/* Write reversed icmp header */
+	icmphdr->type = icmp_type;
+	icmphdr->code = icmp_code;
+	icmphdr->checksum = 0;
+	icmphdr->un.gateway = 0;
+
+	if (icmp_type == ICMP_DEST_UNREACH && icmp_code == ICMP_FRAG_NEEDED)
+		icmphdr->un.frag.mtu = (__be16)icmp_data;
+
+	/* Add ICMP header checksum to sum of its body */
+	csum += csum_diff(icmphdr, 0, icmphdr, sizeof(struct icmphdr), 0);
+	icmphdr->checksum = csum_fold(csum);
+
+	return 0;
+}
+#endif /* ENABLE_IPV4 */

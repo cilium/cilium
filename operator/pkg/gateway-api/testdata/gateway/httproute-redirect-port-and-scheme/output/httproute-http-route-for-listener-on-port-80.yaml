@@ -1,0 +1,82 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: http-route-for-listener-on-port-80
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-nil
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+        port: 80
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-80
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+        port: 8080
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-nil-and-port-8080
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+        scheme: https
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-https-and-port-nil
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+        port: 443
+        scheme: https
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-https-and-port-443
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+        port: 8443
+        scheme: https
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /scheme-https-and-port-8443
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:44Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace

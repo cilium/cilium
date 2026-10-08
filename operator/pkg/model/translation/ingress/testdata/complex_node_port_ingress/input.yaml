@@ -1,0 +1,154 @@
+http:
+- hostname: '*'
+  port: 80
+  routes:
+  - backends:
+    - name: default-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    path_match:
+      exact: /dummy-path
+    timeout: {}
+  - backends:
+    - name: another-dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8081
+    path_match:
+      prefix: /another-dummy-path
+    timeout: {}
+  service:
+    insecure_node_port: 30000
+    secure_node_port: 30001
+    type: NodePort
+  sources:
+  - kind: Ingress
+    name: dummy-ingress
+    namespace: dummy-namespace
+    uid: d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e
+    version: v1
+- hostname: another-very-secure.server.com
+  port: 443
+  routes:
+  - backends:
+    - name: default-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    path_match:
+      exact: /dummy-path
+    timeout: {}
+  - backends:
+    - name: another-dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8081
+    path_match:
+      prefix: /another-dummy-path
+    timeout: {}
+  service:
+    insecure_node_port: 30000
+    secure_node_port: 30001
+    type: NodePort
+  sources:
+  - kind: Ingress
+    name: dummy-ingress
+    namespace: dummy-namespace
+    uid: d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e
+    version: v1
+  tls:
+  - name: tls-another-very-secure-server-com
+    namespace: dummy-namespace
+- hostname: not-in-use.another-very-secure.server.com
+  port: 443
+  routes:
+  - backends:
+    - name: default-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    path_match:
+      exact: /dummy-path
+    timeout: {}
+  - backends:
+    - name: another-dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8081
+    path_match:
+      prefix: /another-dummy-path
+    timeout: {}
+  service:
+    insecure_node_port: 30000
+    secure_node_port: 30001
+    type: NodePort
+  sources:
+  - kind: Ingress
+    name: dummy-ingress
+    namespace: dummy-namespace
+    uid: d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e
+    version: v1
+  tls:
+  - name: tls-another-very-secure-server-com
+    namespace: dummy-namespace
+- hostname: very-secure.server.com
+  port: 443
+  routes:
+  - backends:
+    - name: default-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    path_match: {}
+    timeout: {}
+  - backends:
+    - name: dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    path_match:
+      exact: /dummy-path
+    timeout: {}
+  - backends:
+    - name: another-dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8081
+    path_match:
+      prefix: /another-dummy-path
+    timeout: {}
+  service:
+    insecure_node_port: 30000
+    secure_node_port: 30001
+    type: NodePort
+  sources:
+  - kind: Ingress
+    name: dummy-ingress
+    namespace: dummy-namespace
+    uid: d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e
+    version: v1
+  tls:
+  - name: tls-very-secure-server-com
+    namespace: dummy-namespace

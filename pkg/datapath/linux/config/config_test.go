@@ -1,0 +1,446 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package config
+
+import (
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"io"
+	"net/netip"
+	"testing"
+
+	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/spf13/afero"
+	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/config"
+	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
+	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
+	"github.com/cilium/cilium/pkg/maps/nodemap/fake"
+	"github.com/cilium/cilium/pkg/node"
+	fakenode "github.com/cilium/cilium/pkg/node/fake"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
+)
+
+var (
+	dummyNodeCfg = config.Config{
+		NodeIPv4:            ipv4DummyAddr,
+		NodeIPv6:            ipv6DummyAddr,
+		CiliumInternalIPv4:  ipv4DummyAddr,
+		CiliumInternalIPv6:  ipv6DummyAddr,
+		ServiceLoopbackIPv4: ipv4DummyAddr,
+		ServiceLoopbackIPv6: ipv6DummyAddr,
+		Devices:             []*tables.Device{},
+		NodeAddresses:       []tables.NodeAddress{},
+		HostEndpointID:      1,
+		MaglevConfig:        maglev.DefaultConfig,
+	}
+	dummyDevCfg   testutils.TestEndpoint
+	ipv4DummyAddr = netip.MustParseAddr("192.0.2.3")
+	ipv6DummyAddr = netip.MustParseAddr("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
+)
+
+func setupConfigSuite(tb testing.TB) {
+	testutils.PrivilegedTest(tb)
+
+	dummyDevCfg = testutils.NewTestEndpoint(tb)
+
+	tb.Helper()
+
+	require.NoError(tb, rlimit.RemoveMemlock(), "Failed to remove memory limits")
+
+	option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = true // Disable obtaining direct routing device.
+}
+
+type badWriter struct{}
+
+func (b *badWriter) Write(p []byte) (int, error) {
+	return 0, errors.New("bad write :(")
+}
+
+type writeFn func(io.Writer, Writer) error
+
+func writeConfig(t *testing.T, header string, write writeFn) {
+	tests := []struct {
+		description string
+		output      io.Writer
+		wantErr     bool
+	}{
+		{
+			description: "successful write to an in-memory buffer",
+			output:      &bytes.Buffer{},
+			wantErr:     false,
+		},
+		{
+			description: "write to a failing writer",
+			output:      &badWriter{},
+			wantErr:     true,
+		},
+	}
+	for _, test := range tests {
+		var writer Writer
+		t.Logf("  Testing %s configuration: %s", header, test.description)
+		h := hive.New(
+			provideNodemap,
+			tables.DirectRoutingDeviceCell,
+			maglev.Cell,
+			cell.Provide(func() loadbalancer.Config { return loadbalancer.DefaultConfig }),
+			cell.Provide(
+				fakenode.NewAddressing,
+				func() sysctl.Sysctl { return sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc") },
+				NewHeaderfileWriter,
+				func() ipsec.Config { return fakeipsec.Config{} },
+			),
+			kpr.Cell,
+			cell.Invoke(func(writer_ Writer) {
+				writer = writer_
+			}),
+		)
+
+		tlog := hivetest.Logger(t)
+		require.NoError(t, h.Start(tlog, context.TODO()))
+		t.Cleanup(func() { require.NoError(t, h.Stop(tlog, context.TODO())) })
+		err := write(test.output, writer)
+		require.Equal(t, test.wantErr, (err != nil), "wantErr=%v, err=%s", test.wantErr, err)
+	}
+}
+
+func setupCiliumDummyDevices(t *testing.T, ns *netns.NetNS) {
+	t.Helper()
+	require.NoError(t, ns.Do(func() error {
+		ciliumNet := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "cilium_net"}}
+		if err := netlink.LinkAdd(ciliumNet); err != nil {
+			return err
+		}
+		if err := netlink.LinkSetUp(ciliumNet); err != nil {
+			return err
+		}
+		ciliumHost := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "cilium_host"}}
+		if err := netlink.LinkAdd(ciliumHost); err != nil {
+			return err
+		}
+		if err := netlink.LinkSetUp(ciliumHost); err != nil {
+			return err
+		}
+		return nil
+	}))
+
+	t.Cleanup(func() {
+		_ = ns.Do(func() error {
+			err1 := netlink.LinkDel(&netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "cilium_net"}})
+			err2 := netlink.LinkDel(&netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "cilium_host"}})
+			if err1 != nil && err2 != nil {
+				return fmt.Errorf("failed to delete cilium_net and cilium_host: %w", errors.Join(err1, err2))
+			}
+			if err1 != nil {
+				return fmt.Errorf("failed to delete cilium_net: %w", err1)
+			}
+			if err2 != nil {
+				return fmt.Errorf("failed to delete cilium_host: %w", err2)
+			}
+			return nil
+		})
+	})
+}
+
+func TestPrivilegedWriteNodeConfig(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
+	setupCiliumDummyDevices(t, ns)
+	err := ns.Do(func() error {
+		setupConfigSuite(t)
+		writeConfig(t, "node", func(w io.Writer, dp Writer) error {
+			return dp.WriteNodeConfig(w, &dummyNodeCfg)
+		})
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestPrivilegedWriteNetdevConfig(t *testing.T) {
+	setupConfigSuite(t)
+	writeConfig(t, "netdev", func(w io.Writer, dp Writer) error {
+		return dp.WriteNetdevConfig(w, dummyDevCfg.GetOptions())
+	})
+}
+
+func TestPrivilegedWriteNodeConfigExtraDefines(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
+	setupCiliumDummyDevices(t, ns)
+	err := ns.Do(func() error {
+		setupConfigSuite(t)
+
+		var (
+			na node.Addressing
+		)
+		h := hive.New(
+			cell.Provide(
+				fakenode.NewAddressing,
+			),
+			maglev.Cell,
+			cell.Invoke(func(
+				nodeaddressing node.Addressing,
+			) {
+				na = nodeaddressing
+			}),
+		)
+
+		tlog := hivetest.Logger(t)
+		require.NoError(t, h.Start(tlog, context.TODO()))
+		t.Cleanup(func() { h.Stop(tlog, context.TODO()) })
+
+		var buffer bytes.Buffer
+
+		// Assert that configurations are propagated when all generated extra defines are valid
+		cfg, err := NewHeaderfileWriter(WriterParams{
+			NodeAddressing:   na,
+			NodeExtraDefines: nil,
+			NodeExtraDefineFns: []dpdef.Fn{
+				func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
+				func() (dpdef.Map, error) { return dpdef.Map{"BAZ": "0x3"}, nil },
+			},
+			Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap: fake.NewFakeNodeMapV2(),
+		})
+		require.NoError(t, err)
+
+		buffer.Reset()
+		require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+
+		output := buffer.String()
+		require.Contains(t, output, "define FOO 0x1\n")
+		require.Contains(t, output, "define BAR 0x2\n")
+		require.Contains(t, output, "define BAZ 0x3\n")
+
+		// Assert that an error is returned when one extra define function returns an error
+		cfg, err = NewHeaderfileWriter(WriterParams{
+			NodeAddressing:   fakenode.NewAddressing(),
+			NodeExtraDefines: nil,
+			NodeExtraDefineFns: []dpdef.Fn{
+				func() (dpdef.Map, error) { return nil, errors.New("failing on purpose") },
+			},
+			Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap: fake.NewFakeNodeMapV2(),
+		})
+		require.NoError(t, err)
+
+		buffer.Reset()
+		require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+
+		// Assert that an error is returned when one extra define would overwrite an already existing entry
+		cfg, err = NewHeaderfileWriter(WriterParams{
+			NodeAddressing:   fakenode.NewAddressing(),
+			NodeExtraDefines: nil,
+			NodeExtraDefineFns: []dpdef.Fn{
+				func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x1", "BAR": "0x2"}, nil },
+				func() (dpdef.Map, error) { return dpdef.Map{"FOO": "0x3"}, nil },
+			},
+			Sysctl:  sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap: fake.NewFakeNodeMapV2(),
+		})
+		require.NoError(t, err)
+		buffer.Reset()
+		require.Error(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+func TestPrivilegedNewHeaderfileWriter(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
+	setupCiliumDummyDevices(t, ns)
+	err := ns.Do(func() error {
+		setupConfigSuite(t)
+
+		a := dpdef.Map{"A": "1"}
+		var buffer bytes.Buffer
+
+		_, err := NewHeaderfileWriter(WriterParams{
+			NodeAddressing:     fakenode.NewAddressing(),
+			NodeExtraDefines:   []dpdef.Map{a, a},
+			NodeExtraDefineFns: nil,
+			Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap:            fake.NewFakeNodeMapV2(),
+		})
+
+		require.Error(t, err, "duplicate keys should be rejected")
+
+		cfg, err := NewHeaderfileWriter(WriterParams{
+			NodeAddressing:     fakenode.NewAddressing(),
+			NodeExtraDefines:   []dpdef.Map{a},
+			NodeExtraDefineFns: nil,
+			Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+			NodeMap:            fake.NewFakeNodeMapV2(),
+		})
+		require.NoError(t, err)
+		require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+		require.Contains(t, buffer.String(), "define A 1\n")
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+var provideNodemap = cell.Provide(func() nodemap.MapV2 {
+	return fake.NewFakeNodeMapV2()
+})
+
+// writeNodeConfigToBuffer creates a HeaderfileWriter and writes the node
+// configuration to a buffer. This helper is used by the datapath config
+// defines tests below.
+func writeNodeConfigToBuffer(t *testing.T, nodeCfg *config.Config) string {
+	t.Helper()
+	cfg, err := NewHeaderfileWriter(WriterParams{
+		NodeAddressing:     fakenode.NewAddressing(),
+		NodeExtraDefines:   nil,
+		NodeExtraDefineFns: nil,
+		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+		NodeMap:            fake.NewFakeNodeMapV2(),
+	})
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, cfg.WriteNodeConfig(&buffer, nodeCfg))
+	return buffer.String()
+}
+
+// TestPrivilegedWriteNodeConfigHostFirewall verifies that with host firewall
+// enabled, the ENABLE_HOST_FIREWALL BPF define is present, and without it,
+// it is absent.
+// This covers the Host firewall scenarios previously tested by
+// K8sDatapathConfig.
+func TestPrivilegedWriteNodeConfigHostFirewall(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
+	setupCiliumDummyDevices(t, ns)
+	err := ns.Do(func() error {
+		setupConfigSuite(t)
+
+		origHostFirewall := option.Config.EnableHostFirewall
+		t.Cleanup(func() {
+			option.Config.EnableHostFirewall = origHostFirewall
+		})
+
+		t.Run("host firewall enabled", func(t *testing.T) {
+			option.Config.EnableHostFirewall = true
+			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
+			require.Contains(t, output, "define ENABLE_HOST_FIREWALL 1\n",
+				"Expected ENABLE_HOST_FIREWALL define when host firewall is enabled")
+		})
+
+		t.Run("host firewall disabled", func(t *testing.T) {
+			option.Config.EnableHostFirewall = false
+			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
+			require.NotContains(t, output, "ENABLE_HOST_FIREWALL",
+				"Expected no ENABLE_HOST_FIREWALL define when host firewall is disabled")
+		})
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+// TestPrivilegedWriteNodeConfigIPv4Only verifies that when IPv4 is enabled
+// and IPv6 is disabled, only ENABLE_IPV4 is present (not ENABLE_IPV6).
+// This covers the IPv4Only scenario previously tested by K8sDatapathConfig.
+func TestPrivilegedWriteNodeConfigIPv4Only(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
+	setupCiliumDummyDevices(t, ns)
+	err := ns.Do(func() error {
+		setupConfigSuite(t)
+
+		origIPv4 := option.Config.EnableIPv4
+		origIPv6 := option.Config.EnableIPv6
+		t.Cleanup(func() {
+			option.Config.EnableIPv4 = origIPv4
+			option.Config.EnableIPv6 = origIPv6
+		})
+
+		t.Run("IPv4 only", func(t *testing.T) {
+			option.Config.EnableIPv4 = true
+			option.Config.EnableIPv6 = false
+			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
+			require.Contains(t, output, "define ENABLE_IPV4 1\n",
+				"Expected ENABLE_IPV4 define when IPv4 is enabled")
+			require.NotContains(t, output, "define ENABLE_IPV6",
+				"Expected no ENABLE_IPV6 define when IPv6 is disabled")
+		})
+
+		t.Run("dual stack", func(t *testing.T) {
+			option.Config.EnableIPv4 = true
+			option.Config.EnableIPv6 = true
+			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
+			require.Contains(t, output, "define ENABLE_IPV4 1\n",
+				"Expected ENABLE_IPV4 define for dual stack")
+			require.Contains(t, output, "define ENABLE_IPV6 1\n",
+				"Expected ENABLE_IPV6 define for dual stack")
+		})
+
+		return nil
+	})
+	require.NoError(t, err)
+}
+
+// TestPrivilegedWriteNodeConfigBPFMasquerade verifies that when BPF masquerade
+// is enabled, the correct ENABLE_MASQUERADE_IPV4 defines are generated.
+// This covers the BPF masquerading scenarios previously
+// tested by K8sDatapathConfig.
+func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	ns := netns.NewNetNS(t)
+	setupCiliumDummyDevices(t, ns)
+	err := ns.Do(func() error {
+		setupConfigSuite(t)
+
+		origBPFMasq := option.Config.EnableBPFMasquerade
+		origIPv4Masq := option.Config.EnableIPv4Masquerade
+		origIPv6Masq := option.Config.EnableIPv6Masquerade
+		t.Cleanup(func() {
+			option.Config.EnableBPFMasquerade = origBPFMasq
+			option.Config.EnableIPv4Masquerade = origIPv4Masq
+			option.Config.EnableIPv6Masquerade = origIPv6Masq
+		})
+
+		t.Run("BPF masquerade", func(t *testing.T) {
+			option.Config.EnableBPFMasquerade = true
+			option.Config.EnableIPv4Masquerade = true
+			option.Config.EnableIPv6Masquerade = false
+
+			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
+			require.Contains(t, output, "define ENABLE_MASQUERADE_IPV4 1\n",
+				"Expected ENABLE_MASQUERADE_IPV4 define with BPF masquerade")
+			require.Contains(t, output, "define ENABLE_NODEPORT 1\n",
+				"Expected ENABLE_NODEPORT define with BPF masquerade")
+		})
+
+		t.Run("BPF masquerade disabled", func(t *testing.T) {
+			option.Config.EnableBPFMasquerade = false
+			option.Config.EnableIPv4Masquerade = true
+
+			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
+			require.NotContains(t, output, "ENABLE_MASQUERADE_IPV4",
+				"Expected no ENABLE_MASQUERADE_IPV4 define without BPF masquerade")
+		})
+
+		return nil
+	})
+	require.NoError(t, err)
+}

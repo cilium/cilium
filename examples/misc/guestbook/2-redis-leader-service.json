@@ -1,0 +1,21 @@
+{
+    "kind":"Service",
+    "apiVersion":"v1",
+    "metadata":{
+        "name":"redis-leader",
+        "labels":{
+            "k8s-app.guestbook":"redis",
+            "role":"leader"
+        }
+    },
+    "spec":{
+        "ports": [{
+            "port":6379,
+            "targetPort":"redis-server"
+        }],
+        "selector":{
+            "k8s-app.guestbook":"redis",
+            "role":"leader"
+        }
+    }
+}

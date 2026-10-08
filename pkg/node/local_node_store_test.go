@@ -1,0 +1,234 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package node_test
+
+import (
+	"context"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
+	"github.com/cilium/statedb/reconciler"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/hive"
+	. "github.com/cilium/cilium/pkg/node"
+)
+
+type testSynchronizer struct{ identity chan uint32 }
+
+func (testSynchronizer) InitLocalNode(ctx context.Context, n *LocalNode) error {
+	n.ClusterID = 1
+	return nil
+}
+
+func (ts testSynchronizer) SyncLocalNode(ctx context.Context, lns *LocalNodeStore) {
+	id := <-ts.identity
+	lns.Update(func(n *LocalNode) { n.ClusterID = id })
+	<-ctx.Done()
+}
+
+func (ts testSynchronizer) WaitForNodeInformation(context.Context, *LocalNodeStore) error {
+	return nil
+}
+
+func TestLocalNodeStore(t *testing.T) {
+	var waitObserve sync.WaitGroup
+	var observed []uint32
+	expected := []uint32{1, 2, 3, 4, 5}
+
+	waitObserve.Add(1)
+
+	ts := testSynchronizer{identity: make(chan uint32, 1)}
+
+	// observe observes changes to the LocalNodeStore and completes
+	// waitObserve after the last change has been observed.
+	observe := func(store *LocalNodeStore) {
+		store.Observe(context.TODO(),
+			func(n LocalNode) {
+				observed = append(observed, n.ClusterID)
+
+				if n.ClusterID == expected[len(expected)-1] {
+					waitObserve.Done()
+				}
+			},
+			func(err error) {},
+		)
+	}
+
+	// update adds a start hook to the application that modifies
+	// the local node.
+	update := func(lc cell.Lifecycle, store *LocalNodeStore) {
+		lc.Append(cell.Hook{
+			OnStart: func(cell.HookContext) error {
+				// emit 2, 3, 4, 5
+				for _, i := range expected[1:] {
+					if i == 5 {
+						ts.identity <- i
+						continue
+					}
+
+					store.Update(func(n *LocalNode) {
+						n.ClusterID = i
+					})
+				}
+				return nil
+			},
+		})
+	}
+
+	hive := hive.New(
+		LocalNodeStoreCell,
+
+		cell.Provide(func() cmtypes.ClusterInfo {
+			return cmtypes.ClusterInfo{
+				Name: "test",
+				ID:   1,
+			}
+		}),
+		cell.Provide(func() LocalNodeSynchronizer { return ts }),
+		cell.Invoke(observe),
+		cell.Invoke(update),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	tlog := hivetest.Logger(t)
+	if err := hive.Start(tlog, ctx); err != nil {
+		t.Fatalf("Failed to start: %s", err)
+	}
+
+	// Wait until all values have been observed
+	waitObserve.Wait()
+
+	if err := hive.Stop(tlog, ctx); err != nil {
+		t.Fatalf("Failed to stop: %s", err)
+	}
+
+	// Observed should be an ordered subset of [expected] since some intermediate
+	// states may get skipped.
+	assert.NotEmpty(t, observed)
+	assert.Subset(t, expected, observed)
+}
+
+func TestLocalNodeStoreUpdateMarksStatusesPending(t *testing.T) {
+	const requiredReconciler = "required"
+
+	var (
+		store *LocalNodeStore
+		db    *statedb.DB
+		nodes statedb.Table[*Node]
+	)
+	hive := hive.New(
+		LocalNodeStoreTestCell,
+		cell.Provide(func() cmtypes.ClusterInfo {
+			return cmtypes.ClusterInfo{Name: "test"}
+		}),
+		cell.Invoke(func(
+			s *LocalNodeStore,
+			d *statedb.DB,
+			ns statedb.Table[*Node],
+			writer *Writer,
+		) {
+			store, db, nodes = s, d, ns
+			writer.RegisterReconciler(requiredReconciler)
+		}),
+	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	tlog := hivetest.Logger(t)
+	require.NoError(t, hive.Start(tlog, ctx))
+	t.Cleanup(func() {
+		stopCtx, stopCancel := context.WithTimeout(context.Background(), time.Minute)
+		defer stopCancel()
+		require.NoError(t, hive.Stop(tlog, stopCtx))
+	})
+
+	rwNodes := nodes.(statedb.RWTable[*Node])
+	txn := db.WriteTxn(rwNodes)
+	local, _, found := rwNodes.Get(txn, LocalNodeQuery)
+	require.True(t, found)
+	local = local.DeepCopy()
+	local.Statuses = local.Statuses.Set("test", reconciler.StatusDone())
+	local.Statuses = local.Statuses.Set(
+		requiredReconciler,
+		reconciler.StatusDone(),
+	)
+	_, _, err := rwNodes.Insert(txn, local)
+	require.NoError(t, err)
+	txn.Commit()
+
+	store.Update(func(*LocalNode) {})
+	local, _, found = nodes.Get(db.ReadTxn(), LocalNodeQuery)
+	require.True(t, found)
+	require.Equal(t, reconciler.StatusKindDone, local.Statuses.Get("test").Kind)
+	require.Equal(t,
+		reconciler.StatusKindDone,
+		local.Statuses.Get(requiredReconciler).Kind,
+	)
+
+	store.Update(func(n *LocalNode) { n.ClusterID++ })
+	local, _, found = nodes.Get(db.ReadTxn(), LocalNodeQuery)
+	require.True(t, found)
+	require.Equal(t, reconciler.StatusKindPending, local.Statuses.Get("test").Kind)
+	require.Equal(t,
+		reconciler.StatusKindPending,
+		local.Statuses.Get(requiredReconciler).Kind,
+	)
+}
+
+func TestWaitForLocalNodeInit(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+
+	wtxn := db.WriteTxn(nodes)
+	localInitDone := nodes.RegisterInitializer(wtxn, LocalNodeTableInitializerName)
+	otherInitDone := nodes.RegisterInitializer(wtxn, "other")
+	wtxn.Commit()
+
+	pending := nodes.PendingInitializers(db.ReadTxn())
+	require.Contains(t, pending, LocalNodeTableInitializerName)
+	require.Contains(t, pending, "other")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	_, err = WaitForLocalNodeInit(ctx, db, nodes)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	wtxn = db.WriteTxn(nodes)
+	localInitDone(wtxn)
+	wtxn.Commit()
+
+	ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	txn, err := WaitForLocalNodeInit(ctx, db, nodes)
+	require.NoError(t, err)
+
+	pending = nodes.PendingInitializers(txn)
+	require.NotContains(t, pending, LocalNodeTableInitializerName)
+	require.Contains(t, pending, "other")
+
+	wtxn = db.WriteTxn(nodes)
+	otherInitDone(wtxn)
+	wtxn.Commit()
+}
+
+func BenchmarkLocalNodeStoreGet(b *testing.B) {
+	ctx := context.Background()
+	lns := NewTestLocalNodeStore(LocalNode{})
+
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_, _ = lns.Get(ctx)
+	}
+}

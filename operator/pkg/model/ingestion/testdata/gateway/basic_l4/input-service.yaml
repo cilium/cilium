@@ -1,0 +1,24 @@
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: null
+    name: tcp-backend
+    namespace: default
+  spec:
+    ports:
+    - port: 8080
+      protocol: TCP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    creationTimestamp: null
+    name: udp-backend
+    namespace: default
+  spec:
+    ports:
+    - port: 5353
+      protocol: UDP
+  status:
+    loadBalancer: {}

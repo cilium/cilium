@@ -1,0 +1,11 @@
+GO ?= go
+TEST_TIMEOUT ?= 5s
+GO_BUILD_FLAGS ?=
+GO_TEST_FLAGS ?= -timeout=$(TEST_TIMEOUT) -race -cover
+GO_BENCH_FLAGS ?= -timeout=$(TEST_TIMEOUT) -bench=.
+INSTALL = $(QUIET)install
+BINDIR ?= /usr/local/bin
+TARGET := fake
+
+GOLANGCILINT_WANT_VERSION = 1.50.1
+GOLANGCILINT_VERSION = $(shell golangci-lint version 2>/dev/null)

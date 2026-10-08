@@ -1,0 +1,32 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: session-persistence-permanent
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+  rules:
+  - backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+    sessionPersistence:
+      cookieConfig:
+        lifetimeType: Permanent
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2026-08-17T16:39:26Z"
+      message: Cilium only supports session cookie persistence
+      reason: UnsupportedValue
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: "2026-08-17T16:39:26Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace

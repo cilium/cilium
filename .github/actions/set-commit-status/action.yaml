@@ -1,0 +1,24 @@
+name: Set Commit Status
+description: Sets a commit status on a given SHA via the GitHub API.
+
+inputs:
+  sha:
+    description: "The commit SHA to set the status on."
+    required: true
+  status:
+    description: "The commit status state (pending, success, failure, error)."
+    default: "pending"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set commit status
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh api -X POST "/repos/${{ github.repository }}/statuses/${{ inputs.sha }}" \
+          -f state="${{ inputs.status }}" \
+          -f context="${{ github.workflow }}" \
+          -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+

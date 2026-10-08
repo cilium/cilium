@@ -1,0 +1,37 @@
+- hostname: "*"
+  name: http
+  port: 80
+  routes:
+  - direct_response:
+      status_code: 500
+    path_match: {}
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: app-ns
+    version: v1
+- hostname: "*"
+  name: grpc
+  port: 81
+  routes:
+  - direct_response:
+      status_code: 500
+    path_match: {}
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: app-ns
+    version: v1
+- hostname: "*"
+  name: tls
+  port: 443
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: platform
+    namespace: app-ns
+    version: v1

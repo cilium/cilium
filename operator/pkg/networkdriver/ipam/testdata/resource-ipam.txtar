@@ -1,0 +1,440 @@
+#! --enable-network-driver=true --enable-network-driver-ipv6=true
+
+hive start
+
+# Add two dual-stack Resource IPAM pools.
+k8s/add pool-blue.yaml
+k8s/add pool-red.yaml
+
+# Request Resource IPAM capacity without using the Pod IPAM pools field.
+k8s/add node-one.yaml
+
+# The operator delegates enough IPv4 and IPv6 CIDRs and propagates the pool's
+# first/last-address policy.
+k8s/get cilium.io.v2.ciliumnodes node-one -o actual.yaml
+* cmp expected.yaml actual.yaml
+
+# Update node-one to request capacity from the red pool too.
+k8s/add node-one-two-pools.yaml
+
+# The operator preserves the blue allocations and delegates CIDRs from red.
+k8s/get cilium.io.v2.ciliumnodes node-one -o actual.yaml
+* cmp expected-node-one-two-pools.yaml actual.yaml
+
+# Add a second node requesting capacity from blue.
+k8s/add node-two.yaml
+
+# The second node receives the remaining blue CIDRs.
+k8s/get cilium.io.v2.ciliumnodes node-two -o actual.yaml
+* cmp expected-node-two.yaml actual.yaml
+
+# node-one returns its red CIDRs by removing them from its allocations.
+k8s/add node-one-return-red.yaml
+
+# node-two can now obtain the returned capacity from red.
+k8s/add node-two-two-pools.yaml
+
+# Verify node-two receives capacity that node-one returned to red.
+k8s/get cilium.io.v2.ciliumnodes node-two -o actual.yaml
+* cmp expected-node-two-two-pools.yaml actual.yaml
+
+# node-two returns its blue CIDRs by removing them from its allocations.
+k8s/add node-two-return-blue.yaml
+
+# node-one can now obtain the returned capacity from blue.
+k8s/add node-one-reuse-blue.yaml
+
+# Verify node-one receives capacity that node-two returned to blue.
+k8s/get cilium.io.v2.ciliumnodes node-one -o actual.yaml
+* cmp expected-node-one-reuse-blue.yaml actual.yaml
+
+hive stop
+
+# ----
+
+-- pool-blue.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumResourceIPPool
+metadata:
+  name: blue
+spec:
+  ipv4:
+    cidrs:
+    - 10.20.0.0/28
+    maskSize: 30
+  ipv6:
+    cidrs:
+    - fd00:20::/124
+    maskSize: 126
+  allowFirstIP: true
+  allowLastIP: true
+
+-- pool-red.yaml --
+apiVersion: cilium.io/v2alpha1
+kind: CiliumResourceIPPool
+metadata:
+  name: red
+spec:
+  ipv4:
+    cidrs:
+    - 10.30.0.0/28
+    maskSize: 30
+  ipv6:
+    cidrs:
+    - fd00:30::/124
+    maskSize: 126
+
+-- node-one.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-one
+spec:
+  ipam:
+    resourcePools:
+      requested:
+      - pool: blue
+        needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+
+-- expected.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-one
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcePools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.20.0.0/30
+        - 10.20.0.4/30
+        - fd00:20::/126
+        - fd00:20::4/126
+        pool: blue
+      requested:
+      - needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+        pool: blue
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- node-one-return-red.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-one
+spec:
+  ipam:
+    resourcePools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.20.0.0/30
+        - 10.20.0.4/30
+        - fd00:20::/126
+        - fd00:20::4/126
+        pool: blue
+      requested:
+      - pool: blue
+        needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+
+-- node-two-two-pools.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-two
+spec:
+  ipam:
+    resourcePools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.20.0.8/30
+        - 10.20.0.12/30
+        - fd00:20::8/126
+        - fd00:20::c/126
+        pool: blue
+      requested:
+      - pool: blue
+        needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+      - pool: red
+        needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+
+-- expected-node-two-two-pools.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-two
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcePools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.20.0.8/30
+        - 10.20.0.12/30
+        - fd00:20::8/126
+        - fd00:20::c/126
+        pool: blue
+      - cidrs:
+        - 10.30.0.0/30
+        - 10.30.0.4/30
+        - 10.30.0.12/30
+        - fd00:30::/126
+        - fd00:30::4/126
+        - fd00:30::c/126
+        pool: red
+      requested:
+      - needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+        pool: blue
+      - needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+        pool: red
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- node-two-return-blue.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-two
+spec:
+  ipam:
+    resourcePools:
+      allocated:
+      - cidrs:
+        - 10.30.0.0/30
+        - 10.30.0.4/30
+        - 10.30.0.12/30
+        - fd00:30::/126
+        - fd00:30::4/126
+        - fd00:30::c/126
+        pool: red
+      requested:
+      - pool: red
+        needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+
+-- node-one-reuse-blue.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-one
+spec:
+  ipam:
+    resourcePools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.20.0.0/30
+        - 10.20.0.4/30
+        - fd00:20::/126
+        - fd00:20::4/126
+        pool: blue
+      requested:
+      - pool: blue
+        needed:
+          ipv4-addrs: 13
+          ipv6-addrs: 13
+
+-- expected-node-one-reuse-blue.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-one
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcePools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.20.0.0/30
+        - 10.20.0.4/30
+        - 10.20.0.8/30
+        - 10.20.0.12/30
+        - fd00:20::/126
+        - fd00:20::4/126
+        - fd00:20::8/126
+        - fd00:20::c/126
+        pool: blue
+      requested:
+      - needed:
+          ipv4-addrs: 13
+          ipv6-addrs: 13
+        pool: blue
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- node-one-two-pools.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-one
+spec:
+  ipam:
+    resourcePools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.20.0.0/30
+        - 10.20.0.4/30
+        - fd00:20::/126
+        - fd00:20::4/126
+        pool: blue
+      requested:
+      - pool: blue
+        needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+      - pool: red
+        needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+
+-- expected-node-one-two-pools.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-one
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcePools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.20.0.0/30
+        - 10.20.0.4/30
+        - fd00:20::/126
+        - fd00:20::4/126
+        pool: blue
+      - cidrs:
+        - 10.30.0.0/30
+        - 10.30.0.4/30
+        - 10.30.0.8/30
+        - fd00:30::/126
+        - fd00:30::4/126
+        - fd00:30::8/126
+        pool: red
+      requested:
+      - needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+        pool: blue
+      - needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+        pool: red
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}
+-- node-two.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-two
+spec:
+  ipam:
+    resourcePools:
+      requested:
+      - pool: blue
+        needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+
+-- expected-node-two.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: node-two
+spec:
+  alibaba-cloud: {}
+  azure: {}
+  encryption: {}
+  eni: {}
+  health: {}
+  ingress: {}
+  ipam:
+    pools: {}
+    resourcePools:
+      allocated:
+      - allowFirstIP: true
+        allowLastIP: true
+        cidrs:
+        - 10.20.0.8/30
+        - 10.20.0.12/30
+        - fd00:20::8/126
+        - fd00:20::c/126
+        pool: blue
+      requested:
+      - needed:
+          ipv4-addrs: 5
+          ipv6-addrs: 5
+        pool: blue
+status:
+  alibaba-cloud: {}
+  azure: {}
+  eni: {}
+  ipam:
+    operator-status: {}

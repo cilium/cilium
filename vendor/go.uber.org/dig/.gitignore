@@ -1,0 +1,12 @@
+/bin
+/vendor
+/.bench
+*.mem
+*.cpu
+*.test
+*.log
+*.out
+*.html
+*.coverprofile
+coverage.txt
+*.pprof

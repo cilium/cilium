@@ -1,0 +1,12 @@
+# when updating this file, make sure to update `BPF_SRCFILES_IGNORE` in `Makefile.defs`
+compile_commands.json
+*.i
+*.s
+.rebuild_all
+
+# ignore CLANG intermediate compilation tmp files
+*.o.tmp
+
+# ignore scapy autgen and python cache
+tests/scapy/__pycache__/*
+tests/output/*

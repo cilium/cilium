@@ -1,0 +1,9 @@
+ingressController:
+  enabled: true
+  loadbalancerMode: "dedicated"
+  default: true
+gatewayAPI:
+  enabled: true
+kubeProxyReplacement: true
+l2announcements:
+  enabled: true

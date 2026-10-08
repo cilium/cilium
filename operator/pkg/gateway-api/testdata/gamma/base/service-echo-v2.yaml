@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  name: echo-v2
+  namespace: gateway-conformance-mesh
+  resourceVersion: "999"
+spec:
+  ports:
+  - appProtocol: http
+    name: http
+    port: 80
+    targetPort: 80
+  - appProtocol: http
+    name: http-alt
+    port: 8080
+    targetPort: 8080
+  - name: https
+    port: 443
+    targetPort: 443
+  - name: tcp
+    port: 9090
+    targetPort: 0
+  - appProtocol: grpc
+    name: grpc
+    port: 7070
+    targetPort: 0
+  selector:
+    app: echo
+    version: v2
+status:
+  loadBalancer: {}

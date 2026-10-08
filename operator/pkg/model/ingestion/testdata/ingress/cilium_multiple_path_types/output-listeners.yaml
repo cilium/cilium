@@ -1,0 +1,34 @@
+- hostname: '*'
+  name: ing-dummy-ingress-dummy-namespace-*
+  port: 80
+  routes:
+  - backends:
+    - name: dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8080
+    path_match:
+      regex: /impl
+    timeout: {}
+  - backends:
+    - name: another-dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8081
+    path_match:
+      prefix: /
+    timeout: {}
+  - backends:
+    - name: another-dummy-backend
+      namespace: dummy-namespace
+      port:
+        port: 8081
+    path_match:
+      exact: /exact
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: dummy-ingress
+    namespace: dummy-namespace
+    uid: d4bd3dc3-2ac5-4ab4-9dca-89c62c60177e
+    version: v1

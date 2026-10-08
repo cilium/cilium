@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package loadbalancer
+
+import (
+	"iter"
+	"log/slog"
+
+	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
+
+	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/writer"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/source"
+)
+
+type selectBackendsParams struct {
+	cell.In
+
+	Logger *slog.Logger
+	Writer *writer.Writer
+
+	CommonConfig common.Config
+	ClusterInfo  cmtypes.ClusterInfo
+}
+
+// injectSelectBackends overrides the load-balancing backend selection algorithm to implement
+// support for the ServiceAffinity and IncludeExternal annotations.
+func injectSelectBackends(p selectBackendsParams) {
+	if p.ClusterInfo.ID == 0 || p.CommonConfig.ClusterMeshConfig == "" {
+		// ClusterMesh disabled, do not change the backend selection.
+		return
+	}
+	p.Writer.SetSelectBackendsFunc(NewClusterMeshSelectBackends(p.Writer, p.Logger).SelectBackends)
+}
+
+type ClusterMeshSelectBackends struct {
+	w   *writer.Writer
+	log *slog.Logger
+}
+
+// NewClusterMeshSelectBackends returns a reusable selector wrapper for the
+// ClusterMesh ServiceAffinity and IncludeExternal backend selection policy.
+// This allows other packages to compose the ClusterMesh behavior instead of
+// duplicating it.
+func NewClusterMeshSelectBackends(w *writer.Writer, log *slog.Logger) ClusterMeshSelectBackends {
+	return ClusterMeshSelectBackends{w: w, log: log}
+}
+
+func (sb ClusterMeshSelectBackends) SelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadbalancer.Backend, statedb.Revision], svc *loadbalancer.Service, optionalFrontend *loadbalancer.Frontend) iter.Seq2[*loadbalancer.Backend, statedb.Revision] {
+	defaultBackends := sb.w.DefaultSelectBackends(txn, bes, svc, optionalFrontend)
+	affinity, err := annotation.GetAnnotationServiceAffinity(svc)
+	if err != nil {
+		sb.log.Warn("Ignoring annotation",
+			logfields.Service, svc.Name.Name(),
+			logfields.K8sNamespace, svc.Name.Namespace(),
+			logfields.Error, err,
+		)
+	}
+
+	useLocal := true
+	localActiveBackends := 0
+	useRemote := false
+
+	switch {
+	case !annotation.GetAnnotationIncludeExternal(svc):
+		useRemote = false
+	case affinity == annotation.ServiceAffinityNone:
+		useRemote = true
+	default:
+		// Counts of healthy local and remote backends.
+		localBackends, remoteBackends := 0, 0
+		for be := range defaultBackends {
+			// Don't count unhealthy backends. We include terminating backends in the count as
+			// we don't want those removed.
+			healthy := be.State == loadbalancer.BackendStateActive || be.State == loadbalancer.BackendStateTerminating
+			healthy = healthy && !be.Unhealthy
+			if !healthy {
+				continue
+			}
+			if be.Source == source.ClusterMesh {
+				remoteBackends++
+			} else {
+				localBackends++
+				if be.State == loadbalancer.BackendStateActive {
+					localActiveBackends++
+				}
+			}
+		}
+		switch affinity {
+		case annotation.ServiceAffinityLocal:
+			// Always include the local backends even if they are unhealthy and
+			// only include (healthy) remote ones if there are no healthy local backends.
+			useLocal = true
+			useRemote = localActiveBackends == 0 && remoteBackends > 0
+		case annotation.ServiceAffinityRemote:
+			// Same as above but reversed.
+			useRemote = true
+			useLocal = remoteBackends == 0 && localBackends > 0
+		}
+	}
+
+	return func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+		for be, rev := range defaultBackends {
+			if be.Source == source.ClusterMesh {
+				if !useRemote {
+					continue
+				}
+			} else if !useLocal {
+				continue
+			}
+
+			if !yield(be, rev) {
+				break
+			}
+		}
+	}
+}

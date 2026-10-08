@@ -1,0 +1,58 @@
+http:
+- hostname: '*'
+  name: prod-web-gw
+  port: 80
+  routes:
+  - backends:
+    - name: my-service
+      namespace: default
+      port:
+        port: 8080
+    external_auth:
+      allowed_response_headers:
+      - X-Auth-User
+      backend:
+        name: auth-service
+        namespace: default
+        port:
+          port: 9001
+      path_prefix: /auth
+      protocol: HTTP
+    path_match:
+      prefix: /api
+    timeout: {}
+  - backends:
+    - name: my-service2
+      namespace: default
+      port:
+        port: 9090
+    external_auth:
+      allowed_response_headers:
+      - X-Auth-User
+      backend:
+        name: auth-service
+        namespace: default
+        port:
+          port: 9001
+      path_prefix: /auth
+      protocol: HTTP
+    path_match:
+      prefix: /shop
+    timeout: {}
+  - backends:
+    - name: my-service3
+      namespace: default
+      port:
+        port: 7070
+    path_match:
+      prefix: /public
+    timeout: {}
+  service:
+    type: LoadBalancer
+    load_balancer_source_ranges_policy: Allow
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1

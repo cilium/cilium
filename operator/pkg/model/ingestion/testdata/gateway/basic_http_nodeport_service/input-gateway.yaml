@@ -1,0 +1,18 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  creationTimestamp: null
+  name: my-gateway
+  namespace: default
+spec:
+  gatewayClassName: ""
+  infrastructure:
+    annotations:
+      internal-loadbalancer-annotation: "true"
+    labels:
+      internal-loadbalancer-label: "true"
+  listeners:
+  - name: prod-web-gw
+    port: 80
+    protocol: HTTP
+status: {}

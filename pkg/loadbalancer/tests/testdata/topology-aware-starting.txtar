@@ -1,0 +1,215 @@
+#! --enable-service-topology --lb-test-fault-probability=0.0
+#
+# Regression test for PreferSameNode during a pod restart lifecycle.
+#
+# A same-node backend that is present but NOT actively serving must NOT win the
+# same-node preference. Otherwise PreferSameNode commits to "same-node only"
+# and pins traffic to a backend that cannot serve, instead of falling back to a
+# ready remote backend.
+#
+# Note that [Frontend.Backends] is not filtered by backend state: terminating
+# and maintenance backends stay associated with the frontend and it is the BPF
+# reconciler that decides how they are programmed (terminating backends are
+# appended after the COUNT active slots, maintenance backends are not
+# load-balanced at all). The datapath-visible outcome is therefore asserted on
+# the BPF map dump.
+#
+
+# Start with both backends ready and verify that PreferSameNode picks the local
+# one while the agent is running.
+k8s/add service.yaml
+k8s/add endpointslice-ready.yaml endpointslice2.yaml
+hive/start
+db/cmp services services.table
+db/cmp backends backends-ready.table
+db/cmp frontends frontends-local.table
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual lbmaps-local.expected
+
+# The local backend starts draining: PreferSameNode must not select it as the
+# only candidate. Both backends stay associated with the frontend, but only the
+# remote active one is load-balanced (COUNT=1), the terminating one is parked
+# after it and is used only when no active backends remain.
+k8s/update endpointslice-terminating.yaml
+db/cmp backends backends-terminating.table
+db/cmp frontends frontends-both.table
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual lbmaps-terminating.expected
+
+# A replacement local backend that is starting (ready=false, serving=false,
+# terminating=false -> BackendStateMaintenance) must also be ignored by the
+# same-node preference. Pre-fix the maintenance backend was accepted as a
+# candidate, the frontend was pinned to it alone and the service ended up with
+# COUNT=0, i.e. connection refused for same-node clients. Post-fix the remote
+# active backend keeps serving.
+k8s/update endpointslice-starting.yaml
+db/cmp backends backends-starting.table
+db/cmp frontends frontends-both.table
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual lbmaps-starting.expected
+
+# Once the replacement local backend becomes ready/serving (Active),
+# PreferSameNode snaps back to it.
+k8s/update endpointslice-ready.yaml
+db/cmp backends backends-ready.table
+db/cmp frontends frontends-local.table
+lb/maps-dump lbmaps.actual
+* cmp lbmaps.actual lbmaps-local.expected
+
+#####
+
+-- services.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferSameNode
+
+-- backends-ready.table --
+Service    Address              State
+test/echo  10.244.1.1:80/TCP    active
+test/echo  10.244.2.1:80/TCP    active
+
+-- backends-terminating.table --
+Service    Address              State
+test/echo  10.244.1.1:80/TCP    terminating
+test/echo  10.244.2.1:80/TCP    active
+
+-- backends-starting.table --
+Service    Address              State
+test/echo  10.244.1.1:80/TCP    maintenance
+test/echo  10.244.2.1:80/TCP    active
+
+-- frontends-local.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP
+
+-- frontends-both.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.1.1:80/TCP, 10.244.2.1:80/TCP
+
+-- lbmaps-local.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-terminating.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=terminating
+BE: ID=2 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=1 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- lbmaps-starting.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=maintenance
+BE: ID=2 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=1 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+  trafficDistribution: PreferSameNode
+
+-- endpointslice-starting.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: false
+    serving: false
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice-terminating.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: false
+    serving: true
+    terminating: true
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice-ready.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.2.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: other-node
+ports:
+- name: http
+  port: 80
+  protocol: TCP

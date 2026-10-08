@@ -1,0 +1,17 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "netperf-policy"
+spec:
+  description: "netperf-policy"
+  endpointSelector:
+    matchLabels:
+      id: netperf-server
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        id: netperf-client
+    toPorts:
+    - ports:
+      - port: "12865"
+        protocol: TCP

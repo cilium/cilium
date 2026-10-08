@@ -1,0 +1,8 @@
+image:
+  override: ~
+  repository: "quay.io/cilium/cilium-datapath-plugin-example"
+  tag: "latest"
+  pullPolicy: "Always"
+  # cilium-digest
+  digest: ""
+  useDigest: false

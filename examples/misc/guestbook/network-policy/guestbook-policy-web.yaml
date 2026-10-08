@@ -1,0 +1,16 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "guestbook-web"
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s-app.guestbook: web
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        "reserved.world": ""
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP

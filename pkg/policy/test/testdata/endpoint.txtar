@@ -1,0 +1,17 @@
+hive/start
+
+env labels=k8s:io.kubernetes.pod.namespace=default,k8s:app=web
+identity/allocate ${labels}
+env --from-stdout web_identity
+endpoint/create ${web_identity} ${labels}
+env --from-stdout ep_id
+
+# This comment starts the retry section: endpoint/create returns at policy revision 1, before the endpoint reaches ready.
+endpoint/list
+* cmpenv -w stdout endpoint.expected
+
+-- endpoint.expected --
+ENDPOINT POLICY (ingress) POLICY (egress) IDENTITY LABELS (source:key[=value]) IPv6 IPv4 STATUS
+ENFORCEMENT ENFORCEMENT
+$ep_id Disabled Disabled $web_identity k8s:app=web ready
+k8s:io.kubernetes.pod.namespace=default

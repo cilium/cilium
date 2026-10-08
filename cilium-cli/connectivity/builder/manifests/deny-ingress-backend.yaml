@@ -1,0 +1,12 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "ingress-backend-deny"
+spec:
+  endpointSelector: {}
+  egressDeny:
+    - toEndpoints:
+        - matchLabels:
+            kind: echo
+          matchExpressions:
+          - { key: io.cilium.k8s.policy.cluster, operator: Exists }

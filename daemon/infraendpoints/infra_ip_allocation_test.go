@@ -1,0 +1,521 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package infraendpoints
+
+import (
+	"errors"
+	"fmt"
+	"net"
+	"net/netip"
+	"os"
+	"path/filepath"
+	"sync/atomic"
+	"testing"
+
+	"github.com/cilium/hive/hivetest"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
+	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/node"
+	nodeaddressing "github.com/cilium/cilium/pkg/node/fake"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/testutils/netns"
+)
+
+type mockIPAllocator struct {
+	allocCIDR netip.Prefix
+}
+
+func (m *mockIPAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	if !m.allocCIDR.Contains(ip) {
+		return nil, fmt.Errorf("cannot allocate IP %s", ip)
+	}
+	return &ipam.AllocationResult{IP: ip}, nil
+}
+
+func (m *mockIPAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (result *ipam.AllocationResult, err error) {
+	return nil, nil
+}
+
+func (m *mockIPAllocator) AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (result *ipam.AllocationResult, err error) {
+	return nil, nil
+}
+
+func (m *mockIPAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
+
+func (m *mockIPAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
+	return nil
+}
+
+var _ ipamAllocator = &mockIPAllocator{}
+
+type retryMockAllocator struct {
+	failCount int32        // how many ErrPoolNotReadyYet to return before succeeding
+	attempts  atomic.Int32 // total allocation attempts made
+	resultIP  netip.Addr   // IP to return on success
+}
+
+func (m *retryMockAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	return &ipam.AllocationResult{IP: ip}, nil
+}
+
+func (m *retryMockAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	n := m.attempts.Add(1)
+	if n <= m.failCount {
+		return nil, &ipam.ErrPoolNotReadyYet{}
+	}
+	return &ipam.AllocationResult{IP: m.resultIP}, nil
+}
+
+func (m *retryMockAllocator) AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	n := m.attempts.Add(1)
+	if n <= m.failCount {
+		return nil, &ipam.ErrPoolNotReadyYet{}
+	}
+	return &ipam.AllocationResult{IP: m.resultIP}, nil
+}
+
+func (m *retryMockAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
+
+func (m *retryMockAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
+	return nil
+}
+
+var _ ipamAllocator = &retryMockAllocator{}
+
+func TestDaemon_reallocateDatapathIPs(t *testing.T) {
+	infraIPAllocator := &infraIPAllocator{
+		logger: hivetest.Logger(t),
+		ipAllocator: &mockIPAllocator{
+			allocCIDR: netip.MustParsePrefix("10.20.30.0/24"),
+		},
+	}
+
+	fromFS := net.ParseIP("10.20.30.42")
+	fromK8s := net.ParseIP("10.20.30.41")
+	fromFSAddr := netip.MustParseAddr("10.20.30.42")
+	fromK8sAddr := netip.MustParseAddr("10.20.30.41")
+
+	invalidFromFS := net.ParseIP("172.16.0.42")
+	invalidFromK8s := net.ParseIP("172.16.0.41")
+
+	// no restoration needed
+	result := infraIPAllocator.reallocateOldRouterIPs(nil, nil)
+	assert.Nil(t, result)
+
+	// fromK8s if fromFS is not available
+	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, nil)
+	assert.NotNil(t, result)
+	assert.Equal(t, result.IP, fromK8sAddr)
+
+	// fromFS if fromK8s is not available
+	result = infraIPAllocator.reallocateOldRouterIPs(nil, fromFS)
+	assert.NotNil(t, result)
+	assert.Equal(t, result.IP, fromFSAddr)
+
+	// fromFS should be preferred
+	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, fromFS)
+	assert.NotNil(t, result)
+	assert.Equal(t, result.IP, fromFSAddr)
+
+	// reject restoration if the IP is not in the allocation CIDR
+	result = infraIPAllocator.reallocateOldRouterIPs(invalidFromFS, invalidFromK8s)
+	assert.Nil(t, result)
+
+	// fromFS with invalid fromK8s
+	result = infraIPAllocator.reallocateOldRouterIPs(invalidFromK8s, fromFS)
+	assert.NotNil(t, result)
+	assert.Equal(t, result.IP, fromFSAddr)
+
+	// fromFS with invalid fromK8s
+	result = infraIPAllocator.reallocateOldRouterIPs(fromK8s, invalidFromFS)
+	assert.NotNil(t, result)
+	assert.Equal(t, result.IP, fromK8sAddr)
+}
+
+func TestDaemon_allocateNextFromPool_Retries(t *testing.T) {
+	resultIP := netip.MustParseAddr("10.0.0.5")
+
+	mock := &retryMockAllocator{
+		failCount: 3,
+		resultIP:  resultIP,
+	}
+
+	infra := &infraIPAllocator{
+		logger:      hivetest.Logger(t),
+		ipAllocator: mock,
+	}
+
+	ctx := t.Context()
+	result, err := infra.allocateNextFromPool(ctx, ipam.IPv4, "router")
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.Equal(t, resultIP, result.IP)
+
+	assert.Equal(t, int32(4), mock.attempts.Load())
+}
+
+func TestDaemon_allocateNextFromPool_NonPoolError_StopsImmediately(t *testing.T) {
+	nonPoolMock := &nonPoolErrAllocator{}
+	infra := &infraIPAllocator{
+		logger:      hivetest.Logger(t),
+		ipAllocator: nonPoolMock,
+	}
+
+	ctx := t.Context()
+	_, err := infra.allocateNextFromPool(ctx, ipam.IPv4, "router")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "something unrelated went wrong")
+	assert.Equal(t, int32(1), nonPoolMock.attempts.Load())
+}
+
+func TestDaemon_allocateNextFromPool_NonPoolErrorInBackoff_StopsImmediately(t *testing.T) {
+	mock := &nonPoolErrorAfterRetryAllocator{}
+	infra := &infraIPAllocator{
+		logger:      hivetest.Logger(t),
+		ipAllocator: mock,
+	}
+
+	ctx := t.Context()
+	_, err := infra.allocateNextFromPool(ctx, ipam.IPv4, "router")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "something unrelated went wrong")
+	assert.Equal(t, int32(1), mock.poolNotReady.Load())
+	assert.Equal(t, int32(1), mock.allocateCalls.Load())
+}
+
+func TestDaemon_reallocateRouterIPs_PoolNotReady(t *testing.T) {
+	resultIP := netip.MustParseAddr("10.0.0.5")
+
+	mock := &retryMockAllocator{
+		failCount: 2,
+		resultIP:  resultIP,
+	}
+
+	origDefaultPool := option.Config.IPAMDefaultIPPool
+	option.Config.IPAMDefaultIPPool = "default"
+	defer func() { option.Config.IPAMDefaultIPPool = origDefaultPool }()
+
+	infra := &infraIPAllocator{
+		logger:         hivetest.Logger(t),
+		ipAllocator:    mock,
+		daemonConfig:   &option.DaemonConfig{IPAM: ipamOption.IPAMMultiPool},
+		nodeAddressing: nodeaddressing.NewIPv4OnlyAddressing(),
+	}
+
+	ctx := t.Context()
+	family := nodeaddressing.NewIPv4OnlyAddressing().IPv4()
+
+	ip, err := infra.reallocateRouterIPs(ctx, family, nil, nil)
+
+	require.NoError(t, err)
+	require.NotNil(t, ip)
+	assert.Equal(t, net.IP(resultIP.AsSlice()).To16(), ip)
+
+	assert.Equal(t, int32(3), mock.attempts.Load())
+}
+
+func TestDaemon_reallocateRouterIPs_NonPoolError_Fatal(t *testing.T) {
+	origDefaultPool := option.Config.IPAMDefaultIPPool
+	option.Config.IPAMDefaultIPPool = "default"
+	defer func() { option.Config.IPAMDefaultIPPool = origDefaultPool }()
+
+	infra := &infraIPAllocator{
+		logger:         hivetest.Logger(t),
+		ipAllocator:    &nonPoolErrAllocator{},
+		daemonConfig:   &option.DaemonConfig{IPAM: ipamOption.IPAMMultiPool},
+		nodeAddressing: nodeaddressing.NewIPv4OnlyAddressing(),
+	}
+
+	ctx := t.Context()
+	family := nodeaddressing.NewIPv4OnlyAddressing().IPv4()
+
+	_, err := infra.reallocateRouterIPs(ctx, family, nil, nil)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to allocate router IP")
+}
+
+type nonPoolErrAllocator struct {
+	attempts atomic.Int32
+}
+
+func (m *nonPoolErrAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	return &ipam.AllocationResult{IP: ip}, nil
+}
+
+func (m *nonPoolErrAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	m.attempts.Add(1)
+	return nil, fmt.Errorf("something unrelated went wrong")
+}
+
+func (m *nonPoolErrAllocator) AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	m.attempts.Add(1)
+	return nil, fmt.Errorf("something unrelated went wrong")
+}
+
+func (m *nonPoolErrAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
+
+func (m *nonPoolErrAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
+	return nil
+}
+
+type nonPoolErrorAfterRetryAllocator struct {
+	poolNotReady  atomic.Int32
+	allocateCalls atomic.Int32
+}
+
+func (m *nonPoolErrorAfterRetryAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	return &ipam.AllocationResult{IP: ip}, nil
+}
+
+func (m *nonPoolErrorAfterRetryAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	m.poolNotReady.Add(1)
+	return nil, &ipam.ErrPoolNotReadyYet{}
+}
+
+func (m *nonPoolErrorAfterRetryAllocator) AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	m.allocateCalls.Add(1)
+	return nil, fmt.Errorf("something unrelated went wrong")
+}
+
+func (m *nonPoolErrorAfterRetryAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
+
+func (m *nonPoolErrorAfterRetryAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
+	return nil
+}
+
+func TestPrivilegedRemoveOldRouterState(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	infraIPAllocator := &infraIPAllocator{
+		logger: hivetest.Logger(t),
+	}
+
+	t.Run("test-1", func(t *testing.T) {
+		ns := netns.NewNetNS(t)
+
+		ns.Do(func() error {
+			createDevices(t)
+
+			// Assert that the old router IP (192.0.2.1) was removed because we are
+			// restoring a different one (10.0.0.1).
+			assert.NoError(t, infraIPAllocator.removeOldRouterState(false, net.ParseIP("10.0.0.1")))
+			addrs, err := safenetlink.AddrList(&netlink.Dummy{
+				LinkAttrs: netlink.LinkAttrs{
+					Name: defaults.HostDevice,
+				},
+			}, netlink.FAMILY_V4)
+			assert.NoError(t, err)
+			assert.Empty(t, addrs)
+
+			// Assert no errors in the case we have no IPs to remove from cilium_host.
+			assert.NoError(t, infraIPAllocator.removeOldRouterState(false, nil))
+
+			return nil
+		})
+	})
+
+	t.Run("test-2", func(t *testing.T) {
+		ns := netns.NewNetNS(t)
+
+		ns.Do(func() error {
+			createDevices(t)
+
+			// Remove the cilium_host device and assert no error on "link not found"
+			// error.
+			link, err := safenetlink.LinkByName(defaults.HostDevice)
+			assert.NoError(t, err)
+			assert.NotNil(t, link)
+			assert.NoError(t, netlink.LinkDel(link))
+			assert.NoError(t, infraIPAllocator.removeOldRouterState(false, nil))
+
+			return nil
+		})
+	})
+}
+
+// createDevices creates the necessary devices for this test suite. Assumes it
+// is executing within the new network namespace.
+func createDevices(t *testing.T) {
+	t.Helper()
+
+	hostMac, err := mac.GenerateRandMAC()
+	if err != nil {
+		assert.NoError(t, err)
+	}
+	veth := &netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Name:         defaults.HostDevice,
+			HardwareAddr: hostMac.HardwareAddr(),
+			TxQLen:       1000,
+		},
+	}
+	if err := netlink.LinkAdd(veth); err != nil {
+		assert.NoError(t, err)
+	}
+	ciliumHost, err := safenetlink.LinkByName(defaults.HostDevice)
+	if err != nil {
+		assert.NoError(t, err)
+	}
+
+	_, ipnet, _ := net.ParseCIDR("192.0.2.1/32")
+	addr := &netlink.Addr{IPNet: ipnet}
+	assert.NoError(t, netlink.AddrAdd(ciliumHost, addr))
+}
+
+func Test_getCiliumHostIPsFromFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	allIPsCorrect := filepath.Join(tmpDir, "node_config.h")
+	f, err := os.Create(allIPsCorrect)
+	defer func(f *os.File) {
+		require.NoError(t, f.Close())
+	}(f)
+	require.NoError(t, err)
+	fmt.Fprintf(f, `/*
+ cilium.v6.external.str fd01::b
+ cilium.v6.internal.str f00d::a00:0:0:a4ad
+ cilium.v6.nodeport.str []
+
+ cilium.v4.external.str 192.168.60.11
+ cilium.v4.internal.str 10.0.0.2
+ cilium.v4.nodeport.str []
+
+ cilium.v6.internal.raw 0xf0, 0xd, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa4, 0xad
+ cilium.v4.internal.raw 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xff, 0xff, 0xa, 0x0, 0x0, 0x2
+ */
+
+#define ENABLE_IPV4 1
+#define IPV4_GATEWAY 0x100000a
+#define HOST_IP 0xfd, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xb
+#define HOST_ID 1
+#define WORLD_ID 2
+#define CILIUM_LB_MAP_MAX_ENTRIES 65536
+#define ENDPOINTS_MAP_SIZE 65535
+#define LPM_MAP_SIZE 16384
+#define POLICY_MAP_SIZE 16384
+#define IPCACHE_MAP_SIZE 512000
+#define POLICY_PROG_MAP_SIZE 65535
+#define TRACE_PAYLOAD_LEN 128ULL
+#define ENCAP_IFINDEX 358
+`)
+
+	type args struct {
+		nodeConfig string
+	}
+	tests := []struct {
+		name            string
+		args            args
+		wantIpv4GW      net.IP
+		wantIpv6Router  net.IP
+		wantIpv6Address net.IP
+	}{
+		{
+			name: "every-ip-correct",
+			args: args{
+				nodeConfig: allIPsCorrect,
+			},
+			wantIpv4GW:      net.ParseIP("10.0.0.2"),
+			wantIpv6Router:  net.ParseIP("f00d::a00:0:0:a4ad"),
+			wantIpv6Address: net.ParseIP("fd01::b"),
+		},
+		{
+			name: "file-not-present",
+			args: args{
+				nodeConfig: "",
+			},
+			wantIpv4GW:     nil,
+			wantIpv6Router: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIpv4GW, gotIpv6Router := getCiliumHostIPsFromFile(tt.args.nodeConfig)
+			require.Equal(t, tt.wantIpv4GW, gotIpv4GW)
+			require.Equal(t, tt.wantIpv6Router, gotIpv6Router)
+		})
+	}
+}
+
+// healthMockAllocator serves allocateHealthIPs: the IPv4 pool hands out a
+// fresh address, the IPv6 pool is exhausted. It records every ReleaseIP so a
+// test can assert that a partially completed dual-stack allocation is rolled
+// back.
+type healthMockAllocator struct {
+	freshV4  netip.Addr
+	released []netip.Addr
+}
+
+func (m *healthMockAllocator) AllocateIPWithoutSyncUpstream(ip netip.Addr, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	return nil, fmt.Errorf("cannot re-allocate IP %s", ip)
+}
+
+func (m *healthMockAllocator) AllocateNextFamilyWithoutSyncUpstream(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	if family == ipam.IPv6 {
+		// Not an ErrPoolNotReadyYet, so allocateNextFromPool fails immediately
+		// rather than backing off.
+		return nil, errors.New("all pools exhausted")
+	}
+	return &ipam.AllocationResult{IP: m.freshV4}, nil
+}
+
+func (m *healthMockAllocator) AllocateNextFamily(family ipam.Family, owner string, pool ipam.Pool) (*ipam.AllocationResult, error) {
+	return m.AllocateNextFamilyWithoutSyncUpstream(family, owner, pool)
+}
+
+func (m *healthMockAllocator) ExcludeIP(ip netip.Addr, owner string, pool ipam.Pool) {}
+
+func (m *healthMockAllocator) ReleaseIP(ip netip.Addr, pool ipam.Pool) error {
+	m.released = append(m.released, ip)
+	return nil
+}
+
+var _ ipamAllocator = &healthMockAllocator{}
+
+// TestAllocateHealthIPsReleasesIPv4OnIPv6Failure pins the rollback of a
+// dual-stack health allocation that fails half way through. Both families are
+// enabled, there is nothing to restore, so the IPv4 address is freshly
+// allocated and the IPv6 one cannot be: the IPv4 address must be released back
+// to IPAM and cleared from the LocalNodeStore before the error is returned.
+func TestAllocateHealthIPsReleasesIPv4OnIPv6Failure(t *testing.T) {
+	freshV4 := netip.MustParseAddr("10.20.30.42")
+	allocator := &healthMockAllocator{freshV4: freshV4}
+	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+
+	r := &infraIPAllocator{
+		logger:         hivetest.Logger(t),
+		ipAllocator:    allocator,
+		localNodeStore: localNodeStore,
+		daemonConfig: &option.DaemonConfig{
+			EnableHealthChecking:         true,
+			EnableEndpointHealthChecking: true,
+			EnableIPv4:                   true,
+			EnableIPv6:                   true,
+			IPAM:                         ipamOption.IPAMKubernetes,
+		},
+	}
+
+	// Nothing to restore, so both families take the fresh-allocation path.
+	err := r.allocateHealthIPs(t.Context(), netip.Addr{}, netip.Addr{})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "unable to allocate health IPv6")
+
+	require.Equal(t, []netip.Addr{freshV4}, allocator.released,
+		"the freshly allocated IPv4 health IP must be released when the IPv6 allocation fails")
+
+	localNode, err := localNodeStore.Get(t.Context())
+	require.NoError(t, err)
+	require.False(t, localNode.IPv4HealthIP.IsValid(),
+		"IPv4HealthIP must be cleared from the LocalNodeStore when the allocation is rolled back")
+}

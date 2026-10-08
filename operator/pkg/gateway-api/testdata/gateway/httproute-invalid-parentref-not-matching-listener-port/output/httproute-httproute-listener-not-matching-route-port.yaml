@@ -1,0 +1,35 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: httproute-listener-not-matching-route-port
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - name: same-namespace
+    namespace: gateway-conformance-infra
+    port: 81
+  rules:
+  - backendRefs:
+    - kind: Service
+      name: infra-backend-v1
+      port: 8080
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: No matching listener with port 81
+      reason: NoMatchingParent
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: "2025-07-01T14:19:43Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      name: same-namespace
+      namespace: gateway-conformance-infra
+      port: 81

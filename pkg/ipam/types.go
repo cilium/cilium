@@ -1,0 +1,214 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package ipam
+
+import (
+	"log/slog"
+	"net/netip"
+
+	"github.com/davecgh/go-spew/spew"
+
+	"github.com/cilium/hive/job"
+	"github.com/cilium/statedb"
+	"k8s.io/apimachinery/pkg/util/sets"
+
+	agentK8s "github.com/cilium/cilium/daemon/k8s"
+	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/ipam/podippool"
+	"github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
+)
+
+// AllocationResult is the result of an allocation
+type AllocationResult struct {
+	// IP is the allocated IP
+	IP netip.Addr
+
+	// IPPoolName is the IPAM pool from which the above IP was allocated from
+	IPPoolName Pool
+
+	// PrimaryMAC is the MAC address of the primary interface. This is useful
+	// when the IP is a secondary address of an interface which is
+	// represented on the node as a Linux device and all routing of the IP
+	// must occur through that master interface. It is unset for the IPAM
+	// modes which have no master interface.
+	PrimaryMAC mac.MAC
+
+	// GatewayIP is the IP of the gateway which must be used for this IP.
+	// If the allocated IP is derived from a VPC, then the gateway
+	// represented the gateway of the VPC or VPC subnet.
+	GatewayIP netip.Addr
+
+	// ExpirationUUID is the UUID of the expiration timer. This field is
+	// only set if AllocateNextWithExpiration is used.
+	ExpirationUUID string
+
+	// InterfaceNumber is a field for generically identifying an interface.
+	// This is only useful in ENI mode.
+	InterfaceNumber string
+
+	// SkipMasquerade indicates whether the datapath should avoid masquerading connections from this IP when the cluster is in tunneling mode.
+	SkipMasquerade bool
+}
+
+// Allocator is the interface for an IP allocator implementation
+type Allocator interface {
+	// Allocate allocates a specific IP or fails
+	Allocate(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error)
+
+	// AllocateWithoutSyncUpstream allocates a specific IP without syncing
+	// upstream or fails
+	AllocateWithoutSyncUpstream(addr netip.Addr, owner string, pool Pool) (*AllocationResult, error)
+
+	// Release releases a previously allocated IP or fails
+	Release(addr netip.Addr, pool Pool) error
+
+	// AllocateNext allocates the next available IP or fails if no more IPs
+	// are available
+	AllocateNext(owner string, pool Pool) (*AllocationResult, error)
+
+	// AllocateNextWithoutSyncUpstream allocates the next available IP without syncing
+	// upstream or fails if no more IPs are available
+	AllocateNextWithoutSyncUpstream(owner string, pool Pool) (*AllocationResult, error)
+
+	// Dump returns the set of all allocated IPs per pool. Dump must also
+	// provide a status one-liner to represent the overall status, e.g. number
+	// of IPs allocated and overall health information if available.
+	Dump() (map[Pool]sets.Set[netip.Addr], string)
+
+	// Capacity returns the total IPAM allocator capacity (not the current
+	// available).
+	Capacity() uint64
+
+	// RestoreFinished marks the status of restoration as done
+	RestoreFinished()
+}
+
+// IPAM is the configuration used for a particular IPAM type.
+type IPAM struct {
+	logger *slog.Logger
+
+	nodeAddressing node.Addressing
+	config         *option.DaemonConfig
+
+	ipv6Allocator Allocator
+	ipv4Allocator Allocator
+
+	ipv6RoutingMetadataResolver routingMetadataResolver
+	ipv4RoutingMetadataResolver routingMetadataResolver
+
+	// metadata provides information about a particular IP owner.
+	metadata Metadata
+
+	// owner maps an IP to its owner, keyed by pool and IP so no map of maps
+	// is needed.
+	owner map[poolIP]string
+
+	// expirationTimers is a map of all expiration timers. Each entry
+	// represents a IP allocation which is protected by an expiration
+	// timer.
+	expirationTimers map[poolIP]expirationTimer
+
+	// mutex covers access to all members of this struct
+	allocatorMutex lock.RWMutex
+
+	// excludedIPs contains excluded IPs and their respective owners, keyed by
+	// pool and IP so no map of maps is needed.
+	excludedIPs map[poolIP]string
+
+	localNodeStore *node.LocalNodeStore
+	k8sEventReg    K8sEventRegister
+	nodeResource   agentK8s.LocalCiliumNodeResource
+	mtuConfig      MtuConfiguration
+	clientset      client.Clientset
+	nodeDiscovery  Owner
+	sysctl         sysctl.Sysctl
+
+	jg job.Group
+
+	db         *statedb.DB
+	podIPPools statedb.Table[podippool.LocalPodIPPool]
+
+	onlyMasqueradeDefaultPool bool
+
+	// cloudProviders holds the registered cloud providers, keyed by the IPAM
+	// mode each one handles.
+	cloudProviders map[string]CloudProvider
+}
+
+func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}
+
+func (ipam *IPAM) EndpointDeleted(ep *endpoint.Endpoint, conf endpoint.DeleteConfig) {
+	if !conf.NoIPRelease {
+		if option.Config.EnableIPv4 {
+			if err := ipam.ReleaseIP(ep.IPv4, PoolOrDefault(ep.IPv4IPAMPool)); err != nil {
+				ipam.logger.Warn("Unable to release IPv4 address during endpoint deletion", logfields.Error, err)
+			}
+		}
+		if option.Config.EnableIPv6 {
+			if err := ipam.ReleaseIP(ep.IPv6, PoolOrDefault(ep.IPv6IPAMPool)); err != nil {
+				ipam.logger.Warn("Unable to release IPv6 address during endpoint deletion", logfields.Error, err)
+			}
+		}
+	}
+}
+
+func (ipam *IPAM) EndpointRestored(ep *endpoint.Endpoint) {}
+
+// RestoreFinished marks the status of restoration as done
+func (ipam *IPAM) RestoreFinished() {
+	if ipam.config.EnableIPv6 {
+		ipam.ipv6Allocator.RestoreFinished()
+	}
+	if ipam.config.EnableIPv4 {
+		ipam.ipv4Allocator.RestoreFinished()
+	}
+}
+
+// DebugStatus implements debug.StatusObject to provide debug status collection
+// ability
+func (ipam *IPAM) DebugStatus() string {
+	ipam.allocatorMutex.RLock()
+	str := spew.Sdump(
+		"owners", ipam.owner,
+		"expiration timers", ipam.expirationTimers,
+		"excluded ips", ipam.excludedIPs,
+	)
+	ipam.allocatorMutex.RUnlock()
+	return str
+}
+
+// Pool is the IP pool from which to allocate.
+type Pool string
+
+func (p Pool) String() string {
+	return string(p)
+}
+
+// poolIP identifies an IP within a pool. Both members are comparable, so it
+// can be used as a map key.
+type poolIP struct {
+	ip   netip.Addr
+	pool Pool
+}
+
+// String renders the IP the way the API reports it: bare for the default pool,
+// prefixed with the pool name otherwise. The default pool is elided because it
+// is the implied pool wherever no pool is named.
+func (p poolIP) String() string {
+	if p.pool == PoolDefault() {
+		return p.ip.String()
+	}
+	return p.pool.String() + "/" + p.ip.String()
+}
+
+type expirationTimer struct {
+	uuid string
+	stop chan<- struct{}
+}

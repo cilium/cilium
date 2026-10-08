@@ -1,0 +1,15 @@
+- metadata:
+    creationTimestamp: null
+    name: tcp-route
+    namespace: default
+  spec:
+    parentRefs:
+    - name: gw
+      port: 8080
+      sectionName: tcp-listener
+    rules:
+    - backendRefs:
+      - name: tcp-backend
+        port: 8080
+  status:
+    parents: null

@@ -1,0 +1,97 @@
+#! --lb-test-fault-probability=0.0
+# Test that migrating a backend from one endpoint slice to another works correctly even
+# when they end up in the same "reflection buffer".
+
+hive start
+
+# Add the service and the first endpoint slice
+k8s/add service.yaml endpointslice1.yaml
+db/cmp services services.table
+db/cmp frontends frontends.table
+
+# "migrate" the 10.244.1.1 backend to another endpoint slice.
+# 10.244.1.2 is added additionally to distingquish when the changes
+# have been processed.
+k8s/delete endpointslice1.yaml
+k8s/add endpointslice2.yaml
+db/cmp frontends frontends2.table
+
+#####
+
+-- services.table --
+Name
+bar/foo
+
+-- frontends.table --
+Address              ServiceName  Backends
+10.96.50.104:80/TCP  bar/foo      10.244.1.1:80/TCP
+
+
+-- frontends2.table --
+Address              ServiceName  Backends
+10.96.50.104:80/TCP  bar/foo      10.244.1.1:80/TCP, 10.244.1.2:80/TCP
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: foo
+  namespace: bar
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice1.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: foo
+  name: foo-eps1
+  namespace: bar
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice2.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: foo
+  name: foo-eps2
+  namespace: bar
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  - 10.244.1.2
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+

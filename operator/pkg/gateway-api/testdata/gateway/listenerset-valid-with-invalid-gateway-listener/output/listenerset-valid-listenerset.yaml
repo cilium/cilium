@@ -1,0 +1,14 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  creationTimestamp: null
+  name: valid-listenerset
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: valid-listenerset-only
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: extra-http
+      port: 8080
+      protocol: HTTP

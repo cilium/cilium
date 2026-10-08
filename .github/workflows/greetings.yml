@@ -1,0 +1,24 @@
+name: Greetings
+
+on:
+  pull_request_target:
+    types: [opened]
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  greet:
+    name: Greet
+    # Only enforce on drive-by / first-time contributors.
+    # Regulars (MEMBER, COLLABORATOR, OWNER, CONTRIBUTOR) are skipped entirely.
+    # The association lives under `pull_request` for PRs and `issue` for issues.
+    if: >
+      contains(fromJSON('["FIRST_TIME_CONTRIBUTOR", "FIRST_TIMER", "NONE"]'),
+      github.event.pull_request.author_association || github.event.issue.author_association)
+    uses: cilium/cilium/.github/workflows/reusable-greetings.yml@main
+    secrets: inherit

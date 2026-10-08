@@ -1,0 +1,168 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Hubble
+
+package filters
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"reflect"
+
+	"cel.dev/cel-go/cel"
+
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/time"
+)
+
+var (
+	// unfortunately, "flow" conflicts with the protobuf package name "flow", so
+	// we have to use something else.
+	// TODO: what should this be?
+	flowVariableName = "_flow"
+
+	celTypes = cel.Types(&flowpb.Flow{})
+
+	goBoolType = reflect.TypeFor[bool]()
+
+	celEnv *cel.Env
+
+	// Limiter to use for logging CEL filter program eval error.
+	// 1 log per 10 seconds with a burst of 3.
+	celFilterLoggingLimiter = logging.NewLimiter(10*time.Second, 3)
+
+	// celProgramMaxRuntimeCost is the maximum runtime cost budget for a single
+	// expression evaluation. Evaluation is aborted with an error if the
+	// actual accumulated cost exceeds this value.
+	celProgramMaxRuntimeCost uint64 = 100000
+)
+
+const (
+	// Maximum size of the raw CEL filter expression(4096 characters).
+	celExpressionMaxSize int = 4096
+
+	// celProgramInterruptCheckFrequency controls how often (in comprehension
+	// iterations) CEL checks for context cancellation. Lower values make
+	// cancellation more responsive at the expense of a small throughput cost.
+	celProgramInterruptCheckFrequency uint = 100
+)
+
+func init() {
+	var err error
+	celEnv, err = cel.NewEnv(
+		cel.Container("flow"),
+		celTypes,
+		cel.Variable(flowVariableName, cel.ObjectType("flow.Flow")),
+		cel.ParserExpressionSizeLimit(celExpressionMaxSize),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("error creating CEL env %s", err))
+	}
+
+}
+
+// compile will parse and check an expression `expr` against a given
+// environment `env` and determine whether the resulting type of the expression
+// matches the `exprType` provided as input.
+// Copied from
+// https://github.com/cel-expr/cel-go/blob/338b3c80e688f7f44661d163c0dbc02eb120dcb7/codelab/solution/codelab.go#LL385C1-L399C2
+// with modifications
+func compile(env *cel.Env, expr string, celType *cel.Type) (*cel.Ast, error) {
+	ast, iss := env.Compile(expr)
+	if iss.Err() != nil {
+		return nil, iss.Err()
+	}
+	// Type-check the expression for correctness.
+	checked, iss := env.Check(ast)
+	// Report semantic errors, if present.
+	if iss.Err() != nil {
+		return nil, iss.Err()
+	}
+	if checked.OutputType() != celType {
+		return nil, fmt.Errorf(
+			"got %q, wanted %q result type",
+			checked.OutputType(), celType)
+	}
+	return ast, nil
+}
+
+func compileCELFilters(exprs []string) ([]cel.Program, error) {
+	var programs []cel.Program
+	for _, expr := range exprs {
+		// we want filters to be boolean expressions, so check the type of the
+		// expression before proceeding
+		ast, err := compile(celEnv, expr, cel.BoolType)
+		if err != nil {
+			return nil, fmt.Errorf("error compiling CEL expression: %w", err)
+		}
+
+		prg, err := celEnv.Program(
+			ast,
+			cel.EvalOptions(cel.OptOptimize),
+			cel.CostLimit(celProgramMaxRuntimeCost),
+			cel.InterruptCheckFrequency(celProgramInterruptCheckFrequency),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error building CEL program: %w", err)
+		}
+		programs = append(programs, prg)
+	}
+
+	return programs, nil
+}
+
+func filterByCELExpression(ctx context.Context, log *slog.Logger, exprs []string) (FilterFunc, error) {
+	programs, err := compileCELFilters(exprs)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(ev *v1.Event) bool {
+		for _, prg := range programs {
+			out, _, err := prg.ContextEval(ctx, map[string]any{
+				flowVariableName: ev.GetFlow(),
+			})
+			if err != nil {
+				if celFilterLoggingLimiter.Allow() {
+					log.Error("Error running CEL program", logfields.Error, err)
+				} else {
+					log.Debug("Error running CEL program", logfields.Error, err)
+				}
+				return false
+			}
+
+			v, err := out.ConvertToNative(goBoolType)
+			if err != nil {
+				// This branch is unreachable as we already verified boolean result during compilation.
+				log.Error("Invalid conversion in CEL program", logfields.Error, err)
+				return false
+			}
+			b, ok := v.(bool)
+			if ok && b {
+				return true
+			}
+		}
+		return false
+	}, nil
+}
+
+// CELExpressionFilter implements filtering based on CEL (common expression
+// language) expressions
+type CELExpressionFilter struct {
+	log *slog.Logger
+}
+
+// OnBuildFilter builds a CEL expression filter.
+func (t *CELExpressionFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
+	if exprs := ff.GetExperimental().GetCelExpression(); exprs != nil {
+		filter, err := filterByCELExpression(ctx, t.log, exprs)
+		if err != nil {
+			return nil, err
+		}
+		return []FilterFunc{filter}, nil
+	}
+	return []FilterFunc{}, nil
+}

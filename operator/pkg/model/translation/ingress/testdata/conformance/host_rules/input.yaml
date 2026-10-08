@@ -1,0 +1,56 @@
+http:
+- hostname: '*.foo.com'
+  name: ing-host-rules-random-namespace-*.foo.com
+  port: 80
+  routes:
+  - backends:
+    - name: wildcard-foo-com
+      namespace: random-namespace
+      port:
+        port: 8080
+    path_match:
+      prefix: /
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: host-rules
+    namespace: random-namespace
+    version: networking.k8s.io/v1
+- hostname: foo.bar.com
+  name: ing-host-rules-random-namespace-foo.bar.com
+  port: 80
+  routes:
+  - backends:
+    - name: foo-bar-com
+      namespace: random-namespace
+      port:
+        name: http
+    path_match:
+      prefix: /
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: host-rules
+    namespace: random-namespace
+    version: networking.k8s.io/v1
+- force_http_to_https_redirect: true
+  hostname: foo.bar.com
+  name: ing-host-rules-random-namespace-foo.bar.com
+  port: 443
+  routes:
+  - backends:
+    - name: foo-bar-com
+      namespace: random-namespace
+      port:
+        name: http
+    path_match:
+      prefix: /
+    timeout: {}
+  sources:
+  - kind: Ingress
+    name: host-rules
+    namespace: random-namespace
+    version: networking.k8s.io/v1
+  tls:
+  - name: conformance-tls
+    namespace: random-namespace

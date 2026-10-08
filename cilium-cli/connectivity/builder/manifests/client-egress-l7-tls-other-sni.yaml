@@ -1,0 +1,31 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "client-egress-l7-tls-other-sni"
+specs:
+- description: "L7 policy with TLS"
+  endpointSelector:
+    matchLabels:
+      kind: client
+  egress:
+  # Allow HTTPS when X-Very-Secret-Token is set
+  - toPorts:
+    - ports:
+      - port: "443"
+        protocol: "TCP"
+      serverNames:
+      - "{{trimSuffix .ExternalOtherTarget "."}}"
+      terminatingTLS:
+        secret:
+          namespace: "{{.TestNamespace}}"
+          name: externaltarget-tls # internal certificate to terminate in cluster
+      originatingTLS:
+        secret:
+          namespace: "{{.ExternalTargetCANamespace}}"
+          name: "{{.ExternalTargetCAName}}" # public CA bundle to validate external target
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+          headers:
+          - "X-Very-Secret-Token: 42"

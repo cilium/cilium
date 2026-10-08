@@ -1,0 +1,38 @@
+.. _cilium-operator-feature-adv-connect-and-lb:
+
+``adv_connect_and_lb``
+~~~~~~~~~~~~~~~~~~~~~~
+.. list-table::
+  :header-rows: 1
+
+  * - Name
+    - Labels
+    - Possible Label Values
+    - Description
+    - Type
+  * - ``gateway_api_enabled``
+    - *None*
+    - *None*
+    - GatewayAPI enabled on the operator
+    - gauge
+  * - ``ingress_controller_enabled``
+    - *None*
+    - *None*
+    - IngressController enabled on the operator
+    - gauge
+  * - ``l7_aware_traffic_management_enabled``
+    - *None*
+    - *None*
+    - L7 Aware Traffic Management enabled on the operator
+    - gauge
+  * - ``lb_ipam_enabled``
+    - *None*
+    - *None*
+    - LB IPAM enabled on the operator
+    - gauge
+  * - ``node_ipam_enabled``
+    - *None*
+    - *None*
+    - Node IPAM enabled on the operator
+    - gauge
+

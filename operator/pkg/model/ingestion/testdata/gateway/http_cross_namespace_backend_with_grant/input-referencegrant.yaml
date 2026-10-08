@@ -1,0 +1,12 @@
+- metadata:
+    creationTimestamp: null
+    name: allow-backend
+    namespace: other-ns
+  spec:
+    from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: app-ns
+    to:
+    - group: ""
+      kind: Service

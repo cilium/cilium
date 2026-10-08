@@ -1,0 +1,82 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package clustermesh
+
+import (
+	"log/slog"
+
+	"github.com/cilium/hive/cell"
+
+	"github.com/cilium/cilium/daemon/cmd/cni"
+	"github.com/cilium/cilium/pkg/clustermesh/common"
+	cmendpointslice "github.com/cilium/cilium/pkg/clustermesh/endpointslice"
+	cmlb "github.com/cilium/cilium/pkg/clustermesh/loadbalancer"
+	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/clustermesh/wait"
+	"github.com/cilium/cilium/pkg/dial"
+	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
+	nodemanager "github.com/cilium/cilium/pkg/node/manager"
+	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	"github.com/cilium/cilium/pkg/option"
+)
+
+var Cell = cell.Module(
+	"clustermesh",
+	"ClusterMesh is the Cilium multicluster implementation",
+
+	cell.Provide(
+		common.DefaultRemoteClientFactory,
+		NewClusterMesh,
+	),
+
+	cell.ProvidePrivate(
+		dial.ServiceBackendResolverFactory("clustermesh"),
+	),
+
+	// Convert concrete objects into more restricted interfaces used by clustermesh.
+	cell.ProvidePrivate(func(ipcache *ipcache.IPCache) ipcache.IPCacher { return ipcache }),
+	cell.ProvidePrivate(func(
+		mgr nodemanager.NodeManager,
+	) nodeStore.NodeManager {
+		return mgr
+	}),
+	cell.ProvidePrivate(common.NewClusterIDsManager),
+
+	cell.Config(common.DefaultConfig),
+	cell.Config(types.DefaultServiceModeV2Config),
+	cell.Invoke(types.ServiceModeV2Config.Validate),
+	cell.Config(wait.TimeoutConfigDefault),
+
+	metrics.Metric(NewMetrics),
+	metrics.Metric(common.MetricsProvider(metrics.SubsystemClusterMesh)),
+
+	cmendpointslice.Cell,
+	metrics.Metric(cmendpointslice.MetricsProvider(metrics.Namespace)),
+	cell.Provide(func(cm *ClusterMesh) cmlb.ServicesSyncedFunc {
+		if cm == nil {
+			return nil
+		}
+		return cm.ServicesSynced
+	}),
+	cell.Provide(func(cm *ClusterMesh) cmlb.EndpointSlicesSyncedFunc {
+		if cm == nil {
+			return nil
+		}
+		return cm.EndpointSlicesSynced
+	}),
+	cmlb.Cell,
+
+	cell.Config(types.DefaultQuirks),
+	cell.Invoke(func(info types.ClusterInfo, dcfg *option.DaemonConfig, cnimgr cni.CNIConfigManager, log *slog.Logger, quirks types.QuirksConfig) error {
+		err := info.ValidateBuggyClusterID(dcfg.IPAM, cnimgr.GetChainingMode())
+		if err != nil && quirks.AllowUnsafePolicySKBUsage {
+			log.Error("Detected clustermesh ID configuration that may cause connection impact", logfields.Error, err)
+			return nil
+		}
+		return err
+	}),
+	cell.Invoke(nodeManagerNotifier),
+)

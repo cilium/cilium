@@ -1,0 +1,76 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-parentref
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: "{GATEWAY_CLASS_NAME}"
+  listeners:
+  - name: gw-parentref-listener
+    port: 80
+    protocol: HTTP
+    hostname: "gw-parentref.com"
+    allowedRoutes:
+      namespaces:
+        from: Same
+  allowedListeners:
+    namespaces:
+      from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-parentref
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-parentref
+    namespace: gateway-conformance-infra
+  listeners:
+  - name: listenerset-parentref-listener
+    port: 80
+    protocol: HTTP
+    hostname: "listenerset-parentref.com"
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-parentref-gwonly
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - name: gateway-parentref
+    namespace: gateway-conformance-infra
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /gwonly
+    backendRefs:
+    - name: infra-backend-v1
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: route-parentref-lsonly
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+  - kind: ListenerSet
+    group: gateway.networking.k8s.io
+    name: listenerset-parentref
+    namespace: gateway-conformance-infra
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /lsonly
+    backendRefs:
+    - name: infra-backend-v2
+      port: 8080

@@ -1,0 +1,63 @@
+#! --config-sources=[{"kind":"node","name":"testnode"}]
+
+# Test the reflection of the configs as annotations in the Node
+# object.
+hive/start
+
+# Add node with keys foo and baz as annotations
+k8s/add node.yaml
+db/cmp cilium-configs configs1.table
+
+stop
+
+# Removing it removes all keys from the "cilium-config" source
+k8s/delete cilium-node-config.yaml
+
+# Table should be empty now
+* db/empty cilium-configs
+
+# Add the entries back
+k8s/add cilium-node-config.yaml
+db/cmp cilium-configs configs1.table
+
+# Update baz=quux to baz=baz
+replace 'quux' 'baz' cilium-node-config.yaml
+replace 'quux' 'baz' configs1.table
+k8s/update cilium-node-config.yaml
+db/cmp cilium-configs configs1.table
+
+# Remove the 'baz' key
+sed '^\s+baz:.*' '' cilium-node-config.yaml
+k8s/update cilium-node-config.yaml
+db/cmp cilium-configs configs2.table
+
+# Cleanup
+k8s/delete cilium-node-config.yaml
+
+# Table should be empty now
+* db/empty cilium-configs
+
+####
+
+-- configs1.table --
+Key   Source          Priority   Value
+baz   testnode        1          quux
+foo   testnode        1          bar
+
+-- configs2.table --
+Key   Source          Priority   Value
+foo   testnode        1          bar
+
+-- node.yaml --
+apiVersion: v1
+kind: Node
+metadata:
+  annotations:
+    config.cilium.io/foo: bar
+    config.cilium.io/baz: quux
+
+  labels:
+    # Labels not relevant
+  name: testnode
+spec:
+  # Not relevant for this test

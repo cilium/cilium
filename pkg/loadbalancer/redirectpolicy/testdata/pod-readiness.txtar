@@ -1,0 +1,147 @@
+# Tests that pod with non-ready status are not added as LRP backends.
+
+hive/start
+
+# Add LRP, service and pods.
+k8s/add service.yaml lrp-svc.yaml lrp-addr.yaml pod-before.yaml
+# Give some time for reconciliation loop to run
+sleep 500ms
+
+# No local-redirect frontends with associated backends as pods are not "ready".
+db/cmp localredirectpolicies lrp.table
+db/cmp services services.table
+db/cmp frontends frontends-before.table
+
+# Update the pod status. The frontends should now be redirected.
+cp pod-before.yaml pod-ready.yaml
+sed 'status: "False"' 'status: "True"' pod-ready.yaml
+k8s/add pod-ready.yaml
+db/cmp frontends frontends.table
+
+# Toggle the pod status back to not being ready.
+k8s/add pod-before.yaml
+db/cmp frontends frontends-before.table
+
+# -----
+
+-- lrp-svc.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-svc"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    serviceMatcher:
+      serviceName: echo
+      namespace: test
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        name: "tcp"
+        protocol: TCP
+
+-- lrp-addr.yaml --
+apiVersion: "cilium.io/v2"
+kind: CiliumLocalRedirectPolicy
+metadata:
+  name: "lrp-addr"
+  namespace: "test"
+spec:
+  redirectFrontend:
+    addressMatcher:
+      ip: "169.254.169.254"
+      toPorts:
+        - port: "8080"
+          protocol: TCP
+  redirectBackend:
+    localEndpointSelector:
+      matchLabels:
+        app: proxy
+    toPorts:
+      - port: "80"
+        protocol: TCP
+
+-- pod-before.yaml --
+apiVersion: v1
+kind: Pod
+metadata:
+  name: lrp-pod
+  namespace: test
+  labels:
+    app: proxy
+spec:
+  containers:
+    - name: lrp-pod
+      image: nginx
+      ports:
+        - containerPort: 80
+          name: tcp
+          protocol: TCP
+  nodeName: testnode
+status:
+  hostIP: 172.19.0.3
+  hostIPs:
+  - ip: 172.19.0.3
+  phase: Running
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2024-11-21T14:52:24Z"
+    status: "False"
+    type: Ready
+  podIP: 10.244.2.1
+  podIPs:
+  - ip: 10.244.2.1
+  - ip: 2001::1
+  qosClass: BestEffort
+  startTime: "2024-07-10T16:20:42Z"
+
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+spec:
+  clusterIP: 1.1.1.1
+  clusterIPs:
+  - 1.1.1.1
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  - IPv6
+  ipFamilyPolicy: DualStack
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    name: echo
+  sessionAffinity: None
+  type: ClusterIP
+
+-- lrp.table --
+Name           Type     FrontendType                Frontends
+test/lrp-addr  address  addr-single-port            169.254.169.254:8080/TCP
+test/lrp-svc   service  all
+
+-- services.table --
+Name                          Source
+test/echo                     k8s
+test/lrp-addr:local-redirect  k8s
+test/lrp-svc:local-redirect   k8s
+
+-- frontends-before.table --
+Address                    Type          ServiceName                   PortName   Backends              RedirectTo                    Status
+1.1.1.1:8080/TCP           ClusterIP     test/echo                     tcp                                                            Done
+
+-- frontends.table --
+Address                  Type          ServiceName                  PortName   Backends              RedirectTo                    Status
+1.1.1.1:8080/TCP         ClusterIP     test/echo                    tcp        10.244.2.1:80/TCP     test/lrp-svc:local-redirect   Done
+169.254.169.254:8080/TCP LocalRedirect test/lrp-addr:local-redirect            10.244.2.1:80/TCP                                   Done

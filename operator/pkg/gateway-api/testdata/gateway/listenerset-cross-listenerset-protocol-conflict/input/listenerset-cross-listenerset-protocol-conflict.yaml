@@ -1,0 +1,50 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cross-listenerset-protocol-conflict
+  namespace: gateway-conformance-infra
+spec:
+  gatewayClassName: cilium
+  allowedListeners:
+    namespaces:
+      from: Same
+  listeners:
+    - name: http
+      port: 8888
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: Same
+---
+# Alphabetically first ListenerSet — wins port 80
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: protocol-alpha
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: cross-listenerset-protocol-conflict
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: http-on-80
+      port: 80
+      protocol: HTTP
+---
+# Alphabetically second ListenerSet, port 80 TCP conflicts with protocol-alpha's HTTP
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: protocol-beta
+  namespace: gateway-conformance-infra
+spec:
+  parentRef:
+    name: cross-listenerset-protocol-conflict
+    namespace: gateway-conformance-infra
+  listeners:
+    - name: tcp-on-80
+      port: 80
+      protocol: TCP
+    - name: http-on-8080
+      port: 8080
+      protocol: HTTP

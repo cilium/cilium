@@ -1,0 +1,9 @@
+metrics:
+- name: "flow"
+  contextOptions:
+  - name: "destinationContext"
+    values: ["dns", "ip"]
+  includeFilters:
+  - source_pod: ["allow/src_pod"]
+  - destination_pod: ["allow/dst_pod"]
+  

@@ -1,0 +1,237 @@
+#! --cluster-id=3 --cluster-name=cluster3
+
+hive/start
+
+# Create the namespace first (required for namespace manager)
+k8s/add namespace.yaml
+
+# 1. Add a service before endpoint slice
+k8s/add service.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* cmp services.actual services-1.expected
+
+# 2. Add the endpoint slice
+k8s/add endpointslice.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* cmp services.actual services-2.expected
+
+# 3. Test changing backend IPs
+replace '10.244.1.1' '10.244.2.2' endpointslice.yaml
+cp services-2.expected services-3.expected
+replace '10.244.1.1' '10.244.2.2' services-3.expected
+k8s/update endpointslice.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* cmp services.actual services-3.expected
+
+# 4. Test changing backend port
+replace 'port: 8080' 'port: 9090' endpointslice.yaml
+replace 'targetPort: 8080' 'targetPort: 9090' service.yaml
+cp services-3.expected services-4.expected
+sed '"Port": 8080' '"Port": 9090' services-4.expected
+k8s/update service.yaml endpointslice.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* cmp services.actual services-4.expected
+
+# 5. Remove endpoint slice
+k8s/delete endpointslice.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* cmp services.actual services-1.expected
+
+# 6. Remove service
+k8s/delete service.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* empty services.actual
+
+# 7. Add endpoint slice before service
+k8s/add endpointslice.yaml
+
+# No service should exist
+kvstore/list -o json cilium/state/services services.actual
+empty services.actual
+
+# 8. Add the service
+k8s/add service.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* cmp services.actual services-4.expected
+
+# 9. Toggle the global annotation. Service should be deleted.
+sed 'service.cilium.io/global: "true"' 'service.cilium.io/global: "false"' service.yaml
+k8s/update service.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* empty services.actual
+
+# 10. Toggle the global annotation back. The shared annotation is not needed.
+# Service should be added again.
+sed 'service.cilium.io/shared: "true"' 'placeholder: "true"' service.yaml
+sed 'service.cilium.io/global: "false"' 'service.cilium.io/global: "true"' service.yaml
+k8s/update service.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* cmp services.actual services-4.expected
+
+# 11. Mark the service as not shared. Service should be deleted.
+sed 'placeholder: "true"' 'service.cilium.io/shared: "false"' service.yaml
+k8s/update service.yaml
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* empty services.actual
+
+# 12. Validate the export of services with unnamed ports.
+sed 'service.cilium.io/shared: "false"' 'service.cilium.io/shared: "true"' service.yaml
+sed http "" service.yaml
+sed http "" endpointslice.yaml
+
+k8s/update service.yaml
+k8s/update endpointslice.yaml
+
+cp services-4.expected services-5.expected
+sed http '' services-5.expected
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/services services.actual
+* cmp services.actual services-5.expected
+
+# ----
+
+-- namespace.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  annotations:
+    service.cilium.io/global: "true"
+    service.cilium.io/shared: "true"
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+    targetPort: 8080
+  selector:
+    name: echo
+  type: ClusterIP
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+  zone: zone1
+  hints:
+    forZones:
+    - name: zone1
+- addresses:
+  - 10.244.1.2
+  conditions:
+    ready: false
+    serving: false
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+
+-- services-1.expected --
+# cilium/state/services/v1/cluster3/test/echo
+{
+  "cluster": "cluster3",
+  "namespace": "test",
+  "name": "echo",
+  "frontends": {
+    "10.96.50.104": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 80
+      }
+    }
+  },
+  "backends": {},
+  "labels": {},
+  "selector": {
+    "name": "echo"
+  },
+  "includeExternal": true,
+  "shared": true,
+  "clusterID": 3
+}
+-- services-2.expected --
+# cilium/state/services/v1/cluster3/test/echo
+{
+  "cluster": "cluster3",
+  "namespace": "test",
+  "name": "echo",
+  "frontends": {
+    "10.96.50.104": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 80
+      }
+    }
+  },
+  "backends": {
+    "10.244.1.1": {
+      "http": {
+        "Protocol": "TCP",
+        "Port": 8080
+      }
+    }
+  },
+  "zones": {
+    "10.244.1.1": {
+      "zone": "zone1",
+      "forZones": [
+        {
+          "name": "zone1"
+        }
+      ]
+    }
+  },
+  "labels": {},
+  "selector": {
+    "name": "echo"
+  },
+  "includeExternal": true,
+  "shared": true,
+  "clusterID": 3
+}

@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright Authors of Cilium
+
+package v2alpha1
+
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+)
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium},singular="ciliumresourceippool",path="ciliumresourceippools",scope="Cluster",shortName={crip}
+// +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+
+// CiliumResourceIPPool defines an IP pool that can be used for Multi-Pool
+// Resource IPAM by the Cilium Network Driver.
+type CiliumResourceIPPool struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// +kubebuilder:validation:Required
+	Spec ResourceIPPoolSpec `json:"spec"`
+}
+
+type ResourceIPPoolSpec struct {
+	// IPv4 specifies the IPv4 CIDRs and mask sizes of the pool
+	//
+	// +kubebuilder:validation:Optional
+	IPv4 *ciliumv2.IPv4PoolSpec `json:"ipv4,omitempty"`
+
+	// IPv6 specifies the IPv6 CIDRs and mask sizes of the pool
+	//
+	// +kubebuilder:validation:Optional
+	IPv6 *ciliumv2.IPv6PoolSpec `json:"ipv6,omitempty"`
+
+	// AllowFirstIP allows the first IP of each delegated CIDR to be used. If
+	// unset or false, this IP is reserved. This field is ignored for /{31,32}
+	// and /{127,128} CIDRs since reserving the first and last IPs would make
+	// the CIDRs unusable. This field is immutable.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="allowFirstIP is immutable"
+	AllowFirstIP bool `json:"allowFirstIP,omitempty"`
+
+	// AllowLastIP allows the last IP of each delegated CIDR to be used. If
+	// unset or false, this IP is reserved. This field is ignored for /{31,32}
+	// and /{127,128} CIDRs since reserving the first and last IPs would make
+	// the CIDRs unusable. This field is immutable.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="allowLastIP is immutable"
+	AllowLastIP bool `json:"allowLastIP,omitempty"`
+}
+
+// CiliumResourceIPPoolList is a list of CiliumResourceIPPool objects.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
+type CiliumResourceIPPoolList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	// Items is a list of CiliumResourceIPPool.
+	Items []CiliumResourceIPPool `json:"items"`
+}

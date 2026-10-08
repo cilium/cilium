@@ -1,0 +1,23 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "allow-cross-cluster-any-ns"
+spec:
+  description: "Allow x-wing in cluster1 to contact rebel-base in cluster2 (in any NS)"
+  endpointSelector:
+    matchLabels:
+      name: x-wing
+      io.cilium.k8s.policy.cluster: cluster1
+  egress:
+  - toEndpoints:
+    - matchExpressions:
+      - key: "k8s:io.kubernetes.pod.namespace"
+        operator: "Exists"
+      - key: "k8s:io.cilium.k8s.policy.cluster"
+        operator: "In"
+        values:
+        - "cluster2"
+      - key: "k8s:name"
+        operator: "In"
+        values:
+        - "rebel-base"

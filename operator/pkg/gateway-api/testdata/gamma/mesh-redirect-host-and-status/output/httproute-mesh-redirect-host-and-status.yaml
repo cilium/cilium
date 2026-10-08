@@ -1,0 +1,50 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  creationTimestamp: null
+  name: mesh-redirect-host-and-status
+  namespace: gateway-conformance-mesh
+  resourceVersion: "1000"
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: echo
+    port: 80
+  rules:
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /hostname-redirect
+  - filters:
+    - requestRedirect:
+        hostname: example.org
+        statusCode: 301
+      type: RequestRedirect
+    matches:
+    - path:
+        type: PathPrefix
+        value: /host-and-status
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: "2025-06-19T03:24:06Z"
+      message: Accepted HTTPRoute
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2025-06-19T03:24:06Z"
+      message: Service reference is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: io.cilium/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: echo
+      port: 80

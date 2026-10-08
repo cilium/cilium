@@ -1,0 +1,6 @@
+linters:
+  enable:
+    - nakedret
+    - errname
+    - godot
+    - misspell

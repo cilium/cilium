@@ -1,0 +1,9 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "world-entity-deny"
+spec:
+  endpointSelector: {}
+  ingressDeny:
+    - fromEntities:
+        - world
