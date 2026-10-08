@@ -307,6 +307,154 @@ int tc_nodeport_snat_conflict_egressproxy_ipv6_check(struct __ctx_buff *ctx)
 }
 
 /*
+ * Create a request from a host process to a pod on the same node.
+ *
+ * Host traffic to a local endpoint cannot collide with egress SNAT, so we
+ * expect no conntrack entry, and MARK_MAGIC_HOST must survive the to-netdev
+ * pass: the destination endpoint derives the source identity from it.
+ */
+PKTGEN(PROG_TYPE, "tc_nodeport_snat_conflict_host_local_ipv4")
+int tc_nodeport_snat_conflict_host_local_ipv4_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct udphdr *udp;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	udp = pktgen__push_ipv4_udp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   NODE_IP, POD_IP,
+					   NODE_PORT, SERVER_PORT);
+	if (!udp)
+		return TEST_ERROR;
+
+	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_snat_conflict_host_local_ipv4")
+int tc_nodeport_snat_conflict_host_local_ipv4_setup(struct __ctx_buff *ctx)
+{
+	endpoint_v4_add_entry(NODE_IP, 0, 0, ENDPOINT_F_HOST, HOST_ID,
+			      0, (__u8 *)node_mac, (__u8 *)node_mac);
+	endpoint_v4_add_entry(POD_IP, 0, 0, 0, POD_SEC_IDENTITY,
+			      0, (__u8 *)node_mac, (__u8 *)node_mac);
+	ipcache_v4_add_entry(NODE_IP, 0, HOST_ID, 0, 0);
+	ipcache_v4_add_entry(POD_IP, 0, POD_SEC_IDENTITY, 0, 0);
+	ipcache_v4_add_world_entry();
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_snat_conflict_host_local_ipv4")
+int tc_nodeport_snat_conflict_host_local_ipv4_check(struct __ctx_buff *ctx)
+{
+	/* CT tuple for an egress entry: saddr=remote, daddr=local */
+	struct ipv4_ct_tuple tuple = {
+		.saddr   = POD_IP,
+		.daddr   = NODE_IP,
+		.sport   = NODE_PORT,
+		.dport   = SERVER_PORT,
+		.nexthdr = IPPROTO_UDP,
+		.flags   = TUPLE_F_OUT,
+	};
+
+	test_init();
+
+	endpoint_v4_del_entry(NODE_IP);
+	endpoint_v4_del_entry(POD_IP);
+
+	assert(tc_nodeport_snat_conflict_assert_status(ctx));
+
+	/* No port reservation for a local destination: */
+	struct ct_entry *ct_entry = map_lookup_elem(&cilium_ct_any4_global, &tuple);
+
+	assert(!ct_entry);
+
+	assert((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST);
+
+	test_finish();
+}
+
+/*
+ * IPv6: Create a request from a host process to a pod on the same node.
+ *
+ * Same expectation as IPv4: no conntrack entry, MARK_MAGIC_HOST preserved.
+ */
+PKTGEN(PROG_TYPE, "tc_nodeport_snat_conflict_host_local_ipv6")
+int tc_nodeport_snat_conflict_host_local_ipv6_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct udphdr *udp;
+
+	/* Init packet builder */
+	pktgen__init(&builder, ctx);
+
+	udp = pktgen__push_ipv6_udp_packet(&builder,
+					   (__u8 *)node_mac, (__u8 *)server_mac,
+					   (__u8 *)NODE_IP6, (__u8 *)POD_IP6,
+					   NODE_PORT, SERVER_PORT);
+	if (!udp)
+		return TEST_ERROR;
+
+	set_identity_mark(ctx, 0, MARK_MAGIC_HOST);
+
+	/* Calc lengths, set protocol fields and calc checksums */
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "tc_nodeport_snat_conflict_host_local_ipv6")
+int tc_nodeport_snat_conflict_host_local_ipv6_setup(struct __ctx_buff *ctx)
+{
+	union v6addr node_ip6 = NODE_IP6_ADDR;
+	union v6addr pod_ip6 = POD_IP6_ADDR;
+
+	endpoint_v6_add_entry(&node_ip6, 0, 0, ENDPOINT_F_HOST, HOST_ID,
+			      (__u8 *)node_mac, (__u8 *)node_mac);
+	endpoint_v6_add_entry(&pod_ip6, 0, 0, 0, POD_SEC_IDENTITY,
+			      (__u8 *)node_mac, (__u8 *)node_mac);
+	ipcache_v6_add_entry(&node_ip6, 0, HOST_ID, 0, 0);
+	ipcache_v6_add_entry(&pod_ip6, 0, POD_SEC_IDENTITY, 0, 0);
+	ipcache_v6_add_world_entry();
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "tc_nodeport_snat_conflict_host_local_ipv6")
+int tc_nodeport_snat_conflict_host_local_ipv6_check(struct __ctx_buff *ctx)
+{
+	/* CT tuple for an egress entry: saddr=remote, daddr=local */
+	struct ipv6_ct_tuple tuple = {
+		.saddr   = POD_IP6_ADDR,
+		.daddr   = NODE_IP6_ADDR,
+		.sport   = NODE_PORT,
+		.dport   = SERVER_PORT,
+		.nexthdr = IPPROTO_UDP,
+		.flags   = TUPLE_F_OUT,
+	};
+
+	test_init();
+
+	assert(tc_nodeport_snat_conflict_assert_status(ctx));
+
+	/* No port reservation for a local destination: */
+	struct ct_entry *ct_entry = map_lookup_elem(&cilium_ct_any6_global, &tuple);
+
+	assert(!ct_entry);
+
+	assert((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST);
+
+	test_finish();
+}
+
+/*
  * Create a request from a pod toward an external server, subjecting it to the
  * nat fwd path.
  *
