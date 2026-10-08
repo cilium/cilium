@@ -486,6 +486,9 @@ func TestTLSGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 						Hostname: ptr.To[gatewayv1.Hostname]("tls.example.test"),
 						Port:     443,
 						Protocol: gatewayv1.TLSProtocolType,
+						TLS: &gatewayv1.ListenerTLSConfig{
+							Mode: ptr.To(gatewayv1.TLSModePassthrough),
+						},
 						AllowedRoutes: &gatewayv1.AllowedRoutes{
 							Namespaces: &gatewayv1.RouteNamespaces{
 								From: &sameNamespace,
@@ -497,6 +500,12 @@ func TestTLSGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 						Hostname: ptr.To[gatewayv1.Hostname]("tls.example.test"),
 						Port:     8443,
 						Protocol: gatewayv1.TLSProtocolType,
+						TLS: &gatewayv1.ListenerTLSConfig{
+							Mode: ptr.To(gatewayv1.TLSModeTerminate),
+							CertificateRefs: []gatewayv1.SecretObjectReference{
+								{Name: "tls-certificate"},
+							},
+						},
 						AllowedRoutes: &gatewayv1.AllowedRoutes{
 							Namespaces: &gatewayv1.RouteNamespaces{
 								From: &allNamespaces,
@@ -556,15 +565,20 @@ func TestTLSGatewayAPIFiltersRoutesByListenerAllowedNamespaces(t *testing.T) {
 	setTestMergedListeners(&input, nil)
 	m := GatewayAPI(logger, input)
 
-	require.Len(t, m.TLSPassthrough, 2)
-	require.Equal(t, "tls-same", m.TLSPassthrough[0].Name)
-	assert.Empty(t, m.TLSPassthrough[0].Routes)
+	assert.Empty(t, m.HTTP)
+	require.Len(t, m.TLS, 2)
+	require.Equal(t, "tls-same", m.TLS[0].Name)
+	assert.Equal(t, model.TLSModePassthrough, m.TLS[0].Mode)
+	assert.Empty(t, m.TLS[0].TLS)
+	assert.Empty(t, m.TLS[0].Routes)
 
-	require.Equal(t, "tls-all", m.TLSPassthrough[1].Name)
-	require.Len(t, m.TLSPassthrough[1].Routes, 1)
-	assert.Equal(t, []string{"tls.example.test"}, m.TLSPassthrough[1].Routes[0].Hostnames)
-	require.Len(t, m.TLSPassthrough[1].Routes[0].Backends, 1)
-	assert.Equal(t, "podinfo", m.TLSPassthrough[1].Routes[0].Backends[0].Name)
+	require.Equal(t, "tls-all", m.TLS[1].Name)
+	assert.Equal(t, model.TLSModeTerminate, m.TLS[1].Mode)
+	assert.Equal(t, []model.TLSSecret{{Name: "tls-certificate", Namespace: "gateway-ns"}}, m.TLS[1].TLS)
+	require.Len(t, m.TLS[1].Routes, 1)
+	assert.Equal(t, []string{"tls.example.test"}, m.TLS[1].Routes[0].Hostnames)
+	require.Len(t, m.TLS[1].Routes[0].Backends, 1)
+	assert.Equal(t, "podinfo", m.TLS[1].Routes[0].Backends[0].Name)
 }
 
 func TestParentRefsMatchListener(t *testing.T) {
@@ -692,9 +706,9 @@ func TestTLSGatewayAPI(t *testing.T) {
 			input := readGatewayInput(t, name)
 			m := GatewayAPI(logger, input)
 
-			expected := []model.TLSPassthroughListener{}
+			expected := []model.TLSListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
-			assert.Equal(t, toYaml(t, expected), toYaml(t, m.TLSPassthrough), "Listeners did not match")
+			assert.Equal(t, toYaml(t, expected), toYaml(t, m.TLS), "Listeners did not match")
 		})
 	}
 }

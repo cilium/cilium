@@ -231,7 +231,7 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 						Port: 80,
 					},
 				},
-				TLSPassthrough: []model.TLSPassthroughListener{
+				TLS: []model.TLSListener{
 					{
 						Port: 443,
 					},
@@ -292,16 +292,16 @@ func TestSharedIngressTranslator_getServices(t *testing.T) {
 						},
 					},
 				},
-				TLSPassthrough: []model.TLSPassthroughListener{
+				TLS: []model.TLSListener{
 					{
 						Port: 50051,
-						Routes: []model.TLSPassthroughRoute{
+						Routes: []model.TLSRoute{
 							{Hostnames: []string{"api.example.test"}},
 						},
 					},
 					{
 						Port: 9443,
-						Routes: []model.TLSPassthroughRoute{
+						Routes: []model.TLSRoute{
 							{Hostnames: []string{"api.example.test"}},
 						},
 					},

@@ -95,7 +95,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	}
 	var cec *ciliumv2.CiliumEnvoyConfig
 	var err error
-	if m.IsHTTPListenerConfigured() || m.IsTLSPassthroughListenerConfigured() {
+	if m.IsHTTPListenerConfigured() || m.IsTLSListenerConfigured() {
 		cec, err = t.cecTranslator.Translate(source.Namespace, shortener.ShortenDNSLabelK8sName(generatedName), m)
 		if err != nil {
 			return nil, nil, nil, err
@@ -129,7 +129,7 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 
 	endpointSlices := t.desiredL4EndpointSlices(m.L4, source, lbSvc)
 	// L7 paths need a dummy EndpointSlice (see cilium/cilium#19262); L4 paths supply their own.
-	if len(endpointSlices) == 0 && (m.IsHTTPListenerConfigured() || m.IsTLSPassthroughListenerConfigured()) {
+	if len(endpointSlices) == 0 && (m.IsHTTPListenerConfigured() || m.IsTLSListenerConfigured()) {
 		endpointSlices = t.desiredL7DummyEndpointSlice(source, allLabels, allAnnotations)
 	}
 
