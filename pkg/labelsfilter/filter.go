@@ -29,6 +29,10 @@ const (
 
 	// reservedLabelsPattern is the prefix pattern for all reserved labels
 	reservedLabelsPattern = labels.LabelSourceReserved + ":.*"
+	reservedLabelsHost    = labels.LabelSourceReserved + ":" + labels.IDNameHost
+	// reservedLabelsMissing is the error message that is printed when reserved:host is missing from (or excluded by) the label configuration.
+	reservedLabelsMissing = "Reserved labels must not be excluded for Cilium to work properly. " +
+		"Add '" + reservedLabelsPattern + "' or '" + reservedLabelsHost + "' to your label configuration."
 )
 
 // LabelPrefix is Cilium's representation of a label prefix.
@@ -169,11 +173,7 @@ func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, f
 	}
 
 	if identity, _ := cfg.filterLabels(labels.LabelHost); len(identity) == 0 {
-		logger.Error(
-			fmt.Sprintf("Reserved labels must not be excluded for Cilium to work properly. "+
-				"Add '%s' or '%s' to your label configuration.",
-				reservedLabelsPattern, labels.LabelHost.String()),
-		)
+		logger.Error(reservedLabelsMissing)
 	}
 
 	validLabelPrefixes = cfg

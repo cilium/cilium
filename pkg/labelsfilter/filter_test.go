@@ -425,9 +425,9 @@ func TestParseLabelPrefixCfgReservedLabelWarning(t *testing.T) {
 
 			// Check the log output.
 			if tt.wantErrorLog {
-				assert.Contains(t, logs.String(), reservedLabelsPattern)
+				assert.Contains(t, logs.String(), reservedLabelsMissing)
 			} else {
-				assert.NotContains(t, logs.String(), reservedLabelsPattern)
+				assert.NotContains(t, logs.String(), reservedLabelsMissing)
 			}
 
 			// Run Filter() to confirm whether reserved:host is or is not
