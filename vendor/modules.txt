@@ -3078,6 +3078,13 @@ sigs.k8s.io/mcs-api/controllers
 ## explicit; go 1.25.0
 sigs.k8s.io/network-policy-api/apis/v1alpha1
 sigs.k8s.io/network-policy-api/apis/v1alpha2
+sigs.k8s.io/network-policy-api/conformance
+sigs.k8s.io/network-policy-api/conformance/apis/v1alpha1
+sigs.k8s.io/network-policy-api/conformance/tests
+sigs.k8s.io/network-policy-api/conformance/utils/config
+sigs.k8s.io/network-policy-api/conformance/utils/flags
+sigs.k8s.io/network-policy-api/conformance/utils/kubernetes
+sigs.k8s.io/network-policy-api/conformance/utils/suite
 sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration
 sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration/apis/v1alpha1
 sigs.k8s.io/network-policy-api/pkg/client/applyconfiguration/apis/v1alpha2
