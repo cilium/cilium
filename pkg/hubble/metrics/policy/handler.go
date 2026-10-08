@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -23,10 +24,12 @@ import (
 )
 
 type policyHandler struct {
-	verdicts  *prometheus.CounterVec
-	context   *api.ContextOptions
-	AllowList filters.FilterFuncs
-	DenyList  filters.FilterFuncs
+	verdicts        *prometheus.CounterVec
+	context         *api.ContextOptions
+	AllowList       filters.FilterFuncs
+	DenyList        filters.FilterFuncs
+	protocol        bool
+	destinationPort bool
 }
 
 func (h *policyHandler) Init(registry *prometheus.Registry, options *api.MetricConfig) error {
@@ -41,6 +44,20 @@ func (h *policyHandler) Init(registry *prometheus.Registry, options *api.MetricC
 	}
 
 	labels := []string{"direction", "match", "action"}
+	for _, option := range options.ContextOptionConfigs {
+		switch strings.ToLower(option.Name) {
+		case "protocol":
+			h.protocol = true
+		case "destination_port":
+			h.destinationPort = true
+		}
+	}
+	if h.protocol {
+		labels = append(labels, "protocol")
+	}
+	if h.destinationPort {
+		labels = append(labels, "destination_port")
+	}
 	labels = append(labels, h.context.GetLabelNames()...)
 
 	h.verdicts = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -54,7 +71,17 @@ func (h *policyHandler) Init(registry *prometheus.Registry, options *api.MetricC
 }
 
 func (h *policyHandler) Status() string {
-	return h.context.Status()
+	var status []string
+	if h.protocol {
+		status = append(status, "protocol")
+	}
+	if h.destinationPort {
+		status = append(status, "destination_port")
+	}
+	if contextStatus := h.context.Status(); contextStatus != "" {
+		status = append(status, contextStatus)
+	}
+	return strings.Join(status, ",")
 }
 
 func (h *policyHandler) Context() *api.ContextOptions {
@@ -66,6 +93,13 @@ func (h *policyHandler) ListMetricVec() []*prometheus.MetricVec {
 }
 
 func (h *policyHandler) ProcessFlow(ctx context.Context, flow *flowpb.Flow) error {
+	// L7 response flows can have a client ephemeral port as their destination port.
+	if h.destinationPort &&
+		flow.GetEventType().GetType() == monitorAPI.MessageTypeAccessLog &&
+		flow.GetIsReply().GetValue() {
+		return nil
+	}
+
 	if !filters.Apply(h.AllowList, h.DenyList, &v1.Event{Event: flow, Timestamp: &timestamppb.Timestamp{}}) {
 		return nil
 	}
@@ -94,7 +128,7 @@ func (h *policyHandler) ProcessFlowL3L4(ctx context.Context, flow *flowpb.Flow) 
 	direction := strings.ToLower(flow.GetTrafficDirection().String())
 	match := strings.ToLower(monitorAPI.PolicyMatchType(flow.GetPolicyMatchType()).String())
 	action := strings.ToLower(flow.Verdict.String())
-	labels := []string{direction, match, action}
+	labels := h.labels(direction, match, action, flow)
 	labels = append(labels, labelValues...)
 
 	h.verdicts.WithLabelValues(labels...).Inc()
@@ -119,11 +153,56 @@ func (h *policyHandler) ProcessFlowL7(ctx context.Context, flow *flowpb.Flow) er
 	}
 	match := fmt.Sprintf("l7/%s", subType)
 	action := strings.ToLower(flow.Verdict.String())
-	labels := []string{direction, match, action}
+	labels := h.labels(direction, match, action, flow)
 	labels = append(labels, labelValues...)
 
 	h.verdicts.WithLabelValues(labels...).Inc()
 	return nil
+}
+
+func (h *policyHandler) labels(direction, match, action string, flow *flowpb.Flow) []string {
+	labels := []string{direction, match, action}
+	if h.protocol {
+		labels = append(labels, l4Protocol(flow))
+	}
+	if h.destinationPort {
+		labels = append(labels, destinationPort(flow))
+	}
+	return labels
+}
+
+func l4Protocol(flow *flowpb.Flow) string {
+	switch flow.GetL4().GetProtocol().(type) {
+	case *flowpb.Layer4_TCP:
+		return "TCP"
+	case *flowpb.Layer4_UDP:
+		return "UDP"
+	case *flowpb.Layer4_SCTP:
+		return "SCTP"
+	case *flowpb.Layer4_ICMPv4:
+		return "ICMPv4"
+	case *flowpb.Layer4_ICMPv6:
+		return "ICMPv6"
+	case *flowpb.Layer4_VRRP:
+		return "VRRP"
+	case *flowpb.Layer4_IGMP:
+		return "IGMP"
+	default:
+		return "Unknown L4"
+	}
+}
+
+func destinationPort(flow *flowpb.Flow) string {
+	switch l4 := flow.GetL4().GetProtocol().(type) {
+	case *flowpb.Layer4_TCP:
+		return strconv.Itoa(int(l4.TCP.GetDestinationPort()))
+	case *flowpb.Layer4_UDP:
+		return strconv.Itoa(int(l4.UDP.GetDestinationPort()))
+	case *flowpb.Layer4_SCTP:
+		return strconv.Itoa(int(l4.SCTP.GetDestinationPort()))
+	default:
+		return ""
+	}
 }
 
 func (h *policyHandler) Deinit(registry *prometheus.Registry) error {
