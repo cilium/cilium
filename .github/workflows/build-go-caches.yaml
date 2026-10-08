@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - pr/aanm/ctmap-gc-observability
 
   # If the cache was cleaned we should re-build the cache with the latest commit
   workflow_run:
@@ -76,9 +77,9 @@ jobs:
         id: go-cache
         with:
           path: /tmp/.cache/go
-          key: ${{ runner.os }}-go-${{ matrix.name }}-cache-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ startsWith(matrix.name, 'operator-') && 'operator' || matrix.name }}-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-go-${{ matrix.name }}-cache-
+            ${{ runner.os }}-go-${{ startsWith(matrix.name, 'operator-') && 'operator' || matrix.name }}-cache-
 
       - name: Create cache directories if they don't exist
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' }}
