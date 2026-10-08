@@ -12,6 +12,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // mutateAzureNodeResource fills in the Azure-specific fields of the
@@ -46,6 +47,8 @@ func (n *NodeDiscovery) mutateAzureNodeResource(_ context.Context, nodeResource 
 			nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
 		}
 	}
+
+	SeedPoolRequest(&nodeResource.Spec, option.Config.EnableIPv4, option.Config.EnableIPv6)
 
 	return nil
 }
