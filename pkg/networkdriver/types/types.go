@@ -194,7 +194,7 @@ type DeviceConfig struct {
 	Vlan      int32        `json:"vlan,omitempty"`      // VLAN ID to assign to the device (0 = untagged / no change)
 	IPv4Addr  netip.Prefix `json:"ipv4Addr,omitzero"`
 	IPv6Addr  netip.Prefix `json:"ipv6Addr,omitzero"`
-	IPPool    string       `json:"ip-pool,omitempty"`
+	IPPool    string       `json:"ipPool,omitempty"`
 
 	// InterfaceSysctlIPv4/IPv6 hold leaf sysctl parameters (e.g.
 	// "arp_filter") applied under net.<family>.conf.<interface>. for the

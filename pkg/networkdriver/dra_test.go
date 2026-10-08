@@ -481,7 +481,7 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 		ipv6CIDR      = "fd00:200:1::/48"
 	)
 
-	rawParam, err := json.Marshal(map[string]string{"ip-pool": ipPoolName})
+	rawParam, err := json.Marshal(map[string]string{"ipPool": ipPoolName})
 	require.NoError(t, err)
 
 	claim := &resourceapi.ResourceClaim{
