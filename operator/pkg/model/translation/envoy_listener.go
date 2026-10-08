@@ -55,6 +55,22 @@ func listenerNameForPort(port uint32) string {
 	return fmt.Sprintf("%s-%d", listenerName, port)
 }
 
+// httpsAndTLSPassthroughPorts returns the ports that carry both an HTTPS
+// listener and a routed TLS passthrough listener.
+func httpsAndTLSPassthroughPorts(m *model.Model) map[uint32]bool {
+	https := map[uint32]bool{}
+	for _, p := range m.HTTPSPortsSorted() {
+		https[p] = true
+	}
+	shared := map[uint32]bool{}
+	for _, p := range m.TLSPassthroughPorts() {
+		if https[p] {
+			shared[p] = true
+		}
+	}
+	return shared
+}
+
 type ListenerMutator func(*envoy_config_listener.Listener) *envoy_config_listener.Listener
 
 func withProxyProtocol() ListenerMutator {
@@ -411,6 +427,12 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 		tlsPassthroughPorts[p] = true
 	}
 
+	// A port carrying both HTTPS and TLS passthrough gets a single Envoy
+	// listener holding both sets of filter chains: Envoy rejects a resource set
+	// with two listeners of the same name, and two listeners would not share
+	// the port anyway.
+	sharedPorts := httpsAndTLSPassthroughPorts(m)
+
 	hasInsecure := false
 	for _, l := range m.HTTP {
 		if len(l.TLS) == 0 && !tlsPassthroughPorts[l.Port] {
@@ -419,7 +441,7 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 		}
 	}
 
-	hasTLSPassthroughForBase := !needsPerPortTLS && m.IsTLSPassthroughListenerConfigured()
+	hasTLSPassthroughForBase := !needsPerPortTLS && m.IsTLSPassthroughListenerConfigured() && len(sharedPorts) == 0
 
 	if hasInsecure || hasTLSPassthroughForBase {
 		var filterChains []*envoy_config_listener.FilterChain
@@ -477,6 +499,9 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 		if err != nil {
 			return nil, err
 		}
+		if sharedPorts[port] {
+			httpsFC = append(httpsFC, tlsPassthroughFilterChainsForPort(port, m)...)
+		}
 		if len(httpsFC) == 0 {
 			continue
 		}
@@ -506,6 +531,9 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 	// One Listener per TLS passthrough port.
 	if needsPerPortTLS {
 		for _, port := range m.TLSPassthroughPorts() {
+			if sharedPorts[port] {
+				continue
+			}
 			lName := listenerNameForPort(port)
 
 			tlsFC := tlsPassthroughFilterChainsForPort(port, m)

@@ -234,10 +234,15 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 		})
 	}
 
-	// TLS passthrough ports.
+	// TLS passthrough ports. A port shared with HTTPS is already mapped to
+	// its HTTPS listener above, which also carries the passthrough chains.
+	sharedPorts := httpsAndTLSPassthroughPorts(m)
 	if m.NeedsPerPortTLSPassthroughListeners() {
 		// One entry per TLS passthrough port.
 		for _, port := range m.TLSPassthroughPorts() {
+			if sharedPorts[port] {
+				continue
+			}
 			envoyListenerName := listenerNameForPort(port)
 			result = append(result, &ciliumv2.ServiceListener{
 				Namespace: namespace,
@@ -249,7 +254,7 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 	} else {
 		var ptPorts []uint16
 		for _, tlsl := range m.TLSPassthrough {
-			if len(tlsl.Routes) > 0 {
+			if len(tlsl.Routes) > 0 && !sharedPorts[tlsl.Port] {
 				ptPorts = append(ptPorts, uint16(tlsl.Port))
 			}
 		}

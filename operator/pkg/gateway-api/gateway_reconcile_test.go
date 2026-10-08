@@ -352,6 +352,8 @@ func Test_Conformance(t *testing.T) {
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-mixed", Namespace: "gateway-conformance-infra"}},
 		}},
 		{name: "gateway-multi-port-tls-passthrough", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "multi-port-tls-passthrough", Namespace: "gateway-conformance-infra"}}}},
+		{name: "gateway-same-port-https-and-tls-passthrough-with-second-passthrough-port", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "same-port-https-and-tls-passthrough-with-second-passthrough-port", Namespace: "gateway-conformance-infra"}}}},
+		{name: "gateway-same-port-https-and-tls-passthrough-with-second-https-port", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "same-port-https-and-tls-passthrough-with-second-https-port", Namespace: "gateway-conformance-infra"}}}},
 		{name: "gateway-multi-port-https-with-multi-port-tls-passthrough", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "multi-port-https-with-multi-port-tls-passthrough", Namespace: "gateway-conformance-infra"}}}},
 		{name: "gateway-cross-protocol-same-hostname", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "cross-protocol-same-hostname", Namespace: "gateway-conformance-infra"}}}},
 		{name: "gateway-cross-protocol-same-port-same-hostname", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "cross-protocol-same-port-same-hostname", Namespace: "gateway-conformance-infra"}, wantErr: true}}},
