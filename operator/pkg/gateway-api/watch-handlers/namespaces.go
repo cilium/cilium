@@ -7,7 +7,8 @@ import (
 	"context"
 	"log/slog"
 
-	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -48,10 +49,7 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 	for _, gw := range gwList.Items {
 		gwNN := client.ObjectKey{Namespace: gw.GetNamespace(), Name: gw.GetName()}
 		for _, l := range gw.Spec.Listeners {
-			ok := addGatewayIfNamespaceMatches(ctx, c, ns, l, gw.GetNamespace(), gwNN, scopedLog, &gateways)
-			if !ok {
-				return nil
-			}
+			addGatewayIfNamespaceMatches(ctx, ns, l, gw.GetNamespace(), gwNN, scopedLog, &gateways)
 		}
 	}
 
@@ -68,10 +66,7 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 			}
 			for _, entry := range ls.Spec.Listeners {
 				l := helpers.ListenerEntryToListener(entry)
-				ok := addGatewayIfNamespaceMatches(ctx, c, ns, l, ls.GetNamespace(), *gwNN, scopedLog, &gateways)
-				if !ok {
-					return nil
-				}
+				addGatewayIfNamespaceMatches(ctx, ns, l, ls.GetNamespace(), *gwNN, scopedLog, &gateways)
 			}
 		}
 	}
@@ -81,16 +76,15 @@ func getGatewaysForNamespace(ctx context.Context, c client.Client, ns client.Obj
 
 func addGatewayIfNamespaceMatches(
 	ctx context.Context,
-	c client.Client,
 	ns client.Object,
 	l gatewayv1.Listener,
 	ownerNamespace string,
 	gwNN types.NamespacedName,
 	scopedLog *slog.Logger,
 	gateways *[]types.NamespacedName,
-) bool {
+) {
 	if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
-		return true
+		return
 	}
 	switch *l.AllowedRoutes.Namespaces.From {
 	case gatewayv1.NamespacesFromAll:
@@ -102,18 +96,15 @@ func addGatewayIfNamespaceMatches(
 	case gatewayv1.NamespacesFromSelector:
 		if l.AllowedRoutes.Namespaces.Selector == nil {
 			scopedLog.WarnContext(ctx, "AllowedRoutes namespace set to Selector but no selector specified", logfields.Gateway, gwNN.Name)
-			return true
+			return
 		}
-		nsList := &corev1.NamespaceList{}
-		if err := c.List(ctx, nsList, client.MatchingLabels(l.AllowedRoutes.Namespaces.Selector.MatchLabels)); err != nil {
-			scopedLog.WarnContext(ctx, "Unable to list Namespaces", logfields.Error, err)
-			return false
+		selector, err := metav1.LabelSelectorAsSelector(l.AllowedRoutes.Namespaces.Selector)
+		if err != nil {
+			scopedLog.WarnContext(ctx, "Invalid AllowedRoutes namespace selector", logfields.Gateway, gwNN.Name, logfields.Error, err)
+			return
 		}
-		for _, item := range nsList.Items {
-			if item.GetName() == ns.GetName() {
-				*gateways = append(*gateways, gwNN)
-			}
+		if selector.Matches(labels.Set(ns.GetLabels())) {
+			*gateways = append(*gateways, gwNN)
 		}
 	}
-	return true
 }
