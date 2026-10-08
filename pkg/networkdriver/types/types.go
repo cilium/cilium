@@ -8,7 +8,6 @@ import (
 	"encoding"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/netip"
 	"regexp"
 	"strings"
@@ -16,7 +15,6 @@ import (
 	resourceapi "k8s.io/api/resource/v1"
 	"k8s.io/dynamic-resource-allocation/deviceattribute"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 )
 
@@ -56,8 +54,6 @@ const (
 
 var (
 	errUnknownDeviceManagerType = errors.New("unknown device manager type")
-	errInvalidSysctlLeaf        = errors.New("invalid sysctl leaf parameter")
-	errEmptySysctlValue         = errors.New("sysctl value must not be empty")
 )
 
 // Interface name validation constants
@@ -70,66 +66,6 @@ var (
 	// validIfNameRegex matches valid interface name characters (alphanumeric, dot, underscore, dash)
 	validIfNameRegex = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 )
-
-// validateInterfaceSysctl validates a device config's interface-scoped
-// sysctl leaves at claim preparation time: pure, no I/O. Only the leaf
-// (e.g. "arp_filter") is user-controlled; the net.<family>.conf.<interface>.
-// prefix is added later, in buildSysctlSettings, once the allocated
-// interface's final name is known.
-func (cfg *DeviceConfig) validateInterfaceSysctl() error {
-	if err := validateSysctlLeaves(cfg.InterfaceSysctlIPv4); err != nil {
-		return fmt.Errorf("ipv4: %w", err)
-	}
-	if err := validateSysctlLeaves(cfg.InterfaceSysctlIPv6); err != nil {
-		return fmt.Errorf("ipv6: %w", err)
-	}
-	return nil
-}
-
-func validateSysctlLeaves(leaves map[string]string) error {
-	for leaf, val := range leaves {
-		if err := sysctl.ValidateParameter(strings.Split(leaf, ".")); err != nil {
-			return fmt.Errorf("%w: %q: %w", errInvalidSysctlLeaf, leaf, err)
-		}
-		if val == "" {
-			return fmt.Errorf("%w: %q", errEmptySysctlValue, leaf)
-		}
-	}
-	return nil
-}
-
-// validateInterfaceName validates an interface name according to Linux rules
-func validateInterfaceName(name string) error {
-	// Empty name is valid (means no custom rename)
-	if name == "" {
-		return nil
-	}
-
-	// Check length limit (Linux IFNAMSIZ - 1)
-	if len(name) > MaxInterfaceNameLength {
-		return fmt.Errorf(
-			"interface name too long: %q (%d chars, max %d)",
-			name, len(name), MaxInterfaceNameLength)
-	}
-
-	// Check for valid characters
-	if !validIfNameRegex.MatchString(name) {
-		return fmt.Errorf(
-			"interface name contains invalid characters: %q (allowed: a-z A-Z 0-9 . _ -)",
-			name)
-	}
-
-	// Check for reserved names
-	if name == "lo" {
-		return fmt.Errorf("interface name %q is reserved (loopback)", name)
-	}
-
-	if len(name) >= 7 && name[:7] == "cilium_" {
-		return fmt.Errorf("interface name %q is reserved (cilium_ prefix)", name)
-	}
-
-	return nil
-}
 
 type DeviceManagerType int
 
@@ -233,21 +169,6 @@ type DeviceConfig struct {
 	// namespace is destroyed with the pod).
 	InterfaceSysctlIPv4 map[string]string `json:"interfaceSysctlIPv4,omitempty"`
 	InterfaceSysctlIPv6 map[string]string `json:"interfaceSysctlIPv6,omitempty"`
-}
-
-func (d *DeviceConfig) Validate() error {
-	if d == nil {
-		return fmt.Errorf("device config is nil")
-	}
-
-	if err := validateInterfaceName(d.PodIfName); err != nil {
-		return fmt.Errorf("invalid podIfName: %w", err)
-	}
-
-	if err := d.validateInterfaceSysctl(); err != nil {
-		return fmt.Errorf("invalid sysctl config: %w", err)
-	}
-	return nil
 }
 
 func (d *DeviceConfig) Empty() bool {
