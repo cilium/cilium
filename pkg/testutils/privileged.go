@@ -14,6 +14,7 @@ const (
 	integrationEnv           = "INTEGRATION_TESTS"
 	gatewayAPIConformanceEnv = "GATEWAY_API_CONFORMANCE_TESTS"
 	mcsAPIConformanceEnv     = "MCS_API_CONFORMANCE_TESTS"
+	kcnpConformanceEnv       = "KCNP_CONFORMANCE_TESTS"
 
 	requiredTestPrefix      = "TestPrivileged"
 	requiredBenchmarkPrefix = "BenchmarkPrivileged"
@@ -91,5 +92,13 @@ func MCSAPIConformanceTest(tb testing.TB) {
 
 	if os.Getenv(mcsAPIConformanceEnv) == "" {
 		tb.Skipf("Set %s to run this test", mcsAPIConformanceEnv)
+	}
+}
+
+func KCNPConformanceTest(tb testing.TB) {
+	tb.Helper()
+
+	if os.Getenv(kcnpConformanceEnv) == "" {
+		tb.Skipf("Set %s to run this test", kcnpConformanceEnv)
 	}
 }

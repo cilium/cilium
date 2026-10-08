@@ -1,0 +1,6 @@
+sctp:
+  enabled: true
+nodeSelectorLabels: true
+policyCIDRMatchMode: pods
+extraConfig:
+  identity-max-jitter: "2s"
