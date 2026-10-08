@@ -49,7 +49,7 @@ func TestValidateInterfaceSysctl(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := DeviceConfig{InterfaceSysctlIPv4: tc.ipv4, InterfaceSysctlIPv6: tc.ipv6}
-			err := validateInterfaceSysctl(cfg)
+			err := cfg.validateInterfaceSysctl()
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
