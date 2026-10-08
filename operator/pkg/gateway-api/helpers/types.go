@@ -144,7 +144,7 @@ func GetConcreteObject(schemaType schema.GroupVersionKind) runtime.Object {
 	case InferencePoolKind:
 		return &gateway_inf_ext.InferencePool{}
 	default:
-		// panic is okay here because this is a progammer error
+		// panic is okay here because this is a programmer error
 		panic(fmt.Sprintf("Tried to get a concrete type that is not implemented, %s", schemaType.Kind))
 	}
 }
@@ -181,7 +181,7 @@ func GetConcreteListObject(schemaType schema.GroupVersionKind) runtime.Object {
 		return &gateway_inf_ext.InferencePoolList{}
 
 	default:
-		// panic is okay here because this is a progammer error
+		// panic is okay here because this is a programmer error
 		panic(fmt.Sprintf("Tried to get a concrete list type that is not implemented, %s", schemaType.Kind))
 	}
 }

@@ -178,7 +178,7 @@ func withTLSOrigination(secretsNamespace string, tls *model.BackendTLSOriginatio
 							// * SecretSync sees ConfigMap reference
 							// * SecretSync copies ConfigMap into Secret in the configured secrets namespace
 							// * This translation references that Secret using the shared sync name
-							// * The Cilium Agent reads the Secret directly and suppies it to Envoy via SDS.
+							// * The Cilium Agent reads the Secret directly and supplies it to Envoy via SDS.
 							Name: syncnames.SyncedConfigMapSDSSecretName(secretsNamespace, types.NamespacedName{
 								Namespace: tls.CACertRef.Namespace,
 								Name:      tls.CACertRef.Name,
