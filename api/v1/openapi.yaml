@@ -2504,9 +2504,6 @@ definitions:
       routeMTU:
         description: MTU for network facing routes
         type: integer
-      enableRouteMTUForCNIChaining:
-        description: Enable route MTU for pod netns when CNI chaining is used
-        type: boolean
       packetizationLayerPMTUDMode:
         description: Specifies what mode PLPMTUD probing on the pod netns should be set to (if empty will do nothing).
         type: string

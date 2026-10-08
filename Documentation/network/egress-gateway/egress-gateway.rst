@@ -84,9 +84,8 @@ Enable egress gateway
 
 .. note::
 
-   When using :ref:`CNI chaining <cni_chaining>`, set
-   ``cni.enableRouteMTUForCNIChaining=true`` to account for the encapsulation
-   overhead of traffic redirected through the egress gateway.
+   With :ref:`CNI chaining <cni_chaining>`, Cilium automatically accounts for
+   the encapsulation overhead of traffic redirected through the egress gateway.
 
 The egress gateway feature and all the requirements can be enabled as follow:
 

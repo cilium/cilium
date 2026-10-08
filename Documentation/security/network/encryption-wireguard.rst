@@ -81,11 +81,9 @@ each Cilium agent instance.
 
 .. note::
 
-   When running with the CNI chaining (e.g., :ref:`chaining_aws_cni`), set the
-   Helm option ``cni.enableRouteMTUForCNIChaining`` to ``true`` to force Cilium
-   to set a correct MTU for Pods. Otherwise, Pod traffic encrypted with
-   WireGuard might get fragmented, which can lead to a network performance
-   degradation.
+   When running with CNI chaining (for example, :ref:`chaining_aws_cni`),
+   Cilium automatically sets the correct route MTU for Pods. This prevents
+   fragmentation of WireGuard-encrypted Pod traffic.
 
 
 Validate the Setup

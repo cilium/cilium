@@ -106,7 +106,6 @@ cilium-agent hive [flags]
       --enable-no-service-endpoints-routable                      Enable routes when service has 0 endpoints (default true)
       --enable-node-ipam                                          Enable Node IPAM
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
-      --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-service-topology                                   Enable support for service topology aware hints
       --enable-standalone-dns-proxy                               Enables standalone DNS proxy
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
@@ -293,4 +292,3 @@ cilium-agent hive [flags]
 
 * [cilium-agent](cilium-agent.md)	 - Run the cilium agent
 * [cilium-agent hive dot-graph](cilium-agent_hive_dot-graph.md)	 - Output the dependencies graph in graphviz dot format
-

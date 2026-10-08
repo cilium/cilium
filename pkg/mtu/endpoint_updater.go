@@ -24,7 +24,6 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
-	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -46,8 +45,6 @@ type endpointUpdaterParams struct {
 	MTUTable    statedb.Table[RouteMTU]
 	DeviceTable statedb.Table[*tables.Device]
 	Logger      *slog.Logger
-	MTUConfig   Config
-	CNI         cni.CNIConfigManager
 }
 
 type EndpointMTUUpdater interface {
@@ -67,21 +64,8 @@ func newEndpointUpdater(p endpointUpdaterParams) EndpointMTUUpdater {
 		hooks:       []EndpointMTUUpdateHook{defaultRouteHook},
 	}
 
-	// If chaining mode is enabled
-	if p.CNI.GetChainingMode() != "none" {
-		EnableRouteMTU := false
-		if p.CNI.GetCustomNetConf() != nil {
-			EnableRouteMTU = p.CNI.GetCustomNetConf().EnableRouteMTU
-		}
-		// And the CNI config nor Cilium config requests us to manage route MTU in chaining mode
-		// Don't start the endpoint updater
-		if !EnableRouteMTU && !p.MTUConfig.EnableRouteMTUForCNIChaining {
-			return &endpointUpdater
-		}
-	}
-
-	// If we are not in chaining mode, or if we are in chaining mode and the CNI config requests us to manage route MTU
-	// Start the endpoint updater
+	// Update route MTU for both native and chained CNI. In the chained case,
+	// Cilium owns the effective route MTU even though another CNI owns the link.
 	p.JobGroup.Add(job.OneShot("endpoint-mtu-updater", endpointUpdater.Updater))
 
 	return &endpointUpdater

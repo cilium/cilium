@@ -25,9 +25,8 @@ the Pod must account for that overhead. This applies to WireGuard encryption
 and to traffic redirected through an egress gateway, not only to the
 encapsulation configured by the primary CNI plugin.
 
-Set the Helm option ``cni.enableRouteMTUForCNIChaining=true`` to let Cilium
-configure the route MTU in chained Pods. Without this setting, packets may
-require fragmentation, which can degrade network performance.
+Cilium automatically configures the route MTU in chained Pods. This avoids
+fragmentation when the effective datapath MTU is reduced by encapsulation.
 
 IPsec also adds encapsulation overhead, but IPsec with CNI chaining is
 currently unsupported; see :ref:`encryption_ipsec` for its limitations.

@@ -136,36 +136,34 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			return errors.New("no link found inside container")
 		}
 
-		if pluginCtx.NetConf.EnableRouteMTU || pluginCtx.CiliumConf.EnableRouteMTUForCNIChaining {
-			routes, err := safenetlink.RouteList(nil, netlink.FAMILY_V4)
-			if err != nil {
-				err = fmt.Errorf("unable to list the IPv4 routes: %w", err)
-				return err
-			}
-			for _, rt := range routes {
-				if rt.MTU != int(pluginCtx.CiliumConf.RouteMTU) {
-					rt.MTU = int(pluginCtx.CiliumConf.RouteMTU)
-					err = netlink.RouteReplace(&rt)
-					if err != nil {
-						err = fmt.Errorf("unable to replace the mtu %d for the route %s: %s", rt.MTU, rt.String(), err.Error())
-						return err
-					}
+		routes, err := safenetlink.RouteList(nil, netlink.FAMILY_V4)
+		if err != nil {
+			err = fmt.Errorf("unable to list the IPv4 routes: %w", err)
+			return err
+		}
+		for _, rt := range routes {
+			if rt.MTU != int(pluginCtx.CiliumConf.RouteMTU) {
+				rt.MTU = int(pluginCtx.CiliumConf.RouteMTU)
+				err = netlink.RouteReplace(&rt)
+				if err != nil {
+					err = fmt.Errorf("unable to replace the mtu %d for the route %s: %s", rt.MTU, rt.String(), err.Error())
+					return err
 				}
 			}
+		}
 
-			routes, err = safenetlink.RouteList(nil, netlink.FAMILY_V6)
-			if err != nil {
-				err = fmt.Errorf("unable to list the IPv6 routes: %w", err)
-				return err
-			}
-			for _, rt := range routes {
-				if rt.MTU != int(pluginCtx.CiliumConf.RouteMTU) {
-					rt.MTU = int(pluginCtx.CiliumConf.RouteMTU)
-					err = netlink.RouteReplace(&rt)
-					if err != nil {
-						err = fmt.Errorf("unable to replace the mtu %d for the route %s: %s", rt.MTU, rt.String(), err.Error())
-						return err
-					}
+		routes, err = safenetlink.RouteList(nil, netlink.FAMILY_V6)
+		if err != nil {
+			err = fmt.Errorf("unable to list the IPv6 routes: %w", err)
+			return err
+		}
+		for _, rt := range routes {
+			if rt.MTU != int(pluginCtx.CiliumConf.RouteMTU) {
+				rt.MTU = int(pluginCtx.CiliumConf.RouteMTU)
+				err = netlink.RouteReplace(&rt)
+				if err != nil {
+					err = fmt.Errorf("unable to replace the mtu %d for the route %s: %s", rt.MTU, rt.String(), err.Error())
+					return err
 				}
 			}
 		}
