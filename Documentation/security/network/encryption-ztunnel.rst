@@ -33,8 +33,17 @@ Cilium's ztunnel integration requires a set of private keys and accompanying
 to certificates be present via Kubernetes secrets. This follows the same pattern
 as IPsec key injections.
 
-These keys can be generated with the following bash script prior to deploying
-Cilium.
+Before running the script, install OpenSSL and configure ``kubectl`` to target
+the cluster where you will deploy Cilium. The script creates the
+``cilium-ztunnel-secrets`` Secret in the ``kube-system`` namespace.
+
+The ztunnel CA loader requires an RSA private key in PKCS#8 PEM format
+(``-----BEGIN PRIVATE KEY-----``). The script uses ``openssl genpkey`` to emit
+that format explicitly. Plain ``openssl genrsa`` can emit a traditional PKCS#1
+key instead (``-----BEGIN RSA PRIVATE KEY-----``), depending on the OpenSSL
+version; ztunnel cannot load that format and its CA server will fail to start.
+
+Generate the keys and Secret before deploying Cilium:
 
 .. literalinclude:: ../../../examples/kubernetes-ztunnel/generate-secrets.sh
    :language: bash
@@ -199,4 +208,3 @@ Known Issues
 
 * Pods without a network namespace path (such as host-networked pods) cannot
   be enrolled in ztunnel and will be skipped during enrollment.
-
