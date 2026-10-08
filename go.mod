@@ -23,7 +23,7 @@ require (
 	github.com/cilium/ebpf v0.22.0
 	github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c
 	github.com/cilium/fake v0.7.0
-	github.com/cilium/hive v1.0.6
+	github.com/cilium/hive v1.0.7-0.20260929145343-aa9e34c997b3
 	github.com/cilium/lumberjack/v2 v2.4.2
 	github.com/cilium/proxy v0.0.0-20260918112658-e3b99dbc580d
 	github.com/cilium/statedb v0.9.2
@@ -258,7 +258,6 @@ require (
 	github.com/mdlayher/socket v0.7.0 // indirect
 	github.com/miekg/dns v1.1.72 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/term v0.5.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
