@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/clustermesh"
+	"github.com/cilium/cilium/pkg/ztunnel/cleanup"
 	"github.com/cilium/cilium/pkg/ztunnel/config"
 	"github.com/cilium/cilium/pkg/ztunnel/reconciler"
 	"github.com/cilium/cilium/pkg/ztunnel/xds"
@@ -28,6 +29,9 @@ var Cell = cell.Module(
 	// ZDS server for ztunnel
 	zds.Cell,
 	reconciler.Cell,
+
+	// Cleanup in-pod rules when ztunnel is disabled
+	cleanup.Cell,
 )
 
 type ztunnelParams struct {
