@@ -180,6 +180,7 @@ func NodeConfig(lnc *Config) Node {
 	}
 
 	node.EnableIPSec = lnc.EnableIPSec
+	node.EnableWireguard = lnc.EnableWireguard
 
 	return node
 }

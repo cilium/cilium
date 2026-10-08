@@ -3,7 +3,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6
-#define ENABLE_WIREGUARD 1
 #define TUNNEL_MODE
 #define ENCAP_IFINDEX 4
 #define DEST_IFINDEX 5
@@ -66,6 +65,7 @@ static volatile const __u8 *DEST_NODE_MAC = mac_four;
 
 ASSIGN_CONFIG(bool, enable_identity_mark, true)
 ASSIGN_CONFIG(bool, encryption_strict_ingress, true)
+ASSIGN_CONFIG(bool, enable_wireguard, true)
 
 #include "lib/endpoint.h"
 

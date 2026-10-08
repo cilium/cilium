@@ -9,7 +9,6 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT		1
-#define ENABLE_WIREGUARD	1
 
 #define DEST_LXC_ID	0
 #define HOSTPORT_PORT	__bpf_htons(8080)
@@ -52,6 +51,8 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 #include "nodeport_defaults.h"
 
 ASSIGN_CONFIG(bool, encryption_strict_ingress, true)
+
+ASSIGN_CONFIG(bool, enable_wireguard, true)
 
 #define SRC_POD_SEC_IDENTITY	(CIDR_IDENTITY_RANGE_START - 2)
 

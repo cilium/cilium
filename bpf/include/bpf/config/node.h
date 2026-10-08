@@ -199,3 +199,5 @@ struct dsr_config {
 NODE_CONFIG(struct dsr_config, dsr_cfg, "DSR-specific configuration")
 
 NODE_CONFIG(bool, enable_ipsec, "Enable IPSec support")
+
+NODE_CONFIG(bool, enable_wireguard, "Enable Wireguard support")
