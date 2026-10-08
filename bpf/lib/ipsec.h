@@ -185,7 +185,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr __maybe_unused *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
 	int ret = 0;
-	union macaddr dst_mac = CONFIG(cilium_net_mac);
+	union macaddr dst_mac_addr = CONFIG(cilium_net_mac);
 
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
@@ -294,7 +294,7 @@ overlay_encrypt:
 	 * the encrypted packet will be recirculated to the stack and the final
 	 * egress will occur toward the IPsec tunnel's destination.
 	 */
-	if (eth_store_daddr(ctx, (const __u8 *)&dst_mac, 0) != 0)
+	if (eth_store_daddr(ctx, (const __u8 *)&dst_mac_addr, 0) != 0)
 		return DROP_WRITE_ERROR;
 
 	ret = ctx_redirect(ctx, CONFIG(cilium_net_ifindex), BPF_F_INGRESS);
