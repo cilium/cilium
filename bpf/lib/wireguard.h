@@ -68,7 +68,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 {
 	const struct remote_endpoint_info *dst = NULL;
 	const struct remote_endpoint_info __maybe_unused *src = NULL;
-	void *data, *data_end;
+	void *data __maybe_unused, *data_end __maybe_unused;
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
 	__u32 magic __maybe_unused = 0;
