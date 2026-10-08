@@ -450,16 +450,9 @@ func createLabelPrefixFile(t *testing.T, parseLabelFileContent string) string {
 		return ""
 	}
 
-	tmpDir := t.TempDir()
-	tmpFile, err := os.Create(filepath.Join(tmpDir, "label-prefix.json"))
+	path := filepath.Join(t.TempDir(), "label-prefix.json")
+	err := os.WriteFile(path, []byte(parseLabelFileContent), 0o600)
 	require.NoError(t, err)
 
-	defer tmpFile.Close()
-
-	_, err = tmpFile.WriteString(parseLabelFileContent)
-	require.NoError(t, err)
-	err = tmpFile.Close()
-	require.NoError(t, err)
-
-	return tmpFile.Name()
+	return path
 }
