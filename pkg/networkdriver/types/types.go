@@ -192,9 +192,9 @@ type DeviceManager interface {
 type DeviceConfig struct {
 	PodIfName string       `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
 	Vlan      int32        `json:"vlan,omitempty"`      // VLAN ID to assign to the device (0 = untagged / no change)
-	IPv4Addr  netip.Prefix `json:"ipv4Addr"`
-	IPv6Addr  netip.Prefix `json:"ipv6Addr"`
-	IPPool    string       `json:"ip-pool"`
+	IPv4Addr  netip.Prefix `json:"ipv4Addr,omitzero"`
+	IPv6Addr  netip.Prefix `json:"ipv6Addr,omitzero"`
+	IPPool    string       `json:"ip-pool,omitempty"`
 
 	// InterfaceSysctlIPv4/IPv6 hold leaf sysctl parameters (e.g.
 	// "arp_filter") applied under net.<family>.conf.<interface>. for the
