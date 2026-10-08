@@ -13,7 +13,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/prometheus/client_golang/prometheus"
-	"golang.org/x/sync/singleflight"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -166,7 +165,6 @@ func (v *bpfVisitor) visitMap(id ebpf.MapID) error {
 
 type bpfCollector struct {
 	logger *slog.Logger
-	sfg    singleflight.Group
 
 	bpfMapsCount      *prometheus.Desc
 	bpfMapsMemory     *prometheus.Desc
@@ -205,12 +203,7 @@ func (s *bpfCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
-	// Avoid querying BPF multiple times concurrently, if it happens, additional callers will wait for the
-	// first one to finish and reuse its resulting values.
-	results, err, _ := s.sfg.Do("collect", func() (any, error) {
-		return newBPFVisitor([]string{"cil_", "tail_"}).Usage()
-	})
-
+	usage, err := getBPFUsage()
 	if err != nil {
 		s.logger.Error("retrieving BPF maps & programs usage", logfields.Error, err)
 		return
@@ -219,24 +212,24 @@ func (s *bpfCollector) Collect(ch chan<- prometheus.Metric) {
 	ch <- prometheus.MustNewConstMetric(
 		s.bpfMapsCount,
 		prometheus.GaugeValue,
-		float64(results.(*bpfUsage).maps),
+		float64(usage.maps),
 	)
 
 	ch <- prometheus.MustNewConstMetric(
 		s.bpfMapsMemory,
 		prometheus.GaugeValue,
-		float64(results.(*bpfUsage).mapBytes),
+		float64(usage.mapBytes),
 	)
 
 	ch <- prometheus.MustNewConstMetric(
 		s.bpfProgramsCount,
 		prometheus.GaugeValue,
-		float64(results.(*bpfUsage).programs),
+		float64(usage.programs),
 	)
 
 	ch <- prometheus.MustNewConstMetric(
 		s.bpfProgramsMemory,
 		prometheus.GaugeValue,
-		float64(results.(*bpfUsage).programBytes),
+		float64(usage.programBytes),
 	)
 }
