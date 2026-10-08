@@ -2,10 +2,6 @@
  * Copyright Authors of Cilium
  */
 
-#if !defined(ENABLE_WIREGUARD) && !defined(ENABLE_IPSEC)
-# error "At least one of ENABLE_WIREGUARD or ENABLE_IPSEC must be defined
-#endif
-
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6
 
@@ -33,7 +29,6 @@ const __u8 v6_wireguard[] = {
 };
 #endif
 
-#ifdef ENABLE_IPSEC
 /* packet defined in ./scapy/ipsec_from_netdev_pkt_defs.py */
 const __u8 v4_ipsec[] = {
 	SCAPY_BUF_BYTES(v4_ipsec)
@@ -43,7 +38,6 @@ const __u8 v4_ipsec[] = {
 const __u8 v6_ipsec[] = {
 	SCAPY_BUF_BYTES(v6_ipsec)
 };
-#endif
 
 int pktgen(struct __ctx_buff *ctx, bool ipv4)
 {
@@ -57,12 +51,12 @@ int pktgen(struct __ctx_buff *ctx, bool ipv4)
 	else
 		scapy_push_data(&builder, v6_wireguard, sizeof(v6_wireguard));
 #endif
-#ifdef ENABLE_IPSEC
-	if (ipv4)
-		scapy_push_data(&builder, v4_ipsec, sizeof(v4_ipsec));
-	else
-		scapy_push_data(&builder, v6_ipsec, sizeof(v6_ipsec));
-#endif
+	if (CONFIG(enable_ipsec)) {
+		if (ipv4)
+			scapy_push_data(&builder, v4_ipsec, sizeof(v4_ipsec));
+		else
+			scapy_push_data(&builder, v6_ipsec, sizeof(v6_ipsec));
+	}
 
 	pktgen__finish(&builder);
 	return 0;
@@ -75,12 +69,12 @@ int pktgen(struct __ctx_buff *ctx, bool ipv4)
  */
 int setup(struct __ctx_buff *ctx, bool ipv4)
 {
-#ifdef ENABLE_IPSEC
-	if (ipv4)
-		node_v4_add_entry(v4_node_one, REMOTE_NODE_ID, 3);
-	else
-		node_v6_add_entry((union v6addr *)v6_node_one, REMOTE_NODE_ID, 3);
-#endif
+	if (CONFIG(enable_ipsec)) {
+		if (ipv4)
+			node_v4_add_entry(v4_node_one, REMOTE_NODE_ID, 3);
+		else
+			node_v6_add_entry((union v6addr *)v6_node_one, REMOTE_NODE_ID, 3);
+	}
 
 #ifdef ENABLE_WIREGUARD
 	if (ipv4)
@@ -120,16 +114,16 @@ int check(const struct __ctx_buff *ctx, bool ipv4)
 				   v6_wireguard, sizeof(v6_wireguard));
 	}
 #endif
-#ifdef ENABLE_IPSEC
-	assert(ctx_is_decrypt(ctx));
-	if (ipv4) {
-		ASSERT_CTX_BUF_OFF("v4_ipsec_pkt_ok", "Ether", ctx, sizeof(__u32),
-				   v4_ipsec, sizeof(v4_ipsec));
-	} else {
-		ASSERT_CTX_BUF_OFF("v6_ipsec_pkt_ok", "Ether", ctx, sizeof(__u32),
-				   v6_ipsec, sizeof(v6_ipsec));
+	if (CONFIG(enable_ipsec)) {
+		assert(ctx_is_decrypt(ctx));
+		if (ipv4) {
+			ASSERT_CTX_BUF_OFF("v4_ipsec_pkt_ok", "Ether", ctx, sizeof(__u32),
+					   v4_ipsec, sizeof(v4_ipsec));
+		} else {
+			ASSERT_CTX_BUF_OFF("v6_ipsec_pkt_ok", "Ether", ctx, sizeof(__u32),
+					   v6_ipsec, sizeof(v6_ipsec));
+		}
 	}
-#endif
 
 	test_finish();
 }

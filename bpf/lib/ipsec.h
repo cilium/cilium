@@ -34,7 +34,9 @@ struct {
 
 static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 {
-#ifdef ENABLE_IPSEC
+	if (!CONFIG(enable_ipsec))
+		return 0;
+
 	__u8 local_key = 0;
 	__u32 encrypt_key = 0;
 	const struct encrypt_config *cfg;
@@ -57,12 +59,8 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 	if (local_key == MAX_KEY_INDEX)
 		return peer_key == 1 ? local_key : peer_key;
 	return local_key < peer_key ? local_key : peer_key;
-#else
-	return 0;
-#endif /* ENABLE_IPSEC */
 }
 
-#ifdef ENABLE_IPSEC
 /**
  * or_encrypt_key - mask and shift key into encryption format
  */
@@ -302,10 +300,3 @@ overlay_encrypt:
 		return DROP_INVALID;
 	return ret;
 }
-#else
-static __always_inline int
-do_decrypt(struct __ctx_buff __maybe_unused *ctx, __be16 __maybe_unused proto)
-{
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_IPSEC */
