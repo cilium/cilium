@@ -211,6 +211,13 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			fake_info.tunnel_endpoint.ip4.be32 = ip4->daddr;
 			fake_info.flag_has_tunnel_ep = true;
 
+#   ifdef ALLOW_PLAINTEXT_ESP_OVERLAY
+			const struct node_value *node_value = lookup_node(&fake_info);
+
+			if (node_value && node_value->id && !node_value->spi)
+				return CTX_ACT_OK;
+#   endif
+
 			dst = &fake_info;
 			src_sec_identity = get_identity(ctx);
 			goto overlay_encrypt;
@@ -243,6 +250,13 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 						 (union v6addr *)&ip6->daddr);
 			fake_info.flag_has_tunnel_ep = true;
 			fake_info.flag_ipv6_tunnel_ep = true;
+
+#   ifdef ALLOW_PLAINTEXT_ESP_OVERLAY
+			const struct node_value *node_value = lookup_node(&fake_info);
+
+			if (node_value && node_value->id && !node_value->spi)
+				return CTX_ACT_OK;
+#   endif
 
 			dst = &fake_info;
 			src_sec_identity = get_identity(ctx);

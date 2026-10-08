@@ -1047,7 +1047,8 @@ const (
 // IPSec-related options.
 const (
 	// EnableIPSec is the name of the option which enables the IPsec feature.
-	EnableIPSec = "enable-ipsec"
+	EnableIPSec              = "enable-ipsec"
+	AllowPlaintextESPOverlay = "allow-plaintext-esp-overlay"
 
 	// Duration of the IPsec key rotation. After that time, we will clean the
 	// previous IPsec key from the node.

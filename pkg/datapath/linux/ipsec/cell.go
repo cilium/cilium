@@ -55,6 +55,9 @@ func newIPsecAgent(p params) (out struct {
 		out.NodeDefines = map[string]string{
 			"ENABLE_IPSEC": "1",
 		}
+		if p.Config.AllowPlaintextESPOverlay {
+			out.NodeDefines["ALLOW_PLAINTEXT_ESP_OVERLAY"] = "1"
+		}
 	}
 	return
 }
@@ -81,6 +84,7 @@ var defaultUserConfig = UserConfig{
 	DNSProxyInsecureSkipTransparentModeCheck: false,
 	IPsecKeyFile:                             "",
 	IPsecKeyRotationDuration:                 5 * time.Minute,
+	AllowPlaintextESPOverlay:                 false,
 }
 
 type UserConfig struct {
@@ -91,6 +95,7 @@ type UserConfig struct {
 	DNSProxyInsecureSkipTransparentModeCheck bool
 	IPsecKeyFile                             string
 	IPsecKeyRotationDuration                 time.Duration
+	AllowPlaintextESPOverlay                 bool
 }
 
 func (def UserConfig) Flags(flags *pflag.FlagSet) {
@@ -104,6 +109,7 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.MarkHidden(option.DNSProxyInsecureSkipTransparentModeCheck)
 	flags.String(option.IPSecKeyFile, def.IPsecKeyFile, "Path to IPsec key file")
 	flags.Duration(option.IPsecKeyRotationDuration, def.IPsecKeyRotationDuration, "Maximum duration of the IPsec key rotation. The previous key will be removed after that delay.")
+	flags.Bool(option.AllowPlaintextESPOverlay, def.AllowPlaintextESPOverlay, "During a tunnel-mode IPsec migration, send overlay traffic to peers advertising no key in plaintext instead of dropping it")
 }
 
 type config struct {
