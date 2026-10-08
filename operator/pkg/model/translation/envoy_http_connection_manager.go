@@ -31,6 +31,10 @@ const (
 	// ExtAuthzFilterNamePrefix is the prefix for ext_authz filter instance names.
 	// Full name: "<prefix>/<clusterName>". Used as the TypedPerFilterConfig key on routes.
 	ExtAuthzFilterNamePrefix = "envoy.filters.http.ext_authz"
+
+	// extAuthzTimeoutSeconds bounds a single external authorization call.
+	// Applied to both the HTTP and gRPC transports so they behave alike.
+	extAuthzTimeoutSeconds = 10
 )
 
 // ExtAuthzFilterName returns the HCM filter instance name for a given ext_authz cluster.
@@ -198,6 +202,16 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) *httpConnectionMa
 							Authority: fmt.Sprintf("%s:%s", af.Backend.Name, af.Backend.Port.GetPort()),
 						},
 					},
+					// Without an explicit timeout Envoy applies its 200ms default to
+					// the ext_authz gRPC call. That is far too short for an auth
+					// backend that performs network I/O of its own - an OIDC relying
+					// party doing an authorization-code exchange against the identity
+					// provider routinely needs several hundred milliseconds. When the
+					// deadline fires Envoy resets the stream and, with the default
+					// failure_mode_allow=false, denies the request with a 403, which
+					// surfaces as a login loop. Match the timeout the HTTP branch
+					// already uses below.
+					Timeout: &durationpb.Duration{Seconds: extAuthzTimeoutSeconds},
 				},
 			},
 			DecoderHeaderMutationRules: &mutation_rules_v3.HeaderMutationRules{
@@ -222,7 +236,7 @@ func buildExtAuthzHTTPFilter(af *model.HTTPExternalAuthFilter) *httpConnectionMa
 				HttpUpstreamType: &envoy_config_core.HttpUri_Cluster{
 					Cluster: clusterName,
 				},
-				Timeout: &durationpb.Duration{Seconds: 10},
+				Timeout: &durationpb.Duration{Seconds: extAuthzTimeoutSeconds},
 			},
 			PathPrefix: af.PathPrefix,
 		}
