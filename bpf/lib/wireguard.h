@@ -18,8 +18,6 @@
 DECLARE_CONFIG(__u32, wg_ifindex, "Index of the WireGuard interface.")
 DECLARE_CONFIG(__u16, wg_port, "Port for the WireGuard interface.")
 
-#ifdef ENABLE_WIREGUARD
-
 /* ctx_is_wireguard is used to check whether ctx is a WireGuard network packet.
  * This function returns true in case all the following conditions are satisfied:
  *
@@ -168,4 +166,3 @@ overlay_encrypt: __maybe_unused
 out:
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_WIREGUARD */

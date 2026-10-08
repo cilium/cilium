@@ -33,13 +33,8 @@ func newWireguardAgent(p params) (out struct {
 	defines.NodeOut
 }) {
 	out.Agent = newAgent(p)
-	if out.Agent.Enabled() {
-		out.NodeDefines = map[string]string{
-			"ENABLE_WIREGUARD": "1",
-		}
-		if p.Config.EncryptNode {
-			out.NodeDefines["ENABLE_NODE_ENCRYPTION"] = "1"
-		}
+	if out.Agent.Enabled() && p.Config.EncryptNode {
+		out.NodeDefines["ENABLE_NODE_ENCRYPTION"] = "1"
 	}
 	return
 }

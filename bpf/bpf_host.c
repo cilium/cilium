@@ -195,7 +195,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	}
 
 	/* See IPv4 path for comments. */
-	if (is_defined(ENABLE_WIREGUARD) && CONFIG(encryption_strict_ingress) &&
+	if (CONFIG(enable_wireguard) && CONFIG(encryption_strict_ingress) &&
 	    !from_host && identity_is_cluster(secctx) &&
 	    !identity_is_remote_node(secctx)) {
 		const struct endpoint_info *ep = lookup_ip6_endpoint(ip6);
@@ -648,7 +648,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 	 * traffic addressed to a node IP will be judged against the post-DNAT
 	 * pod backend address and dropped.
 	 */
-	if (is_defined(ENABLE_WIREGUARD) && CONFIG(encryption_strict_ingress) &&
+	if (CONFIG(enable_wireguard) && CONFIG(encryption_strict_ingress) &&
 	    !from_host && identity_is_cluster(secctx) &&
 	    !identity_is_remote_node(secctx)) {
 		const struct endpoint_info *ep = lookup_ip4_endpoint(ip4);
@@ -1141,8 +1141,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
 # endif /* defined(ENABLE_HOST_FIREWALL) */
 
-# ifdef ENABLE_WIREGUARD
-		if (!from_host) {
+		if (CONFIG(enable_wireguard) && !from_host) {
 			next_proto = ip6->nexthdr;
 			hdrlen = ipv6_hdrlen_with_fraginfo(ctx, &next_proto, &fraginfo);
 			if (likely(hdrlen > 0) &&
@@ -1151,7 +1150,6 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 				trace.reason = TRACE_REASON_ENCRYPTED;
 			}
 		}
-# endif /* ENABLE_WIREGUARD */
 
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
@@ -1235,8 +1233,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
 # endif /* defined(ENABLE_HOST_FIREWALL) */
 
-#ifdef ENABLE_WIREGUARD
-		if (!from_host) {
+		if (CONFIG(enable_wireguard) && !from_host) {
 			next_proto = ip4->protocol;
 			hdrlen = ipv4_hdrlen(ip4);
 			fraginfo = ipfrag_encode_ipv4(ip4);
@@ -1245,7 +1242,6 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 				trace.reason = TRACE_REASON_ENCRYPTED;
 			}
 		}
-#endif /* ENABLE_WIREGUARD */
 
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
@@ -1586,38 +1582,38 @@ skip_host_firewall:
 	}
 #endif /* ENABLE_IPSEC */
 
-#ifdef ENABLE_WIREGUARD
-	/* Redirect the packet to the WireGuard tunnel device for encryption
-	 * if needed.
-	 * We assume that a packet, which is a subject to the encryption, is
-	 * NOT a subject to the BPF SNAT (happening below), as the former's
-	 * destination resides in the cluster, while the latter - outside the
-	 * cluster.
-	 * Once the assumption is no longer true, we will need to recirculate
-	 * the packet back to the "to-netdev" section for the SNAT instead of
-	 * returning TC_ACT_REDIRECT.
-	 *
-	 * Skip redirect to the WireGuard tunnel device if the pkt has been
-	 * already encrypted.
-	 * After the packet has been encrypted, the WG tunnel device
-	 * will set the MARK_MAGIC_ENCRYPT skb mark. So, to avoid
-	 * looping forever (e.g., bpf_host@eth0 => cilium_wg0 =>
-	 * bpf_host@eth0 => ...; this happens when eth0 is used to send
-	 * encrypted WireGuard UDP packets), we check whether the mark
-	 * is set before the redirect.
-	 */
-	if (!ctx_is_encrypt(ctx)) {
-		ret = host_wg_encrypt_hook(ctx, proto, src_sec_identity);
-		if (ret == CTX_ACT_REDIRECT)
-			return ret;
-		else if (IS_ERR(ret))
-			goto drop_err;
-	} else {
-		trace.reason |= TRACE_REASON_ENCRYPTED;
+	if (CONFIG(enable_wireguard)) {
+		/* Redirect the packet to the WireGuard tunnel device for encryption
+		 * if needed.
+		 * We assume that a packet, which is a subject to the encryption, is
+		 * NOT a subject to the BPF SNAT (happening below), as the former's
+		 * destination resides in the cluster, while the latter - outside the
+		 * cluster.
+		 * Once the assumption is no longer true, we will need to recirculate
+		 * the packet back to the "to-netdev" section for the SNAT instead of
+		 * returning TC_ACT_REDIRECT.
+		 *
+		 * Skip redirect to the WireGuard tunnel device if the pkt has been
+		 * already encrypted.
+		 * After the packet has been encrypted, the WG tunnel device
+		 * will set the MARK_MAGIC_ENCRYPT skb mark. So, to avoid
+		 * looping forever (e.g., bpf_host@eth0 => cilium_wg0 =>
+		 * bpf_host@eth0 => ...; this happens when eth0 is used to send
+		 * encrypted WireGuard UDP packets), we check whether the mark
+		 * is set before the redirect.
+		 */
+		if (!ctx_is_encrypt(ctx)) {
+			ret = host_wg_encrypt_hook(ctx, proto, src_sec_identity);
+			if (ret == CTX_ACT_REDIRECT)
+				return ret;
+			else if (IS_ERR(ret))
+				goto drop_err;
+		} else {
+			trace.reason |= TRACE_REASON_ENCRYPTED;
+		}
 	}
-#endif /* ENABLE_WIREGUARD */
 
-	if ((is_defined(ENABLE_IPSEC) || is_defined(ENABLE_WIREGUARD)) &&
+	if ((is_defined(ENABLE_IPSEC) || CONFIG(enable_wireguard)) &&
 	    CONFIG(strict_egress_encryption).enabled) {
 		if (!strict_allow(ctx, proto)) {
 			ret = DROP_UNENCRYPTED_TRAFFIC;
@@ -1803,7 +1799,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 	if (CONFIG(enable_identity_mark)) {
 		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_IDENTITY)
 			src_id = get_identity(ctx);
-		else if (is_defined(ENABLE_WIREGUARD) && ctx_is_decrypt(ctx))
+		else if (CONFIG(enable_wireguard) && ctx_is_decrypt(ctx))
 			src_id = get_identity(ctx);
 	}
 

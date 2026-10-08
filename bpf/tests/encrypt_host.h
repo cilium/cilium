@@ -96,11 +96,11 @@ int check(const struct __ctx_buff *ctx, __u32 expected_result)
 		assert(rec.flags == BPF_F_INGRESS);
 		assert(rec.ifindex == (int)CONFIG(cilium_net_ifindex));
 #endif
-#ifdef ENABLE_WIREGUARD
-		/* With WireGuard we redirect to cilium_wg0 egress. */
-		assert(rec.flags == 0);
-		assert(rec.ifindex == (int)CONFIG(wg_ifindex));
-#endif
+		if (CONFIG(enable_wireguard)) {
+			/* With WireGuard we redirect to cilium_wg0 egress. */
+			assert(rec.flags == 0);
+			assert(rec.ifindex == (int)CONFIG(wg_ifindex));
+		}
 	}
 
 	test_finish();
