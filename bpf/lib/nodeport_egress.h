@@ -47,6 +47,10 @@ nodeport_has_nat_conflict_ipv6(const struct __ctx_buff *ctx __maybe_unused,
 	 * already reserved.
 	 */
 	if (magic == MARK_MAGIC_HOST || (ep && (ep->flags & ENDPOINT_F_HOST))) {
+		/* See comment in nodeport_has_nat_conflict_ipv4(). */
+		if (__lookup_ip6_endpoint((union v6addr *)&ip6->daddr))
+			return false;
+
 		ipv6_addr_copy(&target->addr, (union v6addr *)&ip6->saddr);
 		target->needs_ct = true;
 		return true;
@@ -319,6 +323,15 @@ nodeport_has_nat_conflict_ipv4(const struct __ctx_buff *ctx __maybe_unused,
 	 * already reserved.
 	 */
 	if (magic == MARK_MAGIC_HOST || (ep && (ep->flags & ENDPOINT_F_HOST))) {
+		/* Host traffic to a local endpoint never leaves the node, so it
+		 * cannot collide with egress SNAT and must keep MARK_MAGIC_HOST.
+		 * The SNAT path would replace that mark with MARK_MAGIC_SNAT_DONE,
+		 * and with CNI chaining the destination endpoint would then see
+		 * the source as world.
+		 */
+		if (__lookup_ip4_endpoint(ip4->daddr))
+			return false;
+
 		target->addr = ip4->saddr;
 		target->needs_ct = true;
 		return true;
