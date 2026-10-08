@@ -31,6 +31,7 @@ IP6
 IPCache
 IPIP
 IPMasq
+IPSec
 IPv4
 IPv6
 HostNS

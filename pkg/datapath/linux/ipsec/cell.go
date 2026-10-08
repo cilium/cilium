@@ -10,7 +10,6 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/spf13/pflag"
 
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/node"
@@ -44,18 +43,11 @@ type params struct {
 }
 
 // newIPsecAgent returns the [*agent] as an interface [Agent]
-// and the map of macros [defines.NodeOut] for datapath compilation.
 func newIPsecAgent(p params) (out struct {
 	cell.Out
 	types.Agent
-	defines.NodeOut
 }) {
 	out.Agent = newAgent(p.Lifecycle, p.Log, p.JobGroup, p.LocalNodeStore, p.NodeWriter, p.Config, p.EncryptMap)
-	if out.Agent.Enabled() {
-		out.NodeDefines = map[string]string{
-			"ENABLE_IPSEC": "1",
-		}
-	}
 	return
 }
 

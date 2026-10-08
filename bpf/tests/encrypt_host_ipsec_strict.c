@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define ENABLE_IPSEC		1
-
 #include "encrypt_host.h"
+
+ASSIGN_CONFIG(bool, enable_ipsec, true)
 
 ASSIGN_CONFIG(struct strict_encryption_cfg, strict_egress_encryption, {
 	.enabled = true,
