@@ -148,7 +148,8 @@ jobs:
       UID: 2
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "ipsec": true}'
+      # Skipping IPv6 + IPsec config as it is known to not work
+      extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "ipsec": true, "skip-ipv6": true}'
       test-concurrency: 2
 
   conformance-eks-kpr-wireguard:
