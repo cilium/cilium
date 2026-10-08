@@ -15,6 +15,7 @@ import (
 	v1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -139,7 +140,12 @@ func updateV1CRD(
 			if needsUpdate {
 				scopedLog.Debug("CRD validation is different, updating it...")
 
-				currentCRD.ObjectMeta.Labels = targetCRD.ObjectMeta.Labels
+				// Merge rather than replace the labels and annotations so
+				// that metadata set by other tools (e.g. Helm ownership
+				// metadata) is preserved. Entries from the target CRD, such
+				// as the schema version, take precedence.
+				currentCRD.ObjectMeta.Labels = labels.Merge(currentCRD.ObjectMeta.Labels, targetCRD.ObjectMeta.Labels)
+				currentCRD.ObjectMeta.Annotations = labels.Merge(currentCRD.ObjectMeta.Annotations, targetCRD.ObjectMeta.Annotations)
 				currentCRD.Spec = targetCRD.Spec
 
 				// Even though v1 CRDs omit this field by default (which also

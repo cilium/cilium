@@ -277,6 +277,9 @@ rules:
   - ciliuml2announcementpolicies.cilium.io
   - ciliumpodippools.cilium.io
   - ciliumgatewayclassconfigs.cilium.io
+{{- if and .Values.k8sClusterNetworkPolicy.enabled .Values.k8sClusterNetworkPolicy.installCRDs }}
+  - clusternetworkpolicies.policy.networking.k8s.io
+{{- end }}
 {{- if and .Values.clustermesh.mcsapi.enabled .Values.clustermesh.mcsapi.installCRDs }}
   - serviceimports.multicluster.x-k8s.io
   - serviceexports.multicluster.x-k8s.io

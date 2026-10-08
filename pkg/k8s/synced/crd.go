@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
@@ -35,6 +36,9 @@ import (
 
 const (
 	k8sAPIGroupCRD = "CustomResourceDefinition"
+
+	// KCNPCRDName is the full name of the K8s ClusterNetworkPolicy CRD.
+	KCNPCRDName = "clusternetworkpolicies." + policyv1alpha2.GroupName
 )
 
 func CRDResourceName(crd string) string {
@@ -104,7 +108,11 @@ func agentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
 // AgentCRDResourceNames returns a list of all CRD resource names the Cilium
 // agent needs to wait to be registered before initializing any k8s watchers.
 func AgentCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
-	return agentCRDResourceNames(bgpCfg)
+	result := agentCRDResourceNames(bgpCfg)
+	if option.Config.EnableK8sClusterNetworkPolicy {
+		result = append(result, CRDResourceName(KCNPCRDName))
+	}
+	return result
 }
 
 // ClusterMeshAPIServerResourceNames returns a list of all CRD resource names the
@@ -130,7 +138,7 @@ func GatewayAPIResourceNames() []string {
 // AllCiliumCRDResourceNames returns a list of all Cilium CRD resource names
 // that the cilium operator or testsuite may register.
 func AllCiliumCRDResourceNames(bgpCfg bgpConfig.BGPConfig) []string {
-	res := append(AgentCRDResourceNames(bgpCfg), GatewayAPIResourceNames()...)
+	res := append(agentCRDResourceNames(bgpCfg), GatewayAPIResourceNames()...)
 	res = append(res,
 		CRDResourceName(v2.CNCName),
 	)

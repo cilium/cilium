@@ -3103,7 +3103,11 @@
    * - :spelling:ignore:`k8sClusterNetworkPolicy.enabled`
      - Enable support for K8s Cluster Network Policy
      - bool
-     - ``false``
+     - ``true``
+   * - :spelling:ignore:`k8sClusterNetworkPolicy.installCRDs`
+     - Install and manage the K8s ClusterNetworkPolicy CRD through the Cilium Operator. Only applicable if K8s ClusterNetworkPolicy support is enabled. If disabled, the CRD must be installed by other means.
+     - bool
+     - ``true``
    * - :spelling:ignore:`k8sNetworkPolicy.enabled`
      - Enable support for K8s NetworkPolicy
      - bool
