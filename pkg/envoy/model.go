@@ -462,7 +462,7 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 		return havePassRules, wildcardSelectorPrecedence
 	}
 
-	// interate tier-by-tier
+	// iterate tier-by-tier
 	for i := range l4Policy {
 		tier := policyTypes.Tier(i)
 		tierBasePriority, tierLastPriority := l4DirectionPolicy.GetTierPriorities(tier)
