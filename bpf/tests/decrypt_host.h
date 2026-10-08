@@ -17,7 +17,6 @@
 
 ASSIGN_CONFIG(__u16, wg_port, 51871)
 
-#ifdef ENABLE_WIREGUARD
 /* packet defined in ./scapy/wg_from_netdev_pkt_defs.py */
 const __u8 v4_wireguard[] = {
 	SCAPY_BUF_BYTES(v4_wireguard)
@@ -27,7 +26,6 @@ const __u8 v4_wireguard[] = {
 const __u8 v6_wireguard[] = {
 	SCAPY_BUF_BYTES(v6_wireguard)
 };
-#endif
 
 /* packet defined in ./scapy/ipsec_from_netdev_pkt_defs.py */
 const __u8 v4_ipsec[] = {
@@ -45,12 +43,12 @@ int pktgen(struct __ctx_buff *ctx, bool ipv4)
 
 	pktgen__init(&builder, ctx);
 
-#ifdef ENABLE_WIREGUARD
-	if (ipv4)
-		scapy_push_data(&builder, v4_wireguard, sizeof(v4_wireguard));
-	else
-		scapy_push_data(&builder, v6_wireguard, sizeof(v6_wireguard));
-#endif
+	if (CONFIG(enable_wireguard)) {
+		if (ipv4)
+			scapy_push_data(&builder, v4_wireguard, sizeof(v4_wireguard));
+		else
+			scapy_push_data(&builder, v6_wireguard, sizeof(v6_wireguard));
+	}
 	if (CONFIG(enable_ipsec)) {
 		if (ipv4)
 			scapy_push_data(&builder, v4_ipsec, sizeof(v4_ipsec));
@@ -76,12 +74,13 @@ int setup(struct __ctx_buff *ctx, bool ipv4)
 			node_v6_add_entry((union v6addr *)v6_node_one, REMOTE_NODE_ID, 3);
 	}
 
-#ifdef ENABLE_WIREGUARD
-	if (ipv4)
-		ipcache_v4_add_entry(v4_node_one, 0, REMOTE_NODE_ID, 0, 255);
-	else
-		ipcache_v6_add_entry((union v6addr *)v6_node_one, 0, REMOTE_NODE_ID, 0, 255);
-#endif
+	if (CONFIG(enable_wireguard)) {
+		if (ipv4)
+			ipcache_v4_add_entry(v4_node_one, 0, REMOTE_NODE_ID, 0, 255);
+		else
+			ipcache_v6_add_entry((union v6addr *)v6_node_one, 0, REMOTE_NODE_ID, 0,
+					     255);
+	}
 
 	return netdev_receive_packet(ctx);
 }
@@ -104,16 +103,16 @@ int check(const struct __ctx_buff *ctx, bool ipv4)
 
 	assert(*status_code == CTX_ACT_OK);
 
-#ifdef ENABLE_WIREGUARD
-	assert(!ctx_is_decrypt(ctx));
-	if (ipv4) {
-		ASSERT_CTX_BUF_OFF("v4_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
-				   v4_wireguard, sizeof(v4_wireguard));
-	} else {
-		ASSERT_CTX_BUF_OFF("v6_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
-				   v6_wireguard, sizeof(v6_wireguard));
+	if (CONFIG(enable_wireguard)) {
+		assert(!ctx_is_decrypt(ctx));
+		if (ipv4) {
+			ASSERT_CTX_BUF_OFF("v4_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
+					   v4_wireguard, sizeof(v4_wireguard));
+		} else {
+			ASSERT_CTX_BUF_OFF("v6_wg_pkt_ok", "Ether", ctx, sizeof(__u32),
+					   v6_wireguard, sizeof(v6_wireguard));
+		}
 	}
-#endif
 	if (CONFIG(enable_ipsec)) {
 		assert(ctx_is_decrypt(ctx));
 		if (ipv4) {

@@ -45,6 +45,7 @@ func setBasePermutations(t *config.Node) {
 		EnableByUser:     true,
 	}
 	t.EnableIPSec = true
+	t.EnableWireguard = true
 }
 
 func baseLXCPermutations() *loadPermutationBuilder {

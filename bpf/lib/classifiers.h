@@ -180,7 +180,7 @@ ctx_is_encrypted_by_point(const struct __ctx_buff *ctx __maybe_unused,
 {
 #if __ctx_is == __ctx_skb
 	if (is_defined(IS_BPF_HOST) &&
-	    (CONFIG(enable_ipsec) || is_defined(ENABLE_WIREGUARD)) &&
+	    (CONFIG(enable_ipsec) || CONFIG(enable_wireguard)) &&
 	    (obs_point == TRACE_FROM_NETWORK ||
 	     obs_point == TRACE_TO_NETWORK ||
 	     obs_point == TRACE_POINT_UNKNOWN))
