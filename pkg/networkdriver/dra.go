@@ -742,6 +742,10 @@ func (driver *Driver) allocateAddrs(ctx context.Context, deviceName string, cfg 
 			if err != nil {
 				errs = append(errs, err)
 			} else {
+				// TODO: We need to use the prefix of the CIDR from which the IP was allocated
+				// rather than the IP's bit length.
+				// e.g., if the IP was allocated from a /24 CIDR (in the CiliumResourceIPPool),
+				// we should use 24 as the prefix length.
 				cfg.IPv4Addr = netip.PrefixFrom(res.IP, res.IP.BitLen())
 			}
 		}
@@ -750,6 +754,8 @@ func (driver *Driver) allocateAddrs(ctx context.Context, deviceName string, cfg 
 			if err != nil {
 				errs = append(errs, err)
 			} else {
+				// TODO: We need to use the prefix of the CIDR from which the IP was allocated
+				// rather than the IP's bit length.
 				cfg.IPv6Addr = netip.PrefixFrom(res.IP, res.IP.BitLen())
 			}
 		}
