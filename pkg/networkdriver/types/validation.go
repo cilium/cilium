@@ -16,7 +16,7 @@ var (
 	errEmptySysctlValue  = errors.New("sysctl value must not be empty")
 )
 
-func (d *DeviceConfig) Validate() error {
+func (d *DeviceConfig) Validate(ipv4Enabled bool, ipv6Enabled bool) error {
 	if d == nil {
 		return fmt.Errorf("device config is nil")
 	}
@@ -27,6 +27,27 @@ func (d *DeviceConfig) Validate() error {
 
 	if err := d.validateInterfaceSysctl(); err != nil {
 		return fmt.Errorf("invalid sysctl config: %w", err)
+	}
+
+	if err := d.validateAddressAllocation(ipv4Enabled, ipv6Enabled); err != nil {
+		return fmt.Errorf("invalid address allocation: %w", err)
+	}
+
+	return nil
+}
+
+func (d *DeviceConfig) validateAddressAllocation(ipv4Enabled bool, ipv6Enabled bool) error {
+	if !ipv4Enabled && d.IPv4Addr.IsValid() {
+		return fmt.Errorf("static IPv4 address is not allowed when IPv4 is disabled")
+	}
+
+	if !ipv6Enabled && d.IPv6Addr.IsValid() {
+		return fmt.Errorf("static IPv6 address is not allowed when IPv6 is disabled")
+	}
+
+	if d.HasPool() && (d.IPv4Addr.IsValid() || d.IPv6Addr.IsValid()) {
+		// If we have the pool name we are in dynamic allocation mode so we mustn't have static IPs.
+		return fmt.Errorf("static IPs are not allowed in dynamic allocation mode")
 	}
 	return nil
 }

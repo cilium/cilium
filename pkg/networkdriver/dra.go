@@ -260,7 +260,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
-	if err := validateDeviceConfigs(claim, deviceClaimConfigs); err != nil {
+	if err := validateDeviceConfigs(claim, deviceClaimConfigs, driver.ipv4Enabled, driver.ipv6Enabled); err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
@@ -427,9 +427,14 @@ func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerRef
 
 // validateDeviceConfigs checks that every device config in the claim is
 // valid (podIfName, sysctl settings) before any destructive work begins.
-func validateDeviceConfigs(claim *resourceapi.ResourceClaim, deviceClaimConfigs map[string]types.DeviceConfig) error {
+func validateDeviceConfigs(
+	claim *resourceapi.ResourceClaim,
+	deviceClaimConfigs map[string]types.DeviceConfig,
+	ipv4Enabled bool,
+	ipv6Enabled bool,
+) error {
 	for request, cfg := range deviceClaimConfigs {
-		if err := cfg.Validate(); err != nil {
+		if err := cfg.Validate(ipv4Enabled, ipv6Enabled); err != nil {
 			return fmt.Errorf("invalid device config in request %s for claim %s: %w",
 				request, path.Join(claim.Namespace, claim.Name), err)
 		}
