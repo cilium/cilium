@@ -114,7 +114,7 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 {
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	void *data, *data_end;
+	void *data __maybe_unused, *data_end __maybe_unused;
 	__u8 protocol = 0;
 	__u16 node_id = 0;
 	bool decrypted = ctx_is_decrypt(ctx);
