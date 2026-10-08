@@ -1543,6 +1543,9 @@ hubble:
       labels: {}
       # -- Annotations to add to ServiceMonitor hubble
       annotations: {}
+      # -- Attach node metadata to the targets discovered by ServiceMonitor hubble.
+      # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+      attachMetadata: {}
       # -- jobLabel to add for ServiceMonitor hubble
       jobLabel: ""
       # -- Interval for scrape metrics.
@@ -1960,6 +1963,9 @@ hubble:
         labels: {}
         # -- Annotations to add to ServiceMonitor hubble-relay
         annotations: {}
+        # -- Attach node metadata to the targets discovered by ServiceMonitor hubble-relay.
+        # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+        attachMetadata: {}
         # -- Interval for scrape metrics.
         interval: "10s"
         # @schema
@@ -2701,6 +2707,9 @@ prometheus:
     labels: {}
     # -- Annotations to add to ServiceMonitor cilium-agent
     annotations: {}
+    # -- Attach node metadata to the targets discovered by ServiceMonitor cilium-agent.
+    # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+    attachMetadata: {}
     # -- jobLabel to add for ServiceMonitor cilium-agent
     jobLabel: ""
     # -- Interval for scrape metrics.
@@ -3092,6 +3101,9 @@ envoy:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-envoy
       annotations: {}
+      # -- Attach node metadata to the targets discovered by ServiceMonitor cilium-envoy.
+      # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+      attachMetadata: {}
       # -- Interval for scrape metrics.
       interval: "10s"
       # @schema
@@ -3460,6 +3472,9 @@ operator:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-operator
       annotations: {}
+      # -- Attach node metadata to the targets discovered by ServiceMonitor cilium-operator.
+      # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+      attachMetadata: {}
       # -- jobLabel to add for ServiceMonitor cilium-operator
       jobLabel: ""
       # -- Interval for scrape metrics.
@@ -4295,6 +4310,9 @@ clustermesh:
         labels: {}
         # -- Annotations to add to ServiceMonitor clustermesh-apiserver
         annotations: {}
+        # -- Attach node metadata to the targets discovered by ServiceMonitor clustermesh-apiserver.
+        # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+        attachMetadata: {}
         # -- Specify the Kubernetes namespace where Prometheus expects to find
         # service monitors configured.
         # namespace: ""

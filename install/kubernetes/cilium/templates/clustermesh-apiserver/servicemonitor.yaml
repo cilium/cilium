@@ -35,6 +35,10 @@ spec:
   namespaceSelector:
     matchNames:
     - {{ include "cilium.namespace" . }}
+  {{- with .Values.clustermesh.apiserver.metrics.serviceMonitor.attachMetadata }}
+  attachMetadata:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   endpoints:
   {{- if and .Values.clustermesh.apiserver.metrics.enabled (eq .Values.clustermesh.apiserver.kvstoremesh.kvstoreMode "internal") (eq "true" (include "identityAllocationCRD" .)) }}
   - port: apiserv-metrics
