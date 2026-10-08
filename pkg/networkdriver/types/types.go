@@ -86,7 +86,7 @@ var (
 // (e.g. "arp_filter") is user-controlled; the net.<family>.conf.<interface>.
 // prefix is added later, in buildSysctlSettings, once the allocated
 // interface's final name is known.
-func validateInterfaceSysctl(cfg DeviceConfig) error {
+func (cfg *DeviceConfig) validateInterfaceSysctl() error {
 	if err := validateSysctlLeaves(cfg.InterfaceSysctlIPv4); err != nil {
 		return fmt.Errorf("ipv4: %w", err)
 	}
@@ -274,7 +274,7 @@ func (d *DeviceConfig) Validate() error {
 		return fmt.Errorf("invalid podIfName: %w", err)
 	}
 
-	if err := validateInterfaceSysctl(*d); err != nil {
+	if err := d.validateInterfaceSysctl(); err != nil {
 		return fmt.Errorf("invalid sysctl config: %w", err)
 	}
 	return nil
