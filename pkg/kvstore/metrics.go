@@ -4,7 +4,6 @@
 package kvstore
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/metrics"
@@ -17,15 +16,47 @@ const (
 	metricSet    = "set"
 )
 
+// scopeOther is the scope associated with keys not matching any known layout.
+const scopeOther = "other"
+
+// GetScopeFromKey returns the scope associated with the given key, to be used
+// as metric label. The returned value is guaranteed to have bounded cardinality:
+//   - cilium/{state,cache}/<resource>/<version>[/...] -> <resource>/<version>
+//   - cilium/synced/<cluster>/<key> -> synced/<scope of key>, or synced
+//   - cilium/<name>[/...] -> <name>, stripped of any leading dot
+//   - anything else -> other
 func GetScopeFromKey(key string) string {
-	s := strings.SplitN(key, "/", 5)
-	if len(s) < 4 {
-		if len(key) >= 12 {
-			return key[:12]
-		}
-		return key
+	s := strings.SplitN(key, "/", 4)
+	if len(s) < 2 || s[0] != BaseKeyPrefix || s[1] == "" {
+		return scopeOther
 	}
-	return fmt.Sprintf("%s/%s", s[2], s[3])
+
+	switch s[1] {
+	case "state", "cache":
+		if len(s) < 4 {
+			return scopeOther
+		}
+		version, _, _ := strings.Cut(s[3], "/")
+		if s[2] == "" || version == "" {
+			return scopeOther
+		}
+		return s[2] + "/" + version
+	case "synced":
+		// The synced key is the concatenation of the prefix, the source
+		// cluster name and the synced prefix (e.g., cilium/state/nodes/v1).
+		if len(s) < 4 {
+			return "synced"
+		}
+		if scope := GetScopeFromKey(s[3]); scope != scopeOther {
+			return "synced/" + scope
+		}
+		return "synced"
+	default:
+		if name := strings.TrimPrefix(s[1], "."); name != "" {
+			return name
+		}
+		return scopeOther
+	}
 }
 
 func increaseMetric(key, kind, action string, duration time.Duration, err error) {
