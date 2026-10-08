@@ -332,6 +332,12 @@ func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, conf
 			return "", fmt.Errorf("failed to fetch secret %q: %w", secretRef, err)
 		}
 		if !ok {
+			r.logger.Error(
+				fmt.Sprintf("Failed to fetch secret %q: not found (will continue with empty password)", secretRef),
+				types.SecretRefLogField, secretRef,
+				types.InstanceLogField, instanceName,
+				types.PeerLogField, peerName,
+			)
 			return "", nil
 		}
 		tcpPassword := string(secret["password"])
