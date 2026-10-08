@@ -424,10 +424,10 @@ func (n *linuxNodeHandler) enableIPSecDoLocalHost(addedCIDRs, removedCIDRs []net
 	var errs error
 
 	for localIPNet := range prefixesToIPNets(addedCIDRs) {
-		errors.Join(errs, n.replaceNodeIPSecInRoute(localIPNet))
+		errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localIPNet))
 	}
 	for localIPNet := range prefixesToIPNets(removedCIDRs) {
-		errors.Join(errs, n.deleteNodeIPSecInRoute(localIPNet))
+		errs = errors.Join(errs, n.deleteNodeIPSecInRoute(localIPNet))
 	}
 
 	return errs
@@ -882,6 +882,9 @@ func (n *linuxNodeHandler) deleteNodeIPSecInRoute(ip *net.IPNet) error {
 	}
 
 	if err := route.Delete(n.createNodeIPSecInRoute(ip)); err != nil {
+		if errors.Is(err, unix.ENOENT) {
+			return nil
+		}
 		n.log.Error("Unable to delete the IPsec route IN from the host routing table",
 			logfields.Error, err,
 			logfields.CIDR, ip,
