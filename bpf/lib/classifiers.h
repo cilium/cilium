@@ -82,7 +82,7 @@ can_observe_overlay_mark(enum trace_point obs_point __maybe_unused)
  *
  * Returns true whether the provided observation point can observe overlay traffic via raw packet
  * parsing of L2/L3/L4 headers. Such packets are traced in from-{netdev,wireguard}, and in to-stack
- * events with ENABLE_IPSEC (VinE).
+ * events with CONFIG(enable_ipsec) (VinE).
  */
 static __always_inline bool
 can_observe_overlay_hdr(enum trace_point obs_point)
@@ -92,7 +92,7 @@ can_observe_overlay_hdr(enum trace_point obs_point)
 
 	if (is_defined(IS_BPF_HOST) && (obs_point == TRACE_FROM_NETWORK ||
 					obs_point == TRACE_POINT_UNKNOWN ||
-					(is_defined(ENABLE_IPSEC) && obs_point == TRACE_TO_STACK)))
+					(CONFIG(enable_ipsec) && obs_point == TRACE_TO_STACK)))
 		return true;
 
 	if (is_defined(IS_BPF_WIREGUARD) && (obs_point == TRACE_FROM_CRYPTO ||
@@ -180,13 +180,13 @@ ctx_is_encrypted_by_point(const struct __ctx_buff *ctx __maybe_unused,
 {
 #if __ctx_is == __ctx_skb
 	if (is_defined(IS_BPF_HOST) &&
-	    (is_defined(ENABLE_IPSEC) || is_defined(ENABLE_WIREGUARD)) &&
+	    (CONFIG(enable_ipsec) || is_defined(ENABLE_WIREGUARD)) &&
 	    (obs_point == TRACE_FROM_NETWORK ||
 	     obs_point == TRACE_TO_NETWORK ||
 	     obs_point == TRACE_POINT_UNKNOWN))
 		return ctx_is_decrypt(ctx);
 
-	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_IPSEC) &&
+	if (is_defined(IS_BPF_HOST) && CONFIG(enable_ipsec) &&
 	    (obs_point == TRACE_FROM_STACK || obs_point == TRACE_POINT_UNKNOWN))
 		return ctx_is_encrypt(ctx);
 #endif

@@ -179,5 +179,7 @@ func NodeConfig(lnc *Config) Node {
 		EnableICMPErrors: lnc.LBConfig.DSRConfig.EnableICMPErrors,
 	}
 
+	node.EnableIPSec = lnc.EnableIPSec
+
 	return node
 }
