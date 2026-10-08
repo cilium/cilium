@@ -28,10 +28,33 @@ func TestValidateScopesFromKey(t *testing.T) {
 		"cilium/state/ip/v1/default/f00d::a0f:0:0:6f2e":                                             "ip/v1",
 		"cilium/state/nodes/v1/default/runtime":                                                     "nodes/v1",
 		"cilium/state/nodes/v1":                                                                     "nodes/v1",
+		"cilium/state/nodes/v1/":                                                                    "nodes/v1",
+		"cilium/state/nodes":                                                                        "other",
+		"cilium/state":                                                                              "other",
+		"cilium/cache/nodes/v1/foo/bar":                                                             "nodes/v1",
+
+		"cilium/synced/foo/cilium/state/nodes/v1":  "synced/nodes/v1",
+		"cilium/synced/foo/cilium/cache/ip/v1":     "synced/ip/v1",
+		"cilium/synced/foo/cilium/state/nodes":     "synced",
+		"cilium/synced/foo":                        "synced",
+		"cilium/synced":                            "synced",
+		"cilium/.heartbeat":                        "heartbeat",
+		"cilium/.initlock":                         "initlock",
+		"cilium/.initlock/1a2b3c4d5e6f":            "initlock",
+		"cilium/cluster-config":                    "cluster-config",
+		"cilium/cluster-config/foo":                "cluster-config",
+		"cilium/kvstoremesh-lock":                  "kvstoremesh-lock",
+		"cilium/.":                                 "other",
+		"cilium/":                                  "other",
+		"cilium":                                   "other",
+		"":                                         "other",
+		"foo/bar/baz/qux":                          "other",
+		"/cilium/state/nodes/v1/default/runtime":   "other",
+		"ciliumfoo/state/nodes/v1/default/runtime": "other",
 	}
 
 	for key, val := range mockData {
-		require.Equal(t, val, GetScopeFromKey(key))
+		require.Equal(t, val, GetScopeFromKey(key), "key: %q", key)
 	}
 }
 
