@@ -625,7 +625,7 @@ help: ## Display help for the Makefile, from https://www.thapaliya.com/en/writin
 	$(call print_help_line,"docker-*-image-unstripped","Build unstripped version of above docker images(cilium, hubble-relay, operator etc.)")
 	$(call print_help_line,"docker-standalone-dns-proxy-image","Build standalone DNS proxy docker image")
 
-.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance mcs-api-conformance
+.PHONY: help clean clean-container dev-doctor force generate-api generate-health-api generate-operator-api generate-kvstoremesh-api generate-hubble-api generate-sdp-api install licenses-all veryclean run_bpf_tests run-builder gateway-api-conformance mcs-api-conformance kcnp-conformance kcnp-conformance-report
 force :;
 
 KIND_NET_CIDR ?= $(shell docker network inspect kind-cilium -f '{{json .IPAM.Config}}' | jq -r '.[] | select(.Subnet | test("^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+")) | .Subnet')
@@ -695,6 +695,37 @@ mcs-api-conformance: ## Run MCS-API conformance tests.
 		-version "$(VERSION)"  \
 		$(MCS_API_TEST_FLAGS) \
 		-test.run $(MCS_API_CONFORMANCE_TEST_NAME) \
+	| $(GOTEST_FORMATTER)
+
+KCNP_CONFORMANCE_TEST_NAME ?= TestConformance
+KCNP_EXPERIMENTAL ?= false
+KCNP_TEST_FLAGS ?= $(if $(filter true,$(KCNP_EXPERIMENTAL)),--experimental-features)
+kcnp-conformance: ## Run kCNP conformance tests.
+	@$(ECHO_CHECK) running kCNP conformance tests...
+	KCNP_CONFORMANCE_TESTS=1 \
+	$(GO_TEST) $(GO_TEST_FLAGS) -p 4 -v ./pkg/policy/k8s/conformance \
+		$(KCNP_TEST_FLAGS) \
+		-test.run $(KCNP_CONFORMANCE_TEST_NAME) \
+		-test.timeout=29m \
+		--cleanup-base-resources=false \
+	| $(GOTEST_FORMATTER)
+
+kcnp-conformance-report: ## Run kCNP conformance tests with a conformance report.
+	@$(ECHO_CHECK) running kCNP conformance tests with conformance report...
+	KCNP_CONFORMANCE_TESTS=1 \
+	$(GO_TEST) $(GO_TEST_FLAGS) -p 4 -v ./pkg/policy/k8s/conformance \
+		$(KCNP_TEST_FLAGS) \
+		-test.run $(KCNP_CONFORMANCE_TEST_NAME) \
+		-test.timeout=29m \
+		--cleanup-base-resources=true \
+		--organization cilium \
+		--project cilium \
+		--url github.com/cilium/cilium \
+		--version $(CILIUM_VERSION) \
+		--contact https://github.com/cilium/community/blob/main/roles/Maintainers.md \
+		--additional-info https://github.com/cilium/cilium/blob/main/.github/workflows/conformance-kcnp.yaml \
+		--conformance-profiles ClusterNetworkPolicy \
+		--report-output=$(CURDIR)/kcnp-conformance-report.yaml \
 	| $(GOTEST_FORMATTER)
 
 BPF_TEST ?=
