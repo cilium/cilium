@@ -996,7 +996,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 	}
 
 	// Do not wait for the deletion of routes, clusters, endpoints, or
-	// secrets as there are no quarantees that these deletions will be
+	// secrets as there are no guarantees that these deletions will be
 	// acked. For example, if the listener referring to was already deleted
 	// earlier, there are no references to the deleted resources any more,
 	// in which case we could wait forever for the ACKs. This could also
