@@ -16,6 +16,9 @@
 DECLARE_CONFIG(bool, enable_nat_46x64,
 	       "Enable NAT46/NAT64 translation for NodePort services")
 
+DECLARE_CONFIG(bool, enable_nat_46x64_gateway,
+	       "Enable NAT46/NAT64 gateway for NodePort services")
+
 static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr)
 {
 	/* Check for ::FFFF:<IPv4 address>. */
@@ -412,7 +415,7 @@ static __always_inline bool nat46x64_cb_route(struct __ctx_buff *ctx)
 static __always_inline bool
 nat46x64_cb_xlate(struct __ctx_buff *ctx __maybe_unused)
 {
-	if (!is_defined(ENABLE_NAT_46X64_GATEWAY) && !CONFIG(enable_nat_46x64))
+	if (!CONFIG(enable_nat_46x64_gateway) && !CONFIG(enable_nat_46x64))
 		return false;
 
 	return ctx_load_meta(ctx, CB_NAT_46X64) == NAT46x64_MODE_XLATE;
