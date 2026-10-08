@@ -6,6 +6,7 @@
 #include "bpf/compiler.h"
 #include <bpf/ctx/unspec.h>
 #include <bpf/api.h>
+#include <bpf/tailcall.h>
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
@@ -35,6 +36,27 @@ int program_##NAME(CTX_TYPE ctx __maybe_unused) \
 	return 1;                               \
 }
 
+#define TAIL_PROGRAM(SECTION, NAME, CTX_TYPE, INDEX)          \
+int program_##NAME##_seq;                                     \
+__section(SECTION)                                            \
+__attribute__((btf_decl_tag("tail:cilium_calls/" #INDEX)))    \
+int program_##NAME(CTX_TYPE ctx __maybe_unused)               \
+{                                                             \
+	program_##NAME##_seq = inc();                         \
+	return 1;                                             \
+}
+
+#define TAIL_PROGRAM_CALLER(SECTION, NAME, MAP_NAME, SLOT, CTX_TYPE, CONFIG_VAR) \
+int program_##NAME##_seq;                                                      \
+__section(SECTION)                                                            \
+int program_##NAME(CTX_TYPE ctx __maybe_unused)                                \
+{                                                                             \
+	program_##NAME##_seq = inc();                                         \
+	if (CONFIG(CONFIG_VAR))                                               \
+		tail_call_static(ctx, MAP_NAME, SLOT);                        \
+	return 1;                                                             \
+}
+
 static int __maybe_unused clamp(int ret, int min, int max)
 {
 	if (ret < min)
@@ -45,17 +67,20 @@ static int __maybe_unused clamp(int ret, int min, int max)
 	return ret;
 }
 
-#define PRE(NAME, CTX_TYPE, MIN_RET, MAX_RET)          \
-int before_program_##NAME##_seq;                       \
-int before_program_##NAME##_ret;                       \
-__section("freplace")                                  \
-int before_program_##NAME(CTX_TYPE ctx __maybe_unused) \
-{                                                      \
-	before_program_##NAME##_seq = inc();           \
-	return clamp(before_program_##NAME##_ret,      \
-		     MIN_RET,                          \
-		     MAX_RET);                         \
+#define PRE_POLICY(SECTION, NAME, CTX_TYPE, MIN_RET, MAX_RET)  \
+int before_##NAME##_seq;                                       \
+int before_##NAME##_ret;                                       \
+__section(SECTION)                                             \
+int before_##NAME(CTX_TYPE ctx __maybe_unused)                 \
+{                                                              \
+	before_##NAME##_seq = inc();                           \
+	return clamp(before_##NAME##_ret,                      \
+		     MIN_RET,                                  \
+		     MAX_RET);                                 \
 }
+
+#define PRE(SECTION, NAME, CTX_TYPE, MIN_RET, MAX_RET)          \
+	PRE_POLICY(SECTION, program_##NAME, CTX_TYPE, MIN_RET, MAX_RET)
 
 #define POST(NAME, CTX_TYPE, MIN_RET, MAX_RET)                 \
 int after_program_##NAME##_seq;                                \

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/datapathplugins"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/bpf/analyze"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
@@ -36,7 +37,8 @@ import (
 )
 
 const (
-	bpfLoaderGCRetryInterval = time.Minute
+	bpfLoaderGCRetryInterval    = time.Minute
+	preHookDispatcherProgPrefix = "pre_dispatcher_"
 )
 
 func linkToInterfaceInfo(l netlink.Link) *datapathplugins.AttachmentContext_InterfaceInfo {
@@ -241,7 +243,7 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 		return coll, commit, func() {}, err
 	}
 
-	instrumentCollectionRequests, err := l.prepareCollection(ctx, logger, spec, opts, lnc, attachmentContext)
+	instrumentCollectionRequests, hookSlots, err := l.prepareCollection(ctx, logger, spec, opts, lnc, attachmentContext)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("preparing hooks: %w", err)
 	}
@@ -251,7 +253,7 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 		return nil, nil, nil, fmt.Errorf("loading collection: %w", err)
 	}
 
-	commit, cleanup, err = l.instrumentCollection(ctx, logger, coll, commit, instrumentCollectionRequests, lnc, attachmentContext, l.pluginOperationsDir, pinsDir)
+	commit, cleanup, err = l.instrumentCollection(ctx, logger, coll, commit, instrumentCollectionRequests, lnc, attachmentContext, l.pluginOperationsDir, pinsDir, hookSlots)
 	if err != nil {
 		coll.Close()
 		return nil, nil, nil, fmt.Errorf("loading hooks: %w", err)
@@ -263,7 +265,7 @@ func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spe
 // prepareCollection sends a round of PrepareCollection requests to all
 // registered plugins and prepares a set of InstrumentCollection requests for
 // the instrumentation/load phase.
-func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext) (_ map[string]*datapathplugins.InstrumentCollectionRequest, err error) {
+func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext) (_ map[string]*datapathplugins.InstrumentCollectionRequest, _ map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, err error) {
 	req := &datapathplugins.PrepareCollectionRequest{
 		AttachmentContext: attachmentContext,
 		Collection: &datapathplugins.PrepareCollectionRequest_CollectionSpec{
@@ -340,7 +342,7 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 				err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): target program \"%s\" does not exist in the collection spec", r.plugin.Name(), h.Target))
 
 				continue
-			} else if canErr := canInstrument(ps, attachmentContext); canErr != nil {
+			} else if canErr := canInstrument(spec, ps, h.Type); canErr != nil {
 				err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): \"%s\": %w", r.plugin.Name(), h.Target, canErr))
 
 				continue
@@ -374,14 +376,13 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	instrumentCollectionRequests, programPatches, err := hooksSpec.instrumentCollection(spec)
+	instrumentCollectionRequests, hookSlots, err := hooksSpec.instrumentCollection(spec, opts)
 	if err != nil {
-		return nil, fmt.Errorf("instrumenting collection: %w", err)
+		return nil, nil, fmt.Errorf("instrumenting collection: %w", err)
 	}
-	opts.ProgramPatches = programPatches
 
 	for plugin, req := range instrumentCollectionRequests {
 		prepareHooksResp := responses[plugin]
@@ -393,22 +394,21 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 		req.AttachmentContext = attachmentContext
 	}
 
-	return instrumentCollectionRequests, nil
+	return instrumentCollectionRequests, hookSlots, nil
+}
+
+func isPolicyProgram(name string) bool {
+	return name == "cil_lxc_policy" || name == "cil_lxc_policy_egress" || name == "cil_host_policy"
 }
 
 // canInstrument makes sure that a hook can be added to the requested program.
-func canInstrument(prog *ebpf.ProgramSpec, attachmentContext *datapathplugins.AttachmentContext) error {
-	if bpf.IsTailCall(prog) ||
-		(attachmentContext.GetLxc() != nil &&
-			(prog.Name == "cil_lxc_policy" || prog.Name == "cil_lxc_policy_egress")) ||
-		(attachmentContext.GetHost() != nil &&
-			(prog.Name == "cil_host_policy")) {
-		// It is currently not possible to do freplace for programs that are
-		// inside a PROG_ARRAY map, so we have to limit instrumentation to
-		// __section_entry programs.
-		//
-		// https://lore.kernel.org/all/20241015150207.70264-2-leon.hwang@linux.dev/
-		return fmt.Errorf("cannot instrument tail call programs")
+func canInstrument(cs *ebpf.CollectionSpec, prog *ebpf.ProgramSpec, hookType datapathplugins.HookType) error {
+	if hookType == datapathplugins.HookType_POST && (bpf.IsTailCall(prog) || isPolicyProgram(prog.Name)) {
+		return fmt.Errorf("cannot instrument tail call programs with POST hooks; inside a PROG_ARRAY map, so we have to limit POST hook instrumentation to __section_entry programs.")
+	}
+
+	if hookType == datapathplugins.HookType_PRE && (bpf.IsTailCall(prog) || isPolicyProgram(prog.Name)) && bpf.CallsMapSpec(cs) == nil {
+		return fmt.Errorf("cannot instrument with %s hooks: collection has no calls map to hold the dispatcher", hookType)
 	}
 
 	return nil
@@ -445,7 +445,7 @@ func mapID(m *ebpf.Map) (uint32, error) {
 // instrumentCollection sends out the provided set of InstrumentCollection requests
 // and, after hearing back from each plugin, attaches loaded hook programs
 // to hook points inside each dispatcher.
-func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, commit func() error, instrumentCollectionRequests map[string]*datapathplugins.InstrumentCollectionRequest, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext, opsDir string, pinsDir string) (_ func() error, _ func(), err error) {
+func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *slog.Logger, coll *ebpf.Collection, commit func() error, instrumentCollectionRequests map[string]*datapathplugins.InstrumentCollectionRequest, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext, opsDir string, pinsDir string, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32) (_ func() error, _ func(), err error) {
 	// Make sure the GC loop can't run, since we don't want it to delete our
 	// staging directories. Released on error conditions in
 	// cleanupStagingDirs(); if this function returns success, the callers
@@ -533,7 +533,15 @@ func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *
 			}
 		}
 
-		for _, hook := range req.Hooks {
+		for i, hook := range req.Hooks {
+			hook.PinPath = filepath.Join(hookPinsDir, fmt.Sprintf("%s_%s_%d", hook.Target, hook.Type, i))
+
+			// Tail-called hooks are inserted into a tail-call map slot rather than attached via freplace,
+			// so they do not target a specific subprogram and do not require AttachTarget.ProgramId.
+			if hook.GetAttachTarget().GetSubprogName() == "" {
+				continue
+			}
+
 			prog := coll.Programs[hook.Target]
 			if prog == nil {
 				return nil, nil, fmt.Errorf("InstrumentCollectionRequest for %s references a non-existent program: %s", plugin, hook.Target)
@@ -545,7 +553,6 @@ func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *
 			}
 
 			hook.AttachTarget.ProgramId = id
-			hook.PinPath = filepath.Join(hookPinsDir, fmt.Sprintf("%s_%s", hook.Target, hook.AttachTarget.SubprogName))
 		}
 
 		go func(req *datapathplugins.InstrumentCollectionRequest) {
@@ -575,7 +582,7 @@ func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *
 		}
 
 		// Replace the pinned program at each pin path with a pinned
-		// freplace link.
+		// freplace link or populate tail-call slot.
 		for _, hook := range req.Hooks {
 			prog, err := ebpf.LoadPinnedProgram(hook.PinPath, &ebpf.LoadPinOptions{})
 			if err != nil {
@@ -584,6 +591,18 @@ func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *
 			if err := os.Remove(hook.PinPath); err != nil {
 				return nil, nil, fmt.Errorf("removing pinned hook program at %s: %w", hook.PinPath, err)
 			}
+
+			if hook.GetAttachTarget().GetSubprogName() == "" {
+				callsMap := bpf.CallsMap(coll)
+				if callsMap == nil {
+					return nil, nil, fmt.Errorf("calls map not found in collection")
+				}
+				if err := callsMap.Put(hookSlots[hook], prog); err != nil {
+					return nil, nil, fmt.Errorf("putting tail call hook program into %s slot %d: %w", callsMap, hookSlots[hook], err)
+				}
+				continue
+			}
+
 			freplace, err := link.AttachFreplace(coll.Programs[hook.Target], hook.AttachTarget.SubprogName, prog)
 			if err != nil {
 				return nil, nil, fmt.Errorf("creating freplace link for hook: %w", err)
@@ -674,11 +693,21 @@ func (hs *hooksSpec) hook(target string, hookType datapathplugins.HookType) *plu
 // requires instrumentation. It doesn't patch program instructions directly.
 // Patching is instead deferred until after reachability analysis and pruning
 // happen.
-func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*datapathplugins.InstrumentCollectionRequest, map[string]func(asm.Instructions) (asm.Instructions, error), error) {
+func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec, opts *bpf.CollectionOptions) (map[string]*datapathplugins.InstrumentCollectionRequest, map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, error) {
 	var err error
 
 	hooks := make(map[string]*datapathplugins.InstrumentCollectionRequest)
-	programPatches := make(map[string]func(asm.Instructions) (asm.Instructions, error))
+	hookSlots := make(map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32)
+	opts.ProgramPatches = make(map[string]func(asm.Instructions) (asm.Instructions, error))
+	opts.CollectionPatches = make([]func(*ebpf.CollectionSpec) error, 0)
+	if opts.Keep == nil {
+		opts.Keep = &set.Set[string]{}
+	}
+
+	var callsMap *ebpf.MapSpec
+	if cm := bpf.CallsMapSpec(cs); cm != nil {
+		callsMap = cm.Copy()
+	}
 
 	for hookTarget, hookTypes := range hs.hooks {
 		pre, sortErr := hookTypes[datapathplugins.HookType_PRE].sort()
@@ -693,19 +722,350 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 
 			continue
 		}
-		patch, patchErr := hs.instrumentProgram(cs.Programs[hookTarget], pre, post, hooks)
-		if patchErr != nil {
+		if patchErr := hs.instrumentProgram(cs.Programs[hookTarget], pre, post, hooks, hookSlots, opts, callsMap); patchErr != nil {
 			err = errors.Join(err, fmt.Errorf("instrumenting %s: %w", hookTarget, patchErr))
 
 			continue
 		}
-		programPatches[hookTarget] = patch
 	}
 
-	return hooks, programPatches, err
+	if callsMap != nil && callsMap.MaxEntries > bpf.CallsMapSpec(cs).MaxEntries {
+		opts.CollectionPatches = append(opts.CollectionPatches, func(spec *ebpf.CollectionSpec) error {
+			if m := bpf.CallsMapSpec(spec); m != nil {
+				m.MaxEntries = callsMap.MaxEntries
+			}
+			return nil
+		})
+	}
+
+	return hooks, hookSlots, err
 }
 
-// instrumentProgram generates a program patcher that prepends a dispatcher that
+func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
+	if isPolicyProgram(ps.Name) {
+		return hs.instrumentPolicyProgram(ps, pre, hooks, hookSlots, opts, callsMap)
+	}
+
+	if bpf.IsTailCall(ps) {
+		return hs.injectPreHooksBeforeTailCallProgram(ps, pre, hooks, hookSlots, opts, callsMap)
+	}
+
+	return hs.instrumentEntrypointProgram(ps, pre, post, hooks, opts)
+}
+
+// instrumentPolicyProgram orchestrates PRE hooks on a policy program (cil_lxc_policy, etc.):
+//  1. Relocates the original policy program to a slot in callsMap.
+//  2. Builds a policy dispatcher that sits at the original entrypoint.
+//  3. Executes PRE hooks in subprograms and tail-calls the relocated policy program.
+func (hs *hooksSpec) instrumentPolicyProgram(ps *ebpf.ProgramSpec, pre []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
+	if len(pre) == 0 {
+		return nil
+	}
+
+	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
+	_, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
+	if !hasFuncProto {
+		return fmt.Errorf("unable to extract function BTF info for target program %s", ps.Name)
+	}
+
+	relocatedSlot := callsMap.MaxEntries
+	firstPreSlot := relocatedSlot + 1
+	callsMap.MaxEntries += uint32(1 + len(pre))
+
+	for idx, pluginName := range pre {
+		if hooks[pluginName] == nil {
+			hooks[pluginName] = &datapathplugins.InstrumentCollectionRequest{}
+		}
+		h := &datapathplugins.InstrumentCollectionRequest_Hook{
+			Type:   datapathplugins.HookType_PRE,
+			Target: ps.Name,
+		}
+		hooks[pluginName].Hooks = append(hooks[pluginName].Hooks, h)
+		hookSlots[h] = firstPreSlot + uint32(idx)
+	}
+
+	dispatcherProg, err := buildPolicyDispatcher(ps, callsMap.Name, relocatedSlot, firstPreSlot, pre)
+	if err != nil {
+		return fmt.Errorf("building policy dispatcher for %s: %w", ps.Name, err)
+	}
+	dispatcherProg.SectionName = ps.SectionName
+
+	relocatedName := "relocated_" + ps.Name
+	opts.Keep.Insert(ps.Name)
+	opts.Keep.Insert(relocatedName)
+	opts.Keep.Insert(dispatcherProg.Name)
+
+	opts.CollectionPatches = append(opts.CollectionPatches, func(cs *ebpf.CollectionSpec) error {
+		target := cs.Programs[ps.Name]
+		if target == nil {
+			return nil
+		}
+		btfMeta := btf.FuncMetadata(&target.Instructions[0])
+		if btfMeta == nil {
+			return fmt.Errorf("unable to extract function BTF info for target program")
+		}
+		btfMetaCopy := btf.Copy(btfMeta).(*btf.Func)
+		btfMetaCopy.Tags = append(btfMetaCopy.Tags, fmt.Sprintf("tail:%s/%d", callsMap.Name, relocatedSlot))
+		target.SectionName = resolveSectionName(ps.Type)
+		target.Name = relocatedName
+		target.Instructions[0] = btf.WithFuncMetadata(target.Instructions[0], btfMetaCopy)
+
+		cs.Programs[target.Name] = target
+		cs.Programs[ps.Name] = dispatcherProg
+		return nil
+	})
+
+	return nil
+}
+
+// buildPolicyDispatcher constructs the ebpf.ProgramSpec for a PRE-hook dispatcher
+// on a policy program (e.g. cil_lxc_policy, cil_host_policy, cil_lxc_policy_egress).
+// The dispatcher sits at the original policy entrypoint, sequentially invokes each
+// registered PRE hook via a subprogram wrapper, and concludes with a tail call to the
+// relocated policy program. Something like this:
+//
+//	int cil_lxc_policy(void *ctx) {
+//	    int ret;
+//
+//	    ret = __pre_hook_plugin_a__(ctx);
+//	    if (ret != RET_PROCEED)
+//	        return ret;
+//	    ret = __pre_hook_plugin_b__(ctx);
+//	    if (ret != RET_PROCEED)
+//	        return ret;
+//	    ...
+//	    tail_call(ctx, &cilium_calls, RELOCATED_SLOT);
+//	    return CTX_ACT_DROP;
+//	}
+//
+//	static int __pre_hook_plugin_a__(void *ctx) {
+//	    tail_call(ctx, &cilium_calls, PLUGIN_A_SLOT);
+//	    return CTX_ACT_DROP;
+//	}
+//
+//	static int __pre_hook_plugin_b__(void *ctx) {
+//	    tail_call(ctx, &cilium_calls, PLUGIN_B_SLOT);
+//	    return CTX_ACT_DROP;
+//	}
+func buildPolicyDispatcher(ps *ebpf.ProgramSpec, mapName string, relocatedSlot uint32, firstPluginSlot uint32, plugins []string) (*ebpf.ProgramSpec, error) {
+	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
+	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
+	if !hasFuncProto {
+		return nil, fmt.Errorf("unable to extract function BTF info for target program")
+	}
+
+	var mainInsns asm.Instructions
+	mainInsns = append(mainInsns,
+		btf.WithFuncMetadata(
+			asm.Mov.Reg(asm.R6, asm.R1).WithSymbol(ps.Name).WithSource(asm.Comment(ps.Name)),
+			&btf.Func{
+				Name:    ps.Name,
+				Linkage: btf.GlobalFunc,
+				Type:    funcProto,
+			},
+		),
+	)
+
+	var subprogInsns asm.Instructions
+	if len(plugins) > 0 {
+		// Sequentially invoke each registered PRE plugin via dedicated subprogram wrapper
+		for i, pluginName := range plugins {
+			subprogLabel := preHookSubprogName(pluginName)
+			pluginSlot := firstPluginSlot + uint32(i)
+			mainInsns = append(mainInsns,
+				asm.Mov.Reg(asm.R1, asm.R6),
+				asm.Call.Label(subprogLabel),
+				asm.JNE.Imm32(asm.R0, retValProceed(ps), "return"),
+			)
+
+			subprogInsns = append(subprogInsns, emitWrappedTailCall(subprogLabel, mapName, pluginSlot, ps, funcProto)...)
+		}
+	}
+
+	// Final handoff: static tail call to the relocated target program
+	mainInsns = append(mainInsns,
+		asm.Mov.Reg(asm.R1, asm.R6),
+		asm.LoadMapPtr(asm.R2, 0).WithReference(mapName),
+		asm.Mov.Imm(asm.R3, int32(relocatedSlot)),
+		asm.FnTailCall.Call(),
+		asm.Ja.Label("policy_fallback"),
+
+		// Fallback if final tail call misses
+		asm.Mov.Imm(asm.R0, retValDrop(ps)).WithSymbol("policy_fallback"),
+		asm.Return(),
+
+		// Return explicit verdict if non-proceed
+		asm.Return().WithSymbol("return"),
+	)
+
+	prog := ps.Copy()
+	prog.Name = ps.Name
+	prog.SectionName = ps.SectionName
+	prog.Instructions = append(mainInsns, subprogInsns...)
+
+	return prog, nil
+}
+
+// injectPreHooksBeforeTailCallProgram orchestrates PRE hooks on a tail-called program:
+// 1. Allocates RelocatedSlot for the original target program.
+// 2. Allocates PluginSlots for each PRE plugin.
+// 3. Builds the PRE-hook dispatcher to sit at OriginalSlot and registers it in cs.Programs.
+// 4. Populates req.Hooks for each PRE plugin.
+func (hs *hooksSpec) injectPreHooksBeforeTailCallProgram(ps *ebpf.ProgramSpec, pre []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, hookSlots map[*datapathplugins.InstrumentCollectionRequest_Hook]uint32, opts *bpf.CollectionOptions, callsMap *ebpf.MapSpec) error {
+	if len(pre) == 0 {
+		return nil
+	}
+
+	origSlot, err := bpf.TailCallSlot(ps)
+	if err != nil {
+		return fmt.Errorf("resolving tail call slot for %s: %w", ps.Name, err)
+	}
+
+	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
+	_, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
+	if !hasFuncProto {
+		return fmt.Errorf("unable to extract function BTF info for target program %s", ps.Name)
+	}
+
+	relocatedSlot := callsMap.MaxEntries
+	firstPluginSlot := relocatedSlot + 1
+	callsMap.MaxEntries += uint32(1 + len(pre))
+
+	dispatcherProg, err := buildPreHookDispatcher(ps, callsMap.Name, origSlot, relocatedSlot, firstPluginSlot, pre)
+	if err != nil {
+		return fmt.Errorf("building PRE dispatcher for %s: %w", ps.Name, err)
+	}
+
+	opts.Keep.Insert(dispatcherProg.Name)
+
+	cPatch := func(cs *ebpf.CollectionSpec) error {
+		target := cs.Programs[ps.Name]
+		if target == nil {
+			return nil
+		}
+		btfMeta := btf.FuncMetadata(&target.Instructions[0])
+		if btfMeta == nil {
+			return fmt.Errorf("unable to extract function BTF info for target program")
+		}
+		btfMetaCopy := btf.Copy(btfMeta).(*btf.Func)
+		for i, tag := range btfMetaCopy.Tags {
+			if strings.HasPrefix(tag, fmt.Sprintf("tail:%s/", callsMap.Name)) {
+				btfMetaCopy.Tags[i] = fmt.Sprintf("tail:%s/%d", callsMap.Name, relocatedSlot)
+				break
+			}
+		}
+		cs.Programs[dispatcherProg.Name] = dispatcherProg
+		target.Instructions[0] = btf.WithFuncMetadata(target.Instructions[0], btfMetaCopy)
+
+		return nil
+	}
+
+	opts.CollectionPatches = append(opts.CollectionPatches, cPatch)
+
+	for idx, pluginName := range pre {
+		if hooks[pluginName] == nil {
+			hooks[pluginName] = &datapathplugins.InstrumentCollectionRequest{}
+		}
+		h := &datapathplugins.InstrumentCollectionRequest_Hook{
+			Type:   datapathplugins.HookType_PRE,
+			Target: ps.Name,
+		}
+		hooks[pluginName].Hooks = append(hooks[pluginName].Hooks, h)
+		hookSlots[h] = firstPluginSlot + uint32(idx)
+	}
+
+	return nil
+}
+
+// buildPreHookDispatcher constructs the ebpf.ProgramSpec for a PRE-hook dispatcher
+// on a tail-called program. The dispatcher sits at the target program's original tail
+// call map slot, sequentially invokes each registered PRE hook via a subprogram wrapper,
+// and concludes with a tail call to the relocated target program. Something like this:
+//
+//	int pre_dispatcher_<target>(void *ctx) {
+//	    int ret;
+//
+//	    ret = __pre_hook_plugin_a__(ctx);
+//	    if (ret != RET_PROCEED)
+//	        return ret;
+//	    ret = __pre_hook_plugin_b__(ctx);
+//	    if (ret != RET_PROCEED)
+//	        return ret;
+//	    ...
+//	    tail_call(ctx, &cilium_calls, RELOCATED_TARGET_SLOT);
+//	    return CTX_ACT_DROP;
+//	}
+//
+//	static int __pre_hook_plugin_a__(void *ctx) {
+//	    tail_call(ctx, &cilium_calls, PLUGIN_A_SLOT);
+//	    return CTX_ACT_DROP;
+//	}
+//
+//	static int __pre_hook_plugin_b__(void *ctx) {
+//	    tail_call(ctx, &cilium_calls, PLUGIN_B_SLOT);
+//	    return CTX_ACT_DROP;
+//	}
+func buildPreHookDispatcher(ps *ebpf.ProgramSpec, mapName string, origSlot uint32, relocatedSlot uint32, firstPluginSlot uint32, plugins []string) (*ebpf.ProgramSpec, error) {
+	progName := fmt.Sprintf("%s%s", preHookDispatcherProgPrefix, ps.Name)
+
+	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
+	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
+	if !hasFuncProto {
+		return nil, fmt.Errorf("unable to extract function BTF info for target program")
+	}
+
+	tags := []string{fmt.Sprintf("tail:%s/%d", mapName, origSlot)}
+
+	var mainInsns asm.Instructions
+	mainInsns = append(mainInsns,
+		btf.WithFuncMetadata(
+			asm.Mov.Reg(asm.R6, asm.R1).WithSymbol(progName).WithSource(asm.Comment(progName)),
+			&btf.Func{
+				Name:    progName,
+				Linkage: btf.GlobalFunc,
+				Type:    funcProto,
+				Tags:    tags,
+			},
+		),
+	)
+
+	var subprogInsns asm.Instructions
+	if len(plugins) > 0 {
+		// Sequentially invoke each registered PRE plugin via dedicated subprogram wrapper
+		for i, pluginName := range plugins {
+			subprogLabel := preHookSubprogName(pluginName)
+			pluginSlot := firstPluginSlot + uint32(i)
+			mainInsns = append(mainInsns,
+				asm.Mov.Reg(asm.R1, asm.R6),
+				asm.Call.Label(subprogLabel),
+				asm.JNE.Imm32(asm.R0, retValProceed(ps), "return"),
+			)
+
+			subprogInsns = append(subprogInsns, emitWrappedTailCall(subprogLabel, mapName, pluginSlot, ps, funcProto)...)
+		}
+	}
+
+	// Final handoff: static tail call to the relocated target program
+	mainInsns = append(mainInsns,
+		asm.Mov.Reg(asm.R1, asm.R6),
+		asm.LoadMapPtr(asm.R2, 0).WithReference(mapName),
+		asm.Mov.Imm(asm.R3, int32(relocatedSlot)),
+		asm.FnTailCall.Call(),
+
+		// Fallback if final tail call misses
+		asm.Mov.Imm(asm.R0, retValDrop(ps)),
+		asm.Return().WithSymbol("return"),
+	)
+
+	prog := ps.Copy()
+	prog.Name = progName
+	prog.SectionName = resolveSectionName(ps.Type)
+	prog.Instructions = append(mainInsns, subprogInsns...)
+
+	return prog, nil
+}
+
+// instrumentEntrypointProgram generates a program patcher that prepends a dispatcher that
 // invokes pre-program hooks, then invokes the original program, and finally
 // invokes post-program hooks. Something like this:
 //
@@ -754,11 +1114,11 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 //	    volatile int ret = RET_PROCEED;
 //	    return ret;
 //	}
-func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest) (func(asm.Instructions) (asm.Instructions, error), error) {
+func (hs *hooksSpec) instrumentEntrypointProgram(ps *ebpf.ProgramSpec, pre []string, post []string, hooks map[string]*datapathplugins.InstrumentCollectionRequest, opts *bpf.CollectionOptions) error {
 	btfMeta := btf.FuncMetadata(&ps.Instructions[0])
 	funcProto, hasFuncProto := btfMeta.Type.(*btf.FuncProto)
 	if !hasFuncProto {
-		return nil, fmt.Errorf("unable to extract function BTF info for target program")
+		return fmt.Errorf("unable to extract function BTF info for target program")
 	}
 
 	var prologue asm.Instructions
@@ -850,9 +1210,11 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 		epilogue = append(epilogue, freplaceSubProg(hookName, &postHookProto, ps)...)
 	}
 
-	return func(insns asm.Instructions) (asm.Instructions, error) {
+	opts.ProgramPatches[ps.Name] = func(insns asm.Instructions) (asm.Instructions, error) {
 		return append(prologue, append(insns, epilogue...)...), nil
-	}, nil
+	}
+
+	return nil
 }
 
 func freplaceSubProg(name string, funcProto *btf.FuncProto, ps *ebpf.ProgramSpec) asm.Instructions {
@@ -904,6 +1266,25 @@ func freplaceSubProg(name string, funcProto *btf.FuncProto, ps *ebpf.ProgramSpec
 	return prog
 }
 
+func emitWrappedTailCall(subprogLabel string, mapName string, slot uint32, ps *ebpf.ProgramSpec, funcProto *btf.FuncProto) asm.Instructions {
+	return asm.Instructions{
+		btf.WithFuncMetadata(
+			asm.LoadMapPtr(asm.R2, 0).WithReference(mapName).WithSymbol(subprogLabel).WithSource(asm.Comment(subprogLabel)),
+			&btf.Func{
+				Name:    subprogLabel,
+				Linkage: btf.GlobalFunc,
+				Type:    funcProto,
+			},
+		),
+		asm.Mov.Imm(asm.R3, int32(slot)),
+		asm.FnTailCall.Call(),
+
+		// If tail call misses, return drop code
+		asm.Mov.Imm(asm.R0, retValDrop(ps)),
+		asm.Return(),
+	}
+}
+
 func retValProceed(ps *ebpf.ProgramSpec) int32 {
 	switch ps.AttachType {
 	case ebpf.AttachCGroupInet4Bind, ebpf.AttachCGroupInet6Bind,
@@ -917,6 +1298,17 @@ func retValProceed(ps *ebpf.ProgramSpec) int32 {
 		return 1 // SYS_PROCEED
 	default:
 		return -1 // TCX_NEXT / TC_ACT_UNSPEC
+	}
+}
+
+func retValDrop(ps *ebpf.ProgramSpec) int32 {
+	switch ps.Type {
+	case ebpf.XDP:
+		return 1 // XDP_DROP
+	case ebpf.SchedCLS, ebpf.SchedACT:
+		return 2 // TC_ACT_SHOT
+	default:
+		return 0 // SYS_REJECT
 	}
 }
 
@@ -1125,4 +1517,13 @@ func (err *dependencyCycleError) Error() string {
 	}
 
 	return b.String()
+}
+
+func resolveSectionName(targetType ebpf.ProgramType) string {
+	switch targetType {
+	case ebpf.XDP:
+		return "xdp/tail"
+	default:
+		return "classifier/tail"
+	}
 }
