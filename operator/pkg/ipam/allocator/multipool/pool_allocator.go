@@ -217,11 +217,19 @@ func (p *PoolAllocator) reconcileOrphanCIDRs(pool string, v4, v6 []cidralloc.CID
 	return errors.Join(errs...)
 }
 
-func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAllocator, newCIDRs []netip.Prefix, maskSize int) ([]cidralloc.CIDRAllocator, error) {
+// nodePoolsCIDRsDeleter deletes CIDRs from node pools (see PoolAllocator.computeNewCIDRSets).
+type nodePoolsCIDRsDeleter func()
+
+// computeNewCIDRSets computes the new list of CIDRs based on the current ones and the new ones
+// requested by the user. Notice that deleted CIDRs are not removed from node pools, and must
+// explicitly be deleted by calling the returned nodePoolsCIDRsDeleter function.
+func (p *PoolAllocator) computeNewCIDRSets(isV6 bool, prevCIDRSets []cidralloc.CIDRAllocator, newCIDRs []netip.Prefix, maskSize int) ([]cidralloc.CIDRAllocator, nodePoolsCIDRsDeleter, error) {
+	cidrSets := slices.Clone(prevCIDRSets)
+
 	var newCIDRSets []cidralloc.CIDRAllocator
 	var alloc []string
 
-	// allocate new CIDR set for each CIDR not yet in the pool
+	// Allocate new CIDR set for each CIDR not yet in the pool.
 	for _, cidr := range newCIDRs {
 		if !hasCIDR(cidrSets, cidr) {
 			alloc = append(alloc, cidr.String())
@@ -231,13 +239,16 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 		var err error
 		newCIDRSets, err = cidrset.NewCIDRSets(isV6, alloc, maskSize)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	var errs []error
 
-	// delete CIDR set for CIDRs not present in the new CIDRs
+	var nodePoolCIDRDeleterFns []func()
+
+	// Compute the list of CIDRs that must be deleted from node pools, because not contained in the
+	// new list of CIDRs.
 	for i, oldCIDR := range cidrSets {
 		if oldCIDR == nil {
 			continue
@@ -275,15 +286,24 @@ func (p *PoolAllocator) updateCIDRSets(isV6 bool, cidrSets []cidralloc.CIDRAlloc
 						logfields.PoolName, pool,
 						logfields.Node, node,
 					)
-					p.markOrphan(node, pool, cidr, allocatedCIDRSets.allowFirstIP, allocatedCIDRSets.allowLastIP)
-					delete(cidrs, cidr)
+					nodePoolCIDRDeleterFns = append(nodePoolCIDRDeleterFns, func() {
+						p.markOrphan(node, pool, cidr, allocatedCIDRSets.allowFirstIP, allocatedCIDRSets.allowLastIP)
+						delete(cidrs, cidr)
+					})
 				}
 			}
 		}
 	}
+
+	nodePoolsCIDRsDeleter := nodePoolsCIDRsDeleter(func() {
+		for _, nodePoolCIDRDeleterFn := range nodePoolCIDRDeleterFns {
+			nodePoolCIDRDeleterFn()
+		}
+	})
+
 	cidrSets = slices.DeleteFunc(cidrSets, func(a cidralloc.CIDRAllocator) bool { return a == nil })
 	cidrSets = append(cidrSets, newCIDRSets...)
-	return cidrSets, errors.Join(errs...)
+	return cidrSets, nodePoolsCIDRsDeleter, errors.Join(errs...)
 }
 
 func cidrPrefixes(cidrs []poolCIDRConfig) []netip.Prefix {
@@ -367,12 +387,12 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, 
 	ipv4Prefixes := cidrPrefixes(ipv4CIDRs)
 	ipv6Prefixes := cidrPrefixes(ipv6CIDRs)
 
-	v4, err := p.updateCIDRSets(false, v4Prev, ipv4Prefixes, ipv4MaskSize)
+	v4, nodePoolsV4CIDRsDeleter, err := p.computeNewCIDRSets(false, v4Prev, ipv4Prefixes, ipv4MaskSize)
 	if err != nil {
 		return err
 	}
 
-	v6, err := p.updateCIDRSets(true, v6Prev, ipv6Prefixes, ipv6MaskSize)
+	v6, nodePoolsV6CIDRsDeleter, err := p.computeNewCIDRSets(true, v6Prev, ipv6Prefixes, ipv6MaskSize)
 	if err != nil {
 		return err
 	}
@@ -386,6 +406,8 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, 
 		return err
 	}
 
+	nodePoolsV4CIDRsDeleter()
+	nodePoolsV6CIDRsDeleter()
 	for _, rangesToReserve := range v4RangesToReserve {
 		rangesToReserve.allocator.SetReservedRanges(rangesToReserve.ranges)
 	}
