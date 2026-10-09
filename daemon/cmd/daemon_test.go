@@ -119,7 +119,7 @@ func TestNeedsCiliumNodeBeforeIPAM(t *testing.T) {
 		ipamOption.IPAMMultiPool:       true,
 		ipamOption.IPAMENI:             true,
 		ipamOption.IPAMAzure:           true,
-		ipamOption.IPAMAlibabaCloud:    false,
+		ipamOption.IPAMAlibabaCloud:    true,
 		ipamOption.IPAMCRD:             false,
 		ipamOption.IPAMDelegatedPlugin: false,
 		ipamOption.IPAMKubernetes:      false,

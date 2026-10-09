@@ -132,7 +132,7 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 
 func needsCiliumNodeBeforeIPAM(mode string) bool {
 	switch mode {
-	case ipamOption.IPAMClusterPool, ipamOption.IPAMMultiPool, ipamOption.IPAMENI, ipamOption.IPAMAzure:
+	case ipamOption.IPAMClusterPool, ipamOption.IPAMMultiPool, ipamOption.IPAMENI, ipamOption.IPAMAzure, ipamOption.IPAMAlibabaCloud:
 		return true
 	default:
 		return false
