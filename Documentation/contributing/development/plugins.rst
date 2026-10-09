@@ -39,50 +39,51 @@ socket.
 
 As Cilium is loading a BPF collection and preparing it for an attachment point
 or set of related attachment points it sends two rounds of gRPC requests to all
-registered plugins allowing them to instrument the collection with hooks that
-run before (pre) or after (post) programs in that collection. Plugins can attach
-hooks around TC, XDP, or cgroup SOCK_ADDR/SOCKET programs.
-
-For now, only *entrypoints* are allowed to be instrumented, which are the
-top-level programs Cilium attaches to a BPF attachment point. This constraint
-may be loosened in the future to allow for more fine-grained instrumentation of
-the collection by a plugin.
+registered plugins allowing them to instrument the collection with hooks.
+Plugins can attach ``PRE`` and ``POST`` hooks around collection entrypoints
+(TC, XDP, or cgroup ``SOCK_ADDR``/``SOCKET`` programs), as well as ``PRE``,
+``TAIL_CALL``, and ``EXIT`` hooks on TC and XDP programs (including tail-called
+and policy programs).
 
 #. After loading the collection spec but before loading the collection into the
    kernel, Cilium sends each plugin a ``PrepareCollection`` request containing
    all the context about the collection, the attachment point, and its
    configuration. Each plugin uses this information to determine which of
    Cilium's programs (if any) it would like to instrument. The
-   ``PrepareCollection`` response contains a list of pre or post program hooks
-   that the plugin would like to inject. Each hook specification may contain a
-   set of ordering constraints which express to Cilium that this particular hook
-   must be placed before or after those of another plugin at that same hook
-   point.
+   ``PrepareCollection`` response contains a list of ``PRE``, ``POST``,
+   ``TAIL_CALL``, or ``EXIT`` program hooks that the plugin would like to
+   inject. Each hook specification may contain a set of ordering constraints
+   which express to Cilium that this particular hook must be placed before or
+   after those of another plugin at that same hook point.
 #. After receiving all ``PrepareCollection`` responses, if any plugin has
-   indicated that it would like to inject a hook before or after some program in
-   the collection, Cilium generates a *dispatcher program* in its place which
-   invokes any pre hooks, invokes the original program, and finally invokes any
-   post hooks. The dispatcher mechanism is covered in more detail below.
+   indicated that it would like to inject a hook on some program in the
+   collection, Cilium generates a *dispatcher program* (and patches the target
+   program or tail-call maps as needed) to invoke the configured hooks around
+   the target program, tail call, or exit point. The dispatcher mechanism is
+   covered in more detail below.
 #. Cilium loads the modified collection into the kernel.
 #. Cilium creates an ephemeral request-specific directory in BPFFS to contain
    hook program pins for this load operation, e.g.
    ``/sys/fs/bpf/cilium/operations/6a950f84-d8c0-468f-a8e5-c30545fd1ca5`` and
-   maps each pre/post hook to a unique pin path within this directory. No pins
-   are actually created at this point.
+   maps each hook to a unique pin path within this directory. No pins are
+   actually created at this point.
 #. Cilium sends an ``InstrumentCollection`` request to any plugin that provided
    a hook specification in the prepare phase. Each ``InstrumentCollection``
    request contains the same context about the collection and attachment point
    that was in the preceding ``PrepareCollection`` request along with a list of
    hooks mirroring those requested by the plugin in its ``PrepareCollection``
-   response. Each hook contains an attach target providing all the context the
-   plugin needs to load a ``BPF_PROG_TYPE_EXT`` hook program into the
-   kernel, and the unique ``pin_path`` for this hook program that Cilium
-   generated in the previous step.
+   response. For ``freplace`` hooks (``PRE`` and ``POST`` on entrypoints), each
+   hook contains an attach target providing the program ID and subprogram name
+   needed to load a ``BPF_PROG_TYPE_EXT`` program; for tail-call-dispatched
+   hooks (``PRE`` on tail-called programs, ``TAIL_CALL``, and ``EXIT``),
+   ``subprog_name`` is empty and the plugin loads a standalone BPF program of
+   the same type as the target program. Each hook also specifies the unique
+   ``pin_path`` generated in the previous step.
 #. Each plugin loads hook programs and pins them to the designated pin paths
    before responding to the ``InstrumentCollection`` request.
-#. Cilium opens and unpins the hook programs then replaces the dispatcher
-   subprograms with these programs creating a set of freplace links in their
-   place.
+#. Cilium opens and unpins the hook programs, then attaches ``freplace`` hooks
+   to their dispatcher subprograms and populates tail-call-dispatched hooks
+   into ``cilium_calls``.
 #. With the collection finalized, Cilium attaches collection entrypoints
    to the relevant BPF attachment points in the kernel.
 
@@ -292,11 +293,15 @@ and tail calls only unwind the current stack frame.
 Known Limitations
 =================
 
-* It is currently not possible to instrument programs that are intended to
-  go into a ``BPF_MAP_TYPE_PROG_ARRAY`` which excludes any programs except
-  entrypoints like ``cil_to_container``.
-  `This <https://lore.kernel.org/all/20241015150207.70264-2-leon.hwang@linux.dev/>`_
-  prevents Cilium from using freplace with such programs.
+* ``POST`` hooks use ``freplace`` (``BPF_PROG_TYPE_EXT``), which the kernel
+  `does not allow <https://lore.kernel.org/all/20241015150207.70264-2-leon.hwang@linux.dev/>`_
+  on programs placed into a ``BPF_MAP_TYPE_PROG_ARRAY``. As a result, ``POST``
+  hooks are only supported on non-policy entrypoint programs. Tail-called and
+  policy programs in TC and XDP collections can instead be instrumented using
+  ``PRE``, ``TAIL_CALL``, and ``EXIT`` hooks, which are dispatched via
+  ``cilium_calls`` tail calls.
+* ``TAIL_CALL`` hooks currently only intercept static tail calls into
+  ``cilium_calls``.
 
 gRPC API Reference
 ==================

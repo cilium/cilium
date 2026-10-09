@@ -32,6 +32,22 @@ const (
 	callsMap = "cilium_calls"
 )
 
+// CallsMapSpec returns the cilium_calls MapSpec from the given collection spec, or nil if not found.
+func CallsMapSpec(coll *ebpf.CollectionSpec) *ebpf.MapSpec {
+	if coll == nil {
+		return nil
+	}
+	return coll.Maps[callsMap]
+}
+
+// CallsMap returns the cilium_calls Map from the given collection, or nil if not found.
+func CallsMap(coll *ebpf.Collection) *ebpf.Map {
+	if coll == nil {
+		return nil
+	}
+	return coll.Maps[callsMap]
+}
+
 // checkUnspecifiedPrograms returns an error if any of the programs in the spec
 // are of the UnspecifiedProgram type.
 func checkUnspecifiedPrograms(spec *ebpf.CollectionSpec) error {
@@ -43,9 +59,9 @@ func checkUnspecifiedPrograms(spec *ebpf.CollectionSpec) error {
 	return nil
 }
 
-// isEntrypoint returns true if the program is marked with the __section_entry
+// IsEntrypoint returns true if the program is marked with the __section_entry
 // annotation.
-func isEntrypoint(prog *ebpf.ProgramSpec) bool {
+func IsEntrypoint(prog *ebpf.ProgramSpec) bool {
 	return strings.HasSuffix(prog.SectionName, "/entry")
 }
 
@@ -55,10 +71,10 @@ func IsTailCall(prog *ebpf.ProgramSpec) bool {
 	return strings.HasSuffix(prog.SectionName, "/tail")
 }
 
-// tailCallSlot returns the tail call slot for the given program, which must be
+// TailCallSlot returns the tail call slot for the given program, which must be
 // marked with the __declare_tail() annotation. The slot is the index in the
 // calls map that the program will be called from.
-func tailCallSlot(prog *ebpf.ProgramSpec) (uint32, error) {
+func TailCallSlot(prog *ebpf.ProgramSpec) (uint32, error) {
 	if !IsTailCall(prog) {
 		return 0, fmt.Errorf("program %s is not a tail call", prog.Name)
 	}
@@ -97,7 +113,7 @@ func resolveTailCalls(spec *ebpf.CollectionSpec) error {
 			continue
 		}
 
-		slot, err := tailCallSlot(prog)
+		slot, err := TailCallSlot(prog)
 		if err != nil {
 			return fmt.Errorf("getting tail call slot: %w", err)
 		}
@@ -168,7 +184,11 @@ type CollectionOptions struct {
 
 	// ProgramPatches transform the instructions in a program after
 	// reachability pruning.
-	ProgramPatches map[string]func(asm.Instructions) (asm.Instructions, error)
+	ProgramPatches map[string][]func(asm.Instructions) (asm.Instructions, error)
+
+	// CollectionPatches transform the CollectionSpec structure (maps, programs, BTF tags)
+	// after LoadCollection makes its internal copy, before reachability pruning.
+	CollectionPatches []func(*ebpf.CollectionSpec) error
 }
 
 func (co *CollectionOptions) populateMapReplacements() {
@@ -238,12 +258,18 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("applying variable overrides: %w", err)
 	}
 
+	for _, patch := range opts.CollectionPatches {
+		if err := patch(spec); err != nil {
+			return nil, nil, fmt.Errorf("applying collection patches: %w", err)
+		}
+	}
+
 	reach, err := computeReachability(spec)
 	if err != nil {
 		return nil, nil, fmt.Errorf("computing reachability: %w", err)
 	}
 
-	if err := removeUnusedTailcalls(spec, reach, logger); err != nil {
+	if err := removeUnusedTailcalls(spec, reach, opts.Keep, logger); err != nil {
 		return nil, nil, fmt.Errorf("removing unused tail calls: %w", err)
 	}
 
@@ -500,18 +526,20 @@ func nextPow2(n uint64) uint64 {
 	return 1 << bits.Len64(n-1)
 }
 
-func patchPrograms(coll *ebpf.CollectionSpec, patches map[string]func(asm.Instructions) (asm.Instructions, error)) error {
-	for name, patch := range patches {
+func patchPrograms(coll *ebpf.CollectionSpec, patches map[string][]func(asm.Instructions) (asm.Instructions, error)) error {
+	var err error
+	for name, patchList := range patches {
 		prog := coll.Programs[name]
 		if prog == nil {
 			continue
 		}
 
-		newInstructions, err := patch(prog.Instructions)
-		if err != nil {
-			return fmt.Errorf("patching %s: %w", name, err)
+		for _, patch := range patchList {
+			prog.Instructions, err = patch(prog.Instructions)
+			if err != nil {
+				return fmt.Errorf("patching %s: %w", name, err)
+			}
 		}
-		prog.Instructions = newInstructions
 	}
 
 	return nil

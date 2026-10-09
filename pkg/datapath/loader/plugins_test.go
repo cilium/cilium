@@ -7,8 +7,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/cilium/ebpf"
@@ -246,9 +249,38 @@ func runTestProgs(t *testing.T, inputValues inputValues, baseObjs *ebpf.Collecti
 		}
 	}
 
-	for name, prog := range baseObjs.Programs {
+	var tailCallEnabled bool
+	for _, configVar := range []string{
+		"__config_tail_call_enabled",
+		"__config_policy_caller_enabled",
+	} {
+		if v := baseObjs.Variables[configVar]; v != nil {
+			var val int32
+			_ = v.Get(&val)
+			if val != 0 {
+				tailCallEnabled = true
+				break
+			}
+		}
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(baseObjs.Programs)) {
+		prog := baseObjs.Programs[name]
 		if !supportsTestRun(prog.Type()) {
 			continue
+		}
+		if strings.HasPrefix(name, preHookDispatcherProgPrefix) ||
+			strings.HasPrefix(name, staticTailCallHookDispatcherProgPrefix) ||
+			strings.HasPrefix(name, exitHookDispatcherProgPrefix) ||
+			strings.HasPrefix(name, "relocated_") ||
+			isPolicyProgram(name) {
+			continue
+		}
+		if tailCallEnabled && !strings.HasSuffix(name, "_caller") {
+			continue
+		}
+		if disp := baseObjs.Programs[preHookDispatcherProgPrefix+name]; disp != nil {
+			prog = disp
 		}
 		ret, _, err := prog.Test(make([]byte, 14))
 		require.NoErrorf(t, err, "running %s", name)
@@ -260,7 +292,15 @@ func runTestProgs(t *testing.T, inputValues inputValues, baseObjs *ebpf.Collecti
 
 	for name, v := range baseObjs.Variables {
 		var val int32
-		require.NoErrorf(t, v.Get(&val), "getting %s", name)
+		if v.Size() == 1 {
+			var boolVal bool
+			require.NoErrorf(t, v.Get(&boolVal), "getting %s", name)
+			if boolVal {
+				val = 1
+			}
+		} else {
+			require.NoErrorf(t, v.Get(&val), "getting %s", name)
+		}
 		outputs.base[name] = val
 	}
 
@@ -294,10 +334,15 @@ func maybeReportVerifierError(err error) error {
 func chooseHookProgram(hook *datapathplugins.InstrumentCollectionRequest_Hook) string {
 	var name string
 
-	if hook.Type == datapathplugins.HookType_PRE {
+	switch hook.Type {
+	case datapathplugins.HookType_PRE:
 		name = "before_"
-	} else {
+	case datapathplugins.HookType_POST:
 		name = "after_"
+	case datapathplugins.HookType_TAIL_CALL:
+		name = "tail_call_"
+	case datapathplugins.HookType_EXIT:
+		name = "exit_"
 	}
 
 	return name + hook.Target
@@ -306,13 +351,26 @@ func chooseHookProgram(hook *datapathplugins.InstrumentCollectionRequest_Hook) s
 func TestPrivilegedHooksSpec(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
+	t.Run("tc", func(t *testing.T) {
+		testPrivilegedHooksSpec(t, testprogs.LoadPluginsBase)
+	})
+	t.Run("xdp", func(t *testing.T) {
+		testPrivilegedHooksSpec(t, testprogs.LoadPluginsBaseXdp)
+	})
+}
+
+func testPrivilegedHooksSpec(t *testing.T, loadBase func() (*ebpf.CollectionSpec, error)) {
+	t.Helper()
+
 	preparePluginHooksSpec := func(baseColl *ebpf.Collection, hookColl *ebpf.CollectionSpec, hooks []*datapathplugins.InstrumentCollectionRequest_Hook) {
 		usedHookPrograms := map[string]bool{}
 		for _, hook := range hooks {
 			hookProgramName := chooseHookProgram(hook)
 			usedHookPrograms[hookProgramName] = true
-			hookColl.Programs[hookProgramName].AttachTarget = baseColl.Programs[hook.Target]
-			hookColl.Programs[hookProgramName].AttachTo = hook.AttachTarget.SubprogName
+			if hook.GetAttachTarget() != nil {
+				hookColl.Programs[hookProgramName].AttachTarget = baseColl.Programs[hook.Target]
+				hookColl.Programs[hookProgramName].AttachTo = hook.AttachTarget.SubprogName
+			}
 		}
 
 		// prune any unused hook programs so they aren't loaded
@@ -394,7 +452,7 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 		},
 	}
 
-	baseSpec, err := testprogs.LoadPluginsBase()
+	baseSpec, err := loadBase()
 	require.NoError(t, err)
 	hooksSpec, err := testprogs.LoadPluginsHooks()
 	require.NoError(t, err)
@@ -408,7 +466,13 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 					Order:  datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_AFTER,
 				})
 			}
-			for prog := range baseSpec.Programs {
+			for prog, progSpec := range baseSpec.Programs {
+				if isPolicyProgram(prog) {
+					continue
+				}
+				if err := canInstrument(baseSpec, progSpec, hookType); err != nil {
+					continue
+				}
 				hooks[p.plugin] = append(hooks[p.plugin], &datapathplugins.PrepareCollectionResponse_HookSpec{
 					Type:        hookType,
 					Target:      prog,
@@ -421,6 +485,9 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 	buildHookInputsAndOutputs := func(prog string, spec *ebpf.ProgramSpec,
 		hooks []hook, pre bool, terminated bool, seq int32,
 		inputs inputValues, outputs outputValues) bool {
+		if !pre && bpf.IsTailCall(spec) {
+			return terminated
+		}
 		for _, p := range hooks {
 			seq++
 
@@ -480,6 +547,9 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 		}
 
 		for prog, spec := range baseSpec.Programs {
+			if isPolicyProgram(prog) {
+				continue
+			}
 			var terminated bool
 
 			terminated = buildHookInputsAndOutputs(prog, spec, pre,
@@ -500,6 +570,12 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 			}
 		}
 
+		for name := range baseSpec.Variables {
+			if _, ok := outputs.base[name]; !ok {
+				outputs.base[name] = 0
+			}
+		}
+
 		for _, hooks := range outputs.hook {
 			for name := range hooksSpec.Variables {
 				if _, ok := hooks[name]; !ok {
@@ -517,18 +593,22 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 		for plugin, hooks := range hooks {
 			result[plugin] = &datapathplugins.InstrumentCollectionRequest{}
 			for _, hook := range hooks {
-				var subprogName string
-				if hook.Type == datapathplugins.HookType_PRE {
-					subprogName = preHookSubprogName(plugin)
-				} else {
-					subprogName = postHookSubprogName(plugin)
+				var attachTarget *datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget
+				if !bpf.IsTailCall(baseSpec.Programs[hook.Target]) {
+					var subprogName string
+					if hook.Type == datapathplugins.HookType_PRE {
+						subprogName = preHookSubprogName(plugin)
+					} else {
+						subprogName = postHookSubprogName(plugin)
+					}
+					attachTarget = &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
+						SubprogName: subprogName,
+					}
 				}
 				result[plugin].Hooks = append(result[plugin].Hooks, &datapathplugins.InstrumentCollectionRequest_Hook{
-					AttachTarget: &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
-						SubprogName: subprogName,
-					},
-					Type:   hook.Type,
-					Target: hook.Target,
+					AttachTarget: attachTarget,
+					Type:         hook.Type,
+					Target:       hook.Target,
 				})
 			}
 		}
@@ -561,13 +641,19 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 					}
 				}
 			}
-			baseSpec, err := testprogs.LoadPluginsBase()
+			baseSpec, err := loadBase()
 			require.NoError(t, err)
-			instrumentCollectionRequests, programPatches, err := hooksSpec.instrumentCollection(baseSpec)
+			opts := &bpf.CollectionOptions{}
+			instrumentCollectionRequests, hookSlots, err := hooksSpec.instrumentCollection(baseSpec, opts)
 			require.NoError(t, err)
-			for program, patch := range programPatches {
-				baseSpec.Programs[program].Instructions, err = patch(baseSpec.Programs[program].Instructions)
-				require.NoError(t, err)
+			for _, patch := range opts.CollectionPatches {
+				require.NoError(t, patch(baseSpec))
+			}
+			for program, patches := range opts.ProgramPatches {
+				for _, patch := range patches {
+					baseSpec.Programs[program].Instructions, err = patch(baseSpec.Programs[program].Instructions)
+					require.NoError(t, err)
+				}
 			}
 			if diff := cmp.Diff(
 				tc.expectedInstrumentCollectionRequests,
@@ -586,6 +672,16 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 			baseColl, err := ebpf.NewCollection(baseSpec)
 			require.NoError(t, maybeReportVerifierError(err))
 			defer baseColl.Close()
+			for name, prog := range baseSpec.Programs {
+				if strings.HasPrefix(name, preHookDispatcherProgPrefix) {
+					continue
+				}
+				if bpf.IsTailCall(prog) && !isPolicyProgram(prog.Name) {
+					slot, err := bpf.TailCallSlot(prog)
+					require.NoError(t, err)
+					require.NoError(t, baseColl.Maps["cilium_calls"].Put(slot, baseColl.Programs[name]))
+				}
+			}
 
 			pluginHooksObjs := map[string]*ebpf.Collection{}
 
@@ -602,6 +698,11 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 				defer pluginHooks.Close()
 
 				for _, hook := range req.Hooks {
+					if bpf.IsTailCall(baseSpec.Programs[hook.Target]) || isPolicyProgram(hook.Target) {
+						err := baseColl.Maps["cilium_calls"].Put(hookSlots[hook], pluginHooks.Programs[chooseHookProgram(hook)])
+						require.NoError(t, err)
+						continue
+					}
 					link, err := link.AttachFreplace(
 						baseColl.Programs[hook.Target],
 						hook.AttachTarget.SubprogName,
@@ -718,18 +819,20 @@ func (p *fakePlugin) InstrumentCollection(ctx context.Context, in *datapathplugi
 		}
 
 		usedHookPrograms[progName] = true
-		id := ebpf.ProgramID(h.AttachTarget.ProgramId)
-		if targetProgs[id] == nil {
-			targetProg, err := ebpf.NewProgramFromID(id)
-			if err != nil {
-				return nil, fmt.Errorf("loading target program %d: %w", h.AttachTarget.ProgramId, err)
+		if h.GetAttachTarget() != nil {
+			id := ebpf.ProgramID(h.AttachTarget.ProgramId)
+			if targetProgs[id] == nil {
+				targetProg, err := ebpf.NewProgramFromID(id)
+				if err != nil {
+					return nil, fmt.Errorf("loading target program %d: %w", h.AttachTarget.ProgramId, err)
+				}
+				defer targetProg.Close()
+				targetProgs[id] = targetProg
 			}
-			defer targetProg.Close()
-			targetProgs[id] = targetProg
-		}
 
-		progSpec.AttachTarget = targetProgs[id]
-		progSpec.AttachTo = h.AttachTarget.SubprogName
+			progSpec.AttachTarget = targetProgs[id]
+			progSpec.AttachTo = h.AttachTarget.SubprogName
+		}
 	}
 
 	// prune any unused hook programs so they aren't loaded
@@ -793,22 +896,94 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			Type:        uint32(p.Type),
 			AttachType:  uint32(p.AttachType),
 		}
-		baseColl.Programs[name] = &datapathplugins.InstrumentCollectionRequest_Collection_Program{}
+		if !strings.Contains(name, "_tail_") {
+			baseColl.Programs[name] = &datapathplugins.InstrumentCollectionRequest_Collection_Program{}
+		}
 	}
 	for name, m := range baseSpec.Maps {
+		if m.Type != ebpf.ProgramArray {
+			baseColl.Maps[name] = &datapathplugins.InstrumentCollectionRequest_Collection_Map{}
+
+			continue
+		}
 		baseCollSpec.Maps[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
+			Flags:      m.Flags,
 			KeySize:    m.KeySize,
 			MaxEntries: m.MaxEntries,
 			Type:       uint32(m.Type),
 			ValueSize:  m.ValueSize,
 		}
-		baseColl.Maps[name] = &datapathplugins.InstrumentCollectionRequest_Collection_Map{}
 	}
 
-	prepareHooksReq := &datapathplugins.PrepareCollectionRequest{
-		Collection:        baseCollSpec,
-		AttachmentContext: &datapathplugins.AttachmentContext{},
+	prepareHooksReqFor := func(spec *ebpf.CollectionSpec) *datapathplugins.PrepareCollectionRequest {
+		specReq := &datapathplugins.PrepareCollectionRequest_CollectionSpec{
+			Programs: map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{},
+			Maps:     map[string]*datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{},
+		}
+		for name, p := range spec.Programs {
+			specReq.Programs[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_ProgramSpec{
+				License:     p.License,
+				SectionName: p.SectionName,
+				Type:        uint32(p.Type),
+				AttachType:  uint32(p.AttachType),
+			}
+		}
+		for name, m := range spec.Maps {
+			specReq.Maps[name] = &datapathplugins.PrepareCollectionRequest_CollectionSpec_MapSpec{
+				Flags:      m.Flags,
+				KeySize:    m.KeySize,
+				MaxEntries: m.MaxEntries,
+				Type:       uint32(m.Type),
+				ValueSize:  m.ValueSize,
+			}
+		}
+		return &datapathplugins.PrepareCollectionRequest{
+			Collection:        specReq,
+			AttachmentContext: &datapathplugins.AttachmentContext{},
+		}
 	}
+
+	baseCollFor := func(spec *ebpf.CollectionSpec) *datapathplugins.InstrumentCollectionRequest_Collection {
+		coll := &datapathplugins.InstrumentCollectionRequest_Collection{
+			Programs: map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program{},
+			Maps:     map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Map{},
+		}
+		for name := range spec.Programs {
+			coll.Programs[name] = &datapathplugins.InstrumentCollectionRequest_Collection_Program{}
+		}
+		for name := range spec.Maps {
+			coll.Maps[name] = &datapathplugins.InstrumentCollectionRequest_Collection_Map{}
+		}
+		return coll
+	}
+
+	prepareHooksReq := prepareHooksReqFor(baseSpec)
+
+	// The TC test is the only collection that mixes TC and XDP entrypoints
+	// on a single cilium_calls PROG_ARRAY. EXIT instrumentation makes every
+	// entrypoint tail call into that map, and the kernel only lets a single
+	// program type own a PROG_ARRAY, so the XDP program has to be dropped for
+	// EXIT hook cases. Real datapath objects only ever contain programs of a
+	// single type, so this can't happen outside of this environment.
+	loadBaseNoXdp := func() (*ebpf.CollectionSpec, error) {
+		spec, err := testprogs.LoadPluginsBase()
+		if err != nil {
+			return nil, err
+		}
+		delete(spec.Programs, "program_xdp")
+
+		return spec, nil
+	}
+	baseSpecNoXdp, err := loadBaseNoXdp()
+	require.NoError(t, err)
+	prepareHooksReqNoXdp := prepareHooksReqFor(baseSpecNoXdp)
+
+	// program_tc_multi_caller has static tail calls into two different
+	// cilium_calls slots (program_tail_tc_a and program_tail_tc_b), selected at
+	// runtime by tc_multi_caller_second_target.
+	multiTailSpec, err := testprogs.LoadPluginsMultiTail()
+	require.NoError(t, err)
+	prepareHooksReqMultiTail := prepareHooksReqFor(multiTailSpec)
 
 	hookSpec := func(typ datapathplugins.HookType,
 		target string,
@@ -826,6 +1001,20 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 
 	post := func(target string, constraints ...*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint) *datapathplugins.PrepareCollectionResponse_HookSpec {
 		return hookSpec(datapathplugins.HookType_POST, target, constraints)
+	}
+
+	tailCall := func(target string, constraints ...*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint) *datapathplugins.PrepareCollectionResponse_HookSpec {
+		return hookSpec(datapathplugins.HookType_TAIL_CALL, target, constraints)
+	}
+
+	tailCallTo := func(target string, tailCallTarget string, constraints ...*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint) *datapathplugins.PrepareCollectionResponse_HookSpec {
+		h := hookSpec(datapathplugins.HookType_TAIL_CALL, target, constraints)
+		h.TailCallTarget = tailCallTarget
+		return h
+	}
+
+	exit := func(target string, constraints ...*datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint) *datapathplugins.PrepareCollectionResponse_HookSpec {
+		return hookSpec(datapathplugins.HookType_EXIT, target, constraints)
 	}
 
 	before := func(plugin string) *datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint {
@@ -893,16 +1082,132 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 		}
 	}
 
+	addTailCallDispatchers := func(progs map[string]*datapathplugins.InstrumentCollectionRequest_Collection_Program, spec *ebpf.CollectionSpec, p *ebpf.ProgramSpec, hookSpec *datapathplugins.PrepareCollectionResponse_HookSpec) {
+		_ = forEachStaticTailCall(p.Instructions, func(call tailCallSite) error {
+			if hookSpec.TailCallTarget != "" {
+				if tgt, err := resolveTailCallTarget(spec, hookSpec); err != nil || tgt != call.target {
+					return nil
+				}
+			}
+			progs[fmt.Sprintf("%s%s_to_%s_%d", staticTailCallHookDispatcherProgPrefix, p.Name, call.target.mapName, call.target.slot)] = &datapathplugins.InstrumentCollectionRequest_Collection_Program{}
+			return nil
+		})
+	}
+
+	loadTailHooksReq := func(plugin string, resp *datapathplugins.PrepareCollectionResponse, spec *ebpf.CollectionSpec, allResps ...*datapathplugins.PrepareCollectionResponse) *datapathplugins.InstrumentCollectionRequest {
+		if spec == nil {
+			spec = baseSpec
+		}
+		if len(allResps) == 0 {
+			allResps = []*datapathplugins.PrepareCollectionResponse{resp}
+		}
+
+		coll := baseCollFor(spec)
+		progs := maps.Clone(coll.Programs)
+		mapsCopy := maps.Clone(coll.Maps)
+
+		var hasPolicy bool
+		var hasTailHook bool
+		var hasExit bool
+		for _, r := range allResps {
+			for _, hookSpec := range r.Hooks {
+				if hookSpec.Type == datapathplugins.HookType_EXIT {
+					hasExit = true
+				}
+				if isPolicyProgram(hookSpec.Target) || strings.Contains(hookSpec.Target, "policy") {
+					hasPolicy = true
+				}
+				if hookSpec.Type == datapathplugins.HookType_TAIL_CALL || strings.Contains(hookSpec.Target, "_caller") || strings.Contains(hookSpec.Target, "_tail_") {
+					hasTailHook = true
+				}
+
+				p := spec.Programs[hookSpec.Target]
+				if p == nil {
+					continue
+				}
+
+				switch {
+				case hookSpec.Type == datapathplugins.HookType_TAIL_CALL:
+					addTailCallDispatchers(progs, spec, p, hookSpec)
+				case hookSpec.Type == datapathplugins.HookType_EXIT:
+					progs[exitHookDispatcherProgPrefix+hookSpec.Target] = &datapathplugins.InstrumentCollectionRequest_Collection_Program{}
+				case isPolicyProgram(hookSpec.Target):
+					progs["relocated_"+hookSpec.Target] = &datapathplugins.InstrumentCollectionRequest_Collection_Program{}
+				case bpf.IsTailCall(p):
+					progs[preHookDispatcherProgPrefix+hookSpec.Target] = &datapathplugins.InstrumentCollectionRequest_Collection_Program{}
+				}
+			}
+		}
+
+		if !hasPolicy {
+			delete(mapsCopy, "cilium_call_policy")
+		}
+		if !hasTailHook && !hasPolicy {
+			delete(progs, "program_tail_tc")
+			delete(progs, "program_tail_xdp")
+		}
+		if hasExit {
+			mapsCopy[pluginStateMapName] = &datapathplugins.InstrumentCollectionRequest_Collection_Map{}
+			for name := range spec.Programs {
+				if isPolicyProgram(name) {
+					progs["relocated_"+name] = &datapathplugins.InstrumentCollectionRequest_Collection_Program{}
+				}
+			}
+		}
+
+		var hooks []*datapathplugins.InstrumentCollectionRequest_Hook
+		for _, hookSpec := range resp.Hooks {
+			p := spec.Programs[hookSpec.Target]
+			isTail := (p != nil && (bpf.IsTailCall(p) || isPolicyProgram(p.Name)))
+
+			var attachTarget *datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget
+			if hookSpec.Type != datapathplugins.HookType_TAIL_CALL && hookSpec.Type != datapathplugins.HookType_EXIT && !isTail {
+				subprog := preHookSubprogName(plugin)
+				if hookSpec.Type == datapathplugins.HookType_POST {
+					subprog = postHookSubprogName(plugin)
+				}
+				attachTarget = &datapathplugins.InstrumentCollectionRequest_Hook_AttachTarget{
+					SubprogName: subprog,
+				}
+			}
+
+			hooks = append(hooks, &datapathplugins.InstrumentCollectionRequest_Hook{
+				Type:         hookSpec.Type,
+				Target:       hookSpec.Target,
+				AttachTarget: attachTarget,
+			})
+		}
+
+		return &datapathplugins.InstrumentCollectionRequest{
+			Collection: &datapathplugins.InstrumentCollectionRequest_Collection{
+				Programs: progs,
+				Maps:     mapsCopy,
+			},
+			AttachmentContext: &datapathplugins.AttachmentContext{},
+			Hooks:             hooks,
+			Cookie:            resp.Cookie,
+		}
+	}
+
+	type testConfig struct {
+		TailCallEnabled       int32 `config:"tail_call_enabled"`
+		PolicyCallerEnabled   int32 `config:"policy_caller_enabled"`
+		PolicyOutboundEnabled int32 `config:"policy_outbound_enabled"`
+	}
+
 	testCases := []struct {
 		name                 string
+		baseSpec             func() (*ebpf.CollectionSpec, error)
 		inputValues          inputValues
 		attachmentPolicies   map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy
 		transactions         map[string]transaction
 		expectedOutputValues outputValues
 		expectedErr          error
+		config               testConfig
 	}{
 		{
-			name: "pre and post hooks basic",
+			name:     "pre and post hooks basic",
+			baseSpec: testprogs.LoadPluginsBase,
 			transactions: map[string]transaction{
 				"plugin_a": {
 					prepareHooksReq:  prepareHooksReq,
@@ -939,12 +1244,17 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			},
 			expectedOutputValues: outputValues{
 				base: map[string]int32{
-					"program_tc_seq":  3,
-					"program_xdp_seq": 3,
+					"program_tc_seq":            3,
+					"program_xdp_seq":           3,
+					"program_tc_caller_seq":     1,
+					"program_policy_caller_seq": 1,
+					"program_tail_tc_seq":       0,
 				},
 				returns: map[string]uint32{
-					"program_tc":  1,
-					"program_xdp": 1,
+					"program_tc":            1,
+					"program_xdp":           1,
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
 				},
 				hook: map[string]map[string]int32{
 					"plugin_a": {
@@ -975,7 +1285,8 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			},
 		},
 		{
-			name: "plugin_b returns an error in PrepareCollection() with AttachmentPolicyAlways",
+			name:     "plugin_b returns an error in PrepareCollection() with AttachmentPolicyAlways",
+			baseSpec: testprogs.LoadPluginsBase,
 			transactions: map[string]transaction{
 				"plugin_a": {
 					prepareHooksReq:  prepareHooksReq,
@@ -995,7 +1306,8 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			expectedErr: errors.New("some error"),
 		},
 		{
-			name: "plugin_b returns an error in PrepareCollection() with AttachmentPolicyBestEffort",
+			name:     "plugin_b returns an error in PrepareCollection() with AttachmentPolicyBestEffort",
+			baseSpec: testprogs.LoadPluginsBase,
 			transactions: map[string]transaction{
 				"plugin_a": {
 					prepareHooksReq:  prepareHooksReq,
@@ -1024,12 +1336,17 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			},
 			expectedOutputValues: outputValues{
 				base: map[string]int32{
-					"program_tc_seq":  2,
-					"program_xdp_seq": 2,
+					"program_tc_seq":            2,
+					"program_xdp_seq":           2,
+					"program_tc_caller_seq":     1,
+					"program_policy_caller_seq": 1,
+					"program_tail_tc_seq":       0,
 				},
 				returns: map[string]uint32{
-					"program_tc":  1,
-					"program_xdp": 1,
+					"program_tc":            1,
+					"program_xdp":           1,
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
 				},
 				hook: map[string]map[string]int32{
 					"plugin_a": {
@@ -1048,7 +1365,8 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			},
 		},
 		{
-			name: "plugin_b returns an error in InstrumentCollection() with AttachmentPolicyAlways",
+			name:     "plugin_b returns an error in InstrumentCollection() with AttachmentPolicyAlways",
+			baseSpec: testprogs.LoadPluginsBase,
 			transactions: map[string]transaction{
 				"plugin_a": {
 					prepareHooksReq:  prepareHooksReq,
@@ -1070,7 +1388,8 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			expectedErr: errors.New("some error"),
 		},
 		{
-			name: "plugin_b returns an error in InstrumentCollection() with AttachmentPolicyBestEffort",
+			name:     "plugin_b returns an error in InstrumentCollection() with AttachmentPolicyBestEffort",
+			baseSpec: testprogs.LoadPluginsBase,
 			transactions: map[string]transaction{
 				"plugin_a": {
 					prepareHooksReq:  prepareHooksReq,
@@ -1090,6 +1409,2020 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 				"plugin_b": api_v2alpha1.AttachmentPolicyBestEffort,
 			},
 			expectedErr: errors.New("some error"),
+		},
+		{
+			name:     "chained pre hooks on tc tail call target",
+			baseSpec: testprogs.LoadPluginsBase,
+			config: testConfig{
+				TailCallEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tail_tc", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tail_tc"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tail_tc_ret": -1,
+					},
+					"plugin_b": {
+						"before_program_tail_tc_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":      1,
+					"program_policy_caller_seq":  1,
+					"program_tail_tc_seq":        4,
+					"__config_tail_call_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tail_tc_seq": 2,
+						"before_program_tail_tc_ret": -1,
+					},
+					"plugin_b": {
+						"before_program_tail_tc_seq": 3,
+						"before_program_tail_tc_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "chained pre hooks on xdp tail call target",
+			baseSpec: testprogs.LoadPluginsBaseXdp,
+			config: testConfig{
+				TailCallEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				spec, _ := testprogs.LoadPluginsBaseXdp()
+				pReq := prepareHooksReqFor(spec)
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tail_xdp", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tail_xdp"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tail_xdp_ret": -1,
+					},
+					"plugin_b": {
+						"before_program_tail_xdp_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_xdp_caller_seq":        1,
+					"program_tail_xdp_seq":          4,
+					"program_xdp_policy_caller_seq": 1,
+					"__config_tail_call_enabled":    1,
+				},
+				returns: map[string]uint32{
+					"program_xdp_caller":        1,
+					"program_xdp_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tail_xdp_seq": 2,
+						"before_program_tail_xdp_ret": -1,
+					},
+					"plugin_b": {
+						"before_program_tail_xdp_seq": 3,
+						"before_program_tail_xdp_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "pre hooks on entrypoint and tc tail call target",
+			baseSpec: testprogs.LoadPluginsBase,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tc_caller", before("plugin_b")),
+						pre("program_tail_tc", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tc_caller"),
+						pre("program_tail_tc"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tc_caller_ret": -1,
+						"before_program_tail_tc_ret":   -1,
+					},
+					"plugin_b": {
+						"before_program_tc_caller_ret": -1,
+						"before_program_tail_tc_ret":   -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":      3,
+					"program_policy_caller_seq":  1,
+					"program_tail_tc_seq":        6,
+					"__config_tail_call_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tc_caller_seq": 1,
+						"before_program_tc_caller_ret": -1,
+						"before_program_tail_tc_seq":   4,
+						"before_program_tail_tc_ret":   -1,
+					},
+					"plugin_b": {
+						"before_program_tc_caller_seq": 2,
+						"before_program_tc_caller_ret": -1,
+						"before_program_tail_tc_seq":   5,
+						"before_program_tail_tc_ret":   -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "pre hooks on entrypoint and xdp tail call target",
+			baseSpec: testprogs.LoadPluginsBaseXdp,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				spec, _ := testprogs.LoadPluginsBaseXdp()
+				pReq := prepareHooksReqFor(spec)
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_xdp_caller", before("plugin_b")),
+						pre("program_tail_xdp", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_xdp_caller"),
+						pre("program_tail_xdp"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_xdp_caller_ret": -1,
+						"before_program_tail_xdp_ret":   -1,
+					},
+					"plugin_b": {
+						"before_program_xdp_caller_ret": -1,
+						"before_program_tail_xdp_ret":   -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_xdp_caller_seq":        3,
+					"program_tail_xdp_seq":          6,
+					"program_xdp_policy_caller_seq": 1,
+					"__config_tail_call_enabled":    1,
+				},
+				returns: map[string]uint32{
+					"program_xdp_caller":        1,
+					"program_xdp_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_xdp_caller_seq": 1,
+						"before_program_xdp_caller_ret": -1,
+						"before_program_tail_xdp_seq":   4,
+						"before_program_tail_xdp_ret":   -1,
+					},
+					"plugin_b": {
+						"before_program_xdp_caller_seq": 2,
+						"before_program_xdp_caller_ret": -1,
+						"before_program_tail_xdp_seq":   5,
+						"before_program_tail_xdp_ret":   -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "short-circuiting in pre hook on tc tail call target",
+			baseSpec: testprogs.LoadPluginsBase,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tail_tc", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tail_tc"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tail_tc_ret": 0,
+					},
+					"plugin_b": {
+						"before_program_tail_tc_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":      1,
+					"program_policy_caller_seq":  1,
+					"program_tail_tc_seq":        0,
+					"__config_tail_call_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     0,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tail_tc_seq": 2,
+						"before_program_tail_tc_ret": 0,
+					},
+					"plugin_b": {
+						"before_program_tail_tc_seq": 0,
+						"before_program_tail_tc_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "short-circuiting in pre hook on xdp tail call target",
+			baseSpec: testprogs.LoadPluginsBaseXdp,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				spec, _ := testprogs.LoadPluginsBaseXdp()
+				pReq := prepareHooksReqFor(spec)
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tail_xdp", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tail_xdp"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tail_xdp_ret": 1,
+					},
+					"plugin_b": {
+						"before_program_tail_xdp_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_xdp_caller_seq":        1,
+					"program_tail_xdp_seq":          0,
+					"program_xdp_policy_caller_seq": 1,
+					"__config_tail_call_enabled":    1,
+				},
+				returns: map[string]uint32{
+					"program_xdp_caller":        1,
+					"program_xdp_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_program_tail_xdp_seq": 2,
+						"before_program_tail_xdp_ret": 1,
+					},
+					"plugin_b": {
+						"before_program_tail_xdp_seq": 0,
+						"before_program_tail_xdp_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "pre hooks on policy program",
+			baseSpec: testprogs.LoadPluginsBase,
+			config: testConfig{
+				TailCallEnabled:     1,
+				PolicyCallerEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("cil_lxc_policy", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("cil_lxc_policy"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_cil_lxc_policy_ret": -1,
+					},
+					"plugin_b": {
+						"before_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":          1,
+					"program_tail_tc_seq":            2,
+					"program_policy_caller_seq":      1,
+					"cil_lxc_policy_seq":             4,
+					"__config_tail_call_enabled":     1,
+					"__config_policy_caller_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_cil_lxc_policy_seq": 2,
+						"before_cil_lxc_policy_ret": -1,
+					},
+					"plugin_b": {
+						"before_cil_lxc_policy_seq": 3,
+						"before_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "pre hooks on xdp policy program",
+			baseSpec: testprogs.LoadPluginsBaseXdp,
+			config: testConfig{
+				TailCallEnabled:     1,
+				PolicyCallerEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				spec, _ := testprogs.LoadPluginsBaseXdp()
+				pReq := prepareHooksReqFor(spec)
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("cil_lxc_policy_egress", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("cil_lxc_policy_egress"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_cil_lxc_policy_egress_ret": -1,
+					},
+					"plugin_b": {
+						"before_cil_lxc_policy_egress_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_xdp_caller_seq":         1,
+					"program_tail_xdp_seq":           2,
+					"program_xdp_policy_caller_seq":  1,
+					"cil_lxc_policy_egress_seq":      4,
+					"__config_tail_call_enabled":     1,
+					"__config_policy_caller_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_xdp_caller":        1,
+					"program_xdp_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_cil_lxc_policy_egress_seq": 2,
+						"before_cil_lxc_policy_egress_ret": -1,
+					},
+					"plugin_b": {
+						"before_cil_lxc_policy_egress_seq": 3,
+						"before_cil_lxc_policy_egress_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "tail call hooks on tc caller",
+			baseSpec: testprogs.LoadPluginsBase,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_tc_caller", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_tc_caller"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":      1,
+					"program_policy_caller_seq":  1,
+					"program_tail_tc_seq":        4,
+					"__config_tail_call_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_caller_seq": 2,
+						"tail_call_program_tc_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_caller_seq": 3,
+						"tail_call_program_tc_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "tail call hooks on tc caller with tail_call_target filter",
+			baseSpec: testprogs.LoadPluginsBase,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCallTo("program_tc_caller", "program_tail_tc", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_tc_caller"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":      1,
+					"program_policy_caller_seq":  1,
+					"program_tail_tc_seq":        4,
+					"__config_tail_call_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_caller_seq": 2,
+						"tail_call_program_tc_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_caller_seq": 3,
+						"tail_call_program_tc_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			// program_policy_caller only tail calls into cilium_call_policy, so
+			// the filter matches nothing and the plugin's hook never runs.
+			name:     "tail_call_target matches no tail call in caller",
+			baseSpec: testprogs.LoadPluginsBase,
+			config: testConfig{
+				TailCallEnabled:     1,
+				PolicyCallerEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCallTo("program_policy_caller", "program_tail_tc"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_policy_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":          1,
+					"program_tail_tc_seq":            2,
+					"program_policy_caller_seq":      1,
+					"cil_lxc_policy_seq":             2,
+					"__config_tail_call_enabled":     1,
+					"__config_policy_caller_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_policy_caller_seq": 0,
+						"tail_call_program_policy_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "tail_call_target is not a tail call program",
+			baseSpec: testprogs.LoadPluginsBase,
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCallTo("program_tc_caller", "program_tc"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			expectedErr: errors.New("plugin_a: PrepareCollection(): \"program_tc_caller\": tail_call_target \"program_tc\": program program_tc is not a tail call"),
+		},
+		{
+			// plugin_a only hooks tail calls into program_tail_tc_a, plugin_b hooks
+			// all of them. Taking the program_tail_tc_a path runs both.
+			name:     "tail_call_target filter on multi-target caller, matching target",
+			baseSpec: testprogs.LoadPluginsMultiTail,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCallTo("program_tc_multi_caller", "program_tail_tc_a", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_tc_multi_caller"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReqMultiTail,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, multiTailSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReqMultiTail,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, multiTailSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_multi_caller_seq": 1,
+					"program_tail_tc_a_seq":       4,
+					"__config_tail_call_enabled":  1,
+				},
+				returns: map[string]uint32{
+					"program_tc_multi_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_multi_caller_seq": 2,
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_multi_caller_seq": 3,
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			// Same plugins, but taking the program_tail_tc_b path. Its dispatcher
+			// only chains plugin_b and must tail call plugin_b's slot; plugin_a
+			// must not run.
+			name:     "tail_call_target filter on multi-target caller, non-matching target",
+			baseSpec: testprogs.LoadPluginsMultiTail,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCallTo("program_tc_multi_caller", "program_tail_tc_a", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_tc_multi_caller"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReqMultiTail,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, multiTailSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReqMultiTail,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, multiTailSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				base: map[string]int32{
+					"tc_multi_caller_second_target": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"tc_multi_caller_second_target": 1,
+					"program_tc_multi_caller_seq":   1,
+					"program_tail_tc_b_seq":         3,
+					"__config_tail_call_enabled":    1,
+				},
+				returns: map[string]uint32{
+					"program_tc_multi_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_multi_caller_seq": 0,
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_multi_caller_seq": 2,
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			// Only plugin_a, filtered to program_tail_tc_a. The tail call into
+			// program_tail_tc_b gets no dispatcher and is left unspliced.
+			name:     "tail_call_target filter on multi-target caller, unmatched call site left unspliced",
+			baseSpec: testprogs.LoadPluginsMultiTail,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCallTo("program_tc_multi_caller", "program_tail_tc_a"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReqMultiTail,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, multiTailSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				base: map[string]int32{
+					"tc_multi_caller_second_target": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"tc_multi_caller_second_target": 1,
+					"program_tc_multi_caller_seq":   1,
+					"program_tail_tc_b_seq":         2,
+					"__config_tail_call_enabled":    1,
+				},
+				returns: map[string]uint32{
+					"program_tc_multi_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_multi_caller_seq": 0,
+						"tail_call_program_tc_multi_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "tail call hooks on xdp caller",
+			baseSpec: testprogs.LoadPluginsBaseXdp,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				spec, _ := testprogs.LoadPluginsBaseXdp()
+				pReq := prepareHooksReqFor(spec)
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_xdp_caller", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_xdp_caller"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_xdp_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_xdp_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_xdp_caller_seq":        1,
+					"program_xdp_policy_caller_seq": 1,
+					"program_tail_xdp_seq":          4,
+					"__config_tail_call_enabled":    1,
+				},
+				returns: map[string]uint32{
+					"program_xdp_caller":        1,
+					"program_xdp_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_xdp_caller_seq": 2,
+						"tail_call_program_xdp_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_xdp_caller_seq": 3,
+						"tail_call_program_xdp_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "tail call hooks on policy caller",
+			baseSpec: testprogs.LoadPluginsBase,
+			config: testConfig{
+				TailCallEnabled:     1,
+				PolicyCallerEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_policy_caller", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_policy_caller"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_policy_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_policy_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":          1,
+					"program_tail_tc_seq":            2,
+					"program_policy_caller_seq":      1,
+					"cil_lxc_policy_seq":             4,
+					"__config_tail_call_enabled":     1,
+					"__config_policy_caller_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_policy_caller_seq": 2,
+						"tail_call_program_policy_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_policy_caller_seq": 3,
+						"tail_call_program_policy_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "tail call hooks on xdp policy caller",
+			baseSpec: testprogs.LoadPluginsBaseXdp,
+			config: testConfig{
+				TailCallEnabled:     1,
+				PolicyCallerEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				spec, _ := testprogs.LoadPluginsBaseXdp()
+				pReq := prepareHooksReqFor(spec)
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_xdp_policy_caller", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_xdp_policy_caller"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_xdp_policy_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_xdp_policy_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_xdp_caller_seq":         1,
+					"program_tail_xdp_seq":           2,
+					"program_xdp_policy_caller_seq":  1,
+					"cil_lxc_policy_egress_seq":      4,
+					"__config_tail_call_enabled":     1,
+					"__config_policy_caller_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_xdp_caller":        1,
+					"program_xdp_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_xdp_policy_caller_seq": 2,
+						"tail_call_program_xdp_policy_caller_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_program_xdp_policy_caller_seq": 3,
+						"tail_call_program_xdp_policy_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "short-circuiting in tail call hook on tc caller",
+			baseSpec: testprogs.LoadPluginsBase,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_tc_caller", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_tc_caller"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_caller_ret": 0,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":      1,
+					"program_policy_caller_seq":  1,
+					"program_tail_tc_seq":        0,
+					"__config_tail_call_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     0,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_caller_seq": 2,
+						"tail_call_program_tc_caller_ret": 0,
+					},
+					"plugin_b": {
+						"tail_call_program_tc_caller_seq": 0,
+						"tail_call_program_tc_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "short-circuiting in tail call hook on xdp caller",
+			baseSpec: testprogs.LoadPluginsBaseXdp,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				spec, _ := testprogs.LoadPluginsBaseXdp()
+				pReq := prepareHooksReqFor(spec)
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_xdp_caller", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_xdp_caller"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_xdp_caller_ret": 2,
+					},
+					"plugin_b": {
+						"tail_call_program_xdp_caller_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_xdp_caller_seq":        1,
+					"program_xdp_policy_caller_seq": 1,
+					"program_tail_xdp_seq":          0,
+					"__config_tail_call_enabled":    1,
+				},
+				returns: map[string]uint32{
+					"program_xdp_caller":        2,
+					"program_xdp_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_xdp_caller_seq": 2,
+						"tail_call_program_xdp_caller_ret": 2,
+					},
+					"plugin_b": {
+						"tail_call_program_xdp_caller_seq": 0,
+						"tail_call_program_xdp_caller_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "tail call hook on caller with pre hook on tail target",
+			baseSpec: testprogs.LoadPluginsBase,
+			config:   testConfig{TailCallEnabled: 1},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_tc_caller"),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("program_tail_tc"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_caller_ret": -1,
+					},
+					"plugin_b": {
+						"before_program_tail_tc_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":      1,
+					"program_policy_caller_seq":  1,
+					"program_tail_tc_seq":        4,
+					"__config_tail_call_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_tc_caller_seq": 2,
+						"tail_call_program_tc_caller_ret": -1,
+					},
+					"plugin_b": {
+						"before_program_tail_tc_seq": 3,
+						"before_program_tail_tc_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "tail call hook on policy caller with pre hook on policy program",
+			baseSpec: testprogs.LoadPluginsBase,
+			config: testConfig{
+				TailCallEnabled:     1,
+				PolicyCallerEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("program_policy_caller"),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("cil_lxc_policy"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_policy_caller_ret": -1,
+					},
+					"plugin_b": {
+						"before_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":          1,
+					"program_tail_tc_seq":            2,
+					"program_policy_caller_seq":      1,
+					"cil_lxc_policy_seq":             4,
+					"__config_tail_call_enabled":     1,
+					"__config_policy_caller_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"tail_call_program_policy_caller_seq": 2,
+						"tail_call_program_policy_caller_ret": -1,
+					},
+					"plugin_b": {
+						"before_cil_lxc_policy_seq": 3,
+						"before_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "policy program with pre hook and outbound tail call hook",
+			baseSpec: testprogs.LoadPluginsBase,
+			config: testConfig{
+				PolicyCallerEnabled:   1,
+				PolicyOutboundEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("cil_lxc_policy"),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("cil_lxc_policy"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpec, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_cil_lxc_policy_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":            1,
+					"program_policy_caller_seq":        1,
+					"cil_lxc_policy_seq":               3,
+					"program_tail_tc_seq":              5,
+					"__config_policy_caller_enabled":   1,
+					"__config_policy_outbound_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_cil_lxc_policy_seq": 2,
+						"before_cil_lxc_policy_ret": -1,
+					},
+					"plugin_b": {
+						"tail_call_cil_lxc_policy_seq": 4,
+						"tail_call_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "exit hooks on tc entrypoint",
+			baseSpec: loadBaseNoXdp,
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("program_tc", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("program_tc"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReqNoXdp,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpecNoXdp),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReqNoXdp,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpecNoXdp),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_program_tc_ret": -1,
+					},
+					"plugin_b": {
+						"exit_program_tc_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_seq":            1,
+					"program_tc_caller_seq":     1,
+					"program_policy_caller_seq": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc":            1,
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_program_tc_seq": 2,
+						"exit_program_tc_ret": -1,
+					},
+					"plugin_b": {
+						"exit_program_tc_seq": 3,
+						"exit_program_tc_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "exit hooks on xdp entrypoint",
+			baseSpec: testprogs.LoadPluginsBaseXdp,
+			transactions: func() map[string]transaction {
+				spec, _ := testprogs.LoadPluginsBaseXdp()
+				pReq := prepareHooksReqFor(spec)
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("program_xdp", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("program_xdp"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_program_xdp_ret": -1,
+					},
+					"plugin_b": {
+						"exit_program_xdp_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_xdp_seq":               1,
+					"program_xdp_caller_seq":        1,
+					"program_xdp_policy_caller_seq": 1,
+				},
+				returns: map[string]uint32{
+					"program_xdp":               1,
+					"program_xdp_caller":        1,
+					"program_xdp_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_program_xdp_seq": 2,
+						"exit_program_xdp_ret": -1,
+					},
+					"plugin_b": {
+						"exit_program_xdp_seq": 3,
+						"exit_program_xdp_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "exit hooks on tc policy program",
+			baseSpec: loadBaseNoXdp,
+			config: testConfig{
+				TailCallEnabled:     1,
+				PolicyCallerEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("cil_lxc_policy", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("cil_lxc_policy"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReqNoXdp,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpecNoXdp),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReqNoXdp,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpecNoXdp),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_cil_lxc_policy_ret": -1,
+					},
+					"plugin_b": {
+						"exit_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":          1,
+					"program_tail_tc_seq":            2,
+					"program_policy_caller_seq":      1,
+					"cil_lxc_policy_seq":             2,
+					"__config_tail_call_enabled":     1,
+					"__config_policy_caller_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_cil_lxc_policy_seq": 3,
+						"exit_cil_lxc_policy_ret": -1,
+					},
+					"plugin_b": {
+						"exit_cil_lxc_policy_seq": 4,
+						"exit_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "exit hooks on xdp policy program",
+			baseSpec: testprogs.LoadPluginsBaseXdp,
+			config: testConfig{
+				TailCallEnabled:     1,
+				PolicyCallerEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				spec, _ := testprogs.LoadPluginsBaseXdp()
+				pReq := prepareHooksReqFor(spec)
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("cil_lxc_policy_egress", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("cil_lxc_policy_egress"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  pReq,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, spec),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_cil_lxc_policy_egress_ret": -1,
+					},
+					"plugin_b": {
+						"exit_cil_lxc_policy_egress_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_xdp_caller_seq":         1,
+					"program_tail_xdp_seq":           2,
+					"program_xdp_policy_caller_seq":  1,
+					"cil_lxc_policy_egress_seq":      2,
+					"__config_tail_call_enabled":     1,
+					"__config_policy_caller_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_xdp_caller":        1,
+					"program_xdp_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_cil_lxc_policy_egress_seq": 3,
+						"exit_cil_lxc_policy_egress_ret": -1,
+					},
+					"plugin_b": {
+						"exit_cil_lxc_policy_egress_seq": 4,
+						"exit_cil_lxc_policy_egress_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "short-circuiting in exit hook on tc entrypoint",
+			baseSpec: loadBaseNoXdp,
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("program_tc", before("plugin_b")),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						exit("program_tc"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReqNoXdp,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpecNoXdp),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReqNoXdp,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpecNoXdp),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_program_tc_ret": 2,
+					},
+					"plugin_b": {
+						"exit_program_tc_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_seq":            1,
+					"program_tc_caller_seq":     1,
+					"program_policy_caller_seq": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc":            2,
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"exit_program_tc_seq": 2,
+						"exit_program_tc_ret": 2,
+					},
+					"plugin_b": {
+						"exit_program_tc_seq": 0,
+						"exit_program_tc_ret": -1,
+					},
+				},
+			},
+		},
+		{
+			name:     "combined pre, tail call, and exit hooks on tc policy program",
+			baseSpec: loadBaseNoXdp,
+			config: testConfig{
+				PolicyCallerEnabled:   1,
+				PolicyOutboundEnabled: 1,
+			},
+			transactions: func() map[string]transaction {
+				respA := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_a_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						pre("cil_lxc_policy"),
+						exit("cil_lxc_policy"),
+					},
+				}
+				respB := &datapathplugins.PrepareCollectionResponse{
+					Cookie: "plugin_b_cookie",
+					Hooks: []*datapathplugins.PrepareCollectionResponse_HookSpec{
+						tailCall("cil_lxc_policy"),
+					},
+				}
+				return map[string]transaction{
+					"plugin_a": {
+						prepareHooksReq:  prepareHooksReqNoXdp,
+						prepareHooksResp: respA,
+						loadHooksReq:     loadTailHooksReq("plugin_a", respA, baseSpecNoXdp, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+					"plugin_b": {
+						prepareHooksReq:  prepareHooksReqNoXdp,
+						prepareHooksResp: respB,
+						loadHooksReq:     loadTailHooksReq("plugin_b", respB, baseSpecNoXdp, respA, respB),
+						loadHooksResp:    &datapathplugins.InstrumentCollectionResponse{},
+					},
+				}
+			}(),
+			attachmentPolicies: map[string]api_v2alpha1.CiliumDatapathPluginAttachmentPolicy{
+				"plugin_a": api_v2alpha1.AttachmentPolicyAlways,
+				"plugin_b": api_v2alpha1.AttachmentPolicyAlways,
+			},
+			inputValues: inputValues{
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_cil_lxc_policy_ret": -1,
+						"exit_cil_lxc_policy_ret":   -1,
+					},
+					"plugin_b": {
+						"tail_call_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
+			expectedOutputValues: outputValues{
+				base: map[string]int32{
+					"program_tc_caller_seq":            1,
+					"program_policy_caller_seq":        1,
+					"cil_lxc_policy_seq":               3,
+					"program_tail_tc_seq":              5,
+					"__config_policy_caller_enabled":   1,
+					"__config_policy_outbound_enabled": 1,
+				},
+				returns: map[string]uint32{
+					"program_tc_caller":     1,
+					"program_policy_caller": 1,
+				},
+				hook: map[string]map[string]int32{
+					"plugin_a": {
+						"before_cil_lxc_policy_seq": 2,
+						"before_cil_lxc_policy_ret": -1,
+						"exit_cil_lxc_policy_seq":   0,
+						"exit_cil_lxc_policy_ret":   -1,
+					},
+					"plugin_b": {
+						"tail_call_cil_lxc_policy_seq": 4,
+						"tail_call_cil_lxc_policy_ret": -1,
+					},
+				},
+			},
 		},
 	}
 
@@ -1115,12 +3448,18 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 
 			l := newBPFCollectionLoader(true, bpffsPluginsOperationsDir(tmp))
 
+			require.NotNil(t, tc.baseSpec, "baseSpec must be explicitly specified for test case %s", tc.name)
+			spec, err := tc.baseSpec()
+			require.NoError(t, err)
+
 			pinsDir := filepath.Join(tmp, "pins_dir")
 			baseColl, commit, cleanup, err := l.Load(
 				t.Context(),
 				logger,
-				baseSpec,
-				&bpf.CollectionOptions{},
+				spec,
+				&bpf.CollectionOptions{
+					Constants: tc.config,
+				},
 				&config.Config{
 					Plugins: plugins.Plugins(),
 				},
@@ -1135,6 +3474,13 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 			}
 
 			require.NoError(t, commit())
+			for name, p := range baseColl.Programs {
+				if isPolicyProgram(name) {
+					if m := baseColl.Maps["cilium_call_policy"]; m != nil {
+						require.NoError(t, m.Update(uint32(42), uint32(p.FD()), ebpf.UpdateAny))
+					}
+				}
+			}
 			cleanup()
 
 			for name, plugin := range plugins {
