@@ -707,9 +707,20 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 
 // instrumentProgram generates a program patcher that prepends a dispatcher that
 // invokes pre-program hooks, then invokes the original program, and finally
-// invokes post-program hooks. Something like this:
+// invokes post-program hooks.
 //
-//	int dispatch(void *ctx) {
+// The dispatcher takes over the name of the entrypoint (<target>, e.g.
+// cil_from_container) and the original program is renamed to __<target>__.
+// The function at instruction offset 0 defines the name of the program as seen
+// by the kernel and by tooling: the kernel truncates program names to
+// BPF_OBJ_NAME_LEN - 1 (15) characters, so ebpf-go's ProgramInfo.Name and
+// bpftool recover the full name from the BTF func_info of the function at
+// offset 0. Keeping <target> there ensures that instrumented entrypoints are
+// still identified as Cilium programs ("cil_" prefix), e.g. by the endpoint
+// BPF program watchdog, the BPF program stats collector and BPF metrics.
+// Something like this:
+//
+//	int <target>(void *ctx) {
 //	    int orig_ret, ret;
 //
 //	    ret = __pre_hook_plugin_a__(ctx);
@@ -719,7 +730,7 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 //	    if (ret != RET_PROCEED)
 //	        return ret;
 //	    ...
-//	    orig_ret = original_cilium_prog(ctx);
+//	    orig_ret = __<target>__(ctx);
 //	    ...
 //	    ret = __post_hook_plugin_a__(ctx, orig_ret);
 //	    if (ret != RET_PROCEED)
@@ -731,8 +742,8 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 //	    return orig_ret;
 //	}
 //
-//	int original_cilium_prog(void *ctx) {
-//	    ...
+//	int __<target>__(void *ctx) {
+//	    ... // original program
 //	}
 //
 //	int __pre_hook_plugin_a__(void *ctx) {
@@ -750,7 +761,7 @@ func (hs *hooksSpec) instrumentCollection(cs *ebpf.CollectionSpec) (map[string]*
 //	    return ret;
 //	}
 //
-//	int __post_hook_plugin_a__(void *ctx, int orig_ret) {
+//	int __post_hook_plugin_b__(void *ctx, int orig_ret) {
 //	    volatile int ret = RET_PROCEED;
 //	    return ret;
 //	}
@@ -760,6 +771,12 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 	if !hasFuncProto {
 		return nil, fmt.Errorf("unable to extract function BTF info for target program")
 	}
+
+	// The dispatcher takes over the entrypoint's name, the original program
+	// is renamed and called as a subprogram. See the function documentation
+	// for why this matters.
+	entryName := btfMeta.Name
+	origName := fmt.Sprintf("__%s__", btfMeta.Name)
 
 	var prologue asm.Instructions
 
@@ -788,10 +805,10 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 		})
 	}
 
-	// orig_ret = original_cilium_prog(ctx);
+	// orig_ret = __<target>__(ctx);
 	prologue = append(prologue,
 		asm.Mov.Reg(asm.R1, asm.R6),
-		asm.Call.Label(btfMeta.Name),
+		asm.Call.Label(origName),
 		asm.Mov.Reg(asm.R7, asm.R0),
 	)
 
@@ -821,7 +838,6 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 	prologue = append(prologue, asm.Mov.Reg(asm.R0, asm.R7))
 	prologue = append(prologue, clampAndReturn(ps, "return")...)
 
-	entryName := fmt.Sprintf("__%s__", btfMeta.Name)
 	prologue[0] = btf.WithFuncMetadata(
 		prologue[0].
 			WithSymbol(entryName).
@@ -851,6 +867,18 @@ func (hs *hooksSpec) instrumentProgram(ps *ebpf.ProgramSpec, pre []string, post 
 	}
 
 	return func(insns asm.Instructions) (asm.Instructions, error) {
+		// Rename the original program so that the dispatcher can take over
+		// its name. Only the name changes: the original function's type,
+		// linkage, tags and line info are preserved, so it is verified
+		// exactly as before.
+		origMeta := btf.FuncMetadata(&insns[0])
+		if origMeta == nil {
+			return nil, fmt.Errorf("unable to extract function BTF info for target program %s", ps.Name)
+		}
+		renamed := *origMeta
+		renamed.Name = origName
+		insns[0] = btf.WithFuncMetadata(insns[0].WithSymbol(origName), &renamed)
+
 		return append(prologue, append(insns, epilogue...)...), nil
 	}, nil
 }
