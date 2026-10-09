@@ -381,6 +381,11 @@ type params struct {
 	Devices  statedb.Table[*tables.Device]
 
 	TunnelCfg tunnel.Config
+
+	// IPSetReady is closed once the node ipsets referenced by --match-set in
+	// our rules (e.g. addCiliumAcceptTunnelRules, installMasqueradeRules)
+	// have been created.
+	IPSetReady ipset.Ready
 }
 
 // Manager manages iptables rules.
@@ -488,6 +493,14 @@ func newManager(p params) Manager {
 				return nil
 			case <-iptMgr.argsInit.WaitChannel():
 			}
+
+			// Wait until ipsets are initialized
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-p.IPSetReady:
+			}
+
 			return reconciliationLoop(
 				ctx, p.Logger, health,
 				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
