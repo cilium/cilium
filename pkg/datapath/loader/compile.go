@@ -82,6 +82,8 @@ type progInfo struct {
 	OutputType outputType
 	// Options are passed directly to LLVM as individual parameters
 	Options []string
+	// Reusable skips the compile when the manifest shows the object came from the same inputs
+	Reusable bool
 }
 
 func (pi *progInfo) AbsoluteOutput(dir *directoryInfo) string {
@@ -184,6 +186,21 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 		"-o", "-", // Always output to stdout
 	)
 
+	outputPath := prog.AbsoluteOutput(dir)
+	var digest string
+	if prog.Reusable {
+		var err error
+		if digest, err = inputsDigest(ctx, logger, dir.Library, compileArgs); err != nil {
+			logger.Warn("Unable to digest compile inputs",
+				logfields.Error, err,
+				logfields.Output, prog.Output,
+			)
+		} else if manifestMatches(outputPath, digest) {
+			logger.Info("Reusing compiled BPF object", logfields.Output, prog.Output)
+			return outputPath, nil
+		}
+	}
+
 	logger.Debug(
 		"Launching compiler",
 		logfields.Target, compiler,
@@ -193,10 +210,12 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 	compileCmd, cancelCompile := exec.WithCancel(ctx, compiler, compileArgs...)
 	defer cancelCompile()
 
-	output, err := os.Create(prog.AbsoluteOutput(dir))
+	// Write to a temporary file so that a killed compiler leaves no partial object.
+	output, err := os.Create(outputPath + ".tmp")
 	if err != nil {
 		return "", err
 	}
+	defer os.Remove(output.Name())
 	defer output.Close()
 	compileCmd.Stdout = output
 
@@ -245,7 +264,21 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 		)
 	}
 
-	return output.Name(), nil
+	if err := output.Sync(); err != nil {
+		return "", err
+	}
+	if err := os.Rename(output.Name(), outputPath); err != nil {
+		return "", err
+	}
+	if digest != "" {
+		if err := writeManifest(outputPath, digest); err != nil {
+			logger.Warn("Unable to record BPF object inputs",
+				logfields.Error, err,
+				logfields.Output, prog.Output,
+			)
+		}
+	}
+	return outputPath, nil
 }
 
 // compileDatapath invokes the compiler and linker to create all state files for
@@ -317,6 +350,7 @@ func compileWithOptions(ctx context.Context, logger *slog.Logger, src string, ou
 		Options:    opts,
 		Output:     out,
 		OutputType: outputObject,
+		Reusable:   true,
 	}
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
@@ -357,6 +391,7 @@ func compileOverlay(ctx context.Context, logger *slog.Logger) error {
 		Source:     overlayProg,
 		Output:     overlayObj,
 		OutputType: outputObject,
+		Reusable:   true,
 	}
 	// Write out assembly and preprocessing files for debugging purposes
 	if _, err := compile(ctx, logger, prog, dirs); err != nil {
@@ -392,6 +427,7 @@ func compileWireguard(ctx context.Context, logger *slog.Logger) (err error) {
 		Source:     wireguardProg,
 		Output:     wireguardObj,
 		OutputType: outputObject,
+		Reusable:   true,
 	}
 	// Write out assembly and preprocessing files for debugging purposes
 	if _, err := compile(ctx, logger, prog, dirs); err != nil {

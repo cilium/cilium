@@ -157,6 +157,7 @@ func compileAndLoadXDPProg(ctx context.Context, logger *slog.Logger,
 		Source:     xdpProg,
 		Output:     xdpObj,
 		OutputType: outputObject,
+		Reusable:   true,
 	}
 
 	objPath, err := compile(ctx, logger, prog, dirs)
