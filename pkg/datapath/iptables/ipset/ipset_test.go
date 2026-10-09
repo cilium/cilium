@@ -59,6 +59,8 @@ func TestManager(t *testing.T) {
 			return config{NodeIPSetNeeded: true}
 		}),
 
+		cell.Provide(func() Ready { return make(Ready) }),
+
 		cell.Provide(
 			newIPSetManager,
 			tables.NewIPSetTable,
@@ -287,6 +289,8 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 		cell.Provide(func() config {
 			return config{NodeIPSetNeeded: false}
 		}),
+
+		cell.Provide(func() Ready { return make(Ready) }),
 
 		cell.Provide(
 			newIPSetManager,

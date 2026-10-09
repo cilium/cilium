@@ -147,6 +147,7 @@ func newIPSetManager(
 	ipset *ipset,
 	reconciler reconciler.Reconciler[*tables.IPSetEntry],
 	ops *ops,
+	ready Ready,
 ) Manager {
 	mgr := &manager{
 		logger:     logger,
@@ -161,6 +162,8 @@ func newIPSetManager(
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			defer close(ready)
+
 			if !cfg.NodeIPSetNeeded {
 				return nil
 			}
