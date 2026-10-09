@@ -7,9 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"math/rand/v2"
 	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -590,25 +588,6 @@ func TestJSONMarshal(t *testing.T) {
 	require.True(t, policy.HasEnvoyRedirect())
 }
 
-func BenchmarkContainsAllL3L4(b *testing.B) {
-	id := uint16(rand.IntN(65535))
-	port := uint16(rand.IntN(65535))
-
-	b.ReportAllocs()
-	for range 1000 {
-		b.StartTimer()
-		proxyID := ProxyID(id, true, "TCP", port, "")
-		if proxyID != strconv.FormatInt(int64(id), 10)+"ingress:TCP:8080:" {
-			b.Failed()
-		}
-		_, _, _, _, _, err := ParseProxyID(proxyID)
-		if err != nil {
-			b.Failed()
-		}
-		b.StopTimer()
-	}
-}
-
 func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 	logger := hivetest.Logger(b)
 	owner := DummyOwner{logger: logger}
@@ -682,11 +661,8 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 		for b.Loop() {
 			b.StopTimer()
 			epPolicy := newEmptyEndpointPolicy()
-			l4Policy := L4Policy{
-				users: map[*EndpointPolicy]struct{}{
-					epPolicy: {},
-				},
-			}
+			l4Policy := NewL4Policy(0)
+			l4Policy.users[epPolicy] = struct{}{}
 
 			// Compute initial policy with just the wildcard selectors.
 			for _, filter := range testL4Filters {
