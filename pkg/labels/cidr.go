@@ -84,8 +84,8 @@ func IPStringToLabel(ip string) (Label, error) {
 	var prefix netip.Prefix
 	// factored out of netip.ParsePrefix to avoid allocating an empty netip.Prefix in case it's
 	// an IP and not a CIDR.
-	i := strings.LastIndexByte(ip, '/')
-	if i < 0 {
+	found := strings.Contains(ip, "/")
+	if !found {
 		parsedIP, err := netip.ParseAddr(ip)
 		if err != nil {
 			return Label{}, fmt.Errorf("%q is not an IP address: %w", ip, err)

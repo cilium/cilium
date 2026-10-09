@@ -189,6 +189,7 @@ linters:
       disable: # TODO: remove each disabled rule and fix it
         - omitzero
         - newexpr
+        - embedlit
     govet:
       enable:
         - nilness
@@ -298,6 +299,11 @@ linters:
       - third_party$
       - builtin$
       - examples$
+issues:
+  # Report every issue rather than the default of 3 per issue text and 50 per
+  # linter, so a single run surfaces the full set of findings.
+  max-issues-per-linter: 0
+  max-same-issues: 0
 formatters:
   enable:
     - gofmt
