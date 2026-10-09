@@ -25,6 +25,13 @@ type EndpointProxy interface {
 	IsSDPEnabled() bool
 }
 
+// DNSProxyReadiness reports when the embedded DNS proxy has finished starting.
+type DNSProxyReadiness interface {
+	// DNSProxyReady returns a channel closed once the embedded DNS proxy is
+	// listening with its proxy port registered.
+	DNSProxyReady() <-chan struct{}
+}
+
 func (e *Endpoint) removeNetworkPolicy() {
 	if e.IsProxyDisabled() {
 		return
