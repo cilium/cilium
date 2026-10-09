@@ -56,6 +56,9 @@ triggers:
     - conformance-aws-cni.yaml
     depends-on:
     - /build-images-dependency
+  /ci-bench:
+    workflows:
+    - go-bench-test.yaml
   /ci-conformance-race(\s+(?:all-tests=true))?:
     workflows:
     - conformance-race.yaml
