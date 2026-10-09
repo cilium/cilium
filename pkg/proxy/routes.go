@@ -44,7 +44,7 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 		return fmt.Errorf("failed to retrieve local node: %w", err)
 	}
 
-	fromIngressProxy, fromEgressProxy, mtu := requireFromProxyRoutes(ipsecEnabled, wireguardEnabled, mtu)
+	fromIngressProxy, fromEgressProxy, fromProxyEgressEPID, mtu := requireFromProxyRoutes(ipsecEnabled, wireguardEnabled, mtu)
 
 	rxn := p.db.ReadTxn()
 	hostDevice, _, hostDeviceFound := p.devices.Get(rxn, tables.DeviceByName(defaults.HostDevice))
@@ -59,12 +59,12 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 			return err
 		}
 
-		if fromIngressProxy || fromEgressProxy {
+		if fromIngressProxy || fromEgressProxy || fromProxyEgressEPID {
 			if !hostDeviceFound {
 				return fmt.Errorf("failed to get host device %s", defaults.HostDevice)
 			}
 			internalIP := localNode.GetCiliumInternalIPv4()
-			if err := installFromProxyRoutesIPv4(p.routeManager, p.routeOwner, internalIP, hostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
+			if err := installFromProxyRoutesIPv4(p.routeManager, p.routeOwner, internalIP, hostDevice, fromIngressProxy, fromEgressProxy, fromProxyEgressEPID, mtu); err != nil {
 				return err
 			}
 		} else {
@@ -86,7 +86,7 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 			return err
 		}
 
-		if fromIngressProxy || fromEgressProxy {
+		if fromIngressProxy || fromEgressProxy || fromProxyEgressEPID {
 			if !hostDeviceFound {
 				return fmt.Errorf("failed to get host device %s", defaults.HostDevice)
 			}
@@ -97,7 +97,7 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 			if err != nil {
 				return err
 			}
-			if err := installFromProxyRoutesIPv6(p.routeOwner, p.routeManager, ipv6, hostDevice, fromIngressProxy, fromEgressProxy, mtu); err != nil {
+			if err := installFromProxyRoutesIPv6(p.routeOwner, p.routeManager, ipv6, hostDevice, fromIngressProxy, fromEgressProxy, fromProxyEgressEPID, mtu); err != nil {
 				return err
 			}
 		} else {
@@ -127,7 +127,21 @@ func (p *Proxy) ReinstallRoutingRules(ctx context.Context, mtu int, ipsecEnabled
 //     as above, and also to account for XFRM overhead on proxy-to-proxy connections.
 //   - Native routing + WireGuard: install only Ingress routes to account for WireGuard
 //     overhead on reply packets from Ingress L7 proxy in proxy-to-proxy connections.
-func requireFromProxyRoutes(ipsecEnabled, wireguardEnabled bool, mtuIn int) (fromIngressProxy, fromEgressProxy bool, mtu int) {
+//   - Envoy: also install the EPID rule, so that all
+//     MARK_MAGIC_PROXY_EGRESS_EPID traffic is pulled into cilium_host and
+//     cil_from_host becomes the single place that re-enters the source
+//     endpoint's egress policy. Unlike the rules above this applies to every
+//     routing mode, because the traffic would otherwise be steered straight to
+//     its destination: to the backend's lxc device by a per-endpoint route, or
+//     out a native device by a direct route to a remote backend.
+func requireFromProxyRoutes(ipsecEnabled, wireguardEnabled bool, mtuIn int) (fromIngressProxy, fromEgressProxy, fromProxyEgressEPID bool, mtu int) {
+	// Needed regardless of the routing mode, and of whether per-endpoint
+	// routes are in use: cil_to_container and cil_to_netdev no longer
+	// intercept the mark, so any traffic that does not pass through
+	// cilium_host would miss egress policy enforcement entirely.
+	if option.Config.EnableEnvoyConfig {
+		fromProxyEgressEPID = true
+	}
 	if option.Config.TunnelingEnabled() {
 		return
 	}
@@ -241,6 +255,18 @@ var (
 		Table:    linux_defaults.RouteTableFromProxy,
 		Protocol: linux_defaults.RTProto,
 	}
+
+	// Routing rule for L7 LB traffic marked with the source endpoint ID.
+	// Pulls MARK_MAGIC_PROXY_EGRESS_EPID packets into cilium_host before
+	// per-endpoint routes can redirect them directly to the lxc device,
+	// so that egress policy enforcement always goes through cil_from_host.
+	fromProxyEgressEPIDRule = route.Rule{
+		Priority: linux_defaults.RulePriorityFromProxy,
+		Mark:     uint32(linux_defaults.MagicMarkProxyEgressEPID),
+		Mask:     linux_defaults.MagicMarkHostMask,
+		Table:    linux_defaults.RouteTableFromProxy,
+		Protocol: linux_defaults.RTProto,
+	}
 )
 
 // installFromProxyRoutesIPv4 configures routes and rules needed to redirect ingress
@@ -250,7 +276,7 @@ func installFromProxyRoutesIPv4(
 	routeOwner *reconciler.RouteOwner,
 	ipv4 netip.Addr,
 	device *tables.Device,
-	fromIngressProxy, fromEgressProxy bool,
+	fromIngressProxy, fromEgressProxy, fromProxyEgressEPID bool,
 	mtu int,
 ) error {
 	prefix, _ := ipv4.Prefix(ipv4.BitLen())
@@ -284,6 +310,11 @@ func installFromProxyRoutesIPv4(
 			return fmt.Errorf("inserting ipv4 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
 		}
 	}
+	if fromProxyEgressEPID {
+		if err := route.ReplaceRule(fromProxyEgressEPIDRule); err != nil {
+			return fmt.Errorf("inserting ipv4 from proxy egress EPID routing rule %v: %w", fromProxyEgressEPIDRule, err)
+		}
+	}
 	if err := routeManager.UpsertRouteWait(fromProxyToCiliumHostRoute4); err != nil {
 		return fmt.Errorf("inserting ipv4 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute4, err)
 	}
@@ -302,6 +333,9 @@ func removeFromProxyRulesIPv4() error {
 	if err := route.DeleteRule(netlink.FAMILY_V4, fromEgressProxyRule); err != nil && !errors.Is(err, syscall.ENOENT) {
 		return fmt.Errorf("removing ipv4 from egress proxy routing rule: %w", err)
 	}
+	if err := route.DeleteRule(netlink.FAMILY_V4, fromProxyEgressEPIDRule); err != nil && !errors.Is(err, syscall.ENOENT) {
+		return fmt.Errorf("removing ipv4 from proxy egress EPID routing rule: %w", err)
+	}
 
 	return nil
 }
@@ -313,7 +347,7 @@ func installFromProxyRoutesIPv6(
 	routeManager *reconciler.DesiredRouteManager,
 	ipv6 netip.Addr,
 	device *tables.Device,
-	fromIngressProxy, fromEgressProxy bool,
+	fromIngressProxy, fromEgressProxy, fromProxyEgressEPID bool,
 	mtu int,
 ) error {
 	prefix, _ := ipv6.Prefix(ipv6.BitLen())
@@ -347,6 +381,11 @@ func installFromProxyRoutesIPv6(
 			return fmt.Errorf("inserting ipv6 from egress proxy routing rule %v: %w", fromEgressProxyRule, err)
 		}
 	}
+	if fromProxyEgressEPID {
+		if err := route.ReplaceRuleIPv6(fromProxyEgressEPIDRule); err != nil {
+			return fmt.Errorf("inserting ipv6 from proxy egress EPID routing rule %v: %w", fromProxyEgressEPIDRule, err)
+		}
+	}
 	if err := routeManager.UpsertRouteWait(fromProxyToCiliumHostRoute6); err != nil {
 		return fmt.Errorf("inserting ipv6 from proxy to cilium_host route %v: %w", fromProxyToCiliumHostRoute6, err)
 	}
@@ -367,6 +406,11 @@ func removeFromProxyRulesIPv6() error {
 	if err := route.DeleteRule(netlink.FAMILY_V6, fromEgressProxyRule); err != nil {
 		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
 			return fmt.Errorf("removing ipv6 from egress proxy routing rule: %w", err)
+		}
+	}
+	if err := route.DeleteRule(netlink.FAMILY_V6, fromProxyEgressEPIDRule); err != nil {
+		if !errors.Is(err, syscall.ENOENT) && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			return fmt.Errorf("removing ipv6 from proxy egress EPID routing rule: %w", err)
 		}
 	}
 
