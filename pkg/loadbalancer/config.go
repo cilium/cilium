@@ -89,6 +89,9 @@ const (
 	// EnableServiceTopologyName is the flag name of for the EnableServiceTopology option
 	EnableServiceTopologyName = "enable-service-topology"
 
+	// EnableExternalIPs enables the support for external ips
+	EnableExternalIPs = "enable-external-ips"
+
 	// NodePortEnableDynamicSourceLookup is the flag name for the NodePortEnableDynamicSourceLookup option
 	// Enable dynamic source IP resolution for SNAT via linux's routing table.
 	// The kernel must support this feature.
@@ -224,6 +227,9 @@ type UserConfig struct {
 
 	// Enable processing of service topology aware hints
 	EnableServiceTopology bool
+
+	// EnableExternalIPs enables the support for external ips
+	EnableExternalIPs bool `mapstructure:"enable-external-ips"`
 
 	// InitWaitTimeout is the amount of time we wait for the load-balancing tables to be initialized before
 	// we start reconciling towards the BPF maps. This reduces the probability that load-balancing is scaled
@@ -361,6 +367,8 @@ func (def UserConfig) Flags(flags *pflag.FlagSet) {
 	flags.MarkHidden("lb-sock-terminate-all-protos")
 
 	flags.Bool(EnableServiceTopologyName, def.EnableServiceTopology, "Enable support for service topology aware hints")
+
+	flags.Bool(EnableExternalIPs, true, "Enable support for external ips")
 
 	flags.Duration("lb-init-wait-timeout", def.InitWaitTimeout, "Amount of time to wait for initialization before reconciling BPF maps")
 	flags.MarkHidden("lb-init-wait-timeout")
@@ -545,6 +553,9 @@ var DefaultUserConfig = UserConfig{
 	EnableHealthCheckNodePort:       true,
 
 	EnableServiceTopology: false,
+
+	// Default to true as long as externalIPs have not been removed from the service resource
+	EnableExternalIPs: true,
 
 	InitWaitTimeout:   1 * time.Minute,
 	ReflectorWaitTime: 500 * time.Millisecond,

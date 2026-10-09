@@ -2665,6 +2665,9 @@ nodePort:
   extendedNATPortRange: ""
 # policyAuditMode: false
 
+# -- (bool) Enable support for external ips
+enableExternalIPs: true
+
 # -- The agent can be put into one of the three policy enforcement modes:
 # default, always and never.
 # ref: https://docs.cilium.io/en/stable/security/policy/intro/#policy-enforcement-modes
