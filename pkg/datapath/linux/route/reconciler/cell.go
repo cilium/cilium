@@ -12,6 +12,7 @@ var Cell = cell.Module(
 	"route-reconciler",
 	"Reconciles desired routes to the Linux kernel routing table",
 	TableCell,
+	cell.Provide(NewPruneExclusion),
 	cell.Provide(registerReconciler),
 	cell.Invoke(desiredRouteRefresher),
 )
