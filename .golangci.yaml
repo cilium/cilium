@@ -189,6 +189,7 @@ linters:
       disable: # TODO: remove each disabled rule and fix it
         - omitzero
         - newexpr
+        - embedlit
     govet:
       enable:
         - nilness

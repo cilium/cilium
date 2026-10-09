@@ -931,6 +931,16 @@ type BMPRouteMirrTLV struct {
 type BMPRouteMirrTLVBGPMsg struct {
 	BMPRouteMirrTLV
 	Value *bgp.BGPMessage
+	// Payload is the mirrored message as it was received, and it is what
+	// Serialize() sends. RFC 7854 4.7 asks for "verbatim duplication of
+	// messages as received", and only the original octets can give that.
+	// Encoding Value again cannot: Serialize() takes no marshalling
+	// options, so an ADD-PATH UPDATE loses its path identifiers.
+	//
+	// A sender sets Payload and leaves Value nil, as BMPRouteMonitoring
+	// does with BGPUpdatePayload. Value is for a receiver, which has only
+	// the decoded message.
+	Payload []byte
 }
 
 func NewBMPRouteMirrTLVBGPMsg(t uint16, v *bgp.BGPMessage) *BMPRouteMirrTLVBGPMsg {
@@ -941,7 +951,22 @@ func NewBMPRouteMirrTLVBGPMsg(t uint16, v *bgp.BGPMessage) *BMPRouteMirrTLVBGPMs
 }
 
 func (s *BMPRouteMirrTLVBGPMsg) ParseValue(data []byte) error {
-	v, err := bgp.ParseBGPMessage(data)
+	return s.parseValue(data)
+}
+
+// parseValue is ParseValue with the options of the monitored session. The
+// BMPRouteMirrTLVInterface has no place for them, so BMPRouteMirroring calls
+// this one instead.
+func (s *BMPRouteMirrTLVBGPMsg) parseValue(data []byte, options ...*bgp.MarshallingOption) error {
+	// The mirrored message lives inside this TLV, so the TLV Length is
+	// what bounds it. Handing over the whole remainder would let the
+	// embedded BGP header's own length field decide where the message
+	// ends, and a message announcing more octets than the TLV holds
+	// would be decoded out of the TLVs that follow it.
+	if len(data) < int(s.Length) {
+		return fmt.Errorf("value length is not enough: %d bytes (%d bytes expected)", len(data), s.Length)
+	}
+	v, err := bgp.ParseBGPMessage(data[:s.Length], options...)
 	if err != nil {
 		return err
 	}
@@ -950,9 +975,15 @@ func (s *BMPRouteMirrTLVBGPMsg) ParseValue(data []byte) error {
 }
 
 func (s *BMPRouteMirrTLVBGPMsg) Serialize() ([]byte, error) {
-	m, err := s.Value.Serialize()
-	if err != nil {
-		return nil, err
+	m := s.Payload
+	if m == nil {
+		if s.Value == nil {
+			return nil, errors.New("route mirroring BGP message TLV has neither payload nor message")
+		}
+		var err error
+		if m, err = s.Value.Serialize(); err != nil {
+			return nil, err
+		}
 	}
 	s.Length = uint16(len(m))
 	buf := make([]byte, 4)
@@ -1053,7 +1084,15 @@ func (body *BMPRouteMirroring) ParseBody(msg *BMPMessage, data []byte, options .
 		default:
 			tlv = &BMPRouteMirrTLVUnknown{BMPRouteMirrTLV: tl}
 		}
-		if err := tlv.ParseValue(data); err != nil {
+		// The mirrored message is a PDU of the monitored session, so it
+		// has to be decoded the way that session encoded it.
+		var err error
+		if t, ok := tlv.(*BMPRouteMirrTLVBGPMsg); ok {
+			err = t.parseValue(data, options...)
+		} else {
+			err = tlv.ParseValue(data)
+		}
+		if err != nil {
 			return err
 		}
 		body.Info = append(body.Info, tlv)

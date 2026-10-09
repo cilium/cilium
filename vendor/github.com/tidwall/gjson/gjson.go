@@ -2,13 +2,14 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 //
-// https://github.com/tidwall/gjson
+// https://codeberg.com/tidwall/gjson
 
 // Package gjson provides searching for json strings.
 package gjson
 
 import (
 	"iter"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -129,7 +130,13 @@ func (t Result) Int() int64 {
 	case True:
 		return 1
 	case String:
-		n, _ := parseInt(t.Str)
+		n, ok := parseInt(t.Str)
+		if !ok {
+			f, err := strconv.ParseFloat(t.Str, 64)
+			if err == nil {
+				n = f2i(f)
+			}
+		}
 		return n
 	case Number:
 		// try to directly convert the float64 to int64
@@ -143,7 +150,27 @@ func (t Result) Int() int64 {
 			return i
 		}
 		// fallback to a standard conversion
-		return int64(t.Num)
+		return f2i(t.Num)
+	}
+}
+
+func f2u(f float64) uint64 {
+	if f >= math.MaxUint64 {
+		return math.MaxUint64
+	} else if f < 0 {
+		return 0
+	} else {
+		return uint64(f)
+	}
+}
+
+func f2i(f float64) int64 {
+	if f >= math.MaxInt64 {
+		return math.MaxInt64
+	} else if f < math.MinInt64 {
+		return math.MinInt64
+	} else {
+		return int64(f)
 	}
 }
 
@@ -155,7 +182,13 @@ func (t Result) Uint() uint64 {
 	case True:
 		return 1
 	case String:
-		n, _ := parseUint(t.Str)
+		n, ok := parseUint(t.Str)
+		if !ok {
+			f, err := strconv.ParseFloat(t.Str, 64)
+			if err == nil {
+				n = f2u(f)
+			}
+		}
 		return n
 	case Number:
 		// try to directly convert the float64 to uint64
@@ -169,7 +202,7 @@ func (t Result) Uint() uint64 {
 			return u
 		}
 		// fallback to a standard conversion
-		return uint64(t.Num)
+		return f2u(t.Num)
 	}
 }
 
@@ -2070,7 +2103,7 @@ func AppendJSONString(dst []byte, s string) []byte {
 				break
 			}
 			if r == utf8.RuneError && n == 1 {
-				dst = append(dst, `\ufffd`...)
+				dst = append(dst, "\xef\xbf\xbd"...)
 			} else if r == '\u2028' || r == '\u2029' {
 				dst = append(dst, `\u202`...)
 				dst = append(dst, hexchars[r&0xF])
@@ -2764,42 +2797,53 @@ func ValidBytes(json []byte) bool {
 	return ok
 }
 
-func parseUint(s string) (n uint64, ok bool) {
+func parseUint(s string) (uint64, bool) {
 	var i int
 	if i == len(s) {
 		return 0, false
 	}
+	var n uint64
 	for ; i < len(s); i++ {
-		if s[i] >= '0' && s[i] <= '9' {
-			n = n*10 + uint64(s[i]-'0')
-		} else {
+		if s[i] < '0' || s[i] > '9' {
+			return 0, false
+		}
+		next := n*10 + uint64(s[i]-'0')
+		if next < n {
+			goto overflow
+		}
+		n = next
+	}
+	return n, true
+overflow:
+	// check that the remaining characters are valid
+	for ; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
 			return 0, false
 		}
 	}
-	return n, true
+	return 18446744073709551615, true
 }
 
-func parseInt(s string) (n int64, ok bool) {
-	var i int
+func parseInt(s string) (int64, bool) {
 	var sign bool
 	if len(s) > 0 && s[0] == '-' {
 		sign = true
-		i++
+		s = s[1:]
 	}
-	if i == len(s) {
+	n, ok := parseUint(s)
+	if !ok {
 		return 0, false
 	}
-	for ; i < len(s); i++ {
-		if s[i] >= '0' && s[i] <= '9' {
-			n = n*10 + int64(s[i]-'0')
-		} else {
-			return 0, false
-		}
-	}
 	if sign {
-		return n * -1, true
+		if n > 9223372036854775808 {
+			return -9223372036854775808, true
+		}
+		return -int64(n), true
 	}
-	return n, true
+	if n > 9223372036854775807 {
+		return 9223372036854775807, true
+	}
+	return int64(n), true
 }
 
 // safeInt validates a given JSON number
@@ -3373,6 +3417,11 @@ func revSquash(json string) string {
 	// reverse squash
 	// expects that the tail character is a ']' or '}' or ')' or '"'
 	// squash the value, ignoring all nested arrays and objects.
+	if len(json) == 0 {
+		// Nothing to squash. Path can walk past the start of the document on
+		// malformed JSON (#400); guard against json[len(json)-1] panicking.
+		return json
+	}
 	i := len(json) - 1
 	var depth int
 	if json[i] != '"' {

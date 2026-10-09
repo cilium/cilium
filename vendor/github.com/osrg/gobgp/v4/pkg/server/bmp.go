@@ -32,63 +32,107 @@ import (
 	"github.com/osrg/gobgp/v4/pkg/packet/bmp"
 )
 
-type ribout map[string][]*table.Path
-
-func newribout() ribout {
-	return make(map[string][]*table.Path)
+// bmpAddPathMarshallingOption returns the options for encoding an NLRI of
+// family with its path identifier in front.
+func bmpAddPathMarshallingOption(family bgp.Family) []*bgp.MarshallingOption {
+	return []*bgp.MarshallingOption{{
+		AddPath: map[bgp.Family]bgp.BGPAddPathMode{
+			family: bgp.BGP_ADD_PATH_BOTH,
+		},
+	}}
 }
 
-// return true if we need to send the path to the BMP server
-func (r ribout) update(p *table.Path) bool {
-	key := p.GetNlri().String() // TODO expose (*Path).getPrefix()
-	l := r[key]
-	if p.IsWithdraw {
-		if len(l) == 0 {
-			return false
+// bmpAdjRIBInMarshallingOption returns the options for encoding a path of a
+// peer's Adj-RIB-In. The receiver decodes Route Monitoring messages with the
+// capabilities of the OPEN messages the Peer Up carries, so the encoding here
+// has to follow what the session negotiated. Only the receive direction
+// matters: gobgp reports what the peer sent it.
+//
+// A nil neighbor is a path that no BGP session brought in, so no capability
+// was negotiated for it and no Peer Up was ever sent.
+func bmpAdjRIBInMarshallingOption(n *oc.Neighbor, family bgp.Family) []*bgp.MarshallingOption {
+	if n == nil || !n.IsAddPathReceiveEnabled(family) {
+		return nil
+	}
+	return bmpAddPathMarshallingOption(family)
+}
+
+// bmpRouteMonitoring builds the Route Monitoring messages for one Adj-RIB-In
+// watch event. A live update carries the payload received on the wire and is
+// forwarded as it is. The initial dump and the withdrawals gobgp generates
+// itself carry paths instead, so the UPDATE is built here.
+//
+// A path whose UPDATE cannot be serialized is dropped. Only that path is lost.
+// The BMP session stays up, because one bad path is no reason to stop
+// reporting the rest.
+//
+// An event with no neighbor is not reported at all. The post-policy initial
+// dump groups the Loc-RIB by the source of each path, and a locally originated
+// path has none, so its group carries a zero PeerInfo and no neighbor. Route
+// Monitoring for it would use a per-peer header of all zeros that no Peer Up
+// ever announced, and the End-of-RIB of that group would pair with no Peer Up
+// either. RFC 9069 section 1 replaced RFC 7854 section 8.2 ("Locally
+// Originated Routes"): such routes belong to the Loc-RIB instance peer, which
+// bmpLocRIBRouteMonitoring reports. A post-policy Adj-RIB-In holds no locally
+// originated route anyway. Every other event carries a neighbor.
+func bmpRouteMonitoring(msg *watchEventUpdate, logger *slog.Logger) []*bmp.BMPMessage {
+	if msg.Neighbor == nil {
+		return nil
+	}
+
+	info := &table.PeerInfo{
+		Address: msg.PeerAddress,
+		AS:      msg.PeerAS,
+		ID:      msg.PeerID,
+	}
+	if msg.Payload != nil {
+		return []*bmp.BMPMessage{
+			bmpPeerRoute(bmp.BMP_PEER_TYPE_GLOBAL, msg.PostPolicy, 0, msg.FourBytesAs, info, msg.Timestamp.Unix(), msg.Payload),
 		}
-		n := make([]*table.Path, 0, len(l))
-		for _, q := range l {
-			if p.GetSource() == q.GetSource() {
+	}
+
+	msgs := make([]*bmp.BMPMessage, 0, len(msg.PathList))
+	for _, path := range msg.PathList {
+		options := bmpAdjRIBInMarshallingOption(msg.Neighbor, path.GetFamily())
+		for _, u := range table.CreateUpdateMsgFromAdjRIBInPaths([]*table.Path{path}, options...) {
+			payload, err := u.Serialize(options...)
+			if err != nil {
+				logger.Warn("failed to serialize bmp route monitoring message",
+					slog.String("Topic", "bmp"),
+					slog.Any("Path", path),
+					slog.String("Error", err.Error()))
 				continue
 			}
-			n = append(n, q)
-		}
-		if len(n) == 0 {
-			delete(r, key)
-		} else {
-			r[key] = n
-		}
-		return true
-	}
-
-	if len(l) == 0 {
-		r[key] = []*table.Path{p}
-		return true
-	}
-
-	doAppend := true
-	for idx, q := range l {
-		if p.GetSource() == q.GetSource() {
-			// if we have sent the same path, don't send it again
-			if p.Equal(q) {
-				return false
-			}
-			l[idx] = p
-			doAppend = false
+			msgs = append(msgs, bmpPeerRoute(bmp.BMP_PEER_TYPE_GLOBAL, msg.PostPolicy, 0, true, info, path.GetTimestamp().Unix(), payload))
 		}
 	}
-	if doAppend {
-		r[key] = append(r[key], p)
-	}
-	return true
+	return msgs
 }
 
-func bmpAddPathMarshallingOption(path *table.Path) *bgp.MarshallingOption {
-	return &bgp.MarshallingOption{
-		AddPath: map[bgp.Family]bgp.BGPAddPathMode{
-			path.GetFamily(): bgp.BGP_ADD_PATH_BOTH,
-		},
+// bmpLocRIBRouteMonitoring builds the Loc-RIB Route Monitoring messages
+// (RFC 9069) for one best path event. A path that cannot be serialized is
+// dropped, as in bmpRouteMonitoring.
+func bmpLocRIBRouteMonitoring(msg *watchEventBestPath, info *table.PeerInfo, logger *slog.Logger) []*bmp.BMPMessage {
+	paths := locRIBPathsForBMP(msg)
+	msgs := make([]*bmp.BMPMessage, 0, len(paths))
+	for _, p := range paths {
+		if p == nil {
+			continue
+		}
+		options := bmpAddPathMarshallingOption(p.GetFamily())
+		for _, u := range table.CreateUpdateMsgFromPaths([]*table.Path{p}, options...) {
+			payload, err := u.Serialize(options...)
+			if err != nil {
+				logger.Warn("failed to serialize bmp loc-rib route monitoring message",
+					slog.String("Topic", "bmp"),
+					slog.Any("Path", p),
+					slog.String("Error", err.Error()))
+				continue
+			}
+			msgs = append(msgs, bmpPeerRoute(bmp.BMP_PEER_TYPE_LOCAL_RIB, false, 0, true, info, p.GetTimestamp().Unix(), payload))
+		}
 	}
+	return msgs
 }
 
 func (b *bmpClient) tryConnect() *net.TCPConn {
@@ -142,8 +186,7 @@ func (b *bmpClient) loop() {
 				ops = append(ops, WatchUpdate(true, "", ""))
 				// Adj-RIB-In withdrawals generated on peer down / graceful-restart
 				// expiry are not received on the wire, so they arrive on a separate
-				// watch type. They clear the ribout cache so identical routes are
-				// reported again after the session re-establishes.
+				// watch type.
 				ops = append(ops, WatchAdjInWithdraw())
 			}
 			if b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_POST_POLICY || b.c.RouteMonitoringPolicy == oc.BMP_ROUTE_MONITORING_POLICY_TYPE_ALL {
@@ -153,7 +196,7 @@ func (b *bmpClient) loop() {
 				ops = append(ops, WatchBestPath(true))
 			}
 			if b.c.RouteMirroringEnabled {
-				ops = append(ops, watchMessage(false))
+				ops = append(ops, watchRecvMessage())
 			}
 			w, err := b.s.watch(ops...)
 			if err != nil {
@@ -207,6 +250,7 @@ func (b *bmpClient) loop() {
 					"global",
 					0,
 					time.Now().Unix(),
+					b.s.globalRib.GetRFlist(),
 				)); err != nil {
 					return false
 				}
@@ -218,32 +262,10 @@ func (b *bmpClient) loop() {
 				case ev := <-w.Event():
 					switch msg := ev.(type) {
 					case *watchEventUpdate:
-						info := &table.PeerInfo{
-							Address: msg.PeerAddress,
-							AS:      msg.PeerAS,
-							ID:      msg.PeerID,
-						}
-						if msg.Payload == nil {
-							var pathList []*table.Path
-							if msg.Init {
-								pathList = msg.PathList
-							} else {
-								for _, p := range msg.PathList {
-									if b.ribout.update(p) {
-										pathList = append(pathList, p)
-									}
-								}
+						for _, m := range bmpRouteMonitoring(msg, b.s.logger) {
+							if err := write(m); err != nil {
+								return false
 							}
-							for _, path := range pathList {
-								for _, u := range table.CreateUpdateMsgFromPaths([]*table.Path{path}) {
-									payload, _ := u.Serialize()
-									if err := write(bmpPeerRoute(bmp.BMP_PEER_TYPE_GLOBAL, msg.PostPolicy, 0, true, info, path.GetTimestamp().Unix(), payload)); err != nil {
-										return false
-									}
-								}
-							}
-						} else if err := write(bmpPeerRoute(bmp.BMP_PEER_TYPE_GLOBAL, msg.PostPolicy, 0, msg.FourBytesAs, info, msg.Timestamp.Unix(), msg.Payload)); err != nil {
-							return false
 						}
 					case *watchEventBestPath:
 						info := &table.PeerInfo{
@@ -251,15 +273,8 @@ func (b *bmpClient) loop() {
 							AS:      b.s.bgpConfig.Global.Config.As,
 							ID:      b.s.bgpConfig.Global.Config.RouterId,
 						}
-						for _, p := range locRIBPathsForBMP(msg) {
-							if p == nil {
-								continue
-							}
-							options := bmpAddPathMarshallingOption(p)
-							u := table.CreateUpdateMsgFromPaths([]*table.Path{p}, options)[0]
-							if payload, err := u.Serialize(options); err != nil {
-								return false
-							} else if err = write(bmpPeerRoute(bmp.BMP_PEER_TYPE_LOCAL_RIB, false, 0, true, info, p.GetTimestamp().Unix(), payload)); err != nil {
+						for _, m := range bmpLocRIBRouteMonitoring(msg, info, b.s.logger) {
+							if err := write(m); err != nil {
 								return false
 							}
 						}
@@ -281,7 +296,7 @@ func (b *bmpClient) loop() {
 							AS:      msg.PeerAS,
 							ID:      msg.PeerID,
 						}
-						if err := write(bmpPeerRouteMirroring(bmp.BMP_PEER_TYPE_GLOBAL, 0, info, msg.Timestamp.Unix(), msg.Message)); err != nil {
+						if err := write(bmpPeerRouteMirroring(bmp.BMP_PEER_TYPE_GLOBAL, 0, info, msg.Timestamp.Unix(), msg.Payload)); err != nil {
 							return false
 						}
 					}
@@ -316,7 +331,7 @@ func (b *bmpClient) loop() {
 	}
 }
 
-func bmpLocRIBPeerUp(localAS uint32, routerID netip.Addr, tableName string, peerDist uint64, timestamp int64) *bmp.BMPMessage {
+func bmpLocRIBPeerUp(localAS uint32, routerID netip.Addr, tableName string, peerDist uint64, timestamp int64, families []bgp.Family) *bmp.BMPMessage {
 	const asTrans uint16 = 23456
 
 	myAS := asTrans
@@ -337,11 +352,18 @@ func bmpLocRIBPeerUp(localAS uint32, routerID netip.Addr, tableName string, peer
 	// when global multipath happened to be enabled left the fabricated OPEN
 	// describing an encoding that was not the one on the wire, and every NLRI was
 	// then parsed 4 octets out of step.
+	//
+	// The tuple is advertised for every family the Loc-RIB holds a table for,
+	// which is every family gobgp supports. A narrower list would have to be
+	// revised whenever the first route of a family is installed, and this Peer
+	// Up is sent once, when the BMP session comes up. RFC 9069 has no way to
+	// amend the capabilities of a peer that is already up.
+	tuples := make([]*bgp.CapAddPathTuple, 0, len(families))
+	for _, f := range families {
+		tuples = append(tuples, bgp.NewCapAddPathTuple(f, bgp.BGP_ADD_PATH_BOTH))
+	}
 	opts = append(opts, bgp.NewOptionParameterCapability([]bgp.ParameterCapabilityInterface{
-		bgp.NewCapAddPath([]*bgp.CapAddPathTuple{
-			bgp.NewCapAddPathTuple(bgp.RF_IPv4_UC, bgp.BGP_ADD_PATH_BOTH),
-			bgp.NewCapAddPathTuple(bgp.RF_IPv6_UC, bgp.BGP_ADD_PATH_BOTH),
-		}),
+		bgp.NewCapAddPath(tuples),
 	}))
 
 	open, _ := bgp.NewBGPOpenMessage(myAS, 90, routerID, opts)
@@ -400,7 +422,6 @@ type bmpClient struct {
 	dead     chan struct{}
 	host     netip.AddrPort
 	c        *oc.BmpServerConfig
-	ribout   ribout
 	uptime   int64
 	downtime int64
 }
@@ -473,16 +494,13 @@ func bmpPeerStats(peerType uint8, peerDist uint64, timestamp int64, peer *api.Pe
 	)
 }
 
-func bmpPeerRouteMirroring(peerType uint8, peerDist uint64, peerInfo *table.PeerInfo, timestamp int64, msg *bgp.BGPMessage) *bmp.BMPMessage {
+func bmpPeerRouteMirroring(peerType uint8, peerDist uint64, peerInfo *table.PeerInfo, timestamp int64, payload []byte) *bmp.BMPMessage {
 	var peerFlags uint8 = 0
 	ph := bmp.NewBMPPeerHeader(peerType, peerFlags, peerDist, peerInfo.Address, peerInfo.AS, peerInfo.ID, float64(timestamp))
-	return bmp.NewBMPRouteMirroring(
-		*ph,
-		[]bmp.BMPRouteMirrTLVInterface{
-			// RFC7854: BGP Message TLV MUST occur last in the list of TLVs
-			bmp.NewBMPRouteMirrTLVBGPMsg(bmp.BMP_ROUTE_MIRRORING_TLV_TYPE_BGP_MSG, msg),
-		},
-	)
+	// RFC7854: BGP Message TLV MUST occur last in the list of TLVs
+	tlv := bmp.NewBMPRouteMirrTLVBGPMsg(bmp.BMP_ROUTE_MIRRORING_TLV_TYPE_BGP_MSG, nil)
+	tlv.Payload = payload
+	return bmp.NewBMPRouteMirroring(*ph, []bmp.BMPRouteMirrTLVInterface{tlv})
 }
 
 func (b *bmpClientManager) addServer(c *oc.BmpServerConfig) error {
@@ -491,11 +509,10 @@ func (b *bmpClientManager) addServer(c *oc.BmpServerConfig) error {
 		return fmt.Errorf("bmp client %s is already configured", host)
 	}
 	b.clientMap[host] = &bmpClient{
-		s:      b.s,
-		dead:   make(chan struct{}),
-		host:   host,
-		c:      c,
-		ribout: newribout(),
+		s:    b.s,
+		dead: make(chan struct{}),
+		host: host,
+		c:    c,
 	}
 	go b.clientMap[host].loop()
 	return nil

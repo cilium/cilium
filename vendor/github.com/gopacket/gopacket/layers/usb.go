@@ -217,6 +217,10 @@ func (m *USBRequestBlockSetup) NextLayerType() gopacket.LayerType {
 }
 
 func (m *USBRequestBlockSetup) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
+	if len(data) < 8 {
+		df.SetTruncated()
+		return errors.New("USBRequestBlockSetup < 8 bytes")
+	}
 	m.RequestType = data[0]
 	m.Request = USBRequestBlockSetupRequest(data[1])
 	m.Value = binary.LittleEndian.Uint16(data[2:4])

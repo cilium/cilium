@@ -444,25 +444,38 @@ func (c *roaClient) established() (err error) {
 	}
 
 	for {
-		header := make([]byte, rtr.RTR_MIN_LEN)
-		if _, err = io.ReadFull(c.conn, header); err != nil {
-			return err
-		}
-		totalLen := binary.BigEndian.Uint32(header[4:8])
-		if totalLen < rtr.RTR_MIN_LEN {
-			return fmt.Errorf("too short header length %v", totalLen)
-		}
-
-		body := make([]byte, totalLen-rtr.RTR_MIN_LEN)
-		if _, err = io.ReadFull(c.conn, body); err != nil {
+		var data []byte
+		data, err = readRTRMessage(c.conn)
+		if err != nil {
 			return err
 		}
 
 		c.eventCh <- &roaEvent{
 			EventType: roaRTR,
 			Src:       c.host,
-			Data:      append(header, body...),
+			Data:      data,
 			timestamp: time.Now(),
 		}
 	}
+}
+
+func readRTRMessage(r io.Reader) ([]byte, error) {
+	header := make([]byte, rtr.RTR_MIN_LEN)
+	if _, err := io.ReadFull(r, header); err != nil {
+		return nil, err
+	}
+	totalLen := binary.BigEndian.Uint32(header[4:8])
+	if totalLen < rtr.RTR_MIN_LEN {
+		return nil, fmt.Errorf("too short header length %v", totalLen)
+	}
+	if totalLen > rtr.RTR_MAX_LEN {
+		return nil, fmt.Errorf("too large header length %v", totalLen)
+	}
+
+	body := make([]byte, totalLen-rtr.RTR_MIN_LEN)
+	if _, err := io.ReadFull(r, body); err != nil {
+		return nil, err
+	}
+
+	return append(header, body...), nil
 }
