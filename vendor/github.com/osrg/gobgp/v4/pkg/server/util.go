@@ -66,8 +66,10 @@ func drainChannel[T any](ch <-chan T) {
 
 func cleanInfiniteChannel(ch *channels.InfiniteChannel) {
 	ch.Close()
-	// drain all remaining items
-	drainChannel(ch.Out())
+	// Closing the input does not synchronously flush the internal buffer.
+	// Drain until the output closes, not just until it is momentarily empty.
+	for range ch.Out() {
+	}
 }
 
 // Returns the binary formatted Administrative Shutdown Communication from the

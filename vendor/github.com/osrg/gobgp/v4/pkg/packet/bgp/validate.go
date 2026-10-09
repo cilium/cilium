@@ -312,6 +312,19 @@ func ValidateOpenMsg(m *BGPOpen, expectedAS uint32, myAS uint32, myId netip.Addr
 		return 0, NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_BAD_BGP_IDENTIFIER, nil, fmt.Sprintf("bad BGP identifier %s", routerId.String()))
 	}
 
+	// rfc7607 (Codification of AS 0 Processing)
+	// If a BGP speaker receives zero as the peer AS in an OPEN message, it
+	// MUST abort the connection and send a NOTIFICATION with Error Code
+	// "OPEN Message Error" and subcode "Bad Peer AS".
+	if m.MyAS == 0 {
+		return 0, NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_BAD_PEER_AS, nil, "as number is zero")
+	}
+	// The four-octet AS capability carries the same AS number, so zero is
+	// not allowed there either.
+	if as == 0 {
+		return 0, NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_BAD_PEER_AS, nil, "as number in the four-octet AS capability is zero")
+	}
+
 	if expectedAS != 0 && as != expectedAS {
 		return 0, NewMessageError(BGP_ERROR_OPEN_MESSAGE_ERROR, BGP_ERROR_SUB_BAD_PEER_AS, nil, fmt.Sprintf("as number mismatch expected %d, received %d", expectedAS, as))
 	}

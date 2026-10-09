@@ -25,11 +25,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/gaissmai/bart"
 	"github.com/segmentio/fasthash/fnv1a"
 
 	"github.com/osrg/gobgp/v4/pkg/apiutil"
+	"github.com/osrg/gobgp/v4/pkg/config/oc"
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 )
 
@@ -103,38 +105,103 @@ func tableKey(nlri bgp.NLRI) addrPrefixKey {
 
 // destinationShard is a sharded bucket that owns both the map subset and the lock
 // that protects both map operations and destination data within this shard.
+// mp is created by the first insert into this shard. Reading a nil map is
+// valid, so only the write paths have to create it.
 type destinationShard struct {
-	mu *sync.RWMutex
+	mu sync.RWMutex
 	mp map[addrPrefixKey][]*destination
 }
 
-const destinationShardCount = 2048
+// destinationShardCount is the number of shards of a table that several
+// goroutines write at the same time. Only the Loc-RIB is such a table: a
+// path is installed by the goroutine of the peer it came from. An adj-RIB
+// and the table Table.Select returns are written by one goroutine, so they
+// take singleShard.
+//
+// Both counts must be a power of two, because the shard is picked with a
+// mask.
+const (
+	destinationShardCount = 2048
+	singleShard           = 1
+)
 
-type Destinations struct {
-	shards [destinationShardCount]*destinationShard
+// put stores dests under key and creates mp on the first insert into this
+// shard. The caller must hold the write lock.
+func (s *destinationShard) put(key addrPrefixKey, dests []*destination) {
+	if s.mp == nil {
+		s.mp = make(map[addrPrefixKey][]*destination)
+	}
+	s.mp[key] = dests
 }
 
-func NewDestinations() *Destinations {
-	d := &Destinations{}
-	for i := range d.shards {
-		d.shards[i] = &destinationShard{
-			mu: &sync.RWMutex{},
-			mp: make(map[addrPrefixKey][]*destination),
+type destinationShards []destinationShard
+
+// Destinations holds the destinations of one table, split over mask+1
+// shards to keep the lock per destination short.
+//
+// The shards are allocated by the first insert. gobgp creates a table for
+// every address family of the Loc-RIB and of every peer's adj-RIB, and most
+// of them never hold a route, so an empty Destinations must stay small.
+type Destinations struct {
+	shards atomic.Pointer[destinationShards]
+	// mask is the shard count minus one. It is set at construction and
+	// never changes.
+	mask uint32
+}
+
+// newDestinations panics if shardCount is not a power of two. The shard is
+// picked with a mask, so any other count would leave part of the shards
+// unreachable. It is a programming error in the caller.
+func newDestinations(shardCount uint32) *Destinations {
+	if shardCount == 0 || shardCount&(shardCount-1) != 0 {
+		panic(fmt.Sprintf("shard count %d is not a power of two", shardCount))
+	}
+	return &Destinations{mask: shardCount - 1}
+}
+
+// loadShards returns the shards, or nil if nothing has been inserted yet.
+// Ranging over the result is the way to walk every shard.
+func (d *Destinations) loadShards() []destinationShard {
+	s := d.shards.Load()
+	if s == nil {
+		return nil
+	}
+	return *s
+}
+
+// getShard returns the shard for a given NLRI, or nil if nothing has been
+// inserted into this Destinations yet.
+func (d *Destinations) getShard(nlri bgp.NLRI) *destinationShard {
+	s := d.shards.Load()
+	if s == nil {
+		return nil
+	}
+	key := tableKey(nlri)
+	return &(*s)[uint32(key)&d.mask]
+}
+
+// getShardForInsert returns the shard for a given NLRI and allocates the
+// shards if this is the first insert. The loser of a race drops the shards it
+// allocated and uses the winner's, so every insert goes to the same shards.
+func (d *Destinations) getShardForInsert(nlri bgp.NLRI) *destinationShard {
+	s := d.shards.Load()
+	if s == nil {
+		ns := make(destinationShards, d.mask+1)
+		s = &ns
+		if !d.shards.CompareAndSwap(nil, s) {
+			s = d.shards.Load()
 		}
 	}
-	return d
-}
-
-// getShard returns the shard for a given NLRI
-func (d *Destinations) getShard(nlri bgp.NLRI) *destinationShard {
 	key := tableKey(nlri)
-	return d.shards[uint32(key)&(destinationShardCount-1)]
+	return &(*s)[uint32(key)&d.mask]
 }
 
 // iterateAllDestinations calls fn for each destination across all shards.
 // Rlock will be hold per shard during the call of fn callback.
 func (d *Destinations) iterateAllDestinations(fn func(*destination)) {
-	for _, shard := range d.shards {
+	shards := d.loadShards()
+	for i := range shards {
+		shard := &shards[i]
 		shard.mu.RLock()
 		for _, dests := range shard.mp {
 			for _, dest := range dests {
@@ -147,6 +214,9 @@ func (d *Destinations) iterateAllDestinations(fn func(*destination)) {
 
 func (d *Destinations) Get(nlri bgp.NLRI) *destination {
 	shard := d.getShard(nlri)
+	if shard == nil {
+		return nil
+	}
 	shard.mu.RLock()
 	defer shard.mu.RUnlock()
 
@@ -165,7 +235,7 @@ func (d *Destinations) Get(nlri bgp.NLRI) *destination {
 }
 
 func (d *Destinations) InsertUpdate(dest *destination) (collision bool) {
-	shard := d.getShard(dest.nlri)
+	shard := d.getShardForInsert(dest.nlri)
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
@@ -173,7 +243,7 @@ func (d *Destinations) InsertUpdate(dest *destination) (collision bool) {
 	key := tableKey(nlri)
 	new := false
 	if _, ok := shard.mp[key]; !ok {
-		shard.mp[key] = make([]*destination, 0)
+		shard.put(key, make([]*destination, 0))
 		new = true
 	}
 	for i, v := range shard.mp[key] {
@@ -253,7 +323,7 @@ type Table struct {
 	// this holds a map for a set of prefixes.
 	macIndex *EVPNMacNLRIs
 	// vpnIdx indexes all known paths by Route Target for O(1) RT-based lookup.
-	// Non-nil only for families that carry RT extended communities (VPNV4-6, EVPN, …).
+	// Non-nil only for families that carry RT extended communities (VPNV4-6, EVPN, ...).
 	vpnIdx *VPNPathIndex
 }
 
@@ -272,13 +342,22 @@ func isVPNFamily(rf bgp.Family) bool {
 }
 
 func NewTable(logger *slog.Logger, rf bgp.Family, dsts ...*destination) *Table {
+	return newTable(logger, rf, destinationShardCount, dsts...)
+}
+
+// newSingleShardTable creates a table that only one goroutine writes.
+func newSingleShardTable(logger *slog.Logger, rf bgp.Family) *Table {
+	return newTable(logger, rf, singleShard)
+}
+
+func newTable(logger *slog.Logger, rf bgp.Family, shardCount uint32, dsts ...*destination) *Table {
 	var vpnIdx *VPNPathIndex
 	if isVPNFamily(rf) {
 		vpnIdx = NewVPNPathIndex()
 	}
 	t := &Table{
 		Family:       rf,
-		destinations: NewDestinations(),
+		destinations: newDestinations(shardCount),
 		logger:       logger,
 		macIndex:     NewEVPNMacNLRIs(),
 		vpnIdx:       vpnIdx,
@@ -415,7 +494,7 @@ func (t *Table) getOrCreateDest(shard *destinationShard, nlri bgp.NLRI, size int
 	// Create and insert new destination
 	dest := newDestination(nlri, size)
 	if _, ok := shard.mp[key]; !ok {
-		shard.mp[key] = make([]*destination, 0)
+		shard.put(key, make([]*destination, 0))
 	}
 	shard.mp[key] = append(shard.mp[key], dest)
 	return dest
@@ -459,22 +538,33 @@ func (t *Table) deleteDest(shard *destinationShard, dest *destination) {
 	}
 }
 
-func (t *Table) update(newPath *Path) *Update {
+func (t *Table) update(newPath *Path, selectionOptions oc.RouteSelectionOptionsConfig) *Update {
 	t.validatePath(newPath)
 
 	nlri := newPath.GetNlri()
-	shard := t.destinations.getShard(nlri)
+	shard := t.destinations.getShardForInsert(nlri)
 
 	// Hold shard lock for entire operation - no TOCTOU gap
 	shard.mu.Lock()
 	defer shard.mu.Unlock()
 
 	dst := t.getOrCreateDest(shard, nlri, 64)
-	u, oldPath := dst.Calculate(t.logger, newPath)
+	u, oldPath := dst.Calculate(t.logger, newPath, selectionOptions)
 
 	if len(dst.knownPathList) == 0 {
 		t.deleteDest(shard, dst)
 	}
+
+	// A withdrawal for a path that is not installed in the table is a no-op.
+	// Do not turn it into an Update with identical old and new path lists.
+	if newPath.IsWithdraw && oldPath == nil {
+		return nil
+	}
+
+	// Path.Equal ignores IsWithdraw, and a withdrawal carries the attributes of
+	// the path it removes, so the two compare equal. A withdrawal that got this
+	// far did remove a path, so it is always a change.
+	u.Changed = newPath.IsWithdraw || oldPath == nil || !newPath.Equal(oldPath)
 
 	if evpnNlri, ok := nlri.(*bgp.EVPNNLRI); ok {
 		if macadv, ok := evpnNlri.RouteTypeData.(*bgp.EVPNMacIPAdvertisementRoute); ok {
@@ -498,7 +588,7 @@ func (t *Table) updateVPNIdx(u *Update, newPath, oldPath *Path) {
 	}
 	if newPath.RemoteID() != 0 {
 		// ADD-PATH: each (source, path-ID) pair is a distinct entry.
-		// oldPath is the previous path with the same source×pathID returned by
+		// oldPath is the previous path with the same (source, path-ID) returned by
 		// implicitWithdraw (non-withdrawal) or explicitWithdraw (withdrawal).
 		if newPath.IsWithdraw {
 			t.vpnIdx.UnregisterPath(oldPath)
@@ -552,6 +642,9 @@ func (t *Table) GetDestination(nlri bgp.NLRI) *destination {
 // The shard read lock is held while calling destination.Select().
 func (t *Table) SelectDestination(nlri bgp.NLRI, option DestinationSelectOption) *destination {
 	shard := t.destinations.getShard(nlri)
+	if shard == nil {
+		return nil
+	}
 	shard.mu.RLock()
 	defer shard.mu.RUnlock()
 
@@ -680,14 +773,15 @@ func (t *Table) GetMUPDestinationsWithRouteType(p string) ([]*destination, error
 func (t *Table) setDestination(dst *destination) {
 	if collision := t.destinations.InsertUpdate(dst); collision {
 		// Get the first prefix in this collision bucket
-		shard := t.destinations.getShard(dst.GetNlri())
-		shard.mu.RLock()
-		key := tableKey(dst.GetNlri())
 		firstPrefix := ""
-		if dests, ok := shard.mp[key]; ok && len(dests) > 0 {
-			firstPrefix = dests[0].GetNlri().String()
+		if shard := t.destinations.getShard(dst.GetNlri()); shard != nil {
+			shard.mu.RLock()
+			key := tableKey(dst.GetNlri())
+			if dests, ok := shard.mp[key]; ok && len(dests) > 0 {
+				firstPrefix = dests[0].GetNlri().String()
+			}
+			shard.mu.RUnlock()
 		}
-		shard.mu.RUnlock()
 
 		t.logger.Warn("insert collision detected",
 			slog.String("Topic", "Table"),
@@ -711,7 +805,9 @@ func (t *Table) setDestination(dst *destination) {
 func (t *Table) Bests(id string, as uint32) []*Path {
 	paths := make([]*Path, 0)
 
-	for _, shard := range t.destinations.shards {
+	shards := t.destinations.loadShards()
+	for i := range shards {
+		shard := &shards[i]
 		shard.mu.RLock()
 		for _, dests := range shard.mp {
 			for _, dest := range dests {
@@ -729,7 +825,9 @@ func (t *Table) Bests(id string, as uint32) []*Path {
 func (t *Table) MultiBests(id string) [][]*Path {
 	paths := make([][]*Path, 0)
 
-	for _, shard := range t.destinations.shards {
+	shards := t.destinations.loadShards()
+	for i := range shards {
+		shard := &shards[i]
 		shard.mu.RLock()
 		for _, dests := range shard.mp {
 			for _, dest := range dests {
@@ -747,7 +845,9 @@ func (t *Table) MultiBests(id string) [][]*Path {
 func (t *Table) GetKnownPathList(id string, as uint32) []*Path {
 	paths := make([]*Path, 0)
 
-	for _, shard := range t.destinations.shards {
+	shards := t.destinations.loadShards()
+	for i := range shards {
+		shard := &shards[i]
 		shard.mu.RLock()
 		for _, dests := range shard.mp {
 			for _, dest := range dests {
@@ -766,6 +866,9 @@ func (t *Table) GetKnownPathListWithMac(id string, as uint32, rt bgp.ExtendedCom
 	// For each destination, lock its shard before accessing
 	for _, dst := range dests {
 		shard := t.destinations.getShard(dst.nlri)
+		if shard == nil {
+			continue
+		}
 		shard.mu.RLock()
 		if onlyBest {
 			path := dst.GetBestPath(id, as)
@@ -820,7 +923,7 @@ func (t *Table) Select(option ...TableSelectOption) (*Table, error) {
 		as = o.AS
 	}
 	dOption := DestinationSelectOption{ID: id, AS: as, VRF: vrf, adj: adj, Best: best, MultiPath: mp}
-	r := NewTable(nil, t.Family)
+	r := newSingleShardTable(nil, t.Family)
 
 	if len(prefixes) != 0 {
 		switch t.Family {
@@ -999,7 +1102,9 @@ func (t *Table) Select(option ...TableSelectOption) (*Table, error) {
 	} else {
 		// Iterate with shard-level locking to ensure destination methods
 		// are called while holding the appropriate lock
-		for _, shard := range t.destinations.shards {
+		shards := t.destinations.loadShards()
+		for i := range shards {
+			shard := &shards[i]
 			shard.mu.RLock()
 			for _, dests := range shard.mp {
 				for _, dest := range dests {
@@ -1047,7 +1152,9 @@ func (t *Table) Info(option ...TableInfoOptions) *TableInfo {
 		as = o.AS
 	}
 
-	for _, shard := range t.destinations.shards {
+	shards := t.destinations.loadShards()
+	for i := range shards {
+		shard := &shards[i]
 		shard.mu.RLock()
 		for _, dests := range shard.mp {
 			if len(dests) > 1 {

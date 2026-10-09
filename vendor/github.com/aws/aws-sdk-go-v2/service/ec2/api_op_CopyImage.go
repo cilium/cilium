@@ -120,9 +120,12 @@ type CopyImageInput struct {
 	//   - System tags (prefixed with aws: )
 	//
 	//   - For public and shared AMIs, user-defined tags that are attached by other
-	//   Amazon Web Services accounts
+	//   Amazon Web Services accounts, except tags with the ec2:SharedTag/ prefix. For
+	//   more information about tag sharing, see [Sharing tags]in the Amazon EC2 User Guide.
 	//
 	// Default: Your user-defined AMI tags are not copied.
+	//
+	// [Sharing tags]: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#sharing-tags
 	CopyImageTags *bool
 
 	// A description for the new AMI.

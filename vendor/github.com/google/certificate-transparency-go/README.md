@@ -6,13 +6,17 @@
 
 This repository holds Go code related to
 [Certificate Transparency](https://www.certificate-transparency.org/) (CT).  The
-repository requires Go version 1.20.
+repository requires Go version 1.21.
 
  - [Repository Structure](#repository-structure)
  - [Trillian CT Personality](#trillian-ct-personality)
  - [Working on the Code](#working-on-the-code)
      - [Running Codebase Checks](#running-codebase-checks)
      - [Rebuilding Generated Code](#rebuilding-generated-code)
+
+## Support
+
+- Slack: https://transparency-dev.slack.com/ ([invitation](https://join.slack.com/t/transparency-dev/shared_invite/zt-27pkqo21d-okUFhur7YZ0rFoJVIOPznQ))
 
 ## Repository Structure
 

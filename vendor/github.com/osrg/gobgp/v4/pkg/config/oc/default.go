@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/netip"
 	"reflect"
-	"slices"
 
 	"github.com/osrg/gobgp/v4/internal/pkg/version"
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
@@ -22,11 +21,6 @@ const (
 	DEFAULT_CONNECT_RETRY             = 120
 )
 
-var forcedOverwrittenConfig = []string{
-	"neighbor.config.peer-as",
-	"neighbor.timers.config.minimum-advertisement-interval",
-}
-
 var configuredFields map[string]any
 
 func RegisterConfiguredFields(addr string, n any) {
@@ -34,6 +28,25 @@ func RegisterConfiguredFields(addr string, n any) {
 		configuredFields = make(map[string]any)
 	}
 	configuredFields[addr] = n
+}
+
+// neighborConfiguredFields returns the fields that the configuration file set
+// for this neighbor. RegisterConfiguredFields stores the record under the
+// neighbor address, or under the interface name when the address is missing,
+// so look it up the same way. An unnumbered neighbor has no address here. Its
+// address is resolved from the interface later.
+func neighborConfiguredFields(c *Neighbor) (any, bool) {
+	if c.Config.NeighborAddress.IsValid() {
+		if val, ok := configuredFields[c.Config.NeighborAddress.String()]; ok {
+			return val, true
+		}
+	}
+	if c.Config.NeighborInterface != "" {
+		if val, ok := configuredFields[c.Config.NeighborInterface]; ok {
+			return val, true
+		}
+	}
+	return nil, false
 }
 
 func defaultAfiSafi(typ AfiSafiType, enable bool) AfiSafi {
@@ -208,6 +221,7 @@ func setDefaultNeighborConfigValuesWithViper(v *viper.Viper, n *Neighbor, g *Glo
 	}
 
 	n.State.Description = n.Config.Description
+	n.State.PeerGroup = n.Config.PeerGroup
 	n.State.AdminDown = n.Config.AdminDown
 
 	if n.GracefulRestart.Config.Enabled {
@@ -528,37 +542,48 @@ func setDefaultConfigValuesWithViper(v *viper.Viper, b *BgpConfigSet) error {
 func OverwriteNeighborConfigWithPeerGroup(c *Neighbor, pg *PeerGroup) error {
 	v := viper.New()
 
-	val, ok := configuredFields[c.Config.NeighborAddress.String()]
-	if ok {
+	// configuredFields is only filled while reading a configuration file. For a
+	// neighbor added through the gRPC API viper reports every field as unset, so
+	// overwriteConfig treats a non-zero value as explicitly set instead.
+	val, configured := neighborConfiguredFields(c)
+	if configured {
 		v.Set("neighbor", val)
 	} else {
 		v.Set("neighbor.config.peer-group", c.Config.PeerGroup)
 	}
 
-	overwriteConfig(&c.Config, &pg.Config, "neighbor.config", v)
-	overwriteConfig(&c.Timers.Config, &pg.Timers.Config, "neighbor.timers.config", v)
-	overwriteConfig(&c.Transport.Config, &pg.Transport.Config, "neighbor.transport.config", v)
-	overwriteConfig(&c.ErrorHandling.Config, &pg.ErrorHandling.Config, "neighbor.error-handling.config", v)
-	overwriteConfig(&c.LoggingOptions.Config, &pg.LoggingOptions.Config, "neighbor.logging-options.config", v)
-	overwriteConfig(&c.EbgpMultihop.Config, &pg.EbgpMultihop.Config, "neighbor.ebgp-multihop.config", v)
-	overwriteConfig(&c.RouteReflector.Config, &pg.RouteReflector.Config, "neighbor.route-reflector.config", v)
-	overwriteConfig(&c.AsPathOptions.Config, &pg.AsPathOptions.Config, "neighbor.as-path-options.config", v)
-	overwriteConfig(&c.AddPaths.Config, &pg.AddPaths.Config, "neighbor.add-paths.config", v)
-	overwriteConfig(&c.GracefulRestart.Config, &pg.GracefulRestart.Config, "neighbor.gradeful-restart.config", v)
-	overwriteConfig(&c.ApplyPolicy.Config, &pg.ApplyPolicy.Config, "neighbor.apply-policy.config", v)
-	overwriteConfig(&c.UseMultiplePaths.Config, &pg.UseMultiplePaths.Config, "neighbor.use-multiple-paths.config", v)
-	overwriteConfig(&c.RouteServer.Config, &pg.RouteServer.Config, "neighbor.route-server.config", v)
-	overwriteConfig(&c.TtlSecurity.Config, &pg.TtlSecurity.Config, "neighbor.ttl-security.config", v)
-	overwriteConfig(&c.Bfd.Config, &pg.Bfd.Config, "neighbor.bfd.config", v)
+	overwriteConfig(&c.Config, &pg.Config, "neighbor.config", v, configured)
+	overwriteConfig(&c.Timers.Config, &pg.Timers.Config, "neighbor.timers.config", v, configured)
+	overwriteConfig(&c.Transport.Config, &pg.Transport.Config, "neighbor.transport.config", v, configured)
+	overwriteConfig(&c.TcpAo.Config, &pg.TcpAo.Config, "neighbor.tcp-ao.config", v, configured)
+	overwriteConfig(&c.ErrorHandling.Config, &pg.ErrorHandling.Config, "neighbor.error-handling.config", v, configured)
+	overwriteConfig(&c.LoggingOptions.Config, &pg.LoggingOptions.Config, "neighbor.logging-options.config", v, configured)
+	overwriteConfig(&c.EbgpMultihop.Config, &pg.EbgpMultihop.Config, "neighbor.ebgp-multihop.config", v, configured)
+	overwriteConfig(&c.RouteReflector.Config, &pg.RouteReflector.Config, "neighbor.route-reflector.config", v, configured)
+	overwriteConfig(&c.AsPathOptions.Config, &pg.AsPathOptions.Config, "neighbor.as-path-options.config", v, configured)
+	overwriteConfig(&c.AddPaths.Config, &pg.AddPaths.Config, "neighbor.add-paths.config", v, configured)
+	overwriteConfig(&c.GracefulRestart.Config, &pg.GracefulRestart.Config, "neighbor.gradeful-restart.config", v, configured)
+	overwriteConfig(&c.ApplyPolicy.Config, &pg.ApplyPolicy.Config, "neighbor.apply-policy.config", v, configured)
+	overwriteConfig(&c.UseMultiplePaths.Config, &pg.UseMultiplePaths.Config, "neighbor.use-multiple-paths.config", v, configured)
+	overwriteConfig(&c.RouteServer.Config, &pg.RouteServer.Config, "neighbor.route-server.config", v, configured)
+	overwriteConfig(&c.TtlSecurity.Config, &pg.TtlSecurity.Config, "neighbor.ttl-security.config", v, configured)
+	overwriteConfig(&c.Bfd.Config, &pg.Bfd.Config, "neighbor.bfd.config", v, configured)
 
-	if !v.IsSet("neighbor.afi-safis") {
+	if configured {
+		if !v.IsSet("neighbor.afi-safis") {
+			c.AfiSafis = append([]AfiSafi{}, pg.AfiSafis...)
+		}
+	} else if len(c.AfiSafis) == 0 {
 		c.AfiSafis = append([]AfiSafi{}, pg.AfiSafis...)
 	}
 
 	return nil
 }
 
-func overwriteConfig(c, pg any, tagPrefix string, v *viper.Viper) {
+// overwriteConfig copies peer-group values into the neighbor config for every
+// field the neighbor did not set itself. configured selects how "set" is
+// decided: viper's view of the config file, or a non-zero value for API peers.
+func overwriteConfig(c, pg any, tagPrefix string, v *viper.Viper, configured bool) {
 	nValue := reflect.Indirect(reflect.ValueOf(c))
 	pgValue := reflect.Indirect(reflect.ValueOf(pg))
 	pgType := reflect.Indirect(pgValue).Type()
@@ -566,12 +591,17 @@ func overwriteConfig(c, pg any, tagPrefix string, v *viper.Viper) {
 	for i := range pgType.NumField() {
 		field := pgType.Field(i).Name
 		tag := tagPrefix + "." + pgType.Field(i).Tag.Get("mapstructure")
-		if func() bool {
-			return slices.Contains(forcedOverwrittenConfig, tag)
-		}() || !v.IsSet(tag) {
-			if nField := nValue.FieldByName(field); nField.IsValid() {
-				nField.Set(pgValue.FieldByName(field))
-			}
+		nField := nValue.FieldByName(field)
+		if !nField.IsValid() {
+			continue
 		}
+		if configured {
+			if v.IsSet(tag) {
+				continue
+			}
+		} else if !nField.IsZero() {
+			continue
+		}
+		nField.Set(pgValue.FieldByName(field))
 	}
 }

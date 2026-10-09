@@ -125,18 +125,23 @@ type sockaddrIn struct {
 	pad      [8]byte
 }
 
-func newSockaddrIn(addr string) sockaddrIn {
+func newSockaddrIn(addr string) (sockaddrIn, error) {
 	if len(addr) == 0 {
 		return sockaddrIn{
 			ssLen: 16,
-		}
+		}, nil
 	}
+	// Only an IPv4 address fits in sockaddr_in. An IPv6 peer or a
+	// dynamic neighbor prefix would make To4 return nil.
 	v := net.ParseIP(addr).To4()
+	if v == nil {
+		return sockaddrIn{}, fmt.Errorf("md5 is supported only for an IPv4 address: %s", addr)
+	}
 	return sockaddrIn{
 		ssAddr:   uint32(v[3])<<24 | uint32(v[2])<<16 | uint32(v[1])<<8 | uint32(v[0]),
 		ssLen:    16,
 		ssFamily: syscall.AF_INET,
-	}
+	}, nil
 }
 
 func roundUp(v int) int {
@@ -235,13 +240,19 @@ func rfkeyRequest(msgType uint8, src, dst string, spi uint32, key string) error 
 		sadbMsgPid:     uint32(os.Getpid()),
 	}
 
-	ssrc := newSockaddrIn(src)
+	ssrc, err := newSockaddrIn(src)
+	if err != nil {
+		return err
+	}
 	sa_src := sadbAddress{
 		sadbAddressExttype: SADB_EXT_ADDRESS_SRC,
 		sadbAddressLen:     uint16(SADB_ADDRESS_SIZE+roundUp(int(ssrc.ssLen))) / 8,
 	}
 
-	sdst := newSockaddrIn(dst)
+	sdst, err := newSockaddrIn(dst)
+	if err != nil {
+		return err
+	}
 	sa_dst := sadbAddress{
 		sadbAddressExttype: SADB_EXT_ADDRESS_DST,
 		sadbAddressLen:     uint16(SADB_ADDRESS_SIZE+roundUp(int(sdst.ssLen))) / 8,
@@ -422,7 +433,7 @@ func SetReuseAddrSockopt(sc syscall.RawConn) error {
 	return setSockOptInt(sc, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
 }
 
-func DialerControl(logger *slog.Logger, network, address string, c syscall.RawConn, ttl, minTtl uint8, mss uint16, password string, bindInterface string, tos uint8) error {
+func DialerControl(logger *slog.Logger, network, address string, c syscall.RawConn, ttl, minTtl uint8, mss uint16, password string, bindInterface string, tos uint8, tcpAO *TCPAOConfig) error {
 	family := syscall.AF_INET
 	raddr, _ := net.ResolveTCPAddr("tcp", address)
 	if raddr.IP.To4() == nil {
@@ -471,6 +482,9 @@ func DialerControl(logger *slog.Logger, network, address string, c syscall.RawCo
 		if sockerr != nil {
 			return sockerr
 		}
+	}
+	if tcpAO != nil {
+		return ErrTCPAONotSupported
 	}
 	return nil
 }
