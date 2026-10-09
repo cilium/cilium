@@ -651,7 +651,8 @@ func NewFrom(ll ...Labels) Labels {
 // GetModel returns model with all the values of the labels.
 func (l Labels) GetModel() []string {
 	res := make([]string, 0, len(l))
-	for _, v := range l {
+	for _, k := range l.KeysSorted() {
+		v := l[k]
 		res = append(res, v.String())
 	}
 	return res
@@ -869,6 +870,15 @@ func (l Labels) CollectSources() map[string]struct{} {
 		sources[lbl.Source] = struct{}{}
 	}
 	return sources
+}
+
+func (l Labels) KeysSorted() []string {
+	ret := make([]string, 0, len(l))
+	for k := range l {
+		ret = append(ret, k)
+	}
+	slices.Sort(ret)
+	return ret
 }
 
 // parseSource returns the parsed source of the given str. It also returns the next piece
