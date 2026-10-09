@@ -1,4 +1,5 @@
 AArch
+ACK
 AKS
 ARP
 Alemayhu
@@ -908,6 +909,8 @@ userspace
 uuid
 vCPU
 vSphere
+vSwitch
+vSwitches
 validator
 vendored
 verifier
