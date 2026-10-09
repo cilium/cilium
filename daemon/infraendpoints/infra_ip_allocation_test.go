@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 type mockIPAllocator struct {
@@ -518,4 +520,72 @@ func TestAllocateHealthIPsReleasesIPv4OnIPv6Failure(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, localNode.IPv4HealthIP.IsValid(),
 		"IPv4HealthIP must be cleared from the LocalNodeStore when the allocation is rolled back")
+}
+
+func TestPrivilegedWaitForENI(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	oldBackoff := waitForENIBackoff
+	t.Cleanup(func() { waitForENIBackoff = oldBackoff })
+	waitForENIBackoff = wait.Backoff{Duration: 50 * time.Millisecond, Factor: 1, Steps: 20}
+
+	addENI := func(t *testing.T) (netlink.Link, mac.MAC) {
+		t.Helper()
+		eniMAC, err := mac.GenerateRandMAC()
+		require.NoError(t, err)
+		require.NoError(t, netlink.LinkAdd(&netlink.Dummy{
+			LinkAttrs: netlink.LinkAttrs{Name: "eni0", HardwareAddr: eniMAC.HardwareAddr()},
+		}))
+		link, err := safenetlink.LinkByName("eni0")
+		require.NoError(t, err)
+		return link, eniMAC
+	}
+
+	newAllocator := func(ipamMode string) *infraIPAllocator {
+		return &infraIPAllocator{
+			logger:       hivetest.Logger(t),
+			daemonConfig: &option.DaemonConfig{IPAM: ipamMode},
+		}
+	}
+
+	t.Run("eni waits for link up", func(t *testing.T) {
+		ns := netns.NewNetNS(t)
+		ns.Do(func() error {
+			link, eniMAC := addENI(t)
+
+			done := make(chan error, 1)
+			go ns.Do(func() error {
+				done <- newAllocator(ipamOption.IPAMENI).waitForENI(t.Context(), eniMAC)
+				return nil
+			})
+
+			select {
+			case err := <-done:
+				t.Fatalf("waitForENI returned before the link was up: %v", err)
+			case <-time.After(200 * time.Millisecond):
+			}
+
+			require.NoError(t, netlink.LinkSetUp(link))
+			require.NoError(t, <-done)
+			return nil
+		})
+	})
+
+	t.Run("eni times out on down link", func(t *testing.T) {
+		ns := netns.NewNetNS(t)
+		ns.Do(func() error {
+			_, eniMAC := addENI(t)
+			require.Error(t, newAllocator(ipamOption.IPAMENI).waitForENI(t.Context(), eniMAC))
+			return nil
+		})
+	})
+
+	t.Run("alibabacloud only waits for presence", func(t *testing.T) {
+		ns := netns.NewNetNS(t)
+		ns.Do(func() error {
+			_, eniMAC := addENI(t)
+			require.NoError(t, newAllocator(ipamOption.IPAMAlibabaCloud).waitForENI(t.Context(), eniMAC))
+			return nil
+		})
+	})
 }
