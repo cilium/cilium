@@ -36,24 +36,14 @@ const (
 
 type peerGroup struct {
 	Conf             *oc.PeerGroup
-	members          map[string]oc.Neighbor
 	dynamicNeighbors map[string]*oc.DynamicNeighbor
 }
 
 func newPeerGroup(c *oc.PeerGroup) *peerGroup {
 	return &peerGroup{
 		Conf:             c,
-		members:          make(map[string]oc.Neighbor),
 		dynamicNeighbors: make(map[string]*oc.DynamicNeighbor),
 	}
-}
-
-func (pg *peerGroup) AddMember(c oc.Neighbor) {
-	pg.members[c.State.NeighborAddress.String()] = c
-}
-
-func (pg *peerGroup) DeleteMember(c oc.Neighbor) {
-	delete(pg.members, c.State.NeighborAddress.String())
 }
 
 func (pg *peerGroup) AddDynamicNeighbor(c *oc.DynamicNeighbor) {
@@ -65,17 +55,18 @@ func (pg *peerGroup) DeleteDynamicNeighbor(prefix string) {
 }
 
 func newDynamicPeer(g *oc.Global, neighborAddress string, pg *oc.PeerGroup, loc *table.TableManager, policy *table.RoutingPolicy, logger *slog.Logger) *peer {
+	if pg.TcpAo.Config.Keychain != "" {
+		logger.Debug("TCP-AO dynamic neighbors are not supported",
+			slog.String("Topic", "Peer"),
+			slog.String("Key", neighborAddress))
+		return nil
+	}
 	conf := oc.Neighbor{
 		Config: oc.NeighborConfig{
 			PeerGroup: pg.Config.PeerGroupName,
 		},
 		State: oc.NeighborState{
 			NeighborAddress: netip.MustParseAddr(neighborAddress),
-		},
-		Transport: oc.Transport{
-			Config: oc.TransportConfig{
-				PassiveMode: true,
-			},
 		},
 	}
 	if err := oc.OverwriteNeighborConfigWithPeerGroup(&conf, pg); err != nil {
@@ -93,7 +84,12 @@ func newDynamicPeer(g *oc.Global, neighborAddress string, pg *oc.PeerGroup, loc 
 		return nil
 	}
 
-	return newPeer(g, &conf, bgp.BGP_FSM_ACTIVE, loc, policy, logger)
+	// A dynamic neighbor exists only because the remote connected in, and it is
+	// deleted when that session goes down. It must never dial out, so set this
+	// after the peer group is applied. The peer group does not get a say.
+	conf.Transport.Config.PassiveMode = true
+
+	return newPeer(g, &conf, bgp.BGP_FSM_ACTIVE, loc, policy, nil, logger)
 }
 
 // pathIDSet is the set of add-path local identifiers advertised for a destination.
@@ -102,8 +98,16 @@ func newDynamicPeer(g *oc.Global, neighborAddress string, pg *oc.PeerGroup, loc 
 type pathIDSet map[uint32]struct{}
 
 type peer struct {
-	tableId           string
-	fsm               *fsm
+	tableId string
+	fsm     *fsm
+	// configuredConf is the neighbor configuration as the caller passed it,
+	// before SetDefaultNeighborConfigValues merged the peer group, the global
+	// configuration and the derived values into it. updatePeerGroup merges
+	// this copy again when the peer group changes, so that the group can
+	// replace the values the neighbor did not set itself. A dynamic neighbor
+	// does not have one: it is built from the peer group every time it
+	// connects. Only the management goroutine reads and writes it.
+	configuredConf    oc.Neighbor
 	adjRibIn          *table.AdjRib
 	policy            *table.RoutingPolicy
 	localRib          *table.TableManager
@@ -125,7 +129,16 @@ type peer struct {
 	routeRefreshInProgress sync.RWMutex
 }
 
-func newPeer(g *oc.Global, conf *oc.Neighbor, state bgp.FSMState, loc *table.TableManager, policy *table.RoutingPolicy, logger *slog.Logger) *peer {
+// cloneNeighborConfig copies a neighbor configuration deeply enough to be
+// kept across a merge. SetDefaultNeighborConfigValues writes into the
+// AfiSafis elements in place, so the slice must not stay shared.
+func cloneNeighborConfig(c *oc.Neighbor) oc.Neighbor {
+	conf := *c
+	conf.AfiSafis = slices.Clone(c.AfiSafis)
+	return conf
+}
+
+func newPeer(g *oc.Global, conf *oc.Neighbor, state bgp.FSMState, loc *table.TableManager, policy *table.RoutingPolicy, tcpAo *tcpAoKeyBinding, logger *slog.Logger) *peer {
 	peer := &peer{
 		localRib:          loc,
 		policy:            policy,
@@ -140,6 +153,7 @@ func newPeer(g *oc.Global, conf *oc.Neighbor, state bgp.FSMState, loc *table.Tab
 	rfs, _ := oc.AfiSafis(conf.AfiSafis).ToRfList()
 	peer.adjRibIn = table.NewAdjRib(logger, rfs)
 	peer.rtmHandler = table.NewRouteTargetMembershipHandler()
+	peer.fsm.tcpAoKeyBinding.Store(tcpAo)
 	return peer
 }
 
@@ -369,7 +383,7 @@ func (peer *peer) allNegotiatedEORReceived() bool {
 func (peer *peer) receivedAllEOR() bool {
 	if peer.fsm.state.Load() != bgp.BGP_FSM_ESTABLISHED {
 		// Session not yet established: if GR is configured for any family,
-		// we must wait — the peer may still advertise GR capability in its OPEN.
+		// we must wait -- the peer may still advertise GR capability in its OPEN.
 		for _, a := range peer.fsm.pConf.ReadOnly().AfiSafis {
 			if a.MpGracefulRestart.Config.Enabled {
 				return false
@@ -657,7 +671,95 @@ func (peer *peer) updatePrefixLimitConfig(conf *oc.Neighbor, c []oc.AfiSafi) (bo
 	return reachLimit, nil
 }
 
-func (peer *peer) handleUpdate(e *fsmMsg) ([]*table.Path, []bgp.Family, bool) {
+// loopCheckGlobals holds what the ingress loop checks need from outside the
+// peer. The confederation values and the router ID live in gConf behind
+// fsm.lock, and the cluster IDs come from the server, so read them once per
+// UPDATE rather than once per path.
+type loopCheckGlobals struct {
+	confedEnabled bool
+	confedID      uint32
+	routerID      netip.Addr
+	clusterIDs    map[netip.Addr]struct{}
+}
+
+func (peer *peer) loopCheckGlobals(clusterIDs map[netip.Addr]struct{}) loopCheckGlobals {
+	peer.fsm.lock.Lock()
+	defer peer.fsm.lock.Unlock()
+	return loopCheckGlobals{
+		confedEnabled: peer.fsm.gConf.Confederation.Config.Enabled,
+		confedID:      peer.fsm.gConf.Confederation.Config.Identifier,
+		routerID:      peer.fsm.gConf.Config.RouterId,
+		clusterIDs:    clusterIDs,
+	}
+}
+
+// detectsLoop reports whether the path came back through us: our own AS in the
+// AS_PATH, our own BGP identifier as the ORIGINATOR_ID, or one of our cluster
+// IDs in the CLUSTER_LIST.
+//
+// The three checks sit here rather than in the caller's loop because the
+// CLUSTER_LIST one walks a list of its own. Leaving the path from inside that
+// inner loop took a labelled continue, and the next check added to the caller
+// would have had to remember the label.
+func (peer *peer) detectsLoop(path *table.Path, g loopCheckGlobals) bool {
+	// A withdrawal carries no attributes, so none of the checks below can fire.
+	if path.IsWithdraw {
+		return false
+	}
+
+	conf := peer.fsm.pConf.ReadOnly()
+
+	// RFC4271 9.1.2 Phase 2: Route Selection
+	//
+	// If the AS_PATH attribute of a BGP route contains an AS loop, the BGP
+	// route should be excluded from the Phase 2 decision function.
+	//
+	// RFC 5065 Section 4: a Confederation ID counts as our own AS.
+	if aspath := path.GetAsPath(); aspath != nil {
+		localAS := conf.Config.LocalAs
+		allowOwnAS := int(conf.AsPathOptions.Config.AllowOwnAs)
+		if hasOwnASLoop(localAS, allowOwnAS, aspath, g.confedID, g.confedEnabled) {
+			return true
+		}
+	}
+
+	if conf.State.PeerType != oc.PEER_TYPE_INTERNAL {
+		return false
+	}
+
+	// RFC4456 8. Avoiding Routing Information Loops
+	// A router that recognizes the ORIGINATOR_ID attribute SHOULD
+	// ignore a route received with its BGP Identifier as the ORIGINATOR_ID.
+	if path.GetOriginatorID() == g.routerID {
+		peer.fsm.logger.Debug("Originator ID is mine, ignore",
+			slog.String("OriginatorID", path.GetOriginatorID().String()),
+			slog.String("Data", path.String()))
+		return true
+	}
+
+	if conf.RouteServer.Config.RouteServerClient {
+		return false
+	}
+
+	// RFC4456 8. Avoiding Routing Information Loops
+	// If the local CLUSTER_ID is found in the CLUSTER_LIST, the advertisement received SHOULD be ignored.
+	for _, clusterID := range path.GetClusterList() {
+		if _, found := g.clusterIDs[clusterID]; found {
+			peer.fsm.logger.Debug("cluster list path attribute has a local cluster id, ignore",
+				slog.String("ClusterID", clusterID.String()),
+				slog.String("Data", path.String()))
+			return true
+		}
+	}
+
+	return false
+}
+
+// handleUpdate turns an UPDATE into paths to propagate. The second return
+// value holds withdrawals for paths the Adj-RIB-In had accepted before and now
+// rejects, which the caller must propagate as well. They are kept apart from
+// the first one because the peer did not send them.
+func (peer *peer) handleUpdate(e *fsmMsg, localClusterIDs map[netip.Addr]struct{}) ([]*table.Path, []*table.Path, []bgp.Family, bool) {
 	m := e.MsgData.(*bgp.BGPMessage)
 	update := m.Body.(*bgp.BGPUpdate)
 
@@ -678,6 +780,7 @@ func (peer *peer) handleUpdate(e *fsmMsg) ([]*table.Path, []bgp.Family, bool) {
 		paths := make([]*table.Path, 0, len(pathList))
 		eor := []bgp.Family{}
 		conf := peer.fsm.pConf.ReadOnly()
+		loopGlobals := peer.loopCheckGlobals(localClusterIDs)
 		for _, path := range pathList {
 			if path.IsEOR() {
 				family := path.GetFamily()
@@ -685,57 +788,24 @@ func (peer *peer) handleUpdate(e *fsmMsg) ([]*table.Path, []bgp.Family, bool) {
 				eor = append(eor, family)
 				continue
 			}
-			// RFC4271 9.1.2 Phase 2: Route Selection
-			//
-			// If the AS_PATH attribute of a BGP route contains an AS loop, the BGP
-			// route should be excluded from the Phase 2 decision function.
-			if aspath := path.GetAsPath(); aspath != nil {
-				localAS := conf.Config.LocalAs
-				allowOwnAS := int(conf.AsPathOptions.Config.AllowOwnAs)
-
-				// RFC 5065 Section 4: Get Confederation ID for AS loop detection
-				// Copy primitive values while holding the lock to avoid data race
-				peer.fsm.lock.Lock()
-				confedEnabled := peer.fsm.gConf.Confederation.Config.Enabled
-				confedID := peer.fsm.gConf.Confederation.Config.Identifier
-				peer.fsm.lock.Unlock()
-
-				if hasOwnASLoop(localAS, allowOwnAS, aspath, confedID, confedEnabled) {
-					path.SetRejected(true)
-					continue
-				}
-			}
-			// RFC4456 8. Avoiding Routing Information Loops
-			// A router that recognizes the ORIGINATOR_ID attribute SHOULD
-			// ignore a route received with its BGP Identifier as the ORIGINATOR_ID.
-			isIBGPPeer := peer.isIBGPPeer()
-			peer.fsm.lock.Lock()
-			routerId := peer.fsm.gConf.Config.RouterId
-			peer.fsm.lock.Unlock()
-			if isIBGPPeer {
-				if path.GetOriginatorID() == routerId {
-					peer.fsm.logger.Debug("Originator ID is mine, ignore",
-						slog.String("OriginatorID", path.GetOriginatorID().String()),
-						slog.String("Data", path.String()))
-
-					path.SetRejected(true)
-					continue
-				}
+			if peer.detectsLoop(path, loopGlobals) {
+				path.SetRejected(true)
+				continue
 			}
 			paths = append(paths, path)
 		}
-		peer.adjRibIn.Update(pathList)
+		withdrawals := peer.adjRibIn.Update(pathList)
 		peer.fsm.lock.Lock()
 		for _, af := range conf.AfiSafis {
 			if isLimit := peer.isPrefixLimit(af.State.Family, &af.PrefixLimit.Config); isLimit {
 				peer.fsm.lock.Unlock()
-				return nil, nil, true
+				return nil, nil, nil, true
 			}
 		}
 		peer.fsm.lock.Unlock()
-		return paths, eor, false
+		return paths, withdrawals, eor, false
 	}
-	return nil, nil, false
+	return nil, nil, nil, false
 }
 
 func (peer *peer) startFSM(wg *sync.WaitGroup, callback fsmCallback) {

@@ -187,21 +187,33 @@ func UpdatePathAttrs4ByteAs(logger *slog.Logger, msg *bgp.BGPUpdate) {
 
 	newParams := make([]bgp.AsPathParamInterface, 0, len(asAttr.Value))
 	for _, param := range asParams {
-		if keepNum-param.ASLen() >= 0 {
-			newParams = append(newParams, param)
-			keepNum -= param.ASLen()
-		} else {
-			// only SEQ param reaches here
-			newParams = append(newParams, bgp.NewAs4PathParam(param.GetType(), param.GetAS()[:keepNum]))
-			keepNum = 0
-		}
-
 		if keepNum <= 0 {
 			break
+		}
+		// keepNum counts confederation segments too, so consume them the
+		// same way here.
+		n := param.ASLen()
+		switch param.GetType() {
+		case bgp.BGP_ASPATH_ATTR_TYPE_CONFED_SET:
+			n = 1
+		case bgp.BGP_ASPATH_ATTR_TYPE_CONFED_SEQ:
+			n = len(param.GetAS())
+		}
+		if n <= keepNum {
+			newParams = append(newParams, param)
+			keepNum -= n
+		} else {
+			// only a sequence reaches here
+			newParams = append(newParams, bgp.NewAs4PathParam(param.GetType(), param.GetAS()[:keepNum]))
+			keepNum = 0
 		}
 	}
 
 	for _, param := range as4Params {
+		if len(newParams) == 0 {
+			newParams = append(newParams, param)
+			continue
+		}
 		lastParam := newParams[len(newParams)-1]
 		lastParamAS := lastParam.GetAS()
 		paramType := param.GetType()
@@ -303,6 +315,18 @@ type packer struct {
 	eof    bool
 	family bgp.Family
 	total  uint32
+	// useRemoteID reports the identifier the path was received with
+	// instead of the one this speaker assigned. See
+	// CreateUpdateMsgFromAdjRIBInPaths.
+	useRemoteID bool
+}
+
+// pathID is the path identifier to put in front of the NLRI of path.
+func (p *packer) pathID(path *Path) uint32 {
+	if p.useRemoteID {
+		return path.remoteID
+	}
+	return path.localID
 }
 
 type packerMP struct {
@@ -366,9 +390,9 @@ func (p *packerMP) add(path *Path) {
 	p.paths = append(p.paths, path)
 }
 
-func createMPReachMessage(path *Path, nlris []bgp.PathNLRI) *bgp.BGPMessage {
+func (p *packer) createMPReachMessage(path *Path, nlris []bgp.PathNLRI) *bgp.BGPMessage {
 	if len(nlris) == 0 {
-		nlris = []bgp.PathNLRI{{NLRI: path.GetNlri(), ID: path.localID}}
+		nlris = []bgp.PathNLRI{{NLRI: path.GetNlri(), ID: p.pathID(path)}}
 	}
 	oattrs := path.GetPathAttrs()
 	attrs := make([]bgp.PathAttributeInterface, 0, len(oattrs)+1)
@@ -412,7 +436,7 @@ func (p *packerMP) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 		budget := maxUpdateMessageLength(options) - baseLen
 		if budget <= 0 {
 			for _, path := range paths {
-				cb([]bgp.PathNLRI{{NLRI: path.GetNlri(), ID: path.localID}})
+				cb([]bgp.PathNLRI{{NLRI: path.GetNlri(), ID: p.pathID(path)}})
 			}
 			return
 		}
@@ -427,7 +451,7 @@ func (p *packerMP) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 					break
 				}
 				used += nlriLen
-				nlris = append(nlris, bgp.PathNLRI{NLRI: paths[i].GetNlri(), ID: paths[i].localID})
+				nlris = append(nlris, bgp.PathNLRI{NLRI: paths[i].GetNlri(), ID: p.pathID(paths[i])})
 				i++
 				if used >= budget {
 					break
@@ -435,7 +459,7 @@ func (p *packerMP) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 			}
 
 			if i == 0 {
-				nlris = append(nlris, bgp.PathNLRI{NLRI: paths[0].GetNlri(), ID: paths[0].localID})
+				nlris = append(nlris, bgp.PathNLRI{NLRI: paths[0].GetNlri(), ID: p.pathID(paths[0])})
 				i = 1
 			}
 
@@ -509,14 +533,14 @@ func (p *packerMP) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 
 			baseReachLen := 19 + 2 + 2 + attrsLen
 			nexthops, _ := getMPReachNexthops(paths[0])
-			sampleNLRI := bgp.PathNLRI{NLRI: paths[0].GetNlri(), ID: paths[0].localID}
+			sampleNLRI := bgp.PathNLRI{NLRI: paths[0].GetNlri(), ID: p.pathID(paths[0])}
 			if sampleReach, err := bgp.NewPathAttributeMpReachNLRI(paths[0].GetFamily(), []bgp.PathNLRI{sampleNLRI}, nexthops...); err == nil {
 				baseReachLen += sampleReach.Len() + 1 - paths[0].GetNlri().Len(options...) // +1 for extended-length attr header
 			} else {
 				baseReachLen = maxUpdateMessageLength(options)
 			}
 			split(baseReachLen, paths, func(nlris []bgp.PathNLRI) {
-				msgs = append(msgs, createMPReachMessage(paths[0], nlris))
+				msgs = append(msgs, p.createMPReachMessage(paths[0], nlris))
 			})
 		}
 	}
@@ -527,10 +551,11 @@ func (p *packerMP) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 	return msgs
 }
 
-func newPackerMP(f bgp.Family) *packerMP {
+func newPackerMP(f bgp.Family, useRemoteID bool) *packerMP {
 	return &packerMP{
 		packer: packer{
-			family: f,
+			family:      f,
+			useRemoteID: useRemoteID,
 		},
 		withdrawals: make([]*Path, 0),
 		paths:       make([]*Path, 0),
@@ -595,7 +620,7 @@ func (p *packerV4) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 		nlris := make([]bgp.PathNLRI, 0, max)
 		i := 0
 		for ; i < max; i++ {
-			nlris = append(nlris, bgp.PathNLRI{NLRI: paths[i].GetNlri().(*bgp.IPAddrPrefix), ID: paths[i].localID})
+			nlris = append(nlris, bgp.PathNLRI{NLRI: paths[i].GetNlri().(*bgp.IPAddrPrefix), ID: p.pathID(paths[i])})
 		}
 		return nlris, paths[i:]
 	}
@@ -662,7 +687,7 @@ func (p *packerV4) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 	}
 
 	for _, path := range p.mpPaths {
-		msgs = append(msgs, createMPReachMessage(path, nil))
+		msgs = append(msgs, p.createMPReachMessage(path, nil))
 	}
 
 	if p.eof {
@@ -671,10 +696,11 @@ func (p *packerV4) pack(options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 	return msgs
 }
 
-func newPackerV4(f bgp.Family) *packerV4 {
+func newPackerV4(f bgp.Family, useRemoteID bool) *packerV4 {
 	return &packerV4{
 		packer: packer{
-			family: f,
+			family:      f,
+			useRemoteID: useRemoteID,
 		},
 		hashmap:     make(map[uint64][]*cage),
 		withdrawals: make([]*Path, 0),
@@ -682,17 +708,44 @@ func newPackerV4(f bgp.Family) *packerV4 {
 	}
 }
 
-func newPacker(f bgp.Family) packerInterface {
+func newPacker(f bgp.Family, useRemoteID bool) packerInterface {
 	switch f {
 	case bgp.RF_IPv4_UC:
-		return newPackerV4(bgp.RF_IPv4_UC)
+		return newPackerV4(bgp.RF_IPv4_UC, useRemoteID)
 	default:
-		return newPackerMP(f)
+		return newPackerMP(f, useRemoteID)
 	}
 }
 
+// CreateUpdateMsgFromAdjRIBInPaths builds UPDATE messages that report paths
+// the way the peer sent them. The NLRI carries the path identifier received
+// from the peer, not the one this speaker assigned for its own
+// re-advertisement.
+//
+// RFC 7911 2 puts the identifier in the namespace of the speaker that
+// advertised the path: "A BGP speaker that re-advertises a route MUST
+// generate its own Path Identifier to be associated with the re-advertised
+// route." An Adj-RIB-In report is the peer's advertisement, so it carries the
+// peer's identifier. This speaker's own identifier means nothing there, and
+// it is still 0 for a path that has not reached the global RIB.
+func CreateUpdateMsgFromAdjRIBInPaths(pathList []*Path, options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
+	return createUpdateMsgFromPaths(pathList, true, options...)
+}
+
 func CreateUpdateMsgFromPaths(pathList []*Path, options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
+	return createUpdateMsgFromPaths(pathList, false, options...)
+}
+
+func createUpdateMsgFromPaths(pathList []*Path, useRemoteID bool, options ...*bgp.MarshallingOption) []*bgp.BGPMessage {
 	msgs := make([]*bgp.BGPMessage, 0, len(pathList))
+
+	key := func(path *Path) PathLocalKey {
+		k := path.GetLocalKey()
+		if useRemoteID {
+			k.Id = path.remoteID
+		}
+		return k
+	}
 
 	// Since sendMessageloop coalesces outgoing BGP UPDATE messages and
 	// the packers emit withdrawals before announcements, we should keep only the
@@ -702,14 +755,14 @@ func CreateUpdateMsgFromPaths(pathList []*Path, options ...*bgp.MarshallingOptio
 		if path == nil || path.IsEOR() {
 			continue
 		}
-		last[path.GetLocalKey()] = path
+		last[key(path)] = path
 	}
 
 	m := make(map[bgp.Family]packerInterface)
 	add := func(path *Path) {
 		f := path.GetFamily()
 		if _, y := m[f]; !y {
-			m[f] = newPacker(f)
+			m[f] = newPacker(f, useRemoteID)
 		}
 		m[f].add(path)
 	}
@@ -722,7 +775,7 @@ func CreateUpdateMsgFromPaths(pathList []*Path, options ...*bgp.MarshallingOptio
 			add(path)
 			continue
 		}
-		if last[path.GetLocalKey()] != path {
+		if last[key(path)] != path {
 			continue
 		}
 		add(path)

@@ -417,6 +417,20 @@ func (p *pConfAccess) Update(conf *oc.Neighbor) {
 	p.conf.Store(conf)
 }
 
+// tcpAoKeyBinding is a peer's resolved TCP-AO configuration:
+// a reference to a shared keychain plus the peer's preferred send ID.
+//
+// Keychain's key additions and deletions mutate the shared keychain under its lock,
+// socketKeys() can be used to take live key snapshots for socket operations.
+type tcpAoKeyBinding struct {
+	keychain        *tcpAoKeychain
+	preferredSendID uint8
+}
+
+func (b *tcpAoKeyBinding) socketKeys() (*tcpAoSocketKeys, error) {
+	return b.keychain.socketKeys(b.preferredSendID)
+}
+
 type fsm struct {
 	counterStats oc.Messages
 	timerStats   oc.Timers
@@ -449,6 +463,16 @@ type fsm struct {
 	adminState               adminStateRaw
 	adminStateCh             chan adminStateOperation
 	outgoingConnCh           chan outgoingConn
+
+	// tcpAoKeyBinding holds resolved TCP-AO configuration for the peer:
+	// - Passive peers have all configured keys installed on matching listening sockets;
+	//   preferred key is not set on the listener until an inbound connection is accepted and matched to the peer.
+	// - Active peers install all keys in net.Dialer.Control in connectLoop() and mark the preferred key during installation.
+	// - Async keychain update causes update of keys directly on the listening sockets and fsm conn sockets of the affected peers.
+	//   This is handled on best effort; keychain update is not rolled back upon individual socket operation errors.
+	// - Attaching, removing, or changing a keychain of a peer always uses peer delete-and-add path.
+	//   A preferred key change within the same keychain is handled live by updating RNext on the current connection.
+	tcpAoKeyBinding atomic.Pointer[tcpAoKeyBinding]
 
 	// only loop goroutine accesses; no lock required
 	outgoingConnMgr   *outgoingConnManager
@@ -911,7 +935,7 @@ func (h *fsmHandler) idle(ctx context.Context) (bgp.FSMState, *fsmStateReason) {
 func (h *fsmHandler) connectLoop(ctx context.Context) net.Conn {
 	fsm := h.fsm
 
-	retryInterval, addr, port, password, ttl, ttlMin, mss, localAddress, localPort, bindInterface, tos := func() (int, string, int, string, uint8, uint8, uint16, string, int, string, uint8) {
+	retryInterval, addr, port, password, ttl, ttlMin, mss, localAddress, localPort, bindInterface, tos := func() (int, netip.Addr, int, string, uint8, uint8, uint16, string, int, string, uint8) {
 		conf := fsm.pConf.ReadOnly()
 		tick := max(int(conf.Timers.Config.ConnectRetry), minConnectRetryInterval)
 
@@ -937,7 +961,7 @@ func (h *fsmHandler) connectLoop(ctx context.Context) net.Conn {
 				ttl = conf.EbgpMultihop.Config.MultihopTtl
 			}
 		}
-		return tick, addr.String(), port, password, ttl, ttlMin, conf.Transport.Config.TcpMss, conf.Transport.Config.LocalAddress.String(), int(conf.Transport.Config.LocalPort), conf.Transport.Config.BindInterface, tos
+		return tick, addr, port, password, ttl, ttlMin, conf.Transport.Config.TcpMss, conf.Transport.Config.LocalAddress.String(), int(conf.Transport.Config.LocalPort), conf.Transport.Config.BindInterface, tos
 	}()
 
 	tick := minConnectRetryInterval
@@ -963,11 +987,22 @@ func (h *fsmHandler) connectLoop(ctx context.Context) net.Conn {
 				Timeout:   time.Duration(max(retryInterval-1, minConnectRetryInterval)) * time.Second,
 				KeepAlive: -1,
 				Control: func(network, address string, c syscall.RawConn) error {
-					return netutils.DialerControl(fsm.logger, network, address, c, ttl, ttlMin, mss, password, bindInterface, tos)
+					var tcpAO *netutils.TCPAOConfig
+					if keyBinding := fsm.tcpAoKeyBinding.Load(); keyBinding != nil {
+						tcpAoKeys, err := keyBinding.socketKeys()
+						if err != nil {
+							return fmt.Errorf("failed to load TCP-AO keychain for peer %s: %w", addr, err)
+						}
+						config, err := tcpAoKeys.netutilsConfig(true)
+						if err != nil {
+							return fmt.Errorf("failed to configure TCP-AO for peer %s: %w", addr, err)
+						}
+						tcpAO = &config
+					}
+					return netutils.DialerControl(fsm.logger, network, address, c, ttl, ttlMin, mss, password, bindInterface, tos, tcpAO)
 				},
 			}
-
-			conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(addr, strconv.Itoa(port)))
+			conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(addr.String(), strconv.Itoa(port)))
 			select {
 			case <-ctx.Done():
 				fsm.logger.Debug("stop connect loop")

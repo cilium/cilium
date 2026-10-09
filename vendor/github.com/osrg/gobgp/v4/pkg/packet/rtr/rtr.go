@@ -41,15 +41,17 @@ const (
 )
 
 const (
-	RTR_SERIAL_NOTIFY_LEN         = 12
-	RTR_SERIAL_QUERY_LEN          = 12
-	RTR_RESET_QUERY_LEN           = 8
-	RTR_CACHE_RESPONSE_LEN        = 8
-	RTR_IPV4_PREFIX_LEN           = 20
-	RTR_IPV6_PREFIX_LEN           = 32
-	RTR_END_OF_DATA_LEN           = 12
-	RTR_CACHE_RESET_LEN           = 8
-	RTR_MIN_LEN                   = 8
+	RTR_SERIAL_NOTIFY_LEN  = 12
+	RTR_SERIAL_QUERY_LEN   = 12
+	RTR_RESET_QUERY_LEN    = 8
+	RTR_CACHE_RESPONSE_LEN = 8
+	RTR_IPV4_PREFIX_LEN    = 20
+	RTR_IPV6_PREFIX_LEN    = 32
+	RTR_END_OF_DATA_LEN    = 12
+	RTR_CACHE_RESET_LEN    = 8
+	RTR_MIN_LEN            = 8
+	// RTR_MAX_LEN caps the on-wire Length; every defined PDU is far smaller.
+	RTR_MAX_LEN                   = 65535
 	RTR_ERROR_REPORT_ERR_PDU_LEN  = 4
 	RTR_ERROR_REPORT_ERR_TEXT_LEN = 4
 )

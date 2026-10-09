@@ -94,7 +94,7 @@ func SetReuseAddrSockopt(sc syscall.RawConn) error {
 	return setSockOptInt(sc, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
 }
 
-func DialerControl(logger *slog.Logger, network, address string, c syscall.RawConn, ttl, ttlMin uint8, mss uint16, password string, bindInterface string, tos uint8) error {
+func DialerControl(logger *slog.Logger, network, address string, c syscall.RawConn, ttl, ttlMin uint8, mss uint16, password string, bindInterface string, tos uint8, tcpAO *TCPAOConfig) error {
 	if password != "" {
 		logger.Warn("setting md5 for active connection is not supported",
 			slog.String("Topic", "Peer"),
@@ -119,6 +119,9 @@ func DialerControl(logger *slog.Logger, network, address string, c syscall.RawCo
 		logger.Warn("setting TOS for active connection is not supported",
 			slog.String("Topic", "Peer"),
 			slog.String("Key", address))
+	}
+	if tcpAO != nil {
+		return ErrTCPAONotSupported
 	}
 	return nil
 }

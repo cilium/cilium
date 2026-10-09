@@ -559,12 +559,16 @@ func (u *Rib) Serialize() ([]byte, error) {
 	buf := make([]byte, 4)
 	binary.BigEndian.PutUint32(buf, u.SequenceNumber)
 	switch u.Family {
-	case bgp.RF_FS_IPv4_UC, bgp.RF_IPv4_MC, bgp.RF_IPv6_UC, bgp.RF_IPv6_MC:
+	case bgp.RF_IPv4_UC, bgp.RF_IPv4_MC, bgp.RF_IPv6_UC, bgp.RF_IPv6_MC:
+		// RFC 6396 4.3.2: these four families have their own
+		// TABLE_DUMP_V2 subtype, which carries the prefix directly.
+	default:
+		// Every other family is dumped as RIB_GENERIC, whose entry
+		// header starts with AFI and SAFI.
 		var bbuf [2]byte
 		binary.BigEndian.PutUint16(bbuf[:], u.Family.Afi())
 		buf = append(buf, bbuf[:]...)
 		buf = append(buf, u.Family.Safi())
-	default:
 	}
 	bbuf, err := u.Prefix.Serialize()
 	if err != nil {

@@ -126,7 +126,7 @@ func newVPNRTEntry() *vpnRTEntry {
 // Thread-safe: all operations are protected by an internal RWMutex.
 type VPNPathIndex struct {
 	mu  sync.RWMutex
-	rts map[uint64]*vpnRTEntry // rtHash → entry
+	rts map[uint64]*vpnRTEntry // rtHash -> entry
 }
 
 func NewVPNPathIndex() *VPNPathIndex {

@@ -365,7 +365,8 @@ type zebraClient struct {
 }
 
 func (z *zebraClient) getPathListWithNexthopUpdate(body *zebra.NexthopUpdateBody) []*table.Path {
-	rib := table.NewTableManager(z.server.logger, nil)
+	rib := table.NewTableManager(z.server.logger, nil,
+		z.server.globalRib.SelectionOptions(), z.server.globalRib.MultiplePathsOptions())
 
 	var rfList []bgp.Family
 	switch body.Prefix.Family {
@@ -484,7 +485,7 @@ func (z *zebraClient) loop() {
 		case ev := <-w.Event():
 			switch msg := ev.(type) {
 			case *watchEventBestPath:
-				if table.UseMultiplePaths.Enabled {
+				if z.server.globalRib.UseMultiplePathsEnabled() {
 					for _, paths := range msg.MultiPathList {
 						z.updatePathByNexthopCache(paths)
 						for i := range msg.Vrf {

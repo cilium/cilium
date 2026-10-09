@@ -234,6 +234,16 @@ func GetNativePathAttributes(p *api.Path) ([]bgp.PathAttributeInterface, error) 
 	return UnmarshalPathAttributes(p.Pattrs)
 }
 
+// AddrOrEmpty renders an optional address. An absent address must come out as
+// an empty string, not as the zero Addr's "invalid IP" text, which would be
+// rejected as a malformed address if the value were fed back in.
+func AddrOrEmpty(addr netip.Addr) string {
+	if !addr.IsValid() {
+		return ""
+	}
+	return addr.String()
+}
+
 func ToFamily(f *api.Family) bgp.Family {
 	return bgp.NewFamily(uint16(f.Afi), uint8(f.Safi))
 }
