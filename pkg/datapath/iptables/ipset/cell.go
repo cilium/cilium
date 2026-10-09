@@ -16,6 +16,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -35,6 +36,13 @@ var Cell = cell.Module(
 	"Handle kernel IP sets configuration for Cilium",
 
 	cell.Invoke(registerNodeIPSetSync),
+
+	// NodeIPSetsReady resolves once the CiliumNodeIPSetV4/V6 kernel ipsets
+	// have been created (or once it's been determined that they are not
+	// needed). Consumers that reference these ipsets by name (e.g. iptables
+	// rules using --match-set) must await this promise first, or they may
+	// end up referencing an ipset that does not yet exist.
+	cell.Provide(promise.New[struct{}]),
 
 	cell.ProvidePrivate(
 		newIPSetManager,

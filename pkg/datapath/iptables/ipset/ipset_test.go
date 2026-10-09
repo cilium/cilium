@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -58,6 +59,8 @@ func TestManager(t *testing.T) {
 		cell.Provide(func() config {
 			return config{NodeIPSetNeeded: true}
 		}),
+
+		cell.Provide(promise.New[struct{}]),
 
 		cell.Provide(
 			newIPSetManager,
@@ -287,6 +290,8 @@ func TestManagerNodeIpsetNotNeeded(t *testing.T) {
 		cell.Provide(func() config {
 			return config{NodeIPSetNeeded: false}
 		}),
+
+		cell.Provide(promise.New[struct{}]),
 
 		cell.Provide(
 			newIPSetManager,
