@@ -2,11 +2,12 @@
 
 ## Overview
 
-The cache stores xDS resources Cilium wants before Envoy accepts them. It owns the
-transaction that changes desired resources, accumulates unpublished changes,
-and retains enough information to recover from either a caller failure or an
-Envoy NACK. A matching watch triggers snapshot construction and publication;
-go-control-plane constructs and delivers protocol responses.
+The ADS xDS cache extends go-control-plane's SnapshotCache to manage the resources
+Cilium wants Envoy to use. It commits desired state, coalesces unpublished changes,
+and retains sparse rollback state for caller failures and Envoy NACKs. This state
+contains the previous resource entries needed to undo changes. A matching
+watch triggers snapshot publication; go-control-plane constructs and delivers
+protocol responses.
 
 ```text
 Cilium update → desired state → watch → snapshot → response → ACK/NACK
@@ -14,438 +15,513 @@ Cilium update → desired state → watch → snapshot → response → ACK/NACK
                 caller lifecycle              response-owned rollback
 ```
 
-These are three distinct resource views:
+There are three distinct resource views:
 
 | View | Meaning |
 | --- | --- |
-| Desired | Mutable cache-private maps of immutable protobufs. |
+| Desired | The resources Cilium currently wants Envoy to use. |
 | Published | The latest immutable snapshot installed in go-control-plane. |
 | Accepted | Resources acknowledged by Envoy, tracked by name for partial responses. |
 
 Publication alone proves neither delivery nor acceptance. Caller rollback and
-response rollback have independent lifetimes: finalizing an endpoint
-regeneration must not prevent a later Envoy NACK from correcting the cache.
-
-Named-resource coverage identifies the resource names whose state a particular
-response communicates, including deletions where omission signals removal.
+response rollback have independent lifetimes: finalizing a caller transaction
+must not prevent a later Envoy NACK from correcting the cache.
 
 ## Principal invariants
 
-- Supported nodes are fixed at construction. Their `nodeState` persists with
-  empty resources and no streams; requests and mutations never create nodes.
-- Every real mutation allocates a cache-wide `Generation`, assigned as the
-  `Revision` of each changed named value. API changes set the entry's
-  `TransactionID` to that same number; semantic no-ops preserve the protobuf
-  pointer and both properties.
-- Reverts change an entry only if its `transaction` still matches the expected
-  API transaction. They restore the previous value and transaction but assign a
-  fresh revision. Older ACKs cannot accept restored state.
-- Strict response recovery can additionally revert newer dependent resources
-  to preserve reference consistency.
-- Cache mutations and completion registration are serialized under the cache
-  lock. Response delivery and completion callbacks run after unlocking.
-- Each NACK selects its inverses and applies their final correction under that
-  same lock. No caller can interleave and no intermediate snapshot is published.
-- Strict ADS validates affected references before changing desired state. A
-  debug-only full snapshot check verifies the published projection separately.
-- A matching open watch or the next request finalizes accumulated mutations.
-  Without one, mutations do not construct snapshots or format wire versions.
-- ACK/NACK processing uses the response's exact generation, named-resource
-  coverage, stream, and nonce. A partial response cannot acknowledge names
-  outside its subscription. For types supporting deletion by omission,
-  an ACK can acknowledge removal of a requested name absent from the response.
-- Caller `Revert()` and `Finalize()` are terminal, even when revert fails.
-  Duplicate calls warn and do nothing. Failed response recovery instead keeps
-  its payload for a later response.
-- Sparse rollback state and removal tombstones (stored as a nil resource) remain
-  only while live owners or transaction relationships need them.
+- Supported nodes are fixed at construction. Their state persists even with no
+  resources or streams; requests and mutations never create nodes.
+- Desired state is cache-private and mutable; protobufs and published snapshots
+  are immutable and may be shared.
+- Mutations, rollback selection, and publication are serialized under the cache
+  lock. Response delivery and application callbacks run after unlocking.
+- Unpublished changes coalesce without constructing snapshots. There is no
+  per-mutation snapshot queue.
+- ACKs prove acceptance only for the resource names and revisions communicated
+  by their response.
+- Rollback preserves independently newer API changes. Strict ADS recovery can
+  additionally change dependent resources to maintain reference consistency.
+- Rollback state remains only while live owners or transaction relationships
+  need it.
+
+## API and locking
+
+`ApplyResource` takes a resource type, name, and protobuf; nil removes the resource.
+`ApplyResources` accepts sparse transactions containing Listeners (LDS), Routes
+(RDS), Clusters (CDS), Endpoints (EDS), and Secrets (SDS). NetworkPolicies (NPDS) and
+NetworkPolicyHosts (NPHDS) use the single-resource API, so one transaction cannot
+mix Listener and NetworkPolicy changes.
+
+Callers may supply a WaitGroup to wait for Envoy's response. Only the
+`WithRollback` variants also return a caller lifecycle, on which the caller
+eventually invokes either `Revert()` or `Finalize()`. All mutation APIs
+independently retain any rollback state needed for a later NACK.
+
+A transaction holds the cache write lock while preparing, validating, and
+committing its changes. Readers cannot observe partial changes. Completion
+registration and Listener-derived policy-wait bookkeeping use the same lock.
+Responses and application callbacks are collected under the lock but delivered
+after unlocking, allowing callbacks to reenter cache APIs.
 
 ## State and ownership
 
-`nodeState` owns desired entries, desired/published generations, epoch negotiation,
-optional `pendingPublication` bookkeeping, open watches, and the strict reference
-index. Its embedded `rollbackState` manages live caller and response inverses,
-transaction dependencies, and predecessor rebasing. Each `typeStates` slot groups
-aggregate generations, first-request epochs, changed names, and an embedded
-`resourceRollbackState` for unsent rollback and tombstone ownership. Rollback
-maintenance lives in `rollback.go` and uses the existing cache lock; transaction
-validation, desired-state changes, and publication remain in the cache.
-A secondary name index selects response owners of dependent inverses without
-scanning unrelated lifecycles. It retains only live relationships, is maintained
-under the same cache lock, and applies in both strict and non-strict ADS modes.
-Finalization clears changed names, not independent rollback; publication failure
-restores saved generations without replacing whole records. Protocol strings
-are converted to array indexes and bit sets at the boundary.
+Each supported node has a persistent `nodeState`. It owns desired resources,
+publication boundaries, epoch negotiation, open watches, and strict reference
+counts. Per-resource-type state groups changed names, version generations, and
+rollback ownership.
 
-Requests for unsupported TypeURLs from configured nodes call the embedded
-go-control-plane cache's `CreateWatch`, without Cilium's per-TypeURL tracking.
-Cilium never publishes resources for these types. An initial request with an
-empty version remains unanswered until cancellation; a request with a nonempty
-version may receive an empty response.
+Node-local rollback state manages caller and response lifetimes, transaction
+dependencies, and the adjustment of rollback targets after a NACK. A secondary
+name index finds dependent response owners without scanning unrelated lifecycles.
+It retains only live relationships and applies in both ADS modes.
 
-Completion callbacks own caller ACK waits, accepted-resource evidence, pending
-response identities, and rollback claimed by a response. Accepted state retains
-the relevant immutable resource group and sparse subset overrides, not whole
-older snapshots. Multiple streams keep independent response identities for the
-same node and TypeURL.
+Completion callbacks own caller ACK waits, accepted-resource evidence, and
+response identities. Acceptance evidence retains the relevant immutable resource
+group and sparse per-name overrides. Multiple streams
+keep independent response identities for the same node and resource type.
 
-Desired entries share the `resourceMaps` layout with sparse inverse containers:
+The diagrams show state retained between calls, requests, and responses, omitting
+temporary transaction and delivery batches. Solid arrows show containers and
+their contents; dashed arrows show cross-references or shared values. `Slots`
+and `Map` are fixed containers indexed by resource type.
 
-```text
-resourceEntry {
-    resource:    immutable protobuf, or nil for removal
-    revision:    Revision of the current named value, regardless of change source
-    transaction: TransactionID of the API call which inserted or deleted this value
-}
+```mermaid
+flowchart TD
+    cache["cacheImpl<br/>Cache lock and shared generation source"]
+    node["nodeState<br/>Persistent identity, epoch, streams<br/>Desired and published generation boundaries"]
+    desired["resourceMaps<br/>Desired entries by TypeURL and name"]
+    entry["resourceEntry<br/>Immutable resource or removal tombstone<br/>Revision and originating TransactionID"]
+    types["resourceTypeState<br/>Per-TypeURL generations, epochs, changed names"]
+    pending["pendingPublication<br/>Unpublished boundary and affected types<br/>Coalesced rollback state and dependencies"]
+    refs["strictReferenceCounts<br/>Route and Endpoint reference counts<br/>Strict ADS only"]
+    snapshot["ciliumSnapshot<br/>Latest installed immutable protocol view"]
+    group["snapshotResourceGroup<br/>Per-TypeURL resource map and wire generation"]
+    protobuf["Immutable protobufs<br/>Shared between desired and published views"]
+
+    cache -->|nodeStates: fixed set| node
+    cache -->|embedded go-control-plane cache| snapshot
+    node -->|resources| desired
+    desired -->|name entries| entry
+    node -->|typeStates: Slots| types
+    node -->|optional| pending
+    node -->|optional strictRefs| refs
+    snapshot -->|resourceGroups: Slots| group
+    entry -.->|resource| protobuf
+    group -.->|resource values| protobuf
 ```
 
-The `resources` container keeps a single inverse inline and uses maps for larger
-inverses. A zero inverse entry records prior absence. `resourceChanges` contains
-previous/next entries, with one change inline and further changes in a slice.
-Those previous entries also restore failed publications without allocating
-another inverse.
+## Updates and removals
 
-`ApplyResource` takes a TypeURL index, name, and protobuf; nil removes it.
-`ApplyResources` accepts sparse LDS/RDS/CDS/EDS/SDS transactions. Its
-`xds.Resources` input has no NPDS/NPHDS fields, so one transaction cannot mix
-Listener and NetworkPolicy changes. Only `WithRollback` variants return a
-caller lifecycle; all mutation APIs independently retain needed NACK state.
+Under the cache lock, a transaction:
 
-## Transactions and publication
+1. Compares proposed resources with desired state. Semantic no-ops keep the
+   existing protobuf and metadata.
+2. Prepares changes and identifies unchanged values which are still awaiting
+   acceptance by Envoy.
+3. Reserves a generation if resources change and validates affected references
+   in strict ADS mode.
+4. Commits desired state, records changed names, and registers ACK waits.
+5. Coalesces response-owned rollback state and transaction dependencies.
+6. Publishes a snapshot if a directly affected watch is open.
+7. Creates a requested caller lifecycle after a successful commit or publication.
 
-A transaction holds the cache write lock while it:
+Validation failure leaves desired state unchanged and detaches any waits prepared
+for the transaction. If immediate publication fails before installation, the
+transaction restores its previous entries and bookkeeping and detaches its waits.
+A failed apply returns no caller lifecycle. A delivery error after installation
+preserves the committed update.
 
-1. Compares candidates with desired state, preserving canonical pointers for
-   semantic no-ops.
-2. Prepares changes, records pending values reused unchanged, and reserves a
-   generation when something changes.
-3. Validates affected LDS/RDS and CDS/EDS references in strict ADS mode.
-4. Commits entries, marks changed names, and registers ACK waits.
-5. Coalesces sparse response inverses and their dependent transactions into
-   `nodeState.pendingPublication`.
-6. Finalizes immediately if a directly affected watch is open.
-7. Creates any requested caller lifecycle after a successful commit/publication.
+### Strict ADS consistency
 
-Readers cannot observe partial changes. Publication failure restores previous
-entries, reference counts, changed names, and previous pending publication
-bookkeeping, and detaches this transaction's waits; a failed apply returns no
-caller lifecycle. A delivery error after go-control-plane installed the intended
-snapshot is treated as a committed update. Installation is confirmed by exact
-snapshot identity, not matching versions.
-Unchanged-resource waits prepared earlier in a mixed transaction are also
-detached on validation failure; unrelated pending state remains owned.
+Strict mode counts Listeners referring to each Route and Clusters referring to
+each Endpoint. It checks only references affected by a transaction, evaluating
+parent and child changes together before committing desired state.
 
-A per-node reference index counts Listeners referring to each Route and
-Clusters referring to each Endpoint. It starts empty with the node and changes
-only with committed mutations. Strict mode validates only child names affected
-by a transaction, evaluating parent and child changes together. Missing
-Routes and orphan Routes/Endpoints are rejected synchronously, before changing
-desired state or registering rollback ownership. Missing CLAs are allowed:
-publication synthesizes empty assignments without inserting them into desired
-state. Compensating mutations use the same validation and publication path.
+Missing Routes and orphan Routes or Endpoints are rejected synchronously. Missing
+CLAs (ClusterLoadAssignments) are allowed: snapshot publication supplies empty
+assignments without inserting them into desired state. This permits asynchronous
+EDS updates from service backends.
 
-Non-strict mode and unrelated types skip the reference index. Only strict ADS
-expands response rollback to preserve reference consistency. Losing the last
-parent removes its child, and removing a Route restores or removes Listeners
-that still require it. Shared children survive; content-only child reverts do
-not cascade to parents. A full snapshot consistency check runs only with both
-strict ADS and agent debug logging enabled; transaction safety does not depend
-on that projection check.
+Non-strict mode and unrelated resource types skip reference validation.
+Compensating mutations done for caller- or response-driven reverts use the same
+validation and publication path as API updates. A full snapshot consistency check
+runs only when both strict ADS and agent debug logging are enabled. Mutation-time
+validation provides transaction safety.
 
-### On-demand finalization
+### Generations, revisions, and transactions
 
-A successful mutation commits desired state before returning, not necessarily
-a snapshot. While Envoy processes a response, subsequent mutations coalesce
-without snapshot construction. A directly affected open watch or the next
-matching request finalizes the pending publication. An unrelated watch does not
-trigger it.
+Every state-changing mutation reserves a number from a cache-wide generation
+source. Three roles distinguish how that number is used:
 
-`pendingPublication` holds metadata and rollback state, not a snapshot or a
-second resource map. Unpublished changes are already in desired state. Its
-indexed `rollbacks` map also marks types needing completion finalization.
-A present, empty value requires finalization but no new inverse,
-including coalesced A-B-A changes and compensating publications.
+- `Generation`: a mutation number or a snapshot/response boundary.
+- `Revision`: when a named value last changed, whether by an API call or revert.
+- `TransactionID`: the API transaction which originally inserted or deleted that
+  value.
 
-Known nodes start with desired state, not a prebuilt empty snapshot. Their first
-supported active subscription publishes desired state if no snapshot exists;
-explicitly cleared delivery state is handled the same way. Empty groups are
-supplied only when the corresponding desired group is empty.
+API changes assign the same number to the resource's revision and transaction ID.
+Reverts restore the previous value and transaction ID but assign a fresh revision.
+Ordering across these roles relies on their shared source. Failed attempts can
+leave gaps in the sequence, which is never rewound.
 
-Incremental finalization shallow-copies snapshot slots and replaces affected
-groups. A group's immutable resource map is cloned only when an entry changes.
-Each group contains `cache.Resources` and its aggregate generation, including
-synthesized empty CLAs in the projection. Snapshot construction does not marshal
-or hash resources: go-control-plane marshals them when constructing a response.
-SotW snapshots omit per-resource version maps.
+Snapshot and response boundaries can include several API transactions and
+reverts. ACK evidence must identify the required resource name and revision within
+the acknowledged response.
+
+In `A → B → A`, the two API changes to A have different transaction IDs and
+revisions even when their contents match. An older rollback cannot undo the later
+A. Restoring A through a revert also gives it a fresh revision, so a delayed ACK
+for B or the original A cannot complete a wait for restored A.
+
+## State coalescing
+
+Unpublished changes are already committed to desired state. Pending publication
+holds the necessary state for incremental snapshot publication and possible
+rollback: publication generation boundary, affected resource types, and rollback
+state.
+
+Before a response claims rollback state, repeated changes to one name coalesce to
+the oldest previous value and the latest expected API transaction:
+
+```text
+desired changes: P0 → P1 → P2 → P3
+rollback state: previous=P0, expectedTransaction=transaction(P3)
+```
+
+A net no-op chain can discard its response-owned rollback state. Once a response
+claims that state, it stops coalescing; subsequent updates begin another chain.
+Returning desired state to the original value cannot discard a sent response's
+rollback state, because Envoy may still NACK it. Caller rollback remains
+independently owned in either case.
+
+## Snapshot publication
+
+A successful mutation commits desired state before returning, but only publishes
+a snapshot if a directly affected watch is open. Otherwise, changes coalesce
+until a matching request arrives. An unrelated watch does not trigger publication.
+
+Known nodes start with empty desired state. Their first supported active
+subscription creates and publishes the initial snapshot from current desired
+state. An empty resource group is supplied only when that type's desired state is
+empty.
+
+New snapshots shallow-copy the previous snapshot and replace affected resource
+groups. Immutable resource maps are cloned only where entries change. Missing
+CLAs are synthesized in the snapshot. Generation-based versions make snapshot
+construction independent of serialization and content hashing. Marshaling is
+deferred to go-control-plane's response construction.
+
+Publication metadata becomes visible only after successful installation. The
+published generation advances, and pending publication bookkeeping and changed
+names are cleared; independent rollback ownership remains intact.
+
+If publication triggered by `CreateWatch` fails, desired state and pending
+publication remain available for another attempt or caller rollback. Response
+construction can still fail to encode a resource after a successful cache mutation
+or publication.
+
+### Wire versions and EDS replay
+
+Wire versions use `e<epoch>:g<generation>`, for example `e1:g42`. The epoch
+distinguishes the restarted agent's generation sequence from versions retained by
+a running Envoy. Internally the cache keeps bare generations and binds the node's
+epoch when publishing a snapshot. Each resource type's aggregate generation
+advances for changes and reverts, ensuring restored values receive a new wire
+version too.
+
+The first request for each resource type contributes its reported epoch, if any.
+Versions without an `e<positive integer>:` prefix are ignored. The initial node
+epoch is the smallest positive integer absent from the first request. If another
+type's first request reports that selected epoch, negotiation advances beyond all
+first-request epochs recorded for the node. This handles Envoy retaining different
+epochs for different resource types across agent restarts.
+
+Negotiated types retain continuity across reconnects. Changing the epoch updates
+the published protocol view without publishing unrelated pending changes.
 
 A Cluster change can require fresh EDS delivery even when desired CLAs are
-unchanged: to finish warming with an already-subscribed EDS name, or because
-the snapshot gains or loses synthesized empty assignments. In these cases,
-the EDS wire generation advances to `max(EDS generation, CDS generation)`,
-so an unchanged version cannot suppress the response. Desired CLA revisions
-and transaction IDs remain unchanged.
+unchanged: Envoy may need it to finish warming with an already-subscribed EDS name,
+or the snapshot may gain or lose synthesized empty assignments. In these cases,
+the EDS wire generation advances to the greater of its current generation and the
+CDS generation. Desired EDS revisions and transaction IDs remain unchanged.
+LDS changes do not artificially advance RDS, CDS, or SDS versions.
 
-LDS changes do not artificially advance RDS, CDS or SDS versions. Collected
-response batches are delivered in dependency order.
+## Delivery and ACK processing
 
 Cache relays buffer responses produced synchronously by `SetSnapshot` or
-`CreateWatch`. Their exact generation, named-resource coverage, and rollback
-ownership are captured before delivery outside the lock. Publication metadata
-becomes visible only after successful installation. A slow consumer cannot hold
-up mutations.
+`CreateWatch`. Before delivery, the cache captures their exact publication
+generation, the resource names they communicate, and rollback ownership.
+Immediate `CreateWatch` responses are captured under the lock too; their
+generations are never inferred from later publications or newly registered waits.
+Collected response batches are delivered outside the lock in dependency order.
 
-A `CreateWatch` finalization error leaves desired state and pending publication
-bookkeeping available for another attempt or caller rollback. Encoding errors
-belong to response construction, not mutation or snapshot finalization; a
-successful mutation does not prove the resource can be encoded or delivered.
-After successful installation, `snapshotGeneration` advances, and pending
-publication bookkeeping and changed-name sets are cleared.
+```mermaid
+flowchart TD
+    cache["cacheImpl<br/>Channel-owned relay index"]
+    node["nodeState<br/>Persistent known node"]
+    watches["nodeWatchState<br/>Open watch sets indexed by TypeURL"]
+    watch["trackedWatch<br/>One outstanding subscription<br/>Request names and cancellation"]
+    relay["watchRelay<br/>Open watches sharing a response channel"]
+    inner["inner channel<br/>Buffers go-control-plane responses under locks"]
+    outer["outer channel<br/>Delivers responses to the stream after unlocking"]
 
-## Generations and no-op waits
+    cache -->|watchRelays: channel to relay| relay
+    node -->|openWatches| watches
+    watches -.->|sets of watch pointers| watch
+    relay -.->|watches: pointer set| watch
+    watch -.->|state| node
+    watch -.->|relay| relay
+    relay --> inner
+    relay --> outer
+    inner -.->|collected and forwarded after unlocking| outer
+```
 
-Wire versions use `e<epoch>:g<generation>`, for example `e1:g42`. The cache keeps
-bare generations internally and binds the node epoch when finalizing a snapshot.
-Each TypeURL's aggregate generation advances for real changes, compensation,
-and EDS replay. Failed attempts can leave gaps in the cache-wide sequence, which
-is never rewound. Three types distinguish how its numbers are used:
+Open watches are tracked both by node and resource type, and by response channel.
+Both tracking structures refer to the same watch objects. One ADS stream maintains
+a current watch per resource type with its requested names; different streams may
+have independent named subscriptions. Relay state lives only while its watches do.
 
-- `Generation`: a reserved mutation number, or a snapshot/response boundary.
-- `Revision`: when a named value last changed, whether by an API call or revert.
-- `TransactionID`: the API call which originally inserted or deleted that value.
+Requests for unsupported resource types from known nodes call the embedded
+go-control-plane cache directly. Published resources are limited to supported
+types. Requests for unsupported types with an empty version remain unanswered
+until cancellation; a nonempty version may receive an empty response.
 
-Snapshot and response boundaries remain `Generation`s because they can include
-several API transactions and reverts, not just one named value or API call.
-ACK evidence must reach the required revision **and** cover that resource name;
-a newer boundary alone does not prove acceptance.
+Named-resource coverage identifies the names whose state a response communicates,
+including deletions where omission signals removal. Each stream keeps its own
+response identity per resource type. `OnStreamResponse` records the response's
+generation and named-resource coverage. Envoy supplies the corresponding ACK or
+NACK in a later request, matched by stream and nonce. A matching ACK or NACK can
+then complete the associated waits.
 
-All three roles draw from one cache-owned generation source. API changes assign
-the same number to the value's revision and transaction ID. Reverts assign a fresh
-revision but restore the previous transaction ID. Ordering across these roles
-relies on their shared source.
+An ACK acknowledges only the names communicated by the response identified by
+the nonce. For types supporting deletion by omission (LDS, CDS, NPDS, NPHDS), this
+can include names within its subscription which are absent from the response. A
+multi-name wait succeeds only after every required name has been acknowledged.
+Response-owned rollback is released only after all of its required names and
+pending prerequisites are acknowledged.
 
-Wait boundaries can include revisions; response rollback boundaries can include
-transaction IDs. An inverse uses the transaction's initial revision, whereas
-a caller wait requires the current revision.
+```mermaid
+flowchart TD
+    callbacks["CompletionCallbacks<br/>Caller waits, acceptance evidence, response identities"]
+    node["callbackNodeState<br/>Current publication reference and per-TypeURL state"]
+    types["typeURLState<br/>Pending generations, accepted resources, latest response"]
+    accepted["acceptedResourceGroup<br/>ACKed immutable group and sparse per-name overrides"]
+    override["acceptedResource<br/>Resource and accepting response boundary"]
+    latest["responseState<br/>Latest response summary and accepted/rejected versions"]
+    generation["pendingGeneration<br/>Response association and represented transactions<br/>Response-owned rollback, independent of caller waits"]
+    stream["callbackStreamState<br/>Node identity and per-TypeURL response slots"]
+    response["pendingResponse<br/>Exact nonce, version, and generation boundary"]
+    coverage["responseCoverage<br/>Immutable group reference<br/>Requested and returned names"]
+    wait["pendingCompletion<br/>One caller's ACK wait and prerequisites"]
+    scope["ResourceScope<br/>Required names and revisions<br/>Single name inline, larger scopes in a map"]
+    rollback["rollbackLifecycle<br/>Cache-owned response recovery"]
 
-In `A → B → A`, the two API changes to A have different transaction IDs,
-revisions, and wire versions even when their contents match. An old inverse
-cannot revert a later A. Coalescing can still produce a redundant response
-for already accepted contents. Reverts instead restore the previous transaction
-while advancing its revision: the value came from the original API transaction,
-but restoring it is a new revision. Thus a delayed ACK for B, or for the original
-A, cannot complete a new wait for restored A.
+    callbacks -->|nodes: node ID map| node
+    node -->|typeURLs: Slots| types
+    types -->|acceptedResources| accepted
+    accepted -->|partial: name map| override
+    types -->|response| latest
+    latest -->|embedded latest summary| response
+    types -->|pendingGenerations: generation map| generation
+    generation -.->|rollback| rollback
+    generation -->|scope, once a response is collected| scope
+    callbacks -->|streams: mode and stream ID map| stream
+    stream -->|responses: independent Slots| response
+    response -->|coverage| coverage
+    callbacks -->|pendingCompletions: completion pointer map| wait
+    wait -->|scope and per-TypeURL dependencies| scope
+```
 
-The first request for each TypeURL contributes its reported epoch. Versions
-without an `e<positive integer>:` prefix are ignored. The first node epoch is the
-smallest positive integer absent from that request. If a later TypeURL reports
-that selected epoch, negotiation advances beyond every first-request epoch
-retained in the node's type slots. This avoids collisions when Envoy retained
-different resource-type epochs across agent restarts.
+### Semantic no-op waits
 
-Already negotiated types retain continuity across reconnects. Epoch rotation
-shallow-copies the published protocol view, sharing immutable maps, and does not
-publish unrelated unpublished changes. Persistent known nodes retain their
-negotiated epoch even with no resources or streams.
-
-A semantic no-op allocates no generation or caller inverse. Its ACK wait checks
-the specific resource:
+A semantic no-op does not allocate a generation or caller rollback state. With a
+WaitGroup, it checks acceptance of the specific resource:
 
 - Already accepted contents complete immediately, even if another name of the
   same type is pending.
-- Pending state waits for a response covering that revision and name.
+- Pending state waits for a response communicating that name and revision.
 - A known NACK for that state can fail the wait immediately.
 
-Single-resource waits use the entry's revision directly.
-Restored absence uses the type's latest corrective generation without retaining
-per-name tombstones solely for waiting. Bulk waits use matching names
-per type, retaining only names whose desired contents are not already accepted.
-Changing one name must not make unchanged, ACKed names wait again. The pending
-publication or published snapshot generation is the fallback for a whole-type
-wait. If no published baseline exists, waits register against desired revisions
-and acquire their wire version at the next successful publication. A no-op
-does not force publication merely to register a wait. Removals from a pristine
-known node still complete immediately because no mutation needs acknowledgment.
-Responses carry their exact publication, including immediate `CreateWatch`
-responses wrapped under the lock. Generations are never inferred from later
-publications or newly registered waits.
+Bulk transaction waits only keep names whose desired contents are not already
+accepted. Changing one resource does not cause waits on unchanged, ACKed resources.
+If no published baseline exists, waits register against desired revisions and
+acquire their wire version at publication; a no-op does not force publication just
+to register a wait. Removing a resource from a node which has never held resources
+completes immediately.
 
-`OnStreamResponse` associates generations and named-resource coverage; it does not complete
-waits. ACK/NACK arrives in the subsequent request. A multi-name wait succeeds
-only after all required names have been ACKed.
+### Listener-derived policy waits
+
+The ADS-supplied `ListenerObserver` counts desired Listeners starting an NPDS
+client. This tracking runs under the cache lock and must not take the ADS server
+mutex or call the cache. NACK reverts are counted; bulk replacement exposes only
+its net Listener-count change.
+
+Under the same lock, a NetworkPolicy update without NPDS Listeners stores desired
+state but immediately satisfies its caller wait. Removing the last NPDS Listener
+detaches existing node-scoped NPDS waits before unlocking and completes them
+afterward. Completing these waits leaves acceptance evidence and rollback
+ownership unchanged.
+
+## NACK recovery
+
+### Triggering resource changes and transaction members
+
+A **triggering resource change** is a tracked change belonging to the NACKed
+response's resource type. These changes identify the API transactions represented
+by the response. If one API transaction adds a Listener and a Cluster, the
+Listener change can trigger rollback on an LDS NACK, and the Cluster change can
+trigger it on a CDS NACK. Both are members of the same transaction.
+
+Coalescing transactions into one response does not merge their rollback
+eligibility. A triggering change which still matches desired state makes its
+transaction's other still-current members eligible for rollback. An independently
+newer triggering value does not. Predecessor changes superseded within the same
+rejected batch remain part of its rollback chain.
+
+For example, transaction A adds Listener `l1` and Cluster `c1`, and B adds `l2`
+and `c2`. Both Listeners are sent together, and CDS ACKs both Clusters. If another
+transaction replaces `l1` before the LDS NACK, the NACK reverts `l2` and `c2`
+but preserves the newer `l1` and A's `c1`.
+
+Transaction-member selection applies in both ADS modes. **Companion** names the
+additional resource changes required to maintain strict-ADS consistency.
+
+### Transaction dependencies and strict consistency
+
+In both ADS modes, a NACK also reverts later transactions that reused the rejected
+transaction's pending values, including transactions without a WaitGroup.
+Dependencies are transitive and survive caller finalization and ACKs for other
+resource types. Outstanding dependent waits also fail. Caller waits remain
+independent of rollback-state coalescing, so replacing a pending value cannot lose
+earlier waits.
+
+For example, transaction A adds Listener `l1`; B supplies the same pending `l1`
+and adds Secret `s1`. An LDS NACK for A also reverts B's still-current `s1`,
+even if SDS already ACKed it. An independently newer `l1` can skip A's rollback
+without protecting B's still-current dependent `s1`.
+
+Only strict ADS additionally expands rollback to maintain reference consistency.
+Losing the last parent removes its child; removing a Route restores or removes
+Listeners that still require it. Shared children survive, and content-only child
+reverts do not cascade to parents. These reference dependencies are distinct from
+API transaction dependencies, which apply in both modes.
+
+### Atomic correction and failure
+
+NACK recovery uses the ordinary cache transaction. The cache lock prevents caller
+mutations and other NACKs from interleaving; no intermediate correction can be
+published. Successful recovery commits one corrective generation and releases the
+selected response-owned rollback state. An affected open watch can consume the
+correction immediately; otherwise publication waits for a matching request.
+Response delivery and application callbacks run after unlocking.
+
+Rollback targets are adjusted to bypass rejected values. If A is rejected after B
+replaces it, B remains desired, and its later rollback restores the value preceding
+the rejected A. This also applies to caller rollback after B is ACKed. In the
+`l1`/`c1` example above, A's preserved `c1` remains a valid rollback target, while
+rejected `l1` must not be resurrected by reverting its replacement.
+
+Failed validation or publication leaves desired state unchanged and retains
+response-owned rollback state for a later response. Other rollback targets still
+bypass rejected predecessors: rejection is definitive even if corrective
+publication fails. Caller waits receive the original NACK, and the recovery error
+closes the stream. An ACK can release retained recovery state; there is no
+background cache-level retry loop.
 
 ## Rollback ownership and lifetime
 
 The caller eventually invokes exactly one lifecycle method:
 
-- `Finalize()` releases its inverse without changing desired resources.
-- `Revert()` attempts the transaction-fenced inverse, returns any error, and
-  releases caller ownership whether it succeeds or fails.
+- `Finalize()` releases its rollback state without changing desired resources.
+- `Revert()` restores entries only while their API transaction IDs match the
+  transaction being undone. It returns any error and releases caller ownership
+  whether it succeeds or fails.
 
-An Envoy ACK can precede a later regeneration failure, so caller rollback must
-remain usable after ACK. Conversely, caller cancellation, timeout, or early
-finalization cannot consume response rollback.
+Both calls are terminal. Duplicate calls warn and do nothing.
 
-Unsent response inverses coalesce per type and name:
+Caller and response lifecycles are separate objects. An Envoy ACK can precede a
+wider caller failure, so caller rollback remains usable after ACK. Conversely,
+caller cancellation, timeout, or early finalization cannot consume response-owned
+rollback state. Response-owned rollback state also survives failed recovery.
 
-```text
-desired changes: P0 → P1 → P2 → P3
-inverse: previous=P0, expectedTransaction=transaction(P3)
+```mermaid
+flowchart TD
+    node["nodeState<br/>Persistent desired-state owner"]
+    state["rollbackState<br/>Live caller and response lifecycle sets"]
+    caller["rollbackLifecycle: caller-owned<br/>Terminal Revert or Finalize<br/>Usable after an Envoy ACK"]
+    response["rollbackLifecycle: response-owned<br/>Survives caller timeout or finalization<br/>Claimed by a response until its outcome"]
+    inverse["resources<br/>Caller inverse: one entry inline or resourceMaps"]
+    singleton["singletonResource<br/>One TypeURL, name, and previous resourceEntry"]
+    maps["resourceMaps<br/>Larger caller inverse by TypeURL and name"]
+    pending["pendingPublication<br/>Inverses not yet assigned a response lifecycle"]
+    resources["rollbackResources<br/>Response inverses indexed by TypeURL and name"]
+    entry["rollbackEntry<br/>Previous resourceEntry, expected TransactionID<br/>Live transaction membership or prerequisites"]
+    dependents["dependents index<br/>TypeURL and name to response lifecycle set<br/>Pending-value dependencies in both ADS modes"]
+    types["resourceRollbackState<br/>Per-TypeURL unsent lifecycle reference<br/>Removal-owner counts by name and transaction"]
+
+    node -->|rollbacks| state
+    state -->|callers| caller
+    state -->|responses| response
+    state --> dependents
+    dependents -.->|owners of dependent inverses| response
+    caller -->|inverse| inverse
+    inverse -->|singleton representation| singleton
+    inverse -->|map representation| maps
+    response -->|resources and optional dependents| resources
+    node -->|optional| pending
+    pending -->|rollbacks and optional dependents| resources
+    resources -->|name entries| entry
+    node -->|typeStates slot: rollbacks| types
+    types -.->|unsent| response
 ```
 
-A net no-op unsent chain can discard its inverse, even with different protobuf
-pointers. Response collection stops coalescing its claimed rollback; subsequent
-updates start another chain. NACK recovery may still rebase an inverse's target
-to bypass a rejected predecessor. A sent inverse cannot be discarded just because
-desired contents return to the original value: Envoy could still NACK it.
-
-A named response claims rollback state for the transactions it covers.
-Keep all still-current changed members of each such transaction together,
-even if the response delivers only some of them.
+### Removals and rollback lifetime
 
 For SotW EDS/RDS/SDS, omitting a resource does not tell Envoy to delete it.
-Envoy may retain its previous configuration while a parent still references
-it. A removal that leaves the resource absent from the snapshot therefore
-needs no response-owned inverse, unless another changed member of the same
-transaction can be NACKed and require the whole transaction to be undone.
+Envoy may retain its previous configuration while a parent still references it.
+A removal which leaves the resource absent from the snapshot therefore needs no
+response-owned rollback state unless another changed member of its transaction
+can be NACKed and require the whole transaction to be undone.
 
-Removing a CLA still referenced by a cached Cluster is different: the
-snapshot supplies a named, empty CLA, explicitly replacing its old endpoint
-list. That change can be ACKed or NACKed and retains its response inverse,
-including while publication is still pending.
+Removing a CLA still referenced by a cached Cluster is different: the snapshot
+supplies a named, empty CLA, explicitly replacing its old endpoint list. That
+change can be ACKed or NACKed and retains response-owned rollback state even before
+publication.
 
-ACK releases response-owned rollback state only after all required
-resource names have been acknowledged.
+Removal tombstones retain the transaction identity needed to guard rollback.
+They remain only while caller or response recovery needs them. Releasing the last
+owner drops the tombstone; an unsent add/remove chain which becomes a no-op can
+release its response-owned rollback state without consuming caller rollback.
 
-### Triggering resource changes and transaction members
+## Stream disconnect, reconnect, and startup
 
-A **triggering resource change** is a tracked change belonging to the NACKed
-response's TypeURL, not a transaction or necessarily the particular resource
-Envoy found invalid. If one API transaction adds a Listener and a Cluster, the
-Listener change can trigger rollback on an LDS NACK, and the Cluster change can
-trigger it on a CDS NACK. Both are members of the same transaction.
-
-Coalescing several transactions into one response does not merge their rollback
-eligibility. A triggering resource change that still matches desired state makes
-its transaction's other still-current members eligible for rollback. Changes
-superseded by another change in the same rejected batch retain their predecessor
-chain. An independently superseded triggering change does not, by itself, make its
-transaction’s other members eligible for rollback.
-
-For example, transaction A adds Listener `l1` and Cluster `c1`, and B adds `l2`
-and `c2`. Both Listeners are sent together, and CDS ACKs both Clusters. If another
-transaction replaces `l1` before the LDS NACK, the NACK reverts `l2` and `c2`,
-but preserves the newer `l1` and A's `c1`. Later inverses which restore `c1`
-must also keep that target. The rejected old `l1` is still bypassed in later
-inverses, so reverting its replacement cannot resurrect it.
-
-If a later inverse would restore a rejected triggering value and other values
-from that same predecessor transaction together, rebasing bypasses that whole
-predecessor. An independent inverse restoring only a preserved member does not.
-
-Transaction-member selection applies in both ADS modes. **Companion** refers
-only to the additional resource changes required for strict-ADS consistency,
-not to members of an API transaction.
-
-In both ADS modes, a NACK reverts the rejected transaction and later transactions
-that reused its pending values, including transactions without a WaitGroup.
-Dependencies are transitive and survive caller finalization and ACKs for other
-resource types. Outstanding dependent waits also fail. Caller waits remain
-independent of inverse coalescing, so replacing a pending value cannot lose
-earlier waits.
-
-For example, transaction A adds Listener `l1`; B supplies the same pending `l1`
-and adds Secret `s1`. An LDS NACK for A also reverts B's still-current `s1`,
-even if SDS already ACKed it.
-An independently newer `l1` can skip A's inverse without protecting B's
-still-current dependent `s1`.
-
-Named responses acknowledge only prerequisites they contain. If a transaction
-has multiple pending prerequisites, ACKing one does not release recovery state
-for the others; a NACK for any of them triggers rollback. Bookkeeping retains
-only live dependency relationships, not a history of earlier mutations.
-
-NACK recovery uses the ordinary cache transaction. It takes the cache lock
-before revalidating the response and claiming inverses under the callbacks
-lock, then releases the callbacks lock to prepare one final correction.
-The cache lock prevents caller mutations and other NACKs from interleaving.
-Only the final state is validated and committed; intermediate restored values
-cannot be delivered or acquire new waits.
-
-Selected inverse targets are composed oldest first, bypassing rejected
-predecessors in pending-publication, live response, and caller inverses.
-Superseding API transactions remain guarded. For example, if A is rejected
-after B replaces it, B remains desired, but its later rollback restores the
-value before A, not A. This applies to unsent responses and caller rollback
-after B is ACKed too. Only live inverses are retained, not a history of
-rejected values.
-
-Successful recovery consumes the selected inverses together and commits one
-corrective generation. A matching open watch can consume it immediately;
-otherwise finalization waits for the next watch. Response delivery and
-application callbacks run after unlocking.
-
-Failed validation or publication leaves desired state unchanged and retains
-the batch's response inverses for a later response. Rejected predecessors are
-still bypassed in other inverse targets: rejection is definitive even if
-corrective publication fails. Caller waits receive the original NACK, and the
-recovery error closes the stream. An ACK can release retained recovery state;
-there is no background retry loop. Caller reverts remain transaction-fenced and
-may still fail validation.
-
-### Removal tombstones
-
-A nil resource with a nonzero transaction identifies a removal. Node-local owner
-counts, keyed by type, name, and transaction, retain tombstones for caller,
-pending publication, unsent, and response inverses. The last owner releases the
-tombstone. Unsent add/remove chains that become no-ops can release their inverse
-and tombstone without consuming independently owned caller rollback.
-
-## Disconnect, reconnect, and startup
-
-Disconnect cancels that stream's watches and removes its response identity, not
-desired state or recovery payloads. Sent, unacknowledged rollback loses the dead
-stream/nonce association but stays frozen; unsent rollback remains coalescible.
+Disconnect cancels that stream's watches and removes its response identity.
+Desired state and recovery payloads persist. Sent, unacknowledged rollback loses
+the dead stream/nonce association but remains frozen; unsent rollback remains
+coalescible.
 Other live streams keep their state. When the last stream closes, acceptance
 evidence is cleared because reconnect might involve a fresh Envoy process.
 
-A reconnecting supported node can receive retained generations again. An echoed
-version alone does not prove acceptance of names never delivered: named-resource
-coverage and ACK/NACK must establish their outcome.
+A reconnecting node can receive retained generations again. Acceptance requires
+named-resource coverage and an ACK matched to the delivered response.
 
-Before the first connection, repeated changes to one name keep an absent or
+Before the first connection, repeated changes to one name retain the absent or
 oldest baseline and the latest expected API transaction. Caller finalization does
-not remove that response inverse; an initial NACK can therefore remove applicable
-cold-created resources.
+not remove response-owned rollback state, so an initial NACK can remove applicable
+resources created during startup.
 
-There is no per-mutation snapshot queue. Frozen inverses can still remain while
-Envoy is disconnected. Repeated response/disconnect cycles without outcomes can
-retain several frozen lifecycles; a later response can resolve covered
-generations together.
-
-## Listener-derived policy waits
-
-The ADS-supplied `ListenerObserver` counts desired listeners starting an NPDS
-client. It runs under the cache lock and must not take the ADS server mutex or
-call the cache. NACK reverts are included; bulk replacement exposes only its net
-listener-count change.
-
-Under the same lock, a NetworkPolicy update without NPDS listeners stores desired
-state but immediately succeeds its caller wait. Removing the last listener
-detaches existing node-scoped NPDS waits before unlocking and completes them
-afterward. A concurrent addition cannot cancel its new waits accidentally.
-This success resolves ACK waits only, not acceptance or rollback ownership.
+Repeated response/disconnect cycles without outcomes can retain several frozen
+lifecycles. A later response can resolve the generations it communicates together.
 
 ## Code organization
 
-- `resources.go`: containers, prepared changes, and input validation.
-- `node_state.go`: desired mutations, changed names, pending publication,
-  reference validation, epoch negotiation, rollback coalescing, and tombstone
-  ownership.
-- `cache.go`: locking, snapshot construction/publication, response delivery,
-  and rollback lifecycles.
-- `callbacks/`: response identity, named-resource coverage, accepted state, waits,
-  NACK recovery in `nack.go`, and stream lifecycle tracking in `streams.go`.
+- `cache.go`: API transactions, snapshot construction/publication, and delivery.
+- `resources.go`: resource containers, prepared changes, and input validation.
+- `node_state.go`: desired state, changed names, pending publication, reference
+  validation, and epoch negotiation.
+- `rollback.go`: caller and response rollback lifecycles, coalescing, transaction
+  dependencies, and tombstone ownership.
+- `callbacks/`: response identities, named-resource coverage, accepted state, ACK
+  waits, NACK coordination, and stream lifecycle tracking.
 
-Tests for resource and node-state helpers live alongside those files. Cache
-API/lifecycle tests use the public mutation APIs; watch and named-resource coverage tests drive
-real go-control-plane responses and stream callbacks.
+Cache API/lifecycle tests use the mutation APIs; watch and named-response tests
+drive real go-control-plane responses and stream callbacks.

@@ -34,8 +34,9 @@ const (
 
 type snapshotGenerationContextKey struct{}
 
-// WithSnapshotGeneration associates an xDS response with the generation of
-// the snapshot from which go-control-plane constructed it.
+// WithSnapshotGeneration carries the snapshot's generation through
+// go-control-plane to OnStreamResponse. The callback can then identify the exact
+// publication rather than infer it from the cache's latest state.
 func WithSnapshotGeneration(ctx context.Context, generation Generation) context.Context {
 	return context.WithValue(ctx, snapshotGenerationContextKey{}, generation)
 }
@@ -128,12 +129,9 @@ type typeURLState struct {
 	// and updates without a WaitGroup must still be reverted on NACK.
 	pendingGenerations map[Generation]*pendingGeneration
 	// acceptedResources retains this type's immutable ACKed resource group and
-	// sparse overrides from subset ACKs, without pinning unrelated resource types.
+	// sparse overrides from subset ACKs.
 	acceptedResources acceptedResourceGroup
 	// response tracks the latest xDS response/ACK state for this node/type.
-	// Stream-local responses independently retain exact nonce/generation identity.
-	// Generations establish ordering; versions are retained only because Envoy
-	// echoes the xDS version in ACK and NACK requests.
 	response responseState
 }
 
@@ -180,6 +178,7 @@ func (cb *CompletionCallbacks) ensureTypeURLState(nodeID string, index typeurl.I
 	return cb.ensureNodeState(nodeID).typeURLState(index)
 }
 
+// responseState tracks the latest xDS response/ACK state for a specific node/type.
 type responseState struct {
 	pendingResponse
 	pendingStreamID int64
@@ -194,14 +193,17 @@ type responseState struct {
 	rejectedErr     error
 }
 
+// pendingResponse identifies one outstanding response and the resource names
+// it communicates. Generations establish ordering; versions are retained because
+// Envoy echoes them in ACK and NACK requests.
 type pendingResponse struct {
 	// pendingVersion is the version in the most recent response for which we have
 	// not yet observed an ACK or NACK.
 	pendingVersion    string
 	pendingGeneration Generation
-	// go-control-plane invokes this callback before rejecting a stale nonce.
-	// Match requests to the exact response and stream here as well so an old
-	// ACK/NACK cannot resolve a newer generation.
+	// OnStreamRequest runs before go-control-plane rejects a stale nonce.
+	// Match the exact response and stream so an old ACK/NACK cannot resolve a
+	// newer generation.
 	pendingNonce string
 	coverage     *responseCoverage
 }
@@ -211,26 +213,25 @@ func (state *responseState) clearPending() {
 	state.pendingStreamID = 0
 }
 
-// pendingCompletion is an update that is pending completion.
+// pendingCompletion tracks one caller's wait for Envoy to accept resource state.
 type pendingCompletion struct {
 	callbacks *CompletionCallbacks
 	nodeID    string
-	// version is the version to be ACKed.
+	// version is the on-the-wire version to be ACKed.
 	version string
+	// typeURL is the type URL of the resources to be ACKed.
+	typeURL typeurl.Index
 	// generation is the snapshot boundary needed by this completion. Its scope
 	// records the required revisions of individual resource names.
 	generation Generation
+	scope      ResourceScope
 	// responseGeneration is the snapshot response this completion has been
 	// attached to. It may be older than generation when an unchanged update is
 	// attached to a response already in flight.
 	responseGeneration Generation
-	scope              ResourceScope
-	// Prerequisite names and revisions belong to this live wait, independently
-	// of coalesced inverses. Removing the wait drops this bookkeeping too.
+	// dependencies records pending prerequisites separately from coalesced
+	// rollback state, so replacing that state cannot lose this wait.
 	dependencies *typeurl.Map[ResourceScope]
-
-	// typeURL is the type URL of the resources to be ACKed.
-	typeURL typeurl.Index
 }
 
 func (pc *pendingCompletion) ID() string {
@@ -611,7 +612,7 @@ func (cb *CompletionCallbacks) DiscardUnsentTypeGeneration(nodeID string, typeUR
 // produced because Envoy is already processing or has accepted these contents.
 //
 // The caller must only complete generations when complete is true after the
-// finalized snapshot has been installed successfully.
+// snapshot has been installed successfully.
 func (cb *CompletionCallbacks) FinalizeTypeGeneration(nodeID string, typeURL typeurl.Index, generation Generation, version string, versionChanged bool) (complete bool, err error) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()

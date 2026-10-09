@@ -67,7 +67,7 @@ type resourceTypeState struct {
 	// negotiatedEpoch is zero until a watch for this type binds the node epoch.
 	negotiatedEpoch uint64
 	// changedResourceNames tracks names which may differ from the last published
-	// snapshot. Finalization clears only this set, not rollback ownership.
+	// snapshot. Publication clears only this set, not rollback ownership.
 	changedResourceNames set.Set[string]
 	rollbacks            resourceRollbackState
 }
@@ -403,20 +403,20 @@ type pendingPublication struct {
 	// types which justify publication when Envoy has capacity for them.
 	changedTypeURLs typeurl.Set
 	watchTypeURLs   typeurl.Set
-	// Every present resource type needs completion finalization, including
-	// unchanged dependent types whose snapshot version changes. A nonempty
-	// value also supplies response-owned rollback state; an empty value means
-	// finalize only (including publications made by a revert). Absent types
-	// require neither.
+	// Each present type binds pending waits and generations to the published
+	// version, including unchanged dependent types whose version changes.
+	// Nonempty values also supply response-owned rollback state; empty values
+	// request version association only (including publications made by a revert).
+	// Absent types need neither.
 	rollbacks typeurl.Map[rollbackResources]
 	// dependents is allocated only for transactions reusing pending resource
 	// values. Each entry follows the prerequisite type's response outcome.
-	// Empty rollbacks entries require finalization but create no prerequisites.
+	// Empty rollbacks entries still bind versions but create no prerequisites.
 	dependents *typeurl.Map[rollbackResources]
 }
 
 // commitResourceEntry updates desired state and records the name for incremental
-// snapshot finalization. Caller must hold cacheImpl.mutex.
+// snapshot publication. Caller must hold cacheImpl.mutex.
 func (state *nodeState) commitResourceEntry(typeURL typeurl.Index, name string, entry resourceEntry) {
 	state.resources.commitEntry(typeURL, name, entry)
 	state.typeStates[typeURL].changedResourceNames.Insert(name)

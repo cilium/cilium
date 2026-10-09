@@ -267,8 +267,8 @@ func (r *rollbackState) preparePublicationLocked(tx *resourceTransaction, change
 			triggeringChanges.normalizeDependencies(state, typeURL, &rollback)
 			if rollback.empty() || triggeringChanges.empty() {
 				// An unsent prerequisite which coalesces to a net no-op cannot
-				// be NACKed. A finalization-only key has no triggering resource
-				// changes, so release its dependent ownership as well.
+				// be NACKed. An entry which only binds versions has no triggering
+				// resource changes, so release its dependent ownership as well.
 				r.release(state, rollback)
 				dependents.Remove(typeURL)
 			}
@@ -277,8 +277,8 @@ func (r *rollbackState) preparePublicationLocked(tx *resourceTransaction, change
 			dependents = nil
 		}
 	}
-	// Add finalization-only entries after building rollbacks, which omits empty
-	// inverses. Preserve any rollback already stored for the same type.
+	// Add entries which only bind versions after building rollback state, which
+	// omits empty values. Preserve existing rollback state for the same type.
 	for typeURL := range typeurl.Indices() {
 		if !rollbacks.Has(typeURL) && (dirtyTypeURLs.Has(typeURL) || options.waits.Has(typeURL)) {
 			rollbacks.Set(typeURL, rollbackResources{})
