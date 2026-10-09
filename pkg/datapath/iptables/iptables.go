@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -381,6 +382,11 @@ type params struct {
 	Devices  statedb.Table[*tables.Device]
 
 	TunnelCfg tunnel.Config
+
+	// IPSetReady resolves once the node ipsets referenced by --match-set in
+	// our rules (e.g. addCiliumAcceptTunnelRules, installMasqueradeRules)
+	// have been created.
+	IPSetReady promise.Promise[struct{}]
 }
 
 // Manager manages iptables rules.
@@ -488,6 +494,12 @@ func newManager(p params) Manager {
 				return nil
 			case <-iptMgr.argsInit.WaitChannel():
 			}
+
+			// Wait until ipsets are initialized
+			if _, err := p.IPSetReady.Await(ctx); err != nil {
+				return fmt.Errorf("waiting for node ipsets to be ready: %w", err)
+			}
+
 			return reconciliationLoop(
 				ctx, p.Logger, health,
 				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
