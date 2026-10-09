@@ -687,3 +687,23 @@ func TestNewPrefixToIdentityTable(t *testing.T) {
 	updatePrefixMapping(t, client, identity.NumericIdentity(3), "192.168.1.2/16")
 	checkPrefixMapping(t, client, "192.168.1.2/16", identity.NumericIdentity(3), true)
 }
+
+func TestCreateGRPCClientMaxMsgSizeConfig(t *testing.T) {
+	// Test custom configured message size
+	paramsCustom := clientParams{
+		FQDNConfig: service.FQDNConfig{
+			SDPMaxPolicyStateMsgSize: 32 << 20,
+		},
+	}
+	clientCustom := createGRPCClient(paramsCustom)
+	require.Equal(t, 32<<20, clientCustom.maxPolicyStateRecvMsgSize)
+
+	// Test default message size when unconfigured (<= 0)
+	paramsDefault := clientParams{
+		FQDNConfig: service.FQDNConfig{
+			SDPMaxPolicyStateMsgSize: 0,
+		},
+	}
+	clientDefault := createGRPCClient(paramsDefault)
+	require.Equal(t, defaultMaxPolicyStateRecvMsgSize, clientDefault.maxPolicyStateRecvMsgSize)
+}

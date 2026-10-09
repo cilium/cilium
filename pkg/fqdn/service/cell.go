@@ -96,6 +96,9 @@ const (
 	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
 	// been reached.
 	DNSProxyConcurrencyProcessingGracePeriod = "dnsproxy-concurrency-processing-grace-period"
+
+	// SDPMaxPolicyStateMsgSize is the maximum message size in bytes for the PolicyState gRPC stream
+	SDPMaxPolicyStateMsgSize = "sdp-max-policy-state-msg-size"
 )
 
 type FQDNConfig struct {
@@ -117,6 +120,9 @@ type FQDNConfig struct {
 	// wait while processing DNS messages when the DNSProxyConcurrencyLimit has
 	// been reached.
 	DNSProxyConcurrencyProcessingGracePeriod time.Duration
+
+	// SDPMaxPolicyStateMsgSize defines the maximum message size in bytes for the PolicyState gRPC stream
+	SDPMaxPolicyStateMsgSize int
 }
 
 var DefaultConfig = FQDNConfig{
@@ -125,6 +131,7 @@ var DefaultConfig = FQDNConfig{
 	ToFQDNsEnableDNSCompression:              true,
 	DNSMaxIPsPerRestoredRule:                 1000,
 	DNSProxyConcurrencyProcessingGracePeriod: 0,
+	SDPMaxPolicyStateMsgSize:                 16 << 20,
 }
 
 func (def FQDNConfig) Flags(flags *pflag.FlagSet) {
@@ -133,4 +140,5 @@ func (def FQDNConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool(ToFQDNsEnableDNSCompression, def.ToFQDNsEnableDNSCompression, "Allow the DNS proxy to compress responses to endpoints that are larger than 512 Bytes or the EDNS0 option, if present")
 	flags.Int(DNSMaxIPsPerRestoredRule, def.DNSMaxIPsPerRestoredRule, "Maximum number of IPs to maintain for each restored DNS rule")
 	flags.Duration(DNSProxyConcurrencyProcessingGracePeriod, def.DNSProxyConcurrencyProcessingGracePeriod, "Grace time to wait when DNS proxy concurrent limit has been reached during DNS message processing")
+	flags.Int(SDPMaxPolicyStateMsgSize, def.SDPMaxPolicyStateMsgSize, "Maximum message size in bytes for the PolicyState stream in standalone DNS proxy")
 }
