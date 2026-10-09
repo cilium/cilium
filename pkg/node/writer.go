@@ -32,7 +32,16 @@ type Writer struct {
 	isStaticLocalRouterIP  func(netip.Addr) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
 
+	updatePolicy UpdatePolicy
+
 	requiredReconcilers []NodeReconciler
+}
+
+// UpdatePolicy preserves the legacy remote-node update ordering. It retains
+// ownership of conflict resolution and any state it needs.
+type UpdatePolicy interface {
+	Upsert(node *nodeTypes.Node) (publish bool)
+	Delete(src source.Source, identity nodeTypes.Identity)
 }
 
 // PrefixClusterMutatorFn derives cluster-aware addressing options from a
@@ -80,6 +89,10 @@ func (w *Writer) Table() statedb.Table[*Node] { return w.nodes }
 // This hook must be set during Hive invoke time.
 func (w *Writer) SetPrefixClusterMutatorFn(mutator PrefixClusterMutatorFn) {
 	w.prefixClusterMutatorFn = mutator
+}
+
+func (w *Writer) SetUpdatePolicy(p UpdatePolicy) {
+	w.updatePolicy = p
 }
 
 func deriveAddressClusterID(mutator PrefixClusterMutatorFn, n *nodeTypes.Node) uint32 {
@@ -302,12 +315,13 @@ func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) err
 	return w.waitUntilReconciled(ctx, rtxn, false, reconcilers)
 }
 
-// Upsert takes ownership of n and inserts or updates it if its source is
-// allowed to overwrite the current owner. The caller must not modify n after
-// calling Upsert. It reports whether the table changed. Conflicting weaker
-// objects are not retained, so their producer must upsert them again if the
-// winning object is later deleted.
+// Upsert a node into the node table.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
+	if w.updatePolicy != nil && !w.updatePolicy.Upsert(n) {
+		// Policy rejected the update due to conflict.
+		return false
+	}
+
 	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
 	obj := &Node{
 		Node:             *n,
@@ -317,8 +331,8 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 
 	old, _, found := w.nodes.Get(txn, NodeByName(obj.Fullname()))
 	if found {
-		if old.Local != nil || !source.AllowOverwrite(old.Source, obj.Source) {
-			w.log.Warn("Ignoring node update from lower priority source",
+		if old.Local != nil {
+			w.log.Warn("Rejecting update to local node",
 				logfields.Node, obj.Fullname(),
 				logfields.Source, old.Source,
 				logfields.NodeOwner, obj.Source,
@@ -329,48 +343,6 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 			old.addressClusterID == obj.addressClusterID {
 			return false
 		}
-	}
-
-	// Resolve all address conflicts before changing the table. This keeps the
-	// operation atomic when an incoming node overlaps multiple existing nodes:
-	// a single stronger owner rejects the update without deleting weaker ones.
-	conflicts := map[string]*Node{}
-	for addrCluster := range obj.addressClusters(w.isStaticLocalRouterIP) {
-		for candidate := range w.nodes.List(txn, NodeByAddress(addrCluster)) {
-			if candidate.Fullname() == obj.Fullname() {
-				continue
-			}
-			if _, found := conflicts[candidate.Fullname()]; found {
-				continue
-			}
-			w.log.Warn("Node address conflicts with another node",
-				logfields.IPAddr, addrCluster,
-				logfields.Node, obj.Fullname(),
-				logfields.Source, obj.Source,
-				logfields.ConflictingResource, candidate.Fullname(),
-				logfields.NodeOwner, candidate.Source,
-			)
-			conflicts[candidate.Fullname()] = candidate
-		}
-	}
-	for _, candidate := range conflicts {
-		if candidate.Local != nil || !source.AllowOverwrite(candidate.Source, obj.Source) {
-			return false
-		}
-	}
-
-	for _, candidate := range conflicts {
-		if _, _, err := w.nodes.Delete(txn, candidate); err != nil {
-			w.log.Error("Failed to delete node with conflicting address",
-				logfields.Error, err,
-				logfields.Node, candidate.Name,
-				logfields.Source, candidate.Source,
-			)
-			return false
-		}
-	}
-
-	if found {
 		obj.Statuses = old.Statuses.Pending(reconcilers...)
 	}
 
@@ -388,6 +360,9 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 // Delete removes a remote node if this writer's source still owns it. It
 // reports whether the table changed.
 func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool {
+	if w.updatePolicy != nil {
+		defer w.updatePolicy.Delete(src, identity)
+	}
 	old, _, found := w.nodes.Get(txn, NodeByName(identity.String()))
 	if !found {
 		return false

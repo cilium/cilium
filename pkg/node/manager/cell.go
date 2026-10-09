@@ -7,11 +7,9 @@ import (
 	"log/slog"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -31,30 +29,7 @@ var Cell = cell.Module(
 	metrics.Metric(NewNodeMetrics),
 )
 
-// Notifier is the interface the wraps Subscribe and Unsubscribe. An
-// implementation of this interface notifies subscribers of nodes being added,
-// updated or deleted.
-type Notifier interface {
-	// Subscribe adds the given NodeHandler to the list of subscribers that are
-	// notified of node changes. Upon call to this method, the NodeHandler is
-	// being notified of all nodes that are already in the cluster by calling
-	// the NodeHandler's NodeAdd callback.
-	Subscribe(node.Handler)
-
-	// Unsubscribe removes the given NodeHandler from the list of subscribers.
-	Unsubscribe(node.Handler)
-}
-
 type NodeManager interface {
-	Notifier
-
-	// GetNodes returns a copy of all the nodes as a map from Identity to Node.
-	GetNodes() map[types.Identity]types.Node
-
-	// GetNodeIdentities returns a list of all node identities store in node
-	// manager.
-	GetNodeIdentities() []types.Identity
-
 	// NodeUpdated is called when the store detects a change in node
 	// information
 	NodeUpdated(n types.Node)
@@ -74,19 +49,14 @@ type NodeManager interface {
 
 func newAllNodeManager(in struct {
 	cell.In
-	Logger                       *slog.Logger
-	ClusterInfo                  cmtypes.ClusterInfo
-	TunnelConf                   tunnel.Config
-	Lifecycle                    cell.Lifecycle
-	IPCache                      *ipcache.IPCache
-	NodeMetrics                  *nodeMetrics
-	Health                       cell.Health
-	JobGroup                     job.Group
-	DB                           *statedb.DB
-	Devices                      statedb.Table[*tables.Device]
-	WGConfig                     wgTypes.Config
-	Writer                       *node.Writer
-	ClusterSizeDependantInterval node.ClusterSizeDependantIntervalFunc
+	Logger      *slog.Logger
+	ClusterInfo cmtypes.ClusterInfo
+	TunnelConf  tunnel.Config
+	IPCache     *ipcache.IPCache
+	NodeMetrics *nodeMetrics
+	DB          *statedb.DB
+	WGConfig    wgTypes.Config
+	Writer      *node.Writer
 },
 ) (NodeManager, error) {
 	mngr, err := New(
@@ -96,17 +66,12 @@ func newAllNodeManager(in struct {
 		in.TunnelConf,
 		in.IPCache,
 		in.NodeMetrics,
-		in.Health,
-		in.JobGroup,
 		in.DB,
-		in.Devices,
 		in.WGConfig,
 		in.Writer,
-		in.ClusterSizeDependantInterval,
 	)
 	if err != nil {
 		return nil, err
 	}
-	in.Lifecycle.Append(mngr)
 	return mngr, nil
 }
