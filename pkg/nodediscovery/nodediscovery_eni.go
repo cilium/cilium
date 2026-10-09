@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // ENIMutateInputs carries the agent configuration needed to populate the
@@ -31,6 +32,8 @@ type ENIMutateInputs struct {
 	IPAMMinAllocate         int
 	IPAMPreAllocate         int
 	IPAMMaxAllocate         int
+	IPv4Enabled             bool
+	IPv6Enabled             bool
 	CNIConfigManager        cni.CNIConfigManager
 }
 
@@ -63,6 +66,8 @@ func (n *NodeDiscovery) mutateENINodeResource(ctx context.Context, nodeResource 
 		IPAMMinAllocate:         n.config.IPAMMinAllocate,
 		IPAMPreAllocate:         n.config.IPAMPreAllocate,
 		IPAMMaxAllocate:         n.config.IPAMMaxAllocate,
+		IPv4Enabled:             option.Config.EnableIPv4,
+		IPv6Enabled:             option.Config.EnableIPv6,
 		CNIConfigManager:        n.cniConfigManager,
 	}, nodeResource)
 }
