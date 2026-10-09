@@ -14,6 +14,13 @@ import (
 
 const (
 	metadataURL = "http://100.100.100.200/latest/meta-data"
+	tokenURL    = "http://100.100.100.200/latest/api/token"
+
+	// tokenTTLSeconds is the token lifetime to request; 21600s (6h) is the
+	// maximum the metadata service accepts.
+	tokenTTLSeconds = "21600"
+	tokenTTLHeader  = "X-aliyun-ecs-metadata-token-ttl-seconds"
+	tokenHeader     = "X-aliyun-ecs-metadata-token"
 )
 
 // GetInstanceID returns the instance ID from metadata
@@ -46,16 +53,51 @@ func GetVPCCIDRBlock(ctx context.Context) (string, error) {
 	return getMetadata(ctx, "vpc-cidr-block")
 }
 
-// getMetadata gets metadata
-// see https://www.alibabacloud.com/help/doc-detail/49122.htm
+// getToken obtains a token for security-hardened instance metadata access.
+// Hardened instances reject token-less requests with a 403; normal-mode
+// instances accept a token too. It returns an empty string (not an error) when
+// a token cannot be obtained, so callers fall back to a token-less request.
+func getToken(ctx context.Context, client *http.Client) string {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, tokenURL, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set(tokenTTLHeader, tokenTTLSeconds)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	respBytes, err := safeio.ReadAllLimit(resp.Body, safeio.MB)
+	if err != nil {
+		return ""
+	}
+	return string(respBytes)
+}
+
+// getMetadata reads a value from the instance metadata service.
+// See https://www.alibabacloud.com/help/en/ecs/user-guide/view-instance-metadata/
 func getMetadata(ctx context.Context, path string) (string, error) {
 	client := &http.Client{
 		Timeout: time.Second * 10,
 	}
+
+	// Attach a token so reads succeed on security-hardened instances; an empty
+	// token falls back to a token-less request.
+	token := getToken(ctx, client)
+
 	url := fmt.Sprintf("%s/%s", metadataURL, path)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
+	}
+	if token != "" {
+		req.Header.Set(tokenHeader, token)
 	}
 
 	resp, err := client.Do(req)
