@@ -27,6 +27,7 @@ func Overlay(lnc *Config, link netlink.Link) any {
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 	cfg.EnableNAT46X64 = option.Config.NodePortNat46X64 && lnc.KPRConfig.KubeProxyReplacement
+	cfg.EnableBandwidthManager = lnc.EnableBandwidthManager
 
 	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {

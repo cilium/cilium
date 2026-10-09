@@ -60,6 +60,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 			t.SocketLB.HostNSOnly = true
 			t.SocketLB.EnableTracing = true
 			t.EnableNAT46X64 = true
+			t.EnableBandwidthManager = true
 		}),
 
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
@@ -107,6 +108,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 				t.StrictEgressEncryption.AllowRemoteNodes = true
 			}
 		}),
+		Increment(func(t *config.BPFHost, v bool) { t.EnableBandwidthManager = v }),
 	)
 	return b
 }
@@ -123,6 +125,7 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 			t.EnableNAT46X64 = true
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFOverlay, v bool) { t.EnableBandwidthManager = v }),
 	)
 	return b
 }
