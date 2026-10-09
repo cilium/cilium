@@ -607,9 +607,15 @@ func (driver *Driver) buildDeviceStatus(
 	}
 	ips := make([]string, 0, 2)
 	if driver.ipv4Enabled {
+		if !a.Config.IPv4Addr.IsValid() {
+			return resourceapi.AllocatedDeviceStatus{}, errors.New("invalid IPv4 address")
+		}
 		ips = append(ips, a.Config.IPv4Addr.String())
 	}
 	if driver.ipv6Enabled {
+		if !a.Config.IPv6Addr.IsValid() {
+			return resourceapi.AllocatedDeviceStatus{}, errors.New("invalid IPv6 address")
+		}
 		ips = append(ips, a.Config.IPv6Addr.String())
 	}
 

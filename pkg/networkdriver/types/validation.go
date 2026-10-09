@@ -37,6 +37,11 @@ func (d *DeviceConfig) Validate(ipv4Enabled bool, ipv6Enabled bool) error {
 }
 
 func (d *DeviceConfig) validateAddressAllocation(ipv4Enabled bool, ipv6Enabled bool) error {
+	if !ipv4Enabled && !ipv6Enabled {
+		// we should have at least one of IPv4 or IPv6 enabled
+		return fmt.Errorf("both IPv4 and IPv6 are disabled")
+	}
+
 	if !ipv4Enabled && d.IPv4Addr.IsValid() {
 		return fmt.Errorf("static IPv4 address is not allowed when IPv4 is disabled")
 	}
@@ -48,6 +53,11 @@ func (d *DeviceConfig) validateAddressAllocation(ipv4Enabled bool, ipv6Enabled b
 	if d.HasPool() && (d.IPv4Addr.IsValid() || d.IPv6Addr.IsValid()) {
 		// If we have the pool name we are in dynamic allocation mode so we mustn't have static IPs.
 		return fmt.Errorf("static IPs are not allowed in dynamic allocation mode")
+	}
+
+	if !d.HasPool() && !d.IPv4Addr.IsValid() && !d.IPv6Addr.IsValid() {
+		// If we don't have a pool, at least one static IP must be provided
+		return fmt.Errorf("no static IP provided and no pool configured")
 	}
 	return nil
 }
