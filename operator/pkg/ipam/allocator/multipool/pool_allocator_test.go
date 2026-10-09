@@ -1046,3 +1046,43 @@ func TestPoolAllocator_ReleasedCIDRRemainsReserved(t *testing.T) {
 	err = p.AllocateToNode("node3", request)
 	require.ErrorIs(t, err, errPoolEmpty)
 }
+
+func TestOrphanCIDRsNoErrorWhenPoolNotRequested(t *testing.T) {
+	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p.RestoreFinished()
+
+	// the pool does not exist (it was deleted), the node does not request it
+	// anymore, but the node still lists CIDRs allocated from it.
+	allocated := []ipamTypes.IPAMPoolAllocation{
+		{
+			Pool: "test-pool",
+			CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("10.100.0.0/24")),
+				iputil.PrefixFrom(netip.MustParsePrefix("fd00:100::/96")),
+			},
+		},
+	}
+	notRequested := ipamTypes.IPAMPoolSpec{Allocated: allocated}
+	requested := ipamTypes.IPAMPoolSpec{
+		Requested: []ipamTypes.IPAMPoolRequest{{Pool: "test-pool"}},
+		Allocated: allocated,
+	}
+
+	// no prior orphan (as after an operator restart): the CIDRs are kept as
+	// orphans and no error is returned, since the node does not request the pool
+	err := p.AllocateToNode("node1", notRequested)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, p.orphans["node1"])
+	assert.Equal(t, allocated, p.AllocatedPools("node1"))
+
+	// while the pool is requested, the error is still reported
+	err = p.AllocateToNode("node1", requested)
+	assert.ErrorContains(t, err, "marked as orphan")
+	assert.Equal(t, allocated, p.AllocatedPools("node1"))
+
+	// once the pool is not requested anymore, the error goes away but the
+	// CIDRs are not given up
+	err = p.AllocateToNode("node1", notRequested)
+	assert.NoError(t, err)
+	assert.Equal(t, allocated, p.AllocatedPools("node1"))
+}

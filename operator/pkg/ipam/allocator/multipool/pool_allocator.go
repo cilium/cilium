@@ -449,6 +449,11 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools types.IPAMPoolSpec
 	// handing out the same CIDR twice.
 	var err error
 
+	requested := make(map[string]struct{}, len(pools.Requested))
+	for _, reqPool := range pools.Requested {
+		requested[reqPool.Pool] = struct{}{}
+	}
+
 	allocatedSet := make(map[string]map[netip.Prefix]struct{}, len(pools.Allocated))
 	for _, allocatedPool := range pools.Allocated {
 		allocatedSet[allocatedPool.Pool] = make(map[netip.Prefix]struct{}, len(allocatedPool.CIDRs))
@@ -469,9 +474,21 @@ func (p *PoolAllocator) AllocateToNode(nodeName string, pools types.IPAMPoolSpec
 				// pool cannot be found: it must be a pool deleted before the operator restarted.
 				// Mark the CIDR as orphan to preserve node allocations.
 				p.markOrphan(nodeName, allocatedPool.Pool, prefix, allocatedPool.AllowFirstIP, allocatedPool.AllowLastIP)
-				err = errors.Join(err,
-					fmt.Errorf("unable to find pool %s, prefix %s is still allocated to the node but is marked as orphan",
-						allocatedPool.Pool, prefix))
+				if _, found := requested[allocatedPool.Pool]; found {
+					err = errors.Join(err,
+						fmt.Errorf("unable to find pool %s, prefix %s is still allocated to the node but is marked as orphan",
+							allocatedPool.Pool, prefix))
+				} else {
+					// The node does not request the pool anymore, so there is
+					// nothing to retry: keep the CIDR as orphan, but do not
+					// fail the reconciliation of the node.
+					p.logger.Debug(
+						"CIDR of a missing pool is still allocated to the node and is kept as orphan",
+						logfields.PoolName, allocatedPool.Pool,
+						logfields.Node, nodeName,
+						logfields.CIDR, prefix,
+					)
+				}
 			}
 
 			allocatedSet[allocatedPool.Pool][prefix] = struct{}{}
