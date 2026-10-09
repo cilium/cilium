@@ -17,11 +17,9 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	iptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
-	fqdnendpoint "github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/envoy"
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
-	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/endpoint"
@@ -210,112 +208,3 @@ func (*fakeXdsServer) SetPolicySecretSyncNamespace(string) {
 }
 
 var _ envoy.XDSServer = &fakeXdsServer{}
-
-// fakeDNSProxier is a no-op DNSProxier so a DNS redirect can be driven past the
-// readiness barrier in unit tests without a real proxy.
-type fakeDNSProxier struct{}
-
-func (fakeDNSProxier) GetRules(uint16) (restore.DNSRules, error) { return nil, nil }
-func (fakeDNSProxier) RemoveRestoredRules(uint16)                {}
-func (fakeDNSProxier) UpdateAllowed(uint64, restore.PortProto, policy.L7DataMap) (revert.RevertFunc, error) {
-	return func() error { return nil }, nil
-}
-func (fakeDNSProxier) GetBindPort() uint16                 { return 0 }
-func (fakeDNSProxier) RestoreRules(*fqdnendpoint.Endpoint) {}
-func (fakeDNSProxier) Cleanup()                            {}
-func (fakeDNSProxier) Listen(uint16) error                 { return nil }
-
-func dnsProxyForTest(t *testing.T) *Proxy {
-	p := proxyForTest(t, nil)
-	p.dnsIntegration = &dnsProxyIntegration{dnsProxy: fakeDNSProxier{}}
-	return p
-}
-
-// A DNS redirect must not be created until the DNS proxy signals ready; once
-// signalled, the call proceeds.
-func TestCreateOrUpdateRedirectWaitsForDNSProxyReady(t *testing.T) {
-	p := dnsProxyForTest(t)
-	l4 := &fakeProxyPolicy{policy.ParserTypeDNS}
-
-	ctx := t.Context()
-	wg := completion.NewWaitGroup(ctx)
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		p.CreateOrUpdateRedirect(ctx, l4, "dns-proxy-id", 1000, wg)
-	}()
-
-	// Must still be blocked on the readiness barrier.
-	select {
-	case <-done:
-		require.Fail(t, "CreateOrUpdateRedirect returned before DNS proxy was ready")
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	p.proxyPorts.SignalDNSProxyReady()
-
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		require.Fail(t, "CreateOrUpdateRedirect did not return after DNS proxy became ready")
-	}
-}
-
-// A DNS redirect waiting on readiness returns ctx.Err() when the context is
-// cancelled, rather than hanging.
-func TestCreateOrUpdateRedirectDNSReadyCtxCancel(t *testing.T) {
-	p := dnsProxyForTest(t)
-	l4 := &fakeProxyPolicy{policy.ParserTypeDNS}
-
-	ctx, cancel := context.WithCancel(t.Context())
-	wg := completion.NewWaitGroup(ctx)
-
-	type result struct {
-		port uint16
-		err  error
-	}
-	res := make(chan result, 1)
-	go func() {
-		port, err, _ := p.CreateOrUpdateRedirect(ctx, l4, "dns-proxy-id", 1000, wg)
-		res <- result{port, err}
-	}()
-
-	select {
-	case <-res:
-		require.Fail(t, "CreateOrUpdateRedirect returned before context cancellation")
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	cancel()
-
-	select {
-	case r := <-res:
-		require.Equal(t, uint16(0), r.port)
-		require.ErrorIs(t, r.err, context.Canceled)
-	case <-time.After(5 * time.Second):
-		require.Fail(t, "CreateOrUpdateRedirect did not return after context cancellation")
-	}
-}
-
-// A non-DNS redirect is not gated by DNS proxy readiness and returns without
-// waiting even though the signal was never sent.
-func TestCreateOrUpdateRedirectNonDNSNotGated(t *testing.T) {
-	p := proxyForTest(t, nil)
-	l4 := &fakeProxyPolicy{policy.ParserTypeCRD}
-
-	ctx := t.Context()
-	wg := completion.NewWaitGroup(ctx)
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		p.CreateOrUpdateRedirect(ctx, l4, "crd-proxy-id", 1000, wg)
-	}()
-
-	select {
-	case <-done:
-	case <-time.After(5 * time.Second):
-		require.Fail(t, "non-DNS CreateOrUpdateRedirect blocked on DNS proxy readiness")
-	}
-}

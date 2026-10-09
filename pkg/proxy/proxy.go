@@ -120,15 +120,6 @@ func (p *Proxy) CreateOrUpdateRedirect(
 ) (
 	uint16, error, revert.RevertFunc,
 ) {
-	// Only DNS Redirects should wait for the DNS proxy to allocate a port.
-	if types.ProxyType(l4.GetL7Parser()) == types.ProxyTypeDNS {
-		select {
-		case <-p.proxyPorts.DNSProxyReady():
-		case <-ctx.Done():
-			return 0, ctx.Err(), nil
-		}
-	}
-
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -160,6 +151,12 @@ func (p *Proxy) CreateOrUpdateRedirect(
 
 	// Create a new redirect
 	return p.createNewRedirect(ctx, l4, id, epID, wg)
+}
+
+// DNSProxyReady returns a channel closed once the embedded DNS proxy is
+// listening with its proxy port registered.
+func (p *Proxy) DNSProxyReady() <-chan struct{} {
+	return p.proxyPorts.DNSProxyReady()
 }
 
 func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress bool) error {
