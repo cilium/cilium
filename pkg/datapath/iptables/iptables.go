@@ -805,38 +805,42 @@ func (m *manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
 // installTunnelNoTrackRules adds the NOTRACK rule in the cilium raw prerouting
 // and output raw chains for udp destination port at `tunnelPort`.
 func (m *manager) installTunnelNoTrackRules(tunelPort uint16) error {
-	input := []string{
-		"-t", "raw",
-		"-A", ciliumPreRawChain,
-		"-p", "udp",
-		"--dport", strconv.Itoa(int(tunelPort)),
-		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
-		"-j", "CT", "--notrack",
+	addRule := func(chain, ipsetDir string) error {
+		cmd := func(ipset string) []string {
+			return []string{"-t", "raw",
+				"-A", chain,
+				"-p", "udp",
+				"--dport", strconv.Itoa(int(tunelPort)),
+				"-m", "set", "--match-set", ipset, ipsetDir,
+				"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
+				"-j", "CT", "--notrack",
+			}
+		}
+
+		if m.sharedCfg.EnableIPv4 {
+			if err := m.ip4tables.runProg(cmd(m.ip4tables.getIpset())); err != nil {
+				return err
+			}
+		}
+
+		if m.sharedCfg.EnableIPv6 {
+			if err := m.ip6tables.runProg(cmd(m.ip6tables.getIpset())); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
-	output := []string{
-		"-t", "raw",
-		"-A", ciliumOutputRawChain,
-		"-p", "udp",
-		"--dport", strconv.Itoa(int(tunelPort)),
-		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
-		"-j", "CT", "--notrack",
-	}
+	for _, chain := range []string{ciliumPreRawChain, ciliumOutputRawChain} {
+		// match remote nodes with ipset: input direction allows sources, whereas
+		// output direction allows destinations.
+		ipsetDir := "dst"
+		if chain == ciliumPreRawChain {
+			ipsetDir = "src"
+		}
 
-	if m.sharedCfg.EnableIPv4 {
-		if err := m.ip4tables.runProg(input); err != nil {
-			return err
-		}
-		if err := m.ip4tables.runProg(output); err != nil {
-			return err
-		}
-	}
-
-	if m.sharedCfg.EnableIPv6 {
-		if err := m.ip6tables.runProg(input); err != nil {
-			return err
-		}
-		if err := m.ip6tables.runProg(output); err != nil {
+		if err := addRule(chain, ipsetDir); err != nil {
 			return err
 		}
 	}
