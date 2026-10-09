@@ -235,6 +235,29 @@ int bpf_test(__maybe_unused struct __sk_buff *sctx)
 		assert(rev_nat_index == 42);
 	});
 
+	TEST("ct_entry_matches_types", {
+		struct ct_entry entry = {};
+		struct ct_state state = {};
+
+		entry.rev_nat_index = 76;
+
+		/* Wildcard lookup (state = NULL or state->rev_nat_index = 0) with CT_ENTRY_SVC */
+		assert(ct_entry_matches_types(&entry, CT_ENTRY_SVC, NULL));
+		assert(ct_entry_matches_types(&entry, CT_ENTRY_SVC, &state));
+
+		/* Specific lookup with matching rev_nat_index */
+		state.rev_nat_index = 76;
+		assert(ct_entry_matches_types(&entry, CT_ENTRY_SVC, &state));
+
+		/* Specific lookup with non-matching rev_nat_index */
+		state.rev_nat_index = 99;
+		assert(!ct_entry_matches_types(&entry, CT_ENTRY_SVC, &state));
+
+		/* Combination mask CT_ENTRY_NODEPORT | CT_ENTRY_DSR | CT_ENTRY_SVC */
+		state.rev_nat_index = 0;
+		assert(ct_entry_matches_types(&entry, CT_ENTRY_NODEPORT | CT_ENTRY_DSR | CT_ENTRY_SVC, NULL));
+	});
+
 	test_finish();
 }
 
