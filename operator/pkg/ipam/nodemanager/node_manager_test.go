@@ -1114,7 +1114,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	am := newAllocationImplementationMock()
 	require.NotNil(b, am)
-	mngr, err := NewNodeManager(hivetest.Logger(b), am, k8sapi, metricsmock.NewMockMetrics(), 10, false, 0, false)
+	mngr, err := NewNodeManager(hivetest.Logger(b), am, k8sapi, metricsmock.NewMockMetrics(), workers, false, 0, false)
 	require.NoError(b, err)
 	require.NotNil(b, mngr)
 
