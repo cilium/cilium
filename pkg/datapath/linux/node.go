@@ -26,6 +26,7 @@ import (
 	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -74,6 +75,9 @@ type linuxNodeHandler struct {
 	ipsecMetricCollector prometheus.Collector
 	ipsecMetricOnce      sync.Once
 	ipsecAgent           ipsecTypes.Agent
+	routeManager         *routeReconciler.DesiredRouteManager
+	routeInitializer     routeReconciler.Initializer
+	pruneExclusions      *routeReconciler.PruneExclusion
 
 	enableEncapsulation func(node *nodeTypes.Node) bool
 
@@ -100,13 +104,15 @@ func NewNodeHandler(
 	kprCfg kpr.KPRConfig,
 	ipsecAgent ipsecTypes.Agent,
 	localNodeStore *node.LocalNodeStore,
+	pruneExclusion *routeReconciler.PruneExclusion,
+	routeManager *routeReconciler.DesiredRouteManager,
 ) (node.Handler, node.IDHandler) {
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore)
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore, pruneExclusion, routeManager)
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
@@ -135,6 +141,8 @@ func newNodeHandler(
 	ipsecAgent ipsecTypes.Agent,
 	ipsecCfg ipsecTypes.Config,
 	localNodeStore *node.LocalNodeStore,
+	pruneExclusion *routeReconciler.PruneExclusion,
+	routeManager *routeReconciler.DesiredRouteManager,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
@@ -151,6 +159,10 @@ func newNodeHandler(
 		kprCfg:               kprCfg,
 		ipsecAgent:           ipsecAgent,
 		ipsecCfg:             ipsecCfg,
+		routeManager:         routeManager,
+		// the initializer is specific to the auto-direct-node-routes component
+		routeInitializer: routeManager.RegisterInitializer("auto-direct-node-routes"),
+		pruneExclusions:  pruneExclusion,
 	}
 }
 
@@ -228,14 +240,31 @@ func createDirectRouteSpec(log *slog.Logger, prefix netip.Prefix, nodeIP net.IP,
 	return
 }
 
-func installDirectRoute(log *slog.Logger, prefix netip.Prefix, nodeIP net.IP, skipUnreachable bool) (routeSpec *netlink.Route, err error) {
-	routeSpec, addRoute, err := createDirectRouteSpec(log, prefix, nodeIP, skipUnreachable)
+func (n *linuxNodeHandler) installDirectRoute(prefix netip.Prefix, nodeIP net.IP, skipUnreachable bool) (routeSpec *netlink.Route, err error) {
+	routeSpec, addRoute, err := createDirectRouteSpec(n.log, prefix, nodeIP, skipUnreachable)
 	if err != nil {
 		return
 	}
 
-	if addRoute {
-		err = netlink.RouteReplace(routeSpec)
+	if !addRoute {
+		return
+	}
+
+	if err = netlink.RouteReplace(routeSpec); err == nil {
+		// if the route is correctly added with netlink, we add it to the prune
+		// exclusions to prevent it from being removed by the route-reconciler
+		// pruning logic in case of downgrades.
+		if ok := n.pruneExclusions.Add(routeReconciler.DesiredRouteKey{
+			Owner:    nil, // The route-reconciler WAL stores only ownerless keys
+			Table:    routeReconciler.TableMain,
+			Prefix:   prefix,
+			Priority: 0, // Cilium v1.21 set this priority to 0 for direct routes, so we keep the same value.
+		}); ok {
+			n.log.Info("Add direct route to prune exclusions",
+				logfields.Prefix, prefix,
+			)
+		}
+		return
 	}
 	return
 }
@@ -271,7 +300,7 @@ func (n *linuxNodeHandler) updateDirectRoutes(oldCIDRs, newCIDRs []netip.Prefix,
 	)
 
 	for _, prefix := range addedCIDRs {
-		if routeSpec, err := installDirectRoute(n.log, prefix, newIP, directRouteSkipUnreachable); err != nil {
+		if routeSpec, err := n.installDirectRoute(prefix, newIP, directRouteSkipUnreachable); err != nil {
 			n.log.Warn("Unable to install direct node route",
 				logfields.Route, routeSpec,
 				logfields.Error, err,
@@ -775,6 +804,7 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig config.Config) err
 				errs = errors.Join(errs, err)
 			}
 		}
+		n.routeManager.FinalizeInitializer(n.routeInitializer)
 	}
 
 	return errs
