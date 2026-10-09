@@ -32,6 +32,7 @@ const (
 	MetricsSubsystem                  = "bgp_control_plane"
 	MetricReconcileErrorsTotal        = "reconcile_errors_total"
 	MetricReconcileRunDurationSeconds = "reconcile_run_duration_seconds"
+	MetricBFDSessionState             = "bfd_session_state"
 )
 
 // BGPGlobal contains high level BGP configuration for given instance.
@@ -90,6 +91,7 @@ type Neighbor struct {
 	Timers          *NeighborTimers
 	Transport       *NeighborTransport
 	GracefulRestart *NeighborGracefulRestart
+	BFD             *NeighborBFD
 	AfiSafis        []*Family
 }
 
@@ -112,6 +114,13 @@ type NeighborTimers struct {
 type NeighborGracefulRestart struct {
 	Enabled     bool
 	RestartTime uint32
+}
+
+type NeighborBFD struct {
+	// DesiredMinTxInterval and RequiredMinRxInterval are expressed in microseconds.
+	DesiredMinTxInterval  uint32
+	RequiredMinRxInterval uint32
+	DetectionMultiplier   uint8
 }
 
 // SoftResetDirection defines the direction in which a BGP soft reset should be performed
@@ -203,6 +212,22 @@ type PeerState struct {
 
 	// Set when a TCP password is configured for communications with this peer
 	TCPPasswordEnabled bool `json:"tcp-password-enabled,omitempty"`
+
+	// BFD session state. It is nil when BFD is not configured for this peer.
+	BFD *BFDState `json:"bfd,omitempty"`
+}
+
+// BFDState contains the operational state of a BFD session.
+type BFDState struct {
+	SessionState    BFDSessionState   `json:"session-state"`
+	ControlCounters BFDPacketCounters `json:"control-counters,omitempty"`
+	EchoCounters    BFDPacketCounters `json:"echo-counters,omitempty"`
+}
+
+// BFDPacketCounters contains counters for BFD control packets.
+type BFDPacketCounters struct {
+	TransmittedPackets uint64 `json:"transmitted-packets,omitempty"`
+	ReceivedPackets    uint64 `json:"received-packets,omitempty"`
 }
 
 // PeerTimers contains information for peer timers settings.
