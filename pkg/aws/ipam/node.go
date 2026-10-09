@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/netip"
 	"slices"
 	"strings"
@@ -185,130 +184,10 @@ func (n *Node) foreachENI(instanceID string, usePrimary bool, fn func(e *types.E
 		})
 }
 
-// PrepareIPRelease prepares the release of ENI IPs.
-//
-// This function only covers 1.19 and below agents that use the CRD allocator.
-// 1.20+ agents use the multipool allocator and their IP release mechanism uses
-// PrepareCIDRRelease instead.
+// PrepareIPRelease is a no-op since ENI agents use the multi-pool allocator,
+// whose IP release mechanism uses PrepareCIDRRelease instead.
 func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemanager.ReleaseAction {
-	r := &nodemanager.ReleaseAction{}
-
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
-	// Needs to be sorted for selecting the same ENI to release IPs from
-	// when more than one ENI qualifies for release.
-	// Iterate over ENIs on this node, select the ENI with the most
-	// addresses available for release
-	for _, eniId := range slices.Sorted(maps.Keys(n.enis)) {
-		e := n.enis[eniId]
-
-		// Ignore if the ENI is not managed by Cilium
-		if e.IsExcludedBySpec(n.k8sObj.Spec.ENI) {
-			continue
-		}
-		prefixes := cslices.Map(e.Prefixes, func(p iputil.Prefix) netip.Prefix { return p.Prefix })
-		addrs := cslices.Map(e.Addresses, func(a iputil.Addr) netip.Addr { return a.Addr })
-		usedIPs := n.k8sObj.Status.IPAM.Used
-
-		matchedIPs := []string{}
-		// Returns the first ENI with either IPPrefixes/secondary IPs to release instead of
-		// looking for an ENI with max IPPrefixes/secondary IPs to release for faster and
-		// lower latency when early ENIs are eligible.
-		if len(prefixes) > 0 {
-			scopedLog.Debug(
-				"Considering ENI for IPPrefix release",
-				fieldEniID, e.ID,
-				logfields.NeedIndex, *n.k8sObj.Spec.ENI.FirstInterfaceIndex,
-				logfields.Index, e.Number,
-				logfields.NumAddresses, len(e.Addresses),
-				logfields.LenPrefixes, len(prefixes),
-				logfields.ExcessIPs, excessIPs,
-			)
-
-			unusedIPPrefixes := []string{}
-			if excessIPs >= option.ENIPDBlockSizeIPv4 {
-				// Identify unused IP prefixes to release
-				for _, prefix := range prefixes {
-					found := false
-					for addr := range usedIPs {
-						if prefix.Contains(addr.Addr) {
-							found = true
-							break
-						}
-					}
-					if !found {
-						unusedIPPrefixes = append(unusedIPPrefixes, prefix.String())
-						for _, addr := range addrs {
-							if prefix.Contains(addr) {
-								matchedIPs = append(matchedIPs, addr.String())
-							}
-						}
-						// Reduce excessIPs with option.ENIPDBlockSizeIPv4 number of IPs after adding a prefix
-						excessIPs = excessIPs - option.ENIPDBlockSizeIPv4
-					}
-
-					if excessIPs < option.ENIPDBlockSizeIPv4 {
-						break
-					}
-				}
-			}
-
-			secondaryIPs := getIndividualIPs(prefixes, addrs)
-			if len(unusedIPPrefixes) > 0 || len(secondaryIPs) > 0 {
-				r.InterfaceID = eniId
-				r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
-				r.IPPrefixesToRelease = unusedIPPrefixes
-				if len(secondaryIPs) > 0 {
-					unused := getUnusedIPs(usedIPs, secondaryIPs, e.IP.Addr)
-					maxReleaseOnENI := min(excessIPs, len(unused))
-					matchedIPs = append(matchedIPs, cslices.Map(unused[:maxReleaseOnENI], netip.Addr.String)...)
-				}
-				scopedLog.Debug(
-					"ENI has unused secondary IPs and/or IPPrefixes that can be released",
-					fieldEniID, e.ID,
-					logfields.Prefix, unusedIPPrefixes,
-					logfields.IPAddrs, matchedIPs,
-				)
-				r.IPsToRelease = matchedIPs
-				// Return since we have either IPPrefixes/secondary IPs to release
-				return r
-			}
-			// Look for next ENI if we do not have an ENI with either a Prefix/secondary IP to release
-			continue
-		}
-		scopedLog.Debug(
-			"Considering ENI for IP release",
-			fieldEniID, e.ID,
-			logfields.NeedIndex, *n.k8sObj.Spec.ENI.FirstInterfaceIndex,
-			logfields.Index, e.Number,
-			logfields.NumAddresses, len(e.Addresses),
-		)
-
-		// Count free IP addresses on this ENI
-		freeIpsOnENI := getUnusedIPs(usedIPs, addrs, e.IP.Addr)
-		freeOnENICount := len(freeIpsOnENI)
-		if freeOnENICount <= 0 {
-			continue
-		}
-
-		scopedLog.Debug(
-			"ENI has unused IPs that can be released",
-			fieldEniID, e.ID,
-			logfields.ExcessIPs, excessIPs,
-			logfields.FreeOnENICount, freeOnENICount,
-		)
-		maxReleaseOnENI := min(freeOnENICount, excessIPs)
-		firstENIWithFreeIPFound := r.IPsToRelease == nil
-		eniWithMoreFreeIPsFound := maxReleaseOnENI > len(r.IPsToRelease)
-		// Select the ENI with the most addresses available for release
-		if firstENIWithFreeIPFound || eniWithMoreFreeIPsFound {
-			r.InterfaceID = eniId
-			r.PoolID = ipamTypes.PoolID(e.Subnet.ID)
-			r.IPsToRelease = cslices.Map(freeIpsOnENI[:maxReleaseOnENI], netip.Addr.String)
-		}
-	}
-	return r
+	return &nodemanager.ReleaseAction{}
 }
 
 // GetAttachedCIDRs returns the CIDRs (addresses as /32 or /128, and
@@ -445,74 +324,16 @@ func (n *Node) ReleaseCIDRs(ctx context.Context, r *nodemanager.ReleaseAction) (
 	return released, nil
 }
 
-// ReleaseIPPrefixes performs the ENI IPPrefixes release operation
-//
-// This function only covers 1.19 and below agents that use the CRD allocator.
-// 1.20+ agents use the multipool allocator and their IP release mechanism uses
-// ReleaseCIDRs instead.
+// ReleaseIPPrefixes is not implemented since ENI agents use the multi-pool
+// allocator, whose IP release mechanism uses ReleaseCIDRs instead.
 func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *nodemanager.ReleaseAction) error {
-	if err := n.manager.ec2api.UnassignENIPrefixes(ctx, r.InterfaceID, r.IPPrefixesToRelease); err != nil {
-		return err
-	}
-
-	return nil
-
+	return errors.New("not implemented")
 }
 
-// Get Unused Individual IPs
-func getUnusedIPs(usedIPs ipamTypes.AllocationMap, addrs []netip.Addr, primaryIP netip.Addr) (unusedIPs []netip.Addr) {
-	for _, addr := range addrs {
-		if _, usedIP := usedIPs[iputil.AddrFrom(addr)]; !usedIP && addr != primaryIP {
-			unusedIPs = append(unusedIPs, addr)
-		}
-	}
-	return unusedIPs
-}
-
-// Get Individual IPs that do not belong to any IPPrefix
-func getIndividualIPs(ipPrefixes []netip.Prefix, ipAddresses []netip.Addr) (individualIPs []netip.Addr) {
-	for _, ip := range ipAddresses {
-		matched := false
-		for _, prefix := range ipPrefixes {
-			if prefix.Contains(ip) {
-				matched = true
-				break
-			}
-		}
-		if !matched {
-			individualIPs = append(individualIPs, ip)
-		}
-	}
-	return individualIPs
-}
-
-// ReleaseIPs performs the ENI IP release operation
-//
-// This function only covers 1.19 and below agents that use the CRD allocator.
-// 1.20+ agents use the multipool allocator and their IP release mechanism uses
-// ReleaseCIDRs instead.
+// ReleaseIPs is not implemented since ENI agents use the multi-pool allocator,
+// whose IP release mechanism uses ReleaseCIDRs instead.
 func (n *Node) ReleaseIPs(ctx context.Context, r *nodemanager.ReleaseAction) error {
-	// Filter IPs that do not belong to any IPPrefix.
-	//
-	// MustParse* is safe here: every writer of these fields derives the string
-	// from a netip.Addr/netip.Prefix (PrepareIPRelease above and the operator's
-	// nodemanager), so the round-trip is guaranteed to succeed.
-	if len(r.IPPrefixesToRelease) > 0 {
-		prefixes := cslices.Map(r.IPPrefixesToRelease, netip.MustParsePrefix)
-		addrs := cslices.Map(r.IPsToRelease, netip.MustParseAddr)
-		r.IPsToRelease = cslices.Map(getIndividualIPs(prefixes, addrs), netip.Addr.String)
-	}
-
-	if len(r.IPsToRelease) <= 0 {
-		return nil
-	}
-	if err := n.manager.ec2api.UnassignPrivateIpAddresses(ctx, r.InterfaceID, r.IPsToRelease); err != nil {
-		return err
-	}
-
-	n.manager.RemoveIPsFromENI(n.node.InstanceID(), r.InterfaceID, r.IPsToRelease)
-	return nil
-
+	return errors.New("not implemented")
 }
 
 // PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
