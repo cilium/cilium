@@ -169,7 +169,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
 	// Use 7 out of 8 IPs
-	mngr.Upsert(updateCiliumNode(cn, 8, 7))
+	mngr.Upsert(updateCiliumNode(cn, 7))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
 
 	node = mngr.Get("node1")
@@ -217,7 +217,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
 	// Use 12 out of 16 IPs
-	mngr.Upsert(updateCiliumNode(cn, 16, 12))
+	mngr.Upsert(updateCiliumNode(cn, 12))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
 
 	node = mngr.Get("node1")
@@ -241,7 +241,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 	ec2api.UpdateSubnets([]*ipamTypes.Subnet{&pdTestSubnet})
 
 	// Use 25 out of 32 IPs
-	mngr.Upsert(updateCiliumNode(cn, 32, 25))
+	mngr.Upsert(updateCiliumNode(cn, 25))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
 
 	node = mngr.Get("node1")
@@ -293,7 +293,7 @@ func TestNodeManagerENIWithSGTags(t *testing.T) {
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
 	// Use 7 out of 8 IPs
-	mngr.Upsert(updateCiliumNode(cn, 8, 7))
+	mngr.Upsert(updateCiliumNode(cn, 7))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
 
 	node = mngr.Get("node1")
@@ -351,7 +351,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 	require.Equal(t, 10, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
-	mngr.Upsert(updateCiliumNode(cn, 10, 8))
+	mngr.Upsert(updateCiliumNode(cn, 8))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 
 	node = mngr.Get("node2")
@@ -363,7 +363,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 	withIPAMPreAllocate(0)(cn)
 	withIPAMMinAllocate(20)(cn)
 
-	mngr.Upsert(updateCiliumNode(cn, 20, 8))
+	mngr.Upsert(updateCiliumNode(cn, 8))
 	mngr.Upsert(cn)
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 
@@ -412,7 +412,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
 	// Use 9 out of 10 IPs, no additional IPs should be allocated
-	mngr.Upsert(updateCiliumNode(cn, 10, 9))
+	mngr.Upsert(updateCiliumNode(cn, 9))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
@@ -420,7 +420,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	require.Equal(t, 9, node.Stats().IPv4.UsedIPs)
 
 	// Use 10 out of 10 IPs, PreAllocate 1 must kick in and allocate an additional IP
-	mngr.Upsert(updateCiliumNode(cn, 10, 10))
+	mngr.Upsert(updateCiliumNode(cn, 10))
 	syncTime, err := instances.Resync(t.Context())
 	require.NoError(t, err)
 	mngr.Resync(t.Context(), syncTime)
@@ -431,7 +431,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	require.Equal(t, 10, node.Stats().IPv4.UsedIPs)
 
 	// Release some IPs, no additional IPs should be allocated
-	mngr.Upsert(updateCiliumNode(cn, 10, 8))
+	mngr.Upsert(updateCiliumNode(cn, 8))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node2", 0) }, 5*time.Second))
 	node = mngr.Get("node2")
 	require.NotNil(t, node)
@@ -494,7 +494,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 	eniNode.mutex.RUnlock()
 
 	// Use 7 out of 8 IPs
-	mngr.Upsert(updateCiliumNode(cn, 8, 7))
+	mngr.Upsert(updateCiliumNode(cn, 7))
 	syncTime, err := instances.Resync(t.Context())
 	require.NoError(t, err)
 	mngr.Resync(t.Context(), syncTime)
@@ -554,7 +554,7 @@ func TestNodeManagerExceedENICapacity(t *testing.T) {
 	// Use 40 out of 42 available IPs, we should reach 0 address needed once we
 	// assigned the remaining 3 that the t2.xlarge instance type supports
 	// (3x15 - 3 = 42 max)
-	mngr.Upsert(updateCiliumNode(cn, 42, 40))
+	mngr.Upsert(updateCiliumNode(cn, 40))
 	syncTime, err := instances.Resync(t.Context())
 	require.NoError(t, err)
 	mngr.Resync(t.Context(), syncTime)
@@ -808,7 +808,7 @@ func TestInstanceBeenDeleted(t *testing.T) {
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
 	// Use 2 out of 9 IPs
-	mngr.Upsert(updateCiliumNode(cn, 9, 2))
+	mngr.Upsert(updateCiliumNode(cn, 2))
 
 	// Instance deletion detected, no allocation happened despite of the IP deficit.
 	require.Equal(t, 8, node.Stats().IPv4.AvailableIPs)
@@ -855,7 +855,7 @@ func TestNodeManagerStaticIP(t *testing.T) {
 	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
 
 	// Use 1 IP
-	mngr.Upsert(updateCiliumNode(cn, 8, 1))
+	mngr.Upsert(updateCiliumNode(cn, 1))
 	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
 
 	node = mngr.Get("node1")
@@ -1134,7 +1134,7 @@ func withExcludeInterfaceTags(tags map[string]string) func(*v2.CiliumNode) {
 	}
 }
 
-func updateCiliumNode(cn *v2.CiliumNode, available, used int) *v2.CiliumNode {
+func updateCiliumNode(cn *v2.CiliumNode, used int) *v2.CiliumNode {
 	cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{}
 	for i := range used {
 		cn.Spec.IPAM.Pool[iputil.AddrFrom(netip.MustParseAddr(fmt.Sprintf("1.1.1.%d", i)))] = ipamTypes.AllocationIP{Resource: "foo"}
