@@ -17,3 +17,4 @@ include:
   - version: "1.36"
     region: us-west-2
     default: true
+    ip-family: "IPv6"
