@@ -11,6 +11,7 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -35,6 +36,10 @@ func NewGatewayStatusManager(client client.Client, logger *slog.Logger, hostNetw
 }
 
 func (m *GatewayStatusManager) ValidateGateway(gw *gatewayv1.Gateway) bool {
+	if !m.validateTLSFrontend(gw) {
+		return false
+	}
+
 	if !m.validateInfrastructure(gw) {
 		return false
 	}
@@ -81,6 +86,36 @@ func (m *GatewayStatusManager) validateStaticAddresses(gw *gatewayv1.Gateway) bo
 			return false
 		}
 	}
+	return true
+}
+
+// validateTLSFrontend updates Gateway status for the configured frontend TLS
+// validation mode.
+// It always returns true because this mode does not block reconciliation.
+func (m *GatewayStatusManager) validateTLSFrontend(gw *gatewayv1.Gateway) bool {
+	frontend := helpers.FrontendTLSConfig(gw)
+	if frontend == nil {
+		m.setFrontendValidationModeStatus(gw, false)
+		return true
+	}
+
+	isInsecure := func(v *gatewayv1.FrontendTLSValidation) bool {
+		return v != nil && v.Mode == gatewayv1.AllowInsecureFallback
+	}
+
+	if isInsecure(frontend.Default.Validation) {
+		m.setFrontendValidationModeStatus(gw, true)
+		return true
+	}
+
+	for _, pp := range frontend.PerPort {
+		if isInsecure(pp.TLS.Validation) {
+			m.setFrontendValidationModeStatus(gw, true)
+			return true
+		}
+	}
+
+	m.setFrontendValidationModeStatus(gw, false)
 	return true
 }
 
@@ -261,4 +296,23 @@ func (m *GatewayStatusManager) SetStaticAddressStatus(ctx context.Context, gw *g
 	}
 
 	return nil
+}
+
+// setFrontendValidationModeStatus sets or removes the InsecureFrontendValidationMode
+// condition based on whether insecure frontend certificate validation is configured.
+func (m *GatewayStatusManager) setFrontendValidationModeStatus(gw *gatewayv1.Gateway, insecure bool) {
+	conditionType := string(gatewayv1.GatewayConditionInsecureFrontendValidationMode)
+	switch insecure {
+	case true:
+		gw.Status.Conditions = helpers.MergeConditions(gw.Status.Conditions, metav1.Condition{
+			Type:               conditionType,
+			Status:             metav1.ConditionTrue,
+			Reason:             string(gatewayv1.GatewayReasonConfigurationChanged),
+			Message:            "Gateway allows insecure frontend certificate validation",
+			ObservedGeneration: gw.GetGeneration(),
+			LastTransitionTime: metav1.Now(),
+		})
+	default:
+		meta.RemoveStatusCondition(&gw.Status.Conditions, conditionType)
+	}
 }

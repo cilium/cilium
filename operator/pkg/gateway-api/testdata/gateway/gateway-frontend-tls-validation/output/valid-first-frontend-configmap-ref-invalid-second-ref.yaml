@@ -1,0 +1,58 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: valid-first-frontend-configmap-ref-invalid-second-ref
+  namespace: gateway-conformance-infra
+  generation: 7
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+            - kind: ConfigMap
+              name: valid-ca
+            - kind: Secret
+              name: ignored-frontend-ca
+          mode: AllowValidOnly
+status:
+  conditions:
+    - type: Accepted
+      status: "True"
+      reason: Accepted
+      message: "Gateway successfully scheduled"
+      observedGeneration: 7
+    - type: Programmed
+      status: "False"
+      reason: AddressNotAssigned
+      message: "Gateway waiting for address"
+      observedGeneration: 7
+  listeners:
+    - name: https
+      attachedRoutes: 0
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute
+      conditions:
+        - type: ResolvedRefs
+          status: "False"
+          reason: InvalidCACertificateRef
+          message: "Having more than one Frontend TLS CA Certificate Ref is not supported; only the first reference is used."
+          observedGeneration: 7
+        - type: Accepted
+          status: "True"
+          reason: Accepted
+          message: "Listener Accepted"
+          observedGeneration: 7
+        - type: Programmed
+          status: "False"
+          reason: Pending
+          message: "Address not ready yet"
+          observedGeneration: 7

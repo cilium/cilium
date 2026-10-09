@@ -145,6 +145,8 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Watch for changes to BackendTLSPolicy
 		Watches(&gatewayv1.BackendTLSPolicy{}, watchhandlers.EnqueueRequestForBackendTLSPolicy(r.client, r.logger, r.controllerName)).
 		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForBackendTLSPolicyConfigMap(r.client, r.logger, r.controllerName)).
+		// Watch for changes to Gateway Frontend TLS Validation ConfigMaps
+		Watches(&corev1.ConfigMap{}, watchhandlers.EnqueueRequestForFrontendTLSConfigMap(r.client, r.logger, r.controllerName)).
 		// Watch for changes to node in order to populate gateway ip addresses if svc of type NodePort
 		Watches(&corev1.Node{}, watchhandlers.EnqueueRequestForNodes(r.client, r.logger, owningGatewayLabel, r.controllerName)).
 		// Watch created and owned resources

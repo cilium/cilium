@@ -148,3 +148,11 @@ func wildcardHostnamesIntersect(routeHostname, listenerHostname string) bool {
 	}
 	return matchingLabels > 0
 }
+
+func FrontendTLSConfig(gw *gatewayv1.Gateway) *gatewayv1.FrontendTLSConfig {
+	if gw == nil || gw.Spec.TLS == nil {
+		return nil
+	}
+
+	return gw.Spec.TLS.Frontend
+}
