@@ -60,7 +60,7 @@ struct {
 	__type(key, struct ipv6_frag_id);
 	__type(value, struct ipv6_frag_l4ports);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES);
+	__uint(max_entries, 8192);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_ipv6_frag_datagrams __section_maps_btf;
 
