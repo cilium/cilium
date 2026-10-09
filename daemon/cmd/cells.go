@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
+	alibabaCloudAgent "github.com/cilium/cilium/pkg/alibabacloud/agent"
 	"github.com/cilium/cilium/pkg/api"
 	awsAgent "github.com/cilium/cilium/pkg/aws/agent"
 	azureAgent "github.com/cilium/cilium/pkg/azure/agent"
@@ -325,6 +326,9 @@ var (
 
 		// Provides the Azure customization of the multi-pool IPAM allocator.
 		azureAgent.Cell,
+
+		// Provides the AlibabaCloud customization of the multi-pool IPAM allocator.
+		alibabaCloudAgent.Cell,
 
 		// Reconciles desired cloud endpoint routing rules and removes orphan rules.
 		routingreconciler.Cell,
