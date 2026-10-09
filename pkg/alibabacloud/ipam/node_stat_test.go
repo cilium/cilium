@@ -35,8 +35,8 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	m.Update("vm1", resource.DeepCopy())
 
 	n := &Node{
-		logger: hivetest.Logger(t),
-		node:   mockIPAMNode("vm1"),
+		logger:     hivetest.Logger(t),
+		instanceID: "vm1",
 		manager: &InstancesManager{
 			instances: m,
 		},
@@ -52,10 +52,4 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 	assert.NoError(err)
 	// 3 ENIs, 10 IPs per ENI, 1 primary IP and one ENI is primary.
 	assert.Equal(19, stats.NodeCapacity)
-}
-
-type mockIPAMNode string
-
-func (m mockIPAMNode) InstanceID() string {
-	return string(m)
 }
