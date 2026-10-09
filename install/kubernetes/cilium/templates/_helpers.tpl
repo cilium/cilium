@@ -218,6 +218,8 @@ Return user specified envoy.xdsMode or default value based on the upgradeCompati
   {{- else }}
     {{- if semverCompare ">=1.20" (default "1.20" .Values.upgradeCompatibility) }}
       {{- "ads" }}
+    {{- else }}
+      {{- "split" }}
     {{- end }}
   {{- end }}
 {{- end }}

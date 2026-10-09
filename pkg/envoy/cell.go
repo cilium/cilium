@@ -94,6 +94,10 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		return nil, err
 	}
 
+	if params.EnvoyProxyConfig.EnvoyXDSMode == config.EnvoyXDSModeSplit {
+		params.Logger.Warn(`The Envoy xDS mode "split" is deprecated. Use "ads" or "strict-ads" instead.`)
+	}
+
 	// Override the default value before bootstrap is created for embedded envoy, or
 	// the xDS ConfigSource is used for CEC/CCEC.
 	SetXDSConfigSourceInitialFetchTimeout(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)

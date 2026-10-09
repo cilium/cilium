@@ -34,8 +34,8 @@ const (
 	// EnvoyXDSModeStrictDeltaADS selects the ADS xDS server with strict snapshot validation in Delta xDS mode.
 	EnvoyXDSModeStrictDeltaADS XDSMode = "strict-delta-ads"
 
-	// DefaultXDSMode is set to "split" for upgrade compatibility
-	DefaultXDSMode = EnvoyXDSModeSplit
+	// DefaultXDSMode selects ADS when no xDS mode is configured.
+	DefaultXDSMode = EnvoyXDSModeADS
 )
 
 func (v XDSMode) IsADS() bool {
@@ -146,7 +146,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
 	flags.Bool("envoy-access-log-enabled", true, "Enable access log forwarding for integration with Hubble.")
-	flags.Var(&r.EnvoyXDSMode, "envoy-xds-mode", `xDS server operating mode for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS, "delta-split" for incremental per-resource-type xDS, "ads" for Aggregated Discovery Service, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks (default "split")`)
+	flags.Var(&r.EnvoyXDSMode, "envoy-xds-mode", `xDS server operating mode for Envoy proxy configuration. Valid values are "split" for the legacy per-resource-type xDS (deprecated; use "ads" or "strict-ads"), "delta-split" for incremental per-resource-type xDS, "ads" for Aggregated Discovery Service, or "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks (default "ads")`)
 	flags.Uint("envoy-access-log-buffer-size", 4096, "Envoy access log buffer size in bytes")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
 	flags.String("envoy-default-log-level", "", "Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.")

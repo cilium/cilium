@@ -2763,13 +2763,14 @@ envoy:
   # - enum: ["split", "delta-split", "ads", "strict-ads"]
   # @schema
   # -- xDS server operating mode for Envoy proxy configuration. Supported
-  # values are: "split" for the existing per-resource-type xDS,
-  # "delta-split" for incremental Delta xDS,
+  # values are: "split" for the legacy per-resource-type xDS (deprecated; use
+  # "ads" or "strict-ads" instead), "delta-split" for incremental Delta xDS,
   # "ads" for the ADS (Aggregated Discovery Service) xDS, and
   # "strict-ads" for ADS with strict snapshot cache behavior and generated
-  # snapshot consistency checks. Null value omits setting this option.
-  # Cilium Agent defaults missing option to "split" to keep upgrades in the legacy mode.
-  # @default -- `ads` for new 1.20+ installations; none when `upgradeCompatibility` is set below `1.20`
+  # snapshot consistency checks. A null value selects "ads" for new 1.20+
+  # installations, or "split" when upgradeCompatibility is below 1.20.
+  # The Cilium Agent defaults a missing option to "ads".
+  # @default -- `ads` for new 1.20+ installations; `split` when `upgradeCompatibility` is below `1.20`
   xdsMode: ~
   # @schema
   # type: [null, boolean]
