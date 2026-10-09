@@ -71,7 +71,11 @@ Changed Options
 The following options have been modified in this version of Cilium to behave
 differently than in prior releases:
 
-* TODO
+* The Cilium Agent now defaults to ``ads`` when ``--envoy-xds-mode`` is
+  unset. Non-Helm installations that relied on the previous ``split`` default
+  must configure ``split`` explicitly to preserve it. Helm installations with
+  ``upgradeCompatibility`` below ``1.20`` now set ``split`` explicitly and
+  receive a deprecation warning.
 
 Deprecated Options
 ##################
@@ -83,6 +87,10 @@ you may need to take action to migrate to an alternative.
 * Node encryption, enabled with ``encryption.nodeEncryption`` and only
   compatible with WireGuard, is deprecated and will be removed in v1.22. Please
   reach out if you are interested to maintain this feature.
+
+* The legacy Envoy xDS mode ``split`` is deprecated. The agent logs a warning
+  when this mode is active. Set ``envoy.xdsMode=ads`` in Helm or
+  ``--envoy-xds-mode=ads`` on the agent to migrate.
 
 * The ``cilium.io/v2alpha1`` API version of ``CiliumPodIPPool`` is deprecated
   and will be removed in a future release. ``cilium.io/v2`` is now the storage
