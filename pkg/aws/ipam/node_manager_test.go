@@ -23,7 +23,6 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/testutils"
-	testipam "github.com/cilium/cilium/pkg/testutils/ipam"
 )
 
 var (
@@ -438,115 +437,6 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 	require.NotNil(t, node)
 	require.Equal(t, 11, node.Stats().IPv4.AvailableIPs)
 	require.Equal(t, 8, node.Stats().IPv4.UsedIPs)
-}
-
-// TestNodeManagerReleaseAddress tests PreAllocate, MinAllocate and MaxAboveWatermark
-// when release excess IP is enabled
-//
-// - m4.xlarge (4x ENIs, 3x15-3 IPs)
-// - MinAllocate 10
-// - MaxAllocate 0
-// - PreAllocate 2
-// - MaxAboveWatermark 3
-// - FirstInterfaceIndex 0
-func TestNodeManagerReleaseAddress(t *testing.T) {
-	setup(t)
-
-	const instanceID = "i-testNodeManagerReleaseAddress-1"
-
-	ec2api := apiMock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
-	instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), ec2api, metadataMockapi)
-	require.NoError(t, err)
-	require.NotNil(t, instances)
-
-	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
-	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
-	require.NoError(t, err)
-	_, err = instances.Resync(t.Context())
-	require.NoError(t, err)
-	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, true, 2, false)
-	require.NoError(t, err)
-	require.NotNil(t, mngr)
-
-	// Announce node, wait for IPs to become available
-	cn := newCiliumNode("node3", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m4.xlarge"),
-		withIPAMPreAllocate(2), withIPAMMinAllocate(10), withIPAMMaxAboveWatermark(3))
-	mngr.Upsert(cn)
-	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
-
-	// 10 min-allocate + 3 max-above-watermark => 13 IPs must become
-	// available as 13 < 14 (interface limit)
-	node := mngr.Get("node3")
-	require.NotNil(t, node)
-	require.Equal(t, 13, node.Stats().IPv4.AvailableIPs)
-	require.Equal(t, 0, node.Stats().IPv4.UsedIPs)
-
-	// Use 11 out of 13 IPs, no additional IPs should be allocated
-	mngr.Upsert(updateCiliumNode(cn, 13, 11))
-	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
-	node = mngr.Get("node3")
-	require.NotNil(t, node)
-	require.Equal(t, 13, node.Stats().IPv4.AvailableIPs)
-	require.Equal(t, 11, node.Stats().IPv4.UsedIPs)
-
-	// Use 13 out of 13 IPs, PreAllocate 2 + MaxAboveWatermark 3 must kick in
-	// and allocate 5 additional IPs
-	mngr.Upsert(updateCiliumNode(cn, 13, 13))
-	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
-	node = mngr.Get("node3")
-	require.NotNil(t, node)
-	require.Equal(t, 18, node.Stats().IPv4.AvailableIPs)
-	require.Equal(t, 13, node.Stats().IPv4.UsedIPs)
-
-	// Reduce used IPs to 10, this leads to 8 excess IPs but release
-	// occurs at interval based resync, so expect timeout at first
-	mngr.Upsert(updateCiliumNode(cn, 18, 10))
-	require.Error(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 2*time.Second))
-	node = mngr.Get("node3")
-	require.NotNil(t, node)
-	require.Equal(t, 18, node.Stats().IPv4.AvailableIPs)
-	require.Equal(t, 10, node.Stats().IPv4.UsedIPs)
-
-	// Trigger resync manually, excess IPs should be released
-	// 10 used + 2 pre-allocate + 3 max-above-watermark => 15
-	node = mngr.Get("node3")
-	eniNode, castOK := node.Ops().(*Node)
-	require.True(t, castOK)
-	obj := node.ResourceCopy()
-	eniNode.mutex.RLock()
-	obj.Status.ENI.ENIs = eniNode.enis
-	eniNode.mutex.RUnlock()
-	node.UpdatedResource(obj)
-
-	// Excess timestamps should be registered after this
-	syncTime, err := instances.Resync(t.Context())
-	require.NoError(t, err)
-	mngr.Resync(t.Context(), syncTime)
-
-	// Acknowledge release IPs after 3 secs
-	time.AfterFunc(3*time.Second, func() {
-		// Excess delay duration should have elapsed by now, trigger resync again.
-		// IPs should be marked as excess
-		syncTime, err := instances.Resync(t.Context())
-		require.NoError(t, err)
-		mngr.Resync(t.Context(), syncTime)
-		time.Sleep(1 * time.Second)
-		node.PopulateIPReleaseStatus(obj)
-		// Fake acknowledge IPs for release like agent would.
-		testipam.FakeAcknowledgeReleaseIps(obj)
-		node.UpdatedResource(obj)
-		// Resync one more time to process acknowledgements.
-		syncTime, err = instances.Resync(t.Context())
-		require.NoError(t, err)
-		mngr.Resync(t.Context(), syncTime)
-	})
-
-	require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node3", 0) }, 5*time.Second))
-	node = mngr.Get("node3")
-	require.NotNil(t, node)
-	require.Equal(t, 13, node.Stats().IPv4.AvailableIPs)
-	require.Equal(t, 10, node.Stats().IPv4.UsedIPs)
 }
 
 // TestNodeManagerENIExcludeInterfaceTags tests ENI allocation with interface exclusion
@@ -1229,12 +1119,6 @@ func withIPAMPreAllocate(preAlloc int) func(*v2.CiliumNode) {
 func withIPAMMinAllocate(minAlloc int) func(*v2.CiliumNode) {
 	return func(cn *v2.CiliumNode) {
 		cn.Spec.IPAM.MinAllocate = minAlloc
-	}
-}
-
-func withIPAMMaxAboveWatermark(aboveWM int) func(*v2.CiliumNode) {
-	return func(cn *v2.CiliumNode) {
-		cn.Spec.IPAM.MaxAboveWatermark = aboveWM
 	}
 }
 

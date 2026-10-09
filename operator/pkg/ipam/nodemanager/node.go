@@ -740,9 +740,9 @@ func (n *Node) recalculate(ctx context.Context) {
 	n.stats.IPv6.AvailablePrefixes = stats.NodeIPv6Prefixes
 
 	// Agents using the cloud multi-pool allocator write their demand to
-	// Spec.IPAM.Pools.Requested and stop writing Status.IPAM.Used. Older agents
-	// still use the CRD allocator and communicate their IP usage through
-	// Status.IPAM.Used. Both branches are retained for rolling upgrades and
+	// Spec.IPAM.Pools.Requested and stop writing Status.IPAM.Used. Agents
+	// using the CRD allocator (Azure v1.20, AlibabaCloud) communicate their IP usage
+	// through Status.IPAM.Used. Both branches are retained for rolling upgrades and
 	// downgrades.
 	if requestedIPv4, requestedIPv6, ok := poolRequestedIPs(n.resource); ok && len(n.resource.Status.IPAM.Used) == 0 {
 		// The agent's demand is computed as inUse + preAllocate (linear
