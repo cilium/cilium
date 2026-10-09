@@ -977,7 +977,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	instances, err := NewInstancesManager(b.Context(), hivetest.Logger(b), ec2api, metadataMockapi)
 	require.NoError(b, err)
 	require.NotNil(b, instances)
-	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(b), instances, k8sapi, metricsapi, 10, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(b), instances, k8sapi, metricsapi, workers, false, 0, false)
 	require.NoError(b, err)
 	require.NotNil(b, mngr)
 
