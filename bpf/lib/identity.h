@@ -92,6 +92,19 @@ get_identity(const struct __ctx_buff *ctx __maybe_unused)
 #endif /* __ctx_is == __ctx_xdp */
 }
 
+#define IDENTITY_LOCAL_SCOPE_MASK 0xFF000000
+#define IDENTITY_LOCAL_SCOPE_CIDR 0x01000000
+#define IDENTITY_LOCAL_SCOPE_REMOTE_NODE 0x02000000
+
+/**
+ * identity_is_local is used to determine whether an identity is locally
+ * allocated.
+ */
+static __always_inline bool identity_is_local(__u32 identity)
+{
+	return (identity & IDENTITY_LOCAL_SCOPE_MASK) != 0;
+}
+
 /**
  * set_identity_mark - pushes 24 bit identity into ctx mark value.
  *
@@ -114,7 +127,12 @@ set_identity_mark(struct __ctx_buff *ctx __maybe_unused, __u32 identity __maybe_
 		  __u32 magic __maybe_unused)
 {
 #if __ctx_is == __ctx_skb
-	__u32 cluster_id = (identity >> IDENTITY_LOCAL_BITS) & CLUSTER_ID_MAX;
+	__u32 cluster_id;
+
+	if (identity_is_local(identity))
+		identity = UNKNOWN_ID;
+
+	cluster_id = (identity >> IDENTITY_LOCAL_BITS) & CLUSTER_ID_MAX;
 
 	ctx->mark = format_cluster_id_mark(cluster_id);
 	ctx->mark |= magic & MARK_MAGIC_KEY_MASK;
@@ -126,10 +144,6 @@ static __always_inline bool identity_in_range(__u32 identity, __u32 range_start,
 {
 	return range_start <= identity && identity <= range_end;
 }
-
-#define IDENTITY_LOCAL_SCOPE_MASK 0xFF000000
-#define IDENTITY_LOCAL_SCOPE_CIDR 0x01000000
-#define IDENTITY_LOCAL_SCOPE_REMOTE_NODE 0x02000000
 
 static __always_inline bool identity_is_host(__u32 identity)
 {
@@ -332,15 +346,6 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 	return magic;
 }
 #endif /* __ctx_is == __ctx_skb */
-
-/**
- * identity_is_local is used to determine whether an identity is locally
- * allocated.
- */
-static __always_inline bool identity_is_local(__u32 identity)
-{
-	return (identity & IDENTITY_LOCAL_SCOPE_MASK) != 0;
-}
 
 static __always_inline __u32 get_tunnel_id(__u32 identity)
 {
