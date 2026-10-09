@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -222,8 +223,8 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	)
 	for {
 		var (
-			localNodeConfig      config.Config
-			localNodeConfigWatch <-chan struct{}
+			localNodeConfig        config.Config
+			localNodeConfigWatches []<-chan struct{}
 		)
 
 		// Re-run this on every reconciliation to update the tunnel MTU or
@@ -237,7 +238,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			health.Degraded("Failed to ensure IPIP devices", err)
 			retryChan = time.After(reinitRetryDuration)
 		} else {
-			localNodeConfig, localNodeConfigWatch, err = newLocalNodeConfig(
+			localNodeConfig, localNodeConfigWatches, err = newLocalNodeConfig(
 				ctx,
 				option.Config,
 				localNode,
@@ -290,14 +291,37 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		}
 		request = reinitializeRequest{ctx: ctx}
 
-		select {
-		case <-ctx.Done():
+		// Wait on all event sources with a single select. The statedb watch
+		// channels are variable in number, so the select is built with reflect;
+		// the index of each case is derived from the statement that adds it.
+		cases := make([]reflect.SelectCase, 0, 5+len(localNodeConfigWatches))
+		add := func(ch any) int {
+			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)})
+			return len(cases) - 1
+		}
+		ctxCase := add(ctx.Done())
+		retryCase := add(retryChan)
+		localNodesCase := add(localNodes)
+		triggerCase := add(o.trigger)
+		add(ipipWatch)
+		for _, watch := range localNodeConfigWatches {
+			add(watch)
+		}
+
+		chosen, value, ok := reflect.Select(cases)
+		switch chosen {
+		case ctxCase:
 			return ctx.Err()
-		case <-ipipWatch:
-		case <-localNodeConfigWatch:
-		case <-retryChan:
-		case localNode = <-localNodes:
-		case request = <-o.trigger:
+		case retryCase:
+			// Retry immediately after the rate limiter below.
+		case localNodesCase:
+			if !ok {
+				// localNodes is closed when ctx is cancelled.
+				return ctx.Err()
+			}
+			localNode = value.Interface().(node.LocalNode)
+		case triggerCase:
+			request = value.Interface().(reinitializeRequest)
 		}
 
 		// Limit the rate at which we reinitialize and to give the devs&addrs

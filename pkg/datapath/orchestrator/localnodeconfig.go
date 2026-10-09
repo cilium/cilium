@@ -13,7 +13,6 @@ import (
 	"github.com/cilium/statedb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
@@ -46,8 +45,10 @@ import (
 // LocalNodeConfiguration instance is generated. Previous LocalNodeConfiguration
 // is never mutated in-place.
 //
-// The returned channel will be closed for recoverable errors once the state of
-// failing condition changes.
+// Each returned watch channel is closed when the piece of state it tracks
+// changes; the caller should wait on all of them. For recoverable errors, a
+// single watch channel is returned that is closed once the failing condition
+// changes.
 func newLocalNodeConfig(
 	ctx context.Context,
 	daemon *option.DaemonConfig,
@@ -70,7 +71,7 @@ func newLocalNodeConfig(
 	ipsecCfg ipsec.Config,
 	connectorConfig connector.Config,
 	plugins plugin.Plugins,
-) (config.Config, <-chan struct{}, error) {
+) (config.Config, []<-chan struct{}, error) {
 	auxPrefixes := []ip.Prefix{}
 
 	if daemon.IPv4ServiceRange.IsValid() {
@@ -91,7 +92,7 @@ func newLocalNodeConfig(
 
 	vlanFilter, err := resolveVLANFilters(nativeDevices, daemon.VLANBPFBypass)
 	if err != nil {
-		return config.Config{}, devsWatch, fmt.Errorf("resolving VLAN filters: %w", err)
+		return config.Config{}, []<-chan struct{}{devsWatch}, fmt.Errorf("resolving VLAN filters: %w", err)
 	}
 
 	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch}
@@ -101,14 +102,14 @@ func newLocalNodeConfig(
 		if drd == nil {
 			// If the direct routing device is not present return the watch channel along with an error.
 			// Watch channel will be closed when there is an update to the DirectRouting device configuration.
-			return config.Config{}, directRoutingDevWatch, errors.New("direct routing device required but not configured")
+			return config.Config{}, []<-chan struct{}{directRoutingDevWatch}, errors.New("direct routing device required but not configured")
 		}
 
 		// Ensure the device has at least one usable address for the enabled
 		// address families. If not, return the watch channel so we retry as
 		// soon as the device's addresses change.
 		if !directRoutingDeviceHasAddr(drd) {
-			return config.Config{}, directRoutingDevWatch,
+			return config.Config{}, []<-chan struct{}{directRoutingDevWatch},
 				fmt.Errorf("direct routing device %s has no usable addresses", drd.Name)
 		}
 
@@ -134,7 +135,7 @@ func newLocalNodeConfig(
 
 	ciliumHostDevice, _, hostWatch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.HostDevice))
 	if !ok {
-		return config.Config{}, hostWatch, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
+		return config.Config{}, []<-chan struct{}{hostWatch}, fmt.Errorf("failed to look up link '%s'", defaults.HostDevice)
 	}
 	watchChans = append(watchChans, hostWatch)
 	ciliumHostMAC, err := mac.ParseMAC(ciliumHostDevice.HardwareAddr.String())
@@ -144,7 +145,7 @@ func newLocalNodeConfig(
 
 	ciliumNetDevice, _, netWatch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.SecondHostDevice))
 	if !ok {
-		return config.Config{}, netWatch, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
+		return config.Config{}, []<-chan struct{}{netWatch}, fmt.Errorf("failed to look up link '%s'", defaults.SecondHostDevice)
 	}
 	watchChans = append(watchChans, netWatch)
 	ciliumNetMAC, err := mac.ParseMAC(ciliumNetDevice.HardwareAddr.String())
@@ -157,7 +158,7 @@ func newLocalNodeConfig(
 		if daemon.EnableIPv4 {
 			dev, _, watch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.IPIPv4Device))
 			if !ok {
-				return config.Config{}, watch, fmt.Errorf("failed to look up IPv4 IPIP device '%s'", defaults.IPIPv4Device)
+				return config.Config{}, []<-chan struct{}{watch}, fmt.Errorf("failed to look up IPv4 IPIP device '%s'", defaults.IPIPv4Device)
 			}
 			watchChans = append(watchChans, watch)
 			encap4IfIndex = uint32(dev.Index)
@@ -165,7 +166,7 @@ func newLocalNodeConfig(
 		if daemon.EnableIPv6 {
 			dev, _, watch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.IPIPv6Device))
 			if !ok {
-				return config.Config{}, watch, fmt.Errorf("failed to look up IPv6 IPIP device '%s'", defaults.IPIPv6Device)
+				return config.Config{}, []<-chan struct{}{watch}, fmt.Errorf("failed to look up IPv6 IPIP device '%s'", defaults.IPIPv6Device)
 			}
 			watchChans = append(watchChans, watch)
 			encap6IfIndex = uint32(dev.Index)
@@ -247,7 +248,7 @@ func newLocalNodeConfig(
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 		VLANFilter:                   vlanFilter,
 		Plugins:                      plugins,
-	}, common.MergeChannels(watchChans...), nil
+	}, watchChans, nil
 }
 
 // podSubnets returns the explicitly configured pod subnets, falling back to
