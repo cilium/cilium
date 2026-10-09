@@ -612,5 +612,5 @@ func TestNeighborReconciler_GetPeerPassword_MissingSecret(t *testing.T) {
 	password, err := r.getPeerPassword("instance-1", "peer-1", conf)
 	require.NoError(t, err)
 	require.Empty(t, password)
-	require.Contains(t, buf.String(), `Failed to fetch secret "missing-secret": not found (will continue with empty password)`)
+	require.Contains(t, buf.String(), `Failed to fetch secret \"missing-secret\": not found (will continue with empty password)`)
 }
