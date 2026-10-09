@@ -40,6 +40,24 @@ Setting the routable CIDR
   within the same VPC (e.g., virtual machines) will be routed directly without
   masquerading the source IP address.
 
+  .. caution::
+
+     On some cloud platforms the virtual network gateway enforces unicast
+     reverse path forwarding (uRPF), dropping any packet whose source IP is
+     not a prefix assigned to the sending instance. Because pod IPs are not
+     registered instance prefixes, setting ``ipv4-native-routing-cidr`` to
+     the full VPC CIDR causes Cilium to skip masquerade for pod traffic to
+     non-cluster hosts, and the gateway drops those packets silently without
+     returning an ICMP unreachable.
+
+     To avoid this, set ``ipv4-native-routing-cidr`` to the pod CIDR only
+     (e.g., ``10.42.0.0/16``), so that traffic to non-cluster destinations
+     is masqueraded to the node IP before reaching the gateway. Note that
+     when ``auto-direct-node-routes`` is enabled, pod-to-pod cross-node
+     traffic uses direct host routes and bypasses the gateway entirely, which
+     can mask this misconfiguration during testing.
+
+     See the :ref:`k8s_install_hetzner` guide for a concrete example.
 
 Setting the masquerading interface
   See :ref:`masq_modes` for configuring the masquerading interfaces.
