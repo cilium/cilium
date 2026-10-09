@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/netip"
+	"slices"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
@@ -62,8 +64,8 @@ func NewInstancesManager(logger *slog.Logger, api AlibabaCloudAPI) *InstancesMan
 }
 
 // CreateNode
-func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, node *nodemanager.Node) nodemanager.NodeOperations {
-	return &Node{logger: m.logger, k8sObj: obj, manager: m, node: node, instanceID: node.InstanceID()}
+func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, _ *nodemanager.Node) nodemanager.NodeOperations {
+	return &Node{logger: m.logger, k8sObj: obj, manager: m, instanceID: obj.InstanceID()}
 }
 
 // HasInstance returns whether the instance is in instances
@@ -222,6 +224,29 @@ func (m *InstancesManager) UpdateENI(instanceID string, eni *types.ENI) {
 	if !m.instances.Exists(instanceID) {
 		return
 	}
+	m.instances.Update(instanceID, eni)
+}
+
+// RemoveIPsFromENI updates the local cache after a successful release so
+// PopulateStatusFields cannot advertise those addresses before the next resync.
+func (m *InstancesManager) RemoveIPsFromENI(instanceID, eniID string, released []netip.Prefix) {
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	iface, ok := m.instances.GetInterface(instanceID, eniID)
+	if !ok {
+		return
+	}
+	eni, ok := iface.DeepCopyInterface().(*types.ENI)
+	if !ok {
+		return
+	}
+	eni.PrivateIPSets = slices.DeleteFunc(eni.PrivateIPSets, func(address types.PrivateIPSet) bool {
+		return slices.Contains(released, netip.PrefixFrom(address.PrivateIpAddress.Addr, 32))
+	})
 	m.instances.Update(instanceID, eni)
 }
 

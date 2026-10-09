@@ -5,6 +5,7 @@ package ipam
 
 import (
 	"context"
+	"net/netip"
 	"sync/atomic"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 
 	apimock "github.com/cilium/cilium/pkg/alibabacloud/api/mock"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/resynctest"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/time"
@@ -48,6 +50,35 @@ func newHookedInstancesManager(t *testing.T) (*apimock.API, *hookedAPI, *Instanc
 
 func TestFullResync(t *testing.T) {
 	const instanceID = "i-1"
+
+	t.Run("IPRelease", func(t *testing.T) {
+		t.Parallel()
+		api, hooked, mngr := newHookedInstancesManager(t)
+		eniID, eni, err := api.CreateNetworkInterface(t.Context(), 2, "vsw-1", []string{"sg-1"}, nil)
+		require.NoError(t, err)
+		require.NoError(t, api.AttachNetworkInterface(t.Context(), instanceID, eniID))
+		_, err = mngr.Resync(t.Context())
+		require.NoError(t, err)
+		require.Len(t, eni.PrivateIPSets, 3)
+		released := eni.PrivateIPSets[1].PrivateIpAddress
+
+		resynctest.RunDuringResync(t, mngr, hooked.setHook,
+			func() error {
+				return api.UnassignPrivateIPAddresses(t.Context(), eniID, []string{released.String()})
+			},
+			func() {
+				mngr.RemoveIPsFromENI(instanceID, eniID, []netip.Prefix{netip.PrefixFrom(released.Addr, 32)})
+			})
+
+		var addresses []types.PrivateIPSet
+		mngr.ForeachInstance(instanceID, func(_, interfaceID string, iface ipamTypes.Interface) error {
+			if interfaceID == eniID {
+				addresses = iface.(*types.ENI).PrivateIPSets
+			}
+			return nil
+		})
+		require.ElementsMatch(t, []types.PrivateIPSet{eni.PrivateIPSets[0], eni.PrivateIPSets[2]}, addresses)
+	})
 
 	t.Run("ENIUpdate", func(t *testing.T) {
 		t.Parallel()
@@ -98,9 +129,19 @@ func TestInstanceSyncPreservesConcurrentCacheChanges(t *testing.T) {
 	const (
 		instanceID = "i-partial-sync"
 		eniID      = "eni-1"
+		retainedIP = "10.0.0.1"
+		releasedIP = "10.0.0.2"
 	)
-	initialENI := &types.ENI{NetworkInterfaceID: eniID}
+	initialENI := &types.ENI{
+		NetworkInterfaceID: eniID,
+		PrivateIPSets: []types.PrivateIPSet{
+			{PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr(retainedIP)), Primary: true},
+			{PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr(releasedIP))},
+		},
+	}
 	newENI := &types.ENI{NetworkInterfaceID: "eni-2"}
+	releasedENI := initialENI.DeepCopy()
+	releasedENI.PrivateIPSets = releasedENI.PrivateIPSets[:1]
 
 	tests := []struct {
 		name   string
@@ -121,6 +162,14 @@ func TestInstanceSyncPreservesConcurrentCacheChanges(t *testing.T) {
 			update: func(ctx context.Context, m *InstancesManager) error {
 				_, err := m.InstanceSync(ctx, instanceID)
 				return err
+			},
+		},
+		{
+			name: "RemoveIPsFromENI",
+			want: apimock.ENIMap{eniID: releasedENI},
+			update: func(_ context.Context, m *InstancesManager) error {
+				m.RemoveIPsFromENI(instanceID, eniID, []netip.Prefix{netip.MustParsePrefix(releasedIP + "/32")})
+				return nil
 			},
 		},
 		{
@@ -158,7 +207,7 @@ func TestInstanceSyncPreservesConcurrentCacheChanges(t *testing.T) {
 			)
 			require.NoError(t, updateErr)
 
-			// The old snapshot must not undo the ENI change or resurrect a
+			// The old snapshot must not undo the ENI/IP change or resurrect a
 			// deleted instance after both operations finish.
 			cached := apimock.ENIMap{}
 			manager.ForeachInstance(instanceID, func(_, eniID string, iface ipamTypes.Interface) error {
