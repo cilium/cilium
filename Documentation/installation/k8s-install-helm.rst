@@ -302,7 +302,7 @@ Install Cilium
 
     .. group-tab:: Alibaba ACK
 
-        .. include:: ../installation/alibabacloud-eni.rst
+        .. include:: alibabacloud.rst
 
 .. admonition:: Video
   :class: attention
