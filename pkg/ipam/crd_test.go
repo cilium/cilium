@@ -13,14 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
@@ -153,138 +151,4 @@ func TestNodeStoreStaticIPStatus(t *testing.T) {
 			assert.Equal(t, tt.wantAssignedStaticIP, assigned)
 		})
 	}
-}
-
-func TestAutoDetectIPv4NativeRoutingCIDR(t *testing.T) {
-	const vpcCIDR = "10.10.0.0/16"
-
-	newStore := func(t *testing.T, nativeCIDR, vpcCIDR string, secondaryCIDRs ...string) *nodeStore {
-		eni := alibabaCloudTypes.ENI{NetworkInterfaceID: "eni-1"}
-		for _, cidr := range secondaryCIDRs {
-			eni.VPC.SecondaryCIDRs = append(eni.VPC.SecondaryCIDRs, iputil.PrefixFrom(netip.MustParsePrefix(cidr)))
-		}
-
-		spec := alibabaCloudTypes.Spec{}
-		if vpcCIDR != "" {
-			spec.CIDRBlock = iputil.PrefixFrom(netip.MustParsePrefix(vpcCIDR))
-		}
-
-		conf := &option.DaemonConfig{IPAM: ipamOption.IPAMAlibabaCloud}
-		if nativeCIDR != "" {
-			conf.IPv4NativeRoutingCIDR = netip.MustParsePrefix(nativeCIDR)
-		}
-
-		return &nodeStore{
-			logger: hivetest.Logger(t),
-			conf:   conf,
-			ownNode: &ciliumv2.CiliumNode{
-				Spec: ciliumv2.NodeSpec{
-					AlibabaCloud: spec,
-				},
-				Status: ciliumv2.NodeStatus{
-					AlibabaCloud: alibabaCloudTypes.ENIStatus{
-						ENIs: map[string]alibabaCloudTypes.ENI{"eni-1": eni},
-					},
-				},
-			},
-		}
-	}
-
-	t.Run("accepts a native routing CIDR that is a subnet of the VPC CIDR", func(t *testing.T) {
-		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-		require.True(t, newStore(t, "10.10.64.0/19", vpcCIDR).autoDetectIPv4NativeRoutingCIDR(localNodeStore))
-
-		localNode, err := localNodeStore.Get(t.Context())
-		require.NoError(t, err)
-		// Should NOT have been written since the config already has a value.
-		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
-	})
-
-	t.Run("accepts a native routing CIDR that is a supernet of the VPC CIDR", func(t *testing.T) {
-		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-		require.True(t, newStore(t, "10.0.0.0/8", vpcCIDR).autoDetectIPv4NativeRoutingCIDR(localNodeStore))
-
-		localNode, err := localNodeStore.Get(t.Context())
-		require.NoError(t, err)
-		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
-	})
-
-	t.Run("accepts a native routing CIDR that only overlaps a secondary VPC CIDR", func(t *testing.T) {
-		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-		store := newStore(t, "172.16.32.0/20", vpcCIDR, "172.16.0.0/12")
-		require.True(t, store.autoDetectIPv4NativeRoutingCIDR(localNodeStore))
-
-		localNode, err := localNodeStore.Get(t.Context())
-		require.NoError(t, err)
-		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
-	})
-
-	t.Run("uses the autodetected primary CIDR when unset", func(t *testing.T) {
-		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-		require.True(t, newStore(t, "", vpcCIDR).autoDetectIPv4NativeRoutingCIDR(localNodeStore))
-
-		localNode, err := localNodeStore.Get(t.Context())
-		require.NoError(t, err)
-		require.Equal(t, vpcCIDR, localNode.Local.IPv4NativeRoutingCIDR.String())
-	})
-
-	t.Run("reports failure while the VPC CIDR is unknown", func(t *testing.T) {
-		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
-		require.False(t, newStore(t, "", "").autoDetectIPv4NativeRoutingCIDR(localNodeStore))
-
-		localNode, err := localNodeStore.Get(t.Context())
-		require.NoError(t, err)
-		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
-	})
-}
-
-func TestAlibabaCloudRoutingMetadata(t *testing.T) {
-	const resource = "eni-1"
-	addr := netip.MustParseAddr("10.10.1.5")
-	subnet := netip.MustParsePrefix("10.10.1.0/24")
-
-	cn := newCiliumNode("node1", 4, 4, 0)
-	cn.Spec.IPAM.Pool[iputil.AddrFrom(addr)] = ipamTypes.AllocationIP{Resource: resource}
-	cn.Status.AlibabaCloud.ENIs = map[string]alibabaCloudTypes.ENI{
-		resource: {
-			NetworkInterfaceID: resource,
-			MACAddress:         mac.MustParseMAC("00:00:5e:00:53:01"),
-			VSwitch: alibabaCloudTypes.VSwitch{
-				CIDRBlock: iputil.PrefixFrom(subnet),
-			},
-			Tags: map[string]string{"cilium-eni-index": "1"},
-		},
-	}
-
-	conf := testDaemonConfig()
-	conf.IPAM = ipamOption.IPAMAlibabaCloud
-	conf.EnableIPv6 = true
-	initNodeStore.Do(func() {}) // Ensure the real initNodeStore is not called
-	sharedNodeStore = newFakeNodeStore(conf, t)
-	sharedNodeStore.ownNode = cn
-
-	ipam := NewIPAM(NewIPAMParams{
-		Logger:         hivetest.Logger(t),
-		NodeAddressing: fakenode.NewAddressing(),
-		AgentConfig:    conf,
-		NodeDiscovery:  &ownerMock{},
-		LocalNodeStore: node.NewTestLocalNodeStore(node.LocalNode{}),
-		K8sEventReg:    &ownerMock{},
-		NodeResource:   &resourceMock{},
-		MTUConfig:      &mtuMock,
-	})
-	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
-
-	result, err := ipam.ipv4Allocator.Allocate(addr, "test1", PoolDefault())
-	require.NoError(t, err)
-
-	resolved, err := ipam.ResolveRoutingMetadata(addr, PoolDefault())
-	require.NoError(t, err)
-	require.Equal(t, result, resolved)
-	require.Equal(t, mac.MustParseMAC("00:00:5e:00:53:01"), resolved.PrimaryMAC)
-	require.Equal(t, "1", resolved.InterfaceNumber)
-	require.Equal(t, netip.MustParseAddr("10.10.1.253"), resolved.GatewayIP)
-
-	_, err = ipam.ResolveRoutingMetadata(netip.MustParseAddr("2001:db8::1"), PoolDefault())
-	require.ErrorIs(t, err, ErrRoutingMetadataUnsupported)
 }

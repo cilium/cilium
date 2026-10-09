@@ -12,11 +12,9 @@ import (
 	"net"
 	"net/netip"
 	"reflect"
-	"strconv"
 	"sync"
 
 	"github.com/vishvananda/netlink"
-	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -24,7 +22,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 
-	alibabaCloudTypes "github.com/cilium/cilium/pkg/alibabacloud/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -36,7 +33,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -86,7 +82,7 @@ type nodeStore struct {
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
 // resource of the specified node name
-func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) *nodeStore {
+func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfig, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) *nodeStore {
 	logger.Info("Subscribed to CiliumNode custom resource", fieldName, nodeName)
 
 	store := &nodeStore{
@@ -201,7 +197,7 @@ func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfi
 	}
 
 	for {
-		minimumReached, required, numAvailable := store.hasMinimumIPsInPool(localNodeStore)
+		minimumReached, required, numAvailable := store.hasMinimumIPsInPool()
 		scopedLog := logger.With(
 			fieldName, nodeName,
 			logfields.Required, required,
@@ -235,109 +231,10 @@ func newNodeStore(logger *slog.Logger, nodeName string, conf *option.DaemonConfi
 	return store
 }
 
-func deriveVpcCIDRs(node *ciliumv2.CiliumNode) (primaryCIDR netip.Prefix, secondaryCIDRs []netip.Prefix) {
-	// A node belongs to a single VPC so we can pick the first ENI
-	// in the list and derive the VPC CIDR from it.
-	for _, eni := range node.Status.ENI.ENIs {
-		if p := eni.VPC.PrimaryCIDR; p.IsValid() {
-			primaryCIDR = p.Masked()
-			for _, sc := range eni.VPC.CIDRs {
-				if sc.IsValid() {
-					secondaryCIDRs = append(secondaryCIDRs, sc.Masked())
-				}
-			}
-			return
-		}
-	}
-	// return AlibabaCloud vpc CIDR
-	if len(node.Status.AlibabaCloud.ENIs) > 0 {
-		if p := node.Spec.AlibabaCloud.CIDRBlock; p.IsValid() {
-			primaryCIDR = p.Masked()
-		}
-		for _, eni := range node.Status.AlibabaCloud.ENIs {
-			for _, sc := range eni.VPC.SecondaryCIDRs {
-				if sc.IsValid() {
-					secondaryCIDRs = append(secondaryCIDRs, sc.Masked())
-				}
-			}
-			return
-		}
-	}
-	return
-}
-
-// autoDetectIPv4NativeRoutingCIDR either validates an existing native routing
-// CIDR configuration against the VPC CIDRs derived from the CiliumNode status,
-// or uses the VPC primary CIDR as the autodetected native routing CIDR.
-//
-// Returns false when the VPC CIDRs cannot be determined yet.
-func (n *nodeStore) autoDetectIPv4NativeRoutingCIDR(localNodeStore *node.LocalNodeStore) bool {
-	primaryCIDR, secondaryCIDRs := deriveVpcCIDRs(n.ownNode)
-	if !primaryCIDR.IsValid() {
-		n.logger.Info("Could not determine VPC CIDRs")
-		return false
-	}
-
-	podSubnets := append([]netip.Prefix{primaryCIDR}, secondaryCIDRs...)
-	autodetected := false
-
-	if nativeCIDR := n.conf.IPv4NativeRoutingCIDR; nativeCIDR.IsValid() {
-		found := false
-		for _, vpcCIDR := range podSubnets {
-			// Accept the configured native routing CIDR as long as it
-			// overlaps one of the VPC CIDRs, i.e. it is a VPC CIDR, a
-			// subnet of one (e.g. a single availability-zone subnet, used
-			// to masquerade cross-subnet traffic), or a supernet of one.
-			if !ip.LaminarCIDRsOverlap(nativeCIDR, vpcCIDR) {
-				n.logger.Info(
-					"Native routing CIDR does not overlap VPC CIDR, trying next",
-					logfields.VPCCIDR, vpcCIDR,
-					option.IPv4NativeRoutingCIDR, nativeCIDR,
-				)
-			} else {
-				found = true
-				n.logger.Info(
-					"Native routing CIDR overlaps VPC CIDR, ignoring autodetected VPC CIDRs.",
-					logfields.VPCCIDR, vpcCIDR,
-					option.IPv4NativeRoutingCIDR, nativeCIDR,
-				)
-				break
-			}
-		}
-		if !found {
-			logging.Fatal(n.logger, "None of the VPC CIDRs overlaps the specified native routing CIDR")
-		}
-		// A configured native routing CIDR may be a supernet of the VPC CIDRs,
-		// e.g. one covering peered VPCs. It then covers pod subnets that the
-		// VPC CIDRs of this node do not.
-		podSubnets = append(podSubnets, nativeCIDR)
-	} else {
-		n.logger.Info(
-			"Using autodetected primary VPC CIDR.",
-			logfields.VPCCIDR, primaryCIDR,
-		)
-		autodetected = true
-	}
-
-	// deriveVpcCIDRs only ever returns IPv4 CIDRs, so the only IPv6 pod subnet
-	// that can be known is the operator-supplied one.
-	if nativeCIDR := n.conf.IPv6NativeRoutingCIDR; nativeCIDR.IsValid() {
-		podSubnets = append(podSubnets, nativeCIDR)
-	}
-
-	localNodeStore.Update(func(ln *node.LocalNode) {
-		if autodetected {
-			ln.Local.IPv4NativeRoutingCIDR = primaryCIDR
-		}
-		ln.SetPodSubnets(podSubnets)
-	})
-	return true
-}
-
 // hasMinimumIPsInPool returns true if the required number of IPs is available
 // in the allocation pool. It also returns the number of IPs required and
 // available.
-func (n *nodeStore) hasMinimumIPsInPool(localNodeStore *node.LocalNodeStore) (minimumReached bool, required, numAvailable int) {
+func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAvailable int) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
@@ -364,10 +261,6 @@ func (n *nodeStore) hasMinimumIPsInPool(localNodeStore *node.LocalNodeStore) (mi
 		}
 		if len(n.ownNode.Spec.IPAM.Pool) >= required {
 			minimumReached = true
-		}
-
-		if n.conf.IPAMMode() == ipamOption.IPAMAlibabaCloud && !n.autoDetectIPv4NativeRoutingCIDR(localNodeStore) {
-			minimumReached = false
 		}
 	}
 
@@ -694,9 +587,9 @@ type crdAllocator struct {
 }
 
 // newCRDAllocator creates a new CRD-backed IP allocator
-func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig, owner Owner, localNodeStore *node.LocalNodeStore, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) *crdAllocator {
+func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig, owner Owner, clientset client.Clientset, k8sEventReg K8sEventRegister, mtuConfig MtuConfiguration, sysctl sysctl.Sysctl) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(logger, nodeTypes.GetName(), c, owner, localNodeStore, clientset, k8sEventReg, mtuConfig, sysctl)
+		sharedNodeStore = newNodeStore(logger, nodeTypes.GetName(), c, owner, clientset, k8sEventReg, mtuConfig, sysctl)
 	})
 
 	allocator := &crdAllocator{
@@ -710,53 +603,6 @@ func newCRDAllocator(logger *slog.Logger, family Family, c *option.DaemonConfig,
 	sharedNodeStore.addAllocator(allocator)
 
 	return allocator
-}
-
-func (a *crdAllocator) ResolveRoutingMetadata(addr netip.Addr, _ Pool) (*AllocationResult, error) {
-	a.mutex.RLock()
-	ipInfo, allocated := a.allocated[ip.AddrFrom(addr)]
-	a.mutex.RUnlock()
-	if !allocated {
-		return nil, fmt.Errorf("IP %s is not allocated", addr)
-	}
-
-	return a.buildAllocationResult(addr, &ipInfo)
-}
-
-func (a *crdAllocator) buildAllocationResult(addr netip.Addr, ipInfo *ipamTypes.AllocationIP) (result *AllocationResult, err error) {
-	result = &AllocationResult{IP: addr}
-
-	a.store.mutex.RLock()
-	defer a.store.mutex.RUnlock()
-
-	if a.store.ownNode == nil {
-		return
-	}
-
-	switch a.conf.IPAMMode() {
-
-	// In AlibabaCloud mode, the Resource points to the ENI so we can derive the
-	// master interface and the vSwitch gateway
-	case ipamOption.IPAMAlibabaCloud:
-		for _, eni := range a.store.ownNode.Status.AlibabaCloud.ENIs {
-			if eni.NetworkInterfaceID != ipInfo.Resource {
-				continue
-			}
-			result.PrimaryMAC = eni.MACAddress
-			if eni.VSwitch.CIDRBlock.IsValid() {
-				p := eni.VSwitch.CIDRBlock.Prefix
-
-				// AlibabaCloud reserves the third-to-last IP of the subnet for the gateway.
-				// Ref: https://www.alibabacloud.com/help/doc-detail/65398.html
-				result.GatewayIP = netipx.PrefixLastIP(p).Prev().Prev()
-			}
-			result.InterfaceNumber = strconv.Itoa(alibabaCloudTypes.GetENIIndexFromTags(a.logger, eni.Tags))
-			return
-		}
-		return nil, fmt.Errorf("unable to find ENI %s", ipInfo.Resource)
-	}
-
-	return
 }
 
 // Allocate will attempt to find the specified IP in the custom resource and
@@ -776,10 +622,7 @@ func (a *crdAllocator) Allocate(addr netip.Addr, owner string, pool Pool) (*Allo
 		return nil, err
 	}
 
-	result, err := a.buildAllocationResult(addr, ipInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to associate IP %s inside CiliumNode: %w", addr, err)
-	}
+	result := &AllocationResult{IP: addr}
 
 	a.markAllocated(addr, owner, *ipInfo)
 	// Update custom resource to reflect the newly allocated IP.
@@ -805,10 +648,7 @@ func (a *crdAllocator) AllocateWithoutSyncUpstream(addr netip.Addr, owner string
 		return nil, err
 	}
 
-	result, err := a.buildAllocationResult(addr, ipInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to associate IP %s inside CiliumNode: %w", addr, err)
-	}
+	result := &AllocationResult{IP: addr}
 
 	a.markAllocated(addr, owner, *ipInfo)
 
@@ -851,10 +691,7 @@ func (a *crdAllocator) AllocateNext(owner string, pool Pool) (*AllocationResult,
 		return nil, err
 	}
 
-	result, err := a.buildAllocationResult(addr, ipInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to associate IP %s inside CiliumNode: %w", addr, err)
-	}
+	result := &AllocationResult{IP: addr}
 
 	a.markAllocated(addr, owner, *ipInfo)
 	// Update custom resource to reflect the newly allocated IP.
@@ -875,10 +712,7 @@ func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string, pool Pool) 
 		return nil, err
 	}
 
-	result, err := a.buildAllocationResult(addr, ipInfo)
-	if err != nil {
-		return nil, fmt.Errorf("failed to associate IP %s inside CiliumNode: %w", addr, err)
-	}
+	result := &AllocationResult{IP: addr}
 
 	a.markAllocated(addr, owner, *ipInfo)
 
