@@ -230,7 +230,7 @@ func (s *FQDNDataServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateS
 	streamCtx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
-	limiter := rate.NewLimiter(time.Second, 1)
+	limiter := rate.NewLimiter(100*time.Millisecond, 1)
 	defer limiter.Stop()
 
 	rulesWatch := closedWatchChannel
