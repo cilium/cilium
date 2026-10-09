@@ -58,10 +58,11 @@ type endpointAPIManagerParams struct {
 
 	Logger *slog.Logger
 
-	EndpointManager   endpointmanager.EndpointManager
-	EndpointCreator   endpointcreator.EndpointCreator
-	EndpointCreations EndpointCreationManager
-	EndpointMetadata  endpointmetadata.EndpointMetadataFetcher
+	EndpointManager       endpointmanager.EndpointManager
+	EndpointCreator       endpointcreator.EndpointCreator
+	EndpointCreations     EndpointCreationManager
+	EndpointMetadata      endpointmetadata.EndpointMetadataFetcher
+	EndpointRoutingWaiter endpointmanager.EndpointRoutingWaiter
 
 	BandwidthManager bandwidth.Manager
 	Clientset        k8sClient.Clientset
@@ -71,15 +72,16 @@ type endpointAPIManagerParams struct {
 
 func newEndpointAPIManager(params endpointAPIManagerParams) EndpointAPIManager {
 	return &endpointAPIManager{
-		logger:            params.Logger,
-		endpointManager:   params.EndpointManager,
-		endpointCreator:   params.EndpointCreator,
-		endpointCreations: params.EndpointCreations,
-		endpointMetadata:  params.EndpointMetadata,
-		bandwidthManager:  params.BandwidthManager,
-		clientset:         params.Clientset,
-		cniConfigManager:  params.CNIConfigManager,
-		ipam:              params.IPAM,
+		logger:                params.Logger,
+		endpointManager:       params.EndpointManager,
+		endpointCreator:       params.EndpointCreator,
+		endpointCreations:     params.EndpointCreations,
+		endpointMetadata:      params.EndpointMetadata,
+		endpointRoutingWaiter: params.EndpointRoutingWaiter,
+		bandwidthManager:      params.BandwidthManager,
+		clientset:             params.Clientset,
+		cniConfigManager:      params.CNIConfigManager,
+		ipam:                  params.IPAM,
 	}
 }
 
