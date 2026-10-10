@@ -68,7 +68,7 @@ func runEndpointSliceReflector(ctx context.Context, p reflectorParams, observer 
 
 		allEps := val.allEndpoints
 		currentEndpoints := currentEndpointsByCluster[key.clusterID]
-		if currentEndpoints == nil {
+		if currentEndpoints.IsEmpty() {
 			currentEndpoints = reflectorEndpoints.Cache{}
 			currentEndpointsByCluster[key.clusterID] = currentEndpoints
 		}
@@ -81,7 +81,7 @@ func runEndpointSliceReflector(ctx context.Context, p reflectorParams, observer 
 		}
 
 		currentEndpoints.UpdateMany(allEps.All())
-		if len(currentEndpoints) == 0 {
+		if currentEndpoints.IsEmpty() {
 			delete(currentEndpointsByCluster, key.clusterID)
 		}
 
