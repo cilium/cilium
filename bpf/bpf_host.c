@@ -1359,21 +1359,22 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 #endif /* ENABLE_HOST_FIREWALL */
 	}
 
-#ifdef ENABLE_IPSEC
-	/* If the packet needs decryption, we want to send it straight to the
-	 * stack. There's no need to run service handling logic, host firewall,
-	 * etc. on an encrypted packet.
-	 * In all other cases (packet doesn't need decryption or already
-	 * decrypted), we want to run all subsequent logic here. We therefore
-	 * ignore the return value from do_decrypt.
-	 */
-	ret = do_decrypt(ctx, proto);
-	if (IS_ERR(ret))
-		goto drop_err;
+	if (CONFIG(enable_ipsec)) {
+		/* If the packet needs decryption, we want to send it straight to the
+		 * stack. There's no need to run service handling logic, host firewall,
+		 * etc. on an encrypted packet.
+		 * In all other cases (packet doesn't need decryption or already
+		 * decrypted), we want to run all subsequent logic here. We therefore
+		 * ignore the return value from do_decrypt.
+		 */
+		ret = do_decrypt(ctx, proto);
+		if (IS_ERR(ret))
+			goto drop_err;
 
-	if (ctx_is_decrypt(ctx))
-		return CTX_ACT_OK;
-#endif
+		if (ctx_is_decrypt(ctx))
+			return CTX_ACT_OK;
+	}
+
 	ret = tcx_early_hook(ctx, proto);
 	if (ret != CTX_ACT_OK)
 		goto drop_err;
@@ -1462,13 +1463,11 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	validate_ethertype(ctx, &proto);
 
 	/* Trace before clearing skb->cb */
-#ifdef ENABLE_IPSEC
-	if (magic == MARK_MAGIC_ENCRYPT)
+	if (CONFIG(enable_ipsec) && magic == MARK_MAGIC_ENCRYPT)
 		send_trace_notify(ctx, TRACE_FROM_STACK,
 				  get_encrypt_identity_meta(ctx), UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
 				  TRACE_REASON_ENCRYPTED, 0, proto);
-#endif /* ENABLE_IPSEC */
 
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
@@ -1573,18 +1572,18 @@ skip_host_firewall:
 	}
 #endif
 
-#if defined(ENABLE_IPSEC)
-	if (!ctx_is_encrypt(ctx)) {
-		ret = ipsec_maybe_redirect_to_encrypt(ctx, proto,
-						      src_sec_identity);
-		if (ret == CTX_ACT_REDIRECT)
-			return ret;
-		else if (IS_ERR(ret))
-			goto drop_err;
-	} else {
-		trace.reason |= TRACE_REASON_ENCRYPTED;
+	if (CONFIG(enable_ipsec)) {
+		if (!ctx_is_encrypt(ctx)) {
+			ret = ipsec_maybe_redirect_to_encrypt(ctx, proto,
+							      src_sec_identity);
+			if (ret == CTX_ACT_REDIRECT)
+				return ret;
+			else if (IS_ERR(ret))
+				goto drop_err;
+		} else {
+			trace.reason |= TRACE_REASON_ENCRYPTED;
+		}
 	}
-#endif /* ENABLE_IPSEC */
 
 #ifdef ENABLE_WIREGUARD
 	/* Redirect the packet to the WireGuard tunnel device for encryption
@@ -1617,7 +1616,7 @@ skip_host_firewall:
 	}
 #endif /* ENABLE_WIREGUARD */
 
-	if ((is_defined(ENABLE_IPSEC) || is_defined(ENABLE_WIREGUARD)) &&
+	if ((CONFIG(enable_ipsec) || is_defined(ENABLE_WIREGUARD)) &&
 	    CONFIG(strict_egress_encryption).enabled) {
 		if (!strict_allow(ctx, proto)) {
 			ret = DROP_UNENCRYPTED_TRAFFIC;
@@ -1813,10 +1812,8 @@ int cil_to_host(struct __ctx_buff *ctx)
 	 */
 	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_TO_PROXY)
 		magic = ctx->mark;
-#ifdef ENABLE_IPSEC
-	else if (ctx_is_encrypt(ctx))
+	else if (CONFIG(enable_ipsec) && ctx_is_encrypt(ctx))
 		magic = ctx->mark;
-#endif
 
 	if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
@@ -1829,70 +1826,62 @@ int cil_to_host(struct __ctx_buff *ctx)
 		ctx_store_meta(ctx, CB_PROXY_MAGIC, 0);
 		ret = ctx_redirect_to_proxy_first(ctx, port);
 		goto out;
-	}
-#ifdef ENABLE_IPSEC
-	else if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
+	} else if (CONFIG(enable_ipsec) && (magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
 		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
 		src_id = get_encrypt_identity_meta(ctx);
 	}
-#endif
 
-#ifdef ENABLE_IPSEC
+	if (CONFIG(enable_ipsec)) {
 #if !defined(TUNNEL_MODE)
-	/* Since v1.18 Cilium performs IPsec encryption at the native device,
-	 * before the packet leaves the host.
-	 *
-	 * A special case exists for L7 egress proxy packets when native routing
-	 * mode is enabled.
-	 *
-	 * Because L7 egress proxy packets are generated in the host-namespace
-	 * and generated packets MUST adjust their MTU for ESP encapsulation
-	 * an IP route MTU adjustment exists for L7 egress proxy packets.
-	 *
-	 * When the L7 egress proxy generates packets an 'ip rule' in the host
-	 * namespace routes these packets into table 2005 which has a route
-	 * toward 'cilium_host' and adjusts the MTU correctly for ESP encap.
-	 *
-	 * When 'cil_from_host@cilium_host' is reached the skb's mark is zeroed
-	 * and the packet is pushed toward 'cil_to_host@cilium_net'.
-	 *
-	 * If we simply let this packet drop to the stack, an iptables rule
-	 * exists which will mark the packet with 0x200 and trigger a local
-	 * delivery as part of L7 Proxy TPROXY mechanism.
-	 *
-	 * This iptables rule, created by
-	 * iptables.Manager.inboundProxyRedirectRule() is ignored by the mark
-	 * MARK_MAGIC_SKIP_TPROXY, in the control plane.
-	 * Technically, it is also ignored by MARK_MAGIC_ENCRYPT but reusing
-	 * this mark breaks further processing as its used in the XFRM subsystem.
-	 *
-	 * Therefore, if the packet's mark is zero, indicating it was forwarded
-	 * from 'cilium_host', mark the packet with MARK_MAGIC_SKIP_TPROXY
-	 * and allow it to enter the foward path once punted to stack.
-	 */
-	if (ctx->mark == 0 && CONFIG(interface_ifindex) == CONFIG(cilium_net_ifindex))
-		ctx->mark = MARK_MAGIC_SKIP_TPROXY;
+		/* Since v1.18 Cilium performs IPsec encryption at the native device,
+		 * before the packet leaves the host.
+		 *
+		 * A special case exists for L7 egress proxy packets when native routing
+		 * mode is enabled.
+		 *
+		 * Because L7 egress proxy packets are generated in the host-namespace
+		 * and generated packets MUST adjust their MTU for ESP encapsulation
+		 * an IP route MTU adjustment exists for L7 egress proxy packets.
+		 *
+		 * When the L7 egress proxy generates packets an 'ip rule' in the host
+		 * namespace routes these packets into table 2005 which has a route
+		 * toward 'cilium_host' and adjusts the MTU correctly for ESP encap.
+		 *
+		 * When 'cil_from_host@cilium_host' is reached the skb's mark is zeroed
+		 * and the packet is pushed toward 'cil_to_host@cilium_net'.
+		 *
+		 * If we simply let this packet drop to the stack, an iptables rule
+		 * exists which will mark the packet with 0x200 and trigger a local
+		 * delivery as part of L7 Proxy TPROXY mechanism.
+		 *
+		 * This iptables rule, created by
+		 * iptables.Manager.inboundProxyRedirectRule() is ignored by the mark
+		 * MARK_MAGIC_SKIP_TPROXY, in the control plane.
+		 * Technically, it is also ignored by MARK_MAGIC_ENCRYPT but reusing
+		 * this mark breaks further processing as its used in the XFRM subsystem.
+		 *
+		 * Therefore, if the packet's mark is zero, indicating it was forwarded
+		 * from 'cilium_host', mark the packet with MARK_MAGIC_SKIP_TPROXY
+		 * and allow it to enter the foward path once punted to stack.
+		 */
+		if (ctx->mark == 0 && CONFIG(interface_ifindex) == CONFIG(cilium_net_ifindex))
+			ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* !TUNNEL_MODE */
 
 # ifdef ENABLE_NODEPORT
-	if (!ctx_is_encrypt(ctx))
-		goto skip_ipsec_nodeport_revdnat;
+		if (ctx_is_encrypt(ctx) && validate_ethertype(ctx, &proto)) {
+			/* handle_nat_fwd() tail calls in the majority of cases, so control
+			 * might never return to this program. Since IPsec is not compatible
+			 * iwth Host Firewall, this won't be an issue.
+			 */
+			ret = handle_nat_fwd(ctx, 0, src_id, proto, true, &trace,
+					     &ext_err);
+			if (IS_ERR(ret))
+				goto out;
+		}
+#endif /* ENABLE_NODEPORT */
+	}
 
-	if (!validate_ethertype(ctx, &proto))
-		goto skip_ipsec_nodeport_revdnat;
-
-	/* handle_nat_fwd() tail calls in the majority of cases, so control
-	 * might never return to this program. Since IPsec is not compatible
-	 * iwth Host Firewall, this won't be an issue.
-	 */
-	ret = handle_nat_fwd(ctx, 0, src_id, proto, true, &trace, &ext_err);
-	if (IS_ERR(ret))
-		goto out;
-
-skip_ipsec_nodeport_revdnat:
-# endif /* ENABLE_NODEPORT */
-
-#endif /* ENABLE_IPSEC */
 #ifdef ENABLE_HOST_FIREWALL
 	if (!validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;

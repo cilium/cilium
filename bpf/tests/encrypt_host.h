@@ -79,23 +79,23 @@ int check(const struct __ctx_buff *ctx, __u32 expected_result)
 	assert(*status_code == expected_result);
 
 	if (expected_result == CTX_ACT_REDIRECT) {
-#ifdef ENABLE_IPSEC
-		union macaddr expected_l2_addr = CONFIG(cilium_net_mac);
-		struct ethhdr *l2 = data + sizeof(*status_code);
-		int i;
+		if (CONFIG(enable_ipsec)) {
+			union macaddr expected_l2_addr = CONFIG(cilium_net_mac);
+			struct ethhdr *l2 = data + sizeof(*status_code);
+			int i;
 
-		if (data + sizeof(struct ethhdr) > data_end)
-			test_fatal("packet too small for eth header");
+			if (data + sizeof(struct ethhdr) > data_end)
+				test_fatal("packet too small for eth header");
 
-		assert(ctx->mark == ipsec_encode_encryption_mark(ENCRYPT_KEY, DST_NODE_ID));
+			assert(ctx->mark == ipsec_encode_encryption_mark(ENCRYPT_KEY, DST_NODE_ID));
 
-		for (i = 0; i < 6; i++)
-			assert(l2->h_dest[i] == expected_l2_addr.addr[i]);
+			for (i = 0; i < 6; i++)
+				assert(l2->h_dest[i] == expected_l2_addr.addr[i]);
 
-		/* With IPSec we redirect to cilium_net ingress. */
-		assert(rec.flags == BPF_F_INGRESS);
-		assert(rec.ifindex == (int)CONFIG(cilium_net_ifindex));
-#endif
+			/* With IPSec we redirect to cilium_net ingress. */
+			assert(rec.flags == BPF_F_INGRESS);
+			assert(rec.ifindex == (int)CONFIG(cilium_net_ifindex));
+		}
 #ifdef ENABLE_WIREGUARD
 		/* With WireGuard we redirect to cilium_wg0 egress. */
 		assert(rec.flags == 0);
@@ -140,10 +140,10 @@ int encrypt_v4_1_missing_dst_setup(struct __ctx_buff *ctx)
 					    DST_NODE_V4, ENCRYPT_KEY,
 					    v4_pod_cidr_size);
 
-#ifdef ENABLE_IPSEC
-	ipsec_set_encrypt_state(ENCRYPT_KEY);
-	node_v4_add_entry(DST_NODE_V4, DST_NODE_ID, ENCRYPT_KEY);
-#endif
+	if (CONFIG(enable_ipsec)) {
+		ipsec_set_encrypt_state(ENCRYPT_KEY);
+		node_v4_add_entry(DST_NODE_V4, DST_NODE_ID, ENCRYPT_KEY);
+	}
 
 	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
 
@@ -263,10 +263,10 @@ int encrypt_v6_1_missing_dst_setup(struct __ctx_buff *ctx)
 							  DST_NODE_V6, ENCRYPT_KEY,
 							  v6_pod_cidr_size);
 
-#ifdef ENABLE_IPSEC
-	ipsec_set_encrypt_state(ENCRYPT_KEY);
-	node_v6_add_entry(DST_NODE_V6, DST_NODE_ID, ENCRYPT_KEY);
-#endif
+	if (CONFIG(enable_ipsec)) {
+		ipsec_set_encrypt_state(ENCRYPT_KEY);
+		node_v6_add_entry(DST_NODE_V6, DST_NODE_ID, ENCRYPT_KEY);
+	}
 
 	set_identity_mark(ctx, SRC_POD_SEC_IDENTITY, MARK_MAGIC_IDENTITY);
 

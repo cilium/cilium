@@ -34,7 +34,9 @@ struct {
 
 static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 {
-#ifdef ENABLE_IPSEC
+	if (!CONFIG(enable_ipsec))
+		return 0;
+
 	__u8 local_key = 0;
 	__u32 encrypt_key = 0;
 	const struct encrypt_config *cfg;
@@ -57,12 +59,8 @@ static __always_inline __u8 get_min_encrypt_key(__u8 peer_key __maybe_unused)
 	if (local_key == MAX_KEY_INDEX)
 		return peer_key == 1 ? local_key : peer_key;
 	return local_key < peer_key ? local_key : peer_key;
-#else
-	return 0;
-#endif /* ENABLE_IPSEC */
 }
 
-#ifdef ENABLE_IPSEC
 /**
  * or_encrypt_key - mask and shift key into encryption format
  */
@@ -114,7 +112,7 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 {
 	struct ipv6hdr __maybe_unused *ip6;
 	struct iphdr __maybe_unused *ip4;
-	void *data, *data_end;
+	void *data __maybe_unused, *data_end __maybe_unused;
 	__u8 protocol = 0;
 	__u16 node_id = 0;
 	bool decrypted = ctx_is_decrypt(ctx);
@@ -185,7 +183,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr __maybe_unused *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
 	int ret = 0;
-	union macaddr dst_mac = CONFIG(cilium_net_mac);
+	union macaddr dst_mac_addr = CONFIG(cilium_net_mac);
 
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
@@ -294,7 +292,7 @@ overlay_encrypt:
 	 * the encrypted packet will be recirculated to the stack and the final
 	 * egress will occur toward the IPsec tunnel's destination.
 	 */
-	if (eth_store_daddr(ctx, (const __u8 *)&dst_mac, 0) != 0)
+	if (eth_store_daddr(ctx, (const __u8 *)&dst_mac_addr, 0) != 0)
 		return DROP_WRITE_ERROR;
 
 	ret = ctx_redirect(ctx, CONFIG(cilium_net_ifindex), BPF_F_INGRESS);
@@ -302,10 +300,3 @@ overlay_encrypt:
 		return DROP_INVALID;
 	return ret;
 }
-#else
-static __always_inline int
-do_decrypt(struct __ctx_buff __maybe_unused *ctx, __be16 __maybe_unused proto)
-{
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_IPSEC */

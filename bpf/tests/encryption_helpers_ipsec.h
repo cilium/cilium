@@ -2,12 +2,12 @@
 /* Copyright Authors of Cilium */
 
 #include <bpf/ctx/skb.h>
+#include <bpf/config/node.h>
 #include "common.h"
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6
-#define ENABLE_IPSEC 1
 
 /*
  * Test constants. Make sure to have a valid src/dst identity by
@@ -31,6 +31,8 @@
 #define BAD_SPI 3
 #define GENERAL_PORT bpf_htons(12134)
 #define VXLAN_PORT bpf_htons(8472)
+
+ASSIGN_CONFIG(bool, enable_ipsec, true)
 
 static __always_inline
 int generate_vxlan_packet(struct __ctx_buff *ctx, bool outer_ip4, bool inner_ip4)
