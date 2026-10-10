@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/promise"
 )
 
 const (
@@ -140,6 +141,7 @@ func newIPSetManager(
 	ipset *ipset,
 	reconciler reconciler.Reconciler[*tables.IPSetEntry],
 	ops *ops,
+	readyResolver promise.Resolver[struct{}],
 ) *manager {
 	mgr := &manager{
 		logger:     logger,
@@ -154,12 +156,14 @@ func newIPSetManager(
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			defer readyResolver.Resolve(struct{}{})
+
 			if !cfg.NodeIPSetNeeded {
 				return nil
 			}
 
 			// When NodeIPSetNeeded is set, node ipsets must be created even if empty,
-			// to avoid failures when referencing them in iptables masquerading rules.
+			// to avoid failures when referencing them in iptables rules.
 			if err := ipset.create(ctx, CiliumNodeIPSetV4, string(INetFamily)); err != nil {
 				return fmt.Errorf("error while creating ipset %s", CiliumNodeIPSetV4)
 			}

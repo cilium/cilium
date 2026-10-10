@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -909,8 +910,8 @@ func TestAllEgressMasqueradeCmds(t *testing.T) {
 }
 
 func testTunnelRulesTunnelingEnabled(t *testing.T, port uint16) {
-	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
-	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
+	mockIp4tables := &mockIptables{t: t, prog: "iptables", ipset: ipset.CiliumNodeIPSetV4}
+	mockIp6tables := &mockIptables{t: t, prog: "ip6tables", ipset: ipset.CiliumNodeIPSetV6}
 
 	mockManager := &manager{
 		sharedCfg: SharedConfig{
@@ -923,14 +924,20 @@ func testTunnelRulesTunnelingEnabled(t *testing.T, port uint16) {
 		ip6tables: mockIp6tables,
 	}
 
-	expected := "%s -A %s -p udp --dport %d -m comment --comment %s"
+	expected := "%s -A %s -p udp --dport %d -m set --match-set %s %s -m comment --comment %s"
 
 	mockIp4tables.expectations = []expectation{
-		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_INPUT", port, mockIp4tables.ipset, "src", "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, mockIp4tables.ipset, "dst", "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, mockIp4tables.ipset, "src", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, mockIp4tables.ipset, "dst", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
 	}
-	mockIp6tables.expectations = mockIp4tables.expectations
+	mockIp6tables.expectations = []expectation{
+		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_INPUT", port, mockIp6tables.ipset, "src", "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, mockIp6tables.ipset, "dst", "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, mockIp6tables.ipset, "src", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, mockIp6tables.ipset, "dst", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+	}
 
 	require.NoError(t, mockManager.addCiliumTunnelRules())
 	require.NoError(t, mockIp4tables.checkExpectations())
