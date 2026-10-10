@@ -82,6 +82,38 @@ func TestRunPodSandbox_NoAllocation_Skipped(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestRecoverAllocationDevice(t *testing.T) {
+	tlog := hivetest.Logger(t)
+	cs, _ := k8sClient.NewFakeClientset(tlog)
+	driver := buildPrepDriver(t, cs)
+
+	recovered := &trackedDevice{name: prepTestDev0, kernelIfName: "recovered0"}
+	restored := &trackedDevice{
+		name: prepTestDev0,
+		recoverFunc: func(allocation types.DeviceAllocation) (types.Device, error) {
+			require.Equal(t, prepTestShareID0, allocation.ShareID)
+			return recovered, nil
+		},
+	}
+	alloc := allocation{
+		Device:     restored,
+		DeviceName: prepTestDev0,
+		Pool:       prepTestPool,
+		Manager:    types.DeviceManagerTypeMock,
+		ShareID:    prepTestShareID0,
+	}
+	driver.storeAllocations([]allocation{alloc}, prepTestPodUID, prepTestClaimUID)
+
+	require.NoError(t, driver.recoverAllocationDevice(&alloc))
+	require.Zero(t, restored.setupCalls.Load())
+	require.EqualValues(t, 1, restored.recoverCalls.Load())
+	require.Same(t, recovered, alloc.Device)
+
+	rows := allocatedRowsForClaim(t, driver, prepTestClaimUID)
+	require.Len(t, rows, 1)
+	require.Same(t, recovered, rows[0].PreparedDevice)
+}
+
 // ---------------------------------------------------------------------------
 // StopPodSandbox — early exits (no netlink/netns)
 // ---------------------------------------------------------------------------
