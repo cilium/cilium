@@ -1913,9 +1913,9 @@
      - bool
      - ``true``
    * - :spelling:ignore:`envoy.xdsMode`
-     - xDS server operating mode for Envoy proxy configuration. Supported values are: "split" for the existing per-resource-type xDS, "delta-split" for incremental Delta xDS, "ads" for the ADS (Aggregated Discovery Service) xDS, and "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks. Null value omits setting this option. Cilium Agent defaults missing option to "split" to keep upgrades in the legacy mode.
+     - xDS server operating mode for Envoy proxy configuration. Supported values are: "split" for the legacy per-resource-type xDS (deprecated; use "ads" or "strict-ads" instead), "delta-split" for incremental Delta xDS, "ads" for the ADS (Aggregated Discovery Service) xDS, and "strict-ads" for ADS with strict snapshot cache behavior and generated snapshot consistency checks. A null value selects "ads" for new 1.20+ installations, or "split" when upgradeCompatibility is below 1.20. The Cilium Agent defaults a missing option to "ads".
      - string
-     - ``ads`` for new 1.20+ installations; none when ``upgradeCompatibility`` is set below ``1.20``
+     - ``ads`` for new 1.20+ installations; ``split`` when ``upgradeCompatibility`` is below ``1.20``
    * - :spelling:ignore:`envoy.xffNumTrustedHopsL7PolicyEgress`
      - Number of trusted hops regarding the x-forwarded-for and related HTTP headers for the egress L7 policy enforcement Envoy listeners.
      - int
