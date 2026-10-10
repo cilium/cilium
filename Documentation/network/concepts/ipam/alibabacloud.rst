@@ -41,7 +41,8 @@ Use the networking settings shown in the **Alibaba ACK** tab of the
 The operator discovers its region through ECS instance metadata and uses the
 regional ECS and VPC private API endpoints. Ensure access to metadata, API
 endpoints, and DNS. The **Alibaba ACK** tab of the Helm installation guide
-documents the RAM permissions and the AccessKey Secret used by the operator.
+documents the RAM permissions and the RRSA or AccessKey credentials used by
+the operator.
 
 vSwitch and security group selection
 ------------------------------------
