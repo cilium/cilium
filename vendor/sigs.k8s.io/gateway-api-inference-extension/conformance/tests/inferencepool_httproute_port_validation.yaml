@@ -1,0 +1,79 @@
+# --- HTTPRoute Scenario 1: Port Unspecified ---
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-pool-port-unspecified
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+    sectionName: http
+  hostnames:
+  - "port-unspecified.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: primary-inference-pool
+      # Port is intentionally unspecified here
+    matches:
+    - path:
+        type: PathPrefix
+        value: /test-port-unspecified
+---
+# --- HTTPRoute Scenario 2: Port Matching ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-pool-port-matching
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+    sectionName: http
+  hostnames:
+  - "port-matching.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: primary-inference-pool
+      port: 3000 # Port matches InferencePool's targetPortNumber
+    matches:
+    - path:
+        type: PathPrefix
+        value: /test-port-matching
+---
+# --- HTTPRoute Scenario 3: Port Non-Matching ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-pool-port-non-matching
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+    sectionName: http
+  hostnames:
+  - "port-non-matching.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: primary-inference-pool
+      port: 8888 # Port does NOT match InferencePool's targetPortNumber
+    matches:
+    - path:
+        type: PathPrefix
+        value: /test-port-non-matching
+---

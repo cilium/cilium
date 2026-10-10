@@ -1,0 +1,12 @@
+- metadata:
+    name: my-inferencepool
+  spec:
+    selector:
+      matchLabels:
+        app: vllm-qwen3-32b
+    targetPorts:
+      - number: 8000
+    endpointPickerRef:
+      name: my-epp
+      port:
+        number: 9002

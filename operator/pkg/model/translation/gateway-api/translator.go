@@ -132,7 +132,6 @@ func (t *gatewayAPITranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyC
 	if len(endpointSlices) == 0 && (m.IsHTTPListenerConfigured() || m.IsTLSPassthroughListenerConfigured()) {
 		endpointSlices = t.desiredL7DummyEndpointSlice(source, allLabels, allAnnotations)
 	}
-
 	return cec, lbSvc, endpointSlices, nil
 }
 

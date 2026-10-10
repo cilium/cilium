@@ -391,12 +391,40 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 			if r.ExternalAuth != nil {
 				mergeBackendsInNamespaceNamePortMap([]model.Backend{r.ExternalAuth.Backend}, namespaceNamePortMap)
 			}
+			for _, be := range r.Backends {
+				if be.EndpointPicker == nil {
+					continue
+				}
+				epp := be.EndpointPicker
+				mergeBackendsInNamespaceNamePortMap([]model.Backend{{
+					Namespace: epp.Namespace,
+					Name:      epp.Name,
+					Port:      &model.BackendPort{Port: epp.Port},
+				}}, namespaceNamePortMap)
+			}
 		}
 	}
 
 	for _, l := range m.TLSPassthrough {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
+		}
+	}
+
+	// InferencePool shadow Services must be published port-less. That makes the
+	// agent emit a single bare "<ns>/<name>" ClusterLoadAssignment aggregating
+	// endpoints across ALL target ports (DP ranks), which the override_host
+	// cluster binds to, so the EPP can pin any rank (e.g. IP:3002).
+	for _, l := range m.HTTP {
+		for _, r := range l.Routes {
+			for _, be := range r.Backends {
+				if be.EndpointPicker == nil {
+					continue
+				}
+				if np, ok := namespaceNamePortMap[be.Namespace]; ok {
+					np[be.Name] = nil
+				}
+			}
 		}
 	}
 

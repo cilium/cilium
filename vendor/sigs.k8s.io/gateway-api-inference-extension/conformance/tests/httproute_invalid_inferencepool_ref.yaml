@@ -1,0 +1,21 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-to-non-existent-pool
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: conformance-primary
+    namespace: inference-conformance-infra
+    sectionName: http
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: non-existent-inference-pool # Intentionally Non-Existing
+    matches:
+    - path:
+        type: PathPrefix
+        value: /test-non-existent-pool

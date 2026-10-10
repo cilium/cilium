@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
+	gateway_inf_ext "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 )
@@ -28,6 +29,7 @@ var AllOptionalKinds = []schema.GroupVersionKind{
 	mcsapiv1beta1.SchemeGroupVersion.WithKind(ServiceImportKind),
 	GatewayV1GVK(TCPRouteKind),
 	GatewayV1GVK(UDPRouteKind),
+	GatewayIEV1GVK(InferencePoolKind),
 }
 
 // GatewayV1GVK returns the GroupVersionKind for a given Gateway API v1 kind.
@@ -35,6 +37,15 @@ func GatewayV1GVK(kind string) schema.GroupVersionKind {
 	return schema.GroupVersionKind{
 		Group:   gatewayv1.GroupVersion.Group,
 		Version: gatewayv1.GroupVersion.Version,
+		Kind:    kind,
+	}
+}
+
+// GIEV1GVK returns the GroupVersionKind for a given GIE v1 kind
+func GatewayIEV1GVK(kind string) schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   gateway_inf_ext.GroupVersion.Group,
+		Version: gateway_inf_ext.GroupVersion.Version,
 		Kind:    kind,
 	}
 }

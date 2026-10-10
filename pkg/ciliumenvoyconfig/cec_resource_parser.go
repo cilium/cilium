@@ -18,6 +18,7 @@ import (
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	extauthzv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
+	extprocv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_proc/v3"
 	envoy_config_healthcheck "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -885,6 +886,15 @@ func qualifyHttpFilters(cecNamespace string, cecName string, hcmConfig *envoy_co
 								h.TypedConfig = toAny(httpFilterConfig)
 							}
 						}
+					}
+				}
+			case *extprocv3.ExternalProcessor:
+				if eg := httpFilterConfig.GetGrpcService().GetEnvoyGrpc(); eg != nil {
+					var nameUpdated bool
+					eg.ClusterName, nameUpdated = api.ResourceQualifiedName(cecNamespace, cecName, eg.ClusterName)
+					if nameUpdated {
+						updated = true
+						h.TypedConfig = toAny(httpFilterConfig)
 					}
 				}
 			}

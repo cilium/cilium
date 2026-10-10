@@ -62,6 +62,7 @@ HTTP, gRPC, and DNS are parsed using a proxy such as Envoy.
    ingress
    gateway-api/gateway-api
    gateway-api/gamma
+   gateway-api/gie
    ingress-to-gateway/ingress-to-gateway
    istio
    l7-traffic-management

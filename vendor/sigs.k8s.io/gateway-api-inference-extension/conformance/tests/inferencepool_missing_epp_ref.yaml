@@ -1,0 +1,30 @@
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: pool-with-missing-epp-ref
+  namespace: inference-conformance-app-backend
+spec:
+  selector:
+    matchLabels:
+      app: primary-inference-model-server
+  targetPorts:
+  - number: 3000
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: httproute-for-missing-epp-ref-pool
+  namespace: inference-conformance-app-backend
+spec:
+  parentRefs:
+  - name: conformance-primary
+    namespace: inference-conformance-infra
+  rules:
+  - backendRefs:
+    - name: pool-with-missing-epp-ref
+      kind: InferencePool
+      group: inference.networking.k8s.io
+    matches:
+    - path:
+        type: PathPrefix
+        value: /missing-epp-ref-test
