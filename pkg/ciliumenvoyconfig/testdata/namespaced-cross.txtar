@@ -1,0 +1,115 @@
+# Test that a CiliumEnvoyConfig can only redirect services in its own
+# namespace: 'services' in a CEC in namespace 'other' that names the
+# namespace 'test' refers to other/echo, and test/echo is not redirected.
+
+db/insert node-addresses addrv4.yaml
+hive start
+
+k8s/add service.yaml endpointslice.yaml
+cp service.yaml service-other.yaml
+replace 'namespace: test' 'namespace: other' service-other.yaml
+replace '10.96.50.104' '10.96.50.105' service-other.yaml
+replace 'nodePort: 30781' 'nodePort: 30782' service-other.yaml
+replace 'nodePort: 30725' 'nodePort: 30726' service-other.yaml
+replace 'a49fe99c-3564-4754-acc4-780f2331a49b' 'a49fe99c-3564-4754-acc4-780f2331a49c' service-other.yaml
+k8s/add service-other.yaml
+db/cmp services services.table
+
+k8s/add cec.yaml
+db/cmp ciliumenvoyconfigs cec.table
+db/cmp services services_redirected.table
+
+# ---------------------------------------------
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- services.table --
+Name         Flags
+other/echo   
+test/echo    
+
+-- services_redirected.table --
+Name         Flags
+other/echo   ProxyRedirects=1000 (ports: [80])
+test/echo    
+
+-- cec.table --
+Name                     Labels   Services
+other/envoy-lb-listener  foo=bar  other/echo
+
+-- cec.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEnvoyConfig
+metadata:
+  name: envoy-lb-listener
+  namespace: other
+  labels:
+    foo: bar
+spec:
+  services:
+    - name: echo
+      namespace: test
+      listener: envoy-lb-listener
+      ports:
+      - 80
+  resources:
+    - "@type": type.googleapis.com/envoy.config.listener.v3.Listener
+      name: envoy-lb-listener
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  - name: smtp
+    nodePort: 30725
+    port: 25
+    protocol: TCP
+    targetPort: 25
+  selector:
+    name: echo
+  type: NodePort
+status:
+  loadBalancer: {}
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps1
+  namespace: test
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: nodeport-worker
+ports:
+- name: http
+  port: 8080
+  protocol: TCP
+- name: smtp
+  port: 25
+  protocol: TCP
