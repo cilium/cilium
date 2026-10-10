@@ -386,6 +386,50 @@ func TestParseNetworkPolicy(t *testing.T) {
 	}
 }
 
+func TestParseNetworkPolicyHonorsPolicyTypes(t *testing.T) {
+	tests := []struct {
+		name            string
+		policyTypes     []slim_networkingv1.PolicyType
+		expectedIngress bool
+		expectedRules   int
+	}{
+		{
+			name:            "egress only ignores ingress rules",
+			policyTypes:     []slim_networkingv1.PolicyType{slim_networkingv1.PolicyTypeEgress},
+			expectedIngress: false,
+			expectedRules:   1,
+		},
+		{
+			name:            "ingress only ignores egress rules",
+			policyTypes:     []slim_networkingv1.PolicyType{slim_networkingv1.PolicyTypeIngress},
+			expectedIngress: true,
+			expectedRules:   1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			np := &slim_networkingv1.NetworkPolicy{
+				Spec: slim_networkingv1.NetworkPolicySpec{
+					Ingress:     []slim_networkingv1.NetworkPolicyIngressRule{{}},
+					Egress:      []slim_networkingv1.NetworkPolicyEgressRule{{}},
+					PolicyTypes: tt.policyTypes,
+				},
+			}
+
+			rules, err := ParseNetworkPolicy(
+				hivetest.Logger(t),
+				cmtypes.PolicyAnyCluster,
+				np,
+			)
+
+			require.NoError(t, err)
+			require.Len(t, rules, tt.expectedRules)
+			require.Equal(t, tt.expectedIngress, rules[0].Ingress)
+		})
+	}
+}
+
 func TestParseNetworkPolicyMultipleSelectors(t *testing.T) {
 
 	// Rule with multiple selectors in egress and ingress
