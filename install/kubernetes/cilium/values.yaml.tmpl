@@ -1195,6 +1195,8 @@ encryption:
     # -- Maximum duration of the IPsec key rotation. The previous key will be
     # removed after that delay.
     keyRotationDuration: "5m"
+    # -- During a tunnel-mode IPsec migration, send overlay traffic to peers advertising no key in plaintext instead of dropping it
+    allowPlaintextEspOverlay: false
   wireguard:
     # -- Controls WireGuard PersistentKeepalive option. Set 0s to disable.
     persistentKeepalive: 0s

@@ -1928,6 +1928,9 @@
         },
         "ipsec": {
           "properties": {
+            "allowPlaintextEspOverlay": {
+              "type": "boolean"
+            },
             "interface": {
               "type": "string"
             },
