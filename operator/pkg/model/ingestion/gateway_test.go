@@ -1418,7 +1418,7 @@ func TestHTTPRequestExternalAuthMissingBackendFailsClosed(t *testing.T) {
 }
 
 func TestGRPCRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(slog.Default(), nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "nil-grpc-mirror",
 			Namespace: "default",
@@ -1434,14 +1434,14 @@ func TestGRPCRequestMirrorNilFilterDoesNotPanic(t *testing.T) {
 				},
 			},
 		},
-	}, nil, nil, nil)
+	}, nil, nil, nil, nil)
 
 	require.Len(t, routes, 1)
 	assert.Nil(t, routes[0].RequestMirrors)
 }
 
 func TestGRPCRequestMirrorSameNamespaceIsKept(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(slog.Default(), nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "same-namespace-grpc-mirror",
 			Namespace: "default",
@@ -1476,7 +1476,7 @@ func TestGRPCRequestMirrorSameNamespaceIsKept(t *testing.T) {
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("default", "mirror-backend", 8080),
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1485,7 +1485,7 @@ func TestGRPCRequestMirrorSameNamespaceIsKept(t *testing.T) {
 }
 
 func TestGRPCRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(slog.Default(), nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cross-namespace-grpc-mirror",
 			Namespace: "default",
@@ -1521,7 +1521,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testin
 	}, []corev1.Service{
 		testService("default", "backend", 8080),
 		testService("other-ns", "mirror-backend", 8080),
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	require.Len(t, routes, 1)
 	assert.Len(t, routes[0].Backends, 1)
@@ -1529,7 +1529,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithoutReferenceGrantIsDropped(t *testin
 }
 
 func TestGRPCRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(slog.Default(), nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cross-namespace-grpc-mirror",
 			Namespace: "default",
@@ -1567,7 +1567,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 		testService("other-ns", "mirror-backend", 8080),
 	}, nil, []gatewayv1.ReferenceGrant{
 		testReferenceGrant("other-ns", "default", "GRPCRoute"),
-	})
+	}, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
@@ -1576,7 +1576,7 @@ func TestGRPCRequestMirrorCrossNamespaceWithReferenceGrantIsKept(t *testing.T) {
 }
 
 func TestGRPCRequestMirrorServiceImportIsResolved(t *testing.T) {
-	routes := extractGRPCRoutes(nil, gatewayv1.GRPCRoute{
+	routes := extractGRPCRoutes(slog.Default(), nil, gatewayv1.GRPCRoute{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "serviceimport-grpc-mirror",
 			Namespace: "default",
@@ -1623,12 +1623,142 @@ func TestGRPCRequestMirrorServiceImportIsResolved(t *testing.T) {
 				},
 			},
 		},
-	}, nil)
+	}, nil, nil)
 
 	require.Len(t, routes, 1)
 	require.Len(t, routes[0].RequestMirrors, 1)
 	assert.Equal(t, "mirror-service", routes[0].RequestMirrors[0].Backend.Name)
 	assert.Equal(t, "default", routes[0].RequestMirrors[0].Backend.Namespace)
+}
+
+func TestGatewayAPIGRPCBackendTLSPolicy(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	policy := &gatewayv1.BackendTLSPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "backend-tls",
+			Namespace: "default",
+		},
+		Spec: gatewayv1.BackendTLSPolicySpec{
+			TargetRefs: []gatewayv1.LocalPolicyTargetReferenceWithSectionName{
+				{
+					LocalPolicyTargetReference: gatewayv1.LocalPolicyTargetReference{
+						Group: "",
+						Kind:  "Service",
+						Name:  "backend",
+					},
+					SectionName: ptr.To(gatewayv1.SectionName("grpc")),
+				},
+			},
+			Validation: gatewayv1.BackendTLSPolicyValidation{
+				Hostname: "backend.example.com",
+				CACertificateRefs: []gatewayv1.LocalObjectReference{
+					{
+						Group: "",
+						Kind:  "ConfigMap",
+						Name:  "backend-ca",
+					},
+				},
+			},
+		},
+	}
+	input := Input{
+		Gateway: gatewayv1.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cilium",
+				Namespace: "default",
+			},
+			Spec: gatewayv1.GatewaySpec{
+				Listeners: []gatewayv1.Listener{
+					{
+						Name:     "grpc",
+						Port:     80,
+						Protocol: gatewayv1.HTTPProtocolType,
+					},
+				},
+			},
+		},
+		GRPCRoutes: []gatewayv1.GRPCRoute{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "grpc",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.GRPCRouteSpec{
+					CommonRouteSpec: gatewayv1.CommonRouteSpec{
+						ParentRefs: []gatewayv1.ParentReference{
+							{Name: "cilium"},
+						},
+					},
+					Rules: []gatewayv1.GRPCRouteRule{
+						{
+							BackendRefs: []gatewayv1.GRPCBackendRef{
+								{
+									BackendRef: gatewayv1.BackendRef{
+										BackendObjectReference: gatewayv1.BackendObjectReference{
+											Name: "backend",
+											Port: ptr.To(gatewayv1.PortNumber(8443)),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Services: []corev1.Service{
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "backend",
+					Namespace: "default",
+				},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{
+						{Name: "grpc", Port: 8443},
+					},
+				},
+			},
+		},
+		BackendTLSPolicyMap: helpers.BackendTLSPolicyServiceMap{
+			{Namespace: "default", Name: "backend"}: {
+				Valid: map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy{
+					"grpc": policy,
+				},
+			},
+		},
+	}
+	setTestMergedListeners(&input, nil)
+
+	got := GatewayAPI(logger, input)
+
+	require.Len(t, got.HTTP, 1)
+	require.Len(t, got.HTTP[0].Routes, 1)
+	require.Len(t, got.HTTP[0].Routes[0].Backends, 1)
+	assert.Equal(t, &model.BackendTLSOrigination{
+		SNI: "backend.example.com",
+		CACertRef: &model.FullyQualifiedResource{
+			Group:     "",
+			Kind:      "ConfigMap",
+			Version:   "v1",
+			Name:      "backend-ca",
+			Namespace: "default",
+		},
+	}, got.HTTP[0].Routes[0].Backends[0].TLS)
+
+	input.BackendTLSPolicyMap = helpers.BackendTLSPolicyServiceMap{
+		{Namespace: "default", Name: "backend"}: {
+			Invalid: map[gatewayv1.SectionName]*gatewayv1.BackendTLSPolicy{
+				"grpc": policy,
+			},
+		},
+	}
+	got = GatewayAPI(logger, input)
+
+	require.Len(t, got.HTTP, 1)
+	require.Len(t, got.HTTP[0].Routes, 1)
+	assert.Empty(t, got.HTTP[0].Routes[0].Backends)
+	require.NotNil(t, got.HTTP[0].Routes[0].DirectResponse)
+	assert.Equal(t, 500, got.HTTP[0].Routes[0].DirectResponse.StatusCode)
 }
 
 func TestGatewayAPI_GatewayClassConfig(t *testing.T) {

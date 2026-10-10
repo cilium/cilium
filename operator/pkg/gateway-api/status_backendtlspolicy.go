@@ -48,6 +48,7 @@ func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 	gatewayName types.NamespacedName,
 	btlspolicies []gatewayv1.BackendTLSPolicy,
 	httpRoutes []gatewayv1.HTTPRoute,
+	grpcRoutes []gatewayv1.GRPCRoute,
 ) (helpers.BackendTLSPolicyServiceMap, error) {
 	btlspMap := helpers.BuildBackendTLSPolicyLookup(&gatewayv1.BackendTLSPolicyList{
 		Items: btlspolicies,
@@ -124,6 +125,21 @@ func (m *BackendTLSPolicyStatusManager) SetBackendTLSPolicyStatuses(
 						}
 					}
 				}
+			}
+		}
+		if !found {
+			grpcRouteList := &gatewayv1.GRPCRouteList{}
+			if err := m.client.List(ctx, grpcRouteList, &client.ListOptions{
+				FieldSelector: fields.OneTermEqualSelector(indexers.BackendServiceGRPCRouteIndex, svcName.String()),
+			}); err != nil {
+				scopedLog.ErrorContext(ctx, "Failed to get related GRPCRoutes", logfields.Error, err)
+				return nil, err
+			}
+
+			found, err = helpers.ContainsCommonGRPCRoute(grpcRouteList.Items, grpcRoutes)
+			if err != nil {
+				scopedLog.ErrorContext(ctx, "Different generation comparing a GRPCRoute, re-reconciling", logfields.Error, err)
+				return nil, err
 			}
 		}
 		if !found {

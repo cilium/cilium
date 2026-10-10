@@ -450,6 +450,7 @@ func Test_Conformance(t *testing.T) {
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway)
 			clientBuilder.WithIndex(&gatewayv1.HTTPRoute{}, indexers.BackendServiceHTTPRouteIndex, fakeIndexHTTPRouteByBackendService)
 			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway)
+			clientBuilder.WithIndex(&gatewayv1.GRPCRoute{}, indexers.BackendServiceGRPCRouteIndex, fakeIndexGRPCRouteByBackendService)
 			clientBuilder.WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway)
 			// TCPRoute/UDPRoute types are only registered in the scheme when their
 			// CRDs are installed, so only set their status subresource and index then.
@@ -1332,6 +1333,47 @@ func fakeIndexHTTPRouteByBackendService(rawObj client.Object) []string {
 		}
 		for _, f := range rule.Filters {
 			if f.Type != gatewayv1.HTTPRouteFilterRequestMirror || f.RequestMirror == nil {
+				continue
+			}
+			if !helpers.IsService(f.RequestMirror.BackendRef) {
+				continue
+			}
+			namespace := helpers.NamespaceDerefOr(f.RequestMirror.BackendRef.Namespace, route.Namespace)
+			backendServices = append(
+				backendServices,
+				types.NamespacedName{
+					Namespace: namespace,
+					Name:      string(f.RequestMirror.BackendRef.Name),
+				}.String(),
+			)
+		}
+	}
+	return backendServices
+}
+
+func fakeIndexGRPCRouteByBackendService(rawObj client.Object) []string {
+	route, ok := rawObj.(*gatewayv1.GRPCRoute)
+	if !ok {
+		return nil
+	}
+	var backendServices []string
+
+	for _, rule := range route.Spec.Rules {
+		for _, backend := range rule.BackendRefs {
+			if !helpers.IsService(backend.BackendObjectReference) {
+				continue
+			}
+			namespace := helpers.NamespaceDerefOr(backend.Namespace, route.Namespace)
+			backendServices = append(
+				backendServices,
+				types.NamespacedName{
+					Namespace: namespace,
+					Name:      string(backend.Name),
+				}.String(),
+			)
+		}
+		for _, f := range rule.Filters {
+			if f.Type != gatewayv1.GRPCRouteFilterRequestMirror || f.RequestMirror == nil {
 				continue
 			}
 			if !helpers.IsService(f.RequestMirror.BackendRef) {
