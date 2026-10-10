@@ -122,7 +122,7 @@ type PoolAllocator struct {
 
 	ipv4Enabled, ipv6Enabled bool
 
-	metrics Metrics
+	metrics *Metrics
 
 	mutex   lock.RWMutex
 	pools   map[string]cidrPool    // poolName -> pool
@@ -131,21 +131,16 @@ type PoolAllocator struct {
 	ready   bool
 }
 
-func NewPoolAllocator(logger *slog.Logger, enableIPv4, enableIPv6 bool) *PoolAllocator {
+func NewPoolAllocator(logger *slog.Logger, enableIPv4, enableIPv6 bool, metrics *Metrics) *PoolAllocator {
 	return &PoolAllocator{
 		logger:      logger,
 		ipv4Enabled: enableIPv4,
 		ipv6Enabled: enableIPv6,
+		metrics:     metrics,
 		pools:       map[string]cidrPool{},
 		nodes:       map[string]poolToCIDRs{},
 		orphans:     map[string]poolToCIDRs{},
 	}
-}
-
-// SetMetrics wires pool-wide CIDR-block metrics into the allocator. Optional;
-// when unset, metric emission is a no-op.
-func (p *PoolAllocator) SetMetrics(m Metrics) {
-	p.metrics = m
 }
 
 // updatePoolMetricsLocked recomputes and emits the total-blocks gauge for a

@@ -98,7 +98,7 @@ type mockResult struct {
 func TestNodeHandler(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
-	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
+	backend := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 	err := backend.UpsertPool("default", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, 24, nil, 0)
 	assert.NoError(t, err)
 
@@ -258,7 +258,7 @@ func TestNodeHandler(t *testing.T) {
 func TestOrphanCIDRsAfterRestart(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
-	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
+	backend := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 
 	onUpdateArgs := make(chan mockArgs)
 
@@ -394,7 +394,7 @@ func TestOrphanCIDRsAfterRestart(t *testing.T) {
 func TestOrphanCIDRsReleased(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
-	backend := NewPoolAllocator(hivetest.Logger(t), true, true)
+	backend := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 	err := backend.UpsertPool("test-pool",
 		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28"), netip.MustParsePrefix("10.0.0.16/28"), netip.MustParsePrefix("10.0.0.32/28"), netip.MustParsePrefix("10.0.0.48/28")}, 28,
 		nil, 0)
@@ -512,7 +512,7 @@ func TestNodeHandlerRetries(t *testing.T) {
 	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
 	t.Run("get and update", func(t *testing.T) {
-		backend := NewPoolAllocator(hivetest.Logger(t), true, false)
+		backend := NewPoolAllocator(hivetest.Logger(t), true, false, nil)
 		assert.NoError(t, backend.UpsertPool("default", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, 24, nil, 0))
 
 		node := &v2.CiliumNode{
@@ -595,7 +595,7 @@ func TestNodeHandlerRetries(t *testing.T) {
 	})
 
 	t.Run("updatestatus", func(t *testing.T) {
-		backend := NewPoolAllocator(hivetest.Logger(t), true, false)
+		backend := NewPoolAllocator(hivetest.Logger(t), true, false, nil)
 		assert.NoError(t, backend.UpsertPool("default", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/8")}, 24, nil, 0))
 
 		node := &v2.CiliumNode{

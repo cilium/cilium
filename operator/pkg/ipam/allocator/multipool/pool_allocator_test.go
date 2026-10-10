@@ -20,7 +20,7 @@ import (
 )
 
 func TestPoolAllocator(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 	err := p.UpsertPool("default",
 		[]netip.Prefix{netip.MustParsePrefix("10.100.0.0/16"), netip.MustParsePrefix("10.200.0.0/16")}, 24,
 		[]netip.Prefix{netip.MustParsePrefix("fd00:100::/80"), netip.MustParsePrefix("fc00:100::/80")}, 96,
@@ -236,7 +236,7 @@ func TestPoolAllocator(t *testing.T) {
 }
 
 func TestPoolAllocator_PoolErrors(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 	p.RestoreFinished()
 
 	node := &v2.CiliumNode{
@@ -354,7 +354,7 @@ func TestPoolAllocator_PoolErrors(t *testing.T) {
 }
 
 func TestPoolAllocator_AddUpsertDelete(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 
 	_, exists := p.pools["jupiter"]
 	assert.False(t, exists)
@@ -602,7 +602,7 @@ func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p := NewPoolAllocator(hivetest.Logger(t), true, false)
+			p := NewPoolAllocator(hivetest.Logger(t), true, false, nil)
 			err := p.UpsertPool("test-pool", []netip.Prefix{netip.MustParsePrefix("10.0.0.0/29")}, 30, nil, 0, tt.options...)
 			assert.NoError(t, err)
 			p.RestoreFinished()
@@ -644,7 +644,7 @@ func TestPoolAllocatorAllowFirstAndLastIPs(t *testing.T) {
 // TestUpdateCIDRSets_ShrinkPool ensures that shrinking a pool does not
 // trigger a nil dereference in updateCIDRSets.
 func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 
 	// Initial pool with two IPv4 CIDRs
 	err := p.UpsertPool("shrink-test",
@@ -667,7 +667,7 @@ func TestUpdateCIDRSets_ShrinkPool(t *testing.T) {
 }
 
 func TestPoolUpdateWithCIDRInUse(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 
 	// no pools available
 	assert.Empty(t, p.pools)
@@ -740,7 +740,7 @@ func TestPoolUpdateWithCIDRInUse(t *testing.T) {
 }
 
 func TestOrphanCIDRs(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 
 	// no pools available
 	assert.Empty(t, p.pools)
@@ -1072,7 +1072,7 @@ func TestOrphanCIDRs(t *testing.T) {
 }
 
 func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 
 	// no pools available
 	assert.Empty(t, p.pools)
@@ -1169,7 +1169,7 @@ func TestOrphanCIDRsNotStolenFromAnotherPool(t *testing.T) {
 }
 
 func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
-	p := NewPoolAllocator(hivetest.Logger(t), true, true)
+	p := NewPoolAllocator(hivetest.Logger(t), true, true, nil)
 
 	err := p.UpsertPool("test-pool",
 		[]netip.Prefix{netip.MustParsePrefix("10.0.0.0/28"), netip.MustParsePrefix("10.0.0.16/28"), netip.MustParsePrefix("10.0.0.32/28"), netip.MustParsePrefix("10.0.0.48/28")}, 28,
@@ -1224,8 +1224,7 @@ func TestUpdatePoolKeepOldCIDRs(t *testing.T) {
 
 func TestPoolAllocatorMetrics(t *testing.T) {
 	m := NewMetrics()
-	p := NewPoolAllocator(hivetest.Logger(t), true, true)
-	p.SetMetrics(m)
+	p := NewPoolAllocator(hivetest.Logger(t), true, true, &m)
 
 	// /24 carved at /28 => 1<<(28-24) = 16 v4 blocks; /120 at /122 => 1<<2 = 4 v6 blocks.
 	err := p.UpsertPool("default",

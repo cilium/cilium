@@ -35,15 +35,14 @@ func NewMetrics() Metrics {
 	}
 }
 
-// enabled reports whether a Metrics was injected.
-// When no Metrics is provided (e.g. tests) the vec is nil and metric operations no-op.
-func (m Metrics) enabled() bool {
-	return m.TotalBlocks != nil
+// enabled returns false if m is nil, e.g. in unit tests.
+func (m *Metrics) enabled() bool {
+	return m != nil && m.TotalBlocks != nil
 }
 
 // setPool sets the total-blocks gauge for a given pool and family.
 // No-op when no Metrics was injected (see enabled).
-func (m Metrics) setPool(pool string, family ipam.Family, total int) {
+func (m *Metrics) setPool(pool string, family ipam.Family, total int) {
 	if !m.enabled() {
 		return
 	}
@@ -52,7 +51,7 @@ func (m Metrics) setPool(pool string, family ipam.Family, total int) {
 
 // deletePool drops both families' series for a pool once it is deleted.
 // No-op when no Metrics was injected (see enabled).
-func (m Metrics) deletePool(pool string) {
+func (m *Metrics) deletePool(pool string) {
 	if !m.enabled() {
 		return
 	}

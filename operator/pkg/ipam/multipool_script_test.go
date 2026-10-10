@@ -38,7 +38,7 @@ func init() {
 
 		cell.Config(multipool.DefaultConfig),
 		cell.Provide(func(logger *slog.Logger, daemonCfg *option.DaemonConfig) *multipool.PoolAllocator {
-			return multipool.NewPoolAllocator(logger, daemonCfg.EnableIPv4, daemonCfg.EnableIPv6)
+			return multipool.NewPoolAllocator(logger, daemonCfg.EnableIPv4, daemonCfg.EnableIPv6, nil)
 		}),
 		cell.Invoke(multipool.StartAllocator),
 	))
