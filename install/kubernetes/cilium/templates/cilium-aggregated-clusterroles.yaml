@@ -1,0 +1,133 @@
+{{- if and .Values.rbac.create .Values.rbac.aggregate.enabled }}
+{{- /* Every kind is readable by view, edit and admin (one view role carrying all
+  three aggregate-to labels), except the Envoy configs
+  (unsafe: spec.resources may inline TLS Secrets), which are edit/admin only. */}}
+{{- $readResources := list
+  "ciliumbgpadvertisements"
+  "ciliumbgpclusterconfigs"
+  "ciliumbgpclusterconfigs/status"
+  "ciliumbgpnodeconfigoverrides"
+  "ciliumbgpnodeconfigs"
+  "ciliumbgpnodeconfigs/status"
+  "ciliumbgppeerconfigs"
+  "ciliumbgppeerconfigs/status"
+  "ciliumcidrgroups"
+  "ciliumclusterwidenetworkpolicies"
+  "ciliumclusterwidenetworkpolicies/status"
+  "ciliumdatapathplugins"
+  "ciliumegressgatewaypolicies"
+  "ciliumendpoints"
+  "ciliumendpointslices"
+  "ciliumgatewayclassconfigs"
+  "ciliumgatewayclassconfigs/status"
+  "ciliumidentities"
+  "ciliumidentities/status"
+  "ciliuml2announcementpolicies"
+  "ciliuml2announcementpolicies/status"
+  "ciliumloadbalancerippools"
+  "ciliumloadbalancerippools/status"
+  "ciliumlocalredirectpolicies"
+  "ciliumnetworkdriverclusterconfigs"
+  "ciliumnetworkdriverclusterconfigs/status"
+  "ciliumnetworkdrivernodeconfigs"
+  "ciliumnetworkpolicies"
+  "ciliumnetworkpolicies/status"
+  "ciliumnodeconfigs"
+  "ciliumnodes"
+  "ciliumnodes/status"
+  "ciliumpodippools"
+  "ciliumresourceippools"
+-}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cilium:aggregate-to-view
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-view: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+rules:
+- apiGroups:
+  - cilium.io
+  resources:
+  {{- toYaml $readResources | nindent 2 }}
+  verbs:
+  - get
+  - list
+  - watch
+---
+{{- /* Read role for the unsafe kinds. Deliberately NOT aggregated into view
+  (no aggregate-to-view label): spec.resources may inline TLS Secrets. */}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cilium:aggregate-to-view-sensitive
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+rules:
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumclusterwideenvoyconfigs
+  - ciliumenvoyconfigs
+  verbs:
+  - get
+  - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cilium:aggregate-to-edit
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  labels:
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    app.kubernetes.io/part-of: cilium
+    {{- with .Values.commonLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+# Writes only.
+rules:
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumclusterwideenvoyconfigs
+  - ciliumenvoyconfigs
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnetworkpolicies
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - patch
+  - update
+{{- end }}
