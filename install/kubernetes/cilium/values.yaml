@@ -842,8 +842,6 @@ cni:
       # @schema
       cpu: 1
       memory: 1Gi
-  # -- Enable route MTU for pod netns when CNI chaining is used
-  enableRouteMTUForCNIChaining: false
   # -- Enable the removal of iptables rules created by the AWS CNI VPC plugin.
   iptablesRemoveAWSRules: true
 # @schema

@@ -1104,8 +1104,6 @@
      - Skip writing of the CNI configuration. This can be used if writing of the CNI configuration is performed by external automation.
      - bool
      - ``false``
-   * - :spelling:ignore:`cni.enableRouteMTUForCNIChaining`
-     - Enable route MTU for pod netns when CNI chaining is used
      - bool
      - ``false``
    * - :spelling:ignore:`cni.exclusive`

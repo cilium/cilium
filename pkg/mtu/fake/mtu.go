@@ -15,10 +15,6 @@ func (*MTU) GetRouteMTU() int {
 	return 1500
 }
 
-func (*MTU) IsEnableRouteMTUForCNIChaining() bool {
-	return false
-}
-
 func (*MTU) PacketizationLayerPMTUDMode() string {
 	return ""
 }

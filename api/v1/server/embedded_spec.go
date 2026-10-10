@@ -2455,10 +2455,6 @@ func init() {
           "description": "True if BBR is enabled only in the host network namespace",
           "type": "boolean"
         },
-        "enableRouteMTUForCNIChaining": {
-          "description": "Enable route MTU for pod netns when CNI chaining is used",
-          "type": "boolean"
-        },
         "immutable": {
           "description": "Immutable configuration (read-only)",
           "$ref": "#/definitions/ConfigurationMap"
@@ -7879,10 +7875,6 @@ func init() {
         },
         "enableBBRHostNamespaceOnly": {
           "description": "True if BBR is enabled only in the host network namespace",
-          "type": "boolean"
-        },
-        "enableRouteMTUForCNIChaining": {
-          "description": "Enable route MTU for pod netns when CNI chaining is used",
           "type": "boolean"
         },
         "immutable": {

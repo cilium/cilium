@@ -17,6 +17,24 @@ is managed by the non-Cilium CNI plugin, but Cilium attaches eBPF programs to th
 network devices created by the non-Cilium plugin to provide L3/L4 network
 visibility, policy enforcement and other advanced features.
 
+Route MTU
+=========
+
+When a Cilium feature adds encapsulation to Pod traffic, the route MTU inside
+the Pod must account for that overhead. This applies to WireGuard encryption
+and to traffic redirected through an egress gateway, not only to the
+encapsulation configured by the primary CNI plugin.
+
+Cilium automatically configures the route MTU in chained Pods. This avoids
+fragmentation when the effective datapath MTU is reduced by encapsulation.
+
+IPsec also adds encapsulation overhead, but IPsec with CNI chaining is
+currently unsupported; see :ref:`encryption_ipsec` for its limitations.
+Enabling this option does not remove those limitations.
+
+CNI plugins
+===========
+
 .. toctree::
    :maxdepth: 1
    :glob:
