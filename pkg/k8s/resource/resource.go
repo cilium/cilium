@@ -730,8 +730,9 @@ func (r *resource[T]) newInformer() (cache.Indexer, cache.Controller) {
 					return err
 				}
 
-				// Deduplicate the strings in the object metadata to reduce memory consumption.
-				resources.DedupMetadata(obj)
+				// Deduplicate the strings in the object metadata and drop its
+				// managedFields to reduce memory consumption.
+				resources.NormalizeMetadata(obj)
 
 				// In CI we detect if the objects were modified and panic
 				// (e.g. when KUBE_CACHE_MUTATION_DETECTOR is set)

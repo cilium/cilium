@@ -478,6 +478,72 @@ func TestResource_CompletionOnStop(t *testing.T) {
 	}
 }
 
+// The managedFields of an object are dropped on its way into the store, see
+// resources.NormalizeMetadata.
+func TestResource_StripsManagedFields(t *testing.T) {
+	var nodes resource.Resource[*corev1.Node]
+	var fakeClient, cs = k8sFakeClient.NewFakeClientset(hivetest.Logger(t))
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "some-node",
+			ResourceVersion: "0",
+			Labels:          map[string]string{"foo": "bar"},
+			ManagedFields: []metav1.ManagedFieldsEntry{
+				{Manager: "cilium-agent", Operation: metav1.ManagedFieldsOperationUpdate},
+			},
+		},
+	}
+
+	hive := hive.New(
+		cell.Provide(
+			func() k8sClient.Clientset { return cs },
+			func(lc cell.Lifecycle, c k8sClient.Clientset) resource.Resource[*corev1.Node] {
+				lw := utils.ListerWatcherFromTyped[*corev1.NodeList](c.CoreV1().Nodes())
+				return resource.New[*corev1.Node](lc, lw, nil)
+			}),
+		cell.Invoke(func(r resource.Resource[*corev1.Node]) { nodes = r }))
+
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
+	tlog := hivetest.Logger(t)
+	require.NoError(t, hive.Start(tlog, ctx))
+
+	_, err := fakeClient.KubernetesFakeClientset.CoreV1().Nodes().Create(
+		ctx, node.DeepCopy(), metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	events := nodes.Events(ctx)
+
+	event := <-events
+	require.Equal(t, resource.Upsert, event.Kind)
+	// Nil, not merely empty: a non-nil empty slice is how a request body asks
+	// the apiserver to reset the field management of the live object.
+	assert.Nil(t, event.Object.ManagedFields)
+	// The rest of the metadata is left alone.
+	assert.Equal(t, "some-node", event.Object.Name)
+	assert.Equal(t, map[string]string{"foo": "bar"}, event.Object.Labels)
+	event.Done(nil)
+
+	event = <-events
+	require.Equal(t, resource.Sync, event.Kind)
+	event.Done(nil)
+
+	store, err := nodes.Store(ctx)
+	require.NoError(t, err)
+	stored, exists, err := store.GetByKey(resource.Key{Name: "some-node"})
+	require.NoError(t, err)
+	require.True(t, exists)
+	assert.Nil(t, stored.ManagedFields)
+
+	require.NoError(t, hive.Stop(tlog, ctx))
+
+	if event, ok := <-events; ok {
+		t.Fatalf("unexpected event still in channel: %v", event)
+	}
+}
+
 func TestResource_WithTransform(t *testing.T) {
 	type StrippedNode = metav1.PartialObjectMetadata
 	var strippedNodes resource.Resource[*StrippedNode]

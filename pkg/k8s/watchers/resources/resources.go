@@ -38,14 +38,18 @@ const (
 	MetricDelete = "delete"
 )
 
-// dedupMetadata deduplicates the allocated strings in the metadata using the container/cache package.
-func DedupMetadata(obj any) {
-	meta, err := meta.Accessor(obj)
+// NormalizeMetadata prepares the metadata of an object on its way into an
+// informer store. It deduplicates the allocated strings using the
+// container/cache package, and drops the server-side field management
+// bookkeeping.
+func NormalizeMetadata(obj any) {
+	m, err := meta.Accessor(obj)
 	if err != nil {
 		return
 	}
-	meta.SetName(cache.Strings.Get(meta.GetName()))
-	meta.SetNamespace(cache.Strings.Get(meta.GetNamespace()))
-	meta.SetLabels(cache.StringMaps.Get(meta.GetLabels()))
-	meta.SetAnnotations(cache.StringMaps.Get(meta.GetAnnotations()))
+	m.SetName(cache.Strings.Get(m.GetName()))
+	m.SetNamespace(cache.Strings.Get(m.GetNamespace()))
+	m.SetLabels(cache.StringMaps.Get(m.GetLabels()))
+	m.SetAnnotations(cache.StringMaps.Get(m.GetAnnotations()))
+	m.SetManagedFields(nil)
 }
