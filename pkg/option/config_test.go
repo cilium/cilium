@@ -57,6 +57,56 @@ func TestValidateIPv6ClusterAllocCIDR(t *testing.T) {
 	require.Error(t, invalid4.validateIPv6ClusterAllocCIDR())
 }
 
+func TestValidateVTEP(t *testing.T) {
+	tests := []struct {
+		name       string
+		mask       string
+		wantErr    bool
+		wantErrMsg string
+	}{
+		{
+			name: "valid IPv4 mask",
+			mask: "255.255.255.0",
+		},
+		{
+			name:       "IPv6 mask",
+			mask:       "fd00::1",
+			wantErr:    true,
+			wantErrMsg: "must be an IPv4 address",
+		},
+		{
+			name:       "4-in-6 mapped mask",
+			mask:       "::ffff:192.0.2.1",
+			wantErr:    true,
+			wantErrMsg: "must be an IPv4 address",
+		},
+		{
+			name:    "invalid mask",
+			mask:    "foo",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &DaemonConfig{}
+			vp := viper.New()
+			vp.Set(VtepMask, tt.mask)
+
+			err := c.validateVTEP(vp)
+			if tt.wantErr {
+				require.Error(t, err)
+				if tt.wantErrMsg != "" {
+					require.ErrorContains(t, err, tt.wantErrMsg)
+				}
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, netip.MustParseAddr(tt.mask), c.VtepCidrMask)
+		})
+	}
+}
+
 func TestGetEnvName(t *testing.T) {
 	type args struct {
 		option string

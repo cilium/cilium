@@ -3216,6 +3216,9 @@ func (c *DaemonConfig) validateVTEP(vp *viper.Viper) error {
 	if err != nil {
 		return fmt.Errorf("invalid VTEP CIDR Mask: %w", err)
 	}
+	if !mask.Is4() {
+		return fmt.Errorf("VTEP CIDR Mask %q must be an IPv4 address", mask)
+	}
 	c.VtepCidrMask = mask
 
 	return nil
