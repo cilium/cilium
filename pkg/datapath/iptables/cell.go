@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/iptables/ipset"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -30,13 +31,18 @@ var Cell = cell.Module(
 		tunnelCfg tunnel.Config,
 		ipsecCfg ipsec.Config,
 		wgConfig wgTypes.Config,
+		kprCfg kpr.KPRConfig,
 	) SharedConfig {
 		return SharedConfig{
 			TunnelingEnabled:                cfg.TunnelingEnabled(),
+			HybridRoutingEnabled:            cfg.RoutingMode == option.RoutingModeHybrid,
 			TunnelPort:                      tunnelCfg.Port(),
 			NodeIpsetNeeded:                 cfg.NodeIpsetNeeded(),
 			IptablesMasqueradingIPv4Enabled: cfg.IptablesMasqueradingIPv4Enabled(),
 			IptablesMasqueradingIPv6Enabled: cfg.IptablesMasqueradingIPv6Enabled(),
+			BPFMasqueradingIPv4Enabled:      cfg.EnableBPFMasquerade && cfg.EnableIPv4Masquerade,
+			BPFMasqueradingIPv6Enabled:      cfg.EnableBPFMasquerade && cfg.EnableIPv6Masquerade,
+			KubeProxyReplacement:            kprCfg.KubeProxyReplacement,
 
 			EnableIPv4:                  cfg.EnableIPv4,
 			EnableIPv6:                  cfg.EnableIPv6,
@@ -94,10 +100,14 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 
 type SharedConfig struct {
 	TunnelingEnabled                bool
+	HybridRoutingEnabled            bool
 	TunnelPort                      uint16
 	NodeIpsetNeeded                 bool
 	IptablesMasqueradingIPv4Enabled bool
 	IptablesMasqueradingIPv6Enabled bool
+	BPFMasqueradingIPv4Enabled      bool
+	BPFMasqueradingIPv6Enabled      bool
+	KubeProxyReplacement            bool
 
 	EnableIPv4                  bool
 	EnableIPv6                  bool

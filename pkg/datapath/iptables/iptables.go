@@ -1558,35 +1558,78 @@ func (m *manager) installMasqueradeRules(
 		return err
 	}
 
-	// Masquerade all traffic that originated from a local
-	// pod and thus carries a security identity and that
-	// was also DNAT'ed. It must be masqueraded to ensure
-	// that reverse NAT can be performed. Otherwise the
-	// reply traffic would be sent directly to the pod
-	// without traversing the Linux stack again.
-	//
-	// This is only done if EnableEndpointRoutes is
-	// disabled, if EnableEndpointRoutes is enabled, then
-	// all traffic always passes through the stack anyway.
-	//
-	// This is required for:
-	//  - portmap/host if both source and destination are
-	//    on the same node
-	//  - some proxy if source and server are on the same node
-	if !m.sharedCfg.EnableEndpointRoutes {
-		if err := prog.runProg([]string{
-			"-t", "nat",
-			"-A", ciliumPostNatChain,
-			"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
-			"-o", localDeliveryInterface,
-			"-m", "conntrack", "--ctstate", "DNAT",
-			"-m", "comment", "--comment", "hairpin traffic that originated from a local pod",
-			"-j", "SNAT", "--to-source", hostMasqueradeIP}); err != nil {
-			return err
+	return m.installHairpinRule(prog, localDeliveryInterface, hostMasqueradeIP)
+}
+
+// installPostNatRules installs the masquerade rules for one address family
+// when iptables masquerading is on. With BPF masquerading, it installs only
+// the hairpin rule, if that is still needed.
+func (m *manager) installPostNatRules(
+	prog iptablesInterface, iptablesMasquerading, bpfMasquerading bool, nativeDevices []string,
+	localDeliveryInterface string, snatDstExclusionCIDR netip.Prefix,
+	allocRange, hostMasqueradeIP string,
+) error {
+	if iptablesMasquerading {
+		if err := m.installMasqueradeRules(prog, nativeDevices, localDeliveryInterface,
+			snatDstExclusionCIDR, allocRange, hostMasqueradeIP); err != nil {
+			return fmt.Errorf("cannot install masquerade rules: %w", err)
+		}
+		return nil
+	}
+
+	if m.hairpinWithBPFMasquerade(bpfMasquerading) {
+		if err := m.installHairpinRule(prog, localDeliveryInterface, hostMasqueradeIP); err != nil {
+			return fmt.Errorf("cannot install hairpin rule: %w", err)
 		}
 	}
 
 	return nil
+}
+
+// installHairpinRule masquerades all traffic that originated from a local
+// pod and thus carries a security identity and that was also DNAT'ed. It
+// must be masqueraded to ensure that reverse NAT can be performed. Otherwise
+// the reply traffic would be sent directly to the pod without traversing the
+// Linux stack again.
+//
+// This is only done if EnableEndpointRoutes is disabled, if
+// EnableEndpointRoutes is enabled, then all traffic always passes through
+// the stack anyway.
+//
+// This is required for:
+//   - portmap/host if both source and destination are on the same node
+//   - some proxy if source and server are on the same node
+//   - kube-proxy services that are not in the BPF service map, when the
+//     reply is delivered to the pod by BPF
+func (m *manager) installHairpinRule(prog runnable, localDeliveryInterface, hostMasqueradeIP string) error {
+	if m.sharedCfg.EnableEndpointRoutes {
+		return nil
+	}
+
+	return prog.runProg([]string{
+		"-t", "nat",
+		"-A", ciliumPostNatChain,
+		"-m", "mark", "--mark", fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask),
+		"-o", localDeliveryInterface,
+		"-m", "conntrack", "--ctstate", "DNAT",
+		"-m", "comment", "--comment", "hairpin traffic that originated from a local pod",
+		"-j", "SNAT", "--to-source", hostMasqueradeIP})
+}
+
+// hairpinWithBPFMasquerade reports whether the hairpin rule is needed
+// although masquerading for this address family is done in BPF. With
+// kube-proxy in place, services it handles are DNAT'ed in the stack, and the
+// reply is delivered straight to the pod, over the tunnel from a remote
+// backend or directly from a backend on the same node, so it never gets
+// reverse NAT'ed unless the request was masqueraded on the way out.
+// Hybrid routing is left as it is: pods on nodes in the same subnet are
+// routed via cilium_host there as well but sent without the tunnel, and since
+// bpf_host decides that by the source address, the SNAT would change the
+// decision and lose the client's identity. Backends on the same node and in
+// other subnets stay broken with hybrid routing.
+// EnableEndpointRoutes is handled in installHairpinRule().
+func (m *manager) hairpinWithBPFMasquerade(bpfMasquerading bool) bool {
+	return bpfMasquerading && !m.sharedCfg.KubeProxyReplacement && !m.sharedCfg.HybridRoutingEnabled
 }
 
 func (m *manager) installMasqueradeRouteSourceRules(
@@ -1804,13 +1847,15 @@ func (m *manager) installRules(state desiredState) error {
 			return fmt.Errorf("cannot install host traffic mark rule: %w", err)
 		}
 
-		if m.sharedCfg.IptablesMasqueradingIPv4Enabled && state.localNodeInfo.internalIPv4.IsValid() {
-			if err := m.installMasqueradeRules(m.ip4tables, state.devices.UnsortedList(), localDeliveryInterface,
+		if state.localNodeInfo.internalIPv4.IsValid() {
+			if err := m.installPostNatRules(m.ip4tables,
+				m.sharedCfg.IptablesMasqueradingIPv4Enabled, m.sharedCfg.BPFMasqueradingIPv4Enabled,
+				state.devices.UnsortedList(), localDeliveryInterface,
 				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv4NativeRoutingCIDR, state.localNodeInfo.ipv4AllocCIDR),
 				state.localNodeInfo.ipv4AllocCIDR.String(),
 				state.localNodeInfo.internalIPv4.String(),
 			); err != nil {
-				return fmt.Errorf("cannot install masquerade rules: %w", err)
+				return err
 			}
 		}
 	}
@@ -1820,13 +1865,15 @@ func (m *manager) installRules(state desiredState) error {
 			return fmt.Errorf("cannot install host traffic mark rule: %w", err)
 		}
 
-		if m.sharedCfg.IptablesMasqueradingIPv6Enabled && state.localNodeInfo.internalIPv6.IsValid() {
-			if err := m.installMasqueradeRules(m.ip6tables, state.devices.UnsortedList(), localDeliveryInterface,
+		if state.localNodeInfo.internalIPv6.IsValid() {
+			if err := m.installPostNatRules(m.ip6tables,
+				m.sharedCfg.IptablesMasqueradingIPv6Enabled, m.sharedCfg.BPFMasqueradingIPv6Enabled,
+				state.devices.UnsortedList(), localDeliveryInterface,
 				m.remoteSNATDstAddrExclusionCIDR(state.localNodeInfo.ipv6NativeRoutingCIDR, state.localNodeInfo.ipv6AllocCIDR),
 				state.localNodeInfo.ipv6AllocCIDR.String(),
 				state.localNodeInfo.internalIPv6.String(),
 			); err != nil {
-				return fmt.Errorf("cannot install masquerade rules: %w", err)
+				return err
 			}
 		}
 	}
