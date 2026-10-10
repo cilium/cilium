@@ -4031,7 +4031,10 @@ func (kub *Kubectl) CleanupCiliumComponents() {
 			"role":               "cilium-config-agent",
 		}
 
-		crdsToDelete = synced.AllCiliumCRDResourceNames(bgpConfig.DefaultConfig)
+		crdsToDelete = append(
+			synced.AllCiliumCRDResourceNames(bgpConfig.DefaultConfig),
+			synced.CRDResourceName(cnpv2.CLRPName),
+		)
 	)
 
 	wg.Add(len(resourcesToDelete))

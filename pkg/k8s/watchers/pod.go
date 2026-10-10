@@ -47,6 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
@@ -81,6 +82,7 @@ type k8sPodWatcherParams struct {
 	NodeAddrs          statedb.Table[datapathTables.NodeAddress]
 	CGroupManager      cgroup.CGroupManager
 	LBConfig           loadbalancer.Config
+	LRPConfig          redirectpolicy.Config
 	WgConfig           wgTypes.Config
 	IPSecConfig        ipsec.Config
 	HostNetworkManager iptables.Manager
@@ -103,6 +105,7 @@ func newK8sPodWatcher(params k8sPodWatcherParams) *K8sPodWatcher {
 		namespaces:         params.Namespaces,
 		nodeAddrs:          params.NodeAddrs,
 		lbConfig:           params.LBConfig,
+		lrpConfig:          params.LRPConfig,
 		wgConfig:           params.WgConfig,
 		ipsecConfig:        params.IPSecConfig,
 		hostNetworkManager: params.HostNetworkManager,
@@ -134,6 +137,7 @@ type K8sPodWatcher struct {
 	namespaces         statedb.Table[k8sTables.Namespace]
 	nodeAddrs          statedb.Table[datapathTables.NodeAddress]
 	lbConfig           loadbalancer.Config
+	lrpConfig          redirectpolicy.Config
 	wgConfig           wgTypes.Config
 	ipsecConfig        ipsec.Config
 	hostNetworkManager hostNetworkManager
@@ -260,7 +264,7 @@ func (k *K8sPodWatcher) addK8sPodV1(ctx context.Context, pod *slim_corev1.Pod) e
 		k.hostNetworkManager.AddNoTrackHostPorts(pod.Namespace, pod.Name, strings.Split(hostPorts, ","))
 	}
 
-	if shouldSkipHostNetworkPod(pod) {
+	if k.shouldSkipHostNetworkPod(pod) {
 		scopedLog.Debug("Skip pod event using host networking")
 		return err
 	}
@@ -290,7 +294,7 @@ func (k *K8sPodWatcher) replaceK8sPodV1(ctx context.Context, oldPod, newPod *sli
 	}
 
 	k.replaceHostNetworkState(oldPod, newPod)
-	if !shouldSkipHostNetworkPod(newPod) {
+	if !k.shouldSkipHostNetworkPod(newPod) {
 		k.cgroupManager.OnUpdatePod(oldPod, newPod)
 	}
 
@@ -314,7 +318,7 @@ func (k *K8sPodWatcher) replaceK8sPodV1(ctx context.Context, oldPod, newPod *sli
 	}
 
 	var endpointErr error
-	if !shouldSkipHostNetworkPod(newPod) {
+	if !k.shouldSkipHostNetworkPod(newPod) {
 		endpointErr = k.reconcilePodEndpoints(oldPod, newPod, true)
 	}
 	return errors.Join(ipcacheErr, endpointErr)
@@ -397,7 +401,7 @@ func (k *K8sPodWatcher) updateExistingK8sPodV1(ctx context.Context, oldK8sPod, n
 		k.hostNetworkManager.AddNoTrackHostPorts(newK8sPod.Namespace, newK8sPod.Name, strings.Split(hostPorts, ","))
 	}
 
-	if shouldSkipHostNetworkPod(newK8sPod) {
+	if k.shouldSkipHostNetworkPod(newK8sPod) {
 		scopedLog.Debug("Skip pod event using host networking")
 		return err
 	}
@@ -555,8 +559,9 @@ func (k *K8sPodWatcher) reconcilePodEndpoints(oldK8sPod, newK8sPod *slim_corev1.
 	return nil
 }
 
-func shouldSkipHostNetworkPod(pod *slim_corev1.Pod) bool {
-	return pod.Spec.HostNetwork && !option.Config.EnableLocalRedirectPolicy &&
+func (k *K8sPodWatcher) shouldSkipHostNetworkPod(pod *slim_corev1.Pod) bool {
+	lrpEnabled := k.lrpConfig != nil && k.lrpConfig.IsEnabled()
+	return pod.Spec.HostNetwork && !lrpEnabled &&
 		!option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
 }
 
