@@ -812,6 +812,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 #ifdef USE_LOOPBACK_LB
 	if (loopback) {
 		union v6addr old_daddr __align_stack_8;
+		struct csum_offset csum_off = {};
 
 		ipv6_addr_copy(&old_daddr, &tuple->daddr);
 		cilium_dbg_lb(ctx, DBG_LB6_LOOPBACK_SNAT_REV, old_daddr.p4, old_saddr.p4);
@@ -823,16 +824,12 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 		/* Update the tuple address which is representing the destination address */
 		ipv6_addr_copy(&tuple->daddr, &old_saddr);
 
-		if (has_l4_header) {
-			struct csum_offset csum_off = {};
-
+		if (has_l4_header)
 			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
-			if (csum_off.offset &&
-			    ipv6_l4_csum_update(ctx, l4_off, &old_daddr, &old_saddr,
-						&csum_off) < 0)
-				return DROP_CSUM_L4;
-		}
+		if (ipv6_l4_csum_update(ctx, l4_off, &old_daddr, &old_saddr,
+					&csum_off) < 0)
+			return DROP_CSUM_L4;
 	}
 #endif
 
@@ -840,9 +837,9 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	if (has_l4_header) {
-		struct csum_offset csum_off = {};
+	struct csum_offset csum_off = {};
 
+	if (has_l4_header) {
 		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
 		if (nat->port) {
@@ -851,12 +848,11 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 			if (IS_ERR(ret))
 				return ret;
 		}
-
-		if (csum_off.offset &&
-		    ipv6_l4_csum_update(ctx, l4_off, &old_saddr, &nat->address,
-					&csum_off) < 0)
-			return DROP_CSUM_L4;
 	}
+
+	if (ipv6_l4_csum_update(ctx, l4_off, &old_saddr, &nat->address,
+				&csum_off) < 0)
+		return DROP_CSUM_L4;
 
 	return 0;
 }
@@ -1270,10 +1266,8 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 		sum = csum_diff(old_saddr->addr, 16, new_saddr->addr, 16, sum);
 	}
 #endif /* USE_LOOPBACK_LB */
-	if (csum_off.offset) {
-		if (csum_l4_replace_ipv6_addr(ctx, l4_off, &csum_off, sum) < 0)
-			return DROP_CSUM_L4;
-	}
+	if (csum_l4_replace_ipv6_addr(ctx, l4_off, &csum_off, sum) < 0)
+		return DROP_CSUM_L4;
 
 	if (!has_l4_header)
 		return CTX_ACT_OK;
