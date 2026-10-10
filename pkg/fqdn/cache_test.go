@@ -1550,3 +1550,65 @@ func TestZombieDeepCopyDoesNotShareNames(t *testing.T) {
 	require.Equal(t, []string{"alpha.example.com", "zeta.example.com"}, zombie.Names.Sorted(),
 		"mutating the copy must not affect the original")
 }
+
+// TestZombiesLookupIP covers the case Hubble relies on: a name that has
+// expired from DNSHistory is still resolvable while the connection using it
+// is alive, and stops resolving once the zombie is reaped.
+func TestZombiesLookupIP(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	now := time.Now()
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+
+	ip := netip.MustParseAddr("1.1.1.1")
+	zombies.Upsert(now, ip, "test.com")
+
+	require.Equal(t, []string{"test.com"}, zombies.LookupIP(ip))
+
+	// Unknown addresses resolve to nothing rather than erroring.
+	require.Nil(t, zombies.LookupIP(netip.MustParseAddr("3.3.3.3")))
+
+	// Multiple names for one IP are all returned, sorted.
+	zombies.Upsert(now, ip, "anotherthing.com")
+	require.Equal(t, []string{"anotherthing.com", "test.com"}, zombies.LookupIP(ip))
+
+	// Marking alive keeps the mapping resolvable across GC cycles, which is
+	// what a long-lived connection does via MarkDNSCTEntry.
+	now = now.Add(5 * time.Minute)
+	next := now.Add(5 * time.Minute)
+	zombies.MarkAlive(now, ip)
+	zombies.SetCTGCTime(now, next)
+	_, dead := zombies.GC()
+	require.Empty(t, dead)
+	require.Equal(t, []string{"anotherthing.com", "test.com"}, zombies.LookupIP(ip))
+
+	// Once the connection is gone the zombie is reaped and the name with it.
+	now = now.Add(10 * time.Minute)
+	zombies.SetCTGCTime(now, now.Add(5*time.Minute))
+	_, dead = zombies.GC()
+	require.NotEmpty(t, dead)
+	require.Nil(t, zombies.LookupIP(ip))
+}
+
+// TestZombiesLookupIPAfterHistoryExpiry checks the hand-over Hubble reports as
+// zombie names: when a DNSHistory entry expires, the name moves from the cache
+// to the zombies.
+func TestZombiesLookupIPAfterHistoryExpiry(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	now := time.Now()
+	ip := netip.MustParseAddr("1.1.1.1")
+
+	cache := NewDNSCache(0)
+	zombies := NewDNSZombieMappings(logger, defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
+
+	// A fresh lookup lives in history and is not a zombie.
+	cache.Update(now, "test.com", []netip.Addr{ip}, 3)
+	require.Equal(t, []string{"test.com"}, cache.LookupIP(ip))
+	require.Nil(t, zombies.LookupIP(ip))
+
+	// Expiry moves it across: history goes quiet and the zombie takes over.
+	cache.GC(now.Add(5*time.Second), zombies)
+	require.Empty(t, cache.LookupIP(ip))
+	require.Equal(t, []string{"test.com"}, zombies.LookupIP(ip))
+}

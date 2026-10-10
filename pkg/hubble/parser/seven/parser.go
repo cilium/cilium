@@ -108,12 +108,14 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	// those are - errors handling here should be revisited once it's clear.
 	sourceIP, _ := netip.ParseAddr(ip.Source)
 	destinationIP, _ := netip.ParseAddr(ip.Destination)
-	var sourceNames, destinationNames []string
+	var sourceNames, sourceNamesExpired, destinationNames, destinationNamesExpired []string
 	var sourceNamespace, sourcePod, sourcePodUID, destinationNamespace, destinationPod, destinationPodUID string
 	var sourceWorkloads, destinationWorkloads []*flowpb.Workload
 	if p.dnsGetter != nil {
 		sourceNames = p.dnsGetter.GetNamesOf(uint32(r.DestinationEndpoint.ID), sourceIP)
+		sourceNamesExpired = p.dnsGetter.GetExpiredNamesOf(uint32(r.DestinationEndpoint.ID), sourceIP)
 		destinationNames = p.dnsGetter.GetNamesOf(uint32(r.SourceEndpoint.ID), destinationIP)
+		destinationNamesExpired = p.dnsGetter.GetExpiredNamesOf(uint32(r.SourceEndpoint.ID), destinationIP)
 	}
 	if p.ipGetter != nil {
 		if meta := p.ipGetter.GetK8sMetadata(sourceIP); meta != nil {
@@ -156,7 +158,9 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	decoded.Destination = dstEndpoint
 	decoded.Type = flowpb.FlowType_L7
 	decoded.SourceNames = sourceNames
+	decoded.SourceNamesExpired = sourceNamesExpired
 	decoded.DestinationNames = destinationNames
+	decoded.DestinationNamesExpired = destinationNamesExpired
 	decoded.L7 = decodeLayer7(r, p.opts)
 	decoded.L7.LatencyNs = p.computeResponseTime(r, timestamp)
 	decoded.IsReply = decodeIsReply(r.Type)

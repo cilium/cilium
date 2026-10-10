@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"strings"
 
 	"github.com/cilium/hive/cell"
@@ -158,6 +159,41 @@ func (h *payloadGetters) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 	}
 
 	return names
+}
+
+// GetExpiredNamesOf implements DNSGetter.GetExpiredNamesOf. It looks up the DNS
+// names of a given IP that have expired from the DNS history of the endpoint
+// specified by sourceEpID, but are still held by a live connection.
+func (h *payloadGetters) GetExpiredNamesOf(sourceEpID uint32, ip netip.Addr) []string {
+	ep := h.endpointManager.LookupCiliumID(uint16(sourceEpID))
+	if ep == nil {
+		return nil
+	}
+
+	if !ip.IsValid() {
+		return nil
+	}
+	names := ep.DNSZombies.LookupIP(ip)
+	if len(names) == 0 {
+		return nil
+	}
+
+	current := ep.DNSHistory.LookupIP(ip)
+	for i := range current {
+		current[i] = strings.TrimSuffix(current[i], ".")
+	}
+
+	expired := names[:0]
+	for _, name := range names {
+		name = strings.TrimSuffix(name, ".")
+		if !slices.Contains(current, name) {
+			expired = append(expired, name)
+		}
+	}
+	if len(expired) == 0 {
+		return nil
+	}
+	return expired
 }
 
 // GetServiceByAddr implements ServiceGetter. It looks up service by IP/port.

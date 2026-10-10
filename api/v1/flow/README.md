@@ -342,7 +342,9 @@ EventTypeFilter is a filter describing a particular event type.
 | node_name | [string](#string) |  | NodeName is the name of the node from which this Flow was captured. |
 | node_labels | [string](#string) | repeated | node labels in `foo=bar` format. |
 | source_names | [string](#string) | repeated | all names the source IP can have. |
+| source_names_expired | [string](#string) | repeated | Expired names the source IP can have. These are names whose DNS entries have expired, but whose IP is still in use by a connection that outlived the DNS TTL, so the name may be stale. Names listed in source_names are not repeated here. |
 | destination_names | [string](#string) | repeated | all names the destination IP can have. |
+| destination_names_expired | [string](#string) | repeated | Expired names the destination IP can have. These are names whose DNS entries have expired, but whose IP is still in use by a connection that outlived the DNS TTL, so the name may be stale. Names listed in destination_names are not repeated here. |
 | l7 | [Layer7](#flow-Layer7) |  | L7 information. This field is set if and only if FlowType is L7. |
 | reply | [bool](#bool) |  | **Deprecated.** Deprecated. This suffers from false negatives due to protobuf not being able to distinguish between the value being false or it being absent. Please use is_reply instead. |
 | event_type | [CiliumEventType](#flow-CiliumEventType) |  | EventType of the originating Cilium event |
