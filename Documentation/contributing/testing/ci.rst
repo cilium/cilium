@@ -219,6 +219,38 @@ failed. With the ``cilium-sysdumps`` artifact available for download we can
 retrieve it and perform further inspection to identify the cause for the
 failure. To investigate CI failures, see :ref:`ci_failure_triage`.
 
+.. _ci_junit_opensearch:
+
+JUnit reports and OpenSearch
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Most workflows that run ``cilium connectivity test`` (and the Ginkgo suite)
+write a JUnit XML report per step via ``--junit-file`` into the
+``cilium-junits`` directory. At the end of the run ``common-post-jobs.yaml``
+merges every ``cilium-junits-*`` artifact into a single ``cilium-junits``
+artifact, always, regardless of whether the run passed. Each report contains a
+test case per test with its pass or fail status.
+
+A scraper (``corgi``) periodically ingests these reports into OpenSearch, where
+historical test results can be queried. Two properties are worth knowing when
+reasoning about what is and is not visible there:
+
+- The scraper parses the JUnit report of every run it enumerates, regardless of
+  the run's conclusion, and records each test case with its own pass or fail
+  status. So a test failure is captured as long as its JUnit report was
+  uploaded, even when the GitHub run is green. This is what makes the tolerated
+  quarantine (see :ref:`ci_quarantine`) safe: a quarantined test that fails in a
+  ``continue-on-error`` step still runs, still uploads its report, and its
+  failure is still recorded in OpenSearch.
+- The derived workflow, job and step failure-rate metrics are computed from the
+  GitHub run conclusion, not from the individual test cases. A quarantined
+  failure therefore does not move those failure-rate metrics; to see it, query
+  the test cases directly rather than the rate.
+
+The corollary is that a test that does not run at all produces no JUnit report,
+so its failure is captured nowhere, not in the run summary and not in
+OpenSearch. Prefer running a test and tolerating its failure over skipping it.
+
 .. _test_matrix:
 
 Testing matrix
@@ -312,6 +344,237 @@ Triage process
 * ``CI-Bug, K8sValidatedPolicyTest: Namespaces, pod not ready, #9939``
 * ``Regression, k8s host policy, #1111``
 
+.. _ci_quarantine:
+
+Quarantining Failing Tests and Jobs
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When a test or a whole job fails consistently for a known reason that is still
+under investigation, such as a real bug or a persistent flake that is not yet
+fixed, you can *quarantine* it. Quarantining stops that failure from turning CI
+red while keeping the configuration running, so the signal is preserved and the
+failure stays visible instead of being silently dropped. Prefer quarantining a
+single test or job over :ref:`disabling an entire workflow
+<ci_disabling_workflows>`, which stops every test in the workflow from running.
+
+Two mechanisms are in use, depending on the granularity of the failure:
+
+- Quarantine a single test within an otherwise-passing job.
+- Quarantine an entire job, for example an experimental configuration that is
+  not yet expected to pass.
+
+In every case a ``::warning::`` annotation is emitted so the tolerated failure
+is not hidden, and artifacts are still uploaded (except where a test is skipped
+outright, which collects no result for that test).
+
+When to quarantine
+^^^^^^^^^^^^^^^^^^
+
+Quarantine when all of the following hold:
+
+- The failure is understood well enough to be attributed to a specific test or
+  configuration, and it is not caused by the pull request under test.
+- A fix is not yet available, but the failure is expected to be fixed: it is a
+  bug or a flake, not intended behaviour.
+- You want to keep running the test or job to preserve the signal, rather than
+  deleting it.
+
+If an entire workflow needs to stop, see :ref:`ci_disabling_workflows`
+instead. If a test is being removed permanently, delete it rather than
+quarantining it.
+
+Label and track the quarantine
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Every quarantine must be tracked so it is not forgotten and gets fixed before
+the next release:
+
+#. Open (or find) a GitHub issue describing the failure. Add the
+   ``ci/quarantine`` label and a ``release-blocker/<version>`` label for every
+   affected release (for example ``release-blocker/1.20``). The
+   ``release-blocker`` label ensures the failure must be resolved before that
+   release ships; the ``ci/quarantine`` label keeps the set of quarantined
+   failures easy to find.
+#. Label the pull request that adds the quarantine with ``ci/quarantine`` (and
+   ``release-note/ci``), and link it to the tracking issue.
+#. Add a comment in the workflow next to the quarantine explaining why it is
+   quarantined and how to re-arm it, referencing the tracking issue.
+
+For example, the test quarantine in `PR #47534
+<https://github.com/cilium/cilium/pull/47534>`__ is tracked by `issue #47391
+<https://github.com/cilium/cilium/issues/47391>`__, and the job quarantine in
+`PR #46621 <https://github.com/cilium/cilium/pull/46621>`__ is tracked by
+`issue #46553 <https://github.com/cilium/cilium/issues/46553>`__; both issues
+carry the ``ci/quarantine`` label.
+
+Quarantine a single test
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Quarantine a single connectivity test by removing it from the gating run with a
+``--test '!<test-name>'`` selector, then re-running it in a separate step marked
+``continue-on-error: true`` with its own ``--junit-file``, so it still executes
+and uploads a report while its failure does not fail the workflow. A following
+step keyed on the tolerated step's ``outcome`` emits a warning annotation to
+keep the failure visible. This mirrors the job quarantine below at single-test
+granularity.
+
+Every other test keeps gating. When the failure only happens on some matrix
+legs, deselect the test only on the affected legs so it keeps gating on the
+legs where it passes and coverage is reduced as narrowly as possible.
+
+Do not just skip the test outright (deselect it without the tolerated re-run):
+that collects no result on the affected legs, so nothing is uploaded and the
+failure is captured nowhere, not even in OpenSearch (see :ref:`ci_junit_opensearch`).
+
+The following example (from `PR #47534
+<https://github.com/cilium/cilium/pull/47534>`__, in
+``.github/workflows/conformance-eks.yaml``) quarantines
+``north-south-loadbalancing-with-l7-policy`` and
+``egress-gateway-excluded-cidrs`` on the EKS legs without prefix delegation,
+where pod IPs spread across secondary ENIs in ways these tests do not cope
+with, while the prefix-delegation legs keep running them inline and gating on
+them. A list holds the quarantined tests; deselect each from the gating run and
+record which were deselected as a step output:
+
+.. code-block:: shell
+
+    QUARANTINED_TESTS=(
+      north-south-loadbalancing-with-l7-policy
+      egress-gateway-excluded-cidrs
+    )
+
+    QUARANTINED=""
+    if [[ "${{ matrix.aws-eni-pd }}" != "true" ]]; then
+      for test in "${QUARANTINED_TESTS[@]}"; do
+        CONNECTIVITY_TEST_DEFAULTS+=" --test '!${test}'"
+        QUARANTINED+="${QUARANTINED:+,}${test}"
+      done
+    fi
+
+    echo connectivity_test_defaults=${CONNECTIVITY_TEST_DEFAULTS} >> $GITHUB_OUTPUT
+    echo "quarantined_tests=${QUARANTINED}" >> $GITHUB_OUTPUT
+
+then, only when the list is non-empty, re-run those tests in one tolerated step
+and warn on failure:
+
+.. code-block:: yaml
+
+    - name: Run quarantined tests
+      id: run-tests-quarantined
+      if: ${{ steps.vars-conn.outputs.quarantined_tests != '' }}
+      continue-on-error: true
+      env:
+        QUARANTINED_TESTS: ${{ steps.vars-conn.outputs.quarantined_tests }}
+      run: |
+        TEST_FLAGS=""
+        for test in ${QUARANTINED_TESTS//,/ }; do
+          TEST_FLAGS+=" --test ${test}"
+        done
+
+        # shellcheck disable=SC2086
+        cilium connectivity test ${{ steps.e2e_config.outputs.test_flags }} ${TEST_FLAGS} \
+        --test-concurrency=${{ env.test_concurrency }} \
+        --junit-file "cilium-junits/${{ env.job_name }} (${{ join(matrix.*, ', ') }}) - quarantined.xml"
+
+    - name: Warn on quarantined test failure
+      if: ${{ always() && steps.run-tests-quarantined.outcome == 'failure' }}
+      env:
+        QUARANTINED_TESTS: ${{ steps.vars-conn.outputs.quarantined_tests }}
+      run: |
+        echo "::warning title=Test quarantined::One of the quarantined tests (${QUARANTINED_TESTS}) failed on this leg but is quarantined, so it did not fail the workflow. Investigate the failure above; remove a test from the quarantine list once its issue is fixed."
+
+To quarantine another test, add it to the ``QUARANTINED_TESTS`` list; to re-arm
+one, drop it from the list.
+
+Because the test still runs and its JUnit report is still uploaded, the failure
+is still captured in OpenSearch even though the run is green; see
+:ref:`ci_junit_opensearch`.
+
+.. note::
+
+    The legacy Ginkgo suite has an analogous per-``k8s-version`` deselection
+    list under the ``exclude:`` key in
+    ``.github/actions/ginkgo/main-focus.yaml``, and the Gateway API workflow
+    deselects tests through its ``--skip-tests`` flag; each entry carries a
+    justifying comment. Follow the same labeling and tracking steps above when
+    an entry is a quarantine rather than a permanent constraint.
+
+Quarantine an entire job
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+To let an entire job fail without failing the workflow, for example an
+experimental configuration that is not yet expected to pass, apply
+``continue-on-error`` to the job, gated on a quarantine flag, and re-surface
+the failure with a warning annotation. The reusable
+``.github/workflows/conformance-eks.yaml`` implements this with a
+``quarantine`` boolean input:
+
+.. code-block:: yaml
+
+    quarantine:
+      description: "If true, a failure of the installation and connectivity test does not fail the workflow (the job is quarantined). A warning annotation is emitted instead, and all artifacts are still collected so the failure remains visible."
+      required: false
+      type: boolean
+      default: false
+
+that gates ``continue-on-error`` on the connectivity-test job, plus a step that
+emits a ``::warning::`` when a quarantined job actually failed:
+
+.. code-block:: yaml
+
+    continue-on-error: ${{ inputs.quarantine == true }}
+
+The caller (`PR #46621 <https://github.com/cilium/cilium/pull/46621>`__, in
+``.github/workflows/conformance-kpr-eks.yaml``) drives this from a single
+workflow-level environment flag and wires it through four pieces:
+
+- A workflow-level ``env`` value (``QUARANTINE_NETKIT: "true"``) is the single
+  in-file source of truth. Setting it to ``"false"`` re-arms the jobs, and
+  forks inherit the quarantine automatically.
+- The ``env`` context is not available in a job's ``with:`` input or in the
+  status gate, so a small ``config`` job re-exports it as a job output that
+  ``needs.config.outputs.quarantine_netkit`` can read in those positions.
+- Each quarantined job passes ``quarantine: ${{
+  needs.config.outputs.quarantine_netkit == 'true' }}`` into the reusable
+  workflow.
+- The ``merge-upload-and-status`` status gate tolerates the quarantined result
+  by combining it with the flag through a logical OR (and with ``'skipped'`` for
+  triggers where the job does not run), so a quarantined failure does not flip
+  the commit status while the job stays listed in ``needs`` and still guards
+  against being cancelled. A ``quarantine-warning`` job re-emits the warning at
+  the parent workflow level, because the annotation from the reusable workflow
+  is attached to the called job and does not surface on the caller's summary.
+
+.. code-block:: yaml
+
+    success: >-
+      ${{
+        needs.conformance-eks-kpr.result == 'success' &&
+        needs.conformance-eks-kpr-ipsec.result == 'success' &&
+        needs.conformance-eks-kpr-wireguard.result == 'success' &&
+        (needs.conformance-eks-kpr-netkit.result == 'success' || needs.conformance-eks-kpr-netkit.result == 'skipped' || needs.config.outputs.quarantine_netkit == 'true') &&
+        (needs.conformance-eks-kpr-netkit-l2.result == 'success' || needs.conformance-eks-kpr-netkit-l2.result == 'skipped' || needs.config.outputs.quarantine_netkit == 'true')
+      }}
+
+.. warning::
+
+    Gate on the quarantine flag explicitly, as above. Do not loosen the whole
+    check to ``result != 'failure'`` to tolerate a quarantined job: that also
+    treats ``cancelled`` as success and would silently hide unrelated
+    breakage.
+
+Remove the quarantine
+^^^^^^^^^^^^^^^^^^^^^
+
+Once the underlying failure is fixed, remove the quarantine so the test or job
+gates again: drop the test from the ``QUARANTINED_TESTS`` list (or delete the
+``--test '!...'`` selector where a test is skipped outright), or set the
+``QUARANTINE_*`` flag to ``"false"`` (and remove the plumbing) for a whole job.
+Then close the tracking issue and drop its ``release-blocker`` label. Leaving a
+quarantine in place after the fix silently reduces coverage.
+
+.. _ci_disabling_workflows:
+
 Disabling Github Actions Workflows
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -330,7 +593,8 @@ GitHub Actions workflow.
   disable those tests instead of disabling the workflow. When you disable a
   workflow, all the tests in the workflow stop running. This makes it easier
   to introduce new regressions that would have been caught by these tests
-  otherwise.
+  otherwise. See :ref:`ci_quarantine` for how to quarantine a single test or
+  job while keeping it running.
 - Remove the workflow from the list of required status checks. This way the
   workflow still runs on pull requests, but you can still merge them without
   the workflow succeeding. To remove the workflow from the required status check
