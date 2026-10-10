@@ -139,7 +139,7 @@ func TestNewWatchedClientConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, keypair)
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.RootCAs.Subjects())
+	assert.True(t, expectedCaCertPool.Equal(tlsConfig.RootCAs))
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
 }
@@ -168,6 +168,7 @@ func TestNewWatchedClientConfigWithoutClientCert(t *testing.T) {
 		MinVersion: tls.VersionTLS13,
 	})
 	assert.NotNil(t, tlsConfig)
+	assert.True(t, expectedCaCertPool.Equal(tlsConfig.RootCAs))
 	// GetClientCertificate should be nil when a client keypair isn't configured
 	assert.Nil(t, tlsConfig.GetClientCertificate)
 }
@@ -219,7 +220,7 @@ func TestWatchedClientConfigRotation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, keypair)
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.RootCAs.Subjects())
+	assert.True(t, expectedCaCertPool.Equal(tlsConfig.RootCAs))
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
 }

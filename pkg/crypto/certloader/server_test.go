@@ -138,7 +138,7 @@ func TestNewWatchedServerConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, tlsConfig)
 	assert.Equal(t, []tls.Certificate{expectedKeypair}, tlsConfig.Certificates)
-	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.ClientCAs.Subjects())
+	assert.True(t, expectedCaCertPool.Equal(tlsConfig.ClientCAs))
 	assert.Equal(t, tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
@@ -193,7 +193,7 @@ func TestWatchedServerConfigRotation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, tlsConfig)
 	assert.Equal(t, []tls.Certificate{expectedKeypair}, tlsConfig.Certificates)
-	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.ClientCAs.Subjects())
+	assert.True(t, expectedCaCertPool.Equal(tlsConfig.ClientCAs))
 	assert.Equal(t, tls.RequireAndVerifyClientCert, tlsConfig.ClientAuth)
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)

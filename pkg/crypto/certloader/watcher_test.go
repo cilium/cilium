@@ -49,7 +49,7 @@ func TestNewWatcher(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	assert.True(t, expectedCaCertPool.Equal(caCertPool))
 }
 
 func TestRotation(t *testing.T) {
@@ -92,7 +92,7 @@ func TestRotation(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	assert.True(t, expectedCaCertPool.Equal(caCertPool))
 }
 
 func TestFutureWatcherImmediately(t *testing.T) {
@@ -123,7 +123,7 @@ func TestFutureWatcherImmediately(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	assert.True(t, expectedCaCertPool.Equal(caCertPool))
 }
 
 func TestFutureWatcher(t *testing.T) {
@@ -165,7 +165,7 @@ func TestFutureWatcher(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), caCertPool.Subjects())
+	assert.True(t, expectedCaCertPool.Equal(caCertPool))
 }
 
 func TestFutureWatcherShutdownBeforeReady(t *testing.T) {
@@ -229,7 +229,7 @@ func TestKubernetesMount(t *testing.T) {
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedInitialKeypair, keypair)
-	assert.Equal(t, expectedInitialCaCertPool.Subjects(), caCertPool.Subjects())
+	assert.True(t, expectedInitialCaCertPool.Equal(caCertPool))
 
 	prevKeypairGeneration, prevCaCertPoolGeneration := w.generations()
 	k8sRotate(t, dir)
@@ -257,5 +257,5 @@ func TestKubernetesMount(t *testing.T) {
 
 	keypair, caCertPool = w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedRotatedKeypair, keypair)
-	assert.Equal(t, expectedRotatedCaCertPool.Subjects(), caCertPool.Subjects())
+	assert.True(t, expectedRotatedCaCertPool.Equal(caCertPool))
 }
