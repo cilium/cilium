@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/devicemanagers"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/node"
+	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	ciliumslices "github.com/cilium/cilium/pkg/slices"
 )
 
@@ -77,18 +78,23 @@ type Driver struct {
 type allocation struct {
 	Device     types.Device
 	DeviceName string
-	Pool       string
-	Manager    types.DeviceManagerType
-	Config     types.DeviceConfig
+	// LogicalPool is the Cilium pool (driver.config.Pools) this device was
+	// matched against when prepared — not the DRA ResourceSlice pool name
+	// (result.Pool / devStatus.Pool). Published as the "pool" device
+	// attribute used by DeviceClass CEL selectors, and stays fixed for the
+	// lifetime of the allocation even if pool config changes later.
+	LogicalPool string
+	Manager     types.DeviceManagerType
+	Config      types.DeviceConfig
 }
 
 func allocationFromRow(row *DRAAllocation) allocation {
 	return allocation{
-		Device:     row.PreparedDevice,
-		DeviceName: row.DeviceName,
-		Pool:       row.Pool,
-		Manager:    row.Manager,
-		Config:     row.Config,
+		Device:      row.PreparedDevice,
+		DeviceName:  row.DeviceName,
+		LogicalPool: row.LogicalPool,
+		Manager:     row.Manager,
+		Config:      row.Config,
 	}
 }
 
@@ -438,17 +444,20 @@ func (driver *Driver) allocationsForPod(podUID kube_types.UID) []allocation {
 }
 
 func allocationTableKey(a allocation) string {
-	return AllocationKey(a.Pool, a.DeviceName)
+	return AllocationKey(a.LogicalPool, a.DeviceName)
 }
 
 // storeAllocations records devices after their ResourceClaim status has been
 // persisted. Inventory may change independently after a device is prepared.
+//
+// LogicalPool may legitimately be empty (device matched no configured pool)
+// and must still be recorded, or the allocation is lost and the device leaks.
 func (driver *Driver) storeAllocations(allocs []allocation, podUID, claimUID kube_types.UID) {
 	wtxn := driver.db.WriteTxn(driver.allocationTable)
 	defer wtxn.Commit()
 
 	for _, a := range allocs {
-		if a.Device == nil || a.DeviceName == "" || a.Pool == "" {
+		if a.Device == nil || a.DeviceName == "" {
 			continue
 		}
 
@@ -456,7 +465,7 @@ func (driver *Driver) storeAllocations(allocs []allocation, podUID, claimUID kub
 			DeviceName:     a.DeviceName,
 			Manager:        a.Manager,
 			PreparedDevice: a.Device,
-			Pool:           a.Pool,
+			LogicalPool:    a.LogicalPool,
 			PodUID:         podUID,
 			ClaimUID:       claimUID,
 			Config:         a.Config,
@@ -475,6 +484,46 @@ func (driver *Driver) deleteAllocations(allocs []allocation) {
 			driver.allocationTable.Delete(wtxn, row)
 		}
 	}
+}
+
+// maxDevicesPerResourceSlice bounds how many devices we place in a single
+// ResourceSlice. This is our own conservative cap (well under the API's
+// hard limit, see resourceapi.ResourceSliceMaxDevices /
+// ResourceSliceMaxDevicesWithAdvancedFeatures).
+const maxDevicesPerResourceSlice = 64
+
+// deviceSlices splits devices into the resourceslice.Slice batches that make
+// up a node's ResourceSlice pool, each capped at maxDevicesPerResourceSlice
+// devices. A pool may span more than one ResourceSlice — see the
+// resourceslice.Pool doc comment.
+func deviceSlices(devices []resourceapi.Device) []resourceslice.Slice {
+	numSlices := (len(devices) + maxDevicesPerResourceSlice - 1) / maxDevicesPerResourceSlice
+	if numSlices == 0 {
+		// Publish at least one (possibly empty) slice so the pool is visibly
+		// up-and-running even with zero devices.
+		numSlices = 1
+	}
+
+	slices := make([]resourceslice.Slice, numSlices)
+	for i := range slices {
+		start := i * maxDevicesPerResourceSlice
+		end := min(start+maxDevicesPerResourceSlice, len(devices))
+		slices[i] = resourceslice.Slice{Devices: devices[start:end]}
+	}
+
+	return slices
+}
+
+// sortedConfiguredPools returns driver.config.Pools sorted by PoolName. The
+// sort makes resolvePool's "first alphabetically wins" tie-break
+// deterministic, and gives callers a stable slice to reuse across a single
+// reconcile/restore pass instead of re-sorting per device.
+func (driver *Driver) sortedConfiguredPools() []v2alpha1.CiliumNetworkDriverDevicePoolConfig {
+	sortedPools := slices.Clone(driver.config.Pools)
+	slices.SortFunc(sortedPools, func(a, b v2alpha1.CiliumNetworkDriverDevicePoolConfig) int {
+		return cmp.Compare(a.PoolName, b.PoolName)
+	})
+	return sortedPools
 }
 
 // resolvePool returns the single pool name the device should be assigned to.
@@ -507,47 +556,44 @@ func (driver *Driver) resolvePool(dev types.Device, sortedPools []v2alpha1.Ciliu
 }
 
 // buildPoolsFromTable constructs the ResourceSlice pool map from the current
-// table snapshot. It pre-populates every configured pool (with a valid filter)
-// so pools with no devices are still published as empty slices. Pool
-// membership and device attributes are resolved on demand from the current
-// inventory. An allocated device stays in the pool recorded for its allocation
-// until its final allocation is released.
+// table snapshot. The driver publishes exactly one ResourceSlice pool for the
+// node (named after the node), spread across as many ResourceSlices as needed
+// once the number of devices on the node exceeds maxDevicesPerResourceSlice —
+// see deviceSlices.
 func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 	txn := driver.db.ReadTxn()
 
-	sortedPools := slices.Clone(driver.config.Pools)
-	slices.SortFunc(sortedPools, func(a, b v2alpha1.CiliumNetworkDriverDevicePoolConfig) int {
-		return cmp.Compare(a.PoolName, b.PoolName)
-	})
+	sortedPools := driver.sortedConfiguredPools()
 
-	pools := make(map[string]resourceslice.Pool, len(driver.config.Pools))
-	for _, p := range driver.config.Pools {
+	configuredPools := make(map[string]struct{}, len(sortedPools))
+	for _, p := range sortedPools {
 		if p.Filter != nil {
-			pools[p.PoolName] = resourceslice.Pool{Slices: []resourceslice.Slice{{}}}
+			configuredPools[p.PoolName] = struct{}{}
 		}
 	}
 
-	allocatedPools := make(map[string]string)
+	allocatedLogicalPools := make(map[string]string)
 	devicesWithPoolConflicts := make(map[string]struct{})
 	for allocation := range driver.allocationTable.All(txn) {
-		if allocation.Pool == "" {
+		if allocation.LogicalPool == "" {
 			devicesWithPoolConflicts[allocation.DeviceName] = struct{}{}
-			delete(allocatedPools, allocation.DeviceName)
+			delete(allocatedLogicalPools, allocation.DeviceName)
 			continue
 		}
-		if pool, found := allocatedPools[allocation.DeviceName]; found && pool != allocation.Pool {
+		if pool, found := allocatedLogicalPools[allocation.DeviceName]; found && pool != allocation.LogicalPool {
 			driver.logger.Error("device has allocations from multiple pools",
 				logfields.Device, allocation.DeviceName,
-				logfields.PoolName, []string{pool, allocation.Pool})
+				logfields.PoolName, []string{pool, allocation.LogicalPool})
 			devicesWithPoolConflicts[allocation.DeviceName] = struct{}{}
-			delete(allocatedPools, allocation.DeviceName)
+			delete(allocatedLogicalPools, allocation.DeviceName)
 			continue
 		}
 		if _, conflicting := devicesWithPoolConflicts[allocation.DeviceName]; !conflicting {
-			allocatedPools[allocation.DeviceName] = allocation.Pool
+			allocatedLogicalPools[allocation.DeviceName] = allocation.LogicalPool
 		}
 	}
 
+	devices := make([]resourceapi.Device, 0, driver.deviceTable.NumObjects(txn))
 	for d := range driver.deviceTable.All(txn) {
 		if d.Dev == nil {
 			continue
@@ -557,15 +603,17 @@ func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 			continue
 		}
 
-		pool := allocatedPools[d.Name]
-		if pool == "" {
+		pool, allocated := allocatedLogicalPools[d.Name]
+		if !allocated {
 			pool = driver.resolvePool(d.Dev, sortedPools)
 		}
-
-		entry, ok := pools[pool]
-		if !ok {
-			// The device either matches no pool or its allocated pool is no
-			// longer present in the current configuration.
+		if pool == "" {
+			// The device matches no configured pool.
+			continue
+		}
+		if _, ok := configuredPools[pool]; !ok {
+			// The device's allocated pool is no longer present in the current
+			// configuration; do not fall back to another pool.
 			continue
 		}
 
@@ -576,18 +624,29 @@ func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 		attrs[resourceapi.QualifiedName(types.PoolNameLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(pool)}
 		attrs[resourceapi.QualifiedName(types.DeviceManagerLabel)] = resourceapi.DeviceAttribute{StringValue: ptr.To(d.Manager.String())}
 
-		entry.Slices[0].Devices = append(entry.Slices[0].Devices, resourceapi.Device{
+		devices = append(devices, resourceapi.Device{
 			Name:       d.Name,
 			Attributes: attrs,
 		})
-		pools[pool] = entry
 	}
 
-	return pools
+	// Sort by name so which slice a device lands in (when spread across more
+	// than one) is stable across reconcile cycles.
+	slices.SortFunc(devices, func(a, b resourceapi.Device) int {
+		return cmp.Compare(a.Name, b.Name)
+	})
+
+	nodeName := nodetypes.GetName()
+	return map[string]resourceslice.Pool{
+		nodeName: {Slices: deviceSlices(devices)},
+	}
 }
 
+// deviceFromClaim rebuilds the in-memory allocation for one device entry from
+// a ResourceClaim's persisted status. devStatus.Pool is only used for error
+// messages here — it is not the same as LogicalPool.
 func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatus) (allocation, error) {
-	devMgrType, devRaw, devCfg, err := deserializeDevice(devStatus.Data.Raw)
+	devMgrType, devRaw, devCfg, logicalPool, err := deserializeDevice(devStatus.Data.Raw)
 	if err != nil {
 		return allocation{}, fmt.Errorf("failed to deserialize device from pool %s using device manager type %s", devStatus.Pool, devMgrType)
 	}
@@ -603,16 +662,18 @@ func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatu
 	}
 
 	return allocation{
-		Device:     dev,
-		DeviceName: devStatus.Device,
-		Config:     devCfg,
-		Manager:    devMgrType,
-		Pool:       devStatus.Pool,
+		Device:      dev,
+		DeviceName:  devStatus.Device,
+		Config:      devCfg,
+		Manager:     devMgrType,
+		LogicalPool: logicalPool,
 	}, nil
 }
 
 func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, wtxn statedb.WriteTxn) error {
 	var errs []error
+
+	sortedPools := driver.sortedConfiguredPools()
 
 	// Detect the crash-before-UpdateStatus case: the claim is allocated and
 	// reserved (the scheduler+kubelet did their part) but Status.Devices is
@@ -646,7 +707,12 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 		}
 		podUID := claim.Status.ReservedFor[0].UID
 
-		pool := alloc.Pool
+		// Keep the pool pinned at prepare time. Fall back to resolving fresh
+		// only for pre-upgrade data with no persisted LogicalPool.
+		logicalPool := alloc.LogicalPool
+		if logicalPool == "" {
+			logicalPool = driver.resolvePool(alloc.Device, sortedPools)
+		}
 
 		// Restore allocation state before DRA/NRI callbacks can arrive. Device
 		// manager discovery populates the independent inventory table.
@@ -654,7 +720,7 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 			DeviceName:     alloc.DeviceName,
 			Manager:        alloc.Manager,
 			PreparedDevice: alloc.Device,
-			Pool:           pool,
+			LogicalPool:    logicalPool,
 			PodUID:         podUID,
 			ClaimUID:       claim.UID,
 			Config:         alloc.Config,
