@@ -139,34 +139,38 @@ func (s *Server) init() error {
 	}
 
 	block, _ = pem.Decode(buf)
-	if block.Type != "PRIVATE KEY" {
-		return fmt.Errorf("CA private key file %s is not a valid PEM encoded RSA private key", caKeyPath)
+
+	s.caKey, err = parseCAPrivateKey(block)
+	if err != nil {
+		return fmt.Errorf("failed to parse CA private key file %s: %w", caKeyPath, err)
 	}
 
+	return nil
+}
+
+// parseCAPrivateKey parses a PEM block containing an RSA private key,
+// supporting both PKCS#8 ("PRIVATE KEY") and PKCS#1 ("RSA PRIVATE KEY")
+// encodings.
+func parseCAPrivateKey(block *pem.Block) (*rsa.PrivateKey, error) {
 	switch block.Type {
 	case "PRIVATE KEY":
 		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 		if err != nil {
-			return fmt.Errorf("failed to parse CA private key file %s: %w", caKeyPath, err)
+			return nil, err
 		}
 
 		// only support RSA keys for now.
-		var ok bool
-		if s.caKey, ok = key.(*rsa.PrivateKey); !ok {
-			return fmt.Errorf("CA private key file %s is not a valid RSA private key", caKeyPath)
+		rsaKey, ok := key.(*rsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("not a valid RSA private key")
 		}
+		return rsaKey, nil
 	case "RSA PRIVATE KEY":
 		// this block type parses directly to an RSA private key.
-		s.caKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return fmt.Errorf("failed to parse CA private key file %s: %w", caKeyPath, err)
-		}
-
+		return x509.ParsePKCS1PrivateKey(block.Bytes)
 	default:
-		return fmt.Errorf("CA private key file %s is not a valid PEM encoded RSA private key, got %q", caKeyPath, block.Type)
+		return nil, fmt.Errorf("not a valid PEM encoded RSA private key, got %q", block.Type)
 	}
-
-	return nil
 }
 
 // createCertificate will generate a certificate given a CSR and return the
