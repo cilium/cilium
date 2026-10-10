@@ -263,6 +263,18 @@ test_result_cursor = 0;
 #define SETUP(progtype, name) __section(progtype "/test/" name "/setup")
 #define CHECK(progtype, name) __section(progtype "/test/" name "/check")
 
+/* Run the tc SETUP programs of this file on a CHECKSUM_COMPLETE skb
+ * (BPF_F_TEST_SKB_CHECKSUM_COMPLETE). The kernel then fails the run with
+ * EBADMSG if a program leaves skb->csum out of sync with the packet. Kernels
+ * without the flag run the programs as usual.
+ *
+ * Kernels without commit 36edb1c7738d ("bpf: test_run: Fix false -EBADMSG
+ * after skb leaves CHECKSUM_COMPLETE") also fail programs that call
+ * bpf_skb_change_tail(), so don't use this in such tests yet.
+ */
+#define TEST_CHECKSUM_COMPLETE() \
+	volatile const bool test_checksum_complete = true
+
 /* Asserts that the sum of per-cpu metrics map slots for a key equals count */
 #define assert_metrics_count(key, __count) \
 ({ \
