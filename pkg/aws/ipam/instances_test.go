@@ -247,7 +247,7 @@ func TestGetSubnet(t *testing.T) {
 	require.Equal(t, "subnet-3", subnet3.ID)
 }
 
-func TestFindSubnetByIDs(t *testing.T) {
+func TestFindSubnetByIDsSorted(t *testing.T) {
 	api := apiMock.NewAPI(subnets2, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 	metadataMockapi, _ := metadataMock.NewMetadataMock()
@@ -259,35 +259,35 @@ func TestFindSubnetByIDs(t *testing.T) {
 	iteration2(t, api, mngr)
 
 	// exact match subnet-1
-	s := mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{"subnet-1"})
-	require.Equal(t, "subnet-1", s.ID)
+	s := mngr.FindSubnetByIDsSorted("vpc-1", "us-west-1", []string{"subnet-1"})
+	require.Equal(t, "subnet-1", s[0].ID)
 
 	// exact match subnet-2
-	s = mngr.FindSubnetByIDs("vpc-2", "us-east-1", []string{"subnet-2"})
-	require.Equal(t, "subnet-2", s.ID)
+	s = mngr.FindSubnetByIDsSorted("vpc-2", "us-east-1", []string{"subnet-2"})
+	require.Equal(t, "subnet-2", s[0].ID)
 
 	// exact match subnet-3
-	s = mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{"subnet-3"})
-	require.Equal(t, "subnet-3", s.ID)
+	s = mngr.FindSubnetByIDsSorted("vpc-1", "us-west-1", []string{"subnet-3"})
+	require.Equal(t, "subnet-3", s[0].ID)
 
-	// empty list shall return nil
-	require.Nil(t, mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{}))
+	// empty list shall return empty slice
+	require.Empty(t, mngr.FindSubnetByIDsSorted("vpc-1", "us-west-1", []string{}))
 
 	// all subnet match, subnet-1 has more addresses
-	s = mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{"subnet-1", "subnet-3"})
-	require.Equal(t, "subnet-1", s.ID)
+	s = mngr.FindSubnetByIDsSorted("vpc-1", "us-west-1", []string{"subnet-1", "subnet-3"})
+	require.Equal(t, "subnet-1", s[0].ID)
 
 	// invalid vpc, no match
-	require.Nil(t, mngr.FindSubnetByIDs("vpc-unknown", "us-west-1", []string{"subnet-1"}))
+	require.Empty(t, mngr.FindSubnetByIDsSorted("vpc-unknown", "us-west-1", []string{"subnet-1"}))
 
 	// invalid AZ, no match
-	require.Nil(t, mngr.FindSubnetByIDs("vpc-1", "us-west-unknown", []string{"subnet-1"}))
+	require.Empty(t, mngr.FindSubnetByIDsSorted("vpc-1", "us-west-unknown", []string{"subnet-1"}))
 
 	// invalid ids, no match
-	require.Nil(t, mngr.FindSubnetByIDs("vpc-1", "us-west-1", []string{"subnet-unknown"}))
+	require.Empty(t, mngr.FindSubnetByIDsSorted("vpc-1", "us-west-1", []string{"subnet-unknown"}))
 }
 
-func TestFindSubnetByTags(t *testing.T) {
+func TestFindSubnetByTagsSorted(t *testing.T) {
 	api := apiMock.NewAPI(subnets, vpcs, securityGroups, routeTables)
 	require.NotNil(t, api)
 	metadataMockapi, _ := metadataMock.NewMetadataMock()
@@ -299,29 +299,29 @@ func TestFindSubnetByTags(t *testing.T) {
 	iteration2(t, api, mngr)
 
 	// exact match subnet-1
-	s := mngr.FindSubnetByTags("vpc-1", "us-west-1", ipamTypes.Tags{"tag1": "tag1"})
-	require.Equal(t, "subnet-1", s.ID)
+	s := mngr.FindSubnetByTagsSorted("vpc-1", "us-west-1", ipamTypes.Tags{"tag1": "tag1"})
+	require.Equal(t, "subnet-1", s[0].ID)
 
 	// exact match subnet-2
-	s = mngr.FindSubnetByTags("vpc-2", "us-east-1", ipamTypes.Tags{"tag1": "tag1"})
-	require.Equal(t, "subnet-2", s.ID)
+	s = mngr.FindSubnetByTagsSorted("vpc-2", "us-east-1", ipamTypes.Tags{"tag1": "tag1"})
+	require.Equal(t, "subnet-2", s[0].ID)
 
 	// exact match subnet-3
-	s = mngr.FindSubnetByTags("vpc-1", "us-west-1", ipamTypes.Tags{"tag2": "tag2"})
-	require.Equal(t, "subnet-3", s.ID)
+	s = mngr.FindSubnetByTagsSorted("vpc-1", "us-west-1", ipamTypes.Tags{"tag2": "tag2"})
+	require.Equal(t, "subnet-3", s[0].ID)
 
 	// both subnet-1 and subnet-3 match, subnet-1 has more addresses
-	s = mngr.FindSubnetByTags("vpc-1", "us-west-1", ipamTypes.Tags{})
-	require.Equal(t, "subnet-1", s.ID)
+	s = mngr.FindSubnetByTagsSorted("vpc-1", "us-west-1", ipamTypes.Tags{})
+	require.Equal(t, "subnet-1", s[0].ID)
 
 	// invalid vpc, no match
-	require.Nil(t, mngr.FindSubnetByTags("vpc-unknown", "us-west-1", ipamTypes.Tags{"tag1": "tag1"}))
+	require.Empty(t, mngr.FindSubnetByTagsSorted("vpc-unknown", "us-west-1", ipamTypes.Tags{"tag1": "tag1"}))
 
 	// invalid AZ, no match
-	require.Nil(t, mngr.FindSubnetByTags("vpc-1", "us-west-unknown", ipamTypes.Tags{"tag1": "tag1"}))
+	require.Empty(t, mngr.FindSubnetByTagsSorted("vpc-1", "us-west-unknown", ipamTypes.Tags{"tag1": "tag1"}))
 
 	// invalid tags, no match
-	require.Nil(t, mngr.FindSubnetByTags("vpc-1", "us-west-1", ipamTypes.Tags{"tag1": "tag1", "tag2": "tag2"}))
+	require.Empty(t, mngr.FindSubnetByTagsSorted("vpc-1", "us-west-1", ipamTypes.Tags{"tag1": "tag1", "tag2": "tag2"}))
 }
 
 func TestGetSecurityGroupByTags(t *testing.T) {
