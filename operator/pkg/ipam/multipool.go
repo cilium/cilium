@@ -34,9 +34,7 @@ func init() {
 						return nil
 					}
 
-					pa := multipool.NewPoolAllocator(logger, daemonCfg.EnableIPv4, daemonCfg.EnableIPv6)
-					pa.SetMetrics(m)
-					return pa
+					return multipool.NewPoolAllocator(logger, daemonCfg.EnableIPv4, daemonCfg.EnableIPv6, &m)
 				},
 			),
 			cell.Invoke(multipool.StartAllocator),
