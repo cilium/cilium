@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
 	"github.com/stretchr/testify/require"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
@@ -165,8 +166,13 @@ type testCase struct {
 // faultyLBMaps wraps an LBMaps and can inject errors on map operations.
 type faultyLBMaps struct {
 	maps.LBMaps
-	fail              bool
-	failDeleteService bool
+	fail                  bool
+	failDeleteService     bool
+	failDeleteWildcard    bool
+	failDeleteSourceRange bool
+	failDeleteAffinity    bool
+	failDumpAffinity      bool
+	failDumpService       bool
 }
 
 func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValue) error {
@@ -177,10 +183,40 @@ func (m *faultyLBMaps) UpdateService(key maps.ServiceKey, value maps.ServiceValu
 }
 
 func (m *faultyLBMaps) DeleteService(key maps.ServiceKey) error {
-	if m.failDeleteService {
+	// The key is in network byte order, which does not matter for the zero wildcard port and protocol.
+	isWildcard := key.GetPort() == WildcardPortNumber && key.GetProtocol() == uint8(WildcardProtoNumber)
+	if m.failDeleteService || (m.failDeleteWildcard && isWildcard) {
 		return errors.New("delete service failed")
 	}
 	return m.LBMaps.DeleteService(key)
+}
+
+func (m *faultyLBMaps) DumpService(cb func(maps.ServiceKey, maps.ServiceValue)) error {
+	if m.failDumpService {
+		return errors.New("dump service failed")
+	}
+	return m.LBMaps.DumpService(cb)
+}
+
+func (m *faultyLBMaps) DeleteSourceRange(key maps.SourceRangeKey) error {
+	if m.failDeleteSourceRange {
+		return errors.New("delete source range failed")
+	}
+	return m.LBMaps.DeleteSourceRange(key)
+}
+
+func (m *faultyLBMaps) DeleteAffinityMatch(key *maps.AffinityMatchKey) error {
+	if m.failDeleteAffinity {
+		return errors.New("delete affinity match failed")
+	}
+	return m.LBMaps.DeleteAffinityMatch(key)
+}
+
+func (m *faultyLBMaps) DumpAffinityMatch(cb func(*maps.AffinityMatchKey, *maps.AffinityMatchValue)) error {
+	if m.failDumpAffinity {
+		return errors.New("dump affinity match failed")
+	}
+	return m.LBMaps.DumpAffinityMatch(cb)
 }
 
 var testServiceName = loadbalancer.NewServiceName("test", "test")
@@ -1459,15 +1495,15 @@ func TestBPFOps(t *testing.T) {
 		faultMaps.failDeleteService = false
 		require.Error(t, err)
 		require.NotZero(t, frontend.ID, "Frontend ID after failed withdrawal")
-		require.Equal(t, frontend.Address, ops.serviceIDAlloc.idToAddr[frontend.ID],
+		require.Equal(t, sets.New(frontend.Address), ops.serviceIDAlloc.idToAddrs[frontend.ID],
 			"Frontend ID allocation after failed withdrawal")
 
 		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
 
 		require.Zero(t, frontend.ID, "withdrawn Frontend ID")
 		require.True(t, lbmaps.IsEmpty(), "BPF maps after Update")
-		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
-		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
+		require.Empty(t, ops.serviceIDAlloc.idToAddrs, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddrs, "Backend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remains")
 		require.Empty(t, ops.backendReferences, "Backend references remain")
 		require.Empty(t, ops.wildcardReferences, "Wildcard references remain")
@@ -1583,8 +1619,8 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, maps, "BPF maps not empty")
 
 		// Verify that all internal state has been cleaned up.
-		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
-		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddrs, "Backend ID allocations remain")
+		require.Empty(t, ops.serviceIDAlloc.idToAddrs, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remain")
 		require.Empty(t, ops.backendReferences, "Backend references remain")
 		require.Empty(t, ops.nodePortAddrByPort, "NodePort addrs state remain")
