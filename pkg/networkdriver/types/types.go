@@ -8,7 +8,7 @@ import (
 	"encoding"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"net/netip"
 	"regexp"
 	"strings"
 
@@ -66,39 +66,6 @@ var (
 	// validIfNameRegex matches valid interface name characters (alphanumeric, dot, underscore, dash)
 	validIfNameRegex = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 )
-
-// ValidateInterfaceName validates an interface name according to Linux rules
-func ValidateInterfaceName(name string) error {
-	// Empty name is valid (means no custom rename)
-	if name == "" {
-		return nil
-	}
-
-	// Check length limit (Linux IFNAMSIZ - 1)
-	if len(name) > MaxInterfaceNameLength {
-		return fmt.Errorf(
-			"interface name too long: %q (%d chars, max %d)",
-			name, len(name), MaxInterfaceNameLength)
-	}
-
-	// Check for valid characters
-	if !validIfNameRegex.MatchString(name) {
-		return fmt.Errorf(
-			"interface name contains invalid characters: %q (allowed: a-z A-Z 0-9 . _ -)",
-			name)
-	}
-
-	// Check for reserved names
-	if name == "lo" {
-		return fmt.Errorf("interface name %q is reserved (loopback)", name)
-	}
-
-	if len(name) >= 7 && name[:7] == "cilium_" {
-		return fmt.Errorf("interface name %q is reserved (cilium_ prefix)", name)
-	}
-
-	return nil
-}
 
 type DeviceManagerType int
 
@@ -189,8 +156,11 @@ type DeviceManager interface {
 }
 
 type DeviceConfig struct {
-	PodIfName string `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
-	Vlan      int32  `json:"vlan,omitempty"`      // VLAN ID to assign to the device (0 = untagged / no change)
+	PodIfName string       `json:"podIfName,omitempty"` // Custom interface name for the pod namespace
+	Vlan      int32        `json:"vlan,omitempty"`      // VLAN ID to assign to the device (0 = untagged / no change)
+	IPv4Addr  netip.Prefix `json:"ipv4Addr,omitzero"`
+	IPv6Addr  netip.Prefix `json:"ipv6Addr,omitzero"`
+	IPPool    string       `json:"ipPool,omitempty"`
 
 	// InterfaceSysctlIPv4/IPv6 hold leaf sysctl parameters (e.g.
 	// "arp_filter") applied under net.<family>.conf.<interface>. for the
@@ -202,9 +172,20 @@ type DeviceConfig struct {
 }
 
 func (d *DeviceConfig) Empty() bool {
-	return d == nil ||
-		(d.PodIfName == "" && d.Vlan == 0 &&
-			len(d.InterfaceSysctlIPv4) == 0 && len(d.InterfaceSysctlIPv6) == 0)
+	if d == nil {
+		return true
+	}
+	return d.PodIfName == "" &&
+		d.Vlan == 0 &&
+		!d.IPv4Addr.IsValid() &&
+		!d.IPv6Addr.IsValid() &&
+		d.IPPool == "" &&
+		len(d.InterfaceSysctlIPv4) == 0 &&
+		len(d.InterfaceSysctlIPv6) == 0
+}
+
+func (d *DeviceConfig) HasPool() bool {
+	return d.IPPool != ""
 }
 
 type SerializedDevice struct {

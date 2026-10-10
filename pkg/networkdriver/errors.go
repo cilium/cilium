@@ -12,7 +12,4 @@ var (
 	errBadConfig             = errors.New("bad config")
 	errDuplicatedPoolName    = errors.New("duplicated pool name")
 	errIfNameInMultiplePools = errors.New("ifname contained in multiple pools")
-
-	errInvalidSysctlLeaf = errors.New("invalid sysctl leaf parameter")
-	errEmptySysctlValue  = errors.New("sysctl value must not be empty")
 )

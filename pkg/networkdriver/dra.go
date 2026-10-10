@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"path"
 
@@ -20,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
@@ -218,8 +220,8 @@ func (d *Driver) unprepareResourceClaim(ctx context.Context, claim kubeletplugin
 		errs  []error
 	)
 	for _, dev := range devices {
-		if err := dev.Device.Free(dev.Config); err != nil {
-			errs = append(errs, err)
+		if err := d.cleanupAllocation(dev); err != nil {
+			errs = append(errs, fmt.Errorf("failed to release device: %w", err))
 			continue
 		}
 		freed = append(freed, dev)
@@ -250,7 +252,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
-	if err := validateDeviceConfigs(claim, deviceClaimConfigs); err != nil {
+	if err := validateDeviceConfigs(claim, deviceClaimConfigs, driver.ipv4Enabled, driver.ipv6Enabled); err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
@@ -276,7 +278,12 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			if _, reused := state.existingByDevice[a.DeviceName]; reused {
 				continue
 			}
-			driver.rollbackDevice(a)
+			if err := driver.cleanupAllocation(a); err != nil {
+				driver.logger.Warn("failed to rollback device",
+					logfields.Device, a.DeviceName,
+					logfields.Error, err,
+				)
+			}
 		}
 	}()
 
@@ -321,20 +328,21 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi.ResourceClaim) (map[string]types.DeviceConfig, error) {
 	devicesCfg := map[string]types.DeviceConfig{}
 	for _, cfg := range claim.Status.Allocation.Devices.Config {
-		if cfg.Opaque != nil && cfg.Opaque.Parameters.Raw != nil {
-			c := types.DeviceConfig{}
-			if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &c); err != nil {
-				driver.logger.ErrorContext(
-					ctx, "failed to parse config",
-					logfields.Request, cfg.Requests,
-					logfields.Params, cfg.Opaque.Parameters,
-					logfields.Error, err,
-				)
-				return nil, fmt.Errorf("failed to unmarshal config for %s: %w", path.Join(claim.Namespace, claim.Name), err)
-			}
-			for _, request := range cfg.Requests {
-				devicesCfg[request] = c
-			}
+		if cfg.Opaque == nil || cfg.Opaque.Parameters.Raw == nil {
+			continue
+		}
+		c := types.DeviceConfig{}
+		if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &c); err != nil {
+			driver.logger.ErrorContext(
+				ctx, "failed to parse config",
+				logfields.Request, cfg.Requests,
+				logfields.Params, cfg.Opaque.Parameters,
+				logfields.Error, err,
+			)
+			return nil, fmt.Errorf("failed to unmarshal config for %s: %w", path.Join(claim.Namespace, claim.Name), err)
+		}
+		for _, request := range cfg.Requests {
+			devicesCfg[request] = c
 		}
 	}
 	return devicesCfg, nil
@@ -416,37 +424,37 @@ func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerRef
 
 // validateDeviceConfigs checks that every device config in the claim is
 // valid (podIfName, sysctl settings) before any destructive work begins.
-func validateDeviceConfigs(claim *resourceapi.ResourceClaim, deviceClaimConfigs map[string]types.DeviceConfig) error {
+func validateDeviceConfigs(
+	claim *resourceapi.ResourceClaim,
+	deviceClaimConfigs map[string]types.DeviceConfig,
+	ipv4Enabled bool,
+	ipv6Enabled bool,
+) error {
 	for request, cfg := range deviceClaimConfigs {
-		if err := types.ValidateInterfaceName(cfg.PodIfName); err != nil {
-			return fmt.Errorf("invalid podIfName in request %s for claim %s: %w",
-				request, path.Join(claim.Namespace, claim.Name), err)
-		}
-		if err := validateInterfaceSysctl(cfg); err != nil {
-			return fmt.Errorf("invalid sysctl config in request %s for claim %s: %w",
+		if err := cfg.Validate(ipv4Enabled, ipv6Enabled); err != nil {
+			return fmt.Errorf("invalid device config in request %s for claim %s: %w",
 				request, path.Join(claim.Namespace, claim.Name), err)
 		}
 	}
 	return nil
 }
 
-// rollbackDevice undoes the setup of a single device: it frees the device and
-// releases any pool-allocated addresses. Failures are logged rather than
-// returned, and the call is a safe no-op when there is nothing to undo — a
-// zero-value allocation (no device set up) is ignored, and releaseAddrs already
-// no-ops for configs without a pool. This lets every error path roll back
-// unconditionally without first checking whether work was actually done.
-func (driver *Driver) rollbackDevice(a allocation) {
-	if a.Device == nil {
-		// Nothing was set up for this allocation; nothing to roll back.
-		return
+// cleanupAllocation undoes a device allocation: it frees the device and
+// releases any pool-allocated addresses. The call is a safe no-op when
+// there is nothing to undo.
+func (driver *Driver) cleanupAllocation(a allocation) error {
+	var errs []error
+	if err := driver.releaseAddrs(a.Config); err != nil {
+		errs = append(errs, fmt.Errorf("failed to release addresses: %w", err))
 	}
-	if err := a.Device.Free(a.Config); err != nil {
-		driver.logger.Warn("failed to free device during rollback",
-			logfields.Device, a.Device.IfName(),
-			logfields.Error, err,
-		)
+	if a.Device != nil {
+		if err := a.Device.Free(a.Config); err != nil {
+			errs = append(errs, fmt.Errorf("failed to free device: %w", err))
+		} else {
+			a.Device = nil
+		}
 	}
+	return errors.Join(errs...)
 }
 
 // prepareClaimDevice processes a single device result of a claim. It returns the
@@ -463,8 +471,7 @@ func (driver *Driver) prepareClaimDevice(
 	result resourceapi.DeviceRequestAllocationResult,
 	cfg types.DeviceConfig,
 	state claimPrepState,
-) (alloc allocation, status *resourceapi.AllocatedDeviceStatus, err error) {
-	claimRef := path.Join(claim.Namespace, claim.Name)
+) (allocation, *resourceapi.AllocatedDeviceStatus, error) {
 
 	// Idempotency: reuse a device already set up for this (pod, claim) instead
 	// of setting it up again. This returns before any setup, so the rollback
@@ -475,65 +482,73 @@ func (driver *Driver) prepareClaimDevice(
 		return *reused, reuseStatus, nil
 	}
 
-	// New device: set it up. prepareDeviceAllocation releases its own addresses
-	// if it fails before/at Setup, so nothing was set up on this error path.
-	alloc, err = driver.prepareDeviceAllocation(ctx, claimRef, result, cfg)
-	if err != nil {
-		driver.logger.ErrorContext(ctx, "failed to prepare device allocation",
-			logfields.Device, result.Device,
-			logfields.Error, err,
-		)
-		return allocation{}, nil, fmt.Errorf("failed to prepare device %s for claim %s: %w", result.Device, claimRef, err)
-	}
-
-	// From here the device is set up: any error must free it. rollbackDevice is
-	// a no-op when err is nil.
-	defer func() {
-		if err != nil {
-			driver.rollbackDevice(alloc)
-		}
-	}()
-
-	built, err := driver.buildDeviceStatus(claim, result, alloc)
-	if err != nil {
-		driver.logger.ErrorContext(ctx, "failed to serialize device",
-			logfields.Device, alloc.Device.IfName(),
-			logfields.Config, alloc.Config,
-			logfields.Error, err,
-		)
-		return allocation{}, nil, fmt.Errorf("failed to serialize device %s for claim %s: %w", alloc.Device.IfName(), claimRef, err)
-	}
-
-	return alloc, &built, nil
+	// New device: set it up.
+	return driver.getNewAllocation(ctx, claim, result, cfg)
 }
 
-func (driver *Driver) prepareDeviceAllocation(ctx context.Context, claim string, result resourceapi.DeviceRequestAllocationResult, cfg types.DeviceConfig) (allocation, error) {
+func (driver *Driver) getNewAllocation(
+	ctx context.Context,
+	claim *resourceapi.ResourceClaim,
+	result resourceapi.DeviceRequestAllocationResult,
+	cfg types.DeviceConfig,
+) (allocation, *resourceapi.AllocatedDeviceStatus, error) {
+	draDevice, _, found := driver.deviceTable.Get(driver.db.ReadTxn(),
+		deviceByName.Query(result.Device))
+	if !found || draDevice.Dev == nil {
+		return allocation{}, nil, fmt.Errorf("%w with ifname %s", errDeviceNotFound, result.Device)
+	}
+
+	claimNamespacedName := path.Join(claim.Namespace, claim.Name)
 	alloc := allocation{
 		DeviceName: result.Device,
 		Pool:       result.Pool,
 		Config:     cfg,
 	}
 
-	txn := driver.db.ReadTxn()
-	row, _, found := driver.deviceTable.Get(txn, deviceByName.Query(result.Device))
-	if !found || row.Dev == nil {
-		return alloc, fmt.Errorf("%w with ifname %s for %s", errDeviceNotFound, result.Device, claim)
+	// Setup the rollback function to clean up the device if any subsequent step fails.
+	var (
+		errMsg string
+		err    error
+	)
+	defer func() {
+		if err != nil {
+			driver.logger.ErrorContext(ctx, errMsg,
+				logfields.Device, alloc.DeviceName,
+				logfields.PoolName, cfg.IPPool,
+				logfields.Error, err,
+			)
+			if err := driver.cleanupAllocation(alloc); err != nil {
+				driver.logger.Warn("failed to rollback device",
+					logfields.Device, alloc.DeviceName,
+					logfields.Error, err,
+				)
+			}
+		}
+	}()
+
+	// Allocate IP addresses
+	if err = driver.allocateAddrs(ctx, alloc.DeviceName, &alloc.Config); err != nil {
+		errMsg = "failed to allocate IP addresses for device"
+		return allocation{}, nil, fmt.Errorf("failed to allocate IP addresses for device %s in claim %s: %w", alloc.DeviceName, claimNamespacedName, err)
 	}
 
-	alloc.Manager = row.Manager
-	alloc.Device = row.Dev
+	// Setup the device
+	if err = draDevice.Dev.Setup(alloc.Config); err != nil {
+		errMsg = "failed to set up device"
+		return allocation{}, nil, fmt.Errorf("%w for ifname %s on %s", err, alloc.DeviceName, claimNamespacedName)
+	}
+	alloc.Device = draDevice.Dev
+	alloc.Manager = draDevice.Manager
 
-	if err := alloc.Device.Setup(alloc.Config); err != nil {
-		driver.logger.ErrorContext(ctx, "failed to set up device",
-			logfields.Device, alloc.Device.IfName(),
-			logfields.Config, alloc.Config,
-			logfields.Error, err,
-		)
-
-		return alloc, fmt.Errorf("%w for ifname %s on %s", err, alloc.Device.IfName(), claim)
+	// Build the device status
+	var built resourceapi.AllocatedDeviceStatus
+	built, err = driver.buildDeviceStatus(claim, result, alloc)
+	if err != nil {
+		errMsg = "failed to serialize device"
+		return allocation{}, nil, fmt.Errorf("failed to serialize device %s for claim %s: %w", alloc.Device.IfName(), claimNamespacedName, err)
 	}
 
-	return alloc, nil
+	return alloc, &built, nil
 }
 
 // reuseAllocatedDevice implements the idempotency path for a single device
@@ -590,6 +605,19 @@ func (driver *Driver) buildDeviceStatus(
 	if a.Config.PodIfName != "" {
 		ifName = a.Config.PodIfName
 	}
+	ips := make([]string, 0, 2)
+	if driver.ipv4Enabled {
+		if !a.Config.IPv4Addr.IsValid() {
+			return resourceapi.AllocatedDeviceStatus{}, errors.New("invalid IPv4 address")
+		}
+		ips = append(ips, a.Config.IPv4Addr.String())
+	}
+	if driver.ipv6Enabled {
+		if !a.Config.IPv6Addr.IsValid() {
+			return resourceapi.AllocatedDeviceStatus{}, errors.New("invalid IPv6 address")
+		}
+		ips = append(ips, a.Config.IPv6Addr.String())
+	}
 
 	return resourceapi.AllocatedDeviceStatus{
 		Driver:     driver.config.DriverName,
@@ -599,6 +627,7 @@ func (driver *Driver) buildDeviceStatus(
 		Data:       &runtime.RawExtension{Raw: rawDev},
 		NetworkData: &resourceapi.NetworkDeviceData{
 			InterfaceName: ifName,
+			IPs:           ips,
 		},
 	}, nil
 }
@@ -656,4 +685,93 @@ func deserializeDevice(data []byte) (types.DeviceManagerType, json.RawMessage, t
 	}
 
 	return dev.Manager, dev.Dev, dev.Config, nil
+}
+
+func (driver *Driver) releaseAddrs(cfg types.DeviceConfig) error {
+	if !cfg.HasPool() {
+		// static addresses, no need to release from pool
+		return nil
+	}
+
+	// if we have a Pool, IPs are allocated from it and need to be released back to the pool
+	var errs []error
+	if cfg.IPv4Addr.IsValid() {
+		if err := driver.multiPoolMgr.ReleaseIP(cfg.IPv4Addr.Addr(), ipam.Pool(cfg.IPPool), ipam.IPv4, true); err != nil {
+			errs = append(errs, fmt.Errorf("failed to release IP address: %w", err))
+		}
+	}
+	if cfg.IPv6Addr.IsValid() {
+		if err := driver.multiPoolMgr.ReleaseIP(cfg.IPv6Addr.Addr(), ipam.Pool(cfg.IPPool), ipam.IPv6, true); err != nil {
+			errs = append(errs, fmt.Errorf("failed to release IP address: %w", err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func (driver *Driver) allocateAddrs(ctx context.Context, deviceName string, cfg *types.DeviceConfig) error {
+	const (
+		// addrAddRetryInterval is the initial interval for the exponential backoff between
+		// subsequent "address add request" retries to the IPAM manager.
+		// This is needed when requesting an IP address from a not yet ready pool, in order
+		// to let the operator handle the new request and reserve a CIDR for the node.
+		addrAddRetryInterval = time.Second
+
+		// addrAddMaxRetries is the maximum number of "address add request" retries before
+		// failing the operation.
+		addrAddMaxRetries = 25
+	)
+
+	if !cfg.HasPool() {
+		// static addresses, no need to allocate from the pool
+		return nil
+	}
+
+	if cfg.IPv4Addr.IsValid() || cfg.IPv6Addr.IsValid() {
+		// when we call this method we should not have any IP addresses already assigned
+		return fmt.Errorf("device %s already has an IP address assigned", deviceName)
+	}
+
+	if err := resiliency.Retry(ctx, addrAddRetryInterval, addrAddMaxRetries, func(ctx context.Context, retries int) (bool, error) {
+		var errs []error
+		// it is possible that in one retry we successfully allocate an IPv4
+		// address but fail to allocate an IPv6 address, or vice versa.
+		// So we need to check if we already have a valid ip address before
+		// attempting to allocate a new one.
+		if driver.ipv4Enabled && !cfg.IPv4Addr.IsValid() {
+			res, err := driver.multiPoolMgr.AllocateNext(deviceName, ipam.Pool(cfg.IPPool), ipam.IPv4, true)
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				// TODO: We need to use the prefix of the CIDR from which the IP was allocated
+				// rather than the IP's bit length.
+				// e.g., if the IP was allocated from a /24 CIDR (in the CiliumResourceIPPool),
+				// we should use 24 as the prefix length.
+				cfg.IPv4Addr = netip.PrefixFrom(res.IP, res.IP.BitLen())
+			}
+		}
+		if driver.ipv6Enabled && !cfg.IPv6Addr.IsValid() {
+			res, err := driver.multiPoolMgr.AllocateNext(deviceName, ipam.Pool(cfg.IPPool), ipam.IPv6, true)
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				// TODO: We need to use the prefix of the CIDR from which the IP was allocated
+				// rather than the IP's bit length.
+				cfg.IPv6Addr = netip.PrefixFrom(res.IP, res.IP.BitLen())
+			}
+		}
+		if len(errs) != 0 {
+			driver.logger.WarnContext(
+				ctx, "failed to get IP addresses for device, will retry",
+				logfields.Device, deviceName,
+				logfields.PoolName, cfg.IPPool,
+				logfields.Error, errs,
+			)
+			return false, nil
+		}
+		return true, nil
+	}); err != nil {
+		// it is possible that some IP addresses were successfully allocated before the failure occurred.
+		return errors.Join(err, driver.releaseAddrs(*cfg))
+	}
+	return nil
 }
