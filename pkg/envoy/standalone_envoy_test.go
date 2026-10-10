@@ -5,12 +5,24 @@ package envoy
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
+	"fmt"
 	"iter"
 	"log/slog"
 	"maps"
+	"math/big"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -24,6 +36,7 @@ import (
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	envoy_http_router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/stretchr/testify/require"
@@ -39,11 +52,15 @@ import (
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	util "github.com/cilium/cilium/pkg/envoy/util"
 	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/flowdebug"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/policy"
@@ -240,16 +257,52 @@ var ADS_RESOURCES = xds.Resources{
 	// Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{
 	// 	"endpoint1": &DEFAULT_CLA,
 	// },
-	NetworkPolicies: map[string]*cilium.NetworkPolicy{
-		"40": {
-			EndpointId:  40,
-			EndpointIps: []string{"10.0.0.1"},
-		},
-		"30": {
-			EndpointId:  30,
-			EndpointIps: []string{"10.0.0.2"},
-		},
+}
+
+var adsTestNetworkPolicies = map[string]*cilium.NetworkPolicy{
+	"40": {
+		EndpointId:  40,
+		EndpointIps: []string{"10.0.0.1"},
 	},
+	"30": {
+		EndpointId:  30,
+		EndpointIps: []string{"10.0.0.2"},
+	},
+}
+
+func validADSTestResources(t *testing.T) xds.Resources {
+	t.Helper()
+	// Positive tests must not race their Listener ACK against the SDS NACK of
+	// the placeholder bytes in ADS_RESOURCES. A NACK can undo the whole API
+	// transaction, including its Listener, Cluster and Route changes.
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	require.NoError(t, err)
+	template := &x509.Certificate{
+		SerialNumber: big.NewInt(1), DNSNames: []string{"localhost"},
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour),
+		KeyUsage: x509.KeyUsageDigitalSignature,
+	}
+	certificate, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
+	require.NoError(t, err)
+	privateKey, err := x509.MarshalPKCS8PrivateKey(key)
+	require.NoError(t, err)
+	secret := proto.Clone(ADS_RESOURCES.Secrets["secret1"]).(*envoy_config_tls.Secret)
+	secret.GetTlsCertificate().CertificateChain.Specifier = &envoy_config_core.DataSource_InlineBytes{
+		InlineBytes: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate}),
+	}
+	secret.GetTlsCertificate().PrivateKey.Specifier = &envoy_config_core.DataSource_InlineBytes{
+		InlineBytes: pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateKey}),
+	}
+	resources := ADS_RESOURCES
+	resources.Secrets = maps.Clone(resources.Secrets)
+	resources.Secrets[secret.Name] = secret
+	return resources
+}
+
+func upsertADSTestNetworkPolicy(t *testing.T, server *adsServer, name string, policy *cilium.NetworkPolicy) {
+	t.Helper()
+	err := server.cache.ApplyResource(t.Context(), localNodeID, typeurl.NetworkPolicy, name, policy, nil, nil)
+	require.NoError(t, err)
 }
 
 func (s *EnvoySuite) waitForProxyCompletion() error {
@@ -282,7 +335,7 @@ func TestEnvoyAds(t *testing.T) {
 	flowdebug.Enable()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -400,6 +453,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
 		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
 	}
+	resources := validADSTestResources(t)
 
 	logging.SetLogLevel(slog.LevelDebug)
 	flowdebug.Enable()
@@ -413,7 +467,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -465,7 +519,16 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("Upserting Envoy resources")
-	err = xdsServer.UpsertEnvoyResources(ctx, ADS_RESOURCES, s.waitGroup)
+	for name, policy := range adsTestNetworkPolicies {
+		upsertADSTestNetworkPolicy(t, xdsServer, name, policy)
+	}
+	// The deliberately invalid Secret is a separate caller transaction. Its
+	// later NACK must not roll back the otherwise accepted base resources.
+	baseResources := resources
+	baseResources.Secrets = nil
+	err = xdsServer.UpsertEnvoyResources(ctx, baseResources, s.waitGroup)
+	require.NoError(t, err)
+	err = xdsServer.UpsertEnvoyResources(ctx, xds.Resources{Secrets: resources.Secrets}, nil)
 	require.NoError(t, err)
 
 	err = s.waitForProxyCompletion()
@@ -498,21 +561,24 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 
 	t.Log("Updating Envoy resources")
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	updatedResources := ADS_RESOURCES.DeepCopy()
+	updatedResources := resources
+	updatedResources.Secrets = maps.Clone(resources.Secrets)
 	for k := range updatedResources.Secrets {
 		delete(updatedResources.Secrets, k)
 	}
-	updatedResources.NetworkPolicies["40"] = &cilium.NetworkPolicy{
+	updatedPolicy := &cilium.NetworkPolicy{
 		EndpointId:  40,
 		EndpointIps: []string{"10.0.0.9"},
 	}
-	err = xdsServer.UpdateEnvoyResources(ctx, ADS_RESOURCES, *updatedResources, s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, resources, updatedResources, s.waitGroup)
+	require.NoError(t, err)
+	upsertADSTestNetworkPolicy(t, xdsServer, "40", updatedPolicy)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 
 	t.Log("Deleting Envoy resources")
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	err = xdsServer.DeleteEnvoyResources(ctx, ADS_RESOURCES, s.waitGroup)
+	err = xdsServer.DeleteEnvoyResources(ctx, resources, s.waitGroup)
 	require.NoError(t, err)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -544,7 +610,7 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -587,9 +653,12 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 
 	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
 
-	// Step 1: Upsert base resources (includes network policies for endpoints 40 and 30)
+	// Step 1: Upsert base Envoy resources and the separate endpoint policies.
 	t.Log("upserting base ADS resources with network policies")
-	err = xdsServer.UpsertEnvoyResources(ctx, ADS_RESOURCES, s.waitGroup)
+	for name, policy := range adsTestNetworkPolicies {
+		upsertADSTestNetworkPolicy(t, xdsServer, name, policy)
+	}
+	err = xdsServer.UpsertEnvoyResources(ctx, validADSTestResources(t), s.waitGroup)
 	require.NoError(t, err)
 
 	err = s.waitForProxyCompletion()
@@ -636,14 +705,18 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 	require.Contains(t, policies, "10.0.0.2")
 	t.Log("completed removing network policy for endpoint 40")
 
-	// Step 6: RemoveAllNetworkPolicies
-	t.Log("removing all network policies")
-	xdsServer.RemoveAllNetworkPolicies()
+	// Step 6: Remove the remaining endpoint's policy.
+	t.Log("removing network policy for endpoint 30")
+	xdsServer.RemoveNetworkPolicy(ctx, &standaloneTestEndpointInfoSource{
+		id:          30,
+		ipv4:        "10.0.0.2",
+		policyNames: []string{"30"},
+	})
 
 	policies, err = xdsServer.GetNetworkPolicies(nil)
 	require.NoError(t, err)
 	require.Empty(t, policies)
-	t.Log("completed removing all network policies")
+	t.Log("completed removing remaining network policy")
 
 	t.Log("stopping Envoy")
 	stopEnvoy()
@@ -673,7 +746,7 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelWarn))
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -714,11 +787,11 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	require.NotNil(t, envoyProxy)
 	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
 
-	resources := ADS_RESOURCES.DeepCopy()
-	delete(resources.NetworkPolicies, "30")
+	resources := validADSTestResources(t)
+	upsertADSTestNetworkPolicy(t, xdsServer, "40", adsTestNetworkPolicies["40"])
 
 	t.Log("upserting a listener and its network policy")
-	err = xdsServer.UpsertEnvoyResources(ctx, *resources, s.waitGroup)
+	err = xdsServer.UpsertEnvoyResources(ctx, resources, s.waitGroup)
 	require.NoError(t, err)
 	require.NoError(t, s.waitForProxyCompletion())
 	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "NetworkPoliciesConfigDump", "10.0.0.1")
@@ -745,19 +818,10 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	baselineWarnings := countEnvoyLogOccurrences(t, envoyLogPath, unwatchedNetworkPolicy)
 
 	t.Log("updating the retained network policy after final listener removal")
-	err = xdsServer.UpdateEnvoyResources(ctx,
-		xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{
-			"40": resources.NetworkPolicies["40"],
-		}},
-		xds.Resources{NetworkPolicies: map[string]*cilium.NetworkPolicy{
-			"40": {
-				EndpointId:  40,
-				EndpointIps: []string{"10.0.0.9"},
-			},
-		}},
-		nil,
-	)
-	require.NoError(t, err)
+	upsertADSTestNetworkPolicy(t, xdsServer, "40", &cilium.NetworkPolicy{
+		EndpointId:  40,
+		EndpointIps: []string{"10.0.0.9"},
+	})
 	policies, err := xdsServer.GetNetworkPolicies([]string{"40"})
 	require.NoError(t, err)
 	require.Contains(t, policies, "10.0.0.9")
@@ -1378,7 +1442,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1428,8 +1492,8 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	t.Log("completed adding good-listener")
 
 	// Verify the listener exists in the snapshot.
-	resources := xdsServer.cache.GetAllResources(localNodeID)
-	require.Contains(t, resources.Listeners, "good-listener")
+	listeners := cachedListeners(xdsServer.cache, localNodeID)
+	require.Contains(t, listeners, "good-listener")
 
 	// Step 2: Add a listener on port 22 which Envoy cannot bind (privileged port) — should NACK.
 	// Wire the cb callback to verify it is invoked with the NACK error.
@@ -1456,11 +1520,11 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	// Step 4: Verify the bad listener was reverted out of the snapshot.
-	resources = xdsServer.cache.GetAllResources(localNodeID)
-	require.NotContains(t, resources.Listeners, "bad-listener",
+	listeners = cachedListeners(xdsServer.cache, localNodeID)
+	require.NotContains(t, listeners, "bad-listener",
 		"bad-listener should have been reverted from the snapshot after NACK")
 	// The good listener should still be present.
-	require.Contains(t, resources.Listeners, "good-listener",
+	require.Contains(t, listeners, "good-listener",
 		"good-listener should still exist after NACK revert")
 	t.Log("verified snapshot was reverted after NACK")
 
@@ -1472,9 +1536,9 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 
-	resources = xdsServer.cache.GetAllResources(localNodeID)
-	require.Contains(t, resources.Listeners, "post-revert-listener")
-	require.Contains(t, resources.Listeners, "good-listener")
+	listeners = cachedListeners(xdsServer.cache, localNodeID)
+	require.Contains(t, listeners, "post-revert-listener")
+	require.Contains(t, listeners, "good-listener")
 	t.Log("successfully added listener after NACK revert — xDS server is healthy")
 
 	t.Log("stopping Envoy")
@@ -1500,7 +1564,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1551,7 +1615,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 
 	// Step 2: Rapidly add multiple listeners, each producing a new snapshot version.
 	// Use a single WaitGroup that collects all completions — when Envoy ACKs
-	// the latest version, the orderedCompletions should complete all earlier versions too.
+	// the latest generation, it should complete all earlier generations too.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	listenerNames := []string{"rapid-1", "rapid-2", "rapid-3"}
 	for i, name := range listenerNames {
@@ -1559,8 +1623,8 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 		xdsServer.AddListener(ctx, name, policy.ParserTypeHTTP, uint16(8090+i), true, false, s.waitGroup, nil)
 	}
 
-	// Wait for all completions — this will only succeed if the orderedCompletions
-	// correctly completes earlier versions when the latest is ACKed.
+	// Wait for all completions — this will only succeed if the generation-aware
+	// callbacks complete earlier updates when the latest is ACKed.
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err, "all completions should have been resolved, none stuck")
 
@@ -1569,9 +1633,9 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	require.Equal(t, 0, pendingCount, "expected no pending completions after ACK of latest version")
 
 	// Verify all listeners exist in the snapshot.
-	resources := xdsServer.cache.GetAllResources(localNodeID)
+	listeners := cachedListeners(xdsServer.cache, localNodeID)
 	for _, name := range listenerNames {
-		require.Contains(t, resources.Listeners, name)
+		require.Contains(t, listeners, name)
 	}
 	t.Log("all rapid listeners present and all completions resolved")
 
@@ -1579,9 +1643,10 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	stopEnvoy()
 }
 
-// Repro for https://github.com/cilium/cilium/issues/43519:
-// ADS may coalesce a tracked snapshot into a newer untracked snapshot, leaving
-// the earlier completion stuck even after Envoy ACKs the newer snapshot.
+// Repro for https://github.com/cilium/cilium/issues/43519: an ADS update
+// without a WaitGroup may be coalesced with an older tracked generation before
+// Envoy can consume either one. The ACK for the snapshot Envoy actually sees
+// must also release the older completion.
 func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
@@ -1600,7 +1665,7 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1612,42 +1677,27 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, xdsServer.run(t.Context()))
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	go func() {
-		err = accessLogServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, accessLogServer.run(t.Context()))
 	}()
 
-	// Publish tracked snapshot A before Envoy connects. Its completion can only
-	// be resolved by a response/ACK for this version or a newer version.
 	waitCtx, waitCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer waitCancel()
 	trackedWaitGroup := completion.NewWaitGroup(waitCtx)
-	err = xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup, nil)
-	require.NoError(t, err)
+	defer trackedWaitGroup.Cancel()
+	require.NoError(t, xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup, nil))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
 
-	trackedSnapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
-	require.NoError(t, err)
-	trackedVersion := trackedSnapshot.GetVersion(ListenerTypeURL)
-	require.NotEmpty(t, trackedVersion)
-
-	// Publish newer snapshot B without a wait group, mirroring the untracked
-	// NPDS snapshot produced by the synthetic ingress endpoint. Since Envoy has
-	// not connected yet, it can receive only B and A is guaranteed to be
-	// coalesced.
-	err = xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil)
-	require.NoError(t, err)
-	untrackedSnapshot, err := xdsServer.cache.GetSnapshot(localNodeID)
-	require.NoError(t, err)
-	untrackedVersion := untrackedSnapshot.GetVersion(ListenerTypeURL)
-	require.NotEmpty(t, untrackedVersion)
-	require.NotEqual(t, trackedVersion, untrackedVersion)
+	// Stage a newer generation without a waiter before Envoy connects. The first
+	// LDS watch must finalize one snapshot containing both generations.
+	require.NoError(t, xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
+	_, err = xdsServer.cache.GetSnapshot(localNodeID)
+	require.Error(t, err, "snapshot generation must remain lazy until Envoy opens a watch")
 
 	starter := &onDemandXdsStarter{logger: logger}
 	envoyProxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
@@ -1665,14 +1715,11 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
-	t.Log("started Envoy after both snapshots were published")
 	stopEnvoy := cleanupStandaloneEnvoy(t, envoyProxy)
 
-	// Confirm Envoy applied B. Its ACK must also release the completion
-	// associated with the older coalesced snapshot A.
+	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "ListenersConfigDump", "tracked-listener")
 	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "ListenersConfigDump", "untracked-listener")
-	err = trackedWaitGroup.Wait()
-	require.NoError(t, err, "ACK of the newer snapshot should complete the older coalesced update")
+	require.NoError(t, trackedWaitGroup.Wait(), "ACK of the untracked generation should complete the older update")
 	require.Zero(t, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
 
 	stopEnvoy()
@@ -1697,7 +1744,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1769,11 +1816,11 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	require.Equal(t, 0, pendingCount, "expected no pending completions after NACK")
 
 	// Step 5: Verify the bad listener was reverted from the snapshot.
-	resources := xdsServer.cache.GetAllResources(localNodeID)
-	require.NotContains(t, resources.Listeners, "bad",
+	listeners := cachedListeners(xdsServer.cache, localNodeID)
+	require.NotContains(t, listeners, "bad",
 		"bad listener should have been reverted from snapshot after NACK")
 	// The baseline should still be present.
-	require.Contains(t, resources.Listeners, "baseline",
+	require.Contains(t, listeners, "baseline",
 		"baseline listener should still exist after NACK revert")
 	t.Log("verified snapshot was reverted after NACK, no completions stuck")
 
@@ -1800,7 +1847,7 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	localEndpointStore := newLocalEndpointStore()
 	logger := hivetest.Logger(t)
 
-	xdsServer := newADSServer(logger, testipcache.NewMockIPCache(), localEndpointStore,
+	xdsServer := newTestADSServer(t, logger, testipcache.NewMockIPCache(), localEndpointStore,
 		xdsServerConfig{
 			envoySocketDir:    util.GetSocketDir(testRunDir),
 			proxyGID:          1337,
@@ -1880,8 +1927,10 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// UpsertEnvoyResources intentionally does not wait for endpoint ACKs. This
 	// regression test needs to observe the EDS ACK for the bootstrap locality cluster.
+	var callbacks xdsnew.TypeURLCallbacks
+	callbacks.Set(typeurl.Endpoint, nil)
 	xdsServer.mutex.Lock()
-	err = xdsServer.updateSnapshot(ctx, &resources, localNodeID, s.waitGroup, map[string]func(error){EndpointTypeURL: nil}, computeChanges(nil, &resources))
+	err = xdsServer.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, s.waitGroup, callbacks)
 	xdsServer.mutex.Unlock()
 	require.NoError(t, err)
 
@@ -1894,14 +1943,526 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	stopEnvoy()
 }
 
+// TestEnvoyParentReplacementWarming observes the CDS/EDS/SDS and
+// LDS/RDS/CDS/SDS dependency chains against a real Envoy in every supported
+// xDS mode supported at this point in the series. The traffic log distinguishes
+// an Envoy request from a server response and includes the nonce so an ACK is
+// not mistaken for a re-request.
+func TestEnvoyParentReplacementWarming(t *testing.T) {
+	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+	}
+
+	for _, mode := range []config.XDSMode{
+		config.EnvoyXDSModeADS,
+		config.EnvoyXDSModeStrictADS,
+		config.EnvoyXDSModeSplit,
+		config.EnvoyXDSModeDeltaSplit,
+	} {
+		t.Run(string(mode), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 25*time.Second)
+			defer cancel()
+			runDir := t.TempDir()
+			traffic := &xdsTrafficRecorder{}
+			logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+			logger = slog.New(&xdsTrafficHandler{next: logger.Handler(), traffic: traffic})
+			serverConfig := xdsServerConfig{
+				envoySocketDir: util.GetSocketDir(runDir),
+				proxyGID:       1337,
+				metrics:        xds.NewXDSMetric(),
+				envoyXDSMode:   mode,
+			}
+			var server xds.XDSServer
+			var runServer func(context.Context) error
+			if mode.IsADS() {
+				ads := newTestADSServer(t, logger, testipcache.NewMockIPCache(), newLocalEndpointStore(), serverConfig, nil, nil)
+				server = ads
+				runServer = ads.run
+			} else {
+				legacy := newXDSServer(logger, nil, testipcache.NewMockIPCache(), newLocalEndpointStore(), serverConfig, nil)
+				server = legacy
+				runServer = legacy.run
+			}
+			serverCtx, stopServer := context.WithCancel(t.Context())
+			serverDone := make(chan error, 1)
+			go func() { serverDone <- runServer(serverCtx) }()
+			// The Envoy cleanup registered below runs first. Wait for the gRPC
+			// server to unlink its socket before t.TempDir removes the directory.
+			t.Cleanup(func() {
+				stopServer()
+				require.NoError(t, <-serverDone)
+			})
+
+			starter := &onDemandXdsStarter{logger: logger}
+			proxy, err := starter.startStandaloneEnvoyInternal(standaloneEnvoyConfig{
+				runDir:                         runDir,
+				logPath:                        filepath.Join(runDir, "cilium-envoy.log"),
+				baseID:                         15,
+				connectTimeout:                 1,
+				maxActiveDownstreamConnections: 100,
+				defaultLogLevel:                "debug",
+				maxConnections:                 10,
+				maxRequests:                    100,
+				maxConcurrentRetries:           10,
+				maxPendingRequests:             1024,
+				xdsMode:                        mode,
+			})
+			require.NoError(t, err)
+			cleanupStandaloneEnvoy(t, proxy)
+			upstream := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusOK)
+			}))
+			t.Cleanup(upstream.Close)
+			upstreamHost, upstreamPortString, err := net.SplitHostPort(strings.TrimPrefix(upstream.URL, "https://"))
+			require.NoError(t, err)
+			upstreamPort, err := strconv.Atoi(upstreamPortString)
+			require.NoError(t, err)
+			certificate := upstream.TLS.Certificates[0]
+			certificatePEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Certificate[0]})
+			privateKeyDER, err := x509.MarshalPKCS8PrivateKey(certificate.PrivateKey)
+			require.NoError(t, err)
+			privateKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateKeyDER})
+			trustedRoots := x509.NewCertPool()
+			trustedRoots.AddCert(upstream.Certificate())
+			sdsConfig := proto.Clone(CiliumConfigSource(mode)).(*envoy_config_core.ConfigSource)
+			sdsConfig.InitialFetchTimeout = durationpb.New(10 * time.Second)
+			upstreamSecret := &envoy_config_tls.Secret{
+				Name: "warming-upstream-ca",
+				Type: &envoy_config_tls.Secret_ValidationContext{ValidationContext: &envoy_config_tls.CertificateValidationContext{
+					TrustedCa: &envoy_config_core.DataSource{Specifier: &envoy_config_core.DataSource_InlineBytes{InlineBytes: certificatePEM}},
+				}},
+			}
+			listenerSecret := &envoy_config_tls.Secret{
+				Name: "warming-listener-certificate",
+				Type: &envoy_config_tls.Secret_TlsCertificate{TlsCertificate: &envoy_config_tls.TlsCertificate{
+					CertificateChain: &envoy_config_core.DataSource{Specifier: &envoy_config_core.DataSource_InlineBytes{InlineBytes: certificatePEM}},
+					PrivateKey:       &envoy_config_core.DataSource{Specifier: &envoy_config_core.DataSource_InlineBytes{InlineBytes: privateKeyPEM}},
+				}},
+			}
+
+			edsConfig := proto.Clone(CiliumConfigSource(mode)).(*envoy_config_core.ConfigSource)
+			// Keep the replacement warming long enough to distinguish a fresh
+			// EDS response from Envoy's initial-fetch-timeout fallback.
+			edsConfig.InitialFetchTimeout = durationpb.New(10 * time.Second)
+			cluster := &envoy_config_cluster.Cluster{
+				Name:                 "warming-cluster",
+				ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+				EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{
+					EdsConfig:   edsConfig,
+					ServiceName: "warming-shared-endpoints",
+				},
+				ConnectTimeout: durationpb.New(time.Second),
+				LbPolicy:       envoy_config_cluster.Cluster_ROUND_ROBIN,
+				TransportSocket: &envoy_config_core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &envoy_config_core.TransportSocket_TypedConfig{TypedConfig: ToAny(&envoy_config_tls.UpstreamTlsContext{
+						CommonTlsContext: &envoy_config_tls.CommonTlsContext{
+							ValidationContextType: &envoy_config_tls.CommonTlsContext_ValidationContextSdsSecretConfig{
+								ValidationContextSdsSecretConfig: &envoy_config_tls.SdsSecretConfig{Name: upstreamSecret.Name, SdsConfig: sdsConfig},
+							},
+						},
+					})},
+				},
+			}
+			endpoint := &envoy_config_endpoint.ClusterLoadAssignment{
+				ClusterName: cluster.EdsClusterConfig.ServiceName,
+				Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
+					LbEndpoints: []*envoy_config_endpoint.LbEndpoint{{
+						HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{Endpoint: &envoy_config_endpoint.Endpoint{
+							Address: &envoy_config_core.Address{Address: &envoy_config_core.Address_SocketAddress{
+								SocketAddress: &envoy_config_core.SocketAddress{
+									Address:       upstreamHost,
+									PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(upstreamPort)},
+								},
+							}},
+						}},
+					}},
+				}},
+			}
+			initialClusterBaseline := traffic.mark()
+			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+				Clusters:  map[string]*envoy_config_cluster.Cluster{cluster.Name: cluster},
+				Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{endpoint.ClusterName: endpoint},
+				Secrets:   map[string]*envoy_config_tls.Secret{upstreamSecret.Name: upstreamSecret},
+			}, nil))
+			requireEnvoyActiveCluster(t, proxy.GetAdminClient(), cluster.Name, "")
+			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "EndpointsConfigDump", endpoint.ClusterName)
+			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "SecretsConfigDump", upstreamSecret.Name)
+			require.Eventually(t, func() bool {
+				return traffic.seenNonceRequestSince(initialClusterBaseline, typeurl.Endpoint.URL())
+			}, 5*time.Second, 10*time.Millisecond, "initial EDS subscription did not acknowledge its response")
+			traffic.settle()
+			t.Logf("initial CDS/EDS/SDS xDS traffic: %s", traffic.since(initialClusterBaseline))
+			require.True(t, traffic.seenSince(initialClusterBaseline, typeurl.Secret.URL(), true), "Envoy did not subscribe to the CDS-dependent SDS secret")
+			require.True(t, traffic.seenSince(initialClusterBaseline, typeurl.Secret.URL(), false), "xDS server did not deliver the CDS-dependent SDS secret")
+
+			route := &envoy_config_route.RouteConfiguration{
+				Name: "warming-route",
+				VirtualHosts: []*envoy_config_route.VirtualHost{{
+					Name: "warming-host", Domains: []string{"*"},
+					Routes: []*envoy_config_route.Route{{
+						Match: &envoy_config_route.RouteMatch{PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"}},
+						Action: &envoy_config_route.Route_Route{Route: &envoy_config_route.RouteAction{
+							ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{Cluster: cluster.Name},
+						}},
+					}},
+				}},
+			}
+			rdsConfig := proto.Clone(CiliumConfigSource(mode)).(*envoy_config_core.ConfigSource)
+			rdsConfig.InitialFetchTimeout = durationpb.New(10 * time.Second)
+			listener := &envoy_config_listener.Listener{
+				Name: "warming-listener",
+				Address: &envoy_config_core.Address{Address: &envoy_config_core.Address_SocketAddress{
+					SocketAddress: &envoy_config_core.SocketAddress{Address: "127.0.0.1", PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: 18088}},
+				}},
+				FilterChains: []*envoy_config_listener.FilterChain{{Filters: []*envoy_config_listener.Filter{{
+					Name: "envoy.filters.network.http_connection_manager",
+					ConfigType: &envoy_config_listener.Filter_TypedConfig{TypedConfig: ToAny(&envoy_config_http.HttpConnectionManager{
+						StatPrefix: "warming-http-before",
+						RouteSpecifier: &envoy_config_http.HttpConnectionManager_Rds{Rds: &envoy_config_http.Rds{
+							RouteConfigName: route.Name, ConfigSource: rdsConfig,
+						}},
+						HttpFilters: []*envoy_config_http.HttpFilter{{
+							Name:       "envoy.filters.http.router",
+							ConfigType: &envoy_config_http.HttpFilter_TypedConfig{TypedConfig: ToAny(&envoy_http_router.Router{})},
+						}},
+					})},
+				}}, TransportSocket: &envoy_config_core.TransportSocket{
+					Name: "envoy.transport_sockets.tls",
+					ConfigType: &envoy_config_core.TransportSocket_TypedConfig{TypedConfig: ToAny(&envoy_config_tls.DownstreamTlsContext{
+						CommonTlsContext: &envoy_config_tls.CommonTlsContext{
+							TlsCertificateSdsSecretConfigs: []*envoy_config_tls.SdsSecretConfig{{Name: listenerSecret.Name, SdsConfig: sdsConfig}},
+						},
+					})},
+				}}},
+			}
+			initialListenerBaseline := traffic.mark()
+			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+				Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
+				Routes:    map[string]*envoy_config_route.RouteConfiguration{route.Name: route},
+				Secrets:   map[string]*envoy_config_tls.Secret{listenerSecret.Name: listenerSecret},
+			}, nil))
+			requireEnvoyActiveListener(t, proxy.GetAdminClient(), listener.Name, "warming-http-before")
+			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "RoutesConfigDump", route.Name)
+			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "SecretsConfigDump", listenerSecret.Name)
+			requireEnvoyHTTPResponse(t, "https://127.0.0.1:18088/", trustedRoots)
+			traffic.settle()
+			t.Logf("initial LDS/RDS/CDS/SDS xDS traffic: %s", traffic.since(initialListenerBaseline))
+			require.True(t, traffic.seenSince(initialListenerBaseline, typeurl.Secret.URL(), true), "Envoy did not subscribe to the LDS-dependent SDS secret")
+			require.True(t, traffic.seenSince(initialListenerBaseline, typeurl.Secret.URL(), false), "xDS server did not deliver the LDS-dependent SDS secret")
+			sharedCluster := proto.Clone(cluster).(*envoy_config_cluster.Cluster)
+			sharedCluster.Name = "warming-cluster-sharing-eds"
+			sharedCluster.AltStatName = "warming-shared-eds"
+			sharedEndpointBaseline := traffic.mark()
+			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+				Clusters: map[string]*envoy_config_cluster.Cluster{sharedCluster.Name: sharedCluster},
+			}, nil))
+			// Both clusters use the same already-delivered CLA. Activation must
+			// precede the ten-second EDS initial-fetch-timeout fallback.
+			requireEnvoyActiveCluster(t, proxy.GetAdminClient(), sharedCluster.Name, sharedCluster.AltStatName)
+			requireEnvoyHTTPResponse(t, "https://127.0.0.1:18088/", trustedRoots)
+			// The original and shared Clusters have both consumed EDS before the
+			// replacement below. Split xDS may still open another EDS stream for
+			// the new warming instance of the replaced Cluster.
+			require.Eventually(t, func() bool {
+				return traffic.seenNonceRequestSince(sharedEndpointBaseline, typeurl.Endpoint.URL())
+			}, 5*time.Second, 10*time.Millisecond, "shared EDS subscription did not acknowledge its response")
+			traffic.settle()
+			t.Logf("new CDS sharing existing EDS/SDS xDS traffic: %s", traffic.since(sharedEndpointBaseline))
+			require.True(t, traffic.seenSince(sharedEndpointBaseline, typeurl.Endpoint.URL(), false),
+				"the new Cluster must receive the already-subscribed EDS resource before it finishes warming")
+
+			clusterBaseline := traffic.mark()
+			updatedCluster := proto.Clone(cluster).(*envoy_config_cluster.Cluster)
+			updatedCluster.AltStatName = "warming-cluster-updated"
+			updatedCluster.ConnectTimeout = durationpb.New(2 * time.Second)
+			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+				Clusters: map[string]*envoy_config_cluster.Cluster{cluster.Name: updatedCluster},
+			}, nil))
+			requireEnvoyActiveCluster(t, proxy.GetAdminClient(), cluster.Name, updatedCluster.AltStatName)
+			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "EndpointsConfigDump", endpoint.ClusterName)
+			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "SecretsConfigDump", upstreamSecret.Name)
+			requireEnvoyHTTPResponse(t, "https://127.0.0.1:18088/", trustedRoots)
+			traffic.settle()
+			t.Logf("CDS replacement with unchanged EDS/SDS xDS traffic: %s", traffic.since(clusterBaseline))
+			listenerBaseline := traffic.mark()
+
+			updatedListener := proto.Clone(listener).(*envoy_config_listener.Listener)
+			hcm := &envoy_config_http.HttpConnectionManager{}
+			require.NoError(t, updatedListener.FilterChains[0].Filters[0].GetTypedConfig().UnmarshalTo(hcm))
+			hcm.StatPrefix = "warming-http-after"
+			updatedListener.FilterChains[0].Filters[0].ConfigType = &envoy_config_listener.Filter_TypedConfig{TypedConfig: ToAny(hcm)}
+			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+				Listeners: map[string]*envoy_config_listener.Listener{listener.Name: updatedListener},
+			}, nil))
+			requireEnvoyActiveListener(t, proxy.GetAdminClient(), listener.Name, hcm.StatPrefix)
+			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "RoutesConfigDump", route.Name)
+			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "SecretsConfigDump", listenerSecret.Name)
+			requireEnvoyHTTPResponse(t, "https://127.0.0.1:18088/", trustedRoots)
+			traffic.settle()
+			t.Logf("LDS replacement xDS traffic: %s", traffic.since(listenerBaseline))
+			secondListenerBaseline := traffic.mark()
+			secondListener := proto.Clone(updatedListener).(*envoy_config_listener.Listener)
+			secondListener.Name = "warming-listener-second"
+			secondListener.Address.GetSocketAddress().PortSpecifier = &envoy_config_core.SocketAddress_PortValue{PortValue: 18089}
+			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+				Listeners: map[string]*envoy_config_listener.Listener{secondListener.Name: secondListener},
+			}, nil))
+			requireEnvoyActiveListener(t, proxy.GetAdminClient(), secondListener.Name, hcm.StatPrefix)
+			requireEnvoyHTTPResponse(t, "https://127.0.0.1:18089/", trustedRoots)
+			traffic.settle()
+			t.Logf("LDS addition with shared RDS/SDS/CDS xDS traffic: %s", traffic.since(secondListenerBaseline))
+
+			// Exercise the second cluster's EDS and SDS configuration on the
+			// data path, not only its active state in Envoy's config dump.
+			sharedRoute := proto.Clone(route).(*envoy_config_route.RouteConfiguration)
+			sharedRoute.VirtualHosts[0].Routes[0].GetRoute().ClusterSpecifier =
+				&envoy_config_route.RouteAction_Cluster{Cluster: sharedCluster.Name}
+			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+				Routes: map[string]*envoy_config_route.RouteConfiguration{route.Name: sharedRoute},
+			}, nil))
+			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "RoutesConfigDump", sharedCluster.Name)
+			requireEnvoyHTTPResponse(t, "https://127.0.0.1:18089/", trustedRoots)
+		})
+	}
+}
+
+// xdsTrafficRecorder observes requests received and responses sent by the real
+// xDS server. A request with a nonce may just ACK a response; the event order
+// keeps that distinct from a new subscription or an unsolicited re-request.
+type xdsTrafficRecorder struct {
+	mu     lock.Mutex
+	events []xdsTrafficEvent
+}
+
+type xdsTrafficEvent struct {
+	typeURL string
+	nonce   string
+	request bool
+}
+
+func (r *xdsTrafficRecorder) mark() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.events)
+}
+
+func (r *xdsTrafficRecorder) seenSince(mark int, typeURL string, request bool) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, event := range r.events[mark:] {
+		if event.typeURL == typeURL && event.request == request {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *xdsTrafficRecorder) seenNonceRequestSince(mark int, typeURL string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, event := range r.events[mark:] {
+		if event.request && event.typeURL == typeURL && event.nonce != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *xdsTrafficRecorder) settle() {
+	// The active config is visible before its final xDS ACK reaches the server.
+	// Give that asynchronous ACK a chance to arrive before measuring the next
+	// update. The observations are diagnostic, not timing-sensitive assertions.
+	time.Sleep(100 * time.Millisecond)
+}
+
+func (r *xdsTrafficRecorder) since(mark int) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var summary strings.Builder
+	for _, event := range r.events[mark:] {
+		if summary.Len() != 0 {
+			summary.WriteString(", ")
+		}
+		kind := "response"
+		if event.request {
+			kind = "request"
+		}
+		name := event.typeURL
+		switch event.typeURL {
+		case typeurl.Cluster.URL():
+			name = "CDS"
+		case typeurl.Endpoint.URL():
+			name = "EDS"
+		case typeurl.Listener.URL():
+			name = "LDS"
+		case typeurl.Route.URL():
+			name = "RDS"
+		case typeurl.Secret.URL():
+			name = "SDS"
+		}
+		fmt.Fprintf(&summary, "%s %s(nonce=%q)", name, kind, event.nonce)
+	}
+	if summary.Len() == 0 {
+		return "none"
+	}
+	return summary.String()
+}
+
+type xdsTrafficHandler struct {
+	next    slog.Handler
+	traffic *xdsTrafficRecorder
+	attrs   []slog.Attr
+}
+
+func (h *xdsTrafficHandler) Enabled(context.Context, slog.Level) bool { return true }
+
+func (h *xdsTrafficHandler) Handle(ctx context.Context, record slog.Record) error {
+	request := false
+	response := false
+	switch record.Message {
+	case "OnStreamRequest", "OnStreamDeltaRequest", "received request from xDS stream", "received request from Delta xDS stream":
+		request = true
+	case "OnStreamResponse", "OnStreamDeltaResponse", "sending xDS response with resources":
+		response = true
+	}
+	if request || response {
+		event := xdsTrafficEvent{request: request}
+		visit := func(attr slog.Attr) {
+			switch attr.Key {
+			case logfields.XDSTypeURL:
+				event.typeURL = attr.Value.String()
+			case logfields.XDSNonce:
+				event.nonce = attr.Value.String()
+			}
+		}
+		for _, attr := range h.attrs {
+			visit(attr)
+		}
+		record.Attrs(func(attr slog.Attr) bool { visit(attr); return true })
+		if event.typeURL != "" {
+			h.traffic.mu.Lock()
+			h.traffic.events = append(h.traffic.events, event)
+			h.traffic.mu.Unlock()
+		}
+	}
+	if h.next.Enabled(ctx, record.Level) {
+		return h.next.Handle(ctx, record)
+	}
+	return nil
+}
+
+func (h *xdsTrafficHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &xdsTrafficHandler{
+		next:    h.next.WithAttrs(attrs),
+		traffic: h.traffic,
+		attrs:   append(append([]slog.Attr(nil), h.attrs...), attrs...),
+	}
+}
+
+func (h *xdsTrafficHandler) WithGroup(group string) slog.Handler {
+	return &xdsTrafficHandler{next: h.next.WithGroup(group), traffic: h.traffic, attrs: h.attrs}
+}
+
+func requireEnvoyHTTPResponse(t *testing.T, url string, roots *x509.CertPool) {
+	t.Helper()
+	client := &http.Client{Timeout: time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: roots}}}
+	require.Eventually(t, func() bool {
+		response, err := client.Get(url)
+		if err != nil {
+			return false
+		}
+		defer response.Body.Close()
+		return response.StatusCode == http.StatusOK
+	}, 5*time.Second, 100*time.Millisecond)
+}
+
+func requireEnvoyActiveCluster(t *testing.T, admin *EnvoyAdminClient, name, altStatName string) {
+	t.Helper()
+	var lastErr error
+	require.Eventually(t, func() bool {
+		body, err := admin.Get("config_dump")
+		lastErr = err
+		if err != nil {
+			return false
+		}
+		var dump struct {
+			Configs []struct {
+				TypeURL        string `json:"@type"`
+				ActiveClusters []struct {
+					Cluster struct {
+						Name        string `json:"name"`
+						AltStatName string `json:"alt_stat_name"`
+					} `json:"cluster"`
+				} `json:"dynamic_active_clusters"`
+			} `json:"configs"`
+		}
+		if json.Unmarshal([]byte(body), &dump) != nil {
+			return false
+		}
+		for _, section := range dump.Configs {
+			if !strings.Contains(section.TypeURL, "ClustersConfigDump") {
+				continue
+			}
+			for _, active := range section.ActiveClusters {
+				if active.Cluster.Name == name && active.Cluster.AltStatName == altStatName {
+					return true
+				}
+			}
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond, "cluster %q with alt stat name %q did not become active; last admin error: %v", name, altStatName, lastErr)
+}
+
+func requireEnvoyActiveListener(t *testing.T, admin *EnvoyAdminClient, name, statPrefix string) {
+	t.Helper()
+	var lastErr error
+	require.Eventually(t, func() bool {
+		body, err := admin.Get("config_dump")
+		lastErr = err
+		if err != nil {
+			return false
+		}
+		var dump struct {
+			Configs []struct {
+				TypeURL          string `json:"@type"`
+				DynamicListeners []struct {
+					Name        string `json:"name"`
+					ActiveState struct {
+						Listener json.RawMessage `json:"listener"`
+					} `json:"active_state"`
+				} `json:"dynamic_listeners"`
+			} `json:"configs"`
+		}
+		if json.Unmarshal([]byte(body), &dump) != nil {
+			return false
+		}
+		for _, section := range dump.Configs {
+			if !strings.Contains(section.TypeURL, "ListenersConfigDump") {
+				continue
+			}
+			for _, active := range section.DynamicListeners {
+				if active.Name == name && strings.Contains(string(active.ActiveState.Listener), statPrefix) {
+					return true
+				}
+			}
+		}
+		return false
+	}, 5*time.Second, 100*time.Millisecond, "listener %q with stat prefix %q did not become active; last admin error: %v", name, statPrefix, lastErr)
+}
+
 func requireEnvoyConfigDumpContains(t *testing.T, admin *EnvoyAdminClient, configType string, needle string) {
 	t.Helper()
 
 	var lastErr error
 	var lastDump string
+	query := "config_dump"
+	if configType == "EndpointsConfigDump" {
+		query += "?include_eds"
+	}
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		lastDump, lastErr = admin.Get("config_dump")
+		lastDump, lastErr = admin.Get(query)
 		if lastErr == nil && configDumpContains(lastDump, configType, needle) {
 			return
 		}

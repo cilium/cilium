@@ -15,7 +15,9 @@ import (
 	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc/status"
 
 	callbacks "github.com/cilium/cilium/pkg/envoy/xdsnew/callbacks"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -29,14 +31,11 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 		return fmt.Errorf("failed to create socket listener: %w", err)
 	}
 
-	callbacks := callbacks.ChainedCallbacks{
-		callbacks.LoggingCallbacks{Log: s.logger},
-		s.cache.GetCompletionCallbacks(),
-		newNPHDSIPCacheListenerCallbacks(s.logger, s.ipCache, s),
-	}
-	server := envoy_server.NewServer(context.Background(), s.cache, callbacks,
+	server := envoy_server.NewServer(context.Background(), s.cache, s.newCallbacks(),
 		sotw.WithOrderedADS(),
-		sotw.DeactivateLegacyWildcardForTypes([]string{SecretTypeURL}),
+		// EDS, RDS and SDS use named subscriptions; an initial empty list
+		// means no subscription. LDS, CDS, NPDS and NPHDS retain wildcard mode.
+		sotw.DeactivateLegacyWildcardForTypes([]string{EndpointTypeURL, RouteTypeURL, SecretTypeURL}),
 	)
 
 	grpcServer := grpc.NewServer()
@@ -91,4 +90,27 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (s *adsServer) newCallbacks() callbacks.ChainedCallbacks {
+	return callbacks.ChainedCallbacks{
+		envoy_server.CallbackFuncs{
+			StreamRequestFunc: func(_ int64, req *envoy_service_discovery.DiscoveryRequest) error {
+				// go-control-plane restores the first request's node on subsequent
+				// requests before invoking callbacks. Validate before any callback
+				// creates completion state or starts the NPHDS IPCache dump.
+				nodeID := req.GetNode().GetId()
+				if nodeID == "" {
+					return status.Error(codes.InvalidArgument, "xDS node ID is required")
+				}
+				if !s.cache.HasNode(nodeID) {
+					return status.Errorf(codes.NotFound, "unknown xDS node %q", nodeID)
+				}
+				return nil
+			},
+		},
+		callbacks.LoggingCallbacks{Log: s.logger},
+		s.cache.GetCompletionCallbacks(),
+		newNPHDSIPCacheListenerCallbacks(s.logger, s.ipCache, s),
+	}
 }

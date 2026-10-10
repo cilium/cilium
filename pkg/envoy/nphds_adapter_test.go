@@ -4,37 +4,44 @@
 package envoy
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"testing"
 
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	stream "github.com/envoyproxy/go-control-plane/pkg/server/stream/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func newTestNPHDSAdapter(t *testing.T) *nphdsCacheAdapter {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	server := newADSServerWithCache(xdsnew.NewCache(logger, false), logger, nil, nil, xdsServerConfig{}, nil, nil)
+	server := newTestADSServerWithCache(t, newADSCache(logger, false), logger, nil, nil, xdsServerConfig{}, nil, nil)
 	return newNPHDSCacheAdapter(logger, server)
 }
 
 func lookupNPHDS(t *testing.T, adapter *nphdsCacheAdapter, identityStr string) *envoyAPI.NetworkPolicyHosts {
 	t.Helper()
-	resources := adapter.store.networkPolicyHosts()
-	res, ok := resources[identityStr]
-	if !ok {
+	resource := testADSNPHDSCache(t, adapter).GetResource(localNodeID, typeurl.NetworkPolicyHosts, identityStr)
+	if resource == nil {
 		return nil
 	}
+	res, ok := resource.(*envoyAPI.NetworkPolicyHosts)
+	require.True(t, ok)
 	return res
 }
 
@@ -72,12 +79,30 @@ func TestNPHDSAdapterHandleIPUpsert(t *testing.T) {
 	assert.Equal(t, "::1/128", npHost.HostAddresses[1])
 
 	// Duplicate is a no-op
+	before := npHost
 	err = adapter.handleIPUpsert("123", "1.2.3.0/32", 123)
 	require.NoError(t, err)
 
 	npHost = lookupNPHDS(t, adapter, "123")
+	assert.Same(t, before, npHost)
 	require.NotNil(t, npHost)
 	assert.Len(t, npHost.HostAddresses, 2)
+}
+
+func TestNPHDSAdapterUpdatesOnlyMatchingIdentity(t *testing.T) {
+	adapter := newTestNPHDSAdapter(t)
+	require.NoError(t, adapter.handleIPUpsert("123", "1.2.3.0/32", 123))
+	require.NoError(t, adapter.handleIPUpsert("456", "4.5.6.0/32", 456))
+	unrelated := lookupNPHDS(t, adapter, "456")
+	priorResource := lookupNPHDS(t, adapter, "123")
+
+	require.NoError(t, adapter.handleIPUpsert("123", "1.2.3.1/32", 123))
+	assert.Equal(t, []string{"1.2.3.0/32"}, priorResource.HostAddresses)
+	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))
+	require.NoError(t, adapter.handleIPDelete("123", "1.2.3.0/32"))
+	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))
+	require.NoError(t, adapter.handleIPDelete("123", "1.2.3.1/32"))
+	assert.Same(t, unrelated, lookupNPHDS(t, adapter, "456"))
 }
 
 func TestNPHDSAdapterHandleIPDelete(t *testing.T) {
@@ -109,8 +134,10 @@ func TestNPHDSAdapterHandleIPDelete(t *testing.T) {
 
 	// Delete non-existent IP returns error
 	require.NoError(t, adapter.handleIPUpsert("456", "10.0.0.1/32", 456))
+	before := lookupNPHDS(t, adapter, "456")
 	err = adapter.handleIPDelete("456", "10.0.0.2/32")
 	require.Error(t, err)
+	assert.Same(t, before, lookupNPHDS(t, adapter, "456"))
 }
 
 func TestNPHDSAdapterOnIPIdentityCacheChange(t *testing.T) {
@@ -225,8 +252,8 @@ func TestNPHDSAdapterPublishesFullStateResponses(t *testing.T) {
 
 func TestStartNPHDSIPCacheListener(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	adsCache := xdsnew.NewCache(logger, false)
-	server := newADSServerWithCache(adsCache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+	adsCache := newADSCache(logger, false)
+	server := newTestADSServerWithCache(t, adsCache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
 	// nil ipCache should be a no-op
 	startNPHDSIPCacheListener(logger, nil, server)
@@ -235,6 +262,43 @@ func TestStartNPHDSIPCacheListener(t *testing.T) {
 	mock := &mockIPCacheEventSource{}
 	startNPHDSIPCacheListener(logger, mock, server)
 	assert.Equal(t, 1, mock.listenerCount)
+}
+
+func TestADSFirstNPHDSRequestDumpsExistingMappings(t *testing.T) {
+	for _, mode := range []config.XDSMode{config.EnvoyXDSModeADS, config.EnvoyXDSModeStrictADS} {
+		t.Run(mode.String(), func(t *testing.T) {
+			logger := slog.New(slog.DiscardHandler)
+			ipCache := ipcache.NewIPCache(&ipcache.Configuration{Context: t.Context(), Logger: logger})
+			t.Cleanup(func() { require.NoError(t, ipCache.Shutdown()) })
+			for ip, id := range map[string]identity.NumericIdentity{"10.0.0.1": 100, "10.0.0.2": 100, "10.0.0.3": 200} {
+				_, err := ipCache.Upsert(ip, nil, 0, nil, ipcache.Identity{ID: id, Source: source.Local})
+				require.NoError(t, err)
+			}
+			server := newTestADSServer(t, logger, ipCache, nil, xdsServerConfig{envoyXDSMode: mode}, nil, nil)
+			require.True(t, server.cache.HasNode(localNodeID))
+			_, err := server.cache.GetSnapshot(localNodeID)
+			require.Error(t, err, "initial IPCache dump must precede the first snapshot")
+			client := newTestADSClient(t, server)
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			stream, err := client.StreamAggregatedResources(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
+				Node: &envoy_config_core.Node{Id: localNodeID}, TypeUrl: NetworkPolicyHostsTypeURL, ResourceNames: []string{"*"},
+			}))
+			response, err := stream.Recv()
+			require.NoError(t, err)
+			require.Len(t, response.GetResources(), 2, "the first response must contain the complete IPCache dump")
+			hosts := make(map[uint64][]string)
+			for _, resource := range response.GetResources() {
+				var policyHosts envoyAPI.NetworkPolicyHosts
+				require.NoError(t, resource.UnmarshalTo(&policyHosts))
+				hosts[policyHosts.Policy] = policyHosts.HostAddresses
+			}
+			require.Equal(t, []string{"10.0.0.1/32", "10.0.0.2/32"}, hosts[100])
+			require.Equal(t, []string{"10.0.0.3/32"}, hosts[200])
+		})
+	}
 }
 
 type mockIPCacheEventSource struct {
