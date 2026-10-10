@@ -138,7 +138,11 @@ func NewL2Announcer(params l2AnnouncerParams) *L2Announcer {
 	return announcer
 }
 
-func (l2a *L2Announcer) hasLocalBackends(txn statedb.ReadTxn, svc *loadbalancer.Service) bool {
+func (l2a *L2Announcer) hasLocalTrafficHandler(txn statedb.ReadTxn, svc *loadbalancer.Service) bool {
+	if !svc.ProxyRedirects.Empty() {
+		return true
+	}
+
 	// Get all backends from svc name
 	seq, _ := loadbalancer.ListBackendsByServiceName(txn, l2a.params.Backends, svc.Name)
 
@@ -409,8 +413,8 @@ func (l2a *L2Announcer) upsertSvc(rtxn statedb.ReadTxn, svc *loadbalancer.Servic
 		return l2a.delSvc(key)
 	}
 
-	// Ignore services that only forward to local backends but have none
-	if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !l2a.hasLocalBackends(rtxn, svc) {
+	// Ignore services that only forward to local traffic handlers but have none.
+	if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !l2a.hasLocalTrafficHandler(rtxn, svc) {
 		return l2a.delSvc(key)
 	}
 
@@ -678,8 +682,8 @@ func (l2a *L2Announcer) upsertPolicy(ctx context.Context, policy *cilium_api_v2a
 			continue
 		}
 
-		// Ignore services that only forward to local backends but have none
-		if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !l2a.hasLocalBackends(txn, svc) {
+		// Ignore services that only forward to local traffic handlers but have none.
+		if svc.ExtTrafficPolicy == loadbalancer.SVCTrafficPolicyLocal && !l2a.hasLocalTrafficHandler(txn, svc) {
 			continue
 		}
 
