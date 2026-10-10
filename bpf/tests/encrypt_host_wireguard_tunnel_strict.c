@@ -4,8 +4,6 @@
 #define TUNNEL_MODE		        1
 #define ENCAP_IFINDEX		        42
 
-#define ENABLE_WIREGUARD	        1
-
 #include "encrypt_host.h"
 
 ASSIGN_CONFIG(struct strict_encryption_cfg, strict_egress_encryption, {
@@ -13,3 +11,5 @@ ASSIGN_CONFIG(struct strict_encryption_cfg, strict_egress_encryption, {
 	.ipv4_net = { .be32 = IPV4(192, 168, 0, 0) },
 	.ipv4_net_size = 16,
 });
+
+ASSIGN_CONFIG(bool, enable_wireguard, true)

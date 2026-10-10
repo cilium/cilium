@@ -175,5 +175,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableSCTP = option.Config.EnableSCTP
 
+	node.EnableWireguard = lnc.EnableWireguard
+
 	return node
 }
