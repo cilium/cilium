@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"net/netip"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -20,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/fqdn/service"
@@ -234,6 +236,89 @@ func TestPolicyStream(t *testing.T) {
 	// Due to the job based reconnect, the connection should be re-established
 	err = testutils.WaitUntilWithSleep(func() bool { return connHandler.IsConnected() }, 15*time.Second, 500*time.Millisecond)
 	require.NoError(t, err, "Connection should be established within timeout")
+}
+
+type largePolicyStateServer struct {
+	pb.UnimplementedFQDNDataServer
+	state *pb.PolicyState
+	ack   chan *pb.PolicyStateResponse
+}
+
+func (s *largePolicyStateServer) StreamPolicyState(stream pb.FQDNData_StreamPolicyStateServer) error {
+	if err := stream.Send(s.state); err != nil {
+		return err
+	}
+	response, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+	s.ack <- response
+	return nil
+}
+
+func TestPolicyStreamLargeSnapshot(t *testing.T) {
+	defer testutils.GoleakVerifyNone(t)
+
+	// Build a valid DNS policy snapshot larger than gRPC's default 4 MiB limit.
+	patterns := make([]string, 25_000)
+	suffix := strings.Repeat("sub.", 45) + "example"
+	for i := range patterns {
+		patterns[i] = fmt.Sprintf("%05d.%s", i, suffix)
+	}
+	state := &pb.PolicyState{EgressL7DnsPolicy: []*pb.DNSPolicy{{
+		SourceEndpointId: 42,
+		DnsPattern:       patterns,
+		DnsServers: []*pb.DNSServer{{
+			DnsServerPort:     53,
+			DnsServerProto:    uint32(u8proto.UDP),
+			DnsServerIdentity: 100,
+		}},
+	}}}
+	require.Greater(t, proto.Size(state), 4<<20)
+
+	lis := bufconn.Listen(1024 * 1024)
+	server := grpc.NewServer()
+	policyServer := &largePolicyStateServer{state: state, ack: make(chan *pb.PolicyStateResponse, 1)}
+	pb.RegisterFQDNDataServer(server, policyServer)
+	go func() { _ = server.Serve(lis) }()
+	defer server.Stop()
+	defer lis.Close()
+
+	db := statedb.New()
+	dnsRulesTable, err := newDNSRulesTable(db)
+	require.NoError(t, err)
+	ipToEndpointTable, err := NewIPtoEndpointTable(db)
+	require.NoError(t, err)
+	prefixToIdentityTable, err := NewPrefixToIdentityTable(db)
+	require.NoError(t, err)
+	c := &GRPCClient{
+		logger:                hivetest.Logger(t),
+		db:                    db,
+		dnsRulesTable:         dnsRulesTable,
+		ipToEndpointTable:     ipToEndpointTable,
+		prefixToIdentityTable: prefixToIdentityTable,
+		address:               "bufnet",
+		dialClient:            newMockDialConfig(lis),
+		metrics:               metrics.NewMetrics(),
+	}
+	require.NoError(t, c.InitClient())
+	defer c.StopConnection()
+
+	streamDone := make(chan error, 1)
+	go func() { streamDone <- c.createPolicyStream(t.Context()) }()
+	select {
+	case response := <-policyServer.ack:
+		require.Equal(t, pb.ResponseCode_RESPONSE_CODE_NO_ERROR, response.GetResponse())
+	case <-time.After(15 * time.Second):
+		t.Fatal("the client did not acknowledge a policy snapshot larger than 4 MiB")
+	}
+	<-streamDone
+
+	row, _, found := dnsRulesTable.Get(db.ReadTxn(), DNSRulesIndex.Query(DNSRulesCompositeKey(42, restore.MakeV2PortProto(53, u8proto.UDP))))
+	require.True(t, found)
+	for _, rule := range row.DNSRule {
+		require.Len(t, rule.L7Rules.DNS, len(patterns))
+	}
 }
 
 func assertDNSRules(t *testing.T, c *GRPCClient, epID uint32, pp restore.PortProto, expServerIDs []uint32, expPatterns []string) {
@@ -601,4 +686,24 @@ func TestNewPrefixToIdentityTable(t *testing.T) {
 	// Update mapping - modify existing entry
 	updatePrefixMapping(t, client, identity.NumericIdentity(3), "192.168.1.2/16")
 	checkPrefixMapping(t, client, "192.168.1.2/16", identity.NumericIdentity(3), true)
+}
+
+func TestCreateGRPCClientMaxMsgSizeConfig(t *testing.T) {
+	// Test custom configured message size
+	paramsCustom := clientParams{
+		FQDNConfig: service.FQDNConfig{
+			SDPMaxPolicyStateMsgSize: 32 << 20,
+		},
+	}
+	clientCustom := createGRPCClient(paramsCustom)
+	require.Equal(t, 32<<20, clientCustom.maxPolicyStateRecvMsgSize)
+
+	// Test default message size when unconfigured (<= 0)
+	paramsDefault := clientParams{
+		FQDNConfig: service.FQDNConfig{
+			SDPMaxPolicyStateMsgSize: 0,
+		},
+	}
+	clientDefault := createGRPCClient(paramsDefault)
+	require.Equal(t, defaultMaxPolicyStateRecvMsgSize, clientDefault.maxPolicyStateRecvMsgSize)
 }
