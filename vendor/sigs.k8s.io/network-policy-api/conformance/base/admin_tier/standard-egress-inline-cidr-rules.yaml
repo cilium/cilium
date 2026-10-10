@@ -1,0 +1,39 @@
+apiVersion: policy.networking.k8s.io/v1alpha2
+kind: ClusterNetworkPolicy
+metadata:
+  name: inline-cidr-as-peers-example
+spec:
+  tier: Admin
+  priority: 85
+  subject:
+    pods:
+      namespaceSelector:
+        matchLabels:
+          conformance-house: gryffindor
+      podSelector:
+        matchLabels:
+          conformance-house: gryffindor
+  egress:
+  # CIDR rules that test allow to specific IPs is done within the test by updating the CR
+  #- name: "allow-egress-to-specific-podIPs"
+  #  action: "Accept"
+  #  to:
+  #  - networks:
+  #    - luna-lovegood-0.IP
+  #    - cedric-diggory-0.IP
+  - name: "allow-egress-to-slytherin"
+    action: "Accept"
+    to:
+    - pods:
+        namespaceSelector:
+          matchLabels:
+            conformance-house: slytherin
+        podSelector:
+          matchLabels:
+            conformance-house: slytherin
+  - name: "deny-egress-to-internet"
+    action: "Deny"
+    to:
+    - networks:
+        - 0.0.0.0/0
+        - ::/0

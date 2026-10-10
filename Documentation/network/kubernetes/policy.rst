@@ -62,11 +62,21 @@ For more information, see the official `ClusterNetworkPolicy documentation
 Enabling KCNP
 -------------
 
-Support must be enabled by setting the ``--enable-k8s-cluster-network-policy`` flag to ``true`` (or equivalent Helm value ``k8sClusterNetworkPolicy.enabled=true``). You also must install the Custom Resource Definition (CRD) from `sigs.k8s.io/network-policy-api <https://sigs.k8s.io/network-policy-api>`_:
+Support is enabled by default and can be controlled with the ``--enable-k8s-cluster-network-policy`` flag (or equivalent Helm value ``k8sClusterNetworkPolicy.enabled``).
+
+When enabled, the Cilium Operator automatically installs the standard-channel ClusterNetworkPolicy Custom Resource Definition (CRD) from `sigs.k8s.io/network-policy-api <https://sigs.k8s.io/network-policy-api>`_ and keeps it up to date as part of Cilium upgrades. The Cilium Agent waits for the CRD to be available before it starts.
+
+If you prefer to manage the CRD yourself, set the ``--k8s-cluster-network-policy-install-crds`` operator flag to ``false`` (or equivalent Helm value ``k8sClusterNetworkPolicy.installCRDs=false``). The same applies if the Cilium Operator is configured to not create any CRDs through the ``--skip-crd-creation`` flag (or equivalent Helm value ``operator.skipCRDCreation=true``). In both cases, install the CRD before Cilium starts, as the Cilium Agent fails to start if the CRD is not available within the ``--crd-wait-timeout``:
 
 .. code-block:: shell-session
 
-    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/release-0.2/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml
+    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.2.0/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml
+
+To use experimental features, apply the experimental-channel CRD instead. The Cilium Operator never replaces a CRD from a different release channel than the standard one, but logs a warning if it is older than the bundled one:
+
+.. code-block:: shell-session
+
+    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.2.0/config/crd/experimental/policy.networking.k8s.io_clusternetworkpolicies.yaml
 
 The KCNP API specifies that CIDR rules must also match pod and node IPs. For full conformance, set the :ref:`--policy-cidr-match-mode <cidr_select_nodes>` flag to ``pods,nodes``.
 

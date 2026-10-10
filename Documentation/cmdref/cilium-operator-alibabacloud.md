@@ -108,6 +108,7 @@ cilium-operator-alibabacloud [flags]
       --k8s-api-server-urls strings                                Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration                  Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration                     Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)
+      --k8s-cluster-network-policy-install-crds                    Install and manage the K8s ClusterNetworkPolicy CRD. Only applicable if K8s ClusterNetworkPolicy support is enabled. (default true)
       --k8s-heartbeat-timeout duration                             Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                                 Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                                       Name of the Kubernetes namespace in which Cilium Operator is deployed in

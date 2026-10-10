@@ -1302,7 +1302,11 @@ k8sNetworkPolicy:
   enabled: true
 k8sClusterNetworkPolicy:
   # -- Enable support for K8s Cluster Network Policy
-  enabled: false
+  enabled: true
+  # -- Install and manage the K8s ClusterNetworkPolicy CRD through the Cilium
+  # Operator. Only applicable if K8s ClusterNetworkPolicy support is enabled.
+  # If disabled, the CRD must be installed by other means.
+  installCRDs: true
 # -- Enable endpoint lockdown on policy map overflow.
 endpointLockdownOnMapOverflow: false
 eni:
