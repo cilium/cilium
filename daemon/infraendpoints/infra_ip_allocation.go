@@ -253,14 +253,19 @@ func (r *infraIPAllocator) allocateNextFromPool(ctx context.Context, family ipam
 	return result, nil
 }
 
-func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr mac.MAC) error {
-	bo := wait.Backoff{
-		Duration: 250 * time.Millisecond,
-		Factor:   2,
-		Jitter:   0.2,
-		Steps:    5,
-	}
+// waitForENIBackoff bounds how long waitForENI waits for an ENI. It covers the
+// ENI device configurator, which pauses for a second after an ENI shows up to
+// let udev rename it before bringing it up.
+var waitForENIBackoff = wait.Backoff{
+	Duration: 250 * time.Millisecond,
+	Factor:   2,
+	Jitter:   0.2,
+	Steps:    6,
+}
 
+// waitForENI waits for the ENI with the given MAC to show up. In ENI mode it
+// also waits for the link to be up.
+func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr mac.MAC) error {
 	findENIByMAC := func(ctx context.Context) (bool, error) {
 		links, err := safenetlink.LinkList()
 		if err != nil {
@@ -273,13 +278,13 @@ func (r *infraIPAllocator) waitForENI(ctx context.Context, macAddr mac.MAC) erro
 				continue
 			}
 			if bytes.Equal(l.Attrs().HardwareAddr, macAddr.HardwareAddr()) {
-				return true, nil
+				return !(r.daemonConfig.IPAM == ipamOption.IPAMENI && l.Attrs().RawFlags&unix.IFF_UP == 0), nil
 			}
 		}
 		return false, nil
 	}
 
-	return wait.ExponentialBackoffWithContext(ctx, bo, findENIByMAC)
+	return wait.ExponentialBackoffWithContext(ctx, waitForENIBackoff, findENIByMAC)
 }
 
 func (r *infraIPAllocator) reallocateRouterIPs(ctx context.Context, family node.AddressingFamily, fromK8s, fromFS net.IP) (routerIP net.IP, err error) {
