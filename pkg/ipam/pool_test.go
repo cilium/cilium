@@ -72,6 +72,33 @@ func TestCIDRPoolAllowFirstAndLastIPs(t *testing.T) {
 	})
 }
 
+func TestCIDRPoolExhaustion(t *testing.T) {
+	pool := newCIDRPool(hivetest.Logger(t), false, false)
+	addr, err := pool.allocateNext()
+	require.ErrorIs(t, err, ErrAllCIDRsExhausted)
+	require.EqualError(t, err, "all CIDR ranges are exhausted")
+	require.False(t, addr.IsValid())
+
+	pool.updatePool([]netip.Prefix{netip.MustParsePrefix("10.0.0.0/30")})
+	first, err := pool.allocateNext()
+	require.NoError(t, err)
+	second, err := pool.allocateNext()
+	require.NoError(t, err)
+	require.ElementsMatch(t,
+		[]netip.Addr{netip.MustParseAddr("10.0.0.1"), netip.MustParseAddr("10.0.0.2")},
+		[]netip.Addr{first, second},
+	)
+
+	addr, err = pool.allocateNext()
+	require.ErrorIs(t, err, ErrAllCIDRsExhausted)
+	require.False(t, addr.IsValid())
+
+	pool.release(first)
+	addr, err = pool.allocateNext()
+	require.NoError(t, err)
+	require.Equal(t, first, addr)
+}
+
 // TestCIDRPoolReclaimsStillAdvertisedReleasedCIDR is a regression test for
 // the ENI multi-pool exhaustion reported in cilium/cilium#46598. When a
 // released CIDR is still advertised in the CiliumNode (e.g. the operator does

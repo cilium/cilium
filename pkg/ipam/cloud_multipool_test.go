@@ -180,3 +180,19 @@ func TestCloudMultiPoolAllocatorSkipsEnrichmentOnAllocationFailure(t *testing.T)
 	require.Nil(t, result)
 	require.Zero(t, resolver.calls)
 }
+
+func TestCloudMultiPoolAllocatorExhaustion(t *testing.T) {
+	resolver := &fakeResolver{}
+	a := newTestCloudMultiPoolAllocator(t, resolver, &ciliumv2.CiliumNode{})
+	for range 6 {
+		result, err := a.AllocateNextWithoutSyncUpstream("ns/pod", cloudTestPool)
+		require.NoError(t, err)
+		require.True(t, result.IP.IsValid())
+	}
+
+	result, err := a.AllocateNextWithoutSyncUpstream("ns/pod", cloudTestPool)
+	require.Nil(t, result)
+	require.ErrorIs(t, err, ErrAllCIDRsExhausted)
+	require.EqualError(t, err, "all CIDR ranges are exhausted: allocation will be retried once Cilium Operator allocates more IPs")
+	require.Equal(t, 6, resolver.calls)
+}
