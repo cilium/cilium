@@ -8,8 +8,8 @@ available addresses in each vSwitch before sizing node pools. See
 :ref:`ipam_alibabacloud` for the allocation architecture and configuration.
 
 The operator must run on ECS with access to the instance metadata service and
-the ECS and VPC API endpoints. Supply AccessKey credentials through the
-Kubernetes Secret below.
+the ECS and VPC API endpoints. Use RRSA (recommended) or configure AccessKey
+credentials for the operator as described below.
 
 **RAM permissions:**
 
@@ -55,7 +55,58 @@ resources and manage ENIs and private IP addresses:
     }
 
 
-**AccessKey credentials:**
+**RRSA credentials (recommended):**
+
+Use RAM Roles for Service Accounts (RRSA) to give the operator temporary
+credentials and avoid storing long-lived AccessKeys in Kubernetes. Follow the
+`ACK RRSA guide
+<https://www.alibabacloud.com/help/en/ack/ack-managed-and-ack-dedicated/user-guide/use-rrsa-to-authorize-pods-to-access-different-cloud-services>`_
+to enable RRSA and create a RAM role using the cluster's OIDC provider. Restrict
+the role's trust policy to ``oidc:sub`` equal to
+``system:serviceaccount:kube-system:cilium-operator`` and grant it the RAM
+permissions above. Adjust the subject if you change the operator's namespace
+or ServiceAccount name.
+
+Save the following as ``rrsa-values.yaml``, replacing the role ARN, OIDC
+provider ARN, and region with your values:
+
+.. code-block:: yaml
+
+    operator:
+      extraEnv:
+        - name: ALIBABA_CLOUD_ROLE_ARN
+          value: "<role-arn>"
+        - name: ALIBABA_CLOUD_OIDC_PROVIDER_ARN
+          value: "<oidc-provider-arn>"
+        - name: ALIBABA_CLOUD_OIDC_TOKEN_FILE
+          value: /var/run/secrets/ack.alibabacloud.com/rrsa-tokens/token
+        - name: ALIBABA_CLOUD_STS_REGION
+          value: "<region-id>"
+        - name: ALIBABA_CLOUD_VPC_ENDPOINT_ENABLED
+          value: "true"
+      extraVolumes:
+        - name: rrsa-oidc-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: sts.aliyuncs.com
+                  expirationSeconds: 3600
+                  path: token
+      extraVolumeMounts:
+        - name: rrsa-oidc-token
+          mountPath: /var/run/secrets/ack.alibabacloud.com/rrsa-tokens
+          readOnly: true
+
+This mounts a rotating token for the operator's existing ServiceAccount,
+with the STS audience, and uses the regional STS VPC endpoint. No identity
+webhook is required. Skip the AccessKey Secret below;
+static AccessKeys take precedence over RRSA in the credential chain.
+
+**AccessKey credentials (alternative):**
+
+If RRSA is unavailable, you can supply static AccessKey credentials through a
+Kubernetes Secret. Prefer RRSA to reduce the risk of long-lived credential
+exposure.
 
 Follow the `Alibaba Cloud AccessKey guide
 <https://www.alibabacloud.com/help/doc-detail/93691.htm>`_ to create AccessKeys.
@@ -81,7 +132,8 @@ your AccessKey values:
 
 **Install Cilium:**
 
-Install Cilium release via Helm:
+Install Cilium release via Helm. For RRSA, add ``--values rrsa-values.yaml``
+to the following command:
 
 .. cilium-helm-install::
    :namespace: kube-system
