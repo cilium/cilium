@@ -1,0 +1,47 @@
+hive start
+db/initialized
+
+db/insert routes direct-route.yaml
+db/insert nodes remote-node.yaml unreachable-node.yaml
+db/cmp desired-routes expected-routes.table
+db/cmp --grep=^auto-direct-node-routes health expected-health.table
+
+hive/stop
+
+-- direct-route.yaml --
+table: 254
+dst: "192.0.1.0/24"
+---
+table: 254
+dst: "fd00::/64"
+
+-- remote-node.yaml --
+node:
+  name: remote-node
+  ipaddresses:
+    - type: InternalIP
+      ip: "192.0.1.11"
+    - type: InternalIP
+      ip: "fd00::11"
+  ipv4alloccidr: "10.0.2.0/24"
+  ipv6alloccidr: "fd00:10:0:2::/64"
+
+-- unreachable-node.yaml --
+node:
+  name: unreachable-node
+  ipaddresses:
+    - type: InternalIP
+      ip: "192.0.2.11"
+    - type: InternalIP
+      ip: "fd00:1::11"
+  ipv4alloccidr: "10.0.3.0/24"
+  ipv6alloccidr: "fd00:10:0:3::/64"
+
+-- expected-routes.table --
+Owner              Table            Prefix                         AD   Selected   Nexthop        Scope      Type
+adnr/remote-node   main (254)       10.0.2.0/24                    100  true       192.0.1.11     universe   unspec
+adnr/remote-node   main (254)       fd00:10:0:2::/64               100  true       fd00::11       universe   unspec
+-- expected-health.table --
+Module                    Component                                      Level      Message                                                          Error
+auto-direct-node-routes   job-auto-direct-node-routes                    Degraded   failed to update Auto-direct-node-routes for one or more nodes   1 failed nodes
+auto-direct-node-routes   job-auto-direct-node-routes.unreachable-node   Degraded   failed to update node routes                                     route to node unreachable-node is not reachable. Add `direct-routing-skip-unreachable` to skip unreachable routes
