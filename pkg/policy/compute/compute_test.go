@@ -16,20 +16,24 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func TestRecomputeIdentityPolicy(t *testing.T) {
 	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
 
 	t.Run("creates entry and fires waiting watch", func(t *testing.T) {
-		_, _, computer, _ := fixture(t)
+		_, _, computer, idmgr := fixture(t)
 
 		targetID := identity.NumericIdentity(7)
 		id := identity.NewIdentity(targetID, labels.Labels{})
@@ -38,6 +42,7 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 		require.False(t, found)
 		require.NotNil(t, watch)
 
+		idmgr.Add(id)
 		done, err := computer.RecomputeIdentityPolicy(id, 1)
 		require.NoError(t, err)
 		<-done
@@ -51,6 +56,37 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 		obj, _, _, found := computer.GetIdentityPolicyByIdentity(id)
 		require.True(t, found)
 		assert.Equal(t, targetID, obj.Identity)
+	})
+
+	t.Run("registration computes full policy after unregistered request", func(t *testing.T) {
+		prev := policy.GetPolicyEnabled()
+		policy.SetPolicyEnabled(option.DefaultEnforcement)
+		t.Cleanup(func() { policy.SetPolicyEnabled(prev) })
+
+		_, _, computer, idmgr, repo := fixtureWithRepo(t)
+		_, rev := repo.MustAddList(api.Rules{{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("k8s:app=target")),
+			Ingress: []api.IngressRule{{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+			}},
+		}})
+
+		id := identity.NewIdentity(identity.NumericIdentity(9), labels.NewLabelsFromModel([]string{"k8s:app=target"}))
+
+		done, err := computer.RecomputeIdentityPolicy(id, rev)
+		require.NoError(t, err)
+		<-done
+
+		idmgr.Add(id)
+		obj := waitForEntry(t, computer, id, true)
+		require.Equal(t, rev, obj.Revision)
+
+		logger := hivetest.Logger(t)
+		ep := obj.NewPolicy.DistillPolicy(logger, fakeOwner{}, nil)
+		t.Cleanup(func() { ep.Detach(logger) })
+		require.True(t, ep.SelectorPolicy.IngressPolicyEnabled)
 	})
 
 	t.Run("update fires watch", func(t *testing.T) {
@@ -338,6 +374,13 @@ func TestUpdatePolicyAdvanceDoesNotRegress(t *testing.T) {
 func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager) {
 	t.Helper()
 
+	db, table, computer, idmgr, _ := fixtureWithRepo(t)
+	return db, table, computer, idmgr
+}
+
+func fixtureWithRepo(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager, *policy.Repository) {
+	t.Helper()
+
 	logger := hivetest.Logger(t)
 	idmgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
@@ -384,5 +427,18 @@ func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomput
 	assert.NotNil(t, table)
 	assert.NotNil(t, computer)
 
-	return db, table, computer, idmgr
+	return db, table, computer, idmgr, repo
+}
+
+type fakeOwner struct{}
+
+func (fakeOwner) GetID() uint64                                      { return 1 }
+func (fakeOwner) GetIngressNamedPort(string, u8proto.U8proto) uint16 { return 0 }
+func (fakeOwner) PolicyDebug(string, ...any)                         {}
+func (fakeOwner) IsHost() bool                                       { return false }
+func (fakeOwner) PreviousMapStateSizes() policy.MapStateSizes        { return policy.MapStateSizes{} }
+func (fakeOwner) RegenerateIfAlive(*regeneration.ExternalRegenerationMetadata) <-chan bool {
+	ch := make(chan bool)
+	close(ch)
+	return ch
 }

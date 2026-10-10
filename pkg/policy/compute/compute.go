@@ -167,7 +167,9 @@ func (r *IdentityPolicyComputer) notifyTrigger() {
 
 // RecomputeIdentityPolicy schedules a policy recomputation for identity at
 // toRev. The returned channel closes once the result is committed to the
-// table. A pending request for the same identity is reused, bumping its toRev
+// table, or once the request is dropped because the identity is not
+// registered with the identity manager, in which case nothing is committed.
+// A pending request for the same identity is reused, bumping its toRev
 // to max(existing, toRev), so there is at most one in-flight request per
 // identity.
 func (r *IdentityPolicyComputer) RecomputeIdentityPolicy(identity *identity.Identity, toRev uint64) (<-chan struct{}, error) {
@@ -248,6 +250,10 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		rtxn := r.db.ReadTxn()
 		var work []pending
 		for _, req := range batch {
+			if r.idmanager.Get(&req.identity.ID) == nil {
+				close(req.done)
+				continue
+			}
 			obj, rev, found := r.tbl.Get(rtxn, PolicyComputationByIdentity(req.identity.ID))
 			// Revision, not CurrentAtRevision: only a computation that actually
 			// ran can satisfy a request. See applyAdvances.
