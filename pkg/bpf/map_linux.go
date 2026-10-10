@@ -801,6 +801,48 @@ func (m *Map) DumpPerCPUWithCallback(cb DumpPerCPUCallback) error {
 	return i.Err()
 }
 
+// LookupAndDelete atomically looks up and deletes the entry for key.
+// For per-CPU maps, value is the slice of values observed across all CPUs
+// just before deletion. If the key does not exist, deleted is false and
+// value is nil, with a nil error.
+func (m *Map) LookupAndDelete(key MapKey) (deleted bool, value any, err error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if err = m.open(); err != nil {
+		return false, nil, err
+	}
+
+	var mv any
+	if m.hasPerCPUValue() {
+		mv = m.value.(MapPerCPUValue).NewSlice()
+	} else {
+		mv = m.value.New()
+	}
+
+	var duration *spanstat.SpanStat
+	if metrics.BPFSyscallDuration.IsEnabled() {
+		duration = spanstat.Start()
+	}
+
+	err = m.m.LookupAndDelete(key, mv)
+
+	if metrics.BPFSyscallDuration.IsEnabled() {
+		metrics.BPFSyscallDuration.WithLabelValues(metricOpDelete, metrics.Error2Outcome(err)).Observe(duration.End(err == nil).Total().Seconds())
+	}
+
+	if errors.Is(err, ebpf.ErrKeyNotExist) {
+		return false, nil, nil
+	}
+	if err != nil {
+		return false, nil, fmt.Errorf("unable to lookup and delete element %s from map %s: %w", key, m.name, err)
+	}
+
+	m.deleteMapEvent(key, nil)
+
+	return true, mv, nil
+}
+
 // DumpWithCallbackIfExists is similar to DumpWithCallback, but returns earlier
 // if the given map does not exist.
 func (m *Map) DumpWithCallbackIfExists(cb DumpCallback) error {
@@ -1175,6 +1217,141 @@ func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ..
 	}
 }
 
+// PerCPUBatchIterator provides a typed wrapper around a per-CPU BPF map that
+// allows for batched iteration of it using the bpf batch api.
+// Unlike the regular BatchIterator, it yields one []VT per key: one value per
+// possible CPU, in the same shape as MapPerCPUValue.NewSlice().
+type PerCPUBatchIterator[KT any, VT any, KP KeyPointer[KT]] struct {
+	m    IterableMap
+	err  error
+	keys []KT
+	vals []VT
+
+	chunkSize      int
+	possibleCPUs   int
+	maxDumpRetries uint32
+	batchSize      int
+}
+
+func NewPerCPUBatchIterator[KT any, VT any, KP KeyPointer[KT]](m IterableMap) *PerCPUBatchIterator[KT, VT, KP] {
+	return &PerCPUBatchIterator[KT, VT, KP]{
+		m: m,
+	}
+}
+
+func (bi PerCPUBatchIterator[KT, VT, KP]) Err() error {
+	return bi.err
+}
+
+func (bi PerCPUBatchIterator[KT, VT, KP]) maxBatchedRetries() int {
+	if bi.maxDumpRetries > 0 {
+		return int(bi.maxDumpRetries)
+	}
+	return defaultBatchedRetries
+}
+
+type PerCPUBatchIteratorOpt[KT any, VT any, KP KeyPointer[KT]] func(*PerCPUBatchIterator[KT, VT, KP]) *PerCPUBatchIterator[KT, VT, KP]
+
+func WithPerCPUMaxRetries[KT, VT any, KP KeyPointer[KT]](retries uint32) PerCPUBatchIteratorOpt[KT, VT, KP] {
+	return func(in *PerCPUBatchIterator[KT, VT, KP]) *PerCPUBatchIterator[KT, VT, KP] {
+		in.maxDumpRetries = retries
+		return in
+	}
+}
+
+// hasPerCPUMapType reports whether mt is one of the per-CPU map types
+// supported by PerCPUBatchIterator.
+func hasPerCPUMapType(mt ebpf.MapType) bool {
+	switch mt {
+	case ebpf.PerCPUHash, ebpf.PerCPUArray, ebpf.LRUCPUHash:
+		return true
+	}
+	return false
+}
+
+// IterateAll is the per-CPU equivalent of BatchIterator.IterateAll: it yields
+// one []VT (one value per possible CPU) for every key.
+func (bi *PerCPUBatchIterator[KT, VT, KP]) IterateAll(ctx context.Context, opts ...PerCPUBatchIteratorOpt[KT, VT, KP]) iter.Seq2[KP, []VT] {
+	if !hasPerCPUMapType(bi.m.Type()) {
+		bi.err = fmt.Errorf("unsupported map type %s, must be a per-CPU hash, lru-percpu-hash or per-CPU array type", bi.m.Type())
+		return func(yield func(KP, []VT) bool) {}
+	}
+
+	possibleCPUs, err := ebpf.PossibleCPU()
+	if err != nil {
+		bi.err = fmt.Errorf("getting possible CPU count: %w", err)
+		return func(yield func(KP, []VT) bool) {}
+	}
+	bi.possibleCPUs = possibleCPUs
+
+	bi.chunkSize = startingChunkSize(int(bi.m.MaxEntries()))
+
+	for _, opt := range opts {
+		if opt != nil {
+			bi = opt(bi)
+		}
+	}
+
+	// reset values
+	bi.err = nil
+	bi.batchSize = 0
+	bi.keys = make([]KT, bi.chunkSize)
+	bi.vals = make([]VT, bi.chunkSize*bi.possibleCPUs)
+
+	processed := 0
+	var cursor ebpf.MapBatchCursor
+	return func(yield func(KP, []VT) bool) {
+		if bi.Err() != nil {
+			return
+		}
+
+	iterate:
+		for {
+			if ctx.Err() != nil {
+				bi.err = ctx.Err()
+				return
+			}
+		retry:
+			for retry := range bi.maxBatchedRetries() {
+				// Attempt to read batch into buffer.
+				c, batchErr := bi.m.BatchLookup(&cursor, bi.keys, bi.vals, nil)
+				bi.batchSize = c
+
+				done := errors.Is(batchErr, ebpf.ErrKeyNotExist)
+				if errors.Is(batchErr, unix.ENOSPC) {
+					if retry == bi.maxBatchedRetries()-1 {
+						bi.err = batchErr
+					} else {
+						bi.chunkSize *= 2
+						bi.keys = make([]KT, bi.chunkSize)
+						bi.vals = make([]VT, bi.chunkSize*bi.possibleCPUs)
+					}
+					continue retry
+				} else if !done && batchErr != nil {
+					bi.err = fmt.Errorf("failed to iterate map: %w", batchErr)
+					return
+				}
+
+				// Yield all received pairs. Each key's values are a
+				// contiguous, possibleCPUs-sized slice of the flat buffer:
+				// see (un)marshalBatchPerCPUValue in cilium/ebpf.
+				for i := range bi.batchSize {
+					processed++
+					values := bi.vals[i*bi.possibleCPUs : (i+1)*bi.possibleCPUs]
+					if !yield(&bi.keys[i], values) {
+						break iterate
+					}
+				}
+
+				if done {
+					break iterate
+				}
+				break retry
+			}
+		}
+	}
+}
+
 // Dump returns the map (type map[string][]string) which contains all
 // data stored in BPF map.
 func (m *Map) Dump(hash map[string][]string) error {
@@ -1221,7 +1398,9 @@ func (m *Map) DumpIfExists(hash map[string][]string) error {
 	return nil
 }
 
-func (m *Map) Lookup(key MapKey) (MapValue, error) {
+// Lookup looks up the entry for key.
+// For per-CPU maps, value is the slice of values observed across all CPUs.
+func (m *Map) Lookup(key MapKey) (any, error) {
 	if err := m.Open(); err != nil {
 		return nil, err
 	}
@@ -1234,7 +1413,12 @@ func (m *Map) Lookup(key MapKey) (MapValue, error) {
 		duration = spanstat.Start()
 	}
 
-	value := m.value.New()
+	var value any
+	if m.hasPerCPUValue() {
+		value = m.value.(MapPerCPUValue).NewSlice()
+	} else {
+		value = m.value.New()
+	}
 	err := m.m.Lookup(key, value)
 
 	if metrics.BPFSyscallDuration.IsEnabled() {
@@ -1477,12 +1661,18 @@ func (m *Map) DeleteAll() error {
 	}
 
 	mk := m.key.New()
-	mv := make([]byte, m.ValueSize())
+	var mv any
+	if m.hasPerCPUValue() {
+		mv = m.value.(MapPerCPUValue).NewSlice()
+	} else {
+		mvBytes := make([]byte, m.ValueSize())
+		mv = &mvBytes
+	}
 
 	defer m.deleteAllMapEvent()
 
 	i := m.m.Iterate()
-	for i.Next(mk, &mv) {
+	for i.Next(mk, mv) {
 		err := m.m.Delete(mk)
 
 		m.deleteCacheEntry(mk, err)

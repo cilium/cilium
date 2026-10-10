@@ -106,6 +106,32 @@ func setupPerCPU(tb testing.TB) *Map {
 	return testMap
 }
 
+func setupPerCPUHash(tb testing.TB) *Map {
+	testutils.PrivilegedTest(tb)
+
+	CheckOrMountFS(hivetest.Logger(tb), "")
+
+	err := rlimit.RemoveMemlock()
+	require.NoError(tb, err)
+
+	testMap := NewMap("cilium_test_percpu_hash",
+		ebpf.PerCPUHash,
+		&TestKey{},
+		&TestValue{},
+		3,
+		0,
+	)
+
+	err = testMap.OpenOrCreate()
+	require.NoError(tb, err, "Failed to create map")
+
+	tb.Cleanup(func() {
+		require.NoError(tb, testMap.Close())
+	})
+
+	return testMap
+}
+
 var (
 	maxEntries = 16
 )
@@ -538,7 +564,7 @@ func TestPrivilegedDumpPerCPU(t *testing.T) {
 	key2 := &TestKey{Key: 2}
 	value2 := &TestValue{Value: 206}
 
-	func() {
+	populate := func() {
 		testMap.lock.Lock()
 		defer testMap.lock.Unlock()
 		err := testMap.m.Update(key1, []any{value1}, ebpf.UpdateAny)
@@ -547,7 +573,8 @@ func TestPrivilegedDumpPerCPU(t *testing.T) {
 		require.NoError(t, err)
 		err = testMap.m.Update(key2, []any{value2}, ebpf.UpdateAny)
 		require.NoError(t, err)
-	}()
+	}
+	populate()
 
 	dump := map[string][]uint32{}
 	customCb := func(key MapKey, values any) {
@@ -568,6 +595,16 @@ func TestPrivilegedDumpPerCPU(t *testing.T) {
 		"key=2": {206},
 	}, dump)
 
+	value, err := testMap.Lookup(key2)
+	require.NoError(t, err)
+	var vals []uint32
+	for _, v := range *value.(*TestValues) {
+		if v.Value != 0 {
+			vals = append(vals, v.Value)
+		}
+	}
+	require.ElementsMatch(t, []uint32{206}, vals)
+
 	require.NoError(t, testMap.ClearAll())
 
 	dump = map[string][]uint32{}
@@ -577,6 +614,83 @@ func TestPrivilegedDumpPerCPU(t *testing.T) {
 		"key=1": {0},
 		"key=2": {0},
 	}, dump)
+
+	require.Error(t, testMap.DeleteAll())
+
+	ok, _, err := testMap.LookupAndDelete(key1)
+	require.Error(t, err)
+	require.False(t, ok)
+}
+
+// Different than TestPrivilegedDumpPerCPU, this test uses a per-CPU hash map.
+// We expect ClearAll() to simply reinitialize entries to zero, while the
+// DeleteAll() to actually remove the entries from the map.
+// Also, LookupAndDelete() should correctly remove individual entries from the
+// map, differently than in previous test where it is not supported.
+func TestPrivilegedDumpPerCPUHash(t *testing.T) {
+	testMap := setupPerCPUHash(t)
+
+	key1 := &TestKey{Key: 0}
+	value1 := []*TestValue{{Value: 205}, {Value: 10}}
+	key2 := &TestKey{Key: 2}
+	value2 := []*TestValue{{Value: 206}, {Value: 11}}
+
+	populate := func() {
+		testMap.lock.Lock()
+		defer testMap.lock.Unlock()
+		err := testMap.m.Update(key1, value1, ebpf.UpdateAny)
+		require.NoError(t, err)
+		err = testMap.m.Update(key2, value1, ebpf.UpdateAny)
+		require.NoError(t, err)
+		err = testMap.m.Update(key2, value2, ebpf.UpdateAny)
+		require.NoError(t, err)
+	}
+	populate()
+
+	dump := map[string][]uint32{}
+	customCb := func(key MapKey, values any) {
+		dump[key.String()] = []uint32{}
+		for _, v := range *values.(*TestValues) {
+			if v.Value != 0 {
+				dump[key.String()] = append(dump[key.String()], v.Value)
+			}
+		}
+	}
+	testMap.DumpPerCPUWithCallback(customCb)
+	require.Equal(t, map[string][]uint32{
+		"key=0": {205, 10},
+		"key=2": {206, 11},
+	}, dump)
+
+	require.NoError(t, testMap.ClearAll())
+	dump = map[string][]uint32{}
+	testMap.DumpPerCPUWithCallback(customCb)
+	require.Equal(t, map[string][]uint32{
+		"key=0": {},
+		"key=2": {},
+	}, dump)
+
+	populate()
+
+	value, err := testMap.Lookup(key2)
+	require.NoError(t, err)
+	var vals []uint32
+	for _, v := range *value.(*TestValues) {
+		if v.Value != 0 {
+			vals = append(vals, v.Value)
+		}
+	}
+	require.ElementsMatch(t, []uint32{206, 11}, vals)
+
+	ok, _, err := testMap.LookupAndDelete(key1)
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	require.NoError(t, testMap.DeleteAll())
+
+	dump = map[string][]uint32{}
+	testMap.DumpPerCPUWithCallback(customCb)
+	require.Empty(t, dump)
 }
 
 // TestPrivilegedDumpReliablyWithCallbackOverlapping attempts to test that DumpReliablyWithCallback
@@ -1079,5 +1193,68 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 				runTest(ebpf.LRUHash, test.size, test.mapSize, t, test.opts...)
 			})
 		}
+	}
+}
+
+func TestPrivilegedPerCPUBatchIterator(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	runTest := func(mapType ebpf.MapType, flags uint32, size, mapSize int, t *testing.T) {
+		m := NewMap("cilium_test_percpu_batch",
+			mapType,
+			&TestKey{},
+			&TestValue{},
+			mapSize,
+			flags,
+		)
+		require.NoError(t, m.OpenOrCreate())
+		defer assert.NoError(t, m.UnpinIfExists())
+
+		func() {
+			m.lock.Lock()
+			defer m.lock.Unlock()
+			for i := range size {
+				key := &TestKey{Key: uint32(i)}
+				value := &TestValue{Value: uint32(i + 1)}
+				err := m.m.Update(key, []any{value}, ebpf.UpdateAny)
+				require.NoError(t, err)
+			}
+		}()
+
+		ks := sets.New[int]()
+		vs := sets.New[int]()
+
+		iter := NewPerCPUBatchIterator[TestKey, TestValue](m)
+		count := 0
+		for k, values := range iter.IterateAll(context.TODO()) {
+			count++
+			ks.Insert(int(k.Key))
+			for _, v := range values {
+				if v.Value != 0 {
+					vs.Insert(int(v.Value))
+				}
+			}
+		}
+		require.NoError(t, iter.Err())
+		assert.Equal(t, size, count, "expected to iterate over %d keys, got %d", size, count)
+
+		for i := range size {
+			require.Contains(t, ks, i, "expect iterate to return key="+strconv.Itoa(i))
+			require.Contains(t, vs, i+1, "expect iterate to return val="+strconv.Itoa(i+1))
+		}
+	}
+
+	for _, test := range []struct {
+		name    string
+		mapType ebpf.MapType
+		flags   uint32
+	}{
+		{"percpuhash", ebpf.PerCPUHash, 0},
+		{"lrucpuhash", ebpf.LRUCPUHash, 0},
+		{"lrucpuhash-nocommonlru", ebpf.LRUCPUHash, unix.BPF_F_NO_COMMON_LRU},
+	} {
+		t.Run(fmt.Sprintf("%s size=10 mapSize=1024", test.name), func(t *testing.T) {
+			runTest(test.mapType, test.flags, 10, 1024, t)
+		})
 	}
 }
