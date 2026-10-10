@@ -375,9 +375,19 @@ public IP address is stored in the ``CiliumNode`` resource's
 IP Release
 ==========
 
-Azure IPAM does not release excess private IP addresses from interfaces.
-Addresses that the agent removes from ``spec.ipam.pools.allocated`` remain
-attached and can be admitted to the default pool again if demand grows.
+When the operator runs with ``--ipam-release-excess-ips`` (Helm value
+``ipam.operator.releaseExcessIPs``), it releases addresses that the agent
+removes from ``spec.ipam.pools.allocated`` after the delay configured by
+``--excess-ip-release-delay`` (Helm value ``ipam.operator.excessIPReleaseDelay``,
+default 180 seconds). Addresses the agent adds back within the delay are kept.
+An address is released by removing its IP configuration from the network
+interface of a standalone VM, or from the VM model of a VMSS instance. The
+primary IP configuration is never released, including with
+``--azure-use-primary-address``.
+
+When release is disabled, addresses that the agent removes from
+``spec.ipam.pools.allocated`` stay on the network interface, and the agent
+can allocate them to pods again if demand grows.
 
 Node Termination
 ================
@@ -402,7 +412,7 @@ workload identity federation) needs Azure RBAC permissions on two or three
 scopes depending on topology:
 
 Configured resource group
-   Grants read on VMSS and network interfaces, and the writes needed to attach
+   Grants read on VMSS and network interfaces, and the writes needed to update
    IP configurations. On VMSS this is a write on the VMSS instance's VM model;
    on standalone nodes it is a write on the network interface itself (see the
    ``Actions`` breakdown below for the exact permissions). This is the resource

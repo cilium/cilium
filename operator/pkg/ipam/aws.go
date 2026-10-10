@@ -36,7 +36,6 @@ func init() {
 
 type AWSConfig struct {
 	AWSReleaseExcessIPs          bool
-	ExcessIPReleaseDelay         int
 	AWSEnablePrefixDelegation    bool
 	ENITags                      map[string]string
 	ENIGarbageCollectionTags     map[string]string `mapstructure:"eni-gc-tags"`
@@ -49,7 +48,6 @@ type AWSConfig struct {
 
 var awsDefaultConfig = AWSConfig{
 	AWSReleaseExcessIPs:          false,
-	ExcessIPReleaseDelay:         180,
 	AWSEnablePrefixDelegation:    false,
 	ENITags:                      nil,
 	ENIGarbageCollectionTags:     nil,
@@ -62,7 +60,7 @@ var awsDefaultConfig = AWSConfig{
 
 func (cfg AWSConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("aws-release-excess-ips", awsDefaultConfig.AWSReleaseExcessIPs, "Enable releasing excess free IP addresses from AWS ENI.")
-	flags.Int("excess-ip-release-delay", awsDefaultConfig.ExcessIPReleaseDelay, "Number of seconds operator would wait before it releases an IP previously marked as excess")
+	flags.MarkDeprecated("aws-release-excess-ips", "Use --ipam-release-excess-ips instead. Will be removed in v1.22.")
 	flags.Bool("aws-enable-prefix-delegation", awsDefaultConfig.AWSEnablePrefixDelegation, "Allows operator to allocate prefixes to ENIs instead of individual IP addresses")
 	flags.StringToString("eni-tags", awsDefaultConfig.ENITags,
 		"ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
@@ -97,8 +95,8 @@ type awsParams struct {
 func startAWSAllocator(p awsParams) {
 	alloc := &aws.AllocatorAWS{
 		ClusterInfo:                  p.ClusterInfo,
-		AWSReleaseExcessIPs:          p.AwsCfg.AWSReleaseExcessIPs,
-		ExcessIPReleaseDelay:         p.AwsCfg.ExcessIPReleaseDelay,
+		AWSReleaseExcessIPs:          p.AwsCfg.AWSReleaseExcessIPs || p.Cfg.IPAMReleaseExcessIPs,
+		ExcessIPReleaseDelay:         p.Cfg.ExcessIPReleaseDelay,
 		AWSEnablePrefixDelegation:    p.AwsCfg.AWSEnablePrefixDelegation,
 		ENITags:                      p.AwsCfg.ENITags,
 		ENIGarbageCollectionTags:     p.AwsCfg.ENIGarbageCollectionTags,

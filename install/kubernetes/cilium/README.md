@@ -426,7 +426,7 @@ contributors across the globe, there is almost always someone available to help.
 | endpointPolicyUpdateTimeoutDuration | string | `""` | Max duration to wait for envoy to respond to configuration changes. Default "10s". |
 | endpointRoutes.enabled | bool | `false` | Enable use of per endpoint routes instead of routing via the cilium_host interface. |
 | eni.awsEnablePrefixDelegation | bool | `false` | Enable ENI prefix delegation |
-| eni.awsReleaseExcessIPs | bool | `false` | Release IPs not used from the ENI |
+| eni.awsReleaseExcessIPs | bool | `false` | Release IPs not used from the ENI (deprecated, please use 'ipam.operator.releaseExcessIPs' instead) |
 | eni.ec2APIEndpoint | string | `""` | EC2 API endpoint to use |
 | eni.enabled | bool | `false` | Enable Elastic Network Interface (ENI) integration. |
 | eni.eniTags | object | `{}` | Tags to apply to the newly created ENIs |
@@ -804,8 +804,10 @@ contributors across the globe, there is almost always someone available to help.
 | ipam.operator.clusterPoolIPv4PodCIDRList | list | `["10.0.0.0/8"]` | IPv4 CIDR list range to delegate to individual nodes for IPAM. |
 | ipam.operator.clusterPoolIPv6MaskSize | int | `120` | IPv6 CIDR mask size to delegate to individual nodes for IPAM. |
 | ipam.operator.clusterPoolIPv6PodCIDRList | list | `["fd00::/104"]` | IPv6 CIDR list range to delegate to individual nodes for IPAM. |
+| ipam.operator.excessIPReleaseDelay | int | `180` | Number of seconds the operator waits before releasing an IP address previously marked as excess. |
 | ipam.operator.externalAPILimitBurstSize | int | `20` | The maximum burst size when rate limiting access to external APIs. Also known as the token bucket capacity. |
 | ipam.operator.externalAPILimitQPS | float | `4.0` | The maximum queries per second when rate limiting access to external APIs. Also known as the bucket refill rate, which is used to refill the bucket up to the burst size capacity. |
+| ipam.operator.releaseExcessIPs | bool | `false` | Release excess IP addresses from cloud provider interfaces. |
 | iptablesRandomFully | bool | `false` | Configure iptables--random-fully. Disabled by default. View https://github.com/cilium/cilium/issues/13037 for more information. |
 | ipv4.enabled | bool | `true` | Enable IPv4 support. |
 | ipv4NativeRoutingCIDR | string | `""` | Allows to explicitly specify the IPv4 CIDR for native routing. When specified, Cilium assumes networking for this CIDR is preconfigured and hands traffic destined for that range to the Linux network stack without applying any SNAT. Generally speaking, specifying a native routing CIDR implies that Cilium can depend on the underlying networking stack to route packets to their destination. To offer a concrete example, if Cilium is configured to use direct routing and the Kubernetes CIDR is included in the native routing CIDR, the user must configure the routes to reach pods, either manually or by setting the auto-direct-node-routes flag. |

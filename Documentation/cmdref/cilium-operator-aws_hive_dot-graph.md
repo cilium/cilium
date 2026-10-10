@@ -20,7 +20,6 @@ cilium-operator-aws hive dot-graph [flags]
       --auto-create-cilium-resource-ip-pools stringToString        Automatically create CiliumResourceIPPool resources on startup. Specify pools in the form of <pool>=ipv4-cidrs:<cidr>,[<cidr>...];ipv4-mask-size:<size>[;allow-first-ip:<bool>][;allow-last-ip:<bool>] (multiple pools can also be passed by repeating the CLI flag) (default [])
       --aws-enable-prefix-delegation                               Allows operator to allocate prefixes to ENIs instead of individual IP addresses
       --aws-max-results-per-call int32                             Maximum results per AWS API call for DescribeNetworkInterfaces, DescribeSecurityGroups and GetSecurityGroupsForVpc. Set to 0 to let AWS determine optimal page size (default). If set to 0 and AWS returns OperationNotPermitted errors, automatically switches to 1000 for all future requests
-      --aws-release-excess-ips                                     Enable releasing excess free IP addresses from AWS ENI.
       --bgp-router-id-allocation-ip-pool string                    IP pool to allocate the BGP router-id from when the mode is 'ip-pool'
       --bgp-router-id-allocation-mode string                       BGP router-id allocation mode. Currently supported values: 'default' or 'ip-pool' (default "default")
       --bgp-secrets-namespace string                               Kubernetes namespace to get BGP control plane secrets from
@@ -103,6 +102,7 @@ cilium-operator-aws hive dot-graph [flags]
       --ingress-secrets-namespace string                           Namespace having tls secrets used by Ingress and CEC. (default "cilium-secrets")
       --ingress-shared-lb-service-name string                      Name of shared LB service name for Ingress. (default "cilium-ingress")
       --ingress-use-remote-address                                 Use the immediate client's IP address as the origin client's IP address (default true)
+      --ipam-release-excess-ips                                    Enable releasing excess free IP addresses from cloud provider interfaces
       --k8s-api-server-urls strings                                Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration                  Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration                     Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)

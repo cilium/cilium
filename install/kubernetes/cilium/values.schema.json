@@ -4637,6 +4637,12 @@
                 "string"
               ]
             },
+            "excessIPReleaseDelay": {
+              "type": [
+                "null",
+                "integer"
+              ]
+            },
             "externalAPILimitBurstSize": {
               "type": [
                 "null",
@@ -4648,6 +4654,9 @@
                 "null",
                 "number"
               ]
+            },
+            "releaseExcessIPs": {
+              "type": "boolean"
             }
           },
           "type": "object"

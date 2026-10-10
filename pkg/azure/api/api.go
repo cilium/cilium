@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"slices"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
@@ -775,6 +776,171 @@ func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, inter
 
 	if _, err := poller.PollUntilDone(ctx, nil); err != nil {
 		return fmt.Errorf("error while waiting for interface CreateOrUpdate to complete for %s: %w", interfaceName, err)
+	}
+
+	return nil
+}
+
+func removeInterfaceIPConfigurations(configs []*armnetwork.InterfaceIPConfiguration, addresses []netip.Addr) (kept []*armnetwork.InterfaceIPConfiguration, removed []string, err error) {
+	kept = make([]*armnetwork.InterfaceIPConfiguration, 0, len(configs))
+	for _, config := range configs {
+		if config == nil || config.Properties == nil || config.Properties.PrivateIPAddress == nil {
+			kept = append(kept, config)
+			continue
+		}
+		addr, parseErr := netip.ParseAddr(*config.Properties.PrivateIPAddress)
+		if parseErr != nil || !slices.Contains(addresses, addr) {
+			kept = append(kept, config)
+			continue
+		}
+		if config.Properties.Primary != nil && *config.Properties.Primary {
+			return nil, nil, fmt.Errorf("refusing to release primary IP configuration with address %s", addr)
+		}
+		if config.Name == nil {
+			return nil, nil, fmt.Errorf("IP configuration with address %s has no name", addr)
+		}
+		removed = append(removed, *config.Name)
+	}
+	return kept, removed, nil
+}
+
+func removeVMSSIPConfigurations(configs []*armcompute.VirtualMachineScaleSetIPConfiguration, names []string) ([]*armcompute.VirtualMachineScaleSetIPConfiguration, error) {
+	kept := make([]*armcompute.VirtualMachineScaleSetIPConfiguration, 0, len(configs))
+	found := make(map[string]struct{}, len(names))
+	for _, config := range configs {
+		if config == nil || config.Name == nil || !slices.Contains(names, *config.Name) {
+			kept = append(kept, config)
+			continue
+		}
+		if config.Properties != nil && config.Properties.Primary != nil && *config.Properties.Primary {
+			return nil, fmt.Errorf("refusing to release primary IP configuration %s", *config.Name)
+		}
+		found[*config.Name] = struct{}{}
+	}
+	for _, name := range names {
+		if _, ok := found[name]; !ok {
+			return nil, fmt.Errorf("IP configuration %s does not exist in the VM model", name)
+		}
+	}
+	return kept, nil
+}
+
+func (c *Client) UnassignPrivateIpAddressesVM(ctx context.Context, interfaceName string, addresses []netip.Addr) error {
+	c.limiter.Limit(ctx, interfacesGet)
+	sinceStart := spanstat.Start()
+
+	iface, err := c.interfaces.Get(ctx, c.resourceGroup, interfaceName, nil)
+
+	c.metricsAPI.ObserveAPICall(interfacesGet, deriveStatus(err), sinceStart.Seconds())
+	if err != nil {
+		return fmt.Errorf("failed to get standalone instance's interface %s: %w", interfaceName, err)
+	}
+	if iface.Properties == nil {
+		return fmt.Errorf("interface %s has no properties", interfaceName)
+	}
+
+	kept, removed, err := removeInterfaceIPConfigurations(iface.Properties.IPConfigurations, addresses)
+	if err != nil {
+		return fmt.Errorf("unable to release IP addresses from interface %s: %w", interfaceName, err)
+	}
+	if len(removed) == 0 {
+		return nil
+	}
+	iface.Properties.IPConfigurations = kept
+
+	c.limiter.Limit(ctx, interfacesCreateOrUpdate)
+	sinceStart = spanstat.Start()
+
+	poller, err := c.interfaces.BeginCreateOrUpdate(ctx, c.resourceGroup, interfaceName, iface.Interface, nil)
+	if err != nil {
+		c.metricsAPI.ObserveAPICall(interfacesCreateOrUpdate, deriveStatus(err), sinceStart.Seconds())
+		return fmt.Errorf("unable to update interface %s: %w", interfaceName, err)
+	}
+
+	_, err = poller.PollUntilDone(ctx, nil)
+	c.metricsAPI.ObserveAPICall(interfacesCreateOrUpdate, deriveStatus(err), sinceStart.Seconds())
+	if err != nil {
+		return fmt.Errorf("error while waiting for interface CreateOrUpdate to complete for %s: %w", interfaceName, err)
+	}
+
+	return nil
+}
+
+func (c *Client) UnassignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, interfaceName string, addresses []netip.Addr) error {
+	vmssGetOptions := &armcompute.VirtualMachineScaleSetVMsClientGetOptions{
+		Expand: new(armcompute.InstanceViewTypesInstanceView),
+	}
+
+	c.limiter.Limit(ctx, virtualMachineScaleSetVMsGet)
+	sinceStart := spanstat.Start()
+
+	result, err := c.virtualMachineScaleSetVMs.Get(ctx, c.resourceGroup, vmssName, instanceID, vmssGetOptions)
+
+	c.metricsAPI.ObserveAPICall(virtualMachineScaleSetVMsGet, deriveStatus(err), sinceStart.Seconds())
+	if err != nil {
+		return fmt.Errorf("failed to get VM %s from VMSS %s: %w", instanceID, vmssName, err)
+	}
+
+	nics, err := c.listVirtualMachineScaleSetVMNetworkInterfaces(ctx, vmssName, instanceID)
+	if err != nil {
+		return fmt.Errorf("failed to list interfaces of VM %s in VMSS %s: %w", instanceID, vmssName, err)
+	}
+
+	var nic *armnetwork.Interface
+	for _, n := range nics {
+		if n != nil && n.Name != nil && *n.Name == interfaceName && n.Properties != nil {
+			nic = n
+			break
+		}
+	}
+	if nic == nil {
+		return fmt.Errorf("interface %s does not exist in VM %s", interfaceName, instanceID)
+	}
+
+	_, names, err := removeInterfaceIPConfigurations(nic.Properties.IPConfigurations, addresses)
+	if err != nil {
+		return fmt.Errorf("unable to release IP addresses from interface %s: %w", interfaceName, err)
+	}
+	if len(names) == 0 {
+		return nil
+	}
+
+	var netIfConfig *armcompute.VirtualMachineScaleSetNetworkConfiguration
+	if result.Properties != nil && result.Properties.NetworkProfileConfiguration != nil {
+		for _, networkInterfaceConfiguration := range result.Properties.NetworkProfileConfiguration.NetworkInterfaceConfigurations {
+			if networkInterfaceConfiguration != nil && networkInterfaceConfiguration.Name != nil && *networkInterfaceConfiguration.Name == interfaceName {
+				netIfConfig = networkInterfaceConfiguration
+				break
+			}
+		}
+	}
+	if netIfConfig == nil || netIfConfig.Properties == nil {
+		return fmt.Errorf("interface %s does not exist in VM model %s", interfaceName, instanceID)
+	}
+
+	kept, err := removeVMSSIPConfigurations(netIfConfig.Properties.IPConfigurations, names)
+	if err != nil {
+		return fmt.Errorf("unable to release IP addresses from interface %s: %w", interfaceName, err)
+	}
+	netIfConfig.Properties.IPConfigurations = kept
+
+	if result.Properties.StorageProfile != nil {
+		result.Properties.StorageProfile.ImageReference = nil
+	}
+
+	c.limiter.Limit(ctx, virtualMachineScaleSetVMsUpdate)
+	sinceStart = spanstat.Start()
+
+	poller, err := c.virtualMachineScaleSetVMs.BeginUpdate(ctx, c.resourceGroup, vmssName, instanceID, result.VirtualMachineScaleSetVM, nil)
+	if err != nil {
+		c.metricsAPI.ObserveAPICall(virtualMachineScaleSetVMsUpdate, deriveStatus(err), sinceStart.Seconds())
+		return fmt.Errorf("unable to update virtualMachineScaleSetVMs: %w", err)
+	}
+
+	_, err = poller.PollUntilDone(ctx, nil)
+	c.metricsAPI.ObserveAPICall(virtualMachineScaleSetVMsUpdate, deriveStatus(err), sinceStart.Seconds())
+	if err != nil {
+		return fmt.Errorf("error while waiting for virtualMachineScaleSetVMs Update to complete: %w", err)
 	}
 
 	return nil

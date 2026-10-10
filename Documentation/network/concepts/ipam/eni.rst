@@ -101,8 +101,9 @@ Configuration
   ``--auto-create-cilium-node-resource`` or set
   ``auto-create-cilium-node-resource: "true"`` in the ConfigMap.
 
-* If IPv4s are limited, run the Operator with option
-  ``--aws-release-excess-ips=true``. When enabled, the operator checks the number
+* If IPv4s are limited, set the Helm value
+  ``ipam.operator.releaseExcessIPs=true`` (operator option
+  ``--ipam-release-excess-ips``). When enabled, the operator checks the number
   of IPv4s regularly and attempts to release excess free IPv4s from the ENI.
 
 * It is generally a good idea to enable metrics in the Operator as well with
@@ -366,7 +367,7 @@ in `Operational Details`_:
   and excess calculations, apply to IPv4 only. IPv6 has a simple boolean demand:
   request one prefix if the agent needs IPv6 and none is present.
 * **No release.** IPv6 prefixes are never released by
-  ``--aws-release-excess-ips``; a node's IPv6 prefix lives until the
+  ``--ipam-release-excess-ips``; a node's IPv6 prefix lives until the
   ``CiliumNode`` (and thus the node) is deleted.
 
 The assigned prefix is recorded in the ``ipv6-prefixes`` field of the ENI in
@@ -437,7 +438,7 @@ occasions:
  * When a ``CiliumNode`` custom resource is updated
  * All nodes are scanned at a regular interval (once per minute)
 
-If ``--aws-release-excess-ips`` is enabled, the check to recognize IPv4 excess
+If ``--ipam-release-excess-ips`` is enabled, the check to recognize IPv4 excess
 is performed at the interval-based scan.
 
 When determining whether a node has a deficit in IP addresses, the following
@@ -527,8 +528,8 @@ IP release (IPv4 only) is driven by the agent removing CIDRs from
 (all of its IPs are unused and the node has excess capacity), it removes that
 CIDR from ``spec.ipam.pools.allocated``. The operator tracks CIDRs that
 disappear from this field and, after the delay configured by
-``--excess-ip-release-delay`` (default 180 seconds) has elapsed, releases the
-corresponding resources from AWS:
+``--excess-ip-release-delay`` (Helm value ``ipam.operator.excessIPReleaseDelay``,
+default 180 seconds) has elapsed, releases the corresponding resources from AWS:
 
 * A host-prefix CIDR (a single secondary IP) is released with
   ``UnassignPrivateIpAddresses``.
@@ -540,7 +541,7 @@ after their IPs are released, see `ENI Deletion Policy`_.
 .. note::
 
    IP release only happens when the operator runs with
-   ``--aws-release-excess-ips=true``.
+   ``--ipam-release-excess-ips=true``.
 
 
 ENI Creation
