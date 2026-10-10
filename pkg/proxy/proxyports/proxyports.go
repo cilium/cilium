@@ -11,6 +11,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -92,6 +93,11 @@ type ProxyPorts struct {
 	// restoreComplete is closed when previous ports have been restored
 	restoreComplete chan struct{}
 
+	// dnsProxyReady is closed once the embedded DNS proxy is listening and its
+	// proxy port has been registered.
+	dnsProxyReady     chan struct{}
+	dnsProxyReadyOnce sync.Once
+
 	// Datapath updater for installing and removing proxy rules for a single
 	// proxy port
 	datapathUpdater DatapathUpdater
@@ -128,6 +134,7 @@ func NewProxyPorts(
 		rangeMax:                     config.ProxyPortrangeMax,
 		restoredProxyPortsStaleLimit: config.RestoredProxyPortsAgeLimit,
 		restoreComplete:              make(chan struct{}),
+		dnsProxyReady:                make(chan struct{}),
 		datapathUpdater:              datapathUpdater,
 		proxyPortsPath:               filepath.Join(option.Config.StateDir, proxyPortsFile),
 		allocatedPorts:               make(map[uint16]bool),
@@ -683,6 +690,20 @@ func (p *ProxyPorts) RestoreProxyPorts(ctx context.Context, health cell.Health) 
 // RestoreComplete returns a chan that is closed when port restoration is complete.
 func (p *ProxyPorts) RestoreComplete() <-chan struct{} {
 	return p.restoreComplete
+}
+
+// SignalDNSProxyReady marks the embedded DNS proxy as listening with its proxy
+// port registered.
+func (p *ProxyPorts) SignalDNSProxyReady() {
+	p.dnsProxyReadyOnce.Do(func() {
+		close(p.dnsProxyReady)
+	})
+}
+
+// DNSProxyReady returns a chan that is closed once the DNS proxy is listening and
+// its proxy port is registered.
+func (p *ProxyPorts) DNSProxyReady() <-chan struct{} {
+	return p.dnsProxyReady
 }
 
 // GetProxyPort() returns the fixed listen port for a proxy, if any.

@@ -51,4 +51,5 @@ type EndpointParams struct {
 	LxcMap              lxcmap.Map
 	LocalNodeStore      node.NodeGetter
 	IPCache             IPCache
+	DNSProxyReadiness   DNSProxyReadiness
 }

@@ -342,6 +342,11 @@ type Endpoint struct {
 
 	proxy EndpointProxy
 
+	// dnsProxyReady signals when the embedded DNS proxy has finished starting.
+	// Used to gate DNS redirect creation; nil when the proxy provides no
+	// readiness (e.g. test fakes).
+	dnsProxyReady DNSProxyReadiness
+
 	// proxyStatistics contains statistics of proxy redirects.
 	// They keys in this map are policy.ProxyIDs.
 	// You must hold Endpoint.proxyStatisticsMutex to read or write it.
@@ -639,6 +644,7 @@ func createEndpoint(
 		ID:                 ID,
 		createdAt:          time.Now(),
 		proxy:              proxy,
+		dnsProxyReady:      p.DNSProxyReadiness,
 		ifName:             ifName,
 		labels:             labels.NewOpLabels(),
 		Options:            option.NewIntOptions(&EndpointMutableOptionLibrary),
@@ -974,6 +980,7 @@ func ParseEndpoint(p EndpointParams,
 		policyFetcher:    p.PolicyFetcher,
 		ipcache:          p.IPCache,
 		proxy:            proxy,
+		dnsProxyReady:    p.DNSProxyReadiness,
 		allocator:        p.Allocator,
 		ctMapGC:          p.CTMapGC,
 		kvstoreSyncher:   p.KVStoreSynchronizer,
@@ -3055,6 +3062,7 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 		policyMapFactory:   e.policyMapFactory,
 		policyRepo:         e.policyRepo,
 		proxy:              e.proxy,
+		dnsProxyReady:      e.dnsProxyReady,
 		state:              e.state,
 	}
 	clone.containerID.Store(e.containerID.Load())
