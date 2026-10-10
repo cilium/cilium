@@ -31,6 +31,7 @@ HELM_DOCS := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm-docs
 HELM := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm
 YQ := $(DOCKER_RUN) $(YQ_IMAGE)
 HELM_SCHEMA_GEN := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm-schema
+HELM_SERVICEMONITOR_TEST_FLAGS := --namespace kube-system --set prometheus.enabled=true --set prometheus.serviceMonitor.enabled=true --set prometheus.serviceMonitor.trustCRDsExist=true --set envoy.prometheus.enabled=true --set envoy.prometheus.serviceMonitor.enabled=true
 
 LOGO_BASE_URL := https://cdn.jsdelivr.net/gh/cilium
 LOGO_PATH := Documentation/images/logo-solo.svg
@@ -78,7 +79,18 @@ update-versions: update-chart cilium/values.yaml # Update the Helm values file t
 CRDS := $(foreach path,$(patsubst %.yaml,%,$(CRD_FILES)),$(shell basename $(path)))
 RAND_FILES := $(shell grep -R -l -e "rand" -e "shuffle" -e "genPrivateKey" -e "genCA" -e "genSignedCert" -e "UUID" -e "cilium.ca.setup" --include="*.yaml" $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates)
 RAND_SECRETS := $(foreach rand_file,$(RAND_FILES),$(shell grep -l -e 'kind: Secret' $(rand_file)))
-lint:
+# Verify which ServiceMonitor exposes Envoy metrics in embedded and standalone modes.
+test-servicemonitor:
+	$(ECHO_CHECK) $@
+	$(QUIET)set -e; \
+		agent=$$($(HELM) template cilium ./cilium $(HELM_SERVICEMONITOR_TEST_FLAGS) --set envoy.enabled=false --show-only templates/cilium-agent/servicemonitor.yaml); \
+		printf '%s\n' "$$agent" | grep -q '^  - port: envoy-metrics$$'; \
+		agent=$$($(HELM) template cilium ./cilium $(HELM_SERVICEMONITOR_TEST_FLAGS) --set envoy.enabled=true --show-only templates/cilium-agent/servicemonitor.yaml); \
+		! printf '%s\n' "$$agent" | grep -q '^  - port: envoy-metrics$$'; \
+		envoy=$$($(HELM) template cilium ./cilium $(HELM_SERVICEMONITOR_TEST_FLAGS) --set envoy.enabled=true --show-only templates/cilium-envoy/servicemonitor.yaml); \
+		printf '%s\n' "$$envoy" | grep -q '^  - port: envoy-metrics$$'
+
+lint: test-servicemonitor
 	$(ECHO_CHECK)
 	$(QUIET)grep -RL $(COMMON_LABELS_EXCLUSIONS) .Values.commonLabels $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates/*.yaml $(ROOT_DIR)/$(RELATIVE_DIR)/cilium/templates/**/*.yaml >> missing_label
 	$(QUIET)if [ -s missing_label ]; then \
@@ -107,4 +119,4 @@ docs:
 check-docker-images: # Check whether docker images are available for the current version.
 	$(QUIET)$(ROOT_DIR)/contrib/release/check-docker-images.sh "$(CILIUM_VERSION)"
 
-.PHONY: all check-docker-images check-values-yaml cilium/values.yaml cilium/values.schema.json cilium/values.yaml.tmpl clean docs lint update-chart update-versions
+.PHONY: all check-docker-images check-values-yaml cilium/values.yaml cilium/values.schema.json cilium/values.yaml.tmpl clean docs lint test-servicemonitor update-chart update-versions
