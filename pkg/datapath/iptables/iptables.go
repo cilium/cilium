@@ -44,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -381,6 +382,11 @@ type params struct {
 	Devices  statedb.Table[*tables.Device]
 
 	TunnelCfg tunnel.Config
+
+	// IPSetReady resolves once the node ipsets referenced by --match-set in
+	// our rules (e.g. addCiliumAcceptTunnelRules, installMasqueradeRules)
+	// have been created.
+	IPSetReady promise.Promise[struct{}]
 }
 
 // Manager manages iptables rules.
@@ -488,6 +494,12 @@ func newManager(p params) Manager {
 				return nil
 			case <-iptMgr.argsInit.WaitChannel():
 			}
+
+			// Wait until ipsets are initialized
+			if _, err := p.IPSetReady.Await(ctx); err != nil {
+				return fmt.Errorf("waiting for node ipsets to be ready: %w", err)
+			}
+
 			return reconciliationLoop(
 				ctx, p.Logger, health,
 				iptMgr.sharedCfg.InstallIptRules, &iptMgr.reconcilerParams,
@@ -744,26 +756,53 @@ func (m *manager) addCiliumTunnelRules() (err error) {
 	return m.installTunnelNoTrackRules(port)
 }
 
-// addCiliumAcceptTunnelRules adds the ACCEPT rule in the cilium output chain
-// for udp destination port at `tunnelPort`.
+// addCiliumAcceptTunnelRules adds the ACCEPT rule in the cilium input and
+// output chains for udp destination port at `tunnelPort`.
 func (m *manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
-	cmd := []string{
-		"-t", "filter",
-		"-A", ciliumOutputChain,
-		"-p", "udp",
-		"--dport", strconv.Itoa(int(tunelPort)),
-		"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
-		"-j", "ACCEPT",
-	}
-
-	if m.sharedCfg.EnableIPv4 {
-		if err := m.ip4tables.runProg(cmd); err != nil {
-			return err
+	addRule := func(chain, ipsetDir, addrTypeDir string) error {
+		cmd := func(ipset string) []string {
+			return []string{"-t", "filter",
+				"-A", chain,
+				"-p", "udp",
+				"--dport", strconv.Itoa(int(tunelPort)),
+				"-m", "set", "--match-set", ipset, ipsetDir,
+				"-m", "addrtype", fmt.Sprintf("--%s-type", addrTypeDir), "LOCAL",
+				"-m", "comment", "--comment", "cilium: ACCEPT for tunnel traffic",
+				"-j", "ACCEPT",
+			}
 		}
+
+		if m.sharedCfg.EnableIPv4 {
+			if err := m.ip4tables.runProg(cmd(m.ip4tables.getIpset())); err != nil {
+				return err
+			}
+		}
+
+		if m.sharedCfg.EnableIPv6 {
+			if err := m.ip6tables.runProg(cmd(m.ip6tables.getIpset())); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
-	if m.sharedCfg.EnableIPv6 {
-		if err := m.ip6tables.runProg(cmd); err != nil {
+	for _, chain := range []string{ciliumInputChain, ciliumOutputChain} {
+		// match remote nodes with ipset: input direction allows sources, whereas
+		// output direction allows destinations.
+		ipsetDir := "dst"
+
+		// this is the direction of the address type
+		// kinda of the inverse of the ipset direction:
+		// for output, we want ipset direction `dst`, but
+		// address type LOCAL is source. and vice versa.
+		addrTypeDir := "src"
+		if chain == ciliumInputChain {
+			ipsetDir = "src"
+			addrTypeDir = "dst"
+		}
+
+		if err := addRule(chain, ipsetDir, addrTypeDir); err != nil {
 			return err
 		}
 	}
@@ -771,41 +810,53 @@ func (m *manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
 	return nil
 }
 
-// addCiliumAcceptTunnelRules adds the NOTRACK rule in the cilium raw prerouting
+// installTunnelNoTrackRules adds the NOTRACK rule in the cilium raw prerouting
 // and output raw chains for udp destination port at `tunnelPort`.
 func (m *manager) installTunnelNoTrackRules(tunelPort uint16) error {
-	input := []string{
-		"-t", "raw",
-		"-A", ciliumPreRawChain,
-		"-p", "udp",
-		"--dport", strconv.Itoa(int(tunelPort)),
-		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
-		"-j", "CT", "--notrack",
+	addRule := func(chain, ipsetDir, addrTypeDir string) error {
+		cmd := func(ipset string) []string {
+			return []string{"-t", "raw",
+				"-A", chain,
+				"-p", "udp",
+				"--dport", strconv.Itoa(int(tunelPort)),
+				"-m", "set", "--match-set", ipset, ipsetDir,
+				"-m", "addrtype", fmt.Sprintf("--%s-type", addrTypeDir), "LOCAL",
+				"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
+				"-j", "CT", "--notrack",
+			}
+		}
+
+		if m.sharedCfg.EnableIPv4 {
+			if err := m.ip4tables.runProg(cmd(m.ip4tables.getIpset())); err != nil {
+				return err
+			}
+		}
+
+		if m.sharedCfg.EnableIPv6 {
+			if err := m.ip6tables.runProg(cmd(m.ip6tables.getIpset())); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
-	output := []string{
-		"-t", "raw",
-		"-A", ciliumOutputRawChain,
-		"-p", "udp",
-		"--dport", strconv.Itoa(int(tunelPort)),
-		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
-		"-j", "CT", "--notrack",
-	}
+	for _, chain := range []string{ciliumPreRawChain, ciliumOutputRawChain} {
+		// match remote nodes with ipset: input direction allows sources, whereas
+		// output direction allows destinations.
+		ipsetDir := "dst"
 
-	if m.sharedCfg.EnableIPv4 {
-		if err := m.ip4tables.runProg(input); err != nil {
-			return err
+		// this is the direction of the address type
+		// kinda of the inverse of the ipset direction:
+		// for output, we want ipset direction `dst`, but
+		// address type LOCAL is source. and vice versa.
+		addrTypeDir := "src"
+		if chain == ciliumPreRawChain {
+			ipsetDir = "src"
+			addrTypeDir = "dst"
 		}
-		if err := m.ip4tables.runProg(output); err != nil {
-			return err
-		}
-	}
 
-	if m.sharedCfg.EnableIPv6 {
-		if err := m.ip6tables.runProg(input); err != nil {
-			return err
-		}
-		if err := m.ip6tables.runProg(output); err != nil {
+		if err := addRule(chain, ipsetDir, addrTypeDir); err != nil {
 			return err
 		}
 	}
