@@ -190,7 +190,8 @@ exclude_patterns = [
     '.DS_Store',
     # Already included as a fragment from another page, including it in source
     # processing would process the labels twice
-    'operations/troubleshooting_clustermesh.rst'
+    'operations/troubleshooting_clustermesh.rst',
+    'installation/alibabacloud.rst'
 ]
 
 # The name of the Pygments (syntax highlighting) style to use.

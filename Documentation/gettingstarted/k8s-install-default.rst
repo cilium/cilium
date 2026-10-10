@@ -204,20 +204,10 @@ to create a Kubernetes cluster locally or using a managed Kubernetes service:
 
     .. group-tab:: Alibaba ACK
 
-        .. include:: /beta.rst
-
-        .. note::
-
-            The AlibabaCloud ENI integration with Cilium is subject to the following limitations:
-
-            - It is currently only enabled for IPv4.
-            - It only works with instances supporting ENI. Refer to `Instance families <https://www.alibabacloud.com/help/doc-detail/25378.htm>`_ for details.
-
-        Setup a Kubernetes on AlibabaCloud. You can use any method you prefer.
-        The quickest way is to create an ACK (Alibaba Cloud Container Service for
-        Kubernetes) cluster and to replace the CNI plugin with Cilium.
-        For more details on how to set up an ACK cluster please follow
-        the `official documentation <https://www.alibabacloud.com/help/doc-detail/86745.htm>`_.
+        Create a new ACK managed Pro BYOCNI cluster following
+        :ref:`Alibaba Cloud ACK installation <k8s_install_alibabacloud>`. Choose Cilium overlay or Alibaba Cloud
+        ENI networking before installing Cilium. The guide describes cluster
+        creation, mode requirements, and control-plane connectivity limitations.
 
 .. _install_cilium_cli:
 
@@ -336,7 +326,7 @@ You can install Cilium on any Kubernetes cluster. Pick one of the options below:
 
     .. group-tab:: Alibaba ACK
 
-       You can install Cilium using Helm on Alibaba ACK, refer to `k8s_install_helm` for details.
+       Install Cilium using Helm following :ref:`Alibaba Cloud ACK installation <k8s_install_alibabacloud>`.
 
 
 If the installation fails for some reason, run ``cilium status`` to retrieve

@@ -1,66 +1,20 @@
-To install Cilium on `ACK (Alibaba Cloud Container Service for Kubernetes) <https://www.alibabacloud.com/help/doc-detail/86745.htm>`_, perform the following steps:
+**Alibaba Cloud ENI prerequisites:**
 
-**Disable ACK CNI (ACK Only):**
+.. include:: /beta.rst
 
-If you are running an ACK cluster, you should delete the ACK CNI.
+Alibaba Cloud ENI IPAM supports IPv4 and requires ECS instances that support
+ENIs. Check the ENI and private IP limits of the selected instance type and the
+available addresses in each vSwitch before sizing node pools. See
+:ref:`ipam_alibabacloud` for the allocation architecture and configuration.
 
-.. only:: not (epub or latex or html)
+The operator must run on ECS with access to the instance metadata service and
+the ECS and VPC API endpoints. Use RRSA (recommended) or configure AccessKey
+credentials for the operator as described below.
 
-    WARNING: You are looking at unreleased Cilium documentation.
-    Please use the official rendered version released here:
-    https://docs.cilium.io
+**RAM permissions:**
 
-Cilium will manage ENIs instead of the ACK CNI, so any running DaemonSet from
-the list below has to be deleted to prevent conflicts.
-
-- ``kube-flannel-ds``
-- ``terway``
-- ``terway-eni``
-- ``terway-eniip``
-
-.. note::
-
-    If you are using ACK with Flannel (DaemonSet ``kube-flannel-ds``),
-    the Cloud Controller Manager (CCM) will create a route (Pod CIDR) in VPC.
-    If your cluster is a Managed Kubernetes you cannot disable this behavior.
-    Please consider creating a new cluster.
-
-.. code-block:: shell-session
-
-   kubectl -n kube-system delete daemonset <terway>
-
-The next step is to remove CRD below created by ``terway*`` CNI
-
-.. code-block:: shell-session
-
-    kubectl delete crd \
-        ciliumclusterwidenetworkpolicies.cilium.io \
-        ciliumendpoints.cilium.io \
-        ciliumidentities.cilium.io \
-        ciliumnetworkpolicies.cilium.io \
-        ciliumnodes.cilium.io \
-        bgpconfigurations.crd.projectcalico.org \
-        clusterinformations.crd.projectcalico.org \
-        felixconfigurations.crd.projectcalico.org \
-        globalnetworkpolicies.crd.projectcalico.org \
-        globalnetworksets.crd.projectcalico.org \
-        hostendpoints.crd.projectcalico.org \
-        ippools.crd.projectcalico.org \
-        networkpolicies.crd.projectcalico.org
-
-
-**Create AlibabaCloud Secrets:**
-
-Before installing Cilium, a new Kubernetes Secret with the AlibabaCloud Tokens needs to
-be added to your Kubernetes cluster. This Secret will allow Cilium to gather
-information from the AlibabaCloud API which is needed to implement ToGroups policies.
-
-**AlibabaCloud Access Keys:**
-
-To create a new access token the `following guide can be used
-<https://www.alibabacloud.com/help/doc-detail/93691.htm>`_.
-These keys need to have certain `RAM Permissions
-<https://ram.console.aliyun.com/overview>`_:
+Grant the operator's identity the following RAM permissions to discover cloud
+resources and manage ENIs and private IP addresses:
 
 .. code-block:: json
 
@@ -101,8 +55,63 @@ These keys need to have certain `RAM Permissions
     }
 
 
-As soon as you have the access tokens, the following secret needs to be added,
-with each empty string replaced by the associated value as a base64-encoded string:
+**RRSA credentials (recommended):**
+
+Use RAM Roles for Service Accounts (RRSA) to give the operator temporary
+credentials and avoid storing long-lived AccessKeys in Kubernetes. Follow the
+`ACK RRSA guide
+<https://www.alibabacloud.com/help/en/ack/ack-managed-and-ack-dedicated/user-guide/use-rrsa-to-authorize-pods-to-access-different-cloud-services>`_
+to enable RRSA and create a RAM role using the cluster's OIDC provider. Restrict
+the role's trust policy to ``oidc:sub`` equal to
+``system:serviceaccount:kube-system:cilium-operator`` and grant it the RAM
+permissions above. Adjust the subject if you change the operator's namespace
+or ServiceAccount name.
+
+Save the following as ``rrsa-values.yaml``, replacing the role ARN, OIDC
+provider ARN, and region with your values:
+
+.. code-block:: yaml
+
+    operator:
+      extraEnv:
+        - name: ALIBABA_CLOUD_ROLE_ARN
+          value: "<role-arn>"
+        - name: ALIBABA_CLOUD_OIDC_PROVIDER_ARN
+          value: "<oidc-provider-arn>"
+        - name: ALIBABA_CLOUD_OIDC_TOKEN_FILE
+          value: /var/run/secrets/ack.alibabacloud.com/rrsa-tokens/token
+        - name: ALIBABA_CLOUD_STS_REGION
+          value: "<region-id>"
+        - name: ALIBABA_CLOUD_VPC_ENDPOINT_ENABLED
+          value: "true"
+      extraVolumes:
+        - name: rrsa-oidc-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: sts.aliyuncs.com
+                  expirationSeconds: 3600
+                  path: token
+      extraVolumeMounts:
+        - name: rrsa-oidc-token
+          mountPath: /var/run/secrets/ack.alibabacloud.com/rrsa-tokens
+          readOnly: true
+
+This mounts a rotating token for the operator's existing ServiceAccount,
+with the STS audience, and uses the regional STS VPC endpoint. No identity
+webhook is required. Skip the AccessKey Secret below;
+static AccessKeys take precedence over RRSA in the credential chain.
+
+**AccessKey credentials (alternative):**
+
+If RRSA is unavailable, you can supply static AccessKey credentials through a
+Kubernetes Secret. Prefer RRSA to reduce the risk of long-lived credential
+exposure.
+
+Follow the `Alibaba Cloud AccessKey guide
+<https://www.alibabacloud.com/help/doc-detail/93691.htm>`_ to create AccessKeys.
+Save the following as ``cilium-secret.yaml``, replacing the placeholders with
+your AccessKey values:
 
 .. code-block:: yaml
 
@@ -112,29 +121,19 @@ with each empty string replaced by the associated value as a base64-encoded stri
       name: cilium-alibabacloud
       namespace: kube-system
     type: Opaque
-    data:
-      ALIBABA_CLOUD_ACCESS_KEY_ID: ""
-      ALIBABA_CLOUD_ACCESS_KEY_SECRET: ""
+    stringData:
+      ALIBABA_CLOUD_ACCESS_KEY_ID: "<access-key-id>"
+      ALIBABA_CLOUD_ACCESS_KEY_SECRET: "<access-key-secret>"
 
-
-The base64 command line utility can be used to generate each value, for example:
-
-.. code-block:: shell-session
-
-    $ echo -n "access_key" | base64
-    YWNjZXNzX2tleQ==
-
-This secret stores the AlibabaCloud credentials, which will be used to
-connect to the AlibabaCloud API.
 
 .. code-block:: shell-session
 
     $ kubectl create -f cilium-secret.yaml
 
-
 **Install Cilium:**
 
-Install Cilium release via Helm:
+Install Cilium release via Helm. For RRSA, add ``--values rrsa-values.yaml``
+to the following command:
 
 .. cilium-helm-install::
    :namespace: kube-system
@@ -145,9 +144,8 @@ Install Cilium release via Helm:
 
 .. note::
 
-   You must ensure that the security groups associated with the ENIs (``eth1``,
-   ``eth2``, ...) allow for egress traffic to go outside of the VPC. By default,
-   the security groups for pod ENIs are derived from the primary ENI
-   (``eth0``).
+   With IPv4 masquerading disabled, pod traffic retains its ENI source IP.
+   Configure VPC routing and, when required, NAT for access outside the VPC.
 
-
+   Pod ENIs inherit the primary ENI security groups by default. Allow the
+   required pod traffic in those groups.
