@@ -944,6 +944,10 @@ By default, if no service annotation is provided, the logic falls back to use
 whichever method was specified globally through ``loadBalancer.algorithm``. The
 latter supports either ``random`` or ``maglev`` as values today with ``random``
 being the default if ``loadBalancer.algorithm`` was not explicitly set via Helm.
+The annotation additionally supports ``round-robin``. Round-robin advances a
+per-service cursor for each new backend selection on a node. Existing
+connections and session-affinity entries remain pinned to their selected
+backend.
 
 To add a new service which must use ``random`` as its load balancing algorithm:
 
@@ -983,6 +987,29 @@ Similarly, for opting into ``maglev``, use the following:
 
 All north-south traffic is now subsequently subject to ``maglev``-based load
 balancing for the latter example.
+
+To distribute new connections sequentially across the service backends, set
+the annotation to ``round-robin``:
+
+.. code-block:: yaml
+
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: example-service
+    annotations:
+      service.cilium.io/lb-algorithm: round-robin
+  spec:
+    selector:
+      app: example
+    ports:
+      - port: 8765
+        targetPort: 9376
+    type: LoadBalancer
+
+Round-robin state is local to each node. It provides equal sequential
+distribution for backend selections handled by that node, rather than a
+cluster-wide ordering across all nodes.
 
 Note that ``service.cilium.io/lb-algorithm`` only takes effect upon initial
 service creation and cannot be changed during the lifetime of the given
