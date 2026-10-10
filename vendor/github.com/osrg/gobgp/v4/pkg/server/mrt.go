@@ -68,23 +68,28 @@ func (m *mrtWriter) dumpTable() []*mrt.MRTMessage {
 	peermap := make(map[netip.Addr]dumpPeer)
 
 	idx := func(p *table.Path) uint16 {
-		if p, ok := peermap[p.GetSource().Address]; ok {
-			return p.index
+		src := p.GetSource()
+		if dp, ok := peermap[src.Address]; ok {
+			return dp.index
 		}
 		newIdx := uint16(len(peermap))
-		if p.GetSource().Address == netip.IPv4Unspecified() {
-			// Adding dummy Peer record for locally generated routes
-			peermap[netip.IPv4Unspecified()] = dumpPeer{
+		if p.IsLocal() {
+			// Adding dummy Peer record for locally generated routes.
+			// Such a path has no source peer, so its address, ID and
+			// AS are all unset. The map is still keyed by the unset
+			// address so that every local route shares this record.
+			peermap[src.Address] = dumpPeer{
 				index: newIdx,
 				addr:  netip.IPv4Unspecified(),
 				id:    netip.IPv4Unspecified(),
 				as:    0,
 			}
 		} else {
-			peermap[p.GetSource().Address] = dumpPeer{
+			peermap[src.Address] = dumpPeer{
 				index: newIdx,
-				addr:  p.GetSource().Address,
-				id:    p.GetSource().ID,
+				addr:  src.Address,
+				id:    src.ID,
+				as:    src.AS,
 			}
 		}
 		return newIdx

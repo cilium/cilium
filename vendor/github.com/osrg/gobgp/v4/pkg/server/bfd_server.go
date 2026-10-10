@@ -32,6 +32,7 @@ type bfdEventPeerUpdate struct {
 	isAdd         bool
 	peerAddress   netip.Addr
 	config        oc.BfdConfig
+	localAddress  netip.Addr
 	bindInterface string
 }
 
@@ -117,6 +118,10 @@ func (s *bfdServer) Stop() {
 }
 
 func (s *bfdServer) AddPeer(ctx context.Context, peerAddress netip.Addr, config oc.BfdConfig, bindInterface string) error {
+	return s.addPeer(ctx, peerAddress, config, netip.Addr{}, bindInterface)
+}
+
+func (s *bfdServer) addPeer(ctx context.Context, peerAddress netip.Addr, config oc.BfdConfig, localAddress netip.Addr, bindInterface string) error {
 	if s.stopped.Load() {
 		return errors.New("bfd server stopped")
 	}
@@ -126,7 +131,7 @@ func (s *bfdServer) AddPeer(ctx context.Context, peerAddress netip.Addr, config 
 	}
 
 	select {
-	case s.eventPeerUpdate <- &bfdEventPeerUpdate{isAdd: true, peerAddress: peerAddress, config: config, bindInterface: bindInterface}:
+	case s.eventPeerUpdate <- &bfdEventPeerUpdate{isAdd: true, peerAddress: peerAddress, config: config, localAddress: localAddress, bindInterface: bindInterface}:
 		if s.stopped.Load() {
 			return errors.New("bfd server stopped")
 		}
@@ -205,7 +210,7 @@ func (s *bfdServer) loop() {
 			s.config = ev
 		case ev := <-s.eventPeerUpdate:
 			if ev.isAdd {
-				s.addBfdPeer(ev.peerAddress, ev.config, ev.bindInterface)
+				s.addBfdPeer(ev.peerAddress, ev.config, ev.localAddress, ev.bindInterface)
 			} else {
 				s.deleteBfdPeer(ev.peerAddress)
 			}
@@ -292,7 +297,7 @@ func (s *bfdServer) stop() {
 	)
 }
 
-func (s *bfdServer) addBfdPeer(peerAddress netip.Addr, config oc.BfdConfig, bindInterface string) {
+func (s *bfdServer) addBfdPeer(peerAddress netip.Addr, config oc.BfdConfig, localAddress netip.Addr, bindInterface string) {
 	s.peersMutex.RLock()
 	_, ok := s.peers[peerAddress]
 	s.peersMutex.RUnlock()
@@ -306,7 +311,7 @@ func (s *bfdServer) addBfdPeer(peerAddress netip.Addr, config oc.BfdConfig, bind
 		return
 	}
 
-	bfdPeer := NewBfdPeer(s.peerState, s.logger, peerAddress, config, bindInterface)
+	bfdPeer := newBfdPeer(s.peerState, s.logger, peerAddress, config, localAddress, bindInterface)
 	if bfdPeer != nil {
 		s.logger.Info("Insert BFD peer",
 			slog.String("Topic", "bfd"),

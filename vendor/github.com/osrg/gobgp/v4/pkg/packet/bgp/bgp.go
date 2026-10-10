@@ -5089,6 +5089,8 @@ const (
 	LS_PROTOCOL_STATIC
 	LS_PROTOCOL_OSPF_V3
 	LS_PROTOCOL_BGP
+	LS_PROTOCOL_RSVP_TE         // draft-ietf-idr-bgp-ls-te-path
+	LS_PROTOCOL_SEGMENT_ROUTING // RFC 9857
 )
 
 func (l LsProtocolID) String() string {
@@ -5107,6 +5109,10 @@ func (l LsProtocolID) String() string {
 		return "OSPFv3"
 	case LS_PROTOCOL_BGP:
 		return "BGP"
+	case LS_PROTOCOL_RSVP_TE:
+		return "RSVP-TE"
+	case LS_PROTOCOL_SEGMENT_ROUTING:
+		return "SR"
 	default:
 		return fmt.Sprintf("LsProtocolID(%d)", uint8(l))
 	}
@@ -5869,8 +5875,6 @@ func (l *LsPrefixV6NLRI) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// TODO: LsSrPolicyiCandidatePathNLRI
-
 type LsTLVSrv6SIDInfo struct {
 	LsTLV
 	SIDs []netip.Addr
@@ -6155,6 +6159,7 @@ const (
 	LS_TLV_BGP_ROUTER_ID            = 516 // RFC9086
 	LS_TLV_BGP_CONFEDERATION_MEMBER = 517 // RFC9086
 	LS_TLV_SRV6_SID_INFO            = 518 // RFC9514
+	LS_TLV_SR_POLICY_CP_DESC        = 554 // RFC9857
 
 	LS_TLV_NODE_FLAG_BITS        = 1024
 	LS_TLV_OPAQUE_NODE_ATTR      = 1025
@@ -6219,6 +6224,24 @@ const (
 	LS_TLV_PREFIX_ATTRIBUTE_FLAGS = 1170 // draft-ietf-idr-bgp-ls-segment-routing-ext, TODO
 	LS_TLV_SOURCE_ROUTER_ID       = 1171 // draft-ietf-idr-bgp-ls-segment-routing-ext, TODO
 	LS_TLV_L2_BUNDLE_MEMBER_TLV   = 1172 // draft-ietf-idr-bgp-ls-segment-routing-ext, TODO
+
+	LS_TLV_SR_BINDING_SID               = 1201 // RFC9857
+	LS_TLV_SR_CP_STATE                  = 1202 // RFC9857
+	LS_TLV_SR_CP_NAME                   = 1203 // RFC9857
+	LS_TLV_SR_CP_CONSTRAINTS            = 1204 // RFC9857
+	LS_TLV_SR_SEGMENT_LIST              = 1205 // RFC9857
+	LS_TLV_SR_SEGMENT                   = 1206 // RFC9857
+	LS_TLV_SR_SEGMENT_LIST_METRIC       = 1207 // RFC9857
+	LS_TLV_SR_AFFINITY_CONSTRAINT       = 1208 // RFC9857
+	LS_TLV_SR_SRLG_CONSTRAINT           = 1209 // RFC9857
+	LS_TLV_SR_BANDWIDTH_CONSTRAINT      = 1210 // RFC9857
+	LS_TLV_SR_DISJOINT_GROUP_CONSTRAINT = 1211 // RFC9857
+	LS_TLV_SRV6_BINDING_SID             = 1212 // RFC9857
+	LS_TLV_SR_POLICY_NAME               = 1213 // RFC9857
+	LS_TLV_SR_BIDIR_GROUP_CONSTRAINT    = 1214 // RFC9857
+	LS_TLV_SR_METRIC_CONSTRAINT         = 1215 // RFC9857
+	LS_TLV_SR_SEGMENT_LIST_BANDWIDTH    = 1216 // RFC9857
+	LS_TLV_SR_SEGMENT_LIST_IDENTIFIER   = 1217 // RFC9857
 
 	LS_TLV_SRV6_ENDPOINT_BEHAVIOR = 1250 // RFC9514
 	LS_TLV_SRV6_BGP_PEER_NODE_SID = 1251 // RFC9514
@@ -6352,6 +6375,8 @@ func NewLsAttributeTLVs(lsAttr *LsAttribute) []LsTLVInterface {
 		tlvs = append(tlvs, NewLsTLVSrv6EndpointBehavior(lsAttr.Srv6SID.Srv6EndpointBehavior))
 	}
 
+	tlvs = append(tlvs, NewLsAttributeSrPolicyTLVs(&lsAttr.SrPolicy)...)
+
 	return tlvs
 }
 
@@ -6395,6 +6420,39 @@ func (l *LsTLV) DecodeFromBytes(data []byte) ([]byte, error) {
 	}
 
 	return data[tlvHdrLen:l.Len()], nil
+}
+
+// lsTLVUnknown holds a TLV of a type that is not implemented. RFC 9552
+// Section 5.1 requires unknown and unsupported types to be preserved and
+// propagated within both the NLRI and the BGP-LS Attribute, so they are
+// kept as opaque values and re-serialized unchanged.
+type lsTLVUnknown struct {
+	LsTLV
+	Value []byte
+}
+
+func (l *lsTLVUnknown) DecodeFromBytes(data []byte) error {
+	value, err := l.LsTLV.DecodeFromBytes(data)
+	if err != nil {
+		return err
+	}
+	l.Value = append([]byte(nil), value...)
+	return nil
+}
+
+func (l *lsTLVUnknown) Serialize() ([]byte, error) { return l.LsTLV.Serialize(l.Value) }
+
+func (l *lsTLVUnknown) GetLsTLV() LsTLV { return l.LsTLV }
+
+func (l *lsTLVUnknown) String() string {
+	return fmt.Sprintf("{Unknown TLV: %d Value: %x}", l.Type, l.Value)
+}
+
+func (l *lsTLVUnknown) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type  LsTLVType `json:"type"`
+		Value []byte    `json:"value"`
+	}{l.Type, l.Value})
 }
 
 type LsTLVLinkID struct {
@@ -7000,7 +7058,7 @@ func NewLsTLVLocalIPv6RouterID(l *netip.Addr) *LsTLVLocalIPv6RouterID {
 	return &LsTLVLocalIPv6RouterID{
 		LsTLV: LsTLV{
 			Type:   LS_TLV_IPV6_LOCAL_ROUTER_ID,
-			Length: 0,
+			Length: 16,
 		},
 		IP: *l,
 	}
@@ -7057,7 +7115,7 @@ func NewLsTLVRemoteIPv6RouterID(l *netip.Addr) *LsTLVRemoteIPv6RouterID {
 	return &LsTLVRemoteIPv6RouterID{
 		LsTLV: LsTLV{
 			Type:   LS_TLV_IPV6_REMOTE_ROUTER_ID,
-			Length: 4,
+			Length: 16,
 		},
 		IP: *l,
 	}
@@ -8454,7 +8512,8 @@ func NewLsTLVSrCapabilities(l *LsSrCapabilities) *LsTLVSrCapabilities {
 		flags = flags | 1<<6
 	}
 	ranges := []LsSrLabelRange{}
-	var length uint16
+	// Flags (1) + Reserved (1)
+	length := uint16(2)
 	for _, r := range l.Ranges {
 		ranges = append(ranges, LsSrLabelRange{
 			Range: r.End - r.Begin,
@@ -8466,7 +8525,9 @@ func NewLsTLVSrCapabilities(l *LsSrCapabilities) *LsTLVSrCapabilities {
 				SID: r.Begin,
 			},
 		})
-		length += 4
+		// Range Size (3) + the SID/Label sub-TLV, which carries a
+		// 4-octet label here.
+		length += 3 + tlvHdrLen + 4
 	}
 	return &LsTLVSrCapabilities{
 		LsTLV: LsTLV{
@@ -8613,7 +8674,8 @@ type LsSrLocalBlock struct {
 func NewLsTLVSrLocalBlock(l *LsSrLocalBlock) *LsTLVSrLocalBlock {
 	var flags uint8 //
 	ranges := []LsSrLabelRange{}
-	var length uint16
+	// Flags (1) + Reserved (1)
+	length := uint16(2)
 	for _, r := range l.Ranges {
 		ranges = append(ranges, LsSrLabelRange{
 			Range: r.End - r.Begin,
@@ -8625,7 +8687,9 @@ func NewLsTLVSrLocalBlock(l *LsSrLocalBlock) *LsTLVSrLocalBlock {
 				SID: r.Begin,
 			},
 		})
-		length += 4
+		// Range Size (3) + the SID/Label sub-TLV, which carries a
+		// 4-octet label here.
+		length += 3 + tlvHdrLen + 4
 	}
 	return &LsTLVSrLocalBlock{
 		LsTLV: LsTLV{
@@ -10078,7 +10142,7 @@ func NewLsTLVPrefixSID(l *uint32) *LsTLVPrefixSID {
 	return &LsTLVPrefixSID{
 		LsTLV: LsTLV{
 			Type:   LS_TLV_PREFIX_SID,
-			Length: 0,
+			Length: 8,
 		},
 		Flags:     flags, // TODO: Implementation for IGP
 		Algorithm: 0,     // TODO: Implementation for IGP
@@ -10424,7 +10488,7 @@ func NewLsTLVOpaquePrefixAttr(l *[]byte) *LsTLVOpaquePrefixAttr {
 	return &LsTLVOpaquePrefixAttr{
 		LsTLV: LsTLV{
 			Type:   LS_TLV_OPAQUE_PREFIX_ATTR,
-			Length: 0,
+			Length: uint16(len(*l)),
 		},
 		Attr: *l,
 	}
@@ -10473,6 +10537,14 @@ type LsTLVNodeDescriptor struct {
 }
 
 func (l *LsTLVNodeDescriptor) DecodeFromBytes(data []byte) error {
+	return l.decodeFromBytes(data, false)
+}
+
+// decodeFromBytes decodes a node descriptor. With srPolicy set it applies
+// the RFC 9857 section 3 rules for the headend of an SR Policy: the node is
+// identified by an IPv4 or IPv6 Router-ID rather than by IGP or BGP
+// identifiers, and unknown sub-TLVs are kept for re-serialization.
+func (l *LsTLVNodeDescriptor) decodeFromBytes(data []byte, srPolicy bool) error {
 	tlv, err := l.LsTLV.DecodeFromBytes(data)
 	if err != nil {
 		return err
@@ -10520,7 +10592,25 @@ func (l *LsTLVNodeDescriptor) DecodeFromBytes(data []byte) error {
 		case LS_TLV_BGP_CONFEDERATION_MEMBER:
 			subTLV = &LsTLVBgpConfederationMember{}
 
+		// RFC 9552 does not list the IPv4 and IPv6 Router-ID TLVs among the
+		// node descriptor sub-TLVs. RFC 9857 section 3 does, for the headend
+		// of an SR Policy only, so they are decoded for that NLRI alone.
+		case LS_TLV_IPV4_LOCAL_ROUTER_ID:
+			if srPolicy {
+				subTLV = &LsTLVLocalIPv4RouterID{}
+			}
+		case LS_TLV_IPV6_LOCAL_ROUTER_ID:
+			if srPolicy {
+				subTLV = &LsTLVLocalIPv6RouterID{}
+			}
 		default:
+			if srPolicy {
+				subTLV = &lsTLVUnknown{}
+			}
+		}
+
+		if subTLV == nil {
+			// Unknown sub-TLVs are skipped.
 			if sub.Len() > len(tlv) {
 				return malformedAttrListErr("sub-TLV length exceeds parent TLV length")
 			}
@@ -10539,7 +10629,10 @@ func (l *LsTLVNodeDescriptor) DecodeFromBytes(data []byte) error {
 	_, lsTLVBgpRouterIDExists := m[LS_TLV_BGP_ROUTER_ID]
 	_, lsTLVAutonomousSystemExists := m[LS_TLV_AS]
 
-	if !lsTLVIgpRouterIDExists && (!lsTLVBgpRouterIDExists || !lsTLVAutonomousSystemExists) {
+	// An SR Policy headend descriptor is not checked for particular
+	// sub-TLVs: RFC 9552 Section 8.2.2 forbids treating the NLRI as
+	// malformed based on the inclusion or exclusion of TLVs.
+	if !srPolicy && !lsTLVIgpRouterIDExists && (!lsTLVBgpRouterIDExists || !lsTLVAutonomousSystemExists) {
 		return malformedAttrListErr("Required TLV missing")
 	}
 
@@ -10563,6 +10656,10 @@ func (l *LsTLVNodeDescriptor) Extract() *LsNodeDescriptor {
 			nd.BGPRouterID = v.RouterID
 		case *LsTLVBgpConfederationMember:
 			nd.BGPConfederationMember = v.BgpConfederationMember
+		case *LsTLVLocalIPv4RouterID:
+			nd.LocalRouterID = v.IP
+		case *LsTLVLocalIPv6RouterID:
+			nd.LocalRouterIDv6 = v.IP
 		}
 	}
 
@@ -10607,6 +10704,10 @@ type LsNodeDescriptor struct {
 	IGPRouterID            string     `json:"igp_router_id"`
 	BGPRouterID            netip.Addr `json:"bgp_router_id"`
 	BGPConfederationMember uint32     `json:"bgp_confederation_member"`
+	// IPv4 and IPv6 Router-ID (TLV 1028 and 1029) of the headend of an SR
+	// Policy, RFC 9857 section 3. Only set for the SR Policy NLRI.
+	LocalRouterID   netip.Addr `json:"local_router_id_ipv4,omitzero"`
+	LocalRouterIDv6 netip.Addr `json:"local_router_id_ipv6,omitzero"`
 }
 
 func (l *LsTLVNodeDescriptor) GetLsTLV() LsTLV {
@@ -10791,6 +10892,13 @@ func NewLsTLVNodeDescriptor(nd *LsNodeDescriptor, tlvType LsTLVType) LsTLVNodeDe
 			BGPLsID: nd.BGPLsID,
 		})
 
+	if nd.LocalRouterID.IsValid() {
+		subTLVs = append(subTLVs, NewLsTLVLocalIPv4RouterID(&nd.LocalRouterID))
+	}
+	if nd.LocalRouterIDv6.IsValid() {
+		subTLVs = append(subTLVs, NewLsTLVLocalIPv6RouterID(&nd.LocalRouterIDv6))
+	}
+
 	sort.Slice(subTLVs, func(i, j int) bool {
 		return subTLVs[i].GetLsTLV().Type < subTLVs[j].GetLsTLV().Type
 	})
@@ -10852,7 +10960,11 @@ func (l *LsAddrPrefix) decodeFromBytes(data []byte, options ...*MarshallingOptio
 		prefixv6.NLRIType = LS_NLRI_TYPE_PREFIX_IPV6
 		l.NLRI = prefixv6
 
-	// TODO: LS_NLRI_TYPE_SR_POLICY_CANDIDATE_PATH
+	case LS_NLRI_TYPE_SR_POLICY_CANDIDATE_PATH:
+		srpolicy := &LsSrPolicyCandidatePathNLRI{}
+		srpolicy.Length = l.Length
+		srpolicy.NLRIType = LS_NLRI_TYPE_SR_POLICY_CANDIDATE_PATH
+		l.NLRI = srpolicy
 
 	case LS_NLRI_TYPE_SRV6_SID:
 		srv6sid := &LsSrv6SIDNLRI{}
@@ -10974,10 +11086,16 @@ type LsAttributeLink struct {
 	UnreservedBandwidth *[8]float32 `json:"unreserved_bandwidth,omitempty"`
 	Srlgs               *[]uint32   `json:"srlgs,omitempty"`
 
-	// TODO flag
-	SrAdjacencySID *uint32 `json:"adjacency_sid,omitempty"`
+	// Retained for API compatibility; mirrors the last Adjacency-SID TLV.
+	SrAdjacencySID  *uint32                       `json:"adjacency_sid,omitempty"`
+	SrAdjacencySIDs []LsAttributeLinkAdjacencySID `json:"sr_adjacency_sids,omitempty"`
+	Srv6EndXSID     *LsSrv6EndXSID                `json:"srv6_end_x_sid,omitempty"`
+}
 
-	Srv6EndXSID *LsSrv6EndXSID `json:"srv6_end_x_sid,omitempty"`
+type LsAttributeLinkAdjacencySID struct {
+	Flags  uint8  `json:"flags"`
+	Weight uint8  `json:"weight"`
+	SID    uint32 `json:"sid"`
 }
 
 type LsAttributePrefix struct {
@@ -11029,12 +11147,27 @@ type LsAttributeSrv6SID struct {
 	Srv6EndpointBehavior *LsSrv6EndpointBehavior `json:"srv6_endpoint_behavior,omitempty"`
 }
 
+// LsAttributeSrPolicy holds the BGP-LS attribute TLVs that describe an SR
+// Policy Candidate Path (RFC 9857). Single-instance TLVs are pointers; the
+// SRv6 Binding SID and Segment List TLVs may appear once per Binding SID
+// and per segment list of the candidate path.
+type LsAttributeSrPolicy struct {
+	BindingSID        *LsSrBindingSID               `json:"binding_sid,omitempty"`
+	Srv6BindingSIDs   []LsSrv6BindingSID            `json:"srv6_binding_sids,omitempty"`
+	State             *LsSrCandidatePathState       `json:"state,omitempty"`
+	CandidatePathName *string                       `json:"candidate_path_name,omitempty"`
+	PolicyName        *string                       `json:"policy_name,omitempty"`
+	Constraints       *LsSrCandidatePathConstraints `json:"constraints,omitempty"`
+	SegmentLists      []LsSrSegmentList             `json:"segment_lists,omitempty"`
+}
+
 type LsAttribute struct {
 	Node           LsAttributeNode           `json:"node"`
 	Link           LsAttributeLink           `json:"link"`
 	Prefix         LsAttributePrefix         `json:"prefix"`
 	BgpPeerSegment LsAttributeBgpPeerSegment `json:"bgp_peer_segment"`
 	Srv6SID        LsAttributeSrv6SID        `json:"srv6_sid"`
+	SrPolicy       LsAttributeSrPolicy       `json:"sr_policy,omitzero"`
 }
 
 type PathAttributeLs struct {
@@ -11120,6 +11253,11 @@ func (p *PathAttributeLs) Extract() *LsAttribute {
 
 		case *LsTLVAdjacencySID:
 			l.Link.SrAdjacencySID = &v.SID
+			l.Link.SrAdjacencySIDs = append(l.Link.SrAdjacencySIDs, LsAttributeLinkAdjacencySID{
+				Flags:  v.Flags,
+				Weight: v.Weight,
+				SID:    v.SID,
+			})
 
 		case *LsTLVSrv6EndXSID:
 			l.Link.Srv6EndXSID = v.Extract()
@@ -11187,6 +11325,39 @@ func (p *PathAttributeLs) Extract() *LsAttribute {
 
 		case *LsTLVSrv6EndpointBehavior:
 			l.Srv6SID.Srv6EndpointBehavior = v.Extract()
+
+		// SR Policy Candidate Path TLVs (RFC 9857). Single-instance TLVs:
+		// the first valid instance is used and the rest are ignored.
+		case *LsTLVSrBindingSID:
+			if l.SrPolicy.BindingSID == nil {
+				l.SrPolicy.BindingSID = v.Extract()
+			}
+
+		case *LsTLVSrv6BindingSID:
+			l.SrPolicy.Srv6BindingSIDs = append(l.SrPolicy.Srv6BindingSIDs, *v.Extract())
+
+		case *LsTLVSrCandidatePathState:
+			if l.SrPolicy.State == nil {
+				l.SrPolicy.State = v.Extract()
+			}
+
+		case *LsTLVSrCandidatePathName:
+			if l.SrPolicy.CandidatePathName == nil {
+				l.SrPolicy.CandidatePathName = &v.Name
+			}
+
+		case *LsTLVSrPolicyName:
+			if l.SrPolicy.PolicyName == nil {
+				l.SrPolicy.PolicyName = &v.Name
+			}
+
+		case *LsTLVSrCandidatePathConstraints:
+			if l.SrPolicy.Constraints == nil {
+				l.SrPolicy.Constraints = v.Extract()
+			}
+
+		case *LsTLVSrSegmentList:
+			l.SrPolicy.SegmentLists = append(l.SrPolicy.SegmentLists, *v.Extract())
 		}
 	}
 
@@ -11328,9 +11499,32 @@ func (p *PathAttributeLs) DecodeFromBytes(data []byte, options ...*MarshallingOp
 		case LS_TLV_SRV6_ENDPOINT_BEHAVIOR:
 			tlv = &LsTLVSrv6EndpointBehavior{}
 
+		// SR Policy Candidate Path related TLVs (RFC 9857).
+		case LS_TLV_SR_CP_CONSTRAINTS:
+			tlv = &LsTLVSrCandidatePathConstraints{}
+
+		case LS_TLV_SR_BINDING_SID:
+			tlv = &LsTLVSrBindingSID{}
+
+		case LS_TLV_SRV6_BINDING_SID:
+			tlv = &LsTLVSrv6BindingSID{}
+
+		case LS_TLV_SR_CP_STATE:
+			tlv = &LsTLVSrCandidatePathState{}
+
+		case LS_TLV_SR_CP_NAME:
+			tlv = &LsTLVSrCandidatePathName{}
+
+		case LS_TLV_SR_POLICY_NAME:
+			tlv = &LsTLVSrPolicyName{}
+
+		case LS_TLV_SR_SEGMENT_LIST:
+			tlv = &LsTLVSrSegmentList{}
+
 		default:
-			tlvs = tlvs[t.Len():]
-			continue
+			// RFC 9552 Section 5.1: unknown TLV types are preserved and
+			// propagated within the BGP-LS Attribute.
+			tlv = &lsTLVUnknown{}
 		}
 
 		if err := tlv.DecodeFromBytes(tlvs); err != nil {

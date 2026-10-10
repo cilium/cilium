@@ -1,3 +1,7 @@
+# v1.338.1 (2026-10-01)
+
+* **Documentation**: This release launches the AMI tag sharing feature, which lets AMI owners share tags alongside their AMIs, eliminating the need to build and maintain custom tag replication workflows.
+
 # v1.338.0 (2026-09-29)
 
 * **Feature**: Adds the LaunchStatus field to CapacityReservation in the DescribeCapacityReservations response. This field indicates whether you can currently launch instances into an UltraServer.

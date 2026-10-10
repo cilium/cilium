@@ -222,11 +222,11 @@ func (n *Neighbor) NeedsResendOpenMessage(new *Neighbor) bool {
 	return !n.Config.Equal(&new.Config) ||
 		!n.Transport.Config.Equal(&new.Transport.Config) ||
 		!n.AddPaths.Config.Equal(&new.AddPaths.Config) ||
-		!n.AsPathOptions.Config.Equal(&new.AsPathOptions.Config) ||
 		!n.GracefulRestart.Config.Equal(&new.GracefulRestart.Config) ||
 		isAfiSafiChanged(n.AfiSafis, new.AfiSafis) ||
 		!n.EbgpMultihop.Config.Equal(&new.EbgpMultihop.Config) ||
-		!n.TtlSecurity.Config.Equal(&new.TtlSecurity.Config)
+		!n.TtlSecurity.Config.Equal(&new.TtlSecurity.Config) ||
+		n.TcpAo.Config.Keychain != new.TcpAo.Config.Keychain
 }
 
 // TODO: these regexp are duplicated in api
@@ -562,7 +562,7 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 	return &api.Peer{
 		ApplyPolicy: newApplyPolicyFromConfigStruct(&pconf.ApplyPolicy),
 		Conf: &api.PeerConf{
-			NeighborAddress:      pconf.Config.NeighborAddress.String(),
+			NeighborAddress:      apiutil.AddrOrEmpty(pconf.Config.NeighborAddress),
 			PeerAsn:              pconf.Config.PeerAs,
 			LocalAsn:             pconf.Config.LocalAs,
 			Type:                 toPeerType(pconf.Config.PeerType),
@@ -606,12 +606,14 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 			},
 			PeerAsn:         s.PeerAs,
 			LocalAsn:        s.LocalAs,
+			Description:     s.Description,
+			PeerGroup:       s.PeerGroup,
 			Type:            toPeerType(s.PeerType),
-			NeighborAddress: pconf.State.NeighborAddress.String(),
+			NeighborAddress: apiutil.AddrOrEmpty(pconf.State.NeighborAddress),
 			Queues:          &api.Queues{},
 			RemoteCap:       remoteCap,
 			LocalCap:        localCap,
-			RouterId:        s.RemoteRouterId.String(),
+			RouterId:        apiutil.AddrOrEmpty(s.RemoteRouterId),
 			Flops:           s.Flops,
 			BfdState: &api.BfdPeerState{
 				SessionState:                 bfdSessionStateToAPI(pconf.Bfd.State.SessionState),
@@ -653,7 +655,7 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 		},
 		RouteReflector: &api.RouteReflector{
 			RouteReflectorClient:    pconf.RouteReflector.Config.RouteReflectorClient,
-			RouteReflectorClusterId: pconf.RouteReflector.State.RouteReflectorClusterId.String(),
+			RouteReflectorClusterId: apiutil.AddrOrEmpty(pconf.RouteReflector.State.RouteReflectorClusterId),
 		},
 		RouteServer: &api.RouteServer{
 			RouteServerClient: pconf.RouteServer.Config.RouteServerClient,
@@ -673,12 +675,13 @@ func NewPeerFromConfigStruct(pconf *Neighbor) *api.Peer {
 		Transport: &api.Transport{
 			RemotePort:    uint32(pconf.Transport.Config.RemotePort),
 			LocalPort:     uint32(pconf.Transport.Config.LocalPort),
-			LocalAddress:  localAddress.String(),
+			LocalAddress:  apiutil.AddrOrEmpty(localAddress),
 			PassiveMode:   pconf.Transport.Config.PassiveMode,
 			BindInterface: pconf.Transport.Config.BindInterface,
 			TcpMss:        uint32(pconf.Transport.Config.TcpMss),
 			IpTos:         uint32(pconf.Transport.Config.IpTos),
 		},
+		TcpAo:    newTcpAoPeerConfigFromConfigStruct(&pconf.TcpAo.Config),
 		AfiSafis: afiSafis,
 		Bfd: &api.BfdPeerConfig{
 			Enabled:                  pconf.Bfd.Config.Enabled,
@@ -762,6 +765,16 @@ func readTcpAoMasterKey(secretKey string) ([]byte, error) {
 	return masterKey, nil
 }
 
+func newTcpAoPeerConfigFromConfigStruct(config *TcpAoConfig) *api.TcpAoPeerConfig {
+	if config.Keychain == "" {
+		return nil
+	}
+	return &api.TcpAoPeerConfig{
+		Keychain: string(config.Keychain),
+		SendId:   uint32(config.SendId),
+	}
+}
+
 func NewPeerGroupFromConfigStruct(pconf *PeerGroup) *api.PeerGroup {
 	afiSafis := make([]*api.AfiSafi, 0, len(pconf.AfiSafis))
 	for _, f := range pconf.AfiSafis {
@@ -819,7 +832,7 @@ func NewPeerGroupFromConfigStruct(pconf *PeerGroup) *api.PeerGroup {
 		},
 		RouteReflector: &api.RouteReflector{
 			RouteReflectorClient:    pconf.RouteReflector.Config.RouteReflectorClient,
-			RouteReflectorClusterId: pconf.RouteReflector.Config.RouteReflectorClusterId.String(),
+			RouteReflectorClusterId: apiutil.AddrOrEmpty(pconf.RouteReflector.Config.RouteReflectorClusterId),
 		},
 		RouteServer: &api.RouteServer{
 			RouteServerClient: pconf.RouteServer.Config.RouteServerClient,
@@ -836,12 +849,13 @@ func NewPeerGroupFromConfigStruct(pconf *PeerGroup) *api.PeerGroup {
 		},
 		Transport: &api.Transport{
 			RemotePort:    uint32(pconf.Transport.Config.RemotePort),
-			LocalAddress:  pconf.Transport.Config.LocalAddress.String(),
+			LocalAddress:  apiutil.AddrOrEmpty(pconf.Transport.Config.LocalAddress),
 			PassiveMode:   pconf.Transport.Config.PassiveMode,
 			BindInterface: pconf.Transport.Config.BindInterface,
 			TcpMss:        uint32(pconf.Transport.Config.TcpMss),
 			IpTos:         uint32(pconf.Transport.Config.IpTos),
 		},
+		TcpAo:    newTcpAoPeerConfigFromConfigStruct(&pconf.TcpAo.Config),
 		AfiSafis: afiSafis,
 		Bfd: &api.BfdPeerConfig{
 			Enabled:                  pconf.Bfd.Config.Enabled,
@@ -861,12 +875,12 @@ func NewGlobalFromConfigStruct(c *Global) *api.Global {
 
 	l := make([]string, 0, len(c.Config.LocalAddressList))
 	for _, addr := range c.Config.LocalAddressList {
-		l = append(l, addr.String())
+		l = append(l, apiutil.AddrOrEmpty(addr))
 	}
 
 	return &api.Global{
 		Asn:              c.Config.As,
-		RouterId:         c.Config.RouterId.String(),
+		RouterId:         apiutil.AddrOrEmpty(c.Config.RouterId),
 		ListenPort:       c.Config.Port,
 		ListenAddresses:  l,
 		Families:         families,

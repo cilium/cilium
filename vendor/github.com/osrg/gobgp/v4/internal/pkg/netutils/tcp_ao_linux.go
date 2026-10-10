@@ -59,7 +59,12 @@ func AddTCPAOKeysSockopt(sc syscall.RawConn, peer netip.Prefix, interfaceName st
 }
 
 // DeleteTCPAOKeysSockopt removes all configured keys from a TCP socket.
-func DeleteTCPAOKeysSockopt(sc syscall.RawConn, peer netip.Prefix, interfaceName string, config TCPAOConfig) error {
+// delAsync skips the RCU grace period that the kernel otherwise waits for on
+// every key, so a listening socket with many keys is much cheaper to update.
+// The kernel only accepts it on a listening socket and returns EINVAL
+// otherwise, because CurrentKey and RNextKey do not exist on a listener and
+// need no check.
+func DeleteTCPAOKeysSockopt(sc syscall.RawConn, peer netip.Prefix, interfaceName string, config TCPAOConfig, delAsync bool) error {
 	vrfIfIndex, err := vrfInterfaceIndex(interfaceName)
 	if err != nil {
 		return err
@@ -71,7 +76,7 @@ func DeleteTCPAOKeysSockopt(sc syscall.RawConn, peer netip.Prefix, interfaceName
 		return err
 	}
 	for _, key := range config.Keys {
-		command, err := marshalTCPAODel(peer, vrfIfIndex, key)
+		command, err := marshalTCPAODel(peer, vrfIfIndex, key, delAsync)
 		if err != nil {
 			return err
 		}

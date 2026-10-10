@@ -89,14 +89,18 @@ func NewBitmap(size int) *Bitmap {
 }
 
 type originInfo struct {
-	nlri               bgp.NLRI
-	nlriString         string
-	source             *PeerInfo
-	timestamp          int64
+	nlri       bgp.NLRI
+	nlriString string
+	source     *PeerInfo
+	timestamp  int64
+	// stale is the only field written after the path has been handed to
+	// another goroutine. AdjRib.StaleAll writes it through Path.root() while
+	// the watcher goroutines read it with IsStale(), and no lock covers both
+	// sides, so it has to be atomic.
+	stale              atomic.Bool
 	noImplicitWithdraw bool
 	isFromExternal     bool
 	eor                bool
-	stale              bool
 }
 
 type RpkiValidationReasonType string
@@ -232,6 +236,68 @@ func cloneAsPath(asAttr *bgp.PathAttributeAsPath) *bgp.PathAttributeAsPath {
 	return bgp.NewPathAttributeAsPath(newASparams)
 }
 
+// learnedOnSameLink reports whether the path was learned over the same
+// interface as the session described by info.
+//
+// gobgp knows the interface of a session only when the peer address is a
+// link-local address, which carries a zone. Both sessions must have one and
+// they must be equal.
+func (path *Path) learnedOnSameLink(info *PeerInfo) bool {
+	zone := path.GetSource().Address.Zone()
+	return zone != "" && zone == info.Address.Zone()
+}
+
+// updateLinkLocalNexthop drops the link-local part of the next hop when the
+// peer we advertise to is not on the link the next hop belongs to.
+//
+// RFC 2545 3. Constructing the Next Hop field
+//
+//	The link-local address shall be included in the Next Hop field if and
+//	only if the BGP speaker shares a common subnet with the entity
+//	identified by the global IPv6 address carried in the Network Address
+//	of Next Hop field and the peer the route is being advertised to.
+//
+//	In all other cases a BGP speaker shall advertise to its peer in the
+//	Network Address field only the global IPv6 address of the next hop
+//	(the value of the Length of Network Address of Next Hop field shall
+//	be set to 16).
+//
+// gobgp can only tell that two sessions share a link when both use a
+// link-local peer address on the same interface. Every other case takes the
+// second rule and sends the global address alone.
+//
+// A peer with no global address on the link puts an unspecified or a
+// link-local address in the global part of the next hop, so there is no global
+// address to fall back to. Such a next hop is only usable on the link it came
+// from, so we make ourselves the next hop instead. BIRD (bgp_use_next_hop) and
+// FRR (bpacket_reformat_for_peer) do the same, and both treat an unspecified
+// and a link-local global address alike.
+func updateLinkLocalNexthop(info *PeerInfo, path *Path) {
+	globalNexthop, linkLocalNexthop := path.mpReachNexthops()
+	// An IPv4 next hop has no link-local form in an MP_REACH_NLRI
+	// attribute, so leave it alone. 169.254.0.0/16 is not handled here.
+	onLink := globalNexthop.Is6() && !globalNexthop.Is4In6() &&
+		(globalNexthop.IsUnspecified() || globalNexthop.IsLinkLocalUnicast())
+	if !onLink && !linkLocalNexthop.IsLinkLocalUnicast() {
+		return
+	}
+	if path.learnedOnSameLink(info) {
+		return
+	}
+	if path.IsLocal() && !globalNexthop.IsUnspecified() {
+		// The next hop was set by the operator, keep it as it is. An
+		// unspecified one is still replaced, because the peer cannot
+		// use it and because that is what the switch below does for
+		// every other family.
+		return
+	}
+	if onLink {
+		// The zone is stripped because a BGP next hop cannot carry one.
+		globalNexthop = info.LocalAddress.WithZone("")
+	}
+	path.SetNexthop(globalNexthop)
+}
+
 func UpdatePathAttrs(logger *slog.Logger, global *oc.Global, info *PeerInfo, original *Path) *Path {
 	if info.RouteServerClient {
 		return original
@@ -253,6 +319,8 @@ func UpdatePathAttrs(logger *slog.Logger, global *oc.Global, info *PeerInfo, ori
 			}
 		}
 	}
+
+	updateLinkLocalNexthop(info, path)
 
 	localAddress := info.LocalAddress
 	nexthop := path.GetNexthop()
@@ -417,11 +485,11 @@ func (path *Path) GetSource() *PeerInfo {
 }
 
 func (path *Path) MarkStale(s bool) {
-	path.OriginInfo().stale = s
+	path.OriginInfo().stale.Store(s)
 }
 
 func (path *Path) IsStale() bool {
-	return path.OriginInfo().stale
+	return path.OriginInfo().stale.Load()
 }
 
 func (path *Path) IsRejected() bool {
@@ -471,7 +539,16 @@ func (path *Path) GetNexthop() netip.Addr {
 	}
 	attr = path.getPathAttr(bgp.BGP_ATTR_TYPE_MP_REACH_NLRI)
 	if attr != nil {
-		return attr.(*bgp.PathAttributeMpReachNLRI).Nexthop
+		mp := attr.(*bgp.PathAttributeMpReachNLRI)
+		// A peer with no global address on the link sends an
+		// unspecified global address together with the link-local one.
+		// The link-local address is the only next hop we can use then.
+		// The attribute is left as it is so that the received form is
+		// kept for the peers that share the link.
+		if mp.Nexthop.IsUnspecified() && mp.LinkLocalNexthop.IsLinkLocalUnicast() {
+			return mp.LinkLocalNexthop
+		}
+		return mp.Nexthop
 	}
 	return netip.Addr{}
 }
@@ -1134,7 +1211,7 @@ func (lhs *Path) Equal(rhs *Path) bool {
 
 	// The attributes hash deliberately excludes MP_REACH_NLRI so it can double
 	// as the UPDATE batching key (see CreateUpdateMsgFromPaths), so its content
-	// — the nexthops and the NLRI — must be compared explicitly here; every
+	// -- the nexthops and the NLRI -- must be compared explicitly here; every
 	// other attribute, including NEXT_HOP, is covered by the hash. The NLRI
 	// comparison uses serialized bytes because it must cover fields outside
 	// the route key (e.g. the TEID of a MUP type-1 session transformed route),

@@ -16,10 +16,15 @@ package server
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"maps"
 	"math"
+	"net"
+	"net/netip"
 	"slices"
 	"sync"
+	"syscall"
 
 	"github.com/osrg/gobgp/v4/api"
 	"github.com/osrg/gobgp/v4/internal/pkg/netutils"
@@ -240,6 +245,14 @@ func (c *tcpAoKeychain) toAPIKeychain() *api.TcpAoKeychain {
 	return result
 }
 
+func (c *tcpAoKeychain) hasSendID(sendID uint8) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	_, ok := c.keys[sendID]
+	return ok
+}
+
 func (c *tcpAoKeychain) getKey(sendID, receiveID uint8) (netutils.TCPAOKey, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -291,4 +304,169 @@ func (c *tcpAoKeychain) clearKeys() {
 		clear(key.MasterKey)
 	}
 	clear(c.keys)
+}
+
+func (c *tcpAoKeychain) socketKeys(preferredSendID uint8) (*tcpAoSocketKeys, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if len(c.keys) == 0 {
+		return nil, status.Errorf(codes.NotFound, "TCP-AO keychain %q does not contain any key", c.name)
+	}
+	if _, ok := c.keys[preferredSendID]; !ok {
+		return nil, status.Errorf(codes.NotFound, "TCP-AO keychain %q has no key with send ID %d", c.name, preferredSendID)
+	}
+	keys := slices.Collect(maps.Values(c.keys))
+	return newTcpAoSocketKeys(keys, &preferredSendID), nil
+}
+
+// tcpAoSocketKeys is a short-lived TCP-AO key snapshot used for socket operations.
+// Its master keys are deep-copied while the keychain is locked, allowing the
+// potentially blocking socket calls to run without holding keychain lock.
+// The preferred send ID is optional: listeners and key deletion only need the keys;
+// active and accepted connections also select a send ID.
+type tcpAoSocketKeys struct {
+	keys            []netutils.TCPAOKey
+	preferredSendID *uint8
+}
+
+func newTcpAoSocketKeys(keys []netutils.TCPAOKey, preferredSendID *uint8) *tcpAoSocketKeys {
+	socketKeys := &tcpAoSocketKeys{keys: make([]netutils.TCPAOKey, 0, len(keys))}
+	for _, key := range keys {
+		key.MasterKey = append([]byte{}, key.MasterKey...)
+		socketKeys.keys = append(socketKeys.keys, key)
+	}
+	if preferredSendID != nil {
+		preferred := *preferredSendID
+		socketKeys.preferredSendID = &preferred
+	}
+	return socketKeys
+}
+
+func (k *tcpAoSocketKeys) netutilsConfig(selectPreferred bool) (netutils.TCPAOConfig, error) {
+	if k == nil {
+		return netutils.TCPAOConfig{}, fmt.Errorf("missing TCP-AO socket keys")
+	}
+	result := netutils.TCPAOConfig{Keys: k.keys}
+	if selectPreferred {
+		if k.preferredSendID == nil {
+			return netutils.TCPAOConfig{}, fmt.Errorf("missing TCP-AO preferred send ID")
+		}
+		preferred := *k.preferredSendID
+		result.PreferredSendID = &preferred
+	}
+	return result, nil
+}
+
+func addTcpAoKeys(raw syscall.RawConn, peerAddr netip.Addr, interfaceName string, socketKeys *tcpAoSocketKeys, selectPreferred bool) error {
+	config, err := socketKeys.netutilsConfig(selectPreferred)
+	if err != nil {
+		return err
+	}
+	return netutils.AddTCPAOKeysSockopt(raw, tcpAoPeerPrefix(peerAddr), interfaceName, config)
+}
+
+// deleteTcpAoKeys removes the given keys from one socket. Pass delAsync only
+// for a listening socket; the kernel rejects it on any other socket.
+func deleteTcpAoKeys(raw syscall.RawConn, peerAddr netip.Addr, interfaceName string, socketKeys *tcpAoSocketKeys, delAsync bool) error {
+	config, err := socketKeys.netutilsConfig(false)
+	if err != nil {
+		return err
+	}
+	return netutils.DeleteTCPAOKeysSockopt(raw, tcpAoPeerPrefix(peerAddr), interfaceName, config, delAsync)
+}
+
+func addTcpAoKeysToListeners(listeners []*net.TCPListener, peerAddr netip.Addr, interfaceName string, socketKeys *tcpAoSocketKeys) error {
+	configured := make([]*net.TCPListener, 0, len(listeners))
+	rollback := func(cause error) error {
+		errs := []error{cause}
+		for _, err := range deleteTcpAoKeysFromListeners(configured, peerAddr, interfaceName, socketKeys) {
+			errs = append(errs, fmt.Errorf("failed to roll back TCP-AO listener configuration: %w", err))
+		}
+		return errors.Join(errs...)
+	}
+	for _, listener := range listeners {
+		raw, err := listener.SyscallConn()
+		if err != nil {
+			return rollback(err)
+		}
+		// AddTCPAOKeysSockopt installs keys one at a time and can fail
+		// after partially configuring the listener.
+		configured = append(configured, listener)
+		if err := addTcpAoKeys(raw, peerAddr, interfaceName, socketKeys, false); err != nil {
+			return rollback(err)
+		}
+	}
+	return nil
+}
+
+func deleteTcpAoKeysFromListeners(listeners []*net.TCPListener, peerAddr netip.Addr, interfaceName string, socketKeys *tcpAoSocketKeys) []error {
+	var result []error
+	for _, listener := range listeners {
+		raw, err := listener.SyscallConn()
+		if err == nil {
+			err = deleteTcpAoKeys(raw, peerAddr, interfaceName, socketKeys, true)
+		}
+		if err != nil {
+			result = append(result, err)
+		}
+	}
+	return result
+}
+
+func setTcpAoConnectionRNext(conn net.Conn, socketKeys *tcpAoSocketKeys) error {
+	raw, err := tcpAoRawConn(conn)
+	if err != nil {
+		return err
+	}
+	config, err := socketKeys.netutilsConfig(true)
+	if err != nil {
+		return err
+	}
+	return netutils.SetTCPAOKeySockopt(raw, config, true, false)
+}
+
+func getTcpAoConnectionState(conn net.Conn) (*api.TcpAoPeerState, error) {
+	raw, err := tcpAoRawConn(conn)
+	if err != nil {
+		return nil, err
+	}
+	keyStates, err := netutils.GetTCPAOKeyStateSockopt(raw)
+	if err != nil {
+		return nil, err
+	}
+	counters, err := netutils.GetTCPAOSocketCountersSockopt(raw)
+	if err != nil {
+		return nil, err
+	}
+	state := &api.TcpAoPeerState{
+		Keys:               make([]*api.TcpAoKeyState, 0, len(keyStates)),
+		PacketsKeyNotFound: counters.PacketsKeyNotFound,
+		PacketsAoRequired:  counters.PacketsAORequired,
+		PacketsDroppedIcmp: counters.PacketsDroppedICMP,
+	}
+	for _, key := range keyStates {
+		state.Keys = append(state.Keys, &api.TcpAoKeyState{
+			SendId:      uint32(key.SendID),
+			ReceiveId:   uint32(key.ReceiveID),
+			Current:     key.Current,
+			ReceiveNext: key.ReceiveNext,
+			PacketsGood: key.PacketsGood,
+			PacketsBad:  key.PacketsBad,
+		})
+	}
+	return state, nil
+}
+
+func tcpAoPeerPrefix(addr netip.Addr) netip.Prefix {
+	addr = addr.Unmap()
+	return netip.PrefixFrom(addr, addr.BitLen())
+}
+
+func tcpAoRawConn(conn net.Conn) (syscall.RawConn, error) {
+	syscallConn, ok := conn.(syscall.Conn)
+	if !ok {
+		return nil, fmt.Errorf("TCP connection does not expose a syscall connection")
+	}
+	return syscallConn.SyscallConn()
 }

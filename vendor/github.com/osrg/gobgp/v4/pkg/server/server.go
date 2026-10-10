@@ -142,6 +142,7 @@ type BgpServer struct {
 	policy        *table.RoutingPolicy
 	listeners     []*netutils.TCPListener
 	neighborMap   map[netip.Addr]*peer
+	rrClusterIDs  map[netip.Addr]struct{}
 	peerGroupMap  map[string]*peerGroup
 	globalRib     *table.TableManager
 	rsRib         *table.TableManager
@@ -184,6 +185,7 @@ func NewBgpServer(opt ...ServerOption) *BgpServer {
 	s := &BgpServer{
 		shared:       shared,
 		neighborMap:  make(map[netip.Addr]*peer),
+		rrClusterIDs: make(map[netip.Addr]struct{}),
 		peerGroupMap: make(map[string]*peerGroup),
 		policy:       table.NewRoutingPolicy(logger),
 		mgmtCh:       make(chan *mgmtOp),
@@ -341,10 +343,31 @@ func (s *BgpServer) passConnToPeer(conn net.Conn) {
 			conn.Close()
 			return
 		}
+		if keyBinding := peer.fsm.tcpAoKeyBinding.Load(); keyBinding != nil {
+			tcpAoKeys, err := keyBinding.socketKeys()
+			if err != nil {
+				peer.fsm.logger.Warn("could not load TCP-AO keychain", slog.String("Error", err.Error()))
+				conn.Close()
+				return
+			}
+			if err := setTcpAoConnectionRNext(conn, tcpAoKeys); err != nil {
+				peer.fsm.logger.Warn("could not configure TCP-AO for the connection", slog.String("Error", err.Error()))
+				conn.Close()
+				return
+			}
+		}
 
 		peer.fsm.logger.Debug("Accepted a new passive connection")
 		peer.PassConn(conn)
 	} else if pg := s.matchLongestDynamicNeighborPrefix(addr.WithZone("").String()); pg != nil {
+		localTCPAddr, ok := conn.LocalAddr().(*net.TCPAddr)
+		if !ok {
+			s.logger.Warn("Failed to get TCPAddr from LocalAddr", slog.String("Topic", "Server"))
+			conn.Close()
+			return
+		}
+		localAddr, _ := netip.AddrFromSlice(localTCPAddr.IP)
+		localAddr = localAddr.WithZone(localTCPAddr.Zone)
 		s.logger.Debug("Accepted a new dynamic neighbor",
 			slog.String("Topic", "Peer"),
 			slog.String("Key", addr.String()),
@@ -371,10 +394,11 @@ func (s *BgpServer) passConnToPeer(conn net.Conn) {
 		}
 
 		s.neighborMap[addr] = peer
+		s.rebuildLocalClusterIDs()
 		// register BFD for the dynamic neighbor too (explicit neighbors do this in addNeighbor): the
 		// BFD config is inherited from the peer group. Without this, BFD never runs for dynamic peers.
 		if s.bfdServer != nil && conf.Bfd.Config.Enabled {
-			if err := s.bfdServer.AddPeer(context.Background(), addr, conf.Bfd.Config, s.bgpConfig.Global.Config.BindToDevice); err != nil {
+			if err := s.bfdServer.addPeer(context.Background(), addr, conf.Bfd.Config, localAddr, s.bgpConfig.Global.Config.BindToDevice); err != nil {
 				s.logger.Warn("failed to add BFD peer for dynamic neighbor",
 					slog.String("Topic", "Peer"),
 					slog.String("Key", addr.String()),
@@ -752,7 +776,7 @@ func (s *BgpServer) setPathVrfIdMap(paths []*table.Path, m map[uint32]bool) {
 // Note: the destination would be the same for all the paths passed here
 // The wather (only zapi) needs a unique list of vrf IDs
 func (s *BgpServer) notifyBestWatcher(best []*table.Path, multipath [][]*table.Path, multipathUpdate []*table.Path, multipathWithdraw []*table.Path) {
-	if table.SelectionOptions.DisableBestPathSelection {
+	if s.globalRib.DisableBestPathSelection() {
 		// Note: If best path selection disabled, no best path to notify.
 		return
 	}
@@ -760,14 +784,14 @@ func (s *BgpServer) notifyBestWatcher(best []*table.Path, multipath [][]*table.P
 	clonedM := make([][]*table.Path, len(multipath))
 	for i, pathList := range multipath {
 		clonedM[i] = clonePathList(pathList)
-		if table.UseMultiplePaths.Enabled {
+		if s.globalRib.UseMultiplePathsEnabled() {
 			s.setPathVrfIdMap(clonedM[i], m)
 		}
 	}
 	clonedB := clonePathList(best)
 	clonedU := clonePathList(multipathUpdate)
 	clonedW := clonePathList(multipathWithdraw)
-	if !table.UseMultiplePaths.Enabled {
+	if !s.globalRib.UseMultiplePathsEnabled() {
 		s.setPathVrfIdMap(clonedB, m)
 	}
 	w := &watchEventBestPath{
@@ -1022,35 +1046,20 @@ func (s *BgpServer) broadcastPeerState(peer *peer, newState, oldState bgp.FSMSta
 	s.notifyWatcher(watchEventTypePeerState, newWatchEventPeer(peer, e, newState, oldState, apiutil.PEER_EVENT_STATE))
 }
 
-// notifyMessageWatcher notifies recv message to watchers.
-// The peer is guaranteed to be in ESTABLISHED state.
-func (s *BgpServer) notifyMessageWatcher(peer *peer, timestamp time.Time, msg *bgp.BGPMessage, isSent bool) {
-	// validation should be done in the caller of this function
-	conf := peer.fsm.pConf.ReadOnly()
-	peer.fsm.lock.Lock()
-	_, y := peer.fsm.capMap[bgp.BGP_CAP_FOUR_OCTET_AS_NUMBER]
-	peer.fsm.lock.Unlock()
-	ev := &watchEventMessage{
-		Message:      msg,
-		PeerAS:       conf.State.PeerAs,
-		LocalAS:      conf.Config.LocalAs,
-		PeerAddress:  conf.State.NeighborAddress,
-		LocalAddress: conf.Transport.State.LocalAddress,
-		PeerID:       conf.State.RemoteRouterId,
-		FourBytesAs:  y,
-		Timestamp:    timestamp,
-		IsSent:       isSent,
-	}
-	if !isSent {
-		s.notifyWatcher(watchEventTypeRecvMsg, ev)
-	}
-}
-
-func (s *BgpServer) notifyRecvMessageWatcher(peer *peer, timestamp time.Time, msg *bgp.BGPMessage) {
+// notifyRecvMessageWatcher notifies a message received from peer to the
+// watchers. The peer is guaranteed to be in ESTABLISHED state.
+func (s *BgpServer) notifyRecvMessageWatcher(peer *peer, timestamp time.Time, payload []byte) {
 	if peer == nil || !s.isWatched(watchEventTypeRecvMsg) {
 		return
 	}
-	s.notifyMessageWatcher(peer, timestamp, msg, false)
+	conf := peer.fsm.pConf.ReadOnly()
+	s.notifyWatcher(watchEventTypeRecvMsg, &watchEventMessage{
+		Payload:     payload,
+		PeerAS:      conf.State.PeerAs,
+		PeerAddress: conf.State.NeighborAddress,
+		PeerID:      conf.State.RemoteRouterId,
+		Timestamp:   timestamp,
+	})
 }
 
 func (s *BgpServer) getPossibleBest(peer *peer, family bgp.Family) []*table.Path {
@@ -1318,8 +1327,6 @@ func (s *BgpServer) propagateUpdate(peer *peer, pathList []*table.Path) {
 			}
 
 			if !rs {
-				s.notifyPostPolicyUpdateWatcher(peer, []*table.Path{path})
-
 				// RFC4684 Constrained Route Distribution 6. Operation
 				//
 				// When a BGP speaker receives a BGP UPDATE that advertises or withdraws
@@ -1337,6 +1344,22 @@ func (s *BgpServer) propagateUpdate(peer *peer, pathList []*table.Path) {
 			}
 
 			if dsts := rib.Update(path); len(dsts) > 0 {
+				// Report the path to the post-policy watchers only when it is
+				// not the one the table already held. An inbound soft reset
+				// replays the whole Adj-RIB-In, and a subscriber that got the
+				// path once needs no second copy of it: the dump it starts from
+				// and the live stream are registered in one management
+				// operation, so nothing is lost in between and every subscriber
+				// already holds the current value.
+				//
+				// dsts[0] is the update for path. Table.update returns nil only
+				// for a withdrawal that removed nothing, and the extra updates
+				// EVPN MAC mobility appends are never generated for a
+				// withdrawal, so they cannot come first.
+				if !rs && dsts[0].Changed {
+					s.notifyPostPolicyUpdateWatcher(peer, []*table.Path{path})
+				}
+
 				s.propagateUpdateToNeighbors(rib, peer, path, dsts, true)
 			}
 		}(path)
@@ -1347,7 +1370,7 @@ func (s *BgpServer) propagateUpdate(peer *peer, pathList []*table.Path) {
 // from peer, updating the membership index and sending the minimum necessary VPN route
 // updates to the peer.
 //
-// RFC4684 §6: re-evaluate RIB-OUTs for VPN NLRIs matching the Route Target.
+// RFC4684 Section 6: re-evaluate RIB-OUTs for VPN NLRIs matching the Route Target.
 func (s *BgpServer) processRTCMembership(peer *peer, path *table.Path) {
 	nlri, ok := path.GetNlri().(*bgp.RouteTargetMembershipNLRI)
 	if !ok {
@@ -1430,7 +1453,7 @@ func (s *BgpServer) rtcVPNCandidates(peer *peer, isWithdraw bool, rt bgp.Extende
 	fn(nil, s.globalRib.GetBestPathList(peer.TableID(), 0, fs))
 }
 
-func dstsToPaths(id string, as uint32, dsts []*table.Update) ([]*table.Path, []*table.Path, [][]*table.Path, []*table.Path, []*table.Path) {
+func dstsToPaths(id string, as uint32, dsts []*table.Update, useMultiplePaths bool) ([]*table.Path, []*table.Path, [][]*table.Path, []*table.Path, []*table.Path) {
 	bestList := make([]*table.Path, 0, len(dsts))
 	oldList := make([]*table.Path, 0, len(dsts))
 	mpathList := make([][]*table.Path, 0, len(dsts))
@@ -1438,13 +1461,13 @@ func dstsToPaths(id string, as uint32, dsts []*table.Update) ([]*table.Path, []*
 	multipathWithdraw := make([]*table.Path, 0, len(dsts))
 
 	for _, dst := range dsts {
-		best, old, mpath := dst.GetChanges(id, as, false)
+		best, old, mpath := dst.GetChanges(id, as, false, useMultiplePaths)
 		bestList = append(bestList, best)
 		oldList = append(oldList, old)
 		if mpath != nil {
 			mpathList = append(mpathList, mpath)
 		}
-		if id == table.GLOBAL_RIB_NAME && table.UseMultiplePaths.Enabled {
+		if id == table.GLOBAL_RIB_NAME && useMultiplePaths {
 			u, w := dst.GetMultiBestPathDiff(id)
 			multipathUpdate = append(multipathUpdate, u...)
 			multipathWithdraw = append(multipathWithdraw, w...)
@@ -1454,14 +1477,15 @@ func dstsToPaths(id string, as uint32, dsts []*table.Update) ([]*table.Path, []*
 }
 
 func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *peer, newPath *table.Path, dsts []*table.Update, needOld bool) {
-	if table.SelectionOptions.DisableBestPathSelection {
+	if rib.DisableBestPathSelection() {
 		return
 	}
+	useMultiplePaths := rib.UseMultiplePathsEnabled()
 	var gBestList, gOldList []*table.Path
 	var mpathList [][]*table.Path
 	var multipathUpdate, multipathWithdraw []*table.Path
 	if source == nil || !source.isRouteServerClient() {
-		gBestList, gOldList, mpathList, multipathUpdate, multipathWithdraw = dstsToPaths(table.GLOBAL_RIB_NAME, 0, dsts)
+		gBestList, gOldList, mpathList, multipathUpdate, multipathWithdraw = dstsToPaths(table.GLOBAL_RIB_NAME, 0, dsts, useMultiplePaths)
 		s.notifyBestWatcher(gBestList, mpathList, multipathUpdate, multipathWithdraw)
 	}
 	family := newPath.GetFamily()
@@ -1589,7 +1613,7 @@ func (s *BgpServer) propagateUpdateToNeighbors(rib *table.TableManager, source *
 						}
 						return
 					}
-					bestList, oldList, _, _, _ = dstsToPaths(targetPeer.TableID(), targetPeer.AS(), dsts)
+					bestList, oldList, _, _, _ = dstsToPaths(targetPeer.TableID(), targetPeer.AS(), dsts, useMultiplePaths)
 				} else {
 					bestList = gBestList
 					oldList = gOldList
@@ -1613,6 +1637,7 @@ func (s *BgpServer) stopNeighbor(peer *peer, oldState bgp.FSMState, e *fsmMsg) {
 	key := netip.MustParseAddr(peer.ID())
 	if s.neighborMap[key] == peer {
 		delete(s.neighborMap, key)
+		s.rebuildLocalClusterIDs()
 		// Drop the policy assignment of this peer as well. Only a route server
 		// client has one, but peer.ID() is always an address and never collides
 		// with the global RIB name, so there is nothing to check here.
@@ -1798,7 +1823,15 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 			}
 		}
 
-		drainChannel(peer.fsm.outgoingCh.Out())
+		// Drop the messages that the last session did not send. The
+		// nonblocking drainChannel cannot be used here. It returns before
+		// the InfiniteChannel worker moves the next item to the output.
+		// No other goroutine reads or writes the queue at this point: the
+		// send loop of the last session has exited, and the peer is not
+		// established, so nothing new is queued. So Len() is exact.
+		for peer.fsm.outgoingCh.Len() > 0 {
+			<-peer.fsm.outgoingCh.Out()
+		}
 		// Drop any queued notification. Either it raced with the end of the
 		// session it was meant for, or it was generated while no session was
 		// up, e.g. by BFD detecting a failure while the peer was down. Only
@@ -1929,9 +1962,27 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 		if peer.AdminState() == adminStateDown {
 			peer.fsm.lock.Lock()
 			conf := peer.fsm.pConf.ReadCopy()
-			conf.State = oc.NeighborState{}
-			conf.State.NeighborAddress = conf.Config.NeighborAddress
-			conf.State.PeerAs = conf.Config.PeerAs
+			// Clear the operational fields only. The rest of
+			// NeighborState mirrors NeighborConfig, and nothing puts
+			// those values back, so zeroing the whole container makes
+			// the neighbor report an empty description, peer group,
+			// local AS and peer type for good.
+			//
+			// State.PeerAs and State.PeerType are left alone. The
+			// session down path above already resets State.PeerAs when
+			// the peer AS is learned, and for a configured peer both
+			// fields hold the configured value.
+			conf.State.SupportedCapabilitiesList = nil
+			conf.State.RemoteCapabilityList = nil
+			conf.State.LocalCapabilityList = nil
+			conf.State.ReceivedOpenMessage = nil
+			conf.State.Messages = oc.Messages{}
+			conf.State.Queues = oc.Queues{}
+			conf.State.AdjTable = oc.AdjTable{}
+			conf.State.EstablishedCount = 0
+			conf.State.Flops = 0
+			conf.State.RemoteRouterId = netip.Addr{}
+			conf.State.SessionState = ""
 			conf.Timers.State = oc.TimersState{}
 			peer.fsm.pConf.Update(&conf)
 			peer.fsm.bgpMessageResetStats()
@@ -1941,7 +1992,7 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 	case fsmMsgBGPMessage:
 		m := e.MsgData.(*bgp.BGPMessage)
 		if m.Header.Type == bgp.BGP_MSG_UPDATE {
-			s.notifyRecvMessageWatcher(peer, e.timestamp, m)
+			s.notifyRecvMessageWatcher(peer, e.timestamp, e.payload)
 		}
 		notEstablished := peer.State() != bgp.BGP_FSM_ESTABLISHED
 		conf := peer.fsm.pConf.ReadOnly()
@@ -1953,15 +2004,20 @@ func (s *BgpServer) handleFSMMessage(peer *peer, e *fsmMsg) {
 		case bgp.BGP_MSG_ROUTE_REFRESH:
 			s.handleRouteRefresh(peer, e)
 		case bgp.BGP_MSG_UPDATE:
-			pathList, eor, isLimit := peer.handleUpdate(e)
+			pathList, withdrawals, eor, isLimit := peer.handleUpdate(e, s.rrClusterIDs)
 			if isLimit {
 				_ = s.setAdminState(peer.ID(), "", adminStatePfxCt)
 				return
 			}
 			if m.Header.Type == bgp.BGP_MSG_UPDATE {
+				// The withdrawals are ours, not the peer's, so they are left
+				// out of the pre-policy Adj-RIB-In.
 				s.notifyPrePolicyUpdateWatcher(peer, pathList, m, e.timestamp, e.payload)
 			}
 
+			if len(withdrawals) > 0 {
+				pathList = append(withdrawals, pathList...)
+			}
 			if len(pathList) > 0 {
 				s.propagateUpdate(peer, pathList)
 			}
@@ -2655,6 +2711,23 @@ func (s *BgpServer) updatePath(vrfId string, pathList []*table.Path) error {
 	return err
 }
 
+// locRibFamilies lists every address family gobgp can handle, in AFI/SAFI
+// order. The Loc-RIB holds a table for each of them.
+//
+// global.afi-safis used to select this set, which made a family left out of
+// it a silent hole. The session came up and the peer got the capability, but
+// TableManager.Update drops a path whose family has no table. A table that
+// never receives a route costs a few hundred bytes, so there is no reason to
+// restrict the set.
+func locRibFamilies() []bgp.Family {
+	l := make([]bgp.Family, 0, len(bgp.AddressFamilyNameMap))
+	for f := range bgp.AddressFamilyNameMap {
+		l = append(l, f)
+	}
+	slices.Sort(l)
+	return l
+}
+
 func (s *BgpServer) StartBgp(ctx context.Context, r *api.StartBgpRequest) error {
 	if r == nil || r.Global == nil {
 		return fmt.Errorf("nil request")
@@ -2686,17 +2759,14 @@ func (s *BgpServer) StartBgp(ctx context.Context, r *api.StartBgpRequest) error 
 			s.acceptCh = acceptCh
 		}
 
-		rfs, _ := oc.AfiSafis(c.AfiSafis).ToRfList()
-		s.globalRib = table.NewTableManager(s.logger, rfs)
-		s.rsRib = table.NewTableManager(s.logger, rfs)
+		rfs := locRibFamilies()
+		s.globalRib = table.NewTableManager(s.logger, rfs, c.RouteSelectionOptions.Config, c.UseMultiplePaths.Config)
+		s.rsRib = table.NewTableManager(s.logger, rfs, c.RouteSelectionOptions.Config, c.UseMultiplePaths.Config)
 
 		if err := s.policy.Initialize(); err != nil {
 			return err
 		}
 		s.bgpConfig.Global = *c
-		// update route selection options
-		table.SelectionOptions = c.RouteSelectionOptions.Config
-		table.UseMultiplePaths = c.UseMultiplePaths.Config
 		if s.bfdServer != nil {
 			s.bfdServer.listenInterface = g.BindToDevice
 			if err := s.bfdServer.Start(ctx, oc.BfdConfig{Port: BfdServerPort}); err != nil {
@@ -2841,7 +2911,17 @@ func (s *BgpServer) softResetIn(addr string, family bgp.Family) error {
 		return err
 	}
 	for _, peer := range peers {
-		s.propagateUpdate(peer, peer.adjRibIn.PathList(familiesForSoftreset(peer, family), true))
+		paths := peer.adjRibIn.PathList(familiesForSoftreset(peer, family), false)
+		pathList := make([]*table.Path, 0, len(paths))
+		loopGlobals := peer.loopCheckGlobals(s.rrClusterIDs)
+		for _, path := range paths {
+			path, withdrawals := peer.adjRibIn.SetRejected(path, peer.detectsLoop(path, loopGlobals))
+			pathList = append(pathList, withdrawals...)
+			if !path.IsRejected() {
+				pathList = append(pathList, path)
+			}
+		}
+		s.propagateUpdate(peer, pathList)
 	}
 	return err
 }
@@ -3168,13 +3248,13 @@ func (s *BgpServer) ListPath(r apiutil.ListPathRequest, fn func(prefix bgp.NLRI,
 				if validation := getValidation(v, path); validation != nil {
 					p.Validation = newValidationFromTableStruct(validation)
 				}
-				if !table.SelectionOptions.DisableBestPathSelection {
+				if !s.globalRib.DisableBestPathSelection() {
 					if i == 0 {
 						switch r.TableType {
 						case api.TableType_TABLE_TYPE_LOCAL, api.TableType_TABLE_TYPE_GLOBAL:
 							p.Best = true
 						}
-					} else if s.bgpConfig.Global.UseMultiplePaths.Config.Enabled && path.Compare(knownPathList[0]) == 0 {
+					} else if s.globalRib.UseMultiplePathsEnabled() && path.Compare(knownPathList[0]) == 0 {
 						p.Best = true
 					}
 				}
@@ -3435,6 +3515,18 @@ func (s *BgpServer) ListPeer(ctx context.Context, r *api.ListPeerRequest, fn fun
 			}
 			// FIXME: should remove toConfig() conversion
 			p := oc.NewPeerFromConfigStruct(s.toConfig(peer, getAdvertised))
+			if peer.fsm.tcpAoKeyBinding.Load() != nil {
+				peer.fsm.lock.Lock()
+				if peer.fsm.conn != nil {
+					state, err := getTcpAoConnectionState(peer.fsm.conn)
+					if err != nil {
+						peer.fsm.logger.Debug("failed to get TCP-AO socket state", slog.String("Err", err.Error()))
+					} else {
+						p.State.TcpAoState = state
+					}
+				}
+				peer.fsm.lock.Unlock()
+			}
 			for _, family := range peer.configuredRFlist() {
 				for i, afisafi := range p.AfiSafis {
 					if !afisafi.Config.Enabled {
@@ -3528,6 +3620,12 @@ func (s *BgpServer) addNeighbor(c *oc.Neighbor) error {
 		pgConf = pg.Conf
 	}
 
+	// Keep what the caller passed. The merge below fills in the peer group
+	// values, the global configuration and the derived State fields, and
+	// after that there is no way to tell them apart. updatePeerGroup needs
+	// the unmerged copy to merge it again when the group changes.
+	configuredConf := cloneNeighborConfig(c)
+
 	if err := oc.SetDefaultNeighborConfigValues(c, pgConf, &s.bgpConfig.Global); err != nil {
 		return err
 	}
@@ -3536,8 +3634,11 @@ func (s *BgpServer) addNeighbor(c *oc.Neighbor) error {
 	if err != nil {
 		return err
 	}
-
-	if _, y := s.neighborMap[netip.MustParseAddr(addr)]; y {
+	ipAddr, err := netip.ParseAddr(addr)
+	if err != nil {
+		return fmt.Errorf("failed to parse IP address: %v", err)
+	}
+	if _, y := s.neighborMap[ipAddr]; y {
 		return fmt.Errorf("can't overwrite the existing peer: %s", addr)
 	}
 
@@ -3560,17 +3661,17 @@ func (s *BgpServer) addNeighbor(c *oc.Neighbor) error {
 	if c.RouteServer.Config.RouteServerClient && c.RouteReflector.Config.RouteReflectorClient {
 		return fmt.Errorf("can't be both route-server-client and route-reflector-client")
 	}
+	if c.Config.AuthPassword != "" && c.TcpAo.Config.Keychain != "" {
+		return fmt.Errorf("TCP-AO and TCP-MD5 authentication are mutually exclusive")
+	}
 
+	tcpAoKeyBinding, err := s.getTcpAoKeyBinding(&c.TcpAo.Config)
+	if err != nil {
+		return err
+	}
 	if s.bgpConfig.Global.Config.Port > 0 {
-		for _, l := range s.listListeners(addr) {
-			if c.Config.AuthPassword != "" {
-				if err := netutils.SetTCPMD5SigSockopt(l, c.Transport.Config.BindInterface, addr, c.Config.AuthPassword); err != nil {
-					s.logger.Warn("failed to set md5",
-						slog.String("Topic", "Peer"),
-						slog.String("Key", addr),
-						slog.String("Err", err.Error()))
-				}
-			}
+		if err := s.addAuthKeysToListeners(s.listListeners(addr), ipAddr, c, tcpAoKeyBinding); err != nil {
+			return err
 		}
 	}
 	s.logger.Info("Add a peer configuration",
@@ -3581,20 +3682,15 @@ func (s *BgpServer) addNeighbor(c *oc.Neighbor) error {
 	if c.RouteServer.Config.RouteServerClient {
 		rib = s.rsRib
 	}
-	peer := newPeer(&s.bgpConfig.Global, c, bgp.BGP_FSM_IDLE, rib, s.policy, s.logger)
+	peer := newPeer(&s.bgpConfig.Global, c, bgp.BGP_FSM_IDLE, rib, s.policy, tcpAoKeyBinding, s.logger)
+	peer.configuredConf = configuredConf
 	if err := s.setPeerPolicy(peer, c.ApplyPolicy); err != nil {
 		return fmt.Errorf("failed to set peer policy for %s: %v", addr, err)
 	}
-	s.neighborMap[netip.MustParseAddr(addr)] = peer
-	if name := c.Config.PeerGroup; name != "" {
-		s.peerGroupMap[name].AddMember(*c)
-	}
+	s.neighborMap[ipAddr] = peer
+	s.rebuildLocalClusterIDs()
 	if s.bfdServer != nil {
-		ipAddr, err := netip.ParseAddr(addr)
-		if err != nil {
-			return fmt.Errorf("failed to parse IP address: %v", err)
-		}
-		if err := s.bfdServer.AddPeer(context.Background(), ipAddr, c.Bfd.Config, c.Transport.Config.BindInterface); err != nil {
+		if err := s.bfdServer.addPeer(context.Background(), ipAddr, c.Bfd.Config, c.Transport.Config.LocalAddress, c.Transport.Config.BindInterface); err != nil {
 			s.logger.Warn("failed to add BFD peer",
 				slog.String("Topic", "Peer"),
 				slog.String("Key", addr),
@@ -3603,6 +3699,61 @@ func (s *BgpServer) addNeighbor(c *oc.Neighbor) error {
 	}
 	s.startFsmHandler(peer)
 	return nil
+}
+
+func (s *BgpServer) getTcpAoKeyBinding(config *oc.TcpAoConfig) (*tcpAoKeyBinding, error) {
+	if config == nil || config.Keychain == "" {
+		return nil, nil
+	}
+	name := string(config.Keychain)
+	keychain, ok := s.keychainStore.getKeychain(name)
+	if !ok {
+		return nil, fmt.Errorf("TCP-AO keychain %q does not exist", name)
+	}
+	preferred := config.SendId
+	if !keychain.hasSendID(preferred) {
+		return nil, fmt.Errorf("TCP-AO keychain %q has no key with send ID %d", name, preferred)
+	}
+	return &tcpAoKeyBinding{keychain: keychain, preferredSendID: preferred}, nil
+}
+
+func (s *BgpServer) addAuthKeysToListeners(listeners []*net.TCPListener, peerAddr netip.Addr, config *oc.Neighbor, tcpAoKeyBinding *tcpAoKeyBinding) error {
+	if tcpAoKeyBinding != nil {
+		tcpAoKeys, err := tcpAoKeyBinding.socketKeys()
+		if err != nil {
+			return err
+		}
+		if err := addTcpAoKeysToListeners(listeners, peerAddr, s.tcpAoBindInterface(config.Transport.Config), tcpAoKeys); err != nil {
+			return fmt.Errorf("failed to configure TCP-AO listener for peer %s: %w", peerAddr, err)
+		}
+	}
+	if config.Config.AuthPassword != "" {
+		for _, listener := range listeners {
+			if err := netutils.SetTCPMD5SigSockopt(listener, config.Transport.Config.BindInterface, peerAddr.String(), config.Config.AuthPassword); err != nil {
+				s.logger.Warn("failed to set md5",
+					slog.String("Topic", "Peer"),
+					slog.String("Key", peerAddr.String()),
+					slog.String("Err", err.Error()))
+			}
+		}
+	}
+	return nil
+}
+
+// rebuildLocalClusterIDs rebuilds the set of effective cluster IDs used by this BGP speaker.
+func (s *BgpServer) rebuildLocalClusterIDs() {
+	ids := make(map[netip.Addr]struct{})
+	for _, peer := range s.neighborMap {
+		conf := peer.fsm.pConf.ReadOnly()
+		if !conf.RouteReflector.Config.RouteReflectorClient {
+			continue
+		}
+		clusterID := conf.RouteReflector.State.RouteReflectorClusterId
+		if clusterID.IsValid() {
+			ids[clusterID] = struct{}{}
+		}
+	}
+	s.rrClusterIDs = ids
 }
 
 func apiBfdSessionStateToOC(state api.BfdSessionState) oc.BfdSessionState {
@@ -3623,6 +3774,7 @@ func apiBfdSessionStateToOC(state api.BfdSessionState) oc.BfdSessionState {
 func (s *BgpServer) updateBfdPeer(
 	addr string,
 	oldConfig, newConfig oc.BfdConfig,
+	localAddress netip.Addr,
 	oldBindInterface, newBindInterface string,
 ) error {
 	if s.bfdServer == nil || oldConfig.Equal(&newConfig) && oldBindInterface == newBindInterface {
@@ -3641,7 +3793,7 @@ func (s *BgpServer) updateBfdPeer(
 	}
 
 	if newConfig.Enabled {
-		if err := s.bfdServer.AddPeer(context.Background(), ipAddr, newConfig, newBindInterface); err != nil {
+		if err := s.bfdServer.addPeer(context.Background(), ipAddr, newConfig, localAddress, newBindInterface); err != nil {
 			return err
 		}
 	}
@@ -3698,6 +3850,9 @@ func (s *BgpServer) AddDynamicNeighbor(ctx context.Context, r *api.AddDynamicNei
 		if !ok {
 			return fmt.Errorf("no such peer-group: %s", c.Config.PeerGroup)
 		}
+		if pg.Conf.TcpAo.Config.Keychain != "" {
+			return status.Error(codes.Unimplemented, "TCP-AO dynamic neighbors are not supported")
+		}
 		pg.AddDynamicNeighbor(c)
 
 		pConf := pg.Conf
@@ -3736,13 +3891,6 @@ func (s *BgpServer) deletePeerGroup(name string) error {
 }
 
 func (s *BgpServer) deleteNeighbor(c *oc.Neighbor, code, subcode uint8, sendNotification bool) error {
-	if c.Config.PeerGroup != "" {
-		_, y := s.peerGroupMap[c.Config.PeerGroup]
-		if y {
-			s.peerGroupMap[c.Config.PeerGroup].DeleteMember(*c)
-		}
-	}
-
 	addr, err := c.ExtractNeighborAddress()
 	if err != nil {
 		return err
@@ -3755,13 +3903,29 @@ func (s *BgpServer) deleteNeighbor(c *oc.Neighbor, code, subcode uint8, sendNoti
 			return err
 		}
 	}
-	n, y := s.neighborMap[netip.MustParseAddr(addr)]
+	ipAddr, err := netip.ParseAddr(addr)
+	if err != nil {
+		return fmt.Errorf("failed to parse IP address: %v", err)
+	}
+	n, y := s.neighborMap[ipAddr]
 	if !y {
 		return fmt.Errorf("can't delete a peer configuration for %s", addr)
 	}
-	for _, l := range s.listListeners(addr) {
-		if c.Config.AuthPassword != "" {
-			if err := netutils.SetTCPMD5SigSockopt(l, c.Transport.Config.BindInterface, addr, ""); err != nil {
+
+	configured := n.fsm.pConf.ReadOnly()
+	listeners := s.listListeners(addr)
+	if keyBinding := n.fsm.tcpAoKeyBinding.Load(); keyBinding != nil {
+		tcpAoKeys, err := keyBinding.socketKeys()
+		if err != nil {
+			return err
+		}
+		for _, err := range deleteTcpAoKeysFromListeners(listeners, ipAddr, s.tcpAoBindInterface(configured.Transport.Config), tcpAoKeys) {
+			n.fsm.logger.Warn("failed to unset TCP-AO", slog.String("Err", err.Error()))
+		}
+	}
+	for _, l := range listeners {
+		if configured.Config.AuthPassword != "" {
+			if err := netutils.SetTCPMD5SigSockopt(l, configured.Transport.Config.BindInterface, addr, ""); err != nil {
 				n.fsm.logger.Warn("failed to unset md5", slog.String("Err", err.Error()))
 			}
 		}
@@ -3848,20 +4012,63 @@ func (s *BgpServer) DeleteDynamicNeighbor(ctx context.Context, r *api.DeleteDyna
 func (s *BgpServer) updatePeerGroup(pg *oc.PeerGroup) (needsSoftResetIn bool, err error) {
 	name := pg.Config.PeerGroupName
 
-	_, ok := s.peerGroupMap[name]
+	group, ok := s.peerGroupMap[name]
 	if !ok {
 		return false, fmt.Errorf("peer-group %s doesn't exist", name)
 	}
-	s.peerGroupMap[name].Conf = pg
+	if pg.TcpAo.Config.Keychain != "" && len(group.dynamicNeighbors) != 0 {
+		return false, status.Error(codes.Unimplemented, "TCP-AO dynamic neighbors are not supported")
+	}
 
-	for _, n := range s.peerGroupMap[name].members {
-		u, err := s.updateNeighbor(&n)
+	members := s.peerGroupMembers(name)
+
+	// Merge every member against the new group configuration before anything
+	// is changed. A member that cannot be merged must not leave the group and
+	// the other members updated.
+	for i := range members {
+		c := cloneNeighborConfig(&members[i])
+		if err := oc.SetDefaultNeighborConfigValues(&c, pg, &s.bgpConfig.Global); err != nil {
+			return false, fmt.Errorf("peer-group %s: %w", name, err)
+		}
+	}
+
+	group.Conf = pg
+
+	for i := range members {
+		u, err := s.updateNeighbor(&members[i])
 		if err != nil {
 			return needsSoftResetIn, err
 		}
 		needsSoftResetIn = needsSoftResetIn || u
 	}
 	return needsSoftResetIn, nil
+}
+
+// peerGroupMembers returns the configuration of every peer that belongs to the
+// peer group, as the operator gave it, sorted by neighbor address. The peer
+// group values are not in it, so merging it against the group configuration
+// again gives the peer its share of a group update.
+//
+// A dynamic neighbor is left out. It is built from the peer group every time
+// it connects, and newDynamicPeer forces settings of its own on top.
+func (s *BgpServer) peerGroupMembers(name string) []oc.Neighbor {
+	addrs := make([]netip.Addr, 0, len(s.neighborMap))
+	for addr, peer := range s.neighborMap {
+		if peer.isDynamicNeighbor() {
+			continue
+		}
+		if peer.fsm.pConf.ReadOnly().Config.PeerGroup != name {
+			continue
+		}
+		addrs = append(addrs, addr)
+	}
+	slices.SortFunc(addrs, func(a, b netip.Addr) int { return a.Compare(b) })
+
+	members := make([]oc.Neighbor, 0, len(addrs))
+	for _, addr := range addrs {
+		members = append(members, cloneNeighborConfig(&s.neighborMap[addr].configuredConf))
+	}
+	return members
 }
 
 func (s *BgpServer) UpdatePeerGroup(ctx context.Context, r *api.UpdatePeerGroupRequest) (rsp *api.UpdatePeerGroupResponse, err error) {
@@ -3881,6 +4088,10 @@ func (s *BgpServer) UpdatePeerGroup(ctx context.Context, r *api.UpdatePeerGroupR
 }
 
 func (s *BgpServer) updateNeighbor(c *oc.Neighbor) (needsSoftResetIn bool, err error) {
+	// UpdatePeer replaces the whole neighbor configuration, so this is the
+	// new record of what the operator asked for. See addNeighbor.
+	configuredConf := cloneNeighborConfig(c)
+
 	var pgConf *oc.PeerGroup
 	if c.Config.PeerGroup != "" {
 		if pg, ok := s.peerGroupMap[c.Config.PeerGroup]; ok {
@@ -3922,6 +4133,7 @@ func (s *BgpServer) updateNeighbor(c *oc.Neighbor) (needsSoftResetIn bool, err e
 		peer.fsm.logger.Info("Update aspath options")
 
 		needsSoftResetIn = true
+		conf.AsPathOptions = c.AsPathOptions
 	}
 
 	bfdConfigChanged := !original.Bfd.Config.Equal(&c.Bfd.Config)
@@ -3965,8 +4177,14 @@ func (s *BgpServer) updateNeighbor(c *oc.Neighbor) (needsSoftResetIn bool, err e
 			peer.fsm.pConf.Update(original)
 
 			peer.fsm.logger.Error("failed to add neighbor", slog.String("Err", err.Error()))
+			return needsSoftResetIn, err
 		}
-		return needsSoftResetIn, err
+		// addNeighbor recorded c, which is already merged here. Put back what
+		// the caller passed.
+		if added, ok := s.neighborMap[netip.MustParseAddr(addr)]; ok {
+			added.configuredConf = configuredConf
+		}
+		return needsSoftResetIn, nil
 	}
 
 	if !original.Timers.Config.Equal(&c.Timers.Config) {
@@ -3974,14 +4192,37 @@ func (s *BgpServer) updateNeighbor(c *oc.Neighbor) (needsSoftResetIn bool, err e
 		conf.Timers.Config = c.Timers.Config
 	}
 
+	if !original.TcpAo.Config.Equal(&c.TcpAo.Config) {
+		keyBinding, err := s.getTcpAoKeyBinding(&c.TcpAo.Config)
+		if err != nil {
+			peer.fsm.lock.Unlock()
+			return needsSoftResetIn, err
+		}
+		if peer.fsm.conn != nil && keyBinding != nil {
+			tcpAoKeys, err := keyBinding.socketKeys()
+			if err == nil {
+				err = setTcpAoConnectionRNext(peer.fsm.conn, tcpAoKeys)
+			}
+			if err != nil {
+				peer.fsm.lock.Unlock()
+				return needsSoftResetIn, fmt.Errorf("failed changing the TCP-AO key for peer %s: %w", addr, err)
+			}
+		}
+		peer.fsm.tcpAoKeyBinding.Store(keyBinding)
+		conf.TcpAo = c.TcpAo
+	}
+
 	isLimit, err := peer.updatePrefixLimitConfig(&conf, c.AfiSafis)
 	if err == nil {
 		peer.fsm.pConf.Update(&conf)
 		peer.fsm.lock.Unlock()
+		peer.configuredConf = configuredConf
+		s.rebuildLocalClusterIDs()
 		if bfdConfigChanged {
 			err = s.updateBfdPeer(
 				addr,
 				original.Bfd.Config, c.Bfd.Config,
+				c.Transport.Config.LocalAddress,
 				original.Transport.Config.BindInterface, c.Transport.Config.BindInterface,
 			)
 		}
@@ -4291,7 +4532,7 @@ func (s *BgpServer) ListStatement(ctx context.Context, r *api.ListStatementReque
 		s := s.policy.GetStatement(r.Name)
 		l = make([]*api.Statement, 0, len(s))
 		for _, st := range s {
-			l = append(l, toStatementApi(st))
+			l = append(l, table.ToStatementApi(st))
 		}
 		return nil
 	}, false)
@@ -4962,16 +5203,15 @@ func locRIBPathsForBMP(msg *watchEventBestPath) []*table.Path {
 	return msg.PathList
 }
 
+// watchEventMessage carries a message received from a peer. Its one consumer
+// is BMP route mirroring, which forwards the octets as they arrived, so the
+// event holds the payload and the peer header fields and nothing else.
 type watchEventMessage struct {
-	Message      *bgp.BGPMessage
-	PeerAS       uint32
-	LocalAS      uint32
-	PeerAddress  netip.Addr
-	LocalAddress netip.Addr
-	PeerID       netip.Addr
-	FourBytesAs  bool
-	Timestamp    time.Time
-	IsSent       bool
+	Payload     []byte
+	PeerAS      uint32
+	PeerAddress netip.Addr
+	PeerID      netip.Addr
+	Timestamp   time.Time
 }
 
 type watchEventEor struct {
@@ -5082,16 +5322,12 @@ func WatchPeer() WatchOption {
 	}
 }
 
-func watchMessage(isSent bool) WatchOption {
+// watchRecvMessage subscribes to the messages received from the peers. There
+// is no counterpart for the messages gobgp sends: nothing has ever produced
+// such an event.
+func watchRecvMessage() WatchOption {
 	return func(o *watchOptions) {
-		if isSent {
-			// log.WithFields(log.Fields{
-			// 	"Topic": "Server",
-			// }).Warn("watch event for sent messages is not implemented yet")
-			// o.sentMessage = true
-		} else {
-			o.recvMessage = true
-		}
+		o.recvMessage = true
 	}
 }
 
@@ -5437,11 +5673,21 @@ func (s *BgpServer) UpdateTcpAoKeychain(_ context.Context, r *api.UpdateTcpAoKey
 		if !ok {
 			return status.Errorf(codes.NotFound, "TCP-AO keychain %q does not exist", r.Name)
 		}
+		for i, delKey := range r.DeleteKeys {
+			sendID, receiveID, err := tcpAoKeyIDs(r.Name, i, delKey)
+			if err != nil {
+				return err
+			}
+			if key, exists := keychain.getKey(sendID, receiveID); exists && s.tcpAoKeyConfigured(r.Name, sendID) {
+				return status.Errorf(codes.FailedPrecondition, "TCP-AO keychain %q key with send ID %d is configured as a preferred send key", r.Name, key.SendID)
+			}
+		}
 		added, deleted, err := validateTcpAoKeychainUpdate(keychain, r)
 		if err != nil {
 			return err
 		}
 		keychain.updateKeys(added, deleted)
+		s.updateTcpAoKeychainSockets(r.Name, added, deleted)
 		response = &api.UpdateTcpAoKeychainResponse{Keychain: keychain.toAPIKeychain()}
 		return nil
 	}, false)
@@ -5460,6 +5706,9 @@ func (s *BgpServer) DeleteTcpAoKeychain(_ context.Context, r *api.DeleteTcpAoKey
 	}
 
 	return s.mgmtOperation(func() error {
+		if s.tcpAoKeychainUsed(r.Name) {
+			return status.Errorf(codes.FailedPrecondition, "TCP-AO keychain %q is in use", r.Name)
+		}
 		if !s.keychainStore.deleteKeychain(r.Name) {
 			return status.Errorf(codes.NotFound, "TCP-AO keychain %q does not exist", r.Name)
 		}
@@ -5500,4 +5749,126 @@ func (s *BgpServer) ListTcpAoKeychain(ctx context.Context, r *api.ListTcpAoKeych
 		fn(chain)
 	}
 	return nil
+}
+
+func (s *BgpServer) tcpAoKeychainUsed(name string) bool {
+	for _, group := range s.peerGroupMap {
+		config := &group.Conf.TcpAo.Config
+		if config.Keychain != "" && string(config.Keychain) == name {
+			return true
+		}
+	}
+	for _, peer := range s.neighborMap {
+		config := &peer.fsm.pConf.ReadOnly().TcpAo.Config
+		if config.Keychain != "" && string(config.Keychain) == name {
+			return true
+		}
+		keyBinding := peer.fsm.tcpAoKeyBinding.Load()
+		if keyBinding != nil && keyBinding.keychain.name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *BgpServer) tcpAoKeyConfigured(keychainName string, sendID uint8) bool {
+	for _, group := range s.peerGroupMap {
+		config := &group.Conf.TcpAo.Config
+		if config.Keychain != "" && string(config.Keychain) == keychainName && config.SendId == sendID {
+			return true
+		}
+	}
+	for _, peer := range s.neighborMap {
+		keyBinding := peer.fsm.tcpAoKeyBinding.Load()
+		if keyBinding != nil && keyBinding.keychain.name == keychainName && keyBinding.preferredSendID == sendID {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *BgpServer) updateTcpAoKeychainSockets(name string, added, deleted []netutils.TCPAOKey) {
+	if len(added) == 0 && len(deleted) == 0 {
+		return
+	}
+	addedKeys := newTcpAoSocketKeys(added, nil)
+	deletedKeys := newTcpAoSocketKeys(deleted, nil)
+
+	logError := func(peer *peer, target string, err error) {
+		peer.fsm.logger.Warn("failed to update TCP-AO keys",
+			slog.String("Target", target),
+			slog.String("Error", err.Error()))
+	}
+	for _, peer := range s.neighborMap {
+		keyBinding := peer.fsm.tcpAoKeyBinding.Load()
+		if keyBinding == nil || keyBinding.keychain.name != name {
+			continue
+		}
+		conf := peer.fsm.pConf.ReadOnly()
+		addr, err := conf.ExtractNeighborAddress()
+		if err != nil {
+			logError(peer, "peer", err)
+			continue
+		}
+		peerAddr, err := netip.ParseAddr(addr)
+		if err != nil {
+			logError(peer, "peer", err)
+			continue
+		}
+		interfaceName := s.tcpAoBindInterface(conf.Transport.Config)
+		for _, listener := range s.listListeners(addr) {
+			raw, err := listener.SyscallConn()
+			if err != nil {
+				if len(deleted) != 0 {
+					logError(peer, "listener", fmt.Errorf("delete TCP-AO keys: %w", err))
+				}
+				if len(added) != 0 {
+					logError(peer, "listener", fmt.Errorf("add TCP-AO keys: %w", err))
+				}
+				continue
+			}
+			if len(deleted) != 0 {
+				if err := deleteTcpAoKeys(raw, peerAddr, interfaceName, deletedKeys, true); err != nil {
+					logError(peer, "listener", fmt.Errorf("delete TCP-AO keys: %w", err))
+				}
+			}
+			if len(added) != 0 {
+				if err := addTcpAoKeys(raw, peerAddr, interfaceName, addedKeys, false); err != nil {
+					logError(peer, "listener", fmt.Errorf("add TCP-AO keys: %w", err))
+				}
+			}
+		}
+		peer.fsm.lock.Lock()
+		if peer.fsm.conn != nil {
+			raw, err := tcpAoRawConn(peer.fsm.conn)
+			if err != nil {
+				if len(deleted) != 0 {
+					logError(peer, "connection", fmt.Errorf("delete TCP-AO keys: %w", err))
+				}
+				if len(added) != 0 {
+					logError(peer, "connection", fmt.Errorf("add TCP-AO keys: %w", err))
+				}
+				peer.fsm.lock.Unlock()
+				continue
+			}
+			if len(deleted) != 0 {
+				if err := deleteTcpAoKeys(raw, peerAddr, interfaceName, deletedKeys, false); err != nil {
+					logError(peer, "connection", fmt.Errorf("delete TCP-AO keys: %w", err))
+				}
+			}
+			if len(added) != 0 {
+				if err := addTcpAoKeys(raw, peerAddr, interfaceName, addedKeys, false); err != nil {
+					logError(peer, "connection", fmt.Errorf("add TCP-AO keys: %w", err))
+				}
+			}
+		}
+		peer.fsm.lock.Unlock()
+	}
+}
+
+func (s *BgpServer) tcpAoBindInterface(peerConfig oc.TransportConfig) string {
+	if peerConfig.BindInterface != "" {
+		return peerConfig.BindInterface
+	}
+	return s.bgpConfig.Global.Config.BindToDevice
 }

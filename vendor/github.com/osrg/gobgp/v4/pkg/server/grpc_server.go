@@ -430,23 +430,23 @@ func (s *server) watchEvent(ctx context.Context, r *api.WatchEventRequest, fn fu
 							Conf: &api.PeerConf{
 								PeerAsn:           p.Conf.PeerASN,
 								LocalAsn:          p.Conf.LocalASN,
-								NeighborAddress:   p.Conf.NeighborAddress.String(),
+								NeighborAddress:   apiutil.AddrOrEmpty(p.Conf.NeighborAddress),
 								NeighborInterface: p.Conf.NeighborInterface,
 								PeerGroup:         p.Conf.PeerGroup,
 							},
 							State: &api.PeerState{
 								PeerAsn:         p.State.PeerASN,
 								LocalAsn:        p.State.LocalASN,
-								NeighborAddress: p.State.NeighborAddress.String(),
+								NeighborAddress: apiutil.AddrOrEmpty(p.State.NeighborAddress),
 								SessionState:    api.PeerState_SessionState(int(p.State.SessionState) + 1),
 								AdminState:      p.State.AdminState,
-								RouterId:        p.State.RouterID.String(),
+								RouterId:        apiutil.AddrOrEmpty(p.State.RouterID),
 								PeerGroup:       p.State.PeerGroup,
 								RemoteCap:       remoteCaps,
 								LocalCap:        localCaps,
 							},
 							Transport: &api.Transport{
-								LocalAddress: p.Transport.LocalAddress.String(),
+								LocalAddress: apiutil.AddrOrEmpty(p.Transport.LocalAddress),
 								LocalPort:    p.Transport.LocalPort,
 								RemotePort:   p.Transport.RemotePort,
 							},
@@ -988,6 +988,19 @@ func newBfdConfigFromAPIStruct(a *api.BfdPeerConfig) (oc.BfdConfig, error) {
 	}, nil
 }
 
+func tcpAoConfigFromAPI(a *api.TcpAoPeerConfig) (oc.TcpAoConfig, error) {
+	if a == nil {
+		return oc.TcpAoConfig{}, nil
+	}
+	if a.SendId > 255 {
+		return oc.TcpAoConfig{}, status.Errorf(codes.InvalidArgument, "TCP-AO send ID %d is outside 0..255", a.SendId)
+	}
+	return oc.TcpAoConfig{
+		Keychain: oc.KeychainRef(a.Keychain),
+		SendId:   uint8(a.SendId),
+	}, nil
+}
+
 func newNeighborFromAPIStruct(a *api.Peer) (*oc.Neighbor, error) {
 	pconf := &oc.Neighbor{}
 	if a.Conf != nil {
@@ -1098,6 +1111,13 @@ func newNeighborFromAPIStruct(a *api.Peer) (*oc.Neighbor, error) {
 		pconf.Transport.Config.BindInterface = a.Transport.BindInterface
 		pconf.Transport.Config.TcpMss = uint16(a.Transport.TcpMss)
 		pconf.Transport.Config.IpTos = uint8(a.Transport.IpTos)
+	}
+	if a.TcpAo != nil {
+		tcpAo, err := tcpAoConfigFromAPI(a.TcpAo)
+		if err != nil {
+			return nil, err
+		}
+		pconf.TcpAo.Config = tcpAo
 	}
 	if a.EbgpMultihop != nil {
 		pconf.EbgpMultihop.Config.Enabled = a.EbgpMultihop.Enabled
@@ -1253,6 +1273,13 @@ func newPeerGroupFromAPIStruct(a *api.PeerGroup) (*oc.PeerGroup, error) {
 		pconf.Transport.Config.BindInterface = a.Transport.BindInterface
 		pconf.Transport.Config.TcpMss = uint16(a.Transport.TcpMss)
 		pconf.Transport.Config.IpTos = uint8(a.Transport.IpTos)
+	}
+	if a.TcpAo != nil {
+		tcpAo, err := tcpAoConfigFromAPI(a.TcpAo)
+		if err != nil {
+			return nil, err
+		}
+		pconf.TcpAo.Config = tcpAo
 	}
 	if a.EbgpMultihop != nil {
 		pconf.EbgpMultihop.Config.Enabled = a.EbgpMultihop.Enabled
@@ -1526,8 +1553,6 @@ func (s *server) DeleteDefinedSet(ctx context.Context, r *api.DeleteDefinedSetRe
 	return &api.DeleteDefinedSetResponse{}, s.bgpServer.DeleteDefinedSet(ctx, r)
 }
 
-var _regexpMedActionType = regexp.MustCompile(`([+-]?)(\d+)`)
-
 func toOcAttributeComparison(a api.Comparison) oc.AttributeComparison {
 	switch a {
 	case api.Comparison_COMPARISON_EQ:
@@ -1538,249 +1563,6 @@ func toOcAttributeComparison(a api.Comparison) oc.AttributeComparison {
 		return oc.ATTRIBUTE_COMPARISON_LE
 	default:
 		return oc.ATTRIBUTE_COMPARISON_EQ
-	}
-}
-
-func matchSetOptionsRestrictedTypeToAPI(t oc.MatchSetOptionsRestrictedType) api.MatchSet_Type {
-	t = t.DefaultAsNeeded()
-	switch t {
-	case oc.MATCH_SET_OPTIONS_RESTRICTED_TYPE_ANY:
-		return api.MatchSet_TYPE_ANY
-	case oc.MATCH_SET_OPTIONS_RESTRICTED_TYPE_INVERT:
-		return api.MatchSet_TYPE_INVERT
-	}
-	return api.MatchSet_TYPE_ANY
-}
-
-func toStatementApi(s *oc.Statement) *api.Statement {
-	cs := &api.Conditions{}
-	if s.Conditions.MatchPrefixSet.PrefixSet != "" {
-		cs.PrefixSet = &api.MatchSet{
-			Type: matchSetOptionsRestrictedTypeToAPI(s.Conditions.MatchPrefixSet.MatchSetOptions),
-			Name: s.Conditions.MatchPrefixSet.PrefixSet,
-		}
-	}
-	if s.Conditions.MatchNeighborSet.NeighborSet != "" {
-		cs.NeighborSet = &api.MatchSet{
-			Type: matchSetOptionsRestrictedTypeToAPI(s.Conditions.MatchNeighborSet.MatchSetOptions),
-			Name: s.Conditions.MatchNeighborSet.NeighborSet,
-		}
-	}
-	if s.Conditions.BgpConditions.CommunityCount.Operator != "" {
-		cs.CommunityCount = &api.CommunityCount{
-			Count: s.Conditions.BgpConditions.CommunityCount.Value,
-			Type:  table.ToComparisonApi(s.Conditions.BgpConditions.CommunityCount.Operator),
-		}
-	}
-	if s.Conditions.BgpConditions.AsPathLength.Operator != "" {
-		cs.AsPathLength = &api.AsPathLength{
-			Length: s.Conditions.BgpConditions.AsPathLength.Value,
-			Type:   table.ToComparisonApi(s.Conditions.BgpConditions.AsPathLength.Operator),
-		}
-	}
-	if s.Conditions.BgpConditions.LocalPrefEq != 0 {
-		cs.LocalPrefEq = &api.LocalPrefEq{Value: s.Conditions.BgpConditions.LocalPrefEq}
-	}
-	if s.Conditions.BgpConditions.MedEq != 0 {
-		cs.MedEq = &api.MedEq{Value: s.Conditions.BgpConditions.MedEq}
-	}
-	if s.Conditions.BgpConditions.MatchAsPathSet.AsPathSet != "" {
-		o, _ := table.NewMatchOption(s.Conditions.BgpConditions.MatchAsPathSet.MatchSetOptions)
-		cs.AsPathSet = &api.MatchSet{
-			Type: o.ToApi(),
-			Name: s.Conditions.BgpConditions.MatchAsPathSet.AsPathSet,
-		}
-	}
-	if s.Conditions.BgpConditions.MatchCommunitySet.CommunitySet != "" {
-		o, _ := table.NewMatchOption(s.Conditions.BgpConditions.MatchCommunitySet.MatchSetOptions)
-		cs.CommunitySet = &api.MatchSet{
-			Type: o.ToApi(),
-			Name: s.Conditions.BgpConditions.MatchCommunitySet.CommunitySet,
-		}
-	}
-	if s.Conditions.BgpConditions.MatchExtCommunitySet.ExtCommunitySet != "" {
-		o, _ := table.NewMatchOption(s.Conditions.BgpConditions.MatchExtCommunitySet.MatchSetOptions)
-		cs.ExtCommunitySet = &api.MatchSet{
-			Type: o.ToApi(),
-			Name: s.Conditions.BgpConditions.MatchExtCommunitySet.ExtCommunitySet,
-		}
-	}
-	if s.Conditions.BgpConditions.MatchLargeCommunitySet.LargeCommunitySet != "" {
-		o, _ := table.NewMatchOption(s.Conditions.BgpConditions.MatchLargeCommunitySet.MatchSetOptions)
-		cs.LargeCommunitySet = &api.MatchSet{
-			Type: o.ToApi(),
-			Name: s.Conditions.BgpConditions.MatchLargeCommunitySet.LargeCommunitySet,
-		}
-	}
-	if s.Conditions.BgpConditions.RouteType != "" {
-		cs.RouteType = api.Conditions_RouteType(s.Conditions.BgpConditions.RouteType.ToInt())
-	}
-	if len(s.Conditions.BgpConditions.NextHopInList) > 0 {
-		l := make([]string, 0, len(s.Conditions.BgpConditions.NextHopInList))
-		for _, nh := range s.Conditions.BgpConditions.NextHopInList {
-			l = append(l, nh.String())
-		}
-		cs.NextHopInList = l
-	}
-	if s.Conditions.BgpConditions.AfiSafiInList != nil {
-		afiSafiIn := make([]*api.Family, 0)
-		for _, afiSafiType := range s.Conditions.BgpConditions.AfiSafiInList {
-			if mapped, ok := bgp.AddressFamilyValueMap[string(afiSafiType)]; ok {
-				afiSafiIn = append(afiSafiIn, &api.Family{Afi: api.Family_Afi(mapped.Afi()), Safi: api.Family_Safi(mapped.Safi())})
-			}
-		}
-		cs.AfiSafiIn = afiSafiIn
-	}
-	switch s.Conditions.BgpConditions.RpkiValidationResult {
-	case oc.RPKI_VALIDATION_RESULT_TYPE_NONE:
-		cs.RpkiResult = api.ValidationState_VALIDATION_STATE_NONE
-	case oc.RPKI_VALIDATION_RESULT_TYPE_NOT_FOUND:
-		cs.RpkiResult = api.ValidationState_VALIDATION_STATE_NOT_FOUND
-	case oc.RPKI_VALIDATION_RESULT_TYPE_VALID:
-		cs.RpkiResult = api.ValidationState_VALIDATION_STATE_VALID
-	case oc.RPKI_VALIDATION_RESULT_TYPE_INVALID:
-		cs.RpkiResult = api.ValidationState_VALIDATION_STATE_INVALID
-	default:
-		cs.RpkiResult = api.ValidationState_VALIDATION_STATE_UNSPECIFIED
-	}
-
-	as := &api.Actions{
-		RouteAction: func() api.RouteAction {
-			switch s.Actions.RouteDisposition {
-			case oc.ROUTE_DISPOSITION_ACCEPT_ROUTE:
-				return api.RouteAction_ROUTE_ACTION_ACCEPT
-			case oc.ROUTE_DISPOSITION_REJECT_ROUTE:
-				return api.RouteAction_ROUTE_ACTION_REJECT
-			}
-			return api.RouteAction_ROUTE_ACTION_UNSPECIFIED
-		}(),
-		Community: func() *api.CommunityAction {
-			if len(s.Actions.BgpActions.SetCommunity.SetCommunityMethod.CommunitiesList) == 0 {
-				return nil
-			}
-			action := api.CommunityAction_TYPE_UNSPECIFIED
-			switch oc.BgpSetCommunityOptionType(s.Actions.BgpActions.SetCommunity.Options) {
-			case oc.BGP_SET_COMMUNITY_OPTION_TYPE_ADD:
-				action = api.CommunityAction_TYPE_ADD
-			case oc.BGP_SET_COMMUNITY_OPTION_TYPE_REMOVE:
-				action = api.CommunityAction_TYPE_REMOVE
-			case oc.BGP_SET_COMMUNITY_OPTION_TYPE_REPLACE:
-				action = api.CommunityAction_TYPE_REPLACE
-			}
-			return &api.CommunityAction{
-				Type:        action,
-				Communities: s.Actions.BgpActions.SetCommunity.SetCommunityMethod.CommunitiesList,
-			}
-		}(),
-		Med: func() *api.MedAction {
-			medStr := strings.TrimSpace(string(s.Actions.BgpActions.SetMed))
-			if len(medStr) == 0 {
-				return nil
-			}
-			matches := _regexpMedActionType.FindStringSubmatch(medStr)
-			if len(matches) == 0 {
-				return nil
-			}
-			action := api.MedAction_TYPE_REPLACE
-			switch matches[1] {
-			case "+", "-":
-				action = api.MedAction_TYPE_MOD
-			}
-			value, err := strconv.ParseInt(matches[1]+matches[2], 10, 64)
-			if err != nil {
-				return nil
-			}
-			return &api.MedAction{
-				Value: value,
-				Type:  action,
-			}
-		}(),
-		AsPrepend: func() *api.AsPrependAction {
-			if len(s.Actions.BgpActions.SetAsPathPrepend.As) == 0 {
-				return nil
-			}
-			var asn uint64
-			useleft := false
-			if s.Actions.BgpActions.SetAsPathPrepend.As != "last-as" {
-				asn, _ = strconv.ParseUint(s.Actions.BgpActions.SetAsPathPrepend.As, 10, 32)
-			} else {
-				useleft = true
-			}
-			return &api.AsPrependAction{
-				Asn:         uint32(asn),
-				Repeat:      uint32(s.Actions.BgpActions.SetAsPathPrepend.RepeatN),
-				UseLeftMost: useleft,
-			}
-		}(),
-		ExtCommunity: func() *api.CommunityAction {
-			if len(s.Actions.BgpActions.SetExtCommunity.SetExtCommunityMethod.CommunitiesList) == 0 {
-				return nil
-			}
-			return &api.CommunityAction{
-				Type:        api.CommunityAction_Type(oc.BgpSetCommunityOptionTypeToIntMap[oc.BgpSetCommunityOptionType(s.Actions.BgpActions.SetExtCommunity.Options)]),
-				Communities: s.Actions.BgpActions.SetExtCommunity.SetExtCommunityMethod.CommunitiesList,
-			}
-		}(),
-		LargeCommunity: func() *api.CommunityAction {
-			if len(s.Actions.BgpActions.SetLargeCommunity.SetLargeCommunityMethod.CommunitiesList) == 0 {
-				return nil
-			}
-			return &api.CommunityAction{
-				Type:        api.CommunityAction_Type(oc.BgpSetCommunityOptionTypeToIntMap[s.Actions.BgpActions.SetLargeCommunity.Options]),
-				Communities: s.Actions.BgpActions.SetLargeCommunity.SetLargeCommunityMethod.CommunitiesList,
-			}
-		}(),
-		Nexthop: func() *api.NexthopAction {
-			if len(string(s.Actions.BgpActions.SetNextHop)) == 0 {
-				return nil
-			}
-
-			switch string(s.Actions.BgpActions.SetNextHop) {
-			case "self":
-				return &api.NexthopAction{
-					Self: true,
-				}
-			case "unchanged":
-				return &api.NexthopAction{
-					Unchanged: true,
-				}
-			case "peer-address":
-				return &api.NexthopAction{
-					PeerAddress: true,
-				}
-			}
-			return &api.NexthopAction{
-				Address: string(s.Actions.BgpActions.SetNextHop),
-			}
-		}(),
-		LocalPref: func() *api.LocalPrefAction {
-			if s.Actions.BgpActions.SetLocalPref == 0 {
-				return nil
-			}
-			return &api.LocalPrefAction{Value: s.Actions.BgpActions.SetLocalPref}
-		}(),
-		OriginAction: func() *api.OriginAction {
-			if s.Actions.BgpActions.SetRouteOrigin.ToInt() == -1 {
-				return nil
-			}
-			var apiOrigin api.OriginType
-			switch s.Actions.BgpActions.SetRouteOrigin {
-			case oc.BGP_ORIGIN_ATTR_TYPE_IGP:
-				apiOrigin = api.OriginType_ORIGIN_TYPE_IGP
-			case oc.BGP_ORIGIN_ATTR_TYPE_EGP:
-				apiOrigin = api.OriginType_ORIGIN_TYPE_EGP
-			case oc.BGP_ORIGIN_ATTR_TYPE_INCOMPLETE:
-				apiOrigin = api.OriginType_ORIGIN_TYPE_INCOMPLETE
-			default:
-				return nil
-			}
-			return &api.OriginAction{Origin: apiOrigin}
-		}(),
-	}
-	return &api.Statement{
-		Name:       s.Name,
-		Conditions: cs,
-		Actions:    as,
 	}
 }
 

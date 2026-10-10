@@ -224,7 +224,10 @@ func (rt *ROATable) Validate(path *Path) *Validation {
 		case bgp.BGP_ASPATH_ATTR_TYPE_CONFED_SET, bgp.BGP_ASPATH_ATTR_TYPE_CONFED_SEQ:
 			as = ownAs
 		default:
-			return validation
+			// RFC 6811 Section 2: the origin ASN of a route whose final
+			// segment is an AS_SET is "NONE", which no VRP matches. The
+			// zero value of as never matches in the lookup below, so a
+			// covering VRP makes the route invalid instead of not-found.
 		}
 	}
 

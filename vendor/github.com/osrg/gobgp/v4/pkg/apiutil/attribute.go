@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 
 	"github.com/osrg/gobgp/v4/api"
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
@@ -688,22 +689,39 @@ func MarshalLsNodeDescriptor(d *bgp.LsNodeDescriptor) (*api.LsNodeDescriptor, er
 		OspfAreaId:             d.OspfAreaID,
 		Pseudonode:             d.PseudoNode,
 		IgpRouterId:            d.IGPRouterID,
-		BgpRouterId:            addrOrEmpty(d.BGPRouterID),
+		BgpRouterId:            AddrOrEmpty(d.BGPRouterID),
 		BgpConfederationMember: d.BGPConfederationMember,
+		LocalRouterIdIpv4:      AddrOrEmpty(d.LocalRouterID),
+		LocalRouterIdIpv6:      AddrOrEmpty(d.LocalRouterIDv6),
 	}, nil
 }
 
 func MarshalLsLinkDescriptor(n *bgp.LsLinkDescriptor) (*api.LsLinkDescriptor, error) {
-	// Both identifiers keep explicit presence: 0 is a valid Link Remote
-	// Identifier meaning "unknown" (RFC 5307, Section 1.1), so flattening an
-	// absent identifier to 0 would fabricate a Link Local/Remote Identifiers TLV.
+	var multiTopoIDs []uint32
+	if len(n.MultiTopoIDs) > 0 {
+		ids := make([]uint16, 0, len(n.MultiTopoIDs))
+		for id := range n.MultiTopoIDs {
+			ids = append(ids, id)
+		}
+		slices.Sort(ids)
+
+		multiTopoIDs = make([]uint32, len(ids))
+		for i, id := range ids {
+			multiTopoIDs[i] = uint32(id)
+		}
+	}
+
 	return &api.LsLinkDescriptor{
+		// Both identifiers keep explicit presence: 0 is a valid Link Remote
+		// Identifier meaning "unknown" (RFC 5307, Section 1.1), so flattening an
+		// absent identifier to 0 would fabricate a Link Local/Remote Identifiers TLV.
 		LinkLocalId:       n.LinkLocalID,
 		LinkRemoteId:      n.LinkRemoteID,
 		InterfaceAddrIpv4: ipOrDefault(n.InterfaceAddrIPv4),
 		NeighborAddrIpv4:  ipOrDefault(n.NeighborAddrIPv4),
 		InterfaceAddrIpv6: ipOrDefault(n.InterfaceAddrIPv6),
 		NeighborAddrIpv6:  ipOrDefault(n.NeighborAddrIPv6),
+		MultiTopoIds:      multiTopoIDs,
 	}, nil
 }
 
@@ -891,12 +909,24 @@ func UnmarshalLsBgpPeerSegmentSid(a *api.LsBgpPeerSegmentSID) (*bgp.LsBgpPeerSeg
 }
 
 func UnmarshalLsNodeDescriptor(nd *api.LsNodeDescriptor) (*bgp.LsNodeDescriptor, error) {
+	return unmarshalLsNodeDescriptor(nd, false)
+}
+
+// unmarshalLsNodeDescriptor converts a node descriptor. Only the SR Policy
+// headend descriptor may carry the local Router-ID sub-TLVs (RFC 9857
+// section 3); accepting them for another NLRI type would emit a sub-TLV
+// RFC 9552 does not define there, which receiving speakers drop, so the
+// NLRI would differ between the originator and every downstream speaker.
+func unmarshalLsNodeDescriptor(nd *api.LsNodeDescriptor, headend bool) (*bgp.LsNodeDescriptor, error) {
 	// The Local Node Descriptors TLV "is a mandatory TLV in all three types of
 	// NLRIs (node, link, and prefix)" (RFC 7752, Section 3.2.1.2) and the Remote
 	// Node Descriptors TLV "is a mandatory TLV for Link NLRIs" (Section
 	// 3.2.1.3), so an absent descriptor cannot be defaulted.
 	if nd == nil {
 		return nil, errors.New("LS node descriptor is nil")
+	}
+	if !headend && (nd.LocalRouterIdIpv4 != "" || nd.LocalRouterIdIpv6 != "") {
+		return nil, errors.New("local_router_id_ipv4 and local_router_id_ipv6 are only valid for the SR Policy headend")
 	}
 	// An empty string means the BGP Router-ID is absent. A non-empty one must
 	// parse: silently keeping the zero Addr would make a malformed request
@@ -909,6 +939,22 @@ func UnmarshalLsNodeDescriptor(nd *api.LsNodeDescriptor) (*bgp.LsNodeDescriptor,
 			return nil, fmt.Errorf("invalid bgp_router_id %q: %w", id, err)
 		}
 	}
+	localRouterID, err := lsParseAddr("local_router_id_ipv4", nd.LocalRouterIdIpv4)
+	if err != nil {
+		return nil, err
+	}
+	if localRouterID.IsValid() && !localRouterID.Is4() {
+		return nil, fmt.Errorf("local_router_id_ipv4 must be an IPv4 address")
+	}
+	localRouterIDv6, err := lsParseAddr("local_router_id_ipv6", nd.LocalRouterIdIpv6)
+	if err != nil {
+		return nil, err
+	}
+	// TLV 1029 only requires 16 octets, so a peer's Router-ID can decode
+	// to an IPv4-mapped address; Is6 is true for one, so it converts back.
+	if localRouterIDv6.IsValid() && !localRouterIDv6.Is6() {
+		return nil, fmt.Errorf("local_router_id_ipv6 must be an IPv6 address")
+	}
 	return &bgp.LsNodeDescriptor{
 		Asn:                    nd.Asn,
 		BGPLsID:                nd.BgpLsId,
@@ -917,6 +963,8 @@ func UnmarshalLsNodeDescriptor(nd *api.LsNodeDescriptor) (*bgp.LsNodeDescriptor,
 		IGPRouterID:            nd.IgpRouterId,
 		BGPRouterID:            bgpRouterId,
 		BGPConfederationMember: nd.BgpConfederationMember,
+		LocalRouterID:          localRouterID,
+		LocalRouterIDv6:        localRouterIDv6,
 	}, nil
 }
 
@@ -948,6 +996,16 @@ func UnmarshalLsLinkDescriptor(ld *api.LsLinkDescriptor) (*bgp.LsLinkDescriptor,
 	}
 	if desc.NeighborAddrIPv6, err = parseLsLinkAddr("neighbor_addr_ipv6", ld.GetNeighborAddrIpv6()); err != nil {
 		return nil, err
+	}
+
+	if ld != nil && len(ld.GetMultiTopoIds()) > 0 {
+		desc.MultiTopoIDs = make(map[uint16]struct{}, len(ld.GetMultiTopoIds()))
+		for _, id := range ld.GetMultiTopoIds() {
+			if id > 0xfff {
+				return nil, fmt.Errorf("invalid MT-ID: %d", id)
+			}
+			desc.MultiTopoIDs[uint16(id)] = struct{}{}
+		}
 	}
 
 	return desc, nil
@@ -1276,6 +1334,14 @@ func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
 		if a.Link.SrAdjacencySid != 0 {
 			linkSrAdjacencySid = &a.Link.SrAdjacencySid
 		}
+		var linkAdjacencySIDs []bgp.LsAttributeLinkAdjacencySID
+		for _, sid := range a.Link.SrAdjacencySids {
+			linkAdjacencySIDs = append(linkAdjacencySIDs, bgp.LsAttributeLinkAdjacencySID{
+				Flags:  uint8(sid.Flags),
+				Weight: uint8(sid.Weight),
+				SID:    sid.Sid,
+			})
+		}
 		var srv6EndXSID *bgp.LsSrv6EndXSID
 		if a.Link.Srv6EndXSid != nil {
 			sids := make([]netip.Addr, 0, len(a.Link.Srv6EndXSid.Sids))
@@ -1320,6 +1386,7 @@ func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
 			UnreservedBandwidth:           unreservedBandwidth,
 			Srlgs:                         linkSrlgs,
 			SrAdjacencySID:                linkSrAdjacencySid,
+			SrAdjacencySIDs:               linkAdjacencySIDs,
 			Srv6EndXSID:                   srv6EndXSID,
 		}
 	}
@@ -1412,6 +1479,15 @@ func UnmarshalLsAttribute(a *api.LsAttribute) (*bgp.LsAttribute, error) {
 			}
 		}
 		lsAttr.Srv6SID = lsSrv6SID
+	}
+
+	// For AttributeSrPolicy
+	if a.SrPolicy != nil {
+		srPolicy, err := UnmarshalLsAttributeSrPolicy(a.SrPolicy)
+		if err != nil {
+			return nil, err
+		}
+		lsAttr.SrPolicy = *srPolicy
 	}
 
 	return lsAttr, nil
@@ -1727,6 +1803,20 @@ func MarshalNLRI(value bgp.NLRI) (*api.NLRI, error) {
 				ProtocolId: api.LsProtocolID(n.ProtocolID),
 				Identifier: n.Identifier,
 			}}
+		case *bgp.LsSrPolicyCandidatePathNLRI:
+			cp, err := MarshalLsSrPolicyCandidatePathNLRI(n)
+			if err != nil {
+				return nil, err
+			}
+			nlri.Nlri = &api.NLRI_LsAddrPrefix{LsAddrPrefix: &api.LsAddrPrefix{
+				Type:       api.LsNLRIType_LS_NLRI_TYPE_SR_POLICY_CANDIDATE_PATH,
+				Nlri:       cp,
+				Length:     uint32(n.Length),
+				ProtocolId: api.LsProtocolID(n.ProtocolID),
+				Identifier: n.Identifier,
+			}}
+		default:
+			return nil, fmt.Errorf("unsupported BGP-LS NLRI type %T", n)
 		}
 	case *bgp.SRPolicyNLRI:
 		nlri.Nlri = &api.NLRI_SrPolicy{SrPolicy: &api.SRPolicyNLRI{
@@ -2228,6 +2318,13 @@ func UnmarshalNLRI(rf bgp.Family, an *api.NLRI) (bgp.NLRI, error) {
 				Length: uint16(v.Length),
 				NLRI:   srv6SID,
 			}
+
+		case *api.LsAddrPrefix_LsNLRI_SrPolicyCandidatePath:
+			cp, err := UnmarshalLsSrPolicyCandidatePathNLRI(t.SrPolicyCandidatePath, bgp.LsProtocolID(v.ProtocolId), v.Identifier)
+			if err != nil {
+				return nil, err
+			}
+			nlri = cp
 
 		default:
 			return nil, fmt.Errorf("unknown LS prefix type %v", t)
@@ -2941,21 +3038,11 @@ func bytesOrDefault(b *[]byte) []byte {
 	return *b
 }
 
-// addrOrEmpty renders an optional address. An absent address must come out as
-// an empty string, not as the zero Addr's "invalid IP" text, which would be
-// rejected as a malformed address if the message were fed back in.
-func addrOrEmpty(addr netip.Addr) string {
-	if !addr.IsValid() {
-		return ""
-	}
-	return addr.String()
-}
-
 func ipOrDefault(ip *netip.Addr) string {
 	if ip == nil {
 		return ""
 	}
-	return addrOrEmpty(*ip)
+	return AddrOrEmpty(*ip)
 }
 
 func uint32OrDefault(i *uint32) uint32 {
@@ -3087,6 +3174,7 @@ func NewLsAttributeFromNative(a *bgp.PathAttributeLs) (*api.LsAttribute, error) 
 		},
 		BgpPeerSegment: bgpPeerSegment,
 		Srv6Sid:        srv6SID,
+		SrPolicy:       MarshalLsAttributeSrPolicy(&attr.SrPolicy),
 	}
 
 	if attr.Node.Flags != nil {
@@ -3158,6 +3246,16 @@ func NewLsAttributeFromNative(a *bgp.PathAttributeLs) (*api.LsAttribute, error) 
 			IncludeAllAffinity: append([]uint32(nil), fad.IncludeAll...),
 			DefinitionFlags:    append([]byte(nil), fad.Flags...),
 			ExcludeSrlg:        append([]uint32(nil), fad.ExcludeSRLG...),
+		})
+	}
+
+	// RFC 8667 Section 2.2.1: surface every Adjacency-SID TLV; the
+	// singular sr_adjacency_sid field above retains the last TLV.
+	for _, sid := range attr.Link.SrAdjacencySIDs {
+		apiAttr.Link.SrAdjacencySids = append(apiAttr.Link.SrAdjacencySids, &api.LsAttributeLinkAdjacencySID{
+			Flags:  uint32(sid.Flags),
+			Weight: uint32(sid.Weight),
+			Sid:    sid.SID,
 		})
 	}
 

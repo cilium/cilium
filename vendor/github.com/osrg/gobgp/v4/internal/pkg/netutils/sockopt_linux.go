@@ -180,7 +180,7 @@ func SetReuseAddrSockopt(sc syscall.RawConn) error {
 	return setSockOptInt(sc, syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
 }
 
-func DialerControl(logger *slog.Logger, network, address string, c syscall.RawConn, ttl, minTtl uint8, mss uint16, password string, bindInterface string, tos uint8) error {
+func DialerControl(logger *slog.Logger, network, address string, c syscall.RawConn, ttl, minTtl uint8, mss uint16, password string, bindInterface string, tos uint8, tcpAO *TCPAOConfig) error {
 	family := syscall.AF_INET
 	raddr, _ := net.ResolveTCPAddr("tcp", address)
 	if raddr.IP.To4() == nil {
@@ -278,6 +278,17 @@ func DialerControl(logger *slog.Logger, network, address string, c syscall.RawCo
 		}
 		if sockerr != nil {
 			return sockerr
+		}
+	}
+
+	if tcpAO != nil {
+		addrPort, err := netip.ParseAddrPort(address)
+		if err != nil {
+			return fmt.Errorf("invalid TCP-AO peer address %q: %w", address, err)
+		}
+		addr := addrPort.Addr().Unmap()
+		if err := AddTCPAOKeysSockopt(c, netip.PrefixFrom(addr, addr.BitLen()), bindInterface, *tcpAO); err != nil {
+			return fmt.Errorf("failed to configure TCP-AO for peer %s: %w", addr, err)
 		}
 	}
 	return nil

@@ -67,6 +67,9 @@ var (
 	nativeIsBigEndian   = binary.NativeEndian.Uint16([]byte{1, 2}) == 0x0102
 	tcpAOFlagSetCurrent = nativeCBitfield32Mask(0)
 	tcpAOFlagSetRNext   = nativeCBitfield32Mask(1)
+	// tcpAOFlagDelAsync only exists in struct tcp_ao_del and the kernel
+	// accepts it on listening sockets only.
+	tcpAOFlagDelAsync   = nativeCBitfield32Mask(2)
 	tcpAOGetFlagCurrent = nativeCBitfield16Mask(0)
 	tcpAOGetFlagRNext   = nativeCBitfield16Mask(1)
 	tcpAOGetFlagAll     = nativeCBitfield16Mask(2)
@@ -220,7 +223,7 @@ func marshalTCPAOAdd(scope netip.Prefix, ifindex int32, key TCPAOKey, selected b
 	return encodeTCPAOABI(&abi)
 }
 
-func marshalTCPAODel(scope netip.Prefix, ifindex int32, key TCPAOKey) ([]byte, error) {
+func marshalTCPAODel(scope netip.Prefix, ifindex int32, key TCPAOKey, delAsync bool) ([]byte, error) {
 	address, err := marshalTCPAOSockaddr(scope)
 	if err != nil {
 		return nil, err
@@ -231,6 +234,9 @@ func marshalTCPAODel(scope netip.Prefix, ifindex int32, key TCPAOKey) ([]byte, e
 		PrefixLength:   uint8(scope.Bits()),
 		SendID:         key.SendID,
 		ReceiveID:      key.ReceiveID,
+	}
+	if delAsync {
+		abi.Flags = tcpAOFlagDelAsync
 	}
 	if ifindex != 0 {
 		abi.KeyFlags = tcpAOKeyFlagIfindex

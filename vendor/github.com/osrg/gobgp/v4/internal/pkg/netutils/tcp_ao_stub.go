@@ -25,7 +25,7 @@ func AddTCPAOKeysSockopt(_ syscall.RawConn, _ netip.Prefix, _ string, _ TCPAOCon
 	return ErrTCPAONotSupported
 }
 
-func DeleteTCPAOKeysSockopt(_ syscall.RawConn, _ netip.Prefix, _ string, _ TCPAOConfig) error {
+func DeleteTCPAOKeysSockopt(_ syscall.RawConn, _ netip.Prefix, _ string, _ TCPAOConfig, _ bool) error {
 	return ErrTCPAONotSupported
 }
 

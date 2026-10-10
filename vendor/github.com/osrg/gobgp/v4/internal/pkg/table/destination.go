@@ -29,11 +29,6 @@ import (
 	"github.com/osrg/gobgp/v4/pkg/packet/bgp"
 )
 
-var (
-	SelectionOptions oc.RouteSelectionOptionsConfig
-	UseMultiplePaths oc.UseMultiplePathsConfig
-)
-
 type BestPathReason uint8
 
 const (
@@ -304,7 +299,7 @@ func (dd *destination) GetMultiBestPath(id string) []*Path {
 // paths from known paths. Also, adds new paths to known paths.
 // INTERNAL USE ONLY: Caller MUST hold the appropriate shard lock.
 // This method must NEVER be called on snapshot destinations.
-func (dest *destination) Calculate(logger *slog.Logger, newPath *Path) (*Update, *Path) {
+func (dest *destination) Calculate(logger *slog.Logger, newPath *Path, selectionOptions oc.RouteSelectionOptionsConfig) (*Update, *Path) {
 	oldKnownPathList := make([]*Path, len(dest.knownPathList))
 	copy(oldKnownPathList, dest.knownPathList)
 
@@ -318,7 +313,7 @@ func (dest *destination) Calculate(logger *slog.Logger, newPath *Path) (*Update,
 		}
 	} else {
 		oldPath = dest.implicitWithdraw(logger, newPath)
-		dest.insertSort(newPath)
+		dest.insertSort(newPath, selectionOptions)
 	}
 
 	for _, path := range dest.knownPathList {
@@ -421,7 +416,7 @@ func (dest *destination) implicitWithdraw(logger *slog.Logger, newPath *Path) *P
 	return nil
 }
 
-func (dest *destination) insertSort(newPath *Path) {
+func (dest *destination) insertSort(newPath *Path, selectionOptions oc.RouteSelectionOptionsConfig) {
 	// Find the correct position for newPath
 	insertIdx := sort.Search(len(dest.knownPathList), func(i int) bool {
 		//Determine where in the array newPath belongs. The slice
@@ -477,7 +472,7 @@ func (dest *destination) insertSort(newPath *Path) {
 			return false
 		}
 
-		if b := compareByASPath(path1, path2); b == path1 {
+		if b := compareByASPath(path1, path2, selectionOptions); b == path1 {
 			return true
 		} else if b == path2 {
 			return false
@@ -489,7 +484,7 @@ func (dest *destination) insertSort(newPath *Path) {
 			return false
 		}
 
-		if b := compareByMED(path1, path2); b == path1 {
+		if b := compareByMED(path1, path2, selectionOptions); b == path1 {
 			return true
 		} else if b == path2 {
 			return false
@@ -501,13 +496,13 @@ func (dest *destination) insertSort(newPath *Path) {
 			return false
 		}
 
-		if b := compareByAge(path1, path2); b == path1 {
+		if b := compareByAge(path1, path2, selectionOptions); b == path1 {
 			return true
 		} else if b == path2 {
 			return false
 		}
 
-		if b, _ := compareByRouterID(path1, path2); b == path1 {
+		if b, _ := compareByRouterID(path1, path2, selectionOptions); b == path1 {
 			return true
 		} else if b == path2 {
 			return false
@@ -528,6 +523,10 @@ func (dest *destination) insertSort(newPath *Path) {
 type Update struct {
 	KnownPathList    []*Path
 	OldKnownPathList []*Path
+	// Changed reports whether the path given to Table.update differs from the
+	// path it replaced. It is false when the same path is advertised again
+	// with the same attributes, which is what an inbound soft reset does.
+	Changed bool
 }
 
 // GetMultiBestPathDiff returns multipath delta as update and withdraw lists.
@@ -603,7 +602,7 @@ func (u *Update) GetWithdrawnPath() []*Path {
 	return l
 }
 
-func (u *Update) GetChanges(id string, as uint32, peerDown bool) (*Path, *Path, []*Path) {
+func (u *Update) GetChanges(id string, as uint32, peerDown, useMultiplePaths bool) (*Path, *Path, []*Path) {
 	best, old := func(id string) (*Path, *Path) {
 		old := getBestPath(id, as, u.OldKnownPathList)
 		best := getBestPath(id, as, u.KnownPathList)
@@ -646,7 +645,7 @@ func (u *Update) GetChanges(id string, as uint32, peerDown bool) (*Path, *Path, 
 
 	var multi []*Path
 
-	if id == GLOBAL_RIB_NAME && UseMultiplePaths.Enabled {
+	if id == GLOBAL_RIB_NAME && useMultiplePaths {
 		diff := func(lhs, rhs []*Path) bool {
 			if len(lhs) != len(rhs) {
 				return true
@@ -740,12 +739,12 @@ func compareByLocalOrigin(path1, path2 *Path) *Path {
 	return nil
 }
 
-func compareByASPath(path1, path2 *Path) *Path {
+func compareByASPath(path1, path2 *Path, selectionOptions oc.RouteSelectionOptionsConfig) *Path {
 	// Calculated the best-paths by comparing as-path lengths.
 	//
 	// Shortest as-path length is preferred. If both path have same lengths,
 	// we return None.
-	if SelectionOptions.IgnoreAsPathLength {
+	if selectionOptions.IgnoreAsPathLength {
 		return nil
 	}
 
@@ -787,7 +786,7 @@ func compareByOrigin(path1, path2 *Path) *Path {
 	}
 }
 
-func compareByMED(path1, path2 *Path) *Path {
+func compareByMED(path1, path2 *Path, selectionOptions oc.RouteSelectionOptionsConfig) *Path {
 	//	Select the path based with lowest MED value.
 	//
 	//	If both paths have same MED, return None.
@@ -819,7 +818,7 @@ func compareByMED(path1, path2 *Path) *Path {
 		return firstAS(path1) != 0 && firstAS(path1) == firstAS(path2)
 	}()
 
-	if SelectionOptions.AlwaysCompareMed || isInternal || isSameAS {
+	if selectionOptions.AlwaysCompareMed || isInternal || isSameAS {
 		getMed := func(path *Path) uint32 {
 			attribute := path.getPathAttr(bgp.BGP_ATTR_TYPE_MULTI_EXIT_DISC)
 			if attribute == nil {
@@ -863,7 +862,7 @@ func compareByASNumber(path1, path2 *Path) *Path {
 	return nil
 }
 
-func compareByRouterID(path1, path2 *Path) (*Path, error) {
+func compareByRouterID(path1, path2 *Path, selectionOptions oc.RouteSelectionOptionsConfig) (*Path, error) {
 	//	Select the route received from the peer with the lowest BGP router ID.
 	//
 	//	If both paths are eBGP paths, then we do not do any tie breaking, i.e we do
@@ -878,11 +877,11 @@ func compareByRouterID(path1, path2 *Path) (*Path, error) {
 
 	// If both paths are from eBGP peers, then according to RFC we need
 	// not tie break using router id.
-	if !SelectionOptions.ExternalCompareRouterId && !path1.IsIBGP() && !path2.IsIBGP() {
+	if !selectionOptions.ExternalCompareRouterId && !path1.IsIBGP() && !path2.IsIBGP() {
 		return nil, nil
 	}
 
-	if !SelectionOptions.ExternalCompareRouterId && path1.IsIBGP() != path2.IsIBGP() {
+	if !selectionOptions.ExternalCompareRouterId && path1.IsIBGP() != path2.IsIBGP() {
 		return nil, fmt.Errorf("this method does not support comparing ebgp with ibgp path")
 	}
 
@@ -923,8 +922,8 @@ func compareByNeighborAddress(path1, path2 *Path) *Path {
 	return nil
 }
 
-func compareByAge(path1, path2 *Path) *Path {
-	if !path1.IsIBGP() && !path2.IsIBGP() && !SelectionOptions.ExternalCompareRouterId {
+func compareByAge(path1, path2 *Path, selectionOptions oc.RouteSelectionOptionsConfig) *Path {
+	if !path1.IsIBGP() && !path2.IsIBGP() && !selectionOptions.ExternalCompareRouterId {
 		age1 := path1.GetTimestamp().UnixNano()
 		age2 := path2.GetTimestamp().UnixNano()
 		if age1 == age2 {
