@@ -23,6 +23,11 @@ spec:
         protocol: UDP
       - port: "53"
         protocol: TCP
+      # Gardener <https://gardener.cloud/> uses port 8053 for CoreDNS
+      - port: "8053"
+        protocol: UDP
+      - port: "8053"
+        protocol: TCP
   # OpenShift  runs coreDNS in openshift-dns namespace and uses port 5353
   - toEndpoints:
     - matchExpressions:
