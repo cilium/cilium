@@ -78,6 +78,8 @@ ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .enable_by_user = tr
 #include "lib/policy.h"
 #include "nodeport_defaults.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 /*
  * Test: Pod -> Remote NodePort -> Local backend
  * - Client pod sends packet to remote node's NodePort (non-DSR)

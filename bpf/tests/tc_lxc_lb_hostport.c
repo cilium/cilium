@@ -71,6 +71,8 @@ ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_one_addr })
 #include "lib/policy.h"
 #include "nodeport_defaults.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 /*
  * Test: Pod -> Host HostPort -> Local backend
  * - Client pod sends packet to a local host address (HOST_ID) on a HostPort

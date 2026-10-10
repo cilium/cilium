@@ -34,6 +34,8 @@
 #include "lib/lb.h"
 #include "scapy.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 /* For checking statistics in conntrack map. */
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 

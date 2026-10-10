@@ -4,3 +4,5 @@
 #define NORTH_SOUTH_TEST 1
 
 #include "tc_lb_external_ips.h"
+
+TEST_CHECKSUM_COMPLETE();
