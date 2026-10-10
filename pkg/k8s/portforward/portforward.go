@@ -13,6 +13,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
@@ -73,12 +74,24 @@ func (pf *PortForwarder) PortForward(ctx context.Context, p PortForwardParameter
 	req := pf.clientset.CoreV1().RESTClient().Post().Namespace(p.Namespace).
 		Resource("pods").Name(p.Pod).SubResource(strings.ToLower("PortForward"))
 
-	roundTripper, upgrader, err := spdy.RoundTripperFor(pf.config)
-	if err != nil {
-		return nil, err
+	dialerWebsocket, errWebsocket := portforward.NewSPDYOverWebsocketDialer(req.URL(), pf.config)
+
+	transport, upgrader, errSPDY := spdy.RoundTripperFor(pf.config)
+	if errSPDY != nil && errWebsocket != nil {
+		return nil, fmt.Errorf("failed to create k8s dialer: (websocket) %w, (spdy) %w", errWebsocket, errSPDY)
 	}
 
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: roundTripper}, http.MethodPost, req.URL())
+	var dialer httpstream.Dialer
+	switch {
+	case errSPDY != nil:
+		dialer = dialerWebsocket
+	case errWebsocket != nil:
+		dialer = spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, req.URL())
+	default:
+		dialerSPDY := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, req.URL())
+		dialer = portforward.NewFallbackDialer(dialerSPDY, dialerWebsocket, ShouldFallbackToWebSocket)
+	}
+
 	stopChan, readyChan := make(chan struct{}, 1), make(chan struct{}, 1)
 	if len(p.Addresses) == 0 {
 		p.Addresses = []string{"localhost"}
@@ -198,4 +211,20 @@ func (pf *PortForwarder) getFirstPodForService(ctx context.Context, svc *corev1.
 	sort.Sort(sortBy(pods))
 
 	return pods[0], nil
+}
+
+// ShouldFallbackToWebSocket reports whether err from a SPDY attempt should
+// trigger a WebSocket fallback. httpstream.IsUpgradeFailure never matches
+// SPDY-side rejections, which proxies return as plain errors such as
+// "unable to upgrade connection: SPDY protocol is not supported", so match
+// that wording too. It is deliberately not a bare "spdy" match, which could
+// misfire on unrelated error text after the connection was established.
+func ShouldFallbackToWebSocket(err error) bool {
+	if err != nil {
+		msg := strings.ToLower(err.Error())
+		if strings.Contains(msg, "unable to upgrade connection") && strings.Contains(msg, "spdy") {
+			return true
+		}
+	}
+	return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
 }

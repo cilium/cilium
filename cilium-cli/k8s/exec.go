@@ -11,11 +11,11 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/httpstream"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 
 	"github.com/cilium/cilium/cilium-cli/k8s/internal"
+	"github.com/cilium/cilium/pkg/k8s/portforward"
 )
 
 type ExecParameters struct {
@@ -51,10 +51,9 @@ func newExecutor(config *rest.Config, url *url.URL) (remotecommand.Executor, err
 		return nil, fmt.Errorf("Error while creating k8s executor: (websocket) %w, (spdy) %w", errWebsocket, errSPDY)
 	}
 
-	// Default to the SPDY connection
-	execFallback, errFallback := remotecommand.NewFallbackExecutor(execSPDY, execWebsocket, func(err error) bool {
-		return httpstream.IsUpgradeFailure(err) || httpstream.IsHTTPSProxyError(err)
-	})
+	// Default to the SPDY connection, falling back to WebSocket when the
+	// SPDY upgrade is rejected.
+	execFallback, errFallback := remotecommand.NewFallbackExecutor(execSPDY, execWebsocket, portforward.ShouldFallbackToWebSocket)
 	if errFallback != nil {
 		return nil, fmt.Errorf("Error while creating k8s executor: %w", errFallback)
 	}
