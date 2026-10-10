@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/api/v1/models"
 	daemon_k8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/bgp/config"
 	"github.com/cilium/cilium/pkg/bgp/manager/instance"
@@ -350,6 +351,23 @@ func (r *StatusReconciler) cleanupStatus(ctx context.Context, health cell.Health
 	})
 }
 
+// samePeer reports whether a peer from the running gobgp state is the one described
+// by the configured CRD peer.
+//
+// The name is the primary key. toGoBGPPeerConf encodes the CRD peer name into the
+// gobgp peer Description for exactly this reason, and GetPeerStateLegacy decodes it
+// back out, so the name is available for every peer this agent created.
+//
+// Fall back to the address only when the running state carries no name (a peer this
+// agent did not create, or one predating the Description encoding).
+func samePeer(running *models.BgpPeer, configured v2.CiliumBGPNodePeer) bool {
+	if running.Name != "" || configured.Name != "" {
+		return running.Name == configured.Name
+	}
+
+	return configured.PeerAddress != nil && running.PeerAddress == *configured.PeerAddress
+}
+
 func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *instance.BGPInstance) (*v2.CiliumBGPNodeInstanceStatus, error) {
 	res := &v2.CiliumBGPNodeInstanceStatus{
 		Name:     instance.Config.Name,
@@ -363,6 +381,8 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 	}
 
 	for _, configuredPeers := range instance.Config.Peers {
+		// An unnumbered peer that has not been discovered yet has no address
+		// either, and is not configured on the router at all.
 		if configuredPeers.PeerASN == nil || configuredPeers.PeerAddress == nil {
 			continue
 		}
@@ -374,8 +394,14 @@ func (r *StatusReconciler) getInstanceStatus(ctx context.Context, instance *inst
 		}
 
 		for _, runningPeerState := range peers.Peers {
-			if runningPeerState.PeerAddress != *configuredPeers.PeerAddress {
+			if !samePeer(runningPeerState, configuredPeers) {
 				continue
+			}
+
+			// Prefer the running state's address: it is the canonical spelling
+			// of whatever the CRD asked for.
+			if runningPeerState.PeerAddress != "" {
+				peerStatus.PeerAddress = runningPeerState.PeerAddress
 			}
 
 			if *configuredPeers.PeerASN == 0 { // If PeerASN is not set, use the ASN from the running state
