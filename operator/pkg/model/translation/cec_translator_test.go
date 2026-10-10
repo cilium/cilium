@@ -511,6 +511,167 @@ func TestSharedIngressTranslator_getClusters(t *testing.T) {
 	}
 }
 
+func TestCECTranslatorTranslate_CoTenantRoutesAreDeterministic(t *testing.T) {
+	const (
+		namespace = "cec-churn-repro"
+		hostname  = "apis.repro.test"
+	)
+
+	newModel := func(reverse bool) *model.Model {
+		routes := make([]model.HTTPRoute, 0, 20)
+		for i := range 20 {
+			routeID := rune('a' + i)
+			routes = append(routes, model.HTTPRoute{
+				Hostnames: []string{hostname},
+				PathMatch: model.StringMatch{
+					Prefix: fmt.Sprintf("/api%c1", 'A'+i),
+				},
+				Backends: []model.Backend{
+					{
+						Name:      fmt.Sprintf("svc-%c", routeID),
+						Namespace: namespace,
+						Port: &model.BackendPort{
+							Port: 80,
+						},
+					},
+				},
+			})
+		}
+		if reverse {
+			slices.Reverse(routes)
+		}
+
+		return &model.Model{
+			HTTP: []model.HTTPListener{
+				{
+					Name:     "shared-http",
+					Port:     80,
+					Hostname: hostname,
+					Routes:   routes,
+				},
+			},
+		}
+	}
+
+	translator := NewCECTranslator(Config{})
+	forwardCEC, err := translator.Translate(namespace, "cilium-gateway-repro-gateway", newModel(false))
+	require.NoError(t, err)
+	reverseCEC, err := translator.Translate(namespace, "cilium-gateway-repro-gateway", newModel(true))
+	require.NoError(t, err)
+
+	if diff := cmp.Diff(forwardCEC.Spec, reverseCEC.Spec, protocmp.Transform()); diff != "" {
+		t.Fatalf("translating the same co-tenanted routes in different input orders produced different CEC specs (-forward +reverse):\n%s", diff)
+	}
+}
+
+func TestCECTranslatorTranslate_CoTenantHeaderMatchesAreDeterministic(t *testing.T) {
+	const (
+		namespace = "cec-churn-repro"
+		hostname  = "apis.repro.test"
+	)
+
+	newModel := func(reverse bool) *model.Model {
+		routes := []model.HTTPRoute{
+			{
+				Hostnames: []string{hostname},
+				PathMatch: model.StringMatch{Prefix: "/api"},
+				HeadersMatch: []model.KeyValueMatch{
+					{Key: "x-route", Match: model.StringMatch{Exact: "a"}},
+				},
+				Backends: []model.Backend{
+					{Name: "svc-a", Namespace: namespace, Port: &model.BackendPort{Port: 80}},
+				},
+			},
+			{
+				Hostnames: []string{hostname},
+				PathMatch: model.StringMatch{Prefix: "/api"},
+				HeadersMatch: []model.KeyValueMatch{
+					{Key: "x-route", Match: model.StringMatch{Exact: "b"}},
+				},
+				Backends: []model.Backend{
+					{Name: "svc-b", Namespace: namespace, Port: &model.BackendPort{Port: 80}},
+				},
+			},
+		}
+		if reverse {
+			slices.Reverse(routes)
+		}
+
+		return &model.Model{
+			HTTP: []model.HTTPListener{
+				{
+					Name:     "shared-http",
+					Port:     80,
+					Hostname: hostname,
+					Routes:   routes,
+				},
+			},
+		}
+	}
+
+	translator := NewCECTranslator(Config{})
+	forwardCEC, err := translator.Translate(namespace, "cilium-gateway-repro-gateway", newModel(false))
+	require.NoError(t, err)
+	reverseCEC, err := translator.Translate(namespace, "cilium-gateway-repro-gateway", newModel(true))
+	require.NoError(t, err)
+
+	if diff := cmp.Diff(forwardCEC.Spec, reverseCEC.Spec, protocmp.Transform()); diff != "" {
+		t.Fatalf("translating equal-precedence header matches in different input orders produced different CEC specs (-forward +reverse):\n%s", diff)
+	}
+}
+
+func TestCECTranslatorTranslate_CoTenantQueryMatchesAreDeterministic(t *testing.T) {
+	const (
+		namespace = "cec-churn-repro"
+		hostname  = "apis.repro.test"
+	)
+
+	newModel := func(reverse bool) *model.Model {
+		routes := []model.HTTPRoute{
+			{
+				Hostnames:        []string{hostname},
+				PathMatch:        model.StringMatch{Prefix: "/api"},
+				QueryParamsMatch: []model.KeyValueMatch{{Key: "version", Match: model.StringMatch{Exact: "a"}}},
+				Backends: []model.Backend{
+					{Name: "svc-a", Namespace: namespace, Port: &model.BackendPort{Port: 80}},
+				},
+			},
+			{
+				Hostnames:        []string{hostname},
+				PathMatch:        model.StringMatch{Prefix: "/api"},
+				QueryParamsMatch: []model.KeyValueMatch{{Key: "version", Match: model.StringMatch{Exact: "b"}}},
+				Backends: []model.Backend{
+					{Name: "svc-b", Namespace: namespace, Port: &model.BackendPort{Port: 80}},
+				},
+			},
+		}
+		if reverse {
+			slices.Reverse(routes)
+		}
+
+		return &model.Model{
+			HTTP: []model.HTTPListener{
+				{
+					Name:     "shared-http",
+					Port:     80,
+					Hostname: hostname,
+					Routes:   routes,
+				},
+			},
+		}
+	}
+
+	translator := NewCECTranslator(Config{})
+	forwardCEC, err := translator.Translate(namespace, "cilium-gateway-repro-gateway", newModel(false))
+	require.NoError(t, err)
+	reverseCEC, err := translator.Translate(namespace, "cilium-gateway-repro-gateway", newModel(true))
+	require.NoError(t, err)
+
+	if diff := cmp.Diff(forwardCEC.Spec, reverseCEC.Spec, protocmp.Transform()); diff != "" {
+		t.Fatalf("translating equal-precedence query matches in different input orders produced different CEC specs (-forward +reverse):\n%s", diff)
+	}
+}
+
 func TestGetEnvoyHTTPRouteConfiguration_VirtualHostSorted(t *testing.T) {
 	defT := &cecTranslator{}
 

@@ -107,10 +107,93 @@ func (s SortableRoute) Less(i, j int) bool {
 		return headerMatch1 > headerMatch2
 	}
 
-	// lastly, sort by query match length
+	// Next, sort by query match length
 	queryMatch1 := len(s[i].Match.GetQueryParameters())
 	queryMatch2 := len(s[j].Match.GetQueryParameters())
-	return queryMatch1 > queryMatch2
+	if queryMatch1 != queryMatch2 {
+		return queryMatch1 > queryMatch2
+	}
+	// Finally, make equal-precedence routes deterministic without changing
+	// their Gateway API precedence.
+	path1 := routeMatchPath(s[i].Match)
+	path2 := routeMatchPath(s[j].Match)
+	if path1 != path2 {
+		return path1 < path2
+	}
+	if result := compareHeaderMatchers(s[i].Match.GetHeaders(), s[j].Match.GetHeaders()); result != 0 {
+		return result < 0
+	}
+	return compareQueryParameterMatchers(s[i].Match.GetQueryParameters(), s[j].Match.GetQueryParameters()) < 0
+}
+
+func compareQueryParameterMatchers(a, b []*envoy_config_route_v3.QueryParameterMatcher) int {
+	for i := range min(len(a), len(b)) {
+		if result := strings.Compare(a[i].GetName(), b[i].GetName()); result != 0 {
+			return result
+		}
+		if result := compareStringMatchers(a[i].GetStringMatch(), b[i].GetStringMatch()); result != 0 {
+			return result
+		}
+	}
+	return len(a) - len(b)
+}
+
+func compareHeaderMatchers(a, b []*envoy_config_route_v3.HeaderMatcher) int {
+	for i := range min(len(a), len(b)) {
+		if result := strings.Compare(a[i].GetName(), b[i].GetName()); result != 0 {
+			return result
+		}
+		if result := compareStringMatchers(a[i].GetStringMatch(), b[i].GetStringMatch()); result != 0 {
+			return result
+		}
+		if a[i].GetInvertMatch() != b[i].GetInvertMatch() {
+			if a[i].GetInvertMatch() {
+				return 1
+			}
+			return -1
+		}
+		if a[i].GetTreatMissingHeaderAsEmpty() != b[i].GetTreatMissingHeaderAsEmpty() {
+			if a[i].GetTreatMissingHeaderAsEmpty() {
+				return 1
+			}
+			return -1
+		}
+	}
+	return len(a) - len(b)
+}
+
+func compareStringMatchers(a, b *envoy_type_matcher_v3.StringMatcher) int {
+	for _, values := range [][2]string{
+		{a.GetExact(), b.GetExact()},
+		{a.GetPrefix(), b.GetPrefix()},
+		{a.GetSuffix(), b.GetSuffix()},
+		{a.GetSafeRegex().GetRegex(), b.GetSafeRegex().GetRegex()},
+		{a.GetContains(), b.GetContains()},
+	} {
+		if result := strings.Compare(values[0], values[1]); result != 0 {
+			return result
+		}
+	}
+	if a.GetIgnoreCase() == b.GetIgnoreCase() {
+		return 0
+	}
+	if a.GetIgnoreCase() {
+		return 1
+	}
+	return -1
+}
+
+func routeMatchPath(match *envoy_config_route_v3.RouteMatch) string {
+	if path := match.GetPath(); path != "" {
+		return path
+	}
+	if regex := match.GetSafeRegex().GetRegex(); regex != "" {
+		return regex
+	}
+	if prefix := match.GetPathSeparatedPrefix(); prefix != "" {
+		return prefix
+	}
+	return match.GetPrefix()
 }
 
 // countMatchingHeaders returns the number of Gateway API header matches that
