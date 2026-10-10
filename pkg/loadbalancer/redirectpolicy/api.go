@@ -67,7 +67,9 @@ func (lrp *LocalRedirectPolicy) getModel(txn statedb.ReadTxn, backends statedb.T
 
 	// Find all backends for the pseudo-service and build the API models for them.
 	beModels := []*models.LRPBackend{}
-	for be := range backends.List(txn, lb.BackendByServiceName(lrpSvcName)) {
+	bes, _ := lb.ListBackendsByServiceName(txn, backends, lrpSvcName)
+	preferred := lb.PreferredBackendsByAddress(bes)
+	for be := range preferred {
 		ipStr := be.Address.Addr().String()
 
 		// Find the pod that owns this backend IP.
@@ -87,10 +89,8 @@ func (lrp *LocalRedirectPolicy) getModel(txn statedb.ReadTxn, backends statedb.T
 			Port:     be.Address.Port(),
 			Protocol: be.Address.Protocol(),
 		}
-		if params := be.GetInstance(lrpSvcName); params != nil {
-			state, _ := params.State.String()
-			beAddrModel.State = state
-		}
+		state, _ := be.State.String()
+		beAddrModel.State = state
 
 		// Create the LRPBackend model.
 		beModel := &models.LRPBackend{

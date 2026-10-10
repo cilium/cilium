@@ -59,9 +59,9 @@ Address                    Type          ServiceName                       Backe
 169.254.169.254:5051/TCP   LocalRedirect test/lrp-addr:local-redirect      10.244.2.1:51/TCP               Done
 
 -- backends.table --
-Address             Instances
-10.244.2.1:50/TCP   test/lrp-addr:local-redirect (test)
-10.244.2.1:51/TCP   test/lrp-addr:local-redirect (test1)
+Service                       Address               PortNames
+test/lrp-addr:local-redirect  10.244.2.1:50/TCP     test
+test/lrp-addr:local-redirect  10.244.2.1:51/TCP     test1
 
 -- lrp-single.table --
 Name                       Type     FrontendType      Frontends
@@ -76,8 +76,8 @@ Address                    Type          ServiceName                            
 169.254.169.254:5050/TCP   LocalRedirect test/lrp-addr-single:local-redirect      10.244.2.1:50/TCP               Done
 
 -- backends-single.table --
-Address             Instances
-10.244.2.1:50/TCP   test/lrp-addr-single:local-redirect
+Service                              Address               PortNames
+test/lrp-addr-single:local-redirect  10.244.2.1:50/TCP
 
 -- lrp-addr.yaml --
 apiVersion: "cilium.io/v2"

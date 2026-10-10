@@ -81,15 +81,15 @@ Address                     Type        ServiceName              PortName   Back
 [fd00:10:96::b050]:80/TCP   ClusterIP   default/echo-dualstack   http       [fd00:10:244:1::247e]:80/TCP, [fd00:10:244:2::a314]:80/TCP   Done
 
 -- backends.table --
-Address                        Instances
-10.244.1.54:69/UDP             default/echo-dualstack (tftp)
-10.244.1.54:80/TCP             default/echo-dualstack (http)
-10.244.2.9:69/UDP              default/echo-dualstack (tftp)
-10.244.2.9:80/TCP              default/echo-dualstack (http)
-[fd00:10:244:1::247e]:69/UDP   default/echo-dualstack (tftp)
-[fd00:10:244:1::247e]:80/TCP   default/echo-dualstack (http)
-[fd00:10:244:2::a314]:69/UDP   default/echo-dualstack (tftp)
-[fd00:10:244:2::a314]:80/TCP   default/echo-dualstack (http)
+Service                 Address
+default/echo-dualstack  10.244.1.54:69/UDP
+default/echo-dualstack  10.244.1.54:80/TCP
+default/echo-dualstack  10.244.2.9:69/UDP
+default/echo-dualstack  10.244.2.9:80/TCP
+default/echo-dualstack  [fd00:10:244:1::247e]:69/UDP
+default/echo-dualstack  [fd00:10:244:1::247e]:80/TCP
+default/echo-dualstack  [fd00:10:244:2::a314]:69/UDP
+default/echo-dualstack  [fd00:10:244:2::a314]:80/TCP
 
 -- metrics.expected --
 Metric                    Labels                     Value

@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/source"
 )
 
 type fakePolicyImporter struct {
@@ -92,7 +93,8 @@ func (sf *servicesFixture) upsertService(name loadbalancer.ServiceName, lbls, se
 		Selector: selectors,
 	})
 	// Clear any old associations.
-	for be := range sf.backends.List(wtxn, loadbalancer.BackendByServiceName(name)) {
+	bes, _ := loadbalancer.ListBackendsByServiceName(wtxn, sf.backends, name)
+	for be := range bes {
 		sf.backends.Delete(wtxn, be)
 	}
 	for _, addrCluster := range backendAddrs {
@@ -102,11 +104,10 @@ func (sf *servicesFixture) upsertService(name loadbalancer.ServiceName, lbls, se
 			0,
 			loadbalancer.ScopeExternal)
 		be := &loadbalancer.Backend{
-			Address: addr,
-		}
-		be.Instances = be.Instances.Set(loadbalancer.BackendInstanceKey{
 			ServiceName: name,
-		}, loadbalancer.BackendParams{Address: addr})
+			Address:     addr,
+			Source:      source.Kubernetes,
+		}
 		ev.backendRevisions = append(ev.backendRevisions, sf.backends.Revision(wtxn))
 		sf.backends.Insert(wtxn, be)
 	}

@@ -143,24 +143,24 @@ Address               Type         ServiceName            PortName   Status  Bac
 172.16.1.1:80/TCP     LoadBalancer test/echo              http       Done    
 
 -- backends1.table --
-Instances              Address
-test/echo (http)       10.244.1.1:80/TCP
-test/echo (http)       10.244.1.2:80/TCP
-test/echo (http)       10.244.1.3:80/TCP
-test/echo (http)       10.244.1.4:80/TCP
+Service    Address
+test/echo  10.244.1.1:80/TCP
+test/echo  10.244.1.2:80/TCP
+test/echo  10.244.1.3:80/TCP
+test/echo  10.244.1.4:80/TCP
 
 -- backends.table --
-Instances              Address
-test/echo:healthserver 1.1.1.1:$HEALTHPORT/TCP
-test/echo (http)       10.244.1.1:80/TCP
-test/echo (http)       10.244.1.2:80/TCP
-test/echo (http)       10.244.1.3:80/TCP
-test/echo (http)       10.244.1.4:80/TCP
+Service                 Address
+test/echo               10.244.1.1:80/TCP
+test/echo               10.244.1.2:80/TCP
+test/echo               10.244.1.3:80/TCP
+test/echo               10.244.1.4:80/TCP
+test/echo:healthserver  1.1.1.1:$HEALTHPORT/TCP
 
 -- backends_othernode.table --
-Address               Instances              NodeName
-10.244.1.3:80/TCP     test/echo (http)       othernode
-10.244.1.4:80/TCP     test/echo (http)       othernode
+Service    Address            NodeName
+test/echo  10.244.1.3:80/TCP  othernode
+test/echo  10.244.1.4:80/TCP  othernode
 
 -- service.yaml --
 apiVersion: v1

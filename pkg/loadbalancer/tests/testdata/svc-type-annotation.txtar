@@ -55,9 +55,9 @@ Address               Type         ServiceName   PortName   Status  Backends
 10.96.50.104:80/TCP   ClusterIP    test/echo     http       Done    10.244.1.1:80/TCP, 10.244.1.2:80/TCP
 
 -- backends.table --
-Address             Instances            NodeName
-10.244.1.1:80/TCP   test/echo (http)     nodeport-worker
-10.244.1.2:80/TCP   test/echo (http)     nodeport-worker2
+Service    Address            NodeName
+test/echo  10.244.1.1:80/TCP  nodeport-worker
+test/echo  10.244.1.2:80/TCP  nodeport-worker2
 
 -- service.yaml --
 apiVersion: v1
