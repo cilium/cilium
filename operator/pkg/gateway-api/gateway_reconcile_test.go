@@ -324,6 +324,7 @@ func Test_Conformance(t *testing.T) {
 		{name: "httproute-backendtlspolicy-invalid-ca-cert", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-backendtlspolicy-invalid-kind", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "gateway-multi-port-https", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "multi-port-https", Namespace: "gateway-conformance-infra"}}}},
+		{name: "gateway-tls-options", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tls-options", Namespace: "gateway-conformance-infra"}}}},
 		{name: "tcproute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tcproute-referencegrant", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
 		{name: "tcproute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tcproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},
 		{name: "udproute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-udproute-referencegrant", Namespace: "gateway-conformance-infra"}, skipCEC: true}}},

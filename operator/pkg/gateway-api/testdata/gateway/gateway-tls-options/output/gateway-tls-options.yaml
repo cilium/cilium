@@ -1,0 +1,100 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tls-options
+  namespace: gateway-conformance-infra
+  resourceVersion: "1000"
+spec:
+  gatewayClassName: cilium
+  listeners:
+    - allowedRoutes:
+        namespaces:
+          from: Same
+      hostname: one.example.test
+      name: tls-12
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tls-checks-certificate
+            namespace: gateway-conformance-infra
+        options:
+          cilium.io/tls-max-version: "1.3"
+          cilium.io/tls-min-version: "1.2"
+    - allowedRoutes:
+        namespaces:
+          from: Same
+      hostname: two.example.test
+      name: tls-13
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: tls-checks-certificate
+            namespace: gateway-conformance-infra
+        options:
+          cilium.io/tls-max-version: "1.3"
+          cilium.io/tls-min-version: "1.3"
+status:
+  conditions:
+    - lastTransitionTime: "2026-09-24T08:36:40Z"
+      message: Gateway successfully scheduled
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: "2026-09-24T08:36:40Z"
+      message: Gateway waiting for address
+      reason: AddressNotAssigned
+      status: "False"
+      type: Programmed
+  listeners:
+    - attachedRoutes: 1
+      conditions:
+        - lastTransitionTime: "2026-09-24T08:36:40Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2026-09-24T08:36:40Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2026-09-24T08:36:40Z"
+          message: Address not ready yet
+          reason: Pending
+          status: "False"
+          type: Programmed
+      name: tls-12
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute
+    - attachedRoutes: 1
+      conditions:
+        - lastTransitionTime: "2026-09-24T08:36:40Z"
+          message: Resolved Refs
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+        - lastTransitionTime: "2026-09-24T08:36:40Z"
+          message: Listener Accepted
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2026-09-24T08:36:40Z"
+          message: Address not ready yet
+          reason: Pending
+          status: "False"
+          type: Programmed
+      name: tls-13
+      supportedKinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        - group: gateway.networking.k8s.io
+          kind: GRPCRoute

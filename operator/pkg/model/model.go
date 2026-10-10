@@ -14,6 +14,14 @@ import (
 	"github.com/cilium/cilium/pkg/slices"
 )
 
+const (
+	// Listeners TLS Options:
+	TLSOptionsDefaultMinVersion = "1.2"
+	TLSOptionsDefaultMaxVersion = "1.3"
+	TLSOptionsMinVersion        = "cilium.io/tls-min-version"
+	TLSOptionsMaxVersion        = "cilium.io/tls-max-version"
+)
+
 // Model holds an abstracted data model representing the translation
 // of various types of Kubernetes config to Cilium config.
 type Model struct {
@@ -91,6 +99,8 @@ type HTTPListener struct {
 	Hostname string `json:"hostname,omitempty"`
 	// TLS Certificate information. If omitted, then the listener is a cleartext HTTP listener.
 	TLS []TLSSecret `json:"tls,omitempty"`
+	// TLS Options configures TLS-specific options.
+	TLSOptions *TLSOptions `json:"tls_options,omitempty"`
 	// Routes associated with HTTP traffic to the service.
 	// An empty list means that traffic will not be routed.
 	Routes []HTTPRoute `json:"routes,omitempty"`
@@ -366,6 +376,12 @@ func (r HTTPRouteRule) key() string {
 type TLSSecret struct {
 	Name      string `json:"name,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
+}
+
+// TLSOptions hols TLS-specific options.
+type TLSOptions struct {
+	MinVersion string `json:"min_version,omitempty"`
+	MaxVersion string `json:"max_version,omitempty"`
 }
 
 // DirectResponse holds configuration for a direct response.
@@ -1066,31 +1082,24 @@ func (m *Model) AllPorts() []uint32 {
 	return slices.SortedUnique(ports)
 }
 
-// TLSSecretsToHostnames returns a map of TLS secrets to hostnames.
-// This is only for HTTP listeners.
-func (m *Model) TLSSecretsToHostnames() map[TLSSecret][]string {
-	res := make(map[TLSSecret][]string)
-	for _, h := range m.HTTP {
-		for _, s := range h.TLS {
-			res[s] = append(res[s], h.Hostname)
-		}
-	}
-	return res
-}
-
-// TLSListenerRef records a (hostname, port) pair for an HTTPS listener.
+// TLSListenerRef records the hostname, port, and TLS options for an HTTPS listener.
 type TLSListenerRef struct {
-	Hostname string
-	Port     uint32
+	Hostname   string
+	Port       uint32
+	TLSOptions *TLSOptions
 }
 
 // TLSSecretsToListeners returns, for each TLS secret, the set of
-// (hostname, port) pairs of all HTTPS listeners that reference it.
+// HTTPS listener records (hostname, port, TLS options) that use it.
 func (m *Model) TLSSecretsToListeners() map[TLSSecret][]TLSListenerRef {
 	res := make(map[TLSSecret][]TLSListenerRef)
 	for _, l := range m.HTTP {
 		for _, s := range l.TLS {
-			res[s] = append(res[s], TLSListenerRef{Hostname: l.Hostname, Port: l.Port})
+			res[s] = append(res[s], TLSListenerRef{
+				Hostname:   l.Hostname,
+				Port:       l.Port,
+				TLSOptions: l.TLSOptions,
+			})
 		}
 	}
 	return res

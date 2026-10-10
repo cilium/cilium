@@ -209,6 +209,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Port:                       uint32(l.Port),
 				Hostname:                   toHostname(l.Hostname),
 				TLS:                        toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
+				TLSOptions:                 toTLSOptions(l.TLS),
 				Routes:                     httpRoutes,
 				Infrastructure:             infra,
 				Service:                    toServiceModel(input.GatewayClassConfig),
@@ -1356,6 +1357,17 @@ func toTLS(tls *gatewayv1.ListenerTLSConfig, grants []gatewayv1.ReferenceGrant, 
 		})
 	}
 	return res
+}
+
+func toTLSOptions(tls *gatewayv1.ListenerTLSConfig) *model.TLSOptions {
+	if tls == nil || len(tls.Options) == 0 {
+		return nil
+	}
+
+	return &model.TLSOptions{
+		MinVersion: string(tls.Options[gatewayv1.AnnotationKey(model.TLSOptionsMinVersion)]),
+		MaxVersion: string(tls.Options[gatewayv1.AnnotationKey(model.TLSOptionsMaxVersion)]),
+	}
 }
 
 func toHTTPHeaders(headers []gatewayv1.HTTPHeader) []model.Header {

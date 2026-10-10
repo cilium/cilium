@@ -131,6 +131,41 @@ func TestHTTPGatewayAPI(t *testing.T) {
 	}
 }
 
+func TestToTLSOptions(t *testing.T) {
+	minKey := gatewayv1.AnnotationKey(model.TLSOptionsMinVersion)
+	maxKey := gatewayv1.AnnotationKey(model.TLSOptionsMaxVersion)
+
+	tests := []struct {
+		name    string
+		options map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue
+		want    *model.TLSOptions
+	}{
+		{name: "no options"},
+		{
+			name:    "minimum only",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{minKey: "1.3"},
+			want:    &model.TLSOptions{MinVersion: "1.3"},
+		},
+		{
+			name:    "maximum only",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{maxKey: "1.2"},
+			want:    &model.TLSOptions{MaxVersion: "1.2"},
+		},
+		{
+			name:    "minimum and maximum",
+			options: map[gatewayv1.AnnotationKey]gatewayv1.AnnotationValue{minKey: "1.2", maxKey: "1.3"},
+			want:    &model.TLSOptions{MinVersion: "1.2", MaxVersion: "1.3"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toTLSOptions(&gatewayv1.ListenerTLSConfig{Options: tt.options})
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
 func TestExtractRoutesSetsHTTPRouteRuleSource(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 	pathType := gatewayv1.PathMatchExact
