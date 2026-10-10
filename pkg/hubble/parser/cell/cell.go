@@ -31,6 +31,8 @@ var Cell = cell.Module(
 	"payload-parser",
 	"Provides a payload parser for Hubble",
 
+	parser.LocalNodeWatcherCell,
+
 	cell.Provide(newPayloadParser),
 	cell.Config(defaultConfig),
 )
@@ -74,7 +76,7 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 		parserOpts,
 		params.ParserOptions...,
 	)
-	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, parserOpts...)
+	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, params.LocalNodeWatcher, parserOpts...)
 }
 
 type payloadParserParams struct {
@@ -89,6 +91,7 @@ type payloadParserParams struct {
 	Ipcache           *ipcache.IPCache
 	CGroupManager     manager.CGroupManager
 	LinkCache         *link.LinkCache
+	LocalNodeWatcher  *parser.LocalNodeWatcher
 
 	Config config
 	// NOTE: ordering is not guaranteed, do not rely on it.
