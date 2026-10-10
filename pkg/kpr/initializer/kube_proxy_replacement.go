@@ -55,7 +55,7 @@ func (r *kprInitializer) InitKubeProxyReplacementOptions() error {
 		}
 		if msg != "" {
 			option.Config.UnsafeDaemonConfigOption.EnableHostLegacyRouting = true
-			r.logger.Info(fmt.Sprintf("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting))
+			r.logger.Warn(fmt.Sprintf("%s Falling back to legacy host routing (%s=true).", msg, option.EnableHostLegacyRouting))
 		}
 	}
 
