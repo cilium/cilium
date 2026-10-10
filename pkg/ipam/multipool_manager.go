@@ -155,14 +155,18 @@ func (p pendingAllocationsPerPool) markAsAllocated(poolName Pool, owner string, 
 // the expired allocation. The owner of the expired pending allocation may still
 // reissue the allocation and be successful next time if the IP pool has now
 // enough capacity.
-func (p pendingAllocationsPerPool) removeExpiredEntries() {
+// It returns the pools with no pending allocations left.
+func (p pendingAllocationsPerPool) removeExpiredEntries() []Pool {
+	var expired []Pool
 	now := p.clock()
 	for poolName, pool := range p.pools {
 		pool.removeExpiredEntries(p.logger, now, poolName)
 		if len(pool) == 0 {
 			delete(p.pools, poolName)
+			expired = append(expired, poolName)
 		}
 	}
+	return expired
 }
 
 // pendingForPool returns how many IP allocations are pending for the given
@@ -632,7 +636,7 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 	requested := []types.IPAMPoolRequest{}
 	allocated := []types.IPAMPoolAllocation{}
 
-	m.pendingIPsPerPool.removeExpiredEntries()
+	expiredPools := m.pendingIPsPerPool.removeExpiredEntries()
 	neededIPsPerPool := m.computeNeededIPsPerPoolLocked()
 	for poolName, needed := range neededIPsPerPool {
 		if needed.IPv4Addrs == 0 && needed.IPv6Addrs == 0 {
@@ -697,6 +701,30 @@ func (m *multiPoolManager) updateLocalNode(ctx context.Context) error {
 			AllowLastIP:  pool.allowLastIP,
 			CIDRs:        cidrs,
 		})
+	}
+
+	// Pending pools with no CIDRs yet.
+	for poolName, needed := range neededIPsPerPool {
+		if _, ok := m.pools[poolName]; ok {
+			continue
+		}
+		if needed.IPv4Addrs == 0 && needed.IPv6Addrs == 0 {
+			continue
+		}
+		if m.ipv4Enabled {
+			m.metrics.setPoolFamily(poolName.String(), IPv4, 0, 0, needed.IPv4Addrs, 0)
+		}
+		if m.ipv6Enabled {
+			m.metrics.setPoolFamily(poolName.String(), IPv6, 0, 0, needed.IPv6Addrs, 0)
+		}
+	}
+	// Drop metrics for expired pools that are no longer used or needed.
+	for _, poolName := range expiredPools {
+		_, inUse := m.pools[poolName]
+		needed := neededIPsPerPool[poolName]
+		if !inUse && needed.IPv4Addrs == 0 && needed.IPv6Addrs == 0 {
+			m.metrics.deletePool(poolName.String())
+		}
 	}
 
 	sort.Slice(requested, func(i, j int) bool {

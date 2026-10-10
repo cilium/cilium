@@ -701,6 +701,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	preallocMap, err := ParseMultiPoolPreAllocMap(fakeConfig.IPAMMultiPoolPreAllocation)
 	assert.NoError(t, err)
 
+	m := NewMultiPoolMetrics()
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:               logger,
 		IPv4Enabled:          fakeConfig.EnableIPv4,
@@ -711,6 +712,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
 		PoolSpecAccessors:    MultiPoolAccessor,
+		Metrics:              m,
 	})
 
 	<-events // first upsert (initial node)
@@ -749,6 +751,13 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		alloc[0].CIDRs,
 		"unused CIDRs should have been released",
 	)
+
+	// Releasing the last IPs drops the pool and its metrics.
+	assert.NoError(t, mgr.releaseIP(ipInCIDR1, "default", IPv4, false))
+	assert.NoError(t, mgr.releaseIP(ipInCIDRv61, "default", IPv6, false))
+	assert.NoError(t, mgr.updateLocalNode(context.TODO()))
+	<-events
+	assert.Equal(t, 0, testutil.CollectAndCount(m.NeededIPs))
 }
 
 // Test_MultiPoolManager_ReleaseUnusedCIDR_PreAllocBuffer verifies that when preAlloc > 0
@@ -1262,7 +1271,7 @@ func Test_pendingAllocationsPerPool(t *testing.T) {
 	pending.upsertPendingAllocation("other", "foo", IPv6)               // renewal
 
 	// Nothing should expire
-	pending.removeExpiredEntries()
+	assert.Empty(t, pending.removeExpiredEntries())
 	assert.Equal(t, 2, pending.pendingForPool("test", IPv4))
 	assert.Equal(t, 0, pending.pendingForPool("test", IPv6))
 	assert.Equal(t, 2, pending.pendingForPool("other", IPv4))
@@ -1271,7 +1280,7 @@ func Test_pendingAllocationsPerPool(t *testing.T) {
 	elapseTime(pendingAllocationTTL) // second time jump
 
 	// This should clean up everything before the first time jump
-	pending.removeExpiredEntries()
+	assert.Empty(t, pending.removeExpiredEntries())
 	assert.Equal(t, 1, pending.pendingForPool("test", IPv4))
 	assert.Equal(t, 0, pending.pendingForPool("test", IPv6))
 	assert.Equal(t, 1, pending.pendingForPool("other", IPv4))
@@ -1284,6 +1293,10 @@ func Test_pendingAllocationsPerPool(t *testing.T) {
 	pending.markAsAllocated("other", "foo", IPv6)
 	assert.Equal(t, 0, pending.pendingForPool("other", IPv4))
 	assert.Equal(t, 0, pending.pendingForPool("other", IPv6))
+
+	elapseTime(pendingAllocationTTL)
+	assert.Equal(t, []Pool{"test"}, pending.removeExpiredEntries())
+	assert.Equal(t, 0, pending.pendingForPool("test", IPv4))
 }
 
 type fakeK8sCiliumNodeAPIResource struct {
@@ -1771,6 +1784,34 @@ func Test_MultiPoolManager_Metrics(t *testing.T) {
 		assert.Equal(t, float64(6), m.NeededIPs.WithLabelValues("default", fam).Get(), "needed_ips family=%s", fam)
 		assert.Equal(t, float64(6), m.AllocatedBlocks.WithLabelValues("default", fam).Get(), "allocated_blocks family=%s", fam)
 	}
+
+	var now time.Time
+	elapseTime := func(duration time.Duration) {
+		mgr.poolsMutex.Lock()
+		defer mgr.poolsMutex.Unlock()
+		now = now.Add(duration)
+	}
+	mgr.poolsMutex.Lock()
+	mgr.pendingIPsPerPool.clock = func() time.Time { return now }
+	mgr.poolsMutex.Unlock()
+
+	// "other" has no CIDRs, so this stays pending.
+	_, err = mgr.allocateNext("pod-other", "other", IPv4, false)
+	require.Error(t, err)
+	assert.NoError(t, mgr.updateLocalNode(context.TODO()))
+	<-events
+	assert.Equal(t, float64(1), m.NeededIPs.WithLabelValues("other", "ipv4").Get())
+	assert.Equal(t, float64(0), m.AvailableIPs.WithLabelValues("other", "ipv4").Get())
+
+	// Simulate expiry.
+	elapseTime(pendingAllocationTTL + time.Second)
+	assert.NoError(t, mgr.updateLocalNode(context.TODO()))
+	<-events
+
+	assert.Equal(t, 2, testutil.CollectAndCount(m.AvailableIPs))
+	assert.Equal(t, 2, testutil.CollectAndCount(m.UsedIPs))
+	assert.Equal(t, 2, testutil.CollectAndCount(m.NeededIPs))
+	assert.Equal(t, 2, testutil.CollectAndCount(m.AllocatedBlocks))
 }
 
 func Test_MultiPoolMetrics_deletePool(t *testing.T) {
