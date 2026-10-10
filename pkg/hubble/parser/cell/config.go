@@ -30,6 +30,13 @@ type config struct {
 	// RedactHttpHeadersDeny controls which http headers will be redacted from
 	// flows.
 	RedactHttpHeadersDeny []string `mapstructure:"hubble-redact-http-headers-deny"`
+
+	// ExcludeHttpHeadersAllow controls which http headers are kept in flows;
+	// all others are excluded (dropped entirely). Whitelist mode.
+	ExcludeHttpHeadersAllow []string `mapstructure:"hubble-exclude-http-headers-allow"`
+	// ExcludeHttpHeadersDeny controls which http headers are excluded (dropped
+	// entirely) from flows. Blacklist mode.
+	ExcludeHttpHeadersDeny []string `mapstructure:"hubble-exclude-http-headers-deny"`
 }
 
 var defaultConfig = config{
@@ -40,11 +47,16 @@ var defaultConfig = config{
 	RedactHttpUserInfo:             true,
 	RedactHttpHeadersAllow:         []string{},
 	RedactHttpHeadersDeny:          []string{},
+	ExcludeHttpHeadersAllow:        []string{},
+	ExcludeHttpHeadersDeny:         []string{},
 }
 
 func (cfg config) validate() error {
 	if len(cfg.RedactHttpHeadersAllow) > 0 && len(cfg.RedactHttpHeadersDeny) > 0 {
 		return fmt.Errorf("Only one of --hubble-redact-http-headers-allow and --hubble-redact-http-headers-deny can be specified, not both")
+	}
+	if len(cfg.ExcludeHttpHeadersAllow) > 0 && len(cfg.ExcludeHttpHeadersDeny) > 0 {
+		return fmt.Errorf("Only one of --hubble-exclude-http-headers-allow and --hubble-exclude-http-headers-deny can be specified, not both")
 	}
 	return nil
 }
@@ -57,5 +69,7 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("hubble-redact-http-userinfo", def.RedactHttpUserInfo, "Hubble redact http user info from flows")
 	flags.StringSlice("hubble-redact-http-headers-allow", def.RedactHttpHeadersAllow, "HTTP headers to keep visible in flows")
 	flags.StringSlice("hubble-redact-http-headers-deny", def.RedactHttpHeadersDeny, "HTTP headers to redact from flows")
+	flags.StringSlice("hubble-exclude-http-headers-allow", def.ExcludeHttpHeadersAllow, "HTTP headers to keep in flows; all others are excluded (dropped entirely)")
+	flags.StringSlice("hubble-exclude-http-headers-deny", def.ExcludeHttpHeadersDeny, "HTTP headers to exclude (drop entirely) from flows")
 	flags.Bool("hubble-network-policy-correlation-enabled", def.EnableNetworkPolicyCorrelation, "Enable network policy correlation of Hubble flows")
 }
