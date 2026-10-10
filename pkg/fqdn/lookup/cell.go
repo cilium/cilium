@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -26,16 +27,18 @@ var Cell = cell.Module(
 type ProxyLookupParams struct {
 	cell.In
 
-	IPCache         *ipcache.IPCache
-	LocalNodeStore  *node.LocalNodeStore
-	EndpointManager endpointmanager.EndpointManager
+	IPCache           *ipcache.IPCache
+	LocalNodeStore    *node.LocalNodeStore
+	EndpointManager   endpointmanager.EndpointManager
+	IdentityAllocator cache.IdentityAllocator
 }
 
 func NewProxyLookupHandler(params ProxyLookupParams) ProxyLookupHandler {
 	handler := &proxyLookupHandler{
-		localNodeStore:  params.LocalNodeStore,
-		endpointManager: params.EndpointManager,
-		ipCache:         params.IPCache,
+		localNodeStore:    params.LocalNodeStore,
+		endpointManager:   params.EndpointManager,
+		ipCache:           params.IPCache,
+		identityAllocator: params.IdentityAllocator,
 	}
 
 	return handler
