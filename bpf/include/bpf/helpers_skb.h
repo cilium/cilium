@@ -31,6 +31,7 @@ static int BPF_FUNC(l3_csum_replace, struct __sk_buff *skb, __u32 off,
 		    __u32 from, __u32 to, __u32 flags);
 static int BPF_FUNC(l4_csum_replace, struct __sk_buff *skb, __u32 off,
 		    __u32 from, __u32 to, __u32 flags);
+static int BPF_FUNC(csum_update, struct __sk_buff *skb, __u32 csum);
 
 static int BPF_FUNC(skb_adjust_room, struct __sk_buff *skb, __s32 len_diff,
 		    __u32 mode, __u64 flags);
