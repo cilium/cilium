@@ -48,6 +48,8 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 #include "lib/ipcache.h"
 #include "lib/clear.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 static __always_inline int
 pktgen(struct __ctx_buff *ctx, bool v4)
 {
