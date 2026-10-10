@@ -158,12 +158,12 @@ type ENI struct {
 	// Subnet is the subnet the ENI is associated with
 	//
 	// +optional
-	Subnet AwsSubnet `json:"subnet,omitempty"`
+	Subnet AwsSubnet `json:"subnet,omitzero"`
 
 	// VPC is the VPC information to which the ENI is attached to
 	//
 	// +optional
-	VPC AwsVPC `json:"vpc,omitempty"`
+	VPC AwsVPC `json:"vpc,omitzero"`
 
 	// Addresses is the list of all secondary IPs associated with the ENI
 	//

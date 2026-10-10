@@ -41,7 +41,7 @@ type CiliumEndpoint struct {
 	metav1.ObjectMeta `json:"metadata"`
 
 	// +kubebuilder:validation:Optional
-	Status EndpointStatus `json:"status,omitempty"`
+	Status EndpointStatus `json:"status,omitzero"`
 }
 
 // EndpointPolicyState defines the state of the Policy mode: "enforcing", "non-enforcing", "disabled"
@@ -101,7 +101,7 @@ type EndpointStatus struct {
 	// Encryption is the encryption configuration of the node
 	//
 	// +kubebuilder:validation:Optional
-	Encryption EncryptionSpec `json:"encryption,omitempty"`
+	Encryption EncryptionSpec `json:"encryption,omitzero"`
 
 	// +kubebuilder:validation:Optional
 	Policy *EndpointPolicy `json:"policy,omitempty"`
@@ -151,7 +151,7 @@ type ControllerStatus struct {
 	// Status is the status of the controller
 	//
 	// +kubebuilder:validation:Optional
-	Status ControllerStatusStatus `json:"status,omitempty"`
+	Status ControllerStatusStatus `json:"status,omitzero"`
 
 	// UUID is the UUID of the controller
 	//
@@ -403,7 +403,7 @@ type CiliumNode struct {
 	// of the node.
 	//
 	// +kubebuilder:validation:Optional
-	Status NodeStatus `json:"status,omitempty"`
+	Status NodeStatus `json:"status,omitzero"`
 }
 
 // NodeAddress is a node address.
@@ -443,39 +443,39 @@ type NodeSpec struct {
 	// checking.
 	//
 	// +kubebuilder:validation:Optional
-	HealthAddressing HealthAddressingSpec `json:"health,omitempty"`
+	HealthAddressing HealthAddressingSpec `json:"health,omitzero"`
 
 	// IngressAddressing is the addressing information for Ingress listener.
 	//
 	// +kubebuilder:validation:Optional
-	IngressAddressing AddressPair `json:"ingress,omitempty"`
+	IngressAddressing AddressPair `json:"ingress,omitzero"`
 
 	// Encryption is the encryption configuration of the node.
 	//
 	// +kubebuilder:validation:Optional
-	Encryption EncryptionSpec `json:"encryption,omitempty"`
+	Encryption EncryptionSpec `json:"encryption,omitzero"`
 
 	// ENI is the AWS ENI specific configuration.
 	//
 	// +kubebuilder:validation:Optional
-	ENI awsTypes.ENISpec `json:"eni,omitempty"`
+	ENI awsTypes.ENISpec `json:"eni,omitzero"`
 
 	// Azure is the Azure IPAM specific configuration.
 	//
 	// +kubebuilder:validation:Optional
-	Azure azureTypes.AzureSpec `json:"azure,omitempty"`
+	Azure azureTypes.AzureSpec `json:"azure,omitzero"`
 
 	// AlibabaCloud is the AlibabaCloud IPAM specific configuration.
 	//
 	// +kubebuilder:validation:Optional
-	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitempty"`
+	AlibabaCloud alibabaCloudTypes.Spec `json:"alibaba-cloud,omitzero"`
 
 	// IPAM is the address management specification. This section can be
 	// populated by a user or it can be automatically populated by an IPAM
 	// operator.
 	//
 	// +kubebuilder:validation:Optional
-	IPAM ipamTypes.IPAMSpec `json:"ipam,omitempty"`
+	IPAM ipamTypes.IPAMSpec `json:"ipam,omitzero"`
 }
 
 // HealthAddressingSpec is the addressing information required to do
@@ -506,22 +506,22 @@ type NodeStatus struct {
 	// ENI is the AWS ENI specific status of the node.
 	//
 	// +kubebuilder:validation:Optional
-	ENI awsTypes.ENIStatus `json:"eni,omitempty"`
+	ENI awsTypes.ENIStatus `json:"eni,omitzero"`
 
 	// Azure is the Azure specific status of the node.
 	//
 	// +kubebuilder:validation:Optional
-	Azure azureTypes.AzureStatus `json:"azure,omitempty"`
+	Azure azureTypes.AzureStatus `json:"azure,omitzero"`
 
 	// IPAM is the IPAM status of the node.
 	//
 	// +kubebuilder:validation:Optional
-	IPAM ipamTypes.IPAMStatus `json:"ipam,omitempty"`
+	IPAM ipamTypes.IPAMStatus `json:"ipam,omitzero"`
 
 	// AlibabaCloud is the AlibabaCloud specific status of the node.
 	//
 	// +kubebuilder:validation:Optional
-	AlibabaCloud alibabaCloudTypes.ENIStatus `json:"alibaba-cloud,omitempty"`
+	AlibabaCloud alibabaCloudTypes.ENIStatus `json:"alibaba-cloud,omitzero"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

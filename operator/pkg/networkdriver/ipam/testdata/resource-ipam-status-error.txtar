@@ -38,23 +38,13 @@ kind: CiliumNode
 metadata:
   name: node-missing-pool
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
-    pools: {}
     resourcePools:
       requested:
       - needed:
           ipv4-addrs: 1
         pool: missing
 status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
   ipam:
     operator-status:
       error: Pod IPAM allocation failed

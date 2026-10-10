@@ -115,7 +115,7 @@ type ENI struct {
 	// VPC is the vpc to which the ENI belongs
 	//
 	// +optional
-	VPC VPC `json:"vpc,omitempty"`
+	VPC VPC `json:"vpc,omitzero"`
 
 	// ZoneID is the zone to which the ENI belongs
 	//
@@ -125,7 +125,7 @@ type ENI struct {
 	// VSwitch is the vSwitch the ENI is using
 	//
 	// +optional
-	VSwitch VSwitch `json:"vswitch,omitempty"`
+	VSwitch VSwitch `json:"vswitch,omitzero"`
 
 	// PrimaryIPAddress is the primary IP on ENI
 	//

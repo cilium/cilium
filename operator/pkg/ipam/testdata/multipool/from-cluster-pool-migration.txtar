@@ -78,12 +78,6 @@ metadata:
     kubernetes.io/hostname: node-a
   name: node-a
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -91,13 +85,6 @@ spec:
         - 10.244.1.0/24
         - fd00::/124
         pool: custom-pool
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- expected-node-b.yaml --
 apiVersion: cilium.io/v2
 kind: CiliumNode
@@ -106,12 +93,6 @@ metadata:
     kubernetes.io/hostname: node-b
   name: node-b
 spec:
-  alibaba-cloud: {}
-  azure: {}
-  encryption: {}
-  eni: {}
-  health: {}
-  ingress: {}
   ipam:
     pools:
       allocated:
@@ -119,13 +100,6 @@ spec:
         - 10.244.2.0/24
         - fd00::10/124
         pool: custom-pool
-    resourcePools: {}
-status:
-  alibaba-cloud: {}
-  azure: {}
-  eni: {}
-  ipam:
-    operator-status: {}
 -- expected-allocator-node-a.json --
 [
   {
