@@ -22,6 +22,8 @@ type BPFXDP struct {
 	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable NAT46/NAT64 translation for NodePort services.
 	EnableNAT46X64 bool `config:"enable_nat_46x64"`
+	// Enable NAT46/NAT64 gateway for NodePort services.
+	EnableNAT46X64Gateway bool `config:"enable_nat_46x64_gateway"`
 	// Enable routes when service has 0 endpoints.
 	EnableNoServiceEndpointsRoutable bool `config:"enable_no_service_endpoints_routable"`
 	// Masquerade traffic to remote nodes.
@@ -66,7 +68,7 @@ type BPFXDP struct {
 
 func NewBPFXDP(node Node) *BPFXDP {
 	return &BPFXDP{0x0, false, false, false, false, false, false, false, false, false,
-		0x0, false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, 0x0, false, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		0x20,
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x80, 0x0,

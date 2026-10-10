@@ -98,6 +98,7 @@ func Enable(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableLRP = option.Config.EnableLocalRedirectPolicy
 	cfg.EnableNAT46X64 = option.Config.NodePortNat46X64 && lnc.KPRConfig.KubeProxyReplacement
+	cfg.EnableNAT46X64Gateway = option.Config.EnableNat46X64Gateway && lnc.KPRConfig.KubeProxyReplacement
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort

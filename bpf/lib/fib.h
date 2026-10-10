@@ -183,7 +183,6 @@ fib_redirect(struct __ctx_buff *ctx, const bool needs_l2_check,
 			       ret, *oif, ext_err);
 }
 
-#ifdef ENABLE_IPV6
 /* fib_lookup_v6 will perform a fib lookup with the src and dest addresses
  * provided.
  *
@@ -272,9 +271,7 @@ fib_redirect_v6(struct __ctx_buff *ctx, int l3_off,
 	return fib_do_redirect(ctx, needs_l2_check, &fib_params, allow_neigh_map,
 			       fib_result, *oif, ext_err);
 }
-#endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 /* fib_lookup_v4 will perform a fib lookup with the src and dest addresses
  * provided.
  *
@@ -354,4 +351,4 @@ fib_redirect_v4(struct __ctx_buff *ctx, int l3_off,
 	return fib_do_redirect(ctx, needs_l2_check, &fib_params, allow_neigh_map,
 			       fib_result, *oif, ext_err);
 }
-#endif /* ENABLE_IPV4 */
+
