@@ -4,7 +4,9 @@
 package reconciler
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"net/netip"
 	"testing"
 
@@ -588,4 +590,27 @@ func validatePeerData(req *require.Assertions, expected, running []PeerData) {
 		}
 		req.True(found)
 	}
+}
+
+// TestNeighborReconciler_GetPeerPassword_MissingSecret confirms that a missing
+// authSecretRef is logged at error level (as documented) while reconciliation
+// continues with an empty password.
+func TestNeighborReconciler_GetPeerPassword_MissingSecret(t *testing.T) {
+	var buf bytes.Buffer
+	r := &NeighborReconciler{
+		logger:      slog.New(slog.NewTextHandler(&buf, nil)),
+		SecretStore: store.InitMockStore[*slim_corev1.Secret](nil),
+		BGPConfig: config.BGPConfig{
+			SecretsNamespace: "bgp-secrets",
+		},
+	}
+
+	conf := &v2.CiliumBGPPeerConfigSpec{
+		AuthSecretRef: ptr.To[string]("missing-secret"),
+	}
+
+	password, err := r.getPeerPassword("instance-1", "peer-1", conf)
+	require.NoError(t, err)
+	require.Empty(t, password)
+	require.Contains(t, buf.String(), `Failed to fetch secret \"missing-secret\": not found (will continue with empty password)`)
 }
