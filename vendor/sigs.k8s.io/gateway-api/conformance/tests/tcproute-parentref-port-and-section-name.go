@@ -41,7 +41,6 @@ var TCPRouteParentRefPortAndSectionName = confsuite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportTCPRoute,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		gwNN := types.NamespacedName{Name: "tcp-multi-listener-gateway", Namespace: ns}

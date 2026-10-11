@@ -42,8 +42,7 @@ var TLSRouteMixedTerminationSameNamespace = confsuite.ConformanceTest{
 		features.SupportTLSRouteModeTerminate,
 		features.SupportTLSRouteModeMixed,
 	},
-	Provisional: true,
-	Manifests:   []string{"tests/tlsroute-mixed-termination-same-namespace.yaml"},
+	Manifests: []string{"tests/tlsroute-mixed-termination-same-namespace.yaml"},
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		routeTerminateNN := types.NamespacedName{Name: "gateway-conformance-mixed-terminateroute", Namespace: ns}

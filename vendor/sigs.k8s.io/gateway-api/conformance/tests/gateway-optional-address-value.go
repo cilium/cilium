@@ -40,7 +40,6 @@ var GatewayOptionalAddressValue = suite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportGatewayAddressEmpty,
 	},
-	Provisional: true,
 	Manifests: []string{
 		"tests/gateway-optional-address-value.yaml",
 	},
