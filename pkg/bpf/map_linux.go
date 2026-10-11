@@ -576,6 +576,74 @@ func (m *Map) Recreate() error {
 	return m.openOrCreate(true)
 }
 
+// RepinIfReplaced checks whether the Map's bpffs pin still refers to the
+// kernel map object held open by m. If the pin is missing or refers to a
+// different map object, for example because the bpf file system was cleaned
+// up or remounted, the pin is atomically replaced with one referring to m.
+//
+// Returns true if the pin was (re)created.
+func (m *Map) RepinIfReplaced() (bool, error) {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	if m.m == nil {
+		return false, fmt.Errorf("map %s is not open", m.name)
+	}
+
+	if err := m.setPathIfUnset(); err != nil {
+		return false, err
+	}
+
+	info, err := m.m.Info()
+	if err != nil {
+		return false, fmt.Errorf("getting info of map %s: %w", m.name, err)
+	}
+	id, ok := info.ID()
+	if !ok {
+		return false, fmt.Errorf("getting id of map %s: not supported by kernel", m.name)
+	}
+
+	pinned, err := ebpf.LoadPinnedMap(m.path, nil)
+	switch {
+	case err == nil:
+		pinnedInfo, err := pinned.Info()
+		pinned.Close()
+		if err != nil {
+			return false, fmt.Errorf("getting info of pinned map %s: %w", m.path, err)
+		}
+		if pinnedID, ok := pinnedInfo.ID(); ok && pinnedID == id {
+			return false, nil
+		}
+	case errors.Is(err, fs.ErrNotExist):
+	default:
+		return false, fmt.Errorf("loading pinned map %s: %w", m.path, err)
+	}
+
+	// Pin a clone of the map, since the original Map considers itself pinned
+	// at m.path already and would refuse or try to move the existing pin.
+	clone, err := m.m.Clone()
+	if err != nil {
+		return false, fmt.Errorf("cloning map %s: %w", m.name, err)
+	}
+	defer clone.Close()
+
+	// Pin to a temporary path first and rename it over the existing pin, so the
+	// pin path is never observed missing. bpffs rejects names containing dots.
+	tmp := m.path + "_repin"
+	if err := os.Remove(tmp); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return false, fmt.Errorf("removing stale pin %s: %w", tmp, err)
+	}
+	if err := clone.Pin(tmp); err != nil {
+		return false, fmt.Errorf("pinning map %s to %s: %w", m.name, tmp, err)
+	}
+	if err := os.Rename(tmp, m.path); err != nil {
+		os.Remove(tmp)
+		return false, fmt.Errorf("replacing pin %s: %w", m.path, err)
+	}
+
+	return true, nil
+}
+
 // IsOpen returns true if the map has been opened.
 func (m *Map) IsOpen() bool {
 	m.lock.Lock()

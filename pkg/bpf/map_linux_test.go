@@ -1081,3 +1081,66 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 		}
 	}
 }
+
+func TestPrivilegedRepinIfReplaced(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
+
+	CheckOrMountFS(logger, "")
+	require.NoError(t, rlimit.RemoveMemlock())
+
+	newTestMap := func() *Map {
+		return NewMap("cilium_test_repin", ebpf.Hash, &TestKey{}, &TestValue{}, maxEntries, unix.BPF_F_NO_PREALLOC)
+	}
+
+	m := newTestMap()
+	require.NoError(t, m.Recreate())
+	t.Cleanup(func() {
+		require.NoError(t, m.Close())
+		require.NoError(t, m.UnpinIfExists())
+	})
+
+	pinPath, err := m.Path()
+	require.NoError(t, err)
+
+	pinnedID := func() ebpf.MapID {
+		pinned, err := ebpf.LoadPinnedMap(pinPath, nil)
+		require.NoError(t, err)
+		defer pinned.Close()
+		info, err := pinned.Info()
+		require.NoError(t, err)
+		id, _ := info.ID()
+		return id
+	}
+
+	info, err := m.m.Info()
+	require.NoError(t, err)
+	id, _ := info.ID()
+
+	// Pin is intact.
+	repinned, err := m.RepinIfReplaced()
+	require.NoError(t, err)
+	require.False(t, repinned)
+	require.Equal(t, id, pinnedID())
+
+	// Pin was removed, e.g. by a cleanup of the bpf file system.
+	require.NoError(t, os.Remove(pinPath))
+	repinned, err = m.RepinIfReplaced()
+	require.NoError(t, err)
+	require.True(t, repinned)
+	require.Equal(t, id, pinnedID())
+
+	// Pin was replaced by a different map with the same name.
+	other := newTestMap()
+	require.NoError(t, other.Recreate())
+	require.NoError(t, other.Close())
+	require.NotEqual(t, id, pinnedID())
+
+	repinned, err = m.RepinIfReplaced()
+	require.NoError(t, err)
+	require.True(t, repinned)
+	require.Equal(t, id, pinnedID())
+
+	// The original Map is still usable after its pin was restored.
+	require.NoError(t, m.Update(&TestKey{Key: 1}, &TestValue{Value: 1}))
+}
