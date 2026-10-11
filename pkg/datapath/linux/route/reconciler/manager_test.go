@@ -6,6 +6,7 @@ package reconciler
 import (
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/reconciler"
@@ -74,4 +75,78 @@ func TestUpsertRoute(t *testing.T) {
 	// After the upsert the route with owner3 should not be selected because owner1 comes first in lexicographical order.
 	// And the status should be Done since its not selected.
 	assertRoute(owner3Route.GetFullKey(), false, reconciler.StatusKindDone)
+}
+
+func TestSameSpec(t *testing.T) {
+	base := DesiredRoute{
+		Owner:         &RouteOwner{name: "owner"},
+		Table:         TableMain,
+		Priority:      uint32(1),
+		Prefix:        netip.MustParsePrefix("10.0.0.1/32"),
+		AdminDistance: AdminDistanceDefault,
+		Nexthop:       netip.MustParseAddr("192.0.2.1"),
+		selected:      true,
+		status: reconciler.Status{
+			UpdatedAt: time.Now(),
+			Kind:      reconciler.StatusKindPending,
+		},
+	}
+
+	tests := []struct {
+		name      string
+		mutate    func(r *DesiredRoute)
+		wantEqual bool
+	}{
+		{
+			name:      "same",
+			mutate:    func(r *DesiredRoute) {},
+			wantEqual: true,
+		},
+		{
+			name: "status",
+			mutate: func(r *DesiredRoute) {
+				r.selected = false
+				r.status = reconciler.Status{
+					Kind: reconciler.StatusKindDone,
+				}
+			},
+			wantEqual: true,
+		},
+		{
+			name: "owner",
+			mutate: func(r *DesiredRoute) {
+				r.Owner = &RouteOwner{name: "owner"}
+			},
+			wantEqual: false,
+		},
+		{
+			name: "table",
+			mutate: func(r *DesiredRoute) {
+				r.Table = TableLocal
+			},
+			wantEqual: false,
+		},
+		{
+			name: "prefix",
+			mutate: func(r *DesiredRoute) {
+				r.Prefix = netip.MustParsePrefix("10.0.0.0/24")
+			},
+			wantEqual: false,
+		},
+		{
+			name: "nexthop",
+			mutate: func(r *DesiredRoute) {
+				r.Nexthop = netip.MustParseAddr("192.0.2.2")
+			},
+			wantEqual: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			other := base
+			tt.mutate(&other)
+			require.Equal(t, tt.wantEqual, base.SameSpec(&other))
+		})
+	}
 }

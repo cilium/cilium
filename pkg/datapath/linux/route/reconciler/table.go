@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net/netip"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -148,26 +149,34 @@ func (m MultiPathInfo) String() string {
 	return "[" + strings.Join(nhs, ", ") + "]"
 }
 
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type DesiredRoute struct {
 	// Composite primary key for the route.
+	// +deepequal-gen=false
 	Owner    *RouteOwner
 	Table    TableID
-	Prefix   netip.Prefix
 	Priority uint32
+	// +deepequal-gen=false
+	Prefix netip.Prefix
 
 	// The administrative distance of the route, lower values are preferred.
 	AdminDistance AdminDistance
 	// If true, the route is selected for installation, a calculated property.
+	// +deepequal-gen=false
 	selected bool
 
 	// Optional, if [netip.Addr.IsValid] then nexthop is specified.
+	// +deepequal-gen=false
 	Nexthop netip.Addr
 	// Optional, if [netip.Addr.IsValid] then source address is specified.
+	// +deepequal-gen=false
 	Src netip.Addr
 	// Optional, non-nil if device is specified.
 	Device *tables.Device
 	// Optional, if it's empty, no multipath is specified. This is mutually
 	// exclusive with Nexthop and Device.
+	// +deepequal-gen=false
 	MultiPath MultiPathInfo
 	// Optional, if 0 no MTU is specified.
 	MTU uint32
@@ -176,7 +185,23 @@ type DesiredRoute struct {
 	// Optional, if 0 no type is specified.
 	Type Type
 
+	// +deepequal-gen=false
 	status reconciler.Status
+}
+
+func (dr *DesiredRoute) SameSpec(other *DesiredRoute) bool {
+	// Manually compare netip.Addr, netip.Prefix and other fields
+	// that don't implement DeepEqual method.
+	//
+	// We explicitly exclude `selected` and `status` fields because
+	// we are only interested in comparing the specification of the route,
+	// not its runtime state.
+	return dr.deepEqual(other) &&
+		dr.Owner == other.Owner &&
+		dr.Prefix == other.Prefix &&
+		dr.Nexthop == other.Nexthop &&
+		dr.Src == other.Src &&
+		reflect.DeepEqual(dr.MultiPath, other.MultiPath)
 }
 
 func (dr *DesiredRoute) GetFullKey() DesiredRouteKey {
