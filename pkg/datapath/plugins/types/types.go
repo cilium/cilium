@@ -6,6 +6,9 @@ package types
 import (
 	"context"
 	"fmt"
+	"iter"
+	"maps"
+	"slices"
 
 	"github.com/cilium/ebpf"
 
@@ -91,6 +94,21 @@ type CollectionHookStatus struct {
 	Programs map[string]*ProgramHookStatus
 }
 
+// OrderedTargetNames returns an iterator that yields all instrumented program
+// names in lexicographical order.
+func (c *CollectionHookStatus) OrderedTargetNames() iter.Seq[string] {
+	return func(yield func(string) bool) {
+		targetNames := slices.Collect(maps.Keys(c.Programs))
+		slices.Sort(targetNames)
+
+		for _, targetName := range targetNames {
+			if !yield(targetName) {
+				return
+			}
+		}
+	}
+}
+
 // ProgramHookStatus contains information about a program that was instrumented
 // by plugins.
 type ProgramHookStatus struct {
@@ -99,6 +117,38 @@ type ProgramHookStatus struct {
 	// Hooks contains information about all the hooks attached to this program
 	// organized by (hook type, plugin name)
 	Hooks map[datapathplugins.HookType]map[string]*HookInfo
+}
+
+// OrderedHookTypes returns an iterator that yields all hook types attached to
+// this program in a deterministic order.
+func (p *ProgramHookStatus) OrderedHookTypes() iter.Seq[datapathplugins.HookType] {
+	return func(yield func(datapathplugins.HookType) bool) {
+		hookTypes := slices.Collect(maps.Keys(p.Hooks))
+		slices.Sort(hookTypes)
+
+		for _, hookType := range hookTypes {
+			if !yield(hookType) {
+				return
+			}
+		}
+	}
+}
+
+// OrderedPlugins returns an iterator that yields the name of all plugins that
+// attached a hook of type hookType in attachment order.
+func (p *ProgramHookStatus) OrderedPlugins(hookType datapathplugins.HookType) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		pluginNames := slices.Collect(maps.Keys(p.Hooks[hookType]))
+		slices.SortFunc(pluginNames, func(a, b string) int {
+			return p.Hooks[hookType][a].Position - p.Hooks[hookType][b].Position
+		})
+
+		for _, pluginName := range pluginNames {
+			if !yield(pluginName) {
+				return
+			}
+		}
+	}
 }
 
 // HookInfo contains information about a hook program.

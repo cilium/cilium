@@ -4,6 +4,8 @@
 package plugins
 
 import (
+	"iter"
+
 	"github.com/cilium/statedb"
 	"github.com/cilium/statedb/index"
 
@@ -58,6 +60,16 @@ func (h *hookStatusTable) Purge(ac *datapathplugins.AttachmentContext) {
 	wtxn := h.db.WriteTxn(h.hookStatuses)
 	h.hookStatuses.Delete(wtxn, types.NewCollectionHookStatus(ac))
 	wtxn.Commit()
+}
+
+func (h *hookStatusTable) all() iter.Seq[*types.CollectionHookStatus] {
+	return func(yield func(*types.CollectionHookStatus) bool) {
+		for collHookStatus := range h.hookStatuses.All(h.db.ReadTxn()) {
+			if !yield(collHookStatus) {
+				return
+			}
+		}
+	}
 }
 
 func (h *hookStatusTable) toHookStatusWriter() types.HooksStatusWriter {
