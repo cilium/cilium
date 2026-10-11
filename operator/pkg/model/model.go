@@ -885,11 +885,23 @@ func (m *Model) NeedsPerPortTLSPassthroughListeners() bool {
 	return len(m.TLSPassthroughPorts()) > 1
 }
 
+// NeedsPerPortGAMMAListeners returns true if the model contains GAMMA listeners
+// on more than one distinct port.
+//
+// GAMMA routes are attached to a specific Service parentRef port. Because all
+// cleartext HTTP listeners are otherwise merged into a single RouteConfiguration,
+// routes attached to different ports of the same Service would be combined and
+// could cross-route traffic between ports. Emitting one Listener (and matching
+// RouteConfiguration) per port preserves that boundary.
+func (m *Model) NeedsPerPortGAMMAListeners() bool {
+	return m.IsGamma() && len(m.HTTPPorts()) > 1
+}
+
 // NeedsPerPortListeners returns true if any protocol has enough distinct ports
 // to require per-port Envoy Listener resources, or if cross-protocol SNI overlap
 // would make a combined listener lose the Gateway listener port boundary.
 func (m *Model) NeedsPerPortListeners() bool {
-	return m.NeedsPerPortHTTPSListeners() || m.NeedsPerPortTLSPassthroughListeners() || m.NeedsCrossProtocolSplit()
+	return m.NeedsPerPortHTTPSListeners() || m.NeedsPerPortTLSPassthroughListeners() || m.NeedsCrossProtocolSplit() || m.NeedsPerPortGAMMAListeners()
 }
 
 // NeedsCrossProtocolSplit returns true when HTTPS and TLS passthrough filter
