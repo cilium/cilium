@@ -6,6 +6,7 @@ package testutils
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -47,37 +48,49 @@ func ReadObjectsDir(t testing.TB, dir string, scheme *runtime.Scheme) []client.O
 	files, err := os.ReadDir(dir)
 	require.NoError(t, err)
 
-	decoder := serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDeserializer()
 	var objects []client.Object
 	for _, file := range files {
 		if file.IsDir() {
 			continue
 		}
-
-		f, err := os.Open(filepath.Join(dir, file.Name()))
+		currObjects, err := readObjectsFile(filepath.Join(dir, file.Name()), scheme)
 		require.NoError(t, err)
-		yamlDecoder := yaml.NewYAMLOrJSONDecoder(f, 4096)
-
-		for {
-			var raw json.RawMessage
-			err := yamlDecoder.Decode(&raw)
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			require.NoError(t, err, "decode %s", file.Name())
-			if len(raw) == 0 {
-				continue
-			}
-
-			obj, _, err := decoder.Decode(raw, nil, nil)
-			require.NoError(t, err, "decode %s", file.Name())
-
-			object, ok := obj.(client.Object)
-			require.True(t, ok, "decode %s: expected Kubernetes object, got %T", file.Name(), obj)
-			objects = append(objects, object)
-		}
-
-		require.NoError(t, f.Close())
+		objects = append(objects, currObjects...)
 	}
 	return objects
+}
+
+func readObjectsFile(path string, scheme *runtime.Scheme) ([]client.Object, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	decoder := serializer.NewCodecFactory(scheme, serializer.EnableStrict).UniversalDeserializer()
+	yamlDecoder := yaml.NewYAMLOrJSONDecoder(f, 4096)
+	var objects []client.Object
+	for {
+		var raw json.RawMessage
+		err := yamlDecoder.Decode(&raw)
+		if errors.Is(err, io.EOF) {
+			return objects, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("decode %s: %w", path, err)
+		}
+		if len(raw) == 0 {
+			continue
+		}
+
+		obj, _, err := decoder.Decode(raw, nil, nil)
+		if err != nil {
+			return nil, fmt.Errorf("decode %s: %w", path, err)
+		}
+		object, ok := obj.(client.Object)
+		if !ok {
+			return nil, fmt.Errorf("decode %s: expected Kubernetes object, got %T", path, obj)
+		}
+		objects = append(objects, object)
+	}
 }

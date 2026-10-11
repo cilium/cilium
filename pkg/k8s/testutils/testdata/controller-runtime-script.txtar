@@ -1,0 +1,53 @@
+k8s/ctrl-runtime/add configmap.yaml
+k8s/ctrl-runtime/get configmaps test/example -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml configmap.yaml
+k8s/ctrl-runtime/get v1.configmaps test/example -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml configmap.yaml
+
+k8s/ctrl-runtime/get configmaps test/example -o current.yaml
+sed 'value: before' 'value: after' current.yaml
+k8s/ctrl-runtime/update current.yaml
+k8s/ctrl-runtime/get configmaps test/example -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml current.yaml
+
+k8s/ctrl-runtime/reconcile configmap test/example
+k8s/ctrl-runtime/get configmaps test/example -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml reconciled.yaml
+k8s/ctrl-runtime/delete configmap.yaml
+! k8s/ctrl-runtime/get configmaps test/example
+
+# One input file may contain multiple Kubernetes objects.
+k8s/ctrl-runtime/add configmaps.yaml
+k8s/ctrl-runtime/get configmaps test/first
+k8s/ctrl-runtime/get configmaps test/second
+
+-- configmap.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  namespace: test
+data:
+  value: before
+
+-- reconciled.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example
+  namespace: test
+data:
+  reconciled: "true"
+
+-- configmaps.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: first
+  namespace: test
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: second
+  namespace: test
