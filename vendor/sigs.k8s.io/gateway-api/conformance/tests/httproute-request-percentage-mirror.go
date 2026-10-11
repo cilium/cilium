@@ -62,7 +62,6 @@ var HTTPRouteRequestPercentageMirror = confsuite.ConformanceTest{
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteRequestPercentageMirror,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		var (
 			ns      = confsuite.InfrastructureNamespace

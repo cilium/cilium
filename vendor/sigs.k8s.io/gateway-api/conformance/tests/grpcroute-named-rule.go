@@ -42,7 +42,6 @@ var GRPCRouteNamedRule = confsuite.ConformanceTest{
 		features.SupportGRPCRoute,
 		features.SupportGRPCRouteNamedRouteRule,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "grpc-named-rules", Namespace: ns}
