@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/hive"
+	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
@@ -99,6 +100,9 @@ func newTestLoader(tb testing.TB) *loader {
 		}),
 		cell.Provide(func() bigtcp.Config {
 			return &fakebigtcp.Config{}
+		}),
+		cell.Provide(func() *ipcachemap.Map {
+			return ipcachemap.NewMap(nil, ipcachemap.Name)
 		}),
 	)
 	log := hivetest.Logger(tb)

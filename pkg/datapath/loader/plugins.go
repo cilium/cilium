@@ -115,13 +115,52 @@ type bpfCollectionLoader struct {
 	// Load/LoadAndAssign take a read lock which is released by the cleanup
 	// function they return.
 	gcMu lock.RWMutex
+
+	// agentMaps are maps created and owned by the agent which the datapath must
+	// use regardless of the state of their bpffs pins. Keyed by MapSpec name.
+	agentMaps map[string]*bpf.Map
 }
 
-func newBPFCollectionLoader(pluginsEnabled bool, pluginOperationsDir string) *bpfCollectionLoader {
+func newBPFCollectionLoader(pluginsEnabled bool, pluginOperationsDir string, agentMaps map[string]*bpf.Map) *bpfCollectionLoader {
 	return &bpfCollectionLoader{
 		pluginOperationsDir: pluginOperationsDir,
 		pluginsEnabled:      pluginsEnabled,
 		gcWakeup:            make(chan struct{}, 1),
+		agentMaps:           agentMaps,
+	}
+}
+
+// useAgentMaps adds the agent-owned maps to the MapReplacements in opts, so
+// that the loaded programs are guaranteed to reference the same map objects
+// that the agent writes to, instead of whatever map is found at (or created
+// for) the pin path. If a map's pin no longer refers to the agent's map, the
+// pin is restored so that pin-based consumers observe the live map as well.
+func (l *bpfCollectionLoader) useAgentMaps(logger *slog.Logger, opts *bpf.CollectionOptions) {
+	for name, m := range l.agentMaps {
+		if m == nil || !m.IsOpen() {
+			continue
+		}
+
+		if _, ok := opts.MapReplacements[name]; ok {
+			continue
+		}
+
+		repinned, err := m.RepinIfReplaced()
+		if err != nil {
+			logger.Warn("Unable to verify bpffs pin of agent-owned map",
+				logfields.BPFMapName, name,
+				logfields.Error, err,
+			)
+		} else if repinned {
+			logger.Warn("bpffs pin of agent-owned map was missing or replaced by a different map, restored it",
+				logfields.BPFMapName, name,
+			)
+		}
+
+		if opts.MapReplacements == nil {
+			opts.MapReplacements = make(map[string]*bpf.Map)
+		}
+		opts.MapReplacements[name] = m
 	}
 }
 
@@ -227,6 +266,8 @@ func (l *bpfCollectionLoader) LoadAndAssign(ctx context.Context, logger *slog.Lo
 // to the operation such as program pins or map pins. cleanup must be invoked
 // after commit regardless of whether or not commit returns an error.
 func (l *bpfCollectionLoader) Load(ctx context.Context, logger *slog.Logger, spec *ebpf.CollectionSpec, opts *bpf.CollectionOptions, lnc *config.Config, attachmentContext *datapathplugins.AttachmentContext, pinsDir string) (coll *ebpf.Collection, commit func() error, cleanup func(), err error) {
+	l.useAgentMaps(logger, opts)
+
 	if !l.pluginsEnabled {
 		// If plugins were previously enabled, clean up any lingering
 		// pinned links in the plugin link directories.

@@ -1113,7 +1113,7 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 				}
 			}
 
-			l := newBPFCollectionLoader(true, bpffsPluginsOperationsDir(tmp))
+			l := newBPFCollectionLoader(true, bpffsPluginsOperationsDir(tmp), nil)
 
 			pinsDir := filepath.Join(tmp, "pins_dir")
 			baseColl, commit, cleanup, err := l.Load(
@@ -1191,3 +1191,59 @@ func TestPrivilegedLoadAndAssignWithPlugins(t *testing.T) {
 		})
 	}
 }
+
+func TestPrivilegedUseAgentMaps(t *testing.T) {
+	testutils.PrivilegedTest(t)
+	logger := hivetest.Logger(t)
+
+	bpf.CheckOrMountFS(logger, "")
+
+	newAgentMap := func(name string) *bpf.Map {
+		return bpf.NewMap(name, ebpf.Hash, &agentMapKey{}, &agentMapValue{}, 1, 0)
+	}
+
+	agentMap := newAgentMap("cilium_test_agent_map")
+	require.NoError(t, agentMap.Recreate())
+	t.Cleanup(func() {
+		require.NoError(t, agentMap.Close())
+		require.NoError(t, agentMap.UnpinIfExists())
+	})
+
+	closedMap := newAgentMap("cilium_test_agent_map_closed")
+
+	l := newBPFCollectionLoader(false, "", map[string]*bpf.Map{
+		"agent_map":        agentMap,
+		"closed_agent_map": closedMap,
+	})
+
+	// The agent-owned map is added as a replacement, maps that were never
+	// opened are skipped.
+	opts := &bpf.CollectionOptions{}
+	l.useAgentMaps(logger, opts)
+	require.Equal(t, map[string]*bpf.Map{"agent_map": agentMap}, opts.MapReplacements)
+
+	// Replacements provided by the caller take precedence.
+	callerMap := newAgentMap("cilium_test_caller_map")
+	opts = &bpf.CollectionOptions{MapReplacements: map[string]*bpf.Map{"agent_map": callerMap}}
+	l.useAgentMaps(logger, opts)
+	require.Equal(t, map[string]*bpf.Map{"agent_map": callerMap}, opts.MapReplacements)
+
+	// A missing pin of an agent-owned map is restored.
+	pinPath, err := agentMap.Path()
+	require.NoError(t, err)
+	require.NoError(t, os.Remove(pinPath))
+
+	l.useAgentMaps(logger, &bpf.CollectionOptions{})
+	_, err = os.Stat(pinPath)
+	require.NoError(t, err)
+}
+
+type agentMapKey struct{ Key uint32 }
+
+func (k *agentMapKey) String() string  { return fmt.Sprintf("%d", k.Key) }
+func (k *agentMapKey) New() bpf.MapKey { return &agentMapKey{} }
+
+type agentMapValue struct{ Value uint32 }
+
+func (v *agentMapValue) String() string    { return fmt.Sprintf("%d", v.Value) }
+func (v *agentMapValue) New() bpf.MapValue { return &agentMapValue{} }

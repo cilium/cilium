@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/hive/job"
 
 	policyapi "github.com/cilium/cilium/api/v1/server/restapi/policy"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -84,7 +85,21 @@ type ipCacheParams struct {
 	CacheStatus            synced.CacheStatus
 }
 
-func newIPCache(params ipCacheParams) *ipcache.IPCache {
+type ipCacheOut struct {
+	cell.Out
+
+	IPCache *ipcache.IPCache
+
+	// The ipcache BPF map is (re)created by the IPCache start hook below, after
+	// the identities have been restored from the previous map. Provide it from
+	// here as a [bpf.MapOut] so the loader is started only after the map has
+	// been recreated, and loads the datapath with the map the agent writes to.
+	bpf.MapOut[*ipcachemap.Map]
+}
+
+func newIPCache(params ipCacheParams) ipCacheOut {
+	ipcMap := ipcachemap.IPCacheMap(params.MetricsRegistry)
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// IPCache: aggregates node-local prefix labels and allocates
@@ -124,7 +139,7 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 			// the first time and its bpf programs have been replaced. Existing endpoints
 			// are using a policy map which is potentially out of sync as local identities
 			// are re-allocated on startup.
-			if err := ipcachemap.IPCacheMap(params.MetricsRegistry).Recreate(); err != nil {
+			if err := ipcMap.Recreate(); err != nil {
 				return fmt.Errorf("initializing ipcache map: %w", err)
 			}
 
@@ -159,7 +174,10 @@ func newIPCache(params ipCacheParams) *ipcache.IPCache {
 		return nil
 	}))
 
-	return ipc
+	return ipCacheOut{
+		IPCache: ipc,
+		MapOut:  bpf.NewMapOut(ipcMap),
+	}
 }
 
 type ipcacheAPIHandlerParams struct {

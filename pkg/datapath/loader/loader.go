@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
+	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
@@ -77,6 +78,10 @@ type Params struct {
 	EPRestorer         promise.Promise[endpointstate.Restorer]
 	BIGTCPConfig       bigtcp.Config
 
+	// IPCacheMap is the agent-owned ipcache map. The datapath is always loaded
+	// with this map object to ensure it uses the same map the agent writes to.
+	IPCacheMap *ipcachemap.Map
+
 	// Force map initialisation before loader.
 	bpf.MapGroup
 }
@@ -87,6 +92,7 @@ func newLoader(p Params) *loader {
 	collLoader := newBPFCollectionLoader(
 		option.Config.EnableDatapathPlugins,
 		bpffsPluginsOperationsDir(bpf.CiliumPath()),
+		agentMaps(p),
 	)
 	collLoader.runGC(p.Logger, p.JobGroup)
 	return &loader{
@@ -104,6 +110,16 @@ func newLoader(p Params) *loader {
 		db:                  p.DB,
 		devices:             p.Devices,
 	}
+}
+
+// agentMaps returns the agent-owned maps that must be used by the datapath
+// instead of resolving them by pin, keyed by their name in the ELF.
+func agentMaps(p Params) map[string]*bpf.Map {
+	maps := make(map[string]*bpf.Map)
+	if p.IPCacheMap != nil {
+		maps[ipcachemap.Name] = &p.IPCacheMap.Map
+	}
+	return maps
 }
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
