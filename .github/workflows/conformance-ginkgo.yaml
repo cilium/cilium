@@ -173,7 +173,7 @@ jobs:
         id: cache-key
         shell: bash
         run: |
-          echo "key=${{ runner.os }}-ginkgo-e2e-${{ hashFiles('**/*.go') }}" >> $GITHUB_OUTPUT
+          echo "key=${{ runner.os }}-ginkgo-e2e-${{ inputs.PR-number || 'trusted' }}-${{ hashFiles('**/*.go') }}" >> $GITHUB_OUTPUT
 
       # Load Ginkgo build from GitHub
       - name: Load ginkgo E2E from GH cache
