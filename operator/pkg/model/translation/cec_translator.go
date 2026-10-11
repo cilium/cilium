@@ -206,21 +206,34 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 	}
 
 	// Plaintext HTTP ports.
-	var httpPorts []uint16
-	for _, hl := range m.HTTP {
-		if len(hl.TLS) == 0 && !tlsPassthroughPorts[hl.Port] {
-			httpPorts = append(httpPorts, uint16(hl.Port))
+	if m.NeedsPerPortGAMMAListeners() {
+		// GAMMA listeners are emitted per port, so each port references its own
+		// Envoy listener.
+		for _, port := range m.HTTPPorts() {
+			result = append(result, &ciliumv2.ServiceListener{
+				Namespace: namespace,
+				Name:      shortenedName,
+				Ports:     []uint16{uint16(port)},
+				Listener:  listenerNameForPort(port),
+			})
 		}
-	}
-	goslices.Sort(httpPorts)
-	httpPorts = goslices.Compact(httpPorts)
-	if len(httpPorts) > 0 {
-		result = append(result, &ciliumv2.ServiceListener{
-			Namespace: namespace,
-			Name:      shortenedName,
-			Ports:     httpPorts,
-			Listener:  listenerName,
-		})
+	} else {
+		var httpPorts []uint16
+		for _, hl := range m.HTTP {
+			if len(hl.TLS) == 0 && !tlsPassthroughPorts[hl.Port] {
+				httpPorts = append(httpPorts, uint16(hl.Port))
+			}
+		}
+		goslices.Sort(httpPorts)
+		httpPorts = goslices.Compact(httpPorts)
+		if len(httpPorts) > 0 {
+			result = append(result, &ciliumv2.ServiceListener{
+				Namespace: namespace,
+				Name:      shortenedName,
+				Ports:     httpPorts,
+				Listener:  listenerName,
+			})
+		}
 	}
 
 	// One entry per HTTPS port.
