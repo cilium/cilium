@@ -171,13 +171,32 @@ type CollectionOptions struct {
 	ProgramPatches map[string]func(asm.Instructions) (asm.Instructions, error)
 }
 
-func (co *CollectionOptions) populateMapReplacements() {
+// populateMapReplacements passes the maps in co.MapReplacements along to the
+// embedded ebpf.CollectionOptions. Replacements for maps that are not (or no
+// longer, e.g. after pruning) present in spec are skipped, since ebpf-go
+// rejects replacements without a corresponding MapSpec.
+func (co *CollectionOptions) populateMapReplacements(spec *ebpf.CollectionSpec) {
 	if co.CollectionOptions.MapReplacements == nil {
 		co.CollectionOptions.MapReplacements = make(map[string]*ebpf.Map)
 	}
 
 	for n, m := range co.MapReplacements {
+		if _, ok := spec.Maps[n]; !ok {
+			continue
+		}
 		co.CollectionOptions.MapReplacements[n] = m.m
+	}
+}
+
+// unpinReplacedMaps clears the pinning flags of MapSpecs that are going to be
+// replaced by maps from opts.MapReplacements. The owner of a replacement map is
+// responsible for its bpffs pin, so the loader must not open, unpin or replace
+// the pin of such a map based on its MapSpec.
+func unpinReplacedMaps(spec *ebpf.CollectionSpec, opts *CollectionOptions) {
+	for n := range opts.MapReplacements {
+		if ms, ok := spec.Maps[n]; ok {
+			ms.Pinning = ebpf.PinNone
+		}
 	}
 }
 
@@ -208,8 +227,6 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 		return nil, nil, fmt.Errorf("checking for unspecified programs: %w", err)
 	}
 
-	opts.populateMapReplacements()
-
 	logger.Debug("Loading Collection into kernel",
 		logfields.MapRenames, opts.MapRenames,
 		logfields.Constants, printConstants(opts.Constants),
@@ -222,6 +239,8 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	if err := patchMaps(spec, opts.MapRegistry); err != nil {
 		return nil, nil, fmt.Errorf("replacing maps from registry: %w", err)
 	}
+
+	unpinReplacedMaps(spec, opts)
 
 	// Handle BPF_F_RDONLY_PROG flag compatibility for pinned maps before loading.
 	// This ensures BPF programs can reuse existing pinned maps during upgrades
@@ -259,6 +278,8 @@ func LoadCollection(logger *slog.Logger, spec *ebpf.CollectionSpec, opts *Collec
 	if err := removeUnusedMaps(spec, fixed, reach, logger); err != nil {
 		return nil, nil, fmt.Errorf("pruning unused maps: %w", err)
 	}
+
+	opts.populateMapReplacements(spec)
 
 	if err := dumpConstants(spec, opts); err != nil {
 		return nil, nil, fmt.Errorf("writing constants: %w", err)
