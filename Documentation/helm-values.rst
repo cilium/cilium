@@ -1679,7 +1679,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:ecd63a149e09c4cd96aad64bed5c5c387c8d12360c493e8992472bf7c80af7a3","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.39.2-1791291162-d7a8a4a7b3d92bee550665dbce053d12a36c0f24","useDigest":true}``
+     - ``{"digest":"sha256:0df031a8308f05f29e972b77237ccfac333258ccad92732e82eddb7e2759ca66","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.39.3-1791537820-50f71b8ebadf82126e9acb87ebe7db5daefdc768","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -3727,7 +3727,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:ecd63a149e09c4cd96aad64bed5c5c387c8d12360c493e8992472bf7c80af7a3","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.39.2-1791291162-d7a8a4a7b3d92bee550665dbce053d12a36c0f24","useDigest":true}``
+     - ``{"digest":"sha256:0df031a8308f05f29e972b77237ccfac333258ccad92732e82eddb7e2759ca66","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.39.3-1791537820-50f71b8ebadf82126e9acb87ebe7db5daefdc768","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
