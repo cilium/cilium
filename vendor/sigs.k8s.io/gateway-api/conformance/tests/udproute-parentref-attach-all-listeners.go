@@ -41,7 +41,6 @@ var UDPRouteParentRefAttachAllListeners = confsuite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportUDPRoute,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		gwNN := types.NamespacedName{Name: "udp-attach-all-listeners-gateway", Namespace: ns}

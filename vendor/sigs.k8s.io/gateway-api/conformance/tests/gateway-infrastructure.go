@@ -33,17 +33,16 @@ import (
 )
 
 func init() {
-	ConformanceTests = append(ConformanceTests, GatewayInfrastructure)
+	ConformanceTests = append(ConformanceTests, GatewayInfrastructureMetadata, GatewayInvalidParametersRef)
 }
 
-var GatewayInfrastructure = suite.ConformanceTest{
-	ShortName:   "GatewayInfrastructure",
+var GatewayInfrastructureMetadata = suite.ConformanceTest{
+	ShortName:   "GatewayInfrastructureMetadata",
 	Description: "Propagation of metadata from Gateway infrastructure to generated components",
 	Features: []features.FeatureName{
 		features.SupportGateway,
-		features.SupportGatewayInfrastructurePropagation,
+		features.SupportGatewayInfrastructure,
 	},
-	Provisional: true,
 	Manifests: []string{
 		"tests/gateway-infrastructure.yaml",
 	},
@@ -125,5 +124,26 @@ var GatewayInfrastructure = suite.ConformanceTest{
 			require.Subsetf(t, service.Labels, labels, "expected Pod label set %v to contain all Gateway infrastructure labels %v", service.Labels, labels)
 			require.Subsetf(t, service.Annotations, annotations, "expected Pod annotation set %v to contain all Gateway infrastructure annotations %v", service.Annotations, annotations)
 		}
+	},
+}
+
+var GatewayInvalidParametersRef = suite.ConformanceTest{
+	ShortName:   "GatewayInvalidParametersRef",
+	Description: "A Gateway referencing an invalid or non-existent parametersRef should set the Accepted condition to False with reason InvalidParameters.",
+	Features: []features.FeatureName{
+		features.SupportGateway,
+		features.SupportGatewayInfrastructure,
+	},
+	Manifests: []string{"tests/gateway-invalid-parameters-ref.yaml"},
+	Parallel:  true,
+	Test: func(t *testing.T, s *suite.ConformanceTestSuite) {
+		gwNN := types.NamespacedName{Name: "gateway-invalid-parameters-ref", Namespace: suite.InfrastructureNamespace}
+
+		kubernetes.GatewayMustHaveLatestConditions(t, s.Client, s.TimeoutConfig, gwNN)
+		kubernetes.GatewayMustHaveCondition(t, s.Client, s.TimeoutConfig, gwNN, metav1.Condition{
+			Type:   string(v1.GatewayConditionAccepted),
+			Status: metav1.ConditionFalse,
+			Reason: string(v1.GatewayReasonInvalidParameters),
+		})
 	},
 }

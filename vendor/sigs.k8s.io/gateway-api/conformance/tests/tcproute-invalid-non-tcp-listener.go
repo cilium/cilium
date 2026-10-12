@@ -40,7 +40,6 @@ var TCPRouteInvalidNonTCPListener = confsuite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportTCPRoute,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "tcp-route", Namespace: ns}
