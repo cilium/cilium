@@ -151,6 +151,8 @@ const (
 	cantDeleteFromPolicyMap           = "cilium_call_policy: delete: key does not exist"                        // cf. https://github.com/cilium/cilium/issues/29754
 	mutationDetector                  = "Mutation detector is enabled, this will result in memory leakage."     // cf. https://github.com/cilium/cilium/issues/35929
 	errorCreatingInitialLeaderGEK8s35 = "Error initially creating lease lock"                                   // cf.
+	// Keep testing the split mode during its deprecation period.
+	deprecatedSplitXDSMode = "The Envoy xDS split mode is deprecated. Use ads or strict-ads instead."
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
 
@@ -200,7 +202,8 @@ var badLogMessages = map[string][]string{
 	logutils.WarningLogs: {cantEnableJIT, podCIDRUnavailable, unableGetNode,
 		objectHasBeenModified, etcdTimeout, endpointRestoreFailed,
 		cantFindIdentityInCache, keyAllocFailedFoundMaster, cantRecreateMasterKey,
-		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs, mutationDetector},
+		cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs, mutationDetector,
+		deprecatedSplitXDSMode},
 }
 
 // ciliumKubCLICommands are run inside a container and do not have sudo support.

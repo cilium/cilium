@@ -95,7 +95,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 	}
 
 	if params.EnvoyProxyConfig.EnvoyXDSMode == config.EnvoyXDSModeSplit {
-		params.Logger.Warn(`The Envoy xDS mode "split" is deprecated. Use "ads" or "strict-ads" instead.`)
+		params.Logger.Warn("The Envoy xDS split mode is deprecated. Use ads or strict-ads instead.")
 	}
 
 	// Override the default value before bootstrap is created for embedded envoy, or
