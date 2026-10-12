@@ -49,7 +49,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  kind_config: .github/kind-config.yaml
+  KIND_CONFIG: .github/kind-config.yaml
 
 jobs:
   echo-inputs:
