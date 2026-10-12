@@ -10,6 +10,7 @@
 #include "eth.h"
 #include "icmp6.h"
 #include "arp.h"
+#include "config.h"
 
 static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 				   const __u8 *smac, const __u8 *dmac,
@@ -72,24 +73,24 @@ static __always_inline int pull_l3_hdr(struct __ctx_buff *ctx __maybe_unused,
 		break;
 	}
 #endif /* ENABLE_IPV6 */
-#ifdef ENABLE_IPV4
-	case ETH_P_IP: {
-		void *data, *data_end;
-		struct iphdr *ip4;
+	case ETH_P_IP:
+		if (is_defined(ENABLE_IPV4)) {
+			void *data, *data_end;
+			struct iphdr *ip4;
 
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
+			if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
+				return DROP_INVALID;
+		}
 		break;
-	}
-	case ETH_P_ARP: {
-		void *data, *data_end;
-		struct arp_eth *arp;
+	case ETH_P_ARP:
+		if (is_defined(ENABLE_IPV4)) {
+			void *data, *data_end;
+			struct arp_eth *arp;
 
-		if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp))
-			return DROP_INVALID;
+			if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp))
+				return DROP_INVALID;
+		}
 		break;
-	}
-#endif /* ENABLE_IPV4 */
 	default:
 		break;
 	}
