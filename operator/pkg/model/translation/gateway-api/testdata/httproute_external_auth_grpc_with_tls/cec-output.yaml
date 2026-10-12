@@ -51,6 +51,7 @@ spec:
                         envoyGrpc:
                           authority: auth-service:9001
                           clusterName: grpc:default:auth-service:9001
+                        timeout: 10s
                   - name: envoy.filters.http.router
                     typedConfig:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
