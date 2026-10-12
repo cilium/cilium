@@ -9,6 +9,7 @@
 #include <linux/ip.h>
 
 #include "lib/common.h"
+#include "lib/config.h"
 #include "lib/encrypt.h"
 #include "lib/eps.h"
 #include "lib/ipv4.h"
@@ -111,8 +112,8 @@ static __always_inline int
 do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 {
 	struct ipv6hdr __maybe_unused *ip6;
-	struct iphdr __maybe_unused *ip4;
-	void *data __maybe_unused, *data_end __maybe_unused;
+	struct iphdr *ip4;
+	void *data, *data_end;
 	__u8 protocol = 0;
 	__u16 node_id = 0;
 	bool decrypted = ctx_is_decrypt(ctx);
@@ -129,8 +130,10 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 			node_id = lookup_ip6_node_id((union v6addr *)&ip6->saddr);
 		break;
 #endif
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4))
+			return CTX_ACT_OK;
+
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
 			ctx->mark = 0;
 			return CTX_ACT_OK;
@@ -139,7 +142,6 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 		if (!decrypted)
 			node_id = lookup_ip4_node_id(ip4->saddr);
 		break;
-#endif
 	default:
 		return CTX_ACT_OK;
 	}
@@ -177,10 +179,10 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 				__u32 src_sec_identity)
 {
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
-	const struct remote_endpoint_info __maybe_unused *dst = NULL;
-	const struct remote_endpoint_info __maybe_unused *src = NULL;
-	void *data __maybe_unused, *data_end __maybe_unused;
-	struct iphdr __maybe_unused *ip4;
+	const struct remote_endpoint_info *dst = NULL;
+	const struct remote_endpoint_info *src = NULL;
+	void *data, *data_end;
+	struct iphdr *ip4;
 	struct ipv6hdr __maybe_unused *ip6;
 	int ret = 0;
 	union macaddr dst_mac_addr = CONFIG(cilium_net_mac);
@@ -189,8 +191,10 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		return DROP_UNSUPPORTED_L2;
 
 	switch (proto) {
-# ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4))
+			return CTX_ACT_OK;
+
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
@@ -225,7 +229,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			src_sec_identity = src->sec_identity;
 		}
 		break;
-# endif /* ENABLE_IPV4 */
 
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
