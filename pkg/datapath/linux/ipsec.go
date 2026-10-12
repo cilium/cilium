@@ -424,10 +424,10 @@ func (n *linuxNodeHandler) enableIPSecDoLocalHost(addedCIDRs, removedCIDRs []net
 	var errs error
 
 	for localIPNet := range prefixesToIPNets(addedCIDRs) {
-		errors.Join(errs, n.replaceNodeIPSecInRoute(localIPNet))
+		errs = errors.Join(errs, n.replaceNodeIPSecInRoute(localIPNet))
 	}
 	for localIPNet := range prefixesToIPNets(removedCIDRs) {
-		errors.Join(errs, n.deleteNodeIPSecInRoute(localIPNet))
+		errs = errors.Join(errs, n.deleteNodeIPSecInRoute(localIPNet))
 	}
 
 	return errs
