@@ -94,8 +94,9 @@
     "google-github-actions/auth",
     // We update this dependency manually together with envoy proxy updates
     "github.com/cilium/proxy",
-    // We update this dependency manually together with conformance test changes
-    "sigs.k8s.io/gateway-api"
+    // We update these dependencies manually together with conformance test changes
+    "sigs.k8s.io/gateway-api",
+    "sigs.k8s.io/gateway-api/conformance"
   ],
   "pinDigests": true,
   // We don't want to separate major and minor upgrades in separate PRs since
