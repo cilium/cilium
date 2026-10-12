@@ -7,6 +7,7 @@
 #include <bpf/api.h>
 
 #include "common.h"
+#include "config.h"
 #include "encrypt.h"
 #include "overloadable.h"
 #include "identity.h"
@@ -65,10 +66,10 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			     __u32 src_sec_identity)
 {
 	const struct remote_endpoint_info *dst = NULL;
-	const struct remote_endpoint_info __maybe_unused *src = NULL;
-	void *data __maybe_unused, *data_end __maybe_unused;
+	const struct remote_endpoint_info *src = NULL;
+	void *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
-	struct iphdr __maybe_unused *ip4;
+	struct iphdr *ip4;
 	__u32 magic __maybe_unused = 0;
 
 # if defined(HAVE_ENCAP)
@@ -117,8 +118,10 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		}
 		break;
 #endif
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4))
+			goto out;
+
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
@@ -132,7 +135,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			src_sec_identity = src->sec_identity;
 		}
 		break;
-#endif
 	default:
 		goto out;
 	}
