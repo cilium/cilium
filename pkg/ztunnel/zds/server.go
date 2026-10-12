@@ -498,6 +498,13 @@ func (s *Server) sendInitialSnapshot(zc *ztunnelConn) error {
 
 	for _, ep := range s.endpointCache {
 		ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
+		if errors.Is(err, os.ErrNotExist) {
+			s.logger.Warn("skipping endpoint with missing netns during initial snapshot",
+				logfields.EndpointID, ep.GetID16(),
+			)
+			delete(s.endpointCache, ep.GetID16())
+			continue
+		}
 		if err != nil {
 			s.logger.Error("failed to open netns file",
 				logfields.EndpointID, ep.GetID16(),
