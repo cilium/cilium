@@ -22,7 +22,7 @@ func TestSelectsAllEndpoints(t *testing.T) {
 	require.True(t, selectorSlice.SelectsAllEndpoints())
 
 	// Entity "reserved:all" maps to WildcardEndpointSelector
-	selectorSlice = EntitySlice{EntityAll}.GetAsEndpointSelectors()
+	selectorSlice = EntitySlice{EntityAll}.GetAsEndpointSelectors(NewEntitySelectorMapping(""))
 	require.True(t, selectorSlice.SelectsAllEndpoints())
 
 	// Slice that contains wildcard and other selectors still selects all endpoints.

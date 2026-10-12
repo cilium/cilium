@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	policyutils "github.com/cilium/cilium/pkg/policy/utils"
@@ -36,6 +37,7 @@ type policyWatcher struct {
 	config         Config
 	policyImporter policycell.PolicyImporter
 	clusterName    string
+	entityMapping  policyapi.EntitySelectorMapping
 	synced         sync.WaitGroup
 	// maps cnp file name to cnp object. this is required to retrieve data during delete.
 	fileNameToCnpCache map[string]*cilium_v2.CiliumNetworkPolicy
@@ -112,7 +114,7 @@ func (p *policyWatcher) addToPolicyEngine(cnp *cilium_v2.CiliumNetworkPolicy, cn
 	dc := make(chan uint64, 1)
 	// add to policy engine
 	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
-		Rules:               policyutils.RulesToPolicyEntries(rules),
+		Rules:               policyutils.RulesToPolicyEntries(rules, p.entityMapping),
 		Source:              source.Directory,
 		Resource:            resourceID,
 		ProcessingStartTime: time.Now(),

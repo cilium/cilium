@@ -327,7 +327,7 @@ func makeCNPEntries(s *stageCmd, obj *unstructured.Unstructured) (policytypes.Po
 	if err != nil {
 		return nil, "", err
 	}
-	entries := policyutils.RulesToPolicyEntries(rules)
+	entries := policyutils.RulesToPolicyEntries(rules, api.NewEntitySelectorMapping(s.params.ClusterInfo.Name))
 	return entries, resourceKind, nil
 }
 

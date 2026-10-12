@@ -70,8 +70,9 @@ type PolicyRepository interface {
 // Repository is a list of policy rules which in combination form the security
 // policy. A policy repository can be
 type Repository struct {
-	logger      *slog.Logger
-	clusterInfo cmtypes.ClusterInfo
+	logger        *slog.Logger
+	clusterInfo   cmtypes.ClusterInfo
+	entityMapping api.EntitySelectorMapping
 	// mutex protects the whole policy tree
 	mutex lock.RWMutex
 
@@ -134,12 +135,14 @@ func NewPolicyRepository(
 	idmgr identitymanager.IDManager,
 	metricsManager types.PolicyMetrics,
 ) *Repository {
-	selectorCache := NewSelectorCache(logger, initialIDs)
-	subjectSelectorCache := NewSelectorCache(logger, nil)
+	entityMapping := api.NewEntitySelectorMapping(clusterInfo.Name)
+	selectorCache := NewSelectorCache(logger, initialIDs, entityMapping)
+	subjectSelectorCache := NewSelectorCache(logger, nil, entityMapping)
 	repo := &Repository{
 		logger:               logger,
 		rules:                make(map[ruleKey]*rule),
 		clusterInfo:          clusterInfo,
+		entityMapping:        entityMapping,
 		rulesByNamespace:     make(map[string]sets.Set[ruleKey]),
 		rulesByResource:      make(map[ipcachetypes.ResourceID]map[ruleKey]*rule),
 		selectorCache:        selectorCache,
@@ -272,7 +275,7 @@ func (p *Repository) MustAddList(rules api.Rules) (ruleSlice, uint64) {
 			panic(err)
 		}
 	}
-	return p.MustAddPolicyEntries(utils.RulesToPolicyEntries(rules))
+	return p.MustAddPolicyEntries(utils.RulesToPolicyEntries(rules, p.entityMapping))
 }
 
 // MustAddList inserts a PolicyEntry into the policy repository. It is used for

@@ -1840,7 +1840,7 @@ func TestEgressL4AllowWorld(t *testing.T) {
 		DefaultDeny: true,
 		Verdict:     types.Allow,
 		Subject:     labelSelectorA,
-		L3:          types.ToSelectors(api.EntitySelectorMapping[api.EntityWorld]...),
+		L3:          types.ToSelectors(api.NewEntitySelectorMapping("").Selectors(api.EntityWorld)...),
 		L4: []api.PortRule{{
 			Ports: []api.PortProtocol{
 				{Port: "80", Protocol: api.ProtoTCP},

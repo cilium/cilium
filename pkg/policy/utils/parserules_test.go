@@ -338,6 +338,7 @@ func TestRulesToPolicyEntries(t *testing.T) {
 }
 
 func TestMergeEndpointSelectors(t *testing.T) {
+	entityMapping := api.NewEntitySelectorMapping("")
 	endpoints := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("app=test"))}
 	nodes := api.EndpointSelectorSlice{api.NewESFromLabels(labels.ParseSelectLabel("node=test"))}
 	entities := api.EntitySlice{api.EntityHost}
@@ -374,7 +375,7 @@ func TestMergeEndpointSelectors(t *testing.T) {
 		{
 			name:     "only entities",
 			entities: entities,
-			want:     types.ToSelectors(entities.GetAsEndpointSelectors()...),
+			want:     types.ToSelectors(entities.GetAsEndpointSelectors(entityMapping)...),
 		},
 		{
 			name:      "only cidrSlice",
@@ -408,7 +409,7 @@ func TestMergeEndpointSelectors(t *testing.T) {
 			want: types.ToSelectors([]types.APISelector{
 				endpoints[0],
 				nodes[0],
-				entities.GetAsEndpointSelectors()[0],
+				entities.GetAsEndpointSelectors(entityMapping)[0],
 				cidrSlice[0],
 				cidrRuleSlice[0],
 				fqdns[0],
@@ -424,7 +425,7 @@ func TestMergeEndpointSelectors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := mergeEndpointSelectors(tt.endpoints, tt.nodes, tt.entities, tt.cidrSlice, tt.cidrRuleSlice, tt.fqdns, tt.groups)
+			got := mergeEndpointSelectors(tt.endpoints, tt.nodes, tt.entities, tt.cidrSlice, tt.cidrRuleSlice, tt.fqdns, tt.groups, entityMapping)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -588,7 +589,7 @@ func TestGetSelector(t *testing.T) {
 
 func TestEntityLabelSelectorMatch(t *testing.T) {
 	clusterLabel := fmt.Sprintf("k8s:%s=%s", k8sapi.PolicyLabelCluster, "cluster1")
-	api.InitEntities("cluster1")
+	entityMapping := api.NewEntitySelectorMapping("cluster1")
 
 	tests := []struct {
 		entity api.Entity
@@ -642,7 +643,7 @@ func TestEntityLabelSelectorMatch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("Entity '%s' match '%s' [%t]", tt.entity, strings.Join(tt.labels, ", "), tt.match), func(t *testing.T) {
 			labelsToMatch := labels.ParseLabels(tt.labels...)
-			selectors := types.ToSelectors(api.EntitySlice{tt.entity}.GetAsEndpointSelectors()...)
+			selectors := types.ToSelectors(api.EntitySlice{tt.entity}.GetAsEndpointSelectors(entityMapping)...)
 
 			require.Equal(t, tt.match, selectors.Matches(labelsToMatch))
 		})
@@ -650,7 +651,7 @@ func TestEntityLabelSelectorMatch(t *testing.T) {
 }
 
 func TestEntitySliceLabelSelectorMatch(t *testing.T) {
-	api.InitEntities("cluster1")
+	entityMapping := api.NewEntitySelectorMapping("cluster1")
 
 	esHostWorld := api.EntitySlice{api.EntityHost, api.EntityWorld}
 	esHostHealth := api.EntitySlice{api.EntityHost, api.EntityHealth}
@@ -678,8 +679,47 @@ func TestEntitySliceLabelSelectorMatch(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("EntitySlice '%#v' match '%s' [%t]", tt.entities, strings.Join(tt.labels, ", "), tt.match), func(t *testing.T) {
 			labelsToMatch := labels.ParseLabels(tt.labels...)
-			selectors := types.ToSelectors(tt.entities.GetAsEndpointSelectors()...)
+			selectors := types.ToSelectors(tt.entities.GetAsEndpointSelectors(entityMapping)...)
 			require.Equal(t, tt.match, selectors.Matches(labelsToMatch))
 		})
 	}
+}
+
+func TestEntitySelectorMappingsAreClusterScoped(t *testing.T) {
+	for _, clusterName := range []string{"cluster1", "cluster2"} {
+		t.Run(clusterName, func(t *testing.T) {
+			t.Parallel()
+			mapping := api.NewEntitySelectorMapping(clusterName)
+			selectors := api.EntitySlice{api.EntityCluster}.GetAsEndpointSelectors(mapping)
+			clusterLabels := labels.ParseLabels("k8s:" + k8sapi.PolicyLabelCluster + "=" + clusterName)
+			otherClusterLabels := labels.ParseLabels("k8s:" + k8sapi.PolicyLabelCluster + "=other")
+			require.True(t, types.ToSelectors(selectors...).Matches(clusterLabels))
+			require.False(t, types.ToSelectors(selectors...).Matches(otherClusterLabels))
+
+			worldSelectors := mapping.Selectors(api.EntityWorld)
+			worldSelectors[0] = api.EndpointSelector{}
+			require.NotEqual(t, api.EndpointSelector{}, mapping.Selectors(api.EntityWorld)[0])
+		})
+	}
+}
+
+func TestRulesToPolicyEntriesUsesClusterScopedMapping(t *testing.T) {
+	rules := api.Rules{{
+		EndpointSelector: api.WildcardEndpointSelector,
+		Ingress: []api.IngressRule{{
+			IngressCommonRule: api.IngressCommonRule{
+				FromEntities: api.EntitySlice{api.EntityCluster},
+			},
+		}},
+	}}
+
+	cluster1Entries := RulesToPolicyEntries(rules, api.NewEntitySelectorMapping("cluster1"))
+	cluster2Entries := RulesToPolicyEntries(rules, api.NewEntitySelectorMapping("cluster2"))
+	cluster1Labels := labels.ParseLabels("k8s:" + k8sapi.PolicyLabelCluster + "=cluster1")
+	cluster2Labels := labels.ParseLabels("k8s:" + k8sapi.PolicyLabelCluster + "=cluster2")
+
+	require.True(t, cluster1Entries[0].L3.Matches(cluster1Labels))
+	require.False(t, cluster1Entries[0].L3.Matches(cluster2Labels))
+	require.True(t, cluster2Entries[0].L3.Matches(cluster2Labels))
+	require.False(t, cluster2Entries[0].L3.Matches(cluster1Labels))
 }

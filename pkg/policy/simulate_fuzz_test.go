@@ -116,10 +116,10 @@ var (
 		{types.WildcardSelector},
 		{types.ToSelector(endpointSelectorB)},
 
-		types.ToSelectors(api.EntitySlice{"world"}.GetAsEndpointSelectors()...),
+		types.ToSelectors(api.EntitySlice{"world"}.GetAsEndpointSelectors(api.NewEntitySelectorMapping(""))...),
 		{types.NewLabelSelectorFromLabels(labels.ParseSelectLabel("cidr:1.1.1.1/30"))},
 
-		types.ToSelectors(api.EntitySlice{"remote-node"}.GetAsEndpointSelectors()...),
+		types.ToSelectors(api.EntitySlice{"remote-node"}.GetAsEndpointSelectors(api.NewEntitySelectorMapping(""))...),
 		{types.NewLabelSelectorFromLabels(labels.ParseSelectLabel("k8s:nodename=nodeC"))},
 	}
 

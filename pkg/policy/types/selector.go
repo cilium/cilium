@@ -278,20 +278,22 @@ func (p *LabelSelector) MarshalJSON() ([]byte, error) {
 }
 
 func NewLabelSelector(es api.EndpointSelector) *LabelSelector {
+	return NewLabelSelectorWithEntityMapping(es, api.DefaultEntitySelectorMapping())
+}
+
+// NewLabelSelectorWithEntityMapping creates a label selector classified against
+// the entity mapping of the cluster that owns the policy.
+func NewLabelSelectorWithEntityMapping(es api.EndpointSelector, entityMapping api.EntitySelectorMapping) *LabelSelector {
 	requirements := LabelSelectorToRequirements(es.LabelSelector)
 	namespaces, _ := requirements.GetFirstK8sMatch(k8sConst.PodNamespaceLabel)
 	key := es.SelectorKey()
 
 	class := LabelValueSCOther
-	for _, entity := range api.EntitySelectorMapping[api.EntityCluster] {
-		if entity.SelectorKey() == key {
-			class = LabelValueSCCluster
-		}
+	if entityMapping.HasSelector(api.EntityCluster, key) {
+		class = LabelValueSCCluster
 	}
-	for _, entity := range api.EntitySelectorMapping[api.EntityWorld] {
-		if entity.SelectorKey() == key {
-			class = LabelValueSCWorld
-		}
+	if entityMapping.HasSelector(api.EntityWorld, key) {
+		class = LabelValueSCWorld
 	}
 
 	return &LabelSelector{

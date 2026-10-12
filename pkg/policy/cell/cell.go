@@ -5,7 +5,6 @@ package policycell
 
 import (
 	"log/slog"
-	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
@@ -19,7 +18,6 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/compute"
 	"github.com/cilium/cilium/pkg/policy/types"
 )
@@ -69,8 +67,6 @@ type policyRepoParams struct {
 	L7RulesTranslator envoypolicy.EnvoyL7RulesTranslator
 }
 
-var initEntitiesOnce sync.Once
-
 func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 	// Must be done before calling policy.NewPolicyRepository() below.
 	if params.Config.EnableWellKnownIdentities {
@@ -82,12 +78,6 @@ func newPolicyRepo(params policyRepoParams) policy.PolicyRepository {
 			}
 		})
 	}
-
-	// Do this once so parallel test hives do not race on the global map it
-	// writes.
-	initEntitiesOnce.Do(func() {
-		policyapi.InitEntities(params.ClusterInfo.Name)
-	})
 
 	// policy repository: maintains list of active Rules and their subject
 	// security identities. Also constructs the SelectorCache, a precomputed

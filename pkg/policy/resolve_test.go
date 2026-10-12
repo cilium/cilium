@@ -877,7 +877,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	cachedSelectorWorldV6 := td.sc.findCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameWorldIPv6])
 	require.NotNil(t, cachedSelectorWorldV6)
 
-	cachedSelectorAggregateWorld := td.sc.findCachedIdentitySelector(api.EntitySelectorMapping[api.EntityWorld][3])
+	cachedSelectorAggregateWorld := td.sc.findCachedIdentitySelector(api.NewEntitySelectorMapping("").Selectors(api.EntityWorld)[3])
 	require.NotNil(t, cachedSelectorAggregateWorld)
 
 	cachedSelectorTest := td.sc.findCachedIdentitySelector(api.NewESFromLabels(lblTest))

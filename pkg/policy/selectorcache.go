@@ -227,7 +227,8 @@ type userNotification struct {
 // SelectorCache caches identities, identity selectors, and the
 // subsets of identities each selector selects.
 type SelectorCache struct {
-	logger *slog.Logger
+	logger        *slog.Logger
+	entityMapping api.EntitySelectorMapping
 
 	// readTxn for getting the current selections without taking any locks
 	// The stored pointer is never nil after initialization.
@@ -444,11 +445,16 @@ func (sc *SelectorCache) queueNotifiedUsersCommit(txn SelectorSnapshot, wg *sync
 }
 
 // NewSelectorCache creates a new SelectorCache with the given identities.
-func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap) *SelectorCache {
+func NewSelectorCache(logger *slog.Logger, ids identity.IdentityMap, entityMappings ...api.EntitySelectorMapping) *SelectorCache {
+	entityMapping := api.DefaultEntitySelectorMapping()
+	if len(entityMappings) > 0 {
+		entityMapping = entityMappings[0]
+	}
 	sc := &SelectorCache{
-		logger:    logger,
-		idCache:   newScIdentityCache(ids),
-		selectors: selectorMapInitializer(),
+		logger:        logger,
+		entityMapping: entityMapping,
+		idCache:       newScIdentityCache(ids),
+		selectors:     selectorMapInitializer(),
 	}
 	sc.userCond = sync.NewCond(&sc.userMutex)
 	sc.writeableSelections = sc.readableSelections.Txn()
@@ -633,7 +639,7 @@ func (sc *SelectorCache) AddIdentitySelectorForTest(user CachedSelectionUser, es
 	defer sc.mutex.Unlock()
 	sel, exists := sc.selectors.Get(key)
 	if !exists {
-		sel = sc.addSelectorLocked(key, types.NewLabelSelector(es))
+		sel = sc.addSelectorLocked(key, types.NewLabelSelectorWithEntityMapping(es, sc.entityMapping))
 		sc.commit()
 	}
 	return sel, sel.addUser(user, sc.localIdentityNotifier)

@@ -112,10 +112,11 @@ func newTestData(tb testing.TB, logger *slog.Logger) *testData {
 	td.cachedSelectorBar1 = td.getCachedSelectorForTest(selBar1)
 	td.cachedSelectorBar2 = td.getCachedSelectorForTest(selBar2)
 
-	td.cachedSelectorWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][0])
-	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv4][0])
-	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorldIPv6][0])
-	td.cachedSelectorAggregateWorld = td.getCachedSelectorForTest(api.EntitySelectorMapping[api.EntityWorld][3])
+	entityMapping := api.NewEntitySelectorMapping("")
+	td.cachedSelectorWorld = td.getCachedSelectorForTest(entityMapping.Selectors(api.EntityWorld)[0])
+	td.cachedSelectorWorldV4 = td.getCachedSelectorForTest(entityMapping.Selectors(api.EntityWorldIPv4)[0])
+	td.cachedSelectorWorldV6 = td.getCachedSelectorForTest(entityMapping.Selectors(api.EntityWorldIPv6)[0])
+	td.cachedSelectorAggregateWorld = td.getCachedSelectorForTest(entityMapping.Selectors(api.EntityWorld)[3])
 
 	idMgr.Add(idA)
 	idMgr.Add(idB)

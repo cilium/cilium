@@ -8,13 +8,18 @@ import (
 	"github.com/cilium/cilium/pkg/policy/types"
 )
 
-// RulestoPolicyEntries converts the external rule type to the internal policy entry representation.
-func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
+// RulesToPolicyEntries converts external rules to the internal policy entry representation.
+// Pass the mapping for the owning cluster when rules include EntityCluster.
+func RulesToPolicyEntries(rules api.Rules, entityMappings ...api.EntitySelectorMapping) types.PolicyEntries {
+	entityMapping := api.DefaultEntitySelectorMapping()
+	if len(entityMappings) > 0 {
+		entityMapping = entityMappings[0]
+	}
 	entries := types.PolicyEntries{}
 	for _, rule := range rules {
 		ls, node := getSelector(rule)
 
-		subjectSelector := types.NewLabelSelector(ls)
+		subjectSelector := types.NewLabelSelectorWithEntityMapping(ls, entityMapping)
 
 		for _, iRule := range rule.Ingress {
 			defaultDeny := rule.EnableDefaultDeny.Ingress == nil || *rule.EnableDefaultDeny.Ingress
@@ -26,7 +31,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				iRule.FromCIDR,
 				iRule.FromCIDRSet,
 				nil,
-				iRule.FromGroups)
+				iRule.FromGroups, entityMapping)
 
 			l4 := make(api.PortRules, 0, len(iRule.ToPorts)+len(iRule.ICMPs))
 			l4 = append(l4, iRule.ToPorts...)
@@ -57,7 +62,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				iRule.FromCIDR,
 				iRule.FromCIDRSet,
 				nil,
-				iRule.FromGroups)
+				iRule.FromGroups, entityMapping)
 
 			l4 := make(api.PortRules, 0, len(iRule.ToPorts)+len(iRule.ICMPs))
 			l4 = append(l4, portDenyRulesToPortRules(iRule.ToPorts)...)
@@ -88,7 +93,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				eRule.ToCIDR,
 				eRule.ToCIDRSet,
 				eRule.ToFQDNs,
-				eRule.ToGroups)
+				eRule.ToGroups, entityMapping)
 
 			l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
 			l4 = append(l4, eRule.ToPorts...)
@@ -119,7 +124,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				eRule.ToCIDR,
 				eRule.ToCIDRSet,
 				nil,
-				eRule.ToGroups)
+				eRule.ToGroups, entityMapping)
 
 			l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
 			l4 = append(l4, portDenyRulesToPortRules(eRule.ToPorts)...)
@@ -143,7 +148,7 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 	return entries
 }
 
-func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities api.EntitySlice, cidrSlice api.CIDRSlice, cidrRuleSlice api.CIDRRuleSlice, fqdns api.FQDNSelectorSlice, groups []api.Groups) types.Selectors {
+func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities api.EntitySlice, cidrSlice api.CIDRSlice, cidrRuleSlice api.CIDRRuleSlice, fqdns api.FQDNSelectorSlice, groups []api.Groups, entityMapping api.EntitySelectorMapping) types.Selectors {
 	// Explicitly check for empty non-nil slices, it should not result in any identity being selected.
 	// Note that this works due to only one selector type being allowed in a single API rule.
 	if (endpoints != nil && len(endpoints) == 0) ||
@@ -156,7 +161,7 @@ func mergeEndpointSelectors(endpoints, nodes api.EndpointSelectorSlice, entities
 	l3 := make(types.Selectors, 0, len(endpoints)+len(nodes)+len(entities)+len(cidrSlice)+len(cidrRuleSlice)+len(fqdns))
 	l3 = append(l3, types.ToSelectors(endpoints...)...)
 	l3 = append(l3, types.ToSelectors(nodes...)...)
-	l3 = append(l3, types.ToSelectors(entities.GetAsEndpointSelectors()...)...)
+	l3 = append(l3, types.ToSelectors(entities.GetAsEndpointSelectors(entityMapping)...)...)
 	l3 = append(l3, types.ToSelectors(cidrSlice...)...)
 	l3 = append(l3, types.ToSelectors(cidrRuleSlice...)...)
 	l3 = append(l3, types.ToSelectors(fqdns...)...)

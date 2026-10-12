@@ -13,6 +13,7 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	policyutils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/source"
@@ -145,7 +146,7 @@ func (p *policyWatcher) upsertCiliumNetworkPolicyV2(
 		}
 	}
 	p.policyImporter.UpdatePolicy(&policytypes.PolicyUpdate{
-		Rules:               policyutils.RulesToPolicyEntries(rules),
+		Rules:               policyutils.RulesToPolicyEntries(rules, policyapi.NewEntitySelectorMapping(p.clusterInfo.Name)),
 		Source:              source.CustomResource,
 		ProcessingStartTime: initialRecvTime,
 		Resource:            resourceID,

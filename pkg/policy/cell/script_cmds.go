@@ -16,6 +16,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/testutils"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	policytypes "github.com/cilium/cilium/pkg/policy/types"
 	policyutils "github.com/cilium/cilium/pkg/policy/utils"
 	"github.com/cilium/cilium/pkg/source"
@@ -46,22 +47,24 @@ func PolicyImporterScriptCmds(p *Importer) map[string]script.Cmd {
 		)
 		switch policy := robj.(type) {
 		case *v2.CiliumClusterwideNetworkPolicy:
-			parsed, err := policy.Parse(p.log, "")
+			clusterName := p.repo.GetClusterInfo().Name
+			parsed, err := policy.Parse(p.log, clusterName)
 			if err != nil {
 				return nil, "", fmt.Errorf("ccnp parse: %w", err)
 			}
-			rules = policyutils.RulesToPolicyEntries(parsed)
+			rules = policyutils.RulesToPolicyEntries(parsed, policyapi.NewEntitySelectorMapping(clusterName))
 			resourceID = ipcachetypes.NewResourceID(
 				ipcachetypes.ResourceKindCCNP,
 				policy.ObjectMeta.Namespace,
 				policy.ObjectMeta.Name,
 			)
 		case *v2.CiliumNetworkPolicy:
-			parsed, err := policy.Parse(p.log, "")
+			clusterName := p.repo.GetClusterInfo().Name
+			parsed, err := policy.Parse(p.log, clusterName)
 			if err != nil {
 				return nil, "", fmt.Errorf("cnp parse: %w", err)
 			}
-			rules = policyutils.RulesToPolicyEntries(parsed)
+			rules = policyutils.RulesToPolicyEntries(parsed, policyapi.NewEntitySelectorMapping(clusterName))
 			resourceID = ipcachetypes.NewResourceID(
 				ipcachetypes.ResourceKindCNP,
 				policy.ObjectMeta.Namespace,

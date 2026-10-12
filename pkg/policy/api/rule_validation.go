@@ -302,8 +302,7 @@ func (i *IngressCommonRule) Validate() error {
 	}
 
 	for _, fromEntity := range i.FromEntities {
-		_, ok := EntitySelectorMapping[fromEntity]
-		if !ok {
+		if !isKnownEntity(fromEntity) {
 			return errors.Join(fmt.Errorf("unsupported entity: %s", fromEntity), retErr)
 		}
 	}
@@ -532,8 +531,7 @@ func (e *EgressCommonRule) Validate(l3Members map[string]int) error {
 	}
 
 	for _, toEntity := range e.ToEntities {
-		_, ok := EntitySelectorMapping[toEntity]
-		if !ok {
+		if !isKnownEntity(toEntity) {
 			return errors.Join(fmt.Errorf("unsupported entity: %s", toEntity), retErr)
 		}
 	}

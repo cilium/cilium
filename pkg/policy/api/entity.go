@@ -4,6 +4,8 @@
 package api
 
 import (
+	"slices"
+
 	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -110,11 +112,7 @@ var (
 		endpointSelectorClusterAggregate,
 	}
 
-	// EntitySelectorMapping maps special entity names that come in
-	// policies to selectors
-	// If you add an entry here, you must also update the CRD
-	// validation above.
-	EntitySelectorMapping = map[Entity]EndpointSelectorSlice{
+	entitySelectorMapping = map[Entity]EndpointSelectorSlice{
 		EntityAll:           {WildcardEndpointSelector},
 		EntityWorld:         {endpointSelectorWorld, endpointSelectorWorldIPv4, endpointSelectorWorldIPv6, endpointSelectorWorldAggregate},
 		EntityWorldIPv4:     {endpointSelectorWorldIPv4},
@@ -127,16 +125,9 @@ var (
 		EntityUnmanaged:     {endpointSelectorUnmanaged},
 		EntityNone:          {EndpointSelectorNone},
 		EntityKubeAPIServer: {endpointSelectorKubeAPIServer},
-
-		// EntityCluster is populated with an empty entry to allow the
-		// cilium client importing this package to perform basic rule
-		// validation. The basic rule validation only enforces
-		// awareness of individual entity names and does not require
-		// understanding of the individual endpoint selectors. The
-		// endpoint selector for the cluster entity can only be
-		// initialized at runtime as it depends on user configuration
-		// such as the cluster name. See InitEntities() below.
-		EntityCluster: {},
+		// The cluster selector is completed per cluster by
+		// NewEntitySelectorMapping().
+		EntityCluster: clusterSelectors,
 
 		// ClusterMesh can be initialized statically, as it selects all endpoints
 		// with the cluster mesh label set.
@@ -149,25 +140,64 @@ var (
 	}
 )
 
+// EntitySelectorMapping maps special entity names in policies to selectors.
+// If you add an entity, also update the CRD validation above.
+// Each mapping is scoped to a cluster so that policies from different clusters
+// can be processed concurrently without sharing mutable state.
+type EntitySelectorMapping struct {
+	selectors map[Entity]EndpointSelectorSlice
+}
+
+// NewEntitySelectorMapping returns the entity selectors for the given cluster.
+func NewEntitySelectorMapping(clusterName string) EntitySelectorMapping {
+	selectors := make(map[Entity]EndpointSelectorSlice, len(entitySelectorMapping)+1)
+	for entity, endpointSelectors := range entitySelectorMapping {
+		selectors[entity] = slices.Clone(endpointSelectors)
+	}
+	selectors[EntityCluster] = append(slices.Clone(selectors[EntityCluster]),
+		NewESFromLabels(labels.NewLabel(k8sapi.PolicyLabelCluster, clusterName, labels.LabelSourceK8s)),
+	)
+	return EntitySelectorMapping{selectors: selectors}
+}
+
+// DefaultEntitySelectorMapping returns the cluster-independent entity mapping.
+// Use NewEntitySelectorMapping when resolving EntityCluster for a specific cluster.
+func DefaultEntitySelectorMapping() EntitySelectorMapping {
+	return EntitySelectorMapping{selectors: entitySelectorMapping}
+}
+
+// Selectors returns the endpoint selectors for entity.
+func (m EntitySelectorMapping) Selectors(entity Entity) EndpointSelectorSlice {
+	return slices.Clone(m.selectors[entity])
+}
+
+// HasSelector reports whether entity maps to a selector with key.
+func (m EntitySelectorMapping) HasSelector(entity Entity, key string) bool {
+	for _, selector := range m.selectors[entity] {
+		if selector.SelectorKey() == key {
+			return true
+		}
+	}
+	return false
+}
+
+func isKnownEntity(entity Entity) bool {
+	if _, ok := entitySelectorMapping[entity]; ok {
+		return true
+	}
+	return false
+}
+
 // EntitySlice is a slice of entities
 type EntitySlice []Entity
 
 // GetAsEndpointSelectors returns the provided entity slice as a slice of
 // endpoint selectors
-func (s EntitySlice) GetAsEndpointSelectors() EndpointSelectorSlice {
+func (s EntitySlice) GetAsEndpointSelectors(mapping EntitySelectorMapping) EndpointSelectorSlice {
 	slice := EndpointSelectorSlice{}
 	for _, e := range s {
-		if selector, ok := EntitySelectorMapping[e]; ok {
-			slice = append(slice, selector...)
-		}
+		slice = append(slice, mapping.Selectors(e)...)
 	}
 
 	return slice
-}
-
-// InitEntities is called to initialize the policy API layer
-func InitEntities(clusterName string) {
-	EntitySelectorMapping[EntityCluster] = append(clusterSelectors,
-		NewESFromLabels(labels.NewLabel(k8sapi.PolicyLabelCluster, clusterName, labels.LabelSourceK8s)),
-	)
 }

@@ -13,6 +13,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	policyapi "github.com/cilium/cilium/pkg/policy/api"
 	policycell "github.com/cilium/cilium/pkg/policy/cell"
 )
 
@@ -87,6 +88,7 @@ func newPolicyWatcher(p PolicyWatcherParams, cfg Config) *policyWatcher {
 		policyImporter:     p.Importer,
 		config:             cfg,
 		clusterName:        cmtypes.LocalClusterNameForPolicies(p.ClusterMeshPolicyConfig, p.ClusterInfo.Name),
+		entityMapping:      policyapi.NewEntitySelectorMapping(p.ClusterInfo.Name),
 		fileNameToCnpCache: make(map[string]*cilium_v2.CiliumNetworkPolicy),
 	}
 	w.synced.Add(1)

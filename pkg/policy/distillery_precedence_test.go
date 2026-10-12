@@ -957,7 +957,7 @@ func TestOrderedPolicyValidation(t *testing.T) {
 					Verdict:  types.Allow,
 				},
 				&types.PolicyEntry{
-					L3:       types.ToSelectors(api.EntitySelectorMapping[api.EntityWorld]...),
+					L3:       types.ToSelectors(api.NewEntitySelectorMapping("").Selectors(api.EntityWorld)...),
 					Verdict:  types.Deny,
 					Priority: 43,
 				},
