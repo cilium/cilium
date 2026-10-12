@@ -19,7 +19,7 @@ func (t hostFirewallEgressToFqdns) build(ct *check.ConnectivityTest, templates m
 	// This policy only allows port 80 to domain-name, default one.one.one.one., DNS proxy enabled.
 	newTest("host-firewall-egress-to-fqdns", ct).
 		WithCiliumVersion(">=1.19.6").
-		WithCondition(func() bool { return ct.Params().IncludeUnsafeTests }).
+		WithUnsafeTests().
 		WithCondition(differentExternalTargets).
 		WithFeatureRequirements(
 			features.RequireDisabled(features.EndpointRoutes), // currently broken when proxying to in-cluster endpoints, see #45957
