@@ -19,6 +19,10 @@ type InterfaceStats struct {
 	// for IPv4 address allocation.
 	RemainingAvailableInterfaceCount int
 
+	// AvailablePrefixIPs is the number of IPv4 addresses available through
+	// delegated prefixes.
+	AvailablePrefixIPs int
+
 	// NodeIPv6Prefixes is the current number of IPv6 prefixes available on the node.
 	NodeIPv6Prefixes int
 

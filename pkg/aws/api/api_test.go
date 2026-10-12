@@ -4,6 +4,7 @@
 package api
 
 import (
+	"net/netip"
 	"sort"
 	"strings"
 	"testing"
@@ -12,6 +13,8 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	iputil "github.com/cilium/cilium/pkg/ip"
 )
 
 type Filters []ec2_types.Filter
@@ -193,6 +196,30 @@ func TestParseENIPublicIP(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseENIIPv4Prefixes(t *testing.T) {
+	iface := &ec2_types.NetworkInterface{
+		PrivateIpAddress: aws.String("10.0.0.1"),
+		PrivateIpAddresses: []ec2_types.NetworkInterfacePrivateIpAddress{
+			{PrivateIpAddress: aws.String("10.0.0.1"), Primary: aws.Bool(true)},
+			{PrivateIpAddress: aws.String("10.0.0.2")},
+		},
+		Ipv4Prefixes: []ec2_types.Ipv4PrefixSpecification{
+			{Ipv4Prefix: aws.String("10.0.1.0/28")},
+		},
+	}
+
+	_, eni, err := parseENI(iface, nil, nil)
+	require.NoError(t, err)
+
+	// Delegated prefixes are reported as-is and are not expanded into
+	// individual addresses.
+	require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.1.0/28"))}, eni.Prefixes)
+	require.Equal(t, []iputil.Addr{
+		iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+		iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")),
+	}, eni.Addresses)
 }
 
 func TestParseENIIPv6(t *testing.T) {
