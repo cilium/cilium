@@ -105,6 +105,27 @@ func TestAddrUsableAsNodeIP(t *testing.T) {
 			want:         false,
 		},
 		{
+			name:         "deprecated IPv4 is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.1"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        4,
+			want:         false,
+		},
+		{
+			name:         "deprecated IPv6 is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::4"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        16,
+			want:         false,
+		},
+		{
+			name:         "deprecated and tentative combined is rejected",
+			addr:         netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("2001:db8::5"), Mask: net.CIDRMask(64, 128)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_DEPRECATED | unix.IFA_F_TENTATIVE},
+			linkScopeMax: int(unix.RT_SCOPE_UNIVERSE),
+			ipLen:        16,
+			want:         false,
+		},
+		{
 			name:          "secondary IPv4 is rejected unless preferred",
 			addr:          netlink.Addr{IPNet: &net.IPNet{IP: net.ParseIP("10.0.0.2"), Mask: net.CIDRMask(24, 32)}, Scope: int(unix.RT_SCOPE_UNIVERSE), Flags: unix.IFA_F_SECONDARY},
 			isPreferredIP: false,

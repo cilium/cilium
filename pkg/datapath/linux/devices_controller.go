@@ -465,7 +465,7 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 				// so populating Device.Addrs with them would surface unusable
 				// addresses to downstream features. A later AddrUpdate emitted
 				// by the kernel when DAD completes will add the address.
-				if u.NewAddr && u.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED) != 0 {
+				if u.NewAddr && u.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED|unix.IFA_F_DEPRECATED) != 0 {
 					continue
 				}
 				addr := deviceAddressFromAddrUpdate(u)

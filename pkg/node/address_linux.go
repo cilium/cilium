@@ -129,7 +129,7 @@ func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.I
 	if a.Flags&unix.IFA_F_SECONDARY > 0 && !isPreferredIP {
 		return false
 	}
-	if a.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED) != 0 {
+	if a.Flags&(unix.IFA_F_TENTATIVE|unix.IFA_F_DADFAILED|unix.IFA_F_DEPRECATED) != 0 {
 		return false
 	}
 	return true
