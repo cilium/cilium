@@ -13,13 +13,19 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 )
 
-// fakeDNSProxyReadiness is a controllable DNSProxyReadiness for tests: the
-// channel it returns stays open until the test closes it.
-type fakeDNSProxyReadiness struct {
+// gateTestProxy is a controllable EndpointProxy for tests: DNSProxyReady
+// returns a channel that stays open until the test closes it. All other proxy
+// methods come from the embedded FakeEndpointProxy.
+type gateTestProxy struct {
+	*FakeEndpointProxy
 	ch chan struct{}
 }
 
-func (f fakeDNSProxyReadiness) DNSProxyReady() <-chan struct{} { return f.ch }
+func (p *gateTestProxy) DNSProxyReady() <-chan struct{} { return p.ch }
+
+func newGateTestProxy(ch chan struct{}) *gateTestProxy {
+	return &gateTestProxy{FakeEndpointProxy: &FakeEndpointProxy{}, ch: ch}
+}
 
 func dnsTuple() policy.PerSelectorPolicyTuple {
 	return policy.PerSelectorPolicyTuple{Policy: &policy.PerSelectorPolicy{L7Parser: policy.ParserTypeDNS}}
@@ -37,33 +43,13 @@ func runGate(e *Endpoint, sp policy.SelectorPolicy) <-chan error {
 	return done
 }
 
-func TestPolicyHasDNSRedirect(t *testing.T) {
-	tests := []struct {
-		name string
-		sp   policy.SelectorPolicy
-		want bool
-	}{
-		{"nil policy", nil, false},
-		{"no redirect filters", &testSelectorPolicy{}, false},
-		{"http only", &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{httpTuple()}}, false},
-		{"dns", &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}, true},
-		{"http and dns", &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{httpTuple(), dnsTuple()}}, true},
-		{"nil tuple policy", &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{{Policy: nil}}}, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, policyHasDNSRedirect(tt.sp))
-		})
-	}
-}
-
 // The gate must not block when the policy has no DNS redirect, nor when no
-// readiness signal is wired, even if the readiness channel never closes.
+// proxy is configured, even if the readiness channel never closes.
 func TestWaitForDNSProxyReadyNotGated(t *testing.T) {
 	neverReady := make(chan struct{})
 
 	t.Run("no DNS redirect", func(t *testing.T) {
-		e := &Endpoint{dnsProxyReady: fakeDNSProxyReadiness{ch: neverReady}, aliveCtx: context.Background()}
+		e := &Endpoint{proxy: newGateTestProxy(neverReady), aliveCtx: context.Background()}
 		sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{httpTuple()}}
 		select {
 		case err := <-runGate(e, sp):
@@ -73,14 +59,14 @@ func TestWaitForDNSProxyReadyNotGated(t *testing.T) {
 		}
 	})
 
-	t.Run("nil readiness", func(t *testing.T) {
+	t.Run("proxy disabled", func(t *testing.T) {
 		e := &Endpoint{aliveCtx: context.Background()}
 		sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}
 		select {
 		case err := <-runGate(e, sp):
 			require.NoError(t, err)
 		case <-time.After(time.Second):
-			t.Fatal("gate blocked when no readiness signal is wired")
+			t.Fatal("gate blocked when no proxy is configured")
 		}
 	})
 }
@@ -89,7 +75,7 @@ func TestWaitForDNSProxyReadyNotGated(t *testing.T) {
 // returns nil.
 func TestWaitForDNSProxyReadyWaitsForReady(t *testing.T) {
 	ready := make(chan struct{})
-	e := &Endpoint{dnsProxyReady: fakeDNSProxyReadiness{ch: ready}, aliveCtx: context.Background()}
+	e := &Endpoint{proxy: newGateTestProxy(ready), aliveCtx: context.Background()}
 	sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}
 
 	done := runGate(e, sp)
@@ -115,7 +101,7 @@ func TestWaitForDNSProxyReadyWaitsForReady(t *testing.T) {
 func TestWaitForDNSProxyReadyCtxCancel(t *testing.T) {
 	neverReady := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
-	e := &Endpoint{dnsProxyReady: fakeDNSProxyReadiness{ch: neverReady}, aliveCtx: ctx}
+	e := &Endpoint{proxy: newGateTestProxy(neverReady), aliveCtx: ctx}
 	sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}
 
 	done := runGate(e, sp)

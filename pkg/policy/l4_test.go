@@ -198,6 +198,14 @@ func TestRedirectType(t *testing.T) {
 	require.Equal(t, redirectTypeEnvoy, redirectTypes(0x2))
 }
 
+func TestL4PolicyHasDNSRedirect(t *testing.T) {
+	require.False(t, (*L4Policy)(nil).HasDNSRedirect())
+	require.False(t, (&L4Policy{redirectTypes: redirectTypeNone}).HasDNSRedirect())
+	require.False(t, (&L4Policy{redirectTypes: redirectTypeEnvoy}).HasDNSRedirect())
+	require.True(t, (&L4Policy{redirectTypes: redirectTypeDNS}).HasDNSRedirect())
+	require.True(t, (&L4Policy{redirectTypes: redirectTypeDNS | redirectTypeEnvoy}).HasDNSRedirect())
+}
+
 func TestParserTypeMerge(t *testing.T) {
 	for _, tt := range []struct {
 		a, b, c L7ParserType

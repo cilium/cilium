@@ -1183,6 +1183,15 @@ func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, poli
 	}
 }
 
+func (sp *testSelectorPolicy) HasDNSRedirect() bool {
+	for _, tuple := range sp.redirectFilters {
+		if tuple.Policy != nil && tuple.Policy.L7Parser == policy.ParserTypeDNS {
+			return true
+		}
+	}
+	return false
+}
+
 func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) *policy.EndpointPolicy {
 	return nil
 }
