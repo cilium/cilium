@@ -122,6 +122,10 @@ The following options have been introduced in this version of Cilium:
   in status outputs, where they differ. The default remains ``bpf.datapathMode=veth``
   but may change in future releases.
 
+* ``gatewayAPI.inferenceExtention`` config option has been introduced. If enabled, Cilium
+  Gateway API will be installed with Gateway API Inference Extension enabled. This is currently
+  in beta.
+
 Changed Options
 ###############
 
