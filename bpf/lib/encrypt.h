@@ -9,6 +9,7 @@
 #include <linux/ip.h>
 
 #include "lib/common.h"
+#include "lib/config.h"
 #include "lib/eps.h"
 #include "lib/ipv4.h"
 #include "lib/identity.h"
@@ -45,15 +46,17 @@ set_decrypt_mark(struct __ctx_buff *ctx, __u16 node_id)
 #ifdef IS_BPF_HOST
 /* strict_allow checks whether the packet is allowed to pass through the strict mode. */
 static __always_inline bool
-strict_allow(struct __ctx_buff __maybe_unused *ctx, __be16 proto) {
-	const struct remote_endpoint_info __maybe_unused *dest_info;
-	bool __maybe_unused in_strict_cidr = false;
-	struct iphdr __maybe_unused *ip4;
-	void __maybe_unused *data, *data_end;
+strict_allow(struct __ctx_buff *ctx, __be16 proto) {
+	const struct remote_endpoint_info *dest_info;
+	bool in_strict_cidr = false;
+	struct iphdr *ip4;
+	void *data, *data_end;
 
 	switch (proto) {
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4))
+			return true;
+
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return true;
 
@@ -80,7 +83,6 @@ strict_allow(struct __ctx_buff __maybe_unused *ctx, __be16 proto) {
 				return true;
 		}
 		return !in_strict_cidr;
-#endif /* ENABLE_IPV4 */
 	default:
 		return true;
 	}
