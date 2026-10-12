@@ -6,6 +6,7 @@ package xdsclient
 import (
 	"log/slog"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/cilium/cilium/pkg/container/set"
@@ -166,6 +167,63 @@ func TestWatcher_ResourceCallback(t *testing.T) {
 		t.Fatalf("unexpected callback after removal: %+v", got)
 	case <-time.After(50 * time.Millisecond):
 	}
+}
+
+func TestWatcher_NoCallbackAfterRemove(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		src := newFakeResourceSource()
+		w := newCallbackManager(slog.Default(), src)
+		version := uint64(1)
+		// Repeat because select picks at random when stop and changed both become ready.
+		for range 64 {
+			calls := 0
+			release := make(chan struct{})
+			id := w.Add("test-type-url", func(*xds.VersionedResources) {
+				calls++
+				<-release
+			})
+			version++
+			src.bump(version)
+			synctest.Wait()
+			if calls != 1 {
+				t.Fatalf("got %d callbacks before removal, want 1", calls)
+			}
+
+			w.Remove(id)
+			version++
+			src.bump(version)
+			close(release)
+			synctest.Wait()
+			if calls != 1 {
+				t.Fatalf("got %d callbacks, want no callback after removal", calls)
+			}
+		}
+	})
+}
+
+func TestWatcher_NoCallbackAfterRemoveDuringGetResources(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		src := newFakeResourceSource()
+		release := make(chan struct{})
+		src.getResources = func(string, uint64, []string) *xds.VersionedResources {
+			<-release
+			return &xds.VersionedResources{Version: src.currentVersion()}
+		}
+		w := newCallbackManager(slog.Default(), src)
+		calls := 0
+		id := w.Add("test-type-url", func(*xds.VersionedResources) {
+			calls++
+		})
+		src.bump(2)
+		synctest.Wait()
+
+		w.Remove(id)
+		close(release)
+		synctest.Wait()
+		if calls != 0 {
+			t.Fatalf("got %d callbacks, want no callback after removal", calls)
+		}
+	})
 }
 
 func TestWatcher_CoalescesRapidVersionBumps(t *testing.T) {
