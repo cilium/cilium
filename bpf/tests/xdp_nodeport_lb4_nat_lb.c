@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT
-#define ENABLE_NODEPORT_ACCELERATION
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -85,6 +84,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
+
+ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

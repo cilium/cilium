@@ -89,6 +89,9 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableNodeportSourceLookup = lnc.LBConfig.NodePortEnableDynamicSourceLookup
 
+	node.EnableNodeportAcceleration = lnc.KPRConfig.KubeProxyReplacement &&
+		option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled
+
 	node.LBDefaultAlg = uint8(loadbalancer.SVCLoadBalancingAlgorithmRandom)
 	if lnc.LBConfig.LBAlgorithm == loadbalancer.LBAlgorithmMaglev {
 		node.LBDefaultAlg = uint8(loadbalancer.SVCLoadBalancingAlgorithmMaglev)

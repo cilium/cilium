@@ -8,8 +8,8 @@
 #define ENABLE_NODEPORT			1
 #define DSR_ENCAP_GENEVE		3
 
-#define ENABLE_NODEPORT_ACCELERATION	1
-
 #define TEST_DSR_OPT_NETWORK_BYTE_ORDER
 
 #include "kpr_dsr_remote_node.h"
+
+ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)

@@ -28,7 +28,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT
-#define ENABLE_NODEPORT_ACCELERATION	/* exercise the XFER_PKT_NO_SVC handoff */
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
@@ -72,7 +71,7 @@ enum {
 static volatile __u32 num_calls[RECORD_MAX];
 
 /* Simulated XDP -> TC handoff state. cil_from_netdev calls ctx_get_xfer()
- * at entry; with ENABLE_NODEPORT_ACCELERATION set this is how XDP signals
+ * at entry; with enable_nodeport_acceleration config set, this is how XDP signals
  * "I couldn't classify, skip nodeport at TC" via XFER_PKT_NO_SVC. We mock
  * it so each test can choose whether to simulate XDP having run upstream.
  *
@@ -205,6 +204,7 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 ASSIGN_CONFIG(bool, enable_ipip_termination, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true) /* exercise the XFER_PKT_NO_SVC handoff */
 
 /*
  * Build an IPIP-encapped TCP SYN with:

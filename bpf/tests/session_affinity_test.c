@@ -7,7 +7,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT
-#define ENABLE_NODEPORT_ACCELERATION
 
 /* Make sure we always pick backend slot 1 if we end up in backend selection. */
 #define LB_DEFAULT_ALG LB_SELECTION_FIRST
@@ -27,6 +26,8 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 #include "lib/bpf_xdp.h"
 #include "lib/nodeport.h"
+
+ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 
 #define CLIENT_IP IPV4(10, 0, 0, 1)
 #define FRONTEND_IP IPV4(10, 0, 1, 1)
