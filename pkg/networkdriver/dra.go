@@ -11,6 +11,7 @@ import (
 	"net/netip"
 	"os"
 	"path"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
@@ -247,8 +248,15 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	deviceClaimConfigs, err := driver.deviceClaimConfigs(ctx, claim)
+	deviceClaimConfigs, err := driver.deviceClaimConfigs(claim)
 	if err != nil {
+		driver.logger.ErrorContext(
+			ctx, "failed to retrieve device configs",
+			logfields.UID, claim.UID,
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+			logfields.Error, err,
+		)
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
@@ -325,25 +333,52 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	return kubeletplugin.PrepareResult{}
 }
 
-func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi.ResourceClaim) (map[string]types.DeviceConfig, error) {
+func (driver *Driver) deviceClaimConfigs(claim *resourceapi.ResourceClaim) (map[string]types.DeviceConfig, error) {
 	devicesCfg := map[string]types.DeviceConfig{}
-	for _, cfg := range claim.Status.Allocation.Devices.Config {
-		if cfg.Opaque == nil || cfg.Opaque.Parameters.Raw == nil {
+	devices := claim.Status.Allocation.Devices
+
+	// We go through each device allocation result and extract the configuration
+	// for the corresponding request.
+	//
+	// Some important details on why we use the following approach:
+	// - When a config applies to all requests, its `request` array is empty.
+	//   This is a semantic used by k8s https://github.com/kubernetes/kubernetes/blob/400031d69530e018d5c001a922d3c5d2afaba954/staging/src/k8s.io/dynamic-resource-allocation/structured/internal/stable/allocator_stable.go#L386
+	// - A plugin can receive a ResourceClaim with requests that do not concern
+	//   that driver if mixed DeviceClass are used in the claim's spec.
+	//   Every plugin must be careful to filter for the correct requests.
+	for _, res := range devices.Results {
+		if res.Driver != driver.config.DriverName {
+			// Skip results that do not belong to this driver.
 			continue
 		}
-		c := types.DeviceConfig{}
-		if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &c); err != nil {
-			driver.logger.ErrorContext(
-				ctx, "failed to parse config",
-				logfields.Request, cfg.Requests,
-				logfields.Params, cfg.Opaque.Parameters,
-				logfields.Error, err,
-			)
-			return nil, fmt.Errorf("failed to unmarshal config for %s: %w", path.Join(claim.Namespace, claim.Name), err)
+		requestName := res.Request
+		// if we don't find a matching configuration for this request, requestCfg will remain empty.
+		requestCfg := types.DeviceConfig{}
+
+		// for each result request we look for matching configurations.
+		for _, cfg := range devices.Config {
+			if len(cfg.Requests) != 0 && !slices.Contains(cfg.Requests, requestName) {
+				// this is a config not related to our driver.
+				continue
+			}
+
+			if cfg.Opaque == nil || cfg.Opaque.Parameters.Raw == nil {
+				// if we have a config for the request it must contain actual parameters.
+				return nil, fmt.Errorf("empty configuration is not allowed for request: %s", requestName)
+			}
+
+			if !requestCfg.Empty() {
+				// for now we don't allow overlapping configurations for the same request.
+				// if we hit this case we return an error and the user must resolve the conflict.
+				return nil, fmt.Errorf("overlapping configurations are not allowed for request: %s", requestName)
+			}
+
+			if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &requestCfg); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal config parameters %s: %w",
+					string(cfg.Opaque.Parameters.Raw), err)
+			}
 		}
-		for _, request := range cfg.Requests {
-			devicesCfg[request] = c
-		}
+		devicesCfg[requestName] = requestCfg
 	}
 	return devicesCfg, nil
 }
