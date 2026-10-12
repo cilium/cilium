@@ -136,6 +136,8 @@ from Cilium.
   removed. It was a temporary workaround for an ENI IPAM upgrade issue
   introduced in v1.10, and has had no effect in ENI mode since the agent moved
   to the multi-pool allocator in v1.20, nor in Azure mode with this release.
+* The deprecated ``cilium.io/v2alpha1`` API version of the BGP CRDs has been
+  removed. Use ``cilium.io/v2`` instead, which has been available since Cilium 1.18.
 
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~
