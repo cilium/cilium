@@ -65,7 +65,7 @@ func newLBIPAMCell(params lbipamCellParams) *LBIPAM {
 
 	var lbClasses []string
 	if params.BGPConfig.BGPControlPlaneEnabled() {
-		lbClasses = append(lbClasses, cilium_api_v2alpha1.BGPLoadBalancerClass)
+		lbClasses = append(lbClasses, cilium_api_v2.BGPLoadBalancerClass)
 	}
 
 	if params.DaemonConfig.EnableL2Announcements {

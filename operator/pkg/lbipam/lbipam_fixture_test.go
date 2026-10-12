@@ -253,7 +253,7 @@ func mkTestFixture(t *testing.T, ipv4Enabled, ipv6Enabled bool) newFixture {
 		lbipam: newLBIPAM(lbIPAMParams{
 			logger: log,
 			lbClasses: []string{
-				cilium_api_v2alpha1.BGPLoadBalancerClass,
+				cilium_api_v2.BGPLoadBalancerClass,
 				cilium_api_v2alpha1.L2AnnounceLoadBalancerClass,
 			},
 			ipv4Enabled: ipv4Enabled,
