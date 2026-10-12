@@ -11,16 +11,6 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// CiliumBGPAdvertisements returns a CiliumBGPAdvertisementInformer.
-	CiliumBGPAdvertisements() TypedCiliumBGPAdvertisementInformer
-	// CiliumBGPClusterConfigs returns a CiliumBGPClusterConfigInformer.
-	CiliumBGPClusterConfigs() TypedCiliumBGPClusterConfigInformer
-	// CiliumBGPNodeConfigs returns a CiliumBGPNodeConfigInformer.
-	CiliumBGPNodeConfigs() TypedCiliumBGPNodeConfigInformer
-	// CiliumBGPNodeConfigOverrides returns a CiliumBGPNodeConfigOverrideInformer.
-	CiliumBGPNodeConfigOverrides() TypedCiliumBGPNodeConfigOverrideInformer
-	// CiliumBGPPeerConfigs returns a CiliumBGPPeerConfigInformer.
-	CiliumBGPPeerConfigs() TypedCiliumBGPPeerConfigInformer
 	// CiliumCIDRGroups returns a CiliumCIDRGroupInformer.
 	CiliumCIDRGroups() TypedCiliumCIDRGroupInformer
 	// CiliumDatapathPlugins returns a CiliumDatapathPluginInformer.
@@ -52,31 +42,6 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
-}
-
-// CiliumBGPAdvertisements returns a TypedCiliumBGPAdvertisementInformer.
-func (v *version) CiliumBGPAdvertisements() TypedCiliumBGPAdvertisementInformer {
-	return &ciliumBGPAdvertisementInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// CiliumBGPClusterConfigs returns a TypedCiliumBGPClusterConfigInformer.
-func (v *version) CiliumBGPClusterConfigs() TypedCiliumBGPClusterConfigInformer {
-	return &ciliumBGPClusterConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// CiliumBGPNodeConfigs returns a TypedCiliumBGPNodeConfigInformer.
-func (v *version) CiliumBGPNodeConfigs() TypedCiliumBGPNodeConfigInformer {
-	return &ciliumBGPNodeConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// CiliumBGPNodeConfigOverrides returns a TypedCiliumBGPNodeConfigOverrideInformer.
-func (v *version) CiliumBGPNodeConfigOverrides() TypedCiliumBGPNodeConfigOverrideInformer {
-	return &ciliumBGPNodeConfigOverrideInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
-}
-
-// CiliumBGPPeerConfigs returns a TypedCiliumBGPPeerConfigInformer.
-func (v *version) CiliumBGPPeerConfigs() TypedCiliumBGPPeerConfigInformer {
-	return &ciliumBGPPeerConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumCIDRGroups returns a TypedCiliumCIDRGroupInformer.
