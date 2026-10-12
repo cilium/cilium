@@ -82,6 +82,8 @@ const (
 	PrepareCollectionResponse_HookSpec_OrderingConstraint_UNKNOWN PrepareCollectionResponse_HookSpec_OrderingConstraint_Order = 0
 	PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE  PrepareCollectionResponse_HookSpec_OrderingConstraint_Order = 1
 	PrepareCollectionResponse_HookSpec_OrderingConstraint_AFTER   PrepareCollectionResponse_HookSpec_OrderingConstraint_Order = 2
+	PrepareCollectionResponse_HookSpec_OrderingConstraint_FIRST   PrepareCollectionResponse_HookSpec_OrderingConstraint_Order = 3
+	PrepareCollectionResponse_HookSpec_OrderingConstraint_LAST    PrepareCollectionResponse_HookSpec_OrderingConstraint_Order = 4
 )
 
 // Enum value maps for PrepareCollectionResponse_HookSpec_OrderingConstraint_Order.
@@ -90,11 +92,15 @@ var (
 		0: "UNKNOWN",
 		1: "BEFORE",
 		2: "AFTER",
+		3: "FIRST",
+		4: "LAST",
 	}
 	PrepareCollectionResponse_HookSpec_OrderingConstraint_Order_value = map[string]int32{
 		"UNKNOWN": 0,
 		"BEFORE":  1,
 		"AFTER":   2,
+		"FIRST":   3,
+		"LAST":    4,
 	}
 )
 
@@ -1574,22 +1580,24 @@ const file_datapathplugins_datapathplugins_proto_rawDesc = "" +
 	"\x05value\x18\x02 \x01(\v2D.datapathplugins.PrepareCollectionRequest.CollectionSpec.ProgramSpecR\x05value:\x028\x01\x1ay\n" +
 	"\tMapsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12V\n" +
-	"\x05value\x18\x02 \x01(\v2@.datapathplugins.PrepareCollectionRequest.CollectionSpec.MapSpecR\x05value:\x028\x01\"\xfc\x03\n" +
+	"\x05value\x18\x02 \x01(\v2@.datapathplugins.PrepareCollectionRequest.CollectionSpec.MapSpecR\x05value:\x028\x01\"\x91\x04\n" +
 	"\x19PrepareCollectionResponse\x12I\n" +
 	"\x05hooks\x18\x01 \x03(\v23.datapathplugins.PrepareCollectionResponse.HookSpecR\x05hooks\x12\x16\n" +
-	"\x06cookie\x18\x02 \x01(\tR\x06cookie\x1a\xfb\x02\n" +
+	"\x06cookie\x18\x02 \x01(\tR\x06cookie\x1a\x90\x03\n" +
 	"\bHookSpec\x12-\n" +
 	"\x04type\x18\x01 \x01(\x0e2\x19.datapathplugins.HookTypeR\x04type\x12\x16\n" +
 	"\x06target\x18\x02 \x01(\tR\x06target\x12h\n" +
-	"\vconstraints\x18\x03 \x03(\v2F.datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraintR\vconstraints\x1a\xbd\x01\n" +
+	"\vconstraints\x18\x03 \x03(\v2F.datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraintR\vconstraints\x1a\xd2\x01\n" +
 	"\x12OrderingConstraint\x12b\n" +
 	"\x05order\x18\x01 \x01(\x0e2L.datapathplugins.PrepareCollectionResponse.HookSpec.OrderingConstraint.OrderR\x05order\x12\x16\n" +
-	"\x06plugin\x18\x02 \x01(\tR\x06plugin\"+\n" +
+	"\x06plugin\x18\x02 \x01(\tR\x06plugin\"@\n" +
 	"\x05Order\x12\v\n" +
 	"\aUNKNOWN\x10\x00\x12\n" +
 	"\n" +
 	"\x06BEFORE\x10\x01\x12\t\n" +
-	"\x05AFTER\x10\x02\"\xfd\b\n" +
+	"\x05AFTER\x10\x02\x12\t\n" +
+	"\x05FIRST\x10\x03\x12\b\n" +
+	"\x04LAST\x10\x04\"\xfd\b\n" +
 	"\x1bInstrumentCollectionRequest\x12W\n" +
 	"\n" +
 	"collection\x18\x01 \x01(\v27.datapathplugins.InstrumentCollectionRequest.CollectionR\n" +

@@ -36,6 +36,8 @@ func TestPluginDependencyGraph(t *testing.T) {
 		plugin string
 		after  []string
 		before []string
+		first  bool
+		last   bool
 	}
 
 	indexOf := func(s string, l []string) int {
@@ -164,6 +166,209 @@ func TestPluginDependencyGraph(t *testing.T) {
 				cycle: []string{"b", "c", "d", "b"},
 			},
 		},
+		{
+			name: "first constraint",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+				},
+				{
+					plugin: "b",
+					first:  true,
+				},
+				{
+					plugin: "c",
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "last constraint",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					last:   true,
+				},
+				{
+					plugin: "b",
+				},
+				{
+					plugin: "c",
+				},
+			},
+			expectedErr: nil,
+		},
+		{
+			name: "first, last, and normal constraints",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					last:   true,
+				},
+				{
+					plugin: "b",
+					after:  []string{"c"},
+				},
+				{
+					plugin: "c",
+				},
+				{
+					plugin: "d",
+					first:  true,
+				},
+			},
+			expectedErr: nil,
+		},
+
+		{
+			name: "multiple first plugins conflict",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					first:  true,
+				},
+				{
+					plugin: "b",
+					first:  true,
+				},
+			},
+			expectedErr: errors.New("conflicting FIRST hooks requested by plugins \"a\" and \"b\""),
+		},
+		{
+			name: "multiple last plugins conflict",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					last:   true,
+				},
+				{
+					plugin: "b",
+					last:   true,
+				},
+			},
+			expectedErr: errors.New("conflicting LAST hooks requested by plugins \"a\" and \"b\""),
+		},
+		{
+			name: "first plugin after normal plugin",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					first:  true,
+					after:  []string{"b"},
+				},
+				{
+					plugin: "b",
+				},
+			},
+			expectedErr: &dependencyCycleError{
+				cycle: []string{"a", "b", "a"},
+			},
+		},
+		{
+			name: "last plugin before normal plugin",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					last:   true,
+					before: []string{"b"},
+				},
+				{
+					plugin: "b",
+				},
+			},
+			expectedErr: &dependencyCycleError{
+				cycle: []string{"a", "b", "a"},
+			},
+		},
+		{
+			name: "normal plugin before first plugin",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					before: []string{"b"},
+				},
+				{
+					plugin: "b",
+					first:  true,
+				},
+			},
+			expectedErr: &dependencyCycleError{
+				cycle: []string{"a", "b", "a"},
+			},
+		},
+		{
+			name: "normal plugin after last plugin",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					after:  []string{"b"},
+				},
+				{
+					plugin: "b",
+					last:   true,
+				},
+			},
+			expectedErr: &dependencyCycleError{
+				cycle: []string{"a", "b", "a"},
+			},
+		},
+		{
+			name: "first plugin after last plugin",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					first:  true,
+					after:  []string{"b"},
+				},
+				{
+					plugin: "b",
+					last:   true,
+				},
+			},
+			expectedErr: &dependencyCycleError{
+				cycle: []string{"a", "b", "a"},
+			},
+		},
+		{
+			name: "dependency cycle within first group",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+					first:  true,
+					before: []string{"b"},
+				},
+				{
+					plugin: "b",
+					before: []string{"a"},
+				},
+				{
+					plugin: "c",
+				},
+			},
+			expectedErr: &dependencyCycleError{
+				cycle: []string{"a", "b", "a"},
+			},
+		},
+		{
+			name: "dependency cycle within last group",
+			constraints: []constraintSet{
+				{
+					plugin: "a",
+				},
+				{
+					plugin: "b",
+					last:   true,
+					before: []string{"c"},
+				},
+				{
+					plugin: "c",
+					before: []string{"b"},
+				},
+			},
+			expectedErr: &dependencyCycleError{
+				cycle: []string{"b", "c", "b"},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -179,6 +384,12 @@ func TestPluginDependencyGraph(t *testing.T) {
 				}
 				for _, b := range c.before {
 					g.before(c.plugin, b)
+				}
+				if c.first {
+					g.first(c.plugin)
+				}
+				if c.last {
+					g.last(c.plugin)
 				}
 			}
 
@@ -557,6 +768,10 @@ func TestPrivilegedHooksSpec(t *testing.T) {
 							hooksSpec.hook(hook.Target, hook.Type).before(plugin, constraint.Plugin)
 						case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_AFTER:
 							hooksSpec.hook(hook.Target, hook.Type).after(plugin, constraint.Plugin)
+						case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_FIRST:
+							hooksSpec.hook(hook.Target, hook.Type).first(plugin)
+						case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_LAST:
+							hooksSpec.hook(hook.Target, hook.Type).last(plugin)
 						}
 					}
 				}
