@@ -139,6 +139,12 @@ func (r *RedirectSuiteProxy) IsSDPEnabled() bool {
 	return false
 }
 
+func (r *RedirectSuiteProxy) DNSProxyReady() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
 // DummyOwner implements pkg/endpoint/regeneration/Owner. Used for unit testing.
 type DummyOwner struct {
 	repo    policy.PolicyRepository

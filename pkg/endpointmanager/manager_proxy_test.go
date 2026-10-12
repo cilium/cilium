@@ -205,6 +205,12 @@ func (p *recordingEndpointProxy) IsSDPEnabled() bool {
 	return false
 }
 
+func (p *recordingEndpointProxy) DNSProxyReady() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
 func (p *recordingEndpointProxy) updateCount() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()

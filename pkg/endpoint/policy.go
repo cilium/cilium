@@ -303,32 +303,17 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 // computed policy will create a DNS redirect. A DNS redirect created before the
 // proxy registers its fixed port is programmed to a divergent dynamic port and
 // black-holes DNS, so we gate on readiness here. It returns immediately when
-// there is no DNS redirect or no readiness signal is wired.
+// there is no DNS redirect or no proxy is configured.
 func (e *Endpoint) waitForDNSProxyReady(selectorPolicy policy.SelectorPolicy) error {
-	if e.dnsProxyReady == nil || !policyHasDNSRedirect(selectorPolicy) {
+	if e.IsProxyDisabled() || selectorPolicy == nil || !selectorPolicy.HasDNSRedirect() {
 		return nil
 	}
 	select {
-	case <-e.dnsProxyReady.DNSProxyReady():
+	case <-e.proxy.DNSProxyReady():
 		return nil
 	case <-e.aliveCtx.Done():
 		return e.aliveCtx.Err()
 	}
-}
-
-// policyHasDNSRedirect reports whether the computed selector policy will create
-// a DNS (L7) proxy redirect. It reads only the policy artifact, so it can be
-// evaluated without holding the endpoint lock.
-func policyHasDNSRedirect(sp policy.SelectorPolicy) bool {
-	if sp == nil {
-		return false
-	}
-	for _, tuple := range sp.RedirectFilters() {
-		if tuple.Policy != nil && tuple.Policy.L7Parser == policy.ParserTypeDNS {
-			return true
-		}
-	}
-	return false
 }
 
 func (e *Endpoint) waitForPolicyComputationResult(

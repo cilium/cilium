@@ -811,6 +811,12 @@ func (*benchmarkEndpointProxy) GetListenerProxyPort(string) uint16 { return benc
 
 func (*benchmarkEndpointProxy) IsSDPEnabled() bool { return false }
 
+func (*benchmarkEndpointProxy) DNSProxyReady() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
 var _ endpoint.EndpointProxy = (*benchmarkEndpointProxy)(nil)
 
 // Keep the promoted production method's interface visible at compile time.
