@@ -294,7 +294,7 @@ func NamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig config.T
 				return false, nil
 			}
 			if len(podList.Items) == 0 {
-				tlog.Logf(t, "No pods deployed yet")
+				tlog.Logf(t, "No pods deployed yet in namespace %s", ns)
 				return false, nil
 			}
 			for _, pod := range podList.Items {
@@ -446,7 +446,7 @@ func MeshNamespacesMustBeReady(t *testing.T, c client.Client, timeoutConfig conf
 				tlog.Errorf(t, "Error listing Pods: %v", err)
 			}
 			if len(podList.Items) == 0 {
-				tlog.Logf(t, "No pods deployed yet")
+				tlog.Logf(t, "No pods deployed yet in namespace %s", ns)
 				return false, nil
 			}
 			for _, pod := range podList.Items {

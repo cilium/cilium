@@ -40,7 +40,6 @@ var HTTPRouteNamedRule = confsuite.ConformanceTest{
 		features.SupportHTTPRoute,
 		features.SupportHTTPRouteNamedRouteRule,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "http-named-rules", Namespace: ns}
