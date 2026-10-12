@@ -33,7 +33,6 @@ func init() {
 var MeshHTTPRoute303Redirect = suite.ConformanceTest{
 	ShortName:   "MeshHTTPRoute303Redirect",
 	Description: "An HTTPRoute with statusCode 303 redirect filter",
-	Provisional: true,
 	Features: []features.FeatureName{
 		features.SupportMesh,
 		features.SupportHTTPRoute,
