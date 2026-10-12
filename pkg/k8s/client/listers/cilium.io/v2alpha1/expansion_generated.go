@@ -5,26 +5,6 @@
 
 package v2alpha1
 
-// CiliumBGPAdvertisementListerExpansion allows custom methods to be added to
-// CiliumBGPAdvertisementLister.
-type CiliumBGPAdvertisementListerExpansion interface{}
-
-// CiliumBGPClusterConfigListerExpansion allows custom methods to be added to
-// CiliumBGPClusterConfigLister.
-type CiliumBGPClusterConfigListerExpansion interface{}
-
-// CiliumBGPNodeConfigListerExpansion allows custom methods to be added to
-// CiliumBGPNodeConfigLister.
-type CiliumBGPNodeConfigListerExpansion interface{}
-
-// CiliumBGPNodeConfigOverrideListerExpansion allows custom methods to be added to
-// CiliumBGPNodeConfigOverrideLister.
-type CiliumBGPNodeConfigOverrideListerExpansion interface{}
-
-// CiliumBGPPeerConfigListerExpansion allows custom methods to be added to
-// CiliumBGPPeerConfigLister.
-type CiliumBGPPeerConfigListerExpansion interface{}
-
 // CiliumCIDRGroupListerExpansion allows custom methods to be added to
 // CiliumCIDRGroupLister.
 type CiliumCIDRGroupListerExpansion interface{}

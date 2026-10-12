@@ -5,16 +5,6 @@
 
 package v2alpha1
 
-type CiliumBGPAdvertisementExpansion interface{}
-
-type CiliumBGPClusterConfigExpansion interface{}
-
-type CiliumBGPNodeConfigExpansion interface{}
-
-type CiliumBGPNodeConfigOverrideExpansion interface{}
-
-type CiliumBGPPeerConfigExpansion interface{}
-
 type CiliumCIDRGroupExpansion interface{}
 
 type CiliumDatapathPluginExpansion interface{}

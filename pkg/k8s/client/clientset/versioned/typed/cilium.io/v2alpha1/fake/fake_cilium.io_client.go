@@ -15,26 +15,6 @@ type FakeCiliumV2alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeCiliumV2alpha1) CiliumBGPAdvertisements() v2alpha1.CiliumBGPAdvertisementInterface {
-	return newFakeCiliumBGPAdvertisements(c)
-}
-
-func (c *FakeCiliumV2alpha1) CiliumBGPClusterConfigs() v2alpha1.CiliumBGPClusterConfigInterface {
-	return newFakeCiliumBGPClusterConfigs(c)
-}
-
-func (c *FakeCiliumV2alpha1) CiliumBGPNodeConfigs() v2alpha1.CiliumBGPNodeConfigInterface {
-	return newFakeCiliumBGPNodeConfigs(c)
-}
-
-func (c *FakeCiliumV2alpha1) CiliumBGPNodeConfigOverrides() v2alpha1.CiliumBGPNodeConfigOverrideInterface {
-	return newFakeCiliumBGPNodeConfigOverrides(c)
-}
-
-func (c *FakeCiliumV2alpha1) CiliumBGPPeerConfigs() v2alpha1.CiliumBGPPeerConfigInterface {
-	return newFakeCiliumBGPPeerConfigs(c)
-}
-
 func (c *FakeCiliumV2alpha1) CiliumCIDRGroups() v2alpha1.CiliumCIDRGroupInterface {
 	return newFakeCiliumCIDRGroups(c)
 }
