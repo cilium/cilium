@@ -6,6 +6,7 @@
 #include <bpf/config/node.h>
 
 #include "lib/common.h"
+#include "lib/config.h"
 #include "lib/ipv4.h"
 #include "lib/ipv6.h"
 #include "lib/l4.h"
@@ -134,15 +135,16 @@ ctx_is_overlay_hdr(const struct __ctx_buff *ctx, __be16 proto)
 		l3_hdrlen = sizeof(struct ipv6hdr);
 		break;
 #endif
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4))
+			return false;
+
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return false;
 
 		l4_proto = ip4->protocol;
 		l3_hdrlen = ipv4_hdrlen(ip4);
 		break;
-#endif
 	default:
 		return false;
 	}
