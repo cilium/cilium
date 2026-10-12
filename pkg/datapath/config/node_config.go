@@ -57,6 +57,8 @@ type Node struct {
 	EnableJiffies bool `config:"enable_jiffies"`
 	// Enable L7 load-balancing support.
 	EnableL7LB bool `config:"enable_l7_lb"`
+	// Enable BPF masquerading for IPv4 traffic.
+	EnableMasqueradeIPv4 bool `config:"enable_masquerade_ipv4"`
 	// Masquerade IPv6 traffic.
 	EnableMasqueradeIPv6 bool `config:"enable_masquerade_ipv6"`
 	// Enable NodePort acceleration via XDP.
@@ -151,7 +153,7 @@ func NewNode() *Node {
 		0x0, 0x8, cast[types.DSRConfig]([]byte{0x0, 0x0, 0x0}), false,
 		false, 0x0, false, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
-		false, false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.IPv4SNATExclusionPrefix]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

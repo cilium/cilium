@@ -8,7 +8,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT
-#define ENABLE_MASQUERADE_IPV4
 #include <bpf/config/global.h>
 
 /* Set port ranges to have deterministic source port selection */
@@ -23,6 +22,7 @@
 #include "scapy.h"
 
 ASSIGN_CONFIG(bool, debug, true)
+ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 
 /* packet defined in ./scapy/icmp_err_revnat_pkt_defs.py */
 const __u8 icmp4_err_frag_needed_for_revnat[] = {

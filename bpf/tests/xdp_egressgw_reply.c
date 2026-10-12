@@ -11,7 +11,6 @@
 #define ENABLE_NODEPORT
 
 #define ENABLE_EGRESS_GATEWAY	1
-#define ENABLE_MASQUERADE_IPV4	1
 
 #define ENCAP_IFINDEX		42
 
@@ -40,6 +39,7 @@ ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = v4_node_one }) /* gateway node */
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
+ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"

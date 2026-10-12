@@ -16,7 +16,7 @@ ASSIGN_CONFIG(bool, debug, true)
 /* Flags for this test case: Remote Node Masquerade DISABLED */
 /* Note: Remote node masquerade is configured via ASSIGN_CONFIG below */
 #define ENABLE_BPF_MASQUERADE 1
-#define ENABLE_MASQUERADE_IPV4 1
+ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 #define IS_BPF_HOST 1
 /* For this test, ensure TUNNEL_MODE is also not defined to hit NAT_PUNT_TO_STACK */
 /* #undef TUNNEL_MODE (implicitly undefined) */

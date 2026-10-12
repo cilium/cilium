@@ -2971,7 +2971,7 @@ skip_service_lookup:
 	/* Check for RevSNAT. When BPF-Masquerading is off, we only need to
 	 * handle SVC replies:
 	 */
-	if (is_defined(ENABLE_MASQUERADE_IPV4) || is_svc_proto)
+	if (CONFIG(enable_masquerade_ipv4) || is_svc_proto)
 		return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS, ext_err);
 
 	return CTX_ACT_OK;

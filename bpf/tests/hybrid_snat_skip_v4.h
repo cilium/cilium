@@ -11,7 +11,6 @@
 #define ENCAP_IFINDEX 1
 #define TUNNEL_MODE 1
 #define ENABLE_BPF_MASQUERADE 1
-#define ENABLE_MASQUERADE_IPV4 1
 
 #include "nodeport_defaults.h"
 #include "lib/bpf_host.h"
@@ -19,6 +18,7 @@
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = v4_node_one })
 ASSIGN_CONFIG(bool, enable_remote_node_masquerade, ENABLE_REMOTE_NODE_MASQUERADE)
 ASSIGN_CONFIG(bool, hybrid_routing_enabled, ENABLE_HYBRID_ROUTING)
+ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 
 #include "lib/clear.h"
 #include "lib/endpoint.h"

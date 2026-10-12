@@ -353,7 +353,7 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 	snat_v4_init_tuple(ip4, NAT_DIR_EGRESS, &args->tuple);
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
 
-	if (is_defined(IS_BPF_HOST) && is_defined(ENABLE_MASQUERADE_IPV4)) {
+	if (is_defined(IS_BPF_HOST) && CONFIG(enable_masquerade_ipv4)) {
 		const struct endpoint_info *ep;
 
 		ep = __lookup_ip4_endpoint(ip4->saddr);
@@ -391,9 +391,10 @@ static __always_inline int nodeport_snat_fwd_ipv4(struct __ctx_buff *ctx,
 # endif
 #endif /* TUNNEL_MODE && IS_BPF_OVERLAY */
 
-#if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
-	ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off);
-#endif /*ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
+#if defined(IS_BPF_HOST)
+	if (CONFIG(enable_masquerade_ipv4))
+		ret = snat_v4_needs_masquerade(ctx, fraginfo, l4_off);
+#endif /* IS_BPF_HOST */
 	if (IS_ERR(ret))
 		goto out;
 
@@ -567,7 +568,7 @@ __handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cluster_id __maybe_unused,
 		return ret;
 
 	if ((!CONFIG(dsr_cfg).enable || CONFIG(dsr_cfg).enable_by_user ||
-	     is_defined(ENABLE_MASQUERADE_IPV4) ||
+	     CONFIG(enable_masquerade_ipv4) ||
 	     (is_defined(ENABLE_CLUSTER_AWARE_ADDRESSING) &&
 	      is_defined(ENABLE_INTER_CLUSTER_SNAT))) && !snat_done) {
 		ctx_store_meta(ctx, CB_CLUSTER_ID_EGRESS, cluster_id);

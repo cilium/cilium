@@ -42,14 +42,6 @@ DECLARE_CONFIG(union v6addr, nat_ipv6_masquerade, "Masquerade address for IPv6 t
 DECLARE_CONFIG(bool, enable_remote_node_masquerade, "Masquerade traffic to remote nodes")
 DECLARE_CONFIG(__u16, ephemeral_min, "Ephemeral port range minimum")
 
-/* We only need to SNAT ICMPv4 traffic if BPF masquerading or inter-cluster
- * SNAT are enabled. If they are disabled, we only SNAT replies from service
- * backends and we do not currently support ICMP replies from service backends.
- */
-#if defined(ENABLE_MASQUERADE_IPV4) || defined(ENABLE_INTER_CLUSTER_SNAT)
-# define ENABLE_SNAT_ICMPV4 1
-#endif
-
 enum  nat_dir {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
 	NAT_DIR_INGRESS = TUPLE_F_IN,
@@ -612,7 +604,7 @@ struct snat_v4_args {
 
 DEFINE_AUX(struct snat_v4_args, snat_v4_args);
 
-#if defined(ENABLE_MASQUERADE_IPV4) && defined(IS_BPF_HOST)
+#if defined(IS_BPF_HOST)
 
 /* The function contains a core logic for deciding whether an egressing packet
  * has to be SNAT-ed, filling the relevant state in the target parameter if
@@ -805,9 +797,8 @@ snat_v4_needs_masquerade(struct __ctx_buff *ctx, fraginfo_t fraginfo, int l4_off
 					  l4_off, &args->target);
 }
 
-#endif /* ENABLE_MASQUERADE_IPV4 && IS_BPF_HOST */
+#endif /* IS_BPF_HOST */
 
-#ifdef ENABLE_SNAT_ICMPV4
 static __always_inline __maybe_unused int
 snat_v4_nat_handle_icmp_error(struct __ctx_buff *ctx, __u64 off,
 			      struct ipv4_nat_entry **state,
@@ -919,7 +910,6 @@ unsup_proto:
 
 	return ret;
 }
-#endif /* ENABLE_SNAT_ICMPV4 */
 
 static __always_inline int
 __snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
@@ -997,9 +987,12 @@ snat_v4_nat(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 			return NAT_PUNT_TO_STACK;
 
 		break;
-#ifdef ENABLE_SNAT_ICMPV4
 	case IPPROTO_ICMP: {
 		struct icmphdr icmphdr __align_stack_8;
+
+		if (!CONFIG(enable_masquerade_ipv4) &&
+		    !is_defined(ENABLE_INTER_CLUSTER_SNAT))
+			return NAT_PUNT_TO_STACK;
 
 		/* Fragmented ECHO packets are not supported currently. Drop all
 		 * fragments, because letting the first fragment pass would be
@@ -1050,7 +1043,6 @@ nat_icmp_v4:
 		}
 		break;
 	}
-#endif /* ENABLE_SNAT_ICMPV4 */
 	default:
 unsup_proto:
 		return NAT_PUNT_TO_STACK;
@@ -1060,7 +1052,6 @@ unsup_proto:
 			     port_off, outer_csum_diff, trace, ext_err);
 }
 
-#ifdef ENABLE_SNAT_ICMPV4
 static __always_inline __maybe_unused int
 snat_v4_rev_nat_handle_icmp_error(struct __ctx_buff *ctx,
 				  __u64 inner_l3_off,
@@ -1172,7 +1163,6 @@ unsup_proto:
 		ret = 0;
 	return ret;
 }
-#endif /* ENABLE_SNAT_ICMPV4 */
 
 static __always_inline __maybe_unused int
 snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
@@ -1218,10 +1208,13 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 			return NAT_PUNT_TO_STACK;
 
 		break;
-#ifdef ENABLE_SNAT_ICMPV4
 	case IPPROTO_ICMP: {
 		struct icmphdr icmphdr __align_stack_8;
 		__u64 inner_l3_off;
+
+		if (!CONFIG(enable_masquerade_ipv4) &&
+		    !is_defined(ENABLE_INTER_CLUSTER_SNAT))
+			return NAT_PUNT_TO_STACK;
 
 		/* Fragmented ECHOREPLY packets are not supported currently.
 		 * Drop all fragments, because letting the first fragment pass
@@ -1267,7 +1260,6 @@ rev_nat_icmp_v4:
 		}
 		break;
 	}
-#endif /* ENABLE_SNAT_ICMPV4 */
 	default:
 unsup_proto:
 		return NAT_PUNT_TO_STACK;
