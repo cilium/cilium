@@ -5,6 +5,7 @@ package health
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -40,6 +41,8 @@ const (
 	controllerInterval    = 60 * time.Second
 	successfulPingTimeout = 5 * time.Minute
 )
+
+var errNotRegenerated = errors.New("health endpoint has not completed its first regeneration")
 
 // Cell provides the Cilium health infrastructure that is responsible for
 // checking the connectivity between Cilium nodes and Cilium endpoints.
@@ -229,6 +232,10 @@ func (h *ciliumHealthManager) init(ctx context.Context) error {
 func (h *ciliumHealthManager) pingHealthEndpoint(client *Client, lastSuccessfulPing time.Time) (time.Time, error) {
 	if client == nil {
 		return lastSuccessfulPing, nil
+	}
+
+	if !client.Regenerated() {
+		return time.Now(), errNotRegenerated
 	}
 
 	if err := client.PingEndpoint(); err != nil {
