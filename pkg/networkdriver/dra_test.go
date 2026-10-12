@@ -308,28 +308,31 @@ func TestDeviceClaimConfigs(t *testing.T) {
 		_, err := driver.deviceClaimConfigs(t.Context(), claim)
 		require.NoError(t, err)
 	})
+}
 
-	t.Run("wrong reservedFor length", func(t *testing.T) {
-		for _, tc := range []struct {
-			name        string
-			reservedFor []resourceapi.ResourceClaimConsumerReference
-		}{
-			{"zero entries", nil},
-			{"two entries", []resourceapi.ResourceClaimConsumerReference{{Resource: "pods"}, {Resource: "pods"}}},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				claim := &resourceapi.ResourceClaim{
-					Status: resourceapi.ResourceClaimStatus{
-						ReservedFor: tc.reservedFor,
-						Allocation:  &resourceapi.AllocationResult{},
-					},
-				}
-				res := driver.prepareResourceClaim(t.Context(), claim)
-				require.Error(t, res.Err)
-				require.ErrorIs(t, res.Err, errUnexpectedInput)
-			})
-		}
-	})
+func TestClaimWrongReservation(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		reservedFor []resourceapi.ResourceClaimConsumerReference
+	}{
+		{"zero entries", nil},
+		{"two entries", []resourceapi.ResourceClaimConsumerReference{{Resource: "pods"}, {Resource: "pods"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			claim := &resourceapi.ResourceClaim{
+				Status: resourceapi.ResourceClaimStatus{
+					ReservedFor: tc.reservedFor,
+					Allocation:  &resourceapi.AllocationResult{},
+				},
+			}
+			driver := &Driver{
+				logger: hivetest.Logger(t),
+			}
+			res := driver.prepareResourceClaim(t.Context(), claim)
+			require.Error(t, res.Err)
+			require.ErrorIs(t, res.Err, errUnexpectedInput)
+		})
+	}
 }
 
 // TestPrepareResourceClaim covers end-to-end paths through prepareResourceClaim.
