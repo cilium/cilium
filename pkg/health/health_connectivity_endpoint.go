@@ -181,12 +181,25 @@ func (h *ciliumHealthManager) configureHealthInterface(ifName string, ip4Addr, i
 // provide convenience methods such as PingEndpoint().
 type Client struct {
 	host string
+
+	// regenerated closes when the endpoint reaches policy revision 1 or disconnects.
+	regenerated <-chan struct{}
 }
 
 // PingEndpoint attempts to make an API ping request to the local cilium-health
 // endpoint, and returns whether this was successful.
 func (c *Client) PingEndpoint() error {
 	return probe.GetHello(c.host)
+}
+
+// Regenerated returns whether the endpoint has completed its first regeneration.
+func (c *Client) Regenerated() bool {
+	select {
+	case <-c.regenerated:
+		return true
+	default:
+		return false
+	}
 }
 
 // killEndpoint attempts to kill any existing cilium-health endpoint if it
@@ -399,7 +412,10 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 	ep.UpdateLabels(ctx, labels.LabelSourceAny, labels.LabelHealth, nil, true)
 
 	// Initialize the health client to talk to this instance.
-	client := &Client{host: "http://" + net.JoinHostPort(healthIP.String(), strconv.Itoa(option.Config.ClusterHealthPort))}
+	client := &Client{
+		host:        "http://" + net.JoinHostPort(healthIP.String(), strconv.Itoa(option.Config.ClusterHealthPort)),
+		regenerated: ep.WaitForPolicyRevision(baseCtx, 1, nil),
+	}
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil
