@@ -595,11 +595,11 @@ func (c *Client) getSubnetWithPagination(ctx context.Context, subscriptionID, re
 func extractVNetID(subnetID string) string {
 	// Extract VNet ID from subnet ID by removing the subnet portion
 	// /subscriptions/.../virtualNetworks/{vnet}/subnets/{subnet} -> /subscriptions/.../virtualNetworks/{vnet}
-	idx := strings.LastIndex(subnetID, "/subnets/")
-	if idx == -1 {
+	before, _, ok := strings.CutLast(subnetID, "/subnets/")
+	if !ok {
 		return ""
 	}
-	return subnetID[:idx]
+	return before
 }
 
 // GetSubnetsByIDs retrieves subnet information for specific subnet IDs

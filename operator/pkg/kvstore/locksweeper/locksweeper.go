@@ -102,9 +102,9 @@ func getOldestLeases(lockPaths map[string]kvstore.Value) map[string]kvstore.Valu
 // prefixed to its path.
 func keyPathFromLockPath(k string) string {
 	// vendor/go.etcd.io/etcd/clientv3/concurrency/mutex.go:L46
-	i := strings.LastIndexByte(k, '/')
-	if i >= 0 {
-		return k[:i]
+	before, _, ok := strings.CutLast(k, "/")
+	if ok {
+		return before
 	}
 	return k
 }

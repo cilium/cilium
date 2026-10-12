@@ -435,8 +435,8 @@ func (v *PolicyEntry) IsValid(k *PolicyKey) bool {
 
 // parseEndpointID parses the trailing endpoint ID at the end of 'mapPath', separated by '_'.
 func parseEndpointID(mapPath string) (uint16, error) {
-	if idx := strings.LastIndexByte(mapPath, '_'); idx >= 0 {
-		if id64, err := strconv.ParseUint(mapPath[idx+1:], 10, 16); err == nil {
+	if _, after, ok := strings.CutLast(mapPath, "_"); ok {
+		if id64, err := strconv.ParseUint(after, 10, 16); err == nil {
 			return uint16(id64), nil
 		} else {
 			return 0, fmt.Errorf("failed to parse endpoint ID: %w", err)
