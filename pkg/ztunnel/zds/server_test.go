@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
@@ -231,6 +232,12 @@ func TestPrivilegedZDSConnHandlerEndpointUpdate(t *testing.T) {
 	// Wait for disenrollment to complete
 	err = <-enrollDone
 	require.NoError(t, err)
+
+	// The endpoint should be evicted from the cache after a successful disenroll.
+	server.endpointCacheMutex.Lock()
+	_, ok := server.endpointCache[ep.GetID16()]
+	server.endpointCacheMutex.Unlock()
+	require.False(t, ok, "endpoint should be evicted from cache after disenroll")
 }
 
 // TestPrivilegedZDSRollingUpdate tests the scenario where a ztunnel pod is rolling updated.
@@ -359,4 +366,110 @@ func TestPrivilegedZDSRollingUpdate(t *testing.T) {
 	// This is expected behavior during a rolling update
 	err = oldClientZC.readMsg(req)
 	require.Error(t, err)
+}
+
+// TestPrivilegedZDSDisenrollMissingNetns verifies that when an endpoint's netns
+// is already gone (e.g. CNI DEL ran before disenrollment), disenroll still drops
+// the workload from ztunnel and evicts the stale cache entry instead of leaking
+// it, which would otherwise abort a later sendInitialSnapshot.
+func TestPrivilegedZDSDisenrollMissingNetns(t *testing.T) {
+	server := setupZDSTestSuite(t)
+	server.SeedInitialSnapshot()
+
+	conn, clientZC := dialZDSClient(t)
+	defer conn.Close()
+
+	sendHello(t, conn)
+	expectSnapshotAndAck(t, clientZC, conn, "")
+
+	ep, cleanup := createTestEndpoint(t, testUID, 1)
+	defer cleanup()
+
+	ack := &pb.WorkloadResponse{Payload: &pb.WorkloadResponse_Ack{Ack: &pb.Ack{}}}
+	ackData, err := proto.Marshal(ack)
+	require.NoError(t, err)
+
+	// Enroll so the endpoint is in the cache.
+	enrollDone := make(chan error, 1)
+	go func() { enrollDone <- server.EnrollEndpoint(ep) }()
+
+	req := &pb.WorkloadRequest{}
+	require.NoError(t, clientZC.readMsg(req))
+	require.NotNil(t, req.GetAdd(), "Expected Add, got %T", req.Payload)
+	_, err = conn.Write(ackData)
+	require.NoError(t, err)
+	require.NoError(t, <-enrollDone)
+
+	// Simulate CNI DEL removing the netns before disenroll: point the endpoint at
+	// a netns path that no longer exists so OpenPinned returns ENOENT.
+	ep.SetContainerNetnsPath(filepath.Join(t.TempDir(), "missing-netns"))
+
+	disenrollDone := make(chan error, 1)
+	go func() { disenrollDone <- server.DisenrollEndpoint(ep) }()
+
+	// ztunnel still receives a Del for the workload.
+	req = &pb.WorkloadRequest{}
+	require.NoError(t, clientZC.readMsg(req))
+	require.NotNil(t, req.GetDel(), "Expected Del, got %T", req.Payload)
+	require.Equal(t, testUID, req.GetDel().GetUid())
+	_, err = conn.Write(ackData)
+	require.NoError(t, err)
+	require.NoError(t, <-disenrollDone)
+
+	// The stale entry must be evicted.
+	server.endpointCacheMutex.Lock()
+	_, ok := server.endpointCache[ep.GetID16()]
+	server.endpointCacheMutex.Unlock()
+	require.False(t, ok, "endpoint should be evicted from cache when netns is gone")
+}
+
+// TestPrivilegedZDSDisenrollNetnsOpenError verifies that a non-ENOENT failure to
+// open the netns (e.g. a live pod hitting a transient error) fails closed: the
+// endpoint stays enrolled in the cache and no Del is sent to ztunnel.
+func TestPrivilegedZDSDisenrollNetnsOpenError(t *testing.T) {
+	server := setupZDSTestSuite(t)
+	server.SeedInitialSnapshot()
+
+	conn, clientZC := dialZDSClient(t)
+	defer conn.Close()
+
+	sendHello(t, conn)
+	expectSnapshotAndAck(t, clientZC, conn, "")
+
+	ep, cleanup := createTestEndpoint(t, testUID, 1)
+	defer cleanup()
+
+	ack := &pb.WorkloadResponse{Payload: &pb.WorkloadResponse_Ack{Ack: &pb.Ack{}}}
+	ackData, err := proto.Marshal(ack)
+	require.NoError(t, err)
+
+	enrollDone := make(chan error, 1)
+	go func() { enrollDone <- server.EnrollEndpoint(ep) }()
+
+	req := &pb.WorkloadRequest{}
+	require.NoError(t, clientZC.readMsg(req))
+	require.NotNil(t, req.GetAdd(), "Expected Add, got %T", req.Payload)
+	_, err = conn.Write(ackData)
+	require.NoError(t, err)
+	require.NoError(t, <-enrollDone)
+
+	// Force a non-ENOENT open error: a path whose parent is a regular file yields
+	// ENOTDIR, for which os.IsNotExist is false.
+	notDir := filepath.Join(t.TempDir(), "file")
+	require.NoError(t, os.WriteFile(notDir, nil, 0o600))
+	ep.SetContainerNetnsPath(filepath.Join(notDir, "netns"))
+
+	// Disenroll returns the error synchronously, before any Del is sent.
+	require.Error(t, server.DisenrollEndpoint(ep))
+
+	// No Del should have been sent to ztunnel.
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(200*time.Millisecond)))
+	require.Error(t, clientZC.readMsg(req), "no Del should be sent on a non-ENOENT netns error")
+	require.NoError(t, conn.SetReadDeadline(time.Time{}))
+
+	// The endpoint must remain enrolled (fail closed).
+	server.endpointCacheMutex.Lock()
+	_, ok := server.endpointCache[ep.GetID16()]
+	server.endpointCacheMutex.Unlock()
+	require.True(t, ok, "endpoint should remain in cache on a non-ENOENT netns error")
 }
