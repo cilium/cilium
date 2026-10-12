@@ -93,7 +93,7 @@ bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
  * the ipcache here to reclassify a world-sourced orphan fragment drop. See
  * frag_not_found_world() in l4.h for the rationale.
  */
-#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT_ACCELERATION)
+#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
 static __always_inline int
 xdp_frag_not_found_world_v4(int ret, const struct iphdr *ip4)
 {
@@ -105,9 +105,9 @@ xdp_frag_not_found_world_v4(int ret, const struct iphdr *ip4)
 	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
 	return frag_not_found_world(ret, info ? info->sec_identity : WORLD_IPV4_ID);
 }
-#endif /* ENABLE_IPV4 && ENABLE_NODEPORT_ACCELERATION */
+#endif /* ENABLE_IPV4 && ENABLE_NODEPORT */
 
-#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT_ACCELERATION)
+#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 static __always_inline int
 xdp_frag_not_found_world_v6(int ret, const struct ipv6hdr *ip6)
 {
@@ -119,10 +119,10 @@ xdp_frag_not_found_world_v6(int ret, const struct ipv6hdr *ip6)
 	info = lookup_ip6_remote_endpoint((const union v6addr *)&ip6->saddr, 0);
 	return frag_not_found_world(ret, info ? info->sec_identity : WORLD_IPV6_ID);
 }
-#endif /* ENABLE_IPV6 */
+#endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
 
 #ifdef ENABLE_IPV4
-#ifdef ENABLE_NODEPORT_ACCELERATION
+#ifdef ENABLE_NODEPORT
 __declare_tail(CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
@@ -156,18 +156,16 @@ out:
 
 static __always_inline int check_v4_lb(struct __ctx_buff *ctx)
 {
+	if (!CONFIG(enable_nodeport_acceleration))
+		return CTX_ACT_OK;
+
 	__s8 ext_err = 0;
 	int ret;
 
 	ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
 }
-#else
-static __always_inline int check_v4_lb(struct __ctx_buff *ctx __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_NODEPORT_ACCELERATION */
+#endif /* ENABLE_NODEPORT */
 
 static __always_inline int prefilter_v4(struct __ctx_buff *ctx)
 {
@@ -197,7 +195,7 @@ static __always_inline int prefilter_v4(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
-#ifdef ENABLE_NODEPORT_ACCELERATION
+#ifdef ENABLE_NODEPORT
 __declare_tail(CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
@@ -230,18 +228,16 @@ drop_err:
 
 static __always_inline int check_v6_lb(struct __ctx_buff *ctx)
 {
+	if (!CONFIG(enable_nodeport_acceleration))
+		return CTX_ACT_OK;
+
 	__s8 ext_err = 0;
 	int ret;
 
 	ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV, &ext_err);
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
 }
-#else
-static __always_inline int check_v6_lb(struct __ctx_buff *ctx __maybe_unused)
-{
-	return CTX_ACT_OK;
-}
-#endif /* ENABLE_NODEPORT_ACCELERATION */
+#endif /* ENABLE_NODEPORT */
 
 static __always_inline int prefilter_v6(struct __ctx_buff *ctx)
 {
@@ -269,7 +265,7 @@ static __always_inline int prefilter_v6(struct __ctx_buff *ctx)
 
 	return 0;
 }
-#endif /* ENABLE_IPV6 */
+#endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
 
 #ifndef xdp_early_hook
 #define xdp_early_hook(ctx, proto) CTX_ACT_OK
@@ -299,7 +295,9 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 				return ret;
 		}
 
+#ifdef ENABLE_NODEPORT
 		ret = check_v4_lb(ctx);
+#endif /* ENABLE_NODEPORT */
 		break;
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
@@ -310,7 +308,9 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 				return ret;
 		}
 
+#ifdef ENABLE_NODEPORT
 		ret = check_v6_lb(ctx);
+#endif /* ENABLE_NODEPORT */
 		break;
 #endif /* ENABLE_IPV6 */
 	default:

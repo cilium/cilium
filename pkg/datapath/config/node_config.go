@@ -57,6 +57,8 @@ type Node struct {
 	EnableJiffies bool `config:"enable_jiffies"`
 	// Masquerade IPv6 traffic.
 	EnableMasqueradeIPv6 bool `config:"enable_masquerade_ipv6"`
+	// Enable NodePort acceleration via XDP.
+	EnableNodeportAcceleration bool `config:"enable_nodeport_acceleration"`
 	// Enable dynamic source IP resolution for SNAT via linux's routing table.
 	EnableNodeportSourceLookup bool `config:"enable_nodeport_source_lookup"`
 	// Enable SCTP support.
@@ -147,7 +149,7 @@ func NewNode() *Node {
 		0x0, 0x8, cast[types.DSRConfig]([]byte{0x0, 0x0, 0x0}), false,
 		false, 0x0, false, false, false, false, false, false, false,
 		false, false, false, false, false, false, false, false, false,
-		0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.IPv4SNATExclusionPrefix]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

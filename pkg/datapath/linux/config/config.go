@@ -219,10 +219,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		} else {
 			cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapInv)
 		}
-
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
-		}
 	}
 
 	cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSourceRangeMapEntries)

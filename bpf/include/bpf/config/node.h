@@ -46,6 +46,8 @@ NODE_CONFIG(bool, supports_fib_lookup_src,
 NODE_CONFIG(bool, enable_nodeport_source_lookup,
 	    "Enable dynamic source IP resolution for SNAT via linux's routing table.")
 
+NODE_CONFIG(bool, enable_nodeport_acceleration, "Enable NodePort acceleration via XDP")
+
 NODE_CONFIG(bool, enable_ipip_termination,
 	    "Terminate inbound IPIP/IP6IP6 in BPF on netdev ingress for local endpoint outer dst")
 
