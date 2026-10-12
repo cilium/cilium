@@ -155,6 +155,9 @@ func (r *gatewayReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	case ListenersStatusNoneValid:
 		setGatewayAccepted(gw, false, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
 		setGatewayProgrammed(gw, metav1.ConditionFalse, "No Accepted Listeners", gatewayv1.GatewayReasonListenersNotValid)
+		if err := r.ensureOwnedEnvoyConfigDeleted(ctx, gw); err != nil {
+			return controllerruntime.Fail(fmt.Errorf("failed to cleanup managed Gateway Envoy config: %w", err))
+		}
 		return r.handleReconcileErrorWithStatus(ctx, fmt.Errorf("no Accepted Listeners for Gateway"), original, gw)
 	case ListenersStatusValidWithUnsupportedProtocol:
 		setGatewayAccepted(gw, true, "Gateway has unsupported listeners", gatewayv1.GatewayReasonListenersNotValid)
