@@ -11,8 +11,8 @@
 #include "csum.h"
 #include "dbg.h"
 #include "eth.h"
+#include "ipv4.h"
 #include "overloadable.h"
-#ifdef ENABLE_IPV4
 
 static __always_inline int icmp_load_type(const struct __ctx_buff *ctx, int l4_off,
 					  __u8 *type)
@@ -126,4 +126,3 @@ int generate_icmp4_reply(struct __ctx_buff *ctx, __u8 icmp_type, __u8 icmp_code,
 
 	return 0;
 }
-#endif /* ENABLE_IPV4 */
