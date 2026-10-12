@@ -473,3 +473,78 @@ func TestPrivilegedZDSDisenrollNetnsOpenError(t *testing.T) {
 	server.endpointCacheMutex.Unlock()
 	require.True(t, ok, "endpoint should remain in cache on a non-ENOENT netns error")
 }
+
+// TestPrivilegedZDSSnapshotSkipsMissingNetns verifies that an endpoint whose
+// netns is already gone is skipped during the initial snapshot (rather than
+// aborting it), so a live endpoint and the SnapshotSent marker are still
+// delivered. A stale cache entry must not break the whole snapshot.
+func TestPrivilegedZDSSnapshotSkipsMissingNetns(t *testing.T) {
+	server := setupZDSTestSuite(t)
+
+	ep1, cleanup1 := createTestEndpoint(t, "live-ep", 1)
+	defer cleanup1()
+	ep2, cleanup2 := createTestEndpoint(t, "missing-ep", 2)
+	defer cleanup2()
+
+	server.SeedInitialSnapshot(ep1, ep2)
+
+	// Make ep2's netns disappear so OpenPinned returns ENOENT during the snapshot.
+	ep2.SetContainerNetnsPath(filepath.Join(t.TempDir(), "missing-netns"))
+
+	conn, clientZC := dialZDSClient(t)
+	defer conn.Close()
+	sendHello(t, conn)
+
+	ack := &pb.WorkloadResponse{Payload: &pb.WorkloadResponse_Ack{Ack: &pb.Ack{}}}
+	ackData, err := proto.Marshal(ack)
+	require.NoError(t, err)
+
+	// The snapshot should deliver the live endpoint and the SnapshotSent marker,
+	// skipping the endpoint whose netns is gone. Map iteration order is not
+	// deterministic, so collect by UID until SnapshotSent arrives.
+	receivedUIDs := make(map[string]bool)
+	for {
+		req := &pb.WorkloadRequest{}
+		require.NoError(t, clientZC.readMsg(req))
+		if req.GetSnapshotSent() != nil {
+			_, err = conn.Write(ackData)
+			require.NoError(t, err)
+			break
+		}
+		require.NotNil(t, req.GetAdd(), "Expected Add, got %T", req.Payload)
+		receivedUIDs[req.GetAdd().GetUid()] = true
+		_, err = conn.Write(ackData)
+		require.NoError(t, err)
+	}
+
+	require.True(t, receivedUIDs["live-ep"], "live endpoint should be in the snapshot")
+	require.False(t, receivedUIDs["missing-ep"], "endpoint with missing netns should be skipped")
+}
+
+// TestPrivilegedZDSSnapshotAbortsOnNetnsError verifies that a non-ENOENT failure
+// to open an endpoint's netns still aborts the initial snapshot (original
+// behavior), so the connection is closed without a SnapshotSent marker.
+func TestPrivilegedZDSSnapshotAbortsOnNetnsError(t *testing.T) {
+	server := setupZDSTestSuite(t)
+
+	ep, cleanup := createTestEndpoint(t, "err-ep", 1)
+	defer cleanup()
+
+	server.SeedInitialSnapshot(ep)
+
+	// Force a non-ENOENT open error: a path whose parent is a regular file yields
+	// ENOTDIR, for which os.IsNotExist is false.
+	notDir := filepath.Join(t.TempDir(), "file")
+	require.NoError(t, os.WriteFile(notDir, nil, 0o600))
+	ep.SetContainerNetnsPath(filepath.Join(notDir, "netns"))
+
+	conn, clientZC := dialZDSClient(t)
+	defer conn.Close()
+	sendHello(t, conn)
+
+	// The snapshot aborts before SnapshotSent and the server closes the
+	// connection, so the client read fails.
+	require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
+	req := &pb.WorkloadRequest{}
+	require.Error(t, clientZC.readMsg(req), "snapshot should abort on a non-ENOENT netns error")
+}
