@@ -117,7 +117,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		hubbleFailedCreatePeer, fqdnDpUpdatesTimeout, longNetpolUpdate, failedToGetEpLabels,
 		failedCreategRPCClient, unableReallocateIngressIP, fqdnMaxIPPerHostname, failedGetMetricsAPI,
 		envoyExternalTargetTLSWarning, envoyExternalOtherTargetTLSWarning,
-		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, bgpAlphaResourceDeprecation, ccgAlphaResourceDeprecation,
+		hubbleUIEnvVarFallback, k8sClientNetworkStatusError, ccgAlphaResourceDeprecation,
 		k8sEndpointDeprecatedWarn, proxylibDeprecatedWarn, certloaderInitialLoadWarn, localKeyAlreadyAllocated,
 		getSecurityGroupsForVpcUnauthorized, eniIPv6BetaWarn, lbMapCannotAllocateMemory}
 
@@ -632,9 +632,7 @@ var (
 	// envoyTLSWarningTemplate is the legitimate warning log for negative TLS SNI test case
 	// This is a template string as we need to replace %s for external target flag
 	envoyTLSWarningTemplate = "cilium.tls_wrapper: Could not get server TLS context for pod.*on destination IP.*port 443 sni.*%s.*and raw socket is not allowed"
-	// bgpV2alpha1ResourceDeprecation is expected when using deprecated BGP resource versions in a test, specifically when running the tests after a Cilium downgrade.
-	bgpAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumBGP\w+ is deprecated`)}
-	// ccgAlphaResourceDeprecation is the same as bgpAlphaResourceDeprecation but for the CiliumCIDRGroup.
+	// ccgAlphaResourceDeprecation is expected when using the deprecated CiliumCIDRGroup resource version in a test, specifically when running the tests after a Cilium downgrade.
 	ccgAlphaResourceDeprecation = regexMatcher{regexp.MustCompile(`cilium.io/v2alpha1 CiliumCIDRGroup is deprecated`)}
 	// gobgpFailedToSend ignores GoBGPv4's "failed to send" warning, but only when the write
 	// failed because the peer connection was torn down (closed connection or broken pipe);
