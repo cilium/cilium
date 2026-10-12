@@ -41,6 +41,13 @@ static volatile const __u8 *server_mac = mac_two;
 
 #include "lib/bpf_host.h"
 
+/* With the masquerade address set to the node IP, host-to-local-pod traffic
+ * additionally exercises the masquerade-address port reservation in
+ * __snat_v4_needs_masquerade() and its IPv6 counterpart.
+ */
+ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = v4_node_one })
+ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, { .addr = v6_node_one_addr })
+
 /*
  * helpers
  */
