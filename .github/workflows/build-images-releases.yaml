@@ -262,6 +262,10 @@ jobs:
   call-post-release:
     if: github.repository_owner == 'cilium'
     name: Call Post-Release Tool
+    permissions:
+      contents: read
+      # release.yaml's release-helm job requests it, even when skipped
+      id-token: write
     uses: cilium/cilium/.github/workflows/release.yaml@main # main
     needs: image-digests
     with:
