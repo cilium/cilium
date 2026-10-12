@@ -898,6 +898,61 @@ func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {
 	}
 }
 
+func Test_gatewayReconciler_Reconcile_deletesOwnedCECWithoutListeners(t *testing.T) {
+	t.Parallel()
+
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gateway",
+			Namespace: "default",
+			UID:       types.UID("gateway-uid"),
+		},
+		Spec: gatewayv1.GatewaySpec{GatewayClassName: "cilium"},
+	}
+	gwClass := &gatewayv1.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "cilium"},
+		Spec:       gatewayv1.GatewayClassSpec{ControllerName: gatewayv1.GatewayController(defaultControllerName)},
+	}
+	cec := &ciliumv2.CiliumEnvoyConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      shortener.ShortenDNSLabelK8sName(gatewayApiTranslation.CiliumGatewayPrefix + gw.Name),
+			Namespace: gw.Namespace,
+			OwnerReferences: []metav1.OwnerReference{{
+				APIVersion: gatewayv1.GroupVersion.String(),
+				Kind:       "Gateway",
+				Name:       gw.Name,
+				UID:        gw.UID,
+				Controller: ptr.To(true),
+			}},
+		},
+	}
+
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	scheme := testhelpers.TestScheme(helpers.AllOptionalKinds, helpers.RegisterGatewayAPITypesToScheme)
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(gw, gwClass, cec).
+		WithStatusSubresource(&gatewayv1.Gateway{}).
+		WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway).
+		WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway).
+		WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway).
+		Build()
+	r := &gatewayReconciler{
+		client:                        c,
+		inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, loading.TranslationInputLoaderConfig{}),
+		gatewayStatusManager:          NewGatewayStatusManager(c, logger),
+		listenerStatusManager:         NewListenerStatusManager(c, logger, ListenerStatusManagerConfig{}),
+		routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, RouteStatusManagerConfig{}),
+		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(c, defaultControllerName),
+		logger:                        logger,
+		controllerName:                defaultControllerName,
+	}
+
+	_, err := r.Reconcile(t.Context(), ctrl.Request{NamespacedName: client.ObjectKeyFromObject(gw)})
+	require.ErrorContains(t, err, "no Accepted Listeners for Gateway")
+	require.ErrorContains(t, c.Get(t.Context(), client.ObjectKeyFromObject(cec), &ciliumv2.CiliumEnvoyConfig{}), "not found")
+}
+
 func Test_gatewayReconciler_Reconcile_failsOnGatewayClassGetError(t *testing.T) {
 	t.Parallel()
 
