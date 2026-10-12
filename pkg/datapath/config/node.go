@@ -121,6 +121,7 @@ func NodeConfig(lnc *Config) Node {
 
 	if option.Config.EnableBPFMasquerade {
 		if option.Config.EnableIPv4Masquerade {
+			node.EnableMasqueradeIPv4 = true
 			excludeCIDR := lnc.NativeRoutingCIDRIPv4
 			if option.Config.EnableIPMasqAgent {
 				excludeCIDR = option.Config.IPv4NativeRoutingCIDR

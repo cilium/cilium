@@ -400,7 +400,9 @@ func TestPrivilegedWriteNodeConfigIPv4Only(t *testing.T) {
 }
 
 // TestPrivilegedWriteNodeConfigBPFMasquerade verifies that when BPF masquerade
-// is enabled, the correct ENABLE_MASQUERADE_IPV4 defines are generated.
+// is enabled, the ENABLE_NODEPORT define is generated and the
+// ENABLE_MASQUERADE_IPV4 define is no longer generated (it was replaced by
+// the enable_masquerade_ipv4 runtime config).
 // This covers the BPF masquerading scenarios previously
 // tested by K8sDatapathConfig.
 func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
@@ -425,8 +427,6 @@ func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
 			option.Config.EnableIPv6Masquerade = false
 
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.Contains(t, output, "define ENABLE_MASQUERADE_IPV4 1\n",
-				"Expected ENABLE_MASQUERADE_IPV4 define with BPF masquerade")
 			require.Contains(t, output, "define ENABLE_NODEPORT 1\n",
 				"Expected ENABLE_NODEPORT define with BPF masquerade")
 		})

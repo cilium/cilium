@@ -8,7 +8,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT
-#define ENABLE_MASQUERADE_IPV4
 #include <bpf/config/global.h>
 
 /* Set port ranges to have deterministic source port selection */
@@ -35,6 +34,7 @@ ASSIGN_CONFIG(bool, debug, true)
 ASSIGN_CONFIG(__u16, device_mtu, 1500);
 
 ASSIGN_CONFIG(bool, enable_sctp, true)
+ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 
 __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, bool rfc4884)
 {

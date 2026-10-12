@@ -6,7 +6,6 @@
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 #define ENABLE_NODEPORT			1
-#define ENABLE_MASQUERADE_IPV4		1
 
 #include "bpf_nat_icmp.h"
 #include "bpf_nat_icmp6.h"

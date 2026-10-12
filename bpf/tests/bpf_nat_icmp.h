@@ -10,7 +10,6 @@
 
 #define ENABLE_IPV4			1
 #define ENABLE_NODEPORT			1
-#define ENABLE_MASQUERADE_IPV4		1
 
 #define EXT_IP  v4_ext_one
 #define NODE_IP v4_node_one
@@ -29,6 +28,7 @@
 #include <lib/time.h>
 
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = NODE_IP })
+ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 
 #include "nodeport_defaults.h"
 #include "bpf_nat_tuples.h"

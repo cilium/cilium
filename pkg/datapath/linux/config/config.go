@@ -238,10 +238,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	if option.Config.EnableBPFMasquerade {
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
-
-		if option.Config.EnableIPv4Masquerade {
-			cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
-		}
 	}
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
