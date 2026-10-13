@@ -183,9 +183,13 @@ type responseState struct {
 	// acceptedVersion belongs to the greatest generation ACKed for this type.
 	acceptedVersion string
 	// rejectedVersion/rejectedErr remember the latest NACKed version so a
-	// no-change update for that same cache state can fail immediately.
+	// no-change upsert for that same cache state can fail immediately.
 	rejectedVersion string
 	rejectedErr     error
+	// Greatest NACKed response boundary. Retain it across ACKs and later NACKs
+	// so forgetting a removed name cannot revive older absence evidence. A
+	// covering ACK satisfies the fence per name, without retaining rejected names.
+	rejectedGeneration Generation
 }
 
 // pendingResponse identifies one outstanding response and the resource names
@@ -216,6 +220,9 @@ type resourceWait struct {
 	version string
 	// typeURL is the type URL of the resources to be ACKed.
 	typeURL typeurl.Index
+	// removalOnly waits survive NACKs until a response ACKs their removal
+	// requirements, or the caller's context ends. They own no cache rollback.
+	removalOnly bool
 	// generation is the snapshot boundary needed by this completion. Its scope
 	// records the required revisions of individual resource names.
 	generation Generation
@@ -268,13 +275,14 @@ func (cb *CompletionCallbacks) RemoveTypeGenerationCompletion(c *completion.Comp
 
 // NewTypeGenerationCompletionOwner returns an owner which drops callback state
 // if its WaitGroup ends before Envoy ACKs or NACKs the generation.
-func (cb *CompletionCallbacks) NewTypeGenerationCompletionOwner(nodeID string, typeURL typeurl.Index, generation Generation, scope ResourceScope) *resourceWait {
+func (cb *CompletionCallbacks) NewTypeGenerationCompletionOwner(nodeID string, typeURL typeurl.Index, generation Generation, scope ResourceScope, removalOnly bool) *resourceWait {
 	return &resourceWait{
-		callbacks:  cb,
-		nodeID:     nodeID,
-		typeURL:    typeURL,
-		generation: generation,
-		scope:      scope,
+		callbacks:   cb,
+		nodeID:      nodeID,
+		typeURL:     typeURL,
+		generation:  generation,
+		scope:       scope,
+		removalOnly: removalOnly,
 	}
 }
 
@@ -344,6 +352,9 @@ func (cb *CompletionCallbacks) CompleteCompletionsThroughGeneration(nodeID strin
 	cb.mutex.Lock()
 	for c, pc := range cb.pendingWaits {
 		if pc.nodeID != nodeID || pc.typeURL != typeURL || pc.generation > generation {
+			continue
+		}
+		if err != nil && pc.removalOnly {
 			continue
 		}
 		completed = append(completed, c)
@@ -429,6 +440,51 @@ func (cb *CompletionCallbacks) HasResourceAcceptance(nodeID string, typeURL type
 	defer cb.mutex.Unlock()
 	state := cb.typeURLState(nodeID, typeURL)
 	return state != nil && (state.acceptedResources.generation != 0 || len(state.acceptedResources.partial) != 0)
+}
+
+// RemovalWaitRevision fences an absent name without retaining a desired entry.
+// Previously accepted absence stays usable unless a later sent
+// value makes it uncertain. After a NACK, conservatively require absence evidence
+// at least as new as that rejection, including for names omitted by later NACKs.
+// Otherwise a never-present name retains revision zero. This is used only for
+// removal waits; it retains neither protobufs nor per-name deletion history.
+func (cb *CompletionCallbacks) RemovalWaitRevision(nodeID string, typeURL typeurl.Index, name string, revision Revision) Revision {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	typeState := cb.typeURLState(nodeID, typeURL)
+	if typeState == nil {
+		return revision
+	}
+	_, exists, acceptedGeneration := typeState.acceptedResources.resource(name, typeURL)
+	if exists && acceptedGeneration > revision.revision {
+		revision = acceptedGeneration.Revision()
+	}
+	state := &typeState.response
+	if state.rejectedGeneration > revision.revision && state.rejectedGeneration > acceptedGeneration {
+		revision = state.rejectedGeneration.Revision()
+	}
+	for _, stream := range cb.streams {
+		response := stream.responses[typeURL]
+		if stream.nodeID == nodeID && response.pendingGeneration > acceptedGeneration &&
+			response.coverage != nil && response.coverage.resources[name].Resource != nil && response.coverage.contains(name) {
+			if response.pendingGeneration > revision.revision {
+				revision = response.pendingGeneration.Revision()
+			}
+		}
+	}
+	for _, pending := range cb.pendingWaits {
+		if pending.nodeID != nodeID || pending.typeURL != typeURL || !pending.removalOnly {
+			continue
+		}
+		required := pending.scope.more[name]
+		if pending.scope.name == name {
+			required = pending.scope.revision
+		}
+		if required.revision > revision.revision {
+			revision = required
+		}
+	}
+	return revision
 }
 
 // ChangedResourceAccepted reports whether a changed resource has the same
@@ -654,7 +710,7 @@ func (cb *CompletionCallbacks) AddPreparedTypeGenerationCompletion(c *completion
 		return false, nil
 	}
 
-	if version != "" && state.pendingVersion == "" && !versionChanged && state.rejectedVersion == version {
+	if version != "" && state.pendingVersion == "" && !versionChanged && state.rejectedVersion == version && !pending.removalOnly {
 		return false, state.rejectedErr
 	}
 
@@ -788,8 +844,14 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		if pc.scope.wholeType() && pc.generation > coveredGeneration {
 			continue
 		}
-		if !pc.scope.acknowledge(coverage, coveredGeneration) {
-			continue
+		if pc.removalOnly {
+			if !pc.scope.acknowledgeRemovals(coverage, coveredGeneration, pc.generation) {
+				continue
+			}
+		} else {
+			if !pc.scope.acknowledge(coverage, coveredGeneration) {
+				continue
+			}
 		}
 		completed = append(completed, completionResult{completion: c, generation: pc.generation})
 		delete(cb.pendingWaits, c)
@@ -838,6 +900,7 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 	nackErr := fmt.Errorf("NACK from %s for %s version %s: %s",
 		nodeID, typeURL, rejectedVersion, req.GetErrorDetail().GetMessage())
 	*response = pendingResponse{}
+	state.rejectedGeneration = max(state.rejectedGeneration, rejectedGeneration)
 	if state.pendingStreamID == streamID {
 		state.clearPending()
 	}
@@ -869,6 +932,13 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 			continue
 		}
 		if (pc.scope.wholeType() && pc.generation > coveredGeneration) || !pc.scope.intersects(coverage, coveredGeneration) {
+			continue
+		}
+		if pc.removalOnly {
+			// This wait covers only removals of the rejected type, even if its
+			// API transaction upserted other types. Await a later ACK without
+			// retaining this rejected response's association.
+			pc.responseGeneration = 0
 			continue
 		}
 		completed = append(completed, c)

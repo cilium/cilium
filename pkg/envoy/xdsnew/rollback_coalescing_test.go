@@ -51,7 +51,7 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 	clusterSubscription.SetReturnedResources(response.GetReturnedResources())
 	cancel()
 	acknowledgeResponse(t, c, 1, response, "initial-cluster")
-	require.NotNil(t, c.getNodeState(nodeID).typeStates[typeurl.Endpoint].rollbacks.unsent,
+	require.NotNil(t, c.getNodeState(nodeID).typeStates[typeurl.Endpoint].unsentRollback,
 		"EDS rollback remains unsent without an EDS subscription")
 
 	previous := mustSnapshot(t, c, nodeID)
@@ -75,7 +75,6 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 	state := c.getNodeState(nodeID)
 	require.NotNil(t, state)
 	state.requireNoUnsentRollbacks(t, "the net-zero EDS rollback must be discarded")
-	state.requireNoRollbackOwners(t)
 	require.Empty(t, state.resources[typeurl.Endpoint])
 }
 
@@ -109,9 +108,10 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 	acceptPublishedSnapshotVersions(t, c, 1, node, baselineSnapshot)
 	c.getNodeState(nodeID).requireNoUnsentRollbacks(t)
 
-	var policyRollback *rollbackLifecycle
+	var policyRollback *responseRollback
+	rollbackTarget := baselinePolicy
 	var latestListener *envoy_config_listener.Listener
-	for update := uint64(2); update <= 9; update++ {
+	for update := uint64(2); update <= 10; update++ {
 		previousSnapshot := mustSnapshot(t, c, nodeID)
 		listenerResponses = make(chan cache.Response, 1)
 		cancel, err = c.CreateWatch(&cache.Request{
@@ -121,7 +121,7 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 		require.NoError(t, err)
 
 		var policy *cilium.NetworkPolicy
-		if update%2 == 0 {
+		if update != 5 && update != 9 {
 			policy = &cilium.NetworkPolicy{EndpointId: update}
 		}
 		err = c.ApplyResource(ctx, nodeID, typeurl.NetworkPolicy, "policy", policy, nil)
@@ -136,7 +136,14 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 		cancel()
 		acknowledgeResponse(t, c, 1, response, fmt.Sprintf("listener-%d", update))
 
-		current := c.getNodeState(nodeID).typeStates[typeurl.NetworkPolicy].rollbacks.unsent
+		current := c.getNodeState(nodeID).typeStates[typeurl.NetworkPolicy].unsentRollback
+		if policy == nil {
+			// Removal discards the old unsent chain. A later upsert starts
+			// from absence, so its NACK must not restore the deleted baseline.
+			require.Nil(t, current)
+			policyRollback, rollbackTarget = nil, nil
+			continue
+		}
 		require.NotNil(t, current)
 		if policyRollback == nil {
 			policyRollback = current
@@ -145,13 +152,13 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 				"published NetworkPolicy updates must reuse one unsent rollback lifecycle")
 		}
 		require.Len(t, current.resources, 1)
-		require.Same(t, baselinePolicy, current.resources["policy"].previous.resource)
+		if rollbackTarget == nil {
+			require.Nil(t, current.resources["policy"].previous.resource)
+		} else {
+			require.Same(t, rollbackTarget, current.resources["policy"].previous.resource)
+		}
 		require.Equal(t, typeurl.NetworkPolicy, current.typeURL)
 	}
-	owners := c.getNodeState(nodeID).typeStates[typeurl.NetworkPolicy].rollbacks.owners
-	require.Len(t, owners, 1,
-		"the final unsent removal must retain exactly one coalesced tombstone owner")
-
 	latestSnapshot := mustSnapshot(t, c, nodeID)
 	policyResponses := make(chan cache.Response, 1)
 	cancel, err = c.CreateWatch(&cache.Request{
@@ -184,9 +191,7 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 	require.Same(t, latestListener, listener,
 		"a NetworkPolicy NACK must not revert Listener updates from the same transaction")
 	policy := c.GetResource(nodeID, typeurl.NetworkPolicy, "policy")
-	require.NotNil(t, policy)
-	require.Same(t, baselinePolicy, policy)
-	c.getNodeState(nodeID).requireNoRollbackOwners(t)
+	require.Nil(t, policy, "NACK of an upsert after removal must not resurrect the deleted baseline")
 }
 func TestUnobservedSotWRemovalsDoNotAccumulateRollbackState(t *testing.T) {
 	c := newCoverageCache(t)
@@ -203,7 +208,7 @@ func TestUnobservedSotWRemovalsDoNotAccumulateRollbackState(t *testing.T) {
 	// B has never been requested. Its live inverse must not keep the unrelated
 	// EDS removals above: omission does not convey their removal to Envoy.
 	state := c.getNodeState("coverage-node")
-	rollback := state.typeStates[typeurl.Endpoint].rollbacks.unsent
+	rollback := state.typeStates[typeurl.Endpoint].unsentRollback
 	require.NotNil(t, rollback)
 	require.Len(t, rollback.resources, 1)
 	require.Contains(t, rollback.resources, "b")
@@ -269,9 +274,8 @@ func TestUnsentRollbackHistoryIsBounded(t *testing.T) {
 			// Retained state must depend on live names, not the number of API
 			// transactions. Observable resource absence cannot detect this leak.
 			state := c.getNodeState("coverage-node")
-			state.requireNoRollbackOwners(t)
 			if test.unrelated {
-				unsent := state.typeStates[test.typeURL].rollbacks.unsent
+				unsent := state.typeStates[test.typeURL].unsentRollback
 				require.NotNil(t, unsent)
 				require.Len(t, unsent.resources, len(test.names))
 				require.Equal(t, 1, state.rollbacks.responses.Len())
