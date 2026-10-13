@@ -30,6 +30,10 @@ func (s *stubMetadata) GetInstanceMetadata(context.Context) (awsMetadata.MetaDat
 	return s.info, s.err
 }
 
+func (s *stubMetadata) GetInterfaceAddresses(context.Context, string) (awsMetadata.InterfaceAddresses, error) {
+	return awsMetadata.InterfaceAddresses{}, s.err
+}
+
 func (s *stubMetadata) instanceMetadata() *instanceMetadata {
 	return &instanceMetadata{newFn: func(context.Context) (metadataClient, error) {
 		s.newCalls.Add(1)

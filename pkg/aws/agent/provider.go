@@ -42,6 +42,7 @@ type providerParams struct {
 
 	Node           agentK8s.LocalCiliumNodeResource
 	LocalNodeStore *node.LocalNodeStore
+	Metadata       *instanceMetadata
 
 	Conf   *option.DaemonConfig
 	MTU    mtu.MTU
@@ -68,12 +69,13 @@ func (p *provider) PoolSpecAccessors() ipam.PoolSpecAccessors {
 
 // Initialize registers the jobs that configure the ENI network devices and
 // that derive the native routing CIDR from the VPC CIDRs the operator reports
-// in the CiliumNode status. Neither blocks.
+// in the CiliumNode status, plus the IMDS address timing job. None blocks.
 func (p *provider) Initialize() (ipam.RoutingMetadataResolver, error) {
 	startDeviceConfigurator(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.MTU, p.params.Sysctl)
 	p.nativeRoutingCIDRReady = startNativeRoutingCIDRSync(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.LocalNodeStore, p.params.Conf)
+	visibility := startAddressVisibility(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.Metadata.interfaceAddresses)
 
-	return &resolver{}, nil
+	return &resolver{visibility: visibility}, nil
 }
 
 // WaitReady blocks until the native routing CIDR observer registered in
@@ -110,9 +112,10 @@ const waitForNativeRoutingCIDRTimeout = 5 * time.Minute
 const operatorHelpMessage = "Check if the cilium-operator pod is running and does not have any warnings or error messages."
 
 // resolver reports the ENI routing metadata of the addresses the multi-pool
-// allocator hands out. It is stateless: everything it reports is derived from
-// the CiliumNode it is handed on each call.
-type resolver struct{}
+// allocator hands out.
+type resolver struct {
+	visibility *addressVisibility
+}
 
 // ResolveRoutingMetadata reports the ENI-specific routing metadata of addr by
 // finding which ENI of the node owns it.
@@ -125,5 +128,9 @@ func (r *resolver) ResolveRoutingMetadata(node *ciliumv2.CiliumNode, addr netip.
 		enis = node.Status.ENI.ENIs
 	}
 
-	return allocationResult(addr, pool, enis)
+	result, err := allocationResult(addr, pool, enis)
+	if err == nil {
+		r.visibility.allocating(addr)
+	}
+	return result, err
 }
