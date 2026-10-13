@@ -1,0 +1,117 @@
+name: 'Export CL2 results'
+description: "Workflow that exports CL2 scale test results to a gs bucket and renders them as a markdown table"
+inputs:
+  results-bucket:
+    description: "Name of the bucket to export the results to"
+    required: true
+  artifacts:
+    description: "CL2 artifacts to export"
+    required: true
+  other-files:
+    description: "Additional files to export"
+    required: true
+  test-name:
+    description: "Name of the test"
+    required: true
+  tested-version:
+    description: "Version of the tested software, takes precedence over tested-sha"
+    required: false
+  tested-sha:
+    description: "SHA of the tested software"
+    required: false
+  baseline-artifacts:
+    description: "CL2 artifacts of the run to compare against. When set, the summary gains a baseline and a delta column, and the artifacts are exported as their own test."
+    required: false
+    default: ''
+  baseline-other-files:
+    description: "Additional files to export along with the baseline artifacts"
+    required: false
+    default: ''
+  baseline-test-name:
+    description: "Name of the test the baseline artifacts are exported as"
+    required: false
+    default: ''
+  baseline-tested-version:
+    description: "Version of the baseline software, a release version or a SHA depending on what the baseline was installed from"
+    required: false
+    default: ''
+  results-regex:
+    description: "Glob to filter results for summary"
+    required: false
+    default: "GenericPrometheusQuery*.json"
+runs:
+  using: "composite"
+  steps:
+    - name: Show results as GitHub Summary
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        ARTIFACTS: ${{ inputs.artifacts }}
+        BASELINE_ARTIFACTS: ${{ inputs.baseline-artifacts }}
+        RESULTS_REGEX: ${{ inputs.results-regex }}
+      run: |
+        if [[ -z "${RESULTS_REGEX}" ]]; then
+          exit 0
+        fi
+
+        args=(-artifacts "${ARTIFACTS}" -pattern "${RESULTS_REGEX}")
+        if [[ -n "${BASELINE_ARTIFACTS}" ]]; then
+          args+=(-baseline-artifacts "${BASELINE_ARTIFACTS}")
+        fi
+
+        echo "## CL2 Test Report" >> "$GITHUB_STEP_SUMMARY"
+        go run ./tools/cl2-report "${args[@]}" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Export Results
+      shell: bash
+      env:
+        RESULTS_BUCKET: ${{ inputs.results-bucket }}
+        TEST_NAME: ${{ inputs.test-name }}
+        TESTED_VERSION: ${{ inputs.tested-version }}
+        TESTED_SHA: ${{ inputs.tested-sha }}
+        ARTIFACTS: ${{ inputs.artifacts }}
+        OTHER_FILES: ${{ inputs.other-files }}
+        BASELINE_TEST_NAME: ${{ inputs.baseline-test-name }}
+        BASELINE_TESTED_VERSION: ${{ inputs.baseline-tested-version }}
+        BASELINE_ARTIFACTS: ${{ inputs.baseline-artifacts }}
+        BASELINE_OTHER_FILES: ${{ inputs.baseline-other-files }}
+      run: |
+        # Exports one run: its artifacts into <export dir>/artifacts/, and the
+        # files describing the run next to them.
+        export_run() {
+          local test_name="$1" tested_version="$2" tested_sha="$3" artifacts="$4" other_files="$5"
+
+          local meta
+          meta="$(mktemp --directory)"
+          echo "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > "${meta}/run-url.txt"
+          echo "${tested_version:-${tested_sha}}" > "${meta}/tested_version.txt"
+
+          # BUILD_ID needs to be an integer
+          local build_id export_dir
+          build_id="$(date +%s)"
+          export_dir="${RESULTS_BUCKET}/logs/${test_name}-${tested_version:-${GITHUB_REF_NAME}}/${build_id}"
+          echo "::notice::BUILD_ID: ${build_id} EXPORT_DIR: ${export_dir}"
+
+          set +e
+          gsutil -m cp -R "${artifacts}"/* "${export_dir}/artifacts/"
+          local artifact_status=$?
+          # shellcheck disable=SC2086 # other_files is a list of paths
+          gsutil -m cp "${meta}/tested_version.txt" "${meta}/run-url.txt" ${other_files} "${export_dir}/"
+          local other_files_status=$?
+          set -e
+
+          rm -rf "${meta}"
+          if [ ${artifact_status} -ne 0 ] || [ ${other_files_status} -ne 0 ]; then
+            return 1
+          fi
+        }
+
+        status=0
+        export_run "${TEST_NAME}" "${TESTED_VERSION}" "${TESTED_SHA}" "${ARTIFACTS}" "${OTHER_FILES}" || status=1
+
+        if [[ -n "${BASELINE_ARTIFACTS}" ]]; then
+          export_run "${BASELINE_TEST_NAME:-baseline-${TEST_NAME}}" "${BASELINE_TESTED_VERSION}" "" \
+            "${BASELINE_ARTIFACTS}" "${BASELINE_OTHER_FILES}" || status=1
+        fi
+
+        exit ${status}

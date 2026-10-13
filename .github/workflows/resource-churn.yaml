@@ -531,11 +531,6 @@ jobs:
           output-path: ./perf-tests/clusterloader2/report/baseline
           archive-name: node-logs.zip
 
-      - name: Baseline results heading
-        if: ${{ always() && steps.run-baseline.outcome != 'skipped' }}
-        run: |
-          echo "## Baseline results (\`${{ steps.vars.outputs.base_tag }}\`)" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Publish baseline results
         if: ${{ always() && steps.run-baseline.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
@@ -545,16 +540,6 @@ jobs:
           junits-directory: 'perf-tests/clusterloader2/report/baseline'
           capture_sysdump: 'false'
           capture_features_tested: 'false'
-
-      - name: Export baseline results to GS bucket
-        if: ${{ always() && steps.run-baseline.outcome != 'skipped' && steps.run-baseline.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@7e3eae9de9542f1a7616ca797e2d5090e8f9f8ee # main
-        with:
-          test_name: baseline-${{ steps.vars.outputs.scenario }}
-          tested_sha: ${{ steps.vars.outputs.base_tag }}
-          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
-          artifacts: ./perf-tests/clusterloader2/report/baseline/
-          other_files: ./perf-tests/clusterloader2/cl2-output-baseline.txt
 
       # Refresh credentials in case they expire while we run baseline.
       - name: Refresh AWS CLI credentials
@@ -614,11 +599,6 @@ jobs:
           output-path: ./perf-tests/clusterloader2/report/test
           archive-name: node-logs.zip
 
-      - name: Test tag results heading
-        if: ${{ always() && steps.run-test.outcome != 'skipped' }}
-        run: |
-          echo "## Test tag results (\`${{ steps.vars.outputs.test_tag }}\`)" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Publish test tag results
         if: ${{ always() && steps.run-test.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
@@ -629,15 +609,21 @@ jobs:
           capture_sysdump: 'false'
           capture_features_tested: 'false'
 
-      - name: Export test tag results to GS bucket
+      - name: Export results to GS bucket
         if: ${{ always() && steps.run-test.outcome != 'skipped' && steps.run-test.outcome != 'cancelled' }}
-        uses: cilium/scale-tests-action/export-results@7e3eae9de9542f1a7616ca797e2d5090e8f9f8ee # main
+        uses: ./.github/actions/export-cl2-results
         with:
-          test_name: test-${{ steps.vars.outputs.scenario }}
-          tested_sha: ${{ steps.vars.outputs.test_tag }}
-          results_bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
+          results-bucket: ${{ env.GCP_PERF_RESULTS_BUCKET }}
+
+          test-name: test-${{ steps.vars.outputs.scenario }}
+          tested-sha: ${{ steps.vars.outputs.test_tag }}
           artifacts: ./perf-tests/clusterloader2/report/test/
-          other_files: ./perf-tests/clusterloader2/cl2-output-test.txt
+          other-files: ./perf-tests/clusterloader2/cl2-output-test.txt
+
+          baseline-test-name: baseline-${{ steps.vars.outputs.scenario }}
+          baseline-tested-version: ${{ steps.vars.outputs.base_tag }}
+          baseline-artifacts: ${{ steps.vars.outputs.run_baseline == 'true' && './perf-tests/clusterloader2/report/baseline/' || '' }}
+          baseline-other-files: ./perf-tests/clusterloader2/cl2-output-baseline.txt
 
       # Refresh credentials, since the role assumption session from earlier
       # may have expired during the (potentially long-running) test.
