@@ -53,7 +53,7 @@ env:
 jobs:
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
@@ -62,7 +62,7 @@ jobs:
 
   kubernetes-e2e:
     name: K8s Network E2E tests
-    runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
@@ -403,7 +403,7 @@ jobs:
 
       - name: Upload cluster logs
         if: ${{ !success() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: "kind-logs-${{ matrix.ipFamily }}"
           path: ./_artifacts/logs

@@ -8,7 +8,7 @@ on:
 jobs:
   applyNeedsAttentionLabel:
     name: Apply Info Complete Label
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       issues: write
     steps:

@@ -62,7 +62,7 @@ jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -70,7 +70,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
@@ -79,7 +79,7 @@ jobs:
 
   prepare-extra-args:
     name: Prepare extra-args
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       extra-args: ${{ steps.merge.outputs.extra-args }}
     steps:

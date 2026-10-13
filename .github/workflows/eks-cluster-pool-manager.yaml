@@ -27,7 +27,7 @@ env:
 jobs:
   generate-cleanup-matrix:
     name: Generate Cleanup Matrix
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     if: ${{ github.event_name == 'schedule' }}
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -70,7 +70,7 @@ jobs:
       # To be able to request the JWT from GitHub's OIDC provider
       id-token: write
     name: Cleanup clusters older than 6 hours
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: generate-cleanup-matrix
     if: ${{ needs.generate-cleanup-matrix.outputs.empty == 'false' }}
     timeout-minutes: 45
@@ -194,7 +194,7 @@ jobs:
 
   cleanup-unassociated-eips:
     name: Cleanup unassociated EIPs
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [generate-cleanup-matrix, cleanup-old-clusters]
     if: ${{ always() && needs.generate-cleanup-matrix.outputs.empty == 'false' }}
     timeout-minutes: 20
@@ -255,7 +255,7 @@ jobs:
 
   generate-create-matrix:
     name: Generate Create Matrix
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       empty: ${{ steps.set-matrix.outputs.empty }}
@@ -329,7 +329,7 @@ jobs:
 
   ensure-s3-bucket:
     name: Ensure S3 bucket exists
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: generate-create-matrix
     if: ${{ always() && needs.generate-create-matrix.outputs.empty == 'false' }}
     timeout-minutes: 10
@@ -396,7 +396,7 @@ jobs:
       # To be able to request the JWT from GitHub's OIDC provider
       id-token: write
     name: Create EKS clusters for pool
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [cleanup-old-clusters, cleanup-unassociated-eips, generate-create-matrix, ensure-s3-bucket]
     if: ${{ always() && needs.generate-create-matrix.outputs.empty == 'false' }}
     timeout-minutes: 30
@@ -653,7 +653,7 @@ jobs:
 
   report-status:
     name: Report pool status
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: [generate-cleanup-matrix, cleanup-old-clusters, cleanup-unassociated-eips, create-clusters]
     if: ${{ always() && needs.generate-cleanup-matrix.outputs.empty == 'false' }}
     timeout-minutes: 10

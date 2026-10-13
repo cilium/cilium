@@ -26,7 +26,7 @@ env:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       tested: ${{ steps.tested-tree.outputs.src }}
     steps:
@@ -49,7 +49,7 @@ jobs:
               - '!**/*.md'
 
   preflight-clusterrole:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: Preflight Clusterrole Check
     steps:
       - name: Checkout code
@@ -61,7 +61,7 @@ jobs:
         run: make check-k8s-clusterrole
 
   helm-charts:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: Helm Charts Check
     steps:
       - name: Checkout
