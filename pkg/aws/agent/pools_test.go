@@ -12,6 +12,7 @@ import (
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -133,5 +134,33 @@ func TestPoolsAccessorFromResource(t *testing.T) {
 		require.True(t, result.Allocated[0].AllowLastIP)
 		require.Len(t, result.Allocated[0].CIDRs, 1)
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")))
+	})
+
+	t.Run("other pools are passed through", func(t *testing.T) {
+		egressPool := ipamTypes.IPAMPoolAllocation{
+			Pool:  defaults.IPAMIPv4EgressPool,
+			CIDRs: prefixes("100.64.0.0/24"),
+		}
+		node := &ciliumv2.CiliumNode{}
+		node.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
+			{
+				Pool:  defaults.IPAMDefaultIPPool,
+				CIDRs: prefixes("2001:db8::/80"),
+			},
+			egressPool,
+		}
+		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
+			"eni-1": {
+				IPv6Prefixes: prefixes("2001:db8::/80", "2001:db8:1::/80"),
+			},
+		}
+
+		// The default pool is derived from the ENIs, in place, and the egress
+		// pool allocated by the operator is kept.
+		result := poolAccessor.FromResource(node)
+		require.Len(t, result.Allocated, 2)
+		require.Equal(t, defaults.IPAMDefaultIPPool, result.Allocated[0].Pool)
+		require.ElementsMatch(t, prefixes("2001:db8::/80", "2001:db8:1::/80"), result.Allocated[0].CIDRs)
+		require.Equal(t, egressPool, result.Allocated[1])
 	})
 }

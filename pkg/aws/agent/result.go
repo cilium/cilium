@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 )
@@ -22,6 +23,10 @@ func allocationResult(
 	pool ipam.Pool,
 	enis map[string]awsTypes.ENI,
 ) (*ipam.AllocationResult, error) {
+	if pool == ipam.Pool(defaults.IPAMIPv4EgressPool) {
+		return egressAllocationResult(allocatedAddr, pool, enis)
+	}
+
 	for _, eni := range enis {
 		if !eniContainsIP(eni, allocatedAddr) {
 			continue
@@ -49,6 +54,41 @@ func allocationResult(
 	}
 
 	return nil, fmt.Errorf("unable to find ENI for IP %s", allocatedAddr)
+}
+
+// egressAllocationResult routes an IPv4 egress-only address through the
+// primary ENI. Such addresses belong to no ENI: they are masqueraded behind the
+// IPv4 address of the interface they leave the node through, so that interface
+// must be the one carrying the node IPv4 address. A secondary ENI might only
+// hold IPv6 prefixes.
+func egressAllocationResult(
+	allocatedAddr netip.Addr,
+	pool ipam.Pool,
+	enis map[string]awsTypes.ENI,
+) (*ipam.AllocationResult, error) {
+	if !allocatedAddr.Is4() {
+		return nil, fmt.Errorf("unexpected IPv6 address %s in the IPv4 egress pool", allocatedAddr)
+	}
+
+	for _, eni := range enis {
+		if eni.Number != 0 {
+			continue
+		}
+		if !eni.Subnet.CIDR.IsValid() || !eni.Subnet.CIDR.Addr().Is4() {
+			return nil, fmt.Errorf("primary ENI %s is not in a subnet with IPv4: IPv4 egress-only mode requires a dual-stack subnet", eni.ID)
+		}
+
+		return &ipam.AllocationResult{
+			IP:         allocatedAddr,
+			IPPoolName: pool,
+			PrimaryMAC: eni.MAC,
+			// AWS reserves the first subnet IP for the gateway.
+			GatewayIP:       eni.Subnet.CIDR.Addr().Next(),
+			InterfaceNumber: strconv.Itoa(eni.Number),
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unable to find the primary ENI to route IPv4 egress address %s", allocatedAddr)
 }
 
 // eniContainsIP returns true if the given IP belongs to the ENI: either as the
