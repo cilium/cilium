@@ -1772,6 +1772,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	int ifindex = CONFIG(interface_ifindex);
 	struct ipv6_ct_tuple *tuple;
 	bool is_untracked_fragment;
+	bool policy_evaluated = false;
 	int ret, verdict, l4_off;
 	struct ct_buffer6 *ct_buffer;
 	struct trace_ctx trace;
@@ -1868,13 +1869,29 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		if (verdict != CTX_ACT_OK)
 			return verdict;
 
+		policy_evaluated = true;
 		break;
 	}
 
-	if (ret == CT_NEW) {
+	ct_state_new.proxy_redirect = *proxy_port > 0;
+
+	/* Recreate the entry if its proxy_redirect disagrees with the verdict. */
+	if (ret == CT_NEW ||
+	    (policy_evaluated &&
+	     unlikely(ct_state->proxy_redirect != ct_state_new.proxy_redirect))) {
+		if (ret != CT_NEW) {
+			/* Keep the state that the reply path reads back. */
+			ct_state_new.rev_nat_index = ct_state->rev_nat_index;
+			ipv6_addr_copy(&ct_state_new.nat_addr, &ct_state->nat_addr);
+			ct_state_new.nat_port = ct_state->nat_port;
+			ct_state_new.node_port = ct_state->node_port;
+			ct_state_new.dsr_internal = ct_state->dsr_internal;
+			ct_state_new.loopback = ct_state->loopback;
+			ct_state_new.from_l7lb = ct_state->from_l7lb;
+		}
+
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
-		ct_state_new.proxy_redirect = *proxy_port > 0;
 
 		ret = ct_create6(get_ct_map6(tuple), &cilium_ct_any6_global, tuple, ctx, CT_INGRESS,
 				 &ct_state_new, ext_err);
@@ -2060,6 +2077,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	struct ipv4_ct_tuple *tuple;
 	fraginfo_t fraginfo;
 	bool is_untracked_fragment;
+	bool policy_evaluated = false;
 	struct ct_buffer4 *ct_buffer;
 	struct trace_ctx trace;
 	int ret, verdict, l4_off;
@@ -2163,19 +2181,36 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 		if (verdict != CTX_ACT_OK)
 			return verdict;
 
+		policy_evaluated = true;
 		break;
 	}
 
-	if (ret == CT_NEW) {
+	ct_state_new.proxy_redirect = *proxy_port > 0;
+
+	/* Recreate the entry if its proxy_redirect disagrees with the verdict. */
+	if (ret == CT_NEW ||
+	    (policy_evaluated &&
+	     unlikely(ct_state->proxy_redirect != ct_state_new.proxy_redirect))) {
+		if (ret == CT_NEW) {
 #if defined(ENABLE_NODEPORT)
-		if (CONFIG(srv6_cfg).enable)
-			ct_state_new.node_port =
-				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
-							      tuple, NULL, false);
+			if (CONFIG(srv6_cfg).enable)
+				ct_state_new.node_port =
+					ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
+								      tuple, NULL, false);
 #endif /* ENABLE_NODEPORT */
+		} else {
+			/* Keep the state that the reply path reads back. */
+			ct_state_new.rev_nat_index = ct_state->rev_nat_index;
+			ct_state_new.nat_addr.p4 = ct_state->nat_addr.p4;
+			ct_state_new.nat_port = ct_state->nat_port;
+			ct_state_new.node_port = ct_state->node_port;
+			ct_state_new.dsr_internal = ct_state->dsr_internal;
+			ct_state_new.loopback = ct_state->loopback;
+			ct_state_new.from_l7lb = ct_state->from_l7lb;
+		}
+
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
-		ct_state_new.proxy_redirect = *proxy_port > 0;
 
 		ret = ct_create4(get_ct_map4(tuple), &cilium_ct_any4_global, tuple, ctx, CT_INGRESS,
 				 &ct_state_new, ext_err);
