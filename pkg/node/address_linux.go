@@ -6,7 +6,7 @@
 package node
 
 import (
-	"errors"
+	"fmt"
 	"net"
 	"sort"
 
@@ -38,10 +38,6 @@ func (c *addrCandidates) add(a netlink.Addr, isPreferredIP bool) {
 	if isPreferredIP {
 		c.hasPreferred = true
 	}
-}
-
-func (c *addrCandidates) empty() bool {
-	return len(c.public) == 0 && len(c.private) == 0
 }
 
 // pick returns the best of the collected addresses, or nil if there are none.
@@ -98,12 +94,8 @@ func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error
 		}
 	}
 
-	// Deprecated addresses (RFC 4862), as produced by e.g. kube-vip in ARP
-	// mode configuring its VIP with preferred_lft 0, must not be used for new
-	// communication. Unlike tentative and dadfailed ones they can still carry
-	// traffic though, so rather than rejecting them outright and risking a
-	// node with no selectable address at all, keep them aside and only fall
-	// back to them once every stage of the search below came up empty.
+	// Deprecated addresses (e.g. kube-vip VIPs with preferred_lft 0) can still
+	// carry traffic, so they are only used if no stage below finds anything else.
 	deprecated := addrCandidates{}
 
 retryInterface:
@@ -114,10 +106,8 @@ retryInterface:
 
 retryScope:
 	candidates := addrCandidates{}
-	// Only the first stage to find deprecated addresses contributes them, so
-	// that the fallback observes the same device and scope preference as the
-	// search itself rather than ranking every stage's leftovers together.
-	keepDeprecated := deprecated.empty()
+	// Only the first stage that finds deprecated addresses keeps them.
+	keepDeprecated := len(deprecated.public)+len(deprecated.private) == 0
 
 	for _, a := range addr {
 		isPreferredIP := a.IP.Equal(preferredIP)
@@ -158,7 +148,7 @@ retryScope:
 		return selected, nil
 	}
 
-	return nil, errors.New("No address found")
+	return nil, fmt.Errorf("No address found")
 }
 
 func addrUsableAsNodeIP(a netlink.Addr, isPreferredIP bool, ipsToExclude []net.IP, linkScopeMax, ipLen int) bool {
