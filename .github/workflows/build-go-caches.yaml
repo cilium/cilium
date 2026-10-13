@@ -25,7 +25,7 @@ concurrency:
 jobs:
   build_go_caches:
     name: Build Go Caches
-    runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
     timeout-minutes: 20
     strategy:
       matrix:

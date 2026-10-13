@@ -16,7 +16,7 @@ on:
 jobs:
   renovate:
     name: Run self-hosted Renovate
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     environment:
       name: renovate
       deployment: false
@@ -45,7 +45,7 @@ jobs:
           LOG_LEVEL: ${{ github.event.inputs.renovate_log_level_debug == 'false' && 'INFO' || 'DEBUG' }}
         with:
           # renovate: datasource=github-releases depName=renovatebot/renovate
-          renovate-version: 44.151.0
+          renovate-version: 44.155.1
           docker-user: root
           docker-cmd-file: .github/actions/renovate/entrypoint.sh
           configurationFile: .github/renovate.json5

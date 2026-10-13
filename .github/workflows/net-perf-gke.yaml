@@ -77,14 +77,14 @@ jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
           echo '${{ tojson(inputs) }}'
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
@@ -93,7 +93,7 @@ jobs:
 
   wait-for-images:
     name: Wait for images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
@@ -114,7 +114,7 @@ jobs:
   installation-and-perf:
     name: Installation and Perf Test
     needs: wait-for-images
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Allow headroom for a zone fallback: a STOCKOUT can burn ~35m of
     # provisioning wait per zone before we retry in the next one (partial
     # clusters are torn down asynchronously, so a failed attempt adds little

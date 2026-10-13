@@ -19,7 +19,7 @@ concurrency:
 jobs:
   go-mod:
     name: Check Go Modules
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -39,7 +39,7 @@ jobs:
 
   license-check:
     name: Check third party dependencies licenses
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -56,7 +56,7 @@ jobs:
 
   golangci:
     name: Lint Source Code
-    runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
     steps:
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
@@ -89,7 +89,7 @@ jobs:
           args: "--verbose --modules-download-mode=vendor -c tools/golangci-lint-kubeapi/golangci-lint-kubeapi.yaml ./pkg/k8s/apis/cilium.io/..."
 
   precheck:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: Precheck
     steps:
       - name: Install Go
@@ -123,7 +123,7 @@ jobs:
           make custom-lint
 
   generate-api:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: Generate API
     steps:
       - name: Install Go
@@ -147,7 +147,7 @@ jobs:
           contrib/scripts/check-api-code-gen.sh
 
   generate-k8s-api:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: Generate k8s API
     steps:
       - name: Install Go
