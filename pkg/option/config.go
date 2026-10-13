@@ -283,6 +283,11 @@ const (
 	// EnableBPFMasquerade masquerades packets from endpoints leaving the host with BPF instead of iptables
 	EnableBPFMasquerade = "enable-bpf-masquerade"
 
+	// EnableIPv4EgressOnly gives endpoints of an IPv6 ENI cluster an IPv4
+	// address only meant to reach IPv4 destinations outside of the cluster,
+	// masqueraded behind the node IPv4 address.
+	EnableIPv4EgressOnly = "enable-ipv4-egress-only"
+
 	// EnableMasqueradeRouteSource masquerades to the source route IP address instead of the interface one
 	EnableMasqueradeRouteSource = "enable-masquerade-to-route-source"
 
@@ -1420,6 +1425,11 @@ type DaemonConfig struct {
 	EnableMasqueradeRouteSource bool
 	EnableIPMasqAgent           bool
 
+	// EnableIPv4EgressOnly allocates the endpoint IPv4 addresses from the
+	// operator-managed egress pool instead of the ENIs. Those addresses are
+	// only usable to reach IPv4 destinations outside of the cluster.
+	EnableIPv4EgressOnly bool
+
 	EnableBPFClockProbe    bool
 	EnableEgressGateway    bool
 	EnableEnvoyConfig      bool
@@ -2201,6 +2211,10 @@ func (c *DaemonConfig) Validate(vp *viper.Viper) error {
 		return err
 	}
 
+	if err := c.checkIPv4EgressOnly(); err != nil {
+		return err
+	}
+
 	if err := c.checkIPAMDelegatedPlugin(); err != nil {
 		return err
 	}
@@ -2463,6 +2477,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.EnableIPv4Masquerade = vp.GetBool(EnableIPv4Masquerade) && c.EnableIPv4
 	c.EnableIPv6Masquerade = vp.GetBool(EnableIPv6Masquerade) && c.EnableIPv6
 	c.EnableBPFMasquerade = vp.GetBool(EnableBPFMasquerade)
+	c.EnableIPv4EgressOnly = vp.GetBool(EnableIPv4EgressOnly)
 	c.EnableMasqueradeRouteSource = vp.GetBool(EnableMasqueradeRouteSource)
 	c.EnablePMTUDiscovery = vp.GetBool(EnablePMTUDiscovery)
 	c.IPv6NAT46x64CIDR = defaults.IPv6NAT46x64CIDR
@@ -2909,6 +2924,31 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 	if c.FragmentsMapEntries > FragmentsMapMax {
 		return fmt.Errorf("specified max entries %d for fragment-tracking map must not exceed maximum %d",
 			c.FragmentsMapEntries, FragmentsMapMax)
+	}
+
+	return nil
+}
+
+// checkIPv4EgressOnly validates the configuration IPv4 egress-only mode relies
+// on. Endpoint IPv4 addresses are not routable outside of the node, so they
+// must be masqueraded by BPF to every destination but the egress range itself,
+// which the native routing CIDR has to be set to.
+func (c *DaemonConfig) checkIPv4EgressOnly() error {
+	if !c.EnableIPv4EgressOnly {
+		return nil
+	}
+
+	switch {
+	case c.IPAMMode() != ipamOption.IPAMENI:
+		return fmt.Errorf("--%s requires --%s=%s", EnableIPv4EgressOnly, IPAM, ipamOption.IPAMENI)
+	case !c.EnableIPv4 || !c.EnableIPv6:
+		return fmt.Errorf("--%s requires both --%s and --%s", EnableIPv4EgressOnly, EnableIPv4Name, EnableIPv6Name)
+	case !c.EnableIPv4Masquerade || !c.EnableBPFMasquerade:
+		return fmt.Errorf("--%s requires both --%s and --%s", EnableIPv4EgressOnly, EnableIPv4Masquerade, EnableBPFMasquerade)
+	case c.EnableIPMasqAgent:
+		return fmt.Errorf("--%s is incompatible with --%s", EnableIPv4EgressOnly, EnableIPMasqAgent)
+	case !c.IPv4NativeRoutingCIDR.IsValid():
+		return fmt.Errorf("--%s requires --%s to be set to the IPv4 egress CIDR", EnableIPv4EgressOnly, IPv4NativeRoutingCIDR)
 	}
 
 	return nil
