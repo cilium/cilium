@@ -275,6 +275,13 @@ type MultiPoolManagerParams struct {
 	// matches the CRD allocator's calculateNeededIPs behavior and allows
 	// the operator to recover exact usage from the demand signal.
 	LinearPreAlloc bool
+
+	// SyncPreAllocateFromNode controls whether the manager should read
+	// CiliumNode.Spec.IPAM.PreAllocate and apply it to the default pool
+	// whenever a CiliumNode update is observed. This field belongs to the
+	// legacy cloud IPAM flow; standard multi-pool mode and Resource IPAM
+	// must not inherit it.
+	SyncPreAllocateFromNode bool
 }
 
 type multiPoolManager struct {
@@ -307,7 +314,8 @@ type multiPoolManager struct {
 
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
 
-	linearPreAlloc bool
+	linearPreAlloc          bool
+	syncPreAllocateFromNode bool
 }
 
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
@@ -329,8 +337,9 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		localNodeUpdateFn: sync.OnceFunc(func() {
 			close(localNodeUpdated)
 		}),
-		poolsAccessor:  p.PoolSpecAccessors,
-		linearPreAlloc: p.LinearPreAlloc,
+		poolsAccessor:           p.PoolSpecAccessors,
+		linearPreAlloc:          p.LinearPreAlloc,
+		syncPreAllocateFromNode: p.SyncPreAllocateFromNode,
 		skipMasqueradeForPool: func(Pool) (bool, error) {
 			return false, nil
 		},
@@ -469,10 +478,12 @@ func (m *multiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs, pool.AllowFirstIP, pool.AllowLastIP)
 	}
 
-	// Sync pre-allocate value from the CiliumNode spec. For cloud IPAM modes,
-	// the agent writes it during node discovery and the operator may adjust
-	// it. For standard multi-pool mode this field is unset (0).
-	if newNode.Spec.IPAM.PreAllocate > 0 {
+	// Sync pre-allocate value from the CiliumNode spec. This is only
+	// meaningful for the legacy cloud IPAM flow (which sets the value
+	// during node discovery and lets the operator adjust it). Standard
+	// multi-pool mode and Resource IPAM must not inherit it, because the
+	// PreAllocate field belongs to the Pod IPAM flow only.
+	if m.syncPreAllocateFromNode && newNode.Spec.IPAM.PreAllocate > 0 {
 		m.preallocatedIPsPerPool[Pool(defaults.IPAMDefaultIPPool)] = newNode.Spec.IPAM.PreAllocate
 	}
 

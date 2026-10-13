@@ -118,16 +118,17 @@ func newCloudMultiPoolAllocators(ctx context.Context, p cloudMultiPoolParams) (i
 	}
 
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
-		Logger:               p.Logger,
-		IPv4Enabled:          p.IPv4Enabled,
-		IPv6Enabled:          p.IPv6Enabled,
-		CiliumNodeUpdateRate: p.CiliumNodeUpdateRate,
-		PreallocMap:          preallocMap,
-		Node:                 p.Node,
-		CNClient:             p.CNClient,
-		JobGroup:             p.JobGroup,
-		PoolSpecAccessors:    p.Provider.PoolSpecAccessors(),
-		LinearPreAlloc:       true,
+		Logger:                  p.Logger,
+		IPv4Enabled:             p.IPv4Enabled,
+		IPv6Enabled:             p.IPv6Enabled,
+		CiliumNodeUpdateRate:    p.CiliumNodeUpdateRate,
+		PreallocMap:             preallocMap,
+		Node:                    p.Node,
+		CNClient:                p.CNClient,
+		JobGroup:                p.JobGroup,
+		PoolSpecAccessors:       p.Provider.PoolSpecAccessors(),
+		LinearPreAlloc:          true,
+		SyncPreAllocateFromNode: true,
 	})
 
 	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)
