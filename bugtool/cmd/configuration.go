@@ -141,6 +141,8 @@ var bpfMapsPath = []string{
 
 func defaultCommands(confDir string, cmdDir string) []string {
 	var commands []string
+	cgroupStart, cgroupEnd := hostCgroupCommands()
+	commands = append(commands, cgroupStart...)
 	// Not expecting all of the commands to be available
 	commands = append(commands, miscSystemCommands()...)
 
@@ -171,13 +173,29 @@ func defaultCommands(confDir string, cmdDir string) []string {
 		"cat -u /proc/net/snmp",
 		"cat -u /proc/net/netstat",
 		"cat -u /proc/net/snmp6",
+		"cat -u /proc/loadavg",
+		"cat -u /proc/pressure/cpu",
+		"cat -u /proc/pressure/memory",
+		"cat -u /proc/pressure/io",
+		"cat -u /proc/vmstat",
+		"cat -u /proc/meminfo",
+		"cat -u /proc/diskstats",
 	)
+	commands = append(commands, cgroupEnd...)
 
 	return commands
 }
 
 func miscSystemCommands() []string {
 	return []string{
+		// Node load, pressure, memory and disk counters, collected again at the end
+		"cat /proc/loadavg",
+		"cat /proc/pressure/cpu",
+		"cat /proc/pressure/memory",
+		"cat /proc/pressure/io",
+		"cat /proc/vmstat",
+		"cat /proc/meminfo",
+		"cat /proc/diskstats",
 		// We want to collect this twice: at the very beginning and at the
 		// very end of the bugtool collection, to see if the counters are
 		// increasing.
@@ -263,6 +281,19 @@ func bpfCgroupCommands() []string {
 	return commands
 }
 
+// hostCgroupCommands dumps CPU, memory and IO usage and pressure of the node's pod and service cgroups.
+func hostCgroupCommands() (start, end []string) {
+	for _, mnt := range cgroup2fsMounts() {
+		if matches, _ := filepath.Glob(filepath.Join(mnt, "kubepods*")); len(matches) == 0 {
+			continue
+		}
+		find := fmt.Sprintf(`find %s -maxdepth 4 \( -name cpu.stat -o -name memory.current -o -name memory.stat -o -name memory.events -o -name io.stat -o -name '*.pressure' \) -exec grep -H`, mnt)
+		// grep -U has no effect on Linux and gives the end copy its own file name
+		return []string{find + " . {} +"}, []string{find + " -U . {} +"}
+	}
+	return nil, nil
+}
+
 func bpfMapDumpCommands(mapPathsPatterns []string) []string {
 	bpffsMountpoint := bpffsMountpoint()
 	if bpffsMountpoint == "" {
@@ -338,6 +369,12 @@ func catCommands() []string {
 		"/proc/kallsyms",
 		"/proc/buddyinfo",
 		"/proc/pagetypeinfo",
+		// Cgroup of the container bugtool runs in, normally cilium-agent
+		"/sys/fs/cgroup/cpu.pressure",
+		"/sys/fs/cgroup/memory.pressure",
+		"/sys/fs/cgroup/io.pressure",
+		"/sys/fs/cgroup/memory.stat",
+		"/sys/fs/cgroup/memory.events",
 		"/etc/resolv.conf",
 		"/var/log/docker.log",
 		"/var/log/daemon.log",
