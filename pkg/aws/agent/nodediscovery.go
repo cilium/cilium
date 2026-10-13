@@ -54,6 +54,7 @@ func applyENISpec(in nodediscovery.ENIMutateInputs, info awsMetadata.MetaDataInf
 		overrideFromNetConf(in.Logger, &nodeResource.Spec, c, info)
 	}
 	applyInstanceFacts(&nodeResource.Spec, info)
+	nodediscovery.SeedPoolRequest(&nodeResource.Spec, in.IPv4Enabled, in.IPv6Enabled)
 }
 
 // applyAgentConfiguration writes the fields chosen by the agent
