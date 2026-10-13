@@ -449,6 +449,14 @@ jobs:
           version: ${{ matrix.version }}
           addons: "coredns kube-proxy"
 
+      - name: Start the control-plane probes
+        id: control-plane-probe
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: ./.github/actions/control-plane-probe
+        with:
+          mode: start
+
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
         uses: ./.github/actions/get-cloud-kubeconfig
@@ -692,6 +700,18 @@ jobs:
           full-test: 'true'
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
+
+      - name: Stop the control-plane probes
+        if: ${{ always() && steps.control-plane-probe.outcome != 'skipped' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: ./.github/actions/control-plane-probe
+        with:
+          mode: stop
+          job_status: ${{ job.status }}
+          provider: eks
+          cluster: ${{ steps.setup-cluster.outputs.cluster_name }}
+          location: ${{ matrix.region }}
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
