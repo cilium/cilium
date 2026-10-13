@@ -95,7 +95,9 @@ func TestLostCurlExitCode(t *testing.T) {
 	// The curl write-out line the connectivity tests use, followed by the
 	// response code. On a 503 with --fail --show-error, curl also prints its
 	// own error to stderr and exits 22.
-	const writeOut = "172.20.0.5:49964 -> 172.20.0.3:30134 = 503\n"
+	const writeOut = "172.20.0.5:49964 -> 172.20.0.3:30134 = 503 t_dns=0.000456" +
+		" t_conn=0.000921 t_tls=0.000000 t_tot=0.001834 exit=22" +
+		" err=The requested URL returned error: 503\n"
 	const curlErr = "curl: (22) The requested URL returned error: 503"
 
 	tests := []struct {
@@ -120,9 +122,10 @@ func TestLostCurlExitCode(t *testing.T) {
 			wantLost: true,
 		},
 		{
-			name:     "curl timeout error",
-			stdout:   "",
-			stderr:   "curl: (28) Connection timed out",
+			name: "curl timeout error",
+			stdout: ":-1 -> :-1 = 000 t_dns=0.000115 t_conn=0.000000 t_tls=0.000000" +
+				" t_tot=2.001994 exit=28 err=Connection timed out after 2001 milliseconds\n",
+			stderr:   "curl: (28) Connection timed out after 2001 milliseconds",
 			wantCode: ExitCurlTimeout,
 			wantLost: true,
 		},
@@ -130,8 +133,9 @@ func TestLostCurlExitCode(t *testing.T) {
 			// Genuine success: curl printed a response code but no error
 			// marker. This must NOT be treated as a lost exit status, so a
 			// real unexpected success is still reported as a failure.
-			name:     "successful curl, no error marker",
-			stdout:   "172.20.0.5:49964 -> 172.20.0.3:30134 = 200\n",
+			name: "successful curl, no error marker",
+			stdout: "172.20.0.5:49964 -> 172.20.0.3:30134 = 200 t_dns=0.000456" +
+				" t_conn=0.000921 t_tls=0.001503 t_tot=0.001834 exit=0 err=\n",
 			stderr:   "",
 			wantCode: ExitInvalidCode,
 			wantLost: false,
