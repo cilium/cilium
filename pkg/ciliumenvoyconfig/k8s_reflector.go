@@ -180,20 +180,22 @@ func registerCECK8sReflector(
 
 		servicePorts := map[loadbalancer.ServiceName]sets.Set[string]{}
 		for _, l := range spec.Services {
-			ports := servicePorts[l.ServiceName()]
+			svcName := loadbalancer.NewServiceName(l.Namespace, l.Name)
+			ports := servicePorts[svcName]
 			if ports == nil {
 				ports = sets.New[string]()
-				servicePorts[l.ServiceName()] = ports
+				servicePorts[svcName] = ports
 			}
 			for _, p := range l.Ports {
 				ports.Insert(strconv.Itoa(int(p)))
 			}
 		}
 		for _, l := range spec.BackendServices {
-			ports := servicePorts[l.ServiceName()]
+			svcName := loadbalancer.NewServiceName(l.Namespace, l.Name)
+			ports := servicePorts[svcName]
 			if ports == nil {
 				ports = sets.New[string]()
-				servicePorts[l.ServiceName()] = ports
+				servicePorts[svcName] = ports
 			}
 			for _, p := range l.Ports {
 				ports.Insert(p)
