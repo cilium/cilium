@@ -41,6 +41,9 @@ func setBasePermutations(t *config.Node) {
 	t.EnableIPMasqAgentIPv4 = true
 	t.EnableIPMasqAgentIPv6 = true
 	t.EnableMasqueradeIPv6 = true
+	t.SRv6Cfg = types.SRv6Config{
+		EnableSRHEncap: true,
+	}
 	t.DSRCfg = types.DSRConfig{
 		Enable:           true,
 		EnableICMPErrors: true,
