@@ -5,6 +5,7 @@ package sysdump
 
 import (
 	"regexp"
+	"time"
 
 	"github.com/google/gops/signal"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -78,6 +79,7 @@ const (
 	clustermeshCertgenCronJobFileName        = "clustermesh-generate-certs-cronjob-<ts>.yaml"
 	clustermeshCertManagerCertsFileName      = "clustermesh-certificates-<ts>.yaml"
 	metricsFileName                          = "metrics-%s-%s-<ts>.txt"
+	nodePressureFileName                     = "node-pressure-%s-<ts>.txt"
 	cniConfigMapFileName                     = "cni-configmap-<ts>.yaml"
 	cniConfigFileName                        = "cniconf-%s-%s-<ts>.txt"
 	eniconfigsFileName                       = "aws-eniconfigs-<ts>.yaml"
@@ -138,7 +140,18 @@ const (
 	timeFormat           = "20060102-150405"
 	lsCommand            = "/usr/bin/ls"
 	catCommand           = "/usr/bin/cat"
+	nodePressureTimeout  = 10 * time.Second
 )
+
+// nodePressureScript prints node-wide counters, then per-pod and per-service ones below the cgroup2 root in $1.
+const nodePressureScript = `exec 2>&1
+date -u +%FT%T.%NZ
+grep -H . /proc/pressure/{memory,io,cpu} /proc/loadavg /proc/meminfo /proc/vmstat /proc/diskstats
+cd "$1" || exit
+grep -sH . kubepods.slice/{,*/,*/*.slice/}{memory.{current,peak,events,pressure},{cpu,io}.pressure} system.slice/{,*.service/}memory.{current,peak,pressure}
+grep -sHE '^(anon|file|file_mapped|kernel|shmem|workingset_refault_(anon|file)|pgmajfault) ' kubepods.slice/{,*/,*/*.slice/}memory.stat system.slice/{,*.service/}memory.stat
+true
+`
 
 var (
 	awsENIConfigsGVR = schema.GroupVersionResource{
