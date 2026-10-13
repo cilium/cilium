@@ -59,6 +59,17 @@ lookup_ip4_node_id(__be32 ip4)
 	return node_value->id;
 }
 
+static __always_inline bool
+is_internal_node_ip(__be32 ip4)
+{
+	const struct node_value *node_value;
+
+	node_value = lookup_ip4_node(ip4);
+	if (!node_value)
+		return false;
+	return node_value->internalip;
+}
+
 # ifdef ENABLE_IPV6
 static __always_inline const struct node_value *
 lookup_ip6_node(const union v6addr *ip6)
@@ -82,6 +93,17 @@ lookup_ip6_node_id(const union v6addr *ip6)
 	if (!node_value->id)
 		return 0;
 	return node_value->id;
+}
+
+static __always_inline __u16
+is_internal_node_ip6(const union v6addr *ip6)
+{
+	const struct node_value *node_value;
+
+	node_value = lookup_ip6_node(ip6);
+	if (!node_value)
+		return false;
+	return node_value->internalip;
 }
 # endif /* ENABLE_IPV6 */
 
