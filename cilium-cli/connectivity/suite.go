@@ -91,6 +91,7 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 
 func setupConnectivityTests(ctx context.Context, connTest []*check.ConnectivityTest, hooks Hooks) error {
 	me := runner.MultiError{}
+	me.OnError = func(err error) { connTest[0].Failf("Setup failed: %s", err) }
 	for i := range connTest {
 		id := i
 		me.Go(func() error {
@@ -103,6 +104,7 @@ func setupConnectivityTests(ctx context.Context, connTest []*check.ConnectivityT
 func runConnectivityTests(ctx context.Context, connTests []*check.ConnectivityTest) error {
 	finish := make([]bool, len(connTests))
 	me := runner.MultiError{}
+	me.OnError = func(err error) { connTests[0].Failf("Test run failed: %s", err) }
 	for i := range connTests {
 		id := i
 		// Execute connectivity.Run() in its own goroutine, it might call Fatal()
