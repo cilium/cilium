@@ -1,6 +1,7 @@
 self-hosted-runner:
   labels:
-    - "ubuntu-24.04-arm64"
+    - "ubuntu-26.04-arm"
+    - "ubuntu-26.04"
 # Configuration for file paths. The keys are glob patterns to match to file
 # paths relative to the repository root. The values are the configurations for
 # the file paths. Note that the path separator is always '/'.
