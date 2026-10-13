@@ -75,7 +75,10 @@ type ProxyRequestContext struct {
 	// Error is a enum of [timeout, allow, denied, proxyerr].
 	UpstreamTime         spanstat.SpanStat
 	SemaphoreAcquireTime spanstat.SpanStat
+	EndpointLookupTime   spanstat.SpanStat
+	ServerLookupTime     spanstat.SpanStat
 	PolicyCheckTime      spanstat.SpanStat
+	RequestNotifyTime    spanstat.SpanStat
 	PolicyGenerationTime spanstat.SpanStat
 	DataplaneTime        spanstat.SpanStat
 	QnameLockTime        spanstat.SpanStat
