@@ -30,7 +30,10 @@ const (
 	upstreamTime      = "upstreamTime"
 	processingTime    = "processingTime"
 	semaphoreTime     = "semaphoreTime"
+	epLookupTime      = "endpointLookupTime"
+	serverLookupTime  = "serverLookupTime"
 	policyCheckTime   = "policyCheckTime"
+	requestNotifyTime = "requestNotifyTime"
 	policyGenTime     = "policyGenerationTime"
 	qnameLockTime     = "qnameLockTime"
 	updateEpCacheTime = "updateEpCacheTime"
@@ -159,8 +162,14 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 			stat.UpdateEpCacheTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, updateNmCacheTime).Observe(
 			stat.UpdateNmCacheTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, epLookupTime).Observe(
+			stat.EndpointLookupTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, serverLookupTime).Observe(
+			stat.ServerLookupTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, policyCheckTime).Observe(
 			stat.PolicyCheckTime.Total().Seconds())
+		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, requestNotifyTime).Observe(
+			stat.RequestNotifyTime.Total().Seconds())
 		metrics.ProxyUpstreamTime.WithLabelValues(metricError, metrics.L7DNS, dataplaneTime).Observe(
 			stat.DataplaneTime.Total().Seconds())
 	}
@@ -221,8 +230,10 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 		flow.addrInfo.DstIdentity = serverID
 	}
 
-	if dnsMsgDetails.Response && dnsMsgDetails.RCode == dns.RcodeSuccess && len(dnsMsgDetails.ResponseIPs) > 0 {
-		h.UpdateOnDNSMsg(lookupTime, ep, dnsMsgDetails.QName, dnsMsgDetails.ResponseIPs, int(dnsMsgDetails.TTL), stat)
+	if dnsMsgDetails.Response {
+		if dnsMsgDetails.RCode == dns.RcodeSuccess && len(dnsMsgDetails.ResponseIPs) > 0 {
+			h.UpdateOnDNSMsg(lookupTime, ep, dnsMsgDetails.QName, dnsMsgDetails.ResponseIPs, int(dnsMsgDetails.TTL), stat)
+		}
 		endMetric()
 	}
 
