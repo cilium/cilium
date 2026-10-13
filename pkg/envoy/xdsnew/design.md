@@ -40,10 +40,12 @@ must not prevent a later Envoy NACK from correcting the cache.
   cached protobuf and do not force publication.
 - ACKs prove acceptance only for the resource names and revisions communicated
   by their response.
-- NACK recovery changes only the rejected resource type and names communicated
-  by that response, preserving newer API changes. Caller rollback
-  covers its complete API transaction with the same per-resource guard.
-- Rollback state and removal tombstones remain only while live owners need them.
+- NACK recovery reverts still-current upserts of the rejected resource type and
+  names communicated by that response. Caller rollback covers its transaction's
+  upserts and removals while preserving superseding API changes.
+- NACKs cannot undo removals. Caller rollback may restore the values captured
+  atomically when deleting them. Desired state contains only live resources.
+- Rollback state remains only while live lifecycles need it.
 
 ## API and locking
 
@@ -55,9 +57,13 @@ mix Listener and NetworkPolicy changes.
 
 Callers may supply a WaitGroup to wait for Envoy's response. Bulk calls select
 the resource types to wait for explicitly; an empty selection creates no waits.
-The `WithRollback` variants also return a caller lifecycle, on which the caller
-eventually invokes either `Revert()` or `Finalize()`. All mutation APIs
-independently retain any rollback state needed for a later NACK.
+The `WithRollback` variants also return a non-nil rollback on success. Semantic
+changes get a caller lifecycle, on which the caller eventually invokes either
+`Revert()` or `Finalize()`.
+Semantic no-ops get a shared, stateless no-op handle; synchronous errors return nil.
+Caller rollback undoes eligible upserts and removals atomically. Resources absent
+before deletion are not reinserted. All mutation APIs independently retain any
+rollback state needed for a later NACK.
 
 ADS admin and metrics listeners immediately finalize any returned caller rollback
 handle after admission, retaining response-owned NACK recovery. They do not
@@ -106,7 +112,7 @@ flowchart TD
     cache["cacheImpl<br/>Cache lock and shared generation source"]
     node["nodeState<br/>Persistent supported node and epoch<br/>Desired and published generation boundaries"]
     desired["resourceMaps<br/>Desired entries by TypeURL and name"]
-    entry["resourceEntry<br/>Immutable resource or removal tombstone<br/>Revision and originating TransactionID"]
+    entry["resourceEntry<br/>Immutable resource<br/>Revision and originating TransactionID"]
     types["resourceTypeState<br/>Changed names, aggregate and corrective generations<br/>Epoch negotiation and rollback ownership"]
     snapshot["ciliumSnapshot<br/>Latest installed immutable protocol view"]
     group["snapshotResourceGroup<br/>Immutable resources and aggregate generation<br/>Epoch-bound wire version for one TypeURL"]
@@ -133,7 +139,8 @@ Under the cache lock, a transaction:
 2. Prepares changes and ACK waits for names whose desired state is not accepted.
 3. Reserves a generation if resources change, then commits desired entries,
    records changed names, and registers ACK waits.
-4. Coalesces response-owned rollback state into the pending publication.
+4. Coalesces response-owned rollback state for changed upserts into the pending
+   publication. Response-owned recovery never retains removals.
 5. Publishes a snapshot if a directly affected watch is open.
 6. Creates a requested caller lifecycle after a successful commit or publication.
 
@@ -154,8 +161,7 @@ source. Three roles distinguish how that number is used:
 
 - `Generation`: a mutation number or a snapshot/response boundary.
 - `Revision`: when a named value last changed, whether by an API call or revert.
-- `TransactionID`: the API transaction which originally inserted or deleted that
-  value.
+- `TransactionID`: the API transaction which originally inserted that value.
 
 API changes assign the same number to the resource's revision and transaction ID.
 Reverts restore the previous value and transaction ID but assign a fresh revision.
@@ -186,8 +192,10 @@ desired changes: P0 → P1 → P2 → P3
 rollback state: previous=P0, expectedTransaction=transaction(P3)
 ```
 
-A net no-op chain can discard its response-owned rollback state. Once a response
-claims that state, it stops coalescing; subsequent updates begin another chain.
+A desired removal ends its name's unpublished or unsent rollback chain. A later upsert starts
+from absence. A net no-op chain can also discard its response-owned rollback
+state. Once a response claims that state, it stops coalescing; subsequent updates
+begin another chain.
 Returning desired state to the original value cannot discard a sent response's
 rollback state, because Envoy may still NACK it. Caller rollback remains
 independently owned in either case.
@@ -292,13 +300,16 @@ Named-resource coverage identifies the names whose state a response communicates
 including deletions where omission signals removal. Each stream keeps its own
 response identity per resource type. `OnStreamResponse` records the response's
 generation and named-resource coverage. Envoy supplies the corresponding ACK or
-NACK in a later request, matched by stream and nonce. A matching ACK or NACK can
-then complete the associated waits.
+NACK in a later request, matched by stream and nonce. A matching ACK can complete
+the associated waits; NACK handling depends on whether they require upserts or
+only removals.
 
 An ACK acknowledges only the names communicated by the response identified by
 the nonce. For types supporting deletion by omission (LDS, CDS, NPDS, NPHDS), this
 can include names within its subscription which are absent from the response. A
 multi-name wait succeeds only after every required name has been acknowledged.
+A repeated removal still requires valid ACK evidence despite retaining no
+desired entry. An older response containing the live resource cannot satisfy it.
 An ACK releases response-owned rollback once all of its required names have been
 acknowledged. Names from one API generation can have separate response-owned
 lifetimes.
@@ -317,7 +328,7 @@ flowchart TD
     coverage["responseCoverage<br/>Immutable group reference<br/>Requested and returned names"]
     wait["resourceWait<br/>One caller's ACK requirements and wait cleanup"]
     scope["ResourceScope<br/>Required names and revisions"]
-    rollback["rollbackLifecycle<br/>Cache-owned response recovery"]
+    rollback["responseRollback<br/>Cache-owned response recovery"]
 
     callbacks -->|nodes: node ID map| node
     node -->|typeURLs: Slots| types
@@ -351,7 +362,7 @@ If no published baseline exists, waits register against desired revisions and
 acquire their wire version at publication; a no-op does not force publication just
 to register a wait. Removing a resource from a node which has never held resources
 completes immediately. Restored absence uses the type's latest corrective
-generation without keeping per-name tombstones solely for waiting.
+generation without retaining absent resource entries.
 
 ### Listener-derived policy waits
 
@@ -369,8 +380,8 @@ ownership unchanged.
 ## NACK recovery
 
 A NACK rejects the resource type and names communicated by its response. The
-cache selects their still-current changes and leaves other types and unrequested
-names unchanged, even if they belong to the same bulk API transaction.
+cache selects their still-current upserts and leaves desired removals, other
+types, and unrequested names unchanged, even within one bulk API transaction.
 Unrequested names remain available to coalesce with later changes.
 
 NACK recovery uses the ordinary cache transaction. The cache lock prevents caller
@@ -384,27 +395,26 @@ Response delivery and caller wait completion run afterward.
 Rollback targets are adjusted to bypass rejected values of the affected names.
 If A is rejected after B replaces it, B remains desired, and its later rollback
 restores the value preceding the rejected A. This also applies to caller rollback
-after B is ACKed. Only live rollback state is retained; there is no rejection
-history.
+after B is ACKed. Rollback stores no history beyond these live lifecycles.
 
-Failed immediate publication leaves desired state unchanged and retains
-response-owned rollback state for a later response. Other rollback targets still
-bypass rejected predecessors: rejection is definitive even if corrective
-publication fails. Caller waits receive the original NACK, and the recovery error
-closes the stream.
-An ACK can release retained recovery state. The cache has no background retry
-loop.
+Failed immediate publication leaves desired state unchanged and retains response-owned
+rollback state for a later response. Other rollback targets still bypass rejected
+predecessors: rejection is definitive even if corrective publication fails.
+Waits covering rejected upserts receive the original NACK, and the recovery error
+closes the stream. An ACK can release retained recovery state. The cache has no
+background retry loop.
 
 ## Rollback ownership and lifetime
 
 The caller eventually invokes exactly one lifecycle method:
 
 - `Finalize()` releases its rollback state without changing desired resources.
-- `Revert()` restores entries only while their API transaction IDs match the
-  transaction being undone. It returns any error and releases caller ownership
-  whether it succeeds or fails.
+- `Revert()` restores upserted entries only while their API transaction IDs match the
+  transaction being undone. It also restores eligible removals, as described below.
+  It returns any error and releases caller ownership whether it succeeds or fails.
 
 Both calls are terminal. Duplicate calls warn and do nothing.
+Stateless no-op handles own no recovery state and may be invoked repeatedly.
 
 Successful API reuse of a live value prevents an earlier caller from reverting
 that value. Repeating a removal similarly invalidates earlier restoration claims.
@@ -413,24 +423,24 @@ transaction remain eligible. These rules apply before or after ACK, without
 changing revisions, ACK waits, or response-owned NACK recovery. A caller handle
 remains valid until resolved, even if all its recovery has been superseded.
 
-Caller and response lifecycles are separate objects. An Envoy ACK can precede a
-wider caller failure, so caller rollback remains usable after ACK. Conversely,
-caller cancellation, timeout, or early finalization cannot consume response-owned
+`callerRollback` and `responseRollback` have independent lifetimes. An Envoy ACK
+can precede a wider caller failure, so caller rollback remains usable after ACK.
+Caller cancellation, timeout, or early finalization cannot consume response-owned
 rollback state. Response-owned rollback state also survives failed recovery.
 
 ```mermaid
 flowchart TD
     node["nodeState<br/>Persistent desired-state owner"]
     state["rollbackState<br/>Live caller and response lifecycle sets"]
-    caller["rollbackLifecycle: caller-owned<br/>Terminal Revert or Finalize<br/>Usable after an Envoy ACK"]
-    response["rollbackLifecycle: response-owned<br/>Survives caller timeout or finalization<br/>Claimed by a response<br/>Retained after recovery failure"]
+    caller["callerRollback<br/>Terminal Revert or Finalize<br/>Usable after an Envoy ACK"]
+    response["responseRollback<br/>Survives caller timeout or finalization<br/>Claimed by a response<br/>Retained after recovery failure"]
     inverse["resources<br/>Caller rollback state"]
     singleton["singletonResource<br/>One TypeURL, name, and previous resourceEntry"]
     maps["resourceMaps<br/>Larger caller rollback state by TypeURL and name"]
     resources["rollbackResources<br/>Response recovery by name for one TypeURL"]
     entry["rollbackEntry<br/>Previous resourceEntry and expected TransactionID"]
-    types["resourceRollbackState<br/>Per-TypeURL unsent lifecycle reference<br/>Removal-owner counts by name and transaction"]
-    pending["pendingPublication<br/>Sparse per-TypeURL rollback state<br/>Not yet transferred to a response lifecycle"]
+    types["resourceTypeState<br/>Per-TypeURL unsent lifecycle reference"]
+    pending["pendingPublication<br/>Sparse per-TypeURL upsert rollback state<br/>Awaiting transfer to a response lifecycle"]
 
     node -->|pendingPublication: optional| pending
     pending -->|rollbacks: Map| resources
@@ -440,30 +450,50 @@ flowchart TD
     caller -.->|persistent state reference| node
     response -.->|persistent state reference| node
     caller -->|inverse| inverse
+    caller -->|removed: optional deleted values| inverse
     inverse -->|singleton| singleton
     inverse -->|entries| maps
     response -->|resources| resources
     resources -->|name entries| entry
-    node -->|typeStates slot: rollbacks| types
-    types -.->|unsent| response
+    node -->|typeStates slot| types
+    types -.->|unsentRollback| response
 ```
 
 ### Removals and rollback lifetime
 
-For SotW EDS/RDS/SDS, omitting a resource does not tell Envoy to delete it.
-Envoy may retain its previous configuration while a parent still references it.
-A removal which leaves the resource absent from the snapshot therefore needs no
-response-owned rollback state. Caller rollback can still restore that removal.
+Successful admission removes the desired entry. A NACK leaves that removal intact,
+even when another upsert from the same transaction is reverted. Admission ends
+the name's unpublished and unsent response-recovery chains; a later upsert starts
+from absence. A failed admission restores the previous desired state.
 
-Removing a CLA still referenced by a cached Cluster is different: the snapshot
-supplies a named, empty CLA, explicitly replacing its old endpoint list. That
-change can be ACKed or NACKed and retains response-owned rollback state even
-before publication.
+A caller lifecycle retains the actual deleted value from the deleting transaction.
+Caller rollback restores it only while the name is absent and no newer API
+deletion has superseded the claim. Even deleting an already absent name supersedes
+older claims, preventing an add/delete sequence from making an old rollback
+actionable again. A NACK can rebase a saved value so caller rollback cannot
+resurrect rejected state. No removed entry remains in desired state.
 
-Removal tombstones retain the transaction identity needed to guard rollback.
-They remain only while caller or response recovery needs them. Releasing the last
-owner drops the tombstone; an unsent add/remove chain which becomes a no-op can
-release its response-owned rollback state without consuming caller rollback.
+A resource-type wait requiring only removals remains pending after a NACK until
+a later ACK communicates the required state or its WaitGroup's context ends. Mixed
+upsert/removal waits for the rejected type retain ordinary NACK failure handling.
+Upserts of other types in the same transaction do not make its removal-only wait
+fail. As with other coalesced waits, a later ACK can resolve a superseded removal.
+Responses need no new cache mutation to retry: after a NACK, Envoy requests its
+last accepted version again.
+
+New removal waits after a NACK conservatively require ACK evidence at least as
+new as the latest rejection for that type. This prevents subsequent NACKs from
+reviving older absence evidence without retaining deletion history.
+
+SotW LDS/CDS/NPDS/NPHDS communicate deletion by omission. EDS/RDS/SDS omission
+does not delete a resource, so its ACK cannot satisfy a removal wait. Envoy may
+retain that configuration while a parent references it. Removing a CLA still
+referenced by a cached Cluster projects a named, empty CLA, which can satisfy
+the wait when ACKed. A NACK still leaves the desired CLA absent.
+
+ACK waits retain their revision requirements separately from desired state and
+rollback lifecycles. A removal using a `WithRollback` API needs caller resolution
+even after its ACK wait completes; plain removals need no caller lifecycle.
 
 ## Stream disconnect, reconnect, and startup
 
@@ -489,10 +519,9 @@ lifecycles. A later response can resolve the generations it communicates togethe
 
 - `cache.go`: API transactions, snapshot construction/publication, and delivery.
 - `resources.go`: resource containers, prepared changes, and input validation.
-- `node_state.go`: persistent desired state, pending publication, and epoch
-  negotiation.
-- `rollback.go`: caller and response lifecycles, coalescing, rebasing, and
-  tombstone ownership.
+- `node_state.go`: persistent desired state, pending publication, epoch negotiation,
+  and node-local bookkeeping.
+- `rollback.go`: caller and response lifecycles, coalescing, and rebasing.
 - `callbacks/`: response identities, named-resource coverage, accepted state,
   ACK waits, NACK coordination, and stream lifecycle tracking.
 

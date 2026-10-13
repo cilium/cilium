@@ -11,7 +11,6 @@ import (
 	"maps"
 	"os"
 	"reflect"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -227,53 +226,6 @@ func TestGenerateSnapshotFromStateIncrementallyReusesPublishedMapAfterCoalescedA
 	require.NotEqual(t, previousSnapshot.GetVersion(typeurl.NetworkPolicyURL), nextSnapshot.GetVersion(typeurl.NetworkPolicyURL))
 }
 
-func TestRemoveNetworkPoliciesKeepsOtherResourceTypes(t *testing.T) {
-	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
-	ctx := t.Context()
-	rollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "missing", nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, rollback)
-	require.True(t, c.HasNode("node1"))
-
-	listener := &envoy_config_listener.Listener{Name: "listener"}
-	err = c.ApplyResource(ctx, "node1", typeurl.Listener, "listener", listener, nil)
-	require.NoError(t, err)
-	hosts := &cilium.NetworkPolicyHosts{Policy: 1}
-	err = c.ApplyResource(ctx, "node1", typeurl.NetworkPolicyHosts, "hosts", hosts, nil)
-	require.NoError(t, err)
-	for _, name := range []string{"first", "second"} {
-		err = c.ApplyResource(ctx, "node1", typeurl.NetworkPolicy, name, &cilium.NetworkPolicy{EndpointId: 1}, nil)
-		require.NoError(t, err)
-	}
-	before := c.resourceGeneration
-	var removalRollbacks []Rollback
-	for _, name := range []string{"first", "second"} {
-		rollback, err = c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, name, nil, nil)
-		require.NoError(t, err)
-		removalRollbacks = append(removalRollbacks, rollback)
-	}
-	require.Equal(t, before+2, c.resourceGeneration)
-	for _, name := range []string{"first", "second"} {
-		require.Nil(t, c.GetResource("node1", typeurl.NetworkPolicy, name))
-	}
-	resource := c.GetResource("node1", typeurl.Listener, "listener")
-	require.NotNil(t, resource)
-	require.Same(t, listener, resource)
-	resource = c.GetResource("node1", typeurl.NetworkPolicyHosts, "hosts")
-	require.NotNil(t, resource)
-	require.Same(t, hosts, resource)
-
-	noRollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "first", nil, nil)
-	require.NoError(t, err)
-	require.Nil(t, noRollback)
-	require.Equal(t, before+2, c.resourceGeneration)
-	for i := range slices.Backward(removalRollbacks) {
-		require.NoError(t, removalRollbacks[i].Revert())
-	}
-	require.Nil(t, c.GetResource("node1", typeurl.NetworkPolicy, "first"), "the repeated removal supersedes earlier caller recovery")
-	require.NotNil(t, c.GetResource("node1", typeurl.NetworkPolicy, "second"), "an unrelated removal remains revertible")
-}
-
 func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
 	for _, unpublishedEndpoint := range []bool{false, true} {
 		name := "published"
@@ -374,7 +326,7 @@ func TestPublicationInstallationRequiresSnapshotIdentity(t *testing.T) {
 			if installed {
 				require.NoError(t, err, "an error after installation must not undo committed state")
 				require.NotNil(t, rollback)
-				t.Cleanup(rollback.Finalize)
+				rollback.Finalize()
 				require.NotSame(t, baseline, published)
 				require.True(t, proto.Equal(assignment, published.GetResources(typeurl.Endpoint.URL())["cluster"]),
 					"incremental projection may reuse the identical empty CLA")
@@ -455,10 +407,6 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 				mock.setSnapshotErr = publicationErr
 				if mode == "caller-revert" {
 					require.ErrorIs(t, rollback.Revert(), publicationErr)
-					// RDS omission does not convey deletion. Terminal caller
-					// resolution releases the removed name's sole owner, so its
-					// tombstone is pruned while desired absence is preserved.
-					delete(before, "removed")
 				} else {
 					t.Cleanup(rollback.Finalize)
 					response := publishedResponseForTest(t, c, node, typeurl.Route)
@@ -475,7 +423,7 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 				}
 			}
 			// Failure restores complete entries, not just protobufs. This covers
-			// prior absence, removal tombstones, and replacement generations even
+			// prior absence, removals, and replacement generations even
 			// when a revert has no separately constructed inverse maps.
 			require.Equal(t, before, c.getNodeState(nodeID).resourceEntries(typeurl.Route))
 			require.Equal(t, previousGeneration, c.getNodeState(nodeID).resourceGeneration)
@@ -730,7 +678,6 @@ func TestGetResourceByTypeAndName(t *testing.T) {
 	for _, resource := range resources {
 		state.seedResource(resource.typeURL, resource.name, resource.want)
 	}
-	state.resources[typeurl.Listener]["removed"] = resourceEntry{revision: callbacks.Generation(1).Revision(), transaction: callbacks.Generation(1).TransactionID()}
 
 	for _, tt := range resources {
 		got := c.GetResource("node1", tt.typeURL, tt.name)
@@ -869,11 +816,13 @@ func TestNPDSListenerCountTracksCommittedTransitions(t *testing.T) {
 	require.Equal(t, 1, observer.count)
 
 	require.NoError(t, rollback.Revert())
-	require.Equal(t, 2, observer.count)
+	require.Equal(t, 2, observer.count, "caller rollback restores removed listeners too")
+	require.Same(t, listenerA, c.GetResource("node1", typeurl.Listener, listenerA.Name))
 
 	rollback, err = c.ApplyResourceWithRollback(t.Context(), "node1", typeurl.Listener, listenerB.Name, proto.Clone(listenerB).(*envoy_config_listener.Listener), nil)
 	require.NoError(t, err)
-	require.Nil(t, rollback)
+	require.NotNil(t, rollback)
+	rollback.Finalize()
 	require.Equal(t, 2, observer.count)
 
 	listenerC := &envoy_config_listener.Listener{Name: "non-npds-c"}
@@ -910,7 +859,8 @@ func TestNetworkPolicyWaitsCompleteWhenLastNPDSListenerIsRemoved(t *testing.T) {
 	defer noOpWG.Cancel()
 	noOpRollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy", policy, noOpWG)
 	require.NoError(t, err)
-	require.Nil(t, noOpRollback)
+	require.NotNil(t, noOpRollback)
+	noOpRollback.Finalize()
 	require.Equal(t, 2, c.completionCbs.PendingCompletionCount())
 
 	// Replacing one NPDS listener with another in one transaction must not
@@ -1140,8 +1090,8 @@ func TestListenerRemovalPreservesUnchangedTypeWatches(t *testing.T) {
 	default:
 	}
 
-	// A listener watch now consumes the pending removal. Only LDS has a changed
-	// version, so its ACK must release the last response rollback and tombstone.
+	// A listener watch consumes the published removal while the unchanged RDS
+	// watch remains open. The removal itself needs no rollback lifecycle.
 	listenerResponses = make(chan cache.Response, 1)
 	cancelListener, err = c.CreateWatch(&cache.Request{
 		Node: node, TypeUrl: envoy_resource.ListenerType,
@@ -1154,9 +1104,8 @@ func TestListenerRemovalPreservesUnchangedTypeWatches(t *testing.T) {
 
 	state := c.getNodeState(node.GetId())
 	state.requireNoUnsentRollbacks(t)
-	state.requireNoRollbackOwners(t)
 	require.Empty(t, state.resources[typeurl.Listener],
-		"an ACKed removal must not retain a tombstone for unchanged resource types")
+		"a removal must not retain desired entries for unchanged dependent types")
 	select {
 	case <-routeResponses:
 		t.Fatal("unchanged RDS watch unexpectedly received the listener update")
@@ -1166,7 +1115,7 @@ func TestListenerRemovalPreservesUnchangedTypeWatches(t *testing.T) {
 	state = c.getNodeState(node.GetId())
 	require.NotNil(t, state, "known nodes persist after their last resource is removed")
 	require.Empty(t, state.resources[typeurl.Listener])
-	state.requireNoRollbackOwners(t)
+	state.requireNoUnsentRollbacks(t)
 	state.requireNoUnsentRollbacks(t)
 }
 
@@ -1328,9 +1277,12 @@ func TestApplyResourceSupportsAllResourceTypes(t *testing.T) {
 			require.NotNil(t, actual)
 			require.Same(t, tt.resource, actual)
 
-			err = c.ApplyResource(t.Context(), "node1", tt.typeURL, "resource", tt.removed, nil)
+			rollback, err := c.ApplyResourceWithRollback(t.Context(), "node1", tt.typeURL, "resource", tt.removed, nil)
 			require.NoError(t, err)
+			require.NotNil(t, rollback)
 			require.Nil(t, c.GetResource("node1", tt.typeURL, "resource"))
+			require.NoError(t, rollback.Revert())
+			require.Same(t, tt.resource, c.GetResource("node1", tt.typeURL, "resource"))
 		})
 	}
 }
@@ -1759,11 +1711,13 @@ func TestEmptyKnownNodeRemovalIsNoOp(t *testing.T) {
 			}
 			rollback, err := c.ApplyResourcesWithRollback(ctx, "node1", mutations, waitGroup, waits)
 			require.NoError(t, err)
-			require.Nil(t, rollback)
+			require.NotNil(t, rollback)
+			rollback.Finalize()
 			if !bulkNilUpsert {
 				rollback, err = c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy", nil, wg)
 				require.NoError(t, err)
-				require.Nil(t, rollback)
+				require.NotNil(t, rollback)
+				rollback.Finalize()
 			}
 			require.NoError(t, wg.Wait())
 			require.True(t, c.HasNode("node1"))
@@ -1813,8 +1767,8 @@ func TestUntrackedPublicationPreservesEarlierUpdate(t *testing.T) {
 				lds := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 				lds.reply(t, lds.receive(t), "")
 				require.NoError(t, c.ApplyResource(ctx, nodeID, index, "resource", nil, nil))
-				// The next update changes LDS while response recovery owns the
-				// unacknowledged Cluster removal.
+				// The next update changes LDS while the Cluster removal has
+				// not yet been communicated. It owns no response rollback.
 				watchType = typeurl.Listener
 			}
 			if !test.pendingRemoval {
@@ -1861,9 +1815,8 @@ func TestUntrackedPublicationPreservesEarlierUpdate(t *testing.T) {
 				response := s.receive(t)
 				require.Empty(t, response.Resources)
 				s.reply(t, response, "Cluster removal rejected")
-				require.Same(t, first, c.GetResource(nodeID, index, "resource"),
-					"publication recovery must retain ownership so the pending NACK can restore the removal")
-				c.getNodeState(nodeID).requireNoRollbackOwners(t)
+				require.Nil(t, c.GetResource(nodeID, index, "resource"),
+					"an unrelated publication failure must not make a removal revertible by NACK")
 				return
 			}
 			requireCoveragePending(t, done)

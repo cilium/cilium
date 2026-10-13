@@ -117,8 +117,9 @@ func (cb *CompletionCallbacks) finishNACKLocked(recovery *nackRecovery) {
 }
 
 // complete runs without either cache or callbacks locks: both finalization and
-// caller callbacks can reenter cache APIs. Waiters receive the original NACK,
-// even when recovery failed and its returned error will close the stream.
+// caller callbacks can reenter cache APIs. Rejected upsert waiters receive the
+// original NACK even when recovery failed and its returned error closes the
+// stream. Removal-only waits remain registered for a later ACK or cancellation.
 func (recovery *nackRecovery) complete() {
 	for _, rollback := range recovery.finalizers {
 		rollback.Finalize()
