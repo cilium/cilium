@@ -496,6 +496,7 @@ func TestWaitForDNSProxyReadyNotGated(t *testing.T) {
 
 	t.Run("no DNS redirect", func(t *testing.T) {
 		e := &Endpoint{proxy: newGateTestProxy(neverReady), aliveCtx: context.Background()}
+		e.UpdateLogger(nil)
 		sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{httpTuple()}}
 		select {
 		case err := <-runGate(e, sp):
@@ -507,6 +508,7 @@ func TestWaitForDNSProxyReadyNotGated(t *testing.T) {
 
 	t.Run("proxy disabled", func(t *testing.T) {
 		e := &Endpoint{aliveCtx: context.Background()}
+		e.UpdateLogger(nil)
 		sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}
 		select {
 		case err := <-runGate(e, sp):
@@ -522,6 +524,7 @@ func TestWaitForDNSProxyReadyNotGated(t *testing.T) {
 func TestWaitForDNSProxyReadyWaitsForReady(t *testing.T) {
 	ready := make(chan struct{})
 	e := &Endpoint{proxy: newGateTestProxy(ready), aliveCtx: context.Background()}
+	e.UpdateLogger(nil)
 	sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}
 
 	done := runGate(e, sp)
@@ -548,6 +551,7 @@ func TestWaitForDNSProxyReadyCtxCancel(t *testing.T) {
 	neverReady := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
 	e := &Endpoint{proxy: newGateTestProxy(neverReady), aliveCtx: ctx}
+	e.UpdateLogger(nil)
 	sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}
 
 	done := runGate(e, sp)
