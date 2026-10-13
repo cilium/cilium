@@ -1600,7 +1600,18 @@ func (c *Collector) Run() error {
 	if c.Options.CiliumNamespace != "" || c.Options.CiliumOperatorNamespace != "" {
 		tasks = append(tasks, ciliumTasks...)
 
+		// First serial task, so it samples the nodes before the sysdump adds its own load.
 		serialTasks = append(serialTasks, Task{
+			CreatesSubtasks: true,
+			Description:     "Collecting node memory pressure from Cilium pods",
+			Quick:           true,
+			Task: func(_ context.Context) error {
+				if err := c.submitNodePressureTasks(c.CiliumPods); err != nil {
+					return fmt.Errorf("failed to collect node memory pressure from Cilium pods: %w", err)
+				}
+				return nil
+			},
+		}, Task{
 			CreatesSubtasks: true,
 			Description:     "Collecting profiling data from Cilium pods",
 			Quick:           false,
@@ -2644,6 +2655,35 @@ func (c *Collector) submitCiliumBugtoolTasks(pods []*corev1.Pod) error {
 			return nil
 		}); err != nil {
 			return fmt.Errorf("failed to submit 'cilium-bugtool' task for %q: %w", p.Name, err)
+		}
+	}
+	return nil
+}
+
+func (c *Collector) submitNodePressureTasks(pods []*corev1.Pod) error {
+	cgroupRoot := ciliumdef.DefaultCgroupRoot
+	if c.CiliumConfigMap != nil && c.CiliumConfigMap.Data["cgroup-root"] != "" {
+		cgroupRoot = c.CiliumConfigMap.Data["cgroup-root"]
+	}
+	for _, p := range pods {
+		if !podIsRunningAndHasContainer(p, ciliumAgentContainerName) {
+			continue
+		}
+		filename := fmt.Sprintf(nodePressureFileName, p.Name)
+		if err := c.Pool.Submit(filename, func(ctx context.Context) error {
+			ctx, cancel := context.WithTimeout(ctx, nodePressureTimeout)
+			defer cancel()
+			o, err := c.Client.ExecInPod(ctx, p.Namespace, p.Name, ciliumAgentContainerName,
+				[]string{"bash", "-c", nodePressureScript, "node-pressure", cgroupRoot})
+			if werr := c.WriteString(filename, o.String()); werr != nil {
+				err = errors.Join(err, werr)
+			}
+			if err != nil {
+				return fmt.Errorf("failed to collect node memory pressure from %s/%s: %w", p.Namespace, p.Name, err)
+			}
+			return nil
+		}); err != nil {
+			return fmt.Errorf("failed to submit node memory pressure task for %q: %w", p.Name, err)
 		}
 	}
 	return nil

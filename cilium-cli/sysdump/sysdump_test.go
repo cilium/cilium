@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/blang/semver/v4"
+	"github.com/cilium/workerpool"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
@@ -284,6 +285,50 @@ func TestKVStoreTask(t *testing.T) {
 	data, err := safeio.ReadAllLimit(fd, safeio.KB)
 	assert.NoError(err)
 	assert.Equal([]byte("{}"), data)
+}
+
+func TestNodePressureTask(t *testing.T) {
+	assert := assert.New(t)
+	client := &fakeClient{
+		nodeList: &corev1.NodeList{
+			Items: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}}},
+		},
+		execs: make(map[execRequest]execResult),
+	}
+	client.expectExec("ns0", "pod0", defaults.AgentContainerName,
+		[]string{"bash", "-c", nodePressureScript, "node-pressure", "/custom/cgroupv2"},
+		[]byte("/proc/pressure/memory:some avg10=0.00 avg60=0.00 avg300=0.00 total=1\n"), nil,
+		fmt.Errorf("command terminated with exit code 1"))
+	options := Options{
+		OutputFileName: "my-sysdump-<ts>",
+		Writer:         io.Discard,
+	}
+	collector, err := NewCollector(client, options, &nopHooks{}, time.Now())
+	assert.NoError(err)
+	collector.CiliumConfigMap = &corev1.ConfigMap{Data: map[string]string{"cgroup-root": "/custom/cgroupv2"}}
+	collector.Pool = workerpool.New(1)
+	agent := []corev1.Container{{Name: defaults.AgentContainerName}}
+	pods := []*corev1.Pod{
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "pod0", Namespace: "ns0"},
+			Spec:       corev1.PodSpec{Containers: agent},
+			Status:     corev1.PodStatus{Phase: corev1.PodRunning},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "pod1", Namespace: "ns0"},
+			Spec:       corev1.PodSpec{Containers: agent},
+			Status:     corev1.PodStatus{Phase: corev1.PodPending},
+		},
+	}
+	assert.NoError(collector.submitNodePressureTasks(pods))
+	results, err := collector.Pool.Drain()
+	assert.NoError(err)
+	assert.NoError(collector.Pool.Close())
+	assert.Len(results, 1)
+	assert.ErrorContains(results[0].Err(), "exit code 1")
+	data, err := os.ReadFile(collector.AbsoluteTempPath(fmt.Sprintf(nodePressureFileName, "pod0")))
+	assert.NoError(err)
+	assert.Contains(string(data), "/proc/pressure/memory:some")
 }
 
 func TestListCiliumEndpointSlices(t *testing.T) {
