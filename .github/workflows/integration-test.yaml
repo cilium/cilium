@@ -89,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ["${{ vars.UBUNTU_2604_AMD64_4CPU_16GB }}", "${{ vars.UBUNTU_2604_ARM64_4CPU_16GB }}"]
+        arch: ["${{ vars.UBUNTU_2604_AMD64_4CPU_16GB }}", "${{ vars.UBUNTU_2604_ARM64_2CPU_8GB }}"]
     runs-on: ${{ matrix.arch }}
     timeout-minutes: 45
     steps:
