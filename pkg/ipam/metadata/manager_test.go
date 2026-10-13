@@ -206,6 +206,9 @@ func TestManager_GetIPPoolForPod(t *testing.T) {
 				t.Errorf("GetIPPoolForPod() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, ipam.ErrAllocationPending)
+			}
 			if gotPool != tt.wantPool {
 				t.Errorf("GetIPPoolForPod() gotPool = %v, want %v", gotPool, tt.wantPool)
 			}
@@ -242,6 +245,7 @@ func TestManager_handlePoolEvent_UpsertAndDelete(t *testing.T) {
 	// poolsSynced is false, should not compile pool
 	_, err = m.GetIPPoolForPod("p1", ipam.IPv4)
 	require.ErrorIs(t, err, ErrManagerPoolsNotSynced)
+	require.ErrorIs(t, err, ipam.ErrAllocationPending)
 	err = m.handlePoolEvent(ctx, k8sresource.Event[*v2api.CiliumPodIPPool]{Kind: k8sresource.Sync, Object: p1, Done: func(error) {}})
 	require.NoError(t, err)
 	// pool should be marked as synced now
