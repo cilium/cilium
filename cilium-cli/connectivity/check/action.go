@@ -408,6 +408,7 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 				a.test.Debugf("command %q failed as expected: %s", cmdStr, err)
 			} else {
 				a.Failf("command %q failed with unexpected exit code: %s (expected %d, found %d)", cmdStr, err, expectedExitCode, exitCode)
+				showOutput = true
 			}
 		}
 	} else if curlCode, lost := lostCurlExitCode(output, errOutput); lost {
