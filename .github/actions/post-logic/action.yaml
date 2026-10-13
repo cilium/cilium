@@ -74,6 +74,7 @@ runs:
       with:
         name: "features-tested-${{ inputs.artifacts_suffix }}"
         path: ./features-tested-*.json
+        if-no-files-found: ${{ inputs.capture_features_tested == 'false' && 'ignore' || 'warn' }}
 
     - name: Publish Test Results As GitHub Summary
       id: publish_results
