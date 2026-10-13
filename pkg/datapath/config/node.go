@@ -182,5 +182,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableIPSec = lnc.EnableIPSec
 
+	node.EnableSharedPolicy = option.Config.EnableSharedPolicy
+
 	return node
 }
