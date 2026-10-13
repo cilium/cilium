@@ -551,6 +551,20 @@ jobs:
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods -n kube-system
 
+      - name: Start the EKS node-loss watchdog
+        id: eks-watchdog
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          CLUSTER_NAME: ${{ steps.setup-cluster.outputs.cluster_name }}
+          ARTIFACTS_SUFFIX: "eks-${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
+        run: |
+          kubectl get nodes -o json --request-timeout=60s > "${RUNNER_TEMP}/eks-nodes-baseline.json"
+          setsid bash .github/actions/eks-cluster-forensics/watchdog.sh \
+            "${ARTIFACTS_SUFFIX}" "${RUNNER_TEMP}/eks-nodes-baseline.json" \
+            < /dev/null > "${RUNNER_TEMP}/eks-node-loss-watchdog.log" 2>&1 &
+          echo "$!" > "${RUNNER_TEMP}/eks-node-loss-watchdog.pid"
+
       - name: Add external targets to the cluster
         uses: ./.github/actions/generic-external-targets
         id: external_targets
@@ -713,6 +727,23 @@ jobs:
           cluster: ${{ steps.setup-cluster.outputs.cluster_name }}
           location: ${{ matrix.region }}
 
+      - name: Stop the EKS node-loss watchdog
+        if: ${{ always() && steps.eks-watchdog.outcome != 'skipped' }}
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          MATRIX_INFO: ${{ join(matrix.*, ', ') }}
+        run: |
+          pid="$(cat "${RUNNER_TEMP}/eks-node-loss-watchdog.pid" 2>/dev/null || true)"
+          if [[ "${pid}" =~ ^[0-9]+$ ]]; then
+            kill -- "-${pid}" 2>/dev/null || true
+          fi
+          log="${RUNNER_TEMP}/eks-node-loss-watchdog.log"
+          cat "${log}" 2>/dev/null || true
+          if drop="$(grep -m1 '^Node count dropped' "${log}" 2>/dev/null)"; then
+            echo "::warning title=EKS node loss::${MATRIX_INFO}: ${drop}, see the eks-cluster-forensics artifact"
+          fi
+
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
@@ -720,6 +751,18 @@ jobs:
           artifacts_suffix: "eks-${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
           job_status: "${{ job.status }}"
           capture_features_tested: false
+          eks_cluster_name: ${{ steps.setup-cluster.outputs.cluster_name }}
+          eks_node_baseline: ${{ runner.temp }}/eks-nodes-baseline.json
+
+      - name: Upload EKS cluster forensics
+        if: ${{ always() }}
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: "eks-cluster-forensics-eks-${{ join(matrix.*, '-') }}-${{ inputs.UID }}"
+          path: eks-cluster-forensics-*.tar.gz
+          if-no-files-found: ignore
 
       # Surface quarantined failures. continue-on-error makes the job (and thus
       # the workflow) succeed even when a step failed, so without this the
