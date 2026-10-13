@@ -787,7 +787,7 @@ type NodeValue struct {
 	_   structs.HostLayout
 	ID  uint16
 	SPI uint8
-	Pad uint8
+	_   [1]byte
 }
 
 // PolicyEntry is generated from the BPF C type policy_entry.

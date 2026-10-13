@@ -31,7 +31,7 @@ const (
 type MapV2 interface {
 	// Update inserts or updates the node map object associated with the provided
 	// IP, node id, and SPI.
-	Update(ip netip.Addr, nodeID uint16, SPI uint8) error
+	Update(ip netip.Addr, nodeID uint16, SPI uint8, internalIP bool) error
 
 	// Delete deletes the node map object associated with the provided
 	// IP.
@@ -105,14 +105,17 @@ func newNodeKey(ip netip.Addr) NodeKey {
 }
 
 type NodeValueV2 struct {
-	NodeID uint16
-	SPI    uint8
-	Pad    uint8
+	NodeID     uint16
+	SPI        uint8
+	InternalIP uint8
 }
 
-func (m *nodeMapV2) Update(ip netip.Addr, nodeID uint16, SPI uint8) error {
+func (m *nodeMapV2) Update(ip netip.Addr, nodeID uint16, SPI uint8, internalIP bool) error {
 	key := newNodeKey(ip)
 	val := NodeValueV2{NodeID: nodeID, SPI: SPI}
+	if internalIP {
+		val.InternalIP = 1
+	}
 	if err := m.bpfMap.Update(key, val, 0); err != nil {
 		return fmt.Errorf("failed to update node map: %w", err)
 	}
