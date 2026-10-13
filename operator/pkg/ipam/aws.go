@@ -17,7 +17,9 @@ import (
 	ipamMetrics "github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -45,6 +47,8 @@ type AWSConfig struct {
 	AWSMaxResultsPerCall         int32
 	IPAMSubnetsIDs               []string          `mapstructure:"subnet-ids-filter"`
 	IPAMSubnetsTags              map[string]string `mapstructure:"subnet-tags-filter"`
+	IPv4EgressOnlyCIDRs          []string          `mapstructure:"ipv4-egress-only-cidrs"`
+	IPv4EgressOnlyMaskSize       int               `mapstructure:"ipv4-egress-only-mask-size"`
 }
 
 var awsDefaultConfig = AWSConfig{
@@ -58,6 +62,8 @@ var awsDefaultConfig = AWSConfig{
 	AWSMaxResultsPerCall:         0,
 	IPAMSubnetsIDs:               nil,
 	IPAMSubnetsTags:              nil,
+	IPv4EgressOnlyCIDRs:          nil,
+	IPv4EgressOnlyMaskSize:       24,
 }
 
 func (cfg AWSConfig) Flags(flags *pflag.FlagSet) {
@@ -75,6 +81,10 @@ func (cfg AWSConfig) Flags(flags *pflag.FlagSet) {
 	flags.StringSlice("subnet-ids-filter", awsDefaultConfig.IPAMSubnetsIDs, "Subnets IDs (separated by commas)")
 	flags.StringToString("subnet-tags-filter", awsDefaultConfig.IPAMSubnetsTags,
 		"Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag")
+	flags.StringSlice("ipv4-egress-only-cidrs", awsDefaultConfig.IPv4EgressOnlyCIDRs,
+		"IPv4 CIDRs to allocate the IPv4 addresses of the nodes running in IPv4 egress-only mode from (separated by commas). Must not overlap the VPC")
+	flags.Int("ipv4-egress-only-mask-size", awsDefaultConfig.IPv4EgressOnlyMaskSize,
+		"Mask size of the IPv4 CIDRs allocated to the nodes running in IPv4 egress-only mode")
 }
 
 type awsParams struct {
@@ -89,6 +99,7 @@ type awsParams struct {
 	ClusterInfo        cmtypes.ClusterInfo
 	DaemonCfg          *option.DaemonConfig
 	NodeWatcherFactory allocatorTypes.NodeWatcherJobFactory
+	CiliumNodes        resource.Resource[*cilium_api_v2.CiliumNode]
 
 	Cfg    Config
 	AwsCfg AWSConfig
@@ -122,4 +133,8 @@ func startAWSAllocator(p awsParams) {
 		DaemonCfg:          p.DaemonCfg,
 		NodeWatcherFactory: p.NodeWatcherFactory,
 	}, "AWS", ipamOption.IPAMENI, alloc)
+
+	if p.DaemonCfg.IPAM == ipamOption.IPAMENI && len(p.AwsCfg.IPv4EgressOnlyCIDRs) > 0 {
+		startIPv4EgressAllocator(p)
+	}
 }
