@@ -5,6 +5,7 @@ package ipamapi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -21,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -52,6 +54,19 @@ func (r *IpamPostIpamHandler) Handle(params ipamapi.PostIpamParams) middleware.R
 	}
 	ipv4Result, ipv6Result, err := r.IPAM.AllocateNextWithExpiration(family, owner, pool, expirationTimeout)
 	if err != nil {
+		log := r.Logger.Warn
+		if errors.Is(err, ipam.ErrAllocationPending) {
+			log = r.Logger.Debug
+		}
+		attrs := []any{
+			logfields.Error, err,
+			logfields.Family, family,
+			logfields.Owner, owner,
+		}
+		if pool != "" {
+			attrs = append(attrs, logfields.PoolName, pool)
+		}
+		log("Failed to allocate IP", attrs...)
 		return api.Error(ipamapi.PostIpamFailureCode, err)
 	}
 
