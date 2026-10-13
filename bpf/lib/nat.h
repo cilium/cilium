@@ -712,6 +712,14 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	 * is already in use for a masqueraded connection).
 	 */
 	if (tuple->saddr == CONFIG(nat_ipv4_masquerade).be32) {
+		/* Host traffic to a local endpoint never leaves the node, so
+		 * its port cannot collide with a masqueraded connection, and
+		 * the reservation would only cost MARK_MAGIC_HOST. See
+		 * nodeport_has_nat_conflict_ipv4().
+		 */
+		if (__lookup_ip4_endpoint(tuple->daddr))
+			return NAT_PUNT_TO_STACK;
+
 		target->addr = CONFIG(nat_ipv4_masquerade).be32;
 		target->needs_ct = true;
 
@@ -1729,6 +1737,10 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 	struct ipv6hdr *ip6;
 
 	if (ipv6_addr_equals(&tuple->saddr, &masq_addr)) {
+		/* See comment in __snat_v4_needs_masquerade(). */
+		if (__lookup_ip6_endpoint(&tuple->daddr))
+			return NAT_PUNT_TO_STACK;
+
 		ipv6_addr_copy(&target->addr, &masq_addr);
 		target->needs_ct = true;
 
