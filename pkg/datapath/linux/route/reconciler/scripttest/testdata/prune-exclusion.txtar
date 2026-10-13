@@ -1,0 +1,87 @@
+netns/create otherns
+
+link/add veth0 veth --peername eth0 --peerns otherns
+
+addr/add 192.168.1.1/24 veth0
+addr/add 192.168.1.0/24 --netns otherns eth0
+
+link/set lo up
+link/set veth0 up
+link/set eth0 --netns otherns up
+
+hive start
+db/initialized
+
+add-owner owner1
+add-route owner1 route1.yaml
+add-route owner1 route2.yaml
+add-route owner1 route3.yaml
+
+# Assert that all the desired routes are present in the database.
+db/cmp desired-routes desired-routes-before.table
+
+# Confirm all routes were installed and persisted to the WAL.
+route/list --table=2000
+* cmp stdout routes-before.txt
+
+# Stop and restart hive, simulate an agent restart.
+hive stop
+hive/recreate
+
+# Exclude route 2 from being pruned.
+exclude-prune 2000 10.2.3.5/32 0
+
+# Create an initializer so we do not prune before adding new desired routes.
+add-initializer owner1
+
+# Start the hive and thus the reconciler
+hive start
+
+# Add just route 1 back after reboot.
+add-owner owner1
+add-route owner1 route1.yaml
+
+# Trigger the reconciler to process the changes.
+finish-initializer owner1
+
+# Assert that only route 1 is present in the database.
+db/cmp desired-routes desired-routes-after.table
+
+# Route 1 is there because we re-added it.
+# Route 2 is still there because it was excluded from pruning.
+# Route 3 is gone because it was not re-added and not excluded.
+route/list --table=2000
+* cmp stdout routes-after.txt
+
+hive/stop
+
+-- route1.yaml --
+table: 2000
+prefix: "10.2.3.4/32"
+adminDistance: 100
+device: veth0
+-- route2.yaml --
+table: 2000
+prefix: "10.2.3.5/32"
+adminDistance: 100
+device: veth0
+-- route3.yaml --
+table: 2000
+prefix: "10.2.3.6/32"
+adminDistance: 100
+device: veth0
+-- desired-routes-before.table --
+Owner    Table   Prefix        Priority   AD    Selected   Nexthop   Src    Device      MTU    Scope      Type
+owner1   2000    10.2.3.4/32   none       100   true       none      none   veth0 (2)   none   universe   unspec
+owner1   2000    10.2.3.5/32   none       100   true       none      none   veth0 (2)   none   universe   unspec
+owner1   2000    10.2.3.6/32   none       100   true       none      none   veth0 (2)   none   universe   unspec
+-- desired-routes-after.table --
+Owner    Table   Prefix        Priority   AD    Selected   Nexthop   Src    Device      MTU    Scope      Type  
+owner1   2000    10.2.3.4/32   none       100   true       none      none   veth0 (2)   none   universe   unspec
+-- routes-before.txt --
+10.2.3.4/32 dev veth0 scope universe table 2000
+10.2.3.5/32 dev veth0 scope universe table 2000
+10.2.3.6/32 dev veth0 scope universe table 2000
+-- routes-after.txt --
+10.2.3.4/32 dev veth0 scope universe table 2000
+10.2.3.5/32 dev veth0 scope universe table 2000

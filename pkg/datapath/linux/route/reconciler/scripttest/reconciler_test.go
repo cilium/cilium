@@ -8,6 +8,7 @@ import (
 	"maps"
 	"net/netip"
 	"os"
+	"strconv"
 	"testing"
 
 	"go.yaml.in/yaml/v3"
@@ -46,9 +47,10 @@ func TestPrivilegedScript(t *testing.T) {
 			require.NoError(t, err, "LockThreadAndInitialize")
 
 			var (
-				db     *statedb.DB
-				drm    *reconciler.DesiredRouteManager
-				devTbl statedb.Table[*tables.Device]
+				db              *statedb.DB
+				drm             *reconciler.DesiredRouteManager
+				devTbl          statedb.Table[*tables.Device]
+				pruneExclusions *reconciler.PruneExclusion
 			)
 			cells := []cell.Cell{
 				reconciler.Cell,
@@ -58,10 +60,11 @@ func TestPrivilegedScript(t *testing.T) {
 						StateDir: stateDir,
 					}
 				}),
-				cell.Invoke(func(d *statedb.DB, m *reconciler.DesiredRouteManager, devices statedb.Table[*tables.Device]) {
+				cell.Invoke(func(d *statedb.DB, m *reconciler.DesiredRouteManager, devices statedb.Table[*tables.Device], exclusions *reconciler.PruneExclusion) {
 					db = d
 					drm = m
 					devTbl = devices
+					pruneExclusions = exclusions
 				}),
 			}
 			h := ciliumhive.New(
@@ -74,7 +77,7 @@ func TestPrivilegedScript(t *testing.T) {
 
 			maps.Copy(cmds, nsManager.Commands())
 			maps.Copy(cmds, script.DefaultCmds())
-			maps.Copy(cmds, testDesiredRouteCmds(db, drm, devTbl))
+			maps.Copy(cmds, testDesiredRouteCmds(db, drm, devTbl, pruneExclusions))
 
 			e := &script.Engine{}
 			cmds["hive/recreate"] = script.Command(
@@ -96,7 +99,7 @@ func TestPrivilegedScript(t *testing.T) {
 					}
 
 					maps.Copy(cmds, newHiveCmds)
-					maps.Copy(cmds, testDesiredRouteCmds(db, drm, devTbl))
+					maps.Copy(cmds, testDesiredRouteCmds(db, drm, devTbl, pruneExclusions))
 
 					return nil, nil
 				},
@@ -107,9 +110,36 @@ func TestPrivilegedScript(t *testing.T) {
 		}, []string{"PATH=" + os.Getenv("PATH")}, "testdata/*.txtar")
 }
 
-func testDesiredRouteCmds(db *statedb.DB, drm *reconciler.DesiredRouteManager, devTbl statedb.Table[*tables.Device]) map[string]script.Cmd {
+func testDesiredRouteCmds(db *statedb.DB, drm *reconciler.DesiredRouteManager, devTbl statedb.Table[*tables.Device], pruneExclusions *reconciler.PruneExclusion) map[string]script.Cmd {
 	initializers := make(map[string]reconciler.Initializer)
 	return map[string]script.Cmd{
+		"exclude-prune": script.Command(script.CmdUsage{
+			Summary: "Excludes a route key from initial pruning",
+			Args:    "table prefix priority",
+		}, func(state *script.State, args ...string) (script.WaitFunc, error) {
+			if len(args) != 3 {
+				return nil, script.ErrUsage
+			}
+
+			var key reconciler.DesiredRouteKey
+			if err := key.Table.FromString(args[0]); err != nil {
+				return nil, err
+			}
+			prefix, err := netip.ParsePrefix(args[1])
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse prefix %q: %w", args[1], err)
+			}
+			priority, err := strconv.ParseUint(args[2], 10, 32)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse priority %q: %w", args[2], err)
+			}
+			key.Prefix = prefix
+			key.Priority = uint32(priority)
+			if !pruneExclusions.Add(key) {
+				return nil, fmt.Errorf("prune exclusion set already consumed")
+			}
+			return nil, nil
+		}),
 		"add-owner": script.Command(script.CmdUsage{
 			Summary: "Adds a new route owner",
 			Args:    "name",
