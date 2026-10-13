@@ -14,6 +14,7 @@ import (
 
 type metadataClient interface {
 	GetInstanceMetadata(ctx context.Context) (awsMetadata.MetaDataInfo, error)
+	GetInterfaceAddresses(ctx context.Context, mac string) (awsMetadata.InterfaceAddresses, error)
 }
 
 // instanceMetadata owns the EC2 IMDS client of the agent, and fetches the
@@ -36,6 +37,18 @@ func newInstanceMetadata() *instanceMetadata {
 	}
 }
 
+// clientLocked returns the IMDS client, creating it on first use. The caller holds m.mu.
+func (m *instanceMetadata) clientLocked(ctx context.Context) (metadataClient, error) {
+	if m.client == nil {
+		client, err := m.newFn(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create EC2 metadata client: %w", err)
+		}
+		m.client = client
+	}
+	return m.client, nil
+}
+
 // get returns the metadata of the EC2 instance the agent runs on.
 func (m *instanceMetadata) get(ctx context.Context) (awsMetadata.MetaDataInfo, error) {
 	m.mu.Lock()
@@ -45,15 +58,12 @@ func (m *instanceMetadata) get(ctx context.Context) (awsMetadata.MetaDataInfo, e
 		return *m.info, nil
 	}
 
-	if m.client == nil {
-		client, err := m.newFn(ctx)
-		if err != nil {
-			return awsMetadata.MetaDataInfo{}, fmt.Errorf("unable to create EC2 metadata client: %w", err)
-		}
-		m.client = client
+	client, err := m.clientLocked(ctx)
+	if err != nil {
+		return awsMetadata.MetaDataInfo{}, err
 	}
 
-	info, err := m.client.GetInstanceMetadata(ctx)
+	info, err := client.GetInstanceMetadata(ctx)
 	if err != nil {
 		return awsMetadata.MetaDataInfo{}, fmt.Errorf("unable to retrieve InstanceID of own EC2 instance: %w", err)
 	}
@@ -63,4 +73,16 @@ func (m *instanceMetadata) get(ctx context.Context) (awsMetadata.MetaDataInfo, e
 
 	m.info = &info
 	return info, nil
+}
+
+// interfaceAddresses returns the IPv4 addresses and prefixes the IMDS lists for an ENI.
+func (m *instanceMetadata) interfaceAddresses(ctx context.Context, mac string) (awsMetadata.InterfaceAddresses, error) {
+	m.mu.Lock()
+	client, err := m.clientLocked(ctx)
+	m.mu.Unlock()
+	if err != nil {
+		return awsMetadata.InterfaceAddresses{}, err
+	}
+
+	return client.GetInterfaceAddresses(ctx, mac)
 }
