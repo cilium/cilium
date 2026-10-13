@@ -15,6 +15,7 @@ import (
 
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -137,6 +138,7 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 			IPv4Enabled:          ipam.config.IPv4Enabled(),
 			IPv6Enabled:          ipam.config.IPv6Enabled(),
 			CiliumNodeUpdateRate: ipam.config.IPAMCiliumNodeUpdateRate,
+			IPv4EgressOnly:       ipam.config.EnableIPv4EgressOnly,
 			Node:                 ipam.nodeResource,
 			LocalNodeStore:       ipam.localNodeStore,
 			CNClient:             ipam.clientset.CiliumV2().CiliumNodes(),
@@ -255,6 +257,8 @@ func (ipam *IPAM) releaseIPOwner(ip netip.Addr, pool Pool) string {
 // use this method instead of allocating the IP as the allocation block can
 // change and suddenly cover the IP to be excluded.
 func (ipam *IPAM) ExcludeIP(ip netip.Addr, owner string, pool Pool) {
+	pool = ipam.familyPool(pool, DeriveFamily(ip))
+
 	ipam.allocatorMutex.Lock()
 	ipam.excludedIPs[poolIP{ip: ip, pool: pool}] = owner
 	ipam.allocatorMutex.Unlock()
@@ -277,4 +281,19 @@ func PoolOrDefault(pool string) Pool {
 // PoolDefault returns the default pool
 func PoolDefault() Pool {
 	return Pool(option.Config.IPAMDefaultIPPool)
+}
+
+// familyPool returns the pool addresses of family are allocated from, released
+// to and excluded from when pool is requested.
+//
+// In IPv4 egress-only mode the default pool only holds IPv6 addresses: IPv4
+// requests for it, made by pods without a pool annotation and by the
+// infrastructure endpoints alike, are served by the egress pool instead. Every
+// entry point maps the pool, so that one released or excluded as "default" is
+// tracked under the same key it was allocated with.
+func (ipam *IPAM) familyPool(pool Pool, family Family) Pool {
+	if family == IPv4 && ipam.config.EnableIPv4EgressOnly && pool == PoolDefault() {
+		return Pool(defaults.IPAMIPv4EgressPool)
+	}
+	return pool
 }

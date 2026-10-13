@@ -13,10 +13,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 func fakeIPv4AllocCIDRIP(fakeAddressing node.Addressing) netip.Addr {
@@ -324,4 +326,67 @@ func TestLegacyAllocatorIPAMMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, PoolDefault(), resIPv4.IPPoolName)
 	require.Equal(t, PoolDefault(), resIPv6.IPPoolName)
+}
+
+func TestIPv4EgressOnlyPool(t *testing.T) {
+	fakeAddressing := fakenode.NewAddressing()
+	localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+	conf := *testConfiguration
+	conf.EnableIPv4EgressOnly = true
+
+	ipam := NewIPAM(NewIPAMParams{
+		Logger:         hivetest.Logger(t),
+		NodeAddressing: fakeAddressing,
+		AgentConfig:    &conf,
+		NodeDiscovery:  &ownerMock{},
+		LocalNodeStore: localNodeStore,
+		K8sEventReg:    &ownerMock{},
+		NodeResource:   &resourceMock{},
+		MTUConfig:      &mtuMock,
+		Metadata: fakeMetadataFunc(func(owner string, family Family) (string, error) {
+			return PoolDefault().String(), nil
+		}),
+	})
+	require.NoError(t, ipam.ConfigureAllocator(t.Context()))
+	ipam.ipv4Allocator = newFakePoolAllocator(map[string]string{
+		defaults.IPAMIPv4EgressPool: "100.64.0.0/24",
+	})
+	ipam.ipv6Allocator = newFakePoolAllocator(map[string]string{
+		"default": "fd00:100::/120",
+	})
+	egressPool := Pool(defaults.IPAMIPv4EgressPool)
+
+	// Pods without a pool get their IPv4 address from the egress pool and
+	// their IPv6 address from the default pool.
+	resIPv4, resIPv6, err := ipam.AllocateNext("", "ns/pod", "")
+	require.NoError(t, err)
+	require.Equal(t, egressPool, resIPv4.IPPoolName)
+	require.Equal(t, PoolDefault(), resIPv6.IPPoolName)
+
+	// So do callers explicitly asking for the default pool, such as the
+	// infrastructure endpoints.
+	routerIPv4, err := ipam.AllocateNextFamily(IPv4, "router", PoolDefault())
+	require.NoError(t, err)
+	require.Equal(t, egressPool, routerIPv4.IPPoolName)
+
+	// Releasing and restoring an IPv4 address as part of the default pool
+	// operates on the egress pool.
+	require.NoError(t, ipam.ReleaseIP(routerIPv4.IP, PoolDefault()))
+	restored, err := ipam.AllocateIPWithoutSyncUpstream(routerIPv4.IP, "router", PoolDefault())
+	require.NoError(t, err)
+	require.Equal(t, egressPool, restored.IPPoolName)
+	require.Equal(t, "router", ipam.getIPOwner(routerIPv4.IP, egressPool))
+
+	// An address excluded from the default pool is excluded from the egress
+	// pool.
+	excluded := resIPv4.IP.Next().Next()
+	ipam.ExcludeIP(excluded, "node-ip", PoolDefault())
+	_, err = ipam.AllocateIPWithoutSyncUpstream(excluded, "ns/other", egressPool)
+	require.ErrorContains(t, err, "owned by node-ip")
+
+	// Expiration timers started with the egress pool can be stopped with the
+	// default pool.
+	uuid, err := ipam.StartExpirationTimer(resIPv4.IP, resIPv4.IPPoolName, time.Minute)
+	require.NoError(t, err)
+	require.NoError(t, ipam.StopExpirationTimer(resIPv4.IP, PoolDefault(), uuid))
 }

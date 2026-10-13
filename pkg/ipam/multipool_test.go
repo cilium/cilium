@@ -33,6 +33,7 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
@@ -1661,4 +1662,65 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 	require.NoError(t, err)
 
 	return v4Alloc
+}
+
+func TestMultiPoolManagerIPv4EgressOnlyDemand(t *testing.T) {
+	defaultPool, egressPool := Pool(defaults.IPAMDefaultIPPool), Pool(defaults.IPAMIPv4EgressPool)
+
+	for _, linear := range []bool{true, false} {
+		t.Run(fmt.Sprintf("linear=%t", linear), func(t *testing.T) {
+			mgr := &multiPoolManager{
+				logger:                 hivetest.Logger(t),
+				ipv4Enabled:            true,
+				ipv6Enabled:            true,
+				ipv4EgressOnly:         true,
+				linearPreAlloc:         linear,
+				preallocatedIPsPerPool: preAllocatePerPool{defaultPool: 8, egressPool: 8},
+				pools:                  map[Pool]*poolPair{},
+				pendingIPsPerPool:      newPendingAllocationsPerPool(hivetest.Logger(t)),
+			}
+
+			// The default pool requests no IPv4, which tells the operator not
+			// to allocate any from the ENIs, and the egress pool no IPv6.
+			demand := mgr.computeNeededIPsPerPoolLocked()
+			require.Equal(t, types.IPAMPoolDemand{IPv6Addrs: 8}, demand[defaultPool])
+			require.Equal(t, types.IPAMPoolDemand{IPv4Addrs: 8}, demand[egressPool])
+		})
+	}
+}
+
+func TestMultiPoolManagerIPv4EgressOnlyWaitForAllPools(t *testing.T) {
+	defaultPool, egressPool := Pool(defaults.IPAMDefaultIPPool), Pool(defaults.IPAMIPv4EgressPool)
+
+	synctest.Test(t, func(t *testing.T) {
+		mgr := &multiPoolManager{
+			logger:                 hivetest.Logger(t),
+			ipv4Enabled:            true,
+			ipv6Enabled:            true,
+			ipv4EgressOnly:         true,
+			preallocatedIPsPerPool: preAllocatePerPool{defaultPool: 8, egressPool: 8},
+			pools:                  map[Pool]*poolPair{},
+			poolsUpdated:           make(chan struct{}, 1),
+		}
+
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			mgr.waitForAllPools()
+		})
+		synctest.Wait()
+
+		// Neither pool gets addresses of the family it does not serve, so
+		// only IPv6 in the default pool and IPv4 in the egress pool must be
+		// waited for.
+		mgr.poolsMutex.Lock()
+		mgr.upsertPoolLocked(defaultPool, []iputil.Prefix{
+			iputil.PrefixFrom(netip.MustParsePrefix("fd00::/80")),
+		}, true, true)
+		mgr.upsertPoolLocked(egressPool, []iputil.Prefix{
+			iputil.PrefixFrom(netip.MustParsePrefix("100.64.0.0/24")),
+		}, false, false)
+		mgr.poolsMutex.Unlock()
+
+		wg.Wait()
+	})
 }

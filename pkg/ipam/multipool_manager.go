@@ -275,6 +275,10 @@ type MultiPoolManagerParams struct {
 	// matches the CRD allocator's calculateNeededIPs behavior and allows
 	// the operator to recover exact usage from the demand signal.
 	LinearPreAlloc bool
+
+	// IPv4EgressOnly restricts IPv4 to the egress pool and IPv6 to the other
+	// pools. See poolServesFamily.
+	IPv4EgressOnly bool
 }
 
 type multiPoolManager struct {
@@ -308,6 +312,8 @@ type multiPoolManager struct {
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
 
 	linearPreAlloc bool
+
+	ipv4EgressOnly bool
 }
 
 func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
@@ -331,6 +337,7 @@ func newMultiPoolManager(p MultiPoolManagerParams) *multiPoolManager {
 		}),
 		poolsAccessor:  p.PoolSpecAccessors,
 		linearPreAlloc: p.LinearPreAlloc,
+		ipv4EgressOnly: p.IPv4EgressOnly,
 		skipMasqueradeForPool: func(Pool) (bool, error) {
 			return false, nil
 		},
@@ -389,10 +396,10 @@ func (m *multiPoolManager) waitForAllPools() {
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), waitForPoolTimeout)
-			if m.ipv4Enabled {
+			if m.ipv4Enabled && m.poolServesFamily(pool, IPv4) {
 				allPoolsReady = m.waitForPool(ctx, IPv4, pool) && allPoolsReady
 			}
-			if m.ipv6Enabled {
+			if m.ipv6Enabled && m.poolServesFamily(pool, IPv6) {
 				allPoolsReady = m.waitForPool(ctx, IPv6, pool) && allPoolsReady
 			}
 			cancel()
@@ -577,23 +584,26 @@ func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPo
 		ipv4Addrs := demand[poolName].IPv4Addrs
 		ipv6Addrs := demand[poolName].IPv6Addrs
 
+		preAllocIPv4 := m.ipv4Enabled && m.poolServesFamily(poolName, IPv4)
+		preAllocIPv6 := m.ipv6Enabled && m.poolServesFamily(poolName, IPv6)
+
 		if m.linearPreAlloc {
 			// Linear pre-allocation: inUse + preAlloc. This matches the
 			// CRD allocator's calculateNeededIPs formula and allows the
 			// operator to recover exact usage as requested - preAllocate.
-			if m.ipv4Enabled {
+			if preAllocIPv4 {
 				ipv4Addrs += preAlloc
 			}
-			if m.ipv6Enabled {
+			if preAllocIPv6 {
 				ipv6Addrs += preAlloc
 			}
 		} else {
 			// Standard multi-pool rounding: rounds up to ensure at least
 			// one full preAlloc buffer above usage.
-			if m.ipv4Enabled {
+			if preAllocIPv4 {
 				ipv4Addrs = neededIPCeil(ipv4Addrs, preAlloc)
 			}
-			if m.ipv6Enabled {
+			if preAllocIPv6 {
 				ipv6Addrs = neededIPCeil(ipv6Addrs, preAlloc)
 			}
 		}
@@ -605,6 +615,23 @@ func (m *multiPoolManager) computeNeededIPsPerPoolLocked() map[Pool]types.IPAMPo
 	}
 
 	return demand
+}
+
+// poolServesFamily reports whether pool hands out addresses of family. In IPv4
+// egress-only mode, IPv4 only comes from the egress pool and IPv6 only from the
+// other pools, so neither is pre-allocated nor waited for anywhere else.
+//
+// Without this, the default pool would request IPv4 addresses, which the
+// operator would then allocate from the ENIs.
+func (m *multiPoolManager) poolServesFamily(pool Pool, family Family) bool {
+	if !m.ipv4EgressOnly {
+		return true
+	}
+	isEgressPool := pool == Pool(defaults.IPAMIPv4EgressPool)
+	if family == IPv4 {
+		return isEgressPool
+	}
+	return !isEgressPool
 }
 
 func (m *multiPoolManager) restoreFinished(family Family) {
