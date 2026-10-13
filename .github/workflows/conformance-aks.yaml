@@ -406,6 +406,15 @@ jobs:
             -l cilium.io/no-schedule=true \
             --timeout=5m
 
+      - name: Start the control-plane probes
+        id: control-plane-probe
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: ./.github/actions/control-plane-probe
+        with:
+          mode: start
+          control: true
+
       - name: Generate cilium-cli kubeconfig
         id: gen-kubeconfig
         uses: ./.github/actions/get-cloud-kubeconfig
@@ -656,12 +665,25 @@ jobs:
           --junit-file "cilium-junits/${{ env.job_name }}-concurrent-clear (${{ join(matrix.*, ', ') }})-${{ inputs.UID || 1 }}.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
 
+      - name: Stop the control-plane probes
+        if: ${{ always() && steps.control-plane-probe.outcome != 'skipped' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: ./.github/actions/control-plane-probe
+        with:
+          mode: stop
+          job_status: ${{ job.status }}
+          provider: aks
+          cluster: ${{ steps.create-cluster.outputs.cluster_name }}
+          location: ${{ env.name }}
+
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./.github/actions/post-logic
         with:
           artifacts_suffix: "aks-${{ env.job_name }} (${{ join(matrix.*, ', ') }})-${{ inputs.UID }}"
           job_status: "${{ job.status }}"
+          sysdump_extra_label_selector: app=konnectivity-agent
           capture_features_tested: ${{ steps.run-tests.outcome != 'skipped' }}
 
       - name: Clean up AKS
