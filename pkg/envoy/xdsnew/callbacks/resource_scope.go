@@ -8,6 +8,7 @@ import (
 	"maps"
 	"slices"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 
@@ -27,14 +28,37 @@ func SingleResourceScope(name string, revision Revision) ResourceScope {
 	return ResourceScope{name: name, revision: revision}
 }
 
-// WithRevisions fills revisions after the cache commits its prepared changes.
+// OnlyRemovals classifies named requirements against desired state while the
+// cache lock is held, before registration. Whole-type waits retain ordinary
+// NACK failure handling. The resulting policy stays fixed for the caller wait.
+func (scope *ResourceScope) OnlyRemovals(isRemoved func(string) bool) bool {
+	if scope.name != "" {
+		return isRemoved(scope.name)
+	}
+	for name := range scope.more {
+		if !isRemoved(name) {
+			return false
+		}
+	}
+	return len(scope.more) != 0
+}
+
+// WithRevisions advances requirements after the cache commits prepared changes.
+// A removal has no desired entry, so its prepared revision must not be lowered
+// to zero or to an older acceptance fence when no rollback state is retained.
 // The scope is owned by one wait and is not published until this returns.
 func (scope ResourceScope) WithRevisions(revisionFor func(string) Revision) ResourceScope {
 	if scope.name != "" {
-		scope.revision = revisionFor(scope.name)
+		revision := revisionFor(scope.name)
+		if revision.revision > scope.revision.revision {
+			scope.revision = revision
+		}
 	}
-	for name := range scope.more {
-		scope.more[name] = revisionFor(name)
+	for name, required := range scope.more {
+		revision := revisionFor(name)
+		if revision.revision > required.revision {
+			scope.more[name] = revision
+		}
 	}
 	return scope
 }
@@ -104,6 +128,38 @@ func (scope *ResourceScope) acknowledge(coverage *responseCoverage, generation G
 	}
 	for name, required := range scope.more {
 		if required.revision <= generation && coverage.contains(name) {
+			delete(scope.more, name)
+		}
+	}
+	return len(scope.more) == 0
+}
+
+// acknowledgeRemovals accepts absence proofs, including synthesized empty CLAs.
+// A positive resource can resolve a superseded removal only from the wait's
+// publication onward. This prevents a delayed response containing an older
+// live value from completing a repeated removal after its desired entry is removed.
+func (scope *ResourceScope) acknowledgeRemovals(coverage *responseCoverage, generation, minimumPresentGeneration Generation) bool {
+	covered := func(name string, revision Revision) bool {
+		if revision.revision > generation || !coverage.contains(name) {
+			return false
+		}
+		if generation >= minimumPresentGeneration || coverage == nil || coverage.resources[name].Resource == nil {
+			return true
+		}
+		if coverage.typeURL == typeurl.Endpoint {
+			assignment, ok := coverage.resources[name].Resource.(*endpoint.ClusterLoadAssignment)
+			return ok && len(assignment.GetEndpoints()) == 0
+		}
+		return false
+	}
+	if scope.wholeType() {
+		return scope.coveredBy(coverage, generation)
+	}
+	if scope.name != "" {
+		return covered(scope.name, scope.revision)
+	}
+	for name, required := range scope.more {
+		if covered(name, required) {
 			delete(scope.more, name)
 		}
 	}
@@ -225,7 +281,8 @@ func responseCoverageFromContext(ctx context.Context) *responseCoverage {
 }
 
 // ResponseCoversResource is used under the cache lock to freeze only inverse
-// entries which this exact response can test, including observable removals.
+// entries communicated by this exact response. Caller removal waits are
+// tracked separately from response-owned recovery.
 // The transaction must be within the response boundary and its name must be
 // represented; numerical ordering alone does not prove resource coverage.
 func ResponseCoversResource(response cache.Response, name string, transaction TransactionID) bool {
@@ -236,34 +293,6 @@ func ResponseCoversResource(response cache.Response, name string, transaction Tr
 func ResponseCoversType(response cache.Response, generation Generation) bool {
 	ctx := response.GetContext()
 	return generation <= snapshotGenerationFromContext(ctx) && responseCoverageFromContext(ctx).complete()
-}
-
-// SnapshotResourceStateIsObservable reports whether SotW can communicate this
-// name's presence or removal in the snapshot. EDS/RDS/SDS omission is not a
-// removal, so an absent name must not acquire response-owned recovery state.
-func SnapshotResourceStateIsObservable(snapshot cache.ResourceSnapshot, index typeurl.Index, name string) bool {
-	if typeHasDeletionSemantics(index) {
-		return true
-	}
-	_, exists := snapshot.GetResourcesAndTTL(index.URL())[name]
-	return exists
-}
-
-// ResourceStateIsObservable reports whether SotW responses from the source
-// snapshot can communicate this resource's presence or removal. An absent name
-// is observable only for types where omission means removal, not EDS/RDS/SDS.
-//
-// It ignores which names this response delivered: unrequested resources
-// can still require a later partial response. ResponseCoversResource
-// checks actual coverage and generation. Missing metadata is conservatively
-// treated as observable.
-func ResourceStateIsObservable(response cache.Response, name string) bool {
-	coverage := responseCoverageFromContext(response.GetContext())
-	if coverage == nil || typeHasDeletionSemantics(coverage.typeURL) {
-		return true
-	}
-	_, exists := coverage.resources[name]
-	return exists
 }
 
 type acceptedResource struct {

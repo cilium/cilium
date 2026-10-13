@@ -13,6 +13,16 @@ type Revertible interface {
 	Finalize()
 }
 
+type noop uint8
+
+// Noop is an immutable, stateless Revertible for a successful operation with no
+// rollback state. Both methods may be called repeatedly.
+const Noop noop = 0
+
+func (noop) Revert() error { return nil }
+
+func (noop) Finalize() {}
+
 // Revert makes a RevertFunc a revert-only Revertible.
 func (f RevertFunc) Revert() error {
 	return f()
@@ -43,9 +53,12 @@ func (revertibles *Revertibles) Empty() bool {
 	return len(revertibles.items) == 0
 }
 
-// Add appends a revertible. A nil revertible is ignored.
+// Add appends a revertible. Nil and Noop values are ignored so successful
+// semantic no-ops need neither collection storage nor terminal processing.
 func (revertibles *Revertibles) Add(revertible Revertible) {
-	if revertible != nil {
+	switch revertible.(type) {
+	case nil, noop:
+	default:
 		revertibles.items = append(revertibles.items, revertible)
 	}
 }

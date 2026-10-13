@@ -284,18 +284,23 @@ func TestRemoveListener(t *testing.T) {
 	}
 }
 
-func TestRemoveListenerNACKRestoresResponseState(t *testing.T) {
+func TestRemoveListenerWaitsForACKAfterNACK(t *testing.T) {
 	server, cache := newADSServerFixture(t)
 	require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil))
 	accepted := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
-	server.RemoveListener(t.Context(), "test-listener", nil)
+	wg := completion.NewWaitGroup(t.Context())
+	server.RemoveListener(t.Context(), "test-listener", wg)
+	done := waitForADSCompletion(t, wg)
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "test-listener")
-	// RemoveListener exposes no caller rollback, but its removal can still be
-	// rejected by Envoy. Recovery must not recreate a server-owned reference.
+	// The NACK leaves the listener removed and its caller wait pending. The
+	// next response must ACK the removal before the caller can proceed.
 	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, accepted, "rejected listener removal")
-	require.NotNil(t, cachedListener(t, cache, localNodeID, "test-listener"))
-	// Re-acquiring and releasing one reference must delete the recovered
-	// resource again. A reference resurrected by the NACK would leave it live.
+	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "test-listener")
+	requireADSCompletionPending(t, done)
+	ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, accepted)
+	require.NoError(t, <-done)
+	// Re-acquiring and releasing one reference must delete the resource again.
+	// A reference resurrected by NACK recovery would leave it live.
 	require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil))
 	server.RemoveListener(t.Context(), "test-listener", nil)
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "test-listener")
@@ -474,10 +479,22 @@ func TestUpdateEnvoyResourcesRestoresListenerAfterAddressChangeFailure(t *testin
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server, cache := newADSServerFixture(t)
-			old := adsTestResources(adsTestListener(80, 8443))
+			old := adsDefaultResources()
+			old.Listeners["listener1"] = adsTestListener(80, 8443)
+			old.Listeners["retired"] = &envoy_config_listener.Listener{Name: "retired"}
+			old.Routes["retired"] = &envoy_config_route.RouteConfiguration{Name: "retired"}
 			require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), old, nil))
 			accepted := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
+			// Caller input may be stale or name resources never admitted to the
+			// cache. Recovery must restore only the values actually deleted.
+			originalListener := old.Listeners["listener1"]
+			old.Listeners["listener1"] = proto.Clone(originalListener).(*envoy_config_listener.Listener)
+			old.Listeners["listener1"].StatPrefix = "stale"
+			old.Listeners["absent"] = adsTestListener(81)
+			old.Listeners["absent"].Name = "absent"
 			next := adsTestResources(adsTestListener(80, 8444))
+			next.Listeners["absent"] = adsTestListener(82)
+			next.Listeners["absent"].Name = "absent"
 			timeout := 5 * time.Second
 			if tc.name == "deletion-timeout" {
 				timeout = 50 * time.Millisecond
@@ -510,12 +527,23 @@ func TestUpdateEnvoyResourcesRestoresListenerAfterAddressChangeFailure(t *testin
 					case <-time.After(time.Second):
 						t.Fatal("listener NACK deadlocked with the ADS update")
 					}
+					if !tc.replacement {
+						// The removal remains desired and its wait survives NACK.
+						// Cancellation must still restore the caller's transaction.
+						requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
+						select {
+						case err := <-result:
+							t.Fatalf("removal NACK prematurely ended address update: %v", err)
+						default:
+						}
+						cancel()
+					}
 				}
 			}
 			select {
 			case err := <-result:
 				switch {
-				case tc.canceled:
+				case tc.canceled || (!tc.replacement && tc.rejection != ""):
 					require.ErrorIs(t, err, context.Canceled)
 				case tc.rejection != "":
 					require.ErrorContains(t, err, tc.rejection)
@@ -525,7 +553,13 @@ func TestUpdateEnvoyResourcesRestoresListenerAfterAddressChangeFailure(t *testin
 			case <-time.After(time.Second):
 				t.Fatal("listener address update did not finish")
 			}
-			require.True(t, proto.Equal(old.Listeners["listener1"], cachedListener(t, cache, localNodeID, "listener1")))
+			require.Same(t, originalListener, cachedListener(t, cache, localNodeID, "listener1"))
+			requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "absent")
+			require.Same(t, old.Listeners["retired"], cachedListener(t, cache, localNodeID, "retired"))
+			require.Same(t, old.Clusters["cluster1"], cache.GetResource(localNodeID, typeurl.Cluster, "cluster1"))
+			require.Same(t, old.Endpoints["cluster1"], cache.GetResource(localNodeID, typeurl.Endpoint, "cluster1"))
+			require.Same(t, old.Routes["retired"], cache.GetResource(localNodeID, typeurl.Route, "retired"))
+			require.Same(t, old.Secrets["secret1"], cache.GetResource(localNodeID, typeurl.Secret, "secret1"))
 		})
 	}
 }
@@ -773,7 +807,8 @@ func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 	t.Cleanup(wg.Cancel)
 	err, revertible = server.UpdateNetworkPolicy(t.Context(), mockEp, mockPolicy, wg)
 	require.NoError(t, err)
-	require.Nil(t, revertible)
+	require.NotNil(t, revertible)
+	revertible.Finalize()
 
 	done := waitForADSCompletion(t, wg)
 	requireADSCompletionPending(t, done)
@@ -910,7 +945,8 @@ func TestUpdateNetworkPolicyNoOpWaitsForCurrentACK(t *testing.T) {
 	secondWG := completion.NewWaitGroup(ctx)
 	err, noOpRollback := server.UpdateNetworkPolicy(ctx, ep, epp, secondWG)
 	require.NoError(t, err)
-	require.Nil(t, noOpRollback)
+	require.NotNil(t, noOpRollback)
+	noOpRollback.Finalize()
 	secondDone := waitForADSCompletion(t, secondWG)
 	requireADSCompletionPending(t, firstDone)
 	requireADSCompletionPending(t, secondDone)
