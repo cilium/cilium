@@ -49,9 +49,9 @@ func TestPrivilegedNodeMapV2(t *testing.T) {
 	require.Empty(t, bpfNodeIDMap)
 	require.Empty(t, bpfNodeSPI)
 
-	err = nodeMap.Update(netip.MustParseAddr("10.1.0.0"), 10, 3)
+	err = nodeMap.Update(netip.MustParseAddr("10.1.0.0"), 10, 3, true)
 	require.NoError(t, err)
-	err = nodeMap.Update(netip.MustParseAddr("10.1.0.1"), 20, 3)
+	err = nodeMap.Update(netip.MustParseAddr("10.1.0.1"), 20, 3, false)
 	require.NoError(t, err)
 
 	bpfNodeIDMap = map[uint16]string{}

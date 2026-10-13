@@ -22,7 +22,8 @@ struct node_key {
 struct node_value {
 	__u16 id;
 	__u8  spi;
-	__u8  pad;
+	__u8  internalip:1,
+	      reserved:7;
 };
 
 struct {

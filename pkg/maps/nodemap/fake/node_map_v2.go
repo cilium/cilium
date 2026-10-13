@@ -20,7 +20,7 @@ func NewFakeNodeMapV2() *fakeNodeMapV2 {
 	}
 }
 
-func (f fakeNodeMapV2) Update(ip netip.Addr, nodeID uint16, SPI uint8) error {
+func (f fakeNodeMapV2) Update(ip netip.Addr, nodeID uint16, SPI uint8, internalIP bool) error {
 	f.ids[ip] = nodemap.NodeValueV2{
 		NodeID: nodeID,
 		SPI:    SPI,

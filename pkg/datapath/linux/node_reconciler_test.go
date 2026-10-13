@@ -30,12 +30,12 @@ type failOnceNodeMap struct {
 	fail bool
 }
 
-func (m *failOnceNodeMap) Update(ip netip.Addr, nodeID uint16, spi uint8) error {
+func (m *failOnceNodeMap) Update(ip netip.Addr, nodeID uint16, spi uint8, internalIP bool) error {
 	if m.fail {
 		m.fail = false
 		return fmt.Errorf("update failed")
 	}
-	return m.MapV2.Update(ip, nodeID, spi)
+	return m.MapV2.Update(ip, nodeID, spi, internalIP)
 }
 
 type failSecondNodeMap struct {
@@ -43,12 +43,12 @@ type failSecondNodeMap struct {
 	updates int
 }
 
-func (m *failSecondNodeMap) Update(ip netip.Addr, nodeID uint16, spi uint8) error {
+func (m *failSecondNodeMap) Update(ip netip.Addr, nodeID uint16, spi uint8, internalIP bool) error {
 	m.updates++
 	if m.updates == 2 {
 		return fmt.Errorf("update failed")
 	}
-	return m.MapV2.Update(ip, nodeID, spi)
+	return m.MapV2.Update(ip, nodeID, spi, internalIP)
 }
 
 func newTestLinuxNodeOps(t *testing.T) (*linuxNodeHandler, *linuxNodeOps) {
