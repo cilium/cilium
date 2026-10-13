@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: node-underlay
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: node-underlay
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: node-underlay
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: node-underlay
+    spec:
+      hostNetwork: true
+      priorityClassName: system-node-critical
+      tolerations:
+      - operator: Exists
+      terminationGracePeriodSeconds: 0
+      containers:
+      - name: tcpdump
+        image: quay.io/cilium/alpine-curl:v1.10.0@sha256:913e8c9f3d960dde03882defa0edd3a919d529c2eb167caa7f54194528bde364
+        # NS, NA, ARP, and IPv6 TCP segments with SYN or RST set.
+        command: [tcpdump, -i, eth0, -p, -nn, -l, -e, -v, -tttt, --immediate-mode, '(icmp6 and (ip6[40] == 135 or ip6[40] == 136)) or arp or (ip6 and ip6[6] == 6 and (ip6[53] & 0x06) != 0)']
+        securityContext:
+          capabilities:
+            add: ["NET_RAW"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+      - name: neigh-monitor
+        image: quay.io/cilium/alpine-curl:v1.10.0@sha256:913e8c9f3d960dde03882defa0edd3a919d529c2eb167caa7f54194528bde364
+        command: ["ip", "-ts", "monitor", "neigh", "dev", "eth0"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
+      - name: probe
+        image: quay.io/cilium/alpine-curl:v1.10.0@sha256:913e8c9f3d960dde03882defa0edd3a919d529c2eb167caa7f54194528bde364
+        command: ["pause"]
+        securityContext:
+          capabilities:
+            add: ["NET_RAW"]
+        resources:
+          requests:
+            cpu: 10m
+            memory: 16Mi
