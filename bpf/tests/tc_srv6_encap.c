@@ -13,12 +13,12 @@
 #undef TUNNEL_MODE
 #endif
 
-/* Test SRH encap. Reduced encap code path is a subset of SRH encap */
-#define ENABLE_SRV6_SRH_ENCAP
-
 #include "lib/bpf_lxc.h"
 #include "lib/ipcache.h"
 #include "lib/policy.h"
+
+/* Test SRH encap. Reduced encap code path is a subset of SRH encap */
+ASSIGN_CONFIG(struct srv6_config, srv6_cfg, {.enable_srh_encap = true,})
 
 #define POD_IPV4 v4_pod_one
 #define EXT_IPV4 v4_ext_one

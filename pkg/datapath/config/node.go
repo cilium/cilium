@@ -83,6 +83,9 @@ func NodeConfig(lnc *Config) Node {
 	// host-side listener that depended on SO_BINDTODEVICE against
 	// cilium_ipip{4,6} will no longer match decapped traffic.
 	node.EnableIPIPTermination = option.Config.EnableIPIPTermination
+	node.SRv6Cfg = types.SRv6Config{
+		EnableSRHEncap: option.Config.EnableSRv6 && option.Config.SRv6EncapMode != "reduced",
+	}
 
 	node.EnableNodeportSourceLookup = lnc.LBConfig.NodePortEnableDynamicSourceLookup
 

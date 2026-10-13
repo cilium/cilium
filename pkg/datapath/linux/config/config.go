@@ -179,9 +179,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	if option.Config.EnableSRv6 {
 		cDefinesMap["ENABLE_SRV6"] = "1"
-		if option.Config.SRv6EncapMode != "reduced" {
-			cDefinesMap["ENABLE_SRV6_SRH_ENCAP"] = "1"
-		}
 	}
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---

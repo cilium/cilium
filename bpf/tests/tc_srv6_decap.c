@@ -14,15 +14,14 @@
 #endif
 #define ENABLE_NODEPORT
 
-/* Test SRH encap. Reduced encap code path is a subset of SRH encap */
-#define ENABLE_SRV6_SRH_ENCAP
-
 #include "lib/bpf_host.h"
 #include "lib/ipcache.h"
 #include "lib/endpoint.h"
 #include "lib/lb.h"
 
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
+/* Test SRH encap. Reduced encap code path is a subset of SRH encap */
+ASSIGN_CONFIG(struct srv6_config, srv6_cfg, {.enable_srh_encap = true})
 
 #define POD_IPV4 v4_pod_one
 #define POD_IPV6 v6_pod_one

@@ -933,6 +933,12 @@ type SocketLBConfig struct {
 	EnableTracing bool
 }
 
+// SRv6Config is generated from the BPF C type srv6_config.
+type SRv6Config struct {
+	_              structs.HostLayout
+	EnableSRHEncap bool
+}
+
 // SRv6PolicyKey4 is generated from the BPF C type srv6_policy_key4.
 type SRv6PolicyKey4 struct {
 	_   structs.HostLayout
