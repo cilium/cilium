@@ -176,6 +176,11 @@ triggers:
   /scale-egw:
     workflows:
     - scale-test-egw.yaml
+  /ci-resource-churn(\s+(?:scenario=[-a-z0-9]+)?(?:\s*baseline=(?:none|v[0-9.]+|[a-f0-9]+))?)?:
+    workflows:
+    - resource-churn-test.yaml
+    depends-on:
+    - /build-images-dependency
   /net-perf-gke:
     workflows:
     - net-perf-gke.yaml
