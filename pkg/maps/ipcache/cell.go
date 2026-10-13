@@ -49,7 +49,7 @@ type ipcacheMapOut struct {
 }
 
 func newIPCacheMapCell(params ipcacheMapParams) ipcacheMapOut {
-	m := IPCacheMap(params.MetricsRegistry)
+	m := NewMap(params.MetricsRegistry, Name)
 	resolver, restored := promise.New[map[netip.Prefix]identity.NumericIdentity]()
 
 	params.Lifecycle.Append(cell.Hook{

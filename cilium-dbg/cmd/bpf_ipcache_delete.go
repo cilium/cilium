@@ -44,7 +44,7 @@ var bpfIPCacheDeleteCmd = &cobra.Command{
 		}
 
 		key := ipcache.NewKey(prefix, clusterID)
-		if err := ipcache.IPCacheMap(nil).Delete(&key); err != nil {
+		if err := ipcache.NewMap(nil, ipcache.Name).Delete(&key); err != nil {
 			fmt.Fprintf(os.Stderr, "Error deleting entry %s: %v\n", key, err)
 			os.Exit(1)
 		}
