@@ -25,6 +25,7 @@ type nodeID struct {
 	ID      uint16
 	Address string
 	SPI     uint8
+	Type    string
 }
 
 var bpfNodeIDListCmd = &cobra.Command{
@@ -36,11 +37,16 @@ var bpfNodeIDListCmd = &cobra.Command{
 
 		bpfNodeValueList := []nodeID{}
 		parse := func(key *nodemap.NodeKey, val *nodemap.NodeValueV2) {
-			bpfNodeValueList = append(bpfNodeValueList, nodeID{
+			n := nodeID{
 				ID:      val.NodeID,
 				Address: key.String(),
 				SPI:     val.SPI,
-			})
+				Type:    "ExternalIP",
+			}
+			if val.InternalIP == 1 {
+				n.Type = "InternalIP"
+			}
+			bpfNodeValueList = append(bpfNodeValueList, n)
 		}
 
 		nodeMap, err := nodemap.LoadNodeMapV2(log)
@@ -75,9 +81,9 @@ var bpfNodeIDListCmd = &cobra.Command{
 func printNodeIDList(nodeValueList []nodeID) {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
-	fmt.Fprintln(w, "NODE ID\tIP ADDRESSES\tSPI")
+	fmt.Fprintln(w, "NODE ID\tIP ADDRESSES\tSPI\tTYPE")
 	for _, nodeValue := range nodeValueList {
-		fmt.Fprintf(w, "0x%x\t%s\t%d\n", nodeValue.ID, nodeValue.Address, nodeValue.SPI)
+		fmt.Fprintf(w, "0x%x\t%s\t%d\t%s\n", nodeValue.ID, nodeValue.Address, nodeValue.SPI, nodeValue.Type)
 	}
 
 	w.Flush()
