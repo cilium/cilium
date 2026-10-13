@@ -19,6 +19,12 @@ inputs:
   always_capture_sysdump:
     description: "Always capture sysdump, regardless of test status; the result is uploaded as artifact only in case of test failure"
     default: "false"
+  eks_cluster_name:
+    description: "Name of the EKS cluster whose AWS state to capture on failure."
+    default: ""
+  eks_node_baseline:
+    description: "Path to a kubectl get nodes -o json from when the EKS cluster had all its nodes."
+    default: ""
   junits-directory:
     description: "Directory where JUnit XML files are stored."
     default: cilium-junits
@@ -50,6 +56,15 @@ runs:
           extra=(--extra-label-selectors "${EXTRA_LABEL_SELECTOR}")
         fi
         cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}" "${extra[@]}"
+
+    - name: Capture EKS cluster forensics
+      if: ${{ always() && inputs.job_status == 'failure' && inputs.eks_cluster_name != '' }}
+      continue-on-error: true
+      uses: ./.github/actions/eks-cluster-forensics
+      with:
+        artifacts_suffix: ${{ inputs.artifacts_suffix }}
+        cluster_name: ${{ inputs.eks_cluster_name }}
+        node_baseline: ${{ inputs.eks_node_baseline }}
 
     - name: Upload artifacts
       id: upload_sysdumps
