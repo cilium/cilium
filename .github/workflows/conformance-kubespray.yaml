@@ -194,7 +194,7 @@ jobs:
           cd kubespray/
           ansible-playbook -i inventory/mycluster/inventory.ini cluster.yml -b -v \
             -e '{"container_manager":"docker","docker_package_info":{"pkgs":[]},"docker_repo_key_info":{"repo_keys":[]},"docker_repo_info":{"repos":[]}}' \
-            -e '{"kube_network_plugin":"cni","kube_owner":"root"}'
+            -e '{"kube_network_plugin":"cni","kube_owner":"root","kube_resolv_conf":"/run/systemd/resolve/resolv.conf"}'
 
           mkdir -p $HOME/.kube
           sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
