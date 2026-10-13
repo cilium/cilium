@@ -572,6 +572,91 @@ func TestParseWithNodeSelector(t *testing.T) {
 	}
 	_, err = cnplWithSpecs.Parse(logger, cmtypes.PolicyAnyCluster)
 	require.ErrorContains(t, err, "Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+
+	ccnplWithSpecs := CiliumClusterwideNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "rule", UID: uuidRule},
+		Specs:      api.Rules{&rule},
+	}
+	_, err = ccnplWithSpecs.Parse(logger, cmtypes.PolicyAnyCluster)
+	require.NoError(t, err)
+
+	cnplWithSpecs.Namespace = ""
+	_, err = cnplWithSpecs.Parse(logger, cmtypes.PolicyAnyCluster)
+	require.NoError(t, err)
+}
+
+func TestValidateCNPNodeSelector(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		rule    *api.Rule
+		wantErr bool
+	}{
+		{name: "nil rule"},
+		{name: "no selector", rule: &api.Rule{}},
+		{
+			name: "endpoint selector",
+			rule: &api.Rule{EndpointSelector: api.NewESFromLabels()},
+		},
+		{
+			name:    "empty node selector",
+			rule:    &api.Rule{NodeSelector: api.NewESFromLabels()},
+			wantErr: true,
+		},
+		{
+			name: "node selector with labels",
+			rule: &api.Rule{
+				NodeSelector: api.NewESFromLabels(labels.ParseSelectLabel("role=worker")),
+			},
+			wantErr: true,
+		},
+		{
+			name: "both selectors",
+			rule: &api.Rule{
+				EndpointSelector: api.NewESFromLabels(),
+				NodeSelector:     api.NewESFromLabels(),
+			},
+			wantErr: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateCNPNodeSelector(tc.rule)
+			if tc.wantErr {
+				require.EqualError(t, err, "rule cannot have NodeSelector")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestCNPValidationReturnsFirstError(t *testing.T) {
+	for _, field := range []string{"spec", "specs"} {
+		t.Run(field, func(t *testing.T) {
+			rule := &api.Rule{NodeSelector: api.NewESFromLabels()}
+			cnp := &CiliumNetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "rule", Namespace: "default"},
+			}
+			if field == "spec" {
+				cnp.Spec = rule
+			} else {
+				cnp.Specs = api.Rules{rule}
+			}
+			cnp.Specs = append(cnp.Specs, &api.Rule{
+				NodeSelector: api.NewESFromLabels(),
+				Ingress:      []api.IngressRule{{}},
+			})
+			original := cnp.DeepCopy()
+			wantErr := fmt.Sprintf("Invalid CiliumNetworkPolicy %s: rule must have at least one of Ingress, IngressDeny, Egress, EgressDeny", field)
+
+			require.EqualError(t, cnp.Validate(), wantErr)
+			require.Equal(t, original, cnp)
+
+			rules, err := cnp.Parse(hivetest.Logger(t), cmtypes.PolicyAnyCluster)
+			require.EqualError(t, err, wantErr)
+			require.Nil(t, rules)
+			require.Equal(t, original, cnp)
+		})
+	}
 }
 
 func TestCiliumNodeInstanceID(t *testing.T) {

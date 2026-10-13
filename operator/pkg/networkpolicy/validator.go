@@ -220,10 +220,10 @@ func validateCNPEndpointSelectorNamespace(namespace string, spec *api.Rule) erro
 // a CiliumNetworkPolicy, which would otherwise leave the policy silently
 // ineffective while being reported as valid.
 func validateCNPNodeSelector(spec *api.Rule) error {
-	if spec == nil || spec.NodeSelector.LabelSelector == nil {
-		return nil
+	if err := cilium_api_v2.ValidateCNPNodeSelector(spec); err != nil {
+		return fmt.Errorf("CiliumNetworkPolicy %w, use CiliumClusterwideNetworkPolicy instead", err)
 	}
-	return errors.New("CiliumNetworkPolicy rule cannot have NodeSelector, use CiliumClusterwideNetworkPolicy instead")
+	return nil
 }
 
 // updateCondition creates or updates the policy validation condition in Conditions, setting

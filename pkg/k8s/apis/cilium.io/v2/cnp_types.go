@@ -4,6 +4,7 @@
 package v2
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -190,8 +191,8 @@ func (r *CiliumNetworkPolicy) Validate() error {
 		if err := r.Spec.Validate(); err != nil {
 			return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
 		}
-		if r.Spec.NodeSelector.LabelSelector != nil {
-			return NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+		if err := ValidateCNPNodeSelector(r.Spec); err != nil {
+			return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
 		}
 	}
 	if r.Specs != nil {
@@ -199,12 +200,21 @@ func (r *CiliumNetworkPolicy) Validate() error {
 			if err := rule.Validate(); err != nil {
 				return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
 			}
-			if rule.NodeSelector.LabelSelector != nil {
-				return NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+			if err := ValidateCNPNodeSelector(rule); err != nil {
+				return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
 			}
 		}
 	}
 	return nil
+}
+
+// ValidateCNPNodeSelector rejects NodeSelector in CiliumNetworkPolicy rules.
+// CiliumClusterwideNetworkPolicy rules support NodeSelector and must not use this check.
+func ValidateCNPNodeSelector(rule *api.Rule) error {
+	if rule == nil || rule.NodeSelector.LabelSelector == nil {
+		return nil
+	}
+	return errors.New("rule cannot have NodeSelector")
 }
 
 // Sanitize sanitizes the CiliumNetworkPolicy object modifying object in place to make it
