@@ -5,9 +5,9 @@ package envoy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -306,7 +306,7 @@ func (s *adsServer) addListener(ctx context.Context, listenerConfig *envoy_confi
 		}
 		// There is no caller rollback decision for these listeners. Response-owned
 		// recovery survives finalization, including when no WaitGroup was supplied.
-		finalizeRollback(rollback)
+		rollback.Finalize()
 		return nil
 	}
 
@@ -480,8 +480,7 @@ func (s *adsServer) RemoveListener(ctx context.Context, name string, wg *complet
 		logfields.Listener, name,
 	)
 
-	// The cache owns the transaction-fenced revert used if Envoy NACKs the
-	// listener removal. RemoveListener does not expose caller-driven rollback.
+	// Admitted removals are final, including when Envoy NACKs the response.
 	_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, name, nil, wg)
 }
 
@@ -577,18 +576,6 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicy, resourceName, nil, nil)
 }
 
-func revertRollback(rollback xdsnew.Rollback) {
-	if rollback != nil {
-		rollback.Revert()
-	}
-}
-
-func finalizeRollback(rollback xdsnew.Rollback) {
-	if rollback != nil {
-		rollback.Finalize()
-	}
-}
-
 func adsListenerReusePortDisabled(listener *envoy_config_listener.Listener) bool {
 	reusePort := listener.GetEnableReusePort()
 	return reusePort != nil && !reusePort.GetValue()
@@ -607,28 +594,13 @@ func adsListenersRequiringRecreate(oldListeners, newListeners map[string]*envoy_
 	return names
 }
 
-// listenerDeletionMutations builds the intermediate accepted state without the
-// listeners whose addresses are changing. The cache remains the owner of
-// desired resources; only the sparse entries touched by this CEC update are
-// materialized.
-func (s *adsServer) listenerDeletionMutations(oldResources, newResources xds.Resources, listenerNames []string) (staged xdsnew.ResourceMutations) {
-	staged.Removed = newResources
-	staged.Upserted = oldResources
-	staged.Upserted.Listeners = maps.Clone(oldResources.Listeners)
-	for _, name := range listenerNames {
-		delete(staged.Upserted.Listeners, name)
-	}
-
-	return staged
-}
-
 func (s *adsServer) UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.cache.ApplyResource(ctx, localNodeID, typeurl.Secret, secret.GetName(), secret, nil)
 }
 
-func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources, waitGroup *completion.WaitGroup) error {
+func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources, waitGroup *completion.WaitGroup) (err error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -652,58 +624,63 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	// is disabled, because the replacement overlaps sockets still owned by the
 	// active listener. Publish and ACK a snapshot without the listener first so
 	// Envoy closes those sockets before the replacement is sent.
-	stagedMutations := s.listenerDeletionMutations(oldResources, newResources, listenersToRecreate)
-	// ACK waits observe the caller's deadline, but cache mutations and their
-	// caller-owned rollback operations must remain usable after that deadline.
+	stagedMutations := xdsnew.ResourceMutations{Removed: xds.Resources{
+		Listeners: make(map[string]*envoy_config_listener.Listener, len(listenersToRecreate)),
+	}}
+	for _, name := range listenersToRecreate {
+		stagedMutations.Removed.Listeners[name] = oldResources.Listeners[name]
+	}
+	// ACK waits observe the caller's deadline, but cache mutations and recovery
+	// must remain usable after that deadline.
 	mutationCtx := context.WithoutCancel(ctx)
 	s.logger.Debug("UpdateEnvoyResources: deleting listeners before address change",
 		logfields.ResourcesDeleted, len(listenersToRecreate))
 	deleteWG := completion.NewWaitGroup(ctx)
+	defer deleteWG.Cancel()
 	listenerWait := typeurl.NewSet(typeurl.Listener)
 	deleteRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, stagedMutations, deleteWG, listenerWait)
 	if err != nil {
-		// Failed admission does not reach the ACK wait. Release the owned
-		// group's context and settle any completions before returning.
-		deleteWG.Cancel()
 		return err
 	}
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, deleteRollback.Revert())
+		} else {
+			deleteRollback.Finalize()
+		}
+	}()
 	if err := deleteWG.Wait(); err != nil {
-		revertRollback(deleteRollback)
 		return fmt.Errorf("waiting for listener deletion ACK: %w", err)
 	}
 
-	// Always wait for the replacement LDS ACK, even when the caller did not
-	// supply a wait group. This keeps the two snapshots transactional and lets us
-	// restore the last working listener if Envoy rejects the replacement.
+	// Each attempt installs the replacement listeners. Failed attempts roll back
+	// to the post-deletion state. On terminal failure, the deferred rollback also
+	// undoes the initial listener deletions.
 	waitTypeURLs.Insert(typeurl.Listener)
 	replaceMutations := xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}
 	for attempt := 1; ; attempt++ {
 		replaceWG := completion.NewWaitGroup(ctx)
 		replaceRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, replaceMutations, replaceWG, waitTypeURLs)
-		if err == nil {
-			err = replaceWG.Wait()
-		} else {
+		if err != nil {
 			replaceWG.Cancel()
+		} else {
+			err = replaceWG.Wait()
+			if err == nil {
+				replaceRollback.Finalize()
+				return nil
+			}
+			// Cache-owned NACK recovery handles only the rejected resource type.
+			// Undo the remaining changes from this attempt, including on timeout
+			// or cancellation; transaction guards preserve superseding changes.
+			err = errors.Join(err, replaceRollback.Revert())
 		}
-		if err == nil {
-			finalizeRollback(deleteRollback)
-			finalizeRollback(replaceRollback)
-			return nil
-		}
-		// If Envoy NACKed the replacement, cache-owned rollback has already
-		// restored this phase. On timeout, the caller-owned rollback does it now.
-		// Either way, the transaction fence makes this operation safe and leaves
-		// the restored listener-deletion state ready for a retry or full rollback.
-		revertRollback(replaceRollback)
 
 		if !isAddressAlreadyInUseError(err) || attempt >= listenerAddressChangeMaxAttempts {
-			revertRollback(deleteRollback)
 			return fmt.Errorf("waiting for replacement listener ACK: %w", err)
 		}
 
-		// Cache-owned NACK rollback has restored the deletion state with a fresh
-		// corrective version. Give Envoy time to close the sockets before
-		// publishing another replacement.
+		// Give Envoy time to process the corrective LDS response and close
+		// sockets before publishing another replacement.
 		s.logger.Debug("UpdateEnvoyResources: Retrying ADS listener address change after bind failure",
 			logfields.Attempt, attempt+1,
 			logfields.Error, err)
@@ -711,7 +688,6 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			revertRollback(deleteRollback)
 			return ctx.Err()
 		case <-timer.C:
 		}

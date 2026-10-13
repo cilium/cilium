@@ -26,8 +26,8 @@ type ResourceMutations struct {
 }
 
 // resourceEntry keeps the immutable protobuf, its current revision, and its
-// originating API transaction together. A nil resource is a removal tombstone;
-// retaining its transaction makes remove/recreate/remove ABA sequences safe.
+// originating API transaction together. Desired state contains only live
+// resources; rollback containers also use zero entries to record prior absence.
 // Entries are stored by value, keeping the resource interface and metadata
 // inline rather than allocating an entry wrapper.
 type resourceEntry struct {
@@ -38,8 +38,8 @@ type resourceEntry struct {
 	// It advances on every semantic change or deletion, whether made by an API
 	// transaction or a revert, and never rolls back when restoring an older value.
 	revision callbacks.Revision
-	// transaction identifies the API transaction which originally inserted or
-	// deleted this value. API changes use the same number as revision; reverts
+	// transaction identifies the API transaction which originally inserted this
+	// value. API changes use the same number as revision; reverts
 	// restore it with the previous value while assigning a fresh revision.
 	// Zero in an inverse entry records that no cached entry existed.
 	transaction callbacks.TransactionID
@@ -50,13 +50,15 @@ type resourceEntry struct {
 // The zero value has no entries; each resource type's map is allocated on demand.
 type resourceMaps typeurl.Slots[map[string]resourceEntry]
 
-// commitEntry applies an entry to desired state. A nil value with transaction
-// zero restores prior absence without retaining a tombstone, even with a fresh
-// revision. Inverse containers must store zero entries explicitly, since they
-// record which resources were previously absent.
+// commitEntry applies an entry to desired state. Absence removes the entry;
+// ACK waits retain their revision requirements separately. Rollback containers
+// store zero entries explicitly to record resources which were previously absent.
 func (resources *resourceMaps) commitEntry(typeURL typeurl.Index, name string, entry resourceEntry) {
-	if entry.resource == nil && entry.transaction.IsZero() {
+	if entry.resource == nil {
 		delete(resources[typeURL], name)
+		if len(resources[typeURL]) == 0 {
+			resources[typeURL] = nil
+		}
 	} else {
 		if resources[typeURL] == nil {
 			resources[typeURL] = make(map[string]resourceEntry)
@@ -189,31 +191,30 @@ func (changes resourceChanges) empty() bool {
 	return changes.first.name == ""
 }
 
-func (changes resourceChanges) hasRemovals() bool {
-	if !changes.empty() && changes.first.next.resource == nil {
-		return true
-	}
-	for _, change := range changes.more {
-		if change.next.resource == nil {
-			return true
-		}
-	}
-	return false
-}
-
 func (changes resourceChanges) typeURLs() typeurl.Set {
 	return changes.types
 }
 
+// inverse retains only upserts for response-owned recovery. Caller recovery
+// captures removals separately from the same prepared changes after admission.
 func (changes resourceChanges) inverse() resources {
-	if changes.empty() {
-		return resources{}
-	}
-	if len(changes.more) == 0 {
-		return singleResource(changes.first.typeURL, changes.first.name, changes.first.previous)
-	}
 	var inverse resources
+	first := true
 	add := func(change resourceChange) {
+		// A NACK cannot undo an admitted removal.
+		if change.next.resource == nil {
+			return
+		}
+		if first {
+			inverse = singleResource(change.typeURL, change.name, change.previous)
+			first = false
+			return
+		}
+		if inverse.hasSingleton() {
+			singleton := inverse.singleton
+			inverse.entries[singleton.typeURL] = map[string]resourceEntry{singleton.name: singleton.entry}
+			inverse.singleton = singletonResource{}
+		}
 		entries := inverse.entries[change.typeURL]
 		if entries == nil {
 			entries = make(map[string]resourceEntry)
@@ -221,7 +222,9 @@ func (changes resourceChanges) inverse() resources {
 		}
 		entries[change.name] = change.previous
 	}
-	add(changes.first)
+	if !changes.empty() {
+		add(changes.first)
+	}
 	for _, change := range changes.more {
 		add(change)
 	}

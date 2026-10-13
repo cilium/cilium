@@ -411,17 +411,10 @@ func (s *coverageStream) watch(t *testing.T, names ...string) chan cache.Respons
 	t.Cleanup(cancel)
 	return responses
 }
-func (state *nodeState) requireNoRollbackOwners(t *testing.T) {
-	t.Helper()
-	for typeURL := range typeurl.Count {
-		require.Nil(t, state.typeStates[typeURL].rollbacks.owners)
-	}
-}
-
 func (state *nodeState) requireNoUnsentRollbacks(t *testing.T, msgAndArgs ...any) {
 	t.Helper()
 	for typeURL := range typeurl.Count {
-		require.Nil(t, state.typeStates[typeURL].rollbacks.unsent, msgAndArgs...)
+		require.Nil(t, state.typeStates[typeURL].unsentRollback, msgAndArgs...)
 	}
 }
 

@@ -301,9 +301,7 @@ func seedADSNetworkPolicy(t *testing.T, server *adsServer, ep *testableEndpointU
 	t.Helper()
 	err, rollback := server.UpdateNetworkPolicy(t.Context(), ep, policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot()), nil)
 	require.NoError(t, err)
-	if rollback != nil {
-		rollback.Finalize()
-	}
+	rollback.Finalize()
 	return cachedNetworkPolicy(t, server.cache, localNodeID, strconv.FormatUint(ep.id, 10))
 }
 

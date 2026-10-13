@@ -28,24 +28,9 @@ func SingleResourceScope(name string, revision Revision) ResourceScope {
 	return ResourceScope{name: name, revision: revision}
 }
 
-// OnlyRemovals classifies named requirements against desired state while the
-// cache lock is held, before registration. Whole-type scopes are not removal-only.
-// The resulting classification stays fixed for the caller wait.
-func (scope *ResourceScope) OnlyRemovals(isRemoved func(string) bool) bool {
-	if scope.name != "" {
-		return isRemoved(scope.name)
-	}
-	for name := range scope.more {
-		if !isRemoved(name) {
-			return false
-		}
-	}
-	return len(scope.more) != 0
-}
-
 // WithRevisions advances requirements after the cache commits prepared changes.
-// A removal's entry may have been pruned, so its prepared revision must not be
-// lowered to zero or to an older acceptance fence.
+// A removal has no desired entry, so its prepared revision must not be lowered
+// to zero or to an older acceptance fence when no rollback state is retained.
 // The scope is owned by one wait and is not published until this returns.
 func (scope ResourceScope) WithRevisions(revisionFor func(string) Revision) ResourceScope {
 	if scope.name != "" {
@@ -134,16 +119,23 @@ func (scope *ResourceScope) acknowledge(coverage *responseCoverage, generation G
 	return len(scope.more) == 0
 }
 
-// acknowledgeRemovals accepts absence proofs, including synthesized empty CLAs.
-// A positive resource can resolve a superseded removal only from the wait's
-// publication onward. This prevents a delayed response containing an older
-// live value from completing a repeated removal after its desired entry is removed.
-func (scope *ResourceScope) acknowledgeRemovals(coverage *responseCoverage, generation, minimumPresentGeneration Generation) bool {
+// acknowledgeWait consumes requirements covered by a caller's ACK. A response
+// older than the removal boundary must prove absence for each removed name,
+// even when the wait also includes upserts. Use the actual response generation
+// for that check: association can extend revision coverage, but cannot prove
+// that a live value was sent after its removal.
+func (pc *resourceWait) acknowledgeWait(coverage *responseCoverage, coveredGeneration, responseGeneration Generation) bool {
+	scope := &pc.scope
+	if !pc.removalOnly && len(pc.mixedRemovals) == 0 {
+		return scope.acknowledge(coverage, coveredGeneration)
+	}
 	covered := func(name string, revision Revision) bool {
-		if revision.revision > generation || !coverage.contains(name) {
+		if revision.revision > coveredGeneration || !coverage.contains(name) {
 			return false
 		}
-		if generation >= minimumPresentGeneration || coverage == nil || coverage.resources[name].Resource == nil {
+		_, mixedRemoval := pc.mixedRemovals[name]
+		if (!pc.removalOnly && !mixedRemoval) || responseGeneration >= pc.generation ||
+			coverage == nil || coverage.resources[name].Resource == nil {
 			return true
 		}
 		if coverage.typeURL == typeurl.Endpoint {
@@ -152,15 +144,13 @@ func (scope *ResourceScope) acknowledgeRemovals(coverage *responseCoverage, gene
 		}
 		return false
 	}
-	if scope.wholeType() {
-		return scope.coveredBy(coverage, generation)
-	}
 	if scope.name != "" {
 		return covered(scope.name, scope.revision)
 	}
 	for name, required := range scope.more {
 		if covered(name, required) {
 			delete(scope.more, name)
+			delete(pc.mixedRemovals, name)
 		}
 	}
 	return len(scope.more) == 0
@@ -281,7 +271,8 @@ func responseCoverageFromContext(ctx context.Context) *responseCoverage {
 }
 
 // ResponseCoversResource is used under the cache lock to freeze only inverse
-// entries which this exact response can test, including observable removals.
+// entries communicated by this exact response. Caller removal waits are
+// tracked separately from response-owned recovery.
 // The transaction must be within the response boundary and its name must be
 // represented; numerical ordering alone does not prove resource coverage.
 func ResponseCoversResource(response cache.Response, name string, transaction TransactionID) bool {
@@ -292,34 +283,6 @@ func ResponseCoversResource(response cache.Response, name string, transaction Tr
 func ResponseCoversType(response cache.Response, generation Generation) bool {
 	ctx := response.GetContext()
 	return generation <= snapshotGenerationFromContext(ctx) && responseCoverageFromContext(ctx).complete()
-}
-
-// SnapshotResourceStateIsObservable reports whether SotW can communicate this
-// name's presence or removal in the snapshot. EDS/RDS/SDS omission is not a
-// removal, so an absent name must not acquire response-owned recovery state.
-func SnapshotResourceStateIsObservable(snapshot cache.ResourceSnapshot, index typeurl.Index, name string) bool {
-	if typeHasDeletionSemantics(index) {
-		return true
-	}
-	_, exists := snapshot.GetResourcesAndTTL(index.URL())[name]
-	return exists
-}
-
-// ResourceStateIsObservable reports whether SotW responses from the source
-// snapshot can communicate this resource's presence or removal. An absent name
-// is observable only for types where omission means removal, not EDS/RDS/SDS.
-//
-// It ignores which names this response delivered: unrequested resources
-// can still require a later partial response. ResponseCoversResource
-// checks actual coverage and generation. Missing metadata is conservatively
-// treated as observable.
-func ResourceStateIsObservable(response cache.Response, name string) bool {
-	coverage := responseCoverageFromContext(response.GetContext())
-	if coverage == nil || typeHasDeletionSemantics(coverage.typeURL) {
-		return true
-	}
-	_, exists := coverage.resources[name]
-	return exists
 }
 
 type acceptedResource struct {
