@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/netip"
 	"strings"
-	"sync"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -218,21 +217,4 @@ func NewMap(registry *metrics.Registry, name string) *Map {
 		Map: *newIPCacheMap(name).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(name)),
 	}
-}
-
-var (
-	// IPCache is a mapping of all endpoint IPs in the cluster which this
-	// Cilium agent is a part of to their corresponding security identities.
-	// It is a singleton; there is only one such map per agent.
-	ipcache *Map
-	once    = &sync.Once{}
-)
-
-// IPCacheMap gets the ipcache Map singleton. If it has not already been done,
-// this also initializes the Map.
-func IPCacheMap(registry *metrics.Registry) *Map {
-	once.Do(func() {
-		ipcache = NewMap(registry, Name)
-	})
-	return ipcache
 }
