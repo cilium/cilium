@@ -117,7 +117,7 @@ ASSIGN_CONFIG(__u16, device_mtu, 200);
 
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = v4_node_one })
 
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable_icmp_errors = true })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .enable_icmp_errors = true })
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
