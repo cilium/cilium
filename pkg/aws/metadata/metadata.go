@@ -5,10 +5,15 @@ package metadata
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/netip"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/feature/ec2/imds"
+	smithyhttp "github.com/aws/smithy-go/transport/http"
 
 	"github.com/cilium/cilium/pkg/safeio"
 )
@@ -23,6 +28,12 @@ type MetaDataInfo struct {
 	AvailabilityZone string
 	VPCID            string
 	SubnetID         string
+}
+
+// InterfaceAddresses holds the IPv4 addresses and prefixes of one network interface.
+type InterfaceAddresses struct {
+	IPv4s        []netip.Addr
+	IPv4Prefixes []netip.Prefix
 }
 
 func NewClient(ctx context.Context) (*metadataClient, error) {
@@ -100,4 +111,47 @@ func (m *metadataClient) GetInstanceMetadata(ctx context.Context) (MetaDataInfo,
 		VPCID:            vpcID,
 		SubnetID:         subnetID,
 	}, nil
+}
+
+// GetInterfaceAddresses returns the IPv4 addresses and prefixes of the interface with the given MAC.
+func (m *metadataClient) GetInterfaceAddresses(ctx context.Context, mac string) (InterfaceAddresses, error) {
+	var res InterfaceAddresses
+
+	ips, err := getMetadataList(ctx, m.client, fmt.Sprintf("network/interfaces/macs/%s/local-ipv4s", mac))
+	if err != nil {
+		return InterfaceAddresses{}, err
+	}
+	for _, ip := range ips {
+		addr, err := netip.ParseAddr(ip)
+		if err != nil {
+			return InterfaceAddresses{}, fmt.Errorf("unable to parse IPv4 address %q of interface %s: %w", ip, mac, err)
+		}
+		res.IPv4s = append(res.IPv4s, addr)
+	}
+
+	prefixes, err := getMetadataList(ctx, m.client, fmt.Sprintf("network/interfaces/macs/%s/ipv4-prefix", mac))
+	if err != nil {
+		return InterfaceAddresses{}, err
+	}
+	for _, p := range prefixes {
+		prefix, err := netip.ParsePrefix(p)
+		if err != nil {
+			return InterfaceAddresses{}, fmt.Errorf("unable to parse IPv4 prefix %q of interface %s: %w", p, mac, err)
+		}
+		res.IPv4Prefixes = append(res.IPv4Prefixes, prefix)
+	}
+
+	return res, nil
+}
+
+// getMetadataList returns the entries of a metadata list, or none when the list does not exist.
+func getMetadataList(ctx context.Context, client *imds.Client, path string) ([]string, error) {
+	value, err := getMetadata(ctx, client, path)
+	if respErr, ok := errors.AsType[*smithyhttp.ResponseError](err); ok && respErr.HTTPStatusCode() == http.StatusNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return strings.Fields(value), nil
 }
