@@ -25,6 +25,7 @@
 #include "icmp6.h"
 #include "lpm.h"
 #include "nat_46x64.h"
+#include "node.h"
 #include "signal.h"
 #include "subnet.h"
 #include "trace.h"
@@ -745,11 +746,12 @@ __snat_v4_needs_masquerade(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
 	 */
 	remote_ep = lookup_ip4_remote_endpoint(tuple->daddr, 0);
 	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
-		/* SNAT the packet to remote node if enable-remote-node-masquerade
-		 * flag is set to true. This is a feature flag that can be enabled
-		 * in BPF masquerading mode.
+		/* Always SNAT packets to remote node external IPs if the enable-remote-node-masquerade
+		 * flag is set to true. This is a feature flag that can be enabled in BPF masquerading
+		 * mode.
 		 */
-		if (CONFIG(enable_remote_node_masquerade) == true) {
+		if (CONFIG(enable_remote_node_masquerade) == true &&
+		    !is_internal_node_ip(tuple->daddr)) {
 			target->addr = CONFIG(nat_ipv4_masquerade).be32;
 			return NAT_NEEDED;
 		}
@@ -1805,7 +1807,8 @@ __snat_v6_needs_masquerade(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
 
 	remote_ep = lookup_ip6_remote_endpoint(&tuple->daddr, 0);
 	if (remote_ep && identity_is_remote_node(remote_ep->sec_identity)) {
-		if (CONFIG(enable_remote_node_masquerade)) {
+		if (CONFIG(enable_remote_node_masquerade) &&
+		    !is_internal_node_ip6(&tuple->daddr)) {
 			ipv6_addr_copy(&target->addr, &masq_addr);
 			return NAT_NEEDED;
 		}
