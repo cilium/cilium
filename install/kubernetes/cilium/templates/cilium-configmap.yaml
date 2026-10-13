@@ -70,6 +70,12 @@
   {{- end }}
 {{- end -}}
 
+{{- /* IPv4 egress-only addresses are only routable once masqueraded by BPF. */ -}}
+{{- if and .Values.eni.enabled .Values.eni.ipv4EgressOnly.enabled }}
+  {{- $defaultEnableIPv4Masquerade = "true" -}}
+  {{- $defaultBpfMasquerade = "true" -}}
+{{- end }}
+
 {{- /* Effective masquerading settings */ -}}
 {{- $enableIPv4Masquerade := $defaultEnableIPv4Masquerade -}}
 {{- if not (kindIs "invalid" .Values.enableIPv4Masquerade) -}}
@@ -661,6 +667,11 @@ data:
 {{- if .Values.eni.instanceTagsFilter }}
   instance-tags-filter: {{ .Values.eni.instanceTagsFilter | join "," | quote }}
 {{- end }}
+{{- if .Values.eni.ipv4EgressOnly.enabled }}
+  enable-ipv4-egress-only: "true"
+  ipv4-egress-only-cidrs: {{ .Values.eni.ipv4EgressOnly.cidr | quote }}
+  ipv4-egress-only-mask-size: {{ .Values.eni.ipv4EgressOnly.maskSize | quote }}
+{{- end }}
 {{- end }}
 {{ if .Values.eni.gcInterval }}
   eni-gc-interval: {{ .Values.eni.gcInterval | quote }}
@@ -830,7 +841,9 @@ data:
   lrp-address-matcher-cidrs: {{ .Values.localRedirectPolicies.addressMatcherCIDRs | join "," | quote }}
 {{- end }}
 
-{{- if .Values.ipv4NativeRoutingCIDR }}
+{{- if and .Values.eni.enabled .Values.eni.ipv4EgressOnly.enabled }}
+  ipv4-native-routing-cidr: {{ .Values.eni.ipv4EgressOnly.cidr }}
+{{- else if .Values.ipv4NativeRoutingCIDR }}
   ipv4-native-routing-cidr: {{ .Values.ipv4NativeRoutingCIDR }}
 {{- end }}
 

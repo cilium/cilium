@@ -252,6 +252,25 @@
   {{ fail "ipam.mode=eni requires eni.enabled=true" }}
 {{- end }}
 
+{{/* validate the ENI IPv4 egress-only mode */}}
+{{- if .Values.eni.ipv4EgressOnly.enabled }}
+  {{- if not .Values.eni.enabled }}
+    {{ fail "eni.ipv4EgressOnly.enabled requires eni.enabled=true" }}
+  {{- end }}
+  {{- if not .Values.eni.ipv4EgressOnly.cidr }}
+    {{ fail "eni.ipv4EgressOnly.enabled requires eni.ipv4EgressOnly.cidr" }}
+  {{- end }}
+  {{- if not .Values.ipv6.enabled }}
+    {{ fail "eni.ipv4EgressOnly.enabled requires ipv6.enabled=true" }}
+  {{- end }}
+  {{- if or (eq (toString .Values.enableIPv4Masquerade) "false") (eq (toString .Values.bpf.masquerade) "false") }}
+    {{ fail "eni.ipv4EgressOnly.enabled requires enableIPv4Masquerade and bpf.masquerade" }}
+  {{- end }}
+  {{- if and .Values.ipv4NativeRoutingCIDR (ne .Values.ipv4NativeRoutingCIDR .Values.eni.ipv4EgressOnly.cidr) }}
+    {{ fail "eni.ipv4EgressOnly.cidr is used as the IPv4 native routing CIDR, ipv4NativeRoutingCIDR must be unset" }}
+  {{- end }}
+{{- end }}
+
 {{/* validate networkDriver.enabled flag requires kubernetes >= v1.34 */}}
 {{- if and (.Values.networkDriver.enabled) (semverCompare "<1.34.0" (printf "%d.%d.0" (semver .Capabilities.KubeVersion.Version).Major (semver .Capabilities.KubeVersion.Version).Minor)) }}
   {{ fail ".Values.networkDriver.enabled requires kubernetes version 1.34 or greater" }}
