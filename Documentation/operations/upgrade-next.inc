@@ -71,7 +71,9 @@ Changed Options
 The following options have been modified in this version of Cilium to behave
 differently than in prior releases:
 
-* TODO
+* ``enable-remote-node-masquerade`` will now only masquerade traffic to
+  ExternalIP node addresses. Traffic to InternalIP node addresses will not be
+  masqueraded anymore.
 
 Deprecated Options
 ##################
