@@ -47,5 +47,7 @@ func (n *NodeDiscovery) mutateAzureNodeResource(_ context.Context, nodeResource 
 		}
 	}
 
+	SeedPoolRequest(&nodeResource.Spec, n.daemonConfig.EnableIPv4, n.daemonConfig.EnableIPv6)
+
 	return nil
 }
