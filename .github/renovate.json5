@@ -565,17 +565,37 @@
         "!quay.io/cilium/cilium-envoy"
       ]
     },
+    // GitHub-hosted runners follow the Ubuntu release of the cilium images.
     {
       "matchPackageNames": [
-        "docker.io/library/ubuntu"
+        "docker.io/library/ubuntu",
+        "ubuntu"
       ],
-      "allowedVersions": "24.04",
+      "allowedVersions": "24.04"
+    },
+    // Overrides the rule above so that main and v1.20 receive 26.04.
+    {
+      "matchPackageNames": [
+        "docker.io/library/ubuntu",
+        "ubuntu"
+      ],
+      "allowedVersions": "26.04",
       "matchBaseBranches": [
-        "v1.20",
-        "v1.19",
-        "v1.18",
-        "main"
+        "main",
+        "v1.20"
       ]
+    },
+    // Only allow 24.04 for the v1.19 and v1.18 branch-specific workflows.
+    {
+      "matchFileNames": [
+        ".github/workflows/*-v1.19.yaml",
+        ".github/workflows/*-v1.18.yaml"
+      ],
+      "matchPackageNames": [
+        "docker.io/library/ubuntu",
+        "ubuntu"
+      ],
+      "allowedVersions": "24.04"
     },
     // Toolchain ceilings for v1.20, which targets Go 1.26. golangci-lint is
     // compiled with the Go toolchain the branch installs, so raising the branch's
