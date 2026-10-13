@@ -109,6 +109,45 @@ func next(iter *asm.InstructionIterator, insns asm.Instructions) *asm.Instructio
 	return nil
 }
 
+// symbolicJumpTarget resolves the target of a jump instruction that refers to
+// its target by symbol name rather than by an encoded offset. Such jumps are
+// produced when instructions are assembled programmatically (e.g. asm.Ja.Label)
+// and only get their Offset (or Constant, for long jumps) filled in when the
+// program is marshaled, which happens after this analysis runs. Until then the
+// field holds -1, which would make the jump appear to target itself.
+//
+// Returns false if ins doesn't carry an unresolved symbolic reference, in which
+// case the caller should fall back to [jumpTarget].
+func symbolicJumpTarget(ins *asm.Instruction, symbols map[string]asm.RawInstructionOffset) (asm.RawInstructionOffset, bool, error) {
+	ref := ins.Reference()
+	if ref == "" {
+		return 0, false, nil
+	}
+
+	op := ins.OpCode
+	class := op.Class()
+	if !class.IsJump() || op.JumpOp() == asm.Exit || op.JumpOp() == asm.Call {
+		return 0, false, nil
+	}
+
+	// Long jumps (Jump32Class + Ja) encode their offset in Constant, all other
+	// jumps use Offset. Only unresolved references need to be looked up.
+	if class == asm.Jump32Class && op.JumpOp() == asm.Ja {
+		if ins.Constant != -1 {
+			return 0, false, nil
+		}
+	} else if ins.Offset != -1 {
+		return 0, false, nil
+	}
+
+	raw, ok := symbols[ref]
+	if !ok {
+		return 0, false, fmt.Errorf("jump to unknown symbol %q: %s", ref, ins)
+	}
+
+	return raw, true, nil
+}
+
 // jumpTarget calculates the target of a jump instruction based on the current
 // raw instruction offset and the offset or constant present in the instruction.
 // It returns the target offset and a boolean indicating whether the instruction
