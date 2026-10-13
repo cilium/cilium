@@ -106,7 +106,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	fw := bufio.NewWriter(w)
 
-	writeIncludes(w)
+	writeIncludes(fw)
 
 	var ipv4NodePortAddrs, ipv6NodePortAddrs []netip.Addr
 	for _, addr := range cfg.NodeAddresses {
