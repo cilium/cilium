@@ -10,6 +10,9 @@ inputs:
   capture_features_tested:
     description: "Capture features tested in the test."
     default: "true"
+  sysdump_extra_label_selector:
+    description: "Label selector of extra pods whose logs the sysdump collects."
+    default: ""
   capture_sysdump:
     description: "Capture sysdump in case of a test failure."
     default: "true"
@@ -36,11 +39,17 @@ runs:
     - name: Post-test information gathering
       if: ${{ always() && ( ( inputs.job_status == 'failure' && inputs.capture_sysdump  == 'true') || inputs.always_capture_sysdump == 'true') }}
       shell: bash {0} # Disable default fail-fast behaviour so that all commands run independently
+      env:
+        EXTRA_LABEL_SELECTOR: ${{ inputs.sysdump_extra_label_selector }}
       run: |
         echo "=== Retrieve cluster state ==="
         kubectl get pods --all-namespaces -o wide
         cilium status
-        cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}"
+        extra=()
+        if [ -n "${EXTRA_LABEL_SELECTOR}" ]; then
+          extra=(--extra-label-selectors "${EXTRA_LABEL_SELECTOR}")
+        fi
+        cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}" "${extra[@]}"
 
     - name: Upload artifacts
       id: upload_sysdumps
@@ -52,7 +61,11 @@ runs:
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: "cilium-sysdumps-${{ inputs.artifacts_suffix }}"
-        path: cilium-sysdump-*.zip
+        path: |
+          cilium-sysdump-*.zip
+          control-plane-handshakes.pcap
+          control-plane-probe.log
+          control-plane-probe-summary.txt
 
     - name: Upload JUnits [junit]
       id: upload_junits
