@@ -7,16 +7,19 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/vtep"
 )
 
 const (
-	vtepUpdateUsage = "Create/Update vtep entry.\n"
+	vtepUpdateUsage = "Create/Update vtep entry.\n" +
+		"The VTEP mask is read from the local agent runtime configuration.\n"
 )
 
 var bpfVtepUpdateCmd = &cobra.Command{
@@ -41,6 +44,10 @@ var bpfVtepUpdateCmd = &cobra.Command{
 		vmac, err := mac.ParseMAC(args[2])
 		if err != nil {
 			Fatalf("Unable to parse vtep mac '%s'", args[2])
+		}
+
+		if err := loadVTEPMask(filepath.Join(defaults.RuntimePath, defaults.StateDir, "agent-runtime-config.json")); err != nil {
+			Fatalf("Unable to load VTEP mask: %s", err)
 		}
 
 		if err := vtep.LoadVTEPMap(log).Update(vcidr, vip, vmac); err != nil {
