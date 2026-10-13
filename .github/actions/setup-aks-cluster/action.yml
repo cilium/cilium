@@ -130,5 +130,8 @@ runs:
         kubectl taint nodes -l cilium.io/no-schedule=true \
           cilium.io/no-schedule=true:NoSchedule --overwrite
         kubectl apply -f "${{ github.action_path }}/dummy-cni-daemonset.yaml"
-        kubectl -n kube-system rollout status daemonset/dummy-cni --timeout=180s
-        kubectl wait --for=condition=Ready node -l cilium.io/no-schedule=true --timeout=180s
+        if ! kubectl -n kube-system rollout status daemonset/dummy-cni --timeout=180s ||
+           ! kubectl wait --for=condition=Ready node -l cilium.io/no-schedule=true --timeout=180s; then
+          bash "${{ github.action_path }}/dummy-cni-debug.sh"
+          exit 1
+        fi
