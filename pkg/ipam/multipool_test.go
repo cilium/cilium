@@ -228,6 +228,7 @@ func Test_MultiPoolManager(t *testing.T) {
 		assert.Nil(t, faultyAllocation)
 		faultyAllocation, err = mgr.allocateNext("jupiter-pod-1", "jupiter", IPv6, false)
 		assert.ErrorIs(t, err, &ErrPoolNotReadyYet{})
+		assert.ErrorIs(t, err, ErrAllocationPending)
 		assert.Nil(t, faultyAllocation)
 
 		// Try again. This should still fail, but not request an additional third IP
@@ -387,6 +388,7 @@ func Test_MultiPoolManager(t *testing.T) {
 			allocatedMarsIPs = append(allocatedMarsIPs, ar.IP)
 		}
 		_, err = mgr.allocateNext("mars-pod-overflow", "mars", IPv4, false)
+		assert.ErrorIs(t, err, ErrAllCIDRsExhausted)
 		assert.ErrorContains(t, err, "all CIDR ranges are exhausted")
 
 		ipv4Dump, _ := mgr.dump(IPv4)
@@ -1435,6 +1437,44 @@ func TestAllocateNext_SkipMasquerade(t *testing.T) {
 	res, err = mgr.AllocateNextWithoutSyncUpstream("ns/pod", "green")
 	require.NoError(t, err)
 	require.False(t, res.SkipMasquerade, "SkipMasquerade should default to false")
+}
+
+func TestAllocateNextPoolNotFound(t *testing.T) {
+	db := statedb.New()
+	poolsTbl, err := podippool.NewTable(db)
+	require.NoError(t, err)
+	txn := db.WriteTxn(poolsTbl)
+	markSynced := poolsTbl.RegisterInitializer(txn, "test")
+	txn.Commit()
+
+	allocator := createSkipMasqTestManager(t, db, poolsTbl, false)
+	res, err := allocator.AllocateNextWithoutSyncUpstream("ns/pod", "blue")
+	require.Nil(t, res)
+	var missing *ErrPoolNotFound
+	require.ErrorAs(t, err, &missing)
+	require.Equal(t, Pool("blue"), missing.Pool)
+	require.False(t, missing.Synced)
+	require.ErrorIs(t, err, ErrAllocationPending)
+	require.EqualError(t, err, "IP pool 'blue' not found in stateDB table")
+
+	txn = db.WriteTxn(poolsTbl)
+	markSynced(txn)
+	txn.Commit()
+
+	res, err = allocator.AllocateNextWithoutSyncUpstream("ns/pod", "blue")
+	require.Nil(t, res)
+	require.ErrorAs(t, err, &missing)
+	require.Equal(t, Pool("blue"), missing.Pool)
+	require.True(t, missing.Synced)
+	require.NotErrorIs(t, err, ErrAllocationPending)
+	require.EqualError(t, err, "IP pool 'blue' not found in stateDB table")
+
+	insertPool(t, db, poolsTbl, "blue", true)
+	res, err = allocator.AllocateNextWithoutSyncUpstream("ns/pod", "blue")
+	require.NoError(t, err)
+	require.True(t, res.SkipMasquerade)
+	require.Equal(t, Pool("blue"), res.IPPoolName)
+	require.True(t, netip.MustParsePrefix("10.0.1.0/24").Contains(res.IP))
 }
 
 func TestMultiPoolManagerUpdatesFirstLastIPSettingsBeforeAllocation(t *testing.T) {

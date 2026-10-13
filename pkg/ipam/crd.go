@@ -48,6 +48,23 @@ var (
 	initNodeStore   sync.Once
 )
 
+// ErrNoAvailableIPs indicates that the node's pool has no IP available for allocation.
+type ErrNoAvailableIPs struct {
+	ipamMode string
+}
+
+func (e *ErrNoAvailableIPs) Error() string {
+	msg := "no IPs currently available on the node, allocation will be retried "
+	if e.ipamMode == ipamOption.IPAMCRD {
+		return msg + "once IPs are added to CiliumNode spec.ipam.pool"
+	}
+	return msg + "once Cilium Operator allocates more IPs"
+}
+
+func (e *ErrNoAvailableIPs) Is(target error) bool {
+	return target == ErrAllocationPending && e.ipamMode != ipamOption.IPAMCRD
+}
+
 const (
 	fieldName = "name"
 )
@@ -655,13 +672,7 @@ func (n *nodeStore) allocateNext(allocated ipamTypes.AllocationMap, family Famil
 		}
 	}
 
-	msg := "no IPs currently available on the node, allocation will be retried "
-	if n.conf.IPAMMode() == ipamOption.IPAMCRD {
-		msg += "once IPs are added to CiliumNode spec.ipam.pool"
-	} else {
-		msg += "once Cilium Operator allocates more IPs"
-	}
-	return netip.Addr{}, nil, errors.New(msg)
+	return netip.Addr{}, nil, &ErrNoAvailableIPs{ipamMode: n.conf.IPAMMode()}
 }
 
 // totalPoolSize returns the total size of the allocation pool
