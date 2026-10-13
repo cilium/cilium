@@ -892,7 +892,7 @@ nodeport_rev_dnat_get_info_ipv6(struct __ctx_buff *ctx,
 		return false;
 	}
 
-	if (is_defined(ENABLE_DSR) && entry->dsr_internal) {
+	if (CONFIG(dsr_cfg).enable && entry->dsr_internal) {
 		struct ipv6_nat_entry *dsr_entry;
 		struct ipv6_ct_tuple dsr_tuple;
 
@@ -1220,7 +1220,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 
 	ctx_snat_done_set(ctx);
 
-	if (!is_defined(ENABLE_DSR) || CONFIG(dsr_cfg).enable_by_user ||
+	if (!CONFIG(dsr_cfg).enable || CONFIG(dsr_cfg).enable_by_user ||
 	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
 	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
 		if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
@@ -1633,11 +1633,10 @@ skip_service_lookup:
 #endif
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
-#ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
-	if (is_svc_proto) {
+	if (CONFIG(dsr_cfg).enable && is_svc_proto) {
 		ret = nodeport_extract_dsr_v6(ctx, ip6, &tuple, l4_off,
 					      fraginfo, &key.address,
 					      &key.dport, dsr);
@@ -1649,7 +1648,6 @@ skip_service_lookup:
 							 ext_err);
 	}
 #endif
-#endif /* ENABLE_DSR */
 
 	if (is_defined(ENABLE_MASQUERADE_IPV6) || is_svc_proto) {
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
@@ -2215,7 +2213,7 @@ nodeport_rev_dnat_get_info_ipv4(struct __ctx_buff *ctx,
 		return false;
 	}
 
-	if (is_defined(ENABLE_DSR) && entry->dsr_internal) {
+	if (CONFIG(dsr_cfg).enable && entry->dsr_internal) {
 		struct ipv4_nat_entry *dsr_entry;
 		struct ipv4_ct_tuple dsr_tuple;
 
@@ -2489,7 +2487,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 	 * Otherwise, we would have tail-called back to
 	 * CALL_IPV4_FROM_NETDEV in the code above.
 	 */
-	if (!is_defined(ENABLE_DSR) || CONFIG(dsr_cfg).enable_by_user ||
+	if (!CONFIG(dsr_cfg).enable || CONFIG(dsr_cfg).enable_by_user ||
 	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
 	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
 		/* If we're not in full DSR mode, reply traffic from remote backends
@@ -2930,11 +2928,10 @@ skip_service_lookup:
 	 */
 	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
-#ifdef ENABLE_DSR
 #if (defined(IS_BPF_OVERLAY) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE) || \
     ((defined(IS_BPF_XDP) || defined(IS_BPF_HOST) || defined(IS_BPF_WIREGUARD)) && \
      (DSR_ENCAP_MODE == DSR_ENCAP_NONE))
-	if (is_svc_proto) {
+	if (CONFIG(dsr_cfg).enable && is_svc_proto) {
 		/* Check if packet has embedded DSR info, or belongs to
 		 * an established DSR connection:
 		 */
@@ -2950,7 +2947,6 @@ skip_service_lookup:
 							 ext_err);
 	}
 #endif
-#endif /* ENABLE_DSR */
 
 	ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 	/* For NAT64 we might see an IPv4 reply from the backend to

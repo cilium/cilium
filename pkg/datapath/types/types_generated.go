@@ -124,6 +124,7 @@ type DropNotify struct {
 // DSRConfig is generated from the BPF C type dsr_config.
 type DSRConfig struct {
 	_                structs.HostLayout
+	Enable           bool
 	EnableICMPErrors bool
 	EnableByUser     bool
 }

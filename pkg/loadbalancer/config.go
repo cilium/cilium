@@ -282,6 +282,9 @@ var ConfigCell = cell.Group(
 
 // DSRConfig holds the DSR-specific configuration.
 type DSRConfig struct {
+	// Enable enables DSR load balancing.
+	Enable bool
+
 	// EnableICMPErrors enables sending ICMP fragmentation-needed replies to the client.
 	EnableICMPErrors bool
 
@@ -417,6 +420,7 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 
 	lbUsesDSR := krpCfg.KubeProxyReplacement && loadBalancerUsesDSR(cfg.LBMode, cfg.LBModeAnnotation)
 	if lbUsesDSR {
+		cfg.DSRConfig.Enable = true
 		cfg.DSRConfig.EnableICMPErrors = dcfg.EnablePMTUDiscovery
 		cfg.DSRConfig.EnableByUser = cfg.LBMode == LBModeHybrid || cfg.LBModeAnnotation
 	}

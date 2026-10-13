@@ -192,6 +192,8 @@ NODE_CONFIG(bool, enable_ip_masq_agent_ipv6, "Enable ip-masq-agent for IPv6 traf
 NODE_CONFIG(bool, debug, "Enable debugging trace statements")
 
 struct dsr_config {
+	/* Enable DSR load balancing. */
+	bool enable;
 	/* Enable sending ICMP fragmentation-needed replies to the client. */
 	bool enable_icmp_errors;
 	/* Enable the common datapath for Hybrid-DSR+SNAT and Annotation-based+DSR+SNAT modes. */
