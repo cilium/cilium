@@ -356,6 +356,12 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	var output bytes.Buffer
 	var errOutput bytes.Buffer
 	var err error
+	var snaps []clientSnapshot
+	execCmd := cmd
+	withSnapshots := a.wantsClientSnapshots(cmd)
+	if withSnapshots {
+		execCmd = curlWithClientSnapshots(cmd)
+	}
 	// We retry the command in case of inconclusive results. The result is
 	// deemed inconclusive when the command succeeded, but we don't have any
 	// output. We've seen this happen when there are connectivity blips on the
@@ -366,7 +372,13 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 	// output.
 	for i := 1; i <= testCommandRetries; i++ {
 		output, errOutput, err = pod.K8sClient.ExecInPodWithStderr(ctx,
-			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Spec.Containers[0].Name, cmd)
+			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Spec.Containers[0].Name, execCmd)
+		if withSnapshots {
+			var rest string
+			snaps, rest = splitClientSnapshots(errOutput.String())
+			errOutput.Reset()
+			errOutput.WriteString(rest)
+		}
 		a.cmdOutput = output.String()
 		// Check for inconclusive results.
 		if err == nil && strings.TrimSpace(pingHeaderPattern.ReplaceAllString(output.String(), "")) == "" {
@@ -435,8 +447,27 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		a.test.Log(strings.TrimSpace(output.String()))
 		a.test.Infof("%s stderr:", cmdName)
 		a.test.Log(strings.TrimSpace(errOutput.String()))
+		if withSnapshots {
+			a.logClientSnapshots(snaps)
+		}
 		a.test.Log()
 	}
+}
+
+// wantsClientSnapshots reports whether cmd runs curl from a client pod expecting a TLS reset.
+func (a *Action) wantsClientSnapshots(cmd []string) bool {
+	return cmd[0] == "curl" && a.src.Pod.Labels["kind"] == kindClientName &&
+		a.expectedExitCode() == ExitCurlSSLError
+}
+
+// logClientSnapshots logs what changed in the source pod and its node while curl ran.
+func (a *Action) logClientSnapshots(snaps []clientSnapshot) {
+	if len(snaps) != 2 {
+		a.test.Infof("%s: found %d of the 2 snapshots taken around curl", a.src.Name(), len(snaps))
+		return
+	}
+	a.test.Infof("%s counters over curl's lifetime from node uptime %.2fs: %s", a.src.Name(),
+		float64(snaps[0][snapUptime])/1e6, clientSnapshotDelta(snaps[0], snaps[1]))
 }
 
 var exitCodeRegex = regexp.MustCompile("exit code ([0-9]+)")
