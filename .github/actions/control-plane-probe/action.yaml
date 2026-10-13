@@ -1,0 +1,43 @@
+name: "Probe the control plane from the runner"
+description: "Captures the runner's TCP handshakes to the cluster's API server and samples the API connect time, the runner's sockets to it and the runner's egress IP every 10s."
+inputs:
+  mode:
+    description: "'start' once the kubeconfig points at the cluster, or 'stop' before the post steps upload the artifacts."
+    required: true
+  control:
+    description: "In start mode, also connect to the API server every 5s from a node labelled cilium.io/no-schedule."
+    default: "false"
+  provider:
+    description: "gke, aks or eks, used in stop mode to read the API server's authorized networks."
+    default: ""
+  cluster:
+    description: "Cluster name, used in stop mode."
+    default: ""
+  location:
+    description: "GKE zone, AKS resource group or EKS region, used in stop mode."
+    default: ""
+  job_status:
+    description: "Status of the job. In stop mode, 'cancelled' skips the calls to the cluster and the cloud API."
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Start the capture and the probes
+      if: ${{ inputs.mode == 'start' }}
+      shell: bash
+      env:
+        CONTROL: ${{ inputs.control }}
+      run: |
+        timeout 240 bash "${GITHUB_ACTION_PATH}/probe.sh" start "${CONTROL}"
+
+    - name: Stop the capture and the probes, and summarize them
+      if: ${{ always() && inputs.mode == 'stop' }}
+      shell: bash
+      env:
+        PROVIDER: ${{ inputs.provider }}
+        CLUSTER: ${{ inputs.cluster }}
+        LOCATION: ${{ inputs.location }}
+        JOB_STATUS: ${{ inputs.job_status }}
+      run: |
+        timeout 240 bash "${GITHUB_ACTION_PATH}/probe.sh" stop "${PROVIDER}" "${CLUSTER}" "${LOCATION}" "${JOB_STATUS}"
