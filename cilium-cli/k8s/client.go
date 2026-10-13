@@ -561,20 +561,24 @@ func (c *Client) ExecInPodWithWriters(connCtx, killCmdCtx context.Context, names
 		execParams.TTY = true
 	}
 
+	start := time.Now()
 	err := c.execInPodWithWriters(connCtx, killCmdCtx, execParams, stdout, stderr)
+	elapsed := time.Since(start)
 
 	var errstr string
 	if errbuf != nil {
 		errstr = errbuf.String()
 	}
 
+	when := fmt.Sprintf("started=%s, elapsed=%s", start.UTC().Format("2006-01-02T15:04:05.000Z"), elapsed.Round(time.Millisecond))
+
 	switch {
 	case err != nil && errstr == "":
-		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %w", namespace, pod, container, err)
+		return fmt.Errorf("command failed (pod=%s/%s, container=%s, %s): %w", namespace, pod, container, when, err)
 	case err != nil && errstr != "":
-		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %w: %w", namespace, pod, container, err, stderrOutput(errstr))
+		return fmt.Errorf("command failed (pod=%s/%s, container=%s, %s): %w: %w", namespace, pod, container, when, err, stderrOutput(errstr))
 	case err == nil && errstr != "":
-		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %w", namespace, pod, container, stderrOutput(errstr))
+		return fmt.Errorf("command failed (pod=%s/%s, container=%s, %s): %w", namespace, pod, container, when, stderrOutput(errstr))
 	default:
 		return nil
 	}
