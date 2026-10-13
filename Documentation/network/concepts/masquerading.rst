@@ -52,12 +52,8 @@ To masquerade traffic to remote nodes in BPF masquerading mode, use the option
 ``enable-bpf-masquerade: "true"`` and also either ``enable-ipv4-masquerade:
 "true"`` or ``enable-ipv6-masquerade: "true"`` to SNAT traffic for IPv4 and
 IPv6, respectively. This option only affects traffic from an Endpoint directed
-towards the address of a remote node, and not traffic between Endpoints on
-different nodes.
-
-This flag currently masquerades traffic to node ``InternalIP`` addresses. This
-may change in future. See :gh-issue:`35823` and :gh-issue:`17177` for further
-discussion on this topic.
+towards the ExternalIP address of a remote node, and not traffic between
+Endpoints on different nodes.
 
 This option can limit Cilium's ability to enforce ingress host firewall
 policies for traffic from Pods towards Nodes. If you use this option, consider
