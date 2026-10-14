@@ -129,10 +129,9 @@ func TestNoOpUpdateAfterFailedNACKCompletesWithRejection(t *testing.T) {
 	// state. A no-op submitted before stream closure must fail immediately,
 	// rather than await an ACK for a version Envoy already rejected.
 	publicationErr := errors.New("corrective publication failed")
-	backend := c.SnapshotCache
-	c.SnapshotCache = &mockSnapshotCache{
+	restore := c.replaceSnapshotCache(t, &mockSnapshotCache{
 		snapshots: map[string]cache.ResourceSnapshot{"coverage-node": published}, setSnapshotErr: publicationErr,
-	}
+	})
 	// Keep a policy watch available so response recovery attempts publication
 	// now. Otherwise the compensation commits unpublished changes for the next watch.
 	cancelWatch, err := c.CreateWatch(&cache.Request{
@@ -144,7 +143,7 @@ func TestNoOpUpdateAfterFailedNACKCompletesWithRejection(t *testing.T) {
 		TypeUrl: s.typeURL, VersionInfo: s.version, ResponseNonce: response.Nonce,
 		ErrorDetail: &status.Status{Message: "invalid policy"},
 	}), publicationErr)
-	c.SnapshotCache = backend
+	restore()
 	current := c.GetResource("coverage-node", typeurl.NetworkPolicy, "policy")
 	require.NotNil(t, current)
 	require.Same(t, rejected, current)
@@ -566,12 +565,11 @@ func TestFailedPublicationPreservesPartialACKForNoOp(t *testing.T) {
 	// snapshot too early would prune A's sparse ACK entry irreversibly.
 	previous, err := c.GetSnapshot("coverage-node")
 	require.NoError(t, err)
-	backend := c.SnapshotCache
 	publicationErr := errors.New("snapshot publication failed")
 	failed := newMockSnapshotCache()
 	failed.snapshots["coverage-node"] = previous
 	failed.setSnapshotErr = publicationErr
-	c.SnapshotCache = failed
+	restore := c.replaceSnapshotCache(t, failed)
 	// Keep an EDS watch open so failure is exercised by this mutation, not
 	// deferred to a later request. The mock never consumes this watch.
 	cancelWatch, err := c.CreateWatch(&cache.Request{
@@ -581,7 +579,7 @@ func TestFailedPublicationPreservesPartialACKForNoOp(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(cancelWatch)
 	err = c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", nil, nil, nil)
-	c.SnapshotCache = backend
+	restore()
 	require.ErrorIs(t, err, publicationErr)
 	current := c.GetResource("coverage-node", typeurl.Endpoint, "a")
 	require.NotNil(t, current)

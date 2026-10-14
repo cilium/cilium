@@ -309,12 +309,11 @@ func TestFailedNACKBatchRetainsAllInverses(t *testing.T) {
 	}
 	response := second.receive(t, "secret")
 	before := c.getNodeState("coverage-node").resourceGeneration
-	backend := c.SnapshotCache
 	failure := errors.New("corrective publication failed")
 	failed := newMockSnapshotCache()
 	failed.snapshots["coverage-node"] = mustSnapshot(t, c, "coverage-node")
 	failed.setSnapshotErr = failure
-	c.SnapshotCache = failed
+	restore := c.replaceSnapshotCache(t, failed)
 	// Recovery finalizes synchronously only if an open watch can consume the
 	// correction. The mock retains this watch without sending a response.
 	cancelWatch, err := c.CreateWatch(&cache.Request{
@@ -330,7 +329,7 @@ func TestFailedNACKBatchRetainsAllInverses(t *testing.T) {
 	require.Same(t, b, c.GetResource("coverage-node", typeurl.Secret, "secret"), "failed publication must not leave a partial rollback to A")
 	require.Equal(t, before, c.getNodeState("coverage-node").resourceGeneration)
 	require.Equal(t, 2, c.getNodeState("coverage-node").rollbacks.responses.Len())
-	c.SnapshotCache = backend
+	restore()
 	c.completionCbs.OnStreamClosed(second.id, nil)
 	third := coverageStream{cache: c, id: 3, typeURL: typeurl.Secret.URL()}
 	t.Cleanup(func() { c.completionCbs.OnStreamClosed(third.id, nil) })

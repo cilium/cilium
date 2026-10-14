@@ -29,7 +29,7 @@ func TestResourceCompletionCallbacksCanReenterCache(t *testing.T) {
 	for _, api := range []string{"single", "bulk"} {
 		for _, outcome := range []string{"ack", "nack", "accepted-noop", "pristine-removal"} {
 			t.Run(api+"/"+outcome, func(t *testing.T) {
-				c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("coverage-node")).(*cacheImpl)
+				c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("coverage-node"))
 				ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 				t.Cleanup(cancel)
 				wg := completion.NewWaitGroup(ctx)

@@ -62,7 +62,7 @@ func (handler *gatedNACKHandler) StreamClosed(streamID int64, nodeID string, mod
 func newGatedNACKCache(t *testing.T) (*cacheImpl, *gatedNACKHandler) {
 	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
-	c := NewCache(logger, WithNodeIDs("coverage-node")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("coverage-node"))
 	handler := &gatedNACKHandler{cache: c, beforeLock: make(chan *nackGate, 2), beforeRevert: make(chan *nackGate, 2)}
 	c.completionCbs = callbacks.NewCompletionCallbacks(logger, handler)
 	return c, handler
@@ -231,7 +231,7 @@ func TestNACKRecoveryRebasesOnlyRejectedNames(t *testing.T) {
 		}
 		for _, outcome := range []string{"nack", "unsent-nack", "caller-after-ack"} {
 			t.Run(shape+"/"+outcome, func(t *testing.T) {
-				c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("coverage-node")).(*cacheImpl)
+				c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("coverage-node"))
 				t.Cleanup(func() { c.completionCbs.OnStreamClosed(1, nil); c.completionCbs.OnStreamClosed(2, nil) })
 				transaction := func(contents string) ResourceMutations {
 					mutations := ResourceMutations{Upserted: xds.Resources{Secrets: map[string]*secret.Secret{
@@ -350,12 +350,11 @@ func TestFailedNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 	})
 	second := coverageStream{cache: c, id: 2, typeURL: typeurl.Secret.URL()}
 	responseB := second.receive(t, "triggering-change", "sibling")
-	backend := c.SnapshotCache
 	failed := newMockSnapshotCache()
 	failed.snapshots["coverage-node"] = mustSnapshot(t, c, "coverage-node")
 	failure := errors.New("corrective publication failed")
 	failed.setSnapshotErr = failure
-	c.SnapshotCache = failed
+	restore := c.replaceSnapshotCache(t, failed)
 	// Keep a watch available so recovery exercises response delivery as well
 	// as snapshot installation failure.
 	cancel, err := c.CreateWatch(&cache.Request{
@@ -368,7 +367,7 @@ func TestFailedNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 		TypeUrl: typeurl.Secret.URL(), ResponseNonce: responseA.Nonce,
 		ResourceNames: []string{"triggering-change", "sibling"}, ErrorDetail: &status.Status{Message: "invalid secret"},
 	}), failure)
-	c.SnapshotCache = backend
+	restore()
 	// Failed recovery retains A's own inverse for retry. But rejection is
 	// definitive: B's caller rollback must bypass A even after that failure.
 	require.Same(t, b, c.GetResource("coverage-node", typeurl.Secret, "triggering-change"))
