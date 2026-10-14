@@ -253,8 +253,10 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 		ErrorDetail:   &status.Status{Message: "rejected initial policies"},
 	}))
 
-	require.Empty(t, maps.Collect(c.NetworkPolicies("node1")),
-		"a NACK of the first response must restore the empty cache baseline")
+	for _, name := range []string{"1", "2"} {
+		require.Nil(t, c.GetResource("node1", typeurl.NetworkPolicy, name),
+			"a NACK of the first response must remove every seeded policy")
+	}
 }
 
 func TestResourceUpdateRevertibleIsNoOpAfterFirstCall(t *testing.T) {

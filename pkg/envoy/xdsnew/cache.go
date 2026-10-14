@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 
-	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -61,10 +60,6 @@ type Cache interface {
 	// GetResource returns one cache-owned immutable resource without
 	// materializing the complete desired resource maps, or nil if absent.
 	GetResource(nodeID string, typeURL typeurl.Index, resourceName string) cache_types.Resource
-	// NetworkPolicies exposes cache-owned immutable resources without
-	// leaking the mutable internal map. Iteration holds the cache read lock,
-	// so loop bodies must not call back into the cache.
-	NetworkPolicies(nodeID string) iter.Seq2[string, *cilium.NetworkPolicy]
 	GetCompletionCallbacks() *callbacks.CompletionCallbacks
 	// HasNode reports whether this consumer was configured at cache construction.
 	// An empty desired state remains authoritative across stream reconnects.
@@ -1381,22 +1376,6 @@ func (c *cacheImpl) GetResource(nodeID string, typeURL typeurl.Index, resourceNa
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.getNodeState(nodeID).getResource(typeURL, resourceName)
-}
-
-func (c *cacheImpl) NetworkPolicies(nodeID string) iter.Seq2[string, *cilium.NetworkPolicy] {
-	return func(yield func(string, *cilium.NetworkPolicy) bool) {
-		c.mutex.RLock()
-		defer c.mutex.RUnlock()
-		state := c.getNodeState(nodeID)
-		if state == nil {
-			return
-		}
-		for name, entry := range state.resources[typeurl.NetworkPolicy] {
-			if entry.resource != nil && !yield(name, typedResource[*cilium.NetworkPolicy](entry.resource)) {
-				return
-			}
-		}
-	}
 }
 
 // withEpoch returns a copy-on-write protocol view using epoch while retaining

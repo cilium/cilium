@@ -2660,18 +2660,6 @@ func testXdsServer(t *testing.T) *xdsServer {
 	}
 }
 
-func (s *xdsServer) GetNetworkPolicies(resourceNames []string) map[string]*cilium.NetworkPolicy {
-	resources := s.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, resourceNames)
-	networkPolicies := make(map[string]*cilium.NetworkPolicy, len(resources.VersionedResources))
-	for i := range resources.VersionedResources {
-		networkPolicy := resources.VersionedResources[i].Resource.(*cilium.NetworkPolicy)
-		for _, ip := range networkPolicy.EndpointIps {
-			networkPolicies[ip] = networkPolicy
-		}
-	}
-	return networkPolicies
-}
-
 func TestUpdateNetworkPolicyRevertKeepsLocalEndpointStoreAfterStaleDuplicateRemoval(t *testing.T) {
 	currentEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
 		Id:   2766,

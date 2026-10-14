@@ -4,7 +4,6 @@
 package envoy
 
 import (
-	"maps"
 	"testing"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -34,10 +33,6 @@ func publishedResources(cache xdsnew.Cache, nodeID string, typeURL typeurl.Index
 		return nil
 	}
 	return snapshot.GetResources(typeURL.URL())
-}
-
-func cachedNetworkPolicies(cache xdsnew.Cache, nodeID string) map[string]*cilium.NetworkPolicy {
-	return maps.Collect(cache.NetworkPolicies(nodeID))
 }
 
 func requireCachedResource(t testing.TB, cache xdsnew.Cache, nodeID, typeURL, name string) {

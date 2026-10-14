@@ -626,48 +626,37 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 	require.NoError(t, err)
 	t.Log("completed upserting base resources")
 
-	// Step 2: GetNetworkPolicies - get all (returned map is keyed by IP address)
-	t.Log("getting all network policies")
-	policies, err := xdsServer.GetNetworkPolicies(nil)
-	require.NoError(t, err)
-	require.NotNil(t, policies)
-	require.Contains(t, policies, "10.0.0.1")
-	require.Contains(t, policies, "10.0.0.2")
-	require.Equal(t, uint64(40), policies["10.0.0.1"].EndpointId)
-	require.Equal(t, uint64(30), policies["10.0.0.2"].EndpointId)
+	// Step 2: Read each policy by endpoint ID and verify its IP addresses.
+	t.Log("getting endpoint network policies")
+	for _, ep := range endpoints {
+		policy := cachedNetworkPolicy(t, xdsServer.cache, localNodeID, strconv.FormatUint(ep.id, 10))
+		require.Equal(t, ep.id, policy.GetEndpointId())
+		require.Equal(t, ep.GetPolicyNames(), policy.GetEndpointIps())
+	}
 
-	// Step 3: GetNetworkPolicies - get specific (filter by endpoint ID, result keyed by IP)
-	t.Log("getting specific network policy")
-	policies, err = xdsServer.GetNetworkPolicies([]string{"40"})
-	require.NoError(t, err)
-	require.Len(t, policies, 1)
-	require.Contains(t, policies, "10.0.0.1")
-
-	// Step 4: GetNetworkPolicies - get nonexistent
+	// Step 3: An unknown policy name returns no resource.
 	t.Log("getting nonexistent network policy")
-	policies, err = xdsServer.GetNetworkPolicies([]string{"nonexistent"})
-	require.NoError(t, err)
-	require.Empty(t, policies)
+	requireNoCachedResource(t, xdsServer.cache, localNodeID, NetworkPolicyTypeURL, "nonexistent")
 
-	// Step 5: RemoveNetworkPolicy - remove endpoint 40's policy
+	// Step 4: Remove endpoint 40's policy without affecting endpoint 30.
 	t.Log("removing network policy for endpoint 40")
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	xdsServer.RemoveNetworkPolicy(ctx, endpoints[0])
 
 	// Verify removal
-	policies, err = xdsServer.GetNetworkPolicies(nil)
-	require.NoError(t, err)
-	require.NotContains(t, policies, "10.0.0.1")
-	require.Contains(t, policies, "10.0.0.2")
+	requireNoCachedResource(t, xdsServer.cache, localNodeID, NetworkPolicyTypeURL, "40")
+	policy := cachedNetworkPolicy(t, xdsServer.cache, localNodeID, "30")
+	require.Equal(t, uint64(30), policy.GetEndpointId())
+	require.Equal(t, endpoints[1].GetPolicyNames(), policy.GetEndpointIps())
 	t.Log("completed removing network policy for endpoint 40")
 
-	// Step 6: Remove the remaining endpoint's policy.
+	// Step 5: Remove the remaining endpoint's policy.
 	t.Log("removing network policy for endpoint 30")
 	xdsServer.RemoveNetworkPolicy(ctx, endpoints[1])
 
-	policies, err = xdsServer.GetNetworkPolicies(nil)
-	require.NoError(t, err)
-	require.Empty(t, policies)
+	for _, ep := range endpoints {
+		requireNoCachedResource(t, xdsServer.cache, localNodeID, NetworkPolicyTypeURL, strconv.FormatUint(ep.id, 10))
+	}
 	t.Log("completed removing remaining network policy")
 
 	t.Log("stopping Envoy")
@@ -773,9 +762,9 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	t.Log("updating the retained network policy after final listener removal")
 	ep.ipv4 = "10.0.0.9"
 	seedADSNetworkPolicy(t, xdsServer, ep)
-	policies, err := xdsServer.GetNetworkPolicies([]string{"40"})
-	require.NoError(t, err)
-	require.Contains(t, policies, "10.0.0.9")
+	policy := cachedNetworkPolicy(t, xdsServer.cache, localNodeID, "40")
+	require.Equal(t, uint64(40), policy.GetEndpointId())
+	require.Equal(t, ep.GetPolicyNames(), policy.GetEndpointIps())
 	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "NetworkPoliciesConfigDump", "10.0.0.9")
 	requireNoRepeatedEnvoyLog(t, envoyLogPath, unwatchedNetworkPolicy, baselineWarnings, 2*time.Second)
 

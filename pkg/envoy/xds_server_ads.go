@@ -615,33 +615,6 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicy, resourceName, nil, nil, nil)
 }
 
-func (s *adsServer) GetNetworkPolicies(resourceNames []string) (map[string]*cilium.NetworkPolicy, error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	// Key by IP address to match the old implementation's contract. Callers
-	// expect map keys to be endpoint IP addresses, not endpoint IDs.
-	result := make(map[string]*cilium.NetworkPolicy)
-	if len(resourceNames) > 0 {
-		for _, name := range resourceNames {
-			resource := s.cache.GetResource(localNodeID, typeurl.NetworkPolicy, name)
-			if resource == nil {
-				continue
-			}
-			policy := resource.(*cilium.NetworkPolicy)
-			for _, ip := range policy.EndpointIps {
-				result[ip] = policy
-			}
-		}
-		return result, nil
-	}
-	for _, policy := range s.cache.NetworkPolicies(localNodeID) {
-		for _, ip := range policy.EndpointIps {
-			result[ip] = policy
-		}
-	}
-	return result, nil
-}
-
 // portAllocationCallback returns a callback that fires all PortAllocationCallbacks on success.
 // This is used to confirm port allocations after Envoy ACKs the listener update.
 func (s *adsServer) portAllocationCallback(ctx context.Context, callbacks map[string]func(context.Context) error) func(err error) {

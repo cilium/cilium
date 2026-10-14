@@ -253,7 +253,9 @@ func TestRemoveNetworkPoliciesKeepsOtherResourceTypes(t *testing.T) {
 		removalRollbacks = append(removalRollbacks, rollback)
 	}
 	require.Equal(t, before+2, c.resourceGeneration)
-	require.Empty(t, maps.Collect(c.NetworkPolicies("node1")))
+	for _, name := range []string{"first", "second"} {
+		require.Nil(t, c.GetResource("node1", typeurl.NetworkPolicy, name))
+	}
 	resource := c.GetResource("node1", typeurl.Listener, "listener")
 	require.NotNil(t, resource)
 	require.Same(t, listener, resource)
@@ -268,7 +270,9 @@ func TestRemoveNetworkPoliciesKeepsOtherResourceTypes(t *testing.T) {
 	for i := range slices.Backward(removalRollbacks) {
 		require.NoError(t, removalRollbacks[i].Revert())
 	}
-	require.Len(t, maps.Collect(c.NetworkPolicies("node1")), 2)
+	for _, name := range []string{"first", "second"} {
+		require.NotNil(t, c.GetResource("node1", typeurl.NetworkPolicy, name))
+	}
 }
 
 func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
@@ -726,6 +730,7 @@ func TestGetResourceByTypeAndName(t *testing.T) {
 		{typeurl.Listener, "listener", &envoy_config_listener.Listener{Name: "listener"}},
 		{typeurl.Secret, "secret", &envoy_config_tls.Secret{Name: "secret"}},
 		{typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: 1}},
+		{typeurl.NetworkPolicy, "other-policy", &cilium.NetworkPolicy{EndpointId: 2}},
 		{typeurl.NetworkPolicyHosts, "hosts", &cilium.NetworkPolicyHosts{}},
 	}
 	for _, resource := range resources {
@@ -747,6 +752,8 @@ func TestGetResourceByTypeAndName(t *testing.T) {
 		{"node1", typeurl.Listener, "missing"},
 		{"node1", typeurl.Listener, "removed"},
 		{"node1", typeurl.Route, "listener"},
+		{"unknown", typeurl.NetworkPolicy, "policy"},
+		{"node1", typeurl.NetworkPolicy, "missing"},
 		{"node1", typeurl.Count, "listener"},
 	} {
 		got := c.GetResource(tt.nodeID, tt.typeURL, tt.name)
@@ -754,28 +761,6 @@ func TestGetResourceByTypeAndName(t *testing.T) {
 	}
 }
 
-func TestNetworkPoliciesIterator(t *testing.T) {
-	c := newInitializedTestCache(t, newMockSnapshotCache())
-	state := c.getNodeState("node1")
-	policy := &cilium.NetworkPolicy{EndpointId: 1}
-	state.seedResource(typeurl.NetworkPolicy, "policy", policy)
-
-	for name, got := range c.NetworkPolicies("node1") {
-		require.Equal(t, "policy", name)
-		require.Same(t, policy, got)
-		break
-	}
-	// Early termination must release the read lock before another update.
-	c.mutex.Lock()
-	c.mutex.Unlock()
-	for name, got := range c.NetworkPolicies("node1") {
-		require.Equal(t, "policy", name)
-		require.Same(t, policy, got)
-	}
-	for range c.NetworkPolicies("unknown") {
-		t.Fatal("unknown node must have no resources")
-	}
-}
 func TestClearSnapshot(t *testing.T) {
 	mock := newMockSnapshotCache()
 	c := newInitializedTestCache(t, mock)

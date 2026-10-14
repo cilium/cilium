@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"sync/atomic"
 	"testing"
 
@@ -287,15 +288,16 @@ func TestUpsertEnvoyResources(t *testing.T) {
 	requireCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
 	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
 	requireCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster1")
-	policies := cachedNetworkPolicies(cache, localNodeID)
-	require.Empty(t, policies, "Envoy resource upserts must not mutate NPDS")
+	for _, ep := range adsTestEndpoints() {
+		requireNoCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, strconv.FormatUint(ep.id, 10))
+	}
 }
 
 func TestUpdateEnvoyResources(t *testing.T) {
 	server, cache := newADSServerFixture(t)
 	old := adsDefaultResources()
 	require.NoError(t, server.UpsertEnvoyResources(t.Context(), old, nil))
-	seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 40, ipv4: "10.0.0.1"})
+	policy := seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 40, ipv4: "10.0.0.1"})
 	next := adsDefaultResources()
 	next.Secrets = nil
 	next.Routes["routeConfig2"] = &envoy_config_route.RouteConfiguration{Name: "routeConfig2"}
@@ -311,8 +313,7 @@ func TestUpdateEnvoyResources(t *testing.T) {
 	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
 	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig2")
 	requireCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster1")
-	require.Len(t, cachedNetworkPolicies(cache, localNodeID), 1)
-	require.Contains(t, cachedNetworkPolicies(cache, localNodeID), "40")
+	require.Same(t, policy, cachedNetworkPolicy(t, cache, localNodeID, "40"), "Envoy resource updates must not mutate NPDS")
 }
 
 func TestADSListenersRequiringRecreate(t *testing.T) {
@@ -642,7 +643,7 @@ func TestDeleteEnvoyResources(t *testing.T) {
 	assert.NoError(t, err)
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 	requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
-	require.Empty(t, cachedNetworkPolicies(cache, localNodeID))
+	requireNoCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "40")
 	requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster1")
 	requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
@@ -650,50 +651,23 @@ func TestDeleteEnvoyResources(t *testing.T) {
 	// Add some resources and then delete them.
 	err = server.UpsertEnvoyResources(ctx, adsDefaultResources(), nil)
 	assert.NoError(t, err)
-	seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 40, ipv4: "10.0.0.1"})
+	policy := seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 40, ipv4: "10.0.0.1"})
 
 	requireCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
 	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
 	requireCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster1")
-	policies := cachedNetworkPolicies(cache, localNodeID)
-	require.Len(t, policies, 1)
-	require.NotNil(t, policies["40"])
+	require.Same(t, policy, cachedNetworkPolicy(t, cache, localNodeID, "40"))
 
 	err = server.DeleteEnvoyResources(ctx, adsDefaultResources(), nil)
 	assert.NoError(t, err)
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 	requireNoCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
-	require.Contains(t, cachedNetworkPolicies(cache, localNodeID), "40", "Envoy resource deletion must not remove NPDS")
+	require.Same(t, policy, cachedNetworkPolicy(t, cache, localNodeID, "40"), "Envoy resource deletion must not mutate NPDS")
 	requireNoCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
 	requireNoCachedResource(t, cache, localNodeID, EndpointTypeURL, "cluster1")
-}
-
-func TestGetNetworkPolicies(t *testing.T) {
-	server, _ := newADSServerFixture(t)
-	seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 40, ipv4: "10.0.0.1"})
-	for _, tc := range []struct {
-		name      string
-		requested []string
-		want      int
-	}{
-		{name: "all", want: 1}, {name: "endpoint-id", requested: []string{"40"}, want: 1},
-		{name: "missing", requested: []string{"nonexistent"}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			policies, err := server.GetNetworkPolicies(tc.requested)
-			require.NoError(t, err)
-			require.NotNil(t, policies)
-			require.Len(t, policies, tc.want)
-			if tc.want != 0 {
-				require.NotNil(t, policies["10.0.0.1"], "policies are keyed by IP, not endpoint ID")
-				require.NotContains(t, policies, "40")
-				require.Equal(t, uint64(40), policies["10.0.0.1"].EndpointId)
-			}
-		})
-	}
 }
 
 func TestUpdateNetworkPolicy(t *testing.T) {
@@ -707,10 +681,13 @@ func TestUpdateNetworkPolicy(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, rollback)
 	defer rollback.Finalize()
-	policies := cachedNetworkPolicies(cache, localNodeID)
-	require.Len(t, policies, 2)
-	require.Equal(t, uint64(40), policies["40"].GetEndpointId())
-	require.Equal(t, uint64(1), policies["1"].GetEndpointId())
+	for _, endpoint := range []*testableEndpointUpdater{{id: 40, ipv4: "10.0.0.1"}, ep} {
+		policy := cachedNetworkPolicy(t, cache, localNodeID, strconv.FormatUint(endpoint.id, 10))
+		require.Equal(t, endpoint.id, policy.GetEndpointId())
+		require.Equal(t, endpoint.GetPolicyNames(), policy.GetEndpointIps())
+		requireNoCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, endpoint.ipv4)
+	}
+	requireNoCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "nonexistent")
 	require.Same(t, ep, server.localEndpointStore.getLocalEndpoint("127.0.0.1"))
 }
 
@@ -749,7 +726,7 @@ func TestUpdateNetworkPolicyRollback(t *testing.T) {
 			require.NoError(t, rollback.Revert())
 			require.True(t, proto.Equal(expected, cachedNetworkPolicy(t, cache, localNodeID, "1")))
 			if tc.laterEndpoint != nil && tc.laterEndpoint.id == 2 {
-				require.Contains(t, cachedNetworkPolicies(cache, localNodeID), "2")
+				requireCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "2")
 			}
 			// The access-log mapping tracks endpoint existence independently of policy rollback.
 			require.Same(t, ep, server.localEndpointStore.getLocalEndpoint("127.0.0.1"))
@@ -837,7 +814,7 @@ func TestUpdateNetworkPolicyWaitCompletesWithoutNPDSListeners(t *testing.T) {
 			}
 			require.NoError(t, <-done)
 			require.Eventually(t, func() bool { return ep.proxyPolicyUpdateCount.Load() == 1 }, time.Second, time.Millisecond)
-			require.Contains(t, cachedNetworkPolicies(cache, localNodeID), "1")
+			requireCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "1")
 		})
 	}
 }
@@ -859,7 +836,7 @@ func TestLastNPDSListenerRemovalKeepsSentPolicyNACKRollback(t *testing.T) {
 	require.NoError(t, wg.Wait())
 	require.Eventually(t, func() bool { return ep.proxyPolicyUpdateCount.Load() == 1 }, time.Second, time.Millisecond)
 	rollback.Finalize()
-	require.Contains(t, cachedNetworkPolicies(cache, localNodeID), "1")
+	requireCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "1")
 
 	// Releasing the caller wait is not a protocol ACK.
 	replyADSResponse(t, cache, 1, response, delivered, "policy rejected after listener removal")
@@ -1003,14 +980,28 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 				for _, ep := range endpoints[:count] {
 					seedADSNetworkPolicy(t, server, ep)
 				}
-				require.Len(t, cachedNetworkPolicies(cache, localNodeID), count)
+				for i, ep := range endpoints {
+					name := strconv.FormatUint(ep.id, 10)
+					if i < count {
+						require.Equal(t, ep.id, cachedNetworkPolicy(t, cache, localNodeID, name).GetEndpointId())
+					} else {
+						requireNoCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, name)
+					}
+				}
 				for i, ep := range endpoints[:count] {
 					previousNames := ep.GetPolicyNames()
 					if addresses.changed && i == 0 {
 						ep.ipv4 = "10.0.0.9"
 					}
 					server.RemoveNetworkPolicy(t.Context(), ep)
-					require.Len(t, cachedNetworkPolicies(cache, localNodeID), count-i-1)
+					for j, candidate := range endpoints {
+						name := strconv.FormatUint(candidate.id, 10)
+						if j > i && j < count {
+							require.Equal(t, candidate.id, cachedNetworkPolicy(t, cache, localNodeID, name).GetEndpointId())
+						} else {
+							requireNoCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, name)
+						}
+					}
 					for _, name := range previousNames {
 						require.Nil(t, server.localEndpointStore.getLocalEndpoint(name))
 					}
