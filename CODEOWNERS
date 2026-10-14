@@ -622,7 +622,6 @@ Makefile* @cilium/build
 /pkg/healthconfig/ @cilium/sig-agent
 /pkg/hive/ @cilium/sig-foundations
 /pkg/hubble/ @cilium/sig-hubble
-/pkg/hubble/metrics @cilium/hubble-metrics
 /pkg/iana/ @cilium/sig-agent
 /pkg/identity @cilium/sig-policy
 /pkg/idpool/ @cilium/sig-policy
@@ -752,3 +751,5 @@ Makefile* @cilium/build
 /vendor/ @cilium/vendor
 /VERSION @cilium/release-managers
 /.clang-format @cilium/contributing
+/**/*metrics*.go @cilium/metrics
+/pkg/hubble/metrics @cilium/hubble-metrics
