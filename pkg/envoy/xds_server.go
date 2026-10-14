@@ -13,7 +13,6 @@ import (
 	"strconv"
 
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -27,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	_ "github.com/cilium/cilium/pkg/envoy/resource"
 	util "github.com/cilium/cilium/pkg/envoy/util"
@@ -176,7 +176,8 @@ type xdsServerConfig struct {
 	metrics                       xds.Metrics
 	httpLingerConfig              int
 	envoyAccessLogEnabled         bool
-	strictAdsMode                 bool
+	envoyXDSMode                  config.XDSMode
+	useNPHDS                      bool
 }
 
 // newXDSServer creates a new xDS GRPC server.
@@ -627,7 +628,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: ToAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			GetListenerFilter(isIngress, mayUseOriginalSourceAddr, port, lingerConfig),
+			GetListenerFilter(isIngress, mayUseOriginalSourceAddr, port, lingerConfig, &s.config),
 		},
 	}
 
@@ -711,27 +712,6 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		s.listenerCount[name] = s.listenerCount[name] + 1
 		s.mutex.Unlock()
 	}
-}
-
-var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
-	InitialFetchTimeout: &durationpb.Duration{Seconds: 30},
-	ResourceApiVersion:  envoy_config_core.ApiVersion_V3,
-	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
-		ApiConfigSource: &envoy_config_core.ApiConfigSource{
-			ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
-			TransportApiVersion:       envoy_config_core.ApiVersion_V3,
-			SetNodeOnFirstMessageOnly: true,
-			GrpcServices: []*envoy_config_core.GrpcService{
-				{
-					TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
-							ClusterName: CiliumXDSClusterName,
-						},
-					},
-				},
-			},
-		},
-	},
 }
 
 // ErrNotImplemented is the error returned by gRPC methods that are not

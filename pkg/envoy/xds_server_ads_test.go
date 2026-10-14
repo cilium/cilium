@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
 	"github.com/cilium/cilium/pkg/policy"
@@ -583,16 +584,11 @@ func TestADSListenersRequiringRecreate(t *testing.T) {
 
 func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 	tests := []struct {
-		name          string
-		strictADSMode bool
+		name string
+		mode config.XDSMode
 	}{
-		{
-			name: "ads",
-		},
-		{
-			name:          "strict ads",
-			strictADSMode: true,
-		},
+		{name: "ads", mode: config.EnvoyXDSModeADS},
+		{name: "strict ads", mode: config.EnvoyXDSModeStrictADS},
 	}
 
 	for _, tt := range tests {
@@ -601,19 +597,11 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 			serverConfig := xdsServerConfig{
 				envoySocketDir:       t.TempDir(),
 				policyRestoreTimeout: 30 * time.Second,
-				strictAdsMode:        tt.strictADSMode,
+				envoyXDSMode:         tt.mode,
 			}
 
-			cache := xdsnew.NewCache(logger, tt.strictADSMode)
-			server := newADSServerWithCache(
-				cache,
-				logger,
-				nil,
-				nil,
-				serverConfig,
-				nil,
-				nil,
-			)
+			cache := xdsnew.NewCache(logger, tt.mode.IsStrictADS())
+			server := newADSServerWithCache(cache, logger, nil, nil, serverConfig, nil, nil)
 
 			oldResources := adsTestResources(adsTestListener(80, 8443))
 			require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
@@ -970,7 +958,7 @@ func TestUpdateEnvoyResourcesRejectsInconsistentSnapshotInStrictADSMode(t *testi
 	config := xdsServerConfig{
 		envoySocketDir:       t.TempDir(),
 		policyRestoreTimeout: 30 * time.Second,
-		strictAdsMode:        true,
+		envoyXDSMode:         config.EnvoyXDSModeStrictADS,
 	}
 	cache := xdsnew.NewCache(logger, true)
 	server := newADSServerWithCache(cache, logger, nil, nil, config, nil, nil)

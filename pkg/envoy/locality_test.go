@@ -17,7 +17,7 @@ import (
 func TestAppendEmbeddedLocalityBootstrap(t *testing.T) {
 	tests := []struct {
 		name      string
-		xdsMode   string
+		xdsMode   config.XDSMode
 		assertEDS func(t *testing.T, edsConfig *corev3.ConfigSource)
 	}{
 		{
@@ -51,14 +51,11 @@ func TestAppendEmbeddedLocalityBootstrap(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			SetXDSMode(tt.xdsMode)
-			t.Cleanup(func() { SetXDSMode("") })
-
 			bs := &envoy_config_bootstrap.Bootstrap{
 				StaticResources: &envoy_config_bootstrap.Bootstrap_StaticResources{},
 			}
 
-			appendEmbeddedLocalityBootstrap(bs, 7, "zone-a")
+			appendEmbeddedLocalityBootstrap(bs, tt.xdsMode, 7, "zone-a")
 
 			require.Equal(t, LocalityClusterName, bs.GetClusterManager().GetLocalClusterName())
 			require.Equal(t, "zone-a", bs.GetNode().GetLocality().GetZone())
