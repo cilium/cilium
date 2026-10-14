@@ -78,8 +78,9 @@ type CompletionCallbacks struct {
 	// completions from Cilium-owned paths.
 	mutex lock.Mutex
 
-	// pendingCompletions is the list of updates that are pending completion.
-	pendingCompletions map[*completion.Completion]*pendingCompletion
+	// pendingWaits indexes caller waits by their WaitGroup completion.
+	// Values hold xDS requirements and also implement completion.Owner.
+	pendingWaits map[*completion.Completion]*resourceWait
 	// nodes groups response and rollback bookkeeping first by node ID and then
 	// by TypeURL. Keeping related state together avoids parallel maps with the
 	// same composite keys.
@@ -97,12 +98,12 @@ func NewCompletionCallbacks(logger *slog.Logger, nackHandler NACKHandler) *Compl
 	// processing can omit stream lifecycle bookkeeping.
 	streamLifecycle, _ := nackHandler.(StreamLifecycleHandler)
 	return &CompletionCallbacks{
-		Log:                logger,
-		nackHandler:        nackHandler,
-		pendingCompletions: make(map[*completion.Completion]*pendingCompletion),
-		nodes:              make(map[string]*callbackNodeState),
-		streams:            make(map[streamKey]*callbackStreamState),
-		streamLifecycle:    streamLifecycle,
+		Log:             logger,
+		nackHandler:     nackHandler,
+		pendingWaits:    make(map[*completion.Completion]*resourceWait),
+		nodes:           make(map[string]*callbackNodeState),
+		streams:         make(map[streamKey]*callbackStreamState),
+		streamLifecycle: streamLifecycle,
 	}
 }
 
@@ -207,8 +208,8 @@ func (state *responseState) clearPending() {
 	state.pendingStreamID = 0
 }
 
-// pendingCompletion tracks one caller's wait for Envoy to accept resource state.
-type pendingCompletion struct {
+// resourceWait tracks one caller's wait for Envoy to accept resource state.
+type resourceWait struct {
 	callbacks *CompletionCallbacks
 	nodeID    string
 	// version is the wire version Envoy must acknowledge.
@@ -225,11 +226,11 @@ type pendingCompletion struct {
 	responseGeneration Generation
 }
 
-func (pc *pendingCompletion) ID() string {
+func (pc *resourceWait) ID() string {
 	return fmt.Sprintf("nodeID:%s,typeURL:%s,generation:%d", pc.nodeID, pc.typeURL.URL(), pc.generation)
 }
 
-func (pc *pendingCompletion) CleanupAfterWait(c *completion.Completion) {
+func (pc *resourceWait) CleanupAfterWait(c *completion.Completion) {
 	pc.callbacks.RemoveTypeGenerationCompletion(c)
 }
 
@@ -261,14 +262,14 @@ func (state *typeURLState) removeEmptyPendingGenerationSet() {
 // generation rollback state remains live until its xDS response terminates.
 func (cb *CompletionCallbacks) RemoveTypeGenerationCompletion(c *completion.Completion) {
 	cb.mutex.Lock()
-	delete(cb.pendingCompletions, c)
+	delete(cb.pendingWaits, c)
 	cb.mutex.Unlock()
 }
 
 // NewTypeGenerationCompletionOwner returns an owner which drops callback state
 // if its WaitGroup ends before Envoy ACKs or NACKs the generation.
-func (cb *CompletionCallbacks) NewTypeGenerationCompletionOwner(nodeID string, typeURL typeurl.Index, generation Generation, scope ResourceScope) *pendingCompletion {
-	return &pendingCompletion{
+func (cb *CompletionCallbacks) NewTypeGenerationCompletionOwner(nodeID string, typeURL typeurl.Index, generation Generation, scope ResourceScope) *resourceWait {
+	return &resourceWait{
 		callbacks:  cb,
 		nodeID:     nodeID,
 		typeURL:    typeURL,
@@ -298,12 +299,12 @@ func (detached DetachedWaiters) Complete(err error) {
 func (cb *CompletionCallbacks) TakePendingWaiters(nodeID string, typeURL typeurl.Index) DetachedWaiters {
 	var detached DetachedWaiters
 	cb.mutex.Lock()
-	for comp, pending := range cb.pendingCompletions {
+	for comp, pending := range cb.pendingWaits {
 		if pending.nodeID != nodeID || pending.typeURL != typeURL {
 			continue
 		}
 		detached.completions = append(detached.completions, comp)
-		delete(cb.pendingCompletions, comp)
+		delete(cb.pendingWaits, comp)
 	}
 	cb.mutex.Unlock()
 	return detached
@@ -314,12 +315,12 @@ func (cb *CompletionCallbacks) PendingCompletionCount() int {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
 
-	return len(cb.pendingCompletions)
+	return len(cb.pendingWaits)
 }
 
 // addPendingCompletion records a completion that is waiting for an xDS ACK/NACK.
 // cb.mutex must be held.
-func (cb *CompletionCallbacks) addPendingCompletion(c *completion.Completion, pending *pendingCompletion, version string) {
+func (cb *CompletionCallbacks) addPendingCompletion(c *completion.Completion, pending *resourceWait, version string) {
 	if cb.Log.Enabled(context.Background(), slog.LevelDebug) {
 		cb.Log.Debug("Adding pending completion for type URL and generation",
 			logfields.XDSTypeURL, pending.typeURL.URL(),
@@ -328,7 +329,7 @@ func (cb *CompletionCallbacks) addPendingCompletion(c *completion.Completion, pe
 			logfields.NodeID, pending.nodeID)
 	}
 	pending.version = version
-	cb.pendingCompletions[c] = pending
+	cb.pendingWaits[c] = pending
 }
 
 // CompleteCompletionsThroughGeneration completes pending updates superseded
@@ -341,12 +342,12 @@ func (cb *CompletionCallbacks) CompleteCompletionsThroughGeneration(nodeID strin
 	var finalizers []Rollback
 
 	cb.mutex.Lock()
-	for c, pc := range cb.pendingCompletions {
+	for c, pc := range cb.pendingWaits {
 		if pc.nodeID != nodeID || pc.typeURL != typeURL || pc.generation > generation {
 			continue
 		}
 		completed = append(completed, c)
-		delete(cb.pendingCompletions, c)
+		delete(cb.pendingWaits, c)
 	}
 	state := cb.typeURLState(nodeID, typeURL)
 	if state != nil {
@@ -572,7 +573,7 @@ func (cb *CompletionCallbacks) FinalizeTypeGeneration(nodeID string, typeURL typ
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
 
-	for _, pending := range cb.pendingCompletions {
+	for _, pending := range cb.pendingWaits {
 		if pending.nodeID == nodeID && pending.typeURL == typeURL && pending.generation <= generation {
 			pending.version = version
 		}
@@ -584,7 +585,7 @@ func (cb *CompletionCallbacks) FinalizeTypeGeneration(nodeID string, typeURL typ
 		state = typeState.response
 	}
 	if version != "" && state.pendingVersion == version {
-		for _, pending := range cb.pendingCompletions {
+		for _, pending := range cb.pendingWaits {
 			if pending.nodeID == nodeID && pending.typeURL == typeURL && pending.generation <= generation && pending.scope.coveredBy(state.coverage, math.MaxUint64) {
 				pending.responseGeneration = state.pendingGeneration
 			}
@@ -612,12 +613,12 @@ func (cb *CompletionCallbacks) FinalizeTypeGeneration(nodeID string, typeURL typ
 // already allocated as its completion.Owner, avoiding a second hot-path
 // allocation for callback bookkeeping. pending must have been created by this
 // callback handler and supplied as the owner when c was added to its WaitGroup.
-func (cb *CompletionCallbacks) AddPreparedTypeGenerationCompletion(c *completion.Completion, pending *pendingCompletion, version string, versionChanged bool) (bool, error) {
+func (cb *CompletionCallbacks) AddPreparedTypeGenerationCompletion(c *completion.Completion, pending *resourceWait, version string, versionChanged bool) (bool, error) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
 	nodeID, typeURL, generation := pending.nodeID, pending.typeURL, pending.generation
 
-	if _, ok := cb.pendingCompletions[c]; ok {
+	if _, ok := cb.pendingWaits[c]; ok {
 		cb.Log.Warn("Reusing existing completion",
 			logfields.XDSTypeURL, typeURL.URL(),
 			logfields.Version, version,
@@ -636,7 +637,7 @@ func (cb *CompletionCallbacks) AddPreparedTypeGenerationCompletion(c *completion
 		// The cache can move A -> B -> A while the first A response is in
 		// flight. Since Envoy is already consuming the final desired contents,
 		// attach every intervening generation to that response as well.
-		for _, pending := range cb.pendingCompletions {
+		for _, pending := range cb.pendingWaits {
 			if pending.nodeID == nodeID && pending.typeURL == typeURL &&
 				pending.generation <= generation && pending.scope.coveredBy(state.coverage, math.MaxUint64) {
 				pending.responseGeneration = state.pendingGeneration
@@ -775,7 +776,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 
 	var finalizers []Rollback
 	debugEnabled := cb.Log.Enabled(context.Background(), slog.LevelDebug)
-	for c, pc := range cb.pendingCompletions {
+	for c, pc := range cb.pendingWaits {
 		if pc.nodeID != nodeID || pc.typeURL != typeIndex ||
 			acceptedGeneration == 0 {
 			continue
@@ -791,7 +792,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 			continue
 		}
 		completed = append(completed, completionResult{completion: c, generation: pc.generation})
-		delete(cb.pendingCompletions, c)
+		delete(cb.pendingWaits, c)
 		if debugEnabled {
 			cb.Log.Debug("Completed completion for type URL and generation",
 				logfields.XDSTypeURL, typeURL,
@@ -859,7 +860,7 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 		})
 		delete(typeState.pendingGenerations, pending)
 	}
-	for c, pc := range cb.pendingCompletions {
+	for c, pc := range cb.pendingWaits {
 		coveredGeneration := rejectedGeneration
 		if pc.responseGeneration == rejectedGeneration {
 			coveredGeneration = math.MaxUint64
@@ -871,7 +872,7 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 			continue
 		}
 		completed = append(completed, c)
-		delete(cb.pendingCompletions, c)
+		delete(cb.pendingWaits, c)
 	}
 
 	slices.SortFunc(generationReverts, func(a, b generationRevert) int {
@@ -944,7 +945,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	// G bounds revisions in the exact snapshot, not the request's eventual name
 	// set. A partial response covers only its delivered names; other resources
 	// at or below G must still wait for their own response.
-	for _, pc := range cb.pendingCompletions {
+	for _, pc := range cb.pendingWaits {
 		if pc.nodeID == nodeID && pc.typeURL == typeIndex && pc.generation <= responseGeneration && pc.scope.intersects(coverage, responseGeneration) {
 			pc.responseGeneration = responseGeneration
 		}
@@ -960,11 +961,11 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 		state.rejectedVersion = ""
 		state.rejectedErr = nil
 
-		for c, pc := range cb.pendingCompletions {
+		for c, pc := range cb.pendingWaits {
 			if responseGeneration != 0 && pc.typeURL == typeIndex && pc.nodeID == nodeID &&
 				pc.responseGeneration == responseGeneration {
 				completed = append(completed, c)
-				delete(cb.pendingCompletions, c)
+				delete(cb.pendingWaits, c)
 			}
 		}
 		for pending := range typeState.pendingGenerations {
