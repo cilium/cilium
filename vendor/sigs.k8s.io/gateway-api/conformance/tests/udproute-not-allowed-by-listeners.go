@@ -41,7 +41,6 @@ var UDPRouteNotAllowedByListeners = confsuite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportUDPRoute,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		if !suite.SupportedFeatures.Has(features.SupportTLSRoute) {
 			return

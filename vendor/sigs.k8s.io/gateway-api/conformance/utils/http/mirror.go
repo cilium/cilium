@@ -80,7 +80,7 @@ func ExpectMirroredRequest(t *testing.T, client client.Client, clientset clients
 				startedOnce.Do(started.Done)
 
 				return slices.ContainsFunc(logs, mirrorLogRegexp.MatchString)
-			}, timeoutConfig.RequestTimeout, time.Second, `Couldn't find mirrored request in "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
+			}, timeoutConfig.MaxTimeToConsistency, time.Second, `Couldn't find mirrored request in "%s/%s" logs`, mirrorPod.Namespace, mirrorPod.Name)
 
 			// signal done even if all log dumps failed above.
 			startedOnce.Do(started.Done)

@@ -41,7 +41,6 @@ var TCPRouteParentRefAttachAll = confsuite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportTCPRoute,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		gwNN := types.NamespacedName{Name: "tcp-attach-all-gateway", Namespace: ns}

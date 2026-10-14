@@ -45,7 +45,6 @@ var TCPRouteReferenceGrant = confsuite.ConformanceTest{
 		features.SupportTCPRoute,
 		features.SupportReferenceGrant,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "tcp-reference-grant", Namespace: ns}
