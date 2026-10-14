@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -782,6 +783,165 @@ func Test_isAccessLogsConfigured(t *testing.T) {
 			assert.Equal(t, tt.want, tt.config.IsAccessLogsConfigured())
 		})
 	}
+}
+
+func Test_gatewayReconciler_Reconcile_GRPCRouteOrdering(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "grpc-ordering",
+			Namespace: "default",
+			UID:       "gateway-uid",
+		},
+		Spec: gatewayv1.GatewaySpec{
+			GatewayClassName: "cilium",
+			Listeners: []gatewayv1.Listener{{
+				Name:     "http",
+				Protocol: gatewayv1.HTTPProtocolType,
+				Port:     80,
+				Hostname: ptr.To[gatewayv1.Hostname]("example.com"),
+			}},
+		},
+	}
+	objects := []client.Object{
+		gw,
+		&gatewayv1.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{Name: "cilium"},
+			Spec: gatewayv1.GatewayClassSpec{
+				ControllerName: gatewayv1.GatewayController(defaultControllerName),
+			},
+		},
+	}
+	for i, route := range []struct {
+		name   string
+		header gatewayv1.GRPCHeaderName
+		value  string
+	}{
+		{name: "older", header: "x-version", value: "v2"},
+		{name: "newer", header: "x-region", value: "eu"},
+	} {
+		objects = append(objects,
+			&corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: route.name, Namespace: gw.Namespace},
+				Spec: corev1.ServiceSpec{
+					Ports: []corev1.ServicePort{{Port: 8080}},
+				},
+			},
+			&gatewayv1.GRPCRoute{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:              route.name,
+					Namespace:         gw.Namespace,
+					CreationTimestamp: metav1.Unix(1700000000+int64(i), 0),
+				},
+				Spec: gatewayv1.GRPCRouteSpec{
+					CommonRouteSpec: gatewayv1.CommonRouteSpec{
+						ParentRefs: []gatewayv1.ParentReference{{Name: gatewayv1.ObjectName(gw.Name)}},
+					},
+					Hostnames: []gatewayv1.Hostname{"example.com"},
+					Rules: []gatewayv1.GRPCRouteRule{{
+						Matches: []gatewayv1.GRPCRouteMatch{{
+							Method: &gatewayv1.GRPCMethodMatch{
+								Service: ptr.To("service.Echo"),
+								Method:  ptr.To("Ping"),
+							},
+							Headers: []gatewayv1.GRPCHeaderMatch{{
+								Name:  route.header,
+								Value: route.value,
+							}},
+						}},
+						BackendRefs: []gatewayv1.GRPCBackendRef{{
+							BackendRef: gatewayv1.BackendRef{
+								BackendObjectReference: gatewayv1.BackendObjectReference{
+									Name: gatewayv1.ObjectName(route.name),
+									Port: ptr.To[gatewayv1.PortNumber](8080),
+								},
+							},
+						}},
+					}},
+				},
+			},
+		)
+	}
+
+	scheme := testhelpers.TestScheme(nil, helpers.RegisterGatewayAPITypesToScheme)
+	funcs := typeMetaInterceptor(scheme)
+	list := funcs.List
+	reverseRouteOrder := false
+	var routeOrders [][]string
+	cecPatches := 0
+	funcs.List = func(ctx context.Context, c client.WithWatch, obj client.ObjectList, opts ...client.ListOption) error {
+		if err := list(ctx, c, obj, opts...); err != nil {
+			return err
+		}
+		if routes, ok := obj.(*gatewayv1.GRPCRouteList); ok {
+			require.Len(t, routes.Items, 2)
+			slices.SortFunc(routes.Items, func(a, b gatewayv1.GRPCRoute) int {
+				return a.CreationTimestamp.Time.Compare(b.CreationTimestamp.Time)
+			})
+			if reverseRouteOrder {
+				slices.Reverse(routes.Items)
+			}
+			routeOrders = append(routeOrders, []string{routes.Items[0].Name, routes.Items[1].Name})
+		}
+		return nil
+	}
+	funcs.Patch = func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+		if _, ok := obj.(*ciliumv2.CiliumEnvoyConfig); ok {
+			cecPatches++
+		}
+		return c.Patch(ctx, obj, patch, opts...)
+	}
+	c := fake.NewClientBuilder().
+		WithScheme(scheme).
+		WithObjects(objects...).
+		WithStatusSubresource(&gatewayv1.Gateway{}, &gatewayv1.GRPCRoute{}).
+		WithIndex(&gatewayv1.HTTPRoute{}, indexers.GatewayHTTPRouteIndex, indexers.IndexHTTPRouteByGateway).
+		WithIndex(&gatewayv1.GRPCRoute{}, indexers.GatewayGRPCRouteIndex, indexers.IndexGRPCRouteByGateway).
+		WithIndex(&gatewayv1.TLSRoute{}, indexers.GatewayTLSRouteIndex, indexers.IndexTLSRouteByGateway).
+		WithInterceptorFuncs(funcs).
+		Build()
+	config := translation.Config{}
+	r := &gatewayReconciler{
+		client:                        c,
+		scheme:                        scheme,
+		logger:                        logger,
+		controllerName:                defaultControllerName,
+		inputLoader:                   loading.NewTranslationInputLoader(c, logger, defaultControllerName, loading.TranslationInputLoaderConfig{}),
+		translator:                    gatewayApiTranslation.NewTranslator(translation.NewCECTranslator(config), config),
+		gatewayStatusManager:          NewGatewayStatusManager(c, logger),
+		listenerStatusManager:         NewListenerStatusManager(c, logger, ListenerStatusManagerConfig{}),
+		routeStatusManager:            NewRouteStatusManager(c, logger, defaultControllerName, RouteStatusManagerConfig{}),
+		backendTLSPolicyStatusManager: NewBackendTLSPolicyStatusManager(c, defaultControllerName),
+	}
+	req := ctrl.Request{NamespacedName: client.ObjectKeyFromObject(gw)}
+	result, err := r.Reconcile(t.Context(), req)
+	require.NoError(t, err)
+	require.Equal(t, ctrl.Result{}, result)
+
+	for _, name := range []string{"older", "newer"} {
+		route := &gatewayv1.GRPCRoute{}
+		require.NoError(t, c.Get(t.Context(), client.ObjectKey{Namespace: gw.Namespace, Name: name}, route))
+		require.Len(t, route.Status.Parents, 1)
+		require.True(t, meta.IsStatusConditionTrue(route.Status.Parents[0].Conditions, string(gatewayv1.RouteConditionAccepted)))
+		require.True(t, meta.IsStatusConditionTrue(route.Status.Parents[0].Conditions, string(gatewayv1.RouteConditionResolvedRefs)))
+	}
+	cecKey := client.ObjectKey{Namespace: gw.Namespace, Name: gatewayApiTranslation.CiliumGatewayPrefix + gw.Name}
+	before := &ciliumv2.CiliumEnvoyConfig{}
+	require.NoError(t, c.Get(t.Context(), cecKey, before))
+	require.NotEmpty(t, before.Spec.Resources)
+	cecPatches = 0
+	reverseRouteOrder = true
+
+	result, err = r.Reconcile(t.Context(), req)
+	require.NoError(t, err)
+	require.Equal(t, ctrl.Result{}, result)
+	after := &ciliumv2.CiliumEnvoyConfig{}
+	require.NoError(t, c.Get(t.Context(), cecKey, after))
+
+	assert.Equal(t, [][]string{{"older", "newer"}, {"newer", "older"}}, routeOrders)
+	assert.Empty(t, cmp.Diff(before.Spec, after.Spec, protocmp.Transform()))
+	assert.Zero(t, cecPatches, "Reordering GRPCRoutes must not patch CiliumEnvoyConfig")
+	assert.Equal(t, before.ResourceVersion, after.ResourceVersion)
 }
 
 func Test_gatewayReconciler_Reconcile_cleansUpResourcesOnHandoff(t *testing.T) {

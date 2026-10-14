@@ -1,0 +1,91 @@
+- metadata:
+    name: route-0
+    namespace: default
+    creationTimestamp: '2026-01-02T00:00:00Z'
+  spec:
+    parentRefs:
+      - name: my-gateway
+    hostnames:
+      - example.com
+    rules:
+      - matches:
+          - method:
+              service: service.Echo
+              method: Ping
+            headers:
+              - name: x-region
+                value: eu
+        backendRefs:
+          - name: newer-backend
+            port: 8080
+- metadata:
+    name: route-a
+    namespace: default-prod
+    creationTimestamp: '2026-01-01T00:00:00Z'
+  spec:
+    parentRefs:
+      - name: my-gateway
+        namespace: default
+    hostnames:
+      - example.com
+    rules:
+      - matches:
+          - method:
+              service: service.Echo
+              method: Ping
+            headers:
+              - name: x-region
+                value: eu
+        backendRefs:
+          - name: backend
+            port: 8080
+- metadata:
+    name: route-z
+    namespace: default
+    creationTimestamp: '2026-01-01T00:00:00Z'
+  spec:
+    parentRefs:
+      - name: my-gateway
+    hostnames:
+      - example.com
+    rules:
+      - matches:
+          - method:
+              service: service.Echo
+              method: Ping
+            headers:
+              - name: x-region
+                value: eu
+        backendRefs:
+          - name: backend
+            port: 8080
+- metadata:
+    name: route-a
+    namespace: default
+    creationTimestamp: '2026-01-01T00:00:00Z'
+  spec:
+    parentRefs:
+      - name: my-gateway
+    hostnames:
+      - example.com
+    rules:
+      - matches:
+          - method:
+              service: service.Echo
+              method: Ping
+            headers:
+              - name: x-version
+                value: v2
+        backendRefs:
+          - name: backend
+            port: 8080
+      - matches:
+          - method:
+              service: service.Echo
+              method: Ping
+            headers:
+              - name: x-version
+                value: v1
+        backendRefs:
+          - name: backend
+            port: 8080
