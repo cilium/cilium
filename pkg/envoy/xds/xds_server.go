@@ -41,18 +41,21 @@ type XDSServer interface {
 	// The completion is signaled on 'wg'.
 	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup)
 
-	// UpsertSecret inserts or updates a named secret in the xDS cache without
-	// waiting for an Envoy ACK/NACK.
+	// UpsertSecret inserts or updates a named secret in the xDS cache. It does not
+	// wait for ACK/NACK, and a NACK does not automatically revert the secret.
 	UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error
 	// UpdateEnvoyResources removes any resources in 'old' that are not present in 'new' and
-	// then adds or updates all resources in 'new'. Envoy does not support changing the listening
+	// adds or updates all resources in 'new'. Envoy does not support changing the listening
 	// port of an existing listener, so if the port changes we have to delete the old listener
-	// and then add the new one with the new port number. The completion is signaled on 'wg'.
-	UpdateEnvoyResources(ctx context.Context, old, new Resources, wg *completion.WaitGroup) error
+	// and then add the new one with the new port number. The server manages its own ACK
+	// waits and caller rollback, and returns any wait failure. During restoration these
+	// waits are skipped. If 'new' contains Listeners, it waits for LDS and any supplied
+	// CDS resources. A wait failure reverts the changes, including eligible removals.
+	UpdateEnvoyResources(ctx context.Context, old, new Resources) error
 	// DeleteEnvoyResources deletes the given Envoy resources from the xDS cache.
 	// If resources includes listeners the caller MUST pass a context with a timeout to prevent
 	// indefinite blocking in case Envoy never responds with an ACK/NACK.
-	DeleteEnvoyResources(ctx context.Context, resources Resources, wg *completion.WaitGroup) error
+	DeleteEnvoyResources(ctx context.Context, resources Resources) error
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
 	// The caller waits for acceptance through wg and records the submitted policy's
 	// revision after a successful wait. A nil wg seeds the cache without waiting.

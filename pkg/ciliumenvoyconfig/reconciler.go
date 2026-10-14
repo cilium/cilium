@@ -20,7 +20,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -102,7 +101,7 @@ func (ops *envoyOps) initializeResources(ctx context.Context, txn statedb.ReadTx
 		maps.Copy(merged.Endpoints, res.Resources.Endpoints)
 		maps.Copy(merged.Secrets, res.Resources.Secrets)
 	}
-	return ops.xds.UpdateEnvoyResources(initCtx, xds.NewResources(), merged, nil)
+	return ops.xds.UpdateEnvoyResources(initCtx, xds.NewResources(), merged)
 }
 
 // Delete implements reconciler.Operations.
@@ -128,7 +127,7 @@ func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Re
 	if prev := res.ReconciledResources; prev != nil {
 		// Perform the deletion with the resources that were last successfully reconciled
 		// instead of whatever the latest one is (which would have not been pushed to Envoy).
-		err = ops.xds.DeleteEnvoyResources(ctx, *prev, nil)
+		err = ops.xds.DeleteEnvoyResources(ctx, *prev)
 
 		for _, listener := range prev.Listeners {
 			ops.portAllocator.ReleaseProxyPort(listener.Name)
@@ -187,34 +186,6 @@ func isPortBindingErrorMessage(errStr string) bool {
 		strings.Contains(errStr, "has duplicate address")
 }
 
-func (ops *envoyOps) updateEnvoyResources(ctx context.Context, prevResources, resources xds.Resources, allocatedListeners set.Set[string]) error {
-	wait := false
-	for name := range allocatedListeners.Members() {
-		previous := prevResources.Listeners[name].GetAddress().GetSocketAddress()
-		current := resources.Listeners[name].GetAddress().GetSocketAddress()
-		// An unchanged primary port already has its reference. Unrelated CEC
-		// changes must not wait for resources which may have no subscriber.
-		if current != nil && (previous == nil || previous.GetPortValue() != current.GetPortValue()) {
-			wait = true
-			break
-		}
-	}
-	if !wait {
-		return ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, nil)
-	}
-
-	// ADS completes the caller's group asynchronously. Confirm a new allocation
-	// only after its listener and supplied clusters are accepted, and observe
-	// bind failures so reconciliation can retry with another port.
-	wg := completion.NewWaitGroup(ctx)
-	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, wg)
-	if err != nil {
-		wg.Cancel()
-		return err
-	}
-	return wg.Wait()
-}
-
 // retryWithNewPorts reallocates dynamically allocated ports and retries UpdateEnvoyResources.
 func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resources xds.Resources, allocatedListeners set.Set[string]) (xds.Resources, error) {
 	newListeners := make(map[string]*envoy_config_listener.Listener, 0)
@@ -247,7 +218,7 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 	}
 
 	resources.Listeners = newListeners
-	err := ops.updateEnvoyResources(ctx, prevResources, resources, allocatedListeners)
+	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
 	return resources, err
 }
 
@@ -278,7 +249,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 		}
 	}
 
-	err := ops.updateEnvoyResources(ctx, prevResources, resources, res.AllocatedListeners)
+	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
 	reallocated := false
 
 	if err != nil && isPortBindingError(err) && !res.AllocatedListeners.Empty() {
@@ -402,8 +373,8 @@ func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {
 }
 
 type resourceMutator interface {
-	DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error
-	UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, waitGroup *completion.WaitGroup) error
+	DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error
+	UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error
 }
 
 type policyTrigger interface {

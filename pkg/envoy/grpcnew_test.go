@@ -184,14 +184,15 @@ func TestADSKnownNodeEmptyStateAndReconnect(t *testing.T) {
 	}))
 	resources := xds.NewResources()
 	resources.Listeners["listener"] = &listener.Listener{Name: "listener"}
-	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, nil))
+	updated := startADSResourceUpdate(server, ctx, xds.NewResources(), resources)
 	added, err := stream.Recv()
 	require.NoError(t, err)
 	require.Len(t, added.GetResources(), 1)
 	require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
 		TypeUrl: ListenerTypeURL, VersionInfo: added.GetVersionInfo(), ResponseNonce: added.GetNonce(),
 	}))
-	require.NoError(t, server.DeleteEnvoyResources(t.Context(), resources, nil))
+	require.NoError(t, <-updated)
+	require.NoError(t, server.DeleteEnvoyResources(t.Context(), resources))
 	removed, err := stream.Recv()
 	require.NoError(t, err)
 	require.Empty(t, removed.GetResources())

@@ -2732,7 +2732,7 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			defer cancel()
-			require.ErrorIs(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, nil), tt.wantErr)
+			require.ErrorIs(t, server.UpdateEnvoyResources(ctx, oldResources, newResources), tt.wantErr)
 			if tt.extraListener {
 				// Listener map iteration determines which of the two upserts fails.
 				assert.ElementsMatch(t, tt.operations, mutator.operations)

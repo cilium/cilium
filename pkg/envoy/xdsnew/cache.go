@@ -41,19 +41,21 @@ type Cache interface {
 	// GetSnapshotCache returns SnapshotCache to be passed to go-control-plane.
 	GetSnapshotCache() cache.SnapshotCache
 
-	// ApplyResources commits semantic changes. Admitted removals never retain
-	// response-owned rollback. Completions for unchanged resource types attach to
-	// their current version instead of creating a completion-only generation.
-	// waitTypeURLs explicitly selects the types to wait for; an empty set selects
-	// no waits.
+	// ApplyResources commits non-revertible semantic changes. Envoy NACKs report
+	// rejection to caller waits without reverting these resources. Semantically
+	// equal upserts also become non-revertible, without changing their revisions.
+	// Completions for unchanged resource types attach to their current version
+	// instead of creating a completion-only generation. waitTypeURLs explicitly
+	// selects the types to wait for; an empty set selects no waits.
 	//
 	// A wait whose pending requirements for a TypeURL are all removals survives
 	// that type's NACKs until a qualifying ACK, cancellation, or timeout. Upserts
 	// of other types do not change this policy, but their failures can still fail
 	// a shared WaitGroup.
 	ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) error
-	// ApplyResourcesWithRollback returns a non-nil caller rollback covering upserts
-	// and removals, with a stateless no-op for semantic no-ops. Errors return nil.
+	// ApplyResourcesWithRollback enables response-owned NACK rollback for changed
+	// upserts and returns a non-nil caller rollback covering upserts and removals,
+	// with a stateless no-op for semantic no-ops. Errors return nil.
 	// Revert restores deleted values only if their names remain absent and no newer
 	// API deletion has superseded them, including deletion of an already absent name.
 	// Later API reuse of an unchanged value supersedes older caller recovery for
@@ -64,12 +66,15 @@ type Cache interface {
 	// ApplyResource compares only the named resource and builds a sparse mutation
 	// only after detecting an actual semantic change. It accepts every supported
 	// typeURL. A nil resource removes the named resource; typeURL identifies its
-	// type even for removals. NACKs leave removals intact, as with ApplyResources.
+	// type even for removals. Committed upserts are non-revertible, including
+	// semantically equal upserts. NACKs report rejection to caller waits without
+	// reverting these resources or removals.
 	// Pending removal waits survive this type's NACKs, with the same wait semantics
 	// as ApplyResources.
 	ApplyResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) error
-	// ApplyResourceWithRollback returns a non-nil caller rollback for the change,
-	// including a removal. Reuse and removal recovery follow ApplyResourcesWithRollback's
+	// ApplyResourceWithRollback enables response-owned NACK rollback for a changed
+	// upsert and returns a non-nil caller rollback, including for removals.
+	// Reuse and removal recovery follow ApplyResourcesWithRollback's
 	// supersession rules. Semantic no-ops return a stateless no-op; errors return
 	// nil. Each lifecycle must eventually be finalized or reverted; either call is
 	// terminal even if Revert returns an error.
@@ -719,7 +724,7 @@ func committedListenerChanges(changes resourceChanges) []ListenerChange {
 
 // ApplyResources applies sparse removals and upserts to the cache-private
 // desired state. It is the authority for semantic no-op detection, changed
-// resource names and transaction-fenced reverts. Changed transactions accumulate
+// resource names and rollback policy. Changed transactions accumulate
 // unpublished changes and construct a snapshot when an affected watch can
 // consume it; published maps remain immutable.
 func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) error {
@@ -796,6 +801,9 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 	if previous.resource == resource ||
 		(previous.resource != nil && resource != nil && xds.ResourceEqual(previous.resource, resource)) {
 		tx.state.rollbacks.supersedeCallerRollbackLocked(typeURL, name, previous)
+		if !withRollback {
+			tx.state.rollbacks.adoptNonRevertibleLocked(c, tx.state, typeURL, name)
+		}
 		if wg == nil {
 			return revert.Noop, nil
 		}
@@ -838,7 +846,10 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 	}
 	tx.generation = c.nextResourceGenerationLocked()
 	var changes resourceChanges
-	changes.add(typeURL, name, previous, resourceEntry{resource: resource, revision: tx.generation.Revision(), transaction: tx.generation.TransactionID()})
+	changes.add(typeURL, name, previous, resourceEntry{
+		resource: resource, revision: tx.generation.Revision(), transaction: tx.generation.TransactionID(),
+		nonRevertible: !withRollback,
+	})
 
 	var changedWaits typeURLWaits
 	if wg != nil && !c.completionCbs.ChangedResourceAccepted(
@@ -852,7 +863,8 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 	if err := tx.updateResourceChangesLocked(changes, resourceUpdateOptions{
 		inverse:       inverse,
 		waits:         changedWaits,
-		trackRollback: true,
+		trackRollback: withRollback,
+		isAPIUpdate:   true,
 	}, wg); err != nil {
 		return nil, err
 	}
@@ -873,6 +885,9 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	changes, changedTypeURLs, inverse := state.prepareResourceMutation(mutations, c.resourceGeneration+1)
 	var unchangedWaits typeURLWaits
 	if changedTypeURLs.Empty() {
+		if !withRollback {
+			tx.adoptNonRevertibleUpsertsLocked(mutations.Upserted)
+		}
 		if state.resourceGeneration != 0 && wg != nil && !waitTypeURLs.Empty() {
 			for typeURL := range waitTypeURLs.Members() {
 				wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
@@ -888,6 +903,10 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	}
 
 	tx.generation = c.nextResourceGenerationLocked()
+	changes.first.next.nonRevertible = !withRollback
+	for i := range changes.more {
+		changes.more[i].next.nonRevertible = !withRollback
+	}
 
 	var changedWaits typeURLWaits
 	if wg != nil {
@@ -915,10 +934,16 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	err := tx.updateResourceChangesLocked(changes, resourceUpdateOptions{
 		inverse:       inverse,
 		waits:         changedWaits,
-		trackRollback: true,
+		trackRollback: withRollback,
+		isAPIUpdate:   true,
 	}, wg)
 	if err != nil {
 		return nil, err
+	}
+	if !withRollback {
+		// Adopt unchanged members only after successful admission too. A failed
+		// mixed transaction must leave their earlier recovery untouched.
+		tx.adoptNonRevertibleUpsertsLocked(mutations.Upserted)
 	}
 
 	state.rollbacks.supersedeCallerRollbacksLocked(state, mutations, &inverse)
@@ -1093,12 +1118,16 @@ func (tx *resourceTransaction) mutationWaitLocked(typeURL typeurl.Index, mutatio
 
 // resourceUpdateOptions describes rollback ownership and ACK waits for a
 // prepared mutation. Its zero value is a compensating update with no new
-// rollback ownership or ACK waits; normal updates explicitly select tracking.
+// rollback ownership or ACK waits; API updates explicitly identify themselves
+// and select whether their upserts retain response-owned rollback.
 type resourceUpdateOptions struct {
 	inverse resources
 	waits   typeURLWaits
-	// Corrective reverts leave this false so they create no new rollback state.
+	// Only WithRollback API updates retain response-owned recovery.
 	trackRollback bool
+	// Permanent API updates discard superseded recovery; corrective reverts
+	// reconcile it with restored transaction identities instead.
+	isAPIUpdate bool
 }
 
 // updateResourceChangesLocked commits one prepared mutation and optionally
@@ -1111,9 +1140,9 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 	changedTypeURLs := changes.typeURLs()
 	oldResourceGeneration := state.resourceGeneration
 	var previousReverts typeurl.Slots[callbacks.Generation]
-	if !options.trackRollback {
-		// Only caller- or response-driven reverts disable rollback tracking.
-		// Record their fresh generation for corrective versions and absence waits.
+	if !options.isAPIUpdate {
+		// Caller- or response-driven reverts need a fresh corrective boundary
+		// for absent-name waits, independently of API rollback policy.
 		for typeURL := range changedTypeURLs.Members() {
 			previousReverts[typeURL] = state.typeStates[typeURL].revertGeneration
 			state.typeStates[typeURL].revertGeneration = tx.generation
@@ -1132,7 +1161,7 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		finalized, err = c.finalizePendingPublicationLocked(tx.ctx, state.nodeID)
 	}
 	if err != nil {
-		if !options.trackRollback {
+		if !options.isAPIUpdate {
 			for typeURL := range changedTypeURLs.Members() {
 				state.typeStates[typeURL].revertGeneration = previousReverts[typeURL]
 			}
@@ -1155,11 +1184,22 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		}
 	} else {
 		state.resourceGeneration = tx.generation
-		for typeURL := range removedTypes.Members() {
+		pruneTypes := removedTypes
+		if options.isAPIUpdate && !options.trackRollback {
+			pruneTypes = changedTypeURLs
+		}
+		for typeURL := range pruneTypes.Members() {
 			if unsent := state.typeStates[typeURL].unsentRollback; unsent != nil {
 				// Admitted removals end unsent recovery immediately, even when
 				// publication is deferred or projects a named empty CLA.
 				unsent.resources.pruneRemovedResources(state, typeURL)
+				if options.isAPIUpdate && !options.trackRollback {
+					// A permanent upsert breaks the earlier unsent recovery chain.
+					// A subsequent revertible update must use it as its baseline.
+					for name := range options.inverse.resources(typeURL) {
+						delete(unsent.resources, name)
+					}
+				}
 				if len(unsent.resources) == 0 && c.completionCbs.DiscardUnsentTypeGeneration(state.nodeID, typeURL, unsent.generation) {
 					unsent.finalizeLocked()
 				}
