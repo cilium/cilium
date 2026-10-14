@@ -340,7 +340,8 @@ func (resources *resourceMaps) updateResourceEntries(typeURL typeurl.Index, chan
 		old, exists := items[name]
 		if resource == nil && endpointReferences.Has(name) {
 			// Reuse an unchanged synthetic CLA rather than allocating it again.
-			if exists && len(old.Resource.(*envoy_config_endpoint.ClusterLoadAssignment).GetEndpoints()) == 0 &&
+			cla, ok := old.Resource.(*envoy_config_endpoint.ClusterLoadAssignment)
+			if ok && exists && len(cla.GetEndpoints()) == 0 &&
 				xds.ResourceEqual(old.Resource, &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}) {
 				continue
 			}
