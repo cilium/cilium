@@ -182,7 +182,7 @@ struct debug_capture_msg {
 #include "utils.h"
 
 #ifdef DEBUG_TAGGED
-#include "trace_helpers.h"
+#include "trace_id.h"
 #endif
 
 /* This takes both literals and modifiers, e.g.,
