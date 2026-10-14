@@ -73,14 +73,14 @@ func (o *onDemandXdsStarter) UpsertSecret(ctx context.Context, secret *envoy_con
 	return o.XDSServer.UpsertSecret(ctx, secret)
 }
 
-func (o *onDemandXdsStarter) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources, waitGroup *completion.WaitGroup) error {
+func (o *onDemandXdsStarter) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources) error {
 	if err := o.startStandaloneEnvoy(ctx, nil); err != nil {
 		o.logger.Error("Envoy: Failed to start standalone Envoy proxy on demand",
 			logfields.Error, err,
 		)
 	}
 
-	return o.XDSServer.UpdateEnvoyResources(ctx, old, new, waitGroup)
+	return o.XDSServer.UpdateEnvoyResources(ctx, old, new)
 }
 
 func (o *onDemandXdsStarter) startStandaloneEnvoy(ctx context.Context, wg *completion.WaitGroup) error {

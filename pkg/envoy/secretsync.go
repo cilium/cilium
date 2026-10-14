@@ -117,7 +117,7 @@ func (r *secretSyncer) deleteK8sSecretV1(ctx context.Context, key resource.Key) 
 		},
 	}
 	// DeleteEnvoyResources does not Wait for an Envoy response when only Secrets are deleted.
-	return r.envoyXdsServer.DeleteEnvoyResources(ctx, resource, nil)
+	return r.envoyXdsServer.DeleteEnvoyResources(ctx, resource)
 }
 
 // k8sToEnvoySecret converts k8s secret object to envoy TLS secret object

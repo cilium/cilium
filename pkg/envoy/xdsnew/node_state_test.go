@@ -60,7 +60,7 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 	state.seedResource(typeurl.Cluster, "cluster", current.Clusters["cluster"])
 	state.seedResource(typeurl.Endpoint, "endpoint", current.Endpoints["endpoint"])
 	state.seedResource(typeurl.Secret, "secret", current.Secrets["secret"])
-	changes, changedTypeURLs, inverse := state.prepareResourceMutation(ResourceMutations{Upserted: equal}, 1)
+	changes, changedTypeURLs, inverse := state.prepareResourceMutation(ResourceMutations{Upserted: equal}, resourceEntry{revision: callbacks.Generation(1).Revision()})
 	require.True(t, changedTypeURLs.Empty())
 	require.True(t, inverse.empty())
 	require.True(t, changes.empty())
@@ -88,7 +88,7 @@ func TestNodeStateUsesSemanticEqualityAndTracksChangedNames(t *testing.T) {
 		"new-secret": {Name: "new-secret"},
 	}}
 
-	changes, changedTypeURLs, inverse = state.prepareResourceMutation(ResourceMutations{Removed: removed, Upserted: upserted}, 1)
+	changes, changedTypeURLs, inverse = state.prepareResourceMutation(ResourceMutations{Removed: removed, Upserted: upserted}, resourceEntry{revision: callbacks.Generation(1).Revision()})
 	require.Len(t, changes.more, 2, "three changed resources should share one overflow slice")
 	state.commitResourceMutation(changes, 1)
 	require.Equal(t, typeurl.NewSet(
@@ -128,7 +128,7 @@ func (state *nodeState) seedResourceAtGeneration(typeURL typeurl.Index, name str
 	state.seedResource(typeURL, name, resource)
 	entry := state.resources[typeURL][name]
 	entry.revision = generation.Revision()
-	entry.transaction = generation.TransactionID()
+	entry.rollbackOrigin = generation.TransactionID()
 	state.resources[typeURL][name] = entry
 	state.typeStates[typeURL].generation = max(state.typeStates[typeURL].generation, generation)
 }
@@ -138,7 +138,7 @@ func (state *nodeState) seedResourceAtGeneration(typeURL typeurl.Index, name str
 func (state *nodeState) applyUnpublishedTestResource(typeURL typeurl.Index, name string, resource cache_types.Resource) typeurl.Set {
 	var changes resourceChanges
 	generation := state.resourceGeneration + 1
-	changes.add(typeURL, name, state.resources[typeURL][name], resourceEntry{resource: resource, revision: generation.Revision(), transaction: generation.TransactionID()})
+	changes.add(typeURL, name, state.resources[typeURL][name], resourceEntry{resource: resource, revision: generation.Revision(), rollbackOrigin: generation.TransactionID()})
 	state.commitResourceMutation(changes, generation)
 	state.resourceGeneration = generation
 	state.pendingPublication = &pendingPublication{generation: generation}

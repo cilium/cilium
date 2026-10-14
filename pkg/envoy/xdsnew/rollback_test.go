@@ -43,14 +43,14 @@ func TestPreparedResourceRevertsCarryTargetEntries(t *testing.T) {
 	for _, mode := range []string{"caller", "response"} {
 		t.Run(mode, func(t *testing.T) {
 			targets := map[string]resourceEntry{
-				"updated":    {resource: &cilium.NetworkPolicy{EndpointId: 1}, revision: callbacks.Generation(3).Revision(), transaction: callbacks.Generation(3).TransactionID()},
+				"updated":    {resource: &cilium.NetworkPolicy{EndpointId: 1}, revision: callbacks.Generation(3).Revision(), rollbackOrigin: callbacks.Generation(3).TransactionID()},
 				"added":      {},
-				"superseded": {resource: &cilium.NetworkPolicy{EndpointId: 3}, revision: callbacks.Generation(4).Revision(), transaction: callbacks.Generation(4).TransactionID()},
+				"superseded": {resource: &cilium.NetworkPolicy{EndpointId: 3}, revision: callbacks.Generation(4).Revision(), rollbackOrigin: callbacks.Generation(4).TransactionID()},
 			}
 			current := map[string]resourceEntry{
-				"updated":    {resource: &cilium.NetworkPolicy{EndpointId: 10}, revision: callbacks.Generation(12).Revision(), transaction: callbacks.Generation(10).TransactionID()},
-				"added":      {resource: &cilium.NetworkPolicy{EndpointId: 11}, revision: callbacks.Generation(10).Revision(), transaction: callbacks.Generation(10).TransactionID()},
-				"superseded": {resource: &cilium.NetworkPolicy{EndpointId: 13}, revision: callbacks.Generation(11).Revision(), transaction: callbacks.Generation(11).TransactionID()},
+				"updated":    {resource: &cilium.NetworkPolicy{EndpointId: 10}, revision: callbacks.Generation(12).Revision(), rollbackOrigin: callbacks.Generation(10).TransactionID()},
+				"added":      {resource: &cilium.NetworkPolicy{EndpointId: 11}, revision: callbacks.Generation(10).Revision(), rollbackOrigin: callbacks.Generation(10).TransactionID()},
+				"superseded": {resource: &cilium.NetworkPolicy{EndpointId: 13}, revision: callbacks.Generation(11).Revision(), rollbackOrigin: callbacks.Generation(11).TransactionID()},
 			}
 			state := &nodeState{}
 			state.resources[typeurl.NetworkPolicy] = maps.Clone(current)
@@ -197,7 +197,7 @@ func TestCallerRemovalRollbackBypassesNACKedPredecessor(t *testing.T) {
 					require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, name, baseline, nil))
 					s.reply(t, s.receive(t), "")
 				}
-				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, name,
+				require.NoError(t, c.applyRevertibleResource(t.Context(), nodeID, typeurl.Cluster, name,
 					&envoy_config_cluster.Cluster{Name: name, AltStatName: "rejected"}, nil))
 				response := s.receive(t)
 				var removed Rollback
@@ -425,7 +425,7 @@ func TestApplyResourcesOwnsGlobalGenerationAndPerNodeReverts(t *testing.T) {
 	require.Equal(t, callbacks.Generation(4), c.getNodeState("node-b").resourceGeneration)
 	entry := c.getNodeState("node-a").resources[typeurl.NetworkPolicy]["policy"]
 	require.Equal(t, callbacks.Generation(5).Revision(), entry.revision, "reverting advances the named value's revision")
-	require.Equal(t, callbacks.Generation(1).TransactionID(), entry.transaction, "reverting restores the value's originating API transaction")
+	require.True(t, entry.rollbackOrigin.IsZero(), "reverting restores an authoritative value with no rollback origin")
 	resource := c.GetResource("node-a", typeurl.NetworkPolicy, "policy")
 	require.NotNil(t, resource)
 	require.Equal(t, uint64(1), resource.(*cilium.NetworkPolicy).EndpointId)
@@ -443,6 +443,7 @@ func TestCallerRollbackOfReusedUpsert(t *testing.T) {
 			nackPrior      bool
 			superseded     bool
 			lateJoin       bool
+			plainAdopt     bool
 			finalizeFirst  bool
 			finalizeSecond bool
 		}{
@@ -452,6 +453,7 @@ func TestCallerRollbackOfReusedUpsert(t *testing.T) {
 			{name: "last revert skips a NACKed predecessor", nackPrior: true},
 			{name: "newer upsert wins", superseded: true},
 			{name: "third caller joins after the first reverts", lateJoin: true},
+			{name: "plain upsert adopts shared value", plainAdopt: true},
 			{name: "earlier caller finalizes", finalizeFirst: true},
 			{name: "earlier caller finalizes after later revert", reverse: true, finalizeSecond: true},
 			{name: "later caller finalizes after earlier revert", finalizeSecond: true},
@@ -511,6 +513,20 @@ func TestCallerRollbackOfReusedUpsert(t *testing.T) {
 					expected = current
 				}
 
+				var sharedResponse *discovery.DiscoveryResponse
+				if tt.plainAdopt {
+					sharedResponse = s.receive(t)
+					sameValue := proto.CloneOf(desired)
+					if bulk {
+						mutations := ResourceMutations{Upserted: xds.Resources{
+							Listeners: map[string]*envoy_config_listener.Listener{name: sameValue},
+						}}
+						require.NoError(t, c.ApplyResources(t.Context(), nodeID, mutations, nil, typeurl.Set{}))
+					} else {
+						require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Listener, name, sameValue, nil))
+					}
+				}
+
 				if tt.reverse {
 					first, second = second, first
 				}
@@ -536,13 +552,16 @@ func TestCallerRollbackOfReusedUpsert(t *testing.T) {
 					require.NoError(t, second.Revert())
 				}
 
-				if tt.finalizeFirst || tt.finalizeSecond {
+				if sharedResponse != nil {
+					s.reply(t, sharedResponse, "invalid listener")
+				}
+				if tt.finalizeFirst || tt.finalizeSecond || tt.plainAdopt {
 					require.Same(t, desired, c.GetResource(nodeID, typeurl.Listener, name))
 				} else {
 					require.True(t, proto.Equal(expected, c.GetResource(nodeID, typeurl.Listener, name)))
-					if bulk {
-						require.Nil(t, c.GetResource(nodeID, typeurl.Listener, sibling))
-					}
+				}
+				if bulk && !tt.finalizeFirst && !tt.finalizeSecond {
+					require.Nil(t, c.GetResource(nodeID, typeurl.Listener, sibling))
 				}
 			})
 		}
@@ -650,12 +669,16 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 			} else {
 				require.NoError(t, rollback.Revert())
 			}
-			expectedNewer, revision, transaction := "3", callbacks.Generation(3), callbacks.Generation(3)
+			expectedNewer, revision := "3", callbacks.Generation(3)
+			var origin callbacks.TransactionID
 			if tt.reuse {
 				if tt.callerRevert {
-					expectedNewer, revision, transaction = "2", 2, 2
+					expectedNewer, revision = "2", 2
+					if tt.withRollback {
+						origin = callbacks.Generation(2).TransactionID()
+					}
 				} else {
-					expectedNewer, revision, transaction = "1", 4, 1
+					expectedNewer, revision = "1", 4
 				}
 			}
 			require.Equal(t, expectedNewer, c.GetResource("node-a", typeurl.Route, "newer").(*envoy_config_route.RouteConfiguration).Name,
@@ -664,9 +687,9 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 				"the same revert must still restore resources untouched by newer API transactions")
 			entries := c.getNodeState(node.Id).resources[typeurl.Route]
 			require.Equal(t, revision.Revision(), entries["newer"].revision)
-			require.Equal(t, transaction.TransactionID(), entries["newer"].transaction)
+			require.Equal(t, origin, entries["newer"].rollbackOrigin)
 			require.Equal(t, callbacks.Generation(4).Revision(), entries["unchanged"].revision)
-			require.Equal(t, callbacks.Generation(1).TransactionID(), entries["unchanged"].transaction)
+			require.True(t, entries["unchanged"].rollbackOrigin.IsZero())
 			if tt.withRollback {
 				require.NoError(t, laterRollback.Revert())
 				laterRollback = nil
@@ -806,7 +829,7 @@ func TestApplyResourcesRevertCoversEnvoyResourceTypes(t *testing.T) {
 	}
 }
 
-func TestResourceRevisionAdvancesWhileRevertRestoresTransaction(t *testing.T) {
+func TestResourceRevisionAdvancesWhileRevertRestoresOrigin(t *testing.T) {
 	for _, api := range []string{"single", "bulk"} {
 		t.Run(api, func(t *testing.T) {
 			c := newCoverageCache(t)
@@ -831,7 +854,7 @@ func TestResourceRevisionAdvancesWhileRevertRestoresTransaction(t *testing.T) {
 				expectedTransaction := transaction.TransactionID()
 				entry := state.resourceWaitEntry(typeurl.Listener, name)
 				require.Equal(t, revision.Revision(), entry.revision)
-				require.Equal(t, expectedTransaction, entry.transaction)
+				require.Equal(t, expectedTransaction, entry.rollbackOrigin)
 				if value == nil {
 					require.Nil(t, entry.resource)
 				} else {

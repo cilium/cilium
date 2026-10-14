@@ -350,7 +350,7 @@ func TestPendingCLARemovalRemainsFinal(t *testing.T) {
 							OverprovisioningFactor: wrapperspb.UInt32(123),
 						},
 					}
-					require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", ResourceMutations{Upserted: xds.Resources{
+					require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{Upserted: xds.Resources{
 						Clusters:  map[string]*cluster.Cluster{"cluster": testEDSCluster("cluster", "shared")},
 						Endpoints: map[string]*endpoint.ClusterLoadAssignment{"shared": original},
 					}}, nil, typeurl.Set{}))
@@ -367,9 +367,9 @@ func TestPendingCLARemovalRemainsFinal(t *testing.T) {
 							OverprovisioningFactor: wrapperspb.UInt32(124),
 						},
 					}
-					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "shared", updated, nil))
+					require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Endpoint, "shared", updated, nil))
 					if phase.published {
-						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "unrelated",
+						require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Listener, "unrelated",
 							&listener.Listener{Name: "unrelated"}, nil))
 						lds := coverageStream{cache: c, id: 3, typeURL: typeurl.Listener.URL()}
 						lds.reply(t, lds.receive(t), "")
@@ -410,7 +410,7 @@ func TestPendingCLARemovalRemainsFinal(t *testing.T) {
 					}
 
 					if readded {
-						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "shared",
+						require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Endpoint, "shared",
 							&endpoint.ClusterLoadAssignment{ClusterName: "shared", Policy: &endpoint.ClusterLoadAssignment_Policy{
 								OverprovisioningFactor: wrapperspb.UInt32(125),
 							}}, nil))

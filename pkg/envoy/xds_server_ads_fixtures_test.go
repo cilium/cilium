@@ -253,12 +253,29 @@ func newADSServerFixture(t *testing.T, restorers ...promise.Promise[endpointstat
 	return server, server.cache
 }
 
+// Seed through restoration so resources remain unacknowledged until the test
+// drives their responses. Subsequent updates use the normal server-owned waits.
+func newSeededADSServerFixture(t *testing.T, resources xds.Resources) (*adsServer, xdsnew.Cache) {
+	t.Helper()
+	_, restorer := promise.New[endpointstate.Restorer]()
+	server, cache := newADSServerFixture(t, restorer)
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources))
+	server.markRestoreCompleted()
+	return server, cache
+}
+
 func waitForADSCompletion(t *testing.T, wg *completion.WaitGroup) <-chan error {
 	t.Helper()
 	t.Cleanup(wg.Cancel)
 	done := make(chan error, 1)
 	go func() { done <- wg.Wait() }()
 	return done
+}
+
+func startADSResourceUpdate(server *adsServer, ctx context.Context, old, next xds.Resources) <-chan error {
+	result := make(chan error, 1)
+	go func() { result <- server.UpdateEnvoyResources(ctx, old, next) }()
+	return result
 }
 
 func requireADSCompletionPending(t *testing.T, done <-chan error) {

@@ -366,16 +366,33 @@ func newCoverageCache(t *testing.T) *cacheImpl {
 	return c
 }
 
+// These helpers finalize caller ownership immediately while retaining the
+// independent response recovery exercised by the NACK and coalescing tests.
+func (c *cacheImpl) applyRevertibleResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) error {
+	rollback, err := c.ApplyResourceWithRollback(ctx, nodeID, typeURL, name, resource, wg)
+	if err == nil {
+		rollback.Finalize()
+	}
+	return err
+}
+
+func (c *cacheImpl) applyRevertibleResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) error {
+	rollback, err := c.ApplyResourcesWithRollback(ctx, nodeID, mutations, wg, waitTypeURLs)
+	if err == nil {
+		rollback.Finalize()
+	}
+	return err
+}
+
 func upsertCoverageEndpoint(t *testing.T, c *cacheImpl, name string) (*envoy_config_endpoint.ClusterLoadAssignment, <-chan error) {
 	t.Helper()
 	resource := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, name, resource, wg))
+	require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Endpoint, name, resource, wg))
 	return resource, waitForCoverageCompletion(wg)
 }
 
-// Call after registering all updates in wg, as production callers do.
 // Call after registering all updates in wg, as production callers do.
 func waitForCoverageCompletion(wg *completion.WaitGroup) <-chan error {
 	done := make(chan error, 1)

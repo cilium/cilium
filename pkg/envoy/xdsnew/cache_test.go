@@ -84,7 +84,7 @@ func TestGenerateSnapshotIncrementallyReusesUnchangedResources(t *testing.T) {
 	// published object.
 	equalPolicy := proto.Clone(equalOriginal).(*cilium.NetworkPolicy)
 	var changes resourceChanges
-	prepareResourceMap(&changes, typeurl.NetworkPolicy, 1, state.resourceEntries(typeurl.NetworkPolicy),
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, resourceEntry{revision: callbacks.Generation(1).Revision()}, state.resourceEntries(typeurl.NetworkPolicy),
 		map[string]*cilium.NetworkPolicy{"removed": nil},
 		map[string]*cilium.NetworkPolicy{
 			"changed": changedPolicy,
@@ -138,9 +138,9 @@ func TestGenerateSnapshotFromStateIncrementallyUsesPublishedCopyOnWriteMaps(t *t
 	state := &nodeState{}
 	state.seedResource(typeurl.Listener, "listener", &envoy_config_listener.Listener{Name: "listener"})
 	state.resources[typeurl.NetworkPolicy] = map[string]resourceEntry{
-		"changed":   {resource: &cilium.NetworkPolicy{EndpointId: 1}, revision: callbacks.Generation(1).Revision(), transaction: callbacks.Generation(1).TransactionID()},
-		"unchanged": {resource: &cilium.NetworkPolicy{EndpointId: 2}, revision: callbacks.Generation(1).Revision(), transaction: callbacks.Generation(1).TransactionID()},
-		"removed":   {resource: &cilium.NetworkPolicy{EndpointId: 3}, revision: callbacks.Generation(1).Revision(), transaction: callbacks.Generation(1).TransactionID()},
+		"changed":   {resource: &cilium.NetworkPolicy{EndpointId: 1}, revision: callbacks.Generation(1).Revision(), rollbackOrigin: callbacks.Generation(1).TransactionID()},
+		"unchanged": {resource: &cilium.NetworkPolicy{EndpointId: 2}, revision: callbacks.Generation(1).Revision(), rollbackOrigin: callbacks.Generation(1).TransactionID()},
+		"removed":   {resource: &cilium.NetworkPolicy{EndpointId: 3}, revision: callbacks.Generation(1).Revision(), rollbackOrigin: callbacks.Generation(1).TransactionID()},
 	}
 
 	previous, err := c.generateSnapshotFromState(state)
@@ -150,7 +150,7 @@ func TestGenerateSnapshotFromStateIncrementallyUsesPublishedCopyOnWriteMaps(t *t
 	changedPolicy := &cilium.NetworkPolicy{EndpointId: 4}
 	addedPolicy := &cilium.NetworkPolicy{EndpointId: 5}
 	var changes resourceChanges
-	prepareResourceMap(&changes, typeurl.NetworkPolicy, 2, state.resourceEntries(typeurl.NetworkPolicy),
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, resourceEntry{revision: callbacks.Generation(2).Revision()}, state.resourceEntries(typeurl.NetworkPolicy),
 		map[string]*cilium.NetworkPolicy{"removed": nil},
 		map[string]*cilium.NetworkPolicy{
 			"changed": changedPolicy,
@@ -197,7 +197,7 @@ func TestGenerateSnapshotFromStateIncrementallyReusesPublishedMapAfterCoalescedA
 	policyA := &cilium.NetworkPolicy{EndpointId: 1}
 	state := &nodeState{}
 	state.resources[typeurl.NetworkPolicy] = map[string]resourceEntry{
-		"policy": {resource: policyA, revision: callbacks.Generation(1).Revision(), transaction: callbacks.Generation(1).TransactionID()},
+		"policy": {resource: policyA, revision: callbacks.Generation(1).Revision(), rollbackOrigin: callbacks.Generation(1).TransactionID()},
 	}
 
 	previous, err := c.generateSnapshotFromState(state)
@@ -205,11 +205,11 @@ func TestGenerateSnapshotFromStateIncrementallyReusesPublishedMapAfterCoalescedA
 	previousSnapshot := previous.(*ciliumSnapshot)
 
 	var changes resourceChanges
-	prepareResourceMap(&changes, typeurl.NetworkPolicy, 2, state.resourceEntries(typeurl.NetworkPolicy),
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, resourceEntry{revision: callbacks.Generation(2).Revision()}, state.resourceEntries(typeurl.NetworkPolicy),
 		(map[string]*cilium.NetworkPolicy)(nil), map[string]*cilium.NetworkPolicy{"policy": {EndpointId: 2}})
 	state.commitResourceMutation(changes, 2)
 	changes = resourceChanges{}
-	prepareResourceMap(&changes, typeurl.NetworkPolicy, 3, state.resourceEntries(typeurl.NetworkPolicy),
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, resourceEntry{revision: callbacks.Generation(3).Revision()}, state.resourceEntries(typeurl.NetworkPolicy),
 		(map[string]*cilium.NetworkPolicy)(nil), map[string]*cilium.NetworkPolicy{"policy": policyA})
 	changedTypeURLs := changes.typeURLs()
 	state.commitResourceMutation(changes, 3)

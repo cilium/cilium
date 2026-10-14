@@ -53,7 +53,7 @@ type resourceTypeState struct {
 	revertGeneration callbacks.Generation
 	// generation is the aggregate xDS generation. It also advances for
 	// compensation and EDS replay; resource entries retain their revisions for
-	// ACK waits and transaction IDs for rollback fencing.
+	// ACK waits and origins for rollback fencing.
 	generation callbacks.Generation
 	// reportedEpoch is the greatest epoch from this type's first request.
 	reportedEpoch uint64
@@ -74,28 +74,27 @@ func (state *nodeState) resourceEntries(typeURL typeurl.Index) map[string]resour
 	return state.resources[typeURL]
 }
 
-// resourceWaitEntry fences absent values without retaining removal entries.
-// Corrective updates and collected responses must not let an older absence ACK
-// complete a wait for a name which has since been present.
+// resourceWaitEntry includes the type's latest corrective generation for an
+// absent name. The callbacks account for queued and sent responses separately.
 func (state *nodeState) resourceWaitEntry(typeURL typeurl.Index, name string) resourceEntry {
 	entry := state.resources[typeURL][name]
 	if entry.resource == nil {
-		entry.revision = state.rollbacks.removalWaitRevision(state, typeURL, name)
+		entry.revision = state.typeStates[typeURL].revertGeneration.Revision()
 	}
 	return entry
 }
 
-// prepareResourceMutation records the proposed next generation without changing
-// the cache. The caller reserves it under the cache lock only if changes exist.
-func (state *nodeState) prepareResourceMutation(mutations ResourceMutations, generation callbacks.Generation) (resourceChanges, typeurl.Set, resources) {
+// prepareResourceMutation uses the proposed next revision and upsert origin.
+// The caller reserves the generation under the cache lock only if changes exist.
+func (state *nodeState) prepareResourceMutation(mutations ResourceMutations, upsert resourceEntry) (resourceChanges, typeurl.Set, resources) {
 	removeSet := mutations.Removed
 	upsertSet := mutations.Upserted
 	var changes resourceChanges
-	prepareResourceMap(&changes, typeurl.Listener, generation, state.resourceEntries(typeurl.Listener), removeSet.Listeners, upsertSet.Listeners)
-	prepareResourceMap(&changes, typeurl.Route, generation, state.resourceEntries(typeurl.Route), removeSet.Routes, upsertSet.Routes)
-	prepareResourceMap(&changes, typeurl.Cluster, generation, state.resourceEntries(typeurl.Cluster), removeSet.Clusters, upsertSet.Clusters)
-	prepareResourceMap(&changes, typeurl.Endpoint, generation, state.resourceEntries(typeurl.Endpoint), removeSet.Endpoints, upsertSet.Endpoints)
-	prepareResourceMap(&changes, typeurl.Secret, generation, state.resourceEntries(typeurl.Secret), removeSet.Secrets, upsertSet.Secrets)
+	prepareResourceMap(&changes, typeurl.Listener, upsert, state.resourceEntries(typeurl.Listener), removeSet.Listeners, upsertSet.Listeners)
+	prepareResourceMap(&changes, typeurl.Route, upsert, state.resourceEntries(typeurl.Route), removeSet.Routes, upsertSet.Routes)
+	prepareResourceMap(&changes, typeurl.Cluster, upsert, state.resourceEntries(typeurl.Cluster), removeSet.Clusters, upsertSet.Clusters)
+	prepareResourceMap(&changes, typeurl.Endpoint, upsert, state.resourceEntries(typeurl.Endpoint), removeSet.Endpoints, upsertSet.Endpoints)
+	prepareResourceMap(&changes, typeurl.Secret, upsert, state.resourceEntries(typeurl.Secret), removeSet.Secrets, upsertSet.Secrets)
 	return changes, changes.typeURLs(), changes.inverse()
 }
 
@@ -106,8 +105,8 @@ func (state *nodeState) commitResourceMutation(changes resourceChanges, generati
 		if change.next.resource == nil {
 			removedTypes.Insert(change.typeURL)
 		}
-		// A revert restores an older value and transaction ID, but both its
-		// revision and the aggregate xDS generation advance to this mutation.
+		// A revert restores an older value and its rollback origin. Its revision
+		// and the aggregate xDS generation advance to this mutation.
 		state.typeStates[change.typeURL].generation = generation
 	}
 	if !changes.empty() {

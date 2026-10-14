@@ -17,6 +17,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/lock"
@@ -112,6 +113,47 @@ type callbackNodeState struct {
 	// a transport-only response has no resource coverage metadata.
 	published cache.ResourceSnapshot
 	typeURLs  typeurl.Slots[typeURLState]
+	// Keep collected responses visible to removal waits until OnStreamResponse
+	// takes over or go-control-plane cancels the watch.
+	queuedResponses set.Set[queuedResponse]
+}
+
+type queuedResponse struct {
+	generation Generation
+	coverage   *responseCoverage
+	// Reuse the watch's cancellation signal to identify responses it abandons.
+	canceled <-chan struct{}
+}
+
+// TrackQueuedResponse makes this response visible to removal waits before it is
+// forwarded to the stream. The cache serializes collection with resource updates.
+func (cb *CompletionCallbacks) TrackQueuedResponse(nodeID string, response cache.Response, canceled <-chan struct{}) {
+	ctx := response.GetContext()
+	coverage := responseCoverageFromContext(ctx)
+	if coverage == nil || len(coverage.resources) == 0 || coverage.returned != nil && len(coverage.returned) == 0 {
+		// A response with no live values cannot invalidate earlier absence evidence.
+		return
+	}
+	cb.mutex.Lock()
+	cb.ensureNodeState(nodeID).queuedResponses.Insert(queuedResponse{
+		generation: snapshotGenerationFromContext(ctx), coverage: coverage, canceled: canceled,
+	})
+	cb.mutex.Unlock()
+}
+
+// CancelQueuedResponse releases coverage for a canceled watch. If the response
+// already reached OnStreamResponse, its ordinary stream state owns the coverage.
+func (cb *CompletionCallbacks) CancelQueuedResponse(nodeID string, canceled <-chan struct{}) {
+	cb.mutex.Lock()
+	if node := cb.nodes[nodeID]; node != nil {
+		for queued := range node.queuedResponses.Members() {
+			if queued.canceled == canceled {
+				node.queuedResponses.Remove(queued)
+				break
+			}
+		}
+	}
+	cb.mutex.Unlock()
 }
 
 type typeURLState struct {
@@ -119,7 +161,7 @@ type typeURLState struct {
 	// the response carrying them is ACKed, NACKed, or otherwise proven not to
 	// need a response. Their lifetime is deliberately independent from caller
 	// completions: a caller may stop waiting before Envoy consumes the response,
-	// and updates without a WaitGroup must still be reverted on NACK.
+	// and revertible updates without a WaitGroup must still be reverted on NACK.
 	// Key by inverse identity: named responses can split one API generation
 	// into independently resolved rollback lifetimes.
 	pendingGenerations map[*pendingGeneration]Generation
@@ -469,7 +511,7 @@ func (cb *CompletionCallbacks) HasResourceAcceptance(nodeID string, typeURL type
 }
 
 // RemovalWaitRevision fences an absent name without retaining a desired entry.
-// Previously accepted absence stays usable unless a later sent
+// Previously accepted absence stays usable unless a later queued or sent
 // value makes it uncertain. After a NACK, conservatively require absence evidence
 // at least as new as that rejection, including for names omitted by later NACKs.
 // Otherwise a never-present name retains revision zero. This is used only for
@@ -477,13 +519,20 @@ func (cb *CompletionCallbacks) HasResourceAcceptance(nodeID string, typeURL type
 func (cb *CompletionCallbacks) RemovalWaitRevision(nodeID string, typeURL typeurl.Index, name string, revision Revision) Revision {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	typeState := cb.typeURLState(nodeID, typeURL)
+	node := cb.nodes[nodeID]
+	typeState := node.typeURLState(typeURL)
 	if typeState == nil {
 		return revision
 	}
 	_, exists, acceptedGeneration := typeState.acceptedResources.resource(name, typeURL)
 	if exists && acceptedGeneration > revision.revision {
 		revision = acceptedGeneration.Revision()
+	}
+	for queued := range node.queuedResponses.Members() {
+		if queued.generation > max(acceptedGeneration, revision.revision) && queued.coverage.typeURL == typeURL &&
+			queued.coverage.resources[name].Resource != nil && queued.coverage.contains(name) {
+			revision = queued.generation.Revision()
+		}
 	}
 	state := &typeState.response
 	if state.rejectedGeneration > revision.revision && state.rejectedGeneration > acceptedGeneration {
@@ -981,9 +1030,10 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 
 	typeState.removeEmptyPendingGenerationSet()
 
-	if len(completed) > 0 || len(generationReverts) > 0 {
+	// Report a matched NACK even when no waiter or rollback owns the response.
+	if req.GetResponseNonce() != "" {
 		cb.Log.Warn(
-			"NACK received, reverting resource changes",
+			"NACK received",
 			logfields.XDSTypeURL, typeURL,
 			logfields.Version, rejectedVersion,
 			logfields.XDSGeneration, rejectedGeneration,
@@ -1030,6 +1080,14 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	// be delayed past newer updates, even when contents match an earlier state.
 	responseGeneration := snapshotGenerationFromContext(ctx)
 	coverage := responseCoverageFromContext(ctx)
+	// Under the same lock, move from queued coverage to stream-local coverage
+	// so removal waits see the response throughout the handoff.
+	for queued := range nodeState.queuedResponses.Members() {
+		if queued.coverage == coverage {
+			nodeState.queuedResponses.Remove(queued)
+			break
+		}
+	}
 	stream.responses[typeIndex] = pendingResponse{
 		pendingVersion: version, pendingGeneration: responseGeneration, pendingNonce: resp.GetNonce(),
 		coverage: coverage,

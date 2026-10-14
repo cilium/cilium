@@ -41,25 +41,34 @@ type XDSServer interface {
 	// The completion is signaled on 'wg'.
 	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup)
 
-	// UpsertSecret inserts or updates a named secret in the xDS cache without
-	// waiting for an Envoy ACK/NACK.
+	// UpsertSecret inserts or updates a named secret in the xDS cache. It does not
+	// wait for ACK/NACK, and a NACK does not automatically revert the secret.
 	UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error
+
 	// UpdateEnvoyResources removes any resources in 'old' that are not present in 'new' and
-	// then adds or updates all resources in 'new'. An empty 'old' (Resources{}) supports
-	// bulk upserts without removals. Listener address changes require the previous
+	// adds or updates all resources in 'new'. An empty 'old' (Resources{}) supports bulk
+	// upserts without removals. Envoy does not support changing the listening port of an
+	// existing listener, so if the port changes we have to delete the old listener and then add
+	// the new one with the new port number. Listener address changes require the previous
 	// resources in 'old' so the server can detect when a listener must be deleted and
-	// re-added. The completion is signaled on 'wg'.
-	UpdateEnvoyResources(ctx context.Context, old, new Resources, wg *completion.WaitGroup) error
+	// re-added. The server manages its own ACK waits and caller rollback, and returns any wait
+	// failure. If 'new' contains Listeners, it waits for LDS and any supplied CDS
+	// resources. During restoration these waits are skipped. A wait failure reverts the
+	// changes, including eligible removals.
+	UpdateEnvoyResources(ctx context.Context, old, new Resources) error
+
 	// DeleteEnvoyResources deletes the given Envoy resources from the xDS cache.
 	// If resources includes listeners the caller MUST pass a context with a timeout to prevent
 	// indefinite blocking in case Envoy never responds with an ACK/NACK.
-	DeleteEnvoyResources(ctx context.Context, resources Resources, wg *completion.WaitGroup) error
+	DeleteEnvoyResources(ctx context.Context, resources Resources) error
+
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
 	// The caller waits for acceptance through wg and records the submitted policy's
 	// revision after a successful wait. A nil wg seeds the cache without waiting.
 	// After a successful update, the caller must eventually finalize or revert the
 	// returned Revertible when the enclosing endpoint transaction finishes.
 	UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.Revertible)
+
 	// RemoveNetworkPolicy removes network policies relevant to the specified
 	// endpoint from the set published to L7 proxies, and stops listening for
 	// acks for policies on this endpoint.

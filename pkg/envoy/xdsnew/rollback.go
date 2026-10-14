@@ -84,13 +84,41 @@ type responseRollback struct {
 
 type rollbackEntry struct {
 	previous resourceEntry
-	// expectedTransaction identifies the API change this inverse can undo.
+	// expectedTransaction is the nonzero origin of the upsert this inverse can undo.
 	expectedTransaction callbacks.TransactionID
 }
 
 // rollbackResources contains response-owned recovery for one resource type.
 // Response recovery undoes only upserts. Only caller recovery can undo removals.
 type rollbackResources map[string]rollbackEntry
+
+// adoptNonRevertibleLocked clears the origin without changing the value,
+// revision, or published snapshot. The caller must first unlink any caller
+// inverse using the old origin. Drop unpublished and unsent response inverses
+// before clearing it so they cannot be coalesced into later rollback state.
+// Already-sent inverses retain their response identity and their nonzero
+// expected transaction, which can no longer match this value.
+func (r *rollbackState) adoptNonRevertibleLocked(c *cacheImpl, state *nodeState, typeURL typeurl.Index, name string) {
+	entry := state.resources[typeURL][name]
+	if entry.rollbackOrigin.IsZero() {
+		return
+	}
+	if pending := state.pendingPublication; pending != nil {
+		rollback, _ := pending.rollbacks.Get(typeURL)
+		delete(rollback, name)
+		if len(rollback) == 0 && pending.rollbacks.Has(typeURL) {
+			pending.rollbacks.Set(typeURL, nil)
+		}
+	}
+	if unsent := state.typeStates[typeURL].unsentRollback; unsent != nil {
+		delete(unsent.resources, name)
+		if len(unsent.resources) == 0 && c.completionCbs.DiscardUnsentTypeGeneration(state.nodeID, typeURL, unsent.generation) {
+			unsent.finalizeLocked()
+		}
+	}
+	entry.rollbackOrigin = callbacks.TransactionID{}
+	state.resources[typeURL][name] = entry
+}
 
 // preparePublicationLocked coalesces rollback ownership for committed entries.
 // Save recovery maps only when immediate publication can fail. The node is
@@ -146,6 +174,23 @@ func (r *rollbackState) preparePublicationLocked(tx *resourceTransaction, change
 				current = nil
 			}
 			rollbacks.Set(typeURL, current)
+		}
+	} else if options.isAPIUpdate {
+		for typeURL := range changedTypeURLs.Members() {
+			rollback, _ := rollbacks.Get(typeURL)
+			if removedTypes.Has(typeURL) {
+				rollback.pruneRemovedResources(state, typeURL)
+			}
+			// Plain API upserts are authoritative even before publication. Drop
+			// earlier recovery for these names instead of extending its guard to
+			// a non-revertible transaction.
+			for name := range options.inverse.resources(typeURL) {
+				delete(rollback, name)
+			}
+			if len(rollback) == 0 {
+				rollback = nil
+			}
+			rollbacks.Set(typeURL, rollback)
 		}
 	} else {
 		// Compensation can shorten an unpublished chain or restore an earlier
@@ -325,10 +370,8 @@ func (r *rollbackState) newResponseLocked(c *cacheImpl, state *nodeState, typeUR
 	return rollback
 }
 
-// newCallerLocked records the originating API mutation after admission. Deleted
-// values come from the prepared changes, captured under the same cache lock as
-// the deletion, so a concurrent NACK cannot slip between capture and commit.
-// Caller must hold c.mutex.
+// callerRollbackLocked creates the caller handle on first use, after admission.
+// A transaction with only unchanged upserts may need a handle for shared claims.
 func (tx *resourceTransaction) callerRollbackLocked() *callerRollback {
 	if tx.callerRollback == nil {
 		tx.callerRollback = &callerRollback{
@@ -372,7 +415,7 @@ func (rollback *callerRollback) captureChangesLocked(inverse resources, changes 
 	}
 }
 
-// reuseResourceLocked applies caller ownership rules without changing the
+// reuseResourceLocked updates rollback ownership without changing the
 // resource revision. The caller must hold the cache lock and have admitted the
 // API transaction successfully.
 func (tx *resourceTransaction) reuseResourceLocked(typeURL typeurl.Index, name string, current resourceEntry, withRollback bool) {
@@ -381,18 +424,18 @@ func (tx *resourceTransaction) reuseResourceLocked(typeURL typeurl.Index, name s
 		r.invalidateCallerRemovalsLocked(typeURL, name)
 		return
 	}
-	if current.transaction.IsZero() {
+	if current.rollbackOrigin.IsZero() {
 		return
 	}
 
-	key := callerUpsertKey{name: name, origin: current.transaction, typeURL: typeURL}
+	key := callerUpsertKey{name: name, origin: current.rollbackOrigin, typeURL: typeURL}
 	shared := r.sharedUpsert
 	if shared == nil || shared.key != key {
 		shared = r.sharedUpserts[key]
 	}
 	if shared == nil {
 		for owner := range r.callers.Members() {
-			if owner.transaction != current.transaction {
+			if owner.transaction != current.rollbackOrigin {
 				continue
 			}
 			if previous, exists := owner.inverse.get(typeURL, name); exists {
@@ -422,6 +465,7 @@ func (tx *resourceTransaction) reuseResourceLocked(typeURL typeurl.Index, name s
 		if shared != nil {
 			r.discardSharedUpsertLocked(shared)
 		}
+		r.adoptNonRevertibleLocked(tx.cache, tx.state, typeURL, name)
 	}
 }
 
@@ -455,7 +499,7 @@ func reuseResources[V interface {
 
 func (tx *resourceTransaction) reuseResourcesLocked(mutations ResourceMutations, inverse *resources, withRollback bool) {
 	r := &tx.state.rollbacks
-	if r.callers.Empty() && r.sharedUpsert == nil && len(r.sharedUpserts) == 0 {
+	if withRollback && r.callers.Empty() && r.sharedUpsert == nil && len(r.sharedUpserts) == 0 {
 		return
 	}
 	removed, upserted := mutations.Removed, mutations.Upserted
@@ -600,7 +644,8 @@ func (r *rollbackState) prepareRevertLocked(tx *resourceTransaction, rollbacks [
 			rollback := rollback.(*responseRollback)
 			typeURL := rollback.typeURL
 			for name, entry := range rollback.resources {
-				if state.resources[typeURL][name].transaction != entry.expectedTransaction {
+				current := state.resources[typeURL][name]
+				if current.rollbackOrigin != entry.expectedTransaction {
 					continue
 				}
 				if combined[typeURL] == nil {
@@ -621,15 +666,15 @@ func (r *rollbackState) prepareRevertLocked(tx *resourceTransaction, rollbacks [
 }
 
 // reconcileDesiredState coalesces compensation into an unclaimed rollback:
-// drop removed resources and net no-ops, and guard other entries by their
-// restored API transactions. Cache lock required.
+// drop absent or authoritative resources and net no-ops. Guard other entries by
+// their restored rollback origins. Cache lock required.
 func (resources *rollbackResources) reconcileDesiredState(state *nodeState, typeURL typeurl.Index) {
 	for name, entry := range *resources {
 		current := state.resources[typeURL][name]
-		if current.resource == nil || entry.previousEquals(current.resource) {
+		if current.rollbackOrigin.IsZero() || entry.previousEquals(current.resource) {
 			delete(*resources, name)
-		} else if entry.expectedTransaction != current.transaction {
-			entry.expectedTransaction = current.transaction
+		} else if entry.expectedTransaction != current.rollbackOrigin {
+			entry.expectedTransaction = current.rollbackOrigin
 			(*resources)[name] = entry
 		}
 	}
@@ -667,7 +712,7 @@ func (resources *rollbackResources) resourceRevert(state *nodeState, typeURL typ
 	current := state.resourceEntries(typeURL)
 	for name, entry := range *resources {
 		previous := current[name]
-		if previous.transaction != entry.expectedTransaction {
+		if previous.rollbackOrigin != entry.expectedTransaction {
 			continue
 		}
 		// Rebasing a selected inverse can yield identical protobuf contents,
@@ -686,7 +731,7 @@ func (rb *callerRollback) prepareRevertLocked() resourceChanges {
 			entry := current[name]
 			// The inverse only contains semantic changes made by transaction.
 			// A matching transaction therefore cannot already contain previous.
-			if entry.transaction != rb.transaction {
+			if entry.rollbackOrigin != rb.transaction {
 				continue
 			}
 			changes.add(typeURL, name, entry, previous)
@@ -705,7 +750,7 @@ func (rb *callerRollback) prepareRevertLocked() resourceChanges {
 	for shared := range rb.shared.Members() {
 		key := shared.key
 		current := state.resources[key.typeURL][key.name]
-		if shared.claims == 1 && current.transaction == key.origin {
+		if shared.claims == 1 && current.rollbackOrigin == key.origin {
 			changes.add(key.typeURL, key.name, current, shared.previous)
 		}
 	}
@@ -726,7 +771,7 @@ func (r *rollbackState) rebaseRejected(state *nodeState, typeURL typeurl.Index, 
 		rollback, _ := pending.rollbacks.Get(typeURL)
 		for name, rejectedEntry := range rejected {
 			entry, exists := rollback[name]
-			if exists && entry.previous.transaction == rejectedEntry.expectedTransaction {
+			if exists && entry.previous.rollbackOrigin == rejectedEntry.expectedTransaction {
 				entry.previous = rejectedEntry.previous
 				rollback[name] = entry
 			}
@@ -739,7 +784,7 @@ func (r *rollbackState) rebaseRejected(state *nodeState, typeURL typeurl.Index, 
 		rollback := rollback.resources
 		for name, rejectedEntry := range rejected {
 			entry, exists := rollback[name]
-			if exists && entry.previous.transaction == rejectedEntry.expectedTransaction {
+			if exists && entry.previous.rollbackOrigin == rejectedEntry.expectedTransaction {
 				entry.previous = rejectedEntry.previous
 				rollback[name] = entry
 			}
@@ -762,14 +807,14 @@ func (r *rollbackState) rebaseRejected(state *nodeState, typeURL typeurl.Index, 
 					continue
 				}
 				entry, exists := rejected[singleton.name]
-				if exists && singleton.entry.transaction == entry.expectedTransaction {
+				if exists && singleton.entry.rollbackOrigin == entry.expectedTransaction {
 					singleton.entry = entry.previous
 				}
 				continue
 			}
 			for name, entry := range rejected {
 				previous, exists := inverse.entries[typeURL][name]
-				if exists && previous.transaction == entry.expectedTransaction {
+				if exists && previous.rollbackOrigin == entry.expectedTransaction {
 					inverse.entries[typeURL][name] = entry.previous
 				}
 			}
@@ -779,26 +824,10 @@ func (r *rollbackState) rebaseRejected(state *nodeState, typeURL typeurl.Index, 
 
 func (shared *sharedCallerUpsert) rebaseRejected(typeURL typeurl.Index, rejected rollbackResources) {
 	if shared.key.typeURL == typeURL {
-		if entry, exists := rejected[shared.key.name]; exists && shared.previous.transaction == entry.expectedTransaction {
+		if entry, exists := rejected[shared.key.name]; exists && shared.previous.rollbackOrigin == entry.expectedTransaction {
 			shared.previous = entry.previous
 		}
 	}
-}
-
-// removalWaitRevision is used only for absent-name waits. A collected response
-// can be delayed before OnStreamResponse records it, so its live inverse must
-// fence older absence ACKs too. Unsent upserts were never exposed to Envoy.
-func (r *rollbackState) removalWaitRevision(state *nodeState, typeURL typeurl.Index, name string) callbacks.Revision {
-	generation := state.typeStates[typeURL].revertGeneration
-	for rollback := range r.responses.Members() {
-		if rollback.typeURL != typeURL || rollback == state.typeStates[typeURL].unsentRollback {
-			continue
-		}
-		if entry, exists := rollback.resources[name]; exists {
-			generation = generation.MaxTransaction(entry.expectedTransaction)
-		}
-	}
-	return generation.Revision()
 }
 
 func (entry rollbackEntry) previousEquals(resource cache_types.Resource) bool {

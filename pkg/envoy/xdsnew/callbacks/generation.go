@@ -21,7 +21,7 @@ type Revision struct {
 
 // TransactionID identifies the API transaction which originally inserted or
 // deleted a value. Reverts restore this identity with the previous value while
-// assigning a fresh Revision. Zero records prior absence, not an API deletion.
+// assigning a fresh Revision. Zero denotes no rollback origin.
 type TransactionID struct {
 	transaction Generation
 }
@@ -47,7 +47,7 @@ func (generation Generation) TransactionID() TransactionID {
 // IsZero reports initial state or a satisfied scope requirement.
 func (revision Revision) IsZero() bool { return revision.revision == 0 }
 
-// IsZero reports prior absence, not an allocated API transaction.
+// IsZero reports the absence of a rollback origin.
 func (transaction TransactionID) IsZero() bool { return transaction.transaction == 0 }
 
 // InitialRevision is the revision originally assigned by this API transaction.
