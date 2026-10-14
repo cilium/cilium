@@ -844,7 +844,7 @@ func toTLSRoutes(listener gatewayv1beta1.Listener, listenerHostnamesByProtocol m
 
 func toTLSMode(tls *gatewayv1.ListenerTLSConfig) model.TLSMode {
 	if tls == nil || tls.Mode == nil {
-		return model.TLSModePassthrough
+		return model.TLSModeTerminate
 	}
 
 	return model.TLSMode(*tls.Mode)

@@ -28,6 +28,14 @@ const (
 	basedGatewayTestdataDir = "testdata/gateway"
 )
 
+func TestToTLSModeDefault(t *testing.T) {
+	assert.Equal(t, model.TLSModeTerminate, toTLSMode(nil))
+	assert.Equal(t, model.TLSModeTerminate, toTLSMode(&gatewayv1.ListenerTLSConfig{}))
+	assert.Equal(t, model.TLSModePassthrough, toTLSMode(&gatewayv1.ListenerTLSConfig{
+		Mode: ptr.To(gatewayv1.TLSModePassthrough),
+	}))
+}
+
 func setTestMergedListeners(input *Input, namespaces []corev1.Namespace) {
 	source := model.FullyQualifiedResource{
 		Name:      input.Gateway.GetName(),
