@@ -77,12 +77,16 @@ func (pm *pressureMetrics) getGauge(mapName string) *metrics.GaugeWithThreshold 
 	return g
 }
 
+func isSupportedPressureMapType(t ebpf.MapType) bool {
+	return t == ebpf.Hash || t == ebpf.LRUHash
+}
+
 func (pm *pressureMetrics) report(ctx context.Context) error {
 	var errs error
 
 	pm.bpfMaps.forEachOpenMap(func(m *bpf.Map) {
 		name := m.Name()
-		if m.Type() != ebpf.Hash {
+		if !isSupportedPressureMapType(m.Type()) {
 			// Skip e.g. maglev HashOfMaps and source-ranges (cannot batch lookup on LPMTrie)
 			return
 		}
