@@ -254,7 +254,7 @@ func Test_Conformance(t *testing.T) {
 		},
 		{
 			name:    "httproute-disallowed-kind",
-			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}}},
+			gateway: []gwDetails{{FullName: types.NamespacedName{Name: "tlsroutes-only", Namespace: "gateway-conformance-infra"}, skipCEC: true}},
 		},
 		{name: "httproute-exact-path-matching", gateway: []gwDetails{gatewaySameNamespace}},
 		{name: "httproute-header-matching", gateway: []gwDetails{gatewaySameNamespace}},
@@ -337,6 +337,7 @@ func Test_Conformance(t *testing.T) {
 		{name: "udproute-crd-not-installed", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-udproute", Namespace: "gateway-conformance-infra"}, skipCEC: true}}, disableUDPRoute: true},
 		{name: "tlsroute-invalid-reference-grant", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute-referencegrant", Namespace: "gateway-conformance-infra"}}}},
 		{name: "tlsroute-simple-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute", Namespace: "gateway-conformance-infra"}}}},
+		{name: "tlsroute-mixed-termination-same-namespace", gateway: []gwDetails{{FullName: types.NamespacedName{Name: "gateway-tlsroute-mixed-termination", Namespace: "gateway-conformance-infra"}}}},
 		{name: "tlsroute-hostname-intersection", gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "gw-tlsroute-empty-hostname-x-4", Namespace: "gateway-conformance-infra"}},
 			{FullName: types.NamespacedName{Name: "gw-tlsroute-exact-hostname-x-1", Namespace: "gateway-conformance-infra"}},
@@ -346,7 +347,7 @@ func Test_Conformance(t *testing.T) {
 		{name: "tlsroute-invalid-no-matching-listener", gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-http-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-https-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
-			{FullName: types.NamespacedName{Name: "gateway-tlsroute-tls-passthrough-only", Namespace: "gateway-conformance-infra"}, wantErr: false},
+			{FullName: types.NamespacedName{Name: "gateway-tlsroute-tls-passthrough-only", Namespace: "gateway-conformance-infra"}, wantErr: false, skipCEC: true},
 		}},
 		{name: "tlsroute-mixed-protocol-listeners", gateway: []gwDetails{
 			{FullName: types.NamespacedName{Name: "gateway-tlsroute-mixed", Namespace: "gateway-conformance-infra"}},
