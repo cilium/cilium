@@ -20,7 +20,6 @@ import (
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -102,7 +101,7 @@ func (ops *envoyOps) initializeResources(ctx context.Context, txn statedb.ReadTx
 		maps.Copy(merged.Endpoints, res.Resources.Endpoints)
 		maps.Copy(merged.Secrets, res.Resources.Secrets)
 	}
-	return ops.xds.UpdateEnvoyResources(initCtx, xds.NewResources(), merged, nil)
+	return ops.xds.UpdateEnvoyResources(initCtx, xds.NewResources(), merged)
 }
 
 // Delete implements reconciler.Operations.
@@ -129,7 +128,7 @@ func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Re
 	if prev := res.ReconciledResources; prev != nil {
 		// Perform the deletion with the resources that were last successfully reconciled
 		// instead of whatever the latest one is (which would have not been pushed to Envoy).
-		if err := ops.xds.DeleteEnvoyResources(ctx, *prev, nil); err != nil {
+		if err := ops.xds.DeleteEnvoyResources(ctx, *prev); err != nil {
 			return err
 		}
 	}
@@ -171,23 +170,6 @@ func isPortBindingErrorMessage(errStr string) bool {
 		strings.Contains(errStr, "address already in use") ||
 		strings.Contains(errStr, "eaddrinuse") ||
 		strings.Contains(errStr, "has duplicate address")
-}
-
-func (ops *envoyOps) updateEnvoyResources(ctx context.Context, prevResources, resources xds.Resources, allocationsToAck set.Set[string]) error {
-	if allocationsToAck.Empty() {
-		return ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, nil)
-	}
-
-	// ADS completes the caller's group asynchronously. Confirm a new allocation
-	// only after its listener and supplied clusters are accepted, and observe
-	// bind failures so reconciliation can retry with another port.
-	wg := completion.NewWaitGroup(ctx)
-	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources, wg)
-	if err != nil {
-		wg.Cancel()
-		return err
-	}
-	return wg.Wait()
 }
 
 // setListenerPort updates the addresses and policy identity of a caller-owned listener.
@@ -244,7 +226,7 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 	}
 
 	resources.Listeners = newListeners
-	err := ops.updateEnvoyResources(ctx, prevResources, resources, allocationsToAck)
+	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
 	return resources, err
 }
 
@@ -291,7 +273,7 @@ func (ops *envoyOps) Update(ctx context.Context, txn statedb.ReadTxn, _ statedb.
 		resources.Listeners = updatedListeners
 	}
 
-	err := ops.updateEnvoyResources(ctx, prevResources, resources, allocationsToAck)
+	err := ops.xds.UpdateEnvoyResources(ctx, prevResources, resources)
 
 	if err != nil && isPortBindingError(err) && !allocationsToAck.Empty() {
 		ops.log.Warn("Port binding failed, attempting to reallocate ports and retry",
@@ -423,8 +405,8 @@ func newPolicyTrigger(log *slog.Logger, updater *policy.Updater) policyTrigger {
 }
 
 type resourceMutator interface {
-	DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error
-	UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, waitGroup *completion.WaitGroup) error
+	DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error
+	UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error
 }
 
 type policyTrigger interface {

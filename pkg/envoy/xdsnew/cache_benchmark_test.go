@@ -77,8 +77,7 @@ func BenchmarkBulkResourceWaitPreparation(b *testing.B) {
 							b.Fatal(err)
 						}
 						if wg != nil {
-							// Cancel each caller wait so registrations do not
-							// accumulate. Cache-owned rollback remains independent of it.
+							// Cancel each caller wait so registrations do not accumulate.
 							wg.Cancel()
 						}
 					}

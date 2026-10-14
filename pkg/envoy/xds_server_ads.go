@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"slices"
 	"strconv"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -310,7 +309,8 @@ func (s *adsServer) addListener(ctx context.Context, listenerConfig *envoy_confi
 		return nil
 	}
 
-	// Redirect listeners own one reference per redirect using them.
+	// Proxy listeners are reference counted and added without automatic rollback, so that a
+	// NACK for an another listener in the same Envoy response can not revert proxy listeners.
 	count := s.listenerCount[name]
 	if count == 0 {
 		s.proxyListeners++
@@ -581,52 +581,90 @@ func adsListenerReusePortDisabled(listener *envoy_config_listener.Listener) bool
 	return reusePort != nil && !reusePort.GetValue()
 }
 
-func adsListenersRequiringRecreate(oldListeners, newListeners map[string]*envoy_config_listener.Listener) []string {
-	var names []string
-	for name, oldListener := range oldListeners {
-		newListener, found := newListeners[name]
-		if found && !listenerAddressesEqual(oldListener, newListener) &&
-			(adsListenerReusePortDisabled(oldListener) || adsListenerReusePortDisabled(newListener)) {
-			names = append(names, name)
-		}
-	}
-	slices.Sort(names)
-	return names
-}
-
 func (s *adsServer) UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.cache.ApplyResource(ctx, localNodeID, typeurl.Secret, secret.GetName(), secret, nil)
 }
 
-func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources, waitGroup *completion.WaitGroup) (err error) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
+func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources) (err error) {
+	// Envoy can not have Listener ports updated while port reuse is disabled.
+	// Collect listeners to be deleted first and recreated after, if any.
+	var listenersToRecreate []string
+	for name, oldListener := range oldResources.Listeners {
+		newListener, found := newResources.Listeners[name]
+		if !found {
+			continue
+		}
 
-	listenersToRecreate := adsListenersRequiringRecreate(oldResources.Listeners, newResources.Listeners)
-	var waitTypeURLs typeurl.Set
-	if len(oldResources.Listeners) > 0 || len(newResources.Listeners) > 0 {
-		waitTypeURLs.Insert(typeurl.Listener)
+		if newListener != nil && !listenerAddressesEqual(oldListener, newListener) &&
+			(adsListenerReusePortDisabled(oldListener) || adsListenerReusePortDisabled(newListener)) {
+			listenersToRecreate = append(listenersToRecreate, name)
+		}
 	}
-	if waitGroup != nil && len(newResources.Listeners) > 0 {
-		// CEC waits for newly allocated listener ports and their supplied
-		// clusters. Other named types may have no subscriber to ACK them.
-		if len(oldResources.Clusters) > 0 || len(newResources.Clusters) > 0 {
+
+	// Wait for listeners and their supplied clusters, independently of port
+	// allocation. Other named resource types may have no subscriber to ACK them.
+	var waitTypeURLs typeurl.Set
+	if len(newResources.Listeners) > 0 {
+		waitTypeURLs.Insert(typeurl.Listener)
+		if len(newResources.Clusters) > 0 {
 			waitTypeURLs.Insert(typeurl.Cluster)
 		}
 	}
-	if len(listenersToRecreate) == 0 || s.restorerPromise != nil {
-		return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}, waitGroup, waitTypeURLs)
+
+	s.mutex.Lock()
+
+	// No waits if the agent is still restarting, as we are not serving xDS to Envoy yet.
+	if s.restorerPromise != nil {
+		mutations := xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}
+		rollback, err := s.cache.ApplyResourcesWithRollback(ctx, localNodeID, mutations, nil, waitTypeURLs)
+		s.mutex.Unlock()
+		if err == nil {
+			rollback.Finalize()
+		}
+		return err
 	}
+
+	// Simple path when no listeners need to be recreated
+	if len(listenersToRecreate) == 0 {
+		var wg *completion.WaitGroup
+		if !waitTypeURLs.Empty() {
+			wg = completion.NewWaitGroup(ctx)
+			defer wg.Cancel()
+		}
+		mutations := xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}
+		rollback, err := s.cache.ApplyResourcesWithRollback(ctx, localNodeID, mutations, wg, waitTypeURLs)
+		// Ordinary waits must not block other server updates.
+		s.mutex.Unlock()
+		if err != nil {
+			return err // Synchronous cache-update errors return immediately
+		}
+		if wg != nil {
+			if err := wg.Wait(); err != nil {
+				// Response recovery may already have reverted the NACKed type.
+				// Undo the remaining changes atomically, without overwriting newer
+				// cache values or resurrecting resources removed by later updates.
+				return errors.Join(err, rollback.Revert())
+			}
+		}
+		rollback.Finalize()
+		return nil
+	}
+
+	// Serialize the exceptional delete/recreate sequence against other server
+	// mutations, which must not interleave between its two listener versions.
+	defer s.mutex.Unlock()
 
 	// Envoy cannot replace a listener's address set in place when SO_REUSEPORT
 	// is disabled, because the replacement overlaps sockets still owned by the
 	// active listener. Publish and ACK a snapshot without the listener first so
 	// Envoy closes those sockets before the replacement is sent.
-	stagedMutations := xdsnew.ResourceMutations{Removed: xds.Resources{
-		Listeners: make(map[string]*envoy_config_listener.Listener, len(listenersToRecreate)),
-	}}
+	stagedMutations := xdsnew.ResourceMutations{
+		Removed: xds.Resources{
+			Listeners: make(map[string]*envoy_config_listener.Listener, len(listenersToRecreate)),
+		},
+	}
 	for _, name := range listenersToRecreate {
 		stagedMutations.Removed.Listeners[name] = oldResources.Listeners[name]
 	}
@@ -656,14 +694,11 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	// Each attempt installs the replacement listeners. Failed attempts roll back
 	// to the post-deletion state. On terminal failure, the deferred rollback also
 	// undoes the initial listener deletions.
-	waitTypeURLs.Insert(typeurl.Listener)
 	replaceMutations := xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}
 	for attempt := 1; ; attempt++ {
 		replaceWG := completion.NewWaitGroup(ctx)
 		replaceRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, replaceMutations, replaceWG, waitTypeURLs)
-		if err != nil {
-			replaceWG.Cancel()
-		} else {
+		if err == nil {
 			err = replaceWG.Wait()
 			if err == nil {
 				replaceRollback.Finalize()
@@ -673,6 +708,8 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 			// Undo the remaining changes from this attempt, including on timeout
 			// or cancellation; transaction guards preserve superseding changes.
 			err = errors.Join(err, replaceRollback.Revert())
+		} else {
+			replaceWG.Cancel()
 		}
 
 		if !isAddressAlreadyInUseError(err) || attempt >= listenerAddressChangeMaxAttempts {
@@ -694,7 +731,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	}
 }
 
-func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.logger.Debug(
@@ -706,11 +743,7 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		logfields.ResourceSecrets, len(resources.Secrets),
 	)
 
-	var waitTypeURLs typeurl.Set
-	if len(resources.Listeners) > 0 {
-		waitTypeURLs.Insert(typeurl.Listener)
-	}
-	return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, waitTypeURLs)
+	return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, nil, typeurl.Set{})
 }
 
 func (s *adsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts GetEgressNamedPorts, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,

@@ -197,7 +197,7 @@ func TestCallerRemovalRollbackBypassesNACKedPredecessor(t *testing.T) {
 					require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, name, baseline, nil))
 					s.reply(t, s.receive(t), "")
 				}
-				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, name,
+				require.NoError(t, c.applyRevertibleResource(t.Context(), nodeID, typeurl.Cluster, name,
 					&envoy_config_cluster.Cluster{Name: name, AltStatName: "rejected"}, nil))
 				response := s.receive(t)
 				var removed Rollback

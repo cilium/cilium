@@ -779,14 +779,12 @@ func (s *xdsServer) UpsertSecret(ctx context.Context, secret *envoy_config_tls.S
 }
 
 // UpdateEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. This is
-// needed due to the possible dependency between listeners and listeners and clusters. If resources
+// needed due to the possible dependency between listeners and clusters. If resources
 // includes listeners the caller MUST pass a context with a timeout to prevent indefinite blocking
 // in case Envoy never responds.
 // Waits for listener deletions and new clusters if 'new' contains any listeners, and for new
 // listeners, if any.
-// 'waitGroup' is intentionally not used as we need to wait to be able to revert even if the caller
-// does not need to wait.
-func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources, waitGroup *completion.WaitGroup) error {
+func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources) error {
 	waitForDelete := false
 	var revertFuncs xds.AckingResourceMutatorRevertFuncList
 	// Delete old listeners not added in 'new' or whose address configuration changed.
@@ -1012,7 +1010,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 // DeleteEnvoyResources uses 'ctx' in Wait for Envoy N/ACK if resources contains listeners. If
 // resources includes listeners the caller MUST pass a context with a timeout to prevent indefinite
 // blocking in case Envoy never responds.
-func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	s.logger.Debug("DeleteEnvoyResources: Deleting Envoy resources",
 		logfields.ResourceListeners, len(resources.Listeners),
 		logfields.ResourceRoutes, len(resources.Routes),

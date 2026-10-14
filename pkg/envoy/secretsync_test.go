@@ -410,7 +410,7 @@ func (r *fakeXdsServer) Reset() {
 	r.nrOfDeletions = 0
 }
 
-func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, wg *completion.WaitGroup) error {
+func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to update envoy resources")
 	}
@@ -419,7 +419,7 @@ func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resour
 	return nil
 }
 
-func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
+func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to delete envoy resources")
 	}

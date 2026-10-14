@@ -119,7 +119,7 @@ type typeURLState struct {
 	// the response carrying them is ACKed, NACKed, or otherwise proven not to
 	// need a response. Their lifetime is deliberately independent from caller
 	// completions: a caller may stop waiting before Envoy consumes the response,
-	// and updates without a WaitGroup must still be reverted on NACK.
+	// and revertible updates without a WaitGroup must still be reverted on NACK.
 	// Key by inverse identity: named responses can split one API generation
 	// into independently resolved rollback lifetimes.
 	pendingGenerations map[*pendingGeneration]Generation
@@ -960,7 +960,7 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 
 	if len(completed) > 0 || len(generationReverts) > 0 {
 		cb.Log.Warn(
-			"NACK received, reverting resource changes",
+			"NACK received",
 			logfields.XDSTypeURL, typeURL,
 			logfields.Version, rejectedVersion,
 			logfields.XDSGeneration, rejectedGeneration,

@@ -139,8 +139,13 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 							require.NoError(t, wg.Wait())
 						} else {
 							require.ErrorContains(t, wg.Wait(), outcome.rejection)
-							require.Nil(t, c.GetResource("coverage-node", api.index, "resource"),
-								"caller supersession must preserve response-owned NACK recovery")
+							if withRollback || api.wholeType {
+								require.Nil(t, c.GetResource("coverage-node", api.index, "resource"),
+									"caller supersession must preserve opted-in response recovery")
+							} else {
+								require.Same(t, api.value, c.GetResource("coverage-node", api.index, "resource"),
+									"plain reuse must adopt the value as non-revertible")
+							}
 						}
 						require.Zero(t, c.completionCbs.PendingCompletionCount())
 					})
@@ -153,11 +158,11 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 func TestNoOpUpdateAfterFailedNACKCompletesWithRejection(t *testing.T) {
 	c := newCoverageCache(t)
 	first := &cilium.NetworkPolicy{EndpointId: 1}
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", first, nil))
+	require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", first, nil))
 	s := coverageStream{cache: c, id: 1, typeURL: typeurl.NetworkPolicy.URL()}
 	s.reply(t, s.receive(t), "")
 	rejected := &cilium.NetworkPolicy{EndpointId: 2}
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", rejected, nil))
+	require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", rejected, nil))
 	response := s.receive(t)
 	published := mustSnapshot(t, c, "coverage-node")
 
@@ -188,7 +193,7 @@ func TestNoOpUpdateAfterFailedNACKCompletesWithRejection(t *testing.T) {
 	t.Cleanup(cancel)
 	wg := completion.NewWaitGroup(ctx)
 	t.Cleanup(wg.Cancel)
-	require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy",
+	require.NoError(t, c.applyRevertibleResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy",
 		proto.Clone(rejected), wg))
 	require.ErrorContains(t, wg.Wait(), "invalid policy")
 	require.Zero(t, c.completionCbs.PendingCompletionCount())
@@ -246,7 +251,7 @@ func TestUntrackedUpdateResolvesEarlierWait(t *testing.T) {
 						require.NoError(t, <-done)
 					} else {
 						require.ErrorContains(t, <-done, rejection)
-						require.Nil(t, c.GetResource("coverage-node", typeurl.NetworkPolicy, "policy"), "NACK must roll back the covered, unaccepted updates")
+						require.Same(t, latest, c.GetResource("coverage-node", typeurl.NetworkPolicy, "policy"), "plain upserts remain desired after a NACK")
 					}
 					require.Zero(t, c.completionCbs.PendingCompletionCount())
 				})
@@ -255,7 +260,7 @@ func TestUntrackedUpdateResolvesEarlierWait(t *testing.T) {
 	}
 }
 
-func TestBulkWaitSelectionDoesNotAffectNACKRollback(t *testing.T) {
+func TestBulkNACKRollbackRequiresOptIn(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
 		waits    typeurl.Set
@@ -266,6 +271,8 @@ func TestBulkWaitSelectionDoesNotAffectNACKRollback(t *testing.T) {
 		{name: "empty-selector", waits: typeurl.NewSet()},
 		{name: "explicit-selector", waits: typeurl.NewSet(typeurl.Listener, typeurl.Route)},
 		{name: "caller-finalized", finalize: true},
+		{name: "caller-finalized-explicit-selector", finalize: true, waits: typeurl.NewSet(typeurl.Listener, typeurl.Route)},
+		{name: "caller-finalized-with-wait-group", finalize: true, wait: true, waits: typeurl.NewSet(typeurl.Listener, typeurl.Route)},
 		{name: "zero-selector-with-wait-group", wait: true},
 		{name: "empty-selector-with-wait-group", wait: true, waits: typeurl.NewSet()},
 		{name: "explicit-selector-with-wait-group", wait: true, waits: typeurl.NewSet(typeurl.Listener, typeurl.Route)},
@@ -291,8 +298,13 @@ func TestBulkWaitSelectionDoesNotAffectNACKRollback(t *testing.T) {
 			} else {
 				require.NoError(t, c.ApplyResources(ctx, "coverage-node", mutations, wg, tt.waits))
 			}
-			// A nil-WG no-op must retain the transaction's response-owned rollback.
-			require.NoError(t, c.ApplyResources(ctx, "coverage-node", mutations, nil, tt.waits))
+			// Reusing the value with the same API preserves its rollback policy,
+			// independently of whether this call supplies a WaitGroup.
+			if tt.finalize {
+				require.NoError(t, c.applyRevertibleResources(ctx, "coverage-node", mutations, nil, tt.waits))
+			} else {
+				require.NoError(t, c.ApplyResources(ctx, "coverage-node", mutations, nil, tt.waits))
+			}
 			if !tt.wait || tt.waits.Empty() {
 				require.Zero(t, c.completionCbs.PendingCompletionCount())
 				if wg != nil {
@@ -307,10 +319,140 @@ func TestBulkWaitSelectionDoesNotAffectNACKRollback(t *testing.T) {
 			if tt.wait && !tt.waits.Empty() {
 				require.ErrorContains(t, wg.Wait(), "invalid listener")
 			}
-			require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, "l1"))
+			if tt.finalize {
+				require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, "l1"))
+			} else {
+				require.Same(t, mutations.Upserted.Listeners["l1"], c.GetResource("coverage-node", typeurl.Listener, "l1"))
+			}
 			require.Same(t, mutations.Upserted.Routes["r1"], c.GetResource("coverage-node", typeurl.Route, "r1"),
 				"an LDS NACK must leave RDS unchanged, even within one bulk transaction")
 		})
+	}
+}
+
+func TestPermanentUpsertsFenceResponseRollback(t *testing.T) {
+	for _, bulk := range []bool{false, true} {
+		for _, phase := range []struct {
+			name     string
+			delivery string
+			noop     bool
+			fail     bool
+		}{
+			{name: "unpublished"},
+			{name: "published-unsent", delivery: "unsent"},
+			{name: "sent", delivery: "sent"},
+			{name: "publication-fails", delivery: "sent", fail: true},
+			{name: "unpublished-noop", noop: true},
+			{name: "published-unsent-noop", delivery: "unsent", noop: true},
+			{name: "sent-noop", delivery: "sent", noop: true},
+			{name: "failed-mixed-noop", delivery: "sent", noop: true, fail: true},
+		} {
+			if !bulk && phase.noop && phase.fail {
+				continue // Failed mixed admission necessarily uses the bulk API.
+			}
+			for _, sameName := range []bool{false, true} {
+				for _, reject := range []bool{false, true} {
+					t.Run(fmt.Sprintf("bulk=%t/%s/same-name=%t/nack=%t", bulk, phase.name, sameName, reject), func(t *testing.T) {
+						c := newCoverageCache(t)
+						old := &listener.Listener{Name: "internal", StatPrefix: "old-revertible"}
+						originalCaller, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", typeurl.Listener, old.Name, old, nil)
+						require.NoError(t, err)
+						t.Cleanup(func() { originalCaller.Finalize() })
+						if phase.delivery == "sent" {
+							s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
+							s.receive(t)
+						} else if phase.delivery == "unsent" {
+							require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Cluster, "unrelated", &cluster.Cluster{Name: "unrelated"}, nil))
+							s := coverageStream{cache: c, id: 1, typeURL: typeurl.Cluster.URL()}
+							s.reply(t, s.receive(t), "")
+						}
+
+						wg := completion.NewWaitGroup(t.Context())
+						t.Cleanup(wg.Cancel)
+						permanent := &listener.Listener{Name: old.Name, StatPrefix: "permanent"}
+						expectedPermanent := permanent
+						if phase.noop {
+							permanent = proto.Clone(old).(*listener.Listener)
+							expectedPermanent = old
+						}
+						waits := typeurl.NewSet(typeurl.Listener)
+						var publicationErr error
+						backend := c.snapshotCache
+						if phase.fail {
+							failed := newMockSnapshotCache()
+							failed.snapshots["coverage-node"] = mustSnapshot(t, c, "coverage-node")
+							publicationErr = errors.New("permanent publication failed")
+							failed.setSnapshotErr = publicationErr
+							c.snapshotCache = failed
+							cancelWatch, err := c.CreateWatch(&cache.Request{
+								Node: &core.Node{Id: "coverage-node"}, TypeUrl: typeurl.Listener.URL(),
+								VersionInfo: failed.snapshots["coverage-node"].GetVersion(typeurl.Listener.URL()),
+							}, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
+							require.NoError(t, err)
+							defer cancelWatch()
+						}
+						if bulk {
+							upserted := xds.Resources{Listeners: map[string]*listener.Listener{permanent.Name: permanent}}
+							if phase.noop && phase.fail {
+								upserted.Listeners["other"] = &listener.Listener{Name: "other"}
+							}
+							err = c.ApplyResources(t.Context(), "coverage-node", ResourceMutations{Upserted: upserted}, wg, waits)
+						} else {
+							err = c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, permanent.Name, permanent, wg)
+						}
+						c.snapshotCache = backend
+						if publicationErr != nil {
+							require.ErrorIs(t, err, publicationErr)
+							require.ErrorIs(t, wg.Wait(), publicationErr)
+							require.Same(t, old, c.GetResource("coverage-node", typeurl.Listener, old.Name))
+						} else {
+							require.NoError(t, err)
+							if phase.noop {
+								require.NoError(t, originalCaller.Revert(), "adoption fences an older caller handle without changing its transaction")
+								originalCaller = revert.Noop
+								require.Same(t, old, c.GetResource("coverage-node", typeurl.Listener, old.Name))
+							}
+						}
+
+						name := "cec"
+						if sameName {
+							name = old.Name
+						}
+						cec := &listener.Listener{Name: name, StatPrefix: "cec"}
+						cecWG := completion.NewWaitGroup(t.Context())
+						t.Cleanup(cecWG.Cancel)
+						rollback, err := c.ApplyResourcesWithRollback(t.Context(), "coverage-node", ResourceMutations{Upserted: xds.Resources{
+							Listeners: map[string]*listener.Listener{name: cec},
+						}}, cecWG, waits)
+						require.NoError(t, err)
+						s := coverageStream{cache: c, id: 2, typeURL: typeurl.Listener.URL()}
+						response := s.receive(t)
+						if reject {
+							s.reply(t, response, "invalid CEC listener")
+							require.ErrorContains(t, cecWG.Wait(), "invalid CEC listener")
+							if publicationErr == nil {
+								require.ErrorContains(t, wg.Wait(), "invalid CEC listener")
+								require.Same(t, expectedPermanent, c.GetResource("coverage-node", typeurl.Listener, old.Name), "permanent updates break both pending and unsent recovery chains")
+							} else {
+								require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, old.Name), "failed admission must preserve the original response rollback")
+							}
+							if !sameName {
+								require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, name))
+							}
+							require.NoError(t, rollback.Revert())
+						} else {
+							s.reply(t, response, "")
+							require.NoError(t, cecWG.Wait())
+							if publicationErr == nil {
+								require.NoError(t, wg.Wait())
+							}
+							require.Same(t, cec, c.GetResource("coverage-node", typeurl.Listener, name))
+							rollback.Finalize()
+						}
+					})
+				}
+			}
+		}
 	}
 }
 
@@ -424,7 +566,7 @@ func TestPartialResponsesAtSameGenerationAccumulate(t *testing.T) {
 			t.Cleanup(wg.Cancel)
 			waits := typeurl.NewSet()
 			waits.Insert(typeurl.Endpoint)
-			require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", ResourceMutations{
+			require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{
 				Upserted: xds.Resources{Endpoints: map[string]*endpoint.ClusterLoadAssignment{
 					"a": {ClusterName: "a"}, "b": {ClusterName: "b"},
 				}},
@@ -757,15 +899,15 @@ func TestRepeatedRemovalWaitsForPendingOutcome(t *testing.T) {
 							// Supersede both rejected updates before their NACKs. Neither
 							// rollback changes desired state, so no corrective revision can
 							// hide a lost removal fence behind a newer absence requirement.
-							require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "a", original, nil))
+							require.NoError(t, c.applyRevertibleResource(ctx, "coverage-node", typeurl.Listener, "a", original, nil))
 							rejected := s.receive(t)
 							_, err := remove(nil, false)
 							require.NoError(t, err)
 							s.reply(t, rejected, "invalid a response")
-							require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "b", &listener.Listener{Name: "b", StatPrefix: "rejected"}, nil))
+							require.NoError(t, c.applyRevertibleResource(ctx, "coverage-node", typeurl.Listener, "b", &listener.Listener{Name: "b", StatPrefix: "rejected"}, nil))
 							rejected = s.receive(t)
 							other = &listener.Listener{Name: "b", StatPrefix: "updated"}
-							require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "b", other, nil))
+							require.NoError(t, c.applyRevertibleResource(ctx, "coverage-node", typeurl.Listener, "b", other, nil))
 							// This NACK omits A. It must not discard A's earlier fence,
 							// whether the old absence ACK arrived already or is delayed.
 							s.reply(t, rejected, "invalid b response")
@@ -890,7 +1032,7 @@ func TestBulkMixedChangesWaitForEachResourceOutcome(t *testing.T) {
 			c := newCoverageCache(t)
 			originalA := &endpoint.ClusterLoadAssignment{ClusterName: "a"}
 			originalB := &endpoint.ClusterLoadAssignment{ClusterName: "b"}
-			require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", ResourceMutations{
+			require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{
 				Upserted: xds.Resources{Endpoints: map[string]*endpoint.ClusterLoadAssignment{"a": originalA, "b": originalB}},
 			}, nil, typeurl.Set{}))
 			first := coverageStream{cache: c, id: 1}
@@ -898,7 +1040,7 @@ func TestBulkMixedChangesWaitForEachResourceOutcome(t *testing.T) {
 			first.reply(t, baseline, "", "a", "b")
 			changedA := proto.Clone(originalA).(*endpoint.ClusterLoadAssignment)
 			changedA.Policy = &endpoint.ClusterLoadAssignment_Policy{OverprovisioningFactor: wrapperspb.UInt32(140)}
-			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", changedA, nil))
+			require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", changedA, nil))
 			olderResponse := first.receive(t, "a")
 			if outcome == "ack-unchanged-already-accepted" {
 				first.reply(t, olderResponse, "", "a")
@@ -914,7 +1056,7 @@ func TestBulkMixedChangesWaitForEachResourceOutcome(t *testing.T) {
 			changedB.Policy = &endpoint.ClusterLoadAssignment_Policy{OverprovisioningFactor: wrapperspb.UInt32(150)}
 			// A is semantically unchanged; B really changes. If A is still
 			// unACKed, this wait must preserve their different value revisions.
-			require.NoError(t, c.ApplyResources(ctx, "coverage-node", ResourceMutations{
+			require.NoError(t, c.applyRevertibleResources(ctx, "coverage-node", ResourceMutations{
 				Upserted: xds.Resources{Endpoints: map[string]*endpoint.ClusterLoadAssignment{
 					"a": proto.Clone(changedA).(*endpoint.ClusterLoadAssignment), "b": changedB,
 				}},
@@ -997,8 +1139,8 @@ func TestPartialLDSReconnectWithWildcardDoesNotAcceptUnsentName(t *testing.T) {
 	t.Cleanup(aWG.Cancel)
 	bWG := completion.NewWaitGroup(t.Context())
 	t.Cleanup(bWG.Cancel)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", &listener.Listener{Name: "a"}, aWG))
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "b", &listener.Listener{Name: "b"}, bWG))
+	require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Listener, "a", &listener.Listener{Name: "a"}, aWG))
+	require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Listener, "b", &listener.Listener{Name: "b"}, bWG))
 	aDone, bDone := waitForCoverageCompletion(aWG), waitForCoverageCompletion(bWG)
 	s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 	response := s.receive(t, "a")
@@ -1066,13 +1208,13 @@ func TestPartialNACKKeepsUnrequestedCoalescedNames(t *testing.T) {
 	t.Cleanup(wg.Cancel)
 	waits := typeurl.NewSet()
 	waits.Insert(typeurl.Endpoint)
-	require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", ResourceMutations{
+	require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{
 		Upserted: xds.Resources{Endpoints: map[string]*endpoint.ClusterLoadAssignment{
 			"a": {ClusterName: "a"}, "b": {ClusterName: "b"},
 		}},
 	}, wg, waits))
 	_, unrelatedDone := upsertCoverageEndpoint(t, c, "unrelated")
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a",
+	require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Endpoint, "a",
 		&endpoint.ClusterLoadAssignment{ClusterName: "a", Policy: &endpoint.ClusterLoadAssignment_Policy{}}, wg))
 	s := coverageStream{cache: c, id: 1}
 	response := s.receive(t, "a")
@@ -1092,7 +1234,7 @@ func TestPartialNACKKeepsOtherTypeURLInTransaction(t *testing.T) {
 	waits := typeurl.NewSet()
 	waits.Insert(typeurl.Endpoint)
 	waits.Insert(typeurl.Cluster)
-	require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", ResourceMutations{
+	require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{
 		Upserted: xds.Resources{
 			Endpoints: map[string]*endpoint.ClusterLoadAssignment{"a": {ClusterName: "a"}},
 			Clusters:  map[string]*cluster.Cluster{"cluster-a": {Name: "cluster-a"}},
@@ -1195,9 +1337,10 @@ func TestPartialResponseKeepsUnrequestedTransactionPending(t *testing.T) {
 
 			if test.firstAlreadyACKed {
 				// Neither ACK nor NACK of unchanged A can claim B's rollback.
-				// A later B update must still coalesce back to its original absence.
+				// A later revertible B update must still coalesce back to its
+				// original absence.
 				b = &endpoint.ClusterLoadAssignment{ClusterName: "b", Policy: &endpoint.ClusterLoadAssignment_Policy{}}
-				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "b", b, nil))
+				require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Endpoint, "b", b, nil))
 			}
 			response = s.receive(t, "b")
 			s.reply(t, response, test.secondRejection, "b")
@@ -1319,7 +1462,7 @@ func TestNoOpAfterCallerRevertWaitsForCorrectiveACK(t *testing.T) {
 	}
 }
 func TestMixedRemovalAndUpsertNACK(t *testing.T) {
-	for _, mode := range []string{"response-only", "caller-finalize", "caller-revert", "separate-upsert", "other-type-upsert", "other-type-upsert-caller-revert"} {
+	for _, mode := range []string{"permanent", "response-only", "caller-finalize", "caller-revert", "separate-upsert", "other-type-upsert", "other-type-upsert-caller-revert"} {
 		t.Run(mode, func(t *testing.T) {
 			c := newCoverageCache(t)
 			otherTypeUpsert := mode == "other-type-upsert" || mode == "other-type-upsert-caller-revert"
@@ -1349,11 +1492,13 @@ func TestMixedRemovalAndUpsertNACK(t *testing.T) {
 				caller, err = c.ApplyResourcesWithRollback(t.Context(), "coverage-node", mutations, wg, waits)
 				require.NoError(t, err)
 				t.Cleanup(func() { caller.Finalize() })
+			} else if mode == "response-only" {
+				require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", mutations, wg, waits))
 			} else {
 				require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", mutations, wg, waits))
 			}
 			if mode == "separate-upsert" {
-				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "b", &listener.Listener{Name: "b"}, nil))
+				require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Listener, "b", &listener.Listener{Name: "b"}, nil))
 			}
 			done := waitForCoverageCompletion(wg)
 			if otherTypeUpsert {
@@ -1370,6 +1515,8 @@ func TestMixedRemovalAndUpsertNACK(t *testing.T) {
 				require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, "c"), "NACK preserves every removal of this type")
 				require.Same(t, mutations.Upserted.Clusters["b"], c.GetResource("coverage-node", typeurl.Cluster, "b"),
 					"a removal-only LDS NACK must leave the transaction's CDS upsert intact")
+			} else if mode == "permanent" {
+				require.Same(t, mutations.Upserted.Listeners["b"], c.GetResource("coverage-node", typeurl.Listener, "b"), "NACK leaves a plain upsert intact")
 			} else {
 				require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, "b"), "NACK still reverts the upsert")
 			}

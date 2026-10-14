@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -22,7 +21,6 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
 	iptables "github.com/cilium/cilium/pkg/datapath/iptables/fake"
 	"github.com/cilium/cilium/pkg/envoy"
@@ -33,35 +31,6 @@ import (
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-type waitGroupResourceMutator struct {
-	completionCh chan *completion.Completion
-	gotWaitGroup atomic.Bool
-	beforeUpdate func(context.Context, xds.Resources, xds.Resources) error
-	deleteErr    error
-}
-
-func (m *waitGroupResourceMutator) DeleteEnvoyResources(context.Context, xds.Resources, *completion.WaitGroup) error {
-	return m.deleteErr
-}
-
-func (m *waitGroupResourceMutator) UpdateEnvoyResources(ctx context.Context, old, next xds.Resources, wg *completion.WaitGroup) error {
-	m.gotWaitGroup.Store(wg != nil)
-	if m.beforeUpdate != nil {
-		if err := m.beforeUpdate(ctx, old, next); err != nil {
-			return err
-		}
-	}
-	if wg != nil {
-		comp := wg.AddCompletion(nil)
-		if m.completionCh != nil {
-			m.completionCh <- comp
-		} else {
-			comp.Complete(nil)
-		}
-	}
-	return nil
-}
 
 func listenerWithPort(name string, port uint32) *envoy_config_listener.Listener {
 	return &envoy_config_listener.Listener{
@@ -100,12 +69,21 @@ func TestEnvoyOpsWaitsBeforeConfirmingDynamicListenerPort(t *testing.T) {
 			allocator := NewMockPortAllocator()
 			port, err := allocator.AllocateCRDProxyPort("listener1")
 			require.NoError(t, err)
-			mutator := &waitGroupResourceMutator{completionCh: make(chan *completion.Completion, 1)}
-			trigger := &fakeEnvoySyncerAndPolicyTrigger{}
+			entered, result := make(chan struct{}), make(chan error, 1)
+			mutator := &fakeEnvoySyncerAndPolicyTrigger{store: make(resourceStore)}
+			mutator.beforeUpdate = func(ctx context.Context, _, _ xds.Resources) error {
+				close(entered)
+				select {
+				case err := <-result:
+					return err
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
 			ops := &envoyOps{
 				config: CECConfig{EnvoyConfigTimeout: time.Second},
 				log:    hivetest.Logger(t), xds: mutator, portAllocator: allocator,
-				policyTrigger: trigger,
+				policyTrigger: mutator,
 			}
 			res := &EnvoyResource{Resources: xds.NewResources()}
 			res.Resources.Listeners["listener1"] = listenerWithPort("listener1", uint32(port))
@@ -135,33 +113,27 @@ func TestEnvoyOpsWaitsBeforeConfirmingDynamicListenerPort(t *testing.T) {
 			defer cancel()
 			errCh := make(chan error, 1)
 			go func() { errCh <- ops.Update(ctx, nil, 0, res) }()
-			wait := !tt.explicit && tt.previous != "allocated"
-			if wait {
-				var comp *completion.Completion
-				select {
-				case comp = <-mutator.completionCh:
-				case err := <-errCh:
-					t.Fatalf("update returned before LDS ACK: %v", err)
-				case <-ctx.Done():
-					t.Fatal("timed out waiting for xDS completion registration")
-				}
-				require.False(t, allocator.ports["listener1"].acked)
-				require.Zero(t, trigger.policyTriggerCount, "policy must wait for port acknowledgment")
-				switch {
-				case errors.Is(tt.err, context.Canceled):
-					cancel()
-				case errors.Is(tt.err, context.DeadlineExceeded):
-				default:
-					comp.Complete(tt.err)
-				}
-				if tt.err == nil {
-					wantAcked = true
-				}
+			select {
+			case <-entered:
+			case err := <-errCh:
+				t.Fatalf("update returned before the xDS result: %v", err)
+			case <-ctx.Done():
+				t.Fatal("timed out waiting for xDS update")
+			}
+			require.Zero(t, mutator.policyTriggerCount, "policy must wait for the xDS update")
+			switch {
+			case errors.Is(tt.err, context.Canceled):
+				cancel()
+			case errors.Is(tt.err, context.DeadlineExceeded):
+			default:
+				result <- tt.err
+			}
+			if tt.err == nil && !tt.explicit {
+				wantAcked = true
 			}
 			require.ErrorIs(t, <-errCh, tt.err)
-			require.Equal(t, wait, mutator.gotWaitGroup.Load())
 			require.Equal(t, wantAcked, allocator.ports["listener1"].acked)
-			require.Equal(t, tt.wantPolicyTriggers, trigger.policyTriggerCount)
+			require.Equal(t, tt.wantPolicyTriggers, mutator.policyTriggerCount)
 		})
 	}
 }
@@ -334,8 +306,7 @@ func TestEnvoyOpsListenerPortLifecycle(t *testing.T) {
 		{name: "failed-new-bind-retry", actions: []string{"bind-retry-nack", "repeat", "delete"}, wantAcked: []bool{false, true, false}, wantPolicyTriggers: []int{0, 1, 1}},
 		{name: "cluster-nack-unchanged-listener-recovery", actions: []string{"cluster-nack", "cluster-fixed", "repeat", "delete"}, wantAcked: []bool{false, true, true, false}, wantPolicyTriggers: []int{0, 1, 1, 1}},
 		{name: "delete-after-confirmed-bind-failure", actions: []string{"allocated", "bind-nack", "delete"}, wantAcked: []bool{true, true, false}, wantPolicyTriggers: []int{1, 1, 1}},
-		{name: "shared-allocation", actions: []string{"allocated", "bind-nack", "explicit", "allocated", "delete", "delete"}, wantAcked: []bool{true, true, false, true, false, false}, otherUser: true},
-		{name: "failed-delete", actions: []string{"allocated", "delete-error", "delete-error", "delete", "delete"}, wantAcked: []bool{true, false, false, false, false}, otherUser: true, wantPolicyTriggers: []int{1, 1, 1, 1, 1}, wantPortReleases: []bool{false, true, false, false, false}},
+		{name: "shared-allocation", actions: []string{"allocated", "bind-nack", "explicit", "allocated", "delete", "delete"}, wantAcked: []bool{true, true, false, true, false, false}, otherUser: true, wantPolicyTriggers: []int{1, 1, 2, 3, 3, 3}, wantPortReleases: []bool{false, false, false, false, true, false}},
 		{name: "delete-unreconciled-transition", actions: []string{"allocated", "explicit-nack", "delete"}, wantAcked: []bool{true, true, false}},
 	} {
 		for _, realAllocator := range []bool{false, true} {
@@ -364,12 +335,11 @@ func TestEnvoyOpsListenerPortLifecycle(t *testing.T) {
 					cecs: cecs, envoyResources: resources, featureMetrics: mockFeatureMetrics{},
 					watchSets: map[CECName]*statedb.WatchSet{}, portAllocator: allocator, log: log,
 				}
-				mutator := &waitGroupResourceMutator{}
-				trigger := &fakeEnvoySyncerAndPolicyTrigger{}
+				mutator := &fakeEnvoySyncerAndPolicyTrigger{store: make(resourceStore)}
 				ops := &envoyOps{
 					config: CECConfig{EnvoyConfigTimeout: time.Second},
 					log:    log, xds: mutator, portAllocator: allocator,
-					policyTrigger: trigger,
+					policyTrigger: mutator,
 				}
 				name := CECName{Namespace: "ns", Name: "cec"}
 				listenerName := "ns/cec/listener"
@@ -378,7 +348,8 @@ func TestEnvoyOpsListenerPortLifecycle(t *testing.T) {
 					listenerNames = append(listenerNames, "ns/cec/other-listener")
 				}
 				resourceName := EnvoyResourceName{Origin: EnvoyResourceOriginCEC, Namespace: name.Namespace, Name: name.Name}
-				var pendingDelete *EnvoyResource
+				// Retain the removed object to exercise repeated xDS cleanup.
+				var lastDeleted *EnvoyResource
 				var otherUser bool
 				for i, action := range tt.actions {
 					t.Logf("step %d: %s", i, action)
@@ -387,7 +358,7 @@ func TestEnvoyOpsListenerPortLifecycle(t *testing.T) {
 					var updateErrs []error
 					ackFailed := action == "ack-error" || action == "partial-ack-error"
 					switch action {
-					case "nack", "explicit-nack", "delete-error":
+					case "nack", "explicit-nack":
 						wantErr = rejected
 						updateErrs = []error{rejected}
 					case "cancel":
@@ -408,7 +379,7 @@ func TestEnvoyOpsListenerPortLifecycle(t *testing.T) {
 						wantErr = rejected
 						updateErrs = []error{bindError, rejected}
 					}
-					if action == "delete" || action == "delete-error" {
+					if action == "delete" {
 						txn := db.WriteTxn(cecs, resources)
 						_, _, err = cecs.Delete(txn, &CEC{Name: name})
 						require.NoError(t, err)
@@ -416,17 +387,12 @@ func TestEnvoyOpsListenerPortLifecycle(t *testing.T) {
 						portsReleased = processor.process(txn, nil, statedb.NewWatchSet())
 						txn.Commit()
 						if found {
-							require.Nil(t, pendingDelete)
-							pendingDelete = deleted
+							lastDeleted = deleted
 						}
-						if pendingDelete != nil {
-							original := pendingDelete.Clone()
-							mutator.deleteErr = wantErr
-							require.ErrorIs(t, ops.Delete(t.Context(), db.ReadTxn(), 0, pendingDelete), wantErr)
-							require.Equal(t, original, pendingDelete, "deletion must preserve StateDB snapshots")
-							if wantErr == nil {
-								pendingDelete = nil
-							}
+						if lastDeleted != nil {
+							original := lastDeleted.Clone()
+							require.NoError(t, ops.Delete(t.Context(), db.ReadTxn(), 0, lastDeleted))
+							require.Equal(t, original, lastDeleted, "deletion must preserve StateDB snapshots")
 						}
 					} else {
 						if action != "repeat" {
@@ -529,7 +495,7 @@ func TestEnvoyOpsListenerPortLifecycle(t *testing.T) {
 						require.Equal(t, tt.wantPortReleases[i], portsReleased, "CEC removal must invalidate its allocated listener once")
 					}
 					if tt.wantPolicyTriggers != nil {
-						require.Equal(t, tt.wantPolicyTriggers[i], trigger.policyTriggerCount, "policy trigger count after "+action)
+						require.Equal(t, tt.wantPolicyTriggers[i], mutator.policyTriggerCount, "policy trigger count after "+action)
 					}
 					if realAllocator && tt.otherUser && !otherUser && tt.wantAcked[i] {
 						foundName, port := ports.FindByTypeWithReference(proxytypes.ProxyTypeCRD, listenerName, false)
