@@ -125,7 +125,7 @@ func (i *cecTranslator) desiredEnvoyCluster(m *model.Model) ([]ciliumv2.XDSResou
 	for ns, v := range getNamespaceNamePortsMapForTLS(m) {
 		for name, ports := range v {
 			for _, port := range ports {
-				clusterName := getClusterName(ns, name, port)
+				clusterName := getTLSRouteClusterName(ns, name, port)
 				clusterServiceName := getClusterServiceName(ns, name, port)
 				sortedClusterNames = append(sortedClusterNames, clusterName)
 				envoyClusters[clusterName], _ = i.tcpCluster(clusterName, clusterServiceName)
@@ -258,6 +258,12 @@ func getClusterName(ns, name, port string) string {
 	// the name is having the format of "namespace:name:port"
 	// -> slash would prevent ParseResources from rewriting with CEC namespace and name!
 	return fmt.Sprintf("%s:%s:%s", ns, name, port)
+}
+
+// getTLSRouteClusterName keeps raw TCP backends separate from HTTP backends
+// using the same Service port, since their upstream protocol settings differ.
+func getTLSRouteClusterName(ns, name, port string) string {
+	return "tcp:" + getClusterName(ns, name, port)
 }
 
 // getGRPCExtAuthClusterName returns the cluster name for a gRPC ext_authz backend.

@@ -33,7 +33,7 @@ spec:
             - name: envoy.filters.network.tcp_proxy
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-                cluster: gateway-conformance-infra:tls-backend-2:443
+                cluster: tcp:gateway-conformance-infra:tls-backend-2:443
                 statPrefix: tls-passthrough:*.com
         - filterChainMatch:
             serverNames:
@@ -43,7 +43,7 @@ spec:
             - name: envoy.filters.network.tcp_proxy
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-                cluster: gateway-conformance-infra:tls-backend:443
+                cluster: tcp:gateway-conformance-infra:tls-backend:443
                 statPrefix: tls-passthrough:abc.example.com
       listenerFilters:
         - name: envoy.filters.listener.tls_inspector
@@ -70,14 +70,14 @@ spec:
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/tls-backend-2:443
-      name: gateway-conformance-infra:tls-backend-2:443
+      name: tcp:gateway-conformance-infra:tls-backend-2:443
       outlierDetection:
         splitExternalLocalOriginErrors: true
       type: EDS
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/tls-backend:443
-      name: gateway-conformance-infra:tls-backend:443
+      name: tcp:gateway-conformance-infra:tls-backend:443
       outlierDetection:
         splitExternalLocalOriginErrors: true
       type: EDS

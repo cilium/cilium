@@ -31,7 +31,7 @@ spec:
             - name: envoy.filters.network.tcp_proxy
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-                cluster: gateway-conformance-infra:tcp-backend:8443
+                cluster: tcp:gateway-conformance-infra:tcp-backend:8443
                 statPrefix: tls-passthrough:abc.example.com
         - filterChainMatch:
             serverNames:
@@ -41,7 +41,7 @@ spec:
             - name: envoy.filters.network.tcp_proxy
               typedConfig:
                 "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-                cluster: gateway-conformance-infra:tcp-backend:3000
+                cluster: tcp:gateway-conformance-infra:tcp-backend:3000
                 statPrefix: tls-terminate:tls.example.com
           transportSocket:
             name: envoy.transport_sockets.tls
@@ -75,14 +75,14 @@ spec:
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/tcp-backend:3000
-      name: gateway-conformance-infra:tcp-backend:3000
+      name: tcp:gateway-conformance-infra:tcp-backend:3000
       outlierDetection:
         splitExternalLocalOriginErrors: true
       type: EDS
     - "@type": type.googleapis.com/envoy.config.cluster.v3.Cluster
       edsClusterConfig:
         serviceName: gateway-conformance-infra/tcp-backend:8443
-      name: gateway-conformance-infra:tcp-backend:8443
+      name: tcp:gateway-conformance-infra:tcp-backend:8443
       outlierDetection:
         splitExternalLocalOriginErrors: true
       type: EDS
