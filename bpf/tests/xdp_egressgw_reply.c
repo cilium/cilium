@@ -13,7 +13,6 @@
 
 #define ENABLE_EGRESS_GATEWAY	1
 #define ENABLE_MASQUERADE_IPV4	1
-#define ENABLE_MASQUERADE_IPV6	1
 
 #define ENCAP_IFINDEX		42
 
@@ -31,6 +30,8 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 		__maybe_unused int plen, __maybe_unused __u32 flags);
 
 #include "lib/bpf_xdp.h"
+
+ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"

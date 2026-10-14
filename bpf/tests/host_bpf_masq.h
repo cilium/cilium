@@ -10,7 +10,6 @@
 #define ENABLE_IPV6			1
 
 #define ENABLE_MASQUERADE_IPV4		1
-#define ENABLE_MASQUERADE_IPV6		1
 
 #define ENABLE_NODEPORT			1
 
@@ -32,6 +31,7 @@ static volatile const __u8 *server_mac = mac_two;
 
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = NODE_IP})
 ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, { .addr = v6_node_one_addr})
+ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 
