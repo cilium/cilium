@@ -1,0 +1,85 @@
+- hostname: example.com
+  name: http
+  port: 80
+  routes:
+  - backends:
+    - name: backend
+      namespace: default-prod
+      port:
+        port: 8080
+    headers_match:
+    - key: x-region
+      match:
+        exact: eu
+    hostnames:
+    - example.com
+    is_grpc: true
+    path_match:
+      exact: /service.Echo/Ping
+    timeout: {}
+  - backends:
+    - name: backend
+      namespace: default
+      port:
+        port: 8080
+    headers_match:
+    - key: x-version
+      match:
+        exact: v2
+    hostnames:
+    - example.com
+    is_grpc: true
+    path_match:
+      exact: /service.Echo/Ping
+    timeout: {}
+  - backends:
+    - name: backend
+      namespace: default
+      port:
+        port: 8080
+    headers_match:
+    - key: x-version
+      match:
+        exact: v1
+    hostnames:
+    - example.com
+    is_grpc: true
+    path_match:
+      exact: /service.Echo/Ping
+    timeout: {}
+  - backends:
+    - name: backend
+      namespace: default
+      port:
+        port: 8080
+    headers_match:
+    - key: x-region
+      match:
+        exact: eu
+    hostnames:
+    - example.com
+    is_grpc: true
+    path_match:
+      exact: /service.Echo/Ping
+    timeout: {}
+  - backends:
+    - name: newer-backend
+      namespace: default
+      port:
+        port: 8080
+    headers_match:
+    - key: x-region
+      match:
+        exact: eu
+    hostnames:
+    - example.com
+    is_grpc: true
+    path_match:
+      exact: /service.Echo/Ping
+    timeout: {}
+  sources:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    name: my-gateway
+    namespace: default
+    version: v1

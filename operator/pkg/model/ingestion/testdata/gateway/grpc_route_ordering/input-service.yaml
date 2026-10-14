@@ -1,0 +1,18 @@
+- metadata:
+    name: backend
+    namespace: default
+  spec:
+    ports:
+    - port: 8080
+- metadata:
+    name: backend
+    namespace: default-prod
+  spec:
+    ports:
+    - port: 8080
+- metadata:
+    name: newer-backend
+    namespace: default
+  spec:
+    ports:
+    - port: 8080
