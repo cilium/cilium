@@ -65,6 +65,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Cleanup Disk space in runner
+        uses: ./.github/actions/disk-cleanup
+        with:
+          min-free-gb: 40
+
       - name: Check for disk usage
         shell: bash
         run: |
