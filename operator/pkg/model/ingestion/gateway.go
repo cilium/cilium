@@ -900,7 +900,7 @@ func toEndpointPicker(pool *gateway_inf_ext.InferencePool) *model.EndpointPicker
 
 func toTLSMode(tls *gatewayv1.ListenerTLSConfig) model.TLSMode {
 	if tls == nil || tls.Mode == nil {
-		return model.TLSModePassthrough
+		return model.TLSModeTerminate
 	}
 
 	return model.TLSMode(*tls.Mode)
