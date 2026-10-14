@@ -195,6 +195,8 @@ NODE_CONFIG(bool, enable_masquerade_ipv6, "Masquerade IPv6 traffic")
 
 NODE_CONFIG(bool, debug, "Enable debugging trace statements")
 
+NODE_CONFIG(bool, debug_tagged, "Enable debugging trace statements for tagged packets")
+
 struct dsr_config {
 	/* Enable DSR load balancing. */
 	bool enable;
