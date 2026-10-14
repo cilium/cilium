@@ -4,10 +4,10 @@
 
 The ADS xDS cache extends go-control-plane's SnapshotCache to manage the resources
 Cilium wants Envoy to use. It commits desired state, coalesces unpublished changes,
-and retains sparse rollback state for caller failures and Envoy NACKs. This state
-contains the previous resource entries needed to undo changes. A matching
-watch triggers snapshot publication; go-control-plane constructs and delivers
-protocol responses.
+and retains sparse rollback state for updates which opt into caller and Envoy
+NACK recovery. This state contains the previous resource entries needed to undo
+changes. A matching watch triggers snapshot publication; go-control-plane
+constructs and delivers protocol responses.
 
 ```text
 Cilium update → desired state → snapshot → response → ACK/NACK
@@ -40,9 +40,9 @@ must not prevent a later Envoy NACK from correcting the cache.
   cached protobuf and do not force publication.
 - ACKs prove acceptance only for the resource names and revisions communicated
   by their response.
-- NACK recovery reverts still-current upserts of the rejected resource type and
-  names communicated by that response. Caller rollback covers its transaction's
-  upserts and removals while preserving superseding API changes.
+- NACK recovery reverts opted-in, still-current upserts of the rejected resource
+  type and names communicated by that response. Caller rollback covers its
+  transaction's upserts and removals while preserving superseding API changes.
 - NACKs cannot undo removals. Caller rollback may restore the values captured
   atomically when deleting them. Desired state contains only live resources.
 - Rollback state remains only while live lifecycles need it.
@@ -55,26 +55,46 @@ must not prevent a later Envoy NACK from correcting the cache.
 NetworkPolicyHosts (NPHDS) use the single-resource API, so one transaction cannot
 mix Listener and NetworkPolicy changes.
 
+Plain mutation APIs commit non-revertible changes. A NACK can fail their caller
+waits but leaves their resources in desired state. This protects programmatically
+generated resources when a response also includes rejected CEC resources.
+
 Callers may supply a WaitGroup to wait for Envoy's response. Bulk calls select
 the resource types to wait for explicitly; an empty selection creates no waits.
-The `WithRollback` variants also return a non-nil rollback on success. Semantic
-changes get a caller lifecycle, on which the caller eventually invokes either
-`Revert()` or `Finalize()`.
-Semantic no-ops get a shared, stateless no-op handle; synchronous errors return nil.
+The `WithRollback` variants enable independent response-owned NACK recovery for
+changed upserts and return a non-nil caller rollback on success. Semantic changes
+get a caller lifecycle, on which the caller eventually invokes either `Revert()`
+or `Finalize()`. Semantic no-ops get a shared, stateless no-op handle; synchronous
+errors return nil.
 Caller rollback undoes eligible upserts and removals atomically. Resources absent
-before deletion are not reinserted. All mutation APIs independently retain any
-rollback state needed for a later NACK.
+before deletion are not reinserted.
+
+ADS `UpdateEnvoyResources` uses these variants for CEC/CCEC changes and owns its
+ACK waits and recovery. When the new resources include Listeners, it waits for
+LDS and any supplied CDS resources. On wait failure it invokes caller rollback;
+after success it finalizes the caller handle. The CEC reconciler confirms port
+allocations only after this call succeeds. During restoration it skips these
+internal waits and finalizes after admission,
+retaining response-owned NACK recovery. Ordinary waits run outside the server
+lock. Address-changing listeners require a serialized delete-and-recreate sequence.
+
+A plain semantic no-op also adopts the existing value as non-revertible. Its
+protobuf, revision, transaction ID, and published snapshot remain unchanged.
+Older caller and response rollbacks cannot undo the adopted value, and later
+rollback targets retain it when bypassing rejected predecessors. Adoption occurs
+only after successful admission, including for unchanged members of a mixed
+transaction.
 
 ADS admin and metrics listeners immediately finalize any returned caller rollback
 handle after admission, retaining response-owned NACK recovery. They do not
 participate in redirect reference counting. Canceling a caller wait leaves the
 listener configured; an Envoy NACK can still remove it.
 
-After successful proxy waits, endpoint regeneration explicitly acknowledges
-redirect ports and installs datapath redirection rules. Failure releases the
-failed redirects' references; only the last reference can reset an
-unacknowledged proxy-managed allocation. Static and CEC-owned ports retain their
-separate ownership rules.
+Redirect listeners use non-revertible updates. After successful proxy waits,
+endpoint regeneration explicitly acknowledges their ports and installs datapath
+redirection rules. Failure releases the failed redirects' references; only the
+last reference can reset an unacknowledged proxy-managed allocation. Static and
+CEC-owned ports retain their separate ownership rules.
 
 Endpoint regeneration and incremental policy updates record proxy policy
 acceptance after their proxy wait succeeds, using the revision submitted before
@@ -135,11 +155,11 @@ flowchart TD
 Under the cache lock, a transaction:
 
 1. Compares proposed resources with desired state. Semantic no-ops keep the
-   existing protobuf and metadata.
+   existing protobuf, revision, and transaction ID.
 2. Prepares changes and ACK waits for names whose desired state is not accepted.
 3. Reserves a generation if resources change, then commits desired entries,
    records changed names, and registers ACK waits.
-4. Coalesces response-owned rollback state for changed upserts into the pending
+4. Coalesces response-owned rollback state for opted-in upserts into the pending
    publication. Response-owned recovery never retains removals.
 5. Publishes a snapshot if a directly affected watch is open.
 6. Creates a requested caller lifecycle after a successful commit or publication.
@@ -192,8 +212,9 @@ desired changes: P0 → P1 → P2 → P3
 rollback state: previous=P0, expectedTransaction=transaction(P3)
 ```
 
-A desired removal ends its name's unpublished or unsent rollback chain. A later upsert starts
-from absence. A net no-op chain can also discard its response-owned rollback
+A desired removal or non-revertible upsert ends its name's unpublished or unsent
+rollback chain. A later revertible upsert uses that desired value as its baseline,
+including absence after a removal. A net no-op chain can also discard its response-owned rollback
 state. Once a response claims that state, it stops coalescing; subsequent updates
 begin another chain.
 Returning desired state to the original value cannot discard a sent response's
@@ -380,8 +401,9 @@ ownership unchanged.
 ## NACK recovery
 
 A NACK rejects the resource type and names communicated by its response. The
-cache selects their still-current upserts and leaves desired removals, other
-types, and unrequested names unchanged, even within one bulk API transaction.
+cache selects their opted-in, still-current upserts and leaves non-revertible
+resources, desired removals, other types, and unrequested names unchanged, even
+within one bulk API transaction.
 Unrequested names remain available to coalesce with later changes.
 
 NACK recovery uses the ordinary cache transaction. The cache lock prevents caller

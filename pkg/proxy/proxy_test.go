@@ -288,11 +288,11 @@ type fakeXdsServer struct {
 	addListenerErr                   error
 }
 
-func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, waitGroup *completion.WaitGroup) error {
+func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error {
 	panic("unimplemented")
 }
 
-func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	panic("unimplemented")
 }
 

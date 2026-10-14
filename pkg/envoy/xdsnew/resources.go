@@ -43,6 +43,10 @@ type resourceEntry struct {
 	// restore it with the previous value while assigning a fresh revision.
 	// Zero in an inverse entry records that no cached entry existed.
 	transaction callbacks.TransactionID
+	// Plain API upserts adopt this value as authoritative, even for semantic
+	// no-ops. Older caller/response inverses cannot undo it or bypass it when
+	// rebasing a later rollback target. Restoring it preserves this ownership.
+	nonRevertible bool
 }
 
 // resourceMaps groups revision-tagged entries by TypeURL. Desired state and

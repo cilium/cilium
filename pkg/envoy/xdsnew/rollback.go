@@ -71,6 +71,50 @@ type rollbackEntry struct {
 // Response recovery undoes only upserts. Only caller recovery can undo removals.
 type rollbackResources map[string]rollbackEntry
 
+// adoptNonRevertibleLocked changes ownership without changing the value,
+// revision, transaction, or published snapshot. Sent inverses keep their
+// response identity but their per-entry guards now prevent undoing this value.
+func (r *rollbackState) adoptNonRevertibleLocked(c *cacheImpl, state *nodeState, typeURL typeurl.Index, name string) {
+	entry := state.resources[typeURL][name]
+	if entry.resource == nil || entry.nonRevertible {
+		return
+	}
+	entry.nonRevertible = true
+	state.resources[typeURL][name] = entry
+	if pending := state.pendingPublication; pending != nil {
+		rollback, _ := pending.rollbacks.Get(typeURL)
+		delete(rollback, name)
+		if len(rollback) == 0 && pending.rollbacks.Has(typeURL) {
+			pending.rollbacks.Set(typeURL, nil)
+		}
+	}
+	if unsent := state.typeStates[typeURL].unsentRollback; unsent != nil {
+		delete(unsent.resources, name)
+		if len(unsent.resources) == 0 && c.completionCbs.DiscardUnsentTypeGeneration(state.nodeID, typeURL, unsent.generation) {
+			unsent.finalizeLocked()
+		}
+	}
+}
+
+func (tx *resourceTransaction) adoptNonRevertibleUpsertsLocked(upserted xds.Resources) {
+	r, c, state := &tx.state.rollbacks, tx.cache, tx.state
+	for name := range upserted.Listeners {
+		r.adoptNonRevertibleLocked(c, state, typeurl.Listener, name)
+	}
+	for name := range upserted.Routes {
+		r.adoptNonRevertibleLocked(c, state, typeurl.Route, name)
+	}
+	for name := range upserted.Clusters {
+		r.adoptNonRevertibleLocked(c, state, typeurl.Cluster, name)
+	}
+	for name := range upserted.Endpoints {
+		r.adoptNonRevertibleLocked(c, state, typeurl.Endpoint, name)
+	}
+	for name := range upserted.Secrets {
+		r.adoptNonRevertibleLocked(c, state, typeurl.Secret, name)
+	}
+}
+
 // preparePublicationLocked coalesces rollback ownership for committed entries.
 // Save recovery maps only when immediate publication can fail. The node is
 // borrowed from tx; the ledger does not allocate another owner or retain a
@@ -125,6 +169,23 @@ func (r *rollbackState) preparePublicationLocked(tx *resourceTransaction, change
 				current = nil
 			}
 			rollbacks.Set(typeURL, current)
+		}
+	} else if options.isAPIUpdate {
+		for typeURL := range changedTypeURLs.Members() {
+			rollback, _ := rollbacks.Get(typeURL)
+			if removedTypes.Has(typeURL) {
+				rollback.pruneRemovedResources(state, typeURL)
+			}
+			// Plain API upserts are authoritative even before publication. Drop
+			// earlier recovery for these names instead of extending its guard to
+			// a non-revertible transaction.
+			for name := range options.inverse.resources(typeURL) {
+				delete(rollback, name)
+			}
+			if len(rollback) == 0 {
+				rollback = nil
+			}
+			rollbacks.Set(typeURL, rollback)
 		}
 	} else {
 		// Compensation can shorten an unpublished chain or restore an earlier
@@ -506,7 +567,8 @@ func (r *rollbackState) prepareRevertLocked(tx *resourceTransaction, rollbacks [
 			rollback := rollback.(*responseRollback)
 			typeURL := rollback.typeURL
 			for name, entry := range rollback.resources {
-				if state.resources[typeURL][name].transaction != entry.expectedTransaction {
+				current := state.resources[typeURL][name]
+				if current.nonRevertible || current.transaction != entry.expectedTransaction {
 					continue
 				}
 				if combined[typeURL] == nil {
@@ -573,7 +635,7 @@ func (resources *rollbackResources) resourceRevert(state *nodeState, typeURL typ
 	current := state.resourceEntries(typeURL)
 	for name, entry := range *resources {
 		previous := current[name]
-		if previous.transaction != entry.expectedTransaction {
+		if previous.nonRevertible || previous.transaction != entry.expectedTransaction {
 			continue
 		}
 		// Rebasing a selected inverse can yield identical protobuf contents,
@@ -592,7 +654,7 @@ func (rb *callerRollback) prepareRevertLocked() resourceChanges {
 			entry := current[name]
 			// The inverse only contains semantic changes made by transaction.
 			// A matching transaction therefore cannot already contain previous.
-			if entry.transaction != rb.transaction {
+			if entry.nonRevertible || entry.transaction != rb.transaction {
 				continue
 			}
 			changes.add(typeURL, name, entry, previous)
@@ -625,7 +687,7 @@ func (r *rollbackState) rebaseRejected(state *nodeState, typeURL typeurl.Index, 
 		rollback, _ := pending.rollbacks.Get(typeURL)
 		for name, rejectedEntry := range rejected {
 			entry, exists := rollback[name]
-			if exists && entry.previous.transaction == rejectedEntry.expectedTransaction {
+			if exists && !entry.previous.nonRevertible && entry.previous.transaction == rejectedEntry.expectedTransaction {
 				entry.previous = rejectedEntry.previous
 				rollback[name] = entry
 			}
@@ -638,7 +700,7 @@ func (r *rollbackState) rebaseRejected(state *nodeState, typeURL typeurl.Index, 
 		rollback := rollback.resources
 		for name, rejectedEntry := range rejected {
 			entry, exists := rollback[name]
-			if exists && entry.previous.transaction == rejectedEntry.expectedTransaction {
+			if exists && !entry.previous.nonRevertible && entry.previous.transaction == rejectedEntry.expectedTransaction {
 				entry.previous = rejectedEntry.previous
 				rollback[name] = entry
 			}
@@ -655,14 +717,14 @@ func (r *rollbackState) rebaseRejected(state *nodeState, typeURL typeurl.Index, 
 					continue
 				}
 				entry, exists := rejected[singleton.name]
-				if exists && singleton.entry.transaction == entry.expectedTransaction {
+				if exists && !singleton.entry.nonRevertible && singleton.entry.transaction == entry.expectedTransaction {
 					singleton.entry = entry.previous
 				}
 				continue
 			}
 			for name, entry := range rejected {
 				previous, exists := inverse.entries[typeURL][name]
-				if exists && previous.transaction == entry.expectedTransaction {
+				if exists && !previous.nonRevertible && previous.transaction == entry.expectedTransaction {
 					inverse.entries[typeURL][name] = entry.previous
 				}
 			}

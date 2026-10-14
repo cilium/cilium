@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -16,32 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
 )
-
-type waitGroupResourceMutator struct {
-	completionCh chan *completion.Completion
-	gotWaitGroup atomic.Bool
-}
-
-func (m *waitGroupResourceMutator) DeleteEnvoyResources(context.Context, xds.Resources, *completion.WaitGroup) error {
-	return nil
-}
-
-func (m *waitGroupResourceMutator) UpdateEnvoyResources(_ context.Context, _, _ xds.Resources, wg *completion.WaitGroup) error {
-	if wg == nil {
-		return nil
-	}
-	m.gotWaitGroup.Store(true)
-	comp := wg.AddCompletion(nil)
-	m.completionCh <- comp
-	return nil
-}
 
 func listenerWithPort(name string, port uint32) *envoy_config_listener.Listener {
 	return &envoy_config_listener.Listener{
@@ -73,7 +52,17 @@ func TestEnvoyOpsWaitsBeforeConfirmingDynamicListenerPort(t *testing.T) {
 			allocator := NewMockPortAllocator()
 			port, err := allocator.AllocateCRDProxyPort("listener1")
 			require.NoError(t, err)
-			mutator := &waitGroupResourceMutator{completionCh: make(chan *completion.Completion, 1)}
+			entered, result := make(chan struct{}), make(chan error, 1)
+			mutator := &fakeEnvoySyncerAndPolicyTrigger{store: make(resourceStore)}
+			mutator.beforeUpdate = func(ctx context.Context, _, _ xds.Resources) error {
+				close(entered)
+				select {
+				case err := <-result:
+					return err
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
 			ops := &envoyOps{
 				config: CECConfig{EnvoyConfigTimeout: time.Second},
 				log:    hivetest.Logger(t), xds: mutator, portAllocator: allocator,
@@ -86,51 +75,24 @@ func TestEnvoyOpsWaitsBeforeConfirmingDynamicListenerPort(t *testing.T) {
 			res.Resources.Listeners["listener1"] = listenerWithPort("listener1", uint32(port))
 			errCh := make(chan error, 1)
 			go func() { errCh <- ops.Update(ctx, nil, 0, res) }()
-			var comp *completion.Completion
 			select {
-			case comp = <-mutator.completionCh:
+			case <-entered:
 			case <-ctx.Done():
-				t.Fatal("timed out waiting for xDS completion registration")
+				t.Fatal("timed out waiting for xDS update")
 			}
-			require.True(t, mutator.gotWaitGroup.Load())
 			require.Zero(t, allocator.ports["listener1"].cnt)
 			select {
 			case err := <-errCh:
 				t.Fatalf("update returned before LDS ACK: %v", err)
 			default:
 			}
-			comp.Complete(tt.err)
+			result <- tt.err
 			require.ErrorIs(t, <-errCh, tt.err)
 			if tt.err == nil {
 				require.Equal(t, 1, allocator.ports["listener1"].cnt)
 			} else {
 				require.Zero(t, allocator.ports["listener1"].cnt)
 			}
-		})
-	}
-}
-
-func TestUpdateEnvoyResourcesDoesNotWaitForExistingPort(t *testing.T) {
-	for _, tt := range []struct {
-		name      string
-		allocated bool
-	}{
-		{name: "explicit port"},
-		{name: "confirmed allocation", allocated: true},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			mutator := &waitGroupResourceMutator{completionCh: make(chan *completion.Completion, 1)}
-			ops := &envoyOps{xds: mutator}
-			resources := xds.NewResources()
-			resources.Listeners["listener1"] = listenerWithPort("listener1", 10000)
-			var previous xds.Resources
-			var allocated set.Set[string]
-			if tt.allocated {
-				allocated.Insert("listener1")
-				previous = resources
-			}
-			require.NoError(t, ops.updateEnvoyResources(t.Context(), previous, resources, allocated))
-			require.False(t, mutator.gotWaitGroup.Load())
 		})
 	}
 }
