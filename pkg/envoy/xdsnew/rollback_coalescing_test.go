@@ -29,7 +29,7 @@ import (
 )
 
 func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	const nodeID = "node1"
 	node := &envoy_config_core.Node{Id: nodeID}
 
@@ -80,7 +80,7 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 }
 
 func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
 	const nodeID = "node1"

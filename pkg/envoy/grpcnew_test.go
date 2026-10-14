@@ -39,7 +39,7 @@ func newTestADSClient(t *testing.T, server *adsServer) discovery.AggregatedDisco
 	transport := bufconn.Listen(1024 * 1024)
 	t.Cleanup(func() { require.NoError(t, transport.Close()) })
 	grpcServer := grpc.NewServer()
-	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, envoy_server.NewServer(t.Context(), server.cache, server.newCallbacks(),
+	discovery.RegisterAggregatedDiscoveryServiceServer(grpcServer, envoy_server.NewServer(t.Context(), server.cache.GetSnapshotCache(), server.newCallbacks(),
 		sotw.WithOrderedADS(),
 		sotw.DeactivateLegacyWildcardForTypes([]string{EndpointTypeURL, RouteTypeURL, SecretTypeURL}),
 	))

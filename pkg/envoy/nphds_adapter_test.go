@@ -221,7 +221,7 @@ func TestNPHDSAdapterPublishesFullStateResponses(t *testing.T) {
 	require.NoError(t, adapter.handleIPUpsert("100", "10.0.0.1/32", 100))
 
 	respChan := make(chan cache.Response, 1)
-	cancel, err := testADSNPHDSCache(t, adapter).CreateWatch(req, subscription, respChan)
+	cancel, err := testADSNPHDSCache(t, adapter).GetSnapshotCache().CreateWatch(req, subscription, respChan)
 	require.NoError(t, err)
 	require.NotNil(t, cancel)
 	defer cancel()
@@ -237,7 +237,7 @@ func TestNPHDSAdapterPublishesFullStateResponses(t *testing.T) {
 	require.NoError(t, adapter.handleIPUpsert("200", "10.0.0.2/32", 200))
 
 	respChan = make(chan cache.Response, 1)
-	cancel, err = testADSNPHDSCache(t, adapter).CreateWatch(req, subscription, respChan)
+	cancel, err = testADSNPHDSCache(t, adapter).GetSnapshotCache().CreateWatch(req, subscription, respChan)
 	require.NoError(t, err)
 	require.NotNil(t, cancel)
 	defer cancel()

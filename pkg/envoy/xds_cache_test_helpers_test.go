@@ -29,7 +29,7 @@ func cachedListeners(cache xdsnew.Cache, nodeID string) map[string]*envoy_config
 }
 
 func publishedResources(cache xdsnew.Cache, nodeID string, typeURL typeurl.Index) map[string]cache_types.Resource {
-	snapshot, err := cache.GetSnapshot(nodeID)
+	snapshot, err := cache.GetSnapshotCache().GetSnapshot(nodeID)
 	if err != nil {
 		return nil
 	}

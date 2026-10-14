@@ -104,7 +104,7 @@ func BenchmarkSnapshotCLAProjection(b *testing.B) {
 	} {
 		b.Run(fmt.Sprintf("clusters=%d/%s", tc.count, tc.mode), func(b *testing.B) {
 			const nodeID = "benchmark-node"
-			c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID)).(*cacheImpl)
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID))
 			clusters := make(map[string]*cluster.Cluster, tc.count)
 			upserted := xds.Resources{Clusters: clusters}
 			if tc.mode == "explicit" {
@@ -148,7 +148,7 @@ func BenchmarkSnapshotCLAProjectionIncrementally(b *testing.B) {
 	for _, count := range []int{32, 256, 1024} {
 		b.Run(fmt.Sprintf("clusters=%d", count), func(b *testing.B) {
 			const nodeID = "benchmark-node"
-			c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID)).(*cacheImpl)
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID))
 			var input [2]ResourceMutations
 			for version := range input {
 				clusters := make(map[string]*cluster.Cluster, count)

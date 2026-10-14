@@ -41,7 +41,7 @@ func (c *publicationSignalingCache) SetSnapshot(ctx context.Context, nodeID stri
 
 func TestSnapshotResponseDeliveryDoesNotHoldCacheLocks(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	const nodeID = "node1"
 	listener := &envoy_config_listener.Listener{Name: "listener"}
 	require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Listener, listener.Name, listener, nil, nil))
@@ -68,8 +68,8 @@ func TestSnapshotResponseDeliveryDoesNotHoldCacheLocks(t *testing.T) {
 	updatedListener := &envoy_config_listener.Listener{
 		Name: "listener", Address: &envoy_config_core.Address{},
 	}
-	publication := &publicationSignalingCache{SnapshotCache: c.SnapshotCache, started: make(chan struct{}, 1)}
-	c.SnapshotCache = publication
+	publication := &publicationSignalingCache{SnapshotCache: c.snapshotCache, started: make(chan struct{}, 1)}
+	c.replaceSnapshotCache(t, publication)
 	publicationDone := make(chan error, 1)
 	go func() {
 		publicationDone <- c.ApplyResource(context.Background(), nodeID, typeurl.Listener,
@@ -123,7 +123,7 @@ func TestSnapshotResponseDeliveryDoesNotHoldCacheLocks(t *testing.T) {
 }
 
 func TestCreateWatchImmediateResponseRetiresTracking(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	request := &cache.Request{
 		Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Listener.URL(),
 	}
@@ -144,7 +144,7 @@ func TestDelayedImmediateResponseDoesNotACKLaterSameTypeUpdates(t *testing.T) {
 	for _, initialEmpty := range []bool{false, true} {
 		for _, repeatedVersion := range []bool{false, true} {
 			t.Run(fmt.Sprintf("initial-empty=%t/repeated-version=%t", initialEmpty, repeatedVersion), func(t *testing.T) {
-				c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+				c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 				const nodeID = "node1"
 				node := &envoy_config_core.Node{Id: nodeID}
 				var completed []int
@@ -221,7 +221,7 @@ func TestDelayedImmediateResponseDoesNotACKLaterSameTypeUpdates(t *testing.T) {
 func TestTrackedWatchRemovalPreservesOtherNodes(t *testing.T) {
 	for _, clearSnapshot := range []bool{false, true} {
 		t.Run(fmt.Sprintf("clear-snapshot=%t", clearSnapshot), func(t *testing.T) {
-			c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1", "node2")).(*cacheImpl)
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1", "node2"))
 			responses := make(chan cache.Response, 2)
 			var cancels []func()
 			for _, nodeID := range []string{"node1", "node2"} {
@@ -269,7 +269,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 	for _, watchCount := range []int{2, 3} {
 		for _, action := range []string{"cancel", "respond", "clear"} {
 			t.Run(fmt.Sprintf("watches-%d/%s", watchCount, action), func(t *testing.T) {
-				c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+				c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 				const nodeID = "node1"
 				request := &cache.Request{
 					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
@@ -356,7 +356,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 
 func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 	t.Run("shared-relay", func(t *testing.T) {
-		c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+		c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 		const nodeID = "node1"
 		responses := make(chan cache.Response, 2)
 		// Different TypeURLs can share one relay; both responses must survive
@@ -407,8 +407,8 @@ func (c *failingWatchCache) CreateWatch(*cache.Request, cache.Subscription, chan
 }
 
 func TestCreateWatchFailureRetiresTracking(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
-	c.SnapshotCache = &failingWatchCache{SnapshotCache: c.SnapshotCache}
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
+	c.replaceSnapshotCache(t, &failingWatchCache{SnapshotCache: c.snapshotCache})
 	request := &cache.Request{
 		Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Listener.URL(),
 	}
@@ -422,7 +422,7 @@ func TestCreateWatchFailureRetiresTracking(t *testing.T) {
 func BenchmarkTrackedWatchLifecycle(b *testing.B) {
 	for _, watchCount := range []int{1, 2, 8} {
 		b.Run(fmt.Sprintf("watches-%d", watchCount), func(b *testing.B) {
-			c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 			request := &cache.Request{
 				Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Listener.URL(),
 			}

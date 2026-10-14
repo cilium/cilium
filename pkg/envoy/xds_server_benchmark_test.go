@@ -378,7 +378,7 @@ func (e *benchmarkADSEnvoy) openWatch() error {
 	if err := e.cache.GetCompletionCallbacks().OnStreamRequest(e.streamID, &e.request); err != nil {
 		return err
 	}
-	cancel, err := e.cache.CreateWatch(&e.request, &e.subscription, e.responses)
+	cancel, err := e.cache.GetSnapshotCache().CreateWatch(&e.request, &e.subscription, e.responses)
 	if err != nil {
 		return err
 	}

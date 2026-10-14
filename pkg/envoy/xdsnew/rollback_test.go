@@ -90,7 +90,7 @@ func TestFailedCallerRevertReleasesRemovalTombstone(t *testing.T) {
 	for _, api := range []string{"ApplyResourceWithRollback", "ApplyResourcesWithRollback"} {
 		t.Run(api, func(t *testing.T) {
 			mock := newMockSnapshotCache()
-			c := newInitializedTestCache(mock)
+			c := newInitializedTestCache(t, mock)
 			var logs strings.Builder
 			c.logger = slog.New(slog.NewTextHandler(&logs, nil))
 			const nodeID = "node1"
@@ -142,7 +142,7 @@ func TestFailedCallerRevertReleasesRemovalTombstone(t *testing.T) {
 
 func TestCallerRevertAfterCancellation(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newInitializedTestCache(mock)
+	c := newInitializedTestCache(t, mock)
 	const nodeID = "node1"
 	// The mock leaves this watch open so the revert publishes synchronously.
 	// Otherwise it only commits unpublished compensation and never exercises delivery
@@ -175,8 +175,8 @@ func TestNetworkPolicyWaitCompletesWhenLastListenerIsReverted(t *testing.T) {
 			return listener.GetName() == "npds-listener"
 		},
 	}
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)),
-		WithListenerObserver(observer), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)),
+		WithListenerObserver(observer), WithNodeIDs("node1"))
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
@@ -200,7 +200,7 @@ func TestNetworkPolicyWaitCompletesWhenLastListenerIsReverted(t *testing.T) {
 }
 
 func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
 
@@ -258,7 +258,7 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 }
 
 func TestResourceUpdateRevertibleIsNoOpAfterFirstCall(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	initialRollback, err := c.ApplyResourceWithRollback(
 		t.Context(), "node1", typeurl.NetworkPolicy,
 		"policy", &cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
@@ -281,7 +281,7 @@ func TestResourceUpdateRevertibleIsNoOpAfterFirstCall(t *testing.T) {
 }
 
 func TestApplyResourcesOwnsGlobalGenerationAndPerNodeReverts(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node-a", "node-b")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node-a", "node-b"))
 	apply := func(nodeID string, endpointID uint64) Rollback {
 		t.Helper()
 		rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: endpointID}, nil, nil)
@@ -320,7 +320,7 @@ func TestApplyResourcesOwnsGlobalGenerationAndPerNodeReverts(t *testing.T) {
 func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 	newCache := func(t *testing.T) *cacheImpl {
 		t.Helper()
-		return NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node-a")).(*cacheImpl)
+		return newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node-a"))
 	}
 	routes := func(values map[string]uint64) ResourceMutations {
 		resources := make(map[string]*envoy_config_route.RouteConfiguration, len(values))
@@ -423,7 +423,7 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 }
 
 func TestApplyResourcesRevertCoversEnvoyResourceTypes(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node-a")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node-a"))
 	resources := func(version uint64, names ...string) xds.Resources {
 		resources := xds.NewResources()
 		for _, name := range names {
@@ -544,7 +544,7 @@ func TestCallerRevertRestoresPreviouslyAbsentResources(t *testing.T) {
 	for _, mode := range []string{"single", "bulk"} {
 		t.Run(mode, func(t *testing.T) {
 			const nodeID = "node1"
-			c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID))
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID))
 			cluster := &envoy_config_cluster.Cluster{Name: "resource"}
 			secret := &envoy_config_tls.Secret{Name: "resource"}
 			typeURLs := typeurl.NewSet(typeurl.Cluster)
@@ -569,7 +569,7 @@ func TestCallerRevertRestoresPreviouslyAbsentResources(t *testing.T) {
 			// prior absence as an explicit zero entry. Dropping that entry would
 			// leave the newly added resource behind when the caller reverts.
 			require.NoError(t, rollback.Revert())
-			state := c.(*cacheImpl).getNodeState(nodeID)
+			state := c.getNodeState(nodeID)
 			for typeURL := range typeURLs.Members() {
 				pending, _ := state.pendingPublication.rollbacks.Get(typeURL)
 				require.Empty(t, pending, "an unpublished add/revert must retain no response rollback")

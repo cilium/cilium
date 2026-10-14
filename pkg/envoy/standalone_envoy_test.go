@@ -1310,7 +1310,7 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	// LDS watch must finalize one snapshot containing both generations.
 	require.NoError(t, xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
-	_, err = xdsServer.cache.GetSnapshot(localNodeID)
+	_, err = xdsServer.cache.GetSnapshotCache().GetSnapshot(localNodeID)
 	require.Error(t, err, "snapshot generation must remain lazy until Envoy opens a watch")
 
 	starter := &onDemandXdsStarter{logger: logger}

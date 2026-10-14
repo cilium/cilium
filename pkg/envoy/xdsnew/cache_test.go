@@ -67,7 +67,7 @@ func TestSnapshotCacheLoggerSkipsDisabledFormatting(t *testing.T) {
 
 func TestGenerateSnapshotIncrementallyReusesUnchangedResources(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Listener, "listener1", &envoy_config_listener.Listener{Name: "listener1"})
 	state.seedResource(typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 1})
@@ -135,7 +135,7 @@ func TestGenerateSnapshotIncrementallyReusesUnchangedResources(t *testing.T) {
 
 func TestGenerateSnapshotFromStateIncrementallyUsesPublishedCopyOnWriteMaps(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Listener, "listener", &envoy_config_listener.Listener{Name: "listener"})
 	state.resources[typeurl.NetworkPolicy] = map[string]resourceEntry{
@@ -194,7 +194,7 @@ func TestGenerateSnapshotFromStateIncrementallyUsesPublishedCopyOnWriteMaps(t *t
 
 func TestGenerateSnapshotFromStateIncrementallyReusesPublishedMapAfterCoalescedABA(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	policyA := &cilium.NetworkPolicy{EndpointId: 1}
 	state := &nodeState{}
 	state.resources[typeurl.NetworkPolicy] = map[string]resourceEntry{
@@ -228,7 +228,7 @@ func TestGenerateSnapshotFromStateIncrementallyReusesPublishedMapAfterCoalescedA
 }
 
 func TestRemoveNetworkPoliciesKeepsOtherResourceTypes(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	ctx := t.Context()
 	rollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "missing", nil, nil, nil)
 	require.NoError(t, err)
@@ -279,7 +279,7 @@ func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
 		}
 		t.Run(name, func(t *testing.T) {
 			mock := newMockSnapshotCache()
-			c := newInitializedTestCache(mock)
+			c := newInitializedTestCache(t, mock)
 			const nodeID = "node1"
 			listener := &envoy_config_listener.Listener{Name: "listener"}
 			endpoint := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "endpoint"}
@@ -345,7 +345,7 @@ func TestPublicationInstallationRequiresSnapshotIdentity(t *testing.T) {
 	for _, installed := range []bool{false, true} {
 		t.Run(fmt.Sprintf("installed=%t", installed), func(t *testing.T) {
 			mock := newMockSnapshotCache()
-			c := newInitializedTestCache(mock)
+			c := newInitializedTestCache(t, mock)
 			const nodeID = "node1"
 			// The mock keeps the watch open so mutations finalize synchronously.
 			// Otherwise the installation failure would be deferred to a request.
@@ -403,7 +403,7 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 	for _, mode := range []string{"mutation", "caller-revert", "response-revert"} {
 		t.Run(mode, func(t *testing.T) {
 			mock := newMockSnapshotCache()
-			c := newInitializedTestCache(mock)
+			c := newInitializedTestCache(t, mock)
 			const nodeID = "node1"
 			node := &envoy_config_core.Node{Id: nodeID}
 			// The mock keeps this watch open, making both mutations and reverts
@@ -537,9 +537,9 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 
 func TestNewCache(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 
-	assert.NotNil(t, c.SnapshotCache)
+	assert.NotNil(t, c.GetSnapshotCache())
 	assert.NotNil(t, c.logger)
 	require.True(t, c.HasNode("node1"))
 	require.False(t, c.HasNode("unknown"))
@@ -551,7 +551,7 @@ func TestCacheRejectsUnknownNodes(t *testing.T) {
 	for _, nodeID := range []string{"unknown", ""} {
 		for _, operation := range []string{"resource", "resource-with-rollback", "resources", "resources-with-rollback", "snapshot", "watch", "empty-secret-watch", "unknown-type-watch"} {
 			t.Run(fmt.Sprintf("node=%q/%s", nodeID, operation), func(t *testing.T) {
-				c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
+				c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 				ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 				t.Cleanup(cancel)
 				wg := completion.NewWaitGroup(ctx)
@@ -610,7 +610,7 @@ func TestCacheRejectsUnknownNodes(t *testing.T) {
 
 func TestCreateWatchRepublishesDesiredStateAfterClear(t *testing.T) {
 	t.Run("desired-state", func(t *testing.T) {
-		c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
+		c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 		listener := &envoy_config_listener.Listener{Name: "listener"}
 		require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Listener, listener.Name, listener, nil, nil))
 		c.ClearSnapshot("node1")
@@ -636,7 +636,7 @@ func TestCreateWatchRepublishesDesiredStateAfterClear(t *testing.T) {
 }
 
 func TestWithNodeIDsPreservesIndependentNodeState(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1", "node2"), WithNodeIDs("node1"))
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1", "node2"), WithNodeIDs("node1"))
 	for _, nodeID := range []string{"node1", "node2"} {
 		listener := &envoy_config_listener.Listener{Name: nodeID}
 		require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Listener, listener.Name, listener, nil, nil))
@@ -655,7 +655,7 @@ func TestWithNodeIDsPreservesIndependentNodeState(t *testing.T) {
 func TestSetSnapshot_Error(t *testing.T) {
 	mock := newMockSnapshotCache()
 	mock.setSnapshotErr = fmt.Errorf("set snapshot failed")
-	c := newInitializedTestCache(mock)
+	c := newInitializedTestCache(t, mock)
 
 	snap := &cache.Snapshot{}
 	err := c.SetSnapshot(context.Background(), "node1", snap)
@@ -680,7 +680,7 @@ func TestGenerateSnapshotProjectsEndpoints(t *testing.T) {
 		{name: "static", clusterType: envoy_config_cluster.Cluster_STATIC},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 			upserted := xds.Resources{Clusters: map[string]*envoy_config_cluster.Cluster{"cluster1": {
 				Name: "cluster1", ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: tt.clusterType},
 				EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{ServiceName: tt.serviceName},
@@ -713,7 +713,7 @@ func TestGenerateSnapshotProjectsEndpoints(t *testing.T) {
 }
 
 func TestGetResourceByTypeAndName(t *testing.T) {
-	c := newInitializedTestCache(newMockSnapshotCache())
+	c := newInitializedTestCache(t, newMockSnapshotCache())
 	state := c.getNodeState("node1")
 	resources := []struct {
 		typeURL typeurl.Index
@@ -755,7 +755,7 @@ func TestGetResourceByTypeAndName(t *testing.T) {
 }
 
 func TestNetworkPoliciesIterator(t *testing.T) {
-	c := newInitializedTestCache(newMockSnapshotCache())
+	c := newInitializedTestCache(t, newMockSnapshotCache())
 	state := c.getNodeState("node1")
 	policy := &cilium.NetworkPolicy{EndpointId: 1}
 	state.seedResource(typeurl.NetworkPolicy, "policy", policy)
@@ -778,7 +778,7 @@ func TestNetworkPoliciesIterator(t *testing.T) {
 }
 func TestClearSnapshot(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newInitializedTestCache(mock)
+	c := newInitializedTestCache(t, mock)
 	listener := &envoy_config_listener.Listener{Name: "l1"}
 	require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Listener, "l1", listener, nil, nil))
 	c.ClearSnapshot("node1")
@@ -795,7 +795,7 @@ func TestClearSnapshot(t *testing.T) {
 func TestGenerateSnapshotProjectsSharedEDSAssignmentsWithoutChangingDesiredState(t *testing.T) {
 	for _, mode := range []string{"missing", "explicit", "removed"} {
 		t.Run(mode, func(t *testing.T) {
-			c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 			clusters := map[string]*envoy_config_cluster.Cluster{
 				"static": {Name: "static"},
 			}
@@ -834,7 +834,7 @@ func TestGenerateSnapshotProjectsSharedEDSAssignmentsWithoutChangingDesiredState
 func TestGenerateSnapshot_PreservesEndpointNames(t *testing.T) {
 	for _, name := range []string{"service1", "namespace/service1"} {
 		t.Run(name, func(t *testing.T) {
-			c := newInitializedTestCache(newMockSnapshotCache())
+			c := newInitializedTestCache(t, newMockSnapshotCache())
 			state := c.getNodeState("node1")
 			cla := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
 			state.seedResource(typeurl.Endpoint, name, cla)
@@ -863,8 +863,8 @@ func TestGenerateSnapshot_PreservesEndpointNames(t *testing.T) {
 
 func TestNPDSListenerCountTracksCommittedTransitions(t *testing.T) {
 	observer := newTestNPDSListenerObserver("node1")
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)),
-		WithListenerObserver(observer), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)),
+		WithListenerObserver(observer), WithNodeIDs("node1"))
 
 	listenerA := &envoy_config_listener.Listener{Name: "npds-a"}
 	listenerB := &envoy_config_listener.Listener{Name: "npds-b"}
@@ -905,8 +905,8 @@ func TestNPDSListenerCountTracksCommittedTransitions(t *testing.T) {
 
 func TestNetworkPolicyWaitsCompleteWhenLastNPDSListenerIsRemoved(t *testing.T) {
 	observer := newTestNPDSListenerObserver("node1")
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)),
-		WithListenerObserver(observer), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)),
+		WithListenerObserver(observer), WithNodeIDs("node1"))
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 
@@ -1014,7 +1014,7 @@ func TestNetworkPolicyPublicationFollowsWatchAvailability(t *testing.T) {
 }
 
 func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
 	node := &envoy_config_core.Node{Id: "node1"}
@@ -1117,7 +1117,7 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 }
 
 func TestListenerRemovalPreservesUnchangedTypeWatches(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancelContext)
 	node := &envoy_config_core.Node{Id: "node1"}
@@ -1249,7 +1249,7 @@ func TestUpsertNetworkPolicyCompletesCoalescedABAOnCreateWatch(t *testing.T) {
 }
 func TestCreateWatchPublishesEmptyPolicySnapshotForKnownNode(t *testing.T) {
 	nodeID := "node-without-resources"
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs(nodeID)).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs(nodeID))
 	request := &cache.Request{
 		Node:        &envoy_config_core.Node{Id: nodeID},
 		TypeUrl:     typeurl.NetworkPolicyURL,
@@ -1304,7 +1304,7 @@ func TestCreateWatchPublishesEmptyPolicySnapshotForKnownNode(t *testing.T) {
 
 func TestCreateWatchForUnknownTypeURLBypassesCiliumTracking(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newInitializedTestCache(mock)
+	c := newInitializedTestCache(t, mock)
 	request := &cache.Request{
 		Node:    &envoy_config_core.Node{Id: "node1"},
 		TypeUrl: "type.googleapis.com/example.Unknown",
@@ -1335,7 +1335,7 @@ func TestApplyResourceValidatesTypeURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+			c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 			rollback, err := c.ApplyResourceWithRollback(t.Context(), "node1", tt.typeURL, "resource", tt.resource, nil, nil)
 			require.Error(t, err)
 			require.Nil(t, rollback)
@@ -1347,7 +1347,7 @@ func TestApplyResourceValidatesTypeURL(t *testing.T) {
 func TestApplyResourceSupportsAllResourceTypes(t *testing.T) {
 	for _, tt := range testResourceTypes() {
 		t.Run(tt.typeURL.URL(), func(t *testing.T) {
-			c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+			c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 			err := c.ApplyResource(t.Context(), "node1", tt.typeURL, "resource", tt.resource, nil, nil)
 			require.NoError(t, err)
 			actual := c.GetResource("node1", tt.typeURL, "resource")
@@ -1416,7 +1416,7 @@ func TestCacheRejectsEmptyResourceNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+			c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 			rollback, err := tt.apply(c)
 			require.ErrorContains(t, err, "resource name must not be empty")
 			require.Nil(t, rollback)
@@ -1427,7 +1427,7 @@ func TestCacheRejectsEmptyResourceNames(t *testing.T) {
 
 func TestCreateWatch_DelegatesToSnapshotCache(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newInitializedTestCache(mock)
+	c := newInitializedTestCache(t, mock)
 
 	respChan := make(chan cache.Response, 1)
 	cancel, err := c.CreateWatch(&cache.Request{Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: envoy_resource.ListenerType}, nil, respChan)
@@ -1442,7 +1442,7 @@ func TestCreateWatchPublishesKnownNodeState(t *testing.T) {
 		t.Run(fmt.Sprintf("client-version=%q", clientVersion), func(t *testing.T) {
 			logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 			const nodeID = "node-without-resources"
-			c := NewCache(logger, WithNodeIDs(nodeID)).(*cacheImpl)
+			c := newCache(logger, WithNodeIDs(nodeID))
 			node := &envoy_config_core.Node{Id: nodeID}
 			subscription := stream.NewSotwSubscription(nil, true)
 			responses := make(chan cache.Response, 1)
@@ -1484,7 +1484,7 @@ func TestCreateWatchPublishesKnownNodeState(t *testing.T) {
 
 func TestFirstWatchPublishesDesiredResourcesOfOtherTypes(t *testing.T) {
 	const nodeID = "node-with-policy"
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID)).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID))
 	policy := &cilium.NetworkPolicy{EndpointId: 1}
 	require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.NetworkPolicy, "policy", policy, nil, nil))
 	_, err := c.GetSnapshot(nodeID)
@@ -1518,7 +1518,7 @@ func TestFirstWatchPublishesDesiredResourcesOfOtherTypes(t *testing.T) {
 func TestCreateWatchPreservesExistingNonemptySnapshot(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	const nodeID = "node-with-listener"
-	c := NewCache(logger, WithNodeIDs(nodeID)).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs(nodeID))
 	listener := &envoy_config_listener.Listener{Name: "listener"}
 	err := c.ApplyResource(t.Context(), nodeID, typeurl.Listener, listener.Name, listener, nil, nil)
 	require.NoError(t, err)
@@ -1560,7 +1560,7 @@ func TestCreateWatchInitialSnapshotPublicationError(t *testing.T) {
 			mock := newMockSnapshotCache()
 			mock.setSnapshotErr = errors.New("response delivery failed")
 			mock.storeSnapshotBeforeError = stored
-			c := newInitializedTestCache(mock)
+			c := newInitializedTestCache(t, mock)
 			request := &cache.Request{
 				Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: envoy_resource.ListenerType,
 			}
@@ -1579,7 +1579,7 @@ func TestCreateWatchInitialSnapshotPublicationError(t *testing.T) {
 }
 
 func TestWithNodeIDsIgnoresEmptyID(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("", "node1", "node1"))
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("", "node1", "node1"))
 	require.False(t, c.HasNode(""))
 	require.True(t, c.HasNode("node1"))
 	_, err := c.GetSnapshot("node1")
@@ -1588,7 +1588,7 @@ func TestWithNodeIDsIgnoresEmptyID(t *testing.T) {
 
 func TestCreateWatchRejectsNilRequest(t *testing.T) {
 	mock := newMockSnapshotCache()
-	c := newInitializedTestCache(mock)
+	c := newInitializedTestCache(t, mock)
 	cancel, err := c.CreateWatch(nil, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
 	require.ErrorContains(t, err, "nil xDS request")
 	require.Nil(t, cancel)
@@ -1720,7 +1720,7 @@ func TestCreateWatchPreservesWildcardSubscriptions(t *testing.T) {
 }
 
 func TestCreateWatchWildcardNormalizationPreservesRequestFields(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Listener, "listener", &envoy_config_listener.Listener{Name: "listener"}, nil, nil))
 	request := &cache.Request{
 		VersionInfo:   "client-version",
@@ -1754,7 +1754,7 @@ func TestCreateWatchWildcardNormalizationPreservesRequestFields(t *testing.T) {
 }
 
 func TestSetAndGetSnapshotRoundTrip(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Listener, "l1", &envoy_config_listener.Listener{Name: "l1"})
 	state.seedResource(typeurl.Cluster, "c1", &envoy_config_cluster.Cluster{Name: "c1"})
@@ -1817,7 +1817,7 @@ func TestUntrackedPublicationPreservesEarlierUpdate(t *testing.T) {
 			c := newCoverageCache(t)
 			mock := newMockSnapshotCache()
 			if !test.pendingRemoval {
-				c.SnapshotCache = mock
+				c.replaceSnapshotCache(t, mock)
 			}
 			const nodeID = "coverage-node"
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -1851,11 +1851,9 @@ func TestUntrackedPublicationPreservesEarlierUpdate(t *testing.T) {
 				requestSnapshotForTest(t, c, nodeID, index)
 			}
 			previous := mustSnapshot(t, c, nodeID)
-			backend := c.SnapshotCache
 			mock.snapshots[nodeID] = previous
 			mock.storeSnapshotBeforeError = test.installed
-			c.SnapshotCache = mock
-			t.Cleanup(func() { c.SnapshotCache = backend })
+			restore := c.replaceSnapshotCache(t, mock)
 			// Keep an outstanding watch across the failed publication while
 			// preserving the earlier recovery state.
 			cancelWatch, err := c.CreateWatch(&cache.Request{
@@ -1889,7 +1887,7 @@ func TestUntrackedPublicationPreservesEarlierUpdate(t *testing.T) {
 			}
 			if test.pendingRemoval {
 				require.Nil(t, c.GetResource(nodeID, index, "resource"))
-				c.SnapshotCache = backend
+				restore()
 				response := s.receive(t)
 				require.Empty(t, response.Resources)
 				s.reply(t, response, "Cluster removal rejected")
@@ -1912,7 +1910,7 @@ func TestUntrackedPublicationPreservesEarlierUpdate(t *testing.T) {
 
 func TestGenerateSnapshotNewEDSClusterSharingEndpointBumpsVersion(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Endpoint, "backend", &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "backend"})
 	state.seedResource(typeurl.Cluster, "cluster1", &envoy_config_cluster.Cluster{
@@ -1942,7 +1940,7 @@ func TestGenerateSnapshotNewEDSClusterSharingEndpointBumpsVersion(t *testing.T) 
 
 func TestGenerateSnapshotNewQualifiedEDSClusterSharingEndpointBumpsVersion(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Endpoint, "backend", &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "backend"})
 	state.seedResource(typeurl.Cluster, "cec-a/shared-cluster", &envoy_config_cluster.Cluster{
@@ -1970,7 +1968,7 @@ func TestGenerateSnapshotNewQualifiedEDSClusterSharingEndpointBumpsVersion(t *te
 }
 
 func TestGenerateSnapshotExistingClusterUpdateBumpsEndpointVersion(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	state := &nodeState{epoch: 1, resourceGeneration: 10}
 	state.seedResourceAtGeneration(typeurl.Endpoint, "backend", &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "backend"}, 9)
 	state.seedResourceAtGeneration(typeurl.Endpoint, "unrelated", &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "unrelated"}, 9)
@@ -2001,7 +1999,7 @@ func TestGenerateSnapshotExistingClusterUpdateBumpsEndpointVersion(t *testing.T)
 }
 
 func TestGenerateSnapshotRemovedClusterDoesNotBumpEndpointVersion(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Endpoint, "backend", &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "backend"})
 	for _, name := range []string{"cluster1", "cluster2"} {
@@ -2021,7 +2019,7 @@ func TestGenerateSnapshotRemovedClusterDoesNotBumpEndpointVersion(t *testing.T) 
 
 func TestGenerateSnapshotNewRDSListenerDoesNotBumpRouteVersion(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Route, "route1", &envoy_config_route.RouteConfiguration{Name: "route1"})
 
@@ -2051,7 +2049,7 @@ func TestGenerateSnapshotNewRDSListenerDoesNotBumpRouteVersion(t *testing.T) {
 }
 
 func TestGenerateSnapshotExistingListenerUpdateKeepsReferencedRouteVersions(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	state := &nodeState{epoch: 1, resourceGeneration: 10}
 	state.seedResourceAtGeneration(typeurl.Route, "route1", &envoy_config_route.RouteConfiguration{Name: "route1"}, 9)
 	state.seedResourceAtGeneration(typeurl.Route, "unrelated", &envoy_config_route.RouteConfiguration{Name: "unrelated"}, 9)
@@ -2083,7 +2081,7 @@ func TestParentReplacementReplaysOnlyEndpointWatches(t *testing.T) {
 	for _, parent := range []typeurl.Index{typeurl.Cluster, typeurl.Listener} {
 		t.Run(parent.URL(), func(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
-			c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+			c := newCache(logger, WithNodeIDs("node1"))
 			const nodeID = "node1"
 			node := &envoy_config_core.Node{Id: nodeID}
 			const childName = "child"
@@ -2174,7 +2172,7 @@ func TestParentReplacementReplaysOnlyEndpointWatches(t *testing.T) {
 
 func TestNewClusterSharingEndpointReplaysWatches(t *testing.T) {
 	logger := slog.New(slog.DiscardHandler)
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	const nodeID = "node1"
 	const endpointName = "shared-endpoint"
 	node := &envoy_config_core.Node{Id: nodeID}
@@ -2258,7 +2256,7 @@ func TestDeliverResponsesOrdersADSParentBeforeChild(t *testing.T) {
 
 func TestGenerateSnapshotNewSDSListenerDoesNotBumpSecretVersion(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Secret, "secret1", &envoy_config_tls.Secret{Name: "secret1"})
 
@@ -2291,7 +2289,7 @@ func TestGenerateSnapshotNewSDSListenerDoesNotBumpSecretVersion(t *testing.T) {
 
 func TestGenerateSnapshotNewTCPProxyListenerDoesNotBumpClusterVersion(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Cluster, "cluster1", &envoy_config_cluster.Cluster{Name: "cluster1"})
 
@@ -2320,7 +2318,7 @@ func TestGenerateSnapshotNewTCPProxyListenerDoesNotBumpClusterVersion(t *testing
 
 func TestGenerateSnapshotIncrementallyAdvancesGenerationAcrossABA(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(logger, WithNodeIDs("node1"))
 	policyA := &cilium.NetworkPolicy{EndpointId: 1}
 	state := &nodeState{}
 	state.seedResource(typeurl.NetworkPolicy, "np1", policyA)
@@ -2343,7 +2341,7 @@ func TestGenerateSnapshotIncrementallyAdvancesGenerationAcrossABA(t *testing.T) 
 }
 
 func TestCiliumSnapshotIndexedResourcesWithoutDeltaVersions(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	state := &nodeState{}
 	policy := &cilium.NetworkPolicy{EndpointId: 1}
 	state.seedResource(typeurl.NetworkPolicy, "np1", policy)
@@ -2361,7 +2359,7 @@ func TestCiliumSnapshotIndexedResourcesWithoutDeltaVersions(t *testing.T) {
 }
 
 func TestGenerateSnapshotProjectionPreservesDesiredResources(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	state := &nodeState{}
 	state.seedResource(typeurl.Listener, "listener", &envoy_config_listener.Listener{Name: "listener"})
 	state.seedResource(typeurl.Route, "route", &envoy_config_route.RouteConfiguration{Name: "route"})
@@ -2392,7 +2390,7 @@ func TestGenerateSnapshotProjectionPreservesDesiredResources(t *testing.T) {
 }
 
 func TestSnapshotDefersResourceEncodingToResponse(t *testing.T) {
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	const nodeID = "node1"
 	// Protobuf binary encoding rejects invalid UTF-8. Generation-based
 	// versions let cache mutation and snapshot finalization succeed without
@@ -2423,7 +2421,7 @@ func TestSnapshotVersions(t *testing.T) {
 		{"contents-do-not-define-version", 1, 2, "other", "e1:g2"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1")).(*cacheImpl)
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 			state := &nodeState{epoch: tt.epoch}
 			state.seedResourceAtGeneration(typeurl.Listener, tt.listenerName,
 				&envoy_config_listener.Listener{Name: tt.listenerName}, tt.generation)
@@ -2437,7 +2435,7 @@ func TestSnapshotVersions(t *testing.T) {
 }
 
 func TestCreateWatchSelectsEpochForNodeAndTypeURL(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	policy := &cilium.NetworkPolicy{EndpointId: 1}
 	err := c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", policy, nil, nil)
 	require.NoError(t, err)
@@ -2465,7 +2463,7 @@ func TestCreateWatchSelectsEpochForNodeAndTypeURL(t *testing.T) {
 }
 
 func TestCreateWatchRotatesNodeEpochForMixedTypeURLHistory(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	resources := xds.NewResources()
 	resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster"}
 	resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
@@ -2536,7 +2534,7 @@ func TestCreateWatchRotatesNodeEpochForMixedTypeURLHistory(t *testing.T) {
 }
 
 func TestNodeEpochSurvivesStreamGapWithDesiredState(t *testing.T) {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1")).(*cacheImpl)
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	node := &envoy_config_core.Node{Id: "node1"}
 	err := c.ApplyResource(t.Context(), node.GetId(), typeurl.NetworkPolicy, "policy",
 		&cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
@@ -2632,7 +2630,7 @@ func (c *cacheImpl) setTestNodeEpochs(nodeID string, epoch uint64) {
 
 func TestEmptyKnownNodePreservesEpochAcrossStreamGap(t *testing.T) {
 	const nodeID = "node1"
-	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID)).(*cacheImpl)
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID))
 	node := &envoy_config_core.Node{Id: nodeID}
 	request := &discovery.DiscoveryRequest{Node: node, TypeUrl: typeurl.NetworkPolicyURL}
 	require.NoError(t, c.completionCbs.OnStreamOpen(t.Context(), 1, ""))

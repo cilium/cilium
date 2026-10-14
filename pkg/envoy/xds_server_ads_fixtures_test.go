@@ -111,7 +111,7 @@ func createADSWatchResponse(t *testing.T, cache xdsnew.Cache, typeURL, version s
 		VersionInfo: version,
 	}
 	responses := make(chan xds_cache.Response, 1)
-	cancel, err := cache.CreateWatch(request, envoy_stream.NewSotwSubscription(nil, true), responses)
+	cancel, err := cache.GetSnapshotCache().CreateWatch(request, envoy_stream.NewSotwSubscription(nil, true), responses)
 	require.NoError(t, err)
 	t.Cleanup(cancel)
 	select {
