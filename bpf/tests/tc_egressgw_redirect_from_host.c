@@ -11,7 +11,6 @@
 #define ENABLE_NODEPORT			1
 #define ENABLE_EGRESS_GATEWAY		1
 #define ENABLE_MASQUERADE_IPV4		1
-#define ENABLE_MASQUERADE_IPV6		1
 #define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX 0
 
@@ -27,6 +26,8 @@ mock_fib_lookup(void *ctx __maybe_unused,
 		int plen __maybe_unused, __u32 flags __maybe_unused);
 
 #include "lib/bpf_host.h"
+
+ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 
 #include "lib/egressgw.h"
 #include "lib/endpoint.h"

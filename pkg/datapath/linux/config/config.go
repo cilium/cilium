@@ -253,9 +253,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		if option.Config.EnableIPv4Masquerade {
 			cDefinesMap["ENABLE_MASQUERADE_IPV4"] = "1"
 		}
-		if option.Config.EnableIPv6Masquerade {
-			cDefinesMap["ENABLE_MASQUERADE_IPV6"] = "1"
-		}
 	}
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---

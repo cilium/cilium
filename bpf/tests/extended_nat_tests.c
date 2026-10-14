@@ -9,7 +9,6 @@
 #define ENABLE_IPV6
 #define ENABLE_NODEPORT
 #define ENABLE_MASQUERADE_IPV4
-#define ENABLE_MASQUERADE_IPV6
 #define SECLABEL 1
 #include <bpf/config/global.h>
 
@@ -17,6 +16,7 @@
 
 ASSIGN_CONFIG(__u16, nodeport_port_min_nat_ext, 1024)
 ASSIGN_CONFIG(__u16, nodeport_port_max_nat_ext, 29999)
+ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 
 #include <lib/nat.h>
 #include <lib/nodeport.h>

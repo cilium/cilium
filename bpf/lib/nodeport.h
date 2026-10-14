@@ -1649,7 +1649,7 @@ skip_service_lookup:
 	}
 #endif
 
-	if (is_defined(ENABLE_MASQUERADE_IPV6) || is_svc_proto) {
+	if (CONFIG(enable_masquerade_ipv6) || is_svc_proto) {
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
 		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS,

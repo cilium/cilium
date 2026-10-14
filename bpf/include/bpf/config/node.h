@@ -189,6 +189,8 @@ NODE_CONFIG(bool, enable_ip_masq_agent_ipv4, "Enable ip-masq-agent for IPv4 traf
 
 NODE_CONFIG(bool, enable_ip_masq_agent_ipv6, "Enable ip-masq-agent for IPv6 traffic")
 
+NODE_CONFIG(bool, enable_masquerade_ipv6, "Masquerade IPv6 traffic")
+
 NODE_CONFIG(bool, debug, "Enable debugging trace statements")
 
 struct dsr_config {

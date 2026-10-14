@@ -82,9 +82,8 @@ static __always_inline int nodeport_snat_fwd_ipv6(struct __ctx_buff *ctx,
 	    nodeport_has_nat_conflict_ipv6(ctx, ip6, &args->target))
 		goto apply_snat;
 
-#if defined(ENABLE_MASQUERADE_IPV6) && defined(IS_BPF_HOST)
-	ret = snat_v6_needs_masquerade(ctx, fraginfo, l4_off);
-#endif /* ENABLE_MASQUERADE_IPV6 && IS_BPF_HOST */
+	if (is_defined(IS_BPF_HOST) && CONFIG(enable_masquerade_ipv6))
+		ret = snat_v6_needs_masquerade(ctx, fraginfo, l4_off);
 	if (IS_ERR(ret))
 		goto out;
 
@@ -243,7 +242,7 @@ __handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 src_id __maybe_unused,
 		return ret;
 
 	if (!CONFIG(dsr_cfg).enable || CONFIG(dsr_cfg).enable_by_user ||
-	    is_defined(ENABLE_MASQUERADE_IPV6)) {
+	    CONFIG(enable_masquerade_ipv6)) {
 		if (!snat_done) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, src_id);
 			ret = tail_call_internal(ctx,

@@ -11,7 +11,6 @@
 #define ENABLE_NODEPORT
 #define ENABLE_EGRESS_GATEWAY		1
 #define ENABLE_MASQUERADE_IPV4		1
-#define ENABLE_MASQUERADE_IPV6		1
 #define ENCAP_IFINDEX	42
 #define IFACE_IFINDEX	44
 
@@ -38,6 +37,8 @@ static int mock_skb_get_tunnel_key(__maybe_unused struct __sk_buff *skb,
 }
 
 #include "lib/bpf_overlay.h"
+
+ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"
