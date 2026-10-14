@@ -743,6 +743,9 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
 ) []model.HTTPRoute {
+	input = slices.Clone(input)
+	sortRoutesByAge(input, func(r gatewayv1.GRPCRoute) metav1.ObjectMeta { return r.ObjectMeta })
+
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
 		if !parentRefsMatchListener(r.Spec.ParentRefs, listener) {
@@ -950,17 +953,14 @@ func parentRefsMatchListener(parentRefs []gatewayv1.ParentReference, listener ga
 }
 
 // sortRoutesByAge orders routes oldest-first by creation timestamp, tie-broken
-// by namespace then name, so providing deterministic ordering for HTTP and L4 routes.
+// by the full namespace/name, providing deterministic ordering for HTTP, gRPC and L4 routes.
 func sortRoutesByAge[T any](routes []T, meta func(T) metav1.ObjectMeta) {
 	slices.SortStableFunc(routes, func(a, b T) int {
 		ma, mb := meta(a), meta(b)
 		if c := ma.CreationTimestamp.Time.Compare(mb.CreationTimestamp.Time); c != 0 {
 			return c
 		}
-		if c := cmp.Compare(ma.Namespace, mb.Namespace); c != 0 {
-			return c
-		}
-		return cmp.Compare(ma.Name, mb.Name)
+		return cmp.Compare(ma.Namespace+"/"+ma.Name, mb.Namespace+"/"+mb.Name)
 	})
 }
 

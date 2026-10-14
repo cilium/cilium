@@ -6,6 +6,7 @@ package ingestion
 import (
 	"fmt"
 	"log/slog"
+	"slices"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -691,7 +692,8 @@ func TestTLSGatewayAPI(t *testing.T) {
 
 func TestGRPCGatewayAPI(t *testing.T) {
 	tests := map[string]struct{}{
-		"basic grpc": {},
+		"basic grpc":          {},
+		"grpc route ordering": {},
 	}
 
 	for name := range tests {
@@ -705,6 +707,41 @@ func TestGRPCGatewayAPI(t *testing.T) {
 			expected := []model.HTTPListener{}
 			readOutput(t, fmt.Sprintf("%s/%s/%s", basedGatewayTestdataDir, rewriteTestName(name), "output-listeners.yaml"), &expected)
 			assert.Equal(t, toYaml(t, expected), toYaml(t, m.HTTP), "Listeners did not match")
+
+			slices.Reverse(input.GRPCRoutes)
+			m = GatewayAPI(logger, input)
+			assert.Equal(t, toYaml(t, expected), toYaml(t, m.HTTP), "Listeners changed after reversing routes")
+		})
+	}
+}
+
+func TestSortRoutesByAge(t *testing.T) {
+	routes := []metav1.ObjectMeta{
+		{Namespace: "app", Name: "route", CreationTimestamp: metav1.Unix(1, 0)},
+		{Namespace: "app-prod", Name: "route-z", CreationTimestamp: metav1.Unix(1, 0)},
+		{Namespace: "app-prod", Name: "route-a", CreationTimestamp: metav1.Unix(1, 0)},
+		{Namespace: "aaa", Name: "route", CreationTimestamp: metav1.Unix(2, 0)},
+		{Namespace: "zzz", Name: "route", CreationTimestamp: metav1.Unix(0, 0)},
+	}
+	for _, reverse := range []bool{false, true} {
+		t.Run(fmt.Sprintf("reverse=%t", reverse), func(t *testing.T) {
+			input := slices.Clone(routes)
+			if reverse {
+				slices.Reverse(input)
+			}
+			sortRoutesByAge(input, func(r metav1.ObjectMeta) metav1.ObjectMeta { return r })
+
+			var names []string
+			for _, route := range input {
+				names = append(names, route.Namespace+"/"+route.Name)
+			}
+			assert.Equal(t, []string{
+				"zzz/route",
+				"app-prod/route-a",
+				"app-prod/route-z",
+				"app/route",
+				"aaa/route",
+			}, names)
 		})
 	}
 }
