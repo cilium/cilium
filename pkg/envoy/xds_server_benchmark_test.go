@@ -706,7 +706,7 @@ func (s *benchmarkObservedXDSServer) waitForNetworkPolicies(ctx context.Context,
 type benchmarkXDSBackend struct {
 	server          xds.XDSServer
 	serverStats     *benchmarkObservedXDSServer
-	networkPolicies func() []*cilium.NetworkPolicy
+	networkPolicies func([]string) []*cilium.NetworkPolicy
 	startEnvoy      func(*testing.B) benchmarkEnvoy
 }
 
@@ -728,9 +728,12 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 		server.l7RulesTranslator = translator
 		backend = benchmarkXDSBackend{
 			server: server,
-			networkPolicies: func() []*cilium.NetworkPolicy {
-				var policies []*cilium.NetworkPolicy
-				for _, networkPolicy := range xdsCache.NetworkPolicies(localNodeID) {
+			networkPolicies: func(resourceNames []string) []*cilium.NetworkPolicy {
+				policies := make([]*cilium.NetworkPolicy, 0, len(resourceNames))
+				for _, name := range resourceNames {
+					resource := xdsCache.GetResource(localNodeID, typeurl.NetworkPolicy, name)
+					networkPolicy, ok := resource.(*cilium.NetworkPolicy)
+					require.True(b, ok, "missing network policy %s", name)
 					policies = append(policies, networkPolicy)
 				}
 				return policies
@@ -746,8 +749,8 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 		require.True(b, ok)
 		backend = benchmarkXDSBackend{
 			server: server,
-			networkPolicies: func() []*cilium.NetworkPolicy {
-				resources := server.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
+			networkPolicies: func(resourceNames []string) []*cilium.NetworkPolicy {
+				resources := server.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, resourceNames)
 				if resources == nil {
 					return nil
 				}
@@ -903,6 +906,7 @@ func newIdentityUpdateBenchmark(b *testing.B, mode envoyconfig.XDSMode) *identit
 		kvstore.SetupDummy(b, kvstore.DisabledBackendName),
 	)
 	localIdentity := identity.NewIdentityFromLabelArray(9_001, labels.ParseLabelArray("k8s:bar"))
+	var resourceNames []string
 	for i := range benchmarkEndpointCount {
 		state := models.EndpointState(endpoint.StateWaitingForIdentity)
 		model := &models.EndpointChangeRequest{
@@ -930,6 +934,7 @@ func newIdentityUpdateBenchmark(b *testing.B, mode envoyconfig.XDSMode) *identit
 		ep.SetIdentity(localIdentity)
 		require.NoError(b, manager.AddEndpoint(ep))
 		b.Cleanup(ep.Stop)
+		resourceNames = append(resourceNames, strconv.FormatUint(ep.GetID(), 10))
 
 		success := <-ep.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
 			Reason:            regeneration.ReasonPolicyUpdate,
@@ -938,7 +943,7 @@ func newIdentityUpdateBenchmark(b *testing.B, mode envoyconfig.XDSMode) *identit
 		require.True(b, success)
 	}
 
-	policies := backend.networkPolicies()
+	policies := backend.networkPolicies(resourceNames)
 	require.Len(b, policies, benchmarkEndpointCount)
 	for _, networkPolicy := range policies {
 		require.Len(b, networkPolicy.EgressPerPortPolicies, 1)
@@ -950,7 +955,7 @@ func newIdentityUpdateBenchmark(b *testing.B, mode envoyconfig.XDSMode) *identit
 		serverStats:     backend.serverStats,
 		envoy:           benchmarkEnvoy,
 		updater:         updater,
-		networkPolicies: backend.networkPolicies,
+		networkPolicies: func() []*cilium.NetworkPolicy { return backend.networkPolicies(resourceNames) },
 	}
 }
 
