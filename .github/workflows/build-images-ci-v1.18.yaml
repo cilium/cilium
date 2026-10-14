@@ -39,7 +39,7 @@ jobs:
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
     permissions:
       contents: read
       actions: read
@@ -456,7 +456,7 @@ jobs:
   image-digests:
     if: ${{ always() }}
     name: Display Digests
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     needs: build-and-push-prs
     steps:
       - name: Downloading Image Digests
@@ -494,7 +494,7 @@ jobs:
     # Avoid running the "Trigger CI from renovate PRs" environment if we don't need to.
     name: Pre-Comment
     needs: build-and-push-prs
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     if: ${{
          github.event_name == 'pull_request_target' &&
          github.event.pull_request.user.login == vars.RENOVATE_BOT_USERNAME
@@ -507,7 +507,7 @@ jobs:
 
   comment:
     name: Post test comment for Renovate PRs after images built
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     needs: pre-comment
     environment:
       name: "Trigger CI from renovate PRs"

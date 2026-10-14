@@ -25,7 +25,7 @@ concurrency:
 jobs:
   build-and-push:
     name: Build and Push Image
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -139,7 +139,7 @@ jobs:
     name: Prepare docs-builder image reference update
     needs: build-and-push
     if: needs.build-and-push.outputs.digest
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout base branch (trusted)
@@ -191,7 +191,7 @@ jobs:
   push-update:
     name: Push docs-builder image reference update
     needs: [build-and-push, prepare-update]
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment:
       name: docs-builder
@@ -237,7 +237,7 @@ jobs:
     name: Retrieve and display image digest
     needs: build-and-push
     if: needs.build-and-push.outputs.digest
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - name: Checkout base branch (trusted)
