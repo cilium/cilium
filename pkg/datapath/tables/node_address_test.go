@@ -300,6 +300,59 @@ var nodeAddressTests = []struct {
 			netip.MustParseAddr("2600:beef::1"),
 		},
 	},
+
+	{
+		name: "ipv4 link-local on a regular device is used for nodeport",
+		addrs: []DeviceAddress{
+			{
+				Addr:  netip.MustParseAddr("192.168.1.1"), // private
+				Scope: RT_SCOPE_UNIVERSE,
+			},
+			{
+				Addr:  netip.MustParseAddr("169.254.0.5"), // link-local, sorts before 192.168.1.1
+				Scope: RT_SCOPE_UNIVERSE,
+			},
+		},
+		wantAddrs: []netip.Addr{
+			ciliumHostIP,
+			ciliumHostIPLinkScoped,
+			netip.MustParseAddr("192.168.1.1"),
+			netip.MustParseAddr("169.254.0.5"),
+		},
+		wantPrimary: []netip.Addr{
+			ciliumHostIP,
+			netip.MustParseAddr("169.254.0.5"),
+		},
+		wantNodePort: []netip.Addr{
+			netip.MustParseAddr("169.254.0.5"),
+		},
+	},
+
+	{
+		name: "skip host scoped addresses for nodeport",
+		addrs: []DeviceAddress{
+			{
+				Addr:  netip.MustParseAddr("10.0.0.1"),
+				Scope: RT_SCOPE_HOST,
+			},
+			{
+				Addr:  netip.MustParseAddr("fd00::1"),
+				Scope: RT_SCOPE_HOST,
+			},
+		},
+		wantAddrs: []netip.Addr{
+			ciliumHostIP,
+			ciliumHostIPLinkScoped,
+			netip.MustParseAddr("10.0.0.1"),
+			netip.MustParseAddr("fd00::1"),
+		},
+		wantPrimary: []netip.Addr{
+			ciliumHostIP,
+			netip.MustParseAddr("10.0.0.1"),
+			netip.MustParseAddr("fd00::1"),
+		},
+		wantNodePort: []netip.Addr{},
+	},
 }
 
 func TestNodeAddress(t *testing.T) {
@@ -484,6 +537,46 @@ func TestNodeAddressLoopback(t *testing.T) {
 		assert.True(t, addrs[3].Primary)
 		assert.True(t, addrs[3].NodePort)
 
+	}
+}
+
+// TestNodeAddressLoopbackHostScope tests that a host scoped address on the
+// loopback device, such as the GKE metadata server address 169.254.169.252,
+// is a node address but is not used for NodePort.
+func TestNodeAddressLoopbackHostScope(t *testing.T) {
+	t.Parallel()
+
+	db, devices, nodeAddrs, _ := fixture(t, defaults.AddressScopeMax, nil)
+
+	txn := db.WriteTxn(devices)
+	_, watch := nodeAddrs.AllWatch(txn)
+
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "lo",
+		Flags: net.FlagUp | net.FlagLoopback,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("127.0.0.1"), Scope: RT_SCOPE_HOST},
+			{Addr: netip.MustParseAddr("169.254.169.252"), Scope: RT_SCOPE_HOST},
+			{Addr: netip.MustParseAddr("::1"), Scope: RT_SCOPE_HOST},
+		},
+		Selected: false,
+	})
+
+	txn.Commit()
+	<-watch // wait for propagation
+
+	addr, _, found := nodeAddrs.Get(db.ReadTxn(), NodeAddressByKey(NodeAddressKey{
+		Addr:       netip.MustParseAddr("169.254.169.252"),
+		DeviceName: "lo",
+	}))
+	if assert.True(t, found, "expected 169.254.169.252 as a node address of lo") {
+		assert.True(t, addr.Primary)
+		assert.False(t, addr.NodePort)
+	}
+
+	for addr := range nodeAddrs.All(db.ReadTxn()) {
+		assert.False(t, addr.NodePort, "unexpected NodePort address %s on %s", addr.Addr, addr.DeviceName)
 	}
 }
 
