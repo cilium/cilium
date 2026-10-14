@@ -195,7 +195,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: go-cache
         with:
-          path: /tmp/.cache/go
+          path: ${{ runner.temp }}/.cache/go
           key: ${{ runner.os }}-go-unit-tests-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-unit-tests-cache-
@@ -206,8 +206,8 @@ jobs:
         if: ${{ matrix.focus == 'privileged' }}
         shell: bash
         env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
+          GOCACHE: "${{ runner.temp }}/.cache/go/.cache/go-build"
+          GOMODCACHE: "${{ runner.temp }}/.cache/go/pkg"
         run: |
           mkdir -p "${GOCACHE}" "${GOMODCACHE}"
           delivered=true
@@ -218,7 +218,7 @@ jobs:
             fi
           done
           # The restored tree, so that a key holding the wrong layout names itself.
-          [ "${delivered}" = true ] || find /tmp/.cache/go -maxdepth 3 | head -50
+          [ "${delivered}" = true ] || find "${RUNNER_TEMP}/.cache/go" -maxdepth 3 | head -50
           echo "delivered=${delivered}" >> "$GITHUB_OUTPUT"
 
       - name: Login to docker registry for CI image pull
@@ -321,8 +321,8 @@ jobs:
       - name: Move Go cache to local directories
         if: ${{ steps.deliver-go-cache.outputs.delivered != 'true' && matrix.focus == 'privileged' }}
         env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
+          GOCACHE: "${{ runner.temp }}/.cache/go/.cache/go-build"
+          GOMODCACHE: "${{ runner.temp }}/.cache/go/pkg"
         run: |
           # Both are directories, so the tarballs keep their names inside them.
           mkdir -p "${GOCACHE}" "${GOMODCACHE}"
