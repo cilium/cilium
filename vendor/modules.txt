@@ -302,8 +302,8 @@ github.com/cilium/linters/slowg
 # github.com/cilium/lumberjack/v2 v2.4.2
 ## explicit; go 1.13
 github.com/cilium/lumberjack/v2
-# github.com/cilium/proxy v0.0.0-20260701124752-9c14fdc485a1
-## explicit; go 1.25.0
+# github.com/cilium/proxy v0.0.0-20261013144621-d4ab8e96d4e0
+## explicit; go 1.26.4
 github.com/cilium/proxy/go/cilium/api
 # github.com/cilium/statedb v0.8.4
 ## explicit; go 1.25.0
@@ -1168,8 +1168,8 @@ github.com/petermattis/goid
 # github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 ## explicit; go 1.14
 github.com/pkg/browser
-# github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10
-## explicit; go 1.20
+# github.com/planetscale/vtprotobuf v0.6.1-0.20260702190614-8ae5a48058df
+## explicit; go 1.26.4
 github.com/planetscale/vtprotobuf/protohelpers
 github.com/planetscale/vtprotobuf/types/known/anypb
 github.com/planetscale/vtprotobuf/types/known/durationpb
@@ -1222,8 +1222,8 @@ github.com/segmentio/fasthash/fnv1a
 # github.com/sergi/go-diff v1.4.0
 ## explicit; go 1.13
 github.com/sergi/go-diff/diffmatchpatch
-# github.com/sirupsen/logrus v1.9.4
-## explicit; go 1.17
+# github.com/sirupsen/logrus v1.10.2
+## explicit; go 1.23
 github.com/sirupsen/logrus
 # github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8
 ## explicit; go 1.20
@@ -1277,10 +1277,12 @@ github.com/spiffe/go-spiffe/v2/workloadapi
 github.com/spiffe/spire-api-sdk/proto/spire/api/agent/delegatedidentity/v1
 github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1
 github.com/spiffe/spire-api-sdk/proto/spire/api/types
-# github.com/stretchr/testify v1.11.1
+# github.com/stretchr/testify v1.12.1
 ## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/assert/yaml
+github.com/stretchr/testify/internal/difflib
+github.com/stretchr/testify/internal/spew
 github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.6.0
 ## explicit; go 1.18
@@ -1358,8 +1360,6 @@ go.opencensus.io/trace/tracestate
 ## explicit; go 1.24.0
 go.opentelemetry.io/auto/sdk
 go.opentelemetry.io/auto/sdk/internal/telemetry
-# go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0
-## explicit; go 1.25.0
 # go.opentelemetry.io/otel v1.45.0
 ## explicit; go 1.25.0
 go.opentelemetry.io/otel
@@ -1381,8 +1381,6 @@ go.opentelemetry.io/otel/semconv/v1.43.0
 go.opentelemetry.io/otel/metric
 go.opentelemetry.io/otel/metric/embedded
 # go.opentelemetry.io/otel/sdk v1.45.0
-## explicit; go 1.25.0
-# go.opentelemetry.io/otel/sdk/metric v1.45.0
 ## explicit; go 1.25.0
 # go.opentelemetry.io/otel/trace v1.45.0
 ## explicit; go 1.25.0
@@ -1424,7 +1422,7 @@ go.uber.org/zap/zapgrpc
 # go.yaml.in/yaml/v2 v2.4.4
 ## explicit; go 1.15
 go.yaml.in/yaml/v2
-# go.yaml.in/yaml/v3 v3.0.4
+# go.yaml.in/yaml/v3 v3.0.5
 ## explicit; go 1.16
 go.yaml.in/yaml/v3
 # go4.org/netipx v0.0.0-20231129151722-fdeea329fbba
@@ -1492,7 +1490,7 @@ golang.org/x/oauth2/internal
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
 golang.org/x/sync/singleflight
-# golang.org/x/sys v0.48.0
+# golang.org/x/sys v0.49.0
 ## explicit; go 1.26.0
 golang.org/x/sys/cpu
 golang.org/x/sys/plan9
@@ -1607,15 +1605,15 @@ golang.zx2c4.com/wireguard/wgctrl/wgtypes
 # gomodules.xyz/jsonpatch/v2 v2.5.0
 ## explicit; go 1.20
 gomodules.xyz/jsonpatch/v2
-# google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d
-## explicit; go 1.25.0
+# google.golang.org/genproto/googleapis/api v0.0.0-20261012220534-4341edf3f941
+## explicit; go 1.26.0
 google.golang.org/genproto/googleapis/api
 google.golang.org/genproto/googleapis/api/annotations
 google.golang.org/genproto/googleapis/api/expr/v1alpha1
-# google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d
-## explicit; go 1.25.0
+# google.golang.org/genproto/googleapis/rpc v0.0.0-20261012220534-4341edf3f941
+## explicit; go 1.26.0
 google.golang.org/genproto/googleapis/rpc/status
-# google.golang.org/grpc v1.83.2
+# google.golang.org/grpc v1.84.0
 ## explicit; go 1.25.0
 google.golang.org/grpc
 google.golang.org/grpc/attributes
@@ -1689,7 +1687,7 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 google.golang.org/grpc/test/bufconn
-# google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
+# google.golang.org/protobuf v1.36.12
 ## explicit; go 1.23
 google.golang.org/protobuf/encoding/protodelim
 google.golang.org/protobuf/encoding/protojson
