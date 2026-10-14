@@ -27,6 +27,14 @@ notes carefully below to understand what to do during upgrade.
   traffic until the Service exists and, if selector-less, has backends. If you
   have rules like this, ensure the referenced Services exist and have backends
   before upgrading.
+* When ``nodePort.addresses`` (``--nodeport-addresses``) is not set, Cilium no
+  longer selects host scoped addresses (``scope host``) as NodePort addresses.
+  This restores the behavior of Cilium 1.18. Cilium 1.19 and 1.20 selected
+  these addresses, for example the GKE metadata server address
+  ``169.254.169.252`` on ``lo``. If the Kubernetes Node IP of a node has host
+  scope, NodePort Services no longer accept traffic from outside the node on
+  that IP. To keep NodePort on such an address, add it to
+  ``nodePort.addresses`` when you upgrade.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
