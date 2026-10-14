@@ -81,6 +81,16 @@ func (s *FQDNSelector) String() string {
 	return str.String()
 }
 
+// Normalized returns a case-normalized copy of the FQDNSelector for RFC 1035
+// compliance (DNS names and patterns are case-insensitive). This method should
+// be used before using FQDNSelector as a map key or for comparison operations.
+func (s FQDNSelector) Normalized() FQDNSelector {
+	return FQDNSelector{
+		MatchName:    strings.ToLower(s.MatchName),
+		MatchPattern: strings.ToLower(s.MatchPattern),
+	}
+}
+
 // IdentityLabel returns the label which needs to be added to each identity
 // selected by this selector. The identity label is based on the MatchName
 // if set, otherwise on the MatchPattern. This matches the behavior of the

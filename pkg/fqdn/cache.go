@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strings"
 	"unsafe"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -219,6 +220,8 @@ func (c *DNSCache) Update(lookupTime time.Time, name string, ips []netip.Addr, t
 // It returns two booleans that indicate if the dns cache was updated, and if one
 // or more IPs were new and therefore upserted
 func (c *DNSCache) updateWithEntry(entry *cacheEntry) UpdateStatus {
+	// DNS names are case-insensitive (RFC 1035); key the cache on the lowercase form.
+	entry.Name = strings.ToLower(entry.Name)
 	entries, exists := c.forward[entry.Name]
 	if !exists {
 		entries = make(map[netip.Addr]*cacheEntry)
@@ -480,7 +483,7 @@ func (c *DNSCache) lookupLocked(name string) (ips []netip.Addr) {
 // lookupByTime takes a timestamp for expiration comparisons, and is only
 // intended for testing.
 func (c *DNSCache) lookupByTime(now time.Time, name string) (ips []netip.Addr) {
-	entries, found := c.forward[name]
+	entries, found := c.forward[strings.ToLower(name)]
 	if !found {
 		return nil
 	}
@@ -717,7 +720,7 @@ func (c *DNSCache) ForceExpire(expireLookupsBefore time.Time, nameMatch *regexp.
 
 func (c *DNSCache) forceExpireByNames(expireLookupsBefore time.Time, names []string) {
 	for _, name := range names {
-		entries, exists := c.forward[name]
+		entries, exists := c.forward[strings.ToLower(name)]
 		if !exists {
 			continue
 		}
