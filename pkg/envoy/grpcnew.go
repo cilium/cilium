@@ -31,7 +31,7 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 		return fmt.Errorf("failed to create socket listener: %w", err)
 	}
 
-	server := envoy_server.NewServer(context.Background(), s.cache, s.newCallbacks(),
+	server := envoy_server.NewServer(context.Background(), s.cache.GetSnapshotCache(), s.newCallbacks(),
 		sotw.WithOrderedADS(),
 		// EDS, RDS and SDS use named subscriptions; an initial empty list
 		// means no subscription. LDS, CDS, NPDS and NPHDS retain wildcard mode.

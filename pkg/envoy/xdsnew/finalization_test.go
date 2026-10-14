@@ -44,8 +44,7 @@ func TestFailedCoalescedABAPublicationKeepsPendingPublication(t *testing.T) {
 	failed := newMockSnapshotCache()
 	failed.snapshots["coverage-node"] = baseline
 	failed.setSnapshotErr = errors.New("publication failed before installation")
-	original := c.SnapshotCache
-	c.SnapshotCache = failed
+	restore := c.replaceSnapshotCache(t, failed)
 	request := &cache.Request{Node: &core.Node{Id: "coverage-node"}, TypeUrl: typeurl.NetworkPolicyURL, VersionInfo: s.version}
 	cancelWatch, err := c.CreateWatch(request, s.sub, make(chan cache.Response, 1))
 	require.ErrorIs(t, err, failed.setSnapshotErr,
@@ -53,7 +52,7 @@ func TestFailedCoalescedABAPublicationKeepsPendingPublication(t *testing.T) {
 	require.Nil(t, cancelWatch)
 	require.Same(t, baseline, mustSnapshot(t, c, "coverage-node"))
 	requireCoveragePending(t, done)
-	c.SnapshotCache = original
+	restore()
 	responses := make(chan cache.Response, 1)
 	cancelWatch, err = c.CreateWatch(request, s.sub, responses)
 	require.NoError(t, err)
@@ -143,16 +142,15 @@ func TestEpochRotationPreservesUnrelatedUnpublishedChanges(t *testing.T) {
 			sub := stream.NewSotwSubscription(nil, true)
 			responses := make(chan cache.Response, 1)
 			if failPublication {
-				original := c.SnapshotCache
 				failed := newMockSnapshotCache()
 				failed.snapshots[nodeID] = baseline
 				failed.setSnapshotErr = errors.New("epoch publication failed")
-				c.SnapshotCache = failed
+				restore := c.replaceSnapshotCache(t, failed)
 				cancel, err := c.CreateWatch(request, sub, responses)
 				require.ErrorIs(t, err, failed.setSnapshotErr)
 				require.Nil(t, cancel)
 				require.Same(t, baseline, mustSnapshot(t, c, nodeID))
-				c.SnapshotCache = original
+				restore()
 			}
 			cancelWatch, err := c.CreateWatch(request, sub, responses)
 			require.NoError(t, err)
@@ -202,7 +200,7 @@ func TestClusterAddsMissingCLAAnswersExistingEDSWatch(t *testing.T) {
 		t.Run(fmt.Sprintf("existing-cluster=%t", existingCluster), func(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
 			const nodeID = "coverage-node"
-			c := NewCache(logger, WithNodeIDs(nodeID)).(*cacheImpl)
+			c := newCache(logger, WithNodeIDs(nodeID))
 			t.Cleanup(func() {
 				c.completionCbs.OnStreamClosed(1, nil)
 				c.completionCbs.OnStreamClosed(2, nil)
@@ -267,7 +265,7 @@ func TestIncrementalCLAProjection(t *testing.T) {
 	for _, mode := range []string{"remove-one-reference", "remove-last-reference", "retarget-one-reference", "replace-explicit", "remove-explicit"} {
 		t.Run(mode, func(t *testing.T) {
 			logger := slog.New(slog.DiscardHandler)
-			c := NewCache(logger, WithNodeIDs("node1")).(*cacheImpl)
+			c := newCache(logger, WithNodeIDs("node1"))
 			initial := xds.Resources{Clusters: map[string]*cluster.Cluster{
 				"a": testEDSCluster("a", "shared"), "b": testEDSCluster("b", "shared"),
 			}}

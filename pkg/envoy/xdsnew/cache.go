@@ -38,7 +38,8 @@ const (
 )
 
 type Cache interface {
-	cache.SnapshotCache
+	// GetSnapshotCache returns SnapshotCache to be passed to go-control-plane.
+	GetSnapshotCache() cache.SnapshotCache
 
 	// ApplyResources commits semantic changes and retains cache-owned NACK
 	// rollback. Completions for unchanged resource types attach to their current
@@ -132,7 +133,9 @@ func WithListenerObserver(observer ListenerObserver) CacheOption {
 }
 
 type cacheImpl struct {
-	cache.SnapshotCache
+	// cacheImpl overrides cache.SnapShotCache by composition and selective interface function
+	// overrides to synchronize mutating operations by taking 'mutex'.
+	snapshotCache cache.SnapshotCache
 
 	// mutex protects cache state and serializes complete resource mutations.
 	// Mutations hold the write lock from semantic comparison through commit and
@@ -157,6 +160,11 @@ type cacheImpl struct {
 	// listenerObserver is supplied by the ADS server. A nil observer leaves
 	// standalone cache users' explicit ACK waits unchanged.
 	listenerObserver ListenerObserver
+}
+
+// SnapshotCache returns SnapshotCache to be passed to go-control-plane.
+func (c *cacheImpl) GetSnapshotCache() cache.SnapshotCache {
+	return c
 }
 
 // nodeWatchState indexes open watches by resource type. Each type can have
@@ -298,13 +306,17 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 }
 
 func NewCache(logger *slog.Logger, options ...CacheOption) Cache {
+	return newCache(logger, options...)
+}
+
+func newCache(logger *slog.Logger, options ...CacheOption) *cacheImpl {
 	// ADS transport is configured by the server. The snapshot cache's ADS mode
 	// would withhold named responses unless they request the complete group,
 	// preventing independent subscriptions from consuming their own resources.
 	snapshotCache := cache.NewSnapshotCache(false, cache.IDHash{}, snapshotCacheLogger(logger))
 
 	c := &cacheImpl{
-		SnapshotCache: snapshotCache,
+		snapshotCache: snapshotCache,
 		mutex:         &lock.RWMutex{},
 		watchRelays:   make(map[chan cache.Response]*watchRelay),
 		logger:        logger,
@@ -478,23 +490,6 @@ type immediateCompletion struct {
 	err  error
 }
 
-// SetSnapshot serializes publication and hands off responses only after both
-// cache locks have been released.
-func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot) error {
-	c.mutex.Lock()
-	if c.getNodeState(nodeID) == nil {
-		c.mutex.Unlock()
-		return fmt.Errorf("unknown xDS node %q", nodeID)
-	}
-	err := c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot)
-	// Collect even on error: go-control-plane may already have installed the
-	// snapshot and queued some responses before failing a later delivery.
-	deliveries := c.collectResponseDeliveriesLocked()
-	c.mutex.Unlock()
-	c.deliverResponses(deliveries)
-	return err
-}
-
 // generationWait describes one ACK/NACK wait. generation is the snapshot
 // boundary needed to cover the required resource revisions, or the current
 // pending/published boundary for a whole-TypeURL wait.
@@ -661,7 +656,7 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 	}
 	pending := state.pendingPublication
 
-	oldSnapshot, _ := c.SnapshotCache.GetSnapshot(nodeID)
+	oldSnapshot, _ := c.snapshotCache.GetSnapshot(nodeID)
 	newSnapshot, err := c.generateSnapshotFromStateIncrementally(state, oldSnapshot, pending.changedTypeURLs)
 	if err != nil {
 		return nil, err
@@ -669,12 +664,12 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 	// SetSnapshot may synchronously queue responses. Capture this snapshot and
 	// generation in their context so delayed delivery cannot associate them
 	// with a newer publication. Commit callback metadata only after installation.
-	err = c.SnapshotCache.SetSnapshot(callbacks.WithSnapshotPublication(ctx, pending.generation, newSnapshot), nodeID, newSnapshot)
+	err = c.snapshotCache.SetSnapshot(callbacks.WithSnapshotPublication(ctx, pending.generation, newSnapshot), nodeID, newSnapshot)
 	if err != nil {
 		// SnapshotCache stores the snapshot before delivering watch responses. A
 		// canceled delivery may therefore return an error after publication has
 		// committed; keep generation state in that case.
-		currentSnapshot, getErr := c.SnapshotCache.GetSnapshot(nodeID)
+		currentSnapshot, getErr := c.snapshotCache.GetSnapshot(nodeID)
 		// SetSnapshot stores the exact snapshot object. Version equality alone
 		// cannot prove installation; do not infer success from stale state.
 		committed := getErr == nil && currentSnapshot == newSnapshot
@@ -1166,7 +1161,7 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 			state.commitResourceEntry(change.typeURL, change.name, change.previous)
 		}
 		state.rollbacks.restorePublicationLocked(state, oldPending, oldPendingValue)
-		published, _ := c.SnapshotCache.GetSnapshot(state.nodeID)
+		published, _ := c.snapshotCache.GetSnapshot(state.nodeID)
 		state.reconcileChangedResourceNames(changes, published)
 		state.resourceGeneration = oldResourceGeneration
 		for typeURL := range typeurl.Count {
@@ -1199,7 +1194,7 @@ func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGrou
 		}
 	}
 	if !publishedWaits.Empty() {
-		snapshot, err := c.SnapshotCache.GetSnapshot(state.nodeID)
+		snapshot, err := c.snapshotCache.GetSnapshot(state.nodeID)
 		if err == nil {
 			tx.registerGenerationCompletions(snapshot, wg, publishedWaits)
 		} else {
@@ -1219,30 +1214,6 @@ func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGrou
 		}
 	}
 	tx.registerGenerationCompletions(nil, wg, unpublishedWaits)
-}
-
-func (c *cacheImpl) ClearSnapshot(nodeID string) {
-	c.mutex.Lock()
-	c.SnapshotCache.ClearSnapshot(nodeID)
-	c.completionCbs.SetPublishedSnapshot(nodeID, nil)
-	// Clearing delivery state does not forget a known consumer or its desired
-	// resources. A later watch republishes those resources through the normal
-	// publication path.
-	var cancels []func()
-	if state := c.getNodeState(nodeID); state != nil {
-		for _, watches := range state.openWatches.All() {
-			for watch := range watches.Members() {
-				if watch.cancel != nil {
-					cancels = append(cancels, watch.cancel)
-				}
-				c.removeTrackedWatchLocked(watch)
-			}
-		}
-	}
-	c.mutex.Unlock()
-	for _, cancel := range cancels {
-		cancel()
-	}
 }
 
 func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRelay {
@@ -1340,7 +1311,7 @@ func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 				// Capture their published generation now, while no cache update
 				// can interleave. The stream may not consume them until much later.
 				generation := c.getNodeState(response.GetRequest().GetNode().GetId()).snapshotGeneration
-				snapshot, _ := c.SnapshotCache.GetSnapshot(response.GetRequest().GetNode().GetId())
+				snapshot, _ := c.snapshotCache.GetSnapshot(response.GetRequest().GetNode().GetId())
 				response = callbacks.WithResponseCoverage(response, generation, snapshot)
 				responses = append(responses, response)
 				var matched *trackedWatch
@@ -1404,83 +1375,6 @@ func (c *cacheImpl) getNodeState(nodeID string) *nodeState {
 // immutable after construction, so membership reads need no cache lock.
 func (c *cacheImpl) HasNode(nodeID string) bool {
 	return c.getNodeState(nodeID) != nil
-}
-
-func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
-	if request == nil {
-		return nil, errors.New("nil xDS request")
-	}
-	nodeID := request.GetNode().GetId()
-	state := c.getNodeState(nodeID)
-	if state == nil {
-		return nil, fmt.Errorf("unknown xDS node %q", nodeID)
-	}
-	if sub == nil {
-		return c.SnapshotCache.CreateWatch(request, sub, respChan)
-	}
-	typeURL, supported := typeurl.FromURL(request.GetTypeUrl())
-	if !supported {
-		// Unknown protocol types are outside Cilium's fixed ADS resource set.
-		// Preserve go-control-plane behavior without creating internal tracking
-		// state which could never be addressed by an indexed mutation.
-		return c.SnapshotCache.CreateWatch(request, sub, respChan)
-	}
-	// Empty named subscriptions are not wildcard subscriptions. In particular,
-	// EDS, RDS and SDS can unsubscribe by sending an empty list. The server has
-	// already processed any ACK/NACK before creating this watch. Do not let
-	// go-control-plane interpret the empty request names as a full-state request,
-	// or retain a watch that could trigger unnecessary snapshot publication.
-	if !sub.IsWildcard() && len(sub.SubscribedResources()) == 0 {
-		return func() {}, nil
-	}
-
-	// go-control-plane parses "*" as a wildcard, but SnapshotCache filters
-	// resources and checks ADS request coverage using literal request names.
-	// Use its empty-name wildcard spelling for every supported type. Current
-	// Envoy clients already send empty wildcard names, so this is defensive.
-	if sub.IsWildcard() && len(request.GetResourceNames()) > 0 {
-		// Share read-only known fields in a fresh protobuf: a struct copy would copy
-		// protobuf runtime state, while proto.Clone would deep-copy needlessly.
-		request = &cache.Request{
-			VersionInfo:      request.VersionInfo,
-			Node:             request.Node,
-			ResourceLocators: request.ResourceLocators,
-			TypeUrl:          request.TypeUrl,
-			ResponseNonce:    request.ResponseNonce,
-			ErrorDetail:      request.ErrorDetail,
-		}
-	}
-
-	c.mutex.Lock()
-	if err := state.selectEpochLocked(typeURL, singleVersion(request.GetVersionInfo())); err != nil {
-		c.mutex.Unlock()
-		return nil, err
-	}
-	finalized, err := c.prepareLiveSnapshotLocked(state, typeURL)
-	if err != nil {
-		deliveries := c.collectResponseDeliveriesLocked()
-		c.mutex.Unlock()
-		c.deliverResponses(deliveries)
-		c.completeFinalized(nodeID, finalized)
-		return nil, err
-	}
-	state.commitEpochNegotiation(typeURL)
-	// Register before calling go-control-plane: CreateWatch may immediately
-	// queue a response rather than establish a deferred watch. Its relay keeps
-	// that response buffered until we retire the watch and release the locks.
-	watch := c.addTrackedWatchLocked(state, request, typeURL, respChan)
-	watch.cancel, err = c.SnapshotCache.CreateWatch(request, sub, watch.relay.inner)
-	if err != nil {
-		c.removeTrackedWatchLocked(watch)
-	}
-	deliveries := c.collectResponseDeliveriesLocked()
-	c.mutex.Unlock()
-	c.deliverResponses(deliveries)
-	c.completeFinalized(nodeID, finalized)
-	if err != nil {
-		return nil, err
-	}
-	return func() { c.cancelTrackedWatch(watch) }, nil
 }
 
 func (c *cacheImpl) GetResource(nodeID string, typeURL typeurl.Index, resourceName string) cache_types.Resource {
@@ -1551,7 +1445,7 @@ func singleVersion(version string) iter.Seq[string] {
 // Rebinding must not expose unrelated unpublished changes. Caller must hold c.mutex.
 func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.Index) ([]finalizedCompletion, error) {
 	nodeID := state.nodeID
-	current, getErr := c.SnapshotCache.GetSnapshot(nodeID)
+	current, getErr := c.snapshotCache.GetSnapshot(nodeID)
 	if getErr != nil && state.pendingPublication == nil {
 		// Publish the known node's actual desired state, including an empty baseline.
 		state.pendingPublication = &pendingPublication{
@@ -1569,8 +1463,8 @@ func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.
 	}
 	rebuilt := published.withEpoch(state.epoch)
 	ctx := callbacks.WithSnapshotPublication(context.Background(), state.snapshotGeneration, rebuilt)
-	if err := c.SnapshotCache.SetSnapshot(ctx, nodeID, rebuilt); err != nil {
-		installed, getErr := c.SnapshotCache.GetSnapshot(nodeID)
+	if err := c.snapshotCache.SetSnapshot(ctx, nodeID, rebuilt); err != nil {
+		installed, getErr := c.snapshotCache.GetSnapshot(nodeID)
 		if getErr != nil || installed != rebuilt {
 			return nil, err
 		}
@@ -1578,6 +1472,10 @@ func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.
 	c.completionCbs.SetPublishedSnapshot(nodeID, rebuilt)
 	return nil, nil
 }
+
+//
+// StreamLifecycleHandler interface functions
+//
 
 // StreamStarted implements callbacks.StreamLifecycleHandler. Stream callbacks
 // run outside the completion lock; known node membership never changes.
@@ -1603,4 +1501,154 @@ func (c *cacheImpl) StreamClosed(streamID int64, nodeID string, mode callbacks.S
 		state.streams[mode].Remove(streamID)
 	}
 	c.mutex.Unlock()
+}
+
+//
+// SnapshotCache interface functions
+//
+// These forward to the contained SnapshotCache after taking c.mutex for mutating operations or
+// synchronization.
+//
+
+var (
+	errUnimplemented = errors.New("unimplemented")
+	errNilRequest    = errors.New("nil xDS request")
+)
+
+func (c *cacheImpl) Fetch(_ context.Context, _ *cache.Request) (cache.Response, error) {
+	return nil, errUnimplemented
+}
+
+func (c *cacheImpl) CreateDeltaWatch(_ *cache.DeltaRequest, _ cache.Subscription, _ chan cache.DeltaResponse) (cancel func(), err error) {
+	return nil, errUnimplemented
+}
+
+func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
+	if request == nil {
+		return nil, errNilRequest
+	}
+	nodeID := request.GetNode().GetId()
+	state := c.getNodeState(nodeID)
+	if state == nil {
+		return nil, fmt.Errorf("unknown xDS node %q", nodeID)
+	}
+	if sub == nil {
+		return c.snapshotCache.CreateWatch(request, sub, respChan)
+	}
+	typeURL, supported := typeurl.FromURL(request.GetTypeUrl())
+	if !supported {
+		// Unknown protocol types are outside Cilium's fixed ADS resource set.
+		// Preserve go-control-plane behavior without creating internal tracking
+		// state which could never be addressed by an indexed mutation.
+		return c.snapshotCache.CreateWatch(request, sub, respChan)
+	}
+	// Empty named subscriptions are not wildcard subscriptions. In particular,
+	// EDS, RDS and SDS can unsubscribe by sending an empty list. The server has
+	// already processed any ACK/NACK before creating this watch. Do not let
+	// go-control-plane interpret the empty request names as a full-state request,
+	// or retain a watch that could trigger unnecessary snapshot publication.
+	if !sub.IsWildcard() && len(sub.SubscribedResources()) == 0 {
+		return func() {}, nil
+	}
+
+	// go-control-plane parses "*" as a wildcard, but SnapshotCache filters
+	// resources and checks ADS request coverage using literal request names.
+	// Use its empty-name wildcard spelling for every supported type. Current
+	// Envoy clients already send empty wildcard names, so this is defensive.
+	if sub.IsWildcard() && len(request.GetResourceNames()) > 0 {
+		// Share read-only known fields in a fresh protobuf: a struct copy would copy
+		// protobuf runtime state, while proto.Clone would deep-copy needlessly.
+		request = &cache.Request{
+			VersionInfo:      request.VersionInfo,
+			Node:             request.Node,
+			ResourceLocators: request.ResourceLocators,
+			TypeUrl:          request.TypeUrl,
+			ResponseNonce:    request.ResponseNonce,
+			ErrorDetail:      request.ErrorDetail,
+		}
+	}
+
+	c.mutex.Lock()
+	if err := state.selectEpochLocked(typeURL, singleVersion(request.GetVersionInfo())); err != nil {
+		c.mutex.Unlock()
+		return nil, err
+	}
+	finalized, err := c.prepareLiveSnapshotLocked(state, typeURL)
+	if err != nil {
+		deliveries := c.collectResponseDeliveriesLocked()
+		c.mutex.Unlock()
+		c.deliverResponses(deliveries)
+		c.completeFinalized(nodeID, finalized)
+		return nil, err
+	}
+	state.commitEpochNegotiation(typeURL)
+	// Register before calling go-control-plane: CreateWatch may immediately
+	// queue a response rather than establish a deferred watch. Its relay keeps
+	// that response buffered until we retire the watch and release the locks.
+	watch := c.addTrackedWatchLocked(state, request, typeURL, respChan)
+	watch.cancel, err = c.snapshotCache.CreateWatch(request, sub, watch.relay.inner)
+	if err != nil {
+		c.removeTrackedWatchLocked(watch)
+	}
+	deliveries := c.collectResponseDeliveriesLocked()
+	c.mutex.Unlock()
+	c.deliverResponses(deliveries)
+	c.completeFinalized(nodeID, finalized)
+	if err != nil {
+		return nil, err
+	}
+	return func() { c.cancelTrackedWatch(watch) }, nil
+}
+
+// SetSnapshot serializes publication and hands off responses only after both
+// cacheImpl and the contained SnapshotCache locks have been released.
+func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot) error {
+	c.mutex.Lock()
+	if c.getNodeState(nodeID) == nil {
+		c.mutex.Unlock()
+		return fmt.Errorf("unknown xDS node %q", nodeID)
+	}
+	err := c.snapshotCache.SetSnapshot(ctx, nodeID, snapshot)
+	// Collect even on error: go-control-plane may already have installed the
+	// snapshot and queued some responses before failing a later delivery.
+	deliveries := c.collectResponseDeliveriesLocked()
+	c.mutex.Unlock()
+	c.deliverResponses(deliveries)
+	return err
+}
+
+func (c *cacheImpl) GetSnapshot(node string) (cache.ResourceSnapshot, error) {
+	return c.snapshotCache.GetSnapshot(node)
+}
+
+func (c *cacheImpl) ClearSnapshot(nodeID string) {
+	c.mutex.Lock()
+	c.snapshotCache.ClearSnapshot(nodeID)
+	c.completionCbs.SetPublishedSnapshot(nodeID, nil)
+	// Clearing delivery state does not forget a known consumer or its desired
+	// resources. A later watch republishes those resources through the normal
+	// publication path.
+	var cancels []func()
+	if state := c.getNodeState(nodeID); state != nil {
+		for _, watches := range state.openWatches.All() {
+			for watch := range watches.Members() {
+				if watch.cancel != nil {
+					cancels = append(cancels, watch.cancel)
+				}
+				c.removeTrackedWatchLocked(watch)
+			}
+		}
+	}
+	c.mutex.Unlock()
+	for _, cancel := range cancels {
+		cancel()
+	}
+}
+
+func (c *cacheImpl) GetStatusInfo(node string) cache.StatusInfo {
+	return c.snapshotCache.GetStatusInfo(node)
+}
+
+func (c *cacheImpl) GetStatusKeys() []string {
+	return c.snapshotCache.GetStatusKeys()
 }

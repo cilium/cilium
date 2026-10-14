@@ -35,7 +35,7 @@ import (
 // newTestCache initializes the immutable set of supported nodes.
 func newTestCache(t testing.TB, nodeIDs ...string) *cacheImpl {
 	t.Helper()
-	return NewCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeIDs...)).(*cacheImpl)
+	return newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeIDs...))
 }
 
 // Each invocation returns fresh protobufs so fixture mutations cannot leak
@@ -170,9 +170,34 @@ func (m *mockSnapshotCache) Fetch(ctx context.Context, request *cache.Request) (
 	return nil, fmt.Errorf("not implemented")
 }
 
-func newInitializedTestCache(mock *mockSnapshotCache) *cacheImpl {
-	c := NewCache(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})), WithNodeIDs("node1")).(*cacheImpl)
-	c.SnapshotCache = mock
+// replaceSnapshotCache temporarily replaces the underlying go-control-plane cache,
+// preserving Cilium's wrapper for normal cache operations. Swap only between
+// backend calls: some read-only delegates do not take the Cilium cache lock.
+// The returned restore function permits an early retry using the original
+// backend; cleanup then becomes a no-op. Never install c.GetSnapshotCache(),
+// which returns the wrapper itself and would introduce recursion.
+func (c *cacheImpl) replaceSnapshotCache(t testing.TB, backend cache.SnapshotCache) (restore func()) {
+	t.Helper()
+	c.mutex.Lock()
+	previous := c.snapshotCache
+	c.snapshotCache = backend
+	c.mutex.Unlock()
+	restore = func() {
+		c.mutex.Lock()
+		if previous != nil {
+			c.snapshotCache = previous
+			previous = nil
+		}
+		c.mutex.Unlock()
+	}
+	t.Cleanup(restore)
+	return restore
+}
+
+func newInitializedTestCache(t testing.TB, mock *mockSnapshotCache) *cacheImpl {
+	t.Helper()
+	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})), WithNodeIDs("node1"))
+	c.replaceSnapshotCache(t, mock)
 	return c
 }
 
@@ -192,7 +217,7 @@ func publishedResponseForTest(t *testing.T, c *cacheImpl, node *envoy_config_cor
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 	snapshot := mustSnapshot(t, c, node.Id)
-	responder := c.SnapshotCache
+	responder := c.snapshotCache
 	if _, mocked := responder.(*mockSnapshotCache); mocked {
 		// Publication-failure tests intentionally replace the transport cache.
 		responder = cache.NewSnapshotCache(false, cache.IDHash{}, nil)
@@ -246,7 +271,7 @@ func acceptPublishedSnapshotVersions(t *testing.T, c *cacheImpl, streamID int64,
 
 func mustSnapshot(t *testing.T, c *cacheImpl, nodeID string) cache.ResourceSnapshot {
 	t.Helper()
-	snapshot, err := c.SnapshotCache.GetSnapshot(nodeID)
+	snapshot, err := c.GetSnapshot(nodeID)
 	require.NoError(t, err)
 	return snapshot
 }
@@ -395,7 +420,7 @@ func (state *nodeState) requireNoUnsentRollbacks(t *testing.T, msgAndArgs ...any
 }
 
 // requestSnapshotForTest drives publication through a real supported watch.
-func requestSnapshotForTest(t *testing.T, c Cache, nodeID string, typeURL typeurl.Index) cache.ResourceSnapshot {
+func requestSnapshotForTest(t *testing.T, c *cacheImpl, nodeID string, typeURL typeurl.Index) cache.ResourceSnapshot {
 	t.Helper()
 	cancel, err := c.CreateWatch(&cache.Request{
 		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeURL.URL(), ResourceNames: []string{"*"},
