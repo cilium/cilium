@@ -248,7 +248,7 @@ func TestClosedStreamCannotResolveOtherStreamResponse(t *testing.T) {
 	live.close()
 }
 
-func (cb *CompletionCallbacks) newTestCompletion(t *testing.T, typeURL typeurl.Index, generation Generation) (*completion.WaitGroup, *completion.Completion, *pendingCompletion) {
+func (cb *CompletionCallbacks) newTestCompletion(t *testing.T, typeURL typeurl.Index, generation Generation) (*completion.WaitGroup, *completion.Completion, *resourceWait) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	t.Cleanup(cancel)
@@ -263,7 +263,7 @@ func registerTypeGenerationRollback(t *testing.T, cb *CompletionCallbacks, gener
 	cb.AddTypeGenerationWithRollback(generation, typeURL, "node-1", rollback, &ResourceScope{})
 }
 
-func registerTypeGenerationCompletion(t *testing.T, cb *CompletionCallbacks, comp *completion.Completion, pending *pendingCompletion, version string) {
+func registerTypeGenerationCompletion(t *testing.T, cb *CompletionCallbacks, comp *completion.Completion, pending *resourceWait, version string) {
 	t.Helper()
 	registered, err := cb.AddPreparedTypeGenerationCompletion(comp, pending, version, true)
 	require.NoError(t, err)
