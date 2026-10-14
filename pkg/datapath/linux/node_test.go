@@ -7,7 +7,6 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -15,13 +14,10 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
-	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/mtu"
-	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
@@ -51,20 +47,14 @@ var (
 )
 
 func TestCreateNodeRoute(t *testing.T) {
-	dpConfig := DatapathConfiguration{
-		HostDevice: "host_device",
-	}
-	log := hivetest.Logger(t)
-
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{}, &fakeipsec.Agent{}, fakeipsec.Config{}, lns)
+	nodeHandler := newTestNodeHandler(t)
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := netip.MustParsePrefix("10.10.0.0/16")
 	generatedRoute, err := nodeHandler.createNodeRouteSpec(c1, false)
 	require.NoError(t, err)
 	require.Equal(t, *netipx.PrefixIPNet(c1), generatedRoute.Prefix)
-	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
+	require.Equal(t, hostDevice, generatedRoute.Device)
 	require.Equal(t, fakeNodeAddressing.IPv4().Router().To4(), generatedRoute.Nexthop.To4())
 	require.Equal(t, fakeNodeAddressing.IPv4().Router().To4(), generatedRoute.Local.To4())
 
@@ -72,7 +62,7 @@ func TestCreateNodeRoute(t *testing.T) {
 	generatedRoute, err = nodeHandler.createNodeRouteSpec(c1, false)
 	require.NoError(t, err)
 	require.Equal(t, *netipx.PrefixIPNet(c1), generatedRoute.Prefix)
-	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
+	require.Equal(t, hostDevice, generatedRoute.Device)
 	require.Nil(t, generatedRoute.Nexthop)
 	require.Equal(t, fakeNodeAddressing.IPv6().Router().To16(), generatedRoute.Local.To16())
 }
