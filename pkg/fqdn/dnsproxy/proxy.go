@@ -1101,7 +1101,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 
-	scopedLog.Debug("Received DNS response to proxied lookup", logfields.Response, response)
+	// Log only that response was received, never log full response which may contain sensitive DNS data
+	scopedLog.Debug("Received DNS response to proxied lookup",
+		"answerCount", len(response.Answer),
+	)
 	stat.Success = true
 
 	stat.ProcessingTime.Start()
@@ -1119,10 +1122,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
 	if err := p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerID, targetServer, responseDetails, protocol, true, &stat); err != nil {
+		// Log only error, never log full response which may contain sensitive DNS data
 		scopedLog.Error(
 			"Failed to process DNS response",
 			logfields.Error, err,
-			logfields.Response, response,
 		)
 		p.sendErrorResponse(scopedLog, w, request, false)
 		return

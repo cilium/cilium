@@ -340,7 +340,8 @@ func (c *XDSClient[ReqT, RespT]) loop(ctx context.Context, errCh chan error, tra
 			if !ok {
 				return
 			}
-			log.Debug("Receive", logfields.Response, resp)
+			// Log only response metadata, never full response which may contain TLS certs or cluster credentials
+			log.Debug("Receive", "typeUrl", resp.GetTypeUrl())
 			err := c.handleResponse(trans, resp)
 			if err != nil {
 				log.Error("Failed to handle response", logfields.Error, err)

@@ -859,8 +859,10 @@ reList:
 
 				nextRev = r.Header.Revision + 1
 				if traceEnabled {
+					// Log only metadata, never log response values which may contain secrets
 					scopedLog.Debug("Received event from etcd",
-						logfields.Response, r,
+						"revision", r.Header.Revision,
+						"eventCount", len(r.Events),
 					)
 				}
 
