@@ -61,6 +61,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 	cfg.Debug = ep.GetOptions().IsEnabled(option.Debug)
+	cfg.DebugTagged = ep.GetOptions().IsEnabled(option.DebugTagged)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
@@ -116,6 +117,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 	cfg.Debug = ep.GetOptions().IsEnabled(option.Debug)
+	cfg.DebugTagged = ep.GetOptions().IsEnabled(option.DebugTagged)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
@@ -190,6 +192,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 	cfg.Debug = ep.GetOptions().IsEnabled(option.Debug)
+	cfg.DebugTagged = ep.GetOptions().IsEnabled(option.DebugTagged)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
