@@ -72,32 +72,36 @@ func (s lrp) Run(ctx context.Context, t *check.Test) {
 		if ipFamily == features.IPFamilyV4 {
 			s.runTestsForIPFamily(ctx, t, familyPolicies, ipFamily)
 		} else if ipFamily == features.IPFamilyV6 {
-			// Split IPv6 policies based on skipRedirectFromBackend
-			ipv6SkipTruePolicies := make([]*v2.CiliumLocalRedirectPolicy, 0)
-			ipv6SkipFalsePolicies := make([]*v2.CiliumLocalRedirectPolicy, 0)
-			for _, policy := range familyPolicies {
-				if policy.Spec.SkipRedirectFromBackend {
-					ipv6SkipTruePolicies = append(ipv6SkipTruePolicies, policy)
-				} else {
-					ipv6SkipFalsePolicies = append(ipv6SkipFalsePolicies, policy)
+			if versioncheck.MustCompile(">=1.21.0")(t.Context().CiliumVersion) {
+				s.runTestsForIPFamily(ctx, t, familyPolicies, ipFamily)
+			} else {
+				// Split IPv6 policies based on skipRedirectFromBackend
+				ipv6SkipTruePolicies := make([]*v2.CiliumLocalRedirectPolicy, 0)
+				ipv6SkipFalsePolicies := make([]*v2.CiliumLocalRedirectPolicy, 0)
+				for _, policy := range familyPolicies {
+					if policy.Spec.SkipRedirectFromBackend {
+						ipv6SkipTruePolicies = append(ipv6SkipTruePolicies, policy)
+					} else {
+						ipv6SkipFalsePolicies = append(ipv6SkipFalsePolicies, policy)
+					}
 				}
-			}
 
-			// Run tests for skipRedirectFromBackend=true policies regardless of SocketLB
-			if s.skipRedirectFromBackend && len(ipv6SkipTruePolicies) > 0 {
-				if versioncheck.MustCompile(">=1.17.3")(t.Context().CiliumVersion) {
-					s.runTestsForIPFamily(ctx, t, ipv6SkipTruePolicies, ipFamily)
-				} else {
-					t.Info("Skipping IPv6 tests for policies with skipRedirectFromBackend=true. It works with >=1.17.3.")
+				// Run tests for skipRedirectFromBackend=true policies regardless of SocketLB
+				if s.skipRedirectFromBackend && len(ipv6SkipTruePolicies) > 0 {
+					if versioncheck.MustCompile(">=1.17.3")(t.Context().CiliumVersion) {
+						s.runTestsForIPFamily(ctx, t, ipv6SkipTruePolicies, ipFamily)
+					} else {
+						t.Info("Skipping IPv6 tests for policies with skipRedirectFromBackend=true. It works with >=1.17.3.")
+					}
 				}
-			}
 
-			// Run tests for skipRedirectFromBackend=false policies only if SocketLB is fully functional
-			if !s.skipRedirectFromBackend && len(ipv6SkipFalsePolicies) > 0 {
-				if !t.Context().IsSocketLBFull() {
-					t.Info("Skipping IPv6 tests for policies with skipRedirectFromBackend=false due to SocketLB not being fully functional")
-				} else {
-					s.runTestsForIPFamily(ctx, t, ipv6SkipFalsePolicies, ipFamily)
+				// Run tests for skipRedirectFromBackend=false policies only if SocketLB is fully functional
+				if !s.skipRedirectFromBackend && len(ipv6SkipFalsePolicies) > 0 {
+					if !t.Context().IsSocketLBFull() {
+						t.Info("Skipping IPv6 tests for policies with skipRedirectFromBackend=false due to SocketLB not being fully functional")
+					} else {
+						s.runTestsForIPFamily(ctx, t, ipv6SkipFalsePolicies, ipFamily)
+					}
 				}
 			}
 		}
