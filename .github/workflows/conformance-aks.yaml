@@ -685,6 +685,7 @@ jobs:
           provider: aks
           cluster: ${{ steps.create-cluster.outputs.cluster_name }}
           location: ${{ env.name }}
+          artifact_name: "control-plane-probe-aks-${{ env.job_name }} (${{ join(matrix.*, ', ') }})-${{ inputs.UID }}-attempt-${{ github.run_attempt }}"
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
