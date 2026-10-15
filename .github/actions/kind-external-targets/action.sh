@@ -9,7 +9,7 @@ IP4OTHERTARGET="$4"
 IP6TARGET="$5"
 IP6OTHERTARGET="$6"
 
-NGINX_IMAGE="${KIND_FAKE_EXTERNAL_TARGET_IMAGE:-nginx}"
+NGINX_IMAGE="${KIND_FAKE_EXTERNAL_TARGET_IMAGE:-docker.io/library/nginx}"
 
 lvh_wrapper() {
 	if [ "$LVH" = "true" ]; then
