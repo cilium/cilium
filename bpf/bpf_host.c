@@ -1106,29 +1106,28 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			const struct endpoint_info *ep_outer;
 
 			ep_outer = lookup_ip6_endpoint(ip6);
-			if (ep_outer) {
+			if (ep_outer && CONFIG(ipip_use_outer_dst)) {
 				union v6addr outer_dst;
-
 				ipv6_addr_copy(&outer_dst,
 					       (union v6addr *)&ip6->daddr);
-
-				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip6),
-						     BPF_ADJ_ROOM_MAC,
-						     BPF_F_ADJ_ROOM_NO_CSUM_RESET)) {
-					ret = DROP_INVALID;
-					goto drop_err_ingress;
-				}
-				if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
-					ret = DROP_INVALID;
-					goto drop_err_ingress;
-				}
 				ctx_store_meta_ipv6(ctx, CB_FORCED_BACKEND_V6_1,
 						    &outer_dst);
-				/* See the IPv4 sibling block below for why we
-				 * have to clear the skip-nodeport flag here.
-				 */
-				ctx_skip_nodeport_clear(ctx);
 			}
+
+			if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip6),
+					     BPF_ADJ_ROOM_MAC,
+					     BPF_F_ADJ_ROOM_NO_CSUM_RESET)) {
+				ret = DROP_INVALID;
+				goto drop_err_ingress;
+			}
+			if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
+				ret = DROP_INVALID;
+				goto drop_err_ingress;
+			}
+			/* See the IPv4 sibling block below for why we
+			 * have to clear the skip-nodeport flag here.
+			 */
+			ctx_skip_nodeport_clear(ctx);
 		}
 
 		identity = resolve_srcid_ipv6(ctx, ip6, identity, &ipcache_srcid);
@@ -1171,7 +1170,7 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		}
 
 		/* Terminate inbound IPIP in BPF on netdev ingress for any
-		 * outer dst that resolves to a local endpoint:
+		 * outer dst so that all these cases are supported:
 		 *
 		 *  - Pod outer dst: the kernel would otherwise route the still-
 		 *    encapped packet via the lxc into the Pod netns where it
@@ -1181,9 +1180,16 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		 *    decap on cilium_ipip4 via the collect_md fallback. Doing
 		 *    it here keeps the input ifindex on the physical netdev
 		 *    and lets us drop the bpf_host attach to cilium_ipip{4,6}.
+		 *  - Other outer dst (e.g. traffic from external LBs): the kernel
+		 *    would decap on cilium_ipip4 in the same way as the case above.
 		 *
-		 * Stash the LB-picked backend (the just-stripped outer dst)
-		 * so nodeport_lb4() honors it instead of re-running selection.
+		 * Stash the LB-picked backend (the just-stripped outer dst) based
+		 * on the bpf-lb-ipip-use-outer-dst being set to true. This way
+		 * nodeport_lb4() honors the backend being selected by the initial
+		 * LB node and does not re-run selection again. In the other case,
+		 * bpf-lb-ipip-use-outer-dst=false, the backend selection proceeds
+		 * normally based on the inner header, the packet only gets stripped
+		 * here.
 		 * For L7-punt-proxy svcs the lb4_svc_is_l7_punt_proxy &&
 		 * backend_local gate downstream punts to host stack before
 		 * any DNAT, so Envoy interception still works.
@@ -1194,33 +1200,35 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			const struct endpoint_info *ep_outer;
 
 			ep_outer = lookup_ip4_endpoint(ip4);
-			if (ep_outer) {
+			if (ep_outer && CONFIG(ipip_use_outer_dst)) {
 				__be32 outer_dst = ip4->daddr;
-
-				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip4),
-						     BPF_ADJ_ROOM_MAC,
-						     BPF_F_ADJ_ROOM_NO_CSUM_RESET)) {
-					ret = DROP_INVALID;
-					goto drop_err_ingress;
-				}
-				if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
-					ret = DROP_INVALID;
-					goto drop_err_ingress;
-				}
 				ctx_store_meta(ctx, CB_FORCED_BACKEND_V4, outer_dst);
-				/* If NodePort XDP acceleration ran upstream, it
-				 * couldn't classify the IPIP packet (no L4 to
-				 * extract a service tuple from) and signalled
-				 * XFER_PKT_NO_SVC. cil_from_netdev translated
-				 * that into a skip-nodeport hint via tc_index.
-				 * That hint was correct for the OUTER header but
-				 * is stale now: the inner is exactly the service
-				 * request that needs the forced-backend DNAT in
-				 * nodeport_svc_lb4(). Clear it so handle_ipv4()
-				 * runs nodeport_lb4().
-				 */
-				ctx_skip_nodeport_clear(ctx);
 			}
+
+			if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip4),
+					     BPF_ADJ_ROOM_MAC,
+					     BPF_F_ADJ_ROOM_NO_CSUM_RESET)) {
+				ret = DROP_INVALID;
+				goto drop_err_ingress;
+			}
+			if (!revalidate_data_pull(ctx, &data, &data_end, &ip4)) {
+				ret = DROP_INVALID;
+				goto drop_err_ingress;
+			}
+
+			/* If NodePort XDP acceleration ran upstream, it
+			 * couldn't classify the IPIP packet (no L4 to
+			 * extract a service tuple from) and signalled
+			 * XFER_PKT_NO_SVC. cil_from_netdev translated
+			 * that into a skip-nodeport hint via tc_index.
+			 * That hint was correct for the OUTER header but
+			 * is stale now: the inner is exactly the service
+			 * request that needs the forced-backend DNAT in
+			 * nodeport_svc_lb4(). Clear it so handle_ipv4()
+			 * runs nodeport_lb4().
+			 */
+			ctx_skip_nodeport_clear(ctx);
+
 		}
 
 		identity = resolve_srcid_ipv4(ctx, ip4, identity, &ipcache_srcid);
