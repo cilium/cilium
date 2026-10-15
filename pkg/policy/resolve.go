@@ -342,7 +342,7 @@ func (p *selectorPolicy) Supersede() {
 	if p == nil {
 		return
 	}
-	p.L4Policy.supersede(p.SelectorCache, 0)
+	p.L4Policy.supersede(p.SelectorCache)
 }
 
 // insertUser adds a user to the L4Policy so that incremental
