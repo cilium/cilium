@@ -517,7 +517,7 @@ jobs:
 
       - name: Upload feature status error logs
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: feature-status-errors-${{ env.job_name }}
           path: feature-status-errors/*.log
@@ -534,7 +534,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ !success() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cilium-sysdumps-bugtool-${{ matrix.k8s-version }}-${{matrix.focus}}
           path: |
