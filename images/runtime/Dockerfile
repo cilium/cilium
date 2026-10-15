@@ -42,6 +42,9 @@ RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y jq
 
+# The Ubuntu image ships pebble outside dpkg and Cilium never runs it
+RUN rm -rf /usr/bin/pebble /var/lib/pebble
+
 WORKDIR /go/src/github.com/cilium/cilium/images/runtime
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium/images/runtime \
     ./install-runtime-deps.sh
