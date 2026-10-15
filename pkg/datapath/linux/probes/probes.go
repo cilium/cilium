@@ -762,6 +762,52 @@ func HaveBatchAPI() error {
 	return nil
 }
 
+// HaveMapLookupAndDelete checks if the kernel supports the
+// BPF_MAP_LOOKUP_AND_DELETE_ELEM command on maps of the given type.
+//
+// Support depends on the map type: queue and stack maps have it since v4.20,
+// all hash variants (including per-CPU and LRU) since v5.14, while array maps
+// never support it.
+func HaveMapLookupAndDelete(mt ebpf.MapType) error {
+	spec := ebpf.MapSpec{
+		Type:       mt,
+		KeySize:    4,
+		ValueSize:  4,
+		MaxEntries: 1,
+	}
+
+	var (
+		key   any = uint32(0)
+		value any = new(uint32)
+	)
+	switch mt {
+	case ebpf.PerCPUHash, ebpf.LRUCPUHash, ebpf.PerCPUArray:
+		value = new([]uint32)
+	case ebpf.Queue, ebpf.Stack:
+		spec.KeySize = 0
+		key = nil
+	}
+
+	m, err := ebpf.NewMapWithOptions(&spec, ebpf.MapOptions{})
+	if err != nil {
+		return fmt.Errorf("creating %s map: %w", mt, ErrNotSupported)
+	}
+	defer m.Close()
+
+	// The map is empty, so a supported lookup and delete fails with
+	// ErrKeyNotExist. Unsupported map types, or kernels, fail with ENOTSUPP
+	// (mapped to ebpf.ErrNotSupported) or EINVAL for an unknown command.
+	err = m.LookupAndDelete(key, value)
+	switch {
+	case err == nil, errors.Is(err, ebpf.ErrKeyNotExist):
+		return nil
+	case errors.Is(err, ebpf.ErrNotSupported), errors.Is(err, unix.EINVAL):
+		return ErrNotSupported
+	default:
+		return fmt.Errorf("probing lookup and delete on %s map: %w", mt, err)
+	}
+}
+
 // Probes whether the kernel supports BIG TCP IPv4.
 var HaveBIGTCPIPv4 = sync.OnceValue(func() error {
 	link, err := safenetlink.LinkByName("lo")
