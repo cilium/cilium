@@ -7,7 +7,7 @@
 #include "pktgen.h"
 
 #define ENCAP_IFINDEX 1
-#define ENABLE_IPV4
+#define ENABLE_IPV4 1
 #define TUNNEL_MODE
 #define ENABLE_NODEPORT
 #define ENABLE_CLUSTER_AWARE_ADDRESSING
