@@ -5,6 +5,7 @@ package bpf
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -22,6 +23,7 @@ import (
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -617,6 +619,19 @@ func TestPrivilegedBasicManipulationPerCPU(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testMap := setupPerCPU(t, tc.mapType)
+			deleteFn := func(key MapKey) (bool, any, error) {
+				err := probes.HaveMapLookupAndDelete(tc.mapType)
+				switch {
+				case err == nil:
+					return testMap.LookupAndDelete(key)
+				case errors.Is(err, probes.ErrNotSupported):
+					v, _ := testMap.Lookup(key)
+					err = testMap.Delete(key)
+					return err == nil, v, err
+				}
+				t.Fatalf("unexpected error checking map type %s: %v", tc.mapType, err)
+				return false, nil, nil
+			}
 
 			updatePerCPU(t, testMap, &TestKey{Key: 0}, &TestValue{Value: 205})
 			updatePerCPU(t, testMap, &TestKey{Key: 2}, &TestValue{Value: 206})
@@ -626,9 +641,24 @@ func TestPrivilegedBasicManipulationPerCPU(t *testing.T) {
 			require.Contains(t, *values.(*TestValues), TestValue{Value: 206})
 
 			if !tc.canDelete {
+				ok, _, err := deleteFn(&TestKey{Key: 0})
+				require.Error(t, err)
+				require.False(t, ok)
+
 				require.Error(t, testMap.DeleteAll())
 				return
 			}
+
+			ok, values, err := deleteFn(&TestKey{Key: 0})
+			require.NoError(t, err)
+			require.True(t, ok)
+			require.Contains(t, *values.(*TestValues), TestValue{Value: 205})
+
+			// The entry is gone: deleting it again is not an error.
+			ok, values, err = deleteFn(&TestKey{Key: 0})
+			require.NoError(t, err)
+			require.False(t, ok)
+			require.Nil(t, values)
 
 			require.NoError(t, testMap.DeleteAll())
 

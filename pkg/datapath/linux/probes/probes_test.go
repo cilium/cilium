@@ -8,8 +8,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -150,4 +152,24 @@ func TestPrivilegedHaveFibLookupSrc(t *testing.T) {
 	testutils.PrivilegedTest(t)
 	testutils.SkipOnOldKernel(t, "6.7", "BPF_FIB_LOOKUP_SRC")
 	assert.NoError(t, HaveFibLookupSrc())
+}
+
+func TestPrivilegedHaveMapLookupAndDelete(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	// Array maps never support lookup and delete.
+	for _, mt := range []ebpf.MapType{ebpf.Array, ebpf.PerCPUArray} {
+		t.Run(mt.String(), func(t *testing.T) {
+			require.ErrorIs(t, HaveMapLookupAndDelete(mt), ErrNotSupported)
+		})
+	}
+
+	// Hash maps depend on the kernel version, but must never fail in any other way.
+	for _, mt := range []ebpf.MapType{ebpf.Hash, ebpf.PerCPUHash, ebpf.LRUHash, ebpf.LRUCPUHash} {
+		t.Run(mt.String(), func(t *testing.T) {
+			if err := HaveMapLookupAndDelete(mt); err != nil {
+				require.ErrorIs(t, err, ErrNotSupported)
+			}
+		})
+	}
 }
