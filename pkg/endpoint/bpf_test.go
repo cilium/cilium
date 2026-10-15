@@ -14,18 +14,22 @@ import (
 
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
+	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
-func TestRegenerateBPFFailureReverts(t *testing.T) {
-	endpointPolicy := &policy.EndpointPolicy{}
+// newRegenTestEndpoint returns an endpoint that regenerateBPF can run on up to
+// the point where it needs a policy map.
+func newRegenTestEndpoint(t *testing.T, repo *policy.Repository, endpointPolicy *policy.EndpointPolicy) *Endpoint {
 	ep := &Endpoint{
 		aliveCtx:                   t.Context(),
 		orchestrator:               &fakeendpoint.FakeOrchestrator{},
 		compilationLock:            &lock.RWMutex{},
-		policyRepo:                 &policy.Repository{},
+		policyRepo:                 repo,
 		dnsRulesAPI:                noopDNSRulesAPI{},
 		desiredPolicy:              endpointPolicy,
 		realizedPolicy:             endpointPolicy,
@@ -33,6 +37,12 @@ func TestRegenerateBPFFailureReverts(t *testing.T) {
 		ctCleaned:                  true,
 	}
 	ep.logger.Store(hivetest.Logger(t))
+	return ep
+}
+
+func TestRegenerateBPFFailureReverts(t *testing.T) {
+	endpointPolicy := &policy.EndpointPolicy{}
+	ep := newRegenTestEndpoint(t, &policy.Repository{}, endpointPolicy)
 	datapath := &datapathRegenerationContext{
 		policyResult: &policyGenerateResult{endpointPolicy: endpointPolicy},
 		ctCleaned:    make(chan struct{}),
@@ -51,6 +61,65 @@ func TestRegenerateBPFFailureReverts(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "endpoint has nil policyMapFactory")
 	require.True(t, reverted)
+}
+
+// An endpoint's first regeneration reuses the policy that ComputeInitialPolicy
+// computed, unless the endpoint's identity or the policy changed in between.
+func TestFirstRegenerationComputesPolicyOnce(t *testing.T) {
+	f := newPolicyTestFixture(t)
+	otherID := identity.NewIdentity(f.podID.ID+1, labels.Labels{"other": labels.NewLabel("k8s:other", "", "")})
+	f.idManager.Add(otherID)
+
+	for _, tc := range []struct {
+		name       string
+		change     func(t *testing.T, ep *Endpoint)
+		recomputed bool
+	}{
+		{"unchanged", func(*testing.T, *Endpoint) {}, false},
+		{"policy changed", func(t *testing.T, ep *Endpoint) {
+			_, err := f.polComputer.RecomputeIdentityPolicyForAllIdentities(f.repo.BumpRevision())
+			require.NoError(t, err)
+		}, true},
+		{"labels changed", func(_ *testing.T, ep *Endpoint) {
+			ep.identityRevision++
+		}, true},
+		{"identity changed", func(t *testing.T, ep *Endpoint) {
+			ep.SecurityIdentity = otherID
+			computePolicyForEPAndWait(t, ep, f.polComputer, f.repo.GetRevision())
+		}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ep := newRegenTestEndpoint(t, f.repo, policy.NewEndpointPolicy(hivetest.Logger(t), f.repo))
+			ep.policyFetcher = f.polComputer
+			ep.SecurityIdentity = f.podID
+			ep.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
+			computePolicyForEPAndWait(t, ep, f.polComputer, f.repo.GetRevision())
+
+			regenCtx := &regenerationContext{
+				parentContext:               t.Context(),
+				datapathRegenerationContext: &datapathRegenerationContext{ctCleaned: make(chan struct{})},
+			}
+			err, release := ep.ComputeInitialPolicy(regenCtx)
+			require.NoError(t, err)
+			defer release()
+			require.NotNil(t, regenCtx.datapathRegenerationContext.policyResult, "initial policy was not computed")
+
+			tc.change(t, ep)
+
+			// runPreCompilationSteps times the policy calculation only when it
+			// does not reuse the initial result.
+			regenCtx.Stats = regenerationStatistics{}
+			func() {
+				ep.buildMutex.Lock()
+				defer ep.buildMutex.Unlock()
+				_, err = ep.regenerateBPF(regenCtx)
+			}()
+			// The regeneration gets past the policy step and fails once it
+			// needs a policy map.
+			require.ErrorContains(t, err, "endpoint has nil policyMapFactory")
+			require.Equal(t, tc.recomputed, regenCtx.Stats.policyCalculation.Total() > 0)
+		})
+	}
 }
 
 func TestWriteInformationalComments(t *testing.T) {
