@@ -6,10 +6,32 @@ package statedb
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"sync"
 
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/part"
 )
+
+const maxPooledVisitedEntries = 1024
+
+var visitedPool = sync.Pool{
+	New: func() any {
+		return make(map[uint64]struct{})
+	},
+}
+
+func getVisited() map[uint64]struct{} {
+	return visitedPool.Get().(map[uint64]struct{})
+}
+
+func putVisited(visited map[uint64]struct{}) {
+	if len(visited) > maxPooledVisitedEntries {
+		return
+	}
+	clear(visited)
+	visitedPool.Put(visited)
+}
 
 // Index implements the indexing of objects (FromObjects) and
 // querying of objects from the index (FromKey).
@@ -49,6 +71,9 @@ func (i Index[Obj, Key]) isUnique() bool {
 
 // fromString implements Indexer.
 func (i Index[Obj, Key]) fromString(s string) (index.Key, error) {
+	if i.FromString == nil {
+		return nil, fmt.Errorf("index %q does not support string queries", i.Name)
+	}
 	return i.FromString(s)
 }
 
@@ -187,6 +212,8 @@ func (r *partIndex) objectToKey(obj object) (index.Key, bool) {
 func (r *partIndex) commit() (tableIndex, tableIndexTxnNotify) {
 	return r, nil
 }
+
+func (r *partIndex) abort() {}
 
 // get implements tableIndex.
 func (r *partIndex) get(ikey index.Key) (iobj object, watch <-chan struct{}, found bool) {
@@ -355,13 +382,21 @@ func (r *partIndexTxn) allNoWatch() tableIndexIterator {
 
 // list implements tableIndexTxn.
 func (r *partIndexTxn) list(ikey index.Key) (tableIndexIterator, <-chan struct{}) {
+	if r.unique {
+		// A unique list is a Get() and the result does not refer to the
+		// tree, so no snapshot is needed.
+		return partList(true, r.tx, ikey)
+	}
 	snapshot := r.tx.Clone()
-	return partList(r.unique, &snapshot, ikey)
+	return partList(false, &snapshot, ikey)
 }
 
 func (r *partIndexTxn) listNoWatch(ikey index.Key) tableIndexIterator {
+	if r.unique {
+		return partListNoWatch(true, r.tx, ikey)
+	}
 	snapshot := r.tx.Clone()
-	return partListNoWatch(r.unique, &snapshot, ikey)
+	return partListNoWatch(false, &snapshot, ikey)
 }
 
 // lowerBound implements tableIndexTxn.
@@ -414,6 +449,13 @@ func (r *partIndexTxn) commit() (tableIndex, tableIndexTxnNotify) {
 			objectToKeys: r.objectToKeys,
 		},
 	}, r
+}
+
+// abort implements tableIndexTxn.
+func (r *partIndexTxn) abort() {
+	// The transaction is stored in the [partIndex] that is shared with
+	// the committed root. Drop it to not retain the aborted changes.
+	r.tx = nil
 }
 
 // delete implements tableIndexTxn.
@@ -610,6 +652,17 @@ func (k nonUniqueKey) encodedSecondary() []byte {
 	return k[:k.secondaryLen()]
 }
 
+// markVisited adds the object's table revision to the visited set. Revisions
+// are unique within a table, so this identifies an object across its index keys.
+// Returns false if it was already visited.
+func markVisited(visited map[uint64]struct{}, revision uint64) bool {
+	if _, found := visited[revision]; found {
+		return false
+	}
+	visited[revision] = struct{}{}
+	return true
+}
+
 type nonUniquePartIterator struct {
 	iter         part.Iterator[object]
 	prefixSearch bool
@@ -618,7 +671,7 @@ type nonUniquePartIterator struct {
 
 // All implements tableIndexIterator.
 func (it *nonUniquePartIterator) All(yield func([]byte, object) bool) {
-	var visited map[string]struct{}
+	var visited map[uint64]struct{}
 	if it.prefixSearch {
 		// When prefix searching, keep track of objects we've already seen as
 		// multiple keys in non-unique index may map to a single object.
@@ -627,7 +680,8 @@ func (it *nonUniquePartIterator) All(yield func([]byte, object) bool) {
 		//
 		// This of course makes iterating over a non-unique index with a prefix
 		// (or lowerbound search) about 20x slower than normal!
-		visited = map[string]struct{}{}
+		visited = getVisited()
+		defer putVisited(visited)
 	}
 	for key, iobj := range it.iter.All {
 		nuk := nonUniqueKey(key)
@@ -643,15 +697,12 @@ func (it *nonUniquePartIterator) All(yield func([]byte, object) bool) {
 		}
 
 		if it.prefixSearch {
-			primary := nuk.encodedPrimary()
-
 			// When doing a prefix search on a non-unique index we may see the
 			// same object multiple times since multiple keys may point it.
 			// Skip if we've already seen this object.
-			if _, found := visited[string(primary)]; found {
+			if !markVisited(visited, iobj.revision) {
 				continue
 			}
-			visited[string(primary)] = struct{}{}
 		}
 
 		if !yield(key, iobj) {
@@ -698,12 +749,14 @@ type nonUniqueLowerBoundPartIterator struct {
 
 	// Keep track of objects we've already seen as multiple keys in non-unique
 	// index may map to a single object. Only used by Next().
-	visited map[string]struct{}
+	visited map[uint64]struct{}
+	done    bool
 }
 
 // All implements tableIndexIterator.
 func (it *nonUniqueLowerBoundPartIterator) All(yield func([]byte, object) bool) {
-	visited := map[string]struct{}{}
+	visited := getVisited()
+	defer putVisited(visited)
 	for key, iobj := range it.iter.All {
 		// With a non-unique index we have a composite key <secondary><primary><secondary len>.
 		// This means we need to check every key that it's larger or equal to the search key.
@@ -711,11 +764,9 @@ func (it *nonUniqueLowerBoundPartIterator) All(yield func([]byte, object) bool) 
 		nuk := nonUniqueKey(key)
 		secondary := nuk.encodedSecondary()
 		if bytes.Compare(secondary, it.searchKey) >= 0 {
-			primary := nuk.encodedPrimary()
-			if _, found := visited[string(primary)]; found {
+			if !markVisited(visited, iobj.revision) {
 				continue
 			}
-			visited[string(primary)] = struct{}{}
 
 			if !yield(key, iobj) {
 				return
@@ -725,12 +776,18 @@ func (it *nonUniqueLowerBoundPartIterator) All(yield func([]byte, object) bool) 
 }
 
 func (it *nonUniqueLowerBoundPartIterator) Next() ([]byte, object, bool) {
+	if it.done {
+		return nil, object{}, false
+	}
 	if it.visited == nil {
-		it.visited = map[string]struct{}{}
+		it.visited = getVisited()
 	}
 	for {
 		key, obj, ok := it.iter.Next()
 		if !ok {
+			putVisited(it.visited)
+			it.visited = nil
+			it.done = true
 			return nil, object{}, false
 		}
 
@@ -740,11 +797,9 @@ func (it *nonUniqueLowerBoundPartIterator) Next() ([]byte, object, bool) {
 		nuk := nonUniqueKey(key)
 		secondary := nuk.encodedSecondary()
 		if bytes.Compare(secondary, it.searchKey) >= 0 {
-			primary := nuk.encodedPrimary()
-			if _, found := it.visited[string(primary)]; found {
+			if !markVisited(it.visited, obj.revision) {
 				continue
 			}
-			it.visited[string(primary)] = struct{}{}
 
 			return key, obj, true
 		}

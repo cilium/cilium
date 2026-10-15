@@ -312,6 +312,8 @@ func (l lpmIndex) commit() (tableIndex, tableIndexTxnNotify) {
 	return l, nil
 }
 
+func (l lpmIndex) abort() {}
+
 // txn implements tableIndex.
 func (l lpmIndex) txn() (tableIndexTxn, bool) {
 	if l.prevTxn != nil {
@@ -482,6 +484,9 @@ func (l *lpmIndexTxn) reindex(primaryKey index.Key, old object, new object) {
 		})
 	}
 }
+
+// abort implements tableIndexTxn.
+func (l *lpmIndexTxn) abort() {}
 
 // rootWatch implements tableIndexTxn.
 func (l *lpmIndexTxn) rootWatch() <-chan struct{} {
@@ -688,17 +693,18 @@ func newLPMIterator(iter *lpm.Iterator[lpmEntry], deduplicate bool) tableIndexIt
 }
 
 func (l *lpmIteratorAdapter) All(yield func([]byte, object) bool) {
-	var visited map[string]struct{}
+	var visited map[uint64]struct{}
 	if l.deduplicate {
-		visited = map[string]struct{}{}
+		visited = getVisited()
+		defer putVisited(visited)
 	}
 	emit := func(key []byte, entry lpmEntryObject) bool {
 		if visited != nil {
-			primary := string(entry.primary)
-			if _, found := visited[primary]; found {
+			revision := entry.obj.revision
+			if _, found := visited[revision]; found {
 				return true
 			}
-			visited[primary] = struct{}{}
+			visited[revision] = struct{}{}
 		}
 		return yield(key, entry.obj)
 	}

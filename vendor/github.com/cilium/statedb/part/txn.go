@@ -254,6 +254,7 @@ func (txn *Txn[T]) Notify() {
 	if !txn.opts.rootOnlyWatch() {
 		validateRemovedWatches(txn.oldRoot, txn.root)
 	}
+	txn.oldRoot = nil
 }
 
 // PrintTree to the standard output. For debugging.
@@ -267,7 +268,7 @@ func (txn *Txn[T]) PrintTree() {
 }
 
 func (txn *Txn[T]) cloneNode(n *header[T]) *header[T] {
-	if n.txnID() == txn.txnID {
+	if !n.isLeaf() && n.txnID() == txn.txnID {
 		// The node was already cloned during this transaction and can
 		// be mutated in-place.
 		return n
@@ -455,6 +456,11 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 		txn.deleteParentsCache = make([]deleteParent[T], 0, 32)
 	}
 	parents := txn.deleteParentsCache[:1] // Placeholder for root
+	defer func() {
+		// Reuse a grown buffer, but release pointers into removed subtrees.
+		clear(parents)
+		txn.deleteParentsCache = parents[:0]
+	}()
 	parents[0].node = root
 
 	newRoot = root

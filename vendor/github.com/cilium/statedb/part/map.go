@@ -45,12 +45,12 @@ func FromMap[K comparable, V any](m Map[K, V], hm map[K]V) Map[K, V] {
 
 	m.ensureTree()
 	txn := m.tree.Txn()
-	for key, value := range hm {
-		txn.Insert(m.keyToBytes(key), mapKVPair[K, V]{key, value})
-	}
 	if m.singleton != nil {
 		txn.Insert(m.keyToBytes(m.singleton.Key), *m.singleton)
 		m.singleton = nil
+	}
+	for key, value := range hm {
+		txn.Insert(m.keyToBytes(key), mapKVPair[K, V]{key, value})
 	}
 	m.tree = txn.Commit()
 	return m
@@ -195,15 +195,27 @@ func (m Map[K, V]) All() iter.Seq2[K, V] {
 	return toSeq2(m.tree.Iterator())
 }
 
+// firstEntry returns the byte key and value of a map containing one entry.
+func (m Map[K, V]) firstEntry() ([]byte, V) {
+	if m.singleton != nil {
+		return m.keyToBytes(m.singleton.Key), m.singleton.Value
+	}
+	iter := m.tree.Iterator()
+	key, kv, _ := iter.Next()
+	return key, kv.Value
+}
+
 // EqualKeys returns true if both maps contain the same keys.
 func (m Map[K, V]) EqualKeys(other Map[K, V]) bool {
 	switch {
 	case m.Len() != other.Len():
 		return false
-	case m.singleton != nil && other.singleton != nil:
-		return bytes.Equal(m.keyToBytes(m.singleton.Key), other.keyToBytes(other.singleton.Key))
-	case !m.hasTree && !other.hasTree:
+	case m.Len() == 0:
 		return true
+	case m.Len() == 1:
+		key1, _ := m.firstEntry()
+		key2, _ := other.firstEntry()
+		return bytes.Equal(key1, key2)
 	default:
 		iter1 := m.tree.Iterator()
 		iter2 := other.tree.Iterator()
@@ -229,11 +241,12 @@ func (m Map[K, V]) SlowEqual(other Map[K, V]) bool {
 	switch {
 	case m.Len() != other.Len():
 		return false
-	case m.singleton != nil && other.singleton != nil:
-		return bytes.Equal(m.keyToBytes(m.singleton.Key), other.keyToBytes(other.singleton.Key)) &&
-			reflect.DeepEqual(m.singleton.Value, other.singleton.Value)
-	case !m.hasTree && !other.hasTree:
+	case m.Len() == 0:
 		return true
+	case m.Len() == 1:
+		key1, value1 := m.firstEntry()
+		key2, value2 := other.firstEntry()
+		return bytes.Equal(key1, key2) && reflect.DeepEqual(value1, value2)
 	default:
 		iter1 := m.tree.Iterator()
 		iter2 := other.tree.Iterator()

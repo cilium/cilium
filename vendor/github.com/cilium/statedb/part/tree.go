@@ -46,10 +46,7 @@ type Option func(*options)
 var RootOnlyWatch = (*options).setRootOnlyWatch
 
 func newTxn[T any](o options) *Txn[T] {
-	txn := &Txn[T]{}
-	txn.deleteParentsCache = make([]deleteParent[T], 0, 32)
-	txn.opts = o
-	return txn
+	return &Txn[T]{opts: o}
 }
 
 // Txn constructs a new transaction against the tree. Transactions
@@ -69,7 +66,12 @@ func (t *Tree[T]) Txn() *Txn[T] {
 	}
 	txn.opts = t.opts
 	txn.root = t.root
-	txn.oldRoot = t.root
+	// The old snapshot is only needed by the optional invariant checks.
+	// Keeping it in the cached transaction would retain replaced values.
+	txn.oldRoot = nil
+	if runValidation {
+		txn.oldRoot = t.root
+	}
 	txn.rootWatch = t.rootWatch
 	txn.size = t.size
 	txn.prevTxn = t.prevTxn

@@ -7,6 +7,7 @@ import (
 	"io"
 	"iter"
 	"slices"
+	"time"
 
 	"github.com/cilium/statedb/index"
 	"github.com/cilium/statedb/internal"
@@ -402,7 +403,7 @@ type tableInternal interface {
 	unmarshalYAML(data []byte) (any, error) // Unmarshal the data into 'Obj'
 	numDeletedObjects(txn ReadTxn) int      // Number of objects in graveyard
 	acquired(*writeTxnState)
-	released()
+	released(now time.Time)
 	getAcquiredInfo() string
 	tableHeader() []string
 	tableRowAny(any) []string
@@ -437,6 +438,10 @@ type tableIndex interface {
 	tableIndexReader
 	txn() (tableIndexTxn, bool)
 	commit() (idx tableIndex, txn tableIndexTxnNotify)
+
+	// abort discards the index transaction, if any, and releases the
+	// resources held by it.
+	abort()
 }
 
 type tableIndexTxn interface {
