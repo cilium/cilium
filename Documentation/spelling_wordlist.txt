@@ -122,6 +122,7 @@ Sharma
 Shirokov
 Shortnames
 Shutdowner
+Sigstore
 Socionext
 Solarflare
 Spectre
