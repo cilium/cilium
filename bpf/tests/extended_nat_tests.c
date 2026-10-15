@@ -7,7 +7,7 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#define ENABLE_NODEPORT
+#define ENABLE_NODEPORT 1
 #define SECLABEL 1
 #include <bpf/config/global.h>
 
