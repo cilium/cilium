@@ -6,7 +6,7 @@ IP4OTHERTARGET=$3
 IP6TARGET=$4
 IP6OTHERTARGET=$5
 
-NGINX_IMAGE="${KIND_FAKE_EXTERNAL_TARGET_IMAGE:-nginx}"
+NGINX_IMAGE="${KIND_FAKE_EXTERNAL_TARGET_IMAGE:-docker.io/library/nginx}"
 
 # Run the given command, retrying up to 5 times on failure.
 retry() {
