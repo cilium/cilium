@@ -63,7 +63,7 @@ runs:
       with:
         test-name: ${{ inputs.test-name }}
         image-version: ${{ inputs.kernel }}
-        images-folder-parent: "/tmp"
+        images-folder-parent: "/var/tmp"
         host-mount: ./
         cpu: 4
         mem: 12G

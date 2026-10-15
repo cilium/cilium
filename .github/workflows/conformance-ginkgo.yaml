@@ -425,7 +425,7 @@ jobs:
           install-dependencies: true
           dependency-list-sha: ${{ needs.lvh-cache-key.outputs.dependency-list-sha }}
           image-version: ${{ matrix.kernel }}
-          images-folder-parent: "/tmp"
+          images-folder-parent: "/var/tmp"
           host-mount: untrusted/
           cpu: 4
           mem: 12G
