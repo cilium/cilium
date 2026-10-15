@@ -139,12 +139,12 @@ func (m *Map) DumpBatch4(fn func(*tuple.TupleKey4, *NatEntry4)) (count int, err 
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}
 
-	iter := bpf.NewBatchIterator[tuple.TupleKey4, NatEntry4](&m.Map)
-	for key, entry := range iter.IterateAll(context.Background()) {
+	seq, errFn := bpf.BatchIterate[tuple.TupleKey4, NatEntry4](context.Background(), &m.Map)
+	for key, entry := range seq {
 		count++
 		fn(key, entry)
 	}
-	return count, nil
+	return count, errFn()
 }
 
 // DumpBatch6 uses batch iteration to walk the map and applies fn for each batch of entries.
@@ -152,12 +152,12 @@ func (m *Map) DumpBatch6(fn func(*tuple.TupleKey6, *NatEntry6)) (count int, err 
 	if m.family != IPv6 {
 		return 0, fmt.Errorf("not implemented: wrong ip family: %s", m.family)
 	}
-	iter := bpf.NewBatchIterator[tuple.TupleKey6, NatEntry6](&m.Map)
-	for key, entry := range iter.IterateAll(context.Background()) {
+	seq, errFn := bpf.BatchIterate[tuple.TupleKey6, NatEntry6](context.Background(), &m.Map)
+	for key, entry := range seq {
 		count++
 		fn(key, entry)
 	}
-	return count, nil
+	return count, errFn()
 }
 
 func (m *Map) Delete(k bpf.MapKey) (deleted bool, err error) {

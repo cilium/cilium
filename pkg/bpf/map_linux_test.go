@@ -1034,16 +1034,15 @@ func TestBatchIteratorTypes(t *testing.T) {
 		ebpf.Array,
 		&TestKey{},
 		&TestValue{}, 1, 0)
-	iter := NewBatchIterator[TestKey, TestValue](m)
-	iter.IterateAll(context.TODO())
-	assert.Error(t, iter.Err())
-	assert.NotNil(t, iter)
+	seq, errFn := BatchIterate[TestKey, TestValue](context.TODO(), m)
+	assert.NotNil(t, seq)
+	assert.Error(t, errFn())
 }
 
 func TestPrivilegedBatchIterator(t *testing.T) {
 	testutils.PrivilegedTest(t)
 
-	runTest := func(mapType ebpf.MapType, size, mapSize int, t *testing.T, opts ...BatchIteratorOpt[TestLPMKey, TestValue, *TestLPMKey, *TestValue]) {
+	runTest := func(mapType ebpf.MapType, size, mapSize int, t *testing.T, opts ...BatchOpt) {
 		makeKey := func(i int) MapKey {
 			// Note: We use a lpm key type as it is compatible with lpmtrie map tests
 			// and works fine for other tests.
@@ -1070,14 +1069,14 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 		ks := sets.New[int]()
 		vs := sets.New[int]()
 
-		iter := NewBatchIterator[TestLPMKey, TestValue](m)
+		seq, errFn := BatchIterate[TestLPMKey, TestValue](context.TODO(), m, opts...)
 		count := 0
-		for k, v := range iter.IterateAll(context.TODO(), opts...) {
+		for k, v := range seq {
 			count++
 			ks.Insert(int(k.Key))
 			vs.Insert(int(v.Value))
 		}
-		require.NoError(t, iter.Err())
+		require.NoError(t, errFn())
 		assert.Equal(t, size, count)
 
 		for i := range int(size) {
@@ -1096,7 +1095,7 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 	for _, test := range []struct {
 		mapSize int
 		size    int
-		opts    []BatchIteratorOpt[TestLPMKey, TestValue, *TestLPMKey, *TestValue]
+		opts    []BatchOpt
 		// LRU hash maps aren't totally safe to test like this, even if you're
 		// within the max map size number of elements, in practice the kernel
 		// will occasionally do a LRU eviction causing failures.
@@ -1112,8 +1111,8 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 		{
 			size:    1 << 12,
 			mapSize: 1 << 13,
-			opts: []BatchIteratorOpt[TestLPMKey, TestValue, *TestLPMKey, *TestValue]{
-				WithMaxRetries[TestLPMKey, TestValue](13), WithStartingChunkSize[TestLPMKey, TestValue](1)},
+			opts: []BatchOpt{
+				WithMaxRetries(13), WithStartingChunkSize(1)},
 			unsafeLRU: true,
 		},
 		{
@@ -1123,8 +1122,8 @@ func TestPrivilegedBatchIterator(t *testing.T) {
 		{
 			size:    1 << 12,
 			mapSize: 1 << 12,
-			opts: []BatchIteratorOpt[TestLPMKey, TestValue, *TestLPMKey, *TestValue]{
-				WithMaxRetries[TestLPMKey, TestValue](1), WithStartingChunkSize[TestLPMKey, TestValue](1 << 13)},
+			opts: []BatchOpt{
+				WithMaxRetries(1), WithStartingChunkSize(1 << 13)},
 			unsafeLRU: true,
 		},
 	} {
@@ -1170,7 +1169,7 @@ func TestPrivilegedPerCPUBatchIterator(t *testing.T) {
 		ks := sets.New[int]()
 		vs := sets.New[int]()
 
-		it, errFn := BatchIteratePerCPU[TestKey, TestValue](m)
+		it, errFn := BatchIteratePerCPU[TestKey, TestValue](context.TODO(), m)
 		count := 0
 		for k, values := range it {
 			count++
