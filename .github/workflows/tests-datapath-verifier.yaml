@@ -171,7 +171,7 @@ jobs:
           image: 'complexity-test'
           image-version: ${{ steps.kernel-version.outputs.full }}
           host-mount: ./
-          images-folder-parent: "/tmp"
+          images-folder-parent: "/var/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
           lvh-version: "v0.0.31"
