@@ -1093,6 +1093,19 @@
         "!main",
       ]
     },
+    {
+      // Open a single PR per branch for the trusted dependencies of these
+      // groups. The branch topic drops the "patch-" prefix that
+      // separateMinorPatch adds.
+      "matchJsonata": [
+        "groupName in ['auto-merge-trusted-deps', 'all-dependencies', 'base-images', 'cilium-envoy', 'all external docker images dependencies'] and 'ciliumbot' in reviewers"
+      ],
+      "groupName": "auto-merge-trusted-deps",
+      "groupSlug": "auto-merge-trusted-deps",
+      "group": {
+        "branchTopic": "{{{replace '^patch-' '' groupSlug}}}"
+      }
+    },
   ],
   "kubernetes": {
     "managerFilePatterns": [
