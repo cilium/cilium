@@ -273,7 +273,18 @@ this can be achieved:
 
    .. warning::
 
-     The egress IP must be assigned to a network device on the node.
+     The egress IP must be owned by the gateway node. That is, it must either be
+     assigned to a network device on the node, or, for an IPv4 egress IP, be
+     configured as a local route on a network device that Cilium is running on
+     (for example ``ip route add local a.b.c.d/32 dev ethX``).
+
+   .. note::
+
+     On Google Compute Engine (including GKE), the guest agent installs IPv4 addresses
+     that are forwarded to an instance (for example the IP of a forwarding rule that
+     targets the instance) as local routes. Such an IP can therefore be used as egress
+     IP on the gateway node that it is forwarded to. You can check this with
+     ``ip route show table local`` on the gateway node.
 
 3. By omitting both ``egressIP`` and ``interface`` properties. This selects the
    network interface with the default route as the egress interface, and the
@@ -296,8 +307,8 @@ agent option accordingly.
 
 .. note::
 
-   When Cilium is unable to select the Egress IP for an Egress Gateway policy (for example because the specified ``egressIP`` is not configured for any
-   network interface on the gateway node), then the gateway node will drop traffic that matches the policy with the reason ``No Egress IP configured``.
+   When Cilium is unable to select the Egress IP for an Egress Gateway policy (for example because the specified ``egressIP`` is not owned by the
+   gateway node), then the gateway node will drop traffic that matches the policy with the reason ``No Egress IP configured``.
 
 .. note::
 
@@ -381,7 +392,8 @@ the specification above:
           node.kubernetes.io/name: node2
 
       # Specify the IP address used to SNAT traffic matched by the policy.
-      # It must exist as an IP associated with a network interface on the instance.
+      # It must be owned by the gateway node, either as an IP that is assigned to one of
+      # its network interfaces, or as an IPv4 local route.
       egressIP: 10.168.60.100
 
       # Alternatively it's possible to specify the interface to be used for egress traffic.
@@ -534,6 +546,19 @@ of the egress node that matches the policy's ``nodeSelector``. The Egress IP is
 0.0.0.0 on all agents except for the one running on the egress gateway node,
 where you should see the Egress IP address being used for this traffic (which
 will be the ``egressIP`` from the policy, if specified).
+
+If the Egress IP is also 0.0.0.0 on the egress gateway node, then the agent on
+that node failed to select the egress IP for the policy, and logs the reason with
+the message ``Failed to derive policy gateway configuration``. If the policy
+specifies an ``egressIP`` that is configured as a local route, you can check
+whether the agent on the gateway node has picked it up as a node address:
+
+.. code-block:: shell-session
+
+    $ kubectl -n kube-system exec <cilium-pod-on-gateway-node> -- cilium-dbg shell -- db/show node-addresses
+    Address          NodePort   Primary   DeviceName
+    [...]
+    a.b.c.d          false      false     ethX
 
 If the egress list shown does not contain entries as expected to match your
 policy, check that the pod(s) and egress node are labeled correctly to match
