@@ -67,7 +67,7 @@ jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ${{ vars.UBUNTU_2404_2CPU_1GB || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_2CPU_1GB || 'ubuntu-26.04' }}
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -75,7 +75,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ${{ vars.UBUNTU_2404_2CPU_1GB || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_2CPU_1GB || 'ubuntu-26.04' }}
     steps:
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
@@ -84,7 +84,7 @@ jobs:
 
   wait-for-images:
     name: Wait for images
-    runs-on: ${{ vars.UBUNTU_2404_2CPU_1GB || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_2CPU_1GB || 'ubuntu-26.04' }}
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)
@@ -108,7 +108,7 @@ jobs:
     env:
       job_name: "MCS API Conformance Test"
     needs: [wait-for-images]
-    runs-on: ${{ vars.UBUNTU_2404_4CPU_16GB || 'ubuntu-24.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -335,7 +335,7 @@ jobs:
         # dispatch with a vX-Y PR-number and keep failing hard, since they are what
         # corgi reads.
         continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: report-${{ matrix.name }}.html
           path: pkg/clustermesh/mcsapi/conformance/report.html
@@ -347,7 +347,7 @@ jobs:
         if: ${{ always() && steps.mcs-api-conformance.outcome != 'skipped' }}
         # Not worth failing a pull request over; see the comment above.
         continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: report-${{ matrix.name }}.yaml
           path: pkg/clustermesh/mcsapi/conformance/report.yaml

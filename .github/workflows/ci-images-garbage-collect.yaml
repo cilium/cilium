@@ -11,7 +11,7 @@ jobs:
   scruffy:
     if: github.repository_owner == 'cilium'
     name: scruffy
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       matrix:
         include:
