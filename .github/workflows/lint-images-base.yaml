@@ -36,7 +36,7 @@ concurrency:
 jobs:
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       statuses: write
     steps:
@@ -47,7 +47,7 @@ jobs:
 
   lint:
     name: Lint image build logic
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       # To be able to access the repository with actions/checkout
       contents: read

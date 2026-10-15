@@ -36,7 +36,7 @@ jobs:
     # worth failing over it. Scheduled runs dispatch with a vX-Y PR-number and
     # keep failing hard, since they are what corgi reads.
     continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       actions: read
@@ -61,7 +61,7 @@ jobs:
   commit-status-final:
     if: ${{ always() }}
     name: Commit Status Final
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       statuses: write
     steps:
@@ -74,7 +74,7 @@ jobs:
   fail-workflow:
     if: ${{ inputs.success == false }}
     name: Fail job if result is failure
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Fail job if result is failure
         # Besides reporting in the commit SHA if the test was or not successful,

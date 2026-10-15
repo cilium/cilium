@@ -19,7 +19,7 @@ concurrency:
 jobs:
   check_changes:
     name: Deduce required tests from code changes
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       bpf-tree: ${{ steps.changes.outputs.bpf-tree }}
       coccinelle: ${{ steps.changes.outputs.coccinelle }}
@@ -56,7 +56,7 @@ jobs:
 
   checkpatch:
     name: Check Patch
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Checkout code
@@ -92,7 +92,7 @@ jobs:
     needs: check_changes
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.coccinelle == 'true' || needs.check_changes.outputs.workflow-description == 'true' }}
     name: Run coccicheck
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -114,7 +114,7 @@ jobs:
     needs: [check_changes]
     if: ${{ needs.check_changes.outputs.bpf-tree == 'true' || needs.check_changes.outputs.workflow-description == 'true' }}
     name: Build Datapath
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -135,7 +135,7 @@ jobs:
       # GitHub doesn't provide a way to retrieve the name of a job, so we have
       # to repeated it here.
       job_name: "bpf_tests"
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -180,7 +180,7 @@ jobs:
           for filename in *.xml; do cp "${filename}" "../cilium-junits/${junit_filename}"; done;
       - name: Upload JUnits [junit]
         if: ${{ always() && steps.run-tests.outcome != 'skipped' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cilium-junits
           path: cilium-junits/*.xml
