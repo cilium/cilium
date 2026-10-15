@@ -8,6 +8,11 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Point TMPDIR at /var/tmp
+      shell: bash
+      run: |
+        # ubuntu-26.04 mounts /tmp as a tmpfs sized to half the RAM.
+        echo "TMPDIR=/var/tmp" >> "$GITHUB_ENV"
     - name: Assess disk usage before cleanup
       shell: bash
       run: |
