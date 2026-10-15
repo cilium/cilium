@@ -256,6 +256,7 @@
 /.github/*.md @cilium/contributing
 /.github/assets/ @cilium/contributing
 /.github/ISSUE_TEMPLATE/ @cilium/contributing
+/.github/VULNERABILITY_REPORT.yml @cilium/security-cilium @cilium/contributing
 /.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
