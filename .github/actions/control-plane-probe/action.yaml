@@ -19,6 +19,9 @@ inputs:
   job_status:
     description: "Status of the job. In stop mode, 'cancelled' skips the calls to the cluster and the cloud API."
     default: ""
+  artifact_name:
+    description: "In stop mode, the artifact to upload the capture, the log and the summary to, whatever the job status."
+    default: ""
 
 runs:
   using: "composite"
@@ -41,3 +44,16 @@ runs:
         JOB_STATUS: ${{ inputs.job_status }}
       run: |
         timeout 240 bash "${GITHUB_ACTION_PATH}/probe.sh" stop "${PROVIDER}" "${CLUSTER}" "${LOCATION}" "${JOB_STATUS}"
+
+    - name: Upload the capture, the log and the summary
+      if: ${{ always() && inputs.mode == 'stop' && inputs.artifact_name != '' }}
+      continue-on-error: true
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: ${{ inputs.artifact_name }}
+        path: |
+          control-plane-handshakes.pcap
+          control-plane-probe.log
+          control-plane-probe-summary.txt
+        if-no-files-found: ignore
+        retention-days: 7

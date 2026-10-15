@@ -584,6 +584,7 @@ jobs:
           provider: gke
           cluster: ${{ env.clusterName }}-${{ matrix.config.index }}
           location: ${{ steps.create-cluster.outputs.zone }}
+          artifact_name: "control-plane-probe-gke-${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }}, ${{ inputs.UID }})-attempt-${{ github.run_attempt }}"
 
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
