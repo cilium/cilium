@@ -80,7 +80,7 @@ func setup(tb testing.TB) *Map {
 	return testMap
 }
 
-func setupPerCPU(tb testing.TB) *Map {
+func setupPerCPU(tb testing.TB, mapType ebpf.MapType) *Map {
 	testutils.PrivilegedTest(tb)
 
 	CheckOrMountFS(hivetest.Logger(tb), "")
@@ -89,7 +89,7 @@ func setupPerCPU(tb testing.TB) *Map {
 	require.NoError(tb, err)
 
 	testMap := NewMap("cilium_test_percpu",
-		ebpf.PerCPUArray,
+		mapType,
 		&TestKey{},
 		&TestValue{},
 		3,
@@ -104,6 +104,15 @@ func setupPerCPU(tb testing.TB) *Map {
 	})
 
 	return testMap
+}
+
+// updatePerCPU sets value for key on the first CPU, leaving the others zeroed.
+func updatePerCPU(tb testing.TB, m *Map, key *TestKey, value *TestValue) {
+	tb.Helper()
+
+	m.lock.Lock()
+	defer m.lock.Unlock()
+	require.NoError(tb, m.m.Update(key, []any{value}, ebpf.UpdateAny))
 }
 
 var (
@@ -531,52 +540,99 @@ func TestPrivilegedDump(t *testing.T) {
 }
 
 func TestPrivilegedDumpPerCPU(t *testing.T) {
-	testMap := setupPerCPU(t)
+	for _, tc := range []struct {
+		name    string
+		mapType ebpf.MapType
+		// Expected dump right after populating the map, and after ClearAll().
+		// Array entries always exist, hash entries only once inserted.
+		populated, cleared map[string][]uint32
+	}{
+		{
+			name:    "array",
+			mapType: ebpf.PerCPUArray,
+			populated: map[string][]uint32{
+				"key=0": {205},
+				"key=1": {0},
+				"key=2": {206},
+			},
+			cleared: map[string][]uint32{
+				"key=0": {0},
+				"key=1": {0},
+				"key=2": {0},
+			},
+		},
+		{
+			name:    "hash",
+			mapType: ebpf.PerCPUHash,
+			populated: map[string][]uint32{
+				"key=0": {205},
+				"key=2": {206},
+			},
+			// ClearAll() reinitializes the entries to zero, it does not
+			// remove them.
+			cleared: map[string][]uint32{
+				"key=0": {0},
+				"key=2": {0},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testMap := setupPerCPU(t, tc.mapType)
 
-	key1 := &TestKey{Key: 0}
-	value1 := &TestValue{Value: 205}
-	key2 := &TestKey{Key: 2}
-	value2 := &TestValue{Value: 206}
+			updatePerCPU(t, testMap, &TestKey{Key: 0}, &TestValue{Value: 205})
+			updatePerCPU(t, testMap, &TestKey{Key: 2}, &TestValue{Value: 206})
 
-	func() {
-		testMap.lock.Lock()
-		defer testMap.lock.Unlock()
-		err := testMap.m.Update(key1, []any{value1}, ebpf.UpdateAny)
-		require.NoError(t, err)
-		err = testMap.m.Update(key2, []any{value1}, ebpf.UpdateAny)
-		require.NoError(t, err)
-		err = testMap.m.Update(key2, []any{value2}, ebpf.UpdateAny)
-		require.NoError(t, err)
-	}()
-
-	dump := map[string][]uint32{}
-	customCb := func(key MapKey, values any) {
-		var value uint32
-		for _, v := range *values.(*TestValues) {
-			if value == 0 && v.Value != 0 {
-				value = v.Value
-			} else if value != 0 {
-				require.Equal(t, uint32(0), v.Value)
+			dump := map[string][]uint32{}
+			customCb := func(key MapKey, values any) {
+				var value uint32
+				for _, v := range *values.(*TestValues) {
+					if value == 0 && v.Value != 0 {
+						value = v.Value
+					} else if value != 0 {
+						require.Equal(t, uint32(0), v.Value)
+					}
+				}
+				dump[key.String()] = append(dump[key.String()], value)
 			}
-		}
-		dump[key.String()] = append(dump[key.String()], value)
+			require.NoError(t, testMap.DumpPerCPUWithCallback(customCb))
+			require.Equal(t, tc.populated, dump)
+
+			require.NoError(t, testMap.ClearAll())
+
+			dump = map[string][]uint32{}
+			require.NoError(t, testMap.DumpPerCPUWithCallback(customCb))
+			require.Equal(t, tc.cleared, dump)
+		})
 	}
-	testMap.DumpPerCPUWithCallback(customCb)
-	require.Equal(t, map[string][]uint32{
-		"key=0": {205},
-		"key=1": {0},
-		"key=2": {206},
-	}, dump)
+}
 
-	require.NoError(t, testMap.ClearAll())
+func TestPrivilegedBasicManipulationPerCPU(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		mapType   ebpf.MapType
+		canDelete bool
+	}{
+		{"array", ebpf.PerCPUArray, false},
+		{"hash", ebpf.PerCPUHash, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			testMap := setupPerCPU(t, tc.mapType)
 
-	dump = map[string][]uint32{}
-	testMap.DumpPerCPUWithCallback(customCb)
-	require.Equal(t, map[string][]uint32{
-		"key=0": {0},
-		"key=1": {0},
-		"key=2": {0},
-	}, dump)
+			updatePerCPU(t, testMap, &TestKey{Key: 0}, &TestValue{Value: 205})
+			updatePerCPU(t, testMap, &TestKey{Key: 2}, &TestValue{Value: 206})
+
+			if !tc.canDelete {
+				require.Error(t, testMap.DeleteAll())
+				return
+			}
+
+			require.NoError(t, testMap.DeleteAll())
+
+			dump := map[string][]string{}
+			require.NoError(t, testMap.Dump(dump))
+			require.Empty(t, dump)
+		})
+	}
 }
 
 // TestPrivilegedDumpReliablyWithCallbackOverlapping attempts to test that DumpReliablyWithCallback
