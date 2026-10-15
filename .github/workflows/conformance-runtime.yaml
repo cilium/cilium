@@ -195,7 +195,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: go-cache
         with:
-          path: /tmp/.cache/go
+          path: ${{ runner.temp }}/.cache/go
           key: ${{ runner.os }}-go-unit-tests-cache-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-unit-tests-cache-
@@ -204,14 +204,14 @@ jobs:
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
         shell: bash
         run: |
-          mkdir -p /tmp/.cache/go/.cache/go-build
-          mkdir -p /tmp/.cache/go/pkg
+          mkdir -p "${RUNNER_TEMP}/.cache/go/.cache/go-build"
+          mkdir -p "${RUNNER_TEMP}/.cache/go/pkg"
 
       - name: Move Go cache to local directories
         if: ${{ steps.go-cache.outputs.cache-hit == 'true' && matrix.focus == 'privileged' }}
         env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
+          GOCACHE: "${{ runner.temp }}/.cache/go/.cache/go-build"
+          GOMODCACHE: "${{ runner.temp }}/.cache/go/pkg"
         run: |
           mv "${GOCACHE}/go-build-cache.tar.zst" ./go-build-cache.tar.zst || true
           mv "${GOMODCACHE}/go-mod-cache.tar.zst" ./go-mod-cache.tar.zst || true
@@ -309,8 +309,8 @@ jobs:
       - name: Move Go cache to local directories
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
         env:
-          GOCACHE: "/tmp/.cache/go/.cache/go-build"
-          GOMODCACHE: "/tmp/.cache/go/pkg"
+          GOCACHE: "${{ runner.temp }}/.cache/go/.cache/go-build"
+          GOMODCACHE: "${{ runner.temp }}/.cache/go/pkg"
         run: |
           ls -lah "./go-build-cache.tar.zst" || true
           ls -lah "./go-mod-cache.tar.zst" || true
