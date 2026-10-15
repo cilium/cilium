@@ -25,6 +25,7 @@ import (
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/types"
+	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpointstate"
@@ -99,6 +100,9 @@ func newTestLoader(tb testing.TB) *loader {
 		}),
 		cell.Provide(func() bigtcp.Config {
 			return &fakebigtcp.Config{}
+		}),
+		cell.Provide(func() plugin.HooksStatusWriter {
+			return &fakeHooksStatusWriter{}
 		}),
 	)
 	log := hivetest.Logger(tb)
