@@ -38,9 +38,6 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 		for _, r := range l.Routes {
 			port := insecureHost
 			if m.NeedsPerPortGAMMAListeners() {
-				// GAMMA cleartext HTTP listeners are emitted per port, so each
-				// port must have its own RouteConfiguration to keep routes
-				// attached to different parentRef ports isolated.
 				port = fmt.Sprintf("%d", l.Port)
 			} else if len(l.TLS) > 0 {
 				if m.NeedsPerPortListeners() {
@@ -84,8 +81,6 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 	goslices.Sort(allPorts)
 
 	// Also emit an empty RouteConfiguration for configured ports with no routes.
-	// GAMMA listeners are emitted per port, so a combined insecure listener (and
-	// its empty route configuration) is not needed.
 	if !goslices.Contains(allPorts, insecureHost) && m.IsHTTPListenerConfigured() && !m.NeedsPerPortGAMMAListeners() {
 		allPorts = append([]string{insecureHost}, allPorts...)
 	}

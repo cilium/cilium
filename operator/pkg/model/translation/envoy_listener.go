@@ -403,9 +403,6 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 
 	needsPerPortTLS := m.NeedsPerPortTLSPassthroughListeners()
 
-	// GAMMA cleartext HTTP listeners are namespaced by port: emit one Listener
-	// per port so that routes attached to different parentRef ports of the same
-	// Service stay isolated from each other.
 	if m.NeedsPerPortGAMMAListeners() {
 		for _, port := range m.HTTPPorts() {
 			lName := listenerNameForPort(port)
@@ -621,9 +618,7 @@ func (i *cecTranslator) httpFilterChain(name string, m *model.Model) (*envoy_con
 }
 
 // httpFilterChainWithRouteConfig builds the cleartext HTTP filter chain for name,
-// pointing its connection manager at the given RouteConfiguration. This allows
-// per-port GAMMA listeners to reference a per-port RouteConfiguration
-// (listener-<port>) instead of the shared legacy one (listener-insecure).
+// pointing its connection manager at the given RouteConfiguration.
 func (i *cecTranslator) httpFilterChainWithRouteConfig(name, routeName string, m *model.Model) (*envoy_config_listener.FilterChain, error) {
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
 	insecureHttpConnectionManager, err := i.desiredHTTPConnectionManager(

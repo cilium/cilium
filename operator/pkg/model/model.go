@@ -886,13 +886,7 @@ func (m *Model) NeedsPerPortTLSPassthroughListeners() bool {
 }
 
 // NeedsPerPortGAMMAListeners returns true if the model contains GAMMA listeners
-// on more than one distinct port.
-//
-// GAMMA routes are attached to a specific Service parentRef port. Because all
-// cleartext HTTP listeners are otherwise merged into a single RouteConfiguration,
-// routes attached to different ports of the same Service would be combined and
-// could cross-route traffic between ports. Emitting one Listener (and matching
-// RouteConfiguration) per port preserves that boundary.
+// on more than one distinct Service parentRef port.
 func (m *Model) NeedsPerPortGAMMAListeners() bool {
 	return m.IsGamma() && len(m.HTTPPorts()) > 1
 }

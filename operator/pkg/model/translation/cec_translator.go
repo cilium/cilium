@@ -207,8 +207,6 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 
 	// Plaintext HTTP ports.
 	if m.NeedsPerPortGAMMAListeners() {
-		// GAMMA listeners are emitted per port, so each port references its own
-		// Envoy listener.
 		for _, port := range m.HTTPPorts() {
 			result = append(result, &ciliumv2.ServiceListener{
 				Namespace: namespace,
