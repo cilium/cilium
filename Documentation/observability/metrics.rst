@@ -615,6 +615,8 @@ Name                                          Labels                            
 ``datapath_conntrack_gc_key_fallbacks_total`` ``family``, ``protocol``                           Enabled    Number of times a key fallback was needed when iterating over the BPF map
 ``datapath_conntrack_gc_entries``             ``family``, ``protocol``, ``status``               Enabled    The number of alive and deleted conntrack entries at the end of a garbage collector run
 ``datapath_conntrack_gc_duration_seconds``    ``family``, ``protocol``, ``status``               Enabled    Duration in seconds of the garbage collector process
+``device_bytes_total``                        ``device``, ``direction``                          Enabled    Total number of bytes seen on a Cilium-managed device, tagged by ingress/egress direction
+``device_packets_total``                      ``device``, ``direction``                          Enabled    Total number of packets seen on a Cilium-managed device, tagged by ingress/egress direction
 ============================================= ================================================== ========== ========================================================
 
 IPsec

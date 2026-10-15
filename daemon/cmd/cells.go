@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/devicestats"
 	loadertypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	debugapi "github.com/cilium/cilium/pkg/debug/api"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -162,6 +163,9 @@ var (
 
 		// Provides cilium_datapath_drop/forward Prometheus metrics.
 		metricsmap.Cell,
+
+		// Provides cilium_device_stat Prometheus metric.
+		devicestats.Cell,
 
 		// Provides the IP trace map.
 		iptrace.Cell,
