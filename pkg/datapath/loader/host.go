@@ -318,7 +318,7 @@ func attachNetworkDevices(ctx context.Context, logger *slog.Logger, reg *registr
 
 	// Call immediately after attaching programs to make it obvious that a
 	// program was wrongfully detached due to a bug or misconfiguration.
-	if err := removeObsoleteNetdevPrograms(logger, devices); err != nil {
+	if err := removeObsoleteNetdevPrograms(logger, devices, collLoader); err != nil {
 		logger.Error("Failed to remove obsolete netdev programs", logfields.Error, err)
 	}
 
