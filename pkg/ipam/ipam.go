@@ -92,6 +92,8 @@ type NewIPAMParams struct {
 	// CloudProviders holds the registered cloud providers, keyed by the IPAM
 	// mode each one handles.
 	CloudProviders map[string]CloudProvider
+
+	MultiPoolMetrics MultiPoolMetrics
 }
 
 // NewIPAM returns a new IP address manager
@@ -116,6 +118,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		podIPPools:                params.PodIPPools,
 		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
 		cloudProviders:            params.CloudProviders,
+		multiPoolMetrics:          params.MultiPoolMetrics,
 	}
 }
 
@@ -197,6 +200,7 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 			DB:                        ipam.db,
 			PodIPPools:                ipam.podIPPools,
 			OnlyMasqueradeDefaultPool: ipam.onlyMasqueradeDefaultPool,
+			Metrics:                   ipam.multiPoolMetrics,
 		})
 		if err != nil {
 			return fmt.Errorf("unable to initialize MultiPool IPAM: %w", err)

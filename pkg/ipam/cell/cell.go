@@ -24,6 +24,7 @@ import (
 	k8sResources "github.com/cilium/cilium/pkg/k8s"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -46,6 +47,9 @@ var Cell = cell.Module(
 
 	// IPAM metadata manager, determines which IPAM pool a pod should allocate from
 	ipamMetadata.Cell,
+
+	// Multi-pool IPAM metrics
+	metrics.Metric(ipam.NewMultiPoolMetrics),
 )
 
 type ipamConfig struct {
@@ -91,6 +95,8 @@ type ipamParams struct {
 	// allocator, contributed by the pkg/{cloud}/agent cells. All of them are
 	// registered unconditionally; at most one matches the configured IPAM mode.
 	CloudProviders []ipam.CloudProvider `group:"ipam-cloud-providers"`
+
+	MultiPoolMetrics ipam.MultiPoolMetrics
 }
 
 func newIPAddressManager(params ipamParams, c ipamConfig) (*ipam.IPAM, error) {
@@ -127,6 +133,7 @@ func newIPAddressManager(params ipamParams, c ipamConfig) (*ipam.IPAM, error) {
 		PodIPPools:                params.PodIPPools,
 		OnlyMasqueradeDefaultPool: c.OnlyMasqueradeDefaultPool,
 		CloudProviders:            cloudProviders,
+		MultiPoolMetrics:          params.MultiPoolMetrics,
 	})
 
 	debug.RegisterStatusObject("ipam", ipam)

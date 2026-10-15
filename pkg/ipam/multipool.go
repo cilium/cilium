@@ -77,6 +77,8 @@ type MultiPoolAllocatorParams struct {
 	DB                        *statedb.DB
 	PodIPPools                statedb.Table[podippool.LocalPodIPPool]
 	OnlyMasqueradeDefaultPool bool
+
+	Metrics MultiPoolMetrics
 }
 
 type multiPoolAllocator struct {
@@ -101,6 +103,7 @@ func newMultiPoolAllocators(ctx context.Context, p MultiPoolAllocatorParams) (Al
 		JobGroup:              p.JobGroup,
 		SkipMasqueradeForPool: shouldSkipMasqForPool(p.DB, p.PodIPPools, p.OnlyMasqueradeDefaultPool),
 		PoolSpecAccessors:     MultiPoolAccessor,
+		Metrics:               p.Metrics,
 	})
 
 	waitForAllPools(p.Logger, p.DB, p.PodIPPools, preallocMap)
