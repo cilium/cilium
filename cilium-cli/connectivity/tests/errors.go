@@ -108,7 +108,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	envoyExternalOtherTargetTLSWarning := regexMatcher{regexp.MustCompile(fmt.Sprintf(envoyTLSWarningTemplate, externalOtherTarget))}
 	warningLogExceptions := []logMatcher{cantEnableJIT, podCIDRUnavailable,
 		unableGetNode, sessionAffinitySocketLB, objectHasBeenModified, noBackendResponse,
-		legacyBGPFeature, etcdTimeout, unableRestoreRouterIP,
+		legacyBGPFeature, splitXDSModeDeprecatedWarn, etcdTimeout, unableRestoreRouterIP,
 		routerIPReallocated, cantFindIdentityInCache, keyAllocFailedFoundMaster,
 		cantRecreateMasterKey, cantUpdateCRDIdentity, cantDeleteFromPolicyMap, failedToListCRDs,
 		hubbleQueueFull, reflectPanic, gobgpv3Warnings, gobgpNotification, gobgpNoMatchingWithdrawPath,
@@ -567,6 +567,7 @@ const (
 	objectHasBeenModified            stringMatcher = "the object has been modified; please apply your changes"                 // cf. https://github.com/cilium/cilium/issues/29712
 	noBackendResponse                stringMatcher = "The kernel does not support --service-no-backend-response=reject"        // cf. https://github.com/cilium/cilium/issues/29733
 	legacyBGPFeature                 stringMatcher = "You are using the legacy BGP feature"                                    // Expected when testing the legacy BGP feature.
+	splitXDSModeDeprecatedWarn       stringMatcher = "The Envoy xDS split mode is deprecated. Use ads or strict-ads instead."  // Expected when testing the deprecated split xDS mode.
 	etcdTimeout                      stringMatcher = "etcd client timeout exceeded"                                            // cf. https://github.com/cilium/cilium/issues/29714
 	endpointRestoreFailed            stringMatcher = "Unable to restore endpoint, ignoring"                                    // cf. https://github.com/cilium/cilium/issues/29716
 	unableRestoreRouterIP            stringMatcher = "Unable to restore router IP from filesystem"                             // cf. https://github.com/cilium/cilium/issues/29715
