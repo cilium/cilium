@@ -1,5 +1,10 @@
 {{/* validate deprecated options are not being used */}}
 
+{{/* Options moved in v1.21 */}}
+{{- if (dig "authentication" "mutual" "spire" "" .Values.AsMap) }}
+  {{ fail "authentication.mutual.spire has moved to encryption.ztunnel.spire. Use it with encryption.enabled=true, encryption.type=ztunnel, and encryption.ztunnel.ca.type=spire." }}
+{{- end }}
+
 {{/* Options removed in v1.18 */}}
 {{- if (dig "enableCiliumEndpointSlice" "" .Values.AsMap) }}
   {{ fail "enableCiliumEndpointSlice was deprecated in v1.16 and has been removed in v1.18. For details please refer to https://docs.cilium.io/en/v1.18/operations/upgrade/#helm-options" }}

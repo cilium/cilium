@@ -310,9 +310,9 @@ spec:
           {{- end }}
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
-        {{- if .Values.authentication.mutual.spire.enabled }}
+        {{- if eq (include "ztunnelSpireEnabled" .) "true" }}
         - name: spire-agent-socket
-          mountPath: {{ dir .Values.authentication.mutual.spire.adminSocketPath }}
+          mountPath: {{ dir .Values.encryption.ztunnel.spire.adminSocketPath }}
           readOnly: false
         {{- end }}
         {{- if $envoyDS }}
@@ -933,10 +933,10 @@ spec:
         hostPath:
           path: /run/xtables.lock
           type: FileOrCreate
-      {{- if .Values.authentication.mutual.spire.enabled }}
+      {{- if eq (include "ztunnelSpireEnabled" .) "true" }}
       - name: spire-agent-socket
         hostPath:
-          path: {{ dir .Values.authentication.mutual.spire.adminSocketPath }}
+          path: {{ dir .Values.encryption.ztunnel.spire.adminSocketPath }}
           type: DirectoryOrCreate
       {{- end }}
       {{- if $envoyDS }}

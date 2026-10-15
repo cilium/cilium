@@ -252,9 +252,9 @@ spec:
           mountPath: {{ .Values.kubeConfigPath }}
           readOnly: true
         {{- end }}
-        {{- if .Values.authentication.mutual.spire.enabled }}
+        {{- if eq (include "ztunnelSpireEnabled" .) "true" }}
         - name: spire-agent-socket
-          mountPath: {{ dir .Values.authentication.mutual.spire.agentSocketPath }}
+          mountPath: {{ dir .Values.encryption.ztunnel.spire.agentSocketPath }}
           readOnly: true
         {{- end }}
         {{- if and .Values.operator.prometheus.enabled .Values.operator.prometheus.tls.enabled }}
@@ -366,10 +366,10 @@ spec:
           type: {{ .hostPathType }}
           {{- end }}
       {{- end }}
-      {{- if .Values.authentication.mutual.spire.enabled }}
+      {{- if eq (include "ztunnelSpireEnabled" .) "true" }}
       - name: spire-agent-socket
         hostPath:
-          path: {{ dir .Values.authentication.mutual.spire.agentSocketPath }}
+          path: {{ dir .Values.encryption.ztunnel.spire.agentSocketPath }}
           type: DirectoryOrCreate
       {{- end }}
       {{- with .Values.operator.extraVolumes }}
