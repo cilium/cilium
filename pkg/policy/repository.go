@@ -311,8 +311,8 @@ func (p *Repository) GetRevision() uint64 {
 // BumpRevision allows forcing policy regeneration.
 // Outside of the policy importer, a bump must be followed by a recomputation of
 // all identities at the returned revision. The importer only advances policies
-// from the revision it starts at, so a policy not recomputed at a bumped
-// revision is never made current at a later one.
+// from the last revision bumped outside of it, so a policy not recomputed at a
+// bumped revision is never made current at a later one.
 func (p *Repository) BumpRevision() uint64 {
 	if p.metricsManager != nil {
 		metrics.PolicyRevision.Inc()
