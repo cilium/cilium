@@ -621,6 +621,10 @@ func TestPrivilegedBasicManipulationPerCPU(t *testing.T) {
 			updatePerCPU(t, testMap, &TestKey{Key: 0}, &TestValue{Value: 205})
 			updatePerCPU(t, testMap, &TestKey{Key: 2}, &TestValue{Value: 206})
 
+			values, err := testMap.Lookup(&TestKey{Key: 2})
+			require.NoError(t, err)
+			require.Contains(t, *values.(*TestValues), TestValue{Value: 206})
+
 			if !tc.canDelete {
 				require.Error(t, testMap.DeleteAll())
 				return

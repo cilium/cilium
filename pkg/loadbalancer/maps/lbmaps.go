@@ -512,7 +512,7 @@ func (r *BPFLBMaps) DeleteBackend(key BackendKey) error {
 }
 
 func (r *BPFLBMaps) LookupBackend(key BackendKey) (val BackendValue, err error) {
-	var v bpf.MapValue
+	var v any
 	switch key.(type) {
 	case *Backend4KeyV3:
 		v, err = r.backend4Map.Lookup(key)
