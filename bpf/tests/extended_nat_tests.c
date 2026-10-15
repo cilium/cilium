@@ -9,6 +9,8 @@
 #define ENABLE_IPV6 1
 #define ENABLE_NODEPORT
 #define SECLABEL 1
+#define SECLABEL_IPV4 SECLABEL
+#define SECLABEL_IPV6 SECLABEL
 #include <bpf/config/global.h>
 
 #include "nodeport_defaults.h"
