@@ -40,6 +40,11 @@ stdout ${id}
 db/show --columns Identity policy-computations
 stdout ${id}
 
+# The remaining endpoint still regenerates on a policy update. Deleting
+# one endpoint created from the template used to cancel the others.
+policy/import policy-https.yaml
+endpoint/wait-for-policy-revision 3
+
 # Deleting the last endpoint drops the refcount to 0 and releases everything.
 endpoint/delete ${epB}
 policyrepo/selectorcache
@@ -66,4 +71,23 @@ spec:
       toPorts:
       - ports:
         - port: "80"
+          protocol: "TCP"
+
+-- policy-https.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "shared-https"
+  namespace: "default"
+spec:
+  endpointSelector:
+    matchLabels:
+      "k8s:app": shared
+  egress:
+    - toEndpoints:
+      - matchLabels:
+          "k8s:app": peer
+      toPorts:
+      - ports:
+        - port: "443"
           protocol: "TCP"
