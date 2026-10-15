@@ -32,24 +32,19 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 
 	"github.com/google/uuid"
-	"github.com/vishvananda/netlink"
 )
 
 const (
 	bpfLoaderGCRetryInterval = time.Minute
 )
 
-func linkToInterfaceInfo(l netlink.Link) *datapathplugins.AttachmentContext_InterfaceInfo {
-	return &datapathplugins.AttachmentContext_InterfaceInfo{
-		Name: l.Attrs().Name,
-	}
-}
-
-func attachmentContextHost(ep endpoint.Endpoint, device netlink.Link) *datapathplugins.AttachmentContext {
+func attachmentContextHost(deviceName string) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
 		Context: &datapathplugins.AttachmentContext_Host_{
 			Host: &datapathplugins.AttachmentContext_Host{
-				Iface: linkToInterfaceInfo(device),
+				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
+					Name: deviceName,
+				},
 			},
 		},
 	}
@@ -71,31 +66,37 @@ func attachmentContextLXC(ep endpoint.Endpoint) *datapathplugins.AttachmentConte
 	}
 }
 
-func attachmentContextOverlay(device netlink.Link) *datapathplugins.AttachmentContext {
+func attachmentContextOverlay(deviceName string) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
 		Context: &datapathplugins.AttachmentContext_Overlay_{
 			Overlay: &datapathplugins.AttachmentContext_Overlay{
-				Iface: linkToInterfaceInfo(device),
+				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
+					Name: deviceName,
+				},
 			},
 		},
 	}
 }
 
-func attachmentContextWireguard(device netlink.Link) *datapathplugins.AttachmentContext {
+func attachmentContextWireguard(deviceName string) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
 		Context: &datapathplugins.AttachmentContext_Wireguard_{
 			Wireguard: &datapathplugins.AttachmentContext_Wireguard{
-				Iface: linkToInterfaceInfo(device),
+				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
+					Name: deviceName,
+				},
 			},
 		},
 	}
 }
 
-func attachmentContextXDP(device netlink.Link) *datapathplugins.AttachmentContext {
+func attachmentContextXDP(deviceName string) *datapathplugins.AttachmentContext {
 	return &datapathplugins.AttachmentContext{
 		Context: &datapathplugins.AttachmentContext_Xdp{
 			Xdp: &datapathplugins.AttachmentContext_XDP{
-				Iface: linkToInterfaceInfo(device),
+				Iface: &datapathplugins.AttachmentContext_InterfaceInfo{
+					Name: deviceName,
+				},
 			},
 		},
 	}

@@ -244,7 +244,7 @@ func loadAssignAttach(ctx context.Context, logger *slog.Logger, reg *registry.Ma
 				Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 			},
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), xdpConfig),
-		}, lnc, attachmentContextXDP(iface), bpffsDevicePluginPinsXdpDir(bpf.CiliumPath(), iface))
+		}, lnc, attachmentContextXDP(iface.Attrs().Name), bpffsDevicePluginPinsXdpDir(bpf.CiliumPath(), iface))
 		if err != nil {
 			return err
 		}
