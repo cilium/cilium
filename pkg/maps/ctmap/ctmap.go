@@ -293,11 +293,9 @@ func (m *Map) DumpEntriesWithTimeDiff(clockSource *models.ClockSource) (string, 
 // Count batch dumps the Map m and returns the count of the entries.
 func (m *Map) Count(ctx context.Context) (count int, err error) {
 	if m.mapType.isIPv4() {
-		iter := bpf.NewBatchIterator[tuple.TupleKey4, CtEntry](&m.Map)
-		return bpf.CountAll(ctx, iter)
+		return bpf.CountAll[tuple.TupleKey4, CtEntry](ctx, &m.Map)
 	} else {
-		iter := bpf.NewBatchIterator[tuple.TupleKey6, CtEntry](&m.Map)
-		return bpf.CountAll(ctx, iter)
+		return bpf.CountAll[tuple.TupleKey6, CtEntry](ctx, &m.Map)
 	}
 }
 
@@ -494,12 +492,12 @@ func (m *Map) purgeCtEntry(key CtKey, tupleKey tupleKeyAccessor, scratch *CtEntr
 
 func iterate[KT any, VT any, KP bpf.KeyPointer[KT], VP bpf.ValuePointer[VT]](m *Map, stats *gcStats, filterCallback func(key bpf.MapKey, value bpf.MapValue)) error {
 	ctx := context.Background()
-	iter := bpf.NewBatchIterator[KT, VT, KP, VP](&m.Map)
-	for k, v := range iter.IterateAll(ctx) {
+	seq, errFn := bpf.BatchIterate[KT, VT, KP, VP](ctx, &m.Map)
+	for k, v := range seq {
 		filterCallback(k, v)
 	}
 	stats.Completed = true
-	return iter.Err()
+	return errFn()
 }
 
 var _ tupleKeyAccessor = &tuple.TupleKey4{}
