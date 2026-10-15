@@ -8,17 +8,6 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Move /tmp onto the root filesystem
-      shell: bash
-      run: |
-        # ubuntu-26.04 mounts /tmp as a tmpfs sized to half the RAM.
-        if [ "$(findmnt -n -o FSTYPE /tmp)" = "tmpfs" ]; then
-          sudo mkdir -p /var/tmp/ci
-          sudo cp -a /tmp/. /var/tmp/ci/
-          sudo chmod 1777 /var/tmp/ci
-          sudo mount --bind /var/tmp/ci /tmp
-        fi
-        df -h /tmp
     - name: Assess disk usage before cleanup
       shell: bash
       run: |
