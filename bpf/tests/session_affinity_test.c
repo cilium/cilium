@@ -6,7 +6,7 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
-#define ENABLE_NODEPORT
+#define ENABLE_NODEPORT 1
 
 /* Make sure we always pick backend slot 1 if we end up in backend selection. */
 #define LB_DEFAULT_ALG LB_SELECTION_FIRST

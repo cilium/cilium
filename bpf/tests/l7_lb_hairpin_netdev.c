@@ -8,7 +8,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#define ENABLE_NODEPORT
+#define ENABLE_NODEPORT 1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
