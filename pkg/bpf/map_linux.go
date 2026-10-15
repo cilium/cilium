@@ -945,16 +945,11 @@ type IterableMap interface {
 // BatchIterator provides a typed wrapper *Map that allows for batched iteration
 // of bpf maps.
 type BatchIterator[KT, VT any, KP KeyPointer[KT], VP ValuePointer[VT]] struct {
-	m    IterableMap
-	err  error
-	keys []KT
-	vals []VT
+	m   IterableMap
+	err error
 
 	chunkSize      int
 	maxDumpRetries uint32
-
-	// Iteration stats
-	batchSize int
 
 	opts *ebpf.BatchOptions
 }
@@ -1105,74 +1100,152 @@ func (bi *BatchIterator[KT, VT, KP, VP]) IterateAll(ctx context.Context, opts ..
 
 	// reset values
 	bi.err = nil
-	bi.batchSize = 0
-	bi.keys = make([]KT, bi.chunkSize)
-	bi.vals = make([]VT, bi.chunkSize)
 
-	processed := 0
-	var cursor ebpf.MapBatchCursor
 	return func(yield func(KP, VP) bool) {
 		if bi.Err() != nil {
 			return
 		}
 
-	iterate:
-		for {
-			if ctx.Err() != nil {
-				bi.err = ctx.Err()
-				return
+		bi.err = batchLookupAll(ctx, bi.m, bi.chunkSize, 1, bi.maxBatchedRetries(), func(keys []KT, vals []VT) bool {
+			for i := range keys {
+				if !yield(&keys[i], &vals[i]) {
+					return false
+				}
 			}
-		retry:
-			for retry := range bi.maxBatchedRetries() {
-				// Attempt to read batch into buffer.
-				c, batchErr := bi.m.BatchLookup(&cursor, bi.keys, bi.vals, nil)
-				bi.batchSize = c
+			return true
+		})
+	}
+}
 
-				done := errors.Is(batchErr, ebpf.ErrKeyNotExist)
-				// Lookup batch on LRU hash map may fail if the buffer passed is not big enough to
-				// accommodate the largest bucket size in the LRU map [1]
-				// Because bucket size, in general, cannot be known, we approximate a good starting
-				// buffer size from the approximation of how many entries there should be in the map
-				// before expect to see a hash map collision: sqrt(max_entries * 2)
-				//
-				// If we receive ENOSPC failures, we will try to recover by growing the batch buffer
-				// size (up to some max number of retries - default: 3) and retrying the iteration.
-				//
-				// [1] https://elixir.bootlin.com/linux/v6.12.6/source/kernel/bpf/hashtab.c#L1807-L1809
-				//
-				// Note: If this failure happens during the bpf syscall, it is expected that the underlying
-				// cursor will not have been swapped - meaning that we can retry the iteration at the same cursor.
-				if errors.Is(batchErr, unix.ENOSPC) {
-					if retry == bi.maxBatchedRetries()-1 {
-						bi.err = batchErr
-					} else {
-						bi.chunkSize *= 2
-						bi.keys = make([]KT, bi.chunkSize)
-						bi.vals = make([]VT, bi.chunkSize)
-					}
-					continue retry
-				} else if !done && batchErr != nil {
-					// If we're not done, and we didn't hit a ENOSPC then stop iteration and record
-					// the error.
-					bi.err = fmt.Errorf("failed to iterate map: %w", batchErr)
-					return
-				}
+// batchLookupAll reads the whole map using the bpf batch api, handing every
+// batch of keys and values to yield until the end of the map is reached,
+// yield returns false or an error occurs.
+//
+// valuesPerKey is the number of vals items stored for each key: 1 for regular
+// maps, the number of possible CPUs for per-CPU ones. The slices passed to
+// yield are only valid until it returns.
+func batchLookupAll[KT, VT any](ctx context.Context, m IterableMap, chunkSize, valuesPerKey, maxRetries int, yield func(keys []KT, vals []VT) bool) error {
+	keys := make([]KT, chunkSize)
+	vals := make([]VT, chunkSize*valuesPerKey)
 
-				// Yield all received pairs.
-				for i := range bi.batchSize {
-					processed++
-					if !yield(&bi.keys[i], &bi.vals[i]) {
-						break iterate
-					}
-				}
+	var cursor ebpf.MapBatchCursor
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 
-				if done {
-					break iterate
+		var (
+			n    int
+			done bool
+		)
+		for retry := range maxRetries {
+			// Attempt to read batch into buffer.
+			var err error
+			n, err = m.BatchLookup(&cursor, keys, vals, nil)
+
+			done = errors.Is(err, ebpf.ErrKeyNotExist)
+			// Lookup batch on LRU hash map may fail if the buffer passed is not big enough to
+			// accommodate the largest bucket size in the LRU map [1]
+			// Because bucket size, in general, cannot be known, we approximate a good starting
+			// buffer size from the approximation of how many entries there should be in the map
+			// before expect to see a hash map collision: sqrt(max_entries * 2)
+			//
+			// If we receive ENOSPC failures, we will try to recover by growing the batch buffer
+			// size (up to some max number of retries - default: 3) and retrying the iteration.
+			//
+			// [1] https://elixir.bootlin.com/linux/v6.12.6/source/kernel/bpf/hashtab.c#L1807-L1809
+			//
+			// Note: If this failure happens during the bpf syscall, it is expected that the underlying
+			// cursor will not have been swapped - meaning that we can retry the iteration at the same cursor.
+			if errors.Is(err, unix.ENOSPC) {
+				if retry == maxRetries-1 {
+					return err
 				}
-				break retry // finish retry loop for this batch.
+				chunkSize *= 2
+				keys = make([]KT, chunkSize)
+				vals = make([]VT, chunkSize*valuesPerKey)
+				continue
 			}
+			if err != nil && !done {
+				// If we're not done, and we didn't hit a ENOSPC then stop iteration.
+				return fmt.Errorf("failed to iterate map: %w", err)
+			}
+			break
+		}
+
+		if n > 0 && !yield(keys[:n], vals[:n*valuesPerKey]) {
+			return nil
+		}
+		if done {
+			return nil
 		}
 	}
+}
+
+// PerCPUBatchOpt is an option for BatchIteratePerCPU.
+type PerCPUBatchOpt func(*perCPUBatchConfig)
+
+type perCPUBatchConfig struct {
+	maxRetries uint32
+}
+
+// WithPerCPUMaxRetries overrides the default max batch retries, see
+// WithMaxRetries.
+func WithPerCPUMaxRetries(retries uint32) PerCPUBatchOpt {
+	return func(c *perCPUBatchConfig) {
+		c.maxRetries = retries
+	}
+}
+
+// BatchIteratePerCPU is the per-CPU equivalent of BatchIterator: it iterates a
+// per-CPU hash, lru-hash or array map using the bpf batch api, yielding one []VT
+// (one value per possible CPU) for every key. The yielded key and values are only
+// valid until the next iteration.
+//
+// The returned function reports the error, if any, which prevented the iteration
+// from completing, and is meant to be called once the sequence is exhausted.
+// Iterating the sequence again restarts from the beginning of the map.
+func BatchIteratePerCPU[KT, VT any, KP KeyPointer[KT]](m IterableMap, opts ...PerCPUBatchOpt) (iter.Seq2[KP, []VT], func() error) {
+	var iterErr error
+	errFn := func() error { return iterErr }
+	empty := func(yield func(KP, []VT) bool) {}
+
+	switch m.Type() {
+	case ebpf.PerCPUHash, ebpf.LRUCPUHash, ebpf.PerCPUArray:
+	default:
+		iterErr = fmt.Errorf("unsupported map type %s, must be a per-CPU hash, lru-percpu-hash or per-CPU array type", m.Type())
+		return empty, errFn
+	}
+
+	possibleCPUs, err := ebpf.PossibleCPU()
+	if err != nil {
+		iterErr = fmt.Errorf("getting possible CPU count: %w", err)
+		return empty, errFn
+	}
+
+	cfg := perCPUBatchConfig{maxRetries: defaultBatchedRetries}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(&cfg)
+		}
+	}
+	if cfg.maxRetries == 0 {
+		cfg.maxRetries = defaultBatchedRetries
+	}
+	chunkSize := startingChunkSize(int(m.MaxEntries()))
+
+	return func(yield func(KP, []VT) bool) {
+		iterErr = batchLookupAll(context.Background(), m, chunkSize, possibleCPUs, int(cfg.maxRetries), func(keys []KT, vals []VT) bool {
+			// Each key's values are a contiguous, possibleCPUs-sized slice of
+			// the flat buffer: see (un)marshalBatchPerCPUValue in cilium/ebpf.
+			for i := range keys {
+				if !yield(&keys[i], vals[i*possibleCPUs:(i+1)*possibleCPUs]) {
+					return false
+				}
+			}
+			return true
+		})
+	}, errFn
 }
 
 // Dump returns the map (type map[string][]string) which contains all
