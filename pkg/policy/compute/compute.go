@@ -28,8 +28,8 @@ type PolicyRecomputer interface {
 }
 
 type Result struct {
-	Identity             identity.NumericIdentity
-	NewPolicy, OldPolicy policy.SelectorPolicy
+	Identity  identity.NumericIdentity
+	NewPolicy policy.SelectorPolicy
 	// Revision is the repository revision this policy was computed at. It is
 	// how processRequests tells whether a requested computation has already
 	// run, so it must only ever be set by an actual computation. Use
@@ -233,8 +233,7 @@ func (r *IdentityPolicyComputer) GetIdentityPolicyByIdentity(identity *identity.
 // pending is a request that needs a computation.
 type pending struct {
 	computeRequest
-	rev       statedb.Revision      // statedb revision for CompareAndSwap
-	oldPolicy policy.SelectorPolicy // the committed policy, superseded after the new one commits
+	rev statedb.Revision // statedb revision for CompareAndSwap
 }
 
 // computeResult is the outcome of computing a pending request.
@@ -289,9 +288,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				close(req.done)
 				continue
 			}
-			// The currently committed policy becomes the old one once this
-			// recomputation commits its replacement.
-			work = append(work, pending{computeRequest: req, rev: rev, oldPolicy: obj.NewPolicy})
+			work = append(work, pending{computeRequest: req, rev: rev})
 		}
 		if len(work) == 0 {
 			if len(advances) > 0 {
@@ -309,7 +306,6 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				start := time.Now()
 				results[i].pending = w
 				results[i].res.Identity = w.identity.ID
-				results[i].res.OldPolicy = w.oldPolicy
 				results[i].res.NewPolicy, results[i].res.Revision, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity)
 				// A freshly computed policy is current as of the revision it
 				// was computed at.
@@ -328,7 +324,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 
 		// Commit in a single WriteTxn.
 		wtxn := r.db.WriteTxn(r.tbl)
-		committed, dropped, retry := r.commitResults(wtxn, results)
+		committed, superseded, dropped, retry := r.commitResults(wtxn, results)
 		// Advance after the CompareAndSwaps. applyAdvances rewrites rows, which
 		// changes their statedb revision, so a CompareAndSwap against the
 		// revision read before computing would then fail and drop the result.
@@ -354,17 +350,17 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				logfields.Identity, cr.res.Identity,
 				logfields.PolicyRevision, cr.toRev,
 			)
-			if cr.res.OldPolicy != nil {
-				cr.res.OldPolicy.Supersede()
-			}
+		}
+		for _, sp := range superseded {
+			sp.Supersede()
 		}
 	}
 }
 
 // commitResults stores the computed results in the table. It returns the
-// results it committed, the policies of the results it dropped, and whether it
-// requeued any failed computation.
-func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []computeResult) (committed []computeResult, dropped []policy.SelectorPolicy, retry bool) {
+// results it committed, the policies they replaced, the policies of the results
+// it dropped, and whether it requeued any failed computation.
+func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []computeResult) (committed []computeResult, superseded, dropped []policy.SelectorPolicy, retry bool) {
 	// Check for stale results and requeue retries under one lock, so a
 	// removal can't happen in between. The CompareAndSwaps below don't need
 	// the lock, since a removal deletes the row only after wtxn commits.
@@ -405,7 +401,8 @@ func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []
 				logfields.Error, cr.res.Err,
 			)
 		default:
-			if _, _, err := r.tbl.CompareAndSwap(wtxn, cr.rev, cr.res); err != nil {
+			old, _, err := r.tbl.CompareAndSwap(wtxn, cr.rev, cr.res)
+			if err != nil {
 				// Not expected. Results of removed identities are dropped
 				// above, since CompareAndSwap would insert them anyway.
 				r.logger.Error("Failed to commit policy computation result",
@@ -416,9 +413,12 @@ func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []
 				continue
 			}
 			committed = append(committed, cr)
+			if old.NewPolicy != nil {
+				superseded = append(superseded, old.NewPolicy)
+			}
 		}
 	}
-	return committed, dropped, retry
+	return committed, superseded, dropped, retry
 }
 
 // LocalEndpointIdentityAdded is part of the identitymanager.Observer
