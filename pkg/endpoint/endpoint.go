@@ -2994,17 +2994,13 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 		K8sNamespace: e.K8sNamespace,
 		K8sPodName:   e.K8sPodName,
 
-		aliveCancel:        e.aliveCancel,
-		aliveCtx:           e.aliveCtx,
 		allocator:          e.allocator,
 		compilationLock:    e.compilationLock,
-		controllers:        e.controllers,
 		createdAt:          e.createdAt,
 		ctMapGC:            e.ctMapGC,
 		dnsRulesAPI:        e.dnsRulesAPI,
 		epBuildQueue:       e.epBuildQueue,
 		forcePolicyCompute: e.forcePolicyCompute,
-		hasBPFProgram:      e.hasBPFProgram,
 		identityManager:    e.identityManager,
 		ifIndex:            e.ifIndex,
 		ifName:             e.ifName,
@@ -3027,9 +3023,12 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 	clone.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
 	clone.labels = labels.NewOpLabels()
 	clone.status = NewEndpointStatus()
-	if e.controllers == nil {
-		clone.controllers = controller.NewManager()
-	}
+	// Per-endpoint state, created as in createEndpoint rather than shared with
+	// the template.
+	clone.aliveCtx, clone.aliveCancel = context.WithCancel(context.Background())
+	clone.controllers = controller.NewManager()
+	clone.regenFailedChan = make(chan struct{}, 1)
+	clone.hasBPFProgram = make(chan struct{})
 	clone.desiredPolicy = policy.NewEndpointPolicy(e.logger.Load(), e.policyRepo)
 	clone.realizedPolicy = clone.desiredPolicy
 	clone.initialEnvoyPolicyComputed = make(chan struct{})
