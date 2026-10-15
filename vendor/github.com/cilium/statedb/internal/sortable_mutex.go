@@ -40,7 +40,9 @@ type SortableMutexes []*SortableMutex
 // Lock sorts the mutexes, and then locks them in order. If any lock cannot be acquired,
 // this will block while holding the locks with a lower sequence number.
 // Panics if the same mutex is included more than once.
-func (s SortableMutexes) Lock() {
+// Returns the time at which locking started and the time at which all
+// locks were acquired.
+func (s SortableMutexes) Lock() (start, acquired time.Time) {
 	slices.SortFunc(s, func(a, b *SortableMutex) int {
 		aSeq, bSeq := a.Seq(), b.Seq()
 		if aSeq == bSeq {
@@ -48,9 +50,15 @@ func (s SortableMutexes) Lock() {
 		}
 		return cmp.Compare(a.Seq(), b.Seq())
 	})
+	start = time.Now()
+	acquired = start
 	for _, mu := range s {
-		mu.Lock()
+		mu.Mutex.Lock()
+		now := time.Now()
+		mu.acquireDuration = now.Sub(acquired)
+		acquired = now
 	}
+	return
 }
 
 // Unlock unlocks the sorted set of mutexes locked by a prior call to Lock().

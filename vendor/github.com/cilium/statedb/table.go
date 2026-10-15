@@ -205,9 +205,9 @@ func (t *genTable[Obj]) acquired(txn *writeTxnState) {
 	t.lastWriteTxn.mu.Unlock()
 }
 
-func (t *genTable[Obj]) released() {
+func (t *genTable[Obj]) released(now time.Time) {
 	t.lastWriteTxn.mu.Lock()
-	t.lastWriteTxn.duration = time.Since(t.lastWriteTxn.acquiredAt)
+	t.lastWriteTxn.duration = now.Sub(t.lastWriteTxn.acquiredAt)
 	t.lastWriteTxn.mu.Unlock()
 }
 

@@ -88,15 +88,11 @@ func NewExpVarMetrics(publish bool) *ExpVarMetrics {
 }
 
 func (m *ExpVarMetrics) DeleteTrackerCount(name string, numTrackers int) {
-	var intVar expvar.Int
-	intVar.Set(int64(numTrackers))
-	m.DeleteTrackerCountVar.Set(name, &intVar)
+	setIntVar(m.DeleteTrackerCountVar, name, int64(numTrackers))
 }
 
 func (m *ExpVarMetrics) Revision(name string, revision uint64) {
-	var intVar expvar.Int
-	intVar.Set(int64(revision))
-	m.RevisionVar.Set(name, &intVar)
+	setIntVar(m.RevisionVar, name, int64(revision))
 }
 
 func (m *ExpVarMetrics) GraveyardCleaningDuration(name string, duration time.Duration) {
@@ -104,21 +100,15 @@ func (m *ExpVarMetrics) GraveyardCleaningDuration(name string, duration time.Dur
 }
 
 func (m *ExpVarMetrics) GraveyardLowWatermark(name string, lowWatermark Revision) {
-	var intVar expvar.Int
-	intVar.Set(int64(lowWatermark)) // unfortunately overflows at 2^63
-	m.GraveyardLowWatermarkVar.Set(name, &intVar)
+	setIntVar(m.GraveyardLowWatermarkVar, name, int64(lowWatermark)) // unfortunately overflows at 2^63
 }
 
 func (m *ExpVarMetrics) GraveyardObjectCount(name string, numDeletedObjects int) {
-	var intVar expvar.Int
-	intVar.Set(int64(numDeletedObjects))
-	m.GraveyardObjectCountVar.Set(name, &intVar)
+	setIntVar(m.GraveyardObjectCountVar, name, int64(numDeletedObjects))
 }
 
 func (m *ExpVarMetrics) ObjectCount(name string, numObjects int) {
-	var intVar expvar.Int
-	intVar.Set(int64(numObjects))
-	m.ObjectCountVar.Set(name, &intVar)
+	setIntVar(m.ObjectCountVar, name, int64(numObjects))
 }
 
 func (m *ExpVarMetrics) WriteTxnDuration(handle string, tables []string, acquire time.Duration) {
@@ -131,6 +121,18 @@ func (m *ExpVarMetrics) WriteTxnTotalAcquisition(handle string, tables []string,
 
 func (m *ExpVarMetrics) WriteTxnTableAcquisition(handle string, tableName string, acquire time.Duration) {
 	m.LockContentionVar.AddFloat(handle+"/"+tableName, acquire.Seconds())
+}
+
+// setIntVar sets the integer value of the given key, reusing the existing
+// value if it exists to avoid allocating.
+func setIntVar(m *expvar.Map, name string, value int64) {
+	if intVar, ok := m.Get(name).(*expvar.Int); ok {
+		intVar.Set(value)
+		return
+	}
+	var intVar expvar.Int
+	intVar.Set(value)
+	m.Set(name, &intVar)
 }
 
 var _ Metrics = &ExpVarMetrics{}

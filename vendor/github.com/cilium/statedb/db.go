@@ -142,8 +142,9 @@ func New(options ...Option) *DB {
 		o(&opts)
 	}
 	if opts.metrics == nil {
-		// Use the default metrics implementation but don't publish it.
-		opts.metrics = NewExpVarMetrics(false)
+		// No metrics implementation given. Nothing would be able to observe
+		// the metrics, so don't bother collecting them.
+		opts.metrics = &NopMetrics{}
 	}
 
 	db := &DB{
@@ -167,6 +168,7 @@ func (db *DB) updateWriteTxnPoolLocked(numTables int) {
 			return &writeTxnState{
 				db:           db,
 				tableEntries: make([]*tableEntry, 0, numTables),
+				lockedTables: make([]*tableEntry, 0, defaultNumTables),
 				smus:         make(internal.SortableMutexes, 0, defaultNumTables),
 				tableNames:   make([]string, 0, defaultNumTables),
 			}
@@ -221,9 +223,7 @@ func (db *DB) WriteTxn(tables ...TableMeta) WriteTxn {
 		txn.smus[i] = table.sortableMutex()
 	}
 
-	lockAt := time.Now()
-	txn.smus.Lock()
-	acquiredAt := time.Now()
+	lockAt, acquiredAt := txn.smus.Lock()
 
 	txn.oldRoot = db.root.Load()
 
@@ -235,11 +235,13 @@ func (db *DB) WriteTxn(tables ...TableMeta) WriteTxn {
 	txn.acquiredAt = acquiredAt
 
 	txn.tableNames = reuseSlice(txn.tableNames, len(tables))
+	txn.lockedTables = reuseSlice(txn.lockedTables, len(tables))
 	for i, table := range tables {
 		pos := table.tablePos()
 		tableEntryCopy := cloneTableEntry(txn.tableEntries[pos])
 		tableEntryCopy.locked = true
 		txn.tableEntries[pos] = tableEntryCopy
+		txn.lockedTables[i] = tableEntryCopy
 		name := table.Name()
 		txn.tableNames[i] = name
 

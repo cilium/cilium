@@ -32,6 +32,7 @@ type writeTxnState struct {
 
 	oldRoot      *dbRoot                  // snapshot of the root at the time WriteTxn was called
 	tableEntries []*tableEntry            // table entries being modified
+	lockedTables []*tableEntry            // the entries of the locked tables
 	numTxns      int                      // number of index transactions opened
 	smus         internal.SortableMutexes // the (sorted) table locks
 	tableNames   []string
@@ -81,13 +82,19 @@ func (txn *writeTxnState) indexWriteTxn(meta TableMeta, indexPos int) (tableInde
 	if !table.locked {
 		return nil, tableError(meta.Name(), ErrTableNotLockedForWriting)
 	}
-	indexEntry := table.indexes[indexPos]
-	itxn, created := indexEntry.txn()
+	return txn.tableIndexTxn(table, indexPos), nil
+}
+
+// tableIndexTxn returns a transaction to read/write to a specific index of
+// the given locked table. The created transaction is memoized and used for
+// subsequent reads and/or writes.
+func (txn *writeTxnState) tableIndexTxn(table *tableEntry, indexPos int) tableIndexTxn {
+	itxn, created := table.indexes[indexPos].txn()
 	if created {
 		table.indexes[indexPos] = itxn
 		txn.numTxns++
 	}
-	return itxn, nil
+	return itxn
 }
 
 // mustIndexReadTxn returns a transaction to read from the specific index.
@@ -125,15 +132,28 @@ func (txn *writeTxnState) modify(meta TableMeta, guardRevision Revision, newData
 	if !table.locked {
 		return object{}, false, nil, tableError(tableName, ErrTableNotLockedForWriting)
 	}
-	oldRevision := table.revision
 
 	// Update the primary index first
 	obj := object{data: newData}
-	idIndexTxn := txn.mustIndexWriteTxn(meta, PrimaryIndexPos)
+	idIndexTxn := txn.tableIndexTxn(table, PrimaryIndexPos)
 	idKey, indexed := idIndexTxn.objectToKey(obj)
 	if !indexed {
 		return object{}, false, nil, nil
 	}
+
+	// For CompareAndSwap() validate against the given guard revision before
+	// modifying the index to not wake up watchers if the swap fails.
+	if guardRevision > 0 {
+		oldObj, oldExists := idIndexTxn.getNoWatch(idKey)
+		if !oldExists {
+			// CompareAndSwap requires the object to exist.
+			return object{}, false, nil, ErrObjectNotFound
+		}
+		if oldObj.revision != guardRevision {
+			return oldObj, true, nil, ErrRevisionNotEqual
+		}
+	}
+
 	table.revision++
 	obj.revision = table.revision
 
@@ -172,27 +192,8 @@ func (txn *writeTxnState) modify(meta TableMeta, guardRevision Revision, newData
 		}
 	}
 
-	// For CompareAndSwap() validate against the given guard revision
-	if guardRevision > 0 {
-		if !oldExists {
-			// CompareAndSwap requires the object to exist. Revert
-			// the insert.
-			idIndexTxn.delete(idKey)
-			table.revision = oldRevision
-			return object{}, false, watch, ErrObjectNotFound
-		}
-		if oldObj.revision != guardRevision {
-			// Revert the change. We're assuming here that it's rarer for CompareAndSwap() to
-			// fail and thus we're optimizing to have only one lookup in the common case
-			// (versus doing a Get() and then Insert()).
-			idIndexTxn.insertNoWatch(idKey, oldObj)
-			table.revision = oldRevision
-			return oldObj, true, watch, ErrRevisionNotEqual
-		}
-	}
-
 	// Update revision index
-	revIndexTxn := txn.mustIndexWriteTxn(meta, RevisionIndexPos)
+	revIndexTxn := txn.tableIndexTxn(table, RevisionIndexPos)
 	if oldExists {
 		binary.BigEndian.PutUint64(txn.revKey[:], oldObj.revision)
 		revIndexTxn.delete(txn.revKey[:])
@@ -202,25 +203,20 @@ func (txn *writeTxnState) modify(meta TableMeta, guardRevision Revision, newData
 	// If it's new, possibly remove an older deleted object with the same
 	// primary key from the graveyard.
 	if !oldExists {
-		if old, existed := txn.mustIndexReadTxn(meta, GraveyardIndexPos).getNoWatch(idKey); existed {
-			txn.mustIndexWriteTxn(meta, GraveyardIndexPos).delete(idKey)
+		if old, existed := table.indexes[GraveyardIndexPos].getNoWatch(idKey); existed {
+			txn.tableIndexTxn(table, GraveyardIndexPos).delete(idKey)
 			binary.BigEndian.PutUint64(txn.revKey[:], old.revision)
-			txn.mustIndexWriteTxn(meta, GraveyardRevisionIndexPos).delete(txn.revKey[:])
+			txn.tableIndexTxn(table, GraveyardRevisionIndexPos).delete(txn.revKey[:])
 		}
 	}
 
 	// Then update secondary indexes
 	for _, indexer := range meta.secondary() {
-		indexTxn := txn.mustIndexWriteTxn(meta, indexer.pos)
+		indexTxn := txn.tableIndexTxn(table, indexer.pos)
 		indexTxn.reindex(idKey, oldObj, obj)
 	}
 
 	return oldObj, oldExists, watch, nil
-}
-
-func (txn *writeTxnState) hasDeleteTrackers(meta TableMeta) bool {
-	table := txn.tableEntries[meta.tablePos()]
-	return table.deleteTrackers.Len() > 0
 }
 
 func (txn *writeTxnState) addDeleteTracker(meta TableMeta, trackerName string, dt anyDeleteTracker) error {
@@ -254,23 +250,27 @@ func (txn *writeTxnState) delete(meta TableMeta, guardRevision Revision, data an
 	// Delete from the primary index first to grab the object.
 	// We assume that "data" has only enough defined fields to
 	// compute the primary key.
-	idIndex := txn.mustIndexWriteTxn(meta, PrimaryIndexPos)
+	idIndex := txn.tableIndexTxn(table, PrimaryIndexPos)
 	idKey, indexed := idIndex.objectToKey(object{data: data})
 	if !indexed {
 		return object{}, false, nil
 	}
+
+	// For CompareAndDelete() validate against guard revision before modifying
+	// the index to not wake up watchers if there's a mismatch.
+	if guardRevision > 0 {
+		obj, existed := idIndex.getNoWatch(idKey)
+		if !existed {
+			return object{}, false, nil
+		}
+		if obj.revision != guardRevision {
+			return obj, true, ErrRevisionNotEqual
+		}
+	}
+
 	obj, existed := idIndex.delete(idKey)
 	if !existed {
 		return object{}, false, nil
-	}
-
-	// For CompareAndDelete() validate against guard revision and if there's a mismatch,
-	// revert the change.
-	if guardRevision > 0 {
-		if obj.revision != guardRevision {
-			idIndex.insertNoWatch(idKey, obj)
-			return obj, true, ErrRevisionNotEqual
-		}
 	}
 
 	table.revision++
@@ -278,21 +278,21 @@ func (txn *writeTxnState) delete(meta TableMeta, guardRevision Revision, data an
 
 	// Remove the object from the revision index.
 	binary.BigEndian.PutUint64(txn.revKey[:], obj.revision)
-	txn.mustIndexWriteTxn(meta, RevisionIndexPos).delete(txn.revKey[:])
+	txn.tableIndexTxn(table, RevisionIndexPos).delete(txn.revKey[:])
 
 	// Then update secondary indexes.
 	for _, indexer := range meta.secondary() {
-		txn.mustIndexWriteTxn(meta, indexer.pos).reindex(idKey, obj, object{})
+		txn.tableIndexTxn(table, indexer.pos).reindex(idKey, obj, object{})
 	}
 
 	// And finally insert the object into the graveyard.
-	if txn.hasDeleteTrackers(meta) {
-		graveyardIndex := txn.mustIndexWriteTxn(meta, GraveyardIndexPos)
+	if table.deleteTrackers.Len() > 0 {
+		graveyardIndex := txn.tableIndexTxn(table, GraveyardIndexPos)
 		obj.revision = revision
 		if _, existed := graveyardIndex.insertNoWatch(idKey, obj); existed {
 			panic("BUG: Double deletion! Deleted object already existed in graveyard")
 		}
-		txn.mustIndexWriteTxn(meta, GraveyardRevisionIndexPos).insertNoWatch(index.Uint64(revision), obj)
+		txn.tableIndexTxn(table, GraveyardRevisionIndexPos).insertNoWatch(index.Uint64(revision), obj)
 	}
 
 	return obj, true, nil
@@ -304,6 +304,8 @@ func (handle *writeTxnHandle) returnToPool() {
 	txn := handle.writeTxnState
 	txn.oldRoot = nil
 	txn.tableEntries = nil
+	clear(txn.lockedTables)
+	txn.lockedTables = txn.lockedTables[:0]
 	txn.numTxns = 0
 	clear(txn.smus)
 	txn.smus = txn.smus[:0]
@@ -336,17 +338,19 @@ func (handle *writeTxnHandle) Abort() {
 	}
 
 	txn := handle.writeTxnState
-	for _, table := range txn.tableEntries {
-		if table.locked {
-			table.meta.released()
+	now := time.Now()
+	for _, table := range txn.lockedTables {
+		for _, idx := range table.indexes {
+			idx.abort()
 		}
+		table.meta.released(now)
 	}
 
 	txn.smus.Unlock()
 	txn.db.metrics.WriteTxnDuration(
 		txn.handle,
 		txn.tableNames,
-		time.Since(txn.acquiredAt))
+		now.Sub(txn.acquiredAt))
 	handle.returnToPool()
 }
 
@@ -382,11 +386,7 @@ func (handle *writeTxnHandle) Commit() ReadTxn {
 	// We don't notify yet (CommitOnly) as the root needs to be updated
 	// first as otherwise readers would wake up too early.
 	txnToNotify := make([]tableIndexTxnNotify, 0, txn.numTxns)
-	for pos := range txn.tableEntries {
-		table := txn.tableEntries[pos]
-		if !table.locked {
-			continue
-		}
+	for _, table := range txn.lockedTables {
 		for i, idx := range table.indexes {
 			var txn tableIndexTxnNotify
 			table.indexes[i], txn = idx.commit()
@@ -410,19 +410,20 @@ func (handle *writeTxnHandle) Commit() ReadTxn {
 	// Since the root may have changed since the pointer was last read in WriteTxn(),
 	// load it again and modify the latest version that we now have immobilised by
 	// the root lock.
-	currentRoot := *db.root.Load()
 	root := txn.tableEntries
+	if currentRoot := db.root.Load(); currentRoot != txn.oldRoot {
+		// Tables that were not locked might have changed or new tables
+		// may have been registered. Refresh the entries from the current
+		// root and put the locked tables back in.
+		root = append(root[:0], *currentRoot...)
+		for _, table := range txn.lockedTables {
+			root[table.meta.tablePos()] = table
+		}
+	}
 	var initChansToClose []chan struct{}
 
 	// Insert the modified tables into the root tree of tables.
-	for pos := range txn.tableEntries {
-		table := txn.tableEntries[pos]
-		if !table.locked {
-			// Table was not locked so it might have changed.
-			// Update the entry from the current root.
-			root[pos] = currentRoot[pos]
-			continue
-		}
+	for _, table := range txn.lockedTables {
 		// Check if tables become initialized. We close the channel only after
 		// we've swapped in the new root so that one cannot get a snapshot of
 		// an uninitialized table after observing the channel closing.
@@ -432,14 +433,15 @@ func (handle *writeTxnHandle) Commit() ReadTxn {
 				table.init = nil
 			}
 		}
-		table.meta.released()
 		table.locked = false
 	}
 	txn.tableEntries = nil
 
 	// Commit the transaction to build the new root tree and then
-	// atomically store it.
-	db.root.Store(&root)
+	// atomically store it. The root is stored in the handle to avoid
+	// a separate allocation for it.
+	handle.readTxn = root
+	db.root.Store((*dbRoot)(&handle.readTxn))
 	db.mu.Unlock()
 
 	// Now that new root is committed, we can notify readers by closing the watch channels of
@@ -450,10 +452,14 @@ func (handle *writeTxnHandle) Commit() ReadTxn {
 
 	// Invoke commit hooks, if any.
 	for _, hook := range db.commitHooks {
-		hook((*readTxn)(&root), txn.tableNames)
+		hook(&handle.readTxn, txn.tableNames)
 	}
 
 	// With the root pointer updated, we can now release the tables for the next write transaction.
+	now := time.Now()
+	for _, table := range txn.lockedTables {
+		table.meta.released(now)
+	}
 	txn.smus.Unlock()
 
 	// Notify table initializations
@@ -464,11 +470,10 @@ func (handle *writeTxnHandle) Commit() ReadTxn {
 	txn.db.metrics.WriteTxnDuration(
 		txn.handle,
 		txn.tableNames,
-		time.Since(txn.acquiredAt))
+		now.Sub(txn.acquiredAt))
 
 	handle.returnToPool()
 
-	handle.readTxn = root
 	return &handle.readTxn
 }
 

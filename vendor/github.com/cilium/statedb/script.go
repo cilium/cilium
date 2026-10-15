@@ -428,25 +428,29 @@ func CompareCmd(db *DB) script.Cmd {
 
 				objs, watch := tbl.AllWatch(db.ReadTxn())
 				for obj := range objs {
-					rowRaw := takeColumns(obj.(TableWritable).TableRow(), columnIndexes)
-					row := joinByPositions(rowRaw, columnPositions, padByTabs)
-					if grepRe != nil && !grepRe.Match([]byte(row)) {
+					row := obj.(TableWritable).TableRow()
+					if err := validateTableRow(tableName, len(header), row); err != nil {
+						return nil, err
+					}
+					rowRaw := takeColumns(row, columnIndexes)
+					joinedRow := joinByPositions(rowRaw, columnPositions, padByTabs)
+					if grepRe != nil && !grepRe.Match([]byte(joinedRow)) {
 						continue
 					}
-					fmt.Fprintf(&actual, "%s\n", row)
+					fmt.Fprintf(&actual, "%s\n", joinedRow)
 
 					if len(lines) == 0 {
 						equal = false
-						fmt.Fprintf(w, "- %s\n", row)
+						fmt.Fprintf(w, "- %s\n", joinedRow)
 						continue
 					}
 					line := lines[0]
 					splitLine := splitByPositions(line, columnPositions, padByTabs)
 
 					if slices.Equal(rowRaw, splitLine) {
-						fmt.Fprintf(w, "  %s\n", row)
+						fmt.Fprintf(w, "  %s\n", joinedRow)
 					} else {
-						fmt.Fprintf(w, "- %s\n", row)
+						fmt.Fprintf(w, "- %s\n", joinedRow)
 						fmt.Fprintf(w, "+ %s\n", line)
 						equal = false
 					}
@@ -835,6 +839,9 @@ func WatchCmd(db *DB) script.Cmd {
 				changes, watch := iter.nextAny(db.ReadTxn())
 				for change := range changes {
 					row := change.Object.(TableWritable).TableRow()
+					if err := validateTableRow(tbl.Meta.Name(), len(header), row); err != nil {
+						return nil, err
+					}
 					if change.Deleted {
 						fmt.Fprintf(tw, "%s (deleted)%s", strings.Join(row, "\t"), magicStrikethroughNewline)
 					} else {
@@ -907,6 +914,7 @@ func writeObjects(tbl *AnyTable, it iter.Seq2[any, Revision], w io.Writer, colum
 		if header == nil {
 			return fmt.Errorf("objects in table %q not TableWritable", tbl.Meta.Name())
 		}
+		tableColumnCount := len(header)
 
 		var idxs []int
 		var err error
@@ -923,12 +931,23 @@ func writeObjects(tbl *AnyTable, it iter.Seq2[any, Revision], w io.Writer, colum
 		fmt.Fprintf(tw, "%s\n", strings.Join(header, "\t"))
 
 		for obj := range it {
-			row := takeColumns(tbl.TableRow(obj), idxs)
+			row := tbl.TableRow(obj)
+			if err := validateTableRow(tbl.Meta.Name(), tableColumnCount, row); err != nil {
+				return err
+			}
+			row = takeColumns(row, idxs)
 			fmt.Fprintf(tw, "%s\n", strings.Join(row, "\t"))
 		}
 		return tw.Flush()
 	}
 	return fmt.Errorf("unknown format %q, expected table, yaml or json", format)
+}
+
+func validateTableRow(table string, expectedColumns int, row []string) error {
+	if len(row) != expectedColumns {
+		return fmt.Errorf("table %q: TableRow returned %d columns, want %d from TableHeader", table, len(row), expectedColumns)
+	}
+	return nil
 }
 
 func takeColumns[T any](xs []T, idxs []int) (out []T) {
