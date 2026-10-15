@@ -24,7 +24,8 @@ The Cilium SBOM is generated using the `syft`_ tool. To learn more about SBOM, s
 Prerequisites
 =============
 
-- `Install cosign`_
+- `Install cosign`_ v3 or later. Signatures and attestations are stored as
+  Sigstore bundles via OCI referrers, which older cosign versions cannot find.
 
 .. _`Install cosign`: https://docs.sigstore.dev/cosign/system_config/installation/
 
@@ -35,7 +36,7 @@ You can download the SBOM in-toto attestation from the supplied Cilium image usi
 
 .. code-block:: shell-session
 
-    $ cosign download attestation --predicate-type spdxjson <IMAGE URI> | jq -r .payload | base64 -d | jq .predicate > ciliumSBOM.spdx.json
+    $ cosign download attestation --predicate-type spdxjson <IMAGE URI> | jq -r .dsseEnvelope.payload | base64 -d | jq .predicate > ciliumSBOM.spdx.json
 
 Verify SBOM attestation
 =======================
