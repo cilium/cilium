@@ -726,6 +726,7 @@ jobs:
           provider: eks
           cluster: ${{ steps.setup-cluster.outputs.cluster_name }}
           location: ${{ matrix.region }}
+          artifact_name: "control-plane-probe-eks-${{ join(matrix.*, '-') }}-${{ inputs.UID }}-attempt-${{ github.run_attempt }}"
 
       - name: Stop the EKS node-loss watchdog
         if: ${{ always() && steps.eks-watchdog.outcome != 'skipped' }}
