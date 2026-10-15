@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6
-#define ENABLE_SRV6
 #ifdef TUNNEL_MODE
 #undef TUNNEL_MODE
 #endif
@@ -18,7 +17,7 @@
 #include "lib/policy.h"
 
 /* Test SRH encap. Reduced encap code path is a subset of SRH encap */
-ASSIGN_CONFIG(struct srv6_config, srv6_cfg, {.enable_srh_encap = true,})
+ASSIGN_CONFIG(struct srv6_config, srv6_cfg, {.enable = true, .enable_srh_encap = true})
 
 #define POD_IPV4 v4_pod_one
 #define EXT_IPV4 v4_ext_one

@@ -936,6 +936,7 @@ type SocketLBConfig struct {
 // SRv6Config is generated from the BPF C type srv6_config.
 type SRv6Config struct {
 	_              structs.HostLayout
+	Enable         bool
 	EnableSRHEncap bool
 }
 
