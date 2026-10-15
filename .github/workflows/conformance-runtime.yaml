@@ -183,7 +183,7 @@ jobs:
           install-dependencies: true
           image-version: "${{ matrix.lvhImage }}"
           host-mount: ./
-          images-folder-parent: "/tmp"
+          images-folder-parent: "/var/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
           lvh-version: "v0.0.31"
