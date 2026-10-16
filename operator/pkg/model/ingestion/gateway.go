@@ -910,14 +910,7 @@ func parentRefsMatchListener(parentRefs []gatewayv1.ParentReference, listener ga
 // by namespace then name, so providing deterministic ordering for HTTP and L4 routes.
 func sortRoutesByAge[T any](routes []T, meta func(T) metav1.ObjectMeta) {
 	slices.SortStableFunc(routes, func(a, b T) int {
-		ma, mb := meta(a), meta(b)
-		if c := ma.CreationTimestamp.Time.Compare(mb.CreationTimestamp.Time); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(ma.Namespace, mb.Namespace); c != 0 {
-			return c
-		}
-		return cmp.Compare(ma.Name, mb.Name)
+		return helpers.CompareByCreationTimestampAndObjectKey(meta(a), meta(b))
 	})
 }
 

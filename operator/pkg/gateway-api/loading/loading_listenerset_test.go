@@ -57,6 +57,16 @@ func Test_sortListenerSets(t *testing.T) {
 			},
 			expected: []string{"a-ns/ls", "z-ns/ls"},
 		},
+		{
+			name: "matching timestamps keep hyphenated namespaces behind their shorter sibling",
+			input: []gatewayv1.ListenerSet{
+				{ObjectMeta: metav1.ObjectMeta{Name: "ls", Namespace: "a-x", CreationTimestamp: t1}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "ls", Namespace: "a", CreationTimestamp: t1}},
+			},
+			// Stitched together, "a-x/ls" would outrank "a/ls" since '-' precedes '/'.
+			// Kept as separate keys, the shorter namespace "a" stays ahead.
+			expected: []string{"a/ls", "a-x/ls"},
+		},
 	}
 
 	for _, tt := range tests {
