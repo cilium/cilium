@@ -641,8 +641,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 {
 	int ret;
 
-#ifdef ENABLE_SRV6
-	{
+	if (CONFIG(srv6_cfg).enable) {
 		const __u32 *vrf_id;
 		const union v6addr *sid;
 
@@ -659,7 +658,6 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			}
 		}
 	}
-#endif /* ENABLE_SRV6 */
 
 	hairpin_flow |= ct_state->loopback;
 
@@ -1102,8 +1100,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	struct remote_endpoint_info __maybe_unused fake_info = {0};
 	int ret;
 
-#ifdef ENABLE_SRV6
-	{
+	if (CONFIG(srv6_cfg).enable) {
 		const __u32 *vrf_id;
 		const union v6addr *sid;
 
@@ -1120,7 +1117,6 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 			}
 		}
 	}
-#endif /* ENABLE_SRV6 */
 
 	hairpin_flow |= ct_state->loopback;
 
@@ -2174,10 +2170,12 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	}
 
 	if (ret == CT_NEW) {
-#if defined(ENABLE_NODEPORT) && defined(ENABLE_SRV6)
-		ct_state_new.node_port = ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
-								       tuple, NULL, false);
-#endif /* ENABLE_NODEPORT && ENABLE_SRV6 */
+#if defined(ENABLE_NODEPORT)
+		if (CONFIG(srv6_cfg).enable)
+			ct_state_new.node_port =
+				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
+							      tuple, NULL, false);
+#endif /* ENABLE_NODEPORT */
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;

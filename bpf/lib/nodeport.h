@@ -2287,15 +2287,17 @@ nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx, struct trace_ctx *trace,
 		return ret;
 	}
 
-#if defined(ENABLE_SRV6) && defined(IS_BPF_LXC)
-	/* Determine if packet belongs to a VRF before we do NAT.
-	 * This is needed because we determine the VRF membership
-	 * based on the source address of the packet. This should
-	 * be fixed in the future by determining the VRF membership
-	 * based on the IP address-agnostic way such as ingress
-	 * interface index.
-	 */
-	vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);
+#if defined(IS_BPF_LXC)
+	if (CONFIG(srv6_cfg).enable) {
+		/* Determine if packet belongs to a VRF before we do NAT.
+		 * This is needed because we determine the VRF membership
+		 * based on the source address of the packet. This should
+		 * be fixed in the future by determining the VRF membership
+		 * based on the IP address-agnostic way such as ingress
+		 * interface index.
+		 */
+		vrf_id = srv6_lookup_vrf4(ip4->saddr, ip4->daddr);
+	}
 #endif
 
 	ret = nodeport_rev_dnat_ipv4_hook(ctx, ip4, &tuple, &tunnel_endpoint,
@@ -2348,7 +2350,8 @@ skip_revdnat:
 	return CTX_ACT_OK;
 
 redirect:
-#if defined(ENABLE_SRV6) && defined(IS_BPF_LXC)
+#if defined(IS_BPF_LXC)
+	/* vrf_id is != NULL only in case srv6 is enabled */
 	if (vrf_id) {
 		const union v6addr *sid;
 		/* Do policy lookup if it belongs to a VRF */
@@ -2360,7 +2363,7 @@ redirect:
 						  ext_err);
 		}
 	}
-#endif /* ENABLE_SRV6 */
+#endif /* IS_BPF_LXC */
 
 	fib_params.l.ipv4_src = ip4->saddr;
 	fib_params.l.ipv4_dst = ip4->daddr;

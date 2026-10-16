@@ -28,6 +28,8 @@
 static char pkt[100];
 
 #define SECLABEL    1
+#define SECLABEL_IPV4 SECLABEL
+#define SECLABEL_IPV6 SECLABEL
 
 #include <lib/nodeport.h>
 
