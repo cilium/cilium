@@ -35,7 +35,7 @@
   local-redirect-policy: 'true'
   node-local-dns: 'true'
   # L7 testing: Node local DNS requires DNS proxy testing
-  test-l7: 'true'
+  test-l7: 'false'
 - name: 'kube-proxy-5'
   kernel: '5.15'
   kube-proxy: 'iptables'

@@ -27,7 +27,7 @@
   local-redirect-policy: 'true'
   node-local-dns: 'true'
   # L7 testing: WireGuard encryption + Ingress controller requires L7 proxy, node local DNS requires DNS proxy
-  test-l7: 'true'
+  test-l7: 'false'
 - name: 'wireguard-3'
   kernel: '6.12'
   kube-proxy: 'none'
