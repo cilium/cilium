@@ -74,6 +74,8 @@ differently than in prior releases:
 * ``enable-remote-node-masquerade`` will now only masquerade traffic to
   ExternalIP node addresses. Traffic to InternalIP node addresses will not be
   masqueraded anymore.
+* ``bpf.hostLegacyRouting`` now defaults to true on new Cilium deployments.
+* ``bpf.masquerade`` is enabled by default on new Cilium deployments.
 
 Deprecated Options
 ##################
