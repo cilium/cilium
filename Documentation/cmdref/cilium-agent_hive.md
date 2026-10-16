@@ -81,6 +81,7 @@ cilium-agent hive [flags]
       --enable-dynamic-lifecycle-manager                          Enables support for dynamic lifecycle management
       --enable-dynamic-source-lookup-nodeport                     Enable dynamic source IP resolution for SNAT via linux's routing table. The kernel must support this feature.
       --enable-endpoint-health-checking                           Enable connectivity health checking between virtual endpoints (default true)
+      --enable-external-ips                                       Enable support for external ips (default true)
       --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                               Enable gops server (default true)
       --enable-health-check-loadbalancer-ip                       Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled

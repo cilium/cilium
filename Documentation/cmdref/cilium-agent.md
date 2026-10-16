@@ -140,6 +140,7 @@ cilium-agent [flags]
       --enable-endpoint-routes                                    Use per endpoint routes instead of routing via cilium_host
       --enable-envoy-config                                       Enable Envoy Config CRDs
       --enable-extended-ip-protocols                              Enable traffic with extended IP protocols in datapath
+      --enable-external-ips                                       Enable support for external ips (default true)
       --enable-gateway-api                                        Enables Envoy secret sync for Gateway API related TLS secrets
       --enable-gops                                               Enable gops server (default true)
       --enable-health-check-loadbalancer-ip                       Enable access of the healthcheck nodePort on the LoadBalancerIP. Needs --enable-health-check-nodeport to be enabled
