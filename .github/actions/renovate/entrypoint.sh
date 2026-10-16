@@ -32,4 +32,7 @@ if [ "$(id -gn ubuntu)" = "root" ]; then
   usermod -g ubuntu ubuntu
 fi
 
+# Docker creates a missing bind-mount source as root.
+chown ubuntu:ubuntu "$RENOVATE_BASE_DIR"
+
 runuser -u ubuntu renovate
