@@ -14,7 +14,7 @@
 #define DSR_ENCAP_MODE		DSR_ENCAP_GENEVE
 
 #define ENCAP_IFINDEX		42
-#define TUNNEL_MODE
+#define TUNNEL_MODE 1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)

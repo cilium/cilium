@@ -15,7 +15,7 @@
 #define DSR_ENCAP_MODE DSR_ENCAP_GENEVE
 
 #define ENCAP_IFINDEX 42
-#define TUNNEL_MODE
+#define TUNNEL_MODE 1
 
 #define FRONTEND_IP		v4_node_one
 #define FRONTEND_IPV6		{ .addr = v6_node_one_addr }
