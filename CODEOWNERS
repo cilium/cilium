@@ -748,8 +748,9 @@ Makefile* @cilium/build
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
-/vendor/ @cilium/vendor
 /VERSION @cilium/release-managers
 /.clang-format @cilium/contributing
+# Metrics are deliberately late in the ownership to override earlier owners
 /**/*metrics*.go @cilium/metrics
 /pkg/hubble/metrics @cilium/hubble-metrics
+/vendor/ @cilium/vendor
