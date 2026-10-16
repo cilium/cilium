@@ -110,3 +110,19 @@ func newTestAccessLogServer(t *testing.T, notifier accesslog.LogRecordNotifier) 
 	accessLogger := accesslog.NewProxyAccessLogger(hivetest.Logger(t), accesslog.ProxyAccessLoggerConfig{}, notifier, nil, node.NewTestLocalNodeStore(node.LocalNode{}))
 	return newAccessLogServer(hivetest.Logger(t), accessLogger, "", 0, nil, 0)
 }
+
+func TestParseURLInvalid(t *testing.T) {
+	logs := []*cilium.HttpLogEntry{
+		{Scheme: "http", Host: "foo:bar", Path: "/foo?blah=131#frag"},
+		{Scheme: "http", Host: "foo", Path: "/foo%zz?blah=131#frag"},
+	}
+
+	for _, l := range logs {
+		u := ParseURL(l.Scheme, l.Host, l.Path)
+		require.Equal(t, "http", u.Scheme)
+		require.Equal(t, l.Host, u.Host)
+		require.NotContains(t, u.Path, "blah")
+		require.Equal(t, "blah=131", u.RawQuery)
+		require.Equal(t, "frag", u.Fragment)
+	}
+}
