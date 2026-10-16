@@ -91,6 +91,14 @@ func RulesToPolicyEntries(rules api.Rules) types.PolicyEntries {
 				eRule.ToFQDNs,
 				eRule.ToGroups)
 
+			// ToServices is translated into ToEndpoints/ToCIDRSet by the CNP
+			// watcher. If the Service could not be resolved, nothing was generated
+			// and the rule must select nothing rather than be treated as an L3
+			// wildcard.
+			if len(eRule.ToServices) > 0 && len(l3) == 0 {
+				l3 = nil
+			}
+
 			l4 := make(api.PortRules, 0, len(eRule.ToPorts)+len(eRule.ICMPs))
 			l4 = append(l4, eRule.ToPorts...)
 			l4 = append(l4, icmpRules(eRule.ICMPs)...)
