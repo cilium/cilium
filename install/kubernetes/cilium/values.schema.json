@@ -2237,6 +2237,20 @@
           "items": {},
           "type": "array"
         },
+        "ipv4EgressOnly": {
+          "properties": {
+            "cidr": {
+              "type": "string"
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "maskSize": {
+              "type": "integer"
+            }
+          },
+          "type": "object"
+        },
         "nodeSpec": {
           "properties": {
             "deleteOnTermination": {

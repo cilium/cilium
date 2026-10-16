@@ -83,6 +83,7 @@ type cloudMultiPoolParams struct {
 	IPv4Enabled          bool
 	IPv6Enabled          bool
 	CiliumNodeUpdateRate time.Duration
+	IPv4EgressOnly       bool
 
 	Node           agentK8s.LocalCiliumNodeResource
 	LocalNodeStore *node.LocalNodeStore
@@ -116,6 +117,12 @@ func newCloudMultiPoolAllocators(ctx context.Context, p cloudMultiPoolParams) (i
 	preallocMap := preAllocatePerPool{
 		Pool(defaults.IPAMDefaultIPPool): defaults.IPAMPreAllocation,
 	}
+	// In IPv4 egress-only mode the IPv4 addresses come from a second pool,
+	// handed out by the operator out of the egress CIDR rather than from the
+	// cloud provider.
+	if p.IPv4EgressOnly {
+		preallocMap[Pool(defaults.IPAMIPv4EgressPool)] = defaults.IPAMPreAllocation
+	}
 
 	mgr := newMultiPoolManager(MultiPoolManagerParams{
 		Logger:               p.Logger,
@@ -128,6 +135,7 @@ func newCloudMultiPoolAllocators(ctx context.Context, p cloudMultiPoolParams) (i
 		JobGroup:             p.JobGroup,
 		PoolSpecAccessors:    p.Provider.PoolSpecAccessors(),
 		LinearPreAlloc:       true,
+		IPv4EgressOnly:       p.IPv4EgressOnly,
 	})
 
 	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)

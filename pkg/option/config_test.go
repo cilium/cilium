@@ -641,6 +641,80 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 
 }
 
+func TestCheckIPv4EgressOnly(t *testing.T) {
+	valid := func() *DaemonConfig {
+		return &DaemonConfig{
+			EnableIPv4EgressOnly:  true,
+			IPAM:                  ipamOption.IPAMENI,
+			EnableIPv4:            true,
+			EnableIPv6:            true,
+			EnableIPv4Masquerade:  true,
+			EnableBPFMasquerade:   true,
+			IPv4NativeRoutingCIDR: netip.MustParsePrefix("100.64.0.0/10"),
+		}
+	}
+
+	tests := []struct {
+		name    string
+		mutate  func(*DaemonConfig)
+		wantErr bool
+	}{
+		{
+			name:   "valid",
+			mutate: func(*DaemonConfig) {},
+		},
+		{
+			name: "disabled",
+			mutate: func(d *DaemonConfig) {
+				*d = DaemonConfig{}
+			},
+		},
+		{
+			name:    "not eni",
+			mutate:  func(d *DaemonConfig) { d.IPAM = ipamOption.IPAMMultiPool },
+			wantErr: true,
+		},
+		{
+			name:    "ipv6 disabled",
+			mutate:  func(d *DaemonConfig) { d.EnableIPv6 = false },
+			wantErr: true,
+		},
+		{
+			name:    "ipv4 masquerade disabled",
+			mutate:  func(d *DaemonConfig) { d.EnableIPv4Masquerade = false },
+			wantErr: true,
+		},
+		{
+			name:    "iptables masquerade",
+			mutate:  func(d *DaemonConfig) { d.EnableBPFMasquerade = false },
+			wantErr: true,
+		},
+		{
+			name:    "ip-masq-agent",
+			mutate:  func(d *DaemonConfig) { d.EnableIPMasqAgent = true },
+			wantErr: true,
+		},
+		{
+			name:    "no native routing cidr",
+			mutate:  func(d *DaemonConfig) { d.IPv4NativeRoutingCIDR = netip.Prefix{} },
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := valid()
+			tt.mutate(d)
+			err := d.checkIPv4EgressOnly()
+			if tt.wantErr && err == nil {
+				t.Error("expected error, but got nil")
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("expected no error, but got %q", err)
+			}
+		})
+	}
+}
+
 func TestCheckIPv6NativeRoutingCIDR(t *testing.T) {
 	tests := []struct {
 		name    string

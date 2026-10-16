@@ -10,7 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/mac"
 )
@@ -152,4 +154,55 @@ func TestEniContainsIP(t *testing.T) {
 
 	// Empty ENI
 	require.False(t, eniContainsIP(awsTypes.ENI{}, netip.MustParseAddr("10.0.0.1")))
+}
+
+func TestEgressAllocationResult(t *testing.T) {
+	egressPool := ipam.Pool(defaults.IPAMIPv4EgressPool)
+	enis := map[string]awsTypes.ENI{
+		"eni-0": {
+			ID:     "eni-0",
+			MAC:    mac.MustParseMAC("aa:bb:cc:dd:ee:00"),
+			IP:     iputil.AddrFrom(netip.MustParseAddr("10.1.1.5")),
+			Number: 0,
+			Subnet: awsTypes.AwsSubnet{
+				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.1.0/24")),
+			},
+		},
+		"eni-1": {
+			ID:           "eni-1",
+			MAC:          mac.MustParseMAC("aa:bb:cc:dd:ee:01"),
+			Number:       1,
+			IPv6Prefixes: prefixes("2001:db8::/80"),
+			Subnet: awsTypes.AwsSubnet{
+				CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.1.2.0/24")),
+			},
+		},
+	}
+
+	t.Run("routes through the primary ENI", func(t *testing.T) {
+		result, err := allocationResult(netip.MustParseAddr("100.64.0.10"), egressPool, enis)
+		require.NoError(t, err)
+		require.Equal(t, netip.MustParseAddr("100.64.0.10"), result.IP)
+		require.Equal(t, egressPool, result.IPPoolName)
+		require.Equal(t, mac.MustParseMAC("aa:bb:cc:dd:ee:00"), result.PrimaryMAC)
+		require.Equal(t, "0", result.InterfaceNumber)
+		require.Equal(t, netip.MustParseAddr("10.1.1.1"), result.GatewayIP)
+	})
+
+	t.Run("requires the primary ENI", func(t *testing.T) {
+		_, err := allocationResult(netip.MustParseAddr("100.64.0.10"), egressPool, map[string]awsTypes.ENI{"eni-1": enis["eni-1"]})
+		require.ErrorContains(t, err, "unable to find the primary ENI")
+	})
+
+	t.Run("requires an IPv4 subnet", func(t *testing.T) {
+		primary := enis["eni-0"]
+		primary.Subnet = awsTypes.AwsSubnet{}
+		_, err := allocationResult(netip.MustParseAddr("100.64.0.10"), egressPool, map[string]awsTypes.ENI{"eni-0": primary})
+		require.ErrorContains(t, err, "dual-stack subnet")
+	})
+
+	t.Run("rejects IPv6", func(t *testing.T) {
+		_, err := allocationResult(netip.MustParseAddr("2001:db8::1"), egressPool, enis)
+		require.Error(t, err)
+	})
 }

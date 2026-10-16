@@ -434,6 +434,10 @@ contributors across the globe, there is almost always someone available to help.
 | eni.gcTags | object | `{"io.cilium/cilium-managed":"true,"io.cilium/cluster-name":"<auto-detected>"}` | Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected |
 | eni.iamRole | string | `""` | If using IAM role for Service Accounts will not try to inject identity values from cilium-aws kubernetes secret. Adds annotation to service account if managed by Helm. See https://github.com/aws/amazon-eks-pod-identity-webhook |
 | eni.instanceTagsFilter | list | `[]` | Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances are going to be used to create new ENIs |
+| eni.ipv4EgressOnly | object | `{"cidr":"","enabled":false,"maskSize":24}` | IPv4 egress-only mode, for IPv6 clusters (ipv6.enabled=true) whose pods need to reach IPv4 destinations outside of the cluster. Pods get an IPv4 address from cidr rather than from the ENIs, which is not routable outside of the node and is masqueraded behind the node IPv4 address, which requires nodes in dual-stack subnets. IPv4 and BPF masquerading are enabled by default in this mode. |
+| eni.ipv4EgressOnly.cidr | string | `""` | IPv4 CIDR the pod IPv4 addresses are allocated from. It must not overlap the VPC, and is used as the IPv4 native routing CIDR. |
+| eni.ipv4EgressOnly.enabled | bool | `false` | Enable the IPv4 egress-only mode. |
+| eni.ipv4EgressOnly.maskSize | int | `24` | Mask size of the CIDRs allocated to each node out of cidr. |
 | eni.nodeSpec | object | `{"deleteOnTermination":null,"disablePrefixDelegation":false,"excludeInterfaceTags":[],"firstInterfaceIndex":null,"securityGroupTags":[],"securityGroups":[],"subnetIDs":[],"subnetTags":[],"usePrimaryAddress":false}` | NodeSpec configuration for the ENI |
 | eni.nodeSpec.deleteOnTermination | string | `nil` | Delete ENI on termination @schema type: [null, boolean] @schema |
 | eni.nodeSpec.disablePrefixDelegation | bool | `false` | Disable prefix delegation for IP allocation |

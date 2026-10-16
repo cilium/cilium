@@ -377,7 +377,9 @@ func (r *infraIPAllocator) allocateHealthIPs(ctx context.Context, oldV4HealthIP 
 		return nil
 	}
 	var healthIPv4, healthIPv6 netip.Addr
-	if r.daemonConfig.EnableIPv4 {
+	// An IPv4 egress-only address is not reachable from other nodes, so the
+	// health endpoint would only ever be reported unreachable over IPv4.
+	if r.daemonConfig.EnableIPv4 && !r.daemonConfig.EnableIPv4EgressOnly {
 		var result *ipam.AllocationResult
 		var err error
 		healthIPv4 = oldV4HealthIP

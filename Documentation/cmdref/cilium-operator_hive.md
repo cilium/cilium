@@ -112,6 +112,8 @@ cilium-operator hive [flags]
       --ingress-shared-lb-service-name string                      Name of shared LB service name for Ingress. (default "cilium-ingress")
       --ingress-use-remote-address                                 Use the immediate client's IP address as the origin client's IP address (default true)
       --ipam-default-ip-pool string                                Name of the default IP Pool when using multi-pool (default "default")
+      --ipv4-egress-only-cidrs strings                             IPv4 CIDRs to allocate the IPv4 addresses of the nodes running in IPv4 egress-only mode from (separated by commas). Must not overlap the VPC
+      --ipv4-egress-only-mask-size int                             Mask size of the IPv4 CIDRs allocated to the nodes running in IPv4 egress-only mode (default 24)
       --k8s-api-server-urls strings                                Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration                  Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration                     Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)

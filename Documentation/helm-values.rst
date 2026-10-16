@@ -1536,6 +1536,22 @@
      - Filter via AWS EC2 Instance tags (k=v) which will dictate which AWS EC2 Instances are going to be used to create new ENIs
      - list
      - ``[]``
+   * - :spelling:ignore:`eni.ipv4EgressOnly`
+     - IPv4 egress-only mode, for IPv6 clusters (ipv6.enabled=true) whose pods need to reach IPv4 destinations outside of the cluster. Pods get an IPv4 address from cidr rather than from the ENIs, which is not routable outside of the node and is masqueraded behind the node IPv4 address, which requires nodes in dual-stack subnets. IPv4 and BPF masquerading are enabled by default in this mode.
+     - object
+     - ``{"cidr":"","enabled":false,"maskSize":24}``
+   * - :spelling:ignore:`eni.ipv4EgressOnly.cidr`
+     - IPv4 CIDR the pod IPv4 addresses are allocated from. It must not overlap the VPC, and is used as the IPv4 native routing CIDR.
+     - string
+     - ``""``
+   * - :spelling:ignore:`eni.ipv4EgressOnly.enabled`
+     - Enable the IPv4 egress-only mode.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`eni.ipv4EgressOnly.maskSize`
+     - Mask size of the CIDRs allocated to each node out of cidr.
+     - int
+     - ``24``
    * - :spelling:ignore:`eni.nodeSpec`
      - NodeSpec configuration for the ENI
      - object

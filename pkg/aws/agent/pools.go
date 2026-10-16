@@ -23,6 +23,11 @@ var poolAccessor = ipam.PoolSpecAccessors{
 	//
 	// Secondary IPs are represented as host-prefix CIDRs (/32 for IPv4, /128 for
 	// IPv6) and delegated prefixes as /28 CIDRs for IPv4 and /80 CIDRs for IPv6.
+	//
+	// Only the default pool is derived from the ENIs. The other pools, i.e. the
+	// IPv4 egress pool, are not backed by the cloud: the operator allocates them
+	// in Spec.IPAM.Pools.Allocated as in the standard multi-pool mode, and they
+	// are passed through as is.
 	FromResource: func(node *ciliumv2.CiliumNode) ipamTypes.IPAMPoolSpec {
 		pools := ipamTypes.IPAMPoolSpec{
 			Requested: node.Spec.IPAM.Pools.Requested,
@@ -66,14 +71,29 @@ var poolAccessor = ipam.PoolSpecAccessors{
 		}
 
 		if len(cidrs) > 0 {
-			pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-				{
-					Pool:         defaults.IPAMDefaultIPPool,
-					AllowFirstIP: true,
-					AllowLastIP:  true,
-					CIDRs:        cidrs,
-				},
+			eniPool := ipamTypes.IPAMPoolAllocation{
+				Pool:         defaults.IPAMDefaultIPPool,
+				AllowFirstIP: true,
+				AllowLastIP:  true,
+				CIDRs:        cidrs,
 			}
+
+			// Replace the default pool in place, to keep the order of the
+			// pools written back by the agent.
+			allocated := make([]ipamTypes.IPAMPoolAllocation, 0, len(pools.Allocated)+1)
+			replaced := false
+			for _, alloc := range pools.Allocated {
+				if alloc.Pool != defaults.IPAMDefaultIPPool {
+					allocated = append(allocated, alloc)
+				} else if !replaced {
+					allocated = append(allocated, eniPool)
+					replaced = true
+				}
+			}
+			if !replaced {
+				allocated = append(allocated, eniPool)
+			}
+			pools.Allocated = allocated
 		}
 
 		return pools

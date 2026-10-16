@@ -490,6 +490,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableBPFMasquerade, false, "Masquerade packets from endpoints leaving the host with BPF instead of iptables")
 	option.BindEnv(vp, option.EnableBPFMasquerade)
 
+	flags.Bool(option.EnableIPv4EgressOnly, false, "In ENI IPAM mode with IPv6, give endpoints an IPv4 address from the operator-managed egress pool, only usable to reach IPv4 destinations outside of the cluster")
+	option.BindEnv(vp, option.EnableIPv4EgressOnly)
+
 	flags.Bool(option.EnableMasqueradeRouteSource, false, "Masquerade packets to the source IP provided from the routing layer rather than interface address")
 	option.BindEnv(vp, option.EnableMasqueradeRouteSource)
 

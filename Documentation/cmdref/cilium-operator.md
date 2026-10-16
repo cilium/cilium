@@ -125,6 +125,8 @@ cilium-operator [flags]
       --instance-tags-filter map                                   EC2 Instance tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag
       --ipam string                                                Backend to use for IPAM (default "cluster-pool")
       --ipam-default-ip-pool string                                Name of the default IP Pool when using multi-pool (default "default")
+      --ipv4-egress-only-cidrs strings                             IPv4 CIDRs to allocate the IPv4 addresses of the nodes running in IPv4 egress-only mode from (separated by commas). Must not overlap the VPC
+      --ipv4-egress-only-mask-size int                             Mask size of the IPv4 CIDRs allocated to the nodes running in IPv4 egress-only mode (default 24)
       --k8s-api-server-urls strings                                Kubernetes API server URLs
       --k8s-client-connection-keep-alive duration                  Configures the keep alive duration of K8s client connections. K8 client is disabled if the value is set to 0 (default 30s)
       --k8s-client-connection-timeout duration                     Configures the timeout of K8s client connections. K8s client is disabled if the value is set to 0 (default 30s)

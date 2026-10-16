@@ -331,6 +331,11 @@ const (
 	// IPAMDefaultIPPool is the default value for the multi-pool default pool name.
 	IPAMDefaultIPPool = "default"
 
+	// IPAMIPv4EgressPool is the pool IPv4 addresses are allocated from in
+	// IPv4 egress-only mode. Its addresses are not routable outside of the
+	// node and are masqueraded behind the node IPv4 address.
+	IPAMIPv4EgressPool = "egress-v4"
+
 	// ENIFirstInterfaceIndex is the default value for
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set.
 	ENIFirstInterfaceIndex = 0

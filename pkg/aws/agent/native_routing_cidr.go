@@ -99,6 +99,9 @@ func startNativeRoutingCIDRSync(
 // allocated from: under ENI there is no node PodCIDR, so this is what IPsec
 // uses to build its XFRM policies.
 //
+// In IPv4 egress-only mode, the configured native routing CIDR is the egress
+// CIDR instead: it must not overlap the VPC, and it is the IPv4 pod subnet.
+//
 // Returns an error if the configured native routing CIDR overlaps no VPC CIDR:
 // see the masquerading note on startNativeRoutingCIDRSync.
 func autoDetectNativeRoutingCIDR(
@@ -111,7 +114,26 @@ func autoDetectNativeRoutingCIDR(
 	podSubnets := append([]netip.Prefix{primaryCIDR}, secondaryCIDRs...)
 	autodetected := false
 
-	if nativeCIDR := conf.IPv4NativeRoutingCIDR; nativeCIDR.IsValid() {
+	if conf.EnableIPv4EgressOnly {
+		// In IPv4 egress-only mode no endpoint has a VPC IPv4 address: they
+		// all come from the egress CIDR, which the native routing CIDR is set
+		// to so that every other destination, the VPC included, is
+		// masqueraded. An egress CIDR overlapping the VPC would leave the
+		// overlapping VPC addresses unreachable.
+		nativeCIDR := conf.IPv4NativeRoutingCIDR
+		overlaps := func(c netip.Prefix) bool { return iputil.LaminarCIDRsOverlap(nativeCIDR, c) }
+		if overlaps(primaryCIDR) || slices.ContainsFunc(secondaryCIDRs, overlaps) {
+			return fmt.Errorf("--%s %s must not overlap the VPC primary CIDR %s nor any secondary CIDR association %v in IPv4 egress-only mode",
+				option.IPv4NativeRoutingCIDR, nativeCIDR, primaryCIDR, secondaryCIDRs)
+		}
+
+		logger.Info(
+			"Using the IPv4 egress CIDR as native routing CIDR, masquerading IPv4 traffic to the VPC.",
+			logfields.VPCCIDR, primaryCIDR,
+			option.IPv4NativeRoutingCIDR, nativeCIDR,
+		)
+		podSubnets = []netip.Prefix{nativeCIDR}
+	} else if nativeCIDR := conf.IPv4NativeRoutingCIDR; nativeCIDR.IsValid() {
 		// Accept the configured native routing CIDR as long as it overlaps the
 		// VPC primary CIDR or one of the secondary CIDR associations, i.e. it is
 		// a VPC CIDR, a subnet of one (e.g. a single availability-zone subnet,

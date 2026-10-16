@@ -69,6 +69,7 @@ func (ipam *IPAM) ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*Allocatio
 		return nil, fmt.Errorf("invalid IP address: %v", addr)
 	}
 	addr = addr.Unmap()
+	pool = ipam.familyPool(PoolOrDefault(string(pool)), DeriveFamily(addr))
 
 	ipam.allocatorMutex.RLock()
 	resolver := ipam.ipv6RoutingMetadataResolver
@@ -80,7 +81,7 @@ func (ipam *IPAM) ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*Allocatio
 	if resolver == nil {
 		return nil, ErrRoutingMetadataUnsupported
 	}
-	return resolver.ResolveRoutingMetadata(addr, PoolOrDefault(string(pool)))
+	return resolver.ResolveRoutingMetadata(addr, pool)
 }
 
 // AllocateIPString is identical to AllocateIP but takes a string
@@ -103,6 +104,7 @@ func (ipam *IPAM) allocateIP(ip netip.Addr, owner string, pool Pool, needSyncUps
 	if !ip.IsValid() {
 		return nil, fmt.Errorf("invalid IP address: %v", ip)
 	}
+	pool = ipam.familyPool(pool, DeriveFamily(ip))
 
 	if ownedBy, ok := ipam.isIPExcluded(ip, pool); ok {
 		err = fmt.Errorf("IP %s is excluded, owned by %s", ip, ownedBy)
@@ -205,6 +207,7 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, pool Pool, nee
 			return
 		}
 	}
+	pool = ipam.familyPool(pool, family)
 
 	for {
 		if needSyncUpstream {
@@ -326,6 +329,7 @@ func (ipam *IPAM) releaseIPLocked(ip netip.Addr, pool Pool) error {
 	if !ip.IsValid() {
 		return fmt.Errorf("invalid IP address: %v", ip)
 	}
+	pool = ipam.familyPool(pool, DeriveFamily(ip))
 
 	family := IPv4
 	if ip.Is4() {
@@ -434,7 +438,7 @@ func (ipam *IPAM) StartExpirationTimer(ip netip.Addr, pool Pool, timeout time.Du
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	key := poolIP{ip: ip, pool: pool}
+	key := poolIP{ip: ip, pool: ipam.familyPool(pool, DeriveFamily(ip))}
 	if _, ok := ipam.expirationTimers[key]; ok {
 		return "", fmt.Errorf("expiration timer already registered")
 	}
@@ -499,7 +503,7 @@ func (ipam *IPAM) StopExpirationTimer(ip netip.Addr, pool Pool, allocationUUID s
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	key := poolIP{ip: ip, pool: pool}
+	key := poolIP{ip: ip, pool: ipam.familyPool(pool, DeriveFamily(ip))}
 	t, ok := ipam.expirationTimers[key]
 	if !ok {
 		return fmt.Errorf("no expiration timer registered")

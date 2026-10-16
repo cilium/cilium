@@ -417,6 +417,31 @@ func TestDetermineMaintenanceActionIPv6Only(t *testing.T) {
 }
 
 func TestTrackMultiPoolAllocatedLocked(t *testing.T) {
+	t.Run("CIDRs of other pools are ignored", func(t *testing.T) {
+		enis := map[string]awsTypes.ENI{
+			"eni-1": {Addresses: []iputil.Addr{
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
+			}},
+		}
+		defaultPool := ipamTypes.IPAMPoolAllocation{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{
+			iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")),
+		}}
+		n := newMultiPoolNode(t, []ipamTypes.IPAMPoolAllocation{
+			defaultPool,
+			{Pool: defaults.IPAMIPv4EgressPool, CIDRs: []iputil.Prefix{
+				iputil.PrefixFrom(netip.MustParsePrefix("100.64.0.0/24")),
+			}},
+		}, enis)
+
+		n.trackMultiPoolAllocatedLocked()
+		require.False(t, n.previousAllocatedCIDRs.Has(netip.MustParsePrefix("100.64.0.0/24")))
+
+		// Releasing the egress CIDR does not mark it for release on the ENIs.
+		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{defaultPool}
+		n.trackMultiPoolAllocatedLocked()
+		require.Empty(t, n.multiPoolCIDRsMarkedForRelease)
+	})
+
 	t.Run("no-op for non-multi-pool node", func(t *testing.T) {
 		n := &Node{
 			resource:                       &v2.CiliumNode{},

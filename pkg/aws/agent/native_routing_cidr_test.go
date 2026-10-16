@@ -146,4 +146,35 @@ func TestAutoDetectNativeRoutingCIDR(t *testing.T) {
 		}
 		require.Error(t, autoDetectNativeRoutingCIDR(logger, primaryCIDR, secondaryCIDRs, localNodeStore, conf))
 	})
+
+	t.Run("uses the egress CIDR in IPv4 egress-only mode", func(t *testing.T) {
+		logger := hivetest.Logger(t)
+		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+
+		primaryCIDR := netip.MustParsePrefix("10.1.0.0/16")
+		conf := &option.DaemonConfig{
+			EnableIPv4EgressOnly:  true,
+			IPv4NativeRoutingCIDR: netip.MustParsePrefix("198.18.0.0/15"),
+		}
+		require.NoError(t, autoDetectNativeRoutingCIDR(logger, primaryCIDR, nil, localNodeStore, conf))
+
+		localNode, err := localNodeStore.Get(context.Background())
+		require.NoError(t, err)
+		// The configured value is kept, and the VPC is not a pod subnet.
+		require.False(t, localNode.Local.IPv4NativeRoutingCIDR.IsValid())
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("198.18.0.0/15"))}, localNode.Local.IPv4PodSubnets)
+	})
+
+	t.Run("rejects an egress CIDR overlapping the VPC in IPv4 egress-only mode", func(t *testing.T) {
+		logger := hivetest.Logger(t)
+		localNodeStore := node.NewTestLocalNodeStore(node.LocalNode{})
+
+		primaryCIDR := netip.MustParsePrefix("10.1.0.0/16")
+		secondaryCIDRs := []netip.Prefix{netip.MustParsePrefix("100.64.0.0/16")}
+		conf := &option.DaemonConfig{
+			EnableIPv4EgressOnly:  true,
+			IPv4NativeRoutingCIDR: netip.MustParsePrefix("100.64.0.0/10"),
+		}
+		require.Error(t, autoDetectNativeRoutingCIDR(logger, primaryCIDR, secondaryCIDRs, localNodeStore, conf))
+	})
 }

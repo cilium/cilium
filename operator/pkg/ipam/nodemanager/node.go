@@ -455,7 +455,9 @@ func (n *Node) isIPv6OnlyNodeLocked() bool {
 // trackMultiPoolAllocatedLocked updates previousAllocatedCIDRs and detects
 // CIDRs the agent has removed from Spec.IPAM.Pools.Allocated. Removed CIDRs
 // are added to multiPoolCIDRsMarkedForRelease with the current timestamp.
-// Caller must hold n.mutex.
+// Only the default pool is backed by the ENIs: the other pools, i.e. the IPv4
+// egress pool, are released through their own allocator. Caller must hold
+// n.mutex.
 func (n *Node) trackMultiPoolAllocatedLocked() {
 	if !n.isMultiPoolNodeLocked() {
 		return
@@ -463,6 +465,9 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 
 	currentCIDRs := sets.New[netip.Prefix]()
 	for _, alloc := range n.resource.Spec.IPAM.Pools.Allocated {
+		if alloc.Pool != defaults.IPAMDefaultIPPool {
+			continue
+		}
 		for _, c := range alloc.CIDRs {
 			if !c.IsValid() {
 				continue

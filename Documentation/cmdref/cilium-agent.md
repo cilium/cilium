@@ -157,6 +157,7 @@ cilium-agent [flags]
       --enable-ipsec-key-watcher                                  Enable watcher for IPsec key. If disabled, a restart of the agent will be necessary on key rotations. (default true)
       --enable-ipv4                                               Enable IPv4 support (default true)
       --enable-ipv4-big-tcp                                       Enable IPv4 BIG TCP option which increases device's maximum GRO/GSO limits for IPv4
+      --enable-ipv4-egress-only                                   In ENI IPAM mode with IPv6, give endpoints an IPv4 address from the operator-managed egress pool, only usable to reach IPv4 destinations outside of the cluster
       --enable-ipv4-fragment-tracking                             Enable IPv4 fragments tracking for L4-based lookups (default true)
       --enable-ipv4-masquerade                                    Masquerade IPv4 traffic from endpoints leaving the host (default true)
       --enable-ipv6                                               Enable IPv6 support (default true)
