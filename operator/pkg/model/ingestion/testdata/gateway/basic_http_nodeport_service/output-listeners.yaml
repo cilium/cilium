@@ -6,6 +6,7 @@
       internal-loadbalancer-label: "true"
   name: prod-web-gw
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: my-service
