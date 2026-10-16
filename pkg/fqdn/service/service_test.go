@@ -741,6 +741,10 @@ func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, poli
 	}
 }
 
+func (sp *testSelectorPolicy) HasDNSRedirect() bool {
+	return sp.policyType != ValidWithoutDNS
+}
+
 func (sp *testSelectorPolicy) GetSelectorSnapshot() policy.SelectorSnapshot {
 	return policy.SelectorSnapshot{}
 }

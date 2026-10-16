@@ -373,3 +373,26 @@ func TestReallocateCRDProxyPort(t *testing.T) {
 	require.True(t, exists2)
 	require.True(t, inuse2, "new port should be marked as in use")
 }
+
+// The DNS-proxy-ready signal primitive. DNSProxyReady() is open until
+// SignalDNSProxyReady() is called, then closed; the signal is idempotent.
+func TestDNSProxyReadySignal(t *testing.T) {
+	p := proxyPortsForTest(t)
+
+	select {
+	case <-p.DNSProxyReady():
+		require.Fail(t, "DNSProxyReady should be open before SignalDNSProxyReady")
+	default:
+	}
+
+	p.SignalDNSProxyReady()
+
+	select {
+	case <-p.DNSProxyReady():
+	case <-time.After(time.Second):
+		require.Fail(t, "DNSProxyReady should be closed after SignalDNSProxyReady")
+	}
+
+	// Idempotent: a second signal must not panic (double close).
+	require.NotPanics(t, p.SignalDNSProxyReady)
+}

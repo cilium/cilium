@@ -153,6 +153,12 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	return p.createNewRedirect(ctx, l4, id, epID, wg)
 }
 
+// DNSProxyReady returns a channel closed once the embedded DNS proxy is
+// listening with its proxy port registered.
+func (p *Proxy) DNSProxyReady() <-chan struct{} {
+	return p.proxyPorts.DNSProxyReady()
+}
+
 func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress bool) error {
 	dir := "egress"
 	if ingress {

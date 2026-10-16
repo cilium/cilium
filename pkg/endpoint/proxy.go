@@ -23,6 +23,10 @@ type EndpointProxy interface {
 	RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource)
 	GetListenerProxyPort(listener string) uint16
 	IsSDPEnabled() bool
+	// DNSProxyReady returns a channel closed once the embedded DNS proxy is
+	// listening with its proxy port registered. Used to gate DNS redirect
+	// creation on proxy startup.
+	DNSProxyReady() <-chan struct{}
 }
 
 func (e *Endpoint) removeNetworkPolicy() {
@@ -68,4 +72,11 @@ func (f *FakeEndpointProxy) GetListenerProxyPort(listener string) uint16 {
 // IsSDPEnabled returns false for fake proxy.
 func (f *FakeEndpointProxy) IsSDPEnabled() bool {
 	return false
+}
+
+// DNSProxyReady returns an already-closed channel; the fake proxy is always ready.
+func (f *FakeEndpointProxy) DNSProxyReady() <-chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
 }

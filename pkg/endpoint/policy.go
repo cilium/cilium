@@ -257,6 +257,11 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 	datapathRegenCtxt.policyResult = result
 
+	// Gate DNS redirect creation on DNS proxy readiness
+	if err := e.waitForDNSProxyReady(selectorPolicy); err != nil {
+		return err
+	}
+
 	// Add new redirects before Consume() so that all required proxy ports are available for it.
 	var desiredRedirects map[string]uint16
 	err = e.rlockAlive()
@@ -292,6 +297,23 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	stats.endpointPolicyCalculation.End(true)
 
 	return nil
+}
+
+// waitForDNSProxyReady blocks until the embedded DNS proxy is ready when the
+// computed policy will create a DNS redirect. A DNS redirect created before the
+// proxy registers its fixed port is programmed to a divergent dynamic port and
+// black-holes DNS, so we gate on readiness here. It returns immediately when
+// there is no DNS redirect or no proxy is configured.
+func (e *Endpoint) waitForDNSProxyReady(selectorPolicy policy.SelectorPolicy) error {
+	if e.IsProxyDisabled() || selectorPolicy == nil || !selectorPolicy.HasDNSRedirect() {
+		return nil
+	}
+	select {
+	case <-e.proxy.DNSProxyReady():
+		return nil
+	case <-e.aliveCtx.Done():
+		return e.aliveCtx.Err()
+	}
 }
 
 func (e *Endpoint) waitForPolicyComputationResult(

@@ -1884,6 +1884,11 @@ func (l4 *L4Policy) HasEnvoyRedirect() bool {
 	return l4 != nil && l4.redirectTypes&redirectTypeEnvoy == redirectTypeEnvoy
 }
 
+// HasDNSRedirect returns true if the L4 policy contains at least one port redirection to the DNS proxy
+func (l4 *L4Policy) HasDNSRedirect() bool {
+	return l4 != nil && l4.redirectTypes&redirectTypeDNS == redirectTypeDNS
+}
+
 // GetModel returns the API model of the L4 policy.
 func (l4 *L4Policy) GetModel() *models.L4Policy {
 	if l4 == nil {

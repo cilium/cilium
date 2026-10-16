@@ -161,6 +161,9 @@ type SelectorPolicy interface {
 	// before a new EndpointPolicy is created.
 	RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolicyTuple]
 
+	// HasDNSRedirect reports whether the policy will create a DNS proxy redirect.
+	HasDNSRedirect() bool
+
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
 	DistillPolicy(logger *slog.Logger, owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
@@ -617,6 +620,11 @@ func (p *selectorPolicy) RedirectFilters() iter.Seq2[*L4Filter, PerSelectorPolic
 			p.L4Policy.Egress.forEachRedirectFilter(yield)
 		}
 	}
+}
+
+// HasDNSRedirect reports whether the policy will create a DNS proxy redirect.
+func (p *selectorPolicy) HasDNSRedirect() bool {
+	return p.L4Policy.HasDNSRedirect()
 }
 
 func (p *selectorPolicy) GetRevision() uint64 {
