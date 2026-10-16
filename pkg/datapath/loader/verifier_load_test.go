@@ -32,6 +32,7 @@ func setBasePermutations(t *config.Node) {
 	t.MonitorReportFlags = 0xff
 	t.TracingIPOptionType = 1
 	t.Debug = true
+	t.DebugTagged = true
 	t.DebugLB = true
 	t.EventsMapRateLimit = 1000
 	t.EnableIdentityMark = true
