@@ -1114,9 +1114,14 @@ func (ct *ConnectivityTest) CurlCommandWithOutput(peer TestPeer, ipFam features.
 	return cmd
 }
 
+// curlWriteOut adds curl's phase timings, exit code and error to the response code.
+const curlWriteOut = "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}" +
+	" t_dns=%{time_namelookup} t_conn=%{time_connect} t_tls=%{time_appconnect}" +
+	" t_tot=%{time_total} exit=%{exitcode} err=%{errormsg}\n"
+
 func (ct *ConnectivityTest) CurlCommand(peer TestPeer, ipFam features.IPFamily, expectingSuccess bool, opts []string) []string {
 	return ct.CurlCommandWithOutput(peer, ipFam, expectingSuccess, append([]string{
-		"-w", "%{local_ip}:%{local_port} -> %{remote_ip}:%{remote_port} = %{response_code}\n",
+		"-w", curlWriteOut,
 		"--output", "/dev/null",
 	}, opts...))
 }

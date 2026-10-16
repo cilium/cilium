@@ -1,0 +1,23 @@
+name: "EKS cluster forensics"
+description: "Writes the node, EKS, EC2, CloudFormation and CloudTrail state of an EKS cluster to eks-cluster-forensics-<suffix>-post.tar.gz in the workspace."
+inputs:
+  artifacts_suffix:
+    description: "Suffix added to the tarball name."
+    required: true
+  cluster_name:
+    description: "Name of the EKS cluster."
+    required: true
+  node_baseline:
+    description: "Path to a kubectl get nodes -o json from when the cluster had all its nodes."
+    default: ""
+runs:
+  using: composite
+  steps:
+    - name: Capture EKS cluster forensics
+      shell: bash
+      env:
+        CLUSTER_NAME: ${{ inputs.cluster_name }}
+        NODE_BASELINE: ${{ inputs.node_baseline }}
+        ARTIFACTS_SUFFIX: ${{ inputs.artifacts_suffix }}
+      run: |
+        timeout 600 bash "${GITHUB_ACTION_PATH}/action.sh" "${ARTIFACTS_SUFFIX}" post
