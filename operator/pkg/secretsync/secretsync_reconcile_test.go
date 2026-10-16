@@ -41,7 +41,8 @@ const testSecretSyncControllerName = "example.com/test-gateway-controller"
 func withGatewaySecretIndexes(b *fake.ClientBuilder) *fake.ClientBuilder {
 	return b.
 		WithIndex(&gatewayv1.Gateway{}, helpers.GatewaySecretIndex, indexers.IndexGatewayBySecret).
-		WithIndex(&gatewayv1.ListenerSet{}, helpers.ListenerSetSecretIndex, indexers.IndexListenerSetBySecret)
+		WithIndex(&gatewayv1.ListenerSet{}, helpers.ListenerSetSecretIndex, indexers.IndexListenerSetBySecret).
+		WithIndex(&gatewayv1.BackendTLSPolicy{}, indexers.BackendTLSPolicySecretIndex, indexers.IndexBTLSPolicyBySecret)
 }
 
 var secretFixture = []client.Object{
@@ -604,4 +605,132 @@ func testScheme() *runtime.Scheme {
 // that 0.
 func resultHasResync(result ctrl.Result) bool {
 	return result.RequeueAfter > 0
+}
+
+func Test_SecretSync_Reconcile_BackendTLSPolicySecret(t *testing.T) {
+	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
+
+	fixture := []client.Object{
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "ca-secret"},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: secretsNamespace,
+				Name:      syncnames.SyncedSecretName(types.NamespacedName{Namespace: "test", Name: "ca-secret"}),
+				Labels: map[string]string{
+					secretsync.OwningSecretNamespace: "test",
+					secretsync.OwningSecretName:      "ca-secret",
+				},
+			},
+		},
+		&gatewayv1.BackendTLSPolicy{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "cilium-btlsp-secret"},
+			Spec: gatewayv1.BackendTLSPolicySpec{
+				Validation: gatewayv1.BackendTLSPolicyValidation{
+					CACertificateRefs: []gatewayv1.LocalObjectReference{
+						{
+							Group: gatewayv1.Group(""),
+							Kind:  gatewayv1.Kind("Secret"),
+							Name:  gatewayv1.ObjectName("ca-secret"),
+						},
+					},
+				},
+			},
+			// Status is necessary because we only treat the BackendTLSPolicy as valid
+			// if it has already been accepted by the Cilium controller.
+			Status: gatewayv1.PolicyStatus{
+				Ancestors: []gatewayv1.PolicyAncestorStatus{
+					{
+						ControllerName: testSecretSyncControllerName,
+						Conditions: []metav1.Condition{
+							{
+								Type:   "Accepted",
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "ca-secret-other"},
+		},
+		&gatewayv1.BackendTLSPolicy{
+			ObjectMeta: metav1.ObjectMeta{Namespace: "test", Name: "other-btlsp-secret"},
+			Spec: gatewayv1.BackendTLSPolicySpec{
+				Validation: gatewayv1.BackendTLSPolicyValidation{
+					CACertificateRefs: []gatewayv1.LocalObjectReference{
+						{
+							Group: gatewayv1.Group(""),
+							Kind:  gatewayv1.Kind("Secret"),
+							Name:  gatewayv1.ObjectName("ca-secret-other"),
+						},
+					},
+				},
+			},
+			Status: gatewayv1.PolicyStatus{
+				Ancestors: []gatewayv1.PolicyAncestorStatus{
+					{
+						ControllerName: "some.other/gateway-controller",
+						Conditions: []metav1.Condition{
+							{
+								Type:   "Accepted",
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	c := withGatewaySecretIndexes(fake.NewClientBuilder().
+		WithScheme(testScheme()).
+		WithObjects(fixture...)).
+		Build()
+
+	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, testSecretSyncControllerName)
+
+	r := secretsync.NewSecretSyncReconciler(c, logger, []*secretsync.SecretSyncRegistration{
+		{
+			RefObject:            &gatewayv1.Gateway{},
+			RefObjectEnqueueFunc: gatewayHandler.EnqueueTLSSecrets(),
+			RefObjectCheckFunc:   gatewayHandler.IsReferencedByGateway,
+			SecretsNamespace:     secretsNamespace,
+		},
+	},
+		time.Minute,
+		0.1,
+	)
+
+	t.Run("keep synced secret for source secret referenced as a CA certificate by a Cilium BackendTLSPolicy", func(t *testing.T) {
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "ca-secret",
+			},
+		})
+		require.NoError(t, err)
+		require.True(t, resultHasResync(result))
+
+		secret := &corev1.Secret{}
+		err = c.Get(t.Context(), syncedSecretKey(secretsNamespace, "test", "ca-secret"), secret)
+		require.NoError(t, err)
+	})
+
+	t.Run("don't create synced secret for source secret referenced by a non Cilium BackendTLSPolicy", func(t *testing.T) {
+		result, err := r.Reconcile(t.Context(), ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "test",
+				Name:      "ca-secret-other",
+			},
+		})
+		require.NoError(t, err)
+		require.Equal(t, ctrl.Result{}, result)
+
+		secret := &corev1.Secret{}
+		err = c.Get(t.Context(), syncedSecretKey(secretsNamespace, "test", "ca-secret-other"), secret)
+		require.True(t, k8sErrors.IsNotFound(err))
+	})
 }

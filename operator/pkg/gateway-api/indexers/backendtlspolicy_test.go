@@ -117,3 +117,101 @@ func TestIndexBTLSPolicyByConfigMap(t *testing.T) {
 		})
 	}
 }
+
+func TestIndexBTLSPolicyBySecret(t *testing.T) {
+	tests := []struct {
+		name string // description of this test case
+		// Named input parameters for target function.
+		rawObj client.Object
+		want   []string
+	}{
+		{
+			name: "One valid Secret",
+			rawObj: &gatewayv1.BackendTLSPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "btlsp",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.BackendTLSPolicySpec{
+					Validation: gatewayv1.BackendTLSPolicyValidation{
+						CACertificateRefs: []gatewayv1.LocalObjectReference{
+							{
+								Group: gatewayv1.Group(""),
+								Kind:  gatewayv1.Kind("Secret"),
+								Name:  gatewayv1.ObjectName("ca-cert"),
+							},
+						},
+					},
+				},
+			},
+			want: []string{
+				"default/ca-cert",
+			},
+		},
+		{
+			name: "No CACertificateRefs",
+			rawObj: &gatewayv1.BackendTLSPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "btlsp",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.BackendTLSPolicySpec{
+					Validation: gatewayv1.BackendTLSPolicyValidation{
+						CACertificateRefs: []gatewayv1.LocalObjectReference{},
+					},
+				},
+			},
+			want: []string{},
+		},
+		{
+			name: "Secret ref with explicit core group",
+			rawObj: &gatewayv1.BackendTLSPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "btlsp",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.BackendTLSPolicySpec{
+					Validation: gatewayv1.BackendTLSPolicyValidation{
+						CACertificateRefs: []gatewayv1.LocalObjectReference{
+							{
+								Group: gatewayv1.Group("core"),
+								Kind:  gatewayv1.Kind("Secret"),
+								Name:  gatewayv1.ObjectName("ca-cert"),
+							},
+						},
+					},
+				},
+			},
+			want: []string{},
+		},
+		{
+			name: "One entry, not a Secret",
+			rawObj: &gatewayv1.BackendTLSPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "btlsp",
+					Namespace: "default",
+				},
+				Spec: gatewayv1.BackendTLSPolicySpec{
+					Validation: gatewayv1.BackendTLSPolicyValidation{
+						CACertificateRefs: []gatewayv1.LocalObjectReference{
+							{
+								Group: gatewayv1.Group(""),
+								Kind:  gatewayv1.Kind("ConfigMap"),
+								Name:  gatewayv1.ObjectName("ca-cert"),
+							},
+						},
+					},
+				},
+			},
+			want: []string{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IndexBTLSPolicyBySecret(tt.rawObj)
+			if !slices.Equal(tt.want, got) {
+				t.Errorf("IndexBTLSPolicyBySecret() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

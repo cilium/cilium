@@ -115,8 +115,45 @@ func (h *SecretSyncHandler) EnqueueListenerSetTLSSecrets() handler.EventHandler 
 	})
 }
 
+// IsReferencedByGateway returns true if the given Secret is referenced by a
+// Cilium-managed Gateway, either as a listener TLS certificate or as a CA
+// certificate referenced by a BackendTLSPolicy that applies to such a Gateway.
 func (h *SecretSyncHandler) IsReferencedByGateway(ctx context.Context, _ client.Client, _ *slog.Logger, obj *corev1.Secret) bool {
-	return len(helpers.GetGatewaysForSecret(ctx, h.client, obj, h.controllerName, h.logger)) > 0
+	if len(helpers.GetGatewaysForSecret(ctx, h.client, obj, h.controllerName, h.logger)) > 0 {
+		return true
+	}
+	return h.secretReferencedByBackendTLSPolicy(ctx, obj)
+}
+
+func (h *SecretSyncHandler) secretReferencedByBackendTLSPolicy(ctx context.Context, obj *corev1.Secret) bool {
+	scopedLog := h.logger.With(logfields.LogSubsys, "queue-gw-from-backendtlspolicy-secret")
+
+	secretName := client.ObjectKeyFromObject(obj)
+
+	// Fetch all BackendTLSPolicies that reference this Secret as a CA certificate.
+	btlspList := &gatewayv1.BackendTLSPolicyList{}
+
+	if err := h.client.List(ctx, btlspList, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(indexers.BackendTLSPolicySecretIndex, secretName.String()),
+	}); err != nil {
+		scopedLog.ErrorContext(ctx, "Failed to get related BackendTLSPolicies for Secret", logfields.Error, err)
+		return false
+	}
+	// If there are no relevant BackendTLSPolicies, then we can skip this Secret.
+	if len(btlspList.Items) == 0 {
+		return false
+	}
+
+	for _, btlsp := range btlspList.Items {
+		for _, ancestorStatus := range btlsp.Status.Ancestors {
+			// An Ancestor Status with the Cilium controller name and Accepted: True is only added by Cilium if
+			// everything is good, so we are covered.
+			if string(ancestorStatus.ControllerName) == h.controllerName && helpers.IsAccepted(ancestorStatus.Conditions) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Enqueue BackendTLSPolicyConfigmaps produces a handler.EventHandler that, when it is passed a
@@ -144,6 +181,36 @@ func (h *SecretSyncHandler) EnqueueBackendTLSPolicyConfigMaps() handler.EventHan
 			}
 			reqs = append(reqs, reconcile.Request{NamespacedName: cfg})
 			scopedLog.DebugContext(ctx, "Enqueued configmap for backendtlspolicy", logfields.ConfigMapName, cfg)
+		}
+		return reqs
+	})
+}
+
+// EnqueueBackendTLSPolicySecrets produces a handler.EventHandler that, when it is passed a
+// BackendTLSPolicy as the object.Object, returns any Secrets referenced as CA certificates.
+func (h *SecretSyncHandler) EnqueueBackendTLSPolicySecrets() handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+		scopedLog := h.logger.With(
+			logfields.Resource, obj.GetName(),
+		)
+
+		var reqs []reconcile.Request
+
+		btlsp, ok := obj.(*gatewayv1.BackendTLSPolicy)
+		if !ok {
+			return nil
+		}
+
+		for _, certRef := range btlsp.Spec.Validation.CACertificateRefs {
+			if !helpers.IsSecretRef(certRef) {
+				continue
+			}
+			secret := types.NamespacedName{
+				Namespace: btlsp.GetNamespace(),
+				Name:      string(certRef.Name),
+			}
+			reqs = append(reqs, reconcile.Request{NamespacedName: secret})
+			scopedLog.DebugContext(ctx, "Enqueued secret for backendtlspolicy", logfields.Secret, secret)
 		}
 		return reqs
 	})

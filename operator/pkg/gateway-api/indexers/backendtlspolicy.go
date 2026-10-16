@@ -25,3 +25,20 @@ func IndexBTLSPolicyByConfigMap(rawObj client.Object) []string {
 	}
 	return configMaps
 }
+
+func IndexBTLSPolicyBySecret(rawObj client.Object) []string {
+	btlsp := rawObj.(*gatewayv1.BackendTLSPolicy)
+	var secrets []string
+
+	for _, secretRef := range btlsp.Spec.Validation.CACertificateRefs {
+		if secretRef.Group != "" || secretRef.Kind != (gatewayv1.Kind("Secret")) {
+			// Don't index anything other than a Secret
+			continue
+		}
+		secrets = append(secrets, types.NamespacedName{
+			Name:      string(secretRef.Name),
+			Namespace: btlsp.GetNamespace(),
+		}.String())
+	}
+	return secrets
+}

@@ -131,6 +131,84 @@ func EnqueueRequestForBackendTLSPolicyConfigMap(c client.Client, logger *slog.Lo
 	})
 }
 
+// EnqueueRequestForBackendTLSPolicySecret produces a handler.EventHandler that, when it is passed a
+// Secret, returns reconcile requests for all Cilium Gateways that are affected by a BackendTLSPolicy
+// which references that Secret in its CA Certificate Refs.
+func EnqueueRequestForBackendTLSPolicySecret(c client.Client, logger *slog.Logger, controllerName string) handler.EventHandler {
+	return handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, o client.Object) []reconcile.Request {
+		scopedLog := logger.With(logfields.LogSubsys, "queue-gw-from-backendtlspolicy-secret")
+
+		secret, ok := o.(*corev1.Secret)
+		if !ok {
+			return []reconcile.Request{}
+		}
+
+		secretName := types.NamespacedName{
+			Name:      secret.GetName(),
+			Namespace: secret.GetNamespace(),
+		}
+
+		// Fetch all BackendTLSPolicies that reference this Secret
+		btlspList := &gatewayv1.BackendTLSPolicyList{}
+
+		if err := c.List(ctx, btlspList, &client.ListOptions{
+			FieldSelector: fields.OneTermEqualSelector(indexers.BackendTLSPolicySecretIndex, secretName.String()),
+		}); err != nil {
+			scopedLog.ErrorContext(ctx, "Failed to get related BackendTLSPolicies for Secret", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+		// If there are no relevant BackendTLSPolicies, then we can skip this Secret.
+		if len(btlspList.Items) == 0 {
+			return []reconcile.Request{}
+		}
+
+		// Build a set of all matching Gateway full names.
+		// This makes sure we only add a reconcile.Request once for each Gateway.
+		allGatewaysSet, err := getAllGatewaysSetForController(ctx, c, controllerName)
+		if err != nil {
+			scopedLog.ErrorContext(ctx, "Failed to get controller Gateways", logfields.Error, err)
+			return []reconcile.Request{}
+		}
+
+		reconcileRequests := make(map[reconcile.Request]struct{})
+
+		for _, btlsp := range btlspList.Items {
+
+			if len(btlsp.Spec.Validation.CACertificateRefs) == 0 {
+				// There are no Secrets specified in this BackendTLSPolicy,
+				// so this enqueue function doesn't care about it.
+				continue
+			}
+
+			secretReferenced := false
+
+			for _, caRef := range btlsp.Spec.Validation.CACertificateRefs {
+				if caRef.Group == "" && caRef.Kind == "Secret" && string(caRef.Name) == secret.GetName() {
+					secretReferenced = true
+				}
+			}
+
+			if !secretReferenced {
+				// Enqueue only cares about Secrets that are referenced by a BackendTLSPolicy
+				// If there are no references to this Secret, this BackendTLSPolicy is not relevant.
+				continue
+			}
+
+			// This BackendTLSPolicy references the Secret being enqueued, check to see if it's in the
+			// ownership chain any matching Gateways.
+			updateReconcileRequestsForBackendTLSPolicy(ctx, c, scopedLog, allGatewaysSet, reconcileRequests, &btlsp, secret.GetNamespace())
+
+		}
+		recs := slices.Collect(maps.Keys(reconcileRequests))
+		if len(recs) > 0 {
+			scopedLog.Debug("Secret in BackendTLSPolicy relevant to Gateways",
+				logfields.Resource, client.ObjectKeyFromObject(o).String(),
+				logfields.Gateway, recs)
+		}
+		return recs
+	})
+}
+
 func updateReconcileRequestsForBackendTLSPolicy(ctx context.Context,
 	c client.Client,
 	scopedLog *slog.Logger,
