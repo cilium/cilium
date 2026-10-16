@@ -13,7 +13,9 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb/reconciler"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -23,12 +25,16 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
+	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/kpr"
+	"github.com/cilium/cilium/pkg/maps/nodemap"
 	nodemapfake "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
@@ -51,6 +57,57 @@ type nodeSuite struct {
 	// nodeConfigTemplate is the partially filled template for local node configuration.
 	// copy it, don't mutate it.
 	nodeConfigTemplate config.Config
+}
+
+func newTestNodeHandler(t testing.TB) *linuxNodeHandler {
+	t.Helper()
+	var (
+		pruneExclusion *routeReconciler.PruneExclusion
+		routeManager   *routeReconciler.DesiredRouteManager
+	)
+
+	log := hivetest.Logger(t)
+	require.NoError(t,
+		hive.New(
+			routeReconciler.TableCell,
+			cell.Provide(routeReconciler.NewPruneExclusion),
+			cell.Provide(func() reconciler.Reconciler[*routeReconciler.DesiredRoute] {
+				return nil
+			}),
+			cell.Invoke(func(
+				pruneExclusion_ *routeReconciler.PruneExclusion,
+				routeManager_ *routeReconciler.DesiredRouteManager,
+			) {
+				pruneExclusion = pruneExclusion_
+				routeManager = routeManager_
+			}),
+		).Populate(log),
+	)
+
+	a, err := ipsec.NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
+
+	return newNodeHandler(
+		log,
+		DatapathConfiguration{HostDevice: hostDevice},
+		nodemapfake.NewFakeNodeMapV2(),
+		kpr.KPRConfig{},
+		a,
+		fakeipsec.Config{},
+		node.NewTestLocalNodeStore(node.LocalNode{}),
+		pruneExclusion,
+		routeManager,
+	)
+}
+
+func (l *linuxNodeHandler) withNodeMap(nodeMap nodemap.MapV2) *linuxNodeHandler {
+	l.nodeMap = nodeMap
+	return l
+}
+
+func (l *linuxNodeHandler) withIPsecAgent(a types.Agent) *linuxNodeHandler {
+	l.ipsecAgent = a
+	return l
 }
 
 func setup(tb testing.TB, family string) *nodeSuite {
@@ -254,14 +311,7 @@ func testUpdateNodeRoute(t *testing.T, family string) {
 	ip6CIDR := cidr.MustParseCIDR("cafe:cafe:cafe:cafe::/96")
 	require.NotNil(t, ip6CIDR)
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-
-	a, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newTestNodeHandler(t)
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
 	if s.enableIPv4 {
@@ -299,13 +349,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 	net1 := cidr.MustParseCIDR("30.30.0.0/24")
 	net2 := cidr.MustParseCIDR("cafe:f00d::/112")
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newTestNodeHandler(t)
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.AuxiliaryPrefixes = []*cidr.CIDR{net1, net2}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
@@ -379,13 +423,7 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 
 	externalNodeIP1 := net.ParseIP("4.4.4.4")
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
-
+	lnh := newTestNodeHandler(t)
 	lnh.OverrideEnableEncapsulation(override)
 
 	nodeConfig := s.nodeConfigTemplate
@@ -543,13 +581,7 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 
 	nodeMap := nodemapfake.NewFakeNodeMapV2()
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newTestNodeHandler(t).withNodeMap(nodeMap)
 
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
@@ -703,13 +735,9 @@ func testNodeChurnXFRMLeaksSubnetMode(t *testing.T, family string) {
 }
 
 func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.Config) {
-	log := hivetest.Logger(t)
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
-
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newTestNodeHandler(t).withIPsecAgent(a)
 
 	mustConfigureNode(t, s.ns, lnh, config)
 
@@ -774,6 +802,36 @@ func mustLookupDirectRoute(tb testing.TB, ns *netns.NetNS, log *slog.Logger, CID
 	return tnl.MustRouteListFiltered(tb, ns, family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
 }
 
+func requireDirectRoutePruneExclusions(tb testing.TB, lnh *linuxNodeHandler, enabled bool, prefixCIDRs map[*cidr.CIDR]struct{}) {
+	tb.Helper()
+
+	if !enabled {
+		require.Empty(tb, lnh.pruneExclusions.SnapshotForTest())
+		return
+	}
+
+	if prefixCIDRs == nil {
+		require.Nil(tb, lnh.pruneExclusions.SnapshotForTest())
+		return
+	}
+
+	expected := make(map[routeReconciler.DesiredRouteKey]struct{})
+	if enabled {
+		for prefixCIDR := range prefixCIDRs {
+			prefix, ok := netipx.FromStdIPNet(prefixCIDR.IPNet)
+			require.True(tb, ok)
+			expected[routeReconciler.DesiredRouteKey{
+				Owner:    nil,
+				Table:    routeReconciler.TableMain,
+				Prefix:   prefix,
+				Priority: 0,
+			}] = struct{}{}
+		}
+	}
+
+	require.Equal(tb, expected, lnh.pruneExclusions.SnapshotForTest())
+}
+
 func TestPrivilegedNodeUpdateDirectRouting(t *testing.T) {
 	testWithFamilies(t, func(t *testing.T, family string) {
 		testNodeUpdateDirectRouting(t, family)
@@ -799,19 +857,15 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	externalNode2Device := "dummy_node2"
 	dev2 := mustSetupDevice(t, s.ns, externalNode2Device, externalNode1IP4v2, net.ParseIP("face::2"))
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
 	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newTestNodeHandler(t)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
 	nodeConfig.EnableAutoDirectRouting = true
 
 	expectedIPv4Routes := 0
+	shouldContainPruneExclusion := s.enableIPv4
 	if s.enableIPv4 {
 		expectedIPv4Routes = 1
 	}
@@ -830,6 +884,10 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 
 	foundRoutes := mustLookupDirectRoute(t, s.ns, log, ip4Alloc1, externalNode1IP4v1)
 	require.Len(t, foundRoutes, expectedIPv4Routes)
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion,
+		map[*cidr.CIDR]struct{}{
+			ip4Alloc1: {},
+		})
 
 	// nodev2: ip4Alloc1 => externalNodeIP2
 	nodev2 := nodeTypes.Node{
@@ -843,6 +901,10 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	mustUpdateNode(t, s.ns, lnh, nodev1, nodev2)
 
 	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc1, externalNode1IP4v2), expectedIPv4Routes)
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion,
+		map[*cidr.CIDR]struct{}{
+			ip4Alloc1: {},
+		})
 
 	// nodev3: ip4Alloc2 => externalNodeIP2
 	nodev3 := nodeTypes.Node{
@@ -859,6 +921,12 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 
 	// node routes for alloc2 ranges should have been installed
 	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2), expectedIPv4Routes)
+	// we always add routes in the prune exclusion set until they are consumed by someone.
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion,
+		map[*cidr.CIDR]struct{}{
+			ip4Alloc1: {},
+			ip4Alloc2: {},
+		})
 
 	// nodev4: no longer announce CIDR
 	nodev4 := nodeTypes.Node{
@@ -871,6 +939,13 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 
 	// node routes for alloc2 ranges should have been removed
 	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2))
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion,
+		map[*cidr.CIDR]struct{}{
+			ip4Alloc1: {},
+			ip4Alloc2: {},
+		})
+	// call Consume to clear the prune exclusion set, from now on we will no longer add routes.
+	lnh.pruneExclusions.DrainForTest()
 
 	// nodev5: Re-announce CIDR
 	nodev5 := nodeTypes.Node{
@@ -884,6 +959,8 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 
 	// node routes for alloc2 ranges should have been removed
 	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2), expectedIPv4Routes)
+	// should be empty
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion, nil)
 
 	// delete nodev5
 	mustDeleteNode(t, s.ns, lnh, nodev5)
@@ -1039,13 +1116,7 @@ func testNodeValidationDirectRouting(t *testing.T, family string) {
 	ip4Alloc1 := cidr.MustParseCIDR("5.5.5.0/24")
 	ip6Alloc1 := cidr.MustParseCIDR("2001:aaaa::/96")
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns)
+	lnh := newTestNodeHandler(t)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = false
@@ -1185,12 +1256,9 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	remoteNode2Device := "remote_node_2"
 	dev2 := mustSetupDevice(t, s.ns, remoteNode2Device, remoteNode2IPv4, remoteNode2IPv6)
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns)
+	lnh := newTestNodeHandler(t).withIPsecAgent(a)
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
