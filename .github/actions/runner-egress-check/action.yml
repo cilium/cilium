@@ -1,0 +1,112 @@
+name: Runner egress check
+description: "Sample the runner's egress IP in the background and warn about samples outside the authorized networks"
+inputs:
+  mode:
+    description: "'start' launches the sampler, 'stop' stops it and compares the samples with authorized-networks"
+    required: true
+  authorized-networks:
+    description: "Comma-separated CIDRs that the runner's egress IP should fall in, the runner's own CIDR first, for mode 'stop'"
+    required: false
+    default: ""
+  interval:
+    description: "Seconds between two samples"
+    required: false
+    default: "10"
+
+runs:
+  using: composite
+  steps:
+    - name: Start the egress sampler
+      if: ${{ inputs.mode == 'start' }}
+      shell: bash
+      env:
+        INTERVAL: ${{ inputs.interval }}
+      run: |
+        dir="${RUNNER_TEMP}/runner-egress-check"
+        mkdir -p "${dir}"
+        if [[ -f "${dir}/pid" ]] && kill -0 "$(<"${dir}/pid")" 2>/dev/null; then
+          echo "Egress sampler already running with pid $(<"${dir}/pid")"
+          exit 0
+        fi
+
+        sample() {
+          trap 'kill "${sleeper:-}" 2>/dev/null; exit 0' TERM
+          while :; do
+            ip=$(curl --silent --fail --max-time 5 https://api.ipify.org) || ip=""
+            [[ "${ip}" =~ ^[0-9A-Fa-f.:]+$ ]] || ip="error"
+            echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) ${ip}" >> "${dir}/samples"
+            sleep "${INTERVAL}" &
+            sleeper=$!
+            wait "${sleeper}"
+          done
+        }
+        sample </dev/null >/dev/null 2>&1 &
+        echo "$!" > "${dir}/pid"
+        echo "Egress sampler started with pid $!, sampling every ${INTERVAL}s into ${dir}/samples"
+
+    - name: Stop the egress sampler and compare its samples
+      if: ${{ inputs.mode == 'stop' }}
+      shell: bash
+      env:
+        AUTHORIZED_NETWORKS: ${{ inputs.authorized-networks }}
+      run: |
+        dir="${RUNNER_TEMP}/runner-egress-check"
+        pid="$(cat "${dir}/pid" 2>/dev/null || true)"
+        if [[ "${pid}" =~ ^[0-9]+$ ]]; then
+          kill -TERM "${pid}" 2>/dev/null || true
+          for _ in $(seq 20); do
+            kill -0 "${pid}" 2>/dev/null || break
+            sleep 0.5
+          done
+          if kill -0 "${pid}" 2>/dev/null; then
+            kill -KILL "${pid}" 2>/dev/null || true
+          fi
+        fi
+        rm -f "${dir}/pid"
+
+        if [[ ! -s "${dir}/samples" ]]; then
+          echo "No egress samples in ${dir}/samples"
+          exit 0
+        fi
+
+        python3 -I - "${dir}/samples" "${AUTHORIZED_NETWORKS}" <<'EOF'
+        import ipaddress
+        import sys
+
+        authorized = sys.argv[2]
+        nets = []
+        for cidr in filter(None, (c.strip() for c in authorized.split(","))):
+            try:
+                nets.append(ipaddress.ip_network(cidr, strict=False))
+            except ValueError:
+                print(f"::warning::Ignoring invalid authorized network {cidr}")
+
+        seen = {}
+        total = 0
+        failed = 0
+        with open(sys.argv[1]) as f:
+            for line in f:
+                ts, _, value = line.strip().partition(" ")
+                total += 1
+                try:
+                    ip = ipaddress.ip_address(value)
+                except ValueError:
+                    failed += 1
+                    continue
+                first, _, count = seen.get(ip, (ts, ts, 0))
+                seen[ip] = (first, ts, count + 1)
+
+        print(f"{'egress IP':<40} {'samples':>7}  {'first':<20}  {'last':<20}  authorized")
+        for ip, (first, last, count) in sorted(seen.items(), key=lambda kv: kv[1][0]):
+            inside = "-" if not nets else ("yes" if any(ip in n for n in nets) else "no")
+            print(f"{str(ip):<40} {count:>7}  {first:<20}  {last:<20}  {inside}")
+            if inside == "no":
+                print(f"::warning::Runner egressed from {ip}, outside the authorized networks {authorized}, "
+                      f"in {count} of {total} samples between {first} and {last}")
+            elif inside == "yes" and ip not in nets[0]:
+                print(f"::notice::Runner egressed from {ip}, outside {nets[0]} but inside the authorized networks {authorized}, "
+                      f"in {count} of {total} samples between {first} and {last}")
+        print(f"{failed} of {total} samples failed to read the egress IP")
+        if not nets:
+            print("No authorized networks to compare with")
+        EOF

@@ -38,6 +38,9 @@ outputs:
   zone:
     description: "The zone the cluster was actually created in (may differ from the requested zone if a fallback zone was used)"
     value: ${{ steps.create-cluster.outputs.zone }}
+  authorized-networks:
+    description: "Comma-separated CIDRs authorized to reach the cluster API server, the runner's own CIDR first"
+    value: ${{ steps.create-cluster.outputs.authorized_networks }}
 
 runs:
   using: "composite"
@@ -49,8 +52,63 @@ runs:
         source: https://api.ipify.org
         parsing: text
 
+    # The runner sometimes egresses from another address of its GitHub Actions range.
+    - name: Look up the runner's GitHub Actions range
+      id: authorized-networks
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RUNNER_IP: ${{ steps.get-runner-ip.outputs.ip }}
+        RUNNER_CIDR: ${{ steps.get-runner-ip.outputs.cidr }}
+      run: |
+        lookup() {
+          python3 -I - "$@" <<'EOF'
+        import ipaddress
+        import json
+        import sys
+
+        with open(sys.argv[1]) as f:
+            actions = json.load(f)["actions"]
+        ip = ipaddress.ip_address(sys.argv[2])
+        nets = []
+        for cidr in actions:
+            try:
+                nets.append(ipaddress.ip_network(cidr, strict=False))
+            except ValueError:
+                pass
+        matches = [n for n in nets if n.version == 4 and 15 <= n.prefixlen < 32 and ip in n]
+        print(",".join(str(n) for n in ipaddress.collapse_addresses(matches)))
+        EOF
+        }
+
+        meta="$(mktemp)"
+        ranges=""
+        if curl --silent --show-error --fail --max-time 20 \
+            --retry 3 --retry-delay 5 --retry-max-time 60 --retry-all-errors \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "Accept: application/vnd.github+json" \
+            --output "${meta}" https://api.github.com/meta; then
+          if ! ranges=$(lookup "${meta}" "${RUNNER_IP}"); then
+            echo "::warning::Could not parse the GitHub meta response; authorizing ${RUNNER_CIDR} alone"
+            ranges=""
+          elif [[ -z "${ranges}" ]]; then
+            echo "::warning::No GitHub Actions IPv4 range between /15 and /31 contains ${RUNNER_IP}; authorizing ${RUNNER_CIDR} alone"
+          fi
+        else
+          echo "::warning::Could not read https://api.github.com/meta; authorizing ${RUNNER_CIDR} alone"
+        fi
+        rm -f "${meta}"
+
+        cidrs="${RUNNER_CIDR}${ranges:+,${ranges}}"
+        echo "Authorized networks: ${cidrs}"
+        echo "cidrs=${cidrs}" >> "${GITHUB_OUTPUT}"
+
     - id: create-cluster
       shell: bash
+      env:
+        RUNNER_CIDR: ${{ steps.get-runner-ip.outputs.cidr }}
+        AUTHORIZED_CIDRS: ${{ steps.authorized-networks.outputs.cidrs || steps.get-runner-ip.outputs.cidr }}
       run: |
         LABELS=""
         VERSION=""
@@ -92,17 +150,11 @@ runs:
         # its whole budget on getting a cluster.
         budget_deadline=$(( SECONDS + 30 * 60 ))
 
-        created_zone=""
-        for zone in "${{ inputs.zone }}" ${fallback_zones}; do
-          if (( SECONDS >= budget_deadline )); then
-            echo "::warning::Ran out of time to create cluster ${{ inputs.cluster-name }}"
-            break
-          fi
-
-          echo "Attempting to create cluster in zone ${zone}"
+        authorized_networks="${AUTHORIZED_CIDRS}"
+        create_in() {
           set +e
           create_out=$(timeout --kill-after=1m "${attempt_minutes}m" gcloud container clusters create "${{ inputs.cluster-name }}" \
-            --zone "${zone}" \
+            --zone "$1" \
             --enable-ip-alias \
             --create-subnetwork="range=/26" \
             --cluster-ipv4-cidr="/21" \
@@ -114,13 +166,30 @@ runs:
             --disk-size 20GB \
             --no-enable-insecure-kubelet-readonly-port \
             --enable-master-authorized-networks \
-            --master-authorized-networks "${{ steps.get-runner-ip.outputs.cidr }}" \
+            --master-authorized-networks "${authorized_networks}" \
             $VERSION \
             $LABELS \
             $TAINTS 2>&1)
           create_rc=$?
           set -e
           echo "${create_out}"
+        }
+
+        created_zone=""
+        for zone in "${{ inputs.zone }}" ${fallback_zones}; do
+          if (( SECONDS >= budget_deadline )); then
+            echo "::warning::Ran out of time to create cluster ${{ inputs.cluster-name }}"
+            break
+          fi
+
+          echo "Attempting to create cluster in zone ${zone}"
+          create_in "${zone}"
+          if [[ ${create_rc} -ne 0 && "${authorized_networks}" != "${RUNNER_CIDR}" ]] \
+              && grep -qi 'denied by org policy' <<< "${create_out}"; then
+            echo "::warning::An org policy denied the authorized networks ${authorized_networks}; retrying zone ${zone} with ${RUNNER_CIDR} alone"
+            authorized_networks="${RUNNER_CIDR}"
+            create_in "${zone}"
+          fi
 
           if [[ ${create_rc} -eq 0 ]]; then
             created_zone="${zone}"
@@ -158,8 +227,9 @@ runs:
           exit 1
         fi
 
-        echo "Cluster created in zone ${created_zone}"
+        echo "Cluster created in zone ${created_zone} with authorized networks ${authorized_networks}"
         echo "zone=${created_zone}" >> $GITHUB_OUTPUT
+        echo "authorized_networks=${authorized_networks}" >> "${GITHUB_OUTPUT}"
 
         native_cidr=$(gcloud container clusters describe "${{ inputs.cluster-name }}" --zone "${created_zone}" --format 'value(clusterIpv4Cidr)')
         echo native_cidr=${native_cidr} >> $GITHUB_OUTPUT
