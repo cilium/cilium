@@ -206,26 +206,6 @@ type dummyNodeManager struct {
 	log *slog.Logger
 }
 
-// ClusterSizeDependantInterval implements manager.NodeManager.
-func (d dummyNodeManager) ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration {
-	return time.Second
-}
-
-// Enqueue implements manager.NodeManager.
-func (d dummyNodeManager) Enqueue(*nodeTypes.Node) {
-	panic("unimplemented")
-}
-
-// GetNodeIdentities implements manager.NodeManager.
-func (d dummyNodeManager) GetNodeIdentities() []nodeTypes.Identity {
-	panic("unimplemented")
-}
-
-// GetNodes implements manager.NodeManager.
-func (d dummyNodeManager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
-	panic("unimplemented")
-}
-
 // MeshNodeSync implements manager.NodeManager.
 func (d dummyNodeManager) MeshNodeSync() {
 	d.log.Debug("NodeManager.MeshNodeSync()")
@@ -243,16 +223,6 @@ func (d dummyNodeManager) NodeSync() {
 
 // NodeUpdated implements manager.NodeManager.
 func (d dummyNodeManager) NodeUpdated(n nodeTypes.Node) {
-	panic("unimplemented")
-}
-
-// Subscribe implements manager.NodeManager.
-func (d dummyNodeManager) Subscribe(node.Handler) {
-	panic("unimplemented")
-}
-
-// Unsubscribe implements manager.NodeManager.
-func (d dummyNodeManager) Unsubscribe(node.Handler) {
 	panic("unimplemented")
 }
 

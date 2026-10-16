@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/subnet"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAgent "github.com/cilium/cilium/pkg/monitor/agent"
-	fakenode "github.com/cilium/cilium/pkg/node/fake"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -45,7 +44,6 @@ type agentHandle struct {
 	t         *testing.T
 	db        *statedb.DB
 	nodeAddrs statedb.Table[datapathTables.NodeAddress]
-	fnh       *fakenode.Handler
 
 	hive *hive.Hive
 	log  *slog.Logger
@@ -96,9 +94,8 @@ func (h *agentHandle) setupCiliumAgentHive(clientset k8sClient.Clientset, extraC
 		store.Cell,
 		dial.ServiceResolverCell,
 		cmd.ControlPlane,
-		cell.Invoke(func(_ legacy.DaemonInitialization, nh *fakenode.Handler) {
+		cell.Invoke(func(_ legacy.DaemonInitialization) {
 			// with dry-run enabled it's enough to depend on DaemonInitialization
-			h.fnh = nh
 		}),
 
 		cell.Invoke(func(db *statedb.DB, nodeAddrs statedb.Table[datapathTables.NodeAddress]) {
