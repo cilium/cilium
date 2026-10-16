@@ -193,3 +193,21 @@ annotations:
       displayName: Cilium Resource IP Pool
       description: |
         CiliumResourceIPPool defines an IP pool that can be used for pooled DRA resources IPAM (i.e. the multi-pool resource IPAM mode).
+    - kind: CiliumQoSMechanism
+      version: v2alpha1
+      name: ciliumqosmechanisms.cilium.io
+      displayName: Cilium QoS Mechanism
+      description: |
+        CiliumQoSMechanism declares a QoS mechanism, such as DSCP marking, that is available for use in the cluster.
+    - kind: CiliumQoSClass
+      version: v2alpha1
+      name: ciliumqosclasses.cilium.io
+      displayName: Cilium QoS Class
+      description: |
+        CiliumQoSClass defines a reusable QoS profile on top of a declared CiliumQoSMechanism.
+    - kind: CiliumQoSPolicy
+      version: v2alpha1
+      name: ciliumqospolicies.cilium.io
+      displayName: Cilium QoS Policy
+      description: |
+        CiliumQoSPolicy applies QoS classes to the egress traffic of the pods it selects.
