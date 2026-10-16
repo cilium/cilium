@@ -254,6 +254,11 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 		}
 	}
 
+	// Reverse the slice before copying to preserve original order. Otherwise
+	// the order flips on every call, spreading allocations across different
+	// CIDRs and preventing them from being released, leaving the node holding
+	// more IPs than needed.
+	slices.Reverse(retainedAllocators)
 	p.ipAllocators = retainedAllocators
 }
 
