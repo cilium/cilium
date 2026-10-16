@@ -32,13 +32,6 @@ on:
         required: true
       CILIUM_RELEASE_BOT_APP_ID:
         required: true
-      # Unused since the Quay login below moved to OIDC, and kept only because
-      # the stable branches still pass them to this workflow at @main, which
-      # errors out when the secret is not declared here.
-      QUAY_USERNAME_HELM_RELEASE_USERNAME:
-        required: false
-      QUAY_PASSWORD_HELM_RELEASE_PASSWORD:
-        required: false
 
 permissions:
   # To be able to access the repository with `actions/checkout`
