@@ -1194,8 +1194,14 @@ ct_has_loopback_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
 }
 #endif
 
+/* Source-node L7 LB keeps the frontend tuple and creates a proxy CT_EGRESS
+ * entry with NodePort NAT state. Such an entry must not suppress subsequent
+ * wildcard lookups, which recover the L7 proxy port for each packet. An egress
+ * policy proxy on the legacy path has no NodePort NAT state and must retain
+ * that path just like other pre-existing connections.
+ */
 static __always_inline bool
-ct_has_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
+ct_has_legacy_nodeport_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
 {
 	__u8 flags = tuple->flags;
 	const struct ct_entry *entry;
@@ -1204,11 +1210,11 @@ ct_has_egress_entry4(const void *map, struct ipv4_ct_tuple *tuple)
 	entry = map_lookup_elem(map, tuple);
 	tuple->flags = flags;
 
-	return entry;
+	return entry && !(entry->proxy_redirect && entry->nat_port);
 }
 
 static __always_inline bool
-ct_has_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
+ct_has_legacy_nodeport_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
 {
 	__u8 flags = tuple->flags;
 	const struct ct_entry *entry;
@@ -1217,7 +1223,7 @@ ct_has_egress_entry6(const void *map, struct ipv6_ct_tuple *tuple)
 	entry = map_lookup_elem(map, tuple);
 	tuple->flags = flags;
 
-	return entry;
+	return entry && !(entry->proxy_redirect && entry->nat_port);
 }
 
 static __always_inline bool

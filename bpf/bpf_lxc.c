@@ -180,12 +180,11 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			/* look up with SCOPE_FORWARD: */
 			__ipv4_ct_tuple_reverse(&tmp);
 
-			/* If a CT_EGRESS entry exists, it indicates the connection was
-			 * established via the legacy path. Preserve this behavior (skip
-			 * wildcard lookup) to maintain consistency for existing flows.
-			 * Wildcard lookup is applied only for new connections.
+			/* Preserve the legacy path for existing connections, except for
+			 * source-node L7 LB entries. Those retain the frontend tuple and
+			 * need wildcard lookup to recover the proxy port on every packet.
 			 */
-			if (!ct_has_egress_entry4(get_ct_map4(&tmp), &tmp)) {
+			if (!ct_has_legacy_nodeport_egress_entry4(get_ct_map4(&tmp), &tmp)) {
 				svc = lb4_lookup_wildcard_service(&key);
 				if (svc) {
 					nat_info->nat_addr.p4 = tuple.daddr;
@@ -355,12 +354,11 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			/* look up with SCOPE_FORWARD: */
 			__ipv6_ct_tuple_reverse(&tmp);
 
-			/* If a CT_EGRESS entry exists, it indicates the connection was
-			 * established via the legacy path. Preserve this behavior (skip
-			 * wildcard lookup) to maintain consistency for existing flows.
-			 * Wildcard lookup is applied only for new connections.
+			/* Preserve the legacy path for existing connections, except for
+			 * source-node L7 LB entries. Those retain the frontend tuple and
+			 * need wildcard lookup to recover the proxy port on every packet.
 			 */
-			if (!ct_has_egress_entry6(get_ct_map6(&tmp), &tmp)) {
+			if (!ct_has_legacy_nodeport_egress_entry6(get_ct_map6(&tmp), &tmp)) {
 				svc = lb6_lookup_wildcard_service(&key);
 				if (svc) {
 					ipv6_addr_copy(&nat_info->nat_addr, &tuple.daddr);
