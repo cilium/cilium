@@ -57,6 +57,9 @@ func (e *ErrPoolNotReadyYet) Error() string {
 }
 
 func (e *ErrPoolNotReadyYet) Is(err error) bool {
+	if err == ErrAllocationPending {
+		return true
+	}
 	_, ok := err.(*ErrPoolNotReadyYet)
 	return ok
 }

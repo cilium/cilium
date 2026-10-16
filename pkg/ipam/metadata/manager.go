@@ -5,7 +5,6 @@ package metadata
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -34,7 +33,7 @@ func (m *ManagerStoppedError) Error() string {
 	return "ipam-metadata-manager has been stopped"
 }
 
-var ErrManagerPoolsNotSynced = errors.New("ipam-metadata-manager has not synced all pod IP pools yet")
+var ErrManagerPoolsNotSynced = ipam.NewPendingError("ipam-metadata-manager has not synced all pod IP pools yet")
 
 type ResourceNotFound struct {
 	Resource  string
@@ -51,6 +50,9 @@ func (r *ResourceNotFound) Error() string {
 }
 
 func (r *ResourceNotFound) Is(target error) bool {
+	if target == ipam.ErrAllocationPending {
+		return true
+	}
 	targetErr, ok := target.(*ResourceNotFound)
 	if !ok {
 		return false

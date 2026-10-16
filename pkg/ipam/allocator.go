@@ -34,7 +34,19 @@ var (
 	// ErrRoutingMetadataUnsupported is returned when an allocator cannot
 	// resolve routing metadata for a given address.
 	ErrRoutingMetadataUnsupported = errors.New("routing metadata lookup unsupported")
+
+	// ErrAllocationPending matches allocation errors that resolve without user
+	// action once local state syncs or the operator assigns more addresses.
+	ErrAllocationPending = errors.New("allocation pending")
 )
+
+type pendingError struct{ msg string }
+
+func (e *pendingError) Error() string        { return e.msg }
+func (e *pendingError) Is(target error) bool { return target == ErrAllocationPending }
+
+// NewPendingError returns a sentinel error that matches ErrAllocationPending.
+func NewPendingError(msg string) error { return &pendingError{msg: msg} }
 
 type routingMetadataResolver interface {
 	ResolveRoutingMetadata(addr netip.Addr, pool Pool) (*AllocationResult, error)
