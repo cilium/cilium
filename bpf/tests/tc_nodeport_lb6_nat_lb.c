@@ -166,6 +166,8 @@ ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IP)
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
  * - gets redirected by TC (as BPF Host Routing is enabled)

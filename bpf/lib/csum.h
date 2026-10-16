@@ -77,3 +77,51 @@ static __always_inline int csum_l4_replace(struct __ctx_buff *ctx, __u64 l4_off,
 {
 	return l4_csum_replace(ctx, (__u32)(l4_off + csum->offset), from, to, flags | csum->flags);
 }
+
+/**
+ * Helper to amend the L4 checksum after an IPv6 address change
+ * @arg ctx	Packet
+ * @arg l4_off	Offset to L4 header
+ * @arg csum	Pointer to csum_offset as extracted by csum_l4_offset_and_flags()
+ * @arg sum	csum_diff() of the old and new addresses
+ *
+ * The address change is in the pseudo-header, so it is matched by the change
+ * of the L4 checksum and skb->csum of a CHECKSUM_COMPLETE skb must not move.
+ * This assumes the address was written without BPF_F_RECOMPUTE_CSUM.
+ * BPF_F_IPV6 tells bpf_l4_csum_replace() so. Kernels without that flag fail
+ * with -EINVAL; with only BPF_F_PSEUDO_HDR they subtract sum from skb->csum,
+ * which csum_update() adds back. Omitting BPF_F_PSEUDO_HDR instead would skip
+ * the L4 checksum update for CHECKSUM_PARTIAL skbs.
+ *
+ * Without an L4 checksum over the pseudo-header (csum->offset == 0, e.g. a
+ * non-first fragment or SCTP) nothing absorbs the address change, so
+ * skb->csum has to follow it. That is wrong for the embedded packet of an
+ * ICMPv6 error, where the outer ICMPv6 checksum absorbs it (see
+ * snat_v6_calc_icmp_error_csum_diff()), so don't use this helper there with
+ * csum->offset == 0.
+ *
+ * bpf_csum_update() only changes skb->csum when skb->ip_summed is
+ * CHECKSUM_COMPLETE. Otherwise it is a no-op that returns -ENOTSUPP.
+ */
+static __always_inline int
+csum_l4_replace_ipv6_addr(struct __ctx_buff *ctx, __u64 l4_off,
+			  const struct csum_offset *csum, __be32 sum)
+{
+	int ret;
+
+	if (!csum->offset) {
+		csum_update(ctx, sum);
+		return 0;
+	}
+
+	ret = csum_l4_replace(ctx, l4_off, csum, 0, sum,
+			      BPF_F_PSEUDO_HDR | BPF_F_IPV6);
+	if (ret != -EINVAL)
+		return ret;
+
+	ret = csum_l4_replace(ctx, l4_off, csum, 0, sum, BPF_F_PSEUDO_HDR);
+	if (!ret)
+		csum_update(ctx, sum);
+
+	return ret;
+}

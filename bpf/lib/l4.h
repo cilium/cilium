@@ -90,6 +90,7 @@ static __always_inline int l4_modify_port(struct __ctx_buff *ctx, int l4_off,
  * @arg old_port: old port value (for checksum correction), 0 if unused
  * @arg new_port: new port value, equal to old_port if unused
  * @arg l3_sum:   checksum diff of the paired L3 address change, 0 if none
+ * @arg l3_is_ipv6: l3_sum is for IPv6 addresses
  * @arg l4_csum_diff_from_inner: extra L4 checksum diff to apply (for ICMP
  *      error messages), 0 if none
  *
@@ -98,7 +99,7 @@ static __always_inline int l4_modify_port(struct __ctx_buff *ctx, int l4_off,
 static __always_inline int
 l4_rewrite_port_and_csum(struct __ctx_buff *ctx, __u8 nexthdr, int l4_off, int port_off,
 			 __be16 old_port, __be16 new_port, __wsum l3_sum,
-			 __wsum l4_csum_diff_from_inner)
+			 bool l3_is_ipv6, __wsum l4_csum_diff_from_inner)
 {
 	struct csum_offset csum = {};
 	int err;
@@ -138,9 +139,15 @@ l4_rewrite_port_and_csum(struct __ctx_buff *ctx, __u8 nexthdr, int l4_off, int p
 	}
 
 	/* Amend the L4 checksum due to changing the addresses. */
-	if (csum.offset &&
-	    csum_l4_replace(ctx, l4_off, &csum, 0, l3_sum, BPF_F_PSEUDO_HDR) < 0)
-		return DROP_CSUM_L4;
+	if (csum.offset) {
+		if (l3_is_ipv6)
+			err = csum_l4_replace_ipv6_addr(ctx, l4_off, &csum, l3_sum);
+		else
+			err = csum_l4_replace(ctx, l4_off, &csum, 0, l3_sum,
+					      BPF_F_PSEUDO_HDR);
+		if (err < 0)
+			return DROP_CSUM_L4;
+	}
 
 	/* Apply additional L4 checksum diff if provided (for ICMP error messages). */
 	if (l4_csum_diff_from_inner && !csum.offset) {

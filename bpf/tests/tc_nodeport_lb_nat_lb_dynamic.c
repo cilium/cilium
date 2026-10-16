@@ -100,6 +100,8 @@ ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IPV6)
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 /* packet defined in ./scapy/tc_nodeport_lb4_nat_lb_dynamic_pkt_defs.py */
 const __u8 tc_nodeport_lb4_nat_lb_dynamic_pre[] = {
 	SCAPY_BUF_BYTES(tc_nodeport_lb4_nat_lb_dynamic_pre)
