@@ -473,14 +473,6 @@ func newGateTestProxy(ch chan struct{}) *gateTestProxy {
 	return &gateTestProxy{FakeEndpointProxy: &FakeEndpointProxy{}, ch: ch}
 }
 
-func dnsTuple() policy.PerSelectorPolicyTuple {
-	return policy.PerSelectorPolicyTuple{Policy: &policy.PerSelectorPolicy{L7Parser: policy.ParserTypeDNS}}
-}
-
-func httpTuple() policy.PerSelectorPolicyTuple {
-	return policy.PerSelectorPolicyTuple{Policy: &policy.PerSelectorPolicy{L7Parser: policy.ParserTypeHTTP}}
-}
-
 // runGate calls waitForDNSProxyReady in a goroutine so tests can assert on
 // whether and when it returns.
 func runGate(e *Endpoint, sp policy.SelectorPolicy) <-chan error {
@@ -497,7 +489,7 @@ func TestWaitForDNSProxyReadyNotGated(t *testing.T) {
 	t.Run("no DNS redirect", func(t *testing.T) {
 		e := &Endpoint{proxy: newGateTestProxy(neverReady), aliveCtx: context.Background()}
 		e.UpdateLogger(nil)
-		sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{httpTuple()}}
+		sp := &testSelectorPolicy{hasDNSRedirect: false}
 		select {
 		case err := <-runGate(e, sp):
 			require.NoError(t, err)
@@ -509,7 +501,7 @@ func TestWaitForDNSProxyReadyNotGated(t *testing.T) {
 	t.Run("proxy disabled", func(t *testing.T) {
 		e := &Endpoint{aliveCtx: context.Background()}
 		e.UpdateLogger(nil)
-		sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}
+		sp := &testSelectorPolicy{hasDNSRedirect: true}
 		select {
 		case err := <-runGate(e, sp):
 			require.NoError(t, err)
@@ -525,7 +517,7 @@ func TestWaitForDNSProxyReadyWaitsForReady(t *testing.T) {
 	ready := make(chan struct{})
 	e := &Endpoint{proxy: newGateTestProxy(ready), aliveCtx: context.Background()}
 	e.UpdateLogger(nil)
-	sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}
+	sp := &testSelectorPolicy{hasDNSRedirect: true}
 
 	done := runGate(e, sp)
 
@@ -552,7 +544,7 @@ func TestWaitForDNSProxyReadyCtxCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	e := &Endpoint{proxy: newGateTestProxy(neverReady), aliveCtx: ctx}
 	e.UpdateLogger(nil)
-	sp := &testSelectorPolicy{redirectFilters: []policy.PerSelectorPolicyTuple{dnsTuple()}}
+	sp := &testSelectorPolicy{hasDNSRedirect: true}
 
 	done := runGate(e, sp)
 
