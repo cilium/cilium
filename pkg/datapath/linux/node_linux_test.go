@@ -802,6 +802,36 @@ func mustLookupDirectRoute(tb testing.TB, ns *netns.NetNS, log *slog.Logger, CID
 	return tnl.MustRouteListFiltered(tb, ns, family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
 }
 
+func requireDirectRoutePruneExclusions(tb testing.TB, lnh *linuxNodeHandler, enabled bool, prefixCIDRs map[*cidr.CIDR]struct{}) {
+	tb.Helper()
+
+	if !enabled {
+		require.Empty(tb, lnh.pruneExclusions.SnapshotForTest())
+		return
+	}
+
+	if prefixCIDRs == nil {
+		require.Nil(tb, lnh.pruneExclusions.SnapshotForTest())
+		return
+	}
+
+	expected := make(map[routeReconciler.DesiredRouteKey]struct{})
+	if enabled {
+		for prefixCIDR := range prefixCIDRs {
+			prefix, ok := netipx.FromStdIPNet(prefixCIDR.IPNet)
+			require.True(tb, ok)
+			expected[routeReconciler.DesiredRouteKey{
+				Owner:    nil,
+				Table:    routeReconciler.TableMain,
+				Prefix:   prefix,
+				Priority: 0,
+			}] = struct{}{}
+		}
+	}
+
+	require.Equal(tb, expected, lnh.pruneExclusions.SnapshotForTest())
+}
+
 func TestPrivilegedNodeUpdateDirectRouting(t *testing.T) {
 	testWithFamilies(t, func(t *testing.T, family string) {
 		testNodeUpdateDirectRouting(t, family)
@@ -835,6 +865,7 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	nodeConfig.EnableAutoDirectRouting = true
 
 	expectedIPv4Routes := 0
+	shouldContainPruneExclusion := s.enableIPv4
 	if s.enableIPv4 {
 		expectedIPv4Routes = 1
 	}
@@ -853,6 +884,10 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 
 	foundRoutes := mustLookupDirectRoute(t, s.ns, log, ip4Alloc1, externalNode1IP4v1)
 	require.Len(t, foundRoutes, expectedIPv4Routes)
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion,
+		map[*cidr.CIDR]struct{}{
+			ip4Alloc1: {},
+		})
 
 	// nodev2: ip4Alloc1 => externalNodeIP2
 	nodev2 := nodeTypes.Node{
@@ -866,6 +901,10 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 	mustUpdateNode(t, s.ns, lnh, nodev1, nodev2)
 
 	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc1, externalNode1IP4v2), expectedIPv4Routes)
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion,
+		map[*cidr.CIDR]struct{}{
+			ip4Alloc1: {},
+		})
 
 	// nodev3: ip4Alloc2 => externalNodeIP2
 	nodev3 := nodeTypes.Node{
@@ -882,6 +921,12 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 
 	// node routes for alloc2 ranges should have been installed
 	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2), expectedIPv4Routes)
+	// we always add routes in the prune exclusion set until they are consumed by someone.
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion,
+		map[*cidr.CIDR]struct{}{
+			ip4Alloc1: {},
+			ip4Alloc2: {},
+		})
 
 	// nodev4: no longer announce CIDR
 	nodev4 := nodeTypes.Node{
@@ -894,6 +939,13 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 
 	// node routes for alloc2 ranges should have been removed
 	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2))
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion,
+		map[*cidr.CIDR]struct{}{
+			ip4Alloc1: {},
+			ip4Alloc2: {},
+		})
+	// call Consume to clear the prune exclusion set, from now on we will no longer add routes.
+	lnh.pruneExclusions.DrainForTest()
 
 	// nodev5: Re-announce CIDR
 	nodev5 := nodeTypes.Node{
@@ -907,6 +959,8 @@ func testNodeUpdateDirectRouting(t *testing.T, family string) {
 
 	// node routes for alloc2 ranges should have been removed
 	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2), expectedIPv4Routes)
+	// should be empty
+	requireDirectRoutePruneExclusions(t, lnh, shouldContainPruneExclusion, nil)
 
 	// delete nodev5
 	mustDeleteNode(t, s.ns, lnh, nodev5)
