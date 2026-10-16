@@ -965,6 +965,102 @@ func TestTunnelRulesTunnelingDisabled(t *testing.T) {
 	require.NoError(t, mockIp6tables.checkExpectations())
 }
 
+func TestInstallPostNatRules(t *testing.T) {
+	hairpin := "-t nat -A CILIUM_POST_nat -m mark --mark 0x00000f00/0x00000f00 -o cilium_host " +
+		"-m conntrack --ctstate DNAT -m comment --comment hairpin traffic that originated from a local pod " +
+		"-j SNAT --to-source 10.244.2.33"
+	hairpin6 := "-t nat -A CILIUM_POST_nat -m mark --mark 0x00000f00/0x00000f00 -o cilium_host " +
+		"-m conntrack --ctstate DNAT -m comment --comment hairpin traffic that originated from a local pod " +
+		"-j SNAT --to-source fd00:10:244:2::33"
+
+	for _, tt := range []struct {
+		name                 string
+		cfg                  SharedConfig
+		iptablesMasquerading bool
+		bpfMasquerading      bool
+		ipv6                 bool
+		expect               []string
+	}{
+		{
+			// kube-proxy DNATs the service, the reply comes back over the tunnel
+			name:            "tunnel, kube-proxy",
+			cfg:             SharedConfig{TunnelingEnabled: true},
+			bpfMasquerading: true,
+			expect:          []string{hairpin},
+		},
+		{
+			name:            "tunnel, kube-proxy, IPv6",
+			cfg:             SharedConfig{TunnelingEnabled: true},
+			bpfMasquerading: true,
+			ipv6:            true,
+			expect:          []string{hairpin6},
+		},
+		{
+			// the reply from a backend on the same node is delivered by BPF
+			name:            "native routing, kube-proxy",
+			cfg:             SharedConfig{},
+			bpfMasquerading: true,
+			expect:          []string{hairpin},
+		},
+		{
+			name: "tunnel, kube-proxy, masquerade off",
+			cfg:  SharedConfig{TunnelingEnabled: true},
+		},
+		{
+			name:            "tunnel, KPR",
+			cfg:             SharedConfig{TunnelingEnabled: true, KubeProxyReplacement: true},
+			bpfMasquerading: true,
+		},
+		{
+			name:            "native routing, KPR",
+			cfg:             SharedConfig{KubeProxyReplacement: true},
+			bpfMasquerading: true,
+		},
+		{
+			name:            "hybrid routing, kube-proxy",
+			cfg:             SharedConfig{TunnelingEnabled: true, HybridRoutingEnabled: true},
+			bpfMasquerading: true,
+		},
+		{
+			name:            "tunnel, kube-proxy, endpoint routes",
+			cfg:             SharedConfig{TunnelingEnabled: true, EnableEndpointRoutes: true},
+			bpfMasquerading: true,
+		},
+		{
+			// unchanged by the BPF masquerade case, the hairpin rule comes last
+			name:                 "iptables masquerade",
+			cfg:                  SharedConfig{TunnelingEnabled: true},
+			iptablesMasquerading: true,
+			expect: []string{
+				"-t nat -A CILIUM_POST_nat ! -d 10.244.0.0/16 -s 10.244.2.0/24 ! -o cilium_+ -m comment --comment cilium masquerade non-cluster -j MASQUERADE",
+				"-t nat -A CILIUM_POST_nat -m mark --mark 0x00000a00/0x00000e00 -m comment --comment exclude proxy return traffic from masquerade -j ACCEPT",
+				"-t nat -A CILIUM_POST_nat ! -s 10.244.2.0/24 ! -d 10.244.2.0/24 -o cilium_host -m comment --comment cilium host->cluster masquerade -j SNAT --to-source 10.244.2.33",
+				"-t nat -A CILIUM_POST_nat -s 127.0.0.1 -o cilium_host -m comment --comment cilium host->cluster from 127.0.0.1 masquerade -j SNAT --to-source 10.244.2.33",
+				hairpin,
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &manager{sharedCfg: tt.cfg}
+			exclusion, allocRange, hostIP := "10.244.0.0/16", "10.244.2.0/24", "10.244.2.33"
+			prog := &mockIptables{t: t, prog: "iptables"}
+			m.ip4tables = prog
+			if tt.ipv6 {
+				exclusion, allocRange, hostIP = "fd00:10:244::/56", "fd00:10:244:2::/64", "fd00:10:244:2::33"
+				prog = &mockIptables{t: t, prog: "ip6tables"}
+				m.ip6tables = prog
+			}
+			for _, args := range tt.expect {
+				prog.expectations = append(prog.expectations, expectation{args: args})
+			}
+
+			require.NoError(t, m.installPostNatRules(prog, tt.iptablesMasquerading, tt.bpfMasquerading,
+				[]string{"eth0"}, "cilium_host", netip.MustParsePrefix(exclusion), allocRange, hostIP))
+			require.NoError(t, prog.checkExpectations())
+		})
+	}
+}
+
 func TestNoTrackHostPorts(t *testing.T) {
 	mockIp4tables := &mockIptables{t: t, prog: "iptables"}
 	mockIp6tables := &mockIptables{t: t, prog: "ip6tables"}
