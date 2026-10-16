@@ -481,7 +481,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.Bool(option.EnableIPv4Masquerade, true, "Masquerade IPv4 traffic from endpoints leaving the host")
 	option.BindEnv(vp, option.EnableIPv4Masquerade)
 
-	flags.Bool(option.EnableRemoteNodeMasquerade, false, "Masquerade packets from endpoints leaving the host destined to a remote node in BPF masquerading mode. This option requires to set enable-bpf-masquerade to true.")
+	flags.Bool(option.EnableRemoteNodeMasquerade, true, "Masquerade packets from endpoints leaving the host destined to a remote node's ExternalIP when using BPF masquerading mode")
 	option.BindEnv(vp, option.EnableRemoteNodeMasquerade)
 
 	flags.Bool(option.EnableIPv6Masquerade, true, "Masquerade IPv6 traffic from endpoints leaving the host")
@@ -1022,7 +1022,8 @@ func initEnv(logger *slog.Logger, vp *viper.Viper) {
 	}
 
 	if option.Config.EnableRemoteNodeMasquerade && !option.Config.EnableBPFMasquerade {
-		logging.Fatal(logger, "Option "+option.EnableRemoteNodeMasquerade+" requires BPF masquerade to be enabled ("+option.EnableBPFMasquerade+")")
+		logger.Info(fmt.Sprintf("Option %s requires BPF masquerade (%s). Disabling", option.EnableRemoteNodeMasquerade, option.EnableBPFMasquerade))
+		option.Config.EnableRemoteNodeMasquerade = false
 	}
 
 	if !option.Config.RequiresNativeRouting() && option.Config.EnableAutoDirectRouting {
