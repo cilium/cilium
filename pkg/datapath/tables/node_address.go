@@ -481,10 +481,32 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device, k8sIPv4, k8s
 
 	addrs := make([]NodeAddress, 0, len(dev.Addrs))
 
-	// The indexes for the first public and private addresses for picking NodePort
-	// addresses.
+	// The indexes for the first public and private addresses for picking the
+	// primary addresses.
 	ipv4PublicIndex, ipv4PrivateIndex := -1, -1
 	ipv6PublicIndex, ipv6PrivateIndex := -1, -1
+
+	// The indexes for the first public and private addresses for picking the
+	// NodePort addresses. These differ from the above for host scoped
+	// addresses, which can be primary but are not used for NodePort.
+	ipv4NodePortPublicIndex, ipv4NodePortPrivateIndex := -1, -1
+	ipv6NodePortPublicIndex, ipv6NodePortPrivateIndex := -1, -1
+
+	// pickIndex records index as the first address of its category (public or
+	// private). If the address matches the K8s Node IP, it is prioritized within
+	// its category. We don't force it to both categories, as that would break
+	// the "prefer public over private" logic for Primary address selection used
+	// by BPF masquerading.
+	// See: https://github.com/cilium/cilium/issues/41866
+	pickIndex := func(publicIndex, privateIndex *int, index int, isPublic, isNodeIP bool) {
+		category := privateIndex
+		if isPublic {
+			category = publicIndex
+		}
+		if isNodeIP || *category < 0 {
+			*category = index
+		}
+	}
 
 	// Do a first pass to pick the addresses.
 	for _, addr := range SortedAddresses(dev.Addrs) {
@@ -503,47 +525,26 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device, k8sIPv4, k8s
 		// index to which this address is appended.
 		index := len(addrs)
 		isPublic := ip.IsPublicAddr(addr.Addr.AsSlice())
+
+		// Host scoped addresses are only valid on this node and are not
+		// reachable from other nodes, so do not pick them for NodePort. They
+		// remain node addresses, e.g. the GKE metadata server address
+		// 169.254.169.252 (scope host) on the loopback device.
+		nodePortCandidate := addr.Scope != RT_SCOPE_HOST
+
 		if addr.Addr.Is4() {
-			if addr.Addr.Unmap() == k8sIPv4.Unmap() {
-				// Address matches the K8s Node IP. Prioritize it within its
-				// category (public or private) for NodePort address selection.
-				// We don't force it to both categories, as that would break
-				// the "prefer public over private" logic for Primary address
-				// selection used by BPF masquerading.
-				// See: https://github.com/cilium/cilium/issues/41866
-				if isPublic {
-					ipv4PublicIndex = index
-				} else {
-					ipv4PrivateIndex = index
-				}
-			}
-			if ipv4PublicIndex < 0 && isPublic {
-				ipv4PublicIndex = index
-			}
-			if ipv4PrivateIndex < 0 && !isPublic {
-				ipv4PrivateIndex = index
+			isNodeIP := addr.Addr.Unmap() == k8sIPv4.Unmap()
+			pickIndex(&ipv4PublicIndex, &ipv4PrivateIndex, index, isPublic, isNodeIP)
+			if nodePortCandidate {
+				pickIndex(&ipv4NodePortPublicIndex, &ipv4NodePortPrivateIndex, index, isPublic, isNodeIP)
 			}
 		}
 
 		if addr.Addr.Is6() && !addr.Addr.IsLinkLocalUnicast() {
-			if addr.Addr == k8sIPv6 {
-				// Address matches the K8s Node IP. Prioritize it within its
-				// category (public or private) for NodePort address selection.
-				// We don't force it to both categories, as that would break
-				// the "prefer public over private" logic for Primary address
-				// selection used by BPF masquerading.
-				// See: https://github.com/cilium/cilium/issues/41866
-				if isPublic {
-					ipv6PublicIndex = index
-				} else {
-					ipv6PrivateIndex = index
-				}
-			}
-			if ipv6PublicIndex < 0 && isPublic {
-				ipv6PublicIndex = index
-			}
-			if ipv6PrivateIndex < 0 && !isPublic {
-				ipv6PrivateIndex = index
+			isNodeIP := addr.Addr == k8sIPv6
+			pickIndex(&ipv6PublicIndex, &ipv6PrivateIndex, index, isPublic, isNodeIP)
+			if nodePortCandidate {
+				pickIndex(&ipv6NodePortPublicIndex, &ipv6NodePortPrivateIndex, index, isPublic, isNodeIP)
 			}
 		}
 
@@ -564,15 +565,15 @@ func (n *nodeAddressController) getAddressesFromDevice(dev *Device, k8sIPv4, k8s
 
 	if len(n.Config.NodePortAddresses) == 0 && dev.Name != defaults.HostDevice && dev.Flags&net.FlagUp != 0 {
 		// Pick the NodePort addresses. Prefer private addresses if possible.
-		if ipv4PrivateIndex >= 0 {
-			addrs[ipv4PrivateIndex].NodePort = true
-		} else if ipv4PublicIndex >= 0 {
-			addrs[ipv4PublicIndex].NodePort = true
+		if ipv4NodePortPrivateIndex >= 0 {
+			addrs[ipv4NodePortPrivateIndex].NodePort = true
+		} else if ipv4NodePortPublicIndex >= 0 {
+			addrs[ipv4NodePortPublicIndex].NodePort = true
 		}
-		if ipv6PrivateIndex >= 0 {
-			addrs[ipv6PrivateIndex].NodePort = true
-		} else if ipv6PublicIndex >= 0 {
-			addrs[ipv6PublicIndex].NodePort = true
+		if ipv6NodePortPrivateIndex >= 0 {
+			addrs[ipv6NodePortPrivateIndex].NodePort = true
+		} else if ipv6NodePortPublicIndex >= 0 {
+			addrs[ipv6NodePortPublicIndex].NodePort = true
 		}
 	}
 
