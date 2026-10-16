@@ -189,10 +189,6 @@ Return user specified envoy.xdsMode or default value based on the upgradeCompati
 {{- define "envoyXdsMode" }}
   {{- if ne .Values.envoy.xdsMode nil }}
     {{- .Values.envoy.xdsMode }}
-  {{- else }}
-    {{- if semverCompare ">=1.20" (default "1.20" .Values.upgradeCompatibility) }}
-      {{- "ads" }}
-    {{- end }}
   {{- end }}
 {{- end }}
 

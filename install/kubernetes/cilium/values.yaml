@@ -2734,7 +2734,7 @@ envoy:
   # "strict-ads" for ADS with strict snapshot cache behavior and generated
   # snapshot consistency checks. Null value omits setting this option.
   # Cilium Agent defaults missing option to "split" to keep upgrades in the legacy mode.
-  # @default -- `ads` for new 1.20+ installations; none when `upgradeCompatibility` is set below `1.20`
+  # @default -- none
   xdsMode: ~
   # @schema
   # type: [null, boolean]
