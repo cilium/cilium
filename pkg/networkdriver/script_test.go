@@ -37,80 +37,109 @@ import (
 )
 
 func TestScript(t *testing.T) {
-	defer testutils.GoleakVerifyNone(t)
+	testCases := []struct {
+		name    string
+		pattern string
+		ipv4    bool
+		ipv6    bool
+	}{
+		{
+			name:    "dualstack",
+			pattern: "scripttest/testdata/dualstack/*.txtar",
+			ipv4:    true,
+			ipv6:    true,
+		},
+		{
+			name:    "v4",
+			pattern: "scripttest/testdata/v4/*.txtar",
+			ipv4:    true,
+			ipv6:    false,
+		},
+		{
+			name:    "v6",
+			pattern: "scripttest/testdata/v6/*.txtar",
+			ipv4:    false,
+			ipv6:    true,
+		},
+	}
 
-	scripttest.Test(t,
-		t.Context(),
-		func(t testing.TB, args []string) *script.Engine {
-			var (
-				cs   *k8sClient.FakeClientset
-				pods resource.Resource[*corev1.Pod]
-			)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			defer testutils.GoleakVerifyNone(t)
+			scripttest.Test(t,
+				t.Context(),
+				func(t testing.TB, args []string) *script.Engine {
+					var (
+						cs   *k8sClient.FakeClientset
+						pods resource.Resource[*corev1.Pod]
+					)
 
-			h := hive.New(
-				k8sClient.FakeClientCell(),
-				k8s.ResourcesCell,
-				cell.Provide(
-					podResource,
-					func() *option.DaemonConfig {
-						return &option.DaemonConfig{}
-					},
-				),
-				cell.Invoke(func(cs_ *k8sClient.FakeClientset, pods_ resource.Resource[*corev1.Pod]) {
-					cs = cs_
-					pods = pods_
-				}),
-			)
+					h := hive.New(
+						k8sClient.FakeClientCell(),
+						k8s.ResourcesCell,
+						cell.Provide(
+							podResource,
+							func() *option.DaemonConfig {
+								return &option.DaemonConfig{}
+							},
+						),
+						cell.Invoke(func(cs_ *k8sClient.FakeClientset, pods_ resource.Resource[*corev1.Pod]) {
+							cs = cs_
+							pods = pods_
+						}),
+					)
 
-			flags := pflag.NewFlagSet("", pflag.ContinueOnError)
-			h.RegisterFlags(flags)
-			log := hivetest.Logger(t)
-			t.Cleanup(func() {
-				// We cannot use t.Context() here because the context will be canceled
-				// before h.Stop is called, causing goroutine leaks.
-				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				defer cancel()
-				assert.NoError(t, h.Stop(log, ctx))
-			})
+					flags := pflag.NewFlagSet("", pflag.ContinueOnError)
+					h.RegisterFlags(flags)
+					log := hivetest.Logger(t)
+					t.Cleanup(func() {
+						// We cannot use t.Context() here because the context will be canceled
+						// before h.Stop is called, causing goroutine leaks.
+						ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+						defer cancel()
+						assert.NoError(t, h.Stop(log, ctx))
+					})
 
-			cmds, err := h.ScriptCommands(log)
-			require.NoError(t, err)
+					cmds, err := h.ScriptCommands(log)
+					require.NoError(t, err)
 
-			db := statedb.New()
-			deviceTable, err := newDeviceTable(db)
-			require.NoError(t, err)
-			allocationTable, err := newAllocationTable(db)
-			require.NoError(t, err)
+					db := statedb.New()
+					deviceTable, err := newDeviceTable(db)
+					require.NoError(t, err)
+					allocationTable, err := newAllocationTable(db)
+					require.NoError(t, err)
 
-			device := noSetupDummyDevice{&dummy.DummyDevice{Name: "test-device"}}
-			txn := db.WriteTxn(deviceTable)
-			_, _, err = deviceTable.Insert(txn, &DRADevice{
-				Name:    device.IfName(),
-				Manager: types.DeviceManagerTypeDummy,
-				Dev:     device,
-			})
-			require.NoError(t, err)
-			txn.Commit()
+					device := noSetupDummyDevice{&dummy.DummyDevice{Name: "test-device"}}
+					txn := db.WriteTxn(deviceTable)
+					_, _, err = deviceTable.Insert(txn, &DRADevice{
+						Name:    device.IfName(),
+						Manager: types.DeviceManagerTypeDummy,
+						Dev:     device,
+					})
+					require.NoError(t, err)
+					txn.Commit()
 
-			driver := &Driver{
-				logger:          log,
-				kubeClient:      cs,
-				pods:            pods,
-				config:          &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: "test.cilium.k8s.io"},
-				db:              db,
-				deviceTable:     deviceTable,
-				allocationTable: allocationTable,
-				ipv4Enabled:     true,
-				ipv6Enabled:     true,
-			}
+					driver := &Driver{
+						logger:          log,
+						kubeClient:      cs,
+						pods:            pods,
+						config:          &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: "test.cilium.k8s.io"},
+						db:              db,
+						deviceTable:     deviceTable,
+						allocationTable: allocationTable,
+						ipv4Enabled:     tc.ipv4,
+						ipv6Enabled:     tc.ipv6,
+					}
 
-			maps.Insert(cmds, maps.All(script.DefaultCmds()))
-			for _, cmd := range statedb.ScriptCommands(db).ScriptCmds {
-				cmds[cmd.Name] = cmd.Cmd
-			}
-			maps.Insert(cmds, maps.All(scriptCommands(t.Context(), driver, cs)))
-			return &script.Engine{Cmds: cmds}
-		}, []string{}, "scripttest/testdata/static-addrs-in-claim.txtar")
+					maps.Insert(cmds, maps.All(script.DefaultCmds()))
+					for _, cmd := range statedb.ScriptCommands(db).ScriptCmds {
+						cmds[cmd.Name] = cmd.Cmd
+					}
+					maps.Insert(cmds, maps.All(scriptCommands(t.Context(), driver, cs)))
+					return &script.Engine{Cmds: cmds}
+				}, []string{}, tc.pattern)
+		})
+	}
 }
 
 func scriptCommands(ctx context.Context, driver *Driver, cs *k8sClient.FakeClientset) map[string]script.Cmd {
