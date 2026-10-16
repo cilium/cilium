@@ -257,6 +257,8 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 		}
 	}
 
+	// Reverse the slice before copying to preserve original order.
+	slices.Reverse(retainedAllocators)
 	p.ipAllocators = retainedAllocators
 }
 
