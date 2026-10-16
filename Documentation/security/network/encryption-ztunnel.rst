@@ -179,6 +179,10 @@ Limitations
 * Only TCP traffic is currently supported for mTLS encryption. UDP and other
   protocols are not redirected to ztunnel.
 
+* Pod-to-node and node-to-pod traffic is not encrypted. Traffic is only
+  encrypted with mTLS when both the source and destination are enrolled in
+  ztunnel, and nodes cannot be enrolled.
+
 * The integration requires iptables support in the kernel and cannot be used
   with environments that do not support iptables (such as some minimal container
   runtimes).
