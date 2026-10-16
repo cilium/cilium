@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
@@ -98,16 +99,16 @@ func (h *ciliumHealthManager) getNodeRouterAddressing(ctx context.Context) (*mod
 	if h.daemonConfig.EnableIPv6 {
 		nodeRouterAddressing.IPv6 = &models.NodeAddressingElement{
 			Enabled:    h.daemonConfig.EnableIPv6,
-			IP:         ln.GetCiliumInternalIPv6().String(),
-			AllocRange: ln.IPv6AllocCIDR.String(),
+			IP:         iputil.AddrFrom(ln.GetCiliumInternalIPv6()),
+			AllocRange: ln.IPv6AllocCIDR.Prefix,
 		}
 	}
 
 	if h.daemonConfig.EnableIPv4 {
 		nodeRouterAddressing.IPv4 = &models.NodeAddressingElement{
 			Enabled:    h.daemonConfig.EnableIPv4,
-			IP:         ln.GetCiliumInternalIPv4().String(),
-			AllocRange: ln.IPv4AllocCIDR.String(),
+			IP:         iputil.AddrFrom(ln.GetCiliumInternalIPv4()),
+			AllocRange: ln.IPv4AllocCIDR.Prefix,
 		}
 	}
 
