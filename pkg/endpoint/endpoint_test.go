@@ -1169,27 +1169,16 @@ func collectProxyIDs(seq iter.Seq2[string, uint16]) []proxyIDResult {
 }
 
 type testSelectorPolicy struct {
-	portMap         map[identity.NumericIdentity]uint16
-	redirectFilters []policy.PerSelectorPolicyTuple
+	portMap        map[identity.NumericIdentity]uint16
+	hasDNSRedirect bool
 }
 
 func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
-	return func(yield func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {
-		for _, tuple := range sp.redirectFilters {
-			if !yield(nil, tuple) {
-				return
-			}
-		}
-	}
+	return func(func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {}
 }
 
 func (sp *testSelectorPolicy) HasDNSRedirect() bool {
-	for _, tuple := range sp.redirectFilters {
-		if tuple.Policy != nil && tuple.Policy.L7Parser == policy.ParserTypeDNS {
-			return true
-		}
-	}
-	return false
+	return sp.hasDNSRedirect
 }
 
 func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) *policy.EndpointPolicy {
