@@ -878,6 +878,25 @@ hybrid mode would look as follows:
          k8sServiceHost=${API_SERVER_IP}
          k8sServicePort=${API_SERVER_PORT}
 
+The example above uses native routing, where the default ``opt`` dispatch is valid.
+When hybrid mode is combined with tunneling, the dispatch mode has to match the
+tunnel protocol, as shown in the dispatch mode table above. With
+``tunnelProtocol=geneve``, this requires ``loadBalancer.dsrDispatch=geneve``, the same
+way it does for ``loadBalancer.mode=dsr``:
+
+.. cilium-helm-install::
+   :namespace: kube-system
+   :set: tunnelProtocol=geneve
+         kubeProxyReplacement=true
+         loadBalancer.mode=hybrid
+         loadBalancer.dsrDispatch=geneve
+         k8sServiceHost=${API_SERVER_IP}
+         k8sServicePort=${API_SERVER_PORT}
+
+Note that ``tunnelProtocol=vxlan`` cannot be combined with hybrid mode (nor with
+``dsr`` mode), irrespective of the dispatch mode, and that the agent rejects such a
+configuration at startup.
+
 Annotation-based DSR and SNAT Mode
 **********************************
 
