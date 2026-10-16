@@ -11,21 +11,25 @@ import (
 
 func TestValidateEnvoyXDSMode(t *testing.T) {
 	tests := []struct {
-		name    string
-		mode    string
-		wantErr bool
+		name     string
+		mode     XDSMode
+		wantMode XDSMode
+		wantErr  bool
 	}{
 		{
-			name: "split mode",
-			mode: EnvoyXDSModeSplit,
+			name:     "split mode",
+			mode:     EnvoyXDSModeSplit,
+			wantMode: EnvoyXDSModeSplit,
 		},
 		{
-			name: "ADS mode",
-			mode: EnvoyXDSModeADS,
+			name:     "ADS mode",
+			mode:     EnvoyXDSModeADS,
+			wantMode: EnvoyXDSModeADS,
 		},
 		{
-			name: "strict ADS mode",
-			mode: EnvoyXDSModeStrictADS,
+			name:     "strict ADS alias",
+			mode:     EnvoyXDSModeStrictADS,
+			wantMode: EnvoyXDSModeADS,
 		},
 		{
 			name:    "unknown mode",
@@ -36,25 +40,27 @@ func TestValidateEnvoyXDSMode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := (ProxyConfig{EnvoyXDSMode: tt.mode}).Validate()
+			config := ProxyConfig{EnvoyXDSMode: tt.mode}
+			err := config.Validate()
 			if tt.wantErr {
 				require.Error(t, err)
 				return
 			}
 			require.NoError(t, err)
+			require.Equal(t, tt.wantMode, config.EnvoyXDSMode)
+
+			var mode XDSMode
+			require.NoError(t, mode.Set(tt.mode.String()))
+			require.Equal(t, tt.wantMode, mode)
 		})
 	}
 }
 
 func TestEnvoyXDSModeHelpers(t *testing.T) {
-	require.False(t, ADSModeEnabled(""))
-	require.False(t, StrictADSModeEnabled(""))
-	require.False(t, ADSModeEnabled(EnvoyXDSModeSplit))
-	require.False(t, StrictADSModeEnabled(EnvoyXDSModeSplit))
+	require.False(t, XDSMode("").IsADS())
+	require.False(t, EnvoyXDSModeSplit.IsADS())
 
-	require.True(t, ADSModeEnabled(EnvoyXDSModeADS))
-	require.False(t, StrictADSModeEnabled(EnvoyXDSModeADS))
+	require.True(t, EnvoyXDSModeADS.IsADS())
 
-	require.True(t, ADSModeEnabled(EnvoyXDSModeStrictADS))
-	require.True(t, StrictADSModeEnabled(EnvoyXDSModeStrictADS))
+	require.True(t, EnvoyXDSModeStrictADS.IsADS())
 }

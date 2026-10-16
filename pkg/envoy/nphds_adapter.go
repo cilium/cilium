@@ -16,7 +16,7 @@ import (
 	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/envoy/xds"
+	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -24,8 +24,9 @@ import (
 )
 
 type nphdsResourceStore interface {
-	networkPolicyHosts() map[string]*envoyAPI.NetworkPolicyHosts
-	updateNetworkPolicyHosts(context.Context, func(map[string]*envoyAPI.NetworkPolicyHosts) (bool, error)) error
+	// The mutation must treat the current resource as immutable, return the
+	// same pointer for a no-op, or return nil to remove this identity.
+	updateNetworkPolicyHosts(context.Context, string, func(*envoyAPI.NetworkPolicyHosts) (*envoyAPI.NetworkPolicyHosts, error)) error
 }
 
 // nphdsCacheAdapter bridges the IPCache and the ADS cache's NPHDS resources.
@@ -77,19 +78,19 @@ func (a *nphdsCacheAdapter) OnIPIdentityCacheChange(modType ipcache.CacheModific
 	}
 }
 
-func (a *nphdsCacheAdapter) updateFullState(mutate func(map[string]*envoyAPI.NetworkPolicyHosts) (bool, error)) error {
+func (a *nphdsCacheAdapter) updateResource(identityStr string, mutate func(*envoyAPI.NetworkPolicyHosts) (*envoyAPI.NetworkPolicyHosts, error)) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	return a.store.updateNetworkPolicyHosts(context.Background(), mutate)
+	return a.store.updateNetworkPolicyHosts(context.Background(), identityStr, mutate)
 }
 
 func (a *nphdsCacheAdapter) handleIPUpsert(identityStr, cidrStr string, newID identity.NumericIdentity) error {
-	return a.updateFullState(func(resources map[string]*envoyAPI.NetworkPolicyHosts) (bool, error) {
+	return a.updateResource(identityStr, func(npHost *envoyAPI.NetworkPolicyHosts) (*envoyAPI.NetworkPolicyHosts, error) {
 		var hostAddresses []string
-		if npHost, ok := resources[identityStr]; ok {
+		if npHost != nil {
 			if slices.Contains(npHost.HostAddresses, cidrStr) {
-				return false, nil
+				return npHost, nil
 			}
 			hostAddresses = make([]string, 0, len(npHost.HostAddresses)+1)
 			hostAddresses = append(hostAddresses, npHost.HostAddresses...)
@@ -104,28 +105,25 @@ func (a *nphdsCacheAdapter) handleIPUpsert(identityStr, cidrStr string, newID id
 			HostAddresses: hostAddresses,
 		}
 		if err := newNpHost.Validate(); err != nil {
-			return false, fmt.Errorf("could not validate NPHDS resource update on upsert: %s (%w)", newNpHost.String(), err)
+			return nil, fmt.Errorf("could not validate NPHDS resource update on upsert: %s (%w)", newNpHost.String(), err)
 		}
-		resources[identityStr] = newNpHost
-		return true, nil
+		return newNpHost, nil
 	})
 }
 
 func (a *nphdsCacheAdapter) handleIPDelete(identityStr, cidrStr string) error {
-	return a.updateFullState(func(resources map[string]*envoyAPI.NetworkPolicyHosts) (bool, error) {
-		npHost, ok := resources[identityStr]
-		if !ok {
-			return false, nil
+	return a.updateResource(identityStr, func(npHost *envoyAPI.NetworkPolicyHosts) (*envoyAPI.NetworkPolicyHosts, error) {
+		if npHost == nil {
+			return nil, nil
 		}
 
 		targetIndex := slices.Index(npHost.HostAddresses, cidrStr)
 		if targetIndex < 0 {
-			return false, fmt.Errorf("can't find IP %s in NPHDS cache for identity %s", cidrStr, identityStr)
+			return nil, fmt.Errorf("can't find IP %s in NPHDS cache for identity %s", cidrStr, identityStr)
 		}
 
 		if len(npHost.HostAddresses) <= 1 {
-			delete(resources, identityStr)
-			return true, nil
+			return nil, nil
 		}
 
 		hostAddresses := make([]string, 0, len(npHost.HostAddresses)-1)
@@ -137,45 +135,27 @@ func (a *nphdsCacheAdapter) handleIPDelete(identityStr, cidrStr string) error {
 			HostAddresses: hostAddresses,
 		}
 		if err := newNpHost.Validate(); err != nil {
-			return false, fmt.Errorf("could not validate NPHDS resource update on delete: %s (%w)", newNpHost.String(), err)
+			return nil, fmt.Errorf("could not validate NPHDS resource update on delete: %s (%w)", newNpHost.String(), err)
 		}
-		resources[identityStr] = newNpHost
-		return true, nil
+		return newNpHost, nil
 	})
 }
 
-func (s *adsServer) networkPolicyHosts() map[string]*envoyAPI.NetworkPolicyHosts {
+func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, name string, mutate func(*envoyAPI.NetworkPolicyHosts) (*envoyAPI.NetworkPolicyHosts, error)) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	resources := s.cache.GetAllResources(localNodeID)
-	if resources == nil {
-		return nil
-	}
-	return resources.NetworkPolicyHosts
-}
-
-func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, mutate func(map[string]*envoyAPI.NetworkPolicyHosts) (bool, error)) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	currentResources := s.cache.GetAllResources(localNodeID)
-	if currentResources == nil {
-		empty := xds.NewResources()
-		currentResources = &empty
-	}
-	newResources := currentResources.DeepCopy()
-
-	changed, err := mutate(newResources.NetworkPolicyHosts)
+	resource := s.cache.GetResource(localNodeID, typeurl.NetworkPolicyHosts, name)
+	current, _ := resource.(*envoyAPI.NetworkPolicyHosts)
+	next, err := mutate(current)
 	if err != nil {
 		return err
 	}
-	if !changed {
+	if next == current {
 		return nil
 	}
-
-	return s.updateSnapshot(ctx, newResources, localNodeID, nil, nil,
-		computeChanges(currentResources, newResources))
+	err = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicyHosts, name, next, nil, nil)
+	return err
 }
 
 func newNPHDSIPCacheListenerCallbacks(logger *slog.Logger, ipCache IPCacheEventSource, store nphdsResourceStore) envoy_server.CallbackFuncs {
@@ -184,6 +164,8 @@ func newNPHDSIPCacheListenerCallbacks(logger *slog.Logger, ipCache IPCacheEventS
 		StreamRequestFunc: func(_ int64, req *discovery.DiscoveryRequest) error {
 			if req.GetTypeUrl() == NetworkPolicyHostsTypeURL {
 				once.Do(func() {
+					// AddListener synchronously dumps the existing mappings before
+					// CreateWatch can answer this first, already validated request.
 					startNPHDSIPCacheListener(logger, ipCache, store)
 				})
 			}

@@ -13,7 +13,6 @@ import (
 	"strconv"
 
 	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_config_endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	envoy_config_listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	envoy_config_route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -27,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	_ "github.com/cilium/cilium/pkg/envoy/resource"
 	util "github.com/cilium/cilium/pkg/envoy/util"
@@ -176,7 +176,8 @@ type xdsServerConfig struct {
 	metrics                       xds.Metrics
 	httpLingerConfig              int
 	envoyAccessLogEnabled         bool
-	strictAdsMode                 bool
+	envoyXDSMode                  config.XDSMode
+	useNPHDS                      bool
 }
 
 // newXDSServer creates a new xDS GRPC server.
@@ -627,7 +628,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 					TypedConfig: ToAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
 				},
 			},
-			GetListenerFilter(isIngress, mayUseOriginalSourceAddr, port, lingerConfig),
+			GetListenerFilter(isIngress, mayUseOriginalSourceAddr, port, lingerConfig, &s.config),
 		},
 	}
 
@@ -657,18 +658,15 @@ func (s *xdsServer) AddListener(ctx context.Context, name string, kind policy.L7
 	}, wg, cb, true)
 }
 
-func (s *xdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
-	return s.removeListener(name, wg, true)
+func (s *xdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) {
+	s.removeListener(name, wg, true)
 }
 
 // removeListener removes an existing Envoy Listener.
-func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProxyListener bool) xds.AckingResourceMutatorRevertFunc {
+func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProxyListener bool) {
 	s.logger.Debug("Envoy: RemoveListener",
 		logfields.Listener, name,
 	)
-
-	var listenerRevertFunc xds.AckingResourceMutatorRevertFunc
-	var revertNPDSTracking func()
 
 	s.mutex.Lock()
 	count := s.listenerCount[name]
@@ -676,13 +674,13 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		count--
 		if count == 0 {
 			if isProxyListener {
-				revertNPDSTracking = s.npdsListeners.Delete(name)
+				s.npdsListeners.Delete(name)
 			}
 			delete(s.listenerCount, name)
 			s.logger.Info("Envoy: Deleting listener",
 				logfields.Listener, name,
 			)
-			listenerRevertFunc = s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
+			s.listenerMutator.Delete(ListenerTypeURL, name, []string{"127.0.0.1"}, wg, nil)
 
 			// cancel all pending network policy completions if this was the last
 			// listener with bpf metadata listener filter with bpf path configured.
@@ -699,50 +697,17 @@ func (s *xdsServer) removeListener(name string, wg *completion.WaitGroup, isProx
 		)
 	}
 	s.mutex.Unlock()
-
-	return func() {
-		s.mutex.Lock()
-		if listenerRevertFunc != nil {
-			listenerRevertFunc()
-		}
-		if revertNPDSTracking != nil {
-			revertNPDSTracking()
-		}
-		s.listenerCount[name] = s.listenerCount[name] + 1
-		s.mutex.Unlock()
-	}
-}
-
-var CiliumXDSConfigSource = &envoy_config_core.ConfigSource{
-	InitialFetchTimeout: &durationpb.Duration{Seconds: 30},
-	ResourceApiVersion:  envoy_config_core.ApiVersion_V3,
-	ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
-		ApiConfigSource: &envoy_config_core.ApiConfigSource{
-			ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
-			TransportApiVersion:       envoy_config_core.ApiVersion_V3,
-			SetNodeOnFirstMessageOnly: true,
-			GrpcServices: []*envoy_config_core.GrpcService{
-				{
-					TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
-						EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
-							ClusterName: CiliumXDSClusterName,
-						},
-					},
-				},
-			},
-		},
-	},
 }
 
 // ErrNotImplemented is the error returned by gRPC methods that are not
 // implemented by Cilium.
 var ErrNilPolicy = errors.New("nil EndpointPolicy")
 
-// UpdateNetworkPolicy returns nil revert/finalize funcs with synchronous errors.
+// UpdateNetworkPolicy returns a nil revertible with synchronous errors.
 func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy, wg *completion.WaitGroup,
-) (error, revert.RevertFunc, revert.FinalizeFunc) {
+) (error, revert.Revertible) {
 	if epp == nil {
-		return ErrNilPolicy, nil, nil
+		return ErrNilPolicy, nil
 	}
 
 	names := ep.GetPolicyNames()
@@ -753,7 +718,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 			logfields.Name, names,
 			logfields.EndpointID, ep.GetID(),
 		)
-		return nil, func() error { return nil }, func() {}
+		return nil, nil
 	}
 
 	l4policy := &epp.SelectorPolicy.L4Policy
@@ -763,7 +728,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 
 	// Error out if the selectors are no longer valid
 	if !selectors.IsValid() {
-		return policy.ErrStaleSelectors, nil, nil
+		return policy.ErrStaleSelectors, nil
 	}
 
 	s.mutex.Lock()
@@ -772,7 +737,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	// Update local endpoint IP/policy mapping for access log correlation and log any conflicts.
 	// This is done even if policy update fails, as this information only depends on the
 	// existence of the endpoint and does not need to be reverted even if policy update fails.
-	conflicts := s.localEndpointStore.setLocalEndpoint(ep)
+	conflicts := s.localEndpointStore.setLocalEndpoint(ep, names)
 	if len(conflicts) > 0 {
 		s.logger.Error("Conflicting policy names detected while updating local endpoint store",
 			logfields.EndpointID, ep.GetID(),
@@ -792,7 +757,7 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	// First, validate the policy
 	err := networkPolicy.Validate()
 	if err != nil {
-		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), ep.GetPolicyNames(), err), nil, nil
+		return fmt.Errorf("error validating generated NetworkPolicy for %d/%s: %w", ep.GetID(), names, err), nil
 	}
 
 	// If there are no listeners configured, the local node's Envoy proxy won't
@@ -810,28 +775,23 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		}
 	}
 	epID := ep.GetID()
-	nodeIDs := GetLegacyFormatNodeIDs(ep, l4policy)
+	nodeIDs := []string{LegacyFormatLocalNodeID}
 	resourceName := strconv.FormatUint(epID, 10)
 	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 
-	return nil, func() error {
-			s.logger.Debug("Reverting xDS network policy update",
-				logfields.EndpointID, epID,
-			)
+	return nil, revert.RevertFunc(func() error {
+		s.logger.Debug("Reverting xDS network policy update",
+			logfields.EndpointID, epID,
+		)
 
-			s.mutex.Lock()
-			defer s.mutex.Unlock()
+		s.mutex.Lock()
+		defer s.mutex.Unlock()
 
-			revertFunc()
+		revertFunc()
 
-			s.logger.Debug("Finished reverting xDS network policy update")
-
-			return nil
-		}, func() {
-			s.logger.Debug("Finalizing xDS network policy update",
-				logfields.EndpointID, epID,
-			)
-		}
+		s.logger.Debug("Finished reverting xDS network policy update")
+		return nil
+	})
 }
 
 func (s *xdsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.EndpointInfoSource) {
@@ -846,10 +806,6 @@ func (s *xdsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	s.networkPolicyMutator.Delete(NetworkPolicyTypeURL, resourceName, nil, nil, nil)
 
 	s.localEndpointStore.removeLocalEndpoint(ep)
-}
-
-func (s *xdsServer) RemoveAllNetworkPolicies() {
-	s.networkPolicyCache.Clear(NetworkPolicyTypeURL)
 }
 
 func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
@@ -977,13 +933,17 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 		found := false
 		for _, newListener := range new.Listeners {
 			if newListener.Name == oldListener.Name {
+				// Listener recreation and proxy-port allocation are independent:
+				// changing an additional address requires delete-and-recreate, but
+				// the unchanged primary port must retain its existing allocation.
+				if listenerPrimaryPortsEqual(oldListener, newListener) {
+					delete(new.PortAllocationCallbacks, newListener.Name)
+				}
 				if !listenerAddressesEqual(oldListener, newListener) {
 					s.logger.Debug("UpdateEnvoyResources: listener addresses changing",
 						logfields.Listener, newListener.Name)
 					waitForDelete = true
 				} else {
-					// The listener addresses are unchanged, so prevent acking an already acked port.
-					delete(new.PortAllocationCallbacks, newListener.Name)
 					found = true
 				}
 				break

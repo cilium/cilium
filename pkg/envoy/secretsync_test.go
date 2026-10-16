@@ -447,11 +447,7 @@ func (*fakeXdsServer) AddMetricsListener(ctx context.Context, port uint16, wg *c
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) RemoveAllNetworkPolicies() {
-	panic("unimplemented")
-}
-
-func (*fakeXdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
+func (*fakeXdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) {
 	panic("unimplemented")
 }
 
@@ -459,7 +455,7 @@ func (*fakeXdsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpo
 	panic("unimplemented")
 }
 
-func (*fakeXdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.RevertFunc, revert.FinalizeFunc) {
+func (*fakeXdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.Revertible) {
 	panic("unimplemented")
 }
 

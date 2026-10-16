@@ -89,9 +89,13 @@ type runnableXDSServer interface {
 }
 
 func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
+	// Validate also applies the default value if empty.
+	if err := params.EnvoyProxyConfig.Validate(); err != nil {
+		return nil, err
+	}
+
 	// Override the default value before bootstrap is created for embedded envoy, or
 	// the xDS ConfigSource is used for CEC/CCEC.
-	SetXDSMode(params.EnvoyProxyConfig.EnvoyXDSMode)
 	SetXDSConfigSourceInitialFetchTimeout(params.EnvoyProxyConfig.ProxyInitialFetchTimeout)
 
 	xdsCfg := xdsServerConfig{
@@ -112,13 +116,13 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 		metrics:                       params.Metrics,
 		httpLingerConfig:              params.EnvoyProxyConfig.EnvoyHTTPUpstreamLingerTimeout,
 		envoyAccessLogEnabled:         params.EnvoyProxyConfig.EnvoyAccessLogEnabled,
-		strictAdsMode:                 params.EnvoyProxyConfig.StrictADSModeEnabled(),
+		envoyXDSMode:                  params.EnvoyProxyConfig.EnvoyXDSMode,
 	}
 
 	var xdsServer runnableXDSServer
-	adsMode := params.EnvoyProxyConfig.ADSModeEnabled()
-	if adsMode {
-		xdsServer = newADSServer(
+	if params.EnvoyProxyConfig.ADSModeEnabled() {
+		var err error
+		xdsServer, err = newADSServer(
 			params.Logger,
 			params.IPCache,
 			params.LocalEndpointStore,
@@ -126,6 +130,9 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			params.SecretManager,
 			params.RestorerPromise,
 		)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		xdsServer = newXDSServer(
 			params.Logger,
@@ -150,7 +157,6 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			XDSServer:                      xdsServer,
 			logger:                         params.Logger,
 			runDir:                         option.Config.RunDir,
-			adsMode:                        adsMode,
 			envoyLogPath:                   params.EnvoyProxyConfig.EnvoyLog,
 			envoyDefaultLogLevel:           params.EnvoyProxyConfig.EnvoyDefaultLogLevel,
 			envoyNodeLocalityEnabled:       params.EnvoyProxyConfig.EnvoyNodeLocalityEnabled,
@@ -167,6 +173,7 @@ func newEnvoyXDSServer(params xdsServerParams) (XDSServer, error) {
 			maxConnections:                 params.EnvoyProxyConfig.ProxyClusterMaxConnections,
 			maxRequests:                    params.EnvoyProxyConfig.ProxyClusterMaxRequests,
 			maxPendingRequests:             params.EnvoyProxyConfig.ProxyClusterMaxPendingRequests,
+			xdsMode:                        params.EnvoyProxyConfig.EnvoyXDSMode,
 			localNodeStore:                 params.LocalNodeStore,
 		}, nil
 	}

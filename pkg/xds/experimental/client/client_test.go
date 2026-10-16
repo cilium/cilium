@@ -223,20 +223,14 @@ func TestHandleResponse_StoresInCache(t *testing.T) {
 			}
 
 			checkResource := func(typeUrl, resName string) protoreflect.ProtoMessage {
-				verRes, err := c.cache.GetResources(typeUrl, 0, "", []string{resName})
-				if err != nil {
-					t.Fatalf("unexpected GetResources err: %v", err)
+				verRes := c.cache.GetResources(typeUrl, 0, []string{resName})
+				if len(verRes.VersionedResources) != 1 {
+					t.Fatalf("len(resources) = %d, want = %d", len(verRes.VersionedResources), 1)
 				}
-				if len(verRes.Resources) != 1 {
-					t.Fatalf("len(resources) = %d, want = %d", len(verRes.Resources), 1)
-				}
-				if len(verRes.ResourceNames) != 1 {
-					t.Fatalf("len(resourceNames) = %d, want = %d", len(verRes.ResourceNames), 1)
-				}
-				if name := verRes.ResourceNames[0]; name != resName {
+				if name := verRes.VersionedResources[0].Name; name != resName {
 					t.Errorf("resourceName = %q, want = %q", name, resName)
 				}
-				return verRes.Resources[0]
+				return verRes.VersionedResources[0].Resource
 			}
 
 			for _, res := range tc.finalListeners {
@@ -347,13 +341,14 @@ func TestUpsertAndDeleteMissing_Listeners(t *testing.T) {
 				wantNames[i] = l.Name
 			}
 
-			verRes, err := c.cache.GetResources(envoy.ListenerTypeURL, 0, "", nil)
-			if err != nil {
-				t.Fatalf("unexpected GetResources err: %v", err)
-			}
+			verRes := c.cache.GetResources(envoy.ListenerTypeURL, 0, nil)
 			sort.Strings(wantNames)
-			sort.Strings(verRes.ResourceNames)
-			if diff := cmp.Diff(wantNames, verRes.ResourceNames); diff != "" {
+			names := make([]string, 0, len(verRes.VersionedResources))
+			for _, vr := range verRes.VersionedResources {
+				names = append(names, vr.Name)
+			}
+			sort.Strings(names)
+			if diff := cmp.Diff(wantNames, names); diff != "" {
 				t.Errorf("-got, +want: %s", diff)
 			}
 		})
@@ -465,13 +460,14 @@ func TestUpsertAndDeleteMissing_Endpoints(t *testing.T) {
 			handleResponse(envoy.ClusterTypeURL, tc.updatedClusters, nil)
 			handleResponse(envoy.EndpointTypeURL, nil, tc.updatedEndpoints)
 
-			verRes, err := c.cache.GetResources(envoy.EndpointTypeURL, 0, "", nil)
-			if err != nil {
-				t.Fatalf("unexpected GetResources err: %v", err)
-			}
+			verRes := c.cache.GetResources(envoy.EndpointTypeURL, 0, nil)
 			sort.Strings(tc.wantEndpoints)
-			sort.Strings(verRes.ResourceNames)
-			if diff := cmp.Diff(tc.wantEndpoints, verRes.ResourceNames); diff != "" {
+			names := make([]string, 0, len(verRes.VersionedResources))
+			for _, vr := range verRes.VersionedResources {
+				names = append(names, vr.Name)
+			}
+			sort.Strings(names)
+			if diff := cmp.Diff(tc.wantEndpoints, names); diff != "" {
 				t.Errorf("+got, -want: %s", diff)
 			}
 		})

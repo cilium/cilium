@@ -26,6 +26,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/container/set"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -62,6 +64,11 @@ const (
 	// LocalNodeID is the Envoy node ID used by the host proxy.
 	LocalNodeID = "host~127.0.0.1~no-id~localdomain"
 
+	// GetLegacyFormatNodeIDs returns the Envoy proxy IDs that need to ACK policy
+	// updates on the legacy per-type xDS server. The legacy server records ACKs by
+	// parsed node IP, not by full Envoy node ID.
+	LegacyFormatLocalNodeID = "127.0.0.1"
+
 	// direction logging
 	ingressDirection = "ingress"
 	egressDirection  = "egress"
@@ -84,7 +91,7 @@ type portState struct {
 	// Assume none of the rules have side-effects so that rule evaluation can be
 	// stopped as soon as the first allowing rule is found. Values are added to
 	// 'cantShortCircuit' for each precedence for which this is not true.
-	cantShortCircuit map[uint32]struct{}
+	cantShortCircuit set.Set[uint32]
 
 	// port-specific wildcard selector rules, if any, only for the highest
 	// precedence rules.
@@ -157,7 +164,7 @@ func GetLocalListenerAddresses(port uint16, ipv4, ipv6 bool) (*envoy_config_core
 	}, additionalAddress
 }
 
-func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16, lingerConfig int) *envoy_config_listener.ListenerFilter {
+func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uint16, lingerConfig int, serverConfig *xdsServerConfig) *envoy_config_listener.ListenerFilter {
 	conf := &cilium.BpfMetadata{
 		IsIngress:                isIngress,
 		UseOriginalSourceAddress: useOriginalSourceAddr,
@@ -165,13 +172,11 @@ func GetListenerFilter(isIngress bool, useOriginalSourceAddr bool, proxyPort uin
 		IsL7Lb:                   false,
 		ProxyId:                  uint32(proxyPort),
 		IpcacheName:              ipcache.Name,
+		UseNphds:                 serverConfig.useNPHDS,
 	}
 
-	if ADSModeEnabled() {
-		// Keep NPHDS disabled in production. Envoy can resolve identities from
-		// ipcache/BPF maps, while standalone Envoy tests enable NPHDS explicitly
-		// for environments without datapath maps.
-		conf.CiliumConfigSource = NewCiliumXdsWithAdsConfigSource()
+	if serverConfig.envoyXDSMode != config.EnvoyXDSModeSplit {
+		conf.CiliumConfigSource = CiliumConfigSource(serverConfig.envoyXDSMode)
 	}
 
 	if lingerConfig >= 0 {
@@ -286,25 +291,6 @@ func toEnvoyTerminatingTLSContext(tls *policy.TLSContext, policySecretsNamespace
 
 func namespacedNametoSyncedSDSSecretName(namespacedName types.NamespacedName, policySecretsNamespace string) string {
 	return syncnames.SyncedSDSSecretName(policySecretsNamespace, namespacedName)
-}
-
-// return the Envoy proxy node IDs that need to ACK the policy.
-func GetNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
-	nodeIDs := make([]string, 0, 1)
-
-	// Host proxy uses LocalNodeID as the nodeID
-	nodeIDs = append(nodeIDs, LocalNodeID)
-	return nodeIDs
-}
-
-// GetLegacyFormatNodeIDs returns the Envoy proxy IDs that need to ACK policy
-// updates on the legacy per-type xDS server. The legacy server records ACKs by
-// parsed node IP, not by full Envoy node ID.
-func GetLegacyFormatNodeIDs(ep endpoint.EndpointUpdater, policy *policy.L4Policy) []string {
-	nodeIDs := make([]string, 0, 1)
-
-	nodeIDs = append(nodeIDs, "127.0.0.1")
-	return nodeIDs
 }
 
 func GetNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts GetEgressNamedPorts, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,
@@ -499,7 +485,6 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 		ensurePortState := func(key portKey) portState {
 			byPort, ok := rulesByPort[key]
 			if !ok {
-				byPort.cantShortCircuit = make(map[uint32]struct{})
 				ports = append(ports, key)
 			}
 			return byPort
@@ -574,7 +559,7 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 						portKey := portKey{port, l4.EndPort}
 						byPort := ensurePortState(portKey)
 						if !csc {
-							byPort.cantShortCircuit[rule.Precedence] = struct{}{}
+							byPort.cantShortCircuit.Insert(rule.Precedence)
 						}
 						byPort.rules = append(byPort.rules, rule)
 						rulesByPort[portKey] = byPort
@@ -610,7 +595,7 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 				portKey := portKey{port, l4.EndPort}
 				byPort := ensurePortState(portKey)
 				if !csc {
-					byPort.cantShortCircuit[rule.Precedence] = struct{}{}
+					byPort.cantShortCircuit.Insert(rule.Precedence)
 				}
 
 				if len(rule.RemotePolicies) == 0 {
@@ -657,7 +642,7 @@ func GetDirectionNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts 
 			if denyAllRule != nil || allowAllRule != nil {
 				nRules := len(rules)
 				rules = slices.DeleteFunc(rules, func(rule *cilium.PortNetworkPolicyRule) bool {
-					_, found := cantShortCircuit[rule.Precedence]
+					found := cantShortCircuit.Has(rule.Precedence)
 					canShortCircuit := !found
 
 					return denyAllRule != nil && rule != denyAllRule && rule.Precedence <= denyAllRule.Precedence ||

@@ -32,20 +32,19 @@ func (sotw *sotw) transport(ctx context.Context, client discoverypb.AggregatedDi
 	return client.StreamAggregatedResources(ctx, grpc.WaitForReady(true))
 }
 
-func (sotw *sotw) prepareObsReq(obsReq *observeRequest, node *corepb.Node, get getter) (*discoverypb.DiscoveryRequest, error) {
-	curr, err := get(obsReq.typeUrl)
-	if err != nil {
-		return nil, fmt.Errorf("get resources: %w", err)
-	}
+func (sotw *sotw) prepareObsReq(obsReq *observeRequest, node *corepb.Node, get getter) *discoverypb.DiscoveryRequest {
+	curr := get(obsReq.typeUrl)
 	reqResourceNames := sets.Set[string]{}
-	reqResourceNames.Insert(curr.ResourceNames...)
+	for i := range curr.VersionedResources {
+		reqResourceNames.Insert(curr.VersionedResources[i].Name)
+	}
 	reqResourceNames.Insert(obsReq.resourceNames...)
 
 	return &discoverypb.DiscoveryRequest{
 		Node:          node,
 		TypeUrl:       obsReq.typeUrl,
 		ResourceNames: slices.Collect(maps.Keys(reqResourceNames)),
-	}, nil
+	}
 }
 
 func (sotw *sotw) tx(resp *discoverypb.DiscoveryResponse, get getter) (txs, error) {
@@ -60,39 +59,29 @@ func (sotw *sotw) tx(resp *discoverypb.DiscoveryResponse, get getter) (txs, erro
 	}
 
 	var deletedResources []string
-	var err error
 	if typeUrl == envoy.ListenerTypeURL || typeUrl == envoy.ClusterTypeURL {
-		deletedResources, err = findMissing(typeUrl, upsertedResources, get)
-		if err != nil {
-			return nil, fmt.Errorf("delete listeners/clusters: %w", err)
-		}
+		deletedResources = findMissing(typeUrl, upsertedResources, get)
 	}
 	transactions := txs{{typeUrl: typeUrl, updated: upsertedResources, deleted: deletedResources}}
 
 	if typeUrl == envoy.ClusterTypeURL {
-		deletedResources, err := findMissing(envoy.EndpointTypeURL, upsertedResources, get)
-		if err != nil {
-			return nil, fmt.Errorf("delete endpoints (after processing clusters): %w", err)
-		}
+		deletedResources := findMissing(envoy.EndpointTypeURL, upsertedResources, get)
 		transactions = append(transactions, tx{typeUrl: envoy.EndpointTypeURL, deleted: deletedResources})
 	}
 	return transactions, nil
 }
 
-func findMissing(typeUrl string, curr nameToResource, get getter) ([]string, error) {
-	old, err := get(typeUrl)
-	if err != nil {
-		// In version 1.14 GetResources doesn't return any error for these arguments.
-		return nil, fmt.Errorf("get old resources: %w", err)
-	}
-	deletedResources := make([]string, 0, len(old.ResourceNames))
-	for _, name := range old.ResourceNames {
+func findMissing(typeUrl string, curr nameToResource, get getter) []string {
+	old := get(typeUrl)
+	deletedResources := make([]string, 0, len(old.VersionedResources))
+	for i := range old.VersionedResources {
+		name := old.VersionedResources[i].Name
 		if _, ok := curr[name]; ok {
 			continue
 		}
 		deletedResources = append(deletedResources, name)
 	}
-	return deletedResources, nil
+	return deletedResources
 }
 
 func (sotw *sotw) ack(node *corepb.Node, resp *discoverypb.DiscoveryResponse, resourceNames []string) *discoverypb.DiscoveryRequest {
