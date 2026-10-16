@@ -198,32 +198,18 @@ func (n *Node) GetAttachedCIDRs() []netip.Prefix {
 
 	var attached []netip.Prefix
 	for _, eni := range n.enis {
-		prefixes := make([]netip.Prefix, 0, len(eni.Prefixes)+len(eni.IPv6Prefixes))
-		for _, prefix := range eni.Prefixes {
+		for _, prefix := range slices.Concat(eni.Prefixes, eni.IPv6Prefixes) {
 			if prefix.IsValid() {
-				prefixes = append(prefixes, prefix.Prefix)
+				attached = append(attached, prefix.Prefix)
 			}
 		}
-		for _, prefix := range eni.IPv6Prefixes {
-			if prefix.IsValid() {
-				prefixes = append(prefixes, prefix.Prefix)
-			}
-		}
-		attached = append(attached, prefixes...)
-
 		for _, addr := range eni.Addresses {
-			if !addr.IsValid() || prefixContains(prefixes, addr.Addr) {
-				continue
+			if addr.IsValid() {
+				attached = append(attached, netip.PrefixFrom(addr.Addr, addr.BitLen()))
 			}
-			attached = append(attached, netip.PrefixFrom(addr.Addr, addr.BitLen()))
 		}
 	}
 	return attached
-}
-
-// prefixContains reports whether addr falls inside any of the prefixes.
-func prefixContains(prefixes []netip.Prefix, addr netip.Addr) bool {
-	return slices.ContainsFunc(prefixes, func(p netip.Prefix) bool { return p.Contains(addr) })
 }
 
 // PrepareCIDRRelease maps released CIDRs back to their source ENIs
@@ -336,6 +322,12 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *nodemanager.ReleaseAction) err
 	return errors.New("not implemented")
 }
 
+// assignedIPv4Count returns the number of IPv4 addresses assigned to the ENI,
+// counting every address of its delegated prefixes.
+func assignedIPv4Count(e *types.ENI) int {
+	return len(e.Addresses) + len(e.Prefixes)*option.ENIPDBlockSizeIPv4
+}
+
 // PrepareIPAllocation returns the number of ENI IPs and interfaces that can be
 // allocated/created.
 func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.AllocationAction, err error) {
@@ -378,7 +370,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.Alloc
 		}
 
 		_, effectiveLimits := n.getEffectiveIPLimits(&e, limits.IPv4)
-		availableOnENI := max(effectiveLimits-len(e.Addresses), 0)
+		availableOnENI := max(effectiveLimits-assignedIPv4Count(&e), 0)
 		if availableOnENI <= 0 {
 			continue
 		} else {
@@ -472,7 +464,8 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 				// this accounting stops being necessary.
 				maxAllocatableIPs--
 			}
-			maxAllocatableIPs -= len(e.Addresses) - len(e.Prefixes)*(option.ENIPDBlockSizeIPv4-1)
+			// Each prefix occupies a single address slot on the ENI.
+			maxAllocatableIPs -= len(e.Addresses) + len(e.Prefixes)
 			a.IPv4.AvailableForAllocation = min(a.IPv4.AvailableForAllocation, maxAllocatableIPs)
 		}
 		assignedIPs, err := n.manager.ec2api.AssignPrivateIpAddresses(ctx, a.InterfaceID, int32(a.IPv4.AvailableForAllocation))
@@ -824,7 +817,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 			stats.NodeCapacity += leftoverPrefixCapcity
 			stats.NodeIPv6Prefixes += len(e.IPv6Prefixes)
 
-			availableOnENI := max(effectiveLimits-len(e.Addresses), 0)
+			availableOnENI := max(effectiveLimits-assignedIPv4Count(e), 0)
 			if availableOnENI > 0 {
 				stats.RemainingAvailableInterfaceCount++
 			}
@@ -832,6 +825,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 			for _, addr := range e.Addresses {
 				available[addr] = ipamTypes.AllocationIP{Resource: e.ID}
 			}
+			stats.AvailablePrefixIPs += len(e.Prefixes) * option.ENIPDBlockSizeIPv4
 
 			return nil
 		})

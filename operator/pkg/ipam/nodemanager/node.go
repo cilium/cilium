@@ -747,7 +747,7 @@ func (n *Node) recalculate(ctx context.Context) {
 		n.stats.IPv4.AssignedStaticIP = n.resource.Status.IPAM.AssignedStaticIP.Addr
 	}
 
-	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
+	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available) + stats.AvailablePrefixIPs
 	n.stats.IPv4.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
 	n.stats.IPv4.Capacity = stats.NodeCapacity
 	n.stats.IPv6.AvailablePrefixes = stats.NodeIPv6Prefixes
