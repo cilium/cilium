@@ -698,6 +698,81 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	}, p.cnpByServiceID)
 }
 
+func TestPolicyWatcher_updateToServicesPoliciesUnresolvedWithToPorts(t *testing.T) {
+	policyAdd := make(chan api.Rules, 1)
+	policyImporter := &fakePolicyImporter{
+		OnUpdatePolicy: func(upd *policytypes.PolicyUpdate) {
+			policyAdd <- upd.Rules
+		},
+	}
+
+	svcID := loadbalancer.NewServiceName("foo-ns", "foo-svc")
+	cnp := &types.SlimCNP{
+		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "cilium.io/v2",
+				Kind:       "CiliumNetworkPolicy",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "svc-by-name-with-ports",
+				Namespace: "test",
+			},
+			Spec: &api.Rule{
+				EndpointSelector: api.NewESFromLabels(),
+				Egress: []api.EgressRule{
+					{
+						EgressCommonRule: api.EgressCommonRule{
+							ToServices: []api.Service{
+								{
+									K8sService: &api.K8sServiceNamespace{
+										ServiceName: svcID.Name(),
+										Namespace:   svcID.Namespace(),
+									},
+								},
+							},
+						},
+						ToPorts: api.PortRules{
+							{Ports: []api.PortProtocol{{Port: "80", Protocol: api.ProtoTCP}}},
+						},
+					},
+				},
+			},
+		},
+	}
+	key := resource.NewKey(cnp)
+	resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
+
+	servicesFixture := newServicesFixture(t)
+	p := &policyWatcher{
+		log:                hivetest.Logger(t),
+		config:             &option.DaemonConfig{},
+		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
+		k8sAPIGroups:       &k8sSynced.APIGroups{},
+		policyImporter:     policyImporter,
+		db:                 servicesFixture.db,
+		services:           servicesFixture.services,
+		backends:           servicesFixture.backends,
+		cnpCache:           map[resource.Key]*types.SlimCNP{},
+		toServicesPolicies: map[resource.Key]struct{}{},
+		cnpByServiceID:     map[loadbalancer.ServiceName]map[resource.Key]struct{}{},
+		metricsManager:     NewCNPMetricsNoop(),
+	}
+
+	require.NoError(t, p.onUpsert(cnp, key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID, nil))
+	rules := <-policyAdd
+	require.Len(t, rules, 1)
+	assert.Nil(t, rules[0].Egress[0].GetDestinationEndpointSelectorsWithRequirements(nil))
+	assert.NotEmpty(t, rules[0].Egress[0].ToPorts)
+
+	ev := servicesFixture.upsertService(svcID, nil, nil, nil, nil)
+	p.updateToServicesPolicies(ev)
+	rules = <-policyAdd
+	require.Len(t, rules, 1)
+	assert.Nil(t, rules[0].Egress[0].GetDestinationEndpointSelectorsWithRequirements(nil))
+	assert.NotEmpty(t, rules[0].Egress[0].ToPorts)
+	assert.Contains(t, p.cnpByServiceID[svcID], key)
+}
+
 func Test_hasMatchingToServices(t *testing.T) {
 	type args struct {
 		spec *api.Rule

@@ -296,7 +296,16 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 	if e.aggregatedSelectors == nil {
 		e.SetAggregatedSelectors()
 	}
-	return e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
+	res := e.EgressCommonRule.getDestinationEndpointSelectorsWithRequirements(requirements)
+
+	// ToServices is translated into ToEndpoints/ToCIDRSet by the CNP
+	// watcher. If the Service could not be resolved, nothing was generated
+	// and the rule must select nothing rather than be treated as an L3
+	// wildcard.
+	if len(e.ToServices) > 0 && len(res) == 0 {
+		return nil
+	}
+	return res
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
