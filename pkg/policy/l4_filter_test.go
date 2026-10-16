@@ -257,6 +257,35 @@ func (p *testPolicyContextType) PolicyTrace(format string, a ...any) {
 	p.logger.Info(fmt.Sprintf(format, a...))
 }
 
+func TestL3Wildcarding(t *testing.T) {
+	td := newTestData(hivetest.Logger(t))
+
+	//
+	// D: an unresolved ToServices (no generated ToEndpoints/ToCIDRSet) never
+	//    selects anything, even when ports are specified.
+	//
+
+	// CaseD1: No identities are selected when ToServices could not be resolved
+	ruleD1 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		Egress: []api.EgressRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToServices: []api.Service{{
+						K8sService: &api.K8sServiceNamespace{ServiceName: "absent-svc", Namespace: "default"},
+					}},
+				},
+				ToPorts: []api.PortRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, nil, NewL4PolicyMap(), &ruleD1)
+}
+
 // Tests in this file:
 //
 // How to read this table:
