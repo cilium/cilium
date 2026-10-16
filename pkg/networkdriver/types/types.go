@@ -211,4 +211,8 @@ type SerializedDevice struct {
 	Manager DeviceManagerType
 	Dev     json.RawMessage
 	Config  DeviceConfig
+	// LogicalPool is the Cilium pool the device was matched against when
+	// this allocation was prepared. Persisted so restore can keep the pool
+	// pinned even if pool config changes while the driver is down.
+	LogicalPool string `json:"logicalPool,omitempty"`
 }

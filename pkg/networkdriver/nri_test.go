@@ -43,7 +43,7 @@ func buildNRIDriverWithAlloc(t *testing.T, podUID kubetypes.UID, claimUID kubety
 	wtxn := d.db.WriteTxn(d.allocationTable)
 	d.allocationTable.Insert(wtxn, &DRAAllocation{
 		DeviceName:     dev.IfName(),
-		Pool:           "dummy-pool",
+		LogicalPool:    "dummy-pool",
 		Manager:        types.DeviceManagerTypeDummy,
 		PreparedDevice: dev,
 		PodUID:         podUID,
