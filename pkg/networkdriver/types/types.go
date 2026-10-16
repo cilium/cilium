@@ -110,13 +110,15 @@ const (
 	DeviceManagerTypeMock DeviceManagerType = iota
 	DeviceManagerTypeDummy
 	DeviceManagerTypeSRIOV
+	DeviceManagerTypeEswitchSRIOV
 	DeviceManagerTypeUnknown
 )
 
 const (
-	deviceManagerTypeMockStr = "mock"
-	dummyDeviceManagerStr    = "dummy"
-	sriovDeviceManagerStr    = "sr-iov"
+	deviceManagerTypeMockStr     = "mock"
+	dummyDeviceManagerStr        = "dummy"
+	sriovDeviceManagerStr        = "sr-iov"
+	eswitchSriovDeviceManagerStr = "eswitch-sr-iov"
 )
 
 func (d DeviceManagerType) String() string {
@@ -129,6 +131,9 @@ func (d DeviceManagerType) String() string {
 
 	case DeviceManagerTypeSRIOV:
 		return sriovDeviceManagerStr
+
+	case DeviceManagerTypeEswitchSRIOV:
+		return eswitchSriovDeviceManagerStr
 	}
 
 	return ""
@@ -144,6 +149,9 @@ func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 
 	case DeviceManagerTypeSRIOV:
 		return []byte(sriovDeviceManagerStr), nil
+
+	case DeviceManagerTypeEswitchSRIOV:
+		return []byte(eswitchSriovDeviceManagerStr), nil
 	}
 
 	return nil, errUnknownDeviceManagerType
@@ -157,6 +165,8 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 		*d = DeviceManagerTypeDummy
 	case sriovDeviceManagerStr:
 		*d = DeviceManagerTypeSRIOV
+	case eswitchSriovDeviceManagerStr:
+		*d = DeviceManagerTypeEswitchSRIOV
 	default:
 		return errUnknownDeviceManagerType
 	}
