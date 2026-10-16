@@ -8,6 +8,7 @@ k8s/add policy1.yaml
 k8s/add ciliumendpoint1.yaml
 
 db/insert devices device-eth0.yaml device-eth1.yaml
+db/insert routes routes.yaml
 
 db/cmp --timeout=10s node-addresses nodeaddrs.expected
 
@@ -18,9 +19,10 @@ db/cmp --timeout=10s node-addresses nodeaddrs.expected
 db/show sysctl --columns Name,Value
 db/cmp --timeout=10s sysctl sysctl.expected.1
 
-# Update the `egressIP` field in the CEGP, and validate that this is reflected in the agent state.
+# Update the `egressIP` field in the CEGP to an IP that isn't assigned to any device, but is owned
+# through a local route on eth1. Validate that eth1 is used as egress device.
  cp policy1.yaml policy1_2.yaml
- sed '    egressIP: 10.10.0.1' '    egressIP: fd00::10:10:0:2' policy1_2.yaml
+ sed '    egressIP: 10.10.0.1' '    egressIP: 203.0.113.10' policy1_2.yaml
  k8s/update policy1_2.yaml
 
 # Check that manager realizes expected bpf map state.
@@ -30,11 +32,34 @@ db/cmp --timeout=10s sysctl sysctl.expected.1
 db/show sysctl --columns Name,Value
 db/cmp --timeout=10s sysctl sysctl.expected.2
 
+# Update the `egressIP` field in the CEGP, and validate that this is reflected in the agent state.
+ cp policy1.yaml policy1_3.yaml
+ sed '    egressIP: 10.10.0.1' '    egressIP: fd00::10:10:0:2' policy1_3.yaml
+ k8s/update policy1_3.yaml
+
+# Check that manager realizes expected bpf map state.
+ egress/policy-maps-dump policymap.actual
+ * cmp policymap.actual policymap.expected.3
+
+db/show sysctl --columns Name,Value
+db/cmp --timeout=10s sysctl sysctl.expected.2
+
+# Update the `egressIP` field in the CEGP to an IP that isn't owned by the node, and validate that
+# matching traffic gets dropped.
+ cp policy1.yaml policy1_4.yaml
+ sed '    egressIP: 10.10.0.1' '    egressIP: 203.0.113.11' policy1_4.yaml
+ k8s/update policy1_4.yaml
+
+# Check that manager realizes expected bpf map state.
+ egress/policy-maps-dump policymap.actual
+ * cmp policymap.actual policymap.expected.4
+
 -- nodeaddrs.expected --
 Address                   NodePort Primary DeviceName
 10.10.0.1                 false    true    *
 10.10.0.1                 true     true    eth0
 10.10.0.2                 true     true    eth1
+203.0.113.10              false    false   eth1
 fd00::10:10:0:1           false    true    *
 fd00::10:10:0:1           true     true    eth0
 fd00::10:10:0:2           true     true    eth1
@@ -45,12 +70,18 @@ source_ip=fd00:10:244:3::9c94 dest_cidr=:: egress_ip=fd00::10:10:0:1 egress_ifin
 Name                               Value
 net.ipv4.conf.eth0.rp_filter       2
 -- policymap.expected.2 --
-source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=10.10.0.2 egress_ifindex=0 gateway_ip=172.18.0.3
+source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=203.0.113.10 egress_ifindex=0 gateway_ip=172.18.0.3
 source_ip=fd00:10:244:3::9c94 dest_cidr=:: egress_ip=fd00::10:10:0:2 egress_ifindex=0 gateway_ip=172.18.0.3
 -- sysctl.expected.2 --
 Name                               Value
 net.ipv4.conf.eth0.rp_filter       2
 net.ipv4.conf.eth1.rp_filter       2
+-- policymap.expected.3 --
+source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=10.10.0.2 egress_ifindex=0 gateway_ip=172.18.0.3
+source_ip=fd00:10:244:3::9c94 dest_cidr=:: egress_ip=fd00::10:10:0:2 egress_ifindex=0 gateway_ip=172.18.0.3
+-- policymap.expected.4 --
+source_ip=10.244.3.91 dest_cidr=0.0.0.0 egress_ip=0.0.0.0 egress_ifindex=0 gateway_ip=172.18.0.3
+source_ip=fd00:10:244:3::9c94 dest_cidr=:: egress_ip=:: egress_ifindex=0 gateway_ip=172.18.0.3
 -- node1.yaml --
 apiVersion: v1
 kind: Node
@@ -143,3 +174,12 @@ type: veth
 flags: 1 # admin-up
 operstatus: up
 selected: true
+-- routes.yaml --
+# An IP that is owned by the node through a local route, without being assigned to a device
+# (e.g. the IP of a GCE forwarding rule): table 255 (local) / type 2 (local) / scope 254 (host),
+# and no source address.
+table: 255
+type: 2
+scope: 254
+linkindex: 2
+dst: 203.0.113.10/32
