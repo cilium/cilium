@@ -7,7 +7,7 @@
  */
 
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6
+#define ENABLE_IPV6 1
 #define ENABLE_NODEPORT		1
 
 #define DEST_LXC_ID	0

@@ -18,7 +18,7 @@
 #include "common.h"
 #include "pktgen.h"
 
-#define ENABLE_IPV6
+#define ENABLE_IPV6 1
 #define ENABLE_NODEPORT
 #define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
