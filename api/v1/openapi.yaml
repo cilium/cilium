@@ -2652,7 +2652,10 @@ definitions:
       ipv4:
         "$ref": "#/definitions/NodeAddressingElement"
   NodeAddressingElement:
-    description: Addressing information
+    description: |-
+      Addressing information
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       enabled:
@@ -2660,10 +2663,10 @@ definitions:
         type: boolean
       ip:
         description: IP address of node
-        type: string
+        "$ref": "#/definitions/Address"
       alloc-range:
         description: Address pool to be used for local endpoints
-        type: string
+        "$ref": "#/definitions/CIDR"
       address-type:
         description: Node address type, one of HostName, ExternalIP or InternalIP
         type: string

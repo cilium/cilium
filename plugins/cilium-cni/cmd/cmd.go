@@ -390,7 +390,7 @@ func newCNIRoute(r route.Route) *cniTypes.Route {
 func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, []*cniTypes.Route, error) {
 	var (
 		routes []route.Route
-		gw     string
+		gw     netip.Addr
 		ip     netip.Addr
 	)
 
@@ -433,11 +433,8 @@ func prepareIP(ipAddr string, state *CmdState, mtu int) (*cniTypesV1.IPConfig, [
 	}
 
 	var gwIP net.IP
-	if gw != "" {
-		gwIP = net.ParseIP(gw)
-		if gwIP == nil {
-			return nil, nil, fmt.Errorf("invalid gateway address: %s", gw)
-		}
+	if gw.IsValid() {
+		gwIP = gw.AsSlice()
 	}
 
 	return &cniTypesV1.IPConfig{

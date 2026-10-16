@@ -6,6 +6,7 @@ package connector
 import (
 	"fmt"
 	"net"
+	"net/netip"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -13,23 +14,23 @@ import (
 )
 
 // IPv6Gateway returns the IPv6 gateway address for endpoints.
-func IPv6Gateway(addr *models.NodeAddressing) string {
+func IPv6Gateway(addr *models.NodeAddressing) netip.Addr {
 	// The host's IP is the gateway address
-	return addr.IPv6.IP
+	return addr.IPv6.IP.Addr
 }
 
 // IPv4Gateway returns the IPv4 gateway address for endpoints.
-func IPv4Gateway(addr *models.NodeAddressing) string {
+func IPv4Gateway(addr *models.NodeAddressing) netip.Addr {
 	// The host's IP is the gateway address
-	return addr.IPv4.IP
+	return addr.IPv4.IP.Addr
 }
 
 // IPv6Routes returns IPv6 routes to be installed in endpoint's networking namespace.
 func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error) {
-	ip := net.ParseIP(addr.IPv6.IP)
-	if ip == nil {
-		return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPv6.IP)
+	if !addr.IPv6.IP.IsValid() {
+		return []route.Route{}, fmt.Errorf("Missing IPv6 host address")
 	}
+	ip := net.IP(addr.IPv6.IP.AsSlice())
 	return []route.Route{
 		{
 			Prefix: net.IPNet{
@@ -47,10 +48,10 @@ func IPv6Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error)
 
 // IPv4Routes returns IPv4 routes to be installed in endpoint's networking namespace.
 func IPv4Routes(addr *models.NodeAddressing, linkMTU int) ([]route.Route, error) {
-	ip := net.ParseIP(addr.IPv4.IP)
-	if ip == nil {
-		return []route.Route{}, fmt.Errorf("Invalid IP address: %s", addr.IPv4.IP)
+	if !addr.IPv4.IP.IsValid() {
+		return []route.Route{}, fmt.Errorf("Missing IPv4 host address")
 	}
+	ip := net.IP(addr.IPv4.IP.AsSlice())
 	return []route.Route{
 		{
 			Prefix: net.IPNet{
@@ -73,11 +74,11 @@ func SufficientAddressing(addr *models.NodeAddressing) error {
 		return fmt.Errorf("Cilium daemon did not provide addressing information")
 	}
 
-	if addr.IPv6 != nil && addr.IPv6.IP != "" {
+	if addr.IPv6 != nil && addr.IPv6.IP.IsValid() {
 		return nil
 	}
 
-	if addr.IPv4 != nil && addr.IPv4.IP != "" {
+	if addr.IPv4 != nil && addr.IPv4.IP.IsValid() {
 		return nil
 	}
 
