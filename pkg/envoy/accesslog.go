@@ -18,10 +18,16 @@ import (
 func ParseURL(scheme, host, path string) *url.URL {
 	u, err := url.Parse(fmt.Sprintf("%s://%s/%s", scheme, host, strings.TrimPrefix(path, "/")))
 	if err != nil {
+		// Keep the query and fragment out of Path so that consumers such
+		// as Hubble's URL query redaction still see them.
+		path, fragment, _ := strings.Cut(path, "#")
+		path, query, _ := strings.Cut(path, "?")
 		u = &url.URL{
-			Scheme: scheme,
-			Host:   host,
-			Path:   path,
+			Scheme:   scheme,
+			Host:     host,
+			Path:     path,
+			RawQuery: query,
+			Fragment: fragment,
 		}
 	}
 	return u
