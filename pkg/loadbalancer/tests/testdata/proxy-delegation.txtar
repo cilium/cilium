@@ -29,10 +29,10 @@ Address               Type         ServiceName   PortName   Status  Backends
 172.16.1.1:80/TCP     LoadBalancer test/example  http       Done    1.1.1.1:80/TCP, 2.2.2.2:80/TCP
 
 -- backends.table --
-Address             Instances            NodeName
-1.1.1.1:80/TCP      test/example (http)
-1.1.1.2:80/TCP      test/example (http)  other
-2.2.2.2:80/TCP      test/example (http)  testnode
+Service       Address         NodeName
+test/example  1.1.1.1:80/TCP
+test/example  1.1.1.2:80/TCP  other
+test/example  2.2.2.2:80/TCP  testnode
 
 -- service.yaml --
 apiVersion: v1

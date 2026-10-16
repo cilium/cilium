@@ -43,9 +43,9 @@ db/cmp frontends frontends-all.table
 ### Th-th-th-th-That's all Folks!
 
 -- backends.table --
-Address              Instances         NodeName
-10.1.0.1:8080/TCP    test/echo (tcp)   nodeport-worker
-20.0.0.2:9090/TCP    test/echo (tcp)
+Address              PortNames  NodeName
+10.1.0.1:8080/TCP    tcp        nodeport-worker
+20.0.0.2:9090/TCP    tcp
 
 -- frontends-local.table --
 Address            Type       ServiceName   Status  Backends

@@ -51,8 +51,8 @@ Address               Type          ServiceName   PortName   Backends           
 10.0.0.2:80/TCP       LoadBalancer  test/echo     http       10.244.1.1:80/TCP   Done
 
 -- backends.table --
-Address             Instances          NodeName
-10.244.1.1:80/TCP   test/echo (http)   nodeport-worker
+Service    Address            NodeName
+test/echo  10.244.1.1:80/TCP  nodeport-worker
 
 -- service.yaml --
 apiVersion: v1
