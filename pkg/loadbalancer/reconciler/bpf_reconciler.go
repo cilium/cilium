@@ -168,6 +168,11 @@ type nodePortAddrKey struct {
 
 	// port is the Layer 4 port number of the key
 	port uint16
+
+	// scope is the lookup scope of the key. A NodePort service with mixed
+	// traffic policies has an external and an internal frontend for the same
+	// port, and each must track its own expanded addresses.
+	scope uint8
 }
 
 type backendState struct {
@@ -380,7 +385,7 @@ func (ops *BPFOps) Delete(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 
 	if isExpansion {
 		proto := loadbalancer.L4TypeAsProtocolNumber(fe.Address.Protocol())
-		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port(), protocol: proto}
+		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port(), protocol: proto, scope: fe.Address.Scope()}
 		addrs := ops.nodePortAddrByPort[key]
 		for _, addr := range addrs {
 			fe = fe.Clone()
@@ -788,7 +793,7 @@ func (ops *BPFOps) Update(_ context.Context, txn statedb.ReadTxn, _ statedb.Revi
 		// For NodePort create entries for each node address.
 		// For HostPort only create them if the address was not specified (HostIP is unset).
 		proto := loadbalancer.L4TypeAsProtocolNumber(fe.Address.Protocol())
-		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port(), protocol: proto}
+		key := nodePortAddrKey{family: fe.Address.IsIPv6(), port: fe.Address.Port(), protocol: proto, scope: fe.Address.Scope()}
 		old := sets.New(ops.nodePortAddrByPort[key]...)
 
 		// Collect matching node addresses for datapath candidates, skipping those
