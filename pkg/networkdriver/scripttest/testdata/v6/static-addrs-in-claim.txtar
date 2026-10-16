@@ -3,7 +3,7 @@ hive start
 k8s/add claim.yaml
 driver/prepare-resource-claims default/test-claim
 
-# we should have the allocation recorded in the database
+# We should have the allocation recorded in the database.
 db/cmp networkdriver-dra-allocations allocations.table
 
 k8s/get resource.k8s.io.v1.resourceclaims default/test-claim -o actual.yaml
@@ -12,7 +12,7 @@ cmp actual.yaml expected.yaml
 
 driver/unprepare-resource-claims default/test-claim
 
-# after the unprepare we should have freed the allocation in the database
+# Unprepare must release the allocation while retaining the device inventory.
 db/cmp networkdriver-dra-allocations allocations-empty.table
 
 hive stop
@@ -35,7 +35,6 @@ status:
         opaque:
           driver: test.cilium.k8s.io
           parameters:
-            ipv4Addr: 10.30.0.1/32
             ipv6Addr: fd00:300:1::1/128
       results:
       - device: test-device
@@ -63,7 +62,6 @@ status:
       - opaque:
           driver: test.cilium.k8s.io
           parameters:
-            ipv4Addr: 10.30.0.1/32
             ipv6Addr: fd00:300:1::1/128
         requests:
         - test-request
@@ -82,7 +80,6 @@ status:
       type: Ready
     data:
       Config:
-        ipv4Addr: 10.30.0.1/32
         ipv6Addr: fd00:300:1::1/128
       Dev:
         Flags: ""
@@ -95,7 +92,6 @@ status:
     networkData:
       interfaceName: test-device
       ips:
-      - 10.30.0.1/32
       - fd00:300:1::1/128
     pool: test-device-pool
   reservedFor:
@@ -103,8 +99,8 @@ status:
     resource: pods
     uid: bec9dd67-13f9-4d4b-a3c1-76fc3e485e68
 -- allocations.table --
-Device        Pool              PodUID                                ClaimUID
-test-device   test-device-pool  bec9dd67-13f9-4d4b-a3c1-76fc3e485e68  ba3c7922-9a56-44eb-a96f-84ee8b74dd23
+Device        PodUID                                ClaimUID
+test-device   bec9dd67-13f9-4d4b-a3c1-76fc3e485e68  ba3c7922-9a56-44eb-a96f-84ee8b74dd23
 
 -- allocations-empty.table --
-Device   Pool   PodUID   ClaimUID
+Device   PodUID   ClaimUID
