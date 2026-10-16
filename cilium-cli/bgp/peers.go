@@ -6,30 +6,18 @@ package bgp
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"maps"
 	"os"
 	"slices"
-	"sort"
 	"strings"
-	"sync"
 	"text/tabwriter"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/cilium-cli/status"
-	"github.com/cilium/cilium/pkg/bgp/api"
-)
-
-const (
-	padding     = 3
-	minWidth    = 5
-	paddingChar = ' '
 )
 
 // GetPeeringState gets peering state from all/specific cilium agent pods.
@@ -42,7 +30,17 @@ func (s *Status) GetPeeringState(ctx context.Context) error {
 		return err
 	}
 
-	res, err := s.fetchPeeringStateConcurrently(ctx)
+	var fetchCmd []string
+	switch s.params.Output {
+	case status.FormatTable:
+		fetchCmd = []string{"cilium-dbg", "shell", "--", "bgp/peers", "-f", "table-json"}
+	case status.FormatDetailed:
+		fetchCmd = []string{"cilium-dbg", "shell", "--", "bgp/peers", "-f", "detailed"}
+	default:
+		return fmt.Errorf("unsupported format: %s", s.params.Output)
+	}
+
+	res, err := s.fetchCmdConcurrently(ctx, fetchCmd, s.fetchPeeringStateFromPod)
 	if err != nil {
 		if len(res) == 0 {
 			// no results retrieved - just return the error
@@ -52,115 +50,63 @@ func (s *Status) GetPeeringState(ctx context.Context) error {
 		fmt.Fprintf(os.Stderr, "Errors retrieving peering state: %v\n\n", err)
 	}
 
-	return s.writeStatus(res)
+	return s.writePeeringState(res)
 }
 
-func (s *Status) fetchPeeringStateConcurrently(ctx context.Context) (map[string][]*models.BgpPeer, error) {
-	allFetchedData := make(map[string][]*models.BgpPeer)
-
-	// res contains data returned from cilium pod
-	type res struct {
-		nodeName string
-		data     []*models.BgpPeer
-		err      error
-	}
-	resCh := make(chan res)
-
-	var wg sync.WaitGroup
-
-	// max number of concurrent go routines will be number of cilium agent pods
-	wg.Add(len(s.ciliumPods))
-
-	// concurrently fetch state from each cilium pod
-	for _, pod := range s.ciliumPods {
-		go func(ctx context.Context, pod *corev1.Pod) {
-			defer wg.Done()
-
-			peers, err := s.fetchPeeringStateFromPod(ctx, pod)
-			resCh <- res{
-				nodeName: pod.Spec.NodeName,
-				data:     peers,
-				err:      err,
-			}
-		}(ctx, pod)
+func (s *Status) fetchPeeringStateFromPod(ctx context.Context, fetchCmd []string, pod *corev1.Pod) ([]string, error) {
+	if err := s.checkCiliumVersion(ctx, pod); err != nil {
+		return nil, fmt.Errorf("failed to fetch bgp state from %s: %w, use \"bgp legacy peers\" instead", pod.Name, err)
 	}
 
-	// close resCh when data from all nodes is collected
-	go func() {
-		wg.Wait()
-		close(resCh)
-	}()
-
-	// read from the channel till it is closed.
-	// on error, store error and continue to next node.
-	var err error
-	for fetchedData := range resCh {
-		if fetchedData.err != nil {
-			err = errors.Join(err, fetchedData.err)
-		} else {
-			allFetchedData[fetchedData.nodeName] = fetchedData.data
-		}
-	}
-
-	return allFetchedData, err
-}
-
-func (s *Status) fetchPeeringStateFromPod(ctx context.Context, pod *corev1.Pod) ([]*models.BgpPeer, error) {
-	cmd := []string{"cilium", "bgp", "peers", "-o", "json"}
-	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, cmd)
+	output, err := s.client.ExecInPod(ctx, pod.Namespace, pod.Name, defaults.AgentContainerName, fetchCmd)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch bgp state from %s: %w", pod.Name, err)
 	}
 
-	bgpPeers := make([]*models.BgpPeer, 0)
+	bgpPeers := make([]string, 0)
 
-	err = json.Unmarshal(output.Bytes(), &bgpPeers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal bgp state from %s: %w", pod.Name, err)
+	switch s.params.Output {
+	case status.FormatTable:
+		var table tableJSON
+		if err = json.Unmarshal(output.Bytes(), &table); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal bgp state from %s: %w", pod.Name, err)
+		}
+		bgpPeers = table.ToStrings()
+	case status.FormatDetailed:
+		bgpPeers = strings.FieldsFunc(output.String(), func(c rune) bool {
+			return c == '\n'
+		})
 	}
 
 	return bgpPeers, nil
 }
 
-func (s *Status) writeStatus(res map[string][]*models.BgpPeer) error {
-	if s.params.Output == status.OutputJSON {
-		jsonStatus, err := json.MarshalIndent(res, "", " ")
-		if err != nil {
-			return err
-		}
-		fmt.Println(string(jsonStatus))
-	} else {
-		if s.params.ShowCaps {
-			printAllPeersCaps(os.Stdout, res)
-		} else {
-			printSummary(os.Stdout, res)
-		}
+func (s *Status) writePeeringState(res map[string][]string) error {
+	switch s.params.Output {
+	case status.FormatTable:
+		printSummary(os.Stdout, res)
+	case status.FormatDetailed:
+		printDetailed(os.Stdout, res)
 	}
 
 	return nil
 }
 
-func printSummary(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
+func printSummary(out io.Writer, peersPerNode map[string][]string) {
 	// sort by node names
 	nodes := slices.Sorted(maps.Keys(peersPerNode))
-
-	// sort peers per node
-	for _, peers := range peersPerNode {
-		// sort by local AS, if peers from same AS then sort by peer address.
-		sort.Slice(peers, func(i, j int) bool {
-			return peers[i].LocalAsn < peers[j].LocalAsn || peers[i].PeerAddress < peers[j].PeerAddress
-		})
-	}
-
 	// tab writer with min width 5 and padding 3
 	w := tabwriter.NewWriter(out, minWidth, 0, padding, paddingChar, 0)
-	fmt.Fprintln(w, "Node\tLocal AS\tPeer AS\tPeer Address\tSession State\tUptime\tFamily\tReceived\tAdvertised")
 
-	for _, node := range nodes {
-		peers := peersPerNode[node]
+	for i, node := range nodes {
+		rows := peersPerNode[node]
 
-		for i, peer := range peers {
-			if i == 0 {
+		if i == 0 {
+			fmt.Fprintf(w, "Node\t%s\n", rows[0])
+		}
+
+		for j, row := range rows[1:] {
+			if j == 0 {
 				// print name for first row of peers
 				fmt.Fprintf(w, "%s\t", node)
 			} else {
@@ -168,45 +114,22 @@ func printSummary(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
 				fmt.Fprint(w, "\t")
 			}
 
-			fmt.Fprintf(w, "%d\t", peer.LocalAsn)
-			fmt.Fprintf(w, "%d\t", peer.PeerAsn)
-			fmt.Fprintf(w, "%s\t", peer.PeerAddress)
-			fmt.Fprintf(w, "%s\t", peer.SessionState)
-			fmt.Fprintf(w, "%s\t", time.Duration(peer.UptimeNanoseconds).Round(time.Second).String())
-
-			for j, afisafi := range peer.Families {
-				if j > 0 {
-					// skip space for session info
-					fmt.Fprint(w, strings.Repeat("\t", 6))
-				}
-
-				fmt.Fprintf(w, "%s/%s\t", afisafi.Afi, afisafi.Safi)
-				fmt.Fprintf(w, "%d\t", afisafi.Received)
-				fmt.Fprintf(w, "%d\t", afisafi.Advertised)
-				fmt.Fprintf(w, "\n")
-			}
+			fmt.Fprintln(w, row)
 		}
 	}
 	w.Flush()
 }
 
-func printAllPeersCaps(out io.Writer, peersPerNode map[string][]*models.BgpPeer) {
-	if len(peersPerNode) == 0 {
-		fmt.Fprintln(out, "No BGP peer sessions found on any node")
-	}
-
+func printDetailed(w io.Writer, peersPerNode map[string][]string) {
 	// sort by node names
 	nodes := slices.Sorted(maps.Keys(peersPerNode))
-	// sort peers per node
-	for _, peers := range peersPerNode {
-		// sort by local AS, if peers from same AS then sort by peer address.
-		sort.Slice(peers, func(i, j int) bool {
-			return peers[i].LocalAsn < peers[j].LocalAsn || peers[i].PeerAddress < peers[j].PeerAddress
-		})
-	}
+
 	for _, node := range nodes {
-		fmt.Fprintf(out, "Cilium node: %s\n", node)
-		peers := peersPerNode[node]
-		api.PrintBGPPeersCaps(out, peers)
+		rows := peersPerNode[node]
+		fmt.Fprintf(w, "Node: %s\n", node)
+
+		for _, row := range rows {
+			fmt.Fprintf(w, "  %s\n", row)
+		}
 	}
 }
