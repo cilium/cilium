@@ -4076,7 +4076,7 @@ func init() {
       }
     },
     "NodeAddressingElement": {
-      "description": "Addressing information",
+      "description": "Addressing information\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "address-type": {
@@ -4085,7 +4085,7 @@ func init() {
         },
         "alloc-range": {
           "description": "Address pool to be used for local endpoints",
-          "type": "string"
+          "$ref": "#/definitions/CIDR"
         },
         "enabled": {
           "description": "True if address family is enabled",
@@ -4093,7 +4093,7 @@ func init() {
         },
         "ip": {
           "description": "IP address of node",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         }
       }
     },
@@ -9894,7 +9894,7 @@ func init() {
       }
     },
     "NodeAddressingElement": {
-      "description": "Addressing information",
+      "description": "Addressing information\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "address-type": {
@@ -9903,7 +9903,7 @@ func init() {
         },
         "alloc-range": {
           "description": "Address pool to be used for local endpoints",
-          "type": "string"
+          "$ref": "#/definitions/CIDR"
         },
         "enabled": {
           "description": "True if address family is enabled",
@@ -9911,7 +9911,7 @@ func init() {
         },
         "ip": {
           "description": "IP address of node",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         }
       }
     },

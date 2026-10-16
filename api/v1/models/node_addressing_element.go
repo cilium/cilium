@@ -8,11 +8,15 @@ package models
 import (
 	"context"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
+
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
 )
 
 // NodeAddressingElement Addressing information
+//
+// +k8s:deepcopy-gen=true
 //
 // swagger:model NodeAddressingElement
 type NodeAddressingElement struct {
@@ -21,13 +25,13 @@ type NodeAddressingElement struct {
 	AddressType string `json:"address-type,omitempty"`
 
 	// Address pool to be used for local endpoints
-	AllocRange string `json:"alloc-range,omitempty"`
+	AllocRange iputil.Prefix `json:"alloc-range,omitzero"`
 
 	// True if address family is enabled
 	Enabled bool `json:"enabled,omitempty"`
 
 	// IP address of node
-	IP string `json:"ip,omitempty"`
+	IP iputil.Addr `json:"ip,omitzero"`
 }
 
 // Validate validates this node addressing element
