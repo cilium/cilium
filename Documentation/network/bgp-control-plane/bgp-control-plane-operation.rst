@@ -439,8 +439,8 @@ To make link detection failure fast, you can adjust ``holdTimeSeconds`` and
 ``keepAliveTimeSeconds`` in the BGP configuration to the shorter value.
 However, the minimal possible values are ``holdTimeSeconds=3`` and
 ``keepAliveTimeSeconds=1``. The general approach to make failure detection faster is to
-use BFD (Bidirectional Forwarding Detection), but currently, Cilium does not
-support it.
+use BFD (Bidirectional Forwarding Detection), which can be enabled as
+described in :ref:`BFD configuration <bgp_peer_configuration_bfd>`.
 
 Cilium Operator Down
 ~~~~~~~~~~~~~~~~~~~~
