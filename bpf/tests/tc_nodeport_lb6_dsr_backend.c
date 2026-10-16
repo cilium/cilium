@@ -7,7 +7,7 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV6
-#define ENABLE_NODEPORT
+#define ENABLE_NODEPORT 1
 #define DSR_ENCAP_GENEVE	3
 
 #define CLIENT_IP	{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }

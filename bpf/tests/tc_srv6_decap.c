@@ -12,7 +12,7 @@
 #ifdef TUNNEL_MODE
 #undef TUNNEL_MODE
 #endif
-#define ENABLE_NODEPORT
+#define ENABLE_NODEPORT 1
 
 #include "lib/bpf_host.h"
 #include "lib/ipcache.h"
