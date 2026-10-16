@@ -173,15 +173,15 @@ Validate the Setup
 Limitations
 ===========
 
-* Traffic between workloads is only supported when both the source and
-  destination endpoints are enrolled in ztunnel. Communication between an
-  enrolled workload and a non-enrolled workload is not supported.
-
 * The ztunnel integration currently only supports enrollment via namespace
   labels. Pod-level enrollment is not supported.
 
 * Only TCP traffic is currently supported for mTLS encryption. UDP and other
   protocols are not redirected to ztunnel.
+
+* Pod-to-node and node-to-pod traffic is not encrypted. Traffic is only
+  encrypted with mTLS when both the source and destination are enrolled in
+  ztunnel, and nodes cannot be enrolled.
 
 * The integration requires iptables support in the kernel and cannot be used
   with environments that do not support iptables (such as some minimal container
