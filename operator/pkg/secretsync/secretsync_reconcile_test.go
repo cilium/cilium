@@ -687,8 +687,8 @@ func Test_SecretSync_Reconcile_BackendTLSPolicySecret(t *testing.T) {
 
 	c := withGatewaySecretIndexes(fake.NewClientBuilder().
 		WithScheme(testScheme()).
-		WithObjects(fixture...).
-		Build())
+		WithObjects(fixture...)).
+		Build()
 
 	gatewayHandler := gateway_api.NewSecretSyncHandler(c, logger, testSecretSyncControllerName)
 
