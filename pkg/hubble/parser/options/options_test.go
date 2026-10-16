@@ -27,6 +27,21 @@ func TestRedact(t *testing.T) {
 	assert.True(t, opts.HubbleRedactSettings.RedactHTTPQuery)
 }
 
+func TestExcludeHttpHeaders(t *testing.T) {
+	opt := WithExcludeHttpHeaders([]string{"X-Allow", "Content-Type"}, nil)
+	opts := Options{}
+	opt(&opts)
+	// Header names are normalised to lowercase.
+	assert.Equal(t, map[string]struct{}{"x-allow": {}, "content-type": {}}, opts.ExcludeHttpHeaders.Allow)
+	assert.Empty(t, opts.ExcludeHttpHeaders.Deny)
+
+	opt = WithExcludeHttpHeaders(nil, []string{"Authorization"})
+	opts = Options{}
+	opt(&opts)
+	assert.Empty(t, opts.ExcludeHttpHeaders.Allow)
+	assert.Equal(t, map[string]struct{}{"authorization": {}}, opts.ExcludeHttpHeaders.Deny)
+}
+
 func TestEnableNetworkPolicyCorrelation(t *testing.T) {
 	opt := WithNetworkPolicyCorrelation(true)
 	opts := Options{EnableNetworkPolicyCorrelation: false}
