@@ -25,12 +25,12 @@ status:
         name: same-namespace
       conditions:
         - lastTransitionTime: "2025-07-01T14:19:43Z"
-          message: "Only ConfigMaps are supported for CA Certificate Refs"
+          message: "Only ConfigMaps and Secrets are supported for CA Certificate Refs"
           reason: NoValidCACertificate
           status: "False"
           type: Accepted
         - lastTransitionTime: "2025-07-01T14:19:43Z"
-          message: "Only ConfigMaps are supported for CA Certificate Refs"
+          message: "Only ConfigMaps and Secrets are supported for CA Certificate Refs"
           reason: InvalidKind
           status: "False"
           type: ResolvedRefs

@@ -37,6 +37,9 @@ const (
 	// Indexes BackendTLSPolicies by all the ConfigMaps referenced in the object.
 	BackendTLSPolicyConfigMapIndex = "backendTLSPolicyConfigMaps"
 
+	// Indexes BackendTLSPolicies by all the Secrets referenced in the object.
+	BackendTLSPolicySecretIndex = "backendTLSPolicySecrets"
+
 	// Indexes GAMMA HTTPRoutes by all the GAMMA parents of that HTTPRoute.
 	// This is then be used by the Service reconciler to only retrieve any HTTPRoutes that have that specific
 	// Service as a parent.

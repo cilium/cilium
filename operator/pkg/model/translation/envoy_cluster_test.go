@@ -180,6 +180,33 @@ func Test_withTLSOrigination(t *testing.T) {
 		require.Equal(t, syncnames.SyncedConfigMapSDSSecretName("cilium-secrets", types.NamespacedName{Namespace: "my-namespace", Name: "my-ca-configmap"}), sdsName)
 	})
 
+	t.Run("uses synced Secret SDS name when the CA ref is a Secret", func(t *testing.T) {
+		secretTLS := &model.BackendTLSOrigination{
+			SNI: "my-backend.svc.cluster.local",
+			CACertRef: &model.FullyQualifiedResource{
+				Group:     "",
+				Kind:      "Secret",
+				Version:   "v1",
+				Name:      "my-ca-secret",
+				Namespace: "my-namespace",
+			},
+		}
+
+		fn := withTLSOrigination("cilium-secrets", secretTLS)
+		cluster := fn(&envoy_config_cluster_v3.Cluster{})
+		require.NotNil(t, cluster.TransportSocket)
+
+		upstreamTLS := &envoy_config_tls.UpstreamTlsContext{}
+		err := proto.Unmarshal(cluster.TransportSocket.GetTypedConfig().GetValue(), upstreamTLS)
+		require.NoError(t, err)
+
+		combined := upstreamTLS.CommonTlsContext.GetCombinedValidationContext()
+		require.NotNil(t, combined)
+
+		sdsName := combined.ValidationContextSdsSecretConfig.GetName()
+		require.Equal(t, syncnames.SyncedSDSSecretName("cilium-secrets", types.NamespacedName{Namespace: "my-namespace", Name: "my-ca-secret"}), sdsName)
+	})
+
 	t.Run("uses system root certificates when no CA ref is configured", func(t *testing.T) {
 		systemTLS := &model.BackendTLSOrigination{
 			SNI: "my-backend.svc.cluster.local",

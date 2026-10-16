@@ -211,6 +211,10 @@ func (l *TranslationInputLoader) SetupIndexes(mgr ctrl.Manager) error {
 		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendTLSPolicyConfigMapIndex, err)
 	}
 
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.BackendTLSPolicy{}, indexers.BackendTLSPolicySecretIndex, indexers.IndexBTLSPolicyBySecret); err != nil {
+		return fmt.Errorf("failed to setup field indexer %q: %w", indexers.BackendTLSPolicySecretIndex, err)
+	}
+
 	if l.config.IncludeListenerSets {
 		if err := mgr.GetFieldIndexer().IndexField(context.Background(), &gatewayv1.ListenerSet{}, indexers.ListenerSetGatewayIndex, indexers.IndexListenerSetByGateway); err != nil {
 			return fmt.Errorf("failed to setup field indexer %q: %w", indexers.ListenerSetGatewayIndex, err)

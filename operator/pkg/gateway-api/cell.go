@@ -349,6 +349,14 @@ func registerSecretSync(params secretSyncParams) secretsync.SecretSyncRegistrati
 		})
 	}
 
+	// Secrets referenced as CA certificates (caCertificateRefs) by a BackendTLSPolicy
+	// also need to be synchronized into the secrets namespace, so that they can be
+	// consumed by Envoy via SDS.
+	secretSyncRegistration.AdditionalWatches = append(secretSyncRegistration.AdditionalWatches, secretsync.AdditionalWatch{
+		RefObject:            &gatewayv1.BackendTLSPolicy{},
+		RefObjectEnqueueFunc: handler.EnqueueBackendTLSPolicySecrets(),
+	})
+
 	return secretsync.SecretSyncRegistrationOut{
 		SecretSyncRegistration: secretSyncRegistration,
 		ConfigMapSyncRegistration: &secretsync.ConfigMapSyncRegistration{

@@ -632,12 +632,12 @@ func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Servic
 						SNI: string(btlsp.Spec.Validation.Hostname),
 					}
 					if len(btlsp.Spec.Validation.CACertificateRefs) > 0 {
-						// Cilium only supports ConfigMap currently
+						caCertRef := btlsp.Spec.Validation.CACertificateRefs[0]
 						be.TLS.CACertRef = &model.FullyQualifiedResource{
-							Group:     "",
-							Kind:      "ConfigMap",
+							Group:     string(caCertRef.Group),
+							Kind:      string(caCertRef.Kind),
 							Version:   "v1",
-							Name:      string(btlsp.Spec.Validation.CACertificateRefs[0].Name),
+							Name:      string(caCertRef.Name),
 							Namespace: btlsp.GetNamespace(),
 						}
 					}
@@ -652,12 +652,12 @@ func addBackendTLSDetails(log *slog.Logger, be model.Backend, svc *corev1.Servic
 							SNI: string(btlsp.Spec.Validation.Hostname),
 						}
 						if len(btlsp.Spec.Validation.CACertificateRefs) > 0 {
-							// Cilium only supports ConfigMap currently
+							caCertRef := btlsp.Spec.Validation.CACertificateRefs[0]
 							be.TLS.CACertRef = &model.FullyQualifiedResource{
-								Group:     "",
-								Kind:      "ConfigMap",
+								Group:     string(caCertRef.Group),
+								Kind:      string(caCertRef.Kind),
 								Version:   "v1",
-								Name:      string(btlsp.Spec.Validation.CACertificateRefs[0].Name),
+								Name:      string(caCertRef.Name),
 								Namespace: btlsp.GetNamespace(),
 							}
 						}

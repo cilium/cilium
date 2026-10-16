@@ -202,21 +202,20 @@ func withTLSOrigination(secretsNamespace string, tls *model.BackendTLSOriginatio
 							},
 						},
 						ValidationContextSdsSecretConfig: &envoy_config_tls.SdsSecretConfig{
-							Name: syncnames.SyncedConfigMapSDSSecretName(secretsNamespace, types.NamespacedName{
-								// This secret is synchronized by the secretsyncer Cell, with the Secret being copied
-								// out of the relevant ConfigMap by the ConfigMap sync Reconcile function there, which itself
-								// watches for ConfigMaps referenced in BackendTLSPolicy objects.
-								//
-								// That is, the flow is:
-								//
-								// * BackendTLSPolicy references ConfigMap
-								// * SecretSync sees ConfigMap reference
-								// * SecretSync copies ConfigMap into Secret in the configured secrets namespace
-								// * This translation references that Secret using the shared sync name
-								// * The Cilium Agent reads the Secret directly and supplies it to Envoy via SDS.
-								Namespace: tls.CACertRef.Namespace,
-								Name:      tls.CACertRef.Name,
-							}),
+							// The referenced ConfigMap or Secret is synchronized by the secretsyncer Cell
+							// into the configured secrets namespace, where the agent picks it up and loads
+							// it into the Envoy SDS cache.
+							//
+							// That is, the flow is:
+							//
+							// * BackendTLSPolicy references a ConfigMap or Secret
+							// * The relevant sync reconciler sees the reference
+							// * The referenced object is copied into a Secret in the configured secrets namespace
+							// * This SDS reference is named after that synced Secret
+							// * the agent loads the secret into the SDS cache.
+							//
+							// See cilium/operator/pkg/secretsync and cilium/pkg/envoy for those components.
+							Name: syncedSDSSecretName(secretsNamespace, tls.CACertRef),
 						},
 					},
 				},
@@ -231,6 +230,18 @@ func withTLSOrigination(secretsNamespace string, tls *model.BackendTLSOriginatio
 		}
 		return cluster
 	}
+}
+
+// syncedSDSSecretName returns the SDS resource name that Envoy should use to validate
+// the backend certificate. BackendTLSPolicy CA certificate references can point at
+// either a ConfigMap or a Secret, which are synchronized into the configured secrets
+// namespace under different (kind-specific) names.
+func syncedSDSSecretName(secretsNamespace string, ref *model.FullyQualifiedResource) string {
+	nn := types.NamespacedName{Namespace: ref.Namespace, Name: ref.Name}
+	if ref.Kind == "Secret" {
+		return syncnames.SyncedSDSSecretName(secretsNamespace, nn)
+	}
+	return syncnames.SyncedConfigMapSDSSecretName(secretsNamespace, nn)
 }
 
 // withUpstreamTLSInsecure originates TLS to the upstream without verifying the

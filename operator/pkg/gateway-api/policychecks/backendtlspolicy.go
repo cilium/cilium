@@ -72,39 +72,67 @@ func (b *BackendTLSPolicyInput) ValidateSpec(ctx context.Context, scopedLog *slo
 			return false, nil
 		}
 
-		// Thirdly, check that the CACertificateRef exists, and is a ConfigMap with a key named `ca.crt`.
+		// Thirdly, check that the CACertificateRef exists, and is a ConfigMap or a Secret with a key
+		// named `ca.crt`.
 		caCertRef := b.BackendTLSPolicy.Spec.Validation.CACertificateRefs[0]
 
-		if caCertRef.Group != "" || caCertRef.Kind != "ConfigMap" {
-			b.setRejectedConditions(ancestorRef, "Only ConfigMaps are supported for CA Certificate Refs",
+		caCertRefKey := types.NamespacedName{Name: string(caCertRef.Name), Namespace: b.BackendTLSPolicy.Namespace}
+
+		var caCertBytes []byte
+
+		switch {
+		case helpers.IsConfigMap(caCertRef):
+			caCert := &corev1.ConfigMap{}
+
+			err := b.Client.Get(ctx, caCertRefKey, caCert)
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					b.setRejectedConditions(ancestorRef, fmt.Sprintf("CA Certificate does not exist: %s", caCertRefKey),
+						string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
+					return false, nil
+				}
+				scopedLog.ErrorContext(ctx, fmt.Sprintf("Failed trying to get CA Certificate Ref ConfigMap: %s", caCertRefKey), logfields.Error, err)
+				// No point changing conditions, as returning this error will flow up to the reconciler, and status will not be updated.
+				return false, err
+			}
+
+			if _, ok := caCert.Data["ca.crt"]; !ok {
+				b.setRejectedConditions(ancestorRef, "CA Certificate ConfigMap does not contain a `ca.crt` key",
+					string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
+				return false, nil
+			}
+
+			caCertBytes = []byte(caCert.Data["ca.crt"])
+		case helpers.IsSecretRef(caCertRef):
+			caCert := &corev1.Secret{}
+
+			err := b.Client.Get(ctx, caCertRefKey, caCert)
+			if err != nil {
+				if k8serrors.IsNotFound(err) {
+					b.setRejectedConditions(ancestorRef, fmt.Sprintf("CA Certificate does not exist: %s", caCertRefKey),
+						string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
+					return false, nil
+				}
+				scopedLog.ErrorContext(ctx, fmt.Sprintf("Failed trying to get CA Certificate Ref Secret: %s", caCertRefKey), logfields.Error, err)
+				// No point changing conditions, as returning this error will flow up to the reconciler, and status will not be updated.
+				return false, err
+			}
+
+			if _, ok := caCert.Data["ca.crt"]; !ok {
+				b.setRejectedConditions(ancestorRef, "CA Certificate Secret does not contain a `ca.crt` key",
+					string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
+				return false, nil
+			}
+
+			caCertBytes = caCert.Data["ca.crt"]
+		default:
+			b.setRejectedConditions(ancestorRef, "Only ConfigMaps and Secrets are supported for CA Certificate Refs",
 				string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidKind))
 			return false, nil
 		}
 
-		caCertRefKey := types.NamespacedName{Name: string(caCertRef.Name), Namespace: b.BackendTLSPolicy.Namespace}
-		caCert := &corev1.ConfigMap{}
-
-		err := b.Client.Get(ctx, caCertRefKey, caCert)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				b.setRejectedConditions(ancestorRef, fmt.Sprintf("CA Certificate does not exist: %s", caCertRefKey),
-					string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
-				return false, nil
-			}
-			scopedLog.ErrorContext(ctx, fmt.Sprintf("Failed trying to get CA Certificate Ref Configmap: %s", caCertRefKey), logfields.Error, err)
-			// No point changing conditions, as returning this error will flow up to the reconciler, and status will not be updated.
-			return false, err
-		}
-
-		if _, ok := caCert.Data["ca.crt"]; !ok {
-			b.setRejectedConditions(ancestorRef, "CA Certificate ConfigMap does not contain a `ca.crt` key",
-				string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
-			return false, nil
-		}
-
-		caCertBytes := []byte(caCert.Data["ca.crt"])
 		if !helpers.IsValidPemFormat(caCertBytes) {
-			b.setRejectedConditions(ancestorRef, "CA Certificate ConfigMap does not contain at least one valid PEM-encoded certificate",
+			b.setRejectedConditions(ancestorRef, fmt.Sprintf("CA Certificate %s does not contain at least one valid PEM-encoded certificate", caCertRef.Kind),
 				string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
 			return false, nil
 		}
