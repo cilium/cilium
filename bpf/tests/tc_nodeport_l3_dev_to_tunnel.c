@@ -7,7 +7,7 @@
 
 #define ETH_HLEN 0
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6
+#define ENABLE_IPV6 1
 #define TUNNEL_MODE	1
 #define ENCAP_IFINDEX	42
 #define ENABLE_NODEPORT	1

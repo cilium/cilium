@@ -29,7 +29,7 @@
 #define ENABLE_IPV4 1
 
 /* Overlapping PodCIDR depends on tunnel */
-#define TUNNEL_MODE
+#define TUNNEL_MODE 1
 
 /* Fully enable KPR since kubeproxy doesn't understand cluster aware addressing */
 #define ENABLE_NODEPORT

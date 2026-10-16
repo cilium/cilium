@@ -7,7 +7,7 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6
+#define ENABLE_IPV6 1
 #define ENABLE_NODEPORT
 #define ENABLE_EGRESS_GATEWAY		1
 #define ENABLE_MASQUERADE_IPV4		1

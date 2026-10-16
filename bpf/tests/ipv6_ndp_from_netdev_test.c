@@ -6,7 +6,7 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6
+#define ENABLE_IPV6 1
 
 #include "lib/bpf_host.h"
 
