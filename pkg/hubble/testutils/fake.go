@@ -471,7 +471,7 @@ func (e *FakeEndpointInfo) GetPod() *slim_corev1.Pod {
 	return e.Pod
 }
 
-func (e *FakeEndpointInfo) GetPolicyCorrelationInfoForKey(key policyTypes.Key) (
+func (e *FakeEndpointInfo) GetPolicyCorrelationInfoForKey(key policyTypes.Key, deny bool) (
 	info policyTypes.PolicyCorrelationInfo,
 	ok bool,
 ) {

@@ -24,6 +24,6 @@ func (t clientIngressKnp) build(ct *check.ConnectivityTest, _ map[string]string)
 			if a.Source().HasLabel("other", "client") {
 				return check.ResultOK, check.ResultOK
 			}
-			return check.ResultOK, check.ResultDefaultDenyIngressDrop
+			return check.ResultOK, check.ResultDefaultDenyIngressDropWithPolicy(ct, "client-ingress-from-client2")
 		})
 }
