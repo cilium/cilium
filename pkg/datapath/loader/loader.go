@@ -18,6 +18,7 @@ import (
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/loader/types"
+	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -76,6 +77,7 @@ type Params struct {
 	Devices            statedb.Table[*tables.Device]
 	EPRestorer         promise.Promise[endpointstate.Restorer]
 	BIGTCPConfig       bigtcp.Config
+	HooksStatusWriter  plugin.HooksStatusWriter
 
 	// Force map initialisation before loader.
 	bpf.MapGroup
@@ -87,6 +89,7 @@ func newLoader(p Params) *loader {
 	collLoader := newBPFCollectionLoader(
 		option.Config.EnableDatapathPlugins,
 		bpffsPluginsOperationsDir(bpf.CiliumPath()),
+		p.HooksStatusWriter,
 	)
 	collLoader.runGC(p.Logger, p.JobGroup)
 	return &loader{
