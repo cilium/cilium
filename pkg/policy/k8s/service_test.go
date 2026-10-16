@@ -660,6 +660,75 @@ func TestPolicyWatcher_updateToServicesPoliciesTransformToEndpoint(t *testing.T)
 	}, p.cnpByServiceID)
 }
 
+// TestPolicyWatcher_updateToServicesPoliciesUnresolvedWithToPorts checks that
+// a ToServices rule with ToPorts whose Service doesn't exist selects nothing
+// (nil L3) instead of becoming an L3 wildcard on those ports (empty L3).
+func TestPolicyWatcher_updateToServicesPoliciesUnresolvedWithToPorts(t *testing.T) {
+	policyAdd := make(chan policytypes.PolicyEntries, 1)
+	policyImporter := &fakePolicyImporter{
+		OnUpdatePolicy: func(upd *policytypes.PolicyUpdate) {
+			policyAdd <- upd.Rules
+		},
+	}
+
+	cnp := &types.SlimCNP{
+		CiliumNetworkPolicy: &cilium_v2.CiliumNetworkPolicy{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "cilium.io/v2",
+				Kind:       "CiliumNetworkPolicy",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "svc-by-name-with-ports",
+				Namespace: "test",
+			},
+			Spec: &api.Rule{
+				EndpointSelector: api.NewESFromLabels(),
+				Egress: []api.EgressRule{
+					{
+						EgressCommonRule: api.EgressCommonRule{
+							ToServices: []api.Service{
+								{
+									K8sService: &api.K8sServiceNamespace{
+										ServiceName: "absent-svc",
+										Namespace:   "foo-ns",
+									},
+								},
+							},
+						},
+						ToPorts: api.PortRules{
+							{Ports: []api.PortProtocol{{Port: "80", Protocol: api.ProtoTCP}}},
+						},
+					},
+				},
+			},
+		},
+	}
+	key := resource.NewKey(cnp)
+	resourceID := resourceIDForCiliumNetworkPolicy(key, cnp)
+
+	servicesFixture := newServicesFixture(t)
+	p := &policyWatcher{
+		log:                hivetest.Logger(t),
+		config:             &option.DaemonConfig{},
+		k8sResourceSynced:  &k8sSynced.Resources{CacheStatus: make(k8sSynced.CacheStatus)},
+		k8sAPIGroups:       &k8sSynced.APIGroups{},
+		policyImporter:     policyImporter,
+		db:                 servicesFixture.db,
+		services:           servicesFixture.services,
+		backends:           servicesFixture.backends,
+		cnpCache:           map[resource.Key]*types.SlimCNP{},
+		toServicesPolicies: map[resource.Key]struct{}{},
+		cnpByServiceID:     map[loadbalancer.ServiceName]map[resource.Key]struct{}{},
+		metricsManager:     NewCNPMetricsNoop(),
+	}
+
+	require.NoError(t, p.onUpsert(cnp, key, k8sAPIGroupCiliumNetworkPolicyV2, resourceID, nil))
+	rules := <-policyAdd
+	require.Len(t, rules, 1)
+
+	assert.Nil(t, rules[0].L3)
+}
+
 func Test_hasMatchingToServices(t *testing.T) {
 	type args struct {
 		spec *api.Rule
