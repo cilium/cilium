@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -29,10 +32,10 @@ const (
 
 	// reservedLabelsPattern is the prefix pattern for all reserved labels
 	reservedLabelsPattern = labels.LabelSourceReserved + ":.*"
-	reservedLabelsHost    = labels.LabelSourceReserved + ":" + labels.IDNameHost
-	// reservedLabelsMissing is the error message that is printed when reserved:host is missing from (or excluded by) the label configuration.
+
+	// reservedLabelsMissing is the error message that is printed when reserved:.* is missing from (or excluded by) the label configuration.
 	reservedLabelsMissing = "Reserved labels must not be excluded for Cilium to work properly. " +
-		"Add '" + reservedLabelsPattern + "' or '" + reservedLabelsHost + "' to your label configuration."
+		"Add '" + reservedLabelsPattern + "' to your label configuration."
 )
 
 // LabelPrefix is Cilium's representation of a label prefix.
@@ -172,7 +175,10 @@ func ParseLabelPrefixCfg(logger *slog.Logger, prefixes, nodePrefixes []string, f
 		cfg.LabelPrefixes = append(cfg.LabelPrefixes, p)
 	}
 
-	if identity, _ := cfg.filterLabels(labels.LabelHost); len(identity) == 0 {
+	allReservedIdentities := identity.ListReservedIdentities()
+
+	allReservedLabels := labels.NewFrom(slices.Collect(maps.Values(allReservedIdentities))...)
+	if filteredLabels, _ := cfg.filterLabels(allReservedLabels); len(filteredLabels) != len(allReservedLabels) {
 		logger.Error(reservedLabelsMissing)
 	}
 
