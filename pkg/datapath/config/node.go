@@ -84,6 +84,7 @@ func NodeConfig(lnc *Config) Node {
 	// cilium_ipip{4,6} will no longer match decapped traffic.
 	node.EnableIPIPTermination = option.Config.EnableIPIPTermination
 	node.SRv6Cfg = types.SRv6Config{
+		Enable:         option.Config.EnableSRv6,
 		EnableSRHEncap: option.Config.EnableSRv6 && option.Config.SRv6EncapMode != "reduced",
 	}
 
