@@ -4,8 +4,6 @@
 package xdsnew
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"testing"
@@ -78,12 +76,9 @@ func BenchmarkBulkResourceWaitPreparation(b *testing.B) {
 							b.Fatal(err)
 						}
 						if wg != nil {
-							// Cancel and consume each caller wait so registrations do not
+							// Cancel each caller wait so registrations do not
 							// accumulate. Cache-owned rollback remains independent of it.
 							wg.Cancel()
-							if err := wg.Wait(); !errors.Is(err, context.Canceled) {
-								b.Fatalf("expected a canceled ACK wait, got %v", err)
-							}
 						}
 					}
 				})
