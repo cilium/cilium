@@ -1120,7 +1120,7 @@ func TestResponseGenerationBoundsCompletion(t *testing.T) {
 					latest := Generation(len(waits))
 					sendTypeGenerationResponse(cb, resourceType.typeURL, latest, tc.versions[latest-1])
 					ackTypeVersionResponse(t, cb, resourceType.typeURL, tc.versions[latest-1])
-					for _, wg := range waits {
+					for _, wg := range waits[tc.response:] {
 						require.NoError(t, wg.Wait())
 					}
 					require.Zero(t, cb.PendingCompletionCount())
