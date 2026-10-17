@@ -261,6 +261,20 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
+	if len(deviceCfgs) == 0 {
+		// if our plugin receives a claim without any device configs,
+		// it indicates an unexpected input scenario.
+		driver.logger.ErrorContext(
+			ctx, "no device configs found in the ResourceClaim",
+			logfields.UID, claim.UID,
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+		)
+		return kubeletplugin.PrepareResult{
+			Err: fmt.Errorf("no device configs found in %s ResourceClaim", path.Join(claim.Namespace, claim.Name)),
+		}
+	}
+
 	if err := validateDeviceConfigs(claim, deviceCfgs); err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
 	}

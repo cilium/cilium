@@ -508,14 +508,15 @@ func TestPrepareResourceClaim(t *testing.T) {
 		podUID := kubetypes.UID("existing-pod-uid")
 		claimUID := kubetypes.UID("existing-claim-uid")
 
+		const deviceName = "existing-device"
 		driver := buildPrepDriver(t, cs)
 		// Pre-populate statedb to simulate an already-prepared claim.
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		driver.allocationTable.Insert(wtxn, &DRAAllocation{
-			DeviceName:     "existing-device",
+			DeviceName:     deviceName,
 			LogicalPool:    prepTestPool,
 			Manager:        types.DeviceManagerTypeMock,
-			PreparedDevice: &trackedDevice{name: "existing-device"},
+			PreparedDevice: &trackedDevice{name: deviceName},
 			PodUID:         podUID,
 			ClaimUID:       claimUID,
 		})
@@ -527,7 +528,30 @@ func TestPrepareResourceClaim(t *testing.T) {
 				ReservedFor: []resourceapi.ResourceClaimConsumerReference{
 					{Resource: "pods", UID: podUID},
 				},
-				Allocation: &resourceapi.AllocationResult{},
+				// we set a status for the already allocated device
+				// to simulate an existing allocation. Otherwise we
+				// will end up calling a k8s update.
+				Devices: []resourceapi.AllocatedDeviceStatus{
+					{
+						Driver: driver.config.DriverName,
+						Pool:   prepTestPool,
+						Device: deviceName,
+					},
+				},
+				Allocation: &resourceapi.AllocationResult{
+					Devices: resourceapi.DeviceAllocationResult{
+						// We should have at least one request for our driver in the claim
+						// if we want to test idempotency correctly.
+						Results: []resourceapi.DeviceRequestAllocationResult{
+							{
+								Request: prepTestRequest,
+								Driver:  driver.config.DriverName,
+								Pool:    prepTestPool,
+								Device:  deviceName,
+							},
+						},
+					},
+				},
 			},
 		}
 		res := driver.prepareResourceClaim(t.Context(), claim)
