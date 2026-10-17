@@ -84,18 +84,16 @@ func TestNoOpWaitWithoutPublishedBaseline(t *testing.T) {
 					t.Cleanup(cancel)
 					wg := completion.NewWaitGroup(ctx)
 					t.Cleanup(wg.Cancel)
-					done := make(chan error, 1)
-					callback := func(err error) { done <- err }
 					if bulk {
-						var waits TypeURLCallbacks
-						waits.Set(typeurl.Listener, callback)
+						var waits typeurl.Set
+						waits.Insert(typeurl.Listener)
 						require.NoError(t, c.ApplyResources(ctx, "coverage-node", ResourceMutations{Removed: xds.Resources{
 							Listeners: map[string]*listener.Listener{"absent": nil},
 						}}, wg, waits))
 					} else {
-						require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "absent", nil, wg, callback))
+						require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "absent", nil, wg, nil))
 					}
-					requireCoveragePending(t, done)
+					require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
 					_, err := c.GetSnapshot("coverage-node")
 					require.Error(t, err, "a no-op must not force publication")
 					s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
@@ -104,12 +102,9 @@ func TestNoOpWaitWithoutPublishedBaseline(t *testing.T) {
 					s.reply(t, response, rejection)
 					if rejection == "" {
 						require.NoError(t, wg.Wait())
-						require.NoError(t, <-done)
 					} else {
 						require.ErrorContains(t, wg.Wait(), rejection)
-						require.ErrorContains(t, <-done, rejection)
 					}
-					require.Empty(t, done)
 					current := c.GetResource("coverage-node", typeurl.NetworkPolicy, "policy")
 					require.NotNil(t, current)
 					require.Same(t, policy, current, "an empty LDS outcome must not revert the unrelated policy")
@@ -274,7 +269,7 @@ func TestIncrementalCLAProjection(t *testing.T) {
 				explicit = &endpoint.ClusterLoadAssignment{ClusterName: "shared", Endpoints: []*endpoint.LocalityLbEndpoints{{}}}
 				initial.Endpoints = map[string]*endpoint.ClusterLoadAssignment{"shared": explicit}
 			}
-			require.NoError(t, c.ApplyResources(t.Context(), "node1", ResourceMutations{Upserted: initial}, nil, TypeURLCallbacks{}))
+			require.NoError(t, c.ApplyResources(t.Context(), "node1", ResourceMutations{Upserted: initial}, nil, typeurl.Set{}))
 			before := requestSnapshotForTest(t, c, "node1", typeurl.Cluster)
 			oldAssignment := before.GetResources(typeurl.Endpoint.URL())["shared"]
 			var mutation ResourceMutations
@@ -292,7 +287,7 @@ func TestIncrementalCLAProjection(t *testing.T) {
 			case "remove-explicit":
 				mutation.Removed.Endpoints = initial.Endpoints
 			}
-			require.NoError(t, c.ApplyResources(t.Context(), "node1", mutation, nil, TypeURLCallbacks{}))
+			require.NoError(t, c.ApplyResources(t.Context(), "node1", mutation, nil, typeurl.Set{}))
 			index := typeurl.Cluster
 			if explicit != nil {
 				index = typeurl.Endpoint
@@ -344,7 +339,7 @@ func TestPendingCLARemovalNACKRestoresExplicitAssignment(t *testing.T) {
 	require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", ResourceMutations{Upserted: xds.Resources{
 		Clusters:  map[string]*cluster.Cluster{"cluster": testEDSCluster("cluster", "shared")},
 		Endpoints: map[string]*endpoint.ClusterLoadAssignment{"shared": original},
-	}}, nil, TypeURLCallbacks{}))
+	}}, nil, typeurl.Set{}))
 	cds := coverageStream{cache: c, id: 1, typeURL: typeurl.Cluster.URL()}
 	cds.reply(t, cds.receive(t), "")
 	eds := coverageStream{cache: c, id: 2, typeURL: typeurl.Endpoint.URL()}

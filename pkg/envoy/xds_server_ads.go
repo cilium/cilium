@@ -660,13 +660,15 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	defer s.mutex.Unlock()
 
 	listenersToRecreate := adsListenersRequiringRecreate(oldResources.Listeners, newResources.Listeners)
-	var waitTypeURLs xdsnew.TypeURLCallbacks
+	var waitTypeURLs typeurl.Set
+	if len(oldResources.Listeners) > 0 || len(newResources.Listeners) > 0 {
+		waitTypeURLs.Insert(typeurl.Listener)
+	}
 	if waitGroup != nil && len(newResources.Listeners) > 0 {
 		// CEC waits for newly allocated listener ports and their supplied
 		// clusters. Other named types may have no subscriber to ACK them.
-		waitTypeURLs.Set(typeurl.Listener, nil)
 		if len(oldResources.Clusters) > 0 || len(newResources.Clusters) > 0 {
-			waitTypeURLs.Set(typeurl.Cluster, nil)
+			waitTypeURLs.Insert(typeurl.Cluster)
 		}
 	}
 	if len(listenersToRecreate) == 0 || s.restorerPromise != nil {
@@ -684,8 +686,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	s.logger.Debug("UpdateEnvoyResources: deleting listeners before address change",
 		logfields.ResourcesDeleted, len(listenersToRecreate))
 	deleteWG := completion.NewWaitGroup(ctx)
-	var listenerWait xdsnew.TypeURLCallbacks
-	listenerWait.Set(typeurl.Listener, nil)
+	listenerWait := typeurl.NewSet(typeurl.Listener)
 	deleteRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, stagedMutations, deleteWG, listenerWait)
 	if err != nil {
 		// Failed admission does not reach the ACK wait. Release the owned
@@ -701,7 +702,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	// Always wait for the replacement LDS ACK, even when the caller did not
 	// supply a wait group. This keeps the two snapshots transactional and lets us
 	// restore the last working listener if Envoy rejects the replacement.
-	waitTypeURLs.Set(typeurl.Listener, nil)
+	waitTypeURLs.Insert(typeurl.Listener)
 	replaceMutations := xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}
 	for attempt := 1; ; attempt++ {
 		replaceWG := completion.NewWaitGroup(ctx)
@@ -756,8 +757,11 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		logfields.ResourceSecrets, len(resources.Secrets),
 	)
 
-	err := s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, xdsnew.TypeURLCallbacks{})
-	return err
+	var waitTypeURLs typeurl.Set
+	if len(resources.Listeners) > 0 {
+		waitTypeURLs.Insert(typeurl.Listener)
+	}
+	return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, waitTypeURLs)
 }
 
 func (s *adsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts GetEgressNamedPorts, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,

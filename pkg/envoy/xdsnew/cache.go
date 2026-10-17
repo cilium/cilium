@@ -42,12 +42,13 @@ type Cache interface {
 
 	// ApplyResources commits semantic changes and retains cache-owned NACK
 	// rollback. Completions for unchanged resource types attach to their current
-	// version instead of creating a completion-only generation.
-	ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) error
+	// version instead of creating a completion-only generation. waitTypeURLs
+	// explicitly selects the types to wait for; an empty set selects no waits.
+	ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) error
 	// ApplyResourcesWithRollback also returns a caller-owned rollback lifecycle
 	// for a changed update. The caller must eventually Finalize or Revert it;
 	// either call is terminal even if Revert returns an error.
-	ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) (Rollback, error)
+	ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) (Rollback, error)
 	// ApplyResource compares only the named resource and builds a sparse mutation
 	// only after detecting an actual semantic change. It accepts every supported
 	// typeURL. A nil resource removes the named resource; typeURL identifies its
@@ -67,17 +68,6 @@ type Cache interface {
 }
 
 type Rollback = callbacks.Rollback
-
-// TypeURLCallbacks stores optional completion callbacks for supported resource
-// types without allocating a string-keyed map.
-type TypeURLCallbacks = typeurl.Map[func(error)]
-
-// NewTypeURLCallbacks returns an explicitly initialized empty callback set.
-// This differs from the zero value, which asks ApplyResources to infer the
-// default Listener ACK wait when a listener is mutated.
-func NewTypeURLCallbacks() TypeURLCallbacks {
-	return typeurl.NewMap[func(error)]()
-}
 
 // ListenerChange describes one committed listener transition. Previous is nil
 // for an insertion and Current is nil for a removal. Resources are immutable
@@ -516,8 +506,7 @@ type resourceTransaction struct {
 	immediateCompletions  []immediateCompletion
 	listenerChanges       []ListenerChange
 	updateErr             error
-	acceptedCallback      func(error)   // single callback common case
-	acceptedCallbacks     []func(error) // additional callbacks
+	acceptedCallback      func(error)
 }
 
 // beginResourceTransaction acquires the cache lock for a known node. Pair it
@@ -539,18 +528,14 @@ func (c *cacheImpl) nextResourceGenerationLocked() callbacks.Generation {
 	return c.resourceGeneration
 }
 
-// addAcceptedCallback defers an already-satisfied callback until after the
-// cache mutex is released. No Completion needs to be added to wg because there
-// is no asynchronous work for it to wait on.
+// addAcceptedCallback defers the single-resource API's already-satisfied
+// callback until after the cache mutex is released. No Completion needs to be
+// added to wg because there is no asynchronous work for it to wait on.
 func (tx *resourceTransaction) addAcceptedCallback(wg *completion.WaitGroup, callback func(error)) {
 	if wg == nil || callback == nil {
 		return
 	}
-	if tx.acceptedCallback == nil {
-		tx.acceptedCallback = callback
-		return
-	}
-	tx.acceptedCallbacks = append(tx.acceptedCallbacks, callback)
+	tx.acceptedCallback = callback
 }
 
 func (tx *resourceTransaction) complete() {
@@ -588,9 +573,6 @@ func (tx *resourceTransaction) complete() {
 	noListenerWaiters.Complete(nil)
 	if tx.acceptedCallback != nil {
 		tx.acceptedCallback(nil)
-		for _, callback := range tx.acceptedCallbacks {
-			callback(nil)
-		}
 	}
 }
 
@@ -741,16 +723,16 @@ func committedListenerChanges(changes resourceChanges) []ListenerChange {
 // resource names and transaction-fenced reverts. Changed transactions accumulate
 // unpublished changes and construct a snapshot when an affected watch can
 // consume it; published maps remain immutable.
-func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) error {
-	_, err := c.applyResources(ctx, nodeID, mutations, wg, updatedTypeURLs, responseRollbackTracking)
+func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) error {
+	_, err := c.applyResources(ctx, nodeID, mutations, wg, waitTypeURLs, responseRollbackTracking)
 	return err
 }
 
-func (c *cacheImpl) ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) (Rollback, error) {
-	return c.applyResources(ctx, nodeID, mutations, wg, updatedTypeURLs, callerAndResponseRollbackTracking)
+func (c *cacheImpl) ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) (Rollback, error) {
+	return c.applyResources(ctx, nodeID, mutations, wg, waitTypeURLs, callerAndResponseRollbackTracking)
 }
 
-func (c *cacheImpl) applyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, tracking rollbackTracking) (Rollback, error) {
+func (c *cacheImpl) applyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set, tracking rollbackTracking) (Rollback, error) {
 	if err := validateResourceMutations(mutations); err != nil {
 		return nil, err
 	}
@@ -759,7 +741,7 @@ func (c *cacheImpl) applyResources(ctx context.Context, nodeID string, mutations
 		return nil, fmt.Errorf("unknown xDS node %q", nodeID)
 	}
 	tx := c.beginResourceTransaction(ctx, state)
-	rollback, err := tx.applyResourcesLocked(mutations, wg, updatedTypeURLs, tracking)
+	rollback, err := tx.applyResourcesLocked(mutations, wg, waitTypeURLs, tracking)
 	if err != nil {
 		tx.updateErr = err
 	}
@@ -879,36 +861,23 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 
 // applyResourcesLocked allocates generations and constructs transaction-fenced
 // reverts inside the cache. Caller must hold mutex.
-func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, tracking rollbackTracking) (Rollback, error) {
+func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set, tracking rollbackTracking) (Rollback, error) {
 	c := tx.cache
-	if !updatedTypeURLs.Known() && (len(mutations.Removed.Listeners) > 0 || len(mutations.Upserted.Listeners) > 0) {
-		// Listener mutations are always ACK-tracked by the legacy server because
-		// callers may immediately depend on the listener being usable. Infer that
-		// contract from mutation intent, including semantic no-ops, so callers
-		// cannot accidentally omit the AwaitCurrentVersion path.
-		updatedTypeURLs.Set(typeurl.Listener, nil)
-	}
-
 	state := tx.state
 	changes, changedTypeURLs, inverse := state.prepareResourceMutation(mutations, c.resourceGeneration+1)
 	if state.resourceGeneration == 0 && changedTypeURLs.Empty() {
-		for _, callback := range updatedTypeURLs.All() {
-			tx.addAcceptedCallback(wg, callback)
-		}
 		return nil, nil
 	}
 	var unchangedWaits typeURLWaits
 	if changedTypeURLs.Empty() {
-		if wg == nil || updatedTypeURLs.Empty() {
+		if wg == nil || waitTypeURLs.Empty() {
 			return nil, nil
 		}
-		for typeURL, callback := range updatedTypeURLs.All() {
+		for typeURL := range waitTypeURLs.Members() {
 			wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
 			if accepted {
-				tx.addAcceptedCallback(wg, callback)
 				continue
 			}
-			wait.callback = callback
 			unchangedWaits.Set(typeURL, wait)
 		}
 		tx.awaitCurrentVersionLocked(wg, unchangedWaits)
@@ -922,13 +891,11 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 		dirtyTypeURLs := snapshotTypesChangedBy(changedTypeURLs)
 		// Acceptance and named scopes serve caller waits only. Response-owned
 		// NACK rollback is prepared independently below, even without a WaitGroup.
-		for typeURL, callback := range updatedTypeURLs.All() {
+		for typeURL := range waitTypeURLs.Members() {
 			wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
 			if accepted {
-				tx.addAcceptedCallback(wg, callback)
 				continue
 			}
-			wait.callback = callback
 			if dirtyTypeURLs.Has(typeURL) {
 				wait.generation = tx.generation
 				changedWaits.Set(typeURL, wait)

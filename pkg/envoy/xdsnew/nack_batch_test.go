@@ -53,19 +53,13 @@ func TestNACKClaimsWaitRegisteredBeforeCacheLock(t *testing.T) {
 			// late no-op wait must be included in the same NACK's selection.
 			wg := completion.NewWaitGroup(ctx)
 			t.Cleanup(wg.Cancel)
-			done := make(chan error, 1)
-			callback := func(err error) {
-				c.GetResource("coverage-node", typeurl.Secret, "secret")
-				done <- err
-			}
 			if bulk {
-				var callbacks TypeURLCallbacks
-				callbacks.Set(typeurl.Secret, callback)
+				waitTypeURLs := typeurl.NewSet(typeurl.Secret)
 				require.NoError(t, c.ApplyResources(ctx, "coverage-node", ResourceMutations{Upserted: xds.Resources{
 					Secrets: map[string]*secret.Secret{"secret": a},
-				}}, wg, callbacks))
+				}}, wg, waitTypeURLs))
 			} else {
-				require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", a, wg, callback))
+				require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", a, wg, nil))
 			}
 			gate.unblock()
 			select {
@@ -76,7 +70,6 @@ func TestNACKClaimsWaitRegisteredBeforeCacheLock(t *testing.T) {
 			}
 			s.reply(t, s.receive(t, "secret"), "", "secret")
 			require.ErrorContains(t, wg.Wait(), "invalid secret")
-			require.ErrorContains(t, <-done, "invalid secret")
 		})
 	}
 
@@ -140,7 +133,7 @@ func TestNACKBatchPublishesOnlyFinalState(t *testing.T) {
 						"sibling": {Name: "sibling", AltStatName: value.GetGenericSecret().GetSecret().GetInlineString()},
 					}
 				}
-				require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", mutations, nil, TypeURLCallbacks{}))
+				require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", mutations, nil, typeurl.Set{}))
 			}
 			if shape == "absence" {
 				baseline = nil

@@ -383,7 +383,7 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 		resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
 		resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster"}
 		require.NoError(t, c.ApplyResources(t.Context(), nodeID,
-			ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{}))
+			ResourceMutations{Upserted: resources}, nil, typeurl.Set{}))
 		var deliveredTypes []string
 		for range 2 {
 			response := <-responses

@@ -53,12 +53,6 @@ type Map[T any] struct {
 	present Set
 }
 
-// NewMap returns an initialized empty fixed resource-type map. This preserves
-// APIs which distinguish an omitted map from an explicitly empty one.
-func NewMap[T any]() Map[T] {
-	return Map[T]{present: NewSet()}
-}
-
 var urls = [...]string{
 	Endpoint:           envoy_resource.EndpointType,
 	Cluster:            envoy_resource.ClusterType,
@@ -220,11 +214,6 @@ func (values Map[T]) Get(index Index) (T, bool) {
 // Has reports whether index has a stored value.
 func (values Map[T]) Has(index Index) bool {
 	return values.present.Has(index)
-}
-
-// Known reports whether the map was initialized or has ever contained a key.
-func (values Map[T]) Known() bool {
-	return values.present.Known()
 }
 
 // Remove removes the value stored for index.
