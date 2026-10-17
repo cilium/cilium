@@ -59,7 +59,7 @@ lb6_udp_clusterip = (
 lb6_udp_clusterip_icmp_unreach = (
     Ether(src=mac_two, dst=mac_one) /
     IPv6(src=v6_svc_one, dst=v6_ext_node_one) /
-    ICMPv6DestUnreach(code=4, cksum=58197) /
+    ICMPv6DestUnreach(code=4) /
     IPerror6(bytes(lb6_udp_clusterip[IPv6]))
 )
 
@@ -266,6 +266,6 @@ lb6_ew_udp_nodeport = (
 lb6_ew_udp_nodeport_icmp_unreach = (
     Ether(src=mac_two, dst=mac_one) /
     IPv6(src=v6_svc_one, dst=v6_pod_one) /
-    ICMPv6DestUnreach(code=4, cksum=1618) /
+    ICMPv6DestUnreach(code=4) /
     IPerror6(bytes(lb6_ew_udp_nodeport[IPv6]))
 )
