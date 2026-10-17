@@ -308,10 +308,6 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
 
-	// Startup relies on not returning an error here, maybe something we
-	// can fix in the future.
-	_ = l.templateCache.UpdateDatapathHash(lnc)
-
 	var internalIPv4, internalIPv6 net.IP
 	if option.Config.EnableIPv4 {
 		internalIPv4 = net.IP(lnc.CiliumInternalIPv4.AsSlice())
@@ -370,6 +366,11 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	if err := l.writeNodeConfigHeader(lnc); err != nil {
 		l.logger.Error("Unable to write node config header", logfields.Error, err)
 		return err
+	}
+
+	// Record the hash only once node_config.h, which carries the tunnel ifindex, is on disk.
+	if err := l.templateCache.UpdateDatapathHash(ctx, lnc); err != nil {
+		l.logger.Warn("Unable to hash the datapath configuration", logfields.Error, err)
 	}
 
 	if err := l.writeNetdevHeader("./"); err != nil {
