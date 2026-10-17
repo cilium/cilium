@@ -4,6 +4,8 @@
 package labelsfilter
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -250,4 +252,169 @@ func TestFilterLabelsByRegex(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func writeLabelPrefixCfg(t *testing.T, content string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "labels.json")
+	require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+	return path
+}
+
+func TestReadLabelPrefixCfgFromVersion1(t *testing.T) {
+	path := writeLabelPrefixCfg(
+		t, `{
+		"version": 1,
+		"valid-prefixes": [
+			{"source": "reserved", "prefix": ".*"},
+			{"source": "k8s", "prefix": "id."}
+		]
+	}`,
+	)
+
+	cfg, err := readLabelPrefixCfgFrom(path)
+	require.NoError(t, err)
+	require.Equal(t, LPCfgFileVersion, cfg.Version)
+	require.Len(t, cfg.LabelPrefixes, 2)
+	// No regular expression is compiled for version 1, so matching falls back
+	// to literal prefix matching.
+	for _, lp := range cfg.LabelPrefixes {
+		require.Nil(t, lp.expr)
+	}
+	// An inclusive (non-ignore) prefix flips the whitelist flag.
+	require.True(t, cfg.whitelist)
+}
+
+func TestReadLabelPrefixCfgFromVersion1SkipsRegexCompile(t *testing.T) {
+	path := writeLabelPrefixCfg(
+		t, `{
+		"version": 1,
+		"valid-prefixes": [
+			{"source": "k8s", "prefix": "id.[("}
+		]
+	}`,
+	)
+
+	cfg, err := readLabelPrefixCfgFrom(path)
+	// Shouldn't error as not attempting to parse the invalid regex
+	require.NoError(t, err)
+	require.Nil(t, cfg.LabelPrefixes[0].expr)
+}
+
+func TestReadLabelPrefixCfgFromVersion2(t *testing.T) {
+	path := writeLabelPrefixCfg(
+		t, `{
+		"version": 2,
+		"valid-prefixes": [
+			{"source": "reserved", "prefix": ".*"},
+			{"source": "k8s", "prefix": "id\\..*"},
+			{"source": "k8s", "prefix": "ignore\\..*", "invert": true}
+		]
+	}`,
+	)
+
+	cfg, err := readLabelPrefixCfgFrom(path)
+	require.NoError(t, err)
+	require.Equal(t, LPCfgFileVersionRegex, cfg.Version)
+	require.Len(t, cfg.LabelPrefixes, 3)
+	// A regular expression is compiled for every prefix in version 2.
+	for _, lp := range cfg.LabelPrefixes {
+		require.NotNil(t, lp.expr)
+	}
+	require.True(t, cfg.whitelist)
+}
+
+func TestReadLabelPrefixCfgFromUnsupportedVersion(t *testing.T) {
+	path := writeLabelPrefixCfg(
+		t, `{
+		"version": 3,
+		"valid-prefixes": [
+			{"source": "k8s", "prefix": "id."}
+		]
+	}`,
+	)
+
+	_, err := readLabelPrefixCfgFrom(path)
+	require.ErrorContains(t, err, "unsupported version 3")
+}
+
+func TestReadLabelPrefixCfgFromVersion2InvalidRegex(t *testing.T) {
+	path := writeLabelPrefixCfg(
+		t, `{
+		"version": 2,
+		"valid-prefixes": [
+			{"source": "k8s", "prefix": "id.[("}
+		]
+	}`,
+	)
+
+	_, err := readLabelPrefixCfgFrom(path)
+	require.ErrorContains(t, err, "unable to compile regexp")
+}
+
+func TestFilterLabelsFromRegexConfigFile(t *testing.T) {
+	logger := hivetest.Logger(t)
+	path := writeLabelPrefixCfg(
+		t, `{
+		"version": 2,
+		"valid-prefixes": [
+			{"source": "reserved", "prefix": ".*"},
+			{"source": "k8s", "prefix": "id\\.[a-z]+$"}
+		]
+	}`,
+	)
+
+	err := ParseLabelPrefixCfg(logger, nil, nil, path)
+	require.NoError(t, err)
+
+	allLabels := labels.Labels{
+		"id.lizards":     labels.NewLabel("id.lizards", "web", labels.LabelSourceK8s),
+		"id.lizards.k8s": labels.NewLabel("id.lizards.k8s", "web", labels.LabelSourceK8s),
+		"other":          labels.NewLabel("other", "foo", labels.LabelSourceK8s),
+		"host":           labels.NewLabel("host", "", labels.LabelSourceReserved),
+	}
+
+	filtered, info := validLabelPrefixes.filterLabels(allLabels)
+
+	// id.lizards matches the anchored regexp and host matches the reserved
+	// wildcard, so both become identity labels.
+	require.Contains(t, filtered, "id.lizards")
+	require.Contains(t, filtered, "host")
+	// id.lizards.k8s does not match the "$" anchored regexp, and "other" does
+	// not match any inclusive prefix, so both are treated as information only.
+	require.NotContains(t, filtered, "id.lizards.k8s")
+	require.NotContains(t, filtered, "other")
+	require.Contains(t, info, "id.lizards.k8s")
+	require.Contains(t, info, "other")
+}
+
+func TestFilterLabelsFromLiteralConfigFile(t *testing.T) {
+	logger := hivetest.Logger(t)
+	path := writeLabelPrefixCfg(
+		t, `{
+		"version": 1,
+		"valid-prefixes": [
+			{"source": "reserved", "prefix": ".*"},
+			{"source": "k8s", "prefix": "id\\.[a-z]+$"}
+		]
+	}`,
+	)
+
+	err := ParseLabelPrefixCfg(logger, nil, nil, path)
+	require.NoError(t, err)
+
+	allLabels := labels.Labels{
+		"id.lizards": labels.NewLabel("id.lizards", "web", labels.LabelSourceK8s),
+		"host":       labels.NewLabel("host", "", labels.LabelSourceReserved),
+	}
+
+	filtered, info := validLabelPrefixes.filterLabels(allLabels)
+
+	// With version 1 the prefixes are matched literally, so neither the
+	// regexp-looking prefix "id\.[a-z]+$" nor the literal ".*" prefix match any
+	// of the labels; every label is treated as information only.
+	require.NotContains(t, filtered, "id.lizards")
+	require.NotContains(t, filtered, "host")
+	require.Contains(t, info, "id.lizards")
+	require.Contains(t, info, "host")
 }
