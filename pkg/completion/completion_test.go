@@ -33,40 +33,31 @@ func (o *testOwner) CleanupAfterWait(c *Completion) {
 	}
 }
 
-func TestNoCompletion(t *testing.T) {
-	var err error
-
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
-	defer cancel()
-
-	wg := NewWaitGroup(ctx)
-
-	// Ensure context is not cancelled
-	require.NoError(t, wg.Context().Err())
-
-	// Wait should return immediately, since there are no completions.
-	err = wg.Wait()
-	require.NoError(t, err)
-
-	// Ensure context was cancelled by Wait
-	require.ErrorIs(t, wg.Context().Err(), context.Canceled)
-}
-
 func TestCompletionBeforeWait(t *testing.T) {
-	var err error
+	tests := []struct {
+		name  string
+		empty bool
+	}{
+		{name: "empty", empty: true},
+		{name: "completed"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			defer cancel()
+			wg := NewWaitGroup(ctx)
 
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
-	defer cancel()
-
-	wg := NewWaitGroup(ctx)
-
-	comp := wg.AddCompletionWithCallback(nil, nil)
-
-	comp.Complete(nil)
-
-	// Wait should return immediately, since the only completion is already completed.
-	err = wg.Wait()
-	require.NoError(t, err)
+			if tt.empty {
+				require.NoError(t, wg.Context().Err())
+			} else {
+				wg.AddCompletionWithCallback(nil, nil).Complete(nil)
+			}
+			require.NoError(t, wg.Wait())
+			if tt.empty {
+				require.ErrorIs(t, wg.Context().Err(), context.Canceled)
+			}
+		})
+	}
 }
 
 func TestCompletionAfterWait(t *testing.T) {
@@ -167,30 +158,40 @@ func TestCompletionTimeout(t *testing.T) {
 	comp.Complete(nil)
 }
 
-func TestCompletionWaitCleanupOnTimeout(t *testing.T) {
-	var cleaned int
-
-	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
-	defer cancel()
-
-	wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
-	defer cancel()
-	wg := NewWaitGroup(wgCtx)
-
-	var comp *Completion
-	owner := &testOwner{
-		id: "cleanup-owner",
-		cleanup: func(got *Completion) {
-			require.Same(t, comp, got)
-			cleaned++
-		},
+func TestCompletionWaitCleanup(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+	}{
+		{name: "timeout", err: context.DeadlineExceeded},
 	}
-	comp = wg.AddCompletionWithCallback(owner, nil)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var cleaned int
 
-	err := wg.Wait()
-	require.Error(t, err)
-	require.ErrorIs(t, err, context.DeadlineExceeded)
-	require.Equal(t, 1, cleaned)
+			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
+			defer cancel()
+
+			wgCtx, cancel := context.WithTimeout(ctx, WaitGroupTimeout)
+			defer cancel()
+			wg := NewWaitGroup(wgCtx)
+
+			var comp *Completion
+			owner := &testOwner{
+				id: "cleanup-owner",
+				cleanup: func(got *Completion) {
+					require.Same(t, comp, got)
+					cleaned++
+				},
+			}
+			comp = wg.AddCompletionWithCallback(owner, nil)
+
+			err := wg.Wait()
+			require.Error(t, err)
+			require.ErrorIs(t, err, tt.err)
+			require.Equal(t, 1, cleaned)
+		})
+	}
 }
 
 func TestCompletionWaitCleanupNotCalledOnNormalCompletion(t *testing.T) {
