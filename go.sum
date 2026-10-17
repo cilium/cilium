@@ -137,8 +137,8 @@ github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c h1
 github.com/cilium/endpointslice-controller v0.0.0-20250410163339-ffb33e27879c/go.mod h1:izWO5C3waDVkh/nt++nNyozXyJAPL6tfFpJSMtzVnwQ=
 github.com/cilium/fake v0.7.0 h1:4EKBtTweQrJoD4q45qDGu8udulmYMo48Y0BhEbrB1jc=
 github.com/cilium/fake v0.7.0/go.mod h1:hA1YsEjgIs5Gdeq/DVrDWGuhLCoVok7THTvQaGDO5bc=
-github.com/cilium/hive v1.0.6 h1:Uly6mUnslt/LvYYiuG35L6sJGrOdYOZhm/qECjzysTw=
-github.com/cilium/hive v1.0.6/go.mod h1:NY1wD3TQ4sya7zkhkB4QX6eIZ4FjwZPG+lnUB2IH5Xs=
+github.com/cilium/hive v1.0.7-0.20260929145343-aa9e34c997b3 h1:8go9N4+SCceUXeJOmpJDER73sWwbkuvGoDJ37NTxMoM=
+github.com/cilium/hive v1.0.7-0.20260929145343-aa9e34c997b3/go.mod h1:d3L5dxDpjNwZIbsij/B2TgXCFQH4IG2gXkhd4VfvKnI=
 github.com/cilium/linters v0.5.0 h1:1W26l5OWAfMZzWOdV4Q+Rb1ZlzcctMFCp7kmvmFbc0s=
 github.com/cilium/linters v0.5.0/go.mod h1:97bbbgIqSXoa20fFxpeL9/DLRUeGhkPbuoE3x2ln8NI=
 github.com/cilium/lumberjack/v2 v2.4.2 h1:Wea2z1+ikRhjS5z36I6vgeMlgh7xzvIzqW+t9tTvpkQ=
@@ -543,8 +543,6 @@ github.com/mitchellh/copystructure v1.2.0 h1:vpKXTN4ewci03Vljg/q9QvCGUDttBOGBIa1
 github.com/mitchellh/copystructure v1.2.0/go.mod h1:qLl+cE2AmVv+CoeAwDPye/v+N2HKCj9FbZEVFJRxO9s=
 github.com/mitchellh/go-wordwrap v1.0.1 h1:TLuKupo69TCn6TQSyGxwI1EblZZEsQ0vMlAFQflz0v0=
 github.com/mitchellh/go-wordwrap v1.0.1/go.mod h1:R62XHJLzvMFRBbcrT7m7WgmE1eOyTSsCt+hzestvNj0=
-github.com/mitchellh/mapstructure v1.5.0 h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=
-github.com/mitchellh/mapstructure v1.5.0/go.mod h1:bFUtVrKA4DC2yAKiSyO/QUcy7e+RRV2QTWOzhPopBRo=
 github.com/mitchellh/reflectwalk v1.0.2 h1:G2LzWKi524PWgd3mLHV8Y5k7s6XUvT0Gef6zxSIeXaQ=
 github.com/mitchellh/reflectwalk v1.0.2/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
 github.com/moby/spdystream v0.5.1 h1:9sNYeYZUcci9R6/w7KDaFWEWeV4LStVG78Mpyq/Zm/Y=
