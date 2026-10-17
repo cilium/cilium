@@ -190,7 +190,7 @@ func TestCanceledWatchResponseReleasesRelay(t *testing.T) {
 				Listeners: map[string]*envoy_config_listener.Listener{"listener": {Name: "listener"}},
 				Clusters:  map[string]*envoy_config_cluster.Cluster{"cluster": {Name: "cluster"}},
 			}
-			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{}))
+			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: resources}, nil, typeurl.Set{}))
 			responses := make(chan cache.Response, 2)
 			var cancels []func()
 			for _, typeURL := range []typeurl.Index{typeurl.Listener, typeurl.Cluster} {
@@ -229,7 +229,7 @@ func TestCanceledWatchResponseReleasesRelay(t *testing.T) {
 			// watch. Queue it after CDS, which retires the last tracked watch.
 			resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener", TrafficDirection: envoy_config_core.TrafficDirection_OUTBOUND}
 			resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster", AltStatName: "new"}
-			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{}))
+			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: resources}, nil, typeurl.Set{}))
 			release()
 			<-canceled
 			cancels[1]()
@@ -339,7 +339,7 @@ func TestSotWWatchCancellationSynchronizesResponseDelivery(t *testing.T) {
 			published := make(chan error, 1)
 			finished := make(chan struct{})
 			go func() {
-				published <- c.ApplyResources(t.Context(), nodeID, mutations, nil, TypeURLCallbacks{})
+				published <- c.ApplyResources(t.Context(), nodeID, mutations, nil, typeurl.Set{})
 				close(finished)
 			}()
 			t.Cleanup(func() {
@@ -681,7 +681,7 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 		resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
 		resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster"}
 		require.NoError(t, c.ApplyResources(t.Context(), nodeID,
-			ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{}))
+			ResourceMutations{Upserted: resources}, nil, typeurl.Set{}))
 		var deliveredTypes []string
 		for range 2 {
 			response := <-responses

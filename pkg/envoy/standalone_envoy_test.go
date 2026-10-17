@@ -1848,10 +1848,9 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	// UpsertEnvoyResources intentionally does not wait for endpoint ACKs. This
 	// regression test needs to observe the EDS ACK for the bootstrap locality cluster.
-	var callbacks xdsnew.TypeURLCallbacks
-	callbacks.Set(typeurl.Endpoint, nil)
+	waitTypeURLs := typeurl.NewSet(typeurl.Endpoint)
 	xdsServer.mutex.Lock()
-	err = xdsServer.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, s.waitGroup, callbacks)
+	err = xdsServer.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, s.waitGroup, waitTypeURLs)
 	xdsServer.mutex.Unlock()
 	require.NoError(t, err)
 
