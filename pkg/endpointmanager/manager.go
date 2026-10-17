@@ -183,14 +183,9 @@ func (mgr *endpointManager) WithPeriodicEndpointRegeneration(ctx context.Context
 
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 func (mgr *endpointManager) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
-	err := proxyWaitGroup.Context().Err()
-	if err != nil {
-		return fmt.Errorf("context cancelled before waiting for proxy updates: %w", err)
-	}
-
 	start := time.Now()
 	mgr.logger.Debug("Waiting for proxy updates to complete...")
-	err = proxyWaitGroup.Wait()
+	err := proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy updates failed: %w", err)
 	}

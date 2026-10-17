@@ -5,6 +5,8 @@ package endpoint
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"os"
 	"testing"
@@ -12,6 +14,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/completion"
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	"github.com/cilium/cilium/pkg/lock"
@@ -37,8 +40,14 @@ func TestRegenerateBPFFailureReverts(t *testing.T) {
 		policyResult: &policyGenerateResult{endpointPolicy: endpointPolicy},
 		ctCleaned:    make(chan struct{}),
 	}
+	var callbackErr error
+	// Queue asynchronous work before pre-compilation fails.
+	ep.dnsRulesAPI = noopDNSRulesAPI{onRead: func() {
+		datapath.proxyWaitGroup.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
+	}}
 	var reverted bool
 	datapath.revertibles.AddRevert(func() error {
+		require.ErrorIs(t, callbackErr, context.Canceled, "pending callbacks must finish before rollback")
 		reverted = true
 		return nil
 	})
@@ -51,6 +60,41 @@ func TestRegenerateBPFFailureReverts(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "endpoint has nil policyMapFactory")
 	require.True(t, reverted)
+}
+
+func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
+	nackErr := errors.New("proxy rejected update")
+	tests := []struct {
+		name   string
+		cancel bool
+		err    error
+	}{
+		{name: "nack", err: nackErr},
+		{name: "parent-canceled", cancel: true, err: context.Canceled},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ep := &Endpoint{}
+			ep.logger.Store(hivetest.Logger(t))
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			wg := completion.NewWaitGroup(ctx)
+			defer wg.Cancel()
+			var callbackErr error
+			wg.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
+			wg.AddCompletionWithCallback(nil, nil).Complete(nackErr)
+			if tt.cancel {
+				cancel()
+			}
+
+			require.ErrorIs(t, ep.waitForProxyCompletions(ctx, wg), tt.err)
+			if tt.cancel {
+				// Regeneration drains an early return before reverting resources.
+				wg.Cancel()
+			}
+			require.ErrorIs(t, callbackErr, context.Canceled)
+		})
+	}
 }
 
 func TestWriteInformationalComments(t *testing.T) {

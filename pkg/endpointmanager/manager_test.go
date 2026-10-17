@@ -5,6 +5,7 @@ package endpointmanager
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/netip"
 	"sync"
@@ -119,30 +120,47 @@ func (o blockingCompletionOwner) ID() string {
 func (blockingCompletionOwner) CleanupAfterWait(*completion.Completion) {}
 
 func TestWaitForProxyCompletions(t *testing.T) {
+	nackErr := errors.New("proxy rejected update")
 	tests := []struct {
-		name    string
-		wantErr error
+		name            string
+		completionErr   error
+		cancel          bool
+		empty           bool
+		wantErr         error
+		wantCallbackErr error
 	}{
-		{name: "timeout", wantErr: context.DeadlineExceeded},
+		{name: "timeout", wantErr: context.DeadlineExceeded, wantCallbackErr: context.DeadlineExceeded},
+		{name: "already-canceled", cancel: true, wantErr: context.Canceled, wantCallbackErr: context.Canceled},
+		{name: "already-rejected", completionErr: nackErr, wantErr: nackErr, wantCallbackErr: context.Canceled},
+		{name: "canceled-empty", cancel: true, empty: true, wantErr: context.Canceled},
+		{name: "empty", empty: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			logger := hivetest.Logger(t)
-			mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-
-			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			mgr := &endpointManager{logger: hivetest.Logger(t)}
+			ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
 			defer cancel()
-
 			wg := completion.NewWaitGroup(ctx)
 			const blockingID = "blocking-proxy-policy-update"
-
-			// Leave the completion pending so the wait group times out while waiting on it.
-			wg.AddCompletionWithCallback(blockingCompletionOwner(blockingID), nil)
+			var callbackErr error
+			if !tt.empty {
+				wg.AddCompletionWithCallback(blockingCompletionOwner(blockingID), func(err error) { callbackErr = err })
+			}
+			if tt.completionErr != nil {
+				wg.AddCompletionWithCallback(nil, nil).Complete(tt.completionErr)
+			}
+			if tt.cancel {
+				cancel()
+			}
 
 			err := mgr.waitForProxyCompletions(wg)
-			require.Error(t, err)
 			require.ErrorIs(t, err, tt.wantErr)
-			require.ErrorContains(t, err, "Waiting on "+blockingID)
+			if !tt.empty {
+				require.ErrorIs(t, callbackErr, tt.wantCallbackErr)
+			}
+			if errors.Is(tt.wantErr, context.DeadlineExceeded) {
+				require.ErrorContains(t, err, "Waiting on "+blockingID)
+			}
 		})
 	}
 }
