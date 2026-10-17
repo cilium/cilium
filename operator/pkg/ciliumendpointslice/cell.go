@@ -20,6 +20,11 @@ const (
 
 	// CESControllerMode sets the CES controller operation mode.
 	CESControllerMode = "ces-controller-mode"
+
+	// CESEmptyBeforeDeleteThreshold is the minimum number of endpoints the
+	// last written version of a CES must list for the operator to write the
+	// CES empty before deleting it.
+	CESEmptyBeforeDeleteThreshold = "ces-empty-before-delete-threshold"
 )
 
 // Cell is a cell that implements a Cilium Endpoint Slice Controller.
@@ -34,15 +39,17 @@ var Cell = cell.Module(
 )
 
 type Config struct {
-	CESMaxCEPsInCES           int    `mapstructure:"ces-max-ciliumendpoints-per-ces"`
-	CESDynamicRateLimitConfig string `mapstructure:"ces-rate-limits"`
-	CESControllerMode         string `mapstructure:"ces-controller-mode"`
+	CESMaxCEPsInCES               int    `mapstructure:"ces-max-ciliumendpoints-per-ces"`
+	CESDynamicRateLimitConfig     string `mapstructure:"ces-rate-limits"`
+	CESControllerMode             string `mapstructure:"ces-controller-mode"`
+	CESEmptyBeforeDeleteThreshold int    `mapstructure:"ces-empty-before-delete-threshold"`
 }
 
 var defaultConfig = Config{
-	CESMaxCEPsInCES:           100,
-	CESDynamicRateLimitConfig: "[{\"nodes\":0,\"limit\":10,\"burst\":20}]",
-	CESControllerMode:         defaultMode,
+	CESMaxCEPsInCES:               100,
+	CESDynamicRateLimitConfig:     "[{\"nodes\":0,\"limit\":10,\"burst\":20}]",
+	CESControllerMode:             defaultMode,
+	CESEmptyBeforeDeleteThreshold: 10,
 }
 
 func (def Config) Flags(flags *pflag.FlagSet) {
@@ -51,6 +58,9 @@ func (def Config) Flags(flags *pflag.FlagSet) {
 	flags.String(CESRateLimits, def.CESDynamicRateLimitConfig, "Configure rate limits for the CES controller. Accepts a list of rate limit configurations, must be a JSON formatted string.")
 	flags.String(CESControllerMode, def.CESControllerMode, "CES controller operation mode. Can be 'default' or 'slim'")
 	flags.MarkHidden(CESControllerMode)
+	flags.Int(CESEmptyBeforeDeleteThreshold, def.CESEmptyBeforeDeleteThreshold,
+		"Write a CES without endpoints before deleting it if its last written version still lists at least this many endpoints. "+
+			"The DELETED watch event every node receives carries that last version; this sends a small MODIFIED and a small DELETED event instead. 0 disables it.")
 }
 
 // SharedConfig contains the configuration that is shared between
