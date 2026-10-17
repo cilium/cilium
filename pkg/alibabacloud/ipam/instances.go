@@ -39,7 +39,7 @@ type AlibabaCloudAPI interface {
 type InstancesManager struct {
 	logger *slog.Logger
 
-	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
+	// resyncLock keeps incremental resync and cache updates out of a full API resync
 	resyncLock lock.RWMutex
 
 	// mutex protects the fields below
@@ -201,6 +201,9 @@ func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.Inter
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
 func (m *InstancesManager) UpdateENI(instanceID string, eni *types.ENI) {
+	m.resyncLock.RLock()
+	defer m.resyncLock.RUnlock()
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.instances.Update(instanceID, eni)
@@ -278,6 +281,9 @@ func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTy
 
 // DeleteInstance delete instance from m.instances
 func (m *InstancesManager) DeleteInstance(instanceID string) {
+	m.resyncLock.RLock()
+	defer m.resyncLock.RUnlock()
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.instances.Delete(instanceID)
