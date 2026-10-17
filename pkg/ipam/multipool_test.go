@@ -1502,6 +1502,47 @@ func TestMultiPoolManagerWaitForAllPools(t *testing.T) {
 	})
 }
 
+func TestMultiPoolManagerPreAllocFromNode(t *testing.T) {
+	tests := []struct {
+		name             string
+		preAllocFromNode bool
+		want             preAllocatePerPool
+	}{
+		{
+			name:             "pre-allocation from node disabled",
+			preAllocFromNode: false,
+			want:             preAllocatePerPool{},
+		},
+		{
+			name:             "pre-allocation from node enabled",
+			preAllocFromNode: true,
+			want:             preAllocatePerPool{"default": 8},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mgr := &MultiPoolManager{
+				logger:                 hivetest.Logger(t),
+				preallocatedIPsPerPool: preAllocatePerPool{},
+				pools:                  map[Pool]*poolPair{},
+				staticIPUpdated:        make(chan struct{}, 1),
+				k8sUpdater:             job.NewTrigger(),
+				poolsAccessor:          MultiPoolAccessor,
+				preAllocFromNode:       tt.preAllocFromNode,
+			}
+
+			mgr.ciliumNodeUpdated(&ciliumv2.CiliumNode{
+				Spec: ciliumv2.NodeSpec{
+					IPAM: types.IPAMSpec{PreAllocate: 8},
+				},
+			})
+
+			require.Equal(t, tt.want, mgr.preallocatedIPsPerPool)
+		})
+	}
+}
+
 func Test_multiPoolManager_staticIPStatus(t *testing.T) {
 	newNode := func(tags map[string]string, assigned netip.Addr) *ciliumv2.CiliumNode {
 		return &ciliumv2.CiliumNode{

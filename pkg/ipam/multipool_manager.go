@@ -275,6 +275,12 @@ type MultiPoolManagerParams struct {
 	// matches the CRD allocator's calculateNeededIPs behavior and allows
 	// the operator to recover exact usage from the demand signal.
 	LinearPreAlloc bool
+
+	// PreAllocFromNode imports CiliumNode.Spec.IPAM.PreAllocate as the
+	// pre-allocation value of the default pool. This field is written by
+	// the agent of cloud IPAM modes during node discovery and must be
+	// ignored by the other users of the multi-pool manager.
+	PreAllocFromNode bool
 }
 
 type MultiPoolManager struct {
@@ -307,7 +313,8 @@ type MultiPoolManager struct {
 
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
 
-	linearPreAlloc bool
+	linearPreAlloc   bool
+	preAllocFromNode bool
 }
 
 func NewMultiPoolManager(p MultiPoolManagerParams) *MultiPoolManager {
@@ -329,8 +336,9 @@ func NewMultiPoolManager(p MultiPoolManagerParams) *MultiPoolManager {
 		localNodeUpdateFn: sync.OnceFunc(func() {
 			close(localNodeUpdated)
 		}),
-		poolsAccessor:  p.PoolSpecAccessors,
-		linearPreAlloc: p.LinearPreAlloc,
+		poolsAccessor:    p.PoolSpecAccessors,
+		linearPreAlloc:   p.LinearPreAlloc,
+		preAllocFromNode: p.PreAllocFromNode,
 		skipMasqueradeForPool: func(Pool) (bool, error) {
 			return false, nil
 		},
@@ -471,8 +479,9 @@ func (m *MultiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 
 	// Sync pre-allocate value from the CiliumNode spec. For cloud IPAM modes,
 	// the agent writes it during node discovery and the operator may adjust
-	// it. For standard multi-pool mode this field is unset (0).
-	if newNode.Spec.IPAM.PreAllocate > 0 {
+	// it. Other users of the multi-pool manager (e.g. standard multi-pool and
+	// resource IPAM) must not import it, as it does not refer to their pools.
+	if m.preAllocFromNode && newNode.Spec.IPAM.PreAllocate > 0 {
 		m.preallocatedIPsPerPool[Pool(defaults.IPAMDefaultIPPool)] = newNode.Spec.IPAM.PreAllocate
 	}
 
