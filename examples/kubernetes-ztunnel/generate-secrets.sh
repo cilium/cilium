@@ -31,7 +31,7 @@ DNS.1 = localhost
 openssl req -x509 -new -nodes -key bootstrap-private.key -sha256 -days 3650 -out bootstrap-root.crt -config openssl.conf
 
 # == CA ==
-openssl genrsa -out ca-private.key 2048
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out ca-private.key
 
 echo '
 [ req ]
