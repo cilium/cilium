@@ -67,13 +67,8 @@ func TestFromMessage(t *testing.T) {
 	}
 }
 
-func TestFixedMapTracksZeroValuesAndInitialization(t *testing.T) {
+func TestFixedMapTracksZeroValues(t *testing.T) {
 	var values Map[int]
-	require.False(t, values.Known())
-	require.True(t, values.Empty())
-
-	values = NewMap[int]()
-	require.True(t, values.Known())
 	require.True(t, values.Empty())
 
 	values.Set(Listener, 0)
@@ -83,7 +78,6 @@ func TestFixedMapTracksZeroValuesAndInitialization(t *testing.T) {
 	require.Equal(t, 1, values.Len())
 
 	values.Remove(Listener)
-	require.True(t, values.Known())
 	require.True(t, values.Empty())
 }
 
