@@ -58,9 +58,10 @@ func BenchmarkBulkResourceWaitPreparation(b *testing.B) {
 							seed.Upserted.Listeners[name] = proto.Clone(resource).(*listener.Listener)
 						}
 					}
-					if err := c.ApplyResources(b.Context(), nodeID, seed, nil, TypeURLCallbacks{}); err != nil {
+					if err := c.ApplyResources(b.Context(), nodeID, seed, nil, typeurl.Set{}); err != nil {
 						b.Fatal(err)
 					}
+					waits := typeurl.NewSet(typeurl.Listener)
 					b.ReportAllocs()
 					b.ResetTimer()
 					for i := range b.N {
@@ -72,7 +73,7 @@ func BenchmarkBulkResourceWaitPreparation(b *testing.B) {
 						if mode != "canonical-noop" {
 							version = (i + 1) % len(inputs)
 						}
-						if err := c.ApplyResources(b.Context(), nodeID, inputs[version], wg, TypeURLCallbacks{}); err != nil {
+						if err := c.ApplyResources(b.Context(), nodeID, inputs[version], wg, waits); err != nil {
 							b.Fatal(err)
 						}
 						if wg != nil {
@@ -121,7 +122,7 @@ func BenchmarkSnapshotCLAProjection(b *testing.B) {
 				}
 			}
 			if err := c.ApplyResources(b.Context(), nodeID,
-				ResourceMutations{Upserted: upserted}, nil, TypeURLCallbacks{}); err != nil {
+				ResourceMutations{Upserted: upserted}, nil, typeurl.Set{}); err != nil {
 				b.Fatal(err)
 			}
 			state := c.getNodeState(nodeID)
@@ -156,7 +157,7 @@ func BenchmarkSnapshotCLAProjectionIncrementally(b *testing.B) {
 				}
 				input[version].Upserted.Clusters = clusters
 			}
-			if err := c.ApplyResources(b.Context(), nodeID, input[0], nil, TypeURLCallbacks{}); err != nil {
+			if err := c.ApplyResources(b.Context(), nodeID, input[0], nil, typeurl.Set{}); err != nil {
 				b.Fatal(err)
 			}
 			state := c.getNodeState(nodeID)
@@ -164,7 +165,7 @@ func BenchmarkSnapshotCLAProjectionIncrementally(b *testing.B) {
 			if err != nil {
 				b.Fatal(err)
 			}
-			if err := c.ApplyResources(b.Context(), nodeID, input[1], nil, TypeURLCallbacks{}); err != nil {
+			if err := c.ApplyResources(b.Context(), nodeID, input[1], nil, typeurl.Set{}); err != nil {
 				b.Fatal(err)
 			}
 			b.ReportAllocs()
