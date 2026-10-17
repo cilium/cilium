@@ -14,7 +14,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -69,15 +68,11 @@ func (m *SIDMap) IterateWithCallback(cb SRv6SIDIterateCallback) error {
 	})
 }
 
-func newSIDMap(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*SIDMap], defines.NodeOut) {
+func newSIDMap(lc cell.Lifecycle) (bpf.MapOut[*SIDMap], defines.NodeOut) {
 	nodeOut := defines.NodeOut{
 		NodeDefines: defines.Map{
 			"SRV6_SID_MAP_SIZE": strconv.FormatUint(maxSIDEntries, 10),
 		},
-	}
-
-	if !dc.EnableSRv6 {
-		return bpf.MapOut[*SIDMap]{}, nodeOut
 	}
 
 	m := bpf.NewMap(

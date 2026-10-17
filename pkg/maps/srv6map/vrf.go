@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -141,15 +140,11 @@ type srv6VRFMap struct {
 	*bpf.Map
 }
 
-func newVRFMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*VRFMap4], bpf.MapOut[*VRFMap6], defines.NodeOut) {
+func newVRFMaps(lc cell.Lifecycle) (bpf.MapOut[*VRFMap4], bpf.MapOut[*VRFMap6], defines.NodeOut) {
 	nodeOut := defines.NodeOut{
 		NodeDefines: defines.Map{
 			"SRV6_VRF_MAP_SIZE": strconv.FormatUint(maxVRFEntries, 10),
 		},
-	}
-
-	if !dc.EnableSRv6 {
-		return bpf.MapOut[*VRFMap4]{}, bpf.MapOut[*VRFMap6]{}, nodeOut
 	}
 
 	m4 := bpf.NewMap(

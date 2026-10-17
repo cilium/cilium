@@ -16,7 +16,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
@@ -137,15 +136,11 @@ type srv6PolicyMap struct {
 	*bpf.Map
 }
 
-func newPolicyMaps(dc *option.DaemonConfig, lc cell.Lifecycle) (bpf.MapOut[*PolicyMap4], bpf.MapOut[*PolicyMap6], defines.NodeOut) {
+func newPolicyMaps(lc cell.Lifecycle) (bpf.MapOut[*PolicyMap4], bpf.MapOut[*PolicyMap6], defines.NodeOut) {
 	nodeOut := defines.NodeOut{
 		NodeDefines: defines.Map{
 			"SRV6_POLICY_MAP_SIZE": strconv.FormatUint(maxPolicyEntries, 10),
 		},
-	}
-
-	if !dc.EnableSRv6 {
-		return bpf.MapOut[*PolicyMap4]{}, bpf.MapOut[*PolicyMap6]{}, nodeOut
 	}
 
 	m4 := bpf.NewMap(
