@@ -257,7 +257,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	deviceClaimConfigs, err := deviceClaimConfigs(&claim.Status.Allocation.Devices,
+	deviceCfgs, err := deviceConfigsFromAllocation(&claim.Status.Allocation.Devices,
 		driver.config.DriverName)
 	if err != nil {
 		driver.logger.ErrorContext(
@@ -270,7 +270,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
-	if err := validateDeviceConfigs(claim, deviceClaimConfigs); err != nil {
+	if err := validateDeviceConfigs(claim, deviceCfgs); err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
@@ -306,7 +306,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}()
 
 	for _, result := range claim.Status.Allocation.Devices.Results {
-		cfg := deviceClaimConfigs[result.Request] // zero-value DeviceConfig if no opaque config present
+		cfg := deviceCfgs[result.Request] // zero-value DeviceConfig if no opaque config present
 
 		deviceAlloc, status, devErr := driver.prepareClaimDevice(ctx, claim, result, cfg, state)
 		if devErr != nil {
@@ -344,7 +344,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}
 }
 
-func deviceClaimConfigs(deviceAllocation *resourceapi.DeviceAllocationResult, driverName string) (map[string]types.DeviceConfig, error) {
+func deviceConfigsFromAllocation(deviceAllocation *resourceapi.DeviceAllocationResult, driverName string) (map[string]types.DeviceConfig, error) {
 	devicesCfg := map[string]types.DeviceConfig{}
 
 	// We go through each device allocation result and extract the configuration
@@ -519,8 +519,8 @@ func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerRef
 
 // validateDeviceConfigs checks that every device config in the claim is
 // valid (podIfName, sysctl settings) before any destructive work begins.
-func validateDeviceConfigs(claim *resourceapi.ResourceClaim, deviceClaimConfigs map[string]types.DeviceConfig) error {
-	for request, cfg := range deviceClaimConfigs {
+func validateDeviceConfigs(claim *resourceapi.ResourceClaim, deviceCfgs map[string]types.DeviceConfig) error {
+	for request, cfg := range deviceCfgs {
 		if err := cfg.Validate(); err != nil {
 			return fmt.Errorf("invalid device config in request %s for claim %s: %w",
 				request, path.Join(claim.Namespace, claim.Name), err)
