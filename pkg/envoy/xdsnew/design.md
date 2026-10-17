@@ -53,7 +53,9 @@ must not prevent a later Envoy NACK from correcting the cache.
 NetworkPolicyHosts (NPHDS) use the single-resource API, so one transaction cannot
 mix Listener and NetworkPolicy changes.
 
-Callers may supply a WaitGroup to wait for Envoy's response. Only the
+Callers may supply a WaitGroup to wait for Envoy's response. Bulk calls select
+the resource types to wait for explicitly; an empty selection creates no waits.
+Single-resource calls can also supply a completion callback. Only the
 `WithRollback` variants also return a caller lifecycle, on which the caller
 eventually invokes either `Revert()` or `Finalize()`. All mutation APIs
 independently retain any rollback state needed for a later NACK.
