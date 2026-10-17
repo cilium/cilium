@@ -1448,6 +1448,27 @@ Options
 
 This metric supports :ref:`Context Options<hubble_context_options>`.
 
+``policy``
+~~~~~~~~~~
+
+================================ ======================================== ========== =============================================
+Name                             Labels                                   Default    Description
+================================ ======================================== ========== =============================================
+``policy_verdicts_total``        ``direction``, ``match``, ``action``     Disabled   Total number of Cilium network policy verdicts
+================================ ======================================== ========== =============================================
+
+Options
+"""""""
+
+==================== ============= ====================================================================================
+Option Key           Option Value  Description
+==================== ============= ====================================================================================
+``protocol``         N/A           Include the L4 protocol as label ``protocol``.
+``destination_port`` N/A           Include the destination port as label ``destination_port``. This may result in high cardinality. L7 reply flows are not counted.
+==================== ============= ====================================================================================
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
 ``port-distribution``
 ~~~~~~~~~~~~~~~~~~~~~
 
