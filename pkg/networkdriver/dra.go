@@ -881,7 +881,7 @@ func (driver *Driver) allocateAddrs(ctx context.Context, deviceName string, cfg 
 				ctx, "failed to get IP addresses for device, will retry",
 				logfields.Device, deviceName,
 				logfields.PoolName, cfg.IPPool,
-				logfields.Error, errs,
+				logfields.Error, errors.Join(errs...),
 			)
 			return false, nil
 		}
