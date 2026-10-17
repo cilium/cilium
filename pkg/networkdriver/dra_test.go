@@ -188,7 +188,7 @@ func TestBuildDeviceStatus(t *testing.T) {
 	}
 }
 
-func TestDeviceClaimConfigs(t *testing.T) {
+func TestDeviceConfigsFromAllocation(t *testing.T) {
 	const testDriverName = "testdriver"
 	result := func(driver, request string) resourceapi.DeviceRequestAllocationResult {
 		return resourceapi.DeviceRequestAllocationResult{Driver: driver, Request: request}
@@ -370,7 +370,7 @@ func TestDeviceClaimConfigs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			devConf, err := deviceClaimConfigs(&tc.allocatedDevices, testDriverName)
+			devConf, err := deviceConfigsFromAllocation(&tc.allocatedDevices, testDriverName)
 			if tc.expectedDevConfs == nil {
 				require.Error(t, err)
 				require.Nil(t, devConf)
