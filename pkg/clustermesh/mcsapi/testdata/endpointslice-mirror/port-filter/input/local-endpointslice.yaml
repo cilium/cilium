@@ -1,0 +1,25 @@
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: port-filter
+  namespace: default
+  labels:
+    kubernetes.io/service-name: port-filter
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.0.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+- addresses:
+  - 10.0.0.2
+  conditions:
+    ready: false
+    serving: true
+    terminating: false
+ports:
+- port: 80
+- name: myport
+  port: 4242

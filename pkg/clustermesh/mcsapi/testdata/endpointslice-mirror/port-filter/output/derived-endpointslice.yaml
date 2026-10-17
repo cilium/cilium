@@ -1,0 +1,36 @@
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: derived-rot6lodnc8
+  namespace: default
+  annotations:
+    service.cilium.io/local-endpointslice: port-filter
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-local-mcsapi-controller.cilium.io
+    kubernetes.io/service-name: derived-rot6lodnc8
+    multicluster.kubernetes.io/service-name: port-filter
+    multicluster.kubernetes.io/source-cluster: cluster1
+    service.cilium.io/local-endpointslice: port-filter
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: derived-rot6lodnc8
+    uid: 44bc5318-21f5-46ec-a12c-a8c51b097f73
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.0.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+- addresses:
+  - 10.0.0.2
+  conditions:
+    ready: false
+    serving: true
+    terminating: false
+ports:
+- port: 80
