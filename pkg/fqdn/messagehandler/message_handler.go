@@ -52,7 +52,7 @@ type DNSMessageHandler interface {
 	NotifyOnDNSMsg(lookupTime time.Time,
 		ep *endpoint.Endpoint,
 		epIPPort string,
-		serverID identity.NumericIdentity,
+		serverID *identity.Identity,
 		serverAddrPort netip.AddrPort,
 		details *dnsproxy.MsgDetails,
 		protocol string,
@@ -121,11 +121,14 @@ func (h *dnsMessageHandler) SetBindPort(port uint16) {
 // epIPPort and serverAddrPort should match the original request, where epAddr is
 // the source for egress (the only case current).
 // serverID is the destination server security identity at the time of the DNS event.
+// It may be nil on early error paths, and may carry only
+// a numeric identity (no labels) when the full identity could not be resolved;
+// in either case the access-log path falls back to resolving the labels itself.
 func (h *dnsMessageHandler) NotifyOnDNSMsg(
 	lookupTime time.Time,
 	ep *endpoint.Endpoint,
 	epIPPort string,
-	serverID identity.NumericIdentity,
+	serverID *identity.Identity,
 	serverAddrPort netip.AddrPort,
 	dnsMsgDetails *dnsproxy.MsgDetails,
 	protocol string,
@@ -210,7 +213,10 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 		// is going away.
 		flow.addrInfo.DstSecIdentity, _ = ep.GetSecurityIdentity()
 		flow.addrInfo.SrcIPPort = serverAddrPortStr
-		flow.addrInfo.SrcIdentity = serverID
+		if serverID != nil {
+			flow.addrInfo.SrcIdentity = serverID.ID
+			flow.addrInfo.SrcSecIdentity = serverID
+		}
 	} else {
 		flow.flowType = accesslog.TypeRequest
 		flow.addrInfo.SrcIPPort = epIPPort
@@ -218,7 +224,10 @@ func (h *dnsMessageHandler) NotifyOnDNSMsg(
 		// ignore error; same reason as above.
 		flow.addrInfo.SrcSecIdentity, _ = ep.GetSecurityIdentity()
 		flow.addrInfo.DstIPPort = serverAddrPortStr
-		flow.addrInfo.DstIdentity = serverID
+		if serverID != nil {
+			flow.addrInfo.DstIdentity = serverID.ID
+			flow.addrInfo.DstSecIdentity = serverID
+		}
 	}
 
 	if dnsMsgDetails.Response && dnsMsgDetails.RCode == dns.RcodeSuccess && len(dnsMsgDetails.ResponseIPs) > 0 {

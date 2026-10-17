@@ -12,6 +12,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/node"
 )
@@ -20,6 +21,10 @@ type ProxyLookupHandler interface {
 	// LookupSecIDByIP looks up the security ID for a given IP address
 	// from the ipcache.
 	LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool)
+
+	// LookupIdentityByID resolves the full security identity for the given
+	// numeric identity. It returns nil if the identity cannot be resolved.
+	LookupIdentityByID(ctx context.Context, nid identity.NumericIdentity) *identity.Identity
 
 	// LookupByIdentity is a provided callback that returns the IPs of a given security ID.
 	LookupByIdentity(nid identity.NumericIdentity) []string
@@ -31,9 +36,10 @@ type ProxyLookupHandler interface {
 }
 
 type proxyLookupHandler struct {
-	ipCache         *ipcache.IPCache
-	localNodeStore  *node.LocalNodeStore
-	endpointManager endpointmanager.EndpointManager
+	ipCache           *ipcache.IPCache
+	localNodeStore    *node.LocalNodeStore
+	endpointManager   endpointmanager.EndpointManager
+	identityAllocator cache.IdentityAllocator
 }
 
 var _ ProxyLookupHandler = &proxyLookupHandler{}
@@ -61,6 +67,10 @@ func (p *proxyLookupHandler) LookupRegisteredEndpoint(endpointAddr netip.Addr) (
 
 func (p *proxyLookupHandler) LookupSecIDByIP(ip netip.Addr) (secID ipcache.Identity, exists bool) {
 	return p.ipCache.LookupSecIDByIP(ip)
+}
+
+func (p *proxyLookupHandler) LookupIdentityByID(ctx context.Context, nid identity.NumericIdentity) *identity.Identity {
+	return p.identityAllocator.LookupIdentityByID(ctx, nid)
 }
 
 func (p *proxyLookupHandler) LookupByIdentity(nid identity.NumericIdentity) []string {
