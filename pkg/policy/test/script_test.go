@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn/messagehandler"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	testk8s "github.com/cilium/cilium/pkg/k8s/testutils"
@@ -71,6 +72,7 @@ func TestScript(t *testing.T) {
 			maps.Insert(cmds, maps.All(endpointmanager.ScriptCmds(f.epm, f.templateEP)))
 			maps.Insert(cmds, maps.All(policy.LookupFlowScriptCmds(log, f.repo, f.idmgr, f.allocator)))
 			cmds["policy/policymap"] = commands.PolicyMapCmd(f.epm)
+			cmds["fqdn/lookup"] = fqdnLookupCmd(f.epm, f.msgHandler.(messagehandler.DNSRecorder))
 			return &script.Engine{
 				Cmds:          cmds,
 				RetryInterval: 10 * time.Millisecond,
