@@ -332,16 +332,15 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	}
 #endif /* ENABLE_HOST_FIREWALL */
 
-/*
- * Perform SRv6 Decap if incoming skb is a known SID.
- * This must tailcall, as the decap could be for inner ipv6 or ipv4 making
- * the remaining path potentially erroneous.
- *
- * Perform this before the BPF Host Routing check as the decap is not dependent
- * on this feature being enabled or not.
- */
-#ifdef ENABLE_SRV6
-	if (!from_host) {
+	/*
+	 * Perform SRv6 Decap if incoming skb is a known SID.
+	 * This must tailcall, as the decap could be for inner ipv6 or ipv4 making
+	 * the remaining path potentially erroneous.
+	 *
+	 * Perform this before the BPF Host Routing check as the decap is not dependent
+	 * on this feature being enabled or not.
+	 */
+	if (CONFIG(srv6_cfg).enable && !from_host) {
 		if (is_srv6_packet(ip6) && srv6_lookup_sid(&ip6->daddr)) {
 			/* This packet is destined to an SID so we need to decapsulate it
 			 * and forward it.
@@ -349,7 +348,6 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			return tail_call_internal(ctx, CILIUM_CALL_SRV6_DECAP, ext_err);
 		}
 	}
-#endif /* ENABLE_SRV6 */
 
 	/* See the equivalent v4 path for comments */
 	if (!from_host && !CONFIG(enable_bpf_host_routing))

@@ -207,6 +207,8 @@ struct dsr_config {
 NODE_CONFIG(struct dsr_config, dsr_cfg, "DSR-specific configuration")
 
 struct srv6_config {
+	/* Enable SRv6. */
+	bool enable;
 	/* Enable SRv6 Segment Routing Header encapsulation. */
 	bool enable_srh_encap;
 };
