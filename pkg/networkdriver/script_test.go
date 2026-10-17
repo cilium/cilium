@@ -170,7 +170,10 @@ func TestScript(t *testing.T) {
 					}
 					maps.Insert(cmds, maps.All(scriptCommands(t.Context(), driver,
 						cs, mgr, tc.ipv4, tc.ipv6)))
-					return &script.Engine{Cmds: cmds}
+					return &script.Engine{
+						Cmds:       cmds,
+						MaxRetries: 20,
+					}
 				}, []string{}, tc.pattern)
 		})
 	}
