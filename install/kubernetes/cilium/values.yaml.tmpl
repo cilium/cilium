@@ -1044,6 +1044,11 @@ ingressController:
     annotations: {}
     # -- Service type for the shared LB service
     type: LoadBalancer
+    # -- Configure whether the insecure HTTP port (80) is exposed on the shared LB service.
+    # Set it to false to keep cloud load balancers from creating a plain HTTP listener.
+    insecurePortEnabled: true
+    # -- Configure whether the secure HTTPS port (443) is exposed on the shared LB service.
+    securePortEnabled: true
     # @schema
     # type: [null, integer]
     # @schema
