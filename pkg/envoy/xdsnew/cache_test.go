@@ -291,7 +291,7 @@ func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
 			err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
 				Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
 				Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{endpoint.ClusterName: endpoint},
-			}}, nil, TypeURLCallbacks{})
+			}}, nil, typeurl.Set{})
 			require.NoError(t, err)
 
 			// Keep an LDS watch open so the next listener change publishes immediately.
@@ -317,10 +317,9 @@ func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
 			t.Cleanup(cancelContext)
 			wg := completion.NewWaitGroup(ctx)
 			t.Cleanup(wg.Cancel)
-			var callbackErr error
-			var waits TypeURLCallbacks
-			waits.Set(typeurl.Listener, nil)
-			waits.Set(typeurl.Endpoint, func(err error) { callbackErr = err })
+			var waits typeurl.Set
+			waits.Insert(typeurl.Listener)
+			waits.Insert(typeurl.Endpoint)
 			publicationErr := errors.New("snapshot publication failed")
 			mock.setSnapshotErr = publicationErr
 			rollback, err := c.ApplyResourcesWithRollback(ctx, nodeID, ResourceMutations{Upserted: xds.Resources{
@@ -334,7 +333,6 @@ func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
 			require.Nil(t, rollback)
 			require.Zero(t, c.completionCbs.PendingCompletionCount())
 			require.ErrorIs(t, wg.Wait(), publicationErr)
-			require.ErrorIs(t, callbackErr, publicationErr)
 			current := c.GetResource(nodeID, typeurl.Listener, listener.Name)
 			require.NotNil(t, current)
 			require.Same(t, listener, current)
@@ -364,7 +362,7 @@ func TestPublicationInstallationRequiresSnapshotIdentity(t *testing.T) {
 					Name: "cluster", ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
 				}},
 				Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{"cluster": assignment},
-			}}, nil, TypeURLCallbacks{}))
+			}}, nil, typeurl.Set{}))
 			baseline := mustSnapshot(t, c, nodeID)
 			publicationErr := errors.New("snapshot publication failed")
 			mock.setSnapshotErr = publicationErr
@@ -421,7 +419,7 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 				"replaced": {Name: "replaced"},
 				"removed":  {Name: "removed"},
 			}}
-			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: initial}, nil, TypeURLCallbacks{}))
+			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: initial}, nil, typeurl.Set{}))
 			baseline := mustSnapshot(t, c, nodeID)
 			acceptPublishedSnapshotVersions(t, c, 1, node, baseline)
 			// Keep a watch available to exercise response delivery as well as
@@ -445,7 +443,7 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 					"replaced": {Name: "replaced", IgnorePortInHostMatching: true},
 					"added":    {Name: "added"},
 				}},
-			}, nil, TypeURLCallbacks{})
+			}, nil, typeurl.Set{})
 			if mode == "mutation" {
 				require.ErrorIs(t, err, publicationErr)
 				require.Nil(t, rollback)
@@ -562,8 +560,8 @@ func TestCacheRejectsUnknownNodes(t *testing.T) {
 				t.Cleanup(wg.Cancel)
 				callbackCalls := 0
 				callback := func(error) { callbackCalls++ }
-				var waits TypeURLCallbacks
-				waits.Set(typeurl.Listener, callback)
+				var waits typeurl.Set
+				waits.Insert(typeurl.Listener)
 				listener := &envoy_config_listener.Listener{Name: "listener"}
 				mutations := ResourceMutations{Upserted: xds.Resources{
 					Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
@@ -692,7 +690,7 @@ func TestGenerateSnapshotProjectsEndpoints(t *testing.T) {
 			if tt.assignment != nil {
 				upserted.Endpoints = map[string]*envoy_config_endpoint.ClusterLoadAssignment{tt.assignmentName: tt.assignment}
 			}
-			require.NoError(t, c.ApplyResources(t.Context(), "node1", ResourceMutations{Upserted: upserted}, nil, TypeURLCallbacks{}))
+			require.NoError(t, c.ApplyResources(t.Context(), "node1", ResourceMutations{Upserted: upserted}, nil, typeurl.Set{}))
 			snapshot := requestSnapshotForTest(t, c, "node1", typeurl.Cluster)
 			endpoints := snapshot.GetResources(typeurl.Endpoint.URL())
 			if tt.assignmentName == "" {
@@ -796,7 +794,7 @@ func TestGenerateSnapshotProjectsSharedEDSAssignmentsWithoutChangingDesiredState
 			if mode != "missing" {
 				upserted.Endpoints = map[string]*envoy_config_endpoint.ClusterLoadAssignment{"shared": explicit}
 			}
-			require.NoError(t, c.ApplyResources(t.Context(), "node1", ResourceMutations{Upserted: upserted}, nil, TypeURLCallbacks{}))
+			require.NoError(t, c.ApplyResources(t.Context(), "node1", ResourceMutations{Upserted: upserted}, nil, typeurl.Set{}))
 			if mode == "removed" {
 				require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Endpoint, "shared", nil, nil, nil))
 			}
@@ -858,7 +856,7 @@ func TestNPDSListenerCountTracksCommittedTransitions(t *testing.T) {
 			listenerA.Name: listenerA,
 			listenerB.Name: listenerB,
 		}},
-	}, nil, TypeURLCallbacks{})
+	}, nil, typeurl.Set{})
 	require.NoError(t, err)
 	require.Equal(t, 2, observer.count)
 
@@ -870,7 +868,7 @@ func TestNPDSListenerCountTracksCommittedTransitions(t *testing.T) {
 		Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{
 			listenerB2.Name: listenerB2,
 		}},
-	}, nil, TypeURLCallbacks{})
+	}, nil, typeurl.Set{})
 	require.NoError(t, err)
 	require.Equal(t, 1, observer.count)
 
@@ -901,7 +899,7 @@ func TestNetworkPolicyWaitsCompleteWhenLastNPDSListenerIsRemoved(t *testing.T) {
 		Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{
 			listener1.Name: listener1, other.Name: other,
 		}},
-	}, nil, TypeURLCallbacks{})
+	}, nil, typeurl.Set{})
 	require.NoError(t, err)
 	require.Equal(t, 1, observer.count)
 
@@ -932,7 +930,7 @@ func TestNetworkPolicyWaitsCompleteWhenLastNPDSListenerIsRemoved(t *testing.T) {
 	err = c.ApplyResources(ctx, "node1", ResourceMutations{
 		Removed:  xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{listener1.Name: nil}},
 		Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{listener2.Name: listener2}},
-	}, nil, TypeURLCallbacks{})
+	}, nil, typeurl.Set{})
 	require.NoError(t, err)
 	require.Equal(t, 1, observer.count)
 	require.Equal(t, 2, c.completionCbs.PendingCompletionCount())
@@ -1026,7 +1024,7 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 	t.Cleanup(wg1.Cancel)
 	err = c.ApplyResources(ctx, "node1", ResourceMutations{Upserted: xds.Resources{
 		Listeners: map[string]*envoy_config_listener.Listener{"listener": listener},
-	}}, wg1, TypeURLCallbacks{})
+	}}, wg1, typeurl.NewSet(typeurl.Listener))
 	require.NoError(t, err)
 
 	response := <-responses
@@ -1063,7 +1061,7 @@ func TestApplyResourcesAttachesNoOpDuringResponseDelivery(t *testing.T) {
 		Listeners: map[string]*envoy_config_listener.Listener{
 			"listener": proto.Clone(listener).(*envoy_config_listener.Listener),
 		},
-	}}, wg2, TypeURLCallbacks{})
+	}}, wg2, typeurl.NewSet(typeurl.Listener))
 	require.NoError(t, err)
 	typedWG := completion.NewWaitGroup(ctx)
 	t.Cleanup(typedWG.Cancel)
@@ -1394,7 +1392,7 @@ func TestCacheRejectsEmptyResourceNames(t *testing.T) {
 		}{
 			name: "generic " + tt.name,
 			apply: func(c *cacheImpl) (Rollback, error) {
-				return c.ApplyResourcesWithRollback(t.Context(), "node1", ResourceMutations{Upserted: tt.resources}, nil, TypeURLCallbacks{})
+				return c.ApplyResourcesWithRollback(t.Context(), "node1", ResourceMutations{Upserted: tt.resources}, nil, typeurl.Set{})
 			},
 		})
 	}
@@ -1676,7 +1674,7 @@ func TestCreateWatchPreservesWildcardSubscriptions(t *testing.T) {
 		} {
 			t.Run(fmt.Sprintf("%s/%s", typeURL.URL(), subscription.name), func(t *testing.T) {
 				c := newTestCache(t, "node1")
-				require.NoError(t, c.ApplyResources(t.Context(), "node1", mutations, nil, NewTypeURLCallbacks()))
+				require.NoError(t, c.ApplyResources(t.Context(), "node1", mutations, nil, typeurl.NewSet()))
 				require.NoError(t, c.ApplyResource(t.Context(), "node1", typeURL, "resource", resource, nil, nil))
 				request := &cache.Request{
 					Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeURL.URL(), ResourceNames: subscription.names,
@@ -1761,14 +1759,14 @@ func TestEmptyKnownNodeRemovalIsNoOp(t *testing.T) {
 			callbackCalls := 0
 			callback := func(err error) { require.NoError(t, err); callbackCalls++ }
 			var mutations ResourceMutations
-			var waits TypeURLCallbacks
+			var waits typeurl.Set
 			waitGroup := wg
 			if bulkNilUpsert {
 				mutations.Upserted.Routes = map[string]*envoy_config_route.RouteConfiguration{"route": nil}
 				waitGroup = nil
 			} else {
 				mutations.Removed.Listeners = map[string]*envoy_config_listener.Listener{"listener": nil}
-				waits.Set(typeurl.Listener, callback)
+				waits.Insert(typeurl.Listener)
 			}
 			rollback, err := c.ApplyResourcesWithRollback(ctx, "node1", mutations, waitGroup, waits)
 			require.NoError(t, err)
@@ -1777,7 +1775,7 @@ func TestEmptyKnownNodeRemovalIsNoOp(t *testing.T) {
 				rollback, err = c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy", nil, wg, callback)
 				require.NoError(t, err)
 				require.Nil(t, rollback)
-				require.Equal(t, 2, callbackCalls)
+				require.Equal(t, 1, callbackCalls)
 			} else {
 				require.Zero(t, callbackCalls)
 			}
@@ -2105,7 +2103,7 @@ func TestParentReplacementReplaysOnlyEndpointWatches(t *testing.T) {
 				updated = proto.Clone(initial.Listeners[parentName]).(*envoy_config_listener.Listener)
 				updated.(*envoy_config_listener.Listener).TrafficDirection = envoy_config_core.TrafficDirection_INBOUND
 			}
-			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: initial}, nil, TypeURLCallbacks{}))
+			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: initial}, nil, typeurl.Set{}))
 
 			sotwResponses := make(chan cache.Response, 1)
 			sotwSubscription := stream.NewSotwSubscription([]string{childName}, false)
@@ -2171,7 +2169,7 @@ func TestNewClusterSharingEndpointReplaysWatches(t *testing.T) {
 	require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
 		Clusters:  map[string]*envoy_config_cluster.Cluster{"first": cluster("first")},
 		Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{endpointName: {ClusterName: endpointName}},
-	}}, nil, TypeURLCallbacks{}))
+	}}, nil, typeurl.Set{}))
 
 	endpointRequest := &cache.Request{Node: node, TypeUrl: envoy_resource.EndpointType, ResourceNames: []string{endpointName}}
 	endpointSubscription := stream.NewSotwSubscription([]string{endpointName}, false)
@@ -2453,7 +2451,7 @@ func TestCreateWatchRotatesNodeEpochForMixedTypeURLHistory(t *testing.T) {
 	resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster"}
 	resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
 	err := c.ApplyResources(t.Context(), "node1",
-		ResourceMutations{Upserted: resources}, nil, NewTypeURLCallbacks())
+		ResourceMutations{Upserted: resources}, nil, typeurl.NewSet())
 	require.NoError(t, err)
 
 	createWatch := func(typeURL, version string) cache.Response {

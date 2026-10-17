@@ -111,7 +111,7 @@ func TestFailedCallerRevertReleasesRemovalTombstone(t *testing.T) {
 			} else {
 				rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID,
 					ResourceMutations{Removed: xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{route.Name: nil}}},
-					nil, TypeURLCallbacks{})
+					nil, typeurl.Set{})
 			}
 			require.NoError(t, err)
 			require.NotNil(t, rollback)
@@ -333,14 +333,14 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 	}
 	apply := func(t *testing.T, c *cacheImpl, mutations ResourceMutations) Rollback {
 		t.Helper()
-		rollback, err := c.ApplyResourcesWithRollback(t.Context(), "node-a", mutations, nil, TypeURLCallbacks{})
+		rollback, err := c.ApplyResourcesWithRollback(t.Context(), "node-a", mutations, nil, typeurl.Set{})
 		require.NoError(t, err)
 		require.NotNil(t, rollback)
 		return rollback
 	}
 	applyPlain := func(t *testing.T, c *cacheImpl, mutations ResourceMutations) {
 		t.Helper()
-		err := c.ApplyResources(t.Context(), "node-a", mutations, nil, TypeURLCallbacks{})
+		err := c.ApplyResources(t.Context(), "node-a", mutations, nil, typeurl.Set{})
 		require.NoError(t, err)
 	}
 
@@ -440,13 +440,13 @@ func TestApplyResourcesRevertCoversEnvoyResourceTypes(t *testing.T) {
 	}
 	apply := func(resources xds.Resources) Rollback {
 		t.Helper()
-		rollback, err := c.ApplyResourcesWithRollback(t.Context(), "node-a", ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{})
+		rollback, err := c.ApplyResourcesWithRollback(t.Context(), "node-a", ResourceMutations{Upserted: resources}, nil, typeurl.Set{})
 		require.NoError(t, err)
 		return rollback
 	}
 	applyPlain := func(resources xds.Resources) {
 		t.Helper()
-		err := c.ApplyResources(t.Context(), "node-a", ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{})
+		err := c.ApplyResources(t.Context(), "node-a", ResourceMutations{Upserted: resources}, nil, typeurl.Set{})
 		require.NoError(t, err)
 	}
 
@@ -491,7 +491,7 @@ func TestResourceRevisionAdvancesWhileRevertRestoresTransaction(t *testing.T) {
 					rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Listener, name, value, nil, nil)
 				} else {
 					mutations := ResourceMutations{Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{name: value}}}
-					rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID, mutations, nil, TypeURLCallbacks{})
+					rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID, mutations, nil, typeurl.Set{})
 				}
 				require.NoError(t, err)
 				return rollback
@@ -559,7 +559,7 @@ func TestCallerRevertRestoresPreviouslyAbsentResources(t *testing.T) {
 				rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
 					Clusters: map[string]*envoy_config_cluster.Cluster{cluster.Name: cluster},
 					Secrets:  map[string]*envoy_config_tls.Secret{secret.Name: secret},
-				}}, nil, TypeURLCallbacks{})
+				}}, nil, typeurl.Set{})
 			}
 			require.NoError(t, err)
 			require.NotNil(t, rollback)
@@ -733,9 +733,9 @@ func TestRollbackSurvivesCallerAndResponseResolution(t *testing.T) {
 					} else {
 						mutations.Upserted.Clusters = map[string]*envoy_config_cluster.Cluster{"resource": next.(*envoy_config_cluster.Cluster)}
 					}
-					var waits TypeURLCallbacks
+					var waits typeurl.Set
 					if wg != nil {
-						waits.Set(api.typeURL, nil)
+						waits.Insert(api.typeURL)
 					}
 					caller, err = c.ApplyResourcesWithRollback(ctx, nodeID, mutations, wg, waits)
 				} else {
