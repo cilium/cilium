@@ -408,7 +408,11 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		// reverted in case of failure.
 		// Also keep track of the regeneration finalization code that can't be
 		// reverted, and execute it in case of regeneration success.
-		defer e.finalizeProxyState(regenContext, reterr)
+		defer func() {
+			// Must use closure to get the current value of 'reterr' at the time
+			// of execution.
+			e.finalizeProxyState(regenContext, reterr)
+		}()
 	}
 
 	if err != nil {
