@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"os"
 	"path"
@@ -20,6 +21,7 @@ import (
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -275,7 +277,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			return
 		}
 		for _, a := range alloc {
-			if _, reused := state.existingByDevice[a.DeviceName]; reused {
+			if _, reused := state.existingByDevice[a.id()]; reused {
 				continue
 			}
 			if err := driver.cleanupAllocation(a); err != nil {
@@ -387,32 +389,83 @@ func (driver *Driver) podForClaim(ctx context.Context, claim *resourceapi.Resour
 	return pod, nil
 }
 
+type allocationID struct {
+	Pool    string
+	Device  string
+	ShareID kube_types.UID
+}
+
+func allocationIDFromResult(result resourceapi.DeviceRequestAllocationResult) allocationID {
+	return allocationID{
+		Pool:    result.Pool,
+		Device:  result.Device,
+		ShareID: shareIDFromResult(result),
+	}
+}
+
+func allocationIDFromStatus(status resourceapi.AllocatedDeviceStatus) allocationID {
+	var shareID kube_types.UID
+	if status.ShareID != nil {
+		shareID = kube_types.UID(*status.ShareID)
+	}
+
+	return allocationID{
+		Pool:    status.Pool,
+		Device:  status.Device,
+		ShareID: shareID,
+	}
+}
+
+func shareIDFromResult(result resourceapi.DeviceRequestAllocationResult) kube_types.UID {
+	if result.ShareID == nil {
+		return ""
+	}
+	return *result.ShareID
+}
+
+func (a allocation) id() allocationID {
+	return allocationID{
+		Pool:    a.Pool,
+		Device:  a.DeviceName,
+		ShareID: a.ShareID,
+	}
+}
+
+func (a allocation) deviceAllocation() types.DeviceAllocation {
+	return types.DeviceAllocation{
+		Config:           a.Config,
+		ShareID:          a.ShareID,
+		ConsumedCapacity: maps.Clone(a.ConsumedCapacity),
+	}
+}
+
 // claimPrepState holds the precomputed lookups used to make prepareResourceClaim
 // idempotent across retries.
 type claimPrepState struct {
-	// devices already set up for this exact (pod, claim), keyed by device name.
-	existingByDevice map[string]allocation
+	// devices already set up for this exact (pod, claim), keyed by allocation identity.
+	existingByDevice map[allocationID]allocation
 	// devices that already have a status entry in the claim for this driver.
-	existingStatusDevice map[string]struct{}
+	existingStatusDevice map[allocationID]struct{}
 }
 
 // newClaimPrepState builds the idempotency lookups for a (pod, claim) pair:
-// which devices were already set up locally, and which already have a
+// which devices were already set up in memory, and which already have a
 // Kubernetes status entry. Both let a retry skip work that already completed.
 func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerReference, claim *resourceapi.ResourceClaim) claimPrepState {
-	existingByDevice := make(map[string]allocation)
+	existingByDevice := make(map[allocationID]allocation)
 	txn := driver.db.ReadTxn()
 	for row := range AllocationsByClaimUID(driver.allocationTable, txn, claim.UID) {
 		if row.PodUID != pod.UID || row.PreparedDevice == nil {
 			continue
 		}
-		existingByDevice[row.DeviceName] = allocationFromRow(row)
+		a := allocationFromRow(row)
+		existingByDevice[a.id()] = a
 	}
 
-	existingStatusDevice := make(map[string]struct{})
+	existingStatusDevice := make(map[allocationID]struct{})
 	for _, ds := range claim.Status.Devices {
 		if ds.Driver == driver.config.DriverName {
-			existingStatusDevice[ds.Device] = struct{}{}
+			existingStatusDevice[allocationIDFromStatus(ds)] = struct{}{}
 		}
 	}
 
@@ -447,7 +500,7 @@ func (driver *Driver) cleanupAllocation(a allocation) error {
 		errs = append(errs, fmt.Errorf("failed to release addresses: %w", err))
 	}
 	if a.Device != nil {
-		if err := a.Device.Free(a.Config); err != nil {
+		if err := a.Device.Free(a.deviceAllocation()); err != nil {
 			errs = append(errs, fmt.Errorf("failed to free device: %w", err))
 		} else {
 			a.Device = nil
@@ -499,9 +552,11 @@ func (driver *Driver) getNewAllocation(
 
 	claimNamespacedName := path.Join(claim.Namespace, claim.Name)
 	alloc := allocation{
-		DeviceName: result.Device,
-		Pool:       result.Pool,
-		Config:     cfg,
+		DeviceName:       result.Device,
+		Pool:             result.Pool,
+		Config:           cfg,
+		ShareID:          shareIDFromResult(result),
+		ConsumedCapacity: maps.Clone(result.ConsumedCapacity),
 	}
 
 	// Setup the rollback function to clean up the device if any subsequent step fails.
@@ -531,13 +586,20 @@ func (driver *Driver) getNewAllocation(
 		return allocation{}, nil, fmt.Errorf("%s for device %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
 	}
 
-	// Setup the device
-	if err = draDevice.Dev.Setup(alloc.Config); err != nil {
+	// Setup the device. The prepared device may differ from the advertised
+	// device when setup creates allocation-specific state.
+	alloc.Manager = draDevice.Manager
+	var prepared types.Device
+	if prepared, err = draDevice.Dev.Setup(alloc.deviceAllocation()); err != nil {
 		errMsg = "failed to set up device"
 		return allocation{}, nil, fmt.Errorf("%s for ifname %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
 	}
-	alloc.Device = draDevice.Dev
-	alloc.Manager = draDevice.Manager
+	if prepared == nil {
+		errMsg = "failed to set up device"
+		err = fmt.Errorf("device %s returned no prepared device", result.Device)
+		return allocation{}, nil, fmt.Errorf("%s for ifname %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
+	}
+	alloc.Device = prepared
 
 	// Build the device status
 	var built resourceapi.AllocatedDeviceStatus
@@ -570,12 +632,13 @@ func (driver *Driver) reuseAllocatedDevice(
 	result resourceapi.DeviceRequestAllocationResult,
 	state claimPrepState,
 ) (*allocation, *resourceapi.AllocatedDeviceStatus, error) {
-	existing, alreadyDone := state.existingByDevice[result.Device]
+	id := allocationIDFromResult(result)
+	existing, alreadyDone := state.existingByDevice[id]
 	if !alreadyDone {
 		return nil, nil, nil
 	}
 
-	if _, statusPresent := state.existingStatusDevice[result.Device]; statusPresent {
+	if _, statusPresent := state.existingStatusDevice[id]; statusPresent {
 		return &existing, nil, nil
 	}
 
@@ -612,10 +675,16 @@ func (driver *Driver) buildDeviceStatus(
 		ips = append(ips, a.Config.IPv6Addr.String())
 	}
 
+	var shareID *string
+	if a.ShareID != "" {
+		shareID = ptr.To(string(a.ShareID))
+	}
+
 	return resourceapi.AllocatedDeviceStatus{
 		Driver:     driver.config.DriverName,
 		Pool:       result.Pool,
 		Device:     result.Device,
+		ShareID:    shareID,
 		Conditions: []metav1.Condition{conditionReady(claim)},
 		Data:       &runtime.RawExtension{Raw: rawDev},
 		NetworkData: &resourceapi.NetworkDeviceData{
@@ -625,22 +694,30 @@ func (driver *Driver) buildDeviceStatus(
 	}, nil
 }
 
-// conflictingDeviceForPod returns the name of the first device that is
-// already allocated to podUID by a claim other than skipClaimUID, or "" if
-// there is no conflict. The check skips skipClaimUID so re-preparing an
-// existing claim remains idempotent.
+// conflictingDeviceForPod returns the name of the first DRA allocation that
+// conflicts with a result requested for podUID by a different claim. Different
+// non-empty shares of the same device can coexist. The check skips
+// skipClaimUID so an idempotent retry is not rejected.
 func (driver *Driver) conflictingDeviceForPod(podUID kube_types.UID, skipClaimUID kube_types.UID, results []resourceapi.DeviceRequestAllocationResult) string {
 	txn := driver.db.ReadTxn()
-	requested := make(map[string]struct{}, len(results))
-	for _, result := range results {
-		requested[result.Device] = struct{}{}
-	}
 	for row := range AllocationsByPodUID(driver.allocationTable, txn, podUID) {
 		if row.ClaimUID == skipClaimUID {
 			continue
 		}
-		if _, conflict := requested[row.DeviceName]; conflict {
-			return row.DeviceName
+
+		allocated := allocationID{
+			Pool:    row.Pool,
+			Device:  row.DeviceName,
+			ShareID: row.ShareID,
+		}
+		for _, result := range results {
+			requested := allocationIDFromResult(result)
+			if allocated.Pool != requested.Pool || allocated.Device != requested.Device {
+				continue
+			}
+			if allocated.ShareID == "" || requested.ShareID == "" || allocated.ShareID == requested.ShareID {
+				return result.Device
+			}
 		}
 	}
 	return ""
@@ -664,20 +741,21 @@ func serializeDevice(a allocation) ([]byte, error) {
 	}
 
 	return json.Marshal(types.SerializedDevice{
-		Manager: a.Manager,
-		Dev:     data,
-		Config:  a.Config,
+		Manager:          a.Manager,
+		Dev:              data,
+		Config:           a.Config,
+		ConsumedCapacity: maps.Clone(a.ConsumedCapacity),
 	})
 }
 
-func deserializeDevice(data []byte) (types.DeviceManagerType, json.RawMessage, types.DeviceConfig, error) {
+func deserializeDevice(data []byte) (types.SerializedDevice, error) {
 	var dev types.SerializedDevice
 
 	if err := json.Unmarshal(data, &dev); err != nil {
-		return types.DeviceManagerTypeUnknown, nil, types.DeviceConfig{}, err
+		return types.SerializedDevice{}, err
 	}
 
-	return dev.Manager, dev.Dev, dev.Config, nil
+	return dev, nil
 }
 
 func (driver *Driver) releaseAddrs(cfg types.DeviceConfig) error {
