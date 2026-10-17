@@ -141,7 +141,9 @@ func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevisi
 	n.Lock()
 	defer n.Unlock()
 
-	_, exists := n.allSelectors[selector]
+	// Normalize selector to lowercase for RFC 1035 compliance (case-insensitive DNS names)
+	normalizedSelector := selector.Normalized()
+	_, exists := n.allSelectors[normalizedSelector]
 	if exists {
 		n.logger.Warn("FQDNSelector was already registered for updates.",
 			logfields.FQDNSelector, selector,
@@ -158,7 +160,7 @@ func (n *manager) RegisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevisi
 			return
 		}
 
-		n.allSelectors[selector] = regex
+		n.allSelectors[normalizedSelector] = regex
 		if metrics.FQDNSelectors.IsEnabled() {
 			metrics.FQDNSelectors.Set(float64(len(n.allSelectors)))
 		}
@@ -190,8 +192,10 @@ func (n *manager) UnregisterFQDNSelector(selector api.FQDNSelector) (ipcacheRevi
 	n.Lock()
 	defer n.Unlock()
 
+	// Normalize selector to lowercase for RFC 1035 compliance (case-insensitive DNS names)
+	normalizedSelector := selector.Normalized()
 	// Remove selector
-	delete(n.allSelectors, selector)
+	delete(n.allSelectors, normalizedSelector)
 	if metrics.FQDNSelectors.IsEnabled() {
 		metrics.FQDNSelectors.Set(float64(len(n.allSelectors)))
 	}

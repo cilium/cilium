@@ -11,7 +11,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/safeio"
@@ -63,10 +62,9 @@ func (a *EnvoyAdminClient) Post(query string) (string, error) {
 		return "", err
 	}
 
-	ret := strings.ReplaceAll(string(body), "\r", "")
-	a.logger.Debug("Envoy: Admin response",
+	// Do not log response body as it may contain sensitive Envoy configuration
+	a.logger.Debug("Envoy: Admin request completed",
 		logfields.Request, query,
-		logfields.Response, ret,
 	)
 
 	return string(body), nil
@@ -97,10 +95,9 @@ func (a *EnvoyAdminClient) Get(query string) (string, error) {
 		return "", err
 	}
 
-	ret := strings.ReplaceAll(string(body), "\r", "")
-	a.logger.Debug("Envoy: Admin response",
+	// Do not log response body as it may contain sensitive Envoy configuration
+	a.logger.Debug("Envoy: Admin request completed",
 		logfields.Request, query,
-		logfields.Response, ret,
 	)
 
 	return string(body), nil

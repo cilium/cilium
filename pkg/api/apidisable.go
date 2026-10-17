@@ -30,7 +30,7 @@ func (a *AdminDisableHandler) ServeHTTP(wr http.ResponseWriter, req *http.Reques
 		"Denied API request on administratively disabled API endpoint",
 		logfields.Endpoint, a.name,
 	)
-	_, _ = wr.Write([]byte("This API is administratively disabled. Contact your administrator for more details."))
+	_, _ = wr.Write([]byte("This API is administratively disabled in the current configuration of this component. To use it, enable the feature that provides this API in the Cilium configuration and restart the component. If the API is intentionally disabled, no action is needed."))
 }
 
 // DisableAPIs configures the API middleware for all of the paths in the

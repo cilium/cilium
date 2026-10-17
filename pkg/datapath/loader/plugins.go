@@ -311,10 +311,9 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 	for range len(lnc.Plugins) {
 		r := <-prepareResults
 
+		// Log only plugin name and error; do not log request/response objects as they may contain sensitive config
 		logger.Debug("PrepareCollection()",
 			logfields.CiliumDatapathPluginName, r.plugin.Name(),
-			logfields.Request, req,
-			logfields.Response, r.resp,
 			logfields.Error, r.err,
 		)
 

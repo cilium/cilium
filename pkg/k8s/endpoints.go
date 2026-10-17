@@ -167,7 +167,7 @@ type Backend struct {
 func (b *Backend) DeepEqual(other *Backend) bool {
 	return maps.EqualFunc(b.Ports, other.Ports, slices.Equal) &&
 		b.NodeName == other.NodeName &&
-		b.Hostname == other.Hostname &&
+		strings.EqualFold(b.Hostname, other.Hostname) &&
 		b.Conditions == other.Conditions &&
 		slices.Equal(b.HintsForZones, other.HintsForZones) &&
 		b.Preferred == other.Preferred &&
