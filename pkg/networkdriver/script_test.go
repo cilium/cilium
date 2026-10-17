@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"net/netip"
 	"strings"
 	"testing"
 
@@ -25,12 +26,18 @@ import (
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 
 	"github.com/cilium/cilium/daemon/k8s"
+	operatoripam "github.com/cilium/cilium/operator/pkg/networkdriver/ipam"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/ipam"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
+	"github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
+	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/time"
@@ -63,31 +70,58 @@ func TestScript(t *testing.T) {
 		},
 	}
 
+	const (
+		localNodeName = "test-local-node"
+		driverName    = "test.cilium.k8s.io"
+		deviceName    = "test-device"
+	)
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			defer testutils.GoleakVerifyNone(t)
+			originalNodeName := nodetypes.GetName()
+			nodetypes.SetName(localNodeName)
+			t.Cleanup(func() {
+				nodetypes.SetName(originalNodeName)
+				testutils.GoleakVerifyNone(t)
+			})
 			scripttest.Test(t,
 				t.Context(),
 				func(t testing.TB, args []string) *script.Engine {
 					var (
 						cs   *k8sClient.FakeClientset
+						mgr  *ipam.MultiPoolManager
 						pods resource.Resource[*corev1.Pod]
 					)
 
 					h := hive.New(
 						k8sClient.FakeClientCell(),
 						k8s.ResourcesCell,
+						cell.Config(config.DefaultConfig),
+						operatoripam.Cell,
+						networkdriverIPAM.Cell,
 						cell.Provide(
 							podResource,
 							func() *option.DaemonConfig {
-								return &option.DaemonConfig{}
+								return &option.DaemonConfig{
+									IPAMCiliumNodeUpdateRate: time.Nanosecond,
+								}
 							},
 						),
-						cell.Invoke(func(cs_ *k8sClient.FakeClientset, pods_ resource.Resource[*corev1.Pod]) {
+						cell.Invoke(func(
+							cs_ *k8sClient.FakeClientset,
+							mgr_ *ipam.MultiPoolManager,
+							pods_ resource.Resource[*corev1.Pod],
+						) {
 							cs = cs_
+							mgr = mgr_
 							pods = pods_
 						}),
 					)
+					hive.AddConfigOverride(h, func(cfg *config.Config) {
+						cfg.Enabled = true
+						cfg.IPv4Enabled = tc.ipv4
+						cfg.IPv6Enabled = tc.ipv6
+					})
 
 					flags := pflag.NewFlagSet("", pflag.ContinueOnError)
 					h.RegisterFlags(flags)
@@ -109,7 +143,7 @@ func TestScript(t *testing.T) {
 					allocationTable, err := newAllocationTable(db)
 					require.NoError(t, err)
 
-					device := noSetupDummyDevice{&dummy.DummyDevice{Name: "test-device"}}
+					device := noSetupDummyDevice{&dummy.DummyDevice{Name: deviceName}}
 					txn := db.WriteTxn(deviceTable)
 					_, _, err = deviceTable.Insert(txn, &DRADevice{
 						Name:    device.IfName(),
@@ -123,10 +157,11 @@ func TestScript(t *testing.T) {
 						logger:          log,
 						kubeClient:      cs,
 						pods:            pods,
-						config:          &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: "test.cilium.k8s.io"},
+						config:          &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: driverName},
 						db:              db,
 						deviceTable:     deviceTable,
 						allocationTable: allocationTable,
+						multiPoolMgr:    mgr,
 						ipv4Enabled:     tc.ipv4,
 						ipv6Enabled:     tc.ipv6,
 					}
@@ -135,15 +170,54 @@ func TestScript(t *testing.T) {
 					for _, cmd := range statedb.ScriptCommands(db).ScriptCmds {
 						cmds[cmd.Name] = cmd.Cmd
 					}
-					maps.Insert(cmds, maps.All(scriptCommands(t.Context(), driver, cs)))
+					maps.Insert(cmds, maps.All(scriptCommands(t.Context(), driver,
+						cs, mgr, tc.ipv4, tc.ipv6)))
 					return &script.Engine{Cmds: cmds}
 				}, []string{}, tc.pattern)
 		})
 	}
 }
 
-func scriptCommands(ctx context.Context, driver *Driver, cs *k8sClient.FakeClientset) map[string]script.Cmd {
+func scriptCommands(ctx context.Context, driver *Driver, cs *k8sClient.FakeClientset, mgr *ipam.MultiPoolManager, ipv4, ipv6 bool) map[string]script.Cmd {
 	return map[string]script.Cmd{
+		"driver/check-claim-addresses": script.Command(
+			script.CmdUsage{
+				Summary: "Check claim device addresses against local CiliumNode allocated resource pool CIDRs",
+				Args:    "claim device pool",
+			},
+			func(_ *script.State, args ...string) (script.WaitFunc, error) {
+				if len(args) != 3 {
+					return nil, script.ErrUsage
+				}
+
+				obj, err := toNamespacedName(args[0])
+				if err != nil {
+					return nil, err
+				}
+
+				claim, err := cs.ResourceV1().ResourceClaims(obj.Namespace).Get(ctx, obj.Name, metav1.GetOptions{})
+				if err != nil {
+					return nil, err
+				}
+
+				return nil, checkClaimAddresses(ctx, cs, claim, driver.config.DriverName, args[1], args[2], nodetypes.GetName())
+			},
+		),
+		"driver/ipam/restore-finished": script.Command(
+			script.CmdUsage{Summary: "Mark IPAM restore as finished", Args: ""},
+			func(_ *script.State, args ...string) (script.WaitFunc, error) {
+				if len(args) != 0 {
+					return nil, script.ErrUsage
+				}
+				if ipv4 {
+					mgr.RestoreFinished(ipam.IPv4)
+				}
+				if ipv6 {
+					mgr.RestoreFinished(ipam.IPv6)
+				}
+				return nil, nil
+			},
+		),
 		"driver/prepare-resource-claims": script.Command(
 			script.CmdUsage{
 				Summary: "Call PrepareResourceClaims to prepare resources",
@@ -201,17 +275,111 @@ func scriptClaims(ctx context.Context, cs *k8sClient.FakeClientset, args []strin
 	}
 	claims := make([]*resourcev1.ResourceClaim, 0, len(args))
 	for _, arg := range args {
-		parts := strings.Split(arg, "/")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid claim name: %s", arg)
+		obj, err := toNamespacedName(arg)
+		if err != nil {
+			return nil, err
 		}
-		claim, err := cs.ResourceV1().ResourceClaims(parts[0]).Get(ctx, parts[1], metav1.GetOptions{})
+
+		claim, err := cs.ResourceV1().ResourceClaims(obj.Namespace).Get(ctx, obj.Name, metav1.GetOptions{})
 		if err != nil {
 			return nil, err
 		}
 		claims = append(claims, claim)
 	}
 	return claims, nil
+}
+
+func toNamespacedName(s string) (kubetypes.NamespacedName, error) {
+	tokens := strings.Split(s, "/")
+	switch len(tokens) {
+	case 2:
+		return kubetypes.NamespacedName{Namespace: tokens[0], Name: tokens[1]}, nil
+	case 1:
+		return kubetypes.NamespacedName{Namespace: "default", Name: tokens[0]}, nil
+	default:
+		return kubetypes.NamespacedName{}, fmt.Errorf("invalid claim name: %s", s)
+	}
+}
+
+func claimDeviceAddresses(claim *resourcev1.ResourceClaim, driverName, deviceName string) ([]netip.Prefix, error) {
+	for _, status := range claim.Status.Devices {
+		if status.Driver != driverName || status.Device != deviceName {
+			continue
+		}
+		if status.NetworkData == nil || len(status.NetworkData.IPs) == 0 {
+			return nil, fmt.Errorf("device %s has no network data IPs", deviceName)
+		}
+
+		addresses := make([]netip.Prefix, 0, len(status.NetworkData.IPs))
+		for _, ip := range status.NetworkData.IPs {
+			prefix, err := netip.ParsePrefix(ip)
+			if err != nil {
+				return nil, fmt.Errorf("invalid address %s for device %s: %w", ip, deviceName, err)
+			}
+			addresses = append(addresses, prefix)
+		}
+		return addresses, nil
+	}
+	return nil, fmt.Errorf("device %s not found in claim %s/%s", deviceName, claim.Namespace, claim.Name)
+}
+
+func cidrsContainAddress(cidrs []netip.Prefix, addr netip.Addr) bool {
+	for _, cidr := range cidrs {
+		if cidr.Contains(addr) {
+			return true
+		}
+	}
+	return false
+}
+
+func nodeResourcePoolCIDRs(allocations []ipamTypes.IPAMPoolAllocation, poolName string) ([]netip.Prefix, bool) {
+	for _, allocation := range allocations {
+		if allocation.Pool != poolName {
+			continue
+		}
+		if len(allocation.CIDRs) == 0 {
+			return nil, false
+		}
+		cidrs := make([]netip.Prefix, 0, len(allocation.CIDRs))
+		for _, cidr := range allocation.CIDRs {
+			cidrs = append(cidrs, cidr.Prefix)
+		}
+		return cidrs, true
+	}
+	return nil, false
+}
+
+func checkClaimAddresses(
+	ctx context.Context,
+	cs *k8sClient.FakeClientset,
+	claim *resourcev1.ResourceClaim,
+	driverName string,
+	deviceName string,
+	poolName string,
+	nodeName string,
+) error {
+	addresses, err := claimDeviceAddresses(claim, driverName, deviceName)
+	if err != nil {
+		return err
+	}
+
+	node, err := cs.CiliumV2().CiliumNodes().Get(ctx, nodeName, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	allocatedCIDRs, found := nodeResourcePoolCIDRs(node.Spec.IPAM.ResourcePools.Allocated, poolName)
+	if !found {
+		return fmt.Errorf("CiliumNode %s has no allocated CIDRs for pool %s", nodeName, poolName)
+	}
+
+	for _, prefix := range addresses {
+		addr := prefix.Addr()
+		if !cidrsContainAddress(allocatedCIDRs, addr) {
+			return fmt.Errorf("address %s for device %s is not part of CiliumNode %s allocated CIDRs for pool %s", prefix, deviceName, nodeName, poolName)
+		}
+	}
+	return nil
 }
 
 type noSetupDummyDevice struct {
