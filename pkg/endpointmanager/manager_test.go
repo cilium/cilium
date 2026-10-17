@@ -118,23 +118,33 @@ func (o blockingCompletionOwner) ID() string {
 
 func (blockingCompletionOwner) CleanupAfterWait(*completion.Completion) {}
 
-func TestWaitForProxyCompletionsReturnsBlockingCompletionDetailsOnTimeout(t *testing.T) {
-	logger := hivetest.Logger(t)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+func TestWaitForProxyCompletions(t *testing.T) {
+	tests := []struct {
+		name    string
+		wantErr error
+	}{
+		{name: "timeout", wantErr: context.DeadlineExceeded},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
+			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+			defer cancel()
 
-	proxyWaitGroup := completion.NewWaitGroup(ctx)
-	const blockingCompletionID = "blocking-proxy-policy-update"
+			wg := completion.NewWaitGroup(ctx)
+			const blockingID = "blocking-proxy-policy-update"
 
-	// Leave the completion pending so the wait group times out while waiting on it.
-	proxyWaitGroup.AddCompletionWithCallback(blockingCompletionOwner(blockingCompletionID), nil)
+			// Leave the completion pending so the wait group times out while waiting on it.
+			wg.AddCompletionWithCallback(blockingCompletionOwner(blockingID), nil)
 
-	err := mgr.waitForProxyCompletions(proxyWaitGroup)
-	require.Error(t, err)
-	require.ErrorIs(t, err, context.DeadlineExceeded)
-	require.ErrorContains(t, err, "Waiting on "+blockingCompletionID)
+			err := mgr.waitForProxyCompletions(wg)
+			require.Error(t, err)
+			require.ErrorIs(t, err, tt.wantErr)
+			require.ErrorContains(t, err, "Waiting on "+blockingID)
+		})
+	}
 }
 
 func TestLookup(t *testing.T) {
