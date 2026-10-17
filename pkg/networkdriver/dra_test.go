@@ -261,11 +261,6 @@ func TestBuildDeviceStatus(t *testing.T) {
 
 func TestDeviceClaimConfigs(t *testing.T) {
 	const testDriverName = "testdriver"
-	driver := &Driver{
-		config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
-			DriverName: testDriverName,
-		},
-	}
 	result := func(driver, request string) resourceapi.DeviceRequestAllocationResult {
 		return resourceapi.DeviceRequestAllocationResult{Driver: driver, Request: request}
 	}
@@ -446,15 +441,7 @@ func TestDeviceClaimConfigs(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			claim := &resourceapi.ResourceClaim{
-				ObjectMeta: metav1.ObjectMeta{Name: "test-claim", Namespace: "default"},
-				Status: resourceapi.ResourceClaimStatus{
-					Allocation: &resourceapi.AllocationResult{
-						Devices: tc.allocatedDevices,
-					},
-				},
-			}
-			devConf, err := driver.deviceClaimConfigs(claim)
+			devConf, err := deviceClaimConfigs(&tc.allocatedDevices, testDriverName)
 			if tc.expectedDevConfs == nil {
 				require.Error(t, err)
 				require.Nil(t, devConf)

@@ -257,7 +257,8 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	deviceClaimConfigs, err := driver.deviceClaimConfigs(claim)
+	deviceClaimConfigs, err := deviceClaimConfigs(&claim.Status.Allocation.Devices,
+		driver.config.DriverName)
 	if err != nil {
 		driver.logger.ErrorContext(
 			ctx, "failed to retrieve device configs",
@@ -343,9 +344,8 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}
 }
 
-func (driver *Driver) deviceClaimConfigs(claim *resourceapi.ResourceClaim) (map[string]types.DeviceConfig, error) {
+func deviceClaimConfigs(deviceAllocation *resourceapi.DeviceAllocationResult, driverName string) (map[string]types.DeviceConfig, error) {
 	devicesCfg := map[string]types.DeviceConfig{}
-	devices := claim.Status.Allocation.Devices
 
 	// We go through each device allocation result and extract the configuration
 	// for the corresponding request.
@@ -356,8 +356,8 @@ func (driver *Driver) deviceClaimConfigs(claim *resourceapi.ResourceClaim) (map[
 	// - A plugin can receive a ResourceClaim with requests that do not concern
 	//   that driver if mixed DeviceClass are used in the claim's spec.
 	//   Every plugin must be careful to filter for the correct requests.
-	for _, res := range devices.Results {
-		if res.Driver != driver.config.DriverName {
+	for _, res := range deviceAllocation.Results {
+		if res.Driver != driverName {
 			// Skip results that do not belong to this driver.
 			continue
 		}
@@ -366,7 +366,7 @@ func (driver *Driver) deviceClaimConfigs(claim *resourceapi.ResourceClaim) (map[
 		requestCfg := types.DeviceConfig{}
 
 		// for each result request we look for matching configurations.
-		for _, cfg := range devices.Config {
+		for _, cfg := range deviceAllocation.Config {
 			if len(cfg.Requests) != 0 && !slices.Contains(cfg.Requests, requestName) {
 				// this is a config not related to our driver.
 				continue
