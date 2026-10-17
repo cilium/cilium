@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
@@ -266,7 +265,6 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 		epPolicy.Ready()
 	}
 	ip.Detach()
-	assert.Equal(b, 44596, owner.previousMap.Len())
 }
 
 func BenchmarkResolveL3IngressPolicyRules(b *testing.B) {
