@@ -9,11 +9,49 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
+	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/testutils"
 )
+
+func TestRegenerateBPFFailureReverts(t *testing.T) {
+	endpointPolicy := &policy.EndpointPolicy{}
+	ep := &Endpoint{
+		aliveCtx:                   t.Context(),
+		orchestrator:               &fakeendpoint.FakeOrchestrator{},
+		compilationLock:            &lock.RWMutex{},
+		policyRepo:                 &policy.Repository{},
+		dnsRulesAPI:                noopDNSRulesAPI{},
+		desiredPolicy:              endpointPolicy,
+		realizedPolicy:             endpointPolicy,
+		initialEnvoyPolicyComputed: make(chan struct{}),
+		ctCleaned:                  true,
+	}
+	ep.logger.Store(hivetest.Logger(t))
+	datapath := &datapathRegenerationContext{
+		policyResult: &policyGenerateResult{endpointPolicy: endpointPolicy},
+		ctCleaned:    make(chan struct{}),
+	}
+	var reverted bool
+	datapath.revertibles.AddRevert(func() error {
+		reverted = true
+		return nil
+	})
+
+	ep.buildMutex.Lock()
+	defer ep.buildMutex.Unlock()
+	_, err := ep.regenerateBPF(&regenerationContext{
+		parentContext:               t.Context(),
+		datapathRegenerationContext: datapath,
+	})
+	require.ErrorContains(t, err, "endpoint has nil policyMapFactory")
+	require.True(t, reverted)
+}
 
 func TestWriteInformationalComments(t *testing.T) {
 	s := setupEndpointSuite(t)
