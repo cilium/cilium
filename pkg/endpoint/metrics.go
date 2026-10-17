@@ -48,6 +48,10 @@ type regenerationStatistics struct {
 	endpointID   uint16
 	policyStatus models.EndpointPolicyEnabled
 
+	// datapathWait is how long regenerateBPF waited for the node's base
+	// datapath, which every endpoint on the node shares.
+	datapathWait time.Duration
+
 	buildPermitAcquisition    spanstat.SpanStat
 	totalTime                 spanstat.SpanStat
 	waitingForLock            spanstat.SpanStat

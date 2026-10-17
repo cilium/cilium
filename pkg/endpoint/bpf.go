@@ -359,6 +359,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	stats := &regenContext.Stats
 	stats.waitingForLock.Start()
+	datapathWaitStart := time.Now()
 
 	datapathRegenCtxt := regenContext.datapathRegenerationContext
 
@@ -373,6 +374,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// regenerating an endpoint.
 	e.compilationLock.RLock()
 	stats.waitingForLock.End(true)
+	stats.datapathWait += time.Since(datapathWaitStart)
 	defer e.compilationLock.RUnlock()
 
 	if err := e.aliveCtx.Err(); err != nil {

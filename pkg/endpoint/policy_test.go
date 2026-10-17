@@ -458,3 +458,11 @@ func TestSkippedPolicyRevision(t *testing.T) {
 		require.Zero(t, ep.skippedPolicyRevision)
 	})
 }
+
+func TestSharedBuildDurationKeepsFirstSuccess(t *testing.T) {
+	var e Endpoint
+
+	e.recordSharedBuildDuration(20 * time.Second)
+	e.recordSharedBuildDuration(40 * time.Second)
+	require.Equal(t, 20*time.Second, e.SharedBuildDuration(), "a later regeneration does not count")
+}

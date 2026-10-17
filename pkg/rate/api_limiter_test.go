@@ -666,6 +666,69 @@ func TestSkipInitial(t *testing.T) {
 	require.Equal(t, 0.0, a.meanWaitDuration, "All requests should have skipped waiting duration")
 }
 
+func TestUnaccountedProcessingDuration(t *testing.T) {
+	// Replay the first endpoint creations on a fresh agent, which spent 57.3s
+	// of 58.8s waiting for the base datapath and the template compilation.
+	initialRateLimit := rate.Limit(0.5)
+
+	tests := []struct {
+		name                  string
+		processing            time.Duration
+		unaccounted           time.Duration
+		wantService           float64
+		wantLimitBelowInitial bool
+	}{
+		{
+			name:                  "cold start charged in full",
+			processing:            58800 * time.Millisecond,
+			wantService:           58.8,
+			wantLimitBelowInitial: true,
+		},
+		{
+			name:        "cold start discounted",
+			processing:  58800 * time.Millisecond,
+			unaccounted: 57300 * time.Millisecond,
+			wantService: 1.5,
+		},
+		{
+			name:        "discount exceeding the processing duration",
+			processing:  time.Second,
+			unaccounted: 5 * time.Second,
+			wantService: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := NewAPILimiter(hivetest.Logger(t), "endpoint-create", APILimiterParameters{
+				AutoAdjust:                  true,
+				EstimatedProcessingDuration: 2 * time.Second,
+				RateLimit:                   initialRateLimit,
+				RateBurst:                   4,
+				ParallelRequests:            4,
+				MinParallelRequests:         2,
+				MaxWaitDuration:             60 * time.Second,
+			}, nil)
+
+			req, err := l.wait(context.Background())
+			require.NoError(t, err)
+			// Backdate the request to avoid sleeping for a minute.
+			req.startTime = time.Now().Add(-tt.processing)
+			req.Unaccounted(tt.unaccounted)
+			req.Done()
+
+			require.InDelta(t, tt.processing.Seconds(), l.meanProcessingDuration, 0.5, "the published mean keeps the full duration")
+			require.InDelta(t, tt.wantService, l.meanServiceDuration, 0.5)
+			if tt.wantLimitBelowInitial {
+				require.Less(t, l.limiter.Limit(), initialRateLimit)
+			} else {
+				require.GreaterOrEqual(t, l.limiter.Limit(), initialRateLimit)
+				require.Greater(t, l.parallelRequests, l.params.MinParallelRequests)
+			}
+		})
+	}
+}
+
 func TestCalculateAdjustmentFactor(t *testing.T) {
 	estimatedProcessingDuration := time.Second
 	maxAdjustmentFactor := 20.0
@@ -674,16 +737,16 @@ func TestCalculateAdjustmentFactor(t *testing.T) {
 		MaxAdjustmentFactor:         maxAdjustmentFactor,
 	}, nil)
 
-	a.meanProcessingDuration = estimatedProcessingDuration.Seconds()
+	a.meanServiceDuration = estimatedProcessingDuration.Seconds()
 	require.Equal(t, 1.0, a.calculateAdjustmentFactor())
 
-	a.meanProcessingDuration = estimatedProcessingDuration.Seconds() / 2
+	a.meanServiceDuration = estimatedProcessingDuration.Seconds() / 2
 	require.Equal(t, 2.0, a.calculateAdjustmentFactor())
 
-	a.meanProcessingDuration = (time.Second * 1000).Seconds()
+	a.meanServiceDuration = (time.Second * 1000).Seconds()
 	require.Equal(t, 1.0/maxAdjustmentFactor, a.calculateAdjustmentFactor())
 
-	a.meanProcessingDuration = (time.Second / 1000).Seconds()
+	a.meanServiceDuration = (time.Second / 1000).Seconds()
 	require.Equal(t, 1.0*maxAdjustmentFactor, a.calculateAdjustmentFactor())
 }
 
