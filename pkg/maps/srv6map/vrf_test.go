@@ -15,7 +15,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -38,11 +37,6 @@ func TestPrivilegedVRFMapsHive(t *testing.T) {
 	hive := hive.New(
 		cell.Provide(
 			newVRFMaps,
-			func() *option.DaemonConfig {
-				return &option.DaemonConfig{
-					EnableSRv6: true,
-				}
-			},
 		),
 		cell.Invoke(func(in in) {
 			// Test DI works
