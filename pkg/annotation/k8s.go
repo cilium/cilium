@@ -135,6 +135,7 @@ const (
 	// Allowed values:
 	// - random
 	// - maglev
+	// - round-robin
 	ServiceLoadBalancingAlgorithm = ServicePrefix + "/lb-algorithm"
 
 	// EndpointSliceWeight indicates the load-balancing weight to assign to all
