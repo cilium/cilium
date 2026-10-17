@@ -754,6 +754,9 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	listenerWait.Set(typeurl.Listener, nil)
 	deleteRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, stagedMutations, deleteWG, listenerWait)
 	if err != nil {
+		// Failed admission does not reach the ACK wait. Release the owned
+		// group's context and settle any completions before returning.
+		deleteWG.Cancel()
 		return err
 	}
 	if err := deleteWG.Wait(); err != nil {
@@ -771,6 +774,8 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 		replaceRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, replaceMutations, replaceWG, callbackTypeURLs)
 		if err == nil {
 			err = replaceWG.Wait()
+		} else {
+			replaceWG.Cancel()
 		}
 		if err == nil {
 			finalizeRollback(deleteRollback)

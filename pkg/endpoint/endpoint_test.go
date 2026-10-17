@@ -1673,9 +1673,16 @@ func newTestEndpointModel(id int, state State) *models.EndpointChangeRequest {
 	}
 }
 
-type noopDNSRulesAPI struct{}
+type noopDNSRulesAPI struct {
+	onRead func()
+}
 
-func (noopDNSRulesAPI) GetDNSRules(uint16) fqdnrestore.DNSRules { return nil }
+func (api noopDNSRulesAPI) GetDNSRules(uint16) fqdnrestore.DNSRules {
+	if api.onRead != nil {
+		api.onRead()
+	}
+	return nil
+}
 
 func (noopDNSRulesAPI) RemoveRestoredDNSRules(uint16) {}
 
