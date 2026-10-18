@@ -178,7 +178,7 @@ func (p *recordingEndpointProxy) UpdateNetworkPolicy(ctx context.Context, ep pro
 	err := p.syncErrByEndpoint[endpointID]
 	trackUpdates := p.expectedUpdates > 0
 	if err == nil && wg != nil && trackUpdates {
-		p.completions[endpointID] = wg.AddCompletionWithCallback(policyCompletionOwner("network-policy-update"), nil)
+		p.completions[endpointID] = wg.AddCompletion(policyCompletionOwner("network-policy-update"))
 	}
 	if trackUpdates {
 		p.updatesSeen++

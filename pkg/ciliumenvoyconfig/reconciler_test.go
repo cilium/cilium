@@ -53,7 +53,7 @@ func (m *waitGroupResourceMutator) UpdateEnvoyResources(ctx context.Context, old
 		}
 	}
 	if wg != nil {
-		comp := wg.AddCompletionWithCallback(nil, nil)
+		comp := wg.AddCompletion(nil)
 		if m.completionCh != nil {
 			m.completionCh <- comp
 		} else {
