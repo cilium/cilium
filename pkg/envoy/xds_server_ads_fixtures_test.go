@@ -125,11 +125,9 @@ func createADSWatchResponse(t *testing.T, cache xdsnew.Cache, typeURL, version s
 
 // testableEndpointUpdater is a configurable mock implementing endpoint.EndpointUpdater.
 type testableEndpointUpdater struct {
-	id                     uint64
-	ipv4                   string
-	ipv6                   string
-	proxyPolicyRevision    atomic.Uint64
-	proxyPolicyUpdateCount atomic.Uint64
+	id   uint64
+	ipv4 string
+	ipv6 string
 }
 
 func (m *testableEndpointUpdater) GetID() uint64          { return m.id }
@@ -146,10 +144,6 @@ func (m *testableEndpointUpdater) GetPolicyNames() []string {
 	return res
 }
 func (m *testableEndpointUpdater) GetIngressNamedPort(string, u8proto.U8proto) uint16 { return 0 }
-func (m *testableEndpointUpdater) OnProxyPolicyUpdate(revision uint64) {
-	m.proxyPolicyRevision.Store(revision)
-	m.proxyPolicyUpdateCount.Add(1)
-}
 func (m *testableEndpointUpdater) UpdateProxyStatistics(string, string, uint16, uint16, bool, bool, accesslog.FlowVerdict) {
 }
 func (m *testableEndpointUpdater) GetListenerProxyPort(string) uint16 { return 0 }

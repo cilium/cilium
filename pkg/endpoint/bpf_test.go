@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/netip"
 	"os"
 	"testing"
 	"testing/synctest"
@@ -29,6 +30,7 @@ import (
 	fakepolicymap "github.com/cilium/cilium/pkg/maps/policymap/fake"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -148,7 +150,9 @@ type recordingAckRedirectProxy struct {
 
 func (p *recordingAckRedirectProxy) AckRedirects(_ context.Context, redirects map[string]uint16) error {
 	p.redirects = redirects
-	p.onAck()
+	if p.onAck != nil {
+		p.onAck()
+	}
 	return p.err
 }
 
@@ -231,6 +235,7 @@ func TestRegenerateBPFWaitsForProxy(t *testing.T) {
 						}
 						realized := policy.NewEndpointPolicy(logger, f.repo)
 						desired := policy.NewEndpointPolicy(logger, f.repo)
+						desired.SelectorPolicy.L4Policy.Revision = f.repo.GetRevision()
 						key := policy.EgressKey().WithPortProto(u8proto.TCP, 80)
 						entries := policy.MapStateMap{key: (policy.MapStateEntry{}).WithProxyPort(12345)}
 						desired.CopyMapStateFrom(entries)
@@ -238,6 +243,9 @@ func TestRegenerateBPFWaitsForProxy(t *testing.T) {
 							desired.Redirects = map[string]uint16{"redirect": 12345}
 						}
 						ep := newRegenTestEndpoint(t, f.repo, realized)
+						ep.SecurityIdentity = f.podID
+						ep.IPv4 = netip.MustParseAddr("10.0.0.1")
+						desired.PolicyOwner = ep
 						ep.proxy = proxy
 						ep.orchestrator = dp
 						ep.lxcMap = dp
@@ -260,6 +268,7 @@ func TestRegenerateBPFWaitsForProxy(t *testing.T) {
 						datapath := &datapathRegenerationContext{
 							policyResult: &policyGenerateResult{
 								endpointPolicy: desired,
+								identity:       f.podID.ID,
 								policyRevision: f.repo.GetRevision(),
 							},
 							ctCleaned:         make(chan struct{}),
@@ -295,6 +304,7 @@ func TestRegenerateBPFWaitsForProxy(t *testing.T) {
 						// Leave proxy updates pending until regeneration blocks on them.
 						synctest.Wait()
 						require.NotNil(t, pending)
+						require.Zero(t, ep.proxyPolicyRevision)
 						require.Equal(t, mode.beforeAck, dp.events)
 						current, err := pm.DumpToMapStateMap()
 						require.NoError(t, err)
@@ -314,6 +324,11 @@ func TestRegenerateBPFWaitsForProxy(t *testing.T) {
 							result.Complete(nil)
 						}
 						require.ErrorIs(t, <-done, tt.err)
+						var acceptedRevision uint64
+						if !mode.skipBPF && !tt.cancel && !tt.reject {
+							acceptedRevision = desired.SelectorPolicy.L4Policy.Revision
+						}
+						require.Equal(t, acceptedRevision, ep.proxyPolicyRevision)
 						if tt.cancel || tt.reject {
 							require.ErrorIs(t, callbackErr, context.Canceled)
 							require.Nil(t, proxy.redirects)
@@ -336,6 +351,106 @@ func TestRegenerateBPFWaitsForProxy(t *testing.T) {
 						}
 					})
 				})
+			}
+		})
+	}
+}
+
+func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
+	f := newPolicyTestFixture(t)
+	selectorPolicy := computeSelectorPolicy(t, f, "proxy-wait")
+	nackErr := errors.New("proxy rejected update")
+	rulesErr := errors.New("installing proxy rules failed")
+	tests := []struct {
+		name       string
+		cancel     bool
+		reject     bool
+		noWait     bool
+		noPolicy   bool
+		accepted   uint64
+		rulesError error
+		err        error
+	}{
+		{name: "ack"},
+		{name: "nack", reject: true, err: nackErr},
+		{name: "parent-canceled", cancel: true, reject: true, err: context.Canceled},
+		{name: "rules-error", rulesError: rulesErr, err: rulesErr},
+		{name: "no-wait", noWait: true},
+		{name: "no-policy", noPolicy: true},
+		{name: "newer-policy-already-accepted", accepted: 100},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := &recordingAckRedirectProxy{err: tt.rulesError}
+			ep := &Endpoint{
+				proxy:               proxy,
+				IPv4:                netip.MustParseAddr("10.0.0.1"),
+				isIngress:           true,
+				status:              NewEndpointStatus(),
+				proxyPolicyRevision: tt.accepted,
+			}
+			ep.logger.Store(hivetest.Logger(t))
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			wg := completion.NewWaitGroup(ctx)
+			defer wg.Cancel()
+			var submittedRevision uint64
+			if !tt.noPolicy {
+				submitted := selectorPolicy.DistillPolicy(ep.getLogger(), ep, nil)
+				ep.desiredPolicy = submitted
+				t.Cleanup(func() {
+					submitted.Ready()
+					submitted.Detach(ep.getLogger())
+				})
+				err, rollback, revision := ep.ApplyPolicyMapChanges(wg)
+				require.NoError(t, err)
+				if rollback != nil {
+					rollback.Finalize()
+				}
+				submittedRevision = revision
+				require.Equal(t, submitted.SelectorPolicy.L4Policy.Revision, revision)
+				require.NotZero(t, revision)
+
+				// A newer desired policy must not be reported as accepted by
+				// the wait for the previously submitted policy.
+				ep.desiredPolicy = policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+				ep.desiredPolicy.SelectorPolicy.L4Policy.Revision = revision + 1
+				ep.desiredPolicyRevision = revision + 2
+			}
+			var callbackErr error
+			pending := wg.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
+			result := wg.AddCompletionWithCallback(nil, nil)
+			if tt.reject {
+				result.Complete(nackErr)
+			} else {
+				pending.Complete(nil)
+				result.Complete(nil)
+			}
+			if tt.cancel {
+				cancel()
+			}
+
+			redirects := map[string]uint16{"redirect": 12345}
+			waitGroup := wg
+			if tt.noWait {
+				waitGroup = nil
+			}
+			require.ErrorIs(t, ep.waitForProxyCompletions(ctx, waitGroup, redirects, submittedRevision), tt.err)
+			expectedRevision := tt.accepted
+			if !tt.reject && !tt.noWait {
+				expectedRevision = max(expectedRevision, submittedRevision)
+			}
+			require.Equal(t, expectedRevision, ep.proxyPolicyRevision)
+			if tt.cancel {
+				// Regeneration drains an early return before reverting resources.
+				wg.Cancel()
+			}
+			if tt.reject {
+				require.ErrorIs(t, callbackErr, context.Canceled)
+				require.Nil(t, proxy.redirects, "a failed wait must not acknowledge proxy ports")
+			} else if !tt.noWait {
+				require.NoError(t, callbackErr)
+				require.Equal(t, redirects, proxy.redirects)
 			}
 		})
 	}

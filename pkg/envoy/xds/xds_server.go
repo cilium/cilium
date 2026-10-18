@@ -55,9 +55,9 @@ type XDSServer interface {
 	// indefinite blocking in case Envoy never responds with an ACK/NACK.
 	DeleteEnvoyResources(ctx context.Context, resources Resources, wg *completion.WaitGroup) error
 	// UpdateNetworkPolicy adds or updates a network policy in the set published to L7 proxies.
-	// When the proxy acknowledges the network policy update, it will result in
-	// a subsequent call to the endpoint's OnProxyPolicyUpdate() function. After
-	// a successful update, the caller must eventually finalize or revert the
+	// The caller waits for acceptance through wg and records the submitted policy's
+	// revision after a successful wait. A nil wg seeds the cache without waiting.
+	// After a successful update, the caller must eventually finalize or revert the
 	// returned Revertible when the enclosing endpoint transaction finishes.
 	UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.Revertible)
 	// RemoveNetworkPolicy removes network policies relevant to the specified

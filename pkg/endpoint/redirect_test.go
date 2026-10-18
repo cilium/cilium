@@ -469,6 +469,8 @@ func TestDNSIdentityUpdateRefreshesProxyRules(t *testing.T) {
 		<-s.do.UpdateIdentities(identity.IdentityMap{oldCoreDNSIdentity: corednsLabels}, nil)
 
 		ep := s.NewTestEndpoint(t)
+		ep.buildMutex.Lock()
+		defer ep.buildMutex.Unlock()
 		s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(dnsIdentityUpdateRule())
 
 		s.computePolicyForTest(t, ep, completion.NewWaitGroup(t.Context()))
@@ -482,8 +484,14 @@ func TestDNSIdentityUpdateRefreshesProxyRules(t *testing.T) {
 		require.ElementsMatch(t, []identity.NumericIdentity{oldCoreDNSIdentity}, initialUpdates[0])
 
 		<-s.do.UpdateIdentities(identity.IdentityMap{newCoreDNSIdentity: corednsLabels}, nil)
-		err, _ := ep.ApplyPolicyMapChanges(nil)
+		wg := completion.NewWaitGroup(t.Context())
+		defer wg.Cancel()
+		err, revertible, revision := ep.ApplyPolicyMapChanges(wg)
 		require.NoError(t, err)
+		require.NoError(t, ep.waitForProxyCompletions(t.Context(), wg, ep.desiredPolicy.Redirects, revision))
+		if revertible != nil {
+			revertible.Finalize()
+		}
 
 		updates := s.rsp.dnsRuleUpdates[redirectID]
 		require.Len(t, updates, 2)
