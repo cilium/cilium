@@ -230,13 +230,13 @@ type testProxy struct {
 
 // CreateOrUpdateRedirect fails for a parser with no port configured, the way
 // the real proxy does, instead of inventing one.
-func (p *testProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (uint16, error, revert.RevertFunc) {
+func (p *testProxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (uint16, error, revert.RevertFunc) {
 	parser := proxytypes.ProxyType(l4.GetL7Parser())
 	name, pp := p.ports.FindByTypeWithReference(parser, l4.GetListener(), l4.GetIngress())
 	if pp == nil {
 		return 0, fmt.Errorf("no proxy port for %s listener %q", parser, l4.GetListener()), nil
 	}
-	if err := p.ports.AckProxyPort(ctx, name, pp); err != nil {
+	if err := p.ports.AckProxyPort(context.Background(), name, pp); err != nil {
 		return 0, err, nil
 	}
 	// FindByTypeWithReference took a reference. The real proxy releases it from
