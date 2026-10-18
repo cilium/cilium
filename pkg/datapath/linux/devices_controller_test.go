@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"maps"
 	"net"
+	"net/netip"
 	"os"
 	"runtime"
 	"sync/atomic"
@@ -29,6 +30,7 @@ import (
 	"github.com/vishvananda/netlink/nl"
 	"github.com/vishvananda/netns"
 	"golang.org/x/sys/unix"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/hive"
@@ -263,4 +265,71 @@ func TestDevicesController_Restarts(t *testing.T) {
 	err = h.Stop(tlog, ctx)
 	assert.NoError(t, err)
 
+}
+
+func TestDevicesController_AddrFlagsUpdate(t *testing.T) {
+	db := statedb.New()
+	devicesTable, err := tables.NewDeviceTable(db)
+	require.NoError(t, err)
+	routesTable, err := tables.NewRouteTable(db)
+	require.NoError(t, err)
+	neighborsTable, err := tables.NewNeighborTable(db)
+	require.NoError(t, err)
+
+	dc := &devicesController{
+		params: devicesControllerParams{
+			DB:            db,
+			DeviceTable:   devicesTable,
+			RouteTable:    routesTable,
+			NeighborTable: neighborsTable,
+		},
+		log:             hivetest.Logger(t),
+		deadLinkIndexes: sets.New[int](),
+	}
+
+	_, ipn, _ := net.ParseCIDR("2001:db8::1/64")
+	ipn.IP = net.ParseIP("2001:db8::1")
+	addrUpdate := func(newAddr bool, flags int) netlink.AddrUpdate {
+		return netlink.AddrUpdate{
+			LinkAddress: *ipn,
+			LinkIndex:   1,
+			NewAddr:     newAddr,
+			Flags:       flags,
+			Scope:       unix.RT_SCOPE_UNIVERSE,
+		}
+	}
+	process := func(updates ...any) []tables.DeviceAddress {
+		txn := db.WriteTxn(devicesTable, routesTable, neighborsTable)
+		dc.processBatch(txn, map[int][]any{1: updates})
+		txn.Commit()
+		dev, _, found := devicesTable.Get(db.ReadTxn(), tables.DeviceByIndex(1))
+		require.True(t, found)
+		return dev.Addrs
+	}
+
+	addrs := process(
+		netlink.LinkUpdate{
+			IfInfomsg: nl.IfInfomsg{IfInfomsg: unix.IfInfomsg{Index: 1}},
+			Header:    unix.NlMsghdr{Type: unix.RTM_NEWLINK},
+			Link: &netlink.Dummy{
+				LinkAttrs: netlink.LinkAttrs{Index: 1, Name: "dummy"},
+			},
+		},
+		addrUpdate(true, 0),
+	)
+	want := tables.DeviceAddress{
+		Addr:  netip.MustParseAddr("2001:db8::1"),
+		Scope: unix.RT_SCOPE_UNIVERSE,
+	}
+	require.Equal(t, []tables.DeviceAddress{want}, addrs)
+
+	// The kernel re-sends RTM_NEWADDR when the address becomes deprecated.
+	// The existing entry should be updated in place rather than duplicated.
+	addrs = process(addrUpdate(true, unix.IFA_F_DEPRECATED))
+	want.Deprecated = true
+	require.Equal(t, []tables.DeviceAddress{want}, addrs)
+
+	// Removing the address removes the entry.
+	addrs = process(addrUpdate(false, unix.IFA_F_DEPRECATED))
+	require.Empty(t, addrs)
 }

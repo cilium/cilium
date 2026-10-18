@@ -406,8 +406,9 @@ func (dc *devicesController) processUpdates(
 
 func deviceAddressFromAddrUpdate(upd netlink.AddrUpdate) tables.DeviceAddress {
 	return tables.DeviceAddress{
-		Addr:      netipx.MustFromStdIP(upd.LinkAddress.IP),
-		Secondary: upd.Flags&unix.IFA_F_SECONDARY != 0,
+		Addr:       netipx.MustFromStdIP(upd.LinkAddress.IP),
+		Secondary:  upd.Flags&unix.IFA_F_SECONDARY != 0,
+		Deprecated: upd.Flags&unix.IFA_F_DEPRECATED != 0,
 
 		// ifaddrmsg.ifa_scope is uint8, vishvananda/netlink has wrong type
 		Scope: tables.RouteScope(upd.Scope),
@@ -469,10 +470,18 @@ func (dc *devicesController) processBatch(txn statedb.WriteTxn, batch map[int][]
 					continue
 				}
 				addr := deviceAddressFromAddrUpdate(u)
-				i := slices.Index(d.Addrs, addr)
+				// Look up the address by IP only: the kernel re-sends RTM_NEWADDR
+				// for an existing address when its flags change (e.g. when an
+				// IPv6 address becomes deprecated), in which case the existing
+				// entry is updated in place.
+				i := slices.IndexFunc(d.Addrs, func(a tables.DeviceAddress) bool {
+					return a.Addr == addr.Addr
+				})
 				if u.NewAddr {
 					if i < 0 {
 						d.Addrs = append(d.Addrs, addr)
+					} else {
+						d.Addrs[i] = addr
 					}
 				} else if i >= 0 {
 					d.Addrs = slices.Delete(d.Addrs, i, i+1)

@@ -178,16 +178,31 @@ func (d *Device) TableRow() []string {
 type DeviceAddress struct {
 	Addr      netip.Addr
 	Secondary bool
-	Scope     RouteScope // Address scope, e.g. RT_SCOPE_LINK, RT_SCOPE_HOST etc.
+	// Deprecated is true if the address is deprecated (IFA_F_DEPRECATED),
+	// e.g. an IPv6 address whose preferred lifetime has expired. Such
+	// addresses should not be used as a source address for new traffic.
+	Deprecated bool
+	Scope      RouteScope // Address scope, e.g. RT_SCOPE_LINK, RT_SCOPE_HOST etc.
 }
 
 func (d *DeviceAddress) String() string {
-	return fmt.Sprintf("%s (secondary=%v, scope=%d)", d.Addr, d.Secondary, d.Scope)
+	var b strings.Builder
+	b.WriteString(d.Addr.String())
+	b.WriteString(" (")
+	if d.Secondary {
+		b.WriteString("secondary, ")
+	}
+	if d.Deprecated {
+		b.WriteString("deprecated, ")
+	}
+	fmt.Fprintf(&b, "scope=%d)", d.Scope)
+	return b.String()
 }
 
 func (d *DeviceAddress) DeepEqual(other *DeviceAddress) bool {
 	return d.Addr == other.Addr &&
 		d.Secondary == other.Secondary &&
+		d.Deprecated == other.Deprecated &&
 		d.Scope == other.Scope
 }
 
