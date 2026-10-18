@@ -979,9 +979,6 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	version := resp.GetVersionInfo()
 	typeURL := resp.GetTypeUrl()
 
-	var completed []*completion.Completion
-	var finalizers []Rollback
-
 	cb.mutex.Lock()
 	stream, started := cb.streamForRequest(streamID, req)
 	nodeID := stream.nodeID
@@ -1012,9 +1009,9 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 		coverage: coverage,
 	}
 
-	// G bounds revisions in the exact snapshot, not the request's eventual name
-	// set. A partial response covers only its delivered names; other resources
-	// at or below G must still wait for their own response.
+	// responseGeneration bounds revisions in the exact snapshot, not the request's
+	// eventual name set. A partial response covers only its delivered names; other
+	// resources at or below responseGeneration must still wait for their own response.
 	for _, pc := range cb.pendingWaits {
 		if pc.nodeID == nodeID && pc.typeURL == typeIndex && pc.generation <= responseGeneration && pc.scope.intersects(coverage, responseGeneration) {
 			pc.responseGeneration = responseGeneration
@@ -1027,35 +1024,6 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	}
 
 	state := &typeState.response
-	if state.pendingVersion == "" && state.acceptedVersion == version && coverage.complete() {
-		state.rejectedVersion = ""
-		state.rejectedErr = nil
-
-		for c, pc := range cb.pendingWaits {
-			if responseGeneration != 0 && pc.typeURL == typeIndex && pc.nodeID == nodeID &&
-				pc.responseGeneration == responseGeneration {
-				completed = append(completed, c)
-				delete(cb.pendingWaits, c)
-			}
-		}
-		for pending := range typeState.pendingGenerations {
-			if responseGeneration != 0 && pending.responseGeneration == responseGeneration {
-				finalizers = append(finalizers, pending.rollback)
-				delete(typeState.pendingGenerations, pending)
-			}
-		}
-		typeState.removeEmptyPendingGenerationSet()
-		cb.mutex.Unlock()
-
-		for _, rollback := range finalizers {
-			rollback.Finalize()
-		}
-		for _, c := range completed {
-			c.Complete(nil)
-		}
-		return
-	}
-
 	// A delayed response on another stream must not replace the newer response
 	// or accepted version used by no-op completion registration. Its exact
 	// identity remains available in the stream-local slot above.
