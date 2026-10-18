@@ -16,6 +16,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -77,6 +78,13 @@ type AckingResourceMutator interface {
 	// method call.
 	Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc
 
+	// UpsertWithNACKRemoval additionally removes the resource if a node rejects
+	// a response containing it, unless a later mutation has taken ownership.
+	// Recovery survives caller cancellation and restoration without a WaitGroup.
+	// An ACK releases recovery. Subsequent mutations, including semantic no-ops
+	// and caller reverts, must go through this wrapper to invalidate recovery.
+	UpsertWithNACKRemoval(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup) AckingResourceMutatorRevertFunc
+
 	// Delete deletes a resource from this set by name and increases the cache's
 	// version number atomically if the resource is actually deleted.
 	// The completion is called back when the new deleted resources' version is
@@ -121,11 +129,22 @@ type AckingResourceMutatorWrapper struct {
 	// pendingCompletions is the list of updates that are pending completion.
 	pendingCompletions map[*completion.Completion]*pendingCompletion
 
+	// nackRemovals is opt-in response recovery for diagnostic listeners. It
+	// outlives caller waits and is invalidated by any later mutation of the name,
+	// including caller reverts. Wire-only EnsureVersion changes preserve ownership.
+	// All access and cache mutations are serialized by locker.
+	nackRemovals map[cacheKey]nackRemoval
+
 	// restoring controls waiting for acks. When 'true' updates do not wait for acks from the xDS client,
 	// as xDS caches are pre-populated before passing any resources to xDS clients.
 	restoring bool
 
 	metrics Metrics
+}
+
+type nackRemoval struct {
+	version uint64
+	nodes   set.Set[string]
 }
 
 // pendingCompletion is an update that is pending completion.
@@ -332,6 +351,14 @@ func (m *AckingResourceMutatorWrapper) CancelCompletions(typeURL string) {
 }
 
 func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc {
+	return m.upsert(typeURL, resourceName, resource, nodeIDs, wg, callback, false)
+}
+
+func (m *AckingResourceMutatorWrapper) UpsertWithNACKRemoval(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup) AckingResourceMutatorRevertFunc {
+	return m.upsert(typeURL, resourceName, resource, nodeIDs, wg, nil, true)
+}
+
+func (m *AckingResourceMutatorWrapper) upsert(typeURL string, resourceName string, resource proto.Message, nodeIDs []string, wg *completion.WaitGroup, callback func(error), removeOnNACK bool) AckingResourceMutatorRevertFunc {
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
@@ -350,6 +377,18 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 	var updated bool
 	var revert ResourceMutatorRevertFunc
 	m.version, updated, revert = m.mutator.Upsert(typeURL, resourceName, resource)
+	key := cacheKey{typeURL: typeURL, resourceName: resourceName}
+	delete(m.nackRemovals, key)
+	if removeOnNACK && len(nodeIDs) > 0 {
+		removal := nackRemoval{version: m.version}
+		for _, nodeID := range nodeIDs {
+			removal.nodes.Insert(nodeID)
+		}
+		if m.nackRemovals == nil {
+			m.nackRemovals = make(map[cacheKey]nackRemoval)
+		}
+		m.nackRemovals[key] = removal
+	}
 
 	if !updated {
 		// Add a completion object for the current version so that the caller may
@@ -385,6 +424,7 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 		return func() {
 			m.locker.Lock()
 			defer m.locker.Unlock()
+			delete(m.nackRemovals, key)
 			m.version, _ = revert()
 		}
 	}
@@ -392,11 +432,6 @@ func (m *AckingResourceMutatorWrapper) Upsert(typeURL string, resourceName strin
 }
 
 func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName string, nodeIDs []string, wg *completion.WaitGroup, callback func(error)) AckingResourceMutatorRevertFunc {
-	scopedLogger := m.logger.With(
-		logfields.XDSResourceName, resourceName,
-		logfields.XDSTypeURL, typeURL,
-	)
-
 	m.locker.Lock()
 	defer m.locker.Unlock()
 
@@ -420,17 +455,39 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 	// As a best effort, just wait for any ACK for the version and type URL,
 	// and ignore the ACKed resource names.
 
-	var updated bool
-	var revert ResourceMutatorRevertFunc
+	updated, revert := m.deleteResourceLocked(typeURL, resourceName)
+
+	// Add a completion object for the current version so that the caller may wait for the N/ACK
+	m.maybeAddCurrentVersionCompletion(wait, typeURL, nodeIDs, wg, callback)
+
+	if updated && revert != nil {
+		return func() {
+			m.locker.Lock()
+			defer m.locker.Unlock()
+			delete(m.nackRemovals, cacheKey{typeURL: typeURL, resourceName: resourceName})
+			m.version, _ = revert()
+		}
+	}
+	return func() {}
+}
+
+// deleteResourceLocked preserves wait bookkeeping for both caller deletions and
+// diagnostic NACK recovery. A different node may still be waiting for this name;
+// after deletion, any subsequent response can settle that wait.
+func (m *AckingResourceMutatorWrapper) deleteResourceLocked(typeURL, resourceName string) (updated bool, revert ResourceMutatorRevertFunc) {
 	m.version, updated, revert = m.mutator.Delete(typeURL, resourceName)
+	key := cacheKey{typeURL: typeURL, resourceName: resourceName}
+	delete(m.nackRemovals, key)
 
 	// remove any possible pending completions for the deleted resourceName
 	for comp, pending := range m.pendingCompletions {
 		if comp.Err() != nil {
 			// Completion was canceled or timed out.
 			// Remove from pending list.
-			scopedLogger.Debug(
+			m.logger.Debug(
 				"completion context was canceled",
+				logfields.XDSResourceName, resourceName,
+				logfields.XDSTypeURL, typeURL,
 				logfields.PendingCompletions, pending,
 			)
 			delete(m.pendingCompletions, comp)
@@ -446,17 +503,7 @@ func (m *AckingResourceMutatorWrapper) Delete(typeURL string, resourceName strin
 		}
 	}
 
-	// Add a completion object for the current version so that the caller may wait for the N/ACK
-	m.maybeAddCurrentVersionCompletion(wait, typeURL, nodeIDs, wg, callback)
-
-	if updated && revert != nil {
-		return func() {
-			m.locker.Lock()
-			defer m.locker.Unlock()
-			m.version, _ = revert()
-		}
-	}
-	return func() {}
+	return updated, revert
 }
 
 // ackVersion is the last version accepted by the client. responseVersion is
@@ -473,6 +520,31 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(nodeIP string, a
 
 	m.locker.Lock()
 	defer m.locker.Unlock()
+
+	// Settle opt-in recovery before waking callers. Unlike pendingCompletions,
+	// this state remains actionable after a caller stops waiting, and only the
+	// names actually sent in this response can be accepted or rejected.
+	if len(m.nackRemovals) > 0 {
+		for _, name := range resourceNames {
+			key := cacheKey{typeURL: typeURL, resourceName: name}
+			removal, exists := m.nackRemovals[key]
+			if !exists || removal.version > responseVersion || !removal.nodes.Has(nodeIP) {
+				continue
+			}
+			if isNACK {
+				m.deleteResourceLocked(typeURL, name)
+				scopedLogger.Warn("Removing rejected diagnostic resource", logfields.XDSResourceName, name,
+					logfields.Error, errorDetail)
+			} else if removal.version <= ackVersion {
+				removal.nodes.Remove(nodeIP)
+				if removal.nodes.Len() == 0 {
+					delete(m.nackRemovals, key)
+				} else {
+					m.nackRemovals[key] = removal
+				}
+			}
+		}
+	}
 
 	// Update the last seen ACKed version if it advances the previously ACKed version.
 	// Version 0 is special as it indicates that we have received the first xDS
