@@ -371,12 +371,14 @@ func (p *ProxyPorts) AckProxyPortWithReference(ctx context.Context, name string)
 func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string, pp *ProxyPort) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+	if pp.acknowledged && pp.rulesPort == pp.ProxyPort {
+		return nil
+	}
 	return p.ackProxyPort(name, pp)
 }
 
-// ackProxyPort() increases proxy port reference count and creates or updates the datapath rules.
-// Each call must eventually be paired with a corresponding releaseProxyPort() call
-// to keep the use count up-to-date.
+// ackProxyPort marks the allocation acknowledged and installs datapath rules.
+// It does not change the reference count.
 // Must be called with mutex held!
 func (p *ProxyPorts) ackProxyPort(name string, pp *ProxyPort) error {
 	scopedLog := p.logger.With(fieldProxyRedirectID, name)
@@ -427,8 +429,19 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 
 	pp.nRedirects--
 
-	// Static proxy port is not released, dynamic proxy ports are released after a delay if
-	// still on last reference count
+	// Check the last reference and reset under the same lock. A failed endpoint
+	// must not reset an allocation still used by another endpoint awaiting ACK.
+	// CEC-owned ports can still be awaiting their owner's ACK when the last
+	// endpoint reference disappears, so they retain the delayed-release path.
+	if pp.nRedirects == 0 && !pp.isStatic && !pp.acknowledged && pp.ProxyType != types.ProxyTypeCRD {
+		if pp.ProxyPort != 0 {
+			p.reset(pp)
+		}
+		return nil
+	}
+
+	// Acknowledged dynamic ports are released after a delay if no users return.
+	// Static ports remain configured.
 	if !pp.isStatic && pp.nRedirects == 0 && pp.releaseCancel == nil {
 		ctx, cancel := context.WithCancel(context.Background())
 		pp.releaseCancel = cancel
@@ -481,16 +494,6 @@ func (p *ProxyPorts) GetRulesPort(pp *ProxyPort) uint16 {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	return pp.rulesPort
-}
-
-// ResetUnacknowledged() frees the port if it has not been acknowledged yet
-// A static port is not reset.
-func (p *ProxyPorts) ResetUnacknowledged(pp *ProxyPort) {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	if !pp.isStatic && !pp.acknowledged {
-		p.reset(pp)
-	}
 }
 
 // reset() frees the port
@@ -698,6 +701,9 @@ func (p *ProxyPorts) GetProxyPort(name string) (port uint16, isStatic bool, err 
 	return 0, false, proxyNotFoundError(name)
 }
 
+// ReleaseProxyPort releases one reference. The last reference resets an
+// unacknowledged proxy-managed allocation immediately. Acknowledged and CEC-owned
+// allocations retain delayed reuse; static allocations are never reset here.
 func (p *ProxyPorts) ReleaseProxyPort(name string) error {
 	// Accessing p.proxyPorts requires the lock
 	p.mutex.Lock()

@@ -40,7 +40,7 @@ type envoyProxyIntegration struct {
 }
 
 // createRedirect creates a redirect with corresponding proxy configuration. This will launch a proxy instance.
-func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGroup, cb func(err error)) (RedirectImplementation, error) {
+func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGroup) (RedirectImplementation, error) {
 	if r.proxyPort.ProxyType == types.ProxyTypeCRD {
 		// CRD Listeners already exist, create a no-op implementation
 		return &CRDRedirect{Redirect: r}, nil
@@ -59,7 +59,7 @@ func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGr
 	if l.Ingress {
 		mayUseOriginalSourceAddr = false
 	}
-	err := p.xdsServer.AddListener(context.Background(), redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress, mayUseOriginalSourceAddr, wg, cb)
+	err := p.xdsServer.AddListener(context.Background(), redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress, mayUseOriginalSourceAddr, wg, nil)
 
 	return redirect, err
 }

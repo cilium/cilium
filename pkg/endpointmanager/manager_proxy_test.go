@@ -143,11 +143,15 @@ func (p *recordingEndpointProxy) totalCallbackCount() int {
 	return total
 }
 
-func (p *recordingEndpointProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, revertFunc revert.RevertFunc) {
+func (p *recordingEndpointProxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, revertFunc revert.RevertFunc) {
 	return 0, nil, nil
 }
 
 func (p *recordingEndpointProxy) RemoveRedirect(id string) {}
+
+func (p *recordingEndpointProxy) AckRedirects(context.Context, map[string]uint16) error {
+	return nil
+}
 
 type recordingPolicyRevertible struct {
 	proxy      *recordingEndpointProxy
