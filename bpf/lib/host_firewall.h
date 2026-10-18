@@ -315,7 +315,6 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 }
 # endif /* ENABLE_IPV6 */
 
-# ifdef ENABLE_IPV4
 static __always_inline bool
 ipv4_host_policy_egress_lookup(const struct __ctx_buff *ctx, __u32 src_sec_identity,
 			       __u32 ipcache_srcid, const struct iphdr *ip4,
@@ -570,6 +569,5 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	return __ipv4_host_policy_ingress(ctx, ip4, &ct_buffer, src_sec_identity, trace, ext_err);
 }
-#  endif /* ENABLE_IPV4 */
 # endif /* ENABLE_HOST_FIREWALL */
 #endif /* IS_BPF_HOST */
