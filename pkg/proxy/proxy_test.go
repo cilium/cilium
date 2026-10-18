@@ -299,7 +299,7 @@ func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.
 	panic("unimplemented")
 }
 
-func (s *fakeXdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
+func (s *fakeXdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) error {
 	s.ObservedMayUseOriginalSourceAddr = mayUseOriginalSourceAddr
 	if s.addListenerErr != nil {
 		return s.addListenerErr
@@ -309,9 +309,7 @@ func (s *fakeXdsServer) AddListener(ctx context.Context, name string, kind polic
 	}
 	s.listeners[name]++
 	if wg != nil {
-		s.completions = append(s.completions, wg.AddCompletionWithCallback(nil, cb))
-	} else if cb != nil {
-		cb(nil)
+		s.completions = append(s.completions, wg.AddCompletionWithCallback(nil, nil))
 	}
 	return nil
 }

@@ -26,8 +26,8 @@ type XDSServer interface {
 	// The listener is created on the given port and direction (ingress/egress).
 	// If mayUseOriginalSourceAddr is true, the listener may use the original source address
 	// for upstream connections.
-	// The completion is signaled on 'wg' and 'cb' is called with any error from Envoy ACK/NACK.
-	AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error
+	// The completion is signaled on 'wg' with any error from Envoy ACK/NACK.
+	AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) error
 
 	// AddAdminListener adds an Envoy admin API listener on the given port.
 	// The completion is signaled on 'wg'.
