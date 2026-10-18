@@ -217,3 +217,49 @@ func unmarshalFirewallPolicyRuleCollectionClassificationArray(rawMsg json.RawMes
 	}
 	return fArray, nil
 }
+
+func unmarshalVirtualNetworkApplianceCapabilityClassification(rawMsg json.RawMessage) (VirtualNetworkApplianceCapabilityClassification, error) {
+	if rawMsg == nil || string(rawMsg) == "null" {
+		return nil, nil
+	}
+	var m map[string]any
+	if err := json.Unmarshal(rawMsg, &m); err != nil {
+		return nil, err
+	}
+	var b VirtualNetworkApplianceCapabilityClassification
+	switch m["kind"] {
+	case string(VirtualNetworkApplianceCapabilityKindNAT64):
+		b = &NAT64Capability{}
+	case string(VirtualNetworkApplianceCapabilityKindPLGateway):
+		b = &PLGatewayCapability{}
+	case string(VirtualNetworkApplianceCapabilityKindPLGatewayFastpath):
+		b = &PLGatewayFastpathCapability{}
+	case string(VirtualNetworkApplianceCapabilityKindPLIPForwarders):
+		b = &PLIPForwardersCapability{}
+	default:
+		b = &VirtualNetworkApplianceCapability{}
+	}
+	if err := json.Unmarshal(rawMsg, b); err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func unmarshalVirtualNetworkApplianceCapabilityClassificationArray(rawMsg json.RawMessage) ([]VirtualNetworkApplianceCapabilityClassification, error) {
+	if rawMsg == nil || string(rawMsg) == "null" {
+		return nil, nil
+	}
+	var rawMessages []json.RawMessage
+	if err := json.Unmarshal(rawMsg, &rawMessages); err != nil {
+		return nil, err
+	}
+	fArray := make([]VirtualNetworkApplianceCapabilityClassification, len(rawMessages))
+	for index, rawMessage := range rawMessages {
+		f, err := unmarshalVirtualNetworkApplianceCapabilityClassification(rawMessage)
+		if err != nil {
+			return nil, err
+		}
+		fArray[index] = f
+	}
+	return fArray, nil
+}

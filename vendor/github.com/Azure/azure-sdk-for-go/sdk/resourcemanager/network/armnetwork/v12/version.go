@@ -6,5 +6,5 @@ package armnetwork
 
 const (
 	moduleName    = "github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork"
-	moduleVersion = "v12.0.0"
+	moduleVersion = "v12.1.0"
 )

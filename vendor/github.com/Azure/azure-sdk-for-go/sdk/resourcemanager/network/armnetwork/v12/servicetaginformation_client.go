@@ -20,7 +20,7 @@ import (
 // ServiceTagInformationClient contains the methods for the ServiceTagInformation group.
 // Don't use this type directly, use NewServiceTagInformationClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type ServiceTagInformationClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -98,7 +98,7 @@ func (client *ServiceTagInformationClient) listCreateRequest(ctx context.Context
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		if options != nil && options.NoAddressPrefixes != nil {
 			reqQP.Set("noAddressPrefixes", strconv.FormatBool(*options.NoAddressPrefixes))
 		}

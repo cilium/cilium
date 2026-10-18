@@ -19,7 +19,7 @@ import (
 // FirewallPolicyDeploymentsClient contains the methods for the FirewallPolicyDeployments group.
 // Don't use this type directly, use NewFirewallPolicyDeploymentsClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type FirewallPolicyDeploymentsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -68,7 +68,7 @@ func (client *FirewallPolicyDeploymentsClient) BeginDeploy(ctx context.Context, 
 	}
 }
 
-// Deploy - Deploys the firewall policy draft and child rule collection group drafts.
+// deploy - Deploys the firewall policy draft and child rule collection group drafts.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *FirewallPolicyDeploymentsClient) deploy(ctx context.Context, resourceGroupName string, firewallPolicyName string, options *FirewallPolicyDeploymentsClientBeginDeployOptions) (*http.Response, error) {
 	var err error
@@ -90,7 +90,7 @@ func (client *FirewallPolicyDeploymentsClient) deploy(ctx context.Context, resou
 	return httpResp, nil
 }
 
-// deployCreateRequest creates the Deploy request.
+// deployCreateRequest creates the deploy request.
 func (client *FirewallPolicyDeploymentsClient) deployCreateRequest(ctx context.Context, resourceGroupName string, firewallPolicyName string, _ *FirewallPolicyDeploymentsClientBeginDeployOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/firewallPolicies/{firewallPolicyName}/deploy"
 	if client.subscriptionID == "" {
@@ -110,7 +110,7 @@ func (client *FirewallPolicyDeploymentsClient) deployCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }

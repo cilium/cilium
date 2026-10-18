@@ -19,7 +19,7 @@ import (
 // InterconnectGroupsClient contains the methods for the InterconnectGroups group.
 // Don't use this type directly, use NewInterconnectGroupsClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type InterconnectGroupsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -42,6 +42,77 @@ func NewInterconnectGroupsClient(subscriptionID string, credential azcore.TokenC
 		internal:       cl,
 	}
 	return client, nil
+}
+
+// BeginGetNodeAvailability - Gets node availability for all subgroups in the specified interconnect group.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - interconnectGroupName - The name of the interconnect group.
+//   - options - InterconnectGroupsClientBeginGetNodeAvailabilityOptions contains the optional parameters for the InterconnectGroupsClient.BeginGetNodeAvailability
+//     method.
+func (client *InterconnectGroupsClient) BeginGetNodeAvailability(ctx context.Context, resourceGroupName string, interconnectGroupName string, options *InterconnectGroupsClientBeginGetNodeAvailabilityOptions) (*runtime.Poller[InterconnectGroupsClientGetNodeAvailabilityResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.getNodeAvailability(ctx, resourceGroupName, interconnectGroupName, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[InterconnectGroupsClientGetNodeAvailabilityResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[InterconnectGroupsClientGetNodeAvailabilityResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// getNodeAvailability - Gets node availability for all subgroups in the specified interconnect group.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *InterconnectGroupsClient) getNodeAvailability(ctx context.Context, resourceGroupName string, interconnectGroupName string, options *InterconnectGroupsClientBeginGetNodeAvailabilityOptions) (*http.Response, error) {
+	var err error
+	const operationName = "InterconnectGroupsClient.BeginGetNodeAvailability"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.getNodeAvailabilityCreateRequest(ctx, resourceGroupName, interconnectGroupName, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// getNodeAvailabilityCreateRequest creates the getNodeAvailability request.
+func (client *InterconnectGroupsClient) getNodeAvailabilityCreateRequest(ctx context.Context, resourceGroupName string, interconnectGroupName string, _ *InterconnectGroupsClientBeginGetNodeAvailabilityOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/interconnectGroups/{interconnectGroupName}/nodeAvailability"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if interconnectGroupName == "" {
+		return nil, errors.New("parameter interconnectGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{interconnectGroupName}", url.PathEscape(interconnectGroupName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
 }
 
 // CreateOrUpdate - Creates or updates an interconnect group.
@@ -88,7 +159,7 @@ func (client *InterconnectGroupsClient) createOrUpdateCreateRequest(ctx context.
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -156,7 +227,7 @@ func (client *InterconnectGroupsClient) deleteCreateRequest(ctx context.Context,
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
@@ -203,7 +274,7 @@ func (client *InterconnectGroupsClient) getCreateRequest(ctx context.Context, re
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -221,75 +292,71 @@ func (client *InterconnectGroupsClient) getHandleResponse(resp *http.Response, s
 	return result, nil
 }
 
-// BeginGetNodeAvailability - Gets node availability for all subgroups in the specified interconnect group.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - interconnectGroupName - The name of the interconnect group.
-//   - options - InterconnectGroupsClientBeginGetNodeAvailabilityOptions contains the optional parameters for the InterconnectGroupsClient.BeginGetNodeAvailability
+// NewListAllPager - Gets all interconnect groups in a subscription.
+//   - options - InterconnectGroupsClientListAllOptions contains the optional parameters for the InterconnectGroupsClient.NewListAllPager
 //     method.
-func (client *InterconnectGroupsClient) BeginGetNodeAvailability(ctx context.Context, resourceGroupName string, interconnectGroupName string, options *InterconnectGroupsClientBeginGetNodeAvailabilityOptions) (*runtime.Poller[InterconnectGroupsClientGetNodeAvailabilityResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.getNodeAvailability(ctx, resourceGroupName, interconnectGroupName, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[InterconnectGroupsClientGetNodeAvailabilityResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[InterconnectGroupsClientGetNodeAvailabilityResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
+func (client *InterconnectGroupsClient) NewListAllPager(options *InterconnectGroupsClientListAllOptions) *runtime.Pager[InterconnectGroupsClientListAllResponse] {
+	return runtime.NewPager(runtime.PagingHandler[InterconnectGroupsClientListAllResponse]{
+		More: func(page InterconnectGroupsClientListAllResponse) bool {
+			return page.NextLink != nil && len(*page.NextLink) > 0
+		},
+		Fetcher: func(ctx context.Context, page *InterconnectGroupsClientListAllResponse) (InterconnectGroupsClientListAllResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "InterconnectGroupsClient.NewListAllPager")
+			nextLink := ""
+			if page != nil {
+				nextLink = *page.NextLink
+			}
+			req, err := client.listAllCreateRequest(ctx, nextLink, options)
+			if err != nil {
+				return InterconnectGroupsClientListAllResponse{}, err
+			}
+			resp, err := client.internal.Pipeline().Do(req)
+			if err != nil {
+				return InterconnectGroupsClientListAllResponse{}, err
+			}
+			return client.listAllHandleResponse(resp, http.StatusOK)
+		},
+		Tracer: client.internal.Tracer(),
+	})
 }
 
-// GetNodeAvailability - Gets node availability for all subgroups in the specified interconnect group.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *InterconnectGroupsClient) getNodeAvailability(ctx context.Context, resourceGroupName string, interconnectGroupName string, options *InterconnectGroupsClientBeginGetNodeAvailabilityOptions) (*http.Response, error) {
+// listAllCreateRequest creates the ListAll request.
+func (client *InterconnectGroupsClient) listAllCreateRequest(ctx context.Context, nextLink string, _ *InterconnectGroupsClientListAllOptions) (*policy.Request, error) {
+	firstPage := nextLink == ""
+	var req *policy.Request
 	var err error
-	const operationName = "InterconnectGroupsClient.BeginGetNodeAvailability"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.getNodeAvailabilityCreateRequest(ctx, resourceGroupName, interconnectGroupName, options)
+	if firstPage {
+		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/interconnectGroups"
+		if client.subscriptionID == "" {
+			return nil, errors.New("parameter subscriptionID cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	} else {
+		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
+	}
 	if err != nil {
 		return nil, err
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
+	if firstPage {
+		reqQP := req.Raw().URL.Query()
+		reqQP.Set("api-version", version20260301)
+		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
+	return req, nil
 }
 
-// getNodeAvailabilityCreateRequest creates the GetNodeAvailability request.
-func (client *InterconnectGroupsClient) getNodeAvailabilityCreateRequest(ctx context.Context, resourceGroupName string, interconnectGroupName string, _ *InterconnectGroupsClientBeginGetNodeAvailabilityOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/interconnectGroups/{interconnectGroupName}/nodeAvailability"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
+// listAllHandleResponse handles the ListAll response.
+func (client *InterconnectGroupsClient) listAllHandleResponse(resp *http.Response, successCodes ...int) (InterconnectGroupsClientListAllResponse, error) {
+	result := InterconnectGroupsClientListAllResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	if err := runtime.UnmarshalAsJSON(resp, &result.InterconnectGroupListResult); err != nil {
+		return InterconnectGroupsClientListAllResponse{}, err
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if interconnectGroupName == "" {
-		return nil, errors.New("parameter interconnectGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{interconnectGroupName}", url.PathEscape(interconnectGroupName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
+	return result, nil
 }
 
 // NewListPager - Gets all interconnect groups in a resource group.
@@ -345,7 +412,7 @@ func (client *InterconnectGroupsClient) listCreateRequest(ctx context.Context, r
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -360,73 +427,6 @@ func (client *InterconnectGroupsClient) listHandleResponse(resp *http.Response, 
 	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.InterconnectGroupListResult); err != nil {
 		return InterconnectGroupsClientListResponse{}, err
-	}
-	return result, nil
-}
-
-// NewListAllPager - Gets all interconnect groups in a subscription.
-//   - options - InterconnectGroupsClientListAllOptions contains the optional parameters for the InterconnectGroupsClient.NewListAllPager
-//     method.
-func (client *InterconnectGroupsClient) NewListAllPager(options *InterconnectGroupsClientListAllOptions) *runtime.Pager[InterconnectGroupsClientListAllResponse] {
-	return runtime.NewPager(runtime.PagingHandler[InterconnectGroupsClientListAllResponse]{
-		More: func(page InterconnectGroupsClientListAllResponse) bool {
-			return page.NextLink != nil && len(*page.NextLink) > 0
-		},
-		Fetcher: func(ctx context.Context, page *InterconnectGroupsClientListAllResponse) (InterconnectGroupsClientListAllResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "InterconnectGroupsClient.NewListAllPager")
-			nextLink := ""
-			if page != nil {
-				nextLink = *page.NextLink
-			}
-			req, err := client.listAllCreateRequest(ctx, nextLink, options)
-			if err != nil {
-				return InterconnectGroupsClientListAllResponse{}, err
-			}
-			resp, err := client.internal.Pipeline().Do(req)
-			if err != nil {
-				return InterconnectGroupsClientListAllResponse{}, err
-			}
-			return client.listAllHandleResponse(resp, http.StatusOK)
-		},
-		Tracer: client.internal.Tracer(),
-	})
-}
-
-// listAllCreateRequest creates the ListAll request.
-func (client *InterconnectGroupsClient) listAllCreateRequest(ctx context.Context, nextLink string, _ *InterconnectGroupsClientListAllOptions) (*policy.Request, error) {
-	firstPage := nextLink == ""
-	var req *policy.Request
-	var err error
-	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/interconnectGroups"
-		if client.subscriptionID == "" {
-			return nil, errors.New("parameter subscriptionID cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	} else {
-		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if firstPage {
-		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
-		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-		req.Raw().Header["Accept"] = []string{"application/json"}
-	}
-	return req, nil
-}
-
-// listAllHandleResponse handles the ListAll response.
-func (client *InterconnectGroupsClient) listAllHandleResponse(resp *http.Response, successCodes ...int) (InterconnectGroupsClientListAllResponse, error) {
-	result := InterconnectGroupsClientListAllResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	if err := runtime.UnmarshalAsJSON(resp, &result.InterconnectGroupListResult); err != nil {
-		return InterconnectGroupsClientListAllResponse{}, err
 	}
 	return result, nil
 }
@@ -475,7 +475,7 @@ func (client *InterconnectGroupsClient) updateTagsCreateRequest(ctx context.Cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}

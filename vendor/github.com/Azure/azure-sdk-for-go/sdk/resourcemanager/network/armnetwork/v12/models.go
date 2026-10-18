@@ -4873,6 +4873,9 @@ type DdosCustomPolicyPropertiesFormat struct {
 	// The list of frontend IP configurations associated with the custom policy.
 	FrontEndIPConfiguration []*SubResource
 
+	// The list of DDoS mitigation rules associated with the custom policy.
+	MitigationRules []*DdosMitigationRule
+
 	// READ-ONLY; The provisioning state of the DDoS custom policy resource.
 	ProvisioningState *ProvisioningState
 
@@ -4918,6 +4921,55 @@ type DdosDetectionRulePropertiesFormat struct {
 type DdosFrontendIPConfigurationSettings struct {
 	// The reference to the DDoS Custom Policy resource.
 	DdosCustomPolicy *SubResource
+}
+
+// DdosGeoMatch - A geographic source match. The service validates that at least one of continent or countryCode is specified.
+// If both are specified, the service validates that the country belongs to the continent according to the service-defined
+// mapping. For example, RU, TR, and KZ map to Asia, EG maps to Africa, and CY maps to Europe.
+type DdosGeoMatch struct {
+	// The continent to match. Country membership follows the service-defined mapping documented on DdosGeoMatch.
+	Continent *DdosContinent
+
+	// The uppercase two-letter ISO 3166-1 alpha-2 code for the country or territory to match.
+	CountryCode *string
+}
+
+// DdosMitigationRule - A DDoS mitigation rule resource.
+type DdosMitigationRule struct {
+	// REQUIRED; The name of the DDoS mitigation rule.
+	Name *string
+
+	// REQUIRED; Properties of the DDoS mitigation rule.
+	Properties *DdosMitigationRulePropertiesFormat
+
+	// READ-ONLY; A unique read-only string that changes whenever the resource is updated.
+	Etag *string
+
+	// READ-ONLY; The resource ID of the DDoS mitigation rule.
+	ID *string
+
+	// READ-ONLY; The resource type.
+	Type *string
+}
+
+// DdosMitigationRulePropertiesFormat - DDoS mitigation rule properties. The service validates that each rule specifies at
+// least one applicable default mitigation or source policy override and that the default mitigations match the selected trafficScope.
+type DdosMitigationRulePropertiesFormat struct {
+	// REQUIRED; The traffic protocol to which the mitigation rule applies.
+	TrafficScope *DdosMitigationTrafficScope
+
+	// Source-specific actions that override the default mitigations. A rule supports at most one Deny override and one Permit
+	// override.
+	SourcePolicyOverrides []*DdosSourcePolicyOverride
+
+	// The default TCP mitigations. This property is valid only when trafficScope is Tcp.
+	TCPDefaultMitigations *DdosTCPDefaultMitigations
+
+	// The default UDP mitigations. This property is valid only when trafficScope is Udp.
+	UDPDefaultMitigations *DdosUDPDefaultMitigations
+
+	// READ-ONLY; The provisioning state of the DDoS mitigation rule.
+	ProvisioningState *ProvisioningState
 }
 
 // DdosProtectionPlan - A DDoS protection plan in a resource group.
@@ -4979,6 +5031,64 @@ type DdosSettings struct {
 
 	// The DDoS protection mode of the public IP
 	ProtectionMode *DdosSettingsProtectionMode
+}
+
+// DdosSourceMatchConditions - Source conditions for a DDoS source policy override. A source matches when it matches any IP
+// prefix or any geographic match.
+type DdosSourceMatchConditions struct {
+	// The geographic matches. Entries are evaluated with OR semantics.
+	GeoMatches []*DdosGeoMatch
+
+	// The IPv4 or IPv6 CIDR prefixes in `<address>/<prefix-length>` format. Entries are evaluated with OR semantics.
+	IPPrefixes []*string
+}
+
+// DdosSourcePolicyAction - The action to apply to traffic matching a source policy override.
+type DdosSourcePolicyAction struct {
+	// REQUIRED; The source policy action type.
+	ActionType *DdosSourcePolicyActionType
+}
+
+// DdosSourcePolicyOverride - A source-specific action that overrides the default mitigations.
+type DdosSourcePolicyOverride struct {
+	// REQUIRED; The source conditions that select traffic for the action.
+	Conditions *DdosSourceMatchConditions
+
+	// REQUIRED; The action to apply to matching traffic.
+	PolicyAction *DdosSourcePolicyAction
+}
+
+// DdosTCPDefaultMitigations - Default mitigations for TCP traffic.
+type DdosTCPDefaultMitigations struct {
+	// The per-source rate limit for new TCP connection establishments.
+	PerSourceConnectionRateLimiting *DdosTCPPerSourceConnectionRateLimitPolicy
+
+	// The per-source TCP packet rate limit.
+	PerSourceRateLimiting *DdosTCPPerSourceRateLimitPolicy
+}
+
+// DdosTCPPerSourceConnectionRateLimitPolicy - A per-source TCP connection establishment rate limit.
+type DdosTCPPerSourceConnectionRateLimitPolicy struct {
+	// REQUIRED; The maximum number of new TCP connections established per second from a source IP.
+	ConnectionsPerSecond *int32
+}
+
+// DdosTCPPerSourceRateLimitPolicy - A per-source TCP packet rate limit.
+type DdosTCPPerSourceRateLimitPolicy struct {
+	// REQUIRED; The maximum number of TCP packets allowed per second from a source IP.
+	PacketsPerSecond *int32
+}
+
+// DdosUDPDefaultMitigations - Default mitigations for UDP traffic.
+type DdosUDPDefaultMitigations struct {
+	// The per-source UDP packet rate limit.
+	PerSourceRateLimiting *DdosUDPPerSourceRateLimitPolicy
+}
+
+// DdosUDPPerSourceRateLimitPolicy - A per-source UDP packet rate limit.
+type DdosUDPPerSourceRateLimitPolicy struct {
+	// REQUIRED; The maximum number of UDP packets allowed per second from a source IP.
+	PacketsPerSecond *int32
 }
 
 // DefaultAdminPropertiesFormat - Security default admin rule resource.
@@ -6461,6 +6571,51 @@ type ExpressRouteLag struct {
 	Type *string
 }
 
+// ExpressRouteLagAuthorization - ExpressRoute Lag Authorization
+//
+// ExpressRouteLag Authorization resource definition.
+type ExpressRouteLagAuthorization struct {
+	// ExpressRouteLag authorization properties.
+	Properties *ExpressRouteLagAuthorizationPropertiesFormat
+
+	// READ-ONLY; A unique read-only string that changes whenever the resource is updated.
+	Etag *string
+
+	// READ-ONLY; Resource ID.
+	ID *string
+
+	// READ-ONLY; Resource name.
+	Name *string
+
+	// READ-ONLY; Resource type.
+	Type *string
+}
+
+// ExpressRouteLagAuthorizationListResult - ExpressRoute Lag Authorization List Result
+//
+// Paged collection of ExpressRouteLagAuthorization items
+type ExpressRouteLagAuthorizationListResult struct {
+	// REQUIRED; The ExpressRouteLagAuthorization items on this page
+	Value []*ExpressRouteLagAuthorization
+
+	// The link to the next page of items
+	NextLink *string
+}
+
+// ExpressRouteLagAuthorizationPropertiesFormat - ExpressRoute Lag Authorization Properties
+//
+// Properties of ExpressRouteLag Authorization.
+type ExpressRouteLagAuthorizationPropertiesFormat struct {
+	// READ-ONLY; The authorization use status.
+	AuthorizationUseStatus *ExpressRouteLagAuthorizationUseStatus
+
+	// READ-ONLY; The reference to the ExpressRoute circuit resource using the authorization.
+	CircuitResourceURI *string
+
+	// READ-ONLY; The provisioning state of the authorization resource.
+	ProvisioningState *ProvisioningState
+}
+
 // ExpressRouteLagLink
 //
 // ExpressRouteLagLink child resource definition.
@@ -6589,6 +6744,11 @@ type ExpressRouteLagMemberPropertiesFormat struct {
 //
 // Properties specific to ExpressRouteLag resources.
 type ExpressRouteLagPropertiesFormat struct {
+	// ExpressRouteLagAuthorizations Child-Resources
+	//
+	// The set of authorizations of the ExpressRouteLag resource.
+	Authorizations []*ExpressRouteLagAuthorization
+
 	// Bandwidth of procured LAG in Gbps.
 	BandwidthInGbps *int32
 
@@ -10559,6 +10719,44 @@ type MoveIPConfigurationsRequest struct {
 	MoveIPConfigurationItems []*MoveIPConfigurationItem
 }
 
+// NAT64Capability - The NAT64 capability. Enables stateful NAT64 translation (IPv6-only workloads reaching IPv4
+// destinations) on the appliance's floating NIC; supported on a dual-stack appliance. This kind is
+// property-less: it carries no `ipVersion` (the parent appliance's dual-stack configuration is the
+// precondition, service-validated) beyond the properties common to every capability.
+type NAT64Capability struct {
+	// CONSTANT; The NAT64 capability kind.
+	// Field has constant value VirtualNetworkApplianceCapabilityKindNAT64, any specified value is ignored.
+	Kind *VirtualNetworkApplianceCapabilityKind
+
+	// The resource-specific properties for this resource.
+	Properties *VirtualNetworkApplianceCapabilityProperties
+
+	// READ-ONLY; Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+	ID *string
+
+	// READ-ONLY; The name of the resource
+	Name *string
+
+	// READ-ONLY; Azure Resource Manager metadata containing createdBy and modifiedBy information.
+	SystemData *SystemData
+
+	// READ-ONLY; The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+	Type *string
+}
+
+// GetVirtualNetworkApplianceCapability implements the VirtualNetworkApplianceCapabilityClassification interface for type
+// NAT64Capability.
+func (n *NAT64Capability) GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability {
+	return &VirtualNetworkApplianceCapability{
+		ID:         n.ID,
+		Kind:       n.Kind,
+		Name:       n.Name,
+		Properties: n.Properties,
+		SystemData: n.SystemData,
+		Type:       n.Type,
+	}
+}
+
 // NatGateway - Nat Gateway resource.
 type NatGateway struct {
 	// Resource ID.
@@ -11360,6 +11558,117 @@ type P2SVPNGatewayProperties struct {
 type P2SVPNProfileParameters struct {
 	// VPN client authentication method.
 	AuthenticationMethod *AuthenticationMethod
+}
+
+// PLGatewayCapability - The Private Link Gateway (slow-path) capability. Private Link programming offloaded to the appliance's
+// gateway;
+// IPv6 on a dual-stack appliance.
+type PLGatewayCapability struct {
+	// CONSTANT; The Private Link Gateway (slow-path) capability kind.
+	// Field has constant value VirtualNetworkApplianceCapabilityKindPLGateway, any specified value is ignored.
+	Kind *VirtualNetworkApplianceCapabilityKind
+
+	// The resource-specific properties for this resource.
+	Properties *VirtualNetworkApplianceCapabilityProperties
+
+	// READ-ONLY; Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+	ID *string
+
+	// READ-ONLY; The name of the resource
+	Name *string
+
+	// READ-ONLY; Azure Resource Manager metadata containing createdBy and modifiedBy information.
+	SystemData *SystemData
+
+	// READ-ONLY; The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+	Type *string
+}
+
+// GetVirtualNetworkApplianceCapability implements the VirtualNetworkApplianceCapabilityClassification interface for type
+// PLGatewayCapability.
+func (p *PLGatewayCapability) GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability {
+	return &VirtualNetworkApplianceCapability{
+		ID:         p.ID,
+		Kind:       p.Kind,
+		Name:       p.Name,
+		Properties: p.Properties,
+		SystemData: p.SystemData,
+		Type:       p.Type,
+	}
+}
+
+// PLGatewayFastpathCapability - The Private Link Gateway FastPath capability. Private Link fast-path programming on the appliance's
+// gateway;
+// supported on a dual-stack appliance.
+type PLGatewayFastpathCapability struct {
+	// CONSTANT; The Private Link Gateway FastPath capability kind.
+	// Field has constant value VirtualNetworkApplianceCapabilityKindPLGatewayFastpath, any specified value is ignored.
+	Kind *VirtualNetworkApplianceCapabilityKind
+
+	// The resource-specific properties for this resource.
+	Properties *VirtualNetworkApplianceCapabilityProperties
+
+	// READ-ONLY; Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+	ID *string
+
+	// READ-ONLY; The name of the resource
+	Name *string
+
+	// READ-ONLY; Azure Resource Manager metadata containing createdBy and modifiedBy information.
+	SystemData *SystemData
+
+	// READ-ONLY; The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+	Type *string
+}
+
+// GetVirtualNetworkApplianceCapability implements the VirtualNetworkApplianceCapabilityClassification interface for type
+// PLGatewayFastpathCapability.
+func (p *PLGatewayFastpathCapability) GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability {
+	return &VirtualNetworkApplianceCapability{
+		ID:         p.ID,
+		Kind:       p.Kind,
+		Name:       p.Name,
+		Properties: p.Properties,
+		SystemData: p.SystemData,
+		Type:       p.Type,
+	}
+}
+
+// PLIPForwardersCapability - The Private Link IP-forwarders (NVA) capability. Private Link programming offloaded to the appliance
+// NVA;
+// IPv6 on a dual-stack appliance.
+type PLIPForwardersCapability struct {
+	// CONSTANT; The Private Link IP-forwarders (NVA) capability kind.
+	// Field has constant value VirtualNetworkApplianceCapabilityKindPLIPForwarders, any specified value is ignored.
+	Kind *VirtualNetworkApplianceCapabilityKind
+
+	// The resource-specific properties for this resource.
+	Properties *VirtualNetworkApplianceCapabilityProperties
+
+	// READ-ONLY; Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+	ID *string
+
+	// READ-ONLY; The name of the resource
+	Name *string
+
+	// READ-ONLY; Azure Resource Manager metadata containing createdBy and modifiedBy information.
+	SystemData *SystemData
+
+	// READ-ONLY; The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+	Type *string
+}
+
+// GetVirtualNetworkApplianceCapability implements the VirtualNetworkApplianceCapabilityClassification interface for type
+// PLIPForwardersCapability.
+func (p *PLIPForwardersCapability) GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability {
+	return &VirtualNetworkApplianceCapability{
+		ID:         p.ID,
+		Kind:       p.Kind,
+		Name:       p.Name,
+		Properties: p.Properties,
+		SystemData: p.SystemData,
+		Type:       p.Type,
+	}
 }
 
 // PacketCapture - Parameters that define the create packet capture operation.
@@ -16680,6 +16989,62 @@ type VirtualNetworkAppliance struct {
 	Type *string
 }
 
+// VirtualNetworkApplianceCapability - A capability enabled on a virtual network appliance. The top-level `kind` discriminator
+// selects the
+// capability family; every kind shares the same `properties` schema (see
+// VirtualNetworkApplianceCapabilityProperties). One capability of a given kind may exist per appliance.
+type VirtualNetworkApplianceCapability struct {
+	// REQUIRED; The kind of capability (the top-level discriminator).
+	Kind *VirtualNetworkApplianceCapabilityKind
+
+	// The resource-specific properties for this resource.
+	Properties *VirtualNetworkApplianceCapabilityProperties
+
+	// READ-ONLY; Fully qualified resource ID for the resource. Ex - /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}
+	ID *string
+
+	// READ-ONLY; The name of the resource
+	Name *string
+
+	// READ-ONLY; Azure Resource Manager metadata containing createdBy and modifiedBy information.
+	SystemData *SystemData
+
+	// READ-ONLY; The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or "Microsoft.Storage/storageAccounts"
+	Type *string
+}
+
+// GetVirtualNetworkApplianceCapability implements the VirtualNetworkApplianceCapabilityClassification interface for type
+// VirtualNetworkApplianceCapability.
+func (v *VirtualNetworkApplianceCapability) GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability {
+	return v
+}
+
+// VirtualNetworkApplianceCapabilityListResult - The response of a VirtualNetworkApplianceCapability list operation.
+type VirtualNetworkApplianceCapabilityListResult struct {
+	// REQUIRED; The VirtualNetworkApplianceCapability items on this page
+	Value []VirtualNetworkApplianceCapabilityClassification
+
+	// The link to the next page of items
+	NextLink *string
+}
+
+// VirtualNetworkApplianceCapabilityProperties - Properties common to every virtual network appliance capability, independent
+// of kind.
+type VirtualNetworkApplianceCapabilityProperties struct {
+	// The IP version the capability applies to. Private Link Gateway FastPath (`PLGatewayFastpath`)
+	// only accepts `DualStack`; Private Link Gateway (`PLGateway`) and Private Link IP-forwarders
+	// (`PLIPForwarders`) only accept `IPv6`. Not applicable to `NAT64`, which is property-less and must
+	// omit this value. The service validates the value against the resource's `kind` when the
+	// capability is created or updated.
+	IPVersion *VirtualNetworkApplianceCapabilityIPVersion
+
+	// READ-ONLY; The Azure resource ID of the owning virtual network. System-derived and read-only.
+	LinkedResourceID *string
+
+	// READ-ONLY; The provisioning state of the capability resource.
+	ProvisioningState *ProvisioningState
+}
+
 // VirtualNetworkApplianceIPConfiguration - The virtual network appliance ip configuration.
 type VirtualNetworkApplianceIPConfiguration struct {
 	// Resource ID.
@@ -16729,6 +17094,9 @@ type VirtualNetworkApplianceListResult struct {
 type VirtualNetworkAppliancePropertiesFormat struct {
 	// Bandwidth of the VirtualNetworkAppliance resource in Gbps.
 	BandwidthInGbps *float64
+
+	// The reference to the capacity provider resource.
+	CapacityProvider *SubResource
 
 	// Whether the specific virtual network appliance is IPv4 or Dual Stack. Default is IPv4.
 	PrivateIPAddressVersion *VirtualNetworkApplianceIPVersionType

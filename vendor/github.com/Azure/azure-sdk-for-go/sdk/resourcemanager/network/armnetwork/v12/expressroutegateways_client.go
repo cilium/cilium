@@ -20,7 +20,7 @@ import (
 // ExpressRouteGatewaysClient contains the methods for the ExpressRouteGateways group.
 // Don't use this type directly, use NewExpressRouteGatewaysClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type ExpressRouteGatewaysClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -69,7 +69,7 @@ func (client *ExpressRouteGatewaysClient) BeginCreateOrUpdate(ctx context.Contex
 	}
 }
 
-// CreateOrUpdate - Creates or updates a ExpressRoute gateway in a specified resource group.
+// createOrUpdate - Creates or updates a ExpressRoute gateway in a specified resource group.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *ExpressRouteGatewaysClient) createOrUpdate(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, putExpressRouteGatewayParameters ExpressRouteGateway, options *ExpressRouteGatewaysClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
@@ -91,7 +91,7 @@ func (client *ExpressRouteGatewaysClient) createOrUpdate(ctx context.Context, re
 	return httpResp, nil
 }
 
-// createOrUpdateCreateRequest creates the CreateOrUpdate request.
+// createOrUpdateCreateRequest creates the createOrUpdate request.
 func (client *ExpressRouteGatewaysClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, putExpressRouteGatewayParameters ExpressRouteGateway, _ *ExpressRouteGatewaysClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}"
 	if client.subscriptionID == "" {
@@ -111,7 +111,7 @@ func (client *ExpressRouteGatewaysClient) createOrUpdateCreateRequest(ctx contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -130,7 +130,7 @@ func (client *ExpressRouteGatewaysClient) createOrUpdateCreateRequest(ctx contex
 //     method.
 func (client *ExpressRouteGatewaysClient) BeginDelete(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginDeleteOptions) (*runtime.Poller[ExpressRouteGatewaysClientDeleteResponse], error) {
 	if options == nil || options.ResumeToken == "" {
-		resp, err := client.deleteOperation(ctx, resourceGroupName, expressRouteGatewayName, options)
+		resp, err := client.delete(ctx, resourceGroupName, expressRouteGatewayName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -145,10 +145,10 @@ func (client *ExpressRouteGatewaysClient) BeginDelete(ctx context.Context, resou
 	}
 }
 
-// Delete - Deletes the specified ExpressRoute gateway in a resource group. An ExpressRoute gateway resource can only be deleted
+// delete - Deletes the specified ExpressRoute gateway in a resource group. An ExpressRoute gateway resource can only be deleted
 // when there are no connection subresources.
 // If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteGatewaysClient) deleteOperation(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginDeleteOptions) (*http.Response, error) {
+func (client *ExpressRouteGatewaysClient) delete(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ExpressRouteGatewaysClient.BeginDelete"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
@@ -168,7 +168,7 @@ func (client *ExpressRouteGatewaysClient) deleteOperation(ctx context.Context, r
 	return httpResp, nil
 }
 
-// deleteCreateRequest creates the Delete request.
+// deleteCreateRequest creates the delete request.
 func (client *ExpressRouteGatewaysClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, _ *ExpressRouteGatewaysClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}"
 	if client.subscriptionID == "" {
@@ -188,8 +188,537 @@ func (client *ExpressRouteGatewaysClient) deleteCreateRequest(ctx context.Contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	return req, nil
+}
+
+// BeginGetFailoverAllTestsDetails - Retrieves the details of all the failover tests performed on the ExpressRoute gateway
+// for different peering locations.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
+//   - options - ExpressRouteGatewaysClientBeginGetFailoverAllTestsDetailsOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginGetFailoverAllTestsDetails
+//     method.
+func (client *ExpressRouteGatewaysClient) BeginGetFailoverAllTestsDetails(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetFailoverAllTestsDetailsOptions) (*runtime.Poller[ExpressRouteGatewaysClientGetFailoverAllTestsDetailsResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.getFailoverAllTestsDetails(ctx, resourceGroupName, expressRouteGatewayName, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientGetFailoverAllTestsDetailsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientGetFailoverAllTestsDetailsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// getFailoverAllTestsDetails - Retrieves the details of all the failover tests performed on the ExpressRoute gateway for
+// different peering locations.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteGatewaysClient) getFailoverAllTestsDetails(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetFailoverAllTestsDetailsOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteGatewaysClient.BeginGetFailoverAllTestsDetails"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.getFailoverAllTestsDetailsCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// getFailoverAllTestsDetailsCreateRequest creates the getFailoverAllTestsDetails request.
+func (client *ExpressRouteGatewaysClient) getFailoverAllTestsDetailsCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetFailoverAllTestsDetailsOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/getFailoverAllTestsDetails"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if expressRouteGatewayName == "" {
+		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	if options != nil && options.FetchLatest != nil {
+		reqQP.Set("fetchLatest", strconv.FormatBool(*options.FetchLatest))
+	}
+	if options != nil && options.Type != nil {
+		reqQP.Set("type", *options.Type)
+	}
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginGetFailoverSingleTestDetails - Retrieves the details of a particular failover test performed on the ExpressRoute gateway
+// based on the test Guid.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
+//   - peeringLocation - Peering location of the test.
+//   - failoverTestID - The unique Guid value which identifies the test.
+//   - options - ExpressRouteGatewaysClientBeginGetFailoverSingleTestDetailsOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginGetFailoverSingleTestDetails
+//     method.
+func (client *ExpressRouteGatewaysClient) BeginGetFailoverSingleTestDetails(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, failoverTestID string, options *ExpressRouteGatewaysClientBeginGetFailoverSingleTestDetailsOptions) (*runtime.Poller[ExpressRouteGatewaysClientGetFailoverSingleTestDetailsResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.getFailoverSingleTestDetails(ctx, resourceGroupName, expressRouteGatewayName, peeringLocation, failoverTestID, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientGetFailoverSingleTestDetailsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientGetFailoverSingleTestDetailsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// getFailoverSingleTestDetails - Retrieves the details of a particular failover test performed on the ExpressRoute gateway
+// based on the test Guid.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteGatewaysClient) getFailoverSingleTestDetails(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, failoverTestID string, options *ExpressRouteGatewaysClientBeginGetFailoverSingleTestDetailsOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteGatewaysClient.BeginGetFailoverSingleTestDetails"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.getFailoverSingleTestDetailsCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, peeringLocation, failoverTestID, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// getFailoverSingleTestDetailsCreateRequest creates the getFailoverSingleTestDetails request.
+func (client *ExpressRouteGatewaysClient) getFailoverSingleTestDetailsCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, failoverTestID string, _ *ExpressRouteGatewaysClientBeginGetFailoverSingleTestDetailsOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/getFailoverSingleTestDetails"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if expressRouteGatewayName == "" {
+		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	reqQP.Set("failoverTestId", failoverTestID)
+	reqQP.Set("peeringLocation", peeringLocation)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginGetResiliencyInformation - Retrieves the resiliency information for the ExpressRoute gateway.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
+//   - options - ExpressRouteGatewaysClientBeginGetResiliencyInformationOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginGetResiliencyInformation
+//     method.
+func (client *ExpressRouteGatewaysClient) BeginGetResiliencyInformation(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetResiliencyInformationOptions) (*runtime.Poller[ExpressRouteGatewaysClientGetResiliencyInformationResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.getResiliencyInformation(ctx, resourceGroupName, expressRouteGatewayName, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientGetResiliencyInformationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientGetResiliencyInformationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// getResiliencyInformation - Retrieves the resiliency information for the ExpressRoute gateway.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteGatewaysClient) getResiliencyInformation(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetResiliencyInformationOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteGatewaysClient.BeginGetResiliencyInformation"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.getResiliencyInformationCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// getResiliencyInformationCreateRequest creates the getResiliencyInformation request.
+func (client *ExpressRouteGatewaysClient) getResiliencyInformationCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetResiliencyInformationOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/getResiliencyInformation"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if expressRouteGatewayName == "" {
+		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	if options != nil && options.AttemptRefresh != nil {
+		reqQP.Set("attemptRefresh", strconv.FormatBool(*options.AttemptRefresh))
+	}
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginGetRoutesInformation - Retrieves the route sets information for the ExpressRoute gateway.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
+//   - options - ExpressRouteGatewaysClientBeginGetRoutesInformationOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginGetRoutesInformation
+//     method.
+func (client *ExpressRouteGatewaysClient) BeginGetRoutesInformation(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetRoutesInformationOptions) (*runtime.Poller[ExpressRouteGatewaysClientGetRoutesInformationResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.getRoutesInformation(ctx, resourceGroupName, expressRouteGatewayName, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientGetRoutesInformationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientGetRoutesInformationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// getRoutesInformation - Retrieves the route sets information for the ExpressRoute gateway.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteGatewaysClient) getRoutesInformation(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetRoutesInformationOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteGatewaysClient.BeginGetRoutesInformation"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.getRoutesInformationCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// getRoutesInformationCreateRequest creates the getRoutesInformation request.
+func (client *ExpressRouteGatewaysClient) getRoutesInformationCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetRoutesInformationOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/getRoutesInformation"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if expressRouteGatewayName == "" {
+		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	if options != nil && options.AttemptRefresh != nil {
+		reqQP.Set("attemptRefresh", strconv.FormatBool(*options.AttemptRefresh))
+	}
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginStartSiteFailoverTest - Starts failover simulation on the ExpressRoute gateway for the specified peering location.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
+//   - peeringLocation - Peering location of the test.
+//   - options - ExpressRouteGatewaysClientBeginStartSiteFailoverTestOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginStartSiteFailoverTest
+//     method.
+func (client *ExpressRouteGatewaysClient) BeginStartSiteFailoverTest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, options *ExpressRouteGatewaysClientBeginStartSiteFailoverTestOptions) (*runtime.Poller[ExpressRouteGatewaysClientStartSiteFailoverTestResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.startSiteFailoverTest(ctx, resourceGroupName, expressRouteGatewayName, peeringLocation, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientStartSiteFailoverTestResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientStartSiteFailoverTestResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// startSiteFailoverTest - Starts failover simulation on the ExpressRoute gateway for the specified peering location.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteGatewaysClient) startSiteFailoverTest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, options *ExpressRouteGatewaysClientBeginStartSiteFailoverTestOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteGatewaysClient.BeginStartSiteFailoverTest"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.startSiteFailoverTestCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, peeringLocation, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// startSiteFailoverTestCreateRequest creates the startSiteFailoverTest request.
+func (client *ExpressRouteGatewaysClient) startSiteFailoverTestCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, _ *ExpressRouteGatewaysClientBeginStartSiteFailoverTestOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/startSiteFailoverTest"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if expressRouteGatewayName == "" {
+		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	reqQP.Set("peeringLocation", peeringLocation)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginStopSiteFailoverTest - Stops failover simulation on the ExpressRoute gateway for the specified peering location.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
+//   - stopParameters - The content of the action request
+//   - options - ExpressRouteGatewaysClientBeginStopSiteFailoverTestOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginStopSiteFailoverTest
+//     method.
+func (client *ExpressRouteGatewaysClient) BeginStopSiteFailoverTest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, stopParameters ExpressRouteFailoverStopAPIParameters, options *ExpressRouteGatewaysClientBeginStopSiteFailoverTestOptions) (*runtime.Poller[ExpressRouteGatewaysClientStopSiteFailoverTestResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.stopSiteFailoverTest(ctx, resourceGroupName, expressRouteGatewayName, stopParameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientStopSiteFailoverTestResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientStopSiteFailoverTestResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// stopSiteFailoverTest - Stops failover simulation on the ExpressRoute gateway for the specified peering location.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteGatewaysClient) stopSiteFailoverTest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, stopParameters ExpressRouteFailoverStopAPIParameters, options *ExpressRouteGatewaysClientBeginStopSiteFailoverTestOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteGatewaysClient.BeginStopSiteFailoverTest"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.stopSiteFailoverTestCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, stopParameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// stopSiteFailoverTestCreateRequest creates the stopSiteFailoverTest request.
+func (client *ExpressRouteGatewaysClient) stopSiteFailoverTestCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, stopParameters ExpressRouteFailoverStopAPIParameters, _ *ExpressRouteGatewaysClientBeginStopSiteFailoverTestOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/stopSiteFailoverTest"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if expressRouteGatewayName == "" {
+		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, stopParameters); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// BeginUpdateTags - Updates express route gateway tags.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
+//   - expressRouteGatewayParameters - Parameters supplied to update a virtual wan express route gateway tags.
+//   - options - ExpressRouteGatewaysClientBeginUpdateTagsOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginUpdateTags
+//     method.
+func (client *ExpressRouteGatewaysClient) BeginUpdateTags(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, expressRouteGatewayParameters TagsObject, options *ExpressRouteGatewaysClientBeginUpdateTagsOptions) (*runtime.Poller[ExpressRouteGatewaysClientUpdateTagsResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.updateTags(ctx, resourceGroupName, expressRouteGatewayName, expressRouteGatewayParameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientUpdateTagsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientUpdateTagsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// updateTags - Updates express route gateway tags.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteGatewaysClient) updateTags(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, expressRouteGatewayParameters TagsObject, options *ExpressRouteGatewaysClientBeginUpdateTagsOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteGatewaysClient.BeginUpdateTags"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.updateTagsCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, expressRouteGatewayParameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// updateTagsCreateRequest creates the updateTags request.
+func (client *ExpressRouteGatewaysClient) updateTagsCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, expressRouteGatewayParameters TagsObject, _ *ExpressRouteGatewaysClientBeginUpdateTagsOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if expressRouteGatewayName == "" {
+		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
+	req, err := runtime.NewRequest(ctx, http.MethodPatch, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, expressRouteGatewayParameters); err != nil {
+		return nil, err
+	}
 	return req, nil
 }
 
@@ -236,7 +765,7 @@ func (client *ExpressRouteGatewaysClient) getCreateRequest(ctx context.Context, 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -252,310 +781,6 @@ func (client *ExpressRouteGatewaysClient) getHandleResponse(resp *http.Response,
 		return ExpressRouteGatewaysClientGetResponse{}, err
 	}
 	return result, nil
-}
-
-// BeginGetFailoverAllTestsDetails - Retrieves the details of all the failover tests performed on the ExpressRoute gateway
-// for different peering locations.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
-//   - options - ExpressRouteGatewaysClientBeginGetFailoverAllTestsDetailsOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginGetFailoverAllTestsDetails
-//     method.
-func (client *ExpressRouteGatewaysClient) BeginGetFailoverAllTestsDetails(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetFailoverAllTestsDetailsOptions) (*runtime.Poller[ExpressRouteGatewaysClientGetFailoverAllTestsDetailsResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.getFailoverAllTestsDetails(ctx, resourceGroupName, expressRouteGatewayName, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientGetFailoverAllTestsDetailsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientGetFailoverAllTestsDetailsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// GetFailoverAllTestsDetails - Retrieves the details of all the failover tests performed on the ExpressRoute gateway for
-// different peering locations.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteGatewaysClient) getFailoverAllTestsDetails(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetFailoverAllTestsDetailsOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteGatewaysClient.BeginGetFailoverAllTestsDetails"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.getFailoverAllTestsDetailsCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// getFailoverAllTestsDetailsCreateRequest creates the GetFailoverAllTestsDetails request.
-func (client *ExpressRouteGatewaysClient) getFailoverAllTestsDetailsCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetFailoverAllTestsDetailsOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/getFailoverAllTestsDetails"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if expressRouteGatewayName == "" {
-		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	if options != nil && options.FetchLatest != nil {
-		reqQP.Set("fetchLatest", strconv.FormatBool(*options.FetchLatest))
-	}
-	if options != nil && options.Type != nil {
-		reqQP.Set("type", *options.Type)
-	}
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginGetFailoverSingleTestDetails - Retrieves the details of a particular failover test performed on the ExpressRoute gateway
-// based on the test Guid.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
-//   - peeringLocation - Peering location of the test.
-//   - failoverTestID - The unique Guid value which identifies the test.
-//   - options - ExpressRouteGatewaysClientBeginGetFailoverSingleTestDetailsOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginGetFailoverSingleTestDetails
-//     method.
-func (client *ExpressRouteGatewaysClient) BeginGetFailoverSingleTestDetails(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, failoverTestID string, options *ExpressRouteGatewaysClientBeginGetFailoverSingleTestDetailsOptions) (*runtime.Poller[ExpressRouteGatewaysClientGetFailoverSingleTestDetailsResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.getFailoverSingleTestDetails(ctx, resourceGroupName, expressRouteGatewayName, peeringLocation, failoverTestID, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientGetFailoverSingleTestDetailsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientGetFailoverSingleTestDetailsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// GetFailoverSingleTestDetails - Retrieves the details of a particular failover test performed on the ExpressRoute gateway
-// based on the test Guid.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteGatewaysClient) getFailoverSingleTestDetails(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, failoverTestID string, options *ExpressRouteGatewaysClientBeginGetFailoverSingleTestDetailsOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteGatewaysClient.BeginGetFailoverSingleTestDetails"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.getFailoverSingleTestDetailsCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, peeringLocation, failoverTestID, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// getFailoverSingleTestDetailsCreateRequest creates the GetFailoverSingleTestDetails request.
-func (client *ExpressRouteGatewaysClient) getFailoverSingleTestDetailsCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, failoverTestID string, _ *ExpressRouteGatewaysClientBeginGetFailoverSingleTestDetailsOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/getFailoverSingleTestDetails"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if expressRouteGatewayName == "" {
-		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	reqQP.Set("failoverTestId", failoverTestID)
-	reqQP.Set("peeringLocation", peeringLocation)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginGetResiliencyInformation - Retrieves the resiliency information for the ExpressRoute gateway.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
-//   - options - ExpressRouteGatewaysClientBeginGetResiliencyInformationOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginGetResiliencyInformation
-//     method.
-func (client *ExpressRouteGatewaysClient) BeginGetResiliencyInformation(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetResiliencyInformationOptions) (*runtime.Poller[ExpressRouteGatewaysClientGetResiliencyInformationResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.getResiliencyInformation(ctx, resourceGroupName, expressRouteGatewayName, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientGetResiliencyInformationResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientGetResiliencyInformationResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// GetResiliencyInformation - Retrieves the resiliency information for the ExpressRoute gateway.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteGatewaysClient) getResiliencyInformation(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetResiliencyInformationOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteGatewaysClient.BeginGetResiliencyInformation"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.getResiliencyInformationCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// getResiliencyInformationCreateRequest creates the GetResiliencyInformation request.
-func (client *ExpressRouteGatewaysClient) getResiliencyInformationCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetResiliencyInformationOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/getResiliencyInformation"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if expressRouteGatewayName == "" {
-		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	if options != nil && options.AttemptRefresh != nil {
-		reqQP.Set("attemptRefresh", strconv.FormatBool(*options.AttemptRefresh))
-	}
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginGetRoutesInformation - Retrieves the route sets information for the ExpressRoute gateway.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
-//   - options - ExpressRouteGatewaysClientBeginGetRoutesInformationOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginGetRoutesInformation
-//     method.
-func (client *ExpressRouteGatewaysClient) BeginGetRoutesInformation(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetRoutesInformationOptions) (*runtime.Poller[ExpressRouteGatewaysClientGetRoutesInformationResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.getRoutesInformation(ctx, resourceGroupName, expressRouteGatewayName, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientGetRoutesInformationResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientGetRoutesInformationResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// GetRoutesInformation - Retrieves the route sets information for the ExpressRoute gateway.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteGatewaysClient) getRoutesInformation(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetRoutesInformationOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteGatewaysClient.BeginGetRoutesInformation"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.getRoutesInformationCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// getRoutesInformationCreateRequest creates the GetRoutesInformation request.
-func (client *ExpressRouteGatewaysClient) getRoutesInformationCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, options *ExpressRouteGatewaysClientBeginGetRoutesInformationOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/getRoutesInformation"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if expressRouteGatewayName == "" {
-		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	if options != nil && options.AttemptRefresh != nil {
-		reqQP.Set("attemptRefresh", strconv.FormatBool(*options.AttemptRefresh))
-	}
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
 }
 
 // ListByResourceGroup - Lists ExpressRoute gateways in a given resource group.
@@ -596,7 +821,7 @@ func (client *ExpressRouteGatewaysClient) listByResourceGroupCreateRequest(ctx c
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -647,7 +872,7 @@ func (client *ExpressRouteGatewaysClient) listBySubscriptionCreateRequest(ctx co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -663,229 +888,4 @@ func (client *ExpressRouteGatewaysClient) listBySubscriptionHandleResponse(resp 
 		return ExpressRouteGatewaysClientListBySubscriptionResponse{}, err
 	}
 	return result, nil
-}
-
-// BeginStartSiteFailoverTest - Starts failover simulation on the ExpressRoute gateway for the specified peering location.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
-//   - peeringLocation - Peering location of the test.
-//   - options - ExpressRouteGatewaysClientBeginStartSiteFailoverTestOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginStartSiteFailoverTest
-//     method.
-func (client *ExpressRouteGatewaysClient) BeginStartSiteFailoverTest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, options *ExpressRouteGatewaysClientBeginStartSiteFailoverTestOptions) (*runtime.Poller[ExpressRouteGatewaysClientStartSiteFailoverTestResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.startSiteFailoverTest(ctx, resourceGroupName, expressRouteGatewayName, peeringLocation, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientStartSiteFailoverTestResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientStartSiteFailoverTestResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// StartSiteFailoverTest - Starts failover simulation on the ExpressRoute gateway for the specified peering location.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteGatewaysClient) startSiteFailoverTest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, options *ExpressRouteGatewaysClientBeginStartSiteFailoverTestOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteGatewaysClient.BeginStartSiteFailoverTest"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.startSiteFailoverTestCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, peeringLocation, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// startSiteFailoverTestCreateRequest creates the StartSiteFailoverTest request.
-func (client *ExpressRouteGatewaysClient) startSiteFailoverTestCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, peeringLocation string, _ *ExpressRouteGatewaysClientBeginStartSiteFailoverTestOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/startSiteFailoverTest"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if expressRouteGatewayName == "" {
-		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	reqQP.Set("peeringLocation", peeringLocation)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginStopSiteFailoverTest - Stops failover simulation on the ExpressRoute gateway for the specified peering location.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
-//   - stopParameters - The content of the action request
-//   - options - ExpressRouteGatewaysClientBeginStopSiteFailoverTestOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginStopSiteFailoverTest
-//     method.
-func (client *ExpressRouteGatewaysClient) BeginStopSiteFailoverTest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, stopParameters ExpressRouteFailoverStopAPIParameters, options *ExpressRouteGatewaysClientBeginStopSiteFailoverTestOptions) (*runtime.Poller[ExpressRouteGatewaysClientStopSiteFailoverTestResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.stopSiteFailoverTest(ctx, resourceGroupName, expressRouteGatewayName, stopParameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientStopSiteFailoverTestResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientStopSiteFailoverTestResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// StopSiteFailoverTest - Stops failover simulation on the ExpressRoute gateway for the specified peering location.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteGatewaysClient) stopSiteFailoverTest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, stopParameters ExpressRouteFailoverStopAPIParameters, options *ExpressRouteGatewaysClientBeginStopSiteFailoverTestOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteGatewaysClient.BeginStopSiteFailoverTest"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.stopSiteFailoverTestCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, stopParameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// stopSiteFailoverTestCreateRequest creates the StopSiteFailoverTest request.
-func (client *ExpressRouteGatewaysClient) stopSiteFailoverTestCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, stopParameters ExpressRouteFailoverStopAPIParameters, _ *ExpressRouteGatewaysClientBeginStopSiteFailoverTestOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}/stopSiteFailoverTest"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if expressRouteGatewayName == "" {
-		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, stopParameters); err != nil {
-		return nil, err
-	}
-	return req, nil
-}
-
-// BeginUpdateTags - Updates express route gateway tags.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - expressRouteGatewayName - The name of the ExpressRoute gateway.
-//   - expressRouteGatewayParameters - Parameters supplied to update a virtual wan express route gateway tags.
-//   - options - ExpressRouteGatewaysClientBeginUpdateTagsOptions contains the optional parameters for the ExpressRouteGatewaysClient.BeginUpdateTags
-//     method.
-func (client *ExpressRouteGatewaysClient) BeginUpdateTags(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, expressRouteGatewayParameters TagsObject, options *ExpressRouteGatewaysClientBeginUpdateTagsOptions) (*runtime.Poller[ExpressRouteGatewaysClientUpdateTagsResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.updateTags(ctx, resourceGroupName, expressRouteGatewayName, expressRouteGatewayParameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteGatewaysClientUpdateTagsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteGatewaysClientUpdateTagsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// UpdateTags - Updates express route gateway tags.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteGatewaysClient) updateTags(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, expressRouteGatewayParameters TagsObject, options *ExpressRouteGatewaysClientBeginUpdateTagsOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteGatewaysClient.BeginUpdateTags"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.updateTagsCreateRequest(ctx, resourceGroupName, expressRouteGatewayName, expressRouteGatewayParameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// updateTagsCreateRequest creates the UpdateTags request.
-func (client *ExpressRouteGatewaysClient) updateTagsCreateRequest(ctx context.Context, resourceGroupName string, expressRouteGatewayName string, expressRouteGatewayParameters TagsObject, _ *ExpressRouteGatewaysClientBeginUpdateTagsOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteGateways/{expressRouteGatewayName}"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if expressRouteGatewayName == "" {
-		return nil, errors.New("parameter expressRouteGatewayName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{expressRouteGatewayName}", url.PathEscape(expressRouteGatewayName))
-	req, err := runtime.NewRequest(ctx, http.MethodPatch, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, expressRouteGatewayParameters); err != nil {
-		return nil, err
-	}
-	return req, nil
 }
