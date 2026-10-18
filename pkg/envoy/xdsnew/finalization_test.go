@@ -29,7 +29,7 @@ import (
 func TestFailedCoalescedABAPublicationKeepsPendingPublication(t *testing.T) {
 	c := newCoverageCache(t)
 	policy := &cilium.NetworkPolicy{EndpointId: 1}
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil, nil))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil))
 	s := coverageStream{cache: c, id: 1, typeURL: typeurl.NetworkPolicyURL}
 	s.reply(t, s.receive(t), "")
 	baseline := mustSnapshot(t, c, "coverage-node")
@@ -37,10 +37,10 @@ func TestFailedCoalescedABAPublicationKeepsPendingPublication(t *testing.T) {
 	t.Cleanup(cancel)
 	wg := completion.NewWaitGroup(ctx)
 	t.Cleanup(wg.Cancel)
-	done := make(chan error, 1)
 	require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy",
-		&cilium.NetworkPolicy{EndpointId: 2}, wg, func(err error) { done <- err }))
-	require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil, nil))
+		&cilium.NetworkPolicy{EndpointId: 2}, wg))
+	done := waitForCoverageCompletion(wg)
+	require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil))
 	failed := newMockSnapshotCache()
 	failed.snapshots["coverage-node"] = baseline
 	failed.setSnapshotErr = errors.New("publication failed before installation")
@@ -64,7 +64,6 @@ func TestFailedCoalescedABAPublicationKeepsPendingPublication(t *testing.T) {
 	require.NotEqual(t, baseline.GetVersion(typeurl.NetworkPolicyURL), retried.GetVersion(typeurl.NetworkPolicyURL))
 	requireCoveragePending(t, done)
 	s.reply(t, s.deliver(t, <-responses), "")
-	require.NoError(t, wg.Wait())
 	require.NoError(t, <-done, "successful A-B-A publication must resolve its wait on ACK")
 }
 
@@ -75,7 +74,7 @@ func TestNoOpWaitWithoutPublishedBaseline(t *testing.T) {
 				t.Run(fmt.Sprintf("cleared=%t/bulk=%t/nack=%t", cleared, bulk, rejection != ""), func(t *testing.T) {
 					c := newCoverageCache(t)
 					policy := &cilium.NetworkPolicy{EndpointId: 1}
-					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil, nil))
+					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil))
 					if cleared {
 						requestSnapshotForTest(t, c, "coverage-node", typeurl.NetworkPolicy)
 						c.ClearSnapshot("coverage-node")
@@ -91,7 +90,7 @@ func TestNoOpWaitWithoutPublishedBaseline(t *testing.T) {
 							Listeners: map[string]*listener.Listener{"absent": nil},
 						}}, wg, waits))
 					} else {
-						require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "absent", nil, wg, nil))
+						require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "absent", nil, wg))
 					}
 					require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
 					_, err := c.GetSnapshot("coverage-node")
@@ -120,7 +119,7 @@ func TestEpochRotationPreservesUnrelatedUnpublishedChanges(t *testing.T) {
 			c := newCoverageCache(t)
 			const nodeID = "coverage-node"
 			require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster",
-				&cluster.Cluster{Name: "cluster"}, nil, nil))
+				&cluster.Cluster{Name: "cluster"}, nil))
 			cds := coverageStream{cache: c, id: 1, typeURL: typeurl.Cluster.URL(), version: "e1:g99"}
 			cds.reply(t, cds.receive(t), "")
 			baseline := mustSnapshot(t, c, nodeID)
@@ -130,9 +129,9 @@ func TestEpochRotationPreservesUnrelatedUnpublishedChanges(t *testing.T) {
 			t.Cleanup(cancel)
 			wg := completion.NewWaitGroup(ctx)
 			t.Cleanup(wg.Cancel)
-			done := make(chan error, 1)
 			policy := &cilium.NetworkPolicy{EndpointId: 1}
-			require.NoError(t, c.ApplyResource(ctx, nodeID, typeurl.NetworkPolicy, "policy", policy, wg, func(err error) { done <- err }))
+			require.NoError(t, c.ApplyResource(ctx, nodeID, typeurl.NetworkPolicy, "policy", policy, wg))
+			done := waitForCoverageCompletion(wg)
 			request := &cache.Request{Node: &core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(), VersionInfo: "e2:g0"}
 			sub := stream.NewSotwSubscription(nil, true)
 			responses := make(chan cache.Response, 1)
@@ -162,7 +161,6 @@ func TestEpochRotationPreservesUnrelatedUnpublishedChanges(t *testing.T) {
 			require.Same(t, policy, current)
 			npds := coverageStream{cache: c, id: 1, typeURL: typeurl.NetworkPolicyURL}
 			npds.reply(t, npds.receive(t), "")
-			require.NoError(t, wg.Wait())
 			require.NoError(t, <-done)
 		})
 	}
@@ -202,7 +200,7 @@ func TestClusterAddsMissingCLAAnswersExistingEDSWatch(t *testing.T) {
 			})
 			if existingCluster {
 				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster",
-					&cluster.Cluster{Name: "cluster"}, nil, nil))
+					&cluster.Cluster{Name: "cluster"}, nil))
 			}
 
 			// Subscribe before a Cluster refers to this EDS name. The empty
@@ -235,7 +233,7 @@ func TestClusterAddsMissingCLAAnswersExistingEDSWatch(t *testing.T) {
 			// No new EDS request follows: publication must answer the existing
 			// watch even though no Cluster previously subscribed to this name.
 			require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster",
-				testEDSCluster("cluster", "backend"), nil, nil))
+				testEDSCluster("cluster", "backend"), nil))
 			require.Nil(t, c.GetResource(nodeID, typeurl.Endpoint, "backend"))
 			require.Contains(t, mustSnapshot(t, c, nodeID).GetResources(typeurl.Endpoint.URL()), "backend")
 			require.Len(t, cdsResponses, 1, "the Cluster update must have been published")
@@ -349,7 +347,7 @@ func TestPendingCLARemovalNACKRestoresExplicitAssignment(t *testing.T) {
 	// With no open EDS watch and no caller lifecycle or WaitGroup, this
 	// removal must still retain its response inverse. Unlike an orphan's
 	// omission, a referenced CLA is replaced by a named empty assignment.
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "shared", nil, nil, nil))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "shared", nil, nil))
 	require.Nil(t, c.GetResource("coverage-node", typeurl.Endpoint, "shared"))
 	require.Same(t, baseline, mustSnapshot(t, c, "coverage-node"), "removal remains unpublished")
 	response := eds.receive(t, "shared")
