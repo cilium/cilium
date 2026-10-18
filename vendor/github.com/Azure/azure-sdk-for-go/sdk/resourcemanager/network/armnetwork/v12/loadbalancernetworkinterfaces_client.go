@@ -19,7 +19,7 @@ import (
 // LoadBalancerNetworkInterfacesClient contains the methods for the LoadBalancerNetworkInterfaces group.
 // Don't use this type directly, use NewLoadBalancerNetworkInterfacesClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type LoadBalancerNetworkInterfacesClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -102,7 +102,7 @@ func (client *LoadBalancerNetworkInterfacesClient) listCreateRequest(ctx context
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}

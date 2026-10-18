@@ -19,7 +19,7 @@ import (
 // AvailableServiceAliasesClient contains the methods for the AvailableServiceAliases group.
 // Don't use this type directly, use NewAvailableServiceAliasesClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type AvailableServiceAliasesClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -42,78 +42,6 @@ func NewAvailableServiceAliasesClient(subscriptionID string, credential azcore.T
 		internal:       cl,
 	}
 	return client, nil
-}
-
-// NewListPager - Gets all available service aliases for this subscription in this region.
-//   - location - The location name.
-//   - options - AvailableServiceAliasesClientListOptions contains the optional parameters for the AvailableServiceAliasesClient.NewListPager
-//     method.
-func (client *AvailableServiceAliasesClient) NewListPager(location string, options *AvailableServiceAliasesClientListOptions) *runtime.Pager[AvailableServiceAliasesClientListResponse] {
-	return runtime.NewPager(runtime.PagingHandler[AvailableServiceAliasesClientListResponse]{
-		More: func(page AvailableServiceAliasesClientListResponse) bool {
-			return page.NextLink != nil && len(*page.NextLink) > 0
-		},
-		Fetcher: func(ctx context.Context, page *AvailableServiceAliasesClientListResponse) (AvailableServiceAliasesClientListResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "AvailableServiceAliasesClient.NewListPager")
-			nextLink := ""
-			if page != nil {
-				nextLink = *page.NextLink
-			}
-			req, err := client.listCreateRequest(ctx, location, nextLink, options)
-			if err != nil {
-				return AvailableServiceAliasesClientListResponse{}, err
-			}
-			resp, err := client.internal.Pipeline().Do(req)
-			if err != nil {
-				return AvailableServiceAliasesClientListResponse{}, err
-			}
-			return client.listHandleResponse(resp, http.StatusOK)
-		},
-		Tracer: client.internal.Tracer(),
-	})
-}
-
-// listCreateRequest creates the List request.
-func (client *AvailableServiceAliasesClient) listCreateRequest(ctx context.Context, location string, nextLink string, _ *AvailableServiceAliasesClientListOptions) (*policy.Request, error) {
-	firstPage := nextLink == ""
-	var req *policy.Request
-	var err error
-	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/locations/{location}/availableServiceAliases"
-		if client.subscriptionID == "" {
-			return nil, errors.New("parameter subscriptionID cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-		if location == "" {
-			return nil, errors.New("parameter location cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{location}", url.PathEscape(location))
-		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	} else {
-		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if firstPage {
-		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
-		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-		req.Raw().Header["Accept"] = []string{"application/json"}
-	}
-	return req, nil
-}
-
-// listHandleResponse handles the List response.
-func (client *AvailableServiceAliasesClient) listHandleResponse(resp *http.Response, successCodes ...int) (AvailableServiceAliasesClientListResponse, error) {
-	result := AvailableServiceAliasesClientListResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	if err := runtime.UnmarshalAsJSON(resp, &result.AvailableServiceAliasesResult); err != nil {
-		return AvailableServiceAliasesClientListResponse{}, err
-	}
-	return result, nil
 }
 
 // NewListByResourceGroupPager - Gets all available service aliases for this resource group in this region.
@@ -174,7 +102,7 @@ func (client *AvailableServiceAliasesClient) listByResourceGroupCreateRequest(ct
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -189,6 +117,78 @@ func (client *AvailableServiceAliasesClient) listByResourceGroupHandleResponse(r
 	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.AvailableServiceAliasesResult); err != nil {
 		return AvailableServiceAliasesClientListByResourceGroupResponse{}, err
+	}
+	return result, nil
+}
+
+// NewListPager - Gets all available service aliases for this subscription in this region.
+//   - location - The location name.
+//   - options - AvailableServiceAliasesClientListOptions contains the optional parameters for the AvailableServiceAliasesClient.NewListPager
+//     method.
+func (client *AvailableServiceAliasesClient) NewListPager(location string, options *AvailableServiceAliasesClientListOptions) *runtime.Pager[AvailableServiceAliasesClientListResponse] {
+	return runtime.NewPager(runtime.PagingHandler[AvailableServiceAliasesClientListResponse]{
+		More: func(page AvailableServiceAliasesClientListResponse) bool {
+			return page.NextLink != nil && len(*page.NextLink) > 0
+		},
+		Fetcher: func(ctx context.Context, page *AvailableServiceAliasesClientListResponse) (AvailableServiceAliasesClientListResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "AvailableServiceAliasesClient.NewListPager")
+			nextLink := ""
+			if page != nil {
+				nextLink = *page.NextLink
+			}
+			req, err := client.listCreateRequest(ctx, location, nextLink, options)
+			if err != nil {
+				return AvailableServiceAliasesClientListResponse{}, err
+			}
+			resp, err := client.internal.Pipeline().Do(req)
+			if err != nil {
+				return AvailableServiceAliasesClientListResponse{}, err
+			}
+			return client.listHandleResponse(resp, http.StatusOK)
+		},
+		Tracer: client.internal.Tracer(),
+	})
+}
+
+// listCreateRequest creates the List request.
+func (client *AvailableServiceAliasesClient) listCreateRequest(ctx context.Context, location string, nextLink string, _ *AvailableServiceAliasesClientListOptions) (*policy.Request, error) {
+	firstPage := nextLink == ""
+	var req *policy.Request
+	var err error
+	if firstPage {
+		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/locations/{location}/availableServiceAliases"
+		if client.subscriptionID == "" {
+			return nil, errors.New("parameter subscriptionID cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+		if location == "" {
+			return nil, errors.New("parameter location cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{location}", url.PathEscape(location))
+		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	} else {
+		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if firstPage {
+		reqQP := req.Raw().URL.Query()
+		reqQP.Set("api-version", version20260301)
+		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+		req.Raw().Header["Accept"] = []string{"application/json"}
+	}
+	return req, nil
+}
+
+// listHandleResponse handles the List response.
+func (client *AvailableServiceAliasesClient) listHandleResponse(resp *http.Response, successCodes ...int) (AvailableServiceAliasesClientListResponse, error) {
+	result := AvailableServiceAliasesClientListResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
+	if err := runtime.UnmarshalAsJSON(resp, &result.AvailableServiceAliasesResult); err != nil {
+		return AvailableServiceAliasesClientListResponse{}, err
 	}
 	return result, nil
 }

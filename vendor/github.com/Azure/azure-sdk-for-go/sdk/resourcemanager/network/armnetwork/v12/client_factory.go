@@ -328,6 +328,14 @@ func (c *ClientFactory) NewExpressRouteGatewaysClient() *ExpressRouteGatewaysCli
 	}
 }
 
+// NewExpressRouteLagAuthorizationsClient creates a new instance of ExpressRouteLagAuthorizationsClient.
+func (c *ClientFactory) NewExpressRouteLagAuthorizationsClient() *ExpressRouteLagAuthorizationsClient {
+	return &ExpressRouteLagAuthorizationsClient{
+		subscriptionID: c.subscriptionID,
+		internal:       c.internal,
+	}
+}
+
 // NewExpressRouteLagsClient creates a new instance of ExpressRouteLagsClient.
 func (c *ClientFactory) NewExpressRouteLagsClient() *ExpressRouteLagsClient {
 	return &ExpressRouteLagsClient{
@@ -1265,6 +1273,14 @@ func (c *ClientFactory) NewVirtualHubRouteTableV2SClient() *VirtualHubRouteTable
 // NewVirtualHubsClient creates a new instance of VirtualHubsClient.
 func (c *ClientFactory) NewVirtualHubsClient() *VirtualHubsClient {
 	return &VirtualHubsClient{
+		subscriptionID: c.subscriptionID,
+		internal:       c.internal,
+	}
+}
+
+// NewVirtualNetworkApplianceCapabilitiesClient creates a new instance of VirtualNetworkApplianceCapabilitiesClient.
+func (c *ClientFactory) NewVirtualNetworkApplianceCapabilitiesClient() *VirtualNetworkApplianceCapabilitiesClient {
+	return &VirtualNetworkApplianceCapabilitiesClient{
 		subscriptionID: c.subscriptionID,
 		internal:       c.internal,
 	}

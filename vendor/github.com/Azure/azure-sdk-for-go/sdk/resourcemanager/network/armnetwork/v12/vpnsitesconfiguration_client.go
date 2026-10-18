@@ -19,7 +19,7 @@ import (
 // VPNSitesConfigurationClient contains the methods for the VPNSitesConfiguration group.
 // Don't use this type directly, use NewVPNSitesConfigurationClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type VPNSitesConfigurationClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -68,7 +68,7 @@ func (client *VPNSitesConfigurationClient) BeginDownload(ctx context.Context, re
 	}
 }
 
-// Download - Gives the sas-url to download the configurations for vpn-sites in a resource group.
+// download - Gives the sas-url to download the configurations for vpn-sites in a resource group.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *VPNSitesConfigurationClient) download(ctx context.Context, resourceGroupName string, virtualWANName string, request GetVPNSitesConfigurationRequest, options *VPNSitesConfigurationClientBeginDownloadOptions) (*http.Response, error) {
 	var err error
@@ -90,7 +90,7 @@ func (client *VPNSitesConfigurationClient) download(ctx context.Context, resourc
 	return httpResp, nil
 }
 
-// downloadCreateRequest creates the Download request.
+// downloadCreateRequest creates the download request.
 func (client *VPNSitesConfigurationClient) downloadCreateRequest(ctx context.Context, resourceGroupName string, virtualWANName string, request GetVPNSitesConfigurationRequest, _ *VPNSitesConfigurationClientBeginDownloadOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualWans/{virtualWANName}/vpnConfiguration"
 	if client.subscriptionID == "" {
@@ -110,7 +110,7 @@ func (client *VPNSitesConfigurationClient) downloadCreateRequest(ctx context.Con
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, request); err != nil {

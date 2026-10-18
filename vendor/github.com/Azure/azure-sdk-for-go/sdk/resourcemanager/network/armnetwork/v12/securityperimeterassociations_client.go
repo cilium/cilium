@@ -20,7 +20,7 @@ import (
 // SecurityPerimeterAssociationsClient contains the methods for the SecurityPerimeterAssociations group.
 // Don't use this type directly, use NewSecurityPerimeterAssociationsClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type SecurityPerimeterAssociationsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -70,7 +70,7 @@ func (client *SecurityPerimeterAssociationsClient) BeginCreateOrUpdate(ctx conte
 	}
 }
 
-// CreateOrUpdate - Creates or updates a NSP resource association.
+// createOrUpdate - Creates or updates a NSP resource association.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *SecurityPerimeterAssociationsClient) createOrUpdate(ctx context.Context, resourceGroupName string, networkSecurityPerimeterName string, associationName string, parameters NspAssociation, options *SecurityPerimeterAssociationsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
@@ -92,7 +92,7 @@ func (client *SecurityPerimeterAssociationsClient) createOrUpdate(ctx context.Co
 	return httpResp, nil
 }
 
-// createOrUpdateCreateRequest creates the CreateOrUpdate request.
+// createOrUpdateCreateRequest creates the createOrUpdate request.
 func (client *SecurityPerimeterAssociationsClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, networkSecurityPerimeterName string, associationName string, parameters NspAssociation, _ *SecurityPerimeterAssociationsClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkSecurityPerimeters/{networkSecurityPerimeterName}/resourceAssociations/{associationName}"
 	if client.subscriptionID == "" {
@@ -116,7 +116,7 @@ func (client *SecurityPerimeterAssociationsClient) createOrUpdateCreateRequest(c
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -135,7 +135,7 @@ func (client *SecurityPerimeterAssociationsClient) createOrUpdateCreateRequest(c
 //     method.
 func (client *SecurityPerimeterAssociationsClient) BeginDelete(ctx context.Context, resourceGroupName string, networkSecurityPerimeterName string, associationName string, options *SecurityPerimeterAssociationsClientBeginDeleteOptions) (*runtime.Poller[SecurityPerimeterAssociationsClientDeleteResponse], error) {
 	if options == nil || options.ResumeToken == "" {
-		resp, err := client.deleteOperation(ctx, resourceGroupName, networkSecurityPerimeterName, associationName, options)
+		resp, err := client.delete(ctx, resourceGroupName, networkSecurityPerimeterName, associationName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -150,9 +150,9 @@ func (client *SecurityPerimeterAssociationsClient) BeginDelete(ctx context.Conte
 	}
 }
 
-// Delete - Deletes an NSP association resource.
+// delete - Deletes an NSP association resource.
 // If the operation fails it returns an *azcore.ResponseError type.
-func (client *SecurityPerimeterAssociationsClient) deleteOperation(ctx context.Context, resourceGroupName string, networkSecurityPerimeterName string, associationName string, options *SecurityPerimeterAssociationsClientBeginDeleteOptions) (*http.Response, error) {
+func (client *SecurityPerimeterAssociationsClient) delete(ctx context.Context, resourceGroupName string, networkSecurityPerimeterName string, associationName string, options *SecurityPerimeterAssociationsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "SecurityPerimeterAssociationsClient.BeginDelete"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
@@ -172,7 +172,7 @@ func (client *SecurityPerimeterAssociationsClient) deleteOperation(ctx context.C
 	return httpResp, nil
 }
 
-// deleteCreateRequest creates the Delete request.
+// deleteCreateRequest creates the delete request.
 func (client *SecurityPerimeterAssociationsClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, networkSecurityPerimeterName string, associationName string, _ *SecurityPerimeterAssociationsClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkSecurityPerimeters/{networkSecurityPerimeterName}/resourceAssociations/{associationName}"
 	if client.subscriptionID == "" {
@@ -196,7 +196,7 @@ func (client *SecurityPerimeterAssociationsClient) deleteCreateRequest(ctx conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
@@ -249,7 +249,7 @@ func (client *SecurityPerimeterAssociationsClient) getCreateRequest(ctx context.
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -331,7 +331,7 @@ func (client *SecurityPerimeterAssociationsClient) listCreateRequest(ctx context
 		if options != nil && options.Top != nil {
 			reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 		}
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -399,7 +399,7 @@ func (client *SecurityPerimeterAssociationsClient) reconcileCreateRequest(ctx co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}

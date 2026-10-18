@@ -19,7 +19,7 @@ import (
 // ExpressRouteCrossConnectionsClient contains the methods for the ExpressRouteCrossConnections group.
 // Don't use this type directly, use NewExpressRouteCrossConnectionsClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type ExpressRouteCrossConnectionsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -69,7 +69,7 @@ func (client *ExpressRouteCrossConnectionsClient) BeginCommitCircuitMigration(ct
 	}
 }
 
-// CommitCircuitMigration - Commits the express route circuit migration for a cross connection.
+// commitCircuitMigration - Commits the express route circuit migration for a cross connection.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *ExpressRouteCrossConnectionsClient) commitCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginCommitCircuitMigrationOptions) (*http.Response, error) {
 	var err error
@@ -91,7 +91,7 @@ func (client *ExpressRouteCrossConnectionsClient) commitCircuitMigration(ctx con
 	return httpResp, nil
 }
 
-// commitCircuitMigrationCreateRequest creates the CommitCircuitMigration request.
+// commitCircuitMigrationCreateRequest creates the commitCircuitMigration request.
 func (client *ExpressRouteCrossConnectionsClient) commitCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginCommitCircuitMigrationOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/commitCircuitMigration"
 	if client.subscriptionID == "" {
@@ -111,7 +111,7 @@ func (client *ExpressRouteCrossConnectionsClient) commitCircuitMigrationCreateRe
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -145,7 +145,7 @@ func (client *ExpressRouteCrossConnectionsClient) BeginCreateOrUpdate(ctx contex
 	}
 }
 
-// CreateOrUpdate - Update the specified ExpressRouteCrossConnection.
+// createOrUpdate - Update the specified ExpressRouteCrossConnection.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *ExpressRouteCrossConnectionsClient) createOrUpdate(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters ExpressRouteCrossConnection, options *ExpressRouteCrossConnectionsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
@@ -167,7 +167,7 @@ func (client *ExpressRouteCrossConnectionsClient) createOrUpdate(ctx context.Con
 	return httpResp, nil
 }
 
-// createOrUpdateCreateRequest creates the CreateOrUpdate request.
+// createOrUpdateCreateRequest creates the createOrUpdate request.
 func (client *ExpressRouteCrossConnectionsClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters ExpressRouteCrossConnection, _ *ExpressRouteCrossConnectionsClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}"
 	if client.subscriptionID == "" {
@@ -187,7 +187,796 @@ func (client *ExpressRouteCrossConnectionsClient) createOrUpdateCreateRequest(ct
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// BeginGetCircuitMigrationInfo - Gets migration health information for an express route circuit cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - parameters - Parameters supplied to get express route circuit migration information.
+//   - options - ExpressRouteCrossConnectionsClientBeginGetCircuitMigrationInfoOptions contains the optional parameters for the
+//     ExpressRouteCrossConnectionsClient.BeginGetCircuitMigrationInfo method.
+func (client *ExpressRouteCrossConnectionsClient) BeginGetCircuitMigrationInfo(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, options *ExpressRouteCrossConnectionsClientBeginGetCircuitMigrationInfoOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientGetCircuitMigrationInfoResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.getCircuitMigrationInfo(ctx, resourceGroupName, crossConnectionName, parameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientGetCircuitMigrationInfoResponse]{
+			FinalStateVia: runtime.FinalStateViaLocation,
+			Tracer:        client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientGetCircuitMigrationInfoResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// getCircuitMigrationInfo - Gets migration health information for an express route circuit cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) getCircuitMigrationInfo(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, options *ExpressRouteCrossConnectionsClientBeginGetCircuitMigrationInfoOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginGetCircuitMigrationInfo"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.getCircuitMigrationInfoCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// getCircuitMigrationInfoCreateRequest creates the getCircuitMigrationInfo request.
+func (client *ExpressRouteCrossConnectionsClient) getCircuitMigrationInfoCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, _ *ExpressRouteCrossConnectionsClientBeginGetCircuitMigrationInfoOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/getCircuitMigrationInfo"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// BeginListArpTable - Gets the currently advertised ARP table associated with the express route cross connection in a resource
+// group.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - peeringName - The name of the peering.
+//   - devicePath - The path of the device.
+//   - options - ExpressRouteCrossConnectionsClientBeginListArpTableOptions contains the optional parameters for the ExpressRouteCrossConnectionsClient.BeginListArpTable
+//     method.
+func (client *ExpressRouteCrossConnectionsClient) BeginListArpTable(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListArpTableOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientListArpTableResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.listArpTable(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientListArpTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientListArpTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// listArpTable - Gets the currently advertised ARP table associated with the express route cross connection in a resource
+// group.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) listArpTable(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListArpTableOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginListArpTable"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.listArpTableCreateRequest(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// listArpTableCreateRequest creates the listArpTable request.
+func (client *ExpressRouteCrossConnectionsClient) listArpTableCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, _ *ExpressRouteCrossConnectionsClientBeginListArpTableOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/peerings/{peeringName}/arpTables/{devicePath}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	if peeringName == "" {
+		return nil, errors.New("parameter peeringName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
+	if devicePath == "" {
+		return nil, errors.New("parameter devicePath cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginListRoutesTable - Gets the currently advertised routes table associated with the express route cross connection in
+// a resource group.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - peeringName - The name of the peering.
+//   - devicePath - The path of the device.
+//   - options - ExpressRouteCrossConnectionsClientBeginListRoutesTableOptions contains the optional parameters for the ExpressRouteCrossConnectionsClient.BeginListRoutesTable
+//     method.
+func (client *ExpressRouteCrossConnectionsClient) BeginListRoutesTable(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListRoutesTableOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientListRoutesTableResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.listRoutesTable(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientListRoutesTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientListRoutesTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// listRoutesTable - Gets the currently advertised routes table associated with the express route cross connection in a resource
+// group.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) listRoutesTable(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListRoutesTableOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginListRoutesTable"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.listRoutesTableCreateRequest(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// listRoutesTableCreateRequest creates the listRoutesTable request.
+func (client *ExpressRouteCrossConnectionsClient) listRoutesTableCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, _ *ExpressRouteCrossConnectionsClientBeginListRoutesTableOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/peerings/{peeringName}/routeTables/{devicePath}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	if peeringName == "" {
+		return nil, errors.New("parameter peeringName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
+	if devicePath == "" {
+		return nil, errors.New("parameter devicePath cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginListRoutesTableSummary - Gets the route table summary associated with the express route cross connection in a resource
+// group.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - peeringName - The name of the peering.
+//   - devicePath - The path of the device.
+//   - options - ExpressRouteCrossConnectionsClientBeginListRoutesTableSummaryOptions contains the optional parameters for the
+//     ExpressRouteCrossConnectionsClient.BeginListRoutesTableSummary method.
+func (client *ExpressRouteCrossConnectionsClient) BeginListRoutesTableSummary(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListRoutesTableSummaryOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientListRoutesTableSummaryResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.listRoutesTableSummary(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientListRoutesTableSummaryResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientListRoutesTableSummaryResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// listRoutesTableSummary - Gets the route table summary associated with the express route cross connection in a resource
+// group.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) listRoutesTableSummary(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListRoutesTableSummaryOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginListRoutesTableSummary"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.listRoutesTableSummaryCreateRequest(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// listRoutesTableSummaryCreateRequest creates the listRoutesTableSummary request.
+func (client *ExpressRouteCrossConnectionsClient) listRoutesTableSummaryCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, _ *ExpressRouteCrossConnectionsClientBeginListRoutesTableSummaryOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/peerings/{peeringName}/routeTablesSummary/{devicePath}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	if peeringName == "" {
+		return nil, errors.New("parameter peeringName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
+	if devicePath == "" {
+		return nil, errors.New("parameter devicePath cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginMigrateCircuit - Executes the express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - parameters - Parameters supplied to execute the express route circuit migration.
+//   - options - ExpressRouteCrossConnectionsClientBeginMigrateCircuitOptions contains the optional parameters for the ExpressRouteCrossConnectionsClient.BeginMigrateCircuit
+//     method.
+func (client *ExpressRouteCrossConnectionsClient) BeginMigrateCircuit(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginMigrateCircuitOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientMigrateCircuitResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.migrateCircuit(ctx, resourceGroupName, crossConnectionName, parameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientMigrateCircuitResponse]{
+			FinalStateVia: runtime.FinalStateViaLocation,
+			Tracer:        client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientMigrateCircuitResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// migrateCircuit - Executes the express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) migrateCircuit(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginMigrateCircuitOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginMigrateCircuit"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.migrateCircuitCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// migrateCircuitCreateRequest creates the migrateCircuit request.
+func (client *ExpressRouteCrossConnectionsClient) migrateCircuitCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginMigrateCircuitOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/migrateCircuit"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// BeginPrepareCircuitMigration - Prepares an express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - parameters - Parameters supplied to prepare the express route circuit migration.
+//   - options - ExpressRouteCrossConnectionsClientBeginPrepareCircuitMigrationOptions contains the optional parameters for the
+//     ExpressRouteCrossConnectionsClient.BeginPrepareCircuitMigration method.
+func (client *ExpressRouteCrossConnectionsClient) BeginPrepareCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginPrepareCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientPrepareCircuitMigrationResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.prepareCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientPrepareCircuitMigrationResponse]{
+			FinalStateVia: runtime.FinalStateViaLocation,
+			Tracer:        client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientPrepareCircuitMigrationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// prepareCircuitMigration - Prepares an express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) prepareCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginPrepareCircuitMigrationOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginPrepareCircuitMigration"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.prepareCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// prepareCircuitMigrationCreateRequest creates the prepareCircuitMigration request.
+func (client *ExpressRouteCrossConnectionsClient) prepareCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginPrepareCircuitMigrationOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/prepareCircuitMigration"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// BeginRestoreBgpForCircuitMigration - Restores BGP sessions as part of an express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - parameters - Parameters supplied to restore BGP for the express route circuit migration.
+//   - options - ExpressRouteCrossConnectionsClientBeginRestoreBgpForCircuitMigrationOptions contains the optional parameters
+//     for the ExpressRouteCrossConnectionsClient.BeginRestoreBgpForCircuitMigration method.
+func (client *ExpressRouteCrossConnectionsClient) BeginRestoreBgpForCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginRestoreBgpForCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientRestoreBgpForCircuitMigrationResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.restoreBgpForCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientRestoreBgpForCircuitMigrationResponse]{
+			FinalStateVia: runtime.FinalStateViaLocation,
+			Tracer:        client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientRestoreBgpForCircuitMigrationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// restoreBgpForCircuitMigration - Restores BGP sessions as part of an express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) restoreBgpForCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginRestoreBgpForCircuitMigrationOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginRestoreBgpForCircuitMigration"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.restoreBgpForCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// restoreBgpForCircuitMigrationCreateRequest creates the restoreBgpForCircuitMigration request.
+func (client *ExpressRouteCrossConnectionsClient) restoreBgpForCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginRestoreBgpForCircuitMigrationOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/restoreBgpForCircuitMigration"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// BeginRollbackCircuitMigration - Rolls back the express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - parameters - Parameters supplied to roll back the express route circuit migration.
+//   - options - ExpressRouteCrossConnectionsClientBeginRollbackCircuitMigrationOptions contains the optional parameters for the
+//     ExpressRouteCrossConnectionsClient.BeginRollbackCircuitMigration method.
+func (client *ExpressRouteCrossConnectionsClient) BeginRollbackCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginRollbackCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientRollbackCircuitMigrationResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.rollbackCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientRollbackCircuitMigrationResponse]{
+			FinalStateVia: runtime.FinalStateViaLocation,
+			Tracer:        client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientRollbackCircuitMigrationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// rollbackCircuitMigration - Rolls back the express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) rollbackCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginRollbackCircuitMigrationOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginRollbackCircuitMigration"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.rollbackCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// rollbackCircuitMigrationCreateRequest creates the rollbackCircuitMigration request.
+func (client *ExpressRouteCrossConnectionsClient) rollbackCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginRollbackCircuitMigrationOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/rollbackCircuitMigration"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// BeginShutDownBgpForCircuitMigration - Shuts down BGP sessions as part of an express route circuit migration for a cross
+// connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - parameters - Parameters supplied to shut down BGP for the express route circuit migration.
+//   - options - ExpressRouteCrossConnectionsClientBeginShutDownBgpForCircuitMigrationOptions contains the optional parameters
+//     for the ExpressRouteCrossConnectionsClient.BeginShutDownBgpForCircuitMigration method.
+func (client *ExpressRouteCrossConnectionsClient) BeginShutDownBgpForCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginShutDownBgpForCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientShutDownBgpForCircuitMigrationResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.shutDownBgpForCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientShutDownBgpForCircuitMigrationResponse]{
+			FinalStateVia: runtime.FinalStateViaLocation,
+			Tracer:        client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientShutDownBgpForCircuitMigrationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// shutDownBgpForCircuitMigration - Shuts down BGP sessions as part of an express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) shutDownBgpForCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginShutDownBgpForCircuitMigrationOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginShutDownBgpForCircuitMigration"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.shutDownBgpForCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// shutDownBgpForCircuitMigrationCreateRequest creates the shutDownBgpForCircuitMigration request.
+func (client *ExpressRouteCrossConnectionsClient) shutDownBgpForCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginShutDownBgpForCircuitMigrationOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/shutDownBgpForCircuitMigration"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// BeginValidateCircuitMigration - Validates express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
+//   - parameters - Parameters supplied to validate express route circuit migration.
+//   - options - ExpressRouteCrossConnectionsClientBeginValidateCircuitMigrationOptions contains the optional parameters for the
+//     ExpressRouteCrossConnectionsClient.BeginValidateCircuitMigration method.
+func (client *ExpressRouteCrossConnectionsClient) BeginValidateCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, options *ExpressRouteCrossConnectionsClientBeginValidateCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientValidateCircuitMigrationResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.validateCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientValidateCircuitMigrationResponse]{
+			FinalStateVia: runtime.FinalStateViaLocation,
+			Tracer:        client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientValidateCircuitMigrationResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// validateCircuitMigration - Validates express route circuit migration for a cross connection.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCrossConnectionsClient) validateCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, options *ExpressRouteCrossConnectionsClientBeginValidateCircuitMigrationOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCrossConnectionsClient.BeginValidateCircuitMigration"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.validateCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// validateCircuitMigrationCreateRequest creates the validateCircuitMigration request.
+func (client *ExpressRouteCrossConnectionsClient) validateCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, _ *ExpressRouteCrossConnectionsClientBeginValidateCircuitMigrationOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/validateCircuitMigration"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if crossConnectionName == "" {
+		return nil, errors.New("parameter crossConnectionName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -240,7 +1029,7 @@ func (client *ExpressRouteCrossConnectionsClient) getCreateRequest(ctx context.C
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -256,236 +1045,6 @@ func (client *ExpressRouteCrossConnectionsClient) getHandleResponse(resp *http.R
 		return ExpressRouteCrossConnectionsClientGetResponse{}, err
 	}
 	return result, nil
-}
-
-// BeginGetCircuitMigrationInfo - Gets migration health information for an express route circuit cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - parameters - Parameters supplied to get express route circuit migration information.
-//   - options - ExpressRouteCrossConnectionsClientBeginGetCircuitMigrationInfoOptions contains the optional parameters for the
-//     ExpressRouteCrossConnectionsClient.BeginGetCircuitMigrationInfo method.
-func (client *ExpressRouteCrossConnectionsClient) BeginGetCircuitMigrationInfo(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, options *ExpressRouteCrossConnectionsClientBeginGetCircuitMigrationInfoOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientGetCircuitMigrationInfoResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.getCircuitMigrationInfo(ctx, resourceGroupName, crossConnectionName, parameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientGetCircuitMigrationInfoResponse]{
-			FinalStateVia: runtime.FinalStateViaLocation,
-			Tracer:        client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientGetCircuitMigrationInfoResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// GetCircuitMigrationInfo - Gets migration health information for an express route circuit cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) getCircuitMigrationInfo(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, options *ExpressRouteCrossConnectionsClientBeginGetCircuitMigrationInfoOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginGetCircuitMigrationInfo"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.getCircuitMigrationInfoCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// getCircuitMigrationInfoCreateRequest creates the GetCircuitMigrationInfo request.
-func (client *ExpressRouteCrossConnectionsClient) getCircuitMigrationInfoCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, _ *ExpressRouteCrossConnectionsClientBeginGetCircuitMigrationInfoOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/getCircuitMigrationInfo"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
-		return nil, err
-	}
-	return req, nil
-}
-
-// NewListPager - Retrieves all the ExpressRouteCrossConnections in a subscription.
-//   - options - ExpressRouteCrossConnectionsClientListOptions contains the optional parameters for the ExpressRouteCrossConnectionsClient.NewListPager
-//     method.
-func (client *ExpressRouteCrossConnectionsClient) NewListPager(options *ExpressRouteCrossConnectionsClientListOptions) *runtime.Pager[ExpressRouteCrossConnectionsClientListResponse] {
-	return runtime.NewPager(runtime.PagingHandler[ExpressRouteCrossConnectionsClientListResponse]{
-		More: func(page ExpressRouteCrossConnectionsClientListResponse) bool {
-			return page.NextLink != nil && len(*page.NextLink) > 0
-		},
-		Fetcher: func(ctx context.Context, page *ExpressRouteCrossConnectionsClientListResponse) (ExpressRouteCrossConnectionsClientListResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ExpressRouteCrossConnectionsClient.NewListPager")
-			nextLink := ""
-			if page != nil {
-				nextLink = *page.NextLink
-			}
-			req, err := client.listCreateRequest(ctx, nextLink, options)
-			if err != nil {
-				return ExpressRouteCrossConnectionsClientListResponse{}, err
-			}
-			resp, err := client.internal.Pipeline().Do(req)
-			if err != nil {
-				return ExpressRouteCrossConnectionsClientListResponse{}, err
-			}
-			return client.listHandleResponse(resp, http.StatusOK)
-		},
-		Tracer: client.internal.Tracer(),
-	})
-}
-
-// listCreateRequest creates the List request.
-func (client *ExpressRouteCrossConnectionsClient) listCreateRequest(ctx context.Context, nextLink string, options *ExpressRouteCrossConnectionsClientListOptions) (*policy.Request, error) {
-	firstPage := nextLink == ""
-	var req *policy.Request
-	var err error
-	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/expressRouteCrossConnections"
-		if client.subscriptionID == "" {
-			return nil, errors.New("parameter subscriptionID cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	} else {
-		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if firstPage {
-		reqQP := req.Raw().URL.Query()
-		if options != nil && options.Filter != nil {
-			reqQP.Set("$filter", *options.Filter)
-		}
-		reqQP.Set("api-version", version20260101)
-		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-		req.Raw().Header["Accept"] = []string{"application/json"}
-	}
-	return req, nil
-}
-
-// listHandleResponse handles the List response.
-func (client *ExpressRouteCrossConnectionsClient) listHandleResponse(resp *http.Response, successCodes ...int) (ExpressRouteCrossConnectionsClientListResponse, error) {
-	result := ExpressRouteCrossConnectionsClientListResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	if err := runtime.UnmarshalAsJSON(resp, &result.ExpressRouteCrossConnectionListResult); err != nil {
-		return ExpressRouteCrossConnectionsClientListResponse{}, err
-	}
-	return result, nil
-}
-
-// BeginListArpTable - Gets the currently advertised ARP table associated with the express route cross connection in a resource
-// group.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - peeringName - The name of the peering.
-//   - devicePath - The path of the device.
-//   - options - ExpressRouteCrossConnectionsClientBeginListArpTableOptions contains the optional parameters for the ExpressRouteCrossConnectionsClient.BeginListArpTable
-//     method.
-func (client *ExpressRouteCrossConnectionsClient) BeginListArpTable(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListArpTableOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientListArpTableResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.listArpTable(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientListArpTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientListArpTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// ListArpTable - Gets the currently advertised ARP table associated with the express route cross connection in a resource
-// group.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) listArpTable(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListArpTableOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginListArpTable"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.listArpTableCreateRequest(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// listArpTableCreateRequest creates the ListArpTable request.
-func (client *ExpressRouteCrossConnectionsClient) listArpTableCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, _ *ExpressRouteCrossConnectionsClientBeginListArpTableOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/peerings/{peeringName}/arpTables/{devicePath}"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	if peeringName == "" {
-		return nil, errors.New("parameter peeringName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
-	if devicePath == "" {
-		return nil, errors.New("parameter devicePath cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
 }
 
 // NewListByResourceGroupPager - Retrieves all the ExpressRouteCrossConnections in a resource group.
@@ -541,7 +1100,7 @@ func (client *ExpressRouteCrossConnectionsClient) listByResourceGroupCreateReque
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -560,556 +1119,74 @@ func (client *ExpressRouteCrossConnectionsClient) listByResourceGroupHandleRespo
 	return result, nil
 }
 
-// BeginListRoutesTable - Gets the currently advertised routes table associated with the express route cross connection in
-// a resource group.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - peeringName - The name of the peering.
-//   - devicePath - The path of the device.
-//   - options - ExpressRouteCrossConnectionsClientBeginListRoutesTableOptions contains the optional parameters for the ExpressRouteCrossConnectionsClient.BeginListRoutesTable
+// NewListPager - Retrieves all the ExpressRouteCrossConnections in a subscription.
+//   - options - ExpressRouteCrossConnectionsClientListOptions contains the optional parameters for the ExpressRouteCrossConnectionsClient.NewListPager
 //     method.
-func (client *ExpressRouteCrossConnectionsClient) BeginListRoutesTable(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListRoutesTableOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientListRoutesTableResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.listRoutesTable(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientListRoutesTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientListRoutesTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
+func (client *ExpressRouteCrossConnectionsClient) NewListPager(options *ExpressRouteCrossConnectionsClientListOptions) *runtime.Pager[ExpressRouteCrossConnectionsClientListResponse] {
+	return runtime.NewPager(runtime.PagingHandler[ExpressRouteCrossConnectionsClientListResponse]{
+		More: func(page ExpressRouteCrossConnectionsClientListResponse) bool {
+			return page.NextLink != nil && len(*page.NextLink) > 0
+		},
+		Fetcher: func(ctx context.Context, page *ExpressRouteCrossConnectionsClientListResponse) (ExpressRouteCrossConnectionsClientListResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ExpressRouteCrossConnectionsClient.NewListPager")
+			nextLink := ""
+			if page != nil {
+				nextLink = *page.NextLink
+			}
+			req, err := client.listCreateRequest(ctx, nextLink, options)
+			if err != nil {
+				return ExpressRouteCrossConnectionsClientListResponse{}, err
+			}
+			resp, err := client.internal.Pipeline().Do(req)
+			if err != nil {
+				return ExpressRouteCrossConnectionsClientListResponse{}, err
+			}
+			return client.listHandleResponse(resp, http.StatusOK)
+		},
+		Tracer: client.internal.Tracer(),
+	})
 }
 
-// ListRoutesTable - Gets the currently advertised routes table associated with the express route cross connection in a resource
-// group.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) listRoutesTable(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListRoutesTableOptions) (*http.Response, error) {
+// listCreateRequest creates the List request.
+func (client *ExpressRouteCrossConnectionsClient) listCreateRequest(ctx context.Context, nextLink string, options *ExpressRouteCrossConnectionsClientListOptions) (*policy.Request, error) {
+	firstPage := nextLink == ""
+	var req *policy.Request
 	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginListRoutesTable"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.listRoutesTableCreateRequest(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// listRoutesTableCreateRequest creates the ListRoutesTable request.
-func (client *ExpressRouteCrossConnectionsClient) listRoutesTableCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, _ *ExpressRouteCrossConnectionsClientBeginListRoutesTableOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/peerings/{peeringName}/routeTables/{devicePath}"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	if peeringName == "" {
-		return nil, errors.New("parameter peeringName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
-	if devicePath == "" {
-		return nil, errors.New("parameter devicePath cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginListRoutesTableSummary - Gets the route table summary associated with the express route cross connection in a resource
-// group.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - peeringName - The name of the peering.
-//   - devicePath - The path of the device.
-//   - options - ExpressRouteCrossConnectionsClientBeginListRoutesTableSummaryOptions contains the optional parameters for the
-//     ExpressRouteCrossConnectionsClient.BeginListRoutesTableSummary method.
-func (client *ExpressRouteCrossConnectionsClient) BeginListRoutesTableSummary(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListRoutesTableSummaryOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientListRoutesTableSummaryResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.listRoutesTableSummary(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
-		if err != nil {
-			return nil, err
+	if firstPage {
+		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/expressRouteCrossConnections"
+		if client.subscriptionID == "" {
+			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientListRoutesTableSummaryResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
+		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
 	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientListRoutesTableSummaryResponse]{
-			Tracer: client.internal.Tracer(),
-		})
+		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
 	}
-}
-
-// ListRoutesTableSummary - Gets the route table summary associated with the express route cross connection in a resource
-// group.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) listRoutesTableSummary(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, options *ExpressRouteCrossConnectionsClientBeginListRoutesTableSummaryOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginListRoutesTableSummary"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.listRoutesTableSummaryCreateRequest(ctx, resourceGroupName, crossConnectionName, peeringName, devicePath, options)
 	if err != nil {
 		return nil, err
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// listRoutesTableSummaryCreateRequest creates the ListRoutesTableSummary request.
-func (client *ExpressRouteCrossConnectionsClient) listRoutesTableSummaryCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, peeringName string, devicePath string, _ *ExpressRouteCrossConnectionsClientBeginListRoutesTableSummaryOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/peerings/{peeringName}/routeTablesSummary/{devicePath}"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	if peeringName == "" {
-		return nil, errors.New("parameter peeringName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
-	if devicePath == "" {
-		return nil, errors.New("parameter devicePath cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginMigrateCircuit - Executes the express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - parameters - Parameters supplied to execute the express route circuit migration.
-//   - options - ExpressRouteCrossConnectionsClientBeginMigrateCircuitOptions contains the optional parameters for the ExpressRouteCrossConnectionsClient.BeginMigrateCircuit
-//     method.
-func (client *ExpressRouteCrossConnectionsClient) BeginMigrateCircuit(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginMigrateCircuitOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientMigrateCircuitResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.migrateCircuit(ctx, resourceGroupName, crossConnectionName, parameters, options)
-		if err != nil {
-			return nil, err
+	if firstPage {
+		reqQP := req.Raw().URL.Query()
+		if options != nil && options.Filter != nil {
+			reqQP.Set("$filter", *options.Filter)
 		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientMigrateCircuitResponse]{
-			FinalStateVia: runtime.FinalStateViaLocation,
-			Tracer:        client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientMigrateCircuitResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// MigrateCircuit - Executes the express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) migrateCircuit(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginMigrateCircuitOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginMigrateCircuit"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.migrateCircuitCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// migrateCircuitCreateRequest creates the MigrateCircuit request.
-func (client *ExpressRouteCrossConnectionsClient) migrateCircuitCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginMigrateCircuitOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/migrateCircuit"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
-		return nil, err
+		reqQP.Set("api-version", version20260301)
+		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
 	return req, nil
 }
 
-// BeginPrepareCircuitMigration - Prepares an express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - parameters - Parameters supplied to prepare the express route circuit migration.
-//   - options - ExpressRouteCrossConnectionsClientBeginPrepareCircuitMigrationOptions contains the optional parameters for the
-//     ExpressRouteCrossConnectionsClient.BeginPrepareCircuitMigration method.
-func (client *ExpressRouteCrossConnectionsClient) BeginPrepareCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginPrepareCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientPrepareCircuitMigrationResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.prepareCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientPrepareCircuitMigrationResponse]{
-			FinalStateVia: runtime.FinalStateViaLocation,
-			Tracer:        client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientPrepareCircuitMigrationResponse]{
-			Tracer: client.internal.Tracer(),
-		})
+// listHandleResponse handles the List response.
+func (client *ExpressRouteCrossConnectionsClient) listHandleResponse(resp *http.Response, successCodes ...int) (ExpressRouteCrossConnectionsClientListResponse, error) {
+	result := ExpressRouteCrossConnectionsClientListResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
 	}
-}
-
-// PrepareCircuitMigration - Prepares an express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) prepareCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginPrepareCircuitMigrationOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginPrepareCircuitMigration"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.prepareCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
-	if err != nil {
-		return nil, err
+	if err := runtime.UnmarshalAsJSON(resp, &result.ExpressRouteCrossConnectionListResult); err != nil {
+		return ExpressRouteCrossConnectionsClientListResponse{}, err
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// prepareCircuitMigrationCreateRequest creates the PrepareCircuitMigration request.
-func (client *ExpressRouteCrossConnectionsClient) prepareCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginPrepareCircuitMigrationOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/prepareCircuitMigration"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
-		return nil, err
-	}
-	return req, nil
-}
-
-// BeginRestoreBgpForCircuitMigration - Restores BGP sessions as part of an express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - parameters - Parameters supplied to restore BGP for the express route circuit migration.
-//   - options - ExpressRouteCrossConnectionsClientBeginRestoreBgpForCircuitMigrationOptions contains the optional parameters
-//     for the ExpressRouteCrossConnectionsClient.BeginRestoreBgpForCircuitMigration method.
-func (client *ExpressRouteCrossConnectionsClient) BeginRestoreBgpForCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginRestoreBgpForCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientRestoreBgpForCircuitMigrationResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.restoreBgpForCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientRestoreBgpForCircuitMigrationResponse]{
-			FinalStateVia: runtime.FinalStateViaLocation,
-			Tracer:        client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientRestoreBgpForCircuitMigrationResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// RestoreBgpForCircuitMigration - Restores BGP sessions as part of an express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) restoreBgpForCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginRestoreBgpForCircuitMigrationOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginRestoreBgpForCircuitMigration"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.restoreBgpForCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// restoreBgpForCircuitMigrationCreateRequest creates the RestoreBgpForCircuitMigration request.
-func (client *ExpressRouteCrossConnectionsClient) restoreBgpForCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginRestoreBgpForCircuitMigrationOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/restoreBgpForCircuitMigration"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
-		return nil, err
-	}
-	return req, nil
-}
-
-// BeginRollbackCircuitMigration - Rolls back the express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - parameters - Parameters supplied to roll back the express route circuit migration.
-//   - options - ExpressRouteCrossConnectionsClientBeginRollbackCircuitMigrationOptions contains the optional parameters for the
-//     ExpressRouteCrossConnectionsClient.BeginRollbackCircuitMigration method.
-func (client *ExpressRouteCrossConnectionsClient) BeginRollbackCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginRollbackCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientRollbackCircuitMigrationResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.rollbackCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientRollbackCircuitMigrationResponse]{
-			FinalStateVia: runtime.FinalStateViaLocation,
-			Tracer:        client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientRollbackCircuitMigrationResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// RollbackCircuitMigration - Rolls back the express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) rollbackCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginRollbackCircuitMigrationOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginRollbackCircuitMigration"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.rollbackCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// rollbackCircuitMigrationCreateRequest creates the RollbackCircuitMigration request.
-func (client *ExpressRouteCrossConnectionsClient) rollbackCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginRollbackCircuitMigrationOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/rollbackCircuitMigration"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
-		return nil, err
-	}
-	return req, nil
-}
-
-// BeginShutDownBgpForCircuitMigration - Shuts down BGP sessions as part of an express route circuit migration for a cross
-// connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - parameters - Parameters supplied to shut down BGP for the express route circuit migration.
-//   - options - ExpressRouteCrossConnectionsClientBeginShutDownBgpForCircuitMigrationOptions contains the optional parameters
-//     for the ExpressRouteCrossConnectionsClient.BeginShutDownBgpForCircuitMigration method.
-func (client *ExpressRouteCrossConnectionsClient) BeginShutDownBgpForCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginShutDownBgpForCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientShutDownBgpForCircuitMigrationResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.shutDownBgpForCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientShutDownBgpForCircuitMigrationResponse]{
-			FinalStateVia: runtime.FinalStateViaLocation,
-			Tracer:        client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientShutDownBgpForCircuitMigrationResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// ShutDownBgpForCircuitMigration - Shuts down BGP sessions as part of an express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) shutDownBgpForCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, options *ExpressRouteCrossConnectionsClientBeginShutDownBgpForCircuitMigrationOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginShutDownBgpForCircuitMigration"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.shutDownBgpForCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// shutDownBgpForCircuitMigrationCreateRequest creates the ShutDownBgpForCircuitMigration request.
-func (client *ExpressRouteCrossConnectionsClient) shutDownBgpForCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitRequest, _ *ExpressRouteCrossConnectionsClientBeginShutDownBgpForCircuitMigrationOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/shutDownBgpForCircuitMigration"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
-		return nil, err
-	}
-	return req, nil
+	return result, nil
 }
 
 // UpdateTags - Updates an express route cross connection tags.
@@ -1156,7 +1233,7 @@ func (client *ExpressRouteCrossConnectionsClient) updateTagsCreateRequest(ctx co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -1176,81 +1253,4 @@ func (client *ExpressRouteCrossConnectionsClient) updateTagsHandleResponse(resp 
 		return ExpressRouteCrossConnectionsClientUpdateTagsResponse{}, err
 	}
 	return result, nil
-}
-
-// BeginValidateCircuitMigration - Validates express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - crossConnectionName - The name of the ExpressRouteCrossConnection (service key of the circuit).
-//   - parameters - Parameters supplied to validate express route circuit migration.
-//   - options - ExpressRouteCrossConnectionsClientBeginValidateCircuitMigrationOptions contains the optional parameters for the
-//     ExpressRouteCrossConnectionsClient.BeginValidateCircuitMigration method.
-func (client *ExpressRouteCrossConnectionsClient) BeginValidateCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, options *ExpressRouteCrossConnectionsClientBeginValidateCircuitMigrationOptions) (*runtime.Poller[ExpressRouteCrossConnectionsClientValidateCircuitMigrationResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.validateCircuitMigration(ctx, resourceGroupName, crossConnectionName, parameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCrossConnectionsClientValidateCircuitMigrationResponse]{
-			FinalStateVia: runtime.FinalStateViaLocation,
-			Tracer:        client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCrossConnectionsClientValidateCircuitMigrationResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// ValidateCircuitMigration - Validates express route circuit migration for a cross connection.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCrossConnectionsClient) validateCircuitMigration(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, options *ExpressRouteCrossConnectionsClientBeginValidateCircuitMigrationOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCrossConnectionsClient.BeginValidateCircuitMigration"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.validateCircuitMigrationCreateRequest(ctx, resourceGroupName, crossConnectionName, parameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// validateCircuitMigrationCreateRequest creates the ValidateCircuitMigration request.
-func (client *ExpressRouteCrossConnectionsClient) validateCircuitMigrationCreateRequest(ctx context.Context, resourceGroupName string, crossConnectionName string, parameters MigrateExpressRouteCircuitValidateAndHealthCheckRequest, _ *ExpressRouteCrossConnectionsClientBeginValidateCircuitMigrationOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCrossConnections/{crossConnectionName}/validateCircuitMigration"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if crossConnectionName == "" {
-		return nil, errors.New("parameter crossConnectionName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{crossConnectionName}", url.PathEscape(crossConnectionName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
-		return nil, err
-	}
-	return req, nil
 }

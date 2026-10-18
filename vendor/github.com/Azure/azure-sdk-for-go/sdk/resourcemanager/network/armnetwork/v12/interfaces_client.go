@@ -19,7 +19,7 @@ import (
 // InterfacesClient contains the methods for the Interfaces group.
 // Don't use this type directly, use NewInterfacesClient() instead.
 //
-// Generated from API versions 2018-10-01, 2026-01-01
+// Generated from API versions 2018-10-01, 2026-03-01
 type InterfacesClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -68,7 +68,7 @@ func (client *InterfacesClient) BeginCreateOrUpdate(ctx context.Context, resourc
 	}
 }
 
-// CreateOrUpdate - Creates or updates a network interface.
+// createOrUpdate - Creates or updates a network interface.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *InterfacesClient) createOrUpdate(ctx context.Context, resourceGroupName string, networkInterfaceName string, parameters Interface, options *InterfacesClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
@@ -90,7 +90,7 @@ func (client *InterfacesClient) createOrUpdate(ctx context.Context, resourceGrou
 	return httpResp, nil
 }
 
-// createOrUpdateCreateRequest creates the CreateOrUpdate request.
+// createOrUpdateCreateRequest creates the createOrUpdate request.
 func (client *InterfacesClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, networkInterfaceName string, parameters Interface, _ *InterfacesClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkInterfaces/{networkInterfaceName}"
 	if client.subscriptionID == "" {
@@ -110,7 +110,7 @@ func (client *InterfacesClient) createOrUpdateCreateRequest(ctx context.Context,
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -127,7 +127,7 @@ func (client *InterfacesClient) createOrUpdateCreateRequest(ctx context.Context,
 //   - options - InterfacesClientBeginDeleteOptions contains the optional parameters for the InterfacesClient.BeginDelete method.
 func (client *InterfacesClient) BeginDelete(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginDeleteOptions) (*runtime.Poller[InterfacesClientDeleteResponse], error) {
 	if options == nil || options.ResumeToken == "" {
-		resp, err := client.deleteOperation(ctx, resourceGroupName, networkInterfaceName, options)
+		resp, err := client.delete(ctx, resourceGroupName, networkInterfaceName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -142,9 +142,9 @@ func (client *InterfacesClient) BeginDelete(ctx context.Context, resourceGroupNa
 	}
 }
 
-// Delete - Deletes the specified network interface.
+// delete - Deletes the specified network interface.
 // If the operation fails it returns an *azcore.ResponseError type.
-func (client *InterfacesClient) deleteOperation(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginDeleteOptions) (*http.Response, error) {
+func (client *InterfacesClient) delete(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "InterfacesClient.BeginDelete"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
@@ -164,7 +164,7 @@ func (client *InterfacesClient) deleteOperation(ctx context.Context, resourceGro
 	return httpResp, nil
 }
 
-// deleteCreateRequest creates the Delete request.
+// deleteCreateRequest creates the delete request.
 func (client *InterfacesClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, networkInterfaceName string, _ *InterfacesClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkInterfaces/{networkInterfaceName}"
 	if client.subscriptionID == "" {
@@ -184,8 +184,150 @@ func (client *InterfacesClient) deleteCreateRequest(ctx context.Context, resourc
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	return req, nil
+}
+
+// BeginGetEffectiveRouteTable - Gets all route tables applied to a network interface.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - networkInterfaceName - The name of the network interface.
+//   - options - InterfacesClientBeginGetEffectiveRouteTableOptions contains the optional parameters for the InterfacesClient.BeginGetEffectiveRouteTable
+//     method.
+func (client *InterfacesClient) BeginGetEffectiveRouteTable(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginGetEffectiveRouteTableOptions) (*runtime.Poller[InterfacesClientGetEffectiveRouteTableResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.getEffectiveRouteTable(ctx, resourceGroupName, networkInterfaceName, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[InterfacesClientGetEffectiveRouteTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[InterfacesClientGetEffectiveRouteTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// getEffectiveRouteTable - Gets all route tables applied to a network interface.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *InterfacesClient) getEffectiveRouteTable(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginGetEffectiveRouteTableOptions) (*http.Response, error) {
+	var err error
+	const operationName = "InterfacesClient.BeginGetEffectiveRouteTable"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.getEffectiveRouteTableCreateRequest(ctx, resourceGroupName, networkInterfaceName, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// getEffectiveRouteTableCreateRequest creates the getEffectiveRouteTable request.
+func (client *InterfacesClient) getEffectiveRouteTableCreateRequest(ctx context.Context, resourceGroupName string, networkInterfaceName string, _ *InterfacesClientBeginGetEffectiveRouteTableOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkInterfaces/{networkInterfaceName}/effectiveRouteTable"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if networkInterfaceName == "" {
+		return nil, errors.New("parameter networkInterfaceName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{networkInterfaceName}", url.PathEscape(networkInterfaceName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginListEffectiveNetworkSecurityGroups - Gets all network security groups applied to a network interface.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - networkInterfaceName - The name of the network interface.
+//   - options - InterfacesClientBeginListEffectiveNetworkSecurityGroupsOptions contains the optional parameters for the InterfacesClient.BeginListEffectiveNetworkSecurityGroups
+//     method.
+func (client *InterfacesClient) BeginListEffectiveNetworkSecurityGroups(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginListEffectiveNetworkSecurityGroupsOptions) (*runtime.Poller[InterfacesClientListEffectiveNetworkSecurityGroupsResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.listEffectiveNetworkSecurityGroups(ctx, resourceGroupName, networkInterfaceName, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[InterfacesClientListEffectiveNetworkSecurityGroupsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[InterfacesClientListEffectiveNetworkSecurityGroupsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// listEffectiveNetworkSecurityGroups - Gets all network security groups applied to a network interface.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *InterfacesClient) listEffectiveNetworkSecurityGroups(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginListEffectiveNetworkSecurityGroupsOptions) (*http.Response, error) {
+	var err error
+	const operationName = "InterfacesClient.BeginListEffectiveNetworkSecurityGroups"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.listEffectiveNetworkSecurityGroupsCreateRequest(ctx, resourceGroupName, networkInterfaceName, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// listEffectiveNetworkSecurityGroupsCreateRequest creates the listEffectiveNetworkSecurityGroups request.
+func (client *InterfacesClient) listEffectiveNetworkSecurityGroupsCreateRequest(ctx context.Context, resourceGroupName string, networkInterfaceName string, _ *InterfacesClientBeginListEffectiveNetworkSecurityGroupsOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkInterfaces/{networkInterfaceName}/effectiveNetworkSecurityGroups"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if networkInterfaceName == "" {
+		return nil, errors.New("parameter networkInterfaceName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{networkInterfaceName}", url.PathEscape(networkInterfaceName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
 }
 
@@ -234,7 +376,7 @@ func (client *InterfacesClient) getCreateRequest(ctx context.Context, resourceGr
 	if options != nil && options.Expand != nil {
 		reqQP.Set("$expand", *options.Expand)
 	}
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -308,7 +450,7 @@ func (client *InterfacesClient) getCloudServiceNetworkInterfaceCreateRequest(ctx
 	if options != nil && options.Expand != nil {
 		reqQP.Set("$expand", *options.Expand)
 	}
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -324,77 +466,6 @@ func (client *InterfacesClient) getCloudServiceNetworkInterfaceHandleResponse(re
 		return InterfacesClientGetCloudServiceNetworkInterfaceResponse{}, err
 	}
 	return result, nil
-}
-
-// BeginGetEffectiveRouteTable - Gets all route tables applied to a network interface.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - networkInterfaceName - The name of the network interface.
-//   - options - InterfacesClientBeginGetEffectiveRouteTableOptions contains the optional parameters for the InterfacesClient.BeginGetEffectiveRouteTable
-//     method.
-func (client *InterfacesClient) BeginGetEffectiveRouteTable(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginGetEffectiveRouteTableOptions) (*runtime.Poller[InterfacesClientGetEffectiveRouteTableResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.getEffectiveRouteTable(ctx, resourceGroupName, networkInterfaceName, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[InterfacesClientGetEffectiveRouteTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[InterfacesClientGetEffectiveRouteTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// GetEffectiveRouteTable - Gets all route tables applied to a network interface.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *InterfacesClient) getEffectiveRouteTable(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginGetEffectiveRouteTableOptions) (*http.Response, error) {
-	var err error
-	const operationName = "InterfacesClient.BeginGetEffectiveRouteTable"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.getEffectiveRouteTableCreateRequest(ctx, resourceGroupName, networkInterfaceName, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// getEffectiveRouteTableCreateRequest creates the GetEffectiveRouteTable request.
-func (client *InterfacesClient) getEffectiveRouteTableCreateRequest(ctx context.Context, resourceGroupName string, networkInterfaceName string, _ *InterfacesClientBeginGetEffectiveRouteTableOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkInterfaces/{networkInterfaceName}/effectiveRouteTable"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if networkInterfaceName == "" {
-		return nil, errors.New("parameter networkInterfaceName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{networkInterfaceName}", url.PathEscape(networkInterfaceName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
 }
 
 // GetVirtualMachineScaleSetIPConfiguration - Get the specified network interface ip configuration in a virtual machine scale
@@ -544,77 +615,6 @@ func (client *InterfacesClient) getVirtualMachineScaleSetNetworkInterfaceHandleR
 	return result, nil
 }
 
-// NewListPager - Gets all network interfaces in a resource group.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - options - InterfacesClientListOptions contains the optional parameters for the InterfacesClient.NewListPager method.
-func (client *InterfacesClient) NewListPager(resourceGroupName string, options *InterfacesClientListOptions) *runtime.Pager[InterfacesClientListResponse] {
-	return runtime.NewPager(runtime.PagingHandler[InterfacesClientListResponse]{
-		More: func(page InterfacesClientListResponse) bool {
-			return page.NextLink != nil && len(*page.NextLink) > 0
-		},
-		Fetcher: func(ctx context.Context, page *InterfacesClientListResponse) (InterfacesClientListResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "InterfacesClient.NewListPager")
-			nextLink := ""
-			if page != nil {
-				nextLink = *page.NextLink
-			}
-			req, err := client.listCreateRequest(ctx, resourceGroupName, nextLink, options)
-			if err != nil {
-				return InterfacesClientListResponse{}, err
-			}
-			resp, err := client.internal.Pipeline().Do(req)
-			if err != nil {
-				return InterfacesClientListResponse{}, err
-			}
-			return client.listHandleResponse(resp, http.StatusOK)
-		},
-		Tracer: client.internal.Tracer(),
-	})
-}
-
-// listCreateRequest creates the List request.
-func (client *InterfacesClient) listCreateRequest(ctx context.Context, resourceGroupName string, nextLink string, _ *InterfacesClientListOptions) (*policy.Request, error) {
-	firstPage := nextLink == ""
-	var req *policy.Request
-	var err error
-	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkInterfaces"
-		if client.subscriptionID == "" {
-			return nil, errors.New("parameter subscriptionID cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-		if resourceGroupName == "" {
-			return nil, errors.New("parameter resourceGroupName cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	} else {
-		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if firstPage {
-		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
-		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-		req.Raw().Header["Accept"] = []string{"application/json"}
-	}
-	return req, nil
-}
-
-// listHandleResponse handles the List response.
-func (client *InterfacesClient) listHandleResponse(resp *http.Response, successCodes ...int) (InterfacesClientListResponse, error) {
-	result := InterfacesClientListResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	if err := runtime.UnmarshalAsJSON(resp, &result.InterfaceListResult); err != nil {
-		return InterfacesClientListResponse{}, err
-	}
-	return result, nil
-}
-
 // NewListAllPager - Gets all network interfaces in a subscription.
 //   - options - InterfacesClientListAllOptions contains the optional parameters for the InterfacesClient.NewListAllPager method.
 func (client *InterfacesClient) NewListAllPager(options *InterfacesClientListAllOptions) *runtime.Pager[InterfacesClientListAllResponse] {
@@ -662,7 +662,7 @@ func (client *InterfacesClient) listAllCreateRequest(ctx context.Context, nextLi
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -739,7 +739,7 @@ func (client *InterfacesClient) listCloudServiceNetworkInterfacesCreateRequest(c
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -822,7 +822,7 @@ func (client *InterfacesClient) listCloudServiceRoleInstanceNetworkInterfacesCre
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -841,75 +841,75 @@ func (client *InterfacesClient) listCloudServiceRoleInstanceNetworkInterfacesHan
 	return result, nil
 }
 
-// BeginListEffectiveNetworkSecurityGroups - Gets all network security groups applied to a network interface.
-// If the operation fails it returns an *azcore.ResponseError type.
+// NewListPager - Gets all network interfaces in a resource group.
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - networkInterfaceName - The name of the network interface.
-//   - options - InterfacesClientBeginListEffectiveNetworkSecurityGroupsOptions contains the optional parameters for the InterfacesClient.BeginListEffectiveNetworkSecurityGroups
-//     method.
-func (client *InterfacesClient) BeginListEffectiveNetworkSecurityGroups(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginListEffectiveNetworkSecurityGroupsOptions) (*runtime.Poller[InterfacesClientListEffectiveNetworkSecurityGroupsResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.listEffectiveNetworkSecurityGroups(ctx, resourceGroupName, networkInterfaceName, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[InterfacesClientListEffectiveNetworkSecurityGroupsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[InterfacesClientListEffectiveNetworkSecurityGroupsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
+//   - options - InterfacesClientListOptions contains the optional parameters for the InterfacesClient.NewListPager method.
+func (client *InterfacesClient) NewListPager(resourceGroupName string, options *InterfacesClientListOptions) *runtime.Pager[InterfacesClientListResponse] {
+	return runtime.NewPager(runtime.PagingHandler[InterfacesClientListResponse]{
+		More: func(page InterfacesClientListResponse) bool {
+			return page.NextLink != nil && len(*page.NextLink) > 0
+		},
+		Fetcher: func(ctx context.Context, page *InterfacesClientListResponse) (InterfacesClientListResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "InterfacesClient.NewListPager")
+			nextLink := ""
+			if page != nil {
+				nextLink = *page.NextLink
+			}
+			req, err := client.listCreateRequest(ctx, resourceGroupName, nextLink, options)
+			if err != nil {
+				return InterfacesClientListResponse{}, err
+			}
+			resp, err := client.internal.Pipeline().Do(req)
+			if err != nil {
+				return InterfacesClientListResponse{}, err
+			}
+			return client.listHandleResponse(resp, http.StatusOK)
+		},
+		Tracer: client.internal.Tracer(),
+	})
 }
 
-// ListEffectiveNetworkSecurityGroups - Gets all network security groups applied to a network interface.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *InterfacesClient) listEffectiveNetworkSecurityGroups(ctx context.Context, resourceGroupName string, networkInterfaceName string, options *InterfacesClientBeginListEffectiveNetworkSecurityGroupsOptions) (*http.Response, error) {
+// listCreateRequest creates the List request.
+func (client *InterfacesClient) listCreateRequest(ctx context.Context, resourceGroupName string, nextLink string, _ *InterfacesClientListOptions) (*policy.Request, error) {
+	firstPage := nextLink == ""
+	var req *policy.Request
 	var err error
-	const operationName = "InterfacesClient.BeginListEffectiveNetworkSecurityGroups"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.listEffectiveNetworkSecurityGroupsCreateRequest(ctx, resourceGroupName, networkInterfaceName, options)
+	if firstPage {
+		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkInterfaces"
+		if client.subscriptionID == "" {
+			return nil, errors.New("parameter subscriptionID cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+		if resourceGroupName == "" {
+			return nil, errors.New("parameter resourceGroupName cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	} else {
+		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
+	}
 	if err != nil {
 		return nil, err
 	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
+	if firstPage {
+		reqQP := req.Raw().URL.Query()
+		reqQP.Set("api-version", version20260301)
+		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
+	return req, nil
 }
 
-// listEffectiveNetworkSecurityGroupsCreateRequest creates the ListEffectiveNetworkSecurityGroups request.
-func (client *InterfacesClient) listEffectiveNetworkSecurityGroupsCreateRequest(ctx context.Context, resourceGroupName string, networkInterfaceName string, _ *InterfacesClientBeginListEffectiveNetworkSecurityGroupsOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkInterfaces/{networkInterfaceName}/effectiveNetworkSecurityGroups"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
+// listHandleResponse handles the List response.
+func (client *InterfacesClient) listHandleResponse(resp *http.Response, successCodes ...int) (InterfacesClientListResponse, error) {
+	result := InterfacesClientListResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	if err := runtime.UnmarshalAsJSON(resp, &result.InterfaceListResult); err != nil {
+		return InterfacesClientListResponse{}, err
 	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if networkInterfaceName == "" {
-		return nil, errors.New("parameter networkInterfaceName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{networkInterfaceName}", url.PathEscape(networkInterfaceName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
+	return result, nil
 }
 
 // NewListVirtualMachineScaleSetIPConfigurationsPager - Get the specified network interface ip configuration in a virtual
@@ -1201,7 +1201,7 @@ func (client *InterfacesClient) updateTagsCreateRequest(ctx context.Context, res
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}

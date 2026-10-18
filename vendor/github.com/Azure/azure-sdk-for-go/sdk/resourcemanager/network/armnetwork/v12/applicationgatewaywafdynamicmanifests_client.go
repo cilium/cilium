@@ -19,7 +19,7 @@ import (
 // ApplicationGatewayWafDynamicManifestsClient contains the methods for the ApplicationGatewayWafDynamicManifests group.
 // Don't use this type directly, use NewApplicationGatewayWafDynamicManifestsClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type ApplicationGatewayWafDynamicManifestsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -97,7 +97,7 @@ func (client *ApplicationGatewayWafDynamicManifestsClient) getCreateRequest(ctx 
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}

@@ -20,7 +20,7 @@ import (
 // group.
 // Don't use this type directly, use NewVPNServerConfigurationsAssociatedWithVirtualWanClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type VPNServerConfigurationsAssociatedWithVirtualWanClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -53,7 +53,7 @@ func NewVPNServerConfigurationsAssociatedWithVirtualWanClient(subscriptionID str
 //     VPNServerConfigurationsAssociatedWithVirtualWanClient.BeginList method.
 func (client *VPNServerConfigurationsAssociatedWithVirtualWanClient) BeginList(ctx context.Context, resourceGroupName string, virtualWANName string, options *VPNServerConfigurationsAssociatedWithVirtualWanClientBeginListOptions) (*runtime.Poller[VPNServerConfigurationsAssociatedWithVirtualWanClientListResponse], error) {
 	if options == nil || options.ResumeToken == "" {
-		resp, err := client.listOperation(ctx, resourceGroupName, virtualWANName, options)
+		resp, err := client.list(ctx, resourceGroupName, virtualWANName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -68,9 +68,9 @@ func (client *VPNServerConfigurationsAssociatedWithVirtualWanClient) BeginList(c
 	}
 }
 
-// List - Gives the list of VpnServerConfigurations associated with Virtual Wan in a resource group.
+// list - Gives the list of VpnServerConfigurations associated with Virtual Wan in a resource group.
 // If the operation fails it returns an *azcore.ResponseError type.
-func (client *VPNServerConfigurationsAssociatedWithVirtualWanClient) listOperation(ctx context.Context, resourceGroupName string, virtualWANName string, options *VPNServerConfigurationsAssociatedWithVirtualWanClientBeginListOptions) (*http.Response, error) {
+func (client *VPNServerConfigurationsAssociatedWithVirtualWanClient) list(ctx context.Context, resourceGroupName string, virtualWANName string, options *VPNServerConfigurationsAssociatedWithVirtualWanClientBeginListOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VPNServerConfigurationsAssociatedWithVirtualWanClient.BeginList"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
@@ -90,7 +90,7 @@ func (client *VPNServerConfigurationsAssociatedWithVirtualWanClient) listOperati
 	return httpResp, nil
 }
 
-// listCreateRequest creates the List request.
+// listCreateRequest creates the list request.
 func (client *VPNServerConfigurationsAssociatedWithVirtualWanClient) listCreateRequest(ctx context.Context, resourceGroupName string, virtualWANName string, _ *VPNServerConfigurationsAssociatedWithVirtualWanClientBeginListOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualWans/{virtualWANName}/vpnServerConfigurations"
 	if client.subscriptionID == "" {
@@ -110,7 +110,7 @@ func (client *VPNServerConfigurationsAssociatedWithVirtualWanClient) listCreateR
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
