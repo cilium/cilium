@@ -366,20 +366,7 @@ func (s *xdsServer) AddAdminListener(ctx context.Context, port uint16, wg *compl
 		}
 
 		return listenerConf
-	}, wg, func(err error) {
-		if err != nil {
-			s.logger.Debug("Envoy: Adding admin listener failed",
-				logfields.Port, port,
-				logfields.Error, err,
-			)
-			// Remove the added listener in case of a failure
-			s.removeListener(adminListenerName, nil, false)
-		} else {
-			s.logger.Info("Envoy: Listening for Admin API",
-				logfields.Port, port,
-			)
-		}
-	}, false)
+	}, wg, nil, false)
 }
 
 func (s *xdsServer) AddMetricsListener(ctx context.Context, port uint16, wg *completion.WaitGroup) {
@@ -445,24 +432,11 @@ func (s *xdsServer) AddMetricsListener(ctx context.Context, port uint16, wg *com
 		}
 
 		return listenerConf
-	}, wg, func(err error) {
-		if err != nil {
-			s.logger.Debug("Envoy: Adding metrics listener failed",
-				logfields.Port, port,
-				logfields.Error, err,
-			)
-			// Remove the added listener in case of a failure
-			s.removeListener(metricsListenerName, nil, false)
-		} else {
-			s.logger.Info("Envoy: Listening for prometheus metrics",
-				logfields.Port, port,
-			)
-		}
-	}, false)
+	}, wg, nil, false)
 }
 
-// addListener either reuses an existing listener with 'name', or creates a new one.
-// 'listenerConf()' is only called if a new listener is being created.
+// addListener validates and publishes a listener. Redirect listeners additionally
+// retain a reference for each proxy redirect using their name.
 func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -478,11 +452,17 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 		return fmt.Errorf("Envoy: Could not validate Listener %s: %w", listenerConfig.String(), err)
 	}
 
+	if !isProxyListener {
+		// Diagnostic listeners have no redirect references or port allocations.
+		// Keep NACK recovery even when restoration or caller cancellation skips ACK waits.
+		s.listenerMutator.UpsertWithNACKRemoval(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg)
+		s.logger.Info("Envoy: Configured diagnostic listener", logfields.Listener, name)
+		return nil
+	}
+
 	count := s.listenerCount[name]
 	if count == 0 {
-		if isProxyListener {
-			_ = s.npdsListeners.Add(name)
-		}
+		_ = s.npdsListeners.Add(name)
 		s.logger.Info("Envoy: Upserting new listener",
 			logfields.Listener, name,
 		)

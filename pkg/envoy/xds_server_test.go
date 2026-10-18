@@ -2645,6 +2645,10 @@ func (m *recordingAckingResourceMutator) Upsert(
 	return func() { m.operations = append(m.operations, "revert upsert "+resourceName) }
 }
 
+func (m *recordingAckingResourceMutator) UpsertWithNACKRemoval(typeURL, name string, resource proto.Message, nodes []string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
+	return m.Upsert(typeURL, name, resource, nodes, wg, nil)
+}
+
 func (m *recordingAckingResourceMutator) Delete(
 	_ string,
 	resourceName string,
@@ -2882,4 +2886,24 @@ func newTestXDSServer(t *testing.T) *xdsServer {
 	)
 	xds.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, nil)
 	return xds
+}
+
+func TestLegacyDiagnosticListenerNACK(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		add  func(*xdsServer, context.Context, uint16, *completion.WaitGroup)
+	}{
+		{name: adminListenerName, add: (*xdsServer).AddAdminListener},
+		{name: metricsListenerName, add: (*xdsServer).AddMetricsListener},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newTestXDSServer(t)
+			tt.add(server, t.Context(), 9000, nil)
+			acker := server.listenerMutator.(*xds.AckingResourceMutatorWrapper)
+			cached := server.resourceConfig[ListenerTypeURL].Source.GetResources(ListenerTypeURL, 0, nil)
+			require.Len(t, cached.VersionedResources, 1)
+			acker.HandleResourceVersionAck("127.0.0.1", 0, cached.Version, true, "bind failed", ListenerTypeURL, []string{tt.name})
+			require.Empty(t, server.resourceConfig[ListenerTypeURL].Source.GetResources(ListenerTypeURL, 0, nil).VersionedResources)
+		})
+	}
 }
