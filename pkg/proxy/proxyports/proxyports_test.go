@@ -88,24 +88,25 @@ func TestPortAllocator(t *testing.T) {
 	require.Equal(t, 1, pp.nRedirects)
 	require.Zero(t, pp.rulesPort)
 
-	// Unacknowledged proxy port is released due to a NACK
-	p.ResetUnacknowledged(pp)
-	require.False(t, pp.configured)
-	require.False(t, pp.acknowledged)
-	require.Zero(t, pp.ProxyPort)
-
-	err = p.releaseProxyPortWithWait("listener1", time.Minute /* extra high wait time - as it should not be used */)
+	// CEC-owned ports retain delayed release even before the owner's ACK.
+	require.NoError(t, p.releaseProxyPortWithWait("listener1", time.Minute))
+	stillAllocated, _, err := p.GetProxyPort("listener1")
+	require.NoError(t, err)
+	require.Equal(t, port, stillAllocated)
+	// A returning user cancels the pending release.
+	_, referenced := p.FindByTypeWithReference(types.ProxyTypeCRD, "listener1", false)
+	require.Same(t, pp, referenced)
+	err = p.releaseProxyPortWithWait("listener1", time.Microsecond)
 	require.NoError(t, err)
 
-	require.True(t, p.released(pp), "Proxy port is not released immediately")
+	require.Eventually(t, func() bool { return p.released(pp) }, time.Second, time.Millisecond)
 	require.Zero(t, pp.nRedirects)
 	require.Zero(t, pp.ProxyPort)
 	port1a, _, err = p.GetProxyPort("listener1")
 	require.NoError(t, err)
 	require.Zero(t, port1a)
 
-	// Cancel timed proxy port release - otherwise it will interfere with upcoming test logic
-	pp.releaseCancel()
+	require.Nil(t, pp.releaseCancel)
 
 	// ProxyPort lingers and can still be found, but it's port is zeroed
 	port1b, _, err := p.GetProxyPort("listener1")
@@ -152,13 +153,6 @@ func TestPortAllocator(t *testing.T) {
 	// 1st release decreases the count
 	err = p.ReleaseProxyPort("listener1")
 	require.NoError(t, err)
-	require.Equal(t, 1, pp.nRedirects)
-	require.True(t, pp.configured)
-	require.True(t, pp.acknowledged)
-	require.Equal(t, port2, pp.ProxyPort)
-
-	// Acknowledged proxy port is not released due to a NACK
-	p.ResetUnacknowledged(pp)
 	require.Equal(t, 1, pp.nRedirects)
 	require.True(t, pp.configured)
 	require.True(t, pp.acknowledged)
@@ -240,6 +234,15 @@ func TestPortAllocator(t *testing.T) {
 	require.False(t, pp.isStatic)
 	require.Zero(t, pp.nRedirects)
 	require.Equal(t, port3, pp.rulesPort)
+
+	// Even an unacknowledged static allocation survives its last reference.
+	require.NoError(t, p.SetProxyPort(types.DNSProxyName, types.ProxyTypeDNS, 5353, false))
+	staticName, _ := p.FindByTypeWithReference(types.ProxyTypeDNS, "", false)
+	require.NoError(t, p.ReleaseProxyPort(staticName))
+	staticPort, isStatic, err := p.GetProxyPort(staticName)
+	require.NoError(t, err)
+	require.True(t, isStatic)
+	require.Equal(t, uint16(5353), staticPort)
 }
 
 func TestRestoredPort(t *testing.T) {
@@ -259,6 +262,8 @@ func TestRestoredPort(t *testing.T) {
 	const restoredPort = uint16(14321)
 	pp := p.proxyPorts[ppName]
 	pp.ProxyPort = restoredPort
+	_, referenced := p.FindByTypeWithReference(types.ProxyTypeHTTP, "", false)
+	require.Same(t, pp, referenced)
 
 	require.False(t, pp.configured)
 	require.False(t, pp.acknowledged)
@@ -274,8 +279,8 @@ func TestRestoredPort(t *testing.T) {
 	// Test that HasProxyType is satisfied
 	require.True(t, p.HasProxyType(pp, types.ProxyTypeHTTP))
 
-	// Simulate a NACK
-	p.ResetUnacknowledged(pp)
+	// Simulate releasing the failed redirect after a NACK.
+	require.NoError(t, p.ReleaseProxyPort(ppName))
 	require.Zero(t, pp.ProxyPort)
 	require.False(t, pp.configured)
 	require.False(t, pp.acknowledged)
