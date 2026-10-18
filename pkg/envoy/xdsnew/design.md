@@ -58,6 +58,12 @@ Callers may supply a WaitGroup to wait for Envoy's response. Only the
 eventually invokes either `Revert()` or `Finalize()`. All mutation APIs
 independently retain any rollback state needed for a later NACK.
 
+After successful proxy waits, endpoint regeneration explicitly acknowledges
+redirect ports and installs datapath redirection rules. Failure releases the
+failed redirects' references; only the last reference can reset an
+unacknowledged proxy-managed allocation. Static and CEC-owned ports retain their
+separate ownership rules.
+
 A transaction holds the cache write lock while preparing and committing its
 changes and performing any immediate publication. Readers cannot observe partial
 changes. Completion registration and Listener-derived policy-wait bookkeeping use

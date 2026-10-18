@@ -62,37 +62,67 @@ func TestRegenerateBPFFailureReverts(t *testing.T) {
 	require.True(t, reverted)
 }
 
-func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
+type recordingAckRedirectProxy struct {
+	FakeEndpointProxy
+	redirects map[string]uint16
+	err       error
+}
+
+func (p *recordingAckRedirectProxy) AckRedirects(_ context.Context, redirects map[string]uint16) error {
+	p.redirects = redirects
+	return p.err
+}
+
+func TestWaitForProxyCompletions(t *testing.T) {
 	nackErr := errors.New("proxy rejected update")
+	rulesErr := errors.New("installing proxy rules failed")
 	tests := []struct {
-		name   string
-		cancel bool
-		err    error
+		name       string
+		cancel     bool
+		reject     bool
+		rulesError error
+		err        error
 	}{
-		{name: "nack", err: nackErr},
-		{name: "parent-canceled", cancel: true, err: context.Canceled},
+		{name: "ack"},
+		{name: "nack", reject: true, err: nackErr},
+		{name: "parent-canceled", cancel: true, reject: true, err: context.Canceled},
+		{name: "rules-error", rulesError: rulesErr, err: rulesErr},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ep := &Endpoint{}
+			proxy := &recordingAckRedirectProxy{err: tt.rulesError}
+			ep := &Endpoint{proxy: proxy}
 			ep.logger.Store(hivetest.Logger(t))
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			wg := completion.NewWaitGroup(ctx)
 			defer wg.Cancel()
 			var callbackErr error
-			wg.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
-			wg.AddCompletionWithCallback(nil, nil).Complete(nackErr)
+			pending := wg.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
+			result := wg.AddCompletionWithCallback(nil, nil)
+			if tt.reject {
+				result.Complete(nackErr)
+			} else {
+				pending.Complete(nil)
+				result.Complete(nil)
+			}
 			if tt.cancel {
 				cancel()
 			}
 
-			require.ErrorIs(t, ep.waitForProxyCompletions(ctx, wg), tt.err)
+			redirects := map[string]uint16{"redirect": 12345}
+			require.ErrorIs(t, ep.waitForProxyCompletions(ctx, wg, redirects), tt.err)
 			if tt.cancel {
 				// Regeneration drains an early return before reverting resources.
 				wg.Cancel()
 			}
-			require.ErrorIs(t, callbackErr, context.Canceled)
+			if tt.reject {
+				require.ErrorIs(t, callbackErr, context.Canceled)
+				require.Nil(t, proxy.redirects, "a failed wait must not acknowledge proxy ports")
+			} else {
+				require.NoError(t, callbackErr)
+				require.Equal(t, redirects, proxy.redirects)
+			}
 		})
 	}
 }
