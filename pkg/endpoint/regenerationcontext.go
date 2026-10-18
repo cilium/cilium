@@ -164,6 +164,12 @@ type datapathRegenerationContext struct {
 	// update the endpoint to.
 	policyRevisionToWaitFor uint64
 
+	// proxyPolicyRevision is the desired policy revision recorded while the
+	// endpoint is locked, zero for none.
+	// After successful Wait this is the revision realized by the Envoy proxy
+	// for this endpoint.
+	proxyPolicyRevision uint64
+
 	revertibles revert.Revertibles
 }
 

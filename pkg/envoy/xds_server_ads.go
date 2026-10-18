@@ -570,22 +570,10 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	epID := ep.GetID()
 	resourceName := strconv.FormatUint(epID, 10)
 
-	// When successful, notify the endpoint that its proxy policy was accepted.
-	policyRevision := l4policy.Revision
-	callback := func(err error) {
-		if err == nil {
-			go ep.OnProxyPolicyUpdate(policyRevision)
-		}
-	}
-
-	rollback, err := s.cache.ApplyResourceWithRollback(ctx, LocalNodeID, typeurl.NetworkPolicy, resourceName, networkPolicy, wg, callback)
+	rollback, err := s.cache.ApplyResourceWithRollback(ctx, LocalNodeID, typeurl.NetworkPolicy, resourceName, networkPolicy, wg, nil)
 	if err != nil {
 		return err, nil
 	}
-	if wg == nil {
-		callback(nil)
-	}
-
 	// The cache lifecycle directly implements revert.Revertible. Passing it
 	// through avoids allocating separate endpoint revert and finalize closures.
 	return nil, rollback

@@ -26,10 +26,6 @@ type EndpointInfoSource interface {
 type EndpointUpdater interface {
 	EndpointInfoSource
 
-	// OnProxyPolicyUpdate is called when the proxy acknowledges that it
-	// has applied a policy.
-	OnProxyPolicyUpdate(policyRevision uint64)
-
 	// UpdateProxyStatistics updates the Endpoint's proxy statistics to account
 	// for a new observed flow with the given characteristics.
 	UpdateProxyStatistics(proxyType, l4Protocol string, port, proxyPort uint16, ingress, request bool, verdict accesslog.FlowVerdict)
