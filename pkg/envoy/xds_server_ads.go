@@ -603,30 +603,6 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicy, resourceName, nil, nil, nil)
 }
 
-// portAllocationCallback returns a callback that fires all PortAllocationCallbacks on success.
-// This is used to confirm port allocations after Envoy ACKs the listener update.
-func (s *adsServer) portAllocationCallback(ctx context.Context, callbacks map[string]func(context.Context) error) func(err error) {
-	if len(callbacks) == 0 {
-		return nil
-	}
-	return func(err error) {
-		if err != nil {
-			return
-		}
-		for name, cb := range callbacks {
-			if cb != nil {
-				if callbackErr := cb(ctx); callbackErr != nil {
-					s.logger.Warn(
-						"Failure in port allocation callback",
-						logfields.ListenerName, name,
-						logfields.Error, callbackErr,
-					)
-				}
-			}
-		}
-	}
-}
-
 func revertRollback(rollback xdsnew.Rollback) {
 	if rollback != nil {
 		rollback.Revert()
@@ -673,58 +649,36 @@ func (s *adsServer) listenerDeletionMutations(oldResources, newResources xds.Res
 }
 
 func (s *adsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
+	var waits xdsnew.TypeURLCallbacks
+	if wg != nil && len(resources.Listeners) > 0 {
+		waits.Set(typeurl.Listener, nil)
+		if len(resources.Clusters) > 0 {
+			waits.Set(typeurl.Cluster, nil)
+		}
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	callback := s.portAllocationCallback(ctx, resources.PortAllocationCallbacks)
-	var callbackTypeURLs xdsnew.TypeURLCallbacks
-	if callback != nil {
-		callbackTypeURLs.Set(typeurl.Listener, callback)
-		if len(resources.Clusters) > 0 {
-			callbackTypeURLs.Set(typeurl.Cluster, nil)
-		}
-	}
-	err := s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, wg, callbackTypeURLs)
-	return err
+	return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, wg, waits)
 }
 
 func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources, waitGroup *completion.WaitGroup) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	hadPortAllocationCallbacks := len(newResources.PortAllocationCallbacks) > 0
 	listenersToRecreate := adsListenersRequiringRecreate(oldResources.Listeners, newResources.Listeners)
-	// Port allocation applies only to the primary listener address. If its port
-	// is unchanged, remove the callback to avoid acknowledging it again.
-	for name, oldListener := range oldResources.Listeners {
-		newListener, found := newResources.Listeners[name]
-		if !found {
-			continue
-		}
-
-		if listenerPrimaryPortsEqual(oldListener, newListener) {
-			delete(newResources.PortAllocationCallbacks, name)
-		}
-	}
-
-	callback := s.portAllocationCallback(ctx, newResources.PortAllocationCallbacks)
-	var callbackTypeURLs xdsnew.TypeURLCallbacks
-	if hadPortAllocationCallbacks {
-		// CEC updates pass a wait group only to observe dynamic listener port
-		// allocation. If the callbacks were removed because the listener port did
-		// not change, do not fall back to waiting for every changed ADS type:
-		// CDS/RDS ACKs can be delayed by dependent EDS/SDS resources and block
-		// later CEC updates behind an already-confirmed port.
-		callbackTypeURLs = xdsnew.NewTypeURLCallbacks()
-	}
-	if callback != nil {
-		callbackTypeURLs.Set(typeurl.Listener, callback)
+	var waitTypeURLs xdsnew.TypeURLCallbacks
+	if waitGroup != nil && len(newResources.Listeners) > 0 {
+		// CEC waits for newly allocated listener ports and their supplied
+		// clusters. Other named types may have no subscriber to ACK them.
+		waitTypeURLs.Set(typeurl.Listener, nil)
 		if len(oldResources.Clusters) > 0 || len(newResources.Clusters) > 0 {
-			callbackTypeURLs.Set(typeurl.Cluster, nil)
+			waitTypeURLs.Set(typeurl.Cluster, nil)
 		}
 	}
 	if len(listenersToRecreate) == 0 || s.restorerPromise != nil {
-		return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}, waitGroup, callbackTypeURLs)
+		return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}, waitGroup, waitTypeURLs)
 	}
 
 	// Envoy cannot replace a listener's address set in place when SO_REUSEPORT
@@ -755,11 +709,11 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	// Always wait for the replacement LDS ACK, even when the caller did not
 	// supply a wait group. This keeps the two snapshots transactional and lets us
 	// restore the last working listener if Envoy rejects the replacement.
-	callbackTypeURLs.Set(typeurl.Listener, callback)
+	waitTypeURLs.Set(typeurl.Listener, nil)
 	replaceMutations := xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}
 	for attempt := 1; ; attempt++ {
 		replaceWG := completion.NewWaitGroup(ctx)
-		replaceRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, replaceMutations, replaceWG, callbackTypeURLs)
+		replaceRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, replaceMutations, replaceWG, waitTypeURLs)
 		if err == nil {
 			err = replaceWG.Wait()
 		} else {
@@ -810,12 +764,7 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		logfields.ResourceSecrets, len(resources.Secrets),
 	)
 
-	var callbackTypeURLs xdsnew.TypeURLCallbacks
-	callback := s.portAllocationCallback(ctx, resources.PortAllocationCallbacks)
-	if callback != nil {
-		callbackTypeURLs.Set(typeurl.Listener, callback)
-	}
-	err := s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, callbackTypeURLs)
+	err := s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, xdsnew.TypeURLCallbacks{})
 	return err
 }
 
