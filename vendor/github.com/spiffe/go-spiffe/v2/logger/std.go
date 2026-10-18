@@ -7,18 +7,18 @@ var Std Logger = stdLogger{}
 
 type stdLogger struct{}
 
-func (stdLogger) Debugf(format string, args ...interface{}) {
+func (stdLogger) Debugf(format string, args ...any) {
 	log.Printf("[DEBUG] "+format+"\n", args...)
 }
 
-func (stdLogger) Infof(format string, args ...interface{}) {
+func (stdLogger) Infof(format string, args ...any) {
 	log.Printf("[INFO] "+format+"\n", args...)
 }
 
-func (stdLogger) Warnf(format string, args ...interface{}) {
+func (stdLogger) Warnf(format string, args ...any) {
 	log.Printf("[WARN] "+format+"\n", args...)
 }
 
-func (stdLogger) Errorf(format string, args ...interface{}) {
+func (stdLogger) Errorf(format string, args ...any) {
 	log.Printf("[ERROR] "+format+"\n", args...)
 }

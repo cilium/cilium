@@ -5,16 +5,16 @@ go 1.27
 require (
 	cel.dev/cel-go v0.32.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.2
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.3
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.14.1
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v8 v8.4.0
 	github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v12 v12.0.0
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.107
-	github.com/aws/aws-sdk-go-v2 v1.47.1
-	github.com/aws/aws-sdk-go-v2/config v1.33.6
-	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.1
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.338.1
-	github.com/aws/smithy-go v1.28.2
+	github.com/aws/aws-sdk-go-v2 v1.47.3
+	github.com/aws/aws-sdk-go-v2/config v1.33.9
+	github.com/aws/aws-sdk-go-v2/feature/ec2/imds v1.20.3
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.338.4
+	github.com/aws/smithy-go v1.28.5
 	github.com/blang/semver/v4 v4.0.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/charts v0.0.0-20261002190002-21db35622a44
@@ -29,7 +29,7 @@ require (
 	github.com/cilium/statedb v0.9.4
 	github.com/cilium/stream v0.0.1
 	github.com/cilium/workerpool v1.4.0
-	github.com/cloudflare/cfssl v1.7.0
+	github.com/cloudflare/cfssl v1.7.1
 	github.com/containerd/nri v0.12.3
 	github.com/containernetworking/cni v1.3.1
 	github.com/coreos/go-iptables v0.8.0
@@ -68,7 +68,7 @@ require (
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/json-iterator/go v1.1.12
 	github.com/kevinburke/ssh_config v1.6.0
-	github.com/klauspost/compress v1.20.1
+	github.com/klauspost/compress v1.20.3
 	github.com/lthibault/jitterbug/v2 v2.2.2
 	github.com/mackerelio/go-osstat v0.2.8
 	github.com/mattn/go-shellwords v1.0.16
@@ -85,9 +85,9 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus-community/pro-bing v0.9.1
-	github.com/prometheus/client_golang v1.24.1
+	github.com/prometheus/client_golang v1.25.0
 	github.com/prometheus/client_model v0.6.3
-	github.com/prometheus/common v0.72.0
+	github.com/prometheus/common v0.72.1
 	github.com/prometheus/procfs v0.22.0
 	github.com/russross/blackfriday/v2 v2.1.0
 	github.com/sasha-s/go-deadlock v0.3.9
@@ -97,12 +97,12 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	github.com/spf13/viper v1.21.0
-	github.com/spiffe/go-spiffe/v2 v2.8.2
+	github.com/spiffe/go-spiffe/v2 v2.9.0
 	github.com/spiffe/spire-api-sdk v1.15.3
 	github.com/stretchr/testify v1.12.1
-	github.com/tidwall/gjson v1.19.1
+	github.com/tidwall/gjson v1.20.0
 	github.com/tidwall/sjson v1.2.5
-	github.com/vishvananda/netlink v1.3.2-0.20261002201547-1d1c62507e3c
+	github.com/vishvananda/netlink v1.3.2-0.20261015184244-3fdd74264153
 	github.com/vishvananda/netns v0.0.5
 	go.etcd.io/etcd/api/v3 v3.7.2
 	go.etcd.io/etcd/client/pkg/v3 v3.7.2
@@ -113,18 +113,18 @@ require (
 	go.uber.org/zap v1.28.0
 	go.yaml.in/yaml/v3 v3.0.5
 	go4.org/netipx v0.0.0-20260823151212-3075585bcbeb
-	golang.org/x/crypto v0.57.0
+	golang.org/x/crypto v0.58.0
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
-	golang.org/x/mod v0.41.0
-	golang.org/x/net v0.60.0
-	golang.org/x/sync v0.23.0
-	golang.org/x/sys v0.48.0
-	golang.org/x/term v0.46.0
-	golang.org/x/text v0.42.0
+	golang.org/x/mod v0.42.0
+	golang.org/x/net v0.61.0
+	golang.org/x/sync v0.24.0
+	golang.org/x/sys v0.49.0
+	golang.org/x/term v0.47.0
+	golang.org/x/text v0.43.0
 	golang.org/x/time v0.16.0
-	golang.org/x/tools v0.51.0
+	golang.org/x/tools v0.52.0
 	golang.zx2c4.com/wireguard/wgctrl v0.0.0-20241231184526-a9ab2273dd10
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260928230214-8a89bd6388cc
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20261012220534-4341edf3f941
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
 	helm.sh/helm/v4 v4.3.0
@@ -155,7 +155,7 @@ require (
 require (
 	cel.dev/expr v0.25.2 // indirect
 	dario.cat/mergo v1.0.2 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.12.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.13.0 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.8.0 // indirect
 	github.com/BurntSushi/toml v1.6.0 // indirect
@@ -169,16 +169,16 @@ require (
 	github.com/alecthomas/participle/v2 v2.1.0 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
-	github.com/aws/aws-sdk-go-v2/credentials v1.20.6 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.4 // indirect
-	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.19 // indirect
-	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.4 // indirect
-	github.com/aws/aws-sdk-go-v2/service/signin v1.10.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sso v1.38.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.1 // indirect
-	github.com/aws/aws-sdk-go-v2/service/sts v1.51.1 // indirect
+	github.com/aws/aws-sdk-go-v2/credentials v1.20.9 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.6 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.6 // indirect
+	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.21 // indirect
+	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.14.6 // indirect
+	github.com/aws/aws-sdk-go-v2/service/signin v1.10.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sso v1.38.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.43.4 // indirect
+	github.com/aws/aws-sdk-go-v2/service/sts v1.51.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
 	github.com/cilium/deepequal-gen v0.0.0-20260817061921-e5a8128944c9 // indirect
@@ -308,7 +308,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
-	golang.org/x/telemetry v0.0.0-20260924152758-ed294f943157 // indirect
+	golang.org/x/telemetry v0.0.0-20261009151841-97e8ea77aa2a // indirect
 	golang.zx2c4.com/wireguard v0.0.0-20231211153847-12269c276173 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260831171406-18b4a7587f8a // indirect

@@ -26,7 +26,7 @@ var (
 )
 
 // tokenValidator validates the token and returns the claims
-type tokenValidator = func(*jwt.JSONWebToken, spiffeid.TrustDomain) (map[string]interface{}, error)
+type tokenValidator = func(*jwt.JSONWebToken, spiffeid.TrustDomain) (map[string]any, error)
 
 // SVID represents a JWT-SVID.
 type SVID struct {
@@ -37,7 +37,7 @@ type SVID struct {
 	// Expiry is the expiration time of JWT-SVID as present in 'exp' claim
 	Expiry time.Time
 	// Claims is the parsed claims from token
-	Claims map[string]interface{}
+	Claims map[string]any
 	// Hint is an operator-specified string used to provide guidance on how this
 	// identity should be used by a workload when more than one SVID is returned.
 	Hint string
@@ -49,7 +49,7 @@ type SVID struct {
 // ParseAndValidate parses and validates a JWT-SVID token and returns the
 // JWT-SVID. The JWT-SVID signature is verified using the JWT bundle source.
 func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string) (*SVID, error) {
-	return parse(token, audience, func(tok *jwt.JSONWebToken, trustDomain spiffeid.TrustDomain) (map[string]interface{}, error) {
+	return parse(token, audience, func(tok *jwt.JSONWebToken, trustDomain spiffeid.TrustDomain) (map[string]any, error) {
 		// Obtain the key ID from the header
 		keyID := tok.Headers[0].KeyID
 		if keyID == "" {
@@ -69,7 +69,7 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 		}
 
 		// Obtain and verify the token claims using the obtained JWT authority
-		claimsMap := make(map[string]interface{})
+		claimsMap := make(map[string]any)
 		if err := tok.Claims(authority, &claimsMap); err != nil {
 			return nil, wrapJwtsvidErr(fmt.Errorf("unable to get claims from token: %v", err))
 		}
@@ -81,9 +81,9 @@ func ParseAndValidate(token string, bundles jwtbundle.Source, audience []string)
 // ParseInsecure parses and validates a JWT-SVID token and returns the
 // JWT-SVID. The JWT-SVID signature is not verified.
 func ParseInsecure(token string, audience []string) (*SVID, error) {
-	return parse(token, audience, func(tok *jwt.JSONWebToken, td spiffeid.TrustDomain) (map[string]interface{}, error) {
+	return parse(token, audience, func(tok *jwt.JSONWebToken, td spiffeid.TrustDomain) (map[string]any, error) {
 		// Obtain the token claims insecurely, i.e. without signature verification
-		claimsMap := make(map[string]interface{})
+		claimsMap := make(map[string]any)
 		if err := tok.UnsafeClaimsWithoutVerification(&claimsMap); err != nil {
 			return nil, wrapJwtsvidErr(fmt.Errorf("unable to get claims from token: %v", err))
 		}
