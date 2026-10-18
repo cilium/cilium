@@ -579,7 +579,7 @@ func (tx *resourceTransaction) registerGenerationCompletions(snapshot cache.Reso
 			version = snapshot.GetVersion(typeURL.URL())
 		}
 		owner := c.completionCbs.NewTypeGenerationCompletionOwner(tx.state.nodeID, typeURL, wait.generation, wait.scope)
-		comp := wg.AddCompletionWithCallback(owner, nil)
+		comp := wg.AddCompletion(owner)
 		registered, err := c.completionCbs.AddPreparedTypeGenerationCompletion(comp, owner, version, snapshot == nil)
 		if registered {
 			tx.registeredCompletions.Insert(comp)

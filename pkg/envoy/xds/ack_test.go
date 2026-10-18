@@ -5,7 +5,6 @@ package xds
 
 import (
 	"context"
-	"log/slog"
 	"testing"
 	"time"
 
@@ -29,27 +28,19 @@ const (
 type compCheck struct {
 	err error
 	ch  chan error
-}
-
-func newCompCheck() *compCheck {
-	return &compCheck{
-		ch: make(chan error, 1),
-	}
+	wg  *completion.WaitGroup
 }
 
 func (c *compCheck) Err() error {
 	return c.err
 }
 
-// Return a new completion callback that will write the completion error to a channel
-func newCompCallback(logger *slog.Logger) (func(error), *compCheck) {
-	comp := newCompCheck()
-	callback := func(err error) {
-		logger.Debug("callback called", logfields.Error, err)
-		comp.ch <- err
-		close(comp.ch)
-	}
-	return callback, comp
+// Each check waits on its own group so tests can observe independently accepted
+// updates. Start Wait after registration, when the first assertion is made.
+func newCompletionWait(t *testing.T, ctx context.Context) (*completion.WaitGroup, *compCheck) {
+	wg := completion.NewWaitGroup(ctx)
+	t.Cleanup(wg.Cancel)
+	return wg, &compCheck{wg: wg, ch: make(chan error, 1)}
 }
 
 func completedComparison(comp *compCheck) assert.Comparison {
@@ -73,6 +64,14 @@ func doesNotCompleteComparison(comp *compCheck) assert.Comparison {
 func completedWithin(comp *compCheck, wait time.Duration) bool {
 	if comp == nil {
 		return false
+	}
+	if comp.wg != nil {
+		wg := comp.wg
+		comp.wg = nil
+		go func() {
+			comp.ch <- wg.Wait()
+			close(comp.ch)
+		}()
 	}
 
 	if comp.err != nil {
@@ -133,7 +132,7 @@ func (m *AckingResourceMutatorWrapper) useCurrent(typeURL string, nodeIDs []stri
 	}
 
 	// Add a completion object for the current version so that the caller may wait for the N/ACK
-	m.addCurrentVersionCompletion(typeURL, nodeIDs, wg, nil)
+	m.addCurrentVersionCompletion(typeURL, nodeIDs, wg)
 }
 
 func TestUpsertSingleNode(t *testing.T) {
@@ -141,7 +140,7 @@ func TestUpsertSingleNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -150,8 +149,8 @@ func TestUpsertSingleNode(t *testing.T) {
 	require.Empty(t, acker.ackedVersions)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Empty(t, acker.ackedVersions)
 	require.Equal(t, 0, metrics.ack[typeURL])
@@ -237,16 +236,16 @@ func TestUpsertWithNACKRemoval(t *testing.T) {
 			if tt.action == "other-waiter" {
 				otherWG = completion.NewWaitGroup(ctx)
 				defer otherWG.Cancel()
-				acker.Upsert(typeURL, name, resources[0], []string{node1}, otherWG, nil)
+				acker.Upsert(typeURL, name, resources[0], []string{node1}, otherWG)
 			}
 			// A revert from before the diagnostic upsert must invalidate its recovery.
 			var revert AckingResourceMutatorRevertFunc
 			if tt.action == "revert" || tt.action == "deletion-revert" {
-				acker.Upsert(typeURL, name, resources[2], []string{node0}, nil, nil)
+				acker.Upsert(typeURL, name, resources[2], []string{node0}, nil)
 				if tt.action == "revert" {
-					revert = acker.Upsert(typeURL, name, resources[1], []string{node0}, nil, nil)
+					revert = acker.Upsert(typeURL, name, resources[1], []string{node0}, nil)
 				} else {
-					revert = acker.Delete(typeURL, name, []string{node0}, nil, nil)
+					revert = acker.Delete(typeURL, name, []string{node0}, nil)
 				}
 			}
 			acker.UpsertWithNACKRemoval(typeURL, name, resources[0], []string{node0}, waitGroup)
@@ -270,12 +269,12 @@ func TestUpsertWithNACKRemoval(t *testing.T) {
 			case "older":
 				version--
 			case "update", "aba":
-				acker.Upsert(typeURL, name, resources[1], []string{node0}, nil, nil)
+				acker.Upsert(typeURL, name, resources[1], []string{node0}, nil)
 				if tt.action == "aba" {
-					acker.Upsert(typeURL, name, resources[0], []string{node0}, nil, nil)
+					acker.Upsert(typeURL, name, resources[0], []string{node0}, nil)
 				}
 			case "equal":
-				acker.Upsert(typeURL, name, resources[0], []string{node0}, nil, nil)
+				acker.Upsert(typeURL, name, resources[0], []string{node0}, nil)
 			case "revert", "deletion-revert":
 				revert()
 			}
@@ -314,8 +313,8 @@ func TestUseCurrent(t *testing.T) {
 	require.Empty(t, acker.ackedVersions)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Empty(t, acker.ackedVersions)
 	require.Len(t, acker.pendingCompletions, 1)
@@ -371,26 +370,25 @@ func TestUseCurrentSkipsNodesThatAlreadyAckedCurrentVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	baselineWG := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	cache := NewCache(logger)
 	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 and fully ACK it so both nodes have a shared baseline.
-	callbackV2, compV2 := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, baselineWG, callbackV2)
+	compV2WG, compV2 := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, compV2WG)
 	acker.HandleResourceVersionAck(node0, 2, 2, false, "", typeURL, []string{resources[0].Name})
 	acker.HandleResourceVersionAck(node1, 2, 2, false, "", typeURL, []string{resources[0].Name})
 	require.Condition(t, completedComparison(compV2))
-	require.NoError(t, baselineWG.Wait())
 	require.Equal(t, uint64(2), acker.ackedVersions[node0])
 	require.Equal(t, uint64(2), acker.ackedVersions[node1])
 
 	// Create version 3, but only node0 ACKs it. Node1 remains outstanding.
-	upsertV3WG := completion.NewWaitGroup(ctx)
-	callbackV3, compV3 := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[1].Name, resources[1], []string{node0, node1}, upsertV3WG, callbackV3)
+
+	compV3WG, compV3 := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[1].Name, resources[1], []string{node0, node1}, compV3WG)
 	acker.HandleResourceVersionAck(node0, 3, 3, false, "", typeURL, []string{resources[1].Name})
 	require.Condition(t, isNotCompletedComparison(compV3))
 	require.Equal(t, uint64(3), acker.ackedVersions[node0])
@@ -433,7 +431,6 @@ func TestUseCurrentSkipsNodesThatAlreadyAckedCurrentVersion(t *testing.T) {
 	acker.HandleResourceVersionAck(node1, 3, 3, false, "", typeURL, []string{resources[1].Name})
 	// The same ACK must also complete the original Upsert completion for version 3.
 	require.Condition(t, completedComparison(compV3))
-	require.NoError(t, upsertV3WG.Wait())
 	require.NoError(t, currentWG.Wait())
 	require.Empty(t, acker.pendingCompletions)
 }
@@ -445,7 +442,7 @@ func TestCancelCompletions(t *testing.T) {
 
 	typeURL1 := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	typeURL2 := "type.googleapis.com/envoy.config.v3.AnotherConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	cache := NewCache(logger)
@@ -453,12 +450,12 @@ func TestCancelCompletions(t *testing.T) {
 	require.Empty(t, acker.ackedVersions)
 
 	// Add one pending completion for each type.
-	callback1, comp1 := newCompCallback(logger)
-	acker.Upsert(typeURL1, resources[0].Name, resources[0], []string{node0}, wg, callback1)
+	comp1WG, comp1 := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL1, resources[0].Name, resources[0], []string{node0}, comp1WG)
 	require.Condition(t, isNotCompletedComparison(comp1))
 
-	callback2, comp2 := newCompCallback(logger)
-	acker.Upsert(typeURL2, resources[1].Name, resources[1], []string{node0}, wg, callback2)
+	comp2WG, comp2 := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL2, resources[1].Name, resources[1], []string{node0}, comp2WG)
 	require.Condition(t, isNotCompletedComparison(comp2))
 	require.Len(t, acker.pendingCompletions, 2)
 
@@ -498,7 +495,7 @@ func TestTimedOutWaitPrunesPendingCompletion(t *testing.T) {
 	cache := NewCache(logger)
 	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, nil)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg)
 	require.Len(t, acker.pendingCompletions, 1)
 
 	err := wg.Wait()
@@ -515,7 +512,7 @@ func TestUpsertMultipleNodes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -524,8 +521,8 @@ func TestUpsertMultipleNodes(t *testing.T) {
 	require.Empty(t, acker.ackedVersions)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, wg, callback)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.False(t, acker.currentVersionAcked([]string{node0}))
 	require.False(t, acker.currentVersionAcked([]string{node1}))
@@ -571,7 +568,7 @@ func TestUpsertMoreRecentVersion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -579,8 +576,8 @@ func TestUpsertMoreRecentVersion(t *testing.T) {
 	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack an older version, for the right resource, from the right node.
@@ -603,7 +600,7 @@ func TestUpsertMoreRecentVersionNack(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -611,8 +608,8 @@ func TestUpsertMoreRecentVersionNack(t *testing.T) {
 	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack an older version, for the right resource, from the right node.
@@ -625,7 +622,7 @@ func TestUpsertMoreRecentVersionNack(t *testing.T) {
 	// NAck a more recent version, for the right resource, from the right node.
 	acker.HandleResourceVersionAck(node0, 1, 2, true, "Detail", typeURL, []string{resources[0].Name})
 	// IsCompleted is true only for completions without error
-	require.Condition(t, isNotCompletedComparison(comp))
+	require.Condition(t, doesNotCompleteComparison(comp))
 	require.Error(t, comp.Err())
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived, Detail: "Detail"}, comp.Err())
 	require.Equal(t, 0, metrics.ack[typeURL])
@@ -638,7 +635,7 @@ func TestUpsertEqualVersionNack(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	cache := NewCache(logger)
@@ -646,9 +643,9 @@ func TestUpsertEqualVersionNack(t *testing.T) {
 
 	// Resource 0 is not included in a response until after another update has
 	// advanced and been ACKed at version 3.
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
-	acker.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, nil, nil)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, compWG)
+	acker.Upsert(typeURL, resources[1].Name, resources[1], []string{node0}, nil)
 	acker.HandleResourceVersionAck(node0, 3, 3, false, "", typeURL, []string{resources[1].Name})
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Equal(t, uint64(3), acker.ackedVersions[node0])
@@ -657,7 +654,7 @@ func TestUpsertEqualVersionNack(t *testing.T) {
 	// cache. Its NACK must not be mistaken for an ACK merely because both
 	// versions equal the last type-wide ACKed version.
 	acker.HandleResourceVersionAck(node0, 3, 3, true, "Detail", typeURL, []string{resources[0].Name})
-	require.Condition(t, isNotCompletedComparison(comp))
+	require.Condition(t, doesNotCompleteComparison(comp))
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived, Detail: "Detail"}, comp.Err())
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 1, metrics.nack[typeURL])
@@ -668,17 +665,17 @@ func TestUpsertNackFromAnyNodeFailsCompletion(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	cache := NewCache(logger)
 	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, wg, callback)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0, node1}, compWG)
 
 	acker.HandleResourceVersionAck(node0, 1, 2, true, "Detail", typeURL, []string{resources[0].Name})
-	require.Condition(t, isNotCompletedComparison(comp))
+	require.Condition(t, doesNotCompleteComparison(comp))
 	require.EqualValues(t, &ProxyError{Err: ErrNackReceived, Detail: "Detail"}, comp.Err())
 	require.Equal(t, 0, metrics.ack[typeURL])
 	require.Equal(t, 1, metrics.nack[typeURL])
@@ -689,7 +686,7 @@ func TestDeleteSingleNode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -697,8 +694,8 @@ func TestDeleteSingleNode(t *testing.T) {
 	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for the right resource, from the right node.
@@ -709,8 +706,8 @@ func TestDeleteSingleNode(t *testing.T) {
 	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Create version 3 with no resources.
-	callback, comp = newCompCallback(logger)
-	acker.Delete(typeURL, resources[0].Name, []string{node0}, wg, callback)
+	compWG, comp = newCompletionWait(t, ctx)
+	acker.Delete(typeURL, resources[0].Name, []string{node0}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for another resource, from another node.
@@ -734,7 +731,7 @@ func TestUpsertCompletionAfterDeletedResource(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -742,14 +739,14 @@ func TestUpsertCompletionAfterDeletedResource(t *testing.T) {
 	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 with resource 0 and a completion that waits for ACK.
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Len(t, acker.pendingCompletions, 1)
 	require.Equal(t, uint64(2), acker.version)
 
 	// Delete the same resource before the ACK for version 2 is received.
-	acker.Delete(typeURL, resources[0].Name, nil, nil, nil)
+	acker.Delete(typeURL, resources[0].Name, nil, nil)
 	require.Condition(t, isNotCompletedComparison(comp))
 	require.Len(t, acker.pendingCompletions, 1)
 	require.Equal(t, uint64(3), acker.version)
@@ -791,7 +788,7 @@ func TestPendingCompletionTimeoutErrorIncludesRemainingDetails(t *testing.T) {
 		},
 	}
 
-	wg.AddCompletionWithCallback(pending, nil)
+	wg.AddCompletion(pending)
 
 	err := wg.Wait()
 	require.Error(t, err)
@@ -804,7 +801,7 @@ func TestDeleteMultipleNodes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
-	wg := completion.NewWaitGroup(ctx)
+
 	metrics := newMockMetrics()
 
 	// Empty cache is the version 1
@@ -812,8 +809,8 @@ func TestDeleteMultipleNodes(t *testing.T) {
 	acker := NewAckingResourceMutatorWrapper(logger, cache, metrics)
 
 	// Create version 2 with resource 0.
-	callback, comp := newCompCallback(logger)
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, wg, callback)
+	compWG, comp := newCompletionWait(t, ctx)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for the right resource, from the right node.
@@ -824,8 +821,8 @@ func TestDeleteMultipleNodes(t *testing.T) {
 	require.Equal(t, 0, metrics.cancel[typeURL])
 
 	// Create version 3 with no resources.
-	callback, comp = newCompCallback(logger)
-	acker.Delete(typeURL, resources[0].Name, []string{node0, node1}, wg, callback)
+	compWG, comp = newCompletionWait(t, ctx)
+	acker.Delete(typeURL, resources[0].Name, []string{node0, node1}, compWG)
 	require.Condition(t, isNotCompletedComparison(comp))
 
 	// Ack the right version, for another resource, from one of the nodes.
@@ -854,10 +851,10 @@ func TestRevertInsert(t *testing.T) {
 
 	// Create version 1 with resource 0.
 	// Insert.
-	revert := acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil, nil)
+	revert := acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil)
 
 	// Insert another resource.
-	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil)
 
 	res := cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[0], res)
@@ -888,10 +885,10 @@ func TestRevertUpdate(t *testing.T) {
 
 	// Create version 1 with resource 0.
 	// Insert.
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil, nil)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil)
 
 	// Insert another resource.
-	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil)
 
 	res := cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[0], res)
@@ -900,7 +897,7 @@ func TestRevertUpdate(t *testing.T) {
 	require.Equal(t, resources[2], res)
 
 	// Update.
-	revert := acker.Upsert(typeURL, resources[0].Name, resources[1], []string{node0}, nil, nil)
+	revert := acker.Upsert(typeURL, resources[0].Name, resources[1], []string{node0}, nil)
 
 	res = cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[1], res)
@@ -928,10 +925,10 @@ func TestRevertDelete(t *testing.T) {
 
 	// Create version 1 with resource 0.
 	// Insert.
-	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil, nil)
+	acker.Upsert(typeURL, resources[0].Name, resources[0], []string{node0}, nil)
 
 	// Insert another resource.
-	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil, nil)
+	_ = acker.Upsert(typeURL, resources[2].Name, resources[2], []string{node0}, nil)
 
 	res := cache.Lookup(typeURL, resources[0].Name)
 	require.Equal(t, resources[0], res)
@@ -940,7 +937,7 @@ func TestRevertDelete(t *testing.T) {
 	require.Equal(t, resources[2], res)
 
 	// Delete.
-	revert := acker.Delete(typeURL, resources[0].Name, []string{node0}, nil, nil)
+	revert := acker.Delete(typeURL, resources[0].Name, []string{node0}, nil)
 
 	res = cache.Lookup(typeURL, resources[0].Name)
 	require.Nil(t, res)
