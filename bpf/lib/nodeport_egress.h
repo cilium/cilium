@@ -292,7 +292,6 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 static __always_inline bool
 nodeport_has_nat_conflict_ipv4(const struct __ctx_buff *ctx __maybe_unused,
 			       const struct iphdr *ip4 __maybe_unused,
@@ -616,7 +615,6 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	return ret;
 }
-#endif /* ENABLE_IPV4 */
 
 static __always_inline int
 lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
@@ -629,10 +627,13 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 		return CTX_ACT_OK;
 
 	switch (proto) {
-#if defined(ENABLE_IPV4) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
+#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	case bpf_htons(ETH_P_IP): {
 		struct lb4_health *val;
 		int flags = 0;
+
+		if (!is_defined(ENABLE_IPV4))
+			return CTX_ACT_OK;
 
 		key = get_socket_cookie(ctx);
 		val = map_lookup_elem(&cilium_lb4_health, &key);
@@ -714,16 +715,16 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 	}
 
 	switch (proto) {
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		if (use_tailcall)
-			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
-						 ext_err);
-		else
-			ret = handle_nat_fwd_ipv4(ctx, cb_nat_flags, cluster_id, src_id,
-						  trace, ext_err);
+		if (is_defined(ENABLE_IPV4)) {
+			if (use_tailcall)
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT_FWD,
+							 ext_err);
+			else
+				ret = handle_nat_fwd_ipv4(ctx, cb_nat_flags, cluster_id, src_id,
+							  trace, ext_err);
+		}
 		break;
-#endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		if (use_tailcall)
