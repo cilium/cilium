@@ -86,7 +86,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Empty(t, name)
 
 	// Acknowledging CRD proxy port allows it to be found for redirect creation
-	err = p.AckCRDProxyPort(context.Background(), "listener1")
+	err = p.AckCRDProxyPort(context.Background(), "listener1", port)
 	require.NoError(t, err)
 
 	name, pp = p.FindByTypeWithReference(types.ProxyTypeCRD, "listener1", false)
@@ -154,7 +154,7 @@ func TestPortAllocator(t *testing.T) {
 	require.Nil(t, pp2)
 
 	// Acknowledging CRD proxy port allows it to be found for redirect creation
-	err = p.AckCRDProxyPort(context.Background(), "listener1")
+	err = p.AckCRDProxyPort(context.Background(), "listener1", port2)
 	require.NoError(t, err)
 
 	// Acknowledged CRD proxy port is found
@@ -207,7 +207,7 @@ func TestPortAllocator(t *testing.T) {
 	require.NotEqual(t, port2, port3)
 	require.NotEqual(t, port, port3)
 	// Ack makes the port findable and configures it to the datapath
-	err = p.AckCRDProxyPort(context.Background(), "listener1")
+	err = p.AckCRDProxyPort(context.Background(), "listener1", port3)
 	require.NoError(t, err)
 	require.True(t, pp.acknowledged)
 	require.Equal(t, port3, pp.rulesPort)
@@ -284,7 +284,7 @@ func TestCRDProxyPortRelease(t *testing.T) {
 			p.Trigger = job.NewTrigger()
 			port, err := p.AllocateCRDProxyPort("listener")
 			require.NoError(t, err)
-			require.NoError(t, p.AckCRDProxyPort(t.Context(), "listener"))
+			require.NoError(t, p.AckCRDProxyPort(t.Context(), "listener", port))
 			for range tt.redirects {
 				name, pp := p.FindByTypeWithReference(types.ProxyTypeCRD, "listener", false)
 				require.Equal(t, "listener", name)
@@ -292,10 +292,10 @@ func TestCRDProxyPortRelease(t *testing.T) {
 			}
 
 			require.NoError(t, p.ReleaseCRDProxyPort("listener"))
-			require.ErrorIs(t, p.AckCRDProxyPort(t.Context(), "listener"), ErrProxyNotConfigured)
+			require.ErrorIs(t, p.AckCRDProxyPort(t.Context(), "listener", port), ErrProxyNotConfigured)
 			// Repeated release does not hurt.
 			require.NoError(t, p.ReleaseCRDProxyPort("listener"))
-			require.ErrorIs(t, p.AckCRDProxyPort(t.Context(), "listener"), ErrProxyNotConfigured)
+			require.ErrorIs(t, p.AckCRDProxyPort(t.Context(), "listener", port), ErrProxyNotConfigured)
 			_, _, err = p.GetProxyPort("listener")
 			require.ErrorIs(t, err, ErrProxyNotConfigured)
 			name, pp := p.FindByTypeWithReference(types.ProxyTypeCRD, "listener", false)
@@ -312,7 +312,7 @@ func TestCRDProxyPortRelease(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, port, reclaimed)
 				if tt.ack {
-					require.NoError(t, p.AckCRDProxyPort(t.Context(), "listener"))
+					require.NoError(t, p.AckCRDProxyPort(t.Context(), "listener", reclaimed))
 				}
 			}
 
@@ -441,13 +441,16 @@ func TestReallocateCRDProxyPort(t *testing.T) {
 	require.Nil(t, pp)
 
 	// Reallocation should allocate a new port
-	port2, err := p.ReallocateCRDProxyPort("listener1")
+	port2, err := p.ReallocateCRDProxyPort("listener1", port1)
 	require.NoError(t, err)
 	require.NotEqual(t, uint16(0), port2)
 	require.NotEqual(t, port1, port2, "ReallocateCRDProxyPort should allocate a new port")
+	require.ErrorIs(t, p.AckCRDProxyPort(t.Context(), "listener1", port1), ErrProxyNotConfigured)
+	_, err = p.ReallocateCRDProxyPort("listener1", port1)
+	require.ErrorIs(t, err, ErrProxyNotConfigured)
 
 	// Acknowledge the new port
-	err = p.AckCRDProxyPort(context.Background(), "listener1")
+	err = p.AckCRDProxyPort(context.Background(), "listener1", port2)
 	require.NoError(t, err)
 
 	// Verify the port was reset and new port allocated
@@ -478,7 +481,7 @@ func TestReallocateCRDProxyPort(t *testing.T) {
 	restored, err := p.AllocateCRDProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, port2, restored)
-	require.NoError(t, p.AckCRDProxyPort(t.Context(), "listener1"))
+	require.NoError(t, p.AckCRDProxyPort(t.Context(), "listener1", restored))
 	current, _, err := p.GetProxyPort("listener1")
 	require.NoError(t, err)
 	require.Equal(t, port2, current)
@@ -510,7 +513,7 @@ func TestProxyPortsPersistence(t *testing.T) {
 				// CRD ports have a separate allocation sequence.
 				port, err = p.AllocateCRDProxyPort(tt.name)
 				require.NoError(t, err)
-				require.NoError(t, p.AckCRDProxyPort(t.Context(), tt.name))
+				require.NoError(t, p.AckCRDProxyPort(t.Context(), tt.name, port))
 			default:
 				// Other types drive port allocation from redirect creation.
 				name, pp := p.FindByTypeWithReference(tt.proxyType, "", false)
@@ -523,10 +526,12 @@ func TestProxyPortsPersistence(t *testing.T) {
 			if tt.concurrent {
 				var wg sync.WaitGroup
 				wg.Go(func() {
+					currentPort := port
 					for range 100 {
-						_, err := p.ReallocateCRDProxyPort(tt.name)
+						nextPort, err := p.ReallocateCRDProxyPort(tt.name, currentPort)
 						require.NoError(t, err)
-						require.NoError(t, p.AckCRDProxyPort(t.Context(), tt.name))
+						currentPort = nextPort
+						require.NoError(t, p.AckCRDProxyPort(t.Context(), tt.name, currentPort))
 					}
 				})
 				for range 100 {
@@ -558,7 +563,7 @@ func TestProxyPortsPersistence(t *testing.T) {
 				actual, err := restored.AllocateCRDProxyPort(tt.name)
 				require.NoError(t, err)
 				require.Equal(t, port, actual)
-				require.NoError(t, restored.AckCRDProxyPort(t.Context(), tt.name))
+				require.NoError(t, restored.AckCRDProxyPort(t.Context(), tt.name, actual))
 			} else if tt.proxyType == types.ProxyTypeDNS {
 				actual, isStatic, err := restored.GetProxyPort(tt.name)
 				require.NoError(t, err)
