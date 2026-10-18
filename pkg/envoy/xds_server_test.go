@@ -2666,6 +2666,7 @@ func (m *recordingAckingResourceMutator) Delete(
 func (*recordingAckingResourceMutator) CancelCompletions(string) {}
 
 func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
+	rejection := &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "invalid listener"}
 	tests := []struct {
 		name              string
 		oldPorts          []uint32
@@ -2673,6 +2674,8 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 		operations        []string
 		upsertErrs        []error
 		wantCallbackCount uint64
+		extraListener     bool
+		wantErr           error
 	}{
 		{
 			name:       "unchanged addresses are updated in place",
@@ -2702,6 +2705,15 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 				Err: xds.ErrNackReceived, Detail: "cannot bind '0.0.0.0:80': Address already in use",
 			}},
 		},
+		{
+			name:          "partial listener success does not confirm ports",
+			oldPorts:      []uint32{80},
+			newPorts:      []uint32{8080},
+			extraListener: true,
+			upsertErrs:    []error{nil, rejection},
+			wantErr:       rejection,
+			operations:    []string{"delete listener", "upsert listener", "upsert listener2", "revert upsert listener", "revert upsert listener2"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -2722,11 +2734,22 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 				callbackCount.Add(1)
 				return nil
 			}
+			if tt.extraListener {
+				listener := testListenerWithPorts(8081)
+				listener.Name = "listener2"
+				newResources.Listeners[listener.Name] = listener
+				newResources.PortAllocationCallbacks[listener.Name] = newResources.PortAllocationCallbacks["listener"]
+			}
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			defer cancel()
-			require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, nil))
-			assert.Equal(t, tt.operations, mutator.operations)
+			require.ErrorIs(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, nil), tt.wantErr)
+			if tt.extraListener {
+				// Listener map iteration determines which of the two upserts fails.
+				assert.ElementsMatch(t, tt.operations, mutator.operations)
+			} else {
+				assert.Equal(t, tt.operations, mutator.operations)
+			}
 			assert.Equal(t, tt.wantCallbackCount, callbackCount.Load())
 		})
 	}
