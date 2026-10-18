@@ -180,7 +180,6 @@ func adsDefaultResources() xds.Resources {
 		},
 	}
 	return xds.Resources{
-		PortAllocationCallbacks: make(map[string]func(context.Context) error),
 		Listeners: map[string]*envoy_config_listener.Listener{
 			"listener1": {
 				Name: "listener1",

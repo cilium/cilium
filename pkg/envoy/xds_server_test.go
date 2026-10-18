@@ -7,7 +7,6 @@ import (
 	"context"
 	"iter"
 	"strconv"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2668,14 +2667,13 @@ func (*recordingAckingResourceMutator) CancelCompletions(string) {}
 func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 	rejection := &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "invalid listener"}
 	tests := []struct {
-		name              string
-		oldPorts          []uint32
-		newPorts          []uint32
-		operations        []string
-		upsertErrs        []error
-		wantCallbackCount uint64
-		extraListener     bool
-		wantErr           error
+		name          string
+		oldPorts      []uint32
+		newPorts      []uint32
+		operations    []string
+		upsertErrs    []error
+		extraListener bool
+		wantErr       error
 	}{
 		{
 			name:       "unchanged addresses are updated in place",
@@ -2684,11 +2682,10 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 			operations: []string{"upsert listener"},
 		},
 		{
-			name:              "changed primary port preserves delete before update",
-			oldPorts:          []uint32{80, 443},
-			newPorts:          []uint32{8080, 443},
-			operations:        []string{"delete listener", "upsert listener"},
-			wantCallbackCount: 1,
+			name:       "changed primary port preserves delete before update",
+			oldPorts:   []uint32{80, 443},
+			newPorts:   []uint32{8080, 443},
+			operations: []string{"delete listener", "upsert listener"},
 		},
 		{
 			name:       "changed additional address is deleted before update",
@@ -2706,7 +2703,7 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 			}},
 		},
 		{
-			name:          "partial listener success does not confirm ports",
+			name:          "partial listener success still reverts the whole update",
 			oldPorts:      []uint32{80},
 			newPorts:      []uint32{8080},
 			extraListener: true,
@@ -2729,16 +2726,10 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 			oldResources.Listeners["listener"] = testListenerWithPorts(tt.oldPorts...)
 			newResources := xds.NewResources()
 			newResources.Listeners["listener"] = testListenerWithPorts(tt.newPorts...)
-			var callbackCount atomic.Uint64
-			newResources.PortAllocationCallbacks["listener"] = func(context.Context) error {
-				callbackCount.Add(1)
-				return nil
-			}
 			if tt.extraListener {
 				listener := testListenerWithPorts(8081)
 				listener.Name = "listener2"
 				newResources.Listeners[listener.Name] = listener
-				newResources.PortAllocationCallbacks[listener.Name] = newResources.PortAllocationCallbacks["listener"]
 			}
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -2750,7 +2741,6 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 			} else {
 				assert.Equal(t, tt.operations, mutator.operations)
 			}
-			assert.Equal(t, tt.wantCallbackCount, callbackCount.Load())
 		})
 	}
 }
