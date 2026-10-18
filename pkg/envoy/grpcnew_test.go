@@ -180,8 +180,7 @@ func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
 			t.Cleanup(wg.Cancel)
 			// The bulk server API does not wait for EDS/RDS/SDS. Use the
 			// production cache API to observe ACK handling through real gRPC.
-			completed := make(chan error, 1)
-			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, "resource", test.initial, wg, func(err error) { completed <- err }))
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, "resource", test.initial, wg))
 			stream, err := client.StreamAggregatedResources(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
@@ -194,11 +193,7 @@ func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
 			marker, err := stream.Recv()
 			require.NoError(t, err)
 			require.Equal(t, ListenerTypeURL, marker.GetTypeUrl())
-			select {
-			case err := <-completed:
-				t.Fatalf("an empty subscription unexpectedly completed the update: %v", err)
-			default:
-			}
+			require.Equal(t, 1, server.cache.GetCompletionCallbacks().PendingCompletionCount(), "an empty subscription must not complete the update")
 
 			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{TypeUrl: test.typeURL.URL(), ResourceNames: []string{"resource"}}))
 			response, err := stream.Recv()
@@ -216,10 +211,9 @@ func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, ClusterTypeURL, marker.GetTypeUrl())
 			require.NoError(t, wg.Wait())
-			require.NoError(t, <-completed)
-			require.Empty(t, completed, "the ACK callback must run exactly once")
+			require.Zero(t, server.cache.GetCompletionCallbacks().PendingCompletionCount())
 
-			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, "resource", test.updated, nil, nil))
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, "resource", test.updated, nil))
 			require.NoError(t, stream.Send(&discovery.DiscoveryRequest{
 				TypeUrl: test.typeURL.URL(), ResourceNames: []string{"resource"}, VersionInfo: response.GetVersionInfo(),
 			}))
@@ -317,7 +311,7 @@ func TestADSRecognizesInitializedNodes(t *testing.T) {
 	logger := hivetest.Logger(t)
 	cache := xdsnew.NewCache(logger, xdsnew.WithNodeIDs(localNodeID, nodeID))
 	server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
-	require.NoError(t, cache.ApplyResource(t.Context(), nodeID, typeurl.Listener, "listener", &listener.Listener{Name: "listener"}, nil, nil))
+	require.NoError(t, cache.ApplyResource(t.Context(), nodeID, typeurl.Listener, "listener", &listener.Listener{Name: "listener"}, nil))
 	client := newTestADSClient(t, server)
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
