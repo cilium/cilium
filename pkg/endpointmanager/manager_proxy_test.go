@@ -149,6 +149,10 @@ func (p *recordingEndpointProxy) CreateOrUpdateRedirect(ctx context.Context, l4 
 
 func (p *recordingEndpointProxy) RemoveRedirect(id string) {}
 
+func (p *recordingEndpointProxy) AckRedirects(context.Context, map[string]uint16) error {
+	return nil
+}
+
 type recordingPolicyRevertible struct {
 	proxy      *recordingEndpointProxy
 	endpointID uint64

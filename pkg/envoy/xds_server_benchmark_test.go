@@ -805,6 +805,8 @@ func (*benchmarkEndpointProxy) CreateOrUpdateRedirect(context.Context, policy.Pr
 
 func (*benchmarkEndpointProxy) RemoveRedirect(string) {}
 
+func (*benchmarkEndpointProxy) AckRedirects(context.Context, map[string]uint16) error { return nil }
+
 func (*benchmarkEndpointProxy) UpdateSDP(map[identity.NumericIdentity]policy.SelectorPolicy) {}
 
 func (*benchmarkEndpointProxy) GetListenerProxyPort(string) uint16 { return benchmarkProxyPort }

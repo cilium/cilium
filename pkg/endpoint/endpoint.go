@@ -590,7 +590,7 @@ func (e *Endpoint) closeBPFProgramChannel() {
 
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held. The caller must Cancel the group on error.
-func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitGroup *completion.WaitGroup) error {
+func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitGroup *completion.WaitGroup, redirects map[string]uint16) error {
 	if proxyWaitGroup == nil {
 		return nil
 	}
@@ -611,6 +611,14 @@ func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitG
 		return fmt.Errorf("proxy state changes failed: %w", err)
 	}
 	e.getLogger().Debug("Wait time for proxy updates", logfields.Duration, time.Since(start))
+
+	// Install redirection rules before policy-map synchronization can expose the
+	// new ports. Keep acknowledged allocations even if a later build step fails.
+	if len(redirects) > 0 {
+		if err := e.proxy.AckRedirects(parentCtx, redirects); err != nil {
+			return fmt.Errorf("installing proxy redirection rules: %w", err)
+		}
+	}
 
 	return nil
 }

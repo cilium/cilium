@@ -430,6 +430,9 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		dir = datapathRegenCtxt.nextDir
 	}
 	datapathRegenCtxt.epInfoCache = e.createEpInfoCache(dir)
+	// The build mutex preserves these redirects through the post-Wait ACK,
+	// including restored redirects when this build did not recompute policy.
+	proxyRedirects := e.desiredPolicy.Redirects
 	e.unlock()
 
 	// No need to compile BPF in dry mode. Also, in lb-only mode we do not
@@ -458,7 +461,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		}
 
 		stats.proxyWaitForAck.Start()
-		err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup)
+		err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects)
 		stats.proxyWaitForAck.End(err == nil)
 		if err != nil {
 			return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
@@ -505,7 +508,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	stats.proxyWaitForAck.Start()
-	err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup)
+	err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects)
 	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
 		return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
