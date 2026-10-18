@@ -863,18 +863,7 @@ func (s *xdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Reso
 			logfields.ResourceName, r.Name,
 			logfields.Resource, r,
 		)
-		listenerName := r.Name
-		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg,
-			// this callback is not called if there is no change
-			func(err error) {
-				if err == nil && resources.PortAllocationCallbacks[listenerName] != nil {
-					if callbackErr := resources.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
-						s.logger.Warn("Failure in port allocation callback",
-							logfields.Error, callbackErr,
-						)
-					}
-				}
-			}))
+		revertFuncs = append(revertFuncs, s.upsertListener(r.Name, r, wg, nil))
 	}
 	if wg != nil {
 		start := time.Now()
@@ -912,12 +901,6 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 		found := false
 		for _, newListener := range new.Listeners {
 			if newListener.Name == oldListener.Name {
-				// Listener recreation and proxy-port allocation are independent:
-				// changing an additional address requires delete-and-recreate, but
-				// the unchanged primary port must retain its existing allocation.
-				if listenerPrimaryPortsEqual(oldListener, newListener) {
-					delete(new.PortAllocationCallbacks, newListener.Name)
-				}
 				if !listenerAddressesEqual(oldListener, newListener) {
 					s.logger.Debug("UpdateEnvoyResources: listener addresses changing",
 						logfields.Listener, newListener.Name)
@@ -1107,15 +1090,6 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 			logArgs...)
 
 		if err == nil {
-			// Confirm port ownership only after all listeners succeed, including
-			// empty waits during restoration. CEC releases its ports on deletion.
-			for name := range new.Listeners {
-				if callback := new.PortAllocationCallbacks[name]; callback != nil {
-					if callbackErr := callback(ctx); callbackErr != nil {
-						s.logger.Warn("Failure in port allocation callback", logfields.Error, callbackErr)
-					}
-				}
-			}
 			return nil
 		}
 

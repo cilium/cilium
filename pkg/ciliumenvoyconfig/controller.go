@@ -317,6 +317,7 @@ func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *state
 	new := &EnvoyResource{
 		Name:               resName,
 		Resources:          cec.Resources,
+		AllocatedListeners: cec.AllocatedListeners,
 		Redirects:          redirects,
 		ReferencedServices: part.NewSet(slices.Collect(maps.Keys(cec.ServicePorts))...),
 		Status:             reconciler.StatusPending(),
