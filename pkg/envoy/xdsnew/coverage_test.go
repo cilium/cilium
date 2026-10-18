@@ -55,7 +55,7 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 		} {
 			t.Run(api.name+"/"+outcome.name, func(t *testing.T) {
 				c := newCoverageCache(t)
-				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", api.index, "resource", api.value, nil, nil))
+				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", api.index, "resource", api.value, nil))
 				s := coverageStream{cache: c, id: 1, typeURL: api.index.URL()}
 				var response *discovery.DiscoveryResponse
 				if outcome.phase != "before-response" {
@@ -80,7 +80,7 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 					}
 					require.NoError(t, c.ApplyResources(ctx, "coverage-node", mutations, wg, waits))
 				} else {
-					require.NoError(t, c.ApplyResource(ctx, "coverage-node", api.index, "resource", candidate, wg, nil))
+					require.NoError(t, c.ApplyResource(ctx, "coverage-node", api.index, "resource", candidate, wg))
 				}
 				currentSnapshot, _ := c.GetSnapshot("coverage-node")
 				if published == nil {
@@ -112,11 +112,11 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 func TestNoOpUpdateAfterFailedNACKCompletesWithRejection(t *testing.T) {
 	c := newCoverageCache(t)
 	first := &cilium.NetworkPolicy{EndpointId: 1}
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", first, nil, nil))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", first, nil))
 	s := coverageStream{cache: c, id: 1, typeURL: typeurl.NetworkPolicy.URL()}
 	s.reply(t, s.receive(t), "")
 	rejected := &cilium.NetworkPolicy{EndpointId: 2}
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", rejected, nil, nil))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", rejected, nil))
 	response := s.receive(t)
 	published := mustSnapshot(t, c, "coverage-node")
 
@@ -147,11 +147,9 @@ func TestNoOpUpdateAfterFailedNACKCompletesWithRejection(t *testing.T) {
 	t.Cleanup(cancel)
 	wg := completion.NewWaitGroup(ctx)
 	t.Cleanup(wg.Cancel)
-	done := make(chan error, 1)
 	require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy",
-		proto.Clone(rejected), wg, func(err error) { done <- err }))
+		proto.Clone(rejected), wg))
 	require.ErrorContains(t, wg.Wait(), "invalid policy")
-	require.ErrorContains(t, <-done, "invalid policy")
 	require.Zero(t, c.completionCbs.PendingCompletionCount())
 	require.Same(t, published, mustSnapshot(t, c, "coverage-node"))
 }
@@ -170,9 +168,9 @@ func TestUntrackedUpdateResolvesEarlierWait(t *testing.T) {
 					t.Cleanup(cancel)
 					wg := completion.NewWaitGroup(ctx)
 					t.Cleanup(wg.Cancel)
-					done := make(chan error, 1)
 					require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy",
-						&cilium.NetworkPolicy{EndpointId: 1}, wg, func(err error) { done <- err }))
+						&cilium.NetworkPolicy{EndpointId: 1}, wg))
+					done := waitForCoverageCompletion(wg)
 					s := coverageStream{cache: c, id: 1, typeURL: typeurl.NetworkPolicy.URL()}
 					responses := make(chan cache.Response, 1)
 					if delivery == "open-watch" {
@@ -185,7 +183,7 @@ func TestUntrackedUpdateResolvesEarlierWait(t *testing.T) {
 						t.Cleanup(cancel)
 					}
 					latest := &cilium.NetworkPolicy{EndpointId: 2}
-					require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy", latest, nil, nil))
+					require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy", latest, nil))
 					requireCoveragePending(t, done)
 					var response *discovery.DiscoveryResponse
 					if delivery == "open-watch" {
@@ -204,10 +202,8 @@ func TestUntrackedUpdateResolvesEarlierWait(t *testing.T) {
 					require.True(t, proto.Equal(latest, &delivered))
 					s.reply(t, response, rejection)
 					if rejection == "" {
-						require.NoError(t, wg.Wait())
 						require.NoError(t, <-done)
 					} else {
-						require.ErrorContains(t, wg.Wait(), rejection)
 						require.ErrorContains(t, <-done, rejection)
 						require.Nil(t, c.GetResource("coverage-node", typeurl.NetworkPolicy, "policy"), "NACK must roll back the covered, unaccepted updates")
 					}
@@ -282,13 +278,13 @@ func TestBulkNoOpWaitUsesMatchingResourceRevision(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			c := newCoverageCache(t)
 			first := &listener.Listener{Name: "l1"}
-			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "l1", first, nil, nil))
+			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "l1", first, nil))
 			s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 			// The first response covers l1 and the absence of "missing".
 			// A later mutation must not change that response's generation.
 			response := s.receive(t, "l1", "missing")
 			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "l2",
-				&listener.Listener{Name: "l2"}, nil, nil))
+				&listener.Listener{Name: "l2"}, nil))
 			var mutations ResourceMutations
 			switch mode {
 			case "upsert", "remove-and-upsert":
@@ -424,21 +420,20 @@ func TestPartialResponseNoOpWaitsForItsOwnResource(t *testing.T) {
 	s := coverageStream{cache: c, id: 1}
 	response := s.receive(t, "a")
 	// Attach a semantic no-op after response delivery, but before the ACK.
-	noOp := make(chan error, 1)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "b", b, wg,
-		func(err error) { noOp <- err }))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "b", b, wg))
+	noOp := waitForCoverageCompletion(wg)
 	s.reply(t, response, "", "a")
 	require.NoError(t, <-aDone)
 	requireCoveragePending(t, bDone)
 	requireCoveragePending(t, noOp)
 	// A is already accepted; its no-op must not wait for B's later response,
 	// nor complete B's existing wait as a side effect.
-	accepted := make(chan error, 1)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", a, wg,
-		func(err error) { accepted <- err }))
-	require.NoError(t, <-accepted)
+	acceptedWG := completion.NewWaitGroup(t.Context())
+	t.Cleanup(acceptedWG.Cancel)
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", a, acceptedWG))
+	require.NoError(t, acceptedWG.Wait())
 	requireCoveragePending(t, bDone)
 	requireCoveragePending(t, noOp)
 	response = s.receive(t, "a", "b")
@@ -454,11 +449,11 @@ func TestNoOpWaitAfterClearSnapshot(t *testing.T) {
 				t.Run(fmt.Sprintf("bulk=%t/existing=%t/nack=%t", bulk, existing, rejection != ""), func(t *testing.T) {
 					c := newCoverageCache(t)
 					policy := &cilium.NetworkPolicy{EndpointId: 1}
-					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil, nil))
+					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil))
 					var resource *listener.Listener
 					if existing {
 						resource = &listener.Listener{Name: "listener"}
-						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil, nil))
+						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil))
 					}
 					c.ClearSnapshot("coverage-node")
 					ctx, cancel := context.WithTimeout(t.Context(), time.Second)
@@ -472,7 +467,7 @@ func TestNoOpWaitAfterClearSnapshot(t *testing.T) {
 							Listeners: map[string]*listener.Listener{"listener": resource},
 						}}, wg, waits))
 					} else {
-						require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "listener", resource, wg, nil))
+						require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "listener", resource, wg))
 					}
 					require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
 					_, err := c.GetSnapshot("coverage-node")
@@ -526,16 +521,14 @@ func TestInitialBulkMutationCanAwaitUnchangedType(t *testing.T) {
 func TestNoOpWaitAfterClearUsesAcceptedVersion(t *testing.T) {
 	c := newCoverageCache(t)
 	resource := &listener.Listener{Name: "listener"}
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil, nil))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil))
 	s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 	s.reply(t, s.receive(t), "")
 	c.ClearSnapshot("coverage-node")
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	done := make(chan error, 1)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, wg,
-		func(err error) { done <- err }))
-	requireCoveragePending(t, done)
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, wg))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
 	// Reinstalling already ACKed contents can satisfy the wait immediately.
 	// No OnStreamResponse call should be required to run that completion.
 	responses := make(chan cache.Response, 1)
@@ -544,12 +537,7 @@ func TestNoOpWaitAfterClearUsesAcceptedVersion(t *testing.T) {
 	}, stream.NewSotwSubscription(nil, true), responses)
 	require.NoError(t, err)
 	t.Cleanup(cancel)
-	select {
-	case err := <-done:
-		require.NoError(t, err)
-	default:
-		t.Fatal("initial publication did not complete the wait for already ACKed contents")
-	}
+	require.Zero(t, c.completionCbs.PendingCompletionCount(), "initial publication must complete the wait for already ACKed contents")
 	require.NoError(t, wg.Wait())
 }
 
@@ -581,24 +569,18 @@ func TestFailedPublicationPreservesPartialACKForNoOp(t *testing.T) {
 	}, stream.NewSotwSubscription([]string{"a"}, false), make(chan cache.Response, 1))
 	require.NoError(t, err)
 	t.Cleanup(cancelWatch)
-	err = c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", nil, nil, nil)
+	err = c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", nil, nil)
 	restore()
 	require.ErrorIs(t, err, publicationErr)
 	current := c.GetResource("coverage-node", typeurl.Endpoint, "a")
 	require.NotNil(t, current)
 	require.Same(t, a, current)
 
-	done := make(chan error, 1)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", a, wg,
-		func(err error) { done <- err }))
-	select {
-	case err := <-done:
-		require.NoError(t, err)
-	default:
-		t.Fatal("an already-ACKed resource must complete without another response after failed publication")
-	}
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", a, wg))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount(), "only B may still be waiting after failed publication")
+	require.NoError(t, wg.Wait())
 	requireCoveragePending(t, bDone)
 	response = s.receive(t, "b")
 	s.reply(t, response, "", "b")
@@ -611,12 +593,12 @@ func TestNoOpRemovalDoesNotWaitForUnrelatedListenerACK(t *testing.T) {
 			c := newCoverageCache(t)
 			for _, name := range []string{"a", "b"} {
 				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, name,
-					&listener.Listener{Name: name}, nil, nil))
+					&listener.Listener{Name: name}, nil))
 			}
 			s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 			response := s.receive(t)
 			s.reply(t, response, "")
-			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", nil, nil, nil))
+			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", nil, nil))
 			response = s.receive(t)
 			s.reply(t, response, "")
 
@@ -625,19 +607,18 @@ func TestNoOpRemovalDoesNotWaitForUnrelatedListenerACK(t *testing.T) {
 			// a typed nil upsert has the same removal semantics as an explicit delete.
 			wg := completion.NewWaitGroup(t.Context())
 			t.Cleanup(wg.Cancel)
-			bDone := make(chan error, 1)
 			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "b",
-				&listener.Listener{Name: "b", TrafficDirection: core.TrafficDirection_OUTBOUND}, wg,
-				func(err error) { bDone <- err }))
+				&listener.Listener{Name: "b", TrafficDirection: core.TrafficDirection_OUTBOUND}, wg))
+			bDone := waitForCoverageCompletion(wg)
 			response = s.receive(t)
 			requireCoveragePending(t, bDone)
 
 			removalWG := completion.NewWaitGroup(t.Context())
 			t.Cleanup(removalWG.Cancel)
 			if mode == "single" {
-				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", nil, removalWG, nil))
+				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", nil, removalWG))
 			} else if mode == "single-typed-nil" {
-				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", (*listener.Listener)(nil), removalWG, nil))
+				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", (*listener.Listener)(nil), removalWG))
 			} else {
 				mutations := ResourceMutations{}
 				if mode == "bulk-removal" {
@@ -654,7 +635,6 @@ func TestNoOpRemovalDoesNotWaitForUnrelatedListenerACK(t *testing.T) {
 			requireCoveragePending(t, bDone)
 			s.reply(t, response, "")
 			require.NoError(t, <-bDone)
-			require.NoError(t, wg.Wait())
 		})
 	}
 }
@@ -668,7 +648,7 @@ func TestRepeatedRemovalWaitsForPendingOutcome(t *testing.T) {
 					original := &listener.Listener{Name: "a"}
 					other := &listener.Listener{Name: "b"}
 					for _, resource := range []*listener.Listener{original, other} {
-						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil, nil))
+						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil))
 					}
 					s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 					s.reply(t, s.receive(t), "")
@@ -678,9 +658,9 @@ func TestRepeatedRemovalWaitsForPendingOutcome(t *testing.T) {
 					remove := func(wg *completion.WaitGroup) error {
 						switch mode {
 						case "single-nil":
-							return c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "a", nil, wg, nil)
+							return c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "a", nil, wg)
 						case "single-typed-nil":
-							return c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "a", (*listener.Listener)(nil), wg, nil)
+							return c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "a", (*listener.Listener)(nil), wg)
 						default:
 							var mutations ResourceMutations
 							if mode == "bulk-removal" {
@@ -755,7 +735,7 @@ func TestBulkMixedChangesWaitForEachResourceOutcome(t *testing.T) {
 			first.reply(t, baseline, "", "a", "b")
 			changedA := proto.Clone(originalA).(*endpoint.ClusterLoadAssignment)
 			changedA.Policy = &endpoint.ClusterLoadAssignment_Policy{OverprovisioningFactor: wrapperspb.UInt32(140)}
-			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", changedA, nil, nil))
+			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", changedA, nil))
 			olderResponse := first.receive(t, "a")
 			if outcome == "ack-unchanged-already-accepted" {
 				first.reply(t, olderResponse, "", "a")
@@ -836,11 +816,10 @@ func TestPartialResponseVersionOnlyReconnectDoesNotAcceptUnsentName(t *testing.T
 	require.False(t, c.completionCbs.ResourceAccepted("coverage-node", typeurl.Endpoint, "b", b, true, callbacks.Revision{}))
 	// Nor may that unverified version short-circuit a newly registered no-op
 	// wait through the type-level accepted-version fallback.
-	noOp := make(chan error, 1)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "b", b, wg,
-		func(err error) { noOp <- err }))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "b", b, wg))
+	noOp := waitForCoverageCompletion(wg)
 	requireCoveragePending(t, noOp)
 	second := coverageStream{cache: c, id: 2, version: response.VersionInfo}
 	response = second.receive(t, "b")
@@ -851,13 +830,13 @@ func TestPartialResponseVersionOnlyReconnectDoesNotAcceptUnsentName(t *testing.T
 
 func TestPartialLDSReconnectWithWildcardDoesNotAcceptUnsentName(t *testing.T) {
 	c := newCoverageCache(t)
-	wg := completion.NewWaitGroup(t.Context())
-	t.Cleanup(wg.Cancel)
-	aDone, bDone := make(chan error, 1), make(chan error, 1)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", &listener.Listener{Name: "a"}, wg,
-		func(err error) { aDone <- err }))
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "b", &listener.Listener{Name: "b"}, wg,
-		func(err error) { bDone <- err }))
+	aWG := completion.NewWaitGroup(t.Context())
+	t.Cleanup(aWG.Cancel)
+	bWG := completion.NewWaitGroup(t.Context())
+	t.Cleanup(bWG.Cancel)
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", &listener.Listener{Name: "a"}, aWG))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "b", &listener.Listener{Name: "b"}, bWG))
+	aDone, bDone := waitForCoverageCompletion(aWG), waitForCoverageCompletion(bWG)
 	s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 	response := s.receive(t, "a")
 	s.reply(t, response, "", "a")
@@ -883,11 +862,10 @@ func TestDelayedPartialACKDoesNotAcceptNewerSameName(t *testing.T) {
 	s := coverageStream{cache: c, id: 1}
 	response := s.receive(t, "a")
 	updated := &endpoint.ClusterLoadAssignment{ClusterName: "a", Policy: &endpoint.ClusterLoadAssignment_Policy{}}
-	done := make(chan error, 1)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", updated, wg,
-		func(err error) { done <- err }))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", updated, wg))
+	done := waitForCoverageCompletion(wg)
 	s.reply(t, response, "", "a")
 	require.NoError(t, <-oldDone)
 	requireCoveragePending(t, done)
@@ -903,11 +881,11 @@ func TestDelayedPartialACKDoesNotAcceptNewerSameName(t *testing.T) {
 func TestCallerRevertKeepsUnrelatedResourceAccepted(t *testing.T) {
 	c := newCoverageCache(t)
 	unchanged := &listener.Listener{Name: "unchanged"}
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, unchanged.Name, unchanged, nil, nil))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, unchanged.Name, unchanged, nil))
 	s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 	response := s.receive(t, unchanged.Name)
 	s.reply(t, response, "", unchanged.Name)
-	rollback, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", typeurl.Listener, "reverted", &listener.Listener{Name: "reverted"}, nil, nil)
+	rollback, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", typeurl.Listener, "reverted", &listener.Listener{Name: "reverted"}, nil)
 	require.NoError(t, err)
 	require.NoError(t, rollback.Revert())
 
@@ -915,10 +893,8 @@ func TestCallerRevertKeepsUnrelatedResourceAccepted(t *testing.T) {
 	// a resource whose desired entry was not restored by this rollback.
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	done := make(chan error, 1)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, unchanged.Name, proto.Clone(unchanged), wg, func(err error) { done <- err }))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, unchanged.Name, proto.Clone(unchanged), wg))
 	require.NoError(t, wg.Wait())
-	require.NoError(t, <-done)
 }
 
 func TestPartialNACKKeepsUnrequestedCoalescedNames(t *testing.T) {
@@ -933,16 +909,13 @@ func TestPartialNACKKeepsUnrequestedCoalescedNames(t *testing.T) {
 		}},
 	}, wg, waits))
 	_, unrelatedDone := upsertCoverageEndpoint(t, c, "unrelated")
-	latestDone := make(chan error, 1)
 	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a",
-		&endpoint.ClusterLoadAssignment{ClusterName: "a", Policy: &endpoint.ClusterLoadAssignment_Policy{}}, wg,
-		func(err error) { latestDone <- err }))
+		&endpoint.ClusterLoadAssignment{ClusterName: "a", Policy: &endpoint.ClusterLoadAssignment_Policy{}}, wg))
 	s := coverageStream{cache: c, id: 1}
 	response := s.receive(t, "a")
 	s.reply(t, response, "invalid a", "a")
 	require.Equal(t, 1, c.completionCbs.PendingCompletionCount(), "only the unrelated resource's wait remains")
 	require.ErrorContains(t, wg.Wait(), "invalid a")
-	require.ErrorContains(t, <-latestDone, "invalid a")
 	require.Nil(t, c.GetResource("coverage-node", typeurl.Endpoint, "a"))
 	require.NotNil(t, c.GetResource("coverage-node", typeurl.Endpoint, "b"))
 	requireCoveragePending(t, unrelatedDone)
@@ -986,8 +959,10 @@ func TestPartialNACKPreservesNewerUnrequestedTransactionSibling(t *testing.T) {
 		}},
 	}, wg, waits))
 	newer := &endpoint.ClusterLoadAssignment{ClusterName: "a", Policy: &endpoint.ClusterLoadAssignment_Policy{}}
-	aDone := make(chan error, 1)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", newer, wg, func(err error) { aDone <- err }))
+	aWG := completion.NewWaitGroup(t.Context())
+	t.Cleanup(aWG.Cancel)
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, "a", newer, aWG))
+	aDone := waitForCoverageCompletion(aWG)
 	s := coverageStream{cache: c, id: 1}
 	response := s.receive(t, "b")
 	s.reply(t, response, "invalid b", "b")
@@ -1003,7 +978,7 @@ func TestPartialNACKPreservesNewerUnrequestedTransactionSibling(t *testing.T) {
 
 func TestNamedFullPositiveResponseDoesNotAcceptUnrequestedRemoval(t *testing.T) {
 	c := newCoverageCache(t)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", &listener.Listener{Name: "a"}, nil, nil))
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", &listener.Listener{Name: "a"}, nil))
 	s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 	response := s.receive(t, "a")
 	s.reply(t, response, "", "a")
@@ -1081,7 +1056,7 @@ func TestNoOpAfterCallerRevertWaitsForCorrectiveACK(t *testing.T) {
 				if !delivery.absent {
 					names = []string{name}
 					a = &listener.Listener{Name: name, PerConnectionBufferLimitBytes: wrapperspb.UInt32(1)}
-					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, name, a, nil, nil))
+					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, name, a, nil))
 				}
 				b := &listener.Listener{Name: name, PerConnectionBufferLimitBytes: wrapperspb.UInt32(2)}
 				first := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
@@ -1090,7 +1065,7 @@ func TestNoOpAfterCallerRevertWaitsForCorrectiveACK(t *testing.T) {
 				if delivery.name != "one-stream" && !delivery.absent {
 					original = first.receive(t, names...)
 				}
-				rollback, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", typeurl.Listener, name, b, nil, nil)
+				rollback, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", typeurl.Listener, name, b, nil)
 				require.NoError(t, err)
 				rejected := &first
 				if original != nil {
@@ -1131,7 +1106,7 @@ func TestNoOpAfterCallerRevertWaitsForCorrectiveACK(t *testing.T) {
 					candidate = proto.Clone(a)
 				}
 				if api == "single" {
-					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, name, candidate, wg, nil))
+					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, name, candidate, wg))
 				} else {
 					var waits typeurl.Set
 					waits.Insert(typeurl.Listener)
@@ -1186,7 +1161,7 @@ func TestSotWRemovalOutcomes(t *testing.T) {
 			}
 			t.Run(resource.index.URL()+"/"+outcome, func(t *testing.T) {
 				c := newCoverageCache(t)
-				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", resource.index, "a", resource.resource, nil, nil))
+				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", resource.index, "a", resource.resource, nil))
 				s := coverageStream{cache: c, id: 1, typeURL: resource.index.URL()}
 				// The ACK cases use named requests. NACK cases also exercise
 				// wildcard EDS/RDS; SDS requires an explicit name.
@@ -1196,11 +1171,9 @@ func TestSotWRemovalOutcomes(t *testing.T) {
 				}
 				response := s.receive(t, names...)
 				s.reply(t, response, "", names...)
-				done := make(chan error, 2)
 				wg := completion.NewWaitGroup(t.Context())
 				t.Cleanup(wg.Cancel)
-				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", resource.index, "a", nil, wg,
-					func(err error) { done <- err }))
+				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", resource.index, "a", nil, wg))
 				response = s.receive(t, names...)
 				require.Empty(t, response.Resources)
 				rejection := ""
@@ -1209,11 +1182,11 @@ func TestSotWRemovalOutcomes(t *testing.T) {
 				}
 				s.reply(t, response, rejection, names...)
 				if omissionDeletes {
-					require.NoError(t, <-done)
+					require.NoError(t, wg.Wait())
 				} else {
 					// EDS/RDS/SDS omission establishes neither acceptance nor
 					// rejection of the caller's removal.
-					requireCoveragePending(t, done)
+					require.Positive(t, c.completionCbs.PendingCompletionCount())
 				}
 				require.Equal(t, omissionDeletes,
 					c.completionCbs.ResourceAccepted("coverage-node", resource.index, "a", nil, false, callbacks.Revision{}))
@@ -1222,9 +1195,8 @@ func TestSotWRemovalOutcomes(t *testing.T) {
 				if rejection != "" {
 					// The empty response's NACK must not reject a later no-op
 					// removal via a whole-version rejection shortcut either.
-					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", resource.index, "a", nil, wg,
-						func(err error) { done <- err }))
-					requireCoveragePending(t, done)
+					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", resource.index, "a", nil, wg))
+					require.Positive(t, c.completionCbs.PendingCompletionCount())
 				}
 			})
 		}

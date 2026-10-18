@@ -323,7 +323,7 @@ type blockingNetworkPolicyADSCache struct {
 	continueUpsert chan struct{}
 }
 
-func (c *blockingNetworkPolicyADSCache) ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup, callback func(error)) (xdsnew.Rollback, error) {
+func (c *blockingNetworkPolicyADSCache) ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) (xdsnew.Rollback, error) {
 	if typeURL == typeurl.NetworkPolicy && resource != nil {
 		close(c.upsertStarted)
 		select {
@@ -332,5 +332,5 @@ func (c *blockingNetworkPolicyADSCache) ApplyResourceWithRollback(ctx context.Co
 			return nil, ctx.Err()
 		}
 	}
-	return c.Cache.ApplyResourceWithRollback(ctx, nodeID, typeURL, name, resource, wg, callback)
+	return c.Cache.ApplyResourceWithRollback(ctx, nodeID, typeURL, name, resource, wg)
 }

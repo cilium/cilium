@@ -102,12 +102,12 @@ func TestFailedCallerRevertReleasesRemovalTombstone(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(cancel)
 			route := &envoy_config_route.RouteConfiguration{Name: "removed"}
-			require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Route, route.Name, route, nil, nil))
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Route, route.Name, route, nil))
 			acceptPublishedSnapshotVersions(t, c, 1, &envoy_config_core.Node{Id: nodeID}, mustSnapshot(t, c, nodeID))
 
 			var rollback Rollback
 			if api == "ApplyResourceWithRollback" {
-				rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Route, route.Name, nil, nil, nil)
+				rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Route, route.Name, nil, nil)
 			} else {
 				rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID,
 					ResourceMutations{Removed: xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{route.Name: nil}}},
@@ -155,7 +155,7 @@ func TestCallerRevertAfterCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	t.Cleanup(cancel)
 	rollback, err := c.ApplyResourceWithRollback(ctx, nodeID, typeurl.NetworkPolicy, "policy",
-		&cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
+		&cilium.NetworkPolicy{EndpointId: 1}, nil)
 	require.NoError(t, err)
 	cancel()
 
@@ -181,13 +181,13 @@ func TestNetworkPolicyWaitCompletesWhenLastListenerIsReverted(t *testing.T) {
 	defer cancel()
 
 	listenerRollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.Listener, "npds-listener",
-		&envoy_config_listener.Listener{Name: "npds-listener"}, nil, nil)
+		&envoy_config_listener.Listener{Name: "npds-listener"}, nil)
 
 	require.NoError(t, err)
 	wg := completion.NewWaitGroup(ctx)
 	defer wg.Cancel()
 	err = c.ApplyResource(ctx, "node1", typeurl.NetworkPolicy, "policy",
-		&cilium.NetworkPolicy{EndpointId: 1}, wg, nil)
+		&cilium.NetworkPolicy{EndpointId: 1}, wg)
 
 	require.NoError(t, err)
 	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
@@ -211,7 +211,7 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 		name := strconv.FormatUint(id, 10)
 		rollback, err := c.ApplyResourceWithRollback(
 			ctx, "node1", typeurl.NetworkPolicy,
-			name, &cilium.NetworkPolicy{EndpointId: id}, nil, nil)
+			name, &cilium.NetworkPolicy{EndpointId: id}, nil)
 
 		require.NoError(t, err)
 		require.NotNil(t, rollback)
@@ -263,14 +263,14 @@ func TestResourceUpdateRevertibleIsNoOpAfterFirstCall(t *testing.T) {
 	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
 	initialRollback, err := c.ApplyResourceWithRollback(
 		t.Context(), "node1", typeurl.NetworkPolicy,
-		"policy", &cilium.NetworkPolicy{EndpointId: 1}, nil, nil)
+		"policy", &cilium.NetworkPolicy{EndpointId: 1}, nil)
 
 	require.NoError(t, err)
 	initialRollback.Finalize()
 
 	rollback, err := c.ApplyResourceWithRollback(
 		t.Context(), "node1", typeurl.NetworkPolicy,
-		"policy", &cilium.NetworkPolicy{EndpointId: 2}, nil, nil)
+		"policy", &cilium.NetworkPolicy{EndpointId: 2}, nil)
 
 	require.NoError(t, err)
 	rollback.Finalize()
@@ -286,13 +286,13 @@ func TestApplyResourcesOwnsGlobalGenerationAndPerNodeReverts(t *testing.T) {
 	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node-a", "node-b"))
 	apply := func(nodeID string, endpointID uint64) Rollback {
 		t.Helper()
-		rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: endpointID}, nil, nil)
+		rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: endpointID}, nil)
 		require.NoError(t, err)
 		return rollback
 	}
 	applyPlain := func(nodeID string, endpointID uint64) {
 		t.Helper()
-		err := c.ApplyResource(t.Context(), nodeID, typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: endpointID}, nil, nil)
+		err := c.ApplyResource(t.Context(), nodeID, typeurl.NetworkPolicy, "policy", &cilium.NetworkPolicy{EndpointId: endpointID}, nil)
 		require.NoError(t, err)
 	}
 
@@ -488,7 +488,7 @@ func TestResourceRevisionAdvancesWhileRevertRestoresTransaction(t *testing.T) {
 				var rollback Rollback
 				var err error
 				if api == "single" {
-					rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Listener, name, value, nil, nil)
+					rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Listener, name, value, nil)
 				} else {
 					mutations := ResourceMutations{Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{name: value}}}
 					rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID, mutations, nil, typeurl.Set{})
@@ -553,7 +553,7 @@ func TestCallerRevertRestoresPreviouslyAbsentResources(t *testing.T) {
 			var rollback Rollback
 			var err error
 			if mode == "single" {
-				rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Cluster, cluster.Name, cluster, nil, nil)
+				rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Cluster, cluster.Name, cluster, nil)
 			} else {
 				typeURLs.Insert(typeurl.Secret)
 				rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
@@ -621,7 +621,7 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 			for id := range test.resources {
 				name := strconv.Itoa(id)
 				rollback, err := c.ApplyResourceWithRollback(ctx, nodeID, typeurl.NetworkPolicy,
-					name, &cilium.NetworkPolicy{EndpointId: uint64(id)}, nil, nil)
+					name, &cilium.NetworkPolicy{EndpointId: uint64(id)}, nil)
 				require.NoError(t, err)
 				rollback.Finalize()
 			}
@@ -644,7 +644,7 @@ func TestAcceptedRemovalsReleaseTombstones(t *testing.T) {
 			}
 			for id := range test.resources {
 				name := strconv.Itoa(id)
-				rollback, err := c.ApplyResourceWithRollback(ctx, nodeID, typeurl.NetworkPolicy, name, nil, wg, nil)
+				rollback, err := c.ApplyResourceWithRollback(ctx, nodeID, typeurl.NetworkPolicy, name, nil, wg)
 				require.NoError(t, err)
 				rollback.Finalize()
 				require.Nil(t, c.getNodeState(nodeID).resources[typeurl.NetworkPolicy][name].resource)
@@ -708,7 +708,7 @@ func TestRollbackSurvivesCallerAndResponseResolution(t *testing.T) {
 				const nodeID = "coverage-node"
 				ctx, cancelContext := context.WithTimeout(t.Context(), time.Second)
 				t.Cleanup(cancelContext)
-				caller, err := c.ApplyResourceWithRollback(ctx, nodeID, api.typeURL, "resource", api.original, nil, nil)
+				caller, err := c.ApplyResourceWithRollback(ctx, nodeID, api.typeURL, "resource", api.original, nil)
 				require.NoError(t, err)
 				caller.Finalize()
 				s := coverageStream{cache: c, id: 1, typeURL: api.typeURL.URL()}
@@ -739,7 +739,7 @@ func TestRollbackSurvivesCallerAndResponseResolution(t *testing.T) {
 					}
 					caller, err = c.ApplyResourcesWithRollback(ctx, nodeID, mutations, wg, waits)
 				} else {
-					caller, err = c.ApplyResourceWithRollback(ctx, nodeID, api.typeURL, "resource", next, wg, nil)
+					caller, err = c.ApplyResourceWithRollback(ctx, nodeID, api.typeURL, "resource", next, wg)
 				}
 				require.NoError(t, err)
 				require.NotNil(t, caller)
