@@ -2630,7 +2630,6 @@ func (m *recordingAckingResourceMutator) Upsert(
 	_ proto.Message,
 	_ []string,
 	wg *completion.WaitGroup,
-	callback func(error),
 ) xds.AckingResourceMutatorRevertFunc {
 	m.operations = append(m.operations, "upsert "+resourceName)
 	var err error
@@ -2639,13 +2638,13 @@ func (m *recordingAckingResourceMutator) Upsert(
 	}
 	m.upserts++
 	if wg != nil {
-		wg.AddCompletionWithCallback(nil, callback).Complete(err)
+		wg.AddCompletion(nil).Complete(err)
 	}
 	return func() { m.operations = append(m.operations, "revert upsert "+resourceName) }
 }
 
 func (m *recordingAckingResourceMutator) UpsertWithNACKRemoval(typeURL, name string, resource proto.Message, nodes []string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
-	return m.Upsert(typeURL, name, resource, nodes, wg, nil)
+	return m.Upsert(typeURL, name, resource, nodes, wg)
 }
 
 func (m *recordingAckingResourceMutator) Delete(
@@ -2653,11 +2652,10 @@ func (m *recordingAckingResourceMutator) Delete(
 	resourceName string,
 	_ []string,
 	wg *completion.WaitGroup,
-	callback func(error),
 ) xds.AckingResourceMutatorRevertFunc {
 	m.operations = append(m.operations, "delete "+resourceName)
 	if wg != nil {
-		wg.AddCompletionWithCallback(nil, callback).Complete(nil)
+		wg.AddCompletion(nil).Complete(nil)
 	}
 	return func() {}
 }
