@@ -217,7 +217,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	if option.Config.EnableEncryptionStrictModeEgress {
 		cfg.StrictEgressEncryption = types.StrictEncryptionCfg{
 			Enabled:          option.Config.EnableEncryptionStrictModeEgress,
-			IPv4Net:          types.V4Addr{Addr: option.Config.EncryptionStrictEgressCIDR.Addr().As4()},
+			IPv4Net:          types.V4Addr{Addr: option.Config.EncryptionStrictEgressCIDR.Masked().Addr().As4()},
 			IPv4EncryptIface: types.V4Addr{Addr: lnc.NodeIPv4.As4()},
 			IPv4NetSize:      uint8(option.Config.EncryptionStrictEgressCIDR.Bits()),
 			AllowRemoteNodes: option.Config.EncryptionStrictEgressAllowRemoteNodeIdentities,
