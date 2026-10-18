@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/netip"
 	"os"
 	"testing"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -143,12 +145,17 @@ func (p *recordingAckRedirectProxy) AckRedirects(_ context.Context, redirects ma
 }
 
 func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
+	f := newPolicyTestFixture(t)
+	selectorPolicy := computeSelectorPolicy(t, f, "proxy-wait")
 	nackErr := errors.New("proxy rejected update")
 	rulesErr := errors.New("installing proxy rules failed")
 	tests := []struct {
 		name       string
 		cancel     bool
 		reject     bool
+		noWait     bool
+		noPolicy   bool
+		accepted   uint64
 		rulesError error
 		err        error
 	}{
@@ -156,16 +163,48 @@ func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
 		{name: "nack", reject: true, err: nackErr},
 		{name: "parent-canceled", cancel: true, reject: true, err: context.Canceled},
 		{name: "rules-error", rulesError: rulesErr, err: rulesErr},
+		{name: "no-wait", noWait: true},
+		{name: "no-policy", noPolicy: true},
+		{name: "newer-policy-already-accepted", accepted: 100},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := &recordingAckRedirectProxy{err: tt.rulesError}
-			ep := &Endpoint{proxy: proxy}
+			ep := &Endpoint{
+				proxy:               proxy,
+				IPv4:                netip.MustParseAddr("10.0.0.1"),
+				isIngress:           true,
+				status:              NewEndpointStatus(),
+				proxyPolicyRevision: tt.accepted,
+			}
 			ep.logger.Store(hivetest.Logger(t))
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			wg := completion.NewWaitGroup(ctx)
 			defer wg.Cancel()
+			var submittedRevision uint64
+			if !tt.noPolicy {
+				submitted := selectorPolicy.DistillPolicy(ep.getLogger(), ep, nil)
+				ep.desiredPolicy = submitted
+				t.Cleanup(func() {
+					submitted.Ready()
+					submitted.Detach(ep.getLogger())
+				})
+				err, rollback, revision := ep.ApplyPolicyMapChanges(wg)
+				require.NoError(t, err)
+				if rollback != nil {
+					rollback.Finalize()
+				}
+				submittedRevision = revision
+				require.Equal(t, submitted.SelectorPolicy.L4Policy.Revision, revision)
+				require.NotZero(t, revision)
+
+				// A newer desired policy must not be reported as accepted by
+				// the wait for the previously submitted policy.
+				ep.desiredPolicy = policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+				ep.desiredPolicy.SelectorPolicy.L4Policy.Revision = revision + 1
+				ep.desiredPolicyRevision = revision + 2
+			}
 			var callbackErr error
 			pending := wg.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
 			result := wg.AddCompletionWithCallback(nil, nil)
@@ -180,7 +219,16 @@ func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
 			}
 
 			redirects := map[string]uint16{"redirect": 12345}
-			require.ErrorIs(t, ep.waitForProxyCompletions(ctx, wg, redirects), tt.err)
+			waitGroup := wg
+			if tt.noWait {
+				waitGroup = nil
+			}
+			require.ErrorIs(t, ep.waitForProxyCompletions(ctx, waitGroup, redirects, submittedRevision), tt.err)
+			expectedRevision := tt.accepted
+			if !tt.reject && !tt.noWait {
+				expectedRevision = max(expectedRevision, submittedRevision)
+			}
+			require.Equal(t, expectedRevision, ep.proxyPolicyRevision)
 			if tt.cancel {
 				// Regeneration drains an early return before reverting resources.
 				wg.Cancel()
@@ -188,7 +236,7 @@ func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
 			if tt.reject {
 				require.ErrorIs(t, callbackErr, context.Canceled)
 				require.Nil(t, proxy.redirects, "a failed wait must not acknowledge proxy ports")
-			} else {
+			} else if !tt.noWait {
 				require.NoError(t, callbackErr)
 				require.Equal(t, redirects, proxy.redirects)
 			}

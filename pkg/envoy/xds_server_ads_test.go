@@ -750,9 +750,6 @@ func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, revertible)
 	revertible.Finalize()
-	require.Eventually(t, func() bool {
-		return mockEp.proxyPolicyUpdateCount.Load() == 1
-	}, time.Second, 10*time.Millisecond)
 
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
@@ -760,17 +757,14 @@ func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, revertible)
 
-	require.Equal(t, uint64(1), mockEp.proxyPolicyUpdateCount.Load())
+	done := waitForADSCompletion(t, wg)
+	requireADSCompletionPending(t, done)
 
 	// Opening the first NPDS watch publishes the accumulated policy changes. The
 	// no-op update above must remain pending until Envoy ACKs that snapshot.
 	seededVersion := ackADSResourceVersionFrom(t, cache, 1, NetworkPolicyTypeURL, "")
 	require.NotEmpty(t, seededVersion)
-	require.NoError(t, wg.Wait())
-
-	require.Eventually(t, func() bool {
-		return mockEp.proxyPolicyUpdateCount.Load() == 2
-	}, time.Second, 10*time.Millisecond)
+	require.NoError(t, <-done)
 }
 
 func TestUpdateNetworkPolicyWaitCompletesWithoutNPDSListeners(t *testing.T) {
@@ -798,7 +792,6 @@ func TestUpdateNetworkPolicyWaitCompletesWithoutNPDSListeners(t *testing.T) {
 			done := waitForADSCompletion(t, wg)
 			if action != "never-added" {
 				requireADSCompletionPending(t, done)
-				require.Zero(t, ep.proxyPolicyUpdateCount.Load())
 			}
 			switch action {
 			case "bulk-delete":
@@ -811,7 +804,6 @@ func TestUpdateNetworkPolicyWaitCompletesWithoutNPDSListeners(t *testing.T) {
 				nackADSResourceVersion(t, cache, 1, ListenerTypeURL, "", "rejected NPDS listener")
 			}
 			require.NoError(t, <-done)
-			require.Eventually(t, func() bool { return ep.proxyPolicyUpdateCount.Load() == 1 }, time.Second, time.Millisecond)
 			requireCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "1")
 		})
 	}
@@ -832,14 +824,12 @@ func TestLastNPDSListenerRemovalKeepsSentPolicyNACKRollback(t *testing.T) {
 	delivered := deliverADSResponse(t, cache, 1, response)
 	require.NoError(t, server.DeleteEnvoyResources(t.Context(), resources, nil))
 	require.NoError(t, wg.Wait())
-	require.Eventually(t, func() bool { return ep.proxyPolicyUpdateCount.Load() == 1 }, time.Second, time.Millisecond)
 	rollback.Finalize()
 	requireCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "1")
 
 	// Releasing the caller wait is not a protocol ACK.
 	replyADSResponse(t, cache, 1, response, delivered, "policy rejected after listener removal")
 	requireNoCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, "1")
-	require.Equal(t, uint64(1), ep.proxyPolicyUpdateCount.Load(), "a late NACK must not notify acceptance again")
 }
 
 func TestUpdateNetworkPolicyDoesNotWaitForListenerRejectedBeforeRegistration(t *testing.T) {
@@ -881,7 +871,6 @@ func TestUpdateNetworkPolicyDoesNotWaitForListenerRejectedBeforeRegistration(t *
 		t.Fatal("NetworkPolicy update did not complete")
 	}
 	require.NoError(t, wg.Wait())
-	require.Eventually(t, func() bool { return ep.proxyPolicyUpdateCount.Load() == 1 }, time.Second, time.Millisecond)
 }
 
 func TestUpdateNetworkPolicyNoOpWaitsForCurrentACK(t *testing.T) {
@@ -907,12 +896,10 @@ func TestUpdateNetworkPolicyNoOpWaitsForCurrentACK(t *testing.T) {
 	secondDone := waitForADSCompletion(t, secondWG)
 	requireADSCompletionPending(t, firstDone)
 	requireADSCompletionPending(t, secondDone)
-	require.Zero(t, ep.proxyPolicyUpdateCount.Load())
 	delivered := deliverADSResponse(t, cache, 1, response)
 	replyADSResponse(t, cache, 1, response, delivered, "")
 	require.NoError(t, <-firstDone)
 	require.NoError(t, <-secondDone)
-	require.Eventually(t, func() bool { return ep.proxyPolicyUpdateCount.Load() == 2 }, time.Second, time.Millisecond)
 }
 
 func TestUpdateNetworkPolicyPreservesOtherServerResources(t *testing.T) {
@@ -949,10 +936,8 @@ func TestNPDSListenerChangesKeepWaitsUntilLastListenerDisappears(t *testing.T) {
 	}}
 	require.NoError(t, server.UpdateEnvoyResources(t.Context(), second, replacement, nil))
 	requireADSCompletionPending(t, done)
-	require.Zero(t, ep.proxyPolicyUpdateCount.Load(), "atomic listener replacement must not detach the policy wait")
 	require.NoError(t, server.DeleteEnvoyResources(t.Context(), replacement, nil))
 	require.NoError(t, <-done)
-	require.Eventually(t, func() bool { return ep.proxyPolicyUpdateCount.Load() == 1 }, time.Second, time.Millisecond)
 	for i := range 3 {
 		requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, fmt.Sprintf("npds-listener-%d", i+1))
 	}

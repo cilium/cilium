@@ -64,6 +64,10 @@ failed redirects' references; only the last reference can reset an
 unacknowledged proxy-managed allocation. Static and CEC-owned ports retain their
 separate ownership rules.
 
+Endpoint regeneration and incremental policy updates record proxy policy
+acceptance after their proxy wait succeeds, using the revision submitted before
+the wait. Initial cache seeding does not report acceptance.
+
 A transaction holds the cache write lock while preparing and committing its
 changes and performing any immediate publication. Readers cannot observe partial
 changes. Completion registration and Listener-derived policy-wait bookkeeping use
