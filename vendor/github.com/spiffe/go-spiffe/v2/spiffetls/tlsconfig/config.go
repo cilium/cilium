@@ -205,7 +205,7 @@ func WrapVerifyPeerCertificate(wrapped func([][]byte, [][]*x509.Certificate) err
 }
 
 func getTLSCertificate(svid x509svid.Source, trace Trace) (*tls.Certificate, error) {
-	var traceVal interface{}
+	var traceVal any
 	if trace.GetCertificate != nil {
 		traceVal = trace.GetCertificate(GetCertificateInfo{})
 	}
