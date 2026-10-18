@@ -1050,7 +1050,7 @@ func TestPendingResponseAttachesInterveningGenerationsOnABA(t *testing.T) {
 	require.NoError(t, wgA2.Wait())
 	require.Zero(t, cb.PendingCompletionCount())
 }
-func TestAlreadyAcceptedVersionCompletesWait(t *testing.T) {
+func TestWaitRegistrationForAlreadyAcceptedVersion(t *testing.T) {
 	for _, versionKnown := range []bool{false, true} {
 		t.Run(fmt.Sprintf("version-known=%t", versionKnown), func(t *testing.T) {
 			cb := newTestCompletionCallbacks()
@@ -1070,9 +1070,11 @@ func TestAlreadyAcceptedVersionCompletesWait(t *testing.T) {
 				comp.Complete(nil)
 			} else {
 				require.Equal(t, 1, cb.PendingCompletionCount())
-				cb.OnStreamResponse(WithSnapshotGeneration(t.Context(), 1), 1,
-					&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}},
-					&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL.URL()})
+				sendTypeGenerationResponse(cb, listenerTypeURL, 1, "version-1")
+				// A wait registered without a known version follows the normal
+				// ACK path even when the response repeats an accepted version.
+				requireCompletionPending(t, comp)
+				ackTypeVersionResponse(t, cb, listenerTypeURL, "version-1")
 			}
 			require.NoError(t, wg.Wait())
 			require.Zero(t, cb.PendingCompletionCount())
