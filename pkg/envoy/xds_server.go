@@ -834,16 +834,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 		dependencyWG = completion.NewWaitGroup(ctx)
 	}
 	for _, listener := range deleteListeners {
-		listenerName := listener.Name
-		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, dependencyWG,
-			func(err error) {
-				if err == nil && old.PortAllocationCallbacks[listenerName] != nil {
-					if callbackErr := old.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
-						s.logger.Warn("Failure in port allocation callback",
-							logfields.Error, callbackErr)
-					}
-				}
-			}))
+		revertFuncs = append(revertFuncs, s.deleteListener(listener.Name, dependencyWG, nil))
 	}
 
 	// Do not wait for the deletion of routes, clusters, endpoints, or
@@ -993,18 +984,7 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 		wg := completion.NewWaitGroup(ctx)
 		var listenerRevertFuncs xds.AckingResourceMutatorRevertFuncList
 		for _, r := range new.Listeners {
-			listenerName := r.Name
-			listenerRevertFuncs = append(listenerRevertFuncs, s.upsertListener(r.Name, r, wg,
-				// this callback is not called if there is no change
-				func(err error) {
-					if err == nil && new.PortAllocationCallbacks[listenerName] != nil {
-						if callbackErr := new.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
-							s.logger.Warn("Failure in port allocation callback",
-								logfields.Error, callbackErr,
-							)
-						}
-					}
-				}))
+			listenerRevertFuncs = append(listenerRevertFuncs, s.upsertListener(r.Name, r, wg, nil))
 		}
 
 		start := time.Now()
@@ -1018,6 +998,15 @@ func (s *xdsServer) UpdateEnvoyResources(ctx context.Context, old, new xds.Resou
 			logArgs...)
 
 		if err == nil {
+			// Confirm port ownership only after all listeners succeed, including
+			// empty waits during restoration. CEC releases its ports on deletion.
+			for name := range new.Listeners {
+				if callback := new.PortAllocationCallbacks[name]; callback != nil {
+					if callbackErr := callback(ctx); callbackErr != nil {
+						s.logger.Warn("Failure in port allocation callback", logfields.Error, callbackErr)
+					}
+				}
+			}
 			return nil
 		}
 
@@ -1062,17 +1051,7 @@ func (s *xdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		wg = completion.NewWaitGroup(ctx)
 	}
 	for _, r := range resources.Listeners {
-		listenerName := r.Name
-		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg,
-			func(err error) {
-				if err == nil && resources.PortAllocationCallbacks[listenerName] != nil {
-					if callbackErr := resources.PortAllocationCallbacks[listenerName](ctx); callbackErr != nil {
-						s.logger.Warn("Failure in port allocation callback",
-							logfields.Error, callbackErr,
-						)
-					}
-				}
-			}))
+		revertFuncs = append(revertFuncs, s.deleteListener(r.Name, wg, nil))
 	}
 
 	// Do not wait for the deletion of routes, clusters, or endpoints, as
