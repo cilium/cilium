@@ -159,6 +159,10 @@ type datapathRegenerationContext struct {
 	// update the endpoint to.
 	policyRevisionToWaitFor uint64
 
+	// proxyPolicyRevision is the submitted L4 policy revision, recorded while the
+	// endpoint is locked. Zero means no policy was submitted with a proxy wait.
+	proxyPolicyRevision uint64
+
 	revertibles revert.Revertibles
 }
 

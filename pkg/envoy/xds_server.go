@@ -767,17 +767,10 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		wg = nil
 	}
 
-	// When successful, push policy into the cache.
-	policyRevision := l4policy.Revision
-	callback := func(err error) {
-		if err == nil {
-			go ep.OnProxyPolicyUpdate(policyRevision)
-		}
-	}
 	epID := ep.GetID()
 	nodeIDs := []string{LegacyFormatLocalNodeID}
 	resourceName := strconv.FormatUint(epID, 10)
-	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
+	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, nil)
 
 	return nil, revert.RevertFunc(func() error {
 		s.logger.Debug("Reverting xDS network policy update",

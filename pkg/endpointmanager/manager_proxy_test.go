@@ -321,6 +321,8 @@ func TestUpdatePolicyMapsFinalizesDeferredNetworkPolicyCallbacksAfterSuccessfulW
 
 	proxy.waitForUpdates(t)
 	require.Zero(t, proxy.totalCallbackCount())
+	require.Zero(t, ep1.GetModel().Status.Policy.ProxyPolicyRevision)
+	require.Zero(t, ep2.GetModel().Status.Policy.ProxyPolicyRevision)
 
 	proxy.completeUpdate(t, ep1.GetID(), nil)
 	proxy.completeUpdate(t, ep2.GetID(), nil)
@@ -330,6 +332,8 @@ func TestUpdatePolicyMapsFinalizesDeferredNetworkPolicyCallbacksAfterSuccessfulW
 	require.Equal(t, 0, proxy.revertCount(ep2.GetID()))
 	require.Equal(t, 1, proxy.finalizeCount(ep1.GetID()))
 	require.Equal(t, 1, proxy.finalizeCount(ep2.GetID()))
+	require.Equal(t, int64(repo.GetRevision()), ep1.GetModel().Status.Policy.ProxyPolicyRevision)
+	require.Equal(t, int64(repo.GetRevision()), ep2.GetModel().Status.Policy.ProxyPolicyRevision)
 }
 
 func TestUpdatePolicyMapsRevertsDeferredNetworkPolicyCallbacksAfterProxyWaitFailure(t *testing.T) {
@@ -359,6 +363,8 @@ func TestUpdatePolicyMapsRevertsDeferredNetworkPolicyCallbacksAfterProxyWaitFail
 	require.Equal(t, 1, proxy.revertCount(ep2.GetID()))
 	require.Equal(t, 0, proxy.finalizeCount(ep1.GetID()))
 	require.Equal(t, 0, proxy.finalizeCount(ep2.GetID()))
+	require.Zero(t, ep1.GetModel().Status.Policy.ProxyPolicyRevision)
+	require.Zero(t, ep2.GetModel().Status.Policy.ProxyPolicyRevision)
 }
 
 func TestUpdatePolicyMapsDoesNotDeferCallbacksForSynchronousApplyFailure(t *testing.T) {
@@ -390,6 +396,8 @@ func TestUpdatePolicyMapsDoesNotDeferCallbacksForSynchronousApplyFailure(t *test
 	require.Equal(t, 0, proxy.finalizeCount(ep1.GetID()))
 	require.Equal(t, 0, proxy.revertCount(ep2.GetID()))
 	require.Equal(t, 1, proxy.finalizeCount(ep2.GetID()))
+	require.Zero(t, ep1.GetModel().Status.Policy.ProxyPolicyRevision)
+	require.Equal(t, int64(repo.GetRevision()), ep2.GetModel().Status.Policy.ProxyPolicyRevision)
 }
 
 // TestIncrementalProxyPolicyUpdateNoL7Rule verifies that when an endpoint has no L7 rules,
@@ -409,7 +417,7 @@ func TestIncrementalProxyPolicyUpdateNoL7Rule(t *testing.T) {
 		mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
 		proxy := newRecordingEndpointProxy()
 
-		_ = newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 401, netip.MustParseAddr("10.0.3.1"))
+		ep := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 401, netip.MustParseAddr("10.0.3.1"))
 
 		// Enable tracking so we can detect if the proxy is unexpectedly called.
 		proxy.expectUpdates(1)
@@ -417,6 +425,7 @@ func TestIncrementalProxyPolicyUpdateNoL7Rule(t *testing.T) {
 
 		// With EnvoyConfig disabled and no L7 rules, no update should be sent to the proxy.
 		require.Equal(t, 0, proxy.updateCount())
+		require.Zero(t, ep.GetModel().Status.Policy.ProxyPolicyRevision)
 	})
 
 	t.Run("EnvoyConfigEnabled", func(t *testing.T) {
@@ -439,5 +448,6 @@ func TestIncrementalProxyPolicyUpdateNoL7Rule(t *testing.T) {
 
 		require.NoError(t, <-errCh)
 		require.Equal(t, 1, proxy.updateCount())
+		require.Equal(t, int64(repo.GetRevision()), ep.GetModel().Status.Policy.ProxyPolicyRevision)
 	})
 }
