@@ -195,6 +195,111 @@ func TestUpsertSingleNode(t *testing.T) {
 	require.Equal(t, 0, metrics.cancel[typeURL])
 }
 
+func TestUpsertWithNACKRemoval(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		action string
+		keep   bool
+	}{
+		{name: "nack"},
+		{name: "without-wait", action: "nil-wg"},
+		{name: "restoring", action: "restoring"},
+		{name: "canceled-then-nack", action: "cancel"},
+		{name: "wire-version-promotion", action: "ensure-version"},
+		{name: "waiter-on-another-node", action: "other-waiter"},
+		{name: "ack-releases-recovery", action: "ack", keep: true},
+		{name: "wrong-node", action: "node", keep: true},
+		{name: "wrong-type", action: "type", keep: true},
+		{name: "wrong-name", action: "name", keep: true},
+		{name: "older-response", action: "older", keep: true},
+		{name: "superseded", action: "update", keep: true},
+		{name: "equal-value-adopted", action: "equal", keep: true},
+		{name: "aba", action: "aba", keep: true},
+		{name: "caller-revert", action: "revert", keep: true},
+		{name: "caller-deletion-revert", action: "deletion-revert", keep: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			cache := NewCache(logger)
+			acker := NewAckingResourceMutatorWrapper(logger, cache, newMockMetrics())
+			typeURL, name := "diagnostic-listener", resources[0].Name
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			wg := completion.NewWaitGroup(ctx)
+			defer wg.Cancel()
+			waitGroup := wg
+			if tt.action == "nil-wg" {
+				waitGroup = nil
+			} else if tt.action == "restoring" {
+				acker.MarkRestorePending()
+			}
+			var otherWG *completion.WaitGroup
+			if tt.action == "other-waiter" {
+				otherWG = completion.NewWaitGroup(ctx)
+				defer otherWG.Cancel()
+				acker.Upsert(typeURL, name, resources[0], []string{node1}, otherWG, nil)
+			}
+			// A revert from before the diagnostic upsert must invalidate its recovery.
+			var revert AckingResourceMutatorRevertFunc
+			if tt.action == "revert" || tt.action == "deletion-revert" {
+				acker.Upsert(typeURL, name, resources[2], []string{node0}, nil, nil)
+				if tt.action == "revert" {
+					revert = acker.Upsert(typeURL, name, resources[1], []string{node0}, nil, nil)
+				} else {
+					revert = acker.Delete(typeURL, name, []string{node0}, nil, nil)
+				}
+			}
+			acker.UpsertWithNACKRemoval(typeURL, name, resources[0], []string{node0}, waitGroup)
+			version := cache.GetResources(typeURL, 0, nil).Version
+			node, responseType, responseName := node0, typeURL, name
+			switch tt.action {
+			case "cancel":
+				wg.Cancel()
+				require.NotNil(t, cache.Lookup(typeURL, name), "cancellation alone must not remove the listener")
+			case "ensure-version":
+				cache.EnsureVersion(typeURL, 100)
+				version = 100
+			case "ack":
+				acker.HandleResourceVersionAck(node0, version, version, false, "", typeURL, []string{name})
+			case "node":
+				node = node1
+			case "type":
+				responseType = "other-type"
+			case "name":
+				responseName = resources[1].Name
+			case "older":
+				version--
+			case "update", "aba":
+				acker.Upsert(typeURL, name, resources[1], []string{node0}, nil, nil)
+				if tt.action == "aba" {
+					acker.Upsert(typeURL, name, resources[0], []string{node0}, nil, nil)
+				}
+			case "equal":
+				acker.Upsert(typeURL, name, resources[0], []string{node0}, nil, nil)
+			case "revert", "deletion-revert":
+				revert()
+			}
+			previous := cache.Lookup(typeURL, name)
+			acker.HandleResourceVersionAck(node, 0, version, true, "bind failed", responseType, []string{responseName})
+			if tt.keep {
+				require.Same(t, previous, cache.Lookup(typeURL, name))
+			} else {
+				require.Nil(t, cache.Lookup(typeURL, name))
+				require.Greater(t, cache.GetResources(typeURL, 0, nil).Version, version)
+			}
+			if tt.action == "" || tt.action == "ensure-version" {
+				require.EqualValues(t, &ProxyError{Err: ErrNackReceived, Detail: "bind failed"}, wg.Wait())
+			} else if tt.action == "restoring" {
+				require.NoError(t, wg.Wait())
+			} else if otherWG != nil {
+				version := cache.GetResources(typeURL, 0, nil).Version
+				acker.HandleResourceVersionAck(node1, version, version, false, "", typeURL, nil)
+				require.NoError(t, otherWG.Wait())
+			}
+		})
+	}
+}
+
 func TestUseCurrent(t *testing.T) {
 	logger := hivetest.Logger(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
