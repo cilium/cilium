@@ -74,22 +74,16 @@ type Resources struct {
 	Routes    map[string]*envoy_config_route.RouteConfiguration
 	Clusters  map[string]*envoy_config_cluster.Cluster
 	Endpoints map[string]*envoy_config_endpoint.ClusterLoadAssignment
-
-	// Callback functions that confirm newly allocated primary proxy ports after
-	// the corresponding Listener change is successfully ACKed by Envoy. A
-	// listener update that retains its primary port must not call one again.
-	PortAllocationCallbacks map[string]func(context.Context) error `json:"-" yaml:"-"`
 }
 
 // NewResources returns a Resources with all maps initialized.
 func NewResources() Resources {
 	return Resources{
-		Listeners:               make(map[string]*envoy_config_listener.Listener),
-		Secrets:                 make(map[string]*envoy_config_tls.Secret),
-		Routes:                  make(map[string]*envoy_config_route.RouteConfiguration),
-		Clusters:                make(map[string]*envoy_config_cluster.Cluster),
-		Endpoints:               make(map[string]*envoy_config_endpoint.ClusterLoadAssignment),
-		PortAllocationCallbacks: make(map[string]func(context.Context) error),
+		Listeners: make(map[string]*envoy_config_listener.Listener),
+		Secrets:   make(map[string]*envoy_config_tls.Secret),
+		Routes:    make(map[string]*envoy_config_route.RouteConfiguration),
+		Clusters:  make(map[string]*envoy_config_cluster.Cluster),
+		Endpoints: make(map[string]*envoy_config_endpoint.ClusterLoadAssignment),
 	}
 }
 
