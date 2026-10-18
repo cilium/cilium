@@ -75,7 +75,7 @@ env:
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.37.1
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 588.0.0
+  gcloud_version: 589.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.

@@ -36,8 +36,8 @@ export BUSYBOX_DIGEST?=sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77a
 
 # renovate: datasource=docker
 export CERTGEN_REPO?=quay.io/cilium/certgen
-export CERTGEN_VERSION?=v0.4.11
-export CERTGEN_DIGEST?=sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0
+export CERTGEN_VERSION?=v0.4.12
+export CERTGEN_DIGEST?=sha256:17aa2d435929ae36df735d2c5638df197f80460c08469b7ea32a1114fc8ccaaf
 
 # renovate: datasource=docker
 export CILIUM_NODEINIT_REPO?=quay.io/cilium/startup-script
@@ -46,8 +46,8 @@ export CILIUM_NODEINIT_DIGEST?=sha256:e6d4d88b5958069f4528b02f0168740cfd074850b3
 
 # renovate: datasource=docker
 export CILIUM_ENVOY_REPO?=quay.io/cilium/cilium-envoy
-export CILIUM_ENVOY_VERSION?=v1.39.3-1791537820-50f71b8ebadf82126e9acb87ebe7db5daefdc768
-export CILIUM_ENVOY_DIGEST?=sha256:0df031a8308f05f29e972b77237ccfac333258ccad92732e82eddb7e2759ca66
+export CILIUM_ENVOY_VERSION?=v1.39.4-1792068649-5d3ab25ac24f5acd15961c5f653fa6788b97656a
+export CILIUM_ENVOY_DIGEST?=sha256:f7dfb34230bc69a2b02d8e586410966a31d558f3344b6bea62442286ce8a8ce3
 
 # renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO?=quay.io/cilium/hubble-ui-backend
@@ -61,13 +61,13 @@ export HUBBLE_UI_FRONTEND_DIGEST?=sha256:049a80a03585c043d0c3121bdc518c72b0fd42b
 
 # renovate: datasource=docker
 export SPIRE_SERVER_REPO?=ghcr.io/spiffe/spire-server
-export SPIRE_SERVER_VERSION?=1.15.3
-export SPIRE_SERVER_DIGEST?=sha256:4082f30d3e0ddc4000a171392c4ea174345ee44d161ee917c70b97b2ecfba141
+export SPIRE_SERVER_VERSION?=1.15.4
+export SPIRE_SERVER_DIGEST?=sha256:a728418a76e5054e977680a7c70a291f93389294e4bef00e2aaad65324f39357
 
 # renovate: datasource=docker
 export SPIRE_AGENT_REPO?=ghcr.io/spiffe/spire-agent
-export SPIRE_AGENT_VERSION?=1.15.3
-export SPIRE_AGENT_DIGEST?=sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff
+export SPIRE_AGENT_VERSION?=1.15.4
+export SPIRE_AGENT_DIGEST?=sha256:adc9e89e171af5764b29f9ffc9d3296b8033ba8c6ca11bcadbb56099170d526e
 
 # renovate: datasource=docker
 export ZTUNNEL_REPO?=quay.io/cilium/ztunnel
