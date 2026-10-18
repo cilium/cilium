@@ -82,7 +82,6 @@ struct {
 #define EGRESS_GATEWAY_NO_EGRESS_IP (0)
 #define EGRESS_GATEWAY_NO_EGRESS_IP_V6 ((union v6addr){{0, 0, 0, 0}})
 
-#ifdef ENABLE_IPV4
 static __always_inline
 int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, __be32 daddr,
 				      __u32 egress_ifindex, __u32 tbid, __s8 *ext_err)
@@ -129,7 +128,6 @@ int egress_gw_fib_lookup_and_redirect(struct __ctx_buff *ctx, __be32 egress_ip, 
 	return fib_do_redirect(ctx, true, &fib_params, false, ret,
 			       egress_ifindex, ext_err);
 }
-#endif /* ENABLE_IPV4 */
 
 static __always_inline const struct egress_gw_policy_entry_v2 *
 lookup_ip4_egress_gw_policy(__be32 saddr, __be32 daddr)
