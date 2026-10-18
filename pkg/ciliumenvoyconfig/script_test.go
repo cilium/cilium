@@ -332,6 +332,7 @@ type fakeEnvoySyncerAndPolicyTrigger struct {
 	lock.Mutex
 	store              resourceStore
 	policyTriggerCount int
+	beforeUpdate       func(context.Context, xds.Resources, xds.Resources) error
 }
 
 type section struct {
@@ -462,11 +463,6 @@ func (f *fakeEnvoySyncerAndPolicyTrigger) DeleteEnvoyResources(ctx context.Conte
 	defer f.Unlock()
 	f.store.delete(&res)
 
-	for _, listener := range res.Listeners {
-		if cb := res.PortAllocationCallbacks[listener.Name]; cb != nil {
-			cb(ctx)
-		}
-	}
 	return nil
 }
 
@@ -474,22 +470,13 @@ func (f *fakeEnvoySyncerAndPolicyTrigger) DeleteEnvoyResources(ctx context.Conte
 func (f *fakeEnvoySyncerAndPolicyTrigger) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, waitGroup *completion.WaitGroup) error {
 	f.Lock()
 	defer f.Unlock()
+	if f.beforeUpdate != nil {
+		if err := f.beforeUpdate(ctx, old, new); err != nil {
+			return err
+		}
+	}
 	f.store.delete(&old)
 	f.store.update(&new)
-
-	for _, oldListener := range old.Listeners {
-		for _, newListener := range new.Listeners {
-			if newListener.Name == oldListener.Name {
-				delete(new.PortAllocationCallbacks, newListener.Name)
-			}
-		}
-	}
-
-	for _, listener := range new.Listeners {
-		if cb := new.PortAllocationCallbacks[listener.Name]; cb != nil {
-			cb(ctx)
-		}
-	}
 
 	return nil
 }
@@ -516,8 +503,12 @@ func (s staticPortAllocator) RestoreComplete() <-chan struct{} {
 	return ch
 }
 
+func (s staticPortAllocator) GetProxyPort(name string) (uint16, bool, error) {
+	return 1000, false, nil
+}
+
 // AckCRDProxyPort implements PortAllocator.
-func (s staticPortAllocator) AckCRDProxyPort(ctx context.Context, name string) error {
+func (s staticPortAllocator) AckCRDProxyPort(ctx context.Context, name string, expectedPort uint16) error {
 	s.log.Info("AckCRDProxyPort", logfields.Listener, name)
 	return nil
 }
@@ -528,7 +519,7 @@ func (s staticPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 }
 
 // ReallocateCRDProxyPort implements PortAllocator.
-func (s staticPortAllocator) ReallocateCRDProxyPort(name string) (uint16, error) {
+func (s staticPortAllocator) ReallocateCRDProxyPort(name string, expectedPort uint16) (uint16, error) {
 	return 1001, nil
 }
 

@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/loadbalancer/writer"
@@ -51,6 +52,8 @@ type cecControllerParams struct {
 	EnvoyResources statedb.RWTable[*EnvoyResource]
 	Writer         *writer.Writer
 	FeatureMetrics FeatureMetrics
+	PolicyTrigger  policyTrigger
+	PortAllocator  PortAllocator
 }
 
 // cecController processes changes to Table[CEC] and populates Table[EnvoyResource]. These
@@ -129,6 +132,8 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 		writer:         c.Writer,
 		envoyResources: c.EnvoyResources,
 		featureMetrics: c.FeatureMetrics,
+		portAllocator:  c.PortAllocator,
+		log:            c.Logger,
 	}
 
 	initWg := sync.WaitGroup{}
@@ -170,7 +175,7 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 		//       Origin: "backendsync",
 		//       ClusterReferences: ClusterReferences + cec.Name
 		//     }
-		cecProcessor.process(wtxn, closedWatches, allWatches)
+		portsReleased := cecProcessor.process(wtxn, closedWatches, allWatches)
 
 		// Compute the "backendsync" EnvoyResources.
 		//
@@ -192,6 +197,11 @@ func (c *cecController) processLoop(ctx context.Context, health cell.Health) err
 		// Commit the new desired envoy resources. The changes will be picked up by the
 		// reconciler and pushed to Envoy.
 		wtxn.Commit()
+
+		if portsReleased {
+			// Policy must observe the committed removal, independently of xDS cleanup retries.
+			c.PolicyTrigger.TriggerPolicyUpdates()
+		}
 
 		c.Metrics.ControllerDuration.Observe(float64(time.Since(t0)) / float64(time.Second))
 
@@ -218,9 +228,13 @@ type cecProcessor struct {
 	writer         *writer.Writer
 	envoyResources statedb.RWTable[*EnvoyResource]
 	featureMetrics FeatureMetrics
+	portAllocator  PortAllocator
+	log            *slog.Logger
 }
 
-func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan struct{}, allWatches *statedb.WatchSet) {
+// process releases allocations discarded by CEC updates or removals. The caller must commit wtxn
+// and trigger policy updates afterwards if any CRD ports were released.
+func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan struct{}, allWatches *statedb.WatchSet) (portsReleased bool) {
 	cecs, watch := c.cecs.AllWatch(wtxn)
 	allWatches.Add(watch)
 	existing := sets.New[CECName]()
@@ -237,6 +251,24 @@ func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan str
 				// Queries related to this CEC did not change, skip.
 				allWatches.Merge(ws)
 				continue
+			}
+		}
+		// Unreconciled allocations have no owner once the desired listener is
+		// removed or becomes explicit. Confirmed allocations survive failed updates.
+		if old, _, found := c.envoyResources.Get(wtxn, EnvoyResourceByName(EnvoyResourceName{
+			Origin: EnvoyResourceOriginCEC, Namespace: cec.Name.Namespace, Name: cec.Name.Name,
+		})); found {
+			for name := range old.AllocatedListeners.Members() {
+				if cec.AllocatedListeners.Has(name) || old.ReconciledAllocatedListeners.Has(name) {
+					continue
+				}
+				if err := c.portAllocator.ReleaseCRDProxyPort(name); err != nil {
+					c.log.Warn("Failed to release proxy port",
+						logfields.Listener, name,
+						logfields.Error, err)
+				} else {
+					portsReleased = true
+				}
 			}
 		}
 		watchSet := c.processCEC(wtxn, cec.Name)
@@ -258,6 +290,17 @@ func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan str
 			Name: EnvoyResourceName{Origin: EnvoyResourceOriginCEC, Namespace: orphan.Namespace, Name: orphan.Name},
 		})
 		if found {
+			var allocated set.Set[string]
+			allocated.Merge(old.AllocatedListeners, old.ReconciledAllocatedListeners)
+			for name := range allocated.Members() {
+				if err := c.portAllocator.ReleaseCRDProxyPort(name); err != nil {
+					c.log.Warn("Failed to release proxy port",
+						logfields.Listener, name,
+						logfields.Error, err)
+				} else {
+					portsReleased = true
+				}
+			}
 			// Update cluster resource references.
 			for svcName := range old.ReferencedServices.All() {
 				c.removeClusterReference(wtxn, orphan, svcName)
@@ -267,6 +310,7 @@ func (c *cecProcessor) process(wtxn statedb.WriteTxn, closedWatches []<-chan str
 	}
 
 	c.orphans = existing
+	return
 }
 
 func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *statedb.WatchSet {
@@ -317,12 +361,14 @@ func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *state
 	new := &EnvoyResource{
 		Name:               resName,
 		Resources:          cec.Resources,
+		AllocatedListeners: cec.AllocatedListeners,
 		Redirects:          redirects,
 		ReferencedServices: part.NewSet(slices.Collect(maps.Keys(cec.ServicePorts))...),
 		Status:             reconciler.StatusPending(),
 	}
 	if old, _, found := c.envoyResources.Get(wtxn, EnvoyResourceByName(resName)); found {
 		new.ReconciledResources = old.ReconciledResources
+		new.ReconciledAllocatedListeners = old.ReconciledAllocatedListeners
 		new.ReconciledRedirects = old.ReconciledRedirects
 
 		for svcName := range old.ReferencedServices.All() {

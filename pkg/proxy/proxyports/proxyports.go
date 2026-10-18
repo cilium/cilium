@@ -276,10 +276,9 @@ func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (uint16, error) {
 	return pp.proxyPort, err
 }
 
-// AllocateCRDProxyPort() allocates a new port for listener 'name', or returns the current one if
-// already allocated.
-// Each call has to be paired with AckCRDProxyPort(name) to update the datapath rules accordingly.
-// Each allocated port must be eventually freed with ReleaseCRDProxyPort().
+// AllocateCRDProxyPort reserves a listener port, or returns its current port.
+// Confirm the returned port with AckCRDProxyPort after a successful proxy
+// wait. Release CEC ownership with ReleaseCRDProxyPort when withdrawing the listener.
 func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -307,7 +306,6 @@ func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 	p.proxyPorts[name] = pp
 	// marks port as reserved
 	p.allocatedPorts[pp.proxyPort] = true
-	// mark proxy port as configured
 	pp.configured = true
 
 	p.logger.Debug("AllocateProxyPort: allocated proxy port",
@@ -319,14 +317,15 @@ func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 }
 
 // ReallocateCRDProxyPort() reallocates a new port for listener 'name'.
-// This will force reallocation of a new port even if one was already allocated.
-func (p *ProxyPorts) ReallocateCRDProxyPort(name string) (uint16, error) {
+// The listener must still use expectedPort.
+func (p *ProxyPorts) ReallocateCRDProxyPort(name string, expectedPort uint16) (uint16, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
 	pp := p.proxyPorts[name]
-	if pp == nil || pp.Ingress {
-		pp = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false}
+	if pp == nil || pp.ProxyType != types.ProxyTypeCRD || !pp.configured ||
+		pp.proxyPort != expectedPort {
+		return 0, fmt.Errorf("%w: port for %s changed", ErrProxyNotConfigured, name)
 	}
 
 	if pp.proxyPort != 0 {
@@ -343,7 +342,6 @@ func (p *ProxyPorts) ReallocateCRDProxyPort(name string) (uint16, error) {
 	p.proxyPorts[name] = pp
 	// marks port as reserved
 	p.allocatedPorts[pp.proxyPort] = true
-	// mark proxy port as configured
 	pp.configured = true
 
 	p.logger.Debug("ReallocateProxyPort: reallocated proxy port",
@@ -364,8 +362,9 @@ func (pp *ProxyPort) addReference() {
 
 // AckCRDProxyPort() marks the CRD proxy acknowledged
 // and creates or updates the datapath rules accordingly.
-// Does not take a reference on the proxy port.
-func (p *ProxyPorts) AckCRDProxyPort(ctx context.Context, name string) error {
+// Does not take a reference on the proxy port. The listener must still use
+// expectedPort, so a delayed ACK cannot confirm a different listening port.
+func (p *ProxyPorts) AckCRDProxyPort(ctx context.Context, name string, expectedPort uint16) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 	pp := p.proxyPorts[name]
@@ -375,8 +374,8 @@ func (p *ProxyPorts) AckCRDProxyPort(ctx context.Context, name string) error {
 	if pp.ProxyType != types.ProxyTypeCRD {
 		return fmt.Errorf("non CRD proxy port %s", name)
 	}
-	if !pp.configured {
-		return fmt.Errorf("%w: %s", ErrProxyNotConfigured, name)
+	if !pp.configured || pp.proxyPort != expectedPort {
+		return fmt.Errorf("%w: port for %s changed", ErrProxyNotConfigured, name)
 	}
 	return p.ackProxyPort(name, pp)
 }

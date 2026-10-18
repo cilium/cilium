@@ -137,22 +137,14 @@ func TestNoOpListenerAlreadyAcceptedDoesNotWaitForUnrelatedListener(t *testing.T
 	delivered := deliverADSResponse(t, cache, 1, response)
 
 	for _, resources := range []xds.Resources{first, second} {
-		var calls atomic.Int32
-		for listenerName := range resources.Listeners {
-			resources.PortAllocationCallbacks = map[string]func(context.Context) error{
-				listenerName: func(context.Context) error { calls.Add(1); return nil },
-			}
-		}
 		wg := completion.NewWaitGroup(t.Context())
 		require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, wg))
 		done := waitForADSCompletion(t, wg)
 		if resources.Listeners["listener-1"] == nil {
-			require.Zero(t, calls.Load())
 			requireADSCompletionPending(t, done)
 			replyADSResponse(t, cache, 1, response, delivered, "")
 		}
 		require.NoError(t, <-done)
-		require.Equal(t, int32(1), calls.Load())
 	}
 }
 
@@ -164,26 +156,18 @@ func TestUpdateEnvoyResourcesNoOpListenerWaitsForCurrentACK(t *testing.T) {
 	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.Resources{}, resources, nil))
 	response := createADSWatchResponse(t, cache, ListenerTypeURL, "")
 	delivered := deliverADSResponse(t, cache, 1, response)
-	var calls atomic.Int32
-	resources.PortAllocationCallbacks = map[string]func(context.Context) error{
-		"listener": func(context.Context) error { calls.Add(1); return nil },
-	}
 	wg := completion.NewWaitGroup(t.Context())
 	require.NoError(t, server.UpdateEnvoyResources(t.Context(), resources, resources, wg))
 	done := waitForADSCompletion(t, wg)
 	requireADSCompletionPending(t, done)
-	require.Zero(t, calls.Load())
 	replyADSResponse(t, cache, 1, response, delivered, "")
 	require.NoError(t, <-done)
-	require.Equal(t, int32(1), calls.Load())
 }
 
 func TestADSResponseNACKRevertsServerUpdate(t *testing.T) {
 	server, cache := newADSServerFixture(t)
 	resources := adsTestResources(adsTestListener(80))
 	resources.Secrets["related"] = &envoy_config_tls.Secret{Name: "related"}
-	var portCallbacks atomic.Int32
-	resources.PortAllocationCallbacks["listener1"] = func(context.Context) error { portCallbacks.Add(1); return nil }
 	wg := completion.NewWaitGroup(t.Context())
 	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, wg))
 	done := waitForADSCompletion(t, wg)
@@ -193,7 +177,6 @@ func TestADSResponseNACKRevertsServerUpdate(t *testing.T) {
 	requireADSCompletionPending(t, done)
 	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, "", "rejected listener")
 	require.ErrorContains(t, <-done, "rejected listener")
-	require.Zero(t, portCallbacks.Load(), "a rejected listener must not confirm its port allocation")
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 	requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig1")
 	requireCachedResource(t, cache, localNodeID, SecretTypeURL, "related")
@@ -332,10 +315,9 @@ func TestADSListenersRequiringRecreate(t *testing.T) {
 
 func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 	addressChanges := []struct {
-		name              string
-		oldListener       *envoy_config_listener.Listener
-		newListener       *envoy_config_listener.Listener
-		wantCallbackCount uint64
+		name        string
+		oldListener *envoy_config_listener.Listener
+		newListener *envoy_config_listener.Listener
 	}{
 		{
 			name:        "additional address changed",
@@ -343,10 +325,9 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 			newListener: adsTestListener(80, 8444),
 		},
 		{
-			name:              "primary port changed",
-			oldListener:       adsTestListener(80, 8443),
-			newListener:       adsTestListener(81, 8443),
-			wantCallbackCount: 1,
+			name:        "primary port changed",
+			oldListener: adsTestListener(80, 8443),
+			newListener: adsTestListener(81, 8443),
 		},
 	}
 
@@ -358,11 +339,6 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 			require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
 
 			newResources := adsTestResources(addressChange.newListener)
-			var callbackCount atomic.Uint64
-			newResources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
-				callbackCount.Add(1)
-				return nil
-			}
 
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
@@ -374,19 +350,16 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 			require.Eventually(t, func() bool {
 				return cache.GetResource(localNodeID, typeurl.Listener, "listener1") == nil
 			}, time.Second, 10*time.Millisecond)
-			require.Equal(t, uint64(0), callbackCount.Load())
 			deleteVersion := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 
 			require.Eventually(t, func() bool {
 				listener, _ := cache.GetResource(localNodeID, typeurl.Listener, "listener1").(*envoy_config_listener.Listener)
 				return listener != nil && listenerAddressesEqual(listener, newResources.Listeners["listener1"])
 			}, time.Second, 10*time.Millisecond)
-			require.Equal(t, uint64(0), callbackCount.Load())
 			replaceVersion := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, deleteVersion)
 			require.NotEqual(t, deleteVersion, replaceVersion)
 
 			require.NoError(t, <-result)
-			require.Equal(t, addressChange.wantCallbackCount, callbackCount.Load())
 
 		})
 	}
@@ -400,21 +373,14 @@ func TestUpdateEnvoyResourcesDuringRestoreDoesNotStageListenerDeletion(t *testin
 	oldResources := adsTestResources(adsTestListener(80, 8443))
 	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
 	newResources := adsTestResources(adsTestListener(81, 8444))
-	var callbackCount atomic.Uint64
-	newResources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
-		callbackCount.Add(1)
-		return nil
-	}
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
 
 	require.NoError(t, server.UpdateEnvoyResources(t.Context(), oldResources, newResources, wg))
 	require.True(t, proto.Equal(newResources.Listeners["listener1"], cachedListener(t, cache, localNodeID, "listener1")))
-	require.Equal(t, uint64(0), callbackCount.Load())
 
 	ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 	require.NoError(t, wg.Wait())
-	require.Equal(t, uint64(1), callbackCount.Load())
 
 }
 
@@ -558,19 +524,20 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 
 }
 
-func TestUpdateEnvoyResourcesPortAllocationWaits(t *testing.T) {
+func TestUpdateEnvoyResourcesWaitScope(t *testing.T) {
 	for _, tc := range []struct {
-		name          string
-		baseline      string
-		callback      bool
-		cluster       bool
-		wait          bool
-		callbackCalls uint64
+		name        string
+		baseline    string
+		cluster     bool
+		noListeners bool
+		wait        bool
 	}{
-		{name: "no-explicit-callback", baseline: "accepted-listener", cluster: true},
-		{name: "listener-port", callback: true, wait: true, callbackCalls: 1},
-		{name: "cluster-and-listener-port", callback: true, cluster: true, wait: true, callbackCalls: 1},
-		{name: "confirmed-port-unrelated-changes", baseline: "unacked-resources", callback: true, cluster: true},
+		{name: "accepted-listener-and-cluster", baseline: "accepted-listener", cluster: true, wait: true},
+		{name: "listener", wait: true},
+		{name: "cluster-and-listener", cluster: true, wait: true},
+		{name: "unacked-resources-with-unrelated-changes", baseline: "unacked-resources", cluster: true, wait: true},
+		{name: "clusters-only", cluster: true, noListeners: true},
+		{name: "removals-only", baseline: "unacked-resources", noListeners: true, wait: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server, cache := newADSServerFixture(t)
@@ -595,28 +562,30 @@ func TestUpdateEnvoyResourcesPortAllocationWaits(t *testing.T) {
 				next.Clusters["cluster2"] = &envoy_config_cluster.Cluster{Name: "cluster2",
 					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS}}
 			}
-			var callbacks atomic.Uint64
-			if tc.callback {
-				next.PortAllocationCallbacks["listener1"] = func(context.Context) error { callbacks.Add(1); return nil }
+			if tc.noListeners {
+				next.Listeners = nil
+				if !tc.cluster {
+					next = xds.NewResources()
+				}
 			}
 			wg := completion.NewWaitGroup(ctx)
+			t.Cleanup(wg.Cancel)
 			require.NoError(t, server.UpdateEnvoyResources(ctx, old, next, wg))
 			done := waitForADSCompletion(t, wg)
-			require.Zero(t, callbacks.Load())
 			if tc.wait {
 				requireADSCompletionPending(t, done)
 				if tc.cluster {
 					ackADSResourceVersionFrom(t, cache, 1, ClusterTypeURL, "")
-					requireADSCompletionPending(t, done)
-					require.Zero(t, callbacks.Load(), "CDS alone cannot confirm the listener's port")
+					if tc.baseline != "accepted-listener" {
+						requireADSCompletionPending(t, done)
+					}
 					// RDS remains unacknowledged: it is not a caller-wait dependency.
 					deliverADSResponse(t, cache, 1, createADSWatchResponse(t, cache, RouteTypeURL, ""))
 				}
 				ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 			}
 			require.NoError(t, <-done)
-			require.Equal(t, tc.callbackCalls, callbacks.Load())
-			if tc.baseline == "unacked-resources" {
+			if tc.baseline == "unacked-resources" && !tc.noListeners {
 				requireCachedResource(t, cache, localNodeID, RouteTypeURL, "routeConfig2")
 				requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster2")
 			}

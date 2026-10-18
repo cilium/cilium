@@ -198,9 +198,9 @@ func TestProxyPortSettlement(t *testing.T) {
 			if tt.cecOwned {
 				l4.parserType = policy.ParserTypeCRD
 				portName = l4.GetListener()
-				_, err := p.proxyPorts.AllocateCRDProxyPort(portName)
+				port, err := p.proxyPorts.AllocateCRDProxyPort(portName)
 				require.NoError(t, err)
-				err = p.proxyPorts.AckCRDProxyPort(context.Background(), portName)
+				err = p.proxyPorts.AckCRDProxyPort(context.Background(), portName, port)
 				require.NoError(t, err)
 			}
 			if tt.syncError {
@@ -374,7 +374,7 @@ func TestCreateOrUpdateCRDRedirect(t *testing.T) {
 			name := l4.GetListener()
 			original, err := p.proxyPorts.AllocateCRDProxyPort(name)
 			require.NoError(t, err)
-			require.NoError(t, p.proxyPorts.AckCRDProxyPort(t.Context(), name))
+			require.NoError(t, p.proxyPorts.AckCRDProxyPort(t.Context(), name, original))
 			wg := completion.NewWaitGroup(t.Context())
 			defer wg.Cancel()
 			port, err, _ := p.CreateOrUpdateRedirect(l4, "redirect", 100, wg)
@@ -391,11 +391,11 @@ func TestCreateOrUpdateCRDRedirect(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, wantPort, original)
 			case "reallocated", "awaiting-ack":
-				wantPort, err = p.proxyPorts.ReallocateCRDProxyPort(name)
+				wantPort, err = p.proxyPorts.ReallocateCRDProxyPort(name, wantPort)
 				require.NoError(t, err)
 				require.NotEqual(t, wantPort, original)
 				if tt.name == "reallocated" {
-					require.NoError(t, p.proxyPorts.AckCRDProxyPort(t.Context(), name))
+					require.NoError(t, p.proxyPorts.AckCRDProxyPort(t.Context(), name, wantPort))
 				}
 			}
 			port, err, rollback := p.CreateOrUpdateRedirect(l4, "redirect", 100, wg)
