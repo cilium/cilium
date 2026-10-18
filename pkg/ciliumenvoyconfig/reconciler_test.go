@@ -38,7 +38,7 @@ func (m *waitGroupResourceMutator) UpdateEnvoyResources(_ context.Context, _, _ 
 		return nil
 	}
 	m.gotWaitGroup.Store(true)
-	comp := wg.AddCompletionWithCallback(nil, nil)
+	comp := wg.AddCompletion(nil)
 	m.completionCh <- comp
 	return nil
 }

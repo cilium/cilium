@@ -279,9 +279,9 @@ func (cb *CompletionCallbacks) NewTypeGenerationCompletionOwner(nodeID string, t
 }
 
 // DetachedWaiters holds caller waits removed from callback bookkeeping.
-// Complete must be called after releasing the cache lock, since completion
-// callbacks may synchronously re-enter the cache. Response-owned generation
-// rollback state is deliberately not included.
+// Complete must be called after releasing the cache and callbacks locks:
+// completion can wake callers that immediately access the cache.
+// Response-owned generation rollback state is deliberately not included.
 type DetachedWaiters struct {
 	completions []*completion.Completion
 }

@@ -310,7 +310,7 @@ func (s *fakeXdsServer) AddListener(ctx context.Context, name string, kind polic
 	}
 	s.listeners[name]++
 	if wg != nil {
-		s.completions = append(s.completions, wg.AddCompletionWithCallback(nil, nil))
+		s.completions = append(s.completions, wg.AddCompletion(nil))
 	}
 	return nil
 }
