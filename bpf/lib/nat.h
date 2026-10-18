@@ -226,7 +226,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipmasq_v4 __section_maps_btf;
 
-#if defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT)
+#if defined(ENABLE_NODEPORT)
 static __always_inline void *
 get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
 {
@@ -1286,7 +1286,7 @@ rewrite: __maybe_unused
 				       tuple.dport, to_dport, port_off,
 				       outer_csum_diff);
 }
-#endif /* defined(ENABLE_IPV4) && defined(ENABLE_NODEPORT) */
+#endif /* defined(ENABLE_NODEPORT) */
 
 struct ipv6_nat_entry {
 	struct nat_entry common;
