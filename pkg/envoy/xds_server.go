@@ -469,12 +469,7 @@ func (s *xdsServer) addListener(name string, listenerConf func() *envoy_config_l
 	}
 	count++
 	s.listenerCount[name] = count
-	_ = s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg,
-		func(err error) {
-			if cb != nil {
-				cb(err)
-			}
-		})
+	_ = s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConfig, []string{"127.0.0.1"}, wg, cb)
 	return nil
 }
 
@@ -626,7 +621,7 @@ func (s *xdsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 	return listenerConf
 }
 
-func (s *xdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
+func (s *xdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) error {
 	s.logger.Debug("Envoy: AddListener",
 		logfields.L7ParserType, kind,
 		logfields.Listener, name,
@@ -635,7 +630,7 @@ func (s *xdsServer) AddListener(ctx context.Context, name string, kind policy.L7
 
 	return s.addListener(name, func() *envoy_config_listener.Listener {
 		return s.getListenerConf(name, kind, port, isIngress, mayUseOriginalSourceAddr)
-	}, wg, cb, true)
+	}, wg, nil, true)
 }
 
 func (s *xdsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) {

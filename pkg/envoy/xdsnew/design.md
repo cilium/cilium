@@ -34,7 +34,7 @@ must not prevent a later Envoy NACK from correcting the cache.
 - Desired state is cache-private and mutable. Protobufs and published snapshots
   are immutable and may be shared.
 - Mutations, rollback selection, and publication are serialized under the cache
-  lock. Response delivery and application callbacks run after unlocking.
+  lock. Response delivery and caller wait completion run after unlocking.
 - Mutations commit desired state before returning. Unpublished changes coalesce
   until a matching watch can consume a snapshot. Semantic no-ops preserve the
   cached protobuf and do not force publication.
@@ -55,10 +55,14 @@ mix Listener and NetworkPolicy changes.
 
 Callers may supply a WaitGroup to wait for Envoy's response. Bulk calls select
 the resource types to wait for explicitly; an empty selection creates no waits.
-Single-resource calls can also supply a completion callback. Only the
-`WithRollback` variants also return a caller lifecycle, on which the caller
+The `WithRollback` variants also return a caller lifecycle, on which the caller
 eventually invokes either `Revert()` or `Finalize()`. All mutation APIs
 independently retain any rollback state needed for a later NACK.
+
+ADS admin and metrics listeners immediately finalize any returned caller rollback
+handle after admission, retaining response-owned NACK recovery. They do not
+participate in redirect reference counting. Canceling a caller wait leaves the
+listener configured; an Envoy NACK can still remove it.
 
 After successful proxy waits, endpoint regeneration explicitly acknowledges
 redirect ports and installs datapath redirection rules. Failure releases the
@@ -73,8 +77,8 @@ the wait. Initial cache seeding does not report acceptance.
 A transaction holds the cache write lock while preparing and committing its
 changes and performing any immediate publication. Readers cannot observe partial
 changes. Completion registration and Listener-derived policy-wait bookkeeping use
-the same lock. Responses and application callbacks are collected under the lock
-but delivered after unlocking, allowing callbacks to reenter cache APIs.
+the same lock. Response delivery and caller wait completion are deferred until
+after unlocking.
 
 ## State and ownership
 
@@ -87,7 +91,7 @@ across stream disconnects; lifecycles retain their node reference for later
 resolution.
 
 Node-local rollback state manages caller and response lifetimes and adjusts
-rollback targets after a NACK. Completion callbacks own caller ACK waits,
+rollback targets after a NACK. `CompletionCallbacks` owns caller ACK waits,
 accepted-resource evidence, and response identities. Acceptance evidence retains
 the relevant immutable resource group and sparse per-name overrides. Multiple
 streams keep independent response identities for the same node and resource type.
@@ -311,7 +315,7 @@ flowchart TD
     stream["callbackStreamState<br/>Node identity and per-TypeURL response slots"]
     response["pendingResponse<br/>Exact nonce, version, and generation boundary"]
     coverage["responseCoverage<br/>Immutable group reference<br/>Requested and returned names"]
-    wait["pendingCompletion<br/>One caller's ACK wait"]
+    wait["resourceWait<br/>One caller's ACK requirements and wait cleanup"]
     scope["ResourceScope<br/>Required names and revisions"]
     rollback["rollbackLifecycle<br/>Cache-owned response recovery"]
 
@@ -327,7 +331,7 @@ flowchart TD
     callbacks -->|streams: mode and stream ID map| stream
     stream -->|responses: independent Slots| response
     response -->|coverage| coverage
-    callbacks -->|pendingCompletions: completion pointer map| wait
+    callbacks -->|pendingWaits: completion pointer map| wait
     wait -->|scope| scope
 ```
 
@@ -375,7 +379,7 @@ composed into one corrective mutation before publication, so no intermediate
 correction can be delivered. Successful recovery releases the selected
 response-owned rollback state. A recovery that changes desired resources commits
 one corrective generation and publishes it when a matching watch can consume it.
-Responses and application callbacks run afterward.
+Response delivery and caller wait completion run afterward.
 
 Rollback targets are adjusted to bypass rejected values of the affected names.
 If A is rejected after B replaces it, B remains desired, and its later rollback

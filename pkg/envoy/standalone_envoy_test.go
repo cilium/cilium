@@ -365,21 +365,21 @@ func TestEnvoyAds(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener1")
-	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener2")
-	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener3")
-	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -399,9 +399,7 @@ func TestEnvoyAds(t *testing.T) {
 
 	// Add listener3 again
 	t.Log("adding listener 3")
-	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
-		func(err error) {
-		})
+	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -993,13 +991,13 @@ func TestEnvoyDelta(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener1")
-	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 
 	t.Log("adding listener2")
-	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup)
 
 	t.Log("adding listener3")
-	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -1017,18 +1015,10 @@ func TestEnvoyDelta(t *testing.T) {
 
 	// Add listener3 again
 	t.Log("adding listener 3")
-	var cbErr error
-	cbCalled := false
-	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
-		func(err error) {
-			cbCalled = true
-			cbErr = err
-		})
+	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
-	require.True(t, cbCalled)
-	require.NoError(t, cbErr)
 	t.Log("completed adding listener 3")
 
 	err = xdsServer.UpsertSecret(ctx, standaloneHeaderMatchSecret())
@@ -1149,13 +1139,13 @@ func TestEnvoy(t *testing.T) {
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
 	t.Log("adding listener1")
-	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener1", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 
 	t.Log("adding listener2")
-	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener2", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup)
 
 	t.Log("adding listener3")
-	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -1194,18 +1184,10 @@ func TestEnvoy(t *testing.T) {
 
 	// Add listener3 again
 	t.Log("adding listener 3")
-	var cbErr error
-	cbCalled := false
-	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup,
-		func(err error) {
-			cbCalled = true
-			cbErr = err
-		})
+	xdsServer.AddListener(t.Context(), "listener3", policy.ParserTypeHTTP, 8083, false, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
-	require.True(t, cbCalled)
-	require.NoError(t, cbErr)
 	t.Log("completed adding listener 3")
 
 	err = xdsServer.UpsertSecret(ctx, standaloneHeaderMatchSecret())
@@ -1314,18 +1296,10 @@ func TestEnvoyNACK(t *testing.T) {
 	rName := "listener:22"
 
 	t.Log("adding ", rName)
-	var cbErr error
-	cbCalled := false
-	xdsServer.AddListener(ctx, rName, policy.ParserTypeHTTP, 22, true, false, s.waitGroup,
-		func(err error) {
-			cbCalled = true
-			cbErr = err
-		})
+	xdsServer.AddListener(ctx, rName, policy.ParserTypeHTTP, 22, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.Error(t, err)
-	require.True(t, cbCalled)
-	require.ErrorIs(t, err, cbErr)
 	require.EqualValues(t, &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "Error adding/updating listener(s) listener:22: cannot bind '127.0.0.1:22': Address already in use\n"}, err)
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
@@ -1404,7 +1378,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 
 	// Step 1: Add a valid listener so Envoy has a known-good baseline.
 	t.Log("adding valid listener on port 8081")
-	xdsServer.AddListener(ctx, "good-listener", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "good-listener", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -1415,25 +1389,13 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	require.Contains(t, listeners, "good-listener")
 
 	// Step 2: Add a listener on port 22 which Envoy cannot bind (privileged port) — should NACK.
-	// Wire the cb callback to verify it is invoked with the NACK error.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("adding listener on port 22 (expect NACK)")
-	var cbErr error
-	cbCalled := false
-	xdsServer.AddListener(ctx, "bad-listener", policy.ParserTypeHTTP, 22, true, false, s.waitGroup,
-		func(err error) {
-			cbCalled = true
-			cbErr = err
-		})
+	xdsServer.AddListener(ctx, "bad-listener", policy.ParserTypeHTTP, 22, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.Error(t, err)
 	t.Logf("NACK received as expected: %s", err)
-
-	// Verify the cb callback was invoked with a non-nil error.
-	require.True(t, cbCalled, "cb callback should have been called on NACK")
-	require.Error(t, cbErr, "cb callback should have received the NACK error")
-	t.Logf("cb callback received error: %s", cbErr)
 
 	// Step 3: Wait briefly for revert to complete (revert runs asynchronously via the callback).
 	time.Sleep(3 * time.Second)
@@ -1450,7 +1412,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	// Step 5: Verify we can still add new valid listeners after the revert.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("adding another valid listener on port 8082 after NACK revert")
-	xdsServer.AddListener(ctx, "post-revert-listener", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "post-revert-listener", policy.ParserTypeHTTP, 8082, true, false, s.waitGroup)
 
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
@@ -1527,7 +1489,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	// Step 1: Add a first listener so Envoy connects and we have a baseline.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("adding baseline listener")
-	xdsServer.AddListener(ctx, "baseline", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "baseline", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	t.Log("baseline listener added")
@@ -1539,7 +1501,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 	listenerNames := []string{"rapid-1", "rapid-2", "rapid-3"}
 	for i, name := range listenerNames {
 		t.Logf("adding listener %s (port %d)", name, 8090+i)
-		xdsServer.AddListener(ctx, name, policy.ParserTypeHTTP, uint16(8090+i), true, false, s.waitGroup, nil)
+		xdsServer.AddListener(ctx, name, policy.ParserTypeHTTP, uint16(8090+i), true, false, s.waitGroup)
 	}
 
 	// Wait for all completions — this will only succeed if the generation-aware
@@ -1608,12 +1570,12 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 	defer waitCancel()
 	trackedWaitGroup := completion.NewWaitGroup(waitCtx)
 	defer trackedWaitGroup.Cancel()
-	require.NoError(t, xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup, nil))
+	require.NoError(t, xdsServer.AddListener(ctx, "tracked-listener", policy.ParserTypeHTTP, 18081, true, false, trackedWaitGroup))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
 
 	// Stage a newer generation without a waiter before Envoy connects. The first
 	// LDS watch must finalize one snapshot containing both generations.
-	require.NoError(t, xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil, nil))
+	require.NoError(t, xdsServer.AddListener(ctx, "untracked-listener", policy.ParserTypeHTTP, 18082, true, false, nil))
 	require.Equal(t, 1, xdsServer.cache.GetCompletionCallbacks().PendingCompletionCount())
 	_, err = xdsServer.cache.GetSnapshotCache().GetSnapshot(localNodeID)
 	require.Error(t, err, "snapshot generation must remain lazy until Envoy opens a watch")
@@ -1707,7 +1669,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	// Step 1: Add a valid baseline listener.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("adding baseline listener")
-	xdsServer.AddListener(ctx, "baseline", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "baseline", policy.ParserTypeHTTP, 8081, true, false, s.waitGroup)
 	err = s.waitForProxyCompletion()
 	require.NoError(t, err)
 	t.Log("baseline listener added")
@@ -1718,9 +1680,9 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	// via completeUpTo, which completes the NACKed version and all earlier versions.
 	s.waitGroup = completion.NewWaitGroup(ctx)
 	t.Log("rapidly adding listeners: valid-1 (8090), valid-2 (8091), bad (22)")
-	xdsServer.AddListener(ctx, "valid-1", policy.ParserTypeHTTP, 8090, true, false, s.waitGroup, nil)
-	xdsServer.AddListener(ctx, "valid-2", policy.ParserTypeHTTP, 8091, true, false, s.waitGroup, nil)
-	xdsServer.AddListener(ctx, "bad", policy.ParserTypeHTTP, 22, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "valid-1", policy.ParserTypeHTTP, 8090, true, false, s.waitGroup)
+	xdsServer.AddListener(ctx, "valid-2", policy.ParserTypeHTTP, 8091, true, false, s.waitGroup)
+	xdsServer.AddListener(ctx, "bad", policy.ParserTypeHTTP, 22, true, false, s.waitGroup)
 
 	// All completions should resolve (with error) — none should be stuck.
 	err = s.waitForProxyCompletion()

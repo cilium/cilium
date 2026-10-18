@@ -369,12 +369,18 @@ func newCoverageCache(t *testing.T) *cacheImpl {
 func upsertCoverageEndpoint(t *testing.T, c *cacheImpl, name string) (*envoy_config_endpoint.ClusterLoadAssignment, <-chan error) {
 	t.Helper()
 	resource := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
-	done := make(chan error, 1)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, name, resource, wg,
-		func(err error) { done <- err }))
-	return resource, done
+	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, name, resource, wg))
+	return resource, waitForCoverageCompletion(wg)
+}
+
+// Call after registering all updates in wg, as production callers do.
+// Call after registering all updates in wg, as production callers do.
+func waitForCoverageCompletion(wg *completion.WaitGroup) <-chan error {
+	done := make(chan error, 1)
+	go func() { done <- wg.Wait() }()
+	return done
 }
 
 func requireCoveragePending(t *testing.T, done <-chan error) {

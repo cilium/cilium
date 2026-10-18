@@ -59,7 +59,7 @@ func (p *envoyProxyIntegration) createRedirect(r Redirect, wg *completion.WaitGr
 	if l.Ingress {
 		mayUseOriginalSourceAddr = false
 	}
-	err := p.xdsServer.AddListener(context.Background(), redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress, mayUseOriginalSourceAddr, wg, nil)
+	err := p.xdsServer.AddListener(context.Background(), redirect.listenerName, policy.L7ParserType(l.ProxyType), l.ProxyPort, l.Ingress, mayUseOriginalSourceAddr, wg)
 
 	return redirect, err
 }

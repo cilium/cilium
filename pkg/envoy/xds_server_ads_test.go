@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
-	"sync/atomic"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -91,10 +90,7 @@ func TestAddListener(t *testing.T) {
 			if tc.wait {
 				wg = completion.NewWaitGroup(t.Context())
 			}
-			var calls atomic.Int32
-			result := make(chan error, 1)
-			require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, wg,
-				func(err error) { calls.Add(1); result <- err }))
+			require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, wg))
 			if tc.wait {
 				done = waitForADSCompletion(t, wg)
 			}
@@ -107,17 +103,13 @@ func TestAddListener(t *testing.T) {
 			require.Len(t, actual.FilterChains, 2)
 
 			if tc.wait {
-				require.Equal(t, int32(0), calls.Load())
+				requireADSCompletionPending(t, done)
 				response := createADSWatchResponse(t, cache, ListenerTypeURL, "")
 				delivered := deliverADSResponse(t, cache, 1, response)
-				require.Equal(t, int32(0), calls.Load(), "delivery alone must not complete the caller")
 				requireADSCompletionPending(t, done)
 				replyADSResponse(t, cache, 1, response, delivered, "")
 				require.NoError(t, <-done)
 			}
-			require.NoError(t, <-result)
-			require.Equal(t, int32(1), calls.Load())
-			require.Empty(t, result)
 		})
 	}
 }
@@ -195,21 +187,74 @@ func TestAddDiagnosticListener(t *testing.T) {
 		{name: "envoy-prometheus-metrics-listener", port: 9001, add: (*adsServer).AddMetricsListener, expected: (*adsServer).getMetricsListenerConfig},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			server, cache := newADSServerFixture(t)
-			wg := completion.NewWaitGroup(t.Context())
-			tc.add(server, t.Context(), 0, wg)
-			requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, tc.name)
-			tc.add(server, t.Context(), tc.port, wg)
-			done := waitForADSCompletion(t, wg)
-			actual := cachedListener(t, cache, localNodeID, tc.name)
-			require.True(t, proto.Equal(tc.expected(server, tc.port), actual))
-			require.Len(t, actual.FilterChains, 1)
-			if tc.name == "envoy-admin-listener" {
-				require.Len(t, actual.FilterChains[0].Filters, 1)
-				require.Equal(t, "envoy.filters.network.http_connection_manager", actual.FilterChains[0].Filters[0].Name)
+			for _, tt := range []struct {
+				name   string
+				wait   bool
+				reject bool
+				cancel bool
+				repeat bool
+			}{
+				{name: "ack", wait: true},
+				{name: "repeated-add", wait: true, repeat: true},
+				{name: "repeated-add-nack", wait: true, repeat: true, reject: true},
+				{name: "nack", wait: true, reject: true},
+				{name: "nack-without-wait", reject: true},
+				{name: "canceled-then-nack", wait: true, reject: true, cancel: true},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					server, cache := newADSServerFixture(t)
+					ctx, cancel := context.WithCancel(t.Context())
+					defer cancel()
+					var wg *completion.WaitGroup
+					if tt.wait {
+						wg = completion.NewWaitGroup(ctx)
+						t.Cleanup(wg.Cancel)
+					}
+					tc.add(server, ctx, 0, wg)
+					requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, tc.name)
+					tc.add(server, ctx, tc.port, wg)
+					if tt.repeat {
+						tc.add(server, ctx, tc.port, wg)
+					}
+					var done <-chan error
+					if tt.wait {
+						done = waitForADSCompletion(t, wg)
+					}
+					actual := cachedListener(t, cache, localNodeID, tc.name)
+					require.True(t, proto.Equal(tc.expected(server, tc.port), actual))
+					require.Len(t, actual.FilterChains, 1)
+					if tc.name == "envoy-admin-listener" {
+						require.Len(t, actual.FilterChains[0].Filters, 1)
+						require.Equal(t, "envoy.filters.network.http_connection_manager", actual.FilterChains[0].Filters[0].Name)
+					}
+					response := createADSWatchResponse(t, cache, ListenerTypeURL, "")
+					delivered := deliverADSResponse(t, cache, 1, response)
+					if tt.cancel {
+						cancel()
+						require.ErrorIs(t, <-done, context.Canceled)
+						// Abandoning the caller's wait leaves the listener configured.
+						// Only an actual NACK triggers response-owned recovery.
+						require.Same(t, actual, cachedListener(t, cache, localNodeID, tc.name))
+					}
+					var rejection string
+					if tt.reject {
+						rejection = "listener bind failed"
+					}
+					replyADSResponse(t, cache, 1, response, delivered, rejection)
+					if tt.wait && !tt.cancel {
+						if tt.reject {
+							require.ErrorContains(t, <-done, rejection)
+						} else {
+							require.NoError(t, <-done)
+						}
+					}
+					if tt.reject {
+						requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, tc.name)
+					} else {
+						require.Same(t, actual, cachedListener(t, cache, localNodeID, tc.name))
+					}
+				})
 			}
-			ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
-			require.NoError(t, <-done)
 		})
 	}
 }
@@ -219,7 +264,7 @@ func TestRemoveListener(t *testing.T) {
 		t.Run(fmt.Sprintf("references=%d", references), func(t *testing.T) {
 			server, cache := newADSServerFixture(t)
 			for range references {
-				require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil, nil))
+				require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil))
 			}
 			version := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 			for remaining := references - 1; remaining >= 0; remaining-- {
@@ -241,7 +286,7 @@ func TestRemoveListener(t *testing.T) {
 
 func TestRemoveListenerNACKRestoresResponseState(t *testing.T) {
 	server, cache := newADSServerFixture(t)
-	require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil, nil))
+	require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil))
 	accepted := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 	server.RemoveListener(t.Context(), "test-listener", nil)
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "test-listener")
@@ -251,7 +296,7 @@ func TestRemoveListenerNACKRestoresResponseState(t *testing.T) {
 	require.NotNil(t, cachedListener(t, cache, localNodeID, "test-listener"))
 	// Re-acquiring and releasing one reference must delete the recovered
 	// resource again. A reference resurrected by the NACK would leave it live.
-	require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil, nil))
+	require.NoError(t, server.AddListener(t.Context(), "test-listener", policy.ParserTypeHTTP, 8080, false, false, nil))
 	server.RemoveListener(t.Context(), "test-listener", nil)
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "test-listener")
 }
@@ -753,7 +798,7 @@ func TestUpdateNetworkPolicyWaitCompletesWithoutNPDSListeners(t *testing.T) {
 				if action == "bulk-delete" {
 					require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, nil))
 				} else {
-					require.NoError(t, server.AddListener(t.Context(), "npds-listener", policy.ParserTypeHTTP, 12345, false, false, nil, nil))
+					require.NoError(t, server.AddListener(t.Context(), "npds-listener", policy.ParserTypeHTTP, 12345, false, false, nil))
 				}
 			}
 			wg := completion.NewWaitGroup(t.Context())
@@ -812,7 +857,7 @@ func TestUpdateNetworkPolicyDoesNotWaitForListenerRejectedBeforeRegistration(t *
 	server := newTestADSServerWithCache(t, cache, logger, nil, newLocalEndpointStore(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	require.NoError(t, server.AddListener(ctx, "npds-listener", policy.ParserTypeHTTP, 12345, false, false, nil, nil))
+	require.NoError(t, server.AddListener(ctx, "npds-listener", policy.ParserTypeHTTP, 12345, false, false, nil))
 	listenerResponse := createADSWatchResponse(t, cache, ListenerTypeURL, "")
 	listenerDelivery := deliverADSResponse(t, cache, 1, listenerResponse)
 	wg := completion.NewWaitGroup(ctx)
@@ -848,7 +893,7 @@ func TestUpdateNetworkPolicyDoesNotWaitForListenerRejectedBeforeRegistration(t *
 
 func TestUpdateNetworkPolicyNoOpWaitsForCurrentACK(t *testing.T) {
 	server, cache := newADSServerFixture(t)
-	require.NoError(t, server.AddListener(t.Context(), "npds-listener", policy.ParserTypeHTTP, 12345, false, false, nil, nil))
+	require.NoError(t, server.AddListener(t.Context(), "npds-listener", policy.ParserTypeHTTP, 12345, false, false, nil))
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	defer cancel()
 	ep := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
@@ -861,7 +906,7 @@ func TestUpdateNetworkPolicyNoOpWaitsForCurrentACK(t *testing.T) {
 	firstDone := waitForADSCompletion(t, firstWG)
 	response := createADSWatchResponse(t, cache, NetworkPolicyTypeURL, "")
 	// An unrelated server update must not move this policy's no-op wait to a later response.
-	require.NoError(t, server.AddListener(ctx, "intervening-listener", policy.ParserTypeHTTP, 12346, false, false, nil, nil))
+	require.NoError(t, server.AddListener(ctx, "intervening-listener", policy.ParserTypeHTTP, 12346, false, false, nil))
 	secondWG := completion.NewWaitGroup(ctx)
 	err, noOpRollback := server.UpdateNetworkPolicy(ctx, ep, epp, secondWG)
 	require.NoError(t, err)

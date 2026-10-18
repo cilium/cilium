@@ -437,7 +437,7 @@ func (r *fakeXdsServer) UpsertSecret(ctx context.Context, secret *envoy_config_t
 	return nil
 }
 
-func (*fakeXdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
+func (*fakeXdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) error {
 	panic("unimplemented")
 }
 
