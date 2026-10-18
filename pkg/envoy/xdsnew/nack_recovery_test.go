@@ -115,12 +115,12 @@ func TestNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 			if order == "prior-absence" {
 				baseline = nil
 			} else {
-				require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", baseline, nil, nil))
+				require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", baseline, nil))
 				first.reply(t, first.receive(t, "secret"), "", "secret")
 			}
-			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", a, nil, nil))
+			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", a, nil))
 			responseA := first.receive(t, "secret")
-			callerB, err := c.ApplyResourceWithRollback(ctx, "coverage-node", typeurl.Secret, "secret", b, nil, nil)
+			callerB, err := c.ApplyResourceWithRollback(ctx, "coverage-node", typeurl.Secret, "secret", b, nil)
 			require.NoError(t, err)
 			t.Cleanup(func() {
 				if callerB != nil {
@@ -173,7 +173,7 @@ func TestNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 				var newest *secret.Secret
 				if order == "newer-after-nacks" {
 					newest = value("C")
-					require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", newest, nil, nil))
+					require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", newest, nil))
 				}
 				require.NoError(t, nack(1, responseA))
 				if order == "unsent" {
@@ -206,16 +206,14 @@ func TestNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 				// response for A or B, must establish acceptance for no-op waits.
 				wg := completion.NewWaitGroup(ctx)
 				t.Cleanup(wg.Cancel)
-				done := make(chan error, 1)
-				require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", baseline, wg,
-					func(err error) { done <- err }))
+				require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", baseline, wg))
+				done := waitForCoverageCompletion(wg)
 				requireCoveragePending(t, done)
 				if order == "caller-after-nack" {
 					second.reply(t, responseB, "", "secret")
 					requireCoveragePending(t, done)
 				}
 				first.reply(t, first.receive(t, "secret"), "", "secret")
-				require.NoError(t, wg.Wait())
 				require.NoError(t, <-done)
 			}
 		})
@@ -341,7 +339,7 @@ func TestFailedNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 	apply(a, aSibling)
 	responseA := first.receive(t, "triggering-change", "sibling")
 	b := &secret.Secret{Name: "triggering-change", Type: &secret.Secret_TlsCertificate{TlsCertificate: &secret.TlsCertificate{}}}
-	callerB, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", typeurl.Secret, "triggering-change", b, nil, nil)
+	callerB, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", typeurl.Secret, "triggering-change", b, nil)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		if callerB != nil {
