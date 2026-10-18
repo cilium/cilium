@@ -60,14 +60,14 @@ func TestRegenerateBPFFailureReverts(t *testing.T) {
 		policyResult: &policyGenerateResult{endpointPolicy: endpointPolicy},
 		ctCleaned:    make(chan struct{}),
 	}
-	var callbackErr error
+	var pending *completion.Completion
 	// Queue asynchronous work before pre-compilation fails.
 	ep.dnsRulesAPI = noopDNSRulesAPI{onRead: func() {
-		datapath.proxyWaitGroup.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
+		pending = datapath.proxyWaitGroup.AddCompletion(nil)
 	}}
 	var reverted bool
 	datapath.revertibles.AddRevert(func() error {
-		require.ErrorIs(t, callbackErr, context.Canceled, "pending callbacks must finish before rollback")
+		require.ErrorIs(t, pending.Err(), context.Canceled, "pending completions must settle before rollback")
 		reverted = true
 		return nil
 	})
@@ -217,9 +217,8 @@ func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
 				ep.desiredPolicy.SelectorPolicy.L4Policy.Revision = revision + 1
 				ep.desiredPolicyRevision = revision + 2
 			}
-			var callbackErr error
-			pending := wg.AddCompletionWithCallback(nil, func(err error) { callbackErr = err })
-			result := wg.AddCompletionWithCallback(nil, nil)
+			pending := wg.AddCompletion(nil)
+			result := wg.AddCompletion(nil)
 			if tt.reject {
 				result.Complete(nackErr)
 			} else {
@@ -246,10 +245,10 @@ func TestWaitForProxyCompletionsDrainsRejectedUpdates(t *testing.T) {
 				wg.Cancel()
 			}
 			if tt.reject {
-				require.ErrorIs(t, callbackErr, context.Canceled)
+				require.ErrorIs(t, pending.Err(), context.Canceled)
 				require.Nil(t, proxy.redirects, "a failed wait must not acknowledge proxy ports")
 			} else if !tt.noWait {
-				require.NoError(t, callbackErr)
+				require.NoError(t, pending.Err())
 				require.Equal(t, redirects, proxy.redirects)
 			}
 		})
@@ -457,7 +456,7 @@ func TestRegenerateBPFWaitsBeforePublication(t *testing.T) {
 			}
 			var pending *completion.Completion
 			ep.dnsRulesAPI = noopDNSRulesAPI{onRead: func() {
-				pending = datapath.proxyWaitGroup.AddCompletionWithCallback(nil, nil)
+				pending = datapath.proxyWaitGroup.AddCompletion(nil)
 			}}
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
