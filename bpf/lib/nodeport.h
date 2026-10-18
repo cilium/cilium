@@ -131,13 +131,11 @@ struct dsr_opt_v4 {
 
 #define NEED_DSR_INFO	(1 << 16)
 
-#if defined(ENABLE_IPV4)
 static __always_inline struct ipv4_nat_entry *
 nodeport_dsr_lookup_v4_nat_entry(const struct ipv4_ct_tuple *nat_tuple)
 {
 	return snat_v4_lookup(nat_tuple);
 }
-#endif
 
 #if defined(ENABLE_IPV6)
 static __always_inline struct ipv6_nat_entry *
@@ -157,11 +155,9 @@ nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_p
 	/* Let kernel choose the outer source ip */
 	if (ctx_is_skb())
 		src_ip = 0;
-#ifdef ENABLE_IPV4
-	else
+	else if (is_defined(ENABLE_IPV4))
 		/* no-op if failure, no need for capturing results */
 		fib_lookup_src_v4(ctx, &src_ip, info->tunnel_endpoint.ip4.be32);
-#endif /* ENABLE_IPV4 */
 
 	/* Append L2 hdr before redirecting to tunnel netdev.
 	 * Otherwise, the kernel will drop such request in
@@ -1655,7 +1651,6 @@ drop_err:
 					  METRIC_EGRESS);
 }
 
-#ifdef ENABLE_IPV4
 static __always_inline __maybe_unused
 void select_nat_port_range_ipv4(struct ipv4_nat_target *target)
 {
@@ -2975,6 +2970,5 @@ skip_service_lookup:
 
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_IPV4 */
 
 #endif /* ENABLE_NODEPORT */
