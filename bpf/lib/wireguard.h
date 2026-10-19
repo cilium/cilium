@@ -72,13 +72,13 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	struct iphdr *ip4;
 	__u32 magic __maybe_unused = 0;
 
-# if defined(HAVE_ENCAP)
+	if (HAVE_ENCAP) {
 		/* In tunneling mode WG needs to encrypt tunnel traffic,
 		 * so that src sec ID can be transferred.
 		 */
 		if (ctx_is_overlay(ctx))
 			goto overlay_encrypt;
-# endif /* HAVE_ENCAP */
+	}
 
 	if (!eth_is_supported_ethertype(proto))
 		return DROP_UNSUPPORTED_L2;
