@@ -215,11 +215,8 @@ type pendingPublication struct {
 	// types which justify publication when Envoy has capacity for them.
 	changedTypeURLs typeurl.Set
 	watchTypeURLs   typeurl.Set
-	// Each present type binds pending waits and generations to the published
-	// version, including unchanged EDS whose version changes.
-	// Nonempty values also supply response-owned rollback state; empty values
-	// request version association only (including publications made by a revert).
-	// Absent types need neither.
+	// Rollback state to coalesce after publication. Present types with empty
+	// values reconcile earlier unsent rollback against current desired state.
 	rollbacks typeurl.Map[rollbackResources]
 }
 

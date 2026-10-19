@@ -61,6 +61,7 @@ generated resources when a response also includes rejected CEC resources.
 
 Callers may supply a WaitGroup to wait for Envoy's response. Bulk calls select
 the resource types to wait for explicitly; an empty selection creates no waits.
+Selected types with no names in the mutation are ignored.
 The `WithRollback` variants enable independent response-owned NACK recovery for
 changed upserts and return a non-nil caller rollback on success. Semantic changes
 get a caller lifecycle, on which the caller eventually invokes either `Revert()`
@@ -344,7 +345,7 @@ flowchart TD
     accepted["acceptedResourceGroup<br/>ACKed immutable group and sparse per-name overrides"]
     override["acceptedResource<br/>Resource and accepting response boundary"]
     latest["responseState<br/>Latest response summary and accepted/rejected versions"]
-    generation["pendingGeneration<br/>Response association and required names<br/>Response-owned rollback, independent of caller waits"]
+    generation["pendingGeneration<br/>Required resource names<br/>Response-owned rollback, independent of caller waits"]
     stream["callbackStreamState<br/>Node identity and per-TypeURL response slots"]
     response["pendingResponse<br/>Exact nonce, version, and generation boundary"]
     coverage["responseCoverage<br/>Immutable group reference<br/>Requested and returned names"]
@@ -357,7 +358,6 @@ flowchart TD
     types -->|acceptedResources| accepted
     accepted -->|partial: name map| override
     types -->|response| latest
-    latest -->|embedded latest summary| response
     types -->|pendingGenerations: entries and generation boundaries| generation
     generation -.->|rollback| rollback
     generation -->|scope, once a response is collected| scope
@@ -521,11 +521,10 @@ even after its ACK wait completes; plain removals need no caller lifecycle.
 ## Stream disconnect, reconnect, and startup
 
 Disconnect cancels that stream's watches and removes its response identity.
-Desired state and recovery payloads persist. Sent, unacknowledged rollback loses
-the dead stream/nonce association but remains frozen; unsent rollback remains
-coalescible. Other live streams keep their state. When the last stream closes,
-acceptance evidence is cleared because reconnect might involve a fresh Envoy
-process.
+Desired state and recovery payloads persist. Sent, unacknowledged rollback remains
+frozen; unsent rollback remains coalescible. Other live streams keep their state.
+When the last stream closes, acceptance evidence is cleared because reconnect
+might involve a fresh Envoy process.
 
 A reconnecting node can receive retained generations again. Acceptance requires
 named-resource coverage and an ACK matched to the delivered response.
