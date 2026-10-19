@@ -298,14 +298,12 @@ func TestBulkNACKRollbackRequiresOptIn(t *testing.T) {
 		wait     bool
 		finalize bool
 	}{
-		{name: "zero-selector"},
-		{name: "empty-selector", waits: typeurl.NewSet()},
+		{name: "empty-selector"},
 		{name: "explicit-selector", waits: typeurl.NewSet(typeurl.Listener, typeurl.Route)},
 		{name: "caller-finalized", finalize: true},
 		{name: "caller-finalized-explicit-selector", finalize: true, waits: typeurl.NewSet(typeurl.Listener, typeurl.Route)},
 		{name: "caller-finalized-with-wait-group", finalize: true, wait: true, waits: typeurl.NewSet(typeurl.Listener, typeurl.Route)},
-		{name: "zero-selector-with-wait-group", wait: true},
-		{name: "empty-selector-with-wait-group", wait: true, waits: typeurl.NewSet()},
+		{name: "empty-selector-with-wait-group", wait: true},
 		{name: "explicit-selector-with-wait-group", wait: true, waits: typeurl.NewSet(typeurl.Listener, typeurl.Route)},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -538,7 +536,7 @@ func TestBulkNACKAndCallerRollbackHaveIndependentScopes(t *testing.T) {
 					Endpoints: map[string]*endpoint.ClusterLoadAssignment{"resource": {ClusterName: "resource"}},
 					Secrets:   map[string]*secret.Secret{"resource": {Name: "resource"}},
 				}}
-				caller, err := c.ApplyResourcesWithRollback(t.Context(), "coverage-node", mutations, nil, typeurl.NewSet())
+				caller, err := c.ApplyResourcesWithRollback(t.Context(), "coverage-node", mutations, nil, typeurl.EmptySet)
 				require.NoError(t, err)
 				t.Cleanup(func() { caller.Finalize() })
 				values := typeurl.Slots[proto.Message]{
@@ -591,8 +589,7 @@ func TestPartialResponsesAtSameGenerationAccumulate(t *testing.T) {
 			c := newCoverageCache(t)
 			wg := completion.NewWaitGroup(t.Context())
 			t.Cleanup(wg.Cancel)
-			waits := typeurl.NewSet()
-			waits.Insert(typeurl.Endpoint)
+			waits := typeurl.NewSet(typeurl.Endpoint)
 			require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{
 				Upserted: xds.Resources{Endpoints: map[string]*endpoint.ClusterLoadAssignment{
 					"a": {ClusterName: "a"}, "b": {ClusterName: "b"},
@@ -855,8 +852,7 @@ func TestNoOpRemovalDoesNotWaitForUnrelatedListenerACK(t *testing.T) {
 				} else {
 					mutations.Upserted.Listeners = map[string]*listener.Listener{"a": nil}
 				}
-				waits := typeurl.NewSet()
-				waits.Insert(typeurl.Listener)
+				waits := typeurl.NewSet(typeurl.Listener)
 				require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", mutations, removalWG, waits))
 			}
 			require.Equal(t, 1, c.completionCbs.PendingCompletionCount(), "an already-ACKed removal adds no wait")
@@ -1097,7 +1093,7 @@ func TestBulkMixedChangesWaitForEachResourceOutcome(t *testing.T) {
 			originalB := &endpoint.ClusterLoadAssignment{ClusterName: "b"}
 			require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{
 				Upserted: xds.Resources{Endpoints: map[string]*endpoint.ClusterLoadAssignment{"a": originalA, "b": originalB}},
-			}, nil, typeurl.Set{}))
+			}, nil, typeurl.EmptySet))
 			first := coverageStream{cache: c, id: 1}
 			baseline := first.receive(t, "a", "b")
 			first.reply(t, baseline, "", "a", "b")
@@ -1269,8 +1265,7 @@ func TestPartialNACKKeepsUnrequestedCoalescedNames(t *testing.T) {
 	c := newCoverageCache(t)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	waits := typeurl.NewSet()
-	waits.Insert(typeurl.Endpoint)
+	waits := typeurl.NewSet(typeurl.Endpoint)
 	require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{
 		Upserted: xds.Resources{Endpoints: map[string]*endpoint.ClusterLoadAssignment{
 			"a": {ClusterName: "a"}, "b": {ClusterName: "b"},
@@ -1294,9 +1289,7 @@ func TestPartialNACKKeepsOtherTypeURLInTransaction(t *testing.T) {
 	c := newCoverageCache(t)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	waits := typeurl.NewSet()
-	waits.Insert(typeurl.Endpoint)
-	waits.Insert(typeurl.Cluster)
+	waits := typeurl.NewSet(typeurl.Endpoint, typeurl.Cluster)
 	require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{
 		Upserted: xds.Resources{
 			Endpoints: map[string]*endpoint.ClusterLoadAssignment{"a": {ClusterName: "a"}},
@@ -1319,8 +1312,7 @@ func TestPartialNACKPreservesNewerUnrequestedTransactionSibling(t *testing.T) {
 	c := newCoverageCache(t)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	waits := typeurl.NewSet()
-	waits.Insert(typeurl.Endpoint)
+	waits := typeurl.NewSet(typeurl.Endpoint)
 	require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", ResourceMutations{
 		Upserted: xds.Resources{Endpoints: map[string]*endpoint.ClusterLoadAssignment{
 			"a": {ClusterName: "a"}, "b": {ClusterName: "b"},

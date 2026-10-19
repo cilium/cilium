@@ -38,7 +38,7 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 	err := c.applyRevertibleResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
 		Clusters:  map[string]*envoy_config_cluster.Cluster{"unrelated-cluster": cluster},
 		Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{"orphan": endpoint},
-	}}, nil, typeurl.Set{})
+	}}, nil, typeurl.EmptySet)
 	require.NoError(t, err)
 
 	clusterResponses := make(chan cache.Response, 1)
@@ -66,7 +66,7 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 		Upserted: xds.Resources{Clusters: map[string]*envoy_config_cluster.Cluster{
 			"another-cluster": {Name: "another-cluster"},
 		}},
-	}, nil, typeurl.Set{})
+	}, nil, typeurl.EmptySet)
 	require.NoError(t, err)
 	response = <-clusterResponses
 	cancel()
@@ -91,7 +91,7 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 	require.NoError(t, err)
 	err = c.applyRevertibleResources(ctx, nodeID, ResourceMutations{Upserted: xds.Resources{
 		Listeners: map[string]*envoy_config_listener.Listener{"listener": baselineListener},
-	}}, nil, typeurl.Set{})
+	}}, nil, typeurl.EmptySet)
 	require.NoError(t, err)
 
 	listenerResponses := make(chan cache.Response, 1)
@@ -129,7 +129,7 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 		latestListener = &envoy_config_listener.Listener{Name: fmt.Sprintf("listener-%d", update)}
 		err = c.applyRevertibleResources(ctx, nodeID, ResourceMutations{Upserted: xds.Resources{
 			Listeners: map[string]*envoy_config_listener.Listener{"listener": latestListener},
-		}}, nil, typeurl.Set{})
+		}}, nil, typeurl.EmptySet)
 		require.NoError(t, err)
 		response := <-listenerResponses
 		listenerSubscription.SetReturnedResources(response.GetReturnedResources())
@@ -261,7 +261,7 @@ func TestUnsentRollbackHistoryIsBounded(t *testing.T) {
 						}
 					}
 					require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node",
-						ResourceMutations{Upserted: xds.Resources{Endpoints: endpoints}}, nil, typeurl.Set{}))
+						ResourceMutations{Upserted: xds.Resources{Endpoints: endpoints}}, nil, typeurl.EmptySet))
 				}
 				if test.unrelated {
 					// An unrelated update publishes the snapshot without exposing

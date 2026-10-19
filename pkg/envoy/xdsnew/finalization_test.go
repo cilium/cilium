@@ -271,7 +271,7 @@ func TestIncrementalCLAProjection(t *testing.T) {
 				explicit = &endpoint.ClusterLoadAssignment{ClusterName: "shared", Endpoints: []*endpoint.LocalityLbEndpoints{{}}}
 				initial.Endpoints = map[string]*endpoint.ClusterLoadAssignment{"shared": explicit}
 			}
-			require.NoError(t, c.ApplyResources(t.Context(), "node1", ResourceMutations{Upserted: initial}, nil, typeurl.Set{}))
+			require.NoError(t, c.ApplyResources(t.Context(), "node1", ResourceMutations{Upserted: initial}, nil, typeurl.EmptySet))
 			before := requestSnapshotForTest(t, c, "node1", typeurl.Cluster)
 			oldAssignment := before.GetResources(typeurl.Endpoint.URL())["shared"]
 			var mutation ResourceMutations
@@ -289,7 +289,7 @@ func TestIncrementalCLAProjection(t *testing.T) {
 			case "remove-explicit":
 				mutation.Removed.Endpoints = initial.Endpoints
 			}
-			require.NoError(t, c.ApplyResources(t.Context(), "node1", mutation, nil, typeurl.Set{}))
+			require.NoError(t, c.ApplyResources(t.Context(), "node1", mutation, nil, typeurl.EmptySet))
 			index := typeurl.Cluster
 			if explicit != nil {
 				index = typeurl.Endpoint
@@ -353,7 +353,7 @@ func TestPendingCLARemovalRemainsFinal(t *testing.T) {
 					require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{Upserted: xds.Resources{
 						Clusters:  map[string]*cluster.Cluster{"cluster": testEDSCluster("cluster", "shared")},
 						Endpoints: map[string]*endpoint.ClusterLoadAssignment{"shared": original},
-					}}, nil, typeurl.Set{}))
+					}}, nil, typeurl.EmptySet))
 					cds := coverageStream{cache: c, id: 1, typeURL: typeurl.Cluster.URL()}
 					cds.reply(t, cds.receive(t), "")
 					eds := coverageStream{cache: c, id: 2, typeURL: typeurl.Endpoint.URL()}

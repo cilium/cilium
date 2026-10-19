@@ -91,7 +91,7 @@ func TestADSNamedSubscriptionsShareWatch(t *testing.T) {
 					ClusterName: name, Endpoints: []*endpoint.LocalityLbEndpoints{{Priority: 1}},
 				}
 			}
-			require.NoError(t, cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: initial}, nil, typeurl.Set{}))
+			require.NoError(t, cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: initial}, nil, typeurl.EmptySet))
 
 			var nonce, version string
 			var send func([]string) error
@@ -132,7 +132,7 @@ func TestADSNamedSubscriptionsShareWatch(t *testing.T) {
 			require.Eventually(t, func() bool { return watchCount() == 1 }, 5*time.Second, time.Millisecond,
 				"go-control-plane must replace the EDS watch when subscriptions change, rather than retain a watch per resource name")
 
-			require.NoError(t, cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: updated}, nil, typeurl.Set{}),
+			require.NoError(t, cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: updated}, nil, typeurl.EmptySet),
 				"publication must fit in the relay before responses can be collected; check watch replacement and response-channel ownership")
 			resources := receive()
 			require.Len(t, resources, resourceCount)
