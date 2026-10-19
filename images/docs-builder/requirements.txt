@@ -1,9 +1,9 @@
-## Auto-generated from requirements-min/requirements.txt with "make update-requirements"
+## Auto-generated from Documentation/requirements-min/requirements.txt with "make update-requirements"
 Sphinx==9.0.4
 sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
-sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@aaa00bd49e9873767577c3d8cab45333b027c32c
+sphinx_rtd_theme_cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@aaa00bd49e9873767577c3d8cab45333b027c32c
 # We use semver to parse Cilium's version in the config file
 semver==3.1.0
 # Sphinx extensions
@@ -24,7 +24,7 @@ annotated-doc==0.0.5
 annotated-types==0.8.0
 attrs==26.1.0
 babel==2.18.0
-certifi==2026.7.22
+certifi==2026.10.18
 charset-normalizer==3.5.2
 colorama==0.4.6
 deepmerge==3.0.1
@@ -39,7 +39,7 @@ markdown-it-py==4.2.0
 MarkupSafe==3.0.4
 mdit-py-plugins==0.6.1
 mdurl==0.1.2
-mistune==3.3.4
+mistune==3.4.0
 packaging==26.3
 pathspec==1.1.1
 picobox==4.0.0
