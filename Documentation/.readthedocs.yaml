@@ -20,7 +20,7 @@ sphinx:
 # https://docs.readthedocs.io/en/stable/guides/reproducible-builds.html
 python:
   install:
-  - requirements: Documentation/requirements.txt
+  - requirements: images/docs-builder/requirements.txt
 
 search:
    ignore:
