@@ -1,9 +1,9 @@
-## Auto-generated from requirements-min/requirements.txt with "make update-requirements"
+## Auto-generated from Documentation/requirements-min/requirements.txt with "make update-requirements"
 Sphinx==9.0.4
 sphinx-autobuild==2021.3.14
 
 # Custom theme, forked from Read the Docs
-sphinx-rtd-theme-cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@aaa00bd49e9873767577c3d8cab45333b027c32c
+sphinx_rtd_theme_cilium @ git+https://github.com/cilium/sphinx_rtd_theme.git@aaa00bd49e9873767577c3d8cab45333b027c32c
 # We use semver to parse Cilium's version in the config file
 semver==3.1.0
 # Sphinx extensions
@@ -24,10 +24,10 @@ annotated-doc==0.0.5
 annotated-types==0.8.0
 attrs==26.1.0
 babel==2.18.0
-certifi==2026.7.22
-charset-normalizer==3.5.1
+certifi==2026.10.23
+charset-normalizer==3.5.2
 colorama==0.4.6
-deepmerge==3.0.1
+deepmerge==4.0.0
 docutils==0.22.4
 idna==3.20
 imagesize==2.0.1
@@ -36,15 +36,15 @@ jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 livereload==2.7.1
 markdown-it-py==4.2.0
-MarkupSafe==3.0.3
+MarkupSafe==3.0.4
 mdit-py-plugins==0.6.1
 mdurl==0.1.2
-mistune==3.3.4
+mistune==3.4.0
 packaging==26.3
 pathspec==1.1.1
 picobox==4.0.0
-pydantic==2.13.5
-pydantic_core==2.46.5
+pydantic==2.14.2
+pydantic_core==2.50.2
 pyenchant==3.3.0
 Pygments==2.21.0
 PyYAML==6.0.3
@@ -52,7 +52,7 @@ referencing==0.37.0
 requests==2.34.2
 rich==15.0.0
 roman-numerals==4.1.0
-rpds-py==2026.6.3
+rpds-py==2026.9.1
 rstcheck-core==1.3.2
 shellingham==1.5.4
 snowballstemmer==3.1.1
@@ -60,13 +60,13 @@ sphinx_mdinclude==0.6.2
 sphinxcontrib-applehelp==2.0.0
 sphinxcontrib-devhelp==2.0.0
 sphinxcontrib-htmlhelp==2.1.0
-sphinxcontrib-httpdomain==2.0.0
+sphinxcontrib-httpdomain==2.2.1
 sphinxcontrib-jquery==4.1
-sphinxcontrib-jsmath==1.0.1
+sphinxcontrib-jsmath==2.0.0
 sphinxcontrib-qthelp==2.0.0
 sphinxcontrib-serializinghtml==2.0.0
-tornado==6.5.10
-typer==0.27.2
+tornado==6.6
+typer==0.27.3
 typing-inspection==0.4.4
 typing_extensions==4.16.0
 urllib3==2.8.0
