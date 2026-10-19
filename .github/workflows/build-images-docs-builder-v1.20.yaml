@@ -10,8 +10,7 @@ on:
       - synchronize
       - reopened
     paths:
-      - Documentation/Dockerfile
-      - Documentation/requirements.txt
+      - images/docs-builder/**
 
 
 permissions:
@@ -66,7 +65,7 @@ jobs:
       - name: Generate image tag for docs-builder
         id: docs-builder-tag
         run: |
-          echo tag="$(git ls-tree --full-tree HEAD -- ./Documentation | awk '{ print $3 }')" >> $GITHUB_OUTPUT
+          echo tag="$(git ls-tree --full-tree HEAD -- ./images/docs-builder | awk '{ print $3 }')" >> $GITHUB_OUTPUT
 
       - name: Check if tag for docs-builder already exists
         id: docs-builder-tag-in-repositories
@@ -124,8 +123,8 @@ jobs:
         id: docker-build-docs-builder
         with:
           provenance: false
-          context: ./Documentation
-          file: ./Documentation/Dockerfile
+          context: ./images/docs-builder
+          file: ./images/docs-builder/Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docs-builder:${{ steps.docs-builder-tag.outputs.tag }}

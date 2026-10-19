@@ -848,7 +848,7 @@
           "make -C Documentation update-requirements"
         ],
         "fileFilters": [
-          "Documentation/requirements.txt"
+          "images/docs-builder/requirements.txt"
         ],
         "executionMode": "update"
       }
