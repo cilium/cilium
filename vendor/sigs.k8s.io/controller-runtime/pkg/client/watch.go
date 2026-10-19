@@ -28,15 +28,16 @@ import (
 
 // NewWithWatch returns a new WithWatch.
 func NewWithWatch(config *rest.Config, options Options) (WithWatch, error) {
-	client, err := newClient(config, options)
+	base, c, err := newClient(config, options)
 	if err != nil {
 		return nil, err
 	}
-	return &watchingClient{client: client}, nil
+	return &watchingClient{Client: wrapClient(c, options), base: base}, nil
 }
 
 type watchingClient struct {
-	*client
+	Client
+	base *client
 }
 
 func (w *watchingClient) Watch(ctx context.Context, list ObjectList, opts ...ListOption) (watch.Interface, error) {
@@ -67,7 +68,7 @@ func (w *watchingClient) metadataWatch(ctx context.Context, obj *metav1.PartialO
 
 	listOpts := w.listOpts(opts...)
 
-	resInt, err := w.client.metadataClient.getResourceInterface(gvk, listOpts.Namespace)
+	resInt, err := w.base.metadataClient.getResourceInterface(gvk, listOpts.Namespace)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func (w *watchingClient) metadataWatch(ctx context.Context, obj *metav1.PartialO
 }
 
 func (w *watchingClient) unstructuredWatch(ctx context.Context, obj runtime.Unstructured, opts ...ListOption) (watch.Interface, error) {
-	r, err := w.client.unstructuredClient.resources.getResource(obj)
+	r, err := w.base.unstructuredClient.resources.getResource(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -86,12 +87,12 @@ func (w *watchingClient) unstructuredWatch(ctx context.Context, obj runtime.Unst
 	return r.Get().
 		NamespaceIfScoped(listOpts.Namespace, r.isNamespaced()).
 		Resource(r.resource()).
-		VersionedParams(listOpts.AsListOptions(), w.client.unstructuredClient.paramCodec).
+		VersionedParams(listOpts.AsListOptions(), w.base.unstructuredClient.paramCodec).
 		Watch(ctx)
 }
 
 func (w *watchingClient) typedWatch(ctx context.Context, obj ObjectList, opts ...ListOption) (watch.Interface, error) {
-	r, err := w.client.typedClient.resources.getResource(obj)
+	r, err := w.base.typedClient.resources.getResource(obj)
 	if err != nil {
 		return nil, err
 	}
@@ -101,6 +102,6 @@ func (w *watchingClient) typedWatch(ctx context.Context, obj ObjectList, opts ..
 	return r.Get().
 		NamespaceIfScoped(listOpts.Namespace, r.isNamespaced()).
 		Resource(r.resource()).
-		VersionedParams(listOpts.AsListOptions(), w.client.typedClient.paramCodec).
+		VersionedParams(listOpts.AsListOptions(), w.base.typedClient.paramCodec).
 		Watch(ctx)
 }

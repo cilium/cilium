@@ -23,16 +23,21 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 
+	"sigs.k8s.io/controller-runtime/pkg/cache/cacheapi"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/client/internal/writebarrier"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -71,6 +76,9 @@ type Options struct {
 	//  - FieldValidationStrict
 	// For more details, see: https://kubernetes.io/docs/reference/using-api/api-concepts/#field-validation
 	FieldValidation string
+
+	// Log will be used by the client if it encounters any errors.
+	Log logr.Logger
 }
 
 // CacheOptions are options for creating a cache-backed client.
@@ -85,6 +93,26 @@ type CacheOptions struct {
 	// read unstructured objects or lists from the cache.
 	// If false, unstructured objects will always result in a live lookup.
 	Unstructured bool
+
+	// EnableReadYourWritesConsistency controls if read requests against the cache will
+	// block until the cache observed all write requests that started before the read
+	// request. Lists will wait for all pending write requests to the gvk the List is for.
+	//
+	// The `DisableReadYourWritesConsistency` option can be used to disable this functionality
+	// for individual requests, both on reads to keep them from waiting and on writes to
+	// prevent them from blocking subsequent reads.
+	//
+	// The blocking is always scoped to the representation (typed, unstructured or
+	// PartialObjectMetadata), meaning a write only blocks reads of the same representation.
+	//
+	// This is an experimental feature, a form of this will be kept but both the details of
+	// how exactly it works and how exactly it is configured may change.
+	//
+	// This feature does not work correctly when a resource has more than one Namespace
+	// configured.
+	//
+	// Defaults to false.
+	EnableReadYourWritesConsistency *bool
 }
 
 // NewClientFunc allows a user to define how to create a client.
@@ -113,9 +141,17 @@ type NewClientFunc func(config *rest.Config, options Options) (Client, error)
 // corresponding group, version, and kind for the given type.  In the
 // case of unstructured types, the group, version, and kind will be extracted
 // from the corresponding fields on the object.
-func New(config *rest.Config, options Options) (c Client, err error) {
-	c, err = newClient(config, options)
-	if err == nil && options.DryRun != nil && *options.DryRun {
+func New(config *rest.Config, options Options) (Client, error) {
+	_, c, err := newClient(config, options)
+	if err != nil {
+		return nil, err
+	}
+
+	return wrapClient(c, options), nil
+}
+
+func wrapClient(c Client, options Options) Client {
+	if options.DryRun != nil && *options.DryRun {
 		c = NewDryRunClient(c)
 	}
 	if fo := options.FieldOwner; fo != "" {
@@ -125,12 +161,12 @@ func New(config *rest.Config, options Options) (c Client, err error) {
 		c = WithFieldValidation(c, FieldValidation(fv))
 	}
 
-	return c, err
+	return c
 }
 
-func newClient(config *rest.Config, options Options) (*client, error) {
+func newClient(config *rest.Config, options Options) (*client, Client, error) {
 	if config == nil {
-		return nil, fmt.Errorf("must provide non-nil rest.Config to client.New")
+		return nil, nil, fmt.Errorf("must provide non-nil rest.Config to client.New")
 	}
 
 	config = rest.CopyConfig(config)
@@ -152,7 +188,7 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 		var err error
 		options.HTTPClient, err = rest.HTTPClientFor(config)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -166,8 +202,12 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 		var err error
 		options.Mapper, err = apiutil.NewDynamicRESTMapper(config, options.HTTPClient)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+	}
+
+	if options.Log.IsZero() {
+		options.Log = log.Log.WithName("client")
 	}
 
 	resources := &clientRestResources{
@@ -182,7 +222,7 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 
 	rawMetaClient, err := metadata.NewForConfigAndClient(metadata.ConfigFor(config), options.HTTPClient)
 	if err != nil {
-		return nil, fmt.Errorf("unable to construct metadata-only client for use as part of client: %w", err)
+		return nil, nil, fmt.Errorf("unable to construct metadata-only client for use as part of client: %w", err)
 	}
 
 	c := &client{
@@ -202,7 +242,7 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 		mapper: options.Mapper,
 	}
 	if options.Cache == nil || options.Cache.Reader == nil {
-		return c, nil
+		return c, c, nil
 	}
 
 	// We want a cache if we're here.
@@ -215,11 +255,26 @@ func newClient(config *rest.Config, options Options) (*client, error) {
 	for _, obj := range options.Cache.DisableFor {
 		gvk, err := c.GroupVersionKindFor(obj)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		c.uncachedGVKs[gvk] = struct{}{}
 	}
-	return c, nil
+
+	if !ptr.Deref(options.Cache.EnableReadYourWritesConsistency, false) {
+		return c, c, nil
+	}
+
+	informerCache, isCache := options.Cache.Reader.(cacheapi.Informers)
+	if !isCache {
+		return nil, nil, fmt.Errorf("cache reader does not implement %T, can not provide ReadYourWritesConsistency", cacheapi.Informers(nil))
+	}
+
+	return c, newConsistentClient(
+		c,
+		informerCache,
+		writebarrier.NewWriteBarrier,
+		options.Log,
+	), nil
 }
 
 var _ Client = &client{}
@@ -319,11 +374,18 @@ func (c *client) Update(ctx context.Context, obj Object, opts ...UpdateOption) e
 
 // Delete implements client.Client.
 func (c *client) Delete(ctx context.Context, obj Object, opts ...DeleteOption) error {
+	_, err := c.delete(ctx, obj, opts...)
+	return err
+}
+
+// delete issues a delete call and returns the response or an error. The response
+// gets deserialized into an unstructured and is either a metav1.Status if the object
+// is gone from storage or the object if it remains, for example because of finalizers.
+func (c *client) delete(ctx context.Context, obj Object, opts ...DeleteOption) (*unstructured.Unstructured, error) {
 	switch obj.(type) {
 	case runtime.Unstructured:
 		return c.unstructuredClient.Delete(ctx, obj, opts...)
-	case *metav1.PartialObjectMetadata:
-		return c.metadataClient.Delete(ctx, obj, opts...)
+	// The typed client can also delete PartialObjectMeta
 	default:
 		return c.typedClient.Delete(ctx, obj, opts...)
 	}
@@ -542,7 +604,7 @@ func (co *SubResourceCreateOptions) ApplyOptions(opts []SubResourceCreateOption)
 
 // ApplyToSubResourceCreate applies the the configuration on the given create options.
 func (co *SubResourceCreateOptions) ApplyToSubResourceCreate(o *SubResourceCreateOptions) {
-	co.CreateOptions.ApplyToCreate(&co.CreateOptions)
+	co.CreateOptions.ApplyToCreate(&o.CreateOptions)
 }
 
 // SubResourcePatchOptions holds all possible configurations for a subresource patch

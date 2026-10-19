@@ -537,20 +537,26 @@ func (w *priorityqueue[T]) logState() {
 		if !w.log.V(5).Enabled() {
 			continue
 		}
-		w.lock.Lock()
-		items := make([]*item[T], 0, len(w.items))
-		w.waiting.Ascend(func(item *item[T]) bool {
-			items = append(items, item)
-			return true
-		})
-		w.ready.Ascend(func(item *item[T]) bool {
-			items = append(items, item)
-			return true
-		})
-		w.lock.Unlock()
 
-		w.log.V(5).Info("workqueue_items", "items", items)
+		w.log.V(5).Info("workqueue_items", "items", w.cloneItems())
 	}
+}
+
+// cloneItems returns a deep copy of all queued items, taken under the lock, so that callers
+// like logState can use them after it is released without racing with writers of ReadyAt.
+func (w *priorityqueue[T]) cloneItems() []item[T] {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+
+	items := make([]item[T], 0, len(w.items))
+	appendItem := func(it *item[T]) bool {
+		items = append(items, it.clone())
+		return true
+	}
+	w.waiting.Ascend(appendItem)
+	w.ready.Ascend(appendItem)
+
+	return items
 }
 
 func lessWaiting[T comparable](a, b *item[T]) bool {
@@ -572,6 +578,15 @@ type item[T comparable] struct {
 	AddedCounter uint64     `json:"addedCounter"`
 	Priority     int        `json:"priority"`
 	ReadyAt      *time.Time `json:"readyAt,omitempty"`
+}
+
+// clone returns a copy of the item that shares no memory with it.
+func (i *item[T]) clone() item[T] {
+	clone := *i
+	if i.ReadyAt != nil {
+		clone.ReadyAt = new(*i.ReadyAt)
+	}
+	return clone
 }
 
 func (w *priorityqueue[T]) updateUnfinishedWorkLoop() {

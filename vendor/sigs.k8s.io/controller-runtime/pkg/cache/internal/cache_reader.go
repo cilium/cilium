@@ -34,9 +34,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/internal/field/selector"
 )
 
-// CacheReader is a client.Reader.
-var _ client.Reader = &CacheReader{}
-
 // CacheReader wraps a cache.Index to implement the client.Reader interface for a single type.
 type CacheReader struct {
 	// indexer is the underlying indexer wrapped by this cache.
@@ -55,7 +52,7 @@ type CacheReader struct {
 }
 
 // Get checks the indexer for the object and writes a copy of it if found.
-func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out client.Object, opts ...client.GetOption) error {
+func (c *CacheReader) Get(ctx context.Context, key client.ObjectKey, out client.Object, opts ...client.GetOption) error {
 	getOpts := client.GetOptions{}
 	getOpts.ApplyOptions(opts)
 
@@ -109,7 +106,7 @@ func (c *CacheReader) Get(_ context.Context, key client.ObjectKey, out client.Ob
 }
 
 // List lists items out of the indexer and writes them to out.
-func (c *CacheReader) List(_ context.Context, out client.ObjectList, opts ...client.ListOption) error {
+func (c *CacheReader) List(ctx context.Context, out client.ObjectList, opts ...client.ListOption) error {
 	var objs []any
 	var err error
 

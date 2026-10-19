@@ -21,8 +21,8 @@ import (
 	"maps"
 	"slices"
 	"strings"
-	"sync"
 
+	"golang.org/x/sync/errgroup"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -77,24 +77,15 @@ func (dbt *delegatingByGVKCache) Start(ctx context.Context) error {
 	allCaches := slices.Collect(maps.Values(dbt.caches))
 	allCaches = append(allCaches, dbt.defaultCache)
 
-	wg := &sync.WaitGroup{}
-	errs := make(chan error)
+	group, childCtx := errgroup.WithContext(ctx)
 	for idx := range allCaches {
 		cache := allCaches[idx]
-		wg.Go(func() {
-			if err := cache.Start(ctx); err != nil {
-				errs <- err
-			}
+		group.Go(func() error {
+			return cache.Start(childCtx)
 		})
 	}
 
-	select {
-	case err := <-errs:
-		return err
-	case <-ctx.Done():
-		wg.Wait()
-		return nil
-	}
+	return ignoreContextCanceled(group.Wait())
 }
 
 func (dbt *delegatingByGVKCache) WaitForCacheSync(ctx context.Context) bool {
