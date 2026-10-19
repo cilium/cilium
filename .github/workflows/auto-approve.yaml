@@ -79,6 +79,7 @@ jobs:
           # the PR is created as a draft (not possible to have draft and automerge
           # enabled at the same time).
           gh -R ${GITHUB_REPOSITORY} pr merge ${PULL_REQUEST_NUMBER} --auto --rebase
+          gh -R ${GITHUB_REPOSITORY} pr review ${PULL_REQUEST_NUMBER} --approve
+        else
+          echo "ciliumbot was not requested by cilium-renovate[bot], not approving"
         fi
-
-        gh -R ${GITHUB_REPOSITORY} pr review ${PULL_REQUEST_NUMBER} --approve
