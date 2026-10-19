@@ -25,6 +25,11 @@ Gateway API |GATEWAY_API_VERSION| (``GatewayClass``, ``Gateway``,
 ``HTTPRoute``, ``GRPCRoute``, ``TLSRoute``, ``TCPRoute``, ``UDPRoute``,
 ``ListenerSet``, ``ReferenceGrant`` and ``BackendTLSPolicy``).
 
+When ``gatewayAPI.gatewayClass.create`` is ``auto`` (the default), the Cilium
+Operator also creates the default ``cilium`` GatewayClass if it doesn't exist,
+and the next ``helm upgrade`` adopts it. When it is ``false``, no GatewayClass
+is created.
+
 List the CRDs managed by the Cilium Operator with:
 
 .. code-block:: shell-session
@@ -37,6 +42,13 @@ List the CRDs managed by the Cilium Operator with:
     The **experimental** channel is not supported. If you need experimental
     resources or fields, install the CRDs yourself as described in
     :ref:`gs_gateway_api_prerequisites`.
+
+.. warning::
+
+    Do not set ``gatewayAPI.gatewayClass.create=true`` together with
+    ``gatewayAPI.installCRDs`` on a cluster without the Gateway API CRDs: the
+    Helm installation fails, as the ``GatewayClass`` CRD doesn't exist yet. Keep
+    the default ``auto`` value.
 
 Upgrades
 ========

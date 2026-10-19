@@ -133,6 +133,13 @@ The following options have been introduced in this version of Cilium:
   disabled by default, and CRDs managed by other tools are never modified. See
   :ref:`Gateway API CRD management <gs_gateway_crd_management>` for details.
 
+* ``--gateway-api-create-gateway-class`` and ``--gateway-api-gateway-class-helm-release``
+  operator flags have been introduced. When ``gatewayAPI.installCRDs`` is enabled and
+  ``gatewayAPI.gatewayClass.create`` is ``auto`` (the default), Helm sets them so that the
+  Cilium Operator creates the default ``cilium`` GatewayClass if it doesn't exist, labeled
+  as owned by the Helm release so that the next ``helm upgrade`` adopts it. An existing
+  GatewayClass is never modified.
+
 Changed Options
 ###############
 
