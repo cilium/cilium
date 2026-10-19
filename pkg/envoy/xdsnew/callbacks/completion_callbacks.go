@@ -26,13 +26,6 @@ import (
 
 type snapshotGenerationContextKey struct{}
 
-// WithSnapshotGeneration carries the snapshot's generation through
-// go-control-plane to OnStreamResponse. The callback can then identify the exact
-// publication rather than infer it from the cache's latest state.
-func WithSnapshotGeneration(ctx context.Context, generation Generation) context.Context {
-	return context.WithValue(ctx, snapshotGenerationContextKey{}, generation)
-}
-
 func snapshotGenerationFromContext(ctx context.Context) Generation {
 	switch published := ctx.Value(snapshotGenerationContextKey{}).(type) {
 	case Generation:
@@ -51,19 +44,6 @@ type generationResponse struct {
 
 func (response *generationResponse) GetContext() context.Context {
 	return response.ctx
-}
-
-// WithResponseGeneration captures the snapshot generation for an immediate
-// response while the cache still serializes collection with publication.
-// SetSnapshot responses already carry their exact generation; preserve it,
-// including an explicit zero for the initial empty snapshot. Only immediate
-// responses need a wrapper, and no resources are copied or marshaled here.
-func WithResponseGeneration(response cache.Response, generation Generation) cache.Response {
-	ctx := response.GetContext()
-	if ctx.Value(snapshotGenerationContextKey{}) != nil {
-		return response
-	}
-	return &generationResponse{Response: response, ctx: WithSnapshotGeneration(ctx, generation)}
 }
 
 // Rollback is the lifecycle of rollback state for one resource update.
@@ -108,10 +88,7 @@ func NewCompletionCallbacks(logger *slog.Logger, nackHandler NACKHandler) *Compl
 }
 
 type callbackNodeState struct {
-	// published retains the current snapshot for acceptance bookkeeping when
-	// a transport-only response has no resource coverage metadata.
-	published cache.ResourceSnapshot
-	typeURLs  typeurl.Slots[typeURLState]
+	typeURLs typeurl.Slots[typeURLState]
 }
 
 type typeURLState struct {
@@ -380,28 +357,25 @@ func (cb *CompletionCallbacks) CompleteCompletionsThroughGeneration(nodeID strin
 	}
 }
 
-// SetPublishedSnapshot records a committed published snapshot and prunes
-// obsolete sparse acceptance evidence. It does not infer acceptance from echoed
-// versions. The cache calls it after confirming SetSnapshot installed the
-// snapshot, before delivering buffered responses. A nil snapshot clears the
-// publication and acceptance evidence, without removing pending rollback state.
+// SetPublishedSnapshot prunes obsolete sparse acceptance evidence after the
+// cache confirms SetSnapshot installed the snapshot, before delivering buffered
+// responses. It does not infer acceptance from publication or echoed versions.
+// A nil snapshot clears acceptance evidence without removing pending rollback state.
 func (cb *CompletionCallbacks) SetPublishedSnapshot(nodeID string, snapshot cache.ResourceSnapshot) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
 
+	nodeState := cb.nodes[nodeID]
+	if nodeState == nil {
+		// No acceptance evidence exists before callback state is created.
+		return
+	}
 	if snapshot == nil {
-		state := cb.nodes[nodeID]
-		if state == nil {
-			return
-		}
-		state.published = nil
 		for typeURL := range typeurl.Count {
-			state.typeURLs[typeURL].acceptedResources = acceptedResourceGroup{}
+			nodeState.typeURLs[typeURL].acceptedResources = acceptedResourceGroup{}
 		}
 		return
 	}
-	nodeState := cb.ensureNodeState(nodeID)
-	nodeState.published = snapshot
 	// Subset subscribers may never ACK a full group. Their sparse acceptance
 	// overrides must not become a history of names no longer in desired state.
 	// The immutable baseline still has a bounded lifetime (one group per type).
@@ -756,8 +730,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		cb.mutex.Unlock()
 		return nil
 	}
-	nodeState := cb.ensureNodeState(nodeID)
-	typeState := nodeState.typeURLState(typeIndex)
+	typeState := cb.ensureTypeURLState(nodeID, typeIndex)
 	state := &typeState.response
 	response := &stream.responses[typeIndex]
 	if req.GetVersionInfo() == "" && req.GetResponseNonce() == "" {
@@ -804,31 +777,15 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	// An echoed version without a matching response proves nothing about the
 	// resources Envoy received. Even a wildcard request on a new stream can
 	// carry a version learned from an earlier named subscription.
-	if coverage != nil && acceptedGeneration != 0 {
+	if acceptedGeneration != 0 {
 		typeState.acceptedResources.acknowledge(coverage, acceptedGeneration)
 	}
 	if acceptedGeneration != 0 && acceptedGeneration >= state.acceptedGeneration && coverage.complete() &&
-		(coverage == nil || typeHasDeletionSemantics(typeIndex)) {
+		typeHasDeletionSemantics(typeIndex) {
 		state.acceptedGeneration = acceptedGeneration
 		state.acceptedVersion = req.GetVersionInfo()
 		state.rejectedVersion = ""
 		state.rejectedErr = nil
-		// The ACK replaces the previous accepted baseline. If its group has already
-		// been superseded by a newer publication, mark acceptance unknown rather
-		// than incorrectly short-circuiting no-op updates against the older baseline.
-		if coverage == nil {
-			typeState.acceptedResources = acceptedResourceGroup{}
-		}
-		if published := nodeState.published; coverage == nil && acceptedGeneration != 0 &&
-			published != nil && published.GetVersion(typeURL) == req.GetVersionInfo() {
-			// Another resource type may have published a newer snapshot while this
-			// response was in flight. Reuse it when this type's xDS version is
-			// unchanged; its immutable resources are equivalent to those just ACKed.
-			typeState.acceptedResources = acceptedResourceGroup{
-				generation: acceptedGeneration,
-				resources:  published.GetResourcesAndTTL(typeURL),
-			}
-		}
 	}
 
 	var finalizers []Rollback
@@ -905,7 +862,7 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 		state.clearPending()
 	}
 	if rejectedGeneration != 0 && rejectedGeneration >= state.acceptedGeneration && coverage.complete() &&
-		(coverage == nil || typeHasDeletionSemantics(typeIndex)) {
+		typeHasDeletionSemantics(typeIndex) {
 		state.acceptedVersion = req.GetVersionInfo()
 		state.rejectedVersion = rejectedVersion
 		state.rejectedErr = nackErr
@@ -995,15 +952,20 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 		cb.mutex.Unlock()
 		return
 	}
-	nodeState := cb.ensureNodeState(nodeID)
-	typeState := nodeState.typeURLState(typeIndex)
+	coverage := responseCoverageFromContext(ctx)
+	if coverage == nil {
+		// Only the cache's exact response metadata proves what Envoy received.
+		// An uninstrumented response must not acquire waits or rollback state.
+		cb.mutex.Unlock()
+		return
+	}
+	typeState := cb.ensureTypeURLState(nodeID, typeIndex)
 
 	// SetSnapshot responses inherit the publication context; the cache captures
 	// the generation of immediate CreateWatch responses before releasing its
 	// lock. Never infer it from current publications or waiters: delivery may
 	// be delayed past newer updates, even when contents match an earlier state.
 	responseGeneration := snapshotGenerationFromContext(ctx)
-	coverage := responseCoverageFromContext(ctx)
 	stream.responses[typeIndex] = pendingResponse{
 		pendingVersion: version, pendingGeneration: responseGeneration, pendingNonce: resp.GetNonce(),
 		coverage: coverage,

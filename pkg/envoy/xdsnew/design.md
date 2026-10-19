@@ -323,7 +323,8 @@ response identity per resource type. `OnStreamResponse` records the response's
 generation and named-resource coverage. Envoy supplies the corresponding ACK or
 NACK in a later request, matched by stream and nonce. A matching ACK can complete
 the associated waits; NACK handling depends on whether they require upserts or
-only removals.
+only removals. Coverage retains the delivered resource group, so later
+publications cannot change which values an ACK accepts.
 
 An ACK acknowledges only the names communicated by the response identified by
 the nonce. For types supporting deletion by omission (LDS, CDS, NPDS, NPHDS), this
@@ -338,7 +339,7 @@ lifetimes.
 ```mermaid
 flowchart TD
     callbacks["CompletionCallbacks<br/>Caller waits, acceptance evidence, response identities"]
-    node["callbackNodeState<br/>Current publication reference and per-TypeURL state"]
+    node["callbackNodeState<br/>Per-TypeURL wait, response, and acceptance state"]
     types["typeURLState<br/>Pending generations, accepted resources, latest response"]
     accepted["acceptedResourceGroup<br/>ACKed immutable group and sparse per-name overrides"]
     override["acceptedResource<br/>Resource and accepting response boundary"]
