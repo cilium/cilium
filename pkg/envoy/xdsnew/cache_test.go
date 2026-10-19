@@ -50,18 +50,32 @@ func (counter *formattingCounter) String() string {
 }
 
 func TestSnapshotCacheLoggerSkipsDisabledFormatting(t *testing.T) {
-	var counter formattingCounter
-	var infoOutput strings.Builder
-	infoLogger := slog.New(slog.NewTextHandler(&infoOutput, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	snapshotCacheLogger(infoLogger).Debugf("value: %s", &counter)
-	snapshotCacheLogger(infoLogger).Infof("value: %s", &counter)
-	require.Zero(t, counter)
-
+	var level slog.LevelVar
 	var output strings.Builder
-	debugLogger := slog.New(slog.NewTextHandler(&output, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	snapshotCacheLogger(debugLogger).Debugf("value: %s", &counter)
-	snapshotCacheLogger(debugLogger).Infof("value: %s", &counter)
-	require.Equal(t, formattingCounter(2), counter)
+	logger := snapshotCacheLogger(slog.New(slog.NewTextHandler(&output, &slog.HandlerOptions{Level: &level})))
+	for _, tt := range []struct {
+		name      string
+		level     slog.Level
+		formatted formattingCounter
+	}{
+		{name: "disabled", level: slog.LevelInfo},
+		{name: "enabled", level: slog.LevelDebug, formatted: 2},
+		{name: "disabled-again", level: slog.LevelInfo},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			level.Set(tt.level)
+			output.Reset()
+			var counter formattingCounter
+			logger.Debugf("value: %s", &counter)
+			logger.Infof("value: %s", &counter)
+			require.Equal(t, tt.formatted, counter)
+			if tt.level == slog.LevelDebug {
+				require.Equal(t, 2, strings.Count(output.String(), "level=DEBUG"))
+			} else {
+				require.Empty(t, output.String())
+			}
+		})
+	}
 }
 
 func TestGenerateSnapshotIncrementallyReusesUnchangedResources(t *testing.T) {
