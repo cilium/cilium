@@ -9,14 +9,22 @@ DOCS_BUILDER_DIR?=$(ROOT_DIR)/images/docs-builder
 DOCS_REQUIREMENTS:=requirements.txt
 DOCS_DOCKERFILE:=Dockerfile
 
+# Sphinx loads the Rediraffe extension, which needs access to git metadata. In a git worktree, .git points outside the mounted source tree.
+# Mount the common git dir at a well known path, and set GIT_DIR to the corresponding directory within that mount.
+HOST_GIT_DIR := $(shell git rev-parse --absolute-git-dir 2>/dev/null)
+HOST_GIT_COMMON_DIR := $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
+
 DOCKER_CTR_ROOT_DIR := /src
 DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
 		--workdir $(DOCKER_CTR_ROOT_DIR)/images/docs-builder \
 		--env GIT_CONFIG_COUNT=1 \
 		--env GIT_CONFIG_KEY_0=safe.directory \
 		--env GIT_CONFIG_VALUE_0=$(DOCKER_CTR_ROOT_DIR) \
+		--user "$(shell id -u):$(shell id -g)" \
 		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR) \
-		--user "$(shell id -u):$(shell id -g)"
+		--volume $(HOST_GIT_COMMON_DIR):/git-common-dir:ro \
+		--env GIT_WORK_TREE=$(DOCKER_CTR_ROOT_DIR) \
+		--env GIT_DIR=/git-common-dir$(patsubst $(HOST_GIT_COMMON_DIR)%,%,$(HOST_GIT_DIR)) # Preserve the GIT_DIR path within the common-dir mount so commondir resolves correctly.
 
 define build_docs_image
   $(ECHO_DOCKER) $(3)
