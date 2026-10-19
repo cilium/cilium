@@ -53,6 +53,15 @@ installation can be followed in the Cilium Operator logs, and conflicts are
 also reported by its health status (``cilium-operator status`` /
 ``cilium status``).
 
+As Helm cannot create the default ``cilium`` GatewayClass before its CRD is
+installed, the Cilium Operator creates it if it doesn't exist, when
+``gatewayAPI.gatewayClass.create`` is ``auto`` (the default). The GatewayClass
+is labeled and annotated as owned by the Cilium Helm release, so that the next
+``helm upgrade`` adopts it, as if it had been created by Helm. An existing
+GatewayClass is never modified by the Cilium Operator. Do not set
+``gatewayAPI.gatewayClass.create=true`` together with ``gatewayAPI.installCRDs``
+on a cluster without the Gateway API CRDs, as the Helm installation would fail.
+
 You can list the CRDs managed by the Cilium Operator with:
 
 .. code-block:: shell-session

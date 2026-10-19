@@ -74,6 +74,8 @@ cilium-operator-aws hive dot-graph [flags]
       --eni-gc-tags stringToString                                 Additional tags attached to ENIs created by Cilium. Dangling ENIs with this tag will be garbage collected (default [])
       --eni-tags stringToString                                    ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default [])
       --excess-ip-release-delay int                                Number of seconds operator would wait before it releases an IP previously marked as excess (default 180)
+      --gateway-api-create-gateway-class                           Create the default Cilium GatewayClass if it doesn't exist. An existing GatewayClass is never modified.
+      --gateway-api-gateway-class-helm-release string              Helm release (<namespace>/<name>) set as owner of the default GatewayClass created by the operator, so that Helm can adopt it.
       --gateway-api-hostnetwork-enabled                            Exposes Gateway listeners on the host network.
       --gateway-api-hostnetwork-nodelabelselector string           Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'
       --gateway-api-inference-extension-enabled                    Enables the use Gateway API Inference Extension

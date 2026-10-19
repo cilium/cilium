@@ -2013,7 +2013,7 @@
      - string
      - ``"Cluster"``
    * - :spelling:ignore:`gatewayAPI.gatewayClass.create`
-     - Enable creation of GatewayClass resource The default value is 'auto' which decides according to presence of gateway.networking.k8s.io/v1/GatewayClass in the cluster. Other possible values are 'true' and 'false', which will either always or never create the GatewayClass, respectively.
+     - Enable creation of GatewayClass resource The default value is 'auto' which decides according to presence of gateway.networking.k8s.io/v1/GatewayClass in the cluster. With 'auto' and ``gatewayAPI.installCRDs``\ , the GatewayClass is created by the Cilium Operator if it doesn't exist, as the CRD may not be present yet, and is adopted by this Helm release afterwards. Other possible values are 'true' and 'false', which will either always or never create the GatewayClass, respectively.
      - string
      - ``"auto"``
    * - :spelling:ignore:`gatewayAPI.hostNetwork.enabled`
