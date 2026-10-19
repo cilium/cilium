@@ -267,9 +267,9 @@ func acceptPublishedSnapshotVersions(t *testing.T, c *cacheImpl, streamID int64,
 	}
 }
 
-func mustSnapshot(t *testing.T, c *cacheImpl, nodeID string) cache.ResourceSnapshot {
+func mustSnapshot(t *testing.T, c *cacheImpl, nodeID string) *ciliumSnapshot {
 	t.Helper()
-	snapshot, err := c.GetSnapshot(nodeID)
+	snapshot, err := c.getSnapshot(nodeID)
 	require.NoError(t, err)
 	return snapshot
 }
@@ -434,7 +434,7 @@ func (state *nodeState) requireNoUnsentRollbacks(t *testing.T, msgAndArgs ...any
 }
 
 // requestSnapshotForTest drives publication through a real supported watch.
-func requestSnapshotForTest(t *testing.T, c *cacheImpl, nodeID string, typeURL typeurl.Index) cache.ResourceSnapshot {
+func requestSnapshotForTest(t *testing.T, c *cacheImpl, nodeID string, typeURL typeurl.Index) *ciliumSnapshot {
 	t.Helper()
 	cancel, err := c.CreateWatch(&cache.Request{
 		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeURL.URL(), ResourceNames: []string{"*"},
@@ -442,7 +442,7 @@ func requestSnapshotForTest(t *testing.T, c *cacheImpl, nodeID string, typeURL t
 	require.NoError(t, err)
 	t.Cleanup(cancel)
 	cancel()
-	snapshot, err := c.GetSnapshot(nodeID)
+	snapshot, err := c.getSnapshot(nodeID)
 	require.NoError(t, err)
 	return snapshot
 }

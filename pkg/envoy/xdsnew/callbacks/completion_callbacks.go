@@ -298,19 +298,6 @@ func (cb *CompletionCallbacks) PendingCompletionCount() int {
 	return len(cb.pendingWaits)
 }
 
-// addPendingCompletion records a completion that is waiting for an xDS ACK/NACK.
-// cb.mutex must be held.
-func (cb *CompletionCallbacks) addPendingCompletion(c *completion.Completion, pending *resourceWait, version string) {
-	if cb.Log.Enabled(context.Background(), slog.LevelDebug) {
-		cb.Log.Debug("Adding pending completion for type URL and generation",
-			logfields.XDSTypeURL, pending.typeURL.URL(),
-			logfields.Version, version,
-			logfields.XDSGeneration, pending.generation,
-			logfields.NodeID, pending.nodeID)
-	}
-	cb.pendingWaits[c] = pending
-}
-
 // SetPublishedSnapshot prunes obsolete sparse acceptance evidence after the
 // cache confirms SetSnapshot installed the snapshot, before delivering buffered
 // responses. It does not infer acceptance from publication or echoed versions.
@@ -554,7 +541,14 @@ func (cb *CompletionCallbacks) AddPreparedTypeGenerationCompletion(c *completion
 		return false, state.rejectedErr
 	}
 
-	cb.addPendingCompletion(c, pending, version)
+	if cb.Log.Enabled(context.Background(), slog.LevelDebug) {
+		cb.Log.Debug("Adding pending completion for type URL and generation",
+			logfields.XDSTypeURL, typeURL.URL(),
+			logfields.Version, version,
+			logfields.XDSGeneration, generation,
+			logfields.NodeID, nodeID)
+	}
+	cb.pendingWaits[c] = pending
 	return true, nil
 }
 
@@ -621,11 +615,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		return nil
 	}
 
-	type completionResult struct {
-		completion *completion.Completion
-		generation Generation
-	}
-	var completed []completionResult
+	var completed []*completion.Completion
 
 	coverage := response.coverage
 	// ACK received: resolve the prefix actually covered by this stream's response.
@@ -669,7 +659,7 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 				continue
 			}
 		}
-		completed = append(completed, completionResult{completion: c, generation: pc.generation})
+		completed = append(completed, c)
 		delete(cb.pendingWaits, c)
 		if debugEnabled {
 			cb.Log.Debug("Completed completion for type URL and generation",
@@ -690,8 +680,8 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	for _, rollback := range finalizers {
 		rollback.Finalize()
 	}
-	for _, result := range completed {
-		result.completion.Complete(nil)
+	for _, comp := range completed {
+		comp.Complete(nil)
 	}
 	return nil
 }

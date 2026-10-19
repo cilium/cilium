@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -1348,16 +1349,37 @@ func TestPartialNACKPreservesNewerUnrequestedTransactionSibling(t *testing.T) {
 	require.ErrorContains(t, wg.Wait(), "invalid b")
 }
 
-func TestNamedFullPositiveResponseDoesNotAcceptUnrequestedRemoval(t *testing.T) {
-	c := newCoverageCache(t)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "a", &listener.Listener{Name: "a"}, nil))
-	s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
-	response := s.receive(t, "a")
-	s.reply(t, response, "", "a")
-	// All positive resources were delivered, but the named request proves
-	// nothing about an absent name outside that subscription.
-	require.False(t, c.completionCbs.ResourceAccepted("coverage-node", typeurl.Listener, "b", nil, false, callbacks.Revision{}))
-	require.True(t, c.completionCbs.ResourceAccepted("coverage-node", typeurl.Listener, "a", &listener.Listener{Name: "a"}, true, callbacks.Revision{}))
+func TestNamedResponseOnlyAcceptsRequestedNames(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		resources []string
+		requested []string
+	}{
+		{name: "full-positive", resources: []string{"a"}, requested: []string{"a"}},
+		{name: "single-name-subset", resources: []string{"a", "b", "c"}, requested: []string{"a"}},
+		{name: "multiple-name-subset", resources: []string{"a", "b", "c"}, requested: []string{"a", "b"}},
+		{name: "empty-subset", resources: []string{"a", "b", "c"}, requested: []string{"missing"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newCoverageCache(t)
+			for _, name := range tt.resources {
+				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, name, &listener.Listener{Name: name}, nil))
+			}
+			s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
+			response := s.receive(t, tt.requested...)
+			s.reply(t, response, "", tt.requested...)
+			// Even a response delivering all positive resources proves nothing
+			// about an absent name outside its subscription.
+			require.False(t, c.completionCbs.ResourceAccepted("coverage-node", typeurl.Listener, "unrequested", nil, false, callbacks.Revision{}))
+			for _, name := range tt.resources {
+				require.Equal(t, slices.Contains(tt.requested, name),
+					c.completionCbs.ResourceAccepted("coverage-node", typeurl.Listener, name, &listener.Listener{Name: name}, true, callbacks.Revision{}))
+			}
+			if slices.Contains(tt.requested, "missing") {
+				require.True(t, c.completionCbs.ResourceAccepted("coverage-node", typeurl.Listener, "missing", nil, false, callbacks.Revision{}))
+			}
+		})
+	}
 }
 
 func TestPartialResponseKeepsUnrequestedTransactionPending(t *testing.T) {

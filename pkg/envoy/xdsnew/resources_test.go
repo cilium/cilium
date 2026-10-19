@@ -33,7 +33,7 @@ func TestPreparedResourceChangesKeepSinglePolicyInline(t *testing.T) {
 
 	state.commitResourceMutation(changes, 1)
 	changes = resourceChanges{}
-	changes.add(typeurl.NetworkPolicy, "policy", state.resourceEntries(typeurl.NetworkPolicy)["policy"], resourceEntry{revision: callbacks.Generation(2).Revision(), transaction: callbacks.Generation(2).TransactionID()})
+	changes.add(typeurl.NetworkPolicy, "policy", state.resources[typeurl.NetworkPolicy]["policy"], resourceEntry{revision: callbacks.Generation(2).Revision(), transaction: callbacks.Generation(2).TransactionID()})
 	types, inverse = changes.typeURLs(), changes.inverse()
 	require.Equal(t, typeurl.NewSet(typeurl.NetworkPolicy), types)
 	require.Equal(t, "policy", changes.first.name)
