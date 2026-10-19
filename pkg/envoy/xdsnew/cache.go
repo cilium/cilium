@@ -159,7 +159,7 @@ type cacheImpl struct {
 	// rollback state is claimed before it can be coalesced with a later update.
 	// A response channel can serve watches from several nodes, so relays are
 	// channel-owned rather than belonging to any one nodeState.
-	watchRelays   map[chan cache.Response]*watchRelay
+	watchRelays   set.Set[*watchRelay]
 	logger        *slog.Logger
 	completionCbs *callbacks.CompletionCallbacks
 	// resourceGeneration is the latest number reserved from the shared mutation
@@ -325,7 +325,6 @@ func newCache(logger *slog.Logger, options ...CacheOption) *cacheImpl {
 	c := &cacheImpl{
 		snapshotCache: snapshotCache,
 		mutex:         &lock.RWMutex{},
-		watchRelays:   make(map[chan cache.Response]*watchRelay),
 		logger:        logger,
 	}
 	c.completionCbs = callbacks.NewCompletionCallbacks(logger, c)
@@ -393,46 +392,33 @@ func (c *cacheImpl) generateSnapshotFromState(state *nodeState) *ciliumSnapshot 
 	for typeURL := range typeurl.Count {
 		var group cache.Resources
 		entries := state.resources[typeURL]
-		capacity := len(entries)
-		if typeURL == typeurl.Endpoint && len(state.resources[typeurl.Cluster]) > 0 {
-			// Size by unique assignment names, not Cluster count: many Clusters
-			// can share an EDS service, and non-EDS Clusters need no assignment.
-			names := make(map[string]struct{}, len(entries)+len(state.resources[typeurl.Cluster]))
-			for name := range entries {
-				names[name] = struct{}{}
-			}
+		var missingEndpoints map[string]struct{}
+		if typeURL == typeurl.Endpoint {
+			// Collect only missing assignments. Explicit CLAs and non-EDS
+			// Clusters need no extra names; shared EDS names stay deduplicated.
 			for clusterName, entry := range state.resources[typeurl.Cluster] {
-				if name := clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource)); name != "" {
-					names[name] = struct{}{}
+				if name := clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource)); name != "" && entries[name].resource == nil {
+					if missingEndpoints == nil {
+						// Missing assignments can be numerous at startup. Sizing
+						// this temporary set avoids repeated growth in that case.
+						missingEndpoints = make(map[string]struct{}, len(state.resources[typeurl.Cluster]))
+					}
+					missingEndpoints[name] = struct{}{}
 				}
 			}
-			capacity = len(names)
 		}
+		capacity := len(entries) + len(missingEndpoints)
 		if capacity != 0 {
 			group.Items = make(map[string]cache_types.ResourceWithTTL, capacity)
 		}
 		for name, entry := range entries {
 			group.Items[name] = cache_types.ResourceWithTTL{Resource: entry.resource}
 		}
-		if typeURL == typeurl.Endpoint {
-			// EDS also needs empty CLAs for Clusters without desired assignments.
-			// Project directly from Clusters, using the destination map to deduplicate
-			// shared EDS service names and preserve explicit CLAs. A per-name Cluster
-			// scan would make a full snapshot quadratic. Never change desired state.
-			for clusterName, entry := range state.resources[typeurl.Cluster] {
-				name := clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource))
-				if name == "" {
-					continue
-				}
-				if _, exists := group.Items[name]; exists {
-					continue
-				}
-				resource := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
-				group.Items[name] = cache_types.ResourceWithTTL{Resource: resource}
+		// Empty CLAs are a snapshot projection; desired state remains unchanged.
+		for name := range missingEndpoints {
+			group.Items[name] = cache_types.ResourceWithTTL{
+				Resource: &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name},
 			}
-		}
-		if len(group.Items) == 0 {
-			group.Items = nil
 		}
 		resourceGroups[typeURL] = snapshotResourceGroup{
 			resources:  group,
@@ -442,10 +428,9 @@ func (c *cacheImpl) generateSnapshotFromState(state *nodeState) *ciliumSnapshot 
 	return newCiliumSnapshot(resourceGroups, state.epoch)
 }
 
-func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) *ciliumSnapshot {
-	previousSnapshot, ok := previous.(*ciliumSnapshot)
-	if !ok || previousSnapshot == nil {
-		// Rebuild from desired state when no Cilium baseline exists.
+func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previousSnapshot *ciliumSnapshot, changedTypeURLs typeurl.Set) *ciliumSnapshot {
+	if previousSnapshot == nil {
+		// Build from desired state before the first publication.
 		return c.generateSnapshotFromState(state)
 	}
 	regenerate := snapshotTypesChangedBy(changedTypeURLs)
@@ -572,7 +557,7 @@ func (tx *resourceTransaction) complete() {
 // registerGenerationCompletions uses the same prepared owner for the WaitGroup
 // and ACK/NACK tracking. A nil snapshot denotes unpublished changes: scope
 // revisions are filled from committed desired entries, without another node lookup.
-func (tx *resourceTransaction) registerGenerationCompletions(snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, waits typeURLWaits) {
+func (tx *resourceTransaction) registerGenerationCompletions(snapshot *ciliumSnapshot, wg *completion.WaitGroup, waits typeURLWaits) {
 	if wg == nil || waits.Empty() {
 		return
 	}
@@ -623,7 +608,7 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 	}
 	pending := state.pendingPublication
 
-	oldSnapshot, _ := c.snapshotCache.GetSnapshot(nodeID)
+	oldSnapshot, _ := c.getSnapshot(nodeID)
 	newSnapshot := c.generateSnapshotFromStateIncrementally(state, oldSnapshot, pending.changedTypeURLs)
 	// SetSnapshot may synchronously queue responses. Capture this snapshot and
 	// generation in their context so delayed delivery cannot associate them
@@ -633,7 +618,7 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 		// SnapshotCache stores the snapshot before delivering watch responses. A
 		// canceled delivery may therefore return an error after publication has
 		// committed; keep generation state in that case.
-		currentSnapshot, getErr := c.snapshotCache.GetSnapshot(nodeID)
+		currentSnapshot, getErr := c.getSnapshot(nodeID)
 		// SetSnapshot stores the exact snapshot object. Version equality alone
 		// cannot prove installation; do not infer success from stale state.
 		committed := getErr == nil && currentSnapshot == newSnapshot
@@ -845,7 +830,7 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 		}
 		if state.resourceGeneration != 0 && wg != nil && !waitTypeURLs.Empty() {
 			for typeURL := range waitTypeURLs.Members() {
-				wait := tx.mutationWaitLocked(typeURL, mutations, inverse)
+				wait := tx.mutationWaitLocked(typeURL, mutations, &inverse)
 				if !wait.scope.HasNames() {
 					continue
 				}
@@ -869,7 +854,7 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 		// Acceptance checks and wait scopes serve callers only. Response-owned
 		// NACK rollback is prepared independently below, even without a WaitGroup.
 		for typeURL := range waitTypeURLs.Members() {
-			wait := tx.mutationWaitLocked(typeURL, mutations, inverse)
+			wait := tx.mutationWaitLocked(typeURL, mutations, &inverse)
 			if !wait.scope.HasNames() {
 				continue
 			}
@@ -984,7 +969,7 @@ func (tx *resourceTransaction) applyRevertLocked(changes resourceChanges) error 
 func resourceMutationWait[V interface {
 	proto.Message
 	comparable
-}](completionCbs *callbacks.CompletionCallbacks, state *nodeState, typeURL typeurl.Index, removed, upserted map[string]V, inverse resources) generationWait {
+}](completionCbs *callbacks.CompletionCallbacks, state *nodeState, typeURL typeurl.Index, removed, upserted map[string]V, inverse *resources) generationWait {
 	var wait generationWait
 	if len(removed) == 0 && len(upserted) == 0 {
 		return wait
@@ -1051,7 +1036,7 @@ func resourceMutationWait[V interface {
 	return wait
 }
 
-func (tx *resourceTransaction) mutationWaitLocked(typeURL typeurl.Index, mutations ResourceMutations, inverse resources) generationWait {
+func (tx *resourceTransaction) mutationWaitLocked(typeURL typeurl.Index, mutations ResourceMutations, inverse *resources) generationWait {
 	c := tx.cache
 	state := tx.state
 	switch typeURL {
@@ -1129,7 +1114,7 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 			state.commitResourceEntry(change.typeURL, change.name, change.previous)
 		}
 		state.rollbacks.restorePublicationLocked(state, oldPending, oldPendingValue)
-		published, _ := c.snapshotCache.GetSnapshot(state.nodeID)
+		published, _ := c.getSnapshot(state.nodeID)
 		state.reconcileChangedResourceNames(changes, published)
 		state.resourceGeneration = oldResourceGeneration
 		for typeURL := range typeurl.Count {
@@ -1181,7 +1166,7 @@ func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGrou
 		}
 	}
 	if !publishedWaits.Empty() {
-		snapshot, err := c.snapshotCache.GetSnapshot(state.nodeID)
+		snapshot, err := c.getSnapshot(state.nodeID)
 		if err == nil {
 			tx.registerGenerationCompletions(snapshot, wg, publishedWaits)
 		} else {
@@ -1200,29 +1185,31 @@ func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGrou
 	tx.registerGenerationCompletions(nil, wg, unpublishedWaits)
 }
 
-func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRelay {
-	if relay := c.watchRelays[responseChannel]; relay != nil {
-		return relay
-	}
-	// Allow a full ADS response batch (one watch per supported type) plus an
-	// immediate CreateWatch response to be queued before forwarding anything.
-	// Keep at least the stream channel's capacity to avoid reducing its buffering.
-	// This relies on go-control-plane's one current watch per type per ADS
-	// stream. Direct cache callers sharing a channel across more watches must
-	// size that channel for the maximum responses from one publication:
-	// overflowing inner would block publication before we can drain it, while
-	// both cache locks are still held.
-	capacity := max(cap(responseChannel), int(typeurl.Count)+1)
-	relay := &watchRelay{
-		inner: make(chan cache.Response, capacity),
-		outer: responseChannel,
-	}
-	c.watchRelays[responseChannel] = relay
-	return relay
-}
-
 func (c *cacheImpl) addTrackedWatchLocked(state *nodeState, request *cache.Request, typeURL typeurl.Index, responseChannel chan cache.Response) *trackedWatch {
-	relay := c.relayForLocked(responseChannel)
+	// One ADS stream shares a response channel across its resource types.
+	// Keep the usual zero/one relay inline; additional streams remain independent.
+	var relay *watchRelay
+	for existing := range c.watchRelays.Members() {
+		if existing.outer == responseChannel {
+			relay = existing
+			break
+		}
+	}
+	if relay == nil {
+		// Allow a full ADS response batch (one watch per supported type) plus an
+		// immediate CreateWatch response to be queued before forwarding anything.
+		// Keep at least the stream channel's capacity to avoid reducing its buffering.
+		// This relies on go-control-plane's one current watch per type per ADS
+		// stream. Direct cache callers sharing a channel across more watches must
+		// size that channel for the maximum responses from one publication:
+		// overflowing inner would block publication before we can drain it, while
+		// both cache locks are still held.
+		relay = &watchRelay{
+			inner: make(chan cache.Response, max(cap(responseChannel), int(typeurl.Count)+1)),
+			outer: responseChannel,
+		}
+		c.watchRelays.Insert(relay)
+	}
 	watch := &trackedWatch{
 		state:   state,
 		typeURL: typeURL,
@@ -1258,7 +1245,7 @@ func (c *cacheImpl) removeTrackedWatchLocked(watch *trackedWatch) {
 			// Drop our reference, but close neither channel: outer belongs to
 			// the stream, and a canceled go-control-plane watch may still send
 			// to inner before its underlying cancellation finishes.
-			delete(c.watchRelays, watch.relay.outer)
+			c.watchRelays.Remove(watch.relay)
 		}
 	}
 }
@@ -1286,7 +1273,7 @@ func (c *cacheImpl) cancelTrackedWatch(watch *trackedWatch) {
 // with respect to watch registration, cancellation, and snapshot publication.
 func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 	var deliveries []responseDelivery
-	for _, relay := range c.watchRelays {
+	for relay := range c.watchRelays.Members() {
 		var responses []cache.Response
 		for {
 			select {
@@ -1295,7 +1282,7 @@ func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 				// Capture their published generation now, while no cache update
 				// can interleave. The stream may not consume them until much later.
 				generation := c.getNodeState(response.GetRequest().GetNode().GetId()).snapshotGeneration
-				snapshot, _ := c.snapshotCache.GetSnapshot(response.GetRequest().GetNode().GetId())
+				snapshot, _ := c.getSnapshot(response.GetRequest().GetNode().GetId())
 				response = callbacks.WithResponseCoverage(response, generation, snapshot)
 				responses = append(responses, response)
 				var matched *trackedWatch
@@ -1413,7 +1400,7 @@ func singleVersion(version string) iter.Seq[string] {
 // Rebinding must not expose unrelated unpublished changes. Caller must hold c.mutex.
 func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.Index) error {
 	nodeID := state.nodeID
-	current, getErr := c.snapshotCache.GetSnapshot(nodeID)
+	published, getErr := c.getSnapshot(nodeID)
 	if getErr != nil && state.pendingPublication == nil {
 		// Publish the known node's actual desired state, including an empty baseline.
 		state.pendingPublication = &pendingPublication{
@@ -1425,14 +1412,13 @@ func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.
 	if state.pendingPublication != nil && (getErr != nil || state.pendingPublication.watchTypeURLs.Has(typeURL)) {
 		return c.finalizePendingPublicationLocked(context.Background(), nodeID)
 	}
-	published, ok := current.(*ciliumSnapshot)
-	if !ok || published.epoch == state.epoch {
+	if published.epoch == state.epoch {
 		return nil
 	}
 	rebuilt := published.withEpoch(state.epoch)
 	ctx := callbacks.WithSnapshotPublication(context.Background(), state.snapshotGeneration, rebuilt)
 	if err := c.snapshotCache.SetSnapshot(ctx, nodeID, rebuilt); err != nil {
-		installed, getErr := c.snapshotCache.GetSnapshot(nodeID)
+		installed, getErr := c.getSnapshot(nodeID)
 		if getErr != nil || installed != rebuilt {
 			return err
 		}
@@ -1578,6 +1564,16 @@ func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cac
 	c.mutex.Unlock()
 	c.deliverResponses(deliveries)
 	return err
+}
+
+// getSnapshot converts at the go-control-plane boundary. Internal operations
+// expect the concrete snapshots published by this cache.
+func (c *cacheImpl) getSnapshot(node string) (*ciliumSnapshot, error) {
+	snapshot, err := c.snapshotCache.GetSnapshot(node)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.(*ciliumSnapshot), nil
 }
 
 func (c *cacheImpl) GetSnapshot(node string) (cache.ResourceSnapshot, error) {

@@ -68,9 +68,9 @@ func TestPreparedResourceRevertsCarryTargetEntries(t *testing.T) {
 				changes = rollback.resourceRevert(state, typeurl.NetworkPolicy)
 			}
 			require.Len(t, changes.more, 1)
-			require.Equal(t, current, state.resourceEntries(typeurl.NetworkPolicy), "preparation must not mutate entries")
+			require.Equal(t, current, state.resources[typeurl.NetworkPolicy], "preparation must not mutate entries")
 			state.commitResourceMutation(changes, 12)
-			entries := state.resourceEntries(typeurl.NetworkPolicy)
+			entries := state.resources[typeurl.NetworkPolicy]
 			for name, target := range targets {
 				if name == "superseded" {
 					require.Equal(t, current[name], entries[name], "a newer API transaction must not be reverted")

@@ -9,7 +9,6 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
-	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -67,13 +66,6 @@ type resourceTypeState struct {
 	unsentRollback *responseRollback
 }
 
-func (state *nodeState) resourceEntries(typeURL typeurl.Index) map[string]resourceEntry {
-	if state == nil {
-		return nil
-	}
-	return state.resources[typeURL]
-}
-
 // resourceWaitEntry fences absent values without retaining removal entries.
 // Corrective updates and collected responses must not let an older absence ACK
 // complete a wait for a name which has since been present.
@@ -91,11 +83,11 @@ func (state *nodeState) prepareResourceMutation(mutations ResourceMutations, gen
 	removeSet := mutations.Removed
 	upsertSet := mutations.Upserted
 	var changes resourceChanges
-	prepareResourceMap(&changes, typeurl.Listener, generation, state.resourceEntries(typeurl.Listener), removeSet.Listeners, upsertSet.Listeners)
-	prepareResourceMap(&changes, typeurl.Route, generation, state.resourceEntries(typeurl.Route), removeSet.Routes, upsertSet.Routes)
-	prepareResourceMap(&changes, typeurl.Cluster, generation, state.resourceEntries(typeurl.Cluster), removeSet.Clusters, upsertSet.Clusters)
-	prepareResourceMap(&changes, typeurl.Endpoint, generation, state.resourceEntries(typeurl.Endpoint), removeSet.Endpoints, upsertSet.Endpoints)
-	prepareResourceMap(&changes, typeurl.Secret, generation, state.resourceEntries(typeurl.Secret), removeSet.Secrets, upsertSet.Secrets)
+	prepareResourceMap(&changes, typeurl.Listener, generation, state.resources[typeurl.Listener], removeSet.Listeners, upsertSet.Listeners)
+	prepareResourceMap(&changes, typeurl.Route, generation, state.resources[typeurl.Route], removeSet.Routes, upsertSet.Routes)
+	prepareResourceMap(&changes, typeurl.Cluster, generation, state.resources[typeurl.Cluster], removeSet.Clusters, upsertSet.Clusters)
+	prepareResourceMap(&changes, typeurl.Endpoint, generation, state.resources[typeurl.Endpoint], removeSet.Endpoints, upsertSet.Endpoints)
+	prepareResourceMap(&changes, typeurl.Secret, generation, state.resources[typeurl.Secret], removeSet.Secrets, upsertSet.Secrets)
 	return changes, changes.typeURLs(), changes.inverse()
 }
 
@@ -122,9 +114,6 @@ func (state *nodeState) commitResourceMutation(changes resourceChanges, generati
 // generationForType returns the pending publication's generation, or the
 // published snapshot's generation, which currently represents typeURL.
 func (state *nodeState) generationForType(typeURL typeurl.Index) callbacks.Generation {
-	if state == nil {
-		return 0
-	}
 	if state.pendingPublication != nil {
 		if state.pendingPublication.changedTypeURLs.Has(typeURL) {
 			return state.pendingPublication.generation
@@ -140,7 +129,7 @@ func (state *nodeState) getResource(typeURL typeurl.Index, resourceName string) 
 	return state.resources[typeURL][resourceName].resource
 }
 
-func (state *nodeState) reconcileChangedResourceNames(changes resourceChanges, published cache.ResourceSnapshot) {
+func (state *nodeState) reconcileChangedResourceNames(changes resourceChanges, published *ciliumSnapshot) {
 	reconcile := func(change resourceChange) {
 		changed := &state.typeStates[change.typeURL].changedResourceNames
 		resource := state.resources[change.typeURL][change.name].resource

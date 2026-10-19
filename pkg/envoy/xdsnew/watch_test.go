@@ -24,6 +24,18 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
 
+// relayForChannel keeps relay-container details out of watch-lifetime assertions.
+func (c *cacheImpl) relayForChannel(t *testing.T, responses chan cache.Response) *watchRelay {
+	t.Helper()
+	for relay := range c.watchRelays.Members() {
+		if relay.outer == responses {
+			return relay
+		}
+	}
+	t.Fatal("response channel has no tracked relay")
+	return nil
+}
+
 // publicationSignalingCache signals after cacheImpl has acquired its lock,
 // just before go-control-plane starts delivering watch responses.
 type publicationSignalingCache struct {
@@ -133,7 +145,7 @@ func TestCreateWatchImmediateResponseRetiresTracking(t *testing.T) {
 	response := <-responses
 	require.Same(t, request, response.GetRequest())
 	require.True(t, c.getNodeState("node1").openWatches.Empty())
-	require.Empty(t, c.watchRelays)
+	require.True(t, c.watchRelays.Empty())
 	require.Zero(t, c.GetStatusInfo("node1").GetNumWatches())
 	// An already served watch has nothing left to cancel.
 	cancel()
@@ -235,20 +247,20 @@ func TestTrackedWatchRemovalPreservesOtherNodes(t *testing.T) {
 	}
 	require.False(t, c.getNodeState("node1").openWatches.Empty())
 	require.False(t, c.getNodeState("node2").openWatches.Empty())
-	require.Len(t, c.watchRelays, 1, "nodes sharing a response channel share its relay")
+	require.Equal(t, 1, c.watchRelays.Len(), "nodes sharing a response channel share its relay")
 	cancels[0]()
 	require.Zero(t, c.GetStatusInfo("node1").GetNumWatches())
 	cancels[0]()
 	require.True(t, c.getNodeState("node1").openWatches.Empty())
 	require.False(t, c.getNodeState("node2").openWatches.Empty())
-	require.Equal(t, 1, c.watchRelays[responses].watches.Len())
+	require.Equal(t, 1, c.relayForChannel(t, responses).watches.Len())
 	require.Equal(t, 1, c.GetStatusInfo("node2").GetNumWatches())
 	cancels[1]()
 	require.True(t, c.getNodeState("node1").openWatches.Empty())
 	require.True(t, c.getNodeState("node2").openWatches.Empty())
 	require.True(t, c.HasNode("node1"), "canceling watches must not forget a known node")
 	require.True(t, c.HasNode("node2"))
-	require.Empty(t, c.watchRelays)
+	require.True(t, c.watchRelays.Empty())
 }
 
 func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
@@ -280,7 +292,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 				watches, exists := c.getNodeState(nodeID).openWatches.Get(typeurl.Listener)
 				require.True(t, exists)
 				require.Equal(t, watchCount, watches.Len())
-				require.Equal(t, watchCount, c.watchRelays[responses].watches.Len())
+				require.Equal(t, watchCount, c.relayForChannel(t, responses).watches.Len())
 				require.Equal(t, watchCount, c.GetStatusInfo(nodeID).GetNumWatches())
 				for watch := range watches.Members() {
 					require.Same(t, request, watch.request, "watch identity must not be the shared request pointer")
@@ -293,7 +305,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 					remaining, exists := c.getNodeState(nodeID).openWatches.Get(typeurl.Listener)
 					require.True(t, exists)
 					require.Equal(t, watchCount-1, remaining.Len())
-					require.Equal(t, watchCount-1, c.watchRelays[responses].watches.Len())
+					require.Equal(t, watchCount-1, c.relayForChannel(t, responses).watches.Len())
 					require.Equal(t, watchCount-1, c.GetStatusInfo(nodeID).GetNumWatches())
 					for _, cancel := range cancels[1:] {
 						cancel()
@@ -315,7 +327,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 					}
 				}
 				require.True(t, c.getNodeState(nodeID).openWatches.Empty())
-				require.Empty(t, c.watchRelays)
+				require.True(t, c.watchRelays.Empty())
 
 				if action == "cancel" {
 					// Retained cancellation closures keep the old watches alive.
@@ -330,7 +342,7 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 					require.Equal(t, 1, c.GetStatusInfo(nodeID).GetNumWatches())
 					cancel()
 					require.True(t, c.getNodeState(nodeID).openWatches.Empty())
-					require.Empty(t, c.watchRelays)
+					require.True(t, c.watchRelays.Empty())
 				}
 			})
 		}
@@ -359,8 +371,8 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(cancel)
 		}
-		require.Len(t, c.watchRelays, 1)
-		require.Equal(t, 2, c.watchRelays[responses].watches.Len())
+		require.Equal(t, 1, c.watchRelays.Len())
+		require.Equal(t, 2, c.relayForChannel(t, responses).watches.Len())
 
 		resources := xds.NewResources()
 		resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener"}
@@ -376,7 +388,7 @@ func TestSharedWatchRelayPreservesResponseOrder(t *testing.T) {
 		require.Equal(t, expectedTypes, deliveredTypes)
 		require.Zero(t, c.GetStatusInfo(nodeID).GetNumWatches())
 		require.True(t, c.getNodeState("node1").openWatches.Empty())
-		require.Empty(t, c.watchRelays)
+		require.True(t, c.watchRelays.Empty())
 	})
 
 }
@@ -399,7 +411,7 @@ func TestCreateWatchFailureRetiresTracking(t *testing.T) {
 	require.ErrorContains(t, err, "watch creation failed")
 	require.Nil(t, cancel)
 	require.True(t, c.getNodeState("node1").openWatches.Empty())
-	require.Empty(t, c.watchRelays)
+	require.True(t, c.watchRelays.Empty())
 }
 
 func BenchmarkTrackedWatchLifecycle(b *testing.B) {

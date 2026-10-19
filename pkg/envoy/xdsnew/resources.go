@@ -191,17 +191,17 @@ func (changes *resourceChanges) add(typeURL typeurl.Index, name string, previous
 	changes.types.Insert(typeURL)
 }
 
-func (changes resourceChanges) empty() bool {
+func (changes *resourceChanges) empty() bool {
 	return changes.first.name == ""
 }
 
-func (changes resourceChanges) typeURLs() typeurl.Set {
+func (changes *resourceChanges) typeURLs() typeurl.Set {
 	return changes.types
 }
 
 // inverse retains only upserts for response-owned recovery. Caller recovery
 // captures removals separately from the same prepared changes after admission.
-func (changes resourceChanges) inverse() resources {
+func (changes *resourceChanges) inverse() resources {
 	var inverse resources
 	first := true
 	add := func(change resourceChange) {

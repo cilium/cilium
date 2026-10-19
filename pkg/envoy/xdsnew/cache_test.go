@@ -96,7 +96,7 @@ func TestGenerateSnapshotIncrementallyReusesUnchangedResources(t *testing.T) {
 	// published object.
 	equalPolicy := proto.Clone(equalOriginal).(*cilium.NetworkPolicy)
 	var changes resourceChanges
-	prepareResourceMap(&changes, typeurl.NetworkPolicy, 1, state.resourceEntries(typeurl.NetworkPolicy),
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 1, state.resources[typeurl.NetworkPolicy],
 		map[string]*cilium.NetworkPolicy{"removed": nil},
 		map[string]*cilium.NetworkPolicy{
 			"changed": changedPolicy,
@@ -157,7 +157,7 @@ func TestGenerateSnapshotFromStateIncrementallyUsesPublishedCopyOnWriteMaps(t *t
 	changedPolicy := &cilium.NetworkPolicy{EndpointId: 4}
 	addedPolicy := &cilium.NetworkPolicy{EndpointId: 5}
 	var changes resourceChanges
-	prepareResourceMap(&changes, typeurl.NetworkPolicy, 2, state.resourceEntries(typeurl.NetworkPolicy),
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 2, state.resources[typeurl.NetworkPolicy],
 		map[string]*cilium.NetworkPolicy{"removed": nil},
 		map[string]*cilium.NetworkPolicy{
 			"changed": changedPolicy,
@@ -207,11 +207,11 @@ func TestGenerateSnapshotFromStateIncrementallyReusesPublishedMapAfterCoalescedA
 	previous := c.generateSnapshotFromState(state)
 
 	var changes resourceChanges
-	prepareResourceMap(&changes, typeurl.NetworkPolicy, 2, state.resourceEntries(typeurl.NetworkPolicy),
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 2, state.resources[typeurl.NetworkPolicy],
 		(map[string]*cilium.NetworkPolicy)(nil), map[string]*cilium.NetworkPolicy{"policy": {EndpointId: 2}})
 	state.commitResourceMutation(changes, 2)
 	changes = resourceChanges{}
-	prepareResourceMap(&changes, typeurl.NetworkPolicy, 3, state.resourceEntries(typeurl.NetworkPolicy),
+	prepareResourceMap(&changes, typeurl.NetworkPolicy, 3, state.resources[typeurl.NetworkPolicy],
 		(map[string]*cilium.NetworkPolicy)(nil), map[string]*cilium.NetworkPolicy{"policy": policyA})
 	changedTypeURLs := changes.typeURLs()
 	state.commitResourceMutation(changes, 3)
@@ -381,7 +381,7 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 			}, stream.NewSotwSubscription([]string{"replaced", "removed"}, false), make(chan cache.Response, 1))
 			require.NoError(t, err)
 			t.Cleanup(cancelWatch)
-			before := maps.Clone(c.getNodeState(nodeID).resourceEntries(typeurl.Route))
+			before := maps.Clone(c.getNodeState(nodeID).resources[typeurl.Route])
 			previousGeneration := c.getNodeState(nodeID).resourceGeneration
 			previousTypeState := c.getNodeState(nodeID).typeStates[typeurl.Route]
 			publicationErr := errors.New("snapshot publication failed")
@@ -401,7 +401,7 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, rollback)
-				before = maps.Clone(c.getNodeState(nodeID).resourceEntries(typeurl.Route))
+				before = maps.Clone(c.getNodeState(nodeID).resources[typeurl.Route])
 				previousGeneration = c.getNodeState(nodeID).resourceGeneration
 				previousTypeState = c.getNodeState(nodeID).typeStates[typeurl.Route]
 				mock.setSnapshotErr = publicationErr
@@ -425,7 +425,7 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 			// Failure restores complete entries, not just protobufs. This covers
 			// prior absence, removals, and replacement generations even
 			// when a revert has no separately constructed inverse maps.
-			require.Equal(t, before, c.getNodeState(nodeID).resourceEntries(typeurl.Route))
+			require.Equal(t, before, c.getNodeState(nodeID).resources[typeurl.Route])
 			require.Equal(t, previousGeneration, c.getNodeState(nodeID).resourceGeneration)
 			// Failure restores the aggregate generation without replacing the
 			// shared type record and losing its epoch or rollback ownership.
@@ -449,7 +449,7 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 				require.NoError(t, rollback.Revert())
 				rollback.Finalize()
 				require.Equal(t, generation, c.resourceGeneration)
-				require.Equal(t, before, c.getNodeState(nodeID).resourceEntries(typeurl.Route))
+				require.Equal(t, before, c.getNodeState(nodeID).resources[typeurl.Route])
 				// The failed caller revert must not consume the separately owned
 				// response inverse. Envoy can still reject the unchanged snapshot.
 				response := publishedResponseForTest(t, c, node, typeurl.Route)
@@ -1213,7 +1213,7 @@ func TestCreateWatchForUnknownTypeURLBypassesCiliumTracking(t *testing.T) {
 	require.Empty(t, mock.setSnapshotCalls)
 	require.True(t, c.HasNode("node1"))
 	require.True(t, c.getNodeState("node1").openWatches.Empty())
-	require.Empty(t, c.watchRelays)
+	require.True(t, c.watchRelays.Empty())
 }
 
 func TestApplyResourceValidatesTypeURL(t *testing.T) {
@@ -1519,7 +1519,7 @@ func TestCreateWatchEmptyNamedSubscription(t *testing.T) {
 				cancel()
 				require.Empty(t, responses, "an empty subscription must not receive full state")
 				require.True(t, c.getNodeState("node1").openWatches.Empty())
-				require.Empty(t, c.watchRelays)
+				require.True(t, c.watchRelays.Empty())
 				after, err := c.GetSnapshot("node1")
 				if beforeErr != nil {
 					require.Error(t, err, "an empty subscription must not trigger snapshot publication")
@@ -2369,7 +2369,7 @@ func TestCreateWatchRotatesNodeEpochForMixedTypeURLHistory(t *testing.T) {
 	// choice based on CDS would collide with the retained LDS namespace.
 	clusterResponse := createWatch(envoy_resource.ClusterType, "e1:g99")
 	require.Equal(t, "e2:g1", clusterResponse.GetResponseVersion())
-	beforeRotation := mustSnapshot(t, c, "node1").(*ciliumSnapshot)
+	beforeRotation := mustSnapshot(t, c, "node1")
 	var versionsBeforeRotation typeurl.Slots[string]
 	for typeURL := range typeurl.Count {
 		versionsBeforeRotation[typeURL] = beforeRotation.GetVersion(typeURL.URL())
@@ -2384,7 +2384,7 @@ func TestCreateWatchRotatesNodeEpochForMixedTypeURLHistory(t *testing.T) {
 	snapshot := mustSnapshot(t, c, "node1")
 	require.Equal(t, "e3:g1", snapshot.GetVersion(envoy_resource.ClusterType))
 	require.Equal(t, "e3:g1", snapshot.GetVersion(envoy_resource.ListenerType))
-	afterRotation := snapshot.(*ciliumSnapshot)
+	afterRotation := snapshot
 	for typeURL := range typeurl.Count {
 		require.Equal(t,
 			versionsBeforeRotation[typeURL],

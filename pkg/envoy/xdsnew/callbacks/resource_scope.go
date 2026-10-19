@@ -195,10 +195,12 @@ func WithSnapshotPublication(ctx context.Context, generation Generation, snapsho
 
 // responseCoverage is immutable. Nil coverage proves no resource state.
 // A nil returned map means every resource in resources was delivered.
-// Partial responses own a name map: go-control-plane
-// may subsequently mutate its returned-resource map when a subscription changes.
+// Partial responses own a name map: go-control-plane may subsequently mutate
+// its returned-resource map when a subscription changes.
 type responseCoverage struct {
 	resources map[string]cache_types.ResourceWithTTL
+	// Only keys determine coverage; the upstream map layout permits bulk
+	// cloning without rehashing larger subsets.
 	returned  map[string]string
 	requested []string
 	typeURL   typeurl.Index
@@ -264,9 +266,14 @@ func WithResponseCoverage(response cache.Response, generation Generation, snapsh
 	}
 	returned := response.GetReturnedResources()
 	if len(returned) != len(coverage.resources) {
-		coverage.returned = maps.Clone(returned)
-		if coverage.returned == nil {
-			coverage.returned = map[string]string{}
+		if len(returned) <= 1 {
+			// A named subscription often returns zero or one resource, but its
+			// map can be sized for the full snapshot. Copy into a small map;
+			// keep bulk cloning for larger responses to avoid rehashing names.
+			coverage.returned = make(map[string]string, len(returned))
+			maps.Copy(coverage.returned, returned)
+		} else {
+			coverage.returned = maps.Clone(returned)
 		}
 	}
 	return &generationResponse{Response: response, ctx: context.WithValue(ctx, responseCoverageContextKey{}, coverage)}

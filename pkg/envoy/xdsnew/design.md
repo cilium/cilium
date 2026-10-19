@@ -297,7 +297,7 @@ flowchart TD
     inner["inner channel<br/>Buffers go-control-plane responses under locks"]
     outer["outer channel<br/>Delivers responses to the stream after unlocking"]
 
-    cache -->|watchRelays: channel to relay| relay
+    cache -->|watchRelays: relay set| relay
     node -->|openWatches| watches
     watches -.->|sets of watch pointers| watch
     relay -.->|watches: pointer set| watch

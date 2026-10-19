@@ -565,7 +565,7 @@ func (r *rollbackState) prepareRevertLocked(tx *resourceTransaction, rollbacks [
 			}
 		}
 		for typeURL := range typeurl.Count {
-			current := state.resourceEntries(typeURL)
+			current := state.resources[typeURL]
 			for name, entry := range combined[typeURL] {
 				changes.add(typeURL, name, current[name], entry.previous)
 			}
@@ -619,7 +619,7 @@ func (resources *rollbackResources) mergeHistory(state *nodeState, typeURL typeu
 
 func (resources *rollbackResources) resourceRevert(state *nodeState, typeURL typeurl.Index) resourceChanges {
 	var changes resourceChanges
-	current := state.resourceEntries(typeURL)
+	current := state.resources[typeURL]
 	for name, entry := range *resources {
 		previous := current[name]
 		if previous.nonRevertible || previous.transaction != entry.expectedTransaction {
@@ -636,7 +636,7 @@ func (rb *callerRollback) prepareRevertLocked() resourceChanges {
 	state := rb.state
 	var changes resourceChanges
 	for typeURL := range typeurl.Count {
-		current := state.resourceEntries(typeURL)
+		current := state.resources[typeURL]
 		for name, previous := range rb.inverse.resources(typeURL) {
 			entry := current[name]
 			// The inverse only contains semantic changes made by transaction.
