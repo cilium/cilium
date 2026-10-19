@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/secretsync"
 	"github.com/cilium/cilium/pkg/backoff"
 	mcsapitypes "github.com/cilium/cilium/pkg/clustermesh/mcsapi/types"
+	"github.com/cilium/cilium/pkg/k8s/apis"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -61,6 +62,7 @@ var Cell = cell.Module(
 		GatewayAPIHostnetworkNodelabelselector: "",
 		GatewayAPIUseRemoteAddress:             true,
 		GatewayAPIInferenceExtensionEnabled:    false,
+		GatewayAPIInstallCRDs:                  false,
 	}),
 
 	// Private provider for preconditions - consumed by both initGatewayAPIController
@@ -91,6 +93,7 @@ type preconditionParams struct {
 	Health           cell.Health
 	OperatorConfig   *operatorOption.OperatorConfig
 	GatewayApiConfig gatewayApiConfig
+	CRDsConfig       apis.RegisterCRDsConfig
 }
 
 // crdDiscoveryTimeout is the maximum duration to retry CRD discovery on transient errors.
@@ -111,6 +114,16 @@ func newGatewayAPIPreconditions(params preconditionParams) (*gatewayAPIPrecondit
 
 	if err := validateExternalTrafficPolicy(params.GatewayApiConfig, params.Logger); err != nil {
 		return nil, err
+	}
+
+	// The Gateway API CRDs are installed here rather than when the operator
+	// is elected leader together with the Cilium CRDs, as the Gateway API
+	// controllers require them to be present to be constructed.
+	if shouldInstallGatewayAPICRDs(params.OperatorConfig, params.GatewayApiConfig) &&
+		!params.CRDsConfig.SkipCRDCreation && params.K8sClient.IsEnabled() {
+		if err := installBundledCRDs(params.Logger, params.K8sClient, params.Health); err != nil {
+			return nil, err
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), crdDiscoveryTimeout)
@@ -202,6 +215,11 @@ type gatewayApiConfig struct {
 	GatewayAPIHostnetworkNodelabelselector string
 	GatewayAPIUseRemoteAddress             bool
 	GatewayAPIInferenceExtensionEnabled    bool
+
+	// GatewayAPIInstallCRDs installs and upgrades the Gateway API standard
+	// channel CRDs bundled with Cilium. Only applicable if Gateway API
+	// support is enabled.
+	GatewayAPIInstallCRDs bool
 }
 
 func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
@@ -216,6 +234,7 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Bool("gateway-api-use-remote-address", r.GatewayAPIUseRemoteAddress, "Use the immediate client's IP address as the origin client's IP address")
 	flags.String("gateway-api-hostnetwork-nodelabelselector", r.GatewayAPIHostnetworkNodelabelselector, "Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
 	flags.Bool("gateway-api-inference-extension-enabled", r.GatewayAPIInferenceExtensionEnabled, "Enables the use Gateway API Inference Extension")
+	flags.Bool("gateway-api-install-crds", r.GatewayAPIInstallCRDs, "Install and upgrade the Gateway API standard channel CRDs bundled with Cilium. Externally managed CRDs are never modified. Only applicable if Gateway API support is enabled.")
 }
 
 type gatewayAPIParams struct {

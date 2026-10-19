@@ -557,6 +557,7 @@ contributors across the globe, there is almost always someone available to help.
 | gatewayAPI.hostNetwork.enabled | bool | `false` | Configure whether the Envoy listeners should be exposed on the host network. |
 | gatewayAPI.hostNetwork.nodes.matchLabels | object | `{}` | Specify the labels of the nodes where the Ingress listeners should be exposed  matchLabels:   kubernetes.io/os: linux   kubernetes.io/hostname: kind-worker |
 | gatewayAPI.inferenceExtension.enabled | bool | `false` |  |
+| gatewayAPI.installCRDs | bool | `false` | Install and upgrade the Gateway API standard channel CRDs bundled with this Cilium version through the Cilium Operator. Only applicable if `gatewayAPI.enabled` is true. CRDs which are not labeled with `app.kubernetes.io/managed-by: cilium-operator` (e.g. installed by kubectl, Helm or Flux) are never modified, and CRDs are never deleted. |
 | gatewayAPI.secretsNamespace | object | `{"create":true,"name":"cilium-secrets","sync":true}` | SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from. |
 | gatewayAPI.secretsNamespace.create | bool | `true` | Create secrets namespace for Gateway API. |
 | gatewayAPI.secretsNamespace.name | string | `"cilium-secrets"` | Name of Gateway API secret namespace. |

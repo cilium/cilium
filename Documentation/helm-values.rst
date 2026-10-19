@@ -2028,6 +2028,10 @@
      - 
      - bool
      - ``false``
+   * - :spelling:ignore:`gatewayAPI.installCRDs`
+     - Install and upgrade the Gateway API standard channel CRDs bundled with this Cilium version through the Cilium Operator. Only applicable if ``gatewayAPI.enabled`` is true. CRDs which are not labeled with ``app.kubernetes.io/managed-by: cilium-operator`` (e.g. installed by kubectl, Helm or Flux) are never modified, and CRDs are never deleted.
+     - bool
+     - ``false``
    * - :spelling:ignore:`gatewayAPI.secretsNamespace`
      - SecretsNamespace is the namespace in which envoy SDS will retrieve TLS secrets from.
      - object

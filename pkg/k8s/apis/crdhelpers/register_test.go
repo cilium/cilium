@@ -288,3 +288,38 @@ func (m fakePoller) Poll(
 ) error {
 	return nil
 }
+
+// singleRunPoller runs the condition once.
+type singleRunPoller struct{}
+
+func (singleRunPoller) Poll(
+	ctx context.Context,
+	_, _ time.Duration,
+	conditionFn func(context.Context) (bool, error),
+) error {
+	_, err := conditionFn(ctx)
+	return err
+}
+
+func TestUpdateV1CRDMergesAnnotations(t *testing.T) {
+	current := getV1TestCRD()
+	current.Labels[labelKey] = "0.1"
+	current.Annotations = map[string]string{
+		"example.com/bundle-version": "v1.0.0",
+		"example.com/unrelated":      "keep",
+	}
+	target := getV1TestCRD()
+	target.Annotations = map[string]string{"example.com/bundle-version": "v2.0.0"}
+
+	client := fake.NewSimpleClientset(current.DeepCopy())
+	_, err := updateV1CRD(t.Context(), hivetest.Logger(t), target, current, client.ApiextensionsV1(), singleRunPoller{}, NeedsUpdateV1Factory(labelKey, minVersion))
+	require.NoError(t, err)
+
+	updated, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(t.Context(), current.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, target.Labels, updated.Labels)
+	require.Equal(t, map[string]string{
+		"example.com/bundle-version": "v2.0.0",
+		"example.com/unrelated":      "keep",
+	}, updated.Annotations)
+}

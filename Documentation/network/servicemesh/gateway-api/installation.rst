@@ -21,6 +21,9 @@ Installation
 ############
 
 The below CRDs from Gateway API |GATEWAY_API_VERSION| ``must`` be installed.
+They can either be installed manually or with the tool of your choice as
+described below, or be installed and upgraded by the Cilium Operator, see
+:ref:`Gateway API CRD management <gs_gateway_crd_management>`.
 
 - `GatewayClass <https://gateway-api.sigs.k8s.io/reference/api-types/gatewayclass/>`_
 - `Gateway <https://gateway-api.sigs.k8s.io/reference/api-types/gateway/>`_

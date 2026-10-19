@@ -1101,6 +1101,12 @@ gatewayAPI:
   # -- Enable support for Gateway API in cilium
   # This will automatically set enable-envoy-config as well.
   enabled: false
+  # -- Install and upgrade the Gateway API standard channel CRDs bundled with
+  # this Cilium version through the Cilium Operator. Only applicable if
+  # `gatewayAPI.enabled` is true. CRDs which are not labeled with
+  # `app.kubernetes.io/managed-by: cilium-operator` (e.g. installed by
+  # kubectl, Helm or Flux) are never modified, and CRDs are never deleted.
+  installCRDs: false
   # -- Enable proxy protocol for all GatewayAPI listeners. Note that _only_ Proxy protocol traffic will be accepted once this is enabled.
   enableProxyProtocol: false
   # @schema

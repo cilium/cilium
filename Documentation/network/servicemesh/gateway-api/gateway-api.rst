@@ -56,6 +56,9 @@ Additionally, Cilium provides ``CiliumGatewayClassConfig`` CRD, which can be ref
 .. _gs_gateway_addresses:
 .. include:: addresses.rst
 
+.. _gs_gateway_crd_management:
+.. include:: crd-management.rst
+
 Examples
 ########
 

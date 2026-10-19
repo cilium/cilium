@@ -329,6 +329,7 @@ data:
   gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
   gateway-api-inference-extension-enabled: {{ .Values.gatewayAPI.inferenceExtension.enabled | quote}}
+  gateway-api-install-crds: {{ .Values.gatewayAPI.installCRDs | quote }}
 {{- end }}
 
 {{- if and $readSecretsOnlyFromSecretsNamespace $secretSyncEnabled }}
