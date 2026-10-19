@@ -1134,14 +1134,25 @@ func TestListenerRemovalPreservesUnchangedTypeWatches(t *testing.T) {
 }
 
 func TestUpsertNetworkPolicyCompletesCoalescedABAOnCreateWatch(t *testing.T) {
-	for _, mode := range []string{"tracked-final-update", "untracked-final-update"} {
-		t.Run(mode, func(t *testing.T) {
+	for _, tt := range []struct {
+		name              string
+		trackFinalUpdate  bool
+		initiallyAccepted bool
+	}{
+		{name: "tracked-final-update", trackFinalUpdate: true, initiallyAccepted: true},
+		{name: "untracked-final-update", initiallyAccepted: true},
+		{name: "tracked-final-update/initial-response-pending", trackFinalUpdate: true},
+		{name: "untracked-final-update/initial-response-pending"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
 			c := newCoverageCache(t)
 			policyA := &cilium.NetworkPolicy{EndpointId: 1}
 			require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policyA, nil))
 			s := coverageStream{cache: c, id: 1, typeURL: typeurl.NetworkPolicyURL}
 			responseA := s.receive(t)
-			s.reply(t, responseA, "")
+			if tt.initiallyAccepted {
+				s.reply(t, responseA, "")
+			}
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			t.Cleanup(cancel)
@@ -1150,18 +1161,22 @@ func TestUpsertNetworkPolicyCompletesCoalescedABAOnCreateWatch(t *testing.T) {
 			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy",
 				&cilium.NetworkPolicy{EndpointId: 2}, wgB))
 			var wgA *completion.WaitGroup
-			if mode == "tracked-final-update" {
+			if tt.trackFinalUpdate {
 				wgA = completion.NewWaitGroup(ctx)
 				t.Cleanup(wgA.Cancel)
 			}
 			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.NetworkPolicy, "policy", policyA, wgA))
-			// The contents of A are already accepted, but these new revisions
-			// remain pending until a watch finalizes the coalesced publication.
+			// Returning to A creates a new revision and wire version, even if
+			// Envoy already received identical contents in the first response.
 			pending := 1
 			if wgA != nil {
 				pending++
 			}
 			require.Equal(t, pending, c.completionCbs.PendingCompletionCount())
+			if !tt.initiallyAccepted {
+				s.reply(t, responseA, "")
+				require.Equal(t, pending, c.completionCbs.PendingCompletionCount(), "the original A ACK must not accept later B or A revisions")
+			}
 			published := mustSnapshot(t, c, "coverage-node")
 			require.Equal(t, responseA.VersionInfo, published.GetVersion(typeurl.NetworkPolicyURL))
 
@@ -1173,7 +1188,10 @@ func TestUpsertNetworkPolicyCompletesCoalescedABAOnCreateWatch(t *testing.T) {
 			t.Cleanup(cancelWatch)
 			// The contents returned to A, but the wire generation advanced.
 			// B's waiter must still await the ACK of the finalized response.
-			s.reply(t, s.deliver(t, <-responses), "")
+			require.Len(t, responses, 1)
+			response := s.deliver(t, <-responses)
+			require.NotEqual(t, responseA.VersionInfo, response.VersionInfo)
+			s.reply(t, response, "")
 			require.NoError(t, wgB.Wait())
 			if wgA != nil {
 				require.NoError(t, wgA.Wait())

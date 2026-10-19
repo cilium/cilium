@@ -15,9 +15,9 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
 
-// ResourceScope identifies the resource revisions required by a wait. The
-// common single-resource scope is inline. A zero scope is an explicit wait for
-// the whole type, not evidence that a partial response covers that type.
+// ResourceScope records requirements for caller waits and response-owned
+// rollback. Caller waits specify resource names and revisions; rollback can also
+// cover a whole resource type with a zero scope.
 type ResourceScope struct {
 	name     string
 	revision Revision
@@ -28,9 +28,15 @@ func SingleResourceScope(name string, revision Revision) ResourceScope {
 	return ResourceScope{name: name, revision: revision}
 }
 
-// OnlyRemovals classifies named requirements against desired state while the
-// cache lock is held, before registration. Whole-type waits retain ordinary
-// NACK failure handling. The resulting policy stays fixed for the caller wait.
+// HasNames reports whether the scope contains explicit resource requirements,
+// including revisions of zero. Whole-type rollback scopes have no explicit names.
+func (scope *ResourceScope) HasNames() bool {
+	return scope.name != "" || len(scope.more) != 0
+}
+
+// OnlyRemovals classifies a caller's requirements against desired state while
+// the cache lock is held, before registration. The resulting policy stays fixed
+// for the wait.
 func (scope *ResourceScope) OnlyRemovals(isRemoved func(string) bool) bool {
 	if scope.name != "" {
 		return isRemoved(scope.name)
@@ -83,24 +89,6 @@ func (scope *ResourceScope) wholeType() bool {
 	return scope != nil && scope.name == "" && scope.more == nil
 }
 
-func (scope *ResourceScope) coveredBy(coverage *responseCoverage, generation Generation) bool {
-	if scope == nil {
-		return false
-	}
-	if scope.wholeType() {
-		return coverage.complete()
-	}
-	if scope.name != "" {
-		return scope.revision.revision <= generation && coverage.contains(scope.name)
-	}
-	for name, required := range scope.more {
-		if required.revision > generation || !coverage.contains(name) {
-			return false
-		}
-	}
-	return true
-}
-
 func (scope *ResourceScope) intersects(coverage *responseCoverage, generation Generation) bool {
 	if scope == nil {
 		return false
@@ -122,9 +110,13 @@ func (scope *ResourceScope) intersects(coverage *responseCoverage, generation Ge
 // acknowledge consumes just the requirements represented by this response.
 // Return true only when every requirement has been met. The caller removes
 // the completed wait immediately, so the zero value need not encode completion.
+// Only response-owned rollback uses a zero scope to require a complete response.
 func (scope *ResourceScope) acknowledge(coverage *responseCoverage, generation Generation) bool {
-	if scope.wholeType() || scope.name != "" {
-		return scope.coveredBy(coverage, generation)
+	if scope.wholeType() {
+		return coverage.complete()
+	}
+	if scope.name != "" {
+		return scope.revision.revision <= generation && coverage.contains(scope.name)
 	}
 	for name, required := range scope.more {
 		if required.revision <= generation && coverage.contains(name) {
@@ -151,9 +143,6 @@ func (scope *ResourceScope) acknowledgeRemovals(coverage *responseCoverage, gene
 			return ok && len(assignment.GetEndpoints()) == 0
 		}
 		return false
-	}
-	if scope.wholeType() {
-		return scope.coveredBy(coverage, generation)
 	}
 	if scope.name != "" {
 		return covered(scope.name, scope.revision)

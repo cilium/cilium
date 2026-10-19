@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"math"
 	"slices"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -152,8 +151,9 @@ func (cb *CompletionCallbacks) ensureTypeURLState(nodeID string, index typeurl.I
 
 // responseState tracks the latest xDS response/ACK state for a specific node/type.
 type responseState struct {
-	pendingResponse
-	pendingStreamID int64
+	pendingVersion    string
+	pendingGeneration Generation
+	pendingStreamID   int64
 	// acceptedGeneration prevents a delayed ACK on another stream from
 	// replacing a newer accepted baseline with an older one.
 	acceptedGeneration Generation
@@ -185,7 +185,8 @@ type pendingResponse struct {
 }
 
 func (state *responseState) clearPending() {
-	state.pendingResponse = pendingResponse{}
+	state.pendingVersion = ""
+	state.pendingGeneration = 0
 	state.pendingStreamID = 0
 }
 
@@ -202,10 +203,6 @@ type resourceWait struct {
 	// records the required revisions of individual resource names.
 	generation Generation
 	scope      ResourceScope
-	// responseGeneration is the publication boundary of the response carrying
-	// this wait. It may precede generation when an unchanged update attaches
-	// to a response already in flight.
-	responseGeneration Generation
 }
 
 func (pc *resourceWait) ID() string {
@@ -221,7 +218,6 @@ func (pc *resourceWait) CleanupAfterWait(c *completion.Completion) {
 // waits, including updates without a WaitGroup, so a NACK can still revert the
 // communicated names whose originating API transactions remain current.
 type pendingGeneration struct {
-	responseGeneration Generation
 	// Always non-nil: generations without a response inverse are tracked only
 	// by caller completions, not by this response-owned container.
 	rollback Rollback
@@ -250,6 +246,7 @@ func (cb *CompletionCallbacks) RemoveTypeGenerationCompletion(c *completion.Comp
 
 // NewTypeGenerationCompletionOwner returns an owner which drops callback state
 // if its WaitGroup ends before Envoy ACKs or NACKs the generation.
+// scope must contain at least one resource name and its required revision.
 func (cb *CompletionCallbacks) NewTypeGenerationCompletionOwner(nodeID string, typeURL typeurl.Index, generation Generation, scope ResourceScope, removalOnly bool) *resourceWait {
 	return &resourceWait{
 		callbacks:   cb,
@@ -502,7 +499,7 @@ func (cb *CompletionCallbacks) PartitionUnsentTypeGeneration(nodeID string, type
 	defer cb.mutex.Unlock()
 	typeState := cb.ensureTypeURLState(nodeID, typeURL)
 	for pending, boundary := range typeState.pendingGenerations {
-		if boundary == oldGeneration && pending.responseGeneration == 0 && pending.scope == nil {
+		if boundary == oldGeneration && pending.scope == nil {
 			delete(typeState.pendingGenerations, pending)
 			break
 		}
@@ -523,41 +520,13 @@ func (cb *CompletionCallbacks) DiscardUnsentTypeGeneration(nodeID string, typeUR
 		return false
 	}
 	for pending, boundary := range typeState.pendingGenerations {
-		if boundary == generation && pending.responseGeneration == 0 && pending.scope == nil {
+		if boundary == generation && pending.scope == nil {
 			delete(typeState.pendingGenerations, pending)
 			typeState.removeEmptyPendingGenerationSet()
 			return true
 		}
 	}
 	return false
-}
-
-// FinalizeTypeGeneration associates covered waits and rollback state with an
-// existing in-flight response for the published version. Publication alone
-// does not complete waits or release response-owned rollback state.
-func (cb *CompletionCallbacks) FinalizeTypeGeneration(nodeID string, typeURL typeurl.Index, generation Generation, version string) {
-	cb.mutex.Lock()
-	defer cb.mutex.Unlock()
-
-	typeState := cb.typeURLState(nodeID, typeURL)
-	var state responseState
-	if typeState != nil {
-		state = typeState.response
-	}
-	if version != "" && state.pendingVersion == version {
-		for _, pending := range cb.pendingWaits {
-			if pending.nodeID == nodeID && pending.typeURL == typeURL && pending.generation <= generation && pending.scope.coveredBy(state.coverage, math.MaxUint64) {
-				pending.responseGeneration = state.pendingGeneration
-			}
-		}
-		if typeState != nil {
-			for pending, boundary := range typeState.pendingGenerations {
-				if boundary <= generation && pending.scope.coveredBy(state.coverage, math.MaxUint64) {
-					pending.responseGeneration = state.pendingGeneration
-				}
-			}
-		}
-	}
 }
 
 // AddPreparedTypeGenerationCompletion registers a completion using the object
@@ -580,21 +549,6 @@ func (cb *CompletionCallbacks) AddPreparedTypeGenerationCompletion(c *completion
 
 	typeState := cb.ensureTypeURLState(nodeID, typeURL)
 	state := &typeState.response
-
-	if version != "" && state.pendingVersion == version && pending.scope.coveredBy(state.coverage, math.MaxUint64) {
-		// The response was already sent, but the ACK/NACK has not arrived yet.
-		// Attach an unchanged update directly to that response generation so its
-		// in-flight ACK can complete it.
-		for _, pending := range cb.pendingWaits {
-			if pending.nodeID == nodeID && pending.typeURL == typeURL &&
-				pending.generation <= generation && pending.scope.coveredBy(state.coverage, math.MaxUint64) {
-				pending.responseGeneration = state.pendingGeneration
-			}
-		}
-		cb.addPendingCompletion(c, pending, version)
-		pending.responseGeneration = state.pendingGeneration
-		return true, nil
-	}
 
 	if version != "" && state.pendingVersion == "" && state.acceptedVersion == version {
 		// An ACK can arrive after the cache checks resource acceptance but before
@@ -682,9 +636,8 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 
 	coverage := response.coverage
 	// ACK received: resolve the prefix actually covered by this stream's response.
-	// Another stream may already have attached those updates to a newer response;
-	// that must not prevent this ACK from resolving the older prefix. The explicit
-	// responseGeneration match also covers a later no-op attached to this response.
+	// Other streams can have newer responses in flight. Each ACK proves only the
+	// resource names and revisions communicated by its own response.
 	var acceptedGeneration Generation
 	if response.pendingVersion == req.GetVersionInfo() {
 		acceptedGeneration = response.pendingGeneration
@@ -714,19 +667,12 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 			acceptedGeneration == 0 {
 			continue
 		}
-		coveredGeneration := acceptedGeneration
-		if pc.responseGeneration == acceptedGeneration {
-			coveredGeneration = math.MaxUint64
-		}
-		if pc.scope.wholeType() && pc.generation > coveredGeneration {
-			continue
-		}
 		if pc.removalOnly {
-			if !pc.scope.acknowledgeRemovals(coverage, coveredGeneration, pc.generation) {
+			if !pc.scope.acknowledgeRemovals(coverage, acceptedGeneration, pc.generation) {
 				continue
 			}
 		} else {
-			if !pc.scope.acknowledge(coverage, coveredGeneration) {
+			if !pc.scope.acknowledge(coverage, acceptedGeneration) {
 				continue
 			}
 		}
@@ -800,21 +746,15 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 		delete(typeState.pendingGenerations, pending)
 	}
 	for c, pc := range cb.pendingWaits {
-		coveredGeneration := rejectedGeneration
-		if pc.responseGeneration == rejectedGeneration {
-			coveredGeneration = math.MaxUint64
-		}
 		if pc.nodeID != nodeID || pc.typeURL != typeIndex || rejectedGeneration == 0 {
 			continue
 		}
-		if (pc.scope.wholeType() && pc.generation > coveredGeneration) || !pc.scope.intersects(coverage, coveredGeneration) {
+		if !pc.scope.intersects(coverage, rejectedGeneration) {
 			continue
 		}
 		if pc.removalOnly {
 			// This wait covers only removals of the rejected type, even if its
-			// API transaction upserted other types. Await a later ACK without
-			// retaining this rejected response's association.
-			pc.responseGeneration = 0
+			// API transaction upserted other types. Await a later ACK.
 			continue
 		}
 		completed = append(completed, c)
@@ -890,20 +830,6 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 		coverage: coverage,
 	}
 
-	// responseGeneration bounds revisions in the exact snapshot, not the request's
-	// eventual name set. A partial response covers only its delivered names; other
-	// resources at or below responseGeneration must still wait for their own response.
-	for _, pc := range cb.pendingWaits {
-		if pc.nodeID == nodeID && pc.typeURL == typeIndex && pc.generation <= responseGeneration && pc.scope.intersects(coverage, responseGeneration) {
-			pc.responseGeneration = responseGeneration
-		}
-	}
-	for pending, generation := range typeState.pendingGenerations {
-		if generation <= responseGeneration && pending.scope.intersects(coverage, responseGeneration) {
-			pending.responseGeneration = responseGeneration
-		}
-	}
-
 	state := &typeState.response
 	// A delayed response on another stream must not replace the newer response
 	// or accepted version used by no-op completion registration. Its exact
@@ -911,8 +837,6 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 	if responseGeneration >= state.pendingGeneration && responseGeneration >= state.acceptedGeneration {
 		state.pendingVersion = version
 		state.pendingGeneration = responseGeneration
-		state.pendingNonce = resp.GetNonce()
-		state.coverage = coverage
 		state.pendingStreamID = streamID
 		if state.rejectedVersion == version {
 			state.rejectedVersion = ""

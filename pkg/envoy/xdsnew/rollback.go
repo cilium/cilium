@@ -199,10 +199,10 @@ func (r *rollbackState) preparePublicationLocked(tx *resourceTransaction, change
 			rollbacks.Set(typeURL, rollback)
 		}
 	}
-	// Record version-association-only entries for affected types without rollback.
-	// Preserve any rollback already stored for the same type.
+	// Include indirectly affected types so publication also reconciles their
+	// earlier unsent rollback. Preserve any new rollback for the same type.
 	for typeURL := range typeurl.Count {
-		if !rollbacks.Has(typeURL) && (dirtyTypeURLs.Has(typeURL) || options.waits.Has(typeURL)) {
+		if !rollbacks.Has(typeURL) && dirtyTypeURLs.Has(typeURL) {
 			rollbacks.Set(typeURL, nil)
 		}
 	}
