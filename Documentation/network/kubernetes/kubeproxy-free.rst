@@ -496,8 +496,9 @@ in its load balancer for backend selection. This improves resiliency in case of
 failures. As well, it provides better load balancing properties since Nodes added to the cluster will
 make consistent backend selection throughout the cluster for a given 5-tuple without
 having to synchronize state with the other Nodes. Similarly, upon backend removal the backend
-lookup tables are reprogrammed with minimal disruption for unrelated backends (at most 1%
-difference in the reassignments) for the given service.
+lookup tables are reprogrammed such that only a small fraction of the traffic of unrelated
+backends gets reassigned for the given service (see the table of ``maglev.tableSize`` values
+below for measured numbers).
 
 Maglev hashing for services load balancing can be enabled by setting ``loadBalancer.algorithm=maglev``:
 
@@ -521,37 +522,90 @@ and ``maglev.hashSeed``.
 `Maglev <https://static.googleusercontent.com/media/research.google.com/ko//pubs/archive/44824.pdf>`__
 recommends the table size (``M``) to be significantly larger than the number of maximum expected
 backends (``N``). In practice that means that ``M`` should be larger than ``100 * N`` in
-order to guarantee the property of at most 1% difference in the reassignments on backend
-changes. ``M`` must be a prime number. Cilium uses a default size of ``16381`` for ``M``.
-The following sizes for ``M`` are supported as ``maglev.tableSize`` Helm option:
+order to guarantee that the share of the lookup table assigned to each backend differs by at
+most 1%, that is, traffic is spread almost evenly across the backends. Maglev favors such even
+load balancing over minimal disruption. Therefore, when a backend is added or removed, a small
+fraction of the flows of unrelated backends is reassigned to a different backend as well, and
+this fraction gets smaller with a larger ``M``. ``M`` must be a prime number. Cilium uses a
+default size of ``16381`` for ``M``. The following sizes for ``M`` are supported as
+``maglev.tableSize`` Helm option. For each size, the table also lists the share of flows of
+the remaining backends which move to a different backend when one backend is removed. This is
+the worst case for any number of backends up to the recommended maximum of ``M / 100``. The
+numbers were measured by simulating Cilium's Maglev implementation over at least 1000 random
+sets of backend addresses per backend count (average, with the 99th percentile in
+parentheses):
 
-+----------------------------+
-| ``maglev.tableSize`` value |
-+============================+
-| 251                        |
-+----------------------------+
-| 509                        |
-+----------------------------+
-| 1021                       |
-+----------------------------+
-| 2039                       |
-+----------------------------+
-| 4093                       |
-+----------------------------+
-| 8191                       |
-+----------------------------+
-| 16381                      |
-+----------------------------+
-| 32749                      |
-+----------------------------+
-| 65521                      |
-+----------------------------+
-| 131071                     |
-+----------------------------+
++----------------------+------------------------+-------------------------------------+
+| ``maglev.tableSize`` | Recommended max.       | Remaining backends' flows that move |
+| (``M``)              | backends (``M / 100``) | when one backend is removed         |
++======================+========================+=====================================+
+| 251                  | 2                      | n/a                                 |
++----------------------+------------------------+-------------------------------------+
+| 509                  | 5                      | 2.5% (7.9%)                         |
++----------------------+------------------------+-------------------------------------+
+| 1021                 | 10                     | 2.8% (5.7%)                         |
++----------------------+------------------------+-------------------------------------+
+| 2039                 | 20                     | 2.5% (4.3%)                         |
++----------------------+------------------------+-------------------------------------+
+| 4093                 | 40                     | 2.2% (3.0%)                         |
++----------------------+------------------------+-------------------------------------+
+| 8191                 | 81                     | 1.8% (2.4%)                         |
++----------------------+------------------------+-------------------------------------+
+| 16381                | 163                    | 1.6% (1.8%)                         |
++----------------------+------------------------+-------------------------------------+
+| 32749                | 327                    | 1.2% (1.4%)                         |
++----------------------+------------------------+-------------------------------------+
+| 65521                | 655                    | 0.9% (1.0%)                         |
++----------------------+------------------------+-------------------------------------+
+| 131071               | 1310                   | 0.7% (0.7%)                         |
++----------------------+------------------------+-------------------------------------+
 
-For example, a ``maglev.tableSize`` of ``16381`` is suitable for a maximum of ``~160`` backends
+For example, with the default ``M`` of ``16381`` and ``163`` backends, each backend owns
+about ``100`` of the ``16381`` lookup table slots. When one backend is removed, its ``~100``
+slots have to move to the remaining backends. On top of that, about 1.6% of the remaining
+``~16280`` slots (``~270``) move from one remaining backend to another. Hence, a connection to
+one of the remaining backends has a 1.6% chance to be mapped to a different backend. For
+``65521`` and ``131071``, the worst case occurs with fewer backends than ``M / 100``. For
+``251``, the recommended maximum of two backends leaves a single backend after a removal,
+hence there is nothing to reassign.
+
+Most services have far fewer backends. For the default ``M`` of ``16381``, the following
+table lists examples for smaller numbers of backends, measured the same way. When a backend
+is added, it takes over its ``1 / (N + 1)`` share of the flows, which is unavoidable. In
+addition, some flows move among the existing backends:
+
++----------+-----------+-----------------------+---------------------+--------------------------+
+| Backends | Slots per | Removing one backend: | Adding one backend: | Adding one backend:      |
+| (``N``)  | backend   | remaining backends'   | share taken over by | existing backends' flows |
+|          |           | flows that move       | the new backend     | that move among them     |
++==========+===========+=======================+=====================+==========================+
+| 2        | ~8190     | 0% (0%)               | 33.3%               | 0.08% (0.56%)            |
++----------+-----------+-----------------------+---------------------+--------------------------+
+| 5        | ~3276     | 0.33% (1.44%)         | 16.7%               | 0.34% (1.09%)            |
++----------+-----------+-----------------------+---------------------+--------------------------+
+| 10       | ~1638     | 0.59% (1.25%)         | 9.1%                | 0.56% (1.06%)            |
++----------+-----------+-----------------------+---------------------+--------------------------+
+| 20       | ~819      | 0.76% (1.07%)         | 4.8%                | 0.74% (1.05%)            |
++----------+-----------+-----------------------+---------------------+--------------------------+
+| 50       | ~328      | 1.04% (1.28%)         | 2.0%                | 1.03% (1.26%)            |
++----------+-----------+-----------------------+---------------------+--------------------------+
+| 100      | ~164      | 1.35% (1.57%)         | 1.0%                | 1.34% (1.56%)            |
++----------+-----------+-----------------------+---------------------+--------------------------+
+
+For example, with two backends, removing one leaves a single backend which keeps all of its
+flows. Adding a third backend moves a third of the flows to the new backend, and on average
+another 0.08% of the flows between the two existing backends. Since backends are identified
+by their address, replacing a backend Pod with a new Pod that has a different IP behaves like
+a removal plus an addition.
+
+Note that these reassignments only affect packets which do not match an existing connection
+tracking entry on the node handling them, for example when an upstream ECMP router moves a
+connection to a different node, or after the entry expired. Established connections to
+unrelated backends which match their connection tracking entry are not affected.
+
+As a rule of thumb, a ``maglev.tableSize`` of ``16381`` is suitable for a maximum of ``~160`` backends
 per service. If a higher number of backends are provisioned under this setting, then the
-difference in reassignments on backend changes will increase. Note that changing the table
+load imbalance between the backends will increase. Note that changing the table
 size (``M``) triggers a recalculation of the lookup table and can temporarily lead to inconsistent
 backend selection for new traffic until all nodes have converged and completed their agent restart.
 
@@ -562,7 +616,8 @@ Every Cilium agent in the cluster must use the same hash seed for Maglev to work
 
 The below deployment example is generating and passing such seed to Helm as well as setting the
 Maglev table size to ``65521`` to allow for ``~650`` maximum backends for a
-given service (with the property of at most 1% difference on backend reassignments):
+given service (where backend changes reassign on average less than 1% of the flows of
+unrelated backends, see the table above):
 
 .. parsed-literal::
 
@@ -581,6 +636,110 @@ given service (with the property of at most 1% difference on backend reassignmen
 Note that enabling Maglev will have a higher memory consumption on each Cilium-managed Node compared
 to the default of ``loadBalancer.algorithm=random`` given ``random`` does not need the extra lookup
 tables. However, ``random`` won't have consistent backend selection.
+
+.. _maglev_ecmp:
+
+Maglev with ECMP Routing
+========================
+
+When a Service IP is announced from multiple nodes to upstream routers, for
+example through the :ref:`bgp_control_plane`, the routers spread the client flows
+across these nodes with Equal-Cost Multi-Path (ECMP) routing. This adds a second
+hashing stage in front of Maglev: the router's ECMP hash selects the node for a
+flow, and Maglev on that node selects the backend. The two stages hash the flow
+independently of each other, and the connection tracking table of each node pins
+established connections to their backend:
+
+* Changes to the backends only change the Maglev lookup tables. Connections which
+  stay on their node keep their backend through connection tracking.
+* Changes to the set of nodes announcing the Service IP, for example when a node is
+  added, drained, fails or loses its BGP session, make the routers move flows to a
+  different node, where they do not match a connection tracking entry.
+
+How many flows the routers move depends on their ECMP implementation. Routers
+typically hash the 5-tuple of a flow with a router-specific seed, independently of
+Maglev. Without resilient hashing, they recompute the mapping of all flows when the
+number of next hops ``K`` changes. A modulo-N mapping (``hash % K``) then moves
+almost all flows, and a hash-threshold mapping moves between a quarter and a half
+of all flows (:rfc:`2992`). With resilient hashing, only the flows of a removed node
+move. When a node is added, resilient hashing implementations differ: some move no
+flows to the new node until they rebalance, some move at most its ``1 / (K + 1)``
+share of the flows, and others recompute the mapping of all flows. Data center
+routers commonly recompute the mapping of all flows by default and offer resilient
+hashing as an opt-in feature.
+
+The following table lists the share of the flows of the remaining nodes which move
+to a different node when one out of ``K`` nodes is removed. The flows of the removed
+node always move and are not counted:
+
++---------------+----------+----------------+-------------------+
+| Nodes (``K``) | Modulo-N | Hash-threshold | Resilient hashing |
++===============+==========+================+===================+
+| 2             | 0%       | 0%             | 0%                |
++---------------+----------+----------------+-------------------+
+| 3             | 50%      | 17%            | 0%                |
++---------------+----------+----------------+-------------------+
+| 5             | 75%      | 25%            | 0%                |
++---------------+----------+----------------+-------------------+
+| 10            | 89%      | 30%            | 0%                |
++---------------+----------+----------------+-------------------+
+
+The following table lists the share of all flows which move to a different node when
+one node is added to ``K`` nodes, including the flows which the new node takes over.
+For resilient hashing, the range spans from implementations which move no flows to
+the new node up to those which move its full ``1 / (K + 1)`` share. Implementations
+which recompute the mapping of all flows on addition behave like modulo-N or
+hash-threshold instead:
+
++---------------+----------+----------------+-------------------+
+| Nodes (``K``) | Modulo-N | Hash-threshold | Resilient hashing |
++===============+==========+================+===================+
+| 2             | 67%      | 44%            | 0-33%             |
++---------------+----------+----------------+-------------------+
+| 3             | 75%      | 42%            | 0-25%             |
++---------------+----------+----------------+-------------------+
+| 5             | 83%      | 39%            | 0-17%             |
++---------------+----------+----------------+-------------------+
+| 10            | 91%      | 36%            | 0-9%              |
++---------------+----------+----------------+-------------------+
+
+A flow which is moved to a different node keeps its connection only if all of the
+following conditions hold:
+
+* The Service uses DSR with :ref:`IPIP <DSR mode with IPIP>` or
+  :ref:`Geneve <DSR mode with Geneve>` dispatch. With IPIP, the backend node does
+  not depend on which node sent the flow. With Geneve, the new node attaches the
+  service address to all further packets of a moved connection, so that the backend
+  node can refresh its state for rewriting the replies. In SNAT mode, the new node
+  translates the flow to its own address, which the backend does not know for this
+  connection, so the connection is reset regardless of Maglev.
+* The Service uses ``externalTrafficPolicy: Cluster``. With ``Local``, each node
+  only selects among its local backends, so a moved flow always gets a different
+  backend. In addition, the BGP Control Plane withdraws the announcement of a node
+  once its last local backend is gone, so backend changes then also change the ECMP
+  next hops.
+* The new node's Maglev lookup table maps the flow to the same backend. Since all
+  nodes compute the same lookup table, this is the case unless the backends changed
+  since the connection was established. Otherwise, the flow gets a different backend
+  with the probability listed in the ``maglev.tableSize`` tables above.
+
+Hence, with DSR with IPIP or Geneve, the probability that a connection to a backend
+which is still alive gets reset is the share of flows moved by ECMP multiplied by the
+probability that the connection's Maglev lookup table entry changed since it was
+established. Neither backend changes alone nor node changes alone reset such
+connections, only the combination of both during the lifetime of a connection does.
+In SNAT mode, every connection which is moved to a different node is reset.
+
+For example, take five nodes which announce a Service with ten backends, two on
+each node, and the default ``maglev.tableSize``. When one node fails, its two
+backends are removed, which changes the Maglev lookup table entry for on average
+0.67% of the flows of the remaining eight backends. ECMP moves all flows of the
+failed node to the other nodes, plus 75% (modulo-N), 25% (hash-threshold) or none
+(resilient hashing) of the flows of the four remaining nodes, that is 80%, 40% or
+20% of all flows. With DSR with IPIP or Geneve, this resets about 0.5%, 0.3% or
+0.1% of the connections to the remaining backends, respectively. In SNAT mode, it
+resets 80%, 40% or 20% of them. Connections to the two backends on the failed node
+are lost in any case.
 
 .. _DSR mode:
 
