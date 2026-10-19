@@ -16,9 +16,17 @@ default: html
 
 DOCS_BUILDER_IMG ?= quay.io/cilium/docs-builder:e6773ed21ab03066c0f24e68f342f18804a8ee0a@sha256:d3beff6d6408c09f6e1dbc637f7e98962b7d1fd2a81bf1d2a27ff8817dafb51f
 
+.PHONY: update-docs-builder-image
+update-docs-builder-image: DOCS_BUILDER_TAG=$(word 3,$(shell git ls-tree --full-tree HEAD -- $(ROOT_DIR)/images/$(DOCS_BUILDER_DIR)))
+update-docs-builder-image:
+	if [ -z "$(findstring $(DOCS_BUILDER_TAG),$(DOCS_BUILDER_IMG))" ]; then \
+		$(ROOT_DIR)/Documentation/update-docs-builder-image.sh '$(DOCS_BUILDER_REPO):$(DOCS_BUILDER_TAG)'; \
+	fi
+
 .PHONY: builder-image
 builder-image:
 	$(MAKE) -C ../images -f Makefile.docs docs-builder-image
+	$(MAKE) update-docs-builder-image
 
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.
