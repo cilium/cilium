@@ -396,6 +396,11 @@ rules:
   - gatewayclasses
   verbs:
   - patch
+{{- if and .Values.gatewayAPI.installCRDs (eq (.Values.gatewayAPI.gatewayClass.create | toString) "auto") }}
+  # To create the default GatewayClass when the Gateway API CRDs are installed
+  # by the operator.
+  - create
+{{- end }}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:
