@@ -20,7 +20,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV6 1
 #define ENABLE_NODEPORT 1
-#define DSR_ENCAP_IPIP		2
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_PORT		__bpf_htons(111)

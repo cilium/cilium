@@ -52,8 +52,6 @@ ASSIGN_CONFIG(__u8, ipv6_rss_prefix_bits, 128)
 /* Define dummy values to make bpf_{lxc,overlay}.c to compile */
 # ifndef DSR_ENCAP_MODE
 #  define DSR_ENCAP_MODE 0
-#  define DSR_ENCAP_IPIP 2
-#  define DSR_ENCAP_GENEVE 3
 # endif
 
 /* Evaluate the input values for detecting compilation errors.
