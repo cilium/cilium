@@ -104,6 +104,8 @@ $(HELM_VALUES): FORCE
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
 check: builder-image api-flaggen update-cmdref update-feature-metrics update-crdlist update-helm-values update-codeowners update-redirects ## Validate command and Helm references, policy examples, and others.
+	@$(ECHO_CHECK) ./check-docs-builder-image.sh
+	$(QUIET) ./check-docs-builder-image.sh '$(DOCS_BUILDER_IMG)'
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) feature-metrics
