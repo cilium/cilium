@@ -12,6 +12,8 @@ import (
 	"net/netip"
 	"os"
 	"path"
+	"slices"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
@@ -21,8 +23,11 @@ import (
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
+	"k8s.io/dynamic-resource-allocation/resourceclaim"
+	draresourceclaim "k8s.io/dynamic-resource-allocation/resourceclaim"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -240,12 +245,12 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	pod := claim.Status.ReservedFor[0]
+	podRef := claim.Status.ReservedFor[0]
 
 	// Reject devices that are already claimed by a *different* claim for this pod.
-	if dev := driver.conflictingDeviceForPod(pod.UID, claim.UID, claim.Status.Allocation.Devices.Results); dev != "" {
+	if dev := driver.conflictingDeviceForPod(podRef.UID, claim.UID, claim.Status.Allocation.Devices.Results); dev != "" {
 		return kubeletplugin.PrepareResult{
-			Err: fmt.Errorf("device %s is already allocated for pod %s by another claim", dev, pod.Name),
+			Err: fmt.Errorf("device %s is already allocated for pod %s by another claim", dev, podRef.Name),
 		}
 	}
 
@@ -254,12 +259,19 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
-	if err := validateDeviceConfigs(claim, deviceClaimConfigs); err != nil {
+	staticAddrsMap, err := driver.getStaticAddrsForClaim(ctx, claim, podRef)
+	if err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
+	if err := driver.validateConfigs(claim, deviceClaimConfigs, staticAddrsMap); err != nil {
+		return kubeletplugin.PrepareResult{Err: err}
+	}
+
+	driver.applyStaticAddrsForClaim(ctx, claim, podRef, deviceClaimConfigs, staticAddrsMap)
+
 	// Precompute what is already done so retries skip completed work.
-	state := driver.newClaimPrepState(pod, claim)
+	state := driver.newClaimPrepState(podRef, claim)
 
 	var (
 		alloc         []allocation
@@ -321,7 +333,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	driver.storeAllocations(alloc, pod.UID, claim.UID)
+	driver.storeAllocations(alloc, podRef.UID, claim.UID)
 
 	// we dont need to return anything here.
 	return kubeletplugin.PrepareResult{}
@@ -438,6 +450,172 @@ func (a allocation) deviceAllocation() types.DeviceAllocation {
 	}
 }
 
+// getStaticAddrsForClaim returns the static addresses, extracted from the
+// annotation.NetworkDriverStaticAddresses pod annotation, for the specified claim.
+func (driver *Driver) getStaticAddrsForClaim(ctx context.Context, claim *resourceapi.ResourceClaim,
+	podRef resourceapi.ResourceClaimConsumerReference) (types.StaticAddrsMap, error) {
+	pod, err := driver.podForClaim(ctx, claim, podRef)
+	if err != nil {
+		return nil, err
+	}
+
+	if pod == nil {
+		return nil, nil
+	}
+
+	raw, found := annotation.Get(pod, annotation.NetworkDriverStaticAddresses)
+	if !found || strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+
+	podLocalClaimName, err := getPodLocalClaimNameForClaim(pod, claim.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	var claimToStaticAddrsMap map[string]types.StaticAddrsMap
+	if err := json.Unmarshal([]byte(raw), &claimToStaticAddrsMap); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal %s annotation on pod %s/%s: %w",
+			annotation.NetworkDriverStaticAddresses, pod.Namespace, pod.Name, err)
+	}
+
+	return claimToStaticAddrsMap[podLocalClaimName], nil
+}
+
+// getPodLocalClaimNameForClaim returns the name of the pod local claim entry in pod spec the
+// specified claim refers to. If the claim is not generated from a template, and the same claim is
+// referenced in multiple pod resource claim entries (i.e.: multiple entries set resourceClaimName
+// to the same value), the name of the first entry is returned.
+func getPodLocalClaimNameForClaim(pod *corev1.Pod, claimName string) (string, error) {
+	for i := range pod.Spec.ResourceClaims {
+		localName, _, err := resourceclaim.Name(pod, &pod.Spec.ResourceClaims[i])
+		switch {
+		case errors.Is(err, draresourceclaim.ErrClaimNotFound):
+			// A claim generated from a template may not exist yet.
+			continue
+		case err != nil:
+			return "", fmt.Errorf("unable to retrieve pod %s's local claim name for claim %s",
+				path.Join(pod.Namespace, pod.Name), claimName)
+		case localName == nil:
+			continue
+		}
+
+		if *localName == claimName {
+			return pod.Spec.ResourceClaims[i].Name, nil
+		}
+	}
+	return "", fmt.Errorf("unable to find pod %s's local claim name for claim %s",
+		path.Join(pod.Namespace, pod.Name), claimName)
+}
+
+// validateStaticAddrsForClaim validates the static addresses, extracted from the
+// annotation.NetworkDriverStaticAddresses pod annotation, for the specified claim.
+func (driver *Driver) validateStaticAddrsForClaim(claim *resourceapi.ResourceClaim,
+	staticAddrsMap types.StaticAddrsMap) error {
+	for claimReq, staticAddrs := range staticAddrsMap {
+		if !slices.ContainsFunc(claim.Status.Allocation.Devices.Results,
+			func(result resourceapi.DeviceRequestAllocationResult) bool {
+				return result.Request == claimReq
+			}) {
+			return fmt.Errorf("unable to find claim request %s", claimReq)
+		}
+
+		ipv4Present, err := driver.validateStaticAddrForClaimReq(staticAddrs.IPv4, true, claimReq)
+		if err != nil {
+			return err
+		}
+
+		ipv6Present, err := driver.validateStaticAddrForClaimReq(staticAddrs.IPv6, false, claimReq)
+		if err != nil {
+			return err
+		}
+
+		// Don't allow addresses to be both absent in case at least one family is enabled.
+		if (driver.ipv4Enabled || driver.ipv6Enabled) && !ipv4Present && !ipv6Present {
+			return fmt.Errorf("no address specified for any of the enabled families for claim request %s", claimReq)
+		}
+	}
+	return nil
+}
+
+// validateStaticAddrForClaimReq validates that the provided address belongs to the right family and
+// that is valid. Addresses for disabled families are not allowed.
+func (driver *Driver) validateStaticAddrForClaimReq(addr *netip.Prefix, shouldBeIPv4 bool,
+	claimReq string) (bool, error) {
+	addrPresent := addr != nil
+
+	var isFamilyEnabled bool
+	var isAddrFamilyValid func(a netip.Addr) bool
+	if shouldBeIPv4 {
+		isFamilyEnabled = driver.ipv4Enabled
+		isAddrFamilyValid = netip.Addr.Is4
+	} else {
+		isFamilyEnabled = driver.ipv6Enabled
+		isAddrFamilyValid = netip.Addr.Is6
+	}
+
+	if !isFamilyEnabled {
+		if addrPresent {
+			return false, fmt.Errorf("prefix %s for claim request %s belongs to disabled family",
+				addr, claimReq)
+		}
+		return false, nil
+	}
+
+	if addrPresent {
+		if !addr.IsValid() {
+			return false, fmt.Errorf("invalid prefix %s for claim request %s", addr, claimReq)
+		}
+
+		if !isAddrFamilyValid(addr.Addr()) {
+			return false, fmt.Errorf("family mismatch for prefix %s family for claim request %s",
+				addr, claimReq)
+		}
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// applyStaticAddrsForClaim applies the static addresses, requested by the user in the
+// annotation.NetworkDriverStaticAddresses pod annotation, for the claim.
+func (driver *Driver) applyStaticAddrsForClaim(ctx context.Context,
+	claim *resourceapi.ResourceClaim, podRef resourceapi.ResourceClaimConsumerReference,
+	deviceClaimConfigs map[string]types.DeviceConfig, staticAddrsMap types.StaticAddrsMap) {
+	// No annotations for this claim or no family enabled, nothing to apply.
+	if len(staticAddrsMap) == 0 || !(driver.ipv4Enabled || !driver.ipv6Enabled) {
+		return
+	}
+
+	for claimReq, staticAddrs := range staticAddrsMap {
+		deviceConfig := deviceClaimConfigs[claimReq]
+		deviceConfigMutated := false
+		if ipv4Addr := staticAddrs.IPv4; driver.ipv4Enabled && ipv4Addr != nil {
+			deviceConfig.IPv4Addr = *ipv4Addr
+			deviceConfigMutated = true
+			driver.logger.DebugContext(ctx, "applied static IP addresses from pod annotation",
+				logfields.K8sNamespace, claim.Namespace,
+				logfields.Name, claim.Name,
+				logfields.K8sPodName, podRef,
+				logfields.IPv4, ipv4Addr,
+			)
+		}
+		if ipv6Addr := staticAddrs.IPv6; driver.ipv6Enabled && ipv6Addr != nil {
+			deviceConfig.IPv6Addr = *ipv6Addr
+			deviceConfigMutated = true
+			driver.logger.DebugContext(ctx, "applied static IP addresses from pod annotation",
+				logfields.K8sNamespace, claim.Namespace,
+				logfields.Name, claim.Name,
+				logfields.K8sPodName, podRef,
+				logfields.IPv6, ipv6Addr,
+			)
+		}
+		if deviceConfigMutated {
+			deviceClaimConfigs[claimReq] = deviceConfig
+		}
+	}
+}
+
 // claimPrepState holds the precomputed lookups used to make prepareResourceClaim
 // idempotent across retries.
 type claimPrepState struct {
@@ -474,9 +652,10 @@ func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerRef
 	}
 }
 
-// validateDeviceConfigs checks that every device config in the claim is
-// valid (podIfName, sysctl settings) before any destructive work begins.
-func validateDeviceConfigs(claim *resourceapi.ResourceClaim, deviceClaimConfigs map[string]types.DeviceConfig) error {
+// validateConfigs checks that every device config in the claim is valid (podIfName, sysctl
+// settings) and that every static address config is valid before any destructive work begins.
+func (driver *Driver) validateConfigs(claim *resourceapi.ResourceClaim,
+	deviceClaimConfigs map[string]types.DeviceConfig, staticAddrsMap map[string]types.StaticAddrs) error {
 	for request, cfg := range deviceClaimConfigs {
 		if err := types.ValidateInterfaceName(cfg.PodIfName); err != nil {
 			return fmt.Errorf("invalid podIfName in request %s for claim %s: %w",
@@ -486,6 +665,10 @@ func validateDeviceConfigs(claim *resourceapi.ResourceClaim, deviceClaimConfigs 
 			return fmt.Errorf("invalid sysctl config in request %s for claim %s: %w",
 				request, path.Join(claim.Namespace, claim.Name), err)
 		}
+	}
+	if err := driver.validateStaticAddrsForClaim(claim, staticAddrsMap); err != nil {
+		return fmt.Errorf("invalid static addresses for claim %s: %w",
+			path.Join(claim.Namespace, claim.Name), err)
 	}
 	return nil
 }
