@@ -231,21 +231,13 @@ func (r *rollbackState) restorePublicationLocked(state *nodeState, oldPending *p
 
 // publishedLocked transfers pending inverses to unsent response ownership only
 // after snapshot installation succeeds. Caller must hold cacheImpl.mutex.
-func (r *rollbackState) publishedLocked(c *cacheImpl, state *nodeState, pending *pendingPublication, oldSnapshot, newSnapshot cache.ResourceSnapshot) {
-	// Transfer new rollback when versions change. An existing unsent chain must
-	// also follow coalesced A-B-A values whose content version stayed the same.
+func (r *rollbackState) publishedLocked(c *cacheImpl, state *nodeState, pending *pendingPublication) {
 	// Until go-control-plane actually produces a response, repeated published
 	// generations are coalesced into one rollback per type. An older mutation
 	// without a WaitGroup may precede a tracked mutation in the same eventual
 	// response, and a NACK must restore the state before that whole batch.
 	for typeURL, rollback := range pending.rollbacks.All() {
-		existing := state.typeStates[typeURL].unsentRollback
-		if len(rollback) == 0 && existing == nil {
-			continue
-		}
-		versionChanged := oldSnapshot == nil ||
-			oldSnapshot.GetVersion(typeURL.URL()) != newSnapshot.GetVersion(typeURL.URL())
-		if !versionChanged && existing == nil {
+		if len(rollback) == 0 && state.typeStates[typeURL].unsentRollback == nil {
 			continue
 		}
 		r.retainUnsentLocked(c, state, typeURL, pending.generation, rollback)
