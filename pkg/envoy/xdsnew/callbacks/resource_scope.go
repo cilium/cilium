@@ -88,7 +88,7 @@ func (scope *ResourceScope) coveredBy(coverage *responseCoverage, generation Gen
 		return false
 	}
 	if scope.wholeType() {
-		return coverage == nil || coverage.complete()
+		return coverage.complete()
 	}
 	if scope.name != "" {
 		return scope.revision.revision <= generation && coverage.contains(scope.name)
@@ -106,7 +106,7 @@ func (scope *ResourceScope) intersects(coverage *responseCoverage, generation Ge
 		return false
 	}
 	if scope.wholeType() {
-		return coverage == nil || coverage.complete()
+		return coverage.complete()
 	}
 	if scope.name != "" {
 		return scope.revision.revision <= generation && coverage.contains(scope.name)
@@ -143,7 +143,7 @@ func (scope *ResourceScope) acknowledgeRemovals(coverage *responseCoverage, gene
 		if revision.revision > generation || !coverage.contains(name) {
 			return false
 		}
-		if generation >= minimumPresentGeneration || coverage == nil || coverage.resources[name].Resource == nil {
+		if generation >= minimumPresentGeneration || coverage.resources[name].Resource == nil {
 			return true
 		}
 		if coverage.typeURL == typeurl.Endpoint {
@@ -204,8 +204,9 @@ func WithSnapshotPublication(ctx context.Context, generation Generation, snapsho
 	return context.WithValue(ctx, snapshotGenerationContextKey{}, &snapshotPublication{generation: generation, snapshot: snapshot})
 }
 
-// responseCoverage is immutable. A nil returned map means every resource in
-// resources was delivered. Partial responses own a name map: go-control-plane
+// responseCoverage is immutable. Nil coverage proves no resource state.
+// A nil returned map means every resource in resources was delivered.
+// Partial responses own a name map: go-control-plane
 // may subsequently mutate its returned-resource map when a subscription changes.
 type responseCoverage struct {
 	resources map[string]cache_types.ResourceWithTTL
@@ -215,13 +216,12 @@ type responseCoverage struct {
 }
 
 func (coverage *responseCoverage) complete() bool {
-	return coverage == nil || (coverage.returned == nil && len(coverage.requested) == 0)
+	return coverage != nil && coverage.returned == nil && len(coverage.requested) == 0
 }
 
 func (coverage *responseCoverage) contains(name string) bool {
 	if coverage == nil {
-		// Transport-only callback tests have no cache response metadata.
-		return true
+		return false
 	}
 	if coverage.returned != nil {
 		if _, found := coverage.returned[name]; found {
@@ -246,19 +246,27 @@ func typeHasDeletionSemantics(index typeurl.Index) bool {
 // WithResponseCoverage captures the actual SotW response, not the resource
 // names in the eventual ACK request. RawResponse.GetReturnedResources names
 // the resources in this response; Delta's cumulative version map must not be
-// used this way. No protobuf is decoded, copied, or marshaled here.
+// used this way. The cache calls this while collection is serialized with
+// publication. No protobuf is decoded, copied, or marshaled here.
 func WithResponseCoverage(response cache.Response, generation Generation, snapshot cache.ResourceSnapshot) cache.Response {
-	response = WithResponseGeneration(response, generation)
 	ctx := response.GetContext()
-	if published, ok := ctx.Value(snapshotGenerationContextKey{}).(*snapshotPublication); ok {
+	publication := ctx.Value(snapshotGenerationContextKey{})
+	if published, ok := publication.(*snapshotPublication); ok {
 		snapshot = published.snapshot
 	}
 	if snapshot == nil {
+		// Without the source snapshot, response processing cannot establish
+		// acceptance or select rollback state. Keep its coverage unknown.
 		return response
 	}
 	index, supported := typeurl.FromURL(response.GetRequest().GetTypeUrl())
 	if !supported {
 		return response
+	}
+	// Immediate responses need their generation captured here. Preserve an
+	// existing publication boundary, including zero for an initial empty state.
+	if publication == nil {
+		ctx = context.WithValue(ctx, snapshotGenerationContextKey{}, generation)
 	}
 	coverage := &responseCoverage{
 		resources: snapshot.GetResourcesAndTTL(index.URL()),

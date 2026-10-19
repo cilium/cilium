@@ -480,10 +480,10 @@ func TestResourceMutationPublicationFailureRestoresPreviousEntries(t *testing.T)
 				c.completionCbs.OnStreamClosed(1, node)
 				request := &discovery.DiscoveryRequest{Node: node, TypeUrl: envoy_resource.RouteType}
 				require.NoError(t, c.completionCbs.OnStreamRequest(2, request))
-				snapshot := mustSnapshot(t, c, nodeID)
-				c.completionCbs.OnStreamResponse(callbacks.WithSnapshotGeneration(t.Context(), c.getNodeState(nodeID).snapshotGeneration),
+				response := publishedResponseForTest(t, c, node, typeurl.Route)
+				c.completionCbs.OnStreamResponse(response.GetContext(),
 					2, request, &discovery.DiscoveryResponse{
-						TypeUrl: envoy_resource.RouteType, VersionInfo: snapshot.GetVersion(envoy_resource.RouteType), Nonce: "retry-routes",
+						TypeUrl: envoy_resource.RouteType, VersionInfo: response.GetResponseVersion(), Nonce: "retry-routes",
 					})
 				require.NoError(t, c.completionCbs.OnStreamRequest(2, &discovery.DiscoveryRequest{
 					Node: node, TypeUrl: envoy_resource.RouteType,
