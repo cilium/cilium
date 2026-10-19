@@ -1,46 +1,24 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-include ../Makefile.defs
-include ../Makefile.quiet
-
-HELM_VALUES := helm-values.rst
-REQUIREMENTS_NODEP := requirements-min/requirements.txt
-REQUIREMENTS := requirements.txt
-SPHINX_OPTS := "-j=auto"
-
-.PHONY: default clean help builder-image cilium-build cmdref epub latex html
-
 ##@ Targets (default: "html")
 
 default: html
 
-define build_image
-  $(ECHO_DOCKER) $(3)
-  # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
-  grep --color=never -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
-  $(QUIET)tar --owner=0 --group=0 -c $(REQUIREMENTS) Dockerfile \
-    | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) \
-                          --build-arg READTHEDOCS_VERSION \
-                          --target $(2) --tag $(3) -
-endef
+# NB: Top-level includes are performed from images/Makefile.docs.
+include ../images/Makefile.docs
 
-##@ Development Images
+HELM_VALUES := helm-values.rst
+DOCS_REQUIREMENTS_NODEP:=requirements-min/requirements.txt
+SPHINX_OPTS := "-j=auto"
 
-DOCS_BASE_IMG ?= cilium/docs-base
-base-image: Dockerfile ## Build the docs-base image for updating the requirements.txt file.
-	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
+.PHONY: default clean help cilium-build cmdref epub latex html
 
 DOCS_BUILDER_IMG ?= quay.io/cilium/docs-builder:e6773ed21ab03066c0f24e68f342f18804a8ee0a@sha256:d3beff6d6408c09f6e1dbc637f7e98962b7d1fd2a81bf1d2a27ff8817dafb51f
-DOCS_BUILDER_REPO := $(shell echo $(DOCS_BUILDER_IMG) | sed -E 's/:.*//')
 
-ifndef SKIP_BUILDER_IMAGE
-builder-image: Dockerfile $(REQUIREMENTS) ## Build the docs-builder image for rendering and checking the documentation.
-	$(call build_image,$<,docs-builder,$(DOCS_BUILDER_REPO))
-else
+.PHONY: builder-image
 builder-image:
-	@echo "SKIP_BUILDER_IMAGE set, assuming image is already present and up-to-date."
-endif
+	$(MAKE) -C ../images -f Makefile.docs docs-builder-image
 
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.
@@ -53,15 +31,8 @@ else
 endif
 
 READTHEDOCS_VERSION ?= latest
-DOCKER_CTR_ROOT_DIR := /src
-DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
-		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
-		--env GIT_CONFIG_COUNT=1 \
-		--env GIT_CONFIG_KEY_0=safe.directory \
-		--env GIT_CONFIG_VALUE_0=$(DOCKER_CTR_ROOT_DIR) \
-		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR) \
-		--user "$(shell id -u):$(shell id -g)"
 DOCKER_CTR := $(DOCKER_CTR_BASE) \
+		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
 		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
 		--env INCREMENTAL=$(INCREMENTAL)
@@ -183,10 +154,11 @@ update-redirects: builder-image ## Build and serve the documentation locally.
 
 ##@ Development
 
-update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
-	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
+.PHONY: update-requirements
+update-requirements: docs-base-image $(DOCS_REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
+	@echo '## Auto-generated from Documentation/$(DOCS_REQUIREMENTS_NODEP) with "make update-requirements"' > $(DOCS_BUILDER_DIR)/$(DOCS_REQUIREMENTS)
 	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
-		bash -c "export HOME=/tmp && pip install --no-warn-script-location -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
+		bash -c "export HOME=/tmp && pip install --no-warn-script-location -r ../../Documentation/$(DOCS_REQUIREMENTS_NODEP) && pip freeze -r ../../$(DOCS_REQUIREMENTS_NODEP) >> $(DOCS_REQUIREMENTS)"
 
 clean: ## Clean up all artefacts from documentation.
 	-$(QUIET)rm -rf _build _exts/__pycache__ _preview Pipfile Pipfile.lock
