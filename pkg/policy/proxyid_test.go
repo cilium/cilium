@@ -34,20 +34,19 @@ func TestProxyID(t *testing.T) {
 }
 
 func BenchmarkProxyID(b *testing.B) {
-	id := uint16(rand.IntN(65535))
-	port := uint16(rand.IntN(65535))
+	id := uint16(rand.IntN(65536))
+	port := uint16(rand.IntN(65536))
+	want := strconv.FormatUint(uint64(id), 10) + ":ingress:TCP:" +
+		strconv.FormatUint(uint64(port), 10) + ":"
 
 	b.ReportAllocs()
-	for range 1000 {
-		b.StartTimer()
+	for b.Loop() {
 		proxyID := ProxyID(id, true, "TCP", port, "")
-		if proxyID != strconv.FormatInt(int64(id), 10)+"ingress:TCP:8080:" {
-			b.Failed()
+		if proxyID != want {
+			b.Fatalf("ProxyID() = %q, want %q", proxyID, want)
 		}
-		_, _, _, _, _, err := ParseProxyID(proxyID)
-		if err != nil {
-			b.Failed()
+		if _, _, _, _, _, err := ParseProxyID(proxyID); err != nil {
+			b.Fatalf("ParseProxyID(%q): %s", proxyID, err)
 		}
-		b.StopTimer()
 	}
 }
