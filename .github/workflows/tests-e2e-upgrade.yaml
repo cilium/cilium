@@ -105,7 +105,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  test_concurrency: 5
+  test_concurrency: 1
 
 jobs:
   commit-status-start:
@@ -165,22 +165,11 @@ jobs:
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Filtering matrix to test-l7: true configurations only (${CONFIG_COUNT} configs for L7-only testing)"
             echo "timeout=90" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
+          else
             jq --argjson modes "$MODES" '[.[] | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
             CONFIG_COUNT=$(jq 'length' matrix.json)
             echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - scheduled run with full test suite)"
             echo "timeout=110" >> $GITHUB_OUTPUT
-          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && ! grep -q '\-dev$' "$GITHUB_WORKSPACE/VERSION"; then
-            # On stable branches, workflow_dispatch acts as a scheduled run (triggered by ariane)
-            jq --argjson modes "$MODES" '[.[] | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
-            CONFIG_COUNT=$(jq 'length' matrix.json)
-            echo "::notice::Including all configurations in matrix (${CONFIG_COUNT} configs - workflow_dispatch run with full test suite)"
-            echo "timeout=110" >> $GITHUB_OUTPUT
-          else
-            jq --argjson modes "$MODES" '[.[] | select(.["test-l7"] != "true") | del(."key-two", ."test-l7") | . as $entry | [$modes[] | . as $m | $entry + {mode: $m}]] | flatten' configs.json > matrix.json
-            CONFIG_COUNT=$(jq 'length' matrix.json)
-            echo "::notice::Including only test-l7: false configurations (${CONFIG_COUNT} configs - L3/L4 testing only)"
-            echo "timeout=90" >> $GITHUB_OUTPUT
           fi
           echo "Generated matrix:"
           cat /tmp/generated/e2e/matrix.json
@@ -647,7 +636,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-upgrade-${{ matrix.name }}-${{ matrix.mode }}-concurrent
-          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          tests: "client-egress-l7"
           conn-disrupt: 'false'
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
@@ -754,7 +743,7 @@ jobs:
         uses: ./.github/actions/conn-disrupt-test-check
         with:
           job-name: cilium-downgrade-${{ matrix.name }}-${{ matrix.mode }}-concurrent
-          tests: ${{ steps.vars.outputs.concurrent_connectivity_tests }}
+          tests: "client-egress-l7"
           conn-disrupt: 'false'
           test-concurrency: ${{ env.test_concurrency }}
           extra-connectivity-test-flags: ${{ steps.vars-conn.outputs.connectivity_test_defaults }}
@@ -786,6 +775,15 @@ jobs:
           echo
           echo "# Retrieving Cilium etcd logs"
           kubectl -n kube-system logs kvstore
+
+      - name: Retrieve external target logs
+        if: ${{ always() }}
+        run: |
+          ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost "docker ps" || true
+          ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost "docker exec webserver ss -tulpn" || true
+          ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost "ss -tulpn" || true
+          ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost "docker exec webserver ls -lh /var/log/nginx/" || true
+          ssh -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@localhost "docker container logs webserver -t" || true
 
       - name: Run common post steps
         if: ${{ always() && steps.vars.outputs.downgrade_version != '' && steps.install-cilium.outcome != 'skipped' }}

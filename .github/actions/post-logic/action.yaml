@@ -63,6 +63,14 @@ runs:
         name: "cilium-junits-${{ inputs.artifacts_suffix }}"
         path: ${{ inputs.junits-directory }}/*.xml
 
+    - name: Upload Nginx logs [junit]
+      if: ${{ always() }}
+      continue-on-error: ${{ github.event_name == 'workflow_dispatch' && !startsWith(github.event.inputs.PR-number, 'v') }}
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: "nginx-errors-${{ inputs.artifacts_suffix }}"
+        path: nginx-errors.log
+
     - name: Upload features tested
       id: upload_features
       # Always run this step even if inputs.capture_features_tested is false,
