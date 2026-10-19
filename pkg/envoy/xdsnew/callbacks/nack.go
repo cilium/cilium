@@ -64,9 +64,11 @@ func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.Discove
 		cb.mutex.Lock()
 		// The stream may have closed or progressed while acquiring the cache
 		// lock. Revalidate instead of acting on an earlier response identity.
+		// A NACK must echo the outstanding nonempty nonce, even if its accepted
+		// version is empty because Envoy rejected its first response.
 		stream := cb.streams[streamKey{streamID: streamID, mode: StreamModeSotW}]
-		if stream == nil || stream.nodeID != nodeID || (req.GetResponseNonce() != "" &&
-			(stream.responses[typeURL].pendingNonce == "" || stream.responses[typeURL].pendingNonce != req.GetResponseNonce())) {
+		if stream == nil || stream.nodeID != nodeID || stream.responses[typeURL].pendingNonce == "" ||
+			stream.responses[typeURL].pendingNonce != req.GetResponseNonce() {
 			cb.mutex.Unlock()
 			return nil
 		}
