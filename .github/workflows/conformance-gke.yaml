@@ -166,12 +166,15 @@ jobs:
           # Use complete matrix in case of scheduled run
           # main -> event_name = schedule
           # other stable branches -> PR-number starting with v (e.g. v1.14)
-          VERSIONS=$(echo "${EXTRA_ARGS}" | awk -F'=' '{print $2}')
-          IPSEC=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["ipsec"] // false')
-          WG=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["wireguard"] // false')
-          KPR=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["kpr"] // false')
-          BPFMASQV4=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["bpf-masq-v4"] // false')
-          ADV_FEAT=$(echo "${EXTRA_ARGS}" | sed 's/^""$/{}/' | jq -r '.["advanced-features"] // false')
+          # ariane passes a comment's capture as a JSON string such as "versions=all", callers pass an object.
+          ARGS=$(jq -Rc '. as $raw | (try fromjson catch $raw) | if type == "object" then . elif type == "string" and contains("=") then (split("=") | {(.[0]): .[1]}) else {} end' <<< "${EXTRA_ARGS}")
+          echo "GKE_EXTRA_ARGS=${ARGS}" >> "${GITHUB_ENV}"
+          VERSIONS=$(jq -r '.versions // ""' <<< "${ARGS}")
+          IPSEC=$(jq -r '.ipsec // false' <<< "${ARGS}")
+          WG=$(jq -r '.wireguard // false' <<< "${ARGS}")
+          KPR=$(jq -r '.kpr // false' <<< "${ARGS}")
+          BPFMASQV4=$(jq -r '.["bpf-masq-v4"] // false' <<< "${ARGS}")
+          ADV_FEAT=$(jq -r '.["advanced-features"] // false' <<< "${ARGS}")
 
           # shellcheck disable=SC2193
           if [[ "${{ github.event_name }}" == "schedule" || "${PR_NUMBER}" == v* || "$VERSIONS" == "all" ]];then
@@ -233,10 +236,8 @@ jobs:
 
       - name: Filter Matrix
         id: set-matrix
-        env:
-          EXTRA_ARGS: ${{ inputs.extra-args }}
         run: |
-          CHANNEL=$(echo "${EXTRA_ARGS}" | grep "channel" | awk -F'=' '{print $2}' | tr '[:lower:]' '[:upper:]')
+          CHANNEL=$(jq -r '.channel // "" | ascii_upcase' <<< "${GKE_EXTRA_ARGS}")
           if [ "$CHANNEL" == "" ];then
             FILTER="channels.channel=REGULAR"
           elif [ "$CHANNEL" == "NONE" ];then
