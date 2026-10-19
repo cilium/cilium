@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#define ENABLE_IPV4 1
+#define ENABLE_MULTICAST 1
+#define ENCAP_IFINDEX 1
+
 #include "bpf/ctx/skb.h"
 #include <bpf/config/node.h>
 #include "common.h"
@@ -8,10 +12,6 @@
 #include "lib/common.h"
 #include "lib/eth.h"
 #include "pktgen.h"
-
-#define ENABLE_IPV4 1
-#define ENABLE_MULTICAST 1
-#define ENCAP_IFINDEX 1
 
 #include <linux/igmp.h>
 #include <linux/in.h>
