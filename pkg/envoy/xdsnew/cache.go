@@ -46,7 +46,8 @@ type Cache interface {
 	// equal upserts also become non-revertible, without changing their revisions.
 	// Completions for unchanged resource types attach to their current version
 	// instead of creating a completion-only generation. waitTypeURLs explicitly
-	// selects the types to wait for; an empty set selects no waits.
+	// selects the types to wait for; an empty set selects no waits. Selected types
+	// with no names in mutations are ignored.
 	//
 	// A wait whose pending requirements for a TypeURL are all removals survives
 	// that type's NACKs until a qualifying ACK, cancellation, or timeout. Upserts
@@ -487,9 +488,8 @@ type immediateCompletion struct {
 	err  error
 }
 
-// generationWait describes one ACK/NACK wait. generation is the snapshot
-// boundary needed to cover the required resource revisions, or the current
-// pending/published boundary for a whole-TypeURL wait.
+// generationWait describes ACK/NACK requirements and their response boundary.
+// Its zero value means no wait; a nonempty scope may have generation zero.
 type generationWait struct {
 	generation callbacks.Generation
 	scope      callbacks.ResourceScope
@@ -661,15 +661,6 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 		state.typeStates[typeURL].changedResourceNames.Clear()
 	}
 	state.rollbacks.publishedLocked(c, state, pending)
-	for typeURL := range typeurl.Count {
-		// Include types outside the pending mutations when no baseline exists.
-		// Association still requires a matching version and resource coverage.
-		if oldSnapshot != nil && !pending.rollbacks.Has(typeURL) {
-			continue
-		}
-		version := newSnapshot.GetVersion(typeURL.URL())
-		c.completionCbs.FinalizeTypeGeneration(nodeID, typeURL, pending.generation, version)
-	}
 	return nil
 }
 
@@ -860,8 +851,8 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 		}
 		if state.resourceGeneration != 0 && wg != nil && !waitTypeURLs.Empty() {
 			for typeURL := range waitTypeURLs.Members() {
-				wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
-				if accepted {
+				wait := tx.mutationWaitLocked(typeURL, mutations, inverse)
+				if !wait.scope.HasNames() {
 					continue
 				}
 				unchangedWaits.Set(typeURL, wait)
@@ -881,11 +872,11 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	var changedWaits typeURLWaits
 	if wg != nil {
 		dirtyTypeURLs := snapshotTypesChangedBy(changedTypeURLs)
-		// Acceptance and named scopes serve caller waits only. Response-owned
+		// Acceptance checks and wait scopes serve callers only. Response-owned
 		// NACK rollback is prepared independently below, even without a WaitGroup.
 		for typeURL := range waitTypeURLs.Members() {
-			wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
-			if accepted {
+			wait := tx.mutationWaitLocked(typeURL, mutations, inverse)
+			if !wait.scope.HasNames() {
 				continue
 			}
 			if dirtyTypeURLs.Has(typeURL) {
@@ -994,23 +985,21 @@ func (tx *resourceTransaction) applyRevertLocked(changes resourceChanges) error 
 // generation in one traversal. ACK evidence for unchanged names remains valid
 // when another name in the same bulk TypeURL changes: waiting for those names
 // again could strand the caller if subsequent responses cover only the changes.
-// An absent mutation deliberately waits for the whole published resource type.
+// It returns the zero value when no names were supplied or every supplied name
+// already has sufficient ACK evidence.
 func resourceMutationWait[V interface {
 	proto.Message
 	comparable
-}](completionCbs *callbacks.CompletionCallbacks, state *nodeState, typeURL typeurl.Index, removed, upserted map[string]V, inverse resources) (generationWait, bool) {
+}](completionCbs *callbacks.CompletionCallbacks, state *nodeState, typeURL typeurl.Index, removed, upserted map[string]V, inverse resources) generationWait {
 	var wait generationWait
-	nodeID := state.nodeID
-	publishedGeneration := state.generationForType(typeURL)
 	if len(removed) == 0 && len(upserted) == 0 {
-		wait.generation = publishedGeneration
-		return wait, false
+		return wait
 	}
+	nodeID := state.nodeID
 	removalOnly := true
-	// Before any ACK, every name must wait. Avoid acquiring the callback lock
-	// for each resource merely to rediscover the same absence of ACK evidence.
+	// Without retained resource-level ACK evidence, every name must wait.
+	// Check once rather than acquiring the callback lock for each resource.
 	hasAcceptance := completionCbs.HasResourceAcceptance(nodeID, typeURL)
-	accepted := true
 	waitEntry := func(name string, removal bool) resourceEntry {
 		entry := state.resources[typeURL][name]
 		if entry.resource == nil {
@@ -1027,7 +1016,6 @@ func resourceMutationWait[V interface {
 		wait.scope.Insert(name, revision)
 		wait.generation = wait.generation.MaxRevision(revision)
 		removalOnly = removalOnly && removal
-		accepted = false
 	}
 	for name := range removed {
 		if _, replaced := upserted[name]; replaced {
@@ -1060,16 +1048,18 @@ func resourceMutationWait[V interface {
 			addPending(name, desired == nil)
 		}
 	}
-	if removalOnly {
-		wait.generation = max(wait.generation, publishedGeneration)
+	if !wait.scope.HasNames() {
+		return generationWait{}
 	}
-	return wait, accepted
+	if removalOnly {
+		wait.generation = max(wait.generation, state.generationForType(typeURL))
+	}
+	return wait
 }
 
-func (tx *resourceTransaction) mutationWaitLocked(typeURL typeurl.Index, mutations ResourceMutations, inverse resources) (generationWait, bool) {
+func (tx *resourceTransaction) mutationWaitLocked(typeURL typeurl.Index, mutations ResourceMutations, inverse resources) generationWait {
 	c := tx.cache
 	state := tx.state
-	publishedGeneration := state.generationForType(typeURL)
 	switch typeURL {
 	case typeurl.Listener:
 		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Listeners, mutations.Upserted.Listeners, inverse)
@@ -1082,7 +1072,7 @@ func (tx *resourceTransaction) mutationWaitLocked(typeURL typeurl.Index, mutatio
 	case typeurl.Secret:
 		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Secrets, mutations.Upserted.Secrets, inverse)
 	default:
-		return generationWait{generation: publishedGeneration}, false
+		return generationWait{}
 	}
 }
 
@@ -1210,9 +1200,6 @@ func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGrou
 			}
 			for typeURL, wait := range publishedWaits.All() {
 				unpublishedWaits.Set(typeURL, wait)
-				if !state.pendingPublication.rollbacks.Has(typeURL) {
-					state.pendingPublication.rollbacks.Set(typeURL, nil)
-				}
 			}
 		}
 	}

@@ -34,30 +34,33 @@ import (
 
 func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 	for _, api := range []struct {
-		name      string
-		index     typeurl.Index
-		value     proto.Message
-		bulk      bool
-		wholeType bool
+		name  string
+		index typeurl.Index
+		value proto.Message
+		bulk  bool
 	}{
 		{name: "listener-single", index: typeurl.Listener, value: &listener.Listener{Name: "resource"}},
 		{name: "listener-bulk", index: typeurl.Listener, value: &listener.Listener{Name: "resource"}, bulk: true},
-		{name: "listener-whole-type", index: typeurl.Listener, value: &listener.Listener{Name: "resource"}, bulk: true, wholeType: true},
 		{name: "policy-single", index: typeurl.NetworkPolicy, value: &cilium.NetworkPolicy{EndpointId: 1}},
 	} {
 		for _, withRollback := range []bool{false, true} {
 			for _, samePointer := range []bool{false, true} {
 				for _, outcome := range []struct {
-					name      string
-					phase     string
-					rejection string
+					name             string
+					phase            string
+					rejection        string
+					publishUnrelated bool
 				}{
-					{"before-response/ack", "before-response", ""},
-					{"before-response/nack", "before-response", "invalid resource"},
-					{"after-response/ack", "after-response", ""},
-					{"after-response/nack", "after-response", "invalid resource"},
-					{"after-ack", "after-ack", ""},
-					{"after-nack", "after-nack", "invalid resource"},
+					{name: "before-response/ack", phase: "before-response"},
+					{name: "before-response/nack", phase: "before-response", rejection: "invalid resource"},
+					{name: "after-response/ack", phase: "after-response"},
+					{name: "after-response/nack", phase: "after-response", rejection: "invalid resource"},
+					{name: "after-ack", phase: "after-ack"},
+					{name: "after-nack", phase: "after-nack", rejection: "invalid resource"},
+					{name: "after-unrelated-publication/ack", phase: "after-response", publishUnrelated: true},
+					{name: "after-unrelated-publication/nack", phase: "after-response", rejection: "invalid resource", publishUnrelated: true},
+					{name: "delayed-response/ack", phase: "delayed-response", publishUnrelated: true},
+					{name: "delayed-response/nack", phase: "delayed-response", rejection: "invalid resource", publishUnrelated: true},
 				} {
 					t.Run(fmt.Sprintf("%s/rollback=%t/same-pointer=%t/%s", api.name, withRollback, samePointer, outcome.name), func(t *testing.T) {
 						c := newCoverageCache(t)
@@ -78,8 +81,28 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 						})
 						s := coverageStream{cache: c, id: 1, typeURL: api.index.URL()}
 						var response *discovery.DiscoveryResponse
-						if outcome.phase != "before-response" {
+						var queued chan cache.Response
+						switch outcome.phase {
+						case "before-response":
+						case "delayed-response":
+							queued = s.watch(t)
+							require.Len(t, queued, 1)
+						default:
 							response = s.receive(t)
+						}
+						if outcome.publishUnrelated {
+							before := mustSnapshot(t, c, "coverage-node")
+							require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Secret, "unrelated", testSecret("unrelated", "value"), nil))
+							other := coverageStream{cache: c, id: s.id, typeURL: typeurl.Secret.URL()}
+							other.reply(t, other.receive(t, "unrelated"), "", "unrelated")
+							after := mustSnapshot(t, c, "coverage-node")
+							require.NotEqual(t, before.GetVersion(typeurl.Secret.URL()), after.GetVersion(typeurl.Secret.URL()))
+							require.Equal(t, before.GetVersion(api.index.URL()), after.GetVersion(api.index.URL()))
+						}
+						if queued != nil {
+							// Deliver the captured response after another type has advanced
+							// the publication boundary, before registering the no-op wait.
+							response = s.deliver(t, <-queued)
 						}
 						if outcome.phase == "after-ack" || outcome.phase == "after-nack" {
 							s.reply(t, response, outcome.rejection)
@@ -97,10 +120,9 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 						var reused Rollback
 						if api.bulk {
 							waits := typeurl.NewSet(api.index)
-							var mutations ResourceMutations
-							if !api.wholeType {
-								mutations.Upserted.Listeners = map[string]*listener.Listener{"resource": candidate.(*listener.Listener)}
-							}
+							mutations := ResourceMutations{Upserted: xds.Resources{
+								Listeners: map[string]*listener.Listener{"resource": candidate.(*listener.Listener)},
+							}}
 							if withRollback {
 								reused, err = c.ApplyResourcesWithRollback(ctx, "coverage-node", mutations, wg, waits)
 							} else {
@@ -117,12 +139,10 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 								reused.Finalize()
 							}
 						})
-						if !api.wholeType {
-							// Reusing this value prevents the first caller from undoing
-							// it. The later caller made no change to undo either.
-							require.NoError(t, caller.Revert())
-							caller = nil
-						}
+						// Reusing this value prevents the first caller from undoing
+						// it. The later caller made no change to undo either.
+						require.NoError(t, caller.Revert())
+						caller = nil
 						if reused != nil {
 							require.NoError(t, reused.Revert())
 							reused = nil
@@ -137,7 +157,7 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 						require.NotNil(t, current)
 						require.Same(t, api.value, current,
 							"neither caller's rollback may remove the reused value")
-						if outcome.phase == "before-response" || outcome.phase == "after-response" {
+						if outcome.phase != "after-ack" && outcome.phase != "after-nack" {
 							require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
 							if response == nil {
 								response = s.receive(t)
@@ -150,7 +170,7 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 							require.NoError(t, wg.Wait())
 						} else {
 							require.ErrorContains(t, wg.Wait(), outcome.rejection)
-							if outcome.phase != "after-nack" && (withRollback || api.wholeType) {
+							if outcome.phase != "after-nack" && withRollback {
 								require.Nil(t, c.GetResource("coverage-node", api.index, "resource"),
 									"caller supersession must preserve opted-in response recovery")
 							} else {
@@ -468,7 +488,7 @@ func TestPermanentUpsertsFenceResponseRollback(t *testing.T) {
 }
 
 func TestBulkNoOpWaitUsesMatchingResourceRevision(t *testing.T) {
-	for _, mode := range []string{"upsert", "remove-and-upsert", "absent-resource", "whole-type"} {
+	for _, mode := range []string{"upsert", "remove-and-upsert", "absent-resource", "unmentioned-types"} {
 		t.Run(mode, func(t *testing.T) {
 			c := newCoverageCache(t)
 			first := &listener.Listener{Name: "l1"}
@@ -491,19 +511,15 @@ func TestBulkNoOpWaitUsesMatchingResourceRevision(t *testing.T) {
 			}
 			wg := completion.NewWaitGroup(t.Context())
 			t.Cleanup(wg.Cancel)
-			waits := typeurl.NewSet()
-			waits.Insert(typeurl.Listener)
-			require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", mutations, wg, waits))
-			require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-			s.reply(t, response, "", "l1", "missing")
-			if mode == "whole-type" {
-				// With no supplied names the wait deliberately covers the latest
-				// published type, unlike a named absent resource at revision zero.
-				require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-				wildcard := coverageStream{cache: c, id: 2, typeURL: typeurl.Listener.URL()}
-				response = wildcard.receive(t)
-				wildcard.reply(t, response, "")
+			waits := typeurl.NewSet(typeurl.Listener)
+			pending := 1
+			if mode == "unmentioned-types" {
+				waits = typeurl.All()
+				pending = 0
 			}
+			require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", mutations, wg, waits))
+			require.Equal(t, pending, c.completionCbs.PendingCompletionCount())
+			s.reply(t, response, "", "l1", "missing")
 			require.Zero(t, c.completionCbs.PendingCompletionCount(), "ACK must complete the matching bulk wait")
 			require.NoError(t, wg.Wait())
 		})
@@ -686,30 +702,45 @@ func TestNoOpWaitAfterClearSnapshot(t *testing.T) {
 }
 
 func TestInitialBulkMutationCanAwaitUnchangedType(t *testing.T) {
-	c := newCoverageCache(t)
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	t.Cleanup(cancel)
-	wg := completion.NewWaitGroup(ctx)
-	t.Cleanup(wg.Cancel)
-	var waits typeurl.Set
-	waits.Insert(typeurl.Listener)
-	// The first real mutation can also require ACK evidence for an unchanged
-	// type. Preparing that wait must not require an already published snapshot.
-	resource := &cluster.Cluster{Name: "cluster"}
-	require.NoError(t, c.ApplyResources(ctx, "coverage-node", ResourceMutations{
-		Removed:  xds.Resources{Listeners: map[string]*listener.Listener{"absent": nil}},
-		Upserted: xds.Resources{Clusters: map[string]*cluster.Cluster{resource.Name: resource}},
-	}, wg, waits))
-	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-	s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
-	response := s.receive(t)
-	require.Empty(t, response.Resources)
-	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-	s.reply(t, response, "")
-	require.NoError(t, wg.Wait())
-	current := c.GetResource("coverage-node", typeurl.Cluster, resource.Name)
-	require.NotNil(t, current)
-	require.Same(t, resource, current)
+	for _, tt := range []struct {
+		name    string
+		pending int
+	}{
+		{name: "removal", pending: 1},
+		{name: "unmentioned-types"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newCoverageCache(t)
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			t.Cleanup(cancel)
+			wg := completion.NewWaitGroup(ctx)
+			t.Cleanup(wg.Cancel)
+			waits := typeurl.All()
+			waits.Remove(typeurl.Cluster)
+			// The first real mutation can also require ACK evidence for an unchanged
+			// type. Preparing that wait must not require an already published snapshot.
+			resource := &cluster.Cluster{Name: "cluster"}
+			mutations := ResourceMutations{
+				Upserted: xds.Resources{Clusters: map[string]*cluster.Cluster{resource.Name: resource}},
+			}
+			if tt.pending != 0 {
+				mutations.Removed.Listeners = map[string]*listener.Listener{"absent": nil}
+			}
+			require.NoError(t, c.ApplyResources(ctx, "coverage-node", mutations, wg, waits))
+			require.Equal(t, tt.pending, c.completionCbs.PendingCompletionCount())
+			if tt.pending != 0 {
+				s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
+				response := s.receive(t)
+				require.Empty(t, response.Resources)
+				require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+				s.reply(t, response, "")
+			}
+			require.NoError(t, wg.Wait())
+			current := c.GetResource("coverage-node", typeurl.Cluster, resource.Name)
+			require.NotNil(t, current)
+			require.Same(t, resource, current)
+		})
+	}
 }
 
 func TestNoOpWaitAfterClearRequiresFreshACK(t *testing.T) {
@@ -840,8 +871,10 @@ func TestNoOpRemovalDoesNotWaitForUnrelatedListenerACK(t *testing.T) {
 func TestRepeatedRemovalWaitsForPendingOutcome(t *testing.T) {
 	for _, mode := range []string{"single-nil", "single-typed-nil", "bulk-removal", "bulk-nil-upsert"} {
 		for _, phase := range []struct {
-			name            string
-			successiveNACKs bool
+			name             string
+			publishUnrelated bool
+			delayResponse    bool
+			successiveNACKs  bool
 		}{
 			{name: "before-response"},
 			{name: "after-response"},
@@ -849,6 +882,8 @@ func TestRepeatedRemovalWaitsForPendingOutcome(t *testing.T) {
 			{name: "old-value-response"},
 			{name: "old-absence-response"},
 			{name: "delayed-old-value-response"},
+			{name: "after-unrelated-publication", publishUnrelated: true},
+			{name: "delayed-unrelated-publication", publishUnrelated: true, delayResponse: true},
 			{name: "after-successive-nacks", successiveNACKs: true},
 			{name: "after-successive-nacks-with-delayed-absence-ack", successiveNACKs: true},
 		} {
@@ -952,8 +987,18 @@ func TestRepeatedRemovalWaitsForPendingOutcome(t *testing.T) {
 						requireCoveragePending(t, firstDone)
 						require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, "a"))
 						var response *discovery.DiscoveryResponse
-						if phase.name == "after-response" || phase.name == "after-ack" {
+						var queued cache.Response
+						if phase.delayResponse {
+							queued = <-s.watch(t)
+						} else if phase.name == "after-response" || phase.name == "after-ack" || phase.publishUnrelated {
 							response = s.receive(t)
+						}
+						if phase.publishUnrelated {
+							// Advance the publication boundary without changing LDS.
+							// Its earlier absence response must still satisfy the wait.
+							require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "unrelated", testSecret("unrelated", "value"), nil))
+							secretStream := coverageStream{cache: c, id: s.id, typeURL: typeurl.Secret.URL()}
+							secretStream.reply(t, secretStream.receive(t, "unrelated"), "", "unrelated")
 						}
 						if phase.name == "after-ack" {
 							s.reply(t, response, "")
@@ -974,6 +1019,9 @@ func TestRepeatedRemovalWaitsForPendingOutcome(t *testing.T) {
 							require.Equal(t, 2, c.completionCbs.PendingCompletionCount())
 						}
 						require.Same(t, published, mustSnapshot(t, c, "coverage-node"))
+						if queued != nil {
+							response = s.deliver(t, queued)
+						}
 						if delayed != nil {
 							older = otherStream.deliver(t, delayed)
 						}

@@ -109,10 +109,6 @@ func (cb *CompletionCallbacks) finishNACKLocked(recovery *nackRecovery) {
 			recovery.finalizers = append(recovery.finalizers, remaining.pending.rollback)
 			continue
 		}
-		remaining.pending.responseGeneration = 0
-		if typeState.response.pendingGeneration >= remaining.generation {
-			remaining.pending.responseGeneration = typeState.response.pendingGeneration
-		}
 		typeState.pendingGenerations[remaining.pending] = remaining.generation
 	}
 	typeState.removeEmptyPendingGenerationSet()
