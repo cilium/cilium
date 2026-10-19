@@ -665,6 +665,9 @@ jobs:
             | jq -r --arg created "$created" '.items | sort_by(.metadata.creationTimestamp)[]
                 | "\(.metadata.name) +\((.metadata.creationTimestamp | fromdate) - ($created | fromdate))s replicas=\(.status.replicas)"'
 
+      - name: Mark the end of the konnectivity-agent wait
+        run: date -u +%s > "${RUNNER_TEMP}/konnectivity-wait-end"
+
       - name: Run concurrent connectivity test (${{ join(matrix.*, ', ') }})
         id: run-tests
         run: |
@@ -673,6 +676,28 @@ jobs:
           --sysdump-extra-label-selectors=app.kubernetes.io/name=node-underlay \
           --junit-file "cilium-junits/${{ env.job_name }}-concurrent-clear (${{ join(matrix.*, ', ') }})-${{ inputs.UID || 1 }}.xml" \
           --junit-property github_job_step="Run connectivity test (${{ join(matrix.*, ', ') }})"
+
+      - name: Report konnectivity-agent rolls
+        if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
+        continue-on-error: true
+        timeout-minutes: 2
+        run: |
+          set -uo pipefail
+          deploy=$(kubectl --request-timeout=30s -n kube-system get deploy konnectivity-agent -o json) || exit 0
+          created=$(jq -r '.metadata.creationTimestamp' <<< "${deploy}")
+          annotated=$(jq -r '.spec.template.metadata.annotations["checksum/service-account-key"] != null' <<< "${deploy}")
+          wait_end=$(cat "${RUNNER_TEMP}/konnectivity-wait-end" 2>/dev/null || echo 0)
+          rs=$(kubectl --request-timeout=30s -n kube-system get rs -l app=konnectivity-agent -o json) || exit 0
+          echo "konnectivity-agent created at ${created}, checksum/service-account-key annotation present: ${annotated}"
+          jq -r --arg created "${created}" --argjson end "${wait_end}" '.items | sort_by(.metadata.creationTimestamp)[]
+              | (.metadata.creationTimestamp | fromdate) as $t
+              | "\(.metadata.name) created \(.metadata.creationTimestamp) +\($t - ($created | fromdate))s replicas=\(.status.replicas // 0)\(if $end > 0 and $t > $end then " after the wait" else "" end)"' <<< "${rs}"
+          jq -r --arg created "${created}" --argjson end "${wait_end}" '.items[]
+              | (.metadata.creationTimestamp | fromdate) as $t | select($end > 0 and $t > $end)
+              | "::warning title=konnectivity-agent roll::AKS rolled konnectivity-agent at \(.metadata.creationTimestamp), \($t - ($created | fromdate))s after its creation and \($t - $end)s after the wait ended"' <<< "${rs}"
+          if [[ $(jq '.items | length' <<< "${rs}") -le 1 ]]; then
+            echo "::notice title=konnectivity-agent roll::AKS did not roll konnectivity-agent within $(( $(date +%s) - $(date -d "${created}" +%s) ))s of its creation"
+          fi
 
       - name: Stop the control-plane probes
         if: ${{ always() && steps.control-plane-probe.outcome != 'skipped' }}
