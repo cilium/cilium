@@ -53,8 +53,6 @@ ASSIGN_CONFIG(__u8, ipv6_rss_prefix_bits, 128)
 #ifdef ENABLE_NODEPORT
 # ifndef DSR_ENCAP_MODE
 #  define DSR_ENCAP_MODE 0
-#  define DSR_ENCAP_IPIP 2
-#  define DSR_ENCAP_GENEVE 3
 # endif
 #endif
 
