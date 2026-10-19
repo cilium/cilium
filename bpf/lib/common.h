@@ -36,13 +36,14 @@
 #define ENABLE_EGRESS_GATEWAY_COMMON 1
 #endif
 
-/* TUNNEL_MODE needs the encapsulation helpers guarded by HAVE_ENCAP. */
-#if defined(ENCAP_IFINDEX) || defined(ENABLE_EGRESS_GATEWAY_COMMON) || \
-	defined(TUNNEL_MODE) || \
-	(defined(DSR_ENCAP_MODE) && DSR_ENCAP_MODE == DSR_ENCAP_GENEVE)
-#define HAVE_ENCAP	1
-
+#ifndef DSR_ENCAP_MODE
+#define DSR_ENCAP_MODE DSR_ENCAP_INVALID
 #endif
+
+/* TUNNEL_MODE needs the encapsulation helpers guarded by HAVE_ENCAP. */
+#define HAVE_ENCAP (is_defined(ENCAP_IFINDEX) || is_defined(ENABLE_EGRESS_GATEWAY_COMMON) || \
+	is_defined(TUNNEL_MODE) || \
+	(DSR_ENCAP_MODE == DSR_ENCAP_GENEVE))
 
 /* XFER_FLAGS that get transferred from XDP to SKB */
 enum {
