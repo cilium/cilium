@@ -1613,6 +1613,7 @@ func (c *cacheImpl) CreateDeltaWatch(_ *cache.DeltaRequest, _ cache.Subscription
 	return nil, errUnimplemented
 }
 
+// CreateWatch requires the non-nil subscription supplied by go-control-plane.
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
 	if request == nil {
 		return nil, errNilRequest
@@ -1621,9 +1622,6 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	state := c.getNodeState(nodeID)
 	if state == nil {
 		return nil, fmt.Errorf("unknown xDS node %q", nodeID)
-	}
-	if sub == nil {
-		return c.snapshotCache.CreateWatch(request, sub, respChan)
 	}
 	typeURL, supported := typeurl.FromURL(request.GetTypeUrl())
 	if !supported {
