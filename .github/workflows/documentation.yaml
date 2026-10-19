@@ -45,6 +45,7 @@ jobs:
               - 'cilium-health/cmd/**'
               - 'daemon/cmd/**'
               - 'hubble-relay/cmd/**'
+              - 'images/docs-builder/**'
               - 'install/kubernetes/**'
               - 'operator/cmd/**'
               - README.rst
