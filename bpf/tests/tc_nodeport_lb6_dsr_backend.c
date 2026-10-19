@@ -8,7 +8,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV6 1
 #define ENABLE_NODEPORT 1
-#define DSR_ENCAP_GENEVE	3
+#define DSR_ENCAP_MODE DSR_ENCAP_NONE
 
 #define CLIENT_IP	{ .addr = { 0x1, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 #define CLIENT_PORT	__bpf_htons(111)
