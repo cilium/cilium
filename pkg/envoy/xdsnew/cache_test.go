@@ -554,33 +554,6 @@ func TestCacheRejectsUnknownNodes(t *testing.T) {
 	}
 }
 
-func TestCreateWatchRepublishesDesiredStateAfterClear(t *testing.T) {
-	t.Run("desired-state", func(t *testing.T) {
-		c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
-		listener := &envoy_config_listener.Listener{Name: "listener"}
-		require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Listener, listener.Name, listener, nil))
-		c.ClearSnapshot("node1")
-		require.True(t, c.HasNode("node1"))
-		responses := make(chan cache.Response, 1)
-		cancel, err := c.CreateWatch(&cache.Request{
-			Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: typeurl.Listener.URL(),
-		}, stream.NewSotwSubscription(nil, true), responses)
-		require.NoError(t, err)
-		t.Cleanup(cancel)
-		select {
-		case response := <-responses:
-			require.Contains(t, response.GetReturnedResources(), listener.Name,
-				"missing delivery state must not synthesize an empty response over desired resources")
-		case <-time.After(time.Second):
-			t.Fatal("expected an immediate response with the desired listener")
-		}
-		current := c.GetResource("node1", typeurl.Listener, listener.Name)
-		require.NotNil(t, current)
-		require.Same(t, listener, current)
-	})
-
-}
-
 func TestWithNodeIDsPreservesIndependentNodeState(t *testing.T) {
 	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1", "node2"), WithNodeIDs("node1"))
 	for _, nodeID := range []string{"node1", "node2"} {
@@ -591,11 +564,10 @@ func TestWithNodeIDsPreservesIndependentNodeState(t *testing.T) {
 		require.Same(t, listener, current)
 	}
 	require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Listener, "node1", nil, nil))
-	c.ClearSnapshot("node1")
-	require.True(t, c.HasNode("node1"), "empty desired and delivery state must not forget the consumer")
+	require.True(t, c.HasNode("node1"), "empty desired state must not forget the consumer")
 	require.True(t, c.HasNode("node2"))
 	require.Nil(t, c.GetResource("node1", typeurl.Listener, "node1"))
-	require.NotNil(t, c.GetResource("node2", typeurl.Listener, "node2"), "clearing one node must not affect another node's resources")
+	require.NotNil(t, c.GetResource("node2", typeurl.Listener, "node2"), "removing one node's resources must not affect another node")
 }
 
 func TestSetSnapshot_Error(t *testing.T) {
@@ -702,22 +674,6 @@ func TestGetResourceByTypeAndName(t *testing.T) {
 	}
 }
 
-func TestClearSnapshot(t *testing.T) {
-	mock := newMockSnapshotCache()
-	c := newInitializedTestCache(t, mock)
-	listener := &envoy_config_listener.Listener{Name: "l1"}
-	require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.Listener, "l1", listener, nil))
-	c.ClearSnapshot("node1")
-	require.Equal(t, []string{"node1"}, mock.clearSnapshotCalls)
-	_, err := c.GetSnapshot("node1")
-	require.Error(t, err)
-
-	// Clearing delivery state must not forget desired resources or the node.
-	current := c.GetResource("node1", typeurl.Listener, "l1")
-	require.NotNil(t, current)
-	require.Same(t, listener, current)
-	require.True(t, c.HasNode("node1"))
-}
 func TestGenerateSnapshotProjectsSharedEDSAssignmentsWithoutChangingDesiredState(t *testing.T) {
 	for _, mode := range []string{"missing", "explicit", "removed"} {
 		t.Run(mode, func(t *testing.T) {

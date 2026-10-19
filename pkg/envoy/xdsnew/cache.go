@@ -445,8 +445,7 @@ func (c *cacheImpl) generateSnapshotFromState(state *nodeState) *ciliumSnapshot 
 func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) *ciliumSnapshot {
 	previousSnapshot, ok := previous.(*ciliumSnapshot)
 	if !ok || previousSnapshot == nil {
-		// Rebuild from desired state when no Cilium baseline exists, including
-		// first publication and recovery after ClearSnapshot.
+		// Rebuild from desired state when no Cilium baseline exists.
 		return c.generateSnapshotFromState(state)
 	}
 	regenerate := snapshotTypesChangedBy(changedTypeURLs)
@@ -1186,8 +1185,8 @@ func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGrou
 		if err == nil {
 			tx.registerGenerationCompletions(snapshot, wg, publishedWaits)
 		} else {
-			// Desired state remains authoritative before a first publication or after
-			// ClearSnapshot. Register against that state without building a snapshot.
+			// Before the first publication, register against desired state without
+			// building a snapshot.
 			if state.pendingPublication == nil {
 				state.pendingPublication = &pendingPublication{
 					generation: state.resourceGeneration, changedTypeURLs: typeurl.All(), watchTypeURLs: typeurl.All(),
@@ -1585,28 +1584,10 @@ func (c *cacheImpl) GetSnapshot(node string) (cache.ResourceSnapshot, error) {
 	return c.snapshotCache.GetSnapshot(node)
 }
 
-func (c *cacheImpl) ClearSnapshot(nodeID string) {
-	c.mutex.Lock()
-	c.snapshotCache.ClearSnapshot(nodeID)
-	c.completionCbs.SetPublishedSnapshot(nodeID, nil)
-	// Clearing delivery state does not forget a known consumer or its desired
-	// resources. A later watch republishes those resources through the normal
-	// publication path.
-	var cancels []func()
-	if state := c.getNodeState(nodeID); state != nil {
-		for _, watches := range state.openWatches.All() {
-			for watch := range watches.Members() {
-				if watch.cancel != nil {
-					cancels = append(cancels, watch.cancel)
-				}
-				c.removeTrackedWatchLocked(watch)
-			}
-		}
-	}
-	c.mutex.Unlock()
-	for _, cancel := range cancels {
-		cancel()
-	}
+// ClearSnapshot is unsupported because publication and ACK/NACK bookkeeping
+// must remain synchronized with desired state.
+func (*cacheImpl) ClearSnapshot(string) {
+	panic("ClearSnapshot is unsupported by the Cilium ADS cache")
 }
 
 func (c *cacheImpl) GetStatusInfo(node string) cache.StatusInfo {

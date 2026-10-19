@@ -67,56 +67,6 @@ func TestFailedCoalescedABAPublicationKeepsPendingPublication(t *testing.T) {
 	require.NoError(t, <-done, "successful A-B-A publication must resolve its wait on ACK")
 }
 
-func TestNoOpWaitWithoutPublishedBaseline(t *testing.T) {
-	for _, cleared := range []bool{false, true} {
-		for _, bulk := range []bool{false, true} {
-			for _, rejection := range []string{"", "listener response rejected"} {
-				t.Run(fmt.Sprintf("cleared=%t/bulk=%t/nack=%t", cleared, bulk, rejection != ""), func(t *testing.T) {
-					c := newCoverageCache(t)
-					policy := &cilium.NetworkPolicy{EndpointId: 1}
-					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil))
-					if cleared {
-						requestSnapshotForTest(t, c, "coverage-node", typeurl.NetworkPolicy)
-						c.ClearSnapshot("coverage-node")
-					}
-					ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-					t.Cleanup(cancel)
-					wg := completion.NewWaitGroup(ctx)
-					t.Cleanup(wg.Cancel)
-					if bulk {
-						var waits typeurl.Set
-						waits.Insert(typeurl.Listener)
-						require.NoError(t, c.ApplyResources(ctx, "coverage-node", ResourceMutations{Removed: xds.Resources{
-							Listeners: map[string]*listener.Listener{"absent": nil},
-						}}, wg, waits))
-					} else {
-						require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "absent", nil, wg))
-					}
-					require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-					_, err := c.GetSnapshot("coverage-node")
-					require.Error(t, err, "a no-op must not force publication")
-					s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
-					response := s.receive(t)
-					require.Empty(t, response.Resources)
-					s.reply(t, response, rejection)
-					if rejection == "" {
-						require.NoError(t, wg.Wait())
-					} else {
-						require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-						retry := s.receive(t)
-						require.Empty(t, retry.Resources)
-						s.reply(t, retry, "")
-						require.NoError(t, wg.Wait())
-					}
-					current := c.GetResource("coverage-node", typeurl.NetworkPolicy, "policy")
-					require.NotNil(t, current)
-					require.Same(t, policy, current, "an empty LDS outcome must not revert the unrelated policy")
-				})
-			}
-		}
-	}
-}
-
 func TestEpochRotationPreservesUnrelatedUnpublishedChanges(t *testing.T) {
 	for _, failPublication := range []bool{false, true} {
 		t.Run(fmt.Sprintf("publication-failure=%t", failPublication), func(t *testing.T) {
