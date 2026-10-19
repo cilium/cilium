@@ -100,6 +100,10 @@ func IsConfigMap(certRef gatewayv1.LocalObjectReference) bool {
 	return certRef.Kind == kindConfigMap && certRef.Group == corev1.GroupName
 }
 
+func IsSecretRef(certRef gatewayv1.LocalObjectReference) bool {
+	return certRef.Kind == kindSecret && certRef.Group == corev1.GroupName
+}
+
 // IsObjectRefConfigMap checks if an ObjectReference refers to a ConfigMap.
 func IsObjectRefConfigMap(ref gatewayv1.ObjectReference) bool {
 	return ref.Kind == kindConfigMap && ref.Group == corev1.GroupName

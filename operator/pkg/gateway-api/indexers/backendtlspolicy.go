@@ -7,6 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
+	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
 )
 
 func IndexBTLSPolicyByConfigMap(rawObj client.Object) []string {
@@ -24,4 +26,21 @@ func IndexBTLSPolicyByConfigMap(rawObj client.Object) []string {
 		}.String())
 	}
 	return configMaps
+}
+
+func IndexBTLSPolicyBySecret(rawObj client.Object) []string {
+	btlsp := rawObj.(*gatewayv1.BackendTLSPolicy)
+	var secrets []string
+
+	for _, secretRef := range btlsp.Spec.Validation.CACertificateRefs {
+		if !helpers.IsSecretRef(secretRef) {
+			// Don't index anything other than a Secret
+			continue
+		}
+		secrets = append(secrets, types.NamespacedName{
+			Name:      string(secretRef.Name),
+			Namespace: btlsp.GetNamespace(),
+		}.String())
+	}
+	return secrets
 }

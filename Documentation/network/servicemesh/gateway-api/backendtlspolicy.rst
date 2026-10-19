@@ -176,6 +176,13 @@ Create the BackendTLSPolicy to tell the Cilium Gateway to use a TLS connection w
          kind: ConfigMap
        hostname: www.example.com
 
+.. note::
+
+   The CA certificate referenced by ``caCertificateRefs`` can be stored either in a
+   ``ConfigMap`` or in a ``Secret``, as long as the certificate is stored under the
+   ``ca.crt`` key. To reference a ``Secret`` instead, set ``kind: Secret`` in the
+   ``caCertificateRefs`` entry above.
+
 Patch the HTTPRoute backend reference, so that it uses the correct port edited in the backend service.
 
 .. code-block:: shell-session

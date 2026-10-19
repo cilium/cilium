@@ -80,12 +80,13 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string // description of this test case
-		btlsp      *gatewayv1.BackendTLSPolicy
-		wantStatus gatewayv1.PolicyStatus
-		caCert     *corev1.ConfigMap
-		wantErr    bool
-		wantValid  bool
+		name         string // description of this test case
+		btlsp        *gatewayv1.BackendTLSPolicy
+		wantStatus   gatewayv1.PolicyStatus
+		caCert       *corev1.ConfigMap
+		caCertSecret *corev1.Secret
+		wantErr      bool
+		wantValid    bool
 	}{
 		{
 			name: "Both CACertificateRefs and WellKnownCACertificates set",
@@ -180,7 +181,7 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 			},
 		},
 		{
-			name: "CACertificateRef is not a ConfigMap",
+			name: "CACertificateRef is neither a ConfigMap nor a Secret",
 			btlsp: &gatewayv1.BackendTLSPolicy{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "invalid-both-set",
@@ -191,8 +192,8 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 					Validation: gatewayv1.BackendTLSPolicyValidation{
 						CACertificateRefs: []gatewayv1.LocalObjectReference{
 							{
-								Group: gatewayv1.Group(""),
-								Kind:  gatewayv1.Kind("Secret"),
+								Group: gatewayv1.Group("invalid.io"),
+								Kind:  gatewayv1.Kind("InvalidKind"),
 								Name:  gatewayv1.ObjectName("someother-ca"),
 							},
 						},
@@ -209,13 +210,13 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 								Type:    "Accepted",
 								Status:  "False",
 								Reason:  "NoValidCACertificate",
-								Message: "Only ConfigMaps are supported for CA Certificate Refs",
+								Message: "Only ConfigMaps and Secrets are supported for CA Certificate Refs",
 							},
 							{
 								Type:    "ResolvedRefs",
 								Status:  "False",
 								Reason:  "InvalidKind",
-								Message: "Only ConfigMaps are supported for CA Certificate Refs",
+								Message: "Only ConfigMaps and Secrets are supported for CA Certificate Refs",
 							},
 						},
 					},
@@ -404,6 +405,187 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 				Ancestors: nil,
 			},
 		},
+		{
+			name: "CACertificateRef is a Secret that does not exist",
+			btlsp: &gatewayv1.BackendTLSPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "invalid-secret-missing",
+					Namespace: "default",
+				},
+				TypeMeta: backendTLSPolicyTypeMeta,
+				Spec: gatewayv1.BackendTLSPolicySpec{
+					Validation: gatewayv1.BackendTLSPolicyValidation{
+						CACertificateRefs: []gatewayv1.LocalObjectReference{
+							{
+								Group: gatewayv1.Group(""),
+								Kind:  gatewayv1.Kind("Secret"),
+								Name:  gatewayv1.ObjectName("echo-ca-secret"),
+							},
+						},
+					},
+				},
+			},
+			wantStatus: gatewayv1.PolicyStatus{
+				Ancestors: []gatewayv1.PolicyAncestorStatus{
+					{
+						AncestorRef:    echoaAncestorRef,
+						ControllerName: controllerName,
+						Conditions: []metav1.Condition{
+							{
+								Type:    "Accepted",
+								Status:  "False",
+								Reason:  "NoValidCACertificate",
+								Message: "CA Certificate does not exist: default/echo-ca-secret",
+							},
+							{
+								Type:    "ResolvedRefs",
+								Status:  "False",
+								Reason:  "InvalidCACertificateRef",
+								Message: "CA Certificate does not exist: default/echo-ca-secret",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "CACertificateRef Secret exists, not the right key",
+			btlsp: &gatewayv1.BackendTLSPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "invalid-secret-wrong-key",
+					Namespace: "default",
+				},
+				TypeMeta: backendTLSPolicyTypeMeta,
+				Spec: gatewayv1.BackendTLSPolicySpec{
+					Validation: gatewayv1.BackendTLSPolicyValidation{
+						CACertificateRefs: []gatewayv1.LocalObjectReference{
+							{
+								Group: gatewayv1.Group(""),
+								Kind:  gatewayv1.Kind("Secret"),
+								Name:  gatewayv1.ObjectName("echo-ca-secret"),
+							},
+						},
+					},
+				},
+			},
+			caCertSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "echo-ca-secret",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"someotherkey": []byte("data"),
+				},
+			},
+			wantStatus: gatewayv1.PolicyStatus{
+				Ancestors: []gatewayv1.PolicyAncestorStatus{
+					{
+						AncestorRef:    echoaAncestorRef,
+						ControllerName: controllerName,
+						Conditions: []metav1.Condition{
+							{
+								Type:    "Accepted",
+								Status:  "False",
+								Reason:  "NoValidCACertificate",
+								Message: "CA Certificate Secret does not contain a `ca.crt` key",
+							},
+							{
+								Type:    "ResolvedRefs",
+								Status:  "False",
+								Reason:  "InvalidCACertificateRef",
+								Message: "CA Certificate Secret does not contain a `ca.crt` key",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "CACertificateRef Secret exists, has right key, but no cert",
+			btlsp: &gatewayv1.BackendTLSPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "invalid-secret-no-cert",
+					Namespace: "default",
+				},
+				TypeMeta: backendTLSPolicyTypeMeta,
+				Spec: gatewayv1.BackendTLSPolicySpec{
+					Validation: gatewayv1.BackendTLSPolicyValidation{
+						CACertificateRefs: []gatewayv1.LocalObjectReference{
+							{
+								Group: gatewayv1.Group(""),
+								Kind:  gatewayv1.Kind("Secret"),
+								Name:  gatewayv1.ObjectName("echo-ca-secret"),
+							},
+						},
+					},
+				},
+			},
+			caCertSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "echo-ca-secret",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"ca.crt": []byte("data"),
+				},
+			},
+			wantStatus: gatewayv1.PolicyStatus{
+				Ancestors: []gatewayv1.PolicyAncestorStatus{
+					{
+						AncestorRef:    echoaAncestorRef,
+						ControllerName: controllerName,
+						Conditions: []metav1.Condition{
+							{
+								Type:    "Accepted",
+								Status:  "False",
+								Reason:  "NoValidCACertificate",
+								Message: "CA Certificate Secret does not contain at least one valid PEM-encoded certificate",
+							},
+							{
+								Type:    "ResolvedRefs",
+								Status:  "False",
+								Reason:  "InvalidCACertificateRef",
+								Message: "CA Certificate Secret does not contain at least one valid PEM-encoded certificate",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "CACertificateRef Secret exists with a valid certificate",
+			btlsp: &gatewayv1.BackendTLSPolicy{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "valid-secret",
+					Namespace: "default",
+				},
+				TypeMeta: backendTLSPolicyTypeMeta,
+				Spec: gatewayv1.BackendTLSPolicySpec{
+					Validation: gatewayv1.BackendTLSPolicyValidation{
+						CACertificateRefs: []gatewayv1.LocalObjectReference{
+							{
+								Group: gatewayv1.Group(""),
+								Kind:  gatewayv1.Kind("Secret"),
+								Name:  gatewayv1.ObjectName("echo-ca-secret"),
+							},
+						},
+					},
+				},
+			},
+			caCertSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "echo-ca-secret",
+					Namespace: "default",
+				},
+				Data: map[string][]byte{
+					"ca.crt": []byte(caCert),
+				},
+			},
+			wantValid: true,
+			wantStatus: gatewayv1.PolicyStatus{
+				Ancestors: nil,
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -413,6 +595,10 @@ func TestBackendTLSPolicyInput_ValidateSpec(t *testing.T) {
 				WithStatusSubresource(&gatewayv1.BackendTLSPolicy{})
 			if tt.caCert != nil {
 				clientBuilder.WithObjects(tt.caCert)
+			}
+
+			if tt.caCertSecret != nil {
+				clientBuilder.WithObjects(tt.caCertSecret)
 			}
 
 			if tt.btlsp != nil {

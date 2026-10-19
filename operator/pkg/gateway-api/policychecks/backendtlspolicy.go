@@ -72,39 +72,38 @@ func (b *BackendTLSPolicyInput) ValidateSpec(ctx context.Context, scopedLog *slo
 			return false, nil
 		}
 
-		// Thirdly, check that the CACertificateRef exists, and is a ConfigMap with a key named `ca.crt`.
+		// Thirdly, check that the CACertificateRef exists, and is a ConfigMap or a Secret with a key
+		// named `ca.crt`.
 		caCertRef := b.BackendTLSPolicy.Spec.Validation.CACertificateRefs[0]
 
-		if caCertRef.Group != "" || caCertRef.Kind != "ConfigMap" {
-			b.setRejectedConditions(ancestorRef, "Only ConfigMaps are supported for CA Certificate Refs",
+		if !helpers.IsConfigMap(caCertRef) && !helpers.IsSecretRef(caCertRef) {
+			b.setRejectedConditions(ancestorRef, "Only ConfigMaps and Secrets are supported for CA Certificate Refs",
 				string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidKind))
 			return false, nil
 		}
 
 		caCertRefKey := types.NamespacedName{Name: string(caCertRef.Name), Namespace: b.BackendTLSPolicy.Namespace}
-		caCert := &corev1.ConfigMap{}
 
-		err := b.Client.Get(ctx, caCertRefKey, caCert)
+		caCertBytes, found, err := b.getCACertificateData(ctx, caCertRef, caCertRefKey)
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				b.setRejectedConditions(ancestorRef, fmt.Sprintf("CA Certificate does not exist: %s", caCertRefKey),
 					string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
 				return false, nil
 			}
-			scopedLog.ErrorContext(ctx, fmt.Sprintf("Failed trying to get CA Certificate Ref Configmap: %s", caCertRefKey), logfields.Error, err)
+			scopedLog.ErrorContext(ctx, fmt.Sprintf("Failed trying to get CA Certificate Ref %s: %s", caCertRef.Kind, caCertRefKey), logfields.Error, err)
 			// No point changing conditions, as returning this error will flow up to the reconciler, and status will not be updated.
 			return false, err
 		}
 
-		if _, ok := caCert.Data["ca.crt"]; !ok {
-			b.setRejectedConditions(ancestorRef, "CA Certificate ConfigMap does not contain a `ca.crt` key",
+		if !found {
+			b.setRejectedConditions(ancestorRef, fmt.Sprintf("CA Certificate %s does not contain a `ca.crt` key", caCertRef.Kind),
 				string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
 			return false, nil
 		}
 
-		caCertBytes := []byte(caCert.Data["ca.crt"])
 		if !helpers.IsValidPemFormat(caCertBytes) {
-			b.setRejectedConditions(ancestorRef, "CA Certificate ConfigMap does not contain at least one valid PEM-encoded certificate",
+			b.setRejectedConditions(ancestorRef, fmt.Sprintf("CA Certificate %s does not contain at least one valid PEM-encoded certificate", caCertRef.Kind),
 				string(gatewayv1.BackendTLSPolicyReasonNoValidCACertificate), string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef))
 			return false, nil
 		}
@@ -123,6 +122,28 @@ func (b *BackendTLSPolicyInput) ValidateSpec(ctx context.Context, scopedLog *slo
 	}
 
 	return true, nil
+}
+
+// getCACertificateData reads the `ca.crt` key from the object referenced by
+// caCertRef, which must be a ConfigMap or a Secret. It returns the raw bytes and
+// whether the key was present; a NotFound error is returned if the object does
+// not exist.
+func (b *BackendTLSPolicyInput) getCACertificateData(ctx context.Context, caCertRef gatewayv1.LocalObjectReference, caCertRefKey types.NamespacedName) ([]byte, bool, error) {
+	if helpers.IsConfigMap(caCertRef) {
+		caCert := &corev1.ConfigMap{}
+		if err := b.Client.Get(ctx, caCertRefKey, caCert); err != nil {
+			return nil, false, err
+		}
+		data, ok := caCert.Data["ca.crt"]
+		return []byte(data), ok, nil
+	}
+
+	caCert := &corev1.Secret{}
+	if err := b.Client.Get(ctx, caCertRefKey, caCert); err != nil {
+		return nil, false, err
+	}
+	data, ok := caCert.Data["ca.crt"]
+	return data, ok, nil
 }
 
 func (b *BackendTLSPolicyInput) setRejectedConditions(ancestorRef gatewayv1.ParentReference, message string, acceptedReason string, resolvedRefsReason string) {
