@@ -146,7 +146,7 @@ func TestCallerRollbackAfterFailedMutation(t *testing.T) {
 					Routes: map[string]*envoy_config_route.RouteConfiguration{
 						name: proto.Clone(updated).(*envoy_config_route.RouteConfiguration), "other": {Name: "other"},
 					},
-				}}, nil, typeurl.Set{})
+				}}, nil, typeurl.EmptySet)
 				require.ErrorIs(t, err, publicationErr)
 				mock.setSnapshotErr = nil
 				require.NoError(t, rollback.Revert())
@@ -171,7 +171,7 @@ func TestCallerRollbackAfterFailedMutation(t *testing.T) {
 				if mode == "mixed-no-op-removal" {
 					mutations.Upserted.Routes = map[string]*envoy_config_route.RouteConfiguration{"other": {Name: "other"}}
 				}
-				err = c.ApplyResources(t.Context(), nodeID, mutations, nil, typeurl.Set{})
+				err = c.ApplyResources(t.Context(), nodeID, mutations, nil, typeurl.EmptySet)
 			}
 			require.ErrorIs(t, err, publicationErr)
 			mock.setSnapshotErr = nil
@@ -208,7 +208,7 @@ func TestCallerRemovalRollbackBypassesNACKedPredecessor(t *testing.T) {
 					require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "other", &envoy_config_cluster.Cluster{Name: "other"}, nil))
 					removed, err = c.ApplyResourcesWithRollback(t.Context(), nodeID, ResourceMutations{
 						Removed: xds.Resources{Clusters: map[string]*envoy_config_cluster.Cluster{name: nil, "other": nil}},
-					}, nil, typeurl.Set{})
+					}, nil, typeurl.EmptySet)
 				} else {
 					removed, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Cluster, name, nil, nil)
 				}
@@ -359,7 +359,7 @@ func TestResourceUpdateRevertibleIsNoOpAfterFirstCall(t *testing.T) {
 			if tt.bulk {
 				rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID,
 					ResourceMutations{Removed: xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{name: nil}}},
-					nil, typeurl.Set{})
+					nil, typeurl.EmptySet)
 			} else {
 				rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Route, name, desired, nil)
 			}
@@ -448,14 +448,14 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 	}
 	apply := func(t *testing.T, c *cacheImpl, mutations ResourceMutations) Rollback {
 		t.Helper()
-		rollback, err := c.ApplyResourcesWithRollback(t.Context(), "node-a", mutations, nil, typeurl.Set{})
+		rollback, err := c.ApplyResourcesWithRollback(t.Context(), "node-a", mutations, nil, typeurl.EmptySet)
 		require.NoError(t, err)
 		require.NotNil(t, rollback)
 		return rollback
 	}
 	applyPlain := func(t *testing.T, c *cacheImpl, mutations ResourceMutations) {
 		t.Helper()
-		err := c.ApplyResources(t.Context(), "node-a", mutations, nil, typeurl.Set{})
+		err := c.ApplyResources(t.Context(), "node-a", mutations, nil, typeurl.EmptySet)
 		require.NoError(t, err)
 	}
 
@@ -588,7 +588,7 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 					rollback, err = c.ApplyResourceWithRollback(t.Context(), "node-a", typeurl.Route, "newer", nil, nil)
 				} else {
 					removed := xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{"newer": nil, "unchanged": nil}}
-					rollback, err = c.ApplyResourcesWithRollback(t.Context(), "node-a", ResourceMutations{Removed: removed}, nil, typeurl.Set{})
+					rollback, err = c.ApplyResourcesWithRollback(t.Context(), "node-a", ResourceMutations{Removed: removed}, nil, typeurl.EmptySet)
 				}
 				require.NoError(t, err)
 				switch test.name {
@@ -654,7 +654,7 @@ func TestApplyResourcesRevertCoversEnvoyResourceTypes(t *testing.T) {
 	}
 	applyPlain := func(resources xds.Resources) {
 		t.Helper()
-		err := c.ApplyResources(t.Context(), "node-a", ResourceMutations{Upserted: resources}, nil, typeurl.Set{})
+		err := c.ApplyResources(t.Context(), "node-a", ResourceMutations{Upserted: resources}, nil, typeurl.EmptySet)
 		require.NoError(t, err)
 	}
 
@@ -662,7 +662,7 @@ func TestApplyResourcesRevertCoversEnvoyResourceTypes(t *testing.T) {
 	applyPlain(baseline)
 	revert, err := c.ApplyResourcesWithRollback(t.Context(), "node-a", ResourceMutations{
 		Removed: resources(1, "removed"), Upserted: resources(2, "newer", "unchanged"),
-	}, nil, typeurl.Set{})
+	}, nil, typeurl.EmptySet)
 	require.NoError(t, err)
 	require.NotNil(t, revert)
 	newer := resources(3, "newer")
@@ -705,7 +705,7 @@ func TestResourceRevisionAdvancesWhileRevertRestoresTransaction(t *testing.T) {
 					rollback, err = c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Listener, name, value, nil)
 				} else {
 					mutations := ResourceMutations{Upserted: xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{name: value}}}
-					rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID, mutations, nil, typeurl.Set{})
+					rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID, mutations, nil, typeurl.EmptySet)
 				}
 				require.NoError(t, err)
 				return rollback
@@ -792,12 +792,12 @@ func TestCallerRevertRestoresPreviouslyAbsentResources(t *testing.T) {
 				if test.bulk {
 					removed.Secrets = map[string]*envoy_config_tls.Secret{"resource": testSecret("resource", "previous")}
 				}
-				require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: removed}, nil, typeurl.Set{}))
+				require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: removed}, nil, typeurl.EmptySet))
 				for typeURL := range typeURLs.Members() {
 					s := coverageStream{cache: c, id: 1, typeURL: typeURL.URL()}
 					s.reply(t, s.receive(t, "resource"), "", "resource")
 				}
-				previousRemoval, err := c.ApplyResourcesWithRollback(t.Context(), nodeID, ResourceMutations{Removed: removed}, nil, typeurl.Set{})
+				previousRemoval, err := c.ApplyResourcesWithRollback(t.Context(), nodeID, ResourceMutations{Removed: removed}, nil, typeurl.EmptySet)
 				require.NoError(t, err)
 				previousRemoval.Finalize()
 				if !test.skipRemovalACK {
@@ -816,7 +816,7 @@ func TestCallerRevertRestoresPreviouslyAbsentResources(t *testing.T) {
 				rollback, err = c.ApplyResourcesWithRollback(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
 					Clusters: map[string]*envoy_config_cluster.Cluster{cluster.Name: cluster},
 					Secrets:  map[string]*envoy_config_tls.Secret{secret.Name: secret},
-				}}, nil, typeurl.Set{})
+				}}, nil, typeurl.EmptySet)
 			}
 			require.NoError(t, err)
 			require.NotNil(t, rollback)

@@ -52,8 +52,7 @@ func TestSnapshotTypesChangedBy(t *testing.T) {
 		changed typeurl.Set
 		want    typeurl.Set
 	}{
-		{"zero", typeurl.Set{}, typeurl.Set{}},
-		{"initialized empty", typeurl.NewSet(), typeurl.NewSet()},
+		{"zero", typeurl.EmptySet, typeurl.EmptySet},
 		{"policy", typeurl.NewSet(typeurl.NetworkPolicy), typeurl.NewSet(typeurl.NetworkPolicy)},
 		{"listener", typeurl.NewSet(typeurl.Listener), typeurl.NewSet(typeurl.Listener)},
 		{"cluster", typeurl.NewSet(typeurl.Cluster), typeurl.NewSet(typeurl.Cluster, typeurl.Endpoint)},

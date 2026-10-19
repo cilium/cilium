@@ -743,7 +743,7 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		logfields.ResourceSecrets, len(resources.Secrets),
 	)
 
-	return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, nil, typeurl.Set{})
+	return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, nil, typeurl.EmptySet)
 }
 
 func (s *adsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts GetEgressNamedPorts, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,

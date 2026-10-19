@@ -133,7 +133,7 @@ func TestNACKBatchPublishesOnlyFinalState(t *testing.T) {
 						"sibling": {Name: "sibling", AltStatName: value.GetGenericSecret().GetSecret().GetInlineString()},
 					}
 				}
-				require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", mutations, nil, typeurl.Set{}))
+				require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", mutations, nil, typeurl.EmptySet))
 			}
 			if shape == "absence" {
 				baseline = nil

@@ -255,13 +255,13 @@ func TestNACKRecoveryRebasesOnlyRejectedNames(t *testing.T) {
 					second.typeURL = typeurl.Cluster.URL()
 				}
 				firstNames, secondNames := []string{"triggering-change"}, []string{"sibling"}
-				require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", baseline, nil, typeurl.Set{}))
+				require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", baseline, nil, typeurl.EmptySet))
 				first.reply(t, first.receive(t, firstNames...), "", firstNames...)
 				second.reply(t, second.receive(t, secondNames...), "", secondNames...)
-				require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", transaction("A"), nil, typeurl.Set{}))
+				require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", transaction("A"), nil, typeurl.EmptySet))
 				responseA := first.receive(t, firstNames...)
 				updated := transaction("B")
-				callerB, err := c.ApplyResourcesWithRollback(t.Context(), "coverage-node", updated, nil, typeurl.Set{})
+				callerB, err := c.ApplyResourcesWithRollback(t.Context(), "coverage-node", updated, nil, typeurl.EmptySet)
 				require.NoError(t, err)
 				t.Cleanup(func() {
 					if callerB != nil {
@@ -330,7 +330,7 @@ func TestFailedNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 		t.Helper()
 		require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", ResourceMutations{Upserted: xds.Resources{
 			Secrets: map[string]*secret.Secret{"triggering-change": changed, "sibling": sibling},
-		}}, nil, typeurl.Set{}))
+		}}, nil, typeurl.EmptySet))
 	}
 	apply(baseline, baselineSibling)
 	first.reply(t, first.receive(t, "triggering-change", "sibling"), "", "triggering-change", "sibling")

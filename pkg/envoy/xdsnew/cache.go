@@ -45,9 +45,9 @@ type Cache interface {
 	// rejection to caller waits without reverting these resources. Semantically
 	// equal upserts also become non-revertible, without changing their revisions.
 	// Completions for unchanged resource types attach to their current version
-	// instead of creating a completion-only generation. waitTypeURLs explicitly
-	// selects the types to wait for; an empty set selects no waits. Selected types
-	// with no names in mutations are ignored.
+	// instead of creating a completion-only generation.
+	// waitTypeURLs explicitly selects the resource types to wait for. An empty
+	// set selects no waits. Selected types with no names in mutations are ignored.
 	//
 	// A wait whose pending requirements for a TypeURL are all removals survives
 	// that type's NACKs until a qualifying ACK, cancellation, or timeout. Upserts
@@ -388,7 +388,7 @@ func (resources *resourceMaps) updateResourceEntries(typeURL typeurl.Index, chan
 	return cache.Resources{Items: items}, cloned
 }
 
-func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceSnapshot, error) {
+func (c *cacheImpl) generateSnapshotFromState(state *nodeState) *ciliumSnapshot {
 	var resourceGroups typeurl.Slots[snapshotResourceGroup]
 	for typeURL := range typeurl.Count {
 		var group cache.Resources
@@ -439,18 +439,17 @@ func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceS
 			generation: state.typeStates[typeURL].generation,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups, state.epoch), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch)
 }
 
-func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) (cache.ResourceSnapshot, error) {
+func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) *ciliumSnapshot {
 	previousSnapshot, ok := previous.(*ciliumSnapshot)
-	if !ok || previousSnapshot == nil || !changedTypeURLs.Known() {
+	if !ok || previousSnapshot == nil {
+		// Rebuild from desired state when no Cilium baseline exists, including
+		// first publication and recovery after ClearSnapshot.
 		return c.generateSnapshotFromState(state)
 	}
 	regenerate := snapshotTypesChangedBy(changedTypeURLs)
-	if regenerate.Empty() {
-		return previousSnapshot, nil
-	}
 
 	resourceGroups := previousSnapshot.resourceGroups
 	for typeURL := range regenerate.Members() {
@@ -476,7 +475,7 @@ func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, pre
 			generation: generation,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups, state.epoch), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch)
 }
 
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
@@ -608,7 +607,6 @@ func (tx *resourceTransaction) registerGenerationCompletions(snapshot cache.Reso
 
 // snapshotTypesChangedBy includes EDS because CDS can change projected CLAs
 // or require an unchanged assignment to be replayed for Cluster warming.
-// Both zero and initialized-empty sets mean that no resource types changed.
 func snapshotTypesChangedBy(changedTypeURLs typeurl.Set) typeurl.Set {
 	regenerate := changedTypeURLs
 	if changedTypeURLs.Has(typeurl.Cluster) {
@@ -627,14 +625,11 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 	pending := state.pendingPublication
 
 	oldSnapshot, _ := c.snapshotCache.GetSnapshot(nodeID)
-	newSnapshot, err := c.generateSnapshotFromStateIncrementally(state, oldSnapshot, pending.changedTypeURLs)
-	if err != nil {
-		return err
-	}
+	newSnapshot := c.generateSnapshotFromStateIncrementally(state, oldSnapshot, pending.changedTypeURLs)
 	// SetSnapshot may synchronously queue responses. Capture this snapshot and
 	// generation in their context so delayed delivery cannot associate them
 	// with a newer publication. Commit callback metadata only after installation.
-	err = c.snapshotCache.SetSnapshot(callbacks.WithSnapshotPublication(ctx, pending.generation, newSnapshot), nodeID, newSnapshot)
+	err := c.snapshotCache.SetSnapshot(callbacks.WithSnapshotPublication(ctx, pending.generation, newSnapshot), nodeID, newSnapshot)
 	if err != nil {
 		// SnapshotCache stores the snapshot before delivering watch responses. A
 		// canceled delivery may therefore return an error after publication has
@@ -657,7 +652,7 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 	state.snapshotGeneration = pending.generation
 	state.pendingPublication = nil
 	for typeURL := range typeurl.Count {
-		state.typeStates[typeURL].generation = newSnapshot.(*ciliumSnapshot).resourceGroups[typeURL].generation
+		state.typeStates[typeURL].generation = newSnapshot.resourceGroups[typeURL].generation
 		state.typeStates[typeURL].changedResourceNames.Clear()
 	}
 	state.rollbacks.publishedLocked(c, state, pending)
