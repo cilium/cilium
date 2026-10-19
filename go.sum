@@ -1065,8 +1065,8 @@ oras.land/oras-go/v2 v2.6.2/go.mod h1:PlTtg4JTDJkDe8yVHpM2wz7/YDc00GVas+i4jAW2TZ
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0 h1:/YpDJ4vReG7ZmzSpBGxduXgywWkJU9zHubgJG03MT+Y=
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.36.0/go.mod h1:tJo1aepTXyR+8Xs3sUsGBDk4Ub2AM5dPAPKJx0mpm5c=
-sigs.k8s.io/controller-runtime v0.24.1-0.20260901001410-dc7618f3b4f6 h1:WteUAkUXNGiuWWWnZw0PfJ7VWO4TlGtMlb5jCoUEg3Q=
-sigs.k8s.io/controller-runtime v0.24.1-0.20260901001410-dc7618f3b4f6/go.mod h1:4QqLdT6z/L6Olj8JJCtvztid4/fnIiYsfaTFScegctc=
+sigs.k8s.io/controller-runtime v0.25.2 h1:bEkK3PVOIVK9X8QWLGVhJgmFc++47vfT6wakSzAOLsQ=
+sigs.k8s.io/controller-runtime v0.25.2/go.mod h1:4QqLdT6z/L6Olj8JJCtvztid4/fnIiYsfaTFScegctc=
 sigs.k8s.io/gateway-api v1.6.1 h1:mock6phZbI6rvZerwrVNk7hVNymQgHo+6sJ81Ia7ftY=
 sigs.k8s.io/gateway-api v1.6.1/go.mod h1:FVfx3t389ybeXOqvDghLbdvJdSCfI/PReqCUI3lu3mY=
 sigs.k8s.io/gateway-api-inference-extension v1.6.2 h1:GfTwDiMta9z6vtsZZuYE2xlryUGw+PiCdTJzYePY23M=

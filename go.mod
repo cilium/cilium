@@ -140,7 +140,7 @@ require (
 	k8s.io/kubectl v0.37.1
 	k8s.io/metrics v0.37.1
 	k8s.io/utils v0.0.0-20260707023825-cf1189d6abe3
-	sigs.k8s.io/controller-runtime v0.24.1
+	sigs.k8s.io/controller-runtime v0.25.2
 	sigs.k8s.io/gateway-api v1.6.1
 	sigs.k8s.io/gateway-api-inference-extension v1.6.2
 	sigs.k8s.io/gateway-api-inference-extension/conformance v1.6.2
@@ -336,9 +336,6 @@ require (
 // Using private fork of controller-tools. See commit msg for more context
 // as to why we are using a private fork.
 replace sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.22.0-1
-
-// controller-runtime v0.25 (matching k8s.io/* v0.37) is not yet released.
-replace sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.24.1-0.20260901001410-dc7618f3b4f6
 
 tool (
 	github.com/cilium/cilium/tools/dpgen

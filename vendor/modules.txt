@@ -2881,11 +2881,12 @@ oras.land/oras-go/v2/registry/remote/credentials/trace
 oras.land/oras-go/v2/registry/remote/errcode
 oras.land/oras-go/v2/registry/remote/internal/errutil
 oras.land/oras-go/v2/registry/remote/retry
-# sigs.k8s.io/controller-runtime v0.24.1 => sigs.k8s.io/controller-runtime v0.24.1-0.20260901001410-dc7618f3b4f6
+# sigs.k8s.io/controller-runtime v0.25.2
 ## explicit; go 1.26.0
 sigs.k8s.io/controller-runtime
 sigs.k8s.io/controller-runtime/pkg/builder
 sigs.k8s.io/controller-runtime/pkg/cache
+sigs.k8s.io/controller-runtime/pkg/cache/cacheapi
 sigs.k8s.io/controller-runtime/pkg/cache/internal
 sigs.k8s.io/controller-runtime/pkg/certwatcher
 sigs.k8s.io/controller-runtime/pkg/certwatcher/metrics
@@ -2894,6 +2895,8 @@ sigs.k8s.io/controller-runtime/pkg/client/apiutil
 sigs.k8s.io/controller-runtime/pkg/client/config
 sigs.k8s.io/controller-runtime/pkg/client/fake
 sigs.k8s.io/controller-runtime/pkg/client/interceptor
+sigs.k8s.io/controller-runtime/pkg/client/internal/consistencyhandler
+sigs.k8s.io/controller-runtime/pkg/client/internal/writebarrier
 sigs.k8s.io/controller-runtime/pkg/cluster
 sigs.k8s.io/controller-runtime/pkg/config
 sigs.k8s.io/controller-runtime/pkg/controller
@@ -3129,4 +3132,3 @@ sigs.k8s.io/yaml/kyaml
 ## explicit; go 1.19
 tags.cncf.io/container-device-interface/specs-go
 # sigs.k8s.io/controller-tools => github.com/cilium/controller-tools v0.22.0-1
-# sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.24.1-0.20260901001410-dc7618f3b4f6
