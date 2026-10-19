@@ -292,10 +292,9 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 	}
 	logger = logger.With(logFieldComponent, "go-control-plane-snapshot-cache")
 
-	// Empty logger for disabled debug level
-	debugLogger := func(string, ...any) {}
-	if logger.Enabled(context.Background(), slog.LevelDebug) {
-		debugLogger = func(format string, args ...any) {
+	debugLogger := func(format string, args ...any) {
+		// Check before formatting on each call so runtime log-level changes apply.
+		if logger.Enabled(context.Background(), slog.LevelDebug) {
 			logger.Debug(fmt.Sprintf(format, args...))
 		}
 	}
