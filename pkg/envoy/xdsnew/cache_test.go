@@ -1370,9 +1370,11 @@ func TestCreateWatch_DelegatesToSnapshotCache(t *testing.T) {
 	c := newInitializedTestCache(t, mock)
 
 	respChan := make(chan cache.Response, 1)
-	cancel, err := c.CreateWatch(&cache.Request{Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: envoy_resource.ListenerType}, nil, respChan)
+	cancel, err := c.CreateWatch(&cache.Request{Node: &envoy_config_core.Node{Id: "node1"}, TypeUrl: envoy_resource.ListenerType},
+		stream.NewSotwSubscription(nil, true), respChan)
 	require.NoError(t, err)
 	require.NotNil(t, cancel)
+	t.Cleanup(cancel)
 
 	assert.Equal(t, 1, mock.createWatchCalls)
 }
