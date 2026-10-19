@@ -119,67 +119,58 @@ func (index Index) URL() string {
 	return urls[index]
 }
 
-// Set is a fixed-size resource-type set. The zero value is empty and
-// uninitialized. An uninitialized set always has zero bits; Known distinguishes
-// an omitted set from an explicitly initialized empty set without changing
-// membership semantics.
-type Set struct {
-	bits  uint8
-	known bool
-}
+// Set is a fixed-size resource-type set. The zero value is empty.
+type Set uint8
 
-// NewSet returns an initialized set containing indices.
+// EmptySet contains no resource types.
+const EmptySet Set = 0
+
+// NewSet returns a set containing indices.
 func NewSet(indices ...Index) Set {
-	set := Set{known: true}
+	var set Set
 	for _, index := range indices {
 		set.Insert(index)
 	}
 	return set
 }
 
-// All returns an initialized set containing every supported resource type.
+// All returns a set containing every supported resource type.
 func All() Set {
-	return Set{bits: uint8(1<<Count) - 1, known: true}
-}
-
-// Known reports whether the set was initialized.
-func (set Set) Known() bool {
-	return set.known
+	return 1<<Count - 1
 }
 
 // Empty reports whether the set contains no resource types.
 func (set Set) Empty() bool {
-	return set.bits == 0
+	return set == EmptySet
 }
 
 // Len returns the number of contained resource types.
 func (set Set) Len() int {
-	return bits.OnesCount8(set.bits)
+	return bits.OnesCount8(uint8(set))
 }
 
 // Has reports whether index is contained in the set.
 func (set Set) Has(index Index) bool {
-	return index < Count && set.bits&(1<<index) != 0
+	return index < Count && set&(1<<index) != 0
 }
 
 // Insert inserts index into the set. Invalid indices are ignored.
 func (set *Set) Insert(index Index) {
-	set.known = true
 	if index < Count {
-		set.bits |= 1 << index
+		*set |= 1 << index
 	}
 }
 
 // Remove removes index from the set.
 func (set *Set) Remove(index Index) {
 	if index < Count {
-		set.bits &^= 1 << index
+		*set &^= 1 << index
 	}
 }
 
-// Union returns the union of set and other, initialized if either set is.
+// Union returns the union of set and other.
 func (set Set) Union(other Set) Set {
-	return Set{bits: set.bits | other.bits, known: set.known || other.known}
+	return set | other
 }
 
 // Members iterates over the contained indices in index order.
