@@ -596,12 +596,13 @@ func TestCompletionCallbacksUseStreamNodeIDWhenACKOmitsNode(t *testing.T) {
 
 	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 1), 1,
 		&discovery.DiscoveryRequest{TypeUrl: listenerTypeURL.URL()},
-		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL.URL()},
+		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL.URL(), Nonce: "nonce-1"},
 	)
 
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		VersionInfo: "version-1",
-		TypeUrl:     listenerTypeURL.URL(),
+		VersionInfo:   "version-1",
+		TypeUrl:       listenerTypeURL.URL(),
+		ResponseNonce: "nonce-1",
 	}))
 	require.NoError(t, wg.Wait())
 	require.Zero(t, cb.PendingCompletionCount())
@@ -789,53 +790,74 @@ func TestNACKRevertsUntrackedGeneration(t *testing.T) {
 
 	sendTypeGenerationResponse(cb, listenerTypeURL, 2, "version-2")
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		Node:        &core.Node{Id: "node-1"},
-		TypeUrl:     listenerTypeURL.URL(),
-		VersionInfo: "version-0",
-		ErrorDetail: &status.Status{Message: "rejected listener"},
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL.URL(),
+		VersionInfo:   "version-0",
+		ResponseNonce: "nonce-version-2",
+		ErrorDetail:   &status.Status{Message: "rejected listener"},
 	}))
 
 	require.Equal(t, []string{"version-2", "version-1"}, reverted)
 	require.Zero(t, cb.PendingCompletionCount())
 }
 
-func TestStaleNACKDoesNotAffectNewerResponse(t *testing.T) {
-	cb := newTestCompletionCallbacks()
-	wg1, comp1, pending1 := cb.newTestCompletion(t, listenerTypeURL, 1)
-	wg2, comp2, pending2 := cb.newTestCompletion(t, listenerTypeURL, 2)
+func TestUnmatchedNonceDoesNotAffectPendingResponses(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		version    string
+		nonce      string
+		rejection  string
+		noResponse bool
+	}{
+		{name: "stale-ack", version: "version-2", nonce: "nonce-version-1"},
+		{name: "stale-nack", version: "version-0", nonce: "nonce-version-1", rejection: "stale rejection"},
+		{name: "missing-nonce-ack", version: "version-2"},
+		{name: "missing-nonce-nack", version: "version-0", rejection: "nonce-less rejection"},
+		{name: "missing-nonce-first-nack", rejection: "nonce-less first rejection"},
+		{name: "nack-before-response", rejection: "rejection before response", noResponse: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := newTestCompletionCallbacks()
+			var waits []*completion.WaitGroup
+			var completions []*completion.Completion
+			reverted := false
+			for generation := Generation(1); generation <= 2; generation++ {
+				wg, comp, pending := cb.newTestCompletion(t, listenerTypeURL, generation)
+				waits, completions = append(waits, wg), append(completions, comp)
+				version := fmt.Sprintf("version-%d", generation)
+				registerTypeGenerationCompletion(t, cb, comp, pending, version)
+				registerTypeGenerationRollback(t, cb, generation, listenerTypeURL, func() error { reverted = true; return nil })
+				if !tt.noResponse {
+					sendTypeGenerationResponse(cb, listenerTypeURL, generation, version)
+				}
+			}
+			var detail *status.Status
+			if tt.rejection != "" {
+				detail = &status.Status{Message: tt.rejection}
+			}
+			// go-control-plane invokes callbacks before checking the nonce. An
+			// unmatched request must not complete waits or consume rollback state.
+			require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
+				Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL(),
+				VersionInfo: tt.version, ResponseNonce: tt.nonce, ErrorDetail: detail,
+			}))
+			require.Equal(t, 2, cb.PendingCompletionCount())
+			for _, comp := range completions {
+				requireCompletionPending(t, comp)
+			}
+			require.False(t, reverted)
 
-	registerTypeGenerationCompletion(t, cb, comp1, pending1, "version-1")
-	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 1), 1,
-		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL()},
-		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL.URL(), Nonce: "nonce-1"})
-
-	registerTypeGenerationCompletion(t, cb, comp2, pending2, "version-2")
-	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 2), 1,
-		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL()},
-		&discovery.DiscoveryResponse{VersionInfo: "version-2", TypeUrl: listenerTypeURL.URL(), Nonce: "nonce-2"})
-
-	// go-control-plane invokes callbacks before its stale-nonce check. Ignore
-	// this request rather than applying it to the newer pending generation.
-	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		Node:          &core.Node{Id: "node-1"},
-		TypeUrl:       listenerTypeURL.URL(),
-		VersionInfo:   "version-0",
-		ResponseNonce: "nonce-1",
-		ErrorDetail:   &status.Status{Message: "stale rejection"},
-	}))
-	require.Equal(t, 2, cb.PendingCompletionCount())
-	requireCompletionPending(t, comp1)
-	requireCompletionPending(t, comp2)
-
-	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		Node:          &core.Node{Id: "node-1"},
-		TypeUrl:       listenerTypeURL.URL(),
-		VersionInfo:   "version-2",
-		ResponseNonce: "nonce-2",
-	}))
-	require.NoError(t, wg1.Wait())
-	require.NoError(t, wg2.Wait())
-	require.Zero(t, cb.PendingCompletionCount())
+			if tt.noResponse {
+				sendTypeGenerationResponse(cb, listenerTypeURL, 2, "version-2")
+			}
+			ackTypeVersionResponse(t, cb, listenerTypeURL, "version-2")
+			for _, wg := range waits {
+				require.NoError(t, wg.Wait())
+			}
+			require.Zero(t, cb.PendingCompletionCount())
+			require.False(t, reverted)
+		})
+	}
 }
 
 func TestFirstResponseNACKWithEmptyAcceptedVersion(t *testing.T) {
@@ -853,7 +875,7 @@ func TestFirstResponseNACKWithEmptyAcceptedVersion(t *testing.T) {
 		ErrorDetail:   &status.Status{Message: "rejected first response"},
 	}))
 
-	require.ErrorContains(t, wg.Wait(), "rejected first response")
+	require.ErrorContains(t, wg.Wait(), "version version-1: rejected first response")
 	require.Zero(t, cb.PendingCompletionCount())
 }
 
@@ -930,7 +952,7 @@ func TestUntrackedGenerationRetainedUntilNACK(t *testing.T) {
 	// transfers its coalesced rollback state to CompletionCallbacks.
 	cb.OnStreamResponse(WithSnapshotGeneration(context.Background(), 1), 1,
 		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL()},
-		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL.URL()})
+		&discovery.DiscoveryResponse{VersionInfo: "version-1", TypeUrl: listenerTypeURL.URL(), Nonce: "nonce-1"})
 	cb.AddTypeGenerationWithRollback(
 		1, listenerTypeURL, "node-1",
 		finalizingTestRollback{RevertFunc: func() error {
@@ -943,9 +965,10 @@ func TestUntrackedGenerationRetainedUntilNACK(t *testing.T) {
 	require.False(t, complete)
 
 	require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
-		Node:        &core.Node{Id: "node-1"},
-		TypeUrl:     listenerTypeURL.URL(),
-		ErrorDetail: &status.Status{Message: "rejected untracked first response"},
+		Node:          &core.Node{Id: "node-1"},
+		TypeUrl:       listenerTypeURL.URL(),
+		ResponseNonce: "nonce-1",
+		ErrorDetail:   &status.Status{Message: "rejected untracked first response"},
 	}))
 	require.True(t, reverted)
 	require.False(t, finalized)
@@ -970,7 +993,7 @@ func TestImmediateWatchResponseUsesCapturedGeneration(t *testing.T) {
 	registerTypeGenerationCompletion(t, cb, compA2, pendingA2, "")
 
 	cb.OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
-		&discovery.DiscoveryResponse{VersionInfo: "version-a", TypeUrl: listenerTypeURL.URL()})
+		&discovery.DiscoveryResponse{VersionInfo: "version-a", TypeUrl: listenerTypeURL.URL(), Nonce: "nonce-a"})
 	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-a")
 
 	require.NoError(t, wgA1.Wait())
@@ -995,7 +1018,7 @@ func TestResponseWithoutGenerationDoesNotClaimWaiters(t *testing.T) {
 	// which snapshot produced a response whose generation was not captured.
 	cb.OnStreamResponse(context.Background(), 1,
 		&discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL()},
-		&discovery.DiscoveryResponse{VersionInfo: "version-a", TypeUrl: listenerTypeURL.URL()})
+		&discovery.DiscoveryResponse{VersionInfo: "version-a", TypeUrl: listenerTypeURL.URL(), Nonce: "nonce-a"})
 	ackTypeVersionResponse(t, cb, listenerTypeURL, "version-a")
 	requireCompletionPending(t, first)
 	requireCompletionPending(t, unversioned)
@@ -1023,7 +1046,7 @@ func TestWithResponseGenerationPreservesPublicationContext(t *testing.T) {
 				Version: "version-a", Ctx: tt.ctx,
 			}, 2)
 			cb.OnStreamResponse(response.GetContext(), 1, response.GetRequest(),
-				&discovery.DiscoveryResponse{VersionInfo: response.GetResponseVersion(), TypeUrl: listenerTypeURL.URL()})
+				&discovery.DiscoveryResponse{VersionInfo: response.GetResponseVersion(), TypeUrl: listenerTypeURL.URL(), Nonce: "nonce-a"})
 			ackTypeVersionResponse(t, cb, listenerTypeURL, "version-a")
 			require.Equal(t, 2-int(tt.generation), cb.PendingCompletionCount())
 		})
@@ -1138,13 +1161,11 @@ func TestNACKRevertsCoveredGenerations(t *testing.T) {
 		response    Generation
 		latest      Generation
 		unversioned bool
-		omitNonce   bool
 	}{
 		{name: "coalesced", response: 3, latest: 3},
 		{name: "stops-at-last-ack", accepted: 1, response: 3, latest: 3},
 		{name: "unversioned-completion", response: 1, latest: 1, unversioned: true},
 		{name: "newer-unsent-generation", response: 2, latest: 3},
-		{name: "nonce-less-response", response: 2, latest: 2, omitNonce: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cb := newTestCompletionCallbacks()
@@ -1173,13 +1194,9 @@ func TestNACKRevertsCoveredGenerations(t *testing.T) {
 					sendTypeGenerationResponse(cb, listenerTypeURL, generation, fmt.Sprintf("version-%d", generation))
 				}
 			}
-			nonce := fmt.Sprintf("nonce-version-%d", tc.response)
-			if tc.omitNonce {
-				nonce = ""
-			}
 			require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
 				Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL(),
-				VersionInfo: fmt.Sprintf("version-%d", tc.accepted), ResponseNonce: nonce,
+				VersionInfo: fmt.Sprintf("version-%d", tc.accepted), ResponseNonce: fmt.Sprintf("nonce-version-%d", tc.response),
 				ErrorDetail: &status.Status{Message: "rejected listener"},
 			}))
 			var expected []Generation
@@ -1241,7 +1258,7 @@ func TestWaitCancellationRetainsResponseRollback(t *testing.T) {
 			} else {
 				require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
 					Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL(), VersionInfo: "version-1",
-					ErrorDetail: &status.Status{Message: tc.rejection},
+					ResponseNonce: "nonce-" + version, ErrorDetail: &status.Status{Message: tc.rejection},
 				}))
 			}
 			require.Equal(t, tc.rejection != "", reverted)

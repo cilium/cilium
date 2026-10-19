@@ -771,8 +771,9 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		return nil
 	}
 
-	if req.GetResponseNonce() != "" &&
-		(response.pendingNonce == "" || response.pendingNonce != req.GetResponseNonce()) {
+	// go-control-plane checks nonces after invoking callbacks. Require the
+	// outstanding response's nonce before resolving waits or recording acceptance.
+	if response.pendingNonce == "" || response.pendingNonce != req.GetResponseNonce() {
 		cb.Log.Debug("Ignoring stale xDS ACK/NACK",
 			logfields.XDSTypeURL, typeURL,
 			logfields.Version, req.GetVersionInfo(),
@@ -892,11 +893,10 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 	coverage := response.coverage
 	var completed []*completion.Completion
 	var generationReverts []generationRevert
+	// Nonce validation guarantees a recorded response with a nonempty version.
+	// The request reports the last accepted version, which may be empty.
 	rejectedVersion := response.pendingVersion
 	rejectedGeneration := response.pendingGeneration
-	if rejectedVersion == "" {
-		rejectedVersion = req.GetVersionInfo()
-	}
 	nackErr := fmt.Errorf("NACK from %s for %s version %s: %s",
 		nodeID, typeURL, rejectedVersion, req.GetErrorDetail().GetMessage())
 	*response = pendingResponse{}
