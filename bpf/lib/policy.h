@@ -427,12 +427,10 @@ static __always_inline int policy_can_ingress4(const struct __ctx_buff *ctx,
 				 match_type, audited, proxy_port, cookie);
 }
 
-#ifdef HAVE_ENCAP
 static __always_inline bool is_encap(__be16 dport, __u8 proto)
 {
 	return proto == IPPROTO_UDP && dport == bpf_htons(CONFIG(tunnel_port));
 }
-#endif
 
 static __always_inline int
 policy_can_egress(const struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
@@ -441,10 +439,9 @@ policy_can_egress(const struct __ctx_buff *ctx, __u32 src_id, __u32 dst_id,
 {
 	int ret;
 
-#ifdef HAVE_ENCAP
-	if (src_id != HOST_ID && is_encap(dport, proto))
+	if (HAVE_ENCAP && src_id != HOST_ID && is_encap(dport, proto))
 		return DROP_ENCAP_PROHIBITED;
-#endif
+
 	ret = policy_can_access(ctx, src_id, dst_id, ethertype, dport,
 				proto, l4_off, CT_EGRESS, false, match_type,
 				proxy_port, cookie);
