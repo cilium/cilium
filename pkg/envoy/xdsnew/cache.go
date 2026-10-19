@@ -670,7 +670,7 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 		state.typeStates[typeURL].generation = newSnapshot.(*ciliumSnapshot).resourceGroups[typeURL].generation
 		state.typeStates[typeURL].changedResourceNames.Clear()
 	}
-	state.rollbacks.publishedLocked(c, state, pending, oldSnapshot, newSnapshot)
+	state.rollbacks.publishedLocked(c, state, pending)
 	// Do not preallocate: most publications have no immediately satisfied waits,
 	// so reserving space here adds allocations to the common churn path.
 	var finalized []finalizedCompletion
