@@ -137,6 +137,11 @@ jobs:
                 "crd-channel": "experimental",
                 "conformance-profile": false,
                 "split": true
+              },
+              {
+                "crd-install": "operator",
+                "conformance-profile": false,
+                "default": true
               }
             ]
           }'
@@ -233,6 +238,10 @@ jobs:
             CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} --helm-set=envoy.xdsMode=split"
           fi
 
+          if [ "${{ matrix.crd-install }}" == "operator" ]; then
+            CILIUM_INSTALL_DEFAULTS="${CILIUM_INSTALL_DEFAULTS} --helm-set=gatewayAPI.installCRDs=true"
+          fi
+
           echo cilium_install_defaults=${CILIUM_INSTALL_DEFAULTS} >> $GITHUB_OUTPUT
           echo skipped_tests=${SKIPPED_TESTS} >> $GITHUB_OUTPUT
           echo skipped_tests_regex=${SKIPPED_TESTS_REGEX} >> $GITHUB_OUTPUT
@@ -298,6 +307,8 @@ jobs:
           go install github.com/cilium/go-junit-report/v2/cmd/go-junit-report@4cdc5c96cb4e406fccf943536b5bfcae7a0fb826 # v2.3.1
 
       - name: Install Gateway API CRDs
+        # The CRDs are installed by the Cilium Operator in this case.
+        if: ${{ matrix.crd-install != 'operator' }}
         run: |
           # Install Gateway CRDs
           gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
@@ -335,6 +346,58 @@ jobs:
         run: |
           cilium status --wait --interactive=false
           kubectl -n kube-system get pods
+
+      - name: Check Gateway API CRDs installed by the Cilium Operator
+        if: ${{ matrix.crd-install == 'operator' }}
+        run: |
+          set -euo pipefail
+          gateway_api_version=$(grep -m 1 "sigs.k8s.io/gateway-api" go.mod | awk '{print $2}' | awk -F'-' '{print (NF>2)?$NF:$0}')
+
+          # The standard channel CRDs are installed, established and labeled
+          # as managed by the Cilium Operator.
+          for crd in backendtlspolicies gatewayclasses gateways grpcroutes httproutes listenersets referencegrants tcproutes tlsroutes udproutes; do
+            name="${crd}.gateway.networking.k8s.io"
+            kubectl wait --for condition=Established "crd/${name}" --timeout=${{ env.timeout }}
+            meta=$(kubectl get crd "${name}" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by} {.metadata.annotations.gateway\.networking\.k8s\.io/bundle-version} {.metadata.annotations.gateway\.networking\.k8s\.io/channel}')
+            if [ "${meta}" != "cilium-operator ${gateway_api_version} standard" ]; then
+              echo "::error::Unexpected metadata for CRD ${name}: ${meta}"
+              exit 1
+            fi
+          done
+
+          # The default GatewayClass is created by the operator, owned by the
+          # Helm release, and accepted.
+          kubectl wait --for=condition=Accepted gatewayclass/cilium --timeout=${{ env.timeout }}
+          owner=$(kubectl get gatewayclass cilium -o jsonpath='{.metadata.annotations.meta\.helm\.sh/release-namespace}/{.metadata.annotations.meta\.helm\.sh/release-name}')
+          if [ "${owner}" != "kube-system/cilium" ]; then
+            echo "::error::Unexpected Helm owner for GatewayClass cilium: ${owner}"
+            exit 1
+          fi
+          gwc_uid=$(kubectl get gatewayclass cilium -o jsonpath='{.metadata.uid}')
+
+          # Restarting the operator doesn't write the CRDs again.
+          list_crds() {
+            kubectl get crd -l app.kubernetes.io/managed-by=cilium-operator \
+              -o jsonpath='{range .items[*]}{.metadata.name}={.metadata.resourceVersion}{"\n"}{end}'
+          }
+          before=$(list_crds)
+          kubectl -n kube-system rollout restart deployment/cilium-operator
+          kubectl -n kube-system rollout status deployment/cilium-operator --timeout=${{ env.timeout }}
+          after=$(list_crds)
+          if [ "${before}" != "${after}" ]; then
+            echo "::error::Gateway API CRDs were modified by an operator restart"
+            diff <(echo "${before}") <(echo "${after}") || true
+            exit 1
+          fi
+
+          # Now that the CRDs exist, Helm renders the GatewayClass and adopts
+          # the one created by the operator.
+          cilium upgrade --reuse-values --chart-directory=untrusted/install/kubernetes/cilium
+          cilium status --wait --interactive=false
+          if [ "$(kubectl get gatewayclass cilium -o jsonpath='{.metadata.uid}')" != "${gwc_uid}" ]; then
+            echo "::error::GatewayClass cilium was recreated by the Helm upgrade"
+            exit 1
+          fi
 
       - name: Install Cilium LB IPPool and L2 Announcement Policy
         timeout-minutes: 10
@@ -386,7 +449,12 @@ jobs:
           echo "GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES: $GATEWAY_API_CONFORMANCE_UNUSABLE_NETWORK_ADDRESSES"
           # Build test flags based on matrix
           GATEWAY_TEST_FLAGS="--gateway-class cilium --all-features --allow-crds-mismatch --cleanup-base-resources=false"
-          if [ "${{ matrix.conformance-profile }}" == "true" ]; then
+          if [ "${{ matrix.crd-install }}" == "operator" ]; then
+            # The full suite requires the experimental channel CRDs. Run a
+            # core test against the standard channel CRDs and the default
+            # GatewayClass created by the operator.
+            GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --run-test HTTPRouteSimpleSameNamespace"
+          elif [ "${{ matrix.conformance-profile }}" == "true" ]; then
             GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --skip-tests \"${{ steps.vars.outputs.skipped_tests }}\" --conformance-profiles GATEWAY-HTTP,GATEWAY-TLS,GATEWAY-GRPC,GATEWAY-TCP,GATEWAY-UDP,MESH-HTTP,MESH-GRPC --organization cilium --project cilium --url github.com/cilium/cilium --version main --contact https://github.com/cilium/community/blob/main/roles/Maintainers.md --report-output report.yaml"
           else
             GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS --exempt-features \"${{ steps.vars.outputs.exempt-features }}\" -test.skip \"${{ steps.vars.outputs.skipped_tests_regex }}\""
