@@ -250,31 +250,26 @@ func (r *rollbackState) publishedLocked(c *cacheImpl, state *nodeState, pending 
 // when the caller supplied no WaitGroup. A reconnecting client's echoed version
 // alone cannot prove which names it received; retain the inverse until an
 // actual response establishes acceptance or rejection.
+// Caller holds the cache lock and supplies nonempty rollback state or an existing
+// unsent chain.
 func (r *rollbackState) retainUnsentLocked(c *cacheImpl, state *nodeState, typeURL typeurl.Index, generation callbacks.Generation, resources rollbackResources) {
 	nodeID := state.nodeID
-	if existing := state.typeStates[typeURL].unsentRollback; existing != nil && existing.resources != nil {
-		if c.completionCbs.CoalesceUnsentTypeGeneration(nodeID, typeURL, existing.generation, generation, nil) {
-			if len(resources) == 0 {
-				// A deferred A-B-A can leave no new inverse while this unsent
-				// publication still owns the earlier rollback baseline.
-				existing.resources.reconcileDesiredState(state, typeURL)
-			}
-			existing.resources = existing.resources.mergeHistory(state, typeURL, resources)
-			existing.generation = generation
-			if len(existing.resources) == 0 && c.completionCbs.DiscardUnsentTypeGeneration(nodeID, typeURL, generation) {
-				// The cache lock prevents a response from claiming this unsent
-				// generation between coalescing it and discarding it.
-				// No rollback-eligible updates remain for this resource type. Caller
-				// rollback retains its independently owned inverse.
-				existing.finalizeLocked()
-			}
-			return
+	if existing := state.typeStates[typeURL].unsentRollback; existing != nil {
+		c.completionCbs.CoalesceUnsentTypeGeneration(nodeID, typeURL, existing.generation, generation, nil)
+		if len(resources) == 0 {
+			// A deferred A-B-A can leave no new inverse while this unsent
+			// publication still owns the earlier rollback baseline.
+			existing.resources.reconcileDesiredState(state, typeURL)
 		}
-		// A response claimed the existing generation before its callback ran.
-		// Leave that rollback response-owned and start another unsent chain.
-		state.typeStates[typeURL].unsentRollback = nil
-	}
-	if len(resources) == 0 {
+		existing.resources = existing.resources.mergeHistory(state, typeURL, resources)
+		existing.generation = generation
+		if len(existing.resources) == 0 && c.completionCbs.DiscardUnsentTypeGeneration(nodeID, typeURL, generation) {
+			// The cache lock prevents a response from claiming this unsent
+			// generation between coalescing it and discarding it.
+			// No rollback-eligible updates remain for this resource type. Caller
+			// rollback retains its independently owned inverse.
+			existing.finalizeLocked()
+		}
 		return
 	}
 

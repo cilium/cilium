@@ -193,8 +193,6 @@ func (state *responseState) clearPending() {
 type resourceWait struct {
 	callbacks *CompletionCallbacks
 	nodeID    string
-	// version is the wire version Envoy must acknowledge.
-	version string
 	// typeURL is the type URL of the resources to be ACKed.
 	typeURL typeurl.Index
 	// removalOnly waits survive NACKs until a response ACKs their removal
@@ -313,48 +311,7 @@ func (cb *CompletionCallbacks) addPendingCompletion(c *completion.Completion, pe
 			logfields.XDSGeneration, pending.generation,
 			logfields.NodeID, pending.nodeID)
 	}
-	pending.version = version
 	cb.pendingWaits[c] = pending
-}
-
-// CompleteCompletionsThroughGeneration completes pending updates superseded
-// when the cache successfully lands on a version Envoy has already accepted.
-// These updates were created no later than generation, but no response was sent
-// for them and no future response can complete them. Response-owned rollback
-// state through generation is finalized as accepted.
-func (cb *CompletionCallbacks) CompleteCompletionsThroughGeneration(nodeID string, typeURL typeurl.Index, generation Generation, err error) {
-	var completed []*completion.Completion
-	var finalizers []Rollback
-
-	cb.mutex.Lock()
-	for c, pc := range cb.pendingWaits {
-		if pc.nodeID != nodeID || pc.typeURL != typeURL || pc.generation > generation {
-			continue
-		}
-		if err != nil && pc.removalOnly {
-			continue
-		}
-		completed = append(completed, c)
-		delete(cb.pendingWaits, c)
-	}
-	state := cb.typeURLState(nodeID, typeURL)
-	if state != nil {
-		for pending, boundary := range state.pendingGenerations {
-			if boundary <= generation {
-				finalizers = append(finalizers, pending.rollback)
-				delete(state.pendingGenerations, pending)
-			}
-		}
-		state.removeEmptyPendingGenerationSet()
-	}
-	cb.mutex.Unlock()
-
-	for _, rollback := range finalizers {
-		rollback.Finalize()
-	}
-	for _, c := range completed {
-		c.Complete(err)
-	}
 }
 
 // SetPublishedSnapshot prunes obsolete sparse acceptance evidence after the
@@ -516,43 +473,25 @@ func (cb *CompletionCallbacks) AddTypeGenerationWithRollback(generation Generati
 	}
 }
 
-// CoalesceUnsentTypeGeneration advances response-owned rollback state which
-// has not yet been attached to a response. The same callbacks continue to own
-// the coalesced state, now representing every update through newGeneration.
-// scope replaces its response requirements; nil leaves the inverse unclaimed.
-// It returns false if the generation is missing or has already been attached
-// to a response and therefore can no longer be changed.
-func (cb *CompletionCallbacks) CoalesceUnsentTypeGeneration(nodeID string, typeURL typeurl.Index, oldGeneration, newGeneration Generation, scope *ResourceScope) bool {
+// CoalesceUnsentTypeGeneration updates a registered, unclaimed rollback's
+// generation and response requirements. A nil scope leaves it unclaimed.
+// The caller holds the cache lock and owns the node/type's sole unclaimed
+// rollback, registered at oldGeneration. Response claiming clears that cache
+// reference under the same lock, so this entry remains unclaimed during the update.
+func (cb *CompletionCallbacks) CoalesceUnsentTypeGeneration(nodeID string, typeURL typeurl.Index, oldGeneration, newGeneration Generation, scope *ResourceScope) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
 
-	typeState := cb.typeURLState(nodeID, typeURL)
-	if typeState == nil {
-		return false
-	}
-	generations := typeState.pendingGenerations
-	var selected *pendingGeneration
+	generations := cb.typeURLState(nodeID, typeURL).pendingGenerations
 	for pending, boundary := range generations {
-		if boundary == oldGeneration && pending.responseGeneration == 0 && pending.scope == nil {
-			selected = pending
-			break
+		if boundary == oldGeneration && pending.scope == nil {
+			pending.scope = scope
+			if oldGeneration != newGeneration {
+				generations[pending] = newGeneration
+			}
+			return
 		}
 	}
-	if selected == nil {
-		return false
-	}
-	if oldGeneration == newGeneration {
-		selected.scope = scope
-		return true
-	}
-	for pending, boundary := range generations {
-		if pending != selected && boundary == newGeneration && pending.scope == nil {
-			return false
-		}
-	}
-	selected.scope = scope
-	generations[selected] = newGeneration
-	return true
 }
 
 // PartitionUnsentTypeGeneration freezes the covered part of an unsent inverse
@@ -593,21 +532,12 @@ func (cb *CompletionCallbacks) DiscardUnsentTypeGeneration(nodeID string, typeUR
 	return false
 }
 
-// FinalizeTypeGeneration supplies the xDS version for waits registered
-// before publication. It also resolves cases where no new response can be
-// produced because Envoy is already processing or has accepted these contents.
-//
-// The caller must only complete generations when complete is true after the
-// snapshot has been installed successfully.
-func (cb *CompletionCallbacks) FinalizeTypeGeneration(nodeID string, typeURL typeurl.Index, generation Generation, version string, versionChanged bool) (complete bool, err error) {
+// FinalizeTypeGeneration associates covered waits and rollback state with an
+// existing in-flight response for the published version. Publication alone
+// does not complete waits or release response-owned rollback state.
+func (cb *CompletionCallbacks) FinalizeTypeGeneration(nodeID string, typeURL typeurl.Index, generation Generation, version string) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-
-	for _, pending := range cb.pendingWaits {
-		if pending.nodeID == nodeID && pending.typeURL == typeURL && pending.generation <= generation {
-			pending.version = version
-		}
-	}
 
 	typeState := cb.typeURLState(nodeID, typeURL)
 	var state responseState
@@ -627,16 +557,7 @@ func (cb *CompletionCallbacks) FinalizeTypeGeneration(nodeID string, typeURL typ
 				}
 			}
 		}
-		return false, nil
 	}
-
-	if version != "" && state.pendingVersion == "" && state.acceptedVersion == version {
-		return true, nil
-	}
-	if version != "" && state.pendingVersion == "" && !versionChanged && state.rejectedVersion == version {
-		return true, state.rejectedErr
-	}
-	return false, nil
 }
 
 // AddPreparedTypeGenerationCompletion registers a completion using the object
@@ -664,9 +585,6 @@ func (cb *CompletionCallbacks) AddPreparedTypeGenerationCompletion(c *completion
 		// The response was already sent, but the ACK/NACK has not arrived yet.
 		// Attach an unchanged update directly to that response generation so its
 		// in-flight ACK can complete it.
-		// The cache can move A -> B -> A while the first A response is in
-		// flight. Since Envoy is already consuming the final desired contents,
-		// attach every intervening generation to that response as well.
 		for _, pending := range cb.pendingWaits {
 			if pending.nodeID == nodeID && pending.typeURL == typeURL &&
 				pending.generation <= generation && pending.scope.coveredBy(state.coverage, math.MaxUint64) {
@@ -679,8 +597,9 @@ func (cb *CompletionCallbacks) AddPreparedTypeGenerationCompletion(c *completion
 	}
 
 	if version != "" && state.pendingVersion == "" && state.acceptedVersion == version {
-		// Envoy is already at the final desired version. This covers both the
-		// simple no-change case and A->B->A coalescing where B was never sent.
+		// An ACK can arrive after the cache checks resource acceptance but before
+		// it registers this no-op wait. Resolve it here: the unchanged published
+		// version may not produce another response.
 		return false, nil
 	}
 

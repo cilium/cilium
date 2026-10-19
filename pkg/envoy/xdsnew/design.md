@@ -381,8 +381,8 @@ WaitGroup, it checks acceptance of the specific resource:
 Bulk waits retain only names whose desired contents are not already accepted.
 Changing one resource does not cause waits on unchanged, ACKed resources.
 If no published baseline exists, waits register against desired revisions and
-acquire their wire version at publication; a no-op does not force publication just
-to register a wait. Removing a resource from a node which has never held resources
+await a response after publication; a no-op does not force publication just to
+register a wait. Removing a resource from a node which has never held resources
 completes immediately. Restored absence uses the type's latest corrective
 generation without retaining absent resource entries.
 

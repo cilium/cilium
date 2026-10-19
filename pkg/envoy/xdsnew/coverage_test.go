@@ -57,10 +57,19 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 					{"after-response/ack", "after-response", ""},
 					{"after-response/nack", "after-response", "invalid resource"},
 					{"after-ack", "after-ack", ""},
+					{"after-nack", "after-nack", "invalid resource"},
 				} {
 					t.Run(fmt.Sprintf("%s/rollback=%t/same-pointer=%t/%s", api.name, withRollback, samePointer, outcome.name), func(t *testing.T) {
 						c := newCoverageCache(t)
-						caller, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", api.index, "resource", api.value, nil)
+						var caller Rollback = revert.Noop
+						var err error
+						if outcome.phase == "after-nack" {
+							// A plain upsert survives rejection, so resubmitting it is
+							// still a no-op and must use the known NACK outcome.
+							err = c.ApplyResource(t.Context(), "coverage-node", api.index, "resource", api.value, nil)
+						} else {
+							caller, err = c.ApplyResourceWithRollback(t.Context(), "coverage-node", api.index, "resource", api.value, nil)
+						}
 						require.NoError(t, err)
 						t.Cleanup(func() {
 							if caller != nil {
@@ -72,8 +81,8 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 						if outcome.phase != "before-response" {
 							response = s.receive(t)
 						}
-						if outcome.phase == "after-ack" {
-							s.reply(t, response, "")
+						if outcome.phase == "after-ack" || outcome.phase == "after-nack" {
+							s.reply(t, response, outcome.rejection)
 						}
 
 						published, _ := c.GetSnapshot("coverage-node")
@@ -128,23 +137,25 @@ func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 						require.NotNil(t, current)
 						require.Same(t, api.value, current,
 							"neither caller's rollback may remove the reused value")
-						if outcome.phase != "after-ack" {
+						if outcome.phase == "before-response" || outcome.phase == "after-response" {
 							require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
 							if response == nil {
 								response = s.receive(t)
 							}
 							s.reply(t, response, outcome.rejection)
+						} else {
+							require.Zero(t, c.completionCbs.PendingCompletionCount(), "a known outcome must resolve the no-op without another response")
 						}
 						if outcome.rejection == "" {
 							require.NoError(t, wg.Wait())
 						} else {
 							require.ErrorContains(t, wg.Wait(), outcome.rejection)
-							if withRollback || api.wholeType {
+							if outcome.phase != "after-nack" && (withRollback || api.wholeType) {
 								require.Nil(t, c.GetResource("coverage-node", api.index, "resource"),
 									"caller supersession must preserve opted-in response recovery")
 							} else {
 								require.Same(t, api.value, c.GetResource("coverage-node", api.index, "resource"),
-									"plain reuse must adopt the value as non-revertible")
+									"a plain upsert or reuse must remain non-revertible")
 							}
 						}
 						require.Zero(t, c.completionCbs.PendingCompletionCount())
@@ -701,7 +712,7 @@ func TestInitialBulkMutationCanAwaitUnchangedType(t *testing.T) {
 	require.Same(t, resource, current)
 }
 
-func TestNoOpWaitAfterClearUsesAcceptedVersion(t *testing.T) {
+func TestNoOpWaitAfterClearRequiresFreshACK(t *testing.T) {
 	c := newCoverageCache(t)
 	resource := &listener.Listener{Name: "listener"}
 	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil))
@@ -712,15 +723,19 @@ func TestNoOpWaitAfterClearUsesAcceptedVersion(t *testing.T) {
 	t.Cleanup(wg.Cancel)
 	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, wg))
 	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-	// Reinstalling already ACKed contents can satisfy the wait immediately.
-	// No OnStreamResponse call should be required to run that completion.
+	// Republishing identical contents must not restore cleared acceptance
+	// evidence. The wait still needs an ACK for the new response.
 	responses := make(chan cache.Response, 1)
 	cancel, err := c.CreateWatch(&cache.Request{
 		Node: &core.Node{Id: "coverage-node"}, TypeUrl: typeurl.Listener.URL(),
 	}, stream.NewSotwSubscription(nil, true), responses)
 	require.NoError(t, err)
 	t.Cleanup(cancel)
-	require.Zero(t, c.completionCbs.PendingCompletionCount(), "initial publication must complete the wait for already ACKed contents")
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount(), "publication alone must not complete the wait")
+	require.Len(t, responses, 1)
+	response := s.deliver(t, <-responses)
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount(), "response delivery alone must not complete the wait")
+	s.reply(t, response, "")
 	require.NoError(t, wg.Wait())
 }
 

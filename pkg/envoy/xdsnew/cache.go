@@ -512,7 +512,6 @@ type resourceTransaction struct {
 	// Only API mutations also use it as the changed entries' TransactionID.
 	generation            callbacks.Generation
 	deliveries            []responseDelivery
-	finalized             []finalizedCompletion
 	registeredCompletions set.Set[*completion.Completion]
 	immediateCompletions  []immediateCompletion
 	listenerChanges       []ListenerChange
@@ -564,7 +563,6 @@ func (tx *resourceTransaction) complete() {
 		}
 		return
 	}
-	c.completeFinalized(tx.state.nodeID, tx.finalized)
 	for _, immediate := range tx.immediateCompletions {
 		// Resource-level acceptance proves only this wait, not the other names
 		// in older generations of the same TypeURL.
@@ -608,12 +606,6 @@ func (tx *resourceTransaction) registerGenerationCompletions(snapshot cache.Reso
 	}
 }
 
-type finalizedCompletion struct {
-	typeURL    typeurl.Index
-	generation callbacks.Generation
-	err        error
-}
-
 // snapshotTypesChangedBy includes EDS because CDS can change projected CLAs
 // or require an unchanged assignment to be replayed for Cluster warming.
 // Both zero and initialized-empty sets mean that no resource types changed.
@@ -626,20 +618,18 @@ func snapshotTypesChangedBy(changedTypeURLs typeurl.Set) typeurl.Set {
 }
 
 // finalizePendingPublicationLocked constructs and installs a snapshot of the
-// latest desired state for nodeID. The caller must hold c.mutex. Completion
-// resolution is returned so caller waits can complete after the cache lock is
-// released.
-func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID string) ([]finalizedCompletion, error) {
+// latest desired state for nodeID. The caller must hold c.mutex.
+func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID string) error {
 	state := c.getNodeState(nodeID)
 	if state == nil || state.pendingPublication == nil {
-		return nil, nil
+		return nil
 	}
 	pending := state.pendingPublication
 
 	oldSnapshot, _ := c.snapshotCache.GetSnapshot(nodeID)
 	newSnapshot, err := c.generateSnapshotFromStateIncrementally(state, oldSnapshot, pending.changedTypeURLs)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// SetSnapshot may synchronously queue responses. Capture this snapshot and
 	// generation in their context so delayed delivery cannot associate them
@@ -654,7 +644,7 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 		// cannot prove installation; do not infer success from stale state.
 		committed := getErr == nil && currentSnapshot == newSnapshot
 		if !committed {
-			return nil, err
+			return err
 		}
 		c.logger.Debug("Snapshot was installed despite response delivery error",
 			logfields.NodeID, nodeID,
@@ -671,35 +661,16 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 		state.typeStates[typeURL].changedResourceNames.Clear()
 	}
 	state.rollbacks.publishedLocked(c, state, pending)
-	// Do not preallocate: most publications have no immediately satisfied waits,
-	// so reserving space here adds allocations to the common churn path.
-	var finalized []finalizedCompletion
 	for typeURL := range typeurl.Count {
-		// Before a baseline exists, waits can concern types outside the unpublished
-		// mutations. Bind all of them to the newly installed full snapshot.
+		// Include types outside the pending mutations when no baseline exists.
+		// Association still requires a matching version and resource coverage.
 		if oldSnapshot != nil && !pending.rollbacks.Has(typeURL) {
 			continue
 		}
 		version := newSnapshot.GetVersion(typeURL.URL())
-		versionChanged := oldSnapshot == nil || oldSnapshot.GetVersion(typeURL.URL()) != version
-		complete, completeErr := c.completionCbs.FinalizeTypeGeneration(
-			nodeID, typeURL, pending.generation, version, versionChanged)
-		if complete {
-			finalized = append(finalized, finalizedCompletion{
-				typeURL:    typeURL,
-				generation: pending.generation,
-				err:        completeErr,
-			})
-		}
+		c.completionCbs.FinalizeTypeGeneration(nodeID, typeURL, pending.generation, version)
 	}
-	return finalized, nil
-}
-
-func (c *cacheImpl) completeFinalized(nodeID string, finalized []finalizedCompletion) {
-	for _, result := range finalized {
-		c.completionCbs.CompleteCompletionsThroughGeneration(
-			nodeID, result.typeURL, result.generation, result.err)
-	}
+	return nil
 }
 
 func committedListenerChanges(changes resourceChanges) []ListenerChange {
@@ -1154,10 +1125,9 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 	removedTypes := state.commitResourceMutation(changes, tx.generation)
 	tx.registerGenerationCompletions(nil, wg, options.waits)
 	oldPending, oldPendingValue, willFinalize := state.rollbacks.preparePublicationLocked(tx, changedTypeURLs, removedTypes, options)
-	var finalized []finalizedCompletion
 	var err error
 	if willFinalize {
-		finalized, err = c.finalizePendingPublicationLocked(tx.ctx, state.nodeID)
+		err = c.finalizePendingPublicationLocked(tx.ctx, state.nodeID)
 	}
 	if err != nil {
 		if !options.isAPIUpdate {
@@ -1206,7 +1176,6 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		}
 	}
 	tx.deliveries = c.collectResponseDeliveriesLocked()
-	tx.finalized = finalized
 	tx.updateErr = err
 	return err
 }
@@ -1461,7 +1430,7 @@ func singleVersion(version string) iter.Seq[string] {
 // prepareLiveSnapshotLocked finalizes an applicable pending publication or
 // rebinds already-published resources when a later type changes the node epoch.
 // Rebinding must not expose unrelated unpublished changes. Caller must hold c.mutex.
-func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.Index) ([]finalizedCompletion, error) {
+func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.Index) error {
 	nodeID := state.nodeID
 	current, getErr := c.snapshotCache.GetSnapshot(nodeID)
 	if getErr != nil && state.pendingPublication == nil {
@@ -1477,18 +1446,18 @@ func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.
 	}
 	published, ok := current.(*ciliumSnapshot)
 	if !ok || published.epoch == state.epoch {
-		return nil, nil
+		return nil
 	}
 	rebuilt := published.withEpoch(state.epoch)
 	ctx := callbacks.WithSnapshotPublication(context.Background(), state.snapshotGeneration, rebuilt)
 	if err := c.snapshotCache.SetSnapshot(ctx, nodeID, rebuilt); err != nil {
 		installed, getErr := c.snapshotCache.GetSnapshot(nodeID)
 		if getErr != nil || installed != rebuilt {
-			return nil, err
+			return err
 		}
 	}
 	c.completionCbs.SetPublishedSnapshot(nodeID, rebuilt)
-	return nil, nil
+	return nil
 }
 
 //
@@ -1589,12 +1558,10 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 		c.mutex.Unlock()
 		return nil, err
 	}
-	finalized, err := c.prepareLiveSnapshotLocked(state, typeURL)
-	if err != nil {
+	if err := c.prepareLiveSnapshotLocked(state, typeURL); err != nil {
 		deliveries := c.collectResponseDeliveriesLocked()
 		c.mutex.Unlock()
 		c.deliverResponses(deliveries)
-		c.completeFinalized(nodeID, finalized)
 		return nil, err
 	}
 	state.commitEpochNegotiation(typeURL)
@@ -1609,7 +1576,6 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	deliveries := c.collectResponseDeliveriesLocked()
 	c.mutex.Unlock()
 	c.deliverResponses(deliveries)
-	c.completeFinalized(nodeID, finalized)
 	if err != nil {
 		return nil, err
 	}
