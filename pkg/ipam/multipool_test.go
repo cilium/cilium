@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -696,6 +697,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 	preallocMap, err := ParseMultiPoolPreAllocMap(fakeConfig.IPAMMultiPoolPreAllocation)
 	assert.NoError(t, err)
 
+	m := NewMultiPoolMetrics()
 	mgr := NewMultiPoolManager(MultiPoolManagerParams{
 		Logger:               logger,
 		IPv4Enabled:          fakeConfig.EnableIPv4,
@@ -706,6 +708,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
 		PoolSpecAccessors:    MultiPoolAccessor,
+		Metrics:              m,
 	})
 
 	<-events // first upsert (initial node)
@@ -744,6 +747,13 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		alloc[0].CIDRs,
 		"unused CIDRs should have been released",
 	)
+
+	// Releasing the last IPs drops the pool and its metrics.
+	assert.NoError(t, mgr.ReleaseIP(ipInCIDR1, "default", IPv4, false))
+	assert.NoError(t, mgr.ReleaseIP(ipInCIDRv61, "default", IPv6, false))
+	assert.NoError(t, mgr.updateLocalNode(context.TODO()))
+	<-events
+	assert.Equal(t, 0, testutil.CollectAndCount(m.NeededIPs))
 }
 
 // Test_MultiPoolManager_ReleaseUnusedCIDR_PreAllocBuffer verifies that when preAlloc > 0
@@ -1257,7 +1267,7 @@ func Test_pendingAllocationsPerPool(t *testing.T) {
 	pending.upsertPendingAllocation("other", "foo", IPv6)               // renewal
 
 	// Nothing should expire
-	pending.removeExpiredEntries()
+	assert.Empty(t, pending.removeExpiredEntries())
 	assert.Equal(t, 2, pending.pendingForPool("test", IPv4))
 	assert.Equal(t, 0, pending.pendingForPool("test", IPv6))
 	assert.Equal(t, 2, pending.pendingForPool("other", IPv4))
@@ -1266,7 +1276,7 @@ func Test_pendingAllocationsPerPool(t *testing.T) {
 	elapseTime(pendingAllocationTTL) // second time jump
 
 	// This should clean up everything before the first time jump
-	pending.removeExpiredEntries()
+	assert.Empty(t, pending.removeExpiredEntries())
 	assert.Equal(t, 1, pending.pendingForPool("test", IPv4))
 	assert.Equal(t, 0, pending.pendingForPool("test", IPv6))
 	assert.Equal(t, 1, pending.pendingForPool("other", IPv4))
@@ -1279,6 +1289,10 @@ func Test_pendingAllocationsPerPool(t *testing.T) {
 	pending.markAsAllocated("other", "foo", IPv6)
 	assert.Equal(t, 0, pending.pendingForPool("other", IPv4))
 	assert.Equal(t, 0, pending.pendingForPool("other", IPv6))
+
+	elapseTime(pendingAllocationTTL)
+	assert.Equal(t, []Pool{"test"}, pending.removeExpiredEntries())
+	assert.Equal(t, 0, pending.pendingForPool("test", IPv4))
 }
 
 type fakeK8sCiliumNodeAPIResource struct {
@@ -1661,4 +1675,161 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 	require.NoError(t, err)
 
 	return v4Alloc
+}
+
+// Test_MultiPoolManager_Metrics checks updateLocalNode emits the per-pool,
+// per-family gauges. The harness and scenario are copied from
+// Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc: with 5 IPs used per family out
+// of 10 /32 (and /128) CIDRs and preAlloc=1, excess CIDRs are released down to 6,
+// so used=5, available=6, needed=6.
+func Test_MultiPoolManager_Metrics(t *testing.T) {
+	logger := hivetest.Logger(t)
+
+	fakeConfig := testConfiguration
+	// disable debounce interval to trigger CiliumNode update at each test step
+	fakeConfig.IPAMCiliumNodeUpdateRate = 1 * time.Nanosecond
+	// preAlloc buffer of 1 for pool "default"
+	fakeConfig.IPAMMultiPoolPreAllocation = map[string]string{"default": "1"}
+
+	events := make(chan string, 2)
+	cnEvents := make(chan resource.Event[*ciliumv2.CiliumNode])
+	fakeK8sAPI := &fakeK8sCiliumNodeAPIResource{
+		c:    cnEvents,
+		node: &ciliumv2.CiliumNode{},
+		onUpsertEvent: func(err error) {
+			events <- "upsert"
+		},
+		onDeleteEvent: func(err error) {},
+	}
+
+	// Pool "default" owns 10 /32 IPv4 and 10 /128 IPv6 CIDRs.
+	cidrPodCIDRs := make([]iputil.Prefix, 0, 20)
+	for i := range 10 {
+		cidrPodCIDRs = append(cidrPodCIDRs,
+			iputil.PrefixFrom(netip.MustParsePrefix(fmt.Sprintf("10.0.100.%d/32", i))),
+			iputil.PrefixFrom(netip.MustParsePrefix(fmt.Sprintf("fd00:100::%d/128", i))),
+		)
+	}
+	initialNode := &ciliumv2.CiliumNode{
+		ObjectMeta: metav1.ObjectMeta{Name: nodeTypes.GetName()},
+		Spec: ciliumv2.NodeSpec{
+			IPAM: types.IPAMSpec{
+				Pools: types.IPAMPoolSpec{
+					Allocated: []types.IPAMPoolAllocation{{
+						Pool:  "default",
+						CIDRs: cidrPodCIDRs,
+					}},
+				},
+			},
+		},
+	}
+
+	// Feed initial node so that NewMultiPoolManager returns immediately
+	go fakeK8sAPI.updateNode(initialNode)
+
+	var jg job.Group
+	h := hive.New(
+		cell.Invoke(func(jg_ job.Group) { jg = jg_ }),
+	)
+
+	tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+	require.NoError(t, h.Start(tlog, t.Context()))
+	t.Cleanup(func() { h.Stop(tlog, context.Background()) })
+
+	preallocMap, err := ParseMultiPoolPreAllocMap(fakeConfig.IPAMMultiPoolPreAllocation)
+	require.NoError(t, err)
+
+	m := NewMultiPoolMetrics()
+	mgr := NewMultiPoolManager(MultiPoolManagerParams{
+		Logger:               logger,
+		IPv4Enabled:          fakeConfig.EnableIPv4,
+		IPv6Enabled:          fakeConfig.EnableIPv6,
+		CiliumNodeUpdateRate: fakeConfig.IPAMCiliumNodeUpdateRate,
+		PreallocMap:          preallocMap,
+		Node:                 fakeK8sAPI,
+		CNClient:             fakeK8sAPI,
+		JobGroup:             jg,
+		PoolSpecAccessors:    MultiPoolAccessor,
+		Metrics:              m,
+	})
+
+	<-events // first upsert (initial node)
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.True(c, mgr.isNodeSynced())
+	}, time.Second, time.Millisecond)
+
+	// Allocate 5 IPv4 and 5 IPv6 IPs from pool "default".
+	for i := range 5 {
+		_, err := mgr.AllocateIP(netip.MustParseAddr(fmt.Sprintf("10.0.100.%d", i)), fmt.Sprintf("pod4-%d", i), "default", IPv4, false)
+		require.NoError(t, err)
+		_, err = mgr.AllocateIP(netip.MustParseAddr(fmt.Sprintf("fd00:100::%d", i)), fmt.Sprintf("pod6-%d", i), "default", IPv6, false)
+		require.NoError(t, err)
+	}
+
+	// Mark restore finished so release code can run
+	mgr.RestoreFinished(IPv4)
+	mgr.RestoreFinished(IPv6)
+
+	// Manually invoke updateLocalNode
+	assert.NoError(t, mgr.updateLocalNode(context.TODO()))
+
+	<-events // upsert generated by the update
+
+	for _, fam := range []string{"ipv4", "ipv6"} {
+		assert.Equal(t, float64(5), m.UsedIPs.WithLabelValues("default", fam).Get(), "used_ips family=%s", fam)
+		assert.Equal(t, float64(6), m.AvailableIPs.WithLabelValues("default", fam).Get(), "available_ips family=%s", fam)
+		assert.Equal(t, float64(6), m.NeededIPs.WithLabelValues("default", fam).Get(), "needed_ips family=%s", fam)
+		assert.Equal(t, float64(6), m.AllocatedBlocks.WithLabelValues("default", fam).Get(), "allocated_blocks family=%s", fam)
+	}
+
+	var now time.Time
+	elapseTime := func(duration time.Duration) {
+		mgr.poolsMutex.Lock()
+		defer mgr.poolsMutex.Unlock()
+		now = now.Add(duration)
+	}
+	mgr.poolsMutex.Lock()
+	mgr.pendingIPsPerPool.clock = func() time.Time { return now }
+	mgr.poolsMutex.Unlock()
+
+	// "other" has no CIDRs, so this stays pending.
+	_, err = mgr.AllocateNext("pod-other", "other", IPv4, false)
+	require.Error(t, err)
+	assert.NoError(t, mgr.updateLocalNode(context.TODO()))
+	<-events
+	assert.Equal(t, float64(1), m.NeededIPs.WithLabelValues("other", "ipv4").Get())
+	assert.Equal(t, float64(0), m.AvailableIPs.WithLabelValues("other", "ipv4").Get())
+
+	// Simulate expiry.
+	elapseTime(pendingAllocationTTL + time.Second)
+	assert.NoError(t, mgr.updateLocalNode(context.TODO()))
+	<-events
+
+	assert.Equal(t, 2, testutil.CollectAndCount(m.AvailableIPs))
+	assert.Equal(t, 2, testutil.CollectAndCount(m.UsedIPs))
+	assert.Equal(t, 2, testutil.CollectAndCount(m.NeededIPs))
+	assert.Equal(t, 2, testutil.CollectAndCount(m.AllocatedBlocks))
+}
+
+func Test_MultiPoolMetrics_deletePool(t *testing.T) {
+	m := NewMultiPoolMetrics()
+
+	m.setPoolFamily("default", IPv4, 10, 3, 4, 2)
+	m.setPoolFamily("default", IPv6, 20, 2, 4, 2)
+	m.setPoolFamily("other", IPv4, 5, 1, 1, 1)
+
+	// 3 series per gauge (default/ipv4, default/ipv6, other/ipv4).
+	require.Equal(t, 3, testutil.CollectAndCount(m.UsedIPs))
+	require.Equal(t, 3, testutil.CollectAndCount(m.AvailableIPs))
+	require.Equal(t, 3, testutil.CollectAndCount(m.NeededIPs))
+	require.Equal(t, 3, testutil.CollectAndCount(m.AllocatedBlocks))
+
+	m.deletePool("default")
+
+	// Only the "other" pool's ipv4 series remains for each gauge.
+	require.Equal(t, 1, testutil.CollectAndCount(m.UsedIPs))
+	require.Equal(t, 1, testutil.CollectAndCount(m.AvailableIPs))
+	require.Equal(t, 1, testutil.CollectAndCount(m.NeededIPs))
+	require.Equal(t, 1, testutil.CollectAndCount(m.AllocatedBlocks))
+	assert.Equal(t, float64(5), m.AvailableIPs.WithLabelValues("other", "ipv4").Get())
 }
