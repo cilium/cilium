@@ -506,7 +506,7 @@ func (ct *ConnectivityTest) PrintReport(ctx context.Context) error {
 				defer wg.Done()
 
 				ct.Debugf("Flushing CT entries in %s/%s", pod.Pod.Namespace, pod.Pod.Name)
-				_, err := ct.execInPodWithTransportRetry(ctx, pod.K8sClient, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
+				_, err := ct.execInPodRetry(ctx, pod.K8sClient, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd, k8s.ExecRetryOptions{})
 				if err != nil {
 					ct.Fatalf("failed to flush ct entries: %v", err)
 				}
@@ -831,8 +831,9 @@ func (ct *ConnectivityTest) modifyStaticRoutesForNodesWithoutCilium(ctx context.
 	for _, e := range ct.params.PodCIDRs {
 		for withoutCilium := range ct.nodesWithoutCilium {
 			pod := ct.hostNetNSPodsByNode[withoutCilium]
-			_, err := ct.execInPodWithTransportRetry(ctx, ct.client, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentNameNonCilium,
+			_, err := ct.execInPodRetry(ctx, ct.client, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentNameNonCilium,
 				[]string{"ip", "route", string(verb), e.CIDR, "via", e.HostIP},
+				k8s.ExecRetryOptions{},
 			)
 			ct.Debugf("Modifying (%s) static route on nodes without Cilium (%v): %v",
 				verb, withoutCilium,
