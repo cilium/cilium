@@ -4,12 +4,63 @@
 package check
 
 import (
+	"errors"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
+
+func TestWaitEachPolicyRevision(t *testing.T) {
+	tests := []struct {
+		name    string
+		failing []string
+	}{
+		{name: "every pod reaches its revision"},
+		{name: "one pod times out", failing: []string{"cilium-b"}},
+		{name: "two pods time out", failing: []string{"cilium-a", "cilium-c"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			revisions := map[Pod]int{}
+			for _, name := range []string{"cilium-a", "cilium-b", "cilium-c"} {
+				revisions[Pod{
+					K8sClient: &k8s.Client{},
+					Pod:       &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Namespace: "kube-system", Name: name}},
+				}] = 1
+			}
+
+			test := &Test{ctx: &ConnectivityTest{}}
+			err := test.waitEachPolicyRevision(revisions, map[string]int{"": 2}, func(pod Pod, rev int) error {
+				assert.Equal(t, 3, rev)
+				if slices.Contains(tt.failing, pod.Pod.Name) {
+					return errors.New("timed out")
+				}
+				return nil
+			})
+
+			if len(tt.failing) == 0 {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			for pod := range revisions {
+				if slices.Contains(tt.failing, pod.Pod.Name) {
+					assert.ErrorContains(t, err, pod.Name()+": timed out")
+				} else {
+					assert.NotContains(t, err.Error(), pod.Name())
+				}
+			}
+		})
+	}
+}
 
 func TestCountEndpointsBelowPolicyRevision(t *testing.T) {
 	identity := &models.Identity{ID: 12345}

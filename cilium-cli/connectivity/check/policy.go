@@ -6,6 +6,7 @@ package check
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -66,19 +67,23 @@ func (ct *ConnectivityTest) getCiliumPolicyRevisions(ctx context.Context) (map[P
 // waitCiliumPolicyRevisions waits for the Cilium policy revisions to be bumped
 // TODO: Improve error returns here, currently not possible for the caller to reliably detect timeout.
 func (t *Test) waitCiliumPolicyRevisions(ctx context.Context, revisions map[Pod]int, deltas map[string]int) error {
-	var err error
+	return t.waitEachPolicyRevision(revisions, deltas, func(pod Pod, rev int) error {
+		return waitCiliumPolicyRevision(ctx, pod, rev, defaults.PolicyWaitTimeout)
+	})
+}
+
+// waitEachPolicyRevision calls wait for every pod and returns an error naming each pod that failed.
+func (t *Test) waitEachPolicyRevision(revisions map[Pod]int, deltas map[string]int, wait func(pod Pod, rev int) error) error {
+	var errs []error
 	for pod, oldRevision := range revisions {
 		delta := deltas[pod.K8sClient.ClusterName()]
-		err = waitCiliumPolicyRevision(ctx, pod, oldRevision+delta, defaults.PolicyWaitTimeout)
-		if err == nil {
-			t.Debugf("Pod %s/%s revision > %d", pod.K8sClient.ClusterName(), pod.Name(), oldRevision)
-			delete(revisions, pod)
+		if err := wait(pod, oldRevision+delta); err != nil {
+			errs = append(errs, fmt.Errorf("pod %s/%s: %w", pod.K8sClient.ClusterName(), pod.Name(), err))
+			continue
 		}
+		t.Debugf("Pod %s/%s revision > %d", pod.K8sClient.ClusterName(), pod.Name(), oldRevision)
 	}
-	if len(revisions) == 0 {
-		return nil
-	}
-	return err
+	return errors.Join(errs...)
 }
 
 // getCiliumPolicyRevision returns the current policy revision of a Cilium pod.
