@@ -2343,6 +2343,283 @@ func TestCiliumSnapshotIndexedResourcesWithoutDeltaVersions(t *testing.T) {
 	require.Nil(t, snapshot.GetVersionMap("type.googleapis.com/unknown.Resource"))
 }
 
+func TestCiliumSnapshotDeltaVersionsTrackResourceChanges(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS()).(*cacheImpl)
+	state := &nodeState{epoch: 1, resourceGeneration: 1}
+	state.seedResourceAtGeneration(typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 1}, 1)
+	state.seedResourceAtGeneration(typeurl.NetworkPolicy, "unchanged", &cilium.NetworkPolicy{EndpointId: 2}, 1)
+
+	initial, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	require.NoError(t, initial.ConstructVersionMap())
+	require.Equal(t, map[string]string{
+		"changed":   "e1:g1",
+		"unchanged": "e1:g1",
+	}, initial.GetVersionMap(typeurl.NetworkPolicyURL))
+
+	changedTypeURLs := state.applyUnpublishedTestResource(
+		typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 3})
+	updated, err := c.generateSnapshotFromStateIncrementally(state, initial, changedTypeURLs)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"changed":   "e1:g2",
+		"unchanged": "e1:g1",
+	}, updated.GetVersionMap(typeurl.NetworkPolicyURL))
+
+	changedTypeURLs = state.applyUnpublishedTestResource(typeurl.NetworkPolicy, "changed", nil)
+	removed, err := c.generateSnapshotFromStateIncrementally(state, updated, changedTypeURLs)
+	require.NoError(t, err)
+	require.Equal(t, map[string]string{
+		"unchanged": "e1:g1",
+	}, removed.GetVersionMap(typeurl.NetworkPolicyURL))
+
+	rebound := removed.(*ciliumSnapshot).withEpoch(2)
+	require.Equal(t, map[string]string{
+		"unchanged": "e2:g1",
+	}, rebound.GetVersionMap(typeurl.NetworkPolicyURL))
+	require.Equal(t, "e1:g1", removed.GetVersionMap(typeurl.NetworkPolicyURL)["unchanged"],
+		"rebinding an epoch must not mutate the published snapshot")
+}
+
+type deltaResponseWithoutSerialization struct {
+	cache.DeltaResponse
+}
+
+func (*deltaResponseWithoutSerialization) GetDeltaDiscoveryResponse() (*discovery.DeltaDiscoveryResponse, error) {
+	return nil, errors.New("native Delta serialization must not be called")
+}
+
+func TestDeltaResponsesPreserveSnapshotVersions(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		subscribed []string
+	}{
+		{name: "wildcard"},
+		{name: "named", subscribed: []string{"changed"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := slog.New(slog.DiscardHandler)
+			c := newCache(logger, WithNodeIDs("node1"), WithDeltaADS())
+			state := &nodeState{epoch: 1, resourceGeneration: 1}
+			state.seedResourceAtGeneration(typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 1}, 1)
+			state.seedResourceAtGeneration(typeurl.NetworkPolicy, "unchanged", &cilium.NetworkPolicy{EndpointId: 2}, 1)
+			initial, err := c.generateSnapshotFromState(state)
+			require.NoError(t, err)
+
+			// Use the native cache for filtering, but prohibit its hash-based wire
+			// serialization so the adapter must preserve snapshot versions directly.
+			backend := cache.NewSnapshotCache(true, cache.IDHash{}, snapshotCacheLogger(logger))
+			require.NoError(t, backend.SetSnapshot(t.Context(), "node1", initial))
+			subscription := stream.NewDeltaSubscription(tc.subscribed, nil, nil, true)
+			request := &discovery.DeltaDiscoveryRequest{
+				Node:                   &envoy_config_core.Node{Id: "node1"},
+				TypeUrl:                typeurl.NetworkPolicyURL,
+				ResourceNamesSubscribe: tc.subscribed,
+			}
+			responses := make(chan cache.DeltaResponse, 1)
+			cancel, err := backend.CreateDeltaWatch(request, &subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
+			var response cache.DeltaResponse
+			select {
+			case response = <-responses:
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for initial native Delta response")
+			}
+			require.IsType(t, &cache.RawDeltaResponse{}, response)
+			response = withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+				&deltaResponseWithoutSerialization{response}, 1, initial, &subscription))
+			wire, err := response.GetDeltaDiscoveryResponse()
+			require.NoError(t, err)
+			if len(tc.subscribed) == 0 {
+				require.Len(t, wire.Resources, 2)
+			} else {
+				require.Len(t, wire.Resources, 1)
+			}
+			for _, resource := range wire.Resources {
+				require.Equal(t, "e1:g1", resource.Version)
+				require.Equal(t, response.GetReturnedResources()[resource.Name], resource.Version)
+				require.Equal(t, typeurl.NetworkPolicyURL, resource.GetResource().GetTypeUrl())
+			}
+			again, err := response.GetDeltaDiscoveryResponse()
+			require.NoError(t, err)
+			require.Same(t, wire, again, "Delta responses must only be serialized once")
+
+			subscription.SetReturnedResources(response.GetReturnedResources())
+			request.ResponseNonce = "acked"
+			cancel, err = backend.CreateDeltaWatch(request, &subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
+			changed := state.applyUnpublishedTestResource(typeurl.NetworkPolicy, "changed", &cilium.NetworkPolicy{EndpointId: 3})
+			updated, err := c.generateSnapshotFromStateIncrementally(state, initial, changed)
+			require.NoError(t, err)
+			require.NoError(t, backend.SetSnapshot(t.Context(), "node1", updated))
+			select {
+			case response = <-responses:
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for updated native Delta response")
+			}
+			response = withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+				&deltaResponseWithoutSerialization{response}, 2, updated, &subscription))
+			wire, err = response.GetDeltaDiscoveryResponse()
+			require.NoError(t, err)
+			require.Len(t, wire.Resources, 1, "unchanged resources must not be resent")
+			require.Equal(t, "changed", wire.Resources[0].Name)
+			require.Equal(t, "e1:g2", wire.Resources[0].Version)
+			require.Equal(t, "e1:g1", updated.GetVersionMap(typeurl.NetworkPolicyURL)["unchanged"])
+			decoded := &cilium.NetworkPolicy{}
+			require.NoError(t, wire.Resources[0].Resource.UnmarshalTo(decoded))
+			require.Equal(t, uint64(3), decoded.GetEndpointId())
+
+			subscription.SetReturnedResources(response.GetReturnedResources())
+			cancel, err = backend.CreateDeltaWatch(request, &subscription, responses)
+			require.NoError(t, err)
+			if cancel != nil {
+				t.Cleanup(cancel)
+			}
+			changed = state.applyUnpublishedTestResource(typeurl.NetworkPolicy, "changed", nil)
+			removed, err := c.generateSnapshotFromStateIncrementally(state, updated, changed)
+			require.NoError(t, err)
+			require.NoError(t, backend.SetSnapshot(t.Context(), "node1", removed))
+			select {
+			case response = <-responses:
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for native Delta removal")
+			}
+			response = withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+				&deltaResponseWithoutSerialization{response}, 3, removed, &subscription))
+			wire, err = response.GetDeltaDiscoveryResponse()
+			require.NoError(t, err)
+			require.Empty(t, wire.Resources)
+			require.Equal(t, []string{"changed"}, wire.RemovedResources)
+		})
+	}
+}
+
+func TestNativeDeltaResponseRetainsHashFallback(t *testing.T) {
+	resource := &envoy_config_listener.Listener{Name: "listener"}
+	encoded, err := cache.MarshalResource(resource)
+	require.NoError(t, err)
+	for _, versions := range []map[string]string{nil, {"listener": ""}} {
+		response := cache.NewTestRawDeltaResponse(
+			&discovery.DeltaDiscoveryRequest{TypeUrl: typeurl.Listener.URL()}, "system-version",
+			[]cache_types.ResourceWithTTL{{Resource: resource}}, nil, versions,
+		)
+		require.Same(t, response, withDeltaSnapshotVersions(response), "responses without coverage must use native serialization")
+		wire, err := response.GetDeltaDiscoveryResponse()
+		require.NoError(t, err)
+		require.Len(t, wire.Resources, 1)
+		require.Equal(t, cache.HashResource(encoded), wire.Resources[0].Version)
+	}
+}
+
+func TestDeltaResponseSerializesPublishedSnapshot(t *testing.T) {
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS())
+	state := &nodeState{epoch: 1, resourceGeneration: 1}
+	state.seedResourceAtGeneration(typeurl.NetworkPolicy, "kept", &cilium.NetworkPolicy{EndpointId: 1}, 1)
+	published, err := c.generateSnapshotFromState(state)
+	require.NoError(t, err)
+	subscription := stream.NewDeltaSubscription([]string{"kept", "removed"}, nil, map[string]string{
+		"kept": "e1:g0", "removed": "e1:g0", "unsubscribed": "e1:g0",
+	}, false)
+	response := cache.NewTestRawDeltaResponse(
+		&discovery.DeltaDiscoveryRequest{TypeUrl: typeurl.NetworkPolicyURL}, published.GetVersion(typeurl.NetworkPolicyURL),
+		nil, []string{"removed"}, map[string]string{"kept": "e1:g1"},
+	)
+	response.Ctx = callbacks.WithSnapshotPublication(t.Context(), 1, published)
+	changes := state.applyUnpublishedTestResource(typeurl.NetworkPolicy, "kept", &cilium.NetworkPolicy{EndpointId: 2})
+	latest, err := c.generateSnapshotFromStateIncrementally(state, published, changes)
+	require.NoError(t, err)
+
+	adapted := withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+		&deltaResponseWithoutSerialization{response}, 2, latest, &subscription))
+	wire, err := adapted.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	require.Equal(t, published.GetVersion(typeurl.NetworkPolicyURL), wire.SystemVersionInfo)
+	require.Len(t, wire.Resources, 1)
+	require.Equal(t, "kept", wire.Resources[0].Name)
+	require.Equal(t, "e1:g1", wire.Resources[0].Version)
+	decoded := &cilium.NetworkPolicy{}
+	require.NoError(t, wire.Resources[0].Resource.UnmarshalTo(decoded))
+	require.Equal(t, uint64(1), decoded.GetEndpointId(), "delayed serialization must not use a newer publication")
+	require.Equal(t, []string{"removed"}, wire.RemovedResources, "unsubscription is not a resource removal")
+}
+
+func TestDeltaResponseRejectsMissingPublishedResource(t *testing.T) {
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS())
+	snapshot, err := c.generateSnapshotFromState(&nodeState{epoch: 1})
+	require.NoError(t, err)
+	subscription := stream.NewDeltaSubscription(nil, nil, nil, true)
+	response := cache.NewTestRawDeltaResponse(
+		&discovery.DeltaDiscoveryRequest{TypeUrl: typeurl.NetworkPolicyURL}, "e1:g1",
+		nil, nil, map[string]string{"missing": "e1:g1"},
+	)
+	adapted := withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(response, 1, snapshot, &subscription))
+	wire, err := adapted.GetDeltaDiscoveryResponse()
+	require.Nil(t, wire)
+	require.ErrorContains(t, err, `missing Delta resource "missing" at version "e1:g1"`)
+}
+
+func TestCreateDeltaWatchSelectsEpochFromInitialResourceVersions(t *testing.T) {
+	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS()).(*cacheImpl)
+	policy := &cilium.NetworkPolicy{EndpointId: 1}
+	require.NoError(t, c.ApplyResource(t.Context(), "node1", typeurl.NetworkPolicy, "policy", policy, nil, nil))
+
+	request := &discovery.DeltaDiscoveryRequest{
+		Node:                    &envoy_config_core.Node{Id: "node1"},
+		TypeUrl:                 typeurl.NetworkPolicyURL,
+		InitialResourceVersions: map[string]string{"policy": "e1:g99"},
+	}
+	subscription := stream.NewDeltaSubscription(nil, nil, request.GetInitialResourceVersions(), true)
+	responses := make(chan cache.DeltaResponse, 1)
+	cancel, err := c.CreateDeltaWatch(request, &subscription, responses)
+	require.NoError(t, err)
+	t.Cleanup(cancel)
+
+	var response cache.DeltaResponse
+	select {
+	case response = <-responses:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for initial Delta response")
+	}
+	require.Equal(t, uint64(2), c.getNodeState("node1").epoch)
+	require.Equal(t, uint64(2), c.getNodeState("node1").typeStates[typeurl.NetworkPolicy].negotiatedEpoch)
+	require.Equal(t, "e2:g1", response.GetReturnedResources()["policy"])
+
+	deltaResponse, err := response.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	require.Len(t, deltaResponse.GetResources(), 1)
+	require.Equal(t, "policy", deltaResponse.GetResources()[0].GetName())
+	require.Equal(t, "e2:g1", deltaResponse.GetResources()[0].GetVersion())
+	require.Empty(t, deltaResponse.GetRemovedResources())
+	cancel()
+
+	reconnect := &discovery.DeltaDiscoveryRequest{
+		Node:                    request.GetNode(),
+		TypeUrl:                 typeurl.NetworkPolicyURL,
+		InitialResourceVersions: map[string]string{"policy": deltaResponse.GetResources()[0].GetVersion()},
+	}
+	reconnectedSubscription := stream.NewDeltaSubscription(nil, nil, reconnect.GetInitialResourceVersions(), true)
+	reconnectedResponses := make(chan cache.DeltaResponse, 1)
+	cancelReconnect, err := c.CreateDeltaWatch(reconnect, &reconnectedSubscription, reconnectedResponses)
+	require.NoError(t, err)
+	t.Cleanup(cancelReconnect)
+	select {
+	case response = <-reconnectedResponses:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for reconnect Delta response")
+	}
+	deltaResponse, err = response.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	require.Empty(t, deltaResponse.GetResources(), "unchanged policy must not be resent")
+	require.Empty(t, deltaResponse.GetRemovedResources())
+	require.Equal(t, uint64(2), c.getNodeState("node1").epoch)
+}
+
 func TestGenerateSnapshotProjectionPreservesDesiredResources(t *testing.T) {
 	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	state := &nodeState{}

@@ -146,7 +146,7 @@ func (r *rollbackState) preparePublicationLocked(tx *resourceTransaction, change
 				entry.expectedTransaction = transaction
 				current[name] = entry
 			}
-			current.pruneUnobservableResources(state, typeURL, nil)
+			current.pruneUnobservableResources(state, typeURL, nil, tx.cache.deltaADS)
 			if len(current) == 0 {
 				current = nil
 			}
@@ -158,7 +158,7 @@ func (r *rollbackState) preparePublicationLocked(tx *resourceTransaction, change
 		for typeURL := range changedTypeURLs.Members() {
 			rollback, _ := rollbacks.Get(typeURL)
 			rollback.reconcileDesiredState(state, typeURL)
-			rollback.pruneUnobservableResources(state, typeURL, nil)
+			rollback.pruneUnobservableResources(state, typeURL, nil, tx.cache.deltaADS)
 			if len(rollback) == 0 {
 				rollback = nil
 			}
@@ -246,7 +246,7 @@ func (r *rollbackState) retainUnsentLocked(c *cacheImpl, state *nodeState, typeU
 				existing.resources.reconcileDesiredState(state, typeURL)
 			}
 			existing.resources = existing.resources.mergeHistory(state, typeURL, rollback)
-			existing.resources.pruneUnobservableResources(state, typeURL, snapshot)
+			existing.resources.pruneUnobservableResources(state, typeURL, snapshot, c.deltaADS)
 			existing.generation = generation
 			if len(existing.resources) == 0 && c.completionCbs.DiscardUnsentTypeGeneration(nodeID, typeURL, generation) {
 				// The cache lock prevents a response from claiming this unsent
@@ -261,7 +261,7 @@ func (r *rollbackState) retainUnsentLocked(c *cacheImpl, state *nodeState, typeU
 		// Leave that lifecycle response-owned and start another unsent chain.
 		state.typeStates[typeURL].rollbacks.unsent = nil
 	}
-	rollback.pruneUnobservableResources(state, typeURL, snapshot)
+	rollback.pruneUnobservableResources(state, typeURL, snapshot, c.deltaADS)
 	if len(rollback) == 0 {
 		return
 	}
@@ -276,7 +276,7 @@ func (r *rollbackState) retainUnsentLocked(c *cacheImpl, state *nodeState, typeU
 // claimResponseLocked freezes only resource names represented by this response.
 // Unrequested names remain unsent and can coalesce with further mutations,
 // including when they were changed in the same API transaction.
-func (r *rollbackState) claimResponseLocked(c *cacheImpl, state *nodeState, typeURL typeurl.Index, response cache.Response) {
+func (r *rollbackState) claimResponseLocked(c *cacheImpl, state *nodeState, typeURL typeurl.Index, response callbacks.ResponseMetadata) {
 	nodeID := state.nodeID
 	lifecycle := state.typeStates[typeURL].rollbacks.unsent
 	if lifecycle == nil || lifecycle.resources == nil {
@@ -737,7 +737,10 @@ func (entry rollbackEntry) previousEquals(resource cache_types.Resource) bool {
 // resourceStateIsObservable uses the snapshot when published, or desired state
 // before publication. Referenced EDS removals remain observable because their
 // projection supplies a named empty CLA.
-func (r *rollbackState) resourceStateIsObservable(state *nodeState, snapshot cache.ResourceSnapshot, index typeurl.Index, name string) bool {
+func (r *rollbackState) resourceStateIsObservable(state *nodeState, snapshot cache.ResourceSnapshot, index typeurl.Index, name string, delta bool) bool {
+	if delta {
+		return true
+	}
 	if snapshot != nil {
 		return callbacks.SnapshotResourceStateIsObservable(snapshot, index, name)
 	}
@@ -759,13 +762,14 @@ func (r *rollbackState) resourceStateIsObservable(state *nodeState, snapshot cac
 	}
 }
 
-// SotW omission cannot reject an EDS/RDS/SDS removal. Release its response
-// inverse; caller rollback retains separate ownership. Synthesized empty CLAs
-// remain observable and therefore retain response recovery.
-func (rollback *rollbackResources) pruneUnobservableResources(state *nodeState, index typeurl.Index, snapshot cache.ResourceSnapshot) {
+// SotW omission cannot reject an EDS/RDS/SDS removal, while Delta communicates
+// every removal explicitly. Release only unobservable SotW response inverses;
+// caller rollback retains separate ownership. Synthesized empty CLAs remain
+// observable and therefore retain response recovery.
+func (rollback *rollbackResources) pruneUnobservableResources(state *nodeState, index typeurl.Index, snapshot cache.ResourceSnapshot, delta bool) {
 	typeState := &state.typeStates[index]
 	for name, entry := range *rollback {
-		if state.rollbacks.resourceStateIsObservable(state, snapshot, index, name) {
+		if state.rollbacks.resourceStateIsObservable(state, snapshot, index, name, delta) {
 			continue
 		}
 		typeState.rollbacks.removeOwner(rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
@@ -777,7 +781,7 @@ func (rollback *rollbackResources) pruneUnobservableResources(state *nodeState, 
 	}
 }
 
-func (lifecycle *rollbackLifecycle) resourceScope(response cache.Response) *callbacks.ResourceScope {
+func (lifecycle *rollbackLifecycle) resourceScope(response callbacks.ResponseMetadata) *callbacks.ResourceScope {
 	var scope *callbacks.ResourceScope
 	if lifecycle.resources != nil {
 		for name, entry := range lifecycle.resources {

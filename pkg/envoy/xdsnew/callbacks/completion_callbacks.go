@@ -89,6 +89,9 @@ type CompletionCallbacks struct {
 	// Envoy may omit Node on subsequent ACK/NACK requests. Named EDS
 	// subscriptions can use several streams for the same node/resource type.
 	streams map[streamKey]*callbackStreamState
+	// preparedDeltaResponses bridges cache response metadata to the Delta server
+	// callback, whose API does not carry the response context.
+	preparedDeltaResponses map[*discovery.DeltaDiscoveryRequest]pendingResponse
 	// streamLifecycle is immutable and called without the callbacks mutex held.
 	streamLifecycle StreamLifecycleHandler
 }
@@ -98,12 +101,13 @@ func NewCompletionCallbacks(logger *slog.Logger, nackHandler NACKHandler) *Compl
 	// processing can omit stream lifecycle bookkeeping.
 	streamLifecycle, _ := nackHandler.(StreamLifecycleHandler)
 	return &CompletionCallbacks{
-		Log:             logger,
-		nackHandler:     nackHandler,
-		pendingWaits:    make(map[*completion.Completion]*resourceWait),
-		nodes:           make(map[string]*callbackNodeState),
-		streams:         make(map[streamKey]*callbackStreamState),
-		streamLifecycle: streamLifecycle,
+		Log:                    logger,
+		nackHandler:            nackHandler,
+		pendingWaits:           make(map[*completion.Completion]*resourceWait),
+		nodes:                  make(map[string]*callbackNodeState),
+		streams:                make(map[streamKey]*callbackStreamState),
+		preparedDeltaResponses: make(map[*discovery.DeltaDiscoveryRequest]pendingResponse),
+		streamLifecycle:        streamLifecycle,
 	}
 }
 
@@ -134,6 +138,8 @@ type acceptedResourceGroup struct {
 	// generation is the ACKed response boundary, not any resource's revision.
 	// Zero means acceptance is unknown. An ACKed empty group may
 	// have a nil resource map, so the map alone cannot represent this distinction.
+	// delta makes absence meaningful for every resource type.
+	delta      bool
 	generation Generation
 	resources  map[string]cache_types.ResourceWithTTL
 	// partial overrides individual names accepted by subset responses. The
@@ -176,7 +182,9 @@ func (cb *CompletionCallbacks) ensureTypeURLState(nodeID string, index typeurl.I
 // responseState tracks the latest xDS response/ACK state for a specific node/type.
 type responseState struct {
 	pendingResponse
-	pendingStreamID int64
+	// pendingStreamKey identifies the owner of the node/type summary. SotW and
+	// Delta number streams independently but share these callbacks.
+	pendingStreamKey streamKey
 	// acceptedGeneration prevents a delayed ACK on another stream from
 	// replacing a newer accepted baseline with an older one.
 	acceptedGeneration Generation
@@ -189,8 +197,8 @@ type responseState struct {
 }
 
 // pendingResponse identifies one outstanding response and the resource names
-// it communicates. Generations establish ordering; versions are retained because
-// Envoy echoes them in ACK and NACK requests.
+// it communicates. Generations establish ordering; versions retain wire identity.
+// SotW requests echo versions, while Delta ACKs/NACKs identify responses by nonce.
 type pendingResponse struct {
 	// pendingVersion is the version in the most recent response for which we have
 	// not yet observed an ACK or NACK.
@@ -205,7 +213,18 @@ type pendingResponse struct {
 
 func (state *responseState) clearPending() {
 	state.pendingResponse = pendingResponse{}
-	state.pendingStreamID = 0
+	state.pendingStreamKey = streamKey{}
+}
+
+// takePendingResponseLocked consumes a stream's response without clearing a
+// node/type summary owned by another stream. Caller holds CompletionCallbacks.mutex.
+func (state *responseState) takePendingResponseLocked(key streamKey, response *pendingResponse) pendingResponse {
+	pending := *response
+	*response = pendingResponse{}
+	if state.pendingStreamKey == key {
+		state.clearPending()
+	}
+	return pending
 }
 
 // resourceWait tracks one caller's wait for Envoy to accept resource state.
@@ -671,15 +690,6 @@ func (cb *CompletionCallbacks) OnFetchRequest(context.Context, *discovery.Discov
 func (cb *CompletionCallbacks) OnFetchResponse(*discovery.DiscoveryRequest, *discovery.DiscoveryResponse) {
 }
 
-// OnStreamDeltaRequest implements server.Callbacks.
-func (cb *CompletionCallbacks) OnStreamDeltaRequest(int64, *discovery.DeltaDiscoveryRequest) error {
-	return nil
-}
-
-// OnStreamDeltaResponse implements server.Callbacks.
-func (cb *CompletionCallbacks) OnStreamDeltaResponse(int64, *discovery.DeltaDiscoveryRequest, *discovery.DeltaDiscoveryResponse) {
-}
-
 var _ sotw.Callbacks = (*CompletionCallbacks)(nil)
 
 // OnStreamRequest is called once a request is received on a stream.
@@ -738,11 +748,8 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 	// responseGeneration match also covers a later no-op attached to this response.
 	var acceptedGeneration Generation
 	if response.pendingVersion == req.GetVersionInfo() {
-		acceptedGeneration = response.pendingGeneration
-		*response = pendingResponse{}
-		if state.pendingStreamID == streamID {
-			state.clearPending()
-		}
+		acceptedGeneration = state.takePendingResponseLocked(
+			streamKey{streamID: streamID, mode: StreamModeSotW}, response).pendingGeneration
 	}
 	// An echoed version without a matching response proves nothing about the
 	// resources Envoy received. Even a wildcard request on a new stream can
@@ -822,11 +829,11 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 // The caller holds cb.mutex and req.ErrorDetail must be non-nil. It records the
 // rejection and transfers rollback and waiter ownership to the returned work.
 // It never changes lock ownership or calls the cache.
-func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.DiscoveryRequest, stream *callbackStreamState, typeIndex typeurl.Index, typeState *typeURLState) *nackRecovery {
+func (cb *CompletionCallbacks) handleNACKLocked(key streamKey, req *discovery.DiscoveryRequest, stream *callbackStreamState, typeIndex typeurl.Index, typeState *typeURLState) *nackRecovery {
 	nodeID := stream.nodeID
 	typeURL := req.GetTypeUrl()
 	state := &typeState.response
-	response := &stream.responses[typeIndex]
+	response := state.takePendingResponseLocked(key, &stream.responses[typeIndex])
 	coverage := response.coverage
 	var completed []*completion.Completion
 	var generationReverts []generationRevert
@@ -837,12 +844,8 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 	}
 	nackErr := fmt.Errorf("NACK from %s for %s version %s: %s",
 		nodeID, typeURL, rejectedVersion, req.GetErrorDetail().GetMessage())
-	*response = pendingResponse{}
-	if state.pendingStreamID == streamID {
-		state.clearPending()
-	}
 	if rejectedGeneration != 0 && rejectedGeneration >= state.acceptedGeneration && coverage.complete() &&
-		(coverage == nil || typeHasDeletionSemantics(typeIndex)) {
+		(coverage == nil || coverage.delta || typeHasDeletionSemantics(typeIndex)) {
 		state.acceptedVersion = req.GetVersionInfo()
 		state.rejectedVersion = rejectedVersion
 		state.rejectedErr = nackErr
@@ -852,7 +855,7 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 	// and pass its inverses newest first to the cache, which composes one final
 	// correction while preserving superseding API transactions.
 	for pending, generation := range typeState.pendingGenerations {
-		if rejectedGeneration == 0 || generation > rejectedGeneration || !pending.scope.intersects(coverage, rejectedGeneration) {
+		if rejectedGeneration == 0 || generation > rejectedGeneration || !pending.scope.intersectsChanges(coverage, rejectedGeneration) {
 			continue
 		}
 		generationReverts = append(generationReverts, generationRevert{
@@ -868,7 +871,7 @@ func (cb *CompletionCallbacks) handleNACKLocked(streamID int64, req *discovery.D
 		if pc.nodeID != nodeID || pc.typeURL != typeIndex || rejectedGeneration == 0 {
 			continue
 		}
-		if (pc.scope.wholeType() && pc.generation > coveredGeneration) || !pc.scope.intersects(coverage, coveredGeneration) {
+		if (pc.scope.wholeType() && pc.generation > coveredGeneration) || !pc.scope.intersectsChanges(coverage, coveredGeneration) {
 			continue
 		}
 		completed = append(completed, c)
@@ -994,7 +997,7 @@ func (cb *CompletionCallbacks) OnStreamResponse(ctx context.Context, streamID in
 		state.pendingGeneration = responseGeneration
 		state.pendingNonce = resp.GetNonce()
 		state.coverage = coverage
-		state.pendingStreamID = streamID
+		state.pendingStreamKey = streamKey{streamID: streamID, mode: StreamModeSotW}
 		if state.rejectedVersion == version {
 			state.rejectedVersion = ""
 			state.rejectedErr = nil
