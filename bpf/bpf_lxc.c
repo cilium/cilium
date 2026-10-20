@@ -53,8 +53,7 @@
 #include "lib/subnet.h"
 #include "lib/socket_lb.h"
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
-static __always_inline int
+static __always_inline __maybe_unused int
 lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
 {
 	int ret __maybe_unused;
@@ -70,7 +69,6 @@ lxc_deliver_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity)
 	/* report fine-grained error: */
 	return DROP_HOST_NOT_READY;
 }
-#endif
 
 static __always_inline __maybe_unused int
 lxc_redirect_to_host(struct __ctx_buff *ctx, __u32 src_sec_identity,
@@ -672,13 +670,12 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		return ctx_redirect_to_proxy6(ctx, tuple, proxy_port, false);
 	}
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (dst_sec_identity == HOST_ID)
+	if (is_defined(ENABLE_HOST_FIREWALL) && !CONFIG(enable_bpf_routing) &&
+	    dst_sec_identity == HOST_ID)
 		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	/* Always encode the source identity when forwarding the packet.
 	 * This prevents loss of identity if the packet is later SNATed,
@@ -687,7 +684,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	if (CONFIG(enable_identity_mark))
 		set_identity_mark(ctx, SECLABEL_IPV6, MARK_MAGIC_IDENTITY);
 
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow || CONFIG(enable_bpf_host_routing)) {
+	if (CONFIG(enable_bpf_routing) || hairpin_flow || CONFIG(enable_bpf_host_routing)) {
 		const struct endpoint_info *ep;
 		union v6addr daddr;
 
@@ -711,8 +708,8 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		ep = __lookup_ip6_endpoint(&daddr);
 		if (ep) {
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
-			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING))) {
-				if (is_defined(ENABLE_ROUTING) &&
+			    (CONFIG(enable_bpf_host_routing) || CONFIG(enable_bpf_routing))) {
+				if (CONFIG(enable_bpf_routing) &&
 				    is_defined(ENABLE_HOST_FIREWALL) &&
 				    dst_sec_identity == HOST_ID)
 					return lxc_redirect_to_host(ctx, SECLABEL_IPV6,
@@ -775,11 +772,10 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	}
 
 pass_to_stack: __maybe_unused
-#ifndef ENABLE_ROUTING
 	/* See IPv4 path for comments. */
-	if (from_l7lb && ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
+	if (!CONFIG(enable_bpf_routing) && from_l7lb &&
+	    ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
 		return redirect_self(ctx);
-#endif /* !ENABLE_ROUTING */
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV6, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
@@ -1131,13 +1127,12 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		return ctx_redirect_to_proxy4(ctx, tuple, proxy_port, false);
 	}
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (dst_sec_identity == HOST_ID)
+	if (is_defined(ENABLE_HOST_FIREWALL) && !CONFIG(enable_bpf_routing) &&
+	    dst_sec_identity == HOST_ID)
 		return lxc_deliver_to_host(ctx, SECLABEL_IPV4);
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	/* Always encode the source identity when forwarding the packet.
 	 * This prevents loss of identity if the packet is later SNATed,
@@ -1146,20 +1141,19 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	if (CONFIG(enable_identity_mark))
 		set_identity_mark(ctx, SECLABEL_IPV4, MARK_MAGIC_IDENTITY);
 
-	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
+	/* Allow a hairpin packet to be redirected even if enable_bpf_routing is
 	 * disabled (for example, with per-endpoint routes). Otherwise, the
 	 * packet will be dropped by the kernel if the packet will be routed to
 	 * the interface it came from after the packet has been passed to the
 	 * stack.
 	 *
-	 * If ENABLE_ROUTING is disabled, but the fast redirect is enabled, we
+	 * If enable_bpf_routing is disabled, but the fast redirect is enabled, we
 	 * do lookup the local endpoint here to check whether we must pass the
 	 * packet up the stack for the host itself. We also want to run through
 	 * the ipv4_local_delivery() function to enforce ingress policies for
 	 * that endpoint.
 	 */
-	if (is_defined(ENABLE_ROUTING) || hairpin_flow ||
-	    CONFIG(enable_bpf_host_routing)) {
+	if (CONFIG(enable_bpf_routing) || hairpin_flow || CONFIG(enable_bpf_host_routing)) {
 		__be32 daddr = ip4->daddr;
 		const struct endpoint_info *ep;
 
@@ -1183,8 +1177,8 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		ep = __lookup_ip4_endpoint(daddr);
 		if (ep) {
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
-			    (CONFIG(enable_bpf_host_routing) || is_defined(ENABLE_ROUTING))) {
-				if (is_defined(ENABLE_ROUTING) &&
+			    (CONFIG(enable_bpf_host_routing) || CONFIG(enable_bpf_routing))) {
+				if (CONFIG(enable_bpf_routing) &&
 				    is_defined(ENABLE_HOST_FIREWALL) &&
 				    dst_sec_identity == HOST_ID)
 					return lxc_redirect_to_host(ctx, SECLABEL_IPV4,
@@ -1312,7 +1306,6 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	}
 
 pass_to_stack: __maybe_unused
-#ifndef ENABLE_ROUTING
 	/* With per-endpoint routes, the `cil_lxc_policy_egress` will be
 	 * tail called from cil_to_container for packets sent by a L7 LB.
 	 * In case of a local backend, we execute this code already from the
@@ -1322,9 +1315,9 @@ pass_to_stack: __maybe_unused
 	 * Without per-endpoint routes, endpoint policies are correctly
 	 * checked via tail call from bpf_host.
 	 */
-	if (from_l7lb && ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
+	if (!CONFIG(enable_bpf_routing) && from_l7lb &&
+	    ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
 		return redirect_self(ctx);
-#endif /* !ENABLE_ROUTING */
 
 	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL_IPV4, dst_sec_identity,
 			  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
@@ -1950,13 +1943,11 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 		ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
 		break;
 	case CTX_ACT_OK:
-#if !defined(ENABLE_ROUTING) && !defined(ENABLE_NODEPORT)
 		/* See comment in IPv4 path. */
-		if (from_tunnel) {
+		if (!CONFIG(enable_bpf_routing) && !is_defined(ENABLE_NODEPORT) && from_tunnel) {
 			ctx_change_type(ctx, PACKET_HOST);
 			break;
 		}
-#endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
 			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
@@ -2255,7 +2246,6 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		ctx_store_meta(ctx, CB_PROXY_MAGIC, ctx->mark);
 		break;
 	case CTX_ACT_OK:
-#if !defined(ENABLE_ROUTING) && !defined(ENABLE_NODEPORT)
 		/* In tunneling mode, we execute this code to send the packet from
 		 * cilium_vxlan to lxc*. If we're using kube-proxy, we don't want to use
 		 * redirect() because that would bypass conntrack and the reverse DNAT.
@@ -2264,11 +2254,10 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		 * will drop them.
 		 * See #14646 for details.
 		 */
-		if (from_tunnel) {
+		if (!CONFIG(enable_bpf_routing) && !is_defined(ENABLE_NODEPORT) && from_tunnel) {
 			ctx_change_type(ctx, PACKET_HOST);
 			break;
 		}
-#endif /* !ENABLE_ROUTING && !ENABLE_NODEPORT */
 
 		if (do_redirect)
 			ret = redirect_ep(ctx, CONFIG(interface_ifindex),
@@ -2527,7 +2516,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 			  ctx->ingress_ifindex, TRACE_REASON_UNKNOWN,
 			  TRACE_PAYLOAD_LEN, proto);
 
-#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the packet comes from the hostns and per-endpoint routes are enabled,
 	 * jump to bpf_host to enforce egress host policies before anything else.
 	 *
@@ -2536,7 +2524,8 @@ int cil_to_container(struct __ctx_buff *ctx)
 	 * when we jump back, the packet mark will have been cleared and the
 	 * identity won't match HOST_ID anymore.
 	 */
-	if (identity == HOST_ID) {
+	if (is_defined(ENABLE_HOST_FIREWALL) && !CONFIG(enable_bpf_routing) &&
+	    identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 1);
 		ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);
 
@@ -2544,7 +2533,6 @@ int cil_to_container(struct __ctx_buff *ctx)
 		return send_drop_notify(ctx, identity, sec_label, LXC_ID,
 					DROP_HOST_NOT_READY, METRIC_INGRESS);
 	}
-#endif /* ENABLE_HOST_FIREWALL && !ENABLE_ROUTING */
 
 	ret = pull_l3_hdr(ctx, proto);
 	if (ret < 0)

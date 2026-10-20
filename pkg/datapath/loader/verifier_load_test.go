@@ -77,6 +77,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 			t.SocketLB.EnableTracing = true
 			t.EnableNAT46X64 = true
 			t.EnableNAT46X64Gateway = true
+			t.EnableBPFRouting = true
 		}),
 
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),

@@ -88,5 +88,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 		cfg.SocketLB.EnableTracing = option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
 	}
 
+	cfg.EnableBPFRouting = ep.RequireRouting()
+
 	return cfg
 }
