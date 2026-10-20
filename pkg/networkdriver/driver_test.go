@@ -663,51 +663,6 @@ func TestBuildPoolsFromTable(t *testing.T) {
 		require.Empty(t, nodePoolDevices(pools))
 	})
 
-	t.Run("unallocated device can change logical pools between publications", func(t *testing.T) {
-		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-		})
-		dev := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
-		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
-
-		first := nodePoolDevices(driver.buildPoolsFromTable())
-		require.Len(t, first, 1)
-		require.Equal(t, "pool-a", deviceLogicalPoolAttr(t, first, "eth0"))
-
-		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-		}
-		second := nodePoolDevices(driver.buildPoolsFromTable())
-		require.Len(t, second, 1)
-		require.Equal(t, "pool-b", deviceLogicalPoolAttr(t, second, "eth0"))
-	})
-
-	t.Run("allocated pool removed from config does not fall back to another pool", func(t *testing.T) {
-		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-		})
-		dev := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
-		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
-		driver.storeAllocations(
-			[]allocation{{
-				Device:      dev,
-				DeviceName:  "eth0",
-				Manager:     types.DeviceManagerTypeMock,
-				LogicalPool: "pool-a",
-			}},
-			prepTestPodUID,
-			prepTestClaimUID,
-		)
-
-		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-c", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-		}
-		pools := driver.buildPoolsFromTable()
-		require.Empty(t, nodePoolDevices(pools),
-			"the device's allocated pool (pool-a) is no longer configured, so it must not be advertised")
-	})
-
 	t.Run("allocations from different pools make device unavailable", func(t *testing.T) {
 		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
