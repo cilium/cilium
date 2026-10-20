@@ -649,6 +649,12 @@ const (
 	// XDSResourceNames is the names of xDS resources.
 	XDSResourceNames = "xdsResourceNames"
 
+	// XDSResourceNamesUnsubscribe is the names removed from a Delta subscription.
+	XDSResourceNamesUnsubscribe = "xdsResourceNamesUnsubscribe"
+
+	// XDSRemovedResources is the names removed by a Delta xDS response.
+	XDSRemovedResources = "xdsRemovedResources"
+
 	// XDSNumResources is the number of xDS resources in a response.
 	XDSNumResources = "numResources"
 

@@ -127,6 +127,14 @@ func WithListenerObserver(observer ListenerObserver) CacheOption {
 	}
 }
 
+// WithDeltaADS enables per-resource version maps and dependency-ordered Delta
+// responses in the underlying go-control-plane snapshot cache.
+func WithDeltaADS() CacheOption {
+	return func(c *cacheImpl) {
+		c.deltaADS = true
+	}
+}
+
 type cacheImpl struct {
 	// cacheImpl overrides cache.SnapShotCache by composition and selective interface function
 	// overrides to synchronize mutating operations by taking 'mutex'.
@@ -146,15 +154,18 @@ type cacheImpl struct {
 	// rollback state is claimed before it can be coalesced with a later update.
 	// A response channel can serve watches from several nodes, so relays are
 	// channel-owned rather than belonging to any one nodeState.
-	watchRelays   map[chan cache.Response]*watchRelay
-	logger        *slog.Logger
-	completionCbs *callbacks.CompletionCallbacks
+	watchRelays      map[chan cache.Response]*watchRelay
+	deltaWatchRelays map[chan cache.DeltaResponse]*deltaWatchRelay
+	logger           *slog.Logger
+	completionCbs    *callbacks.CompletionCallbacks
 	// resourceGeneration is the latest number reserved from the shared mutation
 	// sequence. Only nextResourceGenerationLocked advances it, under mutex.
 	resourceGeneration callbacks.Generation
 	// listenerObserver is supplied by the ADS server. A nil observer leaves
 	// standalone cache users' explicit ACK waits unchanged.
 	listenerObserver ListenerObserver
+	// deltaADS enables the incremental ADS transport for this cache.
+	deltaADS bool
 }
 
 // SnapshotCache returns SnapshotCache to be passed to go-control-plane.
@@ -208,6 +219,7 @@ var _ Cache = &cacheImpl{}
 type snapshotResourceGroup struct {
 	resources  cache.Resources
 	generation callbacks.Generation
+	versionMap map[string]string
 }
 
 // ciliumSnapshot implements go-control-plane's ResourceSnapshot interface for
@@ -218,12 +230,13 @@ type snapshotResourceGroup struct {
 type ciliumSnapshot struct {
 	resourceGroups typeurl.Slots[snapshotResourceGroup]
 	epoch          uint64
+	delta          bool
 }
 
 // Ensure ciliumSnapshot implements cache.ResourceSnapshot.
 var _ cache.ResourceSnapshot = &ciliumSnapshot{}
 
-func newCiliumSnapshot(resourceGroups typeurl.Slots[snapshotResourceGroup], epoch uint64) *ciliumSnapshot {
+func newCiliumSnapshot(resourceGroups typeurl.Slots[snapshotResourceGroup], epoch uint64, delta bool) *ciliumSnapshot {
 	for typeURL := range typeurl.Count {
 		group := resourceGroups[typeURL]
 		group.resources.Version = formatXDSVersion(epoch, group.generation)
@@ -232,6 +245,7 @@ func newCiliumSnapshot(resourceGroups typeurl.Slots[snapshotResourceGroup], epoc
 	return &ciliumSnapshot{
 		resourceGroups: resourceGroups,
 		epoch:          epoch,
+		delta:          delta,
 	}
 }
 
@@ -267,11 +281,18 @@ func (w *ciliumSnapshot) ConstructVersionMap() error {
 	if w == nil {
 		return fmt.Errorf("missing snapshot")
 	}
-	return fmt.Errorf("delta xDS is not supported by cilium snapshot")
+	if !w.delta {
+		return fmt.Errorf("delta xDS is not supported by cilium snapshot")
+	}
+	return nil
 }
 
-func (w *ciliumSnapshot) GetVersionMap(string) map[string]string {
-	return nil
+func (w *ciliumSnapshot) GetVersionMap(typeURLString string) map[string]string {
+	typeURL, ok := typeurl.FromURL(typeURLString)
+	if !ok {
+		return nil
+	}
+	return w.resourceGroups[typeURL].versionMap
 }
 
 func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
@@ -305,21 +326,20 @@ func NewCache(logger *slog.Logger, options ...CacheOption) Cache {
 }
 
 func newCache(logger *slog.Logger, options ...CacheOption) *cacheImpl {
-	// ADS transport is configured by the server. The snapshot cache's ADS mode
-	// would withhold named responses unless they request the complete group,
-	// preventing independent subscriptions from consuming their own resources.
-	snapshotCache := cache.NewSnapshotCache(false, cache.IDHash{}, snapshotCacheLogger(logger))
-
 	c := &cacheImpl{
-		snapshotCache: snapshotCache,
-		mutex:         &lock.RWMutex{},
-		watchRelays:   make(map[chan cache.Response]*watchRelay),
-		logger:        logger,
+		mutex:            &lock.RWMutex{},
+		watchRelays:      make(map[chan cache.Response]*watchRelay),
+		deltaWatchRelays: make(map[chan cache.DeltaResponse]*deltaWatchRelay),
+		logger:           logger,
 	}
-	c.completionCbs = callbacks.NewCompletionCallbacks(logger, c)
 	for _, option := range options {
 		option(c)
 	}
+	// SotW ADS keeps named subscriptions independent and orders relayed response
+	// batches itself. Delta ADS uses go-control-plane's ADS ordering so dependent
+	// resource removals and additions are emitted deterministically.
+	c.snapshotCache = cache.NewSnapshotCache(c.deltaADS, cache.IDHash{}, snapshotCacheLogger(logger))
+	c.completionCbs = callbacks.NewCompletionCallbacks(logger, c)
 	return c
 }
 func clusterEndpointName(name string, cluster *envoy_config_cluster.Cluster) string {
@@ -431,17 +451,27 @@ func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceS
 		if len(group.Items) == 0 {
 			group.Items = nil
 		}
+		generation := state.typeStates[typeURL].generation
+		var versionMap map[string]string
+		if c.deltaADS && len(group.Items) != 0 {
+			version := formatXDSVersion(state.epoch, generation)
+			versionMap = make(map[string]string, len(group.Items))
+			for name := range group.Items {
+				versionMap[name] = version
+			}
+		}
 		resourceGroups[typeURL] = snapshotResourceGroup{
 			resources:  group,
-			generation: state.typeStates[typeURL].generation,
+			generation: generation,
+			versionMap: versionMap,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups, state.epoch), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch, c.deltaADS), nil
 }
 
 func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) (cache.ResourceSnapshot, error) {
 	previousSnapshot, ok := previous.(*ciliumSnapshot)
-	if !ok || previousSnapshot == nil || !changedTypeURLs.Known() {
+	if !ok || previousSnapshot == nil || previousSnapshot.epoch != state.epoch || !changedTypeURLs.Known() {
 		return c.generateSnapshotFromState(state)
 	}
 	regenerate := snapshotTypesChangedBy(changedTypeURLs)
@@ -468,12 +498,35 @@ func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, pre
 			// without changing desired CLA revisions or transaction IDs.
 			generation = max(generation, state.typeStates[typeurl.Cluster].generation)
 		}
+		versionMap := previousGroup.versionMap
+		if c.deltaADS && (resourcesChanged || replay) {
+			versionMap = maps.Clone(versionMap)
+			if versionMap == nil && len(group.Items) != 0 {
+				versionMap = make(map[string]string, len(group.Items))
+			}
+			version := formatXDSVersion(state.epoch, generation)
+			for name := range changed.Members() {
+				current, exists := group.Items[name]
+				if !exists {
+					delete(versionMap, name)
+					continue
+				}
+				previous, existed := previousGroup.resources.Items[name]
+				if replay || !existed || previous.Resource != current.Resource {
+					versionMap[name] = version
+				}
+			}
+			if len(versionMap) == 0 {
+				versionMap = nil
+			}
+		}
 		resourceGroups[typeURL] = snapshotResourceGroup{
 			resources:  group,
 			generation: generation,
+			versionMap: versionMap,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups, state.epoch), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch, c.deltaADS), nil
 }
 
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
@@ -511,6 +564,7 @@ type resourceTransaction struct {
 	// Only API mutations also use it as the changed entries' TransactionID.
 	generation            callbacks.Generation
 	deliveries            []responseDelivery
+	deltaDeliveries       []deltaResponseDelivery
 	finalized             []finalizedCompletion
 	registeredCompletions set.Set[*completion.Completion]
 	immediateCompletions  []immediateCompletion
@@ -565,6 +619,7 @@ func (tx *resourceTransaction) complete() {
 	}
 	c.mutex.Unlock()
 	c.deliverResponses(tx.deliveries)
+	c.deliverDeltaResponses(tx.deltaDeliveries)
 	if tx.updateErr != nil {
 		// Unchanged-resource waits may have been registered before publication.
 		// Detach every transaction-owned wait before invoking its callback.
@@ -1138,6 +1193,7 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		finalized, err = c.finalizePendingPublicationLocked(tx.ctx, state.nodeID)
 	}
 	deliveries := c.collectResponseDeliveriesLocked()
+	deltaDeliveries := c.collectDeltaResponseDeliveriesLocked()
 	if err != nil {
 		if options.tracking == noRollbackTracking {
 			for typeURL := range changedTypeURLs.Members() {
@@ -1167,6 +1223,7 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		state.rollbacks.pruneUnownedRemovalsLocked(tx, changes, options)
 	}
 	tx.deliveries = deliveries
+	tx.deltaDeliveries = deltaDeliveries
 	tx.finalized = finalized
 	tx.updateErr = err
 	return err
@@ -1383,9 +1440,28 @@ func (c *cacheImpl) GetResource(nodeID string, typeURL typeurl.Index, resourceNa
 func (snapshot *ciliumSnapshot) withEpoch(epoch uint64) *ciliumSnapshot {
 	// Slots is an array, so this shallow copy isolates all state modified by
 	// newCiliumSnapshot: each group's resources.Version and the snapshot epoch.
-	// Immutable resource maps remain shared.
+	// Immutable resource maps remain shared. Delta per-resource versions must
+	// move to the same epoch so a reconnect cannot suppress current resources
+	// using version strings retained from an earlier server instance.
 	groups := snapshot.resourceGroups
-	return newCiliumSnapshot(groups, epoch)
+	for typeURL := range typeurl.Count {
+		if len(groups[typeURL].versionMap) == 0 {
+			continue
+		}
+		versionMap := make(map[string]string, len(groups[typeURL].versionMap))
+		for name, version := range groups[typeURL].versionMap {
+			colon := strings.IndexByte(version, ':')
+			if colon < 0 {
+				versionMap[name] = formatXDSVersion(epoch, groups[typeURL].generation)
+				continue
+			}
+			versionMap[name] = "e" + strconv.FormatUint(epoch, 10) + version[colon:]
+		}
+		group := groups[typeURL]
+		group.versionMap = versionMap
+		groups[typeURL] = group
+	}
+	return newCiliumSnapshot(groups, epoch, snapshot.delta)
 }
 
 func formatXDSVersion(epoch uint64, generation callbacks.Generation) string {
@@ -1498,10 +1574,6 @@ func (c *cacheImpl) Fetch(_ context.Context, _ *cache.Request) (cache.Response, 
 	return nil, errUnimplemented
 }
 
-func (c *cacheImpl) CreateDeltaWatch(_ *cache.DeltaRequest, _ cache.Subscription, _ chan cache.DeltaResponse) (cancel func(), err error) {
-	return nil, errUnimplemented
-}
-
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
 	if request == nil {
 		return nil, errNilRequest
@@ -1555,8 +1627,10 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	finalized, err := c.prepareLiveSnapshotLocked(state, typeURL)
 	if err != nil {
 		deliveries := c.collectResponseDeliveriesLocked()
+		deltaDeliveries := c.collectDeltaResponseDeliveriesLocked()
 		c.mutex.Unlock()
 		c.deliverResponses(deliveries)
+		c.deliverDeltaResponses(deltaDeliveries)
 		c.completeFinalized(nodeID, finalized)
 		return nil, err
 	}
@@ -1570,8 +1644,10 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 		c.removeTrackedWatchLocked(watch)
 	}
 	deliveries := c.collectResponseDeliveriesLocked()
+	deltaDeliveries := c.collectDeltaResponseDeliveriesLocked()
 	c.mutex.Unlock()
 	c.deliverResponses(deliveries)
+	c.deliverDeltaResponses(deltaDeliveries)
 	c.completeFinalized(nodeID, finalized)
 	if err != nil {
 		return nil, err
@@ -1591,8 +1667,10 @@ func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cac
 	// Collect even on error: go-control-plane may already have installed the
 	// snapshot and queued some responses before failing a later delivery.
 	deliveries := c.collectResponseDeliveriesLocked()
+	deltaDeliveries := c.collectDeltaResponseDeliveriesLocked()
 	c.mutex.Unlock()
 	c.deliverResponses(deliveries)
+	c.deliverDeltaResponses(deltaDeliveries)
 	return err
 }
 
@@ -1615,6 +1693,14 @@ func (c *cacheImpl) ClearSnapshot(nodeID string) {
 					cancels = append(cancels, watch.cancel)
 				}
 				c.removeTrackedWatchLocked(watch)
+			}
+		}
+		for _, watches := range state.openDeltaWatches.All() {
+			for watch := range watches.Members() {
+				if watch.cancel != nil {
+					cancels = append(cancels, watch.cancel)
+				}
+				c.removeTrackedDeltaWatchLocked(watch)
 			}
 		}
 	}
