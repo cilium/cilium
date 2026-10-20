@@ -271,71 +271,17 @@ func (a *Action) WriteDataToPod(ctx context.Context, filePath string, data []byt
 
 	cmd := []string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d > %s", encodedData, filePath)}
 
-	// Retry the exec on transport-level failures only. Unlike ExecInPod, this
-	// is a one-shot setup command with no curl-level --retry, so a transient
-	// failure to establish the exec stream (e.g. an apiserver/konnectivity
-	// upgrade-connection error on managed clusters) would otherwise fail the
-	// whole test before the actual command even runs. A non-zero exit code of
-	// the command itself is not retried: it is a real result and stays fatal.
-	var output bytes.Buffer
-	var err error
-	for i := 1; i <= testCommandRetries; i++ {
-		output, err = pod.K8sClient.ExecInPod(ctx,
-			pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Spec.Containers[0].Name, cmd)
-		if err == nil || !isExecTransportError(err) {
-			break
-		}
-		a.Debugf("retrying writing data to pod due to exec transport error: %s", err)
-		select {
-		case <-ctx.Done():
-		case <-time.After(time.Second):
-		}
-	}
-
+	output, err := pod.K8sClient.ExecInPodRetry(ctx, pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Spec.Containers[0].Name, cmd,
+		k8s.ExecRetryOptions{OnRetry: a.test.LogExecRetry})
 	if err != nil {
 		a.Fatalf("Writing data to pod failed: %s: %s", err, output.String())
 	}
 }
 
-// isExecTransportError reports whether err is a failure to establish the
-// pod-exec stream (as opposed to a non-zero exit code from the command that
-// ran successfully). These are transient infrastructure errors on the path
-// between the apiserver and the kubelet — for example an
-// "unable to upgrade connection: ... error dialing backend: ... 502"
-// returned by the konnectivity/SPDY proxy on managed clusters — and are worth
-// retrying. The upstream error is a plain fmt.Errorf (it is not wrapped in
-// httpstream.UpgradeFailureError), so it is matched by substring.
-func isExecTransportError(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	return strings.Contains(msg, "unable to upgrade connection") ||
-		strings.Contains(msg, "error dialing backend")
-}
-
-// execInPodWithTransportRetry runs a one-shot command in a pod, retrying only
-// on transport-level failures to establish the exec stream (see
-// isExecTransportError). Setup/teardown helpers use it because they have no
-// curl-level --retry of their own, so a single transient apiserver/konnectivity
-// upgrade-connection blip — common on managed clusters and under load — would
-// otherwise abort the whole test before the command ran. A non-zero exit of the
-// command itself is a real result and is returned on the first attempt.
-func (ct *ConnectivityTest) execInPodWithTransportRetry(ctx context.Context, client *k8s.Client, namespace, pod, container string, cmd []string) (bytes.Buffer, error) {
-	var output bytes.Buffer
-	var err error
-	for i := 1; i <= testCommandRetries; i++ {
-		output, err = client.ExecInPod(ctx, namespace, pod, container, cmd)
-		if err == nil || !isExecTransportError(err) {
-			break
-		}
-		ct.Debugf("retrying exec in pod %s/%s due to exec transport error: %s", namespace, pod, err)
-		select {
-		case <-ctx.Done():
-		case <-time.After(time.Second):
-		}
-	}
-	return output, err
+// execInPodRetry runs a setup or teardown command safe to repeat.
+func (ct *ConnectivityTest) execInPodRetry(ctx context.Context, client *k8s.Client, namespace, pod, container string, cmd []string, opts k8s.ExecRetryOptions) (bytes.Buffer, error) {
+	opts.OnRetry = ct.logExecRetry
+	return client.ExecInPodRetry(ctx, namespace, pod, container, cmd, opts)
 }
 
 func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
