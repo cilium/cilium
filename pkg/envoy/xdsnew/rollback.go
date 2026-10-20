@@ -57,10 +57,11 @@ const (
 // Revert restores only resources whose expected API transactions still match;
 // Finalize releases lifecycle ownership without changing desired state. Caller
 // resolution is terminal even if Revert fails, whereas a failed response-driven
-// revert retains its recovery state. The lifecycle is resolved when resources
-// is nil and inverse is empty. Mutable state and ownership bookkeeping are
-// protected by cache.mutex. A NACK may rebase its inverse targets to bypass a
-// rejected predecessor, without changing its expected transactions.
+// revert retains its recovery state. Membership in its owner set identifies a
+// live lifecycle, even if later API calls have superseded its entire inverse.
+// Mutable state and ownership bookkeeping are protected by cache.mutex. A NACK
+// may rebase its inverse targets to bypass a rejected predecessor, without
+// changing its expected transactions.
 type rollbackLifecycle struct {
 	cache *cacheImpl
 	ctx   context.Context
@@ -357,12 +358,72 @@ func (r *rollbackState) newCallerLocked(tx *resourceTransaction, inverse resourc
 	return lifecycle
 }
 
+// supersedeCallerRollbackLocked protects a later caller's admitted desired state
+// from earlier caller recovery, including when both callers request absence.
+// Response recovery and ACK requirements remain unchanged. Only successful API
+// admission calls this, before registering its own caller handle, never corrective
+// reverts. Outstanding callers are usually few; scanning avoids another index.
+// Cache lock required.
+func (r *rollbackState) supersedeCallerRollbackLocked(state *nodeState, typeURL typeurl.Index, name string, current resourceEntry) {
+	for lifecycle := range r.callers.Members() {
+		if lifecycle.generation.TransactionID() != current.transaction {
+			continue
+		}
+		if _, exists := lifecycle.inverse.get(typeURL, name); !exists {
+			return
+		}
+		lifecycle.inverse.remove(typeURL, name)
+		if current.resource == nil {
+			owners := &state.typeStates[typeURL].rollbacks
+			key := rollbackOwnerKey{name: name, transaction: current.transaction}
+			owners.removeOwner(key)
+			owners.pruneTombstone(state.resources[typeURL], key)
+			if len(state.resources[typeURL]) == 0 {
+				state.resources[typeURL] = nil
+			}
+		}
+		return
+	}
+}
+
+func supersedeCallerRollbacks[V interface {
+	cache_types.Resource
+	comparable
+}](r *rollbackState, state *nodeState, typeURL typeurl.Index, removed, upserted map[string]V, inverse *resources) {
+	for name := range removed {
+		if _, replaced := upserted[name]; !replaced {
+			if _, changed := inverse.get(typeURL, name); !changed {
+				r.supersedeCallerRollbackLocked(state, typeURL, name, state.resources[typeURL][name])
+			}
+		}
+	}
+	for name := range upserted {
+		if _, changed := inverse.get(typeURL, name); !changed {
+			// Preparation already proved equality. Changed values have fresh
+			// transactions and already fence earlier caller recovery.
+			r.supersedeCallerRollbackLocked(state, typeURL, name, state.resources[typeURL][name])
+		}
+	}
+}
+
+func (r *rollbackState) supersedeCallerRollbacksLocked(state *nodeState, mutations ResourceMutations, inverse *resources) {
+	if r.callers.Empty() {
+		return
+	}
+	removed, upserted := mutations.Removed, mutations.Upserted
+	supersedeCallerRollbacks(r, state, typeurl.Listener, removed.Listeners, upserted.Listeners, inverse)
+	supersedeCallerRollbacks(r, state, typeurl.Route, removed.Routes, upserted.Routes, inverse)
+	supersedeCallerRollbacks(r, state, typeurl.Cluster, removed.Clusters, upserted.Clusters, inverse)
+	supersedeCallerRollbacks(r, state, typeurl.Endpoint, removed.Endpoints, upserted.Endpoints, inverse)
+	supersedeCallerRollbacks(r, state, typeurl.Secret, removed.Secrets, upserted.Secrets, inverse)
+}
+
 // finalizeLocked consumes the payload and releases its ownership references.
 // Caller Revert is terminal even if it fails. Response Revert retains its
 // payload on failure so a later NACK can retry recovery.
 // Caller must hold cacheImpl.mutex.
 func (lifecycle *rollbackLifecycle) finalizeLocked() {
-	if lifecycle.resources == nil && lifecycle.inverse.empty() {
+	if !lifecycle.state.rollbacks.callers.Has(lifecycle) && !lifecycle.state.rollbacks.responses.Has(lifecycle) {
 		lifecycle.warnDuplicateLocked("finalize")
 		return
 	}
@@ -436,7 +497,7 @@ func (r *rollbackState) prepareRevertLocked(tx *resourceTransaction, rollbacks [
 	var changes resourceChanges
 	if len(rollbacks) == 1 {
 		lifecycle := rollbacks[0].(*rollbackLifecycle)
-		if lifecycle.resources == nil && lifecycle.inverse.empty() {
+		if !r.callers.Has(lifecycle) && !r.responses.Has(lifecycle) {
 			lifecycle.warnDuplicateLocked("revert")
 			return resourceChanges{}, nil
 		}
@@ -485,7 +546,7 @@ func (r *rollbackState) finishRevertLocked(rollbacks []Rollback, err error) {
 			if err != nil {
 				continue
 			}
-		} else if lifecycle.inverse.empty() {
+		} else if !r.callers.Has(lifecycle) {
 			continue
 		}
 		lifecycle.finalizeLocked()

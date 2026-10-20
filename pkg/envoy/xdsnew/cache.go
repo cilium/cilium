@@ -48,6 +48,8 @@ type Cache interface {
 	// ApplyResourcesWithRollback also returns a caller-owned rollback lifecycle
 	// for a changed update. The caller must eventually Finalize or Revert it;
 	// either call is terminal even if Revert returns an error.
+	// Later API reuse of an unchanged value or absence supersedes earlier caller
+	// recovery for that resource, even before ACK. Response recovery is independent.
 	ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) (Rollback, error)
 	// ApplyResource compares only the named resource and builds a sparse mutation
 	// only after detecting an actual semantic change. It accepts every supported
@@ -57,6 +59,8 @@ type Cache interface {
 	// ApplyResourceWithRollback also returns a caller-owned rollback lifecycle
 	// for a changed update. The caller must eventually Finalize or Revert it;
 	// either call is terminal even if Revert returns an error.
+	// Unchanged values and removals follow ApplyResourcesWithRollback's supersession
+	// rules. ACK wait behavior is the same as ApplyResource.
 	ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) (Rollback, error)
 	// GetResource returns one cache-owned immutable resource without
 	// materializing the complete desired resource maps, or nil if absent.
@@ -782,12 +786,18 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 	previous := tx.state.resources[typeURL][name]
 	if previous.resource == resource ||
 		(previous.resource != nil && resource != nil && xds.ResourceEqual(previous.resource, resource)) {
+		var waitEntry resourceEntry
+		if wg != nil {
+			// Supersession can release a removal's last tombstone owner. Capture
+			// its wait revision before that ownership is released.
+			waitEntry = tx.state.resourceWaitEntry(typeURL, name)
+		}
+		tx.state.rollbacks.supersedeCallerRollbackLocked(tx.state, typeURL, name, previous)
 		if wg == nil {
 			return nil, nil
 		}
 		// Use the canonical cache pointer for semantic no-ops, so checking ACK
 		// evidence does not repeat the comparison against a fresh protobuf.
-		waitEntry := tx.state.resourceWaitEntry(typeURL, name)
 		if tx.state.resourceGeneration == 0 && resource == nil ||
 			c.completionCbs.ResourceAccepted(nodeID, typeURL, name, previous.resource, previous.resource != nil, waitEntry.revision) {
 			// A pristine known node has no resource update to acknowledge. After
@@ -842,22 +852,19 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	c := tx.cache
 	state := tx.state
 	changes, changedTypeURLs, inverse := state.prepareResourceMutation(mutations, c.resourceGeneration+1)
-	if state.resourceGeneration == 0 && changedTypeURLs.Empty() {
-		return nil, nil
-	}
 	var unchangedWaits typeURLWaits
 	if changedTypeURLs.Empty() {
-		if wg == nil || waitTypeURLs.Empty() {
-			return nil, nil
-		}
-		for typeURL := range waitTypeURLs.Members() {
-			wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
-			if accepted {
-				continue
+		if state.resourceGeneration != 0 && wg != nil && !waitTypeURLs.Empty() {
+			for typeURL := range waitTypeURLs.Members() {
+				wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
+				if accepted {
+					continue
+				}
+				unchangedWaits.Set(typeURL, wait)
 			}
-			unchangedWaits.Set(typeURL, wait)
+			tx.awaitCurrentVersionLocked(wg, unchangedWaits)
 		}
-		tx.awaitCurrentVersionLocked(wg, unchangedWaits)
+		state.rollbacks.supersedeCallerRollbacksLocked(state, mutations, &inverse)
 		return nil, nil
 	}
 
@@ -894,6 +901,8 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	if err != nil {
 		return nil, err
 	}
+
+	state.rollbacks.supersedeCallerRollbacksLocked(state, mutations, &inverse)
 
 	if inverse.len(typeurl.Listener) > 0 {
 		tx.listenerChanges = committedListenerChanges(changes)

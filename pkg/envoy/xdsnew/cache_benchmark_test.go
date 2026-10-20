@@ -88,6 +88,58 @@ func BenchmarkBulkResourceWaitPreparation(b *testing.B) {
 	}
 }
 
+// BenchmarkSemanticNoOpCallerRollback includes a fresh caller-owned update and
+// its equal-value reuse while other caller handles remain outstanding.
+func BenchmarkSemanticNoOpCallerRollback(b *testing.B) {
+	for _, pending := range []int{0, 1, 64, 512} {
+		for _, bulk := range []bool{false, true} {
+			b.Run(fmt.Sprintf("pending=%d/bulk=%t", pending, bulk), func(b *testing.B) {
+				const nodeID = "benchmark-node"
+				c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID))
+				for i := range pending {
+					name := fmt.Sprintf("pending-%d", i)
+					rollback, err := c.ApplyResourceWithRollback(b.Context(), nodeID, typeurl.Listener, name,
+						&listener.Listener{Name: name}, nil)
+					if err != nil {
+						b.Fatal(err)
+					}
+					b.Cleanup(rollback.Finalize)
+				}
+				var values [2]*listener.Listener
+				var candidates [2]*listener.Listener
+				var mutations [2]ResourceMutations
+				for i := range values {
+					values[i] = &listener.Listener{Name: "resource", StatPrefix: fmt.Sprint(i)}
+					candidates[i] = proto.Clone(values[i]).(*listener.Listener)
+					mutations[i].Upserted.Listeners = map[string]*listener.Listener{"resource": candidates[i]}
+				}
+				b.ReportAllocs()
+				b.ResetTimer()
+				for i := range b.N {
+					version := i % len(values)
+					caller, err := c.ApplyResourceWithRollback(b.Context(), nodeID, typeurl.Listener, "resource", values[version], nil)
+					if err != nil {
+						b.Fatal(err)
+					}
+					var reused Rollback
+					if bulk {
+						reused, err = c.ApplyResourcesWithRollback(b.Context(), nodeID, mutations[version], nil, typeurl.Set{})
+					} else {
+						reused, err = c.ApplyResourceWithRollback(b.Context(), nodeID, typeurl.Listener, "resource", candidates[version], nil)
+					}
+					if err != nil {
+						b.Fatal(err)
+					}
+					if reused != nil {
+						reused.Finalize()
+					}
+					caller.Finalize()
+				}
+			})
+		}
+	}
+}
+
 // BenchmarkSnapshotCLAProjection exercises the production generator with
 // missing, explicit and shared EDS assignments, and with non-EDS Clusters.
 func BenchmarkSnapshotCLAProjection(b *testing.B) {

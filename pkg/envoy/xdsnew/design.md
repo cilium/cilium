@@ -406,6 +406,13 @@ The caller eventually invokes exactly one lifecycle method:
 
 Both calls are terminal. Duplicate calls warn and do nothing.
 
+Successful API reuse of a live value prevents an earlier caller from reverting
+that value. Repeating a removal similarly invalidates earlier restoration claims.
+Only the affected names lose caller recovery; other changes in the earlier
+transaction remain eligible. These rules apply before or after ACK, without
+changing revisions, ACK waits, or response-owned NACK recovery. A caller handle
+remains valid until resolved, even if all its recovery has been superseded.
+
 Caller and response lifecycles are separate objects. An Envoy ACK can precede a
 wider caller failure, so caller rollback remains usable after ACK. Conversely,
 caller cancellation, timeout, or early finalization cannot consume response-owned
