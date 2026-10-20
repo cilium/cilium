@@ -4,11 +4,35 @@
 package kvstore
 
 import (
+	"context"
 	"net/netip"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	client "go.etcd.io/etcd/client/v3"
 )
+
+type recordingEtcdDbgClient struct {
+	deadline time.Time
+}
+
+func (c *recordingEtcdDbgClient) Get(ctx context.Context, _ string, _ ...client.OpOption) (*client.GetResponse, error) {
+	c.deadline, _ = ctx.Deadline()
+	return nil, nil
+}
+
+func TestEtcdDbgGetUsesCallerContext(t *testing.T) {
+	deadline := time.Now().Add(5 * time.Second)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+
+	cl := &recordingEtcdDbgClient{}
+	_, err := etcdDbgGet(ctx, cl)
+
+	require.NoError(t, err)
+	require.Equal(t, deadline, cl.deadline)
+}
 
 func TestEtcdDbgOutputIPs(t *testing.T) {
 	tests := []struct {

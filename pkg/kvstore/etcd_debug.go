@@ -53,6 +53,14 @@ func (DefaultEtcdDbgDialer) DialContext(ctx context.Context, addr string) (net.C
 	return (&net.Dialer{}).DialContext(ctx, "tcp", addr)
 }
 
+type etcdDbgClient interface {
+	Get(context.Context, string, ...client.OpOption) (*client.GetResponse, error)
+}
+
+func etcdDbgGet(ctx context.Context, cl etcdDbgClient) (*client.GetResponse, error) {
+	return cl.Get(ctx, HeartbeatPath)
+}
+
 // EtcdDbg performs a set of sanity checks concerning the connection to the given
 // etcd cluster, and outputs the result in a user-friendly format.
 func EtcdDbg(ctx context.Context, cfgfile string, dialer EtcdDbgDialer, w io.Writer) {
@@ -99,9 +107,7 @@ func EtcdDbg(ctx context.Context, cfgfile string, dialer EtcdDbgDialer, w io.Wri
 	// It doesn't really matter whether the heartbeat key exists or not.
 	// Client.New() does not block on connection failure, and hence
 	// we need to check the connection state to determine the type of failure.
-	ctxGet, cancelGet := context.WithTimeout(ctx, 1*time.Second)
-	defer cancelGet()
-	out, err := cl.Get(ctxGet, HeartbeatPath)
+	out, err := etcdDbgGet(ctx, cl)
 	if err != nil {
 		if cl.ActiveConnection().GetState() == connectivity.TransientFailure {
 			iiw.Println("❌ Failed to establish connection: %s", err)
