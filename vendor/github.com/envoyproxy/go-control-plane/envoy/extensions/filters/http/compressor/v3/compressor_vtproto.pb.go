@@ -167,6 +167,16 @@ func (m *Compressor_ResponseDirectionConfig) MarshalToSizedBufferVTStrict(dAtA [
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.WeakenEtagOnCompress {
+		i--
+		if m.WeakenEtagOnCompress {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x30
+	}
 	if m.StatusHeaderEnabled {
 		i--
 		if m.StatusHeaderEnabled {
@@ -639,6 +649,9 @@ func (m *Compressor_ResponseDirectionConfig) SizeVT() (n int) {
 		n += 1 + protohelpers.SizeOfVarint(uint64(l)) + l
 	}
 	if m.StatusHeaderEnabled {
+		n += 2
+	}
+	if m.WeakenEtagOnCompress {
 		n += 2
 	}
 	n += len(m.unknownFields)
