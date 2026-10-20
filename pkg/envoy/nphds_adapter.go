@@ -160,15 +160,20 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, name string, m
 
 func newNPHDSIPCacheListenerCallbacks(logger *slog.Logger, ipCache IPCacheEventSource, store nphdsResourceStore) envoy_server.CallbackFuncs {
 	var once sync.Once
+	start := func(typeURL string) {
+		if typeURL == NetworkPolicyHostsTypeURL {
+			once.Do(func() {
+				startNPHDSIPCacheListener(logger, ipCache, store)
+			})
+		}
+	}
 	return envoy_server.CallbackFuncs{
 		StreamRequestFunc: func(_ int64, req *discovery.DiscoveryRequest) error {
-			if req.GetTypeUrl() == NetworkPolicyHostsTypeURL {
-				once.Do(func() {
-					// AddListener synchronously dumps the existing mappings before
-					// CreateWatch can answer this first, already validated request.
-					startNPHDSIPCacheListener(logger, ipCache, store)
-				})
-			}
+			start(req.GetTypeUrl())
+			return nil
+		},
+		StreamDeltaRequestFunc: func(_ int64, req *discovery.DeltaDiscoveryRequest) error {
+			start(req.GetTypeUrl())
 			return nil
 		},
 	}

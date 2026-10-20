@@ -723,7 +723,7 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 
 	var backend benchmarkXDSBackend
 	if mode.IsADS() {
-		xdsCache := newADSCache(logger)
+		xdsCache := newADSCache(logger, mode)
 		server := newTestADSServerWithCache(b, xdsCache, logger, nil, localEndpointStore, serverConfig, secretManager, nil)
 		server.l7RulesTranslator = translator
 		backend = benchmarkXDSBackend{

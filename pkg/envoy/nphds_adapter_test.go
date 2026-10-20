@@ -30,7 +30,7 @@ import (
 func newTestNPHDSAdapter(t *testing.T) *nphdsCacheAdapter {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	server := newTestADSServerWithCache(t, newADSCache(logger), logger, nil, nil, xdsServerConfig{}, nil, nil)
+	server := newTestADSServerWithCache(t, newADSCache(logger, config.EnvoyXDSModeADS), logger, nil, nil, xdsServerConfig{}, nil, nil)
 	return newNPHDSCacheAdapter(logger, server)
 }
 
@@ -252,7 +252,7 @@ func TestNPHDSAdapterPublishesFullStateResponses(t *testing.T) {
 
 func TestStartNPHDSIPCacheListener(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	adsCache := newADSCache(logger)
+	adsCache := newADSCache(logger, config.EnvoyXDSModeADS)
 	server := newTestADSServerWithCache(t, adsCache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 
 	// nil ipCache should be a no-op
@@ -297,6 +297,44 @@ func TestADSFirstNPHDSRequestDumpsExistingMappings(t *testing.T) {
 			require.Equal(t, []string{"10.0.0.3/32"}, hosts[200])
 		})
 	}
+}
+
+func TestDeltaADSFirstNPHDSRequestDumpsExistingMappings(t *testing.T) {
+	logger := slog.New(slog.DiscardHandler)
+	ipCache := ipcache.NewIPCache(&ipcache.Configuration{Context: t.Context(), Logger: logger})
+	t.Cleanup(func() { require.NoError(t, ipCache.Shutdown()) })
+	for ip, id := range map[string]identity.NumericIdentity{
+		"10.0.0.1": 100,
+		"10.0.0.2": 100,
+		"10.0.0.3": 200,
+	} {
+		_, err := ipCache.Upsert(ip, nil, 0, nil, ipcache.Identity{ID: id, Source: source.Local})
+		require.NoError(t, err)
+	}
+	server := newTestADSServer(t, logger, ipCache, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeDeltaADS,
+	}, nil, nil)
+	client := newTestADSClient(t, server)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	stream, err := client.DeltaAggregatedResources(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+		Node:                   &envoy_config_core.Node{Id: localNodeID},
+		TypeUrl:                NetworkPolicyHostsTypeURL,
+		ResourceNamesSubscribe: []string{"*"},
+	}))
+	response, err := stream.Recv()
+	require.NoError(t, err)
+	require.Len(t, response.GetResources(), 2, "the first response must contain the complete IPCache dump")
+	hosts := make(map[uint64][]string)
+	for _, resource := range response.GetResources() {
+		var policyHosts envoyAPI.NetworkPolicyHosts
+		require.NoError(t, resource.GetResource().UnmarshalTo(&policyHosts))
+		hosts[policyHosts.Policy] = policyHosts.HostAddresses
+	}
+	require.Equal(t, []string{"10.0.0.1/32", "10.0.0.2/32"}, hosts[100])
+	require.Equal(t, []string{"10.0.0.3/32"}, hosts[200])
 }
 
 type mockIPCacheEventSource struct {

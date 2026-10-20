@@ -1913,7 +1913,7 @@
      - bool
      - ``true``
    * - :spelling:ignore:`envoy.xdsMode`
-     - xDS server operating mode for Envoy proxy configuration. Supported values are: "split" for the existing per-resource-type xDS, "delta-split" for incremental Delta xDS, "ads" for the ADS (Aggregated Discovery Service) xDS, and "strict-ads" as a compatibility alias for "ads". Null value omits setting this option. Cilium Agent defaults missing option to "split" to keep upgrades in the legacy mode.
+     - xDS server operating mode for Envoy proxy configuration. Supported values are: "split" for the existing per-resource-type xDS, "delta-split" for incremental Delta xDS, "ads" for State-of-the-World ADS (Aggregated Discovery Service) xDS, "delta-ads" for incremental ADS xDS, and "strict-ads" as a compatibility alias for "ads". Null value omits setting this option. Cilium Agent defaults missing option to "split" to keep upgrades in the legacy mode.
      - string
      - ``ads`` for new 1.20+ installations; none when ``upgradeCompatibility`` is set below ``1.20``
    * - :spelling:ignore:`envoy.xffNumTrustedHopsL7PolicyEgress`
