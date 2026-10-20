@@ -47,7 +47,7 @@ func TestUpsertPoolPreservesReservedRanges(t *testing.T) {
 		},
 	}
 
-	allocator := multipool.NewPoolAllocator(hivetest.Logger(t), true, false)
+	allocator := multipool.NewPoolAllocator(hivetest.Logger(t), true, false, nil)
 	require.NoError(t, upsertPool(allocator, pool))
 	allocator.RestoreFinished()
 
