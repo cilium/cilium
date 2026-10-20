@@ -405,6 +405,8 @@ func (m *RateLimit) validate(all bool) error {
 
 	// no validation rules for MetadataNamespace
 
+	// no validation rules for EnableRetryAfterHeader
+
 	if len(errors) > 0 {
 		return RateLimitMultiError(errors)
 	}

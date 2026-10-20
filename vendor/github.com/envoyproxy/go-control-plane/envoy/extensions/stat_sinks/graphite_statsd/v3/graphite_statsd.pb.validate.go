@@ -75,6 +75,8 @@ func (m *GraphiteStatsdSink) validate(all bool) error {
 
 	}
 
+	// no validation rules for ScaleHistogramUnitsToMilliseconds
+
 	oneofStatsdSpecifierPresent := false
 	switch v := m.StatsdSpecifier.(type) {
 	case *GraphiteStatsdSink_Address:

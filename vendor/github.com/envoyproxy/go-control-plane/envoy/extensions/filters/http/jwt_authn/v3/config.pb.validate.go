@@ -2752,15 +2752,40 @@ func (m *JwtClaimToHeader) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	if utf8.RuneCountInString(m.GetClaimName()) < 1 {
-		err := JwtClaimToHeaderValidationError{
-			field:  "ClaimName",
-			reason: "value length must be at least 1 runes",
+	// no validation rules for ClaimName
+
+	for idx, item := range m.GetClaimPath() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, JwtClaimToHeaderValidationError{
+						field:  fmt.Sprintf("ClaimPath[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, JwtClaimToHeaderValidationError{
+						field:  fmt.Sprintf("ClaimPath[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return JwtClaimToHeaderValidationError{
+					field:  fmt.Sprintf("ClaimPath[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
 		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
+
 	}
 
 	if len(errors) > 0 {
@@ -2945,3 +2970,117 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = JwtProvider_NormalizePayloadValidationError{}
+
+// Validate checks the field values on JwtClaimToHeader_PathSegment with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *JwtClaimToHeader_PathSegment) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on JwtClaimToHeader_PathSegment with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// JwtClaimToHeader_PathSegmentMultiError, or nil if none found.
+func (m *JwtClaimToHeader_PathSegment) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *JwtClaimToHeader_PathSegment) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetKey()) < 1 {
+		err := JwtClaimToHeader_PathSegmentValidationError{
+			field:  "Key",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return JwtClaimToHeader_PathSegmentMultiError(errors)
+	}
+
+	return nil
+}
+
+// JwtClaimToHeader_PathSegmentMultiError is an error wrapping multiple
+// validation errors returned by JwtClaimToHeader_PathSegment.ValidateAll() if
+// the designated constraints aren't met.
+type JwtClaimToHeader_PathSegmentMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m JwtClaimToHeader_PathSegmentMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m JwtClaimToHeader_PathSegmentMultiError) AllErrors() []error { return m }
+
+// JwtClaimToHeader_PathSegmentValidationError is the validation error returned
+// by JwtClaimToHeader_PathSegment.Validate if the designated constraints
+// aren't met.
+type JwtClaimToHeader_PathSegmentValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e JwtClaimToHeader_PathSegmentValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e JwtClaimToHeader_PathSegmentValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e JwtClaimToHeader_PathSegmentValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e JwtClaimToHeader_PathSegmentValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e JwtClaimToHeader_PathSegmentValidationError) ErrorName() string {
+	return "JwtClaimToHeader_PathSegmentValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e JwtClaimToHeader_PathSegmentValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sJwtClaimToHeader_PathSegment.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = JwtClaimToHeader_PathSegmentValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = JwtClaimToHeader_PathSegmentValidationError{}

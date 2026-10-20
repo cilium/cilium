@@ -161,6 +161,8 @@ func (m *DnsFilterConfig) validate(all bool) error {
 
 	}
 
+	// no validation rules for CaseInsensitive
+
 	if len(errors) > 0 {
 		return DnsFilterConfigMultiError(errors)
 	}
