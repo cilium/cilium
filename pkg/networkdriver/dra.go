@@ -539,7 +539,7 @@ func (driver *Driver) getNewAllocation(
 	}
 	alloc.Device = draDevice.Dev
 	alloc.Manager = draDevice.Manager
-	alloc.LogicalPool = driver.resolvePool(draDevice.Dev, driver.sortedConfiguredPools())
+	alloc.LogicalPool = driver.resolvePool(draDevice.Dev, driver.config.Pools)
 
 	// Build the device status
 	var built resourceapi.AllocatedDeviceStatus

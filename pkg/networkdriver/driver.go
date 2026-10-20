@@ -203,9 +203,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 			logfields.Config, configLogInfo,
 		)
 
-		driver.config = &cfg
-
-		if err := validateConfig(driver.config); err != nil {
+		if err := validateConfig(&cfg); err != nil {
 			driver.logger.ErrorContext(
 				ctx, "invalid configuration",
 				logfields.Error, err,
@@ -213,6 +211,7 @@ func (driver *Driver) Start(ctx cell.HookContext) error {
 
 			return err
 		}
+		driver.setConfig(&cfg)
 
 		mgrs, err := devicemanagers.InitManagers(driver.logger, driver.config.DeviceManagerConfigs)
 		if err != nil {
@@ -520,16 +519,13 @@ func deviceSlices(devices []resourceapi.Device) []resourceslice.Slice {
 	return slices
 }
 
-// sortedConfiguredPools returns driver.config.Pools sorted by PoolName. The
-// sort makes resolvePool's "first alphabetically wins" tie-break
-// deterministic, and gives callers a stable slice to reuse across a single
-// reconcile/restore pass instead of re-sorting per device.
-func (driver *Driver) sortedConfiguredPools() []v2alpha1.CiliumNetworkDriverDevicePoolConfig {
-	sortedPools := slices.Clone(driver.config.Pools)
-	slices.SortFunc(sortedPools, func(a, b v2alpha1.CiliumNetworkDriverDevicePoolConfig) int {
+// setConfig stores the immutable driver configuration and orders pools once so
+// resolvePool's "first alphabetically wins" tie-break is deterministic.
+func (driver *Driver) setConfig(config *v2alpha1.CiliumNetworkDriverNodeConfigSpec) {
+	driver.config = config
+	slices.SortFunc(driver.config.Pools, func(a, b v2alpha1.CiliumNetworkDriverDevicePoolConfig) int {
 		return cmp.Compare(a.PoolName, b.PoolName)
 	})
-	return sortedPools
 }
 
 // resolvePool returns the single pool name the device should be assigned to.
@@ -569,10 +565,8 @@ func (driver *Driver) resolvePool(dev types.Device, sortedPools []v2alpha1.Ciliu
 func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 	txn := driver.db.ReadTxn()
 
-	sortedPools := driver.sortedConfiguredPools()
-
-	configuredPools := make(map[string]struct{}, len(sortedPools))
-	for _, p := range sortedPools {
+	configuredPools := make(map[string]struct{}, len(driver.config.Pools))
+	for _, p := range driver.config.Pools {
 		if p.Filter != nil {
 			configuredPools[p.PoolName] = struct{}{}
 		}
@@ -611,7 +605,7 @@ func (driver *Driver) buildPoolsFromTable() map[string]resourceslice.Pool {
 
 		pool, allocated := allocatedLogicalPools[d.Name]
 		if !allocated {
-			pool = driver.resolvePool(d.Dev, sortedPools)
+			pool = driver.resolvePool(d.Dev, driver.config.Pools)
 		}
 		if pool == "" {
 			// The device matches no configured pool.
@@ -678,8 +672,6 @@ func (driver *Driver) deviceFromClaim(devStatus resourceapi.AllocatedDeviceStatu
 
 func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, wtxn statedb.WriteTxn) error {
 	var errs []error
-
-	sortedPools := driver.sortedConfiguredPools()
 
 	// Detect the crash-before-UpdateStatus case: the claim is allocated and
 	// reserved (the scheduler+kubelet did their part) but Status.Devices is
@@ -751,7 +743,7 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 		// only for pre-upgrade data with no persisted LogicalPool.
 		logicalPool := alloc.LogicalPool
 		if logicalPool == "" {
-			logicalPool = driver.resolvePool(alloc.Device, sortedPools)
+			logicalPool = driver.resolvePool(alloc.Device, driver.config.Pools)
 		}
 
 		// Restore allocation state before DRA/NRI callbacks can arrive. Device
