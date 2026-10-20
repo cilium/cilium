@@ -26,8 +26,9 @@ type nodeState struct {
 	// epoch is the wire-version namespace shared by this node's resource types.
 	epoch uint64
 	// streams use separate slots for the independently numbered protocol modes.
-	streams     [callbacks.StreamModeCount]set.Set[int64]
-	openWatches nodeWatchState
+	streams          [callbacks.StreamModeCount]set.Set[int64]
+	openWatches      nodeWatchState
+	openDeltaWatches nodeDeltaWatchState
 	// resourceGeneration identifies the latest desired state, while
 	// snapshotGeneration identifies the state most recently published to Envoy.
 	resourceGeneration callbacks.Generation
@@ -168,6 +169,10 @@ func (state *nodeState) hasOpenWatchLocked(typeURLs typeurl.Set) bool {
 	for typeURL := range typeURLs.Members() {
 		watches, _ := state.openWatches.Get(typeURL)
 		if !watches.Empty() {
+			return true
+		}
+		deltaWatches, _ := state.openDeltaWatches.Get(typeURL)
+		if !deltaWatches.Empty() {
 			return true
 		}
 	}

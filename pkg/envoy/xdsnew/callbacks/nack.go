@@ -70,7 +70,8 @@ func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.Discove
 			cb.mutex.Unlock()
 			return nil
 		}
-		recovery = cb.handleNACKLocked(streamID, req, stream, typeURL, cb.ensureTypeURLState(nodeID, typeURL))
+		recovery = cb.handleNACKLocked(streamKey{streamID: streamID, mode: StreamModeSotW},
+			req, stream, typeURL, cb.ensureTypeURLState(nodeID, typeURL))
 		cb.mutex.Unlock()
 
 		rollbacks := make([]Rollback, len(recovery.reverts))
