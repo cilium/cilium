@@ -15,6 +15,8 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
+	clidefaults "github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	"github.com/cilium/cilium/pkg/defaults"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -72,8 +74,8 @@ func getInterNodeIface(ctx context.Context, t *check.Test,
 		fmt.Sprintf("%s | grep -oE 'dev [^ ]*' | cut -d' ' -f2", ipRouteGetCmd),
 	}
 	t.Debugf("Running %s", strings.Join(cmd, " "))
-	dev, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
-		clientHost.Pod.Name, "", cmd)
+	dev, err := clientHost.K8sClient.ExecInPodRetry(ctx, clientHost.Pod.Namespace,
+		clientHost.Pod.Name, "", cmd, k8s.ExecRetryOptions{AttemptTimeout: clidefaults.ExecAttemptTimeout, RequireOutput: true, OnRetry: t.LogExecRetry})
 	if err != nil {
 		t.Fatalf("Failed to get IP route: %s", err)
 	}
@@ -176,8 +178,8 @@ func getFilter(ctx context.Context, t *check.Test, client, clientHost *check.Pod
 				dstIP),
 		}
 		t.Debugf("Running %s", strings.Join(cmd, " "))
-		srcIP, err := clientHost.K8sClient.ExecInPod(ctx, clientHost.Pod.Namespace,
-			clientHost.Pod.Name, "", cmd)
+		srcIP, err := clientHost.K8sClient.ExecInPodRetry(ctx, clientHost.Pod.Namespace,
+			clientHost.Pod.Name, "", cmd, k8s.ExecRetryOptions{AttemptTimeout: clidefaults.ExecAttemptTimeout, RequireOutput: true, OnRetry: t.LogExecRetry})
 		if err != nil {
 			t.Fatalf("Failed to get IP route: %s", err)
 		}
