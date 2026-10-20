@@ -29,11 +29,13 @@ var RegisterCRDsCell = cell.Module(
 	"Create Cilium CRDs",
 
 	cell.Config(defaultConfig),
+	cell.Config(defaultKCNPCRDConfig),
 
 	cell.Invoke(createCRDs),
 
 	cell.ProvidePrivate(
 		newCiliumGroupCRDs,
+		newKCNPCRDs,
 	),
 )
 
