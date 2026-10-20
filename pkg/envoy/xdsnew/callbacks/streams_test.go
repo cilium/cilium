@@ -65,3 +65,58 @@ func TestStreamLifecycleHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestDeltaStreamLifecycleHandler(t *testing.T) {
+	for _, firstRequest := range []string{"subscription", "nack"} {
+		t.Run(firstRequest, func(t *testing.T) {
+			handler := &testStreamLifecycleHandler{}
+			cb := NewCompletionCallbacks(slog.New(slog.DiscardHandler), handler)
+			chained := ChainedCallbacks{cb}
+
+			require.NoError(t, chained.OnDeltaStreamOpen(t.Context(), 7, ""))
+			deltaRequest := &discovery.DeltaDiscoveryRequest{
+				Node:    &core.Node{Id: "node-1"},
+				TypeUrl: typeurl.NetworkPolicy.URL(),
+			}
+			if firstRequest == "nack" {
+				// Even a stale NACK can be the first request identifying a node.
+				deltaRequest.ResponseNonce = "stale"
+				deltaRequest.ErrorDetail = &status.Status{Message: "rejected policy"}
+			}
+			require.NoError(t, chained.OnStreamDeltaRequest(7, deltaRequest))
+			require.Equal(t, []streamLifecycleEvent{{
+				streamID: 7, nodeID: "node-1", mode: StreamModeDelta,
+			}}, handler.started)
+			// SotW and Delta stream counters may reuse the same numeric ID without
+			// colliding, and a repeated Delta request starts no second lifecycle.
+			require.NoError(t, chained.OnStreamDeltaRequest(7, &discovery.DeltaDiscoveryRequest{
+				TypeUrl: deltaRequest.TypeUrl,
+			}))
+			require.Len(t, handler.started, 1)
+
+			chained.OnDeltaStreamClosed(7, nil)
+			require.Equal(t, []streamLifecycleEvent{{
+				streamID: 7, nodeID: "node-1", mode: StreamModeDelta,
+			}}, handler.closed)
+		})
+	}
+}
+
+func TestDeltaStreamCloseDiscardsUndeliveredResponseMetadata(t *testing.T) {
+	cb := NewCompletionCallbacks(slog.New(slog.DiscardHandler), &testStreamLifecycleHandler{})
+	request := &discovery.DeltaDiscoveryRequest{
+		Node:    &core.Node{Id: "node-1"},
+		TypeUrl: typeurl.Listener.URL(),
+	}
+	require.NoError(t, cb.OnStreamDeltaRequest(7, request))
+
+	cb.mutex.Lock()
+	cb.preparedDeltaResponses[request] = pendingResponse{pendingGeneration: 1}
+	cb.mutex.Unlock()
+
+	cb.OnDeltaStreamClosed(7, nil)
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	require.Empty(t, cb.preparedDeltaResponses)
+	require.Empty(t, cb.streams)
+}

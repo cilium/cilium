@@ -95,6 +95,30 @@ func (scope *ResourceScope) intersects(coverage *responseCoverage, generation Ge
 	return false
 }
 
+// intersectsChanges is the rejection counterpart of intersects. A wildcard
+// Delta ACK reconciles unchanged resources from the client's version map, but
+// a NACK can reject only updates and removals carried by that response.
+func (scope *ResourceScope) intersectsChanges(coverage *responseCoverage, generation Generation) bool {
+	if coverage == nil || !coverage.delta {
+		return scope.intersects(coverage, generation)
+	}
+	if scope == nil {
+		return false
+	}
+	if scope.wholeType() {
+		return len(coverage.returned) != 0
+	}
+	if scope.name != "" {
+		return scope.revision.revision <= generation && coverage.containsChange(scope.name)
+	}
+	for name, required := range scope.more {
+		if required.revision <= generation && coverage.containsChange(name) {
+			return true
+		}
+	}
+	return false
+}
+
 // acknowledge consumes just the requirements represented by this response.
 // Return true only when every requirement has been met. The caller removes
 // the completed wait immediately, so the zero value need not encode completion.
@@ -148,6 +172,12 @@ func WithSnapshotPublication(ctx context.Context, generation Generation, snapsho
 	return context.WithValue(ctx, snapshotGenerationContextKey{}, &snapshotPublication{generation: generation, snapshot: snapshot})
 }
 
+// ResponseMetadata is the common context-bearing portion of SotW and Delta
+// cache responses used by generation and rollback bookkeeping.
+type ResponseMetadata interface {
+	GetContext() context.Context
+}
+
 // responseCoverage is immutable. A nil returned map means every resource in
 // resources was delivered. Partial responses own a name map: go-control-plane
 // may subsequently mutate its returned-resource map when a subscription changes.
@@ -156,15 +186,22 @@ type responseCoverage struct {
 	returned  map[string]string
 	requested []string
 	typeURL   typeurl.Index
+	delta     bool
+	full      bool
 }
 
 func (coverage *responseCoverage) complete() bool {
-	return coverage == nil || (coverage.returned == nil && len(coverage.requested) == 0)
+	return coverage == nil || coverage.full || (coverage.returned == nil && len(coverage.requested) == 0)
 }
 
 func (coverage *responseCoverage) contains(name string) bool {
 	if coverage == nil {
 		// Transport-only callback tests have no cache response metadata.
+		return true
+	}
+	if coverage.delta && coverage.full {
+		// Applying a wildcard Delta response reconciles the complete snapshot:
+		// unchanged names came from the client's initial/returned version map.
 		return true
 	}
 	if coverage.returned != nil {
@@ -180,6 +217,22 @@ func (coverage *responseCoverage) contains(name string) bool {
 		return false
 	}
 	return len(coverage.requested) == 0 || slices.Contains(coverage.requested, name)
+}
+
+// containsChange reports whether this response explicitly carries a resource
+// update or removal. Unlike contains, it does not treat a wildcard Delta
+// response as covering unchanged resources inherited from the client's version
+// map. Rollback ownership must be limited to changes the response can NACK.
+func (coverage *responseCoverage) containsChange(name string) bool {
+	if coverage == nil {
+		// Transport-only callback tests have no cache response metadata.
+		return true
+	}
+	if coverage.delta {
+		_, found := coverage.returned[name]
+		return found
+	}
+	return coverage.contains(name)
 }
 
 func typeHasDeletionSemantics(index typeurl.Index) bool {
@@ -219,6 +272,67 @@ func WithResponseCoverage(response cache.Response, generation Generation, snapsh
 	return &generationResponse{Response: response, ctx: context.WithValue(ctx, responseCoverageContextKey{}, coverage)}
 }
 
+type generationDeltaResponse struct {
+	cache.DeltaResponse
+	ctx context.Context
+}
+
+func (response *generationDeltaResponse) GetContext() context.Context {
+	return response.ctx
+}
+
+// WithDeltaResponseCoverage captures the names actually changed or removed by
+// a Delta response. GetReturnedResources is cumulative, so compare it with the
+// subscription's pre-response map instead of treating the whole map as payload.
+func WithDeltaResponseCoverage(response cache.DeltaResponse, generation Generation, snapshot cache.ResourceSnapshot, subscription cache.Subscription) cache.DeltaResponse {
+	ctx := response.GetContext()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if ctx.Value(snapshotGenerationContextKey{}) == nil {
+		ctx = WithSnapshotGeneration(ctx, generation)
+	}
+	if published, ok := ctx.Value(snapshotGenerationContextKey{}).(*snapshotPublication); ok {
+		snapshot = published.snapshot
+	}
+	if snapshot == nil || subscription == nil {
+		return &generationDeltaResponse{DeltaResponse: response, ctx: ctx}
+	}
+	index, supported := typeurl.FromURL(response.GetDeltaRequest().GetTypeUrl())
+	if !supported {
+		return &generationDeltaResponse{DeltaResponse: response, ctx: ctx}
+	}
+	previous := subscription.ReturnedResources()
+	next := response.GetReturnedResources()
+	changed := make(map[string]string)
+	for name, version := range next {
+		if oldVersion, exists := previous[name]; !exists || oldVersion != version {
+			changed[name] = version
+		}
+	}
+	subscribed := subscription.SubscribedResources()
+	for name := range previous {
+		if _, exists := next[name]; exists {
+			continue
+		}
+		// Removing a name only from the subscription is not an xDS removal.
+		if subscription.IsWildcard() {
+			changed[name] = ""
+		} else if _, stillSubscribed := subscribed[name]; stillSubscribed {
+			changed[name] = ""
+		}
+	}
+	coverage := &responseCoverage{
+		resources: snapshot.GetResourcesAndTTL(index.URL()),
+		returned:  changed,
+		typeURL:   index,
+		delta:     true,
+		full:      subscription.IsWildcard(),
+	}
+	ctx = context.WithValue(ctx, responseCoverageContextKey{}, coverage)
+	return &generationDeltaResponse{DeltaResponse: response, ctx: ctx}
+}
+
 func responseCoverageFromContext(ctx context.Context) *responseCoverage {
 	coverage, _ := ctx.Value(responseCoverageContextKey{}).(*responseCoverage)
 	return coverage
@@ -228,14 +342,17 @@ func responseCoverageFromContext(ctx context.Context) *responseCoverage {
 // entries which this exact response can test, including observable removals.
 // The transaction must be within the response boundary and its name must be
 // represented; numerical ordering alone does not prove resource coverage.
-func ResponseCoversResource(response cache.Response, name string, transaction TransactionID) bool {
+func ResponseCoversResource(response ResponseMetadata, name string, transaction TransactionID) bool {
 	ctx := response.GetContext()
-	return transaction.transaction <= snapshotGenerationFromContext(ctx) && responseCoverageFromContext(ctx).contains(name)
+	return transaction.transaction <= snapshotGenerationFromContext(ctx) && responseCoverageFromContext(ctx).containsChange(name)
 }
 
-func ResponseCoversType(response cache.Response, generation Generation) bool {
+func ResponseCoversType(response ResponseMetadata, generation Generation) bool {
 	ctx := response.GetContext()
-	return generation <= snapshotGenerationFromContext(ctx) && responseCoverageFromContext(ctx).complete()
+	coverage := responseCoverageFromContext(ctx)
+	// A wildcard Delta response reconciles the complete client state, but only
+	// its explicit changes can be rejected. Claim rollback per resource below.
+	return generation <= snapshotGenerationFromContext(ctx) && (coverage == nil || !coverage.delta) && coverage.complete()
 }
 
 // SnapshotResourceStateIsObservable reports whether SotW can communicate this
@@ -257,8 +374,11 @@ func SnapshotResourceStateIsObservable(snapshot cache.ResourceSnapshot, index ty
 // can still require a later partial response. ResponseCoversResource
 // checks actual coverage and generation. Missing metadata is conservatively
 // treated as observable.
-func ResourceStateIsObservable(response cache.Response, name string) bool {
+func ResourceStateIsObservable(response ResponseMetadata, name string) bool {
 	coverage := responseCoverageFromContext(response.GetContext())
+	if coverage != nil && coverage.delta {
+		return coverage.containsChange(name)
+	}
 	if coverage == nil || typeHasDeletionSemantics(coverage.typeURL) {
 		return true
 	}
@@ -277,7 +397,7 @@ func (group acceptedResourceGroup) resource(name string, index typeurl.Index) (c
 		return accepted.resource, accepted.resource.Resource != nil, accepted.generation
 	}
 	resource, exists := group.resources[name]
-	if !exists && (!typeHasDeletionSemantics(index) ||
+	if !exists && ((!group.delta && !typeHasDeletionSemantics(index)) ||
 		(len(group.requested) != 0 && !slices.Contains(group.requested, name))) {
 		return cache_types.ResourceWithTTL{}, false, 0
 	}
@@ -285,10 +405,19 @@ func (group acceptedResourceGroup) resource(name string, index typeurl.Index) (c
 }
 
 func (group *acceptedResourceGroup) acknowledge(coverage *responseCoverage, generation Generation) {
+	if coverage.delta && coverage.full {
+		group.generation = generation
+		group.resources = coverage.resources
+		group.requested = nil
+		group.partial = nil
+		group.delta = true
+		return
+	}
 	if coverage.returned == nil && generation >= group.generation {
 		group.generation = generation
 		group.resources = coverage.resources
 		group.requested = coverage.requested
+		group.delta = false
 		for name, accepted := range group.partial {
 			if accepted.generation <= generation {
 				delete(group.partial, name)
