@@ -5,6 +5,8 @@ package ipam
 
 import (
 	"context"
+	"net/netip"
+	"sync/atomic"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -12,8 +14,10 @@ import (
 
 	apiMock "github.com/cilium/cilium/pkg/aws/api/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam/resynctest"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 // hookedEC2API calls afterGetInstances while a full resync holds its EC2 snapshot.
@@ -107,4 +111,137 @@ func TestFullResync(t *testing.T) {
 		_, hooked, mngr, _ := newHookedInstancesManager(t, instanceID)
 		resynctest.InstanceDelete(t, mngr, hooked.setHook, instanceID)
 	})
+}
+
+// instanceSyncResyncer runs the shared fetch-window helper against a partial sync.
+type instanceSyncResyncer struct {
+	manager    *InstancesManager
+	instanceID string
+}
+
+func (r instanceSyncResyncer) Resync(ctx context.Context) (time.Time, error) {
+	return r.manager.InstanceSync(ctx, r.instanceID)
+}
+
+type hookedInstanceEC2API struct {
+	EC2API
+	afterGetInstance func()
+	hookCalled       atomic.Bool
+}
+
+func (h *hookedInstanceEC2API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error) {
+	instance, err := h.EC2API.GetInstance(ctx, vpcs, subnets, instanceID)
+	// Only delay the first snapshot; a concurrent InstanceSync must be able to
+	// fetch the newer cloud state without entering the same hook again.
+	if h.afterGetInstance != nil && h.hookCalled.CompareAndSwap(false, true) {
+		h.afterGetInstance()
+	}
+	return instance, err
+}
+
+func TestInstanceSyncPreservesConcurrentCacheChanges(t *testing.T) {
+	const (
+		instanceID = "i-partial-sync"
+		eniID      = "eni-1"
+		retainedIP = "10.0.0.1"
+		releasedIP = "10.0.0.2"
+		addedIP    = "10.0.0.3"
+	)
+	initialENI := &types.ENI{
+		ID: eniID,
+		Addresses: []iputil.Addr{
+			iputil.AddrFrom(netip.MustParseAddr(retainedIP)),
+			iputil.AddrFrom(netip.MustParseAddr(releasedIP)),
+		},
+	}
+	newENI := &types.ENI{ID: "eni-2", Description: "new ENI"}
+	addedENI := initialENI.DeepCopy()
+	addedENI.Addresses = append(addedENI.Addresses, iputil.AddrFrom(netip.MustParseAddr(addedIP)))
+	releasedENI := initialENI.DeepCopy()
+	releasedENI.Addresses = releasedENI.Addresses[:1]
+
+	tests := []struct {
+		name   string
+		want   apiMock.ENIMap
+		update func(context.Context, *InstancesManager) error
+	}{
+		{
+			name: "UpdateENI",
+			want: apiMock.ENIMap{eniID: initialENI, newENI.ID: newENI},
+			update: func(_ context.Context, m *InstancesManager) error {
+				m.UpdateENI(instanceID, newENI)
+				return nil
+			},
+		},
+		{
+			name: "InstanceSync",
+			want: apiMock.ENIMap{eniID: initialENI, newENI.ID: newENI},
+			update: func(ctx context.Context, m *InstancesManager) error {
+				_, err := m.InstanceSync(ctx, instanceID)
+				return err
+			},
+		},
+		{
+			name: "AddIPsToENI",
+			want: apiMock.ENIMap{eniID: addedENI},
+			update: func(_ context.Context, m *InstancesManager) error {
+				m.AddIPsToENI(instanceID, eniID, []string{addedIP})
+				return nil
+			},
+		},
+		{
+			name: "RemoveIPsFromENI",
+			want: apiMock.ENIMap{eniID: releasedENI},
+			update: func(_ context.Context, m *InstancesManager) error {
+				m.RemoveIPsFromENI(instanceID, eniID, []string{releasedIP})
+				return nil
+			},
+		},
+		{
+			name: "DeleteInstance",
+			want: apiMock.ENIMap{},
+			update: func(_ context.Context, m *InstancesManager) error {
+				m.DeleteInstance(instanceID)
+				return nil
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			cloud := apiMock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
+			cloud.UpdateENIs(map[string]apiMock.ENIMap{instanceID: {eniID: initialENI}})
+			hooked := &hookedInstanceEC2API{EC2API: cloud}
+			manager, err := NewInstancesManager(t.Context(), hivetest.Logger(t), hooked, metadataMockapi)
+			require.NoError(t, err)
+			_, err = manager.Resync(t.Context())
+			require.NoError(t, err)
+			require.True(t, manager.HasInstance(instanceID))
+
+			var updateErr error
+			resynctest.RunDuringResync(t,
+				instanceSyncResyncer{manager: manager, instanceID: instanceID},
+				func(hook func()) { hooked.afterGetInstance = hook },
+				func() error {
+					// The partial sync has already captured initialENI. Change
+					// AWS now so its delayed response contains the older state.
+					cloud.UpdateENIs(map[string]apiMock.ENIMap{instanceID: test.want})
+					return nil
+				},
+				func() { updateErr = test.update(t.Context(), manager) },
+			)
+			require.NoError(t, updateErr)
+
+			// After both operations finish, the old snapshot must not undo
+			// the ENI/IP change or resurrect a deleted instance.
+			cached := apiMock.ENIMap{}
+			manager.ForeachInstance(instanceID, func(_, eniID string, iface ipamTypes.Interface) error {
+				cached[eniID] = iface.(*types.ENI)
+				return nil
+			})
+			require.Equal(t, test.want, cached)
+			require.Equal(t, len(test.want) > 0, manager.HasInstance(instanceID))
+		})
+	}
 }
