@@ -89,6 +89,8 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 		}
 	}
 
+	// Acceptance belongs to the node and remains usable while another stream
+	// for that node is open. Streams for other nodes provide no such evidence.
 	streamStillOpen := false
 	for _, openStream := range cb.streams {
 		if openStream.nodeID == nodeID {
@@ -97,6 +99,8 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 		}
 	}
 	if nodeID != "" && !streamStillOpen {
+		// A reconnect must establish fresh acceptance. Keep outstanding waits
+		// and response-owned rollback so its actual ACK/NACK can resolve them.
 		if nodeState := cb.nodes[nodeID]; nodeState != nil {
 			for typeURL := range typeurl.Count {
 				typeState := &nodeState.typeURLs[typeURL]
