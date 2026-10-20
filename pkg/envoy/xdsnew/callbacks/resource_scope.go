@@ -315,6 +315,8 @@ func (group *acceptedResourceGroup) acknowledge(coverage *responseCoverage, gene
 		group.generation = generation
 		group.resources = coverage.resources
 		group.requested = coverage.requested
+		// Another stream may already have ACKed newer values for some names.
+		// Retain those overrides when replacing the full-group baseline.
 		for name, accepted := range group.partial {
 			if accepted.generation <= generation {
 				delete(group.partial, name)
@@ -338,6 +340,8 @@ func (group *acceptedResourceGroup) acknowledge(coverage *responseCoverage, gene
 }
 
 func (group *acceptedResourceGroup) acceptResource(name string, resource cache_types.ResourceWithTTL, generation Generation) {
+	// Subset ACKs can arrive out of order across streams. Neither newer
+	// per-name evidence nor a newer full-group ACK may be overwritten.
 	if previous, exists := group.partial[name]; exists && previous.generation > generation {
 		return
 	}
