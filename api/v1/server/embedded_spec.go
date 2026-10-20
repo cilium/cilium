@@ -2799,7 +2799,8 @@ func init() {
         "require-routing": {
           "description": "Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.\n",
           "type": "boolean",
-          "default": true
+          "default": true,
+          "x-go-name": "RequireBPFRouting"
         }
       }
     },
@@ -8248,7 +8249,8 @@ func init() {
         "require-routing": {
           "description": "Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.\n",
           "type": "boolean",
-          "default": true
+          "default": true,
+          "x-go-name": "RequireBPFRouting"
         }
       }
     },

@@ -115,7 +115,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 		// Delegate routing to the Linux stack rather than tail-calling
 		// between BPF programs.
 		disabled := false
-		epTemplate.DatapathConfiguration.RequireRouting = &disabled
+		epTemplate.DatapathConfiguration.RequireBPFRouting = &disabled
 	}
 
 	m.logger.Info("Create endpoint request",
