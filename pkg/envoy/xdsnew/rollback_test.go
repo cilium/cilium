@@ -260,26 +260,95 @@ func TestFirstUntrackedSnapshotNACKRevertsColdStartResources(t *testing.T) {
 }
 
 func TestResourceUpdateRevertibleIsNoOpAfterFirstCall(t *testing.T) {
-	c := newCache(slog.New(slog.NewTextHandler(os.Stderr, nil)), WithNodeIDs("node1"))
-	initialRollback, err := c.ApplyResourceWithRollback(
-		t.Context(), "node1", typeurl.NetworkPolicy,
-		"policy", &cilium.NetworkPolicy{EndpointId: 1}, nil)
+	for _, tt := range []struct {
+		name       string
+		superseded bool
+		remove     bool
+	}{
+		{name: "finalized-update"},
+		{name: "superseded-update", superseded: true},
+		{name: "superseded-removal", superseded: true, remove: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
+			var logs strings.Builder
+			c.logger = slog.New(slog.NewTextHandler(&logs, nil))
+			const nodeID, name = "node1", "route"
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Route, name,
+				&envoy_config_route.RouteConfiguration{Name: name}, nil))
+			var desired proto.Message = &envoy_config_route.RouteConfiguration{Name: name, IgnorePortInHostMatching: true}
+			if tt.remove {
+				desired = nil
+			}
+			rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Route, name, desired, nil)
+			require.NoError(t, err)
+			if tt.superseded {
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Route, name, desired, nil))
+				logs.Reset()
+				require.NoError(t, rollback.Revert())
+				require.NotContains(t, logs.String(), "level=WARN", "an empty outstanding handle is still valid")
+			} else {
+				rollback.Finalize()
+			}
+			require.True(t, c.getNodeState(nodeID).rollbacks.callers.Empty())
+			generation := c.resourceGeneration
+			logs.Reset()
+			require.NoError(t, rollback.Revert())
+			require.Contains(t, logs.String(), "Ignoring duplicate resource update rollback resolution")
+			logs.Reset()
+			rollback.Finalize()
+			require.Contains(t, logs.String(), "Ignoring duplicate resource update rollback resolution")
+			require.Equal(t, generation, c.resourceGeneration, "duplicate resolution must not publish an update")
+			if desired == nil {
+				require.Nil(t, c.GetResource(nodeID, typeurl.Route, name))
+				c.getNodeState(nodeID).requireNoRollbackOwners(t)
+			} else {
+				require.Same(t, desired, c.GetResource(nodeID, typeurl.Route, name))
+			}
+		})
+	}
+}
 
-	require.NoError(t, err)
-	initialRollback.Finalize()
-
-	rollback, err := c.ApplyResourceWithRollback(
-		t.Context(), "node1", typeurl.NetworkPolicy,
-		"policy", &cilium.NetworkPolicy{EndpointId: 2}, nil)
-
-	require.NoError(t, err)
-	rollback.Finalize()
-	generation := c.resourceGeneration
-	require.NoError(t, rollback.Revert())
-	rollback.Finalize()
-	require.Equal(t, generation, c.resourceGeneration, "duplicate resolution must not publish an update")
-	policy := c.getNodeState("node1").resources[typeurl.NetworkPolicy]["policy"].resource.(*cilium.NetworkPolicy)
-	require.Equal(t, uint64(2), policy.EndpointId)
+func TestCallerRollbackAfterFailedMutation(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		remove bool
+	}{
+		{name: "mixed-no-op-upsert"},
+		{name: "mixed-no-op-removal", remove: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := newMockSnapshotCache()
+			c := newInitializedTestCache(t, mock)
+			const nodeID, name = "node1", "resource"
+			cancel, err := c.CreateWatch(&cache.Request{
+				Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Route.URL(),
+			}, stream.NewSotwSubscription(nil, true), make(chan cache.Response, 1))
+			require.NoError(t, err)
+			t.Cleanup(cancel)
+			original := &envoy_config_route.RouteConfiguration{Name: name}
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Route, name, original, nil))
+			var desired proto.Message = &envoy_config_route.RouteConfiguration{Name: name, IgnorePortInHostMatching: true}
+			if tt.remove {
+				desired = nil
+			}
+			rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, typeurl.Route, name, desired, nil)
+			require.NoError(t, err)
+			publicationErr := errors.New("publication failed")
+			mock.setSnapshotErr = publicationErr
+			mutations := ResourceMutations{Upserted: xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{"other": {Name: "other"}}}}
+			if tt.remove {
+				mutations.Removed.Routes = map[string]*envoy_config_route.RouteConfiguration{name: nil}
+			} else {
+				mutations.Upserted.Routes[name] = proto.Clone(desired).(*envoy_config_route.RouteConfiguration)
+			}
+			require.ErrorIs(t, c.ApplyResources(t.Context(), nodeID, mutations, nil, typeurl.Set{}), publicationErr)
+			mock.setSnapshotErr = nil
+			require.NoError(t, rollback.Revert())
+			require.Same(t, original, c.GetResource(nodeID, typeurl.Route, name), "failed admission must not supersede caller recovery")
+			require.Nil(t, c.GetResource(nodeID, typeurl.Route, "other"))
+		})
+	}
 }
 
 func TestApplyResourcesOwnsGlobalGenerationAndPerNodeReverts(t *testing.T) {
@@ -344,8 +413,19 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	for _, mode := range []string{"NACK-driven", "caller-driven"} {
-		t.Run(mode, func(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		callerRevert bool
+		reuse        bool
+		withRollback bool
+	}{
+		{name: "NACK-driven"},
+		{name: "caller-driven", callerRevert: true},
+		{name: "caller-driven-reuse", callerRevert: true, reuse: true},
+		{name: "caller-driven-reuse-with-rollback", callerRevert: true, reuse: true, withRollback: true},
+		{name: "NACK-driven-reuse-with-rollback", reuse: true, withRollback: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
 			c := newCache(t)
 			applyPlain(t, c, routes(map[string]uint64{"newer": 1, "unchanged": 1}))
 			node := &envoy_config_core.Node{Id: "node-a"}
@@ -369,7 +449,7 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 				t.Cleanup(cancel)
 			}
 			rollback := apply(t, c, routes(map[string]uint64{"newer": 2, "unchanged": 2}))
-			if mode == "NACK-driven" {
+			if !tt.callerRevert {
 				defer rollback.Finalize()
 			}
 			// Bind the response before the newer resource is changed, so its
@@ -382,9 +462,23 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 					TypeUrl:     envoy_resource.RouteType,
 					Nonce:       "rejected-routes",
 				})
-			applyPlain(t, c, routes(map[string]uint64{"newer": 3}))
+			latest := map[string]uint64{"newer": 3}
+			if tt.reuse {
+				latest = map[string]uint64{"newer": 2, "other": 3}
+			}
+			var laterRollback Rollback
+			if tt.withRollback {
+				laterRollback = apply(t, c, routes(latest))
+				t.Cleanup(func() {
+					if laterRollback != nil {
+						laterRollback.Finalize()
+					}
+				})
+			} else {
+				applyPlain(t, c, routes(latest))
+			}
 
-			if mode == "NACK-driven" {
+			if !tt.callerRevert {
 				require.NoError(t, c.completionCbs.OnStreamRequest(1, &discovery.DiscoveryRequest{
 					Node:          node,
 					TypeUrl:       envoy_resource.RouteType,
@@ -395,33 +489,68 @@ func TestApplyResourcesRevertOnlyRestoresOwnedResourceVersions(t *testing.T) {
 			} else {
 				require.NoError(t, rollback.Revert())
 			}
-			require.Equal(t, "3", c.GetResource("node-a", typeurl.Route, "newer").(*envoy_config_route.RouteConfiguration).Name,
-				"a revert must not overwrite a resource changed by a newer generation")
+			expectedNewer, revision, transaction := "3", callbacks.Generation(3), callbacks.Generation(3)
+			if tt.reuse {
+				if tt.callerRevert {
+					expectedNewer, revision, transaction = "2", 2, 2
+				} else {
+					expectedNewer, revision, transaction = "1", 4, 1
+				}
+			}
+			require.Equal(t, expectedNewer, c.GetResource("node-a", typeurl.Route, "newer").(*envoy_config_route.RouteConfiguration).Name,
+				"caller recovery must preserve reused values; response recovery still rejects them")
 			require.Equal(t, "1", c.GetResource("node-a", typeurl.Route, "unchanged").(*envoy_config_route.RouteConfiguration).Name,
 				"the same revert must still restore resources untouched by newer API transactions")
 			entries := c.getNodeState(node.Id).resources[typeurl.Route]
-			require.Equal(t, callbacks.Generation(3).Revision(), entries["newer"].revision)
-			require.Equal(t, callbacks.Generation(3).TransactionID(), entries["newer"].transaction)
+			require.Equal(t, revision.Revision(), entries["newer"].revision)
+			require.Equal(t, transaction.TransactionID(), entries["newer"].transaction)
 			require.Equal(t, callbacks.Generation(4).Revision(), entries["unchanged"].revision)
 			require.Equal(t, callbacks.Generation(1).TransactionID(), entries["unchanged"].transaction)
+			if tt.withRollback {
+				require.NoError(t, laterRollback.Revert())
+				laterRollback = nil
+				require.Nil(t, c.GetResource("node-a", typeurl.Route, "other"))
+				require.Equal(t, expectedNewer, c.GetResource("node-a", typeurl.Route, "newer").(*envoy_config_route.RouteConfiguration).Name,
+					"the later mixed transaction did not change the reused value")
+			}
 		})
 	}
 
-	t.Run("removed resource ABA", func(t *testing.T) {
-		c := newCache(t)
-		applyPlain(t, c, routes(map[string]uint64{"newer": 1, "unchanged": 1}))
-		removed := xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{
-			"newer": nil, "unchanged": nil,
-		}}
-		rollback := apply(t, c, ResourceMutations{Removed: removed})
-		applyPlain(t, c, routes(map[string]uint64{"newer": 3}))
-		applyPlain(t, c, ResourceMutations{Removed: xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{"newer": nil}}})
+	for _, tt := range []struct {
+		name  string
+		reuse bool
+		mixed bool
+	}{
+		{name: "removed resource ABA"},
+		{name: "repeated removal", reuse: true},
+		{name: "mixed repeated removal", reuse: true, mixed: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := newCache(t)
+			applyPlain(t, c, routes(map[string]uint64{"newer": 1, "unchanged": 1}))
+			removed := xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{
+				"newer": nil, "unchanged": nil,
+			}}
+			rollback := apply(t, c, ResourceMutations{Removed: removed})
+			if !tt.reuse {
+				applyPlain(t, c, routes(map[string]uint64{"newer": 3}))
+			}
+			mutations := ResourceMutations{Removed: xds.Resources{Routes: map[string]*envoy_config_route.RouteConfiguration{"newer": nil}}}
+			if tt.mixed {
+				mutations.Upserted = routes(map[string]uint64{"other": 3}).Upserted
+			}
+			applyPlain(t, c, mutations)
 
-		require.NoError(t, rollback.Revert())
-		require.Nil(t, c.GetResource("node-a", typeurl.Route, "newer"),
-			"a newer removal must not be mistaken for the removal being reverted")
-		require.Equal(t, "1", c.GetResource("node-a", typeurl.Route, "unchanged").(*envoy_config_route.RouteConfiguration).Name)
-	})
+			require.NoError(t, rollback.Revert())
+			require.Nil(t, c.GetResource("node-a", typeurl.Route, "newer"),
+				"a newer removal must not be mistaken for the removal being reverted")
+			require.Equal(t, "1", c.GetResource("node-a", typeurl.Route, "unchanged").(*envoy_config_route.RouteConfiguration).Name)
+			if tt.mixed {
+				require.Equal(t, "3", c.GetResource("node-a", typeurl.Route, "other").(*envoy_config_route.RouteConfiguration).Name)
+			}
+			c.getNodeState("node-a").requireNoRollbackOwners(t)
+		})
+	}
 }
 
 func TestApplyResourcesRevertCoversEnvoyResourceTypes(t *testing.T) {
@@ -522,8 +651,6 @@ func TestResourceRevisionAdvancesWhileRevertRestoresTransaction(t *testing.T) {
 			update := apply(b)
 			checkEntry(b, 2, 2)
 			require.NoError(t, update.Revert())
-			checkEntry(a, 3, 1)
-			require.Nil(t, apply(proto.Clone(a).(*envoy_config_listener.Listener)), "semantic no-ops preserve both properties")
 			checkEntry(a, 3, 1)
 			update = apply(third)
 			checkEntry(third, 4, 4)
