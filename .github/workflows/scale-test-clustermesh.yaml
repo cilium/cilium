@@ -61,7 +61,7 @@ concurrency:
 
 env:
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 588.0.0
+  gcloud_version: 590.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
   cmapisrv_mock_ref: 5a01850f43d011858d27de55e4d08921abbbf5d3
 
@@ -135,7 +135,7 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.27.2
+          go-version: 1.27.3
 
       - name: Install Kops
         uses: cilium/scale-tests-action/install-kops@529d919e01deb35642ba5c6ecdcbf2e2311cd3de # main
