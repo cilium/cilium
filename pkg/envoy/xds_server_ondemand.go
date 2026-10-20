@@ -9,6 +9,8 @@ import (
 	"log/slog"
 	"sync"
 
+	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
 	"github.com/cilium/cilium/pkg/completion"
 	config "github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -61,14 +63,14 @@ func (o *onDemandXdsStarter) AddListener(ctx context.Context, name string, kind 
 	return o.XDSServer.AddListener(ctx, name, kind, port, isIngress, mayUseOriginalSourceAddr, wg, cb)
 }
 
-func (o *onDemandXdsStarter) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+func (o *onDemandXdsStarter) UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error {
 	if err := o.startStandaloneEnvoy(ctx, nil); err != nil {
 		o.logger.Error("Envoy: Failed to start standalone Envoy proxy on demand",
 			logfields.Error, err,
 		)
 	}
 
-	return o.XDSServer.UpsertEnvoyResources(ctx, resources, waitGroup)
+	return o.XDSServer.UpsertSecret(ctx, secret)
 }
 
 func (o *onDemandXdsStarter) UpdateEnvoyResources(ctx context.Context, old, new xds.Resources, waitGroup *completion.WaitGroup) error {

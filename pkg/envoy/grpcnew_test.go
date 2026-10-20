@@ -190,7 +190,7 @@ func TestADSKnownNodeEmptyStateAndReconnect(t *testing.T) {
 	}))
 	resources := xds.NewResources()
 	resources.Listeners["listener"] = &listener.Listener{Name: "listener"}
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, nil))
 	added, err := stream.Recv()
 	require.NoError(t, err)
 	require.Len(t, added.GetResources(), 1)

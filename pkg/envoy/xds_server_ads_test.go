@@ -127,12 +127,12 @@ func TestNoOpListenerAlreadyAcceptedDoesNotWaitForUnrelatedListener(t *testing.T
 	first := xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{
 		"listener-1": {Name: "listener-1"},
 	}}
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), first, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), first, nil))
 	accepted := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 	second := xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{
 		"listener-2": {Name: "listener-2"},
 	}}
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), second, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), second, nil))
 	response := createADSWatchResponse(t, cache, ListenerTypeURL, accepted)
 	delivered := deliverADSResponse(t, cache, 1, response)
 
@@ -144,7 +144,7 @@ func TestNoOpListenerAlreadyAcceptedDoesNotWaitForUnrelatedListener(t *testing.T
 			}
 		}
 		wg := completion.NewWaitGroup(t.Context())
-		require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, wg))
+		require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, wg))
 		done := waitForADSCompletion(t, wg)
 		if resources.Listeners["listener-1"] == nil {
 			require.Zero(t, calls.Load())
@@ -185,11 +185,11 @@ func TestADSResponseNACKRevertsServerUpdate(t *testing.T) {
 	var portCallbacks atomic.Int32
 	resources.PortAllocationCallbacks["listener1"] = func(context.Context) error { portCallbacks.Add(1); return nil }
 	wg := completion.NewWaitGroup(t.Context())
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, wg))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, wg))
 	done := waitForADSCompletion(t, wg)
 	unrelated := xds.NewResources()
 	unrelated.Secrets["unrelated"] = &envoy_config_tls.Secret{Name: "unrelated"}
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), unrelated, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), unrelated, nil))
 	requireADSCompletionPending(t, done)
 	nackADSResourceVersion(t, cache, 1, ListenerTypeURL, "", "rejected listener")
 	require.ErrorContains(t, <-done, "rejected listener")
@@ -273,14 +273,24 @@ func TestRemoveListenerNACKRestoresResponseState(t *testing.T) {
 	requireNoCachedResource(t, cache, localNodeID, ListenerTypeURL, "test-listener")
 }
 
-// TestUpsertEnvoyResources verifies that Envoy resources can be upserted
-func TestUpsertEnvoyResources(t *testing.T) {
+func TestUpsertSecret(t *testing.T) {
 	server, cache := newADSServerFixture(t)
-	ctx := context.Background()
+	for _, value := range []string{"initial", "updated"} {
+		secret := &envoy_config_tls.Secret{
+			Name: "secret1",
+			Type: &envoy_config_tls.Secret_GenericSecret{GenericSecret: &envoy_config_tls.GenericSecret{
+				Secret: &envoy_config_core_v3.DataSource{Specifier: &envoy_config_core_v3.DataSource_InlineString{InlineString: value}},
+			}},
+		}
+		require.NoError(t, server.UpsertSecret(t.Context(), secret))
+		require.True(t, proto.Equal(secret, cache.GetResource(localNodeID, typeurl.Secret, secret.Name)))
+	}
+}
 
-	err := server.UpsertEnvoyResources(ctx, adsDefaultResources(), nil)
-	assert.NoError(t, err)
-
+func TestUpdateEnvoyResources(t *testing.T) {
+	server, cache := newADSServerFixture(t)
+	old := adsDefaultResources()
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), old, nil))
 	requireCachedResource(t, cache, localNodeID, ListenerTypeURL, "listener1")
 	requireCachedResource(t, cache, localNodeID, ClusterTypeURL, "cluster1")
 	requireCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
@@ -289,12 +299,6 @@ func TestUpsertEnvoyResources(t *testing.T) {
 	for _, ep := range adsTestEndpoints() {
 		requireNoCachedResource(t, cache, localNodeID, NetworkPolicyTypeURL, strconv.FormatUint(ep.id, 10))
 	}
-}
-
-func TestUpdateEnvoyResources(t *testing.T) {
-	server, cache := newADSServerFixture(t)
-	old := adsDefaultResources()
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), old, nil))
 	policy := seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 40, ipv4: "10.0.0.1"})
 	next := adsDefaultResources()
 	next.Secrets = nil
@@ -355,7 +359,7 @@ func TestUpdateEnvoyResourcesRecreatesListenerAfterAddressChange(t *testing.T) {
 			server, cache := newADSServerFixture(t)
 
 			oldResources := adsTestResources(addressChange.oldListener)
-			require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+			require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), oldResources, nil))
 
 			newResources := adsTestResources(addressChange.newListener)
 			var callbackCount atomic.Uint64
@@ -398,7 +402,7 @@ func TestUpdateEnvoyResourcesDuringRestoreDoesNotStageListenerDeletion(t *testin
 	server, cache := newADSServerFixture(t, restorerPromise)
 
 	oldResources := adsTestResources(adsTestListener(80, 8443))
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), oldResources, nil))
 	newResources := adsTestResources(adsTestListener(81, 8444))
 	var callbackCount atomic.Uint64
 	newResources.PortAllocationCallbacks["listener1"] = func(context.Context) error {
@@ -423,10 +427,10 @@ func TestUpdateEnvoyResourcesAddressChangePreservesNewerListenerOnDelayedNACK(t 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	initial := adsTestResources(adsTestListener(80, 8442))
-	require.NoError(t, server.UpsertEnvoyResources(ctx, initial, nil))
+	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), initial, nil))
 	accepted := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 	tracked := adsTestResources(adsTestListener(80, 8443))
-	require.NoError(t, server.UpsertEnvoyResources(ctx, tracked, nil))
+	require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), tracked, nil))
 	oldResponse := createADSWatchResponse(t, cache, ListenerTypeURL, accepted)
 	oldDelivery := deliverADSResponse(t, cache, 1, oldResponse)
 
@@ -460,7 +464,7 @@ func TestUpdateEnvoyResourcesRestoresListenerAfterAddressChangeFailure(t *testin
 		t.Run(tc.name, func(t *testing.T) {
 			server, cache := newADSServerFixture(t)
 			old := adsTestResources(adsTestListener(80, 8443))
-			require.NoError(t, server.UpsertEnvoyResources(t.Context(), old, nil))
+			require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), old, nil))
 			accepted := ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 			next := adsTestResources(adsTestListener(80, 8444))
 			timeout := 5 * time.Second
@@ -519,7 +523,7 @@ func TestUpdateEnvoyResourcesRetriesReplacementBindFailure(t *testing.T) {
 	server, cache := newADSServerFixture(t)
 
 	oldResources := adsTestResources(adsTestListener(80, 8443))
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), oldResources, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), oldResources, nil))
 	newResources := adsTestResources(adsTestListener(80, 8444))
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -583,7 +587,7 @@ func TestUpdateEnvoyResourcesPortAllocationWaits(t *testing.T) {
 				ackADSResourceVersionFrom(t, cache, 1, ListenerTypeURL, "")
 			} else if tc.baseline == "unacked-resources" {
 				old = adsDefaultResources()
-				require.NoError(t, server.UpsertEnvoyResources(ctx, old, nil))
+				require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), old, nil))
 			}
 			next := xds.NewResources()
 			next.Listeners["listener1"] = adsDefaultResources().Listeners["listener1"]
@@ -647,7 +651,7 @@ func TestDeleteEnvoyResources(t *testing.T) {
 	requireNoCachedResource(t, cache, localNodeID, SecretTypeURL, "secret1")
 
 	// Add some resources and then delete them.
-	err = server.UpsertEnvoyResources(ctx, adsDefaultResources(), nil)
+	err = server.UpdateEnvoyResources(ctx, xds.NewResources(), adsDefaultResources(), nil)
 	assert.NoError(t, err)
 	policy := seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 40, ipv4: "10.0.0.1"})
 
@@ -670,7 +674,7 @@ func TestDeleteEnvoyResources(t *testing.T) {
 
 func TestUpdateNetworkPolicy(t *testing.T) {
 	server, cache := newADSServerFixture(t)
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), adsDefaultResources(), nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), adsDefaultResources(), nil))
 	seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 40, ipv4: "10.0.0.1"})
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
@@ -738,7 +742,7 @@ func TestUpdateNetworkPolicyDuringRestoreWaitsForSeededPolicyACK(t *testing.T) {
 
 	resources := xds.NewResources()
 	resources.Listeners["npds-listener"] = server.getListenerConf("npds-listener", policy.ParserTypeHTTP, 12345, false, false)
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, nil))
 
 	mockEp := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
 	mockPolicy := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
@@ -777,14 +781,14 @@ func TestUpdateNetworkPolicyWaitCompletesWithoutNPDSListeners(t *testing.T) {
 	for _, action := range []string{"never-added", "bulk-delete", "remove-listener", "listener-nack"} {
 		t.Run(action, func(t *testing.T) {
 			server, cache := newADSServerFixture(t)
-			require.NoError(t, server.UpsertEnvoyResources(t.Context(), adsDefaultResources(), nil))
+			require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), adsDefaultResources(), nil))
 			var resources xds.Resources
 			if action != "never-added" {
 				resources = xds.Resources{Listeners: map[string]*envoy_config_listener.Listener{
 					"npds-listener": server.getListenerConf("npds-listener", policy.ParserTypeHTTP, 12345, false, false),
 				}}
 				if action == "bulk-delete" {
-					require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+					require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, nil))
 				} else {
 					require.NoError(t, server.AddListener(t.Context(), "npds-listener", policy.ParserTypeHTTP, 12345, false, false, nil, nil))
 				}
@@ -821,7 +825,7 @@ func TestLastNPDSListenerRemovalKeepsSentPolicyNACKRollback(t *testing.T) {
 	server, cache := newADSServerFixture(t)
 	resources := xds.NewResources()
 	resources.Listeners["npds-listener"] = server.getListenerConf("npds-listener", policy.ParserTypeHTTP, 12345, false, false)
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, nil))
 	ep := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
@@ -918,7 +922,7 @@ func TestUpdateNetworkPolicyNoOpWaitsForCurrentACK(t *testing.T) {
 func TestUpdateNetworkPolicyPreservesOtherServerResources(t *testing.T) {
 	server, cache := newADSServerFixture(t)
 	resources := adsDefaultResources()
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, nil))
 	oldPolicy := seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 1, ipv4: "192.0.2.1"})
 	newPolicy := seedADSNetworkPolicy(t, server, &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"})
 	require.False(t, proto.Equal(oldPolicy, newPolicy))
@@ -932,7 +936,7 @@ func TestNPDSListenerChangesKeepWaitsUntilLastListenerDisappears(t *testing.T) {
 		name := fmt.Sprintf("npds-listener-%d", i+1)
 		resources.Listeners[name] = server.getListenerConf(name, policy.ParserTypeHTTP, uint16(12345+i), false, false)
 	}
-	require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+	require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, nil))
 	wg := completion.NewWaitGroup(t.Context())
 	ep := &testableEndpointUpdater{id: 1, ipv4: "127.0.0.1"}
 	err, rollback := server.UpdateNetworkPolicy(t.Context(), ep, policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot()), wg)
@@ -973,7 +977,7 @@ func TestRemoveNetworkPolicy(t *testing.T) {
 			t.Run(fmt.Sprintf("%s/count=%d", addresses.name, count), func(t *testing.T) {
 				server, cache := newADSServerFixture(t)
 				resources := adsDefaultResources()
-				require.NoError(t, server.UpsertEnvoyResources(t.Context(), resources, nil))
+				require.NoError(t, server.UpdateEnvoyResources(t.Context(), xds.NewResources(), resources, nil))
 				endpoints := []*testableEndpointUpdater{{id: 40, ipv4: addresses.ipv4, ipv6: addresses.ipv6}, {id: 1, ipv4: "127.0.0.1"}}
 				for _, ep := range endpoints[:count] {
 					seedADSNetworkPolicy(t, server, ep)
