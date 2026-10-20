@@ -403,9 +403,8 @@ func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
 		} else {
 			exitCode, extractErr := a.extractExitCode(err)
 			if extractErr != nil {
-				a.test.Info(extractErr.Error())
-			}
-			if expectedExitCode == ExitAnyError || exitCode == expectedExitCode {
+				a.Failf("command %q failed without an exit code: %s", cmdStr, err)
+			} else if expectedExitCode == ExitAnyError || exitCode == expectedExitCode {
 				a.test.Debugf("command %q failed as expected: %s", cmdStr, err)
 			} else {
 				a.Failf("command %q failed with unexpected exit code: %s (expected %d, found %d)", cmdStr, err, expectedExitCode, exitCode)
