@@ -1,5 +1,5 @@
 sphinx==9.0.4
-sphinx-autobuild==2021.3.14
+sphinx-autobuild==2024.10.3
 
 # Custom theme, forked from Read the Docs
 git+https://github.com/cilium/sphinx_rtd_theme.git@cilium/main#egg=sphinx-rtd-theme-cilium
@@ -11,10 +11,10 @@ semver==3.1.0
 myst-parser==5.1.0
 sphinx-tabs==3.5.0
 sphinx-version-warning==1.1.2
-sphinxcontrib-googleanalytics==0.5
+sphinxcontrib-googleanalytics==0.6
 sphinxcontrib-openapi==0.9.0
 sphinxcontrib-spelling==8.0.2
-sphinxcontrib-websupport==1.2.4
+sphinxcontrib-websupport==2.0.0
 sphinxext-rediraffe==0.3.0
 
 # Linters
