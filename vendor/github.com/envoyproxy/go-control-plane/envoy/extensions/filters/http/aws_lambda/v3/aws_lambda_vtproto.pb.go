@@ -8,6 +8,7 @@ package aws_lambdav3
 
 import (
 	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
+	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
@@ -47,6 +48,54 @@ func (m *Config) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.MatchIncludedHeaders) > 0 {
+		for iNdEx := len(m.MatchIncludedHeaders) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.MatchIncludedHeaders[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.MatchIncludedHeaders[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x42
+		}
+	}
+	if len(m.MatchExcludedHeaders) > 0 {
+		for iNdEx := len(m.MatchExcludedHeaders) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.MatchExcludedHeaders[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.MatchExcludedHeaders[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x3a
+		}
 	}
 	if m.Credentials != nil {
 		size, err := m.Credentials.MarshalToSizedBufferVTStrict(dAtA[:i])
@@ -221,6 +270,30 @@ func (m *Config) SizeVT() (n int) {
 	if m.Credentials != nil {
 		l = m.Credentials.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if len(m.MatchExcludedHeaders) > 0 {
+		for _, e := range m.MatchExcludedHeaders {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if len(m.MatchIncludedHeaders) > 0 {
+		for _, e := range m.MatchIncludedHeaders {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
 	}
 	n += len(m.unknownFields)
 	return n

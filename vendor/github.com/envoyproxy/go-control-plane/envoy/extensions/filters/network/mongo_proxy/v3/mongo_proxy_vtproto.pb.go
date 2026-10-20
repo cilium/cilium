@@ -8,6 +8,7 @@ package mongo_proxyv3
 
 import (
 	protohelpers "github.com/planetscale/vtprotobuf/protohelpers"
+	wrapperspb "github.com/planetscale/vtprotobuf/types/known/wrapperspb"
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
@@ -48,6 +49,16 @@ func (m *MongoProxy) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.MaxBsonDepth != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.MaxBsonDepth).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x32
 	}
 	if len(m.Commands) > 0 {
 		for iNdEx := len(m.Commands) - 1; iNdEx >= 0; iNdEx-- {
@@ -139,6 +150,10 @@ func (m *MongoProxy) SizeVT() (n int) {
 			l = len(s)
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
+	}
+	if m.MaxBsonDepth != nil {
+		l = (*wrapperspb.UInt32Value)(m.MaxBsonDepth).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

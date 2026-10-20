@@ -382,6 +382,172 @@ func (m *OAuth2Credentials_HmacSecret) MarshalToSizedBufferVTStrict(dAtA []byte)
 	}
 	return len(dAtA) - i, nil
 }
+func (m *PrivateKeyJwtConfig) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PrivateKeyJwtConfig) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *PrivateKeyJwtConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.AssertionLifetime != nil {
+		size, err := (*durationpb.Duration)(m.AssertionLifetime).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.SigningAlgorithm != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.SigningAlgorithm))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *OAuth2TokenForwarding) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *OAuth2TokenForwarding) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *OAuth2TokenForwarding) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.Header) > 0 {
+		i -= len(m.Header)
+		copy(dAtA[i:], m.Header)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Header)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *PostLogoutRedirectUri) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *PostLogoutRedirectUri) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *PostLogoutRedirectUri) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if msg, ok := m.Config.(*PostLogoutRedirectUri_Uri); ok {
+		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+	}
+	if msg, ok := m.Config.(*PostLogoutRedirectUri_Disabled); ok {
+		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *PostLogoutRedirectUri_Disabled) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *PostLogoutRedirectUri_Disabled) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i--
+	if m.Disabled {
+		dAtA[i] = 1
+	} else {
+		dAtA[i] = 0
+	}
+	i--
+	dAtA[i] = 0x8
+	return len(dAtA) - i, nil
+}
+func (m *PostLogoutRedirectUri_Uri) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *PostLogoutRedirectUri_Uri) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	i -= len(m.Uri)
+	copy(dAtA[i:], m.Uri)
+	i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.Uri)))
+	i--
+	dAtA[i] = 0x12
+	return len(dAtA) - i, nil
+}
 func (m *OAuth2Config) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -411,6 +577,100 @@ func (m *OAuth2Config) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.PostLogoutRedirectUri != nil {
+		size, err := m.PostLogoutRedirectUri.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x8a
+	}
+	if m.PrivateKeyJwtConfig != nil {
+		size, err := m.PrivateKeyJwtConfig.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x82
+	}
+	if m.ForwardIdToken != nil {
+		size, err := m.ForwardIdToken.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xfa
+	}
+	if m.UseAccessTokenExpiryForIdTokenCookie {
+		i--
+		if m.UseAccessTokenExpiryForIdTokenCookie {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xf0
+	}
+	if len(m.AllowedRedirectDomains) > 0 {
+		for iNdEx := len(m.AllowedRedirectDomains) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.AllowedRedirectDomains[iNdEx])
+			copy(dAtA[i:], m.AllowedRedirectDomains[iNdEx])
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.AllowedRedirectDomains[iNdEx])))
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xea
+		}
+	}
+	if len(m.OriginalRequestUri) > 0 {
+		i -= len(m.OriginalRequestUri)
+		copy(dAtA[i:], m.OriginalRequestUri)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.OriginalRequestUri)))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xe2
+	}
+	if len(m.AllowFailedMatcher) > 0 {
+		for iNdEx := len(m.AllowFailedMatcher) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.AllowFailedMatcher[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.AllowFailedMatcher[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x1
+			i--
+			dAtA[i] = 0xda
+		}
 	}
 	if m.DisableTokenEncryption {
 		i--
@@ -754,6 +1014,49 @@ func (m *OAuth2Config) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *OAuth2PerRoute) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *OAuth2PerRoute) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *OAuth2PerRoute) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.Config != nil {
+		size, err := m.Config.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *OAuth2) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -948,6 +1251,69 @@ func (m *OAuth2Credentials_HmacSecret) SizeVT() (n int) {
 	}
 	return n
 }
+func (m *PrivateKeyJwtConfig) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.SigningAlgorithm != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.SigningAlgorithm))
+	}
+	if m.AssertionLifetime != nil {
+		l = (*durationpb.Duration)(m.AssertionLifetime).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *OAuth2TokenForwarding) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Header)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *PostLogoutRedirectUri) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if vtmsg, ok := m.Config.(interface{ SizeVT() int }); ok {
+		n += vtmsg.SizeVT()
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *PostLogoutRedirectUri_Disabled) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	n += 2
+	return n
+}
+func (m *PostLogoutRedirectUri_Uri) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Uri)
+	n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	return n
+}
 func (m *OAuth2Config) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -1094,6 +1460,57 @@ func (m *OAuth2Config) SizeVT() (n int) {
 	}
 	if m.DisableTokenEncryption {
 		n += 3
+	}
+	if len(m.AllowFailedMatcher) > 0 {
+		for _, e := range m.AllowFailedMatcher {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	l = len(m.OriginalRequestUri)
+	if l > 0 {
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if len(m.AllowedRedirectDomains) > 0 {
+		for _, s := range m.AllowedRedirectDomains {
+			l = len(s)
+			n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if m.UseAccessTokenExpiryForIdTokenCookie {
+		n += 3
+	}
+	if m.ForwardIdToken != nil {
+		l = m.ForwardIdToken.SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.PrivateKeyJwtConfig != nil {
+		l = m.PrivateKeyJwtConfig.SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.PostLogoutRedirectUri != nil {
+		l = m.PostLogoutRedirectUri.SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *OAuth2PerRoute) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Config != nil {
+		l = m.Config.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n
