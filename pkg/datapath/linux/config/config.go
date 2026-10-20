@@ -302,22 +302,13 @@ func (h *HeaderfileWriter) WriteEndpointConfig(w io.Writer, e endpoint.Config) e
 	fw := bufio.NewWriter(w)
 
 	writeIncludes(w)
-
-	return h.writeTemplateConfig(fw, e)
-}
-
-func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e endpoint.Config) error {
-	if e.RequireRouting() {
-		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
-	}
-
 	h.writeNetdevConfig(fw, e.GetOptions())
-
 	return fw.Flush()
 }
 
 // WriteTemplateConfig writes the BPF configuration for the template to a writer.
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, e endpoint.Config) error {
 	fw := bufio.NewWriter(w)
-	return h.writeTemplateConfig(fw, e)
+	h.writeNetdevConfig(fw, e.GetOptions())
+	return fw.Flush()
 }
