@@ -33,78 +33,118 @@ import (
 
 func TestNoOpUpdateWaitsForResourceOutcome(t *testing.T) {
 	for _, api := range []struct {
-		name  string
-		index typeurl.Index
-		value proto.Message
+		name      string
+		index     typeurl.Index
+		value     proto.Message
+		bulk      bool
+		wholeType bool
 	}{
-		{"listener-single", typeurl.Listener, &listener.Listener{Name: "resource"}},
-		{"listener-bulk", typeurl.Listener, &listener.Listener{Name: "resource"}},
-		{"listener-whole-type", typeurl.Listener, &listener.Listener{Name: "resource"}},
-		{"policy-single", typeurl.NetworkPolicy, &cilium.NetworkPolicy{EndpointId: 1}},
+		{name: "listener-single", index: typeurl.Listener, value: &listener.Listener{Name: "resource"}},
+		{name: "listener-bulk", index: typeurl.Listener, value: &listener.Listener{Name: "resource"}, bulk: true},
+		{name: "listener-whole-type", index: typeurl.Listener, value: &listener.Listener{Name: "resource"}, bulk: true, wholeType: true},
+		{name: "policy-single", index: typeurl.NetworkPolicy, value: &cilium.NetworkPolicy{EndpointId: 1}},
 	} {
-		for _, outcome := range []struct {
-			name      string
-			phase     string
-			rejection string
-		}{
-			{"before-response/ack", "before-response", ""},
-			{"before-response/nack", "before-response", "invalid resource"},
-			{"after-response/ack", "after-response", ""},
-			{"after-response/nack", "after-response", "invalid resource"},
-			{"after-ack", "after-ack", ""},
-		} {
-			t.Run(api.name+"/"+outcome.name, func(t *testing.T) {
-				c := newCoverageCache(t)
-				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", api.index, "resource", api.value, nil))
-				s := coverageStream{cache: c, id: 1, typeURL: api.index.URL()}
-				var response *discovery.DiscoveryResponse
-				if outcome.phase != "before-response" {
-					response = s.receive(t)
-				}
-				if outcome.phase == "after-ack" {
-					s.reply(t, response, "")
-				}
+		for _, withRollback := range []bool{false, true} {
+			for _, samePointer := range []bool{false, true} {
+				for _, outcome := range []struct {
+					name      string
+					phase     string
+					rejection string
+				}{
+					{"before-response/ack", "before-response", ""},
+					{"before-response/nack", "before-response", "invalid resource"},
+					{"after-response/ack", "after-response", ""},
+					{"after-response/nack", "after-response", "invalid resource"},
+					{"after-ack", "after-ack", ""},
+				} {
+					t.Run(fmt.Sprintf("%s/rollback=%t/same-pointer=%t/%s", api.name, withRollback, samePointer, outcome.name), func(t *testing.T) {
+						c := newCoverageCache(t)
+						caller, err := c.ApplyResourceWithRollback(t.Context(), "coverage-node", api.index, "resource", api.value, nil)
+						require.NoError(t, err)
+						t.Cleanup(func() {
+							if caller != nil {
+								caller.Finalize()
+							}
+						})
+						s := coverageStream{cache: c, id: 1, typeURL: api.index.URL()}
+						var response *discovery.DiscoveryResponse
+						if outcome.phase != "before-response" {
+							response = s.receive(t)
+						}
+						if outcome.phase == "after-ack" {
+							s.reply(t, response, "")
+						}
 
-				published, _ := c.GetSnapshot("coverage-node")
-				ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-				t.Cleanup(cancel)
-				wg := completion.NewWaitGroup(ctx)
-				t.Cleanup(wg.Cancel)
-				candidate := proto.Clone(api.value)
-				if api.name != "policy-single" && api.name != "listener-single" {
-					var waits typeurl.Set
-					waits.Insert(api.index)
-					var mutations ResourceMutations
-					if api.name == "listener-bulk" {
-						mutations.Upserted.Listeners = map[string]*listener.Listener{"resource": candidate.(*listener.Listener)}
-					}
-					require.NoError(t, c.ApplyResources(ctx, "coverage-node", mutations, wg, waits))
-				} else {
-					require.NoError(t, c.ApplyResource(ctx, "coverage-node", api.index, "resource", candidate, wg))
+						published, _ := c.GetSnapshot("coverage-node")
+						ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+						t.Cleanup(cancel)
+						wg := completion.NewWaitGroup(ctx)
+						t.Cleanup(wg.Cancel)
+						candidate := api.value
+						if !samePointer {
+							candidate = proto.Clone(candidate)
+						}
+						var reused Rollback
+						if api.bulk {
+							waits := typeurl.NewSet(api.index)
+							var mutations ResourceMutations
+							if !api.wholeType {
+								mutations.Upserted.Listeners = map[string]*listener.Listener{"resource": candidate.(*listener.Listener)}
+							}
+							if withRollback {
+								reused, err = c.ApplyResourcesWithRollback(ctx, "coverage-node", mutations, wg, waits)
+							} else {
+								err = c.ApplyResources(ctx, "coverage-node", mutations, wg, waits)
+							}
+						} else if withRollback {
+							reused, err = c.ApplyResourceWithRollback(ctx, "coverage-node", api.index, "resource", candidate, wg)
+						} else {
+							err = c.ApplyResource(ctx, "coverage-node", api.index, "resource", candidate, wg)
+						}
+						require.NoError(t, err)
+						t.Cleanup(func() {
+							if reused != nil {
+								reused.Finalize()
+							}
+						})
+						if !api.wholeType {
+							// Reusing this value prevents the first caller from undoing
+							// it. The later caller made no change to undo either.
+							require.NoError(t, caller.Revert())
+							caller = nil
+						}
+						if reused != nil {
+							require.NoError(t, reused.Revert())
+							reused = nil
+						}
+						currentSnapshot, _ := c.GetSnapshot("coverage-node")
+						if published == nil {
+							require.Nil(t, currentSnapshot, "a pending no-op must not publish")
+						} else {
+							require.Same(t, published, currentSnapshot, "a semantic no-op must not publish")
+						}
+						current := c.GetResource("coverage-node", api.index, "resource")
+						require.NotNil(t, current)
+						require.Same(t, api.value, current,
+							"neither caller's rollback may remove the reused value")
+						if outcome.phase != "after-ack" {
+							require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+							if response == nil {
+								response = s.receive(t)
+							}
+							s.reply(t, response, outcome.rejection)
+						}
+						if outcome.rejection == "" {
+							require.NoError(t, wg.Wait())
+						} else {
+							require.ErrorContains(t, wg.Wait(), outcome.rejection)
+							require.Nil(t, c.GetResource("coverage-node", api.index, "resource"),
+								"caller supersession must preserve response-owned NACK recovery")
+						}
+						require.Zero(t, c.completionCbs.PendingCompletionCount())
+					})
 				}
-				currentSnapshot, _ := c.GetSnapshot("coverage-node")
-				if published == nil {
-					require.Nil(t, currentSnapshot, "a pending no-op must not publish")
-				} else {
-					require.Same(t, published, currentSnapshot, "a semantic no-op must not publish")
-				}
-				current := c.GetResource("coverage-node", api.index, "resource")
-				require.NotNil(t, current)
-				require.Same(t, api.value, current, "a no-op must keep the canonical protobuf")
-				if outcome.phase != "after-ack" {
-					require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-					if response == nil {
-						response = s.receive(t)
-					}
-					s.reply(t, response, outcome.rejection)
-				}
-				if outcome.rejection == "" {
-					require.NoError(t, wg.Wait())
-				} else {
-					require.ErrorContains(t, wg.Wait(), outcome.rejection)
-				}
-				require.Zero(t, c.completionCbs.PendingCompletionCount())
-			})
+			}
 		}
 	}
 }
@@ -641,81 +681,117 @@ func TestNoOpRemovalDoesNotWaitForUnrelatedListenerACK(t *testing.T) {
 
 func TestRepeatedRemovalWaitsForPendingOutcome(t *testing.T) {
 	for _, mode := range []string{"single-nil", "single-typed-nil", "bulk-removal", "bulk-nil-upsert"} {
-		for _, phase := range []string{"before-response", "after-response"} {
+		for _, phase := range []string{"before-response", "after-response", "after-ack"} {
 			for _, reject := range []bool{false, true} {
-				t.Run(fmt.Sprintf("%s/%s/reject=%t", mode, phase, reject), func(t *testing.T) {
-					c := newCoverageCache(t)
-					original := &listener.Listener{Name: "a"}
-					other := &listener.Listener{Name: "b"}
-					for _, resource := range []*listener.Listener{original, other} {
-						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil))
-					}
-					s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
-					s.reply(t, s.receive(t), "")
+				if phase == "after-ack" && reject {
+					continue
+				}
+				for _, withRollback := range []bool{false, true} {
+					t.Run(fmt.Sprintf("%s/%s/reject=%t/rollback=%t", mode, phase, reject, withRollback), func(t *testing.T) {
+						c := newCoverageCache(t)
+						original := &listener.Listener{Name: "a"}
+						other := &listener.Listener{Name: "b"}
+						for _, resource := range []*listener.Listener{original, other} {
+							require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil))
+						}
+						s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
+						s.reply(t, s.receive(t), "")
 
-					ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-					t.Cleanup(cancel)
-					remove := func(wg *completion.WaitGroup) error {
-						switch mode {
-						case "single-nil":
-							return c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "a", nil, wg)
-						case "single-typed-nil":
-							return c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "a", (*listener.Listener)(nil), wg)
-						default:
-							var mutations ResourceMutations
-							if mode == "bulk-removal" {
-								mutations.Removed.Listeners = map[string]*listener.Listener{"a": nil}
-							} else {
-								mutations.Upserted.Listeners = map[string]*listener.Listener{"a": nil}
+						ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+						t.Cleanup(cancel)
+						remove := func(wg *completion.WaitGroup, withRollback bool) (Rollback, error) {
+							switch mode {
+							case "single-nil":
+								if withRollback {
+									return c.ApplyResourceWithRollback(ctx, "coverage-node", typeurl.Listener, "a", nil, wg)
+								}
+								return nil, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "a", nil, wg)
+							case "single-typed-nil":
+								if withRollback {
+									return c.ApplyResourceWithRollback(ctx, "coverage-node", typeurl.Listener, "a", (*listener.Listener)(nil), wg)
+								}
+								return nil, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "a", (*listener.Listener)(nil), wg)
+							default:
+								var mutations ResourceMutations
+								if mode == "bulk-removal" {
+									mutations.Removed.Listeners = map[string]*listener.Listener{"a": nil}
+								} else {
+									mutations.Upserted.Listeners = map[string]*listener.Listener{"a": nil}
+								}
+								var waits typeurl.Set
+								waits.Insert(typeurl.Listener)
+								if withRollback {
+									return c.ApplyResourcesWithRollback(ctx, "coverage-node", mutations, wg, waits)
+								}
+								return nil, c.ApplyResources(ctx, "coverage-node", mutations, wg, waits)
 							}
-							var waits typeurl.Set
-							waits.Insert(typeurl.Listener)
-							return c.ApplyResources(ctx, "coverage-node", mutations, wg, waits)
 						}
-					}
-					first, second := completion.NewWaitGroup(ctx), completion.NewWaitGroup(ctx)
-					t.Cleanup(first.Cancel)
-					t.Cleanup(second.Cancel)
-					require.NoError(t, remove(first))
-					require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-					require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, "a"))
-					var response *discovery.DiscoveryResponse
-					if phase == "after-response" {
-						response = s.receive(t)
-					}
-					published := mustSnapshot(t, c, "coverage-node")
-					// The second removal is a no-op, but its absence has not yet been
-					// accepted. Typed nil must attach to the same pending outcome.
-					require.NoError(t, remove(second))
-					require.Equal(t, 2, c.completionCbs.PendingCompletionCount())
-					require.Same(t, published, mustSnapshot(t, c, "coverage-node"))
-					if response == nil {
-						response = s.receive(t)
-					}
-					require.Len(t, response.Resources, 1)
-					rejection := ""
-					if reject {
-						rejection = "invalid listener response"
-					}
-					s.reply(t, response, rejection)
-					for _, wg := range []*completion.WaitGroup{first, second} {
-						if reject {
-							require.ErrorContains(t, wg.Wait(), rejection)
+						first, second := completion.NewWaitGroup(ctx), completion.NewWaitGroup(ctx)
+						t.Cleanup(first.Cancel)
+						t.Cleanup(second.Cancel)
+						caller, err := remove(first, true)
+						require.NoError(t, err)
+						t.Cleanup(func() {
+							if caller != nil {
+								caller.Finalize()
+							}
+						})
+						require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+						require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, "a"))
+						var response *discovery.DiscoveryResponse
+						if phase != "before-response" {
+							response = s.receive(t)
+						}
+						if phase == "after-ack" {
+							s.reply(t, response, "")
+						}
+						published := mustSnapshot(t, c, "coverage-node")
+						// A repeated removal supersedes caller recovery without changing
+						// its ACK requirement, including when specified with typed nil.
+						reused, err := remove(second, withRollback)
+						require.NoError(t, err)
+						if reused != nil {
+							require.NoError(t, reused.Revert())
+						}
+						require.NoError(t, caller.Revert())
+						caller = nil
+						require.Nil(t, c.GetResource("coverage-node", typeurl.Listener, "a"), "neither caller may undo the reused absence")
+						if phase == "after-ack" {
+							require.Zero(t, c.completionCbs.PendingCompletionCount())
 						} else {
-							require.NoError(t, wg.Wait())
+							require.Equal(t, 2, c.completionCbs.PendingCompletionCount())
 						}
-					}
-					current := c.GetResource("coverage-node", typeurl.Listener, "a")
-					if reject {
-						require.Same(t, original, current, "NACK must restore the removed resource")
-					} else {
-						require.Nil(t, current)
-					}
-					current = c.GetResource("coverage-node", typeurl.Listener, "b")
-					require.NotNil(t, current)
-					require.Same(t, other, current)
-					require.Zero(t, c.completionCbs.PendingCompletionCount())
-				})
+						require.Same(t, published, mustSnapshot(t, c, "coverage-node"))
+						if response == nil {
+							response = s.receive(t)
+						}
+						require.Len(t, response.Resources, 1)
+						rejection := ""
+						if reject {
+							rejection = "invalid listener response"
+						}
+						if phase != "after-ack" {
+							s.reply(t, response, rejection)
+						}
+						for _, wg := range []*completion.WaitGroup{first, second} {
+							if reject {
+								require.ErrorContains(t, wg.Wait(), rejection)
+							} else {
+								require.NoError(t, wg.Wait())
+							}
+						}
+						current := c.GetResource("coverage-node", typeurl.Listener, "a")
+						if reject {
+							require.Same(t, original, current, "NACK must restore the removed resource")
+						} else {
+							require.Nil(t, current)
+						}
+						current = c.GetResource("coverage-node", typeurl.Listener, "b")
+						require.NotNil(t, current)
+						require.Same(t, other, current)
+						require.Zero(t, c.completionCbs.PendingCompletionCount())
+					})
+				}
 			}
 		}
 	}
