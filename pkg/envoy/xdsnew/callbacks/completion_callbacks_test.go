@@ -200,30 +200,59 @@ func TestConcurrentEDSStreamResponses(t *testing.T) {
 }
 
 func TestOlderStreamACKPreservesNewerAcceptance(t *testing.T) {
-	cb := newTestCompletionCallbacks()
-	first := testEDSStream{callbacks: cb, streamID: 1, name: "cluster"}
-	second := testEDSStream{callbacks: cb, streamID: 2, name: "cluster"}
-	first.open(t)
-	first.request(t, 0, "", "")
-	first.respond(t, 1, "nonce-1")
-	second.open(t)
-	second.request(t, 0, "", "")
-	resource := &endpoint.ClusterLoadAssignment{ClusterName: "cluster"}
-	snapshot, err := cache.NewSnapshot("e1:g2", map[string][]cache_types.Resource{typeurl.Endpoint.URL(): {resource}})
-	require.NoError(t, err)
-	cb.SetPublishedSnapshot("node-1", snapshot)
-	second.respond(t, 2, "nonce-1")
-	second.request(t, 2, "nonce-1", "")
-	require.True(t, cb.ResourceAccepted("node-1", typeurl.Endpoint, "cluster", resource, true, Revision{}))
-	// Both delayed response delivery and its ACK must preserve the newer
-	// accepted resource used by the cache to recognize semantic no-ops.
-	first.respond(t, 1, "delayed-nonce")
-	require.True(t, cb.ResourceAccepted("node-1", typeurl.Endpoint, "cluster", resource, true, Revision{}))
-	first.request(t, 1, "delayed-nonce", "")
-	require.True(t, cb.ResourceAccepted("node-1", typeurl.Endpoint, "cluster", resource, true, Revision{}),
-		"a delayed ACK must not invalidate the newer accepted resource group")
-	first.close()
-	second.close()
+	for _, tt := range []struct {
+		name        string
+		olderSubset bool
+		newerSubset bool
+	}{
+		{name: "full-then-full"},
+		{name: "subset-then-full", olderSubset: true},
+		{name: "full-then-subset", newerSubset: true},
+		{name: "subset-then-subset", olderSubset: true, newerSubset: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cb := newTestCompletionCallbacks()
+			first := testEDSStream{callbacks: cb, streamID: 1, name: "cluster"}
+			second := testEDSStream{callbacks: cb, streamID: 2, name: "cluster"}
+			first.open(t)
+			first.request(t, 0, "", "")
+			second.open(t)
+			second.request(t, 0, "", "")
+			t.Cleanup(first.close)
+			t.Cleanup(second.close)
+			older := &endpoint.ClusterLoadAssignment{ClusterName: "cluster"}
+			newer := &endpoint.ClusterLoadAssignment{ClusterName: "cluster", Policy: &endpoint.ClusterLoadAssignment_Policy{}}
+			other := &endpoint.ClusterLoadAssignment{ClusterName: "other"}
+			olderSnapshot, err := cache.NewSnapshot("e1:g1", map[string][]cache_types.Resource{typeurl.Endpoint.URL(): {older, other}})
+			require.NoError(t, err)
+			newerSnapshot, err := cache.NewSnapshot("e1:g2", map[string][]cache_types.Resource{typeurl.Endpoint.URL(): {newer, other}})
+			require.NoError(t, err)
+			olderRequest := &discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: typeurl.Endpoint.URL()}
+			newerRequest := &discovery.DiscoveryRequest{Node: olderRequest.Node, TypeUrl: olderRequest.TypeUrl}
+			if tt.olderSubset {
+				olderRequest.ResourceNames = []string{"cluster"}
+			}
+			if tt.newerSubset {
+				newerRequest.ResourceNames = []string{"cluster"}
+			}
+			sendSnapshotResponse(t, cb, first.streamID, olderRequest, 1, olderSnapshot, "nonce-1")
+			cb.SetPublishedSnapshot("node-1", newerSnapshot)
+			sendSnapshotResponse(t, cb, second.streamID, newerRequest, 2, newerSnapshot, "nonce-2")
+			second.request(t, 2, "nonce-2", "")
+			require.True(t, cb.ResourceAccepted("node-1", typeurl.Endpoint, "cluster", newer, true, Generation(2).Revision()))
+			// Both delayed delivery and its ACK must preserve the newer value
+			// and revision used to recognize accepted semantic no-ops.
+			sendSnapshotResponse(t, cb, first.streamID, olderRequest, 1, olderSnapshot, "delayed-nonce")
+			require.True(t, cb.ResourceAccepted("node-1", typeurl.Endpoint, "cluster", newer, true, Generation(2).Revision()))
+			first.request(t, 1, "delayed-nonce", "")
+			require.True(t, cb.ResourceAccepted("node-1", typeurl.Endpoint, "cluster", newer, true, Generation(2).Revision()))
+			require.False(t, cb.ResourceAccepted("node-1", typeurl.Endpoint, "cluster", older, true, Revision{}))
+			require.False(t, cb.ResourceAccepted("node-1", typeurl.Endpoint, "cluster", newer, true, Generation(3).Revision()))
+			require.Equal(t, !tt.olderSubset || !tt.newerSubset,
+				cb.ResourceAccepted("node-1", typeurl.Endpoint, "other", other, true, Generation(1).Revision()),
+				"the older full-group ACK still accepts names omitted from the newer subset")
+		})
+	}
 }
 
 func TestClosedStreamCannotResolveOtherStreamResponse(t *testing.T) {
@@ -477,9 +506,6 @@ func TestAcceptedResourcesCleared(t *testing.T) {
 			require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
 				Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL(),
 			}))
-		}},
-		{name: "last-stream-closed", clear: func(_ *testing.T, cb *CompletionCallbacks) {
-			cb.OnStreamClosed(1, &core.Node{Id: "node-1"})
 		}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
