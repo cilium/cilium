@@ -11,8 +11,10 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	bgpConfig "github.com/cilium/cilium/pkg/bgp/config"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/synced"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 type fakeK8sWatcherConfiguration struct{}
@@ -67,4 +69,14 @@ func Test_No_Resources_InitK8sSubsystem(t *testing.T) {
 	case _, ok := <-k8sCachesSynced:
 		require.False(t, ok)
 	}
+}
+
+func TestGetGroupsForCiliumResources(t *testing.T) {
+	prev := option.Config.EnableK8sClusterNetworkPolicy
+	t.Cleanup(func() { option.Config.EnableK8sClusterNetworkPolicy = prev })
+	option.Config.EnableK8sClusterNetworkPolicy = true
+
+	logger := hivetest.Logger(t)
+	_, waitOnlyList := GetGroupsForCiliumResources(logger, synced.AgentCRDResourceNames(bgpConfig.DefaultConfig))
+	require.Contains(t, waitOnlyList, k8sAPIGroupPolicyNetworkingV1Alpha2)
 }
