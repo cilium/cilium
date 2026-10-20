@@ -715,7 +715,7 @@ func TestGRPCGatewayAPI(t *testing.T) {
 	}
 }
 
-func TestSortRoutesByAge(t *testing.T) {
+func TestSortRoutesByCreationTimeThenNamespacedName(t *testing.T) {
 	routes := []metav1.ObjectMeta{
 		{Namespace: "app", Name: "route", CreationTimestamp: metav1.Unix(1, 0)},
 		{Namespace: "app-prod", Name: "route-z", CreationTimestamp: metav1.Unix(1, 0)},
@@ -729,7 +729,7 @@ func TestSortRoutesByAge(t *testing.T) {
 			if reverse {
 				slices.Reverse(input)
 			}
-			sortRoutesByAge(input, func(r metav1.ObjectMeta) metav1.ObjectMeta { return r })
+			sortRoutesByCreationTimeThenNamespacedName(input, func(r metav1.ObjectMeta) metav1.ObjectMeta { return r })
 
 			var names []string
 			for _, route := range input {
@@ -737,9 +737,9 @@ func TestSortRoutesByAge(t *testing.T) {
 			}
 			assert.Equal(t, []string{
 				"zzz/route",
+				"app/route",
 				"app-prod/route-a",
 				"app-prod/route-z",
-				"app/route",
 				"aaa/route",
 			}, names)
 		})
