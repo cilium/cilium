@@ -4,21 +4,6 @@
   routes:
   - backends:
     - name: backend
-      namespace: default-prod
-      port:
-        port: 8080
-    headers_match:
-    - key: x-region
-      match:
-        exact: eu
-    hostnames:
-    - example.com
-    is_grpc: true
-    path_match:
-      exact: /service.Echo/Ping
-    timeout: {}
-  - backends:
-    - name: backend
       namespace: default
       port:
         port: 8080
@@ -50,6 +35,21 @@
   - backends:
     - name: backend
       namespace: default
+      port:
+        port: 8080
+    headers_match:
+    - key: x-region
+      match:
+        exact: eu
+    hostnames:
+    - example.com
+    is_grpc: true
+    path_match:
+      exact: /service.Echo/Ping
+    timeout: {}
+  - backends:
+    - name: backend
+      namespace: default-prod
       port:
         port: 8080
     headers_match:
