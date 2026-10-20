@@ -182,7 +182,7 @@ jobs:
       - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ steps.vars.outputs.sha }}
+          ref: ${{ steps.sha.outputs.sha }}
           persist-credentials: false
           # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
           allow-unsafe-pr-checkout: true
