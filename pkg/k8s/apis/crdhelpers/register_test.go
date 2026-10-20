@@ -5,6 +5,7 @@ package crdhelpers
 
 import (
 	"context"
+	"errors"
 	"regexp"
 	"testing"
 	"time"
@@ -287,4 +288,61 @@ func (m fakePoller) Poll(
 	conditionFn func(context.Context) (bool, error),
 ) error {
 	return nil
+}
+
+// runningPoller, unlike fakePoller, invokes the condition function until it
+// either succeeds or fails, without sleeping in between.
+type runningPoller struct{}
+
+func (runningPoller) Poll(
+	ctx context.Context,
+	_, _ time.Duration,
+	conditionFn func(context.Context) (bool, error),
+) error {
+	for range 100 {
+		done, err := conditionFn(ctx)
+		if done || err != nil {
+			return err
+		}
+	}
+	return errors.New("condition not met")
+}
+
+func TestUpdateCRDPreservesMetadata(t *testing.T) {
+	require.NoError(t, k8sversion.Force("1.16"))
+
+	// Simulate a CRD with an outdated schema that was installed by Helm.
+	installed := getV1TestCRD()
+	installed.Labels = map[string]string{
+		labelKey:                       "0.9",
+		"app.kubernetes.io/managed-by": "Helm",
+	}
+	installed.Annotations = map[string]string{
+		"meta.helm.sh/release-name": "cilium",
+	}
+	installed.Status.Conditions = []apiextensionsv1.CustomResourceDefinitionCondition{{
+		Type:   apiextensionsv1.Established,
+		Status: apiextensionsv1.ConditionTrue,
+	}}
+	client := fake.NewSimpleClientset(installed)
+
+	target := getV1TestCRD()
+	target.Annotations = map[string]string{"example.com/target": "true"}
+
+	_, err := CreateUpdateCRD(t.Context(), hivetest.Logger(t), client, target, runningPoller{}, NeedsUpdateV1Factory(labelKey, minVersion))
+	require.NoError(t, err)
+
+	updated, err := client.ApiextensionsV1().CustomResourceDefinitions().Get(t.Context(), target.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+
+	// Metadata of the target CRD is applied, while unrelated metadata of the
+	// installed CRD is preserved.
+	require.Equal(t, map[string]string{
+		labelKey:                       k8sconst.CustomResourceDefinitionSchemaVersion,
+		"app.kubernetes.io/managed-by": "Helm",
+	}, updated.Labels)
+	require.Equal(t, map[string]string{
+		"meta.helm.sh/release-name": "cilium",
+		"example.com/target":        "true",
+	}, updated.Annotations)
 }
