@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/hive/job"
 	statedbReconciler "github.com/cilium/statedb/reconciler"
+	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -295,7 +296,7 @@ func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.
 	panic("unimplemented")
 }
 
-func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, waitGroup *completion.WaitGroup) error {
+func (r *fakeXdsServer) UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error {
 	panic("unimplemented")
 }
 
