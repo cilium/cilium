@@ -23,6 +23,19 @@ for vmss in "${vmss_names[@]}"; do
   echo "::endgroup::"
 done
 
+# Burstable node sizes such as Standard_B2s throttle the VM once it runs out of CPU credits.
+for vmss in "${vmss_names[@]}"; do
+  vmss_id=$(az_ vmss show --resource-group "${node_rg}" --name "${vmss}" --query id -o tsv)
+  echo "::group::VMSS ${vmss}: CPU and CPU credits per instance, last 90 minutes"
+  for metric in "Percentage CPU" "CPU Credits Remaining" "CPU Credits Consumed"; do
+    az_ monitor metrics list --resource "${vmss_id}" --metric "${metric}" --filter "VMName eq '*'" \
+      --interval PT1M --offset 90m --aggregation Average -o json \
+      | jq -r --arg m "${metric}" '.value[].timeseries[]
+          | "\($m) \(.metadatavalues[0].value): \([.data[] | select(.average != null) | "\(.timeStamp[11:16])=\(.average * 10 | floor / 10)"] | join(" "))"'
+  done
+  echo "::endgroup::"
+done
+
 echo "::group::Subnets, route tables and NSGs of ${node_rg}"
 az_ network vnet list --resource-group "${node_rg}" \
   --query '[].subnets[].{name:name, prefix:addressPrefix, routeTable:routeTable.id, nsg:networkSecurityGroup.id}' \
