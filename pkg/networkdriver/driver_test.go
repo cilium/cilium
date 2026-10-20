@@ -82,16 +82,16 @@ func buildDriverForPool(t *testing.T, pools []v2alpha1.CiliumNetworkDriverDevice
 	allocationTable, err := newAllocationTable(db)
 	require.NoError(t, err)
 	d := &Driver{
-		logger: hivetest.Logger(t),
-		config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
-			DriverName: prepTestDriverName,
-			Pools:      pools,
-		},
+		logger:          hivetest.Logger(t),
 		db:              db,
 		deviceTable:     deviceTable,
 		allocationTable: allocationTable,
 		podNetns:        make(map[kubetypes.UID]string),
 	}
+	d.setConfig(&v2alpha1.CiliumNetworkDriverNodeConfigSpec{
+		DriverName: prepTestDriverName,
+		Pools:      pools,
+	})
 	return d
 }
 
@@ -1181,10 +1181,10 @@ func buildDriverWithDummyManager(t *testing.T, pools []v2alpha1.CiliumNetworkDri
 	require.NoError(t, err)
 
 	d := buildPrepDriver(t, cs)
-	d.config = &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
+	d.setConfig(&v2alpha1.CiliumNetworkDriverNodeConfigSpec{
 		DriverName: prepTestDriverName,
 		Pools:      pools,
-	}
+	})
 	d.deviceManagers = map[types.DeviceManagerType]types.DeviceManager{
 		types.DeviceManagerTypeDummy: mgr,
 	}
