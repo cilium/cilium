@@ -59,16 +59,42 @@ Support for the Kubernetes ClusterNetworkPolicy (KCNP) is available starting wit
 For more information, see the official `ClusterNetworkPolicy documentation
 <https://network-policy-api.sigs.k8s.io/api-overview/>`_.
 
+.. _ClusterNetworkPolicy_enable:
+
 Enabling KCNP
 -------------
 
-Support must be enabled by setting the ``--enable-k8s-cluster-network-policy`` flag to ``true`` (or equivalent Helm value ``k8sClusterNetworkPolicy.enabled=true``). You also must install the Custom Resource Definition (CRD) from `sigs.k8s.io/network-policy-api <https://sigs.k8s.io/network-policy-api>`_:
+Support for Kubernetes ClusterNetworkPolicy is controlled with the ``--enable-k8s-cluster-network-policy`` flag (or equivalent Helm value ``k8sClusterNetworkPolicy.enabled``). The default value is ``true``.
+
+When enabled, the Cilium Operator automatically installs the standard-channel Kubernetes ClusterNetworkPolicy Custom Resource Definition (CRD) from `sigs.k8s.io/network-policy-api <https://sigs.k8s.io/network-policy-api>`_ and keeps it up to date as part of Cilium upgrades. The Cilium Agent waits for the CRD to be available before it starts, and fails to start if the CRD is not available within the ``--crd-wait-timeout`` duration.
+
+If you prefer to manage the installation of the Kubernetes ClusterNetworkPolicy CRD yourself, set the ``--k8s-cluster-network-policy-install-crds`` operator flag (or equivalent Helm value ``k8sClusterNetworkPolicy.installCRDs``) to ``false`` and install the CRD before the Cilium Agent starts:
 
 .. code-block:: shell-session
 
-    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/release-0.2/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml
+    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.2.1/config/crd/standard/policy.networking.k8s.io_clusternetworkpolicies.yaml
+
+To use experimental features, apply the experimental-channel CRD instead. The Cilium Operator only installs and upgrades the standard-channel CRD. It never replaces an experimental-channel CRD with the standard-channel one, so you must upgrade it yourself:
+
+.. code-block:: shell-session
+
+    $ kubectl apply -f https://raw.githubusercontent.com/kubernetes-sigs/network-policy-api/v0.2.1/config/crd/experimental/policy.networking.k8s.io_clusternetworkpolicies.yaml
+
+.. note::
+
+    When ``k8sClusterNetworkPolicy.installCRDs`` is ``true``, the Cilium Operator checks the version of the installed CRD on startup. If the installed CRD is older than the CRD version bundled with Cilium but cannot be upgraded automatically, for example because it is an experimental-channel CRD, the Cilium Operator logs a warning.
 
 The KCNP API specifies that CIDR rules must also match pod and node IPs. For full conformance, set the :ref:`--policy-cidr-match-mode <cidr_select_nodes>` flag to ``pods,nodes``.
+
+.. _ClusterNetworkPolicy_rbac:
+
+RBAC Requirements
+-----------------
+
+The Cilium Helm chart grants the required permissions automatically. If you manage RBAC manifests outside of Helm, grant the following permissions:
+
+- **Cilium Agent**: ``get``, ``list``, and ``watch`` on ``clusternetworkpolicies`` in the ``policy.networking.k8s.io`` API group.
+- **Cilium Operator**: ``update`` on the ``clusternetworkpolicies.policy.networking.k8s.io`` ``CustomResourceDefinition``. This is only required when the Cilium Operator manages the CRD (``k8sClusterNetworkPolicy.installCRDs=true``).
 
 Tiers
 -----
