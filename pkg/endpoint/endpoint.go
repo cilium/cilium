@@ -1045,7 +1045,7 @@ func NewDatapathConfiguration() models.EndpointDatapathConfiguration {
 		// Delegate routing to the Linux stack rather than tail-calling
 		// between BPF programs.
 		disabled := false
-		config.RequireRouting = &disabled
+		config.RequireBPFRouting = &disabled
 	}
 	return config
 }

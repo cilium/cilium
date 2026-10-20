@@ -68,7 +68,7 @@ func (e *TestEndpoint) RequireARPPassthrough() bool { return false }
 
 func (e *TestEndpoint) RequireEgressProg() bool { return false }
 
-func (e *TestEndpoint) RequireRouting() bool { return false }
+func (e *TestEndpoint) RequireBPFRouting() bool { return false }
 
 func (e *TestEndpoint) RequireEndpointRoute() bool { return false }
 

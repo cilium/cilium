@@ -1590,12 +1590,12 @@ func (e *Endpoint) RequireEgressProg() bool {
 	return e.DatapathConfiguration.RequireEgressProg
 }
 
-// RequireRouting returns true if the endpoint requires BPF routing to be
+// RequireBPFRouting returns true if the endpoint requires BPF routing to be
 // enabled, when disabled, routing is delegated to Linux routing
-func (e *Endpoint) RequireRouting() (required bool) {
+func (e *Endpoint) RequireBPFRouting() (required bool) {
 	required = true
-	if e.DatapathConfiguration.RequireRouting != nil {
-		required = *e.DatapathConfiguration.RequireRouting
+	if e.DatapathConfiguration.RequireBPFRouting != nil {
+		required = *e.DatapathConfiguration.RequireBPFRouting
 	}
 	return
 }

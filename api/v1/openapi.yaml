@@ -1279,6 +1279,7 @@ definitions:
         description: >
           Endpoint requires BPF routing to be enabled, when disabled, routing
           is delegated to Linux routing.
+        x-go-name: RequireBPFRouting
         type: boolean
         default: true
       install-endpoint-route:
