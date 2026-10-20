@@ -502,7 +502,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	for _, endpoint := range endpoints {
 		seedADSNetworkPolicy(t, xdsServer, endpoint)
 	}
-	err = xdsServer.UpsertEnvoyResources(ctx, resources, s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), resources, s.waitGroup)
 	require.NoError(t, err)
 
 	err = s.waitForProxyCompletion()
@@ -518,7 +518,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 	oldListenerResources := xds.NewResources()
 	oldListenerResources.Listeners[oldListener.Name] = oldListener
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	require.NoError(t, xdsServer.UpsertEnvoyResources(ctx, oldListenerResources, s.waitGroup))
+	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), oldListenerResources, s.waitGroup))
 	require.NoError(t, s.waitForProxyCompletion())
 
 	newListener := proto.Clone(oldListener).(*envoy_config_listener.Listener)
@@ -630,7 +630,7 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 	for _, ep := range endpoints {
 		seedADSNetworkPolicy(t, xdsServer, ep)
 	}
-	err = xdsServer.UpsertEnvoyResources(ctx, validADSTestResources(t), s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), validADSTestResources(t), s.waitGroup)
 	require.NoError(t, err)
 
 	err = s.waitForProxyCompletion()
@@ -744,7 +744,7 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 	seedADSNetworkPolicy(t, xdsServer, ep)
 
 	t.Log("upserting a listener and its network policy")
-	err = xdsServer.UpsertEnvoyResources(ctx, resources, s.waitGroup)
+	err = xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), resources, s.waitGroup)
 	require.NoError(t, err)
 	require.NoError(t, s.waitForProxyCompletion())
 	requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "NetworkPoliciesConfigDump", "10.0.0.1")
@@ -1021,8 +1021,7 @@ func TestEnvoyDelta(t *testing.T) {
 	require.NoError(t, err)
 	t.Log("completed adding listener 3")
 
-	err = xdsServer.UpsertEnvoyResources(ctx, xds.Resources{Secrets: map[string]*envoy_config_tls.Secret{
-		standaloneHeaderMatchSDSSecretName(): standaloneHeaderMatchSecret()}}, nil)
+	err = xdsServer.UpsertSecret(ctx, standaloneHeaderMatchSecret())
 	require.NoError(t, err)
 	t.Log("completed adding HeaderMatch SDS Secret")
 
@@ -1161,7 +1160,7 @@ func TestEnvoy(t *testing.T) {
 	oldListener.EnableReusePort = wrapperspb.Bool(false)
 	oldResources := xds.NewResources()
 	oldResources.Listeners[oldListener.Name] = oldListener
-	require.NoError(t, xdsServer.UpsertEnvoyResources(ctx, oldResources, nil))
+	require.NoError(t, xdsServer.UpdateEnvoyResources(ctx, xds.NewResources(), oldResources, nil))
 
 	newListener := xdsServer.getListenerConf("listener-address-update", policy.ParserTypeHTTP, 18080, true, false)
 	newAddresses := testListenerWithPorts(18080, 18444)
@@ -1191,8 +1190,7 @@ func TestEnvoy(t *testing.T) {
 	require.NoError(t, err)
 	t.Log("completed adding listener 3")
 
-	err = xdsServer.UpsertEnvoyResources(ctx, xds.Resources{Secrets: map[string]*envoy_config_tls.Secret{
-		standaloneHeaderMatchSDSSecretName(): standaloneHeaderMatchSecret()}}, nil)
+	err = xdsServer.UpsertSecret(ctx, standaloneHeaderMatchSecret())
 	require.NoError(t, err)
 	t.Log("completed adding HeaderMatch SDS Secret")
 
@@ -1808,7 +1806,7 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 	}
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	// UpsertEnvoyResources intentionally does not wait for endpoint ACKs. This
+	// UpdateEnvoyResources intentionally does not wait for endpoint ACKs. This
 	// regression test needs to observe the EDS ACK for the bootstrap locality cluster.
 	waitTypeURLs := typeurl.NewSet(typeurl.Endpoint)
 	xdsServer.mutex.Lock()
@@ -1962,7 +1960,7 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 				}},
 			}
 			initialClusterBaseline := traffic.mark()
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Clusters:  map[string]*envoy_config_cluster.Cluster{cluster.Name: cluster},
 				Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{endpoint.ClusterName: endpoint},
 				Secrets:   map[string]*envoy_config_tls.Secret{upstreamSecret.Name: upstreamSecret},
@@ -2019,7 +2017,7 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 				}}},
 			}
 			initialListenerBaseline := traffic.mark()
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Listeners: map[string]*envoy_config_listener.Listener{listener.Name: listener},
 				Routes:    map[string]*envoy_config_route.RouteConfiguration{route.Name: route},
 				Secrets:   map[string]*envoy_config_tls.Secret{listenerSecret.Name: listenerSecret},
@@ -2036,7 +2034,7 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			sharedCluster.Name = "warming-cluster-sharing-eds"
 			sharedCluster.AltStatName = "warming-shared-eds"
 			sharedEndpointBaseline := traffic.mark()
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Clusters: map[string]*envoy_config_cluster.Cluster{sharedCluster.Name: sharedCluster},
 			}, nil))
 			// Both clusters use the same already-delivered CLA. Activation must
@@ -2058,7 +2056,7 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			updatedCluster := proto.Clone(cluster).(*envoy_config_cluster.Cluster)
 			updatedCluster.AltStatName = "warming-cluster-updated"
 			updatedCluster.ConnectTimeout = durationpb.New(2 * time.Second)
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Clusters: map[string]*envoy_config_cluster.Cluster{cluster.Name: updatedCluster},
 			}, nil))
 			requireEnvoyActiveCluster(t, proxy.GetAdminClient(), cluster.Name, updatedCluster.AltStatName)
@@ -2074,7 +2072,7 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			require.NoError(t, updatedListener.FilterChains[0].Filters[0].GetTypedConfig().UnmarshalTo(hcm))
 			hcm.StatPrefix = "warming-http-after"
 			updatedListener.FilterChains[0].Filters[0].ConfigType = &envoy_config_listener.Filter_TypedConfig{TypedConfig: ToAny(hcm)}
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Listeners: map[string]*envoy_config_listener.Listener{listener.Name: updatedListener},
 			}, nil))
 			requireEnvoyActiveListener(t, proxy.GetAdminClient(), listener.Name, hcm.StatPrefix)
@@ -2087,7 +2085,7 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			secondListener := proto.Clone(updatedListener).(*envoy_config_listener.Listener)
 			secondListener.Name = "warming-listener-second"
 			secondListener.Address.GetSocketAddress().PortSpecifier = &envoy_config_core.SocketAddress_PortValue{PortValue: 18089}
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Listeners: map[string]*envoy_config_listener.Listener{secondListener.Name: secondListener},
 			}, nil))
 			requireEnvoyActiveListener(t, proxy.GetAdminClient(), secondListener.Name, hcm.StatPrefix)
@@ -2100,7 +2098,7 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 			sharedRoute := proto.Clone(route).(*envoy_config_route.RouteConfiguration)
 			sharedRoute.VirtualHosts[0].Routes[0].GetRoute().ClusterSpecifier =
 				&envoy_config_route.RouteAction_Cluster{Cluster: sharedCluster.Name}
-			require.NoError(t, server.UpsertEnvoyResources(ctx, xds.Resources{
+			require.NoError(t, server.UpdateEnvoyResources(ctx, xds.NewResources(), xds.Resources{
 				Routes: map[string]*envoy_config_route.RouteConfiguration{route.Name: sharedRoute},
 			}, nil))
 			requireEnvoyConfigDumpContains(t, proxy.GetAdminClient(), "RoutesConfigDump", sharedCluster.Name)
