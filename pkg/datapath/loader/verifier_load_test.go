@@ -41,6 +41,7 @@ func setBasePermutations(t *config.Node) {
 	t.TracePayloadLen = 128
 	t.TracePayloadLenOverlay = 192
 	t.EnableSCTP = true
+	t.EnableHostFirewall = true
 	t.EnableDropNotify = true
 	t.EnableIPMasqAgentIPv4 = true
 	t.EnableIPMasqAgentIPv6 = true

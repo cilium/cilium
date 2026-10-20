@@ -677,7 +677,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (is_defined(ENABLE_HOST_FIREWALL) && !CONFIG(enable_bpf_routing) &&
+	if (CONFIG(enable_host_firewall) && !CONFIG(enable_bpf_routing) &&
 	    dst_sec_identity == HOST_ID)
 		return lxc_deliver_to_host(ctx, SECLABEL_IPV6);
 
@@ -714,7 +714,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
 			    (CONFIG(enable_bpf_host_routing) || CONFIG(enable_bpf_routing))) {
 				if (CONFIG(enable_bpf_routing) &&
-				    is_defined(ENABLE_HOST_FIREWALL) &&
+				    CONFIG(enable_host_firewall) &&
 				    dst_sec_identity == HOST_ID)
 					return lxc_redirect_to_host(ctx, SECLABEL_IPV6,
 								    bpf_htons(ETH_P_IPV6),
@@ -733,12 +733,13 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef TUNNEL_MODE
 	if (ct_state->from_tunnel || !skip_tunnel) {
-#if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
+#if !defined(ENABLE_NODEPORT)
 		/* See comment in handle_ipv4_from_lxc(). */
-		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
+		if (CONFIG(enable_host_firewall) &&
+		    (ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(dst_sec_identity))
 			goto pass_to_stack;
-#endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
+#endif /* !ENABLE_NODEPORT */
 
 		if (info && info->flag_has_tunnel_ep)
 			return encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
@@ -1134,7 +1135,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, enforce ingress host policies via policy tailcall.
 	 */
-	if (is_defined(ENABLE_HOST_FIREWALL) && !CONFIG(enable_bpf_routing) &&
+	if (CONFIG(enable_host_firewall) && !CONFIG(enable_bpf_routing) &&
 	    dst_sec_identity == HOST_ID)
 		return lxc_deliver_to_host(ctx, SECLABEL_IPV4);
 
@@ -1183,7 +1184,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 			if ((ep->flags & ENDPOINT_MASK_HOST_DELIVERY) &&
 			    (CONFIG(enable_bpf_host_routing) || CONFIG(enable_bpf_routing))) {
 				if (CONFIG(enable_bpf_routing) &&
-				    is_defined(ENABLE_HOST_FIREWALL) &&
+				    CONFIG(enable_host_firewall) &&
 				    dst_sec_identity == HOST_ID)
 					return lxc_redirect_to_host(ctx, SECLABEL_IPV4,
 								    bpf_htons(ETH_P_IP),
@@ -1234,7 +1235,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		if (cluster_id > UINT16_MAX)
 			return DROP_INVALID_CLUSTER_ID;
 
-#if !defined(ENABLE_NODEPORT) && defined(ENABLE_HOST_FIREWALL)
+#if !defined(ENABLE_NODEPORT)
 		/*
 		 * For the host firewall, traffic from a pod to a remote node is sent
 		 * through the tunnel. In the case of node to remote pod traffic via
@@ -1244,10 +1245,11 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		 * to apply the correct reverse DNAT, and then be routed accordingly.
 		 * See #14674 for details.
 		 */
-		if ((ct_status == CT_REPLY || ct_status == CT_RELATED) &&
+		if (CONFIG(enable_host_firewall) &&
+		    (ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(dst_sec_identity))
 			goto pass_to_stack;
-#endif /* !ENABLE_NODEPORT && ENABLE_HOST_FIREWALL */
+#endif /* !ENABLE_NODEPORT */
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 		/*
@@ -2528,7 +2530,7 @@ int cil_to_container(struct __ctx_buff *ctx)
 	 * when we jump back, the packet mark will have been cleared and the
 	 * identity won't match HOST_ID anymore.
 	 */
-	if (is_defined(ENABLE_HOST_FIREWALL) && !CONFIG(enable_bpf_routing) &&
+	if (CONFIG(enable_host_firewall) && !CONFIG(enable_bpf_routing) &&
 	    identity == HOST_ID) {
 		ctx_store_meta(ctx, CB_FROM_HOST, 1);
 		ctx_store_meta(ctx, CB_DST_ENDPOINT_ID, LXC_ID);

@@ -1163,7 +1163,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	if (!CONFIG(dsr_cfg).enable || CONFIG(dsr_cfg).enable_by_user ||
 	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
 	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
-		if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+		if ((CONFIG(enable_host_firewall) && is_defined(IS_BPF_HOST)) ||
 		    is_defined(IS_BPF_XDP))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS,
 						 &ext_err);
@@ -2500,7 +2500,7 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
 		 * reply traffic into tunnel (see there for details).
 		 */
-		if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+		if ((CONFIG(enable_host_firewall) && is_defined(IS_BPF_HOST)) ||
 		    is_defined(IS_BPF_XDP))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT, &ext_err);
 		else
