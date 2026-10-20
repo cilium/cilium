@@ -34,28 +34,13 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
-/* How many times we should retry getting the policy revisions before
- * giving up. We want to reduce the likelihood that a connectivity blip
- * will prevent us from removing policies (dependent on revisions today)
- * because that may then cause subsequent tests to fail.
- */
-const getPolicyRevisionRetries = 3
-
 const policyBumpAnnotation = "cli.cilium.io/bump-policy"
 
 // getCiliumPolicyRevisions returns the current policy revisions of all Cilium pods
-func (ct *ConnectivityTest) getCiliumPolicyRevisions(ctx context.Context) (map[Pod]int, error) {
+func (t *Test) getCiliumPolicyRevisions(ctx context.Context) (map[Pod]int, error) {
 	revisions := make(map[Pod]int)
-	for _, cp := range ct.ciliumPods {
-		var revision int
-		var err error
-		for i := 1; i <= getPolicyRevisionRetries; i++ {
-			revision, err = getCiliumPolicyRevision(ctx, cp)
-			if err == nil {
-				break
-			}
-			ct.Debugf("Failed to get policy revision from pod %s (%d/%d): %s", cp, i, getPolicyRevisionRetries, err)
-		}
+	for _, cp := range t.Context().ciliumPods {
+		revision, err := t.getCiliumPolicyRevision(ctx, cp)
 		if err != nil {
 			return revisions, err
 		}
@@ -68,7 +53,7 @@ func (ct *ConnectivityTest) getCiliumPolicyRevisions(ctx context.Context) (map[P
 // TODO: Improve error returns here, currently not possible for the caller to reliably detect timeout.
 func (t *Test) waitCiliumPolicyRevisions(ctx context.Context, revisions map[Pod]int, deltas map[string]int) error {
 	return t.waitEachPolicyRevision(revisions, deltas, func(pod Pod, rev int) error {
-		return waitCiliumPolicyRevision(ctx, pod, rev, defaults.PolicyWaitTimeout)
+		return t.waitCiliumPolicyRevision(ctx, pod, rev, defaults.PolicyWaitTimeout)
 	})
 }
 
@@ -87,17 +72,30 @@ func (t *Test) waitEachPolicyRevision(revisions map[Pod]int, deltas map[string]i
 }
 
 // getCiliumPolicyRevision returns the current policy revision of a Cilium pod.
-func getCiliumPolicyRevision(ctx context.Context, pod Pod) (int, error) {
-	stdout, err := pod.K8sClient.ExecInPod(ctx, pod.Pod.Namespace, pod.Pod.Name,
-		defaults.AgentContainerName, []string{"cilium", "policy", "get", "-o", "jsonpath='{.revision}'"})
+func (t *Test) getCiliumPolicyRevision(ctx context.Context, pod Pod) (int, error) {
+	stdout, err := pod.K8sClient.ExecInPodRetry(ctx, pod.Pod.Namespace, pod.Pod.Name,
+		defaults.AgentContainerName, []string{"cilium", "policy", "get", "-o", "jsonpath='{.revision}'"},
+		k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true, Validate: validPolicyRevision, OnRetry: t.LogExecRetry, RetryAnyError: true})
 	if err != nil {
 		return 0, err
 	}
-	revision, err := strconv.Atoi(strings.Trim(stdout.String(), "'\n"))
-	if err != nil {
-		return 0, fmt.Errorf("revision %q is not valid: %w", stdout.String(), err)
+	return parsePolicyRevision(stdout.Bytes())
+}
+
+// parsePolicyRevision requires both quotes of the jsonpath template, so it rejects a truncated output.
+func parsePolicyRevision(stdout []byte) (int, error) {
+	s, opened := strings.CutPrefix(strings.TrimSpace(string(stdout)), "'")
+	s, closed := strings.CutSuffix(s, "'")
+	revision, err := strconv.Atoi(s)
+	if !opened || !closed || err != nil {
+		return 0, fmt.Errorf("revision %q is not valid", stdout)
 	}
 	return revision, nil
+}
+
+func validPolicyRevision(stdout []byte) error {
+	_, err := parsePolicyRevision(stdout)
+	return err
 }
 
 // waitCiliumPolicyRevision waits until every endpoint managed by the given
@@ -111,13 +109,13 @@ func getCiliumPolicyRevision(ctx context.Context, pod Pod) (int, error) {
 // hold within the timeout even though our policy has long been realized
 // everywhere. The realized revision is monotonic, so concurrent churn only
 // pushes it further ahead of our target, never out of reach.
-func waitCiliumPolicyRevision(ctx context.Context, pod Pod, rev int, timeout time.Duration) error {
+func (t *Test) waitCiliumPolicyRevision(ctx context.Context, pod Pod, rev int, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	var lastErr error
 	for {
-		notReady, err := endpointsBelowPolicyRevision(ctx, pod, rev)
+		notReady, err := t.endpointsBelowPolicyRevision(ctx, pod, rev)
 		if err != nil {
 			lastErr = err
 		} else if notReady == 0 {
@@ -136,10 +134,16 @@ func waitCiliumPolicyRevision(ctx context.Context, pod Pod, rev int, timeout tim
 
 // endpointsBelowPolicyRevision returns how many endpoints managed by the given
 // Cilium pod have not yet realized the given policy revision.
-func endpointsBelowPolicyRevision(ctx context.Context, pod Pod, rev int) (int, error) {
-	eps, err := pod.K8sClient.CiliumDbgEndpoints(ctx, pod.Pod.Namespace, pod.Pod.Name)
+func (t *Test) endpointsBelowPolicyRevision(ctx context.Context, pod Pod, rev int) (int, error) {
+	stdout, err := pod.K8sClient.ExecInPodRetry(ctx, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName,
+		[]string{"cilium", "endpoint", "list", "-o", "json"},
+		k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true, Validate: k8s.ValidJSON, OnRetry: t.LogExecRetry})
 	if err != nil {
 		return 0, err
+	}
+	var eps []*models.Endpoint
+	if err := json.Unmarshal(stdout.Bytes(), &eps); err != nil {
+		return 0, fmt.Errorf("unable to unmarshal response: %w", err)
 	}
 	return countEndpointsBelowPolicyRevision(eps, rev), nil
 }
@@ -331,7 +335,7 @@ func (t *Test) applyResources(ctx context.Context) error {
 	defer policyApplyDeleteLock.Unlock()
 
 	// Get current policy revisions in all Cilium pods.
-	revisions, err := t.Context().getCiliumPolicyRevisions(ctx)
+	revisions, err := t.getCiliumPolicyRevisions(ctx)
 	if err != nil {
 		return fmt.Errorf("unable to get policy revisions for Cilium pods: %w", err)
 	}
@@ -402,7 +406,7 @@ func (t *Test) deleteResources(ctx context.Context) error {
 	defer policyApplyDeleteLock.Unlock()
 
 	// Get current policy revisions in all Cilium pods.
-	revs, err := t.Context().getCiliumPolicyRevisions(ctx)
+	revs, err := t.getCiliumPolicyRevisions(ctx)
 	if err != nil {
 		return fmt.Errorf("getting policy revisions for Cilium agents: %w", err)
 	}
