@@ -27,6 +27,18 @@ notes carefully below to understand what to do during upgrade.
   traffic until the Service exists and, if selector-less, has backends. If you
   have rules like this, ensure the referenced Services exist and have backends
   before upgrading.
+* Support for the Kubernetes :ref:`ClusterNetworkPolicy` is now enabled by
+  default, and the Cilium Operator automatically installs the corresponding
+  ``ClusterNetworkPolicy`` CRD. The Cilium Agent waits for this CRD to be
+  available before starting. If you configured the Cilium Operator to not create
+  CRDs (``operator.skipCRDCreation=true``), either install the CRD manually
+  before upgrading, or disable the feature by setting
+  ``k8sClusterNetworkPolicy.enabled=false``. If you manage RBAC manifests
+  outside of Helm, grant the Cilium Agent ``get``, ``list``, and ``watch``
+  permissions on ``clusternetworkpolicies`` in the ``policy.networking.k8s.io``
+  API group, and allow the Cilium Operator to ``update`` the
+  ``clusternetworkpolicies.policy.networking.k8s.io``
+  ``CustomResourceDefinition``.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
@@ -70,6 +82,11 @@ The following options have been introduced in this version of Cilium:
   ``cidrs`` and may set ``reservedRanges`` to exclude IP ranges from allocation.
   These fields are only available in ``cilium.io/v2``. See
   :ref:`update_existing_ciliumpodippools_with_reservedranges`.
+* The ``k8sClusterNetworkPolicy.installCRDs`` Helm value (operator flag
+  ``--k8s-cluster-network-policy-install-crds``) controls whether the Cilium
+  Operator installs and manages the Kubernetes ``ClusterNetworkPolicy`` CRD. It
+  defaults to ``true``. Set it to ``false`` if you prefer to manage the CRD by
+  other means.
 
 Changed Options
 ###############
@@ -84,6 +101,11 @@ differently than in prior releases:
   masqueraded anymore.
 * ``bpf.hostLegacyRouting`` now defaults to true on new Cilium deployments.
 * ``bpf.masquerade`` is enabled by default on new Cilium deployments.
+* The ``k8sClusterNetworkPolicy.enabled`` Helm value (agent flag
+  ``--enable-k8s-cluster-network-policy``) now defaults to ``true``. The
+  Kubernetes ``ClusterNetworkPolicy`` CRD, which previously had to be installed
+  manually, is now installed by the Cilium Operator. See
+  :ref:`ClusterNetworkPolicy` for details.
 
 Deprecated Options
 ##################
