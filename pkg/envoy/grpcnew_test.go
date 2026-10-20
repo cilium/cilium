@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -19,6 +20,7 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
 	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/stretchr/testify/require"
+	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -213,6 +215,204 @@ func TestADSKnownNodeEmptyStateAndReconnect(t *testing.T) {
 	reconnected, err := stream.Recv()
 	require.NoError(t, err)
 	require.Empty(t, reconnected.GetResources(), "the empty local node remains known across disconnects")
+}
+
+func TestDeltaADSIncrementalACKAndNACKRollback(t *testing.T) {
+	server := newTestADSServer(t, hivetest.Logger(t), nil, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeDeltaADS,
+	}, nil, nil)
+	client := newTestADSClient(t, server)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	baseline := &listener.Listener{Name: "listener-a"}
+	unchanged := &listener.Listener{Name: "listener-b"}
+	marker := &envoy_config_cluster.Cluster{Name: "ack-marker"}
+	require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, baseline.Name, baseline, nil, nil))
+	require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, unchanged.Name, unchanged, nil, nil))
+	require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Cluster, marker.Name, marker, nil, nil))
+
+	stream, err := client.DeltaAggregatedResources(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+		Node: &core.Node{Id: localNodeID}, TypeUrl: ListenerTypeURL,
+	}))
+	initial, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, ListenerTypeURL, initial.GetTypeUrl())
+	require.ElementsMatch(t, []string{baseline.Name, unchanged.Name}, deltaResponseResourceNames(initial))
+	require.Empty(t, initial.GetRemovedResources())
+
+	// ACK the initial LDS state. The following CDS request is an ordered marker
+	// proving that the ACK has been processed before the update is applied.
+	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+		TypeUrl: ListenerTypeURL, ResponseNonce: initial.GetNonce(),
+	}))
+	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{TypeUrl: ClusterTypeURL}))
+	markerResponse, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, ClusterTypeURL, markerResponse.GetTypeUrl())
+	require.Equal(t, []string{marker.Name}, deltaResponseResourceNames(markerResponse))
+
+	updated := &listener.Listener{
+		Name: baseline.Name, TrafficDirection: core.TrafficDirection_OUTBOUND,
+	}
+	wg := completion.NewWaitGroup(ctx)
+	done := waitForADSCompletion(t, wg)
+	callbackResult := make(chan error, 1)
+	require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, updated.Name, updated, wg,
+		func(err error) { callbackResult <- err }))
+
+	updateResponse, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, ListenerTypeURL, updateResponse.GetTypeUrl())
+	require.Equal(t, []string{updated.Name}, deltaResponseResourceNames(updateResponse),
+		"Delta ADS must not resend an unchanged listener")
+	require.True(t, proto.Equal(updated, deltaResponseListener(t, updateResponse)))
+	requireADSCompletionPending(t, done)
+
+	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+		TypeUrl:       ListenerTypeURL,
+		ResponseNonce: updateResponse.GetNonce(),
+		ErrorDetail:   &statuspb.Status{Message: "rejected listener"},
+	}))
+	reverted, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, []string{baseline.Name}, deltaResponseResourceNames(reverted))
+	require.True(t, proto.Equal(baseline, deltaResponseListener(t, reverted)))
+	require.ErrorContains(t, <-done, "rejected listener")
+	require.ErrorContains(t, <-callbackResult, "rejected listener")
+
+	cached, ok := server.cache.GetResource(localNodeID, typeurl.Listener, baseline.Name).(*listener.Listener)
+	require.True(t, ok)
+	require.True(t, proto.Equal(baseline, cached), "a Delta NACK must restore the accepted resource")
+}
+
+func TestDeltaADSRemovalNACKRestoresResource(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		typeURL  typeurl.Index
+		resource proto.Message
+	}{
+		{
+			name:     "endpoint",
+			typeURL:  typeurl.Endpoint,
+			resource: &endpoint.ClusterLoadAssignment{ClusterName: "resource"},
+		},
+		{
+			name:     "route",
+			typeURL:  typeurl.Route,
+			resource: &route.RouteConfiguration{Name: "resource"},
+		},
+		{
+			name:     "secret",
+			typeURL:  typeurl.Secret,
+			resource: &tls.Secret{Name: "resource"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := newTestADSServer(t, hivetest.Logger(t), nil, nil, xdsServerConfig{
+				envoyXDSMode: config.EnvoyXDSModeDeltaADS,
+			}, nil, nil)
+			client := newTestADSClient(t, server)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+
+			const resourceName = "resource"
+			marker := &envoy_config_cluster.Cluster{Name: "ack-marker"}
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, resourceName, test.resource, nil, nil))
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Cluster, marker.Name, marker, nil, nil))
+
+			stream, err := client.DeltaAggregatedResources(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+				Node:                   &core.Node{Id: localNodeID},
+				TypeUrl:                test.typeURL.URL(),
+				ResourceNamesSubscribe: []string{resourceName},
+			}))
+			initial, err := stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, []string{resourceName}, deltaResponseResourceNames(initial))
+
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+				TypeUrl: test.typeURL.URL(), ResponseNonce: initial.GetNonce(),
+			}))
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{TypeUrl: ClusterTypeURL}))
+			markerResponse, err := stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, []string{marker.Name}, deltaResponseResourceNames(markerResponse))
+
+			wg := completion.NewWaitGroup(ctx)
+			done := waitForADSCompletion(t, wg)
+			callbackResult := make(chan error, 1)
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, resourceName, nil, wg,
+				func(err error) { callbackResult <- err }))
+			removed, err := stream.Recv()
+			require.NoError(t, err)
+			require.Empty(t, removed.GetResources())
+			require.Equal(t, []string{resourceName}, removed.GetRemovedResources())
+
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+				TypeUrl:       test.typeURL.URL(),
+				ResponseNonce: removed.GetNonce(),
+				ErrorDetail:   &statuspb.Status{Message: "rejected removal"},
+			}))
+			restored, err := stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, []string{resourceName}, deltaResponseResourceNames(restored))
+			require.Empty(t, restored.GetRemovedResources())
+			restoredResource, err := restored.GetResources()[0].GetResource().UnmarshalNew()
+			require.NoError(t, err)
+			require.True(t, proto.Equal(test.resource, restoredResource))
+			require.ErrorContains(t, <-done, "rejected removal")
+			require.ErrorContains(t, <-callbackResult, "rejected removal")
+			require.True(t, proto.Equal(test.resource, server.cache.GetResource(localNodeID, test.typeURL, resourceName)))
+		})
+	}
+}
+
+func TestDeltaADSRejectsUnknownNodes(t *testing.T) {
+	server := newTestADSServer(t, hivetest.Logger(t), nil, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeDeltaADS,
+	}, nil, nil)
+	client := newTestADSClient(t, server)
+	for _, test := range []struct {
+		name string
+		node *core.Node
+		code codes.Code
+	}{
+		{"unknown", &core.Node{Id: "unknown-node"}, codes.NotFound},
+		{"empty", &core.Node{}, codes.InvalidArgument},
+		{"missing", nil, codes.InvalidArgument},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			stream, err := client.DeltaAggregatedResources(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+				Node: test.node, TypeUrl: ListenerTypeURL,
+			}))
+			_, err = stream.Recv()
+			require.Equal(t, test.code, status.Code(err))
+		})
+	}
+}
+
+func deltaResponseResourceNames(response *discovery.DeltaDiscoveryResponse) []string {
+	names := make([]string, 0, len(response.GetResources()))
+	for _, resource := range response.GetResources() {
+		names = append(names, resource.GetName())
+	}
+	return names
+}
+
+func deltaResponseListener(t *testing.T, response *discovery.DeltaDiscoveryResponse) *listener.Listener {
+	t.Helper()
+	require.Len(t, response.GetResources(), 1)
+	resource := &listener.Listener{}
+	require.NoError(t, response.GetResources()[0].GetResource().UnmarshalTo(resource))
+	return resource
 }
 
 func TestADSRecognizesInitializedNodes(t *testing.T) {

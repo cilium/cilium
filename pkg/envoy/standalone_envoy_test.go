@@ -1876,6 +1876,7 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 
 	for _, mode := range []config.XDSMode{
 		config.EnvoyXDSModeADS,
+		config.EnvoyXDSModeDeltaADS,
 		config.EnvoyXDSModeStrictADS,
 		config.EnvoyXDSModeSplit,
 		config.EnvoyXDSModeDeltaSplit,

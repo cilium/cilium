@@ -63,18 +63,20 @@ func TestGetListenerFilterADSMode(t *testing.T) {
 		assert.Nil(t, meta.CiliumConfigSource) // not set for the legacy SotW mode
 	})
 
-	t.Run("ADS enabled: CiliumConfigSource set to ADS without NPHDS", func(t *testing.T) {
-		serverConfig := &xdsServerConfig{envoyXDSMode: config.EnvoyXDSModeADS}
-		lf := GetListenerFilter(true, false, 1234, -1, serverConfig)
-		require.NotNil(t, lf)
-		msg, err := lf.GetTypedConfig().UnmarshalNew()
-		require.NoError(t, err)
-		meta, ok := msg.(*cilium.BpfMetadata)
-		require.True(t, ok)
-		require.NotNil(t, meta.CiliumConfigSource)
-		assert.NotNil(t, meta.CiliumConfigSource.GetAds(), "CiliumConfigSource should use ADS aggregated source")
-		assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.CiliumConfigSource.ResourceApiVersion)
-	})
+	for _, mode := range []config.XDSMode{config.EnvoyXDSModeADS, config.EnvoyXDSModeDeltaADS} {
+		t.Run(mode.String(), func(t *testing.T) {
+			serverConfig := &xdsServerConfig{envoyXDSMode: mode}
+			lf := GetListenerFilter(true, false, 1234, -1, serverConfig)
+			require.NotNil(t, lf)
+			msg, err := lf.GetTypedConfig().UnmarshalNew()
+			require.NoError(t, err)
+			meta, ok := msg.(*cilium.BpfMetadata)
+			require.True(t, ok)
+			require.NotNil(t, meta.CiliumConfigSource)
+			assert.NotNil(t, meta.CiliumConfigSource.GetAds(), "CiliumConfigSource should use ADS aggregated source")
+			assert.Equal(t, envoy_config_core.ApiVersion_V3, meta.CiliumConfigSource.ResourceApiVersion)
+		})
+	}
 }
 
 func TestGetHTTPRetryPolicy(t *testing.T) {
