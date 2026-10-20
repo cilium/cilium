@@ -150,5 +150,6 @@ func mutate(ctx context.Context, in nodediscovery.ENIMutateInputs, nodeResource 
 	nodeResource.Spec.ENI.InstanceType = info.InstanceType
 	nodeResource.Spec.ENI.AvailabilityZone = info.AvailabilityZone
 	nodeResource.Spec.ENI.NodeSubnetID = info.SubnetID
+	nodediscovery.SeedPoolRequest(&nodeResource.Spec, in.IPv4Enabled, in.IPv6Enabled)
 	return nil
 }
