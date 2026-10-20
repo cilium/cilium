@@ -269,10 +269,11 @@ func (a *Action) WriteDataToPod(ctx context.Context, filePath string, data []byt
 	}
 	pod := a.src
 
-	cmd := []string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d > %s", encodedData, filePath)}
+	// The echo lets RequireOutput catch a stream cut before the command finished.
+	cmd := []string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d > %s && echo done", encodedData, filePath)}
 
 	output, err := pod.K8sClient.ExecInPodRetry(ctx, pod.Pod.Namespace, pod.Pod.Name, pod.Pod.Spec.Containers[0].Name, cmd,
-		k8s.ExecRetryOptions{OnRetry: a.test.LogExecRetry})
+		k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true, OnRetry: a.test.LogExecRetry})
 	if err != nil {
 		a.Fatalf("Writing data to pod failed: %s: %s", err, output.String())
 	}
@@ -282,6 +283,14 @@ func (a *Action) WriteDataToPod(ctx context.Context, filePath string, data []byt
 func (ct *ConnectivityTest) execInPodRetry(ctx context.Context, client *k8s.Client, namespace, pod, container string, cmd []string, opts k8s.ExecRetryOptions) (bytes.Buffer, error) {
 	opts.OnRetry = ct.logExecRetry
 	return client.ExecInPodRetry(ctx, namespace, pod, container, cmd, opts)
+}
+
+// endsWithDone rejects the output of a command ending in "echo done" when a stream cut lost the echo.
+func endsWithDone(stdout []byte) error {
+	if !bytes.HasSuffix(stdout, []byte("done\n")) {
+		return errors.New("output lacks the final done")
+	}
+	return nil
 }
 
 func (a *Action) ExecInPod(ctx context.Context, cmd []string) {
