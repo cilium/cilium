@@ -51,9 +51,9 @@ runs:
         echo "=== Retrieve cluster state ==="
         kubectl get pods --all-namespaces -o wide
         cilium status
-        extra=()
+        extra=(--extra-label-selectors k8s-app=kube-dns)
         if [ -n "${EXTRA_LABEL_SELECTOR}" ]; then
-          extra=(--extra-label-selectors "${EXTRA_LABEL_SELECTOR}")
+          extra+=(--extra-label-selectors "${EXTRA_LABEL_SELECTOR}")
         fi
         cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}" "${extra[@]}"
 
