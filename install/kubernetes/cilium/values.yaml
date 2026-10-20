@@ -1354,8 +1354,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.4.11"
-    digest: "sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0"
+    tag: "v0.4.12"
+    digest: "sha256:17aa2d435929ae36df735d2c5638df197f80460c08469b7ea32a1114fc8ccaaf"
     useDigest: true
     pullPolicy: "IfNotPresent"
   # @schema
@@ -2726,9 +2726,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.38.6-1791537840-00e749f11f69334c625e53fc1ce2fc6c7f34a51f"
+    tag: "v1.38.7-1792491649-282df131862c07b7f557f99df1c9a82480baaba0"
     pullPolicy: "IfNotPresent"
-    digest: "sha256:d6c8c0c91954d1885026d82a31b341f37dcd34a4b127fdaf1587e43ddd224cef"
+    digest: "sha256:35ea17d365ce6ea664c04a63fe60d3dd690bcfbf4319e64b06fb9cb031669ff7"
     useDigest: true
   # -- Init containers added to the cilium Envoy DaemonSet.
   initContainers: []
@@ -3459,9 +3459,9 @@ preflight:
       # @schema
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
-      tag: "v1.38.6-1791537840-00e749f11f69334c625e53fc1ce2fc6c7f34a51f"
+      tag: "v1.38.7-1792491649-282df131862c07b7f557f99df1c9a82480baaba0"
       pullPolicy: "IfNotPresent"
-      digest: "sha256:d6c8c0c91954d1885026d82a31b341f37dcd34a4b127fdaf1587e43ddd224cef"
+      digest: "sha256:35ea17d365ce6ea664c04a63fe60d3dd690bcfbf4319e64b06fb9cb031669ff7"
       useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
