@@ -860,41 +860,32 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 
 	t.Run("restored allocation resolves its logical pool from the device, not devStatus.Pool", func(t *testing.T) {
 		driver := buildDriver(t)
-		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{IfNames: []string{"other"}}},
-			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{IfNames: []string{prepTestDev0}}},
-		}
 		claim := buildClaimWithDeviceStatus(t, prepTestDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0)
 		// devStatus.Pool is a DRA ResourceSlice pool name (unrelated to the
 		// logical pool); it deliberately does not name either configured
 		// logical pool, to prove restore never copies it in as LogicalPool.
+		// the logical pool for this claim is empty so the restore should
+		// return an empty logical pool.
 		claim.Status.Devices[0].Pool = "kind-worker"
 
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
-		require.NoError(t, driver.restoreDevicesFromClaim(claim, wtxn))
+		err := driver.restoreDevicesFromClaim(claim, wtxn)
 		wtxn.Commit()
-		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{
-			&ifNameMatchingDevice{trackedDevice: trackedDevice{name: prepTestDev0}},
-		}, func(statedb.WriteTxn) {})
+		require.NoError(t, err)
 
-		pools := driver.buildPoolsFromTable()
-		devices := nodePoolDevices(pools)
-		require.Len(t, devices, 1)
-		require.Equal(t, "pool-b", deviceLogicalPoolAttr(t, devices, prepTestDev0),
-			"logical pool must come from matching the device's ifName against configured pools, not from devStatus.Pool")
+		txn := driver.db.ReadTxn()
+		var rows []*DRAAllocation
+		for row := range AllocationsByClaimUID(driver.allocationTable, txn, prepTestClaimUID) {
+			rows = append(rows, row)
+		}
+		require.Len(t, rows, 1)
+		require.Empty(t, rows[0].LogicalPool)
 	})
 
-	t.Run("restore keeps the pool an allocation was pinned to across a config change", func(t *testing.T) {
-		// The persisted LogicalPool ("pool-a") reflects what the device was
-		// matched against before restart. Pool config has since changed so
-		// the device would now resolve to "pool-b" if resolved fresh — but
-		// restore must keep the pinned "pool-a", matching the invariant
-		// documented on resolvePool for a live (non-restart) allocation.
+	t.Run("restore logical pool in the claim", func(t *testing.T) {
 		driver := buildDriver(t)
-		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{IfNames: []string{prepTestDev0}}},
-		}
-		claim := buildClaimWithDeviceStatusAndPool(t, prepTestDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0, "pool-a")
+		const logicalPoolName = "pool-example"
+		claim := buildClaimWithDeviceStatusAndPool(t, prepTestDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0, logicalPoolName)
 
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		require.NoError(t, driver.restoreDevicesFromClaim(claim, wtxn))
@@ -906,31 +897,7 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 			rows = append(rows, row)
 		}
 		require.Len(t, rows, 1)
-		require.Equal(t, "pool-a", rows[0].LogicalPool,
-			"restore must keep the persisted LogicalPool, not re-resolve it against the current (changed) pool config")
-	})
-
-	t.Run("restore falls back to resolving the pool fresh for pre-upgrade data with no persisted LogicalPool", func(t *testing.T) {
-		driver := buildDriver(t)
-		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{IfNames: []string{prepTestDev0}}},
-		}
-		// No logical pool persisted (as if serialized by a pre-upgrade
-		// driver version that didn't have the field).
-		claim := buildClaimWithDeviceStatusAndPool(t, prepTestDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0, "")
-
-		wtxn := driver.db.WriteTxn(driver.allocationTable)
-		require.NoError(t, driver.restoreDevicesFromClaim(claim, wtxn))
-		wtxn.Commit()
-
-		txn := driver.db.ReadTxn()
-		var rows []*DRAAllocation
-		for row := range AllocationsByClaimUID(driver.allocationTable, txn, prepTestClaimUID) {
-			rows = append(rows, row)
-		}
-		require.Len(t, rows, 1)
-		require.Equal(t, "pool-b", rows[0].LogicalPool,
-			"with no persisted LogicalPool, restore must fall back to resolving fresh from current config")
+		require.Equal(t, logicalPoolName, rows[0].LogicalPool)
 	})
 
 	t.Run("wrong driver is skipped without error", func(t *testing.T) {

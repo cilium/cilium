@@ -739,20 +739,13 @@ func (driver *Driver) restoreDevicesFromClaim(claim *resourceapi.ResourceClaim, 
 
 		podUID := claim.Status.ReservedFor[0].UID
 
-		// Keep the pool pinned at prepare time. Fall back to resolving fresh
-		// only for pre-upgrade data with no persisted LogicalPool.
-		logicalPool := alloc.LogicalPool
-		if logicalPool == "" {
-			logicalPool = driver.resolvePool(alloc.Device, driver.config.Pools)
-		}
-
 		// Restore allocation state before DRA/NRI callbacks can arrive. Device
 		// manager discovery populates the independent inventory table.
 		driver.allocationTable.Insert(wtxn, &DRAAllocation{
 			DeviceName:     alloc.DeviceName,
 			Manager:        alloc.Manager,
 			PreparedDevice: alloc.Device,
-			LogicalPool:    logicalPool,
+			LogicalPool:    alloc.LogicalPool,
 			PodUID:         podUID,
 			ClaimUID:       claim.UID,
 			Config:         alloc.Config,
