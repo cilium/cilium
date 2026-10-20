@@ -8,6 +8,8 @@ import (
 	"errors"
 	"testing"
 
+	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -426,9 +428,9 @@ func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.
 	return nil
 }
 
-func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
+func (r *fakeXdsServer) UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error {
 	if r.returnError {
-		return errors.New("failed to upsert envoy resources")
+		return errors.New("failed to upsert secret")
 	}
 
 	r.nrOfUpserts++

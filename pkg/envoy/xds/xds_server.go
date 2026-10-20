@@ -41,10 +41,9 @@ type XDSServer interface {
 	// The completion is signaled on 'wg'.
 	RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup)
 
-	// UpsertEnvoyResources inserts or updates Envoy resources (listeners, routes, clusters,
-	// endpoints, secrets) in the xDS cache, from where they will be delivered to Envoy via
-	// xDS streaming gRPC. The completion is signaled on 'wg'.
-	UpsertEnvoyResources(ctx context.Context, resources Resources, wg *completion.WaitGroup) error
+	// UpsertSecret inserts or updates a named secret in the xDS cache without
+	// waiting for an Envoy ACK/NACK.
+	UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error
 	// UpdateEnvoyResources removes any resources in 'old' that are not present in 'new' and
 	// then adds or updates all resources in 'new'. Envoy does not support changing the listening
 	// port of an existing listener, so if the port changes we have to delete the old listener

@@ -20,6 +20,7 @@ import (
 	envoy_extensions_filters_http_router_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	envoy_extensions_listener_tls_inspector_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	envoy_config_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -621,19 +622,10 @@ func (s *adsServer) listenerDeletionMutations(oldResources, newResources xds.Res
 	return staged
 }
 
-func (s *adsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
-	var waits typeurl.Set
-	if wg != nil && len(resources.Listeners) > 0 {
-		waits.Insert(typeurl.Listener)
-		if len(resources.Clusters) > 0 {
-			waits.Insert(typeurl.Cluster)
-		}
-	}
-
+func (s *adsServer) UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
-	return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, wg, waits)
+	return s.cache.ApplyResource(ctx, localNodeID, typeurl.Secret, secret.GetName(), secret, nil)
 }
 
 func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources, waitGroup *completion.WaitGroup) error {
