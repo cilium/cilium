@@ -392,6 +392,8 @@ func (m *RequestFieldValueDisposition) validate(all bool) error {
 
 	var errors []error
 
+	// no validation rules for MetadataKey
+
 	switch v := m.Disposition.(type) {
 	case *RequestFieldValueDisposition_DynamicMetadata:
 		if v == nil {

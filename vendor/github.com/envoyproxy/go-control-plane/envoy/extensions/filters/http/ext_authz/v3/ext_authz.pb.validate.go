@@ -108,6 +108,33 @@ func (m *ExtAuthz) validate(all bool) error {
 
 	// no validation rules for ClearRouteCache
 
+	for idx, item := range m.GetClearRouteCacheHeaders() {
+		_, _ = idx, item
+
+		if utf8.RuneCountInString(item) < 1 {
+			err := ExtAuthzValidationError{
+				field:  fmt.Sprintf("ClearRouteCacheHeaders[%v]", idx),
+				reason: "value length must be at least 1 runes",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if !_ExtAuthz_ClearRouteCacheHeaders_Pattern.MatchString(item) {
+			err := ExtAuthzValidationError{
+				field:  fmt.Sprintf("ClearRouteCacheHeaders[%v]", idx),
+				reason: "value does not match regex pattern \"^[^\\x00\\n\\r]*$\"",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if all {
 		switch v := interface{}(m.GetStatusOnError()).(type) {
 		case interface{ ValidateAll() error }:
@@ -418,6 +445,35 @@ func (m *ExtAuthz) validate(all bool) error {
 
 	// no validation rules for ShadowMode
 
+	if all {
+		switch v := interface{}(m.GetEmitClientSpan()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ExtAuthzValidationError{
+					field:  "EmitClientSpan",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ExtAuthzValidationError{
+					field:  "EmitClientSpan",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEmitClientSpan()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ExtAuthzValidationError{
+				field:  "EmitClientSpan",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	switch v := m.Services.(type) {
 	case *ExtAuthz_GrpcService:
 		if v == nil {
@@ -581,6 +637,8 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ExtAuthzValidationError{}
+
+var _ExtAuthz_ClearRouteCacheHeaders_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 
 // Validate checks the field values on ShadowDecision with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
@@ -1710,6 +1768,35 @@ func (m *CheckSettings) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return CheckSettingsValidationError{
 				field:  "WithRequestBody",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetEmitClientSpan()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CheckSettingsValidationError{
+					field:  "EmitClientSpan",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CheckSettingsValidationError{
+					field:  "EmitClientSpan",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetEmitClientSpan()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CheckSettingsValidationError{
+				field:  "EmitClientSpan",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}

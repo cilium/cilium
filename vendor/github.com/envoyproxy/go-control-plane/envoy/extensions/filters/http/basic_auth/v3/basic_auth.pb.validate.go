@@ -113,6 +113,17 @@ func (m *BasicAuth) validate(all bool) error {
 
 	// no validation rules for EmitDynamicMetadata
 
+	if !_BasicAuth_Realm_Pattern.MatchString(m.GetRealm()) {
+		err := BasicAuthValidationError{
+			field:  "Realm",
+			reason: "value does not match regex pattern \"^[^\\\\x00-\\\\x1f\\\\x7f]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if len(errors) > 0 {
 		return BasicAuthMultiError(errors)
 	}
@@ -194,6 +205,8 @@ var _BasicAuth_ForwardUsernameHeader_Pattern = regexp.MustCompile("^[^\x00\n\r]*
 
 var _BasicAuth_AuthenticationHeader_Pattern = regexp.MustCompile("^[^\x00\n\r]*$")
 
+var _BasicAuth_Realm_Pattern = regexp.MustCompile("^[^\\x00-\\x1f\\x7f]*$")
+
 // Validate checks the field values on BasicAuthPerRoute with the rules defined
 // in the proto definition for this message. If any rules are violated, the
 // first error encountered is returned, or nil if there are no violations.
@@ -254,6 +267,17 @@ func (m *BasicAuthPerRoute) validate(all bool) error {
 				cause:  err,
 			}
 		}
+	}
+
+	if !_BasicAuthPerRoute_Realm_Pattern.MatchString(m.GetRealm()) {
+		err := BasicAuthPerRouteValidationError{
+			field:  "Realm",
+			reason: "value does not match regex pattern \"^[^\\\\x00-\\\\x1f\\\\x7f]*$\"",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if len(errors) > 0 {
@@ -335,3 +359,5 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = BasicAuthPerRouteValidationError{}
+
+var _BasicAuthPerRoute_Realm_Pattern = regexp.MustCompile("^[^\\x00-\\x1f\\x7f]*$")

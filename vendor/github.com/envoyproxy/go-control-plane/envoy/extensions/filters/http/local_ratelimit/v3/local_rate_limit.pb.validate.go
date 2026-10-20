@@ -457,6 +457,8 @@ func (m *LocalRateLimit) validate(all bool) error {
 
 	}
 
+	// no validation rules for EnableRetryAfterHeader
+
 	if len(errors) > 0 {
 		return LocalRateLimitMultiError(errors)
 	}
