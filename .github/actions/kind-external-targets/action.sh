@@ -162,6 +162,10 @@ for context in "${contexts[@]}"; do
     # Get the current CoreDNS config file
     kubectl --context "$context" -n kube-system get configmap/coredns -o json | jq ".data.Corefile" -r > Corefile
 
+    # Log every query with its rcode and duration.
+    sed -i 's/^\.:53 {$/&\n    log/' Corefile
+    grep -qx '    log' Corefile || echo "::warning::Could not enable the CoreDNS log plugin in the ${context} Corefile"
+
     # We use the fake `cilium` TLD. CoreDNS allows us to specify DNS config per TLD.
     # Simply resolve our fake domains with a embedded hosts file.
     cat >> Corefile << EOF
