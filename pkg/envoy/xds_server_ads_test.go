@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
@@ -844,7 +845,7 @@ func TestLastNPDSListenerRemovalKeepsSentPolicyNACKRollback(t *testing.T) {
 
 func TestUpdateNetworkPolicyDoesNotWaitForListenerRejectedBeforeRegistration(t *testing.T) {
 	logger := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
-	base := newADSCache(logger)
+	base := newADSCache(logger, config.EnvoyXDSModeADS)
 	cache := &blockingNetworkPolicyADSCache{Cache: base, upsertStarted: make(chan struct{}), continueUpsert: make(chan struct{})}
 	server := newTestADSServerWithCache(t, cache, logger, nil, newLocalEndpointStore(), xdsServerConfig{}, certificatemanager.NewMockSecretManagerInline(), nil)
 	ctx, cancel := context.WithCancel(t.Context())

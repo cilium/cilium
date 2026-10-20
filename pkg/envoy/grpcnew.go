@@ -9,7 +9,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sync"
 
+	envoy_config_core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_service_discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
 	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
@@ -93,20 +95,48 @@ func (s *adsServer) startAdsGRPCServer(ctx context.Context) error {
 }
 
 func (s *adsServer) newCallbacks() callbacks.ChainedCallbacks {
+	var deltaNodesMutex sync.Mutex
+	deltaNodes := make(map[int64]*envoy_config_core.Node)
+	validateNodeID := func(nodeID string) error {
+		if nodeID == "" {
+			return status.Error(codes.InvalidArgument, "xDS node ID is required")
+		}
+		if !s.cache.HasNode(nodeID) {
+			return status.Errorf(codes.NotFound, "unknown xDS node %q", nodeID)
+		}
+		return nil
+	}
 	return callbacks.ChainedCallbacks{
 		envoy_server.CallbackFuncs{
 			StreamRequestFunc: func(_ int64, req *envoy_service_discovery.DiscoveryRequest) error {
 				// go-control-plane restores the first request's node on subsequent
 				// requests before invoking callbacks. Validate before any callback
 				// creates completion state or starts the NPHDS IPCache dump.
-				nodeID := req.GetNode().GetId()
-				if nodeID == "" {
-					return status.Error(codes.InvalidArgument, "xDS node ID is required")
+				return validateNodeID(req.GetNode().GetId())
+			},
+			StreamDeltaRequestFunc: func(streamID int64, req *envoy_service_discovery.DeltaDiscoveryRequest) error {
+				deltaNodesMutex.Lock()
+				defer deltaNodesMutex.Unlock()
+				node := req.GetNode()
+				if previous := deltaNodes[streamID]; previous != nil {
+					if node != nil && node.GetId() != previous.GetId() {
+						return status.Error(codes.InvalidArgument, "xDS node ID cannot change within a stream")
+					}
+					if node == nil {
+						req.Node = previous
+						node = previous
+					}
 				}
-				if !s.cache.HasNode(nodeID) {
-					return status.Errorf(codes.NotFound, "unknown xDS node %q", nodeID)
+				if err := validateNodeID(node.GetId()); err != nil {
+					return err
 				}
+				deltaNodes[streamID] = node
 				return nil
+			},
+			DeltaStreamClosedFunc: func(streamID int64, _ *envoy_config_core.Node) {
+				deltaNodesMutex.Lock()
+				delete(deltaNodes, streamID)
+				deltaNodesMutex.Unlock()
 			},
 		},
 		callbacks.LoggingCallbacks{Log: s.logger},
