@@ -27,6 +27,13 @@ notes carefully below to understand what to do during upgrade.
   traffic until the Service exists and, if selector-less, has backends. If you
   have rules like this, ensure the referenced Services exist and have backends
   before upgrading.
+* Support for the Kubernetes :ref:`ClusterNetworkPolicy` is now enabled by
+  default. The Cilium Operator installs the ``ClusterNetworkPolicy`` CRD, and
+  the Cilium Agent waits for it before starting. If you set
+  ``operator.skipCRDCreation=true``, either install the CRD before upgrading or
+  set ``k8sClusterNetworkPolicy.enabled=false``. See
+  :ref:`ClusterNetworkPolicy_enable`. If you manage RBAC manifests outside of
+  Helm, see :ref:`ClusterNetworkPolicy_rbac`.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
@@ -81,6 +88,11 @@ The following options have been introduced in this version of Cilium:
   value ``ipam.operator.excessIPReleaseDelay``) now also applies to Alibaba
   Cloud when release is enabled with ``--ipam-release-excess-ips``;
   ``--alibaba-cloud-release-excess-ips`` keeps releasing without a delay.
+* The ``k8sClusterNetworkPolicy.installCRDs`` Helm value (operator flag
+  ``--k8s-cluster-network-policy-install-crds``) controls whether the Cilium
+  Operator installs and manages the Kubernetes ``ClusterNetworkPolicy`` CRD. It
+  defaults to ``true``. Set it to ``false`` if you prefer to manage the CRD by
+  other means.
 
 Changed Options
 ###############
@@ -108,6 +120,11 @@ differently than in prior releases:
 * ``operator.unmanagedPodWatcher.selector`` now defaults to
   ``k8s-app=kube-dns`` in the Helm chart instead of ``null``, which already
   resolved to the same selector.
+* The ``k8sClusterNetworkPolicy.enabled`` Helm value (agent flag
+  ``--enable-k8s-cluster-network-policy``) now defaults to ``true``. The
+  Kubernetes ``ClusterNetworkPolicy`` CRD, which previously had to be installed
+  manually, is now installed by the Cilium Operator. See
+  :ref:`ClusterNetworkPolicy` for details.
 
 Deprecated Options
 ##################
