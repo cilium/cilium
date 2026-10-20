@@ -10,7 +10,6 @@
 #define ENABLE_IPV6			1
 #define ENABLE_NODEPORT			1
 #define ENABLE_EGRESS_GATEWAY		1
-#define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX		42
 #define SECONDARY_IFACE_IFINDEX	44
 
@@ -34,6 +33,7 @@ mock_fib_lookup(void *ctx __maybe_unused, const struct bpf_fib_lookup *params __
 ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
+ASSIGN_CONFIG(bool, enable_host_firewall, true)
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"

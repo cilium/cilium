@@ -37,6 +37,7 @@ func setBasePermutations(t *config.Node) {
 	t.EnableIdentityMark = true
 	t.EnableTraceNotify = true
 	t.EnableSCTP = true
+	t.EnableHostFirewall = true
 	t.EnableDropNotify = true
 	t.EnableIPMasqAgentIPv4 = true
 	t.EnableIPMasqAgentIPv6 = true

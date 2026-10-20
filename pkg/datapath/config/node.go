@@ -166,6 +166,7 @@ func NodeConfig(lnc *Config) Node {
 	node.EnableTraceNotify = option.Config.Opts.IsEnabled(option.TraceNotify)
 	node.Debug = option.Config.Opts.IsEnabled(option.Debug)
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
+	node.EnableHostFirewall = option.Config.EnableHostFirewall
 	node.EnableDropNotify = option.Config.Opts.IsEnabled(option.DropNotify)
 
 	node.HashInit4Seed = lnc.MaglevConfig.SeedJhash0
