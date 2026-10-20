@@ -5,6 +5,7 @@ package check
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -1187,7 +1188,7 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 				slices.Collect(maps.Values(ct.ClientPods())),
 				slices.Collect(maps.Values(ct.EchoPods()))...)
 
-			if err := WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods,
+			if err := WaitForEgressGatewayBpfPolicyEntries(ctx, ct.logExecRetry, ct.CiliumPods(), testPods,
 				func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
 					return ct.GetConnDisruptEgressPolicyEntries(ctx, ciliumPod)
 				}, func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error) {
@@ -1978,6 +1979,8 @@ func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
 			return fmt.Errorf("unable to find ca.crt in secret %s", ct.Params().ExternalTargetCAName)
 		}
 		encodedCert := base64.StdEncoding.EncodeToString(cert)
+		// The marker line keeps a retried exec from adding the certificate twice.
+		marker := fmt.Sprintf("# cilium-cli connectivity test CA %x", sha256.Sum256(cert))
 
 		clientPods, err := listLivePods(ctx, ct.client, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindClientName})
 		if err != nil {
@@ -1985,8 +1988,10 @@ func (ct *ConnectivityTest) patchDeployment(ctx context.Context) error {
 		}
 
 		for _, pod := range clientPods {
-			cmd := []string{"sh", "-c", fmt.Sprintf("echo %s | base64 -d >> /etc/ssl/certs/ca-certificates.crt", encodedCert)}
-			_, err := ct.execInPodRetry(ctx, ct.client, ct.params.TestNamespace, pod.Name, pod.Spec.Containers[0].Name, cmd, k8s.ExecRetryOptions{})
+			cmd := []string{"sh", "-c", fmt.Sprintf("grep -qsxF '%[1]s' %[3]s || { echo %[2]s | base64 -d && echo && echo '%[1]s'; } >> %[3]s && echo done",
+				marker, encodedCert, "/etc/ssl/certs/ca-certificates.crt")}
+			_, err := ct.execInPodRetry(ctx, ct.client, ct.params.TestNamespace, pod.Name, pod.Spec.Containers[0].Name, cmd,
+				k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true})
 			if err != nil {
 				return fmt.Errorf("unable to add CA to pod %s: %w", pod.Name, err)
 			}
@@ -3275,20 +3280,22 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			if iface := ct.params.SecondaryNetworkIface; iface != "" {
 				ipFams := features.GetIPFamilies(ct.Params().IPFamilies)
 				if slices.Contains(ipFams, features.IPFamilyV4) && ct.Features[features.IPv4].Enabled {
-					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-					addr, err := ct.execInPodRetry(ctx, client, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd, k8s.ExecRetryOptions{})
+					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1 && echo done", iface)}
+					addr, err := ct.execInPodRetry(ctx, client, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd,
+						k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, Validate: endsWithDone})
 					if err != nil {
 						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
 					}
-					ct.secondaryNetworkNodeIPv4[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
+					ct.secondaryNetworkNodeIPv4[pod.Spec.NodeName] = strings.TrimSuffix(strings.TrimSuffix(addr.String(), "done\n"), "\n")
 				}
 				if slices.Contains(ipFams, features.IPFamilyV6) && ct.Features[features.IPv6].Enabled {
-					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)}
-					addr, err := ct.execInPodRetry(ctx, client, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd, k8s.ExecRetryOptions{})
+					cmd := []string{"/bin/sh", "-c", fmt.Sprintf("ip -family inet6 -oneline address show dev %s scope global | awk '{print $4}' | cut -d/ -f1 && echo done", iface)}
+					addr, err := ct.execInPodRetry(ctx, client, pod.Namespace, pod.Name, pod.Spec.Containers[0].Name, cmd,
+						k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, Validate: endsWithDone})
 					if err != nil {
 						return fmt.Errorf("failed to fetch secondary network ip addr: %w", err)
 					}
-					ct.secondaryNetworkNodeIPv6[pod.Spec.NodeName] = strings.TrimSuffix(addr.String(), "\n")
+					ct.secondaryNetworkNodeIPv6[pod.Spec.NodeName] = strings.TrimSuffix(strings.TrimSuffix(addr.String(), "done\n"), "\n")
 				}
 			}
 		}
