@@ -860,6 +860,7 @@ func TestComputeRangesToReserve(t *testing.T) {
 			}
 			cidrSet.SetReservedRanges(rangesToReserve)
 			assert.Equal(t, 1, cidrSet.unavailableCIDRs)
+			assert.Equal(t, 1, cidrSet.Capacity())
 
 			allocated, err := cidrSet.AllocateNext()
 			if err != nil {
@@ -867,6 +868,7 @@ func TestComputeRangesToReserve(t *testing.T) {
 			}
 			assert.Equal(t, netip.MustParsePrefix(tc.allocatedCIDR), allocated)
 			assert.Equal(t, 2, cidrSet.unavailableCIDRs)
+			assert.Equal(t, 1, cidrSet.Capacity())
 			assert.True(t, cidrSet.IsFull())
 
 			_, err = cidrSet.AllocateNext()
@@ -878,6 +880,7 @@ func TestComputeRangesToReserve(t *testing.T) {
 			}
 			cidrSet.SetReservedRanges(rangesToReserve)
 			assert.Equal(t, 1, cidrSet.unavailableCIDRs)
+			assert.Equal(t, 2, cidrSet.Capacity())
 			assert.False(t, cidrSet.IsFull())
 
 			allocated, err = cidrSet.AllocateNext()
