@@ -28,6 +28,10 @@ taken this threat model into consideration before making a report, including
 considering the feasibility of an attack against a correctly secured
 environment.
 
+Issues that only affect beta features do not need a private report. Please
+open a [public GitHub issue](https://github.com/cilium/cilium/issues/new/choose)
+for them.
+
 #### Issues with Cilium's CI or GitHub workflows
 
 The project does not consider issues affecting Cilium's CI to be in
@@ -63,7 +67,6 @@ Some reports may lead to changes in the Cilium codebase even if they do not resu
 in an associated advisory. Examples of reports that may fall into this category
 include (but are not limited to):
 
-- Reports of issues in unstable functionality, including beta features
 - Reports of issues where there is no evidence that a stable release of Cilium
   is affected by the issue
 
