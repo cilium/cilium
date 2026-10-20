@@ -98,6 +98,19 @@ func (r *resources) get(typeURL typeurl.Index, name string) (resourceEntry, bool
 	return entry, exists
 }
 
+func (r *resources) remove(typeURL typeurl.Index, name string) {
+	if r.hasSingleton() {
+		if r.singleton.typeURL == typeURL && r.singleton.name == name {
+			r.singleton = singletonResource{}
+		}
+		return
+	}
+	delete(r.entries[typeURL], name)
+	if len(r.entries[typeURL]) == 0 {
+		r.entries[typeURL] = nil
+	}
+}
+
 func (r *resources) hasSingleton() bool {
 	return r.singleton.name != ""
 }

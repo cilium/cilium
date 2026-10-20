@@ -332,8 +332,8 @@ flowchart TD
 
 ### Semantic no-op waits
 
-A semantic no-op does not allocate a generation or caller rollback state. With a
-WaitGroup, it checks acceptance of the specific resource:
+A semantic no-op preserves the current revision. With a WaitGroup, it checks
+acceptance of the specific resource:
 
 - Already accepted contents complete immediately, even if another name of the
   same type is pending.
@@ -401,6 +401,14 @@ The caller eventually invokes exactly one lifecycle method:
 
 Both calls are terminal. Duplicate calls warn and do nothing.
 
+When multiple rollback-enabled upserts request the same value, their callers
+share the original caller rollback for that resource. Finalizing any claim
+keeps the value. If all callers revert, the last revert restores the previous
+value or absence, provided the upsert is still current. This works before and
+after ACK and preserves independent response-owned recovery. Plain reuse ends
+caller recovery for the value. A repeated removal supersedes any earlier
+caller claim to restore the deleted value.
+
 Caller and response lifecycles are separate objects. An Envoy ACK can precede a
 wider caller failure, so caller rollback remains usable after ACK. Conversely,
 caller cancellation, timeout, or early finalization cannot consume response-owned
@@ -409,9 +417,10 @@ rollback state. Response-owned rollback state also survives failed recovery.
 ```mermaid
 flowchart TD
     node["nodeState<br/>Persistent desired-state owner"]
-    state["rollbackState<br/>Live caller and response lifecycle sets"]
+    state["rollbackState<br/>Live caller and response recovery"]
     caller["rollbackLifecycle: caller-owned<br/>Terminal Revert or Finalize<br/>Usable after an Envoy ACK"]
     response["rollbackLifecycle: response-owned<br/>Survives caller timeout or finalization<br/>Claimed by a response<br/>Retained after recovery failure"]
+    shared["sharedCallerUpsert<br/>Rollback target for equal upserts"]
     inverse["resources<br/>Caller rollback state"]
     singleton["singletonResource<br/>One TypeURL, name, and previous resourceEntry"]
     maps["resourceMaps<br/>Larger caller rollback state by TypeURL and name"]
@@ -423,10 +432,12 @@ flowchart TD
     node -->|pendingPublication: optional| pending
     pending -->|rollbacks: Map| resources
     node -->|rollbacks| state
-    state -->|callers| caller
+    state -->|callers with their own changes| caller
+    state -->|shared upserts| shared
     state -->|responses| response
     caller -.->|persistent state reference| node
     response -.->|persistent state reference| node
+    caller -->|shared claims| shared
     caller -->|inverse| inverse
     inverse -->|singleton| singleton
     inverse -->|entries| maps

@@ -216,6 +216,9 @@ type resourceWait struct {
 	version string
 	// typeURL is the type URL of the resources to be ACKed.
 	typeURL typeurl.Index
+	// removalOnly requires absence evidence when an older live value is ACKed.
+	// The cache classifies the wait under its lock before registration.
+	removalOnly bool
 	// generation is the snapshot boundary needed by this completion. Its scope
 	// records the required revisions of individual resource names.
 	generation Generation
@@ -268,13 +271,14 @@ func (cb *CompletionCallbacks) RemoveTypeGenerationCompletion(c *completion.Comp
 
 // NewTypeGenerationCompletionOwner returns an owner which drops callback state
 // if its WaitGroup ends before Envoy ACKs or NACKs the generation.
-func (cb *CompletionCallbacks) NewTypeGenerationCompletionOwner(nodeID string, typeURL typeurl.Index, generation Generation, scope ResourceScope) *resourceWait {
+func (cb *CompletionCallbacks) NewTypeGenerationCompletionOwner(nodeID string, typeURL typeurl.Index, generation Generation, scope ResourceScope, removalOnly bool) *resourceWait {
 	return &resourceWait{
-		callbacks:  cb,
-		nodeID:     nodeID,
-		typeURL:    typeURL,
-		generation: generation,
-		scope:      scope,
+		callbacks:   cb,
+		nodeID:      nodeID,
+		typeURL:     typeURL,
+		generation:  generation,
+		scope:       scope,
+		removalOnly: removalOnly,
 	}
 }
 
@@ -429,6 +433,45 @@ func (cb *CompletionCallbacks) HasResourceAcceptance(nodeID string, typeURL type
 	defer cb.mutex.Unlock()
 	state := cb.typeURLState(nodeID, typeURL)
 	return state != nil && (state.acceptedResources.generation != 0 || len(state.acceptedResources.partial) != 0)
+}
+
+// RemovalWaitRevision fences an absent name without retaining a desired entry.
+// Previously accepted absence stays usable unless a later sent value makes it
+// uncertain. A never-present name retains revision zero. This is used only for
+// removal waits; it retains neither protobufs nor per-name deletion history.
+func (cb *CompletionCallbacks) RemovalWaitRevision(nodeID string, typeURL typeurl.Index, name string, revision Revision) Revision {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	typeState := cb.typeURLState(nodeID, typeURL)
+	if typeState == nil {
+		return revision
+	}
+	_, exists, acceptedGeneration := typeState.acceptedResources.resource(name, typeURL)
+	if exists && acceptedGeneration > revision.revision {
+		revision = acceptedGeneration.Revision()
+	}
+	for _, stream := range cb.streams {
+		response := stream.responses[typeURL]
+		if stream.nodeID == nodeID && response.pendingGeneration > acceptedGeneration &&
+			response.coverage != nil && response.coverage.resources[name].Resource != nil && response.coverage.contains(name) {
+			if response.pendingGeneration > revision.revision {
+				revision = response.pendingGeneration.Revision()
+			}
+		}
+	}
+	for _, pending := range cb.pendingWaits {
+		if pending.nodeID != nodeID || pending.typeURL != typeURL || !pending.removalOnly {
+			continue
+		}
+		required := pending.scope.more[name]
+		if pending.scope.name == name {
+			required = pending.scope.revision
+		}
+		if required.revision > revision.revision {
+			revision = required
+		}
+	}
+	return revision
 }
 
 // ChangedResourceAccepted reports whether a changed resource has the same
@@ -788,8 +831,14 @@ func (cb *CompletionCallbacks) OnStreamRequest(streamID int64, req *discovery.Di
 		if pc.scope.wholeType() && pc.generation > coveredGeneration {
 			continue
 		}
-		if !pc.scope.acknowledge(coverage, coveredGeneration) {
-			continue
+		if pc.removalOnly {
+			if !pc.scope.acknowledgeRemovals(coverage, coveredGeneration, pc.generation) {
+				continue
+			}
+		} else {
+			if !pc.scope.acknowledge(coverage, coveredGeneration) {
+				continue
+			}
 		}
 		completed = append(completed, completionResult{completion: c, generation: pc.generation})
 		delete(cb.pendingWaits, c)

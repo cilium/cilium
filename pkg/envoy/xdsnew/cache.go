@@ -46,8 +46,13 @@ type Cache interface {
 	// explicitly selects the types to wait for; an empty set selects no waits.
 	ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) error
 	// ApplyResourcesWithRollback also returns a caller-owned rollback lifecycle
-	// for a changed update. The caller must eventually Finalize or Revert it;
-	// either call is terminal even if Revert returns an error.
+	// for changed resources and shared claims. The caller must eventually Finalize
+	// or Revert a non-nil handle. Either call is terminal even on error.
+	// Equal upserts with rollback share active caller recovery. Any caller can
+	// finalize the value. If all claims revert, the last revert restores the prior
+	// value or absence while the shared upsert remains current.
+	// Plain reuse supersedes caller recovery. A repeated removal supersedes
+	// earlier caller restoration claims. Response recovery is independent.
 	ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) (Rollback, error)
 	// ApplyResource compares only the named resource and builds a sparse mutation
 	// only after detecting an actual semantic change. It accepts every supported
@@ -55,8 +60,10 @@ type Cache interface {
 	// type even for removals.
 	ApplyResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) error
 	// ApplyResourceWithRollback also returns a caller-owned rollback lifecycle
-	// for a changed update. The caller must eventually Finalize or Revert it;
-	// either call is terminal even if Revert returns an error.
+	// for a changed resource or shared claim. The caller must eventually Finalize
+	// or Revert a non-nil handle. Either call is terminal even on error.
+	// Reuse and removal recovery follow ApplyResourcesWithRollback.
+	// ACK wait behavior is the same as ApplyResource.
 	ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) (Rollback, error)
 	// GetResource returns one cache-owned immutable resource without
 	// materializing the complete desired resource maps, or nil if absent.
@@ -560,6 +567,7 @@ type resourceTransaction struct {
 	immediateCompletions  []immediateCompletion
 	listenerChanges       []ListenerChange
 	updateErr             error
+	callerRollback        *rollbackLifecycle
 }
 
 // beginResourceTransaction acquires the cache lock for a known node. Pair it
@@ -628,12 +636,17 @@ func (tx *resourceTransaction) registerGenerationCompletions(snapshot cache.Reso
 		version := ""
 		if snapshot == nil {
 			wait.scope = wait.scope.WithRevisions(func(name string) callbacks.Revision {
-				return tx.state.resourceWaitEntry(typeURL, name).revision
+				entry := tx.state.resourceWaitEntry(typeURL, name)
+				if entry.resource == nil {
+					entry.revision = c.completionCbs.RemovalWaitRevision(tx.state.nodeID, typeURL, name, entry.revision)
+				}
+				return entry.revision
 			})
 		} else {
 			version = snapshot.GetVersion(typeURL.URL())
 		}
-		owner := c.completionCbs.NewTypeGenerationCompletionOwner(tx.state.nodeID, typeURL, wait.generation, wait.scope)
+		removalOnly := wait.scope.OnlyRemovals(func(name string) bool { return tx.state.resources[typeURL][name].resource == nil })
+		owner := c.completionCbs.NewTypeGenerationCompletionOwner(tx.state.nodeID, typeURL, wait.generation, wait.scope, removalOnly)
 		comp := wg.AddCompletion(owner)
 		registered, err := c.completionCbs.AddPreparedTypeGenerationCompletion(comp, owner, version, snapshot == nil)
 		if registered {
@@ -837,24 +850,43 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 	previous := tx.state.resources[typeURL][name]
 	if previous.resource == resource ||
 		(previous.resource != nil && resource != nil && xds.ResourceEqual(previous.resource, resource)) {
+		var waitEntry resourceEntry
+		if wg != nil {
+			// Supersession can release a removal's last tombstone owner. Capture
+			// its wait revision before that ownership is released.
+			waitEntry = tx.state.resourceWaitEntry(typeURL, name)
+		}
+		tx.reuseResourceLocked(typeURL, name, previous, tracking == callerAndResponseRollbackTracking)
+		var rollback Rollback
+		if tx.callerRollback != nil {
+			rollback = tx.callerRollback
+		}
 		if wg == nil {
-			return nil, nil
+			return rollback, nil
 		}
 		// Use the canonical cache pointer for semantic no-ops, so checking ACK
 		// evidence does not repeat the comparison against a fresh protobuf.
-		waitEntry := tx.state.resourceWaitEntry(typeURL, name)
+		if resource == nil {
+			waitEntry.revision = c.completionCbs.RemovalWaitRevision(nodeID, typeURL, name, waitEntry.revision)
+		}
 		if tx.state.resourceGeneration == 0 && resource == nil ||
 			c.completionCbs.ResourceAccepted(nodeID, typeURL, name, previous.resource, previous.resource != nil, waitEntry.revision) {
 			// A pristine known node has no resource update to acknowledge. After
 			// mutations, a removal can still need ACK evidence even if its tombstone
 			// has been pruned (notably for named EDS/RDS/SDS resources).
-			return nil, nil
+			return rollback, nil
 		}
 		var waits typeURLWaits
 		revision := waitEntry.revision
-		waits.Set(typeURL, generationWait{generation: callbacks.Generation(0).MaxRevision(revision), scope: callbacks.SingleResourceScope(name, revision)})
+		generation := callbacks.Generation(0).MaxRevision(revision)
+		if resource == nil {
+			// A repeated removal may still be unpublished. Its wait must not
+			// attach to an older response which contains the removed value.
+			generation = tx.state.generationForType(typeURL).MaxRevision(revision)
+		}
+		waits.Set(typeURL, generationWait{generation: generation, scope: callbacks.SingleResourceScope(name, revision)})
 		tx.awaitCurrentVersionLocked(wg, waits)
-		return nil, nil
+		return rollback, nil
 	}
 
 	// Record listener changes for the observer when the transaction completes.
@@ -886,7 +918,10 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 		return nil, err
 	}
 	if tracking == callerAndResponseRollbackTracking {
-		return tx.state.rollbacks.newCallerLocked(&tx, inverse), nil
+		rollback := tx.callerRollbackLocked()
+		rollback.inverse = inverse
+		state.rollbacks.callers.Insert(rollback)
+		return rollback, nil
 	}
 	return nil, nil
 }
@@ -897,22 +932,22 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	c := tx.cache
 	state := tx.state
 	changes, changedTypeURLs, inverse := state.prepareResourceMutation(mutations, c.resourceGeneration+1)
-	if state.resourceGeneration == 0 && changedTypeURLs.Empty() {
-		return nil, nil
-	}
 	var unchangedWaits typeURLWaits
 	if changedTypeURLs.Empty() {
-		if wg == nil || waitTypeURLs.Empty() {
-			return nil, nil
-		}
-		for typeURL := range waitTypeURLs.Members() {
-			wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
-			if accepted {
-				continue
+		if state.resourceGeneration != 0 && wg != nil && !waitTypeURLs.Empty() {
+			for typeURL := range waitTypeURLs.Members() {
+				wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
+				if accepted {
+					continue
+				}
+				unchangedWaits.Set(typeURL, wait)
 			}
-			unchangedWaits.Set(typeURL, wait)
+			tx.awaitCurrentVersionLocked(wg, unchangedWaits)
 		}
-		tx.awaitCurrentVersionLocked(wg, unchangedWaits)
+		tx.reuseResourcesLocked(mutations, &inverse, tracking == callerAndResponseRollbackTracking)
+		if tx.callerRollback != nil {
+			return tx.callerRollback, nil
+		}
 		return nil, nil
 	}
 
@@ -950,12 +985,17 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 		return nil, err
 	}
 
+	tx.reuseResourcesLocked(mutations, &inverse, tracking == callerAndResponseRollbackTracking)
+
 	if inverse.len(typeurl.Listener) > 0 {
 		tx.listenerChanges = committedListenerChanges(changes)
 	}
 
 	if tracking == callerAndResponseRollbackTracking {
-		return tx.state.rollbacks.newCallerLocked(tx, inverse), nil
+		rollback := tx.callerRollbackLocked()
+		rollback.inverse = inverse
+		state.rollbacks.callers.Insert(rollback)
+		return rollback, nil
 	}
 	return nil, nil
 }
@@ -1016,45 +1056,54 @@ func (tx *resourceTransaction) revertLocked(rollbacks []Rollback) error {
 func resourceMutationWait[V interface {
 	proto.Message
 	comparable
-}](completionCbs *callbacks.CompletionCallbacks, nodeID string, typeURL typeurl.Index, current map[string]resourceEntry, removed, upserted map[string]V, inverse resources, publishedGeneration, revertGeneration callbacks.Generation) (generationWait, bool) {
+}](completionCbs *callbacks.CompletionCallbacks, state *nodeState, typeURL typeurl.Index, removed, upserted map[string]V, inverse resources) (generationWait, bool) {
 	var wait generationWait
+	nodeID := state.nodeID
+	publishedGeneration := state.generationForType(typeURL)
 	if len(removed) == 0 && len(upserted) == 0 {
 		wait.generation = publishedGeneration
 		return wait, false
 	}
+	removalOnly := true
 	// Before any ACK, every name must wait. Avoid acquiring the callback lock
 	// for each resource merely to rediscover the same absence of ACK evidence.
 	hasAcceptance := completionCbs.HasResourceAcceptance(nodeID, typeURL)
 	accepted := true
-	waitEntry := func(name string) resourceEntry {
-		entry := current[name]
-		if entry.resource == nil && entry.transaction.IsZero() {
-			entry.revision = revertGeneration.Revision()
+	waitEntry := func(name string, removal bool) resourceEntry {
+		entry := state.resources[typeURL][name]
+		if entry.resource == nil {
+			if removal {
+				entry = state.resourceWaitEntry(typeURL, name)
+				entry.revision = completionCbs.RemovalWaitRevision(nodeID, typeURL, name, entry.revision)
+			} else if entry.transaction.IsZero() {
+				entry.revision = state.typeStates[typeURL].revertGeneration.Revision()
+			}
 		}
 		return entry
 	}
-	addPending := func(name string) {
-		revision := waitEntry(name).revision
+	addPending := func(name string, removal bool) {
+		revision := waitEntry(name, removal).revision
 		wait.scope.Insert(name, revision)
 		wait.generation = wait.generation.MaxRevision(revision)
+		removalOnly = removalOnly && removal
 		accepted = false
 	}
 	for name := range removed {
 		if _, replaced := upserted[name]; replaced {
 			continue
 		}
-		if !hasAcceptance || !completionCbs.ResourceAccepted(nodeID, typeURL, name, nil, false, waitEntry(name).revision) {
-			addPending(name)
+		if !hasAcceptance || !completionCbs.ResourceAccepted(nodeID, typeURL, name, nil, false, waitEntry(name, true).revision) {
+			addPending(name, true)
 		}
 	}
 	for name, resource := range upserted {
+		desired := resourceValue(resource)
 		if !hasAcceptance {
-			addPending(name)
+			addPending(name, desired == nil)
 			continue
 		}
 		// Typed nil upserts remove resources, just as in prepareResourceMap.
-		desired := resourceValue(resource)
-		entry := waitEntry(name)
+		entry := waitEntry(name, desired == nil)
 		previous := entry.resource
 		var resourceAccepted bool
 		if _, changed := inverse.get(typeURL, name); changed {
@@ -1067,8 +1116,11 @@ func resourceMutationWait[V interface {
 			resourceAccepted = completionCbs.ResourceAccepted(nodeID, typeURL, name, previous, previous != nil, entry.revision)
 		}
 		if !resourceAccepted {
-			addPending(name)
+			addPending(name, desired == nil)
 		}
+	}
+	if removalOnly {
+		wait.generation = max(wait.generation, publishedGeneration)
 	}
 	return wait, accepted
 }
@@ -1076,20 +1128,18 @@ func resourceMutationWait[V interface {
 func (tx *resourceTransaction) mutationWaitLocked(typeURL typeurl.Index, mutations ResourceMutations, inverse resources) (generationWait, bool) {
 	c := tx.cache
 	state := tx.state
-	current := state.resourceEntries(typeURL)
 	publishedGeneration := state.generationForType(typeURL)
-	revertGeneration := state.typeStates[typeURL].revertGeneration
 	switch typeURL {
 	case typeurl.Listener:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Listeners, mutations.Upserted.Listeners, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Listeners, mutations.Upserted.Listeners, inverse)
 	case typeurl.Route:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Routes, mutations.Upserted.Routes, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Routes, mutations.Upserted.Routes, inverse)
 	case typeurl.Cluster:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Clusters, mutations.Upserted.Clusters, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Clusters, mutations.Upserted.Clusters, inverse)
 	case typeurl.Endpoint:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Endpoints, mutations.Upserted.Endpoints, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Endpoints, mutations.Upserted.Endpoints, inverse)
 	case typeurl.Secret:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Secrets, mutations.Upserted.Secrets, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Secrets, mutations.Upserted.Secrets, inverse)
 	default:
 		return generationWait{generation: publishedGeneration}, false
 	}

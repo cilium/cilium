@@ -270,9 +270,8 @@ func TestRemoveNetworkPoliciesKeepsOtherResourceTypes(t *testing.T) {
 	for i := range slices.Backward(removalRollbacks) {
 		require.NoError(t, removalRollbacks[i].Revert())
 	}
-	for _, name := range []string{"first", "second"} {
-		require.NotNil(t, c.GetResource("node1", typeurl.NetworkPolicy, name))
-	}
+	require.Nil(t, c.GetResource("node1", typeurl.NetworkPolicy, "first"), "the repeated removal supersedes earlier caller recovery")
+	require.NotNil(t, c.GetResource("node1", typeurl.NetworkPolicy, "second"), "an unrelated removal remains revertible")
 }
 
 func TestApplyResourcesPublicationFailureCleansUnchangedWait(t *testing.T) {
@@ -911,7 +910,8 @@ func TestNetworkPolicyWaitsCompleteWhenLastNPDSListenerIsRemoved(t *testing.T) {
 	defer noOpWG.Cancel()
 	noOpRollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy", policy, noOpWG)
 	require.NoError(t, err)
-	require.Nil(t, noOpRollback)
+	require.NotNil(t, noOpRollback)
+	noOpRollback.Finalize()
 	require.Equal(t, 2, c.completionCbs.PendingCompletionCount())
 
 	// Replacing one NPDS listener with another in one transaction must not
@@ -933,16 +933,20 @@ func TestNetworkPolicyWaitsCompleteWhenLastNPDSListenerIsRemoved(t *testing.T) {
 	require.NoError(t, noOpWG.Wait())
 	require.NotNil(t, c.GetResource("node1", typeurl.NetworkPolicy, "policy"), "releasing the wait must not revert the policy")
 
-	// The caller's rollback remains usable after its ACK wait was released.
+	// The second caller finalized the policy, so the original caller cannot undo it.
 	require.NoError(t, policyRollback.Revert())
-	require.Nil(t, c.GetResource("node1", typeurl.NetworkPolicy, "policy"))
+	require.Same(t, policy, c.GetResource("node1", typeurl.NetworkPolicy, "policy"))
 
 	noListenerWG := completion.NewWaitGroup(ctx)
 	defer noListenerWG.Cancel()
-	err = c.ApplyResource(ctx, "node1", typeurl.NetworkPolicy, "policy", policy, noListenerWG)
+	rollback, err := c.ApplyResourceWithRollback(ctx, "node1", typeurl.NetworkPolicy, "policy",
+		&cilium.NetworkPolicy{EndpointId: 2}, noListenerWG)
 	require.NoError(t, err)
 	require.Zero(t, c.completionCbs.PendingCompletionCount())
 	require.NoError(t, noListenerWG.Wait())
+	// Skipping or releasing an ACK wait does not consume caller recovery.
+	require.NoError(t, rollback.Revert())
+	require.Same(t, policy, c.GetResource("node1", typeurl.NetworkPolicy, "policy"))
 }
 
 func TestNetworkPolicyPublicationFollowsWatchAvailability(t *testing.T) {

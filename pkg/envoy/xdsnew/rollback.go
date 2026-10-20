@@ -26,8 +26,13 @@ import (
 type rollbackState struct {
 	// Response outcome releases these inverses independently of caller lifetime.
 	responses set.Set[*rollbackLifecycle]
-	// Caller resolution is terminal; these are live inverses, not history.
+	// Index live handles with their own changes. Handles that only reuse
+	// upserts are represented by their claims in the shared upsert index.
 	callers set.Set[*rollbackLifecycle]
+	// Index reused upserts while they have callers that can still revert them.
+	// One entry fits inline; additional entries retain keyed lookup for bulk use.
+	sharedUpsert  *sharedCallerUpsert
+	sharedUpserts map[callerUpsertKey]*sharedCallerUpsert
 }
 
 // resourceRollbackState owns rollback bookkeeping for one resource type.
@@ -57,10 +62,11 @@ const (
 // Revert restores only resources whose expected API transactions still match;
 // Finalize releases lifecycle ownership without changing desired state. Caller
 // resolution is terminal even if Revert fails, whereas a failed response-driven
-// revert retains its recovery state. The lifecycle is resolved when resources
-// is nil and inverse is empty. Mutable state and ownership bookkeeping are
-// protected by cache.mutex. A NACK may rebase its inverse targets to bypass a
-// rejected predecessor, without changing its expected transactions.
+// revert retains its recovery state. A lifecycle remains live while indexed
+// as a caller or response, or while it holds shared caller claims.
+// Mutable state and ownership bookkeeping are protected by cache.mutex. A NACK
+// may rebase its inverse targets to bypass a rejected predecessor, without
+// changing its expected transactions.
 type rollbackLifecycle struct {
 	cache *cacheImpl
 	ctx   context.Context
@@ -76,11 +82,27 @@ type rollbackLifecycle struct {
 	// awaiting release after coalescing. Caller recovery uses inverse instead.
 	resources rollbackResources
 	inverse   resources
+	shared    set.Set[*sharedCallerUpsert]
 }
 
 type rollbackOwnerKey struct {
 	name        string
 	transaction callbacks.TransactionID
+}
+
+type callerUpsertKey struct {
+	name    string
+	origin  callbacks.TransactionID
+	typeURL typeurl.Index
+}
+
+// sharedCallerUpsert keeps the original inverse when several callers want the
+// same upsert. The last reverting caller can apply it. Finalizing any claim
+// commits the value for caller rollback purposes and clears the inverse.
+type sharedCallerUpsert struct {
+	key      callerUpsertKey
+	previous resourceEntry
+	claims   int
 }
 
 type rollbackEntry struct {
@@ -341,20 +363,159 @@ func (r *rollbackState) newResponseLocked(c *cacheImpl, state *nodeState, typeUR
 	return lifecycle
 }
 
-// newCallerLocked records the originating API mutation, not a later
-// response boundary or corrective publication.
-// Caller must hold c.mutex.
-func (r *rollbackState) newCallerLocked(tx *resourceTransaction, inverse resources) *rollbackLifecycle {
-	lifecycle := &rollbackLifecycle{
-		cache:      tx.cache,
-		ctx:        tx.ctx,
-		state:      tx.state,
-		typeURL:    typeurl.Count,
-		generation: tx.generation,
-		inverse:    inverse,
+// callerRollbackLocked creates the caller handle on first use, after admission.
+// A transaction with only unchanged upserts may need a handle for shared claims.
+func (tx *resourceTransaction) callerRollbackLocked() *rollbackLifecycle {
+	if tx.callerRollback == nil {
+		tx.callerRollback = &rollbackLifecycle{
+			cache:      tx.cache,
+			ctx:        tx.ctx,
+			state:      tx.state,
+			typeURL:    typeurl.Count,
+			generation: tx.generation,
+		}
 	}
-	r.callers.Insert(lifecycle)
-	return lifecycle
+	return tx.callerRollback
+}
+
+// removalWaitRevision is used only for absent-name waits. A collected response
+// can be delayed before OnStreamResponse records it, so its live inverse must
+// fence older absence ACKs too. Unsent upserts were never exposed to Envoy.
+func (r *rollbackState) removalWaitRevision(state *nodeState, typeURL typeurl.Index, name string) callbacks.Revision {
+	generation := state.typeStates[typeURL].revertGeneration
+	for rollback := range r.responses.Members() {
+		if rollback.typeURL != typeURL || rollback == state.typeStates[typeURL].rollbacks.unsent {
+			continue
+		}
+		if entry, exists := rollback.resources[name]; exists {
+			generation = generation.MaxTransaction(entry.expectedTransaction)
+		}
+	}
+	return generation.Revision()
+}
+
+// reuseResourceLocked applies caller ownership rules without changing the
+// resource revision. The caller must hold the cache lock and have admitted the
+// API transaction successfully.
+func (tx *resourceTransaction) reuseResourceLocked(typeURL typeurl.Index, name string, current resourceEntry, withRollback bool) {
+	r := &tx.state.rollbacks
+	if current.resource == nil {
+		r.invalidateCallerRemovalLocked(tx.state, typeURL, name, current)
+		return
+	}
+	if current.transaction.IsZero() {
+		return
+	}
+
+	key := callerUpsertKey{name: name, origin: current.transaction, typeURL: typeURL}
+	shared := r.sharedUpsert
+	if shared == nil || shared.key != key {
+		shared = r.sharedUpserts[key]
+	}
+	if shared == nil {
+		for owner := range r.callers.Members() {
+			if owner.generation.TransactionID() != current.transaction {
+				continue
+			}
+			if previous, exists := owner.inverse.get(typeURL, name); exists {
+				owner.inverse.remove(typeURL, name)
+				if withRollback {
+					shared = &sharedCallerUpsert{key: key, previous: previous, claims: 1}
+					if r.sharedUpsert == nil {
+						r.sharedUpsert = shared
+					} else {
+						if r.sharedUpserts == nil {
+							r.sharedUpserts = make(map[callerUpsertKey]*sharedCallerUpsert)
+						}
+						r.sharedUpserts[key] = shared
+					}
+					owner.shared.Insert(shared)
+				}
+			}
+			break
+		}
+	}
+	if withRollback {
+		if shared != nil {
+			shared.claims++
+			tx.callerRollbackLocked().shared.Insert(shared)
+		}
+	} else {
+		if shared != nil {
+			r.discardSharedUpsertLocked(shared)
+		}
+	}
+}
+
+// invalidateCallerRemovalLocked releases the earlier caller's restoration claim
+// and tombstone ownership when an API call repeats a removal.
+func (r *rollbackState) invalidateCallerRemovalLocked(state *nodeState, typeURL typeurl.Index, name string, current resourceEntry) {
+	if current.transaction.IsZero() {
+		return
+	}
+	for lifecycle := range r.callers.Members() {
+		if lifecycle.generation.TransactionID() != current.transaction {
+			continue
+		}
+		if _, exists := lifecycle.inverse.get(typeURL, name); exists {
+			lifecycle.inverse.remove(typeURL, name)
+			owners := &state.typeStates[typeURL].rollbacks
+			key := rollbackOwnerKey{name: name, transaction: current.transaction}
+			owners.removeOwner(key)
+			owners.pruneTombstone(state.resources[typeURL], key)
+			if len(state.resources[typeURL]) == 0 {
+				state.resources[typeURL] = nil
+			}
+		}
+		return
+	}
+}
+
+func reuseResources[V interface {
+	cache_types.Resource
+	comparable
+}](tx *resourceTransaction, typeURL typeurl.Index, removed, upserted map[string]V, inverse *resources, withRollback bool) {
+	for name := range removed {
+		if _, replaced := upserted[name]; !replaced {
+			if _, changed := inverse.get(typeURL, name); !changed {
+				current := tx.state.resources[typeURL][name]
+				tx.state.rollbacks.invalidateCallerRemovalLocked(tx.state, typeURL, name, current)
+			}
+		}
+	}
+	for name := range upserted {
+		if _, changed := inverse.get(typeURL, name); !changed {
+			// Preparation already established equality for a live value.
+			// An absent entry represents a typed-nil upsert.
+			tx.reuseResourceLocked(typeURL, name, tx.state.resources[typeURL][name], withRollback)
+		}
+	}
+}
+
+func (tx *resourceTransaction) reuseResourcesLocked(mutations ResourceMutations, inverse *resources, withRollback bool) {
+	r := &tx.state.rollbacks
+	if r.callers.Empty() && r.sharedUpsert == nil && len(r.sharedUpserts) == 0 {
+		return
+	}
+	removed, upserted := mutations.Removed, mutations.Upserted
+	reuseResources(tx, typeurl.Listener, removed.Listeners, upserted.Listeners, inverse, withRollback)
+	reuseResources(tx, typeurl.Route, removed.Routes, upserted.Routes, inverse, withRollback)
+	reuseResources(tx, typeurl.Cluster, removed.Clusters, upserted.Clusters, inverse, withRollback)
+	reuseResources(tx, typeurl.Endpoint, removed.Endpoints, upserted.Endpoints, inverse, withRollback)
+	reuseResources(tx, typeurl.Secret, removed.Secrets, upserted.Secrets, inverse, withRollback)
+}
+
+func (r *rollbackState) discardSharedUpsertLocked(shared *sharedCallerUpsert) {
+	if r.sharedUpsert == shared {
+		r.sharedUpsert = nil
+	} else {
+		delete(r.sharedUpserts, shared.key)
+		if len(r.sharedUpserts) == 0 {
+			r.sharedUpserts = nil
+		}
+	}
+	shared.claims = 0
+	shared.previous = resourceEntry{}
 }
 
 // finalizeLocked consumes the payload and releases its ownership references.
@@ -362,12 +523,29 @@ func (r *rollbackState) newCallerLocked(tx *resourceTransaction, inverse resourc
 // payload on failure so a later NACK can retry recovery.
 // Caller must hold cacheImpl.mutex.
 func (lifecycle *rollbackLifecycle) finalizeLocked() {
-	if lifecycle.resources == nil && lifecycle.inverse.empty() {
+	if lifecycle.shared.Empty() && !lifecycle.state.rollbacks.callers.Has(lifecycle) && !lifecycle.state.rollbacks.responses.Has(lifecycle) {
 		lifecycle.warnDuplicateLocked("finalize")
 		return
 	}
+	lifecycle.releaseLocked(false)
+}
+
+// releaseLocked consumes the lifecycle after finalization or a terminal revert.
+// Finalization commits shared caller claims. Reverting releases only this
+// caller's claims, after applying recovery for the last remaining claims.
+func (lifecycle *rollbackLifecycle) releaseLocked(reverted bool) {
 	state := lifecycle.state
 	r := &state.rollbacks
+	for shared := range lifecycle.shared.Members() {
+		if shared.claims == 0 {
+			continue
+		}
+		shared.claims--
+		if !reverted || shared.claims == 0 {
+			r.discardSharedUpsertLocked(shared)
+		}
+	}
+	lifecycle.shared.Clear()
 	responseResources, inverse := lifecycle.resources, lifecycle.inverse
 	lifecycle.resources = nil
 	lifecycle.inverse = resources{}
@@ -436,12 +614,19 @@ func (r *rollbackState) prepareRevertLocked(tx *resourceTransaction, rollbacks [
 	var changes resourceChanges
 	if len(rollbacks) == 1 {
 		lifecycle := rollbacks[0].(*rollbackLifecycle)
-		if lifecycle.resources == nil && lifecycle.inverse.empty() {
+		if lifecycle.shared.Empty() && !r.callers.Has(lifecycle) && !r.responses.Has(lifecycle) {
 			lifecycle.warnDuplicateLocked("revert")
 			return resourceChanges{}, nil
 		}
 		if lifecycle.resources == nil {
 			changes = r.resourceRevertInverse(state, lifecycle.generation.TransactionID(), lifecycle.inverse)
+			for shared := range lifecycle.shared.Members() {
+				key := shared.key
+				current := state.resources[key.typeURL][key.name]
+				if shared.claims == 1 && current.transaction == key.origin {
+					changes.add(key.typeURL, key.name, current, shared.previous)
+				}
+			}
 		} else {
 			changes = lifecycle.resources.resourceRevert(state, lifecycle.typeURL)
 		}
@@ -485,10 +670,10 @@ func (r *rollbackState) finishRevertLocked(rollbacks []Rollback, err error) {
 			if err != nil {
 				continue
 			}
-		} else if lifecycle.inverse.empty() {
+		} else if lifecycle.shared.Empty() && !r.callers.Has(lifecycle) {
 			continue
 		}
-		lifecycle.finalizeLocked()
+		lifecycle.releaseLocked(true)
 	}
 }
 
@@ -635,6 +820,12 @@ func (r *rollbackState) rebaseRejected(state *nodeState, typeURL typeurl.Index, 
 			}
 		}
 	}
+	if r.sharedUpsert != nil {
+		r.sharedUpsert.rebaseRejected(typeURL, rejected)
+	}
+	for _, shared := range r.sharedUpserts {
+		shared.rebaseRejected(typeURL, rejected)
+	}
 	for lifecycle := range r.callers.Members() {
 		inverse := &lifecycle.inverse
 		if inverse.hasSingleton() {
@@ -725,6 +916,14 @@ func (state *resourceRollbackState) pruneTombstone(resources map[string]resource
 	entry := resources[key.name]
 	if entry.resource == nil && entry.transaction == key.transaction && state.owners[key] == 0 {
 		delete(resources, key.name)
+	}
+}
+
+func (shared *sharedCallerUpsert) rebaseRejected(typeURL typeurl.Index, rejected rollbackResources) {
+	if shared.key.typeURL == typeURL {
+		if entry, exists := rejected[shared.key.name]; exists && shared.previous.transaction == entry.expectedTransaction {
+			shared.previous = entry.previous
+		}
 	}
 }
 

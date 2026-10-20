@@ -8,6 +8,7 @@ import (
 	"maps"
 	"slices"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 
@@ -27,14 +28,37 @@ func SingleResourceScope(name string, revision Revision) ResourceScope {
 	return ResourceScope{name: name, revision: revision}
 }
 
-// WithRevisions fills revisions after the cache commits its prepared changes.
+// OnlyRemovals classifies named requirements against desired state while the
+// cache lock is held, before registration. Whole-type scopes are not removal-only.
+// The resulting classification stays fixed for the caller wait.
+func (scope *ResourceScope) OnlyRemovals(isRemoved func(string) bool) bool {
+	if scope.name != "" {
+		return isRemoved(scope.name)
+	}
+	for name := range scope.more {
+		if !isRemoved(name) {
+			return false
+		}
+	}
+	return len(scope.more) != 0
+}
+
+// WithRevisions advances requirements after the cache commits prepared changes.
+// A removal's entry may have been pruned, so its prepared revision must not be
+// lowered to zero or to an older acceptance fence.
 // The scope is owned by one wait and is not published until this returns.
 func (scope ResourceScope) WithRevisions(revisionFor func(string) Revision) ResourceScope {
 	if scope.name != "" {
-		scope.revision = revisionFor(scope.name)
+		revision := revisionFor(scope.name)
+		if revision.revision > scope.revision.revision {
+			scope.revision = revision
+		}
 	}
-	for name := range scope.more {
-		scope.more[name] = revisionFor(name)
+	for name, required := range scope.more {
+		revision := revisionFor(name)
+		if revision.revision > required.revision {
+			scope.more[name] = revision
+		}
 	}
 	return scope
 }
@@ -104,6 +128,38 @@ func (scope *ResourceScope) acknowledge(coverage *responseCoverage, generation G
 	}
 	for name, required := range scope.more {
 		if required.revision <= generation && coverage.contains(name) {
+			delete(scope.more, name)
+		}
+	}
+	return len(scope.more) == 0
+}
+
+// acknowledgeRemovals accepts absence proofs, including synthesized empty CLAs.
+// A positive resource can resolve a superseded removal only from the wait's
+// publication onward. This prevents a delayed response containing an older
+// live value from completing a repeated removal after its desired entry is removed.
+func (scope *ResourceScope) acknowledgeRemovals(coverage *responseCoverage, generation, minimumPresentGeneration Generation) bool {
+	covered := func(name string, revision Revision) bool {
+		if revision.revision > generation || !coverage.contains(name) {
+			return false
+		}
+		if generation >= minimumPresentGeneration || coverage == nil || coverage.resources[name].Resource == nil {
+			return true
+		}
+		if coverage.typeURL == typeurl.Endpoint {
+			assignment, ok := coverage.resources[name].Resource.(*endpoint.ClusterLoadAssignment)
+			return ok && len(assignment.GetEndpoints()) == 0
+		}
+		return false
+	}
+	if scope.wholeType() {
+		return scope.coveredBy(coverage, generation)
+	}
+	if scope.name != "" {
+		return covered(scope.name, scope.revision)
+	}
+	for name, required := range scope.more {
+		if covered(name, required) {
 			delete(scope.more, name)
 		}
 	}

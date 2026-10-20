@@ -74,12 +74,13 @@ func (state *nodeState) resourceEntries(typeURL typeurl.Index) map[string]resour
 	return state.resources[typeURL]
 }
 
-// resourceWaitEntry supplies the latest restoration revision for absent values
-// after commitEntry has removed their zero-transaction inverse entries.
+// resourceWaitEntry fences absent values whose tombstones have been pruned.
+// Corrective updates and collected responses must not let an older absence ACK
+// complete a wait for a name which has since been present.
 func (state *nodeState) resourceWaitEntry(typeURL typeurl.Index, name string) resourceEntry {
 	entry := state.resources[typeURL][name]
 	if entry.resource == nil && entry.transaction.IsZero() {
-		entry.revision = state.typeStates[typeURL].revertGeneration.Revision()
+		entry.revision = state.rollbacks.removalWaitRevision(state, typeURL, name)
 	}
 	return entry
 }
