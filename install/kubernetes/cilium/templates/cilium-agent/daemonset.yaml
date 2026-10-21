@@ -68,7 +68,9 @@ spec:
         # can be modified as long users know which profiles they have available
         # in AppArmor.
         container.apparmor.security.beta.kubernetes.io/cilium-agent: "unconfined"
+        {{- if or .Values.cleanState .Values.cleanBpfState }}
         container.apparmor.security.beta.kubernetes.io/clean-cilium-state: "unconfined"
+        {{- end }}
         {{- if .Values.cgroup.autoMount.enabled }}
         container.apparmor.security.beta.kubernetes.io/mount-cgroup: "unconfined"
         container.apparmor.security.beta.kubernetes.io/apply-sysctl-overwrites: "unconfined"
@@ -705,24 +707,20 @@ spec:
         - name: cilium-bootstrap-file-dir
           mountPath: "/tmp/cilium-bootstrap.d"
       {{- end }}
+      {{- if or .Values.cleanState .Values.cleanBpfState }}
       - name: clean-cilium-state
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
-        - /init-container.sh
+        - /usr/bin/cilium-dbg
+        - post-uninstall-cleanup
+        - -f
+        {{- if .Values.cleanState }}
+        - --all-state
+        {{- else if .Values.cleanBpfState }}
+        - --bpf-state
+        {{- end }}
         env:
-        - name: CILIUM_ALL_STATE
-          valueFrom:
-            configMapKeyRef:
-              name: cilium-config
-              key: clean-cilium-state
-              optional: true
-        - name: CILIUM_BPF_STATE
-          valueFrom:
-            configMapKeyRef:
-              name: cilium-config
-              key: clean-cilium-bpf-state
-              optional: true
         - name: WRITE_CNI_CONF_WHEN_READY
           valueFrom:
             configMapKeyRef:
@@ -780,6 +778,7 @@ spec:
         resources:
           {{- toYaml . | trim | nindent 10 }}
         {{- end }}
+      {{- end }}
       {{- if and .Values.waitForKubeProxy (and (ne (toString $kubeProxyReplacement) "strict") (ne (toString $kubeProxyReplacement) "true"))  }}
       - name: wait-for-kube-proxy
         image: {{ include "cilium.image" .Values.image | quote }}
