@@ -5,7 +5,6 @@
 
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
-#define DSR_ENCAP_MODE			DSR_ENCAP_NONE
 
 #define TEST_DSR_OPT_NETWORK_BYTE_ORDER
 
@@ -13,3 +12,8 @@
 
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, {
+	.enable = true,
+	.enable_icmp_errors = true,
+	.encap_mode = DSR_ENCAP_NONE,
+})
