@@ -23,7 +23,7 @@ struct {
 	__type(key, struct skip_lb6_key);
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+	__uint(max_entries, 100); /* fixed size */
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_skip_lb6 __section_maps_btf;
 
@@ -32,7 +32,7 @@ struct {
 	__type(key, struct skip_lb4_key);
 	__type(value, __u8);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, CILIUM_LB_SKIP_MAP_MAX_ENTRIES);
+	__uint(max_entries, 100); /* fixed size */
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_skip_lb4 __section_maps_btf;
 
