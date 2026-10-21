@@ -437,7 +437,6 @@ Makefile* @cilium/build
 /Documentation/contributing/development/reviewers_committers/review_vendor.rst @cilium/vendor
 /Documentation/contributing/testing/scalability.rst @cilium/sig-scalability
 /Documentation/crdlist.rst
-/Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettingstarted/demo.rst @cilium/docs-structure
 /Documentation/gettingstarted/gettinghelp.rst @cilium/contributing @cilium/docs-structure
 /Documentation/glossary.rst @cilium/docs-structure
@@ -483,7 +482,6 @@ Makefile* @cilium/build
 /Documentation/operations/troubleshooting_clustermesh.rst @cilium/sig-clustermesh @cilium/docs-structure
 /Documentation/overview/component-overview.rst @cilium/docs-structure
 /Documentation/overview/intro.rst @cilium/docs-structure
-/Documentation/requirements.txt @cilium/docs-structure
 /Documentation/security/http.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/images/cilium_threat_model* @cilium/security-cilium @cilium/docs-structure
 /Documentation/security/network/encryption-ipsec.rst @cilium/ipsec @cilium/docs-structure
@@ -516,6 +514,7 @@ Makefile* @cilium/build
 /images/builder/install-protoc.sh @cilium/sig-hubble-api
 /images/builder/install-protoplugins.sh @cilium/sig-hubble-api
 /images/builder/update-cilium-builder-image.sh @cilium/github-sec
+/images/docs-builder @cilium/docs-structure
 /images/hubble-relay @cilium/sig-hubble
 /images/runtime/update-cilium-runtime-image.sh @cilium/github-sec
 /install/kubernetes/ @cilium/helm

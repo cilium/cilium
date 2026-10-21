@@ -355,8 +355,7 @@ Docker set-up
 
 The documentation build system relies on a Docker image, ``docs-builder``, to
 ensure the build environment is consistent across different systems. Resources
-related to this image include ``Documentation/Dockerfile`` and the requirement
-files.
+related to this image are stored in the directory ``images/docs-builder``.
 
 Versions of this image are automatically built and published to a registry when
 the Dockerfile or the list of dependencies is updated. This is handled in CI
@@ -425,7 +424,7 @@ There are several workflows relating to the documentation in CI:
 
   - Rebuilds the ``docs-builder`` image, pushes it to Quay.io, and updates the
     image reference with the new one in the documentation workflow
-  - Triggers when requirements or ``Documentation/Dockerfile`` are updated
+  - Triggers when ``images/docs-builder`` files are updated
   - Needs approval from one of the ``docs-structure`` team members
 
 Redirects
