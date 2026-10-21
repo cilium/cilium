@@ -34,23 +34,24 @@ enum {
 static __always_inline __u8
 cls_flag_tunnel()
 {
-#ifdef HAVE_ENCAP
+	if (!HAVE_ENCAP)
+		return 0;
+
 	if (CONFIG(tunnel_protocol) == TUNNEL_PROTOCOL_VXLAN)
 		return CLS_FLAG_VXLAN;
 	if (CONFIG(tunnel_protocol) == TUNNEL_PROTOCOL_GENEVE)
 		return CLS_FLAG_GENEVE;
-#endif
+
 	return 0;
 }
 
 static __always_inline bool
 is_tunnel_port(__be16 dport __maybe_unused)
 {
-#ifdef HAVE_ENCAP
+	if (!HAVE_ENCAP)
+		return false;
+
 	return dport == bpf_htons(CONFIG(tunnel_port));
-#else
-	return false;
-#endif
 }
 
 /**
@@ -63,7 +64,7 @@ is_tunnel_port(__be16 dport __maybe_unused)
 static __always_inline bool
 can_observe_overlay_mark(enum trace_point obs_point __maybe_unused)
 {
-	if (!is_defined(HAVE_ENCAP) || ctx_is_xdp())
+	if (!HAVE_ENCAP || ctx_is_xdp())
 		return false;
 
 	if (is_defined(IS_BPF_HOST) && (obs_point == TRACE_TO_NETWORK ||
@@ -88,7 +89,7 @@ can_observe_overlay_mark(enum trace_point obs_point __maybe_unused)
 static __always_inline bool
 can_observe_overlay_hdr(enum trace_point obs_point)
 {
-	if (!is_defined(HAVE_ENCAP))
+	if (!HAVE_ENCAP)
 		return false;
 
 	if (is_defined(IS_BPF_HOST) && (obs_point == TRACE_FROM_NETWORK ||
@@ -122,7 +123,7 @@ ctx_is_overlay_hdr(const struct __ctx_buff *ctx, __be16 proto)
 	__u8 l4_proto;
 	int l3_hdrlen;
 
-	if (!is_defined(HAVE_ENCAP))
+	if (!HAVE_ENCAP)
 		return false;
 
 	switch (proto) {

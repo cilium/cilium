@@ -183,11 +183,15 @@ func compileAndLoad(perm buildPermutation, collection, source, output string, kv
 
 		log := hivetest.Logger(t, hivetest.LogLevel(slog.LevelDebug))
 
+		// Add the BPF_CI option to the compilation options, to enable load time assertions we only want while testing
+		// the code, not in production.
+		options := append(slices.Clone(perm.options), "-DBPF_CI")
+
 		objFileName, err := compile(t.Context(), log, &progInfo{
 			Source:     source,
 			Output:     output,
 			OutputType: outputObject,
-			Options:    perm.options,
+			Options:    options,
 		}, dirInfo)
 		if err != nil {
 			t.Fatalf("Failed to compile %s program: %v", collection, err)

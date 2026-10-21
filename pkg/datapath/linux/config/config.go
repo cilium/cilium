@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/kpr"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
@@ -185,27 +184,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
 
 		// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
-
-		const (
-			dsrEncapInv = iota
-			dsrEncapNone
-			dsrEncapIPIP
-			dsrEncapGeneve
-		)
-		cDefinesMap["DSR_ENCAP_IPIP"] = fmt.Sprintf("%d", dsrEncapIPIP)
-		cDefinesMap["DSR_ENCAP_GENEVE"] = fmt.Sprintf("%d", dsrEncapGeneve)
-		cDefinesMap["DSR_ENCAP_NONE"] = fmt.Sprintf("%d", dsrEncapNone)
-		if cfg.LBConfig.LoadBalancerUsesDSR() {
-			if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchOption {
-				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapNone)
-			} else if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP {
-				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapIPIP)
-			} else if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve {
-				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapGeneve)
-			}
-		} else {
-			cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapInv)
-		}
 	}
 
 	cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] = fmt.Sprintf("%d", cfg.LBConfig.LBSourceRangeMapEntries)

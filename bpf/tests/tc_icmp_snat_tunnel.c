@@ -13,4 +13,4 @@
 ASSIGN_CONFIG(bool, enable_sctp, true)
 
 ASSIGN_CONFIG(bool, debug, true)
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .encap_mode = DSR_ENCAP_NONE })

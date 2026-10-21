@@ -28,8 +28,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT 1
-#define DSR_ENCAP_IPIP		2
-#define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -203,7 +201,7 @@ ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(bool, enable_netkit, false)
 ASSIGN_CONFIG(bool, enable_ipip_termination, true)
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .encap_mode = DSR_ENCAP_IPIP })
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true) /* exercise the XFER_PKT_NO_SVC handoff */
 
 /*
