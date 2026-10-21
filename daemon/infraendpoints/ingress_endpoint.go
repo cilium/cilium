@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 
+	"github.com/cilium/cilium/daemon/cmd/legacy"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
@@ -21,6 +22,9 @@ import (
 
 type ingressEndpointCreatorParams struct {
 	cell.In
+
+	// Legacy daemon initialization allocates Ingress IPs
+	legacy.DaemonInitialization
 
 	Logger       *slog.Logger
 	DaemonConfig *option.DaemonConfig
