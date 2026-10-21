@@ -6,7 +6,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"sort"
+	"slices"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -17,7 +17,6 @@ import (
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/identity"
-	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -47,9 +46,17 @@ func listIPs() {
 	if err != nil {
 		Fatalf("Cannot get ipcache entries. err: %s", pkg.Hint(err))
 	}
-	im := ipcachetypes.IPListEntrySlice(ipcache.Payload)
-	sort.Slice(im, im.Less)
+	sortIPListEntries(ipcache.Payload)
 	printIPcacheEntries(ipcache.Payload)
+}
+
+// sortIPListEntries sorts entries by CIDR: IPv4 before IPv6, then by address,
+// so that each prefix is directly followed by the narrower prefixes it
+// contains.
+func sortIPListEntries(entries []*models.IPListEntry) {
+	slices.SortFunc(entries, func(a, b *models.IPListEntry) int {
+		return a.Cidr.Compare(b.Cidr.Prefix)
+	})
 }
 
 func printIPcacheEntries(entries []*models.IPListEntry) {
@@ -100,9 +107,9 @@ func printEntry(w *tabwriter.Writer, entry *models.IPListEntry) {
 	for _, lbl := range labels {
 		if first {
 			if verbose {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n", *entry.Cidr, lbl, src, entry.HostIP, entry.EncryptKey)
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n", formatPrefix(entry.Cidr), lbl, src, formatAddr(entry.HostIP), entry.EncryptKey)
 			} else {
-				fmt.Fprintf(w, "%s\t%s\t%s\n", *entry.Cidr, lbl, src)
+				fmt.Fprintf(w, "%s\t%s\t%s\n", formatPrefix(entry.Cidr), lbl, src)
 			}
 			first = false
 		} else {

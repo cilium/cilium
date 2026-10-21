@@ -3314,13 +3314,12 @@ func init() {
       "description": "IP entry with metadata",
       "type": "object",
       "required": [
-        "cidr",
         "identity"
       ],
       "properties": {
         "cidr": {
           "description": "Key of the entry in the form of a CIDR range",
-          "type": "string"
+          "$ref": "#/definitions/CIDR"
         },
         "encryptKey": {
           "description": "The context ID for the encryption session",
@@ -3328,7 +3327,7 @@ func init() {
         },
         "hostIP": {
           "description": "IP address of the host",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         },
         "identity": {
           "description": "Numerical identity assigned to the IP",
@@ -8786,13 +8785,12 @@ func init() {
       "description": "IP entry with metadata",
       "type": "object",
       "required": [
-        "cidr",
         "identity"
       ],
       "properties": {
         "cidr": {
           "description": "Key of the entry in the form of a CIDR range",
-          "type": "string"
+          "$ref": "#/definitions/CIDR"
         },
         "encryptKey": {
           "description": "The context ID for the encryption session",
@@ -8800,7 +8798,7 @@ func init() {
         },
         "hostIP": {
           "description": "IP address of the host",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         },
         "identity": {
           "description": "Numerical identity assigned to the IP",
