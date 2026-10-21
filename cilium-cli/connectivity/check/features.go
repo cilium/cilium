@@ -226,7 +226,7 @@ func (ct *ConnectivityTest) extractFeaturesFromUname(ctx context.Context, cilium
 	}
 
 	result[features.RHEL] = features.Status{
-		Enabled: versioncheck.MustCompile("<=4.18.0")(kernelVersion),
+		Enabled: versioncheck.MustCompile("<=4.18.0 || 5.14.0")(kernelVersion),
 	}
 
 	return nil
