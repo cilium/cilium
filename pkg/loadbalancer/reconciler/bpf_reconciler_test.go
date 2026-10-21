@@ -175,6 +175,8 @@ type faultyLBMaps struct {
 	fail                    bool
 	failDeleteService       bool
 	failDeleteSourceRange   bool
+	failDeleteAffinity      bool
+	failDumpAffinity        bool
 	failDumpService         bool
 	failUpdateBackend       bool
 	shouldFailUpdateService func(maps.ServiceKey) bool
@@ -208,6 +210,20 @@ func (m *faultyLBMaps) DeleteSourceRange(key maps.SourceRangeKey) error {
 		return errors.New("delete source range failed")
 	}
 	return m.LBMaps.DeleteSourceRange(key)
+}
+
+func (m *faultyLBMaps) DeleteAffinityMatch(key *maps.AffinityMatchKey) error {
+	if m.failDeleteAffinity {
+		return errors.New("delete affinity match failed")
+	}
+	return m.LBMaps.DeleteAffinityMatch(key)
+}
+
+func (m *faultyLBMaps) DumpAffinityMatch(cb func(*maps.AffinityMatchKey, *maps.AffinityMatchValue)) error {
+	if m.failDumpAffinity {
+		return errors.New("dump affinity match failed")
+	}
+	return m.LBMaps.DumpAffinityMatch(cb)
 }
 
 func (m *faultyLBMaps) UpdateBackend(key maps.BackendKey, value maps.BackendValue) error {
