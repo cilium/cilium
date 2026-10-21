@@ -206,6 +206,15 @@ func (t *Test) scenarioRequirements(s Scenario) (bool, string) {
 	return t.Context().Features.MatchRequirements(reqs...)
 }
 
+// scenarioHostNetNS returns false if the given scenario is a HostNetNSScenario
+// and the host-netns DaemonSet is not deployed.
+func (t *Test) scenarioHostNetNS(s Scenario) (bool, string) {
+	if _, ok := s.(HostNetNSScenario); ok && t.Context().params.SkipHostNetNSDaemonSet {
+		return false, "scenario requires the host-netns DaemonSet"
+	}
+	return true, ""
+}
+
 // scenarioVersion returns true if the running Cilium version is within the
 // range specified by a VersionedScenario. Scenarios that do not implement
 // VersionedScenario are always considered in range.
@@ -407,6 +416,11 @@ func (t *Test) Run(ctx context.Context, index int) error {
 			continue
 		}
 
+		if hostNetNS, reason := t.scenarioHostNetNS(s); !hostNetNS {
+			t.skip(s, reason)
+			continue
+		}
+
 		t.Logf("[-] Scenario [%s]", t.scenarioName(s))
 
 		s.Run(ctx, t)
@@ -462,6 +476,25 @@ func (t *Test) WithMultiNodeOnly() *Test {
 	return t.WithCondition(
 		func() bool { return !t.ctx.Params().SingleNode },
 		"test requires a multi-node cluster",
+	)
+}
+
+// WithHostNetNSDaemonSet causes the test to only be executed when the
+// host-netns DaemonSet is deployed.
+func (t *Test) WithHostNetNSDaemonSet() *Test {
+	return t.WithCondition(
+		func() bool { return !t.ctx.Params().SkipHostNetNSDaemonSet },
+		"test requires the host-netns DaemonSet",
+	)
+}
+
+// WithStaticRoutesHostNetNSDaemonSet causes the test to only be executed when
+// the host-netns DaemonSet is deployed, or when no static routes to pod CIDRs
+// are needed: the routes are built from the IPs of the host-netns pods.
+func (t *Test) WithStaticRoutesHostNetNSDaemonSet() *Test {
+	return t.WithCondition(
+		func() bool { return !t.ctx.Params().SkipHostNetNSDaemonSet || !t.ctx.NeedsStaticRoutes() },
+		"static routes to pod CIDRs require the host-netns DaemonSet",
 	)
 }
 

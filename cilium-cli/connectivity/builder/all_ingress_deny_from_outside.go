@@ -17,6 +17,7 @@ func (t allIngressDenyFromOutside) build(ct *check.ConnectivityTest, _ map[strin
 		WithCiliumPolicy(denyAllIngressPolicyYAML).
 		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 		WithIPRoutesFromOutsideToPodCIDRs().
+		WithStaticRoutesHostNetNSDaemonSet().
 		WithScenarios(tests.FromCIDRToPod()).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().Address(features.GetIPFamily(ct.Params().ExternalOtherIPv4)) == ct.Params().ExternalOtherIPv4 ||

@@ -24,5 +24,5 @@ func (t nodeToNodeEncryption) build(ct *check.ConnectivityTest, _ map[string]str
 		).WithFeatureRequirements(
 		features.RequireModeIsNot(features.EncryptionPod, "ipsec"),
 		features.RequireDisabled(features.Ztunnel),
-	)
+	).WithHostNetNSDaemonSet()
 }

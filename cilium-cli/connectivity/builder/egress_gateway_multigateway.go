@@ -28,6 +28,7 @@ func (t egressGatewayMultigateway) build(ct *check.ConnectivityTest, _ map[strin
 			Multigateway:    true,
 		}).
 		WithIPRoutesFromOutsideToPodCIDRs().
+		WithStaticRoutesHostNetNSDaemonSet().
 		WithFeatureRequirements(
 			features.RequireEnabled(features.EgressGateway),
 			features.RequireEnabled(features.NodeWithoutCilium),

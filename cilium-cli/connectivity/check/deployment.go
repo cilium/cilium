@@ -1619,21 +1619,23 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			}
 		}
 
-		for _, client := range ct.clients.clients() {
-			_, err = client.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentName, metav1.GetOptions{})
-			if err != nil {
-				ct.Logf("✨ [%s] Deploying %s daemonset...", hostNetNSDeploymentName, client.ClusterName())
-				ds := newDaemonSet(daemonSetParameters{
-					Name:        hostNetNSDeploymentName,
-					Kind:        kindHostNetNS,
-					Image:       ct.params.CurlImage,
-					Labels:      map[string]string{"other": "host-netns"},
-					Command:     []string{"/usr/bin/pause"},
-					HostNetwork: true,
-				})
-				_, err = client.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
+		if !ct.params.SkipHostNetNSDaemonSet {
+			for _, client := range ct.clients.clients() {
+				_, err = client.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentName, metav1.GetOptions{})
 				if err != nil {
-					return fmt.Errorf("unable to create daemonset %s: %w", hostNetNSDeploymentName, err)
+					ct.Logf("✨ [%s] Deploying %s daemonset...", hostNetNSDeploymentName, client.ClusterName())
+					ds := newDaemonSet(daemonSetParameters{
+						Name:        hostNetNSDeploymentName,
+						Kind:        kindHostNetNS,
+						Image:       ct.params.CurlImage,
+						Labels:      map[string]string{"other": "host-netns"},
+						Command:     []string{"/usr/bin/pause"},
+						HostNetwork: true,
+					})
+					_, err = client.CreateDaemonSet(ctx, ct.params.TestNamespace, ds, metav1.CreateOptions{})
+					if err != nil {
+						return fmt.Errorf("unable to create daemonset %s: %w", hostNetNSDeploymentName, err)
+					}
 				}
 			}
 		}
@@ -3252,10 +3254,16 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 		}
 	}
 
+	waitForHostNetNS := (!ct.params.SingleNode || ct.params.MultiCluster != "") && !ct.params.SkipHostNetNSDaemonSet
 	for _, client := range ct.clients.clients() {
-		if !ct.params.SingleNode || ct.params.MultiCluster != "" {
+		if waitForHostNetNS {
 			if err := WaitForDaemonSet(ctx, ct, client, ct.Params().TestNamespace, hostNetNSDeploymentName); err != nil {
 				return err
+			}
+		}
+		if ct.params.SkipHostNetNSDaemonSet {
+			if _, err := client.GetDaemonSet(ctx, ct.params.TestNamespace, hostNetNSDeploymentName, metav1.GetOptions{}); err == nil {
+				ct.Warnf("[%s] Ignoring leftover %s daemonset as host-netns DaemonSet is skipped, run `cilium connectivity test --cleanup` to remove it", client.ClusterName(), hostNetNSDeploymentName)
 			}
 		}
 		hostNetNSPods, err := listLivePods(ctx, client, ct.params.TestNamespace, metav1.ListOptions{LabelSelector: "kind=" + kindHostNetNS})
@@ -3265,6 +3273,10 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 
 		for _, pod := range hostNetNSPods {
 			_, ok := ct.nodesWithoutCilium[pod.Spec.NodeName]
+			if !ok && ct.params.SkipHostNetNSDaemonSet {
+				// Leftover host-netns pod on a Cilium node.
+				continue
+			}
 			p := Pod{
 				K8sClient: client,
 				Pod:       pod.DeepCopy(),
