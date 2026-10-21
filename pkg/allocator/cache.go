@@ -27,6 +27,12 @@ type idMap map[idpool.ID]AllocatorKey
 // keyMap provides mapping from AllocatorKey to ID
 type keyMap map[string]idpool.ID
 
+type keyWaiter struct {
+	done chan struct{}
+	id   idpool.ID
+	refs int
+}
+
 type cache struct {
 	logger      *slog.Logger
 	controllers *controller.Manager
@@ -68,18 +74,26 @@ type cache struct {
 	changeSrc         stream.Observable[AllocatorChange]
 	emitChange        func(AllocatorChange)
 	completeChangeSrc func(error)
+
+	// waitingLock protects waiting map. When acquired together with mutex,
+	// mutex (read or write) must always be acquired before waitingLock.
+	waitingLock lock.Mutex
+	waiting     map[string]*keyWaiter
 }
 
 func newCache(a *Allocator) (c cache) {
 	ctx, cancel := context.WithCancel(context.Background())
 	c = cache{
-		logger:      a.logger,
-		allocator:   a,
-		cache:       idMap{},
-		keyCache:    keyMap{},
-		ctx:         ctx,
-		cancel:      cancel,
-		controllers: controller.NewManager(),
+		logger:       a.logger,
+		allocator:    a,
+		cache:        idMap{},
+		keyCache:     keyMap{},
+		nextCache:    idMap{},
+		nextKeyCache: keyMap{},
+		ctx:          ctx,
+		cancel:       cancel,
+		controllers:  controller.NewManager(),
+		waiting:      map[string]*keyWaiter{},
 	}
 	c.changeSrc, c.emitChange, c.completeChangeSrc = stream.Multicast[AllocatorChange]()
 	return
@@ -111,11 +125,35 @@ func (c *cache) sendEvent(typ AllocatorChangeKind, id idpool.ID, key AllocatorKe
 	}
 }
 
+func (c *cache) notifyWaiters(key string, id idpool.ID) {
+	if id == idpool.NoID {
+		return
+	}
+
+	c.waitingLock.Lock()
+	if w, ok := c.waiting[key]; ok {
+		w.id = id
+		close(w.done)
+		delete(c.waiting, key)
+	}
+	c.waitingLock.Unlock()
+}
+
 func (c *cache) OnListDone() {
 	c.mutex.Lock()
 	// nextCache is valid, point the live cache to it
 	c.cache = c.nextCache
 	c.keyCache = c.nextKeyCache
+
+	c.waitingLock.Lock()
+	for k, w := range c.waiting {
+		if id, ok := c.keyCache[k]; ok && id != idpool.NoID {
+			w.id = id
+			close(w.done)
+			delete(c.waiting, k)
+		}
+	}
+	c.waitingLock.Unlock()
 	c.mutex.Unlock()
 
 	// report that the list operation has
@@ -157,7 +195,9 @@ func (c *cache) OnUpsert(id idpool.ID, key AllocatorKey) {
 
 	c.nextCache[id] = key
 	if key != nil {
-		c.nextKeyCache[key.GetKey()] = id
+		k := key.GetKey()
+		c.nextKeyCache[k] = id
+		c.notifyWaiters(k, id)
 	}
 
 	c.allocator.idPool.Remove(id)
@@ -330,6 +370,53 @@ func (c *cache) get(key string) idpool.ID {
 	return idpool.NoID
 }
 
+func (c *cache) getWithNextLocked(key string) idpool.ID {
+	if id, ok := c.keyCache[key]; ok && id != idpool.NoID {
+		return id
+	}
+	if id, ok := c.nextKeyCache[key]; ok && id != idpool.NoID {
+		return id
+	}
+	return idpool.NoID
+}
+
+func (c *cache) waitFor(ctx context.Context, key string) idpool.ID {
+	if ctx.Err() != nil || c.ctx.Err() != nil {
+		return idpool.NoID
+	}
+
+	c.mutex.RLock()
+	if id := c.getWithNextLocked(key); id != idpool.NoID {
+		c.mutex.RUnlock()
+		return id
+	}
+
+	c.waitingLock.Lock()
+	w, ok := c.waiting[key]
+	if !ok {
+		w = &keyWaiter{done: make(chan struct{})}
+		c.waiting[key] = w
+	}
+	w.refs++
+	c.waitingLock.Unlock()
+	c.mutex.RUnlock()
+
+	select {
+	case <-ctx.Done():
+	case <-c.ctx.Done():
+	case <-w.done:
+		return w.id
+	}
+
+	c.waitingLock.Lock()
+	w.refs--
+	if w.refs == 0 && c.waiting[key] == w {
+		delete(c.waiting, key)
+	}
+	c.waitingLock.Unlock()
+	return idpool.NoID
+}
+
 func (c *cache) getByID(id idpool.ID) AllocatorKey {
 	c.mutex.RLock()
 	if v, ok := c.cache[id]; ok {
@@ -352,7 +439,11 @@ func (c *cache) foreach(cb RangeFunc) {
 func (c *cache) insert(key AllocatorKey, val idpool.ID) {
 	c.mutex.Lock()
 	c.nextCache[val] = key
-	c.nextKeyCache[key.GetKey()] = val
+	if key != nil {
+		k := key.GetKey()
+		c.nextKeyCache[k] = val
+		c.notifyWaiters(k, val)
+	}
 	c.mutex.Unlock()
 }
 
