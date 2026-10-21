@@ -742,9 +742,8 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 	// This is needed so the operator detects the agent as multi-pool
 	// (the detection heuristic checks len(Status.IPAM.Used) == 0).
 	//
-	// This only happens when an agent starts on a node that was previously
-	// running a 1.19 agent.
-	// TODO: Remove with 1.21.
+	// Keep this for rolling upgrades from cloud-provider agents that still
+	// use the CRD allocator, including AlibabaCloud.
 	if len(newNode.Status.IPAM.Used) > 0 {
 		newNode.Status.IPAM.Used = nil
 		_, err := m.cnClient.UpdateStatus(ctx, newNode, metav1.UpdateOptions{})
