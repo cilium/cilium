@@ -215,12 +215,18 @@ struct {
  * apply the exact same selection logic to the result.
  */
 static __always_inline const struct policy_entry *
-__policy_lookup(const void *map, const struct policy_key *key, const __u32 *rule_set_id)
+__policy_lookup(const struct policy_key *key, const __u32 *rule_set_id)
 {
 	struct shared_policy_key skey;
 
-	if (!CONFIG(enable_shared_policy) || !rule_set_id)
-		return map_lookup_elem(map, key);
+	/* Only refer to the per-endpoint map if shared mode is disabled so that
+	 * we do not hold on to the per-endpoint map in shared mode
+	 */
+	if (!CONFIG(enable_shared_policy))
+		return map_lookup_elem(&cilium_policy, key);
+
+	if (!rule_set_id)
+		return NULL; /* No policy match; no legacy fallback. */
 
 	/* Zero the whole key so that padding is initialized for the verifier. */
 	memset(&skey, 0, sizeof(skey));
@@ -257,10 +263,10 @@ __policy_check(const struct policy_entry *policy, __u16 *proxy_port, __u32 *cook
 
 /* Allow experimental access to the @map parameter. */
 static __always_inline int
-__policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_id,
-		    __u32 remote_id, __u16 ethertype, __be16 dport, __u8 proto,
-		    int off, int dir, bool is_untracked_fragment,
-		    __u8 *match_type, __u16 *proxy_port, __u32 *cookie)
+policy_can_access(const struct __ctx_buff *ctx, __u32 local_id,
+		  __u32 remote_id, __u16 ethertype, __be16 dport, __u8 proto,
+		  int off, int dir, bool is_untracked_fragment,
+		  __u8 *match_type, __u16 *proxy_port, __u32 *cookie)
 {
 	/*
 	 * Perform two policy lookups:
@@ -349,7 +355,7 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 	/* Specific lookup: an exact match on L3 identity and LPM match on
 	 * L4 proto and port.
 	 */
-	policy = __policy_lookup(map, &key, rule_set_id);
+	policy = __policy_lookup(&key, rule_set_id);
 
 	/* Specific-ID policy can be chosen without the 2nd lookup if it has the
 	 * highest possible precedence value (which implies that it is a deny).
@@ -364,14 +370,14 @@ __policy_can_access(const void *map, const struct __ctx_buff *ctx, __u32 local_i
 	 */
 	key.sec_label = aggregate_for_identity(remote_id);
 	if (likely(key.sec_label != remote_id))
-		agg_policy = __policy_lookup(map, &key, rule_set_id);
+		agg_policy = __policy_lookup(&key, rule_set_id);
 
 	/* fallback: we have no policy, but the aggregated ID was not 0.
 	 * Try an ID-0 lookup too.
 	 */
 	if (unlikely(!agg_policy && !policy && key.sec_label != 0)) {
 		key.sec_label = 0;
-		agg_policy = __policy_lookup(map, &key, rule_set_id);
+		agg_policy = __policy_lookup(&key, rule_set_id);
 	}
 
 	/* The found aggregate policy is chosen if:
@@ -418,17 +424,6 @@ check_agg_policy:
 		p_len <= LPM_PROTO_PREFIX_BITS ? POLICY_MATCH_PROTO_ONLY :	/* 4. ANY/proto/ANY */
 		POLICY_MATCH_L4_ONLY;						/* 2. ANY/proto/port */
 	return __policy_check(agg_policy, proxy_port, cookie);
-}
-
-static __always_inline int
-policy_can_access(const struct __ctx_buff *ctx, __u32 local_id, __u32 remote_id,
-		  __u16 ethertype, __be16 dport, __u8 proto, int off, int dir,
-		  bool is_untracked_fragment, __u8 *match_type, __u16 *proxy_port,
-		  __u32 *cookie)
-{
-	return __policy_can_access(&cilium_policy, ctx, local_id, remote_id,
-				   ethertype, dport, proto, off, dir,
-				   is_untracked_fragment, match_type, proxy_port, cookie);
 }
 
 /**

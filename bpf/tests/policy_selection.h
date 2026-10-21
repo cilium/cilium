@@ -683,46 +683,27 @@ int s01(struct __ctx_buff *ctx)
 	test_finish();
 }
 
-CHECK("tc", "s02_no_overlay_uses_endpoint_map")
+CHECK("tc", "s02_no_overlay_denies_by_default")
 int s02(struct __ctx_buff *ctx)
 {
 	test_init();
-	TEST("no overlay entry: per-endpoint map entry is selected", {
+	TEST("no overlay entry: deny by default", {
 		struct res r;
 
 		no_overlay();
 		put_legacy(EGRESS, POD_ID, IPPROTO_TCP, P80, false, 2);
 		r = egress(ctx, POD_ID, IPPROTO_TCP, P80);
 		del_legacy(EGRESS, POD_ID, IPPROTO_TCP, P80);
-		assert(r.ret == CTX_ACT_OK);
-		assert(r.cookie == 2);
-		assert(r.match_type == POLICY_MATCH_L3_L4);
-		assert(stats_hit(POD_ID, EGRESS, IPPROTO_TCP, P80, 24));
-	});
-	test_finish();
-}
-
-CHECK("tc", "s03_no_overlay_endpoint_map_deny")
-int s03(struct __ctx_buff *ctx)
-{
-	test_init();
-	TEST("no overlay entry: per-endpoint map deny is enforced", {
-		struct res r;
-
-		no_overlay();
-		put_legacy(EGRESS, AGGREGATE_CLUSTER_ID, 0, 0, true, 3);
-		r = egress(ctx, POD_ID, IPPROTO_TCP, P80);
-		del_legacy(EGRESS, AGGREGATE_CLUSTER_ID, 0, 0);
-		assert(r.ret == DROP_POLICY_DENY);
-		assert(r.cookie == 3);
-		assert(r.match_type == POLICY_MATCH_ALL);
-		assert(stats_hit(AGGREGATE_CLUSTER_ID, EGRESS, 0, 0, 0));
+		assert(r.ret == DROP_POLICY);
+		assert(r.cookie == 0);
+		assert(r.match_type == NO_MATCH_TYPE);
+		assert(stats_absent(POD_ID, EGRESS, IPPROTO_TCP, P80, 24));
 	});
 	test_finish();
 }
 
 CHECK("tc", "s04_overlay_ignores_endpoint_map")
-int s04(struct __ctx_buff *ctx)
+int s03(struct __ctx_buff *ctx)
 {
 	test_init();
 	TEST("overlay entry present: per-endpoint map entries are not used", {

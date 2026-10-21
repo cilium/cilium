@@ -221,7 +221,8 @@ func TestRemoveDisabledMaps(t *testing.T) {
 			sweeper.RemoveDisabledMaps()
 
 			if enabled {
-				require.Empty(t, testEPManager.removedPaths)
+				require.ElementsMatch(t, []string{"cilium_policy_v3_00001"},
+					testEPManager.removedPaths)
 			} else {
 				// The shared policy maps must not survive a restart with the shared policy
 				// map disabled, otherwise their stale contents would take effect again when

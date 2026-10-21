@@ -145,9 +145,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_ktime_cache",
 			"cilium_auth_map",
 		}
-		prefixedMaps = []PrefixedMap{
-			{"cilium_policy_", []string{policymap.MapName, policymap.SharedPolicyMapName, policymap.PolicyOverlayMapName}},
-		}
+		prefixedMaps = []PrefixedMap{{
+			Prefix:   "cilium_policy_",
+			Excludes: []string{policymap.MapName, policymap.SharedPolicyMapName, policymap.PolicyOverlayMapName},
+		}}
 	)
 
 	for _, hook := range ms.disabledMapsHooks {
@@ -250,7 +251,11 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 	// Remove the shared policy maps when the shared policy map is disabled, so that their
 	// contents can't take effect again if it is re-enabled later. Endpoints then start
 	// from their per-endpoint policy maps again, see bpf/lib/policy.h.
-	if !ms.policyMapFactory.SharedPolicyEnabled() {
+	if ms.policyMapFactory.SharedPolicyEnabled() {
+		// remove all per-endpoint maps in shared mode
+		prefixedMaps = append(prefixedMaps, PrefixedMap{Prefix: policymap.MapName})
+	} else {
+		// remove shared/overlay maps in dedicated policy map mode
 		maps = append(maps, policymap.SharedPolicyMapName, policymap.PolicyOverlayMapName)
 	}
 

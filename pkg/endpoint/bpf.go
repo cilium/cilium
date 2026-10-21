@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cilium/ebpf"
 	"github.com/google/renameio/v2"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -524,28 +523,12 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 
 	e.ctCleaned = true
 
-	if e.sharedPolicyEnabled() && datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
-		e.sharedPolicyDatapathLoaded = true
-	}
-
 	if !datapathRegenCtxt.policyMapSyncDone {
 		err = e.policyMapSync(datapathRegenCtxt.policyMapDump, stats)
 		if err != nil {
 			return 0, newRegenerationErrorf(regenerationFailureReasonPolicyBPFError, "policymap synchronization failed: %w", err)
 		}
 		datapathRegenCtxt.policyMapSyncDone = true
-	}
-
-	// Once the datapath enforces the endpoint's policy from the shared policy map, the
-	// per-endpoint policy map is no longer used. Remove its entries so that they can't take
-	// effect again, stale, if the shared policy map is disabled later; the agent then fills
-	// the empty per-endpoint map before loading the datapath, as on upgrade.
-	if e.sharedPolicyDatapathLoaded && !e.legacyPolicyMapCleared && e.sharedPolicyEnabled() && e.policyMapFactory.HasEndpointOverlay(e.ID) {
-		if err := e.clearLegacyPolicyMap(); err != nil {
-			e.getLogger().Warn("Failed to remove per-endpoint policy map entries", logfields.Error, err)
-		} else {
-			e.legacyPolicyMapCleared = true
-		}
 	}
 
 	// Initialize (if not done yet) the DNS history trigger to allow DNS proxy to trigger
@@ -769,6 +752,8 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 		return nil
 	}
 
+	// Open per-endpoint policy map only when not already open and shared maps are not
+	// configured.
 	if e.policyMap == nil && !e.sharedPolicyEnabled() {
 		e.policyMap, err = e.policyMapFactory.OpenEndpoint(e.ID)
 		if err != nil {
@@ -823,14 +808,10 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	}
 
 	// With the shared policy map enabled, the endpoint's policy is realized in the shared
-	// policy map, and the datapath uses the per-endpoint policy map only while the endpoint
-	// has no overlay entry (see bpf/lib/policy.h). As for the per-endpoint map above, sync
-	// the policy before bpf compilation if the policy the datapath would use is empty, i.e.
-	// the endpoint has neither an overlay entry nor per-endpoint policy map entries (new
-	// endpoint). Otherwise (agent restart, or the shared policy map was just enabled) the
-	// datapath keeps using the existing entries until the sync after compilation.
-	if e.sharedPolicyEnabled() && e.realizedPolicy != e.desiredPolicy && e.realizedPolicy.Empty() &&
-		!e.policyMapFactory.HasEndpointOverlay(e.ID) && e.legacyPolicyMapEmpty() {
+	// policy map and per-endpoint policy map is not created. As for the per-endpoint map above,
+	// sync the policy before bpf compilation if the policy the datapath would use is empty,
+	// i.e. the endpoint has no overlay entry.
+	if e.sharedPolicyEnabled() && !e.policyMapFactory.HasEndpointOverlay(e.ID) {
 		err = e.policyMapSync(nil, stats)
 		if err != nil {
 			return newRegenerationErrorf(regenerationFailureReasonPolicyBPFError, "policymap synchronization failed: %w", err)
@@ -1227,11 +1208,12 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		entries := e.desiredPolicy.Entries()
 		ingressPolicyEnabled := e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
 		egressPolicyEnabled := e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
-		if _, syncErr := e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled); syncErr != nil {
+		err := e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
+		if err != nil {
 			e.getLogger().Debug("failed to sync shared policy overlay during incremental update",
-				logfields.Error, syncErr)
+				logfields.Error, err)
 		}
-		return nil
+		return err
 	}
 
 	if e.policyMap == nil {
@@ -1400,33 +1382,19 @@ func (e *Endpoint) syncPolicyMap() error {
 		return ErrComingOutOfLockdown
 	}
 
-	var offloaded map[policytypes.Key]struct{}
 	if e.sharedPolicyEnabled() {
 		entries := e.desiredPolicy.Entries()
 		ingressPolicyEnabled := e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
 		egressPolicyEnabled := e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
-		var syncErr error
-		offloaded, syncErr = e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
-		if syncErr != nil {
-			e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, syncErr)
+		err := e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
+		if err != nil {
+			e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, err)
 		}
-		if e.policyMap == nil {
-			return syncErr
-		}
-	}
-
-	// Clean up offloaded entries from the legacy map
-	for k := range offloaded {
-		if !e.deletePolicyKey(k) {
-			deleteErrors++
-		}
+		return err
 	}
 
 	// Add policy map entries before deleting to avoid transient drops
 	for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
-		if _, ok := offloaded[k]; ok {
-			continue
-		}
 		if !e.addPolicyKey(k, v) {
 			addErrors++
 		}
@@ -1445,9 +1413,6 @@ func (e *Endpoint) syncPolicyMap() error {
 		addErrors = 0
 		// Add policy map entries before deleting to avoid transient drops
 		for k, v := range e.desiredPolicy.Updated(e.realizedPolicy) {
-			if _, ok := offloaded[k]; ok {
-				continue
-			}
 			if !e.addPolicyKey(k, v) {
 				addErrors++
 			}
@@ -1477,43 +1442,19 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 		return
 	}
 
-	var offloaded map[policytypes.Key]struct{}
 	if e.sharedPolicyEnabled() {
 		entries := e.desiredPolicy.Entries()
 		ingressPolicyEnabled := e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
 		egressPolicyEnabled := e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
-		var syncErr error
-		offloaded, syncErr = e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
-		if syncErr != nil {
-			e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, syncErr)
+		err := e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
+		if err != nil {
+			e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, err)
 		}
-		if e.policyMap == nil {
-			return 0, nil, syncErr
-		}
-	}
-
-	// Migration: Clean up offloaded entries from the legacy map
-	for k := range offloaded {
-		if v, exists := realized[k]; exists {
-			if !e.deletePolicyKey(k) {
-				deleteErrors++
-				continue
-			}
-			diffCount++
-			if withDiffs {
-				diffs = append(diffs, policy.MapChange{
-					Key:   k,
-					Value: v,
-				})
-			}
-		}
+		return 0, nil, err
 	}
 
 	// Add policy map entries before deleting to avoid transient drops
 	for k, v := range e.desiredPolicy.UpdatedMap(realized) {
-		if _, ok := offloaded[k]; ok {
-			continue
-		}
 		if !e.addPolicyKey(k, v) {
 			addErrors++
 			continue
@@ -1555,9 +1496,6 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 	if addErrors > 0 {
 		addErrors = 0
 		for k, v := range e.desiredPolicy.UpdatedMap(realized) {
-			if _, ok := offloaded[k]; ok {
-				continue
-			}
 			if !e.addPolicyKey(k, v) {
 				addErrors++
 				continue
@@ -1671,7 +1609,7 @@ func (e *Endpoint) sharedPolicyEnabled() bool {
 
 // startSyncPolicyMapController starts the policymap sync controller. Must be called with the endpoint mutex held.
 func (e *Endpoint) startSyncPolicyMapController() {
-	// Skip the controller if the endpoint has no policy map
+	// Skip the controller if the endpoint has no (dedicated) policy map
 	if e.isPropertyLocked(endpointtypes.PropertySkipBPFPolicy) || (e.sharedPolicyEnabled() && e.policyMap == nil) {
 		return
 	}
@@ -1786,62 +1724,4 @@ func CheckHealth(ep *Endpoint) error {
 		)
 	}
 	return nil
-}
-
-// openExistingLegacyPolicyMap opens the endpoint's per-endpoint policy map if it exists.
-// Returns nil if it does not exist. Used with the shared policy map enabled, where the agent
-// does not otherwise open the per-endpoint policy map.
-func (e *Endpoint) openExistingLegacyPolicyMap() (policymap.PolicyMap, error) {
-	if _, err := os.Stat(bpf.LocalMapPath(e.getLogger(), policymap.MapName, e.ID)); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	return e.policyMapFactory.OpenEndpoint(e.ID)
-}
-
-// legacyPolicyMapEmpty reports whether the endpoint's per-endpoint policy map is absent or
-// has no entries. If this can't be determined it reports false, so that the datapath keeps
-// using whatever is there until the policy is synced after compilation.
-func (e *Endpoint) legacyPolicyMapEmpty() bool {
-	pm, err := e.openExistingLegacyPolicyMap()
-	if err != nil {
-		e.getLogger().Debug("Unable to open per-endpoint policy map", logfields.Error, err)
-		return false
-	}
-	if pm == nil {
-		return true
-	}
-	defer pm.Close()
-
-	entries, err := pm.DumpToSlice()
-	if err != nil {
-		e.getLogger().Debug("Unable to dump per-endpoint policy map", logfields.Error, err)
-		return false
-	}
-	return len(entries) == 0
-}
-
-// clearLegacyPolicyMap removes all entries from the endpoint's per-endpoint policy map, if it
-// exists. Must only be called once the datapath enforces the endpoint's policy from the shared
-// policy map.
-func (e *Endpoint) clearLegacyPolicyMap() error {
-	pm, err := e.openExistingLegacyPolicyMap()
-	if err != nil || pm == nil {
-		return err
-	}
-	defer pm.Close()
-
-	entries, err := pm.DumpToSlice()
-	if err != nil {
-		return err
-	}
-	var errs []error
-	for i := range entries {
-		if err := pm.DeleteEntry(&entries[i]); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
-			errs = append(errs, err)
-		}
-	}
-	return errors.Join(errs...)
 }

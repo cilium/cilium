@@ -20,62 +20,58 @@ func (f *factory) SharedPolicyEnabled() bool {
 	return f != nil && f.allocator != nil
 }
 
+var (
+	ingressWildcardKey = policyTypes.IngressKey()
+	egressWildcardKey  = policyTypes.EgressKey()
+	wildcardEntry      = policyTypes.MapStateEntry{}
+)
+
 // SyncEndpointOverlay syncs the policy rules for the given endpoint into the shared LPM trie
-// and updates the overlay map. Returns the set of offloaded keys.
-func (f *factory) SyncEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry], ingressPolicyEnabled, egressPolicyEnabled bool) (map[policyTypes.Key]struct{}, error) {
+// and updates the overlay map.
+func (f *factory) SyncEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry], ingressPolicyEnabled, egressPolicyEnabled bool) error {
 	if f.allocator == nil {
-		return nil, nil
+		return nil
 	}
 
 	var sharedRules []ruleWithEntry
-	offloaded := make(map[policyTypes.Key]struct{})
-	seenKeys := make(map[policyTypes.Key]struct{})
 
-	if entries != nil {
-		entries(func(key policyTypes.Key, entry policyTypes.MapStateEntry) bool {
-			sharedRules = append(sharedRules, ruleWithEntry{
-				Key:   key,
-				Entry: entry,
-			})
-			offloaded[key] = struct{}{}
-			seenKeys[key] = struct{}{}
-			return true
+	needIngressWildcard := !ingressPolicyEnabled
+	needEgressWildcard := !egressPolicyEnabled
+
+	for key, entry := range entries {
+		if needIngressWildcard && key == ingressWildcardKey {
+			needIngressWildcard = false
+		}
+		if needEgressWildcard && key == egressWildcardKey {
+			needEgressWildcard = false
+		}
+		sharedRules = append(sharedRules, ruleWithEntry{
+			Key:   key,
+			Entry: entry,
 		})
 	}
 
 	// When policy is disabled for a direction, ensure a wildcard allow-all rule exists.
-	if !ingressPolicyEnabled {
-		wildcardKey := policyTypes.IngressKey()
-		if _, ok := seenKeys[wildcardKey]; !ok {
-			wildcardEntry := policyTypes.MapStateEntry{}
-			sharedRules = append(sharedRules, ruleWithEntry{
-				Key:   wildcardKey,
-				Entry: wildcardEntry,
-			})
-			offloaded[wildcardKey] = struct{}{}
-			seenKeys[wildcardKey] = struct{}{}
-		}
+	if needIngressWildcard {
+		sharedRules = append(sharedRules, ruleWithEntry{
+			Key:   ingressWildcardKey,
+			Entry: wildcardEntry,
+		})
 	}
-	if !egressPolicyEnabled {
-		wildcardKey := policyTypes.EgressKey()
-		if _, ok := seenKeys[wildcardKey]; !ok {
-			wildcardEntry := policyTypes.MapStateEntry{}
-			sharedRules = append(sharedRules, ruleWithEntry{
-				Key:   wildcardKey,
-				Entry: wildcardEntry,
-			})
-			offloaded[wildcardKey] = struct{}{}
-			seenKeys[wildcardKey] = struct{}{}
-		}
+	if needEgressWildcard {
+		sharedRules = append(sharedRules, ruleWithEntry{
+			Key:   egressWildcardKey,
+			Entry: wildcardEntry,
+		})
 	}
 
 	// Update shared rules and their endpoint references together.
 	_, _, err := f.updateEndpointRules(epID, sharedRules)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update rule set: %w", err)
+		return fmt.Errorf("failed to update rule set: %w", err)
 	}
 
-	return offloaded, nil
+	return nil
 }
 
 // RemoveEndpointOverlay deletes the overlay entry and decrements ruleset refcount for the endpoint.

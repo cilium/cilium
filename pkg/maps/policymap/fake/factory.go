@@ -22,8 +22,8 @@ func (*Factory) RemoveGlobalMapping(id uint32) error { return nil }
 func (*Factory) PolicyMaxEntries() int               { return 0 }
 func (*Factory) StatsMaxEntries() int                { return 0 }
 func (*Factory) SharedPolicyEnabled() bool           { return false }
-func (*Factory) SyncEndpointOverlay(uint16, iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry], bool, bool) (map[policyTypes.Key]struct{}, error) {
-	return nil, nil
+func (*Factory) SyncEndpointOverlay(uint16, iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry], bool, bool) error {
+	return nil
 }
 func (*Factory) RemoveEndpointOverlay(uint16) {}
 func (*Factory) DumpEndpointSharedEntries(uint16) (policymap.PolicyEntriesDump, error) {
