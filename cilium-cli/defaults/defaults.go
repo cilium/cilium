@@ -77,6 +77,9 @@ const (
 
 	PolicyWaitTimeout = 30 * time.Second
 
+	// ExecAttemptTimeout bounds one attempt of a short command that the CLI retries.
+	ExecAttemptTimeout = 10 * time.Second
+
 	ConnectRetry      = 3
 	ConnectRetryDelay = 3 * time.Second
 
