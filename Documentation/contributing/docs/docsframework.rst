@@ -343,9 +343,6 @@ via a dedicated Makefile target.
 Do not update ``images/docs-builder/requirements.txt`` directly.
 Instead, update the former and regenerate the latter.
 
-File ``Documentation/requirements.txt`` is used to build the ``docs-builder``
-Docker image.
-
 Dependencies defined in these requirements files include the documentation's
 custom theme.
 
