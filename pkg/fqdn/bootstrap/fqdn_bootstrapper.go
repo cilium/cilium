@@ -17,6 +17,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/proxy"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
 	proxytypes "github.com/cilium/cilium/pkg/proxy/types"
 )
@@ -30,7 +31,6 @@ type fqdnProxyBootstrapperParams struct {
 
 	ProxyPorts        *proxyports.ProxyPorts
 	DNSProxy          proxy.DNSProxier
-	Health            cell.Health
 	DNSRequestHandler messagehandler.DNSMessageHandler
 }
 
@@ -45,7 +45,8 @@ type fqdnProxyBootstrapper struct {
 }
 
 // newFQDNProxyBootstrapper handles initializing the DNS proxy in concert with the daemon.
-func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) endpointstate.RestorationNotifierOut {
+func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) (endpointstate.RestorationNotifierOut, promise.Promise[DNSProxyInitialized]) {
+	resolver, ready := promise.New[DNSProxyInitialized]()
 	b := &fqdnProxyBootstrapper{
 		logger: params.Logger,
 
@@ -60,10 +61,18 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) endpointstate.
 	// The proxy would not get any traffic in the dry mode anyway, and some of the socket
 	// operations require privileges not available in all unit tests.
 	if option.Config.DryMode || !option.Config.EnableL7Proxy {
-		return endpointstate.RestorationNotifierOut{}
+		resolver.Resolve(DNSProxyInitialized{})
+		return endpointstate.RestorationNotifierOut{}, ready
 	}
 
-	params.JobGroup.Add(job.OneShot("proxy-bootstrapper", b.startProxy, job.WithShutdown()))
+	params.JobGroup.Add(job.OneShot("proxy-bootstrapper", func(ctx context.Context, health cell.Health) error {
+		if err := b.startProxy(ctx, health); err != nil {
+			resolver.Reject(err)
+			return err
+		}
+		resolver.Resolve(DNSProxyInitialized{})
+		return nil
+	}, job.WithShutdown()))
 
 	params.Lifecycle.Append(cell.Hook{
 		OnStop: func(_ cell.HookContext) error {
@@ -74,8 +83,11 @@ func newFQDNProxyBootstrapper(params fqdnProxyBootstrapperParams) endpointstate.
 
 	return endpointstate.RestorationNotifierOut{
 		Restorer: b,
-	}
+	}, ready
 }
+
+// DNSProxyInitialized signals that DNS proxy startup is complete or the proxy is disabled.
+type DNSProxyInitialized struct{}
 
 var _ endpointstate.RestorationNotifier = (*fqdnProxyBootstrapper)(nil)
 
@@ -110,19 +122,20 @@ func (b *fqdnProxyBootstrapper) startProxy(ctx context.Context, health cell.Heal
 	select {
 	case <-b.proxyPorts.RestoreComplete():
 	case <-ctx.Done():
-		return nil
+		return ctx.Err()
 	}
 
 	// wait for restore rules to be provided
 	select {
 	case <-b.restored:
 	case <-ctx.Done():
-		return nil
+		return ctx.Err()
 	}
 
 	// A configured proxy wantPort takes precedence over using the previous wantPort.
 	// An existing (restored-from-disk) port is used on a best-effort basis
-	wantPort := uint16(option.Config.ToFQDNsProxyPort)
+	configuredPort := uint16(option.Config.ToFQDNsProxyPort)
+	wantPort := configuredPort
 	if wantPort == 0 {
 		var isStatic bool
 		// Try reuse previous DNS proxy port number
@@ -134,7 +147,20 @@ func (b *fqdnProxyBootstrapper) startProxy(ctx context.Context, health cell.Heal
 		}
 	}
 
-	if err := b.proxy.Listen(wantPort); err != nil {
+	err := b.proxy.Listen(wantPort)
+
+	// Retry failed listen with an OS-assigned port if the port was not explicitly configured.
+	if err != nil && configuredPort == 0 && wantPort != 0 {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		b.logger.Warn("Unable to bind DNS proxy to previous port, retrying with a new port",
+			logfields.Port, wantPort,
+			logfields.Error, err,
+		)
+		err = b.proxy.Listen(0)
+	}
+	if err != nil {
 		return fmt.Errorf("error opening dns proxy socket(s): %w", err)
 	}
 	bindPort := b.proxy.GetBindPort()
@@ -145,7 +171,7 @@ func (b *fqdnProxyBootstrapper) startProxy(ctx context.Context, health cell.Heal
 
 	// Increase the ProxyPort reference count so that it will never get released.
 	if err := b.proxyPorts.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, bindPort, false); err != nil {
-		// should never happen
+		// Endpoint creation is gated on DNS proxy readiness, so this should not fail.
 		b.logger.Warn("BUG: Failed to increase DNS proxy port refcount", logfields.Error, err)
 	}
 
