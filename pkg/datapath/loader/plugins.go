@@ -582,6 +582,7 @@ func (l *bpfCollectionLoader) instrumentCollection(ctx context.Context, logger *
 			if err != nil {
 				return nil, nil, fmt.Errorf("load pinned hook program at %s: %w", hook.PinPath, err)
 			}
+			defer prog.Close()
 			if err := os.Remove(hook.PinPath); err != nil {
 				return nil, nil, fmt.Errorf("removing pinned hook program at %s: %w", hook.PinPath, err)
 			}
