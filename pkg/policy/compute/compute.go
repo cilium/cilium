@@ -57,9 +57,10 @@ type advanceRequest struct {
 }
 
 func (r *IdentityPolicyComputer) UpdatePolicy(idsToRegen set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
-	// The lock order is IdentityManager.mutex before reqsMu, since the
-	// IdentityManager observer takes reqsMu. Resolve identities, which takes
-	// IdentityManager.mutex, before locking reqsMu.
+	// The lock order is IdentityManager.mutex, then the table's write txn,
+	// then reqsMu, since the IdentityManager observer takes the other two and
+	// commitResults takes reqsMu while writing the table. Resolve identities,
+	// which takes IdentityManager.mutex, before locking reqsMu.
 	ids := make([]*identity.Identity, 0, idsToRegen.Len())
 	for id := range idsToRegen.Members() {
 		if idd := r.idmanager.Get(&id); idd != nil {
@@ -330,10 +331,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		for _, sp := range dropped {
 			sp.Supersede()
 		}
-		if len(retry) > 0 {
-			r.reqsMu.Lock()
-			r.reqs = append(r.reqs, retry...)
-			r.reqsMu.Unlock()
+		if retry {
 			r.notifyTrigger()
 		}
 
@@ -353,9 +351,25 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 }
 
 // commitResults stores the computed results in the table. It returns the
-// results it committed, the policies of the results it dropped, and the
-// failed computations to retry.
-func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []computeResult) (committed []computeResult, dropped []policy.SelectorPolicy, retry []computeRequest) {
+// results it committed, the policies of the results it dropped, and whether it
+// requeued any failed computation.
+func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []computeResult) (committed []computeResult, dropped []policy.SelectorPolicy, retry bool) {
+	r.reqsMu.Lock()
+	for _, cr := range results {
+		if cr.res.Err != nil {
+			// Re-enqueue so a transient failure (e.g. cert fetch) doesn't
+			// leave statedb without an entry forever.
+			//
+			// Retry is unbounded with no backoff. This matches the pre-cell
+			// behavior where endpoint regeneration retried the policy
+			// computation inline. Dropping a computation would leave
+			// endpoints on a stale policy, so we always retry.
+			r.enqueueLocked(cr.identity, cr.toRev)
+			retry = true
+		}
+	}
+	r.reqsMu.Unlock()
+
 	drop := func(cr computeResult) {
 		if cr.res.NewPolicy != nil {
 			dropped = append(dropped, cr.res.NewPolicy)
@@ -370,18 +384,6 @@ func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []
 				logfields.Identity, cr.res.Identity,
 				logfields.Error, cr.res.Err,
 			)
-			// Re-enqueue so a transient failure (e.g. cert fetch) doesn't
-			// leave statedb without an entry forever.
-			//
-			// Retry is unbounded with no backoff. This matches the pre-cell
-			// behavior where endpoint regeneration retried the policy
-			// computation inline. Dropping a computation would leave
-			// endpoints on a stale policy, so we always retry.
-			retry = append(retry, computeRequest{
-				identity: cr.identity,
-				toRev:    cr.toRev,
-				done:     make(chan struct{}),
-			})
 		default:
 			if _, _, err := r.tbl.CompareAndSwap(wtxn, cr.rev, cr.res); err != nil {
 				// A delete for this identity raced us. Drop the result.
