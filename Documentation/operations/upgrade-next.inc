@@ -21,6 +21,12 @@ notes carefully below to understand what to do during upgrade.
 * Cilium mutual authentication support has been removed after deprecation. If
   you use mutual authentication, remove that configuration before upgrading.
   Consider using :ref:`encryption_ztunnel` instead.
+* BGP peers whose ``authSecretRef`` secret is missing are no longer
+  configured. Previously, such peers were configured with an empty TCP
+  password, which would fail peering at the TCP level anyway. Make sure
+  the secrets referenced by ``authSecretRef`` exist before upgrading,
+  otherwise the affected peers will not be established until the secret
+  is created.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~

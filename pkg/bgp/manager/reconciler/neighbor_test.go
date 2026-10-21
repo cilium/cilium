@@ -593,8 +593,8 @@ func validatePeerData(req *require.Assertions, expected, running []PeerData) {
 }
 
 // TestNeighborReconciler_GetPeerPassword_MissingSecret confirms that a missing
-// authSecretRef is logged at error level (as documented) while reconciliation
-// continues with an empty password.
+// authSecretRef is logged at error level and the neighbor is skipped instead
+// of being configured with an empty password.
 func TestNeighborReconciler_GetPeerPassword_MissingSecret(t *testing.T) {
 	var buf bytes.Buffer
 	r := &NeighborReconciler{
@@ -609,8 +609,9 @@ func TestNeighborReconciler_GetPeerPassword_MissingSecret(t *testing.T) {
 		AuthSecretRef: ptr.To[string]("missing-secret"),
 	}
 
-	password, err := r.getPeerPassword("instance-1", "peer-1", conf)
+	password, skip, err := r.getPeerPassword("instance-1", "peer-1", conf)
 	require.NoError(t, err)
+	require.True(t, skip)
 	require.Empty(t, password)
-	require.Contains(t, buf.String(), `Failed to fetch secret \"missing-secret\": not found (will continue with empty password)`)
+	require.Contains(t, buf.String(), `Failed to fetch secret \"missing-secret\": not found, skipping peer`)
 }

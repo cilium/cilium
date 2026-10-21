@@ -181,9 +181,15 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			continue // configured peer config does not exist, skip
 		}
 
-		passwd, err := r.getPeerPassword(p.DesiredConfig.Name, n.Name, config)
+		passwd, skip, err := r.getPeerPassword(p.DesiredConfig.Name, n.Name, config)
 		if err != nil {
 			return err
+		}
+		if skip {
+			// The secret referenced by authSecretRef is missing; the error
+			// is already logged in getPeerPassword. Skip configuring this
+			// neighbor instead of falling back to an empty password.
+			continue
 		}
 
 		// If the local address is not provided via override and the source interface is provided in the peer config,
@@ -319,9 +325,13 @@ func (r *NeighborReconciler) getPeerConfig(peerConfig *v2.PeerConfigReference) (
 	return conf, true, nil
 }
 
-func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, config *v2.CiliumBGPPeerConfigSpec) (string, error) {
+// getPeerPassword returns the TCP password for the peer from the secret
+// referenced by authSecretRef. It returns skip=true when the neighbor must
+// not be configured, e.g. when the referenced secret is missing (already
+// logged at error level in that case).
+func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, config *v2.CiliumBGPPeerConfigSpec) (string, bool, error) {
 	if config == nil {
-		return "", nil
+		return "", false, nil
 	}
 
 	if config.AuthSecretRef != nil {
@@ -329,20 +339,20 @@ func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, conf
 
 		secret, ok, err := r.fetchSecret(secretRef)
 		if err != nil {
-			return "", fmt.Errorf("failed to fetch secret %q: %w", secretRef, err)
+			return "", false, fmt.Errorf("failed to fetch secret %q: %w", secretRef, err)
 		}
 		if !ok {
 			r.logger.Error(
-				fmt.Sprintf("Failed to fetch secret %q: not found (will continue with empty password)", secretRef),
+				fmt.Sprintf("Failed to fetch secret %q: not found, skipping peer", secretRef),
 				types.SecretRefLogField, secretRef,
 				types.InstanceLogField, instanceName,
 				types.PeerLogField, peerName,
 			)
-			return "", nil
+			return "", true, nil
 		}
 		tcpPassword := string(secret["password"])
 		if tcpPassword == "" {
-			return "", fmt.Errorf("failed to fetch secret %q: missing password key", secretRef)
+			return "", false, fmt.Errorf("failed to fetch secret %q: missing password key", secretRef)
 		}
 		r.logger.Debug(
 			"Using TCP password from secret",
@@ -350,9 +360,9 @@ func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, conf
 			types.InstanceLogField, instanceName,
 			types.PeerLogField, peerName,
 		)
-		return tcpPassword, nil
+		return tcpPassword, false, nil
 	}
-	return "", nil
+	return "", false, nil
 }
 
 func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, error) {
