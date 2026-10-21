@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"iter"
 	"os"
 	"path/filepath"
 	"strings"
@@ -771,9 +770,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	}
 
 	if e.policyMap == nil && !e.sharedPolicyEnabled() {
-		if e.policyMapFactory == nil {
-			return newRegenerationError(regenerationFailureReasonPolicyBPFError, errors.New("endpoint has nil policyMapFactory"))
-		}
 		e.policyMap, err = e.policyMapFactory.OpenEndpoint(e.ID)
 		if err != nil {
 			return newRegenerationErrorf(regenerationFailureReasonPolicyBPFError, "failed to open endpoint BPF policymap: %w", err)
@@ -909,10 +905,8 @@ func (e *Endpoint) deleteMaps() []error {
 	// Remove the policy tail call entry for the endpoint. This will disable
 	// policy evaluation for the endpoint and will result in missing tail calls if
 	// e.g. bpf_host or bpf_overlay call into the endpoint's policy program.
-	if e.policyMapFactory != nil {
-		if err := e.policyMapFactory.RemoveGlobalMapping(uint32(e.ID)); err != nil {
-			errors = append(errors, fmt.Errorf("removing endpoint program from global policymap: %w", err))
-		}
+	if err := e.policyMapFactory.RemoveGlobalMapping(uint32(e.ID)); err != nil {
+		errors = append(errors, fmt.Errorf("removing endpoint program from global policymap: %w", err))
 	}
 
 	// Remove rate limit from bandwidth manager map.
@@ -928,10 +922,8 @@ func (e *Endpoint) deleteMaps() []error {
 	// removes the map's entries even if the map is still referenced by any live
 	// bpf programs, potentially resulting in missed tail calls if any packets are
 	// still in flight.
-	if e.policyMapFactory != nil {
-		if err := e.policyMapFactory.RemoveEndpoint(e.ID); err != nil {
-			errors = append(errors, fmt.Errorf("removing policy map pin for endpoint %s: %w", e.StringID(), err))
-		}
+	if err := e.policyMapFactory.RemoveEndpoint(e.ID); err != nil {
+		errors = append(errors, fmt.Errorf("removing policy map pin for endpoint %s: %w", e.StringID(), err))
 	}
 	if e.sharedPolicyEnabled() {
 		e.policyMapFactory.RemoveEndpointOverlay(e.ID)
@@ -1232,13 +1224,9 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	}
 
 	if e.sharedPolicyEnabled() {
-		var entries iter.Seq2[policytypes.Key, policytypes.MapStateEntry]
-		var ingressPolicyEnabled, egressPolicyEnabled bool
-		if e.desiredPolicy != nil {
-			entries = e.desiredPolicy.Entries()
-			ingressPolicyEnabled = e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
-			egressPolicyEnabled = e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
-		}
+		entries := e.desiredPolicy.Entries()
+		ingressPolicyEnabled := e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
+		egressPolicyEnabled := e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
 		if _, syncErr := e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled); syncErr != nil {
 			e.getLogger().Debug("failed to sync shared policy overlay during incremental update",
 				logfields.Error, syncErr)
@@ -1291,8 +1279,7 @@ func (e *Endpoint) shouldLockdownLocked() bool {
 	}
 	// The desiredPolicy will be larger than the BPF maximum after
 	// the changes.
-	return e.desiredPolicy != nil && e.policyMap != nil &&
-		e.desiredPolicy.Len() > int(e.policyMap.MaxEntries())
+	return e.policyMap != nil && e.desiredPolicy.Len() > int(e.policyMap.MaxEntries())
 }
 
 // startLockdownLocked initiates an endpoint lockdown, and returns an
@@ -1415,13 +1402,9 @@ func (e *Endpoint) syncPolicyMap() error {
 
 	var offloaded map[policytypes.Key]struct{}
 	if e.sharedPolicyEnabled() {
-		var entries iter.Seq2[policytypes.Key, policytypes.MapStateEntry]
-		var ingressPolicyEnabled, egressPolicyEnabled bool
-		if e.desiredPolicy != nil {
-			entries = e.desiredPolicy.Entries()
-			ingressPolicyEnabled = e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
-			egressPolicyEnabled = e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
-		}
+		entries := e.desiredPolicy.Entries()
+		ingressPolicyEnabled := e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
+		egressPolicyEnabled := e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
 		var syncErr error
 		offloaded, syncErr = e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
 		if syncErr != nil {
@@ -1496,13 +1479,9 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 
 	var offloaded map[policytypes.Key]struct{}
 	if e.sharedPolicyEnabled() {
-		var entries iter.Seq2[policytypes.Key, policytypes.MapStateEntry]
-		var ingressPolicyEnabled, egressPolicyEnabled bool
-		if e.desiredPolicy != nil {
-			entries = e.desiredPolicy.Entries()
-			ingressPolicyEnabled = e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
-			egressPolicyEnabled = e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
-		}
+		entries := e.desiredPolicy.Entries()
+		ingressPolicyEnabled := e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
+		egressPolicyEnabled := e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
 		var syncErr error
 		offloaded, syncErr = e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
 		if syncErr != nil {
@@ -1637,9 +1616,6 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 			e.getLogger().Error("unable to close PolicyMap which was not able to be dumped", logfields.Error, err)
 		}
 
-		if e.policyMapFactory == nil {
-			return fmt.Errorf("endpoint has nil policyMapFactory")
-		}
 		e.policyMap, err = e.policyMapFactory.OpenEndpoint(e.ID)
 		if err != nil {
 			return fmt.Errorf("unable to open PolicyMap for endpoint: %w", err)
@@ -1690,7 +1666,7 @@ func (e *Endpoint) DumpPolicyMap() (policymap.PolicyEntriesDump, error) {
 }
 
 func (e *Endpoint) sharedPolicyEnabled() bool {
-	return e.policyMapFactory != nil && e.policyMapFactory.SharedPolicyEnabled()
+	return e.policyMapFactory.SharedPolicyEnabled()
 }
 
 // startSyncPolicyMapController starts the policymap sync controller. Must be called with the endpoint mutex held.
@@ -1816,9 +1792,6 @@ func CheckHealth(ep *Endpoint) error {
 // Returns nil if it does not exist. Used with the shared policy map enabled, where the agent
 // does not otherwise open the per-endpoint policy map.
 func (e *Endpoint) openExistingLegacyPolicyMap() (policymap.PolicyMap, error) {
-	if e.policyMapFactory == nil {
-		return nil, nil
-	}
 	if _, err := os.Stat(bpf.LocalMapPath(e.getLogger(), policymap.MapName, e.ID)); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
