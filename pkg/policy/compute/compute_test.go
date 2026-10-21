@@ -5,6 +5,7 @@ package compute
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -135,6 +136,33 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 				t.Fatal("did not converge to wantedRevision in time")
 			}
 		}
+	})
+
+	// A failed computation is requeued with enqueueLocked, so it merges with a
+	// request for the same identity that came in while its batch was computed.
+	t.Run("failed computation merges its retry with a pending request", func(t *testing.T) {
+		db := statedb.New()
+		tbl, _, err := NewPolicyComputationTable(db)
+		require.NoError(t, err)
+		r := &IdentityPolicyComputer{db: db, tbl: tbl, logger: hivetest.Logger(t)}
+
+		id := identity.NewIdentity(11, labels.Labels{})
+		r.reqsMu.Lock()
+		r.enqueueLocked(id, 5)
+		r.reqsMu.Unlock()
+
+		failed := computeResult{
+			pending: pending{computeRequest: computeRequest{identity: id, toRev: 7}},
+			res:     Result{Identity: id.ID, Err: errors.New("failed")},
+		}
+		wtxn := db.WriteTxn(tbl)
+		_, _, retry := r.commitResults(wtxn, []computeResult{failed})
+		wtxn.Commit()
+
+		require.True(t, retry)
+		require.Len(t, r.reqs, 1)
+		require.Equal(t, id.ID, r.reqs[0].identity.ID)
+		require.Equal(t, uint64(7), r.reqs[0].toRev)
 	})
 }
 
