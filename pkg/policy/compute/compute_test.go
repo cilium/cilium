@@ -193,6 +193,42 @@ func TestIdentityManagerObserver(t *testing.T) {
 		idmgr.Remove(id)
 		waitForEntry(t, computer, id, false)
 	})
+
+	t.Run("remove during computation drops result", func(t *testing.T) {
+		_, _, computer, idmgr := fixture(t)
+		r := computer.(*IdentityPolicyComputer)
+
+		removed := identity.NewIdentity(9, labels.Labels{})
+		idmgr.Add(removed)
+		sp := waitForEntry(t, computer, removed, true).NewPolicy
+		idmgr.Remove(removed)
+		waitForEntry(t, computer, removed, false)
+
+		// Results of computations that were running when the identity was
+		// removed, next to one for an identity that was not removed.
+		kept := identity.NewIdentity(10, labels.Labels{})
+		results := []computeResult{
+			newResult(removed, Result{NewPolicy: sp}),
+			newResult(removed, Result{Err: errors.New("failed")}),
+			newResult(kept, Result{}),
+		}
+		wtxn := r.db.WriteTxn(r.tbl)
+		committed, dropped, retry := r.commitResults(wtxn, results)
+		wtxn.Commit()
+
+		require.Len(t, committed, 1)
+		require.Equal(t, kept.ID, committed[0].res.Identity)
+		require.Equal(t, []policy.SelectorPolicy{sp}, dropped)
+		require.False(t, retry, "failed computation of a removed identity was requeued")
+		_, _, _, found := computer.GetIdentityPolicyByNumericIdentity(removed.ID)
+		require.False(t, found, "removed identity has a committed policy")
+	})
+}
+
+// newResult returns the result of computing res for id.
+func newResult(id *identity.Identity, res Result) computeResult {
+	res.Identity = id.ID
+	return computeResult{pending: pending{computeRequest: computeRequest{identity: id}}, res: res}
 }
 
 func waitForEntry(t *testing.T, computer PolicyRecomputer, id *identity.Identity, want bool) Result {

@@ -245,6 +245,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		r.reqs = nil
 		advances := r.advances
 		r.advances = nil
+		r.removedDuringComputation.Clear()
 		r.reqsMu.Unlock()
 		if len(batch) == 0 && len(advances) == 0 {
 			continue
@@ -317,7 +318,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		// removed identity is released only after the identity is deleted, by
 		// the delete path in LocalEndpointIdentityRemoved.
 		for _, sp := range dropped {
-			sp.Supersede()
+			sp.Detach()
 		}
 		if retry {
 			r.notifyTrigger()
@@ -342,9 +343,17 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 // results it committed, the policies of the results it dropped, and whether it
 // requeued any failed computation.
 func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []computeResult) (committed []computeResult, dropped []policy.SelectorPolicy, retry bool) {
+	// Check for removed identities and requeue retries under one lock, so a
+	// removal can't land between the two. The CompareAndSwaps below don't
+	// need the lock, since a removal deletes the row only after wtxn commits.
+	removed := make([]bool, len(results))
 	r.reqsMu.Lock()
-	for _, cr := range results {
-		if cr.res.Err != nil {
+	for i, cr := range results {
+		// The identity was removed while its policy was computed. Its result
+		// is dropped and not retried. This is checked here and not before
+		// computing, since the removal can happen during the computation.
+		removed[i] = r.removedDuringComputation.Has(cr.identity.ID)
+		if !removed[i] && cr.res.Err != nil {
 			// Re-enqueue so a transient failure (e.g. cert fetch) doesn't
 			// leave statedb without an entry forever.
 			//
@@ -363,8 +372,10 @@ func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []
 			dropped = append(dropped, cr.res.NewPolicy)
 		}
 	}
-	for _, cr := range results {
+	for i, cr := range results {
 		switch {
+		case removed[i]:
+			drop(cr)
 		case cr.res.Err != nil:
 			// This error will result in the relevant endpoints failing to
 			// regenerate.
@@ -374,7 +385,12 @@ func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []
 			)
 		default:
 			if _, _, err := r.tbl.CompareAndSwap(wtxn, cr.rev, cr.res); err != nil {
-				// A delete for this identity raced us. Drop the result.
+				// Not expected. Outside this loop, rows are only deleted by
+				// LocalEndpointIdentityRemoved, which waits for wtxn.
+				r.logger.Error("Failed to commit policy computation result",
+					logfields.Identity, cr.res.Identity,
+					logfields.Error, err,
+				)
 				drop(cr)
 				continue
 			}
@@ -413,6 +429,7 @@ func (r *IdentityPolicyComputer) LocalEndpointIdentityRemoved(id *identity.Ident
 		kept = append(kept, req)
 	}
 	r.reqs = kept
+	r.removedDuringComputation.Insert(id.ID)
 	r.reqsMu.Unlock()
 
 	wtxn := r.db.WriteTxn(r.tbl)
