@@ -215,16 +215,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, ipmasq.MapNameIPv6)
 	}
 
-	if !option.Config.EnableSRv6 {
-		maps = append(maps,
-			"cilium_srv6_sid",
-			"cilium_srv6_policy_v4",
-			"cilium_srv6_policy_v6",
-			"cilium_srv6_vrf_v4",
-			"cilium_srv6_vrf_v6",
-		)
-	}
-
 	if !option.Config.EnableXDPPrefilter {
 		maps = append(maps, []string{
 			cidrmap.MapName + "v4_dyn",
