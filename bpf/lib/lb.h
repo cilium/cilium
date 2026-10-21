@@ -1549,11 +1549,12 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		goto drop_err;
 	}
 
-#if DSR_ENCAP_MODE == DSR_ENCAP_NONE || DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	if (lb6_svc_uses_dsr(svc) && need_dsr_info)
+	const bool may_need_dsr_info = (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE ||
+		CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) &&
+		(lb6_svc_uses_dsr(svc) && need_dsr_info);
+	if (may_need_dsr_info)
 		*need_dsr_info = lb_need_dsr_info(map, tuple, tuple->nexthdr,
 						  state, new_backend);
-#endif
 
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
@@ -2394,11 +2395,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		goto drop_err;
 	}
 
-#if DSR_ENCAP_MODE == DSR_ENCAP_NONE || DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
-	if (lb4_svc_uses_dsr(svc) && need_dsr_info)
+	const bool may_need_dsr_info = (CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_NONE ||
+		CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE) &&
+		(lb4_svc_uses_dsr(svc) && need_dsr_info);
+	if (may_need_dsr_info)
 		*need_dsr_info = lb_need_dsr_info(map, tuple, tuple->nexthdr,
 						  state, new_backend);
-#endif
 
 	/* Restore flags so that SERVICE flag is only used in used when the
 	 * service lookup happens and future lookups use EGRESS or INGRESS.

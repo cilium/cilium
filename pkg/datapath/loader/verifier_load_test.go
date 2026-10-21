@@ -50,6 +50,7 @@ func setBasePermutations(t *config.Node) {
 		Enable:           true,
 		EnableICMPErrors: true,
 		EnableByUser:     true,
+		EncapMode:        uint32(types.DSREncapModeDSREncapNone),
 	}
 	t.EnableIPSec = true
 	t.EnableWireguard = true
@@ -81,6 +82,16 @@ func baseLXCPermutations() *loadPermutationBuilder {
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
 		Increment(func(t *config.BPFLXC, v bool) { t.HybridRoutingEnabled = v }),
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFLXC, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapGeneve)
+			}
+		}),
+		Increment(func(t *config.BPFLXC, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapIPIP)
+			}
+		}),
 		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
 	)
 	return b
@@ -123,6 +134,16 @@ func baseHostPermutations() *loadPermutationBuilder {
 				t.StrictEgressEncryption.AllowRemoteNodes = true
 			}
 		}),
+		Increment(func(t *config.BPFHost, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapGeneve)
+			}
+		}),
+		Increment(func(t *config.BPFHost, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapIPIP)
+			}
+		}),
 		IncrementOrPermute(func(t *config.BPFHost, v bool) { t.Node.Debug = v }),
 	)
 	return b
@@ -140,6 +161,16 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 			t.EnableNAT46X64 = true
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFOverlay, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapGeneve)
+			}
+		}),
+		Increment(func(t *config.BPFOverlay, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapIPIP)
+			}
+		}),
 	)
 	return b
 }
@@ -201,6 +232,16 @@ func baseXDPPermutations() *loadPermutationBuilder {
 			t.EnableServiceNoBackendResponse = true
 		}),
 		Increment(func(t *config.BPFXDP, v bool) { t.EnableXDPPrefilter = v }),
+		Increment(func(t *config.BPFXDP, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapGeneve)
+			}
+		}),
+		Increment(func(t *config.BPFXDP, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapIPIP)
+			}
+		}),
 	)
 	return b
 }

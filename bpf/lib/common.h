@@ -36,14 +36,10 @@
 #define ENABLE_EGRESS_GATEWAY_COMMON 1
 #endif
 
-#ifndef DSR_ENCAP_MODE
-#define DSR_ENCAP_MODE DSR_ENCAP_INVALID
-#endif
-
 /* TUNNEL_MODE needs the encapsulation helpers guarded by HAVE_ENCAP. */
 #define HAVE_ENCAP (is_defined(ENCAP_IFINDEX) || is_defined(ENABLE_EGRESS_GATEWAY_COMMON) || \
 	is_defined(TUNNEL_MODE) || \
-	(DSR_ENCAP_MODE == DSR_ENCAP_GENEVE))
+	(CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_GENEVE))
 
 /* XFER_FLAGS that get transferred from XDP to SKB */
 enum {

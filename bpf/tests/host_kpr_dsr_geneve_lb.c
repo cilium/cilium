@@ -4,7 +4,10 @@
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
 #define ENABLE_NODEPORT		1
-#define DSR_ENCAP_MODE		DSR_ENCAP_GENEVE
 #define ENCAP_IFINDEX		42
 
 #include "kpr_dsr_lb.h"
+
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .enable_icmp_errors = true, .encap_mode = DSR_ENCAP_GENEVE })
+ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
+ASSIGN_CONFIG(__u16, tunnel_port, 6081)

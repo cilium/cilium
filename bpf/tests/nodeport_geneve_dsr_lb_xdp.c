@@ -9,8 +9,6 @@
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT 1
 
-#define DSR_ENCAP_MODE		DSR_ENCAP_GENEVE
-
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE 1
 
@@ -78,7 +76,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .encap_mode = DSR_ENCAP_GENEVE })
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 
 /* Test that a SVC request to a local backend

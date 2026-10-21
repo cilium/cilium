@@ -12,7 +12,7 @@
  *  * Local Pod backend on a DSR-IPIP service. Per
  *      "bpf: DNAT local backends under DSR IPIP dispatch"
  *    nodeport_skip_xlate4() must NOT skip DNAT for a local backend even
- *    though DSR_ENCAP_MODE == DSR_ENCAP_IPIP. We expect plain DNAT to the
+ *    though CONFIG(dsr_cfg).encap_mode == DSR_ENCAP_IPIP. We expect plain DNAT to the
  *    Pod and ctx_redirect_peer() delivery (no IPIP encap to ourselves).
  *
  *  * Local L7-punt-proxy backend on a DSR-IPIP service. Same as above but
@@ -29,7 +29,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT 1
-#define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -165,7 +164,7 @@ ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_NODE_IP })
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .encap_mode = DSR_ENCAP_IPIP })
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,

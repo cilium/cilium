@@ -9,7 +9,6 @@
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
 #define ENABLE_NODEPORT		1
-#define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_IP		v4_pod_one
 #define CLIENT_PORT		__bpf_htons(111)
@@ -62,7 +61,7 @@ ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
 
 ASSIGN_CONFIG(bool, enable_health_check, true)
-ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .encap_mode = DSR_ENCAP_IPIP })
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
