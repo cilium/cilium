@@ -1205,10 +1205,7 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 	}
 
 	if e.sharedPolicyEnabled() {
-		entries := e.desiredPolicy.Entries()
-		ingressPolicyEnabled := e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
-		egressPolicyEnabled := e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
-		err := e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
+		err := e.policyMapFactory.SyncEndpointOverlay(e.ID, e.desiredPolicy.Entries())
 		if err != nil {
 			e.getLogger().Debug("failed to sync shared policy overlay during incremental update",
 				logfields.Error, err)
@@ -1383,10 +1380,7 @@ func (e *Endpoint) syncPolicyMap() error {
 	}
 
 	if e.sharedPolicyEnabled() {
-		entries := e.desiredPolicy.Entries()
-		ingressPolicyEnabled := e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
-		egressPolicyEnabled := e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
-		err := e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
+		err := e.policyMapFactory.SyncEndpointOverlay(e.ID, e.desiredPolicy.Entries())
 		if err != nil {
 			e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, err)
 		}
@@ -1443,10 +1437,7 @@ func (e *Endpoint) syncPolicyMapWith(realized policy.MapStateMap, withDiffs bool
 	}
 
 	if e.sharedPolicyEnabled() {
-		entries := e.desiredPolicy.Entries()
-		ingressPolicyEnabled := e.desiredPolicy.SelectorPolicy.IngressPolicyEnabled
-		egressPolicyEnabled := e.desiredPolicy.SelectorPolicy.EgressPolicyEnabled
-		err := e.policyMapFactory.SyncEndpointOverlay(e.ID, entries, ingressPolicyEnabled, egressPolicyEnabled)
+		err := e.policyMapFactory.SyncEndpointOverlay(e.ID, e.desiredPolicy.Entries())
 		if err != nil {
 			e.getLogger().Debug("failed to sync shared policy overlay", logfields.Error, err)
 		}

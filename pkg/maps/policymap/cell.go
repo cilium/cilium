@@ -69,7 +69,7 @@ type Factory interface {
 	StatsMaxEntries() int
 
 	SharedPolicyEnabled() bool
-	SyncEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry], ingressPolicyEnabled, egressPolicyEnabled bool) error
+	SyncEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry]) error
 	RemoveEndpointOverlay(epID uint16)
 	DumpEndpointSharedEntries(epID uint16) (PolicyEntriesDump, error)
 	HasEndpointOverlay(epID uint16) bool

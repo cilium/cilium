@@ -77,7 +77,7 @@ func BenchmarkPrivilegedScaleUpdateShared(b *testing.B) {
 			b.ReportAllocs()
 			for i := 0; i < b.N; i++ {
 				for epID := 0; epID < sc.endpoints; epID++ {
-					err := f.SyncEndpointOverlay(uint16(epID), seq, true, true)
+					err := f.SyncEndpointOverlay(uint16(epID), seq)
 					require.NoError(b, err)
 				}
 			}

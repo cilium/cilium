@@ -20,48 +20,18 @@ func (f *factory) SharedPolicyEnabled() bool {
 	return f != nil && f.allocator != nil
 }
 
-var (
-	ingressWildcardKey = policyTypes.IngressKey()
-	egressWildcardKey  = policyTypes.EgressKey()
-	wildcardEntry      = policyTypes.MapStateEntry{}
-)
-
 // SyncEndpointOverlay syncs the policy rules for the given endpoint into the shared LPM trie
 // and updates the overlay map.
-func (f *factory) SyncEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry], ingressPolicyEnabled, egressPolicyEnabled bool) error {
+func (f *factory) SyncEndpointOverlay(epID uint16, entries iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry]) error {
 	if f.allocator == nil {
 		return nil
 	}
 
 	var sharedRules []ruleWithEntry
-
-	needIngressWildcard := !ingressPolicyEnabled
-	needEgressWildcard := !egressPolicyEnabled
-
 	for key, entry := range entries {
-		if needIngressWildcard && key == ingressWildcardKey {
-			needIngressWildcard = false
-		}
-		if needEgressWildcard && key == egressWildcardKey {
-			needEgressWildcard = false
-		}
 		sharedRules = append(sharedRules, ruleWithEntry{
 			Key:   key,
 			Entry: entry,
-		})
-	}
-
-	// When policy is disabled for a direction, ensure a wildcard allow-all rule exists.
-	if needIngressWildcard {
-		sharedRules = append(sharedRules, ruleWithEntry{
-			Key:   ingressWildcardKey,
-			Entry: wildcardEntry,
-		})
-	}
-	if needEgressWildcard {
-		sharedRules = append(sharedRules, ruleWithEntry{
-			Key:   egressWildcardKey,
-			Entry: wildcardEntry,
 		})
 	}
 

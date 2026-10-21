@@ -22,7 +22,7 @@ func (*Factory) RemoveGlobalMapping(id uint32) error { return nil }
 func (*Factory) PolicyMaxEntries() int               { return 0 }
 func (*Factory) StatsMaxEntries() int                { return 0 }
 func (*Factory) SharedPolicyEnabled() bool           { return false }
-func (*Factory) SyncEndpointOverlay(uint16, iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry], bool, bool) error {
+func (*Factory) SyncEndpointOverlay(uint16, iter.Seq2[policyTypes.Key, policyTypes.MapStateEntry]) error {
 	return nil
 }
 func (*Factory) RemoveEndpointOverlay(uint16) {}

@@ -64,7 +64,7 @@ func TestHasEndpointOverlay(t *testing.T) {
 
 	require.False(t, f.HasEndpointOverlay(1), "new endpoint has no overlay entry")
 
-	err := f.SyncEndpointOverlay(1, entriesOf(createTestRules(100, 80)), true, true)
+	err := f.SyncEndpointOverlay(1, entriesOf(createTestRules(100, 80)))
 	require.NoError(t, err)
 	require.True(t, f.HasEndpointOverlay(1))
 	require.False(t, f.HasEndpointOverlay(2))
@@ -72,7 +72,7 @@ func TestHasEndpointOverlay(t *testing.T) {
 	// Re-syncing unchanged policy repairs a missing overlay entry.
 	require.NoError(t, overlay.Delete(&OverlayKey{EndpointID: 1}))
 	require.False(t, f.HasEndpointOverlay(1))
-	err = f.SyncEndpointOverlay(1, entriesOf(createTestRules(100, 80)), true, true)
+	err = f.SyncEndpointOverlay(1, entriesOf(createTestRules(100, 80)))
 	require.NoError(t, err)
 	require.True(t, f.HasEndpointOverlay(1))
 
@@ -92,7 +92,7 @@ func TestRemoveStaleEndpointOverlays(t *testing.T) {
 	rulesA := createTestRules(100, 80)
 	rulesB := createTestRules(200, 443)
 	for epID, rules := range map[uint16][]ruleWithEntry{1: rulesA, 2: rulesB, 3: rulesB} {
-		err := f.SyncEndpointOverlay(epID, entriesOf(rules), true, true)
+		err := f.SyncEndpointOverlay(epID, entriesOf(rules))
 		require.NoError(t, err)
 	}
 	rsA, _ := overlayRuleSet(t, overlay, 1)
@@ -132,7 +132,7 @@ func TestSharedPolicyEnableDisableEnable(t *testing.T) {
 	rulesNew := createTestRules(200, 443)
 
 	// 1. Enabled: endpoint 1's policy is realized in the shared map.
-	err := f.SyncEndpointOverlay(1, entriesOf(rulesOld), true, true)
+	err := f.SyncEndpointOverlay(1, entriesOf(rulesOld))
 	require.NoError(t, err)
 	rsOld, ok := overlayRuleSet(t, overlay, 1)
 	require.True(t, ok)
@@ -155,7 +155,7 @@ func TestSharedPolicyEnableDisableEnable(t *testing.T) {
 		"no overlay entry: the datapath uses the per-endpoint map until the policy is synced")
 
 	// 4. The endpoint's current policy is synced; the old policy is gone.
-	err = f.SyncEndpointOverlay(1, entriesOf(rulesNew), true, true)
+	err = f.SyncEndpointOverlay(1, entriesOf(rulesNew))
 	require.NoError(t, err)
 	rsNew, ok := overlayRuleSet(t, overlay, 1)
 	require.True(t, ok)
@@ -185,7 +185,7 @@ func TestSharedPolicyRestartKeepsState(t *testing.T) {
 			f, shared, overlay := setupSharedPolicyFactory()
 			rules := createTestRules(100, 80)
 
-			err := f.SyncEndpointOverlay(1, entriesOf(rules), true, true)
+			err := f.SyncEndpointOverlay(1, entriesOf(rules))
 			require.NoError(t, err)
 			rs, _ := overlayRuleSet(t, overlay, 1)
 
@@ -212,7 +212,7 @@ func TestSharedPolicyRestartKeepsState(t *testing.T) {
 			require.Equal(t, len(rules), sharedEntriesFor(t, shared, rs))
 
 			// Re-syncing the same policy after the restart reuses the rule set (hitless).
-			err = f.SyncEndpointOverlay(1, entriesOf(rules), true, true)
+			err = f.SyncEndpointOverlay(1, entriesOf(rules))
 			require.NoError(t, err)
 			rsAfter, _ = overlayRuleSet(t, overlay, 1)
 			require.Equal(t, rs, rsAfter)
@@ -224,7 +224,7 @@ func TestDumpEndpointSharedEntriesProjection(t *testing.T) {
 	f, _, _ := setupSharedPolicyFactory()
 	rules := createTestRules(100, 80)
 
-	err := f.SyncEndpointOverlay(42, entriesOf(rules), true, true)
+	err := f.SyncEndpointOverlay(42, entriesOf(rules))
 	require.NoError(t, err)
 
 	dump, err := f.DumpEndpointSharedEntries(42)
@@ -274,7 +274,7 @@ func TestPolicyMapFactoryProvider(t *testing.T) {
 				f.overlayMap = newFakeBPFMap()
 			}
 
-			err := first.SyncEndpointOverlay(1, entriesOf(createTestRules(100, 80)), true, true)
+			err := first.SyncEndpointOverlay(1, entriesOf(createTestRules(100, 80)))
 			require.NoError(t, err)
 			require.Equal(t, tc.enabled, second.HasEndpointOverlay(1))
 			entries, err := second.DumpEndpointSharedEntries(1)
@@ -285,7 +285,7 @@ func TestPolicyMapFactoryProvider(t *testing.T) {
 				require.Empty(t, entries)
 			}
 
-			err = second.SyncEndpointOverlay(2, entriesOf(createTestRules(200, 443)), true, true)
+			err = second.SyncEndpointOverlay(2, entriesOf(createTestRules(200, 443)))
 			require.NoError(t, err)
 			second.RemoveEndpointOverlay(1)
 			require.False(t, first.HasEndpointOverlay(1))
