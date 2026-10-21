@@ -47,6 +47,7 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+	utilexec "k8s.io/client-go/util/exec"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/cilium-cli/defaults"
@@ -420,6 +421,103 @@ func IsTransientExecError(err error) bool {
 	})
 }
 
+// ExecRetryAttempts caps how many times ExecInPodRetry runs a command.
+const ExecRetryAttempts = 3
+
+// execRetryBackoff sets the delay between two attempts.
+const execRetryBackoff = 2 * time.Second
+
+// ErrEmptyExecOutput reports an attempt that printed nothing under RequireOutput.
+var ErrEmptyExecOutput = errors.New("exec succeeded without output")
+
+// ExecRetryOptions configures ExecInPodRetry.
+type ExecRetryOptions struct {
+	// AttemptTimeout bounds each attempt, stream setup included. Zero bounds attempts by ctx only.
+	AttemptTimeout time.Duration
+	// RequireOutput retries an exec that succeeded with an empty stdout.
+	RequireOutput bool
+	// Validate retries an exec that succeeded with a stdout it rejects, such as truncated JSON.
+	Validate func(stdout []byte) error
+	// OnRetry receives the number and the error of a failed attempt before the next one starts.
+	OnRetry func(attempt int, err error)
+	// RetryAnyError also retries exit codes and stderr output, for reads whose failure is not a test result.
+	RetryAnyError bool
+}
+
+// ValidJSON rejects output that fails to parse as JSON.
+func ValidJSON(stdout []byte) error {
+	var raw json.RawMessage
+	return json.Unmarshal(stdout, &raw)
+}
+
+// ExecInPodRetry runs a command safe to repeat up to ExecRetryAttempts times, and returns an exit code or stderr at once unless opts.RetryAnyError.
+func (c *Client) ExecInPodRetry(ctx context.Context, namespace, pod, container string, command []string, opts ExecRetryOptions) (bytes.Buffer, error) {
+	target := fmt.Sprintf("pod=%s/%s, container=%s", namespace, pod, container)
+	return retryExec(ctx, target, opts, func(ctx context.Context) (bytes.Buffer, error) {
+		return c.ExecInPod(ctx, namespace, pod, container, command)
+	})
+}
+
+func retryExec(ctx context.Context, target string, opts ExecRetryOptions, exec func(context.Context) (bytes.Buffer, error)) (bytes.Buffer, error) {
+	for attempt := 1; ; attempt++ {
+		stdout, retry, err := execAttempt(ctx, target, opts, exec)
+		if !retry || ctx.Err() != nil || attempt == ExecRetryAttempts {
+			return stdout, err
+		}
+		if opts.OnRetry != nil {
+			opts.OnRetry(attempt, err)
+		}
+		select {
+		case <-ctx.Done():
+			return stdout, err
+		case <-time.After(execRetryBackoff):
+		}
+	}
+}
+
+// execAttempt runs exec once and reports whether to retry it.
+func execAttempt(ctx context.Context, target string, opts ExecRetryOptions, exec func(context.Context) (bytes.Buffer, error)) (bytes.Buffer, bool, error) {
+	attemptCtx, cancel := ctx, context.CancelFunc(func() {})
+	if opts.AttemptTimeout > 0 {
+		attemptCtx, cancel = context.WithTimeoutCause(ctx, opts.AttemptTimeout,
+			fmt.Errorf("exec attempt timed out after %s: %w", opts.AttemptTimeout, context.DeadlineExceeded))
+	}
+	defer cancel()
+
+	type result struct {
+		stdout bytes.Buffer
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		stdout, err := exec(attemptCtx)
+		done <- result{stdout, err}
+	}()
+
+	var r result
+	select {
+	case r = <-done:
+	case <-attemptCtx.Done():
+		// The SPDY upgrade reads its response without ctx, so the abandoned exec runs on until that read returns; it writes only to its own buffer.
+		r.err = fmt.Errorf("command failed (%s): %w", target, context.Cause(attemptCtx))
+	}
+
+	switch {
+	case r.err != nil:
+		_, exited := errors.AsType[utilexec.ExitError](r.err)
+		_, stderr := errors.AsType[stderrOutput](r.err)
+		retry := opts.RetryAnyError || (!exited && !stderr && (attemptCtx.Err() != nil || IsTransientExecError(r.err)))
+		return r.stdout, retry, r.err
+	case opts.RequireOutput && len(bytes.TrimSpace(r.stdout.Bytes())) == 0:
+		return r.stdout, true, fmt.Errorf("command failed (%s): %w", target, ErrEmptyExecOutput)
+	case opts.Validate != nil:
+		if err := opts.Validate(r.stdout.Bytes()); err != nil {
+			return r.stdout, true, fmt.Errorf("command failed (%s): invalid output: %w", target, err)
+		}
+	}
+	return r.stdout, false, nil
+}
+
 func (c *Client) ExecInPodWithStderr(ctx context.Context, namespace, pod, container string, command []string) (bytes.Buffer, bytes.Buffer, error) {
 	var stdout, stderr bytes.Buffer
 	err := c.ExecInPodWithWriters(ctx, nil, namespace, pod, container, command, &stdout, &stderr)
@@ -439,6 +537,11 @@ var StderrAsError stderrAsError
 type stderrAsError struct{}
 
 func (stderrAsError) Write([]byte) (int, error) { return 0, errors.ErrUnsupported }
+
+// stderrOutput holds the stderr of a command run with StderrAsError.
+type stderrOutput string
+
+func (s stderrOutput) Error() string { return strconv.Quote(string(s)) }
 
 func (c *Client) ExecInPodWithWriters(connCtx, killCmdCtx context.Context, namespace, pod, container string, command []string, stdout, stderr io.Writer) error {
 	var errbuf *bytes.Buffer
@@ -469,9 +572,9 @@ func (c *Client) ExecInPodWithWriters(connCtx, killCmdCtx context.Context, names
 	case err != nil && errstr == "":
 		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %w", namespace, pod, container, err)
 	case err != nil && errstr != "":
-		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %w: %q", namespace, pod, container, err, errstr)
+		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %w: %w", namespace, pod, container, err, stderrOutput(errstr))
 	case err == nil && errstr != "":
-		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %q", namespace, pod, container, errstr)
+		return fmt.Errorf("command failed (pod=%s/%s, container=%s): %w", namespace, pod, container, stderrOutput(errstr))
 	default:
 		return nil
 	}
