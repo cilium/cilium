@@ -69,7 +69,9 @@ type IdentityPolicyComputer struct {
 	reqsMu   lock.Mutex
 	reqs     []computeRequest
 	advances []advanceRequest
-	trigger  chan struct{}
+
+	// trigger triggers processRequests to begin processing the batch.
+	trigger chan struct{}
 }
 
 type Params struct {
