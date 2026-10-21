@@ -57,6 +57,7 @@ func setBasePermutations(t *config.Node) {
 		Enable:           true,
 		EnableICMPErrors: true,
 		EnableByUser:     true,
+		EncapMode:        types.DSREncapModeDSREncapNone,
 	}
 	t.EnableIPSec = true
 	t.EnableWireguard = true
@@ -94,6 +95,16 @@ func baseLXCPermutations() *loadPermutationBuilder {
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
 		Increment(func(t *config.BPFLXC, v bool) { t.HybridRoutingEnabled = v }),
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFLXC, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapGeneve
+			}
+		}),
+		Increment(func(t *config.BPFLXC, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapIPIP
+			}
+		}),
 		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
 		Increment(func(t *config.BPFLXC, v bool) { setDebugOptions(&t.Node, v) }),
 	)
@@ -140,6 +151,16 @@ func baseHostPermutations() *loadPermutationBuilder {
 				t.StrictEgressEncryption.AllowRemoteNodes = true
 			}
 		}),
+		Increment(func(t *config.BPFHost, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapGeneve
+			}
+		}),
+		Increment(func(t *config.BPFHost, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapIPIP
+			}
+		}),
 		IncrementOrPermute(func(t *config.BPFHost, v bool) { setDebugOptions(&t.Node, v) }),
 	)
 	return b
@@ -159,6 +180,16 @@ func baseOverlayPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFOverlay, v bool) { t.Node.EnableEndpointRoutes = v }),
 		Increment(func(t *config.BPFOverlay, v bool) { setDebugOptions(&t.Node, v) }),
+		Increment(func(t *config.BPFOverlay, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapGeneve
+			}
+		}),
+		Increment(func(t *config.BPFOverlay, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapIPIP
+			}
+		}),
 	)
 	return b
 }
@@ -205,6 +236,16 @@ func baseWireguardPermutations() *loadPermutationBuilder {
 			t.EnableServiceNoBackendResponse = true
 		}),
 		Increment(func(t *config.BPFWireguard, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFWireguard, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapGeneve
+			}
+		}),
+		Increment(func(t *config.BPFWireguard, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapIPIP
+			}
+		}),
 		Increment(func(t *config.BPFWireguard, v bool) { setDebugOptions(&t.Node, v) }),
 	)
 	return b
@@ -226,6 +267,16 @@ func baseXDPPermutations() *loadPermutationBuilder {
 		}),
 		Increment(func(t *config.BPFXDP, v bool) { t.EnableXDPPrefilter = v }),
 		Increment(func(t *config.BPFXDP, v bool) { setDebugOptions(&t.Node, v) }),
+		Increment(func(t *config.BPFXDP, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapGeneve
+			}
+		}),
+		Increment(func(t *config.BPFXDP, v bool) {
+			if v {
+				t.DSRCfg.EncapMode = types.DSREncapModeDSREncapIPIP
+			}
+		}),
 	)
 	return b
 }

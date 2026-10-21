@@ -632,12 +632,11 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 		return CTX_ACT_OK;
 
 	switch (proto) {
-#if DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	case bpf_htons(ETH_P_IP): {
 		struct lb4_health *val;
 		int flags = 0;
 
-		if (!is_defined(ENABLE_IPV4))
+		if (!is_defined(ENABLE_IPV4) || CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP)
 			return CTX_ACT_OK;
 
 		key = get_socket_cookie(ctx);
@@ -667,6 +666,9 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 		if (!is_defined(ENABLE_IPV6))
 			return CTX_ACT_OK;
 
+		if (CONFIG(dsr_cfg).encap_mode != DSR_ENCAP_IPIP)
+			return CTX_ACT_OK;
+
 		key = get_socket_cookie(ctx);
 		val = map_lookup_elem(&cilium_lb6_health, &key);
 		if (!val)
@@ -687,7 +689,6 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 
 		return ctx_redirect(ctx, CONFIG(encap6_ifindex), flags);
 	}
-#endif
 	default:
 		return CTX_ACT_OK;
 	}
