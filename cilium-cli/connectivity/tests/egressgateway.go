@@ -61,6 +61,11 @@ func validateEgressGatewayClientIP(a *check.Action, expectedIP netip.Addr) {
 // Test pod to host connectivity by using pings. The packet should not get masqueraded with egress
 // IP.
 func testPingHost(ctx context.Context, t *check.Test, ct *check.ConnectivityTest, s check.Scenario) {
+	if ct.Params().SkipHostNetNSDaemonSet {
+		t.Infof("Not pinging hosts running Cilium as host-netns DaemonSet is skipped")
+		return
+	}
+
 	i := 0
 	for _, client := range ct.ClientPods() {
 		for _, dst := range ct.HostNetNSPodsByNode() {

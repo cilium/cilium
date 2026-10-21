@@ -23,6 +23,7 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 	newTest("pod-to-pod-encryption", ct).
 		WithMultiNodeOnly().
 		WithCiliumVersion("<1.18.0").
+		WithHostNetNSDaemonSet().
 		WithFeatureRequirements(features.RequireDisabled(features.Ztunnel)).
 		WithScenarios(
 			tests.PodToPodEncryption(features.RequireEnabled(features.EncryptionPod)),
@@ -31,6 +32,7 @@ func (t podToPodEncryption) build(ct *check.ConnectivityTest, _ map[string]strin
 	newTest("pod-to-pod-with-l7-policy-encryption", ct).
 		WithMultiNodeOnly().
 		WithCiliumVersion("<1.18.0").
+		WithHostNetNSDaemonSet().
 		WithCondition(func() bool {
 			if ok, _ := ct.Features.MatchRequirements(features.RequireMode(features.EncryptionPod, "ipsec")); ok {
 				// Introduced in v1.17.0, backported to v1.16.4.

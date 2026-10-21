@@ -20,6 +20,7 @@ func (t hostFirewallEgressToFqdns) build(ct *check.ConnectivityTest, templates m
 	newTest("host-firewall-egress-to-fqdns", ct).
 		WithCiliumVersion(">=1.19.6").
 		WithUnsafeTests().
+		WithHostNetNSDaemonSet().
 		WithCondition(differentExternalTargets).
 		WithFeatureRequirements(
 			features.RequireDisabled(features.EndpointRoutes), // currently broken when proxying to in-cluster endpoints, see #45957

@@ -25,6 +25,7 @@ func (t egressGateway) build(ct *check.ConnectivityTest, _ map[string]string) {
 			PodSelectorKind: "echo",
 		}).
 		WithIPRoutesFromOutsideToPodCIDRs().
+		WithStaticRoutesHostNetNSDaemonSet().
 		WithFeatureRequirements(
 			features.RequireEnabled(features.EgressGateway),
 			features.RequireEnabled(features.NodeWithoutCilium),
