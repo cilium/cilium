@@ -563,6 +563,10 @@ jobs:
             --set envoy.idleTimeoutDurationSeconds=3" # Set proxy idle timeout to a low value so that connections teardown for L7 traffic testing doesn't pollute validation during a later step.
 
           if ${{ steps.vars.outputs.skip_upgrade != 'true' }}; then
+            # Ignore the older chart restoring ads before newer agents stop on downgrade.
+            # Keep the ignore list consistent across install, upgrade and downgrade.
+            # Remove once the tested releases no longer have different xDS defaults.
+            EXTRA_INSTALL_ARGS="${EXTRA_INSTALL_ARGS} --set=configDriftDetection.ignoredKeys[0]=envoy-xds-mode"
             cilium install ${{ steps.cilium-stable-config.outputs.config }} ${EXTRA_INSTALL_ARGS}
           else
             cilium install ${{ steps.cilium-newest-config.outputs.config }} ${EXTRA_INSTALL_ARGS}
