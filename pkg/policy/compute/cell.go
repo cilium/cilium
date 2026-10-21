@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
@@ -41,6 +42,8 @@ func NewIdentityPolicyComputer(params Params) *IdentityPolicyComputer {
 		logger: params.Logger,
 
 		trigger: make(chan struct{}, 1),
+
+		localIdentities: map[identity.NumericIdentity]uint64{},
 	}
 
 	// Subscribe directly to identitymanager. Observer callbacks fire
@@ -72,6 +75,11 @@ type IdentityPolicyComputer struct {
 
 	// trigger triggers processRequests to begin processing the batch.
 	trigger chan struct{}
+
+	// localIdentities maps each local identity to the generation it was added
+	// at. Protected by reqsMu.
+	localIdentities map[identity.NumericIdentity]uint64
+	nextGeneration  uint64
 }
 
 type Params struct {
