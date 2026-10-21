@@ -13,7 +13,13 @@ import (
 // MapSpecPatch allows modifying select fields of an [ebpf.MapSpec].
 type MapSpecPatch struct {
 	MaxEntries uint32
-	Flags      uint32
+
+	// ValueSize must be seeded from an existing MapSpec. Patches passed to
+	// MapRegistry.Modify are seeded; constructing a MapSpecPatch directly and
+	// applying it zeroes the value size.
+	ValueSize uint32
+
+	Flags uint32
 
 	InnerMap *MapSpecPatch
 }
@@ -25,6 +31,7 @@ func newMapSpecPatch(spec *ebpf.MapSpec) *MapSpecPatch {
 
 	return &MapSpecPatch{
 		MaxEntries: spec.MaxEntries,
+		ValueSize:  spec.ValueSize,
 		Flags:      spec.Flags,
 		InnerMap:   newMapSpecPatch(spec.InnerMap),
 	}
@@ -42,6 +49,9 @@ func (p *MapSpecPatch) diff(new *MapSpecPatch) string {
 	if p.MaxEntries != new.MaxEntries {
 		diffs = append(diffs, fmt.Sprintf("MaxEntries: %d -> %d", p.MaxEntries, new.MaxEntries))
 	}
+	if p.ValueSize != new.ValueSize {
+		diffs = append(diffs, fmt.Sprintf("ValueSize: %d -> %d", p.ValueSize, new.ValueSize))
+	}
 	if p.Flags != new.Flags {
 		diffs = append(diffs, fmt.Sprintf("Flags: %d -> %d", p.Flags, new.Flags))
 	}
@@ -56,6 +66,7 @@ func (p *MapSpecPatch) diff(new *MapSpecPatch) string {
 // Apply applies the patch to the given MapSpec.
 func (p *MapSpecPatch) Apply(spec *ebpf.MapSpec) {
 	spec.MaxEntries = p.MaxEntries
+	spec.ValueSize = p.ValueSize
 	spec.Flags = p.Flags
 
 	if spec.InnerMap != nil && p.InnerMap != nil {
@@ -71,6 +82,7 @@ func (p *MapSpecPatch) copy() *MapSpecPatch {
 
 	return &MapSpecPatch{
 		MaxEntries: p.MaxEntries,
+		ValueSize:  p.ValueSize,
 		Flags:      p.Flags,
 		InnerMap:   p.InnerMap.copy(),
 	}

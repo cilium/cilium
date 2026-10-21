@@ -112,7 +112,7 @@ func TestObjectCacheReuse(t *testing.T) {
 
 	// A different base hash wipes the old templates.
 	otherCfg := localNodeConfig
-	otherCfg.LBConfig.LBServiceMapEntries = 1234
+	otherCfg.MaglevConfig.TableSize = 1021
 	_, other, _ := restart(&otherCfg)
 	require.NotEqual(t, hash, other)
 	require.NoDirExists(t, filepath.Join(workDir, hash))
