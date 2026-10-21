@@ -1093,7 +1093,7 @@ int __nodeport_rev_dnat_ipv6(struct __ctx_buff *ctx, enum ct_dir dir)
 	return ret;
 drop:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  METRIC_EGRESS);
+					  is_defined(IS_BPF_XDP) ? METRIC_INGRESS : METRIC_EGRESS);
 }
 
 __declare_tail(CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS)
@@ -1164,7 +1164,7 @@ int tail_nodeport_nat_ingress_ipv6(struct __ctx_buff *ctx)
 	    (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) &&
 	     (is_defined(IS_BPF_XDP) || is_defined(IS_BPF_HOST)))) {
 		if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
-		    (CONFIG(enable_ipv6_fragments) && is_defined(IS_BPF_XDP)))
+		    is_defined(IS_BPF_XDP))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_INGRESS,
 						 &ext_err);
 		else
@@ -2440,7 +2440,7 @@ int tail_nodeport_rev_dnat_ipv4(struct __ctx_buff *ctx)
 
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err,
-					  METRIC_EGRESS);
+					  is_defined(IS_BPF_XDP) ? METRIC_INGRESS : METRIC_EGRESS);
 }
 
 __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_INGRESS)
@@ -2499,7 +2499,8 @@ int tail_nodeport_nat_ingress_ipv4(struct __ctx_buff *ctx)
 		 * Also let nodeport_rev_dnat_ipv4() redirect EgressGW
 		 * reply traffic into tunnel (see there for details).
 		 */
-		if (is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST))
+		if ((is_defined(ENABLE_HOST_FIREWALL) && is_defined(IS_BPF_HOST)) ||
+		    is_defined(IS_BPF_XDP))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT, &ext_err);
 		else
 			ret = nodeport_rev_dnat_ipv4(ctx, &trace, &ext_err);
