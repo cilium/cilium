@@ -33,6 +33,7 @@ import (
 	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -97,6 +98,7 @@ type endpointRestorerParams struct {
 	EndpointRegenerator *endpoint.Regenerator
 	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
 	EndpointAPIFence    endpointapi.Fence
+	DNSProxyPromise     promise.Promise[bootstrap.DNSProxyInitialized]
 	IPSecAgent          ipsec.Agent
 	IPAMManager         *ipam.IPAM
 	MTUManager          mtu.MTU
@@ -123,9 +125,10 @@ type endpointRestorer struct {
 	lxcMap              lxcmap.Map
 	connectorConfig     connector.Config
 
-	cacheStatus   k8sSynced.CacheStatus
-	dirReadStatus policyDirectory.DirectoryWatcherReadStatus
-	ipCache       *ipcache.IPCache
+	cacheStatus     k8sSynced.CacheStatus
+	dirReadStatus   policyDirectory.DirectoryWatcherReadStatus
+	ipCache         *ipcache.IPCache
+	dnsProxyPromise promise.Promise[bootstrap.DNSProxyInitialized]
 
 	restoreState                  *endpointRestoreState
 	metrics                       *endpointRestoreMetrics
@@ -151,9 +154,10 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 		lxcMap:              params.LXCMap,
 		connectorConfig:     params.ConnectorConfig,
 
-		cacheStatus:   params.CacheStatus,
-		dirReadStatus: params.DirReadStatus,
-		ipCache:       params.IPCache,
+		cacheStatus:     params.CacheStatus,
+		dirReadStatus:   params.DirReadStatus,
+		ipCache:         params.IPCache,
+		dnsProxyPromise: params.DNSProxyPromise,
 
 		metrics:                       params.Metrics,
 		endpointRestoreComplete:       make(chan struct{}),
@@ -853,6 +857,13 @@ func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) 
 	r.logger.Debug("Waiting for initial IPCache revision")
 	if err := r.ipCache.WaitForRevision(ctx, 1); err != nil {
 		return fmt.Errorf("failed to wait for initial IPCache revision: %w", err)
+	}
+
+	// Wait for DNS proxy readiness before exposing restored endpoints or unblocking
+	// endpoint initialization, which can trigger regeneration with DNS redirects.
+	health.OK("Waiting for DNS proxy initialization")
+	if _, err := r.dnsProxyPromise.Await(ctx); err != nil {
+		return fmt.Errorf("failed to wait for DNS proxy initialization: %w", err)
 	}
 
 	// When we regenerate restored endpoints, it is guaranteed that we have
