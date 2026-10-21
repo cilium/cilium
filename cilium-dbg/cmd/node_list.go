@@ -16,7 +16,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
-	iputil "github.com/cilium/cilium/pkg/ip"
 )
 
 var nodeListCmd = &cobra.Command{
@@ -57,31 +56,16 @@ func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {
 	nodesOutputHeader := "Name\tIPv4 Address\tEndpoint CIDR\tIPv6 Address\tEndpoint CIDR\tSource\n"
 	nodesOutput := make([]string, len(nodes))
 
-	// An unset address or prefix formats as "invalid IP" / "invalid Prefix",
-	// print nothing instead.
-	addr := func(a iputil.Addr) string {
-		if !a.IsValid() {
-			return ""
-		}
-		return a.String()
-	}
-	prefix := func(p iputil.Prefix) string {
-		if !p.IsValid() {
-			return ""
-		}
-		return p.String()
-	}
-
 	for _, node := range nodes {
 		ipv4, ipv4Range, ipv6, ipv6Range := "", "", "", ""
 		if node.PrimaryAddress != nil {
 			if node.PrimaryAddress.IPv4 != nil {
-				ipv4 = addr(node.PrimaryAddress.IPv4.IP)
-				ipv4Range = prefix(node.PrimaryAddress.IPv4.AllocRange)
+				ipv4 = formatAddr(node.PrimaryAddress.IPv4.IP)
+				ipv4Range = formatPrefix(node.PrimaryAddress.IPv4.AllocRange)
 			}
 			if node.PrimaryAddress.IPv6 != nil {
-				ipv6 = addr(node.PrimaryAddress.IPv6.IP)
-				ipv6Range = prefix(node.PrimaryAddress.IPv6.AllocRange)
+				ipv6 = formatAddr(node.PrimaryAddress.IPv6.IP)
+				ipv6Range = formatPrefix(node.PrimaryAddress.IPv6.AllocRange)
 			}
 		}
 
