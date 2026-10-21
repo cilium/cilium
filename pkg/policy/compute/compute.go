@@ -47,6 +47,8 @@ type computeRequest struct {
 	identity *identity.Identity
 	toRev    uint64
 	done     chan struct{}
+	// generation is the identity's generation when the request was queued.
+	generation uint64
 }
 
 // advanceRequest carries a policy update's revision range. idsToRegen holds the
@@ -142,6 +144,14 @@ func revisionAfterAdvances(advances []advanceRequest, id identity.NumericIdentit
 // Must be called with r.reqsMu held. The caller must notifyTrigger after
 // unlocking.
 func (r *IdentityPolicyComputer) enqueueLocked(identity *identity.Identity, toRev uint64) <-chan struct{} {
+	generation, local := r.localIdentities[identity.ID]
+	if !local {
+		// Removed after the caller looked it up, so there is nothing to
+		// compute.
+		done := make(chan struct{})
+		close(done)
+		return done
+	}
 	for i, existing := range r.reqs {
 		if existing.identity.ID != identity.ID {
 			continue
@@ -152,9 +162,10 @@ func (r *IdentityPolicyComputer) enqueueLocked(identity *identity.Identity, toRe
 		return r.reqs[i].done
 	}
 	req := computeRequest{
-		identity: identity,
-		toRev:    toRev,
-		done:     make(chan struct{}),
+		identity:   identity,
+		toRev:      toRev,
+		done:       make(chan struct{}),
+		generation: generation,
 	}
 	r.reqs = append(r.reqs, req)
 	return req.done
@@ -329,7 +340,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 		// removed identity is released only after the identity is deleted, by
 		// the delete path in LocalEndpointIdentityRemoved.
 		for _, sp := range dropped {
-			sp.Supersede()
+			sp.Detach()
 		}
 		if retry {
 			r.notifyTrigger()
@@ -354,9 +365,16 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 // results it committed, the policies of the results it dropped, and whether it
 // requeued any failed computation.
 func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []computeResult) (committed []computeResult, dropped []policy.SelectorPolicy, retry bool) {
+	// Check for stale results and requeue retries under one lock, so a
+	// removal can't happen in between. The CompareAndSwaps below don't need
+	// the lock, since a removal deletes the row only after wtxn commits.
+	stale := make([]bool, len(results))
 	r.reqsMu.Lock()
-	for _, cr := range results {
-		if cr.res.Err != nil {
+	for i, cr := range results {
+		// The identity was removed, or removed and added again, since the
+		// request was queued. Drop the result and don't retry it.
+		stale[i] = r.localIdentities[cr.identity.ID] != cr.generation
+		if !stale[i] && cr.res.Err != nil {
 			// Re-enqueue so a transient failure (e.g. cert fetch) doesn't
 			// leave statedb without an entry forever.
 			//
@@ -375,8 +393,10 @@ func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []
 			dropped = append(dropped, cr.res.NewPolicy)
 		}
 	}
-	for _, cr := range results {
+	for i, cr := range results {
 		switch {
+		case stale[i]:
+			drop(cr)
 		case cr.res.Err != nil:
 			// This error will result in the relevant endpoints failing to
 			// regenerate.
@@ -386,7 +406,12 @@ func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []
 			)
 		default:
 			if _, _, err := r.tbl.CompareAndSwap(wtxn, cr.rev, cr.res); err != nil {
-				// A delete for this identity raced us. Drop the result.
+				// Not expected. Results of removed identities are dropped
+				// above, since CompareAndSwap would insert them anyway.
+				r.logger.Error("Failed to commit policy computation result",
+					logfields.Identity, cr.res.Identity,
+					logfields.Error, err,
+				)
 				drop(cr)
 				continue
 			}
@@ -403,7 +428,18 @@ func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []
 // recomputation, otherwise policy will not be computed properly.
 func (r *IdentityPolicyComputer) LocalEndpointIdentityAdded(id *identity.Identity) {
 	r.repo.UpdateIdentities(identity.IdentityMap{id.ID: id.Labels}, nil)
-	r.recompute(id, 0)
+	r.reqsMu.Lock()
+	r.addLocalLocked(id)
+	r.enqueueLocked(id, 0)
+	r.reqsMu.Unlock()
+	r.notifyTrigger()
+}
+
+// addLocalLocked makes id local, with a new generation. Must be called with
+// r.reqsMu held.
+func (r *IdentityPolicyComputer) addLocalLocked(id *identity.Identity) {
+	r.nextGeneration++
+	r.localIdentities[id.ID] = r.nextGeneration
 }
 
 // LocalEndpointIdentityRemoved is part of the identitymanager.Observer interface.
@@ -425,6 +461,7 @@ func (r *IdentityPolicyComputer) LocalEndpointIdentityRemoved(id *identity.Ident
 		kept = append(kept, req)
 	}
 	r.reqs = kept
+	delete(r.localIdentities, id.ID)
 	r.reqsMu.Unlock()
 
 	wtxn := r.db.WriteTxn(r.tbl)

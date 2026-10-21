@@ -179,17 +179,16 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 		db := statedb.New()
 		tbl, _, err := NewPolicyComputationTable(db)
 		require.NoError(t, err)
-		r := &IdentityPolicyComputer{db: db, tbl: tbl, logger: hivetest.Logger(t)}
+		r := &IdentityPolicyComputer{db: db, tbl: tbl, logger: hivetest.Logger(t), localIdentities: map[identity.NumericIdentity]uint64{}}
 
 		id := identity.NewIdentity(11, labels.Labels{})
+		markLocal(r, id)
 		r.reqsMu.Lock()
 		r.enqueueLocked(id, 5)
 		r.reqsMu.Unlock()
 
-		failed := computeResult{
-			pending: pending{computeRequest: computeRequest{identity: id, toRev: 7}},
-			res:     Result{Identity: id.ID, Err: errors.New("failed")},
-		}
+		failed := newResult(r, id, Result{Err: errors.New("failed")})
+		failed.toRev = 7
 		wtxn := db.WriteTxn(tbl)
 		_, _, retry := r.commitResults(wtxn, []computeResult{failed})
 		wtxn.Commit()
@@ -227,7 +226,73 @@ func TestIdentityManagerObserver(t *testing.T) {
 
 		idmgr.Remove(id)
 		waitForEntry(t, computer, id, false)
+
+		// UpdatePolicy and RecomputeIdentityPolicyForAllIdentities look
+		// identities up before they lock reqsMu, so a request can come after
+		// the removal. It must not be queued.
+		done := computer.(*IdentityPolicyComputer).recompute(id, 0)
+		select {
+		case <-done:
+		default:
+			t.Fatal("request for a removed identity was queued")
+		}
+		_, _, _, found := computer.GetIdentityPolicyByIdentity(id)
+		require.False(t, found)
 	})
+
+	t.Run("remove during computation drops result", func(t *testing.T) {
+		_, _, computer, idmgr := fixture(t)
+		r := computer.(*IdentityPolicyComputer)
+
+		removed := computeFor(t, computer, idmgr, 9)
+		readded := computeFor(t, computer, idmgr, 10)
+		kept := computeFor(t, computer, idmgr, 11)
+		sp := waitForEntry(t, computer, removed, true).NewPolicy
+		// Computations queued now, and still running when the identities are
+		// removed, or removed and added again.
+		results := []computeResult{
+			newResult(r, removed, Result{NewPolicy: sp}),
+			newResult(r, removed, Result{Err: errors.New("failed")}),
+			newResult(r, readded, Result{}),
+			newResult(r, kept, Result{}),
+		}
+		idmgr.Remove(removed)
+		waitForEntry(t, computer, removed, false)
+		idmgr.Remove(readded)
+		idmgr.Add(readded)
+
+		wtxn := r.db.WriteTxn(r.tbl)
+		committed, dropped, retry := r.commitResults(wtxn, results)
+		wtxn.Commit()
+
+		require.Len(t, committed, 1)
+		require.Equal(t, kept.ID, committed[0].res.Identity)
+		require.Equal(t, []policy.SelectorPolicy{sp}, dropped)
+		require.False(t, retry, "failed computation of a removed identity was requeued")
+		_, _, _, found := computer.GetIdentityPolicyByNumericIdentity(removed.ID)
+		require.False(t, found, "removed identity has a committed policy")
+	})
+
+}
+
+// markLocal makes id local to r without computing its policy.
+func markLocal(r *IdentityPolicyComputer, id *identity.Identity) {
+	r.reqsMu.Lock()
+	r.addLocalLocked(id)
+	r.reqsMu.Unlock()
+}
+
+// newResult returns the result of computing res for id, as if the request for
+// it was queued now.
+func newResult(r *IdentityPolicyComputer, id *identity.Identity, res Result) computeResult {
+	r.reqsMu.Lock()
+	generation := r.localIdentities[id.ID]
+	r.reqsMu.Unlock()
+	res.Identity = id.ID
+	return computeResult{
+		pending: pending{computeRequest: computeRequest{identity: id, generation: generation}},
+		res:     res,
+	}
 }
 
 func waitForEntry(t *testing.T, computer PolicyRecomputer, id *identity.Identity, want bool) Result {
