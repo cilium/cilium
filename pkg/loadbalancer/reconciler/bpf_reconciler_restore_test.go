@@ -1315,3 +1315,19 @@ func TestRestoredServiceIDIPv6Collision(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, aliasID, id)
 }
+
+// TestBackendReleaseTracksSingletonReferences must not release a shared backend
+// again when a frontend with no remaining backends is reconciled repeatedly.
+func TestBackendReleaseTracksSingletonReferences(t *testing.T) {
+	e := newRestoreEnv(t)
+	other := restoreAddr(loadbalancer.TCP, "172.18.0.20", 80)
+	e.updateFrontend(frontendWithBackend(aliasTCP))
+	e.updateFrontend(frontendWithBackend(other))
+	backend := restoreAddr(loadbalancer.TCP, "10.1.0.1", 80)
+	require.Equal(t, 2, e.ops.backendStates[backend].refCount)
+	e.update(aliasTCP)
+	e.update(aliasTCP)
+	state, found := e.ops.backendStates[backend]
+	require.True(t, found, "backend of the other frontend was released")
+	require.Equal(t, 1, state.refCount)
+}

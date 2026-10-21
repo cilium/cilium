@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -1874,7 +1875,7 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 
 		restoredState := fixture.ops.frontendStates[frontendAddr]
 		require.NotNil(t, restoredState, "restored frontend state")
-		require.Contains(t, restoredState.restoredQuarantinedBackends, backend1,
+		require.True(t, restoredState.restoredQuarantinedBackends.Has(backend1),
 			"quarantined backend was not restored")
 
 		frontend := newLeakTestFrontend(frontendAddr, ClusterIP,
@@ -1884,7 +1885,7 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 
 		state := fixture.ops.frontendStates[frontendAddr]
 		require.NotNil(t, state, "updated frontend state")
-		require.Empty(t, state.restoredQuarantinedBackends,
+		require.True(t, state.restoredQuarantinedBackends.Empty(),
 			"restored quarantine state for an omitted backend remains")
 	})
 
@@ -1901,9 +1902,9 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 		fixture = newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
 		state := fixture.ops.frontendStates[frontend.Address]
 		require.NotNil(t, state, "restored frontend state")
-		require.Contains(t, state.restoredQuarantinedBackends, backend1,
+		require.True(t, state.restoredQuarantinedBackends.Has(backend1),
 			"first quarantined backend was not restored")
-		require.Contains(t, state.restoredQuarantinedBackends, backend2,
+		require.True(t, state.restoredQuarantinedBackends.Has(backend2),
 			"second quarantined backend was not restored")
 
 		frontend = newLeakTestFrontend(extraFrontend, ClusterIP,
@@ -1912,9 +1913,9 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 
 		state = fixture.ops.frontendStates[frontend.Address]
 		require.NotNil(t, state, "updated frontend state")
-		require.NotContains(t, state.restoredQuarantinedBackends, backend1,
+		require.False(t, state.restoredQuarantinedBackends.Has(backend1),
 			"restored quarantine state for an omitted backend remains")
-		require.Contains(t, state.restoredQuarantinedBackends, backend2,
+		require.True(t, state.restoredQuarantinedBackends.Has(backend2),
 			"restored quarantine state for a referenced backend was dropped")
 	})
 
@@ -1925,7 +1926,7 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 
 		restoredState := fixture.ops.frontendStates[frontendAddr]
 		require.NotNil(t, restoredState, "restored frontend state")
-		require.Contains(t, restoredState.restoredQuarantinedBackends, backend1,
+		require.True(t, restoredState.restoredQuarantinedBackends.Has(backend1),
 			"quarantined backend was not restored")
 
 		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
@@ -2251,7 +2252,7 @@ func TestIDMappingsPendingRestoreMetric(t *testing.T) {
 	require.Equal(t, float64(1), metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeService).Get())
 	require.Equal(t, float64(2), metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeBackend).Get())
 
-	ops.pruneRestoredIDs(nil)
+	ops.pruneRestoredIDs(set.Set[serviceIDUse]{})
 	require.Zero(t, metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeService).Get())
 	require.Zero(t, metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeBackend).Get())
 }
