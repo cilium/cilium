@@ -384,7 +384,11 @@ func (ct *ConnectivityTest) setupAndValidate(ctx context.Context, extra SetupHoo
 		}
 	}
 	if match, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.NodeWithoutCilium)); match {
-		ct.detectPodCIDRs()
+		// PodCIDRs are built from host-netns pod IPs, so there is nothing
+		// to derive without the DaemonSet.
+		if !ct.params.SkipHostNetNSDaemonSet {
+			ct.detectPodCIDRs()
+		}
 
 		if err := ct.detectNodesWithoutCiliumIPs(); err != nil {
 			return fmt.Errorf("unable to detect nodes w/o Cilium IPs: %w", err)

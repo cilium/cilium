@@ -17,6 +17,7 @@ func (t echoIngressFromOutside) build(ct *check.ConnectivityTest, _ map[string]s
 		WithCiliumPolicy(echoIngressFromOtherClientPolicyYAML).
 		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 		WithIPRoutesFromOutsideToPodCIDRs().
+		WithStaticRoutesHostNetNSDaemonSet().
 		WithScenarios(tests.FromCIDRToPod()).
 		WithExpectations(func(a *check.Action) (egress, ingress check.Result) {
 			if a.Destination().HasLabel("kind", "echo") && !a.Source().HasLabel("other", "client") {

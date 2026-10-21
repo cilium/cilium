@@ -134,6 +134,7 @@ func newCmdConnectivityTest(hooks api.Hooks) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&params.SingleNode, "single-node", false, "Limit to tests able to run on a single node")
+	cmd.Flags().BoolVar(&params.SkipHostNetNSDaemonSet, "skip-host-netns-daemonset", false, "Skip host-netns DaemonSet deployment on Cilium nodes and all tests relying on it")
 	cmd.Flags().BoolVar(&params.PrintFlows, "print-flows", false, "Print flow logs for each test")
 	cmd.Flags().DurationVar(&params.PostTestSleepDuration, "post-test-sleep", 0, "Wait time after each test before next test starts")
 	cmd.Flags().BoolVar(&params.ForceDeploy, "force-deploy", false, "Force re-deploying test artifacts")

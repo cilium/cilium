@@ -186,6 +186,8 @@ func (s *hostToPod) Name() string {
 	return "host-to-pod"
 }
 
+func (s *hostToPod) RequiresHostNetNSDaemonSet() {}
+
 func (s *hostToPod) Run(ctx context.Context, t *check.Test) {
 	var i int
 	ct := t.Context()
@@ -223,6 +225,8 @@ type hostToWorld struct {
 func (s *hostToWorld) Name() string {
 	return "host-to-world"
 }
+
+func (s *hostToWorld) RequiresHostNetNSDaemonSet() {}
 
 func (s *hostToWorld) Run(ctx context.Context, t *check.Test) {
 	extTarget := t.Context().Params().ExternalTarget
