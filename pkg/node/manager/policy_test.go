@@ -134,7 +134,7 @@ func TestNodeLifecycle(t *testing.T) {
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
 
-	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -196,7 +196,7 @@ func TestNodeLabels(t *testing.T) {
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
 
-	policy, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	policy, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 	upsertTestNode(db, writer, nRemote)
 
@@ -299,7 +299,7 @@ func TestNodeCIDRLabels(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	nodeTypes.SetName("localNode")
@@ -506,7 +506,7 @@ func TestMultipleSources(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1k8s := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Kubernetes, IPAddresses: []nodeTypes.Address{
@@ -569,7 +569,7 @@ func TestIpcache(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -713,7 +713,7 @@ func TestIpcacheHealthIP(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -759,7 +759,7 @@ func TestNodeEncryption(t *testing.T) {
 	writer := node.NewWriter(logger, db, nodeTable)
 	_, err := newUpdatePolicy(logger, &option.DaemonConfig{
 		EncryptNode: true,
-	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -879,7 +879,7 @@ func TestNode(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -972,7 +972,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	writer := node.NewWriter(logger, db, nodeTable)
 	_, err := newUpdatePolicy(logger, &option.DaemonConfig{
 		LocalRouterIPv4: "169.254.4.6",
-	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcache, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcache, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -1043,7 +1043,6 @@ func TestNodeTableMirroring(t *testing.T) {
 		cmtypes.ClusterInfo{Name: "c1"},
 		tunnel.Config{},
 		ipcacheMock,
-		NewNodeMetrics(),
 		db,
 		fakewireguard.Config{},
 		writer,
@@ -1137,7 +1136,7 @@ func TestNodeTableMirroring(t *testing.T) {
 
 func TestUpdatePolicyWithoutWriter(t *testing.T) {
 	ipc := newIPcacheMock()
-	m, err := newUpdatePolicy(hivetest.Logger(t), &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, NewNodeMetrics(), nil, fakewireguard.Config{}, nil)
+	m, err := newUpdatePolicy(hivetest.Logger(t), &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, nil, fakewireguard.Config{}, nil)
 	require.NoError(t, err)
 	n := nodeTypes.Node{
 		Name: "remote", Cluster: "default", Source: source.Kubernetes,
@@ -1159,7 +1158,7 @@ func TestDeleteAfterSuppressedSourceChange(t *testing.T) {
 	require.NoError(t, err)
 	writer := node.NewWriter(logger, db, nodes)
 	ipc := newIPcacheMock()
-	m, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	m, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	original := nodeTypes.Node{

@@ -14,6 +14,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/source"
@@ -43,6 +44,7 @@ var LocalNodeStoreCell = cell.Module(
 
 	cell.ProvidePrivate(NewNodeTable),
 	cell.Provide(provideWriter),
+	metrics.Metric(NewNodeMetrics),
 	cell.Provide(NewNodeTableAndLocalNodeStore),
 	cell.Provide(NewClusterSizeDependantInterval),
 )
