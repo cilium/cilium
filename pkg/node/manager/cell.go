@@ -25,6 +25,8 @@ var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
 	cell.Provide(newAllNodeManager),
+	// Install the writer policy even when no caller injects NodeManager.
+	cell.Invoke(func(NodeManager) {}),
 	cell.Provide(newNodeConfigNotifier),
 	metrics.Metric(NewNodeMetrics),
 )
