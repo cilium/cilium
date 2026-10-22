@@ -39,8 +39,6 @@ type NodeManager interface {
 
 	// NodeSync is called when the store completes the initial nodes listing
 	NodeSync()
-	// MeshNodeSync is called when the store completes the initial nodes listing including meshed nodes
-	MeshNodeSync()
 
 	// SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
 	// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom.
