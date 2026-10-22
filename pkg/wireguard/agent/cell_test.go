@@ -46,7 +46,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
+	nodePolicy "github.com/cilium/cilium/pkg/node/policy"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
@@ -118,7 +118,7 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 	// getHive returns a new hive with Wireguard enabled/disabled.
 	getHive := func(wireguardEnabled bool) *hive.Hive {
 		return hive.New(
-			nodeManager.Cell,
+			nodePolicy.Cell,
 			nodediscovery.Cell,
 			source.Cell,
 			watchers.Cell,

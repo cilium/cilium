@@ -81,8 +81,8 @@ import (
 	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/networkdriver"
 	"github.com/cilium/cilium/pkg/node"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
+	nodePolicy "github.com/cilium/cilium/pkg/node/policy"
 	noderestapi "github.com/cilium/cilium/pkg/node/restapi"
 	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -239,7 +239,7 @@ var (
 		endpoint.Cell,
 
 		// Install the node update policy and configuration notifier.
-		nodeManager.Cell,
+		nodePolicy.Cell,
 
 		// Node REST API serves snapshots and changes from the node table.
 		noderestapi.Cell,

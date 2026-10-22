@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package policy
 
 import (
 	"log/slog"
@@ -19,7 +19,7 @@ import (
 
 // Cell installs the node update policy.
 var Cell = cell.Module(
-	"node-manager",
+	"node-policy",
 	"Applies node update policy",
 	cell.Invoke(installUpdatePolicy),
 )
