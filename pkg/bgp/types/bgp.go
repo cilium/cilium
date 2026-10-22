@@ -82,7 +82,10 @@ func (p *Path) Age() time.Duration {
 // of GoBGP's Peer object, but only contains minimal fields required for Cilium
 // usecases.
 type Neighbor struct {
-	Name            string
+	Name string
+	// Address is the peer address. For BGP unnumbered peering it is the peer's
+	// IPv6 link-local address, carrying the peering interface
+	// as an IPv6 zone (e.g. "fe80::1%eth0").
 	Address         netip.Addr
 	ASN             uint32
 	AuthPassword    string
@@ -159,7 +162,9 @@ type PeerState struct {
 	// Name of the peer
 	Name string `json:"name,omitempty"`
 
-	// Address of the peer
+	// Address of the peer. For unnumbered peers this is the peer's IPv6
+	// link-local address, carrying the peering interface as an
+	// IPv6 zone (e.g. "fe80::1%eth0").
 	Address netip.Addr `json:"peer-address,omitempty"`
 
 	// TCP port number of peer
