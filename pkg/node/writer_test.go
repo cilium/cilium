@@ -329,12 +329,14 @@ func TestWriterRefreshAll(t *testing.T) {
 
 type countingUpdatePolicy struct{ upserts int }
 
-func (p *countingUpdatePolicy) Upsert(*types.Node) bool {
+func (p *countingUpdatePolicy) Upsert(*types.Node, PrefixClusterMutatorFn) bool {
 	p.upserts++
 	return true
 }
 
-func (*countingUpdatePolicy) Delete(source.Source, types.Identity) bool { return true }
+func (*countingUpdatePolicy) Delete(source.Source, types.Identity, PrefixClusterMutatorFn) bool {
+	return true
+}
 
 func TestUpsertLocalDefersPolicyUntilInitialized(t *testing.T) {
 	db := statedb.New()

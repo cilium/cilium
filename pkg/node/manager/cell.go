@@ -38,10 +38,6 @@ type NodeManager interface {
 
 	// NodeDeleted is called when the store detects a deletion of a node
 	NodeDeleted(n types.Node)
-
-	// SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
-	// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom.
-	SetPrefixClusterMutatorFn(mutator node.PrefixClusterMutatorFn)
 }
 
 func newAllNodeManager(in struct {
