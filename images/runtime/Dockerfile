@@ -3,11 +3,11 @@
 # Copyright Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG GOLANG_IMAGE=docker.io/library/golang:1.27.3@sha256:957861185dbf29d93668ace41e011d091c6e779953d47f0316ef2cc58e28fe2b
+ARG GOLANG_IMAGE=docker.io/library/golang:1.27.3@sha256:f20d83a83e18dbd2a4714b8ffd4b30b287b6243962dd75608e86abcc63ba4efc
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:26.04@sha256:c098726dd9b9733f3e885f8de0ef375206a311b0a317eadc40d347b1115fb944
 
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:21.1.8-1788778131-5dd7297@sha256:a310143ff6f8b953f09112e923fa8f7ae407de545339630652a9048032cf3225
-ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:7.7.0-1791281887-945ab05@sha256:0807fec65047c62cdf59e8e9f294bcac9133e005e781c1d10cc60c20e036d07c
+ARG CILIUM_BPFTOOL_IMAGE=quay.io/cilium/cilium-bpftool:7.8.1-1792615638-a4349b7@sha256:f2a3ceb45c4f780697c122d87735e49105e0352c5d18cd03bbaf3c24ebfa25a9
 
 FROM ${CILIUM_LLVM_IMAGE} AS llvm-dist
 FROM ${CILIUM_BPFTOOL_IMAGE} AS bpftool-dist
