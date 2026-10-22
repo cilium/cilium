@@ -207,9 +207,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		entry.mutex.Unlock()
 
 	}
-	// LocalNodeStore owns the local table row. Preserve IPCache and cache
-	// updates above, but skip publication through Writer.
-	return dpUpdate && !n.IsLocal()
+	return dpUpdate
 }
 
 // Delete implements [node.UpdatePolicy].
