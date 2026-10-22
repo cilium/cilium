@@ -34,9 +34,6 @@ const (
 	// ClusterNodeTableInitializerName is completed once the initial listing of
 	// nodes in the local cluster has been received.
 	ClusterNodeTableInitializerName = "node-manager-cluster"
-	// MeshNodeTableInitializerName is completed once the initial listing of
-	// nodes in remote clusters has been received.
-	MeshNodeTableInitializerName = "node-manager-mesh"
 )
 
 type nodeEntry struct {
@@ -108,10 +105,8 @@ type manager struct {
 	// writer owns all remote-node table access.
 	writer *node.Writer
 
-	// clusterNodeTableInit and meshNodeTableInit mark their respective node
-	// sources initialized. The node table is initialized after both complete.
+	// clusterNodeTableInit marks the table initialized via NodeSync()
 	clusterNodeTableInit func()
-	meshNodeTableInit    func()
 
 	// custom mutator function to enrich prefixCluster(s) from node objects.
 	prefixClusterMutatorFn node.PrefixClusterMutatorFn
@@ -185,19 +180,10 @@ func New(
 			wtxn,
 			ClusterNodeTableInitializerName,
 		)
-		meshInitDone := m.writer.RegisterInitializer(
-			wtxn,
-			MeshNodeTableInitializerName,
-		)
 		wtxn.Commit()
 		m.clusterNodeTableInit = sync.OnceFunc(func() {
 			wtxn := db.WriteTxn(nodeTable)
 			clusterInitDone(wtxn)
-			wtxn.Commit()
-		})
-		m.meshNodeTableInit = sync.OnceFunc(func() {
-			wtxn := db.WriteTxn(nodeTable)
-			meshInitDone(wtxn)
 			wtxn.Commit()
 		})
 	}
@@ -424,13 +410,6 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 func (m *manager) NodeSync() {
 	if m.clusterNodeTableInit != nil {
 		m.clusterNodeTableInit()
-	}
-}
-
-// MeshNodeSync signals that the initial clustermesh node listing is complete.
-func (m *manager) MeshNodeSync() {
-	if m.meshNodeTableInit != nil {
-		m.meshNodeTableInit()
 	}
 }
 
