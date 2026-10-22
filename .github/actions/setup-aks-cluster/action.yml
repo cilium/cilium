@@ -53,6 +53,13 @@ runs:
         source: https://checkip.amazonaws.com
         parsing: text
 
+    - name: Look up the runner's GitHub Actions range
+      id: authorized-networks
+      uses: ./.github/actions/runner-actions-range
+      with:
+        ip: ${{ steps.get-runner-ip.outputs.ip }}
+        cidr: ${{ steps.get-runner-ip.outputs.cidr }}
+
     - name: Create AKS cluster
       id: create
       shell: bash
@@ -67,7 +74,7 @@ runs:
         TAGS: ${{ inputs.tags }}
         TAINTS: ${{ inputs.taints }}
         OS_SKU: ${{ inputs.os_sku }}
-        AUTHORIZED_IP_RANGES: ${{ steps.get-runner-ip.outputs.cidr }}
+        AUTHORIZED_IP_RANGES: ${{ steps.authorized-networks.outputs.cidrs }}
       run: bash "${{ github.action_path }}/action.sh"
 
     - name: Get cluster credentials
