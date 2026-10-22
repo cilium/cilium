@@ -1,0 +1,34 @@
+name: Runner GitHub Actions range
+description: Lists the runner's /32 and the GitHub Actions range that holds it, for a cluster API allowlist
+inputs:
+  ip:
+    description: "The runner's public IP."
+    required: true
+  cidr:
+    description: "The runner's public IP as a /32."
+    required: true
+outputs:
+  cidrs:
+    description: "Comma-separated CIDRs: the /32, then the Actions range when one holds the IP."
+    value: ${{ steps.lookup.outputs.cidrs }}
+runs:
+  using: composite
+  steps:
+    # The runner sometimes egresses from another address of its GitHub Actions range.
+    - name: Look up the runner's GitHub Actions range
+      id: lookup
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RUNNER_IP: ${{ inputs.ip }}
+        RUNNER_CIDR: ${{ inputs.cidr }}
+      run: |
+        range=$(gh api meta --jq '.actions[]' | python3 -I -c '
+        import ipaddress, os, sys
+        ip = ipaddress.ip_address(os.environ["RUNNER_IP"])
+        nets = [n for n in map(ipaddress.ip_network, sys.stdin.read().split()) if ip in n and 15 <= n.prefixlen < 32]
+        print(max(nets, key=lambda n: n.prefixlen, default=""))') || range=""
+        if [[ -z "${range}" ]]; then
+          echo "::warning::Found no GitHub Actions range for ${RUNNER_IP}, authorizing ${RUNNER_CIDR} alone"
+        fi
+        echo "cidrs=${RUNNER_CIDR}${range:+,${range}}" >> "${GITHUB_OUTPUT}"
