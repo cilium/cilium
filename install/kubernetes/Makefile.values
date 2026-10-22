@@ -35,8 +35,8 @@ export BUSYBOX_DIGEST?=sha256:bdf57e528e45e4433820e045b29b4597825a1c9e38353532d9
 
 # renovate: datasource=docker
 export CERTGEN_REPO?=quay.io/cilium/certgen
-export CERTGEN_VERSION?=v0.4.12
-export CERTGEN_DIGEST?=sha256:17aa2d435929ae36df735d2c5638df197f80460c08469b7ea32a1114fc8ccaaf
+export CERTGEN_VERSION?=v0.4.13
+export CERTGEN_DIGEST?=sha256:f0c16ea8abe251d448a7fd04bdd93fe0f85fb1c3a456a455e05f7bb107dc2ff1
 
 # renovate: datasource=docker
 export CILIUM_NODEINIT_REPO?=quay.io/cilium/startup-script
