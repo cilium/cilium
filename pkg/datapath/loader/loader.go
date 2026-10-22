@@ -116,3 +116,9 @@ func (l *loader) CallsMapPath(id uint16) string {
 func (l *loader) HostDatapathInitialized() <-chan struct{} {
 	return l.hostDpInitialized
 }
+
+// DatapathBuilds counts the base datapath reinitializations and template
+// compilations, which endpoint regenerations wait for.
+func (l *loader) DatapathBuilds() uint64 {
+	return l.templateCache.builds.Load()
+}

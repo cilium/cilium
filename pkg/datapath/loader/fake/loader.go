@@ -51,6 +51,10 @@ func (f *Loader) HostDatapathInitialized() <-chan struct{} {
 	return nil
 }
 
+func (f *Loader) DatapathBuilds() uint64 {
+	return 0
+}
+
 func (f *Loader) DetachXDP(ifaceName string, bpffsBase, progName string) error {
 	return nil
 }

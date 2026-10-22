@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/cilium/ebpf"
 
@@ -39,6 +40,9 @@ type objectCache struct {
 
 	// The cached objects.
 	objects map[string]*cachedSpec
+
+	// builds counts template compilations and base datapath reinitializations.
+	builds atomic.Uint64
 }
 
 type cachedSpec struct {
@@ -214,6 +218,7 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg endpoint.Config, d
 	}
 
 	path, err := o.build(ctx, cfg, stats, dir, hash)
+	o.builds.Add(1)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			o.logger.Error(

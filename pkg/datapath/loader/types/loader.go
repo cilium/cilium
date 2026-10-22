@@ -21,6 +21,7 @@ type Loader interface {
 	CallsMapPath(id uint16) string
 	Unload(ep endpoint.Endpoint)
 	HostDatapathInitialized() <-chan struct{}
+	DatapathBuilds() uint64
 
 	ReloadDatapath(ctx context.Context, ep endpoint.Endpoint, cfg *config.Config, stats *metrics.SpanStat) (string, error)
 	EndpointHash(cfg endpoint.Config, lnCfg *config.Config) (string, error)
