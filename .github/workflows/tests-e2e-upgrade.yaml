@@ -567,6 +567,8 @@ jobs:
             # Keep the ignore list consistent across install, upgrade and downgrade.
             # Remove once the tested releases no longer have different xDS defaults.
             EXTRA_INSTALL_ARGS="${EXTRA_INSTALL_ARGS} --set=configDriftDetection.ignoredKeys[0]=envoy-xds-mode"
+            # Restart cilium-envoy on the xDS mode change. Remove once the Envoy image changes.
+            EXTRA_INSTALL_ARGS="${EXTRA_INSTALL_ARGS} --set=envoy.rollOutPods=true"
             cilium install ${{ steps.cilium-stable-config.outputs.config }} ${EXTRA_INSTALL_ARGS}
           else
             cilium install ${{ steps.cilium-newest-config.outputs.config }} ${EXTRA_INSTALL_ARGS}
