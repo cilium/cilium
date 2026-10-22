@@ -1014,6 +1014,9 @@ func TestNodeTableMirroring(t *testing.T) {
 	nodeTable, err := node.NewNodeTable(db)
 	require.NoError(t, err)
 	writer := node.NewWriter(logger, db, nodeTable)
+	initTxn := db.WriteTxn(nodeTable)
+	initialNodesDone := writer.RegisterInitializer(initTxn, "test-node-listing")
+	initTxn.Commit()
 
 	ipcacheMock := newIPcacheMock()
 	mngr, err := New(
@@ -1032,7 +1035,7 @@ func TestNodeTableMirroring(t *testing.T) {
 	initialized, initWatch := nodeTable.Initialized(db.ReadTxn())
 	require.False(t, initialized)
 	require.ElementsMatch(t, []string{
-		ClusterNodeTableInitializerName,
+		"test-node-listing",
 	}, nodeTable.PendingInitializers(db.ReadTxn()))
 
 	n1 := nodeTypes.Node{
@@ -1090,14 +1093,16 @@ func TestNodeTableMirroring(t *testing.T) {
 
 	select {
 	case <-initWatch:
-		t.Fatal("node table initialized before NodeSync")
+		t.Fatal("node table initialized before the initial listing completed")
 	default:
 	}
 
 	initialized, _ = nodeTable.Initialized(db.ReadTxn())
 	require.False(t, initialized)
 
-	mngr.NodeSync()
+	initTxn = db.WriteTxn(nodeTable)
+	initialNodesDone(initTxn)
+	initTxn.Commit()
 
 	select {
 	case <-initWatch:

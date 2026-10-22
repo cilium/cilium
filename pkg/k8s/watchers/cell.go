@@ -50,6 +50,11 @@ type k8sWatcherParams struct {
 }
 
 func newK8sWatcher(params k8sWatcherParams) *K8sWatcher {
+	// Register before startup so restored nodes are not pruned while the
+	// initial CiliumNode listing is still being read.
+	if params.Clientset.IsEnabled() && !params.KVStoreClient.IsEnabled() && params.AgentConfig.EnableCiliumNodeCRD {
+		params.K8sCiliumNodeWatcher.registerNodeInitializer()
+	}
 	return newWatcher(
 		params.Logger,
 		params.ResourceGroupsFn,
