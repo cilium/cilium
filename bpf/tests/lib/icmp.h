@@ -13,6 +13,8 @@ struct validate_icmpv6_reply_args {
 	enum metric_dir metrics_dir;
 	__u64 metrics_count;
 	__u64 metrics_bytes;
+	bool check_src_identity;
+	__u32 src_identity;
 };
 
 static __always_inline int
@@ -34,6 +36,14 @@ validate_icmpv6_reply(const struct validate_icmpv6_reply_args *args)
 
 	test_log("Status code: %d", *status_code);
 	assert(*status_code == args->retval);
+
+	if (args->check_src_identity) {
+		__u32 src_label = ctx_load_meta(args->ctx, CB_SRC_LABEL);
+
+		if (src_label != args->src_identity)
+			test_fatal("skb->cb[CB_SRC_LABEL] should be %d, got %d",
+				   args->src_identity, src_label);
+	}
 
 	ASSERT_CTX_BUF_OFF2("icmpv6_reply",
 			    "Ether", args->ctx, sizeof(__u32),
