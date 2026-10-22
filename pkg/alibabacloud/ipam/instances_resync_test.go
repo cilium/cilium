@@ -58,4 +58,10 @@ func TestFullResync(t *testing.T) {
 			return eniID, eni, api.AttachNetworkInterface(context.Background(), instanceID, eniID)
 		})
 	})
+
+	t.Run("InstanceDelete", func(t *testing.T) {
+		t.Parallel()
+		_, hooked, mngr := newHookedInstancesManager(t)
+		resynctest.InstanceDelete(t, mngr, hooked.setHook, instanceID)
+	})
 }
