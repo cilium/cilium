@@ -37,9 +37,11 @@ type Writer struct {
 	requiredReconcilers []NodeReconciler
 }
 
-// UpdatePolicy preserves the legacy remote-node update ordering. It retains
-// ownership of conflict resolution and any state it needs.
+// UpdatePolicy preserves the legacy node update ordering. It retains ownership
+// of conflict resolution and any state it needs.
 type UpdatePolicy interface {
+	// The publish result only controls remote nodes; UpsertLocal always writes
+	// the local row.
 	Upsert(node *nodeTypes.Node) (publish bool)
 	// Delete reports whether the source owns the cached node and its published
 	// row may be removed, even if that row still has an older source.
@@ -317,38 +319,54 @@ func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) err
 	return w.waitUntilReconciled(ctx, rtxn, false, reconcilers)
 }
 
-// Upsert a node into the node table.
+// UpsertLocal writes the local node, including its local-only information, and
+// runs the update policy for its side effects once the local node is initialized.
+// The local node is always written independently of whether the policy would
+// publish a remote node.
+func (w *Writer) UpsertLocal(txn statedb.WriteTxn, n *LocalNode) error {
+	if n.Local == nil {
+		panic("UpsertLocal: local node information is missing")
+	}
+
+	old, _, _ := w.nodes.Get(txn, LocalNodeQuery)
+	if err := w.writeNode(txn, n, old); err != nil {
+		return fmt.Errorf("write local node: %w", err)
+	}
+	if w.updatePolicy != nil &&
+		!slices.Contains(w.nodes.PendingInitializers(txn), LocalNodeTableInitializerName) {
+		w.updatePolicy.Upsert(&n.Node)
+	}
+	return nil
+}
+
+// Upsert a remote node into the node table.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
+	old, _, found := w.nodes.Get(txn, NodeByName(n.Fullname()))
+	if n.IsLocal() || (found && old.Local != nil) {
+		w.log.Warn("Rejecting update to local node",
+			logfields.Node, n.Fullname(),
+			logfields.Source, n.Source,
+		)
+		return false
+	}
 	if w.updatePolicy != nil && !w.updatePolicy.Upsert(n) {
 		// Policy rejected the update due to conflict.
 		return false
 	}
 
-	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
 	obj := &Node{
 		Node:             *n,
 		addressClusterID: deriveAddressClusterID(w.prefixClusterMutatorFn, n),
-		Statuses:         reconciler.NewStatusSet().Pending(reconcilers...),
 	}
 
-	old, _, found := w.nodes.Get(txn, NodeByName(obj.Fullname()))
 	if found {
-		if old.Local != nil {
-			w.log.Warn("Rejecting update to local node",
-				logfields.Node, obj.Fullname(),
-				logfields.Source, old.Source,
-				logfields.NodeOwner, obj.Source,
-			)
-			return false
-		}
 		if old.Node.DeepEqual(&obj.Node) &&
 			old.addressClusterID == obj.addressClusterID {
 			return false
 		}
-		obj.Statuses = old.Statuses.Pending(reconcilers...)
 	}
 
-	if _, _, err := w.nodes.Insert(txn, obj); err != nil {
+	if err := w.writeNode(txn, obj, old); err != nil {
 		w.log.Error("Failed to write node to table",
 			logfields.Error, err,
 			logfields.Node, obj.Name,
@@ -357,6 +375,20 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 		return false
 	}
 	return true
+}
+
+func (w *Writer) writeNode(txn statedb.WriteTxn, n, old *Node) error {
+	if old != nil {
+		n.Statuses = old.Statuses
+		if old.Fullname() != n.Fullname() {
+			if _, _, err := w.nodes.Delete(txn, old); err != nil {
+				return fmt.Errorf("delete previous node: %w", err)
+			}
+		}
+	}
+	n.Statuses = n.Statuses.Pending(reconcilerNames(w.getRequiredReconcilers(txn))...)
+	_, _, err := w.nodes.Insert(txn, n)
+	return err
 }
 
 // Delete removes a remote node if the policy accepts the deletion, or, without
