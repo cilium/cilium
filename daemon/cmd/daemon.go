@@ -109,7 +109,10 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	} else if params.DaemonConfig.EnableIPMasqAgent {
 		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
 	} else if !params.DaemonConfig.MasqueradingEnabled() && params.DaemonConfig.EnableBPFMasquerade {
-		params.Logger.Info("Disabling BPF masquerade as it requires --%s=\"true\" or --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade)
+		params.Logger.Info(
+			"Auto-set option to `false` because neither IPv4 nor IPv6 masquerading is enabled",
+			logfields.Option, option.EnableBPFMasquerade,
+		)
 		params.DaemonConfig.EnableBPFMasquerade = false
 	}
 
