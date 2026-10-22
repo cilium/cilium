@@ -838,7 +838,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 			*dst_sec_identity = info->sec_identity;
 			skip_tunnel = (info->flag_skip_tunnel) || same_subnet_id;
 		} else {
-			*dst_sec_identity = WORLD_IPV6_ID;
+			*dst_sec_identity = world_ipv6_id();
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
 			   daddr->p4, *dst_sec_identity);
@@ -1221,8 +1221,8 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 			fake_info.tunnel_endpoint.ip4.be32 = vtep->tunnel_endpoint;
 			fake_info.flag_has_tunnel_ep = true;
 			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
-								SECLABEL_IPV4, WORLD_IPV4_ID,
-								WORLD_IPV4_ID, trace,
+								SECLABEL_IPV4, world_ipv4_id(),
+								world_ipv4_id(), trace,
 								bpf_htons(ETH_P_IP));
 		}
 	}
@@ -1392,7 +1392,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		*dst_sec_identity = info->sec_identity;
 		skip_tunnel = (info->flag_skip_tunnel) || same_subnet_id;
 	} else {
-		*dst_sec_identity = WORLD_IPV4_ID;
+		*dst_sec_identity = world_ipv4_id();
 	}
 
 	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
