@@ -238,19 +238,6 @@ func worldLabelForPrefix(prefix netip.Prefix) labels.Labels {
 	return lbls
 }
 
-// NodeUpdated is called after the information of a node has been updated. The
-// node in the manager is added or updated if the source is allowed to update
-// the node.
-func (m *manager) NodeUpdated(n nodeTypes.Node) {
-	if m.writer == nil {
-		m.policy.Upsert(&n, nil)
-		return
-	}
-	txn := m.db.WriteTxn(m.writer.Table())
-	m.writer.Upsert(txn, &n)
-	txn.Commit()
-}
-
 func (m *manager) cidrsToPrefixesCluster(mutator node.PrefixClusterMutatorFn, n *nodeTypes.Node, prefixes ...netip.Prefix) iter.Seq[cmtypes.PrefixCluster] {
 	return func(yield func(cmtypes.PrefixCluster) bool) {
 		for _, prefix := range prefixes {
@@ -365,17 +352,4 @@ func (m *manager) removeNodeFromIPCache(mutator node.PrefixClusterMutatorFn, old
 			labels.LabelIngress,
 			ipcacheTypes.AllMetadata{})
 	}
-}
-
-// NodeDeleted is called after a node has been deleted. It removes the node
-// from the manager if the node is still owned by the source of which the event
-// originates.
-func (m *manager) NodeDeleted(n nodeTypes.Node) {
-	if m.writer == nil {
-		m.policy.Delete(n.Source, n.Identity(), nil)
-		return
-	}
-	txn := m.db.WriteTxn(m.writer.Table())
-	m.writer.Delete(txn, n.Source, n.Identity())
-	txn.Commit()
 }
