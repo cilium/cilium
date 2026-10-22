@@ -34,15 +34,15 @@ type nodeEntry struct {
 	// 1. Serialize any direct access to the node field in this entry.
 	// 2. Serialize all calls do the datapath layer for a particular node.
 	//
-	// See description of Manager.mutex for more details
+	// See description of updatePolicy.mutex for more details.
 	//
-	// If both the nodeEntry.mutex and Manager.mutex must be held, then the
-	// Manager.mutex must *always* be acquired first.
+	// If both the nodeEntry.mutex and updatePolicy.mutex must be held, then the
+	// updatePolicy.mutex must *always* be acquired first.
 	mutex lock.Mutex
 	node  nodeTypes.Node
 }
 
-// IPCache is the set of interactions the node manager performs with the ipcache
+// IPCache is the set of interactions the update policy performs with the ipcache.
 type IPCache interface {
 	GetMetadataSourceByPrefix(prefix cmtypes.PrefixCluster) source.Source
 	UpsertMetadata(prefix cmtypes.PrefixCluster, src source.Source, resource ipcacheTypes.ResourceID, aux ...ipcache.IPMetadata)
@@ -51,40 +51,37 @@ type IPCache interface {
 	RemoveMetadataBatch(updates ...ipcache.MU) (revision uint64)
 }
 
-// manager is the entity that manages a collection of nodes
-type manager struct {
+// updatePolicy manages the accepted-node cache and its IPCache metadata.
+type updatePolicy struct {
 	logger *slog.Logger
-	policy *updatePolicy
 	// mutex is the lock protecting access to the nodes map. The mutex must
 	// be held for any access of the nodes map.
 	//
-	// The manager mutex works together with the entry mutex in the
-	// following way to minimize the duration the manager mutex is held:
+	// The policy mutex works together with the entry mutex in the
+	// following way to minimize the duration the policy mutex is held:
 	//
-	// 1. Acquire manager mutex to safely access nodes map and to retrieve
+	// 1. Acquire policy mutex to safely access nodes map and to retrieve
 	//    node entry.
-	// 2. Acquire mutex of the entry while the manager mutex is still held.
+	// 2. Acquire mutex of the entry while the policy mutex is still held.
 	//    This guarantees that no change to the entry has happened.
-	// 3. Release of the manager mutex to unblock changes or reads to other
+	// 3. Release of the policy mutex to unblock changes or reads to other
 	//    node entries.
 	// 4. Change of entry data or performing of datapath interactions
 	// 5. Release of the entry mutex
 	//
-	// If both the nodeEntry.mutex and Manager.mutex must be held, then the
-	// Manager.mutex must *always* be acquired first.
+	// If both the nodeEntry.mutex and updatePolicy.mutex must be held, then the
+	// updatePolicy.mutex must *always* be acquired first.
 	mutex lock.RWMutex
 
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[nodeTypes.Identity]*nodeEntry
 
-	// metrics to track information about the node manager
+	// metrics for node update events and accepted nodes
 	metrics *nodeMetrics
 
-	// conf is the configuration of the caller passed in via NewManager.
-	// This field is immutable after NewManager()
+	// conf is immutable after policy construction.
 	conf *option.DaemonConfig
-	// clusterInfo is the local cluster information passed in via NewManager.
-	// This field is immutable after NewManager()
+	// clusterInfo is immutable after policy construction.
 	clusterInfo cmtypes.ClusterInfo
 
 	underlay tunnel.UnderlayProtocol
@@ -132,8 +129,8 @@ func NewNodeMetrics() *nodeMetrics {
 	}
 }
 
-// New returns a new node manager
-func New(
+// newUpdatePolicy constructs the policy and installs it on the writer.
+func newUpdatePolicy(
 	logger *slog.Logger,
 	c *option.DaemonConfig,
 	clusterInfo cmtypes.ClusterInfo,
@@ -143,8 +140,8 @@ func New(
 	db *statedb.DB,
 	wgCfg types.Config,
 	writer *node.Writer,
-) (*manager, error) {
-	m := &manager{
+) (*updatePolicy, error) {
+	m := &updatePolicy{
 		logger:      logger,
 		nodes:       map[nodeTypes.Identity]*nodeEntry{},
 		writer:      writer,
@@ -156,16 +153,14 @@ func New(
 		db:          db,
 		wgConfig:    wgCfg,
 	}
-	m.policy = &updatePolicy{manager: m}
-
 	if writer != nil {
-		writer.SetUpdatePolicy(m.policy)
+		writer.SetUpdatePolicy(m)
 	}
 
 	return m, nil
 }
 
-func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
+func (m *updatePolicy) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 	// If the host firewall is enabled, all traffic to remote nodes must go
 	// through the tunnel to preserve the source identity as part of the
 	// encapsulation. In encryption case we also want to use vxlan device
@@ -174,7 +169,7 @@ func (m *manager) nodeAddressHasTunnelIP(address nodeTypes.Address) bool {
 		m.conf.EnableHostFirewall
 }
 
-func (m *manager) nodeAddressHasEncryptKey() bool {
+func (m *updatePolicy) nodeAddressHasEncryptKey() bool {
 	optOut := false
 	if m.writer != nil && m.db != nil {
 		if localNode, _, found := m.writer.Table().Get(m.db.ReadTxn(), node.LocalNodeQuery); found {
@@ -201,7 +196,7 @@ func (m *manager) nodeAddressHasEncryptKey() bool {
 // a static non-zero encrypt key here.
 // With IPSec (or no encryption), the node's encryption key index and the
 // encryption key of the endpoint on that node are the same.
-func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptKey {
+func (m *updatePolicy) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptKey {
 	if m.wgConfig.Enabled() {
 		return ipcacheTypes.EncryptKey(types.StaticEncryptKey)
 	}
@@ -209,7 +204,7 @@ func (m *manager) endpointEncryptionKey(n *nodeTypes.Node) ipcacheTypes.EncryptK
 	return ipcacheTypes.EncryptKey(n.EncryptionKey)
 }
 
-func (m *manager) nodeIdentityLabels(n nodeTypes.Node) labels.Labels {
+func (m *updatePolicy) nodeIdentityLabels(n nodeTypes.Node) labels.Labels {
 	nodeLabels := labels.NewFrom(labels.LabelRemoteNode)
 	if n.IsLocal() {
 		nodeLabels = labels.NewFrom(labels.LabelHost)
@@ -238,7 +233,7 @@ func worldLabelForPrefix(prefix netip.Prefix) labels.Labels {
 	return lbls
 }
 
-func (m *manager) cidrsToPrefixesCluster(mutator node.PrefixClusterMutatorFn, n *nodeTypes.Node, prefixes ...netip.Prefix) iter.Seq[cmtypes.PrefixCluster] {
+func (m *updatePolicy) cidrsToPrefixesCluster(mutator node.PrefixClusterMutatorFn, n *nodeTypes.Node, prefixes ...netip.Prefix) iter.Seq[cmtypes.PrefixCluster] {
 	return func(yield func(cmtypes.PrefixCluster) bool) {
 		for _, prefix := range prefixes {
 			if !yield(cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, n)...)) {
@@ -248,7 +243,7 @@ func (m *manager) cidrsToPrefixesCluster(mutator node.PrefixClusterMutatorFn, n 
 	}
 }
 
-func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.ResourceID, prefixes iter.Seq[cmtypes.PrefixCluster], tunnelIP netip.Addr, encryptKey uint8) iter.Seq[ipcache.MU] {
+func (m *updatePolicy) podCIDREntries(source source.Source, resource ipcacheTypes.ResourceID, prefixes iter.Seq[cmtypes.PrefixCluster], tunnelIP netip.Addr, encryptKey uint8) iter.Seq[ipcache.MU] {
 	return func(yield func(ipcache.MU) bool) {
 		for prefix := range prefixes {
 			if !prefix.IsValid() {
@@ -278,7 +273,7 @@ func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.Res
 // Removes all pod CIDRs associated with the oldNode from IPCache, unless they are present
 // in podCIDRsAdded.
 // The removal logic in this function should mirror the upsert logic in nodeAddressHasTunnelIP.
-func (m *manager) removeNodeFromIPCache(mutator node.PrefixClusterMutatorFn, oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
+func (m *updatePolicy) removeNodeFromIPCache(mutator node.PrefixClusterMutatorFn, oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
 	nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
 ) {
 	var oldNodeIP netip.Addr
