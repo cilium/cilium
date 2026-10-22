@@ -271,6 +271,7 @@ jobs:
             --helm-set=cluster.name=${HELM_CLUSTER_NAME} \
             --helm-set=hubble.relay.enabled=true \
             --helm-set=enableIPv4Masquerade=false \
+            --helm-set=bpf.masquerade=false \
             --helm-set=cni.chainingMode=aws-cni \
             --helm-set=eni.enabled=false \
             --helm-set=ipam.mode=cluster-pool \
