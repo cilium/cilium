@@ -40,7 +40,8 @@ type InstancesManager struct {
 	logger *slog.Logger
 
 	// resyncLock keeps incremental resync and cache updates out of a full API resync
-	resyncLock lock.RWMutex
+	resyncLock    lock.RWMutex
+	instanceLocks lock.KeyedMutex[string]
 
 	// mutex protects the fields below
 	mutex          lock.RWMutex
@@ -99,11 +100,22 @@ func (m *InstancesManager) Resync(ctx context.Context) (time.Time, error) {
 // cache in the instanceManager. It returns the time when the resync has
 // started or an error if it did not complete.
 func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
-	// Instance incremental resync from different nodes should be executed in parallel,
-	// but must block the full API resync.
-	m.resyncLock.RLock()
-	defer m.resyncLock.RUnlock()
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
 	return m.resync(ctx, instanceID)
+}
+
+func (m *InstancesManager) lockInstance(instanceID string) lock.UnlockFunc {
+	unlockInstance := m.instanceLocks.Lock(instanceID)
+	// The read lock allows incremental resyncs and cache updates for different
+	// instances to run in parallel, while excluding full API resyncs, which take
+	// the write lock.
+	m.resyncLock.RLock()
+
+	return func() {
+		m.resyncLock.RUnlock()
+		unlockInstance()
+	}
 }
 
 func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.Time, error) {
@@ -201,11 +213,15 @@ func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.Inter
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
 func (m *InstancesManager) UpdateENI(instanceID string, eni *types.ENI) {
-	m.resyncLock.RLock()
-	defer m.resyncLock.RUnlock()
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+	// Don't recreate a partial instance that was deleted while this update waited.
+	if !m.instances.Exists(instanceID) {
+		return
+	}
 	m.instances.Update(instanceID, eni)
 }
 
@@ -281,8 +297,8 @@ func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTy
 
 // DeleteInstance delete instance from m.instances
 func (m *InstancesManager) DeleteInstance(instanceID string) {
-	m.resyncLock.RLock()
-	defer m.resyncLock.RUnlock()
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
