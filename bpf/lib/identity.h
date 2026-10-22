@@ -6,6 +6,7 @@
 #include <bpf/config/node.h>
 #include "export_type.h"
 
+#include "config.h"
 #include "dbg.h"
 #include "clustermesh.h"
 
@@ -34,14 +35,15 @@ enum identity {
 
 EXPORT_TYPE(enum identity);
 
-/* TODO(tb): Replace this with a helper, enable_v4/v6 will be runtime configs at
- * some point.
- */
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
-#else
-# define WORLD_IPV4_ID WORLD_ID
-# define WORLD_IPV6_ID WORLD_ID
-#endif
+static __always_inline __u32 world_ipv4_id(void)
+{
+	return is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6) ? WORLD_IPV4_ID : WORLD_ID;
+}
+
+static __always_inline __u32 world_ipv6_id(void)
+{
+	return is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6) ? WORLD_IPV6_ID : WORLD_ID;
+}
 
 /**
  * Minimal numeric identity value for a local (CIDR) identity.

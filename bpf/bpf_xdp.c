@@ -16,8 +16,8 @@
  * written into node_config.h at runtime.
  */
 #define SECLABEL WORLD_ID
-#define SECLABEL_IPV4 WORLD_IPV4_ID
-#define SECLABEL_IPV6 WORLD_IPV6_ID
+#define SECLABEL_IPV4 world_ipv4_id()
+#define SECLABEL_IPV6 world_ipv6_id()
 
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
  * object file.
@@ -103,7 +103,7 @@ xdp_frag_not_found_world_v4(int ret, const struct iphdr *ip4)
 		return ret;
 
 	info = lookup_ip4_remote_endpoint(ip4->saddr, 0);
-	return frag_not_found_world(ret, info ? info->sec_identity : WORLD_IPV4_ID);
+	return frag_not_found_world(ret, info ? info->sec_identity : world_ipv4_id());
 }
 #endif /* ENABLE_IPV4 && ENABLE_NODEPORT */
 
@@ -117,7 +117,7 @@ xdp_frag_not_found_world_v6(int ret, const struct ipv6hdr *ip6)
 		return ret;
 
 	info = lookup_ip6_remote_endpoint((const union v6addr *)&ip6->saddr, 0);
-	return frag_not_found_world(ret, info ? info->sec_identity : WORLD_IPV6_ID);
+	return frag_not_found_world(ret, info ? info->sec_identity : world_ipv6_id());
 }
 #endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
 
