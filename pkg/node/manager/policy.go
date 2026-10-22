@@ -21,12 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-// updatePolicy implements Writer's publication and deletion policy using
-// IPCache and the manager-owned accepted-node cache.
-type updatePolicy struct {
-	manager *manager
-}
-
 var _ node.UpdatePolicy = &updatePolicy{}
 
 func prefixClusterOpts(mutator node.PrefixClusterMutatorFn, n *nodeTypes.Node) []cmtypes.PrefixClusterOpts {
@@ -37,8 +31,7 @@ func prefixClusterOpts(mutator node.PrefixClusterMutatorFn, n *nodeTypes.Node) [
 }
 
 // Upsert implements [node.UpdatePolicy].
-func (p *updatePolicy) Upsert(n *nodeTypes.Node, mutator node.PrefixClusterMutatorFn) (publish bool) {
-	m := p.manager
+func (m *updatePolicy) Upsert(n *nodeTypes.Node, mutator node.PrefixClusterMutatorFn) (publish bool) {
 	m.logger.Info(
 		"Node updated",
 		logfields.ClusterName, n.Cluster,
@@ -89,7 +82,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node, mutator node.PrefixClusterMutat
 			endpointFlags.SetRemoteCluster(true)
 		}
 
-		// We expect the node manager to have a source of either Kubernetes,
+		// We expect node updates to have a source of either Kubernetes,
 		// CustomResource, or KVStore. Prioritize the KVStore source over the
 		// rest as it is the strongest source, i.e. only trigger datapath
 		// updates if the information we receive takes priority.
@@ -219,8 +212,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node, mutator node.PrefixClusterMutat
 }
 
 // Delete implements [node.UpdatePolicy].
-func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identity, mutator node.PrefixClusterMutatorFn) (remove bool) {
-	m := p.manager
+func (m *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identity, mutator node.PrefixClusterMutatorFn) (remove bool) {
 	m.logger.Info(
 		"Node deleted",
 		logfields.ClusterName, nodeIdentifier.Cluster,
