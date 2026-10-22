@@ -73,6 +73,7 @@ runs:
       shell: bash
       run: |
         CONNECTIVITY_TEST_DEFAULTS=("--collect-sysdump-on-failure" \
+          "--sysdump-hubble-flows-timeout=30s" \
           "--log-code-owners" \
           "--code-owners=${CILIUM_CLI_CODE_OWNERS_PATHS}" \
           "--exclude-code-owners=${CILIUM_CLI_EXCLUDE_OWNERS}" \
