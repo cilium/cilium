@@ -108,8 +108,6 @@ type NodeObserver struct {
 	source source.Source
 }
 
-// NewNodeObserver returns a new NodeObserver associated with the specified
-// node writer
 func NewNodeObserver(db *statedb.DB, manager NodeWriter, source source.Source) *NodeObserver {
 	return &NodeObserver{db: db, writer: manager, source: source}
 }
@@ -130,16 +128,6 @@ func (o *NodeObserver) OnDelete(k store.NamedKey) {
 		o.writer.Delete(txn, o.source, n.Identity())
 		txn.Commit()
 	}
-}
-
-// NodeManager is the interface that the manager of nodes has to implement
-type NodeManager interface {
-	// NodeUpdated is called when the store detects a change in node
-	// information
-	NodeUpdated(n nodeTypes.Node)
-
-	// NodeDeleted is called when the store detects a deletion of a node
-	NodeDeleted(n nodeTypes.Node)
 }
 
 type NodeWriter interface {
