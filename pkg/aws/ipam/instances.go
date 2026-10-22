@@ -58,7 +58,7 @@ type MetadataAPI interface {
 // by calling resync() regularly.
 type InstancesManager struct {
 	logger *slog.Logger
-	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
+	// resyncLock keeps incremental resync and cache updates out of a full API resync
 	resyncLock lock.RWMutex
 	// vpcID is the VPC ID current operator running on, we will use it to filter other AWS resources only within this VPC
 	vpcID string
@@ -290,6 +290,9 @@ func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) 
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
 func (m *InstancesManager) UpdateENI(instanceID string, eni *types.ENI) {
+	m.resyncLock.RLock()
+	defer m.resyncLock.RUnlock()
+
 	m.mutex.Lock()
 	eniRevision := eni
 	m.instances.Update(instanceID, eniRevision)
@@ -305,6 +308,9 @@ func (m *InstancesManager) RemoveIPsFromENI(instanceID string, eniID string, ips
 }
 
 func (m *InstancesManager) modifyIPsToENI(instanceID string, eniID string, ips []string, isAdd bool) {
+	m.resyncLock.RLock()
+	defer m.resyncLock.RUnlock()
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	iface, ok := m.instances.GetInterface(instanceID, eniID)
