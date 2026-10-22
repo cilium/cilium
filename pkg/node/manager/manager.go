@@ -98,9 +98,6 @@ type manager struct {
 	// writer owns all remote-node table access.
 	writer *node.Writer
 
-	// custom mutator function to enrich prefixCluster(s) from node objects.
-	prefixClusterMutatorFn node.PrefixClusterMutatorFn
-
 	// wireguard configuration used when calling endpointEncryptionKey.
 	wgConfig types.Config
 }
@@ -148,17 +145,16 @@ func New(
 	writer *node.Writer,
 ) (*manager, error) {
 	m := &manager{
-		logger:                 logger,
-		nodes:                  map[nodeTypes.Identity]*nodeEntry{},
-		writer:                 writer,
-		conf:                   c,
-		clusterInfo:            clusterInfo,
-		underlay:               tunnelConf.UnderlayProtocol(),
-		ipcache:                ipCache,
-		metrics:                nodeMetrics,
-		db:                     db,
-		prefixClusterMutatorFn: func(node *nodeTypes.Node) []cmtypes.PrefixClusterOpts { return nil },
-		wgConfig:               wgCfg,
+		logger:      logger,
+		nodes:       map[nodeTypes.Identity]*nodeEntry{},
+		writer:      writer,
+		conf:        c,
+		clusterInfo: clusterInfo,
+		underlay:    tunnelConf.UnderlayProtocol(),
+		ipcache:     ipCache,
+		metrics:     nodeMetrics,
+		db:          db,
+		wgConfig:    wgCfg,
 	}
 	m.policy = &updatePolicy{manager: m}
 
@@ -247,7 +243,7 @@ func worldLabelForPrefix(prefix netip.Prefix) labels.Labels {
 // the node.
 func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	if m.writer == nil {
-		m.policy.Upsert(&n)
+		m.policy.Upsert(&n, nil)
 		return
 	}
 	txn := m.db.WriteTxn(m.writer.Table())
@@ -255,10 +251,10 @@ func (m *manager) NodeUpdated(n nodeTypes.Node) {
 	txn.Commit()
 }
 
-func (m *manager) cidrsToPrefixesCluster(n *nodeTypes.Node, prefixes ...netip.Prefix) iter.Seq[cmtypes.PrefixCluster] {
+func (m *manager) cidrsToPrefixesCluster(mutator node.PrefixClusterMutatorFn, n *nodeTypes.Node, prefixes ...netip.Prefix) iter.Seq[cmtypes.PrefixCluster] {
 	return func(yield func(cmtypes.PrefixCluster) bool) {
 		for _, prefix := range prefixes {
-			if !yield(cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)) {
+			if !yield(cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, n)...)) {
 				return
 			}
 		}
@@ -295,7 +291,7 @@ func (m *manager) podCIDREntries(source source.Source, resource ipcacheTypes.Res
 // Removes all pod CIDRs associated with the oldNode from IPCache, unless they are present
 // in podCIDRsAdded.
 // The removal logic in this function should mirror the upsert logic in nodeAddressHasTunnelIP.
-func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
+func (m *manager) removeNodeFromIPCache(mutator node.PrefixClusterMutatorFn, oldNode nodeTypes.Node, resource ipcacheTypes.ResourceID,
 	nodeIPsAdded, healthIPsAdded, ingressIPsAdded, podCIDRsAdded []netip.Prefix,
 ) {
 	var oldNodeIP netip.Addr
@@ -312,7 +308,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 
 		var oldPrefixCluster cmtypes.PrefixCluster
 		if address.Type == addressing.NodeCiliumInternalIP {
-			oldPrefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&oldNode)...)
+			oldPrefixCluster = cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, &oldNode)...)
 		} else {
 			oldPrefixCluster = cmtypes.NewLocalPrefixCluster(prefix)
 		}
@@ -327,13 +323,13 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 		oldIPv6PodCIDRs := oldNode.GetIPv6AllocCIDRs()
 
 		mu := make([]ipcache.MU, 0, len(oldIPv4PodCIDRs)+len(oldIPv6PodCIDRs))
-		for entry := range m.podCIDREntries(oldNode.Source, resource, m.cidrsToPrefixesCluster(&oldNode, oldIPv4PodCIDRs...), oldNodeIP, oldNode.EncryptionKey) {
+		for entry := range m.podCIDREntries(oldNode.Source, resource, m.cidrsToPrefixesCluster(mutator, &oldNode, oldIPv4PodCIDRs...), oldNodeIP, oldNode.EncryptionKey) {
 			if slices.Contains(podCIDRsAdded, entry.Prefix.AsPrefix()) {
 				continue
 			}
 			mu = append(mu, entry)
 		}
-		for entry := range m.podCIDREntries(oldNode.Source, resource, m.cidrsToPrefixesCluster(&oldNode, oldIPv6PodCIDRs...), oldNodeIP, oldNode.EncryptionKey) {
+		for entry := range m.podCIDREntries(oldNode.Source, resource, m.cidrsToPrefixesCluster(mutator, &oldNode, oldIPv6PodCIDRs...), oldNodeIP, oldNode.EncryptionKey) {
 			if slices.Contains(podCIDRsAdded, entry.Prefix.AsPrefix()) {
 				continue
 			}
@@ -349,7 +345,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&oldNode)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, &oldNode)...)
 
 		m.ipcache.RemoveMetadata(prefixCluster, resource,
 			labels.LabelHealth,
@@ -363,7 +359,7 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(&oldNode)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, &oldNode)...)
 
 		m.ipcache.RemoveMetadata(prefixCluster, resource,
 			labels.LabelIngress,
@@ -376,19 +372,10 @@ func (m *manager) removeNodeFromIPCache(oldNode nodeTypes.Node, resource ipcache
 // originates.
 func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	if m.writer == nil {
-		m.policy.Delete(n.Source, n.Identity())
+		m.policy.Delete(n.Source, n.Identity(), nil)
 		return
 	}
 	txn := m.db.WriteTxn(m.writer.Table())
 	m.writer.Delete(txn, n.Source, n.Identity())
 	txn.Commit()
-}
-
-// SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
-// The mutator may then be applied to the PrefixCluster(s) using cmtypes.PrefixClusterFrom.
-func (m *manager) SetPrefixClusterMutatorFn(mutator node.PrefixClusterMutatorFn) {
-	m.prefixClusterMutatorFn = mutator
-	if m.writer != nil {
-		m.writer.SetPrefixClusterMutatorFn(mutator)
-	}
 }

@@ -29,8 +29,15 @@ type updatePolicy struct {
 
 var _ node.UpdatePolicy = &updatePolicy{}
 
+func prefixClusterOpts(mutator node.PrefixClusterMutatorFn, n *nodeTypes.Node) []cmtypes.PrefixClusterOpts {
+	if mutator == nil {
+		return nil
+	}
+	return mutator(n)
+}
+
 // Upsert implements [node.UpdatePolicy].
-func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
+func (p *updatePolicy) Upsert(n *nodeTypes.Node, mutator node.PrefixClusterMutatorFn) (publish bool) {
 	m := p.manager
 	m.logger.Info(
 		"Node updated",
@@ -62,7 +69,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		prefix := netip.PrefixFrom(address.IP.Addr, address.IP.BitLen())
 		var prefixCluster cmtypes.PrefixCluster
 		if address.Type == addressing.NodeCiliumInternalIP {
-			prefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)
+			prefixCluster = cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, n)...)
 		} else {
 			prefixCluster = cmtypes.NewLocalPrefixCluster(prefix)
 		}
@@ -119,11 +126,11 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		ipv6PodCIDRs := n.GetIPv6AllocCIDRs()
 
 		mu := make([]ipcache.MU, 0, len(ipv4PodCIDRs)+len(ipv6PodCIDRs))
-		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(n, ipv4PodCIDRs...), nodeIP, n.EncryptionKey) {
+		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(mutator, n, ipv4PodCIDRs...), nodeIP, n.EncryptionKey) {
 			mu = append(mu, entry)
 			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix.AsPrefix())
 		}
-		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(n, ipv6PodCIDRs...), nodeIP, n.EncryptionKey) {
+		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(mutator, n, ipv6PodCIDRs...), nodeIP, n.EncryptionKey) {
 			mu = append(mu, entry)
 			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix.AsPrefix())
 		}
@@ -136,7 +143,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, n)...)
 
 		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
@@ -155,7 +162,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, n)...)
 
 		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
@@ -187,6 +194,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		oldNode := entry.node
 		entry.node = *n
 		m.removeNodeFromIPCache(
+			mutator,
 			oldNode,
 			resource,
 			nodeIPsAdded,
@@ -211,7 +219,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 }
 
 // Delete implements [node.UpdatePolicy].
-func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identity) (remove bool) {
+func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identity, mutator node.PrefixClusterMutatorFn) (remove bool) {
 	m := p.manager
 	m.logger.Info(
 		"Node deleted",
@@ -252,7 +260,7 @@ func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identi
 	}
 
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-	m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil)
+	m.removeNodeFromIPCache(mutator, entry.node, resource, nil, nil, nil, nil)
 	m.metrics.NumNodes.Dec()
 
 	entry.mutex.Lock()

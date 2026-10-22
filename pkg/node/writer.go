@@ -41,11 +41,11 @@ type Writer struct {
 // of conflict resolution and any state it needs.
 type UpdatePolicy interface {
 	// The publish result only controls remote nodes; UpsertLocal always writes
-	// the local row.
-	Upsert(node *nodeTypes.Node) (publish bool)
+	// the local row. The mutator is the writer's prefix qualification hook.
+	Upsert(node *nodeTypes.Node, mutator PrefixClusterMutatorFn) (publish bool)
 	// Delete reports whether the source owns the cached node and its published
 	// row may be removed, even if that row still has an older source.
-	Delete(src source.Source, identity nodeTypes.Identity) (remove bool)
+	Delete(src source.Source, identity nodeTypes.Identity, mutator PrefixClusterMutatorFn) (remove bool)
 }
 
 // PrefixClusterMutatorFn derives cluster-aware addressing options from a
@@ -334,7 +334,7 @@ func (w *Writer) UpsertLocal(txn statedb.WriteTxn, n *LocalNode) error {
 	}
 	if w.updatePolicy != nil &&
 		!slices.Contains(w.nodes.PendingInitializers(txn), LocalNodeTableInitializerName) {
-		w.updatePolicy.Upsert(&n.Node)
+		w.updatePolicy.Upsert(&n.Node, w.prefixClusterMutatorFn)
 	}
 	return nil
 }
@@ -349,7 +349,7 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 		)
 		return false
 	}
-	if w.updatePolicy != nil && !w.updatePolicy.Upsert(n) {
+	if w.updatePolicy != nil && !w.updatePolicy.Upsert(n, w.prefixClusterMutatorFn) {
 		// Policy rejected the update due to conflict.
 		return false
 	}
@@ -395,7 +395,7 @@ func (w *Writer) writeNode(txn statedb.WriteTxn, n, old *Node) error {
 // a policy, if src still owns the table row. It reports whether the table changed.
 func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool {
 	if w.updatePolicy != nil {
-		if !w.updatePolicy.Delete(src, identity) {
+		if !w.updatePolicy.Delete(src, identity, w.prefixClusterMutatorFn) {
 			return false
 		}
 	}
