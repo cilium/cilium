@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.18.16
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* CiliumEnvoyConfig now only redirects Services in its own namespace, as documented; service references in CiliumClusterwideEnvoyConfig without a namespace default to "default" again. (Backport PR cilium/cilium#49476, Upstream PR cilium/cilium#49076, @maxskokov)
+
+**CI Changes:**
+* ci: Pass the auto-committer secrets to the base images workflow (Backport PR cilium/cilium#49414, Upstream PR cilium/cilium#49453, @aanm)
+* renovate: Open one trusted PR per branch (Backport PR cilium/cilium#49414, Upstream PR cilium/cilium#49381, @aanm)
+
+**Misc Changes:**
+* chore(deps): update auto-merge-trusted-deps (v1.18) (cilium/cilium#49443, @cilium-renovate[bot])
+* chore(deps): update auto-merge-trusted-deps (v1.18) (cilium/cilium#49530, @cilium-renovate[bot])
+* chore(deps): update dependency sphinxcontrib-openapi to v0.10.0 (v1.18) (cilium/cilium#49441, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#49442, @cilium-renovate[bot])
+* chore(deps): update stable lvh-images (v1.18) (patch) (cilium/cilium#49531, @cilium-renovate[bot])
+* clarify co sign documentation to use minimum version to verify signing key (Backport PR cilium/cilium#49476, Upstream PR cilium/cilium#49401, @mfahlandt)
+
+**Other Changes:**
+* install: Update image digests for v1.18.15 (cilium/cilium#49388, @cilium-release-bot[bot])
+
 ## v1.18.15
 
 Summary of Changes
