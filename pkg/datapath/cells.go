@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/act"
 	"github.com/cilium/cilium/pkg/datapath/agentliveness"
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
 	"github.com/cilium/cilium/pkg/datapath/ipcache"
@@ -52,6 +53,8 @@ import (
 var Cell = cell.Module(
 	"datapath",
 	"Datapath",
+
+	config.NodeConfigNotifierCell,
 
 	// Provides all BPF Map which are already provided by via hive cell.
 	maps.Cell,

@@ -12,6 +12,7 @@ import (
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	fakeconnector "github.com/cilium/cilium/pkg/datapath/connector/fake"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
@@ -58,6 +59,8 @@ import (
 var Cell = cell.Module(
 	"fake-datapath",
 	"Fake Datapath",
+
+	config.NodeConfigNotifierCell,
 
 	cell.Provide(
 		func() node.IDHandler {
