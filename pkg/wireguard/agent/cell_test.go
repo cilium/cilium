@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"go4.org/netipx"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
 	"github.com/cilium/hive/cell"
@@ -34,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
@@ -315,7 +317,12 @@ func TestPrivileged_TestWireGuardCell(t *testing.T) {
 
 			// 8.a Ensure the agent subscribed to IPCache events (ipcache-listener job).
 			//     Let's upsert a new identity, and ensure the agent contains it as allowedIP.
-			ipCache.Upsert(pod2IPv4Str, k8s2NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
+			addrCluster := cmtypes.MustParseAddrCluster(pod2IPv4Str)
+			tunnelAddr, _ := netipx.FromStdIP(k8s2NodeIPv4)
+			ipCache.UpsertMetadata(addrCluster.AsPrefixCluster(), source.Kubernetes,
+				ipcachetypes.NewResourceID(ipcachetypes.ResourceKindEndpoint, "default", "pod2"),
+				ipcachetypes.TunnelPeer{Addr: tunnelAddr},
+			)
 
 			// 8.b Ensure the agent has the identity in the peer allowedIPs.
 			require.EventuallyWithT(t, func(c *assert.CollectT) {
