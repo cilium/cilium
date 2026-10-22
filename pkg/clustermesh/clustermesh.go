@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
@@ -51,8 +52,11 @@ type Configuration struct {
 	// endpoints into an existing cache
 	ServiceMerger cmlb.ServiceMerger
 
-	// NodeObserver reacts to node events.
-	NodeObserver nodeStore.NodeManager
+	// DB is the StateDB instance. Used for writing into the node table.
+	DB *statedb.DB
+
+	// NodeWriter gives access to the node table.
+	NodeWriter *node.Writer
 
 	// RemoteIdentityWatcher provides identities that have been allocated on a
 	// remote cluster.
@@ -112,6 +116,9 @@ type ClusterMesh struct {
 	// conf is the configuration, it is immutable after NewClusterMesh()
 	conf Configuration
 
+	// nodeObserver reacts to node events.
+	nodeObserver nodeStore.NodeWriter
+
 	// common implements the common logic to connect to remote clusters.
 	common common.ClusterMesh
 
@@ -136,6 +143,7 @@ func NewClusterMesh(lifecycle cell.Lifecycle, c Configuration) *ClusterMesh {
 
 	cm := &ClusterMesh{
 		conf:           c,
+		nodeObserver:   c.NodeWriter,
 		globalServices: common.NewGlobalServiceCache(c.Logger),
 		FeatureMetrics: c.FeatureMetrics,
 	}
@@ -188,7 +196,7 @@ func (cm *ClusterMesh) NewRemoteCluster(name string, status common.StatusFunc) c
 			nodeStore.NameValidator(),
 			nodeStore.ClusterIDValidator(&rc.clusterID),
 		),
-		nodeStore.NewNodeObserver(cm.conf.NodeObserver, source.ClusterMesh),
+		nodeStore.NewNodeObserver(cm.conf.DB, cm.nodeObserver, source.ClusterMesh),
 		store.RWSWithOnSyncCallback(func(ctx context.Context) { close(rc.synced.nodes) }),
 		store.RWSWithEntriesMetric(cm.conf.Metrics.TotalNodes.WithLabelValues(rc.name)),
 	)

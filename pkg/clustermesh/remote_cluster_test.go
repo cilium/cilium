@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/source"
 	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
@@ -154,6 +155,7 @@ func TestRemoteClusterRun(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := hivetest.Logger(t)
+			nodeDB, nodeWriter := newNodeWriter(t)
 			var wg sync.WaitGroup
 			ctx, cancel := context.WithCancel(context.Background())
 
@@ -175,9 +177,10 @@ func TestRemoteClusterRun(t *testing.T) {
 
 			var ipc fakeIPCache
 			cm := ClusterMesh{
+				nodeObserver: nodeWriter,
 				conf: Configuration{
+					DB:                    nodeDB,
 					ServiceModeV2Config:   types.ServiceModeV2Config{ServiceModeV2: tt.serviceModeV2},
-					NodeObserver:          newNodesObserver(),
 					IPCache:               &ipc,
 					RemoteIdentityWatcher: allocator,
 					ClusterIDsManager:     common.NewClusterIDsManager(types.ClusterInfo{ID: localClusterID}),
@@ -253,9 +256,6 @@ func (o *fakeObserver) reset() {
 	o.deletes.Store(0)
 }
 
-func (o *fakeObserver) NodeUpdated(_ nodeTypes.Node) { o.updates.Add(1) }
-func (o *fakeObserver) NodeDeleted(_ nodeTypes.Node) { o.deletes.Add(1) }
-
 func (o *fakeObserver) MergeExternalServiceUpdate(_ *serviceStore.ClusterService) {
 	o.updates.Add(1)
 }
@@ -272,6 +272,21 @@ func (o *fakeObserver) Upsert(string, net.IP, uint8, *ipcache.K8sMetadata, ipcac
 func (o *fakeObserver) Delete(string, source.Source) bool {
 	o.deletes.Add(1)
 	return false
+}
+
+type countingNodeWriter struct {
+	*node.Writer
+	observer *fakeObserver
+}
+
+func (w *countingNodeWriter) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
+	w.observer.updates.Add(1)
+	return w.Writer.Upsert(txn, n)
+}
+
+func (w *countingNodeWriter) Delete(txn statedb.WriteTxn, src source.Source, id nodeTypes.Identity) bool {
+	w.observer.deletes.Add(1)
+	return w.Writer.Delete(txn, src, id)
 }
 
 func TestRemoteClusterClusterIDChange(t *testing.T) {
@@ -301,6 +316,7 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 	}
 
 	logger := hivetest.Logger(t)
+	nodeDB, nodeWriter := newNodeWriter(t)
 	store := store.NewFactory(logger, store.MetricsProvider())
 	var wg sync.WaitGroup
 	ctx := context.Background()
@@ -313,9 +329,10 @@ func TestRemoteClusterClusterIDChange(t *testing.T) {
 
 	var obs fakeObserver
 	cm := ClusterMesh{
+		nodeObserver: &countingNodeWriter{Writer: nodeWriter, observer: &obs},
 		conf: Configuration{
+			DB:                    nodeDB,
 			ServiceModeV2Config:   types.ServiceModeV2Config{ServiceModeV2: types.ServiceV2PreferLegacy},
-			NodeObserver:          &obs,
 			ServiceMerger:         &obs,
 			IPCache:               &obs,
 			RemoteIdentityWatcher: allocator,
