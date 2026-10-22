@@ -192,7 +192,7 @@ framework:
 
   - :ref:`Instructions for building the documentation locally
     <testing-documentation>`
-  - ``Documentation/Makefile``, ``Documentation/Dockerfile``,
+  - ``Documentation/Makefile``, ``images/docs-builder/Dockerfile``,
     ``Documentation/check-build.sh``
   - Dependencies are in ``Documentation/requirements.txt``, which is generated
     from ``Documentation/requirements_min/requirements.txt``
@@ -232,7 +232,7 @@ Integration tests
 
 Integration tests, be it on Travis or on GitHub Actions, are the only workflows
 that rebuild the ``docs-builder`` image. Building this image is necessary to
-validate changes to the ``Documentation/Dockerfile`` or to the list of Python
+validate changes to the ``images/docs-builder/Dockerfile`` or to the list of Python
 dependencies located in ``Documentation/requirements.txt``. The GitHub workflow
 uses a pre-built image instead, and won't incorporate changes to these files.
 

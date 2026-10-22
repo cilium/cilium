@@ -8,23 +8,36 @@ on:
       - synchronize
       - reopened
     paths:
-      - Documentation/Dockerfile
-      - Documentation/requirements.txt
+      - images/docs-builder/**
     branches-ignore:
       - v1.20
       - v1.19
       - v1.18
+  # Renovate branches build from a different environment than 'docs-builder'.
+  # See build-images-docs-builder-renovate.yaml
+  workflow_call:
+    secrets:
+      AUTO_COMMITTER_PEM_202411:
+        required: true
+      AUTO_COMMITTER_APP_ID_202411:
+        required: true
+    inputs:
+      environment:
+        required: true
+        type: string
 
 permissions:
   # To be able to access the repository with `actions/checkout`
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-and-push:
+    # Renovate branches build through build-images-docs-builder-renovate.yaml
+    if: ${{ ! (github.event_name == 'pull_request_target' && startsWith(github.head_ref, 'renovate/')) }}
     name: Build and Push Image
     runs-on: ubuntu-26.04
     timeout-minutes: 30
@@ -33,7 +46,7 @@ jobs:
       # Required by the Quay OIDC token exchange.
       id-token: write
     environment:
-      name: docs-builder
+      name: ${{ inputs.environment || 'docs-builder' }}
       deployment: false
     outputs:
       tag: ${{ steps.docs-builder-tag.outputs.tag }}
@@ -42,7 +55,7 @@ jobs:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.base_ref }}
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
@@ -60,14 +73,14 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
           allow-unsafe-pr-checkout: true
 
       - name: Generate image tag for docs-builder
         id: docs-builder-tag
         run: |
-          echo tag="$(git ls-tree --full-tree HEAD -- ./Documentation | awk '{ print $3 }')" >> $GITHUB_OUTPUT
+          echo tag="$(git ls-tree --full-tree HEAD -- ./images/docs-builder | awk '{ print $3 }')" >> $GITHUB_OUTPUT
 
       - name: Check if tag for docs-builder already exists
         id: docs-builder-tag-in-repositories
@@ -125,8 +138,8 @@ jobs:
         id: docker-build-docs-builder
         with:
           provenance: false
-          context: ./Documentation
-          file: ./Documentation/Dockerfile
+          context: ./images/docs-builder
+          file: ./images/docs-builder/Dockerfile
           push: true
           tags: |
             ${{ env.REGISTRY_DEV }}/${{ env.ORGANIZATION_DEV }}/docs-builder:${{ steps.docs-builder-tag.outputs.tag }}
@@ -146,7 +159,7 @@ jobs:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.base_ref }}
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Set environment variables
@@ -158,7 +171,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
           allow-unsafe-pr-checkout: true
 
@@ -195,14 +208,14 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     environment:
-      name: docs-builder
+      name: ${{ inputs.environment || 'docs-builder' }}
       deployment: false
     steps:
       - name: Checkout pull request branch (NOT TRUSTED)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           # Required by checkout v7+ to fetch fork PR code; see the NOT TRUSTED warning above.
           allow-unsafe-pr-checkout: true
 
@@ -229,10 +242,21 @@ jobs:
 
       - name: Push changes into PR
         env:
-          REF: ${{ github.event.pull_request.head.ref }}
+          REF: ${{ github.event.pull_request.head.ref || github.ref_name }}
         run: |
           git diff HEAD^
-          git push --no-verify https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git HEAD:"$REF"
+          url="https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ github.event.pull_request.head.repo.full_name || github.repository }}.git"
+          for attempt in 1 2 3; do
+            if git push --no-verify "${url}" HEAD:"$REF"; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              exit 1
+            fi
+            # The base images workflow can push to the same Renovate branch.
+            git fetch "${url}" "$REF"
+            git rebase FETCH_HEAD
+          done
 
   image-digest:
     name: Retrieve and display image digest
@@ -244,7 +268,7 @@ jobs:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.base_ref }}
+          ref: ${{ github.base_ref || github.event.repository.default_branch }}
           persist-credentials: false
 
       - name: Set environment variables

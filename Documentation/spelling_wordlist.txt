@@ -605,6 +605,7 @@ modularity
 modularizing
 mountPath
 mov
+ms
 mtk
 mtls
 mtu
@@ -867,6 +868,7 @@ transpiling
 triager
 triagers
 truthy
+ts
 tsne
 tunables
 tunings
@@ -949,5 +951,6 @@ xoring
 xt
 xwing
 yaml
+zeroes
 zsh
 ztunnel

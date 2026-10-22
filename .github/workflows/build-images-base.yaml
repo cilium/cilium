@@ -398,7 +398,18 @@ jobs:
             fi
           fi
           git diff HEAD^
-          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git HEAD:$ref
+          url="https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git"
+          for attempt in 1 2 3; do
+            if git push "${url}" HEAD:"$ref"; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              exit 1
+            fi
+            # The docs-builder workflow can push to the same Renovate branch.
+            git fetch "${url}" "$ref"
+            git rebase FETCH_HEAD
+          done
 
       - name: Prepare for Image Digests
         shell: bash

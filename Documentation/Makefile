@@ -3,44 +3,30 @@
 
 include ../Makefile.defs
 include ../Makefile.quiet
+include ../images/Makefile.docs
 
 HELM_VALUES := helm-values.rst
-REQUIREMENTS_NODEP := requirements-min/requirements.txt
-REQUIREMENTS := requirements.txt
 SPHINX_OPTS := "-j=auto"
 
-.PHONY: default clean help builder-image cilium-build cmdref epub latex html
+.PHONY: default clean help cilium-build cmdref epub latex html
 
 ##@ Targets (default: "html")
 
 default: html
 
-define build_image
-  $(ECHO_DOCKER) $(3)
-  # Pre-pull FROM docker image due to Buildkit sometimes failing to pull them.
-  grep --color=never -m 1 "^FROM " $(1) | tr -d '\r' | cut -d ' ' -f2 | xargs -n1 $(CONTAINER_ENGINE) pull
-  $(QUIET)tar --owner=0 --group=0 -c $(REQUIREMENTS) Dockerfile \
-    | $(CONTAINER_ENGINE) build $(DOCKER_BUILD_FLAGS) \
-                          --build-arg READTHEDOCS_VERSION \
-                          --target $(2) --tag $(3) -
-endef
+DOCS_BUILDER_IMG ?= quay.io/cilium/docs-builder:d9d83a9bff0a0679f96bf3c8f242b2041391c6af@sha256:614103d1a8e778993d592665caaad8b132b313832ca8282b7618d064842e3929
 
-##@ Development Images
+.PHONY: update-docs-builder-image
+update-docs-builder-image: DOCS_BUILDER_TAG=$(word 3,$(shell git ls-tree --full-tree HEAD -- $(ROOT_DIR)/images/$(DOCS_BUILDER_DIR)))
+update-docs-builder-image:
+	if [ -z "$(findstring $(DOCS_BUILDER_TAG),$(DOCS_BUILDER_IMG))" ]; then \
+		$(ROOT_DIR)/Documentation/update-docs-builder-image.sh '$(DOCS_BUILDER_REPO):$(DOCS_BUILDER_TAG)'; \
+	fi
 
-DOCS_BASE_IMG ?= cilium/docs-base
-base-image: Dockerfile ## Build the docs-base image for updating the requirements.txt file.
-	$(call build_image,$<,docs-base,$(DOCS_BASE_IMG))
-
-DOCS_BUILDER_IMG ?= quay.io/cilium/docs-builder:e6773ed21ab03066c0f24e68f342f18804a8ee0a@sha256:d3beff6d6408c09f6e1dbc637f7e98962b7d1fd2a81bf1d2a27ff8817dafb51f
-DOCS_BUILDER_REPO := $(shell echo $(DOCS_BUILDER_IMG) | sed -E 's/:.*//')
-
-ifndef SKIP_BUILDER_IMAGE
-builder-image: Dockerfile $(REQUIREMENTS) ## Build the docs-builder image for rendering and checking the documentation.
-	$(call build_image,$<,docs-builder,$(DOCS_BUILDER_REPO))
-else
+.PHONY: builder-image
 builder-image:
-	@echo "SKIP_BUILDER_IMAGE set, assuming image is already present and up-to-date."
-endif
+	$(MAKE) -C ../images -f Makefile.docs docs-builder-image
+	$(MAKE) update-docs-builder-image
 
 # cilium must have all build artifacts present for
 # documentation to be generated correctly.
@@ -53,29 +39,12 @@ else
 endif
 
 READTHEDOCS_VERSION ?= latest
-DOCKER_CTR_ROOT_DIR := /src
-DOCKER_CTR_BASE := $(CONTAINER_ENGINE) container run --rm \
-		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
-		--env GIT_CONFIG_COUNT=1 \
-		--env GIT_CONFIG_KEY_0=safe.directory \
-		--env GIT_CONFIG_VALUE_0=$(DOCKER_CTR_ROOT_DIR) \
-		--volume $(CURDIR)/..:$(DOCKER_CTR_ROOT_DIR) \
-		--user "$(shell id -u):$(shell id -g)"
 DOCKER_CTR := $(DOCKER_CTR_BASE) \
+		--workdir $(DOCKER_CTR_ROOT_DIR)/Documentation \
 		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
 		--env INCREMENTAL=$(INCREMENTAL)
 DOCKER_RUN := $(DOCKER_CTR) $(DOCS_BUILDER_IMG)
-
-# Sphinx loads the Rediraffe extension, which needs access to git metadata. In a git worktree, .git points outside the mounted source tree.
-# Mount the common git dir at a well known path, and set GIT_DIR to the corresponding directory within that mount.
-HOST_GIT_DIR := $(shell git rev-parse --absolute-git-dir 2>/dev/null)
-HOST_GIT_COMMON_DIR := $(shell git rev-parse --path-format=absolute --git-common-dir 2>/dev/null)
-DOCKER_SPHINX_CTR := $(DOCKER_CTR) \
-	--volume $(HOST_GIT_COMMON_DIR):/git-common-dir:ro \
-	--env GIT_WORK_TREE=$(DOCKER_CTR_ROOT_DIR) \
-	--env GIT_DIR=/git-common-dir$(patsubst $(HOST_GIT_COMMON_DIR)%,%,$(HOST_GIT_DIR)) # Preserve the GIT_DIR path within the common-dir mount so commondir resolves correctly.
-DOCKER_SPHINX_RUN := $(DOCKER_SPHINX_CTR) $(DOCS_BUILDER_IMG)
 
 ##@ Auto-generated Contents Updates and Validation
 
@@ -135,6 +104,8 @@ $(HELM_VALUES): FORCE
 	$(QUIET)$(RM) -- $(TMP_FILE_1) $(TMP_FILE_2) $(TMP_FILE_3)
 
 check: builder-image api-flaggen update-cmdref update-feature-metrics update-crdlist update-helm-values update-codeowners update-redirects ## Validate command and Helm references, policy examples, and others.
+	@$(ECHO_CHECK) ./check-docs-builder-image.sh
+	$(QUIET) ./check-docs-builder-image.sh '$(DOCS_BUILDER_IMG)'
 	@$(ECHO_CHECK) cmdref
 	$(QUIET) ./check-cmdref.sh
 	@$(ECHO_CHECK) feature-metrics
@@ -160,7 +131,7 @@ endif
 
 html epub latex: builder-image ## Check documentation and render it under the specified format.
 	@$(ECHO_GEN)_build/$@
-	$(QUIET)$(DOCKER_SPHINX_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
+	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
 
 html-netlify:
 	@$(ECHO_GEN)_build/$@
@@ -170,23 +141,22 @@ DOCS_PORT = 9081
 
 live-preview: builder-image ## Build and serve the documentation locally.
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
-	$(QUIET)$(DOCKER_SPHINX_CTR) \
+	$(QUIET)$(DOCKER_CTR) \
 		--publish $(DOCS_PORT):$(DOCS_PORT) \
 			$(DOCS_BUILDER_IMG) \
 		sphinx-autobuild --open-browser --host 0.0.0.0 --port $(DOCS_PORT) $(SPHINX_OPTS) --ignore "*.swp" -Q . _preview
 
 update-redirects: builder-image ## Build and serve the documentation locally.
 	@echo "$$(tput setaf 2)Writing redirects$$(tput sgr0)"
-	$(QUIET)$(DOCKER_SPHINX_CTR) \
+	$(QUIET)$(DOCKER_CTR) \
 		$(DOCS_BUILDER_IMG) \
 		sphinx-build -M rediraffewritediff . _preview
 
 ##@ Development
 
-update-requirements: base-image $(REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
-	@echo '## Auto-generated from $(REQUIREMENTS_NODEP) with "make update-requirements"' > $(REQUIREMENTS)
-	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
-		bash -c "export HOME=/tmp && pip install --no-warn-script-location -r $(REQUIREMENTS_NODEP) && pip freeze -r $(REQUIREMENTS_NODEP) >> $(REQUIREMENTS)"
+.PHONY: update-requirements
+update-requirements:
+	$(MAKE) -C $(ROOT_DIR)/images -f Makefile.docs docs-builder/$(DOCS_REQUIREMENTS)
 
 clean: ## Clean up all artefacts from documentation.
 	-$(QUIET)rm -rf _build _exts/__pycache__ _preview Pipfile Pipfile.lock
