@@ -390,6 +390,28 @@ func TestRecalculateIPv6Only(t *testing.T) {
 	})
 }
 
+func TestRecalculateAvailableIPs(t *testing.T) {
+	t.Run("every IPv4 address of attached CIDRs is counted", func(t *testing.T) {
+		n := newPoolDemandNode(t, 8, 0)
+		n.ops.(*nodeOperationsMock).attachedCIDRs = []netip.Prefix{
+			netip.MustParsePrefix("10.0.0.1/32"),
+			netip.MustParsePrefix("10.0.0.16/28"),
+			netip.MustParsePrefix("2001:db8::/80"),
+		}
+		n.recalculate(t.Context())
+
+		require.Equal(t, 17, n.Stats().IPv4.AvailableIPs)
+	})
+
+	t.Run("allocation map is counted when no attached CIDRs are reported", func(t *testing.T) {
+		n := newPoolDemandNode(t, 8, 0)
+		n.ops.(*nodeOperationsMock).allocatedIPs = []string{"10.0.0.1", "10.0.0.2"}
+		n.recalculate(t.Context())
+
+		require.Equal(t, 2, n.Stats().IPv4.AvailableIPs)
+	})
+}
+
 func TestDetermineMaintenanceActionIPv6Only(t *testing.T) {
 	t.Run("IPv6-only node allocates no IPv4 addresses", func(t *testing.T) {
 		n := newPoolDemandNode(t, 0, 8)
