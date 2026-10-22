@@ -245,16 +245,17 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 	for l4, policySelectorTuple := range selectorPolicy.RedirectFilters() {
 		// Possible listener name for both the proxy ID and the proxyPolicy below.
 		listener := policySelectorTuple.Policy.GetListener()
+		parser := policySelectorTuple.Policy.GetL7Parser()
 
 		n := 0
-		for proxyID, dstPort := range e.proxyIDs(selectorPolicy, l4, listener, selectors) {
+		for proxyID, dstPort := range e.proxyIDs(selectorPolicy, l4, parser, listener, selectors) {
 			n++
 			// desiredRedirects starts out empty, so we can use it to check if this
 			// redirect has already been updated on this round.
 			if desiredRedirects[proxyID] != 0 {
 				continue
 			}
-			pp := newProxyPolicy(l4, policySelectorTuple.Policy.L7Parser, listener, dstPort, l4.U8Proto)
+			pp := newProxyPolicy(l4, parser, listener, dstPort, l4.U8Proto)
 			proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
 			if err != nil {
 				// Skip redirects that can not be created or updated.  This
@@ -285,7 +286,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			// Update the endpoint API model to report that Cilium manages a
 			// redirect for that port.
 			statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, proxyPort)
-			proxyStats := e.getProxyStatistics(statsKey, string(policySelectorTuple.Policy.L7Parser), dstPort, l4.Ingress, proxyPort)
+			proxyStats := e.getProxyStatistics(statsKey, string(parser), dstPort, l4.Ingress, proxyPort)
 			updatedStats = append(updatedStats, proxyStats)
 		}
 		// count missing proxy port mapping as skipped
@@ -330,7 +331,7 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[st
 		// active or known for that port anymore. We never delete stats
 		// until an endpoint is deleted, so we only set the redirect port
 		// to 0.
-		_, ingress, protocol, port, _, _ := policy.ParseProxyID(id)
+		_, ingress, protocol, port, _, _, _ := policy.ParseProxyID(id)
 		key := policy.ProxyStatsKey(ingress, protocol, port, redirectPort)
 		e.proxyStatisticsMutex.Lock()
 		if proxyStats, ok := e.proxyStatistics[key]; ok {

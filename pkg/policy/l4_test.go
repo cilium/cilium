@@ -658,11 +658,11 @@ func BenchmarkContainsAllL3L4(b *testing.B) {
 	b.ReportAllocs()
 	for range 1000 {
 		b.StartTimer()
-		proxyID := ProxyID(id, true, "TCP", port, "")
-		if proxyID != strconv.FormatInt(int64(id), 10)+"ingress:TCP:8080:" {
+		proxyID := ProxyID(id, true, "TCP", port, ParserTypeNone, "")
+		if proxyID != strconv.FormatUint(uint64(id), 10)+":ingress:TCP:"+strconv.FormatUint(uint64(port), 10)+"::" {
 			b.Failed()
 		}
-		_, _, _, _, _, err := ParseProxyID(proxyID)
+		_, _, _, _, _, _, err := ParseProxyID(proxyID)
 		if err != nil {
 			b.Failed()
 		}

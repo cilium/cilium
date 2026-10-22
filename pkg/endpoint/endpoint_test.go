@@ -1058,11 +1058,19 @@ func collectProxyIDs(seq iter.Seq2[string, uint16]) []proxyIDResult {
 }
 
 type testSelectorPolicy struct {
-	portMap map[identity.NumericIdentity]uint16
+	portMap          map[identity.NumericIdentity]uint16
+	redirectL4       *policy.L4Filter
+	redirectPolicies []policy.PerSelectorPolicyTuple
 }
 
 func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, policy.PerSelectorPolicyTuple] {
-	return func(func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {}
+	return func(yield func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {
+		for _, tuple := range sp.redirectPolicies {
+			if !yield(sp.redirectL4, tuple) {
+				return
+			}
+		}
+	}
 }
 
 func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) *policy.EndpointPolicy {
@@ -1100,8 +1108,6 @@ func (sp *testSelectorPolicy) Supersede() {}
 func (sp *testSelectorPolicy) GetRevision() uint64 { return 0 }
 
 func TestProxyID(t *testing.T) {
-	setupEndpointSuite(t)
-
 	e := &Endpoint{ID: 123, policyRevision: 0}
 	e.UpdateLogger(nil)
 
@@ -1110,61 +1116,65 @@ func TestProxyID(t *testing.T) {
 		102: 9090,
 	}}
 
-	resolved := collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
+	resolved := collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, policy.ParserTypeHTTP, "", policy.SelectorSnapshot{}))
 	require.Len(t, resolved, 1)
 	id, port := resolved[0].id, resolved[0].port
 	require.NotEmpty(t, id)
 	require.Equal(t, uint16(8080), port)
 
-	endpointID, ingress, protocol, port, listener, err := policy.ParseProxyID(id)
+	endpointID, ingress, protocol, port, parser, listener, err := policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
 	require.True(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
 	require.Empty(t, listener)
+	require.Equal(t, policy.ParserTypeHTTP, parser)
 	require.NoError(t, err)
 
-	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "test-listener", policy.SelectorSnapshot{}))
+	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, policy.ParserTypeHTTP, "test-listener", policy.SelectorSnapshot{}))
 	require.Len(t, resolved, 1)
 	id, port = resolved[0].id, resolved[0].port
 	require.NotEmpty(t, id)
 	require.Equal(t, uint16(8080), port)
-	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
+	endpointID, ingress, protocol, port, parser, listener, err = policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
 	require.True(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(8080), port)
 	require.Equal(t, "test-listener", listener)
+	require.Equal(t, policy.ParserTypeHTTP, parser)
 	require.NoError(t, err)
 
 	// Undefined named port
-	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
+	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{PortName: "foobar", Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, policy.ParserTypeHTTP, "", policy.SelectorSnapshot{}))
 	require.Empty(t, resolved)
 
-	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, "", policy.SelectorSnapshot{}))
+	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Protocol: api.ProtoTCP, U8Proto: u8proto.TCP, Ingress: true}, policy.ParserTypeHTTP, "", policy.SelectorSnapshot{}))
 	require.Len(t, resolved, 1)
 	id, port = resolved[0].id, resolved[0].port
 	require.NotEmpty(t, id)
 	require.Equal(t, uint16(0), port)
-	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
+	endpointID, ingress, protocol, port, parser, listener, err = policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
 	require.True(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(0), port)
 	require.Empty(t, listener)
+	require.Equal(t, policy.ParserTypeHTTP, parser)
 	require.NoError(t, err)
 
-	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Protocol: api.ProtoTCP, U8Proto: u8proto.TCP}, "test-listener", policy.SelectorSnapshot{}))
+	resolved = collectProxyIDs(e.proxyIDs(mockSelectorPolicy, &policy.L4Filter{Protocol: api.ProtoTCP, U8Proto: u8proto.TCP}, policy.ParserTypeHTTP, "test-listener", policy.SelectorSnapshot{}))
 	require.Len(t, resolved, 1)
 	id, port = resolved[0].id, resolved[0].port
 	require.NotEmpty(t, id)
 	require.Equal(t, uint16(0), port)
-	endpointID, ingress, protocol, port, listener, err = policy.ParseProxyID(id)
+	endpointID, ingress, protocol, port, parser, listener, err = policy.ParseProxyID(id)
 	require.Equal(t, uint16(123), endpointID)
 	require.False(t, ingress)
 	require.Equal(t, "TCP", protocol)
 	require.Equal(t, uint16(0), port)
 	require.Equal(t, "test-listener", listener)
+	require.Equal(t, policy.ParserTypeHTTP, parser)
 	require.NoError(t, err)
 
 	e.SetK8sMetadata(ciliumTypes.NamedPortMap{
@@ -1179,10 +1189,52 @@ func TestProxyID(t *testing.T) {
 		PerSelectorPolicies: policy.L7DataMap{
 			backendSelector: nil,
 		},
-	}, "", selectorSnapshot))
+	}, policy.ParserTypeHTTP, "", selectorSnapshot))
 	require.Len(t, resolved, 2)
 	require.Equal(t, uint16(8080), resolved[0].port)
 	require.Equal(t, uint16(9090), resolved[1].port)
+}
+
+func TestMixedParserRedirects(t *testing.T) {
+	l4 := &policy.L4Filter{Port: 443, Protocol: api.ProtoTCP, U8Proto: u8proto.TCP}
+	http := policy.PerSelectorPolicyTuple{Policy: &policy.PerSelectorPolicy{L7Parser: policy.ParserTypeHTTP}}
+	tls := policy.PerSelectorPolicyTuple{Policy: &policy.PerSelectorPolicy{L7Parser: policy.ParserTypeTLS}}
+
+	for _, tc := range []struct {
+		name     string
+		policies []policy.PerSelectorPolicyTuple
+	}{
+		{name: "HTTP first", policies: []policy.PerSelectorPolicyTuple{http, tls}},
+		{name: "TLS first", policies: []policy.PerSelectorPolicyTuple{tls, http}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			proxy := &RedirectSuiteProxy{
+				parserProxyPortMap: map[string]uint16{"http": 19001, "tls": 19003},
+				redirects:          map[string]uint16{},
+			}
+			e := &Endpoint{ID: 123, proxy: proxy}
+			e.UpdateLogger(nil)
+			sp := &testSelectorPolicy{redirectL4: l4, redirectPolicies: tc.policies}
+
+			desired, skipped, _ := e.addNewRedirects(sp, nil)
+			require.Zero(t, skipped)
+			require.Equal(t, map[string]uint16{
+				policy.ProxyID(123, false, "TCP", 443, policy.ParserTypeHTTP, ""): 19001,
+				policy.ProxyID(123, false, "TCP", 443, policy.ParserTypeTLS, ""):  19003,
+			}, desired)
+			require.Equal(t, desired, proxy.redirects)
+
+			epPolicy := &policy.EndpointPolicy{PolicyOwner: e, Redirects: desired}
+			for parser, want := range map[policy.L7ParserType]uint16{
+				policy.ParserTypeHTTP: 19001,
+				policy.ParserTypeTLS:  19003,
+			} {
+				port, err := epPolicy.LookupRedirectPort(false, "TCP", 443, parser, "")
+				require.NoError(t, err)
+				require.Equal(t, want, port)
+			}
+		})
+	}
 }
 
 func endpointCachedSelectorForIdentities(t testing.TB, selectorLabel string, identities ...identity.NumericIdentity) (policy.CachedSelector, policy.SelectorSnapshot) {

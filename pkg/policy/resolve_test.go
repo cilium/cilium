@@ -42,7 +42,7 @@ var (
 )
 
 var testRedirects = map[string]uint16{
-	"1234:ingress:TCP:80:": 1,
+	"1234:ingress:TCP:80:http:": 1,
 }
 
 func generateNumIdentities(numIdentities int) identity.IdentityMap {
