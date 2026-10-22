@@ -6,10 +6,12 @@ package ciliumendpointslice
 import (
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -1003,4 +1005,110 @@ func TestReconcileNoop(t *testing.T) {
 	assert.True(t, noRequest)
 
 	hive.Stop(tlog, t.Context())
+}
+
+// TestCESUpToDate verifies the up-to-date check used to skip CES watch events
+// in slim mode, where endpoints are derived from Pods.
+func TestCESUpToDate(t *testing.T) {
+	var r *slimReconciler
+	var fakeClient *k8sClient.FakeClientset
+	m := newSlimManager(2, hivetest.Logger(t))
+	var pods resource.Resource[*slim_corev1.Pod]
+	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+	var ciliumNode resource.Resource[*cilium_v2.CiliumNode]
+	var namespace resource.Resource[*slim_corev1.Namespace]
+	var ciliumIdentity resource.Resource[*cilium_v2.CiliumIdentity]
+	var cesMetrics *Metrics
+	hive := hive.New(
+		k8sClient.FakeClientCell(),
+		k8s.ResourcesCell,
+		metrics.Metric(NewMetrics),
+		cell.Invoke(func(
+			c *k8sClient.FakeClientset,
+			p resource.Resource[*slim_corev1.Pod],
+			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			cn resource.Resource[*cilium_v2.CiliumNode],
+			ns resource.Resource[*slim_corev1.Namespace],
+			ci resource.Resource[*cilium_v2.CiliumIdentity],
+			metrics *Metrics,
+		) error {
+			fakeClient = c
+			pods = p
+			ciliumEndpointSlice = ces
+			ciliumNode = cn
+			namespace = ns
+			ciliumIdentity = ci
+			cesMetrics = metrics
+			return nil
+		}),
+	)
+
+	tlog := hivetest.Logger(t)
+	labelsfilter.ParseLabelPrefixCfg(tlog, nil, nil, "")
+	hive.Start(tlog, t.Context())
+	defer hive.Stop(tlog, t.Context())
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+	podStore, _ := pods.Store(t.Context())
+	cidStore, _ := ciliumIdentity.Store(t.Context())
+	nodeStore, _ := ciliumNode.Store(t.Context())
+	nsStore, _ := namespace.Store(t.Context())
+	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, hivetest.Logger(t), cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+
+	nodeStore.CacheStore().Add(tu.CreateStoreNode("node1"))
+	m.mapping.insertNode(NodeName("node1"), EncryptionKey(0))
+	ns1 := cidtest.NewNamespace("ns", nil)
+	nsStore.CacheStore().Add(ns1)
+	pod1 := cidtest.NewPod("pod1", "ns", tu.TestLbsA, "node1")
+	podStore.CacheStore().Add(pod1)
+	cid1 := cidtest.NewCIDWithNamespace("1", pod1, ns1)
+	cidStore.CacheStore().Add(cid1)
+	pod2 := cidtest.NewPod("pod2", "ns", tu.TestLbsB, "node1")
+	podStore.CacheStore().Add(pod2)
+	cid2 := cidtest.NewCIDWithNamespace("2", pod2, ns1)
+	cidStore.CacheStore().Add(cid2)
+
+	m.mapping.insertCES(CESName("ces1"), "ns")
+	_, gidA := cidToGidLabels(cid1)
+	_, gidB := cidToGidLabels(cid2)
+	m.mapping.insertCID("1", gidA)
+	m.mapping.insertCID("2", gidB)
+	m.mapping.addCEP(NewCEPName("pod1", "ns"), CESName("ces1"), "node1", gidA)
+	m.mapping.addCEP(NewCEPName("pod2", "ns"), CESName("ces1"), "node1", gidB)
+
+	require.True(t, r.cesHasEndpoints(CESName("ces1")))
+	require.False(t, r.cesHasEndpoints(CESName("ces-unmapped")))
+
+	// The CES written by the reconciler is up to date as observed in the store.
+	require.NoError(t, r.reconcileCES(t.Context(), CESName("ces1")))
+	storeKey := NewCESKey("ces1", "").key()
+
+	var ces *cilium_v2a1.CiliumEndpointSlice
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		obj, exists, _ := cesStore.GetByKey(storeKey)
+		require.True(c, exists)
+		require.Len(c, obj.Endpoints, 2)
+		require.True(c, r.cesUpToDate(obj))
+		ces = obj
+	}, time.Second, 10*time.Millisecond)
+
+	// It is no longer up to date once a Pod changes (here: moves to an unknown
+	// node, so that its endpoint can't be derived anymore) or a Pod is
+	// unmapped.
+	moved := pod2.DeepCopy()
+	moved.Spec.NodeName = "node2"
+	podStore.CacheStore().Update(moved)
+	assert.False(t, r.cesUpToDate(ces))
+	podStore.CacheStore().Update(pod2)
+	assert.True(t, r.cesUpToDate(ces))
+
+	m.RemovePodMapping(pod2)
+	assert.False(t, r.cesUpToDate(ces))
+	m.mapping.addCEP(NewCEPName("pod2", "ns"), CESName("ces1"), "node1", gidB)
+	assert.True(t, r.cesUpToDate(ces))
+
+	// And never when nothing is mapped to it anymore.
+	m.RemovePodMapping(pod1)
+	m.RemovePodMapping(pod2)
+	assert.False(t, r.cesHasEndpoints(CESName("ces1")))
+	assert.False(t, r.cesUpToDate(ces))
 }
