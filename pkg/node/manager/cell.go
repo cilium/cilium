@@ -21,7 +21,7 @@ import (
 // Cell installs the node update policy and provides node configuration notifications.
 var Cell = cell.Module(
 	"node-manager",
-	"Manages the collection of Cilium nodes",
+	"Applies node update policy and provides node configuration updates",
 	cell.Invoke(installUpdatePolicy),
 	cell.Provide(newNodeConfigNotifier),
 	metrics.Metric(NewNodeMetrics),
@@ -39,7 +39,7 @@ func installUpdatePolicy(in struct {
 	Writer      *node.Writer
 },
 ) error {
-	_, err := New(
+	_, err := newUpdatePolicy(
 		in.Logger,
 		option.Config,
 		in.ClusterInfo,
