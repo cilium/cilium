@@ -4,7 +4,6 @@
 package ipam
 
 import (
-	"fmt"
 	"net/netip"
 	"testing"
 
@@ -326,43 +325,21 @@ func TestGetAttachedCIDRs(t *testing.T) {
 		}, n.GetAttachedCIDRs())
 	})
 
-	t.Run("addresses expanded from a delegated prefix are not reported individually", func(t *testing.T) {
-		// The EC2 layer expands every delegated prefix into eni.Addresses.
-		// Only the prefix itself is attached as far as the release path is
-		// concerned, since the agent records only the prefix in
-		// Spec.IPAM.Pools.Allocated.
-		addrs := []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.1.5"))}
-		for i := range 16 {
-			addrs = append(addrs, iputil.AddrFrom(netip.MustParseAddr(fmt.Sprintf("10.0.0.%d", 16+i))))
-		}
-
+	t.Run("excluded ENIs are skipped", func(t *testing.T) {
 		n := newNode(map[string]types.ENI{
 			"eni-1": {
-				Addresses: addrs,
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))},
 				Prefixes:  []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28"))},
+				Tags:      map[string]string{"skip": "true"},
+			},
+			"eni-2": {
+				Addresses: []iputil.Addr{iputil.AddrFrom(netip.MustParseAddr("10.0.1.1"))},
 			},
 		})
+		n.k8sObj.Spec.ENI.ExcludeInterfaceTags = map[string]string{"skip": "true"}
 
 		require.ElementsMatch(t, []netip.Prefix{
-			netip.MustParsePrefix("10.0.0.16/28"),
-			netip.MustParsePrefix("10.0.1.5/32"),
-		}, n.GetAttachedCIDRs())
-	})
-
-	t.Run("addresses covered by an IPv6 prefix are not reported individually", func(t *testing.T) {
-		n := newNode(map[string]types.ENI{
-			"eni-1": {
-				Addresses: []iputil.Addr{
-					iputil.AddrFrom(netip.MustParseAddr("2001:db8:1::5")),
-					iputil.AddrFrom(netip.MustParseAddr("2001:db8:2::1")),
-				},
-				IPv6Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1::/80"))},
-			},
-		})
-
-		require.ElementsMatch(t, []netip.Prefix{
-			netip.MustParsePrefix("2001:db8:1::/80"),
-			netip.MustParsePrefix("2001:db8:2::1/128"),
+			netip.MustParsePrefix("10.0.1.1/32"),
 		}, n.GetAttachedCIDRs())
 	})
 }

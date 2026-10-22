@@ -101,10 +101,12 @@ type NodeOperations interface {
 
 	// GetAttachedCIDRs returns the CIDRs currently attached to the node's
 	// network interfaces, as observed by the cloud-specific implementation.
-	// Used by multi-pool mode to reconcile the tracking map against ground
-	// truth (drop CIDRs no longer attached, seed releases that survived an
-	// operator restart). Implementations that do not support multi-pool may
-	// return nil.
+	// Used to compute the available IPv4 count, and by multi-pool mode to
+	// reconcile the tracking map against ground truth (drop CIDRs no longer
+	// attached, seed releases that survived an operator restart).
+	// Implementations that do not support multi-pool must return nil, so
+	// that the available IPv4 count is taken from the AllocationMap
+	// returned by ResyncInterfacesAndIPs instead.
 	GetAttachedCIDRs() []netip.Prefix
 
 	// PrepareCIDRRelease maps released CIDRs back to their source
