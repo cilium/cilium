@@ -1028,6 +1028,7 @@ Name                                           Labels                           
 ``number_of_cep_changes_per_ces``              ``opcode``                       The number of changed CEPs in each CES update
 ``ces_sync_total``                             ``outcome``, ``failure_type``    The number of completed CES syncs by outcome
 ``ces_queueing_delay_seconds``                 ``queue``                        CiliumEndpointSlice queueing delay in seconds
+``ces_events_skipped_total``                   ``event``, ``reason``            The number of CES watch events skipped because the CES already matched its desired state
 ============================================== ================================ ========================================================
 
 Note that the CES controller has multiple internal queues for handling CES updates.
