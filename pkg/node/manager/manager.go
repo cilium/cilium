@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/netip"
 	"slices"
-	"sync"
 
 	"github.com/cilium/statedb"
 
@@ -28,12 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/wireguard/types"
-)
-
-const (
-	// ClusterNodeTableInitializerName is completed once the initial listing of
-	// nodes in the local cluster has been received.
-	ClusterNodeTableInitializerName = "node-manager-cluster"
 )
 
 type nodeEntry struct {
@@ -105,9 +98,6 @@ type manager struct {
 	// writer owns all remote-node table access.
 	writer *node.Writer
 
-	// clusterNodeTableInit marks the table initialized via NodeSync()
-	clusterNodeTableInit func()
-
 	// custom mutator function to enrich prefixCluster(s) from node objects.
 	prefixClusterMutatorFn node.PrefixClusterMutatorFn
 
@@ -174,18 +164,6 @@ func New(
 
 	if writer != nil {
 		writer.SetUpdatePolicy(m.policy)
-		nodeTable := writer.Table()
-		wtxn := db.WriteTxn(nodeTable)
-		clusterInitDone := m.writer.RegisterInitializer(
-			wtxn,
-			ClusterNodeTableInitializerName,
-		)
-		wtxn.Commit()
-		m.clusterNodeTableInit = sync.OnceFunc(func() {
-			wtxn := db.WriteTxn(nodeTable)
-			clusterInitDone(wtxn)
-			wtxn.Commit()
-		})
 	}
 
 	return m, nil
@@ -404,13 +382,6 @@ func (m *manager) NodeDeleted(n nodeTypes.Node) {
 	txn := m.db.WriteTxn(m.writer.Table())
 	m.writer.Delete(txn, n.Source, n.Identity())
 	txn.Commit()
-}
-
-// NodeSync signals that the initial local-cluster node listing is complete.
-func (m *manager) NodeSync() {
-	if m.clusterNodeTableInit != nil {
-		m.clusterNodeTableInit()
-	}
 }
 
 // SetPrefixClusterMutatorFn allows to inject a custom prefix cluster mutator.
