@@ -15,6 +15,7 @@ import (
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/daemon/restapi"
 	"github.com/cilium/cilium/pkg/api"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -54,6 +55,7 @@ type EndpointPutEndpointIDHandler struct {
 	logger             *slog.Logger
 	apiLimiterSet      *rate.APILimiterSet
 	endpointAPIManager EndpointAPIManager
+	loader             loader.Loader
 	waitReadyFn        hive.WaitFunc
 }
 
@@ -212,10 +214,22 @@ func (h *EndpointPutEndpointIDHandler) Handle(params endpointapi.PutEndpointIDPa
 	}
 	defer r.Done()
 
+	coldStart := false
+	select {
+	case <-h.loader.EndpointTemplateReady():
+	default:
+		coldStart = true
+	}
+
 	ep, code, err := h.endpointAPIManager.CreateEndpoint(params.HTTPRequest.Context(), epTemplate)
 	if err != nil {
 		r.Error(err, code)
 		return api.Error(code, err)
+	}
+
+	// Don't let the limiter adapt to a creation that waited for the first endpoint template.
+	if coldStart {
+		r.Unaccounted()
 	}
 
 	ep.Logger(endpointAPIModuleID).Info("Successful endpoint creation")

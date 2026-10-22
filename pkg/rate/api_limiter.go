@@ -505,7 +505,7 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error, code int) {
 	}
 
 	// Only auto-adjust ratelimiter using metrics from successful API requests
-	if err == nil {
+	if err == nil && !r.unaccounted {
 		l.processingDurations = append(l.processingDurations, processingDuration)
 		if exceed := len(l.processingDurations) - l.params.MeanOver; exceed > 0 {
 			l.processingDurations = l.processingDurations[exceed:]
@@ -569,12 +569,13 @@ func calcMeanDuration(durations []time.Duration) float64 {
 // LimitedRequest represents a request that is being limited. It is returned
 // by Wait() and the caller of Wait() is responsible to call Done() or Error()
 // when the API call has been processed or resulted in an error. It is safe to
-// call Error() and then Done(). It is not safe to call Done(), Error(), or
-// WaitDuration() concurrently.
+// call Error() and then Done(). It is not safe to call Done(), Error(),
+// WaitDuration() or Unaccounted() concurrently.
 type LimitedRequest interface {
 	Done()
 	Error(err error, code int)
 	WaitDuration() time.Duration
+	Unaccounted()
 }
 
 type limitedRequest struct {
@@ -585,12 +586,18 @@ type limitedRequest struct {
 	waitSemaphoreWeight int64
 	uuid                string
 	finished            bool
+	unaccounted         bool
 	outcome             outcome
 }
 
 // WaitDuration returns the duration the request had to wait
 func (l *limitedRequest) WaitDuration() time.Duration {
 	return l.waitDuration
+}
+
+// Unaccounted keeps the request out of the mean durations the limiter adapts to.
+func (l *limitedRequest) Unaccounted() {
+	l.unaccounted = true
 }
 
 // Done must be called when the API request has been successfully processed
@@ -895,6 +902,7 @@ type dummyRequest struct{}
 func (d dummyRequest) WaitDuration() time.Duration { return 0 }
 func (d dummyRequest) Done()                       {}
 func (d dummyRequest) Error(err error, code int)   {}
+func (d dummyRequest) Unaccounted()                {}
 
 // Wait invokes Wait() on the APILimiter with the given name. If the limiter
 // does not exist, a dummy limiter is used which will not impose any

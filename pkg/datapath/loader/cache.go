@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"github.com/google/renameio/v2"
@@ -44,6 +45,10 @@ type objectCache struct {
 
 	// The cached objects.
 	objects map[string]*cachedSpec
+
+	// fetchOrCompile closes lxcReady when it first returns a bpf_lxc template.
+	lxcReady     chan struct{}
+	lxcReadyOnce sync.Once
 }
 
 type cachedSpec struct {
@@ -63,6 +68,7 @@ func newObjectCache(logger *slog.Logger, c linuxConfig.Writer, workingDir string
 		Writer:           c,
 		workingDirectory: workingDir,
 		objects:          make(map[string]*cachedSpec),
+		lxcReady:         make(chan struct{}),
 	}
 }
 
@@ -239,6 +245,13 @@ func (o *objectCache) build(ctx context.Context, cfg endpoint.Config, stats *met
 // Returns a copy of the compiled and parsed ELF and a hash identifying a cached entry.
 func (o *objectCache) fetchOrCompile(ctx context.Context, cfg endpoint.Config, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
 	cfg = wrap(cfg)
+	if !cfg.IsHost() {
+		defer func() {
+			if err == nil {
+				o.lxcReadyOnce.Do(func() { close(o.lxcReady) })
+			}
+		}()
+	}
 
 	hash, err = o.baseHash.hashTemplate(o, cfg)
 	if err != nil {
