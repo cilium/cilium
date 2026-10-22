@@ -1,3 +1,7 @@
+# v1.339.0 (2026-10-14)
+
+* **Feature**: Adds T8i instance sizes to the InstanceType enum. T8i instances are low-cost burstable instances powered by custom sixth generation Intel Xeon 6 processors, available exclusively on AWS, and built on the latest sixth generation AWS Nitro cards
+
 # v1.338.4 (2026-10-09.2)
 
 * **Dependency Update**: Update to smithy-go v1.28.5.
