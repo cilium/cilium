@@ -16,5 +16,15 @@ func (t noPoliciesExtra) build(ct *check.ConnectivityTest, _ map[string]string) 
 		WithScenarios(
 			tests.PodToRemoteNodePort(),
 			tests.PodToLocalNodePort(),
+			tests.PodToLocalNodePortETPLocal(),
 		)
+
+	newTest("no-policies-extra-etp-local-remote", ct).
+		WithFeatureRequirements(withKPRReqForMultiCluster(ct)...).
+		WithMultiNodeOnly().
+		WithScenarios(tests.PodToRemoteNodePortETPLocal()).
+		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
+			// The remote NodePort node has no local endpoint for this Service.
+			return check.ResultDrop, check.ResultNone
+		})
 }
