@@ -55,7 +55,7 @@ runs:
         if [ -n "${EXTRA_LABEL_SELECTOR}" ]; then
           extra+=(--extra-label-selectors "${EXTRA_LABEL_SELECTOR}")
         fi
-        cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}" "${extra[@]}"
+        cilium sysdump --output-filename "cilium-sysdump-${{ inputs.artifacts_suffix }}" --hubble-flows-timeout 30s "${extra[@]}"
 
     - name: Capture EKS cluster forensics
       if: ${{ always() && inputs.job_status == 'failure' && inputs.eks_cluster_name != '' }}
