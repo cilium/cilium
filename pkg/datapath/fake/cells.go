@@ -86,6 +86,7 @@ var Cell = cell.Module(
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 		tables.NewRouteTable, statedb.RWTable[*tables.Route].ToTable,
+		tables.NewNeighborTable, statedb.RWTable[*tables.Neighbor].ToTable,
 
 		func() bigtcp.Features { return &fakebigtcp.UserConfig{} },
 

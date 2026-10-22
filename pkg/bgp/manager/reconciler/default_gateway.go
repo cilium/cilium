@@ -133,6 +133,8 @@ func (r *DefaultGatewayReconciler) Reconcile(ctx context.Context, p ReconcilePar
 			l.Debug("Auto-discovered peer address",
 				types.PeerLogField, peer.Name,
 				logfields.Address, defaultGateway)
+		case v2.BGPUnnumberedMode:
+			continue
 		default:
 			l.Debug("Unsupported auto-discovery mode",
 				types.PeerLogField, peer.Name,

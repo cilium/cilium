@@ -129,8 +129,10 @@ func TestPrivilegedScript(t *testing.T) {
 			cell.Provide(
 				tables.NewRouteTable,
 				tables.NewDeviceTable,
+				tables.NewNeighborTable,
 				tables.NewNodeAddressTable,
 				statedb.RWTable[*tables.Route].ToTable,      // Table[*Route]
+				statedb.RWTable[*tables.Neighbor].ToTable,   // Table[*Neighbor]
 				statedb.RWTable[*tables.Device].ToTable,     // Table[*Device]
 				statedb.RWTable[tables.NodeAddress].ToTable, // Table[NodeAddress]
 			),
