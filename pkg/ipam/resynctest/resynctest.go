@@ -131,3 +131,22 @@ func cachedENIIDs[E any](mngr eniCache[E], instanceID string) (ids []string) {
 	})
 	return ids
 }
+
+type instancesManager interface {
+	resyncer
+	HasInstance(instanceID string) bool
+	DeleteInstance(instanceID string)
+}
+
+// InstanceDelete checks that an instance deleted inside the cloud fetch window of a full resync stays deleted.
+func InstanceDelete(t *testing.T, mngr instancesManager, setHook func(func()), instanceID string) {
+	t.Helper()
+
+	require.True(t, mngr.HasInstance(instanceID))
+	RunDuringFullResync(t, mngr, setHook,
+		func() error { return nil },
+		func() {
+			mngr.DeleteInstance(instanceID)
+		})
+	require.False(t, mngr.HasInstance(instanceID))
+}
