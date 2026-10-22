@@ -512,8 +512,8 @@ func TestRedirectWithPriority(t *testing.T) {
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
-	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec2/listener2"])
-	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec1/listener1"])
+	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects[policy.ProxyID(12345, true, "TCP", 80, policy.ParserTypeCRD, "/cec2/listener2")])
+	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects[policy.ProxyID(12345, true, "TCP", 80, policy.ParserTypeCRD, "/cec1/listener1")])
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
 	expected := fillAggregates(policy.MapStateMap{
@@ -565,8 +565,8 @@ func TestRedirectWithEqualPriority(t *testing.T) {
 	s.computePolicyForTest(t, ep, cmp)
 
 	// Check that all redirects have been created.
-	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec2/listener2"])
-	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects["12345:ingress:TCP:80:/cec1/listener1"])
+	require.Equal(t, crd2Port, ep.desiredPolicy.Redirects[policy.ProxyID(12345, true, "TCP", 80, policy.ParserTypeCRD, "/cec2/listener2")])
+	require.Equal(t, crd1Port, ep.desiredPolicy.Redirects[policy.ProxyID(12345, true, "TCP", 80, policy.ParserTypeCRD, "/cec1/listener1")])
 	require.Len(t, ep.desiredPolicy.Redirects, 2)
 
 	expected := fillAggregates(policy.MapStateMap{

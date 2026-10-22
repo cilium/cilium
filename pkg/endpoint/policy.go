@@ -85,13 +85,13 @@ func (e *Endpoint) GetIngressNamedPort(name string, proto u8proto.U8proto) uint1
 // destination port numbers, if any. For port ranges the proxy is identified by
 // the first port in the range, as overlapping proxy port ranges are not
 // supported. Must be called with e.mutex held.
-func (e *Endpoint) proxyIDs(selectorPolicy policy.SelectorPolicy, l4 *policy.L4Filter, listener string, scSnapshot policy.SelectorSnapshot) iter.Seq2[string, uint16] {
+func (e *Endpoint) proxyIDs(selectorPolicy policy.SelectorPolicy, l4 *policy.L4Filter, parser policy.L7ParserType, listener string, scSnapshot policy.SelectorSnapshot) iter.Seq2[string, uint16] {
 	port := l4.Port
 
 	if port == 0 {
 		if l4.PortName == "" {
 			return func(yield func(string, uint16) bool) {
-				yield(policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port)
+				yield(policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, parser, listener), port)
 			}
 		}
 		if l4.Ingress {
@@ -103,7 +103,7 @@ func (e *Endpoint) proxyIDs(selectorPolicy policy.SelectorPolicy, l4 *policy.L4F
 			// Egress named port with different ports for different identities.
 			return func(yield func(string, uint16) bool) {
 				for _, port := range selectorPolicy.GetEgressNamedPorts(l4.PortName, l4.U8Proto, l4.Identities(scSnapshot)) {
-					if !yield(policy.ProxyID(e.ID, false, string(l4.Protocol), port, listener), port) {
+					if !yield(policy.ProxyID(e.ID, false, string(l4.Protocol), port, parser, listener), port) {
 						return
 					}
 				}
@@ -112,7 +112,7 @@ func (e *Endpoint) proxyIDs(selectorPolicy policy.SelectorPolicy, l4 *policy.L4F
 	}
 
 	return func(yield func(string, uint16) bool) {
-		yield(policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port)
+		yield(policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, parser, listener), port)
 	}
 }
 

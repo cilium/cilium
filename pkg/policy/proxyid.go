@@ -32,8 +32,9 @@ func ProxyStatsKey(ingress bool, protocol string, port, proxyPort uint16) string
 	return str.String()
 }
 
-// ProxyID returns a unique string to identify a proxy mapping.
-func ProxyID(endpointID uint16, ingress bool, protocol string, port uint16, listener string) string {
+// ProxyID returns a unique string to identify a proxy mapping. Redirects using
+// different L7 parsers need different IDs, even on the same endpoint and port.
+func ProxyID(endpointID uint16, ingress bool, protocol string, port uint16, parser L7ParserType, listener string) string {
 	direction := "egress"
 	if ingress {
 		direction = "ingress"
@@ -42,7 +43,7 @@ func ProxyID(endpointID uint16, ingress bool, protocol string, port uint16, list
 	portStr := strconv.FormatUint(uint64(port), 10)
 
 	var str strings.Builder
-	str.Grow(len(epStr) + 1 + len(direction) + 1 + len(protocol) + 1 + len(portStr) + 1 + len(listener))
+	str.Grow(len(epStr) + 1 + len(direction) + 1 + len(protocol) + 1 + len(portStr) + 1 + len(listener) + 1 + len(parser))
 	str.WriteString(epStr)
 	str.WriteRune(':')
 	str.WriteString(direction)
@@ -51,15 +52,17 @@ func ProxyID(endpointID uint16, ingress bool, protocol string, port uint16, list
 	str.WriteRune(':')
 	str.WriteString(portStr)
 	str.WriteRune(':')
+	str.WriteString(string(parser))
+	str.WriteRune(':')
 	str.WriteString(listener)
 
 	return str.String()
 }
 
 // ParseProxyID parses a proxy ID returned by ProxyID and returns its components.
-func ParseProxyID(proxyID string) (endpointID uint16, ingress bool, protocol string, port uint16, listener string, err error) {
+func ParseProxyID(proxyID string) (endpointID uint16, ingress bool, protocol string, port uint16, parser L7ParserType, listener string, err error) {
 	comps := strings.Split(proxyID, ":")
-	if len(comps) != 5 {
+	if len(comps) != 6 {
 		err = fmt.Errorf("invalid proxy ID structure: %s", proxyID)
 		return
 	}
@@ -75,6 +78,7 @@ func ParseProxyID(proxyID string) (endpointID uint16, ingress bool, protocol str
 		return
 	}
 	port = uint16(l4port)
-	listener = comps[4]
+	parser = L7ParserType(comps[4])
+	listener = comps[5]
 	return
 }
