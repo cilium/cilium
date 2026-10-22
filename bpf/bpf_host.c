@@ -1549,8 +1549,6 @@ skip_host_firewall:
 				return ret;
 			else if (IS_ERR(ret))
 				goto drop_err;
-		} else {
-			trace.reason |= TRACE_REASON_ENCRYPTED;
 		}
 	}
 
@@ -1580,8 +1578,6 @@ skip_host_firewall:
 				return ret;
 			else if (IS_ERR(ret))
 				goto drop_err;
-		} else {
-			trace.reason |= TRACE_REASON_ENCRYPTED;
 		}
 	}
 
