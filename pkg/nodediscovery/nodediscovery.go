@@ -165,18 +165,11 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 		}
 	}()
 
-	n.manager.NodeUpdated(localNode.Node)
-
 	n.updateLocalNode(ctx, &localNode)
 
 	go func() {
 		// Propagate all updates to the CiliumNode and kvstore representations.
 		for ln := range updates {
-			// We want to propagate a local node update back into the Manager.
-			// This is particularly helpful when an IPSec key rotation occurs
-			// and the manager needs to evaluate the local node's EncryptionKey
-			// field.
-			n.manager.NodeUpdated(ln.Node)
 			n.updateLocalNode(ctx, &ln)
 		}
 	}()
