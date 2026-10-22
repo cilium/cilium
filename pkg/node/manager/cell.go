@@ -14,33 +14,20 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
-	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-// Cell provides the NodeManager, which manages information about Cilium nodes
-// in the cluster and informs other modules of changes to node configuration.
+// Cell installs the node update policy and provides node configuration notifications.
 var Cell = cell.Module(
 	"node-manager",
 	"Manages the collection of Cilium nodes",
-	cell.Provide(newAllNodeManager),
-	// Install the writer policy even when no caller injects NodeManager.
-	cell.Invoke(func(NodeManager) {}),
+	cell.Invoke(installUpdatePolicy),
 	cell.Provide(newNodeConfigNotifier),
 	metrics.Metric(NewNodeMetrics),
 )
 
-type NodeManager interface {
-	// NodeUpdated is called when the store detects a change in node
-	// information
-	NodeUpdated(n types.Node)
-
-	// NodeDeleted is called when the store detects a deletion of a node
-	NodeDeleted(n types.Node)
-}
-
-func newAllNodeManager(in struct {
+func installUpdatePolicy(in struct {
 	cell.In
 	Logger      *slog.Logger
 	ClusterInfo cmtypes.ClusterInfo
@@ -51,8 +38,8 @@ func newAllNodeManager(in struct {
 	WGConfig    wgTypes.Config
 	Writer      *node.Writer
 },
-) (NodeManager, error) {
-	mngr, err := New(
+) error {
+	_, err := New(
 		in.Logger,
 		option.Config,
 		in.ClusterInfo,
@@ -63,8 +50,5 @@ func newAllNodeManager(in struct {
 		in.WGConfig,
 		in.Writer,
 	)
-	if err != nil {
-		return nil, err
-	}
-	return mngr, nil
+	return err
 }
