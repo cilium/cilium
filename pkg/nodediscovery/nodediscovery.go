@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"sync"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/statedb"
@@ -52,21 +53,22 @@ type GetNodeAddresses interface {
 
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
-	logger           *slog.Logger
-	db               *statedb.DB
-	writer           *node.Writer
-	manager          nodemanager.NodeManager
-	registrar        nodestore.NodeRegistrar
-	registered       chan struct{}
-	cniConfigManager cni.CNIConfigManager
-	k8sGetters       k8sGetters
-	localNodeStore   *node.LocalNodeStore
-	clientset        client.Clientset
-	kvstoreClient    kvstore.Client
-	ctrlmgr          *controller.Manager
-	daemonConfig     *option.DaemonConfig
-	config           config
-	eniMutator       ENIMutator
+	logger                     *slog.Logger
+	db                         *statedb.DB
+	writer                     *node.Writer
+	completeKVStoreNodeListing func()
+	manager                    nodemanager.NodeManager
+	registrar                  nodestore.NodeRegistrar
+	registered                 chan struct{}
+	cniConfigManager           cni.CNIConfigManager
+	k8sGetters                 k8sGetters
+	localNodeStore             *node.LocalNodeStore
+	clientset                  client.Clientset
+	kvstoreClient              kvstore.Client
+	ctrlmgr                    *controller.Manager
+	daemonConfig               *option.DaemonConfig
+	config                     config
+	eniMutator                 ENIMutator
 }
 
 type nodeDiscoveryParams struct {
@@ -99,7 +101,7 @@ func newNodeDiscovery(params nodeDiscoveryParams) (*NodeDiscovery, error) {
 		return nil, errNoENIMutator
 	}
 
-	return &NodeDiscovery{
+	n := &NodeDiscovery{
 		logger:           params.Logger,
 		db:               params.DB,
 		writer:           params.NodeWriter,
@@ -114,7 +116,18 @@ func newNodeDiscovery(params nodeDiscoveryParams) (*NodeDiscovery, error) {
 		daemonConfig:     params.DaemonConfig,
 		config:           params.Config,
 		eniMutator:       params.ENIMutator,
-	}, nil
+	}
+	if params.KVStoreClient.IsEnabled() {
+		txn := params.DB.WriteTxn(params.NodeWriter.Table())
+		initialNodesDone := params.NodeWriter.RegisterInitializer(txn, "kvstore")
+		txn.Commit()
+		n.completeKVStoreNodeListing = sync.OnceFunc(func() {
+			txn := params.DB.WriteTxn(params.NodeWriter.Table())
+			initialNodesDone(txn)
+			txn.Commit()
+		})
+	}
+	return n, nil
 }
 
 // start configures the local node and starts node discovery. This is called on
@@ -149,10 +162,9 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 				break
 			}
 		}
-		// RegisterNode only loaded an initial node list when kvstore is enabled.
-		// Otherwise, the CiliumNode watcher signals completion of its listing.
-		if n.kvstoreClient.IsEnabled() {
-			n.manager.NodeSync()
+		// RegisterNode loaded the initial KVStore node list before returning.
+		if n.completeKVStoreNodeListing != nil {
+			n.completeKVStoreNodeListing()
 		}
 		close(n.registered)
 	}()
