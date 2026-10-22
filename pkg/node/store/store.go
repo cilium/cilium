@@ -103,43 +103,32 @@ func ValidatingKeyCreator(validators ...nodeValidator) store.KeyCreator {
 // NodeObserver implements the store.Observer interface and delegates update
 // and deletion events to the node object itself.
 type NodeObserver struct {
-	db      *statedb.DB
-	manager NodeWriter
-	source  source.Source
+	db     *statedb.DB
+	writer NodeWriter
+	source source.Source
 }
 
-// NewNodeObserver returns a new NodeObserver associated with the specified
-// node manager
-func NewNodeObserver(db *statedb.DB, manager NodeWriter, source source.Source) *NodeObserver {
-	return &NodeObserver{db: db, manager: manager, source: source}
+// NewNodeObserver returns a new NodeObserver associated with the node writer.
+func NewNodeObserver(db *statedb.DB, writer NodeWriter, source source.Source) *NodeObserver {
+	return &NodeObserver{db: db, writer: writer, source: source}
 }
 
 func (o *NodeObserver) OnUpdate(k store.Key) {
 	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = o.source
-		txn := o.db.WriteTxn(o.manager.Table())
-		o.manager.Upsert(txn, nodeCopy)
+		txn := o.db.WriteTxn(o.writer.Table())
+		o.writer.Upsert(txn, nodeCopy)
 		txn.Commit()
 	}
 }
 
 func (o *NodeObserver) OnDelete(k store.NamedKey) {
 	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
-		txn := o.db.WriteTxn(o.manager.Table())
-		o.manager.Delete(txn, o.source, n.Identity())
+		txn := o.db.WriteTxn(o.writer.Table())
+		o.writer.Delete(txn, o.source, n.Identity())
 		txn.Commit()
 	}
-}
-
-// NodeManager is the interface that the manager of nodes has to implement
-type NodeManager interface {
-	// NodeUpdated is called when the store detects a change in node
-	// information
-	NodeUpdated(n nodeTypes.Node)
-
-	// NodeDeleted is called when the store detects a deletion of a node
-	NodeDeleted(n nodeTypes.Node)
 }
 
 type NodeWriter interface {
