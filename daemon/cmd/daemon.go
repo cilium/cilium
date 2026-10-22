@@ -94,17 +94,14 @@ func initAndValidateDaemonConfig(params daemonConfigParams) error {
 	// BPF masquerade depends on BPF NodePort, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if params.DaemonConfig.MasqueradingEnabled() && params.DaemonConfig.EnableBPFMasquerade {
-		var err error
 		switch {
 		case len(params.DaemonConfig.MasqueradeInterfaces) > 0:
-			err = fmt.Errorf("BPF masquerade does not allow to specify devices via --%s (use --%s instead)",
-				option.MasqueradeInterfaces, option.Devices)
-		}
-		if err != nil {
-			return fmt.Errorf("unable to initialize BPF masquerade support: %w", err)
+			params.Logger.Warn(fmt.Sprintf("--%s is ignored with BPF masquerade, use --%s instead",
+				option.MasqueradeInterfaces, option.Devices))
 		}
 		if params.DaemonConfig.EnableMasqueradeRouteSource {
-			return fmt.Errorf("BPF masquerading to route source (--%s=\"true\") currently not supported with BPF-based masquerading (--%s=\"true\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
+			params.Logger.Warn("BPF masquerade doesn't support --%s. Falling back to iptables masquerade (--%s=\"false\")", option.EnableMasqueradeRouteSource, option.EnableBPFMasquerade)
+			params.DaemonConfig.EnableBPFMasquerade = false
 		}
 	} else if params.DaemonConfig.EnableIPMasqAgent {
 		return fmt.Errorf("BPF ip-masq-agent requires (--%s=\"true\" or --%s=\"true\") and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableIPv6Masquerade, option.EnableBPFMasquerade)
