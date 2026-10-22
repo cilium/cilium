@@ -162,7 +162,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		if !printIDs {
 			id := identity.NumericIdentity(stat.Key.Identity)
 			if lbls, err := client.IdentityGet(id.StringID()); err != nil {
-				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
+				fmt.Fprintf(os.Stderr, "Failed to retrieve label ID %d: %s\n",
 					id, err)
 			} else {
 				labelsID[id] = identitymodel.NewIdentityFromModel(lbls)
