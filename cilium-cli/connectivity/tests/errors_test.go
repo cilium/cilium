@@ -14,6 +14,7 @@ import (
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/pkg/container/set"
 )
@@ -363,4 +364,68 @@ func TestComputeExpectedDropReasons(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWithFollowedLines(t *testing.T) {
+	at := func(s string) time.Time {
+		ts, err := time.Parse(time.RFC3339Nano, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ts
+	}
+	startup := `time=2026-10-21T16:34:53.283329788Z level=warn msg="Disabling BPF masquerade" source=/go/src/github.com/cilium/cilium/daemon/cmd/daemon.go:112`
+	later := `time=2026-10-21T16:44:00Z level=warn msg="still served"`
+	followed := []check.LogLine{
+		{Time: at("2026-10-21T16:34:53.283466Z"), Text: startup},
+		{Time: at("2026-10-21T16:44:00.000123Z"), Text: later},
+	}
+	served := "2026-10-21T16:43:38.227930999Z time=2026-10-21T16:43:38Z level=info msg=first\n" +
+		"2026-10-21T16:44:00.000123Z " + later + "\n" +
+		"no timestamp\n"
+
+	for _, tt := range []struct {
+		name   string
+		logs   string
+		since  time.Time
+		expect string
+	}{
+		{
+			name:   "rotated lines go in front of the served ones",
+			logs:   served,
+			expect: startup + "\n" + "time=2026-10-21T16:43:38Z level=info msg=first\n" + later + "\n" + "no timestamp\n",
+		},
+		{
+			name:   "lines before since are dropped",
+			logs:   served,
+			since:  at("2026-10-21T16:40:00Z"),
+			expect: "time=2026-10-21T16:43:38Z level=info msg=first\n" + later + "\n" + "no timestamp\n",
+		},
+		{
+			name:   "all followed lines without served logs",
+			expect: startup + "\n" + later + "\n",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expect, string(withFollowedLines(followed, []byte(tt.logs), tt.since)))
+		})
+	}
+
+	s := NoErrorsInLogs(semver.MustParse("1.21.0"), defaults.LogCheckLevels, nil, "one.one.one.one", "k8s.io", time.Time{}).(*noErrorsInLogs)
+	fails, _ := s.findUniqueFailures(withFollowedLines(followed, []byte(served), time.Time{}))
+	assert.Contains(t, fails, "Disabling BPF masquerade")
+}
+
+func TestLogLineFilter(t *testing.T) {
+	keep := LogLineFilter(semver.MustParse("1.21.0"), defaults.LogCheckLevels)
+	assert.True(t, keep(`time=2026-10-21T16:34:53Z level=warn msg="Disabling BPF masquerade"`))
+	assert.True(t, keep(`time=2026-10-21T16:34:53Z level=error msg=foo`))
+	assert.True(t, keep(`panic: runtime error: invalid memory address or nil pointer dereference`))
+	assert.True(t, keep(`[2026-10-21 16:34:53.283][15][critical][backtrace] Caught Aborted`))
+	assert.False(t, keep(`time=2026-10-21T16:34:53Z level=info msg=foo`))
+	assert.False(t, keep(`time=2026-10-21T16:34:53Z level=debug msg=foo`))
+
+	keep = LogLineFilter(semver.MustParse("1.21.0"), []string{defaults.LogLevelError})
+	assert.False(t, keep(`time=2026-10-21T16:34:53Z level=warn msg=foo`))
+	assert.True(t, keep(`time=2026-10-21T16:34:53Z level=error msg=foo`))
 }

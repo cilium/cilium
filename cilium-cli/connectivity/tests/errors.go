@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -150,6 +151,18 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		warningLogExceptions = append(warningLogExceptions, stringMatcher(exception))
 	}
 
+	return &noErrorsInLogs{
+		errorMsgsWithExceptions: badLogMsgs(ciliumVersion, checkLevels, errorLogExceptions, warningLogExceptions),
+		thresholdExceptions:     warningThresholdExceptions,
+		ScenarioBase:            check.NewScenarioBase(),
+		ciliumVersion:           ciliumVersion,
+		startTime:               startTime,
+	}
+}
+
+// badLogMsgs maps each message that fails the check to the exceptions that
+// still let a line with it pass.
+func badLogMsgs(ciliumVersion semver.Version, checkLevels []string, errorLogExceptions, warningLogExceptions []logMatcher) map[string][]logMatcher {
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -175,12 +188,15 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	if slices.Contains(checkLevels, defaults.LogLevelWarning) && ciliumVersion.GE(semver.MustParse("1.17.0")) {
 		errorMsgsWithExceptions["level=warn"] = warningLogExceptions
 	}
-	return &noErrorsInLogs{
-		errorMsgsWithExceptions: errorMsgsWithExceptions,
-		thresholdExceptions:     warningThresholdExceptions,
-		ScenarioBase:            check.NewScenarioBase(),
-		ciliumVersion:           ciliumVersion,
-		startTime:               startTime,
+	return errorMsgsWithExceptions
+}
+
+// LogLineFilter reports whether the check can fail on a log line, so a log
+// follower only needs to keep those lines.
+func LogLineFilter(ciliumVersion semver.Version, checkLevels []string) func(line string) bool {
+	msgs := slices.Collect(maps.Keys(badLogMsgs(ciliumVersion, checkLevels, nil, nil)))
+	return func(line string) bool {
+		return slices.ContainsFunc(msgs, func(msg string) bool { return strings.Contains(line, msg) })
 	}
 }
 
@@ -216,7 +232,12 @@ func (n *noErrorsInLogs) Name() string {
 }
 
 type podID struct{ Cluster, Namespace, Name string }
-type podContainers map[string]uint // Map container name to restart count
+type containerStatus struct {
+	restarts   uint
+	id         string
+	previousID string
+}
+type podContainers map[string]containerStatus // Map container name to its status
 type podInfo struct {
 	containers podContainers
 	client     *k8s.Client
@@ -234,7 +255,7 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	flavor, _ := t.Context().Feature(features.Flavor)
 	isGKE := flavor.Enabled && flavor.Mode == "gke"
 
-	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes)}
+	opts := corev1.PodLogOptions{LimitBytes: ptr.To[int64](sysdump.DefaultLogsLimitBytes), Timestamps: true}
 	st := metav1.NewTime(n.startTime)
 	t.Infof("Start time for the check: %s", st.UTC().String())
 	opts.SinceTime = &st
@@ -242,7 +263,8 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	prevOpts.Previous = true
 	for pod, info := range pods {
 		client := info.client
-		for container, restarts := range info.containers {
+		for container, status := range info.containers {
+			restarts := status.restarts
 			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
 			t.NewGenericAction(n, id).Run(func(a *check.Action) {
 				// Do not check for container restarts for Cilium v1.16 and earlier.
@@ -292,15 +314,16 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				if err != nil {
 					a.Fatalf("Error reading Cilium logs: %s", err)
 				}
-				n.checkErrorsInLogs(id, logs.Bytes(), a, &opts)
+				n.checkErrorsInLogs(id, withFollowedLines(t.Context().FollowedLogLines(status.id), logs.Bytes(), n.startTime), a, &opts)
 
 				if restarts > 0 && !ignore {
 					a.Failf("Non-zero (%d) restart count of %s must be investigated", restarts, id)
 
+					previous := t.Context().FollowedLogLines(status.previousID)
 					logs = bytes.Buffer{}
 					err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, prevOpts, &logs)
 					if err == nil {
-						n.checkErrorsInLogs(id, logs.Bytes(), a, &prevOpts)
+						n.checkErrorsInLogs(id, withFollowedLines(previous, logs.Bytes(), n.startTime), a, &prevOpts)
 					} else if strings.Contains(err.Error(), "previous terminated container") && strings.Contains(err.Error(), "not found") {
 						// The previous container's logs may already have been
 						// garbage-collected by the kubelet, in which case there
@@ -413,23 +436,27 @@ func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, t *check.Test) (map[
 }
 
 func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
-	restarts := func(statuses []corev1.ContainerStatus, name string) (restarts uint) {
-		for _, status := range statuses {
-			if status.Name == name {
-				return uint(status.RestartCount)
+	find := func(statuses []corev1.ContainerStatus, name string) (status containerStatus) {
+		for _, s := range statuses {
+			if s.Name == name {
+				status = containerStatus{restarts: uint(s.RestartCount), id: s.ContainerID}
+				if s.LastTerminationState.Terminated != nil {
+					status.previousID = s.LastTerminationState.Terminated.ContainerID
+				}
+				return status
 			}
 		}
-		return 0
+		return status
 	}
 
 	containers := make(podContainers, len(pod.Spec.Containers)+len(pod.Spec.InitContainers))
 
 	for _, container := range pod.Spec.Containers {
-		containers[container.Name] = restarts(pod.Status.ContainerStatuses, container.Name)
+		containers[container.Name] = find(pod.Status.ContainerStatuses, container.Name)
 	}
 
 	for _, container := range pod.Spec.InitContainers {
-		containers[container.Name] = restarts(pod.Status.InitContainerStatuses, container.Name)
+		containers[container.Name] = find(pod.Status.InitContainerStatuses, container.Name)
 	}
 
 	return containers
@@ -530,6 +557,37 @@ func (n *noErrorsInLogs) checkErrorsInLogs(id string, logs []byte, a *check.Acti
 		}
 		a.Failf("Found %d logs in %s%s matching list of errors that must be investigated:%s", len(uniqueFailures), id, previous, failures.String())
 	}
+}
+
+// withFollowedLines strips the timestamps the kubelet prefixed to the lines of
+// logs, and puts the followed lines from before the first of them, which the
+// kubelet rotated away, back in front.
+func withFollowedLines(followed []check.LogLine, logs []byte, since time.Time) []byte {
+	var served bytes.Buffer
+	var first time.Time
+	for line := range bytes.Lines(logs) {
+		ts, text, ok := bytes.Cut(line, []byte(" "))
+		t, err := time.Parse(time.RFC3339Nano, string(ts))
+		if !ok || err != nil {
+			served.Write(line)
+			continue
+		}
+		if first.IsZero() {
+			first = t
+		}
+		served.Write(text)
+	}
+
+	var out bytes.Buffer
+	for _, l := range followed {
+		if l.Time.Before(since) || (!first.IsZero() && !l.Time.Before(first)) {
+			continue
+		}
+		out.WriteString(l.Text)
+		out.WriteByte('\n')
+	}
+	out.Write(served.Bytes())
+	return out.Bytes()
 }
 
 const (
