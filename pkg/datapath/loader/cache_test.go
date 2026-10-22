@@ -37,11 +37,13 @@ func TestObjectCache(t *testing.T) {
 	realEP := testutils.NewTestEndpoint(t)
 
 	dir := getDirs(t)
+	require.False(t, isClosed(cache.lxcReady))
 
 	// First run should compile and generate the object.
 	first, hash, err := cache.fetchOrCompile(ctx, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, hash)
+	require.True(t, isClosed(cache.lxcReady))
 
 	// Same EP should not be compiled twice.
 	second, hash2, err := cache.fetchOrCompile(ctx, &realEP, dir, nil)
@@ -90,6 +92,7 @@ func TestObjectCacheReuse(t *testing.T) {
 	cache, reused, stats := restart(&localNodeConfig)
 	require.Equal(t, hash, reused)
 	require.Zero(t, stats.BpfCompilation.Total())
+	require.True(t, isClosed(cache.lxcReady), "a template loaded from disk closes the channel")
 
 	// An agent stopping during its first hash leaves the templates to the next one.
 	canceled, cancel := context.WithCancel(ctx)
@@ -136,6 +139,40 @@ func TestObjectCacheReuse(t *testing.T) {
 		_, _, stats = restart(&otherCfg)
 		require.NotZero(t, stats.BpfCompilation.Total())
 		require.NoFileExists(t, workDir+".hash")
+	}
+}
+
+func TestObjectCacheEndpointTemplateReady(t *testing.T) {
+	setupCompilationDirectories(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
+	cache := newObjectCache(hivetest.Logger(t), configWriterForTest(t), t.TempDir())
+	ep := testutils.NewTestEndpoint(t)
+	hostEP := testutils.NewTestHostEndpoint(t)
+
+	canceled, cancelNow := context.WithCancel(ctx)
+	cancelNow()
+	_, _, err := cache.fetchOrCompile(canceled, &ep, getDirs(t), nil)
+	require.ErrorIs(t, err, context.Canceled)
+	require.False(t, isClosed(cache.lxcReady), "a failed fetch leaves the channel open")
+
+	_, _, err = cache.fetchOrCompile(ctx, &hostEP, getDirs(t), nil)
+	require.NoError(t, err)
+	require.False(t, isClosed(cache.lxcReady), "bpf_host leaves the channel open")
+
+	_, _, err = cache.fetchOrCompile(ctx, &ep, getDirs(t), nil)
+	require.NoError(t, err)
+	require.True(t, isClosed(cache.lxcReady))
+}
+
+func isClosed(ch <-chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
 	}
 }
 
