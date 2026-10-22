@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeAddressing "github.com/cilium/cilium/pkg/node/addressing"
-	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -57,7 +56,6 @@ type NodeDiscovery struct {
 	db                         *statedb.DB
 	writer                     *node.Writer
 	completeKVStoreNodeListing func()
-	manager                    nodemanager.NodeManager
 	registrar                  nodestore.NodeRegistrar
 	registered                 chan struct{}
 	cniConfigManager           cni.CNIConfigManager
@@ -75,7 +73,6 @@ type nodeDiscoveryParams struct {
 	cell.In
 
 	Logger           *slog.Logger
-	Manager          nodemanager.NodeManager
 	DB               *statedb.DB
 	NodeWriter       *node.Writer
 	Clientset        client.Clientset
@@ -105,7 +102,6 @@ func newNodeDiscovery(params nodeDiscoveryParams) (*NodeDiscovery, error) {
 		logger:           params.Logger,
 		db:               params.DB,
 		writer:           params.NodeWriter,
-		manager:          params.Manager,
 		localNodeStore:   params.LocalNodeStore,
 		registered:       make(chan struct{}),
 		cniConfigManager: params.CNIConfigManager,
