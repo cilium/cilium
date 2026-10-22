@@ -636,10 +636,12 @@ var (
 	}, []string{"name"})
 
 	// EndpointLatencyMeasurementBuckets is the generic histogram metrics bucket configuration shared
-	// across various internal latency metrics measurement, ranging from 1ms to 1min.
+	// across various internal latency metrics measurement, ranging from 25us to 1min.
 	// The buckets are intentionally spaced non exponentially and are dense in SLO range for
-	// meaningful data points.
-	EndpointLatencyMeasurementBuckets = []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60}
+	// meaningful data points. The sub-millisecond boundaries are needed because several scopes
+	// (proxyWaitForAck, waitingForLock, waitingForCTClean, prepareBuild, proxyConfiguration) are
+	// routinely faster than 1ms, and would otherwise all pin to the lowest bucket.
+	EndpointLatencyMeasurementBuckets = []float64{0.000025, 0.00005, 0.0001, 0.00025, 0.0005, 0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60}
 )
 
 type LegacyMetrics struct {

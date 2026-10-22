@@ -4,7 +4,7 @@ on:
 
   push:
     branches:
-      - pr/fristonio/ci/resource-churn
+      - pr/fristonio/ci/fix/resource-churn-regression
 
   schedule:
     - cron: '0 2 * * 1'
@@ -103,8 +103,8 @@ jobs:
 
           # FIXME: For testing only.
           if [ "${GITHUB_EVENT_NAME}" == "push" ]; then
-            TEST_TAG="c82c2232e1f1335602abdd645ffe4c86d3fd1836"
-            BASE_TAG="v1.19.7"
+            TEST_TAG="${{ github.sha }}"
+            BASE_TAG="c82c2232e1f1335602abdd645ffe4c86d3fd1836"
             EXTRA_ARGS="scenario=all"
           fi
 
