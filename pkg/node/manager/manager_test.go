@@ -1033,7 +1033,6 @@ func TestNodeTableMirroring(t *testing.T) {
 	require.False(t, initialized)
 	require.ElementsMatch(t, []string{
 		ClusterNodeTableInitializerName,
-		MeshNodeTableInitializerName,
 	}, nodeTable.PendingInitializers(db.ReadTxn()))
 
 	n1 := nodeTypes.Node{
@@ -1099,17 +1098,6 @@ func TestNodeTableMirroring(t *testing.T) {
 	require.False(t, initialized)
 
 	mngr.NodeSync()
-	require.Equal(t, []string{
-		MeshNodeTableInitializerName,
-	}, nodeTable.PendingInitializers(db.ReadTxn()))
-
-	select {
-	case <-initWatch:
-		t.Fatal("node table initialized before MeshNodeSync")
-	default:
-	}
-
-	mngr.MeshNodeSync()
 
 	select {
 	case <-initWatch:
@@ -1188,49 +1176,4 @@ func TestDeleteAfterSuppressedSourceChange(t *testing.T) {
 	require.NotContains(t, m.nodes, original.Identity())
 	expectIPCacheUpdate(t, ipc, "delete", netip.MustParsePrefix("192.0.2.2/32"))
 	require.Empty(t, ipc.events)
-}
-
-func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
-	for _, meshFirst := range []bool{false, true} {
-		name := "cluster-first"
-		if meshFirst {
-			name = "mesh-first"
-		}
-		t.Run(name, func(t *testing.T) {
-			db := statedb.New()
-			nodeTable, err := node.NewNodeTable(db)
-			require.NoError(t, err)
-			writer := node.NewWriter(hivetest.Logger(t), db, nodeTable)
-
-			mngr, err := New(
-				hivetest.Logger(t),
-				&option.DaemonConfig{},
-				cmtypes.ClusterInfo{Name: "c1"},
-				tunnel.Config{},
-				newIPcacheMock(),
-				NewNodeMetrics(),
-				db,
-				fakewireguard.Config{},
-				writer,
-			)
-			require.NoError(t, err)
-
-			if meshFirst {
-				mngr.MeshNodeSync()
-				require.Equal(t, []string{
-					ClusterNodeTableInitializerName,
-				}, nodeTable.PendingInitializers(db.ReadTxn()))
-				mngr.NodeSync()
-			} else {
-				mngr.NodeSync()
-				require.Equal(t, []string{
-					MeshNodeTableInitializerName,
-				}, nodeTable.PendingInitializers(db.ReadTxn()))
-				mngr.MeshNodeSync()
-			}
-
-			initialized, _ := nodeTable.Initialized(db.ReadTxn())
-			require.True(t, initialized)
-		})
-	}
 }
