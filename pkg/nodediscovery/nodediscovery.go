@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	"github.com/cilium/stream"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/net"
@@ -52,6 +53,8 @@ type GetNodeAddresses interface {
 // NodeDiscovery represents a node discovery action
 type NodeDiscovery struct {
 	logger           *slog.Logger
+	db               *statedb.DB
+	writer           *node.Writer
 	manager          nodemanager.NodeManager
 	registrar        nodestore.NodeRegistrar
 	registered       chan struct{}
@@ -71,6 +74,8 @@ type nodeDiscoveryParams struct {
 
 	Logger           *slog.Logger
 	Manager          nodemanager.NodeManager
+	DB               *statedb.DB
+	NodeWriter       *node.Writer
 	Clientset        client.Clientset
 	KVStoreClient    kvstore.Client
 	LocalNodeStore   *node.LocalNodeStore
@@ -96,6 +101,8 @@ func newNodeDiscovery(params nodeDiscoveryParams) (*NodeDiscovery, error) {
 
 	return &NodeDiscovery{
 		logger:           params.Logger,
+		db:               params.DB,
+		writer:           params.NodeWriter,
 		manager:          params.Manager,
 		localNodeStore:   params.LocalNodeStore,
 		registered:       make(chan struct{}),
@@ -135,12 +142,17 @@ func (n *NodeDiscovery) StartDiscovery(ctx context.Context) {
 			logfields.Node, localNode.Name,
 		)
 		for {
-			if err := n.registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.manager); err != nil {
+			if err := n.registrar.RegisterNode(ctx, n.logger, n.kvstoreClient, &localNode.Node, n.db, n.writer); err != nil {
 				n.logger.Error("Unable to initialize local node. Retrying...", logfields.Error, err)
 				time.Sleep(time.Second)
 			} else {
 				break
 			}
+		}
+		// RegisterNode only loaded an initial node list when kvstore is enabled.
+		// Otherwise, the CiliumNode watcher signals completion of its listing.
+		if n.kvstoreClient.IsEnabled() {
+			n.manager.NodeSync()
 		}
 		close(n.registered)
 	}()
