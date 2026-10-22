@@ -17,12 +17,11 @@ import (
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
 
-// Cell installs the node update policy and provides node configuration notifications.
+// Cell installs the node update policy.
 var Cell = cell.Module(
 	"node-manager",
-	"Applies node update policy and provides node configuration updates",
+	"Applies node update policy",
 	cell.Invoke(installUpdatePolicy),
-	cell.Provide(newNodeConfigNotifier),
 )
 
 func installUpdatePolicy(in struct {
