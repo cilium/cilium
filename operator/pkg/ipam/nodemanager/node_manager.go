@@ -441,16 +441,17 @@ func (n *NodeManager) Delete(resource *v2.CiliumNode) {
 		}
 	}
 
+	delete(n.nodes, resource.Name)
+	n.mutex.Unlock()
+
 	// Delete the instance from instanceManager. This will cause Update() to
 	// invoke instancesAPIResync if this instance rejoins the cluster.
 	// This ensures that Node.recalculate() does not use stale data for
 	// instances which rejoin the cluster after their configuration has changed.
+	// DeleteInstance waits for an in-flight full resync, so call it without n.mutex.
 	if resource.Spec.InstanceID != "" {
 		n.instancesAPI.DeleteInstance(resource.Spec.InstanceID)
 	}
-
-	delete(n.nodes, resource.Name)
-	n.mutex.Unlock()
 }
 
 // Get returns the node with the given name

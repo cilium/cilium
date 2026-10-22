@@ -101,4 +101,10 @@ func TestFullResync(t *testing.T) {
 			return eniID, eni, nil
 		})
 	})
+
+	t.Run("InstanceDelete", func(t *testing.T) {
+		t.Parallel()
+		_, hooked, mngr, _ := newHookedInstancesManager(t, instanceID)
+		resynctest.InstanceDelete(t, mngr, hooked.setHook, instanceID)
+	})
 }
