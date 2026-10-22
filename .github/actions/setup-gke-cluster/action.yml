@@ -49,24 +49,12 @@ runs:
         source: https://api.ipify.org
         parsing: text
 
-    # The runner sometimes egresses from another address of its GitHub Actions range.
     - name: Look up the runner's GitHub Actions range
       id: authorized-networks
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-        RUNNER_IP: ${{ steps.get-runner-ip.outputs.ip }}
-        RUNNER_CIDR: ${{ steps.get-runner-ip.outputs.cidr }}
-      run: |
-        range=$(gh api meta --jq '.actions[]' | python3 -I -c '
-        import ipaddress, os, sys
-        ip = ipaddress.ip_address(os.environ["RUNNER_IP"])
-        nets = [n for n in map(ipaddress.ip_network, sys.stdin.read().split()) if ip in n and 15 <= n.prefixlen < 32]
-        print(max(nets, key=lambda n: n.prefixlen, default=""))') || range=""
-        if [[ -z "${range}" ]]; then
-          echo "::warning::Found no GitHub Actions range for ${RUNNER_IP}, authorizing ${RUNNER_CIDR} alone"
-        fi
-        echo "cidrs=${RUNNER_CIDR}${range:+,${range}}" >> "${GITHUB_OUTPUT}"
+      uses: ./.github/actions/runner-actions-range
+      with:
+        ip: ${{ steps.get-runner-ip.outputs.ip }}
+        cidr: ${{ steps.get-runner-ip.outputs.cidr }}
 
     - id: create-cluster
       shell: bash
