@@ -171,8 +171,6 @@ func (m *updatePolicy) Upsert(n *nodeTypes.Node, mutator node.PrefixClusterMutat
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentifier]
 	if oldNodeExists {
-		m.metrics.EventsReceived.WithLabelValues("update", string(n.Source)).Inc()
-
 		if !source.AllowOverwrite(entry.node.Source, n.Source) {
 			// Done; skip node-handler updates and label injection
 			// triggers below. Includes case where the local host
@@ -198,9 +196,6 @@ func (m *updatePolicy) Upsert(n *nodeTypes.Node, mutator node.PrefixClusterMutat
 
 		entry.mutex.Unlock()
 	} else {
-		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
-		m.metrics.NumNodes.Inc()
-
 		entry = &nodeEntry{node: *n}
 		entry.mutex.Lock()
 		m.nodes[nodeIdentifier] = entry
@@ -222,8 +217,6 @@ func (m *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identi
 		"Received node delete event",
 		logfields.Source, src,
 	)
-
-	m.metrics.EventsReceived.WithLabelValues("delete", string(src)).Inc()
 
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentifier]
@@ -253,8 +246,6 @@ func (m *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identi
 
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
 	m.removeNodeFromIPCache(mutator, entry.node, resource, nil, nil, nil, nil)
-	m.metrics.NumNodes.Dec()
-
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
 	m.mutex.Unlock()

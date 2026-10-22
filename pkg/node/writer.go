@@ -25,9 +25,10 @@ import (
 
 // Writer provides source-aware write access to the node table.
 type Writer struct {
-	log   *slog.Logger
-	db    *statedb.DB
-	nodes statedb.RWTable[*Node]
+	log     *slog.Logger
+	db      *statedb.DB
+	nodes   statedb.RWTable[*Node]
+	metrics *nodeMetrics
 
 	isStaticLocalRouterIP  func(netip.Addr) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
@@ -66,7 +67,7 @@ const (
 
 // NewWriter constructs a node table writer.
 func NewWriter(log *slog.Logger, db *statedb.DB, nodes statedb.RWTable[*Node]) *Writer {
-	return &Writer{log: log, db: db, nodes: nodes}
+	return &Writer{log: log, db: db, nodes: nodes, metrics: NewNodeMetrics()}
 }
 
 type writerParams struct {
@@ -75,11 +76,13 @@ type writerParams struct {
 	Log          *slog.Logger
 	DB           *statedb.DB
 	Nodes        statedb.RWTable[*Node]
+	Metrics      *nodeMetrics
 	DaemonConfig *option.DaemonConfig `optional:"true"`
 }
 
 func provideWriter(p writerParams) *Writer {
 	w := NewWriter(p.Log, p.DB, p.Nodes)
+	w.metrics = p.Metrics
 	if p.DaemonConfig != nil {
 		w.isStaticLocalRouterIP = p.DaemonConfig.IsLocalRouterIP
 	}
@@ -329,9 +332,15 @@ func (w *Writer) UpsertLocal(txn statedb.WriteTxn, n *LocalNode) error {
 	}
 
 	old, _, _ := w.nodes.Get(txn, LocalNodeQuery)
+	event := "add"
+	if old != nil {
+		event = "update"
+	}
+	w.metrics.EventsReceived.WithLabelValues(event, string(n.Source)).Inc()
 	if err := w.writeNode(txn, n, old); err != nil {
 		return fmt.Errorf("write local node: %w", err)
 	}
+	w.metrics.NumNodes.Set(float64(w.nodes.NumObjects(txn)))
 	if w.updatePolicy != nil &&
 		!slices.Contains(w.nodes.PendingInitializers(txn), LocalNodeTableInitializerName) {
 		w.updatePolicy.Upsert(&n.Node, w.prefixClusterMutatorFn)
@@ -349,6 +358,11 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 		)
 		return false
 	}
+	event := "add"
+	if found {
+		event = "update"
+	}
+	w.metrics.EventsReceived.WithLabelValues(event, string(n.Source)).Inc()
 	if w.updatePolicy != nil && !w.updatePolicy.Upsert(n, w.prefixClusterMutatorFn) {
 		// Policy rejected the update due to conflict.
 		return false
@@ -374,6 +388,7 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 		)
 		return false
 	}
+	w.metrics.NumNodes.Set(float64(w.nodes.NumObjects(txn)))
 	return true
 }
 
@@ -394,6 +409,7 @@ func (w *Writer) writeNode(txn statedb.WriteTxn, n, old *Node) error {
 // Delete removes a remote node if the policy accepts the deletion, or, without
 // a policy, if src still owns the table row. It reports whether the table changed.
 func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool {
+	w.metrics.EventsReceived.WithLabelValues("delete", string(src)).Inc()
 	if w.updatePolicy != nil {
 		if !w.updatePolicy.Delete(src, identity, w.prefixClusterMutatorFn) {
 			return false
@@ -420,5 +436,6 @@ func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTy
 		)
 		return false
 	}
+	w.metrics.NumNodes.Set(float64(w.nodes.NumObjects(txn)))
 	return true
 }

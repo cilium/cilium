@@ -19,8 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/metrics/metric"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -76,9 +74,6 @@ type updatePolicy struct {
 	// nodes is the list of nodes. Access must be protected via mutex.
 	nodes map[nodeTypes.Identity]*nodeEntry
 
-	// metrics for node update events and accepted nodes
-	metrics *nodeMetrics
-
 	// conf is immutable after policy construction.
 	conf *option.DaemonConfig
 	// clusterInfo is immutable after policy construction.
@@ -99,36 +94,6 @@ type updatePolicy struct {
 	wgConfig types.Config
 }
 
-type nodeMetrics struct {
-	// metricEventsReceived is the prometheus metric to track the number of
-	// node events received
-	EventsReceived metric.Vec[metric.Counter]
-
-	// metricNumNodes is the prometheus metric to track the number of nodes
-	// being managed
-	NumNodes metric.Gauge
-}
-
-func NewNodeMetrics() *nodeMetrics {
-	return &nodeMetrics{
-		EventsReceived: metric.NewCounterVec(metric.CounterOpts{
-			ConfigName: metrics.Namespace + "_" + "nodes_all_events_received_total",
-			Namespace:  metrics.Namespace,
-			Subsystem:  "nodes",
-			Name:       "all_events_received_total",
-			Help:       "Number of node events received",
-		}, []string{"event_type", "source"}),
-
-		NumNodes: metric.NewGauge(metric.GaugeOpts{
-			ConfigName: metrics.Namespace + "_" + "nodes_all_num",
-			Namespace:  metrics.Namespace,
-			Subsystem:  "nodes",
-			Name:       "all_num",
-			Help:       "Number of nodes managed",
-		}),
-	}
-}
-
 // newUpdatePolicy constructs the policy and installs it on the writer.
 func newUpdatePolicy(
 	logger *slog.Logger,
@@ -136,7 +101,6 @@ func newUpdatePolicy(
 	clusterInfo cmtypes.ClusterInfo,
 	tunnelConf tunnel.Config,
 	ipCache IPCache,
-	nodeMetrics *nodeMetrics,
 	db *statedb.DB,
 	wgCfg types.Config,
 	writer *node.Writer,
@@ -149,7 +113,6 @@ func newUpdatePolicy(
 		clusterInfo: clusterInfo,
 		underlay:    tunnelConf.UnderlayProtocol(),
 		ipcache:     ipCache,
-		metrics:     nodeMetrics,
 		db:          db,
 		wgConfig:    wgCfg,
 	}

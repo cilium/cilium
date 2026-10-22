@@ -12,7 +12,6 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
@@ -24,7 +23,6 @@ var Cell = cell.Module(
 	"Applies node update policy and provides node configuration updates",
 	cell.Invoke(installUpdatePolicy),
 	cell.Provide(newNodeConfigNotifier),
-	metrics.Metric(NewNodeMetrics),
 )
 
 func installUpdatePolicy(in struct {
@@ -33,7 +31,6 @@ func installUpdatePolicy(in struct {
 	ClusterInfo cmtypes.ClusterInfo
 	TunnelConf  tunnel.Config
 	IPCache     *ipcache.IPCache
-	NodeMetrics *nodeMetrics
 	DB          *statedb.DB
 	WGConfig    wgTypes.Config
 	Writer      *node.Writer
@@ -45,7 +42,6 @@ func installUpdatePolicy(in struct {
 		in.ClusterInfo,
 		in.TunnelConf,
 		in.IPCache,
-		in.NodeMetrics,
 		in.DB,
 		in.WGConfig,
 		in.Writer,
