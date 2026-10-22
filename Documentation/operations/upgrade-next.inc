@@ -145,7 +145,13 @@ Changes to Metrics
 Added Metrics
 #############
 
-* TODO
+* ``cilium_operator_ces_events_skipped_total`` has been added. It counts the
+  ``CiliumEndpointSlice`` watch events that did not trigger a reconciliation
+  because the CES already matched its desired state, for example when the
+  informer echoes the operator's own writes. The ``reason`` label is either
+  ``unchanged`` (an upsert event for a CES that already matches its desired
+  state) or ``unmapped`` (a delete event for a CES with no mapped
+  ``CiliumEndpoint``).
 
 Changed Metrics
 ###############

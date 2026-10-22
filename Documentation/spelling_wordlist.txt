@@ -904,6 +904,7 @@ unwinded
 upgradeCompatibility
 uplink
 uprobes
+upsert
 upstreamed
 uptime
 uretprobes
