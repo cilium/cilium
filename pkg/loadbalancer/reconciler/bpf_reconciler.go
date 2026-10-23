@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tables"
+	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/lbipamconfig"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -1424,7 +1425,7 @@ func (ops *BPFOps) isWildcardClass(svc *loadbalancer.Service) bool {
 	// The service has a loadBalancerClass, so we only include a wildcard
 	// service entry if it's a class Cilium actively manages, again to avoid
 	// programming wildcard entries for IP addresses we don't manage.
-	return *lbClass == cilium_api_v2alpha1.BGPLoadBalancerClass ||
+	return *lbClass == cilium_api_v2.BGPLoadBalancerClass ||
 		*lbClass == cilium_api_v2alpha1.L2AnnounceLoadBalancerClass
 }
 

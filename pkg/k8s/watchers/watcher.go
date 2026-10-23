@@ -189,11 +189,11 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.CESName):                              {start, k8sAPIGroupCiliumEndpointSliceV2Alpha1},
 	synced.CRDResourceName(cilium_v2.CCECName):                            {skip, ""}, // Handled in pkg/ciliumenvoyconfig/
 	synced.CRDResourceName(cilium_v2.CECName):                             {skip, ""}, // Handled in pkg/ciliumenvoyconfig/
-	synced.CRDResourceName(v2alpha1.BGPCCName):                            {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPAName):                             {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPPCName):                            {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPNCName):                            {skip, ""}, // Handled in BGP control plane
-	synced.CRDResourceName(v2alpha1.BGPNCOName):                           {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(cilium_v2.BGPCCName):                           {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(cilium_v2.BGPAName):                            {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(cilium_v2.BGPPCName):                           {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(cilium_v2.BGPNCName):                           {skip, ""}, // Handled in BGP control plane
+	synced.CRDResourceName(cilium_v2.BGPNCOName):                          {skip, ""}, // Handled in BGP control plane
 	synced.CRDResourceName(v2alpha1.LBIPPoolName):                         {skip, ""}, // Handled in LB IPAM
 	synced.CRDResourceName(cilium_v2.CNCName):                             {skip, ""}, // Handled by init directly
 	synced.CRDResourceName(cilium_v2.CCGName):                             {waitOnly, k8sAPIGroupCiliumCIDRGroupV2},
