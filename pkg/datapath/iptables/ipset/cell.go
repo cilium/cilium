@@ -36,6 +36,15 @@ var Cell = cell.Module(
 
 	cell.Invoke(registerNodeIPSetSync),
 
+	// Ready is closed once the CiliumNodeIPSetV4/V6 kernel ipsets have been
+	// created (or once it's been determined that they are not needed).
+	// Consumers that reference these ipsets by name (e.g. iptables rules
+	// using --match-set) must wait on this channel first, or they may end
+	// up referencing an ipset that does not yet exist.
+	cell.Provide(func() Ready {
+		return make(Ready)
+	}),
+
 	cell.ProvidePrivate(
 		newIPSetManager,
 		tables.NewIPSetTable,
@@ -54,7 +63,7 @@ var Cell = cell.Module(
 		},
 
 		func(cfg *option.DaemonConfig) config {
-			return config{NodeIPSetNeeded: cfg.NodeIpsetNeeded()}
+			return config{NodeIPSetNeeded: cfg.NodeIpsetNeeded() || cfg.TunnelingEnabled()}
 		},
 	),
 )
@@ -62,6 +71,11 @@ var Cell = cell.Module(
 type config struct {
 	NodeIPSetNeeded bool
 }
+
+// Ready is closed once the ipset manager has finished its initial setup of
+// the kernel ipsets (or determined they are not needed). Consumers should
+// select on it (alongside ctx.Done()) before referencing the ipsets by name.
+type Ready chan struct{}
 
 func newReconciler(params reconciler.Params, ops *ops, tbl statedb.RWTable[*tables.IPSetEntry]) (reconciler.Reconciler[*tables.IPSetEntry], error) {
 	return reconciler.Register(
