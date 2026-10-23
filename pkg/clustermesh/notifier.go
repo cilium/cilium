@@ -8,28 +8,29 @@ import (
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
-
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 )
 
 func nodeManagerNotifier(
 	jg job.Group,
 	cm *ClusterMesh,
-	nodeMgr nodeManager.NodeManager,
 ) {
-	jg.Add(job.OneShot("clustermesh-nodemanager-notifier", func(ctx context.Context, _ cell.Health) error {
-		if cm != nil {
-			// wait for initial nodes listing from all remote clusters
-			// before allowing stale node deletion
-			if err := cm.NodesSynced(ctx); err != nil {
-				return err
-			}
-		}
+	if cm == nil {
+		return
+	}
 
-		// Always call [MeshNodeSync], regardless of whether ClusterMesh is enabled,
-		// to ensure uniformity of behavior, and trigger pruning of stale remote
-		// nodes in case ClusterMesh was first enabled, and then disabled subsequently.
-		nodeMgr.MeshNodeSync()
-		return nil
+	txn := cm.conf.DB.WriteTxn(cm.nodeObserver.Table())
+	initDone := cm.nodeObserver.RegisterInitializer(txn, "clustermesh")
+	txn.Commit()
+
+	jg.Add(job.OneShot("clustermesh-nodemanager-notifier", func(ctx context.Context, _ cell.Health) error {
+		defer func() {
+			txn := cm.conf.DB.WriteTxn(cm.nodeObserver.Table())
+			initDone(txn)
+			txn.Commit()
+		}()
+
+		// wait for initial nodes listing from all remote clusters
+		// before allowing stale node deletion
+		return cm.NodesSynced(ctx)
 	}))
 }

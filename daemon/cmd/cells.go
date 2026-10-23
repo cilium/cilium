@@ -81,8 +81,8 @@ import (
 	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/networkdriver"
 	"github.com/cilium/cilium/pkg/node"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
+	nodePolicy "github.com/cilium/cilium/pkg/node/policy"
 	noderestapi "github.com/cilium/cilium/pkg/node/restapi"
 	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -238,13 +238,13 @@ var (
 		// Endpoint cell provides the Endpoint modules.
 		endpoint.Cell,
 
-		// NodeManager maintains a collection of other nodes in the cluster.
-		nodeManager.Cell,
+		// Install the node update policy and configuration notifier.
+		nodePolicy.Cell,
 
 		// Node REST API serves snapshots and changes from the node table.
 		noderestapi.Cell,
 
-		// NodeNeighborDiscovery is a node handler that subscribes to the NodeManager
+		// NodeNeighborDiscovery watches the node table for neighbor updates
 		// and ensures node IPs are "forwardable" by adding them to the forwardable IP table.
 		// The neighbor subsystem will create neighbor entries for these forwardable IPs.
 		neighbordiscovery.Cell,

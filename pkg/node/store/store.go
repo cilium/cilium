@@ -8,10 +8,13 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/cilium/statedb"
+
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
+	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
@@ -100,47 +103,39 @@ func ValidatingKeyCreator(validators ...nodeValidator) store.KeyCreator {
 // NodeObserver implements the store.Observer interface and delegates update
 // and deletion events to the node object itself.
 type NodeObserver struct {
-	manager NodeManager
-	source  source.Source
+	db     *statedb.DB
+	writer NodeWriter
+	source source.Source
 }
 
-// NewNodeObserver returns a new NodeObserver associated with the specified
-// node manager
-func NewNodeObserver(manager NodeManager, source source.Source) *NodeObserver {
-	return &NodeObserver{manager: manager, source: source}
+// NewNodeObserver returns a new NodeObserver associated with the node writer.
+func NewNodeObserver(db *statedb.DB, writer NodeWriter, source source.Source) *NodeObserver {
+	return &NodeObserver{db: db, writer: writer, source: source}
 }
 
 func (o *NodeObserver) OnUpdate(k store.Key) {
 	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
 		nodeCopy := n.DeepCopy()
 		nodeCopy.Source = o.source
-		o.manager.NodeUpdated(*nodeCopy)
+		txn := o.db.WriteTxn(o.writer.Table())
+		o.writer.Upsert(txn, nodeCopy)
+		txn.Commit()
 	}
 }
 
 func (o *NodeObserver) OnDelete(k store.NamedKey) {
 	if n, ok := k.(*ValidatingNode); ok && !n.IsLocal() {
-		nodeCopy := n.DeepCopy()
-		nodeCopy.Source = o.source
-		o.manager.NodeDeleted(*nodeCopy)
+		txn := o.db.WriteTxn(o.writer.Table())
+		o.writer.Delete(txn, o.source, n.Identity())
+		txn.Commit()
 	}
 }
 
-// NodeManager is the interface that the manager of nodes has to implement
-type NodeManager interface {
-	// NodeUpdated is called when the store detects a change in node
-	// information
-	NodeUpdated(n nodeTypes.Node)
-
-	// NodeDeleted is called when the store detects a deletion of a node
-	NodeDeleted(n nodeTypes.Node)
-}
-
-type NodeExtendedManager interface {
-	NodeManager
-
-	// NodeSync is called when the store completes the initial nodes listing
-	NodeSync()
+type NodeWriter interface {
+	Table() statedb.Table[*node.Node]
+	RegisterInitializer(txn statedb.WriteTxn, name string) func(statedb.WriteTxn)
+	Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool
+	Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool
 }
 
 // NodeRegistrar is a wrapper around store.SharedStore.
@@ -149,7 +144,7 @@ type NodeRegistrar struct {
 }
 
 // RegisterNode registers the local node in the cluster.
-func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, client kvstore.Client, n *nodeTypes.Node, manager NodeExtendedManager) error {
+func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, client kvstore.Client, n *nodeTypes.Node, db *statedb.DB, writer NodeWriter) error {
 	if !client.IsEnabled() {
 		return nil
 	}
@@ -162,7 +157,7 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, 
 		KeyCreator:              ValidatingKeyCreator(),
 		SynchronizationInterval: 30 * time.Minute,
 		SharedKeyDeleteDelay:    defaults.NodeDeleteDelay,
-		Observer:                NewNodeObserver(manager, source.KVStore),
+		Observer:                NewNodeObserver(db, writer, source.KVStore),
 	})
 	if err != nil {
 		return err
@@ -175,8 +170,6 @@ func (nr *NodeRegistrar) RegisterNode(ctx context.Context, logger *slog.Logger, 
 	}
 
 	nr.SharedStore = nodeStore
-
-	manager.NodeSync()
 
 	return nil
 }

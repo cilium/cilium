@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 )
@@ -54,12 +53,6 @@ type endpointManager interface {
 	GetEndpointsByPodName(string) []*endpoint.Endpoint
 	WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error
 	UpdatePolicyMaps(context.Context) error
-}
-
-type nodeManager interface {
-	NodeDeleted(n nodeTypes.Node)
-	NodeUpdated(n nodeTypes.Node)
-	NodeSync()
 }
 
 type policyManager interface {

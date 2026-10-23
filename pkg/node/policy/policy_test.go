@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package policy
 
 import (
 	"context"
@@ -114,6 +114,18 @@ func (i *ipcacheMock) RemoveMetadataBatch(updates ...ipcache.MU) (revision uint6
 	return 0
 }
 
+func upsertTestNode(db *statedb.DB, writer *node.Writer, n nodeTypes.Node) {
+	txn := db.WriteTxn(writer.Table())
+	writer.Upsert(txn, &n)
+	txn.Commit()
+}
+
+func deleteTestNode(db *statedb.DB, writer *node.Writer, n nodeTypes.Node) {
+	txn := db.WriteTxn(writer.Table())
+	writer.Delete(txn, n.Source, n.Identity())
+	txn.Commit()
+}
+
 func TestNodeLifecycle(t *testing.T) {
 	logger := hivetest.Logger(t)
 
@@ -122,7 +134,7 @@ func TestNodeLifecycle(t *testing.T) {
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
 
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -134,7 +146,7 @@ func TestNodeLifecycle(t *testing.T) {
 		},
 		Source: source.Unspec,
 	}
-	mngr.NodeUpdated(n1)
+	upsertTestNode(db, writer, n1)
 
 	n2 := nodeTypes.Node{
 		Name: "node2", Cluster: "c1", IPAddresses: []nodeTypes.Address{
@@ -145,13 +157,13 @@ func TestNodeLifecycle(t *testing.T) {
 		},
 		Source: source.Unspec,
 	}
-	mngr.NodeUpdated(n2)
+	upsertTestNode(db, writer, n2)
 
 	n, _, found := nodeTable.Get(db.ReadTxn(), node.NodeByName(n1.Fullname()))
 	require.True(t, found)
 	require.Equal(t, n1, n.Node)
 
-	mngr.NodeDeleted(n1)
+	deleteTestNode(db, writer, n1)
 	_, _, found = nodeTable.Get(db.ReadTxn(), node.NodeByName(n1.Fullname()))
 	require.False(t, found)
 
@@ -184,9 +196,9 @@ func TestNodeLabels(t *testing.T) {
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
 
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	policy, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
-	mngr.NodeUpdated(nRemote)
+	upsertTestNode(db, writer, nRemote)
 
 	tests := []struct {
 		name               string
@@ -254,7 +266,7 @@ func TestNodeLabels(t *testing.T) {
 			require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, nil, tt.nodeLabelPrefixes, ""))
 			option.Config.EnableNodeSelectorLabels = tt.nodeSelectorLabels
 			option.Config.ClusterName = cmtypes.DefaultClusterInfo.Name
-			got := mngr.nodeIdentityLabels(tt.node)
+			got := policy.nodeIdentityLabels(tt.node)
 			want := tt.setupWanted()
 			assert.True(t, want.Equals(got), "Mismatched labels: want=%v got=%v", want, got)
 		})
@@ -287,7 +299,7 @@ func TestNodeCIDRLabels(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	nodeTypes.SetName("localNode")
@@ -337,7 +349,13 @@ func TestNodeCIDRLabels(t *testing.T) {
 	// updateAndCheck commits the node update to the
 	updateAndCheck := func(n nodeTypes.Node, wantLbls labels.Labels, wantNID identity.NumericIdentity) {
 		t.Helper()
-		mngr.NodeUpdated(n)
+		if n.IsLocal() {
+			txn := db.WriteTxn(writer.Table())
+			require.NoError(t, writer.UpsertLocal(txn, &node.LocalNode{Node: n, Local: &node.LocalNodeInfo{}}))
+			txn.Commit()
+		} else {
+			upsertTestNode(db, writer, n)
+		}
 		// make a dummy ipcache update so we're sure the metadata resolver has run.
 		// This is to prevent test flakes.
 		setIPLabels(dummyIP.String()+"/32", "reserved:ingress")
@@ -488,7 +506,7 @@ func TestMultipleSources(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1k8s := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Kubernetes, IPAddresses: []nodeTypes.Address{
@@ -497,7 +515,7 @@ func TestMultipleSources(t *testing.T) {
 			IP:   iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 		},
 	}}
-	mngr.NodeUpdated(n1k8s)
+	upsertTestNode(db, writer, n1k8s)
 	// agent can overwrite kubernetes
 	n1agent := nodeTypes.Node{Name: "node1", Cluster: "c1", Source: source.Local, IPAddresses: []nodeTypes.Address{
 		{
@@ -505,20 +523,20 @@ func TestMultipleSources(t *testing.T) {
 			IP:   iputil.AddrFrom(netip.MustParseAddr("10.0.0.1")),
 		},
 	}}
-	mngr.NodeUpdated(n1agent)
+	upsertTestNode(db, writer, n1agent)
 	// kubernetes cannot overwrite local node
-	mngr.NodeUpdated(n1k8s)
+	upsertTestNode(db, writer, n1k8s)
 	stored, _, found := nodeTable.Get(db.ReadTxn(), node.NodeByName(n1agent.Fullname()))
 	require.True(t, found)
 	require.Equal(t, n1agent, stored.Node)
 
 	// delete from kubernetes, should not remove local node
-	mngr.NodeDeleted(n1k8s)
+	deleteTestNode(db, writer, n1k8s)
 	stored, _, found = nodeTable.Get(db.ReadTxn(), node.NodeByName(n1agent.Fullname()))
 	require.True(t, found)
 	require.Equal(t, n1agent, stored.Node)
 
-	mngr.NodeDeleted(n1agent)
+	deleteTestNode(db, writer, n1agent)
 	_, _, found = nodeTable.Get(db.ReadTxn(), node.NodeByName(n1agent.Fullname()))
 	require.False(t, found)
 }
@@ -551,7 +569,7 @@ func TestIpcache(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -568,7 +586,7 @@ func TestIpcache(t *testing.T) {
 		IPv6AllocCIDR:           nodeTypes.PrefixFrom(netip.MustParsePrefix("f00d::/96")),
 		IPv6SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("cafe::/96"))},
 	}
-	mngr.NodeUpdated(n1)
+	upsertTestNode(db, writer, n1)
 
 	// node IP addresses
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
@@ -624,7 +642,7 @@ func TestIpcache(t *testing.T) {
 	})
 	n1.IPv4SecondaryAllocCIDRs = nil
 	n1.IPv6SecondaryAllocCIDRs = nil
-	mngr.NodeUpdated(n1)
+	upsertTestNode(db, writer, n1)
 
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
@@ -662,7 +680,7 @@ func TestIpcache(t *testing.T) {
 		},
 	)
 
-	mngr.NodeDeleted(n1)
+	deleteTestNode(db, writer, n1)
 
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.2"), 32))
@@ -695,7 +713,7 @@ func TestIpcacheHealthIP(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -707,7 +725,7 @@ func TestIpcacheHealthIP(t *testing.T) {
 		IPv4HealthIP: iputil.AddrFrom(netip.MustParseAddr("10.0.0.4")),
 		IPv6HealthIP: iputil.AddrFrom(netip.MustParseAddr("f00d::4")),
 	}
-	mngr.NodeUpdated(n1)
+	upsertTestNode(db, writer, n1)
 
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32))
@@ -719,7 +737,7 @@ func TestIpcacheHealthIP(t *testing.T) {
 	default:
 	}
 
-	mngr.NodeDeleted(n1)
+	deleteTestNode(db, writer, n1)
 
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("10.0.0.4"), 32))
@@ -739,9 +757,9 @@ func TestNodeEncryption(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{
 		EncryptNode: true,
-	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -758,7 +776,7 @@ func TestNodeEncryption(t *testing.T) {
 		IPv6SecondaryAllocCIDRs: []nodeTypes.Prefix{nodeTypes.PrefixFrom(netip.MustParsePrefix("cafe::/96"))},
 		EncryptionKey:           42,
 	}
-	mngr.NodeUpdated(n1)
+	upsertTestNode(db, writer, n1)
 
 	// node IP addresses
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
@@ -807,7 +825,7 @@ func TestNodeEncryption(t *testing.T) {
 	default:
 	}
 
-	mngr.NodeDeleted(n1)
+	deleteTestNode(db, writer, n1)
 
 	// node IP addresses
 	expectIPCacheUpdate(t, ipcacheMock, "delete", netip.PrefixFrom(netip.MustParseAddr("1.1.1.1"), 32))
@@ -861,7 +879,7 @@ func TestNode(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcacheMock, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -881,7 +899,7 @@ func TestNode(t *testing.T) {
 		IPv6HealthIP: iputil.AddrFrom(netip.MustParseAddr("2001:DB8::2")),
 		Source:       source.KVStore,
 	}
-	mngr.NodeUpdated(n1)
+	upsertTestNode(db, writer, n1)
 
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.1"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::1"), 128))
@@ -902,7 +920,7 @@ func TestNode(t *testing.T) {
 	}
 	n1V2.IPv4HealthIP = iputil.AddrFrom(netip.MustParseAddr("192.0.2.20"))
 	n1V2.IPv6HealthIP = iputil.AddrFrom(netip.MustParseAddr("2001:DB8::20"))
-	mngr.NodeUpdated(*n1V2)
+	upsertTestNode(db, writer, *n1V2)
 
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("192.0.2.10"), 32))
 	expectIPCacheUpdate(t, ipcacheMock, "upsert", netip.PrefixFrom(netip.MustParseAddr("2001:DB8::1"), 128))
@@ -952,9 +970,9 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 	db := statedb.New()
 	nodeTable, _ := node.NewNodeTable(db)
 	writer := node.NewWriter(logger, db, nodeTable)
-	mngr, err := New(logger, &option.DaemonConfig{
+	_, err := newUpdatePolicy(logger, &option.DaemonConfig{
 		LocalRouterIPv4: "169.254.4.6",
-	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcache, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipcache, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	n1 := nodeTypes.Node{
@@ -976,7 +994,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 		},
 		Source: source.Local,
 	}
-	mngr.NodeUpdated(n1)
+	upsertTestNode(db, writer, n1)
 
 	n2 := nodeTypes.Node{
 		Name:    "node2",
@@ -997,7 +1015,7 @@ func TestNodeWithSameInternalIP(t *testing.T) {
 		},
 		Source: source.CustomResource,
 	}
-	mngr.NodeUpdated(n2)
+	upsertTestNode(db, writer, n2)
 
 	// The configured Cilium router address may be shared despite the first
 	// node's higher source priority. Both nodes must be published.
@@ -1014,15 +1032,17 @@ func TestNodeTableMirroring(t *testing.T) {
 	nodeTable, err := node.NewNodeTable(db)
 	require.NoError(t, err)
 	writer := node.NewWriter(logger, db, nodeTable)
+	initTxn := db.WriteTxn(nodeTable)
+	initialNodesDone := writer.RegisterInitializer(initTxn, "test-node-listing")
+	initTxn.Commit()
 
 	ipcacheMock := newIPcacheMock()
-	mngr, err := New(
+	_, err = newUpdatePolicy(
 		logger,
 		&option.DaemonConfig{},
 		cmtypes.ClusterInfo{Name: "c1"},
 		tunnel.Config{},
 		ipcacheMock,
-		NewNodeMetrics(),
 		db,
 		fakewireguard.Config{},
 		writer,
@@ -1032,8 +1052,7 @@ func TestNodeTableMirroring(t *testing.T) {
 	initialized, initWatch := nodeTable.Initialized(db.ReadTxn())
 	require.False(t, initialized)
 	require.ElementsMatch(t, []string{
-		ClusterNodeTableInitializerName,
-		MeshNodeTableInitializerName,
+		"test-node-listing",
 	}, nodeTable.PendingInitializers(db.ReadTxn()))
 
 	n1 := nodeTypes.Node{
@@ -1066,7 +1085,7 @@ func TestNodeTableMirroring(t *testing.T) {
 		require.False(t, found)
 	}
 
-	mngr.NodeUpdated(n1)
+	upsertTestNode(db, writer, n1)
 	requireNode(t, n1)
 
 	txn := db.WriteTxn(nodeTable)
@@ -1079,37 +1098,28 @@ func TestNodeTableMirroring(t *testing.T) {
 	txn.Commit()
 
 	n1.EncryptionKey = 42
-	mngr.NodeUpdated(n1)
+	upsertTestNode(db, writer, n1)
 	requireNode(t, n1)
 	stored, _, found = nodeTable.Get(db.ReadTxn(), node.NodeByName(n1.Fullname()))
 	require.True(t, found)
 	require.Equal(t, reconciler.StatusKindPending, stored.Statuses.Get("test").Kind)
 
-	mngr.NodeUpdated(n2)
+	upsertTestNode(db, writer, n2)
 	requireNode(t, n1)
 	requireNode(t, n2)
 
 	select {
 	case <-initWatch:
-		t.Fatal("node table initialized before NodeSync")
+		t.Fatal("node table initialized before the initial listing completed")
 	default:
 	}
 
 	initialized, _ = nodeTable.Initialized(db.ReadTxn())
 	require.False(t, initialized)
 
-	mngr.NodeSync()
-	require.Equal(t, []string{
-		MeshNodeTableInitializerName,
-	}, nodeTable.PendingInitializers(db.ReadTxn()))
-
-	select {
-	case <-initWatch:
-		t.Fatal("node table initialized before MeshNodeSync")
-	default:
-	}
-
-	mngr.MeshNodeSync()
+	initTxn = db.WriteTxn(nodeTable)
+	initialNodesDone(initTxn)
+	initTxn.Commit()
 
 	select {
 	case <-initWatch:
@@ -1119,23 +1129,23 @@ func TestNodeTableMirroring(t *testing.T) {
 	initialized, _ = nodeTable.Initialized(db.ReadTxn())
 	require.True(t, initialized)
 
-	mngr.NodeDeleted(n1)
+	deleteTestNode(db, writer, n1)
 	requireNoNode(t, n1)
 	requireNode(t, n2)
 }
 
-func TestManagerWithoutWriter(t *testing.T) {
+func TestUpdatePolicyWithoutWriter(t *testing.T) {
 	ipc := newIPcacheMock()
-	m, err := New(hivetest.Logger(t), &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, NewNodeMetrics(), nil, fakewireguard.Config{}, nil)
+	m, err := newUpdatePolicy(hivetest.Logger(t), &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, nil, fakewireguard.Config{}, nil)
 	require.NoError(t, err)
 	n := nodeTypes.Node{
 		Name: "remote", Cluster: "default", Source: source.Kubernetes,
 		IPAddresses: []nodeTypes.Address{{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.1"))}},
 	}
-	m.NodeUpdated(n)
+	m.Upsert(&n, nil)
 	require.Equal(t, n, m.nodes[n.Identity()].node)
 	expectIPCacheUpdate(t, ipc, "upsert", netip.MustParsePrefix("192.0.2.1/32"))
-	m.NodeDeleted(n)
+	m.Delete(n.Source, n.Identity(), nil)
 	require.Empty(t, m.nodes)
 	expectIPCacheUpdate(t, ipc, "delete", netip.MustParsePrefix("192.0.2.1/32"))
 	require.Empty(t, ipc.events)
@@ -1148,21 +1158,21 @@ func TestDeleteAfterSuppressedSourceChange(t *testing.T) {
 	require.NoError(t, err)
 	writer := node.NewWriter(logger, db, nodes)
 	ipc := newIPcacheMock()
-	m, err := New(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, NewNodeMetrics(), db, fakewireguard.Config{}, writer)
+	m, err := newUpdatePolicy(logger, &option.DaemonConfig{}, cmtypes.DefaultClusterInfo, tunnel.Config{}, ipc, db, fakewireguard.Config{}, writer)
 	require.NoError(t, err)
 
 	original := nodeTypes.Node{
 		Name: "node", Cluster: "default", Source: source.Kubernetes,
 		IPAddresses: []nodeTypes.Address{{Type: addressing.NodeInternalIP, IP: iputil.AddrFrom(netip.MustParseAddr("192.0.2.1"))}},
 	}
-	m.NodeUpdated(original)
+	upsertTestNode(db, writer, original)
 	updated := original.DeepCopy()
 	updated.Source = source.KVStore
 	updated.IPAddresses[0].IP = iputil.AddrFrom(netip.MustParseAddr("192.0.2.2"))
 	ipc.sources = map[cmtypes.PrefixCluster]source.Source{
 		cmtypes.MustParsePrefixCluster("192.0.2.2/32"): source.Local,
 	}
-	m.NodeUpdated(*updated)
+	upsertTestNode(db, writer, *updated)
 	stored, _, found := nodes.Get(db.ReadTxn(), node.NodeByName(original.Fullname()))
 	require.True(t, found)
 	require.Equal(t, original, stored.Node)
@@ -1173,7 +1183,7 @@ func TestDeleteAfterSuppressedSourceChange(t *testing.T) {
 
 	// The old published source no longer owns the policy state. Its delete
 	// must leave both the published row and IPCache metadata untouched.
-	m.NodeDeleted(original)
+	deleteTestNode(db, writer, original)
 	stored, _, found = nodes.Get(db.ReadTxn(), node.NodeByName(original.Fullname()))
 	require.True(t, found)
 	require.Equal(t, original, stored.Node)
@@ -1182,55 +1192,10 @@ func TestDeleteAfterSuppressedSourceChange(t *testing.T) {
 
 	// The accepted owner can remove the older published row as well as the
 	// cached node and IPCache metadata.
-	m.NodeDeleted(*updated)
+	deleteTestNode(db, writer, *updated)
 	_, _, found = nodes.Get(db.ReadTxn(), node.NodeByName(original.Fullname()))
 	require.False(t, found)
 	require.NotContains(t, m.nodes, original.Identity())
 	expectIPCacheUpdate(t, ipc, "delete", netip.MustParsePrefix("192.0.2.2/32"))
 	require.Empty(t, ipc.events)
-}
-
-func TestNodeTableInitializersCompleteInEitherOrder(t *testing.T) {
-	for _, meshFirst := range []bool{false, true} {
-		name := "cluster-first"
-		if meshFirst {
-			name = "mesh-first"
-		}
-		t.Run(name, func(t *testing.T) {
-			db := statedb.New()
-			nodeTable, err := node.NewNodeTable(db)
-			require.NoError(t, err)
-			writer := node.NewWriter(hivetest.Logger(t), db, nodeTable)
-
-			mngr, err := New(
-				hivetest.Logger(t),
-				&option.DaemonConfig{},
-				cmtypes.ClusterInfo{Name: "c1"},
-				tunnel.Config{},
-				newIPcacheMock(),
-				NewNodeMetrics(),
-				db,
-				fakewireguard.Config{},
-				writer,
-			)
-			require.NoError(t, err)
-
-			if meshFirst {
-				mngr.MeshNodeSync()
-				require.Equal(t, []string{
-					ClusterNodeTableInitializerName,
-				}, nodeTable.PendingInitializers(db.ReadTxn()))
-				mngr.NodeSync()
-			} else {
-				mngr.NodeSync()
-				require.Equal(t, []string{
-					MeshNodeTableInitializerName,
-				}, nodeTable.PendingInitializers(db.ReadTxn()))
-				mngr.MeshNodeSync()
-			}
-
-			initialized, _ := nodeTable.Initialized(db.ReadTxn())
-			require.True(t, initialized)
-		})
-	}
 }

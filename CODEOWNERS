@@ -670,6 +670,7 @@ Makefile* @cilium/build
 /pkg/networkdriver @cilium/network-driver
 /pkg/node @cilium/sig-agent
 /pkg/node/neighbordiscovery @cilium/sig-agent @cilium/sig-datapath
+/pkg/node/policy/ @cilium/sig-agent
 /pkg/nodediscovery/ @cilium/sig-agent
 /pkg/nodeipamconfig @cilium/sig-ipam
 /pkg/option @cilium/sig-agent @cilium/cli

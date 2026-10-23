@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
-package manager
+package policy
 
 import (
 	"context"
@@ -21,17 +21,17 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 )
 
-// updatePolicy implements Writer's publication and deletion policy using
-// IPCache and the manager-owned accepted-node cache.
-type updatePolicy struct {
-	manager *manager
-}
-
 var _ node.UpdatePolicy = &updatePolicy{}
 
+func prefixClusterOpts(mutator node.PrefixClusterMutatorFn, n *nodeTypes.Node) []cmtypes.PrefixClusterOpts {
+	if mutator == nil {
+		return nil
+	}
+	return mutator(n)
+}
+
 // Upsert implements [node.UpdatePolicy].
-func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
-	m := p.manager
+func (m *updatePolicy) Upsert(n *nodeTypes.Node, mutator node.PrefixClusterMutatorFn) (publish bool) {
 	m.logger.Info(
 		"Node updated",
 		logfields.ClusterName, n.Cluster,
@@ -62,7 +62,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		prefix := netip.PrefixFrom(address.IP.Addr, address.IP.BitLen())
 		var prefixCluster cmtypes.PrefixCluster
 		if address.Type == addressing.NodeCiliumInternalIP {
-			prefixCluster = cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)
+			prefixCluster = cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, n)...)
 		} else {
 			prefixCluster = cmtypes.NewLocalPrefixCluster(prefix)
 		}
@@ -82,7 +82,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 			endpointFlags.SetRemoteCluster(true)
 		}
 
-		// We expect the node manager to have a source of either Kubernetes,
+		// We expect node updates to have a source of either Kubernetes,
 		// CustomResource, or KVStore. Prioritize the KVStore source over the
 		// rest as it is the strongest source, i.e. only trigger datapath
 		// updates if the information we receive takes priority.
@@ -119,11 +119,11 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		ipv6PodCIDRs := n.GetIPv6AllocCIDRs()
 
 		mu := make([]ipcache.MU, 0, len(ipv4PodCIDRs)+len(ipv6PodCIDRs))
-		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(n, ipv4PodCIDRs...), nodeIP, n.EncryptionKey) {
+		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(mutator, n, ipv4PodCIDRs...), nodeIP, n.EncryptionKey) {
 			mu = append(mu, entry)
 			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix.AsPrefix())
 		}
-		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(n, ipv6PodCIDRs...), nodeIP, n.EncryptionKey) {
+		for entry := range m.podCIDREntries(n.Source, resource, m.cidrsToPrefixesCluster(mutator, n, ipv6PodCIDRs...), nodeIP, n.EncryptionKey) {
 			mu = append(mu, entry)
 			podCIDRsAdded = append(podCIDRsAdded, entry.Prefix.AsPrefix())
 		}
@@ -136,7 +136,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, n)...)
 
 		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
@@ -155,7 +155,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 			continue
 		}
 
-		prefixCluster := cmtypes.PrefixClusterFrom(prefix, m.prefixClusterMutatorFn(n)...)
+		prefixCluster := cmtypes.PrefixClusterFrom(prefix, prefixClusterOpts(mutator, n)...)
 
 		if !source.AllowOverwrite(m.ipcache.GetMetadataSourceByPrefix(prefixCluster), n.Source) {
 			dpUpdate = false
@@ -171,8 +171,6 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentifier]
 	if oldNodeExists {
-		m.metrics.EventsReceived.WithLabelValues("update", string(n.Source)).Inc()
-
 		if !source.AllowOverwrite(entry.node.Source, n.Source) {
 			// Done; skip node-handler updates and label injection
 			// triggers below. Includes case where the local host
@@ -187,6 +185,7 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		oldNode := entry.node
 		entry.node = *n
 		m.removeNodeFromIPCache(
+			mutator,
 			oldNode,
 			resource,
 			nodeIPsAdded,
@@ -197,9 +196,6 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 
 		entry.mutex.Unlock()
 	} else {
-		m.metrics.EventsReceived.WithLabelValues("add", string(n.Source)).Inc()
-		m.metrics.NumNodes.Inc()
-
 		entry = &nodeEntry{node: *n}
 		entry.mutex.Lock()
 		m.nodes[nodeIdentifier] = entry
@@ -207,14 +203,11 @@ func (p *updatePolicy) Upsert(n *nodeTypes.Node) (publish bool) {
 		entry.mutex.Unlock()
 
 	}
-	// LocalNodeStore owns the local table row. Preserve IPCache and cache
-	// updates above, but skip publication through Writer.
-	return dpUpdate && !n.IsLocal()
+	return dpUpdate
 }
 
 // Delete implements [node.UpdatePolicy].
-func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identity) (remove bool) {
-	m := p.manager
+func (m *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identity, mutator node.PrefixClusterMutatorFn) (remove bool) {
 	m.logger.Info(
 		"Node deleted",
 		logfields.ClusterName, nodeIdentifier.Cluster,
@@ -224,8 +217,6 @@ func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identi
 		"Received node delete event",
 		logfields.Source, src,
 	)
-
-	m.metrics.EventsReceived.WithLabelValues("delete", string(src)).Inc()
 
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentifier]
@@ -254,9 +245,7 @@ func (p *updatePolicy) Delete(src source.Source, nodeIdentifier nodeTypes.Identi
 	}
 
 	resource := ipcacheTypes.NewResourceID(ipcacheTypes.ResourceKindNode, "", n.Name)
-	m.removeNodeFromIPCache(entry.node, resource, nil, nil, nil, nil)
-	m.metrics.NumNodes.Dec()
-
+	m.removeNodeFromIPCache(mutator, entry.node, resource, nil, nil, nil, nil)
 	entry.mutex.Lock()
 	delete(m.nodes, nodeIdentifier)
 	m.mutex.Unlock()

@@ -9,9 +9,11 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"sync"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
+	"github.com/cilium/statedb"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -23,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	k8sSynced "github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	nm "github.com/cilium/cilium/pkg/node/manager"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 type k8sCiliumNodeWatcherParams struct {
@@ -36,7 +38,8 @@ type k8sCiliumNodeWatcherParams struct {
 	K8sResourceSynced *k8sSynced.Resources
 	K8sAPIGroups      *k8sSynced.APIGroups
 
-	NodeManager nm.NodeManager
+	DB          *statedb.DB
+	NodeWriter  *node.Writer
 	ClusterInfo cmtypes.ClusterInfo
 }
 
@@ -47,7 +50,8 @@ func newK8sCiliumNodeWatcher(params k8sCiliumNodeWatcherParams) *K8sCiliumNodeWa
 		k8sResourceSynced: params.K8sResourceSynced,
 		k8sAPIGroups:      params.K8sAPIGroups,
 		ciliumNode:        params.CiliumNode,
-		nodeManager:       params.NodeManager,
+		db:                params.DB,
+		writer:            params.NodeWriter,
 		clusterInfo:       params.ClusterInfo,
 	}
 }
@@ -66,10 +70,23 @@ type K8sCiliumNodeWatcher struct {
 	k8sAPIGroups *k8sSynced.APIGroups
 	ciliumNode   resource.Resource[*cilium_v2.CiliumNode]
 
-	nodeManager nodeManager
-	clusterInfo cmtypes.ClusterInfo
+	db                         *statedb.DB
+	writer                     *node.Writer
+	clusterInfo                cmtypes.ClusterInfo
+	completeInitialNodeListing func()
 
 	ciliumNodeStore atomic.Pointer[resource.Store[*cilium_v2.CiliumNode]]
+}
+
+func (k *K8sCiliumNodeWatcher) registerNodeInitializer() {
+	txn := k.db.WriteTxn(k.writer.Table())
+	initialNodesDone := k.writer.RegisterInitializer(txn, "ciliumnode")
+	txn.Commit()
+	k.completeInitialNodeListing = sync.OnceFunc(func() {
+		txn := k.db.WriteTxn(k.writer.Table())
+		initialNodesDone(txn)
+		txn.Commit()
+	})
 }
 
 func (k *K8sCiliumNodeWatcher) ciliumNodeInit(ctx context.Context) {
@@ -90,7 +107,7 @@ func (k *K8sCiliumNodeWatcher) ciliumNodeInit(ctx context.Context) {
 			switch event.Kind {
 			case resource.Sync:
 				synced.Store(true)
-				k.nodeManager.NodeSync()
+				k.completeInitialNodeListing()
 
 				// The informer just synchronized, so the Store call will not block.
 				store, err := k.ciliumNode.Store(ctx)
@@ -127,7 +144,9 @@ func (k *K8sCiliumNodeWatcher) onCiliumNodeInsert(ciliumNode *cilium_v2.CiliumNo
 		return false
 	}
 	n := k8s.ParseCiliumNode(ciliumNode, k.clusterInfo)
-	k.nodeManager.NodeUpdated(n)
+	txn := k.db.WriteTxn(k.writer.Table())
+	k.writer.Upsert(txn, &n)
+	txn.Commit()
 	return true
 }
 
@@ -146,7 +165,9 @@ func (k *K8sCiliumNodeWatcher) onCiliumNodeDelete(ciliumNode *cilium_v2.CiliumNo
 		return
 	}
 	n := k8s.ParseCiliumNode(ciliumNode, k.clusterInfo)
-	k.nodeManager.NodeDeleted(n)
+	txn := k.db.WriteTxn(k.writer.Table())
+	k.writer.Delete(txn, n.Source, n.Identity())
+	txn.Commit()
 }
 
 // GetCiliumNode returns the CiliumNode "nodeName" from the local Resource[T] store. If the
