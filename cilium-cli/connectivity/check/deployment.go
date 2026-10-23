@@ -73,6 +73,7 @@ const (
 	DNSTestServerContainerName = "dns-test-server"
 
 	echoSameNodeDeploymentName                 = "echo-same-node"
+	echoLocalNodePortServiceName               = "echo-same-node-nodeport-local"
 	echoOtherNodeDeploymentName                = "echo-other-node"
 	EchoOtherNodeDeploymentHeadlessServiceName = "echo-other-node-headless"
 	echoExternalNodeDeploymentName             = "echo-external-node"
@@ -1297,6 +1298,17 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 	if err != nil {
 		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoSameNodeDeploymentName)
 		svc := newService(echoSameNodeDeploymentName, map[string]string{"name": echoSameNodeDeploymentName}, serviceLabels, "http", 8080, ct.Params().ServiceType)
+		_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
+		if err != nil {
+			return err
+		}
+	}
+
+	_, err = ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoLocalNodePortServiceName, metav1.GetOptions{})
+	if err != nil {
+		ct.Logf("✨ [%s] Deploying %s service...", ct.clients.src.ClusterName(), echoLocalNodePortServiceName)
+		svc := newService(echoLocalNodePortServiceName, map[string]string{"name": echoSameNodeDeploymentName}, map[string]string{"kind": "echo-local-nodeport"}, "http", 8080, string(corev1.ServiceTypeNodePort))
+		svc.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyLocal
 		_, err = ct.clients.src.CreateService(ctx, ct.params.TestNamespace, svc, metav1.CreateOptions{})
 		if err != nil {
 			return err
@@ -2729,6 +2741,7 @@ func (ct *ConnectivityTest) deleteDeployments(ctx context.Context, client *k8s.C
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, client2DeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteServiceAccount(ctx, ct.params.TestNamespace, client3DeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoSameNodeDeploymentName, metav1.DeleteOptions{})
+	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoLocalNodePortServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, echoOtherNodeDeploymentName, metav1.DeleteOptions{})
 	_ = client.DeleteService(ctx, ct.params.TestNamespace, EchoOtherNodeDeploymentHeadlessServiceName, metav1.DeleteOptions{})
 	_ = client.DeleteConfigMap(ctx, ct.params.TestNamespace, corednsConfigMapName, metav1.DeleteOptions{})
@@ -3161,6 +3174,12 @@ func (ct *ConnectivityTest) validateDeployment(ctx context.Context) error {
 			}
 		}
 	}
+
+	localNodePortService, err := ct.clients.src.GetService(ctx, ct.params.TestNamespace, echoLocalNodePortServiceName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("unable to get local NodePort service: %w", err)
+	}
+	ct.echoLocalNodePortService = Service{Service: localNodePortService}
 
 	for _, s := range ct.echoServices {
 		client := ct.RandomClientPod()
