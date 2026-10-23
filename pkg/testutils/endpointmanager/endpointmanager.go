@@ -143,7 +143,7 @@ func (*MockEndpointManager) RemoveEndpoint(ep *endpoint.Endpoint, conf endpoint.
 
 // EndpointResourceSynchronizer
 
-func (*MockEndpointManager) RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, hr cell.Health) {
+func (*MockEndpointManager) RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, isCurrentEndpoint func() bool, hr cell.Health) {
 	panic("MockEndpointManager.RunK8sCiliumEndpointSync not implemented")
 }
 

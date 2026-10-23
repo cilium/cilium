@@ -55,7 +55,8 @@ type EndpointSynchronizer struct {
 // has 1 controller that updates it, and a local copy is retained and only
 // updates are pushed up.
 // CiliumEndpoint objects have the same name as the pod they represent.
-func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, h cell.Health) {
+// isCurrentEndpoint reports whether the endpoint still owns its CEP name.
+func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, isCurrentEndpoint func() bool, h cell.Health) {
 	var (
 		endpointID     = e.ID
 		controllerName = endpoint.EndpointSyncControllerName(endpointID)
@@ -114,6 +115,10 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 			RunInterval: informerSyncGracePeriod,
 			Health:      h,
 			DoFunc: func(ctx context.Context) (err error) {
+				if !isCurrentEndpoint() {
+					return controller.NewExitReason("Endpoint no longer owns the CEP name")
+				}
+
 				// Update logger as scopeLog might not have the podName when it
 				// was created.
 				scopedLog = e.Logger(subsysEndpointSync).With(logfields.Controller, controllerName)
@@ -359,10 +364,15 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					}
 				}
 
+				// Recheck after fetching the CEP: a replacement may have been
+				// registered while the API request was in flight.
+				if !isCurrentEndpoint() {
+					return controller.NewExitReason("Endpoint no longer owns the CEP name")
+				}
+
 				// For json patch we don't need to perform a GET for endpoints
 
-				// If it fails it means the test from the previous patch failed
-				// so we can safely replace this node in the CNP status.
+				// Apply status only to the CEP version observed by this controller.
 				replaceCEPStatus := []k8s.JSONPatch{
 					// If the stored UID matches the one in the ciliumendpoint then
 					// this first patch is a no-op, otherwise the entire patch will
@@ -371,6 +381,12 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						OP:    "test",
 						Path:  "/metadata/uid",
 						Value: e.GetCiliumEndpointUID(),
+					},
+					// Use replace so a concurrent update returns a conflict.
+					{
+						OP:    "replace",
+						Path:  "/metadata/resourceVersion",
+						Value: localCEP.ResourceVersion,
 					},
 					{
 						OP:    "replace",
@@ -569,10 +585,28 @@ func deleteCEP(ctx context.Context, scopedLog *slog.Logger, ciliumClient v2.Cili
 		return nil
 	}
 
+	cep, err := ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Get(ctx, cepName, meta_v1.GetOptions{})
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			scopedLog.Warn("Unable to get CEP for deletion", logfields.Error, err)
+		}
+		return nil
+	}
+	// A replacement endpoint can adopt the same CEP UID. Check the endpoint
+	// ID and, when available, the CNI attachment to account for local ID reuse.
+	identifiers := cep.Status.ExternalIdentifiers
+	if cep.UID != cepUID || cep.Status.ID != int64(e.ID) ||
+		(identifiers != nil && identifiers.CniAttachmentID != "" && identifiers.CniAttachmentID != e.GetCNIAttachmentID()) {
+		scopedLog.Debug("Skipping CiliumEndpoint deletion because it belongs to another endpoint")
+		return nil
+	}
+
 	scopedLog.Debug("deleting CEP with UID", logfields.CEPUID, cepUID)
 	if err := ciliumClient.CiliumEndpoints(cepOwner.GetNamespace()).Delete(ctx, cepName, meta_v1.DeleteOptions{
+		// Reject an update or takeover between GET and DELETE.
 		Preconditions: &meta_v1.Preconditions{
-			UID: &cepUID,
+			UID:             &cepUID,
+			ResourceVersion: &cep.ResourceVersion,
 		},
 	}); err != nil {
 		if !k8serrors.IsNotFound(err) && !k8serrors.IsConflict(err) {
