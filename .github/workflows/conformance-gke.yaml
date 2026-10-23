@@ -587,6 +587,15 @@ jobs:
           location: ${{ steps.create-cluster.outputs.zone }}
           artifact_name: "control-plane-probe-gke-${{ env.job_name }} (${{ join(matrix.k8s.*, ', ') }}, ${{ matrix.config.type }}, ${{ inputs.UID }})-attempt-${{ github.run_attempt }}"
 
+      - name: Print the GKE control-plane state after a failure
+        if: ${{ failure() && steps.create-cluster.outputs.zone != '' }}
+        continue-on-error: true
+        timeout-minutes: 5
+        uses: ./.github/actions/gke-control-plane-state
+        with:
+          cluster: ${{ env.clusterName }}-${{ matrix.config.index }}
+          zone: ${{ steps.create-cluster.outputs.zone }}
+
       - name: Run common post steps
         if: ${{ always() && steps.install-cilium.outcome != 'skipped' }}
         uses: ./../cilium-base-branch/.github/actions/post-logic
