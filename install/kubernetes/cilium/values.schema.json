@@ -1928,9 +1928,6 @@
         },
         "ipsec": {
           "properties": {
-            "interface": {
-              "type": "string"
-            },
             "keyFile": {
               "type": "string"
             },
