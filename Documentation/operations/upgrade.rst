@@ -310,6 +310,12 @@ Network Policy
   without authentication and the policy will be updated with a validation
   warning to inform you that the authentication rules are ineffective.
   Enable this flag if you are using :ref:`gs_mutual_authentication`.
+* Egress policy rules that combine ``toServices`` with ``toPorts`` no longer
+  allow traffic to any destination on those ports when the referenced Service
+  doesn't exist or is selector-less with no backends. Such rules now deny that
+  traffic until the Service exists and, if selector-less, has backends. If you
+  have rules like this, ensure the referenced Services exist and have backends
+  before upgrading.
 
 Cluster Mesh
 ############
