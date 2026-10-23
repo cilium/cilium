@@ -20,11 +20,14 @@ import (
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/wgctrl/wgtypes"
 
+	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
+	testidentity "github.com/cilium/cilium/pkg/testutils/identity"
 	"github.com/cilium/cilium/pkg/wireguard/types"
 )
 
@@ -192,8 +195,10 @@ func containsIP(allowedIPs iter.Seq[net.IPNet], ipnet *net.IPNet) bool {
 
 func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardClient, config Config) (*Agent, *ipcache.IPCache) {
 	ipCache := ipcache.NewIPCache(&ipcache.Configuration{
-		Context: ctx,
-		Logger:  logger,
+		Context:           ctx,
+		Logger:            logger,
+		IdentityAllocator: testidentity.NewMockIdentityAllocator(nil),
+		IdentityUpdater:   &testidentity.IdentityAllocatorOwnerMock{},
 	})
 	wgAgent := &Agent{
 		logger:           logger,
@@ -210,6 +215,35 @@ func newTestAgent(ctx context.Context, logger *slog.Logger, wgClient wireguardCl
 		ipCache.AddListener(wgAgent)
 	}
 	return wgAgent, ipCache
+}
+
+func testUpsertIPMetadata(ctx context.Context, ipc *ipcache.IPCache, ipStr string, hostIP net.IP) error {
+	addr := cmtypes.MustParseAddrCluster(ipStr)
+	var aux []ipcache.IPMetadata
+	if hostIP != nil {
+		if hostAddr, ok := netipx.FromStdIP(hostIP); ok {
+			aux = append(aux, ipcachetypes.TunnelPeer{Addr: hostAddr})
+		}
+	}
+	resource := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindEndpoint, "default", ipStr)
+	rev := ipc.UpsertMetadataBatch(ipcache.MU{
+		Prefix:   addr.AsPrefixCluster(),
+		Source:   source.Kubernetes,
+		Resource: resource,
+		Metadata: aux,
+	})
+	return ipc.WaitForRevision(ctx, rev)
+}
+
+func testDeleteIPMetadata(ctx context.Context, ipc *ipcache.IPCache, ipStr string) error {
+	addr := cmtypes.MustParseAddrCluster(ipStr)
+	resource := ipcachetypes.NewResourceID(ipcachetypes.ResourceKindEndpoint, "default", ipStr)
+	rev := ipc.RemoveMetadataBatch(ipcache.MU{
+		Prefix:   addr.AsPrefixCluster(),
+		Resource: resource,
+		Metadata: []ipcache.IPMetadata{ipcachetypes.AllMetadata{}},
+	})
+	return ipc.WaitForRevision(ctx, rev)
 }
 
 // expectation holds AllowedIPs expected for a peer (node) upon calling CheckExpectations.
@@ -295,10 +329,10 @@ func TestAgent_PeerConfig(t *testing.T) {
 			defer ipCache.Shutdown()
 
 			// Test that IPCache updates before updatePeer are handled correctly
-			ipCache.Upsert(pod1IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
-			ipCache.Upsert(pod1IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
-			ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
-			ipCache.Upsert(pod2IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 2, Source: source.Kubernetes})
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod1IPv4Str, k8s1NodeIPv4))
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod1IPv6Str, k8s1NodeIPv6))
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod2IPv4Str, k8s1NodeIPv4))
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod2IPv6Str, k8s1NodeIPv6))
 
 			err := wgAgent.updatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
 			require.NoError(t, err)
@@ -345,14 +379,14 @@ func TestAgent_PeerConfig(t *testing.T) {
 			go func() {
 				close(ipCacheUpdatePending)
 				// Insert pod3
-				ipCache.Upsert(pod3IPv4Str, k8s2NodeIPv4, 0, nil, ipcache.Identity{ID: 3, Source: source.Kubernetes})
-				ipCache.Upsert(pod3IPv6Str, k8s2NodeIPv6, 0, nil, ipcache.Identity{ID: 3, Source: source.Kubernetes})
+				require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod3IPv4Str, k8s2NodeIPv4))
+				require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod3IPv6Str, k8s2NodeIPv6))
 				// Update pod2
-				ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 22, Source: source.Kubernetes})
-				ipCache.Upsert(pod2IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 22, Source: source.Kubernetes})
+				require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod2IPv4Str, k8s1NodeIPv4))
+				require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod2IPv6Str, k8s1NodeIPv6))
 				// Delete pod1
-				ipCache.Delete(pod1IPv4Str, source.Kubernetes)
-				ipCache.Delete(pod1IPv6Str, source.Kubernetes)
+				require.NoError(t, testDeleteIPMetadata(t.Context(), ipCache, pod1IPv4Str))
+				require.NoError(t, testDeleteIPMetadata(t.Context(), ipCache, pod1IPv6Str))
 				close(ipCacheUpdated)
 			}()
 
@@ -516,8 +550,8 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 				}
 			}
 
-			ipCache.Upsert(pod1IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
-			ipCache.Upsert(pod1IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod1IPv4Str, k8s1NodeIPv4))
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod1IPv6Str, k8s1NodeIPv6))
 
 			err = wgAgent.updatePeer(k8s1NodeName, k8s1PubKey, k8s1NodeIPv4, k8s1NodeIPv6)
 			require.NoError(t, err, "Failed to update peer")
@@ -526,17 +560,17 @@ func TestAgent_AllowedIPsRestoration(t *testing.T) {
 			c.CheckExpectations(assertAllowedIPs) // checks entry 1
 
 			// Perform a few ipcache upserts/removal, and assert the AllowedIPs correctness again
-			ipCache.Upsert(pod2IPv4Str, k8s1NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
-			ipCache.Upsert(pod2IPv6Str, k8s1NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
-			ipCache.Delete(pod1IPv4Str, source.Kubernetes)
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod2IPv4Str, k8s1NodeIPv4))
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod2IPv6Str, k8s1NodeIPv6))
+			require.NoError(t, testDeleteIPMetadata(t.Context(), ipCache, pod1IPv4Str))
 			c.CheckExpectations(assertAllowedIPs) // checks entry 2
 
 			// Associate previously restored allowed IPs with a different peer, and
 			// assert that the updates are propagated correctly, without flipping.
-			ipCache.Upsert(pod4IPv4Str, k8s2NodeIPv4, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod4IPv4Str, k8s2NodeIPv4))
 			err = wgAgent.updatePeer(k8s2NodeName, k8s2PubKey, k8s2NodeIPv4, k8s2NodeIPv6)
 			require.NoError(t, err, "Failed to update peer")
-			ipCache.Upsert(pod4IPv6Str, k8s2NodeIPv6, 0, nil, ipcache.Identity{ID: 1, Source: source.Kubernetes})
+			require.NoError(t, testUpsertIPMetadata(t.Context(), ipCache, pod4IPv6Str, k8s2NodeIPv6))
 
 			// We explicitly trigger updatePeer here to cause the allowed IPs to be
 			// synchronized, so that we can test that the cache got correctly updated.
