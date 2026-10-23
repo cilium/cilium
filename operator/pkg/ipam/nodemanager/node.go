@@ -96,6 +96,12 @@ type Node struct {
 	// instanceStoppedRunning records when an instance was most recently set to not running
 	instanceStoppedRunning time.Time
 
+	// instanceSyncRetriggered is true when the per-instance sync has been
+	// re-triggered because the instance was missing from the instance
+	// cache. It is reset by the next successful recalculation, or by a
+	// transient failure of the re-triggered sync.
+	instanceSyncRetriggered bool
+
 	// ipv4Alloc represents IPv4-specific allocation attributes for this node
 	ipv4Alloc ipAllocAttrs
 
@@ -526,18 +532,12 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 // has elapsed.
 func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 	n.mutex.Lock()
-	if !n.isMultiPoolNodeLocked() || len(n.multiPoolCIDRsMarkedForRelease) == 0 {
+	if !n.isMultiPoolNodeLocked() || len(n.multiPoolCIDRsMarkedForRelease) == 0 || !n.resyncNeeded.IsZero() {
 		n.mutex.Unlock()
 		return false, nil
 	}
 
-	now := time.Now()
-	var readyCIDRs []netip.Prefix
-	for cidr, ts := range n.multiPoolCIDRsMarkedForRelease {
-		if now.Sub(ts) >= n.excessIPReleaseDelay {
-			readyCIDRs = append(readyCIDRs, cidr)
-		}
-	}
+	readyCIDRs := n.readyMultiPoolCIDRsLocked()
 	n.mutex.Unlock()
 
 	if len(readyCIDRs) == 0 {
@@ -546,11 +546,26 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 
 	scopedLog := n.logger.Load()
 	actions := n.ops.PrepareCIDRRelease(readyCIDRs)
+
+	eligible := sets.New[netip.Prefix]()
+	for _, action := range actions {
+		eligible.Insert(action.CIDRsToRelease...)
+	}
+	n.mutex.Lock()
+	now := time.Now()
+	for _, cidr := range readyCIDRs {
+		if _, ok := n.multiPoolCIDRsMarkedForRelease[cidr]; ok && !eligible.Has(cidr) {
+			n.multiPoolCIDRsMarkedForRelease[cidr] = now
+		}
+	}
+	n.mutex.Unlock()
+
 	if len(actions) == 0 {
 		return false, nil
 	}
 
 	mutated := false
+	releasedAddrs := 0
 	for _, action := range actions {
 		// Re-check membership in multiPoolCIDRsMarkedForRelease immediately
 		// before each EC2 release. The agent may have re-added a CIDR to
@@ -559,9 +574,10 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 		// map. Detaching it would leave the agent's view inconsistent with
 		// the ENI state.
 		n.mutex.Lock()
+		releasable := capMultiPoolCIDRs(n.readyMultiPoolCIDRsLocked(), n.stats.IPv4.ExcessIPs-releasedAddrs)
 		filtered := action.CIDRsToRelease[:0]
 		for _, cidr := range action.CIDRsToRelease {
-			if _, ok := n.multiPoolCIDRsMarkedForRelease[cidr]; ok {
+			if slices.Contains(releasable, cidr) {
 				filtered = append(filtered, cidr)
 			}
 		}
@@ -581,6 +597,10 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 		n.mutex.Lock()
 		for _, cidr := range released {
 			delete(n.multiPoolCIDRsMarkedForRelease, cidr)
+			releasedAddrs += multiPoolCIDRSize(cidr)
+		}
+		if len(released) > 0 || err != nil {
+			n.resyncNeeded = time.Now()
 		}
 		n.mutex.Unlock()
 		if len(released) > 0 {
@@ -597,6 +617,38 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 	}
 
 	return mutated, nil
+}
+
+func (n *Node) readyMultiPoolCIDRsLocked() []netip.Prefix {
+	now := time.Now()
+	var ready []netip.Prefix
+	for cidr, ts := range n.multiPoolCIDRsMarkedForRelease {
+		if now.Sub(ts) >= n.excessIPReleaseDelay {
+			ready = append(ready, cidr)
+		}
+	}
+	slices.SortFunc(ready, func(a, b netip.Prefix) int {
+		if c := n.multiPoolCIDRsMarkedForRelease[a].Compare(n.multiPoolCIDRsMarkedForRelease[b]); c != 0 {
+			return c
+		}
+		return a.Compare(b)
+	})
+	return ready
+}
+
+func capMultiPoolCIDRs(cidrs []netip.Prefix, budget int) []netip.Prefix {
+	capped := cidrs[:0]
+	for _, cidr := range cidrs {
+		if size := multiPoolCIDRSize(cidr); size <= budget {
+			budget -= size
+			capped = append(capped, cidr)
+		}
+	}
+	return capped
+}
+
+func multiPoolCIDRSize(cidr netip.Prefix) int {
+	return 1 << (cidr.Addr().BitLen() - cidr.Bits())
 }
 
 func (n *Node) requirePoolMaintenance() {
@@ -647,6 +699,9 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 
 	n.ops.UpdatedNode(resource)
 
+	// The error is not acted upon here: the caller (NodeManager.Upsert)
+	// holds the NodeManager mutex. Recovery of an instance missing from
+	// the cache is handled by the periodic resync, see resyncNode.
 	n.recalculate(context.Background())
 	allocationNeeded := n.allocationNeeded()
 	releaseNeeded := n.releaseNeeded()
@@ -665,6 +720,8 @@ func (n *Node) resourceAttached() (attached bool) {
 	return
 }
 
+// recalculate the number of needed and excess IPs of the node based on the
+// current state of the instance cache.
 func (n *Node) recalculate(ctx context.Context) {
 	// Skip any recalculation if the CiliumNode resource does not exist yet
 	if !n.resourceAttached() {
@@ -688,6 +745,9 @@ func (n *Node) recalculate(ctx context.Context) {
 		n.stats.IPv4.ExcessIPs = 0
 		return
 	}
+
+	// The instance is back in the cache, re-arm the recovery sync.
+	n.instanceSyncRetriggered = false
 
 	n.ipv4Alloc.available = a
 	if stats.AssignedStaticIP != "" {
@@ -766,21 +826,20 @@ func (n *Node) allocationNeeded() bool {
 // releaseNeeded returns true if this node requires IPs to be released
 func (n *Node) releaseNeeded() (needed bool) {
 	n.mutex.RLock()
-	needed = n.manager.releaseExcessIPs && !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.IPv4.ExcessIPs > 0
+	defer n.mutex.RUnlock()
+
+	canRelease := n.manager.releaseExcessIPs && !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero()
+	if canRelease {
+		if n.isMultiPoolNodeLocked() {
+			needed = len(capMultiPoolCIDRs(n.readyMultiPoolCIDRsLocked(), n.stats.IPv4.ExcessIPs)) > 0
+		} else {
+			needed = n.stats.IPv4.ExcessIPs > 0
+		}
+	}
 	if n.resource != nil {
 		releaseInProgress := len(n.resource.Status.IPAM.ReleaseIPs) > 0
 		needed = needed || releaseInProgress
 	}
-	if !needed && len(n.multiPoolCIDRsMarkedForRelease) > 0 {
-		now := time.Now()
-		for _, ts := range n.multiPoolCIDRsMarkedForRelease {
-			if now.Sub(ts) >= n.excessIPReleaseDelay {
-				needed = true
-				break
-			}
-		}
-	}
-	n.mutex.RUnlock()
 	return
 }
 
@@ -933,6 +992,15 @@ type ReleaseAction struct {
 
 // ErrLimitsNotFound signals lack of limits for given instance type.
 var ErrLimitsNotFound = errors.New("Limits not found")
+
+// ErrInstanceNotFound signals that an external instances API authoritatively
+// reported that an instance no longer exists.
+var ErrInstanceNotFound = errors.New("instance not found")
+
+// instanceNotFoundSyncReason is the trigger reason used when the instance
+// sync is re-triggered to recover an instance missing from the cache. A
+// failed sync run carrying this reason re-arms the re-trigger.
+const instanceNotFoundSyncReason = "instance-not-found-recovery"
 
 // maintenanceAction represents the resources available for allocation for a
 // particular ciliumNode. If an existing interface has IP allocation capacity
@@ -1321,6 +1389,32 @@ func (n *Node) maintainIPPool(ctx context.Context) (instanceMutated bool, err er
 	return n.handleIPAllocation(ctx, a)
 }
 
+// retriggerInstanceSync re-triggers the node's per-instance sync to recover
+// an instance that was dropped from the instance cache by a full resync. To
+// avoid a retry loop for instances that are legitimately gone, the sync is
+// re-triggered at most once until re-armed, either by a recalculation that
+// sees the instance again or by a transient failure of the sync itself.
+// Callers must ensure the instances API is stable. Holding the NodeManager
+// mutex is fine since triggering only signals the sync.
+func (n *Node) retriggerInstanceSync() {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	if n.instanceSyncRetriggered || n.instanceSync == nil {
+		return
+	}
+	n.instanceSyncRetriggered = true
+	n.instanceSync.TriggerWithReason(instanceNotFoundSyncReason)
+}
+
+// reArmInstanceSync re-arms the recovery sync after a transient failure of
+// the re-triggered instance sync, so a later recalculation may retry it.
+func (n *Node) reArmInstanceSync() {
+	n.mutex.Lock()
+	n.instanceSyncRetriggered = false
+	n.mutex.Unlock()
+}
+
 func (n *Node) isInstanceRunning() (isRunning bool) {
 	n.mutex.RLock()
 	isRunning = n.instanceRunning
@@ -1368,7 +1462,11 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 		n.requireResync()
 	}
 	n.poolMaintenanceComplete()
+
 	n.recalculate(ctx)
+	if n.manager.InstancesAPIIsReady() && !n.manager.instancesAPI.HasInstance(n.InstanceID()) {
+		n.retriggerInstanceSync()
+	}
 	if instanceMutated || err != nil {
 		n.instanceSync.Trigger()
 	}
