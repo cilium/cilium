@@ -1,0 +1,55 @@
+hive/start
+
+env ep1_labels=k8s:io.kubernetes.pod.namespace=default,k8s:app=web
+identity/allocate ${ep1_labels}
+env --from-stdout ep1_identity
+
+endpoint/create ${ep1_identity} ${ep1_labels}
+env --from-stdout ep1
+
+# The fixture turns off tofqdns-preallocate-identities, which the agent enables
+# by default. With it on, registering the selector preallocates the world+fqdn
+# identities and the egress entry below would already be here. With it off, no
+# name has resolved yet, so the map has no egress entry.
+k8s/add policy.yaml
+policy/import policy.yaml
+endpoint/wait-for-policy-revision 2
+
+policy/policymap ${ep1}
+cmp -w stdout before.expected
+
+# Resolve cilium.io, so the IP gains an identity the selector matches and an
+# egress entry appears.
+fqdn/lookup ${ep1} cilium.io 192.0.2.10
+
+policy/policymap ${ep1}
+cmp -w stdout after.expected
+
+-- before.expected --
+Direction  Identity  PortProto  Action  ProxyPort
+Ingress    0         ANY        Allow   0
+Ingress    11        ANY        Allow   0
+Ingress    12        ANY        Allow   0
+Ingress    13        ANY        Allow   0
+Ingress    14        ANY        Allow   0
+-- after.expected --
+Direction  Identity  PortProto  Action  ProxyPort
+Ingress    0         ANY        Allow   0
+Ingress    11        ANY        Allow   0
+Ingress    12        ANY        Allow   0
+Ingress    13        ANY        Allow   0
+Ingress    14        ANY        Allow   0
+Egress     16777217  ANY        Allow   0
+-- policy.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: "web-fqdn"
+  namespace: "default"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: web
+  egress:
+  - toFQDNs:
+    - matchName: "cilium.io"
