@@ -195,12 +195,11 @@ static __always_inline bool identity_is_ingress(__u32 identity)
  */
 static __always_inline bool identity_is_reserved(__u32 identity)
 {
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
 		return identity < UNMANAGED_ID || identity_is_remote_node(identity) ||
 			identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID;
-#else
-		return identity < UNMANAGED_ID || identity_is_remote_node(identity);
-#endif
+
+	return identity < UNMANAGED_ID || identity_is_remote_node(identity);
 }
 
 /**
@@ -213,11 +212,10 @@ static __always_inline bool identity_is_reserved(__u32 identity)
  */
 static __always_inline bool identity_is_world_ipv4(__u32 identity)
 {
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
 		return identity == WORLD_ID || identity == WORLD_IPV4_ID;
-#else
-		return identity == WORLD_ID;
-#endif
+
+	return identity == WORLD_ID;
 }
 
 /**
@@ -230,11 +228,10 @@ static __always_inline bool identity_is_world_ipv4(__u32 identity)
  */
 static __always_inline bool identity_is_world_ipv6(__u32 identity)
 {
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
 		return identity == WORLD_ID || identity == WORLD_IPV6_ID;
-#else
-		return identity == WORLD_ID;
-#endif
+
+	return identity == WORLD_ID;
 }
 
 /**
@@ -252,13 +249,13 @@ static __always_inline bool identity_is_cidr_range(__u32 identity)
  */
 static __always_inline bool identity_is_world(__u32 identity)
 {
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
-	if (identity == WORLD_ID || identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
-		return true;
-#else
-	if (identity == WORLD_ID)
-		return true;
-#endif
+	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
+		if (identity == WORLD_ID || identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
+			return true;
+	} else {
+		if (identity == WORLD_ID)
+			return true;
+	}
 
 	return identity_is_cidr_range(identity);
 }
@@ -311,8 +308,7 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 		*identity = get_identity(ctx);
 	} else if (magic == MARK_MAGIC_HOST) {
 		*identity = HOST_ID;
-	} else {
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
+	} else if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
 		__be16 proto = ctx_get_protocol(ctx);
 
 		if (proto == bpf_htons(ETH_P_IP))
@@ -321,9 +317,8 @@ static __always_inline __u32 inherit_identity_from_host(struct __ctx_buff *ctx, 
 			*identity = WORLD_IPV6_ID;
 		else
 			*identity = WORLD_ID;
-#else
+	} else {
 		*identity = WORLD_ID;
-#endif
 	}
 
 	/* Reset packet mark to avoid hitting routing rules again */
@@ -346,25 +341,25 @@ static __always_inline bool identity_is_local(__u32 identity)
 
 static __always_inline __u32 get_tunnel_id(__u32 identity)
 {
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
-	if (identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
-		return WORLD_ID;
-#endif
+	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
+		if (identity == WORLD_IPV4_ID || identity == WORLD_IPV6_ID)
+			return WORLD_ID;
+	}
 	return identity;
 }
 
-static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __be16 proto  __maybe_unused)
+static __always_inline __u32 get_id_from_tunnel_id(__u32 tunnel_id, __be16 proto)
 {
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
-	if (tunnel_id == WORLD_ID) {
-		switch (proto) {
-		case bpf_htons(ETH_P_IP):
-			return WORLD_IPV4_ID;
-		case bpf_htons(ETH_P_IPV6):
-			return WORLD_IPV6_ID;
+	if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6)) {
+		if (tunnel_id == WORLD_ID) {
+			switch (proto) {
+			case bpf_htons(ETH_P_IP):
+				return WORLD_IPV4_ID;
+			case bpf_htons(ETH_P_IPV6):
+				return WORLD_IPV6_ID;
+			}
 		}
 	}
-#endif
 	return tunnel_id;
 }
 
