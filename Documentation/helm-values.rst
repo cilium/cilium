@@ -667,7 +667,7 @@
    * - :spelling:ignore:`clustermesh.apiserver.image`
      - Clustermesh API server image.
      - object
-     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.20.4","useDigest":false}``
+     - ``{"digest":"sha256:aeac78ae77d166b86630310f2eb53fbc92014eda36ada8e6b2d7f2b8f2dadbfa","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/clustermesh-apiserver","tag":"v1.20.4","useDigest":true}``
    * - :spelling:ignore:`clustermesh.apiserver.kvstoremesh.enabled`
      - Enable KVStoreMesh. KVStoreMesh caches the information retrieved from the remote clusters in the local etcd instance (deprecated - KVStoreMesh will always be enabled once the option is removed).
      - bool
@@ -2307,7 +2307,7 @@
    * - :spelling:ignore:`hubble.relay.image`
      - Hubble-relay container image.
      - object
-     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.20.4","useDigest":false}``
+     - ``{"digest":"sha256:cb23408209697ed30d2bc462e1f01eb622ea4423a891458f78bc88d7255bbfc1","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/hubble-relay","tag":"v1.20.4","useDigest":true}``
    * - :spelling:ignore:`hubble.relay.listenHost`
      - Host to listen to. Specify an empty string to bind to all the interfaces.
      - string
@@ -2779,7 +2779,7 @@
    * - :spelling:ignore:`image`
      - Agent container image.
      - object
-     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.20.4","useDigest":false}``
+     - ``{"digest":"sha256:20fe92e4c86641233a450098c158d2d29085f3419931ab6bf681d2485dedf16e","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.20.4","useDigest":true}``
    * - :spelling:ignore:`imagePullSecrets`
      - Configure image pull secrets for pulling container images
      - list
@@ -3435,7 +3435,7 @@
    * - :spelling:ignore:`operator.image`
      - cilium-operator image.
      - object
-     - ``{"alibabacloudDigest":"","awsDigest":"","azureDigest":"","genericDigest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.20.4","useDigest":false}``
+     - ``{"alibabacloudDigest":"sha256:163a08ee4438780638899742e95521e1a37edeb676c6e5c924d320c4c0bd09ad","awsDigest":"sha256:caab27c6e3286a596d502f76aa6cffe2efab6e8a92234a0d10d2eed3eda85c7c","azureDigest":"sha256:0669c35e9f1638bbdd6cf5c64163e7ee4ea4ef440e223050e60665811369b4ec","genericDigest":"sha256:7a7a3489dc66ad67e420d285c8a8d2e169b0957ad15e120f593d27081bf38d82","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/operator","suffix":"","tag":"v1.20.4","useDigest":true}``
    * - :spelling:ignore:`operator.nodeGCInterval`
      - Interval for cilium node garbage collection.
      - string
@@ -3687,7 +3687,7 @@
    * - :spelling:ignore:`preflight.image`
      - Cilium pre-flight image.
      - object
-     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.20.4","useDigest":false}``
+     - ``{"digest":"sha256:20fe92e4c86641233a450098c158d2d29085f3419931ab6bf681d2485dedf16e","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium","tag":"v1.20.4","useDigest":true}``
    * - :spelling:ignore:`preflight.nodeSelector`
      - Node labels for preflight pod assignment ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
      - object
@@ -3931,7 +3931,7 @@
    * - :spelling:ignore:`standaloneDnsProxy`
      - Standalone DNS Proxy Configuration Note: The standalone DNS proxy uses the agent's dnsProxy.* configuration for DNS settings (proxyPort, enableDnsCompression) to ensure consistency.
      - object
-     - ``{"annotations":{},"automountServiceAccountToken":false,"debug":false,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"","tag":"","useDigest":false},"minReadySeconds":5,"nodeSelector":{"kubernetes.io/os":"linux"},"rollOutPods":false,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}``
+     - ``{"annotations":{},"automountServiceAccountToken":false,"debug":false,"enabled":false,"image":{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"","tag":"","useDigest":true},"minReadySeconds":5,"nodeSelector":{"kubernetes.io/os":"linux"},"rollOutPods":false,"serverPort":10095,"tolerations":[],"updateStrategy":{"rollingUpdate":{"maxSurge":2,"maxUnavailable":0},"type":"RollingUpdate"}}``
    * - :spelling:ignore:`standaloneDnsProxy.annotations`
      - Standalone DNS proxy annotations
      - object
@@ -3951,7 +3951,7 @@
    * - :spelling:ignore:`standaloneDnsProxy.image`
      - Standalone DNS proxy image
      - object
-     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"","tag":"","useDigest":false}``
+     - ``{"digest":"","override":null,"pullPolicy":"IfNotPresent","repository":"","tag":"","useDigest":true}``
    * - :spelling:ignore:`standaloneDnsProxy.minReadySeconds`
      - Minimum number of seconds for which a newly created standalone DNS proxy pod should be ready before it is considered available.
      - int
