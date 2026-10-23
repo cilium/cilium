@@ -42,12 +42,20 @@ func (v XDSMode) IsADS() bool {
 	return strings.HasSuffix(string(v), "ads")
 }
 
+func (v XDSMode) IsDelta() bool {
+	return strings.HasPrefix(string(v), "delta-") || strings.HasPrefix(string(v), "strict-delta-")
+}
+
+func (v XDSMode) IsDeltaADS() bool {
+	return v.IsADS() && v.IsDelta()
+}
+
 // Validate checks whether the XDSMode is supported.
 func (v XDSMode) Validate() error {
 	switch v {
-	case EnvoyXDSModeSplit, EnvoyXDSModeDeltaSplit, EnvoyXDSModeADS, EnvoyXDSModeStrictADS:
+	case EnvoyXDSModeSplit, EnvoyXDSModeDeltaSplit, EnvoyXDSModeADS, EnvoyXDSModeDeltaADS, EnvoyXDSModeStrictADS:
 		return nil
-	case EnvoyXDSModeDeltaADS, EnvoyXDSModeStrictDeltaADS:
+	case EnvoyXDSModeStrictDeltaADS:
 		return fmt.Errorf("unimplemented xDS mode %q", v)
 	default:
 		return fmt.Errorf("invalid xDS mode %q", v)
@@ -144,7 +152,7 @@ func (r ProxyConfig) Flags(flags *pflag.FlagSet) {
 	flags.Int("proxy-prometheus-port", 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
 	flags.Int("proxy-admin-port", 0, "Port to serve Envoy admin interface on.")
 	flags.Bool("envoy-access-log-enabled", true, "Enable access log forwarding for integration with Hubble.")
-	flags.Var(&r.EnvoyXDSMode, "envoy-xds-mode", `xDS server operating mode for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS, "delta-split" for incremental per-resource-type xDS, "ads" for Aggregated Discovery Service, or "strict-ads" as a compatibility alias for "ads" (default "split")`)
+	flags.Var(&r.EnvoyXDSMode, "envoy-xds-mode", `xDS server operating mode for Envoy proxy configuration. Valid values are "split" for the existing per-resource-type xDS, "delta-split" for incremental per-resource-type xDS, "ads" for State-of-the-World Aggregated Discovery Service, "delta-ads" for incremental Aggregated Discovery Service, or "strict-ads" as a compatibility alias for "ads" (default "split")`)
 	flags.Uint("envoy-access-log-buffer-size", 4096, "Envoy access log buffer size in bytes")
 	flags.String("envoy-log", "", "Path to a separate Envoy log file, if any")
 	flags.String("envoy-default-log-level", "", "Default log level of Envoy application log that is configured if Cilium debug / verbose logging isn't enabled. If not defined, the default log level of the Cilium Agent is used.")

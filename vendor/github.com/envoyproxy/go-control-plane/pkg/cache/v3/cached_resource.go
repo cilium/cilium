@@ -19,28 +19,39 @@ type cachedResource struct {
 
 	// cacheVersion is the version of the cache at the time of last update, used in sotw.
 	cacheVersion string
+	// resourceVersion preserves an opaque version supplied by a Delta snapshot.
+	// Other cache users retain lazy content hashing when it is empty.
+	resourceVersion string
 
 	marshalFunc                func() ([]byte, error)
 	computeResourceVersionFunc func() (string, error)
 }
 
 func newCachedResource(name string, res types.Resource, cacheVersion string) *cachedResource {
+	return newCachedResourceWithVersion(name, res, cacheVersion, "")
+}
+
+func newCachedResourceWithVersion(name string, res types.Resource, cacheVersion, resourceVersion string) *cachedResource {
 	marshalFunc := sync.OnceValues(func() ([]byte, error) {
 		return MarshalResource(res)
 	})
-	return &cachedResource{
-		name:         name,
-		resource:     res,
-		cacheVersion: cacheVersion,
-		marshalFunc:  marshalFunc,
-		computeResourceVersionFunc: sync.OnceValues(func() (string, error) {
+	cachedRes := &cachedResource{
+		name:            name,
+		resource:        res,
+		cacheVersion:    cacheVersion,
+		resourceVersion: resourceVersion,
+		marshalFunc:     marshalFunc,
+	}
+	if resourceVersion == "" {
+		cachedRes.computeResourceVersionFunc = sync.OnceValues(func() (string, error) {
 			marshaled, err := marshalFunc()
 			if err != nil {
 				return "", fmt.Errorf("marshaling resource: %w", err)
 			}
 			return HashResource(marshaled), nil
-		}),
+		})
 	}
+	return cachedRes
 }
 
 func newCachedResourceWithTTL(name string, res types.ResourceWithTTL, cacheVersion string) *cachedResource {
@@ -54,8 +65,11 @@ func (c *cachedResource) getMarshaledResource() ([]byte, error) {
 	return c.marshalFunc()
 }
 
-// getResourceVersion lazily hashes the resource and returns the stable hash used to track version changes.
+// getResourceVersion returns a supplied snapshot version or lazily hashes the resource.
 func (c *cachedResource) getResourceVersion() (string, error) {
+	if c.resourceVersion != "" {
+		return c.resourceVersion, nil
+	}
 	return c.computeResourceVersionFunc()
 }
 
