@@ -41,6 +41,12 @@ notes carefully below to understand what to do during upgrade.
   
   Please backup your ``TLSRoute`` resources and ensure that Gateway API is upgraded to v1.6.1 before
   upgrading Cilium to v1.20. See :ref:`gs_gateway_api` for installation instructions.
+* Egress policy rules that combine ``toServices`` with ``toPorts`` no longer
+  allow traffic to any destination on those ports when the referenced Service
+  doesn't exist or is selector-less with no backends. Such rules now deny that
+  traffic until the Service exists and, if selector-less, has backends. If you
+  have rules like this, ensure the referenced Services exist and have backends
+  before upgrading.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
