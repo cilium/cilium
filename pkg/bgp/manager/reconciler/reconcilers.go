@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	UnnumberedReconcilerName     = "Unnumbered"
 	DefaultGatewayReconcilerName = "DefaultGateway"
 	NeighborReconcilerName       = "Neighbor"
 	PodIPPoolReconcilerName      = "PodIPPool"
@@ -24,6 +25,7 @@ const (
 	PodCIDRReconcilerName        = "PodCIDR"
 	InterfaceReconcilerName      = "Interface"
 	RoutePolicyReconcilerName    = "RoutePolicy"
+	UnnumberedRAReconcilerName   = "UnnumberedRA"
 )
 
 // Reconciler Priorities, lower number means higher priority. It is used to determine the
@@ -37,6 +39,10 @@ const (
 	PodCIDRReconcilerPriority        = 30
 	InterfaceReconcilerPriority      = 20
 	DefaultGatewayReconcilerPriority = 10
+	UnnumberedReconcilerPriority     = 11
+	// UnnumberedRAReconcilerPriority does not affect gobgp config ordering (this
+	// reconciler only manages RA senders); it just needs a distinct value.
+	UnnumberedRAReconcilerPriority = 15
 )
 
 var (
@@ -70,11 +76,13 @@ type ConfigReconciler interface {
 var ConfigReconcilers = cell.Provide(
 	NewNeighborReconciler,
 	NewDefaultGatewayReconciler,
+	NewUnnumberedReconciler,
 	NewPodCIDRReconciler,
 	NewPodIPPoolReconciler,
 	NewServiceReconciler,
 	NewInterfaceReconciler,
 	NewRoutePolicyReconciler,
+	NewUnnumberedRAReconciler,
 )
 
 // GetActiveReconcilers returns a list of reconcilers in order of priority that should be used to reconcile the BGP config.
