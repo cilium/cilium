@@ -438,6 +438,40 @@ func (i *cecTranslator) desiredEnvoyListenerPerPort(m *model.Model) ([]ciliumv2.
 
 	needsPerPortTLS := m.NeedsPerPortTLSPassthroughListeners()
 
+	if m.NeedsPerPortGAMMAListeners() {
+		for _, port := range m.HTTPPorts() {
+			lName := listenerNameForPort(port)
+
+			httpFC, err := i.httpFilterChainWithRouteConfig(lName, lName, m)
+			if err != nil {
+				return nil, err
+			}
+
+			gammaListener := &envoy_config_listener.Listener{
+				Name:         lName,
+				FilterChains: []*envoy_config_listener.FilterChain{httpFC},
+				ListenerFilters: []*envoy_config_listener.ListenerFilter{
+					{
+						Name: tlsInspectorType,
+						ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
+							TypedConfig: toAny(&envoy_extensions_listener_tls_inspector_v3.TlsInspector{}),
+						},
+					},
+				},
+			}
+			for _, fn := range i.listenerMutatorsForPorts(m, []uint32{port}) {
+				gammaListener = fn(gammaListener)
+			}
+
+			res, err := toXdsResource(gammaListener, envoy.ListenerTypeURL)
+			if err != nil {
+				return nil, err
+			}
+			allResources = append(allResources, res)
+		}
+		return allResources, nil
+	}
+
 	// All TLS passthrough ports are excluded from the base insecure listener
 	// port list, since they are handled by their own section (either per-port
 	// listeners or a combined TLS passthrough block on the base listener).
@@ -615,10 +649,16 @@ func (i *cecTranslator) listenerMutatorsForPorts(m *model.Model, ports []uint32)
 }
 
 func (i *cecTranslator) httpFilterChain(name string, m *model.Model) (*envoy_config_listener.FilterChain, error) {
+	return i.httpFilterChainWithRouteConfig(name, fmt.Sprintf("%s-insecure", name), m)
+}
+
+// httpFilterChainWithRouteConfig builds the cleartext HTTP filter chain for name,
+// pointing its connection manager at the given RouteConfiguration.
+func (i *cecTranslator) httpFilterChainWithRouteConfig(name, routeName string, m *model.Model) (*envoy_config_listener.FilterChain, error) {
 	insecureHttpConnectionManagerName := fmt.Sprintf("%s-insecure", name)
 	insecureHttpConnectionManager, err := i.desiredHTTPConnectionManager(
 		insecureHttpConnectionManagerName,
-		insecureHttpConnectionManagerName,
+		routeName,
 		m,
 	)
 	if err != nil {
