@@ -23,7 +23,6 @@ import (
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/l2respondermap"
 	"github.com/cilium/cilium/pkg/maps/l2v6respondermap"
@@ -141,13 +140,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 	cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
 
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
-
-	cDefinesMap["CILIUM_LB_SERVICE_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBServiceMapEntries)
-	cDefinesMap["CILIUM_LB_BACKENDS_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBBackendMapEntries)
-	cDefinesMap["CILIUM_LB_REV_NAT_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBRevNatEntries)
-	cDefinesMap["CILIUM_LB_AFFINITY_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBAffinityMapEntries)
-	cDefinesMap["CILIUM_LB_MAGLEV_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", cfg.LBConfig.LBMaglevMapEntries)
-	cDefinesMap["CILIUM_LB_SKIP_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", lbmaps.SkipLBMapMaxEntries)
 
 	cDefinesMap["ENDPOINTS_MAP_SIZE"] = fmt.Sprintf("%d", lxcmap.MaxEntries)
 	cDefinesMap["METRICS_MAP_SIZE"] = fmt.Sprintf("%d", metricsmap.MaxEntries)
