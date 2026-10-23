@@ -356,15 +356,20 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 
 			for _, c := range h.Constraints {
 				otherPlugin := lnc.Plugins[c.Plugin]
-				if otherPlugin == nil {
-					continue
-				}
 
 				switch c.Order {
 				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE:
-					hooksSpec.hook(ps.Name, h.Type).before(r.plugin.Name(), otherPlugin.Name())
+					if otherPlugin != nil {
+						hooksSpec.hook(ps.Name, h.Type).before(r.plugin.Name(), otherPlugin.Name())
+					}
 				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_AFTER:
-					hooksSpec.hook(ps.Name, h.Type).after(r.plugin.Name(), otherPlugin.Name())
+					if otherPlugin != nil {
+						hooksSpec.hook(ps.Name, h.Type).after(r.plugin.Name(), otherPlugin.Name())
+					}
+				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_FIRST:
+					hooksSpec.hook(ps.Name, h.Type).first(r.plugin.Name())
+				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_LAST:
+					hooksSpec.hook(ps.Name, h.Type).last(r.plugin.Name())
 				default:
 					err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): invalid ordering constraint: %v", r.plugin.Name(), c.Order))
 					continue process_hooks
@@ -1003,6 +1008,8 @@ func clampAndReturn(ps *ebpf.ProgramSpec, label string) asm.Instructions {
 
 type node struct {
 	exists        bool
+	first         bool
+	last          bool
 	outgoing      map[string]struct{}
 	incomingCount int
 }
@@ -1014,6 +1021,38 @@ type pluginDependencyGraph map[string]*node
 // sort performs a topological sort that respects all ordering constraints. It
 // consumes g in the process.
 func (g pluginDependencyGraph) sort() ([]string, error) {
+	var first, last string
+	for p, n := range g {
+		if !n.exists {
+			continue
+		}
+		if n.first && n.last {
+			return nil, fmt.Errorf("plugin %q cannot be both FIRST and LAST", p)
+		}
+		if n.first {
+			if first != "" {
+				return nil, fmt.Errorf("conflicting FIRST hooks requested by plugins %q and %q", first, p)
+			}
+			first = p
+			for other := range g {
+				if other != p {
+					g.before(p, other)
+				}
+			}
+		}
+		if n.last {
+			if last != "" {
+				return nil, fmt.Errorf("conflicting LAST hooks requested by plugins %q and %q", last, p)
+			}
+			last = p
+			for other := range g {
+				if other != p {
+					g.after(p, other)
+				}
+			}
+		}
+	}
+
 	var empty []string
 	sorted := make([]string, 0, len(g))
 
@@ -1076,6 +1115,18 @@ func (g pluginDependencyGraph) after(a, b string) {
 		g[b].outgoing[a] = struct{}{}
 		g[a].incomingCount++
 	}
+}
+
+// first marks that a should come before all plugins that are not marked first.
+func (g pluginDependencyGraph) first(a string) {
+	g.ensureNode(a)
+	g[a].first = true
+}
+
+// last marks that a should come after all plugins that are not marked last.
+func (g pluginDependencyGraph) last(a string) {
+	g.ensureNode(a)
+	g[a].last = true
 }
 
 // sortedNodes sorts plugins by name in ascending order.
