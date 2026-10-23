@@ -1,0 +1,189 @@
+#! --lb-test-fault-probability=0.0
+#
+# Tests that the NodePort frontends expanded from the surrogate 0.0.0.0
+# frontends are removed for both the external and internal scope. Mixed
+# traffic policies produce two frontends per NodePort that share the same
+# port and protocol, but differ in scope.
+
+# Add a node address to expand NodePort frontends to
+db/insert node-addresses addrv4.yaml
+
+# Start the test application
+hive start
+
+# Add a NodePort service with eTP=Local and iTP=Cluster, which gives
+# frontends in both scopes.
+k8s/add endpointslice.yaml service-mixed.yaml
+db/cmp frontends frontends-mixed.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-mixed.expected lbmaps.actual
+
+# Delete the service
+k8s/delete service-mixed.yaml
+
+# Both the external and internal scoped node address frontends must be
+# removed.
+* db/empty services frontends
+* lb/maps-empty
+
+# Add the service back and switch it to a single scope.
+k8s/add service-mixed.yaml
+db/cmp frontends frontends-mixed.table
+k8s/update service-cluster.yaml
+db/cmp frontends frontends-cluster.table
+
+# Check BPF maps
+lb/maps-dump lbmaps.actual
+* cmp lbmaps-cluster.expected lbmaps.actual
+
+# Delete everything
+k8s/delete service-cluster.yaml endpointslice.yaml
+
+# The external scoped node address frontend must still be removed after
+# the internal scope was dropped.
+* db/empty services frontends backends
+* lb/maps-empty
+
+#####
+
+-- addrv4.yaml --
+addr: 1.1.1.1
+nodeport: true
+primary: true
+devicename: test
+
+-- frontends-mixed.table --
+Address               Type        ServiceName   PortName   Backends                               Status
+0.0.0.0:30781/TCP     NodePort    test/echo     http       10.244.1.1:80/TCP                      Done
+0.0.0.0:30781/TCP/i   NodePort    test/echo     http       10.244.1.1:80/TCP, 10.244.2.1:80/TCP   Done
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP, 10.244.2.1:80/TCP   Done
+
+-- frontends-cluster.table --
+Address               Type        ServiceName   PortName   Backends                               Status
+0.0.0.0:30781/TCP     NodePort    test/echo     http       10.244.1.1:80/TCP, 10.244.2.1:80/TCP   Done
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       10.244.1.1:80/TCP, 10.244.2.1:80/TCP   Done
+
+-- lbmaps-mixed.expected --
+BE: ID=1 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=2 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=1 ADDR=0.0.0.0:30781
+REV: ID=2 ADDR=1.1.1.1:30781
+REV: ID=3 ADDR=0.0.0.0:30781
+REV: ID=4 ADDR=1.1.1.1:30781
+REV: ID=5 ADDR=10.96.50.104:80
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+two-scopes+non-routable
+SVC: ID=1 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+two-scopes+non-routable
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=1 QCOUNT=0 FLAGS=NodePort+Local+two-scopes
+SVC: ID=2 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+two-scopes
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP/i SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+two-scopes+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP/i SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+two-scopes+non-routable
+SVC: ID=3 ADDR=0.0.0.0:30781/TCP/i SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+two-scopes+non-routable
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP/i SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+Local+two-scopes
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP/i SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+two-scopes
+SVC: ID=4 ADDR=1.1.1.1:30781/TCP/i SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=NodePort+Local+two-scopes
+SVC: ID=5 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable
+SVC: ID=5 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=1 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable
+SVC: ID=5 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=2 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+Local+non-routable
+-- lbmaps-cluster.expected --
+BE: ID=3 ADDR=10.244.1.1:80/TCP STATE=active
+BE: ID=4 ADDR=10.244.2.1:80/TCP STATE=active
+REV: ID=10 ADDR=10.96.50.104:80
+REV: ID=6 ADDR=0.0.0.0:30781
+REV: ID=7 ADDR=1.1.1.1:30781
+SVC: ID=0 ADDR=10.96.50.104:0/ANY SLOT=0 LBALG=undef AFFTimeout=0 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=10 ADDR=10.96.50.104:80/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=10 ADDR=10.96.50.104:80/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=10 ADDR=10.96.50.104:80/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=ClusterIP+non-routable
+SVC: ID=6 ADDR=0.0.0.0:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=6 ADDR=0.0.0.0:30781/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=6 ADDR=0.0.0.0:30781/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort+non-routable
+SVC: ID=7 ADDR=1.1.1.1:30781/TCP SLOT=0 LBALG=undef AFFTimeout=0 COUNT=2 QCOUNT=0 FLAGS=NodePort
+SVC: ID=7 ADDR=1.1.1.1:30781/TCP SLOT=1 BEID=3 COUNT=0 QCOUNT=0 FLAGS=NodePort
+SVC: ID=7 ADDR=1.1.1.1:30781/TCP SLOT=2 BEID=4 COUNT=0 QCOUNT=0 FLAGS=NodePort
+-- service-mixed.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  resourceVersion: "741"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Local
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: NodePort
+
+-- service-cluster.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: test
+  resourceVersion: "742"
+  uid: a49fe99c-3564-4754-acc4-780f2331a49b
+spec:
+  clusterIP: 10.96.50.104
+  clusterIPs:
+  - 10.96.50.104
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: http
+    nodePort: 30781
+    port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: echo
+  type: NodePort
+
+-- endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-kvlm2
+  namespace: test
+  resourceVersion: "797"
+  uid: d1f517f6-ab88-4c76-9bd0-4906a17cdd75
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.1.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+- addresses:
+  - 10.244.2.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: othernode
+ports:
+- name: http
+  port: 80
+  protocol: TCP
