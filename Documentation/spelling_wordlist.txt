@@ -336,6 +336,7 @@ dnsProxy
 dockerd
 dockerhub
 dpaa
+dport
 dropdown
 dryRun
 durations
