@@ -46,7 +46,7 @@ jobs:
           RENOVATE_BASE_DIR: /var/tmp/renovate
         with:
           # renovate: datasource=github-releases depName=renovatebot/renovate
-          renovate-version: 44.176.2
+          renovate-version: 44.178.5
           docker-user: root
           docker-cmd-file: .github/actions/renovate/entrypoint.sh
           configurationFile: .github/renovate.json5
