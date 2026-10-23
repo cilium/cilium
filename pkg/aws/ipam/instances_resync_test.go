@@ -74,7 +74,7 @@ func TestFullResync(t *testing.T) {
 		require.NotEmpty(t, addrs)
 		released := addrs[0]
 
-		resynctest.RunDuringFullResync(t, mngr, hooked.setHook,
+		resynctest.RunDuringResync(t, mngr, hooked.setHook,
 			func() error {
 				return ec2api.UnassignPrivateIpAddresses(context.Background(), eniID, []string{released})
 			},
