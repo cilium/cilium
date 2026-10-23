@@ -27,8 +27,8 @@ type PolicyRecomputer interface {
 }
 
 type Result struct {
-	Identity             identity.NumericIdentity
-	NewPolicy, OldPolicy policy.SelectorPolicy
+	Identity  identity.NumericIdentity
+	NewPolicy policy.SelectorPolicy
 	// Revision is the repository revision this policy was computed at. It is
 	// how processRequests tells whether a requested computation has already
 	// run, so it must only ever be set by an actual computation. Use
@@ -212,8 +212,12 @@ func (r *IdentityPolicyComputer) GetIdentityPolicyByIdentity(identity *identity.
 func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 	type pending struct {
 		computeRequest
-		rev       statedb.Revision      // statedb revision for CompareAndSwap
-		oldPolicy policy.SelectorPolicy // the committed policy, superseded after the new one commits
+		rev statedb.Revision // statedb revision for CompareAndSwap
+		// oldPolicy is the committed policy, superseded after the new one
+		// commits. It is held here rather than in Result so that the committed
+		// entry does not keep the replaced policy, and everything it resolved,
+		// alive for as long as the identity exists.
+		oldPolicy policy.SelectorPolicy
 	}
 
 	for {
@@ -279,7 +283,6 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				start := time.Now()
 				results[i].pending = w
 				results[i].res.Identity = w.identity.ID
-				results[i].res.OldPolicy = w.oldPolicy
 				results[i].res.NewPolicy, results[i].res.Revision, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity)
 				// A freshly computed policy is current as of the revision it
 				// was computed at.
@@ -357,8 +360,8 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				logfields.Identity, cr.res.Identity,
 				logfields.PolicyRevision, cr.toRev,
 			)
-			if cr.res.OldPolicy != nil {
-				cr.res.OldPolicy.Supersede()
+			if cr.oldPolicy != nil {
+				cr.oldPolicy.Supersede()
 			}
 		}
 	}

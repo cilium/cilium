@@ -5,6 +5,7 @@ package compute
 
 import (
 	"context"
+	"runtime"
 	"testing"
 	"time"
 
@@ -295,13 +296,68 @@ func TestAdvanceDoesNotSatisfyRecompute(t *testing.T) {
 		t.Fatal("recomputation request never completed")
 	}
 
-	// OldPolicy is only set when a computation ran and replaced a committed
-	// policy, so it is the oracle for "this was recomputed, not carried".
+	// Every computation resolves a fresh policy, so a committed policy that is
+	// no longer the same object is the oracle for "this was recomputed, not
+	// carried".
 	obj, _, _, found := computer.GetIdentityPolicyByIdentity(carried)
 	require.True(t, found)
-	require.NotNil(t, obj.OldPolicy,
+	require.NotNil(t, obj.NewPolicy)
+	require.NotSame(t, before.NewPolicy, obj.NewPolicy,
 		"requested recomputation was skipped because the policy had been carried forward")
 	require.GreaterOrEqual(t, obj.Revision, before.Revision)
+}
+
+// A recomputation must not leave the policy it replaced reachable from the
+// table. Superseding a policy only releases its SelectorCache references: the
+// resolved L4/L7 rules, including the translated Envoy HTTP rules, stay in the
+// object. Keeping a pointer to it in the committed Result therefore pins a
+// second full generation of resolved policy per local identity, for as long as
+// that identity exists.
+func TestRecomputeDoesNotRetainSupersededPolicy(t *testing.T) {
+	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
+
+	_, _, computer, idmgr := fixture(t)
+
+	target := computeFor(t, computer, idmgr, identity.NumericIdentity(81))
+	other := computeFor(t, computer, idmgr, identity.NumericIdentity(82))
+
+	collected := make(chan struct{})
+	rev := trackCommittedPolicy(t, computer, target, collected)
+
+	done, err := computer.RecomputeIdentityPolicy(target, rev+1)
+	require.NoError(t, err)
+	<-done
+
+	// The computation loop's own frame still references the policy it just
+	// superseded. Make it run one more round, for another identity, so that the
+	// committed result is the only thing that could still reach it.
+	done, err = computer.RecomputeIdentityPolicy(other, rev+1)
+	require.NoError(t, err)
+	<-done
+
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		runtime.GC()
+		select {
+		case <-collected:
+			return
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	t.Fatal("superseded policy was not collected: it is still reachable from the committed computation result")
+}
+
+// trackCommittedPolicy closes collected once the identity's committed policy
+// has been garbage collected, and returns the revision it was computed at. The
+// policy must not escape to the caller, whose frame would otherwise keep it
+// reachable and make the assertion vacuous.
+func trackCommittedPolicy(t *testing.T, computer PolicyRecomputer, id *identity.Identity, collected chan struct{}) uint64 {
+	t.Helper()
+	obj, _, _, found := computer.GetIdentityPolicyByIdentity(id)
+	require.True(t, found)
+	require.NotNil(t, obj.NewPolicy)
+	runtime.SetFinalizer(obj.NewPolicy, func(policy.SelectorPolicy) { close(collected) })
+	return obj.Revision
 }
 
 // A late-delivered update for an older revision range must not drag an

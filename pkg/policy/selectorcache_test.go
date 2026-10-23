@@ -4,9 +4,12 @@
 package policy
 
 import (
+	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"net/netip"
 	"slices"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -15,6 +18,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -712,6 +716,91 @@ func TestSelectorManagerCanGetBeforeSet(t *testing.T) {
 
 	selections := sel.GetSelections()
 	require.Empty(t, selections)
+}
+
+// benchPoolLabelKey mimics the pod label the resource-churn scenarios select on.
+const benchPoolLabelKey = "kfuzz.cilium.io/pool"
+
+// benchPoolIdentities returns an identity cache of numIdentities identities,
+// each carrying one of numPools values of benchPoolLabelKey.
+func benchPoolIdentities(numIdentities, numPools int) identity.IdentityMap {
+	ids := generateNumIdentities(numIdentities)
+	for nid, lbls := range ids {
+		lbl := labels.NewLabel(benchPoolLabelKey, strconv.Itoa(int(nid)%numPools), labels.LabelSourceK8s)
+		lbls[lbl.Key] = lbl
+	}
+	return ids
+}
+
+// benchPoolSelectors returns count distinct label selectors, each selecting the
+// identities of setSize out of numPools pools.
+func benchPoolSelectors(count, numPools, setSize int) []Selector {
+	key := labels.NewLabel(benchPoolLabelKey, "", labels.LabelSourceK8s)
+	rng := rand.New(rand.NewPCG(42, 42))
+	sels := make([]Selector, 0, count)
+	seen := make(map[string]struct{}, count)
+	for len(sels) < count {
+		values := make([]string, 0, setSize)
+		for _, pool := range rng.Perm(numPools)[:setSize] {
+			values = append(values, strconv.Itoa(pool))
+		}
+		slices.Sort(values)
+		es := api.NewESFromMatchRequirements(nil, []slim_metav1.LabelSelectorRequirement{{
+			Key:      key.GetExtendedKey(),
+			Operator: slim_metav1.LabelSelectorOpIn,
+			Values:   values,
+		}})
+		sel := types.NewLabelSelector(es)
+		if _, dup := seen[sel.Key()]; dup {
+			continue
+		}
+		seen[sel.Key()] = struct{}{}
+		sels = append(sels, sel)
+	}
+	return sels
+}
+
+// BenchmarkSelectorCacheAddSelector measures the add_selector operation of
+// cilium_policy_selector_cache_operation_duration_seconds, which is observed
+// only for selectors that are not already cached and whose cost is dominated by
+// the scan of the identity cache in addSelectorLocked. The selector is removed
+// again with the timer stopped so that every add is a cache miss and the
+// selector cache does not grow over the run.
+func BenchmarkSelectorCacheAddSelector(b *testing.B) {
+	const (
+		numPools    = 64
+		poolsPerSel = 4
+		numSels     = 64
+	)
+
+	for _, numIdentities := range []int{100, 1000, 10000} {
+		b.Run(fmt.Sprintf("identities=%d", numIdentities), func(b *testing.B) {
+			sc := testNewSelectorCache(b, hivetest.Logger(b), benchPoolIdentities(numIdentities, numPools))
+			sels := benchPoolSelectors(numSels, numPools, poolsPerSel)
+
+			// Guard against silently measuring a selector that matches nothing.
+			css, _ := sc.AddSelectors(dummySelectorCacheUser, sels[0])
+			selections := len(css[0].GetSelections())
+			sc.RemoveSelector(css[0], dummySelectorCacheUser)
+			if selections == 0 {
+				b.Fatal("benchmark selector matches no identities")
+			}
+
+			b.ReportAllocs()
+			i := 0
+			for b.Loop() {
+				css, _ := sc.AddSelectors(dummySelectorCacheUser, sels[i])
+
+				b.StopTimer()
+				sc.RemoveSelector(css[0], dummySelectorCacheUser)
+				i = (i + 1) % len(sels)
+				b.StartTimer()
+			}
+
+			// b.Loop resets extra metrics, so this has to come after it.
+			b.ReportMetric(float64(selections), "selections/op")
+		})
+	}
 }
 
 func BenchmarkSelectorCacheIdentityUpdates(b *testing.B) {

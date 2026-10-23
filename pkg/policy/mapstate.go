@@ -860,8 +860,13 @@ func (ms mapState) String() (res string) {
 }
 
 // Equal returns true of two entries are equal.
+//
+// derivedFromRules is compared first on purpose: equivalent() falls back to
+// comparing LogString(), which marshals both origins to JSON, and that result
+// cannot change the answer here -- differing handles make Equal false either
+// way. Keep this order so the marshalling stays off the regeneration path.
 func (e mapStateEntry) Equal(o mapStateEntry) bool {
-	return e.equivalent(o) && e.derivedFromRules == o.derivedFromRules
+	return e.derivedFromRules == o.derivedFromRules && e.equivalent(o)
 }
 
 // equivalent returns true if two entries have the same policy effect,
