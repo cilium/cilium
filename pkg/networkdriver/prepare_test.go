@@ -345,6 +345,7 @@ func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*tracked
 		db:              db,
 		deviceTable:     deviceTable,
 		allocationTable: allocationTable,
+		ipv4Enabled:     true,
 	}
 }
 
