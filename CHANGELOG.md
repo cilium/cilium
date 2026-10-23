@@ -1,26 +1,5 @@
 # Changelog
 
-## v1.19.10
-
-Summary of Changes
-------------------
-
-**Bugfixes:**
-* CiliumEnvoyConfig now only redirects Services in its own namespace, as documented; service references in CiliumClusterwideEnvoyConfig without a namespace default to "default" again. (Backport PR cilium/cilium#49475, Upstream PR cilium/cilium#49076, @maxskokov)
-
-**CI Changes:**
-* ci: Pass the auto-committer secrets to the base images workflow (Backport PR cilium/cilium#49415, Upstream PR cilium/cilium#49453, @aanm)
-* renovate: Open one trusted PR per branch (Backport PR cilium/cilium#49415, Upstream PR cilium/cilium#49381, @aanm)
-
-**Misc Changes:**
-* chore(deps): update auto-merge-trusted-deps (v1.19) (cilium/cilium#49440, @cilium-renovate[bot])
-* chore(deps): update auto-merge-trusted-deps (v1.19) (cilium/cilium#49529, @cilium-renovate[bot])
-* clarify co sign documentation to use minimum version to verify signing key (Backport PR cilium/cilium#49475, Upstream PR cilium/cilium#49401, @mfahlandt)
-
-**Other Changes:**
-* Gateway API: backport listener hostname, port and protocol conflict detection (cilium/cilium#49450, @asauber)
-* install: Update image digests for v1.19.9 (cilium/cilium#49389, @cilium-release-bot[bot])
-
 ## v1.19.9
 
 Summary of Changes
