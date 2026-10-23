@@ -3020,6 +3020,9 @@
           },
           "type": "object"
         },
+        "installCRDs": {
+          "type": "boolean"
+        },
         "secretsNamespace": {
           "properties": {
             "create": {

@@ -120,6 +120,12 @@ The following options have been introduced in this version of Cilium:
   Gateway API will be installed with Gateway API Inference Extension enabled. This is currently
   in beta.
 
+* ``gatewayAPI.installCRDs`` config option (``--gateway-api-install-crds`` operator flag)
+  has been introduced. If enabled together with ``gatewayAPI.enabled``, the Cilium Operator
+  installs and upgrades the Gateway API standard channel CRDs bundled with Cilium. It is
+  disabled by default, and CRDs managed by other tools are never modified. See
+  :ref:`Gateway API CRD management <gs_gateway_crd_management>` for details.
+
 Changed Options
 ###############
 
