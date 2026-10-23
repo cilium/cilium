@@ -62,12 +62,6 @@ Combining the above hooks with virtual interfaces (cilium_host, cilium_net),
 an optional overlay interface (cilium_vxlan), Linux kernel crypto support and
 a userspace proxy (Envoy) Cilium creates the following networking objects.
 
-* **Prefilter:** The prefilter object runs an XDP program and
-  provides a set of prefilter rules used to filter traffic from the network for best performance. Specifically,
-  a set of CIDR maps supplied by the Cilium agent are used to do a lookup and the packet
-  is either dropped, for example when the destination is not a valid endpoint, or allowed to be processed by the stack. This can be easily
-  extended as needed to build in new prefilter criteria/capabilities.
-
 * **Endpoint Policy:** The endpoint policy object implements the Cilium endpoint enforcement.
   Using a map to lookup a packet's associated identity and policy, this layer
   scales well to lots of endpoints. Depending on the policy this layer may drop the

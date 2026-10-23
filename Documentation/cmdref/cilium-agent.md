@@ -196,7 +196,6 @@ cilium-agent [flags]
       --enable-vtep                                               Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
       --enable-wireguard                                          Enable WireGuard
-      --enable-xdp-prefilter                                      Enable XDP prefiltering
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
       --enable-ztunnel                                            Use zTunnel as Cilium's encryption infrastructure
       --encryption-strict-egress-allow-remote-node-identities     Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.
