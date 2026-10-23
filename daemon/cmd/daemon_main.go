@@ -554,6 +554,7 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 
 	flags.Bool(option.EnableXDPPrefilter, false, "Enable XDP prefiltering")
 	option.BindEnv(vp, option.EnableXDPPrefilter)
+	flags.MarkDeprecated(option.EnableXDPPrefilter, "This option is obsolete and will be removed in v1.22")
 
 	flags.Bool(option.EnableTCX, true, "Attach endpoint programs using tcx if supported by the kernel")
 	option.BindEnv(vp, option.EnableTCX)

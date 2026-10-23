@@ -98,6 +98,9 @@ you may need to take action to migrate to an alternative.
 * The agent option ``--fixed-identity-mapping`` is deprecated and will be removed
   in a future release.
 
+* The agent option ``--enable-xdp-prefilter`` is deprecated and will be removed
+  in a future release.
+
 Removed Options
 ###############
 
