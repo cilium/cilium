@@ -128,6 +128,7 @@ func newCloudMultiPoolAllocators(ctx context.Context, p cloudMultiPoolParams) (i
 		JobGroup:             p.JobGroup,
 		PoolSpecAccessors:    p.Provider.PoolSpecAccessors(),
 		LinearPreAlloc:       true,
+		PreAllocFromNode:     true,
 	})
 
 	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)
