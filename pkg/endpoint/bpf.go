@@ -380,23 +380,21 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
-	defer datapathRegenCtxt.completionCancel()
+	defer func() {
+		datapathRegenCtxt.completionCancel()
+		if reterr != nil {
+			// Canceling the parent context alone does not finish callbacks or owner
+			// cleanup. Drain the group before reverting resources on early errors.
+			datapathRegenCtxt.proxyWaitGroup.Cancel()
+		}
+
+		// Ignore finalizing of proxy state in dry mode.
+		if !e.IsProperty(endpointtypes.PropertyFakeEndpoint) {
+			e.finalizeEndpointRegeneration(regenContext, reterr)
+		}
+	}()
 
 	err = e.runPreCompilationSteps(regenContext)
-
-	// Ignore finalizing of proxy state in dry mode.
-	if !e.IsProperty(endpointtypes.PropertyFakeEndpoint) {
-		// Keep track of the side-effects of the regeneration that need to be
-		// reverted in case of failure.
-		// Also keep track of the regeneration finalization code that can't be
-		// reverted, and execute it in case of regeneration success.
-		// Must use closure to get the current value of 'reterr' at the time
-		// of execution.
-		defer func() {
-			e.finalizeEndpointRegeneration(regenContext, reterr)
-		}()
-	}
-
 	if err != nil {
 		return 0, err
 	}
@@ -460,7 +458,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		}
 
 		stats.proxyWaitForAck.Start()
-		err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
+		err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyWaitForAck.End(err == nil)
 		if err != nil {
 			return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
@@ -507,7 +505,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	stats.proxyWaitForAck.Start()
-	err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
+	err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup)
 	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
 		return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)

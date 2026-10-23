@@ -12,15 +12,18 @@ import (
 )
 
 // WaitGroup waits for a collection of Completions to complete.
+// Register all completions before calling Wait or Cancel; no more may be added
+// afterward. Both methods synchronously run callbacks and owner cleanup, so they
+// must not be called from those hooks or while holding locks the hooks need.
 type WaitGroup struct {
 	// ctx is the context of all the Completions in the wait group.
 	ctx context.Context
 
-	// cancel is the function to call if any pending operation fails, if Wait returns or when cleaning up all resources
+	// cancel cancels the context without draining completions.
 	cancel context.CancelFunc
 
-	// counterLocker locks all calls to AddCompletionWithCallback and Wait,
-	// which must not be called concurrently.
+	// counterLocker serializes registration and draining. Registration must
+	// finish before Wait or Cancel is called.
 	counterLocker lock.Mutex
 
 	// pendingCompletions is the list of Completions added to the wait group
@@ -28,22 +31,22 @@ type WaitGroup struct {
 	pendingCompletions []*Completion
 }
 
-// NewWaitGroup returns a new WaitGroup using the given context. The WaitGroup will hold an internal context
-// that will be cancelled when the first completion returns an error or when Wait returns. If Wait is not executed,
-// a call to Cancel should be done to avoid leaking resources.
+// NewWaitGroup returns a new WaitGroup using the given context. Its internal
+// context is canceled when a completion fails, Wait returns, or Cancel is called.
+// Callers must eventually call Wait or Cancel to release resources and settle
+// pending completions, even if the context has already been canceled.
 func NewWaitGroup(ctx context.Context) *WaitGroup {
 	ctx2, cancel := context.WithCancel(ctx)
 	return &WaitGroup{ctx: ctx2, cancel: cancel}
 }
 
-// Cancel will cancel the underlying context and free its resources
+// Cancel cancels the underlying context and drains pending completions through
+// Wait, which does not wait on a cancelled context. No completion callbacks or
+// owner cleanup remain in progress when it returns. Cancel discards the wait
+// error; a subsequent Wait cannot retrieve it. Harmless if called after Wait().
 func (wg *WaitGroup) Cancel() {
 	wg.cancel()
-}
-
-// Context returns the context of all the Completions in the wait group.
-func (wg *WaitGroup) Context() context.Context {
-	return wg.ctx
+	_ = wg.Wait()
 }
 
 // Owner provides optional debug correlation and wait-time cleanup for a
@@ -88,11 +91,11 @@ func updateError(old, new error) error {
 
 // Wait blocks until all completions added to the wait group are completed, or
 // the context is canceled, whichever happens first.
-// Returns the context's error if it is cancelled, nil otherwise.
 // No callbacks of the completions in this wait group will be called after
 // this returns.
 // Returns the error value of one of the completions, if available, or the
-// error value of the Context otherwise.
+// error value of the Context otherwise. A canceled context is reported even
+// when no completions remain pending.
 func (wg *WaitGroup) Wait() error {
 	wg.counterLocker.Lock()
 	defer wg.counterLocker.Unlock()
@@ -124,6 +127,11 @@ Loop:
 		}
 	}
 	wg.pendingCompletions = nil
+	// Observe cancellation before Wait cancels its own context, including
+	// when the group is empty or all completions have already succeeded.
+	if err == nil {
+		err = wg.ctx.Err()
+	}
 	wg.cancel()
 	return err
 }
@@ -182,7 +190,8 @@ func (c *Completion) Complete(err error) error {
 			// that they are actually called before Wait() returns.
 			c.callback(err)
 		}
-		// Cancel the WaitGroup on failure
+		// Signal failure without draining while holding the completion lock.
+		// Wait or Cancel will settle the other completions and clean up owners.
 		if err != nil && c.cancel != nil {
 			c.cancel()
 		}

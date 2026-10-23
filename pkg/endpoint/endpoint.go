@@ -589,13 +589,16 @@ func (e *Endpoint) closeBPFProgramChannel() {
 }
 
 // waitForProxyCompletions blocks until all proxy changes have been completed.
-// Called with buildMutex held.
-func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+// Called with buildMutex held. The caller must Cancel the group on error.
+func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitGroup *completion.WaitGroup) error {
 	if proxyWaitGroup == nil {
 		return nil
 	}
 
-	err := proxyWaitGroup.Context().Err()
+	// Propagate an already-canceled parent context so regeneration suppresses
+	// spurious error logs when the endpoint is being removed. A NACK cancels only
+	// the group's internal context and must still be reported.
+	err := parentCtx.Err()
 	if err != nil {
 		return fmt.Errorf("context cancelled before waiting for proxy updates: %w", err)
 	}
