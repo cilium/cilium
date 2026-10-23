@@ -15,6 +15,7 @@ import (
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	fqdnconfig "github.com/cilium/cilium/pkg/fqdn/config"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -52,11 +53,12 @@ type PolicyWatcherParams struct {
 
 	Lifecycle cell.Lifecycle
 
-	ClientSet               client.Clientset
-	Config                  *option.DaemonConfig
-	ClusterMeshPolicyConfig cmtypes.PolicyConfig
-	ClusterInfo             cmtypes.ClusterInfo
-	Logger                  *slog.Logger
+	ClientSet                 client.Clientset
+	Config                    *option.DaemonConfig
+	ClusterMeshPolicyConfig   cmtypes.PolicyConfig
+	ClusterInfo               cmtypes.ClusterInfo
+	FQDNPolicyDNSServerConfig fqdnconfig.FQDNPolicyDNSServerConfig
+	Logger                    *slog.Logger
 
 	K8sResourceSynced *synced.Resources
 	K8sAPIGroups      *synced.APIGroups
@@ -91,6 +93,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		config:                           params.Config,
 		clusterMeshPolicyConfig:          params.ClusterMeshPolicyConfig,
 		clusterInfo:                      params.ClusterInfo,
+		fqdnPolicyDNSServerConfig:        params.FQDNPolicyDNSServerConfig,
 		policyImporter:                   params.PolicyImporter,
 		k8sResourceSynced:                params.K8sResourceSynced,
 		k8sAPIGroups:                     params.K8sAPIGroups,
@@ -105,6 +108,7 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		clusterNetworkPolicies:           params.ClusterNetworkPolicies,
 
 		cnpCache:       make(map[resource.Key]*types.SlimCNP),
+		kcnpCache:      make(map[resource.Key]*policyv1alpha2.ClusterNetworkPolicy),
 		cidrGroupCache: make(map[string]*cilium_v2.CiliumCIDRGroup),
 		cidrGroupCIDRs: make(map[string]sets.Set[netip.Prefix]),
 
@@ -113,8 +117,8 @@ func startK8sPolicyWatcher(params PolicyWatcherParams) {
 		metricsManager:     params.MetricsManager,
 	}
 
-	// Service notifications are not used if CNPs/CCNPs are disabled.
-	if params.Config.EnableCiliumNetworkPolicy || params.Config.EnableCiliumClusterwideNetworkPolicy {
+	// Service notifications are used if CNPs/CCNPs or FQDN policy DNS server service are enabled.
+	if params.Config.EnableCiliumNetworkPolicy || params.Config.EnableCiliumClusterwideNetworkPolicy || params.FQDNPolicyDNSServerConfig.FQDNPolicyDNSServerService != "" {
 		p.serviceEvents = serviceEventStream(params.DB, params.Services, params.Backends)
 	}
 
