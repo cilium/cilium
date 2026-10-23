@@ -14,6 +14,7 @@ import (
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/promise"
 )
 
@@ -27,6 +28,7 @@ type hostEndpointParams struct {
 	EndpointCreator        endpointcreator.EndpointCreator
 	EndpointManager        endpointmanager.EndpointManager
 	EndpointRestorePromise promise.Promise[endpointstate.Restorer]
+	DNSProxyPromise        promise.Promise[bootstrap.DNSProxyInitialized]
 }
 
 type hostEndpointCreator struct {
@@ -34,6 +36,7 @@ type hostEndpointCreator struct {
 	endpointCreator        endpointcreator.EndpointCreator
 	endpointManager        endpointmanager.EndpointManager
 	endpointRestorePromise promise.Promise[endpointstate.Restorer]
+	dnsProxyPromise        promise.Promise[bootstrap.DNSProxyInitialized]
 }
 
 func registerHostEndpoint(params hostEndpointParams) {
@@ -42,6 +45,7 @@ func registerHostEndpoint(params hostEndpointParams) {
 		endpointCreator:        params.EndpointCreator,
 		endpointManager:        params.EndpointManager,
 		endpointRestorePromise: params.EndpointRestorePromise,
+		dnsProxyPromise:        params.DNSProxyPromise,
 	}
 
 	params.JobGroup.Add(job.OneShot("init-host-endpoint", creator.createHostEndpoint, job.WithShutdown()))
@@ -56,6 +60,13 @@ func (c *hostEndpointCreator) createHostEndpoint(ctx context.Context, health cel
 
 	if err := r.WaitForEndpointRestoreWithoutRegeneration(ctx); err != nil {
 		return fmt.Errorf("failed to wait for endpoint restoration: %w", err)
+	}
+
+	// Restoration may be disabled, so wait before either branch initializes host
+	// labels and can trigger regeneration with DNS redirects.
+	health.OK("Wait for DNS proxy initialization")
+	if _, err := c.dnsProxyPromise.Await(ctx); err != nil {
+		return fmt.Errorf("failed to wait for DNS proxy initialization: %w", err)
 	}
 
 	health.OK("Start initialization")
