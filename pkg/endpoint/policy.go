@@ -864,7 +864,15 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 			// Unaffected identities are not normally recomputed at toRev. Schedule
 			// this one before making the upcoming regeneration wait for it.
 			if toRev > e.skippedPolicyRevision {
-				if _, err := e.policyFetcher.RecomputeIdentityPolicy(e.SecurityIdentity, toRev); err != nil {
+				if _, err := e.policyFetcher.RecomputeIdentityPolicy(e.SecurityIdentity, toRev); errors.Is(err, compute.ErrIdentityNotRegistered) {
+					e.getLogger().Debug(
+						"Skipping policy recompute for unregistered identity",
+						logfields.Identity, e.SecurityIdentity.ID,
+						logfields.PolicyRevision, toRev,
+					)
+					unlock()
+					return
+				} else if err != nil {
 					e.getLogger().Warn(
 						"Failed to recompute policy for initializing endpoint",
 						logfields.Error, err,
