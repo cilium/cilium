@@ -12,10 +12,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8stesting "k8s.io/client-go/testing"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/endpoint"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/node"
 )
 
@@ -128,6 +132,74 @@ func Test_updateCEPUID(t *testing.T) {
 			if test.expectedEPUID != nil {
 				assert.Equal(t, *test.expectedEPUID, test.ep.GetCiliumEndpointUID())
 			}
+		})
+	}
+}
+
+// Test_deleteCEP verifies that cleanup preserves a CEP adopted by another
+// endpoint and uses both UID and resourceVersion to guard deletion of its own CEP.
+func Test_deleteCEP(t *testing.T) {
+	logger := hivetest.Logger(t)
+	ep := &endpoint.Endpoint{ID: 2, K8sNamespace: "default", K8sPodName: "workload"}
+	ep.SetCiliumEndpointUID("cep-uid")
+	ep.SetPod(&slim_corev1.Pod{ObjectMeta: slim_metav1.ObjectMeta{Namespace: "default"}})
+	for name, test := range map[string]struct {
+		endpointID  int64
+		uid         types.UID
+		identifiers *models.EndpointIdentifiers
+		wantDelete  bool
+	}{
+		"current owner": {
+			endpointID: 2,
+			uid:        "cep-uid",
+			wantDelete: true,
+		},
+		"replacement with the same CEP UID": {
+			endpointID: 3,
+			uid:        "cep-uid",
+		},
+		"different CNI attachment": {
+			endpointID:  2,
+			uid:         "cep-uid",
+			identifiers: &models.EndpointIdentifiers{CniAttachmentID: "sandbox-b"},
+		},
+		"different CEP UID": {
+			endpointID: 2,
+			uid:        "other-cep",
+		},
+		"legacy CEP without attachment ID": {
+			endpointID:  2,
+			uid:         "cep-uid",
+			identifiers: &models.EndpointIdentifiers{},
+			wantDelete:  true,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			cep := &v2.CiliumEndpoint{
+				ObjectMeta: v1.ObjectMeta{
+					Name:            ep.K8sPodName,
+					Namespace:       ep.K8sNamespace,
+					UID:             test.uid,
+					ResourceVersion: "1",
+				},
+				Status: v2.EndpointStatus{
+					ID:                  test.endpointID,
+					ExternalIdentifiers: test.identifiers,
+				},
+			}
+			client := fake.NewSimpleClientset(cep)
+			assert.NoError(t, deleteCEP(t.Context(), logger, client.CiliumV2(), ep))
+
+			resource := v2.SchemeGroupVersion.WithResource("ciliumendpoints")
+			expected := []k8stesting.Action{
+				k8stesting.NewGetActionWithOptions(resource, cep.Namespace, cep.Name, v1.GetOptions{}),
+			}
+			if test.wantDelete {
+				expected = append(expected, k8stesting.NewDeleteActionWithOptions(resource, cep.Namespace, cep.Name, v1.DeleteOptions{
+					Preconditions: &v1.Preconditions{UID: &cep.UID, ResourceVersion: &cep.ResourceVersion},
+				}))
+			}
+			assert.Equal(t, expected, client.Actions())
 		})
 	}
 }
