@@ -26,7 +26,7 @@ func newResetCommand(vp *viper.Viper) *cobra.Command {
 			case 0:
 				return runReset(cmd, vp)
 			default:
-				return fmt.Errorf("invalid arguments: resset requires exactly 0 or 1 argument: got '%s'", strings.Join(args, " "))
+				return fmt.Errorf("invalid arguments: reset requires exactly 0 or 1 argument: got '%s'", strings.Join(args, " "))
 			}
 		},
 	}
