@@ -58,24 +58,35 @@ func (cache Cache) UpdateMany(endpoints iter.Seq[Endpoints]) {
 }
 
 // Orphans returns backend addresses that exist in the cache but are not present
-// in the supplied newEndpoints.
+// in the supplied newEndpoints. A backend is only considered orphaned if it is
+// absent from ALL endpoint slices in newEndpoints, so deleting one EndpointSlice
+// does not orphan backends that survive in another slice for the same service.
 func (cache Cache) Orphans(newEndpoints iter.Seq[Endpoints]) iter.Seq[loadbalancer.L3n4Addr] {
 	return func(yield func(loadbalancer.L3n4Addr) bool) {
+		// Collect all backends still present across all endpoint slices so a
+		// backend surviving in another slice is not wrongly orphaned.
+		alive := map[loadbalancer.L3n4Addr]struct{}{}
+		var eps []Endpoints
 		for ep := range newEndpoints {
+			eps = append(eps, ep)
+			for epAddr, epBe := range ep.Backends {
+				for l4Addr := range epBe.Ports {
+					alive[loadbalancer.NewL3n4Addr(l4Addr.Protocol, epAddr, l4Addr.Port, loadbalancer.ScopeExternal)] = struct{}{}
+				}
+			}
+		}
+
+		for _, ep := range eps {
 			previous, found := cache[ep.Name]
 			if !found {
 				continue
 			}
 
-			for addr, prevBe := range previous.Backends {
-				be, foundBe := ep.Backends[addr]
+			for prevAddr, prevBe := range previous.Backends {
 				for l4Addr := range prevBe.Ports {
-					foundPort := false
-					if foundBe {
-						_, foundPort = be.Ports[l4Addr]
-					}
-					if !foundPort {
-						if !yield(loadbalancer.NewL3n4Addr(l4Addr.Protocol, addr, l4Addr.Port, loadbalancer.ScopeExternal)) {
+					orphan := loadbalancer.NewL3n4Addr(l4Addr.Protocol, prevAddr, l4Addr.Port, loadbalancer.ScopeExternal)
+					if _, stillAlive := alive[orphan]; !stillAlive {
+						if !yield(orphan) {
 							return
 						}
 					}
