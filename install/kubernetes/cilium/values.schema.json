@@ -699,6 +699,12 @@
         "root": {
           "type": "string"
         },
+        "sharedPolicy": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
         "stats": {
           "properties": {
             "enabled": {

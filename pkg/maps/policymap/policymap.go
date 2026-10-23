@@ -6,6 +6,7 @@ package policymap
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -95,8 +96,10 @@ func (pef policyEntryFlags) String() string {
 
 type policyMap struct {
 	*bpf.Map
-	stats *StatsMap // shared stats map
-	epID  uint16
+	stats     *StatsMap // shared stats map
+	epID      uint16
+	ruleSetID uint32
+	isShared  bool
 }
 
 type PolicyMap interface {
@@ -344,12 +347,34 @@ func (pm *policyMap) Update(key *PolicyKey, entry *PolicyEntry) error {
 	if option.Config.Debug {
 		pm.stats.ZeroStat(pm.epID, *key)
 	}
+	if pm.isShared {
+		skey := SharedPolicyKey{
+			Prefixlen:        SharedPolicyBasePrefix + uint32(key.GetPrefixLen()),
+			RuleSetID:        pm.ruleSetID,
+			Identity:         key.Identity,
+			TrafficDirection: key.TrafficDirection,
+			Nexthdr:          key.Nexthdr,
+			DestPortNetwork:  key.DestPortNetwork,
+		}
+		return pm.Map.Update(&skey, entry)
+	}
 	return pm.Map.Update(key, entry)
 }
 
 // DeleteKey deletes the key-value pair from the given PolicyMap with PolicyKey
 // k. Returns an error if deletion from the PolicyMap fails.
 func (pm *policyMap) DeleteKey(key PolicyKey) error {
+	if pm.isShared {
+		skey := SharedPolicyKey{
+			Prefixlen:        SharedPolicyBasePrefix + uint32(key.GetPrefixLen()),
+			RuleSetID:        pm.ruleSetID,
+			Identity:         key.Identity,
+			TrafficDirection: key.TrafficDirection,
+			Nexthdr:          key.Nexthdr,
+			DestPortNetwork:  key.DestPortNetwork,
+		}
+		return pm.Map.Delete(&skey)
+	}
 	return pm.Map.Delete(&key)
 }
 
@@ -357,6 +382,12 @@ func (pm *policyMap) DeleteKey(key PolicyKey) error {
 // conjunction with DumpToSlice() to inspect and delete map entries.
 func (pm *policyMap) DeleteEntry(entry *PolicyEntryDump) error {
 	return pm.Map.Delete(&entry.Key)
+}
+
+// SharedRuleSet returns the endpoint's rule set ID, and true if the endpoint's entries are
+// read from the shared policy map rather than from its per-endpoint policy map.
+func (pm *policyMap) SharedRuleSet() (uint32, bool) {
+	return pm.ruleSetID, pm.isShared
 }
 
 // String returns a human-readable string representing the policy map.
@@ -379,14 +410,19 @@ func (pm *policyMap) Dump() (string, error) {
 func (pm *policyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	entries := PolicyEntriesDump{}
 
-	cb := func(key bpf.MapKey, value bpf.MapValue) {
-		eDump := PolicyEntryDump{
-			Key:         *key.(*PolicyKey),
-			PolicyEntry: *value.(*PolicyEntry),
+	var err error
+	if pm.isShared {
+		entries, err = dumpSharedRuleSetEntries(pm.Map, pm.ruleSetID)
+	} else {
+		cb := func(key bpf.MapKey, value bpf.MapValue) {
+			eDump := PolicyEntryDump{
+				Key:         *key.(*PolicyKey),
+				PolicyEntry: *value.(*PolicyEntry),
+			}
+			entries = append(entries, eDump)
 		}
-		entries = append(entries, eDump)
+		err = pm.DumpWithCallback(cb)
 	}
-	err := pm.DumpWithCallback(cb)
 	if err != nil {
 		return nil, err
 	}
@@ -467,6 +503,8 @@ func newPolicyMap(logger *slog.Logger, id uint16, maxEntries int, stats *StatsMa
 
 // OpenPolicyMap opens the policymap at the specified path.
 // This is only used from the 'cilium-dbg bpf policy' tool.
+// If the endpoint has an entry in cilium_policy_overlay, it opens cilium_policy_shared
+// and projects the endpoint's rule set in the per-endpoint PolicyEntriesDump format.
 func OpenPolicyMap(logger *slog.Logger, path string) (*policyMap, error) {
 	// Extract endpoint ID from the given path
 	id, err := parseEndpointID(path)
@@ -479,8 +517,35 @@ func OpenPolicyMap(logger *slog.Logger, path string) (*policyMap, error) {
 		return nil, err
 	}
 
+	if !strings.Contains(filepath.Base(path), "reserved_") {
+		dir := filepath.Dir(path)
+		overlayPath := filepath.Join(dir, PolicyOverlayMapName)
+		sharedPath := filepath.Join(dir, SharedPolicyMapName)
+		if overlayMap, err := bpf.OpenMap(overlayPath, &OverlayKey{}, &OverlayValue{}); err == nil {
+			v, lookupErr := overlayMap.Lookup(&OverlayKey{EndpointID: uint32(id)})
+			_ = overlayMap.Close()
+			if lookupErr == nil {
+				if ov, ok := v.(*OverlayValue); ok {
+					sharedMap, err := bpf.OpenMap(sharedPath, &SharedPolicyKey{}, &PolicyEntry{})
+					if err != nil {
+						_ = stats.Close()
+						return nil, err
+					}
+					return &policyMap{
+						Map:       sharedMap,
+						stats:     stats,
+						epID:      id,
+						ruleSetID: ov.RuleSetID,
+						isShared:  true,
+					}, nil
+				}
+			}
+		}
+	}
+
 	m, err := bpf.OpenMap(path, &PolicyKey{}, &PolicyEntry{})
 	if err != nil {
+		_ = stats.Close()
 		return nil, err
 	}
 
