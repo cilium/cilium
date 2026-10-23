@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/cilium/hive/internal"
-	"github.com/mitchellh/mapstructure"
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/pflag"
 	"go.uber.org/dig"
 )
@@ -41,7 +41,7 @@ type Flagger interface {
 	// Exported fields that are not found from the viper settings will cause
 	// hive.Run() to fail. Unexported fields are ignored.
 	//
-	// See https://pkg.go.dev/github.com/mitchellh/mapstructure for more info.
+	// See https://pkg.go.dev/github.com/go-viper/mapstructure/v2 for more info.
 	Flags(*pflag.FlagSet)
 }
 
@@ -125,8 +125,8 @@ func decoderConfig(target any, extraHooks DecodeHooks) *mapstructure.DecoderConf
 		//
 		// If both commas and whitespaces are present the commas take precedence:
 		// "foo,bar baz" => []string{"foo", "bar baz"}
-		mapstructure.StringToSliceHookFunc(","), // string->[]string is split by comma
-		fixupStringSliceHookFunc,                // []string of length 1 is split again by whitespace
+		mapstructure.StringToWeakSliceHookFunc(","), // string->[]T is split by comma
+		fixupStringSliceHookFunc,                    // []string of length 1 is split again by whitespace
 
 		mapstructure.StringToTimeDurationHookFunc(),
 		stringToMapHookFunc,
