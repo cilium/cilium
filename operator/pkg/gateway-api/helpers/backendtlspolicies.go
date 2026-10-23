@@ -127,35 +127,16 @@ func BuildBackendTLSPolicyLookup(btlspList *gatewayv1.BackendTLSPolicyList) Back
 				continue
 			}
 
-			// There is already a valid entry for this section name, so now we check timestamps.
-			if currentBTLSP.ObjectMeta.CreationTimestamp.Before(&existingBTLSP.ObjectMeta.CreationTimestamp) {
-				// if the current policy has an older creation time, it wins
-				// Move the existing policy into the Conflicted map
+			// Resolve the conflict by creation timestamp, then namespace and name.
+			if CompareCreationTimeThenNamespacedName(currentBTLSP.ObjectMeta, existingBTLSP.ObjectMeta) < 0 {
+				// The current policy wins, move the existing policy to Conflicted.
 				lookupMap[svcName].UpsertConflictedPolicy(existingName, existingBTLSP)
-				// Upsert the current BTLSP into the Valid set.
+				// Add the current policy to Valid.
 				lookupMap[svcName].UpsertValidPolicy(sectionName, &currentBTLSP)
 				continue
 			}
 
-			if existingBTLSP.ObjectMeta.CreationTimestamp.Before(&currentBTLSP.ObjectMeta.CreationTimestamp) {
-				// if the existing policy has an older creation time, it wins
-				// Move the current policy into the Conflicted map
-				lookupMap[svcName].UpsertConflictedPolicy(currentName, &currentBTLSP)
-				// The existing BTLSP is already in the Valid set, nothing more to do.
-				continue
-			}
-
-			// If the creation timestamps are equal, because neither are before the other,
-			// and they're not the same object, then the lexicographically first one wins.
-			if currentName.String() < existingName.String() {
-				// Move the existing policy into the Conflicted map
-				lookupMap[svcName].UpsertConflictedPolicy(existingName, existingBTLSP)
-				// Upsert the current BTLSP into the Valid set.
-				lookupMap[svcName].UpsertValidPolicy(sectionName, &currentBTLSP)
-				continue
-			}
-
-			// Otherwise, the current policy is conflicted.
+			// The existing policy wins, the current policy is conflicted.
 			lookupMap[svcName].UpsertConflictedPolicy(currentName, &currentBTLSP)
 		}
 	}
