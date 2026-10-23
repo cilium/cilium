@@ -15,7 +15,7 @@ ARG BASE_IMAGE=gcr.io/distroless/static:nonroot@sha256:d62067879de890a1def9da0e7
 ARG GOLANG_IMAGE=docker.io/library/golang:1.26.10@sha256:672c944cfd07599b5f1bb179869270cdc94c6254e41db4d431259693cb286b82
 # We don't use ETCD_IMAGE because that's used in Makefile.defs to select a ETCD image approrpate for the *host platform*
 # to run tests with.
-ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.6.15@sha256:5ed4e32061aa061f970d6500629213e8579ef17571dcf9789074966acb9afad1
+ARG ETCD_SERVER_IMAGE=gcr.io/etcd-development/etcd:v3.6.16@sha256:b29d816b546a1966fe7034a33b34e231fa98c47ce4d2883f70b0555020b22132
 
 # BUILDPLATFORM is an automatic platform ARG enabled by Docker BuildKit.
 # Represents the plataform where the build is happening, do not mix with
