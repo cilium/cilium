@@ -2,27 +2,22 @@
 
 ## cilium bgp routes
 
-Lists BGP routes
+List BGP routes on Cilium
 
 ### Synopsis
 
-Lists BGP routes from all nodes in the cluster
+List routes in the BGP Control Plane's RIBs
 
 ```
-cilium bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|neighbor <address>] [flags]
+cilium bgp routes <table type> <afi> <safi> [flags]
 ```
 
 ### Examples
 
 ```
-  Get all IPv4 unicast routes available:
-    cilium bgp routes available ipv4 unicast
-
-  Get all IPv6 unicast routes available for a specific vrouter:
-    cilium bgp routes available ipv6 unicast vrouter 65001
-
-  Get IPv4 unicast routes advertised to a specific peer:
-    cilium bgp routes advertised ipv4 unicast peer 10.0.0.1
+  table type: "loc" (loc-rib), "in" (adj-rib-in), or "out" (adj-rib-out).
+  afi: Address Family Identifier (e.g. ipv4, ipv6).
+  safi: Subsequent Address Family Identifier (e.g. unicast).
 ```
 
 ### Options
@@ -30,9 +25,9 @@ cilium bgp routes <available | advertised> <afi> <safi> [vrouter <asn>] [peer|ne
 ```
       --agent-pod-selector string   Label on cilium-agent pods to select with (default "k8s-app=cilium")
   -h, --help                        help for routes
-      --node string                 Node from which BGP routes will be fetched, omit to select all nodes
-  -o, --output string               Output format. One of: json, summary (default "summary")
+      --node string                 Node from which BGP status will be fetched, omit to select all nodes
       --wait-duration duration      Maximum time to wait for result, default 1 minute (default 1m0s)
+  -a, --with-attrs                  Show path attributes (excluding NEXT_HOP and MP_REACH_NLRI)
 ```
 
 ### Options inherited from parent commands
