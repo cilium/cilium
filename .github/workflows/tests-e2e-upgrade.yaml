@@ -622,7 +622,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
         shell: bash
         run: |
-          cilium upgrade \
+          cilium upgrade --reset-values=true \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-newest-config.outputs.config }} \
             ${{ steps.install-cilium.outputs.extra_args }}
@@ -731,7 +731,7 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' && steps.cilium-stable-config.outputs.skip != 'true' && steps.cilium-newest-config.outputs.skip != 'true' }}
         shell: bash
         run: |
-          cilium upgrade \
+          cilium upgrade --reset-values=true \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
             ${{ steps.install-cilium.outputs.extra_args }}
