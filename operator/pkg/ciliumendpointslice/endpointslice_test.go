@@ -865,3 +865,182 @@ func TestSyncCESsInLocalCacheOperatorDowntime(t *testing.T) {
 	cesController.queue.ShutDown()
 	hive.Stop(tlog, t.Context())
 }
+
+// TestSliceEventsDefault verifies that CES watch events matching the desired
+// state (e.g. the informer echoing the reconciler's own writes) don't schedule a
+// reconciliation, while any divergence still does.
+func TestSliceEventsDefault(t *testing.T) {
+	log := hivetest.Logger(t)
+	var r *defaultReconciler
+	var fakeClient *k8sClient.FakeClientset
+	m := newDefaultManager(10, log)
+	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+	var cesMetrics *Metrics
+	h := hive.New(
+		k8sClient.FakeClientCell(),
+		k8s.ResourcesCell,
+		metrics.Metric(NewMetrics),
+		cell.Invoke(func(
+			c *k8sClient.FakeClientset,
+			cep resource.Resource[*cilium_v2.CiliumEndpoint],
+			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			metrics *Metrics,
+		) error {
+			fakeClient = c
+			ciliumEndpoint = cep
+			ciliumEndpointSlice = ces
+			cesMetrics = metrics
+			return nil
+		}),
+	)
+	h.Start(log, t.Context())
+	defer h.Stop(log, t.Context())
+
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cepStore, cesStore, cesMetrics)
+
+	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
+	assert.NoError(t, err)
+	cesController := &DefaultController{
+		Controller: &Controller{
+			logger:              log,
+			clientset:           fakeClient,
+			ciliumEndpointSlice: ciliumEndpointSlice,
+			rateLimit:           rateLimitConfig,
+			enqueuedAt:          make(map[CESKey]time.Time),
+			metrics:             cesMetrics,
+			priorityNamespaces:  make(map[string]struct{}),
+			syncDelay:           0,
+			doReconciler:        r,
+		},
+		manager:        m,
+		reconciler:     r,
+		ciliumEndpoint: ciliumEndpoint,
+	}
+	cesController.initializeQueue()
+	defer cesController.queue.ShutDown()
+
+	skipped := func(event, reason string) float64 {
+		return cesMetrics.CiliumEndpointSliceEventsSkipped.WithLabelValues(event, reason).Get()
+	}
+	drainOne := func(t *testing.T) {
+		t.Helper()
+		assert.NoError(t, testutils.WaitUntil(func() bool {
+			return cesController.queue.Len() == 1
+		}, time.Second))
+		key, _, _ := cesController.queue.GetWithPriority()
+		cesController.queue.Done(key)
+		cesController.queue.Forget(key)
+		cesController.getAndResetCESProcessingDelay(key)
+	}
+
+	cepStore.CacheStore().Add(tu.CreateStoreEndpoint("cep-0", "ns", 1))
+	cepStore.CacheStore().Add(tu.CreateStoreEndpoint("cep-1", "ns", 2))
+	m.mapping.insertCES(CESName("ces-1"), "ns")
+	m.mapping.insertCEP(NewCEPName("cep-0", "ns"), CESName("ces-1"))
+	m.mapping.insertCEP(NewCEPName("cep-1", "ns"), CESName("ces-1"))
+	key := NewCESKey("ces-1", "ns")
+
+	// The reconciler creates the CES, which the informer then echoes back.
+	assert.NoError(t, r.reconcileCES(t.Context(), CESName("ces-1")))
+	storeKey := NewCESKey("ces-1", "").key()
+	assert.NoError(t, testutils.WaitUntil(func() bool {
+		_, exists, _ := cesStore.GetByKey(storeKey)
+		return exists
+	}, time.Second))
+	echo, _, _ := cesStore.GetByKey(storeKey)
+
+	// The echo doesn't schedule a sync, as there's nothing to reconcile.
+	cesController.onSliceUpdate(echo)
+	assert.True(t, cesController.enqueuedAt[key].IsZero())
+	assert.Equal(t, 0, cesController.queue.Len())
+	assert.Equal(t, 1.0, skipped(LabelEventUpsert, LabelReasonWritten))
+	assert.NotEmpty(t, echo.ResourceVersion)
+	assert.True(t, r.cesWritten(echo))
+
+	// The version written by the reconciler is recognized as such without
+	// comparing endpoints.
+	sameVersion := echo.DeepCopy()
+	sameVersion.Endpoints = nil
+	cesController.onSliceUpdate(sameVersion)
+	assert.Equal(t, 0, cesController.queue.Len())
+	assert.Equal(t, 2.0, skipped(LabelEventUpsert, LabelReasonWritten))
+	assert.Equal(t, 0.0, skipped(LabelEventUpsert, LabelReasonUnchanged))
+
+	// Any other version is compared with the desired state: the same CES with
+	// its endpoints in a different order doesn't schedule a sync either.
+	reordered := echo.DeepCopy()
+	reordered.ResourceVersion = "out-of-band"
+	reordered.Endpoints[0], reordered.Endpoints[1] = reordered.Endpoints[1], reordered.Endpoints[0]
+	cesController.onSliceUpdate(reordered)
+	assert.Equal(t, 0, cesController.queue.Len())
+	assert.Equal(t, 1.0, skipped(LabelEventUpsert, LabelReasonUnchanged))
+
+	// Any CES that diverged from its desired state is reconciled. Out-of-band
+	// changes always come with a new version.
+	divergedCases := []struct {
+		name   string
+		mutate func(*cilium_v2a1.CiliumEndpointSlice)
+	}{
+		{
+			name:   "endpoint missing",
+			mutate: func(ces *cilium_v2a1.CiliumEndpointSlice) { ces.Endpoints = ces.Endpoints[:1] },
+		},
+		{
+			name: "endpoint superfluous",
+			mutate: func(ces *cilium_v2a1.CiliumEndpointSlice) {
+				ces.Endpoints = append(ces.Endpoints, tu.CreateManagerEndpoint("cep-unmapped", 3, "node1"))
+			},
+		},
+		{
+			name: "endpoint replaced by an unmapped one",
+			mutate: func(ces *cilium_v2a1.CiliumEndpointSlice) {
+				ces.Endpoints[0].Name = "cep-unmapped"
+			},
+		},
+		{
+			name:   "endpoint changed",
+			mutate: func(ces *cilium_v2a1.CiliumEndpointSlice) { ces.Endpoints[0].IdentityID = 999 },
+		},
+		{
+			name:   "namespace changed",
+			mutate: func(ces *cilium_v2a1.CiliumEndpointSlice) { ces.Namespace = "other-ns" },
+		},
+		{
+			name: "no endpoints desired",
+			mutate: func(ces *cilium_v2a1.CiliumEndpointSlice) {
+				ces.Name = "ces-unmapped"
+				ces.Endpoints = nil
+			},
+		},
+	}
+	for _, tc := range divergedCases {
+		t.Run(tc.name, func(t *testing.T) {
+			diverged := echo.DeepCopy()
+			diverged.ResourceVersion = "out-of-band"
+			tc.mutate(diverged)
+			cesController.onSliceUpdate(diverged)
+			drainOne(t)
+		})
+	}
+	assert.Equal(t, 2.0, skipped(LabelEventUpsert, LabelReasonWritten))
+	assert.Equal(t, 1.0, skipped(LabelEventUpsert, LabelReasonUnchanged))
+
+	// A deleted CES is reconciled (i.e. recreated) only if CEPs are still
+	// mapped to it.
+	cesController.onSliceDelete(tu.CreateStoreEndpointSlice("ces-unmapped", "ns", nil))
+	assert.Equal(t, 0, cesController.queue.Len())
+	assert.Equal(t, 1.0, skipped(LabelEventDelete, LabelReasonUnmapped))
+
+	cesController.onSliceDelete(echo)
+	drainOne(t)
+	assert.Equal(t, 1.0, skipped(LabelEventDelete, LabelReasonUnmapped))
+
+	// Once the reconciler deletes the CES, its version is forgotten.
+	m.mapping.deleteCEP(NewCEPName("cep-0", "ns"))
+	m.mapping.deleteCEP(NewCEPName("cep-1", "ns"))
+	assert.NoError(t, r.reconcileCES(t.Context(), CESName("ces-1")))
+	assert.False(t, r.cesWritten(echo))
+}

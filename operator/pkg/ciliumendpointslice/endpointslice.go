@@ -93,10 +93,40 @@ func (c *DefaultController) onEndpointDelete(cep *cilium_api_v2.CiliumEndpoint) 
 }
 
 func (c *Controller) onSliceUpdate(ces *capi_v2a1.CiliumEndpointSlice) {
+	if c.isEchoEvent(ces) {
+		return // skip enqueueing echo event
+	}
 	c.enqueueCESReconciliation([]CESKey{NewCESKey(ces.Name, ces.Namespace)})
 }
 
+// isEchoEvent checks if CES event is echo event, typically the
+// informer echoes the reconciler's own writes. Reconciling them would
+// issue no request but would still consume a rate limiter token.
+// The reconciler's own writes are recognized by version; any other
+// version is compared with the desired state.
+func (c *Controller) isEchoEvent(ces *capi_v2a1.CiliumEndpointSlice) bool {
+	if c.doReconciler.cesWritten(ces) {
+		c.logger.Debug("Skipping CES written by the reconciler", logfields.CESName, ces.Name)
+		c.metrics.CiliumEndpointSliceEventsSkipped.WithLabelValues(LabelEventUpsert, LabelReasonWritten).Inc()
+		return true
+	}
+	if c.doReconciler.cesUpToDate(ces) {
+		c.logger.Debug("Skipping up-to-date CES", logfields.CESName, ces.Name)
+		c.metrics.CiliumEndpointSliceEventsSkipped.WithLabelValues(LabelEventUpsert, LabelReasonUnchanged).Inc()
+		return true
+	}
+	return false
+}
+
 func (c *Controller) onSliceDelete(ces *capi_v2a1.CiliumEndpointSlice) {
+	// Skip CESs with no CEPs mapped, typically those the reconciler deleted
+	// itself: reconciling them would issue no request either. A CES deleted
+	// while CEPs are still mapped to it is recreated.
+	if !c.doReconciler.cesHasEndpoints(CESName(ces.Name)) {
+		c.logger.Debug("Skipping deleted CES without endpoints", logfields.CESName, ces.Name)
+		c.metrics.CiliumEndpointSliceEventsSkipped.WithLabelValues(LabelEventDelete, LabelReasonUnmapped).Inc()
+		return
+	}
 	c.enqueueCESReconciliation([]CESKey{NewCESKey(ces.Name, ces.Namespace)})
 }
 

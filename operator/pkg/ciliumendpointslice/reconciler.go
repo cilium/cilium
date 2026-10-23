@@ -12,6 +12,7 @@ import (
 	"strconv"
 
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/cilium/cilium/api/v1/models"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -22,11 +23,37 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 type doReconciler interface {
 	reconcileCES(ctx context.Context, cesName CESName) error
+	// cesWritten reports whether the given CES is the version last written by
+	// the reconciler, i.e. the informer echoing its own write.
+	cesWritten(ces *cilium_v2a1.CiliumEndpointSlice) bool
+	// cesUpToDate reports whether the given CES, as observed in the apiserver,
+	// already matches its desired state, i.e. reconciling it would issue no
+	// request.
+	cesUpToDate(ces *cilium_v2a1.CiliumEndpointSlice) bool
+	// cesHasEndpoints reports whether any CEP is mapped to the given CES, i.e.
+	// whether the CES is expected to exist in the apiserver.
+	cesHasEndpoints(cesName CESName) bool
+}
+
+// cesDiff describes how a CES in the apiserver differs from its desired state.
+type cesDiff struct {
+	endpoints        []cilium_v2a1.CoreCiliumEndpoint
+	namespace        string
+	namespaceChanged bool
+	// inserted, updated and removed count the CEPs missing from, changed in,
+	// and superfluous in the CES.
+	inserted, updated, removed int
+}
+
+// empty reports whether the CES already matches its desired state.
+func (d cesDiff) empty() bool {
+	return d.inserted == 0 && d.updated == 0 && d.removed == 0 && !d.namespaceChanged
 }
 
 type endpointGetter interface {
@@ -43,6 +70,16 @@ type reconciler struct {
 
 	cesManager     Manager
 	endpointGetter endpointGetter
+
+	// written holds, per CES, the version last written by this reconciler.
+	written     map[CESName]writtenCES
+	writtenLock lock.Mutex
+}
+
+// writtenCES identifies a version of a CES written by the reconciler.
+type writtenCES struct {
+	uid             types.UID
+	resourceVersion string
 }
 
 type defaultReconciler struct {
@@ -84,6 +121,7 @@ func newDefaultReconciler(
 			cesManager: cesMgr,
 			cesStore:   cesStore,
 			metrics:    metrics,
+			written:    make(map[CESName]writtenCES),
 		},
 		manager:  cesMgr,
 		cepStore: cepStore,
@@ -114,6 +152,7 @@ func newSlimReconciler(
 			cesManager: cesMgr,
 			cesStore:   cesStore,
 			metrics:    metrics,
+			written:    make(map[CESName]writtenCES),
 		},
 		namespaceStore:  namespaceStore,
 		cidStore:        cidStore,
@@ -177,29 +216,71 @@ func (r *reconciler) reconcileCESCreate(ctx context.Context, cesName CESName) (e
 	}
 
 	// Call the client API, to Create CES
-	if _, err = r.client.CiliumEndpointSlices().Create(
-		ctx, newCES, meta_v1.CreateOptions{}); err != nil && !errors.Is(err, context.Canceled) {
-		r.logger.InfoContext(ctx,
-			"Unable to create CiliumEndpointSlice in k8s-apiserver",
-			logfields.CESName, newCES.Name,
-			logfields.Error, err)
+	var created *cilium_v2a1.CiliumEndpointSlice
+	if created, err = r.client.CiliumEndpointSlices().Create(
+		ctx, newCES, meta_v1.CreateOptions{}); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			r.logger.InfoContext(ctx,
+				"Unable to create CiliumEndpointSlice in k8s-apiserver",
+				logfields.CESName, newCES.Name,
+				logfields.Error, err)
+		}
+		return
 	}
+	r.recordWritten(created)
 	return
 }
 
 // Update an existing CES
 func (r *reconciler) reconcileCESUpdate(ctx context.Context, cesName CESName, cesObj *cilium_v2a1.CiliumEndpointSlice) (err error) {
 	r.logger.DebugContext(ctx, "Reconciling CES Update", logfields.CESName, cesName.string())
-	updatedCES := cesObj.DeepCopy()
-	cepInserted := 0
-	cepRemoved := 0
-	cepUpdated := 0
+	diff := r.diffCES(ctx, cesName, cesObj)
+	r.logger.DebugContext(ctx,
+		fmt.Sprintf("Inserted %d endpoints, updated %d endpoints, removed %d endpoints",
+			diff.inserted,
+			diff.updated,
+			diff.removed),
+		logfields.CESName, cesName.string(),
+	)
 
+	r.metrics.CiliumEndpointsChangeCount.WithLabelValues(LabelValueCEPInsert).Observe(float64(diff.inserted + diff.updated))
+	r.metrics.CiliumEndpointsChangeCount.WithLabelValues(LabelValueCEPRemove).Observe(float64(diff.removed))
+
+	if !diff.empty() {
+		r.logger.DebugContext(ctx, "CES changed, updating", logfields.CESName, cesName.string())
+		updatedCES := cesObj.DeepCopy()
+		updatedCES.Endpoints = diff.endpoints
+		updatedCES.Namespace = diff.namespace
+
+		// Call the client API, to Create CES
+		var updated *cilium_v2a1.CiliumEndpointSlice
+		if updated, err = r.client.CiliumEndpointSlices().Update(
+			ctx, updatedCES, meta_v1.UpdateOptions{}); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				r.logger.InfoContext(ctx,
+					"Unable to update CiliumEndpointSlice in k8s-apiserver",
+					logfields.CESName, updatedCES.Name,
+					logfields.Error, err)
+			}
+			return
+		}
+		r.recordWritten(updated)
+	} else {
+		r.logger.DebugContext(ctx, "CES up to date, skipping update", logfields.CESName, cesName.string())
+	}
+	return
+}
+
+// diffCES compares the CES as observed in the apiserver with its desired state.
+// Endpoint order is not significant: each endpoint is matched by name.
+func (r *reconciler) diffCES(ctx context.Context, cesName CESName, cesObj *cilium_v2a1.CiliumEndpointSlice) cesDiff {
 	// Names of all CEPs that should be in the CES
 	cepsAssignedToCES := r.cesManager.getCEPinCES(cesName)
-	// Final endpoints list. CES endpoints will be set to this list.
-	updatedEndpoints := make([]cilium_v2a1.CoreCiliumEndpoint, 0, len(cepsAssignedToCES))
-	cepNameToCEP := make(map[CEPName]*cilium_v2a1.CoreCiliumEndpoint)
+	diff := cesDiff{
+		endpoints: make([]cilium_v2a1.CoreCiliumEndpoint, 0, len(cepsAssignedToCES)),
+		namespace: r.cesManager.getCESNamespace(cesName),
+	}
+	cepNameToCEP := make(map[CEPName]*cilium_v2a1.CoreCiliumEndpoint, len(cepsAssignedToCES))
 	// Get the CEPs objects from the CEP Store and map the names to them
 	for _, cepName := range cepsAssignedToCES {
 		ccep := r.endpointGetter.getCoreEndpointFromStore(cepName)
@@ -208,57 +289,69 @@ func (r *reconciler) reconcileCESUpdate(ctx context.Context, cesName CESName, ce
 			logfields.CESName, cesName.string(),
 			logfields.CEPName, cepName.string())
 		if ccep != nil {
-			updatedEndpoints = append(updatedEndpoints, *ccep)
+			diff.endpoints = append(diff.endpoints, *ccep)
 			cepNameToCEP[cepName] = ccep
 		}
-		cepInserted = cepInserted + 1
+		diff.inserted++
 	}
-	// Grab metrics about number of inserted, updated and deleted CEPs and
-	// determine whether CES needs to be updated at all.
-	for _, ep := range updatedCES.Endpoints {
-		epName := GetCEPNameFromCCEP(&ep, updatedCES.Namespace)
+	// Count the inserted, updated and removed CEPs to determine whether the
+	// CES needs to be updated at all.
+	for i := range cesObj.Endpoints {
+		ep := &cesObj.Endpoints[i]
+		epName := GetCEPNameFromCCEP(ep, cesObj.Namespace)
 		if r.cesManager.isCEPinCES(epName, cesName) {
-			cepInserted = cepInserted - 1
+			diff.inserted--
 			if !ep.DeepEqual(cepNameToCEP[epName]) {
-				cepUpdated = cepUpdated + 1
+				diff.updated++
 			}
 		} else {
-			cepRemoved = cepRemoved + 1
+			diff.removed++
 		}
 	}
-	updatedCES.Endpoints = updatedEndpoints
-	r.logger.DebugContext(ctx,
-		fmt.Sprintf("Inserted %d endpoints, updated %d endpoints, removed %d endpoints",
-			cepInserted,
-			cepUpdated,
-			cepRemoved),
-		logfields.CESName, cesName.string(),
-	)
+	diff.namespaceChanged = cesObj.Namespace != diff.namespace
+	return diff
+}
 
-	cesEqual := cepInserted == 0 && cepUpdated == 0 && cepRemoved == 0
-	ns := r.cesManager.getCESNamespace(cesName)
-	if updatedCES.Namespace != ns {
-		updatedCES.Namespace = ns
-		cesEqual = false
+// cesWritten implements doReconciler.
+func (r *reconciler) cesWritten(ces *cilium_v2a1.CiliumEndpointSlice) bool {
+	r.writtenLock.Lock()
+	defer r.writtenLock.Unlock()
+	written, ok := r.written[CESName(ces.Name)]
+	return ok && written.resourceVersion == ces.ResourceVersion && written.uid == ces.UID
+}
+
+// cesUpToDate implements doReconciler. A CES with no CEPs mapped is never up to
+// date: it is expected to be deleted.
+func (r *reconciler) cesUpToDate(ces *cilium_v2a1.CiliumEndpointSlice) bool {
+	cesName := CESName(ces.Name)
+	desiredCEPs := r.cesManager.getCEPCountInCES(cesName)
+	if desiredCEPs == 0 || len(ces.Endpoints) != desiredCEPs {
+		return false
 	}
+	return r.diffCES(context.Background(), cesName, ces).empty()
+}
 
-	r.metrics.CiliumEndpointsChangeCount.WithLabelValues(LabelValueCEPInsert).Observe(float64(cepInserted + cepUpdated))
-	r.metrics.CiliumEndpointsChangeCount.WithLabelValues(LabelValueCEPRemove).Observe(float64(cepRemoved))
+// cesHasEndpoints implements doReconciler.
+func (r *reconciler) cesHasEndpoints(cesName CESName) bool {
+	return r.cesManager.getCEPCountInCES(cesName) > 0
+}
 
-	if !cesEqual {
-		r.logger.DebugContext(ctx, "CES changed, updating", logfields.CESName, cesName.string())
-		// Call the client API, to Create CESs
-		if _, err = r.client.CiliumEndpointSlices().Update(
-			ctx, updatedCES, meta_v1.UpdateOptions{}); err != nil && !errors.Is(err, context.Canceled) {
-			r.logger.InfoContext(ctx,
-				"Unable to update CiliumEndpointSlice in k8s-apiserver",
-				logfields.CESName, updatedCES.Name,
-				logfields.Error, err)
-		}
-	} else {
-		r.logger.DebugContext(ctx, "CES up to date, skipping update", logfields.CESName, cesName.string())
+// recordWritten remembers the version of the CES returned by a successful
+// write. Versions are only known when the apiserver sets them.
+func (r *reconciler) recordWritten(ces *cilium_v2a1.CiliumEndpointSlice) {
+	if ces == nil || ces.ResourceVersion == "" {
+		return
 	}
-	return
+	r.writtenLock.Lock()
+	defer r.writtenLock.Unlock()
+	r.written[CESName(ces.Name)] = writtenCES{uid: ces.UID, resourceVersion: ces.ResourceVersion}
+}
+
+// forgetWritten drops the version remembered for a CES the reconciler deleted.
+func (r *reconciler) forgetWritten(cesName CESName) {
+	r.writtenLock.Lock()
+	defer r.writtenLock.Unlock()
+	delete(r.written, cesName)
 }
 
 // Delete the CES.
@@ -273,6 +366,7 @@ func (r *reconciler) reconcileCESDelete(ctx context.Context, ces *cilium_v2a1.Ci
 			logfields.Error, err)
 		return
 	}
+	r.forgetWritten(CESName(ces.Name))
 	return
 }
 
