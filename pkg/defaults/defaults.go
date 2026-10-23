@@ -274,6 +274,9 @@ const (
 	// EndpointQueueSize is the default queue size for an endpoint.
 	EndpointQueueSize = 25
 
+	// MaxEndpointID is the maximum endpoint ID that can be allocated on a node.
+	MaxEndpointID = 4095
+
 	// K8sSyncTimeout specifies the default time to wait after the last event
 	// of a Kubernetes resource type before timing out while waiting for synchronization.
 	K8sSyncTimeout = 3 * time.Minute
@@ -538,6 +541,9 @@ const (
 
 	// EnableDatapathPlugins is the default value for option.EnableDatapathPlugins
 	EnableDatapathPlugins = false
+
+	// EnableSharedPolicy is the default value for option.EnableSharedPolicy
+	EnableSharedPolicy = true
 )
 
 var (
