@@ -118,6 +118,11 @@ This adjustment factor is then applied to ``rate-limit``, ``rate-burst`` and
 ``parallel-requests`` and will steer the mean processing duration to get closer
 to the estimated processing duration.
 
+The limiter leaves out of its mean durations any endpoint creation that
+overlaps a reinitialization of the base datapath or the compilation of an
+endpoint template, for example right after the agent starts, because the
+creation waited for that build.
+
 If ``delayed-adjustment-factor`` is specified, then this additional factor is
 used to slow the growth of the ``rate-burst`` and ``parallel-requests`` as both
 values should typically adjust slower than ``rate-limit``:

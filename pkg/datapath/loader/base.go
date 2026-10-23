@@ -320,6 +320,8 @@ func (l *loader) Reinitialize(ctx context.Context, lnc *config.Config, tunnelCon
 	// Lock so that endpoints cannot be built while we are compile base programs.
 	l.compilationLock.Lock()
 	defer l.compilationLock.Unlock()
+	// Count the build before the unlock above releases the endpoints waiting on it.
+	defer l.templateCache.builds.Add(1)
 
 	// Startup relies on not returning an error here, maybe something we
 	// can fix in the future.

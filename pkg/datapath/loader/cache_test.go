@@ -49,6 +49,7 @@ func TestObjectCache(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, hash, hash3)
 	require.NotSame(t, third, first)
+	require.Equal(t, uint64(1), cache.builds.Load())
 
 	// Changing a setting on the EP should generate a new object.
 	realEP.Opts.SetBool("foo", true)
@@ -56,6 +57,7 @@ func TestObjectCache(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, hash, hash4)
 	require.NotSame(t, fourth, first)
+	require.Equal(t, uint64(2), cache.builds.Load())
 }
 
 func TestObjectCacheParallel(t *testing.T) {
@@ -78,6 +80,7 @@ func TestObjectCacheParallel(t *testing.T) {
 	}
 
 	wg.Wait()
+	require.Equal(t, uint64(1), cache.builds.Load(), "concurrent fetches share one compilation")
 }
 
 func configWriterForTest(t testing.TB) config.Writer {
