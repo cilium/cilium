@@ -1,0 +1,107 @@
+# This test adds a port named "myport" with different port number on the
+# locally exported Service and the associated derived Service.
+# It expects that the EndpointSlice gets mirrorred without that conflicting port
+# in order to not direct traffic to the wrong port.
+k8s/ctrl-runtime/add service.yaml serviceexport.yaml derived-service.yaml local-endpointslice.yaml
+k8s/ctrl-runtime/reconcile endpointslice default/port-filter
+k8s/ctrl-runtime/get endpointslices default/derived-rot6lodnc8 -o actual.yaml
+k8s/ctrl-runtime/diff actual.yaml expected.yaml
+
+-- service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: port-filter
+  namespace: default
+spec:
+  ports:
+  - port: 80
+  - name: myport
+    port: 8080
+
+-- serviceexport.yaml --
+apiVersion: multicluster.x-k8s.io/v1beta1
+kind: ServiceExport
+metadata:
+  name: port-filter
+  namespace: default
+
+-- derived-service.yaml --
+apiVersion: v1
+kind: Service
+metadata:
+  name: derived-rot6lodnc8
+  namespace: default
+  annotations:
+    clustermesh.cilium.io/supported-ip-families: IPv4
+  uid: 44bc5318-21f5-46ec-a12c-a8c51b097f73
+spec:
+  ports:
+  - port: 80
+  - name: myport
+    port: 42
+
+-- local-endpointslice.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: port-filter
+  namespace: default
+  labels:
+    kubernetes.io/service-name: port-filter
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.0.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+- addresses:
+  - 10.0.0.2
+  conditions:
+    ready: false
+    serving: true
+    terminating: false
+ports:
+- port: 80
+- name: myport
+  port: 4242
+
+-- expected.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: derived-rot6lodnc8
+  namespace: default
+  annotations:
+    service.cilium.io/local-endpointslice: port-filter
+  labels:
+    endpointslice.kubernetes.io/managed-by: endpointslice-local-mcsapi-controller.cilium.io
+    kubernetes.io/service-name: derived-rot6lodnc8
+    multicluster.kubernetes.io/service-name: port-filter
+    multicluster.kubernetes.io/source-cluster: cluster1
+    service.cilium.io/local-endpointslice: port-filter
+  ownerReferences:
+  - apiVersion: v1
+    blockOwnerDeletion: true
+    controller: true
+    kind: Service
+    name: derived-rot6lodnc8
+    uid: 44bc5318-21f5-46ec-a12c-a8c51b097f73
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.0.0.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+- addresses:
+  - 10.0.0.2
+  conditions:
+    ready: false
+    serving: true
+    terminating: false
+ports:
+- port: 80
