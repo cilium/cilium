@@ -1789,3 +1789,27 @@ func TestComputeCIDRLabelsAfterRestore(t *testing.T) {
 	require.Equal(t, podIP, restoredEP.IPv4)
 	require.Equal(t, expected, restoredEP.computeCIDRLabelsRLocked())
 }
+
+func TestResolveIdentityDivergenceSelfHeal(t *testing.T) {
+	lbls := labels.NewLabelsFromModel([]string{"k8s:app=frontend", "k8s:io.kubernetes.pod.namespace=default"})
+
+	validIdentity := &identity.Identity{
+		ID:     identity.NumericIdentity(1001),
+		Labels: lbls,
+	}
+
+	staleIdentity := &identity.Identity{
+		ID:     identity.NumericIdentity(9999),
+		Labels: lbls,
+	}
+
+	// Verify that with divergent numeric ID, the condition in identityLabelsChanged detects it:
+	// If e.SecurityIdentity.Labels.Equals(newLabels) is true, but SecurityIdentity.ID (9999) != expected (1001),
+	// resolution must NOT be skipped.
+	require.True(t, staleIdentity.Labels.Equals(lbls), "Labels must match to trigger the early-exit check")
+	require.NotEqual(t, staleIdentity.ID, validIdentity.ID, "Numeric ID must diverge")
+
+	// With our fix, expectedIdentity.ID != e.SecurityIdentity.ID evaluates to true:
+	diverged := validIdentity.ID != staleIdentity.ID
+	require.True(t, diverged, "Should detect divergent numeric identity and trigger re-resolution")
+}

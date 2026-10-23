@@ -2421,23 +2421,36 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context) (regenTriggered bo
 	}
 
 	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equals(newLabels) {
-		// Sets endpoint state to ready if was waiting for identity
-		var deferredRegen *regeneration.ExternalRegenerationMetadata
-		if e.getState() == StateWaitingForIdentity {
-			e.setState(StateReady, "Set identity for this endpoint")
-			// Regenerations requested while the endpoint was parked in
-			// waiting-for-identity were only buffered. No new identity is
-			// assigned here, so no regeneration is queued for us, flush the
-			// buffer instead of waiting for the periodic regeneration.
-			deferredRegen = e.consumeDeferredRegenerationLocked()
+		// If the numeric identity has diverged from the allocator's canonical
+		// identity for these labels (e.g. due to an out-of-order race during
+		// initial CNI setup), do not skip resolution. Re-resolve so the reconciler
+		// can self-heal the endpoint.
+		if expectedIdentity := e.allocator.LookupIdentity(ctx, newLabels); expectedIdentity != nil && expectedIdentity.ID != e.SecurityIdentity.ID {
+			scopedLog.Warn(
+				"Endpoint identity diverged from allocator, re-resolving",
+				logfields.Identity, e.SecurityIdentity.ID,
+				logfields.IdentityNew, expectedIdentity.ID,
+			)
+			// Proceed to re-allocation / resolution below
+		} else {
+			// Sets endpoint state to ready if was waiting for identity
+			var deferredRegen *regeneration.ExternalRegenerationMetadata
+			if e.getState() == StateWaitingForIdentity {
+				e.setState(StateReady, "Set identity for this endpoint")
+				// Regenerations requested while the endpoint was parked in
+				// waiting-for-identity were only buffered. No new identity is
+				// assigned here, so no regeneration is queued for us, flush the
+				// buffer instead of waiting for the periodic regeneration.
+				deferredRegen = e.consumeDeferredRegenerationLocked()
+			}
+			e.unlock()
+			scopedLog.Debug("Endpoint labels unchanged, skipping resolution of identity")
+			if deferredRegen != nil {
+				e.RegenerateIfAlive(deferredRegen)
+				return true, nil
+			}
+			return false, nil
 		}
-		e.unlock()
-		scopedLog.Debug("Endpoint labels unchanged, skipping resolution of identity")
-		if deferredRegen != nil {
-			e.RegenerateIfAlive(deferredRegen)
-			return true, nil
-		}
-		return false, nil
 	}
 
 	// Unlock the endpoint mutex for the possibly long lasting kvstore operation
