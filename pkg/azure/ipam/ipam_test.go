@@ -4,9 +4,11 @@
 package ipam
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ import (
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -135,6 +138,201 @@ func reachedAddressesNeeded(mngr *nodemanager.NodeManager, nodeName string, need
 		success = node.GetNeededAddresses() == needed
 	}
 	return
+}
+
+func TestMultiPoolIPRelease(t *testing.T) {
+	tests := []struct {
+		name        string
+		instanceID  string
+		interfaceID string
+	}{
+		{
+			name:        "VMSS interface",
+			instanceID:  "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1",
+			interfaceID: "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11",
+		},
+		{
+			name:        "standalone interface",
+			instanceID:  "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachines/vm1",
+			interfaceID: "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Network/networkInterfaces/vm1-nic",
+		},
+	}
+
+	poolAllocation := func(addresses ...string) []ipamTypes.IPAMPoolAllocation {
+		cidrs := make([]iputil.Prefix, 0, len(addresses))
+		for _, address := range addresses {
+			cidrs = append(cidrs, iputil.PrefixFrom(netip.MustParsePrefix(address+"/32")))
+		}
+		return []ipamTypes.IPAMPoolAllocation{{Pool: defaults.IPAMDefaultIPPool, CIDRs: cidrs}}
+	}
+
+	statusAddresses := func(cn *v2.CiliumNode) []string {
+		var addresses []string
+		if cn == nil {
+			return nil
+		}
+		for _, iface := range cn.Status.Azure.Interfaces {
+			for _, address := range iface.Addresses {
+				addresses = append(addresses, address.IP.String())
+			}
+		}
+		return addresses
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet})
+			instances := NewInstancesManager(hivetest.Logger(t), api, true)
+
+			iface := &types.AzureInterface{
+				ID:     test.interfaceID,
+				IP:     iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
+				Name:   "eth0",
+				Subnet: types.AzureSubnet{ID: testSubnet.ID},
+				Addresses: []types.AzureAddress{
+					{IP: iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")), State: types.StateSucceeded},
+					{IP: iputil.AddrFrom(netip.MustParseAddr("1.1.1.2")), State: types.StateSucceeded},
+					{IP: iputil.AddrFrom(netip.MustParseAddr("1.1.1.3")), State: types.StateSucceeded},
+					{IP: iputil.AddrFrom(netip.MustParseAddr("1.1.1.4")), State: types.StateSucceeded},
+				},
+				State: types.StateSucceeded,
+			}
+			instanceMap := ipamTypes.NewInstanceMap()
+			instanceMap.Update(test.instanceID, iface)
+			api.UpdateInstances(instanceMap)
+			_, err := instances.Resync(t.Context())
+			require.NoError(t, err)
+			api.SetMockError(apimock.ListVMNetworkInterfaces, errors.New("instance sync disabled"))
+
+			k8sapi := newK8sMock()
+			mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, true, 0, false)
+			require.NoError(t, err)
+
+			cn := newCiliumNode("node1", test.instanceID, 1, 0)
+			cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{{
+				Pool:   defaults.IPAMDefaultIPPool,
+				Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 4},
+			}}
+			cn.Spec.IPAM.Pools.Allocated = poolAllocation("1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4")
+			mngr.Upsert(cn)
+			t.Cleanup(func() { mngr.Delete(cn) })
+
+			updated := cn.DeepCopy()
+			updated.Spec.IPAM.Pools.Requested[0].Needed.IPv4Addrs = 2
+			updated.Spec.IPAM.Pools.Allocated = poolAllocation("1.1.1.2", "1.1.1.3")
+			mngr.Upsert(updated)
+
+			node := mngr.Get("node1")
+			require.NotNil(t, node)
+			want := []netip.Prefix{netip.MustParsePrefix("1.1.1.2/32"), netip.MustParsePrefix("1.1.1.3/32")}
+			require.NoError(t, testutils.WaitUntil(func() bool {
+				return len(node.Ops().GetAttachedCIDRs()) == len(want)
+			}, 5*time.Second))
+			require.ElementsMatch(t, want, node.Ops().GetAttachedCIDRs())
+
+			networkInterfaces, err := api.ListAllNetworkInterfaces(t.Context())
+			require.NoError(t, err)
+			var cloudAddresses []string
+			require.NoError(t, api.ParseInterfacesIntoInstanceMap(networkInterfaces, nil).ForeachInterface(test.instanceID, func(_, _ string, interfaceObj ipamTypes.Interface) error {
+				for _, address := range interfaceObj.(*types.AzureInterface).Addresses {
+					cloudAddresses = append(cloudAddresses, address.IP.String())
+				}
+				return nil
+			}))
+			require.Equal(t, []string{"1.1.1.1", "1.1.1.2", "1.1.1.3"}, cloudAddresses)
+
+			statusRevision := k8sapi.statusRevision()
+			mngr.Resync(t.Context(), time.Now())
+			require.NoError(t, testutils.WaitUntil(func() bool { return statusRevision < k8sapi.statusRevision() }, 5*time.Second))
+			require.Equal(t, []string{"1.1.1.1", "1.1.1.2", "1.1.1.3"}, statusAddresses(k8sapi.getLatestNode("node1")))
+		})
+	}
+}
+
+func TestMultiPoolIPReleaseAfterIneligibleState(t *testing.T) {
+	instanceID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1"
+	interfaceID := instanceID + "/networkInterfaces/vmss11"
+
+	poolAllocation := func(addresses ...string) []ipamTypes.IPAMPoolAllocation {
+		cidrs := make([]iputil.Prefix, 0, len(addresses))
+		for _, address := range addresses {
+			cidrs = append(cidrs, iputil.PrefixFrom(netip.MustParsePrefix(address+"/32")))
+		}
+		return []ipamTypes.IPAMPoolAllocation{{Pool: defaults.IPAMDefaultIPPool, CIDRs: cidrs}}
+	}
+
+	instanceMap := func(lastState string) *ipamTypes.InstanceMap {
+		m := ipamTypes.NewInstanceMap()
+		m.Update(instanceID, &types.AzureInterface{
+			ID:     interfaceID,
+			IP:     iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")),
+			Name:   "eth0",
+			Subnet: types.AzureSubnet{ID: testSubnet.ID},
+			Addresses: []types.AzureAddress{
+				{IP: iputil.AddrFrom(netip.MustParseAddr("1.1.1.1")), State: types.StateSucceeded},
+				{IP: iputil.AddrFrom(netip.MustParseAddr("1.1.1.2")), State: types.StateSucceeded},
+				{IP: iputil.AddrFrom(netip.MustParseAddr("1.1.1.3")), State: types.StateSucceeded},
+				{IP: iputil.AddrFrom(netip.MustParseAddr("1.1.1.4")), State: lastState},
+			},
+			State: types.StateSucceeded,
+		})
+		return m
+	}
+
+	cloudAddresses := func(api *apimock.API) []string {
+		networkInterfaces, err := api.ListAllNetworkInterfaces(t.Context())
+		require.NoError(t, err)
+		var addresses []string
+		require.NoError(t, api.ParseInterfacesIntoInstanceMap(networkInterfaces, nil).ForeachInterface(instanceID, func(_, _ string, interfaceObj ipamTypes.Interface) error {
+			for _, address := range interfaceObj.(*types.AzureInterface).Addresses {
+				addresses = append(addresses, address.IP.String())
+			}
+			return nil
+		}))
+		return addresses
+	}
+
+	api := apimock.NewAPI([]*ipamTypes.Subnet{testSubnet})
+	instances := NewInstancesManager(hivetest.Logger(t), api, true)
+	api.UpdateInstances(instanceMap(types.StateSucceeded))
+	_, err := instances.Resync(t.Context())
+	require.NoError(t, err)
+
+	k8sapi := newK8sMock()
+	mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsmock.NewMockMetrics(), 10, true, 1, false)
+	require.NoError(t, err)
+
+	cn := newCiliumNode("node1", instanceID, 1, 0)
+	cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{{
+		Pool:   defaults.IPAMDefaultIPPool,
+		Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 4},
+	}}
+	cn.Spec.IPAM.Pools.Allocated = poolAllocation("1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4")
+	mngr.Upsert(cn)
+	t.Cleanup(func() { mngr.Delete(cn) })
+
+	updated := cn.DeepCopy()
+	updated.Spec.IPAM.Pools.Requested[0].Needed.IPv4Addrs = 3
+	updated.Spec.IPAM.Pools.Allocated = poolAllocation("1.1.1.1", "1.1.1.2", "1.1.1.3")
+	mngr.Upsert(updated)
+
+	api.UpdateInstances(instanceMap("failed"))
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
+	mngr.Resync(t.Context(), time.Now())
+	mngr.Upsert(updated.DeepCopy())
+	time.Sleep(1500 * time.Millisecond)
+	require.Equal(t, []string{"1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4"}, cloudAddresses(api))
+
+	api.UpdateInstances(instanceMap(types.StateSucceeded))
+	_, err = instances.Resync(t.Context())
+	require.NoError(t, err)
+	mngr.Resync(t.Context(), time.Now())
+	mngr.Upsert(updated.DeepCopy())
+
+	require.NoError(t, testutils.WaitUntil(func() bool {
+		return slices.Equal([]string{"1.1.1.1", "1.1.1.2", "1.1.1.3"}, cloudAddresses(api))
+	}, 10*time.Second))
 }
 
 // TestIpamPreAllocate8 tests IPAM with pre-allocation=8, min-allocate=0

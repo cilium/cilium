@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/netip"
+	"slices"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v12"
@@ -30,6 +31,8 @@ const (
 	ListAllNetworkInterfaces
 	GetSubnetsByIDs
 	AssignPrivateIpAddressesVMSS
+	UnassignPrivateIpAddressesVM
+	UnassignPrivateIpAddressesVMSS
 	MaxOperation
 )
 
@@ -196,6 +199,77 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 				State: types.StateSucceeded,
 			})
 		}
+
+		foundInterface = true
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	a.updateInstancesLocked(instances)
+
+	if !foundInterface {
+		return fmt.Errorf("interface %s not found", interfaceName)
+	}
+
+	return nil
+}
+
+func (a *API) UnassignPrivateIpAddressesVM(ctx context.Context, interfaceName string, addresses []netip.Addr) error {
+	a.rateLimit()
+	a.delaySim.Delay(UnassignPrivateIpAddressesVM)
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	if err, ok := a.errors[UnassignPrivateIpAddressesVM]; ok {
+		return err
+	}
+
+	return a.unassignPrivateIpAddressesLocked(interfaceName, addresses, func(intf *types.AzureInterface) bool {
+		return intf.Name == interfaceName && intf.GetVMScaleSetName() == ""
+	})
+}
+
+func (a *API) UnassignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, interfaceName string, addresses []netip.Addr) error {
+	a.rateLimit()
+	a.delaySim.Delay(UnassignPrivateIpAddressesVMSS)
+
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	if err, ok := a.errors[UnassignPrivateIpAddressesVMSS]; ok {
+		return err
+	}
+
+	return a.unassignPrivateIpAddressesLocked(interfaceName, addresses, func(intf *types.AzureInterface) bool {
+		return intf.Name == interfaceName && intf.GetVMID() == instanceID && intf.GetVMScaleSetName() == vmssName
+	})
+}
+
+func (a *API) unassignPrivateIpAddressesLocked(interfaceName string, addresses []netip.Addr, match func(intf *types.AzureInterface) bool) error {
+	foundInterface := false
+	instances := a.instances.DeepCopy()
+	err := instances.ForeachInterface("", func(id, _ string, iface ipamTypes.Interface) error {
+		intf, ok := iface.(*types.AzureInterface)
+		if !ok {
+			return fmt.Errorf("invalid interface object")
+		}
+
+		if !match(intf) {
+			return nil
+		}
+
+		intf.Addresses = slices.DeleteFunc(intf.Addresses, func(addr types.AzureAddress) bool {
+			if !slices.Contains(addresses, addr.IP.Addr) {
+				return false
+			}
+			if s, ok := a.subnets[intf.Subnet.ID]; ok {
+				s.allocator.Release(addr.IP.Addr)
+			}
+			return true
+		})
 
 		foundInterface = true
 		return nil

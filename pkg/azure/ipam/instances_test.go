@@ -4,10 +4,14 @@
 package ipam
 
 import (
+	"context"
 	"fmt"
 	"net/netip"
+	"slices"
+	"strconv"
 	"testing"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v12"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
@@ -15,6 +19,8 @@ import (
 	"github.com/cilium/cilium/pkg/azure/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -298,4 +304,196 @@ func TestExtractSubnetIDs(t *testing.T) {
 	require.True(t, subnetSet["subnet-1"], "Should contain subnet-1")
 	require.True(t, subnetSet["subnet-3"], "Should contain subnet-3")
 	require.False(t, subnetSet["subnet-2"], "Should NOT contain subnet-2 (no instances use it)")
+}
+
+type resyncGate struct {
+	fetched chan struct{}
+	proceed chan struct{}
+}
+
+func newResyncGate() *resyncGate {
+	return &resyncGate{fetched: make(chan struct{}), proceed: make(chan struct{})}
+}
+
+func openResyncGate() *resyncGate {
+	g := newResyncGate()
+	close(g.proceed)
+	return g
+}
+
+type gatedResyncAPI struct {
+	*apimock.API
+	gates chan *resyncGate
+
+	mutex    lock.Mutex
+	captures map[string]*ipamTypes.InstanceMap
+}
+
+func (a *gatedResyncAPI) capture(m *ipamTypes.InstanceMap) []*armnetwork.Interface {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	key := strconv.Itoa(len(a.captures))
+	a.captures[key] = m
+	return []*armnetwork.Interface{{Name: &key}}
+}
+
+func (a *gatedResyncAPI) captured(networkInterfaces []*armnetwork.Interface) *ipamTypes.InstanceMap {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	return a.captures[*networkInterfaces[0].Name].DeepCopy()
+}
+
+func (a *gatedResyncAPI) wait() {
+	g := <-a.gates
+	close(g.fetched)
+	<-g.proceed
+}
+
+func (a *gatedResyncAPI) ListAllNetworkInterfaces(ctx context.Context) ([]*armnetwork.Interface, error) {
+	networkInterfaces, err := a.API.ListAllNetworkInterfaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+	captured := a.capture(a.API.ParseInterfacesIntoInstanceMap(networkInterfaces, nil))
+	a.wait()
+	return captured, nil
+}
+
+func (a *gatedResyncAPI) ParseInterfacesIntoInstanceMap(networkInterfaces []*armnetwork.Interface, _ ipamTypes.SubnetMap) *ipamTypes.InstanceMap {
+	return a.captured(networkInterfaces)
+}
+
+func (a *gatedResyncAPI) ListVMNetworkInterfaces(ctx context.Context, instanceID string) ([]*armnetwork.Interface, error) {
+	networkInterfaces, err := a.API.ListVMNetworkInterfaces(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	m := ipamTypes.NewInstanceMap()
+	m.UpdateInstance(instanceID, a.API.ParseInterfacesIntoInstance(networkInterfaces, nil))
+	captured := a.capture(m)
+	a.wait()
+	return captured, nil
+}
+
+func (a *gatedResyncAPI) ParseInterfacesIntoInstance(networkInterfaces []*armnetwork.Interface, _ ipamTypes.SubnetMap) *ipamTypes.Instance {
+	instance := &ipamTypes.Instance{Interfaces: map[string]ipamTypes.Interface{}}
+	a.captured(networkInterfaces).ForeachInterface("", func(_, interfaceID string, iface ipamTypes.Interface) error {
+		instance.Interfaces[interfaceID] = iface
+		return nil
+	})
+	return instance
+}
+
+func TestResyncKeepsReleasedInstance(t *testing.T) {
+	newInterface := func(id string, addresses ...string) *types.AzureInterface {
+		iface := &types.AzureInterface{ID: id, Name: id, Subnet: types.AzureSubnet{ID: "subnet-1"}, State: types.StateSucceeded}
+		for _, a := range addresses {
+			iface.Addresses = append(iface.Addresses, types.AzureAddress{IP: iputil.AddrFrom(netip.MustParseAddr(a)), State: types.StateSucceeded})
+		}
+		return iface
+	}
+	setCloud := func(api *gatedResyncAPI, ifaces ...*types.AzureInterface) {
+		m := ipamTypes.NewInstanceMap()
+		for _, iface := range ifaces {
+			m.Update("vm-1", iface)
+		}
+		api.UpdateInstances(m)
+	}
+	cached := func(mngr *InstancesManager) map[string][]string {
+		mngr.mutex.RLock()
+		defer mngr.mutex.RUnlock()
+		out := map[string][]string{}
+		mngr.instances.ForeachInterface("vm-1", func(_, interfaceID string, iface ipamTypes.Interface) error {
+			out[interfaceID] = []string{}
+			for _, address := range iface.(*types.AzureInterface).Addresses {
+				out[interfaceID] = append(out[interfaceID], address.IP.String())
+			}
+			slices.Sort(out[interfaceID])
+			return nil
+		})
+		return out
+	}
+	hasMarker := func(mngr *InstancesManager) bool {
+		mngr.mutex.RLock()
+		defer mngr.mutex.RUnlock()
+		_, ok := mngr.released["vm-1"]
+		return ok
+	}
+	released := []netip.Addr{netip.MustParseAddr("1.1.1.3")}
+	setup := func(t *testing.T) (*gatedResyncAPI, *InstancesManager) {
+		api := &gatedResyncAPI{
+			API:      apimock.NewAPI(subnets),
+			gates:    make(chan *resyncGate, 2),
+			captures: map[string]*ipamTypes.InstanceMap{},
+		}
+		setCloud(api, newInterface("nic-a", "1.1.1.2", "1.1.1.3"))
+		mngr := NewInstancesManager(hivetest.Logger(t), api, false)
+		api.gates <- openResyncGate()
+		_, err := mngr.Resync(t.Context())
+		require.NoError(t, err)
+		return api, mngr
+	}
+	runBlocked := func(t *testing.T, api *gatedResyncAPI, fn func() error) (*resyncGate, chan error) {
+		g := newResyncGate()
+		api.gates <- g
+		done := make(chan error, 1)
+		go func() { done <- fn() }()
+		select {
+		case <-g.fetched:
+		case err := <-done:
+			t.Fatalf("returned before fetching: %v", err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("timed out waiting for fetch")
+		}
+		return g, done
+	}
+
+	t.Run("full resync", func(t *testing.T) {
+		api, mngr := setup(t)
+
+		g, done := runBlocked(t, api, func() error { _, err := mngr.Resync(t.Context()); return err })
+		setCloud(api, newInterface("nic-a", "1.1.1.2"))
+		mngr.removeIPsFromInterface("vm-1", "nic-a", released)
+		close(g.proceed)
+		require.NoError(t, <-done)
+		require.Equal(t, map[string][]string{"nic-a": {"1.1.1.2"}}, cached(mngr))
+		require.True(t, hasMarker(mngr))
+
+		setCloud(api, newInterface("nic-a", "1.1.1.2", "1.1.1.9"))
+		api.gates <- openResyncGate()
+		_, err := mngr.Resync(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, map[string][]string{"nic-a": {"1.1.1.2", "1.1.1.9"}}, cached(mngr))
+		require.False(t, hasMarker(mngr))
+	})
+
+	t.Run("missing interface", func(t *testing.T) {
+		api, mngr := setup(t)
+		setCloud(api, newInterface("nic-a", "1.1.1.2", "1.1.1.3"), newInterface("nic-b", "1.1.1.5"))
+
+		g, done := runBlocked(t, api, func() error { _, err := mngr.Resync(t.Context()); return err })
+		mngr.removeIPsFromInterface("vm-1", "nic-a", released)
+		close(g.proceed)
+		require.NoError(t, <-done)
+		require.Equal(t, map[string][]string{"nic-a": {"1.1.1.2"}}, cached(mngr))
+	})
+
+	t.Run("overlapping instance syncs", func(t *testing.T) {
+		api, mngr := setup(t)
+
+		earlier, earlierDone := runBlocked(t, api, func() error { _, err := mngr.InstanceSync(t.Context(), "vm-1"); return err })
+		setCloud(api, newInterface("nic-a", "1.1.1.2"))
+		mngr.removeIPsFromInterface("vm-1", "nic-a", released)
+
+		setCloud(api, newInterface("nic-a", "1.1.1.2", "1.1.1.9"))
+		later, laterDone := runBlocked(t, api, func() error { _, err := mngr.InstanceSync(t.Context(), "vm-1"); return err })
+		close(later.proceed)
+		require.NoError(t, <-laterDone)
+		require.Equal(t, map[string][]string{"nic-a": {"1.1.1.2", "1.1.1.9"}}, cached(mngr))
+
+		close(earlier.proceed)
+		require.NoError(t, <-earlierDone)
+		require.Equal(t, map[string][]string{"nic-a": {"1.1.1.2", "1.1.1.9"}}, cached(mngr))
+		require.True(t, hasMarker(mngr))
+	})
 }
