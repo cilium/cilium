@@ -99,9 +99,7 @@ func EtcdDbg(ctx context.Context, cfgfile string, dialer EtcdDbgDialer, w io.Wri
 	// It doesn't really matter whether the heartbeat key exists or not.
 	// Client.New() does not block on connection failure, and hence
 	// we need to check the connection state to determine the type of failure.
-	ctxGet, cancelGet := context.WithTimeout(ctx, 1*time.Second)
-	defer cancelGet()
-	out, err := cl.Get(ctxGet, HeartbeatPath)
+	out, err := cl.Get(ctx, HeartbeatPath)
 	if err != nil {
 		if cl.ActiveConnection().GetState() == connectivity.TransientFailure {
 			iiw.Println("❌ Failed to establish connection: %s", err)
