@@ -1162,6 +1162,9 @@
                     "annotations": {
                       "type": "object"
                     },
+                    "attachMetadata": {
+                      "type": "object"
+                    },
                     "enabled": {
                       "type": "boolean"
                     },
@@ -2682,6 +2685,9 @@
                 "annotations": {
                   "type": "object"
                 },
+                "attachMetadata": {
+                  "type": "object"
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -3291,6 +3297,9 @@
                 "annotations": {
                   "type": "object"
                 },
+                "attachMetadata": {
+                  "type": "object"
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -3674,6 +3683,9 @@
                 "serviceMonitor": {
                   "properties": {
                     "annotations": {
+                      "type": "object"
+                    },
+                    "attachMetadata": {
                       "type": "object"
                     },
                     "enabled": {
@@ -5474,6 +5486,9 @@
                 "annotations": {
                   "type": "object"
                 },
+                "attachMetadata": {
+                  "type": "object"
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -6011,6 +6026,9 @@
         "serviceMonitor": {
           "properties": {
             "annotations": {
+              "type": "object"
+            },
+            "attachMetadata": {
               "type": "object"
             },
             "enabled": {
