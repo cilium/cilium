@@ -1,5 +1,42 @@
 # Changelog
 
+## v1.20.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* alibabacloud: support RRSA (RAM Roles for Service Accounts) credentials in the IPAM allocator, alongside static AccessKeys and ECS instance RAM roles (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#49093, @4n4nd)
+
+**Bugfixes:**
+* Allow wildcard CIDR selectors to match nodes when --policy-cidr-match-mode=nodes is configured (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#47828, @TheBeeZee)
+* bpf: nat: fix outer ICMP checksum for ICMP/SCTP NAT error packets (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#48819, @fds7280)
+* CiliumEnvoyConfig now only redirects Services in its own namespace, as documented; service references in CiliumClusterwideEnvoyConfig without a namespace default to "default" again. (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#49076, @maxskokov)
+* datapath: Fix NAT46x64 gateway prefix conversion panic (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#49177, @HadrienPatte)
+* Fix an issue where terminating backends were evicted from BPF maps when trafficDistribution was enabled. (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#48349, @taesung320)
+* Fix invalid L4 checksum on IPv6 ClusterIP reverse NAT for CHECKSUM_PARTIAL packets on kernels < 6.12, affecting the case when packets are bridged/tunneled from the client pod to a remote host (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#49204, @liuyuan10)
+* Fix regression in Cilium 1.20.3 where the Gateway API implementation would incorrectly handle BackendTLSPolicy configurations, leading to high Cilium CPU usage and inability to forward traffic. (Backport PR cilium/cilium#49568, Upstream PR cilium/cilium#49525, @youngnick)
+* Fixes an issue in LBIPAM where on service upsert, if IP allocations are not changed the sharing index is not updated. (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#48938, @0xch4z)
+* nodediscovery: in IPAM ENI and Azure modes the operator now treats nodes as running in multi-pool mode from the very first event. (Backport PR cilium/cilium#49390, Upstream PR cilium/cilium#49242, @41ks)
+* Reduce transient DNS SERVFAIL/REFUSED for pods that query immediately at startup by pushing/applying Standalone DNS Proxy policy snapshots more frequently (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#49112, @QxBytes)
+* Remove the unused pebble binary from the cilium image to clear its Go standard library vulnerability findings. (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#49380, @aanm)
+
+**CI Changes:**
+* [v1.20] ci: ignore transient xDS mode drift during downgrade (cilium/cilium#49515, @jrajahalme)
+* ci: Pass the auto-committer secrets to the base images workflow (Backport PR cilium/cilium#49467, Upstream PR cilium/cilium#49453, @aanm)
+* renovate: Open one trusted PR per branch (Backport PR cilium/cilium#49416, Upstream PR cilium/cilium#49381, @aanm)
+
+**Misc Changes:**
+* chore(deps): update auto-merge-trusted-deps (v1.20) (cilium/cilium#49319, @cilium-renovate[bot])
+* chore(deps): update auto-merge-trusted-deps (v1.20) (cilium/cilium#49445, @cilium-renovate[bot])
+* chore(deps): update dependency sphinxcontrib-openapi to v0.10.0 (v1.20) (cilium/cilium#49438, @cilium-renovate[bot])
+* clarify co sign documentation to use minimum version to verify signing key (Backport PR cilium/cilium#49474, Upstream PR cilium/cilium#49401, @mfahlandt)
+* Fix Envoy xDS listener handling across restoration, address changes, and rejected updates (Backport PR cilium/cilium#49383, Upstream PR cilium/cilium#48897, @jrajahalme)
+
+**Other Changes:**
+* install: Update image digests for v1.20.3 (cilium/cilium#49392, @cilium-release-bot[bot])
+* route-reconciler: add prune exclusion logic and use it in the linuxNodeHandler (cilium/cilium#49170, @andreaterzolo)
+
 ## v1.20.3
 
 Summary of Changes
