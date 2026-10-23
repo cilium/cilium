@@ -4,7 +4,7 @@
 package v2
 
 import (
-	"fmt"
+	"iter"
 	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,30 +82,29 @@ type CiliumClusterwideNetworkPolicyList struct {
 	Items []CiliumClusterwideNetworkPolicy `json:"items"`
 }
 
-// Validate validates the CiliumClusterwideNetworkPolicy object
+// Validate validates the CiliumClusterwideNetworkPolicy object and returns the first error.
 func (r *CiliumClusterwideNetworkPolicy) Validate() error {
-	if r.ObjectMeta.Name == "" {
-		return NewErrParse("CiliumClusterwideNetworkPolicy must have name")
+	for err := range r.ValidationErrors() {
+		return NewErrParse(err.Error())
 	}
-
-	if r.Spec == nil && r.Specs == nil {
-		return ErrEmptyCCNP
-	}
-
-	if r.Spec != nil {
-		if err := r.Spec.Validate(); err != nil {
-			return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err))
-		}
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			if err := rule.Validate(); err != nil {
-				return NewErrParse(fmt.Sprintf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err))
-			}
-		}
-	}
-
 	return nil
+}
+
+// ValidationErrors yields validation errors without modifying the policy.
+// Rule errors wrap the underlying validation error.
+func (r *CiliumClusterwideNetworkPolicy) ValidationErrors() iter.Seq[error] {
+	return func(yield func(error) bool) {
+		if r.ObjectMeta.Name == "" {
+			yield(NewErrParse("CiliumClusterwideNetworkPolicy must have name"))
+			return
+		}
+
+		if r.Spec == nil && r.Specs == nil {
+			yield(ErrEmptyCCNP)
+			return
+		}
+		policyRuleValidationErrors("CiliumClusterwideNetworkPolicy", r.Spec, r.Specs, false)(yield)
+	}
 }
 
 // Sanitize sanitizes the CiliumClusterwideNetworkPolicy object modifying object in place

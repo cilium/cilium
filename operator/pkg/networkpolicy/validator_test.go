@@ -4,7 +4,6 @@
 package networkpolicy
 
 import (
-	"context"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -156,8 +155,58 @@ func runCNPValidation(t *testing.T, cnp *cilium_api_v2.CiliumNetworkPolicy) []ci
 	updated, err := pv.params.Clientset.CiliumV2().CiliumNetworkPolicies(cnp.Namespace).Get(
 		t.Context(), cnp.Name, metav1.GetOptions{})
 	require.NoError(t, err)
+	require.Equal(t, created.Spec, updated.Spec)
+	require.Equal(t, created.Specs, updated.Specs)
 
 	return updated.Status.Conditions
+}
+
+func runCCNPValidation(t *testing.T, ccnp *cilium_api_v2.CiliumClusterwideNetworkPolicy) []cilium_api_v2.NetworkPolicyCondition {
+	t.Helper()
+
+	pv := testValidator(t)
+	created, err := pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies().Create(
+		t.Context(), ccnp, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	err = pv.handleCCNPEvent(t.Context(), resource.Event[*cilium_api_v2.CiliumClusterwideNetworkPolicy]{
+		Kind:   resource.Upsert,
+		Object: created,
+		Done:   func(error) {},
+	})
+	require.NoError(t, err)
+
+	updated, err := pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies().Get(
+		t.Context(), ccnp.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	require.Equal(t, created.Spec, updated.Spec)
+	require.Equal(t, created.Specs, updated.Specs)
+
+	return updated.Status.Conditions
+}
+
+func TestEmptyPolicyMarkedInvalid(t *testing.T) {
+	t.Run("CNP", func(t *testing.T) {
+		cnp := &cilium_api_v2.CiliumNetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "empty-policy", Namespace: "foo"},
+		}
+		require.ErrorIs(t, cnp.Validate(), cilium_api_v2.ErrEmptyCNP)
+
+		status, msg := validCondition(t, runCNPValidation(t, cnp))
+		assert.Equal(t, corev1.ConditionFalse, status)
+		assert.Equal(t, cilium_api_v2.ErrEmptyCNP.Error(), msg)
+	})
+
+	t.Run("CCNP", func(t *testing.T) {
+		ccnp := &cilium_api_v2.CiliumClusterwideNetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: "empty-policy"},
+		}
+		require.ErrorIs(t, ccnp.Validate(), cilium_api_v2.ErrEmptyCCNP)
+
+		status, msg := validCondition(t, runCCNPValidation(t, ccnp))
+		assert.Equal(t, corev1.ConditionFalse, status)
+		assert.Equal(t, cilium_api_v2.ErrEmptyCCNP.Error(), msg)
+	})
 }
 
 func ingressRule() []api.IngressRule {
@@ -209,48 +258,116 @@ func TestCNPNodeSelectorMarkedInvalid(t *testing.T) {
 // TestCNPEndpointSelectorStillValid asserts the nodeSelector check does not
 // reject regular namespaced policies.
 func TestCNPEndpointSelectorStillValid(t *testing.T) {
-	cnp := &cilium_api_v2.CiliumNetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "allow-cluster", Namespace: "foo"},
-		Spec: &api.Rule{
-			EndpointSelector: api.NewESFromLabels(),
-			Ingress:          ingressRule(),
-		},
-	}
+	for _, field := range []string{"spec", "specs"} {
+		t.Run(field, func(t *testing.T) {
+			rule := &api.Rule{
+				EndpointSelector: api.NewESFromLabels(),
+				Ingress:          ingressRule(),
+			}
+			cnp := &cilium_api_v2.CiliumNetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "allow-cluster", Namespace: "foo"},
+			}
+			if field == "spec" {
+				cnp.Spec = rule
+			} else {
+				cnp.Specs = api.Rules{rule}
+			}
 
-	status, msg := validCondition(t, runCNPValidation(t, cnp))
-	assert.Equal(t, corev1.ConditionTrue, status)
-	assert.Equal(t, "Policy validation succeeded", msg)
+			status, msg := validCondition(t, runCNPValidation(t, cnp))
+			assert.Equal(t, corev1.ConditionTrue, status)
+			assert.Equal(t, "Policy validation succeeded", msg)
+		})
+	}
+}
+
+func TestCNPValidationAggregatesErrors(t *testing.T) {
+	for _, field := range []string{"spec", "specs"} {
+		t.Run(field, func(t *testing.T) {
+			rule := &api.Rule{
+				EndpointSelector: api.NewESFromMatchRequirements(
+					map[string]string{"k8s:io.kubernetes.pod.namespace": "bar"}, nil),
+				NodeSelector: api.NewESFromLabels(),
+			}
+			cnp := &cilium_api_v2.CiliumNetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "invalid-policy", Namespace: "foo"},
+			}
+			if field == "spec" {
+				cnp.Spec = rule
+			} else {
+				cnp.Specs = api.Rules{rule}
+			}
+			cnp.Specs = append(cnp.Specs, &api.Rule{Ingress: ingressRule()})
+
+			status, msg := validCondition(t, runCNPValidation(t, cnp))
+			assert.Equal(t, corev1.ConditionFalse, status)
+			assert.Equal(t, "rule must have at least one of Ingress, IngressDeny, Egress, EgressDeny\n"+
+				"CiliumNetworkPolicy rule cannot have NodeSelector, use CiliumClusterwideNetworkPolicy instead\n"+
+				"rule must have one of EndpointSelector or NodeSelector\n"+
+				"CiliumNetworkPolicy endpointSelector matches namespace(s) [bar], but the endpointSelector can only select endpoints in the policy's own namespace \"foo\"", msg)
+		})
+	}
+}
+
+func TestCNPNamespaceCheckRemainsOperatorOnly(t *testing.T) {
+	for _, field := range []string{"spec", "specs"} {
+		t.Run(field, func(t *testing.T) {
+			rule := &api.Rule{
+				EndpointSelector: api.NewESFromMatchRequirements(
+					map[string]string{"k8s:io.kubernetes.pod.namespace": "bar"}, nil),
+				Ingress: ingressRule(),
+			}
+			cnp := &cilium_api_v2.CiliumNetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "other-namespace", Namespace: "foo"},
+			}
+			if field == "spec" {
+				cnp.Spec = rule
+			} else {
+				cnp.Specs = api.Rules{rule}
+			}
+			require.NoError(t, cnp.Validate())
+
+			status, msg := validCondition(t, runCNPValidation(t, cnp))
+			assert.Equal(t, corev1.ConditionFalse, status)
+			assert.Equal(t, "CiliumNetworkPolicy endpointSelector matches namespace(s) [bar], but the endpointSelector can only select endpoints in the policy's own namespace \"foo\"", msg)
+		})
+	}
+}
+
+func TestCCNPValidationAggregatesErrors(t *testing.T) {
+	ccnp := &cilium_api_v2.CiliumClusterwideNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "invalid-policy"},
+		Spec:       &api.Rule{NodeSelector: api.NewESFromLabels()},
+		Specs:      api.Rules{{Ingress: ingressRule()}},
+	}
+	require.EqualError(t, ccnp.Validate(), "Invalid CiliumClusterwideNetworkPolicy spec: rule must have at least one of Ingress, IngressDeny, Egress, EgressDeny")
+
+	status, msg := validCondition(t, runCCNPValidation(t, ccnp))
+	assert.Equal(t, corev1.ConditionFalse, status)
+	assert.Equal(t, "rule must have at least one of Ingress, IngressDeny, Egress, EgressDeny\n"+
+		"rule must have one of EndpointSelector or NodeSelector", msg)
 }
 
 // TestCCNPNodeSelectorStillValid asserts that CiliumClusterwideNetworkPolicy
 // keeps supporting nodeSelector (host policies).
 func TestCCNPNodeSelectorStillValid(t *testing.T) {
-	pv := testValidator(t)
+	for _, field := range []string{"spec", "specs"} {
+		t.Run(field, func(t *testing.T) {
+			rule := &api.Rule{
+				NodeSelector: api.NewESFromLabels(),
+				Ingress:      ingressRule(),
+			}
+			ccnp := &cilium_api_v2.CiliumClusterwideNetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "host-policy"},
+			}
+			if field == "spec" {
+				ccnp.Spec = rule
+			} else {
+				ccnp.Specs = api.Rules{rule}
+			}
 
-	ccnp := &cilium_api_v2.CiliumClusterwideNetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{Name: "host-policy"},
-		Spec: &api.Rule{
-			NodeSelector: api.NewESFromLabels(),
-			Ingress:      ingressRule(),
-		},
+			status, msg := validCondition(t, runCCNPValidation(t, ccnp))
+			assert.Equal(t, corev1.ConditionTrue, status)
+			assert.Equal(t, "Policy validation succeeded", msg)
+		})
 	}
-
-	createdCCNP, err := pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies().Create(
-		context.Background(), ccnp, metav1.CreateOptions{})
-	require.NoError(t, err)
-
-	err = pv.handleCCNPEvent(t.Context(), resource.Event[*cilium_api_v2.CiliumClusterwideNetworkPolicy]{
-		Kind:   resource.Upsert,
-		Object: createdCCNP,
-		Done:   func(error) {},
-	})
-	require.NoError(t, err)
-
-	updated, err := pv.params.Clientset.CiliumV2().CiliumClusterwideNetworkPolicies().Get(
-		context.Background(), ccnp.Name, metav1.GetOptions{})
-	require.NoError(t, err)
-
-	status, msg := validCondition(t, updated.Status.Conditions)
-	assert.Equal(t, corev1.ConditionTrue, status)
-	assert.Equal(t, "Policy validation succeeded", msg)
 }

@@ -5,6 +5,7 @@ package v2
 
 import (
 	"fmt"
+	"iter"
 	"log/slog"
 
 	v1 "k8s.io/api/core/v1"
@@ -162,49 +163,82 @@ func (r *CiliumNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string
 	r.Status.DerivativePolicies[derivativePolicyName] = status
 }
 
-// Validate validates the CiliumNetworkPolicy object.
+// Validate validates the CiliumNetworkPolicy object and returns the first error.
 func (r *CiliumNetworkPolicy) Validate() error {
-	if r.ObjectMeta.Name == "" {
-		return NewErrParse("CiliumNetworkPolicy must have name")
-	}
-
-	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
-	// Temporary fix for CCNPs. See #12834.
-	// TL;DR. CCNPs are converted into SlimCNPs and end up here so we need to
-	// convert them back to CCNPs to allow proper parsing.
-	if namespace == "" {
-		ccnp := CiliumClusterwideNetworkPolicy{
-			TypeMeta:   r.TypeMeta,
-			ObjectMeta: r.ObjectMeta,
-			Spec:       r.Spec,
-			Specs:      r.Specs,
-			Status:     r.Status,
-		}
-		return ccnp.Validate()
-	}
-
-	if r.Spec == nil && r.Specs == nil {
-		return ErrEmptyCNP
-	}
-	if r.Spec != nil {
-		if err := r.Spec.Validate(); err != nil {
-			return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
-		}
-		if r.Spec.NodeSelector.LabelSelector != nil {
-			return NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
-		}
-	}
-	if r.Specs != nil {
-		for _, rule := range r.Specs {
-			if err := rule.Validate(); err != nil {
-				return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
-			}
-			if rule.NodeSelector.LabelSelector != nil {
-				return NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
-			}
-		}
+	for err := range r.ValidationErrors() {
+		return NewErrParse(err.Error())
 	}
 	return nil
+}
+
+// ValidationErrors yields validation errors without modifying the policy.
+// Rule errors wrap the underlying validation error.
+func (r *CiliumNetworkPolicy) ValidationErrors() iter.Seq[error] {
+	return func(yield func(error) bool) {
+		if r.ObjectMeta.Name == "" {
+			yield(NewErrParse("CiliumNetworkPolicy must have name"))
+			return
+		}
+
+		namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
+		// Temporary fix for CCNPs. See #12834.
+		// CCNPs are converted into SlimCNPs and need clusterwide validation here.
+		if namespace == "" {
+			ccnp := CiliumClusterwideNetworkPolicy{
+				TypeMeta:   r.TypeMeta,
+				ObjectMeta: r.ObjectMeta,
+				Spec:       r.Spec,
+				Specs:      r.Specs,
+				Status:     r.Status,
+			}
+			ccnp.ValidationErrors()(yield)
+			return
+		}
+
+		if r.Spec == nil && r.Specs == nil {
+			yield(ErrEmptyCNP)
+			return
+		}
+		policyRuleValidationErrors("CiliumNetworkPolicy", r.Spec, r.Specs, true)(yield)
+	}
+}
+
+func policyRuleValidationErrors(kind string, spec *api.Rule, specs api.Rules, rejectNodeSelector bool) iter.Seq[error] {
+	return func(yield func(error) bool) {
+		validateRule := func(field string, rule *api.Rule) bool {
+			if err := rule.Validate(); err != nil {
+				if !yield(fmt.Errorf("Invalid %s %s: %w", kind, field, err)) {
+					return false
+				}
+			}
+			if rejectNodeSelector {
+				if err := validateCNPNodeSelector(rule); err != nil {
+					// Keep the existing spec prefix for NodeSelector errors in specs.
+					if !yield(fmt.Errorf("Invalid CiliumNetworkPolicy spec: %w", err)) {
+						return false
+					}
+				}
+			}
+			return true
+		}
+		if spec != nil && !validateRule("spec", spec) {
+			return
+		}
+		for _, rule := range specs {
+			if !validateRule("specs", rule) {
+				return
+			}
+		}
+	}
+}
+
+// validateCNPNodeSelector rejects NodeSelector in CiliumNetworkPolicy rules.
+// CiliumClusterwideNetworkPolicy rules support NodeSelector and must not use this check.
+func validateCNPNodeSelector(rule *api.Rule) error {
+	if rule == nil || rule.NodeSelector.LabelSelector == nil {
+		return nil
+	}
+	return ErrCNPNodeSelector
 }
 
 // Sanitize sanitizes the CiliumNetworkPolicy object modifying object in place to make it

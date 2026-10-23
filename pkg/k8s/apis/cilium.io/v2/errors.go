@@ -3,7 +3,12 @@
 
 package v2
 
+import "errors"
+
 var (
+	// ErrCNPNodeSelector indicates that a namespaced policy uses a NodeSelector.
+	ErrCNPNodeSelector = errors.New("rule cannot have NodeSelector")
+
 	// ErrEmptyCNP is an error representing a CNP that is empty, which means it is
 	// missing both a `spec` and `specs` (both are nil).
 	ErrEmptyCNP = NewErrParse("Invalid CiliumNetworkPolicy spec(s): empty policy")
