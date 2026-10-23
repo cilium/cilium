@@ -107,10 +107,9 @@ type mockSnapshotCache struct {
 	storeSnapshotBeforeError bool
 
 	// Call tracking
-	setSnapshotCalls   []context.Context
-	getSnapshotCalls   []string
-	clearSnapshotCalls []string
-	createWatchCalls   int
+	setSnapshotCalls []context.Context
+	getSnapshotCalls []string
+	createWatchCalls int
 }
 
 func newMockSnapshotCache() *mockSnapshotCache {
@@ -140,9 +139,8 @@ func (m *mockSnapshotCache) GetSnapshot(node string) (cache.ResourceSnapshot, er
 	return snap, nil
 }
 
-func (m *mockSnapshotCache) ClearSnapshot(node string) {
-	m.clearSnapshotCalls = append(m.clearSnapshotCalls, node)
-	delete(m.snapshots, node)
+func (*mockSnapshotCache) ClearSnapshot(string) {
+	panic("unexpected ClearSnapshot call")
 }
 
 func (m *mockSnapshotCache) GetStatusInfo(node string) cache.StatusInfo {
@@ -366,15 +364,38 @@ func newCoverageCache(t *testing.T) *cacheImpl {
 	return c
 }
 
+// These helpers finalize caller ownership immediately while retaining the
+// independent response recovery exercised by the NACK and coalescing tests.
+func (c *cacheImpl) applyRevertibleResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) error {
+	rollback, err := c.ApplyResourceWithRollback(ctx, nodeID, typeURL, name, resource, wg)
+	if err == nil {
+		rollback.Finalize()
+	}
+	return err
+}
+
+func (c *cacheImpl) applyRevertibleResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) error {
+	rollback, err := c.ApplyResourcesWithRollback(ctx, nodeID, mutations, wg, waitTypeURLs)
+	if err == nil {
+		rollback.Finalize()
+	}
+	return err
+}
+
 func upsertCoverageEndpoint(t *testing.T, c *cacheImpl, name string) (*envoy_config_endpoint.ClusterLoadAssignment, <-chan error) {
 	t.Helper()
 	resource := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
-	done := make(chan error, 1)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
-	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, name, resource, wg,
-		func(err error) { done <- err }))
-	return resource, done
+	require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Endpoint, name, resource, wg))
+	return resource, waitForCoverageCompletion(wg)
+}
+
+// Call after registering all updates in wg, as production callers do.
+func waitForCoverageCompletion(wg *completion.WaitGroup) <-chan error {
+	done := make(chan error, 1)
+	go func() { done <- wg.Wait() }()
+	return done
 }
 
 func requireCoveragePending(t *testing.T, done <-chan error) {
@@ -405,17 +426,10 @@ func (s *coverageStream) watch(t *testing.T, names ...string) chan cache.Respons
 	t.Cleanup(cancel)
 	return responses
 }
-func (state *nodeState) requireNoRollbackOwners(t *testing.T) {
-	t.Helper()
-	for typeURL := range typeurl.Count {
-		require.Nil(t, state.typeStates[typeURL].rollbacks.owners)
-	}
-}
-
 func (state *nodeState) requireNoUnsentRollbacks(t *testing.T, msgAndArgs ...any) {
 	t.Helper()
 	for typeURL := range typeurl.Count {
-		require.Nil(t, state.typeStates[typeURL].rollbacks.unsent, msgAndArgs...)
+		require.Nil(t, state.typeStates[typeURL].unsentRollback, msgAndArgs...)
 	}
 }
 

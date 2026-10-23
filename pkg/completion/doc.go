@@ -9,16 +9,16 @@
 //	wg := completion.NewWaitGroup(ctx)
 //
 // For each concurrent computation to wait for, a Completion is created by
-// calling AddCompletionWithCallback and then passing it to the concurrent computation:
+// calling AddCompletion and then passing it to the concurrent computation:
 //
-//	comp1 := wg.AddCompletionWithCallback(nil, nil)
+//	comp1 := wg.AddCompletion(nil)
 //	DoSomethingConcurrently(..., comp1)
-//	comp2 := wg.AddCompletionWithCallback(nil, nil)
+//	comp2 := wg.AddCompletion(nil)
 //	DoSomethingElse(..., comp2)
 //
 // The Completion type provides the Complete and Completed() methods:
 //
-//	func (c *Completion) Complete()
+//	func (c *Completion) Complete(err error) error
 //	func (c *Completion) Completed() <-chan struct{}
 //
 // The Complete method must be called when the concurrent computation is
@@ -42,23 +42,13 @@
 // Wait blocks until either all Completions are completed, or the context is
 // canceled, times out, or any of the concurrent operations associated with
 // the WaitGroup fails, whichever happens first. The returned error is
-// nil if all the concurrent operations are successfully completed, a non-nil
-// error otherwise.
+// nil if all the concurrent operations are successfully completed and the
+// context has not been canceled, a non-nil error otherwise.
 //
-// A Completion can also be created with a callback, which is called at most
-// once when the Completion is completed before the context is canceled:
-//
-//	comp := wg.AddCompletionWithCallback(nil, func(err error) {
-//	    if err == nil {
-//	        fmt.Println("completed')
-//	    }
-//	})
-//
-// The callback is called in the goroutine which calls Complete the first time.
-// The callback is called with an non-nil error if the associated concurrent
-// operation fails. Error values 'context.DeadlineExceeded' and
-// 'context.Canceled' are passed if the WaitGroup's context times out or is
-// canceled. Note that the context is canceled also if any of the other
-// completions in the WaitGroup fails, and the non-failing completions will
-// have their callbacks called with 'context.Canceled'.
+// If the caller abandons the operation before Wait, it must call Cancel instead.
+// Cancel cancels the group's context and synchronously settles pending completions
+// and runs owner cleanup through Wait, discarding its error. Canceling the context
+// alone does not perform this cleanup. Registration must finish before either
+// method is called. Neither may be called from an owner cleanup hook or while
+// holding locks that hook needs.
 package completion

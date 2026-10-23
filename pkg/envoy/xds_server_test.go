@@ -7,7 +7,6 @@ import (
 	"context"
 	"iter"
 	"strconv"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2631,7 +2630,6 @@ func (m *recordingAckingResourceMutator) Upsert(
 	_ proto.Message,
 	_ []string,
 	wg *completion.WaitGroup,
-	callback func(error),
 ) xds.AckingResourceMutatorRevertFunc {
 	m.operations = append(m.operations, "upsert "+resourceName)
 	var err error
@@ -2640,9 +2638,13 @@ func (m *recordingAckingResourceMutator) Upsert(
 	}
 	m.upserts++
 	if wg != nil {
-		wg.AddCompletionWithCallback(nil, callback).Complete(err)
+		wg.AddCompletion(nil).Complete(err)
 	}
 	return func() { m.operations = append(m.operations, "revert upsert "+resourceName) }
+}
+
+func (m *recordingAckingResourceMutator) UpsertWithNACKRemoval(typeURL, name string, resource proto.Message, nodes []string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
+	return m.Upsert(typeURL, name, resource, nodes, wg)
 }
 
 func (m *recordingAckingResourceMutator) Delete(
@@ -2650,11 +2652,10 @@ func (m *recordingAckingResourceMutator) Delete(
 	resourceName string,
 	_ []string,
 	wg *completion.WaitGroup,
-	callback func(error),
 ) xds.AckingResourceMutatorRevertFunc {
 	m.operations = append(m.operations, "delete "+resourceName)
 	if wg != nil {
-		wg.AddCompletionWithCallback(nil, callback).Complete(nil)
+		wg.AddCompletion(nil).Complete(nil)
 	}
 	return func() {}
 }
@@ -2662,13 +2663,15 @@ func (m *recordingAckingResourceMutator) Delete(
 func (*recordingAckingResourceMutator) CancelCompletions(string) {}
 
 func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
+	rejection := &xds.ProxyError{Err: xds.ErrNackReceived, Detail: "invalid listener"}
 	tests := []struct {
-		name              string
-		oldPorts          []uint32
-		newPorts          []uint32
-		operations        []string
-		upsertErrs        []error
-		wantCallbackCount uint64
+		name          string
+		oldPorts      []uint32
+		newPorts      []uint32
+		operations    []string
+		upsertErrs    []error
+		extraListener bool
+		wantErr       error
 	}{
 		{
 			name:       "unchanged addresses are updated in place",
@@ -2677,11 +2680,10 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 			operations: []string{"upsert listener"},
 		},
 		{
-			name:              "changed primary port preserves delete before update",
-			oldPorts:          []uint32{80, 443},
-			newPorts:          []uint32{8080, 443},
-			operations:        []string{"delete listener", "upsert listener"},
-			wantCallbackCount: 1,
+			name:       "changed primary port preserves delete before update",
+			oldPorts:   []uint32{80, 443},
+			newPorts:   []uint32{8080, 443},
+			operations: []string{"delete listener", "upsert listener"},
 		},
 		{
 			name:       "changed additional address is deleted before update",
@@ -2698,6 +2700,15 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 				Err: xds.ErrNackReceived, Detail: "cannot bind '0.0.0.0:80': Address already in use",
 			}},
 		},
+		{
+			name:          "partial listener success still reverts the whole update",
+			oldPorts:      []uint32{80},
+			newPorts:      []uint32{8080},
+			extraListener: true,
+			upsertErrs:    []error{nil, rejection},
+			wantErr:       rejection,
+			operations:    []string{"delete listener", "upsert listener", "upsert listener2", "revert upsert listener", "revert upsert listener2"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -2713,17 +2724,21 @@ func TestUpdateEnvoyResourcesRecreatesListenerOnAddressChange(t *testing.T) {
 			oldResources.Listeners["listener"] = testListenerWithPorts(tt.oldPorts...)
 			newResources := xds.NewResources()
 			newResources.Listeners["listener"] = testListenerWithPorts(tt.newPorts...)
-			var callbackCount atomic.Uint64
-			newResources.PortAllocationCallbacks["listener"] = func(context.Context) error {
-				callbackCount.Add(1)
-				return nil
+			if tt.extraListener {
+				listener := testListenerWithPorts(8081)
+				listener.Name = "listener2"
+				newResources.Listeners[listener.Name] = listener
 			}
 
 			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 			defer cancel()
-			require.NoError(t, server.UpdateEnvoyResources(ctx, oldResources, newResources, nil))
-			assert.Equal(t, tt.operations, mutator.operations)
-			assert.Equal(t, tt.wantCallbackCount, callbackCount.Load())
+			require.ErrorIs(t, server.UpdateEnvoyResources(ctx, oldResources, newResources), tt.wantErr)
+			if tt.extraListener {
+				// Listener map iteration determines which of the two upserts fails.
+				assert.ElementsMatch(t, tt.operations, mutator.operations)
+			} else {
+				assert.Equal(t, tt.operations, mutator.operations)
+			}
 		})
 	}
 }
@@ -2882,4 +2897,24 @@ func newTestXDSServer(t *testing.T) *xdsServer {
 	)
 	xds.l7RulesTranslator = envoypolicy.NewEnvoyL7RulesTranslator(logger, nil)
 	return xds
+}
+
+func TestLegacyDiagnosticListenerNACK(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		add  func(*xdsServer, context.Context, uint16, *completion.WaitGroup)
+	}{
+		{name: adminListenerName, add: (*xdsServer).AddAdminListener},
+		{name: metricsListenerName, add: (*xdsServer).AddMetricsListener},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newTestXDSServer(t)
+			tt.add(server, t.Context(), 9000, nil)
+			acker := server.listenerMutator.(*xds.AckingResourceMutatorWrapper)
+			cached := server.resourceConfig[ListenerTypeURL].Source.GetResources(ListenerTypeURL, 0, nil)
+			require.Len(t, cached.VersionedResources, 1)
+			acker.HandleResourceVersionAck("127.0.0.1", 0, cached.Version, true, "bind failed", ListenerTypeURL, []string{tt.name})
+			require.Empty(t, server.resourceConfig[ListenerTypeURL].Source.GetResources(ListenerTypeURL, 0, nil).VersionedResources)
+		})
+	}
 }

@@ -589,13 +589,16 @@ func (e *Endpoint) closeBPFProgramChannel() {
 }
 
 // waitForProxyCompletions blocks until all proxy changes have been completed.
-// Called with buildMutex held.
-func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+// Called with buildMutex held. The caller must Cancel the group on error.
+func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitGroup *completion.WaitGroup, redirects map[string]uint16, policyRevision uint64) error {
 	if proxyWaitGroup == nil {
 		return nil
 	}
 
-	err := proxyWaitGroup.Context().Err()
+	// Propagate an already-canceled parent context so regeneration suppresses
+	// spurious error logs when the endpoint is being removed. A NACK cancels only
+	// the group's internal context and must still be reported.
+	err := parentCtx.Err()
 	if err != nil {
 		return fmt.Errorf("context cancelled before waiting for proxy updates: %w", err)
 	}
@@ -608,6 +611,18 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 		return fmt.Errorf("proxy state changes failed: %w", err)
 	}
 	e.getLogger().Debug("Wait time for proxy updates", logfields.Duration, time.Since(start))
+
+	if policyRevision != 0 {
+		e.OnProxyPolicyUpdate(policyRevision)
+	}
+
+	// Install redirection rules before policy-map synchronization can expose the
+	// new ports. Keep acknowledged allocations even if a later build step fails.
+	if len(redirects) > 0 {
+		if err := e.proxy.AckRedirects(parentCtx, redirects); err != nil {
+			return fmt.Errorf("installing proxy redirection rules: %w", err)
+		}
+	}
 
 	return nil
 }
@@ -1676,11 +1691,9 @@ OKState:
 	return true
 }
 
-// OnProxyPolicyUpdate is a callback used to update the Endpoint's
-// proxyPolicyRevision when the specified revision has been applied in the
-// proxy.
+// OnProxyPolicyUpdate records the submitted policy revision after a successful
+// proxy wait. It acquires the endpoint lock, which the caller must not hold.
 func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
-	// NOTE: unconditionalLock is used here because this callback has no way of reporting an error
 	e.unconditionalLock()
 	if revision > e.proxyPolicyRevision {
 		e.proxyPolicyRevision = revision

@@ -183,14 +183,9 @@ func (mgr *endpointManager) WithPeriodicEndpointRegeneration(ctx context.Context
 
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 func (mgr *endpointManager) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
-	err := proxyWaitGroup.Context().Err()
-	if err != nil {
-		return fmt.Errorf("context cancelled before waiting for proxy updates: %w", err)
-	}
-
 	start := time.Now()
 	mgr.logger.Debug("Waiting for proxy updates to complete...")
-	err = proxyWaitGroup.Wait()
+	err := proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy updates failed: %w", err)
 	}
@@ -214,11 +209,13 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 	proxyWaitGroup := completion.NewWaitGroup(ctx)
 
 	eps := mgr.GetEndpoints()
+	proxyPolicyRevisions := make([]uint64, len(eps))
 	wg.Add(len(eps))
 
-	for _, ep := range eps {
+	for i, ep := range eps {
 		go func(ep *endpoint.Endpoint) {
-			err, revertible := ep.ApplyPolicyMapChanges(proxyWaitGroup)
+			err, revertible, revision := ep.ApplyPolicyMapChanges(proxyWaitGroup)
+			proxyPolicyRevisions[i] = revision
 			guard.Lock()
 			revertibles.Add(revertible)
 			guard.Unlock()
@@ -248,6 +245,11 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 		mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
 	} else {
 		revertibles.Finalize()
+		for i, revision := range proxyPolicyRevisions {
+			if revision != 0 {
+				eps[i].OnProxyPolicyUpdate(revision)
+			}
+		}
 	}
 
 	// Perform policy update call if required.

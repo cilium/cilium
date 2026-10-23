@@ -5,17 +5,22 @@ package endpoint
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
+	"net/netip"
 	"os"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/completion"
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -37,8 +42,14 @@ func TestRegenerateBPFFailureReverts(t *testing.T) {
 		policyResult: &policyGenerateResult{endpointPolicy: endpointPolicy},
 		ctCleaned:    make(chan struct{}),
 	}
+	var pending *completion.Completion
+	// Queue asynchronous work before pre-compilation fails.
+	ep.dnsRulesAPI = noopDNSRulesAPI{onRead: func() {
+		pending = datapath.proxyWaitGroup.AddCompletion(nil)
+	}}
 	var reverted bool
 	datapath.revertibles.AddRevert(func() error {
+		require.ErrorIs(t, pending.Err(), context.Canceled, "pending completions must settle before rollback")
 		reverted = true
 		return nil
 	})
@@ -51,6 +62,116 @@ func TestRegenerateBPFFailureReverts(t *testing.T) {
 	})
 	require.ErrorContains(t, err, "endpoint has nil policyMapFactory")
 	require.True(t, reverted)
+}
+
+type recordingAckRedirectProxy struct {
+	FakeEndpointProxy
+	redirects map[string]uint16
+	err       error
+}
+
+func (p *recordingAckRedirectProxy) AckRedirects(_ context.Context, redirects map[string]uint16) error {
+	p.redirects = redirects
+	return p.err
+}
+
+func TestWaitForProxyCompletions(t *testing.T) {
+	f := newPolicyTestFixture(t)
+	selectorPolicy := computeSelectorPolicy(t, f, "proxy-wait")
+	nackErr := errors.New("proxy rejected update")
+	rulesErr := errors.New("installing proxy rules failed")
+	tests := []struct {
+		name       string
+		cancel     bool
+		reject     bool
+		noWait     bool
+		noPolicy   bool
+		accepted   uint64
+		rulesError error
+		err        error
+	}{
+		{name: "ack"},
+		{name: "nack", reject: true, err: nackErr},
+		{name: "parent-canceled", cancel: true, reject: true, err: context.Canceled},
+		{name: "rules-error", rulesError: rulesErr, err: rulesErr},
+		{name: "no-wait", noWait: true},
+		{name: "no-policy", noPolicy: true},
+		{name: "newer-policy-already-accepted", accepted: 100},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := &recordingAckRedirectProxy{err: tt.rulesError}
+			ep := &Endpoint{
+				proxy:               proxy,
+				IPv4:                netip.MustParseAddr("10.0.0.1"),
+				isIngress:           true,
+				status:              NewEndpointStatus(),
+				proxyPolicyRevision: tt.accepted,
+			}
+			ep.logger.Store(hivetest.Logger(t))
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			wg := completion.NewWaitGroup(ctx)
+			defer wg.Cancel()
+			var submittedRevision uint64
+			if !tt.noPolicy {
+				submitted := selectorPolicy.DistillPolicy(ep.getLogger(), ep, nil)
+				ep.desiredPolicy = submitted
+				t.Cleanup(func() {
+					submitted.Ready()
+					submitted.Detach(ep.getLogger())
+				})
+				err, rollback, revision := ep.ApplyPolicyMapChanges(wg)
+				require.NoError(t, err)
+				if rollback != nil {
+					rollback.Finalize()
+				}
+				submittedRevision = revision
+				require.Equal(t, submitted.SelectorPolicy.L4Policy.Revision, revision)
+				require.NotZero(t, revision)
+
+				// A newer desired policy must not be reported as accepted by
+				// the wait for the previously submitted policy.
+				ep.desiredPolicy = policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+				ep.desiredPolicy.SelectorPolicy.L4Policy.Revision = revision + 1
+				ep.desiredPolicyRevision = revision + 2
+			}
+			pending := wg.AddCompletion(nil)
+			result := wg.AddCompletion(nil)
+			if tt.reject {
+				result.Complete(nackErr)
+			} else {
+				pending.Complete(nil)
+				result.Complete(nil)
+			}
+			if tt.cancel {
+				cancel()
+			}
+
+			redirects := map[string]uint16{"redirect": 12345}
+			waitGroup := wg
+			if tt.noWait {
+				waitGroup = nil
+			}
+			require.ErrorIs(t, ep.waitForProxyCompletions(ctx, waitGroup, redirects, submittedRevision), tt.err)
+			expectedRevision := tt.accepted
+			if !tt.reject && !tt.noWait {
+				expectedRevision = max(expectedRevision, submittedRevision)
+			}
+			require.Equal(t, expectedRevision, ep.proxyPolicyRevision)
+			if tt.cancel {
+				// Regeneration drains an early return before reverting resources.
+				wg.Cancel()
+			}
+			if tt.reject {
+				require.ErrorIs(t, pending.Err(), context.Canceled)
+				require.Nil(t, proxy.redirects, "a failed wait must not acknowledge proxy ports")
+			} else if !tt.noWait {
+				require.NoError(t, pending.Err())
+				require.Equal(t, redirects, proxy.redirects)
+			}
+		})
+	}
 }
 
 func TestWriteInformationalComments(t *testing.T) {

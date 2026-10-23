@@ -380,23 +380,21 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
-	defer datapathRegenCtxt.completionCancel()
+	defer func() {
+		datapathRegenCtxt.completionCancel()
+		if reterr != nil {
+			// Canceling the parent context alone does not finish callbacks or owner
+			// cleanup. Drain the group before reverting resources on early errors.
+			datapathRegenCtxt.proxyWaitGroup.Cancel()
+		}
+
+		// Ignore finalizing of proxy state in dry mode.
+		if !e.IsProperty(endpointtypes.PropertyFakeEndpoint) {
+			e.finalizeEndpointRegeneration(regenContext, reterr)
+		}
+	}()
 
 	err = e.runPreCompilationSteps(regenContext)
-
-	// Ignore finalizing of proxy state in dry mode.
-	if !e.IsProperty(endpointtypes.PropertyFakeEndpoint) {
-		// Keep track of the side-effects of the regeneration that need to be
-		// reverted in case of failure.
-		// Also keep track of the regeneration finalization code that can't be
-		// reverted, and execute it in case of regeneration success.
-		// Must use closure to get the current value of 'reterr' at the time
-		// of execution.
-		defer func() {
-			e.finalizeEndpointRegeneration(regenContext, reterr)
-		}()
-	}
-
 	if err != nil {
 		return 0, err
 	}
@@ -432,6 +430,9 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		dir = datapathRegenCtxt.nextDir
 	}
 	datapathRegenCtxt.epInfoCache = e.createEpInfoCache(dir)
+	// The build mutex preserves these redirects through the post-Wait ACK,
+	// including restored redirects when this build did not recompute policy.
+	proxyRedirects := e.desiredPolicy.Redirects
 	e.unlock()
 
 	// No need to compile BPF in dry mode. Also, in lb-only mode we do not
@@ -460,7 +461,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		}
 
 		stats.proxyWaitForAck.Start()
-		err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
+		err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects, datapathRegenCtxt.proxyPolicyRevision)
 		stats.proxyWaitForAck.End(err == nil)
 		if err != nil {
 			return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
@@ -507,7 +508,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	stats.proxyWaitForAck.Start()
-	err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
+	err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects, datapathRegenCtxt.proxyPolicyRevision)
 	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
 		return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
@@ -1051,10 +1052,11 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry)
 // that have accumulated for the PolicyMap via various outside events (e.g.,
 // identities added / deleted).
 // 'proxyWaitGroup' may not be nil. The caller must revert or finalize the returned
-// revertible, if non-nil.
-func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (err error, revertible revert.Revertible) {
+// revertible, if non-nil, and notify OnProxyPolicyUpdate with the returned revision
+// after a successful wait. Zero means no policy was submitted with a proxy wait.
+func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (err error, revertible revert.Revertible, proxyPolicyRevision uint64) {
 	if err = e.lockAlive(); err != nil {
-		return err, nil
+		return err, nil, 0
 	}
 	defer e.unlock()
 
@@ -1067,7 +1069,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 	if !e.desiredPolicy.IsValid() {
 		// The endpoint has no computed policy yet, so it is pointless to try apply
 		// incremental changes on it.
-		return nil, nil
+		return nil, nil, 0
 	}
 
 	regenCtx := regenerationContext{
@@ -1083,7 +1085,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 		// revert any changes on synchronous error for an endpoint
 		_ = regenCtx.datapathRegenerationContext.revertibles.Revert()
 
-		return err, nil
+		return err, nil, 0
 	}
 
 	e.LogStatusOKLocked(Policy, "Policy Map changes applied")
@@ -1094,7 +1096,7 @@ func (e *Endpoint) ApplyPolicyMapChanges(proxyWaitGroup *completion.WaitGroup) (
 		revertible = &regenCtx.datapathRegenerationContext.revertibles
 	}
 
-	return nil, revertible
+	return nil, revertible, regenCtx.datapathRegenerationContext.proxyPolicyRevision
 }
 
 // applyPolicyMapChangesLocked applies any incremental policy map changes
@@ -1166,6 +1168,11 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			// synchronous error
 			if proxyErr == nil {
 				datapathRegenCtxt.revertibles.Add(revertible)
+				if proxyWaitGroup != nil && len(e.GetPolicyNames()) > 0 {
+					// Desired policy may advance before the wait finishes. Report
+					// the revision submitted here, not the later desired revision.
+					datapathRegenCtxt.proxyPolicyRevision = e.desiredPolicy.SelectorPolicy.L4Policy.Revision
+				}
 			} else {
 				e.getLogger().Debug("applyPolicyMapChanges: UpdateNetworkPolicy failed",
 					logfields.Error, proxyErr)

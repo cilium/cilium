@@ -1103,7 +1103,8 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 		e.getLogger().Debug("Regenerate: Initial Envoy NetworkPolicy")
 
 		stats.proxyPolicyCalculation.Start()
-		// Initial NetworkPolicy is not reverted.
+		// Seed without waiting or reporting proxy acceptance. Regeneration records
+		// the submitted policy revision after its proxy wait succeeds.
 		err, revertible := e.proxy.UpdateNetworkPolicy(regenContext.parentContext, e, e.desiredPolicy, nil)
 		stats.proxyPolicyCalculation.End(err == nil)
 		if err != nil {

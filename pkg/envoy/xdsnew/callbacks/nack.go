@@ -64,9 +64,11 @@ func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.Discove
 		cb.mutex.Lock()
 		// The stream may have closed or progressed while acquiring the cache
 		// lock. Revalidate instead of acting on an earlier response identity.
+		// A NACK must echo the outstanding nonempty nonce, even if its accepted
+		// version is empty because Envoy rejected its first response.
 		stream := cb.streams[streamKey{streamID: streamID, mode: StreamModeSotW}]
-		if stream == nil || stream.nodeID != nodeID || (req.GetResponseNonce() != "" &&
-			(stream.responses[typeURL].pendingNonce == "" || stream.responses[typeURL].pendingNonce != req.GetResponseNonce())) {
+		if stream == nil || stream.nodeID != nodeID || stream.responses[typeURL].pendingNonce == "" ||
+			stream.responses[typeURL].pendingNonce != req.GetResponseNonce() {
 			cb.mutex.Unlock()
 			return nil
 		}
@@ -107,18 +109,15 @@ func (cb *CompletionCallbacks) finishNACKLocked(recovery *nackRecovery) {
 			recovery.finalizers = append(recovery.finalizers, remaining.pending.rollback)
 			continue
 		}
-		remaining.pending.responseGeneration = 0
-		if typeState.response.pendingGeneration >= remaining.generation {
-			remaining.pending.responseGeneration = typeState.response.pendingGeneration
-		}
 		typeState.pendingGenerations[remaining.pending] = remaining.generation
 	}
 	typeState.removeEmptyPendingGenerationSet()
 }
 
 // complete runs without either cache or callbacks locks: both finalization and
-// caller callbacks can reenter cache APIs. Waiters receive the original NACK,
-// even when recovery failed and its returned error will close the stream.
+// caller callbacks can reenter cache APIs. Rejected upsert waiters receive the
+// original NACK even when recovery failed and its returned error closes the
+// stream. Removal-only waits remain registered for a later ACK or cancellation.
 func (recovery *nackRecovery) complete() {
 	for _, rollback := range recovery.finalizers {
 		rollback.Finalize()

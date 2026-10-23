@@ -42,7 +42,7 @@ func TestPreparedResourceChangesKeepSinglePolicyInline(t *testing.T) {
 	require.Equal(t, callbacks.Generation(2).TransactionID(), changes.first.next.transaction)
 	require.Same(t, policy, changes.first.previous.resource)
 	require.Empty(t, changes.more)
-	require.True(t, inverse.hasSingleton())
+	require.True(t, inverse.empty(), "admitted removals have no response-owned rollback state")
 	require.Equal(t, callbacks.Generation(1).Revision(), changes.first.previous.revision)
 }
 
@@ -52,8 +52,7 @@ func TestSnapshotTypesChangedBy(t *testing.T) {
 		changed typeurl.Set
 		want    typeurl.Set
 	}{
-		{"zero", typeurl.Set{}, typeurl.Set{}},
-		{"initialized empty", typeurl.NewSet(), typeurl.NewSet()},
+		{"zero", typeurl.EmptySet, typeurl.EmptySet},
 		{"policy", typeurl.NewSet(typeurl.NetworkPolicy), typeurl.NewSet(typeurl.NetworkPolicy)},
 		{"listener", typeurl.NewSet(typeurl.Listener), typeurl.NewSet(typeurl.Listener)},
 		{"cluster", typeurl.NewSet(typeurl.Cluster), typeurl.NewSet(typeurl.Cluster, typeurl.Endpoint)},
