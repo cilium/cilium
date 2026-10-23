@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
+#define BPF_SK_STORAGE_MOCKED
 #include <bpf/ctx/unspec.h>
 #include "common.h"
 #include "pktgen.h"
