@@ -5,7 +5,9 @@ package loadbalancer
 
 import (
 	"context"
+	"iter"
 	"log/slog"
+	"slices"
 	"sync"
 
 	"github.com/cilium/hive/cell"
@@ -67,22 +69,13 @@ func runEndpointSliceReflector(ctx context.Context, p reflectorParams, observer 
 		}
 
 		allEps := val.allEndpoints
-		currentEndpoints := currentEndpointsByCluster[key.clusterID]
-		if currentEndpoints == nil {
-			currentEndpoints = reflectorEndpoints.Cache{}
-			currentEndpointsByCluster[key.clusterID] = currentEndpoints
-		}
 
 		// Convert [k8s.Endpoints] to [loadbalancer.Backend]
 		backends := reflectorEndpoints.Convert(p.Log, p.ExtConfig, key.serviceName, allEps.Backends())
 
-		if err := p.Writer.UpsertAndReleaseBackends(txn, key.serviceName, source.ClusterMesh, key.clusterID, backends, currentEndpoints.Orphans(allEps.All())); err != nil {
+		orphans := updateClusterCache(currentEndpointsByCluster, key.clusterID, allEps)
+		if err := p.Writer.UpsertAndReleaseBackends(txn, key.serviceName, source.ClusterMesh, key.clusterID, backends, orphans); err != nil {
 			return err
-		}
-
-		currentEndpoints.UpdateMany(allEps.All())
-		if len(currentEndpoints) == 0 {
-			delete(currentEndpointsByCluster, key.clusterID)
 		}
 
 		return nil
@@ -123,6 +116,25 @@ func runEndpointSliceReflector(ctx context.Context, p reflectorParams, observer 
 	}
 
 	return nil
+}
+
+// updateClusterCache records the new endpoint batch in the per-cluster cache
+// and returns the backend addresses orphaned by the batch.
+//
+// The orphaned addresses are collected eagerly: [reflectorEndpoints.Cache] is
+// a struct, so the updated copy must be stored back into the map. Otherwise
+// the indexes built by UpdateMany are lost, later events see an empty cache,
+// and deleted backends are never released.
+func updateClusterCache(caches map[uint32]reflectorEndpoints.Cache, clusterID uint32, allEps reflectorEndpoints.AllEndpoints) iter.Seq[loadbalancer.L3n4Addr] {
+	cache := caches[clusterID]
+	orphans := slices.Collect(cache.Orphans(allEps.All()))
+	cache.UpdateMany(allEps.All())
+	if cache.IsEmpty() {
+		delete(caches, clusterID)
+	} else {
+		caches[clusterID] = cache
+	}
+	return slices.Values(orphans)
 }
 
 type bufferKey struct {
