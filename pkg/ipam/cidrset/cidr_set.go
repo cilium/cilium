@@ -146,6 +146,17 @@ func (s *CidrSet) IsFull() bool {
 	return s.unavailableCIDRs == s.maxCIDRs
 }
 
+// Capacity returns the number of CIDRs in the set, excluding reserved ones.
+func (s *CidrSet) Capacity() int {
+	s.Lock()
+	defer s.Unlock()
+	reserved := 0
+	for _, word := range s.reserved.Bits() {
+		reserved += bits.OnesCount(uint(word))
+	}
+	return s.maxCIDRs - reserved
+}
+
 // AllocateNext allocates the next free CIDR range. This will set the range
 // as occupied and return the allocated range.
 func (s *CidrSet) AllocateNext() (netip.Prefix, error) {

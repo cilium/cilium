@@ -130,6 +130,8 @@ type PoolAllocator struct {
 
 	ipv4Enabled, ipv6Enabled bool
 
+	metrics *Metrics
+
 	mutex   lock.RWMutex
 	pools   map[string]cidrPool    // poolName -> pool
 	nodes   map[string]poolToCIDRs // nodeName -> pool -> cidrs
@@ -137,15 +139,45 @@ type PoolAllocator struct {
 	ready   bool
 }
 
-func NewPoolAllocator(logger *slog.Logger, enableIPv4, enableIPv6 bool) *PoolAllocator {
+func NewPoolAllocator(logger *slog.Logger, enableIPv4, enableIPv6 bool, metrics *Metrics) *PoolAllocator {
 	return &PoolAllocator{
 		logger:      logger,
 		ipv4Enabled: enableIPv4,
 		ipv6Enabled: enableIPv6,
+		metrics:     metrics,
 		pools:       map[string]cidrPool{},
 		nodes:       map[string]poolToCIDRs{},
 		orphans:     map[string]poolToCIDRs{},
 	}
+}
+
+// updatePoolMetricsLocked recomputes and emits the total-blocks gauge for a
+// single pool. The total only changes when a pool's CIDRs, mask or reserved
+// ranges change, so this is called from UpsertPool. Caller must hold p.mutex.
+func (p *PoolAllocator) updatePoolMetricsLocked(poolName string) {
+	if !p.metrics.enabled() {
+		return
+	}
+	pool, ok := p.pools[poolName]
+	if !ok {
+		p.metrics.deletePool(poolName)
+		return
+	}
+	if p.ipv4Enabled {
+		p.metrics.setPool(poolName, ipam.IPv4, totalBlocks(pool.v4))
+	}
+	if p.ipv6Enabled {
+		p.metrics.setPool(poolName, ipam.IPv6, totalBlocks(pool.v6))
+	}
+}
+
+// totalBlocks sums the CIDR-block capacity across a pool's family allocators.
+func totalBlocks(allocators []cidralloc.CIDRAllocator) int {
+	total := 0
+	for _, a := range allocators {
+		total += a.Capacity()
+	}
+	return total
 }
 
 func (p *PoolAllocator) RestoreFinished() {
@@ -366,6 +398,7 @@ func validateExistingPool(pool cidrPool, ipv4MaskSize, ipv6MaskSize int, options
 func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, ipv4MaskSize int, ipv6CIDRs []poolCIDRConfig, ipv6MaskSize int, opts ...PoolOption) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+	defer p.updatePoolMetricsLocked(poolName)
 
 	var options poolOptions
 	for _, opt := range opts {
@@ -434,6 +467,7 @@ func (p *PoolAllocator) UpsertPool(poolName string, ipv4CIDRs []poolCIDRConfig, 
 func (p *PoolAllocator) DeletePool(poolName string) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
+	defer p.metrics.deletePool(poolName)
 
 	if _, exists := p.pools[poolName]; !exists {
 		return fmt.Errorf("pool %q requested for deletion doesn't exist", poolName)
