@@ -833,8 +833,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	/* Handle VTEP integration in bpf_host to support pod L7 PROXY.
 	 * It requires route setup to VTEP CIDR via dev cilium_host scope link.
 	 */
-#ifdef HAVE_ENCAP
-	if (CONFIG(enable_vtep)) {
+	if (HAVE_ENCAP && CONFIG(enable_vtep)) {
 		struct remote_endpoint_info fake_info = {0};
 		struct vtep_key vkey = {
 			.vtep_ip = ip4->daddr & CONFIG(vtep_mask),
@@ -853,7 +852,6 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 								bpf_htons(ETH_P_IP));
 		}
 	}
-#endif /* HAVE_ENCAP */
 
 	info = lookup_ip4_remote_endpoint(ip4->daddr, 0);
 
@@ -1335,10 +1333,8 @@ int cil_from_netdev(struct __ctx_buff *ctx)
 		if (flags & XFER_PKT_NO_SVC)
 			ctx_skip_nodeport_set(ctx);
 
-#ifdef HAVE_ENCAP
-		if (flags & XFER_PKT_SNAT_DONE)
+		if (HAVE_ENCAP && flags & XFER_PKT_SNAT_DONE)
 			ctx_snat_done_set(ctx);
-#endif
 	}
 
 	if (!validate_ethertype(ctx, &proto)) {

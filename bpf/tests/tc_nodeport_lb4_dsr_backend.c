@@ -8,7 +8,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_NODEPORT 1
-#define DSR_ENCAP_GENEVE	3
+#define DSR_ENCAP_MODE DSR_ENCAP_NONE
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_PORT		__bpf_htons(111)

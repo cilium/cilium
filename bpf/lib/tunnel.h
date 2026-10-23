@@ -7,6 +7,20 @@
 
 #include <lib/ipv6_core.h>
 #include <lib/static_data.h>
+#include <lib/export_type.h>
+
+enum dsr_encap_mode {
+	#define DSR_ENCAP_INVALID 0
+	dsr_encap_mode_INVALID = DSR_ENCAP_INVALID,
+	#define DSR_ENCAP_NONE 1
+	dsr_encap_mode_NONE = DSR_ENCAP_NONE,
+	#define DSR_ENCAP_IPIP 2
+	dsr_encap_mode_IPIP = DSR_ENCAP_IPIP,
+	#define DSR_ENCAP_GENEVE 3
+	dsr_encap_mode_GENEVE = DSR_ENCAP_GENEVE,
+};
+
+EXPORT_TYPE(enum dsr_encap_mode);
 
 #define TUNNEL_PROTOCOL_VXLAN 1
 #define TUNNEL_PROTOCOL_GENEVE 2
