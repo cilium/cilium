@@ -60,7 +60,7 @@ func TestScriptClusterPoolToMultiPool(t *testing.T) {
 		manager     *ipam.IPAM
 	)
 
-	defer testutils.GoleakVerifyNone(t)
+	t.Cleanup(func() { testutils.GoleakVerifyNone(t) })
 
 	scripttest.Test(t,
 		t.Context(),
