@@ -33,6 +33,8 @@ const (
 	// as assigned by the device managers.
 	// must be unique across all devices on the node.
 	IfNameLabel = "ifName"
+	// HWAddrLabel contains the MAC address of the device.
+	HWAddrLabel = "macAddress"
 	// DeviceManagerLabel identifies which Device Manager
 	// published the device.
 	DeviceManagerLabel = "deviceManager"
@@ -53,6 +55,12 @@ const (
 	DeviceIDLabel = "deviceID"
 	// DriverLabel identifies a device's driver.
 	DriverLabel = "driver"
+	// RXQueuesCapacity is the number of RX queues available for allocation.
+	RXQueuesCapacity = "rxQueues"
+	// RXQueueIDLabel is the leased queue ID on the interface given to the pod.
+	RXQueueIDLabel = "rxQueueID"
+	// DefaultRXQueuePodIfName is the default existing Pod interface to receive a leased queue.
+	DefaultRXQueuePodIfName = "eth0"
 )
 
 var (
@@ -113,6 +121,7 @@ const (
 	DeviceManagerTypeMock DeviceManagerType = iota
 	DeviceManagerTypeDummy
 	DeviceManagerTypeSRIOV
+	DeviceManagerTypeRXQueue
 	DeviceManagerTypeUnknown
 )
 
@@ -120,6 +129,7 @@ const (
 	deviceManagerTypeMockStr = "mock"
 	dummyDeviceManagerStr    = "dummy"
 	sriovDeviceManagerStr    = "sr-iov"
+	rxQueueDeviceManagerStr  = "rxQueue"
 )
 
 func (d DeviceManagerType) String() string {
@@ -132,6 +142,9 @@ func (d DeviceManagerType) String() string {
 
 	case DeviceManagerTypeSRIOV:
 		return sriovDeviceManagerStr
+
+	case DeviceManagerTypeRXQueue:
+		return rxQueueDeviceManagerStr
 	}
 
 	return ""
@@ -147,6 +160,9 @@ func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 
 	case DeviceManagerTypeSRIOV:
 		return []byte(sriovDeviceManagerStr), nil
+
+	case DeviceManagerTypeRXQueue:
+		return []byte(rxQueueDeviceManagerStr), nil
 	}
 
 	return nil, errUnknownDeviceManagerType
@@ -160,6 +176,8 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 		*d = DeviceManagerTypeDummy
 	case sriovDeviceManagerStr:
 		*d = DeviceManagerTypeSRIOV
+	case strings.ToLower(rxQueueDeviceManagerStr):
+		*d = DeviceManagerTypeRXQueue
 	default:
 		return errUnknownDeviceManagerType
 	}

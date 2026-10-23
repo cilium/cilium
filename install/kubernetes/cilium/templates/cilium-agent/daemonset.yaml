@@ -420,6 +420,8 @@ spec:
           mountPath: /var/lib/kubelet/plugins
         - name: plugin-registry
           mountPath: /var/lib/kubelet/plugins_registry
+        - name: cdi-specs
+          mountPath: /var/run/cdi
         - name: nri-plugin
           mountPath: /var/run/nri
         - name: host-sys-bus-pci-devices
@@ -1086,6 +1088,10 @@ spec:
         hostPath:
           path: /var/lib/kubelet/plugins_registry
           type: Directory
+      - name: cdi-specs
+        hostPath:
+          path: /var/run/cdi
+          type: DirectoryOrCreate
       - name: nri-plugin
         hostPath:
           path: /var/run/nri
