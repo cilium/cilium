@@ -331,6 +331,12 @@ communicating via the proxy must reconnect to re-establish connections.
   your network policies in advance for the Cilium 1.19 upgrade.
 * Creating or deleting policies via the local REST api is deprecated. This will be removed entirely in v1.19.
 * The cilium operator now needs the ``ec2:DescribeRouteTables`` IAM action permission when used in ENI mode.
+* Egress policy rules that combine ``toServices`` with ``toPorts`` no longer
+  allow traffic to any destination on those ports when the referenced Service
+  doesn't exist or is selector-less with no backends. Such rules now deny that
+  traffic until the Service exists and, if selector-less, has backends. If you
+  have rules like this, ensure the referenced Services exist and have backends
+  before upgrading.
 
 Removed Options
 ~~~~~~~~~~~~~~~
