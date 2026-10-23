@@ -51,6 +51,18 @@ func (m *ExtAuthz) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.ShadowMode {
+		i--
+		if m.ShadowMode {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0x80
+	}
 	if m.EnforceResponseHeaderLimits {
 		i--
 		if m.EnforceResponseHeaderLimits {
@@ -502,6 +514,73 @@ func (m *ExtAuthz_HttpService) MarshalToSizedBufferVTStrict(dAtA []byte) (int, e
 	}
 	return len(dAtA) - i, nil
 }
+func (m *ShadowDecision) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ShadowDecision) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *ShadowDecision) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.ResponseHeaders) > 0 {
+		for iNdEx := len(m.ResponseHeaders) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.ResponseHeaders[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.ResponseHeaders[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.StatusCode != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.StatusCode))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.CheckResult != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.CheckResult))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *BufferSettings) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -589,6 +668,13 @@ func (m *HttpService) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.PathOverride) > 0 {
+		i -= len(m.PathOverride)
+		copy(dAtA[i:], m.PathOverride)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.PathOverride)))
+		i--
+		dAtA[i] = 0x52
 	}
 	if m.RetryPolicy != nil {
 		if vtmsg, ok := interface{}(m.RetryPolicy).(interface {
@@ -1277,6 +1363,9 @@ func (m *ExtAuthz) SizeVT() (n int) {
 	if m.EnforceResponseHeaderLimits {
 		n += 3
 	}
+	if m.ShadowMode {
+		n += 3
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -1315,6 +1404,34 @@ func (m *ExtAuthz_HttpService) SizeVT() (n int) {
 	}
 	return n
 }
+func (m *ShadowDecision) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.CheckResult != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.CheckResult))
+	}
+	if m.StatusCode != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.StatusCode))
+	}
+	if len(m.ResponseHeaders) > 0 {
+		for _, e := range m.ResponseHeaders {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
 func (m *BufferSettings) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -1370,6 +1487,10 @@ func (m *HttpService) SizeVT() (n int) {
 		} else {
 			l = proto.Size(m.RetryPolicy)
 		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	l = len(m.PathOverride)
+	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

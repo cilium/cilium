@@ -979,6 +979,8 @@ func (m *FilterStateInput) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	// no validation rules for Field
+
 	if len(errors) > 0 {
 		return FilterStateInputMultiError(errors)
 	}
