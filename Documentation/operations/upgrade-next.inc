@@ -21,6 +21,12 @@ notes carefully below to understand what to do during upgrade.
 * Cilium mutual authentication support has been removed after deprecation. If
   you use mutual authentication, remove that configuration before upgrading.
   Consider using :ref:`encryption_ztunnel` instead.
+* Egress policy rules that combine ``toServices`` with ``toPorts`` no longer
+  allow traffic to any destination on those ports when the referenced Service
+  doesn't exist or is selector-less with no backends. Such rules now deny that
+  traffic until the Service exists and, if selector-less, has backends. If you
+  have rules like this, ensure the referenced Services exist and have backends
+  before upgrading.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
