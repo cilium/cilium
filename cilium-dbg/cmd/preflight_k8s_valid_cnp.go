@@ -5,8 +5,10 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/cilium/hive/cell"
@@ -14,14 +16,20 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/cilium/cilium/pkg/hive"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2_validation "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
+	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/slices"
 )
 
 func validateCNPCmd() *cobra.Command {
@@ -58,6 +66,10 @@ const (
 	ciliumGroup                = "cilium.io"
 )
 
+// errExcludedLabels flags a policy selector referencing labels that are excluded
+// from the security identity.
+var errExcludedLabels = errors.New("selector references labels excluded from the security identity")
+
 func validateCNPs(logger *slog.Logger, clientset k8sClient.Clientset, shutdowner hive.Shutdowner) error {
 	defer shutdowner.Shutdown()
 
@@ -71,90 +83,221 @@ func validateCNPs(logger *slog.Logger, clientset k8sClient.Clientset, shutdowner
 		return err
 	}
 
+	// Initialize the label filter with the built-in defaults so we can warn about
+	// selectors referencing labels excluded from the security identity.
+	if err := labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, ""); err != nil {
+		return err
+	}
+
 	ctx, initCancel := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel()
-	cnpErr := validateNPResources(ctx, clientset, npValidator.ValidateCNP, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
+	cnpExcluded, cnpErr := validateNPResources(ctx, clientset,
+		validate(npValidator.ValidateCNP, checkCNPExcludedLabels),
+		"ciliumnetworkpolicies", "CiliumNetworkPolicy")
 
 	ctx, initCancel2 := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel2()
-	ccnpErr := validateNPResources(ctx, clientset, npValidator.ValidateCCNP, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
+	ccnpExcluded, ccnpErr := validateNPResources(ctx, clientset,
+		validate(npValidator.ValidateCCNP, checkCCNPExcludedLabels),
+		"ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
 
-	if cnpErr != nil {
-		return cnpErr
+	if err := errors.Join(cnpErr, ccnpErr); err != nil {
+		return err
 	}
-	if ccnpErr != nil {
-		return ccnpErr
+	if !cnpExcluded && !ccnpExcluded {
+		log.Info("All CCNPs and CNPs valid!")
 	}
-	log.Info("All CCNPs and CNPs valid!")
 	return nil
 }
 
+// policyValidator inspects a single policy object. Validators are composed with
+// validate() and share the unstructured representation returned by the lister.
+type policyValidator func(*unstructured.Unstructured) error
+
+func validate(validators ...policyValidator) policyValidator {
+	return func(policy *unstructured.Unstructured) error {
+		for _, v := range validators {
+			if err := v(policy); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+}
+
+// validateNPResources runs validate against every policy of the given resource,
+// reporting whether any of them referenced identity-excluded labels.
 func validateNPResources(
 	ctx context.Context,
 	clientset k8sClient.Clientset,
-	validator func(cnp *unstructured.Unstructured) error,
+	validate policyValidator,
 	name,
 	shortName string,
-) error {
+) (bool, error) {
 	// Check if the crd is installed at all.
-	_, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
+	if _, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
 		ctx,
 		name+"."+ciliumGroup,
 		metav1.GetOptions{},
-	)
-	switch {
-	case err == nil:
-	case k8sErrors.IsNotFound(err):
-		return nil
-	default:
-		return err
+	); err != nil {
+		if k8sErrors.IsNotFound(err) {
+			return false, nil
+		}
+		return false, err
 	}
 
 	var (
 		policyErr error
-		cnps      unstructured.UnstructuredList
-		cnpName   string
+		excluded  bool
+		nps       unstructured.UnstructuredList
+		npName    string
 	)
 	for {
 		opts := metav1.ListOptions{
 			Limit:    25,
-			Continue: cnps.GetContinue(),
+			Continue: nps.GetContinue(),
 		}
-		err = clientset.
+		if err := clientset.
 			CiliumV2().
 			RESTClient().
 			Get().
 			VersionedParams(&opts, scheme.ParameterCodec).
 			Resource(name).
 			Do(ctx).
-			Into(&cnps)
-		if err != nil {
-			return err
+			Into(&nps); err != nil {
+			return false, err
 		}
 
-		for _, cnp := range cnps.Items {
-			if cnp.GetNamespace() != "" {
-				cnpName = fmt.Sprintf("%s/%s", cnp.GetNamespace(), cnp.GetName())
+		for _, np := range nps.Items {
+			if np.GetNamespace() != "" {
+				npName = fmt.Sprintf("%s/%s", np.GetNamespace(), np.GetName())
 			} else {
-				cnpName = cnp.GetName()
+				npName = np.GetName()
 			}
-			if err := validator(&cnp); err != nil {
+
+			switch err := validate(&np); {
+			case err == nil:
+				log.Info("Validation OK!",
+					logfields.Type, shortName,
+					logfields.Name, npName,
+				)
+			case errors.Is(err, errExcludedLabels):
+				log.Warn("Policy selector references labels excluded from the security identity; "+
+					"it will not match endpoints unless overridden via --label-prefix-file",
+					logfields.Error, err,
+					logfields.Type, shortName,
+					logfields.Name, npName,
+				)
+				excluded = true
+			default:
 				log.Error("Unexpected validation error",
 					logfields.Error, err,
 					logfields.Type, shortName,
-					logfields.Name, cnpName,
+					logfields.Name, npName,
 				)
 				policyErr = fmt.Errorf("Found invalid %s", shortName)
-			} else {
-				log.Info("Validation OK!",
-					logfields.Type, shortName,
-					logfields.Name, cnpName,
-				)
 			}
 		}
-		if cnps.GetContinue() == "" {
+		if nps.GetContinue() == "" {
 			break
 		}
 	}
-	return policyErr
+
+	if excluded {
+		log.Warn(fmt.Sprintf("Detected %s resources with selectors referencing identity-excluded labels; "+
+			"see the warnings above. Such selectors will not match endpoints unless overridden "+
+			"via --label-prefix-file.", shortName))
+	}
+
+	return excluded, policyErr
+}
+
+// parseable extracts a policy's rules. It is implemented by both
+// CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy.
+type parseable interface {
+	Parse(logger *slog.Logger, clusterName string) (api.Rules, error)
+}
+
+func checkCNPExcludedLabels(rawCNP *unstructured.Unstructured) error {
+	var cnp cilium_v2.CiliumNetworkPolicy
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(rawCNP.Object, &cnp); err != nil {
+		return err
+	}
+	return checkExcludedLabels(&cnp)
+}
+
+func checkCCNPExcludedLabels(rawCCNP *unstructured.Unstructured) error {
+	var ccnp cilium_v2.CiliumClusterwideNetworkPolicy
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(rawCCNP.Object, &ccnp); err != nil {
+		return err
+	}
+	return checkExcludedLabels(&ccnp)
+}
+
+// checkExcludedLabels returns errExcludedLabels listing the policy's selector
+// label keys that the identity label filter would drop, or nil if there is none.
+func checkExcludedLabels(policy parseable) error {
+	rules, err := policy.Parse(log, "")
+	if err != nil {
+		return err
+	}
+
+	var keys []string
+	for _, rule := range rules {
+		for _, sel := range endpointSelectors(rule) {
+			keys = append(keys, excludedSelectorKeys(sel)...)
+		}
+	}
+	if len(keys) == 0 {
+		return nil
+	}
+	return fmt.Errorf("%w: %s", errExcludedLabels, strings.Join(slices.Unique(keys), ", "))
+}
+
+// endpointSelectors returns the rule's EndpointSelectors that are matched against
+// endpoint identities.
+func endpointSelectors(rule *api.Rule) []api.EndpointSelector {
+	sels := []api.EndpointSelector{rule.EndpointSelector}
+	for _, ing := range rule.Ingress {
+		sels = append(sels, ing.FromEndpoints...)
+	}
+	for _, ing := range rule.IngressDeny {
+		sels = append(sels, ing.FromEndpoints...)
+	}
+	for _, egr := range rule.Egress {
+		sels = append(sels, egr.ToEndpoints...)
+	}
+	for _, egr := range rule.EgressDeny {
+		sels = append(sels, egr.ToEndpoints...)
+	}
+	return sels
+}
+
+// excludedSelectorKeys returns the selector's label keys that the identity label
+// filter would drop. Selectors here come from Parse(), whose keys are source
+// encoded (e.g. "any:topology.kubernetes.io/zone"); Map2Labels/NewLabel strip
+// that source prefix, recovering the bare key the filter matches against.
+func excludedSelectorKeys(sel api.EndpointSelector) []string {
+	if sel.LabelSelector == nil {
+		return nil
+	}
+
+	lbls := labels.Map2Labels(sel.MatchLabels, labels.LabelSourceAny)
+	for _, req := range sel.MatchExpressions {
+		l := labels.NewLabel(req.Key, "", labels.LabelSourceAny)
+		lbls[l.Key] = l
+	}
+	if len(lbls) == 0 {
+		return nil
+	}
+
+	identity, _ := labelsfilter.Filter(lbls)
+
+	var excluded []string
+	for k, l := range lbls {
+		if _, kept := identity[k]; !kept {
+			excluded = append(excluded, l.Key)
+		}
+	}
+	return excluded
 }
