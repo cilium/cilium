@@ -801,6 +801,7 @@ func (driver *Driver) allocateAddrs(ctx context.Context, deviceName string, cfg 
 		return fmt.Errorf("device %s already has an IP address assigned", deviceName)
 	}
 
+	var errs []error
 	if err := resiliency.Retry(ctx, addrAddRetryInterval, addrAddMaxRetries, func(ctx context.Context, retries int) (bool, error) {
 		var errs []error
 		// it is possible that in one retry we successfully allocate an IPv4
@@ -834,14 +835,15 @@ func (driver *Driver) allocateAddrs(ctx context.Context, deviceName string, cfg 
 				ctx, "failed to get IP addresses for device, will retry",
 				logfields.Device, deviceName,
 				logfields.PoolName, cfg.IPPool,
-				logfields.Error, errs,
+				logfields.Error, errors.Join(errs...),
 			)
 			return false, nil
 		}
 		return true, nil
 	}); err != nil {
 		// it is possible that some IP addresses were successfully allocated before the failure occurred.
-		return errors.Join(err, driver.releaseAddrs(*cfg))
+		errs = append(errs, driver.releaseAddrs(*cfg))
+		return errors.Join(errs...)
 	}
 	return nil
 }
