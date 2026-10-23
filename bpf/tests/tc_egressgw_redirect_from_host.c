@@ -34,6 +34,8 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 #include "lib/metrics.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
 
 struct fib_lookup_settings {
