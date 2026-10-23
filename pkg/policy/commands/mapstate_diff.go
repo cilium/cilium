@@ -71,7 +71,7 @@ func msStageCmd(params CmdParams) script.Cmd {
 				return nil
 			},
 			Detail: []string{
-				"Display the resulting mapstate for applying a given poliy to an endpoint.",
+				"Display the resulting mapstate for applying a given policy to an endpoint.",
 				"All existing policies are preserved unless overwritten by the proposed policy.",
 				"Optionally, will display the difference between the existing policy.",
 			},
