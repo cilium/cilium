@@ -15,8 +15,8 @@
  * written into node_config.h at runtime.
  */
 #define SECLABEL WORLD_ID
-#define SECLABEL_IPV4 WORLD_IPV4_ID
-#define SECLABEL_IPV6 WORLD_IPV6_ID
+#define SECLABEL_IPV4 world_ipv4_id()
+#define SECLABEL_IPV6 world_ipv6_id()
 
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
  * object file.
@@ -456,8 +456,8 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 		fake_info.tunnel_endpoint.ip4.be32 = info->tunnel_endpoint;
 		fake_info.flag_has_tunnel_ep = true;
 		ret = __encap_and_redirect_with_nodeid(ctx, &fake_info,
-						       LOCAL_NODE_ID, WORLD_IPV4_ID,
-						       WORLD_IPV4_ID, &trace,
+						       LOCAL_NODE_ID, world_ipv4_id(),
+						       world_ipv4_id(), &trace,
 						       bpf_htons(ETH_P_ARP));
 		if (IS_ERR(ret))
 			goto drop_err;

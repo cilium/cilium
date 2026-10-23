@@ -304,7 +304,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 	if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
 		struct ct_buffer6 *ct_buffer;
 		__u32 zero = 0;
-		__u32 remote_id = WORLD_IPV6_ID;
+		__u32 remote_id = world_ipv6_id();
 
 		ct_buffer = map_lookup_elem(&cilium_tail_call_buffer6, &zero);
 		if (!ct_buffer)
@@ -848,8 +848,8 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 			fake_info.tunnel_endpoint.ip4.be32 = vtep->tunnel_endpoint;
 			fake_info.flag_has_tunnel_ep = true;
 			return __encap_and_redirect_with_nodeid(ctx, &fake_info,
-								secctx, WORLD_IPV4_ID,
-								WORLD_IPV4_ID, &trace,
+								secctx, world_ipv4_id(),
+								world_ipv4_id(), &trace,
 								bpf_htons(ETH_P_IP));
 		}
 	}
