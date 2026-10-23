@@ -1959,4 +1959,6 @@ const (
 	PendingInitializers = "pendingInitializers"
 
 	VFCount = "vFCount"
+
+	ReleaseChannel = "releaseChannel"
 )
