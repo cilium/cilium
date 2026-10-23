@@ -738,10 +738,23 @@ jobs:
         if: ${{ steps.vars.outputs.downgrade_version != '' && steps.vars.outputs.skip_upgrade != 'true' }}
         shell: bash
         run: |
+          RELEASE_IMAGE_ARGS=()
+          # Clear image overrides only for patch downgrades. Minor downgrades use
+          # the latest CI images from the previous stable branch.
+          if [ "${{ matrix.mode }}" = "patch" ]; then
+            # Clear saved CI image overrides so the target chart supplies release images.
+            RELEASE_IMAGE_ARGS=(
+              --helm-set=image=null
+              --helm-set=operator.image=null
+              --helm-set=hubble.relay.image=null
+            )
+          fi
+
           cilium upgrade \
             --helm-set=disableEnvoyVersionCheck=true \
             ${{ steps.cilium-stable-config.outputs.config }} \
-            ${{ steps.install-cilium.outputs.extra_args }}
+            ${{ steps.install-cilium.outputs.extra_args }} \
+            "${RELEASE_IMAGE_ARGS[@]}"
 
           cilium status --wait --interactive=false --wait-duration=10m
           kubectl get pods --all-namespaces -o wide
