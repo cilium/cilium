@@ -44,7 +44,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium-dbg nodeid](cilium-dbg_nodeid.md)	 - List node IDs and associated information
 * [cilium-dbg policy](cilium-dbg_policy.md)	 - Manage security policies
 * [cilium-dbg post-uninstall-cleanup](cilium-dbg_post-uninstall-cleanup.md)	 - Remove system state installed by Cilium at runtime
-* [cilium-dbg prefilter](cilium-dbg_prefilter.md)	 - Manage XDP CIDR filters
+* [cilium-dbg prefilter](cilium-dbg_prefilter.md)	 - Manage XDP CIDR filters (deprecated)
 * [cilium-dbg preflight](cilium-dbg_preflight.md)	 - Cilium upgrade helper
 * [cilium-dbg service](cilium-dbg_service.md)	 - List services & loadbalancers
 * [cilium-dbg shell](cilium-dbg_shell.md)	 - Connect to the shell

@@ -2,7 +2,7 @@
 
 ## cilium-dbg prefilter list
 
-List CIDR filters
+List CIDR filters (deprecated)
 
 ```
 cilium-dbg prefilter list [flags]
@@ -27,5 +27,5 @@ cilium-dbg prefilter list [flags]
 
 ### SEE ALSO
 
-* [cilium-dbg prefilter](cilium-dbg_prefilter.md)	 - Manage XDP CIDR filters
+* [cilium-dbg prefilter](cilium-dbg_prefilter.md)	 - Manage XDP CIDR filters (deprecated)
 

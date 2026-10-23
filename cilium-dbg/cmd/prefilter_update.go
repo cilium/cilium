@@ -19,7 +19,7 @@ var (
 
 var preFilterUpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update CIDR filters",
+	Short: "Update CIDR filters (deprecated)",
 	Run: func(cmd *cobra.Command, args []string) {
 		updateFilters(cmd, args)
 	},
