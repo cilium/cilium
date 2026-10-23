@@ -82,6 +82,9 @@ type ClientService interface {
 
 // DeletePrefilter deletes list of c ID rs.
 //
+// Deprecated: This will be removed in the future.
+// .
+//
 // This method does not support injected context.
 // However, timeout and opentracing contexts are honored whenever enabled.
 //
@@ -98,6 +101,9 @@ func (a *Client) DeletePrefilter(params *DeletePrefilterParams, opts ...ClientOp
 }
 
 // DeletePrefilterContext deletes list of c ID rs.
+//
+// Deprecated: This will be removed in the future.
+// .
 //
 // Do not use the deprecated [DeletePrefilterParams.Context] with this method: it would be ignored.
 func (a *Client) DeletePrefilterContext(ctx context.Context, params *DeletePrefilterParams, opts ...ClientOption) (*DeletePrefilterOK, error) {
@@ -144,6 +150,9 @@ func (a *Client) DeletePrefilterContext(ctx context.Context, params *DeletePrefi
 
 // GetPrefilter retrieves list of c ID rs.
 //
+// Deprecated: This will be removed in the future.
+// .
+//
 // This method does not support injected context.
 // However, timeout and opentracing contexts are honored whenever enabled.
 //
@@ -160,6 +169,9 @@ func (a *Client) GetPrefilter(params *GetPrefilterParams, opts ...ClientOption) 
 }
 
 // GetPrefilterContext retrieves list of c ID rs.
+//
+// Deprecated: This will be removed in the future.
+// .
 //
 // Do not use the deprecated [GetPrefilterParams.Context] with this method: it would be ignored.
 func (a *Client) GetPrefilterContext(ctx context.Context, params *GetPrefilterParams, opts ...ClientOption) (*GetPrefilterOK, error) {
@@ -206,6 +218,9 @@ func (a *Client) GetPrefilterContext(ctx context.Context, params *GetPrefilterPa
 
 // PatchPrefilter updates list of c ID rs.
 //
+// Deprecated: This will be removed in the future.
+// .
+//
 // This method does not support injected context.
 // However, timeout and opentracing contexts are honored whenever enabled.
 //
@@ -222,6 +237,9 @@ func (a *Client) PatchPrefilter(params *PatchPrefilterParams, opts ...ClientOpti
 }
 
 // PatchPrefilterContext updates list of c ID rs.
+//
+// Deprecated: This will be removed in the future.
+// .
 //
 // Do not use the deprecated [PatchPrefilterParams.Context] with this method: it would be ignored.
 func (a *Client) PatchPrefilterContext(ctx context.Context, params *PatchPrefilterParams, opts ...ClientOption) (*PatchPrefilterOK, error) {

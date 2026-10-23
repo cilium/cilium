@@ -613,8 +613,11 @@ paths:
   "/prefilter":
     get:
       summary: Retrieve list of CIDRs
+      description: |
+        Deprecated: This will be removed in the future.
+      deprecated: true
       tags:
-      - prefilter
+        - prefilter
       responses:
         '200':
           description: Success
@@ -627,10 +630,13 @@ paths:
             "$ref": "#/definitions/Error"
     patch:
       summary: Update list of CIDRs
+      description: |
+        Deprecated: This will be removed in the future.
+      deprecated: true
       tags:
-      - prefilter
+        - prefilter
       parameters:
-      - "$ref": "#/parameters/prefilter-spec"
+        - "$ref": "#/parameters/prefilter-spec"
       responses:
         '200':
           description: Updated
@@ -650,10 +656,13 @@ paths:
             "$ref": "#/definitions/Error"
     delete:
       summary: Delete list of CIDRs
+      description: |
+        Deprecated: This will be removed in the future.
+      deprecated: true
       tags:
-      - prefilter
+        - prefilter
       parameters:
-      - "$ref": "#/parameters/prefilter-spec"
+        - "$ref": "#/parameters/prefilter-spec"
       responses:
         '200':
           description: Deleted

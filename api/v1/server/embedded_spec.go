@@ -1327,10 +1327,12 @@ func init() {
     },
     "/prefilter": {
       "get": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Retrieve list of CIDRs",
+        "deprecated": true,
         "responses": {
           "200": {
             "description": "Success",
@@ -1348,10 +1350,12 @@ func init() {
         }
       },
       "delete": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Delete list of CIDRs",
+        "deprecated": true,
         "parameters": [
           {
             "$ref": "#/parameters/prefilter-spec"
@@ -1384,10 +1388,12 @@ func init() {
         }
       },
       "patch": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Update list of CIDRs",
+        "deprecated": true,
         "parameters": [
           {
             "$ref": "#/parameters/prefilter-spec"
@@ -6689,10 +6695,12 @@ func init() {
     },
     "/prefilter": {
       "get": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Retrieve list of CIDRs",
+        "deprecated": true,
         "responses": {
           "200": {
             "description": "Success",
@@ -6710,10 +6718,12 @@ func init() {
         }
       },
       "delete": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Delete list of CIDRs",
+        "deprecated": true,
         "parameters": [
           {
             "description": "List of CIDR ranges for filter table",
@@ -6752,10 +6762,12 @@ func init() {
         }
       },
       "patch": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Update list of CIDRs",
+        "deprecated": true,
         "parameters": [
           {
             "description": "List of CIDR ranges for filter table",
