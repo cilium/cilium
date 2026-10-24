@@ -18,6 +18,7 @@ import (
 	"maps"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path"
 	"regexp"
 	"slices"
@@ -42,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/format"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
@@ -55,6 +57,7 @@ var (
 	testFilePrefix = flag.String("test", "", "Single test file to run (without file extension)")
 
 	dumpCtx = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
+	pinBPF  = flag.Bool("pin-bpf", false, "Pin test maps and programs for debugging; requires -test.v and waits for SIGINT before cleanup.")
 )
 
 type syncWriter struct {
@@ -94,6 +97,30 @@ func TestBPF(t *testing.T) {
 		t.Fatal("os readdir: ", err)
 	}
 
+	var pinPath string
+	if *pinBPF {
+		if !testing.Verbose() {
+			t.Fatal("-pin-bpf requires -test.v to display the pin path and cleanup instructions")
+		}
+		bpf.CheckOrMountFS(hivetest.Logger(t), "")
+		pinPath = testutils.TempBPFFS(t)
+		t.Cleanup(func() {
+			pins, err := os.ReadDir(pinPath)
+			if err != nil {
+				t.Error("read pinned collections:", err)
+				return
+			}
+			if len(pins) == 0 {
+				return
+			}
+			signals := make(chan os.Signal, 1)
+			signal.Notify(signals, os.Interrupt)
+			defer signal.Stop(signals)
+			t.Logf("BPF maps and programs are pinned in %s; run 'kill -INT %d' to clean up and finish.", pinPath, os.Getpid())
+			<-signals
+		})
+	}
+
 	var (
 		instrLogMu lock.Mutex
 		instrLog   io.Writer
@@ -129,7 +156,7 @@ func TestBPF(t *testing.T) {
 		t.Run(entry.Name(), func(t *testing.T) {
 			t.Parallel()
 			testNetNS := netns.NewNetNS(t)
-			profiles := loadAndRunSpec(t, entry, instrLog, testNetNS)
+			profiles := loadAndRunSpec(t, entry, instrLog, testNetNS, pinPath)
 			if len(profiles) > 0 {
 				profileMu.Lock()
 				for _, profile := range profiles {
@@ -173,7 +200,7 @@ func TestBPF(t *testing.T) {
 	}
 }
 
-func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNetNS *netns.NetNS) []*cover.Profile {
+func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNetNS *netns.NetNS, pinPath string) []*cover.Profile {
 	logger := hivetest.Logger(t)
 	elfPath := path.Join(*testPath, entry.Name())
 
@@ -226,6 +253,11 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNet
 		t.Fatal("loading collection:", err)
 	}
 	defer coll.Close()
+	if pinPath != "" {
+		if err := pinCollection(coll, path.Join(pinPath, strings.TrimSuffix(entry.Name(), ".o"))); err != nil {
+			t.Fatal("pin collection:", err)
+		}
+	}
 
 	testNameToPrograms := make(map[string]programSet)
 
