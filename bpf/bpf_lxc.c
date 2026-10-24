@@ -1862,6 +1862,13 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 		if (verdict != CTX_ACT_OK)
 			return verdict;
 
+		/* Recreate the entry if proxy_redirect is stale. Otherwise the
+		 * reply is redirected (or not) based on the old flag.
+		 */
+		if (unlikely(ret == CT_ESTABLISHED &&
+			     ct_state->proxy_redirect != (*proxy_port > 0)))
+			ret = CT_NEW;
+
 		break;
 	}
 
@@ -2156,6 +2163,13 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 
 		if (verdict != CTX_ACT_OK)
 			return verdict;
+
+		/* Recreate the entry if proxy_redirect is stale. Otherwise the
+		 * reply is redirected (or not) based on the old flag.
+		 */
+		if (unlikely(ret == CT_ESTABLISHED &&
+			     ct_state->proxy_redirect != (*proxy_port > 0)))
+			ret = CT_NEW;
 
 		break;
 	}
