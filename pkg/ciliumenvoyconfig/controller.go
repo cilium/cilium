@@ -279,15 +279,16 @@ func (c *cecProcessor) processCEC(wtxn statedb.WriteTxn, cecName CECName) *state
 
 	var redirects part.Map[loadbalancer.ServiceName, loadbalancer.ProxyRedirects]
 	for _, l := range cec.Spec.Services {
+		svcName := loadbalancer.NewServiceName(l.Namespace, l.Name)
 		pr := getProxyRedirect(cec, l)
 		if pr != nil {
-			existing, _ := redirects.Get(l.ServiceName())
-			redirects = redirects.Set(l.ServiceName(), append(existing, *pr))
+			existing, _ := redirects.Get(svcName)
+			redirects = redirects.Set(svcName, append(existing, *pr))
 		}
 
 		// Watch changes for each of the referenced services to make sure we reprocess the CEC
 		// and set the ProxyRedirects in cases where CEC was created before the Service.
-		_, _, watchSvc, _ := c.writer.Services().GetWatch(wtxn, loadbalancer.ServiceByName(l.ServiceName()))
+		_, _, watchSvc, _ := c.writer.Services().GetWatch(wtxn, loadbalancer.ServiceByName(svcName))
 		ws.Add(watchSvc)
 	}
 
