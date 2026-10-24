@@ -180,10 +180,7 @@ struct debug_capture_msg {
 
 #include "events.h"
 #include "utils.h"
-
-#ifdef DEBUG_TAGGED
-#include "trace_helpers.h"
-#endif
+#include "trace_id.h"
 
 /* This takes both literals and modifiers, e.g.,
  * printk("hello\n");
@@ -210,7 +207,7 @@ struct debug_capture_msg {
 static __always_inline void cilium_dbg3(const struct __ctx_buff *ctx, __u8 type,
 					__u32 arg1, __u32 arg2, __u32 arg3)
 {
-	if (!CONFIG(debug) && !is_defined(DEBUG_TAGGED))
+	if (!CONFIG(debug) && !CONFIG(debug_tagged))
 		return;
 
 	struct debug_msg msg = {
@@ -219,10 +216,8 @@ static __always_inline void cilium_dbg3(const struct __ctx_buff *ctx, __u8 type,
 		.arg2	= arg2,
 		.arg3	= arg3,
 	};
-#ifdef DEBUG_TAGGED
-	if (!load_ip_trace_id())
+	if (CONFIG(debug_tagged) && !load_ip_trace_id())
 		return;
-#endif
 	dbg_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events, BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
@@ -237,7 +232,7 @@ cilium_dbg(const struct __ctx_buff *ctx, __u8 type, __u32 arg1, __u32 arg2)
 static __always_inline void cilium_dbg_capture2(const struct __ctx_buff *ctx, __u8 type,
 						__u32 arg1, __u32 arg2)
 {
-	if (!CONFIG(debug) && !is_defined(DEBUG_TAGGED))
+	if (!CONFIG(debug) && !CONFIG(debug_tagged))
 		return;
 
 	__u64 ctx_len = ctx_full_len(ctx);
@@ -248,10 +243,8 @@ static __always_inline void cilium_dbg_capture2(const struct __ctx_buff *ctx, __
 		.arg1	= arg1,
 		.arg2	= arg2,
 	};
-#ifdef DEBUG_TAGGED
-	if (!load_ip_trace_id())
+	if (CONFIG(debug_tagged) && !load_ip_trace_id())
 		return;
-#endif
 	dbg_capture_extension_hook(ctx, msg);
 	ctx_event_output(ctx, &cilium_events,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,

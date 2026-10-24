@@ -10,6 +10,7 @@ var (
 		Debug:                &specDebug,
 		DebugLB:              &specDebugLB,
 		DebugPolicy:          &specDebugPolicy,
+		DebugTagged:          &specDebugTagged,
 		DropNotify:           &specDropNotify,
 		TraceNotify:          &specTraceNotify,
 		PolicyVerdictNotify:  &specPolicyVerdictNotify,

@@ -165,6 +165,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableTraceNotify = option.Config.Opts.IsEnabled(option.TraceNotify)
 	node.Debug = option.Config.Opts.IsEnabled(option.Debug)
+	node.DebugTagged = option.Config.Opts.IsEnabled(option.DebugTagged)
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
 	node.EnableDropNotify = option.Config.Opts.IsEnabled(option.DropNotify)
 
