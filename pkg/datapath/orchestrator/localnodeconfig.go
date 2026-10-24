@@ -73,6 +73,11 @@ func newLocalNodeConfig(
 	connectorConfig connector.Config,
 	plugins plugin.Plugins,
 ) (config.Config, <-chan struct{}, error) {
+	hostEndpointID, hostIDWatch, err := hostEndpointIDConfig(daemon.EnableHostFirewall)
+	if err != nil {
+		return config.Config{}, hostIDWatch, err
+	}
+
 	auxPrefixes := []ip.Prefix{}
 
 	if daemon.IPv4ServiceRange.IsValid() {
@@ -96,7 +101,7 @@ func newLocalNodeConfig(
 		return config.Config{}, devsWatch, fmt.Errorf("resolving VLAN filters: %w", err)
 	}
 
-	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch}
+	watchChans := []<-chan struct{}{devsWatch, addrsWatch, mtuWatch, hostIDWatch}
 	var directRoutingDevice *tables.Device
 	if option.Config.DirectRoutingDeviceRequired(kprCfg, wgAgent.Enabled()) {
 		drd, directRoutingDevWatch := directRoutingDevTbl.Get(ctx, txn)
@@ -131,8 +136,6 @@ func newLocalNodeConfig(
 	if err != nil {
 		return config.Config{}, nil, fmt.Errorf("getting ephemeral port range minimun: %w", err)
 	}
-
-	hostEndpointID, _ := node.GetEndpointID()
 
 	ciliumHostDevice, _, hostWatch, ok := devices.GetWatch(txn, tables.DeviceByName(defaults.HostDevice))
 	if !ok {
@@ -283,6 +286,17 @@ func getEphemeralPortRangeMin(sysctl sysctl.Sysctl) (int, error) {
 	}
 
 	return ephemeralPortMin, nil
+}
+
+// hostEndpointIDConfig waits for ID allocation, not host endpoint regeneration:
+// regeneration itself needs the datapath to have been initialized. Watching the
+// ID also refreshes the cached node configuration if a host endpoint is replaced.
+func hostEndpointIDConfig(hostFirewallEnabled bool) (uint64, <-chan struct{}, error) {
+	id, initialized, watch := node.GetEndpointIDAndWatch()
+	if hostFirewallEnabled && !initialized {
+		return 0, watch, errors.New("host endpoint ID is not initialized")
+	}
+	return id, watch, nil
 }
 
 // directRoutingDeviceHasAddr returns true if the device has at least one
