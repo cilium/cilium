@@ -172,7 +172,8 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	__u8 seen_flags = flags.lower_bits & report_mask;
 	__u32 last_report;
 
-	WRITE_ONCE(entry->lifetime, now + lifetime);
+	if (now + lifetime != READ_ONCE(entry->lifetime))
+		WRITE_ONCE(entry->lifetime, now + lifetime);
 
 	if (dir == CT_INGRESS) {
 		accumulated_flags = READ_ONCE(entry->rx_flags_seen);
@@ -244,7 +245,8 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
 
 	if (tcp) {
-		entry->seen_non_syn |= !syn;
+		if (!syn && !entry->seen_non_syn)
+			entry->seen_non_syn = 1;
 		if (entry->seen_non_syn) {
 			lifetime = dir == CT_SERVICE ?
 				   bpf_sec_to_mono(CONFIG(ct_timeouts).service_lifetime_tcp) :
