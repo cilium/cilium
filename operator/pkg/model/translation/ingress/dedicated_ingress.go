@@ -43,7 +43,7 @@ func NewDedicatedIngressTranslator(log *slog.Logger, cecTranslator translation.C
 }
 
 func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.CiliumEnvoyConfig, *corev1.Service, []*discoveryv1.EndpointSlice, error) {
-	if m == nil || (len(m.HTTP) == 0 && len(m.TLSPassthrough) == 0) {
+	if m == nil || (len(m.HTTP) == 0 && len(m.TLS) == 0) {
 		return nil, nil, nil, fmt.Errorf("model source can't be empty")
 	}
 
@@ -54,10 +54,10 @@ func (d *dedicatedIngressTranslator) Translate(m *model.Model) (*ciliumv2.Cilium
 	var tlsOnly bool
 
 	if len(m.HTTP) == 0 {
-		name = shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLSPassthrough[0].Sources[0].Name))
-		namespace = m.TLSPassthrough[0].Sources[0].Namespace
-		sourceResource = m.TLSPassthrough[0].Sources[0]
-		modelService = m.TLSPassthrough[0].Service
+		name = shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.TLS[0].Sources[0].Name))
+		namespace = m.TLS[0].Sources[0].Namespace
+		sourceResource = m.TLS[0].Sources[0]
+		modelService = m.TLS[0].Service
 		tlsOnly = true
 	} else {
 		name = shortener.ShortenDNSLabelK8sName(fmt.Sprintf("%s-%s", ciliumIngressPrefix, m.HTTP[0].Sources[0].Name))

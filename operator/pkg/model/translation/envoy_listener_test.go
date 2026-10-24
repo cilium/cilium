@@ -304,7 +304,7 @@ func Test_getHostNetworkListenerAddresses(t *testing.T) {
 	}
 }
 
-func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
+func Test_tlsFilterChains_Backends(t *testing.T) {
 	weight70 := int32(70)
 	weight30 := int32(30)
 	weight0 := int32(0)
@@ -330,7 +330,7 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 			},
 			wantFilterChains: 1,
 			wantStatPrefix:   "tls-passthrough:test.example.com",
-			wantCluster:      "one:backend-v1:443",
+			wantCluster:      "tcp:one:backend-v1:443",
 		},
 		{
 			name: "weighted backends",
@@ -341,8 +341,8 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 			wantFilterChains: 1,
 			wantStatPrefix:   "tls-passthrough:test.example.com",
 			wantWeighted: []*envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight{
-				{Name: "one:backend-v1:443", Weight: 70},
-				{Name: "one:backend-v2:443", Weight: 30},
+				{Name: "tcp:one:backend-v1:443", Weight: 70},
+				{Name: "tcp:one:backend-v2:443", Weight: 30},
 			},
 		},
 		{
@@ -354,8 +354,8 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 			wantFilterChains: 1,
 			wantStatPrefix:   "tls-passthrough:test.example.com",
 			wantWeighted: []*envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight{
-				{Name: "one:backend-v1:443", Weight: 1},
-				{Name: "one:backend-v2:443", Weight: 1},
+				{Name: "tcp:one:backend-v1:443", Weight: 1},
+				{Name: "tcp:one:backend-v2:443", Weight: 1},
 			},
 		},
 		{
@@ -369,10 +369,10 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 			wantFilterChains: 1,
 			wantStatPrefix:   "tls-passthrough:test.example.com",
 			wantWeighted: []*envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight{
-				{Name: "one:backend-v1:443", Weight: 1},
-				{Name: "one:backend-v2:443", Weight: 99},
-				{Name: "one:backend-v3:443", Weight: 0},
-				{Name: "one:backend-v4:443", Weight: 0},
+				{Name: "tcp:one:backend-v1:443", Weight: 1},
+				{Name: "tcp:one:backend-v2:443", Weight: 99},
+				{Name: "tcp:one:backend-v3:443", Weight: 0},
+				{Name: "tcp:one:backend-v4:443", Weight: 0},
 			},
 		},
 		{
@@ -384,18 +384,18 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 			wantFilterChains: 1,
 			wantStatPrefix:   "tls-passthrough:test.example.com",
 			wantWeighted: []*envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight{
-				{Name: "one:backend-v1:443", Weight: 0},
-				{Name: "one:backend-v2:443", Weight: 0},
+				{Name: "tcp:one:backend-v1:443", Weight: 0},
+				{Name: "tcp:one:backend-v2:443", Weight: 0},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filterChains := tlsPassthroughFilterChains(&model.Model{
-				TLSPassthrough: []model.TLSPassthroughListener{
+			filterChains := tlsFilterChains(&model.Model{
+				TLS: []model.TLSListener{
 					{
-						Routes: []model.TLSPassthroughRoute{
+						Routes: []model.TLSRoute{
 							{
 								Hostnames: []string{"test.example.com"},
 								Backends:  tt.backends,
@@ -403,7 +403,7 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 						},
 					},
 				},
-			})
+			}, "")
 
 			require.Len(t, filterChains, tt.wantFilterChains)
 			if tt.wantFilterChains == 0 {
@@ -425,11 +425,11 @@ func Test_tlsPassthroughFilterChains_Backends(t *testing.T) {
 	}
 }
 
-func Test_tlsPassthroughFilterChains_AccessLogs(t *testing.T) {
-	filterChains := tlsPassthroughFilterChains(&model.Model{
-		TLSPassthrough: []model.TLSPassthroughListener{
+func Test_tlsFilterChains_AccessLogs(t *testing.T) {
+	filterChains := tlsFilterChains(&model.Model{
+		TLS: []model.TLSListener{
 			{
-				Routes: []model.TLSPassthroughRoute{
+				Routes: []model.TLSRoute{
 					{
 						Hostnames: []string{"test.example.com"},
 						Backends: []model.Backend{
@@ -449,7 +449,7 @@ func Test_tlsPassthroughFilterChains_AccessLogs(t *testing.T) {
 				},
 			},
 		},
-	})
+	}, "")
 
 	require.Len(t, filterChains, 1)
 	tcpProxy := getTCPProxy(t, filterChains[0])
@@ -457,11 +457,11 @@ func Test_tlsPassthroughFilterChains_AccessLogs(t *testing.T) {
 	require.Equal(t, "envoy.access_loggers.stdout", tcpProxy.GetAccessLog()[0].GetName())
 }
 
-func Test_tlsPassthroughFilterChains_DuplicateSNIRoutesPreserveCurrentBehavior(t *testing.T) {
-	filterChains := tlsPassthroughFilterChains(&model.Model{
-		TLSPassthrough: []model.TLSPassthroughListener{
+func Test_tlsFilterChains_DuplicateSNIRoutesPreserveCurrentBehavior(t *testing.T) {
+	filterChains := tlsFilterChains(&model.Model{
+		TLS: []model.TLSListener{
 			{
-				Routes: []model.TLSPassthroughRoute{
+				Routes: []model.TLSRoute{
 					{
 						Hostnames: []string{"test.example.com"},
 						Backends: []model.Backend{
@@ -477,27 +477,27 @@ func Test_tlsPassthroughFilterChains_DuplicateSNIRoutesPreserveCurrentBehavior(t
 				},
 			},
 		},
-	})
+	}, "")
 
 	require.Len(t, filterChains, 2)
 	assert.Equal(t, []string{"test.example.com"}, filterChains[0].GetFilterChainMatch().GetServerNames())
 	assert.Equal(t, []string{"test.example.com"}, filterChains[1].GetFilterChainMatch().GetServerNames())
 	assert.Equal(t, "tls-passthrough:test.example.com", getTCPProxy(t, filterChains[0]).GetStatPrefix())
 	assert.Equal(t, "tls-passthrough:test.example.com", getTCPProxy(t, filterChains[1]).GetStatPrefix())
-	assert.Equal(t, "one:backend-v1:443", getTCPProxy(t, filterChains[0]).GetCluster())
-	assert.Equal(t, "one:backend-v2:443", getTCPProxy(t, filterChains[1]).GetCluster())
+	assert.Equal(t, "tcp:one:backend-v1:443", getTCPProxy(t, filterChains[0]).GetCluster())
+	assert.Equal(t, "tcp:one:backend-v2:443", getTCPProxy(t, filterChains[1]).GetCluster())
 }
 
-func Test_tlsPassthroughFilterChains_DeterministicOrder(t *testing.T) {
+func Test_tlsFilterChains_DeterministicOrder(t *testing.T) {
 	weight70 := int32(70)
 	weight30 := int32(30)
 
 	modelA := &model.Model{
-		TLSPassthrough: []model.TLSPassthroughListener{
+		TLS: []model.TLSListener{
 			{
 				Name: "listener-z",
 				Port: 443,
-				Routes: []model.TLSPassthroughRoute{
+				Routes: []model.TLSRoute{
 					{
 						Hostnames: []string{"c.example.com"},
 						Backends: []model.Backend{
@@ -509,7 +509,7 @@ func Test_tlsPassthroughFilterChains_DeterministicOrder(t *testing.T) {
 			{
 				Name: "listener-a",
 				Port: 443,
-				Routes: []model.TLSPassthroughRoute{
+				Routes: []model.TLSRoute{
 					{
 						Hostnames: []string{"b.example.com"},
 						Backends: []model.Backend{
@@ -529,11 +529,11 @@ func Test_tlsPassthroughFilterChains_DeterministicOrder(t *testing.T) {
 	}
 
 	modelB := &model.Model{
-		TLSPassthrough: []model.TLSPassthroughListener{
+		TLS: []model.TLSListener{
 			{
 				Name: "listener-a",
 				Port: 443,
-				Routes: []model.TLSPassthroughRoute{
+				Routes: []model.TLSRoute{
 					{
 						Hostnames: []string{"a.example.com"},
 						Backends: []model.Backend{
@@ -552,7 +552,7 @@ func Test_tlsPassthroughFilterChains_DeterministicOrder(t *testing.T) {
 			{
 				Name: "listener-z",
 				Port: 443,
-				Routes: []model.TLSPassthroughRoute{
+				Routes: []model.TLSRoute{
 					{
 						Hostnames: []string{"c.example.com"},
 						Backends: []model.Backend{
@@ -564,8 +564,8 @@ func Test_tlsPassthroughFilterChains_DeterministicOrder(t *testing.T) {
 		},
 	}
 
-	filterChainsA := tlsPassthroughFilterChains(modelA)
-	filterChainsB := tlsPassthroughFilterChains(modelB)
+	filterChainsA := tlsFilterChains(modelA, "")
+	filterChainsB := tlsFilterChains(modelB, "")
 
 	diffOutput := cmp.Diff(filterChainsA, filterChainsB, protocmp.Transform())
 	if len(diffOutput) != 0 {
@@ -581,9 +581,99 @@ func Test_tlsPassthroughFilterChains_DeterministicOrder(t *testing.T) {
 	assert.Equal(t, "tls-passthrough:a.example.com", tcpProxy.GetStatPrefix())
 	require.NotNil(t, tcpProxy.GetWeightedClusters())
 	assert.Equal(t, []*envoy_extensions_filters_network_tcp_v3.TcpProxy_WeightedCluster_ClusterWeight{
-		{Name: "one:backend-a:443", Weight: 70},
-		{Name: "one:backend-c:443", Weight: 30},
+		{Name: "tcp:one:backend-a:443", Weight: 70},
+		{Name: "tcp:one:backend-c:443", Weight: 30},
 	}, tcpProxy.GetWeightedClusters().GetClusters())
+}
+
+func Test_tlsFilterChains_MixedTerminationModes(t *testing.T) {
+	filterChains := tlsFilterChains(&model.Model{
+		TLS: []model.TLSListener{
+			{
+				Name:       "a-terminate",
+				Port:       443,
+				Mode:       model.TLSModeTerminate,
+				TLSOptions: &model.TLSOptions{MinVersion: "1.2", MaxVersion: "1.3"},
+				TLS: []model.TLSSecret{
+					{Namespace: "gateway-ns", Name: "terminate-cert"},
+				},
+				Routes: []model.TLSRoute{
+					{
+						Hostnames: []string{"terminate.example.com"},
+						Backends: []model.Backend{
+							tlsBackend("one", "plaintext-backend", 8080, nil),
+						},
+					},
+				},
+			},
+			{
+				Name: "b-passthrough",
+				Port: 443,
+				Mode: model.TLSModePassthrough,
+				Routes: []model.TLSRoute{
+					{
+						Hostnames: []string{"passthrough.example.com"},
+						Backends: []model.Backend{
+							tlsBackend("one", "tls-backend", 8443, nil),
+						},
+					},
+				},
+			},
+		},
+	}, "cilium-secrets")
+
+	require.Len(t, filterChains, 2)
+
+	terminated := filterChains[0]
+	assert.Equal(t, []string{"terminate.example.com"}, terminated.GetFilterChainMatch().GetServerNames())
+	require.NotNil(t, terminated.GetTransportSocket())
+	assert.Equal(t, tlsTransportSocketType, terminated.GetTransportSocket().GetName())
+
+	downstreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+	require.NoError(t, terminated.GetTransportSocket().GetTypedConfig().UnmarshalTo(downstreamTLS))
+	require.Len(t, downstreamTLS.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs(), 1)
+	assert.Equal(t,
+		syncnames.SyncedSDSSecretName("cilium-secrets", types.NamespacedName{Namespace: "gateway-ns", Name: "terminate-cert"}),
+		downstreamTLS.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()[0].GetName(),
+	)
+	params := downstreamTLS.GetCommonTlsContext().GetTlsParams()
+	require.NotNil(t, params)
+	assert.Equal(t, envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2, params.GetTlsMinimumProtocolVersion())
+	assert.Equal(t, envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_3, params.GetTlsMaximumProtocolVersion())
+	assert.Equal(t, "tls-terminate:terminate.example.com", getTCPProxy(t, terminated).GetStatPrefix())
+	assert.Equal(t, "tcp:one:plaintext-backend:8080", getTCPProxy(t, terminated).GetCluster())
+
+	passthrough := filterChains[1]
+	assert.Equal(t, []string{"passthrough.example.com"}, passthrough.GetFilterChainMatch().GetServerNames())
+	assert.Nil(t, passthrough.GetTransportSocket())
+	assert.Equal(t, "tls-passthrough:passthrough.example.com", getTCPProxy(t, passthrough).GetStatPrefix())
+	assert.Equal(t, "tcp:one:tls-backend:8443", getTCPProxy(t, passthrough).GetCluster())
+}
+
+func Test_tlsFilterChainsForPort_TLSOptions(t *testing.T) {
+	filterChains := tlsFilterChainsForPort(443, &model.Model{
+		TLS: []model.TLSListener{
+			{
+				Port:       443,
+				Mode:       model.TLSModeTerminate,
+				TLS:        []model.TLSSecret{{Namespace: "gateway-ns", Name: "terminate-cert"}},
+				TLSOptions: &model.TLSOptions{MinVersion: "1.3"},
+				Routes: []model.TLSRoute{
+					{
+						Hostnames: []string{"terminate.example.com"},
+						Backends:  []model.Backend{tlsBackend("one", "plaintext-backend", 8080, nil)},
+					},
+				},
+			},
+		},
+	}, "cilium-secrets")
+
+	require.Len(t, filterChains, 1)
+	downstreamTLS := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+	require.NoError(t, filterChains[0].GetTransportSocket().GetTypedConfig().UnmarshalTo(downstreamTLS))
+	params := downstreamTLS.GetCommonTlsContext().GetTlsParams()
+	require.NotNil(t, params)
+	assert.Equal(t, envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_3, params.GetTlsMinimumProtocolVersion())
 }
 
 func tlsBackend(namespace, name string, port uint32, weight *int32) model.Backend {
@@ -879,7 +969,47 @@ func TestDesiredEnvoyListenerPerPort(t *testing.T) {
 	require.Equal(t, tlsTransportSocketType, l2.FilterChains[0].TransportSocket.Name)
 }
 
-func TestDesiredEnvoyListenerCatchAllHTTPSWithMultiPortTLSPassthrough(t *testing.T) {
+func TestDesiredEnvoyListenerSharedHTTPSAndTerminatingTLSWithMultiplePorts(t *testing.T) {
+	i := &cecTranslator{Config: Config{SecretsNamespace: "cilium-secrets"}}
+	m := &model.Model{
+		HTTP: []model.HTTPListener{
+			{Port: 443, Hostname: "web.example.test", TLS: []model.TLSSecret{{Name: "web-cert", Namespace: "default"}}},
+			{Port: 8443, Hostname: "web.example.test", TLS: []model.TLSSecret{{Name: "web-cert", Namespace: "default"}}},
+		},
+		TLS: []model.TLSListener{{
+			Port: 443,
+			Mode: model.TLSModeTerminate,
+			TLS:  []model.TLSSecret{{Name: "tcp-cert", Namespace: "default"}},
+			Routes: []model.TLSRoute{{
+				Hostnames: []string{"tcp.example.test"},
+				Backends:  []model.Backend{tlsBackend("default", "tcp-backend", 8080, nil)},
+			}},
+		}},
+	}
+
+	res, err := i.desiredEnvoyListener(m)
+	require.NoError(t, err)
+	require.Len(t, res, 2)
+	listeners := map[string]*envoy_config_listener.Listener{}
+	for _, resource := range res {
+		listener := &envoy_config_listener.Listener{}
+		require.NoError(t, proto.Unmarshal(resource.Value, listener))
+		listeners[listener.Name] = listener
+	}
+	require.Len(t, listeners, 2, "each port must have exactly one Envoy listener")
+	shared := listeners["listener-443"]
+	require.NotNil(t, shared)
+	require.Len(t, shared.FilterChains, 2)
+	require.Equal(t, []string{"web.example.test"}, shared.FilterChains[0].GetFilterChainMatch().GetServerNames())
+	require.Equal(t, []string{"tcp.example.test"}, shared.FilterChains[1].GetFilterChainMatch().GetServerNames())
+	require.Equal(t, tlsTransportSocketType, shared.FilterChains[1].GetTransportSocket().GetName())
+	require.Equal(t, "tcp:default:tcp-backend:8080", getTCPProxy(t, shared.FilterChains[1]).GetCluster())
+	other := listeners["listener-8443"]
+	require.NotNil(t, other)
+	require.Len(t, other.FilterChains, 1)
+}
+
+func TestDesiredEnvoyListenerCatchAllHTTPSWithMultiPortTLS(t *testing.T) {
 	i := &cecTranslator{
 		Config: Config{
 			SecretsNamespace: "cilium-secrets",
@@ -896,10 +1026,10 @@ func TestDesiredEnvoyListenerCatchAllHTTPSWithMultiPortTLSPassthrough(t *testing
 				},
 			},
 		},
-		TLSPassthrough: []model.TLSPassthroughListener{
+		TLS: []model.TLSListener{
 			{
 				Port: 50051,
-				Routes: []model.TLSPassthroughRoute{
+				Routes: []model.TLSRoute{
 					{
 						Hostnames: []string{"api.example.test"},
 						Backends: []model.Backend{
@@ -910,7 +1040,7 @@ func TestDesiredEnvoyListenerCatchAllHTTPSWithMultiPortTLSPassthrough(t *testing
 			},
 			{
 				Port: 9443,
-				Routes: []model.TLSPassthroughRoute{
+				Routes: []model.TLSRoute{
 					{
 						Hostnames: []string{"api.example.test"},
 						Backends: []model.Backend{
@@ -955,7 +1085,7 @@ func TestDesiredEnvoyListenerCatchAllHTTPSWithMultiPortTLSPassthrough(t *testing
 	require.Equal(t, tlsTransportProtocol, l1.FilterChains[0].FilterChainMatch.TransportProtocol)
 	require.Equal(t, []string{"api.example.test"}, l1.FilterChains[0].FilterChainMatch.ServerNames)
 	tcpProxy1 := getTCPProxy(t, l1.FilterChains[0])
-	require.Equal(t, "default:tls-backend-9443:9443", tcpProxy1.GetCluster())
+	require.Equal(t, "tcp:default:tls-backend-9443:9443", tcpProxy1.GetCluster())
 
 	// TLS passthrough listener on port 50051.
 	l2 := decodeListener(res[2])
@@ -964,7 +1094,7 @@ func TestDesiredEnvoyListenerCatchAllHTTPSWithMultiPortTLSPassthrough(t *testing
 	require.Equal(t, tlsTransportProtocol, l2.FilterChains[0].FilterChainMatch.TransportProtocol)
 	require.Equal(t, []string{"api.example.test"}, l2.FilterChains[0].FilterChainMatch.ServerNames)
 	tcpProxy2 := getTCPProxy(t, l2.FilterChains[0])
-	require.Equal(t, "default:tls-backend-50051:9443", tcpProxy2.GetCluster())
+	require.Equal(t, "tcp:default:tls-backend-50051:9443", tcpProxy2.GetCluster())
 }
 
 // TestDesiredEnvoyListenerSingleHTTPS checks that a single-HTTPS-port model
