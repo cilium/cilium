@@ -31,7 +31,9 @@ func NewDeletePrefilter(ctx *middleware.Context, handler DeletePrefilterHandler)
 
 // DeletePrefilter swagger:route DELETE /prefilter prefilter deletePrefilter
 //
-// Delete list of CIDRs
+// # Delete list of CIDRs
+//
+// Deprecated: This will be removed in the future.
 type DeletePrefilter struct {
 	Context *middleware.Context
 	Handler DeletePrefilterHandler

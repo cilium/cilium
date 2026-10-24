@@ -14,7 +14,7 @@ import (
 
 var preFilterDeleteCmd = &cobra.Command{
 	Use:   "delete",
-	Short: "Delete CIDR filters",
+	Short: "Delete CIDR filters (deprecated)",
 	Run: func(cmd *cobra.Command, args []string) {
 		deleteFilters(cmd, args)
 	},

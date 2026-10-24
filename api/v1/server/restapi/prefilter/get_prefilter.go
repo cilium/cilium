@@ -31,7 +31,9 @@ func NewGetPrefilter(ctx *middleware.Context, handler GetPrefilterHandler) *GetP
 
 // GetPrefilter swagger:route GET /prefilter prefilter getPrefilter
 //
-// Retrieve list of CIDRs
+// # Retrieve list of CIDRs
+//
+// Deprecated: This will be removed in the future.
 type GetPrefilter struct {
 	Context *middleware.Context
 	Handler GetPrefilterHandler
