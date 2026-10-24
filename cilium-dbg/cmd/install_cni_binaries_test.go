@@ -28,25 +28,25 @@ const (
 
 func TestCniBinDirFromEnv(t *testing.T) {
 	tests := []struct {
-		name         string
-		cniDir       string
-		setCniDir    bool
-		hostPrefix   string
-		setHostPrefx bool
-		expected     string
+		name          string
+		cniDir        string
+		setCniDir     bool
+		hostPrefix    string
+		setHostPrefix bool
+		expected      string
 	}{
 		{name: "default", expected: "/host/opt/cni/bin"},
 		{name: "cni_dir", cniDir: "/custom/cni", setCniDir: true, expected: "/custom/cni/bin"},
-		{name: "cni_dir wins over host_prefix", cniDir: "/custom/cni", setCniDir: true, hostPrefix: "/hp", setHostPrefx: true, expected: "/custom/cni/bin"},
-		{name: "host_prefix", hostPrefix: "/hp", setHostPrefx: true, expected: "/hp/opt/cni/bin"},
-		{name: "empty values fall back to default", cniDir: "", setCniDir: true, hostPrefix: "", setHostPrefx: true, expected: "/host/opt/cni/bin"},
+		{name: "cni_dir wins over host_prefix", cniDir: "/custom/cni", setCniDir: true, hostPrefix: "/hp", setHostPrefix: true, expected: "/custom/cni/bin"},
+		{name: "host_prefix", hostPrefix: "/hp", setHostPrefix: true, expected: "/hp/opt/cni/bin"},
+		{name: "empty values fall back to default", cniDir: "", setCniDir: true, hostPrefix: "", setHostPrefix: true, expected: "/host/opt/cni/bin"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.setCniDir {
 				t.Setenv(envCNIPath, tt.cniDir)
 			}
-			if tt.setHostPrefx {
+			if tt.setHostPrefix {
 				t.Setenv(envHostPrefix, tt.hostPrefix)
 			}
 			require.Equal(t, tt.expected, cniBinDirFromEnv())
