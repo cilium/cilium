@@ -94,6 +94,13 @@ var (
 		EnableIPv6:           true,
 		EnableEndpointRoutes: true,
 	}
+	daemonConfigNetkitEndpointRoutesL7 = option.DaemonConfig{
+		DatapathMode:         datapathOption.DatapathModeNetkit,
+		EnableIPv4:           true,
+		EnableIPv6:           true,
+		EnableEndpointRoutes: true,
+		EnableL7Proxy:        true,
+	}
 	daemonConfigNetkitL2 = option.DaemonConfig{
 		DatapathMode:    datapathOption.DatapathModeNetkitL2,
 		EnableIPv4:      true,
@@ -305,6 +312,17 @@ func TestNewConfig(t *testing.T) {
 			tunnelConfig:   tunnelConfigNative,
 			expectedConfig: &connectorConfigNetkit,
 			shouldError:    !hostSupportsNetkitScrub(),
+			shouldSkip:     false,
+		},
+		{
+			// Refused regardless of scrub support: cil_to_container cannot
+			// reach the L7 proxy from the Pod's netns.
+			name:           "datapath-netkit+endpoint-routes+l7-proxy",
+			daemonConfig:   &daemonConfigNetkitEndpointRoutesL7,
+			wgAgent:        fakewireguard.NewTestAgent(wgConfigDisabled),
+			tunnelConfig:   tunnelConfigNative,
+			expectedConfig: &connectorConfigNetkit,
+			shouldError:    true,
 			shouldSkip:     false,
 		},
 		{
