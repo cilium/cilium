@@ -228,6 +228,9 @@ const (
 	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
 	LoadBalancerIPIPSockMark = "bpf-lb-ipip-sock-mark"
 
+	// LoadBalancerIPIPUseOuterDst indicates whether the IPIP outer destination address should be used as the service backend.
+	LoadBalancerIPIPUseOuterDst = "bpf-lb-ipip-use-outer-dst"
+
 	// LoadBalancerExternalControlPlane switch skips connectivity to kube-apiserver
 	// which is relevant in lb-only mode
 	LoadBalancerExternalControlPlane = "bpf-lb-external-control-plane"
@@ -1559,6 +1562,9 @@ type DaemonConfig struct {
 	// LoadBalancerIPIPSockMark enables sock-lb logic to force service traffic via IPIP
 	LoadBalancerIPIPSockMark bool
 
+	// LoadBalancerIPIPUseOuterDst indicates whether the IPIP outer destination address should be used as the service backend.
+	LoadBalancerIPIPUseOuterDst bool
+
 	// LoadBalancerRSSv4CIDR defines the outer source IPv4 prefix for DSR/IPIP
 	LoadBalancerRSSv4CIDR string
 
@@ -2456,6 +2462,7 @@ func (c *DaemonConfig) Populate(logger *slog.Logger, vp *viper.Viper) {
 	c.LoadBalancerRSSv4CIDR = vp.GetString(LoadBalancerRSSv4CIDR)
 	c.LoadBalancerRSSv6CIDR = vp.GetString(LoadBalancerRSSv6CIDR)
 	c.LoadBalancerIPIPSockMark = vp.GetBool(LoadBalancerIPIPSockMark)
+	c.LoadBalancerIPIPUseOuterDst = vp.GetBool(LoadBalancerIPIPUseOuterDst)
 	c.InstallNoConntrackIptRules = vp.GetBool(InstallNoConntrackIptRules)
 	c.ContainerIPLocalReservedPorts = vp.GetString(ContainerIPLocalReservedPorts)
 	c.EnableNat46X64Gateway = vp.GetBool(EnableNat46X64Gateway)
