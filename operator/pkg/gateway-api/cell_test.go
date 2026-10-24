@@ -78,6 +78,51 @@ func TestIsTransientError(t *testing.T) {
 			expected: true,
 		},
 		{
+			name:     "internal error (500)",
+			err:      k8serrors.NewInternalError(errors.New("etcdserver: leader changed")),
+			expected: true,
+		},
+		{
+			name: "unexpected server error (500)",
+			err: &k8serrors.StatusError{
+				ErrStatus: metav1.Status{
+					Code:   500,
+					Reason: metav1.StatusReasonUnknown,
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "gateway timeout (504)",
+			err: &k8serrors.StatusError{
+				ErrStatus: metav1.Status{
+					Code: 504,
+				},
+			},
+			expected: true,
+		},
+		{
+			name:     "timed out errno",
+			err:      syscall.ETIMEDOUT,
+			expected: true,
+		},
+		{
+			name: "joined error with internal error and not found",
+			err: errors.Join(
+				k8serrors.NewNotFound(schema.GroupResource{Group: "gateway.networking.k8s.io", Resource: "gatewayclasses"}, "cilium"),
+				k8serrors.NewInternalError(errors.New("etcdserver: leader changed")),
+			),
+			expected: true,
+		},
+		{
+			name: "joined error with only not found errors",
+			err: errors.Join(
+				k8serrors.NewNotFound(schema.GroupResource{Group: "gateway.networking.k8s.io", Resource: "gatewayclasses"}, "cilium"),
+				k8serrors.NewNotFound(schema.GroupResource{Group: "gateway.networking.k8s.io", Resource: "gateways"}, "cilium"),
+			),
+			expected: false,
+		},
+		{
 			name:     "not found - permanent error",
 			err:      k8serrors.NewNotFound(schema.GroupResource{Group: "gateway.networking.k8s.io", Resource: "gatewayclasses"}, "cilium"),
 			expected: false,
@@ -176,6 +221,35 @@ func TestDiscoverCRDsWithRetry_TransientErrorThenSuccess(t *testing.T) {
 		func(action k8sTesting.Action) (bool, runtime.Object, error) {
 			if callCount.Add(1) <= int32(len(helpers.RequiredGVKs)) {
 				return true, nil, syscall.ECONNREFUSED
+			}
+			return false, nil, nil
+		},
+	)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+
+	result, err := discoverCRDsWithRetry(ctx, cs, logger, health)
+
+	require.NoError(t, err)
+	require.True(t, result.Enabled)
+	assert.Equal(t, cell.StatusOK, simpleHealth.Level)
+	assert.Greater(t, int(callCount.Load()), len(helpers.RequiredGVKs))
+}
+
+func TestDiscoverCRDsWithRetry_InternalServerErrorThenSuccess(t *testing.T) {
+	logger := hivetest.Logger(t)
+	fcs, cs := k8sClient.NewFakeClientset(logger)
+	health, simpleHealth := cell.NewSimpleHealth()
+
+	installRequiredCRDs(t, fcs)
+
+	// Fail the first batch with HTTP 500 InternalServerError (e.g., etcd leader election)
+	var callCount atomic.Int32
+	fcs.APIExtFakeClientset.PrependReactor("get", "customresourcedefinitions",
+		func(action k8sTesting.Action) (bool, runtime.Object, error) {
+			if callCount.Add(1) <= int32(len(helpers.RequiredGVKs)) {
+				return true, nil, k8serrors.NewInternalError(errors.New("etcdserver: leader changed"))
 			}
 			return false, nil, nil
 		},
