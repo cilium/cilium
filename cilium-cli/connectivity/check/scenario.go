@@ -32,6 +32,13 @@ type ConditionalScenario interface {
 	Requirements() []features.Requirement
 }
 
+// HostNetNSScenario is a test scenario which requires the host-netns DaemonSet
+// to be deployed. If it is not, the test scenario is skipped.
+type HostNetNSScenario interface {
+	Scenario
+	RequiresHostNetNSDaemonSet()
+}
+
 // VersionedScenario is a test scenario which requires a specific Cilium
 // version range. If the running Cilium version does not match the constraint,
 // the test scenario is skipped.

@@ -17,6 +17,7 @@ func (t fromCidrHostNetns) build(ct *check.ConnectivityTest, templates map[strin
 		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 		WithCiliumPolicy(templates["echoIngressFromCIDRYAML"]).
 		WithIPRoutesFromOutsideToPodCIDRs().
+		WithStaticRoutesHostNetNSDaemonSet().
 		WithScenarios(tests.FromCIDRToPod()).
 		WithExpectations(func(_ *check.Action) (egress, ingress check.Result) {
 			return check.ResultOK, check.ResultNone
