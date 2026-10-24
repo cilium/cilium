@@ -1021,9 +1021,6 @@ data:
   cni-exclusive: {{ .Values.cni.exclusive | quote }}
   cni-log-file: {{ .Values.cni.logFile | quote }}
 {{- end }}
-{{- if .Values.cni.uninstall }}
-  cni-uninstall: {{ .Values.cni.uninstall | quote }}
-{{- end }}
 {{- if (not (kindIs "invalid" .Values.cni.chainingTarget)) }}
   cni-chaining-target: {{ .Values.cni.chainingTarget | quote }}
 {{- end}}
