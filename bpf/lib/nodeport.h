@@ -1411,6 +1411,7 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 				return handle_nonroutable_endpoints_v6(svc);
 			if (CONFIG(enable_service_no_backend_response)) {
 				edt_set_aggregate(ctx, 0);
+				ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NO_SERVICE,
 							 ext_err);
 				return ret;
@@ -2755,6 +2756,7 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 				if (CONFIG(enable_service_no_backend_response)) {
 					/* Packet is TX'ed back out, avoid EDT false-positives: */
 					edt_set_aggregate(ctx, 0);
+					ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 					ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_NO_SERVICE,
 								 ext_err);
 					return ret;
