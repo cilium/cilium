@@ -640,6 +640,7 @@ func PreferredIPv4Address(addrs []DeviceAddress) netip.Addr {
 // SortedAddresses returns a copy of the addresses sorted by following predicates
 // (first predicate matching in this order wins):
 // - Primary (e.g. !IFA_F_SECONDARY)
+// - Preferred before deprecated (e.g. !IFA_F_DEPRECATED)
 // - Scope, with lower scope going first (e.g. UNIVERSE before LINK)
 // - Public addresses before private (e.g. 1.2.3.4 before 192.168.1.1)
 // - By address itself (192.168.1.1 before 192.168.1.2)
@@ -653,6 +654,10 @@ func SortedAddresses(addrs []DeviceAddress) []DeviceAddress {
 		case !addrs[i].Secondary && addrs[j].Secondary:
 			return true
 		case addrs[i].Secondary && !addrs[j].Secondary:
+			return false
+		case !addrs[i].Deprecated && addrs[j].Deprecated:
+			return true
+		case addrs[i].Deprecated && !addrs[j].Deprecated:
 			return false
 		case addrs[i].Scope < addrs[j].Scope:
 			return true
@@ -708,6 +713,10 @@ func (f *fallbackAddresses) update(dev *Device) (updated bool) {
 		case dev.Selected && !fa.dev.Selected:
 			better = true
 		case !dev.Selected && fa.dev.Selected:
+			better = false
+		case !addr.Deprecated && fa.addr.Deprecated:
+			better = true
+		case addr.Deprecated && !fa.addr.Deprecated:
 			better = false
 		case ip.IsPublicAddr(addr.Addr.AsSlice()) && !ip.IsPublicAddr(fa.addr.Addr.AsSlice()):
 			better = true
