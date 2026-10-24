@@ -5,6 +5,7 @@ package iptables
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -222,7 +223,7 @@ func (c *customChain) doInstallFeeder(prog iptablesInterface, prepend bool) erro
 		installMode = "-I"
 	}
 
-	feedRule := []string{"-m", "comment", "--comment", feederDescription + " " + c.name, "-j", c.name}
+	feedRule := slices.Concat(ruleComment(feederDescription+" "+c.name), []string{"-j", c.name})
 	args := append([]string{"-t", c.table, installMode, c.hook}, feedRule...)
 
 	output, err := prog.runProgOutput(args)
