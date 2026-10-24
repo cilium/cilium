@@ -201,7 +201,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	testPods := append(
 		slices.Collect(maps.Values(ct.ClientPods())),
 		slices.Collect(maps.Values(ct.EchoPods()))...)
-	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, t.LogExecRetry, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		egressIP := "0.0.0.0"
@@ -476,7 +476,7 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 	testPods := append(
 		slices.Collect(maps.Values(ct.ClientPods())),
 		slices.Collect(maps.Values(ct.EchoPods()))...)
-	err = check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+	err = check.WaitForEgressGatewayBpfPolicyEntries(ctx, t.LogExecRetry, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		for _, client := range ct.ClientPods() {
@@ -696,7 +696,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 	testPods := append(
 		slices.Collect(maps.Values(ct.ClientPods())),
 		slices.Collect(maps.Values(ct.EchoPods()))...)
-	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, t.LogExecRetry, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		egressIP := "0.0.0.0"
