@@ -24,7 +24,7 @@ import (
 // goes, continuing on ties:
 //
 // 1. Oldest BackendTLSPolicy, by creation time
-// 2. First BackendTLSPolicy, lexigraphically sorted.
+// 2. First BackendTLSPolicy, lexicographically sorted.
 //
 // The BackendTLSPolicyTargetServiceCollection struct holds details
 // about which are the Valid (chosen) policies, and which are Conflicted.

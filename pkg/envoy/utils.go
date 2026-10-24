@@ -37,7 +37,7 @@ var (
 	wildcardSpecifierRE = regexp.MustCompile("[*]{2,}")
 )
 
-// cilium-agent SNI match pattern exposes the same sematics as FQDN match patterns to users.
+// cilium-agent SNI match pattern exposes the same semantics as FQDN match patterns to users.
 // However, this is not mapped 1:1 with cilium-envoy match pattern semantics.
 // This method converts the provided match pattern from cilium-agent representation to a
 // pattern that envoy understands. More details: https://github.com/cilium/proxy/pull/1698

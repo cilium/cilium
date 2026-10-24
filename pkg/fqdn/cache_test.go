@@ -1249,7 +1249,7 @@ func TestPerHostLimitBehaviourForS3(t *testing.T) {
 	if _, found := z.deletes[reallyOldLookup[0]]; found {
 		t.Errorf("expected really old lookup not to be present")
 	}
-	// Asser that the new lookups are present.
+	// Assert that the new lookups are present.
 	for _, ip := range recentLookup {
 		if _, found := z.deletes[ip]; !found {
 			t.Errorf("expected recent lookup %v to be present", ip)

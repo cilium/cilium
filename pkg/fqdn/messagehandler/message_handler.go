@@ -100,7 +100,7 @@ type flowInfo struct {
 // SetBindPort pushes the proxy bind port to the handler;
 // this is needed to break an import loop otherwise.
 //
-// The bind port is ony used for proxy statistics.
+// The bind port is only used for proxy statistics.
 func (h *dnsMessageHandler) SetBindPort(port uint16) {
 	h.bindPort = port
 }
