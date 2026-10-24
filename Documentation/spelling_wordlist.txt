@@ -326,6 +326,7 @@ deserialization
 deserialized
 detections
 dev
+dir
 disenroll
 disjunct
 distro
