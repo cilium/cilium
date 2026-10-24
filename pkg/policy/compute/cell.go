@@ -11,6 +11,8 @@ import (
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
 
+	"github.com/cilium/cilium/pkg/container/set"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/policy"
@@ -69,7 +71,13 @@ type IdentityPolicyComputer struct {
 	reqsMu   lock.Mutex
 	reqs     []computeRequest
 	advances []advanceRequest
-	trigger  chan struct{}
+
+	// trigger triggers processRequests to begin processing the batch.
+	trigger chan struct{}
+
+	// removedDuringComputation holds the identities that were deleted since
+	// processRequests took the current batch. Protected by reqsMu.
+	removedDuringComputation set.Set[identity.NumericIdentity]
 }
 
 type Params struct {
