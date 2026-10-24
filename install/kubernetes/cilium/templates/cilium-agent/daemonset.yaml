@@ -823,7 +823,8 @@ spec:
         image: {{ include "cilium.image" .Values.image | quote }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
-          - "/install-plugin.sh"
+          - "cilium-dbg"
+          - "install-cni-binaries"
         {{- with .Values.cni.resources }}
         resources:
           {{- toYaml . | trim | nindent 10 }}
