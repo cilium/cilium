@@ -255,3 +255,11 @@ type SerializedDevice struct {
 	LogicalPool      string                                          `json:"logicalPool,omitempty"`
 	ConsumedCapacity map[resourceapi.QualifiedName]resource.Quantity `json:",omitempty"`
 }
+
+type StaticAddrs struct {
+	IPv4 *netip.Prefix `json:"ipv4,omitzero"`
+	IPv6 *netip.Prefix `json:"ipv6,omitzero"`
+}
+
+// StaticAddrsMap maps ResourceClaim device request names to static addresses.
+type StaticAddrsMap map[string]StaticAddrs
