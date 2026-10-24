@@ -409,18 +409,25 @@ func (s *Server) DisenrollEndpoint(ep *endpoint.Endpoint) error {
 
 	ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
 	if err != nil {
-		s.logger.Error("failed to open netns file",
+		if !os.IsNotExist(err) {
+			s.logger.Error("failed to open netns file",
+				logfields.EndpointID, ep.GetID16(),
+				logfields.Error, err,
+			)
+			return err
+		}
+		// netns already gone: CNI DEL already tore it down; skip in-pod teardown, still drop from ztunnel and evict below.
+		s.logger.Info("netns already gone, skipping in-pod cleanup during disenroll",
 			logfields.EndpointID, ep.GetID16(),
-			logfields.Error, err,
 		)
-		return err
-	}
-	defer ns.Close()
+	} else {
+		defer ns.Close()
 
-	if err = ns.Do(func() error {
-		return iptables.DeleteInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
-	}); err != nil {
-		return fmt.Errorf("unable to remove iptable rules for ztunnel inpod mode: %w", err)
+		if err = ns.Do(func() error {
+			return iptables.DeleteInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
+		}); err != nil {
+			return fmt.Errorf("unable to remove iptable rules for ztunnel inpod mode: %w", err)
+		}
 	}
 
 	pod := ep.GetPod()
@@ -450,7 +457,8 @@ func (s *Server) DisenrollEndpoint(ep *endpoint.Endpoint) error {
 		return fmt.Errorf("sending update failed: %w", err)
 	}
 
-	// Only remove from cache after successful disenrollment
+	// Remove from cache after disenrollment. A missing netns is treated as
+	// success above, so an already-deleted endpoint is still evicted here.
 	s.endpointCacheMutex.Lock()
 	delete(s.endpointCache, ep.GetID16())
 	s.endpointCacheMutex.Unlock()
@@ -484,11 +492,18 @@ func (s *Server) sendInitialSnapshot(zc *ztunnelConn) error {
 	for _, ep := range s.endpointCache {
 		ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
 		if err != nil {
-			s.logger.Error("failed to open netns file",
+			if !os.IsNotExist(err) {
+				s.logger.Error("failed to open netns file",
+					logfields.EndpointID, ep.GetID16(),
+					logfields.Error, err,
+				)
+				return err
+			}
+			// netns already gone (stale cache entry); skip instead of aborting the whole snapshot.
+			s.logger.Warn("skipping endpoint with missing netns during initial snapshot",
 				logfields.EndpointID, ep.GetID16(),
-				logfields.Error, err,
 			)
-			return err
+			continue
 		}
 
 		if err = ns.Do(func() error {
