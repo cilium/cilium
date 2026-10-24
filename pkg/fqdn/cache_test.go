@@ -605,7 +605,7 @@ func assertZombiesContain(t *testing.T, zombies []*DNSZombieMapping, expected ma
 		names, exists := expected[zombie.IP.String()]
 		require.Truef(t, exists, "Unexpected zombie %s in zombies", zombie.IP.String())
 
-		got := zombie.Names.Sorted()
+		got := zombie.Names.sorted()
 		slices.Sort(names)
 
 		require.Len(t, got, len(names))
@@ -1261,7 +1261,7 @@ func TestPerHostLimitBehaviourForS3(t *testing.T) {
 func (z *DNSZombieMapping) String() string {
 	return fmt.Sprintf(
 		"DNSZombieMapping{AliveAt: %s, DeletePendingAt: %s, Names: %v}",
-		z.AliveAt, z.DeletePendingAt, z.Names.Sorted(),
+		z.AliveAt, z.DeletePendingAt, z.Names.sorted(),
 	)
 }
 
@@ -1428,7 +1428,7 @@ func Test_sortZombieMappingSlice(t *testing.T) {
 // DNSZombieMapping is written to the endpoint header file, which is a stable
 // format: an agent of a different version has to read back what this one wrote.
 // Names is a set in memory but must stay an array on the wire, so the tests
-// below pin the actual bytes rather than round-tripping through this same code.
+// below decode what we write the way a previous release would.
 
 // zombieForWire returns a zombie with fixed timestamps and unsorted names, so
 // encoding it exercises ordering rather than an already-canonical case.
@@ -1441,60 +1441,86 @@ func zombieForWire() DNSZombieMapping {
 	}
 }
 
-const zombieWireJSON = `{"names":["alpha.example.com","zeta.example.com"],` +
-	`"ip":"10.0.0.1","alive-at":"1970-01-01T00:00:01Z",` +
-	`"delete-pending-at":"1970-01-01T00:00:02Z"}`
+// sorted returns the names in a deterministic order, for comparing against a
+// fixed expectation. Nothing in the agent needs one.
+func (n nameSet) sorted() []string { return sets.List(sets.Set[string](n)) }
 
-// The whole field rests on nameSet.MarshalJSON being reached: encoding/json
-// only finds a pointer method on an addressable value, so with a pointer
-// receiver a zombie arriving as a plain value -- a map element, say -- would
-// serialize with no names at all and no error. Cover every form callers can
-// hand it, and pin the bytes once.
+// legacyZombie is how a previous release reads a zombie. Decoding into it
+// fails outright if the set ever reaches the wire as a JSON object.
+type legacyZombie struct {
+	Names           []string  `json:"names,omitempty"`
+	IP              string    `json:"ip,omitempty"`
+	AliveAt         time.Time `json:"alive-at,omitempty"`
+	DeletePendingAt time.Time `json:"delete-pending-at,omitempty"`
+}
+
+// marshalAsLegacy encodes v and decodes it the way a previous release would.
+func marshalAsLegacy(t *testing.T, v, out any) {
+	t.Helper()
+	raw, err := json.Marshal(v)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(raw, out), "names must be an array, not a map")
+}
+
+// encoding/json only finds a pointer method on an addressable value, so with a
+// pointer receiver on MarshalJSON a zombie arriving as a value -- a map element,
+// say -- would serialize with no names and no error. Cover every form callers
+// can hand it. Names are written in map iteration order, so compare as a set.
 func TestZombieNamesSerialize(t *testing.T) {
 	zombie := zombieForWire()
+	wantNames := []string{"alpha.example.com", "zeta.example.com"}
 
 	t.Run("wire format", func(t *testing.T) {
-		encoded, err := json.Marshal(&zombie)
-		require.NoError(t, err)
-		require.JSONEq(t, zombieWireJSON, string(encoded),
-			"names must be a sorted array, not a map")
+		var got legacyZombie
+		marshalAsLegacy(t, &zombie, &got)
+
+		require.ElementsMatch(t, wantNames, got.Names)
+		require.Equal(t, "10.0.0.1", got.IP)
+		require.Equal(t, time.Unix(1, 0).UTC(), got.AliveAt.UTC())
+		require.Equal(t, time.Unix(2, 0).UTC(), got.DeletePendingAt.UTC())
 	})
 
-	for name, encode := range map[string]func() ([]byte, error){
-		"pointer":       func() ([]byte, error) { return json.Marshal(&zombie) },
-		"value":         func() ([]byte, error) { return json.Marshal(zombie) },
-		"map element":   func() ([]byte, error) { return json.Marshal(map[string]DNSZombieMapping{"k": zombie}) },
-		"slice element": func() ([]byte, error) { return json.Marshal([]DNSZombieMapping{zombie}) },
+	for name, namesFrom := range map[string]func(t *testing.T) []string{
+		"pointer": func(t *testing.T) []string {
+			var got legacyZombie
+			marshalAsLegacy(t, &zombie, &got)
+			return got.Names
+		},
+		"value": func(t *testing.T) []string {
+			var got legacyZombie
+			marshalAsLegacy(t, zombie, &got)
+			return got.Names
+		},
+		"map element": func(t *testing.T) []string {
+			var got map[string]legacyZombie
+			marshalAsLegacy(t, map[string]DNSZombieMapping{"k": zombie}, &got)
+			return got["k"].Names
+		},
+		"slice element": func(t *testing.T) []string {
+			var got []legacyZombie
+			marshalAsLegacy(t, []DNSZombieMapping{zombie}, &got)
+			require.Len(t, got, 1)
+			return got[0].Names
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			encoded, err := encode()
-			require.NoError(t, err)
-			require.Contains(t, string(encoded), `"names":["alpha.example.com","zeta.example.com"]`,
+			require.ElementsMatch(t, wantNames, namesFrom(t),
 				"%s must serialize names, not drop them silently", name)
 		})
 	}
 
-	// An agent running the previous release reads Names as a plain []string.
-	// Decoding what this revision writes with that shape catches the set
-	// leaking onto the wire as an object.
+	// Same, one level up: DNSZombieMappings is the type that reaches the file.
 	t.Run("previous release can decode", func(t *testing.T) {
 		zombies := NewDNSZombieMappings(hivetest.Logger(t), defaults.ToFQDNsMaxDeferredConnectionDeletes, defaults.ToFQDNsMaxIPsPerHost)
 		zombies.Upsert(time.Unix(2, 0).UTC(), zombie.IP, "zeta.example.com", "alpha.example.com")
 
-		raw, err := json.Marshal(zombies)
-		require.NoError(t, err)
-
 		var legacy struct {
-			Deletes map[netip.Addr]struct {
-				Names           []string  `json:"names,omitempty"`
-				IP              string    `json:"ip,omitempty"`
-				DeletePendingAt time.Time `json:"delete-pending-at,omitempty"`
-			} `json:"deletes,omitempty"`
+			Deletes map[netip.Addr]legacyZombie `json:"deletes,omitempty"`
 		}
-		require.NoError(t, json.Unmarshal(raw, &legacy))
+		marshalAsLegacy(t, zombies, &legacy)
 
 		got := legacy.Deletes[zombie.IP]
-		require.Equal(t, []string{"alpha.example.com", "zeta.example.com"}, got.Names)
+		require.ElementsMatch(t, wantNames, got.Names)
 		require.Equal(t, "10.0.0.1", got.IP)
 		require.Equal(t, time.Unix(2, 0).UTC(), got.DeletePendingAt.UTC())
 	})
@@ -1511,7 +1537,7 @@ func TestZombieNamesDeserialize(t *testing.T) {
 		var zombie DNSZombieMapping
 		require.NoError(t, json.Unmarshal([]byte(raw), &zombie))
 
-		require.Equal(t, []string{"alpha.example.com", "zeta.example.com"}, zombie.Names.Sorted(),
+		require.Equal(t, []string{"alpha.example.com", "zeta.example.com"}, zombie.Names.sorted(),
 			"restored names must be de-duplicated")
 		require.Equal(t, netip.MustParseAddr("10.0.0.1"), zombie.IP)
 		require.Equal(t, time.Unix(1, 0).UTC(), zombie.AliveAt.UTC())
@@ -1536,7 +1562,7 @@ func TestZombieNamesDeserialize(t *testing.T) {
 		require.NotPanics(t, func() {
 			restored.Upsert(time.Unix(5, 0).UTC(), ip, "late.example.com")
 		}, "Upsert into a restored nameless zombie must not panic")
-		require.Equal(t, []string{"late.example.com"}, restored.deletes[ip].Names.Sorted())
+		require.Equal(t, []string{"late.example.com"}, restored.deletes[ip].Names.sorted())
 	})
 }
 
@@ -1547,6 +1573,6 @@ func TestZombieDeepCopyDoesNotShareNames(t *testing.T) {
 	cp := zombie.DeepCopy()
 	cp.Names.Insert("new.example.com")
 
-	require.Equal(t, []string{"alpha.example.com", "zeta.example.com"}, zombie.Names.Sorted(),
+	require.Equal(t, []string{"alpha.example.com", "zeta.example.com"}, zombie.Names.sorted(),
 		"mutating the copy must not affect the original")
 }
