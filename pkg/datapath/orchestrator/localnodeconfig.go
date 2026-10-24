@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
 	ipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	plugin "github.com/cilium/cilium/pkg/datapath/plugins/types"
@@ -70,6 +71,7 @@ func newLocalNodeConfig(
 	mtuTbl statedb.Table[mtu.RouteMTU],
 	wgAgent wgTypes.Agent,
 	ipsecCfg ipsec.Config,
+	bandwidthManager bandwidth.Manager,
 	connectorConfig connector.Config,
 	plugins plugin.Plugins,
 ) (config.Config, <-chan struct{}, error) {
@@ -234,6 +236,7 @@ func newLocalNodeConfig(
 		DirectRoutingSkipUnreachable: daemon.DirectRoutingSkipUnreachable,
 		EnableLocalNodeRoute:         daemon.EnableLocalNodeRoute && daemon.IPAM != ipamOption.IPAMENI && daemon.IPAM != ipamOption.IPAMAzure && daemon.IPAM != ipamOption.IPAMAlibabaCloud,
 		EnableWireguard:              wgAgent.Enabled(),
+		EnableBandwidthManager:       bandwidthManager.Enabled(),
 		EnablePolicyAccounting:       daemon.PolicyAccounting,
 		WireguardIfIndex:             wgIndex,
 		EnableIPSec:                  ipsecCfg.Enabled(),

@@ -1555,14 +1555,12 @@ skip_host_firewall:
 			return ret;
 	}
 
-#if defined(ENABLE_BANDWIDTH_MANAGER)
 	ret = edt_sched_departure(ctx, proto);
 	/* No send_drop_notify_error() here given we're rate-limiting. */
 	if (ret < 0) {
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS, (__u8)-ret);
 		return CTX_ACT_DROP;
 	}
-#endif
 
 	if (CONFIG(enable_ipsec)) {
 		if (!ctx_is_encrypt(ctx)) {
