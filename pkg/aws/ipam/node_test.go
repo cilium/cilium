@@ -106,14 +106,14 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 		},
 	}
 
-	got := node.findSubnetInSameRouteTableWithNodeSubnet()
-	require.NotNil(t, got)
-	require.Equal(t, "subnet-2", got.ID)
-	require.Equal(t, 20, got.AvailableAddresses)
+	got := node.findSubnetInSameRouteTableWithNodeSubnetSorted()
+	require.NotEmpty(t, got)
+	require.Equal(t, "subnet-2", got[0].ID)
+	require.Equal(t, 20, got[0].AvailableAddresses)
 
 	node.k8sObj.Spec.ENI.VpcID = "vpc-2"
-	got = node.findSubnetInSameRouteTableWithNodeSubnet()
-	require.Nil(t, got)
+	got = node.findSubnetInSameRouteTableWithNodeSubnetSorted()
+	require.Empty(t, got)
 
 }
 
@@ -168,10 +168,10 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet_UntrackedSubnets(t *testing.T
 	}
 
 	// This should not panic and should return subnet-4 (highest available addresses)
-	got := node.findSubnetInSameRouteTableWithNodeSubnet()
-	require.NotNil(t, got)
-	require.Equal(t, "subnet-4", got.ID)
-	require.Equal(t, 30, got.AvailableAddresses)
+	got := node.findSubnetInSameRouteTableWithNodeSubnetSorted()
+	require.NotEmpty(t, got)
+	require.Equal(t, "subnet-4", got[0].ID)
+	require.Equal(t, 30, got[0].AvailableAddresses)
 }
 
 func Test_checkSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
