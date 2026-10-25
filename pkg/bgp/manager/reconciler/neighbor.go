@@ -25,6 +25,11 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+// errTCPAOSecretInvalid is returned by getPeerTCPAO when the TCP-AO Secret referenced by a peer
+// exists, but its content does not yield a valid keychain for the peer configuration (e.g. a
+// master key entry is missing or a master key is too long).
+var errTCPAOSecretInvalid = errors.New("invalid TCP-AO secret")
+
 // NeighborReconciler is a ConfigReconciler which reconciles the peers of the
 // provided BGP server with the provided CiliumBGPVirtualRouter.
 type NeighborReconciler struct {
@@ -155,6 +160,11 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 
 	nset := map[string]*member{}
 
+	// keepCurrent holds the IDs of the peers whose desired configuration can not be applied at
+	// the moment and which must therefore be left as they currently are (neither updated nor
+	// removed) by this reconciliation.
+	keepCurrent := map[string]struct{}{}
+
 	for i, n := range newNeigh {
 		l := l.With(types.PeerLogField, n.Name)
 		// validate that peer has ASN and address. In current implementation these fields are
@@ -191,7 +201,19 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 
 		tcpAO, tcpAOReady, err := r.getPeerTCPAO(p.DesiredConfig.Name, n.Name, config)
 		if err != nil {
-			return err
+			if !errors.Is(err, errTCPAOSecretInvalid) {
+				return err
+			}
+			// The Secret exists but does not (yet) match the peer configuration. This is commonly
+			// a transient state, e.g. while the Secret and the CiliumBGPPeerConfig of a key rotation
+			// are being updated one after the other. Do not abort the reconciliation of the whole
+			// instance (which would also block the unrelated peers of the instance), and do not
+			// reset the session of the peer either if it already exists: leave the peer as it is
+			// until the Secret and the configuration are consistent again. A peer which does not
+			// exist yet is not created (fail closed).
+			l.Warn("Peer has an invalid TCP-AO configuration, leaving the peer unchanged", logfields.Error, err)
+			keepCurrent[key] = struct{}{}
+			continue
 		}
 		if !tcpAOReady {
 			// Unlike for the TCP MD5 password, do not fall back to an unauthenticated session
@@ -243,9 +265,15 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 		)
 
 		if h, ok = nset[key]; !ok {
-			nset[key] = &member{
+			h = &member{
 				cur: curNeigh[i],
 			}
+			if _, keep := keepCurrent[key]; keep {
+				// The desired configuration of the peer can not be applied at the moment, keep
+				// the peer as it currently is.
+				h.new = curNeigh[i]
+			}
+			nset[key] = h
 			continue
 		}
 		h.cur = curNeigh[i]
@@ -383,18 +411,7 @@ func (r *NeighborReconciler) getPeerTCPAO(instanceName, peerName string, config 
 
 	tcpAO, err = types.ToNeighborTCPAOV2(config.TCPAO, secret)
 	if err != nil {
-		// The Secret exists but its content does not yield a valid keychain (e.g. a master key
-		// entry is missing or a master key is too long). Treat this like a not-yet-available
-		// Secret: skip (fail closed) only this peer rather than aborting the reconciliation of
-		// the whole instance, which would also take down the unrelated peers of the instance.
-		r.logger.Warn(
-			"Peer has an invalid TCP-AO configuration, skipping",
-			types.SecretRefLogField, secretRef,
-			types.InstanceLogField, instanceName,
-			types.PeerLogField, peerName,
-			logfields.Error, err,
-		)
-		return nil, false, nil
+		return nil, false, fmt.Errorf("%w %q: %w", errTCPAOSecretInvalid, secretRef, err)
 	}
 
 	r.logger.Debug(

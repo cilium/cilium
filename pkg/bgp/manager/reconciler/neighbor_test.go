@@ -524,6 +524,12 @@ func TestNeighborReconciler_TCPAO(t *testing.T) {
 		tcpAO   bool
 		sendID  uint8
 		md5Auth bool
+		// applied is the configuration expected to be applied on the peer after the step, if it
+		// differs from config / secret (i.e. the step is expected to leave the peer unchanged).
+		applied *struct {
+			config *v2.CiliumBGPPeerConfigSpec
+			secret map[string][]byte
+		}
 	}
 
 	table := []struct {
@@ -559,11 +565,12 @@ func TestNeighborReconciler_TCPAO(t *testing.T) {
 		},
 		{
 			// A Secret that is present but does not yield a valid keychain (here: the master
-			// key of one of the keys is missing) must fail closed for this peer only: the peer
-			// is skipped, not an error that would abort the reconciliation of the whole instance
-			// (and thus take down the unrelated peers of the instance). Once the Secret is
-			// complete, the peer is configured.
-			name: "TCP-AO master key missing in the secret: peer is skipped until the secret is complete",
+			// key of one of the keys is missing) must not result in an error, which would abort
+			// the reconciliation of the whole instance and thus take down the unrelated peers of
+			// the instance. A new peer is not created (fail closed) until the Secret is complete.
+			// An existing peer is left untouched (not reset) while the Secret and the
+			// configuration are inconsistent, e.g. in the middle of a key rotation.
+			name: "TCP-AO master key missing in the secret: new peer not created, existing peer left unchanged",
 			steps: []step{
 				{
 					config: tcpAOConfig(1, 1, 2),
@@ -573,6 +580,27 @@ func TestNeighborReconciler_TCPAO(t *testing.T) {
 				{
 					config: tcpAOConfig(1, 1, 2),
 					secret: map[string][]byte{"key-1": []byte("k1"), "key-2": []byte("k2")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+				{
+					// key 2 is removed from the Secret before it is removed from the config:
+					// the peer keeps the previously applied configuration
+					config: tcpAOConfig(1, 1, 2),
+					secret: map[string][]byte{"key-1": []byte("k1")},
+					tcpAO:  true,
+					sendID: 1,
+					applied: &struct {
+						config *v2.CiliumBGPPeerConfigSpec
+						secret map[string][]byte
+					}{
+						config: tcpAOConfig(1, 1, 2),
+						secret: map[string][]byte{"key-1": []byte("k1"), "key-2": []byte("k2")},
+					},
+				},
+				{
+					config: tcpAOConfig(1, 1),
+					secret: map[string][]byte{"key-1": []byte("k1")},
 					tcpAO:  true,
 					sendID: 1,
 				},
@@ -724,15 +752,19 @@ func TestNeighborReconciler_TCPAO(t *testing.T) {
 				}
 
 				// the reconciler metadata must reflect the resolved keys
+				appliedConfig, appliedSecret := s.config, s.secret
+				if s.applied != nil {
+					appliedConfig, appliedSecret = s.applied.config, s.applied.secret
+				}
 				md := reconciler.getMetadata(testInstance)
 				req.Len(md, 1, "step %d", i)
 				for _, pd := range md {
 					if s.tcpAO {
 						req.NotNil(pd.TCPAO, "step %d", i)
 						req.Equal(s.sendID, pd.TCPAO.SendID, "step %d", i)
-						req.Len(pd.TCPAO.Keys, len(s.config.TCPAO.Keys), "step %d", i)
+						req.Len(pd.TCPAO.Keys, len(appliedConfig.TCPAO.Keys), "step %d", i)
 						for _, k := range pd.TCPAO.Keys {
-							req.Equal(s.secret["key-"+strconv.Itoa(int(k.SendID))], k.MasterKey, "step %d", i)
+							req.Equal(appliedSecret["key-"+strconv.Itoa(int(k.SendID))], k.MasterKey, "step %d", i)
 						}
 					} else {
 						req.Nil(pd.TCPAO, "step %d", i)

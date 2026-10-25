@@ -1,0 +1,387 @@
+#! --probe-tcp-ao --test-peering-ips=fd00::aa:bb:cc:201,fd00::aa:bb:cc:202
+
+# IPv6 peering, boundary key IDs (0 and 255), asymmetric send/receive IDs,
+# aes-128-cmac-96 and hmac-sha-256-96, excludeTCPOptions, 80-byte and 1-byte master keys,
+# plus a rotation 0 -> 255 over IPv6.
+#
+# Cilium key A: sendID 0,   receiveID 255, aes-128-cmac-96, excludeTCPOptions, 80-byte key
+# Cilium key B: sendID 255, receiveID 0,   hmac-sha-256-96, 1-byte key
+# GoBGP mirror: key-id 255/receive-id 0 (A), key-id 0/receive-id 255 (B)
+
+hive start
+gobgp/add-server test gobgp-ab-send255.toml
+k8s/add cilium-node.yaml bgp-node-config.yaml peer-ab-send0.yaml secret-ab.yaml bgp-advertisement.yaml
+# wait for the session to come up and check its state
+gobgp/wait-state fd00::aa:bb:cc:202 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-ab-send255.expected peers.actual
+
+gobgp/routes -o routes.actual ipv6 unicast
+* cmp gobgp-routes-ipv6.expected routes.actual
+
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^      Send Key ID: 0$' d.actual
+* grep --count=1 '^        Send ID 0 / Receive ID 255 \(current, rnext\):$' d.actual
+* grep --count=1 '^        Send ID 255 / Receive ID 0:$' d.actual
+* grep --count=2 '^          Packets Bad: 0$' d.actual
+* grep --count=1 '^      Packets Key Not Found: 0$' d.actual
+
+##### Rotate: Cilium sends with 255, GoBGP sends with 0 (hitless)
+k8s/update peer-ab-send255.yaml
+gobgp/reload-server test gobgp-ab-send0.toml
+gobgp/wait-state fd00::aa:bb:cc:202 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-ab-send0.expected peers.actual
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^        Send ID 255 / Receive ID 0 \(current, rnext\):$' d.actual
+* grep --count=1 '^        Send ID 0 / Receive ID 255:$' d.actual
+
+##### Remove key A on both sides: hitless, it is not in use on either side after the rotate.
+k8s/update peer-b-send255.yaml secret-b.yaml
+gobgp/reload-server test gobgp-b-send0.toml
+gobgp/wait-state fd00::aa:bb:cc:202 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-b-send0.expected peers.actual
+bgp/peers --format=detailed -o d.actual --no-uptime
+!* grep 'Send ID 0 / Receive ID 255' d.actual
+
+##### Change only excludeTCPOptions of the in-use key on Cilium (GoBGP unchanged): reset + must NOT establish
+k8s/update peer-b-send255-excl.yaml
+gobgp/wait-state --timeout=20s fd00::aa:bb:cc:202 IDLE
+sleep 5s
+gobgp/peers -o peers.actual
+!* grep ESTABLISHED peers.actual
+# match it on GoBGP (restart the server: an in-use key's exclude-tcp-options can not be
+# changed via GoBGP's in-place reload, just like its master key) -> establishes
+gobgp/delete-server test
+gobgp/add-server test gobgp-b-send0-excl.toml
+gobgp/wait-state --timeout=30s fd00::aa:bb:cc:202 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* grep 'ESTABLISHED.* 0/255\(current,rnext\)$' peers.actual
+
+#####
+
+-- gobgp-ab-send255.toml --
+[global.config]
+  as = 65010
+  router-id = "10.0.0.1"
+  local-address-list = ["fd00::aa:bb:cc:201"]
+  port = 1790
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 255
+      receive-id = 0
+      crypto-algorithm = "aes-128-cmac-96"
+      exclude-tcp-options = true
+      secret-key = "S0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0s="
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 0
+      receive-id = 255
+      crypto-algorithm = "hmac-sha-256-96"
+      secret-key = "QQ=="
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00::aa:bb:cc:202"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 255
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
+
+-- gobgp-ab-send0.toml --
+[global.config]
+  as = 65010
+  router-id = "10.0.0.1"
+  local-address-list = ["fd00::aa:bb:cc:201"]
+  port = 1790
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 255
+      receive-id = 0
+      crypto-algorithm = "aes-128-cmac-96"
+      exclude-tcp-options = true
+      secret-key = "S0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0s="
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 0
+      receive-id = 255
+      crypto-algorithm = "hmac-sha-256-96"
+      secret-key = "QQ=="
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00::aa:bb:cc:202"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 0
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
+
+-- gobgp-b-send0.toml --
+[global.config]
+  as = 65010
+  router-id = "10.0.0.1"
+  local-address-list = ["fd00::aa:bb:cc:201"]
+  port = 1790
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 0
+      receive-id = 255
+      crypto-algorithm = "hmac-sha-256-96"
+      secret-key = "QQ=="
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00::aa:bb:cc:202"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 0
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
+
+-- gobgp-b-send0-excl.toml --
+[global.config]
+  as = 65010
+  router-id = "10.0.0.1"
+  local-address-list = ["fd00::aa:bb:cc:201"]
+  port = 1790
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 0
+      receive-id = 255
+      crypto-algorithm = "hmac-sha-256-96"
+      exclude-tcp-options = true
+      secret-key = "QQ=="
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "fd00::aa:bb:cc:202"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 0
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv6-unicast"
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: fd00::aa:bb:cc:202
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - fd00:11:22::/64
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    routerID: 10.0.0.2
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65010
+      peerAddress: fd00::aa:bb:cc:201
+      localAddress: fd00::aa:bb:cc:202
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+
+-- peer-ab-send0.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: s
+    sendKeyID: 0
+    keys:
+    - sendID: 0
+      receiveID: 255
+      algorithm: aes-128-cmac-96
+      excludeTCPOptions: true
+      secretKey: a
+    - sendID: 255
+      receiveID: 0
+      algorithm: hmac-sha-256-96
+      secretKey: b
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- peer-ab-send255.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: s
+    sendKeyID: 255
+    keys:
+    - sendID: 0
+      receiveID: 255
+      algorithm: aes-128-cmac-96
+      excludeTCPOptions: true
+      secretKey: a
+    - sendID: 255
+      receiveID: 0
+      algorithm: hmac-sha-256-96
+      secretKey: b
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- peer-b-send255.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: s
+    sendKeyID: 255
+    keys:
+    - sendID: 255
+      receiveID: 0
+      algorithm: hmac-sha-256-96
+      secretKey: b
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- peer-b-send255-excl.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: s
+    sendKeyID: 255
+    keys:
+    - sendID: 255
+      receiveID: 0
+      algorithm: hmac-sha-256-96
+      excludeTCPOptions: true
+      secretKey: b
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv6
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- secret-ab.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: s
+  namespace: kube-system
+data:
+  a: S0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0s=
+  b: QQ==
+
+-- secret-b.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: s
+  namespace: kube-system
+data:
+  b: QQ==
+
+-- gobgp-ab-send255.expected --
+PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+fd00::aa:bb:cc:202   10.0.0.2   65001     ESTABLISHED    3           9          0                     1       0/255 255/0(current,rnext)
+-- gobgp-ab-send0.expected --
+PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+fd00::aa:bb:cc:202   10.0.0.2   65001     ESTABLISHED    3           9          0                     1       0/255(current,rnext) 255/0
+-- gobgp-b-send0.expected --
+PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+fd00::aa:bb:cc:202   10.0.0.2   65001     ESTABLISHED    3           9          0                     1       0/255(current,rnext)
+-- gobgp-b-send0-opens2.expected --
+PeerAddress          RouterID   PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+fd00::aa:bb:cc:202   10.0.0.2   65001     ESTABLISHED    3           9          0                     2       0/255(current,rnext)
+-- gobgp-routes-ipv6.expected --
+Prefix            NextHop              Attrs
+fd00:11:22::/64   fd00::aa:bb:cc:202   [{Origin: i} {AsPath: 65001} {MpReach(ipv6-unicast): {Nexthop: fd00::aa:bb:cc:202, NLRIs: [fd00:11:22::/64:0]}}]

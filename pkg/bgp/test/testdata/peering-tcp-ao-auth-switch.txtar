@@ -1,0 +1,253 @@
+#! --probe-tcp-ao --probe-tcp-md5 --test-peering-ips=10.99.12.101,10.99.12.102
+
+# Switching the authentication mode of a peer back and forth:
+# none -> MD5 -> TCP-AO -> none -> TCP-AO -> MD5 -> TCP-AO.
+# GoBGP is re-created for each mode (its own hot-switch of auth modes is out of scope).
+
+hive start
+gobgp/add-server test gobgp-none.toml
+k8s/add cilium-node.yaml bgp-node-config.yaml peer-none.yaml secret-md5.yaml secret-ao.yaml
+# wait for the session to come up and check its state
+gobgp/wait-state 10.99.12.102 ESTABLISHED
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^    TCP Password Enabled: false$' d.actual
+* grep --count=1 '^    TCP-AO Enabled: false$' d.actual
+
+##### none -> MD5
+gobgp/delete-server test
+gobgp/add-server test gobgp-md5.toml
+k8s/update peer-md5.yaml
+gobgp/wait-state --timeout=30s 10.99.12.102 ESTABLISHED
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^    TCP Password Enabled: true$' d.actual
+* grep --count=1 '^    TCP-AO Enabled: false$' d.actual
+
+##### MD5 -> TCP-AO
+gobgp/delete-server test
+gobgp/add-server test gobgp-ao.toml
+k8s/update peer-ao.yaml
+gobgp/wait-state --timeout=30s 10.99.12.102 ESTABLISHED
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^    TCP Password Enabled: false$' d.actual
+* grep --count=1 '^    TCP-AO Enabled: true$' d.actual
+* grep --count=1 '^        Send ID 1 / Receive ID 1 \(current, rnext\):$' d.actual
+
+##### TCP-AO -> none
+gobgp/delete-server test
+gobgp/add-server test gobgp-none.toml
+k8s/update peer-none.yaml
+gobgp/wait-state --timeout=30s 10.99.12.102 ESTABLISHED
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^    TCP Password Enabled: false$' d.actual
+* grep --count=1 '^    TCP-AO Enabled: false$' d.actual
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-none.expected peers.actual
+
+##### none -> TCP-AO (Cilium first, GoBGP later: Cilium must keep retrying and not wedge)
+k8s/update peer-ao.yaml
+sleep 3s
+gobgp/delete-server test
+gobgp/add-server test gobgp-ao.toml
+gobgp/wait-state --timeout=30s 10.99.12.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-ao.expected peers.actual
+
+##### TCP-AO -> MD5 (GoBGP first, then Cilium)
+gobgp/delete-server test
+gobgp/add-server test gobgp-md5.toml
+sleep 3s
+k8s/update peer-md5.yaml
+gobgp/wait-state --timeout=30s 10.99.12.102 ESTABLISHED
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^    TCP Password Enabled: true$' d.actual
+* grep --count=1 '^    TCP-AO Enabled: false$' d.actual
+
+##### MD5 -> TCP-AO again, then rapid toggles TCP-AO/none/TCP-AO without waiting
+gobgp/delete-server test
+gobgp/add-server test gobgp-ao.toml
+k8s/update peer-ao.yaml
+k8s/update peer-none.yaml
+k8s/update peer-ao.yaml
+k8s/update peer-none.yaml
+k8s/update peer-ao.yaml
+gobgp/wait-state --timeout=30s 10.99.12.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-ao.expected peers.actual
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^    TCP-AO Enabled: true$' d.actual
+* grep --count=1 '^        Send ID 1 / Receive ID 1 \(current, rnext\):$' d.actual
+
+#####
+
+-- gobgp-none.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.12.101"
+  local-address-list = ["10.99.12.101"]
+  port = 1790
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.12.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- gobgp-md5.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.12.101"
+  local-address-list = ["10.99.12.101"]
+  port = 1790
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.12.102"
+    peer-as = 65001
+    auth-password = "Cilium123"
+  [neighbors.transport.config]
+    passive-mode = true
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- gobgp-ao.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.12.101"
+  local-address-list = ["10.99.12.101"]
+  port = 1790
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 1
+      receive-id = 1
+      crypto-algorithm = "hmac-sha-1-96"
+      secret-key = "Q2lsaXVtMTIz"
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.12.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 1
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.12.102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    routerID: 10.99.12.102
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65010
+      peerAddress: 10.99.12.101
+      localAddress: 10.99.12.102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- peer-none.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+
+-- peer-md5.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  authSecretRef: md5
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+
+-- peer-ao.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: ao
+    keys:
+    - sendID: 1
+      receiveID: 1
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+
+-- secret-md5.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: md5
+  namespace: kube-system
+data:
+  password: Q2lsaXVtMTIz
+
+-- secret-ao.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: ao
+  namespace: kube-system
+data:
+  key-1: Q2lsaXVtMTIz
+
+-- gobgp-none.expected --
+PeerAddress    RouterID       PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.12.102   10.99.12.102   65001     ESTABLISHED    3           9          0                     1       -
+-- gobgp-ao.expected --
+PeerAddress    RouterID       PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.12.102   10.99.12.102   65001     ESTABLISHED    3           9          0                     1       1/1(current,rnext)
