@@ -106,6 +106,42 @@ icmp4_err_nat_full_tcp_after = (
     IPerror(bytes(icmp4_tcp_ingress[IP]))
 )
 
+# Same as above, but the SNAT mapping also changed the port
+# (pod tcp_src_one -> node tcp_src_three).
+icmp4_err_nat_portnat_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(IP(src=v4_ext_one, dst=v4_pod_one) /
+                  TCP(sport=tcp_dst_one, dport=tcp_src_one) /
+                  Raw(default_data)))
+)
+
+icmp4_err_nat_portnat_tcp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(IP(src=v4_ext_one, dst=v4_node_one) /
+                  TCP(sport=tcp_dst_one, dport=tcp_src_three) /
+                  Raw(default_data)))
+)
+
+# Same as above, but the inner TCP is truncated to its first 8 bytes, so
+# there is no inner TCP checksum to absorb the port change.
+icmp4_err_nat_portnat_min_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    Raw(bytes(icmp4_err_nat_portnat_tcp[IPerror])[:28])
+)
+
+icmp4_err_nat_portnat_min_tcp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    Raw(bytes(icmp4_err_nat_portnat_tcp_after[IPerror])[:28])
+)
+
 # IPv4 ICMP error packets embedding ICMP Echo.
 # Ingress/revNAT: router -> host, quoting the NATed endpoint -> external packet.
 icmp4_err_revnat_full_icmp = (
