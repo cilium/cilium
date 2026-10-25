@@ -558,13 +558,23 @@ func TestNeighborReconciler_TCPAO(t *testing.T) {
 			},
 		},
 		{
-			name: "TCP-AO master key missing in the secret: error",
+			// A Secret that is present but does not yield a valid keychain (here: the master
+			// key of one of the keys is missing) must fail closed for this peer only: the peer
+			// is skipped, not an error that would abort the reconciliation of the whole instance
+			// (and thus take down the unrelated peers of the instance). Once the Secret is
+			// complete, the peer is configured.
+			name: "TCP-AO master key missing in the secret: peer is skipped until the secret is complete",
 			steps: []step{
 				{
 					config: tcpAOConfig(1, 1, 2),
 					secret: map[string][]byte{"key-1": []byte("k1")},
-					errStr: "TCP-AO master key missing in the secret",
 					noPeer: true,
+				},
+				{
+					config: tcpAOConfig(1, 1, 2),
+					secret: map[string][]byte{"key-1": []byte("k1"), "key-2": []byte("k2")},
+					tcpAO:  true,
+					sendID: 1,
 				},
 			},
 		},

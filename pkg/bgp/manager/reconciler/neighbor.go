@@ -383,7 +383,18 @@ func (r *NeighborReconciler) getPeerTCPAO(instanceName, peerName string, config 
 
 	tcpAO, err = types.ToNeighborTCPAOV2(config.TCPAO, secret)
 	if err != nil {
-		return nil, false, fmt.Errorf("invalid TCP-AO configuration with secret %q: %w", secretRef, err)
+		// The Secret exists but its content does not yield a valid keychain (e.g. a master key
+		// entry is missing or a master key is too long). Treat this like a not-yet-available
+		// Secret: skip (fail closed) only this peer rather than aborting the reconciliation of
+		// the whole instance, which would also take down the unrelated peers of the instance.
+		r.logger.Warn(
+			"Peer has an invalid TCP-AO configuration, skipping",
+			types.SecretRefLogField, secretRef,
+			types.InstanceLogField, instanceName,
+			types.PeerLogField, peerName,
+			logfields.Error, err,
+		)
+		return nil, false, nil
 	}
 
 	r.logger.Debug(
