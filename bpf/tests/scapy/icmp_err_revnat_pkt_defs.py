@@ -386,6 +386,29 @@ icmp6_err_revnat_full_sctp_after = _icmp6_revnat_after_pkt(
     _sctp_hdr_egress / Raw(default_data)
 )
 
+# ICMPv6 error on the SNAT egress path: the pod rejects a revSNATed
+# ext -> pod SCTP packet.
+_sctp_hdr_ingress = SCTP(sport=tcp_dst_one, dport=tcp_src_two, tag=0)
+
+icmp6_err_nat_full_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_one, dst=v6_ext_node_one) /
+    ICMPv6DestUnreach(code=1) /
+    IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+    _sctp_hdr_ingress /
+    Raw(default_data)
+)
+
+# After SNAT: outer saddr -> node, inner daddr -> node.
+icmp6_err_nat_full_sctp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_node_one, dst=v6_ext_node_one) /
+    ICMPv6DestUnreach(code=1) /
+    IPv6(src=v6_ext_node_one, dst=v6_node_one) /
+    _sctp_hdr_ingress /
+    Raw(default_data)
+)
+
 # outer IPv4 (pod_two -> pod_one), ICMP Destination Unreachable / Fragmentation Needed,
 # embedded original IPv4 + TCP with SNAT'd port
 icmp4_err_frag_needed_for_revnat = (

@@ -35,6 +35,7 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 #include "scapy.h"
 
 #include "lib/endpoint.h"
+#include "lib/status.h"
 
 const __u8 icmp4_err_revnat_egress_tcp[] = {
 	SCAPY_BUF_BYTES(icmp4_err_revnat_egress_tcp)
@@ -393,6 +394,7 @@ CHECK(PROG_TYPE, "snat_v4_tcp_unreach_portnat")
 int snat_v4_tcp_unreach_portnat_check(const struct __ctx_buff *ctx)
 {
 	test_init();
+	assert(ctx_status_code_is(ctx, CTX_ACT_OK));
 	ASSERT_CTX_BUF_OFF("snat_v4_tcp_unreach_portnat", "Ether", ctx, sizeof(__u32),
 			   icmp4_err_nat_portnat_tcp_after,
 			   sizeof(icmp4_err_nat_portnat_tcp_after));
@@ -428,6 +430,7 @@ CHECK(PROG_TYPE, "snat_v4_tcp_unreach_portnat_min_hdr")
 int snat_v4_tcp_unreach_portnat_min_hdr_check(const struct __ctx_buff *ctx)
 {
 	test_init();
+	assert(ctx_status_code_is(ctx, CTX_ACT_OK));
 	ASSERT_CTX_BUF_OFF("snat_v4_tcp_unreach_portnat_min_hdr", "Ether", ctx, sizeof(__u32),
 			   icmp4_err_nat_portnat_min_tcp_after,
 			   sizeof(icmp4_err_nat_portnat_min_tcp_after));
@@ -474,6 +477,7 @@ CHECK(PROG_TYPE, "snat_v4_tcp_pmtu_portnat")
 int snat_v4_tcp_pmtu_portnat_check(const struct __ctx_buff *ctx)
 {
 	test_init();
+	assert(ctx_status_code_is(ctx, CTX_ACT_OK));
 	ASSERT_CTX_BUF_OFF("snat_v4_tcp_pmtu_portnat", "Ether", ctx, sizeof(__u32),
 			   icmp4_err_revnat_portnat_tcp_after,
 			   sizeof(icmp4_err_revnat_portnat_tcp_after));
@@ -509,6 +513,7 @@ CHECK(PROG_TYPE, "snat_v4_tcp_pmtu_portnat_min_hdr")
 int snat_v4_tcp_pmtu_portnat_min_hdr_check(const struct __ctx_buff *ctx)
 {
 	test_init();
+	assert(ctx_status_code_is(ctx, CTX_ACT_OK));
 	ASSERT_CTX_BUF_OFF("snat_v4_tcp_pmtu_portnat_min_hdr", "Ether", ctx, sizeof(__u32),
 			   icmp4_err_revnat_portnat_min_tcp_after,
 			   sizeof(icmp4_err_revnat_portnat_min_tcp_after));
