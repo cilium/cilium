@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 
 	"github.com/google/uuid"
 	gobgp "github.com/osrg/gobgp/v4/api"
@@ -93,6 +94,12 @@ type GoBGPServer struct {
 	// stopping is a flag to indicate if the server is stopping.
 	stopping  bool
 	stopMutex lock.Mutex
+
+	// tcpAOKeychains holds the last applied TCP-AO keychain of each neighbor (by address).
+	// GoBGP does not expose the master keys of its keychains, so they are tracked here
+	// to be able to compute keychain updates. Protected by tcpAOMutex.
+	tcpAOKeychains map[netip.Addr]*types.NeighborTCPAO
+	tcpAOMutex     lock.Mutex
 }
 
 // NewGoBGPServer returns instance of go bgp router wrapper.
@@ -124,9 +131,10 @@ func NewGoBGPServer(ctx context.Context, log *slog.Logger, params types.ServerPa
 	}
 
 	gobgpSrv := &GoBGPServer{
-		logger: logger,
-		asn:    params.Global.ASN,
-		server: s,
+		logger:         logger,
+		asn:            params.Global.ASN,
+		server:         s,
+		tcpAOKeychains: make(map[netip.Addr]*types.NeighborTCPAO),
 	}
 
 	// Reject all paths announced toward Cilium from external peers. This first step configures an

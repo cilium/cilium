@@ -298,8 +298,44 @@ func PrintPeerStatesDetailed(w io.Writer, instances []agent.InstancePeerStates, 
 			}
 
 			fmt.Fprintf(w, "    TCP Password Enabled: %v\n", peer.TCPPasswordEnabled)
+			fmt.Fprintf(w, "    TCP-AO Enabled: %v\n", peer.TCPAOEnabled)
+			if peer.TCPAOEnabled && peer.TCPAO != nil {
+				formatTCPAOState(w, peer.TCPAO)
+			}
 		}
 	}
+}
+
+// formatTCPAOState prints the TCP-AO state of a peer.
+func formatTCPAOState(w io.Writer, s *types.PeerTCPAOState) {
+	fmt.Fprintf(w, "    TCP-AO:\n")
+	fmt.Fprintf(w, "      Send Key ID: %d\n", s.SendID)
+	if len(s.Keys) > 0 {
+		keys := slices.Clone(s.Keys)
+		slices.SortFunc(keys, func(a, b types.PeerTCPAOKeyState) int {
+			return cmp.Compare(a.SendID, b.SendID)
+		})
+		fmt.Fprintf(w, "      Keys:\n")
+		for _, k := range keys {
+			flags := []string{}
+			if k.Current {
+				flags = append(flags, "current")
+			}
+			if k.ReceiveNext {
+				flags = append(flags, "rnext")
+			}
+			flagsStr := ""
+			if len(flags) > 0 {
+				flagsStr = " (" + strings.Join(flags, ", ") + ")"
+			}
+			fmt.Fprintf(w, "        Send ID %d / Receive ID %d%s:\n", k.SendID, k.ReceiveID, flagsStr)
+			fmt.Fprintf(w, "          Packets Good: %d\n", k.PacketsGood)
+			fmt.Fprintf(w, "          Packets Bad: %d\n", k.PacketsBad)
+		}
+	}
+	fmt.Fprintf(w, "      Packets Key Not Found: %d\n", s.PacketsKeyNotFound)
+	fmt.Fprintf(w, "      Packets AO Required: %d\n", s.PacketsAORequired)
+	fmt.Fprintf(w, "      Packets Dropped ICMP: %d\n", s.PacketsDroppedICMP)
 }
 
 // capabilityFormatter defines the function signature for a capability-specific printer.

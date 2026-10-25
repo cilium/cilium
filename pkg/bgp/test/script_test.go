@@ -67,6 +67,7 @@ const (
 	enableNoEndpointsRoutableFlag = "enable-no-service-endpoints-routable"
 	ipamFlag                      = "ipam"
 	probeTCPMD5Flag               = "probe-tcp-md5"
+	probeTCPAOFlag                = "probe-tcp-ao"
 	kubeProxyReplacementFlag      = "kube-proxy-replacement"
 	waitDatapathFlag              = "wait-datapath"
 )
@@ -97,6 +98,7 @@ func TestPrivilegedScript(t *testing.T) {
 		peeringIPs := flags.StringSlice(testPeeringIPsFlag, nil, "List of IPs used for peering in the test")
 		ipam := flags.String(ipamFlag, ipamOption.IPAMKubernetes, "IPAM used by the test")
 		probeTCPMD5 := flags.Bool(probeTCPMD5Flag, false, "Probe if TCP_MD5SIG socket option is available")
+		probeTCPAO := flags.Bool(probeTCPAOFlag, false, "Probe if TCP_AO_ADD_KEY socket option is available")
 		kubeProxyReplacement := flags.Bool(kubeProxyReplacementFlag, true, "")
 		noEndpointsRoutable := flags.Bool(enableNoEndpointsRoutableFlag, true, "")
 		waitDatapath := flags.Bool(waitDatapathFlag, false, "Block datapath initialization until bgp/datapath-initialized is called")
@@ -115,6 +117,14 @@ func TestPrivilegedScript(t *testing.T) {
 			require.NoError(t, err)
 			if !available {
 				t.Skip("TCP_MD5SIG socket option is not available")
+			}
+		}
+
+		if *probeTCPAO {
+			available, err := TCPAOAvailable()
+			require.NoError(t, err)
+			if !available {
+				t.Skip("TCP_AO_ADD_KEY socket option is not available")
 			}
 		}
 

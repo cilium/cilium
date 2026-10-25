@@ -1,0 +1,228 @@
+#! --probe-tcp-ao --test-peering-ips=10.99.9.101,10.99.9.102
+
+# Tests IPv4 peering authenticated with TCP-AO (RFC 5925), including hitless key rotation
+# and a key change which requires a session reset.
+
+# Start the hive
+hive start
+
+# Configure gobgp server with a TCP-AO keychain holding keys 1 and 2
+gobgp/add-server test gobgp-server.toml
+
+# Configure BGP on Cilium with TCP-AO key 1 only
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config.yaml bgp-advertisement.yaml tcp-ao-secret.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.9.102 ESTABLISHED
+
+# Validate peering state
+gobgp/peers -o peers.actual
+* cmp gobgp-peers.expected peers.actual
+
+# Validate IPv4 routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+# Validate Cilium peer state
+bgp/peers -o peers.actual --no-uptime
+* cmp cilium-peers.expected peers.actual
+
+# Rotate the keys: add key 2 to the secret and to the peer config and start sending with key 2.
+# Both keys stay configured on both sides, so the rotation is hitless (no session reset).
+k8s/update tcp-ao-secret-2.yaml bgp-peer-config-2.yaml
+
+# Validate peering stays established and routes are still advertised
+gobgp/wait-state 10.99.9.102 ESTABLISHED
+gobgp/peers -o peers.actual
+* cmp gobgp-peers.expected peers.actual
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+# Change the master key of the active send key to a wrong value: the session is reset
+# and can not be re-established, as the GoBGP side does not know the new key.
+k8s/update tcp-ao-secret-3.yaml
+
+# Wait for peering to go down
+gobgp/wait-state 10.99.9.102 IDLE
+
+# Restore the correct master key: the session is reset again and re-established
+# (after the IdleHoldTime applied on the GoBGP side).
+k8s/update tcp-ao-secret-2.yaml
+
+gobgp/wait-state --timeout=90s 10.99.9.102 ESTABLISHED
+gobgp/peers -o peers.actual
+* cmp gobgp-peers.expected peers.actual
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+#####
+
+-- gobgp-server.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.9.101"
+  local-address-list = ["10.99.9.101"]
+  port = 1790
+
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 1
+      receive-id = 1
+      crypto-algorithm = "hmac-sha-1-96"
+      secret-key = "Q2lsaXVtMTIz"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 2
+      receive-id = 2
+      crypto-algorithm = "hmac-sha-256-128"
+      secret-key = "Q2lsaXVtNDU2"
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.9.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 1
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.9.102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    routerID: 10.99.9.102
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65010
+      peerAddress: 10.99.9.101
+      localAddress: 10.99.9.102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: bgp-tcp-ao-secret
+    keys:
+    - sendID: 1
+      receiveID: 1
+      algorithm: hmac-sha-1-96
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-peer-config-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: bgp-tcp-ao-secret
+    sendKeyID: 2
+    keys:
+    - sendID: 1
+      receiveID: 1
+      algorithm: hmac-sha-1-96
+    - sendID: 2
+      receiveID: 2
+      algorithm: hmac-sha-256-128
+  timers:
+    connectRetryTimeSeconds: 1
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+
+-- tcp-ao-secret.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: bgp-tcp-ao-secret
+  namespace: kube-system
+data:
+  key-1: Q2lsaXVtMTIz
+
+-- tcp-ao-secret-2.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: bgp-tcp-ao-secret
+  namespace: kube-system
+data:
+  key-1: Q2lsaXVtMTIz
+  key-2: Q2lsaXVtNDU2
+
+-- tcp-ao-secret-3.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: bgp-tcp-ao-secret
+  namespace: kube-system
+data:
+  key-1: Q2lsaXVtMTIz
+  key-2: V3JvbmdLZXk=
+
+-- gobgp-peers.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime
+10.99.9.102   10.99.9.102   65001     ESTABLISHED    30          90         0
+-- gobgp-routes-ipv4.expected --
+Prefix          NextHop       Attrs
+10.244.0.0/24   10.99.9.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.9.102}]
+-- cilium-peers.expected --
+Instance   Peer          Session State   Uptime   Family         Received   Accepted   Advertised
+tor        gobgp-peer   established     -        ipv4-unicast   0          0          1

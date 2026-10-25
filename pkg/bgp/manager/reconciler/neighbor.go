@@ -71,13 +71,16 @@ func NewNeighborReconciler(params NeighborReconcilerIn) NeighborReconcilerOut {
 	// this is already done by the DefaultGatewayReconciler.
 }
 
-// PeerData keeps a peer and its configuration. It also keeps the TCP password from secret store.
+// PeerData keeps a peer and its configuration. It also keeps the TCP password / TCP-AO keys from secret store.
 // +deepequal-gen=true
 // Note:  If you change PeerDate, do not forget to 'make generate-k8s-api', which will update DeepEqual method.
 type PeerData struct {
 	Peer     *v2.CiliumBGPNodePeer
 	Config   *v2.CiliumBGPPeerConfigSpec
 	Password string
+	// TCPAO holds the TCP-AO configuration of the peer with the master keys resolved
+	// from the referenced secret. nil if TCP-AO is not configured for the peer.
+	TCPAO *types.NeighborTCPAO
 }
 
 // NeighborReconcilerMetadata keeps a map of running peers to peer configuration.
@@ -186,6 +189,17 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			return err
 		}
 
+		tcpAO, tcpAOReady, err := r.getPeerTCPAO(p.DesiredConfig.Name, n.Name, config)
+		if err != nil {
+			return err
+		}
+		if !tcpAOReady {
+			// Unlike for the TCP MD5 password, do not fall back to an unauthenticated session
+			// when the TCP-AO secret is not (yet) available.
+			l.Warn("Peer has TCP-AO configured but the referenced secret is not available, skipping")
+			continue
+		}
+
 		// If the local address is not provided via override and the source interface is provided in the peer config,
 		// use the local address from the provided source interface.
 		if ptr.Deref(peer.LocalAddress, "") == "" &&
@@ -208,6 +222,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 					Peer:     peer,
 					Config:   config,
 					Password: passwd,
+					TCPAO:    tcpAO,
 				},
 			}
 			continue
@@ -216,6 +231,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 			Peer:     peer,
 			Config:   config,
 			Password: passwd,
+			TCPAO:    tcpAO,
 		}
 	}
 
@@ -262,7 +278,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	for _, n := range toRemove {
 		l.Info("Removing peer", types.PeerLogField, n.Peer.Name)
 
-		if err := p.BGPInstance.Router.RemoveNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, "")); err != nil {
+		if err := p.BGPInstance.Router.RemoveNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, "", nil)); err != nil {
 			return fmt.Errorf("failed to remove neigbhor %s from instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
@@ -273,7 +289,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	for _, n := range toUpdate {
 		l.Info("Updating peer", types.PeerLogField, n.Peer.Name)
 
-		if err := p.BGPInstance.Router.UpdateNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, n.Password)); err != nil {
+		if err := p.BGPInstance.Router.UpdateNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, n.Password, n.TCPAO)); err != nil {
 			return fmt.Errorf("failed to update neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
@@ -284,7 +300,7 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 	for _, n := range toCreate {
 		l.Info("Adding peer", types.PeerLogField, n.Peer.Name)
 
-		if err := p.BGPInstance.Router.AddNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, n.Password)); err != nil {
+		if err := p.BGPInstance.Router.AddNeighbor(ctx, types.ToNeighborV2(n.Peer, n.Config, n.Password, n.TCPAO)); err != nil {
 			return fmt.Errorf("failed to add neigbhor %s in instance %s: %w", n.Peer.Name, p.DesiredConfig.Name, err)
 		}
 		// update metadata
@@ -347,6 +363,36 @@ func (r *NeighborReconciler) getPeerPassword(instanceName, peerName string, conf
 		return tcpPassword, nil
 	}
 	return "", nil
+}
+
+// getPeerTCPAO resolves the TCP-AO configuration of the peer, with the master keys taken from the
+// referenced secret. Returns ready=false if TCP-AO is configured but the referenced secret does not exist.
+func (r *NeighborReconciler) getPeerTCPAO(instanceName, peerName string, config *v2.CiliumBGPPeerConfigSpec) (tcpAO *types.NeighborTCPAO, ready bool, err error) {
+	if config == nil || config.TCPAO == nil {
+		return nil, true, nil
+	}
+
+	secretRef := config.TCPAO.SecretRef
+	secret, ok, err := r.fetchSecret(secretRef)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to fetch secret %q: %w", secretRef, err)
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	tcpAO, err = types.ToNeighborTCPAOV2(config.TCPAO, secret)
+	if err != nil {
+		return nil, false, fmt.Errorf("invalid TCP-AO configuration with secret %q: %w", secretRef, err)
+	}
+
+	r.logger.Debug(
+		"Using TCP-AO keys from secret",
+		types.SecretRefLogField, secretRef,
+		types.InstanceLogField, instanceName,
+		types.PeerLogField, peerName,
+	)
+	return tcpAO, true, nil
 }
 
 func (r *NeighborReconciler) fetchSecret(name string) (map[string][]byte, bool, error) {
