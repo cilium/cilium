@@ -42,6 +42,9 @@ const (
 	DNSRulesTableName         = "sdp-dns-rules"
 	IPtoEndpointTableName     = "sdp-ip-to-endpoint"
 	PrefixToIdentityTableName = "sdp-prefix-to-identity"
+	// defaultMaxPolicyStateRecvMsgSize is the fallback maximum message size
+	// allowed on the PolicyState stream when not explicitly configured.
+	defaultMaxPolicyStateRecvMsgSize = 16 << 20
 )
 
 func DNSRulesCompositeKey(epID uint32, pp restore.PortProto) uint64 {
@@ -244,20 +247,28 @@ type GRPCClient struct {
 
 	// metrics tracks errors for the standalone DNS proxy gRPC client
 	metrics *sdpmetrics.Metrics
+
+	// maxPolicyStateRecvMsgSize is the maximum message size allowed for PolicyState stream
+	maxPolicyStateRecvMsgSize int
 }
 
 // createGRPCClient creates a new gRPC connection handler client for standalone DNS proxy
 func createGRPCClient(params clientParams) *GRPCClient {
+	maxMsgSize := params.FQDNConfig.SDPMaxPolicyStateMsgSize
+	if maxMsgSize <= 0 {
+		maxMsgSize = defaultMaxPolicyStateRecvMsgSize
+	}
 	return &GRPCClient{
-		logger:                params.Logger,
-		port:                  uint16(params.FQDNConfig.StandaloneDNSProxyServerPort),
-		dialClient:            params.DialClient,
-		address:               fmt.Sprintf("localhost:%d", uint16(params.FQDNConfig.StandaloneDNSProxyServerPort)),
-		db:                    params.DB,
-		dnsRulesTable:         params.DNSRulesTable,
-		ipToEndpointTable:     params.IPtoEndpointTable,
-		prefixToIdentityTable: params.PrefixToIdentityTable,
-		metrics:               params.Metrics,
+		logger:                    params.Logger,
+		port:                      uint16(params.FQDNConfig.StandaloneDNSProxyServerPort),
+		dialClient:                params.DialClient,
+		address:                   fmt.Sprintf("localhost:%d", uint16(params.FQDNConfig.StandaloneDNSProxyServerPort)),
+		db:                        params.DB,
+		dnsRulesTable:             params.DNSRulesTable,
+		ipToEndpointTable:         params.IPtoEndpointTable,
+		prefixToIdentityTable:     params.PrefixToIdentityTable,
+		metrics:                   params.Metrics,
+		maxPolicyStateRecvMsgSize: maxMsgSize,
 	}
 }
 
@@ -287,8 +298,13 @@ func (c *GRPCClient) createPolicyStream(ctx context.Context) error {
 			c.connected.Store(false)
 		}()
 
+		maxMsgSize := c.maxPolicyStateRecvMsgSize
+		if maxMsgSize <= 0 {
+			maxMsgSize = defaultMaxPolicyStateRecvMsgSize
+		}
+
 		fqdnClient := pb.NewFQDNDataClient(c.client)
-		stream, err := fqdnClient.StreamPolicyState(context.Background())
+		stream, err := fqdnClient.StreamPolicyState(context.Background(), grpc.MaxCallRecvMsgSize(maxMsgSize))
 		if err != nil {
 			c.logger.Error("Failed to open policy stream", logfields.Error, err)
 			c.metrics.CiliumAgentConnection.WithLabelValues(sdpmetrics.LabelErrorOpenPolicyStream).Inc()
