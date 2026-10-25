@@ -41,10 +41,10 @@ const (
 // 32 bits); bits 32-39 hold an optional VF id which we leave zero.
 const ethtoolRxFlowSpecRing = 0x00000000FFFFFFFF
 
-// NetDevRxFlow is a typed RX flow steering rule. Exactly one of the typed match
-// fields (Ether, TCP4, ...) must be set; it identifies the flow to match and
-// supplies both the value (h_u) and mask (m_u) halves of the rule. Queue is the
-// target RX queue index that matching packets are delivered to (the "action").
+// NetDevRxFlow is a typed RX flow steering rule. Match identifies the flow to
+// match and supplies both the value (h_u) and mask (m_u) halves of the rule.
+// Queue is the target RX queue index that matching packets are delivered to
+// (the "action").
 type NetDevRxFlow struct {
 	// Match is the flow matcher; its concrete type selects the flow type.
 	Match NetDevRxFlowMatch
@@ -117,6 +117,43 @@ func (f TCPIP4Fields) serialize() (val [52]byte, mask [52]byte) {
 	putIP4(mask[4:8], f.DstIPMask)
 	networkOrder.PutUint16(mask[8:10], f.SrcPortMask)
 	networkOrder.PutUint16(mask[10:12], f.DstPortMask)
+	return val, mask
+}
+
+// TCP6Flow and UDP6Flow match on IPv6 TCP/UDP 5-tuple fields. Addresses are
+// serialized as 16 network-order bytes, and ports are serialized in network
+// byte order as struct ethtool_tcpip6_spec expects. A zero mask field means
+// "don't care". Address masks are passed to the kernel unchanged, so callers
+// can use IPv6 CIDR masks; individual drivers may restrict which masks their
+// hardware can offload.
+type TCP6Flow struct{ TCPIP6Fields }
+type UDP6Flow struct{ TCPIP6Fields }
+
+// TCPIP6Fields holds the IPv6 TCP/UDP match fields shared by TCP6Flow/UDP6Flow.
+type TCPIP6Fields struct {
+	SrcIP, SrcIPMask     net.IP // IPv6
+	DstIP, DstIPMask     net.IP
+	SrcPort, SrcPortMask uint16
+	DstPort, DstPortMask uint16
+}
+
+func (TCP6Flow) flowType() uint32 { return TCP_V6_FLOW }
+func (UDP6Flow) flowType() uint32 { return UDP_V6_FLOW }
+
+func (f TCP6Flow) serialize() ([52]byte, [52]byte) { return f.TCPIP6Fields.serialize() }
+func (f UDP6Flow) serialize() ([52]byte, [52]byte) { return f.TCPIP6Fields.serialize() }
+
+func (f TCPIP6Fields) serialize() (val [52]byte, mask [52]byte) {
+	// struct ethtool_tcpip6_spec { __be32 ip6src[4]; __be32 ip6dst[4];
+	//                              __be16 psrc; __be16 pdst; __u8 tclass; }
+	putIP6(val[0:16], f.SrcIP)
+	putIP6(val[16:32], f.DstIP)
+	networkOrder.PutUint16(val[32:34], f.SrcPort)
+	networkOrder.PutUint16(val[34:36], f.DstPort)
+	putIP6(mask[0:16], f.SrcIPMask)
+	putIP6(mask[16:32], f.DstIPMask)
+	networkOrder.PutUint16(mask[32:34], f.SrcPortMask)
+	networkOrder.PutUint16(mask[34:36], f.DstPortMask)
 	return val, mask
 }
 
@@ -254,6 +291,15 @@ func putIP4(dst []byte, ip net.IP) {
 	}
 }
 
+func putIP6(dst []byte, ip net.IP) {
+	if ip.To4() != nil {
+		return
+	}
+	if ip6 := ip.To16(); ip6 != nil {
+		copy(dst, ip6)
+	}
+}
+
 func validateHardwareAddr(field string, addr net.HardwareAddr) error {
 	if len(addr) != 0 && len(addr) != 6 {
 		return fmt.Errorf("netlink: %s must contain exactly 6 bytes", field)
@@ -264,6 +310,13 @@ func validateHardwareAddr(field string, addr net.HardwareAddr) error {
 func validateIPv4(field string, ip net.IP) error {
 	if len(ip) != 0 && ip.To4() == nil {
 		return fmt.Errorf("netlink: %s must be an IPv4 address", field)
+	}
+	return nil
+}
+
+func validateIPv6(field string, ip net.IP) error {
+	if len(ip) != 0 && (ip.To16() == nil || ip.To4() != nil) {
+		return fmt.Errorf("netlink: %s must be an IPv6 address", field)
 	}
 	return nil
 }
@@ -291,6 +344,20 @@ func validateNetDevRxFlowMatch(match NetDevRxFlowMatch) error {
 			return fmt.Errorf("netlink: NetDevRxFlow.Match must be set")
 		}
 		return validateTCPIP4Fields("UDP4Flow", m.TCPIP4Fields)
+	case TCP6Flow:
+		return validateTCPIP6Fields("TCP6Flow", m.TCPIP6Fields)
+	case *TCP6Flow:
+		if m == nil {
+			return fmt.Errorf("netlink: NetDevRxFlow.Match must be set")
+		}
+		return validateTCPIP6Fields("TCP6Flow", m.TCPIP6Fields)
+	case UDP6Flow:
+		return validateTCPIP6Fields("UDP6Flow", m.TCPIP6Fields)
+	case *UDP6Flow:
+		if m == nil {
+			return fmt.Errorf("netlink: NetDevRxFlow.Match must be set")
+		}
+		return validateTCPIP6Fields("UDP6Flow", m.TCPIP6Fields)
 	default:
 		return fmt.Errorf("netlink: unsupported NetDevRxFlow.Match type %T", match)
 	}
@@ -326,6 +393,24 @@ func validateTCPIP4Fields(flowType string, fields TCPIP4Fields) error {
 	}
 	for _, address := range addresses {
 		if err := validateIPv4(address.name, address.ip); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateTCPIP6Fields(flowType string, fields TCPIP6Fields) error {
+	addresses := []struct {
+		name string
+		ip   net.IP
+	}{
+		{flowType + ".SrcIP", fields.SrcIP},
+		{flowType + ".SrcIPMask", fields.SrcIPMask},
+		{flowType + ".DstIP", fields.DstIP},
+		{flowType + ".DstIPMask", fields.DstIPMask},
+	}
+	for _, address := range addresses {
+		if err := validateIPv6(address.name, address.ip); err != nil {
 			return err
 		}
 	}
