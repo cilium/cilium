@@ -120,6 +120,14 @@ const __u8 icmp6_err_revnat_full_sctp_after[] = {
 	SCAPY_BUF_BYTES(icmp6_err_revnat_full_sctp_after)
 };
 
+const __u8 icmp6_err_nat_full_sctp[] = {
+	SCAPY_BUF_BYTES(icmp6_err_nat_full_sctp)
+};
+
+const __u8 icmp6_err_nat_full_sctp_after[] = {
+	SCAPY_BUF_BYTES(icmp6_err_nat_full_sctp_after)
+};
+
 /*
  * Push an egressing pod->external TCP packet through to-netdev and let the
  * datapath set up nat mappings due to node ip masquerading. 
@@ -376,6 +384,40 @@ int snat_v6_pmtu_sctp_check(const struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("snat_v6_sctp_pmtu", "Ether", ctx, sizeof(__u32),
 			   icmp6_err_revnat_full_sctp_after,
 			   sizeof(icmp6_err_revnat_full_sctp_after));
+	test_finish();
+
+	return 0;
+}
+
+/* Verify that SNAT of an ICMPv6 error embedding an SCTP packet updates the
+ * outer ICMPv6 checksum for the embedded IPv6 address change.
+ */
+PKTGEN(PROG_TYPE, "snat_v6_sctp_unreach")
+int snat_v6_unreach_sctp_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp6_err_nat_full_sctp,
+			sizeof(icmp6_err_nat_full_sctp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v6_sctp_unreach")
+int snat_v6_unreach_sctp_setup(struct __ctx_buff *ctx)
+{
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v6_sctp_unreach")
+int snat_v6_unreach_sctp_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v6_sctp_unreach", "Ether", ctx, sizeof(__u32),
+			   icmp6_err_nat_full_sctp_after,
+			   sizeof(icmp6_err_nat_full_sctp_after));
 	test_finish();
 
 	return 0;
