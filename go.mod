@@ -45,7 +45,7 @@ require (
 	github.com/go-openapi/loads v0.25.3
 	github.com/go-openapi/runtime v0.33.3
 	github.com/go-openapi/spec v1.0.1
-	github.com/go-openapi/strfmt v0.27.3
+	github.com/go-openapi/strfmt v0.27.4
 	github.com/go-openapi/swag v0.29.2
 	github.com/go-openapi/swag/cmdutils v0.29.2
 	github.com/go-openapi/swag/conv v0.29.2
@@ -102,7 +102,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/tidwall/gjson v1.20.0
 	github.com/tidwall/sjson v1.2.5
-	github.com/vishvananda/netlink v1.3.2-0.20261015184244-3fdd74264153
+	github.com/vishvananda/netlink v1.3.2-0.20261024083927-5537980921d8
 	github.com/vishvananda/netns v0.0.5
 	go.etcd.io/etcd/api/v3 v3.7.2
 	go.etcd.io/etcd/client/pkg/v3 v3.7.2
