@@ -316,6 +316,7 @@ Instance: instance0
         domain: 
       software-version: <redacted>
     TCP Password Enabled: false
+    TCP-AO Enabled: false
   Peer: peer1
     Address: fd00:10:99:7::2
     Port: 1790
@@ -372,6 +373,7 @@ Instance: instance0
         domain: 
       software-version: <redacted>
     TCP Password Enabled: false
+    TCP-AO Enabled: false
 Instance: instance1
   Peer: peer0
     Address: fd00:10:99:7::3
@@ -429,6 +431,7 @@ Instance: instance1
         domain: 
       software-version: <redacted>
     TCP Password Enabled: false
+    TCP-AO Enabled: false
   Peer: peer1
     Address: fd00:10:99:7::4
     Port: 1790
@@ -485,6 +488,7 @@ Instance: instance1
         domain: 
       software-version: <redacted>
     TCP Password Enabled: false
+    TCP-AO Enabled: false
 -- bgp-route-policies.expected --
 Instance    Policy Name         Type     Statement Name   Match Peers       Match Families   Match Prefixes (Min..Max Len)   RIB Action   Path Actions
 instance0   allow-local         import   accept-local                                                                        accept       

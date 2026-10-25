@@ -30,9 +30,17 @@ import (
 // adapter keeps a copy of the last applied keychain of each neighbor to be able
 // to compute the difference on updates. The difference is applied without
 // resetting the BGP session whenever possible (adding / removing keys, rotating
-// the send key to another key of the keychain); if the key currently used to
-// authenticate the sent segments itself changes, the peer is re-created, which
-// resets the session.
+// the send key to another key of the keychain); if a key which is in use on the
+// established session (the preferred send key, or the key currently used by
+// either side to authenticate the segments it sends) changes its content or is
+// removed, the peer is re-created, which resets the session.
+//
+// Note that on an established session, a change of the preferred send key does
+// not immediately change the key used to authenticate the sent segments: TCP-AO
+// only allows to request the peer to switch to the new key (RNextKeyID), the
+// local send key switches once the peer requests it in turn (see RFC 5925,
+// section 7.5). The kernel state is therefore consulted (via the GoBGP peer
+// state) to determine which keys are actually in use.
 
 const (
 	// tcpAOKeychainNamePrefix is the prefix of the names of the TCP-AO keychains managed by the adapter.
@@ -63,16 +71,39 @@ func (u *tcpAOKeychainUpdate) empty() bool {
 	return len(u.addKeys) == 0 && len(u.deleteChangedKeys) == 0 && len(u.deleteKeys) == 0
 }
 
+// afterAddPhase returns the keychain state after the first phase of the update
+// (addKeys installed, deleteChangedKeys removed) has been applied to current,
+// i.e. before the peer configuration is updated and deleteKeys are removed.
+func (u *tcpAOKeychainUpdate) afterAddPhase(current *types.NeighborTCPAO) *types.NeighborTCPAO {
+	res := &types.NeighborTCPAO{
+		SendID: current.SendID,
+		Keys:   make([]types.TCPAOKey, 0, len(current.Keys)+len(u.addKeys)),
+	}
+	for _, k := range current.Keys {
+		if !slices.ContainsFunc(u.deleteChangedKeys, func(d types.TCPAOKey) bool { return d.SendID == k.SendID }) {
+			res.Keys = append(res.Keys, k)
+		}
+	}
+	res.Keys = append(res.Keys, u.addKeys...)
+	return res
+}
+
 // errTCPAOResetRequired is returned by planTCPAOKeychainUpdate when the desired
 // change can not be applied without resetting the BGP session.
 var errTCPAOResetRequired = errors.New("TCP-AO change requires session reset")
 
 // planTCPAOKeychainUpdate computes the keychain update needed to move from the
 // current to the desired TCP-AO configuration without resetting the session.
-// Returns errTCPAOResetRequired if the key used to authenticate the sent segments
-// changes its content, which is not possible without resetting the session.
-func planTCPAOKeychainUpdate(current, desired *types.NeighborTCPAO) (*tcpAOKeychainUpdate, error) {
+// inUse lists the send IDs of the keys which are in use on the established
+// session (see tcpAOKeysInUse); the preferred send key of the current keychain
+// is always considered in use.
+// Returns errTCPAOResetRequired if a key in use changes its content or is
+// removed, which is not possible without resetting the session.
+func planTCPAOKeychainUpdate(current, desired *types.NeighborTCPAO, inUse []uint8) (*tcpAOKeychainUpdate, error) {
 	update := &tcpAOKeychainUpdate{}
+	isInUse := func(sendID uint8) bool {
+		return sendID == current.SendID || slices.Contains(inUse, sendID)
+	}
 
 	for _, newKey := range desired.Keys {
 		oldKey := current.Key(newKey.SendID)
@@ -80,9 +111,10 @@ func planTCPAOKeychainUpdate(current, desired *types.NeighborTCPAO) (*tcpAOKeych
 		case oldKey == nil:
 			update.addKeys = append(update.addKeys, newKey)
 		case !oldKey.DeepEqual(&newKey):
-			if oldKey.SendID == current.SendID {
-				// GoBGP (rightfully) refuses to delete the key currently used for sending.
-				return nil, fmt.Errorf("%w: key with send ID %d is in use", errTCPAOResetRequired, oldKey.SendID)
+			if isInUse(oldKey.SendID) {
+				// GoBGP (rightfully) refuses to delete the preferred send key, and the kernel
+				// refuses to delete a key which is current / rnext on the established socket.
+				return nil, fmt.Errorf("%w: changed key with send ID %d is in use", errTCPAOResetRequired, oldKey.SendID)
 			}
 			update.deleteChangedKeys = append(update.deleteChangedKeys, *oldKey)
 			update.addKeys = append(update.addKeys, newKey)
@@ -90,10 +122,31 @@ func planTCPAOKeychainUpdate(current, desired *types.NeighborTCPAO) (*tcpAOKeych
 	}
 	for _, oldKey := range current.Keys {
 		if desired.Key(oldKey.SendID) == nil {
+			if isInUse(oldKey.SendID) {
+				// The key could be removed from the GoBGP keychain (after the peer update, if it
+				// is the preferred send key), but not from the established socket: the session
+				// would silently keep using it. Reset instead, so that the key is actually not
+				// used anymore.
+				return nil, fmt.Errorf("%w: removed key with send ID %d is in use", errTCPAOResetRequired, oldKey.SendID)
+			}
 			update.deleteKeys = append(update.deleteKeys, oldKey)
 		}
 	}
 	return update, nil
+}
+
+// tcpAOKeysInUse returns the send IDs of the TCP-AO keys which are in use on the
+// (possibly established) session with the peer according to the GoBGP peer state:
+// the key currently used to authenticate the sent segments ("current") and the
+// key the peer is requested to use for the segments it sends ("rnext").
+func tcpAOKeysInUse(peer *gobgp.Peer) []uint8 {
+	var res []uint8
+	for _, k := range peer.GetState().GetTcpAoState().GetKeys() {
+		if k.GetCurrent() || k.GetReceiveNext() {
+			res = append(res, uint8(k.GetSendId()))
+		}
+	}
+	return res
 }
 
 // getTCPAOKeychain returns the last applied TCP-AO keychain of the neighbor, or nil if none.
@@ -175,6 +228,8 @@ type tcpAOPeerUpdate struct {
 	deleteKeychain bool
 	// keychainUpdate holds the keys to add / delete, when the change is applied in-place.
 	keychainUpdate *tcpAOKeychainUpdate
+	// installed is the keychain state after the first phase of keychainUpdate has been applied.
+	installed *types.NeighborTCPAO
 }
 
 // prepareTCPAOUpdate performs the TCP-AO keychain operations which have to happen
@@ -213,7 +268,7 @@ func (g *GoBGPServer) prepareTCPAOUpdate(ctx context.Context, n *types.Neighbor,
 		if current.DeepEqual(n.TCPAO) {
 			return res, nil
 		}
-		update, err := planTCPAOKeychainUpdate(current, n.TCPAO)
+		update, err := planTCPAOKeychainUpdate(current, n.TCPAO, tcpAOKeysInUse(oldPeer))
 		if err != nil {
 			g.logger.Info("TCP-AO keychain change can not be applied in-place, re-creating the peer",
 				types.PeerLogField, n.Address,
@@ -226,6 +281,10 @@ func (g *GoBGPServer) prepareTCPAOUpdate(ctx context.Context, n *types.Neighbor,
 		if err := g.updateTCPAOKeys(ctx, n.Address, update.addKeys, update.deleteChangedKeys); err != nil {
 			return nil, err
 		}
+		// Record the keys installed so far: if the subsequent peer update fails, the next
+		// attempt must not try to install them again (GoBGP rejects duplicate send IDs).
+		res.installed = update.afterAddPhase(current)
+		g.setTCPAOKeychain(n.Address, res.installed)
 		res.keychainUpdate = update
 	}
 	return res, nil
@@ -238,7 +297,9 @@ func (g *GoBGPServer) finishTCPAOUpdate(ctx context.Context, n *types.Neighbor, 
 		return g.deleteTCPAOKeychain(ctx, n.Address)
 	}
 	if u.keychainUpdate != nil {
-		// the old send key is not in use anymore, the removed keys can be deleted now
+		// the peer now references the new preferred send key, record it in case the deletion below fails
+		g.setTCPAOKeychain(n.Address, &types.NeighborTCPAO{SendID: n.TCPAO.SendID, Keys: u.installed.Keys})
+		// the old send key is not referenced by the peer anymore, the removed keys can be deleted now
 		if err := g.updateTCPAOKeys(ctx, n.Address, nil, u.keychainUpdate.deleteKeys); err != nil {
 			return err
 		}

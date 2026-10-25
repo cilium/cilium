@@ -5,6 +5,7 @@ package gobgp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/netip"
 
@@ -13,6 +14,9 @@ import (
 	"github.com/cilium/cilium/pkg/bgp/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+// errPeerNotFound is returned by getExistingPeer when no peer matches the given address and ASN.
+var errPeerNotFound = errors.New("could not find existing peer")
 
 // AddNeighbor will add the CiliumBGPNeighbor to the gobgp.BgpServer, creating
 // a BGP peering connection.
@@ -53,6 +57,15 @@ func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n *types.Neighbor) err
 	}
 
 	oldPeer, err := g.getExistingPeer(ctx, n.Address, n.ASN)
+	if errors.Is(err, errPeerNotFound) {
+		// The peer may have been removed by a previous update attempt which failed
+		// half-way (e.g. when re-creating the peer). Add it instead of failing forever.
+		g.logger.Info("Peer to update does not exist, adding it instead",
+			types.PeerLogField, n.Address,
+			logfields.Error, err,
+		)
+		return g.AddNeighbor(ctx, n)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to get existing peer: %w", err)
 	}
@@ -66,9 +79,12 @@ func (g *GoBGPServer) UpdateNeighbor(ctx context.Context, n *types.Neighbor) err
 		// The TCP-AO change can not be applied in-place: re-create the peer, which applies
 		// the whole new configuration at the cost of a session reset.
 		if err := g.RemoveNeighbor(ctx, n); err != nil {
-			return err
+			return fmt.Errorf("failed while re-creating peer %v with ASN %v: %w", n.Address, n.ASN, err)
 		}
-		return g.AddNeighbor(ctx, n)
+		if err := g.AddNeighbor(ctx, n); err != nil {
+			return fmt.Errorf("failed while re-creating peer %v with ASN %v: %w", n.Address, n.ASN, err)
+		}
+		return nil
 	}
 
 	newPeer := ToGoBGPPeer(n, oldPeer, n.Address.Is4())
@@ -128,10 +144,14 @@ func (g *GoBGPServer) needsHardReset(oldPeer, newPeer *gobgp.Peer) bool {
 // If no such peer can be found, error is returned.
 func (g *GoBGPServer) getExistingPeer(ctx context.Context, peerAddr netip.Addr, peerASN uint32) (*gobgp.Peer, error) {
 	var res *gobgp.Peer
+	addrFound := false
 	fn := func(peer *gobgp.Peer) {
 		pIP, err := netip.ParseAddr(peer.Conf.NeighborAddress)
-		if err == nil && pIP == peerAddr && peer.Conf.PeerAsn == peerASN {
-			res = peer
+		if err == nil && pIP == peerAddr {
+			addrFound = true
+			if peer.Conf.PeerAsn == peerASN {
+				res = peer
+			}
 		}
 	}
 
@@ -140,6 +160,9 @@ func (g *GoBGPServer) getExistingPeer(ctx context.Context, peerAddr netip.Addr, 
 		return nil, fmt.Errorf("listing peers failed: %w", err)
 	}
 	if res == nil {
+		if !addrFound {
+			return nil, fmt.Errorf("%w with IP: %s", errPeerNotFound, peerAddr)
+		}
 		return nil, fmt.Errorf("could not find existing peer with ASN: %d and IP: %s", peerASN, peerAddr)
 	}
 	return res, nil

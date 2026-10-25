@@ -47,6 +47,7 @@ func TestPlanTCPAOKeychainUpdate(t *testing.T) {
 		name     string
 		current  *types.NeighborTCPAO
 		desired  *types.NeighborTCPAO
+		inUse    []uint8
 		expected *tcpAOKeychainUpdate
 		reset    bool
 	}{
@@ -79,11 +80,27 @@ func TestPlanTCPAOKeychainUpdate(t *testing.T) {
 			},
 		},
 		{
-			name:    "rotate: add new key, move send to it, remove old key",
+			// the old send key is still in use on the socket until the peer switches as well
+			name:    "rotate in one step: add new key, move send to it, remove old key requires reset",
 			current: &types.NeighborTCPAO{SendID: 1, Keys: []types.TCPAOKey{tcpAOKey1}},
 			desired: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey2}},
+			reset:   true,
+		},
+		{
+			name:    "rotate step 1: add new key and move send to it",
+			current: &types.NeighborTCPAO{SendID: 1, Keys: []types.TCPAOKey{tcpAOKey1}},
+			desired: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2}},
+			inUse:   []uint8{1},
 			expected: &tcpAOKeychainUpdate{
-				addKeys:    []types.TCPAOKey{tcpAOKey2},
+				addKeys: []types.TCPAOKey{tcpAOKey2},
+			},
+		},
+		{
+			name:    "rotate step 2: remove old key once both sides switched",
+			current: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2}},
+			desired: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey2}},
+			inUse:   []uint8{2},
+			expected: &tcpAOKeychainUpdate{
 				deleteKeys: []types.TCPAOKey{tcpAOKey1},
 			},
 		},
@@ -108,10 +125,41 @@ func TestPlanTCPAOKeychainUpdate(t *testing.T) {
 			desired: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{key1Changed, tcpAOKey2}},
 			reset:   true,
 		},
+		{
+			// the preferred send key was moved to key 2, but the peer still requests key 1 (RNextKeyID)
+			name:    "change content of a non-send key which is still in use on the socket requires reset",
+			current: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2}},
+			desired: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{key1Changed, tcpAOKey2}},
+			inUse:   []uint8{1, 2},
+			reset:   true,
+		},
+		{
+			name:    "remove a non-send key which is still in use on the socket requires reset",
+			current: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2}},
+			desired: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey2}},
+			inUse:   []uint8{1, 2},
+			reset:   true,
+		},
+		{
+			name:    "remove the preferred send key while moving send to another key requires reset",
+			current: &types.NeighborTCPAO{SendID: 1, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2}},
+			desired: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey2}},
+			inUse:   []uint8{1},
+			reset:   true,
+		},
+		{
+			name:    "remove a non-send key which is not in use on the socket is hitless",
+			current: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2}},
+			desired: &types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey2}},
+			inUse:   []uint8{2},
+			expected: &tcpAOKeychainUpdate{
+				deleteKeys: []types.TCPAOKey{tcpAOKey1},
+			},
+		},
 	}
 	for _, tt := range table {
 		t.Run(tt.name, func(t *testing.T) {
-			update, err := planTCPAOKeychainUpdate(tt.current, tt.desired)
+			update, err := planTCPAOKeychainUpdate(tt.current, tt.desired, tt.inUse)
 			if tt.reset {
 				require.ErrorIs(t, err, errTCPAOResetRequired)
 				require.Nil(t, update)
@@ -122,6 +170,46 @@ func TestPlanTCPAOKeychainUpdate(t *testing.T) {
 			require.Equal(t, tt.expected.empty(), update.empty())
 		})
 	}
+}
+
+func TestTCPAOKeychainUpdateAfterAddPhase(t *testing.T) {
+	key2Changed := tcpAOKey2
+	key2Changed.MasterKey = []byte("master-key-2-changed")
+
+	key4 := types.TCPAOKey{SendID: 4, ReceiveID: 4, Algorithm: types.TCPAOAlgorithmHMACSHA1_96, MasterKey: []byte("master-key-4")}
+
+	current := &types.NeighborTCPAO{SendID: 1, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2, key4}}
+	desired := &types.NeighborTCPAO{SendID: 3, Keys: []types.TCPAOKey{tcpAOKey1, key2Changed, tcpAOKey3}}
+
+	update, err := planTCPAOKeychainUpdate(current, desired, nil)
+	require.NoError(t, err)
+	require.Equal(t, &tcpAOKeychainUpdate{
+		addKeys:           []types.TCPAOKey{key2Changed, tcpAOKey3},
+		deleteChangedKeys: []types.TCPAOKey{tcpAOKey2},
+		deleteKeys:        []types.TCPAOKey{key4},
+	}, update)
+
+	// after the add phase: changed key replaced, new key added, removed key still present, send ID unchanged
+	require.Equal(t, &types.NeighborTCPAO{
+		SendID: 1,
+		Keys:   []types.TCPAOKey{tcpAOKey1, key4, key2Changed, tcpAOKey3},
+	}, update.afterAddPhase(current))
+}
+
+func TestTCPAOKeysInUse(t *testing.T) {
+	require.Empty(t, tcpAOKeysInUse(nil))
+	require.Empty(t, tcpAOKeysInUse(&gobgp.Peer{}))
+	require.Equal(t, []uint8{1, 3}, tcpAOKeysInUse(&gobgp.Peer{
+		State: &gobgp.PeerState{
+			TcpAoState: &gobgp.TcpAoPeerState{
+				Keys: []*gobgp.TcpAoKeyState{
+					{SendId: 1, ReceiveId: 1, Current: true},
+					{SendId: 2, ReceiveId: 2},
+					{SendId: 3, ReceiveId: 3, ReceiveNext: true},
+				},
+			},
+		},
+	}))
 }
 
 func TestValidateNeighborAuth(t *testing.T) {
@@ -245,6 +333,24 @@ func TestTCPAONeighborLifecycle(t *testing.T) {
 		require.Equal(t, uint32(1), getPeer().TcpAo.SendId)
 	})
 
+	t.Run("interrupted hitless update can be retried", func(t *testing.T) {
+		n := newNeighbor(&types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2}})
+
+		// simulate an update which failed after the new keys were installed, but before the peer was updated
+		upd, err := router.prepareTCPAOUpdate(ctx, n, getPeer())
+		require.NoError(t, err)
+		require.NotNil(t, upd.keychainUpdate)
+		require.Equal(t, []uint32{1, 2}, keychainSendIDs())
+		require.Equal(t, uint32(1), getPeer().TcpAo.SendId)
+		require.Equal(t, &types.NeighborTCPAO{SendID: 1, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2}}, router.getTCPAOKeychain(peerAddr))
+
+		// retrying the update must not try to install the keys again
+		require.NoError(t, srv.UpdateNeighbor(ctx, n))
+		require.Equal(t, []uint32{1, 2}, keychainSendIDs())
+		require.Equal(t, uint32(2), getPeer().TcpAo.SendId)
+		require.Equal(t, n.TCPAO, router.getTCPAOKeychain(peerAddr))
+	})
+
 	t.Run("hitless update: add key and rotate send key", func(t *testing.T) {
 		n := newNeighbor(&types.NeighborTCPAO{SendID: 2, Keys: []types.TCPAOKey{tcpAOKey1, tcpAOKey2}})
 		require.NoError(t, srv.UpdateNeighbor(ctx, n))
@@ -325,6 +431,19 @@ func TestTCPAONeighborLifecycle(t *testing.T) {
 		resp, err := srv.GetPeerState(ctx, &types.GetPeerStateRequest{})
 		require.NoError(t, err)
 		require.Empty(t, resp.Peers)
+	})
+
+	t.Run("update of a missing neighbor adds it", func(t *testing.T) {
+		// simulates a re-create (reset) update which failed after the peer was removed
+		n := newNeighbor(&types.NeighborTCPAO{SendID: 1, Keys: []types.TCPAOKey{tcpAOKey1}})
+		require.NoError(t, srv.UpdateNeighbor(ctx, n))
+
+		require.Equal(t, []uint32{1}, keychainSendIDs())
+		require.Equal(t, keychainName, getPeer().TcpAo.Keychain)
+		require.Equal(t, n.TCPAO, router.getTCPAOKeychain(peerAddr))
+
+		require.NoError(t, srv.RemoveNeighbor(ctx, n))
+		require.Nil(t, listKeychain())
 	})
 
 	t.Run("stale keychain is replaced on add", func(t *testing.T) {

@@ -207,8 +207,11 @@ spec:
                       Keys is the list of the keys of the keychain. All keys are installed
                       on the session, so the peer can use any of them to authenticate the
                       segments it sends. Keys can be added to and removed from the keychain
-                      without resetting the BGP session, as long as the key currently
-                      selected by SendKeyID stays unchanged.
+                      without resetting the BGP session, as long as the keys in use on the
+                      session (the key selected by SendKeyID, and the keys currently used by
+                      either side to authenticate the segments it sends) stay unchanged.
+                      Changing the master key or any other parameter of a key in use, or
+                      removing it, resets the BGP session.
                     items:
                       description: CiliumBGPTCPAOKey defines a single key of a TCP-AO
                         keychain.
@@ -283,9 +286,13 @@ spec:
                     type: string
                   sendKeyID:
                     description: |-
-                      SendKeyID selects the key (by its SendID) used to authenticate the
-                      segments sent to the peer. Changing this field to another key of the
-                      keychain rotates the active key without resetting the BGP session.
+                      SendKeyID selects the preferred key (by its SendID) used to
+                      authenticate the segments sent to the peer. New sessions are
+                      established using this key. On an established session, changing this
+                      field to another key of the keychain requests the peer to switch to
+                      the new key (via the RNextKeyID of the TCP-AO option) without resetting
+                      the BGP session; the segments sent to the peer are authenticated with
+                      the new key once the peer requests it in turn, as defined by RFC 5925.
 
                       If not specified, the key with the lowest SendID is used.
                     format: int32

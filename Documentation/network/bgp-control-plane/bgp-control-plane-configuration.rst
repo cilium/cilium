@@ -334,8 +334,8 @@ Field                        Description
                              to ``key-<sendID>`` (for example ``key-1``).
 ============================ ===========================================================================
 
-``sendKeyID`` selects the ``sendID`` of the key used to sign the segments sent to the peer.
-If omitted, the key with the lowest ``sendID`` is used. All keys of the keychain are always
+``sendKeyID`` selects the ``sendID`` of the preferred key used to sign the segments sent to the
+peer. If omitted, the key with the lowest ``sendID`` is used. All keys of the keychain are always
 accepted for incoming segments.
 
 ``secretRef`` should reference the name of a Secret in the BGP secrets namespace (if using the
@@ -351,30 +351,39 @@ holding the master key (1-80 bytes). An example of creating a Secret for the con
 
 If the referenced Secret cannot be found, the peer is not configured until the Secret becomes
 available, and the ``CiliumBGPPeerConfig`` resource reports the ``cilium.io/MissingAuthSecret``
-condition. If the Secret is found but it does not contain an entry for one of the configured keys,
-or if a master key is longer than 80 bytes, the agent logs an error and the peer is not configured.
+condition. Unlike for ``authSecretRef``, the agent never falls back to an unauthenticated session:
+if the Secret of an already configured peer is deleted, the peer is removed and the BGP session is
+torn down until the Secret is restored. If the Secret is found but it does not contain an entry for
+one of the configured keys, or if a master key is longer than 80 bytes, the agent logs an error and
+the peers of the BGP instance are not reconciled until the Secret is fixed.
 
 Key rotation
 ~~~~~~~~~~~~
 
-TCP-AO keys can be rotated without resetting the BGP session, as long as the key currently used
-for sending is not modified:
+TCP-AO keys can be rotated without resetting the BGP session, as long as the keys in use on the
+session are not modified. A key is in use when it is selected by ``sendKeyID``, or when either side
+of the session currently signs the segments it sends with it (the ``current`` and ``rnext`` keys
+reported by ``cilium-dbg bgp peers``). To rotate from an old key to a new key:
 
-1. Add the new key to the Secret and to the ``keys`` list of the ``CiliumBGPPeerConfig`` (and
-   configure the same key on the peer).
-2. Once the new key is configured on both sides, switch ``sendKeyID`` to the new key. The peer
-   is notified of the new key through the ``RNextKeyID`` field of the TCP-AO option and starts
-   using it for the segments it sends, if it supports automatic key switching.
-3. Once both sides send with the new key, remove the old key from the ``keys`` list and from
-   the Secret.
+1. Add the new key to the Secret and to the ``keys`` list of the ``CiliumBGPPeerConfig``, and
+   configure the same key on the peer. Both sides now accept segments signed with either key.
+2. Once the new key is configured on both sides, switch ``sendKeyID`` to the new key on the
+   Cilium side, and select the new key as the send key on the peer as well. As defined by
+   `RFC-5925`_, switching the preferred send key on an established session does not change the
+   signing key immediately: each side notifies the other of its preferred key through the
+   ``RNextKeyID`` field of the TCP-AO option, and starts signing with the new key once the other
+   side requests it. The session is therefore fully migrated to the new key once both sides have
+   switched their preferred send key.
+3. Once ``cilium-dbg bgp peers`` reports the new key as both ``current`` and ``rnext``, remove the
+   old key from the ``keys`` list and from the Secret, and from the peer.
 
 Changing the master key, the ``receiveID``, the algorithm or the ``excludeTCPOptions`` setting of
-the key currently used for sending requires a reset of the BGP session, which is performed
-automatically by the agent. Enabling or disabling TCP-AO on an existing peer, or switching between
-an MD5 password and TCP-AO, also resets the session.
+a key in use, or removing it from the ``keys`` list, requires a reset of the BGP session, which is
+performed automatically by the agent. Enabling or disabling TCP-AO on an existing peer, or switching
+between an MD5 password and TCP-AO, also resets the session.
 
-The TCP-AO state of a peer, including the per-key packet counters reported by the kernel, can be
-inspected with the ``cilium-dbg bgp peers`` command on the agent.
+The TCP-AO state of a peer, including the keys in use and the per-key packet counters reported by
+the kernel, can be inspected with the ``cilium-dbg bgp peers`` command on the agent.
 
 Because TCP-AO signs the TCP header and the IP addresses of the segments, it cannot be used if the
 session is address-translated by Cilium (in other words, the Cilium Agent's pod IP address must be
