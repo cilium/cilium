@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"github.com/cilium/cilium/pkg/fqdn/config"
 	k8sapi "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -19,11 +20,26 @@ import (
 )
 
 func TestRulesToPolicyEntries(t *testing.T) {
+	mockResolver := config.ServiceResolver(func(ns, name string) (map[string]string, []string) {
+		if ns == "kube-system" && name == "kube-dns" {
+			return map[string]string{"k8s-app": "kube-dns"}, nil
+		}
+		return nil, nil
+	})
+
+	fqdnCfg := config.FQDNPolicyDNSServerConfig{
+		FQDNPolicyDNSServerService: "kube-system/kube-dns",
+		FQDNPolicyDNSServerPort:    53,
+	}
+
 	lbls := labels.LabelArray{labels.NewLabel("foo", "bar", labels.LabelSourceK8s)}
 	es := api.NewESFromLabels(labels.ParseSelectLabel("foo=bar"))
 	ls := types.NewLabelSelector(es)
 	nodeEndpointSelector := api.NewESFromLabels(labels.ParseSelectLabel("node=selector"))
 	nodeSelector := types.NewLabelSelector(nodeEndpointSelector)
+
+	dnsRules := api.PortRulesDNS{{MatchName: "example.com"}}
+	l3Selectors, l4Rules := fqdnCfg.DNSSelectors(mockResolver, dnsRules)
 
 	trueBool := true
 	falseBool := false
@@ -327,11 +343,51 @@ func TestRulesToPolicyEntries(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "egress rule with toFQDNs",
+			rules: api.Rules{
+				{
+					EndpointSelector: es,
+					Labels:           lbls,
+					Egress: []api.EgressRule{
+						{
+							ToFQDNs: api.FQDNSelectorSlice{
+								{MatchName: "example.com"},
+							},
+						},
+					},
+				},
+			},
+			want: types.PolicyEntries{
+				{
+					Tier:        types.Normal,
+					Subject:     ls,
+					Labels:      lbls,
+					DefaultDeny: true,
+					Verdict:     types.Allow,
+					Ingress:     false,
+					L3: types.ToSelectors(
+						api.FQDNSelector{MatchName: "example.com"},
+					),
+					L4: api.PortRules{},
+				},
+				{
+					Tier:        types.Normal,
+					Subject:     ls,
+					Labels:      lbls,
+					DefaultDeny: true,
+					Verdict:     types.Allow,
+					Ingress:     false,
+					L3:          l3Selectors,
+					L4:          l4Rules,
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := RulesToPolicyEntries(tt.rules)
+			got := RulesToPolicyEntries(tt.rules, WithFQDNPolicyDNSServerConfig(fqdnCfg), WithServiceResolver(mockResolver))
 			assert.Equal(t, tt.want, got)
 		})
 	}
