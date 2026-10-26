@@ -361,19 +361,13 @@ func loadAndRecordComplexity(
 			}
 
 			stackDepthIndex := strings.LastIndex(p.VerifierLog[:lastLineIndex], "\n")
-			// On older kernels, the max field is missing in verifier logs so
-			// we can't easily retrieve the max stack size. We'll just return
-			// it for bpf-next, where it's likely already the highest value
-			// anyway.
-			if kv == kernelVersionNetNext {
-				var stackDepth int
-				stackDepth, stackDepthIndex, err = parseStackDepth(t, s, p.VerifierLog, lastLineIndex, lastOff)
-				if err != nil {
-					dumpVerifierLogs(t, fullLogFile, p.VerifierLog)
-					t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
-				}
+
+			var stackDepth, parsedStackDepthIndex int
+			stackDepth, parsedStackDepthIndex, err = parseStackDepth(t, s, p.VerifierLog, lastLineIndex, lastOff)
+			if err == nil {
 				r.StackDepth = stackDepth
 				r.HasStackDepth = true
+				stackDepthIndex = parsedStackDepthIndex
 			}
 
 			// Extract the third to last line, which looks like:
