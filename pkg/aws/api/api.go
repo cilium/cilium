@@ -539,6 +539,13 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		if iface.Attachment.InstanceId != nil {
 			instanceID = aws.ToString(iface.Attachment.InstanceId)
 		}
+
+		if spec := iface.Attachment.EnaSrdSpecification; spec != nil {
+			eni.ENAExpress.Enabled = aws.ToBool(spec.EnaSrdEnabled)
+			if spec.EnaSrdUdpSpecification != nil {
+				eni.ENAExpress.UDPEnabled = aws.ToBool(spec.EnaSrdUdpSpecification.EnaSrdUdpEnabled)
+			}
+		}
 	}
 
 	if iface.SubnetId != nil {
@@ -925,8 +932,31 @@ func (c *Client) DeleteNetworkInterface(ctx context.Context, eniID string) error
 	return err
 }
 
-// AttachNetworkInterface attaches a previously created ENI to an instance
-func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error) {
+// enaSrdSpecification returns the ENA Express specification of an ENI
+// attachment. It returns nil when ENA Express is disabled, so that attaching an
+// ENI to an instance type without ENA Express support doesn't fail.
+func enaSrdSpecification(enaExpress types.ENAExpress) *ec2_types.EnaSrdSpecification {
+	if !enaExpress.Enabled {
+		return nil
+	}
+	return &ec2_types.EnaSrdSpecification{
+		EnaSrdEnabled: aws.Bool(true),
+		EnaSrdUdpSpecification: &ec2_types.EnaSrdUdpSpecification{
+			EnaSrdUdpEnabled: aws.Bool(enaExpress.UDPEnabled),
+		},
+	}
+}
+
+// AttachNetworkInterfaceOptions are the optional settings of an ENI attachment.
+// The zero value attaches an ENI with the EC2 defaults.
+type AttachNetworkInterfaceOptions struct {
+	// ENAExpress is the ENA Express configuration of the attachment
+	ENAExpress types.ENAExpress
+}
+
+// AttachNetworkInterface attaches a previously created ENI to an instance with
+// the attachment settings in opts
+func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string, opts AttachNetworkInterfaceOptions) (string, error) {
 	input := &ec2.AttachNetworkInterfaceInput{
 		DeviceIndex:        aws.Int32(index),
 		InstanceId:         aws.String(instanceID),
@@ -942,7 +972,8 @@ func (c *Client) AttachNetworkInterface(ctx context.Context, index int32, instan
 		// This workaround can be removed once AWS rolls out a fix, which is scheduled by January 30, 2026
 		//
 		// See https://github.com/cilium/cilium/pull/42512
-		NetworkCardIndex: aws.Int32(0),
+		NetworkCardIndex:    aws.Int32(0),
+		EnaSrdSpecification: enaSrdSpecification(opts.ENAExpress),
 	}
 
 	c.limiter.Limit(ctx, AttachNetworkInterface)
