@@ -344,7 +344,8 @@ summarize() {
       egresses++
       ip = get("ip")
       if (get("rc") + 0 != 0 || ip !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/) {
-        egress_failed++
+        if (!egress_failed++)
+          egress_first = $1
         next
       }
       if (!(ip in seen)) {
@@ -400,6 +401,8 @@ summarize() {
       print ""
       if (api_slow)
         printf "::warning::%d of %d API connects from the runner took 10s or more or failed, the first at %s\n", api_slow, apis, api_first >> warnings
+      if (egress_failed)
+        printf "::warning::%d of %d egress IP lookups from the runner failed, the first at %s\n", egress_failed, egresses, egress_first >> warnings
       if (control_slow)
         printf "::warning::%d of %d API connects from a node without Cilium took 10s or more or failed\n", control_slow, controls >> warnings
       if (c1["TcpExtPAWSActive"] - c0["TcpExtPAWSActive"] > 0)
