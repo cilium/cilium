@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/aws/api"
 	apiMock "github.com/cilium/cilium/pkg/aws/api/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/ipam/resynctest"
@@ -43,7 +44,7 @@ func newHookedInstancesManager(t *testing.T, instanceID string) (*apiMock.API, *
 
 	eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 4, testSubnet.ID, "desc", []string{"sg-1"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = mngr.Resync(t.Context())
 	require.NoError(t, err)
@@ -94,7 +95,7 @@ func TestFullResync(t *testing.T) {
 			if err != nil {
 				return "", nil, err
 			}
-			if _, err := ec2api.AttachNetworkInterface(context.Background(), 1, instanceID, eniID); err != nil {
+			if _, err := ec2api.AttachNetworkInterface(context.Background(), 1, instanceID, eniID, api.AttachNetworkInterfaceOptions{}); err != nil {
 				return "", nil, err
 			}
 			eni.Number = 1
