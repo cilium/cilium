@@ -46,6 +46,13 @@ triggers:
     - k8s-kind-network-policies-e2e.yaml
     depends-on:
     - /build-images-dependency
+  # Both dispatch the /test and nightly workflows through tests-all-dispatch.yaml.
+  /test\s+all\s*:
+    workflows:
+    - tests-all.yaml
+  /test\s+all-cloud-scheduled\s*:
+    workflows:
+    - tests-all-cloud-scheduled.yaml
   /ci-aks:
     workflows:
     - conformance-aks.yaml
@@ -207,6 +214,10 @@ schedule:
     - tests-e2e-upgrade.yaml
 
 workflows:
+  tests-all.yaml:
+    paths-regex: .*
+  tests-all-cloud-scheduled.yaml:
+    paths-regex: .*
   conformance-aks.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-aws-cni.yaml:
