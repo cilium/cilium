@@ -411,6 +411,13 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		// Register the new EndpointPolicy as a receiver of incremental
 		// updates before selector cache lock is released by 'WithRLock'.
 		p.insertUser(calculatedPolicy)
+
+		// FIXME(fristonio): If while inserting endpoint policy to selector policy we learn
+		// that the policy is superseded, should we bail out early from regeneration?
+		// Why do the extra work if we anyway have to regenerate.
+		//
+		// This bail out is different and will indicate requeue for regeneration request
+		// reverting any changes made.
 	})
 
 	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {

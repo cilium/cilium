@@ -240,7 +240,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		return newRegenerationError(regenerationFailureReasonPolicyRegenerationError,
 			fmt.Errorf("failed waiting for policy computation result: %w", err))
 	} else if pcr != nil {
-		selectorPolicy = pcr.NewPolicy
+		selectorPolicy = pcr.Policy
 		// The realized revision is how far forward this policy is known to be
 		// correct, which is what waiters (e.g. the policy-revision wait in the
 		// connectivity tests) compare against.
@@ -300,16 +300,13 @@ func (e *Endpoint) waitForPolicyComputationResult(
 ) (*compute.Result, error) {
 	wantedRevision := datapathRegenCtxt.policyRevisionToWaitFor
 
-	timeout := time.NewTimer(time.Second)
-	defer timeout.Stop()
-
 	for {
 		computeResult, _, watch, found := e.policyFetcher.GetIdentityPolicyByIdentity(securityIdentity)
 		// CurrentAtRevision, not Revision: a policy computed at an older
 		// revision is still the right one to use if no later update selected
 		// this identity.
 		if found && computeResult.CurrentAtRevision >= wantedRevision {
-			if computeResult.NewPolicy.AddHold() {
+			if computeResult.Policy.AddHold() {
 				e.getLogger().Debug(
 					"Retrieved identity policy from statedb",
 					logfields.PolicyRevision, computeResult.Revision,
@@ -344,7 +341,7 @@ func (e *Endpoint) waitForPolicyComputationResult(
 		select {
 		case <-watch:
 			continue
-		case <-timeout.C:
+		case <-datapathRegenCtxt.completionCtx.Done():
 			if found {
 				return nil, fmt.Errorf("%w: identity=%d got rev=%d currentAt=%d, want rev=%d",
 					errPolicyComputationStaleRevision,

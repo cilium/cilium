@@ -1833,6 +1833,8 @@ func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn SelectorSnapshot) {
 // circular pointer references. Used when the policy is being deleted.
 // Note that the L4Policy itself is not modified in any way, so that it may still
 // be used concurrently.
+//
+// Only used as non-production helper, detach is handled by removeUser/supersede.
 func (l4 *L4Policy) detach(selectorCache *SelectorCache) {
 	l4.Ingress.Detach(selectorCache)
 	l4.Egress.Detach(selectorCache)

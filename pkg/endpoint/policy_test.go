@@ -262,8 +262,8 @@ func computeSelectorPolicy(t *testing.T, f *policyTestFixture, name string) poli
 	<-done
 	res, _, _, found := f.polComputer.GetIdentityPolicyByIdentity(f.podID)
 	require.True(t, found)
-	require.NotNil(t, res.NewPolicy)
-	return res.NewPolicy
+	require.NotNil(t, res.Policy)
+	return res.Policy
 }
 
 // supersedeFetcher serves a detached policy on the first read, then a live one.
@@ -313,8 +313,8 @@ func TestWaitSkipsSupersededPolicy(t *testing.T) {
 	fetcher := &supersedeFetcher{
 		PolicyRecomputer: f.polComputer,
 		results: []compute.Result{
-			{NewPolicy: detached, Revision: rev, CurrentAtRevision: rev},
-			{NewPolicy: live, Revision: rev, CurrentAtRevision: rev},
+			{Policy: detached, Revision: rev, CurrentAtRevision: rev},
+			{Policy: live, Revision: rev, CurrentAtRevision: rev},
 		},
 		watch: make(chan struct{}),
 	}
@@ -325,7 +325,7 @@ func TestWaitSkipsSupersededPolicy(t *testing.T) {
 	res, err := ep.waitForPolicyComputationResult(
 		&datapathRegenerationContext{policyRevisionToWaitFor: rev}, f.podID)
 	require.NoError(t, err)
-	require.Same(t, live, res.NewPolicy)
+	require.Same(t, live, res.Policy)
 
 	live.ReleaseHold()
 }

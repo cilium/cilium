@@ -249,8 +249,8 @@ func TestUpdatePolicyAdvancesUnaffectedIdentities(t *testing.T) {
 	// is still the very same object.
 	obj, _, _, found := computer.GetIdentityPolicyByIdentity(unaffected)
 	require.True(t, found)
-	require.NotNil(t, obj.NewPolicy)
-	require.Same(t, before.NewPolicy, obj.NewPolicy,
+	require.NotNil(t, obj.Policy)
+	require.Same(t, before.Policy, obj.Policy,
 		"unaffected identity was recomputed, not just advanced")
 	// An advance must leave the revision it was computed at alone.
 	require.Equal(t, before.Revision, obj.Revision)
@@ -299,7 +299,8 @@ func TestAdvanceDoesNotSatisfyRecompute(t *testing.T) {
 	// policy, so it is the oracle for "this was recomputed, not carried".
 	obj, _, _, found := computer.GetIdentityPolicyByIdentity(carried)
 	require.True(t, found)
-	require.NotNil(t, obj.OldPolicy,
+	require.NotNil(t, obj.Policy)
+	require.NotSame(t, before.Policy, obj.Policy,
 		"requested recomputation was skipped because the policy had been carried forward")
 	require.GreaterOrEqual(t, obj.Revision, before.Revision)
 }
