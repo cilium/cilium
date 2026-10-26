@@ -47,7 +47,8 @@ type AzureAPI interface {
 type InstancesManager struct {
 	logger *slog.Logger
 	// resyncLock keeps incremental resync and cache updates out of a full API resync
-	resyncLock lock.RWMutex
+	resyncLock    lock.RWMutex
+	instanceLocks lock.KeyedMutex[string]
 
 	// usePrimary mirrors the --azure-use-primary-address operator flag; when
 	// true, each NIC's primary IP is exposed to the allocatable pool.
@@ -225,17 +226,28 @@ func (m *InstancesManager) resyncInstances(ctx context.Context) (time.Time, erro
 }
 
 func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
-	// Instance incremental resync from different nodes should be executed in parallel,
-	// but must block the full API resync.
-	m.resyncLock.RLock()
-	defer m.resyncLock.RUnlock()
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
 	return m.resyncInstance(ctx, instanceID)
+}
+
+func (m *InstancesManager) lockInstance(instanceID string) lock.UnlockFunc {
+	unlockInstance := m.instanceLocks.Lock(instanceID)
+	// The read lock allows incremental resyncs and cache updates for different
+	// instances to run in parallel, while excluding full API resyncs, which take
+	// the write lock.
+	m.resyncLock.RLock()
+
+	return func() {
+		m.resyncLock.RUnlock()
+		unlockInstance()
+	}
 }
 
 // DeleteInstance delete instance from m.instances
 func (m *InstancesManager) DeleteInstance(instanceID string) {
-	m.resyncLock.RLock()
-	defer m.resyncLock.RUnlock()
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
 
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
