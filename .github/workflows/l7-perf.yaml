@@ -15,6 +15,9 @@ on:
       SHA:
         description: "SHA under test (head of the PR branch)."
         required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR)."
+        required: false
       num-test-nodes:
         description: "Number of test nodes to create"
         required: false
