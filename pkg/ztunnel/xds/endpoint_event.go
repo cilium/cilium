@@ -56,13 +56,13 @@ func (c EndpointEventCollection) EmitTo(ctx context.Context, ch chan<- *Endpoint
 //
 // The returned DeltaDiscoveryResponse can be sent directly on a DeltaAggregatedResources
 // stream.
-func (c EndpointEventCollection) ToDeltaDiscoveryResponse() *v3.DeltaDiscoveryResponse {
+func (c EndpointEventCollection) ToDeltaDiscoveryResponse(trustDomain string) *v3.DeltaDiscoveryResponse {
 	createResources := make([]*v3.Resource, 0)
 	removedNames := make([]string, 0)
 	for _, event := range c {
 		switch event.Type {
 		case CREATE:
-			address, err := event.ToXDSAddress()
+			address, err := event.ToXDSAddress(trustDomain)
 			if err != nil {
 				continue
 			}
@@ -129,7 +129,7 @@ func (e *EndpointEvent) getPodUID() string {
 //
 // This transformation is heavily opinionated for our ZTunnel integration, make
 // note of the hard-coded values in the transform.
-func (e *EndpointEvent) ToXDSAddress() (*pb.Address, error) {
+func (e *EndpointEvent) ToXDSAddress(trustDomain string) (*pb.Address, error) {
 	if e.Name == "" {
 		return nil, fmt.Errorf("cannot transform EndpointEvent to XDS Address, missing endpoint information")
 	}
@@ -159,6 +159,7 @@ func (e *EndpointEvent) ToXDSAddress() (*pb.Address, error) {
 		Name:           e.Name,
 		Namespace:      e.Namespace,
 		ServiceAccount: e.ServiceAccount,
+		TrustDomain:    trustDomain,
 		TunnelProtocol: pb.TunnelProtocol_HBONE,
 		Addresses:      ipAddresses,
 	}

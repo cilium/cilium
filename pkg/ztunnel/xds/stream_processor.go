@@ -38,6 +38,7 @@ type StreamProcessorParams struct {
 	EnrolledNamespaceTable    statedb.RWTable[*table.EnrolledNamespace]
 	Log                       *slog.Logger
 	Metrics                   *Metrics
+	TrustDomain               string
 }
 
 // StreamProcessor implements the logic for handling xDS streams to zTunnel.
@@ -54,6 +55,7 @@ type StreamProcessor struct {
 	db                     *statedb.DB
 	enrolledNamespaceTable statedb.RWTable[*table.EnrolledNamespace]
 	metrics                *Metrics
+	trustDomain            string
 }
 
 // CiliumEndpointsWatcher defines the interface for watching CiliumEndpoints and CiliumEndpointSlices.
@@ -109,6 +111,7 @@ func NewStreamProcessor(params *StreamProcessorParams) *StreamProcessor {
 		db:                     params.DB,
 		enrolledNamespaceTable: params.EnrolledNamespaceTable,
 		metrics:                metrics,
+		trustDomain:            params.TrustDomain,
 	}
 	sp.endpointSource = NewEndpointSource(params.K8sCiliumEndpointsWatcher, sp)
 	return sp
@@ -331,7 +334,7 @@ func (sp *StreamProcessor) handleAddressTypeURL(req *v3.DeltaDiscoveryRequest) e
 		return ctx.Err()
 	}
 
-	resp := collection.ToDeltaDiscoveryResponse()
+	resp := collection.ToDeltaDiscoveryResponse(sp.trustDomain)
 	sp.expectedNonce[resp.Nonce] = struct{}{}
 
 	if err := sp.stream.SendMsg(resp); err != nil {
@@ -411,7 +414,7 @@ drained:
 		}
 	}
 
-	resp := collection.ToDeltaDiscoveryResponse()
+	resp := collection.ToDeltaDiscoveryResponse(sp.trustDomain)
 
 	// record the generated Nonce so we can link up any Ack or Nack in our main
 	// event loop.

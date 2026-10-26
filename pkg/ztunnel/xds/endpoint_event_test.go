@@ -50,7 +50,7 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		}
 
 		// Transform to XDS Address
-		address, err := event.ToXDSAddress()
+		address, err := event.ToXDSAddress("")
 		require.NoError(t, err, "ToXDSAddress should not error for valid endpoint")
 		require.NotNil(t, address, "Address should not be nil")
 
@@ -115,7 +115,7 @@ func TestEndpointEventToXDSAddress(t *testing.T) {
 		// Note: REMOVE events don't use ToXDSAddress() in the transformation pipeline.
 		// They are handled directly by adding the K8sUID to RemovedResources in
 		// ToDeltaDiscoveryResponse(). However, the method should still work.
-		address, err := event.ToXDSAddress()
+		address, err := event.ToXDSAddress("")
 		require.NoError(t, err, "ToXDSAddress should not error for REMOVE event")
 		require.NotNil(t, address, "Address should not be nil")
 
@@ -263,7 +263,7 @@ func TestEndpointEventCollectionToDeltaDiscoveryResponse(t *testing.T) {
 		}
 
 		// Transform to DeltaDiscoveryResponse
-		response := collection.ToDeltaDiscoveryResponse()
+		response := collection.ToDeltaDiscoveryResponse("")
 		require.NotNil(t, response, "DeltaDiscoveryResponse should not be nil")
 
 		// Validate response structure

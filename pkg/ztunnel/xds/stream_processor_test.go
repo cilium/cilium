@@ -28,6 +28,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/ztunnel/pb"
 	"github.com/cilium/cilium/pkg/ztunnel/table"
 )
 
@@ -87,17 +88,48 @@ func (s *MockStream) Recv() (*v3.DeltaDiscoveryRequest, error) {
 
 type MockEndpointEventSource struct {
 	subscribeCalled bool
+	initialBatch    EndpointEventCollection
 }
 
-// SubscribeToEndpointEvents sends an empty initial batch on syncCh and closes it.
+// SubscribeToEndpointEvents sends the initial batch on syncCh and closes it.
 func (m *MockEndpointEventSource) SubscribeToEndpointEvents(ctx context.Context, syncCh chan<- EndpointEventCollection) {
 	defer close(syncCh)
 	m.subscribeCalled = true
-	syncCh <- EndpointEventCollection{}
+	syncCh <- m.initialBatch
 }
 
 func (m *MockEndpointEventSource) GetSubscriptionStatus() bool {
 	return m.subscribeCalled
+}
+
+func TestStreamProcessorTrustDomain(t *testing.T) {
+	for _, domain := range []string{"", "spiffe.cilium", "custom.example"} {
+		t.Run(domain, func(t *testing.T) {
+			var responses []*v3.DeltaDiscoveryResponse
+			stream := &MockStream{}
+			stream.OnContext = t.Context
+			stream.OnSendMsg = func(msg any) error {
+				responses = append(responses, msg.(*v3.DeltaDiscoveryResponse))
+				return nil
+			}
+			sp := NewStreamProcessor(&StreamProcessorParams{
+				Stream:      stream,
+				Log:         slog.New(slog.DiscardHandler),
+				TrustDomain: domain,
+			})
+			event := &EndpointEvent{Type: CREATE, CiliumEndpoint: makeCEP("pod", "workload", "10.0.0.1")}
+			sp.endpointSource = &MockEndpointEventSource{initialBatch: EndpointEventCollection{event}}
+			require.NoError(t, sp.handleAddressTypeURL(&v3.DeltaDiscoveryRequest{}))
+			require.NoError(t, sp.handleEPEvent(event))
+			require.Len(t, responses, 2)
+			for _, response := range responses {
+				require.Len(t, response.Resources, 1)
+				var address pb.Address
+				require.NoError(t, response.Resources[0].Resource.UnmarshalTo(&address))
+				require.Equal(t, domain, address.GetWorkload().TrustDomain)
+			}
+		})
+	}
 }
 
 // subscribeAndSync is a test helper that calls SubscribeToEndpointEvents with a syncCh
