@@ -247,11 +247,11 @@ func loadAndRecordComplexity(
 		}
 
 		var (
-			coll *ebpf.Collection
-			err  error
+			coll    *ebpf.Collection
+			loadErr error
 		)
 		for {
-			coll, _, err = bpf.LoadCollection(log, spec, &bpf.CollectionOptions{
+			coll, _, loadErr = bpf.LoadCollection(log, spec, &bpf.CollectionOptions{
 				Constants: constants,
 				CollectionOptions: ebpf.CollectionOptions{
 					Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
@@ -260,10 +260,11 @@ func loadAndRecordComplexity(
 					},
 				},
 			})
-			if err != nil {
+			if loadErr != nil {
 				// When we have a load error, and we initially did not request the full log,
 				// we retry with the full log enabled.
 				if logLevel != ebpf.LogLevelInstruction|ebpf.LogLevelStats {
+					t.Logf("Failed to load collection with the stats-level verifier log, retrying with the full log: %v", loadErr)
 					logLevel = ebpf.LogLevelInstruction | ebpf.LogLevelStats
 					continue
 				}
@@ -272,10 +273,10 @@ func loadAndRecordComplexity(
 			break
 		}
 
-		if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
+		if verifierErr, ok := errors.AsType[*ebpf.VerifierError](loadErr); ok {
 			// Write full verifier log to a path on disk for offline analysis.
 			var buf bytes.Buffer
-			fmt.Fprintf(&buf, "%+v", ve)
+			fmt.Fprintf(&buf, "%+v", verifierErr)
 			fullLogFile := path.Join(*flagResultDir, fmt.Sprintf("%s_%d_%d_verifier.log", collection, build, load))
 			_ = os.WriteFile(fullLogFile, buf.Bytes(), 0444)
 			t.Log("Full verifier log at", fullLogFile)
@@ -312,12 +313,12 @@ func loadAndRecordComplexity(
 			// of the program that triggered the verifier error.
 			// ebpf.VerifierError only contains the return code and verifier log
 			// buffer.
-			t.Logf("Error: %v\nVerifier error tail: %-10v", err, ve)
+			t.Logf("Failed to load collection: %v\nVerifier log tail: %-10v", loadErr, verifierErr)
 			t.Fail()
 			return
 		}
-		if err != nil {
-			t.Log(err)
+		if loadErr != nil {
+			t.Logf("Failed to load collection: %v", loadErr)
 			t.Fail()
 			return
 		}
