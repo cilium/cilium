@@ -2968,12 +2968,8 @@ func (c *DaemonConfig) checkIPAMDelegatedPlugin() error {
 		// When using IPAM delegated plugin, IP addresses are allocated by the CNI binary,
 		// not the daemon. Therefore, features which require the daemon to allocate IPs for itself
 		// must be disabled.
-		if c.EnableIPv4 && c.LocalRouterIPv4 == "" {
-			return fmt.Errorf("--%s must be provided when IPv4 is enabled with --%s=%s", LocalRouterIPv4, IPAM, ipamOption.IPAMDelegatedPlugin)
-		}
-		if c.EnableIPv6 && c.LocalRouterIPv6 == "" {
-			return fmt.Errorf("--%s must be provided when IPv6 is enabled with --%s=%s", LocalRouterIPv6, IPAM, ipamOption.IPAMDelegatedPlugin)
-		}
+		// Without --local-router-ipv4/--local-router-ipv6 the router
+		// addresses are leased from the delegated IPAM plugin.
 		if c.EnableEndpointHealthChecking {
 			return fmt.Errorf("--%s must be disabled with --%s=%s", EnableEndpointHealthChecking, IPAM, ipamOption.IPAMDelegatedPlugin)
 		}

@@ -701,8 +701,23 @@ func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouter
 	var v4 net.IP
 	var v6 net.IP
 
+	// With delegated IPAM the agent can't allocate from its own pool: lease
+	// the router addresses of the families without a static one from the
+	// delegated IPAM plugin, once for all families.
+	var delegatedV4, delegatedV6 net.IP
+	if r.needsDelegatedRouterIPs() {
+		var err error
+		delegatedV4, delegatedV6, err = r.allocateRouterIPsWithDelegatedIPAMExec(ctx, newDefaultCNIExec())
+		if err != nil {
+			return fmt.Errorf("failed to lease router IPs via delegated IPAM: %w", err)
+		}
+	}
+
 	if r.daemonConfig.EnableIPv4 {
-		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPv4FromK8s, restoredRouterIPv4FromFS)
+		routerIP, err := delegatedV4, error(nil)
+		if r.daemonConfig.IPAM != ipamOption.IPAMDelegatedPlugin || r.daemonConfig.LocalRouterIPv4 != "" {
+			routerIP, err = r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPv4FromK8s, restoredRouterIPv4FromFS)
+		}
 		if err != nil {
 			return err
 		}
@@ -714,7 +729,10 @@ func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouter
 	}
 
 	if r.daemonConfig.EnableIPv6 {
-		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPv6FromK8s, restoredRouterIPv6FromFS)
+		routerIP, err := delegatedV6, error(nil)
+		if r.daemonConfig.IPAM != ipamOption.IPAMDelegatedPlugin || r.daemonConfig.LocalRouterIPv6 != "" {
+			routerIP, err = r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPv6FromK8s, restoredRouterIPv6FromFS)
+		}
 		if err != nil {
 			return err
 		}
