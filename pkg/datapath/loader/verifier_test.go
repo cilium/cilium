@@ -13,6 +13,7 @@ import (
 	"iter"
 	"log/slog"
 	"maps"
+	"math"
 	"os"
 	"path"
 	"slices"
@@ -261,6 +262,10 @@ func extractProgNamePrefix(loadErr error, verifierErr *ebpf.VerifierError) strin
 	return strings.TrimSuffix(loadErr.Error(), verifierErr.Error())
 }
 
+// fullLogSem limits how many loads are retried with the full verifier log at the same time, as each
+// of them can use several GiB of memory.
+var fullLogSem = make(chan struct{}, 2)
+
 func loadAndRecordComplexity(
 	objectFile string,
 	spec *ebpf.CollectionSpec,
@@ -281,16 +286,20 @@ func loadAndRecordComplexity(
 		}
 
 		var (
-			coll    *ebpf.Collection
-			loadErr error
+			coll               *ebpf.Collection
+			loadErr            error
+			logBufferStartSize uint32
 		)
+		// Taken from cilium/ebpf.
+		const maxVerifierLogSize = math.MaxUint32 >> 2
 		for {
 			coll, _, loadErr = bpf.LoadCollection(log, spec, &bpf.CollectionOptions{
 				Constants: constants,
 				CollectionOptions: ebpf.CollectionOptions{
 					Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 					Programs: ebpf.ProgramOptions{
-						LogLevel: logLevel,
+						LogLevel:     logLevel,
+						LogSizeStart: logBufferStartSize,
 					},
 				},
 			})
@@ -306,7 +315,12 @@ func loadAndRecordComplexity(
 						errMsg = loadErr.Error()
 					}
 					t.Logf("Failed to load collection with the stats-level verifier log, retrying with the full log: %s", errMsg)
+					fullLogSem <- struct{}{}
+					defer func() { <-fullLogSem }()
 					logLevel = ebpf.LogLevelInstruction | ebpf.LogLevelStats
+					// Set log buffer start size to the maximum to avoid the library doubling the
+					// buffer and trying to load again each time the log doesn't fit.
+					logBufferStartSize = maxVerifierLogSize
 					continue
 				}
 			}
