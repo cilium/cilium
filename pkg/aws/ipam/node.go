@@ -497,6 +497,36 @@ func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags
 	return netip.Addr{}, fmt.Errorf("no primary ENI found")
 }
 
+// getENAExpress returns the ENA Express configuration to attach new ENIs with,
+// as determined by spec.eni.ena-express:
+//   - "enabled" enables ENA Express if the instance type supports it
+//   - "inherit" uses the ENA Express configuration of the primary ENI
+//     attachment, which is set when the instance is launched, so that pods
+//     using addresses of attached ENIs get the same ENA Express behavior as
+//     pods using addresses of the primary ENI
+//   - "disabled" or unset doesn't configure ENA Express
+//
+// n.mutex must be at least read locked, as it reads n.enis.
+func (n *Node) getENAExpress(eniSpec types.ENISpec, limits ipamTypes.Limits) types.ENAExpress {
+	switch eniSpec.ENAExpress {
+	case types.ENAExpressModeEnabled:
+		if !limits.ENAExpressSupported {
+			return types.ENAExpress{}
+		}
+		return types.ENAExpress{
+			Enabled:    true,
+			UDPEnabled: aws.ToBool(eniSpec.ENAExpressUDP),
+		}
+	case types.ENAExpressModeInherit:
+		for _, eni := range n.enis {
+			if eni.Number == 0 {
+				return eni.ENAExpress
+			}
+		}
+	}
+	return types.ENAExpress{}
+}
+
 func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec types.ENISpec) ([]string, error) {
 	// 1. check explicit security groups associations via checking Spec.ENI.SecurityGroups
 	// 2. check if Spec.ENI.SecurityGroupTags is passed and if so filter by those
@@ -619,7 +649,15 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 	n.mutex.RLock()
 	resource := *n.k8sObj
 	isPrefixDelegated := n.node.Ops().IsPrefixDelegated()
+	enaExpress := n.getENAExpress(resource.Spec.ENI, limits)
 	n.mutex.RUnlock()
+
+	if resource.Spec.ENI.ENAExpress == types.ENAExpressModeEnabled && !limits.ENAExpressSupported {
+		scopedLog.Warn(
+			"ENA Express is enabled but not supported by the instance type, attaching ENI without ENA Express",
+			logfields.InstanceType, resource.Spec.ENI.InstanceType,
+		)
+	}
 
 	subnet := n.findSuitableSubnet(resource.Spec.ENI, limits)
 	if subnet == nil {
@@ -671,6 +709,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 		logfields.SubnetID, subnet.ID,
 		logfields.Addresses, toAllocate,
 		logfields.IsPrefixDelegated, isPrefixDelegated,
+		logfields.ENAExpress, enaExpress,
 	)
 	scopedLog.Info("No more IPs available, creating new ENI")
 
@@ -702,7 +741,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 
 	var attachmentID string
 	for range maxAttachRetries {
-		attachmentID, err = n.manager.ec2api.AttachNetworkInterface(ctx, index, n.node.InstanceID(), eniID)
+		attachmentID, err = n.manager.ec2api.AttachNetworkInterface(ctx, index, n.node.InstanceID(), eniID, api.AttachNetworkInterfaceOptions{ENAExpress: enaExpress})
 
 		// The index is already in use, this can happen if the local
 		// list of ENIs is oudated.  Retry the attachment to avoid
@@ -733,6 +772,9 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 	}
 
 	eni.Number = int(index)
+	if enaExpress.Enabled {
+		eni.ENAExpress = enaExpress
+	}
 
 	scopedLog.Info("Attached ENI to instance",
 		logfields.AttachmentID, attachmentID,
