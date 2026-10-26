@@ -6,7 +6,6 @@ triggers:
     workflows:
     - tests-smoke-conformance.yaml
     - tests-smoke-ipv6.yaml
-    - tests-cifuzz.yaml
     - lint-ariane-config.yaml
     - lint-images-base.yaml
   # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
@@ -256,8 +255,6 @@ workflows:
     paths-ignore-regex: (Documentation/|test/)
   conformance-kind-proxy-embedded.yaml:
     paths-ignore-regex: (Documentation/|test/)
-  tests-cifuzz.yaml:
-    paths-regex: (\.github/workflows/tests-cifuzz\.yaml|fuzz_test.go|test/fuzzing/)
   k8s-kind-network-policies-e2e.yaml:
     paths-ignore-regex: (Documentation/|test/)
   tests-smoke-conformance.yaml:
