@@ -59,6 +59,10 @@ type ClientConfig struct {
 	SpireServerAddress           string        `mapstructure:"mesh-auth-spire-server-address"`
 	SpireServerConnectionTimeout time.Duration `mapstructure:"mesh-auth-spire-server-connection-timeout"`
 	SpiffeTrustDomain            string        `mapstructure:"mesh-auth-spiffe-trust-domain"`
+	// UseCRD leaves ztunnel workload registration to a ClusterSPIFFEID
+	// reconciled by spire-controller-manager, so the operator does not
+	// register workloads through the SPIRE Entry API.
+	UseCRD bool `mapstructure:"enable-ztunnel-spiffeid-crd"`
 }
 
 var defaultClientConfig = ClientConfig{
@@ -82,6 +86,9 @@ func (cfg ClientConfig) Flags(flags *pflag.FlagSet) {
 	flags.String("mesh-auth-spiffe-trust-domain",
 		cfg.SpiffeTrustDomain,
 		"The trust domain for the SPIFFE identity.")
+	flags.Bool("enable-ztunnel-spiffeid-crd",
+		cfg.UseCRD,
+		"Leave ztunnel workload registration to a ClusterSPIFFEID reconciled by spire-controller-manager instead of the SPIRE Entry API (requires ztunnel with the SPIRE CA).")
 }
 
 type params struct {
@@ -112,9 +119,11 @@ type Client struct {
 	initialized chan struct{}
 }
 
-// NewClient creates a new SPIRE client for ztunnel namespace enrollment.
+// NewClient creates a new SPIRE client for ztunnel namespace enrollment. It
+// returns nil without the SPIRE CA, and in CRD mode, where a ClusterSPIFFEID
+// reconciled by spire-controller-manager registers the workloads.
 func NewClient(params params) *Client {
-	if !params.ZtunnelConfig.UseSpireCA() {
+	if !params.ZtunnelConfig.UseSpireCA() || params.ClientConfig.UseCRD {
 		return nil
 	}
 
