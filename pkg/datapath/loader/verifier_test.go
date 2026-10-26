@@ -4,7 +4,7 @@
 package loader
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -227,6 +227,33 @@ func compileAndLoad(perm buildPermutation, collection, source, output string, kv
 
 }
 
+// formatState used by writeVerifierLog to write verifier logs (with layout %+v) to file through the
+// fmt.Formatter interface.
+type formatState struct{ *bufio.Writer }
+
+func (formatState) Width() (int, bool)     { return 0, false }
+func (formatState) Precision() (int, bool) { return 0, false }
+func (formatState) Flag(c int) bool        { return c == '+' }
+
+// writeVerifierLog writes the verifier log of verifierErr to logFile, with the same layout as %+v.
+func writeVerifierLog(logFile string, verifierErr *ebpf.VerifierError) error {
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0444)
+	if err != nil {
+		return fmt.Errorf("failed to open verifier log file: %w", err)
+	}
+	defer f.Close()
+
+	// Use a buffered writer because Format() writes a line at the time.
+	const oneMiB = 1024 * 1024
+	w := bufio.NewWriterSize(f, oneMiB)
+	verifierErr.Format(formatState{w}, 'v')
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("failed to flush verifier log file: %w", err)
+	}
+
+	return nil
+}
+
 func loadAndRecordComplexity(
 	objectFile string,
 	spec *ebpf.CollectionSpec,
@@ -275,11 +302,12 @@ func loadAndRecordComplexity(
 
 		if verifierErr, ok := errors.AsType[*ebpf.VerifierError](loadErr); ok {
 			// Write full verifier log to a path on disk for offline analysis.
-			var buf bytes.Buffer
-			fmt.Fprintf(&buf, "%+v", verifierErr)
 			fullLogFile := path.Join(*flagResultDir, fmt.Sprintf("%s_%d_%d_verifier.log", collection, build, load))
-			_ = os.WriteFile(fullLogFile, buf.Bytes(), 0444)
-			t.Log("Full verifier log at", fullLogFile)
+			if err := writeVerifierLog(fullLogFile, verifierErr); err != nil {
+				t.Errorf("Failed to write the full verifier log to %s: %v", fullLogFile, err)
+			} else {
+				t.Log("Full verifier log at", fullLogFile)
+			}
 
 			// Copy the object file to the result directory, so it can be inspected together with the
 			// verifier log.
