@@ -54,7 +54,6 @@ int mock_ctx_redirect_peer(const struct __ctx_buff *ctx __maybe_unused,
 	return CTX_ACT_REDIRECT;
 }
 
-#ifdef ENABLE_IPV4
 static inline int tail_ipv4_ct_ingress_policy_only(struct __ctx_buff *ctx);
 
 __section_entry
@@ -71,7 +70,6 @@ int mock_handle_policy4(struct __ctx_buff *ctx)
 
 	return CTX_ACT_DROP;
 }
-#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 static inline int tail_ipv6_ct_ingress_policy_only(struct __ctx_buff *ctx);
@@ -99,9 +97,7 @@ struct {
 	__array(values, int());
 } mock_policy_call_map __section(".maps") = {
 	.values = {
-#ifdef ENABLE_IPV4
 		[TEST_LXC_ID_LOCAL_V4] = &mock_handle_policy4,
-#endif
 #ifdef ENABLE_IPV6
 		[TEST_LXC_ID_LOCAL_V6] = &mock_handle_policy6,
 #endif
@@ -126,9 +122,7 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 
 /* Assign necessary load-time configs */
-#ifdef ENABLE_IPV4
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one })
-#endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_one_addr })
 #endif /* ENABLE_IPV6 */
@@ -146,8 +140,6 @@ ASSIGN_CONFIG(bool, enable_netkit, false)
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 #include "lib/policy.h"
-
-#ifdef ENABLE_IPV4
 
 /* packet defined in ./scapy/tc_redirect_pkt_defs.py */
 const __u8 tc_redirect_lxc_ipv4_pre[] = {
@@ -252,8 +244,6 @@ int tc_redirect_lxc_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_finish();
 }
-
-#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 
