@@ -357,6 +357,11 @@ Users (Alphabetically)
       U: Service load-balancing, Encryption, CNI, NetworkPolicies
       Q: @kevholditch-f3, samo-f3, ewilde-form3
 
+    * N: Forterro
+      D: Forterro uses Cilium as the CNI of its on-premises Kubernetes platform (Talos Linux) in its datacenter and at its edge sites, for internal services and KubeVirt virtual machines
+      U: CNI, Native routing, Multi-pool IPAM, Kube-Proxy Replacement, BGP, CiliumNetworkPolicy, CiliumClusterwideNetworkPolicy, CiliumCIDRGroup, DNS-based policies (external Envoy), Hubble
+      L: https://www.forterro.com
+
     * N: FPT Telecom
       D: FTEL uses Cilium as their CNI plugin to handle the massive CPE Management traffic to the backends
       U: CNI, CiliumclusterWideNetworkPolicy, CiliumNetworkPolicy, Kube-Proxy Replacement, Hubble, Direct Routing, Egress Gateway, Service Load Balancing, L2 Announcement, BGP Advertisement
