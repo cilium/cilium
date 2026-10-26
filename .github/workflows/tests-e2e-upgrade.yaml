@@ -553,8 +553,10 @@ jobs:
             cilium encrypt create-key --auth-algo ${{ matrix.key-one }}
           fi
 
+          # Allow time for Envoy to reconnect during agent upgrades and downgrades.
           EXTRA_INSTALL_ARGS="\
             ${{ steps.kvstore.outputs.config }} \
+            --set endpointPolicyUpdateTimeoutDuration=60s \
             --set extraConfig.boot-id-file=/var/run/cilium/boot_id \
             --set envoy.idleTimeoutDurationSeconds=3" # Set proxy idle timeout to a low value so that connections teardown for L7 traffic testing doesn't pollute validation during a later step.
 
