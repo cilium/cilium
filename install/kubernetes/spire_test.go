@@ -585,3 +585,125 @@ func TestSpirePreservesInternalCATrustDomain(t *testing.T) {
 	require.Equal(t, "spiffe.cilium", ciliumConf.Data["mesh-auth-spiffe-trust-domain"])
 	require.NotContains(t, ciliumConf.Data, "ztunnel-spiffe-trust-domain")
 }
+
+// TestSpireServerReplicas checks that multiple SPIRE servers each keep their
+// own datastore, sign with one shared upstream root and run on separate nodes.
+func TestSpireServerReplicas(t *testing.T) {
+	for _, tt := range []struct {
+		name           string
+		values         []string
+		replicas       int32
+		upstreamSecret string
+	}{
+		{name: "one server", replicas: 1},
+		{name: "two servers", values: []string{"authentication.mutual.spire.install.server.replicas=2"}, replicas: 2, upstreamSecret: "spire-upstream-ca"},
+		{name: "three servers", values: []string{"authentication.mutual.spire.install.server.replicas=3"}, replicas: 3, upstreamSecret: "spire-upstream-ca"},
+		{name: "one server with a custom root", values: []string{"authentication.mutual.spire.install.server.ca.upstreamSecret=custom-root"}, replicas: 1, upstreamSecret: "custom-root"},
+		{name: "two servers with a custom root", values: []string{"authentication.mutual.spire.install.server.replicas=2,authentication.mutual.spire.install.server.ca.upstreamSecret=custom-root"}, replicas: 2, upstreamSecret: "custom-root"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			rendered := renderSpire(t, append([]string{ztunnelSpireValues, spireCRD}, tt.values...)...)
+			sts := spireManifest[appsv1.StatefulSet](t, rendered, spireServerPath+"statefulset.yaml")
+			pod := sts.Spec.Template.Spec
+			require.Equal(t, tt.replicas, *sts.Spec.Replicas)
+			server := spireContainer(t, pod, "spire-server")
+			serverConf := spireManifest[corev1.ConfigMap](t, rendered, spireServerPath+"configmap.yaml").Data["server.conf"]
+			require.Contains(t, serverConf, `KeyManager "disk"`)
+			require.Len(t, sts.Spec.VolumeClaimTemplates, 1)
+			require.Equal(t, "spire-data", sts.Spec.VolumeClaimTemplates[0].Name)
+			require.Contains(t, server.VolumeMounts, corev1.VolumeMount{Name: "spire-data", MountPath: "/run/spire/data"})
+			for _, volume := range pod.Volumes {
+				require.NotEqual(t, "spire-data", volume.Name, "every server needs its own claim")
+			}
+
+			if tt.upstreamSecret == "" {
+				require.NotContains(t, serverConf, "UpstreamAuthority")
+				for _, volume := range pod.Volumes {
+					require.NotEqual(t, "spire-upstream-ca", volume.Name)
+				}
+			} else {
+				require.Contains(t, serverConf, `UpstreamAuthority "disk"`)
+				require.Contains(t, serverConf, `cert_file_path = "/run/spire/upstream/tls.crt"`)
+				require.Contains(t, serverConf, `key_file_path = "/run/spire/upstream/tls.key"`)
+				require.Equal(t, &corev1.SecretVolumeSource{
+					SecretName:  tt.upstreamSecret,
+					DefaultMode: ptr.To[int32](0o440),
+					Items:       []corev1.KeyToPath{{Key: "tls.crt", Path: "tls.crt"}, {Key: "tls.key", Path: "tls.key"}},
+				}, spireVolume(t, pod, "spire-upstream-ca").Secret)
+				require.Contains(t, server.VolumeMounts, corev1.VolumeMount{Name: "spire-upstream-ca", MountPath: "/run/spire/upstream", ReadOnly: true})
+			}
+
+			service := spireManifest[corev1.Service](t, rendered, spireServerPath+"service.yaml")
+			if tt.replicas == 1 {
+				require.Empty(t, service.Spec.SessionAffinity)
+				require.Nil(t, pod.Affinity)
+				return
+			}
+			require.Equal(t, corev1.ServiceAffinityClientIP, service.Spec.SessionAffinity)
+			require.Equal(t, &corev1.Affinity{PodAntiAffinity: &corev1.PodAntiAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{{
+					LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "spire-server"}},
+					TopologyKey:   "kubernetes.io/hostname",
+				}},
+			}}, pod.Affinity)
+		})
+	}
+
+	t.Run("custom affinity", func(t *testing.T) {
+		rendered := renderSpire(t, ztunnelSpireValues, spireCRD, "authentication.mutual.spire.install.server.replicas=2",
+			"authentication.mutual.spire.install.server.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].weight=100,authentication.mutual.spire.install.server.affinity.podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecution[0].podAffinityTerm.topologyKey=kubernetes.io/hostname")
+		require.Equal(t, &corev1.Affinity{PodAntiAffinity: &corev1.PodAntiAffinity{
+			PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+				Weight:          100,
+				PodAffinityTerm: corev1.PodAffinityTerm{TopologyKey: "kubernetes.io/hostname"},
+			}},
+		}}, spireManifest[appsv1.StatefulSet](t, rendered, spireServerPath+"statefulset.yaml").Spec.Template.Spec.Affinity)
+	})
+
+	t.Run("scale up keeps the pod template", func(t *testing.T) {
+		const storage = "authentication.mutual.spire.install.server.dataStorage.storageClass=managed-csi,authentication.mutual.spire.install.server.dataStorage.size=2Gi"
+		before := spireManifest[appsv1.StatefulSet](t, renderSpire(t, ztunnelSpireValues, spireCRD, storage, "authentication.mutual.spire.install.server.replicas=2"), spireServerPath+"statefulset.yaml")
+		after := spireManifest[appsv1.StatefulSet](t, renderSpire(t, ztunnelSpireValues, spireCRD, storage, "authentication.mutual.spire.install.server.replicas=3"), spireServerPath+"statefulset.yaml")
+		require.Equal(t, int32(3), *after.Spec.Replicas)
+		require.Equal(t, before.Spec.Template, after.Spec.Template)
+		require.Equal(t, before.Spec.VolumeClaimTemplates, after.Spec.VolumeClaimTemplates)
+		require.Equal(t, "managed-csi", *before.Spec.VolumeClaimTemplates[0].Spec.StorageClassName)
+		require.Equal(t, "2Gi", before.Spec.VolumeClaimTemplates[0].Spec.Resources.Requests.Storage().String())
+	})
+
+	t.Run("upstream root needs useCRD", func(t *testing.T) {
+		rendered := renderSpire(t, ztunnelSpireValues, "authentication.mutual.spire.install.server.ca.upstreamSecret=custom-root")
+		serverConf := spireManifest[corev1.ConfigMap](t, rendered, spireServerPath+"configmap.yaml").Data["server.conf"]
+		require.NotContains(t, serverConf, "UpstreamAuthority")
+		for _, volume := range spireManifest[appsv1.StatefulSet](t, rendered, spireServerPath+"statefulset.yaml").Spec.Template.Spec.Volumes {
+			require.NotEqual(t, "spire-upstream-ca", volume.Name)
+		}
+	})
+}
+
+// TestSpireInvalidServerConfigurations checks that multiple SPIRE servers
+// require useCRD and that the schema rejects invalid replicas and root names.
+func TestSpireInvalidServerConfigurations(t *testing.T) {
+	for _, values := range []string{"authentication.mutual.spire.enabled=true", ztunnelSpireValues} {
+		_, err := renderSpireChart(t, nil, nil, values, "authentication.mutual.spire.install.server.replicas=2")
+		require.ErrorContains(t, err, "Multiple SPIRE servers require encryption.ztunnel.spire.useCRD=true")
+	}
+
+	server := func(values map[string]any) map[string]any {
+		return map[string]any{"authentication": map[string]any{"mutual": map[string]any{"spire": map[string]any{
+			"install": map[string]any{"server": values},
+		}}}}
+	}
+	for _, value := range []any{0, -1, 2147483648, 1.5, "2", "many", true} {
+		t.Run(fmt.Sprintf("replicas=%#v", value), func(t *testing.T) {
+			_, err := renderSpireChart(t, server(map[string]any{"replicas": value}), []string{clusterSPIFFEIDAPI}, ztunnelSpireValues, spireCRD)
+			require.ErrorContains(t, err, "/replicas")
+		})
+	}
+	for _, value := range []any{"bad_name", true} {
+		t.Run(fmt.Sprintf("upstreamSecret=%#v", value), func(t *testing.T) {
+			_, err := renderSpireChart(t, server(map[string]any{"ca": map[string]any{"upstreamSecret": value}}), []string{clusterSPIFFEIDAPI}, ztunnelSpireValues, spireCRD)
+			require.ErrorContains(t, err, "/upstreamSecret")
+		})
+	}
+}

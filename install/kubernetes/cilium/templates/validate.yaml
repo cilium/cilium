@@ -154,6 +154,11 @@
     {{- end }}
   {{- end }}
 {{- end }}
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled (gt (int64 .Values.authentication.mutual.spire.install.server.replicas) 1) }}
+  {{- if not .Values.encryption.ztunnel.spire.useCRD }}
+    {{ fail "Multiple SPIRE servers require encryption.ztunnel.spire.useCRD=true; independent SQLite servers cannot share Entry API registration state." }}
+  {{- end }}
+{{- end }}
 
 {{/* validate Cilium operator */}}
 {{- if .Values.ciliumEndpointSlice.enabled }}

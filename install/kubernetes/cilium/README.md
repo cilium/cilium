@@ -87,10 +87,11 @@ contributors across the globe, there is almost always someone available to help.
 | authentication.mutual.spire.install.existingNamespace | bool | `false` | SPIRE namespace already exists. Set to true if Helm should not create, manage, and import the SPIRE namespace. |
 | authentication.mutual.spire.install.initImage | object | `{"digest":"sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.38.0","useDigest":true}` | init container image of SPIRE agent and server |
 | authentication.mutual.spire.install.namespace | string | `"cilium-spire"` | SPIRE namespace to install into |
-| authentication.mutual.spire.install.server.affinity | object | `{}` | SPIRE server affinity configuration |
+| authentication.mutual.spire.install.server.affinity | object | `{}` | SPIRE server affinity configuration. Without it, multiple replicas require separate nodes (kubernetes.io/hostname). |
 | authentication.mutual.spire.install.server.annotations | object | `{}` | SPIRE server annotations |
 | authentication.mutual.spire.install.server.ca.keyType | string | `"rsa-4096"` | SPIRE CA key type AWS requires the use of RSA. EC cryptography is not supported |
 | authentication.mutual.spire.install.server.ca.subject | object | `{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}` | SPIRE CA Subject |
+| authentication.mutual.spire.install.server.ca.upstreamSecret | string | `""` | Name of an existing Secret in the SPIRE namespace with a self-signed upstream root CA certificate (tls.crt) and private key (tls.key) that every SPIRE server signs with. Only used with encryption.ztunnel.spire.useCRD=true. Defaults to spire-upstream-ca when replicas is greater than 1. |
 | authentication.mutual.spire.install.server.controllerManager.image | object | `{"digest":"sha256:b04ddb8e9b89298cc0105f1939fb5b1e4f1ae87e2da20604e5990659e96c717b","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-controller-manager","tag":"0.6.2","useDigest":true}` | SPIRE controller-manager image |
 | authentication.mutual.spire.install.server.controllerManager.resources | object | `{}` | SPIRE controller-manager container resource limits & requests |
 | authentication.mutual.spire.install.server.dataStorage.accessMode | string | `"ReadWriteOnce"` | Access mode of the SPIRE server data storage |
@@ -103,6 +104,7 @@ contributors across the globe, there is almost always someone available to help.
 | authentication.mutual.spire.install.server.nodeSelector | object | `{}` | SPIRE server nodeSelector configuration ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector |
 | authentication.mutual.spire.install.server.podSecurityContext | object | `{}` | Security context to be added to spire server pods. With encryption.ztunnel.spire.useCRD=true it defaults to runAsUser, runAsGroup and fsGroup 1000. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod |
 | authentication.mutual.spire.install.server.priorityClassName | string | `""` | The priority class to use for the spire server |
+| authentication.mutual.spire.install.server.replicas | int | `1` | Number of SPIRE servers. More than one requires encryption.ztunnel.spire.useCRD=true. Each server keeps its own datastore and signs with the shared upstream root from ca.upstreamSecret. |
 | authentication.mutual.spire.install.server.resources | object | `{}` | container resource limits & requests |
 | authentication.mutual.spire.install.server.securityContext | object | `{}` | Security context to be added to spire server containers. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container |
 | authentication.mutual.spire.install.server.service.annotations | object | `{}` | Annotations to be added to the SPIRE server service |

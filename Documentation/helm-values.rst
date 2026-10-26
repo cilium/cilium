@@ -149,7 +149,7 @@
      - string
      - ``"cilium-spire"``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.affinity`
-     - SPIRE server affinity configuration
+     - SPIRE server affinity configuration. Without it, multiple replicas require separate nodes (kubernetes.io/hostname).
      - object
      - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.annotations`
@@ -164,6 +164,10 @@
      - SPIRE CA Subject
      - object
      - ``{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.ca.upstreamSecret`
+     - Name of an existing Secret in the SPIRE namespace with a self-signed upstream root CA certificate (tls.crt) and private key (tls.key) that every SPIRE server signs with. Only used with encryption.ztunnel.spire.useCRD=true. Defaults to spire-upstream-ca when replicas is greater than 1.
+     - string
+     - ``""``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.controllerManager.image`
      - SPIRE controller-manager image
      - object
@@ -212,6 +216,10 @@
      - The priority class to use for the spire server
      - string
      - ``""``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.replicas`
+     - Number of SPIRE servers. More than one requires encryption.ztunnel.spire.useCRD=true. Each server keeps its own datastore and signs with the shared upstream root from ca.upstreamSecret.
+     - int
+     - ``1``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.resources`
      - container resource limits & requests
      - object
