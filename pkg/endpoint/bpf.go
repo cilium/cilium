@@ -903,12 +903,14 @@ func (e *Endpoint) deleteMaps() []error {
 }
 
 // scrubIPsInConntrackTableLocked will run the CTMap garbagecollector with the endpoint IPs.
+// Also drop expired entries: the walk visits them anyway.
 func (e *Endpoint) scrubIPsInConntrackTableLocked() {
 	if e.isPropertyLocked(endpointtypes.PropertyFakeEndpoint) {
 		return
 	}
 
 	e.ctMapGC.Run(ctmap.GCFilter{
+		RemoveExpired: true,
 		MatchIPs: map[ctmap.NetAddr]struct{}{
 			{Addr: e.IPv4}: {},
 			{Addr: e.IPv6}: {},
