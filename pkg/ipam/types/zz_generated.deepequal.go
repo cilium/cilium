@@ -391,6 +391,9 @@ func (in *Limits) DeepEqual(other *Limits) bool {
 	if in.IsBareMetal != other.IsBareMetal {
 		return false
 	}
+	if in.ENAExpressSupported != other.ENAExpressSupported {
+		return false
+	}
 
 	return true
 }
