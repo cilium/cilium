@@ -254,6 +254,13 @@ func writeVerifierLog(logFile string, verifierErr *ebpf.VerifierError) error {
 	return nil
 }
 
+// extractProgNamePrefix returns the prefix of loadErr containing the name of the program that
+// triggered the verifier error (notice that ebpf.VerifierError only contains the return code and
+// verifier log buffer, but no program name).
+func extractProgNamePrefix(loadErr error, verifierErr *ebpf.VerifierError) string {
+	return strings.TrimSuffix(loadErr.Error(), verifierErr.Error())
+}
+
 func loadAndRecordComplexity(
 	objectFile string,
 	spec *ebpf.CollectionSpec,
@@ -291,7 +298,14 @@ func loadAndRecordComplexity(
 				// When we have a load error, and we initially did not request the full log,
 				// we retry with the full log enabled.
 				if logLevel != ebpf.LogLevelInstruction|ebpf.LogLevelStats {
-					t.Logf("Failed to load collection with the stats-level verifier log, retrying with the full log: %v", loadErr)
+					var errMsg string
+					if verifierErr, ok := errors.AsType[*ebpf.VerifierError](loadErr); ok {
+						progNamePrefix := extractProgNamePrefix(loadErr, verifierErr)
+						errMsg = fmt.Sprintf("%s%+v", progNamePrefix, verifierErr)
+					} else {
+						errMsg = loadErr.Error()
+					}
+					t.Logf("Failed to load collection with the stats-level verifier log, retrying with the full log: %s", errMsg)
 					logLevel = ebpf.LogLevelInstruction | ebpf.LogLevelStats
 					continue
 				}
@@ -337,11 +351,8 @@ func loadAndRecordComplexity(
 				t.Logf("\t%s: %d insns", n, len(p.Instructions))
 			}
 
-			// Include the original err in the output since it contains the name
-			// of the program that triggered the verifier error.
-			// ebpf.VerifierError only contains the return code and verifier log
-			// buffer.
-			t.Logf("Failed to load collection: %v\nVerifier log tail: %-10v", loadErr, verifierErr)
+			progNameLine := extractProgNamePrefix(loadErr, verifierErr)
+			t.Logf("Failed to load collection: %s%-10v", progNameLine, verifierErr)
 			t.Fail()
 			return
 		}
