@@ -142,6 +142,43 @@ icmp4_err_nat_portnat_min_tcp_after = (
     Raw(bytes(icmp4_err_nat_portnat_tcp_after[IPerror])[:28])
 )
 
+# RevSNAT counterpart: a router returns Fragmentation Needed for the
+# node -> ext packet of the same port-NATed flow.
+icmp4_err_revnat_portnat_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(bytes(IP(src=v4_node_one, dst=v4_ext_one, flags="DF") /
+                  TCP(sport=tcp_src_three, dport=tcp_dst_one) /
+                  Raw(default_data)))
+)
+
+# After revSNAT: outer daddr -> pod, inner saddr/sport -> pod.
+icmp4_err_revnat_portnat_tcp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(bytes(IP(src=v4_pod_one, dst=v4_ext_one, flags="DF") /
+                  TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+                  Raw(default_data)))
+)
+
+# Same as above, but the router quotes only the first 8 bytes of the TCP
+# header.
+icmp4_err_revnat_portnat_min_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    Raw(bytes(icmp4_err_revnat_portnat_tcp[IPerror])[:28])
+)
+
+icmp4_err_revnat_portnat_min_tcp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    Raw(bytes(icmp4_err_revnat_portnat_tcp_after[IPerror])[:28])
+)
+
 # IPv4 ICMP error packets embedding ICMP Echo.
 # Ingress/revNAT: router -> host, quoting the NATed endpoint -> external packet.
 icmp4_err_revnat_full_icmp = (
