@@ -4,9 +4,12 @@
 package nodediscovery
 
 import (
+	"fmt"
+
 	"github.com/cilium/hive/cell"
 	"github.com/spf13/pflag"
 
+	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 )
@@ -28,6 +31,7 @@ var Cell = cell.Module(
 		fence.Add("kvstore-nodes", nd.WaitForKVStoreSync)
 	}),
 	cell.Config(defaultConfig),
+	cell.Invoke(config.Validate),
 )
 
 var defaultConfig = config{
@@ -48,6 +52,8 @@ var defaultConfig = config{
 	ENIUsePrimaryAddress:       defaults.UseENIPrimaryAddress,
 	ENIDisablePrefixDelegation: defaults.ENIDisableNodeLevelPD,
 	ENIDeleteOnTermination:     defaults.ENIDeleteOnTermination,
+	ENIENAExpress:              defaults.ENIENAExpress,
+	ENIENAExpressUDP:           defaults.ENIENAExpressUDP,
 
 	AzureInterfaceName: "",
 
@@ -72,6 +78,8 @@ type config struct {
 	ENIUsePrimaryAddress       bool
 	ENIDisablePrefixDelegation bool
 	ENIDeleteOnTermination     bool
+	ENIENAExpress              string
+	ENIENAExpressUDP           bool
 
 	AzureInterfaceName string
 
@@ -79,6 +87,21 @@ type config struct {
 	AlibabaCloudVSwitchTags       map[string]string
 	AlibabaCloudSecurityGroups    []string
 	AlibabaCloudSecurityGroupTags map[string]string
+}
+
+func (c config) Validate() error {
+	switch awsTypes.ENAExpressMode(c.ENIENAExpress) {
+	case awsTypes.ENAExpressModeDisabled, awsTypes.ENAExpressModeEnabled, awsTypes.ENAExpressModeInherit:
+	default:
+		return fmt.Errorf("invalid value %q for eni-ena-express, must be one of %q, %q or %q", c.ENIENAExpress,
+			awsTypes.ENAExpressModeDisabled, awsTypes.ENAExpressModeEnabled, awsTypes.ENAExpressModeInherit)
+	}
+
+	if c.ENIENAExpressUDP && awsTypes.ENAExpressMode(c.ENIENAExpress) != awsTypes.ENAExpressModeEnabled {
+		return fmt.Errorf("eni-ena-express-udp can only be set if eni-ena-express is %q", awsTypes.ENAExpressModeEnabled)
+	}
+
+	return nil
 }
 
 func (c config) Flags(flags *pflag.FlagSet) {
@@ -96,6 +119,8 @@ func (c config) Flags(flags *pflag.FlagSet) {
 	flags.Bool("eni-use-primary-address", c.ENIUsePrimaryAddress, "Whether an ENI's primary address should be available for allocations on the node at the node level")
 	flags.Bool("eni-disable-prefix-delegation", c.ENIDisablePrefixDelegation, "Whether ENI prefix delegation should be disabled on this node at the node level")
 	flags.Bool("eni-delete-on-termination", c.ENIDeleteOnTermination, "Whether the ENI should be deleted when the associated instance is terminated at the node level")
+	flags.String("eni-ena-express", c.ENIENAExpress, "Whether ENIs attached to the instance use ENA Express (disabled, enabled if the instance type supports it, or inherit from the primary ENI) at the node level")
+	flags.Bool("eni-ena-express-udp", c.ENIENAExpressUDP, "Whether UDP traffic uses ENA Express on ENIs attached to the instance when eni-ena-express is enabled at the node level")
 
 	flags.String("azure-interface-name", c.AzureInterfaceName, "InterfaceName the cilium-operator will use to allocate all the IPs on at the node level")
 

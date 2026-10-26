@@ -2251,6 +2251,23 @@
             "disablePrefixDelegation": {
               "type": "boolean"
             },
+            "enaExpress": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "enum": [
+                    "disabled",
+                    "enabled",
+                    "inherit"
+                  ]
+                }
+              ]
+            },
+            "enaExpressUDP": {
+              "type": "boolean"
+            },
             "excludeInterfaceTags": {
               "items": {},
               "type": "array"
