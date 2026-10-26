@@ -288,6 +288,7 @@ cilium-agent hive [flags]
       --vtep-sync-interval duration                               Interval for VTEP sync (default 1m0s)
       --wireguard-persistent-keepalive duration                   The Wireguard keepalive interval as a Go duration string
       --write-cni-conf-when-ready string                          Write the CNI configuration to the specified path when agent is ready
+      --ztunnel-spiffe-trust-domain string                        The SPIFFE trust domain for ztunnel workload identities. Empty uses ztunnel's default trust domain.
 ```
 
 ### SEE ALSO

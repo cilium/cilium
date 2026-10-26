@@ -57,6 +57,7 @@ func NewServer(params xdsServerParams) *Server {
 		params.EnrolledNamespaceTable,
 		params.Config.EndpointEventChannelBufferSize,
 		params.Metrics,
+		params.Config.SpiffeTrustDomain,
 	)
 
 	params.Lifecycle.Append(cell.Hook{
