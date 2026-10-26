@@ -117,7 +117,40 @@ type ENISpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	DisablePrefixDelegation *bool `json:"disable-prefix-delegation,omitempty"`
+
+	// ENAExpress determines whether ENIs attached to the instance use ENA
+	// Express. "disabled" doesn't configure ENA Express, "enabled" enables it
+	// if the instance type supports it, and "inherit" uses the ENA Express
+	// configuration of the primary ENI. If the parameter is not set ENA
+	// Express is disabled.
+	//
+	// +kubebuilder:validation:Enum=disabled;enabled;inherit
+	// +kubebuilder:validation:Optional
+	ENAExpress ENAExpressMode `json:"ena-express,omitempty"`
+
+	// ENAExpressUDP determines whether UDP traffic uses ENA Express on ENIs
+	// attached to the instance when ENAExpress is "enabled".
+	//
+	// +kubebuilder:validation:Optional
+	ENAExpressUDP *bool `json:"ena-express-udp,omitempty"`
 }
+
+// ENAExpressMode determines whether ENIs attached to an instance use ENA
+// Express
+type ENAExpressMode string
+
+const (
+	// ENAExpressModeDisabled doesn't configure ENA Express on attached ENIs
+	ENAExpressModeDisabled ENAExpressMode = "disabled"
+
+	// ENAExpressModeEnabled enables ENA Express on attached ENIs if the
+	// instance type supports it
+	ENAExpressModeEnabled ENAExpressMode = "enabled"
+
+	// ENAExpressModeInherit configures attached ENIs with the ENA Express
+	// configuration of the primary ENI
+	ENAExpressModeInherit ENAExpressMode = "inherit"
+)
 
 // ENI represents an AWS Elastic Network Interface
 //
@@ -198,6 +231,11 @@ type ENI struct {
 	//
 	// +optional
 	PublicIP iputil.Addr `json:"public-ip,omitzero"`
+
+	// ENAExpress is the ENA Express configuration of the ENI attachment
+	//
+	// +optional
+	ENAExpress ENAExpress `json:"ena-express,omitzero"`
 }
 
 func (e *ENI) DeepCopyInterface() ipamTypes.Interface {
@@ -278,4 +316,20 @@ type AwsVPC struct {
 	//
 	// +optional
 	CIDRs []iputil.Prefix `json:"cidrs,omitempty"`
+}
+
+// ENAExpress stores the ENA Express configuration of an ENI attachment. ENA
+// Express uses the AWS Scalable Reliable Datagram (SRD) protocol, see
+// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ena-express.html
+type ENAExpress struct {
+	// Enabled is true if ENA Express is enabled on the ENI attachment
+	//
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// UDPEnabled is true if UDP traffic uses ENA Express on the ENI
+	// attachment
+	//
+	// +optional
+	UDPEnabled bool `json:"udp-enabled,omitempty"`
 }
