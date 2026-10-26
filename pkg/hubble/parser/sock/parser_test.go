@@ -187,7 +187,7 @@ func TestDecodeSockEvent(t *testing.T) {
 				return &cgroupManager.PodMetadata{
 					Name:      xwingPodName,
 					Namespace: xwingPodNamespace,
-					IPs:       []string{xwingIPv4, xwingIPv6},
+					IPs:       []netip.Addr{netip.MustParseAddr(xwingIPv4), netip.MustParseAddr(xwingIPv6)},
 				}
 			}
 			return nil

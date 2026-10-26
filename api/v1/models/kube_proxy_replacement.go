@@ -11,6 +11,8 @@ import (
 	stderrors "errors"
 	"strconv"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
@@ -1209,11 +1211,28 @@ type KubeProxyReplacementFeaturesNat46X64Gateway struct {
 	Enabled bool `json:"enabled,omitempty"`
 
 	// prefixes
-	Prefixes []string `json:"prefixes"`
+	Prefixes []iputil.Prefix `json:"prefixes"`
 }
 
 // Validate validates this kube proxy replacement features nat46 x64 gateway
-func (m *KubeProxyReplacementFeaturesNat46X64Gateway) Validate(_ strfmt.Registry) error {
+func (m *KubeProxyReplacementFeaturesNat46X64Gateway) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validatePrefixes(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *KubeProxyReplacementFeaturesNat46X64Gateway) validatePrefixes(formats strfmt.Registry) error {
+	if typeutils.IsZero(m.Prefixes) { // not required
+		return nil
+	}
+
 	return nil
 }
 

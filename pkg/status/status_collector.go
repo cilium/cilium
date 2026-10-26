@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	datapathTables "github.com/cilium/cilium/pkg/datapath/tables"
+	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -364,10 +365,10 @@ func (d *statusCollector) getKubeProxyReplacementStatus(ctx context.Context) *mo
 		features.Nat46X64.Enabled = true
 		gw := &models.KubeProxyReplacementFeaturesNat46X64Gateway{
 			Enabled:  d.statusParams.DaemonConfig.EnableNat46X64Gateway,
-			Prefixes: make([]string, 0),
+			Prefixes: make([]iputil.Prefix, 0),
 		}
 		if d.statusParams.DaemonConfig.EnableNat46X64Gateway {
-			gw.Prefixes = append(gw.Prefixes, d.statusParams.DaemonConfig.IPv6NAT46x64CIDR)
+			gw.Prefixes = append(gw.Prefixes, iputil.PrefixFrom(defaults.IPv6NAT46x64CIDR))
 		}
 		features.Nat46X64.Gateway = gw
 

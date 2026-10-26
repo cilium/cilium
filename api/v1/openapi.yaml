@@ -1635,7 +1635,7 @@ definitions:
       ips:
         type: array
         items:
-          type: string
+          "$ref": "#/definitions/Address"
   CgroupContainerMetadata:
     description: cgroup container metadata
     type: object
@@ -2234,7 +2234,7 @@ definitions:
                   prefixes:
                     type: array
                     items:
-                      type: string
+                      "$ref": "#/definitions/CIDR"
           socketLBTracing:
             type: object
             properties:

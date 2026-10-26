@@ -146,20 +146,7 @@ func decodeIPVersion(flags uint8) flowpb.IPVersion {
 func (p *Parser) decodeEndpointIP(cgroupId uint64, ipVersion flowpb.IPVersion) netip.Addr {
 	if p.cgroupGetter != nil {
 		if m := p.cgroupGetter.GetPodMetadataForContainer(cgroupId); m != nil {
-			for _, podIP := range m.IPs {
-				ip, err := netip.ParseAddr(podIP)
-				if err != nil {
-					p.log.Debug(
-						"failed to parse pod IP",
-						logfields.Error, err,
-						logfields.CGroupID, cgroupId,
-						logfields.K8sPodName, m.Name,
-						logfields.K8sNamespace, m.Namespace,
-						logfields.IPAddr, podIP,
-					)
-					return netip.Addr{}
-				}
-
+			for _, ip := range m.IPs {
 				if ip.Is6() && ipVersion == flowpb.IPVersion_IPv6 ||
 					ip.Is4() && ipVersion == flowpb.IPVersion_IPv4 {
 					return ip

@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -115,7 +116,7 @@ func NodeConfig(lnc *Config) Node {
 	if option.Config.EnableNat46X64Gateway {
 		// The datapath only stores the leading 32 bits of the RFC6052
 		// prefix, see nat46x64_prefix_copy_v6().
-		prefix := option.Config.IPv6NAT46x64CIDRBase.As16()
+		prefix := defaults.IPv6NAT46x64CIDRBase.As16()
 		node.NAT46X64Prefix.Addr = [4]byte(prefix[:4])
 	}
 

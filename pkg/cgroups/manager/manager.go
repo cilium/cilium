@@ -7,6 +7,7 @@ import (
 	"context"
 	"log/slog"
 	"maps"
+	"net/netip"
 	"os"
 	"slices"
 	"strings"
@@ -76,7 +77,7 @@ type cgroupManager struct {
 type PodMetadata struct {
 	Name      string
 	Namespace string
-	IPs       []string
+	IPs       []netip.Addr
 }
 
 // FullPodMetadata stores selected metadata of a pod and associated containers.
@@ -84,7 +85,7 @@ type FullPodMetadata struct {
 	Name       string
 	Namespace  string
 	Containers []*cgroupMetadata
-	IPs        []string
+	IPs        []netip.Addr
 }
 
 type cgroupMetadata struct {
@@ -162,7 +163,7 @@ type podUID = string
 type podMetadata struct {
 	name       string
 	namespace  string
-	ips        []string
+	ips        []netip.Addr
 	containers map[string]struct{}
 }
 
@@ -271,9 +272,20 @@ func (m *cgroupManager) updatePodMetadata(pod, oldPod *v1.Pod) {
 	// Only update the metadata that can change. This excludes pod's name,
 	// namespace, id, and qos class.
 	podIPs := pod.Status.PodIPs
-	pm.ips = make([]string, len(podIPs))
-	for i := range podIPs {
-		pm.ips[i] = podIPs[i].IP
+	pm.ips = make([]netip.Addr, 0, len(podIPs))
+	for _, podIP := range podIPs {
+		ip, err := netip.ParseAddr(podIP.IP)
+		if err != nil {
+			m.logger.Debug(
+				"failed to parse pod IP",
+				logfields.Error, err,
+				logfields.K8sPodName, pod.Name,
+				logfields.K8sNamespace, pod.Namespace,
+				logfields.IPAddr, podIP.IP,
+			)
+			continue
+		}
+		pm.ips = append(pm.ips, ip)
 	}
 	// Get metadata for pod's containers that are in the running state. Containers
 	// can get re-created, and their ids can change. Update the new containers.

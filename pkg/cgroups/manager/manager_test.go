@@ -6,6 +6,7 @@ package manager
 import (
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"testing"
 
 	"github.com/cilium/hive/cell"
@@ -53,9 +54,9 @@ var (
 	pod1Ips        = []slimcorev1.PodIP{pod1IP}
 	pod2Ips        = []slimcorev1.PodIP{pod2IP}
 	pod3Ips        = []slimcorev1.PodIP{pod3IP}
-	pod1Ipstrs     = []string{pod1IP.IP}
-	pod2Ipstrs     = []string{pod2IP.IP}
-	pod3Ipstrs     = []string{pod3IP.IP}
+	pod1Addrs      = []netip.Addr{netip.MustParseAddr(pod1IP.IP)}
+	pod2Addrs      = []netip.Addr{netip.MustParseAddr(pod2IP.IP)}
+	pod3Addrs      = []netip.Addr{netip.MustParseAddr(pod3IP.IP)}
 	pod1           = &slimcorev1.Pod{
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      "foo-p1",
@@ -168,9 +169,9 @@ func TestGetPodMetadataOnPodAdd(t *testing.T) {
 	// Add pods, and check for pod metadata for their containers.
 	tests := []test{
 		// Pod with Qos burstable.
-		{input: pod1, cgrpId: c1CId, want: &PodMetadata{Name: pod1.Name, Namespace: pod1.Namespace, IPs: pod1Ipstrs}},
+		{input: pod1, cgrpId: c1CId, want: &PodMetadata{Name: pod1.Name, Namespace: pod1.Namespace, IPs: pod1Addrs}},
 		// Pod with Qos guaranteed.
-		{input: pod2, cgrpId: c2CId, want: &PodMetadata{Name: pod2.Name, Namespace: pod2.Namespace, IPs: pod2Ipstrs}},
+		{input: pod2, cgrpId: c2CId, want: &PodMetadata{Name: pod2.Name, Namespace: pod2.Namespace, IPs: pod2Addrs}},
 		// Pod's container cgroup path doesn't exist.
 		{input: pod10, cgrpId: c3CId, want: nil},
 	}
@@ -224,15 +225,15 @@ func TestGetPodMetadataOnPodUpdate(t *testing.T) {
 	mm.OnAddPod(pod3)
 
 	got = mm.GetPodMetadataForContainer(c3CId)
-	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got)
+	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Addrs}, got)
 
 	// Update pod, and check for pod metadata for their containers.
 	mm.OnUpdatePod(pod3, newPod)
 
 	got1 := mm.GetPodMetadataForContainer(c3CId)
 	got2 := mm.GetPodMetadataForContainer(c1CId)
-	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got1)
-	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got2)
+	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Addrs}, got1)
+	require.Equal(t, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Addrs}, got2)
 
 	// Delete pod to assert no metadata is found.
 	mm.OnDeletePod(pod3)
@@ -273,7 +274,7 @@ func TestGetPodMetadataOnPodUIDReplacement(t *testing.T) {
 	require.NotContains(t, impl.podMetadataById, string(oldPod.UID))
 	require.Contains(t, impl.podMetadataById, string(newPod.UID))
 	require.Equal(t, string(newPod.UID), impl.containerMetadataByCgrpId[cgroupID].podId)
-	require.Equal(t, pod1Ipstrs, impl.podMetadataById[string(newPod.UID)].ips)
+	require.Equal(t, pod1Addrs, impl.podMetadataById[string(newPod.UID)].ips)
 }
 
 func TestPodUIDReplacementNodeTransitions(t *testing.T) {
@@ -364,6 +365,6 @@ func BenchmarkGetPodMetadataForContainer(b *testing.B) {
 
 	for b.Loop() {
 		got := mm.GetPodMetadataForContainer(c3CId)
-		require.Equal(b, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Ipstrs}, got)
+		require.Equal(b, &PodMetadata{Name: pod3.Name, Namespace: pod3.Namespace, IPs: pod3Addrs}, got)
 	}
 }
