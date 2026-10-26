@@ -28,6 +28,12 @@ spec:
   template:
     metadata:
       namespace: {{ .Values.authentication.mutual.spire.install.namespace }}
+      {{- if .Values.encryption.ztunnel.spire.useCRD }}
+      annotations:
+        # spire-agent reads agent.conf only at startup, and useCRD adds the
+        # ztunnel delegate to it.
+        cilium.io/spire-agent-configmap-checksum: {{ include (print $.Template.BasePath "/spire/agent/configmap.yaml") . | sha256sum | quote }}
+      {{- end }}
       labels:
         app: spire-agent
         {{- with .Values.commonLabels }}

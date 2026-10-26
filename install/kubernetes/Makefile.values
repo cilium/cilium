@@ -65,6 +65,11 @@ export SPIRE_SERVER_VERSION?=1.15.5
 export SPIRE_SERVER_DIGEST?=sha256:584a9c5cc95b9457f5033e7e4488d603fffe5ec48a80c4dba14b05c5e1c2c384
 
 # renovate: datasource=docker
+export SPIRE_CONTROLLER_MANAGER_REPO?=ghcr.io/spiffe/spire-controller-manager
+export SPIRE_CONTROLLER_MANAGER_VERSION?=0.6.2
+export SPIRE_CONTROLLER_MANAGER_DIGEST?=sha256:b04ddb8e9b89298cc0105f1939fb5b1e4f1ae87e2da20604e5990659e96c717b
+
+# renovate: datasource=docker
 export SPIRE_AGENT_REPO?=ghcr.io/spiffe/spire-agent
 export SPIRE_AGENT_VERSION?=1.15.5
 export SPIRE_AGENT_DIGEST?=sha256:3652c732b0f0d36f4dd78394230a1b1cd0ddcc29548a46c67a996b1a78c14481

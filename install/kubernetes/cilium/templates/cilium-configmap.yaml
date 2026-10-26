@@ -786,6 +786,9 @@ data:
   {{- else if eq .Values.encryption.type "ztunnel" }}
   enable-ztunnel: {{ .Values.encryption.enabled | quote }}
   ztunnel-ca-type: {{ .Values.encryption.ztunnel.ca.type | quote }}
+    {{- if and (eq .Values.encryption.ztunnel.ca.type "spire") .Values.encryption.ztunnel.spire.useCRD }}
+  ztunnel-spiffe-trust-domain: {{ .Values.authentication.mutual.spire.trustDomain | quote }}
+    {{- end }}
   {{- end }}
   {{- if .Values.encryption.nodeEncryption }}
   encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}

@@ -141,7 +141,7 @@
      - bool
      - ``false``
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
-     - init container image of SPIRE agent and server
+     - init container image of SPIRE agent and server. The SPIRE server does not use it with encryption.ztunnel.spire.useCRD=true.
      - object
      - ``{"digest":"sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.38.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
@@ -164,6 +164,14 @@
      - SPIRE CA Subject
      - object
      - ``{"commonName":"Cilium SPIRE CA","country":"US","organization":"SPIRE"}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.controllerManager.image`
+     - SPIRE controller-manager image
+     - object
+     - ``{"digest":"sha256:b04ddb8e9b89298cc0105f1939fb5b1e4f1ae87e2da20604e5990659e96c717b","override":null,"pullPolicy":"Always","repository":"ghcr.io/spiffe/spire-controller-manager","tag":"0.6.2","useDigest":true}``
+   * - :spelling:ignore:`authentication.mutual.spire.install.server.controllerManager.resources`
+     - SPIRE controller-manager container resource limits & requests
+     - object
+     - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.dataStorage.accessMode`
      - Access mode of the SPIRE server data storage
      - string
@@ -197,7 +205,7 @@
      - object
      - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.podSecurityContext`
-     - Security context to be added to spire server pods. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
+     - Security context to be added to spire server pods. With encryption.ztunnel.spire.useCRD=true it defaults to runAsUser, runAsGroup and fsGroup 1000. SecurityContext holds pod-level security attributes and common container settings. ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod
      - object
      - ``{}``
    * - :spelling:ignore:`authentication.mutual.spire.install.server.priorityClassName`
@@ -1399,7 +1407,7 @@
    * - :spelling:ignore:`encryption.ztunnel`
      - ztunnel encryption configuration. ztunnel is Istio's purpose-built, per-node proxy for handling L4 traffic in ambient mesh mode. These settings only apply when encryption.type is set to "ztunnel".
      - object
-     - ``{"affinity":{},"annotations":{},"ca":{"type":"internal"},"caAddress":"https://localhost:15012","extraEnv":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":15021,"image":{"digest":"sha256:f712b1b809b9888b410629bd6b4c36f5e91978771de8991d82d8792840f477d5","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/ztunnel","tag":"v1.1.0","useDigest":true},"minReadySeconds":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"priorityClassName":null,"readinessProbe":{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10},"resources":{"requests":{"cpu":"200m","memory":"512Mi"}},"secrets":{"bootstrapRootCert":null},"terminationGracePeriodSeconds":30,"tolerations":[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}}``
+     - ``{"affinity":{},"annotations":{},"ca":{"type":"internal"},"caAddress":"https://localhost:15012","extraEnv":[],"extraVolumeMounts":[],"extraVolumes":[],"healthPort":15021,"image":{"digest":"sha256:f712b1b809b9888b410629bd6b4c36f5e91978771de8991d82d8792840f477d5","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/ztunnel","tag":"v1.1.0","useDigest":true},"minReadySeconds":0,"nodeSelector":{"kubernetes.io/os":"linux"},"podAnnotations":{},"podLabels":{},"priorityClassName":null,"readinessProbe":{"failureThreshold":3,"initialDelaySeconds":0,"periodSeconds":10},"resources":{"requests":{"cpu":"200m","memory":"512Mi"}},"secrets":{"bootstrapRootCert":null},"spire":{"className":"cilium-spire","trustCRDsExist":false,"useCRD":false},"terminationGracePeriodSeconds":30,"tolerations":[{"effect":"NoSchedule","operator":"Exists"},{"key":"CriticalAddonsOnly","operator":"Exists"},{"effect":"NoExecute","operator":"Exists"}],"updateStrategy":{"rollingUpdate":{"maxSurge":1,"maxUnavailable":0},"type":"RollingUpdate"}}``
    * - :spelling:ignore:`encryption.ztunnel.affinity`
      - Affinity for ztunnel pods.
      - object
@@ -1476,6 +1484,18 @@
      - Base64-encoded bootstrap root certificate content. If not provided, the secret must be created manually before deploying. @schema type: [null, string] @schema
      - string
      - ``nil``
+   * - :spelling:ignore:`encryption.ztunnel.spire.className`
+     - spire-controller-manager class name of the ztunnel ClusterSPIFFEID and the SPIRE ClusterStaticEntries. The chart-managed controller-manager only reconciles resources of this class, or only those without a class when empty.
+     - string
+     - ``"cilium-spire"``
+   * - :spelling:ignore:`encryption.ztunnel.spire.trustCRDsExist`
+     - Set to ``true`` and helm will not check for the spire.spiffe.io/v1alpha1 ClusterSPIFFEID and ClusterStaticEntry CRDs before deploying, for example when rendering without access to the cluster. It does not install them: both CRDs must exist before the release is applied.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`encryption.ztunnel.spire.useCRD`
+     - Register ztunnel workload identities with a ClusterSPIFFEID that a spire-controller-manager sidecar of each chart-managed SPIRE server reconciles, instead of the operator writing entries through the SPIRE Entry API. Pods in namespaces labeled ``io.cilium/mtls-enabled=true`` get the SPIFFE ID ``spiffe://<trust domain>/ns/<namespace>/sa/<service account>``\ , and the agent advertises ``authentication.mutual.spire.trustDomain`` to ztunnel. The sidecar also reconciles ClusterStaticEntries for the SPIRE agent, cilium-agent, cilium-operator and ztunnel, which replace the cilium-init container of the SPIRE server. The spire-agent pods restart when useCRD is enabled and whenever their configuration changes afterwards, because spire-agent reads it only at startup. Enabling useCRD on an existing installation requires the migration steps in the ztunnel encryption guide. Requires ``encryption.enabled=true``\ , ``encryption.type=ztunnel``\ , ``encryption.ztunnel.ca.type=spire``\ , ``authentication.mutual.spire.enabled=true``\ , ``authentication.mutual.spire.install.enabled=true`` and the spire.spiffe.io/v1alpha1 ClusterSPIFFEID and ClusterStaticEntry CRDs.
+     - bool
+     - ``false``
    * - :spelling:ignore:`encryption.ztunnel.terminationGracePeriodSeconds`
      - Configure termination grace period for ztunnel DaemonSet.
      - int

@@ -142,6 +142,35 @@
   {{- end }}
 {{- end }}
 
+{{/* validate SPIRE CRD registration for ztunnel */}}
+{{- if .Values.encryption.ztunnel.spire.useCRD }}
+  {{- if not (and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") (eq .Values.encryption.ztunnel.ca.type "spire") .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled) }}
+    {{ fail "encryption.ztunnel.spire.useCRD=true requires encryption.enabled=true, encryption.type=ztunnel, encryption.ztunnel.ca.type=spire, authentication.mutual.spire.enabled=true and authentication.mutual.spire.install.enabled=true" }}
+  {{- end }}
+  {{- if not .Values.encryption.ztunnel.spire.trustCRDsExist }}
+    {{- $missing := list }}
+    {{- $files := list }}
+    {{- range $kind, $plural := dict "ClusterSPIFFEID" "clusterspiffeids" "ClusterStaticEntry" "clusterstaticentries" }}
+      {{- if not ($.Capabilities.APIVersions.Has (printf "spire.spiffe.io/v1alpha1/%s" $kind)) }}
+        {{- $missing = append $missing $kind }}
+        {{- $files = append $files (printf "spire.spiffe.io_%s.yaml" $plural) }}
+      {{- end }}
+    {{- end }}
+    {{- if $missing }}
+      {{- $version := regexReplaceAll "@.*$" .Values.authentication.mutual.spire.install.server.controllerManager.image.tag "" | trimPrefix "v" }}
+      {{- $urls := list }}
+      {{- range $files }}
+        {{- $urls = append $urls (printf "https://raw.githubusercontent.com/spiffe/spire-controller-manager/v%s/config/crd/bases/%s" $version .) }}
+      {{- end }}
+      {{- if eq (len $missing) 1 }}
+        {{ fail (printf "encryption.ztunnel.spire.useCRD=true requires the spire.spiffe.io/v1alpha1 %s CRD. Please install it with kubectl apply --server-side -f %s or set .Values.encryption.ztunnel.spire.trustCRDsExist=true" (first $missing) (first $urls)) }}
+      {{- else }}
+        {{ fail (printf "encryption.ztunnel.spire.useCRD=true requires the spire.spiffe.io/v1alpha1 %s CRDs. Please install them with kubectl apply --server-side -f %s or set .Values.encryption.ztunnel.spire.trustCRDsExist=true" (join " and " $missing) (join " -f " $urls)) }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
 {{/* validate Cilium operator */}}
 {{- if .Values.ciliumEndpointSlice.enabled }}
   {{- if eq .Values.disableEndpointCRD true }}

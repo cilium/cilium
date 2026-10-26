@@ -312,6 +312,40 @@
                           },
                           "type": "object"
                         },
+                        "controllerManager": {
+                          "properties": {
+                            "image": {
+                              "properties": {
+                                "digest": {
+                                  "type": "string"
+                                },
+                                "override": {
+                                  "type": [
+                                    "null",
+                                    "string"
+                                  ]
+                                },
+                                "pullPolicy": {
+                                  "type": "string"
+                                },
+                                "repository": {
+                                  "type": "string"
+                                },
+                                "tag": {
+                                  "type": "string"
+                                },
+                                "useDigest": {
+                                  "type": "boolean"
+                                }
+                              },
+                              "type": "object"
+                            },
+                            "resources": {
+                              "type": "object"
+                            }
+                          },
+                          "type": "object"
+                        },
                         "dataStorage": {
                           "properties": {
                             "accessMode": {
@@ -2116,6 +2150,20 @@
                     "null",
                     "string"
                   ]
+                }
+              },
+              "type": "object"
+            },
+            "spire": {
+              "properties": {
+                "className": {
+                  "type": "string"
+                },
+                "trustCRDsExist": {
+                  "type": "boolean"
+                },
+                "useCRD": {
+                  "type": "boolean"
                 }
               },
               "type": "object"

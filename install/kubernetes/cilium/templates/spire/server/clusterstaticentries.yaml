@@ -1,0 +1,38 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled .Values.encryption.ztunnel.spire.useCRD }}
+{{- $spire := .Values.authentication.mutual.spire }}
+{{- $ciliumNamespace := include "cilium.namespace" . }}
+{{- $agentSA := $spire.install.agent.serviceAccount.name }}
+{{- $agentID := printf "spiffe://%s/ns/%s/sa/%s" $spire.trustDomain $spire.install.namespace $agentSA }}
+{{- /* The SPIRE agent node alias, then the agent-issued identities of Cilium components. */}}
+{{- $agentSelectors := list (printf "k8s_psat:agent_ns:%s" $spire.install.namespace) (printf "k8s_psat:agent_sa:%s" $agentSA) }}
+{{- $entries := list (dict "name" "spire-agent" "spiffeID" $agentID "parentID" (printf "spiffe://%s/spire/server" $spire.trustDomain) "selectors" $agentSelectors) }}
+{{- range $name, $serviceAccount := dict "cilium-agent" .Values.serviceAccounts.cilium.name "cilium-operator" .Values.serviceAccounts.operator.name "ztunnel" .Values.serviceAccounts.ztunnel.name }}
+{{- $selectors := list (printf "k8s:ns:%s" $ciliumNamespace) (printf "k8s:sa:%s" $serviceAccount) }}
+{{- $entries = append $entries (dict "name" $name "spiffeID" (printf "spiffe://%s/%s" $spire.trustDomain $name) "parentID" $agentID "selectors" $selectors) }}
+{{- end }}
+{{- range $entry := $entries }}
+---
+apiVersion: spire.spiffe.io/v1alpha1
+kind: ClusterStaticEntry
+metadata:
+  name: {{ printf "cilium-spire-%s-%s-%s" $ciliumNamespace $.Release.Name $entry.name }}
+  {{- with $.Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with $spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with $.Values.encryption.ztunnel.spire.className }}
+  className: {{ . | quote }}
+  {{- end }}
+  spiffeID: {{ $entry.spiffeID | quote }}
+  parentID: {{ $entry.parentID | quote }}
+  selectors:
+  {{- range $entry.selectors }}
+  - {{ . | quote }}
+  {{- end }}
+{{- end }}
+{{- end }}

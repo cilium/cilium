@@ -398,6 +398,7 @@ fromEndpoints
 frontend
 frontends
 fs
+fsGroup
 func
 gRPC
 gVisor
@@ -762,6 +763,8 @@ roadmap
 rollout
 routable
 routingMode
+runAsGroup
+runAsUser
 runnable
 runtimes
 sandboxing
@@ -791,6 +794,7 @@ sig
 skb
 snat
 socknat
+spiffe
 spinlock
 srv
 ssl
@@ -908,6 +912,7 @@ uptime
 uretprobes
 url
 urlQuery
+useCRD
 userInfo
 userspace
 uuid
