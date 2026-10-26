@@ -2,13 +2,13 @@ hive start
 
 db/initialized
 
+db/insert devices device-eth0.yaml device-eth1.yaml
+db/insert routes routes.yaml
+
 # Add initial k8s resources.
 k8s/add node1.yaml ciliumnode1.yaml
 k8s/add policy1.yaml
 k8s/add ciliumendpoint1.yaml
-
-db/insert devices device-eth0.yaml device-eth1.yaml
-db/insert routes routes.yaml
 
 db/cmp --timeout=10s node-addresses nodeaddrs.expected
 
