@@ -352,6 +352,124 @@ adjust them to your Helm values.
       kubectl -n cilium-spire logs spire-server-0 -c spire-controller-manager |
         grep 'Failed to create entry'
 
+Running multiple SPIRE servers
+------------------------------
+
+With ``useCRD``, ``authentication.mutual.spire.install.server.replicas`` can
+run more than one SPIRE server. Each server keeps its own datastore, and its
+own sidecar registers the same entries in it. Unless you set
+``authentication.mutual.spire.install.server.affinity``, the servers run on
+different nodes, and the SPIRE server Service sends the connections of each
+SPIRE agent to the same server.
+
+The servers must sign with a common root, so that each of them accepts the
+certificates that the others issue. With more than one server, they sign with
+the upstream root CA from the Secret that
+``authentication.mutual.spire.install.server.ca.upstreamSecret`` names,
+``spire-upstream-ca`` by default. The chart does not create the Secret. Create
+it in the SPIRE namespace from the certificate and private key of a self-signed
+root CA, for example:
+
+.. code-block:: shell-session
+
+   openssl req -new -x509 -nodes -newkey rsa:4096 -sha256 -days 3650 \
+     -subj '/O=Example/CN=SPIRE upstream root' \
+     -addext 'basicConstraints=critical,CA:TRUE' \
+     -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+     -keyout tls.key -out tls.crt
+   kubectl -n cilium-spire create secret tls spire-upstream-ca --cert=tls.crt --key=tls.key
+
+To create the Secret before you install Cilium, also create the namespace and
+set ``authentication.mutual.spire.install.existingNamespace=true``. Otherwise
+the SPIRE servers wait for the Secret after the installation.
+
+A SPIRE server that already runs keeps signing with the CA in its datastore
+when you set ``ca.upstreamSecret``, while a new server only trusts the upstream
+root. Workloads that obtained their certificates from different servers then
+fail to authenticate each other. To run more than one server on an
+installation that runs one server without ``ca.upstreamSecret``, move that
+server to the upstream root first:
+
+#. Create the Secret as described above, and upgrade Cilium with your Helm
+   values and the Secret, still with one server:
+
+   .. parsed-literal::
+
+      helm upgrade cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --values my-values.yaml \\
+        --set encryption.ztunnel.spire.useCRD=true \\
+        --set authentication.mutual.spire.install.server.ca.upstreamSecret=spire-upstream-ca
+
+#. Prepare a CA that the upstream root signs, using the ``spire_server`` helper
+   of the previous section, and note the authority ID that it prints. The trust
+   bundle of the server now contains the upstream root as well.
+
+   .. code-block:: shell-session
+
+      spire_server localauthority x509 prepare
+
+#. Wait at least one hour, the default lifetime of the certificates that the
+   SPIRE server issues, and activate the prepared CA. ztunnel only takes the
+   new trust bundle when it renews the certificate of a workload, and rejects
+   certificates from the prepared CA until then.
+
+   .. code-block:: shell-session
+
+      spire_server localauthority x509 activate -authorityID <authority ID>
+
+#. Wait at least one hour again, so that the SPIRE agents and the workloads
+   renew their certificates from the new CA. Then add the other servers:
+
+   .. parsed-literal::
+
+      helm upgrade cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --values my-values.yaml \\
+        --set encryption.ztunnel.spire.useCRD=true \\
+        --set authentication.mutual.spire.install.server.ca.upstreamSecret=spire-upstream-ca \\
+        --set authentication.mutual.spire.install.server.replicas=2
+
+#. Check that the trust bundle of each server contains the upstream root, with
+   the subject of the certificate in the Secret. The first server also keeps
+   its previous root until that root expires.
+
+   .. code-block:: bash
+
+      for server in spire-server-0 spire-server-1; do
+        echo "${server}:"
+        kubectl -n cilium-spire exec "${server}" -c spire-server -- \
+          /opt/spire/bin/spire-server bundle show -format pem |
+          openssl crl2pkcs7 -nocrl -certfile /dev/stdin |
+          openssl pkcs7 -print_certs -noout
+      done
+
+If you add servers without these steps, the servers sign with different roots.
+SPIRE agents then restart with ``x509: certificate signed by unknown
+authority`` errors, and new workloads cannot connect to other workloads. To
+recover, prepare and activate a CA on the first server as in steps 2 and 3
+without waiting, then replace the first server, the SPIRE agents and the
+ztunnel Pods. An agent that failed repeatedly waits up to five minutes before
+it starts again, and the ztunnel Pod on its node gets no certificates until
+then, so replace the agents before the ztunnel Pods. The traffic of the
+workloads on each node fails until its ztunnel Pod is ready again:
+
+.. code-block:: shell-session
+
+   kubectl -n cilium-spire delete pod spire-server-0
+   kubectl -n cilium-spire rollout status statefulset/spire-server
+   kubectl -n cilium-spire rollout restart daemonset/spire-agent
+   kubectl -n cilium-spire rollout status daemonset/spire-agent
+   kubectl -n kube-system delete pod -l app=ztunnel-cilium
+
+Each sidecar also writes the status of the ClusterSPIFFEIDs and
+ClusterStaticEntries, so with more than one server the sidecars log
+``Failed to update status`` errors when another sidecar updated a resource
+first. These conflicts do not affect the entries, and the status shows what the
+sidecar that wrote it last found in its own server. The sidecars do not use
+leader election, because each of them must register the entries in its own
+server.
+
 Limitations
 ===========
 

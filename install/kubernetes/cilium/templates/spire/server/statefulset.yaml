@@ -1,6 +1,7 @@
 {{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled -}}
 {{- $useCRD := .Values.encryption.ztunnel.spire.useCRD -}}
 {{- $server := .Values.authentication.mutual.spire.install.server -}}
+{{- $upstreamSecret := include "cilium.spire.upstreamSecret" . -}}
 {{- $podSecurityContext := $server.podSecurityContext -}}
 {{- if $useCRD -}}
 {{- $podSecurityContext = mergeOverwrite (dict "runAsUser" 1000 "runAsGroup" 1000 "fsGroup" 1000) (deepCopy ($podSecurityContext | default dict)) -}}
@@ -28,7 +29,7 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
-  replicas: 1
+  replicas: {{ $server.replicas }}
   selector:
     matchLabels:
       app: spire-server
@@ -108,6 +109,11 @@ spec:
         - name: spire-server-socket
           mountPath: /tmp/spire-server/private
           readOnly: false
+        {{- if $upstreamSecret }}
+        - name: spire-upstream-ca
+          mountPath: /run/spire/upstream
+          readOnly: true
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /live
@@ -166,9 +172,17 @@ spec:
             port: controller-http
           periodSeconds: 5
       {{- end }}
-      {{- with .Values.authentication.mutual.spire.install.server.affinity }}
+      {{- if $server.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        {{- toYaml $server.affinity | nindent 8 }}
+      {{- else if gt (int64 $server.replicas) 1 }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: spire-server
+            topologyKey: kubernetes.io/hostname
       {{- end }}
       {{- with .Values.authentication.mutual.spire.install.server.nodeSelector }}
       nodeSelector:
@@ -194,6 +208,17 @@ spec:
       - name: spire-controller-config
         configMap:
           name: spire-controller-manager
+      {{- end }}
+      {{- if $upstreamSecret }}
+      - name: spire-upstream-ca
+        secret:
+          secretName: {{ $upstreamSecret | quote }}
+          defaultMode: 0440
+          items:
+          - key: tls.crt
+            path: tls.crt
+          - key: tls.key
+            path: tls.key
       {{- end }}
   {{- if .Values.authentication.mutual.spire.install.server.dataStorage.enabled }}
   volumeClaimTemplates:

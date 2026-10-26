@@ -907,6 +907,7 @@ unwinded
 upgradeCompatibility
 uplink
 uprobes
+upstreamSecret
 upstreamed
 uptime
 uretprobes

@@ -4602,6 +4602,17 @@ authentication:
           # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-container
           securityContext: {}
         server:
+          # @schema
+          # type: integer
+          # minimum: 1
+          # maximum: 2147483647
+          # @schema
+          # -- Number of SPIRE servers. More than one requires
+          # encryption.ztunnel.spire.useCRD=true. Each server keeps its own
+          # datastore and signs with the shared upstream root from ca.upstreamSecret.
+          # Before adding servers to a running one, move it to the upstream root
+          # as described in the ztunnel encryption guide.
+          replicas: 1
           # -- The priority class to use for the spire server
           priorityClassName: ""
           # -- SPIRE server image
@@ -4653,7 +4664,8 @@ authentication:
             annotations: {}
             # -- Labels to be added to the SPIRE server service
             labels: {}
-          # -- SPIRE server affinity configuration
+          # -- SPIRE server affinity configuration. Without it, multiple
+          # replicas require separate nodes (kubernetes.io/hostname).
           affinity: {}
           # -- SPIRE server nodeSelector configuration
           # ref: ref: https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#nodeselector
@@ -4686,6 +4698,19 @@ authentication:
           securityContext: {}
           # SPIRE CA configuration
           ca:
+            # @schema
+            # type: string
+            # pattern: '^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$'
+            # @schema
+            # -- Name of an existing Secret in the SPIRE namespace with a
+            # self-signed upstream root CA certificate (tls.crt) and private key
+            # (tls.key) that every SPIRE server signs with. Only used with
+            # encryption.ztunnel.spire.useCRD=true. Defaults to spire-upstream-ca
+            # when replicas is greater than 1. A running server keeps signing
+            # with the CA in its datastore until a CA prepared with
+            # `spire-server localauthority x509 prepare` is activated, as
+            # described in the ztunnel encryption guide.
+            upstreamSecret: ""
             # -- SPIRE CA key type
             # AWS requires the use of RSA. EC cryptography is not supported
             keyType: "rsa-4096"

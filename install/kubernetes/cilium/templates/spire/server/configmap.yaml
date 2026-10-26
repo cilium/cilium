@@ -58,6 +58,15 @@ data:
           keys_path = "/run/spire/data/keys.json"
         }
       }
+      {{- if include "cilium.spire.upstreamSecret" . }}
+
+      UpstreamAuthority "disk" {
+        plugin_data {
+          cert_file_path = "/run/spire/upstream/tls.crt"
+          key_file_path = "/run/spire/upstream/tls.key"
+        }
+      }
+      {{- end }}
 
       Notifier "k8sbundle" {
         plugin_data {

@@ -22,6 +22,9 @@ metadata:
   {{- end }}
 spec:
   type: {{ .Values.authentication.mutual.spire.install.server.service.type }}
+  {{- if gt (int64 .Values.authentication.mutual.spire.install.server.replicas) 1 }}
+  sessionAffinity: ClientIP
+  {{- end }}
   ports:
   - name: grpc
     port: 8081
