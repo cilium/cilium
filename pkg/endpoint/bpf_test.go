@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	fakepolicymap "github.com/cilium/cilium/pkg/maps/policymap/fake"
@@ -51,6 +52,35 @@ func newRegenTestEndpoint(t *testing.T, repo *policy.Repository, endpointPolicy 
 	}
 	ep.logger.Store(hivetest.Logger(t))
 	return ep
+}
+
+// recordingGCRunner records the filter passed to Run.
+type recordingGCRunner struct {
+	ctmap.GCRunner
+	filter ctmap.GCFilter
+}
+
+func (r *recordingGCRunner) Run(filter ctmap.GCFilter) (int, error) {
+	r.filter = filter
+	return 0, nil
+}
+
+// The conntrack scrub of an endpoint's IPs also removes expired entries.
+func TestScrubIPsInConntrackTableLocked(t *testing.T) {
+	gc := &recordingGCRunner{GCRunner: ctmap.NewFakeGCRunner()}
+	ep := &Endpoint{
+		ctMapGC: gc,
+		IPv4:    netip.MustParseAddr("10.0.0.1"),
+		IPv6:    netip.MustParseAddr("fd00::1"),
+	}
+
+	ep.scrubIPsInConntrackTableLocked()
+
+	require.True(t, gc.filter.RemoveExpired)
+	require.Equal(t, map[ctmap.NetAddr]struct{}{
+		{Addr: ep.IPv4}: {},
+		{Addr: ep.IPv6}: {},
+	}, gc.filter.MatchIPs)
 }
 
 func TestRegenerateBPFFailureReverts(t *testing.T) {
