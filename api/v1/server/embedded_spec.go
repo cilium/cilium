@@ -2138,7 +2138,7 @@ func init() {
         "ips": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/Address"
           }
         },
         "name": {
@@ -3616,7 +3616,7 @@ func init() {
                     "prefixes": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/CIDR"
                       }
                     }
                   }
@@ -7512,7 +7512,7 @@ func init() {
         "ips": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/Address"
           }
         },
         "name": {
@@ -9075,7 +9075,7 @@ func init() {
                     "prefixes": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/CIDR"
                       }
                     }
                   }
@@ -9261,7 +9261,7 @@ func init() {
                 "prefixes": {
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "$ref": "#/definitions/CIDR"
                   }
                 }
               }
@@ -9408,7 +9408,7 @@ func init() {
             "prefixes": {
               "type": "array",
               "items": {
-                "type": "string"
+                "$ref": "#/definitions/CIDR"
               }
             }
           }
@@ -9433,7 +9433,7 @@ func init() {
         "prefixes": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/CIDR"
           }
         }
       }

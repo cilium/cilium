@@ -9,6 +9,7 @@
 package models
 
 import (
+	ip "github.com/cilium/cilium/pkg/ip"
 	strfmt "github.com/go-openapi/strfmt"
 )
 
@@ -595,8 +596,10 @@ func (in *KubeProxyReplacementFeaturesNat46X64Gateway) DeepCopyInto(out *KubePro
 	*out = *in
 	if in.Prefixes != nil {
 		in, out := &in.Prefixes, &out.Prefixes
-		*out = make([]string, len(*in))
-		copy(*out, *in)
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	return
 }

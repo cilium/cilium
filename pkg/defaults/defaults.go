@@ -4,6 +4,7 @@
 package defaults
 
 import (
+	"net/netip"
 	"time"
 )
 
@@ -43,12 +44,6 @@ const (
 
 	// IPv6ClusterAllocCIDRBase is the default base for IPv6ClusterAllocCIDR
 	IPv6ClusterAllocCIDRBase = "f00d::"
-
-	// IPv6NAT46x64CIDR is the default prefix for NAT46x64 gateway
-	IPv6NAT46x64CIDR = IPv6NAT46x64CIDRBase + "/96"
-
-	// IPv6NAT46x64CIDRBase is the default base for IPv6NAT46x64CIDR
-	IPv6NAT46x64CIDRBase = "64:ff9b::"
 
 	// RuntimePath is the default path to the runtime directory
 	RuntimePath = "/var/run/cilium"
@@ -538,6 +533,15 @@ const (
 
 	// EnableDatapathPlugins is the default value for option.EnableDatapathPlugins
 	EnableDatapathPlugins = false
+)
+
+var (
+	// IPv6NAT46x64CIDR is the RFC6052 well-known prefix used by the NAT46x64
+	// gateway
+	IPv6NAT46x64CIDR = netip.MustParsePrefix("64:ff9b::/96")
+
+	// IPv6NAT46x64CIDRBase is the base address of IPv6NAT46x64CIDR
+	IPv6NAT46x64CIDRBase = IPv6NAT46x64CIDR.Addr()
 )
 
 var (
