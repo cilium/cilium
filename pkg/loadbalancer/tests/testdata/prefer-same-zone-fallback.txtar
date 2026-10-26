@@ -2,6 +2,9 @@
 #
 # Test PreferSameZone fallback: when zone backends are incompatible,
 # we should fall back to out-of-zone backends.
+#
+# Also test that PreferSameNode falls back to the same-zone backends when
+# there are no backends on the local node.
 
 # Set the node zone label before starting
 test/set-node-labels topology.kubernetes.io/zone=foo
@@ -22,6 +25,37 @@ k8s/add endpointslice-wrong-port.yaml endpointslice-remote.yaml
 # resulting in an empty frontends table or failure to match.
 db/cmp frontends frontends-remote.table
 
+# Switch the service to trafficDistribution=PreferSameNode. There is no backend
+# on the local node ('testnode') and the zone backend is still incompatible, so
+# we keep falling back to the remote backend.
+sed 'PreferSameZone' 'PreferSameNode' service.yaml
+k8s/update service.yaml
+db/cmp services services-same-node.table
+db/cmp frontends frontends-remote.table
+
+# Add a compatible backend 10.244.3.1 in zone foo on another node. With no
+# backend on the local node we fall back to the backend in our zone.
+k8s/add endpointslice-same-zone.yaml
+db/cmp frontends frontends-same-zone.table
+
+# Add a backend 10.244.4.1 on the local node. It is preferred over the
+# same-zone backend.
+k8s/add endpointslice-same-node.yaml
+db/cmp frontends frontends-same-node.table
+
+# Remove the local-node backend. We fall back to the same-zone backend again.
+k8s/delete endpointslice-same-node.yaml
+db/cmp frontends frontends-same-zone.table
+
+# Move the node to a zone that matches no ForZones hint. We fall back to all
+# compatible backends.
+test/set-node-labels topology.kubernetes.io/zone=baz
+db/cmp frontends frontends-all.table
+
+# Move the node back. The same-zone backend is selected again.
+test/set-node-labels topology.kubernetes.io/zone=foo
+db/cmp frontends frontends-same-zone.table
+
 #####
 
 -- services.table --
@@ -31,6 +65,22 @@ test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferSameZon
 -- frontends-remote.table --
 Address               Type        ServiceName   PortName   Status  Backends
 10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.2.1:80/TCP
+
+-- services-same-node.table --
+Name        Source   PortNames  TrafficPolicy  Flags
+test/echo   k8s      http=80    Cluster        TrafficDistribution=PreferSameNode
+
+-- frontends-same-zone.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.3.1:80/TCP
+
+-- frontends-same-node.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.4.1:80/TCP
+
+-- frontends-all.table --
+Address               Type        ServiceName   PortName   Status  Backends
+10.96.50.104:80/TCP   ClusterIP   test/echo     http       Done    10.244.2.1:80/TCP, 10.244.3.1:80/TCP
 
 -- service.yaml --
 apiVersion: v1
@@ -99,6 +149,58 @@ endpoints:
   hints:
     forZones:
     - name: bar
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice-same-zone.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps3
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.3.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: node-same-zone
+  zone: foo
+  hints:
+    forZones:
+    - name: foo
+ports:
+- name: http
+  port: 80
+  protocol: TCP
+
+-- endpointslice-same-node.yaml --
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  labels:
+    kubernetes.io/service-name: echo
+  name: echo-eps4
+  namespace: test
+addressType: IPv4
+endpoints:
+- addresses:
+  - 10.244.4.1
+  conditions:
+    ready: true
+    serving: true
+    terminating: false
+  nodeName: testnode
+  zone: foo
+  hints:
+    forZones:
+    - name: foo
 ports:
 - name: http
   port: 80
