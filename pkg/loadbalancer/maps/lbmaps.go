@@ -9,7 +9,6 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/netip"
-	"os"
 	"reflect"
 	"unsafe"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -44,7 +44,7 @@ func newLBMaps(p lbmapsParams) bpf.MapOut[LBMaps] {
 		// We're beind tested, use unpinned maps if privileged, otherwise
 		// in-memory fake.
 		var m LBMaps
-		if os.Getuid() == 0 {
+		if testutils.IsPrivileged() {
 			pinned = false
 		} else {
 			m = NewFakeLBMaps()
