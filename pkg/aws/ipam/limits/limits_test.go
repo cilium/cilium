@@ -32,6 +32,7 @@ func TestGet(t *testing.T) {
 			MaximumNetworkInterfaces:  new(int32(4)),
 			Ipv4AddressesPerInterface: new(int32(5)),
 			Ipv6AddressesPerInterface: new(int32(6)),
+			EnaSrdSupported:           new(true),
 		},
 		Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
 		BareMetal:  new(false),
@@ -47,11 +48,12 @@ func TestGet(t *testing.T) {
 	limit, ok = newLimitsGetter.Get("test.large")
 	require.True(t, ok)
 	require.Equal(t, ipamTypes.Limits{
-		Adapters:       4,
-		IPv4:           5,
-		IPv6:           6,
-		HypervisorType: "nitro",
-		IsBareMetal:    false,
+		Adapters:            4,
+		IPv4:                5,
+		IPv6:                6,
+		HypervisorType:      "nitro",
+		IsBareMetal:         false,
+		ENAExpressSupported: true,
 	}, limit)
 
 	// Test 3: EC2 API call and update limits but trigger can't be triggered
