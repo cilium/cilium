@@ -1383,6 +1383,8 @@ const (
 
 	IsPrefixDelegated = "isPrefixDelegated"
 
+	ENAExpress = "enaExpress"
+
 	AttachmentID = "attachmentID"
 
 	FirstInterfaceIndex = "firstInterfaceIndex"

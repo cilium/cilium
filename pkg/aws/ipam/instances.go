@@ -16,6 +16,7 @@ import (
 	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
+	"github.com/cilium/cilium/pkg/aws/api"
 	"github.com/cilium/cilium/pkg/aws/ipam/limits"
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/aws/types"
@@ -38,7 +39,7 @@ type EC2API interface {
 
 	GetDetachedNetworkInterfaces(ctx context.Context, tags ipamTypes.Tags, maxResults int32) ([]string, error)
 	CreateNetworkInterface(ctx context.Context, toAllocate int32, subnetID, desc string, groups []string, allocatePrefixes, allocateIPv6 bool) (string, *types.ENI, error)
-	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string) (string, error)
+	AttachNetworkInterface(ctx context.Context, index int32, instanceID, eniID string, opts api.AttachNetworkInterfaceOptions) (string, error)
 	DeleteNetworkInterface(ctx context.Context, eniID string) error
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
 	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error)

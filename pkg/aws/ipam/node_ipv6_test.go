@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
+	"github.com/cilium/cilium/pkg/aws/api"
 	apiMock "github.com/cilium/cilium/pkg/aws/api/mock"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -29,7 +30,7 @@ func newWiredNode(t *testing.T, instanceID, instanceType string) (*Node, *apiMoc
 
 	eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, testSubnet.ID, "primary", []string{"sg-1"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
