@@ -315,6 +315,21 @@ allocation:
 
   If unspecified, this option is enabled.
 
+``spec.eni.ena-express``
+  Whether ENIs attached to the instance use `ENA Express
+  <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ena-express.html>`__.
+  ``disabled`` doesn't configure ENA Express, ``enabled`` enables it if the
+  instance type supports it, and ``inherit`` uses the ENA Express configuration
+  of ``eth0``. See :ref:`ipam_eni_ena_express`.
+
+  If unspecified, this option is disabled.
+
+``spec.eni.ena-express-udp``
+  Whether UDP traffic uses ENA Express on ENIs attached to the instance when
+  ``spec.eni.ena-express`` is ``enabled``.
+
+  If unspecified, this option is disabled.
+
 .. _ipam_eni_ipv6:
 
 **********
@@ -587,6 +602,9 @@ The Security Group IDs attached to the ENI are computed in the following order:
  3. Finally if none of the above fields are set then the newly created ENI will
     inherit the security group IDs of ``eth0`` of the instance.
 
+The ENA Express configuration of the ENI attachment is determined by
+``spec.eni.ena-express``, see :ref:`ipam_eni_ena_express`.
+
 The description will be in the following format:
 
 .. code-block:: go
@@ -594,6 +612,64 @@ The description will be in the following format:
      "Cilium-CNI (<EC2 instance ID>)"
 
 If the ENI tagging feature is enabled then the ENI will be tagged with the provided information.
+
+.. _ipam_eni_ena_express:
+
+ENA Express
+===========
+
+`ENA Express <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ena-express.html>`__
+is configured per ENI attachment, and traffic only uses it when it is enabled
+on both the sending and the receiving ENI. ENIs attached by whatever launched
+the instance, such as ``eth0``, are configured at launch time, while ENIs
+attached by Cilium are configured according to ``spec.eni.ena-express``:
+
+ * ``disabled`` (default): ENA Express isn't configured.
+ * ``enabled``: ENA Express is enabled if the instance type supports it, and
+   UDP traffic uses ENA Express if ``spec.eni.ena-express-udp`` is set. If the
+   instance type doesn't support ENA Express, the operator logs a warning and
+   attaches the ENI without it.
+ * ``inherit``: The ENA Express configuration of ``eth0`` is used, including
+   whether UDP traffic uses ENA Express, and ``spec.eni.ena-express-udp`` is
+   ignored. Pods get the same ENA Express behavior regardless of which ENI
+   their IPs are allocated from, and ENA Express is enabled on a node by
+   enabling it on ``eth0`` at launch time.
+
+The setting is populated from the ``eni-ena-express`` and
+``eni-ena-express-udp`` agent options, which are set for all nodes with the
+``eni.nodeSpec.enaExpress`` and ``eni.nodeSpec.enaExpressUDP`` Helm values. To
+only configure ENA Express on selected nodes, use a :ref:`CiliumNodeConfig
+<per-node-configuration>` in the namespace Cilium is installed in:
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2
+    kind: CiliumNodeConfig
+    metadata:
+      namespace: kube-system
+      name: ena-express
+    spec:
+      nodeSelector:
+        matchLabels:
+          example.com/ena-express: "true"
+      defaults:
+        eni-ena-express: enabled
+        eni-ena-express-udp: "true"
+
+The ENA Express configuration of each ENI is reported in
+``status.eni.enis.<eni-id>.ena-express`` of the CiliumNode.
+
+.. note::
+
+   * The setting only applies to ENIs attached after it takes effect. ENIs
+     which are already attached keep their ENA Express configuration, and a
+     change to a CiliumNodeConfig only takes effect once the Cilium agent pod
+     on the node is restarted.
+   * UDP traffic requires a lower MTU than the default to use ENA Express.
+     See the `AWS documentation
+     <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ena-express.html>`__
+     for the requirements of ENA Express, including its limitations in Local
+     Zones.
 
 ENI Deletion Policy
 ===================

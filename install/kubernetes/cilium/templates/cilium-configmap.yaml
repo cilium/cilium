@@ -657,6 +657,12 @@ data:
   {{- if ne .Values.eni.nodeSpec.deleteOnTermination nil }}
   eni-delete-on-termination: {{ .Values.eni.nodeSpec.deleteOnTermination | quote }}
   {{- end }}
+  {{- if .Values.eni.nodeSpec.enaExpress }}
+  eni-ena-express: {{ .Values.eni.nodeSpec.enaExpress | quote }}
+  {{- end }}
+  {{- if .Values.eni.nodeSpec.enaExpressUDP }}
+  eni-ena-express-udp: "true"
+  {{- end }}
 {{- end }}
 {{- if .Values.eni.subnetIDsFilter }}
   subnet-ids-filter: {{ .Values.eni.subnetIDsFilter | join " " | quote }}

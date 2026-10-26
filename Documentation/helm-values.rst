@@ -1539,13 +1539,21 @@
    * - :spelling:ignore:`eni.nodeSpec`
      - NodeSpec configuration for the ENI
      - object
-     - ``{"deleteOnTermination":null,"disablePrefixDelegation":false,"excludeInterfaceTags":[],"firstInterfaceIndex":null,"securityGroupTags":[],"securityGroups":[],"subnetIDs":[],"subnetTags":[],"usePrimaryAddress":false}``
+     - ``{"deleteOnTermination":null,"disablePrefixDelegation":false,"enaExpress":null,"enaExpressUDP":false,"excludeInterfaceTags":[],"firstInterfaceIndex":null,"securityGroupTags":[],"securityGroups":[],"subnetIDs":[],"subnetTags":[],"usePrimaryAddress":false}``
    * - :spelling:ignore:`eni.nodeSpec.deleteOnTermination`
      - Delete ENI on termination @schema type: [null, boolean] @schema
      - string
      - ``nil``
    * - :spelling:ignore:`eni.nodeSpec.disablePrefixDelegation`
      - Disable prefix delegation for IP allocation
+     - bool
+     - ``false``
+   * - :spelling:ignore:`eni.nodeSpec.enaExpress`
+     - ENA Express configuration of ENIs attached by Cilium. ``disabled`` doesn't configure ENA Express, ``enabled`` enables it if the instance type supports it, and ``inherit`` uses the ENA Express configuration of the primary ENI.
+     - string
+     - ``nil``
+   * - :spelling:ignore:`eni.nodeSpec.enaExpressUDP`
+     - Use ENA Express for UDP traffic when ``enaExpress`` is ``enabled``
      - bool
      - ``false``
    * - :spelling:ignore:`eni.nodeSpec.excludeInterfaceTags`

@@ -347,6 +347,14 @@ const (
 	// CiliumNode.Spec.ENI.DeleteOnTermination if no value is set.
 	ENIDeleteOnTermination = true
 
+	// ENIENAExpress is the default value for
+	// CiliumNode.Spec.ENI.ENAExpress if no value is set.
+	ENIENAExpress = "disabled"
+
+	// ENIENAExpressUDP is the default value for
+	// CiliumNode.Spec.ENI.ENAExpressUDP if no value is set.
+	ENIENAExpressUDP = false
+
 	// ENIGarbageCollectionTagManagedName is part of the ENIGarbageCollectionTags default tag set
 	ENIGarbageCollectionTagManagedName = "io.cilium/cilium-managed"
 
