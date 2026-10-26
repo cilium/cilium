@@ -1501,7 +1501,7 @@ func TestRepositorySnapshot(t *testing.T) {
 	selPolicy, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
 	defer selPolicy.Detach()
-	epPolicy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	epPolicy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
 	epPolicy.Ready()
 
 	// Now, take a snapshot.

@@ -295,7 +295,7 @@ func (td *testData) validateResolvedPolicy(t *testing.T, selPolicy *selectorPoli
 	sp, err := td.repo.resolvePolicyLocked(idA)
 	require.NoError(t, err)
 
-	epp := sp.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	epp, _ := sp.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
 	require.NotNil(t, epp)
 	epp.Ready()
 
@@ -346,7 +346,7 @@ func (td *testData) policyMapEqualsPolicyEntries(t *testing.T, expectedIn, expec
 	defer selPolicy.Detach()
 
 	// Distill Selector policy to Endpoint Policy
-	epPolicy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	epPolicy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
 	epPolicy.Ready()
 
 	td.validateResolvedPolicy(t, selPolicy, epPolicy, expectedIn, expectedOut)

@@ -335,6 +335,7 @@ func (e *Endpoint) Start(id uint16) {
 
 	// Start goroutines that are responsible for handling events.
 	e.startRegenerationFailureHandler()
+	e.startPolicyReconciler()
 	if e.eventQueue == nil {
 		e.InitEventQueue()
 	}
@@ -354,7 +355,8 @@ func (e *Endpoint) Stop() {
 	// closed elsewhere.
 	e.eventQueue.Stop()
 
-	// Cancel active controllers for the endpoint tied to e.aliveCtx.
+	// Cancel active controllers for the endpoint tied to e.aliveCtx, which
+	// includes the policy reconciler started by startPolicyReconciler.
 	// Needs to be performed before draining the event queue to allow
 	// in-flight functions to act before the Endpoint's underlying resources
 	// are removed by the container runtime.

@@ -261,7 +261,7 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		epPolicy := ip.DistillPolicy(hivetest.Logger(b), owner, nil)
+		epPolicy, _ := ip.DistillPolicy(hivetest.Logger(b), owner, nil)
 		owner.previousMap = epPolicy.GetMapState()
 		epPolicy.Ready()
 	}
@@ -286,7 +286,7 @@ func BenchmarkRegenerateL3IngressPolicyRules(b *testing.B) {
 
 	for b.Loop() {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
+		policy, _ := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
 		policy.Ready()
 		ip.Detach()
 	}
@@ -298,7 +298,7 @@ func BenchmarkRegenerateL3EgressPolicyRules(b *testing.B) {
 
 	for b.Loop() {
 		ip, _ := td.repo.resolvePolicyLocked(fooIdentity)
-		policy := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
+		policy, _ := ip.DistillPolicy(hivetest.Logger(b), DummyOwner{logger: hivetest.Logger(b)}, nil)
 		policy.Ready()
 		ip.Detach()
 	}
@@ -342,7 +342,7 @@ func TestEgressCIDRTCPPort(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, redirectTypeNone, selPolicy.L4Policy.redirectTypes)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -499,7 +499,7 @@ func TestEgressWildcardCIDRMatchesWorld(t *testing.T) {
 
 	td.assertEqualPolicies(t, expectedPolicy, selPolicy)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	// test that policy matches world-ipv4 due to the wildcard CIDR
@@ -553,7 +553,7 @@ func TestL7WithIngressWildcard(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, redirectTypeEnvoy, selPolicy.L4Policy.redirectTypes)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -639,7 +639,7 @@ func TestL7WithLocalHostWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -732,7 +732,7 @@ func TestMapStateWithIngressWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	rule1MapStateEntry := newAllowEntryWithLabels(ruleLabel)
@@ -846,7 +846,7 @@ func TestMapStateWithIngress(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
+	policy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, testRedirects)
 	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges

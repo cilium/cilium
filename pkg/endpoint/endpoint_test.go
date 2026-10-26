@@ -1176,8 +1176,8 @@ func (sp *testSelectorPolicy) RedirectFilters() iter.Seq2[*policy.L4Filter, poli
 	return func(func(*policy.L4Filter, policy.PerSelectorPolicyTuple) bool) {}
 }
 
-func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) *policy.EndpointPolicy {
-	return nil
+func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) (*policy.EndpointPolicy, bool) {
+	return nil, true
 }
 
 func (sp *testSelectorPolicy) GetSelectorSnapshot() policy.SelectorSnapshot {

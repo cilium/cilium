@@ -332,6 +332,8 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 			// is released by the delete path in LocalEndpointIdentityRemoved.
 			if _, _, err := r.tbl.CompareAndSwap(wtxn, results[i].rev, results[i].res); err != nil {
 				if results[i].res.Policy != nil {
+					// Table update will trigger an update for endpoint policy reconciler.
+					// So supersede doesn't need to explicitly regenerate.
 					results[i].res.Policy.Supersede()
 				}
 				results[i].res = Result{}
@@ -362,6 +364,8 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				logfields.PolicyRevision, cr.toRev,
 			)
 			if cr.oldPolicy != nil {
+				// Old policy is only superseded once the table is updated with
+				// a new policy so it doesn't require endpoint regeneration explicitly.
 				cr.oldPolicy.Supersede()
 			}
 		}
@@ -417,6 +421,9 @@ func (r *IdentityPolicyComputer) LocalEndpointIdentityRemoved(id *identity.Ident
 	// Release the policy's selectors. Supersede after Commit so the detach
 	// runs outside the write txn, matching processRequests.
 	if obj.Policy != nil {
+		// Local Endpoint Identity is removed directly from endpoint object when being
+		// deleted. Endpoint policy is detached automatically during Stop() so supersede
+		// doesn't require triggering regenerations.
 		obj.Policy.Supersede()
 	}
 }

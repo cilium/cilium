@@ -15,11 +15,9 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointstate"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/k8s/client"
@@ -183,11 +181,6 @@ type EndpointManager interface {
 	// InitHostEndpointLabels initializes the host endpoint's labels with the
 	// node's known labels.
 	InitHostEndpointLabels(ctx context.Context)
-
-	// UpdatePolicy triggers policy updates for all live endpoints.
-	// Endpoints with security IDs in provided set will be regenerated. Otherwise, the endpoint's
-	// policy revision will be bumped to toRev.
-	UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64)
 
 	// UpdateCIDRLabels triggers identity resolution for all pod endpoints
 	// whose IPs are contained within the given prefix.

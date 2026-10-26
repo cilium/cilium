@@ -722,8 +722,8 @@ type testSelectorPolicy struct {
 	policyType PolicyType
 }
 
-func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) *policy.EndpointPolicy {
-	return nil
+func (sp *testSelectorPolicy) DistillPolicy(logger *slog.Logger, owner policy.PolicyOwner, redirects map[string]uint16) (*policy.EndpointPolicy, bool) {
+	return nil, true
 }
 
 func (sp *testSelectorPolicy) GetEgressNamedPorts(name string, proto u8proto.U8proto, idents iter.Seq[identity.NumericIdentity]) ciliumTypes.NidPortSeq {

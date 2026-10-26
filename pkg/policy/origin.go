@@ -50,6 +50,7 @@ func mergeStringList(a, b stringList) stringList {
 
 	logLines := slices.Concat(a.List(), b.List())
 	slices.Sort(logLines)
+	logLines = slices.Compact(logLines)
 	return newStringList(logLines...)
 }
 

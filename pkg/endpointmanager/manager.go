@@ -18,12 +18,10 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/completion"
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -850,6 +848,12 @@ func (mgr *endpointManager) initHostEndpointLabels(ctx context.Context, ep *endp
 func (mgr *endpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, rev uint64) error {
 	eps := mgr.GetEndpoints()
 	for i := range eps {
+		// An endpoint still waiting for identity resolution has nothing
+		// driving its policy revision forward until it gets an identity,
+		// which may never happen. Skip it rather than blocking indefinitely.
+		if eps[i].GetState() == endpoint.StateWaitingForIdentity {
+			continue
+		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -865,27 +869,6 @@ func (mgr *endpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, rev
 // EndpointExists returns whether the endpoint with id exists.
 func (mgr *endpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
-}
-
-// UpdatePolicy triggers policy updates for all live endpoints.
-// Endpoints with security IDs in provided set will be regenerated. Otherwise, the endpoint's
-// policy revision will be bumped to toRev.
-func (mgr *endpointManager) UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
-	eps := mgr.GetEndpoints()
-
-	wg := sync.WaitGroup{}
-	wg.Add(len(eps))
-
-	for _, ep := range eps {
-		go func(ep *endpoint.Endpoint) {
-			ep.UpdatePolicy(idsToRegen, fromRev, toRev)
-			wg.Done()
-		}(ep)
-	}
-
-	mgr.policyUpdateCallback(&sync.WaitGroup{}, idsToRegen, true)
-
-	wg.Wait()
 }
 
 func (mgr *endpointManager) stopEndpoints() {
