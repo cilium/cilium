@@ -165,8 +165,6 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
 #include "lib/lb.h"
 #include "lib/policy.h"
 
-#ifdef ENABLE_IPV4
-
 /* packet defined in ./scapy/tc_redirect_pkt_defs.py (reused from the host
  * test - same external -> local Pod shape).
  */
@@ -350,8 +348,6 @@ int tc_redirect_pod_egress_ipv4_check(__maybe_unused const struct __ctx_buff *ct
 
 	test_finish();
 }
-
-#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 

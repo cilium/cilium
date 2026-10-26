@@ -350,7 +350,6 @@ const __u8 kpr_v6_dsr_lb3_mtu3_gso_post_geneve[] = {
 };
 #endif /* ATTACHMENT_XDP */
 
-#ifdef ENABLE_IPV4
 /* Client accesses a DSR service with remote backend.
  * We expect the SYN to carry DSR-info, but the SYN-ACK to be forwarded
  * without DSR-info.
@@ -1100,7 +1099,6 @@ int kpr_v4_dsr_lb3_mtu3_gso_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_finish();
 }
 #endif /* ATTACHMENT_XDP */
-#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 PKTGEN(PROG_TYPE, "kpr_v6_dsr_lb1_syn")
