@@ -329,7 +329,7 @@ func TestParseLabelPrefixCfgReservedLabelWarning(t *testing.T) {
 					"false positive: test case is misconfigured, no reserved label was excluded")
 				assert.Contains(t, logs.String(), reservedLabelsMissing)
 			} else {
-				require.Equal(t, len(allReservedLabels), len(gotIdentityLabels),
+				require.Len(t, gotIdentityLabels, len(allReservedLabels),
 					"false positive: test case is misconfigured, no reserved label was excluded")
 				assert.NotContains(t, logs.String(), reservedLabelsMissing)
 			}
