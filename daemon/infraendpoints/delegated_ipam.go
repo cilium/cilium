@@ -26,6 +26,9 @@ const (
 	// delegatedIPAMOwnerIngress identifies ingress IP allocations.
 	delegatedIPAMOwnerIngress = "ingress"
 
+	// delegatedIPAMOwnerRouter identifies router (cilium_host) IP allocations.
+	delegatedIPAMOwnerRouter = "router"
+
 	// delegatedIPAMIfName is the CNI_IFNAME used for delegated IPAM allocations, not a
 	// real interface, but part of the IPAM bookkeeping key so must match ADD/DEL.
 	delegatedIPAMIfName = "eth0"

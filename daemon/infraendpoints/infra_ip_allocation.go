@@ -709,8 +709,30 @@ func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouter
 	var v4 net.IP
 	var v6 net.IP
 
+	// With delegated IPAM the agent can't allocate the router addresses from
+	// its own pool: unless a static one is configured, lease them from the
+	// delegated IPAM plugin, so that each node gets its own.
+	delegated := r.daemonConfig.IPAM == ipamOption.IPAMDelegatedPlugin
+	leaseV4 := delegated && r.daemonConfig.EnableIPv4 && r.daemonConfig.LocalRouterIPv4 == ""
+	leaseV6 := delegated && r.daemonConfig.EnableIPv6 && r.daemonConfig.LocalRouterIPv6 == ""
+	var leasedV4, leasedV6 netip.Addr
+	if leaseV4 || leaseV6 {
+		var err error
+		leasedV4, leasedV6, err = r.allocateDelegatedIPs(ctx, delegatedIPAMOwnerRouter)
+		if err != nil {
+			return fmt.Errorf("failed to allocate router IPs via delegated IPAM: %w", err)
+		}
+		r.logger.Info("Allocated router addresses via delegated IPAM",
+			logfields.IPv4, leasedV4,
+			logfields.IPv6, leasedV6,
+		)
+	}
+
 	if r.daemonConfig.EnableIPv4 {
-		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPv4FromK8s, restoredRouterIPv4FromFS)
+		routerIP, err := net.IP(leasedV4.AsSlice()), error(nil)
+		if !leaseV4 {
+			routerIP, err = r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPv4FromK8s, restoredRouterIPv4FromFS)
+		}
 		if err != nil {
 			return err
 		}
@@ -722,7 +744,10 @@ func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouter
 	}
 
 	if r.daemonConfig.EnableIPv6 {
-		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPv6FromK8s, restoredRouterIPv6FromFS)
+		routerIP, err := net.IP(leasedV6.AsSlice()), error(nil)
+		if !leaseV6 {
+			routerIP, err = r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPv6FromK8s, restoredRouterIPv6FromFS)
+		}
 		if err != nil {
 			return err
 		}
