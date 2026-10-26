@@ -26,6 +26,9 @@ data:
       trust_domain = {{ .Values.authentication.mutual.spire.trustDomain | quote }}
       authorized_delegates = [
         "spiffe://{{ .Values.authentication.mutual.spire.trustDomain }}/cilium-agent",
+        {{- if and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") (eq .Values.encryption.ztunnel.ca.type "spire") .Values.encryption.ztunnel.spire.useCRD }}
+        "spiffe://{{ .Values.authentication.mutual.spire.trustDomain }}/ztunnel",
+        {{- end }}
       ]
     }
 

@@ -142,6 +142,19 @@
   {{- end }}
 {{- end }}
 
+{{/* validate SPIRE ClusterSPIFFEID registration for ztunnel */}}
+{{- if .Values.encryption.ztunnel.spire.useCRD }}
+  {{- if not (and .Values.encryption.enabled (eq .Values.encryption.type "ztunnel") (eq .Values.encryption.ztunnel.ca.type "spire") .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled) }}
+    {{ fail "encryption.ztunnel.spire.useCRD=true requires encryption.enabled=true, encryption.type=ztunnel, encryption.ztunnel.ca.type=spire, authentication.mutual.spire.enabled=true and authentication.mutual.spire.install.enabled=true" }}
+  {{- end }}
+  {{- if not (.Capabilities.APIVersions.Has "spire.spiffe.io/v1alpha1/ClusterSPIFFEID") }}
+    {{- if not .Values.encryption.ztunnel.spire.trustCRDsExist }}
+      {{- $version := regexReplaceAll "@.*$" .Values.authentication.mutual.spire.install.server.controllerManager.image.tag "" | trimPrefix "v" }}
+      {{ fail (printf "encryption.ztunnel.spire.useCRD=true requires the spire.spiffe.io/v1alpha1 ClusterSPIFFEID CRD. Please install it with kubectl apply --server-side -f https://raw.githubusercontent.com/spiffe/spire-controller-manager/v%s/config/crd/bases/spire.spiffe.io_clusterspiffeids.yaml or set .Values.encryption.ztunnel.spire.trustCRDsExist=true" $version) }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+
 {{/* validate Cilium operator */}}
 {{- if .Values.ciliumEndpointSlice.enabled }}
   {{- if eq .Values.disableEndpointCRD true }}

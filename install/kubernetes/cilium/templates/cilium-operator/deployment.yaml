@@ -91,6 +91,9 @@ spec:
         args:
         - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
+        {{- if .Values.encryption.ztunnel.spire.useCRD }}
+        - --enable-ztunnel-spiffeid-crd=true
+        {{- end }}
         {{- with .Values.operator.extraArgs }}
         {{- toYaml . | trim | nindent 8 }}
         {{- end }}

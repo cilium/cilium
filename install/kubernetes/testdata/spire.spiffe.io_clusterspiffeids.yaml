@@ -1,0 +1,262 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright SPIRE Authors
+# Source: https://github.com/spiffe/spire-controller-manager/blob/v0.6.2/config/crd/bases/spire.spiffe.io_clusterspiffeids.yaml
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: clusterspiffeids.spire.spiffe.io
+spec:
+  group: spire.spiffe.io
+  names:
+    kind: ClusterSPIFFEID
+    listKind: ClusterSPIFFEIDList
+    plural: clusterspiffeids
+    singular: clusterspiffeid
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterSPIFFEID is the Schema for the clusterspiffeids API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterSPIFFEIDSpec defines the desired state of ClusterSPIFFEID
+            properties:
+              admin:
+                description: |-
+                  Admin indicates whether or not the SVID can be used to access the SPIRE
+                  administrative APIs. Extra care should be taken to only apply this
+                  SPIFFE ID to admin workloads.
+                type: boolean
+              autoPopulateDNSNames:
+                description: AutoPopulateDNSNames indicates whether or not to auto
+                  populate service DNS names.
+                type: boolean
+              className:
+                description: Set which Controller Class will act on this object
+                type: string
+              fallback:
+                description: |-
+                  Apply this ID only if there are no other matching non fallback
+                  ClusterSPIFFEIDs
+                type: boolean
+              dnsNameTemplates:
+                description: |-
+                  DNSNameTemplate represents templates for extra DNS names that are
+                  applicable to SVIDs minted for this ClusterSPIFFEID.
+                  The node and pod spec are made available to the template under
+                  .NodeSpec, .PodSpec respectively.
+                items:
+                  type: string
+                type: array
+              downstream:
+                description: Downstream indicates that the entry describes a downstream
+                  SPIRE server.
+                type: boolean
+              federatesWith:
+                description: |-
+                  FederatesWith is a list of trust domain names that workloads that
+                  obtain this SPIFFE ID will federate with.
+                items:
+                  type: string
+                type: array
+              hint:
+                description: |-
+                  Set the entry hint
+                type: string
+              jwtTtl:
+                description: |-
+                  JWTTTL indicates an upper-bound time-to-live for JWT SVIDs minted for this
+                  ClusterSPIFFEID.
+                type: string
+              namespaceSelector:
+                description: |-
+                  NamespaceSelector selects the namespaces that are targeted by this
+                  CRD.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                          type: string
+                        values:
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
+              podSelector:
+                description: |-
+                  PodSelector selects the pods that are targeted by this
+                  CRD.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                          type: string
+                        values:
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
+              spiffeIDTemplate:
+                description: |-
+                  SPIFFEID is the SPIFFE ID template. The node and pod spec are made
+                  available to the template under .NodeSpec, .PodSpec respectively.
+                type: string
+              ttl:
+                description: |-
+                  TTL indicates an upper-bound time-to-live for X509 SVIDs minted for this
+                  ClusterSPIFFEID. If unset, a default will be chosen.
+                type: string
+              workloadSelectorTemplates:
+                description: |-
+                  WorkloadSelectorTemplates are templates to produce arbitrary workload
+                  selectors that apply to a given workload before it will receive this
+                  SPIFFE ID. The rendered value is interpreted by SPIRE and are of the
+                  form type:value, where the value may, and often does, contain
+                  semicolons, .e.g., k8s:container-image:docker/hello-world
+                  The node and pod spec are made available to the template under
+                  .NodeSpec, .PodSpec respectively.
+                items:
+                  type: string
+                type: array
+            required:
+            - spiffeIDTemplate
+            type: object
+          status:
+            description: ClusterSPIFFEIDStatus defines the observed state of ClusterSPIFFEID
+            properties:
+              stats:
+                description: Stats produced by the last entry reconciliation run
+                properties:
+                  entriesMasked:
+                    description: |-
+                      How many entries were masked by entries for other ClusterSPIFFEIDs.
+                      This happens when one or more ClusterSPIFFEIDs produce an entry for
+                      the same pod with the same set of workload selectors.
+                    type: integer
+                  entriesToSet:
+                    description: |-
+                      How many entries are to be set for this ClusterSPIFFEID. In nominal
+                      conditions, this should reflect the number of pods selected, but not
+                      always if there were problems encountered rendering an entry for the pod
+                      (RenderFailures) or entries are masked (EntriesMasked).
+                    type: integer
+                  entryFailures:
+                    description: |-
+                      How many entries were unable to be set due to failures to create or
+                      update the entries via the SPIRE Server API.
+                    type: integer
+                  namespacesIgnored:
+                    description: How many (selected) namespaces were ignored (based
+                      on configuration).
+                    type: integer
+                  namespacesSelected:
+                    description: How many namespaces were selected.
+                    type: integer
+                  podEntryRenderFailures:
+                    description: |-
+                      How many failures were encountered rendering an entry selected pods.
+                      This could be due to either a bad template in the ClusterSPIFFEID or
+                      Pod metadata that when applied to the template did not produce valid
+                      entry values.
+                    type: integer
+                  podsSelected:
+                    description: How many pods were selected out of the namespaces.
+                    type: integer
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []

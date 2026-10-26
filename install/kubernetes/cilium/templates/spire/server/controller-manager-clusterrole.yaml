@@ -1,0 +1,28 @@
+{{- if and .Values.authentication.mutual.spire.enabled .Values.authentication.mutual.spire.install.enabled .Values.authentication.mutual.spire.install.server.serviceAccount.create .Values.rbac.create .Values.encryption.ztunnel.spire.useCRD -}}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ .Values.authentication.mutual.spire.install.server.serviceAccount.name }}-controller-manager
+  {{- with .Values.commonLabels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- with .Values.authentication.mutual.spire.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+# spire-controller-manager reconciles ClusterSPIFFEIDs into its pod-local
+# SPIRE server and reports the result in their status.
+- apiGroups: [ "spire.spiffe.io" ]
+  resources: [ "clusterspiffeids" ]
+  verbs: [ "get", "list", "watch" ]
+- apiGroups: [ "spire.spiffe.io" ]
+  resources: [ "clusterspiffeids/status" ]
+  verbs: [ "get", "patch", "update" ]
+# ClusterSPIFFEID reconciliation watches pods, endpoints and namespaces and
+# reads the nodes of selected pods to build their entries.
+- apiGroups: [ "" ]
+  resources: [ "pods", "nodes", "namespaces", "endpoints" ]
+  verbs: [ "get", "list", "watch" ]
+{{- end }}
