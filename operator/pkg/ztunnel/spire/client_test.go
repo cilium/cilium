@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cilium/hive"
+	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
@@ -18,6 +20,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	ztunnel "github.com/cilium/cilium/operator/pkg/ztunnel/config"
 	"github.com/cilium/cilium/pkg/k8s/client"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 )
@@ -875,6 +878,36 @@ func TestClient_DeleteBatch(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("DeleteBatch() error = %v, wantErr %v", err, tt.wantErr)
 			}
+		})
+	}
+}
+
+func TestNewClientCRDMode(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		caType     ztunnel.CAType
+		crd        bool
+		wantClient bool
+	}{
+		{name: "internal CA", caType: ztunnel.CATypeInternal},
+		{name: "SPIRE CA", caType: ztunnel.CATypeSpire, wantClient: true},
+		{name: "SPIRE CA in CRD mode", caType: ztunnel.CATypeSpire, crd: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
+			_, cs := k8sClient.NewFakeClientset(log)
+			var spireClient *Client
+			h := hive.New(
+				Cell,
+				cell.Config(ztunnel.DefaultConfig),
+				cell.Provide(func() client.Clientset { return cs }),
+				cell.Invoke(func(c *Client) { spireClient = c }),
+			)
+			h.Viper().Set("enable-ztunnel", true)
+			h.Viper().Set("ztunnel-ca-type", string(tt.caType))
+			h.Viper().Set("enable-ztunnel-spiffeid-crd", tt.crd)
+			require.NoError(t, h.Populate(log))
+			require.Equal(t, tt.wantClient, spireClient != nil)
 		})
 	}
 }
