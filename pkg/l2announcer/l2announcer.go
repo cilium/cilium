@@ -878,6 +878,7 @@ func (l2a *L2Announcer) addSelectedService(svc *loadbalancer.Service, extAddrs, 
 		byPolicies:        byPolicies,
 		lock:              l2a.newLeaseLock(svc),
 		done:              make(chan struct{}),
+		stopped:           make(chan struct{}),
 		leaderChannel:     l2a.leaderChannel,
 		leaseDuration:     leaseDuration,
 		renewDeadline:     renewDeadline,
@@ -1216,9 +1217,10 @@ type selectedService struct {
 	leaderChannel   chan leaderElectionEvent
 
 	// Leader election goroutine lifetime management
-	ctx    context.Context
-	cancel context.CancelFunc
-	done   chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	done    chan struct{}
+	stopped chan struct{}
 }
 
 func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cell.Health) error {
@@ -1242,15 +1244,22 @@ func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cel
 
 				Callbacks: leaderelection.LeaderCallbacks{
 					OnStartedLeading: func(ctx context.Context) {
-						ss.leaderChannel <- leaderElectionEvent{
+						select {
+						case ss.leaderChannel <- leaderElectionEvent{
 							typ:             leaderElectionLeading,
 							selectedService: ss,
+						}:
+						case <-ctx.Done():
 						}
 					},
 					OnStoppedLeading: func() {
-						ss.leaderChannel <- leaderElectionEvent{
+						// The main loop, the only reader of leaderChannel, waits for this goroutine in stop().
+						select {
+						case ss.leaderChannel <- leaderElectionEvent{
 							typ:             leaderElectionStoppedLeading,
 							selectedService: ss,
+						}:
+						case <-ss.stopped:
 						}
 					},
 				},
@@ -1261,8 +1270,10 @@ func (ss *selectedService) serviceLeaderElection(ctx context.Context, health cel
 
 func (ss *selectedService) stop() {
 	if ss.cancel != nil {
+		close(ss.stopped)
 		ss.cancel()
 		<-ss.done
+		ss.cancel = nil
 		ss.currentlyLeader = false
 	}
 }
