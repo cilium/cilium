@@ -20,10 +20,14 @@ import (
 
 const benchAppLabel = "bench-app"
 
+// benchNamespaceLabel is the namespace label of every identity seeded by
+// seedEndpoints.
+var benchNamespaceLabel = labels.NewLabel(k8sConst.PodNamespaceLabel, "default", labels.LabelSourceK8s)
+
 // benchIdentityLabels returns the label set used for identity i.
 func benchIdentityLabels(i int) labels.LabelArray {
 	return labels.LabelArray{
-		labels.NewLabel("io.kubernetes.pod.namespace", "default", labels.LabelSourceK8s),
+		benchNamespaceLabel,
 		labels.NewLabel(benchAppLabel, fmt.Sprintf("id-%d", i), labels.LabelSourceK8s),
 	}
 }
@@ -79,7 +83,7 @@ func makeRuleSelectingAllIdentities(numIdentities, seed int) *api.Rule {
 	}
 
 	return &api.Rule{
-		EndpointSelector: selectors[0],
+		EndpointSelector: api.NewESFromLabels(benchNamespaceLabel),
 		Egress: []api.EgressRule{{
 			EgressCommonRule: api.EgressCommonRule{ToEndpoints: selectors},
 		}},
