@@ -510,6 +510,40 @@ func TestUpdatePolicyAdvanceDoesNotRegress(t *testing.T) {
 	}, 100*time.Millisecond, 10*time.Millisecond, "revision regressed below %d", base+2)
 }
 
+// An advance only carries a policy that is current at or past its from
+// revision and below its to revision, and only if it doesn't affect the
+// policy's identity. Advances apply in order, so one continues from where an
+// earlier one left the policy.
+func TestRevisionAfterAdvances(t *testing.T) {
+	const id = identity.NumericIdentity(1)
+	adv := func(from, to uint64, selected ...identity.NumericIdentity) advanceRequest {
+		return advanceRequest{idsToRegen: set.NewSet(selected...), fromRev: from, toRev: to}
+	}
+	for _, tc := range []struct {
+		name     string
+		advances []advanceRequest
+		current  uint64
+		want     uint64
+	}{
+		{"carried", []advanceRequest{adv(10, 11)}, 10, 11},
+		{"carried from past the from revision", []advanceRequest{adv(10, 12)}, 11, 12},
+		{"below the from revision", []advanceRequest{adv(10, 11)}, 9, 9},
+		{"at the to revision", []advanceRequest{adv(10, 11)}, 11, 11},
+		{"past the to revision", []advanceRequest{adv(10, 11)}, 12, 12},
+		{"selected", []advanceRequest{adv(10, 11, id)}, 10, 10},
+		{"another identity selected", []advanceRequest{adv(10, 11, id+1)}, 10, 11},
+		{"contiguous advances", []advanceRequest{adv(10, 11), adv(11, 12)}, 10, 12},
+		{"gap between advances", []advanceRequest{adv(10, 11), adv(12, 13)}, 10, 11},
+		{"advances out of order", []advanceRequest{adv(11, 12), adv(10, 11)}, 10, 11},
+		{"selected by the first advance", []advanceRequest{adv(10, 11, id), adv(11, 12)}, 10, 10},
+		{"selected by the second advance", []advanceRequest{adv(10, 11), adv(11, 12, id)}, 10, 11},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, revisionAfterAdvances(tc.advances, id, tc.current))
+		})
+	}
+}
+
 func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager) {
 	t.Helper()
 
