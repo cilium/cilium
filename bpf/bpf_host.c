@@ -138,16 +138,16 @@ resolve_srcid_ipv6(const struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 }
 
 static __always_inline int
-handle_ipv6(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
-	    __u32 ipcache_srcid __maybe_unused,
+handle_ipv6(struct __ctx_buff *ctx, __u32 secctx,
+	    __u32 ipcache_srcid,
 	    const bool from_host,
 	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err)
 {
-	struct ct_buffer6 __maybe_unused *ct_buffer;
-	bool __maybe_unused need_hostfw = false;
-	bool __maybe_unused is_host_id = false;
-	bool __maybe_unused skip_host_firewall = false;
+	struct ct_buffer6 *ct_buffer;
+	bool need_hostfw = false;
+	bool is_host_id = false;
+	bool skip_host_firewall = false;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int ret;
@@ -256,19 +256,18 @@ skip_host_firewall:
 
 static __always_inline int
 handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
-		 __s8 *ext_err __maybe_unused)
+		 __s8 *ext_err)
 {
-	struct trace_ctx __maybe_unused trace = {
+	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	__u32 __maybe_unused from_host_raw;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
 	const struct remote_endpoint_info *info = NULL;
 	const struct endpoint_info *ep;
-	int ret __maybe_unused;
+	int ret;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
 
@@ -285,7 +284,7 @@ handle_ipv6_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		return DROP_INVALID;
 
 	if (CONFIG(enable_host_firewall)) {
-		from_host_raw = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
+		__u32 from_host_raw = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 
 		if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
 			struct ct_buffer6 *ct_buffer = AUX_REUSE(cilium_tail_call_buffer6);
@@ -590,15 +589,15 @@ resolve_srcid_ipv4(const struct __ctx_buff *ctx, const struct iphdr *ip4,
 }
 
 static __always_inline int
-handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
-	    __u32 ipcache_srcid __maybe_unused,
-	    const bool from_host __maybe_unused,
+handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
+	    __u32 ipcache_srcid,
+	    const bool from_host,
 	    bool *punt_to_stack __maybe_unused,
 	    __s8 *ext_err __maybe_unused)
 {
-	struct ct_buffer4 __maybe_unused *ct_buffer;
-	bool __maybe_unused need_hostfw = false;
-	bool __maybe_unused is_host_id = false;
+	struct ct_buffer4 *ct_buffer;
+	bool need_hostfw = false;
+	bool is_host_id = false;
 	void *data, *data_end;
 	struct iphdr *ip4;
 
@@ -696,18 +695,17 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx __maybe_unused,
 
 static __always_inline int
 handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
-		 __s8 *ext_err __maybe_unused)
+		 __s8 *ext_err)
 {
-	struct trace_ctx __maybe_unused trace = {
+	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	__u32 __maybe_unused from_host_raw;
 	void *data, *data_end;
 	struct iphdr *ip4;
 	const struct remote_endpoint_info *info;
 	const struct endpoint_info *ep;
-	int ret __maybe_unused;
+	int ret;
 	__u32 magic = MARK_MAGIC_IDENTITY;
 	bool from_proxy = false;
 
@@ -724,7 +722,7 @@ handle_ipv4_cont(struct __ctx_buff *ctx, __u32 secctx, const bool from_host,
 		return DROP_INVALID;
 
 	if (CONFIG(enable_host_firewall)) {
-		from_host_raw = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
+		__u32 from_host_raw = ctx_load_and_clear_meta(ctx, CB_FROM_HOST);
 
 		if (from_host_raw & FROM_HOST_FLAG_NEED_HOSTFW) {
 			struct ct_buffer4 *ct_buffer = AUX_REUSE(cilium_tail_call_buffer4);
