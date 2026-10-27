@@ -320,7 +320,11 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}()
 
 	for _, result := range claim.Status.Allocation.Devices.Results {
-		cfg := deviceCfgs[result.Request] // zero-value DeviceConfig if no opaque config present
+		cfg, ok := deviceCfgs[result.Request]
+		if !ok {
+			// if not in the map it means the request doesn't belong to this driver. so we should skip it.
+			continue
+		}
 
 		deviceAlloc, status, devErr := driver.prepareClaimDevice(ctx, claim, result, cfg, state)
 		if devErr != nil {
