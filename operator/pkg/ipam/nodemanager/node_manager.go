@@ -500,15 +500,10 @@ type resyncStats struct {
 }
 
 type ipResyncStats struct {
-	totalUsed           int
-	totalAvailable      int
-	totalNeeded         int
-	remainingInterfaces int
 	interfaceCandidates int
 	nodes               int
 	nodesAtCapacity     int
 	nodesInDeficit      int
-	nodeCapacity        int
 }
 
 func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time, instancesAPIReady bool) {
@@ -529,19 +524,13 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	nodeStats := node.Stats()
 
 	stats.mutex.Lock()
-	stats.ipv4.totalUsed += nodeStats.IPv4.UsedIPs
 	// availableOnNode is the number of available IPs on the node at this
 	// current moment. It does not take into account the number of IPs that
 	// can be allocated in the future.
 	availableOnNode := nodeStats.IPv4.AvailableIPs - nodeStats.IPv4.UsedIPs
-	stats.ipv4.totalAvailable += availableOnNode
-	stats.ipv4.totalNeeded += nodeStats.IPv4.NeededIPs
-	stats.ipv4.remainingInterfaces += nodeStats.IPv4.RemainingInterfaces
 	stats.ipv4.interfaceCandidates += nodeStats.IPv4.InterfaceCandidates
 	stats.emptyInterfaceSlots += nodeStats.EmptyInterfaceSlots
 	stats.ipv4.nodes++
-
-	stats.ipv4.nodeCapacity = nodeStats.IPv4.Capacity
 
 	// Set per Node metrics.
 	n.metricsAPI.SetIPAvailable(node.name, nodeStats.IPv4.Capacity)
