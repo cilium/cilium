@@ -178,7 +178,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 #if defined(ENABLE_CLUSTER_AWARE_ADDRESSING) && defined(ENABLE_INTER_CLUSTER_SNAT)
 static __always_inline int handle_inter_cluster_revsnat(struct __ctx_buff *ctx,
 							__u32 src_sec_identity)
@@ -476,7 +475,30 @@ pass_to_stack:
 	return CTX_ACT_OK;
 }
 
-#endif /* ENABLE_IPV4 */
+static __always_inline int
+resolve_srcid_from_tunnel(struct __ctx_buff *ctx, __be16 proto,
+			  __u32 *src_sec_identity)
+{
+	struct bpf_tunnel_key key = {};
+	int ret;
+
+	ret = get_tunnel_key(ctx, &key);
+	if (unlikely(ret < 0))
+		return ret;
+	cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
+
+	*src_sec_identity = get_id_from_tunnel_id(key.tunnel_id, proto);
+
+	/* Any node encapsulating will map any HOST_ID source to be
+	 * presented as REMOTE_NODE_ID, therefore any attempt to signal
+	 * HOST_ID as source from a remote node can be dropped.
+	 */
+	if (*src_sec_identity == HOST_ID)
+		return DROP_INVALID_IDENTITY;
+
+	ctx_store_meta(ctx, CB_SRC_LABEL, *src_sec_identity);
+	return CTX_ACT_OK;
+}
 
 /* Attached to the ingress of cilium_vxlan/cilium_geneve to execute on packets
  * entering the node via the tunnel.
@@ -519,37 +541,21 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	}
 
 	switch (proto) {
-#if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
- #ifdef ENABLE_IPV6
+#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
- #endif
- #ifdef ENABLE_IPV4
+		ret = resolve_srcid_from_tunnel(ctx, proto, &src_sec_identity);
+		if (IS_ERR(ret))
+			goto out;
+		break;
+#endif
 	case bpf_htons(ETH_P_IP):
- #endif
+		if (!is_defined(ENABLE_IPV4))
+			break;
 
-	{
-		struct bpf_tunnel_key key = {};
-
-		ret = get_tunnel_key(ctx, &key);
-		if (unlikely(ret < 0))
+		ret = resolve_srcid_from_tunnel(ctx, proto, &src_sec_identity);
+		if (IS_ERR(ret))
 			goto out;
-		cilium_dbg(ctx, DBG_DECAP, key.tunnel_id, key.tunnel_label);
-
-		src_sec_identity = get_id_from_tunnel_id(key.tunnel_id, proto);
-
-		/* Any node encapsulating will map any HOST_ID source to be
-		 * presented as REMOTE_NODE_ID, therefore any attempt to signal
-		 * HOST_ID as source from a remote node can be dropped.
-		 */
-		if (src_sec_identity == HOST_ID) {
-			ret = DROP_INVALID_IDENTITY;
-			goto out;
-		}
-
-		ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
-	}
-	break;
-#endif /* ENABLE_IPV4 || ENABLE_IPV6 */
+		break;
 	default:
 		break;
 	}
@@ -568,11 +574,10 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 		break;
 
 	case bpf_htons(ETH_P_IP):
-#ifdef ENABLE_IPV4
-		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_OVERLAY, &ext_err);
-#else
-		ret = DROP_UNKNOWN_L3;
-#endif
+		if (is_defined(ENABLE_IPV4))
+			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_OVERLAY, &ext_err);
+		else
+			ret = DROP_UNKNOWN_L3;
 		break;
 
 	case bpf_htons(ETH_P_ARP):
