@@ -495,12 +495,8 @@ func (n *NodeManager) GetNodesByIPWatermarkLocked() []*Node {
 
 type resyncStats struct {
 	mutex               lock.Mutex
-	ipv4                ipResyncStats
-	emptyInterfaceSlots int
-}
-
-type ipResyncStats struct {
 	interfaceCandidates int
+	emptyInterfaceSlots int
 	nodes               int
 	nodesAtCapacity     int
 	nodesInDeficit      int
@@ -528,9 +524,9 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	// current moment. It does not take into account the number of IPs that
 	// can be allocated in the future.
 	availableOnNode := nodeStats.IPv4.AvailableIPs - nodeStats.IPv4.UsedIPs
-	stats.ipv4.interfaceCandidates += nodeStats.IPv4.InterfaceCandidates
+	stats.interfaceCandidates += nodeStats.IPv4.InterfaceCandidates
 	stats.emptyInterfaceSlots += nodeStats.EmptyInterfaceSlots
-	stats.ipv4.nodes++
+	stats.nodes++
 
 	// Set per Node metrics.
 	n.metricsAPI.SetIPAvailable(node.name, nodeStats.IPv4.Capacity)
@@ -538,11 +534,11 @@ func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncS
 	n.metricsAPI.SetIPNeeded(node.name, nodeStats.IPv4.NeededIPs)
 
 	if allocationNeeded {
-		stats.ipv4.nodesInDeficit++
+		stats.nodesInDeficit++
 	}
 
 	if nodeStats.IPv4.RemainingInterfaces == 0 && availableOnNode == 0 {
-		stats.ipv4.nodesAtCapacity++
+		stats.nodesAtCapacity++
 	}
 
 	stats.mutex.Unlock()
@@ -581,11 +577,11 @@ func (n *NodeManager) Resync(ctx context.Context, syncTime time.Time) {
 	// complete and thus blocks until all nodes are synced
 	sem.Acquire(ctx, n.parallelWorkers)
 
-	n.metricsAPI.SetInterfaceCandidates(stats.ipv4.interfaceCandidates)
+	n.metricsAPI.SetInterfaceCandidates(stats.interfaceCandidates)
 	n.metricsAPI.SetEmptyInterfaceSlots(stats.emptyInterfaceSlots)
-	n.metricsAPI.SetNodes("total", stats.ipv4.nodes)
-	n.metricsAPI.SetNodes("in-deficit", stats.ipv4.nodesInDeficit)
-	n.metricsAPI.SetNodes("at-capacity", stats.ipv4.nodesAtCapacity)
+	n.metricsAPI.SetNodes("total", stats.nodes)
+	n.metricsAPI.SetNodes("in-deficit", stats.nodesInDeficit)
+	n.metricsAPI.SetNodes("at-capacity", stats.nodesAtCapacity)
 
 	for poolID, quota := range n.instancesAPI.GetPoolQuota() {
 		n.metricsAPI.SetAvailableIPsPerSubnet(string(poolID), quota.AvailabilityZone, quota.AvailableIPs)
