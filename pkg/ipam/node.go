@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/netip"
 	"slices"
 	"sync/atomic"
 
@@ -896,6 +897,17 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 	}
 	n.abortNoLongerExcessIPs(excessMap)
 
+	if len(ipsToRelease) > 0 && len(a.release.IPPrefixesToRelease) > 0 {
+		var withheld []string
+		a.release.IPPrefixesToRelease, withheld, ipsToRelease = splitAcknowledgedPrefixes(a.release.IPPrefixesToRelease, ipsToRelease)
+		if len(withheld) > 0 {
+			n.logger.Load().Debug(
+				"Withholding IP prefix release until all of its IPs are acknowledged",
+				logfields.Prefix, withheld,
+			)
+		}
+	}
+
 	if len(ipsToRelease) > 0 {
 		a.release.IPsToRelease = ipsToRelease
 
@@ -950,6 +962,38 @@ func (n *Node) handleIPRelease(ctx context.Context, a *maintenanceAction) (insta
 		return false, err
 	}
 	return false, nil
+}
+
+// splitAcknowledgedPrefixes splits prefixes into those whose addresses were
+// all acknowledged for release and those that must be withheld, as releasing a
+// prefix unassigns all of its addresses. Addresses of withheld prefixes are
+// removed from the returned IPs to release.
+func splitAcknowledgedPrefixes(prefixes, acked []string) (safe, withheld, ips []string) {
+	ips = slices.Clone(acked)
+	for _, p := range prefixes {
+		prefix, err := netip.ParsePrefix(p)
+		if err != nil {
+			withheld = append(withheld, p)
+			continue
+		}
+		inPrefix := func(ip string) bool {
+			addr, err := netip.ParseAddr(ip)
+			return err == nil && prefix.Contains(addr)
+		}
+		n := 0
+		for _, ip := range acked {
+			if inPrefix(ip) {
+				n++
+			}
+		}
+		if n == 1<<(prefix.Addr().BitLen()-prefix.Bits()) {
+			safe = append(safe, p)
+		} else {
+			withheld = append(withheld, p)
+			ips = slices.DeleteFunc(ips, inPrefix)
+		}
+	}
+	return safe, withheld, ips
 }
 
 // handleIPAllocation allocates the necessary IPs needed to resolve deficit on the node.
