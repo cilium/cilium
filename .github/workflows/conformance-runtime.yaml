@@ -114,7 +114,7 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'schedule'
     cache-mode: write
     needs: wait-for-images
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_NV_4CPU_16GB || 'ubuntu-26.04' }}
     name: "Runtime Test (${{matrix.focus}})"
     env: &setup-and-test-env
       # GitHub doesn't provide a way to retrieve the name of a job, so we have
