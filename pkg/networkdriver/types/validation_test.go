@@ -4,10 +4,67 @@
 package types
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestValidateAddressAllocation(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  DeviceConfig
+		wantErr bool
+	}{
+		{
+			name: "empty configuration",
+		},
+		{
+			name:   "dynamic pool",
+			config: DeviceConfig{IPPool: "pool-a"},
+		},
+		{
+			name: "dual-stack static addresses",
+			config: DeviceConfig{
+				IPv4Addr: netip.MustParsePrefix("10.0.0.1/32"),
+				IPv6Addr: netip.MustParsePrefix("fd00::1/128"),
+			},
+		},
+		{
+			name: "pool with static addresses",
+			config: DeviceConfig{
+				IPPool:   "pool-a",
+				IPv4Addr: netip.MustParsePrefix("10.0.0.1/32"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid static IPv4 prefix",
+			config: DeviceConfig{
+				IPv4Addr: netip.PrefixFrom(netip.MustParseAddr("10.0.0.1"), 64),
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid static IPv6 prefix",
+			config: DeviceConfig{
+				IPv6Addr: netip.PrefixFrom(netip.MustParseAddr("fd00::1"), 129),
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.config.validateAddressAllocation()
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
 
 func TestValidateInterfaceSysctl(t *testing.T) {
 	tests := []struct {

@@ -6,6 +6,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"net/netip"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
@@ -27,6 +28,30 @@ func (d *DeviceConfig) Validate() error {
 
 	if err := d.validateInterfaceSysctl(); err != nil {
 		return fmt.Errorf("invalid sysctl config: %w", err)
+	}
+
+	if err := d.validateAddressAllocation(); err != nil {
+		return fmt.Errorf("invalid address allocation: %w", err)
+	}
+
+	return nil
+}
+
+func (d *DeviceConfig) validateAddressAllocation() error {
+	if d.HasPool() && (d.IPv4Addr.IsValid() || d.IPv6Addr.IsValid()) {
+		// If we have the pool name we are in dynamic allocation mode so we mustn't have static IPs.
+		return fmt.Errorf("static IPs are not allowed in dynamic allocation mode")
+	}
+
+	// If no pool is configured, we don't enforce constraints on IP addresses.
+	// They could also be empty if the user intends to configure them manually,
+	// but if they are present they should be valid.
+	if d.IPv4Addr != (netip.Prefix{}) && !d.IPv4Addr.IsValid() {
+		return fmt.Errorf("static IPv4 address is not valid")
+	}
+
+	if d.IPv6Addr != (netip.Prefix{}) && !d.IPv6Addr.IsValid() {
+		return fmt.Errorf("static IPv6 address is not valid")
 	}
 	return nil
 }
