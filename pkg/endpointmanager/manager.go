@@ -236,13 +236,17 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 
 	// no endpoint locks needed here, as ApplyPolicyMapChanges currently collects
 	// revertibles only from UpdateNetworkPolicy
-	if err != nil {
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		if revertErr := revertibles.Revert(); revertErr != nil {
 			mgr.logger.Warn("Failed to revert L7 proxy policy changes", logfields.Error, revertErr)
 		}
-		mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
 	} else {
+		// A timeout leaves Envoy acceptance unknown. Keep the proxy updates alongside
+		// the applied BPF changes, and release caller-owned rollback state.
 		revertibles.Finalize()
+	}
+	if err != nil {
+		mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
 	}
 
 	// Perform policy update call if required.
