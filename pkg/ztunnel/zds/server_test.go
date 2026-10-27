@@ -5,6 +5,7 @@ package zds
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -462,10 +463,18 @@ func TestPrivilegedZDSDisenrollNetnsOpenError(t *testing.T) {
 	// Disenroll returns the error synchronously, before any Del is sent.
 	require.Error(t, server.DisenrollEndpoint(ep))
 
-	// No Del should have been sent to ztunnel.
-	require.NoError(t, conn.SetReadDeadline(time.Now().Add(200*time.Millisecond)))
-	require.Error(t, clientZC.readMsg(req), "no Del should be sent on a non-ENOENT netns error")
-	require.NoError(t, conn.SetReadDeadline(time.Time{}))
+	// The next message must be the second endpoint's Add, not a Del.
+	ep2, cleanup2 := createTestEndpoint(t, "second-ep", 2)
+	defer cleanup2()
+	go func() { enrollDone <- server.EnrollEndpoint(ep2) }()
+
+	req = &pb.WorkloadRequest{}
+	require.NoError(t, clientZC.readMsg(req))
+	require.NotNil(t, req.GetAdd(), "Expected Add, got %T", req.Payload)
+	require.Equal(t, "second-ep", req.GetAdd().GetUid())
+	_, err = conn.Write(ackData)
+	require.NoError(t, err)
+	require.NoError(t, <-enrollDone)
 
 	// The endpoint must remain enrolled (fail closed).
 	server.endpointCacheMutex.Lock()
@@ -519,6 +528,11 @@ func TestPrivilegedZDSSnapshotSkipsMissingNetns(t *testing.T) {
 
 	require.True(t, receivedUIDs["live-ep"], "live endpoint should be in the snapshot")
 	require.False(t, receivedUIDs["missing-ep"], "endpoint with missing netns should be skipped")
+
+	server.endpointCacheMutex.Lock()
+	_, stale := server.endpointCache[ep2.GetID16()]
+	server.endpointCacheMutex.Unlock()
+	require.False(t, stale, "endpoint with missing netns should be evicted")
 }
 
 // TestPrivilegedZDSSnapshotAbortsOnNetnsError verifies that a non-ENOENT failure
@@ -546,5 +560,5 @@ func TestPrivilegedZDSSnapshotAbortsOnNetnsError(t *testing.T) {
 	// connection, so the client read fails.
 	require.NoError(t, conn.SetReadDeadline(time.Now().Add(5*time.Second)))
 	req := &pb.WorkloadRequest{}
-	require.Error(t, clientZC.readMsg(req), "snapshot should abort on a non-ENOENT netns error")
+	require.ErrorIs(t, clientZC.readMsg(req), io.EOF, "snapshot should abort on a non-ENOENT netns error")
 }

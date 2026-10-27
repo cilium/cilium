@@ -5,6 +5,7 @@ package zds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -404,30 +405,37 @@ func (s *Server) EnrollEndpoint(ep *endpoint.Endpoint) error {
 	return nil
 }
 
-func (s *Server) DisenrollEndpoint(ep *endpoint.Endpoint) error {
-	s.logger.Info("disenrolling endpoint from ztunnel", logfields.EndpointID, ep.GetID16())
-
+// removeInPodRules skips cleanup when the runtime has already removed the netns.
+func (s *Server) removeInPodRules(ep *endpoint.Endpoint) error {
 	ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
-	if err != nil {
-		if !os.IsNotExist(err) {
-			s.logger.Error("failed to open netns file",
-				logfields.EndpointID, ep.GetID16(),
-				logfields.Error, err,
-			)
-			return err
-		}
-		// netns already gone: CNI DEL already tore it down; skip in-pod teardown, still drop from ztunnel and evict below.
+	if errors.Is(err, os.ErrNotExist) {
 		s.logger.Info("netns already gone, skipping in-pod cleanup during disenroll",
 			logfields.EndpointID, ep.GetID16(),
 		)
-	} else {
-		defer ns.Close()
+		return nil
+	}
+	if err != nil {
+		s.logger.Error("failed to open netns file",
+			logfields.EndpointID, ep.GetID16(),
+			logfields.Error, err,
+		)
+		return err
+	}
+	defer ns.Close()
 
-		if err = ns.Do(func() error {
-			return iptables.DeleteInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
-		}); err != nil {
-			return fmt.Errorf("unable to remove iptable rules for ztunnel inpod mode: %w", err)
-		}
+	if err := ns.Do(func() error {
+		return iptables.DeleteInPodRules(s.logger, option.Config.EnableIPv4, option.Config.EnableIPv6)
+	}); err != nil {
+		return fmt.Errorf("unable to remove iptable rules for ztunnel inpod mode: %w", err)
+	}
+	return nil
+}
+
+func (s *Server) DisenrollEndpoint(ep *endpoint.Endpoint) error {
+	s.logger.Info("disenrolling endpoint from ztunnel", logfields.EndpointID, ep.GetID16())
+
+	if err := s.removeInPodRules(ep); err != nil {
+		return err
 	}
 
 	pod := ep.GetPod()
@@ -457,8 +465,7 @@ func (s *Server) DisenrollEndpoint(ep *endpoint.Endpoint) error {
 		return fmt.Errorf("sending update failed: %w", err)
 	}
 
-	// Remove from cache after disenrollment. A missing netns is treated as
-	// success above, so an already-deleted endpoint is still evicted here.
+	// Remove from cache after successful disenrollment.
 	s.endpointCacheMutex.Lock()
 	delete(s.endpointCache, ep.GetID16())
 	s.endpointCacheMutex.Unlock()
@@ -491,19 +498,19 @@ func (s *Server) sendInitialSnapshot(zc *ztunnelConn) error {
 
 	for _, ep := range s.endpointCache {
 		ns, err := netns.OpenPinned(ep.GetContainerNetnsPath())
-		if err != nil {
-			if !os.IsNotExist(err) {
-				s.logger.Error("failed to open netns file",
-					logfields.EndpointID, ep.GetID16(),
-					logfields.Error, err,
-				)
-				return err
-			}
-			// netns already gone (stale cache entry); skip instead of aborting the whole snapshot.
+		if errors.Is(err, os.ErrNotExist) {
 			s.logger.Warn("skipping endpoint with missing netns during initial snapshot",
 				logfields.EndpointID, ep.GetID16(),
 			)
+			delete(s.endpointCache, ep.GetID16())
 			continue
+		}
+		if err != nil {
+			s.logger.Error("failed to open netns file",
+				logfields.EndpointID, ep.GetID16(),
+				logfields.Error, err,
+			)
+			return err
 		}
 
 		if err = ns.Do(func() error {
