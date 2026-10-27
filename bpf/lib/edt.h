@@ -88,8 +88,15 @@ edt_sched_departure(struct __ctx_buff *ctx, __be16 proto)
 
 	now = ktime_get_ns();
 	t = ctx->tstamp;
-	if (t < now)
+	if (t > now) {
+		/* A stamp past the horizon must not land in t_last, or it
+		 * starves the aggregate until the clock catches up.
+		 */
+		if (t - now >= info->t_horizon_drop)
+			return DROP_EDT_HORIZON;
+	} else {
 		t = now;
+	}
 	delay = ((__u64)ctx_wire_len(ctx)) * NSEC_PER_SEC / info->bps;
 	t_next = READ_ONCE(info->t_last) + delay;
 	if (t_next <= t) {
