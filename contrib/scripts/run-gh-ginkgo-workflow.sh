@@ -56,6 +56,19 @@ install_helm() {
     popd >/dev/null
 }
 
+stage_helm() {
+    local helm="helm" helm_path
+    if ! check_cmd "${helm}" || \
+        [[ "$("${helm}" version --short | cut -d+ -f1)" != "v${helm_version}" ]]; then
+        install_helm
+        helm="${tmpdir}/helm"
+    fi
+    helm_path="$(command -v "${helm}")"
+    if [[ ! "${helm_path}" -ef ./helm ]]; then
+        cp "${helm_path}" ./helm
+    fi
+}
+
 install_ginkgo() {
     go install github.com/onsi/ginkgo/ginkgo@v1.16.5
 }
@@ -207,6 +220,11 @@ run_tests() {
             -cilium.holdEnvironment=true"
 }
 
+# Allow the bootstrap helpers to be tested without provisioning a VM.
+if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
+    return
+fi
+
 # Parse options
 
 commit_sha=""
@@ -255,16 +273,7 @@ shift $((OPTIND-1))
 check_cmd_or_fail docker git qemu-system-x86_64 zstd
 root_dir="$(git rev-parse --show-toplevel)"
 
-helm="helm"
-if ! check_cmd "${helm}" || \
-    [[ "$("${helm}" version --short | cut -d+ -f1)" != "v${helm_version}" ]]; then
-    install_helm
-    helm="${tmpdir}/helm"
-fi
-helm_path="$(command -v "${helm}")"
-if [[ "${helm_path}" != "${PWD}/helm" && "${helm_path}" != "./helm" ]]; then
-    cp "${helm_path}" ./helm
-fi
+stage_helm
 
 if ! check_cmd ginkgo; then
     install_ginkgo
