@@ -17,9 +17,6 @@ jobs:
   renovate:
     name: Run self-hosted Renovate
     runs-on: ubuntu-26.04
-    environment:
-      name: renovate
-      deployment: false
     permissions:
       contents: read
     steps:
@@ -30,7 +27,7 @@ jobs:
         id: get_token
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
-          client-id: ${{ secrets.CILIUM_RENOVATE_CLIENT_ID }}
+          client-id: ${{ secrets.CILIUM_RENOVATE_APP_ID }}
           private-key: ${{ secrets.CILIUM_RENOVATE_PEM }}
 
       # renovate clones the repository again in its container fs but it needs
