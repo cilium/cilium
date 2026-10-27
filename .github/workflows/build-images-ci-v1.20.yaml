@@ -39,7 +39,7 @@ jobs:
   build-and-push-prs:
     timeout-minutes: 45
     name: Build and Push Images
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_4CPU_16GB || 'ubuntu-26.04' }}
     permissions:
       contents: read
       actions: read

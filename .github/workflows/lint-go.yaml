@@ -56,7 +56,7 @@ jobs:
 
   golangci:
     name: Lint Source Code
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_4CPU_16GB || 'ubuntu-26.04' }}
     steps:
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
