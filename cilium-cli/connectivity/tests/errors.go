@@ -216,7 +216,11 @@ func (n *noErrorsInLogs) Name() string {
 }
 
 type podID struct{ Cluster, Namespace, Name string }
-type podContainers map[string]uint // Map container name to restart count
+type podContainers map[string]containerRestarts // Map container name to its restarts
+type containerRestarts struct {
+	count                uint
+	replacedNeverStarted bool
+}
 type podInfo struct {
 	containers podContainers
 	client     *k8s.Client
@@ -242,7 +246,8 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 	prevOpts.Previous = true
 	for pod, info := range pods {
 		client := info.client
-		for container, restarts := range info.containers {
+		for container, cr := range info.containers {
+			restarts := cr.count
 			id := fmt.Sprintf("%s/%s/%s (%s)", pod.Cluster, pod.Namespace, pod.Name, container)
 			t.NewGenericAction(n, id).Run(func(a *check.Action) {
 				// Do not check for container restarts for Cilium v1.16 and earlier.
@@ -286,6 +291,14 @@ func (n *noErrorsInLogs) Run(ctx context.Context, t *check.Test) {
 				// [1]: https://github.com/kubernetes/kubernetes/blob/65bca7cd12f0/pkg/kubelet/kubelet_pods.go#L491-L515
 				// [2]: [...] "msg":"creating peer listener failed","error":"listen tcp: lookup localhost on 10.245.0.10:53: no such host"
 				ignore = ignore || (restarts == 1 && container == "etcd")
+
+				// A kubelet restart between creating a container and starting it,
+				// such as the one node-init performs on GKE, makes the next kubelet
+				// replace the never-started instance and count it as a restart.
+				if !ignore && cr.replacedNeverStarted {
+					a.Infof("Not counting the restart of %s, its previous instance never started", id)
+					ignore = true
+				}
 
 				var logs bytes.Buffer
 				err := client.GetLogs(ctx, pod.Namespace, pod.Name, container, opts, &logs)
@@ -413,13 +426,16 @@ func (n *noErrorsInLogs) allCiliumPods(ctx context.Context, t *check.Test) (map[
 }
 
 func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
-	restarts := func(statuses []corev1.ContainerStatus, name string) (restarts uint) {
+	restarts := func(statuses []corev1.ContainerStatus, name string) containerRestarts {
 		for _, status := range statuses {
 			if status.Name == name {
-				return uint(status.RestartCount)
+				return containerRestarts{
+					count:                uint(status.RestartCount),
+					replacedNeverStarted: replacedNeverStarted(&status),
+				}
 			}
 		}
-		return 0
+		return containerRestarts{}
 	}
 
 	containers := make(podContainers, len(pod.Spec.Containers)+len(pod.Spec.InitContainers))
@@ -433,6 +449,13 @@ func (n *noErrorsInLogs) podContainers(pod *corev1.Pod) podContainers {
 	}
 
 	return containers
+}
+
+// The kubelet reports a previous instance that it created but never started as an empty waiting state.
+func replacedNeverStarted(status *corev1.ContainerStatus) bool {
+	current, last := status.State, status.LastTerminationState
+	ranOrCompleted := current.Running != nil || (current.Terminated != nil && current.Terminated.ExitCode == 0)
+	return status.RestartCount == 1 && ranOrCompleted && last.Waiting != nil && last.Terminated == nil && last.Running == nil
 }
 
 func (n *noErrorsInLogs) findUniqueFailures(logs []byte) (map[string]int, map[string]string) {
