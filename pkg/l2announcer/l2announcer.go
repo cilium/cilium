@@ -1022,6 +1022,11 @@ func (l2a *L2Announcer) upsertLocalNode(ctx context.Context, localNode *v2.Ciliu
 }
 
 func (l2a *L2Announcer) processLeaderEvent(event leaderElectionEvent) error {
+	// An event can outlive the selectedService that sent it.
+	if l2a.selectedServices[serviceKey(event.selectedService.svc)] != event.selectedService {
+		return nil
+	}
+
 	event.selectedService.currentlyLeader = event.typ == leaderElectionLeading
 	err := l2a.recalculateL2EntriesTableEntries(event.selectedService)
 	if err != nil {
