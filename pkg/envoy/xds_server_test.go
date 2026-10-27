@@ -2792,6 +2792,103 @@ func TestUpdateNetworkPolicyRevertKeepsLocalEndpointStoreAfterStaleDuplicateRemo
 	require.Nil(t, stalePolicy)
 }
 
+func TestUpdateNetworkPolicyLegacyRollback(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		initial bool
+		later   string
+	}{
+		{name: "insert"},
+		{name: "update", initial: true},
+		{name: "superseded insert", later: "update"},
+		{name: "superseded update", initial: true, later: "update"},
+		{name: "deleted insert", later: "delete"},
+		{name: "deleted update", initial: true, later: "delete"},
+		{name: "recreated policy", initial: true, later: "recreate"},
+		{name: "unrelated endpoint", initial: true, later: "unrelated"},
+		{name: "unchanged update", initial: true, later: "unchanged"},
+		{name: "policy changed back", initial: true, later: "changed-back"},
+		{name: "reverted later update", initial: true, later: "reverted"},
+		{name: "protocol version bump", initial: true, later: "resync"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := newTestXDSServer(t)
+			ep := &testableEndpointUpdater{id: 3639, ipv4: "10.240.46.99"}
+			if tt.initial {
+				err, rollback := server.UpdateNetworkPolicy(t.Context(), ep, policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot()), nil)
+				require.NoError(t, err)
+				rollback.Finalize()
+			}
+			previous := server.networkPolicyCache.Lookup(NetworkPolicyTypeURL, "3639")
+			updated := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+			updated.SelectorPolicy.IngressPolicyEnabled = true
+			err, rollback := server.UpdateNetworkPolicy(t.Context(), ep, updated, nil)
+			require.NoError(t, err)
+			require.NotNil(t, rollback)
+			current := server.networkPolicyCache.Lookup(NetworkPolicyTypeURL, "3639")
+			require.False(t, proto.Equal(previous, current))
+
+			expected := previous
+			var unrelatedPolicy proto.Message
+			switch tt.later {
+			case "update", "changed-back", "reverted":
+				newer := policy.NewEndpointPolicyForTest(types.MockSelectorSnapshot())
+				newer.SelectorPolicy.EgressPolicyEnabled = true
+				err, laterRollback := server.UpdateNetworkPolicy(t.Context(), ep, newer, nil)
+				require.NoError(t, err)
+				if tt.later == "reverted" {
+					require.NoError(t, laterRollback.Revert())
+					break
+				}
+				laterRollback.Finalize()
+				if tt.later == "changed-back" {
+					err, laterRollback = server.UpdateNetworkPolicy(t.Context(), ep, updated, nil)
+					require.NoError(t, err)
+					laterRollback.Finalize()
+				}
+				expected = server.networkPolicyCache.Lookup(NetworkPolicyTypeURL, "3639")
+			case "delete", "recreate":
+				server.RemoveNetworkPolicy(t.Context(), ep)
+				expected = nil
+				if tt.later == "recreate" {
+					err, laterRollback := server.UpdateNetworkPolicy(t.Context(), ep, updated, nil)
+					require.NoError(t, err)
+					laterRollback.Finalize()
+					expected = current
+				}
+			case "unrelated":
+				other := &testableEndpointUpdater{id: 1040, ipv4: "10.240.46.100"}
+				err, laterRollback := server.UpdateNetworkPolicy(t.Context(), other, updated, nil)
+				require.NoError(t, err)
+				laterRollback.Finalize()
+				unrelatedPolicy = server.networkPolicyCache.Lookup(NetworkPolicyTypeURL, "1040")
+			case "unchanged":
+				err, laterRollback := server.UpdateNetworkPolicy(t.Context(), ep, updated, nil)
+				require.NoError(t, err)
+				laterRollback.Finalize()
+			case "resync":
+				version, _ := server.networkPolicyCache.VersionState()
+				server.networkPolicyCache.EnsureVersion(NetworkPolicyTypeURL, version+1)
+			}
+
+			require.NoError(t, rollback.Revert())
+			require.True(t, proto.Equal(expected, server.networkPolicyCache.Lookup(NetworkPolicyTypeURL, "3639")))
+			if unrelatedPolicy != nil {
+				require.True(t, proto.Equal(unrelatedPolicy, server.networkPolicyCache.Lookup(NetworkPolicyTypeURL, "1040")))
+			}
+			if tt.later == "delete" {
+				replacement := &testableEndpointUpdater{id: 1040, ipv4: ep.ipv4}
+				err, replacementRollback := server.UpdateNetworkPolicy(t.Context(), replacement, updated, nil)
+				require.NoError(t, err)
+				replacementRollback.Finalize()
+				response := server.networkPolicyCache.GetResources(NetworkPolicyTypeURL, 0, nil)
+				require.Len(t, response.VersionedResources, 1)
+				require.Equal(t, uint64(1040), response.VersionedResources[0].Resource.(*cilium.NetworkPolicy).EndpointId)
+			}
+		})
+	}
+}
+
 func TestUpdateNetworkPolicyLegacyACKUsesNodeIP(t *testing.T) {
 	currentEP := &listenerProxyUpdaterMock{ProxyUpdaterMock: &test.ProxyUpdaterMock{
 		Id:   2766,
