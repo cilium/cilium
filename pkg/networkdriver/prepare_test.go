@@ -1092,6 +1092,98 @@ func TestPrepare_PodStaticIPsAnnotation_Errors(t *testing.T) {
 	}
 }
 
+func TestValidateConfigs_Addresses(t *testing.T) {
+	var (
+		claim = claimInNS(prepTestClaimNS)
+		ipv4  = netip.MustParsePrefix("10.44.0.9/24")
+		ipv6  = netip.MustParsePrefix("fdaa::1/128")
+	)
+
+	testCases := []struct {
+		name        string
+		ipv4Enabled bool
+		ipv6Enabled bool
+		cfg         types.DeviceConfig
+		errExpected bool
+	}{
+		{
+			name:        "no addresses",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+		},
+		{
+			name:        "IP pool only",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPPool: "pool"},
+		},
+		{
+			name:        "IPv4 address only",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv4Addr: ipv4},
+		},
+		{
+			name:        "IPv4 and IPv6 addresses",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv4Addr: ipv4, IPv6Addr: ipv6},
+		},
+		{
+			name:        "IP pool and IPv4 address",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPPool: "pool", IPv4Addr: ipv4},
+			errExpected: true,
+		},
+		{
+			name:        "IP pool and IPv6 address",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPPool: "pool", IPv6Addr: ipv6},
+			errExpected: true,
+		},
+		{
+			name:        "IPv4 address with IPv4 disabled",
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv4Addr: ipv4},
+			errExpected: true,
+		},
+		{
+			name:        "IPv6 address with IPv6 disabled",
+			ipv4Enabled: true,
+			cfg:         types.DeviceConfig{IPv6Addr: ipv6},
+			errExpected: true,
+		},
+		{
+			name:        "IPv6 prefix as IPv4 address",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv4Addr: ipv6},
+			errExpected: true,
+		},
+		{
+			name:        "IPv4 prefix as IPv6 address",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv6Addr: ipv4},
+			errExpected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			driver := &Driver{ipv4Enabled: tc.ipv4Enabled, ipv6Enabled: tc.ipv6Enabled}
+			err := driver.validateConfigs(claim, map[string]types.DeviceConfig{prepTestRequest: tc.cfg})
+			if tc.errExpected {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func TestUnprepare(t *testing.T) {
 	tlog := hivetest.Logger(t)
 
