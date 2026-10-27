@@ -1163,7 +1163,9 @@
       "groupSlug": "auto-merge-trusted-deps",
       "group": {
         "branchTopic": "{{{replace '^patch-' '' groupSlug}}}"
-      }
+      },
+      // A cilium-envoy minor bump vendors more files than the GitHub tree API accepts.
+      "platformCommit": "disabled"
     },
   ],
   "kubernetes": {
