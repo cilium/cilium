@@ -11,7 +11,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 )
 
-// Restorer wraps a method to wait for endpoints restoration.
+// Restorer exposes endpoint startup barriers. All waits include initialization
+// of endpoint dependencies, even when state restoration is disabled.
 type Restorer interface {
 	// WaitForEndpointRestoreWithoutRegeneration blocks the caller until either the context is
 	// cancelled or all the endpoints from a previous run have been restored.
