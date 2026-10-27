@@ -14,10 +14,13 @@
 #define FRONTEND_IPV6		v6_svc_one
 #define FRONTEND_PORT		tcp_svc_one
 
+#define CLIENT_IDENTITY		1312
+
 #include "lib/bpf_lxc.h"
 
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 ASSIGN_CONFIG(bool, enable_service_no_backend_response, true)
+ASSIGN_CONFIG(__u32, security_label, CLIENT_IDENTITY)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
@@ -83,6 +86,14 @@ int lxc4_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 	test_log("Status code: %d", *status_code);
 	assert(*status_code == CTX_ACT_REDIRECT);
 
+	{
+		__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
+
+		if (src_label != CLIENT_IDENTITY)
+			test_fatal("skb->cb[CB_SRC_LABEL] should be %d, got %d",
+				   CLIENT_IDENTITY, src_label);
+	}
+
 	ASSERT_CTX_BUF_OFF("lb4_ew_udp_nodeport_icmp_unreach",
 			   "Ether", ctx, sizeof(__u32),
 			   lb4_ew_udp_nodeport_icmp_unreach,
@@ -139,6 +150,14 @@ int lxc6_no_backend_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_log("Status code: %d", *status_code);
 	assert(*status_code == CTX_ACT_REDIRECT);
+
+	{
+		__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
+
+		if (src_label != CLIENT_IDENTITY)
+			test_fatal("skb->cb[CB_SRC_LABEL] should be %d, got %d",
+				   CLIENT_IDENTITY, src_label);
+	}
 
 	ASSERT_CTX_BUF_OFF("lb6_ew_udp_nodeport_icmp_unreach",
 			   "Ether", ctx, sizeof(__u32),
