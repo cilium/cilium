@@ -1218,10 +1218,6 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 		struct icmphdr icmphdr __align_stack_8;
 		__u64 inner_l3_off;
 
-		if (!CONFIG(enable_masquerade_ipv4) &&
-		    !is_defined(ENABLE_INTER_CLUSTER_SNAT))
-			return NAT_PUNT_TO_STACK;
-
 		/* Fragmented ECHOREPLY packets are not supported currently.
 		 * Drop all fragments, because letting the first fragment pass
 		 * would be useless anyway.
@@ -1234,6 +1230,13 @@ snat_v4_rev_nat(struct __ctx_buff *ctx, const struct ipv4_nat_target *target,
 
 		switch (icmphdr.type) {
 		case ICMP_ECHOREPLY:
+			/* We only need to RevSNAT ICMPv4 echo replies if BPF
+			 * masquerading or inter-cluster SNAT are enabled.
+			 */
+			if (!CONFIG(enable_masquerade_ipv4) &&
+			    !is_defined(ENABLE_INTER_CLUSTER_SNAT))
+				return NAT_PUNT_TO_STACK;
+
 			tuple.dport = icmphdr.un.echo.id;
 			tuple.sport = 0;
 			port_off = offsetof(struct icmphdr, un.echo.id);
