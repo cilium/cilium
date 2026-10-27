@@ -4,6 +4,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/pkg/container/set"
@@ -361,6 +364,52 @@ func TestComputeExpectedDropReasons(t *testing.T) {
 			if len(result) != expectedLength {
 				t.Errorf("Expected filter of length %d, but got: %v", expectedLength, result)
 			}
+		})
+	}
+}
+
+func TestReplacedNeverStarted(t *testing.T) {
+	tests := []struct {
+		name   string
+		status string
+		want   bool
+	}{
+		{
+			name:   "replaced a container that was created but never started",
+			status: `{"name":"cilium-envoy","restartCount":1,"lastState":{"waiting":{}},"state":{"running":{"startedAt":"2026-10-26T15:37:56Z"}}}`,
+			want:   true,
+		},
+		{
+			name:   "completed init container replaced one that never started",
+			status: `{"name":"mount-cgroup","restartCount":1,"lastState":{"waiting":{}},"state":{"terminated":{"exitCode":0,"reason":"Completed"}}}`,
+			want:   true,
+		},
+		{
+			name:   "crashed",
+			status: `{"name":"cilium-envoy","restartCount":1,"lastState":{"terminated":{"exitCode":1,"reason":"Error","containerID":"containerd://a"}},"state":{"running":{}}}`,
+		},
+		{
+			name:   "failed to start",
+			status: `{"name":"cilium-envoy","restartCount":1,"lastState":{"terminated":{"exitCode":128,"reason":"StartError","containerID":"containerd://a"}},"state":{"running":{}}}`,
+		},
+		{
+			name:   "previous instance garbage-collected",
+			status: `{"name":"cilium-envoy","restartCount":1,"lastState":{},"state":{"running":{}}}`,
+		},
+		{
+			name:   "earlier crash before the never-started instance",
+			status: `{"name":"cilium-envoy","restartCount":2,"lastState":{"waiting":{}},"state":{"running":{}}}`,
+		},
+		{
+			name:   "replacement exited with an error",
+			status: `{"name":"mount-cgroup","restartCount":1,"lastState":{"waiting":{}},"state":{"terminated":{"exitCode":1,"reason":"Error"}}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var status corev1.ContainerStatus
+			require.NoError(t, json.Unmarshal([]byte(tt.status), &status))
+			assert.Equal(t, tt.want, replacedNeverStarted(&status))
 		})
 	}
 }
