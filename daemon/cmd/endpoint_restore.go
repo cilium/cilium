@@ -197,10 +197,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 }
 
 func (r *endpointRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
-	if !option.Config.RestoreState {
-		return nil
-	}
-
+	// Wait even when endpoint restoration is disabled to preserve bootstrap ordering.
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -210,10 +207,7 @@ func (r *endpointRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context
 }
 
 func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
-	if !option.Config.RestoreState {
-		return nil
-	}
-
+	// Wait even when endpoint restoration is disabled to preserve bootstrap ordering.
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -223,10 +217,7 @@ func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
 }
 
 func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
-	if !option.Config.RestoreState {
-		return nil
-	}
-
+	// Wait even when endpoint restoration is disabled to preserve bootstrap ordering.
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -829,10 +820,10 @@ func (r *endpointRestorer) configureRoutingInfo(result *ipam.AllocationResult) e
 }
 
 func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) error {
+	// Proceed even when endpoint restoration is disabled to initialize dependencies
+	// and complete the startup barriers.
 	if !option.Config.RestoreState {
-		health.OK("Skipped - state restore is disabled")
 		r.logger.Info("State restore is disabled. Existing endpoints on node are ignored")
-		return nil
 	}
 
 	startTime := time.Now()
@@ -867,7 +858,13 @@ func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) 
 	// When we regenerate restored endpoints, it is guaranteed that we have
 	// received the full list of policies present at the time the daemon
 	// is bootstrapped.
-	health.OK("Regenerating restored endpoints")
+	if option.Config.RestoreState {
+		health.OK("Regenerating restored endpoints")
+	} else {
+		health.OK("Skipped - state restore is disabled")
+	}
+	// Run even with an empty restore state to close the initial policy and
+	// regeneration completion channels.
 	r.regenerateRestoredEndpoints(r.restoreState)
 
 	close(r.endpointRestoreComplete)
