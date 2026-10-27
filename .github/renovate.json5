@@ -135,6 +135,7 @@
     "^make manifests$",
     "^make GO='contrib/scripts/builder.sh go' generate-apis$",
     "^make GO='contrib/scripts/builder.sh go' generate-k8s-api$",
+    "^go mod edit -require=github\\.com/envoyproxy/go-control-plane/envoy@v[0-9]+\\.[0-9]+\\.0$",
     "^go mod tidy$",
     "^go mod vendor$"
   ],
@@ -971,17 +972,6 @@
       "versioning": "regex:^v(?<major>\\d+)-v(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$"
     },
     {
-      // Avoid updating minor or major version for github.com/envoyproxy/go-control-plane/envoy
-      // as we need to update cilium-envoy accordingly.
-      "matchPackageNames": [
-        "github.com/envoyproxy/go-control-plane/envoy",
-        "github.com/envoyproxy/go-control-plane",
-      ],
-      "matchUpdateTypes": [
-        "patch",
-      ]
-    },
-    {
       // cilium-envoy is referenced in both images/cilium/Dockerfile and
       // install/kubernetes/Makefile.values. Without explicit grouping,
       // Renovate creates separate PRs for each manager. The groupSlug ensures
@@ -1034,6 +1024,44 @@
         "v1.19",
         "v1.18"
       ]
+    },
+    {
+      // Only the cilium-envoy postUpgradeTasks below update go-control-plane/envoy.
+      "enabled": false,
+      "matchDepNames": [
+        "github.com/envoyproxy/go-control-plane/envoy"
+      ]
+    },
+    {
+      // Move go-control-plane/envoy to the Envoy minor release of cilium-envoy.
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "matchFileNames": [
+        "images/cilium/Dockerfile"
+      ],
+      // Digest updates carry no newMajor and newMinor.
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "go mod edit -require=github.com/envoyproxy/go-control-plane/envoy@v{{{newMajor}}}.{{{newMinor}}}.0",
+          "go mod tidy",
+          "go mod vendor"
+        ],
+        "installTools": {
+          "golang": {}
+        },
+        "fileFilters": [
+          "go.mod",
+          "go.sum",
+          "vendor/**"
+        ],
+        "executionMode": "update"
+      }
     },
     {
       "matchDepNames": [
