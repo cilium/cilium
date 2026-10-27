@@ -3,13 +3,21 @@
 
 package node
 
-import "sync/atomic"
+import (
+	"sync"
+	"sync/atomic"
+)
 
 const (
 	templateHostEndpointID = uint64(0xffff)
 )
 
 var endpointID atomic.Uint64
+
+// endpointIDWatchMu serializes updates with read-and-subscribe operations so
+// consumers cannot miss an ID change between reading the ID and watching it.
+var endpointIDWatchMu sync.Mutex
+var endpointIDChanged = make(chan struct{})
 
 func init() {
 	endpointID.Store(templateHostEndpointID)
@@ -23,7 +31,26 @@ func GetEndpointID() (uint64, bool) {
 	return id, id != templateHostEndpointID
 }
 
+// GetEndpointIDAndWatch returns the host endpoint ID, whether it has been
+// initialized, and a channel that closes when the ID changes. The ID and watch
+// are acquired atomically with respect to SetEndpointID.
+func GetEndpointIDAndWatch() (uint64, bool, <-chan struct{}) {
+	endpointIDWatchMu.Lock()
+	defer endpointIDWatchMu.Unlock()
+
+	id, initialized := GetEndpointID()
+	return id, initialized, endpointIDChanged
+}
+
 // SetEndpointID sets the ID of the host endpoint for this node.
 func SetEndpointID(id uint64) {
+	endpointIDWatchMu.Lock()
+	defer endpointIDWatchMu.Unlock()
+
+	if endpointID.Load() == id {
+		return
+	}
 	endpointID.Store(id)
+	close(endpointIDChanged)
+	endpointIDChanged = make(chan struct{})
 }
