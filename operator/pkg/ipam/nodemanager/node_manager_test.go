@@ -517,6 +517,76 @@ func TestNodeManagerInstanceNotFoundRecovery(t *testing.T) {
 	})
 }
 
+// TestNodeManagerInstanceSyncScopedToNode verifies that a node's own instance
+// sync reconciles that node only, and leaves the other nodes and the
+// cluster-wide gauges to the periodic Resync.
+func TestNodeManagerInstanceSyncScopedToNode(t *testing.T) {
+	am := newAllocationImplementationMock()
+	metrics := metricsmock.NewMockMetrics()
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metrics, 10, false, 0, false)
+	require.NoError(t, err)
+	t.Cleanup(mngr.Stop)
+
+	// Failing recalculations report no deficit, so no pool maintenance can
+	// start and trigger an instance sync of its own.
+	am.nodeResyncErr = errors.New("instance not found")
+	mngr.Upsert(newCiliumNode("node-synced", 0, 0, 0))
+	mngr.Upsert(newCiliumNode("node-other", 0, 0, 0))
+	node := mngr.Get("node-synced")
+	require.NotNil(t, node)
+
+	node.instanceSync.Trigger()
+	require.Eventually(t, func() bool {
+		avail, _, _ := metrics.GetPerNodeMetrics("node-synced")
+		return avail != nil
+	}, 5*time.Second, time.Millisecond, "expected the synced node to be reconciled")
+	require.Equal(t, 1, am.instanceSyncCallCount())
+
+	avail, _, _ := metrics.GetPerNodeMetrics("node-other")
+	require.Nil(t, avail, "the instance sync of one node must not reconcile the others")
+	require.Zero(t, metrics.ResyncCount(), "the instance sync of one node must not run a whole-cluster resync")
+	require.Zero(t, metrics.Nodes("total"), "the cluster-wide gauges must be left to the periodic resync")
+
+	mngr.Resync(t.Context(), time.Now())
+	avail, _, _ = metrics.GetPerNodeMetrics("node-other")
+	require.NotNil(t, avail)
+	require.Equal(t, int64(1), metrics.ResyncCount())
+	require.Equal(t, 2, metrics.Nodes("total"))
+}
+
+// TestNodeManagerInstanceSyncAfterDelete verifies that an instance sync
+// completing after its node was deleted, or deleted and recreated under the
+// same name, does not reconcile the stale node.
+func TestNodeManagerInstanceSyncAfterDelete(t *testing.T) {
+	am := newAllocationImplementationMock()
+	metrics := metricsmock.NewMockMetrics()
+	mngr, err := NewNodeManager(hivetest.Logger(t), am, k8sapi, metrics, 10, false, 0, false)
+	require.NoError(t, err)
+	t.Cleanup(mngr.Stop)
+
+	am.nodeResyncErr = errors.New("instance not found")
+	cn := newCiliumNode("node-deleted", 0, 0, 0)
+	mngr.Upsert(cn)
+	staleNode := mngr.Get("node-deleted")
+	require.NotNil(t, staleNode)
+	mngr.Delete(cn)
+
+	runWithTimeout(t, "resyncSingleNode", func() {
+		mngr.resyncSingleNode(t.Context(), staleNode, time.Now())
+	})
+	avail, _, _ := metrics.GetPerNodeMetrics("node-deleted")
+	require.Nil(t, avail, "a deleted node must not be reconciled")
+
+	mngr.Upsert(newCiliumNode("node-deleted", 0, 0, 0))
+	require.NotSame(t, staleNode, mngr.Get("node-deleted"))
+
+	runWithTimeout(t, "resyncSingleNode", func() {
+		mngr.resyncSingleNode(t.Context(), staleNode, time.Now())
+	})
+	avail, _, _ = metrics.GetPerNodeMetrics("node-deleted")
+	require.Nil(t, avail, "a node recreated under the same name must not be reconciled through the stale one")
+}
+
 func TestNodeManagerGet(t *testing.T) {
 	am := newAllocationImplementationMock()
 	require.NotNil(t, am)
