@@ -103,7 +103,8 @@ type xdsServer struct {
 	npdsListeners npdsListenersTracker
 
 	// networkPolicyCache publishes network policy configuration updates to
-	// Envoy proxies.
+	// Envoy proxies. All resource mutations, including rollback, must hold mutex.
+	// Policies are immutable, and rollback restores the original message instance.
 	networkPolicyCache *xds.Cache
 
 	// networkPolicyMutator wraps networkPolicyCache to publish policy
@@ -780,13 +781,18 @@ func (s *xdsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	revertFunc := s.networkPolicyMutator.Upsert(NetworkPolicyTypeURL, resourceName, networkPolicy, nodeIDs, wg, callback)
 
 	return nil, revert.RevertFunc(func() error {
-		s.logger.Debug("Reverting xDS network policy update",
-			logfields.EndpointID, epID,
-		)
-
 		s.mutex.Lock()
 		defer s.mutex.Unlock()
 
+		// Pointer identity permits chained rollback while preserving a later update
+		// with identical contents. The server mutex serializes the check and revert.
+		if s.networkPolicyCache.Lookup(NetworkPolicyTypeURL, resourceName) != networkPolicy {
+			return nil
+		}
+
+		s.logger.Debug("Reverting xDS network policy update",
+			logfields.EndpointID, epID,
+		)
 		revertFunc()
 
 		s.logger.Debug("Finished reverting xDS network policy update")
