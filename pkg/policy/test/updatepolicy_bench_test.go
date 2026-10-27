@@ -30,7 +30,7 @@ import (
 // regenerate.
 //
 // Reported metrics:
-//   - ns/update: latency from importer.UpdatePolicy to all endpoints
+//   - ns/update: mean latency from importer.UpdatePolicy to all endpoints
 //     reaching the new revision.
 //   - peak_regen_queue: peak number of endpoints in StateWaitingToRegenerate
 //     or StateRegenerating during the iteration.
@@ -87,6 +87,7 @@ func runUpdatePolicyBench(b *testing.B, numEPs, numIDs int) {
 		}
 	}()
 
+	var total time.Duration
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		rule := makeRuleSelectingAllIdentities(numIDs, i)
@@ -109,10 +110,10 @@ func runUpdatePolicyBench(b *testing.B, numEPs, numIDs int) {
 		}
 
 		waitForEndpoints(b, ctx, eps, rev)
-
-		b.ReportMetric(float64(time.Since(start).Nanoseconds()), "ns/update")
+		total += time.Since(start)
 	}
 	b.StopTimer()
+	b.ReportMetric(float64(total.Nanoseconds())/float64(b.N), "ns/update")
 
 	close(stopSampler)
 	<-samplerDone
