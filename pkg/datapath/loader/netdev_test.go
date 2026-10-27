@@ -56,4 +56,18 @@ func TestBPFMasqAddrs(t *testing.T) {
 	masq4, masq6 = bpfMasqAddrs("test", &newConfig, false, false)
 	require.False(t, masq4.IsValid())
 	require.False(t, masq6.IsValid())
+
+	linkLocal := tables.NodeAddress{
+		Addr:       netip.MustParseAddr("fe80::1"),
+		DeviceName: "egress",
+	}
+	newConfig.NodeAddresses = append(newConfig.NodeAddresses, linkLocal)
+	masq4, masq6 = bpfMasqAddrs("egress", &newConfig, false, true)
+	require.False(t, masq4.IsValid())
+	require.Equal(t, "2000::2", masq6.String())
+
+	newConfig.NodeAddresses = []tables.NodeAddress{linkLocal}
+	masq4, masq6 = bpfMasqAddrs("egress", &newConfig, false, true)
+	require.False(t, masq4.IsValid())
+	require.False(t, masq6.IsValid())
 }
