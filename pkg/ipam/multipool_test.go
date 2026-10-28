@@ -134,6 +134,7 @@ func Test_MultiPoolManager(t *testing.T) {
 			CNClient:             clientset.CiliumV2().CiliumNodes(),
 			JobGroup:             jg,
 			PoolSpecAccessors:    MultiPoolAccessor,
+			CIDRRelease:          CIDRReleaseConfig{Enabled: true},
 		})
 
 		// Wait for agent pre-allocation request, then validate it
@@ -579,6 +580,7 @@ func Test_MultiPoolManager_ReleaseAllCIDRs(t *testing.T) {
 			CNClient:             clientset.CiliumV2().CiliumNodes(),
 			JobGroup:             jg,
 			PoolSpecAccessors:    MultiPoolAccessor,
+			CIDRRelease:          CIDRReleaseConfig{Enabled: true},
 		})
 
 		// Wait for manager to initialize and observe the pools
@@ -706,6 +708,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
 		PoolSpecAccessors:    MultiPoolAccessor,
+		CIDRRelease:          CIDRReleaseConfig{Enabled: true},
 	})
 
 	<-events // first upsert (initial node)
@@ -744,6 +747,112 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR(t *testing.T) {
 		alloc[0].CIDRs,
 		"unused CIDRs should have been released",
 	)
+}
+
+// Test_MultiPoolManager_CIDRReleaseConfig verifies that unused CIDRs are kept
+// when release is disabled, and only released after the delay otherwise.
+func Test_MultiPoolManager_CIDRReleaseConfig(t *testing.T) {
+	cidr1 := netip.MustParsePrefix("10.0.10.0/32")
+	cidr2 := netip.MustParsePrefix("10.0.11.0/32")
+
+	setup := func(t *testing.T, release CIDRReleaseConfig) (*MultiPoolManager, *fakeK8sCiliumNodeAPIResource) {
+		events := make(chan string, 16)
+		fakeK8sAPI := &fakeK8sCiliumNodeAPIResource{
+			c:    make(chan resource.Event[*ciliumv2.CiliumNode]),
+			node: &ciliumv2.CiliumNode{},
+			onUpsertEvent: func(err error) {
+				events <- "upsert"
+			},
+			onDeleteEvent: func(err error) {},
+		}
+
+		go fakeK8sAPI.updateNode(&ciliumv2.CiliumNode{
+			ObjectMeta: metav1.ObjectMeta{Name: nodeTypes.GetName()},
+			Spec: ciliumv2.NodeSpec{
+				IPAM: types.IPAMSpec{
+					Pools: types.IPAMPoolSpec{
+						Allocated: []types.IPAMPoolAllocation{{
+							Pool:  "default",
+							CIDRs: []iputil.Prefix{iputil.PrefixFrom(cidr1), iputil.PrefixFrom(cidr2)},
+						}},
+					},
+				},
+			},
+		})
+
+		var jg job.Group
+		h := hive.New(
+			cell.Invoke(func(jg_ job.Group) { jg = jg_ }),
+		)
+		tlog := hivetest.Logger(t, hivetest.LogLevel(slog.LevelError))
+		require.NoError(t, h.Start(tlog, t.Context()))
+		t.Cleanup(func() { h.Stop(tlog, context.Background()) })
+
+		mgr := NewMultiPoolManager(MultiPoolManagerParams{
+			Logger:               hivetest.Logger(t),
+			IPv4Enabled:          true,
+			CiliumNodeUpdateRate: time.Nanosecond,
+			PreallocMap:          preAllocatePerPool{},
+			Node:                 fakeK8sAPI,
+			CNClient:             fakeK8sAPI,
+			JobGroup:             jg,
+			PoolSpecAccessors:    MultiPoolAccessor,
+			CIDRRelease:          release,
+		})
+
+		<-events // first upsert (initial node)
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			assert.True(c, mgr.isNodeSynced())
+		}, time.Second, time.Millisecond)
+
+		_, err := mgr.AllocateIP(netip.MustParseAddr("10.0.10.0"), "pod-a", "default", IPv4, false)
+		require.NoError(t, err)
+		mgr.RestoreFinished(IPv4)
+		mgr.RestoreFinished(IPv6)
+
+		return mgr, fakeK8sAPI
+	}
+
+	allocatedCIDRs := func(fakeK8sAPI *fakeK8sCiliumNodeAPIResource) []iputil.Prefix {
+		alloc := fakeK8sAPI.currentNode().Spec.IPAM.Pools.Allocated
+		require.Len(t, alloc, 1)
+		return alloc[0].CIDRs
+	}
+
+	t.Run("disabled", func(t *testing.T) {
+		mgr, fakeK8sAPI := setup(t, CIDRReleaseConfig{Enabled: false})
+
+		require.NoError(t, mgr.updateLocalNode(t.Context()))
+		require.ElementsMatch(t,
+			[]iputil.Prefix{iputil.PrefixFrom(cidr1), iputil.PrefixFrom(cidr2)},
+			allocatedCIDRs(fakeK8sAPI),
+			"unused CIDRs must be kept when release is disabled",
+		)
+	})
+
+	t.Run("delayed", func(t *testing.T) {
+		delay := 500 * time.Millisecond
+		mgr, fakeK8sAPI := setup(t, CIDRReleaseConfig{Enabled: true, Delay: delay})
+
+		start := time.Now()
+		require.NoError(t, mgr.updateLocalNode(t.Context()))
+		if time.Since(start) < delay {
+			require.ElementsMatch(t,
+				[]iputil.Prefix{iputil.PrefixFrom(cidr1), iputil.PrefixFrom(cidr2)},
+				allocatedCIDRs(fakeK8sAPI),
+				"unused CIDR must be kept until the delay has elapsed",
+			)
+		}
+
+		require.EventuallyWithT(t, func(c *assert.CollectT) {
+			assert.NoError(c, mgr.updateLocalNode(t.Context()))
+			alloc := fakeK8sAPI.currentNode().Spec.IPAM.Pools.Allocated
+			if assert.Len(c, alloc, 1) {
+				assert.ElementsMatch(c, []iputil.Prefix{iputil.PrefixFrom(cidr1)}, alloc[0].CIDRs)
+			}
+		}, 10*time.Second, 50*time.Millisecond, "unused CIDR should have been released after the delay")
+		require.GreaterOrEqual(t, time.Since(start), delay)
+	})
 }
 
 // Test_MultiPoolManager_ReleaseUnusedCIDR_PreAllocBuffer verifies that when preAlloc > 0
@@ -828,6 +937,7 @@ func Test_MultiPoolManager_ReleaseUnusedCIDR_PreAlloc(t *testing.T) {
 		CNClient:             fakeK8sAPI,
 		JobGroup:             jg,
 		PoolSpecAccessors:    MultiPoolAccessor,
+		CIDRRelease:          CIDRReleaseConfig{Enabled: true},
 	})
 
 	<-events // first upsert (initial node)
@@ -1088,6 +1198,7 @@ func Test_MultiPoolManager_UpdateNodeRetries(t *testing.T) {
 			CNClient:             clientset.CiliumV2().CiliumNodes(),
 			JobGroup:             jg,
 			PoolSpecAccessors:    MultiPoolAccessor,
+			CIDRRelease:          CIDRReleaseConfig{Enabled: true},
 		})
 		require.NotNil(t, mgr)
 

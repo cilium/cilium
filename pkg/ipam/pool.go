@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/netip"
 	"slices"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/time"
 )
 
 var errAllCIDRsExhausted = errors.New("all CIDR ranges are exhausted")
@@ -44,6 +44,9 @@ type cidrPool struct {
 	ipAllocators []*ipallocator.Range
 	released     map[netip.Prefix]struct{}
 	removed      map[netip.Prefix]struct{}
+	// releaseCandidates holds unused CIDRs which are waiting for the release
+	// delay to elapse, along with the time they became a candidate.
+	releaseCandidates map[netip.Prefix]time.Time
 	// allowFirstIP and allowLastIP make the pool include the first and last IPs
 	// of each CIDR (normally reserved as network/broadcast). This is used for
 	// delegated prefixes where the range is exclusively assigned.
@@ -54,11 +57,12 @@ type cidrPool struct {
 // newCIDRPool creates a new CIDR pool.
 func newCIDRPool(logger *slog.Logger, allowFirstIP, allowLastIP bool) *cidrPool {
 	return &cidrPool{
-		logger:       logger,
-		released:     map[netip.Prefix]struct{}{},
-		removed:      map[netip.Prefix]struct{}{},
-		allowFirstIP: allowFirstIP,
-		allowLastIP:  allowLastIP,
+		logger:            logger,
+		released:          map[netip.Prefix]struct{}{},
+		removed:           map[netip.Prefix]struct{}{},
+		releaseCandidates: map[netip.Prefix]time.Time{},
+		allowFirstIP:      allowFirstIP,
+		allowLastIP:       allowLastIP,
 	}
 }
 
@@ -194,8 +198,14 @@ func (p *cidrPool) capacity() (freeIPs int) {
 	return
 }
 
-// releaseExcessCIDRsMultiPool implements the logic for multi-pool IPAM
-func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
+// releaseExcessCIDRsMultiPool implements the logic for multi-pool IPAM.
+// neededIPs is how many free IPs must remain after CIDRs have been released.
+// A CIDR becomes a release candidate once it is unused and not needed to keep
+// neededIPs free addresses. It is only released once it has stayed a candidate
+// for at least releaseDelay. A CIDR that gets used again, or that is needed to
+// satisfy neededIPs again, stops being a candidate and has to wait the full
+// delay again.
+func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int, now time.Time, releaseDelay time.Duration) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -204,58 +214,36 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 		totalFree += ipAllocator.Free()
 	}
 
-	// Reclaim previously-released CIDRs when demand has grown back and we
-	// no longer have enough free IPs. A CIDR stays in p.released only while
-	// it is still advertised in the CiliumNode (updatePool removes it from
-	// the set as soon as the operator stops advertising it), so reclaiming
-	// here never re-adds a CIDR that has actually been detached. Without
-	// this, a released-but-still-attached prefix is stranded forever: the
-	// operator may not detach it (e.g. release-excess-ips disabled), so it
-	// never leaves the advertised set, while updatePool refuses to recreate
-	// its allocator because it is still in p.released. The result is
-	// permanent exhaustion until the agent restarts.
-	if totalFree < neededIPs && len(p.released) > 0 {
-		// Reclaim in a deterministic order to avoid churn across calls.
-		reclaim := slices.SortedFunc(maps.Keys(p.released), func(a, b netip.Prefix) int {
-			if c := a.Addr().Compare(b.Addr()); c != 0 {
-				return c
-			}
-			return a.Bits() - b.Bits()
-		})
-
-		rangeOpts := p.cidrRangeOpts()
-		for _, prefix := range reclaim {
-			if totalFree >= neededIPs {
-				break
-			}
-			ipAllocator := ipallocator.NewCIDRRange(prefix, rangeOpts...)
-			if ipAllocator.Free() == 0 {
-				continue // too-small CIDR, keep it released
-			}
-			p.ipAllocators = append(p.ipAllocators, ipAllocator)
-			delete(p.released, prefix)
-			totalFree += ipAllocator.Free()
-			p.logger.Debug("reclaiming released CIDR", logfields.CIDR, prefix)
-		}
-	}
-
 	// Iterate over CIDRs in reverse order, so we prioritize releasing
 	// later CIDRs.
 	retainedAllocators := []*ipallocator.Range{}
+	releaseCandidates := map[netip.Prefix]time.Time{}
 	for _, ipAllocator := range slices.Backward(p.ipAllocators) {
 		cidr := ipAllocator.CIDR()
 
-		// If the CIDR is not used and releasing it would
-		// not take us below the release threshold, then release it immediately
+		// If the CIDR is not used and releasing it would not take us below
+		// the release threshold, then it is a release candidate.
 		free := ipAllocator.Free()
 		if ipAllocator.Used() == 0 && totalFree-free >= neededIPs {
-			p.released[cidr] = struct{}{}
 			totalFree -= free
-			p.logger.Debug("releasing CIDR", logfields.CIDR, cidr)
+
+			since, ok := p.releaseCandidates[cidr]
+			if !ok {
+				since = now
+			}
+			if now.Sub(since) < releaseDelay {
+				releaseCandidates[cidr] = since
+				retainedAllocators = append(retainedAllocators, ipAllocator)
+			} else {
+				p.released[cidr] = struct{}{}
+				p.logger.Debug("releasing CIDR", logfields.CIDR, cidr)
+			}
 		} else {
 			retainedAllocators = append(retainedAllocators, ipAllocator)
 		}
 	}
+
+	p.releaseCandidates = releaseCandidates
 
 	// Reverse the slice before copying to preserve original order. Otherwise
 	// the order flips on every call, spreading allocations across different

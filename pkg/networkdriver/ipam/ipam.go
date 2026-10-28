@@ -49,5 +49,6 @@ func newMultiPoolManager(
 		CNClient:             ClientSet.CiliumV2().CiliumNodes(),
 		JobGroup:             JobGroup,
 		PoolSpecAccessors:    ResourceMultiPoolAccessor,
+		CIDRRelease:          ipam.CIDRReleaseConfig{Enabled: true},
 	}), nil
 }
