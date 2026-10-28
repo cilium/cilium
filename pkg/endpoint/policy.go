@@ -17,7 +17,6 @@ import (
 
 	"github.com/cilium/ebpf"
 
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/controller"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -44,6 +43,7 @@ import (
 var (
 	endpointRegenerationRecoveryControllerGroup = controller.NewGroup("endpoint-regeneration-recovery")
 	syncAddressIdentityMappingControllerGroup   = controller.NewGroup("sync-address-identity-mapping")
+	reconcilePolicyControllerGroup              = controller.NewGroup("endpoint-reconcile-policy")
 
 	errPolicyComputationStaleRevision = errors.New("policy computation result has stale revision")
 	errPolicyComputationNotFound      = errors.New("policy computation result not found in statedb")
@@ -240,7 +240,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 		return newRegenerationError(regenerationFailureReasonPolicyRegenerationError,
 			fmt.Errorf("failed waiting for policy computation result: %w", err))
 	} else if pcr != nil {
-		selectorPolicy = pcr.NewPolicy
+		selectorPolicy = pcr.Policy
 		// The realized revision is how far forward this policy is known to be
 		// correct, which is what waiters (e.g. the policy-revision wait in the
 		// connectivity tests) compare against.
@@ -288,8 +288,35 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 
 	// DistillPolicy converts a SelectorPolicy in to an EndpointPolicy
 	stats.endpointPolicyCalculation.Start()
-	result.endpointPolicy = selectorPolicy.DistillPolicy(e.getLogger(), e, desiredRedirects)
+	endpointPolicy, valid := selectorPolicy.DistillPolicy(e.getLogger(), e, desiredRedirects)
 	stats.endpointPolicyCalculation.End(true)
+
+	if !valid {
+		// selectorPolicy was superseded by a newer computation while we were
+		// registering as one of its users. Our EndpointPolicy would be
+		// built from stale content, so discard everything this invocation
+		// did (the proxy redirects added above) and retry from scratch
+		// against a freshly fetched SelectorPolicy.
+		e.getLogger().Warn(
+			"Selector policy was superseded while distilling, retrying regeneration",
+			logfields.Identity, securityIdentity.ID,
+		)
+		// Revert functions are called with the endpoint mutex held.
+		if err := e.lockAlive(); err != nil {
+			return err
+		}
+		if err := datapathRegenCtxt.revertibles.Revert(); err != nil {
+			e.getLogger().Error(
+				"Reverting endpoint changes after superseded selector policy failed",
+				logfields.Error, err,
+			)
+		}
+		e.unlock()
+		datapathRegenCtxt.revertibles = revert.Revertibles{}
+		return e.regeneratePolicy(stats, datapathRegenCtxt)
+	}
+
+	result.endpointPolicy = endpointPolicy
 
 	return nil
 }
@@ -300,16 +327,13 @@ func (e *Endpoint) waitForPolicyComputationResult(
 ) (*compute.Result, error) {
 	wantedRevision := datapathRegenCtxt.policyRevisionToWaitFor
 
-	timeout := time.NewTimer(time.Second)
-	defer timeout.Stop()
-
 	for {
 		computeResult, _, watch, found := e.policyFetcher.GetIdentityPolicyByIdentity(securityIdentity)
 		// CurrentAtRevision, not Revision: a policy computed at an older
 		// revision is still the right one to use if no later update selected
 		// this identity.
 		if found && computeResult.CurrentAtRevision >= wantedRevision {
-			if computeResult.NewPolicy.AddHold() {
+			if computeResult.Policy.AddHold() {
 				e.getLogger().Debug(
 					"Retrieved identity policy from statedb",
 					logfields.PolicyRevision, computeResult.Revision,
@@ -344,7 +368,7 @@ func (e *Endpoint) waitForPolicyComputationResult(
 		select {
 		case <-watch:
 			continue
-		case <-timeout.C:
+		case <-datapathRegenCtxt.completionCtx.Done():
 			if found {
 				return nil, fmt.Errorf("%w: identity=%d got rev=%d currentAt=%d, want rev=%d",
 					errPolicyComputationStaleRevision,
@@ -832,77 +856,6 @@ func (e *Endpoint) consumeSkippedPolicyRevision(ctx *datapathRegenerationContext
 	e.skippedPolicyRevision = 0
 }
 
-// UpdatePolicy updates the endpoint's policy.
-// If the endpoint's identity is in the set that needs regeneration, it will queue a regeneration
-// and wait for the result. If not, the endpoint's policy revision will be bumped to toRev without
-// a regeneration
-func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity], fromRev, toRev uint64) {
-	// no deferred unlocks here, as we must
-	// release locks before regenerating
-
-	e.buildMutex.Lock() // buildMutex is required to update policy revision
-	if err := e.lockAlive(); err != nil {
-		e.buildMutex.Unlock()
-		return
-	}
-
-	unlock := func() {
-		e.unlock()
-		e.buildMutex.Unlock()
-	}
-
-	secID := e.getIdentity()
-	if secID == identityPkg.InvalidIdentity {
-		unlock()
-		return
-	}
-
-	// If this endpoint's security ID has a policy update, we must regenerate.
-	// Otherwise, bump the policy revision directly.
-	if !idsToRegen.Has(secID) {
-		if e.policyRevision == 0 {
-			// Unaffected identities are not normally recomputed at toRev. Schedule
-			// this one before making the upcoming regeneration wait for it.
-			if toRev > e.skippedPolicyRevision {
-				if _, err := e.policyFetcher.RecomputeIdentityPolicy(e.SecurityIdentity, toRev); err != nil {
-					e.getLogger().Warn(
-						"Failed to recompute policy for initializing endpoint",
-						logfields.Error, err,
-						logfields.PolicyRevision, toRev,
-					)
-					unlock()
-					return
-				}
-				e.skippedPolicyRevision = toRev
-			}
-			unlock()
-			return
-		}
-		e.getLogger().Debug(
-			"Policy update is a no-op, bumping policyRevision",
-			logfields.PolicyRevision, toRev,
-		)
-		e.setPolicyRevision(toRev)
-
-		unlock()
-		return
-	}
-
-	// Policy change affected this endpoint's identity; queue regeneration
-	regenMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:                  regeneration.ReasonPolicyUpdate,
-		Message:                 "policy rules updated",
-		RegenerationLevel:       regeneration.RegenerateWithoutDatapath,
-		PolicyRevisionToWaitFor: toRev,
-	}
-	regen := e.setRegenerateStateLocked(regenMetadata)
-	unlock()
-
-	if regen {
-		<-e.Regenerate(regenMetadata)
-	}
-}
-
 // RegenerateIfAlive queue a regeneration of this endpoint into the build queue
 // of the endpoint and returns a channel that is closed when the regeneration of
 // the endpoint is complete. The channel returns:
@@ -1058,6 +1011,13 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
 
+	// waitForPolicyComputationResult (via regeneratePolicy below) needs a
+	// completion context. addNewRedirects, also called by regeneratePolicy,
+	// runs with a nil proxy wait group here, same as before this endpoint
+	// had a completion context at all; proxy updates are only tracked once
+	// regenerateBPF calls prepareForProxyUpdates.
+	datapathRegenCtxt.prepare(regenContext.parentContext)
+
 	// Compute Endpoint's policy
 	stats.policyCalculation.Start()
 	err := e.regeneratePolicy(stats, datapathRegenCtxt)
@@ -1173,6 +1133,94 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 		ErrorRetryBaseDuration: 2 * time.Second,
 		Context:                e.aliveCtx,
 	})
+}
+
+// startPolicyReconciler starts a per-endpoint background job that watches
+// this endpoint's identity's entry in the policy computation table and
+// reacts to it, instead of relying on being pushed a regeneration from the
+// policy importer/compute cell.
+func (e *Endpoint) startPolicyReconciler() {
+	e.controllers.UpdateController(fmt.Sprintf("endpoint-%s-reconcile-policy", e.StringID()), controller.ControllerParams{
+		Group:   reconcilePolicyControllerGroup,
+		DoFunc:  e.reconcilePolicy,
+		Context: e.aliveCtx,
+	})
+}
+
+// reconcilePolicy is the DoFunc of the controller started by
+// startPolicyReconciler. It runs for the lifetime of the endpoint, selecting
+// on three things:
+//   - the endpoint's context, tied to its lifecycle: exits when the endpoint
+//     is removed.
+//   - identityUpdateTrigger: fired by SetIdentity whenever the endpoint's
+//     identity changes, so the loop re-reads the identity and re-arms its
+//     watch against the new identity's table entry.
+//   - the watch channel for this identity's current entry in the policy
+//     computation table, which fires on every computation and every
+//     revision advance for this identity.
+//
+// Each iteration fetches the identity's current table entry and checks
+// whether it is actionable *before* blocking, so a result that is already
+// stale relative to the endpoint's realized revision is acted on
+// immediately rather than waiting for a future watch event that may never
+// come. It only triggers a regeneration if the identity's SelectorPolicy was
+// actually recomputed (Revision moved past what this endpoint has already
+// realized). If the entry was merely carried forward to a newer revision
+// without being recomputed, the realized policy revision is advanced
+// directly, without regenerating.
+func (e *Endpoint) reconcilePolicy(ctx context.Context) error {
+	for {
+		if err := e.rlockAlive(); err != nil {
+			return controller.NewExitReason("endpoint being deleted")
+		}
+		secID := e.SecurityIdentity
+		realizedRevision := e.policyRevision
+		e.runlock()
+
+		var (
+			result compute.Result
+			watch  <-chan struct{}
+			found  bool
+		)
+		if secID != nil {
+			result, _, watch, found = e.policyFetcher.GetIdentityPolicyByIdentity(secID)
+		}
+
+		if !found || result.CurrentAtRevision <= realizedRevision {
+			// Nothing actionable in what we just fetched: block until
+			// something changes, then re-fetch from the top rather than
+			// acting on this now-stale snapshot.
+			select {
+			case <-ctx.Done():
+				return controller.NewExitReason("endpoint being deleted")
+			case <-e.identityUpdateTrigger:
+			case <-watch:
+			}
+			continue
+		}
+
+		if result.Revision <= realizedRevision {
+			// The identity's policy content hasn't changed since we last
+			// realized it, it was only carried forward to a newer revision.
+			// No need to regenerate, just advance.
+			e.buildMutex.Lock()
+			if err := e.lockAlive(); err != nil {
+				e.buildMutex.Unlock()
+				return controller.NewExitReason("endpoint being deleted")
+			}
+			e.setPolicyRevision(result.CurrentAtRevision)
+			e.unlock()
+			e.buildMutex.Unlock()
+			continue
+		}
+
+		<-e.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
+			Reason:                  regeneration.ReasonPolicyUpdate,
+			Message:                 "policy rules updated",
+			RegenerationLevel:       regeneration.RegenerateWithoutDatapath,
+			PolicyRevisionToWaitFor: result.CurrentAtRevision,
+		})
+	}
 }
 
 func (e *Endpoint) notifyEndpointRegeneration(err error) {
@@ -1347,6 +1395,14 @@ func (e *Endpoint) SetIdentity(identity *identityPkg.Identity) (identityToReleas
 	e.UpdateLogger(map[string]any{
 		logfields.Identity: identity.String(),
 	})
+
+	// Wake up the policy reconciler so it re-arms its watch against the new
+	// identity's entry in the policy computation table.
+	select {
+	case e.identityUpdateTrigger <- struct{}{}:
+	default:
+	}
+
 	return identityToRelease
 }
 

@@ -27,19 +27,24 @@ type PolicyRecomputer interface {
 }
 
 type Result struct {
-	Identity             identity.NumericIdentity
-	NewPolicy, OldPolicy policy.SelectorPolicy
+	Identity identity.NumericIdentity
+
+	// Computed selector policy.
+	Policy policy.SelectorPolicy
+
 	// Revision is the repository revision this policy was computed at. It is
 	// how processRequests tells whether a requested computation has already
 	// run, so it must only ever be set by an actual computation. Use
 	// CurrentAtRevision to ask how far forward the policy is still valid.
 	Revision uint64
+
 	// CurrentAtRevision is the highest repository revision this policy is
 	// known to be correct for. It starts equal to Revision and is advanced,
 	// without recomputing, by policy updates that do not select this identity.
 	// Always >= Revision.
 	CurrentAtRevision uint64
-	Err               error
+
+	Err error
 }
 
 type computeRequest struct {
@@ -257,7 +262,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 			}
 			// The currently committed policy becomes the old one once this
 			// recomputation commits its replacement.
-			work = append(work, pending{computeRequest: req, rev: rev, oldPolicy: obj.NewPolicy})
+			work = append(work, pending{computeRequest: req, rev: rev, oldPolicy: obj.Policy})
 		}
 		if len(work) == 0 {
 			if len(advances) > 0 {
@@ -279,8 +284,7 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				start := time.Now()
 				results[i].pending = w
 				results[i].res.Identity = w.identity.ID
-				results[i].res.OldPolicy = w.oldPolicy
-				results[i].res.NewPolicy, results[i].res.Revision, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity)
+				results[i].res.Policy, results[i].res.Revision, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity)
 				// A freshly computed policy is current as of the revision it
 				// was computed at.
 				results[i].res.CurrentAtRevision = results[i].res.Revision
@@ -327,8 +331,10 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 			// it here to release its SelectorCache references. The old policy
 			// is released by the delete path in LocalEndpointIdentityRemoved.
 			if _, _, err := r.tbl.CompareAndSwap(wtxn, results[i].rev, results[i].res); err != nil {
-				if results[i].res.NewPolicy != nil {
-					results[i].res.NewPolicy.Supersede()
+				if results[i].res.Policy != nil {
+					// Table update will trigger an update for endpoint policy reconciler.
+					// So supersede doesn't need to explicitly regenerate.
+					results[i].res.Policy.Supersede()
 				}
 				results[i].res = Result{}
 			}
@@ -357,8 +363,10 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 				logfields.Identity, cr.res.Identity,
 				logfields.PolicyRevision, cr.toRev,
 			)
-			if cr.res.OldPolicy != nil {
-				cr.res.OldPolicy.Supersede()
+			if cr.oldPolicy != nil {
+				// Old policy is only superseded once the table is updated with
+				// a new policy so it doesn't require endpoint regeneration explicitly.
+				cr.oldPolicy.Supersede()
 			}
 		}
 	}
@@ -412,7 +420,10 @@ func (r *IdentityPolicyComputer) LocalEndpointIdentityRemoved(id *identity.Ident
 
 	// Release the policy's selectors. Supersede after Commit so the detach
 	// runs outside the write txn, matching processRequests.
-	if obj.NewPolicy != nil {
-		obj.NewPolicy.Supersede()
+	if obj.Policy != nil {
+		// Local Endpoint Identity is removed directly from endpoint object when being
+		// deleted. Endpoint policy is detached automatically during Stop() so supersede
+		// doesn't require triggering regenerations.
+		obj.Policy.Supersede()
 	}
 }

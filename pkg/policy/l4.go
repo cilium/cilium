@@ -20,7 +20,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -1605,7 +1604,7 @@ func (l4 *L4Policy) finishDetach(selectorCache *SelectorCache) {
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be forwarded to the users of it.
 // May not call into SelectorCache, as SelectorCache is locked during this call.
-func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
+func (l4 *L4Policy) insertUser(user *EndpointPolicy) bool {
 	l4.mutex.Lock()
 	defer l4.mutex.Unlock()
 
@@ -1625,15 +1624,13 @@ func (l4 *L4Policy) insertUser(user *EndpointPolicy) {
 	}
 	// A hold taken before Supersede keeps 'users' non-nil, so an endpoint can
 	// reach this point holding a policy that a newer one has already replaced.
-	// Its content is stale, so it must be regenerated to pick up the
-	// replacement, the same as when the policy was detached.
+	// Its content is stale, so it must be regenerated with latest policy
+	// computation, indicate this to the caller.
 	if l4.users == nil || l4.superseded {
-		go user.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-			Reason:            regeneration.ReasonSelectorPolicyStale,
-			Message:           "selector policy has changed because of another endpoint with the same identity",
-			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-		})
+		return false
 	}
+
+	return true
 }
 
 // removeUser removes a user that no longer needs incremental updates
@@ -1834,6 +1831,8 @@ func (l4Policy *L4Policy) SyncMapChanges(l4 *L4Filter, txn SelectorSnapshot) {
 // circular pointer references. Used when the policy is being deleted.
 // Note that the L4Policy itself is not modified in any way, so that it may still
 // be used concurrently.
+//
+// Only used as non-production helper, detach is handled by removeUser/supersede.
 func (l4 *L4Policy) detach(selectorCache *SelectorCache) {
 	l4.Ingress.Detach(selectorCache)
 	l4.Egress.Detach(selectorCache)
@@ -1843,21 +1842,13 @@ func (l4 *L4Policy) detach(selectorCache *SelectorCache) {
 	l4.detachedTime.Store(ptr.To(time.Now()))
 }
 
-// supersede marks the L4Policy as superseded by a newer one and triggers
-// regeneration on existing users so they migrate. The endpoint identified by
-// endpointID is not regenerated, since it initiated the selector policy update.
-// supersede is the only place that sets l4.superseded.
+// supersede marks the L4Policy as superseded by a newer one. Existing users
+// learn of the replacement by watching the policy computation table entry
+// for this identity, which is updated before supersede is called; they do
+// not need to be explicitly woken up here. supersede is the only place that
+// sets l4.superseded.
 func (l4 *L4Policy) supersede(selectorCache *SelectorCache, endpointID uint64) {
 	l4.mutex.Lock()
-	for ePolicy := range l4.users {
-		if endpointID != ePolicy.PolicyOwner.GetID() {
-			go ePolicy.PolicyOwner.RegenerateIfAlive(&regeneration.ExternalRegenerationMetadata{
-				Reason:            regeneration.ReasonSelectorPolicyStale,
-				Message:           "selector policy has changed because of another endpoint with the same identity",
-				RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-			})
-		}
-	}
 	l4.superseded = true
 	needsDetach := l4.shouldDetachLocked()
 	l4.mutex.Unlock()

@@ -191,7 +191,7 @@ func BenchmarkRegenerateCIDRDenyPolicyRules(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		epPolicy := ip.DistillPolicy(logger, owner, nil)
+		epPolicy, _ := ip.DistillPolicy(logger, owner, nil)
 		owner.previousMap = epPolicy.GetMapState()
 		epPolicy.Ready()
 	}
@@ -207,7 +207,7 @@ func TestRegenerateCIDRDenyPolicyRules(t *testing.T) {
 	require.NoError(t, err)
 	owner := DummyOwner{logger: logger}
 
-	epPolicy := ip.DistillPolicy(logger, owner, nil)
+	epPolicy, _ := ip.DistillPolicy(logger, owner, nil)
 	owner.previousMap = epPolicy.GetMapState()
 	epPolicy.Ready()
 	ip.Detach()
@@ -246,7 +246,7 @@ func TestL3WithIngressDenyWildcard(t *testing.T) {
 	defer repo.mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
-	policy := selPolicy.DistillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, nil)
+	policy, _ := selPolicy.DistillPolicy(hivetest.Logger(t), DummyOwner{logger: hivetest.Logger(t)}, nil)
 	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -318,7 +318,7 @@ func TestL3WithLocalHostWildcardd(t *testing.T) {
 
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	policy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
 	policy.Ready()
 
 	expectedEndpointPolicy := EndpointPolicy{
@@ -404,7 +404,7 @@ func TestMapStateWithIngressDenyWildcard(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	policy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
 	policy.Ready()
 
 	rule1MapStateEntry := denyEntry().withLabels(labels.LabelArrayList{ruleLabel})
@@ -518,7 +518,7 @@ func TestMapStateWithIngressDeny(t *testing.T) {
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	require.NoError(t, err)
 
-	policy := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
+	policy, _ := selPolicy.DistillPolicy(logger, DummyOwner{logger: logger}, nil)
 	policy.Ready()
 
 	// Add new identity to test accumulation of MapChanges

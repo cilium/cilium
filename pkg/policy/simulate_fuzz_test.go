@@ -63,7 +63,7 @@ func FuzzDistillPolicy(f *testing.F) {
 			t.Fatal(err) // should never happen
 		}
 
-		epp := selPol.DistillPolicy(logger, srcEP, nil)
+		epp, _ := selPol.DistillPolicy(logger, srcEP, nil)
 		epp.Ready()
 		epp.Detach(logger)
 		selPol.Supersede()
@@ -343,7 +343,7 @@ func FuzzDistillPolicyWithAggregates(f *testing.F) {
 			t.Fatal(err) // should never happen
 		}
 
-		epp := selPol.DistillPolicy(logger, srcEP, nil)
+		epp, _ := selPol.DistillPolicy(logger, srcEP, nil)
 		epp.Ready()
 		epp.Detach(logger)
 		selPol.Supersede()

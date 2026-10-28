@@ -163,7 +163,12 @@ type SelectorPolicy interface {
 
 	// DistillPolicy returns the policy in terms of connectivity to peer
 	// Identities.
-	DistillPolicy(logger *slog.Logger, owner PolicyOwner, redirects map[string]uint16) *EndpointPolicy
+	//
+	// The returned bool is false if this selectorPolicy was superseded by a
+	// newer computation while the EndpointPolicy was being registered as one
+	// of its users. In that case the returned *EndpointPolicy is nil and the
+	// caller must retry against a freshly fetched SelectorPolicy.
+	DistillPolicy(logger *slog.Logger, owner PolicyOwner, redirects map[string]uint16) (*EndpointPolicy, bool)
 
 	// GetSelectorSnapshot returns a selector snapshot if available and valid
 	GetSelectorSnapshot() SelectorSnapshot
@@ -347,8 +352,12 @@ func (p *selectorPolicy) Supersede() {
 
 // insertUser adds a user to the L4Policy so that incremental
 // updates of the L4Policy may be fowarded.
-func (p *selectorPolicy) insertUser(user *EndpointPolicy) {
-	p.L4Policy.insertUser(user)
+//
+// The function returns false if the selector policy is already superseded
+// indicating to the caller to attempt regeneration with latest policy
+// computation.
+func (p *selectorPolicy) insertUser(user *EndpointPolicy) bool {
+	return p.L4Policy.insertUser(user)
 }
 
 // removeUser removes a user from the L4Policy so the EndpointPolicy
@@ -371,8 +380,9 @@ func (p *selectorPolicy) Detach() {
 // Called without holding the Selector cache or Repository locks.
 // PolicyOwner (aka Endpoint) is also unlocked during this call,
 // but the Endpoint's build mutex is held.
-func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOwner, redirects map[string]uint16) *EndpointPolicy {
+func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOwner, redirects map[string]uint16) (*EndpointPolicy, bool) {
 	var calculatedPolicy *EndpointPolicy
+	var valid bool
 
 	// Size the new map state after the owner's current one. This must be done before taking
 	// the selector cache read lock below: the accessor takes the PolicyOwner's (endpoint)
@@ -410,8 +420,19 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 		}
 		// Register the new EndpointPolicy as a receiver of incremental
 		// updates before selector cache lock is released by 'WithRLock'.
-		p.insertUser(calculatedPolicy)
+		valid = p.insertUser(calculatedPolicy)
 	})
+
+	if !valid {
+		// 'p' was superseded by a newer computation while we were
+		// registering as one of its users. Our content is stale, and the
+		// caller will have to retry against a freshly fetched
+		// SelectorPolicy anyway, so there is no point distilling map state
+		// for it. Remove ourselves from 'p's users so it can be detached and
+		// its SelectorCache references released.
+		p.removeUser(calculatedPolicy)
+		return nil, false
+	}
 
 	if !p.IngressPolicyEnabled || !p.EgressPolicyEnabled {
 		calculatedPolicy.policyMapState.allowAllIdentities(
@@ -424,7 +445,7 @@ func (p *selectorPolicy) DistillPolicy(logger *slog.Logger, policyOwner PolicyOw
 	p.L4Policy.Ingress.toMapState(logger, calculatedPolicy)
 	p.L4Policy.Egress.toMapState(logger, calculatedPolicy)
 
-	return calculatedPolicy
+	return calculatedPolicy, true
 }
 
 func (p *selectorPolicy) IsDetached() (bool, time.Time) {

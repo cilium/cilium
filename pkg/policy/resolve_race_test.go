@@ -100,7 +100,7 @@ func TestDistillPolicyMapStateRace(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for range iterations {
-			ep := sp.DistillPolicy(logger, owner, nil)
+			ep, _ := sp.DistillPolicy(logger, owner, nil)
 			ep.Ready()
 			ep.Detach(logger)
 		}
@@ -159,7 +159,7 @@ func TestDistillPolicyLockOrder(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		for range iterations {
-			ep := sp.DistillPolicy(logger, owner, nil)
+			ep, _ := sp.DistillPolicy(logger, owner, nil)
 			ep.Ready()
 			ep.Detach(logger)
 		}

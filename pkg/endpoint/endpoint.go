@@ -434,6 +434,10 @@ type Endpoint struct {
 	aliveCancel     context.CancelFunc
 	regenFailedChan chan struct{}
 
+	// identityUpdateTrigger wakes up the policy reconciler (see
+	// reconcilePolicy) whenever SetIdentity changes the endpoint's identity.
+	identityUpdateTrigger chan struct{}
+
 	allocator cache.IdentityAllocator
 
 	isIngress bool
@@ -622,46 +626,47 @@ func createEndpoint(
 	ID uint16,
 	ifName string, policyDebugLog io.Writer) *Endpoint {
 	ep := &Endpoint{
-		dnsRulesAPI:        dnsRulesAPI,
-		epBuildQueue:       p.EPBuildQueue,
-		loader:             p.Loader,
-		orchestrator:       p.Orchestrator,
-		compilationLock:    p.CompilationLock,
-		bandwidthManager:   p.BandwidthManager,
-		ipTablesManager:    p.IPTablesManager,
-		identityManager:    p.IdentityManager,
-		monitorAgent:       p.MonitorAgent,
-		wgConfig:           p.WgConfig,
-		ipsecConfig:        p.IPSecConfig,
-		lxcMap:             p.LxcMap,
-		localNodeStore:     p.LocalNodeStore,
-		policyMapFactory:   p.PolicyMapFactory,
-		policyRepo:         p.PolicyRepo,
-		policyFetcher:      p.PolicyFetcher,
-		ipcache:            p.IPCache,
-		ID:                 ID,
-		createdAt:          time.Now(),
-		proxy:              proxy,
-		ifName:             ifName,
-		labels:             labels.NewOpLabels(),
-		Options:            option.NewIntOptions(&EndpointMutableOptionLibrary),
-		DNSRules:           nil,
-		DNSHistory:         fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies:         fqdn.NewDNSZombieMappings(p.Logger, option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
-		state:              "",
-		status:             NewEndpointStatus(),
-		hasBPFProgram:      make(chan struct{}),
-		desiredPolicy:      policy.NewEndpointPolicy(p.Logger, p.PolicyRepo),
-		controllers:        controller.NewManager(),
-		regenFailedChan:    make(chan struct{}, 1),
-		allocator:          p.Allocator,
-		logLimiter:         logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
-		noTrackPort:        0,
-		properties:         map[string]any{},
-		ctMapGC:            p.CTMapGC,
-		kvstoreSyncher:     p.KVStoreSynchronizer,
-		policyDebugLog:     policyDebugLog,
-		forcePolicyCompute: true,
+		dnsRulesAPI:           dnsRulesAPI,
+		epBuildQueue:          p.EPBuildQueue,
+		loader:                p.Loader,
+		orchestrator:          p.Orchestrator,
+		compilationLock:       p.CompilationLock,
+		bandwidthManager:      p.BandwidthManager,
+		ipTablesManager:       p.IPTablesManager,
+		identityManager:       p.IdentityManager,
+		monitorAgent:          p.MonitorAgent,
+		wgConfig:              p.WgConfig,
+		ipsecConfig:           p.IPSecConfig,
+		lxcMap:                p.LxcMap,
+		localNodeStore:        p.LocalNodeStore,
+		policyMapFactory:      p.PolicyMapFactory,
+		policyRepo:            p.PolicyRepo,
+		policyFetcher:         p.PolicyFetcher,
+		ipcache:               p.IPCache,
+		ID:                    ID,
+		createdAt:             time.Now(),
+		proxy:                 proxy,
+		ifName:                ifName,
+		labels:                labels.NewOpLabels(),
+		Options:               option.NewIntOptions(&EndpointMutableOptionLibrary),
+		DNSRules:              nil,
+		DNSHistory:            fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
+		DNSZombies:            fqdn.NewDNSZombieMappings(p.Logger, option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
+		state:                 "",
+		status:                NewEndpointStatus(),
+		hasBPFProgram:         make(chan struct{}),
+		desiredPolicy:         policy.NewEndpointPolicy(p.Logger, p.PolicyRepo),
+		controllers:           controller.NewManager(),
+		regenFailedChan:       make(chan struct{}, 1),
+		identityUpdateTrigger: make(chan struct{}, 1),
+		allocator:             p.Allocator,
+		logLimiter:            logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
+		noTrackPort:           0,
+		properties:            map[string]any{},
+		ctMapGC:               p.CTMapGC,
+		kvstoreSyncher:        p.KVStoreSynchronizer,
+		policyDebugLog:        policyDebugLog,
+		forcePolicyCompute:    true,
 	}
 
 	ep.initialEnvoyPolicyComputed = make(chan struct{})
@@ -998,6 +1003,7 @@ func ParseEndpoint(p EndpointParams,
 	ep.forcePolicyCompute = true
 	ep.controllers = controller.NewManager()
 	ep.regenFailedChan = make(chan struct{}, 1)
+	ep.identityUpdateTrigger = make(chan struct{}, 1)
 
 	ep.aliveCtx, ep.aliveCancel = context.WithCancel(context.Background())
 
@@ -3067,6 +3073,7 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 	clone.aliveCtx, clone.aliveCancel = context.WithCancel(context.Background())
 	clone.controllers = controller.NewManager()
 	clone.regenFailedChan = make(chan struct{}, 1)
+	clone.identityUpdateTrigger = make(chan struct{}, 1)
 	clone.hasBPFProgram = make(chan struct{})
 	clone.desiredPolicy = policy.NewEndpointPolicy(e.logger.Load(), e.policyRepo)
 	clone.realizedPolicy = clone.desiredPolicy

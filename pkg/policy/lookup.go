@@ -85,7 +85,10 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager iden
 		FallbackRedirectID: math.MaxUint16,
 	}
 
-	epp := selPolSrc.DistillPolicy(logger, srcEP, dummyRedirects)
+	epp, ok := selPolSrc.DistillPolicy(logger, srcEP, dummyRedirects)
+	if !ok {
+		return types.LookupResult{}, ingress, egress, fmt.Errorf("resolvePolicy(from): selector policy superseded while distilling")
+	}
 	epp.Ready()
 	epp.Detach(logger)
 	selPolSrc.Supersede()
@@ -102,7 +105,10 @@ func LookupFlow(logger *slog.Logger, repo PolicyRepository, identityManager iden
 	if err != nil {
 		return types.LookupResult{}, ingress, egress, fmt.Errorf("resolvePolicy(to) failed: %w", err)
 	}
-	epp = selPolDst.DistillPolicy(logger, dstEP, dummyRedirects)
+	epp, ok = selPolDst.DistillPolicy(logger, dstEP, dummyRedirects)
+	if !ok {
+		return types.LookupResult{}, ingress, egress, fmt.Errorf("resolvePolicy(to): selector policy superseded while distilling")
+	}
 	epp.Ready()
 	epp.Detach(logger)
 	selPolDst.Supersede()

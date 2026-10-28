@@ -163,11 +163,26 @@ type datapathRegenerationContext struct {
 	revertibles revert.Revertibles
 }
 
+// prepare sets up the completion context used by waitForPolicyComputationResult
+// for the rest of this regeneration.
+//
+// A regeneration may call this twice: once from ComputeInitialPolicy (for
+// the endpoint's very first regeneration, before the build permit is
+// acquired) and once via prepareForProxyUpdates from regenerateBPF. The
+// second call replaces the first; nothing needs the first completionCtx to
+// remain valid past regeneratePolicy returning from ComputeInitialPolicy.
+func (ctx *datapathRegenerationContext) prepare(parentCtx context.Context) {
+	ctx.completionCtx, ctx.completionCancel = context.WithTimeout(parentCtx, EndpointGenerationTimeout)
+}
+
+// prepareForProxyUpdates ensures the completion context is set up, then
+// creates the proxy wait group used to track proxy updates for this
+// regeneration. Only called from regenerateBPF: redirects added earlier by
+// ComputeInitialPolicy are untracked (a nil wait group), matching how they
+// were handled before ComputeInitialPolicy had a completion context at all.
 func (ctx *datapathRegenerationContext) prepareForProxyUpdates(parentCtx context.Context) {
-	completionCtx, completionCancel := context.WithTimeout(parentCtx, EndpointGenerationTimeout)
-	ctx.proxyWaitGroup = completion.NewWaitGroup(completionCtx)
-	ctx.completionCtx = completionCtx
-	ctx.completionCancel = completionCancel
+	ctx.prepare(parentCtx)
+	ctx.proxyWaitGroup = completion.NewWaitGroup(ctx.completionCtx)
 }
 
 // isPolicyResultCurrent returns whether the policy that ComputeInitialPolicy

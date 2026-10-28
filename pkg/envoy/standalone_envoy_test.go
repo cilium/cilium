@@ -902,7 +902,7 @@ func newStandaloneTestEndpointPolicy(t *testing.T, logger *slog.Logger, repo pol
 	require.NoError(t, err)
 	t.Cleanup(func() { selPolicy.Supersede() })
 
-	epp := selPolicy.DistillPolicy(logger, policyOwner, nil)
+	epp, _ := selPolicy.DistillPolicy(logger, policyOwner, nil)
 	t.Cleanup(func() {
 		_ = epp.Ready()
 		epp.Detach(logger)

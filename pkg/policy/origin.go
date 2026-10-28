@@ -9,7 +9,6 @@ import (
 	"strings"
 	"unique"
 
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -49,14 +48,10 @@ func mergeStringList(a, b stringList) stringList {
 		return a
 	}
 
-	logLines := set.NewSet[string]()
-	for _, line := range a.List() {
-		logLines.Insert(line)
-	}
-	for _, line := range b.List() {
-		logLines.Insert(line)
-	}
-	return newStringList(logLines.AsSlice()...)
+	logLines := slices.Concat(a.List(), b.List())
+	slices.Sort(logLines)
+	logLines = slices.Compact(logLines)
+	return newStringList(logLines...)
 }
 
 // ruleOrigin is an interned labels.LabelArrayList.String(), a list of rule labels tracking which

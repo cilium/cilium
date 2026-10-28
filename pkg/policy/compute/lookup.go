@@ -15,8 +15,8 @@ func (r *IdentityPolicyComputer) GetPolicySnapshot() map[identity.NumericIdentit
 	rtxn := r.db.ReadTxn()
 	snapshot := make(map[identity.NumericIdentity]policy.SelectorPolicy)
 	for res := range r.tbl.All(rtxn) {
-		if res.NewPolicy != nil {
-			snapshot[res.Identity] = res.NewPolicy
+		if res.Policy != nil {
+			snapshot[res.Identity] = res.Policy
 		}
 	}
 	return snapshot

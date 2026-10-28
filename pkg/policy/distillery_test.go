@@ -318,7 +318,7 @@ func (d *policyDistillery) distillEndpointPolicy(logger *slog.Logger, owner Poli
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate policy: %w", err)
 	}
-	epp := sp.DistillPolicy(logger, owner, testRedirects)
+	epp, _ := sp.DistillPolicy(logger, owner, testRedirects)
 	if epp == nil {
 		return nil, errors.New("policy distillation failure")
 	}

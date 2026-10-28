@@ -1,0 +1,223 @@
+name: Resource Churn Test
+
+on:
+
+  push:
+    branches:
+      - pr/fristonio/ci/fix/resource-churn-regression
+
+  schedule:
+    - cron: '0 2 * * 1'
+
+  workflow_dispatch:
+    inputs:
+      PR-number:
+        description: "Pull request number."
+        required: true
+      context-ref:
+        description: "Context in which the workflow runs. If PR is from a fork, will be the PR target branch (general case). If PR is NOT from a fork, will be the PR branch itself (this allows committers to test changes to workflows directly from PRs)."
+        required: true
+      SHA:
+        description: "SHA under test (head of the PR branch)."
+        required: true
+      base-SHA:
+        description: "SHA of the base branch (target branch of the PR). Used as the churn baseline unless overridden with baseline= in extra-args."
+        required: false
+      extra-args:
+        description: "[JSON object] Arbitrary arguments passed from the trigger comment via regex capture group. Parse with 'fromJson(inputs.extra-args).argName' in workflow."
+        required: false
+        default: '{}'
+
+# By specifying the access of one of the scopes, all of those that are not
+# specified are set to 'none'.
+permissions:
+  # To be able to trigger eks-cluster-pool-manager.yaml workflow
+  actions: write
+  # To be able to access the repository with actions/checkout
+  contents: read
+  # To allow retrieving information from the PR API
+  pull-requests: read
+  # To be able to set commit status
+  statuses: write
+  # To be able to request the JWT from GitHub's OIDC provider (AWS, GCP)
+  id-token: write
+
+concurrency:
+  group: |
+    ${{ github.workflow }}
+    ${{ github.event_name }}
+    ${{
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.PR-number) ||
+      github.sha
+    }}
+  cancel-in-progress: false
+
+jobs:
+  echo-inputs:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    name: Echo Workflow Dispatch Inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Echo Workflow Dispatch Inputs
+        run: |
+          echo '${{ tojson(inputs) }}'
+
+  commit-status-start:
+    name: Commit Status Start
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Set initial commit status
+        uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
+        with:
+          sha: ${{ inputs.SHA || github.sha }}
+
+  vars:
+    name: Set up the churn test inputs
+    runs-on: ubuntu-24.04
+    outputs:
+      test-tag: ${{ steps.vars.outputs.test_tag }}
+      test-images: ${{ steps.vars.outputs.test_images }}
+      base-tag: ${{ steps.vars.outputs.base_tag }}
+      baseline-images: ${{ steps.vars.outputs.baseline_images }}
+      scenario: ${{ steps.vars.outputs.scenario }}
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Derive the churn test inputs from the trigger
+        id: vars
+        env:
+          EXTRA_ARGS: ${{ inputs.extra-args }}
+          # On a dispatch these are the head and the target branch of the PR.
+          # The other events carry no inputs and are handled below.
+          TEST_TAG: ${{ inputs.SHA || github.sha }}
+          BASE_TAG: ${{ inputs.base-SHA }}
+        run: |
+          # For scheduled runs use stable cilium version as baseline.
+          if [ "${GITHUB_EVENT_NAME}" == "schedule" ]; then
+            BASE_TAG="stable"
+          fi
+
+          # FIXME: For testing only.
+          if [ "${GITHUB_EVENT_NAME}" == "push" ]; then
+            TEST_TAG="${{ github.sha }}"
+            BASE_TAG="8b67ab5af8773b2165b8cf9c35024a9f05cb219f"
+            EXTRA_ARGS="scenario=all"
+          fi
+
+          # baseline=<sha>        compare against another CI-built commit
+          # baseline=<vX.Y.Z>     compare against a released version
+          # baseline=stable       compare against the latest stable release
+          # baseline=none         run the test tag on its own
+          if [[ "${EXTRA_ARGS}" =~ baseline=([^[:space:]]+) ]]; then
+            baseline="${BASH_REMATCH[1]}"
+            if [ "${baseline}" == "none" ]; then
+              BASE_TAG=""
+            else
+              BASE_TAG="${baseline}"
+            fi
+          fi
+
+          if [ "${BASE_TAG}" == "stable" ]; then
+            BASE_TAG="$(tr -d '[:space:]' < stable.txt)"
+          fi
+
+          TEST_IMAGES="cilium-ci operator-aws-ci cilium-cli-ci"
+          BASELINE_IMAGES="cilium-ci operator-aws-ci"
+
+          # The images of a released version are published by the release and
+          # carry no -ci suffix, unlike the ones CI builds for a commit.
+          if [[ "${BASE_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+            BASELINE_IMAGES="cilium operator-aws"
+          elif [ -n "${BASE_TAG}" ] && [[ ! "${BASE_TAG}" =~ ^[0-9a-f]{7,40}$ ]]; then
+            echo "::error::'${BASE_TAG}' is neither a commit SHA nor a Cilium version"
+            exit 1
+          fi
+
+          SCENARIO="all"
+          if [[ "${EXTRA_ARGS}" =~ scenario=([^[:space:]]+) ]]; then
+            SCENARIO="${BASH_REMATCH[1]}"
+          fi
+
+          {
+            echo "test_tag=${TEST_TAG}"
+            echo "test_images=${TEST_IMAGES}"
+            echo "base_tag=${BASE_TAG}"
+            echo "baseline_images=${BASELINE_IMAGES}"
+            echo "scenario=${SCENARIO}"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## Resource churn test"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Trigger | \`${GITHUB_EVENT_NAME}\` |"
+            echo "| Scenario | \`${SCENARIO}\` |"
+            echo "| Test tag | \`${TEST_TAG}\` |"
+            if [ -n "${BASE_TAG}" ]; then
+              echo "| Baseline | \`${BASE_TAG}\` |"
+            else
+              echo "| Baseline | none |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  wait-for-images:
+    name: Wait for images
+    needs: vars
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout context ref (trusted)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.context-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Wait for test images
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ needs.vars.outputs.test-tag }}
+          images: ${{ needs.vars.outputs.test-images }}
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
+
+      - name: Wait for baseline images
+        if: ${{ needs.vars.outputs.base-tag != '' }}
+        uses: ./.github/actions/wait-for-images
+        with:
+          SHA: ${{ needs.vars.outputs.base-tag }}
+          images: ${{ needs.vars.outputs.baseline-images }}
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
+
+  resource-churn:
+    name: Churn Test
+    needs: [vars, wait-for-images]
+    uses: ./.github/workflows/resource-churn.yaml
+    secrets: inherit
+    with:
+      test-tag: ${{ needs.vars.outputs.test-tag }}
+      base-tag: ${{ needs.vars.outputs.base-tag }}
+      scenario: ${{ needs.vars.outputs.scenario }}
+      context-ref: ${{ inputs.context-ref || github.sha }}
+
+  merge-upload-and-status:
+    name: Merge Upload and Status
+    if: ${{ always() }}
+    needs: resource-churn
+    uses: ./.github/workflows/common-post-jobs.yaml
+    secrets: inherit
+    with:
+      context-ref: ${{ inputs.context-ref || github.sha }}
+      sha: ${{ inputs.SHA || github.sha }}
+      success: ${{ needs.resource-churn.result == 'success' }}
+      # The churn test runs no connectivity test and collects no feature status.
+      merge-features: false

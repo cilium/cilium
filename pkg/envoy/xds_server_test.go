@@ -1585,7 +1585,7 @@ func TestCNPWildcardPortListenerRedirectToEnvoy(t *testing.T) {
 		},
 	}
 
-	epp := selPolicy.DistillPolicy(logger, redirectEP, nil)
+	epp, _ := selPolicy.DistillPolicy(logger, redirectEP, nil)
 	t.Cleanup(func() {
 		epp.Detach(logger)
 	})
@@ -2863,7 +2863,7 @@ func distillEndpointPolicy(t *testing.T, repo *policy.Repository, localIdentity 
 	require.NoError(t, err)
 	t.Cleanup(func() { selPolicy.Supersede() })
 
-	epp := selPolicy.DistillPolicy(logger, ep, nil)
+	epp, _ := selPolicy.DistillPolicy(logger, ep, nil)
 	t.Cleanup(func() {
 		epp.Detach(logger)
 	})

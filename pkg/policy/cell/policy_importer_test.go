@@ -31,17 +31,16 @@ import (
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
 )
 
+// fakeEPM records the revision the importer waits for. Endpoints now learn
+// which identities need regeneration by watching the policy computation
+// table themselves, so idsToRegen/fromRev are no longer handed to epm.
 type fakeEPM struct {
-	regen   *set.Set[identity.NumericIdentity]
-	fromRev uint64
-	toRev   uint64
+	toRev uint64
 }
 
-func (m *fakeEPM) UpdatePolicy(idsToRegen *set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
-	m.regen = idsToRegen
-	m.fromRev = fromRev
-	m.toRev = toRev
-
+func (m *fakeEPM) WaitForEndpointsAtPolicyRev(_ context.Context, rev uint64) error {
+	m.toRev = rev
+	return nil
 }
 
 type fakeipcache struct {
@@ -155,9 +154,8 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	require.ElementsMatch(t, ipc.added.AsSlice(), []string{"1.0.1.0/24"})
 	require.Empty(t, ipc.removed.AsSlice())
 
-	// Check that the right endpoints were updated
+	// Check that the importer waited for the correct revision
 	require.Equal(t, rev, epm.toRev)
-	require.ElementsMatch(t, epm.regen.AsSlice(), []identity.NumericIdentity{100})
 
 	// Update to new rule that selects id 102 and has two prefixes
 	// we should see 1 new prefix, and 2 regenerated endpoints
@@ -184,9 +182,8 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 		netip.MustParsePrefix("1.0.2.0/24"),
 	})
 
-	// Check that the right endpoints were updated
+	// Check that the importer waited for the correct revision
 	require.Equal(t, rev, epm.toRev)
-	require.ElementsMatch(t, epm.regen.AsSlice(), []identity.NumericIdentity{100, 101})
 
 	// Swap endpoints and prefixes
 	rev = writeRules(policyapi.NewRule().
@@ -207,9 +204,8 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	require.ElementsMatch(t, ipc.removed.AsSlice(), []string{"1.0.1.0/24", "1.0.2.0/24"})
 	require.ElementsMatch(t, ipc.added.AsSlice(), []string{"2.0.0.0/24"})
 
-	// Check that the right endpoints were updated
+	// Check that the importer waited for the correct revision
 	require.Equal(t, rev, epm.toRev)
-	require.ElementsMatch(t, epm.regen.AsSlice(), []identity.NumericIdentity{101, 102})
 
 	// Remove all CIDRs
 	rev = writeRules(policyapi.NewRule().
@@ -232,9 +228,8 @@ func TestAddReplaceRemoveRule(t *testing.T) {
 	// When no new CIDRs are added the ipc.added value is not updated
 	// require.ElementsMatch(t, ipc.added.AsSlice(), []string{})
 
-	// Check that the right endpoints were updated
+	// Check that the importer waited for the correct revision
 	require.Equal(t, rev, epm.toRev)
-	require.ElementsMatch(t, epm.regen.AsSlice(), []identity.NumericIdentity{102})
 
 	require.ElementsMatch(t, pi.prefixesByResource[resource], []netip.Prefix{})
 

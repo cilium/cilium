@@ -19,7 +19,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -262,8 +261,8 @@ func computeSelectorPolicy(t *testing.T, f *policyTestFixture, name string) poli
 	<-done
 	res, _, _, found := f.polComputer.GetIdentityPolicyByIdentity(f.podID)
 	require.True(t, found)
-	require.NotNil(t, res.NewPolicy)
-	return res.NewPolicy
+	require.NotNil(t, res.Policy)
+	return res.Policy
 }
 
 // supersedeFetcher serves a detached policy on the first read, then a live one.
@@ -284,20 +283,6 @@ func (f *supersedeFetcher) GetIdentityPolicyByIdentity(*identity.Identity) (comp
 	return res, 0, watch, true
 }
 
-type recomputeRecordingFetcher struct {
-	compute.PolicyRecomputer
-	identity *identity.Identity
-	revision uint64
-}
-
-func (f *recomputeRecordingFetcher) RecomputeIdentityPolicy(identity *identity.Identity, revision uint64) (<-chan struct{}, error) {
-	f.identity = identity
-	f.revision = revision
-	done := make(chan struct{})
-	close(done)
-	return done, nil
-}
-
 // waitForPolicyComputationResult must skip a superseded policy and wait for the
 // replacement instead of failing.
 func TestWaitSkipsSupersededPolicy(t *testing.T) {
@@ -313,8 +298,8 @@ func TestWaitSkipsSupersededPolicy(t *testing.T) {
 	fetcher := &supersedeFetcher{
 		PolicyRecomputer: f.polComputer,
 		results: []compute.Result{
-			{NewPolicy: detached, Revision: rev, CurrentAtRevision: rev},
-			{NewPolicy: live, Revision: rev, CurrentAtRevision: rev},
+			{Policy: detached, Revision: rev, CurrentAtRevision: rev},
+			{Policy: live, Revision: rev, CurrentAtRevision: rev},
 		},
 		watch: make(chan struct{}),
 	}
@@ -322,10 +307,12 @@ func TestWaitSkipsSupersededPolicy(t *testing.T) {
 	ep := Endpoint{policyFetcher: fetcher, SecurityIdentity: f.podID}
 	ep.UpdateLogger(nil)
 
-	res, err := ep.waitForPolicyComputationResult(
-		&datapathRegenerationContext{policyRevisionToWaitFor: rev}, f.podID)
+	regenCtxt := &datapathRegenerationContext{policyRevisionToWaitFor: rev}
+	regenCtxt.prepare(t.Context())
+
+	res, err := ep.waitForPolicyComputationResult(regenCtxt, f.podID)
 	require.NoError(t, err)
-	require.Same(t, live, res.NewPolicy)
+	require.Same(t, live, res.Policy)
 
 	live.ReleaseHold()
 }
@@ -456,29 +443,4 @@ func TestSkippedPolicyRevision(t *testing.T) {
 		require.Nil(t, ep.consumeDeferredRegenerationLocked())
 	})
 
-	t.Run("new unaffected endpoint buffers policy revision", func(t *testing.T) {
-		ep := newEP()
-		ep.state = StateWaitingToRegenerate
-		ep.SecurityIdentity = &identity.Identity{ID: 1234}
-		fetcher := &recomputeRecordingFetcher{}
-		ep.policyFetcher = fetcher
-		affected := set.NewSet[identity.NumericIdentity]()
-
-		ep.UpdatePolicy(&affected, rev1, rev2)
-
-		// An initializing endpoint must explicitly request recomputation because
-		// unaffected identities are not normally recomputed at the new revision.
-		require.Same(t, ep.SecurityIdentity, fetcher.identity)
-		require.Equal(t, uint64(rev2), fetcher.revision)
-
-		// The endpoint must not report the revision as realized before regeneration.
-		require.Zero(t, ep.policyRevision)
-		require.Equal(t, uint64(rev2), ep.skippedPolicyRevision)
-
-		// The queued regeneration must consume and clear the deferred target.
-		ctx := &datapathRegenerationContext{}
-		consume(ep, ctx)
-		require.Equal(t, uint64(rev2), ctx.policyRevisionToWaitFor)
-		require.Zero(t, ep.skippedPolicyRevision)
-	})
 }

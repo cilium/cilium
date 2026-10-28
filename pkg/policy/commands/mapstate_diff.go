@@ -359,7 +359,10 @@ func (s *stageCmd) getEPEntries() (map[policytypes.Key]entryOut, error) {
 		log: s.log,
 		ep:  s.ep,
 	}
-	epp := sp.DistillPolicy(s.log, owner, dummyRedirects)
+	epp, ok := sp.DistillPolicy(s.log, owner, dummyRedirects)
+	if !ok {
+		return nil, fmt.Errorf("selector policy superseded while distilling")
+	}
 	epp.Ready()
 	epp.Detach(s.log)
 	sp.Detach()
