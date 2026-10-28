@@ -15,8 +15,8 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	ciliumLabels "github.com/cilium/cilium/pkg/labels"
@@ -32,20 +32,20 @@ type Parser struct {
 	log               *slog.Logger
 	timestampCache    *lru.Cache[string, time.Time]
 	traceContextCache *lru.Cache[string, *flowpb.TraceContext]
-	dnsGetter         getters.DNSGetter
-	ipGetter          getters.IPGetter
-	serviceGetter     getters.ServiceGetter
-	endpointGetter    getters.EndpointGetter
+	dnsGetter         resolverTypes.DNSGetter
+	ipGetter          resolverTypes.IPGetter
+	serviceGetter     resolverTypes.ServiceGetter
+	endpointGetter    resolverTypes.EndpointGetter
 	opts              *options.Options
 }
 
 // New returns a new L7 parser
 func New(
 	log *slog.Logger,
-	dnsGetter getters.DNSGetter,
-	ipGetter getters.IPGetter,
-	serviceGetter getters.ServiceGetter,
-	endpointGetter getters.EndpointGetter,
+	dnsGetter resolverTypes.DNSGetter,
+	ipGetter resolverTypes.IPGetter,
+	serviceGetter resolverTypes.ServiceGetter,
+	endpointGetter resolverTypes.EndpointGetter,
 	opts ...options.Option,
 ) (*Parser, error) {
 	args := &options.Options{

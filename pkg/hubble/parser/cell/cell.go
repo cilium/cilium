@@ -19,8 +19,8 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hubble/parser"
-	hubbleGetters "github.com/cilium/cilium/pkg/hubble/parser/getters"
 	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -120,7 +120,7 @@ func (p *payloadGetters) GetIdentity(securityIdentity uint32) (*identity.Identit
 // GetEndpointInfo implements EndpointGetter. It returns endpoint info for a
 // given IP address. Hubble uses this function to populate fields like
 // namespace and pod name for local endpoints.
-func (h *payloadGetters) GetEndpointInfo(ip netip.Addr) (endpoint hubbleGetters.EndpointInfo, ok bool) {
+func (h *payloadGetters) GetEndpointInfo(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 	if !ip.IsValid() {
 		return nil, false
 	}
@@ -133,7 +133,7 @@ func (h *payloadGetters) GetEndpointInfo(ip netip.Addr) (endpoint hubbleGetters.
 
 // GetEndpointInfoByID implements EndpointGetter. It returns endpoint info for
 // a given Cilium endpoint id. Used by Hubble.
-func (h *payloadGetters) GetEndpointInfoByID(id uint16) (endpoint hubbleGetters.EndpointInfo, ok bool) {
+func (h *payloadGetters) GetEndpointInfoByID(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 	ep := h.endpointManager.LookupCiliumID(id)
 	if ep == nil {
 		return nil, false

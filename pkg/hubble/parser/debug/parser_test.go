@@ -14,8 +14,8 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -31,7 +31,7 @@ func encodeDebugEvent(msg *monitor.DebugMsg) []byte {
 
 func TestDecodeDebugEvent(t *testing.T) {
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if id == 1234 {
 				return &testutils.FakeEndpointInfo{
 					ID:           1234,

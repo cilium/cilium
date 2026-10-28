@@ -15,7 +15,7 @@ import (
 	"syscall"
 
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -280,7 +280,7 @@ func (n *DebugMsg) Decode(data []byte) error {
 }
 
 // Message returns the debug message in a human-readable format
-func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
+func (n *DebugMsg) Message(linkMonitor resolverTypes.LinkGetter) string {
 	switch n.SubType {
 	case DbgGeneric:
 		return fmt.Sprintf("No message, arg1=%d (%#x) arg2=%d (%#x) arg3=%d (%#x)", n.Arg1, n.Arg1, n.Arg2, n.Arg2, n.Arg3, n.Arg3)
@@ -423,7 +423,7 @@ func (n *DebugMsg) Message(linkMonitor getters.LinkGetter) string {
 	}
 }
 
-func (n *DebugMsg) getJSON(cpuPrefix string, linkMonitor getters.LinkGetter) string {
+func (n *DebugMsg) getJSON(cpuPrefix string, linkMonitor resolverTypes.LinkGetter) string {
 	return fmt.Sprintf(`{"cpu":%q,"type":"debug","message":%q}`,
 		cpuPrefix, n.Message(linkMonitor))
 }
@@ -508,7 +508,7 @@ func (n *DebugCapture) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the capture messages.
-func (n *DebugCapture) DumpInfo(buf *bufio.Writer, data []byte, linkMonitor getters.LinkGetter) {
+func (n *DebugCapture) DumpInfo(buf *bufio.Writer, data []byte, linkMonitor resolverTypes.LinkGetter) {
 	prefix := n.infoPrefix(linkMonitor)
 
 	if len(prefix) > 0 {
@@ -516,7 +516,7 @@ func (n *DebugCapture) DumpInfo(buf *bufio.Writer, data []byte, linkMonitor gett
 	}
 }
 
-func (n *DebugCapture) infoPrefix(linkMonitor getters.LinkGetter) string {
+func (n *DebugCapture) infoPrefix(linkMonitor resolverTypes.LinkGetter) string {
 	switch n.SubType {
 	case DbgCaptureDelivery:
 		ifname := linkMonitor.Name(n.Arg1)
@@ -571,7 +571,7 @@ func (n *DebugCapture) subTypeString() string {
 	}
 }
 
-func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) (string, error) {
+func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor resolverTypes.LinkGetter) (string, error) {
 
 	v := DebugCaptureToVerbose(n, linkMonitor)
 	v.CPUPrefix = cpuPrefix
@@ -582,7 +582,7 @@ func (n *DebugCapture) getJSON(data []byte, cpuPrefix string, linkMonitor getter
 }
 
 // DumpJSON prints notification in json format
-func (n *DebugCapture) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
+func (n *DebugCapture) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string, linkMonitor resolverTypes.LinkGetter) {
 	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err != nil {
 		fmt.Fprintf(buf, `{"type":"debug_capture_error","message":%q}`+"\n", err.Error())
@@ -606,7 +606,7 @@ type DebugCaptureVerbose struct {
 }
 
 // DebugCaptureToVerbose creates verbose notification from base TraceNotify
-func DebugCaptureToVerbose(n *DebugCapture, linkMonitor getters.LinkGetter) DebugCaptureVerbose {
+func DebugCaptureToVerbose(n *DebugCapture, linkMonitor resolverTypes.LinkGetter) DebugCaptureVerbose {
 	return DebugCaptureVerbose{
 		Type:    "capture",
 		Mark:    fmt.Sprintf("%#x", n.Hash),
