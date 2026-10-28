@@ -5,6 +5,7 @@ package watchers
 
 import (
 	"log/slog"
+	"slices"
 
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -156,6 +157,15 @@ func (cs *cesSubscriber) deleteCEPfromCES(CEPName, CESName string, c *types.Cili
 	}
 	cep, exists := cs.cepMap.getCEPLocked(CEPName)
 	if !exists {
+		if activeCEP, hasActiveIP := cs.cepMap.getCEPForDeletedIPLocked(c); hasActiveIP {
+			cs.logger.Debug(
+				"CEP deleted, other CEP with same IP exists, calling endpointUpdated",
+				logfields.CESName, CESName,
+				logfields.CEPName, CEPName,
+			)
+			cs.epWatcher.endpointUpdated(c, activeCEP)
+			return
+		}
 		cs.logger.Debug(
 			"CEP deleted, calling endpointDeleted",
 			logfields.CESName, CESName,
@@ -203,21 +213,89 @@ type cepToCESmap struct {
 	// map of CEP name and currently used CES name.
 	// Current CEP is cepMap[CEP][currentCES[CEP]]
 	currentCES map[string]string
+	// ipToCEPs maps an IP address (IPv4 or IPv6) to an insertion-ordered slice
+	// of CEPNames currently claiming that IP across active CES slices, enabling
+	// deterministic O(1) re-assertion when a stale CEP sharing an IP is removed.
+	ipToCEPs map[string][]string
 }
 
 func newCEPToCESMap() *cepToCESmap {
 	return &cepToCESmap{
 		cepMap:     make(map[string]cesToCEPRef),
 		currentCES: make(map[string]string),
+		ipToCEPs:   make(map[string][]string),
 	}
 }
 
+func (c *cepToCESmap) addCEPToIPMapLocked(cepName string, cep *types.CiliumEndpoint) {
+	if cep == nil || cep.Networking == nil {
+		return
+	}
+	if c.ipToCEPs == nil {
+		c.ipToCEPs = make(map[string][]string)
+	}
+	for _, pair := range cep.Networking.Addressing {
+		for _, ip := range []string{pair.IPV4, pair.IPV6} {
+			if ip == "" {
+				continue
+			}
+			if !slices.Contains(c.ipToCEPs[ip], cepName) {
+				c.ipToCEPs[ip] = append(c.ipToCEPs[ip], cepName)
+			}
+		}
+	}
+}
+
+func (c *cepToCESmap) removeCEPFromIPMapLocked(cepName string, cep *types.CiliumEndpoint) {
+	if cep == nil || cep.Networking == nil || c.ipToCEPs == nil {
+		return
+	}
+	for _, pair := range cep.Networking.Addressing {
+		for _, ip := range []string{pair.IPV4, pair.IPV6} {
+			if ip == "" {
+				continue
+			}
+			ceps := slices.DeleteFunc(c.ipToCEPs[ip], func(name string) bool {
+				return name == cepName
+			})
+			if len(ceps) == 0 {
+				delete(c.ipToCEPs, ip)
+			} else {
+				c.ipToCEPs[ip] = ceps
+			}
+		}
+	}
+}
+
+func (c *cepToCESmap) getCEPForDeletedIPLocked(deletedCEP *types.CiliumEndpoint) (*types.CiliumEndpoint, bool) {
+	if deletedCEP == nil || deletedCEP.Networking == nil || c.ipToCEPs == nil {
+		return nil, false
+	}
+	for _, pair := range deletedCEP.Networking.Addressing {
+		for _, ip := range []string{pair.IPV4, pair.IPV6} {
+			if ip == "" {
+				continue
+			}
+			for _, cepName := range slices.Backward(c.ipToCEPs[ip]) {
+				if activeCEP, ok := c.getCEPLocked(cepName); ok {
+					return activeCEP, true
+				}
+			}
+		}
+	}
+	return nil, false
+}
+
 func (c *cepToCESmap) insertCEPLocked(cepName, cesName string, cep *types.CiliumEndpoint) {
+	if oldCEP, exists := c.getCEPLocked(cepName); exists {
+		c.removeCEPFromIPMapLocked(cepName, oldCEP)
+	}
 	if _, exists := c.cepMap[cepName]; !exists {
 		c.cepMap[cepName] = make(map[string]*types.CiliumEndpoint)
 	}
 	c.cepMap[cepName][cesName] = cep
 	c.currentCES[cepName] = cesName
+	c.addCEPToIPMapLocked(cepName, cep)
 }
 
 func (c *cepToCESmap) deleteCEPLocked(cepName, cesName string) {
@@ -225,17 +303,21 @@ func (c *cepToCESmap) deleteCEPLocked(cepName, cesName string) {
 	if !exists {
 		return
 	}
-	if _, exists = cesToCEPMap[cesName]; !exists {
+	oldCEP, exists := cesToCEPMap[cesName]
+	if !exists {
 		return
 	}
 	if len(cesToCEPMap) == 1 {
+		c.removeCEPFromIPMapLocked(cepName, oldCEP)
 		delete(c.cepMap, cepName)
 		delete(c.currentCES, cepName)
 	} else {
 		delete(cesToCEPMap, cesName)
 		if c.currentCES[cepName] == cesName {
-			for k := range cesToCEPMap {
+			c.removeCEPFromIPMapLocked(cepName, oldCEP)
+			for k, replacementCEP := range cesToCEPMap {
 				c.currentCES[cepName] = k
+				c.addCEPToIPMapLocked(cepName, replacementCEP)
 				break
 			}
 		}
