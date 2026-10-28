@@ -1218,6 +1218,12 @@ data:
 {{- if .Values.ipam.multiPoolPreAllocation }}
   ipam-multi-pool-pre-allocation: {{ .Values.ipam.multiPoolPreAllocation | quote }}
 {{- end }}
+{{- if .Values.ipam.cloudRelease }}
+  ipam-cloud-release: "true"
+{{- end }}
+{{- if .Values.ipam.cloudReleaseDelay }}
+  ipam-cloud-release-delay: {{ include "validateDuration" .Values.ipam.cloudReleaseDelay | quote }}
+{{- end }}
 
 {{- if .Values.ipam.ciliumNodeUpdateRate }}
   ipam-cilium-node-update-rate: {{ include "validateDuration" .Values.ipam.ciliumNodeUpdateRate | quote }}

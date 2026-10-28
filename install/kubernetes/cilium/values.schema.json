@@ -4590,6 +4590,12 @@
         "ciliumNodeUpdateRate": {
           "type": "string"
         },
+        "cloudRelease": {
+          "type": "boolean"
+        },
+        "cloudReleaseDelay": {
+          "type": "string"
+        },
         "installUplinkRoutesForDelegatedIPAM": {
           "type": "boolean"
         },
