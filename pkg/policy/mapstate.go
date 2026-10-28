@@ -861,7 +861,7 @@ func (ms mapState) String() (res string) {
 
 // Equal returns true of two entries are equal.
 func (e mapStateEntry) Equal(o mapStateEntry) bool {
-	return e.equivalent(o) && e.derivedFromRules == o.derivedFromRules
+	return e.derivedFromRules == o.derivedFromRules && e.equivalent(o)
 }
 
 // equivalent returns true if two entries have the same policy effect,
