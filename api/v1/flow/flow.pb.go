@@ -1544,8 +1544,18 @@ type Flow struct {
 	NodeLabels []string `protobuf:"bytes,37,rep,name=node_labels,json=nodeLabels,proto3" json:"node_labels,omitempty"`
 	// all names the source IP can have.
 	SourceNames []string `protobuf:"bytes,13,rep,name=source_names,json=sourceNames,proto3" json:"source_names,omitempty"`
+	// Expired names the source IP can have. These are names whose DNS entries
+	// have expired, but whose IP is still in use by a connection that outlived
+	// the DNS TTL, so the name may be stale. Names listed in source_names are
+	// not repeated here.
+	SourceNamesExpired []string `protobuf:"bytes,44,rep,name=source_names_expired,json=sourceNamesExpired,proto3" json:"source_names_expired,omitempty"`
 	// all names the destination IP can have.
 	DestinationNames []string `protobuf:"bytes,14,rep,name=destination_names,json=destinationNames,proto3" json:"destination_names,omitempty"`
+	// Expired names the destination IP can have. These are names whose DNS
+	// entries have expired, but whose IP is still in use by a connection that
+	// outlived the DNS TTL, so the name may be stale. Names listed in
+	// destination_names are not repeated here.
+	DestinationNamesExpired []string `protobuf:"bytes,45,rep,name=destination_names_expired,json=destinationNamesExpired,proto3" json:"destination_names_expired,omitempty"`
 	// L7 information. This field is set if and only if FlowType is L7.
 	L7 *Layer7 `protobuf:"bytes,15,opt,name=l7,proto3" json:"l7,omitempty"`
 	// Deprecated. This suffers from false negatives due to protobuf not being
@@ -1783,9 +1793,23 @@ func (x *Flow) GetSourceNames() []string {
 	return nil
 }
 
+func (x *Flow) GetSourceNamesExpired() []string {
+	if x != nil {
+		return x.SourceNamesExpired
+	}
+	return nil
+}
+
 func (x *Flow) GetDestinationNames() []string {
 	if x != nil {
 		return x.DestinationNames
+	}
+	return nil
+}
+
+func (x *Flow) GetDestinationNamesExpired() []string {
+	if x != nil {
+		return x.DestinationNamesExpired
 	}
 	return nil
 }
@@ -5549,7 +5573,7 @@ var File_flow_flow_proto protoreflect.FileDescriptor
 
 const file_flow_flow_proto_rawDesc = "" +
 	"\n" +
-	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\x91\x11\n" +
+	"\x0fflow/flow.proto\x12\x04flow\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xff\x11\n" +
 	"\x04Flow\x12.\n" +
 	"\x04time\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\x04time\x12\x12\n" +
 	"\x04uuid\x18\" \x01(\tR\x04uuid\x12'\n" +
@@ -5569,8 +5593,10 @@ const file_flow_flow_proto_rawDesc = "" +
 	"\tnode_name\x18\v \x01(\tR\bnodeName\x12\x1f\n" +
 	"\vnode_labels\x18% \x03(\tR\n" +
 	"nodeLabels\x12!\n" +
-	"\fsource_names\x18\r \x03(\tR\vsourceNames\x12+\n" +
-	"\x11destination_names\x18\x0e \x03(\tR\x10destinationNames\x12\x1c\n" +
+	"\fsource_names\x18\r \x03(\tR\vsourceNames\x120\n" +
+	"\x14source_names_expired\x18, \x03(\tR\x12sourceNamesExpired\x12+\n" +
+	"\x11destination_names\x18\x0e \x03(\tR\x10destinationNames\x12:\n" +
+	"\x19destination_names_expired\x18- \x03(\tR\x17destinationNamesExpired\x12\x1c\n" +
 	"\x02l7\x18\x0f \x01(\v2\f.flow.Layer7R\x02l7\x12\x18\n" +
 	"\x05reply\x18\x10 \x01(\bB\x02\x18\x01R\x05reply\x124\n" +
 	"\n" +

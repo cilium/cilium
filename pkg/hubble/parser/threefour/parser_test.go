@@ -328,6 +328,12 @@ func TestL34Decode(t *testing.T) {
 			}
 			return nil
 		},
+		OnGetExpiredNamesOf: func(epID uint32, ip netip.Addr) (names []string) {
+			if epID == 1234 && ip.String() == "192.168.60.11" {
+				return []string{"expired-192.168.60.11"}
+			}
+			return nil
+		},
 	}
 	ipGetter := &testutils.FakeIPGetter{
 		OnGetK8sMetadata: func(ip netip.Addr) *ipcache.K8sMetadata {
@@ -378,6 +384,7 @@ func TestL34Decode(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"host-192.168.60.11"}, f.GetSourceNames())
+	assert.Equal(t, []string{"expired-192.168.60.11"}, f.GetSourceNamesExpired())
 	assert.Equal(t, "192.168.60.11", f.GetIP().GetSource())
 	assert.Empty(t, f.GetIP().GetSourceXlated())
 	assert.Equal(t, flowpb.TraceReason_ESTABLISHED, f.GetTraceReason())
@@ -390,6 +397,7 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, uint32(1), f.GetSource().GetIdentity())
 
 	assert.Equal(t, []string(nil), f.GetDestinationNames())
+	assert.Equal(t, []string(nil), f.GetDestinationNamesExpired())
 	assert.Equal(t, "10.16.236.178", f.GetIP().GetDestination())
 	assert.Equal(t, uint32(54222), f.L4.GetTCP().GetDestinationPort())
 	assert.Equal(t, "pod-10.16.236.178", f.GetDestination().GetPodName())
