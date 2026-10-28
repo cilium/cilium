@@ -157,7 +157,7 @@ update-redirects: builder-image ## Build and serve the documentation locally.
 update-requirements: docs-base-image $(DOCS_REQUIREMENTS_NODEP) ## Regenerate the requirements.txt file from requirements-min/requirements.txt.
 	@echo '## Auto-generated from Documentation/$(DOCS_REQUIREMENTS_NODEP) with "make update-requirements"' > $(DOCS_BUILDER_DIR)/$(DOCS_REQUIREMENTS)
 	$(QUIET)$(DOCKER_CTR_BASE) $(DOCS_BASE_IMG) \
-		bash -c "export HOME=/tmp && pip install --no-warn-script-location -r ../../Documentation/$(DOCS_REQUIREMENTS_NODEP) && pip freeze -r ../../$(DOCS_REQUIREMENTS_NODEP) >> $(DOCS_REQUIREMENTS)"
+		bash -c "export HOME=/tmp && pip install --no-warn-script-location -r ../../Documentation/$(DOCS_REQUIREMENTS_NODEP) && pip freeze -r ../../Documentation/$(DOCS_REQUIREMENTS_NODEP) >> $(DOCS_REQUIREMENTS)"
 
 clean: ## Clean up all artefacts from documentation.
 	-$(QUIET)rm -rf _build _exts/__pycache__ _preview Pipfile Pipfile.lock
