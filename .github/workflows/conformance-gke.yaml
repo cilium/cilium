@@ -317,7 +317,7 @@ jobs:
           external-ip: '8.8.8.8'
           external-other-ip: '8.8.4.4'
           hubble: false
-          test-concurrency: 5
+          test-concurrency: 3
 
       - name: Set up job variables
         id: vars
