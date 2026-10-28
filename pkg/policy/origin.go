@@ -80,6 +80,17 @@ func (ro ruleOrigin) LabelsString() labels.LabelArrayListString {
 	return ro.Value().labels
 }
 
+// LoggingID returns the internal string representation of rule logging
+// identifier. Used for checking if rule origin for mapstate entries
+// are equivalent.
+func (ro ruleOrigin) LoggingID() string {
+	// Avoid nil pointer dereference if handle is empty
+	if unique.Handle[RuleMeta](ro) == (unique.Handle[RuleMeta]{}) {
+		return ""
+	}
+	return string(ro.Value().log)
+}
+
 func (ro ruleOrigin) LogString() string {
 	// Avoid nil pointer dereference if handle is empty
 	if unique.Handle[RuleMeta](ro) == (unique.Handle[RuleMeta]{}) {
