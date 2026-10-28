@@ -214,55 +214,46 @@ func TestDelayedImmediateResponseDoesNotACKLaterSameTypeUpdates(t *testing.T) {
 }
 
 func TestTrackedWatchRemovalPreservesOtherNodes(t *testing.T) {
-	for _, clearSnapshot := range []bool{false, true} {
-		t.Run(fmt.Sprintf("clear-snapshot=%t", clearSnapshot), func(t *testing.T) {
-			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1", "node2"))
-			responses := make(chan cache.Response, 2)
-			var cancels []func()
-			for _, nodeID := range []string{"node1", "node2"} {
-				request := &cache.Request{
-					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
-				}
-				subscription := stream.NewSotwSubscription(nil, true)
-				cancel, err := c.CreateWatch(request, subscription, responses)
-				require.NoError(t, err)
-				t.Cleanup(cancel)
-				response := <-responses
-				subscription.SetReturnedResources(response.GetReturnedResources())
-				request.VersionInfo = response.GetResponseVersion()
-				cancel, err = c.CreateWatch(request, subscription, responses)
-				require.NoError(t, err)
-				t.Cleanup(cancel)
-				cancels = append(cancels, cancel)
-			}
-			require.False(t, c.getNodeState("node1").openWatches.Empty())
-			require.False(t, c.getNodeState("node2").openWatches.Empty())
-			require.Len(t, c.watchRelays, 1, "nodes sharing a response channel share its relay")
-			if clearSnapshot {
-				c.ClearSnapshot("node1")
-				require.Nil(t, c.GetStatusInfo("node1"))
-			} else {
-				cancels[0]()
-				require.Zero(t, c.GetStatusInfo("node1").GetNumWatches())
-			}
-			cancels[0]()
-			require.True(t, c.getNodeState("node1").openWatches.Empty())
-			require.False(t, c.getNodeState("node2").openWatches.Empty())
-			require.Equal(t, 1, c.watchRelays[responses].watches.Len())
-			require.Equal(t, 1, c.GetStatusInfo("node2").GetNumWatches())
-			cancels[1]()
-			require.True(t, c.getNodeState("node1").openWatches.Empty())
-			require.True(t, c.getNodeState("node2").openWatches.Empty())
-			require.True(t, c.HasNode("node1"), "canceling or clearing watches must not forget a known node")
-			require.True(t, c.HasNode("node2"))
-			require.Empty(t, c.watchRelays)
-		})
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1", "node2"))
+	responses := make(chan cache.Response, 2)
+	var cancels []func()
+	for _, nodeID := range []string{"node1", "node2"} {
+		request := &cache.Request{
+			Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Listener.URL(),
+		}
+		subscription := stream.NewSotwSubscription(nil, true)
+		cancel, err := c.CreateWatch(request, subscription, responses)
+		require.NoError(t, err)
+		t.Cleanup(cancel)
+		response := <-responses
+		subscription.SetReturnedResources(response.GetReturnedResources())
+		request.VersionInfo = response.GetResponseVersion()
+		cancel, err = c.CreateWatch(request, subscription, responses)
+		require.NoError(t, err)
+		t.Cleanup(cancel)
+		cancels = append(cancels, cancel)
 	}
+	require.False(t, c.getNodeState("node1").openWatches.Empty())
+	require.False(t, c.getNodeState("node2").openWatches.Empty())
+	require.Len(t, c.watchRelays, 1, "nodes sharing a response channel share its relay")
+	cancels[0]()
+	require.Zero(t, c.GetStatusInfo("node1").GetNumWatches())
+	cancels[0]()
+	require.True(t, c.getNodeState("node1").openWatches.Empty())
+	require.False(t, c.getNodeState("node2").openWatches.Empty())
+	require.Equal(t, 1, c.watchRelays[responses].watches.Len())
+	require.Equal(t, 1, c.GetStatusInfo("node2").GetNumWatches())
+	cancels[1]()
+	require.True(t, c.getNodeState("node1").openWatches.Empty())
+	require.True(t, c.getNodeState("node2").openWatches.Empty())
+	require.True(t, c.HasNode("node1"), "canceling watches must not forget a known node")
+	require.True(t, c.HasNode("node2"))
+	require.Empty(t, c.watchRelays)
 }
 
 func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 	for _, watchCount := range []int{2, 3} {
-		for _, action := range []string{"cancel", "respond", "clear"} {
+		for _, action := range []string{"cancel", "respond"} {
 			t.Run(fmt.Sprintf("watches-%d/%s", watchCount, action), func(t *testing.T) {
 				c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 				const nodeID = "node1"
@@ -322,9 +313,6 @@ func TestTrackedWatchesSharingRequestPointer(t *testing.T) {
 							t.Fatal("each watch must receive its own response")
 						}
 					}
-				case "clear":
-					c.ClearSnapshot(nodeID)
-					require.Nil(t, c.GetStatusInfo(nodeID))
 				}
 				require.True(t, c.getNodeState(nodeID).openWatches.Empty())
 				require.Empty(t, c.watchRelays)

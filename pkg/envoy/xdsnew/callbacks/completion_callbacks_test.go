@@ -499,9 +499,6 @@ func TestAcceptedResourcesCleared(t *testing.T) {
 		name  string
 		clear func(*testing.T, *CompletionCallbacks)
 	}{
-		{name: "snapshot-cleared", clear: func(_ *testing.T, cb *CompletionCallbacks) {
-			cb.SetPublishedSnapshot("node-1", nil)
-		}},
 		{name: "fresh-subscription", clear: func(t *testing.T, cb *CompletionCallbacks) {
 			require.NoError(t, cb.OnStreamRequest(1, &discovery.DiscoveryRequest{
 				Node: &core.Node{Id: "node-1"}, TypeUrl: listenerTypeURL.URL(),
@@ -518,13 +515,11 @@ func TestAcceptedResourcesCleared(t *testing.T) {
 			tt.clear(t, cb)
 			require.False(t, cb.ResourceAccepted("node-1", listenerTypeURL, resource.Name, resource, true, Revision{}))
 			require.False(t, cb.ResourceAccepted("node-1", listenerTypeURL, resource.Name, nil, false, Revision{}))
-			if tt.name != "snapshot-cleared" {
-				_, comp, pending := cb.newTestCompletion(t, listenerTypeURL, 1, resource.Name)
-				registered, err := cb.AddPreparedTypeGenerationCompletion(comp, pending, "version-1", false)
-				require.NoError(t, err)
-				require.True(t, registered, "a new consumer must ACK its own response")
-				requireCompletionPending(t, comp)
-			}
+			_, comp, pending := cb.newTestCompletion(t, listenerTypeURL, 1, resource.Name)
+			registered, err := cb.AddPreparedTypeGenerationCompletion(comp, pending, "version-1", false)
+			require.NoError(t, err)
+			require.True(t, registered, "a new consumer must ACK its own response")
+			requireCompletionPending(t, comp)
 		})
 	}
 }

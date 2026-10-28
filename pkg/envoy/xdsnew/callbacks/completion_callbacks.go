@@ -314,7 +314,6 @@ func (cb *CompletionCallbacks) addPendingCompletion(c *completion.Completion, pe
 // SetPublishedSnapshot prunes obsolete sparse acceptance evidence after the
 // cache confirms SetSnapshot installed the snapshot, before delivering buffered
 // responses. It does not infer acceptance from publication or echoed versions.
-// A nil snapshot clears acceptance evidence without removing pending rollback state.
 func (cb *CompletionCallbacks) SetPublishedSnapshot(nodeID string, snapshot cache.ResourceSnapshot) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
@@ -322,12 +321,6 @@ func (cb *CompletionCallbacks) SetPublishedSnapshot(nodeID string, snapshot cach
 	nodeState := cb.nodes[nodeID]
 	if nodeState == nil {
 		// No acceptance evidence exists before callback state is created.
-		return
-	}
-	if snapshot == nil {
-		for typeURL := range typeurl.Count {
-			nodeState.typeURLs[typeURL].acceptedResources = acceptedResourceGroup{}
-		}
 		return
 	}
 	// Subset subscribers may never ACK a full group. Their sparse acceptance

@@ -645,55 +645,69 @@ func TestPartialResponseNoOpWaitsForItsOwnResource(t *testing.T) {
 	require.NoError(t, <-noOp)
 }
 
-func TestNoOpWaitAfterClearSnapshot(t *testing.T) {
-	for _, bulk := range []bool{false, true} {
-		for _, existing := range []bool{false, true} {
-			for _, rejection := range []string{"", "listener response rejected"} {
-				t.Run(fmt.Sprintf("bulk=%t/existing=%t/nack=%t", bulk, existing, rejection != ""), func(t *testing.T) {
-					c := newCoverageCache(t)
-					policy := &cilium.NetworkPolicy{EndpointId: 1}
-					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil))
-					var resource *listener.Listener
-					if existing {
-						resource = &listener.Listener{Name: "listener"}
-						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil))
+func TestNoOpWaitBeforeFirstPublication(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		bulk      bool
+		existing  bool
+		nilUpsert bool
+	}{
+		{name: "single-upsert", existing: true},
+		{name: "single-removal"},
+		{name: "single-nil-upsert", nilUpsert: true},
+		{name: "bulk-upsert", bulk: true, existing: true},
+		{name: "bulk-removal", bulk: true},
+		{name: "bulk-nil-upsert", bulk: true, nilUpsert: true},
+	} {
+		for _, rejection := range []string{"", "listener response rejected"} {
+			t.Run(fmt.Sprintf("%s/nack=%t", tt.name, rejection != ""), func(t *testing.T) {
+				c := newCoverageCache(t)
+				policy := &cilium.NetworkPolicy{EndpointId: 1}
+				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.NetworkPolicy, "policy", policy, nil))
+				var resource *listener.Listener
+				if tt.existing {
+					resource = &listener.Listener{Name: "listener"}
+					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil))
+				}
+				ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+				t.Cleanup(cancel)
+				wg := completion.NewWaitGroup(ctx)
+				t.Cleanup(wg.Cancel)
+				if tt.bulk {
+					resources := xds.Resources{Listeners: map[string]*listener.Listener{"listener": resource}}
+					mutations := ResourceMutations{Upserted: resources}
+					if !tt.existing && !tt.nilUpsert {
+						mutations = ResourceMutations{Removed: resources}
 					}
-					c.ClearSnapshot("coverage-node")
-					ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-					t.Cleanup(cancel)
-					wg := completion.NewWaitGroup(ctx)
-					t.Cleanup(wg.Cancel)
-					if bulk {
-						var waits typeurl.Set
-						waits.Insert(typeurl.Listener)
-						require.NoError(t, c.ApplyResources(ctx, "coverage-node", ResourceMutations{Upserted: xds.Resources{
-							Listeners: map[string]*listener.Listener{"listener": resource},
-						}}, wg, waits))
-					} else {
-						require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "listener", resource, wg))
+					require.NoError(t, c.ApplyResources(ctx, "coverage-node", mutations, wg, typeurl.NewSet(typeurl.Listener)))
+				} else {
+					var value proto.Message
+					if tt.existing || tt.nilUpsert {
+						value = resource
 					}
+					require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Listener, "listener", value, wg))
+				}
+				require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+				_, err := c.GetSnapshot("coverage-node")
+				require.Error(t, err, "a no-op must not force publication")
+				s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
+				response := s.receive(t)
+				require.Equal(t, tt.existing, len(response.Resources) != 0)
+				require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
+				s.reply(t, response, rejection)
+				if rejection != "" && !tt.existing {
 					require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-					_, err := c.GetSnapshot("coverage-node")
-					require.Error(t, err, "a no-op must not force publication")
-					s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
-					response := s.receive(t)
-					require.Equal(t, existing, len(response.Resources) != 0)
-					require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-					s.reply(t, response, rejection)
-					if rejection != "" && !existing {
-						require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-						s.reply(t, s.receive(t), "")
-					}
-					if rejection == "" || !existing {
-						require.NoError(t, wg.Wait())
-					} else {
-						require.ErrorContains(t, wg.Wait(), rejection)
-					}
-					current := c.GetResource("coverage-node", typeurl.NetworkPolicy, "policy")
-					require.NotNil(t, current)
-					require.Same(t, policy, current, "an LDS outcome must not revert the unrelated policy")
-				})
-			}
+					s.reply(t, s.receive(t), "")
+				}
+				if rejection == "" || !tt.existing {
+					require.NoError(t, wg.Wait())
+				} else {
+					require.ErrorContains(t, wg.Wait(), rejection)
+				}
+				current := c.GetResource("coverage-node", typeurl.NetworkPolicy, "policy")
+				require.NotNil(t, current)
+				require.Same(t, policy, current, "an LDS outcome must not revert the unrelated policy")
+			})
 		}
 	}
 }
@@ -740,26 +754,24 @@ func TestInitialBulkMutationCanAwaitUnchangedType(t *testing.T) {
 	}
 }
 
-func TestNoOpWaitAfterClearRequiresFreshACK(t *testing.T) {
+func TestNoOpWaitAfterReconnectRequiresFreshACK(t *testing.T) {
 	c := newCoverageCache(t)
 	resource := &listener.Listener{Name: "listener"}
 	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, nil))
 	s := coverageStream{cache: c, id: 1, typeURL: typeurl.Listener.URL()}
 	s.reply(t, s.receive(t), "")
-	c.ClearSnapshot("coverage-node")
+	published := mustSnapshot(t, c, "coverage-node")
+	c.completionCbs.OnStreamClosed(s.id, nil)
 	wg := completion.NewWaitGroup(t.Context())
 	t.Cleanup(wg.Cancel)
 	require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, resource.Name, resource, wg))
 	require.Equal(t, 1, c.completionCbs.PendingCompletionCount())
-	// Republishing identical contents must not restore cleared acceptance
-	// evidence. The wait still needs an ACK for the new response.
-	responses := make(chan cache.Response, 1)
-	cancel, err := c.CreateWatch(&cache.Request{
-		Node: &core.Node{Id: "coverage-node"}, TypeUrl: typeurl.Listener.URL(),
-	}, stream.NewSotwSubscription(nil, true), responses)
-	require.NoError(t, err)
-	t.Cleanup(cancel)
-	require.Equal(t, 1, c.completionCbs.PendingCompletionCount(), "publication alone must not complete the wait")
+	// A fresh subscription reuses the snapshot, but acceptance from the closed
+	// stream cannot satisfy this wait. It needs an ACK for the new response.
+	s = coverageStream{cache: c, id: 2, typeURL: typeurl.Listener.URL()}
+	responses := s.watch(t)
+	require.Same(t, published, mustSnapshot(t, c, "coverage-node"))
+	require.Equal(t, 1, c.completionCbs.PendingCompletionCount(), "a new subscription alone must not complete the wait")
 	require.Len(t, responses, 1)
 	response := s.deliver(t, <-responses)
 	require.Equal(t, 1, c.completionCbs.PendingCompletionCount(), "response delivery alone must not complete the wait")
