@@ -533,7 +533,7 @@ jobs:
           external-target-ca-name: custom-ca
           external-target-fake-dns: true
           hubble: false
-          test-concurrency: 5
+          test-concurrency: 3
 
       - name: Set up job variables for connectivity tests
         id: vars-conn
