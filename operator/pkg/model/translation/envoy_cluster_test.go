@@ -123,6 +123,59 @@ func Test_httpClusterWithTLSOriginationAllowsTLS13(t *testing.T) {
 	require.Equal(t, envoy_config_tls.TlsParameters_TLSv1_3, tlsContext.CommonTlsContext.TlsParams.TlsMaximumProtocolVersion)
 }
 
+func Test_desiredEnvoyCluster_requestMirrorWithTLS(t *testing.T) {
+	tls := &model.BackendTLSOrigination{
+		SNI:       "mirror.example.com",
+		CACertRef: &model.FullyQualifiedResource{Name: "mirror-ca", Namespace: "default"},
+	}
+	m := &model.Model{
+		HTTP: []model.HTTPListener{{
+			Routes: []model.HTTPRoute{{
+				Backends: []model.Backend{{
+					Name:      "backend",
+					Namespace: "default",
+					Port:      &model.BackendPort{Port: 8080},
+				}},
+				RequestMirrors: []*model.HTTPRequestMirror{
+					{},
+					{Backend: &model.Backend{
+						Name:      "mirror-backend",
+						Namespace: "default",
+						Port:      &model.BackendPort{Port: 8443},
+						TLS:       tls,
+					}},
+				},
+			}},
+		}},
+	}
+	c := &cecTranslator{Config: Config{SecretsNamespace: "cilium-secrets"}}
+	clusters, err := c.desiredEnvoyCluster(m)
+	require.NoError(t, err)
+	require.Len(t, clusters, 2)
+
+	for _, res := range clusters {
+		cluster := &envoy_config_cluster_v3.Cluster{}
+		require.NoError(t, proto.Unmarshal(res.Value, cluster))
+		if cluster.Name == "default:backend:8080" {
+			require.Nil(t, cluster.TransportSocket)
+			continue
+		}
+		require.Equal(t, "default:mirror-backend:8443", cluster.Name)
+		require.NotNil(t, cluster.TransportSocket)
+		require.Equal(t, "envoy.transport_sockets.tls", cluster.TransportSocket.Name)
+
+		tlsContext := &envoy_config_tls.UpstreamTlsContext{}
+		require.NoError(t, cluster.TransportSocket.GetTypedConfig().UnmarshalTo(tlsContext))
+		require.Equal(t, tls.SNI, tlsContext.Sni)
+		validation := tlsContext.CommonTlsContext.GetCombinedValidationContext()
+		require.NotNil(t, validation)
+		require.Equal(t, syncnames.SyncedConfigMapSDSSecretName("cilium-secrets", types.NamespacedName{
+			Namespace: "default",
+			Name:      "mirror-ca",
+		}), validation.ValidationContextSdsSecretConfig.GetName())
+	}
+}
+
 func Test_withTLSOrigination(t *testing.T) {
 	tls := &model.BackendTLSOrigination{
 		SNI: "my-backend.svc.cluster.local",

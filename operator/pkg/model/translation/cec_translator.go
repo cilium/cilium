@@ -348,6 +348,17 @@ func getTLSOrigination(m *model.Model, ns string, name string, port string) *mod
 					}
 				}
 			}
+			for _, rm := range r.RequestMirrors {
+				if rm.Backend == nil {
+					continue
+				}
+				be := rm.Backend
+				if be.Name == name && be.Namespace == ns && be.Port != nil && be.Port.GetPort() == port {
+					if be.TLS != nil {
+						return be.TLS
+					}
+				}
+			}
 			if r.ExternalAuth != nil {
 				be := r.ExternalAuth.Backend
 				if be.Name == name && be.Namespace == ns && be.Port != nil && be.Port.GetPort() == port {
