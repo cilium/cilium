@@ -194,7 +194,8 @@ The following kernel configuration options are required for proper operation:
         CONFIG_VXLAN=y
         CONFIG_GENEVE=y
         CONFIG_FIB_RULES=y
-
+        CONFIG_NETFILTER_XT_MATCH_ADDRTYPE=m
+        CONFIG_NETFILTER_XT_TARGET_CT=m
 
 .. note::
 
