@@ -212,6 +212,9 @@ Limitations
 
 The Standalone DNS Proxy alpha release has the following known limitations:
 
+* The Standalone DNS Proxy's unauthenticated localhost gRPC API allows processes
+  with node host-network access, including ``hostNetwork`` pods, to inject DNS
+  mappings, bypass FQDN egress policies, and read node DNS policy state.
 * The standalone DNS proxy uses the agent's DNS configuration. The ``dnsProxy.proxyPort`` 
   must be explicitly set to a non-zero value when the standalone DNS proxy is enabled 
   (it does not automatically select a free port).
