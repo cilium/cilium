@@ -20,9 +20,9 @@ import (
 	"github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/instances"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -57,15 +57,16 @@ type MetadataAPI interface {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
+	// InstanceCache caches the instances and owns the locks; the fields
+	// below marked as protected by the cache lock are read and written
+	// through its Read, Publish and resync publish functions.
+	*instances.InstanceCache
+
 	logger *slog.Logger
-	// resyncLock keeps incremental resync and cache updates out of a full API resync
-	resyncLock    lock.RWMutex
-	instanceLocks lock.KeyedMutex[string]
 	// vpcID is the VPC ID current operator running on, we will use it to filter other AWS resources only within this VPC
+	// It is protected by the cache lock.
 	vpcID string
-	// mutex protects the fields below
-	mutex          lock.RWMutex
-	instances      *ipamTypes.InstanceMap
+	// The fields below are protected by the cache lock.
 	subnets        ipamTypes.SubnetMap
 	vpcs           ipamTypes.VirtualNetworkMap
 	routeTables    ipamTypes.RouteTableMap
@@ -79,10 +80,10 @@ type InstancesManager struct {
 func NewInstancesManager(ctx context.Context, logger *slog.Logger, ec2api EC2API, metadataapi MetadataAPI) (*InstancesManager, error) {
 
 	m := &InstancesManager{
-		logger:      logger.With(subsysLogAttr...),
-		instances:   ipamTypes.NewInstanceMap(),
-		ec2api:      ec2api,
-		metadataapi: metadataapi,
+		InstanceCache: instances.NewInstanceCache(),
+		logger:        logger.With(subsysLogAttr...),
+		ec2api:        ec2api,
+		metadataapi:   metadataapi,
 	}
 
 	limitsGetter, err := limits.NewLimitsGetter(logger, ec2api, limits.TriggerMinInterval, limits.EC2apiTimeout, limits.EC2apiRetryCount)
@@ -110,12 +111,8 @@ func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, n *nodemanager.Node) n
 	return NewNode(n, obj, m)
 }
 
-// HasInstance returns whether the instance is in instances
-func (m *InstancesManager) HasInstance(instanceID string) bool {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.instances.Exists(instanceID)
-}
+// HasInstance, DeleteInstance and ForeachInstance are provided by the
+// embedded InstanceCache.
 
 // GetPoolQuota returns the number of available IPs in all IP pools
 func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
@@ -132,23 +129,21 @@ func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
 // GetSubnet returns the subnet by subnet ID
 //
 // The returned subnet is immutable so it can be safely accessed
-func (m *InstancesManager) GetSubnet(subnetID string) *ipamTypes.Subnet {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	return m.subnets[subnetID]
+func (m *InstancesManager) GetSubnet(subnetID string) (subnet *ipamTypes.Subnet) {
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		subnet = m.subnets[subnetID]
+	})
+	return subnet
 }
 
 // GetSubnets returns all the tracked subnets
 //
 // The returned subnetMap is immutable so it can be safely accessed
 func (m *InstancesManager) GetSubnets(ctx context.Context) ipamTypes.SubnetMap {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
 	subnetsCopy := make(ipamTypes.SubnetMap)
-	maps.Copy(subnetsCopy, m.subnets)
-
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		maps.Copy(subnetsCopy, m.subnets)
+	})
 	return subnetsCopy
 }
 
@@ -157,22 +152,20 @@ func (m *InstancesManager) GetSubnets(ctx context.Context) ipamTypes.SubnetMap {
 //
 // The returned subnet is immutable so it can be safely accessed
 func (m *InstancesManager) FindSubnetByIDs(vpcID, availabilityZone string, subnetIDs []string) (bestSubnet *ipamTypes.Subnet) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	for _, s := range m.subnets {
-		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone {
-			for _, subnetID := range subnetIDs {
-				if s.ID == subnetID {
-					if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
-						bestSubnet = s
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		for _, s := range m.subnets {
+			if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone {
+				for _, subnetID := range subnetIDs {
+					if s.ID == subnetID {
+						if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
+							bestSubnet = s
+						}
+						continue
 					}
-					continue
 				}
 			}
 		}
-	}
-
+	})
 	return
 }
 
@@ -181,17 +174,15 @@ func (m *InstancesManager) FindSubnetByIDs(vpcID, availabilityZone string, subne
 //
 // The returned subnet is immutable so it can be safely accessed
 func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, required ipamTypes.Tags) (bestSubnet *ipamTypes.Subnet) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	for _, s := range m.subnets {
-		if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone && s.Tags.Match(required) {
-			if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
-				bestSubnet = s
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		for _, s := range m.subnets {
+			if s.VirtualNetworkID == vpcID && s.AvailabilityZone == availabilityZone && s.Tags.Match(required) {
+				if bestSubnet == nil || bestSubnet.AvailableAddresses < s.AvailableAddresses {
+					bestSubnet = s
+				}
 			}
 		}
-	}
-
+	})
 	return
 }
 
@@ -199,16 +190,14 @@ func (m *InstancesManager) FindSubnetByTags(vpcID, availabilityZone string, requ
 //
 // The returned security groups slice is immutable so it can be safely accessed
 func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTypes.Tags) []*types.SecurityGroup {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
 	securityGroups := []*types.SecurityGroup{}
-	for _, securityGroup := range m.securityGroups {
-		if securityGroup.VpcID == vpcID && securityGroup.Tags.Match(required) {
-			securityGroups = append(securityGroups, securityGroup)
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		for _, securityGroup := range m.securityGroups {
+			if securityGroup.VpcID == vpcID && securityGroup.Tags.Match(required) {
+				securityGroups = append(securityGroups, securityGroup)
+			}
 		}
-	}
-
+	})
 	return securityGroups
 }
 
@@ -216,54 +205,58 @@ func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTy
 // cache in the instanceManager. It returns the time when the resync has
 // started or an error if it did not complete.
 func (m *InstancesManager) Resync(ctx context.Context) (time.Time, error) {
-	// Full API resync should block the instance incremental resync from all nodes.
-	m.resyncLock.Lock()
-	defer m.resyncLock.Unlock()
-	// An empty instanceID indicates the full resync.
-	return m.resync(ctx, "")
-}
-
-func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.Time, error) {
-	resyncStart := time.Now()
-
-	// An empty instanceID indicates that this is full resync, ENIs from all instances
-	// will be refetched from EC2 API and updated to the local cache. Otherwise only
-	// the given instance will be updated.
-	if instanceID == "" {
+	// ENIs from all instances will be refetched from the EC2 API and updated
+	// to the local cache.
+	return m.FullResync(ctx, func(ctx context.Context) (*ipamTypes.InstanceMap, instances.PublishFunc, error) {
 		// Only sync infrastructure in full resync.
 		if err := m.syncInfrastructure(ctx); err != nil {
-			return time.Time{}, fmt.Errorf("synchronize infrastructure: %w", err)
+			return nil, nil, fmt.Errorf("synchronize infrastructure: %w", err)
 		}
-		m.mutex.RLock()
-		vpcs := m.vpcs
-		subnets := m.subnets
-		routeTables := m.routeTables
-		securityGroups := m.securityGroups
-		m.mutex.RUnlock()
-		instances, err := m.ec2api.GetInstances(ctx, vpcs, subnets)
+
+		var vpcs ipamTypes.VirtualNetworkMap
+		var subnets ipamTypes.SubnetMap
+		var routeTables ipamTypes.RouteTableMap
+		var securityGroups types.SecurityGroupMap
+		m.Read(func(_ *ipamTypes.InstanceMap) {
+			vpcs = m.vpcs
+			subnets = m.subnets
+			routeTables = m.routeTables
+			securityGroups = m.securityGroups
+		})
+
+		instanceMap, err := m.ec2api.GetInstances(ctx, vpcs, subnets)
 		if err != nil {
-			return time.Time{}, fmt.Errorf("synchronize EC2 interface list: %w", err)
+			return nil, nil, fmt.Errorf("synchronize EC2 interface list: %w", err)
 		}
 
 		m.logger.Info(
 			"Synchronized ENI information",
-			logfields.NumInstances, instances.NumInstances(),
+			logfields.NumInstances, instanceMap.NumInstances(),
 			logfields.NumVPCs, len(vpcs),
 			logfields.NumSubnets, len(subnets),
 			logfields.NumRouteTables, len(routeTables),
 			logfields.NumSecurityGroups, len(securityGroups),
 		)
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
-		m.instances = instances
-	} else {
-		m.mutex.RLock()
-		vpcs := m.vpcs
-		subnets := m.subnets
-		m.mutex.RUnlock()
+
+		return instanceMap, nil, nil
+	})
+}
+
+// InstanceSync fetches the ENIs of the given instance from the EC2 API and
+// updates them in the local cache. It returns the time when the sync has
+// started or an error if it did not complete.
+func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
+	return m.InstanceCache.InstanceSync(ctx, instanceID, func(ctx context.Context) (*ipamTypes.Instance, instances.PublishFunc, error) {
+		var vpcs ipamTypes.VirtualNetworkMap
+		var subnets ipamTypes.SubnetMap
+		m.Read(func(_ *ipamTypes.InstanceMap) {
+			vpcs = m.vpcs
+			subnets = m.subnets
+		})
+
 		instance, err := m.ec2api.GetInstance(ctx, vpcs, subnets, instanceID)
 		if err != nil {
-			return time.Time{}, fmt.Errorf("synchronize EC2 interface list for instance %s: %w", instanceID, err)
+			return nil, nil, fmt.Errorf("synchronize EC2 interface list for instance %s: %w", instanceID, err)
 		}
 
 		m.logger.Info(
@@ -271,47 +264,15 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.
 			logfields.InstanceID, instanceID,
 		)
 
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
-		m.instances.UpdateInstance(instanceID, instance)
-	}
-
-	return resyncStart, nil
-}
-
-func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
-	unlock := m.lockInstance(instanceID)
-	defer unlock()
-	return m.resync(ctx, instanceID)
-}
-
-func (m *InstancesManager) lockInstance(instanceID string) lock.UnlockFunc {
-	unlockInstance := m.instanceLocks.Lock(instanceID)
-	// The read lock allows incremental resyncs and cache updates for different
-	// instances to run in parallel, while excluding full API resyncs, which take
-	// the write lock.
-	m.resyncLock.RLock()
-
-	return func() {
-		m.resyncLock.RUnlock()
-		unlockInstance()
-	}
+		return instance, nil, nil
+	})
 }
 
 // UpdateENI updates the ENI definition of an ENI for a particular instance. If
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
 func (m *InstancesManager) UpdateENI(instanceID string, eni *types.ENI) {
-	unlock := m.lockInstance(instanceID)
-	defer unlock()
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	// Don't recreate a partial instance that was deleted while this update waited.
-	if !m.instances.Exists(instanceID) {
-		return
-	}
-	m.instances.Update(instanceID, eni)
+	m.UpdateInterface(instanceID, eni)
 }
 
 func (m *InstancesManager) AddIPsToENI(instanceID string, eniID string, ips []string) {
@@ -323,52 +284,49 @@ func (m *InstancesManager) RemoveIPsFromENI(instanceID string, eniID string, ips
 }
 
 func (m *InstancesManager) modifyIPsToENI(instanceID string, eniID string, ips []string, isAdd bool) {
-	unlock := m.lockInstance(instanceID)
-	defer unlock()
+	m.UpdateInstance(instanceID, func(instances *ipamTypes.InstanceMap) {
+		iface, ok := instances.GetInterface(instanceID, eniID)
+		if !ok {
+			m.logger.Warn(
+				"ENI not found",
+				logfields.InstanceID, instanceID,
+				logfields.ENI, eniID,
+			)
+			return
+		}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	iface, ok := m.instances.GetInterface(instanceID, eniID)
-	if !ok {
-		m.logger.Warn(
-			"ENI not found",
-			logfields.InstanceID, instanceID,
-			logfields.ENI, eniID,
-		)
-		return
-	}
-
-	eni, ok := iface.DeepCopyInterface().(*types.ENI)
-	if !ok {
-		m.logger.Warn(
-			"Unexpected resource type, expected *types.ENI",
-			logfields.InstanceID, instanceID,
-			logfields.ENI, eniID,
-		)
-		return
-	}
-	if isAdd {
-		for _, ipStr := range ips {
-			addr, err := netip.ParseAddr(ipStr)
-			if err != nil {
-				continue
+		eni, ok := iface.DeepCopyInterface().(*types.ENI)
+		if !ok {
+			m.logger.Warn(
+				"Unexpected resource type, expected *types.ENI",
+				logfields.InstanceID, instanceID,
+				logfields.ENI, eniID,
+			)
+			return
+		}
+		if isAdd {
+			for _, ipStr := range ips {
+				addr, err := netip.ParseAddr(ipStr)
+				if err != nil {
+					continue
+				}
+				if !slices.ContainsFunc(eni.Addresses, func(a iputil.Addr) bool { return a.Addr == addr }) {
+					eni.Addresses = append(eni.Addresses, iputil.AddrFrom(addr))
+				}
 			}
-			if !slices.ContainsFunc(eni.Addresses, func(a iputil.Addr) bool { return a.Addr == addr }) {
-				eni.Addresses = append(eni.Addresses, iputil.AddrFrom(addr))
+		} else {
+			for _, ipStr := range ips {
+				addr, err := netip.ParseAddr(ipStr)
+				if err != nil {
+					continue
+				}
+				eni.Addresses = slices.DeleteFunc(eni.Addresses, func(a iputil.Addr) bool {
+					return a.Addr == addr
+				})
 			}
 		}
-	} else {
-		for _, ipStr := range ips {
-			addr, err := netip.ParseAddr(ipStr)
-			if err != nil {
-				continue
-			}
-			eni.Addresses = slices.DeleteFunc(eni.Addresses, func(a iputil.Addr) bool {
-				return a.Addr == addr
-			})
-		}
-	}
-	m.instances.Update(instanceID, eni)
+		instances.Update(instanceID, eni)
+	})
 }
 
 // ForeachInstance will iterate over each interface for a particular instance inside `instances`
@@ -384,26 +342,14 @@ func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.Inter
 		return
 	}
 
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	m.instances.ForeachInterface(instanceID, fn)
-}
-
-// DeleteInstance delete instance from m.instances
-func (m *InstancesManager) DeleteInstance(instanceID string) {
-	unlock := m.lockInstance(instanceID)
-	defer unlock()
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.instances.Delete(instanceID)
+	m.InstanceCache.ForeachInstance(instanceID, fn)
 }
 
 func (m *InstancesManager) syncInfrastructure(ctx context.Context) error {
-
-	m.mutex.RLock()
-	currentVpcID := m.vpcID
-	m.mutex.RUnlock()
+	var currentVpcID string
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		currentVpcID = m.vpcID
+	})
 
 	vpcs, err := m.ec2api.GetVpcs(ctx, currentVpcID)
 	if err != nil {
@@ -428,12 +374,14 @@ func (m *InstancesManager) syncInfrastructure(ctx context.Context) error {
 		return err
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.vpcID = currentVpcID
-	m.subnets = subnets
-	m.vpcs = vpcs
-	m.securityGroups = securityGroups
-	m.routeTables = routeTables
+	// Publish runs under the cache write lock; the resync lock is already
+	// held because syncInfrastructure only runs from a full resync.
+	m.Publish(func() {
+		m.vpcID = currentVpcID
+		m.subnets = subnets
+		m.vpcs = vpcs
+		m.securityGroups = securityGroups
+		m.routeTables = routeTables
+	})
 	return nil
 }

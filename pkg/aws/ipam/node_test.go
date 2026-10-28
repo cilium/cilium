@@ -14,6 +14,7 @@ import (
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/instances"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -80,6 +81,7 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 			},
 		},
 		manager: &InstancesManager{
+			InstanceCache: instances.NewInstanceCache(),
 			subnets: map[string]*ipamTypes.Subnet{
 				"subnet-1": {
 					ID:                 "subnet-1",
@@ -145,6 +147,7 @@ func Test_findSubnetInSameRouteTableWithNodeSubnet_UntrackedSubnets(t *testing.T
 			},
 		},
 		manager: &InstancesManager{
+			InstanceCache: instances.NewInstanceCache(),
 			subnets: map[string]*ipamTypes.Subnet{
 				"subnet-1": {
 					ID:                 "subnet-1",
@@ -236,7 +239,8 @@ func Test_checkSubnetInSameRouteTableWithNodeSubnet(t *testing.T) {
 			node := &Node{
 				k8sObj: tt.nodeSpec,
 				manager: &InstancesManager{
-					routeTables: routeTableMap,
+					InstanceCache: instances.NewInstanceCache(),
+					routeTables:   routeTableMap,
 				},
 			}
 			got := node.checkSubnetInSameRouteTableWithNodeSubnet(tt.subnet)
