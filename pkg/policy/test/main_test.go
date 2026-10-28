@@ -10,11 +10,11 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 )
 
-// TestMain sets the identity allocation mode once before any test runs. The
-// script tests run in parallel and their hives read the global option.Config,
-// so setting it here rather than in each fixture keeps parallel fixtures from
-// racing on the write.
+// TestMain sets option.Config once, since the parallel tests' hives read it.
+// The identity change grace period is 0 so relabeled endpoints switch right
+// away.
 func TestMain(m *testing.M) {
 	option.Config.IdentityAllocationMode = option.IdentityAllocationModeCRD
+	option.Config.IdentityChangeGracePeriod = 0
 	os.Exit(m.Run())
 }
