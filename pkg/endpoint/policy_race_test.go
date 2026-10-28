@@ -97,7 +97,7 @@ func TestPreviousMapStateSizesRace(t *testing.T) {
 
 	stats := new(regenerationStatistics)
 	datapathRegenCtxt := new(datapathRegenerationContext)
-	datapathRegenCtxt.policyRevisionToWaitFor = rev
+	datapathRegenCtxt.policyRevision = rev
 	require.NoError(t, ep.regeneratePolicy(stats, datapathRegenCtxt))
 	require.NoError(t, ep.lockAlive())
 	err := ep.setDesiredPolicy(datapathRegenCtxt)

@@ -10,14 +10,14 @@ env --from-stdout pod_id
 endpoint/create ${pod_id} ${pod_labels}
 
 policy/import default-deny-egress.yaml
-endpoint/regen-all 2
+endpoint/regen-all
 endpoint/wait-for-policy-revision 2
 
 policy/lookup-flow --egress ${pod_id} ${apiserver_id} tcp 443
 stdout denied
 
 policy/import allow-kube-apiserver.yaml
-endpoint/regen-all 3
+endpoint/regen-all
 endpoint/wait-for-policy-revision 3
 
 policy/lookup-flow --egress ${pod_id} ${apiserver_id} tcp 443

@@ -669,13 +669,11 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	secID := e.getIdentity()
 	identityRevision := e.identityRevision
 	e.unlock()
-	// The revision regeneratePolicy waits for.
-	policyRevision := max(datapathRegenCtxt.policyRevisionToWaitFor, datapathRegenCtxt.policyRevision)
 
 	// regenerate policy without holding the lock.
 	// This is because policy generation needs the ipcache to make progress, and the ipcache
 	// needs to call endpoint.ApplyPolicyMapChanges()
-	if !datapathRegenCtxt.isPolicyResultCurrent(secID, identityRevision, policyRevision) {
+	if !datapathRegenCtxt.isPolicyResultCurrent(secID, identityRevision, datapathRegenCtxt.policyRevision) {
 		stats.policyCalculation.Start()
 		err := e.regeneratePolicy(stats, datapathRegenCtxt)
 		stats.policyCalculation.End(err == nil)
