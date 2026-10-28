@@ -791,41 +791,41 @@ func (m *manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
 	return nil
 }
 
-// addCiliumAcceptTunnelRules adds the NOTRACK rule in the cilium raw prerouting
+// installTunnelNoTrackRules adds the NOTRACK rule in the cilium raw prerouting
 // and output raw chains for udp destination port at `tunnelPort`.
 func (m *manager) installTunnelNoTrackRules(tunelPort uint16) error {
-	input := []string{
-		"-t", "raw",
-		"-A", ciliumPreRawChain,
-		"-p", "udp",
-		"--dport", strconv.Itoa(int(tunelPort)),
-		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
-		"-j", "CT", "--notrack",
+	addRule := func(chain, localAddrDir string) error {
+		cmd := []string{"-t", "raw",
+			"-A", chain,
+			"-p", "udp",
+			"--dport", strconv.Itoa(int(tunelPort)),
+			"-m", "addrtype", fmt.Sprintf("--%s-type", localAddrDir), "LOCAL",
+			"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
+			"-j", "CT", "--notrack",
+		}
+
+		if m.sharedCfg.EnableIPv4 {
+			if err := m.ip4tables.runProg(cmd); err != nil {
+				return err
+			}
+		}
+
+		if m.sharedCfg.EnableIPv6 {
+			if err := m.ip6tables.runProg(cmd); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
 
-	output := []string{
-		"-t", "raw",
-		"-A", ciliumOutputRawChain,
-		"-p", "udp",
-		"--dport", strconv.Itoa(int(tunelPort)),
-		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
-		"-j", "CT", "--notrack",
-	}
+	for _, chain := range []string{ciliumPreRawChain, ciliumOutputRawChain} {
+		localAddrDir := "src"
+		if chain == ciliumPreRawChain {
+			localAddrDir = "dst"
+		}
 
-	if m.sharedCfg.EnableIPv4 {
-		if err := m.ip4tables.runProg(input); err != nil {
-			return err
-		}
-		if err := m.ip4tables.runProg(output); err != nil {
-			return err
-		}
-	}
-
-	if m.sharedCfg.EnableIPv6 {
-		if err := m.ip6tables.runProg(input); err != nil {
-			return err
-		}
-		if err := m.ip6tables.runProg(output); err != nil {
+		if err := addRule(chain, localAddrDir); err != nil {
 			return err
 		}
 	}
