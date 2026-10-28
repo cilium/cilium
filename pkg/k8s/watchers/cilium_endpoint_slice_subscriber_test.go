@@ -949,6 +949,186 @@ func TestCESSubscriber_OnUpdate(t *testing.T) {
 	}
 }
 
+func newEndpointWithIP(name, namespace string, id int64, ipv4 string) *types.CiliumEndpoint {
+	return newEndpointWithIPs(name, namespace, id, ipv4, "")
+}
+
+func newEndpointWithIPs(name, namespace string, id int64, ipv4, ipv6 string) *types.CiliumEndpoint {
+	ep := newEndpoint(name, namespace, id, "")
+	ep.Networking = &v2.EndpointNetworking{
+		Addressing: v2.AddressPairList{
+			{IPV4: ipv4, IPV6: ipv6},
+		},
+		NodeIP: "10.128.0.1",
+	}
+	return ep
+}
+
+// TestCESSubscriber_StaleCEPRemovalSameIP tests the race where a pod is recreated
+// or churned and allocated the same IP address (10.124.4.7) in a different CES
+// ("new-ces") before the stale CEP entry ("old-cep") is removed from "old-ces".
+// When a node processes "new-ces" before "old-ces", and then "old-ces" removes
+// "old-cep", cesSubscriber must re-assert "new-cep" via endpointUpdated instead
+// of calling endpointDeleted and wiping the IP from ipcache.
+func TestCESSubscriber_StaleCEPRemovalSameIP(t *testing.T) {
+	cepNamespace := "ns1"
+	oldCEPName := "old-pod"
+	newCEPName := "new-pod"
+	sharedIP := "10.124.4.7"
+	oldCEPID := int64(200)
+	newCEPID := int64(300)
+
+	fakeEPWatcher := newFakeEPWatcher()
+	cesSub := &cesSubscriber{
+		logger:    hivetest.Logger(t),
+		epWatcher: fakeEPWatcher,
+		epCache:   newFakeEndpointCache(),
+		cepMap:    newCEPToCESMap(),
+	}
+
+	// 1. Node processes "new-ces" (containing new-pod with 10.124.4.7) first.
+	cesSub.OnAdd(newCES("new-ces", cepNamespace,
+		v2alpha1.CoreCiliumEndpoint{
+			Name:       newCEPName,
+			IdentityID: newCEPID,
+			Networking: &v2.EndpointNetworking{
+				Addressing: v2.AddressPairList{{IPV4: sharedIP}},
+				NodeIP:     "10.128.0.1",
+			},
+		},
+	))
+	// 2. Node processes "old-ces" (containing stale old-pod with 10.124.4.7) second.
+	cesSub.OnAdd(newCES("old-ces", cepNamespace,
+		v2alpha1.CoreCiliumEndpoint{
+			Name:       oldCEPName,
+			IdentityID: oldCEPID,
+			Networking: &v2.EndpointNetworking{
+				Addressing: v2.AddressPairList{{IPV4: sharedIP}},
+				NodeIP:     "10.128.0.1",
+			},
+		},
+	))
+	fakeEPWatcher.reset()
+
+	// 3. Operator removes stale old-pod from "old-ces".
+	cesSub.OnUpdate(
+		newCES("old-ces", cepNamespace,
+			v2alpha1.CoreCiliumEndpoint{
+				Name:       oldCEPName,
+				IdentityID: oldCEPID,
+				Networking: &v2.EndpointNetworking{
+					Addressing: v2.AddressPairList{{IPV4: sharedIP}},
+					NodeIP:     "10.128.0.1",
+				},
+			},
+		),
+		newCES("old-ces", cepNamespace),
+	)
+
+	// Must NOT call endpointDeleted(old-pod); must call endpointUpdated(old-pod, new-pod)!
+	if diff, ok := fakeEPWatcher.assertNoDelete(); !ok {
+		t.Fatal(diff)
+	}
+	expectedOld := newEndpointWithIP(oldCEPName, cepNamespace, oldCEPID, sharedIP)
+	expectedNew := newEndpointWithIP(newCEPName, cepNamespace, newCEPID, sharedIP)
+	if diff, ok := fakeEPWatcher.assertUpdate(endpointUpdate{
+		OldEP: expectedOld,
+		NewEP: expectedNew,
+	}); !ok {
+		t.Fatal(diff)
+	}
+}
+
+// TestCESSubscriber_StaleCEPRemovalDualStackSplitIPs tests the dual-stack race
+// where a terminated pod's IPv4 and IPv6 addresses are independently reallocated
+// to two different pods ("new-pod-v4" and "new-pod-v6"). When the stale CEP is
+// removed from "old-ces", cesSubscriber must re-assert both surviving CEPs.
+func TestCESSubscriber_StaleCEPRemovalDualStackSplitIPs(t *testing.T) {
+	cepNamespace := "ns1"
+	oldCEPName := "old-pod"
+	newCEPV4Name := "new-pod-v4"
+	newCEPV6Name := "new-pod-v6"
+	sharedIPV4 := "10.124.4.7"
+	sharedIPV6 := "fd00::7"
+	oldCEPID := int64(200)
+	newCEPV4ID := int64(300)
+	newCEPV6ID := int64(400)
+
+	fakeEPWatcher := newFakeEPWatcher()
+	cesSub := &cesSubscriber{
+		logger:    hivetest.Logger(t),
+		epWatcher: fakeEPWatcher,
+		epCache:   newFakeEndpointCache(),
+		cepMap:    newCEPToCESMap(),
+	}
+
+	// 1. Node processes "new-ces" containing new-pod-v4 (reusing IPv4) and
+	// new-pod-v6 (reusing IPv6) before "old-ces".
+	cesSub.OnAdd(newCES("new-ces", cepNamespace,
+		v2alpha1.CoreCiliumEndpoint{
+			Name:       newCEPV4Name,
+			IdentityID: newCEPV4ID,
+			Networking: &v2.EndpointNetworking{
+				Addressing: v2.AddressPairList{{IPV4: sharedIPV4, IPV6: "fd00::a"}},
+				NodeIP:     "10.128.0.1",
+			},
+		},
+		v2alpha1.CoreCiliumEndpoint{
+			Name:       newCEPV6Name,
+			IdentityID: newCEPV6ID,
+			Networking: &v2.EndpointNetworking{
+				Addressing: v2.AddressPairList{{IPV4: "10.124.4.8", IPV6: sharedIPV6}},
+				NodeIP:     "10.128.0.1",
+			},
+		},
+	))
+	// 2. Node processes "old-ces" containing stale old-pod with both IPs.
+	cesSub.OnAdd(newCES("old-ces", cepNamespace,
+		v2alpha1.CoreCiliumEndpoint{
+			Name:       oldCEPName,
+			IdentityID: oldCEPID,
+			Networking: &v2.EndpointNetworking{
+				Addressing: v2.AddressPairList{{IPV4: sharedIPV4, IPV6: sharedIPV6}},
+				NodeIP:     "10.128.0.1",
+			},
+		},
+	))
+	fakeEPWatcher.reset()
+
+	// 3. Operator removes stale old-pod from "old-ces".
+	cesSub.OnUpdate(
+		newCES("old-ces", cepNamespace,
+			v2alpha1.CoreCiliumEndpoint{
+				Name:       oldCEPName,
+				IdentityID: oldCEPID,
+				Networking: &v2.EndpointNetworking{
+					Addressing: v2.AddressPairList{{IPV4: sharedIPV4, IPV6: sharedIPV6}},
+					NodeIP:     "10.128.0.1",
+				},
+			},
+		),
+		newCES("old-ces", cepNamespace),
+	)
+
+	if diff, ok := fakeEPWatcher.assertNoDelete(); !ok {
+		t.Fatal(diff)
+	}
+	expectedOld := newEndpointWithIPs(oldCEPName, cepNamespace, oldCEPID, sharedIPV4, sharedIPV6)
+	expectedUpdates := []endpointUpdate{
+		{
+			OldEP: nil,
+			NewEP: newEndpointWithIPs(newCEPV4Name, cepNamespace, newCEPV4ID, sharedIPV4, "fd00::a"),
+		},
+		{
+			OldEP: expectedOld,
+			NewEP: newEndpointWithIPs(newCEPV6Name, cepNamespace, newCEPV6ID, "10.124.4.8", sharedIPV6),
+		},
+	}
+	if diff := cmp.Diff(expectedUpdates, fakeEPWatcher.updates); diff != "" {
+		t.Fatalf("Unexpected CEP updates (-want +got):\n%s", diff)
+	}
+}
+
 func TestCESSubscriber_OnDelete(t *testing.T) {
 	testCases := []struct {
 		name          string
