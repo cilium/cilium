@@ -1474,7 +1474,11 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	}
 
 	instanceMutated, err := n.maintainIPPool(ctx)
-	if err == nil {
+	// The resync only guards the cache updates of a mutation against a resync
+	// that started before it. A pass that mutated nothing has nothing to
+	// guard, and requiring one anyway would hold allocationNeeded() and
+	// releaseNeeded() false until the next resync.
+	if instanceMutated {
 		n.logger.Load().Debug("Setting resync needed")
 		n.requireResync()
 	}
