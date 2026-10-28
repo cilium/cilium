@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 
+	metricsmock "github.com/cilium/cilium/operator/pkg/ipam/metrics/mock"
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
@@ -21,6 +22,7 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/time"
+	"github.com/cilium/cilium/pkg/trigger"
 )
 
 type testNeededDef struct {
@@ -171,6 +173,70 @@ func TestMaintainIPPoolReleasesPoolMaintenance(t *testing.T) {
 		require.NoError(t, node.MaintainIPPool(context.Background()))
 		require.False(t, waitingForPoolMaintenance(node), "the pass must release the flag it took")
 		require.True(t, node.allocationNeeded(), "node must report its deficit again so the sign of life can re-drive it")
+	})
+}
+
+// newFullPassTestNode returns a node wired for a MaintainIPPool pass that runs
+// to completion, with an instance sync trigger that does nothing.
+func newFullPassTestNode(t *testing.T) *Node {
+	t.Helper()
+
+	am := newAllocationImplementationMock()
+	node := newMaintenanceTestNode(t, true)
+	node.manager.instancesAPI = am
+	node.manager.metricsAPI = metricsmock.NewMockMetrics()
+	node.ops = &nodeOperationsMock{allocator: am}
+	node.ipv4Alloc = ipAllocAttrs{
+		ipsMarkedForRelease: make(map[netip.Addr]time.Time),
+		ipReleaseStatus:     make(map[netip.Addr]string),
+	}
+
+	instanceSync, err := trigger.NewTrigger(trigger.Parameters{
+		Name:        "test-instance-sync",
+		TriggerFunc: func([]string) {},
+	})
+	require.NoError(t, err)
+	t.Cleanup(instanceSync.Shutdown)
+	node.instanceSync = instanceSync
+
+	return node
+}
+
+func resyncNeeded(n *Node) time.Time {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+	return n.resyncNeeded
+}
+
+// TestMaintainIPPoolRequiresResyncOnlyOnMutation verifies that a pass waits
+// for a resync of the instance only when it changed the instance, so that a
+// pass that changed nothing does not hold off the node's next allocation.
+func TestMaintainIPPoolRequiresResyncOnlyOnMutation(t *testing.T) {
+	t.Run("pass that changed nothing", func(t *testing.T) {
+		node := newFullPassTestNode(t)
+		node.stats.IPv4.NeededIPs = 0
+
+		require.NoError(t, node.MaintainIPPool(t.Context()))
+		require.True(t, resyncNeeded(node).IsZero(), "a pass that changed nothing must not wait for a resync")
+
+		node.mutex.Lock()
+		node.stats.IPv4.NeededIPs = 1
+		node.mutex.Unlock()
+		require.True(t, node.allocationNeeded(), "a deficit must be acted upon without waiting for a resync")
+	})
+
+	t.Run("pass that allocated", func(t *testing.T) {
+		node := newFullPassTestNode(t)
+		beforePass := time.Now()
+
+		require.NoError(t, node.MaintainIPPool(t.Context()))
+		require.False(t, resyncNeeded(node).IsZero(), "a pass that allocated must wait for a resync")
+
+		node.updateLastResync(beforePass)
+		require.False(t, resyncNeeded(node).IsZero(), "a resync started before the allocation must not end the wait")
+
+		node.updateLastResync(time.Now())
+		require.True(t, resyncNeeded(node).IsZero(), "a resync started after the allocation must end the wait")
 	})
 }
 
