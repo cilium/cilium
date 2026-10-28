@@ -225,9 +225,7 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 	e.unlock()
 
-	// Wait for the revision requested when this regeneration was triggered,
-	// not only for the one it was asked for. See requestPolicyRevision.
-	wantedRevision := max(datapathRegenCtxt.policyRevisionToWaitFor, datapathRegenCtxt.policyRevision)
+	wantedRevision := datapathRegenCtxt.policyRevision
 	e.getLogger().Debug("Fetching policy recalculation",
 		logfields.Identity, securityIdentity.ID,
 		logfields.PolicyRevision, wantedRevision,
@@ -538,8 +536,6 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	// this regeneration and no later ones.
 	ctx.datapathRegenerationContext.policyRevision = e.requestedPolicyRevision.Load()
 
-	e.consumeSkippedPolicyRevision(ctx.datapathRegenerationContext)
-
 	e.unlock()
 
 	stats.prepareBuild.Start()
@@ -778,10 +774,6 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 		} else {
 			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.GetRegenerationReason()))
 		}
-		// Keep the queued regen from completing at an older revision.
-		if regenMetadata.PolicyRevisionToWaitFor > e.skippedPolicyRevision {
-			e.skippedPolicyRevision = regenMetadata.PolicyRevisionToWaitFor
-		}
 		regen = false
 	case StateWaitingForIdentity:
 		// The state machine forbids waiting-for-identity -> waiting-to-regenerate,
@@ -790,9 +782,6 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 		// instead of dropping it until the next periodic regeneration.
 		if regenMetadata.RegenerationLevel > e.skippedRegenerationLevel {
 			e.skippedRegenerationLevel = regenMetadata.RegenerationLevel
-		}
-		if regenMetadata.PolicyRevisionToWaitFor > e.skippedPolicyRevision {
-			e.skippedPolicyRevision = regenMetadata.PolicyRevisionToWaitFor
 		}
 		e.logStatusLocked(Other, OK, fmt.Sprintf("Deferred endpoint regeneration until identity resolution completes due to %s", regenMetadata.GetRegenerationReason()))
 		regen = false
@@ -825,28 +814,17 @@ func (e *Endpoint) requestPolicyRevision() {
 
 // consumeDeferredRegenerationLocked returns metadata for a regeneration that was
 // buffered while the endpoint was in StateWaitingForIdentity, or nil if there was
-// none. The buffered level and revision are left in place, regenerate() consumes
-// them.
+// none. The buffered level is left in place, regenerate() consumes it.
 // Must be called with e.mutex held.
 func (e *Endpoint) consumeDeferredRegenerationLocked() *regeneration.ExternalRegenerationMetadata {
-	if e.skippedRegenerationLevel == regeneration.Invalid && e.skippedPolicyRevision == 0 {
+	if e.skippedRegenerationLevel == regeneration.Invalid {
 		return nil
 	}
 	return &regeneration.ExternalRegenerationMetadata{
-		Reason:                  regeneration.ReasonDeferredRegeneration,
-		Message:                 "regeneration deferred while waiting for identity",
-		RegenerationLevel:       max(e.skippedRegenerationLevel, regeneration.RegenerateWithoutDatapath),
-		PolicyRevisionToWaitFor: e.skippedPolicyRevision,
+		Reason:            regeneration.ReasonDeferredRegeneration,
+		Message:           "regeneration deferred while waiting for identity",
+		RegenerationLevel: e.skippedRegenerationLevel,
 	}
-}
-
-// consumeSkippedPolicyRevision transfers any buffered revision to ctx.
-// Must be called with e.mutex held.
-func (e *Endpoint) consumeSkippedPolicyRevision(ctx *datapathRegenerationContext) {
-	if e.skippedPolicyRevision > ctx.policyRevisionToWaitFor {
-		ctx.policyRevisionToWaitFor = e.skippedPolicyRevision
-	}
-	e.skippedPolicyRevision = 0
 }
 
 // UpdatePolicy updates the endpoint's policy.
@@ -885,9 +863,7 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 			// policy and supersede the one the identity's other endpoints are
 			// on, for no change in rules. That costs a computation and keeps
 			// both policies around until those endpoints regenerate.
-			if toRev > e.skippedPolicyRevision {
-				e.skippedPolicyRevision = toRev
-			}
+			e.requestPolicyRevision()
 			unlock()
 			return
 		}
@@ -903,10 +879,9 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 
 	// Policy change affected this endpoint's identity; queue regeneration
 	regenMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:                  regeneration.ReasonPolicyUpdate,
-		Message:                 "policy rules updated",
-		RegenerationLevel:       regeneration.RegenerateWithoutDatapath,
-		PolicyRevisionToWaitFor: toRev,
+		Reason:            regeneration.ReasonPolicyUpdate,
+		Message:           "policy rules updated",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 	regen := e.setRegenerateStateLocked(regenMetadata)
 	unlock()

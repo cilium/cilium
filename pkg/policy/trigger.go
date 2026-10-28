@@ -20,7 +20,7 @@ func (u *Updater) TriggerPolicyUpdates(reason string) {
 	rev := u.repo.BumpRevision()
 	u.computer.RecomputeIdentityPolicyForAllIdentities(rev)
 	u.logger.Info("Triggering full policy recalculation and regeneration of all endpoints", logfields.Reason, reason)
-	u.regen.RegenerateAllForPolicy(rev)
+	u.regen.RegenerateAllForPolicy()
 }
 
 // NewUpdater returns a new Updater instance to handle triggering policy
@@ -44,9 +44,9 @@ type Updater struct {
 }
 
 type regenerator interface {
-	// RegenerateAllForPolicy triggers regeneration of all endpoints against
-	// the given policy revision. See endpointmanager.EndpointManager.
-	RegenerateAllForPolicy(waitFor uint64)
+	// RegenerateAllForPolicy triggers regeneration of all endpoints after
+	// policy has been recomputed. See endpointmanager.EndpointManager.
+	RegenerateAllForPolicy()
 }
 
 type computer interface {

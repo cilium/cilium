@@ -199,15 +199,12 @@ func (h *ConfigModifyEventHandler) datapathRegen(reasons []string) {
 	// All endpoints are about to be regenerated, so bump the policy revision,
 	// recompute policy for all identities at it, and then trigger
 	// regeneration. See BumpRevision.
-	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
+	h.computer.RecomputeIdentityPolicyForAllIdentities(h.policy.BumpRevision())
+	h.endpointManager.RegenerateAllEndpoints(&regeneration.ExternalRegenerationMetadata{
 		Reason:            regeneration.ReasonDaemonConfigUpdate,
 		Message:           reason,
 		RegenerationLevel: regeneration.RegenerateWithDatapath,
-
-		PolicyRevisionToWaitFor: h.policy.BumpRevision(),
-	}
-	h.computer.RecomputeIdentityPolicyForAllIdentities(regenerationMetadata.PolicyRevisionToWaitFor)
-	h.endpointManager.RegenerateAllEndpoints(regenerationMetadata)
+	})
 }
 
 // ConfigModifyEvents are serialized by the event queue, no need for additional locking for

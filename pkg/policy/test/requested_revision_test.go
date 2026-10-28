@@ -35,7 +35,7 @@ func TestRevisionBumpDuringImport(t *testing.T) {
 	require.NoError(t, err)
 	_, err = ws.Wait(f.ctx, 0)
 	require.NoError(t, err)
-	f.epm.RegenerateAllForPolicy(rev)
+	f.epm.RegenerateAllForPolicy()
 
 	require.Equal(t, startRev+1, f.receive(t, hold))
 	require.Equal(t, rev+1, f.receive(t, done))

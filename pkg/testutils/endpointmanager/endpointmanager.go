@@ -169,7 +169,7 @@ func (*MockEndpointManager) TriggerRegenerateAllEndpoints() {
 	panic("MockEndpointManager.TriggerRegenerateAllEndpoints not implemented")
 }
 
-func (*MockEndpointManager) RegenerateAllForPolicy(waitFor uint64) {
+func (*MockEndpointManager) RegenerateAllForPolicy() {
 	panic("MockEndpointManager.RegenerateAllForPolicy not implemented")
 }
 
