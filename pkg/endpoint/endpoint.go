@@ -419,6 +419,12 @@ type Endpoint struct {
 	// skipped regeneration levels.
 	skippedRegenerationLevel regeneration.DatapathRegenerationLevel
 
+	// requestedPolicyRevision is the highest revision the policy computer had
+	// been asked to make policies current at when a regeneration of this
+	// endpoint was triggered. A regeneration waits for the value it reads when
+	// it starts.
+	requestedPolicyRevision atomic.Uint64
+
 	// skippedPolicyRevision is the highest PolicyRevisionToWaitFor deferred to an already
 	// queued or upcoming regeneration. The regeneration is bumped to wait for this revision
 	// so it doesn't complete at an older one.

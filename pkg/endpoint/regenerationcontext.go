@@ -152,6 +152,9 @@ type datapathRegenerationContext struct {
 	currentDir         string
 	nextDir            string
 	regenerationLevel  regeneration.DatapathRegenerationLevel
+	// policyRevision is the revision requested when the regeneration was
+	// triggered, see requestPolicyRevision.
+	policyRevision uint64
 
 	policyMapSyncDone bool
 	policyMapDump     policy.MapStateMap

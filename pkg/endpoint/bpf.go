@@ -669,7 +669,8 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	secID := e.getIdentity()
 	identityRevision := e.identityRevision
 	e.unlock()
-	policyRevision := e.policyRepo.GetRevision()
+	// The revision regeneratePolicy waits for.
+	policyRevision := max(datapathRegenCtxt.policyRevisionToWaitFor, datapathRegenCtxt.policyRevision)
 
 	// regenerate policy without holding the lock.
 	// This is because policy generation needs the ipcache to make progress, and the ipcache
