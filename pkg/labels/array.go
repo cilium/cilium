@@ -222,7 +222,6 @@ func (ls LabelArray) formatLen() int {
 }
 
 func (ls LabelArray) BuildString(sb *strings.Builder) {
-	sb.Grow(ls.formatLen())
 	sb.WriteByte('[')
 	for l := range ls {
 		if l > 0 {
@@ -235,6 +234,7 @@ func (ls LabelArray) BuildString(sb *strings.Builder) {
 
 func (ls LabelArray) String() string {
 	var sb strings.Builder
+	sb.Grow(ls.formatLen())
 	ls.BuildString(&sb)
 	return sb.String()
 }

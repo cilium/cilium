@@ -206,15 +206,16 @@ var (
 
 // Label is Cilium's representation of a label.
 type Label struct {
-	// optimization for CIDR prefixes
-	// +deepequal-gen=false
-	cidr  *netip.Prefix `json:"-"`
-	Key   string        `json:"key"`
-	Value string        `json:"value,omitempty"`
+	Key   string `json:"key"`
+	Value string `json:"value,omitempty"`
 	// Source can be one of the above values (e.g.: LabelSourceK8s).
 	//
 	// +kubebuilder:validation:Optional
 	Source string `json:"source"`
+
+	// optimization for CIDR prefixes
+	// +deepequal-gen=false
+	cidr *netip.Prefix `json:"-"`
 }
 
 // GetCIDRPrefix returns the cidr of the Label, or nil if none.
