@@ -4553,6 +4553,8 @@ authentication:
               effect: NoSchedule
             - key: node-role.kubernetes.io/control-plane
               effect: NoSchedule
+            - key: node-role.kubernetes.io/etcd
+              operator: Exists
             - key: node.cloudprovider.kubernetes.io/uninitialized
               effect: NoSchedule
               value: "true"

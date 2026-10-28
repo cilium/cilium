@@ -219,6 +219,16 @@
                               },
                               {
                                 "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "operator": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "properties": {
                                   "effect": {
                                     "type": "string"
                                   },
