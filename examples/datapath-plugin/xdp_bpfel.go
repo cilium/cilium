@@ -8,18 +8,26 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"structs"
 
 	"github.com/cilium/ebpf"
 )
+
+type xdpCiliumXdpScratch struct {
+	_    structs.HostLayout
+	Data [7]uint32
+}
 
 // Names of all BPF objects in the ELF.
 //
 // Used for safe lookups in a Collection or CollectionSpec.
 const (
-	xdpMapCiliumXdpScratch  = "cilium_xdp_scratch"
-	xdpProgAfter            = "after"
-	xdpProgBefore           = "before"
-	xdpVarAttachmentContext = "attachment_context"
+	xdpProgAfter              = "after"
+	xdpProgBefore             = "before"
+	xdpVarAuxCiliumXdpScratch = "__aux_cilium_xdp_scratch"
+	xdpVarAuxCpuMask          = "_aux_cpu_mask"
+	xdpVarAuxStrideShift      = "_aux_stride_shift"
+	xdpVarAttachmentContext   = "attachment_context"
 )
 
 // loadXdp returns the embedded CollectionSpec for xdp.
@@ -72,14 +80,16 @@ type xdpProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type xdpMapSpecs struct {
-	CiliumXdpScratch *ebpf.MapSpec `ebpf:"cilium_xdp_scratch"`
 }
 
 // xdpVariableSpecs contains global variables before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type xdpVariableSpecs struct {
-	AttachmentContext *ebpf.VariableSpec `ebpf:"attachment_context"`
+	AuxCiliumXdpScratch *ebpf.VariableSpec `ebpf:"__aux_cilium_xdp_scratch"`
+	AuxCpuMask          *ebpf.VariableSpec `ebpf:"_aux_cpu_mask"`
+	AuxStrideShift      *ebpf.VariableSpec `ebpf:"_aux_stride_shift"`
+	AttachmentContext   *ebpf.VariableSpec `ebpf:"attachment_context"`
 }
 
 // xdpObjects contains all objects after they have been loaded into the kernel.
@@ -102,20 +112,20 @@ func (o *xdpObjects) Close() error {
 //
 // It can be passed to loadXdpObjects or ebpf.CollectionSpec.LoadAndAssign.
 type xdpMaps struct {
-	CiliumXdpScratch *ebpf.Map `ebpf:"cilium_xdp_scratch"`
 }
 
 func (m *xdpMaps) Close() error {
-	return _XdpClose(
-		m.CiliumXdpScratch,
-	)
+	return _XdpClose()
 }
 
 // xdpVariables contains all global variables after they have been loaded into the kernel.
 //
 // It can be passed to loadXdpObjects or ebpf.CollectionSpec.LoadAndAssign.
 type xdpVariables struct {
-	AttachmentContext *ebpf.Variable `ebpf:"attachment_context"`
+	AuxCiliumXdpScratch *ebpf.Variable `ebpf:"__aux_cilium_xdp_scratch"`
+	AuxCpuMask          *ebpf.Variable `ebpf:"_aux_cpu_mask"`
+	AuxStrideShift      *ebpf.Variable `ebpf:"_aux_stride_shift"`
+	AttachmentContext   *ebpf.Variable `ebpf:"attachment_context"`
 }
 
 // xdpPrograms contains all programs after they have been loaded into the kernel.
