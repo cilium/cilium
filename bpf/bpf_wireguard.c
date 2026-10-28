@@ -44,7 +44,7 @@
 #ifdef ENABLE_IPV6
 /* See the equivalent v4 path for comments */
 static __always_inline int
-handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err __maybe_unused)
+handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err)
 {
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
@@ -121,7 +121,7 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 static __always_inline int
-handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err __maybe_unused)
+handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err)
 {
 	void *data_end, *data;
 	struct iphdr *ip4;
@@ -343,8 +343,8 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 __section_entry
 int cil_to_wireguard(struct __ctx_buff *ctx)
 {
-	int __maybe_unused ret;
-	__s8 __maybe_unused ext_err = 0;
+	int ret;
+	__s8 ext_err = 0;
 	__be16 proto = ctx_get_protocol(ctx);
 	__u32 src_sec_identity = UNKNOWN_ID;
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
