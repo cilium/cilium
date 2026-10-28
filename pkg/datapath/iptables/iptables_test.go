@@ -924,17 +924,19 @@ func testTunnelRulesTunnelingEnabled(t *testing.T, port uint16) {
 		ip6tables: mockIp6tables,
 	}
 
-	expected := "%s -A %s -p udp --dport %d -m set --match-set %s %s -m comment --comment %s"
+	expectedFilter := "%s -A %s -p udp --dport %d -m set --match-set %s %s -m comment --comment %s"
+	expectedRaw := "%s -A %s -p udp --dport %d -m set --match-set %s %s -m addrtype --%s-type LOCAL -m comment --comment %s"
 
 	mockIp4tables.expectations = []expectation{
-		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, mockIp4tables.ipset, "dst", "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, mockIp4tables.ipset, "src", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, mockIp4tables.ipset, "dst", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expectedFilter, "-t filter", "CILIUM_OUTPUT", port, mockIp4tables.getIpset(), "dst", "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expectedRaw, "-t raw", "CILIUM_PRE_raw", port, mockIp4tables.getIpset(), "src", "dst", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expectedRaw, "-t raw", "CILIUM_OUTPUT_raw", port, mockIp4tables.getIpset(), "dst", "src", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
 	}
+
 	mockIp6tables.expectations = []expectation{
-		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, mockIp6tables.ipset, "dst", "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, mockIp6tables.ipset, "src", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, mockIp6tables.ipset, "dst", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expectedFilter, "-t filter", "CILIUM_OUTPUT", port, mockIp6tables.getIpset(), "dst", "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expectedRaw, "-t raw", "CILIUM_PRE_raw", port, mockIp6tables.getIpset(), "src", "dst", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expectedRaw, "-t raw", "CILIUM_OUTPUT_raw", port, mockIp6tables.getIpset(), "dst", "src", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
 	}
 
 	require.NoError(t, mockManager.addCiliumTunnelRules())

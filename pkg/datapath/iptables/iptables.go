@@ -810,13 +810,14 @@ func (m *manager) addCiliumAcceptTunnelRules(tunelPort uint16) (err error) {
 // installTunnelNoTrackRules adds the NOTRACK rule in the cilium raw prerouting
 // and output raw chains for udp destination port at `tunnelPort`.
 func (m *manager) installTunnelNoTrackRules(tunelPort uint16) error {
-	addRule := func(chain, ipsetDir string) error {
+	addRule := func(chain, ipsetDir, localAddrDir string) error {
 		cmd := func(ipset string) []string {
 			return []string{"-t", "raw",
 				"-A", chain,
 				"-p", "udp",
 				"--dport", strconv.Itoa(int(tunelPort)),
 				"-m", "set", "--match-set", ipset, ipsetDir,
+				"-m", "addrtype", fmt.Sprintf("--%s-type", localAddrDir), "LOCAL",
 				"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
 				"-j", "CT", "--notrack",
 			}
@@ -841,11 +842,13 @@ func (m *manager) installTunnelNoTrackRules(tunelPort uint16) error {
 		// match remote nodes with ipset: input direction allows sources, whereas
 		// output direction allows destinations.
 		ipsetDir := "dst"
+		localAddrDir := "src"
 		if chain == ciliumPreRawChain {
 			ipsetDir = "src"
+			localAddrDir = "dst"
 		}
 
-		if err := addRule(chain, ipsetDir); err != nil {
+		if err := addRule(chain, ipsetDir, localAddrDir); err != nil {
 			return err
 		}
 	}
