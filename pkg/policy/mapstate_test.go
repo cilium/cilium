@@ -231,6 +231,42 @@ func TestPassMetasMerge(t *testing.T) {
 	}
 }
 
+func TestMapStateEntryEqual(t *testing.T) {
+	fooLabels := labels.LabelArrayList{labels.LabelArray{labels.NewLabel("foo", "test", labels.LabelSourceK8s)}}
+	barLabels := labels.LabelArrayList{labels.LabelArray{labels.NewLabel("bar", "test", labels.LabelSourceK8s)}}
+
+	e1 := NewMapStateEntry(AllowEntry)
+	e1.derivedFromRules = makeRuleOrigin(fooLabels, []string{"log1"})
+
+	e2 := NewMapStateEntry(AllowEntry)
+	e2.derivedFromRules = makeRuleOrigin(barLabels, []string{"log1"})
+
+	// Different labels but the same log are equivalent, but not Equal.
+	require.True(t, e1.equivalent(e2))
+	require.False(t, e1.Equal(e2))
+
+	e3 := NewMapStateEntry(AllowEntry)
+	e3.derivedFromRules = makeRuleOrigin(fooLabels, []string{"log2"})
+
+	// Different log is not equivalent, nor Equal.
+	require.False(t, e1.equivalent(e3))
+	require.False(t, e1.Equal(e3))
+
+	e4 := NewMapStateEntry(AllowEntry)
+	e4.derivedFromRules = makeRuleOrigin(fooLabels, []string{"log1"})
+
+	// Identical derivedFromRules are both equivalent and Equal.
+	require.True(t, e1.equivalent(e4))
+	require.True(t, e1.Equal(e4))
+
+	e5 := NewMapStateEntry(DenyEntry)
+	e5.derivedFromRules = e1.derivedFromRules
+
+	// Different MapStateEntry (deny vs. allow) is neither equivalent nor Equal
+	require.False(t, e1.equivalent(e5))
+	require.False(t, e1.Equal(e5))
+}
+
 func (e mapStateEntry) withLabels(lbls labels.LabelArrayList) mapStateEntry {
 	e.derivedFromRules = makeRuleOrigin(lbls, nil)
 	return e
