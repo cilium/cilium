@@ -375,9 +375,11 @@ public IP address is stored in the ``CiliumNode`` resource's
 IP Release
 ==========
 
-Azure IPAM does not release excess private IP addresses from interfaces.
-Addresses that the agent removes from ``spec.ipam.pools.allocated`` remain
-attached and can be admitted to the default pool again if demand grows.
+Azure IPAM does not release excess private IP addresses from interfaces. Keep
+the agent option ``--ipam-cloud-release`` (Helm value ``ipam.cloudRelease``)
+disabled, which is the default. Otherwise, addresses that the agent removes from
+``spec.ipam.pools.allocated`` remain attached to the interface but are no longer
+used for allocation.
 
 Node Termination
 ================
