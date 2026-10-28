@@ -65,7 +65,7 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 		policy.SetPolicyEnabled(option.DefaultEnforcement)
 		t.Cleanup(func() { policy.SetPolicyEnabled(prev) })
 
-		_, _, computer, idmgr, repo := fixtureWithRepo(t)
+		_, _, computer, idmgr, repo := fixtureWithRepo(t, nil)
 		_, rev := repo.MustAddList(api.Rules{{
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("k8s:app=target")),
 			Ingress: []api.IngressRule{{
@@ -252,14 +252,19 @@ func TestIdentityManagerObserver(t *testing.T) {
 
 	t.Run("add triggers implicit recompute", func(t *testing.T) {
 		_, _, computer, idmgr := fixture(t)
+		repo := computer.(*IdentityPolicyComputer).repo
+		rev := repo.BumpRevision()
 
 		targetID := identity.NumericIdentity(7)
 		id := identity.NewIdentity(targetID, labels.Labels{})
 
 		idmgr.Add(id)
 
+		// The computation reads the live revision, whatever was requested.
 		obj := waitForEntry(t, computer, id, true)
 		assert.Equal(t, targetID, obj.Identity)
+		assert.Equal(t, rev, obj.Revision)
+		assert.Equal(t, rev, obj.CurrentAtRevision)
 	})
 
 	t.Run("remove deletes entry", func(t *testing.T) {
@@ -547,16 +552,20 @@ func TestRevisionAfterAdvances(t *testing.T) {
 func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager) {
 	t.Helper()
 
-	db, table, computer, idmgr, _ := fixtureWithRepo(t)
+	db, table, computer, idmgr, _ := fixtureWithRepo(t, nil)
 	return db, table, computer, idmgr
 }
 
-func fixtureWithRepo(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager, *policy.Repository) {
+func fixtureWithRepo(t *testing.T, wrap func(policy.PolicyRepository) policy.PolicyRepository) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager, *policy.Repository) {
 	t.Helper()
 
 	logger := hivetest.Logger(t)
 	idmgr := identitymanager.NewIDManager(logger)
 	repo := policy.NewPolicyRepository(logger, cmtypes.DefaultClusterInfo, nil, nil, nil, idmgr, testpolicy.NewPolicyMetricsNoop())
+	var computerRepo policy.PolicyRepository = repo
+	if wrap != nil {
+		computerRepo = wrap(repo)
+	}
 
 	var (
 		db       *statedb.DB
@@ -575,7 +584,7 @@ func fixtureWithRepo(t *testing.T) (*statedb.DB, statedb.RWTable[Result], Policy
 				},
 			),
 
-			cell.ProvidePrivate(func() policy.PolicyRepository { return repo }),
+			cell.ProvidePrivate(func() policy.PolicyRepository { return computerRepo }),
 			cell.ProvidePrivate(func() identitymanager.IDManager { return idmgr }),
 
 			cell.Provide(

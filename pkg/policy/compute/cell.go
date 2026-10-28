@@ -6,6 +6,7 @@ package compute
 import (
 	"context"
 	"log/slog"
+	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
@@ -80,6 +81,10 @@ type IdentityPolicyComputer struct {
 	// at. Protected by reqsMu.
 	localIdentities map[identity.NumericIdentity]uint64
 	nextGeneration  uint64
+
+	// requestedRev is the revision returned by RequestedRevision. Written
+	// with reqsMu held.
+	requestedRev atomic.Uint64
 }
 
 type Params struct {
