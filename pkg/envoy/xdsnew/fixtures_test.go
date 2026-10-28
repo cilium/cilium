@@ -107,10 +107,9 @@ type mockSnapshotCache struct {
 	storeSnapshotBeforeError bool
 
 	// Call tracking
-	setSnapshotCalls   []context.Context
-	getSnapshotCalls   []string
-	clearSnapshotCalls []string
-	createWatchCalls   int
+	setSnapshotCalls []context.Context
+	getSnapshotCalls []string
+	createWatchCalls int
 }
 
 func newMockSnapshotCache() *mockSnapshotCache {
@@ -140,9 +139,8 @@ func (m *mockSnapshotCache) GetSnapshot(node string) (cache.ResourceSnapshot, er
 	return snap, nil
 }
 
-func (m *mockSnapshotCache) ClearSnapshot(node string) {
-	m.clearSnapshotCalls = append(m.clearSnapshotCalls, node)
-	delete(m.snapshots, node)
+func (*mockSnapshotCache) ClearSnapshot(string) {
+	panic("unexpected ClearSnapshot call")
 }
 
 func (m *mockSnapshotCache) GetStatusInfo(node string) cache.StatusInfo {
