@@ -225,16 +225,19 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 	}
 	e.unlock()
 
+	// Wait for the revision requested when this regeneration was triggered,
+	// not only for the one it was asked for. See requestPolicyRevision.
+	wantedRevision := max(datapathRegenCtxt.policyRevisionToWaitFor, datapathRegenCtxt.policyRevision)
 	e.getLogger().Debug("Fetching policy recalculation",
 		logfields.Identity, securityIdentity.ID,
-		logfields.PolicyRevision, datapathRegenCtxt.policyRevisionToWaitFor,
+		logfields.PolicyRevision, wantedRevision,
 	)
 	var (
 		pcr            *compute.Result
 		selectorPolicy policy.SelectorPolicy
 	)
 	stats.waitForPolicyCompute.Start()
-	pcr, err = e.waitForPolicyComputationResult(datapathRegenCtxt, securityIdentity)
+	pcr, err = e.waitForPolicyComputationResult(wantedRevision, securityIdentity)
 	stats.waitForPolicyCompute.End(err == nil)
 	if err != nil {
 		return newRegenerationError(regenerationFailureReasonPolicyRegenerationError,
@@ -295,11 +298,9 @@ func (e *Endpoint) regeneratePolicy(stats *regenerationStatistics, datapathRegen
 }
 
 func (e *Endpoint) waitForPolicyComputationResult(
-	datapathRegenCtxt *datapathRegenerationContext,
+	wantedRevision uint64,
 	securityIdentity *identityPkg.Identity,
 ) (*compute.Result, error) {
-	wantedRevision := datapathRegenCtxt.policyRevisionToWaitFor
-
 	timeout := time.NewTimer(time.Second)
 	defer timeout.Stop()
 
@@ -533,6 +534,9 @@ func (e *Endpoint) regenerate(ctx *regenerationContext) (retErr error) {
 	}
 	// reset to the default lowest level
 	e.skippedRegenerationLevel = regeneration.Invalid
+	// Read the requested revision here, so it covers the triggers merged into
+	// this regeneration and no later ones.
+	ctx.datapathRegenerationContext.policyRevision = e.requestedPolicyRevision.Load()
 
 	e.consumeSkippedPolicyRevision(ctx.datapathRegenerationContext)
 
@@ -761,6 +765,7 @@ func (e *Endpoint) SetRegenerateStateIfAlive(regenMetadata *regeneration.Externa
 // setRegenerateStateLocked tries to change the state of the endpoint for pending regeneration.
 // returns 'true' if 'e.Regenerate()' should be called after releasing the endpoint lock.
 func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.ExternalRegenerationMetadata) bool {
+	e.requestPolicyRevision()
 	var regen bool
 	state := e.getState()
 	switch state {
@@ -795,6 +800,27 @@ func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.External
 		regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.GetRegenerationReason()))
 	}
 	return regen
+}
+
+// requestPolicyRevision records the revision the policy computer has been asked
+// to make all policies current at, for the next regeneration to wait for.
+//
+// It is called whenever a regeneration is triggered, so a regeneration waits for
+// the policy changes made before it was triggered. A later change triggers
+// another regeneration instead. This is what makes a new or relabeled endpoint,
+// which a policy change that affected its identity didn't regenerate, wait for
+// the new policy.
+func (e *Endpoint) requestPolicyRevision() {
+	if e.policyFetcher == nil {
+		return
+	}
+	rev := e.policyFetcher.RequestedRevision()
+	for {
+		cur := e.requestedPolicyRevision.Load()
+		if rev <= cur || e.requestedPolicyRevision.CompareAndSwap(cur, rev) {
+			return
+		}
+	}
 }
 
 // consumeDeferredRegenerationLocked returns metadata for a regeneration that was
@@ -852,26 +878,14 @@ func (e *Endpoint) UpdatePolicy(idsToRegen *set.Set[identityPkg.NumericIdentity]
 	// Otherwise, bump the policy revision directly.
 	if !idsToRegen.Has(secID) {
 		if e.policyRevision == 0 {
-			// Unaffected identities are not normally recomputed at toRev. Schedule
-			// this one before making the upcoming regeneration wait for it.
+			// The endpoint has yet to realize a policy, so it cannot claim toRev.
+			// Make the upcoming regeneration wait for it instead. The policy
+			// computer advances the identity's committed policy to toRev without
+			// recomputing it. Recomputing it here would build an identical new
+			// policy and supersede the one the identity's other endpoints are
+			// on, for no change in rules. That costs a computation and keeps
+			// both policies around until those endpoints regenerate.
 			if toRev > e.skippedPolicyRevision {
-				if _, err := e.policyFetcher.RecomputeIdentityPolicy(e.SecurityIdentity, toRev); errors.Is(err, compute.ErrIdentityNotRegistered) {
-					e.getLogger().Debug(
-						"Skipping policy recompute for unregistered identity",
-						logfields.Identity, e.SecurityIdentity.ID,
-						logfields.PolicyRevision, toRev,
-					)
-					unlock()
-					return
-				} else if err != nil {
-					e.getLogger().Warn(
-						"Failed to recompute policy for initializing endpoint",
-						logfields.Error, err,
-						logfields.PolicyRevision, toRev,
-					)
-					unlock()
-					return
-				}
 				e.skippedPolicyRevision = toRev
 			}
 			unlock()
@@ -931,6 +945,7 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 // Should only be called with e.state at StateWaitingToRegenerate,
 // StateWaitingForIdentity, or StateRestoring
 func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
+	e.requestPolicyRevision()
 	done := make(chan bool, 1)
 
 	var (
@@ -1056,6 +1071,10 @@ func (e *Endpoint) ComputeInitialPolicy(regenContext *regenerationContext) (erro
 	// buildMutex needed for all policy computation functions below.
 	e.buildMutex.Lock()
 	defer e.buildMutex.Unlock()
+
+	// The regeneration reads its revision only once it starts, and recomputes
+	// the policy if that is newer.
+	datapathRegenCtxt.policyRevision = e.requestedPolicyRevision.Load()
 
 	// Compute Endpoint's policy
 	stats.policyCalculation.Start()
