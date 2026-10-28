@@ -428,6 +428,16 @@ read_control() {
   fi
 }
 
+# Prints each node's pods and Cilium readiness, and warns about bursts of probe timeouts on one node.
+node_report() {
+  local pods events
+  pods=$(mktemp)
+  events=$(mktemp)
+  timeout 30 kubectl get pods -A -o json >"${pods}" 2>/dev/null || echo "kubectl get pods failed"
+  timeout 30 kubectl get events -A -o json >"${events}" 2>/dev/null || echo "kubectl get events failed"
+  python3 -I "$(dirname "${BASH_SOURCE[0]}")/nodes.py" "${pods}" "${events}" "$1"
+}
+
 stop() {
   local provider=$1 cluster=$2 location=$3 job_status=$4 ep cidrs="" warnings pid control="not started"
   if [[ ! -s ${pids} ]]; then
@@ -461,6 +471,7 @@ stop() {
     echo "in-cluster probe from a node without Cilium: ${control}"
     [[ -s ${pcap} ]] && handshakes "$(api_port "${ep}")" "${warnings}"
     summarize "${cidrs}" "${warnings}"
+    [[ ${job_status} != cancelled ]] && node_report "${warnings}"
     echo "runner counters at stop:$(local_counters)"
     echo "== Azure IMDS network"
     curl -sS --noproxy '*' --max-time 3 -H Metadata:true \
