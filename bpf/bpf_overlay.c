@@ -602,12 +602,12 @@ out:
 __section_entry
 int cil_to_overlay(struct __ctx_buff *ctx)
 {
-	bool snat_done __maybe_unused = ctx_snat_done(ctx);
-	struct trace_ctx __maybe_unused trace;
+	bool snat_done = ctx_snat_done(ctx);
+	struct trace_ctx trace;
 	struct bpf_tunnel_key tunnel_key = {};
 	__u32 src_sec_identity = UNKNOWN_ID;
 	int ret = TC_ACT_OK;
-	__u32 cluster_id __maybe_unused = 0;
+	__u32 cluster_id = 0;
 	__be16 proto = 0;
 	__s8 ext_err = 0;
 
