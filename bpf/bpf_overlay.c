@@ -53,7 +53,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 				       __u32 *identity,
 				       __s8 *ext_err __maybe_unused)
 {
-	int ret __maybe_unused, l3_off = ETH_HLEN;
+	int ret, l3_off = ETH_HLEN;
 	void *data_end, *data;
 	struct ipv6hdr *ip6;
 	const struct endpoint_info *ep;
@@ -72,8 +72,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			return DROP_FRAG_NOSUPPORT;
 	}
 
-#ifdef ENABLE_NODEPORT
-	if (!ctx_skip_nodeport(ctx)) {
+	if (is_defined(ENABLE_NODEPORT) && !ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 
 		ret = nodeport_lb6(ctx, ip6, *identity, &punt_to_stack,
@@ -89,7 +88,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		if (punt_to_stack)
 			return ret;
 	}
-#endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -259,7 +257,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	struct iphdr *ip4;
 	const struct endpoint_info *ep;
 	bool is_dsr = false;
-	int ret __maybe_unused;
+	int ret;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -284,8 +282,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	}
 #endif /* ENABLE_MULTICAST */
 
-#ifdef ENABLE_NODEPORT
-	if (!ctx_skip_nodeport(ctx)) {
+	if (is_defined(ENABLE_NODEPORT) && !ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 
 		ret = nodeport_lb4(ctx, ip4, *identity, &punt_to_stack,
@@ -301,7 +298,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		if (punt_to_stack)
 			return ret;
 	}
-#endif
+
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
@@ -652,15 +649,17 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 
 	set_identity_mark(ctx, src_sec_identity, MARK_MAGIC_OVERLAY);
 
-#ifdef ENABLE_NODEPORT
-	if (snat_done) {
-		ret = CTX_ACT_OK;
-		goto out;
+	if (is_defined(ENABLE_NODEPORT)) {
+		if (snat_done) {
+			ret = CTX_ACT_OK;
+			goto out;
+		}
+
+		ret = handle_nat_fwd(ctx, cluster_id, src_sec_identity, proto, false, &trace,
+				     &ext_err);
 	}
 
-	ret = handle_nat_fwd(ctx, cluster_id, src_sec_identity, proto, false, &trace, &ext_err);
 out:
-#endif
 	if (IS_ERR(ret))
 		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 						  METRIC_EGRESS);
