@@ -37,10 +37,6 @@
 # define unlikely(X)		__builtin_expect(!!(X), 0)
 #endif
 
-#ifndef always_succeeds		/* Mainly for documentation purpose. */
-# define always_succeeds(X)	likely(X)
-#endif
-
 #undef __always_inline		/* stddef.h defines its own */
 #define __always_inline		inline __attribute__((always_inline))
 

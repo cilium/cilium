@@ -279,9 +279,6 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 	if (!validate_ethertype(ctx, &proto))
 		return CTX_ACT_OK;
 
-	ctx_store_meta(ctx, XFER_MARKER, 0);
-	ctx_skip_nodeport_clear(ctx);
-
 	ret = xdp_early_hook(ctx, proto);
 	if (ret != CTX_ACT_OK)
 		return ret;

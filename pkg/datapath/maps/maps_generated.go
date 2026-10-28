@@ -120,7 +120,6 @@ const (
 	CiliumSubnetMap                     = "cilium_subnet_map"
 	CiliumThrottle                      = "cilium_throttle"
 	CiliumVTEPMap                       = "cilium_vtep_map"
-	CiliumXDPScratch                    = "cilium_xdp_scratch"
 )
 
 func newCiliumCallPolicySpec(btf *btf.Spec) *ebpf.MapSpec {
@@ -1268,18 +1267,6 @@ func newCiliumVTEPMapSpec(btf *btf.Spec) *ebpf.MapSpec {
 	}
 }
 
-func newCiliumXDPScratchSpec(btf *btf.Spec) *ebpf.MapSpec {
-	return &ebpf.MapSpec{
-		Name:       CiliumXDPScratch,
-		Type:       ebpf.PerCPUArray,
-		KeySize:    4,
-		ValueSize:  28,
-		MaxEntries: 1,
-		Flags:      0,
-		Pinning:    ebpf.PinByName,
-	}
-}
-
 var _outer []newMapFn = []newMapFn{
 	newCiliumCallPolicySpec,
 	newCiliumCallsSpec,
@@ -1354,7 +1341,6 @@ var _outer []newMapFn = []newMapFn{
 	newCiliumSubnetMapSpec,
 	newCiliumThrottleSpec,
 	newCiliumVTEPMapSpec,
-	newCiliumXDPScratchSpec,
 }
 
 //go:embed mapkv.btf
