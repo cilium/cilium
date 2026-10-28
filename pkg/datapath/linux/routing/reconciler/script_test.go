@@ -74,8 +74,9 @@ import (
 )
 
 const (
-	testENILinkName = "cilium-rr-test"
-	testENILinkMAC  = "02:ca:fe:00:00:01"
+	// Scenarios create their ENI links with this name prefix and MAC prefix.
+	testENILinkPrefix    = "cilium-rr-"
+	testENILinkMACPrefix = "02:ca:fe:00:00:"
 )
 
 func TestPrivilegedScript(t *testing.T) {
@@ -255,23 +256,23 @@ func cleanupTestState() error {
 			fmt.Errorf("delete Cilium endpoint routing rules: %w", err))
 	}
 
-	link, err := safenetlink.LinkByName(testENILinkName)
-	switch {
-	case errors.As(err, new(netlink.LinkNotFoundError)):
-		// The link is absent before the first run or was already removed.
-	case err != nil:
-		cleanupErrors = append(cleanupErrors,
-			fmt.Errorf("look up test ENI link: %w", err))
-	case link.Attrs().HardwareAddr.String() != testENILinkMAC:
-		cleanupErrors = append(cleanupErrors, fmt.Errorf(
-			"refusing to delete link %q with unexpected MAC %s",
-			testENILinkName,
-			link.Attrs().HardwareAddr,
-		))
-	default:
+	links, err := safenetlink.LinkList()
+	if err != nil {
+		cleanupErrors = append(cleanupErrors, fmt.Errorf("list links: %w", err))
+	}
+	for _, link := range links {
+		name := link.Attrs().Name
+		if !strings.HasPrefix(name, testENILinkPrefix) {
+			continue
+		}
+		if hw := link.Attrs().HardwareAddr.String(); !strings.HasPrefix(hw, testENILinkMACPrefix) {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf(
+				"refusing to delete link %q with unexpected MAC %s", name, hw))
+			continue
+		}
 		if err := netlink.LinkDel(link); err != nil && !errors.Is(err, unix.ENODEV) {
 			cleanupErrors = append(cleanupErrors,
-				fmt.Errorf("delete test ENI link: %w", err))
+				fmt.Errorf("delete test ENI link %q: %w", name, err))
 		}
 	}
 
