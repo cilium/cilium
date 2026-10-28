@@ -193,8 +193,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx,
 			return DROP_UNENCRYPTED_TRAFFIC;
 	}
 
-#ifdef ENABLE_NODEPORT
-	if (!from_host) {
+	if (is_defined(ENABLE_NODEPORT) && !from_host) {
 		if (!ctx_skip_nodeport(ctx)) {
 			bool is_dsr = false;
 
@@ -211,7 +210,6 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx,
 				return ret;
 		}
 	}
-#endif /* ENABLE_NODEPORT */
 
 	if (!CONFIG(enable_host_firewall))
 		return CTX_ACT_OK;
@@ -632,8 +630,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			return DROP_UNENCRYPTED_TRAFFIC;
 	}
 
-#ifdef ENABLE_NODEPORT
-	if (!from_host) {
+	if (is_defined(ENABLE_NODEPORT) && !from_host) {
 		if (!ctx_skip_nodeport(ctx)) {
 			bool is_dsr = false;
 
@@ -652,7 +649,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 				return ret;
 		}
 	}
-#endif /* ENABLE_NODEPORT */
 
 	if (!CONFIG(enable_host_firewall))
 		return CTX_ACT_OK;
@@ -1577,25 +1573,26 @@ skip_host_firewall:
 		}
 	}
 
-#ifdef ENABLE_NODEPORT
-	if (CONFIG(enable_health_check)) {
-		ret = lb_handle_health(ctx, proto);
-		if (ret != CTX_ACT_OK)
-			goto exit;
-	}
+	if (is_defined(ENABLE_NODEPORT)) {
+		if (CONFIG(enable_health_check)) {
+			ret = lb_handle_health(ctx, proto);
+			if (ret != CTX_ACT_OK)
+				goto exit;
+		}
 
-	if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_is_encrypt(ctx)) {
-		/*
-		 * handle_nat_fwd tail calls in the majority of cases,
-		 * so control might never return to this program.
-		 */
-		ret = handle_nat_fwd(ctx, 0, src_sec_identity, proto, false, &trace, &ext_err);
-		if (ret == CTX_ACT_REDIRECT)
-			return ret;
+		if (!ctx_snat_done(ctx) && !ctx_is_overlay(ctx) && !ctx_is_encrypt(ctx)) {
+			/*
+			 * handle_nat_fwd tail calls in the majority of cases,
+			 * so control might never return to this program.
+			 */
+			ret = handle_nat_fwd(ctx, 0, src_sec_identity, proto, false, &trace,
+					     &ext_err);
+			if (ret == CTX_ACT_REDIRECT)
+				return ret;
+		}
 	}
 
 exit:
-#endif
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -1819,8 +1816,8 @@ int cil_to_host(struct __ctx_buff *ctx)
 			ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* !TUNNEL_MODE */
 
-# ifdef ENABLE_NODEPORT
-		if (ctx_is_encrypt(ctx) && validate_ethertype(ctx, &proto)) {
+		if (is_defined(ENABLE_NODEPORT) && ctx_is_encrypt(ctx) &&
+		    validate_ethertype(ctx, &proto)) {
 			/* handle_nat_fwd() tail calls in the majority of cases, so control
 			 * might never return to this program. Since IPsec is not compatible
 			 * iwth Host Firewall, this won't be an issue.
@@ -1830,7 +1827,6 @@ int cil_to_host(struct __ctx_buff *ctx)
 			if (IS_ERR(ret))
 				goto out;
 		}
-#endif /* ENABLE_NODEPORT */
 	}
 
 	if (CONFIG(enable_host_firewall)) {
