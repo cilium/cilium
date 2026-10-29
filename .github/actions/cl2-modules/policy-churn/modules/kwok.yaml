@@ -1,0 +1,80 @@
+{{$actionName := .actionName}}
+{{$tuningSet := .tuningSet}}
+
+{{$image := .image}}
+{{$ciliumNamespace := .ciliumNamespace}}
+{{$ciliumConfigMapName := .ciliumConfigMapName}}
+
+{{if eq $actionName "create"}}
+
+steps:
+- module:
+    path: ./modules/rbac.yaml
+    params:
+      replicas: 1
+      actionName: create
+      tuningSet: {{$tuningSet}}
+      serviceAccountName: kwok
+      serviceAccountNamespace: {{$ciliumNamespace}}
+
+- name: Starting measurement for kwok-controller to be running
+  measurements:
+  - identifier: WaitForKwokControllerRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: start
+      apiVersion: apps/v1
+      kind: Deployment
+      namespace: {{$ciliumNamespace}}
+      labelSelector: app.kubernetes.io/name=kwok-controller
+      operationTimeout: 1m
+
+- name: {{$actionName}} kwok-controller
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: 1
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kwok
+      objectTemplatePath: ./manifests/kwok-deployment.yaml
+      templateFillMap:
+        image: {{$image}}
+        ciliumNamespace: {{$ciliumNamespace}}
+        ciliumConfigMapName: {{$ciliumConfigMapName}}
+        svcAccountRefName: kwok
+
+- name: Waiting for kwok-controller to be running
+  measurements:
+  - identifier: WaitForKwokControllerRunning
+    method: WaitForControlledPodsRunning
+    params:
+      action: gather
+
+{{else}}
+
+steps:
+- name: Delete kwok-controller
+  phases:
+  - namespaceList: [{{$ciliumNamespace}}]
+    replicasPerNamespace: 0
+    tuningSet: {{$tuningSet}}
+    objectBundle:
+    - basename: kwok
+      objectTemplatePath: ./manifests/kwok-deployment.yaml
+      templateFillMap:
+        image: {{$image}}
+        ciliumNamespace: {{$ciliumNamespace}}
+        ciliumConfigMapName: {{$ciliumConfigMapName}}
+        svcAccountRefName: kwok
+
+- module:
+    path: ./modules/rbac.yaml
+    params:
+      replicas: 0
+      actionName: delete
+      tuningSet: {{$tuningSet}}
+      serviceAccountName: kwok
+      serviceAccountNamespace: {{$ciliumNamespace}}
+
+{{end}}
+
