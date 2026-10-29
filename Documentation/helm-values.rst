@@ -143,7 +143,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.38.0","useDigest":true}``
+     - ``{"digest":"sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4","override":null,"pullPolicy":"Always","repository":"docker.io/library/busybox","tag":"1.38.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -1683,7 +1683,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:38d2fb65b6d93be7a4ebfd236652a498aa0f7e42c495dd1f884ae69c880b620b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.1-1792728304-8839ed339cf4446d66a4f7083d8ea2fe7b21b182","useDigest":true}``
+     - ``{"digest":"sha256:c37bb9e4c61e5f54b8a60445097aaf831ab149001166acb2405c4c529a51ee22","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1793191753-2b268f098fb50df0c1201524291992f48a959074","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -3759,7 +3759,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:38d2fb65b6d93be7a4ebfd236652a498aa0f7e42c495dd1f884ae69c880b620b","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.1-1792728304-8839ed339cf4446d66a4f7083d8ea2fe7b21b182","useDigest":true}``
+     - ``{"digest":"sha256:c37bb9e4c61e5f54b8a60445097aaf831ab149001166acb2405c4c529a51ee22","override":null,"pullPolicy":"Always","repository":"quay.io/cilium/cilium-envoy","tag":"v1.40.2-1793191753-2b268f098fb50df0c1201524291992f48a959074","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
