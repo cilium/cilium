@@ -1386,6 +1386,13 @@ int cil_from_host(struct __ctx_buff *ctx)
 	return do_netdev(ctx, proto, identity, obs_point, true);
 }
 
+struct cil_to_netdev_cont_info {
+	__u32 src_sec_identity;
+	struct trace_ctx trace;
+};
+
+DEFINE_AUX(struct cil_to_netdev_cont_info, cil_to_netdev_cont_info);
+
 /*
  * to-netdev is attached as a tc egress filter to one or more physical devices
  * managed by Cilium (e.g., eth0).
@@ -1394,7 +1401,6 @@ __section_entry
 int cil_to_netdev(struct __ctx_buff *ctx)
 {
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-	__u32 dst_sec_identity = UNKNOWN_ID;
 	__u32 src_sec_identity = UNKNOWN_ID;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1404,6 +1410,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 	__u32 vlan_id;
 	int ret = CTX_ACT_OK;
 	__s8 ext_err = 0;
+	struct cil_to_netdev_cont_info *tail_call_info;
 
 	/* Load the ethertype just once: */
 	validate_ethertype(ctx, &proto);
@@ -1491,6 +1498,25 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 			goto drop_err;
 	}
 skip_host_firewall:
+	tail_call_info = AUX(cil_to_netdev_cont_info);
+	tail_call_info->src_sec_identity = src_sec_identity;
+	tail_call_info->trace = trace;
+	ret = tail_call_internal(ctx, CILIUM_CALL_CIL_TO_NETDEV_CONT, &ext_err);
+
+drop_err:
+	return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
+					  METRIC_EGRESS);
+}
+
+/* cil_to_netdev continuation running in its own tail call.
+ */
+static __always_inline int
+cil_to_netdev_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
+		   struct trace_ctx trace, __be16 proto)
+{
+	__u32 dst_sec_identity = UNKNOWN_ID;
+	int ret = CTX_ACT_OK;
+	__s8 ext_err = 0;
 
 	ret = host_egress_policy_hook(ctx, src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
@@ -1601,6 +1627,20 @@ exit:
 drop_err:
 	return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 					  METRIC_EGRESS);
+}
+
+__declare_tail(CILIUM_CALL_CIL_TO_NETDEV_CONT)
+static __always_inline
+int tail_cil_to_netdev_cont(struct __ctx_buff *ctx)
+{
+	struct cil_to_netdev_cont_info *tail_call_info = AUX_REUSE(cil_to_netdev_cont_info);
+	__u32 src_sec_identity = tail_call_info->src_sec_identity;
+	struct trace_ctx trace = tail_call_info->trace;
+	__be16 proto = 0;
+
+	validate_ethertype(ctx, &proto);
+
+	return cil_to_netdev_cont(ctx, src_sec_identity, trace, proto);
 }
 
 #ifdef ENABLE_IPV6
