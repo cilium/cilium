@@ -25,22 +25,19 @@ func newFactory(params params) observer.Factory {
 			onSync:        onSync,
 		}
 
-		observer := store.Observer(dummyObserver{})
 		if params.Observer != nil {
-			observer = params.Observer
+			obs.store = params.StoreFactory.NewWatchStore(
+				cluster,
+				endpointslicetypes.KeyCreator(
+					endpointslicetypes.ClusterNameValidator(cluster),
+					endpointslicetypes.NamespacedNameValidator(),
+					endpointslicetypes.ClusterIDValidator(&obs.clusterID),
+				),
+				params.Observer,
+				store.RWSWithOnSyncCallback(func(context.Context) { onSync() }),
+				store.RWSWithEntriesMetric(params.Metrics.TotalEndpointSlices.WithLabelValues(cluster)),
+			)
 		}
-
-		obs.store = params.StoreFactory.NewWatchStore(
-			cluster,
-			endpointslicetypes.KeyCreator(
-				endpointslicetypes.ClusterNameValidator(cluster),
-				endpointslicetypes.NamespacedNameValidator(),
-				endpointslicetypes.ClusterIDValidator(&obs.clusterID),
-			),
-			observer,
-			store.RWSWithOnSyncCallback(func(context.Context) { onSync() }),
-			store.RWSWithEntriesMetric(params.Metrics.TotalEndpointSlices.WithLabelValues(cluster)),
-		)
 
 		return obs
 	}
@@ -59,6 +56,9 @@ type endpointSliceObserver struct {
 func (o *endpointSliceObserver) Name() observer.Name { return Name }
 
 func (o *endpointSliceObserver) Status() observer.Status {
+	if o.store == nil {
+		return observer.Status{}
+	}
 	return observer.Status{
 		Enabled: o.enabled.Load(),
 		Synced:  o.store.Synced(),
@@ -67,6 +67,11 @@ func (o *endpointSliceObserver) Status() observer.Status {
 }
 
 func (o *endpointSliceObserver) Register(mgr store.WatchStoreManager, backend kvstore.BackendOperations, cfg types.CiliumClusterConfig) {
+	if o.store == nil {
+		o.onSync()
+		return
+	}
+
 	o.clusterID = cfg.ID
 
 	prefix := endpointslicetypes.EndpointSliceStorePrefix
@@ -94,10 +99,9 @@ func (o *endpointSliceObserver) Register(mgr store.WatchStoreManager, backend kv
 	o.onSync()
 }
 
-func (o *endpointSliceObserver) Drain()  { o.store.Drain() }
-func (o *endpointSliceObserver) Revoke() { o.store.Drain() }
-
-type dummyObserver struct{}
-
-func (dummyObserver) OnUpdate(store.Key)      {}
-func (dummyObserver) OnDelete(store.NamedKey) {}
+func (o *endpointSliceObserver) Drain() {
+	if o.store != nil {
+		o.store.Drain()
+	}
+}
+func (o *endpointSliceObserver) Revoke() { o.Drain() }
