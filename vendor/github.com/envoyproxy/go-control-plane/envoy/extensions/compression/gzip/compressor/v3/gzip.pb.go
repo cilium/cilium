@@ -25,15 +25,21 @@ const (
 )
 
 // All the values of this enumeration translate directly to zlib's compression strategies.
-// For more information about each strategy, please refer to zlib manual.
+// For more information about each strategy, please refer to the
+// `zlib manual <https://www.zlib.net/manual.html>`_.
 type Gzip_CompressionStrategy int32
 
 const (
+	// Default compression strategy.
 	Gzip_DEFAULT_STRATEGY Gzip_CompressionStrategy = 0
-	Gzip_FILTERED         Gzip_CompressionStrategy = 1
-	Gzip_HUFFMAN_ONLY     Gzip_CompressionStrategy = 2
-	Gzip_RLE              Gzip_CompressionStrategy = 3
-	Gzip_FIXED            Gzip_CompressionStrategy = 4
+	// Filtered compression strategy, designed for data produced by a filter or predictor.
+	Gzip_FILTERED Gzip_CompressionStrategy = 1
+	// Huffman-only compression strategy, which uses Huffman encoding only.
+	Gzip_HUFFMAN_ONLY Gzip_CompressionStrategy = 2
+	// Run-length encoding (RLE) compression strategy, designed for image data.
+	Gzip_RLE Gzip_CompressionStrategy = 3
+	// Fixed compression strategy, which prevents the use of dynamic Huffman codes.
+	Gzip_FIXED Gzip_CompressionStrategy = 4
 )
 
 // Enum value maps for Gzip_CompressionStrategy.
@@ -81,21 +87,35 @@ func (Gzip_CompressionStrategy) EnumDescriptor() ([]byte, []int) {
 	return file_envoy_extensions_compression_gzip_compressor_v3_gzip_proto_rawDescGZIP(), []int{0, 0}
 }
 
+// Compression level values for zlib. Higher levels provide better compression at the cost of
+// increased latency and CPU usage.
 type Gzip_CompressionLevel int32
 
 const (
+	// Default compression level, equivalent to “COMPRESSION_LEVEL_6“.
 	Gzip_DEFAULT_COMPRESSION Gzip_CompressionLevel = 0
-	Gzip_BEST_SPEED          Gzip_CompressionLevel = 1
+	// Fastest compression with minimal compression ratio, equivalent to “COMPRESSION_LEVEL_1“.
+	Gzip_BEST_SPEED Gzip_CompressionLevel = 1
+	// Compression level 1 (fastest).
 	Gzip_COMPRESSION_LEVEL_1 Gzip_CompressionLevel = 1
+	// Compression level 2.
 	Gzip_COMPRESSION_LEVEL_2 Gzip_CompressionLevel = 2
+	// Compression level 3.
 	Gzip_COMPRESSION_LEVEL_3 Gzip_CompressionLevel = 3
+	// Compression level 4.
 	Gzip_COMPRESSION_LEVEL_4 Gzip_CompressionLevel = 4
+	// Compression level 5.
 	Gzip_COMPRESSION_LEVEL_5 Gzip_CompressionLevel = 5
+	// Compression level 6.
 	Gzip_COMPRESSION_LEVEL_6 Gzip_CompressionLevel = 6
+	// Compression level 7.
 	Gzip_COMPRESSION_LEVEL_7 Gzip_CompressionLevel = 7
+	// Compression level 8.
 	Gzip_COMPRESSION_LEVEL_8 Gzip_CompressionLevel = 8
+	// Compression level 9 (best compression).
 	Gzip_COMPRESSION_LEVEL_9 Gzip_CompressionLevel = 9
-	Gzip_BEST_COMPRESSION    Gzip_CompressionLevel = 9
+	// Best compression ratio with highest latency, equivalent to “COMPRESSION_LEVEL_9“.
+	Gzip_BEST_COMPRESSION Gzip_CompressionLevel = 9
 )
 
 // Enum value maps for Gzip_CompressionLevel.
@@ -161,31 +181,41 @@ func (Gzip_CompressionLevel) EnumDescriptor() ([]byte, []int) {
 type Gzip struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Value from 1 to 9 that controls the amount of internal memory used by zlib. Higher values
-	// use more memory, but are faster and produce better compression results. The default value is 5.
+	// use more memory, but are faster and produce better compression results.
+	//
+	// Defaults to “5“.
 	MemoryLevel *wrapperspb.UInt32Value `protobuf:"bytes,1,opt,name=memory_level,json=memoryLevel,proto3" json:"memory_level,omitempty"`
 	// A value used for selecting the zlib compression level. This setting will affect speed and
-	// amount of compression applied to the content. "BEST_COMPRESSION" provides higher compression
-	// at the cost of higher latency and is equal to "COMPRESSION_LEVEL_9". "BEST_SPEED" provides
-	// lower compression with minimum impact on response time, the same as "COMPRESSION_LEVEL_1".
-	// "DEFAULT_COMPRESSION" provides an optimal result between speed and compression. According
-	// to zlib's manual this level gives the same result as "COMPRESSION_LEVEL_6".
-	// This field will be set to "DEFAULT_COMPRESSION" if not specified.
+	// amount of compression applied to the content. “BEST_COMPRESSION“ provides higher compression
+	// at the cost of higher latency and is equal to “COMPRESSION_LEVEL_9“. “BEST_SPEED“ provides
+	// lower compression with minimum impact on response time, the same as “COMPRESSION_LEVEL_1“.
+	// “DEFAULT_COMPRESSION“ provides an optimal result between speed and compression. According
+	// to zlib's manual, this level gives the same result as “COMPRESSION_LEVEL_6“.
+	//
+	// Defaults to “DEFAULT_COMPRESSION“.
 	CompressionLevel Gzip_CompressionLevel `protobuf:"varint,2,opt,name=compression_level,json=compressionLevel,proto3,enum=envoy.extensions.compression.gzip.compressor.v3.Gzip_CompressionLevel" json:"compression_level,omitempty"`
 	// A value used for selecting the zlib compression strategy which is directly related to the
-	// characteristics of the content. Most of the time "DEFAULT_STRATEGY" will be the best choice,
-	// which is also the default value for the parameter, though there are situations when
-	// changing this parameter might produce better results. For example, run-length encoding (RLE)
-	// is typically used when the content is known for having sequences which same data occurs many
-	// consecutive times. For more information about each strategy, please refer to zlib manual.
+	// characteristics of the content. Most of the time “DEFAULT_STRATEGY“ will be the best choice,
+	// though there are situations when changing this parameter might produce better results. For
+	// example, run-length encoding (RLE) is typically used when the content is known for having
+	// sequences in which the same data occurs many consecutive times. For more information about
+	// each strategy, please refer to the `zlib manual <https://www.zlib.net/manual.html>`_.
+	//
+	// Defaults to “DEFAULT_STRATEGY“.
 	CompressionStrategy Gzip_CompressionStrategy `protobuf:"varint,3,opt,name=compression_strategy,json=compressionStrategy,proto3,enum=envoy.extensions.compression.gzip.compressor.v3.Gzip_CompressionStrategy" json:"compression_strategy,omitempty"`
 	// Value from 9 to 15 that represents the base two logarithmic of the compressor's window size.
-	// Larger window results in better compression at the expense of memory usage. The default is 12
-	// which will produce a 4096 bytes window. For more details about this parameter, please refer to
-	// zlib manual > deflateInit2.
+	// Larger window results in better compression at the expense of memory usage. For more details
+	// about this parameter, please refer to the
+	// `zlib manual <https://www.zlib.net/manual.html>`_ for “deflateInit2“.
+	//
+	// Defaults to “12“, which will produce a 4096 bytes window.
 	WindowBits *wrapperspb.UInt32Value `protobuf:"bytes,4,opt,name=window_bits,json=windowBits,proto3" json:"window_bits,omitempty"`
-	// Value for Zlib's next output buffer. If not set, defaults to 4096.
-	// See https://www.zlib.net/manual.html for more details. Also see
-	// https://github.com/envoyproxy/envoy/issues/8448 for context on this filter's performance.
+	// Value for zlib's next output buffer. See the
+	// `zlib manual <https://www.zlib.net/manual.html>`_ for more details. Also see
+	// `envoy#8448 <https://github.com/envoyproxy/envoy/issues/8448>`_ for context on this filter's
+	// performance.
+	//
+	// Defaults to “4096“.
 	ChunkSize     *wrapperspb.UInt32Value `protobuf:"bytes,5,opt,name=chunk_size,json=chunkSize,proto3" json:"chunk_size,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

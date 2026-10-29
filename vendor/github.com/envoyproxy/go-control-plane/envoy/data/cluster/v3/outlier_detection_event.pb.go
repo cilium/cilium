@@ -66,6 +66,11 @@ const (
 	// Runs over aggregated success rate statistics for local origin failures from every host in
 	// cluster and selects hosts for which ratio of failed replies is above configured value.
 	OutlierEjectionType_FAILURE_PERCENTAGE_LOCAL_ORIGIN OutlierEjectionType = 6
+	// Host is detected as degraded via passive health checking (outlier detection).
+	// The host returns responses with the x-envoy-degraded header, indicating it is under stress
+	// but still able to serve traffic. Degraded hosts are deprioritized in load balancing but not
+	// fully ejected.
+	OutlierEjectionType_DEGRADED OutlierEjectionType = 7
 )
 
 // Enum value maps for OutlierEjectionType.
@@ -78,6 +83,7 @@ var (
 		4: "SUCCESS_RATE_LOCAL_ORIGIN",
 		5: "FAILURE_PERCENTAGE",
 		6: "FAILURE_PERCENTAGE_LOCAL_ORIGIN",
+		7: "DEGRADED",
 	}
 	OutlierEjectionType_value = map[string]int32{
 		"CONSECUTIVE_5XX":                  0,
@@ -87,6 +93,7 @@ var (
 		"SUCCESS_RATE_LOCAL_ORIGIN":        4,
 		"FAILURE_PERCENTAGE":               5,
 		"FAILURE_PERCENTAGE_LOCAL_ORIGIN":  6,
+		"DEGRADED":                         7,
 	}
 )
 
@@ -514,7 +521,7 @@ const file_envoy_data_cluster_v3_outlier_detection_event_proto_rawDesc = "" +
 	"2envoy.data.cluster.v2alpha.OutlierEjectConsecutive\"\x95\x01\n" +
 	"\x1dOutlierEjectFailurePercentage\x123\n" +
 	"\x11host_success_rate\x18\x01 \x01(\rB\a\xfaB\x04*\x02\x18dR\x0fhostSuccessRate:?\x9aň\x1e:\n" +
-	"8envoy.data.cluster.v2alpha.OutlierEjectFailurePercentage*\xdf\x01\n" +
+	"8envoy.data.cluster.v2alpha.OutlierEjectFailurePercentage*\xed\x01\n" +
 	"\x13OutlierEjectionType\x12\x13\n" +
 	"\x0fCONSECUTIVE_5XX\x10\x00\x12\x1f\n" +
 	"\x1bCONSECUTIVE_GATEWAY_FAILURE\x10\x01\x12\x10\n" +
@@ -522,7 +529,8 @@ const file_envoy_data_cluster_v3_outlier_detection_event_proto_rawDesc = "" +
 	" CONSECUTIVE_LOCAL_ORIGIN_FAILURE\x10\x03\x12\x1d\n" +
 	"\x19SUCCESS_RATE_LOCAL_ORIGIN\x10\x04\x12\x16\n" +
 	"\x12FAILURE_PERCENTAGE\x10\x05\x12#\n" +
-	"\x1fFAILURE_PERCENTAGE_LOCAL_ORIGIN\x10\x06* \n" +
+	"\x1fFAILURE_PERCENTAGE_LOCAL_ORIGIN\x10\x06\x12\f\n" +
+	"\bDEGRADED\x10\a* \n" +
 	"\x06Action\x12\t\n" +
 	"\x05EJECT\x10\x00\x12\v\n" +
 	"\aUNEJECT\x10\x01B\x93\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +

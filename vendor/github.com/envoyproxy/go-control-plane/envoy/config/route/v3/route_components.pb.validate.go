@@ -5835,6 +5835,8 @@ func (m *RateLimit) validate(all bool) error {
 
 	// no validation rules for ApplyOnStreamDone
 
+	// no validation rules for XRatelimitOption
+
 	if len(errors) > 0 {
 		return RateLimitMultiError(errors)
 	}
@@ -10963,6 +10965,48 @@ func (m *RateLimit_Action) validate(all bool) error {
 			}
 		}
 
+	case *RateLimit_Action_RemoteAddressMatch_:
+		if v == nil {
+			err := RateLimit_ActionValidationError{
+				field:  "ActionSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofActionSpecifierPresent = true
+
+		if all {
+			switch v := interface{}(m.GetRemoteAddressMatch()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, RateLimit_ActionValidationError{
+						field:  "RemoteAddressMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, RateLimit_ActionValidationError{
+						field:  "RemoteAddressMatch",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRemoteAddressMatch()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return RateLimit_ActionValidationError{
+					field:  "RemoteAddressMatch",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		_ = v // ensures v is used
 	}
@@ -11277,6 +11321,8 @@ func (m *RateLimit_HitsAddend) validate(all bool) error {
 		}
 
 	}
+
+	// no validation rules for IsNegativeHits
 
 	if len(errors) > 0 {
 		return RateLimit_HitsAddendMultiError(errors)
@@ -12905,6 +12951,166 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RateLimit_Action_QueryParameterValueMatchValidationError{}
+
+// Validate checks the field values on RateLimit_Action_RemoteAddressMatch with
+// the rules defined in the proto definition for this message. If any rules
+// are violated, the first error encountered is returned, or nil if there are
+// no violations.
+func (m *RateLimit_Action_RemoteAddressMatch) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RateLimit_Action_RemoteAddressMatch
+// with the rules defined in the proto definition for this message. If any
+// rules are violated, the result is a list of violation errors wrapped in
+// RateLimit_Action_RemoteAddressMatchMultiError, or nil if none found.
+func (m *RateLimit_Action_RemoteAddressMatch) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RateLimit_Action_RemoteAddressMatch) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetDescriptorValue()) < 1 {
+		err := RateLimit_Action_RemoteAddressMatchValidationError{
+			field:  "DescriptorValue",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for DescriptorKey
+
+	// no validation rules for DefaultValue
+
+	if m.GetAddressMatcher() == nil {
+		err := RateLimit_Action_RemoteAddressMatchValidationError{
+			field:  "AddressMatcher",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetAddressMatcher()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RateLimit_Action_RemoteAddressMatchValidationError{
+					field:  "AddressMatcher",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RateLimit_Action_RemoteAddressMatchValidationError{
+					field:  "AddressMatcher",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetAddressMatcher()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RateLimit_Action_RemoteAddressMatchValidationError{
+				field:  "AddressMatcher",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return RateLimit_Action_RemoteAddressMatchMultiError(errors)
+	}
+
+	return nil
+}
+
+// RateLimit_Action_RemoteAddressMatchMultiError is an error wrapping multiple
+// validation errors returned by
+// RateLimit_Action_RemoteAddressMatch.ValidateAll() if the designated
+// constraints aren't met.
+type RateLimit_Action_RemoteAddressMatchMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RateLimit_Action_RemoteAddressMatchMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RateLimit_Action_RemoteAddressMatchMultiError) AllErrors() []error { return m }
+
+// RateLimit_Action_RemoteAddressMatchValidationError is the validation error
+// returned by RateLimit_Action_RemoteAddressMatch.Validate if the designated
+// constraints aren't met.
+type RateLimit_Action_RemoteAddressMatchValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RateLimit_Action_RemoteAddressMatchValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RateLimit_Action_RemoteAddressMatchValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RateLimit_Action_RemoteAddressMatchValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RateLimit_Action_RemoteAddressMatchValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RateLimit_Action_RemoteAddressMatchValidationError) ErrorName() string {
+	return "RateLimit_Action_RemoteAddressMatchValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RateLimit_Action_RemoteAddressMatchValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRateLimit_Action_RemoteAddressMatch.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RateLimit_Action_RemoteAddressMatchValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RateLimit_Action_RemoteAddressMatchValidationError{}
 
 // Validate checks the field values on RateLimit_Override_DynamicMetadata with
 // the rules defined in the proto definition for this message. If any rules

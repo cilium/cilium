@@ -32,9 +32,11 @@ type StatefulSession struct {
 	// [#extension-category: envoy.http.stateful_session]
 	SessionState *v3.TypedExtensionConfig `protobuf:"bytes,1,opt,name=session_state,json=sessionState,proto3" json:"session_state,omitempty"`
 	// Determines whether the HTTP request must be strictly routed to the requested destination. When set to “true“,
-	// if the requested destination is unavailable, Envoy will return a 503 status code. The default value is “false“,
-	// which allows Envoy to fall back to its load balancing mechanism. In this case, if the requested destination is not
-	// found, the request will be routed according to the load balancing algorithm.
+	// if the requested destination is not found in the set of available endpoints, Envoy will return a status code
+	// determined by “status_on_strict_destination_not_found“. If the destination exists but is unhealthy, Envoy will
+	// always return “503“ regardless of “status_on_strict_destination_not_found“. The default value is “false“,
+	// which allows Envoy to fall back to its load balancing mechanism and route the request according to the load
+	// balancing algorithm.
 	Strict bool `protobuf:"varint,2,opt,name=strict,proto3" json:"strict,omitempty"`
 	// Optional stat prefix. If specified, the filter will emit statistics in the
 	// “http.<stat_prefix>.stateful_session.<stat_prefix>.“ namespace. If not specified, no statistics will be emitted.
@@ -43,9 +45,14 @@ type StatefulSession struct {
 	//
 	//	Per-route configuration overrides do not support statistics and will not emit stats even if this field is set
 	//	in the per-route config.
-	StatPrefix    string `protobuf:"bytes,3,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	StatPrefix string `protobuf:"bytes,3,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
+	// The HTTP status code to return when “strict“ mode is enabled and the requested destination
+	// is not found in the set of available endpoints. This does not apply when the destination exists
+	// but is unhealthy. This field has no effect when “strict“ is set to “false“ and will be
+	// ignored. Defaults to “503“ (Service Unavailable) if not specified or set to “0“.
+	StatusOnStrictDestinationNotFound uint32 `protobuf:"varint,4,opt,name=status_on_strict_destination_not_found,json=statusOnStrictDestinationNotFound,proto3" json:"status_on_strict_destination_not_found,omitempty"`
+	unknownFields                     protoimpl.UnknownFields
+	sizeCache                         protoimpl.SizeCache
 }
 
 func (x *StatefulSession) Reset() {
@@ -97,6 +104,13 @@ func (x *StatefulSession) GetStatPrefix() string {
 		return x.StatPrefix
 	}
 	return ""
+}
+
+func (x *StatefulSession) GetStatusOnStrictDestinationNotFound() uint32 {
+	if x != nil {
+		return x.StatusOnStrictDestinationNotFound
+	}
+	return 0
 }
 
 type StatefulSessionPerRoute struct {
@@ -188,12 +202,13 @@ var File_envoy_extensions_filters_http_stateful_session_v3_stateful_session_prot
 
 const file_envoy_extensions_filters_http_stateful_session_v3_stateful_session_proto_rawDesc = "" +
 	"\n" +
-	"Henvoy/extensions/filters/http/stateful_session/v3/stateful_session.proto\x121envoy.extensions.filters.http.stateful_session.v3\x1a$envoy/config/core/v3/extension.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\x9b\x01\n" +
+	"Henvoy/extensions/filters/http/stateful_session/v3/stateful_session.proto\x121envoy.extensions.filters.http.stateful_session.v3\x1a$envoy/config/core/v3/extension.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\xee\x01\n" +
 	"\x0fStatefulSession\x12O\n" +
 	"\rsession_state\x18\x01 \x01(\v2*.envoy.config.core.v3.TypedExtensionConfigR\fsessionState\x12\x16\n" +
 	"\x06strict\x18\x02 \x01(\bR\x06strict\x12\x1f\n" +
 	"\vstat_prefix\x18\x03 \x01(\tR\n" +
-	"statPrefix\"\xc2\x01\n" +
+	"statPrefix\x12Q\n" +
+	"&status_on_strict_destination_not_found\x18\x04 \x01(\rR!statusOnStrictDestinationNotFound\"\xc2\x01\n" +
 	"\x17StatefulSessionPerRoute\x12%\n" +
 	"\bdisabled\x18\x01 \x01(\bB\a\xfaB\x04j\x02\b\x01H\x00R\bdisabled\x12o\n" +
 	"\x10stateful_session\x18\x02 \x01(\v2B.envoy.extensions.filters.http.stateful_session.v3.StatefulSessionH\x00R\x0fstatefulSessionB\x0f\n" +

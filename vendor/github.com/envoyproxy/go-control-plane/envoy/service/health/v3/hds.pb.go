@@ -16,6 +16,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	durationpb "google.golang.org/protobuf/types/known/durationpb"
+	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -178,11 +179,24 @@ func (x *HealthCheckRequest) GetCapability() *Capability {
 }
 
 type EndpointHealth struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Endpoint      *v31.Endpoint          `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
-	HealthStatus  v3.HealthStatus        `protobuf:"varint,2,opt,name=health_status,json=healthStatus,proto3,enum=envoy.config.core.v3.HealthStatus" json:"health_status,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Endpoint     *v31.Endpoint          `protobuf:"bytes,1,opt,name=endpoint,proto3" json:"endpoint,omitempty"`
+	HealthStatus v3.HealthStatus        `protobuf:"varint,2,opt,name=health_status,json=healthStatus,proto3,enum=envoy.config.core.v3.HealthStatus" json:"health_status,omitempty"`
+	// Optional metadata about the health check result, populated by the active
+	// health checker and forwarded to the management server for richer health
+	// state interpretation.
+	//
+	// Well-known keys:
+	//
+	// “http_status_code“ (number)
+	//
+	//	Set by the HTTP health checker. Contains the HTTP response status code
+	//	returned by the upstream endpoint during the most recent health check,
+	//	e.g. ``200``, ``503``. Only present when the health check received a
+	//	complete HTTP response; absent on connection failures or timeouts.
+	HealthMetadata *structpb.Struct `protobuf:"bytes,3,opt,name=health_metadata,json=healthMetadata,proto3" json:"health_metadata,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *EndpointHealth) Reset() {
@@ -227,6 +241,13 @@ func (x *EndpointHealth) GetHealthStatus() v3.HealthStatus {
 		return x.HealthStatus
 	}
 	return v3.HealthStatus(0)
+}
+
+func (x *EndpointHealth) GetHealthMetadata() *structpb.Struct {
+	if x != nil {
+		return x.HealthMetadata
+	}
+	return nil
 }
 
 // Group endpoint health by locality under each cluster.
@@ -710,7 +731,7 @@ var File_envoy_service_health_v3_hds_proto protoreflect.FileDescriptor
 
 const file_envoy_service_health_v3_hds_proto_rawDesc = "" +
 	"\n" +
-	"!envoy/service/health/v3/hds.proto\x12\x17envoy.service.health.v3\x1a%envoy/config/cluster/v3/cluster.proto\x1a\"envoy/config/core/v3/address.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a'envoy/config/core/v3/health_check.proto\x1a2envoy/config/endpoint/v3/endpoint_components.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1egoogle/protobuf/duration.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\"\xc8\x01\n" +
+	"!envoy/service/health/v3/hds.proto\x12\x17envoy.service.health.v3\x1a%envoy/config/cluster/v3/cluster.proto\x1a\"envoy/config/core/v3/address.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a'envoy/config/core/v3/health_check.proto\x1a2envoy/config/endpoint/v3/endpoint_components.proto\x1a\x1cgoogle/api/annotations.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\"\xc8\x01\n" +
 	"\n" +
 	"Capability\x12b\n" +
 	"\x16health_check_protocols\x18\x01 \x03(\x0e2,.envoy.service.health.v3.Capability.ProtocolR\x14healthCheckProtocols\"(\n" +
@@ -724,10 +745,11 @@ const file_envoy_service_health_v3_hds_proto_rawDesc = "" +
 	"\n" +
 	"capability\x18\x02 \x01(\v2#.envoy.service.health.v3.CapabilityR\n" +
 	"capability:4\x9aň\x1e/\n" +
-	"-envoy.service.discovery.v2.HealthCheckRequest\"\xcb\x01\n" +
+	"-envoy.service.discovery.v2.HealthCheckRequest\"\x8d\x02\n" +
 	"\x0eEndpointHealth\x12>\n" +
 	"\bendpoint\x18\x01 \x01(\v2\".envoy.config.endpoint.v3.EndpointR\bendpoint\x12G\n" +
-	"\rhealth_status\x18\x02 \x01(\x0e2\".envoy.config.core.v3.HealthStatusR\fhealthStatus:0\x9aň\x1e+\n" +
+	"\rhealth_status\x18\x02 \x01(\x0e2\".envoy.config.core.v3.HealthStatusR\fhealthStatus\x12@\n" +
+	"\x0fhealth_metadata\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x0ehealthMetadata:0\x9aň\x1e+\n" +
 	")envoy.service.discovery.v2.EndpointHealth\"\xa9\x01\n" +
 	"\x17LocalityEndpointsHealth\x12:\n" +
 	"\blocality\x18\x01 \x01(\v2\x1e.envoy.config.core.v3.LocalityR\blocality\x12R\n" +
@@ -796,11 +818,12 @@ var file_envoy_service_health_v3_hds_proto_goTypes = []any{
 	(*v3.Node)(nil),                                    // 12: envoy.config.core.v3.Node
 	(*v31.Endpoint)(nil),                               // 13: envoy.config.endpoint.v3.Endpoint
 	(v3.HealthStatus)(0),                               // 14: envoy.config.core.v3.HealthStatus
-	(*v3.Locality)(nil),                                // 15: envoy.config.core.v3.Locality
-	(*v3.HealthCheck)(nil),                             // 16: envoy.config.core.v3.HealthCheck
-	(*v32.Cluster_TransportSocketMatch)(nil),           // 17: envoy.config.cluster.v3.Cluster.TransportSocketMatch
-	(*v3.BindConfig)(nil),                              // 18: envoy.config.core.v3.BindConfig
-	(*durationpb.Duration)(nil),                        // 19: google.protobuf.Duration
+	(*structpb.Struct)(nil),                            // 15: google.protobuf.Struct
+	(*v3.Locality)(nil),                                // 16: envoy.config.core.v3.Locality
+	(*v3.HealthCheck)(nil),                             // 17: envoy.config.core.v3.HealthCheck
+	(*v32.Cluster_TransportSocketMatch)(nil),           // 18: envoy.config.cluster.v3.Cluster.TransportSocketMatch
+	(*v3.BindConfig)(nil),                              // 19: envoy.config.core.v3.BindConfig
+	(*durationpb.Duration)(nil),                        // 20: google.protobuf.Duration
 }
 var file_envoy_service_health_v3_hds_proto_depIdxs = []int32{
 	0,  // 0: envoy.service.health.v3.Capability.health_check_protocols:type_name -> envoy.service.health.v3.Capability.Protocol
@@ -808,30 +831,31 @@ var file_envoy_service_health_v3_hds_proto_depIdxs = []int32{
 	1,  // 2: envoy.service.health.v3.HealthCheckRequest.capability:type_name -> envoy.service.health.v3.Capability
 	13, // 3: envoy.service.health.v3.EndpointHealth.endpoint:type_name -> envoy.config.endpoint.v3.Endpoint
 	14, // 4: envoy.service.health.v3.EndpointHealth.health_status:type_name -> envoy.config.core.v3.HealthStatus
-	15, // 5: envoy.service.health.v3.LocalityEndpointsHealth.locality:type_name -> envoy.config.core.v3.Locality
-	3,  // 6: envoy.service.health.v3.LocalityEndpointsHealth.endpoints_health:type_name -> envoy.service.health.v3.EndpointHealth
-	4,  // 7: envoy.service.health.v3.ClusterEndpointsHealth.locality_endpoints_health:type_name -> envoy.service.health.v3.LocalityEndpointsHealth
-	3,  // 8: envoy.service.health.v3.EndpointHealthResponse.endpoints_health:type_name -> envoy.service.health.v3.EndpointHealth
-	5,  // 9: envoy.service.health.v3.EndpointHealthResponse.cluster_endpoints_health:type_name -> envoy.service.health.v3.ClusterEndpointsHealth
-	2,  // 10: envoy.service.health.v3.HealthCheckRequestOrEndpointHealthResponse.health_check_request:type_name -> envoy.service.health.v3.HealthCheckRequest
-	6,  // 11: envoy.service.health.v3.HealthCheckRequestOrEndpointHealthResponse.endpoint_health_response:type_name -> envoy.service.health.v3.EndpointHealthResponse
-	15, // 12: envoy.service.health.v3.LocalityEndpoints.locality:type_name -> envoy.config.core.v3.Locality
-	13, // 13: envoy.service.health.v3.LocalityEndpoints.endpoints:type_name -> envoy.config.endpoint.v3.Endpoint
-	16, // 14: envoy.service.health.v3.ClusterHealthCheck.health_checks:type_name -> envoy.config.core.v3.HealthCheck
-	8,  // 15: envoy.service.health.v3.ClusterHealthCheck.locality_endpoints:type_name -> envoy.service.health.v3.LocalityEndpoints
-	17, // 16: envoy.service.health.v3.ClusterHealthCheck.transport_socket_matches:type_name -> envoy.config.cluster.v3.Cluster.TransportSocketMatch
-	18, // 17: envoy.service.health.v3.ClusterHealthCheck.upstream_bind_config:type_name -> envoy.config.core.v3.BindConfig
-	9,  // 18: envoy.service.health.v3.HealthCheckSpecifier.cluster_health_checks:type_name -> envoy.service.health.v3.ClusterHealthCheck
-	19, // 19: envoy.service.health.v3.HealthCheckSpecifier.interval:type_name -> google.protobuf.Duration
-	7,  // 20: envoy.service.health.v3.HealthDiscoveryService.StreamHealthCheck:input_type -> envoy.service.health.v3.HealthCheckRequestOrEndpointHealthResponse
-	7,  // 21: envoy.service.health.v3.HealthDiscoveryService.FetchHealthCheck:input_type -> envoy.service.health.v3.HealthCheckRequestOrEndpointHealthResponse
-	10, // 22: envoy.service.health.v3.HealthDiscoveryService.StreamHealthCheck:output_type -> envoy.service.health.v3.HealthCheckSpecifier
-	10, // 23: envoy.service.health.v3.HealthDiscoveryService.FetchHealthCheck:output_type -> envoy.service.health.v3.HealthCheckSpecifier
-	22, // [22:24] is the sub-list for method output_type
-	20, // [20:22] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	15, // 5: envoy.service.health.v3.EndpointHealth.health_metadata:type_name -> google.protobuf.Struct
+	16, // 6: envoy.service.health.v3.LocalityEndpointsHealth.locality:type_name -> envoy.config.core.v3.Locality
+	3,  // 7: envoy.service.health.v3.LocalityEndpointsHealth.endpoints_health:type_name -> envoy.service.health.v3.EndpointHealth
+	4,  // 8: envoy.service.health.v3.ClusterEndpointsHealth.locality_endpoints_health:type_name -> envoy.service.health.v3.LocalityEndpointsHealth
+	3,  // 9: envoy.service.health.v3.EndpointHealthResponse.endpoints_health:type_name -> envoy.service.health.v3.EndpointHealth
+	5,  // 10: envoy.service.health.v3.EndpointHealthResponse.cluster_endpoints_health:type_name -> envoy.service.health.v3.ClusterEndpointsHealth
+	2,  // 11: envoy.service.health.v3.HealthCheckRequestOrEndpointHealthResponse.health_check_request:type_name -> envoy.service.health.v3.HealthCheckRequest
+	6,  // 12: envoy.service.health.v3.HealthCheckRequestOrEndpointHealthResponse.endpoint_health_response:type_name -> envoy.service.health.v3.EndpointHealthResponse
+	16, // 13: envoy.service.health.v3.LocalityEndpoints.locality:type_name -> envoy.config.core.v3.Locality
+	13, // 14: envoy.service.health.v3.LocalityEndpoints.endpoints:type_name -> envoy.config.endpoint.v3.Endpoint
+	17, // 15: envoy.service.health.v3.ClusterHealthCheck.health_checks:type_name -> envoy.config.core.v3.HealthCheck
+	8,  // 16: envoy.service.health.v3.ClusterHealthCheck.locality_endpoints:type_name -> envoy.service.health.v3.LocalityEndpoints
+	18, // 17: envoy.service.health.v3.ClusterHealthCheck.transport_socket_matches:type_name -> envoy.config.cluster.v3.Cluster.TransportSocketMatch
+	19, // 18: envoy.service.health.v3.ClusterHealthCheck.upstream_bind_config:type_name -> envoy.config.core.v3.BindConfig
+	9,  // 19: envoy.service.health.v3.HealthCheckSpecifier.cluster_health_checks:type_name -> envoy.service.health.v3.ClusterHealthCheck
+	20, // 20: envoy.service.health.v3.HealthCheckSpecifier.interval:type_name -> google.protobuf.Duration
+	7,  // 21: envoy.service.health.v3.HealthDiscoveryService.StreamHealthCheck:input_type -> envoy.service.health.v3.HealthCheckRequestOrEndpointHealthResponse
+	7,  // 22: envoy.service.health.v3.HealthDiscoveryService.FetchHealthCheck:input_type -> envoy.service.health.v3.HealthCheckRequestOrEndpointHealthResponse
+	10, // 23: envoy.service.health.v3.HealthDiscoveryService.StreamHealthCheck:output_type -> envoy.service.health.v3.HealthCheckSpecifier
+	10, // 24: envoy.service.health.v3.HealthDiscoveryService.FetchHealthCheck:output_type -> envoy.service.health.v3.HealthCheckSpecifier
+	23, // [23:25] is the sub-list for method output_type
+	21, // [21:23] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_envoy_service_health_v3_hds_proto_init() }

@@ -34,8 +34,11 @@ type Config struct {
 	// For non-TLS downstream connections (where there is no TLS handshake), this
 	// list is applied when a new connection is received.
 	OnDownstreamTlsHandshake []*v3.FilterStateValue `protobuf:"bytes,2,rep,name=on_downstream_tls_handshake,json=onDownstreamTlsHandshake,proto3" json:"on_downstream_tls_handshake,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// A sequence of the filter state values to apply in the specified order
+	// when data is first received from the downstream connection.
+	OnDownstreamData []*v3.FilterStateValue `protobuf:"bytes,3,rep,name=on_downstream_data,json=onDownstreamData,proto3" json:"on_downstream_data,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Config) Reset() {
@@ -82,14 +85,22 @@ func (x *Config) GetOnDownstreamTlsHandshake() []*v3.FilterStateValue {
 	return nil
 }
 
+func (x *Config) GetOnDownstreamData() []*v3.FilterStateValue {
+	if x != nil {
+		return x.OnDownstreamData
+	}
+	return nil
+}
+
 var File_envoy_extensions_filters_network_set_filter_state_v3_set_filter_state_proto protoreflect.FileDescriptor
 
 const file_envoy_extensions_filters_network_set_filter_state_v3_set_filter_state_proto_rawDesc = "" +
 	"\n" +
-	"Kenvoy/extensions/filters/network/set_filter_state/v3/set_filter_state.proto\x124envoy.extensions.filters.network.set_filter_state.v3\x1a?envoy/extensions/filters/common/set_filter_state/v3/value.proto\x1a\x1dudpa/annotations/status.proto\"\x82\x02\n" +
+	"Kenvoy/extensions/filters/network/set_filter_state/v3/set_filter_state.proto\x124envoy.extensions.filters.network.set_filter_state.v3\x1a?envoy/extensions/filters/common/set_filter_state/v3/value.proto\x1a\x1dudpa/annotations/status.proto\"\xf7\x02\n" +
 	"\x06Config\x12q\n" +
 	"\x11on_new_connection\x18\x01 \x03(\v2E.envoy.extensions.filters.common.set_filter_state.v3.FilterStateValueR\x0fonNewConnection\x12\x84\x01\n" +
-	"\x1bon_downstream_tls_handshake\x18\x02 \x03(\v2E.envoy.extensions.filters.common.set_filter_state.v3.FilterStateValueR\x18onDownstreamTlsHandshakeB\xd3\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
+	"\x1bon_downstream_tls_handshake\x18\x02 \x03(\v2E.envoy.extensions.filters.common.set_filter_state.v3.FilterStateValueR\x18onDownstreamTlsHandshake\x12s\n" +
+	"\x12on_downstream_data\x18\x03 \x03(\v2E.envoy.extensions.filters.common.set_filter_state.v3.FilterStateValueR\x10onDownstreamDataB\xd3\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
 	"Bio.envoyproxy.envoy.extensions.filters.network.set_filter_state.v3B\x13SetFilterStateProtoP\x01Zngithub.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3;set_filter_statev3b\x06proto3"
 
 var (
@@ -112,11 +123,12 @@ var file_envoy_extensions_filters_network_set_filter_state_v3_set_filter_state_p
 var file_envoy_extensions_filters_network_set_filter_state_v3_set_filter_state_proto_depIdxs = []int32{
 	1, // 0: envoy.extensions.filters.network.set_filter_state.v3.Config.on_new_connection:type_name -> envoy.extensions.filters.common.set_filter_state.v3.FilterStateValue
 	1, // 1: envoy.extensions.filters.network.set_filter_state.v3.Config.on_downstream_tls_handshake:type_name -> envoy.extensions.filters.common.set_filter_state.v3.FilterStateValue
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1, // 2: envoy.extensions.filters.network.set_filter_state.v3.Config.on_downstream_data:type_name -> envoy.extensions.filters.common.set_filter_state.v3.FilterStateValue
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_envoy_extensions_filters_network_set_filter_state_v3_set_filter_state_proto_init() }

@@ -28,8 +28,12 @@ type Config struct {
 	// A sequence of the filter state values to apply in the specified order
 	// when a new request is received.
 	OnRequestHeaders []*v3.FilterStateValue `protobuf:"bytes,1,rep,name=on_request_headers,json=onRequestHeaders,proto3" json:"on_request_headers,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Clear the route cache for the current client request. This is necessary
+	// if the route configuration may depend on the filter state values set by
+	// this filter.
+	ClearRouteCache bool `protobuf:"varint,2,opt,name=clear_route_cache,json=clearRouteCache,proto3" json:"clear_route_cache,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Config) Reset() {
@@ -69,13 +73,21 @@ func (x *Config) GetOnRequestHeaders() []*v3.FilterStateValue {
 	return nil
 }
 
+func (x *Config) GetClearRouteCache() bool {
+	if x != nil {
+		return x.ClearRouteCache
+	}
+	return false
+}
+
 var File_envoy_extensions_filters_http_set_filter_state_v3_set_filter_state_proto protoreflect.FileDescriptor
 
 const file_envoy_extensions_filters_http_set_filter_state_v3_set_filter_state_proto_rawDesc = "" +
 	"\n" +
-	"Henvoy/extensions/filters/http/set_filter_state/v3/set_filter_state.proto\x121envoy.extensions.filters.http.set_filter_state.v3\x1a?envoy/extensions/filters/common/set_filter_state/v3/value.proto\x1a\x1dudpa/annotations/status.proto\"}\n" +
+	"Henvoy/extensions/filters/http/set_filter_state/v3/set_filter_state.proto\x121envoy.extensions.filters.http.set_filter_state.v3\x1a?envoy/extensions/filters/common/set_filter_state/v3/value.proto\x1a\x1dudpa/annotations/status.proto\"\xa9\x01\n" +
 	"\x06Config\x12s\n" +
-	"\x12on_request_headers\x18\x01 \x03(\v2E.envoy.extensions.filters.common.set_filter_state.v3.FilterStateValueR\x10onRequestHeadersB\xcd\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
+	"\x12on_request_headers\x18\x01 \x03(\v2E.envoy.extensions.filters.common.set_filter_state.v3.FilterStateValueR\x10onRequestHeaders\x12*\n" +
+	"\x11clear_route_cache\x18\x02 \x01(\bR\x0fclearRouteCacheB\xcd\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
 	"?io.envoyproxy.envoy.extensions.filters.http.set_filter_state.v3B\x13SetFilterStateProtoP\x01Zkgithub.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3;set_filter_statev3b\x06proto3"
 
 var (

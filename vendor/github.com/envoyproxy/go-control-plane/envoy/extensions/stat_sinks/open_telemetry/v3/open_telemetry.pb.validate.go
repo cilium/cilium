@@ -240,6 +240,48 @@ func (m *SinkConfig) validate(all bool) error {
 			}
 		}
 
+	case *SinkConfig_HttpService:
+		if v == nil {
+			err := SinkConfigValidationError{
+				field:  "ProtocolSpecifier",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofProtocolSpecifierPresent = true
+
+		if all {
+			switch v := interface{}(m.GetHttpService()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, SinkConfigValidationError{
+						field:  "HttpService",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, SinkConfigValidationError{
+						field:  "HttpService",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetHttpService()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return SinkConfigValidationError{
+					field:  "HttpService",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		_ = v // ensures v is used
 	}

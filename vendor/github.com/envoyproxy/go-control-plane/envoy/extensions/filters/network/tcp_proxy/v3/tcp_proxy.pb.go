@@ -53,6 +53,8 @@ const (
 	// and negotiated parameters, which can be used for routing decisions or passed as metadata
 	// to the upstream.
 	//
+	// This mode requires “max_early_data_bytes“ to be set (can be zero to disable buffering).
+	//
 	// .. note::
 	//
 	//	This mode is only effective when the downstream connection uses TLS. For non-TLS
@@ -101,7 +103,69 @@ func (UpstreamConnectMode) EnumDescriptor() ([]byte, []int) {
 	return file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_rawDescGZIP(), []int{0}
 }
 
-// [#next-free-field: 23]
+// Specifies how TLVs in “proxy_protocol_tlvs“ are merged with existing PROXY protocol state
+// (e.g., downstream TLVs parsed by the proxy_protocol listener filter).
+type ProxyProtocolTlvMergePolicy int32
+
+const (
+	// Add configured TLVs only if no PROXY protocol state exists (e.g., no downstream TLVs).
+	// If state exists, ignore configured TLVs and use only the existing TLVs.
+	// This is the default for backward compatibility.
+	ProxyProtocolTlvMergePolicy_ADD_IF_ABSENT ProxyProtocolTlvMergePolicy = 0
+	// Overwrite existing TLVs (e.g., downstream TLVs) by type with configured TLVs.
+	// Non-conflicting TLVs from both sources are preserved.
+	// If no state exists, add all configured TLVs.
+	// Source/destination addresses from existing state are preserved.
+	ProxyProtocolTlvMergePolicy_OVERWRITE_BY_TYPE_IF_EXISTS_OR_ADD ProxyProtocolTlvMergePolicy = 1
+	// Append configured TLVs to existing TLVs (e.g., downstream TLVs), preserving all TLVs
+	// from both sources (PROXY protocol v2 allows duplicate types).
+	// If no state exists, add all configured TLVs.
+	// Source/destination addresses from existing state are preserved.
+	ProxyProtocolTlvMergePolicy_APPEND_IF_EXISTS_OR_ADD ProxyProtocolTlvMergePolicy = 2
+)
+
+// Enum value maps for ProxyProtocolTlvMergePolicy.
+var (
+	ProxyProtocolTlvMergePolicy_name = map[int32]string{
+		0: "ADD_IF_ABSENT",
+		1: "OVERWRITE_BY_TYPE_IF_EXISTS_OR_ADD",
+		2: "APPEND_IF_EXISTS_OR_ADD",
+	}
+	ProxyProtocolTlvMergePolicy_value = map[string]int32{
+		"ADD_IF_ABSENT":                      0,
+		"OVERWRITE_BY_TYPE_IF_EXISTS_OR_ADD": 1,
+		"APPEND_IF_EXISTS_OR_ADD":            2,
+	}
+)
+
+func (x ProxyProtocolTlvMergePolicy) Enum() *ProxyProtocolTlvMergePolicy {
+	p := new(ProxyProtocolTlvMergePolicy)
+	*p = x
+	return p
+}
+
+func (x ProxyProtocolTlvMergePolicy) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ProxyProtocolTlvMergePolicy) Descriptor() protoreflect.EnumDescriptor {
+	return file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_enumTypes[1].Descriptor()
+}
+
+func (ProxyProtocolTlvMergePolicy) Type() protoreflect.EnumType {
+	return &file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_enumTypes[1]
+}
+
+func (x ProxyProtocolTlvMergePolicy) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ProxyProtocolTlvMergePolicy.Descriptor instead.
+func (ProxyProtocolTlvMergePolicy) EnumDescriptor() ([]byte, []int) {
+	return file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_rawDescGZIP(), []int{1}
+}
+
+// [#next-free-field: 24]
 type TcpProxy struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The prefix to use when emitting :ref:`statistics
@@ -192,23 +256,21 @@ type TcpProxy struct {
 	FlushAccessLogOnConnected bool `protobuf:"varint,16,opt,name=flush_access_log_on_connected,json=flushAccessLogOnConnected,proto3" json:"flush_access_log_on_connected,omitempty"`
 	// Additional access log options for the TCP proxy.
 	AccessLogOptions *TcpProxy_TcpAccessLogOptions `protobuf:"bytes,17,opt,name=access_log_options,json=accessLogOptions,proto3" json:"access_log_options,omitempty"`
-	// If set, the specified “PROXY“ protocol TLVs (Type-Length-Value) are added to the “PROXY“ protocol state
-	// created by the TCP proxy filter. These TLVs are sent in the PROXY protocol v2 header to the upstream.
-	//
-	// This field only takes effect when the TCP proxy filter is creating new “PROXY“ protocol state and an
-	// upstream proxy protocol transport socket is configured in the cluster. If the connection already
-	// contains “PROXY“ protocol state (including any TLVs) parsed by a downstream proxy protocol listener
-	// upstream proxy protocol transport socket is configured in the cluster. If the connection already
-	// contains PROXY protocol state (including any TLVs) parsed by a downstream proxy protocol listener
-	// filter, the TLVs specified here are ignored.
+	// TLVs to add to the PROXY protocol header sent upstream. Behavior when PROXY protocol
+	// state already exists (e.g., downstream TLVs from proxy_protocol listener filter) is
+	// controlled by “proxy_protocol_tlv_merge_policy“.
 	//
 	// .. note::
 	//
-	//	To ensure the specified TLVs are allowed in the upstream ``PROXY`` protocol header, you must also
-	//	configure passthrough TLVs on the upstream proxy protocol transport. See
-	//	:ref:`core.v3.ProxyProtocolConfig.pass_through_tlvs <envoy_v3_api_field_config.core.v3.ProxyProtocolConfig.pass_through_tlvs>`
-	//	for details.
+	//	To ensure the TLVs are allowed upstream, configure passthrough TLVs on the upstream
+	//	proxy protocol transport. See :ref:`core.v3.ProxyProtocolConfig.pass_through_tlvs
+	//	<envoy_v3_api_field_config.core.v3.ProxyProtocolConfig.pass_through_tlvs>` for details.
 	ProxyProtocolTlvs []*v3.TlvEntry `protobuf:"bytes,19,rep,name=proxy_protocol_tlvs,json=proxyProtocolTlvs,proto3" json:"proxy_protocol_tlvs,omitempty"`
+	// Specifies how TLVs in “proxy_protocol_tlvs“ are merged with existing PROXY protocol state
+	// (e.g., downstream TLVs from the proxy_protocol listener filter). See
+	// :ref:`ProxyProtocolTlvMergePolicy
+	// <envoy_v3_api_enum_extensions.filters.network.tcp_proxy.v3.ProxyProtocolTlvMergePolicy>`.
+	ProxyProtocolTlvMergePolicy ProxyProtocolTlvMergePolicy `protobuf:"varint,23,opt,name=proxy_protocol_tlv_merge_policy,json=proxyProtocolTlvMergePolicy,proto3,enum=envoy.extensions.filters.network.tcp_proxy.v3.ProxyProtocolTlvMergePolicy" json:"proxy_protocol_tlv_merge_policy,omitempty"`
 	// Specifies when to establish the upstream connection.
 	//
 	// When not specified, defaults to “IMMEDIATE“ for backward compatibility.
@@ -228,7 +290,7 @@ type TcpProxy struct {
 	// buffered and forwarded once the upstream connection is ready. When the buffer exceeds
 	// this limit, the downstream connection is read-disabled to prevent excessive memory usage.
 	//
-	// This field is required when “upstream_connect_mode“ is “ON_DOWNSTREAM_DATA“.
+	// This field is required when “upstream_connect_mode“ is not “IMMEDIATE“.
 	//
 	// .. note::
 	//
@@ -415,6 +477,13 @@ func (x *TcpProxy) GetProxyProtocolTlvs() []*v3.TlvEntry {
 	return nil
 }
 
+func (x *TcpProxy) GetProxyProtocolTlvMergePolicy() ProxyProtocolTlvMergePolicy {
+	if x != nil {
+		return x.ProxyProtocolTlvMergePolicy
+	}
+	return ProxyProtocolTlvMergePolicy_ADD_IF_ABSENT
+}
+
 func (x *TcpProxy) GetUpstreamConnectMode() UpstreamConnectMode {
 	if x != nil {
 		return x.UpstreamConnectMode
@@ -533,7 +602,7 @@ type TcpProxy_TunnelingConfig struct {
 	PropagateResponseHeaders bool `protobuf:"varint,4,opt,name=propagate_response_headers,json=propagateResponseHeaders,proto3" json:"propagate_response_headers,omitempty"`
 	// The path used with the POST method. The default path is “/“. If this field is specified and
 	// :ref:`use_post field <envoy_v3_api_field_extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig.use_post>`
-	// is not set to true, the configuration will be rejected.
+	// is not set to “true“, the configuration will be rejected.
 	PostPath string `protobuf:"bytes,5,opt,name=post_path,json=postPath,proto3" json:"post_path,omitempty"`
 	// Save response trailers to the downstream connection's filter state for consumption
 	// by network filters. The filter state key is “envoy.tcp_proxy.propagate_response_trailers“.
@@ -741,11 +810,13 @@ type TcpProxy_TcpAccessLogOptions struct {
 	// specified interval.
 	// The interval must be at least 1ms.
 	AccessLogFlushInterval *durationpb.Duration `protobuf:"bytes,1,opt,name=access_log_flush_interval,json=accessLogFlushInterval,proto3" json:"access_log_flush_interval,omitempty"`
-	// If set to true, the access log is flushed when the TCP proxy successfully establishes a
+	// If set to “true“, the access log is flushed when the TCP proxy successfully establishes a
 	// connection with the upstream. If the connection fails, the access log is not flushed.
 	FlushAccessLogOnConnected bool `protobuf:"varint,2,opt,name=flush_access_log_on_connected,json=flushAccessLogOnConnected,proto3" json:"flush_access_log_on_connected,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// If set to “true“, the access log is flushed when the TCP proxy accepts a connection.
+	FlushAccessLogOnStart bool `protobuf:"varint,3,opt,name=flush_access_log_on_start,json=flushAccessLogOnStart,proto3" json:"flush_access_log_on_start,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *TcpProxy_TcpAccessLogOptions) Reset() {
@@ -788,6 +859,13 @@ func (x *TcpProxy_TcpAccessLogOptions) GetAccessLogFlushInterval() *durationpb.D
 func (x *TcpProxy_TcpAccessLogOptions) GetFlushAccessLogOnConnected() bool {
 	if x != nil {
 		return x.FlushAccessLogOnConnected
+	}
+	return false
+}
+
+func (x *TcpProxy_TcpAccessLogOptions) GetFlushAccessLogOnStart() bool {
+	if x != nil {
+		return x.FlushAccessLogOnStart
 	}
 	return false
 }
@@ -866,7 +944,7 @@ var File_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto protorefl
 
 const file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_rawDesc = "" +
 	"\n" +
-	"=envoy/extensions/filters/network/tcp_proxy/v3/tcp_proxy.proto\x12-envoy.extensions.filters.network.tcp_proxy.v3\x1a)envoy/config/accesslog/v3/accesslog.proto\x1a\"envoy/config/core/v3/backoff.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a(envoy/config/core/v3/config_source.proto\x1a)envoy/config/core/v3/proxy_protocol.proto\x1aYenvoy/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto\x1a\x1fenvoy/type/v3/hash_policy.proto\x1a\x1benvoy/type/v3/percent.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\xfb\x1a\n" +
+	"=envoy/extensions/filters/network/tcp_proxy/v3/tcp_proxy.proto\x12-envoy.extensions.filters.network.tcp_proxy.v3\x1a)envoy/config/accesslog/v3/accesslog.proto\x1a\"envoy/config/core/v3/backoff.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a(envoy/config/core/v3/config_source.proto\x1a)envoy/config/core/v3/proxy_protocol.proto\x1aYenvoy/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto\x1a\x1fenvoy/type/v3/hash_policy.proto\x1a\x1benvoy/type/v3/percent.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\xd2\x1c\n" +
 	"\bTcpProxy\x12(\n" +
 	"\vstat_prefix\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\n" +
 	"statPrefix\x12\x1a\n" +
@@ -890,7 +968,8 @@ const file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_rawDesc
 	"\x19access_log_flush_interval\x18\x0f \x01(\v2\x19.google.protobuf.DurationB\x17\xfaB\t\xaa\x01\x062\x04\x10\xc0\x84=\x92ǆ\xd8\x04\x033.0\x18\x01R\x16accessLogFlushInterval\x12M\n" +
 	"\x1dflush_access_log_on_connected\x18\x10 \x01(\bB\v\x92ǆ\xd8\x04\x033.0\x18\x01R\x19flushAccessLogOnConnected\x12y\n" +
 	"\x12access_log_options\x18\x11 \x01(\v2K.envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptionsR\x10accessLogOptions\x12N\n" +
-	"\x13proxy_protocol_tlvs\x18\x13 \x03(\v2\x1e.envoy.config.core.v3.TlvEntryR\x11proxyProtocolTlvs\x12\x80\x01\n" +
+	"\x13proxy_protocol_tlvs\x18\x13 \x03(\v2\x1e.envoy.config.core.v3.TlvEntryR\x11proxyProtocolTlvs\x12\x9a\x01\n" +
+	"\x1fproxy_protocol_tlv_merge_policy\x18\x17 \x01(\x0e2J.envoy.extensions.filters.network.tcp_proxy.v3.ProxyProtocolTlvMergePolicyB\b\xfaB\x05\x82\x01\x02\x10\x01R\x1bproxyProtocolTlvMergePolicy\x12\x80\x01\n" +
 	"\x15upstream_connect_mode\x18\x15 \x01(\x0e2B.envoy.extensions.filters.network.tcp_proxy.v3.UpstreamConnectModeB\b\xfaB\x05\x82\x01\x02\x10\x01R\x13upstreamConnectMode\x12X\n" +
 	"\x14max_early_data_bytes\x18\x16 \x01(\v2\x1c.google.protobuf.UInt32ValueB\t\xfaB\x06*\x04\x18\x80\x80@R\x11maxEarlyDataBytes\x1a\xc7\x03\n" +
 	"\x0fWeightedCluster\x12{\n" +
@@ -915,16 +994,21 @@ const file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_rawDesc
 	"\bOnDemand\x12E\n" +
 	"\fodcds_config\x18\x01 \x01(\v2\".envoy.config.core.v3.ConfigSourceR\vodcdsConfig\x12+\n" +
 	"\x11resources_locator\x18\x02 \x01(\tR\x10resourcesLocator\x123\n" +
-	"\atimeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\atimeout\x1a\xbb\x01\n" +
+	"\atimeout\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\atimeout\x1a\xf5\x01\n" +
 	"\x13TcpAccessLogOptions\x12b\n" +
 	"\x19access_log_flush_interval\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\f\xfaB\t\xaa\x01\x062\x04\x10\xc0\x84=R\x16accessLogFlushInterval\x12@\n" +
-	"\x1dflush_access_log_on_connected\x18\x02 \x01(\bR\x19flushAccessLogOnConnected:8\x9aň\x1e3\n" +
+	"\x1dflush_access_log_on_connected\x18\x02 \x01(\bR\x19flushAccessLogOnConnected\x128\n" +
+	"\x19flush_access_log_on_start\x18\x03 \x01(\bR\x15flushAccessLogOnStart:8\x9aň\x1e3\n" +
 	"1envoy.config.filter.network.tcp_proxy.v2.TcpProxyB\x18\n" +
 	"\x11cluster_specifier\x12\x03\xf8B\x01J\x04\b\x06\x10\aR\rdeprecated_v1*]\n" +
 	"\x13UpstreamConnectMode\x12\r\n" +
 	"\tIMMEDIATE\x10\x00\x12\x16\n" +
 	"\x12ON_DOWNSTREAM_DATA\x10\x01\x12\x1f\n" +
-	"\x1bON_DOWNSTREAM_TLS_HANDSHAKE\x10\x02B\xb8\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
+	"\x1bON_DOWNSTREAM_TLS_HANDSHAKE\x10\x02*u\n" +
+	"\x1bProxyProtocolTlvMergePolicy\x12\x11\n" +
+	"\rADD_IF_ABSENT\x10\x00\x12&\n" +
+	"\"OVERWRITE_BY_TYPE_IF_EXISTS_OR_ADD\x10\x01\x12\x1b\n" +
+	"\x17APPEND_IF_EXISTS_OR_ADD\x10\x02B\xb8\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
 	";io.envoyproxy.envoy.extensions.filters.network.tcp_proxy.v3B\rTcpProxyProtoP\x01Z`github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3;tcp_proxyv3b\x06proto3"
 
 var (
@@ -939,59 +1023,61 @@ func file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_rawDescG
 	return file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_rawDescData
 }
 
-var file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_goTypes = []any{
 	(UpstreamConnectMode)(0),                       // 0: envoy.extensions.filters.network.tcp_proxy.v3.UpstreamConnectMode
-	(*TcpProxy)(nil),                               // 1: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-	(*TcpProxy_WeightedCluster)(nil),               // 2: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster
-	(*TcpProxy_TunnelingConfig)(nil),               // 3: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig
-	(*TcpProxy_OnDemand)(nil),                      // 4: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.OnDemand
-	(*TcpProxy_TcpAccessLogOptions)(nil),           // 5: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions
-	(*TcpProxy_WeightedCluster_ClusterWeight)(nil), // 6: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster.ClusterWeight
-	(*v3.Metadata)(nil),                            // 7: envoy.config.core.v3.Metadata
-	(*durationpb.Duration)(nil),                    // 8: google.protobuf.Duration
-	(*v31.AccessLog)(nil),                          // 9: envoy.config.accesslog.v3.AccessLog
-	(*wrapperspb.UInt32Value)(nil),                 // 10: google.protobuf.UInt32Value
-	(*v3.BackoffStrategy)(nil),                     // 11: envoy.config.core.v3.BackoffStrategy
-	(*v32.HashPolicy)(nil),                         // 12: envoy.type.v3.HashPolicy
-	(*v32.Percent)(nil),                            // 13: envoy.type.v3.Percent
-	(*v3.TlvEntry)(nil),                            // 14: envoy.config.core.v3.TlvEntry
-	(*v3.HeaderValueOption)(nil),                   // 15: envoy.config.core.v3.HeaderValueOption
-	(*v33.RequestIDExtension)(nil),                 // 16: envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
-	(*v3.ConfigSource)(nil),                        // 17: envoy.config.core.v3.ConfigSource
+	(ProxyProtocolTlvMergePolicy)(0),               // 1: envoy.extensions.filters.network.tcp_proxy.v3.ProxyProtocolTlvMergePolicy
+	(*TcpProxy)(nil),                               // 2: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+	(*TcpProxy_WeightedCluster)(nil),               // 3: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster
+	(*TcpProxy_TunnelingConfig)(nil),               // 4: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig
+	(*TcpProxy_OnDemand)(nil),                      // 5: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.OnDemand
+	(*TcpProxy_TcpAccessLogOptions)(nil),           // 6: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions
+	(*TcpProxy_WeightedCluster_ClusterWeight)(nil), // 7: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster.ClusterWeight
+	(*v3.Metadata)(nil),                            // 8: envoy.config.core.v3.Metadata
+	(*durationpb.Duration)(nil),                    // 9: google.protobuf.Duration
+	(*v31.AccessLog)(nil),                          // 10: envoy.config.accesslog.v3.AccessLog
+	(*wrapperspb.UInt32Value)(nil),                 // 11: google.protobuf.UInt32Value
+	(*v3.BackoffStrategy)(nil),                     // 12: envoy.config.core.v3.BackoffStrategy
+	(*v32.HashPolicy)(nil),                         // 13: envoy.type.v3.HashPolicy
+	(*v32.Percent)(nil),                            // 14: envoy.type.v3.Percent
+	(*v3.TlvEntry)(nil),                            // 15: envoy.config.core.v3.TlvEntry
+	(*v3.HeaderValueOption)(nil),                   // 16: envoy.config.core.v3.HeaderValueOption
+	(*v33.RequestIDExtension)(nil),                 // 17: envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
+	(*v3.ConfigSource)(nil),                        // 18: envoy.config.core.v3.ConfigSource
 }
 var file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_depIdxs = []int32{
-	2,  // 0: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.weighted_clusters:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster
-	4,  // 1: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.on_demand:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.OnDemand
-	7,  // 2: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.metadata_match:type_name -> envoy.config.core.v3.Metadata
-	8,  // 3: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.idle_timeout:type_name -> google.protobuf.Duration
-	8,  // 4: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.downstream_idle_timeout:type_name -> google.protobuf.Duration
-	8,  // 5: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.upstream_idle_timeout:type_name -> google.protobuf.Duration
-	9,  // 6: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.access_log:type_name -> envoy.config.accesslog.v3.AccessLog
-	10, // 7: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.max_connect_attempts:type_name -> google.protobuf.UInt32Value
-	11, // 8: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.backoff_options:type_name -> envoy.config.core.v3.BackoffStrategy
-	12, // 9: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.hash_policy:type_name -> envoy.type.v3.HashPolicy
-	3,  // 10: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.tunneling_config:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig
-	8,  // 11: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.max_downstream_connection_duration:type_name -> google.protobuf.Duration
-	13, // 12: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.max_downstream_connection_duration_jitter_percentage:type_name -> envoy.type.v3.Percent
-	8,  // 13: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.access_log_flush_interval:type_name -> google.protobuf.Duration
-	5,  // 14: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.access_log_options:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions
-	14, // 15: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.proxy_protocol_tlvs:type_name -> envoy.config.core.v3.TlvEntry
-	0,  // 16: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.upstream_connect_mode:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.UpstreamConnectMode
-	10, // 17: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.max_early_data_bytes:type_name -> google.protobuf.UInt32Value
-	6,  // 18: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster.clusters:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster.ClusterWeight
-	15, // 19: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig.headers_to_add:type_name -> envoy.config.core.v3.HeaderValueOption
-	16, // 20: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig.request_id_extension:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
-	17, // 21: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.OnDemand.odcds_config:type_name -> envoy.config.core.v3.ConfigSource
-	8,  // 22: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.OnDemand.timeout:type_name -> google.protobuf.Duration
-	8,  // 23: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions.access_log_flush_interval:type_name -> google.protobuf.Duration
-	7,  // 24: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster.ClusterWeight.metadata_match:type_name -> envoy.config.core.v3.Metadata
-	25, // [25:25] is the sub-list for method output_type
-	25, // [25:25] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	3,  // 0: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.weighted_clusters:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster
+	5,  // 1: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.on_demand:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.OnDemand
+	8,  // 2: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.metadata_match:type_name -> envoy.config.core.v3.Metadata
+	9,  // 3: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.idle_timeout:type_name -> google.protobuf.Duration
+	9,  // 4: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.downstream_idle_timeout:type_name -> google.protobuf.Duration
+	9,  // 5: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.upstream_idle_timeout:type_name -> google.protobuf.Duration
+	10, // 6: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.access_log:type_name -> envoy.config.accesslog.v3.AccessLog
+	11, // 7: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.max_connect_attempts:type_name -> google.protobuf.UInt32Value
+	12, // 8: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.backoff_options:type_name -> envoy.config.core.v3.BackoffStrategy
+	13, // 9: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.hash_policy:type_name -> envoy.type.v3.HashPolicy
+	4,  // 10: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.tunneling_config:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig
+	9,  // 11: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.max_downstream_connection_duration:type_name -> google.protobuf.Duration
+	14, // 12: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.max_downstream_connection_duration_jitter_percentage:type_name -> envoy.type.v3.Percent
+	9,  // 13: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.access_log_flush_interval:type_name -> google.protobuf.Duration
+	6,  // 14: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.access_log_options:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions
+	15, // 15: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.proxy_protocol_tlvs:type_name -> envoy.config.core.v3.TlvEntry
+	1,  // 16: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.proxy_protocol_tlv_merge_policy:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.ProxyProtocolTlvMergePolicy
+	0,  // 17: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.upstream_connect_mode:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.UpstreamConnectMode
+	11, // 18: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.max_early_data_bytes:type_name -> google.protobuf.UInt32Value
+	7,  // 19: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster.clusters:type_name -> envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster.ClusterWeight
+	16, // 20: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig.headers_to_add:type_name -> envoy.config.core.v3.HeaderValueOption
+	17, // 21: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TunnelingConfig.request_id_extension:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
+	18, // 22: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.OnDemand.odcds_config:type_name -> envoy.config.core.v3.ConfigSource
+	9,  // 23: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.OnDemand.timeout:type_name -> google.protobuf.Duration
+	9,  // 24: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.TcpAccessLogOptions.access_log_flush_interval:type_name -> google.protobuf.Duration
+	8,  // 25: envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy.WeightedCluster.ClusterWeight.metadata_match:type_name -> envoy.config.core.v3.Metadata
+	26, // [26:26] is the sub-list for method output_type
+	26, // [26:26] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_init() }
@@ -1008,7 +1094,7 @@ func file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_rawDesc), len(file_envoy_extensions_filters_network_tcp_proxy_v3_tcp_proxy_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,

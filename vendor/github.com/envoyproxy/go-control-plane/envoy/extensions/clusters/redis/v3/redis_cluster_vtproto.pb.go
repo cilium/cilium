@@ -50,6 +50,16 @@ func (m *RedisClusterConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, err
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.EnableZoneDiscovery != nil {
+		size, err := (*wrapperspb.BoolValue)(m.EnableZoneDiscovery).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x3a
+	}
 	if m.HostDegradedRefreshThreshold != 0 {
 		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.HostDegradedRefreshThreshold))
 		i--
@@ -130,6 +140,10 @@ func (m *RedisClusterConfig) SizeVT() (n int) {
 	}
 	if m.HostDegradedRefreshThreshold != 0 {
 		n += 1 + protohelpers.SizeOfVarint(uint64(m.HostDegradedRefreshThreshold))
+	}
+	if m.EnableZoneDiscovery != nil {
+		l = (*wrapperspb.BoolValue)(m.EnableZoneDiscovery).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n
