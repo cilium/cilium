@@ -4,28 +4,14 @@
 package cell
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
-	"net/netip"
-	"strings"
 
 	"github.com/cilium/hive/cell"
-	"github.com/cilium/statedb"
 
-	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/cgroups/manager"
-	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/link"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	parserOptions "github.com/cilium/cilium/pkg/hubble/parser/options"
 	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
-	"github.com/cilium/cilium/pkg/identity"
-	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
-	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var Cell = cell.Module(
@@ -39,14 +25,6 @@ var Cell = cell.Module(
 func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 	if err := params.Config.validate(); err != nil {
 		return nil, fmt.Errorf("failed to validate configuration: %w", err)
-	}
-	g := &payloadGetters{
-		log:               params.Log,
-		db:                params.DB,
-		frontends:         params.Frontends,
-		identityAllocator: params.IdentityAllocator,
-		endpointManager:   params.EndpointManager,
-		ipcache:           params.Ipcache,
 	}
 	var parserOpts []parserOptions.Option
 	if params.Config.EnableRedact {
@@ -75,7 +53,7 @@ func newPayloadParser(params payloadParserParams) (parser.Decoder, error) {
 		parserOpts,
 		params.ParserOptions...,
 	)
-	return parser.New(params.Log, g, g, g, params.Ipcache, g, params.LinkCache, params.CGroupManager, parserOpts...)
+	return parser.New(params.Log, params.EndpointGetter, params.IdentityGetter, params.DnsGetter, params.IPGetter, params.ServiceGetter, params.LinkGetter, params.CGroupGetter, parserOpts...)
 }
 
 type payloadParserParams struct {
@@ -83,107 +61,15 @@ type payloadParserParams struct {
 
 	Log *slog.Logger
 
-	DB                *statedb.DB
-	Frontends         statedb.Table[*loadbalancer.Frontend]
-	IdentityAllocator identitycell.CachingIdentityAllocator
-	EndpointManager   endpointmanager.EndpointManager
-	Ipcache           *ipcache.IPCache
-	CGroupManager     manager.CGroupManager
-	LinkCache         *link.LinkCache
+	ServiceGetter  resolverTypes.ServiceGetter
+	EndpointGetter resolverTypes.EndpointGetter
+	IdentityGetter resolverTypes.IdentityGetter
+	IPGetter       resolverTypes.IPGetter
+	DnsGetter      resolverTypes.DNSGetter
+	LinkGetter     resolverTypes.LinkGetter
+	CGroupGetter   resolverTypes.PodMetadataGetter
 
 	Config config
 	// NOTE: ordering is not guaranteed, do not rely on it.
 	ParserOptions []parserOptions.Option `group:"hubble-parser-options"`
-}
-
-type payloadGetters struct {
-	log *slog.Logger
-
-	identityAllocator identitycell.CachingIdentityAllocator
-	endpointManager   endpointmanager.EndpointManager
-	ipcache           *ipcache.IPCache
-	db                *statedb.DB
-	frontends         statedb.Table[*loadbalancer.Frontend]
-}
-
-// GetIdentity implements IdentityGetter. It looks up identity by ID from
-// Cilium's identity cache. Hubble uses the identity info to populate flow
-// source and destination labels.
-func (p *payloadGetters) GetIdentity(securityIdentity uint32) (*identity.Identity, error) {
-	ident := p.identityAllocator.LookupIdentityByID(context.Background(), identity.NumericIdentity(securityIdentity))
-	if ident == nil {
-		return nil, fmt.Errorf("identity %d not found", securityIdentity)
-	}
-	return ident, nil
-}
-
-// GetEndpointInfo implements EndpointGetter. It returns endpoint info for a
-// given IP address. Hubble uses this function to populate fields like
-// namespace and pod name for local endpoints.
-func (h *payloadGetters) GetEndpointInfo(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
-	if !ip.IsValid() {
-		return nil, false
-	}
-	ep := h.endpointManager.LookupIP(ip)
-	if ep == nil {
-		return nil, false
-	}
-	return ep, true
-}
-
-// GetEndpointInfoByID implements EndpointGetter. It returns endpoint info for
-// a given Cilium endpoint id. Used by Hubble.
-func (h *payloadGetters) GetEndpointInfoByID(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
-	ep := h.endpointManager.LookupCiliumID(id)
-	if ep == nil {
-		return nil, false
-	}
-	return ep, true
-}
-
-// GetNamesOf implements DNSGetter.GetNamesOf. It looks up DNS names of a given
-// IP from the FQDN cache of an endpoint specified by sourceEpID.
-func (h *payloadGetters) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
-	ep := h.endpointManager.LookupCiliumID(uint16(sourceEpID))
-	if ep == nil {
-		return nil
-	}
-
-	if !ip.IsValid() {
-		return nil
-	}
-	names := ep.DNSHistory.LookupIP(ip)
-
-	for i := range names {
-		names[i] = strings.TrimSuffix(names[i], ".")
-	}
-
-	return names
-}
-
-// GetServiceByAddr implements ServiceGetter. It looks up service by IP, port
-// and protocol. Hubble uses this function to annotate flows with service information.
-func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service {
-	var l4 loadbalancer.L4Type
-	switch proto {
-	case u8proto.TCP:
-		l4 = loadbalancer.TCP
-	case u8proto.UDP:
-		l4 = loadbalancer.UDP
-	case u8proto.SCTP:
-		l4 = loadbalancer.SCTP
-	default:
-		return nil
-	}
-	if !ip.IsValid() {
-		return nil
-	}
-	fe, found := loadbalancer.LookupFrontendByTuple(h.db.ReadTxn(), h.frontends, cmtypes.AddrClusterFrom(ip, 0), l4, port, loadbalancer.ScopeExternal)
-	if !found {
-		return nil
-	}
-	return &flowpb.Service{
-		Namespace: fe.ServiceName.Namespace(),
-		Name:      fe.ServiceName.Name(),
-	}
 }

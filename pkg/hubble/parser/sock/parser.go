@@ -9,7 +9,6 @@ import (
 	"net/netip"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
@@ -28,7 +27,6 @@ type Parser struct {
 	ipGetter       resolverTypes.IPGetter
 	serviceGetter  resolverTypes.ServiceGetter
 	cgroupGetter   resolverTypes.PodMetadataGetter
-	epResolver     *common.EndpointResolver
 
 	traceSockNotifyDecoder options.TraceSockNotifyDecoderFunc
 
@@ -65,7 +63,6 @@ func New(log *slog.Logger,
 		ipGetter:               ipGetter,
 		serviceGetter:          serviceGetter,
 		cgroupGetter:           cgroupGetter,
-		epResolver:             common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
 		traceSockNotifyDecoder: args.TraceSockNotifyDecoder,
 		skipUnknownCGroupIDs:   args.SkipUnknownCGroupIDs,
 	}, nil
@@ -102,14 +99,14 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	dstIP := sock.IP()
 	dstPort := sock.DstPort
 
-	datapathContext := common.DatapathContext{
+	datapathContext := resolverTypes.DatapathContext{
 		SrcIP:      srcIP,
 		SrcLabelID: 0,
 		DstIP:      dstIP,
 		DstLabelID: 0,
 	}
-	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, 0, datapathContext)
-	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, 0, datapathContext)
+	srcEndpoint := p.endpointGetter.ResolveEndpoint(srcIP, 0, datapathContext)
+	dstEndpoint := p.endpointGetter.ResolveEndpoint(dstIP, 0, datapathContext)
 
 	// On the reverse path, source and destination IP of the packet are reversed
 	isRevNat := decodeRevNat(sock.XlatePoint)

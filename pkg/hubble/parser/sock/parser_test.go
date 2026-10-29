@@ -20,6 +20,7 @@ import (
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	"github.com/cilium/cilium/pkg/hubble/resolver"
 	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
@@ -446,7 +447,7 @@ func TestDecodeSockEvent(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := New(logger, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, tc.opts...)
+			p, err := New(logger, resolver.NewEndpointResolver(logger, endpointGetter, identityGetter, ipGetter), identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, tc.opts...)
 			assert.NoError(t, err)
 			data := tc.rawMsg
 			if data == nil {

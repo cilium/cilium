@@ -16,7 +16,6 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
@@ -44,7 +43,6 @@ type Parser struct {
 	debugCaptureDecoder        options.DebugCaptureDecoderFunc
 	packetDecoder              options.L34PacketDecoder
 
-	epResolver          *common.EndpointResolver
 	correlateL3L4Policy bool
 }
 
@@ -170,7 +168,6 @@ func New(
 		debugCaptureDecoder:        args.DebugCaptureDecoder,
 		traceNotifyDecoder:         args.TraceNotifyDecoder,
 		policyVerdictNotifyDecoder: args.PolicyVerdictNotifyDecoder,
-		epResolver:                 common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
 		packetDecoder:              args.L34PacketDecoder,
 		correlateL3L4Policy:        args.EnableNetworkPolicyCorrelation,
 	}, nil
@@ -266,15 +263,15 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	}
 
 	srcLabelID, dstLabelID := decodeSecurityIdentities(dn, tn, pvn)
-	datapathContext := common.DatapathContext{
+	datapathContext := resolverTypes.DatapathContext{
 		SrcIP:                 srcIP,
 		SrcLabelID:            srcLabelID,
 		DstIP:                 dstIP,
 		DstLabelID:            dstLabelID,
 		TraceObservationPoint: decoded.TraceObservationPoint,
 	}
-	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, srcLabelID, datapathContext)
-	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, dstLabelID, datapathContext)
+	srcEndpoint := p.endpointGetter.ResolveEndpoint(srcIP, srcLabelID, datapathContext)
+	dstEndpoint := p.endpointGetter.ResolveEndpoint(dstIP, dstLabelID, datapathContext)
 	var sourceService, destinationService *pb.Service
 	if p.serviceGetter != nil {
 		proto := l4U8Proto(decoded.L4)

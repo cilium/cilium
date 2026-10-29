@@ -19,6 +19,8 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
+	"github.com/cilium/cilium/pkg/endpoint"
+	"github.com/cilium/cilium/pkg/endpointmanager"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
@@ -297,10 +299,23 @@ var NoopDNSGetter = FakeFQDNCache{
 	},
 }
 
+type FakeEndpointManager struct {
+	endpointmanager.EndpointManager
+	OnLookupIP func(ip netip.Addr) *endpoint.Endpoint
+}
+
+func (f *FakeEndpointManager) LookupIP(ip netip.Addr) *endpoint.Endpoint {
+	if f.OnLookupIP != nil {
+		return f.OnLookupIP(ip)
+	}
+	panic("LookupIP(netip.Addr) should not have been called since it was not defined")
+}
+
 // FakeEndpointGetter is used for unit tests that needs EndpointGetter.
 type FakeEndpointGetter struct {
 	OnGetEndpointInfo     func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool)
 	OnGetEndpointInfoByID func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool)
+	OnResolveEndpoint     func(ip netip.Addr, datapathSecurityIdentity uint32, context resolverTypes.DatapathContext) *flowpb.Endpoint
 }
 
 // GetEndpointInfo implements EndpointGetter.GetEndpointInfo.
@@ -319,6 +334,14 @@ func (f *FakeEndpointGetter) GetEndpointInfoByID(id uint16) (endpoint resolverTy
 	panic("GetEndpointInfoByID not set")
 }
 
+// ResolveEndpoint implements EndpointGetter.ResolveEndpoint.
+func (f *FakeEndpointGetter) ResolveEndpoint(ip netip.Addr, datapathSecurityIdentity uint32, context resolverTypes.DatapathContext) *flowpb.Endpoint {
+	if f.OnResolveEndpoint != nil {
+		return f.OnResolveEndpoint(ip, datapathSecurityIdentity, context)
+	}
+	panic("OnResolveEndpoint not set")
+}
+
 // NoopEndpointGetter always returns an empty response.
 var NoopEndpointGetter = FakeEndpointGetter{
 	OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
@@ -326,6 +349,9 @@ var NoopEndpointGetter = FakeEndpointGetter{
 	},
 	OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 		return nil, false
+	},
+	OnResolveEndpoint: func(ip netip.Addr, datapathSecurityIdentity uint32, context resolverTypes.DatapathContext) *flowpb.Endpoint {
+		return &flowpb.Endpoint{}
 	},
 }
 

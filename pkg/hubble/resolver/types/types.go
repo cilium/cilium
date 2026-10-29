@@ -16,6 +16,14 @@ import (
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
+type DatapathContext struct {
+	SrcIP                 netip.Addr
+	SrcLabelID            uint32
+	DstIP                 netip.Addr
+	DstLabelID            uint32
+	TraceObservationPoint flowpb.TraceObservationPoint
+}
+
 // DNSGetter ...
 type DNSGetter interface {
 	// GetNamesOf fetches FQDNs of a given IP from the perspective of
@@ -30,6 +38,9 @@ type EndpointGetter interface {
 	GetEndpointInfo(ip netip.Addr) (endpoint EndpointInfo, ok bool)
 	// GetEndpointInfo looks up endpoint by id
 	GetEndpointInfoByID(id uint16) (endpoint EndpointInfo, ok bool)
+	// ResolveEndpoint resolves an endpoint based on the given IP address,
+	// datapath security identity, and datapath context.
+	ResolveEndpoint(ip netip.Addr, datapathSecurityIdentity uint32, context DatapathContext) *flowpb.Endpoint
 }
 
 // IdentityGetter ...

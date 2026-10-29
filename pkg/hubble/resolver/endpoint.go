@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Hubble
 
-package common
+package resolver
 
 import (
 	"log/slog"
 	"net/netip"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/hubble/resolver/types"
 	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -17,38 +19,87 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
-type DatapathContext struct {
-	SrcIP                 netip.Addr
-	SrcLabelID            uint32
-	DstIP                 netip.Addr
-	DstLabelID            uint32
-	TraceObservationPoint pb.TraceObservationPoint
-}
+// EndpointGetter implements types.EndpointGetter using Cilium's endpoint manager.
+type EndpointGetter struct {
+	log        *slog.Logger
+	logLimiter logging.Limiter
 
-type EndpointResolver struct {
-	log            *slog.Logger
-	logLimiter     logging.Limiter
-	endpointGetter resolverTypes.EndpointGetter
 	identityGetter resolverTypes.IdentityGetter
 	ipGetter       resolverTypes.IPGetter
+
+	endpointManager endpointmanager.EndpointManager
+	// infoGetter, if set, looks up the endpoint info instead of endpointManager.
+	infoGetter types.EndpointGetter
 }
 
-func NewEndpointResolver(
+func NewEndpointGetter(
 	log *slog.Logger,
-	endpointGetter resolverTypes.EndpointGetter,
 	identityGetter resolverTypes.IdentityGetter,
 	ipGetter resolverTypes.IPGetter,
-) *EndpointResolver {
-	return &EndpointResolver{
-		log:            log,
-		logLimiter:     logging.NewLimiter(30*time.Second, 1),
-		endpointGetter: endpointGetter,
-		identityGetter: identityGetter,
-		ipGetter:       ipGetter,
+	endpointManager endpointmanager.EndpointManager,
+) types.EndpointGetter {
+	return &EndpointGetter{
+		log:             log,
+		logLimiter:      logging.NewLimiter(30*time.Second, 1),
+		identityGetter:  identityGetter,
+		ipGetter:        ipGetter,
+		endpointManager: endpointManager,
 	}
 }
 
-func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdentity uint32, context DatapathContext) *pb.Endpoint {
+// NewEndpointResolver returns an EndpointGetter that resolves the endpoints on
+// top of the endpoint info provided by getter.
+func NewEndpointResolver(
+	log *slog.Logger,
+	getter types.EndpointGetter,
+	identityGetter resolverTypes.IdentityGetter,
+	ipGetter resolverTypes.IPGetter,
+) types.EndpointGetter {
+	return &EndpointGetter{
+		log:            log,
+		logLimiter:     logging.NewLimiter(30*time.Second, 1),
+		identityGetter: identityGetter,
+		ipGetter:       ipGetter,
+		infoGetter:     getter,
+	}
+}
+
+// GetEndpointInfo implements types.EndpointGetter. It returns endpoint
+// info for a given IP address.
+func (g *EndpointGetter) GetEndpointInfo(ip netip.Addr) (endpoint types.EndpointInfo, ok bool) {
+	if g != nil && g.infoGetter != nil {
+		return g.infoGetter.GetEndpointInfo(ip)
+	}
+	if g == nil || g.endpointManager == nil || !ip.IsValid() {
+		return nil, false
+	}
+	ep := g.endpointManager.LookupIP(ip)
+	if ep == nil {
+		return nil, false
+	}
+	return ep, true
+}
+
+// GetEndpointInfoByID implements types.EndpointGetter. It returns endpoint
+// info for a given Cilium endpoint id.
+func (g *EndpointGetter) GetEndpointInfoByID(id uint16) (endpoint types.EndpointInfo, ok bool) {
+	if g != nil && g.infoGetter != nil {
+		return g.infoGetter.GetEndpointInfoByID(id)
+	}
+	if g == nil || g.endpointManager == nil {
+		return nil, false
+	}
+	ep := g.endpointManager.LookupCiliumID(id)
+	if ep == nil {
+		return nil, false
+	}
+	return ep, true
+}
+
+func (r *EndpointGetter) ResolveEndpoint(ip netip.Addr, datapathSecurityIdentity uint32, context resolverTypes.DatapathContext) *pb.Endpoint {
+	if r == nil {
+		return nil
+	}
 	// The datapathSecurityIdentity parameter is the numeric security identity
 	// obtained from the datapath.
 	// The numeric identity from the datapath can differ from the one we obtain
@@ -136,27 +187,25 @@ func (r *EndpointResolver) ResolveEndpoint(ip netip.Addr, datapathSecurityIdenti
 	}
 
 	// for local endpoints, use the available endpoint information
-	if r.endpointGetter != nil {
-		if ep, ok := r.endpointGetter.GetEndpointInfo(ip); ok {
-			epIdentity := resolveIdentityConflict(ep.GetIdentity(), true)
-			labels := ep.GetLabels()
-			e := &pb.Endpoint{
-				ID:          uint32(ep.GetID()),
-				Identity:    epIdentity,
-				ClusterName: (labels[k8sConst.PolicyLabelCluster]).Value,
-				Namespace:   ep.GetK8sNamespace(),
-				Labels:      SortAndFilterLabels(r.log, labels.GetModel(), identity.NumericIdentity(epIdentity)),
-				PodName:     ep.GetK8sPodName(),
-				PodUid:      ep.GetK8sPodUID(),
-			}
-			if pod := ep.GetPod(); pod != nil {
-				workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
-				if ok {
-					e.Workloads = []*pb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
-				}
-			}
-			return e
+	if ep, ok := r.GetEndpointInfo(ip); ok {
+		epIdentity := resolveIdentityConflict(ep.GetIdentity(), true)
+		labels := ep.GetLabels()
+		e := &pb.Endpoint{
+			ID:          uint32(ep.GetID()),
+			Identity:    epIdentity,
+			ClusterName: (labels[k8sConst.PolicyLabelCluster]).Value,
+			Namespace:   ep.GetK8sNamespace(),
+			Labels:      SortAndFilterLabels(r.log, labels.GetModel(), identity.NumericIdentity(epIdentity)),
+			PodName:     ep.GetK8sPodName(),
+			PodUid:      ep.GetK8sPodUID(),
 		}
+		if pod := ep.GetPod(); pod != nil {
+			workload, workloadTypeMeta, ok := utils.GetWorkloadMetaFromPod(pod)
+			if ok {
+				e.Workloads = []*pb.Workload{{Kind: workloadTypeMeta.Kind, Name: workload.Name}}
+			}
+		}
+		return e
 	}
 
 	// for remote endpoints, assemble the information via ip and identity
