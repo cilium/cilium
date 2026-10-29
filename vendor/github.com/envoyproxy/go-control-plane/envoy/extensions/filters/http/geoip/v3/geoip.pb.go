@@ -8,7 +8,6 @@ package geoipv3
 
 import (
 	_ "github.com/cncf/xds/go/udpa/annotations"
-	_ "github.com/cncf/xds/go/xds/annotations/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -211,7 +210,7 @@ var File_envoy_extensions_filters_http_geoip_v3_geoip_proto protoreflect.FileDes
 
 const file_envoy_extensions_filters_http_geoip_v3_geoip_proto_rawDesc = "" +
 	"\n" +
-	"2envoy/extensions/filters/http/geoip/v3/geoip.proto\x12&envoy.extensions.filters.http.geoip.v3\x1a$envoy/config/core/v3/extension.proto\x1a\x1fxds/annotations/v3/status.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\xa3\x03\n" +
+	"2envoy/extensions/filters/http/geoip/v3/geoip.proto\x12&envoy.extensions.filters.http.geoip.v3\x1a$envoy/config/core/v3/extension.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\xa3\x03\n" +
 	"\x05Geoip\x12V\n" +
 	"\n" +
 	"xff_config\x18\x01 \x01(\v27.envoy.extensions.filters.http.geoip.v3.Geoip.XffConfigR\txffConfig\x12r\n" +
@@ -221,7 +220,7 @@ const file_envoy_extensions_filters_http_geoip_v3_geoip_proto_rawDesc = "" +
 	"\x14xff_num_trusted_hops\x18\x01 \x01(\rR\x11xffNumTrustedHops\x1a>\n" +
 	"\x12CustomHeaderConfig\x12(\n" +
 	"\vheader_name\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\n" +
-	"headerNameB\xab\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\xd2Ƥ\xe1\x06\x02\b\x01\n" +
+	"headerNameB\xa3\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
 	"4io.envoyproxy.envoy.extensions.filters.http.geoip.v3B\n" +
 	"GeoipProtoP\x01ZUgithub.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/geoip/v3;geoipv3b\x06proto3"
 

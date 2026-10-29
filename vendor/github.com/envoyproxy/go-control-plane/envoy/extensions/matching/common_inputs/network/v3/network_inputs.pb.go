@@ -407,11 +407,33 @@ func (*ApplicationProtocolInput) Descriptor() ([]byte, []int) {
 }
 
 // Input that matches by a specific filter state key.
-// The value of the provided filter state key will be the raw string representation of the filter state object
+// The value of the provided filter state key will be the raw string representation of the filter state object.
+//
+// When “field“ is specified and the filter state object supports field access
+// (i.e. “hasFieldSupport()“ returns true), the value of the specified field will be returned
+// instead of the serialized representation of the entire object. This enables direct matching
+// on individual fields within composite filter state objects, such as proxy protocol TLV values
+// stored in the shared “envoy.network.proxy_protocol.tlv“ object.
+//
+// Example configuration with field access:
+//
+// .. code-block:: yaml
+//
+//	input:
+//	  name: filter_state
+//	  typed_config:
+//	    "@type": type.googleapis.com/envoy.extensions.matching.common_inputs.network.v3.FilterStateInput
+//	    key: "envoy.network.proxy_protocol.tlv"
+//	    field: "aws_vpce_id"
+//
 // [#extension: envoy.matching.inputs.filter_state]
 type FilterStateInput struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Key   string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// Optional field name to retrieve from the filter state object.
+	// When set and the filter state object supports field access, the value of this specific
+	// field is returned instead of the serialized string representation of the whole object.
+	Field         string `protobuf:"bytes,2,opt,name=field,proto3" json:"field,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -449,6 +471,13 @@ func (*FilterStateInput) Descriptor() ([]byte, []int) {
 func (x *FilterStateInput) GetKey() string {
 	if x != nil {
 		return x.Key
+	}
+	return ""
+}
+
+func (x *FilterStateInput) GetField() string {
+	if x != nil {
+		return x.Field
 	}
 	return ""
 }
@@ -662,9 +691,10 @@ const file_envoy_extensions_matching_common_inputs_network_v3_network_inputs_pro
 	"\x0fSourceTypeInput\"\x11\n" +
 	"\x0fServerNameInput\"\x18\n" +
 	"\x16TransportProtocolInput\"\x1a\n" +
-	"\x18ApplicationProtocolInput\"-\n" +
+	"\x18ApplicationProtocolInput\"C\n" +
 	"\x10FilterStateInput\x12\x19\n" +
-	"\x03key\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x03key\"\xe7\x01\n" +
+	"\x03key\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x03key\x12\x14\n" +
+	"\x05field\x18\x02 \x01(\tR\x05field\"\xe7\x01\n" +
 	"\x14DynamicMetadataInput\x12\x1f\n" +
 	"\x06filter\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\x06filter\x12r\n" +
 	"\x04path\x18\x02 \x03(\v2T.envoy.extensions.matching.common_inputs.network.v3.DynamicMetadataInput.PathSegmentB\b\xfaB\x05\x92\x01\x02\b\x01R\x04path\x1a:\n" +

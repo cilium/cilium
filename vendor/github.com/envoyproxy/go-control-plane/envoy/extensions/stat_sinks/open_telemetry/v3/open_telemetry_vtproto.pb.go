@@ -147,6 +147,13 @@ func (m *SinkConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if msg, ok := m.ProtocolSpecifier.(*SinkConfig_HttpService); ok {
+		size, err := msg.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+	}
 	if m.CustomMetricConversions != nil {
 		if vtmsg, ok := interface{}(m.CustomMetricConversions).(interface {
 			MarshalToSizedBufferVTStrict([]byte) (int, error)
@@ -285,6 +292,41 @@ func (m *SinkConfig_GrpcService) MarshalToSizedBufferVTStrict(dAtA []byte) (int,
 	}
 	return len(dAtA) - i, nil
 }
+func (m *SinkConfig_HttpService) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *SinkConfig_HttpService) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	if m.HttpService != nil {
+		if vtmsg, ok := interface{}(m.HttpService).(interface {
+			MarshalToSizedBufferVTStrict([]byte) (int, error)
+		}); ok {
+			size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		} else {
+			encoded, err := proto.Marshal(m.HttpService)
+			if err != nil {
+				return 0, err
+			}
+			i -= len(encoded)
+			copy(dAtA[i:], encoded)
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+		}
+		i--
+		dAtA[i] = 0x4a
+	} else {
+		i = protohelpers.EncodeVarint(dAtA, i, 0)
+		i--
+		dAtA[i] = 0x4a
+	}
+	return len(dAtA) - i, nil
+}
 func (m *SinkConfig_ConversionAction) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -387,6 +429,26 @@ func (m *SinkConfig_GrpcService) SizeVT() (n int) {
 			l = size.SizeVT()
 		} else {
 			l = proto.Size(m.GrpcService)
+		}
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	} else {
+		n += 2
+	}
+	return n
+}
+func (m *SinkConfig_HttpService) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.HttpService != nil {
+		if size, ok := interface{}(m.HttpService).(interface {
+			SizeVT() int
+		}); ok {
+			l = size.SizeVT()
+		} else {
+			l = proto.Size(m.HttpService)
 		}
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	} else {

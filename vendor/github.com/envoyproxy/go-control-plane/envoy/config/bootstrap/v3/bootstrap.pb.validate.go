@@ -2934,6 +2934,66 @@ func (m *MemoryAllocatorManager) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetSoftMemoryLimitBytes()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, MemoryAllocatorManagerValidationError{
+					field:  "SoftMemoryLimitBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, MemoryAllocatorManagerValidationError{
+					field:  "SoftMemoryLimitBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetSoftMemoryLimitBytes()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return MemoryAllocatorManagerValidationError{
+				field:  "SoftMemoryLimitBytes",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetMaxPerCpuCacheSizeBytes()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, MemoryAllocatorManagerValidationError{
+					field:  "MaxPerCpuCacheSizeBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, MemoryAllocatorManagerValidationError{
+					field:  "MaxPerCpuCacheSizeBytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaxPerCpuCacheSizeBytes()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return MemoryAllocatorManagerValidationError{
+				field:  "MaxPerCpuCacheSizeBytes",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for MaxUnfreedMemoryBytes
+
 	if len(errors) > 0 {
 		return MemoryAllocatorManagerMultiError(errors)
 	}

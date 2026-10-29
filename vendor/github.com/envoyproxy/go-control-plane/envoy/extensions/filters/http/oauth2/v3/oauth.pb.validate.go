@@ -497,17 +497,6 @@ func (m *OAuth2Credentials) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
-	if m.GetTokenSecret() == nil {
-		err := OAuth2CredentialsValidationError{
-			field:  "TokenSecret",
-			reason: "value is required",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if all {
 		switch v := interface{}(m.GetTokenSecret()).(type) {
 		case interface{ ValidateAll() error }:
@@ -1219,6 +1208,40 @@ func (m *OAuth2Config) validate(all bool) error {
 
 	// no validation rules for DisableTokenEncryption
 
+	for idx, item := range m.GetAllowFailedMatcher() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, OAuth2ConfigValidationError{
+						field:  fmt.Sprintf("AllowFailedMatcher[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, OAuth2ConfigValidationError{
+						field:  fmt.Sprintf("AllowFailedMatcher[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return OAuth2ConfigValidationError{
+					field:  fmt.Sprintf("AllowFailedMatcher[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return OAuth2ConfigMultiError(errors)
 	}
@@ -1295,6 +1318,146 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = OAuth2ConfigValidationError{}
+
+// Validate checks the field values on OAuth2PerRoute with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *OAuth2PerRoute) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on OAuth2PerRoute with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in OAuth2PerRouteMultiError,
+// or nil if none found.
+func (m *OAuth2PerRoute) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *OAuth2PerRoute) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetConfig() == nil {
+		err := OAuth2PerRouteValidationError{
+			field:  "Config",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetConfig()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OAuth2PerRouteValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OAuth2PerRouteValidationError{
+					field:  "Config",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetConfig()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OAuth2PerRouteValidationError{
+				field:  "Config",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return OAuth2PerRouteMultiError(errors)
+	}
+
+	return nil
+}
+
+// OAuth2PerRouteMultiError is an error wrapping multiple validation errors
+// returned by OAuth2PerRoute.ValidateAll() if the designated constraints
+// aren't met.
+type OAuth2PerRouteMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m OAuth2PerRouteMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m OAuth2PerRouteMultiError) AllErrors() []error { return m }
+
+// OAuth2PerRouteValidationError is the validation error returned by
+// OAuth2PerRoute.Validate if the designated constraints aren't met.
+type OAuth2PerRouteValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e OAuth2PerRouteValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e OAuth2PerRouteValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e OAuth2PerRouteValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e OAuth2PerRouteValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e OAuth2PerRouteValidationError) ErrorName() string { return "OAuth2PerRouteValidationError" }
+
+// Error satisfies the builtin error interface
+func (e OAuth2PerRouteValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sOAuth2PerRoute.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = OAuth2PerRouteValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = OAuth2PerRouteValidationError{}
 
 // Validate checks the field values on OAuth2 with the rules defined in the
 // proto definition for this message. If any rules are violated, the first

@@ -49,6 +49,21 @@ const (
 	// Read from any node of the cluster. A random node is selected among the primary and
 	// replicas, healthy nodes have precedent over unhealthy nodes.
 	RedisProxy_ConnPoolSettings_ANY RedisProxy_ConnPoolSettings_ReadPolicy = 4
+	// Read from replicas in the same availability zone as the Envoy proxy. If no replicas
+	// are available in the same zone, fall back to any replica. If no replicas are available
+	// at all, fall back to the primary.
+	//
+	// Note: Zone discovery currently works with Valkey only. Valkey exposes availability_zone
+	// in its INFO response. Standard Redis does not support this field.
+	//
+	// The client zone is determined from Envoy's :ref:`locality zone <envoy_v3_api_field_config.core.v3.Locality.zone>`.
+	RedisProxy_ConnPoolSettings_LOCAL_ZONE_AFFINITY RedisProxy_ConnPoolSettings_ReadPolicy = 5
+	// Similar to LOCAL_ZONE_AFFINITY, but also considers the primary node for same-zone routing.
+	// Priority order: replicas in same zone -> primary in same zone -> any replica -> primary.
+	// This is useful when reducing cross-zone traffic is more important than read distribution.
+	//
+	// Note: Zone discovery currently works with Valkey only.
+	RedisProxy_ConnPoolSettings_LOCAL_ZONE_AFFINITY_REPLICAS_AND_PRIMARY RedisProxy_ConnPoolSettings_ReadPolicy = 6
 )
 
 // Enum value maps for RedisProxy_ConnPoolSettings_ReadPolicy.
@@ -59,13 +74,17 @@ var (
 		2: "REPLICA",
 		3: "PREFER_REPLICA",
 		4: "ANY",
+		5: "LOCAL_ZONE_AFFINITY",
+		6: "LOCAL_ZONE_AFFINITY_REPLICAS_AND_PRIMARY",
 	}
 	RedisProxy_ConnPoolSettings_ReadPolicy_value = map[string]int32{
-		"MASTER":         0,
-		"PREFER_MASTER":  1,
-		"REPLICA":        2,
-		"PREFER_REPLICA": 3,
-		"ANY":            4,
+		"MASTER":              0,
+		"PREFER_MASTER":       1,
+		"REPLICA":             2,
+		"PREFER_REPLICA":      3,
+		"ANY":                 4,
+		"LOCAL_ZONE_AFFINITY": 5,
+		"LOCAL_ZONE_AFFINITY_REPLICAS_AND_PRIMARY": 6,
 	}
 )
 
@@ -1237,7 +1256,7 @@ var File_envoy_extensions_filters_network_redis_proxy_v3_redis_proxy_proto proto
 
 const file_envoy_extensions_filters_network_redis_proxy_v3_redis_proxy_proto_rawDesc = "" +
 	"\n" +
-	"Aenvoy/extensions/filters/network/redis_proxy/v3/redis_proxy.proto\x12/envoy.extensions.filters.network.redis_proxy.v3\x1a\"envoy/config/core/v3/address.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a'envoy/config/core/v3/grpc_service.proto\x1a8envoy/extensions/common/aws/v3/credential_provider.proto\x1a@envoy/extensions/common/dynamic_forward_proxy/v3/dns_cache.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1eudpa/annotations/migrate.proto\x1a udpa/annotations/sensitive.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\xbc\x1d\n" +
+	"Aenvoy/extensions/filters/network/redis_proxy/v3/redis_proxy.proto\x12/envoy.extensions.filters.network.redis_proxy.v3\x1a\"envoy/config/core/v3/address.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a'envoy/config/core/v3/grpc_service.proto\x1a8envoy/extensions/common/aws/v3/credential_provider.proto\x1a@envoy/extensions/common/dynamic_forward_proxy/v3/dns_cache.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1eudpa/annotations/migrate.proto\x1a udpa/annotations/sensitive.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\x84\x1e\n" +
 	"\n" +
 	"RedisProxy\x12(\n" +
 	"\vstat_prefix\x18\x01 \x01(\tB\a\xfaB\x04r\x02\x10\x01R\n" +
@@ -1251,7 +1270,7 @@ const file_envoy_extensions_filters_network_redis_proxy_v3_redis_proxy_proto_raw
 	"\x18downstream_auth_username\x18\a \x01(\v2 .envoy.config.core.v3.DataSourceB\x06\xb8\xb7\x8b\xa4\x02\x01R\x16downstreamAuthUsername\x12\x80\x01\n" +
 	"\x16external_auth_provider\x18\n" +
 	" \x01(\v2J.envoy.extensions.filters.network.redis_proxy.v3.RedisExternalAuthProviderR\x14externalAuthProvider\x12'\n" +
-	"\x0fcustom_commands\x18\v \x03(\tR\x0ecustomCommands\x1a\xa0\b\n" +
+	"\x0fcustom_commands\x18\v \x03(\tR\x0ecustomCommands\x1a\xe8\b\n" +
 	"\x10ConnPoolSettings\x12B\n" +
 	"\n" +
 	"op_timeout\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\b\xfaB\x05\xaa\x01\x02\b\x01R\topTimeout\x12-\n" +
@@ -1265,7 +1284,7 @@ const file_envoy_extensions_filters_network_redis_proxy_v3_redis_proxy_proto_raw
 	"\vread_policy\x18\a \x01(\x0e2W.envoy.extensions.filters.network.redis_proxy.v3.RedisProxy.ConnPoolSettings.ReadPolicyB\b\xfaB\x05\x82\x01\x02\x10\x01R\n" +
 	"readPolicy\x12\x83\x01\n" +
 	"\x15connection_rate_limit\x18\n" +
-	" \x01(\v2O.envoy.extensions.filters.network.redis_proxy.v3.RedisProxy.ConnectionRateLimitR\x13connectionRateLimit\"~\n" +
+	" \x01(\v2O.envoy.extensions.filters.network.redis_proxy.v3.RedisProxy.ConnectionRateLimitR\x13connectionRateLimit\"\xc5\x01\n" +
 	"\n" +
 	"ReadPolicy\x12\x1b\n" +
 	"\x06MASTER\x10\x00\x1a\x0f\xf2\x98\xfe\x8f\x05\t\n" +
@@ -1274,7 +1293,9 @@ const file_envoy_extensions_filters_network_redis_proxy_v3_redis_proxy_proto_raw
 	"\x0ePREFER_PRIMARY\x12\v\n" +
 	"\aREPLICA\x10\x02\x12\x12\n" +
 	"\x0ePREFER_REPLICA\x10\x03\x12\a\n" +
-	"\x03ANY\x10\x04:M\x9aň\x1eH\n" +
+	"\x03ANY\x10\x04\x12\x17\n" +
+	"\x13LOCAL_ZONE_AFFINITY\x10\x05\x12,\n" +
+	"(LOCAL_ZONE_AFFINITY_REPLICAS_AND_PRIMARY\x10\x06:M\x9aň\x1eH\n" +
 	"Fenvoy.config.filter.network.redis_proxy.v2.RedisProxy.ConnPoolSettings\x1a\xfa\t\n" +
 	"\fPrefixRoutes\x12f\n" +
 	"\x06routes\x18\x01 \x03(\v2N.envoy.extensions.filters.network.redis_proxy.v3.RedisProxy.PrefixRoutes.RouteR\x06routes\x12)\n" +
