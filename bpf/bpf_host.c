@@ -1411,6 +1411,10 @@ int cil_from_host(struct __ctx_buff *ctx)
 	return do_netdev(ctx, proto, identity, obs_point, true);
 }
 
+static __always_inline int
+cil_to_netdev_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
+		   struct trace_ctx trace, __be16 proto);
+
 /*
  * to-netdev is attached as a tc egress filter to one or more physical devices
  * managed by Cilium (e.g., eth0).
@@ -1419,7 +1423,6 @@ __section_entry
 int cil_to_netdev(struct __ctx_buff *ctx)
 {
 	__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
-	__u32 dst_sec_identity = UNKNOWN_ID;
 	__u32 src_sec_identity = UNKNOWN_ID;
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1514,7 +1517,30 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		goto drop_err;
 
 skip_host_firewall:
+	ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
+	ctx_store_meta(ctx, CB_TRACE_REASON, trace.reason);
+	ctx_store_meta(ctx, CB_TRACE_MONITOR, trace.monitor);
+
+	ret = tail_call_internal(ctx, CILIUM_CALL_CIL_TO_NETDEV_CONT, &ext_err);
+#else
+	return cil_to_netdev_cont(ctx, src_sec_identity, trace, proto);
 #endif /* ENABLE_HOST_FIREWALL */
+
+drop_err:
+	return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
+					  METRIC_EGRESS);
+}
+
+/* cil_to_netdev continuation that runs in its own tail call if host firewall is enabled, and is
+ * inlined otherwise.
+ */
+static __always_inline int
+cil_to_netdev_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
+		   struct trace_ctx trace, __be16 proto)
+{
+	__u32 dst_sec_identity = UNKNOWN_ID;
+	int ret = CTX_ACT_OK;
+	__s8 ext_err = 0;
 
 	ret = host_egress_policy_hook(ctx, src_sec_identity, &ext_err);
 	if (IS_ERR(ret))
@@ -1624,6 +1650,22 @@ exit:
 drop_err:
 	return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
 					  METRIC_EGRESS);
+}
+
+__declare_tail(CILIUM_CALL_CIL_TO_NETDEV_CONT)
+static __always_inline
+int tail_cil_to_netdev_cont(struct __ctx_buff *ctx)
+{
+	__u32 src_sec_identity = ctx_load_and_clear_meta(ctx, CB_SRC_LABEL);
+	struct trace_ctx trace = {
+		.reason = (enum trace_reason)ctx_load_and_clear_meta(ctx, CB_TRACE_REASON),
+		.monitor = ctx_load_and_clear_meta(ctx, CB_TRACE_MONITOR),
+	};
+	__be16 proto = 0;
+
+	validate_ethertype(ctx, &proto);
+
+	return cil_to_netdev_cont(ctx, src_sec_identity, trace, proto);
 }
 
 #if defined(ENABLE_HOST_FIREWALL)
