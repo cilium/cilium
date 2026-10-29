@@ -222,8 +222,6 @@ jobs:
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=wireguard"
           fi
 
-          CILIUM_INSTALL_DEFAULTS+=" ${{ env.CILIUM_INSTALL_NET_PERF_EXTRA_ARGS }}"
-
           NODE_TAINTS="ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute"
 
           if [ "${{ matrix.mode }}" = "baseline" ] ; then
@@ -349,9 +347,16 @@ jobs:
         uses: ./.github/actions/post-logic
         with:
           always_capture_sysdump: true
-          artifacts_suffix: "${{ env.job_name }} (${{ join(matrix.*, ', ') }})"
+          artifacts_suffix: "${{ join(matrix.*, '-') }}"
           job_status: "${{ job.status }}"
           capture_features_tested: ${{ steps.run-perf.outcome != 'skipped' }}
+
+      - name: Upload sysdump
+        if: ${{ always() && job.status == 'success' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: "cilium-sysdump-${{ join(matrix.*, '-') }}.zip"
+          path: cilium-sysdump-*.zip
 
       - name: Clean up ESP allow firewall rule
         if: ${{ always() && matrix.name == 'tunnel-ipsec' }}
@@ -387,7 +392,7 @@ jobs:
       - name: Rename sysdump before uploading it to the GS bucket
         if : ${{ always() && matrix.mode != 'baseline' }}
         run: |
-          mv "cilium-sysdump-${{ env.job_name }} (${{ join(matrix.*, ', ') }}).zip" cilium-sysdump-final.zip
+          mv "cilium-sysdump-${{ join(matrix.*, '-') }}.zip" cilium-sysdump-final.zip
 
       - name: Export results and sysdump to GS bucket
         if: ${{ always() && steps.run-perf.outcome != 'skipped' && steps.run-perf.outcome != 'cancelled' }}
