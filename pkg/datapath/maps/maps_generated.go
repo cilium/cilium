@@ -142,7 +142,7 @@ func newCiliumCallsSpec(btf *btf.Spec) *ebpf.MapSpec {
 		Type:       ebpf.ProgramArray,
 		KeySize:    4,
 		ValueSize:  4,
-		MaxEntries: 50,
+		MaxEntries: 51,
 		Flags:      0,
 		Pinning:    ebpf.PinType(16),
 	}

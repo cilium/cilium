@@ -132,7 +132,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 				t.StrictEgressEncryption.AllowRemoteNodes = true
 			}
 		}),
-		IncrementOrPermute(func(t *config.BPFHost, v bool) { t.Node.Debug, t.Node.DebugLB = v, v }),
+		IncrementOrPermute(func(t *config.BPFHost, v bool) { setDebugOptions(&t.Node, v) }),
 	)
 	return b
 }
