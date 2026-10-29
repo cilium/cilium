@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func TestPayloadGetters_GetServiceByAddr(t *testing.T) {
@@ -32,18 +33,23 @@ func TestPayloadGetters_GetServiceByAddr(t *testing.T) {
 
 	pg := payloadGetters{db: db, frontends: fes}
 
-	svc := pg.GetServiceByAddr(addrTCP.Addr(), 80)
+	svc := pg.GetServiceByAddr(addrTCP.Addr(), 80, u8proto.TCP)
 	require.NotNil(t, svc)
 	require.Equal(t, svcNameTCP.Namespace(), svc.Namespace)
 	require.Equal(t, svcNameTCP.Name(), svc.Name)
 
-	svc = pg.GetServiceByAddr(addrUDP.Addr(), 80)
+	svc = pg.GetServiceByAddr(addrUDP.Addr(), 80, u8proto.UDP)
 	require.NotNil(t, svc)
 	require.Equal(t, svcNameUDP.Namespace(), svc.Namespace)
 	require.Equal(t, svcNameUDP.Name(), svc.Name)
 
-	svc = pg.GetServiceByAddr(addrUDP.Addr(), 81)
+	svc = pg.GetServiceByAddr(addrUDP.Addr(), 81, u8proto.UDP)
 	require.Nil(t, svc)
+
+	// The protocol must match the frontend's.
+	require.Nil(t, pg.GetServiceByAddr(addrUDP.Addr(), 80, u8proto.TCP))
+	require.Nil(t, pg.GetServiceByAddr(addrTCP.Addr(), 80, u8proto.UDP))
+	require.Nil(t, pg.GetServiceByAddr(addrTCP.Addr(), 80, u8proto.ANY))
 }
 
 func BenchmarkGetServiceByAddr(b *testing.B) {
@@ -55,7 +61,7 @@ func BenchmarkGetServiceByAddr(b *testing.B) {
 	b.ResetTimer()
 	for b.Loop() {
 		addr, port := randomAddrPort()
-		svc := pg.GetServiceByAddr(addr, port)
+		svc := pg.GetServiceByAddr(addr, port, u8proto.TCP)
 		if svc != nil {
 			b.Fatal("non-nil svc")
 		}

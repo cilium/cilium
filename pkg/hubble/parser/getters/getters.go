@@ -13,6 +13,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // DNSGetter ...
@@ -48,7 +49,7 @@ type IPGetter interface {
 
 // ServiceGetter fetches service metadata.
 type ServiceGetter interface {
-	GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service
+	GetServiceByAddr(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service
 }
 
 // LinkGetter fetches local link information.
