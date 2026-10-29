@@ -512,14 +512,24 @@ func (x *Compressor_RequestDirectionConfig) GetCommonConfig() *Compressor_Common
 }
 
 // Configuration for filter behavior on the response direction.
-// [#next-free-field: 6]
+// [#next-free-field: 7]
 type Compressor_ResponseDirectionConfig struct {
 	state        protoimpl.MessageState            `protogen:"open.v1"`
 	CommonConfig *Compressor_CommonDirectionConfig `protobuf:"bytes,1,opt,name=common_config,json=commonConfig,proto3" json:"common_config,omitempty"`
 	// When this field is “true“, disables compression when the response contains an “ETag“ header.
 	// When this field is “false“, the filter will preserve weak “ETag“ values and remove those that
-	// require strong validation.
+	// require strong validation (unless “weaken_etag_on_compress“ is set).
+	// When both “disable_on_etag_header“ and “weaken_etag_on_compress“ are “true“,
+	// “weaken_etag_on_compress“ takes precedence (compression is applied and the ETag is weakened).
 	DisableOnEtagHeader bool `protobuf:"varint,2,opt,name=disable_on_etag_header,json=disableOnEtagHeader,proto3" json:"disable_on_etag_header,omitempty"`
+	// When this field is “true“ and the filter compresses a response that contains a strong
+	// “ETag“, the filter will weaken the ETag by prepending “W/“ to its value instead of
+	// removing it. This allows caching and conditional requests to work while indicating the
+	// response body was modified by compression. When “false“ (default), strong ETags are
+	// removed when compression is applied. When both “weaken_etag_on_compress“ and
+	// “disable_on_etag_header“ are “true“, this field takes precedence so that compression
+	// is applied and the ETag is weakened, supporting gradual rollout to clients and servers.
+	WeakenEtagOnCompress bool `protobuf:"varint,6,opt,name=weaken_etag_on_compress,json=weakenEtagOnCompress,proto3" json:"weaken_etag_on_compress,omitempty"`
 	// When this field is “true“, removes “Accept-Encoding“ from the request headers before dispatching
 	// the request to the upstream so that responses do not get compressed before reaching the filter.
 	//
@@ -588,6 +598,13 @@ func (x *Compressor_ResponseDirectionConfig) GetDisableOnEtagHeader() bool {
 	return false
 }
 
+func (x *Compressor_ResponseDirectionConfig) GetWeakenEtagOnCompress() bool {
+	if x != nil {
+		return x.WeakenEtagOnCompress
+	}
+	return false
+}
+
 func (x *Compressor_ResponseDirectionConfig) GetRemoveAcceptEncodingHeader() bool {
 	if x != nil {
 		return x.RemoveAcceptEncodingHeader
@@ -613,7 +630,7 @@ var File_envoy_extensions_filters_http_compressor_v3_compressor_proto protorefle
 
 const file_envoy_extensions_filters_http_compressor_v3_compressor_proto_rawDesc = "" +
 	"\n" +
-	"<envoy/extensions/filters/http/compressor/v3/compressor.proto\x12+envoy.extensions.filters.http.compressor.v3\x1a\x1fenvoy/config/core/v3/base.proto\x1a$envoy/config/core/v3/extension.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\xcb\f\n" +
+	"<envoy/extensions/filters/http/compressor/v3/compressor.proto\x12+envoy.extensions.filters.http.compressor.v3\x1a\x1fenvoy/config/core/v3/base.proto\x1a$envoy/config/core/v3/extension.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\x82\r\n" +
 	"\n" +
 	"Compressor\x12P\n" +
 	"\x0econtent_length\x18\x01 \x01(\v2\x1c.google.protobuf.UInt32ValueB\v\x92ǆ\xd8\x04\x033.0\x18\x01R\rcontentLength\x12.\n" +
@@ -630,10 +647,11 @@ const file_envoy_extensions_filters_http_compressor_v3_compressor_proto_rawDesc 
 	"\x12min_content_length\x18\x02 \x01(\v2\x1c.google.protobuf.UInt32ValueR\x10minContentLength\x12!\n" +
 	"\fcontent_type\x18\x03 \x03(\tR\vcontentType\x1a\x8c\x01\n" +
 	"\x16RequestDirectionConfig\x12r\n" +
-	"\rcommon_config\x18\x01 \x01(\v2M.envoy.extensions.filters.http.compressor.v3.Compressor.CommonDirectionConfigR\fcommonConfig\x1a\x91\x03\n" +
+	"\rcommon_config\x18\x01 \x01(\v2M.envoy.extensions.filters.http.compressor.v3.Compressor.CommonDirectionConfigR\fcommonConfig\x1a\xc8\x03\n" +
 	"\x17ResponseDirectionConfig\x12r\n" +
 	"\rcommon_config\x18\x01 \x01(\v2M.envoy.extensions.filters.http.compressor.v3.Compressor.CommonDirectionConfigR\fcommonConfig\x123\n" +
-	"\x16disable_on_etag_header\x18\x02 \x01(\bR\x13disableOnEtagHeader\x12A\n" +
+	"\x16disable_on_etag_header\x18\x02 \x01(\bR\x13disableOnEtagHeader\x125\n" +
+	"\x17weaken_etag_on_compress\x18\x06 \x01(\bR\x14weakenEtagOnCompress\x12A\n" +
 	"\x1dremove_accept_encoding_header\x18\x03 \x01(\bR\x1aremoveAcceptEncodingHeader\x12V\n" +
 	"\x1duncompressible_response_codes\x18\x04 \x03(\rB\x12\xfaB\x0f\x92\x01\f\x18\x01\"\b*\x06\x10\xd8\x04(\xc8\x01R\x1buncompressibleResponseCodes\x122\n" +
 	"\x15status_header_enabled\x18\x05 \x01(\bR\x13statusHeaderEnabled:8\x9aň\x1e3\n" +

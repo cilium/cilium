@@ -42,11 +42,9 @@ type OpenTelemetryConfig struct {
 	//
 	// .. note::
 	//
-	//	Note: The ``request_headers_to_add`` property in the OTLP HTTP exporter service
-	//	does not support the :ref:`format specifier <config_access_log_format>` as used for
-	//	:ref:`HTTP access logging <config_access_log>`.
-	//	The values configured are added as HTTP headers on the OTLP export request
-	//	without any formatting applied.
+	//	The ``request_headers_to_add`` property in the OTLP HTTP exporter service supports
+	//	substitution formatters. The formatters cannot access any HTTP or connection properties, but
+	//	can load content such as environment variables or files or secrets.
 	HttpService *v3.HttpService `protobuf:"bytes,3,opt,name=http_service,json=httpService,proto3" json:"http_service,omitempty"`
 	// The name for the service. This will be populated in the ResourceSpan Resource attributes.
 	// If it is not provided, it will default to "unknown_service:envoy".

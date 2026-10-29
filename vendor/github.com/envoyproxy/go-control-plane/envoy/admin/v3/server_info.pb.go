@@ -228,7 +228,7 @@ func (CommandLineOptions_DrainStrategy) EnumDescriptor() ([]byte, []int) {
 
 // Proto representation of the value returned by /server_info, containing
 // server version/server status information.
-// [#next-free-field: 8]
+// [#next-free-field: 9]
 type ServerInfo struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Server version.
@@ -244,9 +244,11 @@ type ServerInfo struct {
 	// Command line options the server is currently running with.
 	CommandLineOptions *CommandLineOptions `protobuf:"bytes,6,opt,name=command_line_options,json=commandLineOptions,proto3" json:"command_line_options,omitempty"`
 	// Populated node identity of this server.
-	Node          *v3.Node `protobuf:"bytes,7,opt,name=node,proto3" json:"node,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Node *v3.Node `protobuf:"bytes,7,opt,name=node,proto3" json:"node,omitempty"`
+	// Whether the server is currently initializing during a hot restart.
+	HotRestartInitializing bool `protobuf:"varint,8,opt,name=hot_restart_initializing,json=hotRestartInitializing,proto3" json:"hot_restart_initializing,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ServerInfo) Reset() {
@@ -326,6 +328,13 @@ func (x *ServerInfo) GetNode() *v3.Node {
 		return x.Node
 	}
 	return nil
+}
+
+func (x *ServerInfo) GetHotRestartInitializing() bool {
+	if x != nil {
+		return x.HotRestartInitializing
+	}
+	return false
 }
 
 // [#next-free-field: 43]
@@ -711,7 +720,7 @@ var File_envoy_admin_v3_server_info_proto protoreflect.FileDescriptor
 
 const file_envoy_admin_v3_server_info_proto_rawDesc = "" +
 	"\n" +
-	" envoy/admin/v3/server_info.proto\x12\x0eenvoy.admin.v3\x1a\x1fenvoy/config/core/v3/base.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\"\x98\x04\n" +
+	" envoy/admin/v3/server_info.proto\x12\x0eenvoy.admin.v3\x1a\x1fenvoy/config/core/v3/base.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\"\xd2\x04\n" +
 	"\n" +
 	"ServerInfo\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\tR\aversion\x126\n" +
@@ -720,7 +729,8 @@ const file_envoy_admin_v3_server_info_proto_rawDesc = "" +
 	"\x11uptime_all_epochs\x18\x04 \x01(\v2\x19.google.protobuf.DurationR\x0fuptimeAllEpochs\x12.\n" +
 	"\x13hot_restart_version\x18\x05 \x01(\tR\x11hotRestartVersion\x12T\n" +
 	"\x14command_line_options\x18\x06 \x01(\v2\".envoy.admin.v3.CommandLineOptionsR\x12commandLineOptions\x12.\n" +
-	"\x04node\x18\a \x01(\v2\x1a.envoy.config.core.v3.NodeR\x04node\"G\n" +
+	"\x04node\x18\a \x01(\v2\x1a.envoy.config.core.v3.NodeR\x04node\x128\n" +
+	"\x18hot_restart_initializing\x18\b \x01(\bR\x16hotRestartInitializing\"G\n" +
 	"\x05State\x12\b\n" +
 	"\x04LIVE\x10\x00\x12\f\n" +
 	"\bDRAINING\x10\x01\x12\x14\n" +

@@ -8,7 +8,8 @@ package compositev3
 
 import (
 	_ "github.com/cncf/xds/go/udpa/annotations"
-	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	v3 "github.com/cncf/xds/go/xds/type/matcher/v3"
+	v31 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	_ "github.com/envoyproxy/protoc-gen-validate/validate"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -43,8 +44,13 @@ type Composite struct {
 	// This is useful when the same filter chain needs to be applied across many routes,
 	// as it avoids duplicating the filter chain configuration.
 	NamedFilterChains map[string]*FilterChainConfiguration `protobuf:"bytes,1,rep,name=named_filter_chains,json=namedFilterChains,proto3" json:"named_filter_chains,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// [#not-implemented-hide:]
+	// The match tree that will be used to select an action to execute. The action type should be
+	// :ref:`ExecuteFilterAction
+	// <envoy_v3_api_msg_extensions.filters.http.composite.v3.ExecuteFilterAction>`.
+	Matcher       *v3.Matcher `protobuf:"bytes,2,opt,name=matcher,proto3" json:"matcher,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Composite) Reset() {
@@ -84,6 +90,60 @@ func (x *Composite) GetNamedFilterChains() map[string]*FilterChainConfiguration 
 	return nil
 }
 
+func (x *Composite) GetMatcher() *v3.Matcher {
+	if x != nil {
+		return x.Matcher
+	}
+	return nil
+}
+
+// Per-route configuration for the Composite filter.
+// [#not-implemented-hide:]
+type CompositePerRoute struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Override of the match tree for this route.
+	Matcher       *v3.Matcher `protobuf:"bytes,1,opt,name=matcher,proto3" json:"matcher,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompositePerRoute) Reset() {
+	*x = CompositePerRoute{}
+	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompositePerRoute) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompositePerRoute) ProtoMessage() {}
+
+func (x *CompositePerRoute) ProtoReflect() protoreflect.Message {
+	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompositePerRoute.ProtoReflect.Descriptor instead.
+func (*CompositePerRoute) Descriptor() ([]byte, []int) {
+	return file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *CompositePerRoute) GetMatcher() *v3.Matcher {
+	if x != nil {
+		return x.Matcher
+	}
+	return nil
+}
+
 // A list of filter configurations to be called in order. Note that this can be used as the type
 // inside of an ECDS :ref:`TypedExtensionConfig
 // <envoy_v3_api_msg_config.core.v3.TypedExtensionConfig>` extension, which allows a chain of
@@ -91,15 +151,15 @@ func (x *Composite) GetNamedFilterChains() map[string]*FilterChainConfiguration 
 // be present in the :ref:`ExtensionConfigSource.type_urls
 // <envoy_v3_api_field_config.core.v3.ExtensionConfigSource.type_urls>` field.
 type FilterChainConfiguration struct {
-	state         protoimpl.MessageState     `protogen:"open.v1"`
-	TypedConfig   []*v3.TypedExtensionConfig `protobuf:"bytes,1,rep,name=typed_config,json=typedConfig,proto3" json:"typed_config,omitempty"`
+	state         protoimpl.MessageState      `protogen:"open.v1"`
+	TypedConfig   []*v31.TypedExtensionConfig `protobuf:"bytes,1,rep,name=typed_config,json=typedConfig,proto3" json:"typed_config,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *FilterChainConfiguration) Reset() {
 	*x = FilterChainConfiguration{}
-	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[1]
+	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -111,7 +171,7 @@ func (x *FilterChainConfiguration) String() string {
 func (*FilterChainConfiguration) ProtoMessage() {}
 
 func (x *FilterChainConfiguration) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[1]
+	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -124,10 +184,10 @@ func (x *FilterChainConfiguration) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FilterChainConfiguration.ProtoReflect.Descriptor instead.
 func (*FilterChainConfiguration) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDescGZIP(), []int{1}
+	return file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *FilterChainConfiguration) GetTypedConfig() []*v3.TypedExtensionConfig {
+func (x *FilterChainConfiguration) GetTypedConfig() []*v31.TypedExtensionConfig {
 	if x != nil {
 		return x.TypedConfig
 	}
@@ -144,14 +204,14 @@ type DynamicConfig struct {
 	// Configuration source specifier for an extension configuration discovery
 	// service. In case of a failure and without the default configuration,
 	// 500(Internal Server Error) will be returned.
-	ConfigDiscovery *v3.ExtensionConfigSource `protobuf:"bytes,2,opt,name=config_discovery,json=configDiscovery,proto3" json:"config_discovery,omitempty"`
+	ConfigDiscovery *v31.ExtensionConfigSource `protobuf:"bytes,2,opt,name=config_discovery,json=configDiscovery,proto3" json:"config_discovery,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
 
 func (x *DynamicConfig) Reset() {
 	*x = DynamicConfig{}
-	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[2]
+	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -163,7 +223,7 @@ func (x *DynamicConfig) String() string {
 func (*DynamicConfig) ProtoMessage() {}
 
 func (x *DynamicConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[2]
+	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -176,7 +236,7 @@ func (x *DynamicConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DynamicConfig.ProtoReflect.Descriptor instead.
 func (*DynamicConfig) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDescGZIP(), []int{2}
+	return file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *DynamicConfig) GetName() string {
@@ -186,7 +246,7 @@ func (x *DynamicConfig) GetName() string {
 	return ""
 }
 
-func (x *DynamicConfig) GetConfigDiscovery() *v3.ExtensionConfigSource {
+func (x *DynamicConfig) GetConfigDiscovery() *v31.ExtensionConfigSource {
 	if x != nil {
 		return x.ConfigDiscovery
 	}
@@ -203,7 +263,7 @@ type ExecuteFilterAction struct {
 	// Only one of “typed_config“, “dynamic_config“, “filter_chain“, or “filter_chain_name“
 	// can be set.
 	// [#extension-category: envoy.filters.http]
-	TypedConfig *v3.TypedExtensionConfig `protobuf:"bytes,1,opt,name=typed_config,json=typedConfig,proto3" json:"typed_config,omitempty"`
+	TypedConfig *v31.TypedExtensionConfig `protobuf:"bytes,1,opt,name=typed_config,json=typedConfig,proto3" json:"typed_config,omitempty"`
 	// Dynamic configuration of filter obtained via extension configuration discovery service.
 	// Only one of “typed_config“, “dynamic_config“, “filter_chain“, or “filter_chain_name“
 	// can be set.
@@ -227,14 +287,14 @@ type ExecuteFilterAction struct {
 	// under the “sample_percent“ is configured with 30%, a dice roll with that
 	// probability is done. The underline action will only be executed if the
 	// dice roll returns positive. Otherwise, the action is skipped.
-	SamplePercent *v3.RuntimeFractionalPercent `protobuf:"bytes,3,opt,name=sample_percent,json=samplePercent,proto3" json:"sample_percent,omitempty"`
+	SamplePercent *v31.RuntimeFractionalPercent `protobuf:"bytes,3,opt,name=sample_percent,json=samplePercent,proto3" json:"sample_percent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ExecuteFilterAction) Reset() {
 	*x = ExecuteFilterAction{}
-	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[3]
+	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -246,7 +306,7 @@ func (x *ExecuteFilterAction) String() string {
 func (*ExecuteFilterAction) ProtoMessage() {}
 
 func (x *ExecuteFilterAction) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[3]
+	mi := &file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -259,10 +319,10 @@ func (x *ExecuteFilterAction) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteFilterAction.ProtoReflect.Descriptor instead.
 func (*ExecuteFilterAction) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDescGZIP(), []int{3}
+	return file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *ExecuteFilterAction) GetTypedConfig() *v3.TypedExtensionConfig {
+func (x *ExecuteFilterAction) GetTypedConfig() *v31.TypedExtensionConfig {
 	if x != nil {
 		return x.TypedConfig
 	}
@@ -290,7 +350,7 @@ func (x *ExecuteFilterAction) GetFilterChainName() string {
 	return ""
 }
 
-func (x *ExecuteFilterAction) GetSamplePercent() *v3.RuntimeFractionalPercent {
+func (x *ExecuteFilterAction) GetSamplePercent() *v31.RuntimeFractionalPercent {
 	if x != nil {
 		return x.SamplePercent
 	}
@@ -301,12 +361,15 @@ var File_envoy_extensions_filters_http_composite_v3_composite_proto protoreflect
 
 const file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDesc = "" +
 	"\n" +
-	":envoy/extensions/filters/http/composite/v3/composite.proto\x12*envoy.extensions.filters.http.composite.v3\x1a\x1fenvoy/config/core/v3/base.proto\x1a(envoy/config/core/v3/config_source.proto\x1a$envoy/config/core/v3/extension.proto\x1a\x1eudpa/annotations/migrate.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\x96\x02\n" +
+	":envoy/extensions/filters/http/composite/v3/composite.proto\x12*envoy.extensions.filters.http.composite.v3\x1a\x1fenvoy/config/core/v3/base.proto\x1a(envoy/config/core/v3/config_source.proto\x1a$envoy/config/core/v3/extension.proto\x1a!xds/type/matcher/v3/matcher.proto\x1a\x1eudpa/annotations/migrate.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\xce\x02\n" +
 	"\tComposite\x12|\n" +
-	"\x13named_filter_chains\x18\x01 \x03(\v2L.envoy.extensions.filters.http.composite.v3.Composite.NamedFilterChainsEntryR\x11namedFilterChains\x1a\x8a\x01\n" +
+	"\x13named_filter_chains\x18\x01 \x03(\v2L.envoy.extensions.filters.http.composite.v3.Composite.NamedFilterChainsEntryR\x11namedFilterChains\x126\n" +
+	"\amatcher\x18\x02 \x01(\v2\x1c.xds.type.matcher.v3.MatcherR\amatcher\x1a\x8a\x01\n" +
 	"\x16NamedFilterChainsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12Z\n" +
-	"\x05value\x18\x02 \x01(\v2D.envoy.extensions.filters.http.composite.v3.FilterChainConfigurationR\x05value:\x028\x01\"i\n" +
+	"\x05value\x18\x02 \x01(\v2D.envoy.extensions.filters.http.composite.v3.FilterChainConfigurationR\x05value:\x028\x01\"U\n" +
+	"\x11CompositePerRoute\x12@\n" +
+	"\amatcher\x18\x01 \x01(\v2\x1c.xds.type.matcher.v3.MatcherB\b\xfaB\x05\x8a\x01\x02\x10\x01R\amatcher\"i\n" +
 	"\x18FilterChainConfiguration\x12M\n" +
 	"\ftyped_config\x18\x01 \x03(\v2*.envoy.config.core.v3.TypedExtensionConfigR\vtypedConfig\"\x84\x01\n" +
 	"\rDynamicConfig\x12\x1b\n" +
@@ -332,31 +395,35 @@ func file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDescGZIP
 	return file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDescData
 }
 
-var file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_envoy_extensions_filters_http_composite_v3_composite_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_envoy_extensions_filters_http_composite_v3_composite_proto_goTypes = []any{
-	(*Composite)(nil),                   // 0: envoy.extensions.filters.http.composite.v3.Composite
-	(*FilterChainConfiguration)(nil),    // 1: envoy.extensions.filters.http.composite.v3.FilterChainConfiguration
-	(*DynamicConfig)(nil),               // 2: envoy.extensions.filters.http.composite.v3.DynamicConfig
-	(*ExecuteFilterAction)(nil),         // 3: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction
-	nil,                                 // 4: envoy.extensions.filters.http.composite.v3.Composite.NamedFilterChainsEntry
-	(*v3.TypedExtensionConfig)(nil),     // 5: envoy.config.core.v3.TypedExtensionConfig
-	(*v3.ExtensionConfigSource)(nil),    // 6: envoy.config.core.v3.ExtensionConfigSource
-	(*v3.RuntimeFractionalPercent)(nil), // 7: envoy.config.core.v3.RuntimeFractionalPercent
+	(*Composite)(nil),                    // 0: envoy.extensions.filters.http.composite.v3.Composite
+	(*CompositePerRoute)(nil),            // 1: envoy.extensions.filters.http.composite.v3.CompositePerRoute
+	(*FilterChainConfiguration)(nil),     // 2: envoy.extensions.filters.http.composite.v3.FilterChainConfiguration
+	(*DynamicConfig)(nil),                // 3: envoy.extensions.filters.http.composite.v3.DynamicConfig
+	(*ExecuteFilterAction)(nil),          // 4: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction
+	nil,                                  // 5: envoy.extensions.filters.http.composite.v3.Composite.NamedFilterChainsEntry
+	(*v3.Matcher)(nil),                   // 6: xds.type.matcher.v3.Matcher
+	(*v31.TypedExtensionConfig)(nil),     // 7: envoy.config.core.v3.TypedExtensionConfig
+	(*v31.ExtensionConfigSource)(nil),    // 8: envoy.config.core.v3.ExtensionConfigSource
+	(*v31.RuntimeFractionalPercent)(nil), // 9: envoy.config.core.v3.RuntimeFractionalPercent
 }
 var file_envoy_extensions_filters_http_composite_v3_composite_proto_depIdxs = []int32{
-	4, // 0: envoy.extensions.filters.http.composite.v3.Composite.named_filter_chains:type_name -> envoy.extensions.filters.http.composite.v3.Composite.NamedFilterChainsEntry
-	5, // 1: envoy.extensions.filters.http.composite.v3.FilterChainConfiguration.typed_config:type_name -> envoy.config.core.v3.TypedExtensionConfig
-	6, // 2: envoy.extensions.filters.http.composite.v3.DynamicConfig.config_discovery:type_name -> envoy.config.core.v3.ExtensionConfigSource
-	5, // 3: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction.typed_config:type_name -> envoy.config.core.v3.TypedExtensionConfig
-	2, // 4: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction.dynamic_config:type_name -> envoy.extensions.filters.http.composite.v3.DynamicConfig
-	1, // 5: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction.filter_chain:type_name -> envoy.extensions.filters.http.composite.v3.FilterChainConfiguration
-	7, // 6: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction.sample_percent:type_name -> envoy.config.core.v3.RuntimeFractionalPercent
-	1, // 7: envoy.extensions.filters.http.composite.v3.Composite.NamedFilterChainsEntry.value:type_name -> envoy.extensions.filters.http.composite.v3.FilterChainConfiguration
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	5,  // 0: envoy.extensions.filters.http.composite.v3.Composite.named_filter_chains:type_name -> envoy.extensions.filters.http.composite.v3.Composite.NamedFilterChainsEntry
+	6,  // 1: envoy.extensions.filters.http.composite.v3.Composite.matcher:type_name -> xds.type.matcher.v3.Matcher
+	6,  // 2: envoy.extensions.filters.http.composite.v3.CompositePerRoute.matcher:type_name -> xds.type.matcher.v3.Matcher
+	7,  // 3: envoy.extensions.filters.http.composite.v3.FilterChainConfiguration.typed_config:type_name -> envoy.config.core.v3.TypedExtensionConfig
+	8,  // 4: envoy.extensions.filters.http.composite.v3.DynamicConfig.config_discovery:type_name -> envoy.config.core.v3.ExtensionConfigSource
+	7,  // 5: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction.typed_config:type_name -> envoy.config.core.v3.TypedExtensionConfig
+	3,  // 6: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction.dynamic_config:type_name -> envoy.extensions.filters.http.composite.v3.DynamicConfig
+	2,  // 7: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction.filter_chain:type_name -> envoy.extensions.filters.http.composite.v3.FilterChainConfiguration
+	9,  // 8: envoy.extensions.filters.http.composite.v3.ExecuteFilterAction.sample_percent:type_name -> envoy.config.core.v3.RuntimeFractionalPercent
+	2,  // 9: envoy.extensions.filters.http.composite.v3.Composite.NamedFilterChainsEntry.value:type_name -> envoy.extensions.filters.http.composite.v3.FilterChainConfiguration
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_envoy_extensions_filters_http_composite_v3_composite_proto_init() }
@@ -370,7 +437,7 @@ func file_envoy_extensions_filters_http_composite_v3_composite_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDesc), len(file_envoy_extensions_filters_http_composite_v3_composite_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

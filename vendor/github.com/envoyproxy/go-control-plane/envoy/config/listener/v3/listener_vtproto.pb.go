@@ -483,6 +483,18 @@ func (m *Listener) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.PerConnectionBufferHighWatermarkTimeout != nil {
+		size, err := (*durationpb.Duration)(m.PerConnectionBufferHighWatermarkTimeout).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x2
+		i--
+		dAtA[i] = 0xb2
+	}
 	if m.TcpKeepalive != nil {
 		if vtmsg, ok := interface{}(m.TcpKeepalive).(interface {
 			MarshalToSizedBufferVTStrict([]byte) (int, error)
@@ -1414,6 +1426,10 @@ func (m *Listener) SizeVT() (n int) {
 		} else {
 			l = proto.Size(m.TcpKeepalive)
 		}
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.PerConnectionBufferHighWatermarkTimeout != nil {
+		l = (*durationpb.Duration)(m.PerConnectionBufferHighWatermarkTimeout).SizeVT()
 		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

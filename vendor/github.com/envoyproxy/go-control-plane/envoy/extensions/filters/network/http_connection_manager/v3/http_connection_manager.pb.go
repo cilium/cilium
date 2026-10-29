@@ -299,6 +299,57 @@ func (HttpConnectionManager_PathWithEscapedSlashesAction) EnumDescriptor() ([]by
 	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{0, 3}
 }
 
+// The format to use when writing the
+// :ref:`config_http_conn_man_headers_x-forwarded-client-cert` (XFCC) header value.
+type HttpConnectionManager_ForwardClientCertFormat int32
+
+const (
+	// Use the :ref:`text format <config_http_conn_man_headers_x-forwarded-client-cert_text>`.
+	// This is the default.
+	HttpConnectionManager_TEXT HttpConnectionManager_ForwardClientCertFormat = 0
+	// Use the :ref:`JSON format <config_http_conn_man_headers_x-forwarded-client-cert_json>`.
+	HttpConnectionManager_JSON HttpConnectionManager_ForwardClientCertFormat = 1
+)
+
+// Enum value maps for HttpConnectionManager_ForwardClientCertFormat.
+var (
+	HttpConnectionManager_ForwardClientCertFormat_name = map[int32]string{
+		0: "TEXT",
+		1: "JSON",
+	}
+	HttpConnectionManager_ForwardClientCertFormat_value = map[string]int32{
+		"TEXT": 0,
+		"JSON": 1,
+	}
+)
+
+func (x HttpConnectionManager_ForwardClientCertFormat) Enum() *HttpConnectionManager_ForwardClientCertFormat {
+	p := new(HttpConnectionManager_ForwardClientCertFormat)
+	*p = x
+	return p
+}
+
+func (x HttpConnectionManager_ForwardClientCertFormat) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (HttpConnectionManager_ForwardClientCertFormat) Descriptor() protoreflect.EnumDescriptor {
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_enumTypes[4].Descriptor()
+}
+
+func (HttpConnectionManager_ForwardClientCertFormat) Type() protoreflect.EnumType {
+	return &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_enumTypes[4]
+}
+
+func (x HttpConnectionManager_ForwardClientCertFormat) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use HttpConnectionManager_ForwardClientCertFormat.Descriptor instead.
+func (HttpConnectionManager_ForwardClientCertFormat) EnumDescriptor() ([]byte, []int) {
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{0, 4}
+}
+
 // This OperationName makes no sense and is unnecessary in the current tracing API.
 // [#not-implemented-hide:]
 type HttpConnectionManager_Tracing_OperationName int32
@@ -333,11 +384,11 @@ func (x HttpConnectionManager_Tracing_OperationName) String() string {
 }
 
 func (HttpConnectionManager_Tracing_OperationName) Descriptor() protoreflect.EnumDescriptor {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_enumTypes[4].Descriptor()
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_enumTypes[5].Descriptor()
 }
 
 func (HttpConnectionManager_Tracing_OperationName) Type() protoreflect.EnumType {
-	return &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_enumTypes[4]
+	return &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_enumTypes[5]
 }
 
 func (x HttpConnectionManager_Tracing_OperationName) Number() protoreflect.EnumNumber {
@@ -349,7 +400,7 @@ func (HttpConnectionManager_Tracing_OperationName) EnumDescriptor() ([]byte, []i
 	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{0, 0, 0}
 }
 
-// [#next-free-field: 61]
+// [#next-free-field: 62]
 type HttpConnectionManager struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Supplies the type of codec that the connection manager should use.
@@ -423,11 +474,13 @@ type HttpConnectionManager struct {
 	//
 	//	Currently some protocol codecs impose limits on the maximum size of a single header.
 	//
-	//	* HTTP/2 (when using nghttp2) limits a single header to around 100kb.
-	//	* HTTP/3 limits a single header to around 1024kb.
+	//	* HTTP/2 (when using nghttp2) limits a single header to around 100 KB by default. This can be
+	//	  adjusted via :ref:`max_header_field_size_kb
+	//	  <envoy_v3_api_field_config.core.v3.Http2ProtocolOptions.max_header_field_size_kb>`.
+	//	* HTTP/3 limits a single header to around 1024 KB.
 	MaxRequestHeadersKb *wrapperspb.UInt32Value `protobuf:"bytes,29,opt,name=max_request_headers_kb,json=maxRequestHeadersKb,proto3" json:"max_request_headers_kb,omitempty"`
 	// The stream idle timeout for connections managed by the connection manager.
-	// If not specified, this defaults to 5 minutes. The default value was selected
+	// If not specified, this defaults to “5 minutes“. The default value was selected
 	// so as not to interfere with any smaller configured timeouts that may have
 	// existed in configurations prior to the introduction of this feature, while
 	// introducing robustness to TCP connections that terminate without a FIN.
@@ -436,28 +489,29 @@ type HttpConnectionManager struct {
 	// :ref:`route-level idle_timeout
 	// <envoy_v3_api_field_config.route.v3.RouteAction.idle_timeout>`. Even on a stream in
 	// which the override applies, prior to receipt of the initial request
-	// headers, the :ref:`stream_idle_timeout
-	// <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_idle_timeout>`
-	// applies. Each time an encode/decode event for headers or data is processed
-	// for the stream, the timer will be reset. If the timeout fires, the stream
-	// is terminated with a 408 Request Timeout error code if no upstream response
-	// header has been received, otherwise a stream reset occurs.
+	// headers, the “stream_idle_timeout“ applies. Each time an encode/decode event
+	// for headers or data is processed for the stream, the timer will be reset. If the
+	// timeout fires, the stream is terminated with a “408 Request Timeout“ error code
+	// if no upstream response header has been received, otherwise a stream reset occurs.
 	//
-	// If the :ref:`overload action <config_overload_manager_overload_actions>` "envoy.overload_actions.reduce_timeouts"
-	// is configured, this timeout is scaled according to the value for
+	// If the :ref:`overload action <config_overload_manager_overload_actions>`
+	// “envoy.overload_actions.reduce_timeouts“ is configured, this timeout is scaled
+	// according to the value for
 	// :ref:`HTTP_DOWNSTREAM_STREAM_IDLE <envoy_v3_api_enum_value_config.overload.v3.ScaleTimersOverloadActionConfig.TimerType.HTTP_DOWNSTREAM_STREAM_IDLE>`.
 	//
-	// Note that it is possible to idle timeout even if the wire traffic for a stream is non-idle, due
-	// to the granularity of events presented to the connection manager. For example, while receiving
-	// very large request headers, it may be the case that there is traffic regularly arriving on the
-	// wire while the connection manage is only able to observe the end-of-headers event, hence the
-	// stream may still idle timeout.
+	// .. note::
 	//
-	// A value of 0 will completely disable the connection manager stream idle
+	//	It is possible to idle timeout even if the wire traffic for a stream is non-idle, due
+	//	to the granularity of events presented to the connection manager. For example, while receiving
+	//	very large request headers, it may be the case that there is traffic regularly arriving on the
+	//	wire while the connection manager is only able to observe the end-of-headers event, hence the
+	//	stream may still idle timeout.
+	//
+	// A value of “0“ will completely disable the connection manager stream idle
 	// timeout, although per-route idle timeout overrides will continue to apply.
 	//
-	// This timeout is also used as the default value for :ref:`stream_flush_timeout
-	// <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_flush_timeout>`.
+	// This timeout is also used as the default value for
+	// :ref:`stream_flush_timeout <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_flush_timeout>`.
 	StreamIdleTimeout *durationpb.Duration `protobuf:"bytes,24,opt,name=stream_idle_timeout,json=streamIdleTimeout,proto3" json:"stream_idle_timeout,omitempty"`
 	// The stream flush timeout for connections managed by the connection manager.
 	//
@@ -881,8 +935,32 @@ type HttpConnectionManager struct {
 	// This should be set to “false“ in cases where Envoy's view of the downstream address may not correspond to the
 	// actual client address, for example, if there's another proxy in front of the Envoy.
 	AddProxyProtocolConnectionState *wrapperspb.BoolValue `protobuf:"bytes,53,opt,name=add_proxy_protocol_connection_state,json=addProxyProtocolConnectionState,proto3" json:"add_proxy_protocol_connection_state,omitempty"`
-	unknownFields                   protoimpl.UnknownFields
-	sizeCache                       protoimpl.SizeCache
+	// Configuration for controlling how the “x-forwarded-proto“ header is set.
+	// This allows customization of protocol inference, including support for inferring the original
+	// protocol (HTTP or HTTPS) from the PROXY protocol destination port.
+	//
+	// This is useful when a Layer 4 load balancer (such as AWS NLB) terminates TLS and uses
+	// PROXY protocol to communicate with Envoy.
+	//
+	// When configured and the local address was restored from PROXY protocol (indicating the
+	// original destination address is available), the “x-forwarded-proto“ header will be set
+	// based on whether the destination port is in “https_destination_ports“ or
+	// “http_destination_ports“.
+	//
+	// Example configuration:
+	//
+	// .. code-block:: yaml
+	//
+	//	http_connection_manager:
+	//	  forward_proto_config:
+	//	    https_destination_ports: [443, 8443]
+	//	    http_destination_ports: [80, 8080]
+	//
+	// If not configured, defaults to disabled and the standard behavior applies (using connection
+	// TLS status or trusted downstream headers).
+	ForwardProtoConfig *ForwardProtoConfig `protobuf:"bytes,61,opt,name=forward_proto_config,json=forwardProtoConfig,proto3" json:"forward_proto_config,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *HttpConnectionManager) Reset() {
@@ -1345,6 +1423,13 @@ func (x *HttpConnectionManager) GetAddProxyProtocolConnectionState() *wrapperspb
 	return nil
 }
 
+func (x *HttpConnectionManager) GetForwardProtoConfig() *ForwardProtoConfig {
+	if x != nil {
+		return x.ForwardProtoConfig
+	}
+	return nil
+}
+
 type isHttpConnectionManager_RouteSpecifier interface {
 	isHttpConnectionManager_RouteSpecifier()
 }
@@ -1389,6 +1474,70 @@ type HttpConnectionManager_StripAnyHostPort struct {
 }
 
 func (*HttpConnectionManager_StripAnyHostPort) isHttpConnectionManager_StripPortMode() {}
+
+// Configuration options for setting the “x-forwarded-proto“ header.
+// This message provides flexibility for future enhancements to protocol inference.
+type ForwardProtoConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// List of destination ports that should be treated as HTTPS.
+	// When the PROXY protocol destination port matches one of these ports,
+	// “x-forwarded-proto“ will be set to “https“.
+	//
+	// Common values: 443, 8443
+	HttpsDestinationPorts []uint32 `protobuf:"varint,1,rep,packed,name=https_destination_ports,json=httpsDestinationPorts,proto3" json:"https_destination_ports,omitempty"`
+	// List of destination ports that should be treated as HTTP.
+	// When the PROXY protocol destination port matches one of these ports,
+	// “x-forwarded-proto“ will be set to “http“.
+	//
+	// Common values: 80, 8080
+	HttpDestinationPorts []uint32 `protobuf:"varint,2,rep,packed,name=http_destination_ports,json=httpDestinationPorts,proto3" json:"http_destination_ports,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ForwardProtoConfig) Reset() {
+	*x = ForwardProtoConfig{}
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ForwardProtoConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ForwardProtoConfig) ProtoMessage() {}
+
+func (x *ForwardProtoConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ForwardProtoConfig.ProtoReflect.Descriptor instead.
+func (*ForwardProtoConfig) Descriptor() ([]byte, []int) {
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *ForwardProtoConfig) GetHttpsDestinationPorts() []uint32 {
+	if x != nil {
+		return x.HttpsDestinationPorts
+	}
+	return nil
+}
+
+func (x *ForwardProtoConfig) GetHttpDestinationPorts() []uint32 {
+	if x != nil {
+		return x.HttpDestinationPorts
+	}
+	return nil
+}
 
 // The configuration to customize local reply returned by Envoy.
 type LocalReplyConfig struct {
@@ -1442,7 +1591,7 @@ type LocalReplyConfig struct {
 
 func (x *LocalReplyConfig) Reset() {
 	*x = LocalReplyConfig{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[1]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1454,7 +1603,7 @@ func (x *LocalReplyConfig) String() string {
 func (*LocalReplyConfig) ProtoMessage() {}
 
 func (x *LocalReplyConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[1]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1467,7 +1616,7 @@ func (x *LocalReplyConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalReplyConfig.ProtoReflect.Descriptor instead.
 func (*LocalReplyConfig) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{1}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *LocalReplyConfig) GetMappers() []*ResponseMapper {
@@ -1507,7 +1656,7 @@ type ResponseMapper struct {
 
 func (x *ResponseMapper) Reset() {
 	*x = ResponseMapper{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[2]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1519,7 +1668,7 @@ func (x *ResponseMapper) String() string {
 func (*ResponseMapper) ProtoMessage() {}
 
 func (x *ResponseMapper) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[2]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1532,7 +1681,7 @@ func (x *ResponseMapper) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ResponseMapper.ProtoReflect.Descriptor instead.
 func (*ResponseMapper) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{2}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ResponseMapper) GetFilter() *v31.AccessLogFilter {
@@ -1585,7 +1734,7 @@ type Rds struct {
 
 func (x *Rds) Reset() {
 	*x = Rds{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[3]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1597,7 +1746,7 @@ func (x *Rds) String() string {
 func (*Rds) ProtoMessage() {}
 
 func (x *Rds) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[3]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1610,7 +1759,7 @@ func (x *Rds) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Rds.ProtoReflect.Descriptor instead.
 func (*Rds) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{3}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *Rds) GetConfigSource() *v3.ConfigSource {
@@ -1637,7 +1786,7 @@ type ScopedRouteConfigurationsList struct {
 
 func (x *ScopedRouteConfigurationsList) Reset() {
 	*x = ScopedRouteConfigurationsList{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[4]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1649,7 +1798,7 @@ func (x *ScopedRouteConfigurationsList) String() string {
 func (*ScopedRouteConfigurationsList) ProtoMessage() {}
 
 func (x *ScopedRouteConfigurationsList) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[4]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1662,7 +1811,7 @@ func (x *ScopedRouteConfigurationsList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScopedRouteConfigurationsList.ProtoReflect.Descriptor instead.
 func (*ScopedRouteConfigurationsList) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{4}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ScopedRouteConfigurationsList) GetScopedRouteConfigurations() []*v33.ScopedRouteConfiguration {
@@ -1694,7 +1843,7 @@ type ScopedRoutes struct {
 
 func (x *ScopedRoutes) Reset() {
 	*x = ScopedRoutes{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[5]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1706,7 +1855,7 @@ func (x *ScopedRoutes) String() string {
 func (*ScopedRoutes) ProtoMessage() {}
 
 func (x *ScopedRoutes) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[5]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1719,7 +1868,7 @@ func (x *ScopedRoutes) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScopedRoutes.ProtoReflect.Descriptor instead.
 func (*ScopedRoutes) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{5}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ScopedRoutes) GetName() string {
@@ -1807,7 +1956,7 @@ type ScopedRds struct {
 
 func (x *ScopedRds) Reset() {
 	*x = ScopedRds{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[6]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1819,7 +1968,7 @@ func (x *ScopedRds) String() string {
 func (*ScopedRds) ProtoMessage() {}
 
 func (x *ScopedRds) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[6]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1832,7 +1981,7 @@ func (x *ScopedRds) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScopedRds.ProtoReflect.Descriptor instead.
 func (*ScopedRds) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{6}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ScopedRds) GetScopedRdsConfigSource() *v3.ConfigSource {
@@ -1876,7 +2025,7 @@ type HttpFilter struct {
 
 func (x *HttpFilter) Reset() {
 	*x = HttpFilter{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[7]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1888,7 +2037,7 @@ func (x *HttpFilter) String() string {
 func (*HttpFilter) ProtoMessage() {}
 
 func (x *HttpFilter) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[7]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1901,7 +2050,7 @@ func (x *HttpFilter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HttpFilter.ProtoReflect.Descriptor instead.
 func (*HttpFilter) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{7}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *HttpFilter) GetName() string {
@@ -1991,7 +2140,7 @@ type RequestIDExtension struct {
 
 func (x *RequestIDExtension) Reset() {
 	*x = RequestIDExtension{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[8]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2003,7 +2152,7 @@ func (x *RequestIDExtension) String() string {
 func (*RequestIDExtension) ProtoMessage() {}
 
 func (x *RequestIDExtension) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[8]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2016,7 +2165,7 @@ func (x *RequestIDExtension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RequestIDExtension.ProtoReflect.Descriptor instead.
 func (*RequestIDExtension) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{8}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *RequestIDExtension) GetTypedConfig() *anypb.Any {
@@ -2040,7 +2189,7 @@ type EnvoyMobileHttpConnectionManager struct {
 
 func (x *EnvoyMobileHttpConnectionManager) Reset() {
 	*x = EnvoyMobileHttpConnectionManager{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[9]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2052,7 +2201,7 @@ func (x *EnvoyMobileHttpConnectionManager) String() string {
 func (*EnvoyMobileHttpConnectionManager) ProtoMessage() {}
 
 func (x *EnvoyMobileHttpConnectionManager) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[9]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2065,7 +2214,7 @@ func (x *EnvoyMobileHttpConnectionManager) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnvoyMobileHttpConnectionManager.ProtoReflect.Descriptor instead.
 func (*EnvoyMobileHttpConnectionManager) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{9}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *EnvoyMobileHttpConnectionManager) GetConfig() *HttpConnectionManager {
@@ -2075,7 +2224,7 @@ func (x *EnvoyMobileHttpConnectionManager) GetConfig() *HttpConnectionManager {
 	return nil
 }
 
-// [#next-free-field: 13]
+// [#next-free-field: 14]
 type HttpConnectionManager_Tracing struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Target percentage of requests managed by this HTTP connection manager that will be force
@@ -2152,13 +2301,26 @@ type HttpConnectionManager_Tracing struct {
 	// :ref:`HTTP access logging <config_access_log>` applies here, however
 	// unknown specifier values are replaced with the empty string instead of “-“.
 	UpstreamOperation string `protobuf:"bytes,12,opt,name=upstream_operation,json=upstreamOperation,proto3" json:"upstream_operation,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// If set to true, trace context propagation is disabled, meaning that trace context headers
+	// (e.g. “traceparent“, “tracestate“ for OpenTelemetry/W3C, or “X-B3-*“ headers for Zipkin)
+	// will not be injected when proxying requests to upstreams.
+	//
+	// This is useful for scenarios where you want to report spans from a proxy (e.g., an egress
+	// gateway) while preventing trace context from being propagated to external services,
+	// effectively stopping the trace at the mesh boundary.
+	//
+	// Note that span reporting is still performed when this is set to true - only context
+	// propagation is disabled.
+	//
+	// Default: false (context propagation is enabled)
+	NoContextPropagation bool `protobuf:"varint,13,opt,name=no_context_propagation,json=noContextPropagation,proto3" json:"no_context_propagation,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *HttpConnectionManager_Tracing) Reset() {
 	*x = HttpConnectionManager_Tracing{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[10]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2170,7 +2332,7 @@ func (x *HttpConnectionManager_Tracing) String() string {
 func (*HttpConnectionManager_Tracing) ProtoMessage() {}
 
 func (x *HttpConnectionManager_Tracing) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[10]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2256,6 +2418,13 @@ func (x *HttpConnectionManager_Tracing) GetUpstreamOperation() string {
 	return ""
 }
 
+func (x *HttpConnectionManager_Tracing) GetNoContextPropagation() bool {
+	if x != nil {
+		return x.NoContextPropagation
+	}
+	return false
+}
+
 type HttpConnectionManager_InternalAddressConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whether unix socket addresses should be considered internal.
@@ -2269,7 +2438,7 @@ type HttpConnectionManager_InternalAddressConfig struct {
 
 func (x *HttpConnectionManager_InternalAddressConfig) Reset() {
 	*x = HttpConnectionManager_InternalAddressConfig{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[11]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2281,7 +2450,7 @@ func (x *HttpConnectionManager_InternalAddressConfig) String() string {
 func (*HttpConnectionManager_InternalAddressConfig) ProtoMessage() {}
 
 func (x *HttpConnectionManager_InternalAddressConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[11]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2311,7 +2480,7 @@ func (x *HttpConnectionManager_InternalAddressConfig) GetCidrRanges() []*v3.Cidr
 	return nil
 }
 
-// [#next-free-field: 7]
+// [#next-free-field: 8]
 type HttpConnectionManager_SetCurrentClientCertDetails struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Whether to forward the subject of the client cert. Defaults to false.
@@ -2330,14 +2499,20 @@ type HttpConnectionManager_SetCurrentClientCertDetails struct {
 	Dns bool `protobuf:"varint,4,opt,name=dns,proto3" json:"dns,omitempty"`
 	// Whether to forward the URI type Subject Alternative Name of the client cert. Defaults to
 	// false.
-	Uri           bool `protobuf:"varint,5,opt,name=uri,proto3" json:"uri,omitempty"`
+	Uri bool `protobuf:"varint,5,opt,name=uri,proto3" json:"uri,omitempty"`
+	// The format for the header. When the :ref:`forward_client_cert_details
+	// <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_client_cert_details>`
+	// is APPEND_FORWARD and an existing XFCC header is present, the format of the existing header
+	// is used. The configured format is used when there is no existing header value
+	// (APPEND_FORWARD with no prior XFCC header, or SANITIZE_SET which always replaces the value).
+	Format        HttpConnectionManager_ForwardClientCertFormat `protobuf:"varint,7,opt,name=format,proto3,enum=envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager_ForwardClientCertFormat" json:"format,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *HttpConnectionManager_SetCurrentClientCertDetails) Reset() {
 	*x = HttpConnectionManager_SetCurrentClientCertDetails{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[12]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2349,7 +2524,7 @@ func (x *HttpConnectionManager_SetCurrentClientCertDetails) String() string {
 func (*HttpConnectionManager_SetCurrentClientCertDetails) ProtoMessage() {}
 
 func (x *HttpConnectionManager_SetCurrentClientCertDetails) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[12]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2400,12 +2575,24 @@ func (x *HttpConnectionManager_SetCurrentClientCertDetails) GetUri() bool {
 	return false
 }
 
-// The configuration for forwarding client cert details.
+func (x *HttpConnectionManager_SetCurrentClientCertDetails) GetFormat() HttpConnectionManager_ForwardClientCertFormat {
+	if x != nil {
+		return x.Format
+	}
+	return HttpConnectionManager_TEXT
+}
+
+// The configuration for forwarding client cert details, used as the action config in a
+// :ref:`forward_client_cert_matcher
+// <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_client_cert_matcher>`.
 type HttpConnectionManager_ForwardClientCertConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// How to handle the XFCC header.
 	ForwardClientCertDetails HttpConnectionManager_ForwardClientCertDetails `protobuf:"varint,1,opt,name=forward_client_cert_details,json=forwardClientCertDetails,proto3,enum=envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager_ForwardClientCertDetails" json:"forward_client_cert_details,omitempty"`
-	// How to set the current client cert details.
+	// The fields in the client certificate to forward. See
+	// :ref:`set_current_client_cert_details
+	// <envoy_v3_api_field_extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.set_current_client_cert_details>`
+	// for details.
 	SetCurrentClientCertDetails *HttpConnectionManager_SetCurrentClientCertDetails `protobuf:"bytes,2,opt,name=set_current_client_cert_details,json=setCurrentClientCertDetails,proto3" json:"set_current_client_cert_details,omitempty"`
 	unknownFields               protoimpl.UnknownFields
 	sizeCache                   protoimpl.SizeCache
@@ -2413,7 +2600,7 @@ type HttpConnectionManager_ForwardClientCertConfig struct {
 
 func (x *HttpConnectionManager_ForwardClientCertConfig) Reset() {
 	*x = HttpConnectionManager_ForwardClientCertConfig{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[13]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2425,7 +2612,7 @@ func (x *HttpConnectionManager_ForwardClientCertConfig) String() string {
 func (*HttpConnectionManager_ForwardClientCertConfig) ProtoMessage() {}
 
 func (x *HttpConnectionManager_ForwardClientCertConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[13]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2488,7 +2675,7 @@ type HttpConnectionManager_UpgradeConfig struct {
 
 func (x *HttpConnectionManager_UpgradeConfig) Reset() {
 	*x = HttpConnectionManager_UpgradeConfig{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[14]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2500,7 +2687,7 @@ func (x *HttpConnectionManager_UpgradeConfig) String() string {
 func (*HttpConnectionManager_UpgradeConfig) ProtoMessage() {}
 
 func (x *HttpConnectionManager_UpgradeConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[14]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2575,7 +2762,7 @@ type HttpConnectionManager_PathNormalizationOptions struct {
 
 func (x *HttpConnectionManager_PathNormalizationOptions) Reset() {
 	*x = HttpConnectionManager_PathNormalizationOptions{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[15]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2587,7 +2774,7 @@ func (x *HttpConnectionManager_PathNormalizationOptions) String() string {
 func (*HttpConnectionManager_PathNormalizationOptions) ProtoMessage() {}
 
 func (x *HttpConnectionManager_PathNormalizationOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[15]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2664,7 +2851,7 @@ type HttpConnectionManager_ProxyStatusConfig struct {
 
 func (x *HttpConnectionManager_ProxyStatusConfig) Reset() {
 	*x = HttpConnectionManager_ProxyStatusConfig{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[16]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2676,7 +2863,7 @@ func (x *HttpConnectionManager_ProxyStatusConfig) String() string {
 func (*HttpConnectionManager_ProxyStatusConfig) ProtoMessage() {}
 
 func (x *HttpConnectionManager_ProxyStatusConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[16]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2792,7 +2979,7 @@ type HttpConnectionManager_HcmAccessLogOptions struct {
 
 func (x *HttpConnectionManager_HcmAccessLogOptions) Reset() {
 	*x = HttpConnectionManager_HcmAccessLogOptions{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[17]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2804,7 +2991,7 @@ func (x *HttpConnectionManager_HcmAccessLogOptions) String() string {
 func (*HttpConnectionManager_HcmAccessLogOptions) ProtoMessage() {}
 
 func (x *HttpConnectionManager_HcmAccessLogOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[17]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2862,7 +3049,7 @@ type ScopedRoutes_ScopeKeyBuilder struct {
 
 func (x *ScopedRoutes_ScopeKeyBuilder) Reset() {
 	*x = ScopedRoutes_ScopeKeyBuilder{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[18]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2874,7 +3061,7 @@ func (x *ScopedRoutes_ScopeKeyBuilder) String() string {
 func (*ScopedRoutes_ScopeKeyBuilder) ProtoMessage() {}
 
 func (x *ScopedRoutes_ScopeKeyBuilder) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[18]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2887,7 +3074,7 @@ func (x *ScopedRoutes_ScopeKeyBuilder) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScopedRoutes_ScopeKeyBuilder.ProtoReflect.Descriptor instead.
 func (*ScopedRoutes_ScopeKeyBuilder) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{5, 0}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{6, 0}
 }
 
 func (x *ScopedRoutes_ScopeKeyBuilder) GetFragments() []*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder {
@@ -2910,7 +3097,7 @@ type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder struct {
 
 func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) Reset() {
 	*x = ScopedRoutes_ScopeKeyBuilder_FragmentBuilder{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[19]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2922,7 +3109,7 @@ func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) String() string {
 func (*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) ProtoMessage() {}
 
 func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[19]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2935,7 +3122,7 @@ func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) ProtoReflect() protorefle
 
 // Deprecated: Use ScopedRoutes_ScopeKeyBuilder_FragmentBuilder.ProtoReflect.Descriptor instead.
 func (*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{5, 0, 0}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{6, 0, 0}
 }
 
 func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder) GetType() isScopedRoutes_ScopeKeyBuilder_FragmentBuilder_Type {
@@ -3007,7 +3194,7 @@ type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor struct {
 
 func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) Reset() {
 	*x = ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[20]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3019,7 +3206,7 @@ func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) Stri
 func (*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) ProtoMessage() {}
 
 func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[20]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3032,7 +3219,7 @@ func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) Prot
 
 // Deprecated: Use ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor.ProtoReflect.Descriptor instead.
 func (*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{5, 0, 0, 0}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{6, 0, 0, 0}
 }
 
 func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor) GetName() string {
@@ -3113,7 +3300,7 @@ type ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement
 
 func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement) Reset() {
 	*x = ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement{}
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[21]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3125,7 +3312,7 @@ func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvEle
 func (*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement) ProtoMessage() {}
 
 func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement) ProtoReflect() protoreflect.Message {
-	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[21]
+	mi := &file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3138,7 +3325,7 @@ func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvEle
 
 // Deprecated: Use ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement.ProtoReflect.Descriptor instead.
 func (*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement) Descriptor() ([]byte, []int) {
-	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{5, 0, 0, 0, 0}
+	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescGZIP(), []int{6, 0, 0, 0, 0}
 }
 
 func (x *ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement) GetSeparator() string {
@@ -3159,7 +3346,7 @@ var File_envoy_extensions_filters_network_http_connection_manager_v3_http_connec
 
 const file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDesc = "" +
 	"\n" +
-	"Yenvoy/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto\x12;envoy.extensions.filters.network.http_connection_manager.v3\x1a)envoy/config/accesslog/v3/accesslog.proto\x1a\"envoy/config/core/v3/address.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a(envoy/config/core/v3/config_source.proto\x1a$envoy/config/core/v3/extension.proto\x1a#envoy/config/core/v3/protocol.proto\x1a5envoy/config/core/v3/substitution_format_string.proto\x1a!envoy/config/route/v3/route.proto\x1a(envoy/config/route/v3/scoped_route.proto\x1a'envoy/config/trace/v3/http_tracer.proto\x1a,envoy/type/http/v3/path_transformation.proto\x1a&envoy/type/tracing/v3/custom_tag.proto\x1a\x1benvoy/type/v3/percent.proto\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a!xds/type/matcher/v3/matcher.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1eudpa/annotations/migrate.proto\x1a\x1fudpa/annotations/security.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\x95G\n" +
+	"Yenvoy/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto\x12;envoy.extensions.filters.network.http_connection_manager.v3\x1a)envoy/config/accesslog/v3/accesslog.proto\x1a\"envoy/config/core/v3/address.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a(envoy/config/core/v3/config_source.proto\x1a$envoy/config/core/v3/extension.proto\x1a#envoy/config/core/v3/protocol.proto\x1a5envoy/config/core/v3/substitution_format_string.proto\x1a!envoy/config/route/v3/route.proto\x1a(envoy/config/route/v3/scoped_route.proto\x1a'envoy/config/trace/v3/http_tracer.proto\x1a,envoy/type/http/v3/path_transformation.proto\x1a&envoy/type/tracing/v3/custom_tag.proto\x1a\x1benvoy/type/v3/percent.proto\x1a\x19google/protobuf/any.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a!xds/type/matcher/v3/matcher.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1eudpa/annotations/migrate.proto\x1a\x1fudpa/annotations/security.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\x83J\n" +
 	"\x15HttpConnectionManager\x12\x85\x01\n" +
 	"\n" +
 	"codec_type\x18\x01 \x01(\x0e2\\.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.CodecTypeB\b\xfaB\x05\x82\x01\x02\x10\x01R\tcodecType\x12(\n" +
@@ -3224,7 +3411,8 @@ const file_envoy_extensions_filters_network_http_connection_manager_v3_http_conn
 	"\x1etyped_header_validation_config\x182 \x01(\v2*.envoy.config.core.v3.TypedExtensionConfigR\x1btypedHeaderValidationConfig\x125\n" +
 	"\x17append_x_forwarded_port\x183 \x01(\bR\x14appendXForwardedPort\x122\n" +
 	"\x15append_local_overload\x189 \x01(\bR\x13appendLocalOverload\x12h\n" +
-	"#add_proxy_protocol_connection_state\x185 \x01(\v2\x1a.google.protobuf.BoolValueR\x1faddProxyProtocolConnectionState\x1a\x8f\x06\n" +
+	"#add_proxy_protocol_connection_state\x185 \x01(\v2\x1a.google.protobuf.BoolValueR\x1faddProxyProtocolConnectionState\x12\x81\x01\n" +
+	"\x14forward_proto_config\x18= \x01(\v2O.envoy.extensions.filters.network.http_connection_manager.v3.ForwardProtoConfigR\x12forwardProtoConfig\x1a\xc5\x06\n" +
 	"\aTracing\x12?\n" +
 	"\x0fclient_sampling\x18\x03 \x01(\v2\x16.envoy.type.v3.PercentR\x0eclientSampling\x12?\n" +
 	"\x0frandom_sampling\x18\x04 \x01(\v2\x16.envoy.type.v3.PercentR\x0erandomSampling\x12A\n" +
@@ -3237,7 +3425,8 @@ const file_envoy_extensions_filters_network_http_connection_manager_v3_http_conn
 	"\x13spawn_upstream_span\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.BoolValueR\x11spawnUpstreamSpan\x12\x1c\n" +
 	"\toperation\x18\v \x01(\tR\toperation\x12-\n" +
-	"\x12upstream_operation\x18\f \x01(\tR\x11upstreamOperation\"(\n" +
+	"\x12upstream_operation\x18\f \x01(\tR\x11upstreamOperation\x124\n" +
+	"\x16no_context_propagation\x18\r \x01(\bR\x14noContextPropagation\"(\n" +
 	"\rOperationName\x12\v\n" +
 	"\aINGRESS\x10\x00\x12\n" +
 	"\n" +
@@ -3247,13 +3436,14 @@ const file_envoy_extensions_filters_network_http_connection_manager_v3_http_conn
 	"\funix_sockets\x18\x01 \x01(\bR\vunixSockets\x12@\n" +
 	"\vcidr_ranges\x18\x02 \x03(\v2\x1f.envoy.config.core.v3.CidrRangeR\n" +
 	"cidrRanges:i\x9aň\x1ed\n" +
-	"benvoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager.InternalAddressConfig\x1a\x98\x02\n" +
+	"benvoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager.InternalAddressConfig\x1a\x9d\x03\n" +
 	"\x1bSetCurrentClientCertDetails\x124\n" +
 	"\asubject\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\asubject\x12\x12\n" +
 	"\x04cert\x18\x03 \x01(\bR\x04cert\x12\x14\n" +
 	"\x05chain\x18\x06 \x01(\bR\x05chain\x12\x10\n" +
 	"\x03dns\x18\x04 \x01(\bR\x03dns\x12\x10\n" +
-	"\x03uri\x18\x05 \x01(\bR\x03uri:o\x9aň\x1ej\n" +
+	"\x03uri\x18\x05 \x01(\bR\x03uri\x12\x82\x01\n" +
+	"\x06format\x18\a \x01(\x0e2j.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertFormatR\x06format:o\x9aň\x1ej\n" +
 	"henvoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager.SetCurrentClientCertDetailsJ\x04\b\x02\x10\x03\x1a\xfd\x02\n" +
 	"\x17ForwardClientCertConfig\x12\xaa\x01\n" +
 	"\x1bforward_client_cert_details\x18\x01 \x01(\x0e2k.envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertDetailsR\x18forwardClientCertDetails\x12\xb4\x01\n" +
@@ -3299,10 +3489,16 @@ const file_envoy_extensions_filters_network_http_connection_manager_v3_http_conn
 	"\x0eKEEP_UNCHANGED\x10\x01\x12\x12\n" +
 	"\x0eREJECT_REQUEST\x10\x02\x12\x19\n" +
 	"\x15UNESCAPE_AND_REDIRECT\x10\x03\x12\x18\n" +
-	"\x14UNESCAPE_AND_FORWARD\x10\x04:S\x9aň\x1eN\n" +
+	"\x14UNESCAPE_AND_FORWARD\x10\x04\"-\n" +
+	"\x17ForwardClientCertFormat\x12\b\n" +
+	"\x04TEXT\x10\x00\x12\b\n" +
+	"\x04JSON\x10\x01:S\x9aň\x1eN\n" +
 	"Lenvoy.config.filter.network.http_connection_manager.v2.HttpConnectionManagerB\x16\n" +
 	"\x0froute_specifier\x12\x03\xf8B\x01B\x11\n" +
-	"\x0fstrip_port_modeJ\x04\b\x1b\x10\x1cJ\x04\b\v\x10\fR\fidle_timeout\"\xca\x01\n" +
+	"\x0fstrip_port_modeJ\x04\b\x1b\x10\x1cJ\x04\b\v\x10\fR\fidle_timeout\"\x82\x01\n" +
+	"\x12ForwardProtoConfig\x126\n" +
+	"\x17https_destination_ports\x18\x01 \x03(\rR\x15httpsDestinationPorts\x124\n" +
+	"\x16http_destination_ports\x18\x02 \x03(\rR\x14httpDestinationPorts\"\xca\x01\n" +
 	"\x10LocalReplyConfig\x12e\n" +
 	"\amappers\x18\x01 \x03(\v2K.envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapperR\amappers\x12O\n" +
 	"\vbody_format\x18\x02 \x01(\v2..envoy.config.core.v3.SubstitutionFormatStringR\n" +
@@ -3382,146 +3578,150 @@ func file_envoy_extensions_filters_network_http_connection_manager_v3_http_conne
 	return file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDescData
 }
 
-var file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
+var file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_goTypes = []any{
 	(HttpConnectionManager_CodecType)(0),                                                // 0: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.CodecType
 	(HttpConnectionManager_ServerHeaderTransformation)(0),                               // 1: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ServerHeaderTransformation
 	(HttpConnectionManager_ForwardClientCertDetails)(0),                                 // 2: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertDetails
 	(HttpConnectionManager_PathWithEscapedSlashesAction)(0),                             // 3: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathWithEscapedSlashesAction
-	(HttpConnectionManager_Tracing_OperationName)(0),                                    // 4: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.OperationName
-	(*HttpConnectionManager)(nil),                                                       // 5: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-	(*LocalReplyConfig)(nil),                                                            // 6: envoy.extensions.filters.network.http_connection_manager.v3.LocalReplyConfig
-	(*ResponseMapper)(nil),                                                              // 7: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper
-	(*Rds)(nil),                                                                         // 8: envoy.extensions.filters.network.http_connection_manager.v3.Rds
-	(*ScopedRouteConfigurationsList)(nil),                                               // 9: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRouteConfigurationsList
-	(*ScopedRoutes)(nil),                                                                // 10: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes
-	(*ScopedRds)(nil),                                                                   // 11: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRds
-	(*HttpFilter)(nil),                                                                  // 12: envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter
-	(*RequestIDExtension)(nil),                                                          // 13: envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
-	(*EnvoyMobileHttpConnectionManager)(nil),                                            // 14: envoy.extensions.filters.network.http_connection_manager.v3.EnvoyMobileHttpConnectionManager
-	(*HttpConnectionManager_Tracing)(nil),                                               // 15: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing
-	(*HttpConnectionManager_InternalAddressConfig)(nil),                                 // 16: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.InternalAddressConfig
-	(*HttpConnectionManager_SetCurrentClientCertDetails)(nil),                           // 17: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.SetCurrentClientCertDetails
-	(*HttpConnectionManager_ForwardClientCertConfig)(nil),                               // 18: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertConfig
-	(*HttpConnectionManager_UpgradeConfig)(nil),                                         // 19: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.UpgradeConfig
-	(*HttpConnectionManager_PathNormalizationOptions)(nil),                              // 20: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathNormalizationOptions
-	(*HttpConnectionManager_ProxyStatusConfig)(nil),                                     // 21: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ProxyStatusConfig
-	(*HttpConnectionManager_HcmAccessLogOptions)(nil),                                   // 22: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions
-	(*ScopedRoutes_ScopeKeyBuilder)(nil),                                                // 23: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder
-	(*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder)(nil),                                // 24: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder
-	(*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor)(nil),           // 25: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor
-	(*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement)(nil), // 26: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor.KvElement
-	(*v33.RouteConfiguration)(nil),                                                      // 27: envoy.config.route.v3.RouteConfiguration
-	(*wrapperspb.BoolValue)(nil),                                                        // 28: google.protobuf.BoolValue
-	(*v3.HttpProtocolOptions)(nil),                                                      // 29: envoy.config.core.v3.HttpProtocolOptions
-	(*v3.Http1ProtocolOptions)(nil),                                                     // 30: envoy.config.core.v3.Http1ProtocolOptions
-	(*v3.Http2ProtocolOptions)(nil),                                                     // 31: envoy.config.core.v3.Http2ProtocolOptions
-	(*v3.Http3ProtocolOptions)(nil),                                                     // 32: envoy.config.core.v3.Http3ProtocolOptions
-	(*v3.SchemeHeaderTransformation)(nil),                                               // 33: envoy.config.core.v3.SchemeHeaderTransformation
-	(*wrapperspb.UInt32Value)(nil),                                                      // 34: google.protobuf.UInt32Value
-	(*durationpb.Duration)(nil),                                                         // 35: google.protobuf.Duration
-	(*v31.AccessLog)(nil),                                                               // 36: envoy.config.accesslog.v3.AccessLog
-	(*v3.TypedExtensionConfig)(nil),                                                     // 37: envoy.config.core.v3.TypedExtensionConfig
-	(*v32.Matcher)(nil),                                                                 // 38: xds.type.matcher.v3.Matcher
-	(*v3.SubstitutionFormatString)(nil),                                                 // 39: envoy.config.core.v3.SubstitutionFormatString
-	(*v31.AccessLogFilter)(nil),                                                         // 40: envoy.config.accesslog.v3.AccessLogFilter
-	(*v3.DataSource)(nil),                                                               // 41: envoy.config.core.v3.DataSource
-	(*v3.HeaderValueOption)(nil),                                                        // 42: envoy.config.core.v3.HeaderValueOption
-	(*v3.ConfigSource)(nil),                                                             // 43: envoy.config.core.v3.ConfigSource
-	(*v33.ScopedRouteConfiguration)(nil),                                                // 44: envoy.config.route.v3.ScopedRouteConfiguration
-	(*anypb.Any)(nil),                                                                   // 45: google.protobuf.Any
-	(*v3.ExtensionConfigSource)(nil),                                                    // 46: envoy.config.core.v3.ExtensionConfigSource
-	(*v34.Percent)(nil),                                                                 // 47: envoy.type.v3.Percent
-	(*v35.CustomTag)(nil),                                                               // 48: envoy.type.tracing.v3.CustomTag
-	(*v36.Tracing_Http)(nil),                                                            // 49: envoy.config.trace.v3.Tracing.Http
-	(*v3.CidrRange)(nil),                                                                // 50: envoy.config.core.v3.CidrRange
-	(*v37.PathTransformation)(nil),                                                      // 51: envoy.type.http.v3.PathTransformation
+	(HttpConnectionManager_ForwardClientCertFormat)(0),                                  // 4: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertFormat
+	(HttpConnectionManager_Tracing_OperationName)(0),                                    // 5: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.OperationName
+	(*HttpConnectionManager)(nil),                                                       // 6: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+	(*ForwardProtoConfig)(nil),                                                          // 7: envoy.extensions.filters.network.http_connection_manager.v3.ForwardProtoConfig
+	(*LocalReplyConfig)(nil),                                                            // 8: envoy.extensions.filters.network.http_connection_manager.v3.LocalReplyConfig
+	(*ResponseMapper)(nil),                                                              // 9: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper
+	(*Rds)(nil),                                                                         // 10: envoy.extensions.filters.network.http_connection_manager.v3.Rds
+	(*ScopedRouteConfigurationsList)(nil),                                               // 11: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRouteConfigurationsList
+	(*ScopedRoutes)(nil),                                                                // 12: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes
+	(*ScopedRds)(nil),                                                                   // 13: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRds
+	(*HttpFilter)(nil),                                                                  // 14: envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter
+	(*RequestIDExtension)(nil),                                                          // 15: envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
+	(*EnvoyMobileHttpConnectionManager)(nil),                                            // 16: envoy.extensions.filters.network.http_connection_manager.v3.EnvoyMobileHttpConnectionManager
+	(*HttpConnectionManager_Tracing)(nil),                                               // 17: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing
+	(*HttpConnectionManager_InternalAddressConfig)(nil),                                 // 18: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.InternalAddressConfig
+	(*HttpConnectionManager_SetCurrentClientCertDetails)(nil),                           // 19: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.SetCurrentClientCertDetails
+	(*HttpConnectionManager_ForwardClientCertConfig)(nil),                               // 20: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertConfig
+	(*HttpConnectionManager_UpgradeConfig)(nil),                                         // 21: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.UpgradeConfig
+	(*HttpConnectionManager_PathNormalizationOptions)(nil),                              // 22: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathNormalizationOptions
+	(*HttpConnectionManager_ProxyStatusConfig)(nil),                                     // 23: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ProxyStatusConfig
+	(*HttpConnectionManager_HcmAccessLogOptions)(nil),                                   // 24: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions
+	(*ScopedRoutes_ScopeKeyBuilder)(nil),                                                // 25: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder
+	(*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder)(nil),                                // 26: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder
+	(*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor)(nil),           // 27: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor
+	(*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_KvElement)(nil), // 28: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor.KvElement
+	(*v33.RouteConfiguration)(nil),                                                      // 29: envoy.config.route.v3.RouteConfiguration
+	(*wrapperspb.BoolValue)(nil),                                                        // 30: google.protobuf.BoolValue
+	(*v3.HttpProtocolOptions)(nil),                                                      // 31: envoy.config.core.v3.HttpProtocolOptions
+	(*v3.Http1ProtocolOptions)(nil),                                                     // 32: envoy.config.core.v3.Http1ProtocolOptions
+	(*v3.Http2ProtocolOptions)(nil),                                                     // 33: envoy.config.core.v3.Http2ProtocolOptions
+	(*v3.Http3ProtocolOptions)(nil),                                                     // 34: envoy.config.core.v3.Http3ProtocolOptions
+	(*v3.SchemeHeaderTransformation)(nil),                                               // 35: envoy.config.core.v3.SchemeHeaderTransformation
+	(*wrapperspb.UInt32Value)(nil),                                                      // 36: google.protobuf.UInt32Value
+	(*durationpb.Duration)(nil),                                                         // 37: google.protobuf.Duration
+	(*v31.AccessLog)(nil),                                                               // 38: envoy.config.accesslog.v3.AccessLog
+	(*v3.TypedExtensionConfig)(nil),                                                     // 39: envoy.config.core.v3.TypedExtensionConfig
+	(*v32.Matcher)(nil),                                                                 // 40: xds.type.matcher.v3.Matcher
+	(*v3.SubstitutionFormatString)(nil),                                                 // 41: envoy.config.core.v3.SubstitutionFormatString
+	(*v31.AccessLogFilter)(nil),                                                         // 42: envoy.config.accesslog.v3.AccessLogFilter
+	(*v3.DataSource)(nil),                                                               // 43: envoy.config.core.v3.DataSource
+	(*v3.HeaderValueOption)(nil),                                                        // 44: envoy.config.core.v3.HeaderValueOption
+	(*v3.ConfigSource)(nil),                                                             // 45: envoy.config.core.v3.ConfigSource
+	(*v33.ScopedRouteConfiguration)(nil),                                                // 46: envoy.config.route.v3.ScopedRouteConfiguration
+	(*anypb.Any)(nil),                                                                   // 47: google.protobuf.Any
+	(*v3.ExtensionConfigSource)(nil),                                                    // 48: envoy.config.core.v3.ExtensionConfigSource
+	(*v34.Percent)(nil),                                                                 // 49: envoy.type.v3.Percent
+	(*v35.CustomTag)(nil),                                                               // 50: envoy.type.tracing.v3.CustomTag
+	(*v36.Tracing_Http)(nil),                                                            // 51: envoy.config.trace.v3.Tracing.Http
+	(*v3.CidrRange)(nil),                                                                // 52: envoy.config.core.v3.CidrRange
+	(*v37.PathTransformation)(nil),                                                      // 53: envoy.type.http.v3.PathTransformation
 }
 var file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_depIdxs = []int32{
 	0,  // 0: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.codec_type:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.CodecType
-	8,  // 1: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.rds:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.Rds
-	27, // 2: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.route_config:type_name -> envoy.config.route.v3.RouteConfiguration
-	10, // 3: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.scoped_routes:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes
-	12, // 4: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http_filters:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter
-	28, // 5: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.add_user_agent:type_name -> google.protobuf.BoolValue
-	15, // 6: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.tracing:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing
-	29, // 7: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.common_http_protocol_options:type_name -> envoy.config.core.v3.HttpProtocolOptions
-	30, // 8: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http_protocol_options:type_name -> envoy.config.core.v3.Http1ProtocolOptions
-	31, // 9: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http2_protocol_options:type_name -> envoy.config.core.v3.Http2ProtocolOptions
-	32, // 10: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http3_protocol_options:type_name -> envoy.config.core.v3.Http3ProtocolOptions
+	10, // 1: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.rds:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.Rds
+	29, // 2: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.route_config:type_name -> envoy.config.route.v3.RouteConfiguration
+	12, // 3: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.scoped_routes:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes
+	14, // 4: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http_filters:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter
+	30, // 5: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.add_user_agent:type_name -> google.protobuf.BoolValue
+	17, // 6: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.tracing:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing
+	31, // 7: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.common_http_protocol_options:type_name -> envoy.config.core.v3.HttpProtocolOptions
+	32, // 8: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http_protocol_options:type_name -> envoy.config.core.v3.Http1ProtocolOptions
+	33, // 9: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http2_protocol_options:type_name -> envoy.config.core.v3.Http2ProtocolOptions
+	34, // 10: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.http3_protocol_options:type_name -> envoy.config.core.v3.Http3ProtocolOptions
 	1,  // 11: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.server_header_transformation:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ServerHeaderTransformation
-	33, // 12: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.scheme_header_transformation:type_name -> envoy.config.core.v3.SchemeHeaderTransformation
-	34, // 13: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.max_request_headers_kb:type_name -> google.protobuf.UInt32Value
-	35, // 14: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_idle_timeout:type_name -> google.protobuf.Duration
-	35, // 15: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_flush_timeout:type_name -> google.protobuf.Duration
-	35, // 16: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.request_timeout:type_name -> google.protobuf.Duration
-	35, // 17: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.request_headers_timeout:type_name -> google.protobuf.Duration
-	35, // 18: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.drain_timeout:type_name -> google.protobuf.Duration
-	35, // 19: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.delayed_close_timeout:type_name -> google.protobuf.Duration
-	36, // 20: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.access_log:type_name -> envoy.config.accesslog.v3.AccessLog
-	35, // 21: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.access_log_flush_interval:type_name -> google.protobuf.Duration
-	22, // 22: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.access_log_options:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions
-	28, // 23: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.use_remote_address:type_name -> google.protobuf.BoolValue
-	37, // 24: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.original_ip_detection_extensions:type_name -> envoy.config.core.v3.TypedExtensionConfig
-	37, // 25: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.early_header_mutation_extensions:type_name -> envoy.config.core.v3.TypedExtensionConfig
-	16, // 26: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.internal_address_config:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.InternalAddressConfig
-	28, // 27: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.generate_request_id:type_name -> google.protobuf.BoolValue
+	35, // 12: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.scheme_header_transformation:type_name -> envoy.config.core.v3.SchemeHeaderTransformation
+	36, // 13: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.max_request_headers_kb:type_name -> google.protobuf.UInt32Value
+	37, // 14: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_idle_timeout:type_name -> google.protobuf.Duration
+	37, // 15: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_flush_timeout:type_name -> google.protobuf.Duration
+	37, // 16: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.request_timeout:type_name -> google.protobuf.Duration
+	37, // 17: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.request_headers_timeout:type_name -> google.protobuf.Duration
+	37, // 18: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.drain_timeout:type_name -> google.protobuf.Duration
+	37, // 19: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.delayed_close_timeout:type_name -> google.protobuf.Duration
+	38, // 20: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.access_log:type_name -> envoy.config.accesslog.v3.AccessLog
+	37, // 21: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.access_log_flush_interval:type_name -> google.protobuf.Duration
+	24, // 22: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.access_log_options:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions
+	30, // 23: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.use_remote_address:type_name -> google.protobuf.BoolValue
+	39, // 24: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.original_ip_detection_extensions:type_name -> envoy.config.core.v3.TypedExtensionConfig
+	39, // 25: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.early_header_mutation_extensions:type_name -> envoy.config.core.v3.TypedExtensionConfig
+	18, // 26: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.internal_address_config:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.InternalAddressConfig
+	30, // 27: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.generate_request_id:type_name -> google.protobuf.BoolValue
 	2,  // 28: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_client_cert_details:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertDetails
-	17, // 29: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.set_current_client_cert_details:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.SetCurrentClientCertDetails
-	38, // 30: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_client_cert_matcher:type_name -> xds.type.matcher.v3.Matcher
-	19, // 31: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.upgrade_configs:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.UpgradeConfig
-	28, // 32: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.normalize_path:type_name -> google.protobuf.BoolValue
+	19, // 29: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.set_current_client_cert_details:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.SetCurrentClientCertDetails
+	40, // 30: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_client_cert_matcher:type_name -> xds.type.matcher.v3.Matcher
+	21, // 31: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.upgrade_configs:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.UpgradeConfig
+	30, // 32: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.normalize_path:type_name -> google.protobuf.BoolValue
 	3,  // 33: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.path_with_escaped_slashes_action:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathWithEscapedSlashesAction
-	13, // 34: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.request_id_extension:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
-	6,  // 35: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.local_reply_config:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.LocalReplyConfig
-	28, // 36: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_error_on_invalid_http_message:type_name -> google.protobuf.BoolValue
-	20, // 37: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.path_normalization_options:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathNormalizationOptions
-	21, // 38: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.proxy_status_config:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ProxyStatusConfig
-	37, // 39: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.typed_header_validation_config:type_name -> envoy.config.core.v3.TypedExtensionConfig
-	28, // 40: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.add_proxy_protocol_connection_state:type_name -> google.protobuf.BoolValue
-	7,  // 41: envoy.extensions.filters.network.http_connection_manager.v3.LocalReplyConfig.mappers:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper
-	39, // 42: envoy.extensions.filters.network.http_connection_manager.v3.LocalReplyConfig.body_format:type_name -> envoy.config.core.v3.SubstitutionFormatString
-	40, // 43: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.filter:type_name -> envoy.config.accesslog.v3.AccessLogFilter
-	34, // 44: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.status_code:type_name -> google.protobuf.UInt32Value
-	41, // 45: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.body:type_name -> envoy.config.core.v3.DataSource
-	39, // 46: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.body_format_override:type_name -> envoy.config.core.v3.SubstitutionFormatString
-	42, // 47: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.headers_to_add:type_name -> envoy.config.core.v3.HeaderValueOption
-	43, // 48: envoy.extensions.filters.network.http_connection_manager.v3.Rds.config_source:type_name -> envoy.config.core.v3.ConfigSource
-	44, // 49: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRouteConfigurationsList.scoped_route_configurations:type_name -> envoy.config.route.v3.ScopedRouteConfiguration
-	23, // 50: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.scope_key_builder:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder
-	43, // 51: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.rds_config_source:type_name -> envoy.config.core.v3.ConfigSource
-	9,  // 52: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.scoped_route_configurations_list:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRouteConfigurationsList
-	11, // 53: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.scoped_rds:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRds
-	43, // 54: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRds.scoped_rds_config_source:type_name -> envoy.config.core.v3.ConfigSource
-	45, // 55: envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter.typed_config:type_name -> google.protobuf.Any
-	46, // 56: envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter.config_discovery:type_name -> envoy.config.core.v3.ExtensionConfigSource
-	45, // 57: envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension.typed_config:type_name -> google.protobuf.Any
-	5,  // 58: envoy.extensions.filters.network.http_connection_manager.v3.EnvoyMobileHttpConnectionManager.config:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-	47, // 59: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.client_sampling:type_name -> envoy.type.v3.Percent
-	47, // 60: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.random_sampling:type_name -> envoy.type.v3.Percent
-	47, // 61: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.overall_sampling:type_name -> envoy.type.v3.Percent
-	34, // 62: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.max_path_tag_length:type_name -> google.protobuf.UInt32Value
-	48, // 63: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.custom_tags:type_name -> envoy.type.tracing.v3.CustomTag
-	49, // 64: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.provider:type_name -> envoy.config.trace.v3.Tracing.Http
-	28, // 65: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.spawn_upstream_span:type_name -> google.protobuf.BoolValue
-	50, // 66: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.InternalAddressConfig.cidr_ranges:type_name -> envoy.config.core.v3.CidrRange
-	28, // 67: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.SetCurrentClientCertDetails.subject:type_name -> google.protobuf.BoolValue
-	2,  // 68: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertConfig.forward_client_cert_details:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertDetails
-	17, // 69: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertConfig.set_current_client_cert_details:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.SetCurrentClientCertDetails
-	12, // 70: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.UpgradeConfig.filters:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter
-	28, // 71: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.UpgradeConfig.enabled:type_name -> google.protobuf.BoolValue
-	51, // 72: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathNormalizationOptions.forwarding_transformation:type_name -> envoy.type.http.v3.PathTransformation
-	51, // 73: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathNormalizationOptions.http_filter_transformation:type_name -> envoy.type.http.v3.PathTransformation
-	35, // 74: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions.access_log_flush_interval:type_name -> google.protobuf.Duration
-	24, // 75: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.fragments:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder
-	25, // 76: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.header_value_extractor:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor
-	26, // 77: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor.element:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor.KvElement
-	78, // [78:78] is the sub-list for method output_type
-	78, // [78:78] is the sub-list for method input_type
-	78, // [78:78] is the sub-list for extension type_name
-	78, // [78:78] is the sub-list for extension extendee
-	0,  // [0:78] is the sub-list for field type_name
+	15, // 34: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.request_id_extension:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension
+	8,  // 35: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.local_reply_config:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.LocalReplyConfig
+	30, // 36: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.stream_error_on_invalid_http_message:type_name -> google.protobuf.BoolValue
+	22, // 37: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.path_normalization_options:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathNormalizationOptions
+	23, // 38: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.proxy_status_config:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ProxyStatusConfig
+	39, // 39: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.typed_header_validation_config:type_name -> envoy.config.core.v3.TypedExtensionConfig
+	30, // 40: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.add_proxy_protocol_connection_state:type_name -> google.protobuf.BoolValue
+	7,  // 41: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.forward_proto_config:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ForwardProtoConfig
+	9,  // 42: envoy.extensions.filters.network.http_connection_manager.v3.LocalReplyConfig.mappers:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper
+	41, // 43: envoy.extensions.filters.network.http_connection_manager.v3.LocalReplyConfig.body_format:type_name -> envoy.config.core.v3.SubstitutionFormatString
+	42, // 44: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.filter:type_name -> envoy.config.accesslog.v3.AccessLogFilter
+	36, // 45: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.status_code:type_name -> google.protobuf.UInt32Value
+	43, // 46: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.body:type_name -> envoy.config.core.v3.DataSource
+	41, // 47: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.body_format_override:type_name -> envoy.config.core.v3.SubstitutionFormatString
+	44, // 48: envoy.extensions.filters.network.http_connection_manager.v3.ResponseMapper.headers_to_add:type_name -> envoy.config.core.v3.HeaderValueOption
+	45, // 49: envoy.extensions.filters.network.http_connection_manager.v3.Rds.config_source:type_name -> envoy.config.core.v3.ConfigSource
+	46, // 50: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRouteConfigurationsList.scoped_route_configurations:type_name -> envoy.config.route.v3.ScopedRouteConfiguration
+	25, // 51: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.scope_key_builder:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder
+	45, // 52: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.rds_config_source:type_name -> envoy.config.core.v3.ConfigSource
+	11, // 53: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.scoped_route_configurations_list:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRouteConfigurationsList
+	13, // 54: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.scoped_rds:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRds
+	45, // 55: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRds.scoped_rds_config_source:type_name -> envoy.config.core.v3.ConfigSource
+	47, // 56: envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter.typed_config:type_name -> google.protobuf.Any
+	48, // 57: envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter.config_discovery:type_name -> envoy.config.core.v3.ExtensionConfigSource
+	47, // 58: envoy.extensions.filters.network.http_connection_manager.v3.RequestIDExtension.typed_config:type_name -> google.protobuf.Any
+	6,  // 59: envoy.extensions.filters.network.http_connection_manager.v3.EnvoyMobileHttpConnectionManager.config:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+	49, // 60: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.client_sampling:type_name -> envoy.type.v3.Percent
+	49, // 61: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.random_sampling:type_name -> envoy.type.v3.Percent
+	49, // 62: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.overall_sampling:type_name -> envoy.type.v3.Percent
+	36, // 63: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.max_path_tag_length:type_name -> google.protobuf.UInt32Value
+	50, // 64: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.custom_tags:type_name -> envoy.type.tracing.v3.CustomTag
+	51, // 65: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.provider:type_name -> envoy.config.trace.v3.Tracing.Http
+	30, // 66: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.Tracing.spawn_upstream_span:type_name -> google.protobuf.BoolValue
+	52, // 67: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.InternalAddressConfig.cidr_ranges:type_name -> envoy.config.core.v3.CidrRange
+	30, // 68: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.SetCurrentClientCertDetails.subject:type_name -> google.protobuf.BoolValue
+	4,  // 69: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.SetCurrentClientCertDetails.format:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertFormat
+	2,  // 70: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertConfig.forward_client_cert_details:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertDetails
+	19, // 71: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.ForwardClientCertConfig.set_current_client_cert_details:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.SetCurrentClientCertDetails
+	14, // 72: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.UpgradeConfig.filters:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.HttpFilter
+	30, // 73: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.UpgradeConfig.enabled:type_name -> google.protobuf.BoolValue
+	53, // 74: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathNormalizationOptions.forwarding_transformation:type_name -> envoy.type.http.v3.PathTransformation
+	53, // 75: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.PathNormalizationOptions.http_filter_transformation:type_name -> envoy.type.http.v3.PathTransformation
+	37, // 76: envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager.HcmAccessLogOptions.access_log_flush_interval:type_name -> google.protobuf.Duration
+	26, // 77: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.fragments:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder
+	27, // 78: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.header_value_extractor:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor
+	28, // 79: envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor.element:type_name -> envoy.extensions.filters.network.http_connection_manager.v3.ScopedRoutes.ScopeKeyBuilder.FragmentBuilder.HeaderValueExtractor.KvElement
+	80, // [80:80] is the sub-list for method output_type
+	80, // [80:80] is the sub-list for method input_type
+	80, // [80:80] is the sub-list for extension type_name
+	80, // [80:80] is the sub-list for extension extendee
+	0,  // [0:80] is the sub-list for field type_name
 }
 
 func init() {
@@ -3537,22 +3737,22 @@ func file_envoy_extensions_filters_network_http_connection_manager_v3_http_conne
 		(*HttpConnectionManager_ScopedRoutes)(nil),
 		(*HttpConnectionManager_StripAnyHostPort)(nil),
 	}
-	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[5].OneofWrappers = []any{
+	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[6].OneofWrappers = []any{
 		(*ScopedRoutes_ScopedRouteConfigurationsList)(nil),
 		(*ScopedRoutes_ScopedRds)(nil),
 	}
-	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[7].OneofWrappers = []any{
+	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[8].OneofWrappers = []any{
 		(*HttpFilter_TypedConfig)(nil),
 		(*HttpFilter_ConfigDiscovery)(nil),
 	}
-	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[16].OneofWrappers = []any{
+	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[17].OneofWrappers = []any{
 		(*HttpConnectionManager_ProxyStatusConfig_UseNodeId)(nil),
 		(*HttpConnectionManager_ProxyStatusConfig_LiteralProxyName)(nil),
 	}
-	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[19].OneofWrappers = []any{
+	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[20].OneofWrappers = []any{
 		(*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_)(nil),
 	}
-	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[20].OneofWrappers = []any{
+	file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_msgTypes[21].OneofWrappers = []any{
 		(*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_Index)(nil),
 		(*ScopedRoutes_ScopeKeyBuilder_FragmentBuilder_HeaderValueExtractor_Element)(nil),
 	}
@@ -3561,8 +3761,8 @@ func file_envoy_extensions_filters_network_http_connection_manager_v3_http_conne
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDesc), len(file_envoy_extensions_filters_network_http_connection_manager_v3_http_connection_manager_proto_rawDesc)),
-			NumEnums:      5,
-			NumMessages:   22,
+			NumEnums:      6,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

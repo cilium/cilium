@@ -25,7 +25,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// [#next-free-field: 7]
+// [#next-free-field: 8]
 type RedisClusterConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Interval between successive topology refresh requests. If not set, this defaults to 5s.
@@ -47,8 +47,17 @@ type RedisClusterConfig struct {
 	// If not set, this defaults to 0, which disables the topology refresh due to degraded or
 	// unhealthy host.
 	HostDegradedRefreshThreshold uint32 `protobuf:"varint,6,opt,name=host_degraded_refresh_threshold,json=hostDegradedRefreshThreshold,proto3" json:"host_degraded_refresh_threshold,omitempty"`
-	unknownFields                protoimpl.UnknownFields
-	sizeCache                    protoimpl.SizeCache
+	// Enable zone discovery via INFO command. When enabled, the cluster will
+	// send INFO command to each node to discover its availability_zone field,
+	// which is then used for zone-aware routing.
+	//
+	// Note: This feature currently works with Valkey only. Valkey exposes
+	// availability_zone in its INFO response. Standard Redis does not support this field.
+	//
+	// If not set, this defaults to false.
+	EnableZoneDiscovery *wrapperspb.BoolValue `protobuf:"bytes,7,opt,name=enable_zone_discovery,json=enableZoneDiscovery,proto3" json:"enable_zone_discovery,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *RedisClusterConfig) Reset() {
@@ -123,18 +132,26 @@ func (x *RedisClusterConfig) GetHostDegradedRefreshThreshold() uint32 {
 	return 0
 }
 
+func (x *RedisClusterConfig) GetEnableZoneDiscovery() *wrapperspb.BoolValue {
+	if x != nil {
+		return x.EnableZoneDiscovery
+	}
+	return nil
+}
+
 var File_envoy_extensions_clusters_redis_v3_redis_cluster_proto protoreflect.FileDescriptor
 
 const file_envoy_extensions_clusters_redis_v3_redis_cluster_proto_rawDesc = "" +
 	"\n" +
-	"6envoy/extensions/clusters/redis/v3/redis_cluster.proto\x12\"envoy.extensions.clusters.redis.v3\x1a\x1egoogle/protobuf/duration.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\xb4\x04\n" +
+	"6envoy/extensions/clusters/redis/v3/redis_cluster.proto\x12\"envoy.extensions.clusters.redis.v3\x1a\x1egoogle/protobuf/duration.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1dudpa/annotations/status.proto\x1a!udpa/annotations/versioning.proto\x1a\x17validate/validate.proto\"\x84\x05\n" +
 	"\x12RedisClusterConfig\x12U\n" +
 	"\x14cluster_refresh_rate\x18\x01 \x01(\v2\x19.google.protobuf.DurationB\b\xfaB\x05\xaa\x01\x02*\x00R\x12clusterRefreshRate\x12[\n" +
 	"\x17cluster_refresh_timeout\x18\x02 \x01(\v2\x19.google.protobuf.DurationB\b\xfaB\x05\xaa\x01\x02*\x00R\x15clusterRefreshTimeout\x12U\n" +
 	"\x19redirect_refresh_interval\x18\x03 \x01(\v2\x19.google.protobuf.DurationR\x17redirectRefreshInterval\x12Z\n" +
 	"\x1aredirect_refresh_threshold\x18\x04 \x01(\v2\x1c.google.protobuf.UInt32ValueR\x18redirectRefreshThreshold\x12:\n" +
 	"\x19failure_refresh_threshold\x18\x05 \x01(\rR\x17failureRefreshThreshold\x12E\n" +
-	"\x1fhost_degraded_refresh_threshold\x18\x06 \x01(\rR\x1chostDegradedRefreshThreshold:4\x9aň\x1e/\n" +
+	"\x1fhost_degraded_refresh_threshold\x18\x06 \x01(\rR\x1chostDegradedRefreshThreshold\x12N\n" +
+	"\x15enable_zone_discovery\x18\a \x01(\v2\x1a.google.protobuf.BoolValueR\x13enableZoneDiscovery:4\x9aň\x1e/\n" +
 	"-envoy.config.cluster.redis.RedisClusterConfigB\xa2\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
 	"0io.envoyproxy.envoy.extensions.clusters.redis.v3B\x11RedisClusterProtoP\x01ZQgithub.com/envoyproxy/go-control-plane/envoy/extensions/clusters/redis/v3;redisv3b\x06proto3"
 
@@ -155,17 +172,19 @@ var file_envoy_extensions_clusters_redis_v3_redis_cluster_proto_goTypes = []any{
 	(*RedisClusterConfig)(nil),     // 0: envoy.extensions.clusters.redis.v3.RedisClusterConfig
 	(*durationpb.Duration)(nil),    // 1: google.protobuf.Duration
 	(*wrapperspb.UInt32Value)(nil), // 2: google.protobuf.UInt32Value
+	(*wrapperspb.BoolValue)(nil),   // 3: google.protobuf.BoolValue
 }
 var file_envoy_extensions_clusters_redis_v3_redis_cluster_proto_depIdxs = []int32{
 	1, // 0: envoy.extensions.clusters.redis.v3.RedisClusterConfig.cluster_refresh_rate:type_name -> google.protobuf.Duration
 	1, // 1: envoy.extensions.clusters.redis.v3.RedisClusterConfig.cluster_refresh_timeout:type_name -> google.protobuf.Duration
 	1, // 2: envoy.extensions.clusters.redis.v3.RedisClusterConfig.redirect_refresh_interval:type_name -> google.protobuf.Duration
 	2, // 3: envoy.extensions.clusters.redis.v3.RedisClusterConfig.redirect_refresh_threshold:type_name -> google.protobuf.UInt32Value
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	3, // 4: envoy.extensions.clusters.redis.v3.RedisClusterConfig.enable_zone_discovery:type_name -> google.protobuf.BoolValue
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_envoy_extensions_clusters_redis_v3_redis_cluster_proto_init() }

@@ -156,7 +156,7 @@ func (ExternalProcessor_RouteCacheAction) EnumDescriptor() ([]byte, []int) {
 // <arch_overview_advanced_filter_state_sharing>` object in a namespace matching the filter
 // name.
 //
-// [#next-free-field: 26]
+// [#next-free-field: 27]
 type ExternalProcessor struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Configuration for the gRPC service that the filter will communicate with.
@@ -293,14 +293,6 @@ type ExternalProcessor struct {
 	// restriction doesn't apply to this mode.
 	//
 	// 3. External processor may still close the stream to indicate that no more messages are needed.
-	//
-	// .. warning::
-	//
-	//	Flow control is a necessary mechanism to prevent the fast sender (either downstream client or upstream server)
-	//	from overwhelming the external processor when its processing speed is slower.
-	//	This protective measure is being explored and developed but has not been ready yet, so please use your own
-	//	discretion when enabling this feature.
-	//	This work is currently tracked under https://github.com/envoyproxy/envoy/issues/33319.
 	ObservabilityMode bool `protobuf:"varint,17,opt,name=observability_mode,json=observabilityMode,proto3" json:"observability_mode,omitempty"`
 	// Prevents clearing the route-cache when the
 	// :ref:`clear_route_cache <envoy_v3_api_field_service.ext_proc.v3.CommonResponse.clear_route_cache>`
@@ -367,8 +359,20 @@ type ExternalProcessor struct {
 	//
 	// The default status is “HTTP 500 Internal Server Error“.
 	StatusOnError *v32.HttpStatus `protobuf:"bytes,24,opt,name=status_on_error,json=statusOnError,proto3" json:"status_on_error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// If true, the filter will not remove the “content-length“ header from the request/response after external processing.
+	// It is typically used in
+	// :ref:`FULL_DUPLEX_STREAMED <envoy_v3_api_enum_value_extensions.filters.http.ext_proc.v3.ProcessingMode.BodySendMode.FULL_DUPLEX_STREAMED>`
+	// mode. If the original body has been modified, the external processing server needs to set the correct content-length header in HeaderMutation
+	// that matches the modified body length.
+	//
+	// .. warning::
+	//
+	//	This configuration should only be used if you are sure that the content length matches
+	//	the body length after external processing. Otherwise, it may cause vulnerability issues such as
+	//	request smuggling. Thus, please use your own discretion when enabling this feature.
+	AllowContentLengthHeader bool `protobuf:"varint,26,opt,name=allow_content_length_header,json=allowContentLengthHeader,proto3" json:"allow_content_length_header,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *ExternalProcessor) Reset() {
@@ -567,6 +571,13 @@ func (x *ExternalProcessor) GetStatusOnError() *v32.HttpStatus {
 		return x.StatusOnError
 	}
 	return nil
+}
+
+func (x *ExternalProcessor) GetAllowContentLengthHeader() bool {
+	if x != nil {
+		return x.AllowContentLengthHeader
+	}
+	return false
 }
 
 // ExtProcHttpService is used for HTTP communication between the filter and the external processing service.
@@ -1047,7 +1058,7 @@ var File_envoy_extensions_filters_http_ext_proc_v3_ext_proc_proto protoreflect.F
 
 const file_envoy_extensions_filters_http_ext_proc_v3_ext_proc_proto_rawDesc = "" +
 	"\n" +
-	"8envoy/extensions/filters/http/ext_proc/v3/ext_proc.proto\x12)envoy.extensions.filters.http.ext_proc.v3\x1a:envoy/config/common/mutation_rules/v3/mutation_rules.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a$envoy/config/core/v3/extension.proto\x1a'envoy/config/core/v3/grpc_service.proto\x1a'envoy/config/core/v3/http_service.proto\x1a?envoy/extensions/filters/http/ext_proc/v3/processing_mode.proto\x1a\"envoy/type/matcher/v3/string.proto\x1a\x1fenvoy/type/v3/http_status.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fxds/annotations/v3/status.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1eudpa/annotations/migrate.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\xdc\x10\n" +
+	"8envoy/extensions/filters/http/ext_proc/v3/ext_proc.proto\x12)envoy.extensions.filters.http.ext_proc.v3\x1a:envoy/config/common/mutation_rules/v3/mutation_rules.proto\x1a\x1fenvoy/config/core/v3/base.proto\x1a$envoy/config/core/v3/extension.proto\x1a'envoy/config/core/v3/grpc_service.proto\x1a'envoy/config/core/v3/http_service.proto\x1a?envoy/extensions/filters/http/ext_proc/v3/processing_mode.proto\x1a\"envoy/type/matcher/v3/string.proto\x1a\x1fenvoy/type/v3/http_status.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a\x1fxds/annotations/v3/status.proto\x1a#envoy/annotations/deprecation.proto\x1a\x1eudpa/annotations/migrate.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\x9b\x11\n" +
 	"\x11ExternalProcessor\x12c\n" +
 	"\fgrpc_service\x18\x01 \x01(\v2!.envoy.config.core.v3.GrpcServiceB\x1d\xf2\x98\xfe\x8f\x05\x17\x12\x15ext_proc_service_typeR\vgrpcService\x12\x87\x01\n" +
 	"\fhttp_service\x18\x14 \x01(\v2=.envoy.extensions.filters.http.ext_proc.v3.ExtProcHttpServiceB%\xf2\x98\xfe\x8f\x05\x17\x12\x15ext_proc_service_type\xd2Ƥ\xe1\x06\x02\b\x01R\vhttpService\x12,\n" +
@@ -1076,7 +1087,8 @@ const file_envoy_extensions_filters_http_ext_proc_v3_ext_proc_proto_rawDesc = ""
 	"\x16allowed_override_modes\x18\x16 \x03(\v29.envoy.extensions.filters.http.ext_proc.v3.ProcessingModeR\x14allowedOverrideModes\x12t\n" +
 	"\x1bprocessing_request_modifier\x18\x19 \x01(\v2*.envoy.config.core.v3.TypedExtensionConfigB\b\xd2Ƥ\xe1\x06\x02\b\x01R\x19processingRequestModifier\x12j\n" +
 	"\x16on_processing_response\x18\x17 \x01(\v2*.envoy.config.core.v3.TypedExtensionConfigB\b\xd2Ƥ\xe1\x06\x02\b\x01R\x14onProcessingResponse\x12A\n" +
-	"\x0fstatus_on_error\x18\x18 \x01(\v2\x19.envoy.type.v3.HttpStatusR\rstatusOnError\"6\n" +
+	"\x0fstatus_on_error\x18\x18 \x01(\v2\x19.envoy.type.v3.HttpStatusR\rstatusOnError\x12=\n" +
+	"\x1ballow_content_length_header\x18\x1a \x01(\bR\x18allowContentLengthHeader\"6\n" +
 	"\x10RouteCacheAction\x12\v\n" +
 	"\aDEFAULT\x10\x00\x12\t\n" +
 	"\x05CLEAR\x10\x01\x12\n" +

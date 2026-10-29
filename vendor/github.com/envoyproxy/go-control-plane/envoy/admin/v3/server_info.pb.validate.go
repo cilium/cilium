@@ -180,6 +180,8 @@ func (m *ServerInfo) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for HotRestartInitializing
+
 	if len(errors) > 0 {
 		return ServerInfoMultiError(errors)
 	}
