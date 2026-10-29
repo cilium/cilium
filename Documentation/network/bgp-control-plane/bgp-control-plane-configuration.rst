@@ -188,6 +188,7 @@ resource.
 The ``CiliumBGPPeerConfig`` resource contains configuration options for:
 
 - :ref:`MD5 Password <bgp_peer_configuration_password>`
+- :ref:`TCP Authentication Option (TCP-AO) <bgp_peer_configuration_tcp_ao>`
 - :ref:`Timers <bgp_peer_configuration_timers>`
 - :ref:`EBGP Multihop <bgp_ebgp_multihop>`
 - :ref:`Graceful Restart <bgp_peer_configuration_graceful_restart>`
@@ -273,6 +274,123 @@ If a ``CiliumBGPPeerConfig`` is deployed with an ``authSecretRef`` that Cilium c
 the BGP session will use an empty password and the agent will log an error such as in the following example::
 
     level=error msg="Failed to fetch secret \"secretname\": not found (will continue with empty password)" component=manager.fetchPeerPassword subsys=bgp-control-plane
+
+.. _bgp_peer_configuration_tcp_ao:
+
+TCP Authentication Option (TCP-AO)
+----------------------------------
+
+``tcpAO`` in ``CiliumBGPPeerConfig`` can be used to protect the session with the BGP peer
+using the TCP Authentication Option defined in `RFC-5925`_. TCP-AO is the successor of the
+TCP MD5 signature option: it supports stronger MAC algorithms and allows multiple keys to be
+configured at the same time, so that keys can be rotated without resetting the BGP session.
+
+.. note::
+
+   TCP-AO requires Linux kernel 6.7 or newer with ``CONFIG_TCP_AO`` enabled on the nodes
+   running the Cilium Agent. If the kernel does not support TCP-AO, the BGP session with the
+   peer is not established and the agent logs an error when adding the peer.
+
+``tcpAO`` and ``authSecretRef`` are mutually exclusive: a peer can be protected either with an
+MD5 password or with TCP-AO, but not with both.
+
+Here is an example of a ``CiliumBGPPeerConfig`` configured with TCP-AO:
+
+.. code-block:: yaml
+
+    apiVersion: cilium.io/v2
+    kind: CiliumBGPPeerConfig
+    metadata:
+      name: cilium-peer
+    spec:
+      tcpAO:
+        secretRef: bgp-tcp-ao-secret
+        sendKeyID: 2
+        keys:
+          - sendID: 1
+            receiveID: 1
+            algorithm: hmac-sha-1-96
+          - sendID: 2
+            receiveID: 2
+            algorithm: aes-128-cmac-96
+
+The ``keys`` list describes the TCP-AO keychain shared with the peer:
+
+============================ ===========================================================================
+Field                        Description
+============================ ===========================================================================
+``sendID``                   The ``KeyID`` (0-255) carried in the TCP-AO option of the segments sent
+                             to the peer when this key is used for sending. It must match the
+                             ``ReceiveID`` of the corresponding key configured on the peer.
+``receiveID``                The ``KeyID`` (0-255) the peer uses when sending segments signed with this
+                             key. It must match the ``SendID`` of the corresponding key configured on
+                             the peer. Each key must have a unique ``receiveID``.
+``algorithm``                The MAC algorithm: ``hmac-sha-1-96`` (default), ``aes-128-cmac-96``,
+                             ``hmac-sha-256-96`` or ``hmac-sha-256-128``. It must match the algorithm
+                             configured for the key on the peer.
+``excludeTCPOptions``        Exclude TCP options from the MAC calculation (RFC 5925 section 5.3.1).
+                             Must match the configuration of the peer.
+``secretKey``                Name of the key in the referenced Secret holding the master key. Defaults
+                             to ``key-<sendID>`` (for example ``key-1``).
+============================ ===========================================================================
+
+``sendKeyID`` selects the ``sendID`` of the preferred key used to sign the segments sent to the
+peer. If omitted, the key with the lowest ``sendID`` is used. All keys of the keychain are always
+accepted for incoming segments.
+
+``secretRef`` should reference the name of a Secret in the BGP secrets namespace (if using the
+Helm chart this is ``kube-system`` by default), in the same way as ``authSecretRef``. The Secret
+should contain one entry per key of the keychain, named after the ``secretKey`` field of the key,
+holding the master key (1-80 bytes). An example of creating a Secret for the configuration above is:
+
+.. code-block:: shell-session
+
+   $ kubectl create secret generic -n kube-system bgp-tcp-ao-secret \
+       --from-literal=key-1=my-first-master-key \
+       --from-literal=key-2=my-second-master-key
+
+If the referenced Secret cannot be found, the peer is not configured until the Secret becomes
+available, and the ``CiliumBGPPeerConfig`` resource reports the ``cilium.io/MissingAuthSecret``
+condition. Unlike for ``authSecretRef``, the agent never falls back to an unauthenticated session:
+if the Secret of an already configured peer is deleted, the peer is removed and the BGP session is
+torn down until the Secret is restored. If the Secret is found but it does not contain an entry for
+one of the configured keys, or if a master key is longer than 80 bytes, the agent logs an error and
+the peers of the BGP instance are not reconciled until the Secret is fixed.
+
+Key rotation
+~~~~~~~~~~~~
+
+TCP-AO keys can be rotated without resetting the BGP session, as long as the keys in use on the
+session are not modified. A key is in use when it is selected by ``sendKeyID``, or when either side
+of the session currently signs the segments it sends with it (the ``current`` and ``rnext`` keys
+reported by ``cilium-dbg bgp peers``). To rotate from an old key to a new key:
+
+1. Add the new key to the Secret and to the ``keys`` list of the ``CiliumBGPPeerConfig``, and
+   configure the same key on the peer. Both sides now accept segments signed with either key.
+2. Once the new key is configured on both sides, switch ``sendKeyID`` to the new key on the
+   Cilium side, and select the new key as the send key on the peer as well. As defined by
+   `RFC-5925`_, switching the preferred send key on an established session does not change the
+   signing key immediately: each side notifies the other of its preferred key through the
+   ``RNextKeyID`` field of the TCP-AO option, and starts signing with the new key once the other
+   side requests it. The session is therefore fully migrated to the new key once both sides have
+   switched their preferred send key.
+3. Once ``cilium-dbg bgp peers`` reports the new key as both ``current`` and ``rnext``, remove the
+   old key from the ``keys`` list and from the Secret, and from the peer.
+
+Changing the master key, the ``receiveID``, the algorithm or the ``excludeTCPOptions`` setting of
+a key in use, or removing it from the ``keys`` list, requires a reset of the BGP session, which is
+performed automatically by the agent. Enabling or disabling TCP-AO on an existing peer, or switching
+between an MD5 password and TCP-AO, also resets the session.
+
+The TCP-AO state of a peer, including the keys in use and the per-key packet counters reported by
+the kernel, can be inspected with the ``cilium-dbg bgp peers`` command on the agent.
+
+Because TCP-AO signs the TCP header and the IP addresses of the segments, it cannot be used if the
+session is address-translated by Cilium (in other words, the Cilium Agent's pod IP address must be
+the address that the BGP peer sees). If the keys do not match, the TCP connection will not
+succeed, in the same way as for TCP MD5 passwords.
+
+.. _RFC-5925 : https://www.rfc-editor.org/rfc/rfc5925.html
 
 .. _bgp_peer_configuration_timers:
 

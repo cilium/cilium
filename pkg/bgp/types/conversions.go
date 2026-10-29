@@ -4,8 +4,12 @@
 package types
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"math"
 	"net/netip"
+	"strconv"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -293,14 +297,17 @@ func ToAgentFamily(fam v2.CiliumBGPFamily) Family {
 
 // ToNeighborV2 converts a CiliumBGPNodePeer to Neighbor which can be used
 // with Router API. The caller must ensure that the np, np.PeerAddress,
-// np.PeerASN and pc are not nil.
-func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, password string) *Neighbor {
+// np.PeerASN and pc are not nil. The password and tcpAO parameters carry the
+// authentication material resolved from the referenced Kubernetes Secrets
+// (see ToNeighborTCPAOV2); at most one of them should be set.
+func ToNeighborV2(np *v2.CiliumBGPNodePeer, pc *v2.CiliumBGPPeerConfigSpec, password string, tcpAO *NeighborTCPAO) *Neighbor {
 	neighbor := &Neighbor{}
 
 	neighbor.Name = np.Name
 	neighbor.Address = toPeerAddressV2(*np.PeerAddress)
 	neighbor.ASN = uint32(*np.PeerASN)
 	neighbor.AuthPassword = password
+	neighbor.TCPAO = tcpAO
 	neighbor.EbgpMultihop = toNeighborEbgpMultihopV2(pc.EBGPMultihop)
 	neighbor.Timers = toNeighborTimersV2(pc.Timers)
 	neighbor.Transport = toNeighborTransportV2(np.LocalAddress, pc.Transport)
@@ -377,6 +384,77 @@ func toNeighborGracefulRestartV2(apiGR *v2.CiliumBGPNeighborGracefulRestart) *Ne
 		Enabled:     apiGR.Enabled,
 		RestartTime: uint32(*apiGR.RestartTimeSeconds),
 	}
+}
+
+// ErrTCPAOMasterKeyMissing is returned by ToNeighborTCPAOV2 when the Secret data does not
+// contain the master key of one of the keys of the keychain.
+var ErrTCPAOMasterKeyMissing = errors.New("TCP-AO master key missing in the secret")
+
+// ToNeighborTCPAOV2 converts the CiliumBGPTCPAO configuration into a NeighborTCPAO keychain,
+// resolving the master keys of the keys from the provided Secret data. Unset optional fields
+// are defaulted the same way as by CiliumBGPTCPAO.SetDefaults. If the configuration is nil,
+// nil is returned.
+//
+// If a master key is missing in the Secret data, an error wrapping ErrTCPAOMasterKeyMissing
+// is returned. The resulting keychain is validated (NeighborTCPAO.Validate) before returning.
+func ToNeighborTCPAOV2(apiTCPAO *v2.CiliumBGPTCPAO, secretData map[string][]byte) (*NeighborTCPAO, error) {
+	if apiTCPAO == nil {
+		return nil, nil
+	}
+
+	tcpAO := &NeighborTCPAO{
+		Keys: make([]TCPAOKey, 0, len(apiTCPAO.Keys)),
+	}
+
+	for _, apiKey := range apiTCPAO.Keys {
+		if apiKey.SendID < 0 || apiKey.SendID > math.MaxUint8 {
+			return nil, fmt.Errorf("TCP-AO send ID %d is outside 0..255", apiKey.SendID)
+		}
+		if apiKey.ReceiveID < 0 || apiKey.ReceiveID > math.MaxUint8 {
+			return nil, fmt.Errorf("TCP-AO receive ID %d is outside 0..255", apiKey.ReceiveID)
+		}
+		apiAlgorithm := apiKey.Algorithm
+		if apiAlgorithm == "" {
+			apiAlgorithm = v2.DefaultBGPTCPAOAlgorithm
+		}
+		algorithm := ParseTCPAOAlgorithm(string(apiAlgorithm))
+		if algorithm == TCPAOAlgorithmUnknown {
+			return nil, fmt.Errorf("TCP-AO key with send ID %d has an unsupported algorithm %q", apiKey.SendID, apiKey.Algorithm)
+		}
+		secretKey := apiKey.SecretKey
+		if secretKey == "" {
+			secretKey = v2.DefaultBGPTCPAOSecretKeyPrefix + strconv.Itoa(int(apiKey.SendID))
+		}
+		masterKey, ok := secretData[secretKey]
+		if !ok {
+			return nil, fmt.Errorf("%w: key %q (TCP-AO send ID %d)", ErrTCPAOMasterKeyMissing, secretKey, apiKey.SendID)
+		}
+		tcpAO.Keys = append(tcpAO.Keys, TCPAOKey{
+			SendID:            uint8(apiKey.SendID),
+			ReceiveID:         uint8(apiKey.ReceiveID),
+			Algorithm:         algorithm,
+			ExcludeTCPOptions: apiKey.ExcludeTCPOptions,
+			MasterKey:         bytes.Clone(masterKey),
+		})
+	}
+
+	if apiTCPAO.SendKeyID != nil {
+		if *apiTCPAO.SendKeyID < 0 || *apiTCPAO.SendKeyID > math.MaxUint8 {
+			return nil, fmt.Errorf("TCP-AO send key ID %d is outside 0..255", *apiTCPAO.SendKeyID)
+		}
+		tcpAO.SendID = uint8(*apiTCPAO.SendKeyID)
+	} else if len(tcpAO.Keys) > 0 {
+		// default to the key with the lowest send ID
+		tcpAO.SendID = tcpAO.Keys[0].SendID
+		for _, k := range tcpAO.Keys[1:] {
+			tcpAO.SendID = min(tcpAO.SendID, k.SendID)
+		}
+	}
+
+	if err := tcpAO.Validate(); err != nil {
+		return nil, err
+	}
+	return tcpAO, nil
 }
 
 func toNeighborAfiSafisV2(families []v2.CiliumBGPFamilyWithAdverts) []*Family {

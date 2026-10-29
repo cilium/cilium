@@ -4,6 +4,8 @@
 package v2
 
 import (
+	"strconv"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
@@ -23,6 +25,27 @@ const (
 	DefaultBGPKeepAliveTimeSeconds = 30
 	// DefaultBGPGRRestartTimeSeconds defines default Restart Time for graceful restart (RFC 4724, section 4.2)
 	DefaultBGPGRRestartTimeSeconds = 120
+	// DefaultBGPTCPAOAlgorithm defines the default TCP-AO MAC algorithm used when a key does not specify one.
+	DefaultBGPTCPAOAlgorithm = BGPTCPAOAlgorithmHMACSHA1_96
+	// DefaultBGPTCPAOSecretKeyPrefix is the prefix of the default Secret data key holding the master key
+	// of a TCP-AO key. The default Secret data key is "<prefix><sendID>", e.g. "key-1".
+	DefaultBGPTCPAOSecretKeyPrefix = "key-"
+)
+
+// BGPTCPAOAlgorithm is the Message Authentication Code (MAC) algorithm of a TCP-AO key.
+//
+// +kubebuilder:validation:Enum=hmac-sha-1-96;aes-128-cmac-96;hmac-sha-256-96;hmac-sha-256-128
+type BGPTCPAOAlgorithm string
+
+const (
+	// BGPTCPAOAlgorithmHMACSHA1_96 is the HMAC-SHA-1-96 algorithm (RFC 5926, mandatory to implement).
+	BGPTCPAOAlgorithmHMACSHA1_96 BGPTCPAOAlgorithm = "hmac-sha-1-96"
+	// BGPTCPAOAlgorithmAES128CMAC_96 is the AES-128-CMAC-96 algorithm (RFC 5926, mandatory to implement).
+	BGPTCPAOAlgorithmAES128CMAC_96 BGPTCPAOAlgorithm = "aes-128-cmac-96"
+	// BGPTCPAOAlgorithmHMACSHA256_96 is the HMAC-SHA-256 algorithm truncated to a 96-bit MAC.
+	BGPTCPAOAlgorithmHMACSHA256_96 BGPTCPAOAlgorithm = "hmac-sha-256-96"
+	// BGPTCPAOAlgorithmHMACSHA256_128 is the HMAC-SHA-256 algorithm truncated to a 128-bit MAC.
+	BGPTCPAOAlgorithmHMACSHA256_128 BGPTCPAOAlgorithm = "hmac-sha-256-128"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -63,6 +86,7 @@ type CiliumBGPPeerConfig struct {
 	Status CiliumBGPPeerConfigStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!(has(self.authSecretRef) && has(self.tcpAO))", message="authSecretRef (TCP MD5) and tcpAO (TCP-AO) are mutually exclusive"
 type CiliumBGPPeerConfigSpec struct {
 	// Transport defines the BGP transport parameters for the peer.
 	//
@@ -85,6 +109,15 @@ type CiliumBGPPeerConfigSpec struct {
 	//
 	// +kubebuilder:validation:Optional
 	AuthSecretRef *string `json:"authSecretRef,omitempty"`
+
+	// TCPAO defines the TCP Authentication Option (RFC 5925) configuration
+	// for the sessions with the peers which reference this configuration.
+	// TCP-AO is mutually exclusive with the TCP MD5 password (AuthSecretRef).
+	//
+	// If not specified, TCP-AO is not used.
+	//
+	// +kubebuilder:validation:Optional
+	TCPAO *CiliumBGPTCPAO `json:"tcpAO,omitempty"`
 
 	// GracefulRestart defines graceful restart parameters which are negotiated
 	// with this peer.
@@ -267,6 +300,130 @@ func (gr *CiliumBGPNeighborGracefulRestart) SetDefaults() {
 	}
 }
 
+// CiliumBGPTCPAO defines the TCP Authentication Option (RFC 5925) keychain
+// used to authenticate the BGP sessions with the peer.
+//
+// The non-sensitive parameters of the keys (key identifiers, algorithm) are
+// defined here, while the master keys themselves are read from a Kubernetes
+// Secret in the BGP secrets namespace.
+//
+// +kubebuilder:validation:XValidation:rule="!has(self.sendKeyID) || self.keys.exists(k, k.sendID == self.sendKeyID)", message="sendKeyID must match the sendID of one of the keys"
+// +kubebuilder:validation:XValidation:rule="self.keys.all(k, self.keys.exists_one(o, o.receiveID == k.receiveID))", message="receiveID must be unique across the keys"
+type CiliumBGPTCPAO struct {
+	// SecretRef is the name of the Secret in the BGP secrets namespace which
+	// holds the master keys of the keychain. Each key of the keychain reads
+	// its master key from the Secret data entry named by its SecretKey field.
+	//
+	// If the Secret or any of the referenced data entries does not exist,
+	// the peer is not configured until they become available.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinLength=1
+	SecretRef string `json:"secretRef"`
+
+	// SendKeyID selects the preferred key (by its SendID) used to
+	// authenticate the segments sent to the peer. New sessions are
+	// established using this key. On an established session, changing this
+	// field to another key of the keychain requests the peer to switch to
+	// the new key (via the RNextKeyID of the TCP-AO option) without resetting
+	// the BGP session; the segments sent to the peer are authenticated with
+	// the new key once the peer requests it in turn, as defined by RFC 5925.
+	//
+	// If not specified, the key with the lowest SendID is used.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=255
+	SendKeyID *int32 `json:"sendKeyID,omitempty"`
+
+	// Keys is the list of the keys of the keychain. All keys are installed
+	// on the session, so the peer can use any of them to authenticate the
+	// segments it sends. Keys can be added to and removed from the keychain
+	// without resetting the BGP session, as long as the keys in use on the
+	// session (the key selected by SendKeyID, and the keys currently used by
+	// either side to authenticate the segments it sends) stay unchanged.
+	// Changing the master key or any other parameter of a key in use, or
+	// removing it, resets the BGP session.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=64
+	// +listType=map
+	// +listMapKey=sendID
+	Keys []CiliumBGPTCPAOKey `json:"keys"`
+}
+
+// CiliumBGPTCPAOKey defines a single key of a TCP-AO keychain.
+type CiliumBGPTCPAOKey struct {
+	// SendID is the KeyID carried in the TCP-AO option of the segments
+	// authenticated with this key. It must match the ReceiveID of the
+	// corresponding key configured on the peer.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=255
+	SendID int32 `json:"sendID"`
+
+	// ReceiveID is the KeyID expected in the TCP-AO option of the segments
+	// received from the peer that are authenticated with this key. It must
+	// match the SendID of the corresponding key configured on the peer.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=255
+	ReceiveID int32 `json:"receiveID"`
+
+	// Algorithm is the Message Authentication Code (MAC) algorithm of the key.
+	//
+	// If not specified, defaults to hmac-sha-1-96.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=hmac-sha-1-96
+	Algorithm BGPTCPAOAlgorithm `json:"algorithm,omitempty"`
+
+	// ExcludeTCPOptions, when set, excludes the TCP options from the data
+	// covered by the MAC (RFC 5925, section 3.1). It must match the
+	// configuration of the corresponding key on the peer.
+	//
+	// If not specified, defaults to false.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	ExcludeTCPOptions bool `json:"excludeTCPOptions,omitempty"`
+
+	// SecretKey is the name of the data entry in the Secret referenced by
+	// SecretRef that holds the master key of this key. The master key must
+	// be 1 to 80 bytes long.
+	//
+	// If not specified, defaults to "key-<sendID>", e.g. "key-1".
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinLength=1
+	SecretKey string `json:"secretKey,omitempty"`
+}
+
+func (t *CiliumBGPTCPAO) SetDefaults() {
+	for i := range t.Keys {
+		t.Keys[i].SetDefaults()
+	}
+	if t.SendKeyID == nil && len(t.Keys) > 0 {
+		lowest := t.Keys[0].SendID
+		for _, k := range t.Keys[1:] {
+			lowest = min(lowest, k.SendID)
+		}
+		t.SendKeyID = ptr.To(lowest)
+	}
+}
+
+func (k *CiliumBGPTCPAOKey) SetDefaults() {
+	if k.Algorithm == "" {
+		k.Algorithm = DefaultBGPTCPAOAlgorithm
+	}
+	if k.SecretKey == "" {
+		k.SecretKey = DefaultBGPTCPAOSecretKeyPrefix + strconv.Itoa(int(k.SendID))
+	}
+}
+
 func (p *CiliumBGPPeerConfigSpec) SetDefaults() {
 	if p == nil {
 		return
@@ -290,6 +447,10 @@ func (p *CiliumBGPPeerConfigSpec) SetDefaults() {
 		p.GracefulRestart = &CiliumBGPNeighborGracefulRestart{}
 	}
 	p.GracefulRestart.SetDefaults()
+
+	if p.TCPAO != nil {
+		p.TCPAO.SetDefaults()
+	}
 
 	if len(p.Families) == 0 {
 		p.Families = []CiliumBGPFamilyWithAdverts{

@@ -216,11 +216,25 @@ func (u *peerConfigStatusReconciler) reconcilePeerConfig(ctx context.Context, co
 	return nil
 }
 
+// authSecretRef returns the name of the authentication secret referenced by the peer config,
+// which is either the TCP MD5 password secret (authSecretRef) or the TCP-AO secret (tcpAO.secretRef).
+// Returns an empty string if no authentication secret is referenced.
+func authSecretRef(c *v2.CiliumBGPPeerConfig) string {
+	if c.Spec.AuthSecretRef != nil {
+		return *c.Spec.AuthSecretRef
+	}
+	if c.Spec.TCPAO != nil {
+		return c.Spec.TCPAO.SecretRef
+	}
+	return ""
+}
+
 func (u *peerConfigStatusReconciler) authSecretMissing(c *v2.CiliumBGPPeerConfig) (isConfigured bool, isMissing bool) {
-	if c.Spec.AuthSecretRef == nil {
+	secretRef := authSecretRef(c)
+	if secretRef == "" {
 		return false, false
 	}
-	if _, exists, _ := u.secretStore.GetByKey(resource.Key{Namespace: u.secretNamespace, Name: *c.Spec.AuthSecretRef}); !exists {
+	if _, exists, _ := u.secretStore.GetByKey(resource.Key{Namespace: u.secretNamespace, Name: secretRef}); !exists {
 		return true, true
 	}
 	return true, false
@@ -242,7 +256,7 @@ func (u *peerConfigStatusReconciler) updateMissingAuthSecretCondition(config *v2
 	}
 	if missing && configured {
 		cond.Status = meta_v1.ConditionTrue
-		cond.Message = fmt.Sprintf("Referenced Auth Secret %q is missing", *config.Spec.AuthSecretRef)
+		cond.Message = fmt.Sprintf("Referenced Auth Secret %q is missing", authSecretRef(config))
 		cond.Reason = "AuthSecretMissing"
 	}
 	return meta.SetStatusCondition(&config.Status.Conditions, cond)
@@ -253,10 +267,7 @@ func (u *peerConfigStatusReconciler) handleSecret(ctx context.Context, e resourc
 	// inefficient but since we don't expect a large number of PeerConfigs
 	// or Secret in the BGP Secret namespace, this is acceptable.
 	for _, pc := range u.peerConfigStore.List() {
-		if pc.Spec.AuthSecretRef == nil {
-			continue
-		}
-		if *pc.Spec.AuthSecretRef != e.Key.Name {
+		if authSecretRef(pc) != e.Key.Name {
 			continue
 		}
 		if err := u.reconcilePeerConfig(ctx, pc); err != nil {

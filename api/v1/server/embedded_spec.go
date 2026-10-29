@@ -1832,6 +1832,10 @@ func init() {
           "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
           "type": "string"
         },
+        "tcp-ao-enabled": {
+          "description": "Set when TCP-AO (RFC 5925) is configured for communications with this peer",
+          "type": "boolean"
+        },
         "tcp-password-enabled": {
           "description": "Set when a TCP password is configured for communications with this peer",
           "type": "boolean"
@@ -7211,6 +7215,10 @@ func init() {
         "session-state": {
           "description": "BGP peer operational state as described here\nhttps://www.rfc-editor.org/rfc/rfc4271#section-8.2.2\n",
           "type": "string"
+        },
+        "tcp-ao-enabled": {
+          "description": "Set when TCP-AO (RFC 5925) is configured for communications with this peer",
+          "type": "boolean"
         },
         "tcp-password-enabled": {
           "description": "Set when a TCP password is configured for communications with this peer",

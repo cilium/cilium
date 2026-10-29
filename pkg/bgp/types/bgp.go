@@ -82,15 +82,152 @@ func (p *Path) Age() time.Duration {
 // of GoBGP's Peer object, but only contains minimal fields required for Cilium
 // usecases.
 type Neighbor struct {
-	Name            string
-	Address         netip.Addr
-	ASN             uint32
-	AuthPassword    string
+	Name         string
+	Address      netip.Addr
+	ASN          uint32
+	AuthPassword string
+	// TCPAO holds the TCP Authentication Option (RFC 5925) keychain of the neighbor.
+	// Mutually exclusive with AuthPassword.
+	TCPAO           *NeighborTCPAO
 	EbgpMultihop    *NeighborEbgpMultihop
 	Timers          *NeighborTimers
 	Transport       *NeighborTransport
 	GracefulRestart *NeighborGracefulRestart
 	AfiSafis        []*Family
+}
+
+// TCPAOAlgorithm is the Message Authentication Code (MAC) algorithm of a TCP-AO key.
+type TCPAOAlgorithm int
+
+const (
+	TCPAOAlgorithmUnknown TCPAOAlgorithm = iota
+	// TCPAOAlgorithmHMACSHA1_96 is HMAC-SHA-1-96 (RFC 5926).
+	TCPAOAlgorithmHMACSHA1_96
+	// TCPAOAlgorithmAES128CMAC_96 is AES-128-CMAC-96 (RFC 5926).
+	TCPAOAlgorithmAES128CMAC_96
+	// TCPAOAlgorithmHMACSHA256_96 is HMAC-SHA-256 truncated to a 96-bit MAC.
+	TCPAOAlgorithmHMACSHA256_96
+	// TCPAOAlgorithmHMACSHA256_128 is HMAC-SHA-256 truncated to a 128-bit MAC.
+	TCPAOAlgorithmHMACSHA256_128
+)
+
+func (a TCPAOAlgorithm) String() string {
+	switch a {
+	case TCPAOAlgorithmHMACSHA1_96:
+		return "hmac-sha-1-96"
+	case TCPAOAlgorithmAES128CMAC_96:
+		return "aes-128-cmac-96"
+	case TCPAOAlgorithmHMACSHA256_96:
+		return "hmac-sha-256-96"
+	case TCPAOAlgorithmHMACSHA256_128:
+		return "hmac-sha-256-128"
+	default:
+		return "unknown"
+	}
+}
+
+func (a TCPAOAlgorithm) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + a.String() + "\""), nil
+}
+
+func (a TCPAOAlgorithm) MarshalYAML() (any, error) {
+	return a.String(), nil
+}
+
+// ParseTCPAOAlgorithm parses s as a TCP-AO algorithm name.
+// If s is unknown, TCPAOAlgorithmUnknown is returned.
+func ParseTCPAOAlgorithm(s string) TCPAOAlgorithm {
+	switch strings.ToLower(s) {
+	case "hmac-sha-1-96":
+		return TCPAOAlgorithmHMACSHA1_96
+	case "aes-128-cmac-96":
+		return TCPAOAlgorithmAES128CMAC_96
+	case "hmac-sha-256-96":
+		return TCPAOAlgorithmHMACSHA256_96
+	case "hmac-sha-256-128":
+		return TCPAOAlgorithmHMACSHA256_128
+	default:
+		return TCPAOAlgorithmUnknown
+	}
+}
+
+// TCPAOMaxMasterKeyLen is the maximum length of a TCP-AO master key in bytes
+// (matches Linux TCP_AO_MAXKEYLEN).
+const TCPAOMaxMasterKeyLen = 80
+
+// NeighborTCPAO contains the TCP Authentication Option (RFC 5925) keychain of a neighbor.
+//
+// +deepequal-gen=true
+type NeighborTCPAO struct {
+	// SendID is the SendID of the key from Keys used to authenticate the segments
+	// sent to the neighbor.
+	SendID uint8
+	// Keys are all the keys installed for the neighbor. Must contain at least one key
+	// and the SendIDs / ReceiveIDs must be unique across the keys.
+	Keys []TCPAOKey
+}
+
+// TCPAOKey is a single key of a TCP-AO keychain.
+//
+// +deepequal-gen=true
+type TCPAOKey struct {
+	// SendID is the KeyID carried in the segments authenticated with this key.
+	SendID uint8
+	// ReceiveID is the KeyID expected in the received segments authenticated with this key.
+	ReceiveID uint8
+	// Algorithm is the MAC algorithm of the key.
+	Algorithm TCPAOAlgorithm
+	// ExcludeTCPOptions excludes the TCP options from the MAC computation.
+	ExcludeTCPOptions bool
+	// MasterKey is the master key (1 - TCPAOMaxMasterKeyLen bytes).
+	MasterKey []byte
+}
+
+// Validate validates the keychain: it checks that at least one key is present, that the
+// key identifiers are unique, that SendID refers to one of the keys, and that each key
+// has a supported algorithm and a master key of valid length.
+func (t *NeighborTCPAO) Validate() error {
+	if t == nil {
+		return nil
+	}
+	if len(t.Keys) == 0 {
+		return fmt.Errorf("TCP-AO keychain must contain at least one key")
+	}
+	sendIDs := make(map[uint8]struct{}, len(t.Keys))
+	receiveIDs := make(map[uint8]struct{}, len(t.Keys))
+	for _, k := range t.Keys {
+		if _, dup := sendIDs[k.SendID]; dup {
+			return fmt.Errorf("duplicate TCP-AO send ID %d", k.SendID)
+		}
+		if _, dup := receiveIDs[k.ReceiveID]; dup {
+			return fmt.Errorf("duplicate TCP-AO receive ID %d", k.ReceiveID)
+		}
+		sendIDs[k.SendID] = struct{}{}
+		receiveIDs[k.ReceiveID] = struct{}{}
+		if k.Algorithm == TCPAOAlgorithmUnknown {
+			return fmt.Errorf("TCP-AO key with send ID %d has an unknown algorithm", k.SendID)
+		}
+		if len(k.MasterKey) == 0 || len(k.MasterKey) > TCPAOMaxMasterKeyLen {
+			return fmt.Errorf("TCP-AO key with send ID %d must have a master key of 1 - %d bytes", k.SendID, TCPAOMaxMasterKeyLen)
+		}
+	}
+	if _, ok := sendIDs[t.SendID]; !ok {
+		return fmt.Errorf("TCP-AO send ID %d does not match any key of the keychain", t.SendID)
+	}
+	return nil
+}
+
+// Key returns the key with the given SendID, or nil if there is no such key.
+func (t *NeighborTCPAO) Key(sendID uint8) *TCPAOKey {
+	if t == nil {
+		return nil
+	}
+	for i := range t.Keys {
+		if t.Keys[i].SendID == sendID {
+			return &t.Keys[i]
+		}
+	}
+	return nil
 }
 
 type NeighborTransport struct {
@@ -203,6 +340,52 @@ type PeerState struct {
 
 	// Set when a TCP password is configured for communications with this peer
 	TCPPasswordEnabled bool `json:"tcp-password-enabled,omitempty"`
+
+	// Set when TCP-AO (RFC 5925) is configured for communications with this peer
+	TCPAOEnabled bool `json:"tcp-ao-enabled,omitempty"`
+
+	// TCP-AO state of the peer. Only set when TCPAOEnabled is true.
+	TCPAO *PeerTCPAOState `json:"tcp-ao,omitempty"`
+}
+
+// PeerTCPAOState contains the TCP-AO (RFC 5925) state of a peer.
+type PeerTCPAOState struct {
+	// SendID is the SendID of the key configured to authenticate the segments sent to the peer.
+	SendID uint8 `json:"send-id"`
+
+	// Keys contains the state of the keys installed on the TCP connection with the peer.
+	// Only available while a TCP connection with the peer exists.
+	Keys []PeerTCPAOKeyState `json:"keys,omitempty"`
+
+	// PacketsKeyNotFound is the number of received segments carrying a KeyID with no matching key.
+	PacketsKeyNotFound uint64 `json:"packets-key-not-found,omitempty"`
+
+	// PacketsAORequired is the number of received segments dropped because they carried no TCP-AO option.
+	PacketsAORequired uint64 `json:"packets-ao-required,omitempty"`
+
+	// PacketsDroppedICMP is the number of ICMP messages ignored because TCP-AO is enabled on the connection.
+	PacketsDroppedICMP uint64 `json:"packets-dropped-icmp,omitempty"`
+}
+
+// PeerTCPAOKeyState contains the state of a single TCP-AO key installed on the connection with a peer.
+type PeerTCPAOKeyState struct {
+	// SendID is the KeyID carried in the segments authenticated with this key.
+	SendID uint8 `json:"send-id"`
+
+	// ReceiveID is the KeyID expected in the received segments authenticated with this key.
+	ReceiveID uint8 `json:"receive-id"`
+
+	// Current is set when this key is currently used to authenticate the sent segments.
+	Current bool `json:"current,omitempty"`
+
+	// ReceiveNext is set when this key is requested by the peer (RNextKeyID) for the sent segments.
+	ReceiveNext bool `json:"receive-next,omitempty"`
+
+	// PacketsGood is the number of received segments successfully authenticated with this key.
+	PacketsGood uint64 `json:"packets-good,omitempty"`
+
+	// PacketsBad is the number of received segments which failed authentication with this key.
+	PacketsBad uint64 `json:"packets-bad,omitempty"`
 }
 
 // PeerTimers contains information for peer timers settings.

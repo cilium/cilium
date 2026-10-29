@@ -87,6 +87,9 @@ type BgpPeer struct {
 	//
 	SessionState string `json:"session-state,omitempty"`
 
+	// Set when TCP-AO (RFC 5925) is configured for communications with this peer
+	TCPAoEnabled bool `json:"tcp-ao-enabled,omitempty"`
+
 	// Set when a TCP password is configured for communications with this peer
 	TCPPasswordEnabled bool `json:"tcp-password-enabled,omitempty"`
 

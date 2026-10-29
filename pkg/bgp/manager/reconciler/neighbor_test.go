@@ -6,6 +6,7 @@ package reconciler
 import (
 	"context"
 	"net/netip"
+	"strconv"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -478,6 +479,296 @@ func TestNeighborReconciler_SourceInterfaceAddress(t *testing.T) {
 					req.Equal(expectAddr, *runningMeta[expectPeer].Peer.LocalAddress)
 				} else {
 					req.Nil(runningMeta[expectPeer].Peer.LocalAddress, "LocalAddress is expected to be for the peer %s", expectPeer)
+				}
+			}
+		})
+	}
+}
+
+// TestNeighborReconciler_TCPAO confirms the neighbor reconciler resolves the TCP-AO keys from the
+// referenced secret and configures / updates / removes TCP-AO on the peers accordingly.
+func TestNeighborReconciler_TCPAO(t *testing.T) {
+	const (
+		peerConfigName = "peer-config"
+		secretName     = "tcp-ao-secret"
+	)
+
+	nodePeer := v2.CiliumBGPNodePeer{
+		Name:          "peer-1",
+		PeerAddress:   ptr.To[string]("192.168.0.1"),
+		PeerASN:       ptr.To[int64](64124),
+		PeerConfigRef: &v2.PeerConfigReference{Name: peerConfigName},
+	}
+
+	tcpAOConfig := func(sendKeyID int32, sendIDs ...int32) *v2.CiliumBGPPeerConfigSpec {
+		c := &v2.CiliumBGPPeerConfigSpec{
+			TCPAO: &v2.CiliumBGPTCPAO{
+				SecretRef: secretName,
+				SendKeyID: ptr.To(sendKeyID),
+			},
+		}
+		for _, id := range sendIDs {
+			c.TCPAO.Keys = append(c.TCPAO.Keys, v2.CiliumBGPTCPAOKey{SendID: id, ReceiveID: id})
+		}
+		return c
+	}
+	md5Config := &v2.CiliumBGPPeerConfigSpec{
+		AuthSecretRef: ptr.To[string](secretName),
+	}
+
+	type step struct {
+		config  *v2.CiliumBGPPeerConfigSpec
+		secret  map[string][]byte // nil means the secret does not exist
+		errStr  string
+		noPeer  bool
+		tcpAO   bool
+		sendID  uint8
+		md5Auth bool
+		// applied is the configuration expected to be applied on the peer after the step, if it
+		// differs from config / secret (i.e. the step is expected to leave the peer unchanged).
+		applied *struct {
+			config *v2.CiliumBGPPeerConfigSpec
+			secret map[string][]byte
+		}
+	}
+
+	table := []struct {
+		name  string
+		steps []step
+	}{
+		{
+			name: "add peer with TCP-AO",
+			steps: []step{
+				{
+					config: tcpAOConfig(1, 1),
+					secret: map[string][]byte{"key-1": []byte("k1")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+			},
+		},
+		{
+			name: "TCP-AO secret missing: peer is skipped until the secret appears",
+			steps: []step{
+				{
+					config: tcpAOConfig(1, 1),
+					secret: nil,
+					noPeer: true,
+				},
+				{
+					config: tcpAOConfig(1, 1),
+					secret: map[string][]byte{"key-1": []byte("k1")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+			},
+		},
+		{
+			// A Secret that is present but does not yield a valid keychain (here: the master
+			// key of one of the keys is missing) must not result in an error, which would abort
+			// the reconciliation of the whole instance and thus take down the unrelated peers of
+			// the instance. A new peer is not created (fail closed) until the Secret is complete.
+			// An existing peer is left untouched (not reset) while the Secret and the
+			// configuration are inconsistent, e.g. in the middle of a key rotation.
+			name: "TCP-AO master key missing in the secret: new peer not created, existing peer left unchanged",
+			steps: []step{
+				{
+					config: tcpAOConfig(1, 1, 2),
+					secret: map[string][]byte{"key-1": []byte("k1")},
+					noPeer: true,
+				},
+				{
+					config: tcpAOConfig(1, 1, 2),
+					secret: map[string][]byte{"key-1": []byte("k1"), "key-2": []byte("k2")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+				{
+					// key 2 is removed from the Secret before it is removed from the config:
+					// the peer keeps the previously applied configuration
+					config: tcpAOConfig(1, 1, 2),
+					secret: map[string][]byte{"key-1": []byte("k1")},
+					tcpAO:  true,
+					sendID: 1,
+					applied: &struct {
+						config *v2.CiliumBGPPeerConfigSpec
+						secret map[string][]byte
+					}{
+						config: tcpAOConfig(1, 1, 2),
+						secret: map[string][]byte{"key-1": []byte("k1"), "key-2": []byte("k2")},
+					},
+				},
+				{
+					config: tcpAOConfig(1, 1),
+					secret: map[string][]byte{"key-1": []byte("k1")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+			},
+		},
+		{
+			name: "rotate keys: add key, move send key, remove old key",
+			steps: []step{
+				{
+					config: tcpAOConfig(1, 1),
+					secret: map[string][]byte{"key-1": []byte("k1")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+				{
+					config: tcpAOConfig(1, 1, 2),
+					secret: map[string][]byte{"key-1": []byte("k1"), "key-2": []byte("k2")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+				{
+					config: tcpAOConfig(2, 1, 2),
+					secret: map[string][]byte{"key-1": []byte("k1"), "key-2": []byte("k2")},
+					tcpAO:  true,
+					sendID: 2,
+				},
+				{
+					config: tcpAOConfig(2, 2),
+					secret: map[string][]byte{"key-2": []byte("k2")},
+					tcpAO:  true,
+					sendID: 2,
+				},
+			},
+		},
+		{
+			name: "master key of the send key changed in the secret (session reset)",
+			steps: []step{
+				{
+					config: tcpAOConfig(1, 1),
+					secret: map[string][]byte{"key-1": []byte("k1")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+				{
+					config: tcpAOConfig(1, 1),
+					secret: map[string][]byte{"key-1": []byte("k1-new")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+			},
+		},
+		{
+			name: "switch between MD5 password and TCP-AO, then remove authentication",
+			steps: []step{
+				{
+					config:  md5Config,
+					secret:  map[string][]byte{"password": []byte("pw")},
+					md5Auth: true,
+				},
+				{
+					config: tcpAOConfig(1, 1),
+					secret: map[string][]byte{"key-1": []byte("k1")},
+					tcpAO:  true,
+					sendID: 1,
+				},
+				{
+					config:  md5Config,
+					secret:  map[string][]byte{"password": []byte("pw")},
+					md5Auth: true,
+				},
+				{
+					config: &v2.CiliumBGPPeerConfigSpec{},
+					secret: nil,
+				},
+			},
+		},
+	}
+
+	for _, tt := range table {
+		t.Run(tt.name, func(t *testing.T) {
+			req := require.New(t)
+
+			testInstance, err := setupBGPInstance(hivetest.Logger(t))
+			req.NoError(err)
+			t.Cleanup(func() {
+				testInstance.Router.Stop(context.Background(), types.StopRequest{FullDestroy: true})
+			})
+
+			reconciler := &NeighborReconciler{
+				logger:    hivetest.Logger(t),
+				BGPConfig: config.BGPConfig{SecretsNamespace: "bgp-secrets"},
+				metadata:  make(map[string]NeighborReconcilerMetadata),
+			}
+			req.NoError(reconciler.Init(testInstance))
+			defer reconciler.Cleanup(testInstance)
+
+			for i, s := range tt.steps {
+				peerConfig := s.config.DeepCopy()
+				reconciler.PeerConfig = store.InitMockStore[*v2.CiliumBGPPeerConfig]([]*v2.CiliumBGPPeerConfig{
+					{
+						ObjectMeta: metav1.ObjectMeta{Name: peerConfigName},
+						Spec:       *peerConfig,
+					},
+				})
+
+				var secrets []*slim_corev1.Secret
+				if s.secret != nil {
+					data := map[string]slim_corev1.Bytes{}
+					for k, v := range s.secret {
+						data[k] = slim_corev1.Bytes(v)
+					}
+					secrets = append(secrets, &slim_corev1.Secret{
+						ObjectMeta: slim_metav1.ObjectMeta{Namespace: "bgp-secrets", Name: secretName},
+						Data:       data,
+					})
+				}
+				reconciler.SecretStore = store.InitMockStore[*slim_corev1.Secret](secrets)
+
+				err := reconciler.Reconcile(context.Background(), ReconcileParams{
+					BGPInstance: testInstance,
+					DesiredConfig: &v2.CiliumBGPNodeInstance{
+						Name:  "bgp-node",
+						Peers: []v2.CiliumBGPNodePeer{nodePeer},
+					},
+					CiliumNode: &v2.CiliumNode{ObjectMeta: metav1.ObjectMeta{Name: "bgp-node"}},
+				})
+				if s.errStr != "" {
+					req.ErrorContains(err, s.errStr, "step %d", i)
+				} else {
+					req.NoError(err, "step %d", i)
+				}
+
+				resp, err := testInstance.Router.GetPeerState(context.Background(), &types.GetPeerStateRequest{})
+				req.NoError(err)
+				if s.noPeer {
+					req.Empty(resp.Peers, "step %d", i)
+					req.Empty(reconciler.getMetadata(testInstance), "step %d", i)
+					continue
+				}
+				req.Len(resp.Peers, 1, "step %d", i)
+				peer := resp.Peers[0]
+				req.Equal(s.tcpAO, peer.TCPAOEnabled, "step %d", i)
+				req.Equal(s.md5Auth, peer.TCPPasswordEnabled, "step %d", i)
+				if s.tcpAO {
+					req.NotNil(peer.TCPAO, "step %d", i)
+					req.Equal(s.sendID, peer.TCPAO.SendID, "step %d", i)
+				} else {
+					req.Nil(peer.TCPAO, "step %d", i)
+				}
+
+				// the reconciler metadata must reflect the resolved keys
+				appliedConfig, appliedSecret := s.config, s.secret
+				if s.applied != nil {
+					appliedConfig, appliedSecret = s.applied.config, s.applied.secret
+				}
+				md := reconciler.getMetadata(testInstance)
+				req.Len(md, 1, "step %d", i)
+				for _, pd := range md {
+					if s.tcpAO {
+						req.NotNil(pd.TCPAO, "step %d", i)
+						req.Equal(s.sendID, pd.TCPAO.SendID, "step %d", i)
+						req.Len(pd.TCPAO.Keys, len(appliedConfig.TCPAO.Keys), "step %d", i)
+						for _, k := range pd.TCPAO.Keys {
+							req.Equal(appliedSecret["key-"+strconv.Itoa(int(k.SendID))], k.MasterKey, "step %d", i)
+						}
+					} else {
+						req.Nil(pd.TCPAO, "step %d", i)
+					}
 				}
 			}
 		})

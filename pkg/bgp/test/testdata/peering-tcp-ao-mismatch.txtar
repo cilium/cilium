@@ -1,0 +1,356 @@
+#! --probe-tcp-ao --test-peering-ips=10.99.13.101,10.99.13.102
+
+# Misconfigurations between the two ends must never establish, and must recover
+# once fixed without leaving the adapter in a wedged state.
+#  1. algorithm mismatch
+#  2. receiveID mismatch
+#  3. sendKeyID pointing to a key the peer has no receive key for (on an established session)
+#  4. master key mismatch fixed while the session is down (IDLE)
+
+hive start
+gobgp/add-server test gobgp-k1-sha256.toml
+# Cilium uses hmac-sha-1-96 with the same master key -> MAC mismatch
+k8s/add cilium-node.yaml bgp-node-config.yaml peer-k1-sha1.yaml secret-k1.yaml
+# the session must not establish
+sleep 6s
+bgp/peers -o peers.actual --no-uptime
+!* grep established peers.actual
+
+##### 1. fix algorithm -> establishes
+k8s/update peer-k1-sha256.yaml
+gobgp/wait-state --timeout=30s 10.99.13.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-k1-opens1.expected peers.actual
+
+##### 2. receiveID mismatch: Cilium key (send 1, recv 7) while GoBGP sends with key-id 1 -> Cilium drops GoBGP segments
+k8s/update peer-k1-recv7.yaml
+gobgp/wait-state --timeout=20s 10.99.13.102 IDLE
+sleep 5s
+gobgp/peers -o peers.actual
+!* grep ESTABLISHED peers.actual
+k8s/update peer-k1-sha256.yaml
+gobgp/wait-state --timeout=30s 10.99.13.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-k1-opens2.expected peers.actual
+
+##### 3. add key 2 only on Cilium and select it as send key: GoBGP can not verify key 2.
+# RFC 5925: the peer ignores an unknown RNextKeyID, so the session must stay established
+# with key 1 and the Cilium side shows key 2 as rnext but not current.
+k8s/update peer-k1k2-send2.yaml secret-k1k2.yaml
+sleep 4s
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-k1-opens2.expected peers.actual
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^      Send Key ID: 2$' d.actual
+* grep --count=1 '^        Send ID 1 / Receive ID 1 \(current\):$' d.actual
+* grep --count=1 '^        Send ID 2 / Receive ID 2 \(rnext\):$' d.actual
+# now GoBGP learns key 2 and switches to it -> hitless completion
+gobgp/reload-server test gobgp-k1k2-send2.toml
+gobgp/wait-state 10.99.13.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-k1k2-send2-opens2.expected peers.actual
+bgp/peers --format=detailed -o d.actual --no-uptime
+* grep --count=1 '^        Send ID 2 / Receive ID 2 \(current, rnext\):$' d.actual
+
+##### 4. wrong master key for in-use key 2 -> down; fix while IDLE -> up again
+k8s/update secret-k1-k2wrong.yaml
+gobgp/wait-state --timeout=20s 10.99.13.102 IDLE
+# Also remove key 1 while down (on both sides) so recovery relies purely on key 2
+k8s/update peer-k2-send2.yaml secret-k2.yaml
+gobgp/reload-server test gobgp-k2.toml
+gobgp/wait-state --timeout=30s 10.99.13.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-k2-opens3.expected peers.actual
+
+#####
+
+-- gobgp-k1-sha256.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.13.101"
+  local-address-list = ["10.99.13.101"]
+  port = 1790
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 1
+      receive-id = 1
+      crypto-algorithm = "hmac-sha-256-128"
+      secret-key = "Q2lsaXVtMTIz"
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.13.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 1
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- gobgp-k1k2-send2.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.13.101"
+  local-address-list = ["10.99.13.101"]
+  port = 1790
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 1
+      receive-id = 1
+      crypto-algorithm = "hmac-sha-256-128"
+      secret-key = "Q2lsaXVtMTIz"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 2
+      receive-id = 2
+      crypto-algorithm = "hmac-sha-1-96"
+      secret-key = "Q2lsaXVtNDU2"
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.13.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 2
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- gobgp-k2.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.13.101"
+  local-address-list = ["10.99.13.101"]
+  port = 1790
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 2
+      receive-id = 2
+      crypto-algorithm = "hmac-sha-1-96"
+      secret-key = "Q2lsaXVtNDU2"
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.13.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 2
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.13.102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    routerID: 10.99.13.102
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65010
+      peerAddress: 10.99.13.101
+      localAddress: 10.99.13.102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- peer-k1-sha1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: s
+    keys:
+    - sendID: 1
+      receiveID: 1
+      algorithm: hmac-sha-1-96
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+
+-- peer-k1-sha256.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: s
+    keys:
+    - sendID: 1
+      receiveID: 1
+      algorithm: hmac-sha-256-128
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+
+-- peer-k1-recv7.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: s
+    keys:
+    - sendID: 1
+      receiveID: 7
+      algorithm: hmac-sha-256-128
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+
+-- peer-k1k2-send2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: s
+    sendKeyID: 2
+    keys:
+    - sendID: 1
+      receiveID: 1
+      algorithm: hmac-sha-256-128
+    - sendID: 2
+      receiveID: 2
+      algorithm: hmac-sha-1-96
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+
+-- peer-k2-send2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: s
+    sendKeyID: 2
+    keys:
+    - sendID: 2
+      receiveID: 2
+      algorithm: hmac-sha-1-96
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+
+-- secret-k1.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: s
+  namespace: kube-system
+data:
+  key-1: Q2lsaXVtMTIz
+
+-- secret-k1k2.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: s
+  namespace: kube-system
+data:
+  key-1: Q2lsaXVtMTIz
+  key-2: Q2lsaXVtNDU2
+
+-- secret-k1-k2wrong.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: s
+  namespace: kube-system
+data:
+  key-1: Q2lsaXVtMTIz
+  key-2: V3JvbmdLZXk=
+
+-- secret-k2.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: s
+  namespace: kube-system
+data:
+  key-2: Q2lsaXVtNDU2
+
+-- gobgp-k1-opens1.expected --
+PeerAddress    RouterID       PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.13.102   10.99.13.102   65001     ESTABLISHED    3           9          0                     1       1/1(current,rnext)
+-- gobgp-k1-opens2.expected --
+PeerAddress    RouterID       PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.13.102   10.99.13.102   65001     ESTABLISHED    3           9          0                     2       1/1(current,rnext)
+-- gobgp-k1k2-send2-opens2.expected --
+PeerAddress    RouterID       PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.13.102   10.99.13.102   65001     ESTABLISHED    3           9          0                     2       1/1 2/2(current,rnext)
+-- gobgp-k2-opens3.expected --
+PeerAddress    RouterID       PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.13.102   10.99.13.102   65001     ESTABLISHED    3           9          0                     3       2/2(current,rnext)

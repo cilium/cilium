@@ -130,11 +130,12 @@ CiliumBGPPeerConfig may report some configuration errors in the
 ``.status.conditions`` caught at runtime. Currently, the following conditions
 are defined.
 
-====================================== ===============================================
+====================================== ==========================================================
 Condition Name                         Description
-====================================== ===============================================
-``cilium.io/MissingAuthSecret``        The Secret specified in the ``.spec.authSecretRef`` doesn't exist.
-====================================== ===============================================
+====================================== ==========================================================
+``cilium.io/MissingAuthSecret``        The Secret specified in the ``.spec.authSecretRef`` or in
+                                       the ``.spec.tcpAO.secretRef`` doesn't exist.
+====================================== ==========================================================
 
 CiliumBGPNodeConfig Status
 ==========================

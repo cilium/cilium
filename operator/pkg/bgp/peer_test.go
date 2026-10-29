@@ -193,6 +193,38 @@ func TestMissingAuthSecretCondition(t *testing.T) {
 			expectedState:  meta_v1.ConditionTrue,
 			expectedReason: "AuthSecretMissing",
 		},
+		{
+			name: "MissingAuthSecret False TCP-AO",
+			peerConfig: &v2.CiliumBGPPeerConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: peerConfigName,
+				},
+				Spec: v2.CiliumBGPPeerConfigSpec{
+					TCPAO: &v2.CiliumBGPTCPAO{
+						SecretRef: secretName,
+						Keys:      []v2.CiliumBGPTCPAOKey{{SendID: 1, ReceiveID: 1}},
+					},
+				},
+			},
+			expectedState:  meta_v1.ConditionFalse,
+			expectedReason: "AuthSecretValidated",
+		},
+		{
+			name: "MissingAuthSecret True TCP-AO",
+			peerConfig: &v2.CiliumBGPPeerConfig{
+				ObjectMeta: meta_v1.ObjectMeta{
+					Name: peerConfigName,
+				},
+				Spec: v2.CiliumBGPPeerConfigSpec{
+					TCPAO: &v2.CiliumBGPTCPAO{
+						SecretRef: secretName + "foo",
+						Keys:      []v2.CiliumBGPTCPAOKey{{SendID: 1, ReceiveID: 1}},
+					},
+				},
+			},
+			expectedState:  meta_v1.ConditionTrue,
+			expectedReason: "AuthSecretMissing",
+		},
 	}
 
 	for _, tt := range tests {

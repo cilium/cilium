@@ -80,6 +80,15 @@ func (g *GoBGPServer) GetPeerState(ctx context.Context, req *types.GetPeerStateR
 			state.TCPPasswordEnabled = peer.Conf.AuthPassword != ""
 		}
 
+		if peer.TcpAo != nil && peer.TcpAo.Keychain != "" {
+			state.TCPAOEnabled = true
+			var tcpAOState *gobgp.TcpAoPeerState
+			if peer.State != nil {
+				tcpAOState = peer.State.TcpAoState
+			}
+			state.TCPAO = toAgentTCPAOState(peer.TcpAo, tcpAOState)
+		}
+
 		if peer.State != nil {
 			if peer.Conf.PeerAsn == 0 { // if peerAsn is not set, use peer state peerAsn
 				state.PeerAsn = int64(peer.State.PeerAsn)
@@ -179,6 +188,7 @@ func (g *GoBGPServer) GetPeerStateLegacy(ctx context.Context) (types.GetPeerStat
 			peerState.PeerAddress = peer.Conf.NeighborAddress
 			peerState.PeerAsn = int64(peer.Conf.PeerAsn)
 			peerState.TCPPasswordEnabled = peer.Conf.AuthPassword != ""
+			peerState.TCPAoEnabled = peer.TcpAo != nil && peer.TcpAo.Keychain != ""
 			if peer.Conf.Description != "" {
 				pd := peerDescription{}
 				if err := json.Unmarshal([]byte(peer.Conf.Description), &pd); err == nil {

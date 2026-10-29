@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"sort"
 	"strings"
 	"text/tabwriter"
@@ -35,6 +36,8 @@ const (
 
 	timeoutFlag      = "timeout"
 	timeoutFlagShort = "t"
+
+	tcpAOFlag = "tcp-ao"
 
 	gobgpSessionStatePrefix = "SESSION_STATE_"
 )
@@ -316,16 +319,24 @@ func GoBGPPeersCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 			Summary: "List peers on the GoBGP server",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.StringP(serverNameFlag, serverNameFlagShort, "", "Name of the GoBGP server instance. Can be omitted if only one instance is active.")
+				fs.Bool(tcpAOFlag, false, "Print additional columns with the number of received OPEN messages and the TCP-AO key state")
 				addOutFileFlag(fs)
 			},
 			Detail: []string{
 				"List peers configured on the GoBGP server",
 				"",
 				"If there are multiple server instances configured, the server-asn flag needs to be specified.",
+				"With the --tcp-ao flag, the 'Opens' column shows the number of OPEN messages received from the peer",
+				"(i.e. the number of TCP sessions established since the peer was configured), and the 'TCPAOKeys' column",
+				"shows the TCP-AO keys of the peer in the form '<SendID>/<ReceiveID>[(current|rnext)]'.",
 			},
 		},
 		func(s *script.State, args ...string) (waitFunc script.WaitFunc, err error) {
 			gobgpServer, err := getGoBGPServer(s, cmdCtx)
+			if err != nil {
+				return nil, err
+			}
+			withTCPAO, err := s.Flags.GetBool(tcpAOFlag)
 			if err != nil {
 				return nil, err
 			}
@@ -346,9 +357,9 @@ func GoBGPPeersCmd(cmdCtx *GoBGPCmdContext) script.Cmd {
 					return peers[i].State.PeerAsn < peers[j].State.PeerAsn || peers[i].Conf.NeighborAddress < peers[j].Conf.NeighborAddress
 				})
 
-				printPeerHeader(tw)
+				printPeerHeader(tw, withTCPAO)
 				for _, peer := range peers {
-					printPeer(tw, peer)
+					printPeer(tw, peer, withTCPAO)
 				}
 				tw.Flush()
 				return buf.String(), "", err
@@ -483,13 +494,47 @@ func getGoBGPServer(s *script.State, ctx *GoBGPCmdContext) (*server.BgpServer, e
 	return srv, nil
 }
 
-func printPeerHeader(w *tabwriter.Writer) {
-	fmt.Fprintln(w, "PeerAddress\tRouterID\tPeerASN\tSessionState\tKeepAlive\tHoldTime\tGracefulRestartTime")
+func printPeerHeader(w *tabwriter.Writer, withTCPAO bool) {
+	fmt.Fprint(w, "PeerAddress\tRouterID\tPeerASN\tSessionState\tKeepAlive\tHoldTime\tGracefulRestartTime")
+	if withTCPAO {
+		fmt.Fprint(w, "\tOpens\tTCPAOKeys")
+	}
+	fmt.Fprintln(w)
 }
 
-func printPeer(w *tabwriter.Writer, peer *gobgpapi.Peer) {
-	fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%d\t%d\t%d\n", peer.Conf.NeighborAddress, peer.State.RouterId, peer.State.PeerAsn, sessionStateToString(peer.State.SessionState),
+func printPeer(w *tabwriter.Writer, peer *gobgpapi.Peer, withTCPAO bool) {
+	fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%d\t%d\t%d", peer.Conf.NeighborAddress, peer.State.RouterId, peer.State.PeerAsn, sessionStateToString(peer.State.SessionState),
 		peer.Timers.State.KeepaliveInterval, peer.Timers.State.NegotiatedHoldTime, peer.GracefulRestart.PeerRestartTime)
+	if withTCPAO {
+		fmt.Fprintf(w, "\t%d\t%s", peer.GetState().GetMessages().GetReceived().GetOpen(), formatGoBGPTCPAOKeys(peer.GetState().GetTcpAoState()))
+	}
+	fmt.Fprintln(w)
+}
+
+// formatGoBGPTCPAOKeys formats the TCP-AO key state of a GoBGP peer as a space-separated list of
+// "<SendID>/<ReceiveID>[(current|rnext|current,rnext)]" entries, sorted by SendID.
+func formatGoBGPTCPAOKeys(state *gobgpapi.TcpAoPeerState) string {
+	if state == nil || len(state.GetKeys()) == 0 {
+		return "-"
+	}
+	keys := slices.Clone(state.GetKeys())
+	sort.Slice(keys, func(i, j int) bool { return keys[i].GetSendId() < keys[j].GetSendId() })
+	entries := make([]string, 0, len(keys))
+	for _, k := range keys {
+		entry := fmt.Sprintf("%d/%d", k.GetSendId(), k.GetReceiveId())
+		var flags []string
+		if k.GetCurrent() {
+			flags = append(flags, "current")
+		}
+		if k.GetReceiveNext() {
+			flags = append(flags, "rnext")
+		}
+		if len(flags) > 0 {
+			entry += "(" + strings.Join(flags, ",") + ")"
+		}
+		entries = append(entries, entry)
+	}
+	return strings.Join(entries, " ")
 }
 
 func printPathHeader(w *tabwriter.Writer) {

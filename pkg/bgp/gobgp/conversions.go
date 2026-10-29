@@ -4,6 +4,7 @@
 package gobgp
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -552,6 +553,7 @@ func ToGoBGPPeer(n *types.Neighbor, oldPeer *gobgp.Peer, v4 bool) *gobgp.Peer {
 	newPeer := &gobgp.Peer{}
 
 	newPeer.Conf = toGoBGPPeerConf(n, oldPeer)
+	newPeer.TcpAo = toGoBGPTCPAOPeerConfig(n.Address, n.TCPAO)
 	newPeer.EbgpMultihop = toGoBGPEbgpMultihop(n.EbgpMultihop)
 	newPeer.Timers = toGoBGPTimers(n.Timers)
 	newPeer.Transport = toGoBGPTransport(n.Transport, oldPeer, v4)
@@ -601,6 +603,106 @@ func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
 	conf.PeerAsn = n.ASN
 
 	return conf
+}
+
+// toGoBGPTCPAOPeerConfig converts the neighbor TCP-AO configuration into the GoBGP peer
+// TCP-AO configuration, which references the per-neighbor keychain by name.
+func toGoBGPTCPAOPeerConfig(addr netip.Addr, t *types.NeighborTCPAO) *gobgp.TcpAoPeerConfig {
+	if t == nil {
+		return nil
+	}
+	return &gobgp.TcpAoPeerConfig{
+		Keychain: tcpAOKeychainName(addr),
+		SendId:   uint32(t.SendID),
+	}
+}
+
+// toGoBGPTCPAOKeychain converts the neighbor TCP-AO keychain into a GoBGP keychain with the given name.
+func toGoBGPTCPAOKeychain(name string, t *types.NeighborTCPAO) *gobgp.TcpAoKeychain {
+	keychain := &gobgp.TcpAoKeychain{
+		Name: name,
+	}
+	if t == nil {
+		return keychain
+	}
+	keychain.Keys = toGoBGPTCPAOKeys(t.Keys)
+	return keychain
+}
+
+func toGoBGPTCPAOKeys(keys []types.TCPAOKey) []*gobgp.TcpAoKey {
+	if len(keys) == 0 {
+		return nil
+	}
+	res := make([]*gobgp.TcpAoKey, 0, len(keys))
+	for _, k := range keys {
+		res = append(res, toGoBGPTCPAOKey(k))
+	}
+	return res
+}
+
+func toGoBGPTCPAOKey(k types.TCPAOKey) *gobgp.TcpAoKey {
+	return &gobgp.TcpAoKey{
+		SendId:            uint32(k.SendID),
+		ReceiveId:         uint32(k.ReceiveID),
+		Algorithm:         toGoBGPTCPAOAlgorithm(k.Algorithm),
+		ExcludeTcpOptions: k.ExcludeTCPOptions,
+		MasterKey:         bytes.Clone(k.MasterKey),
+	}
+}
+
+// toGoBGPTCPAOKeyID converts a key into a GoBGP key carrying only its identifiers,
+// as expected by the delete list of the keychain update request.
+func toGoBGPTCPAOKeyID(k types.TCPAOKey) *gobgp.TcpAoKey {
+	return &gobgp.TcpAoKey{
+		SendId:    uint32(k.SendID),
+		ReceiveId: uint32(k.ReceiveID),
+	}
+}
+
+func toGoBGPTCPAOAlgorithm(a types.TCPAOAlgorithm) gobgp.TcpAoAlgorithm {
+	switch a {
+	case types.TCPAOAlgorithmHMACSHA1_96:
+		return gobgp.TcpAoAlgorithm_TCP_AO_ALGORITHM_HMAC_SHA1_96
+	case types.TCPAOAlgorithmAES128CMAC_96:
+		return gobgp.TcpAoAlgorithm_TCP_AO_ALGORITHM_AES_128_CMAC_96
+	case types.TCPAOAlgorithmHMACSHA256_96:
+		return gobgp.TcpAoAlgorithm_TCP_AO_ALGORITHM_HMAC_SHA256_96
+	case types.TCPAOAlgorithmHMACSHA256_128:
+		return gobgp.TcpAoAlgorithm_TCP_AO_ALGORITHM_HMAC_SHA256_128
+	default:
+		return gobgp.TcpAoAlgorithm_TCP_AO_ALGORITHM_UNSPECIFIED
+	}
+}
+
+// toAgentTCPAOState converts the GoBGP peer TCP-AO configuration and operational state
+// into the agent peer TCP-AO state. Returns nil if TCP-AO is not configured for the peer.
+func toAgentTCPAOState(conf *gobgp.TcpAoPeerConfig, state *gobgp.TcpAoPeerState) *types.PeerTCPAOState {
+	if conf == nil || conf.Keychain == "" {
+		return nil
+	}
+	res := &types.PeerTCPAOState{
+		SendID: uint8(conf.SendId),
+	}
+	if state == nil {
+		return res
+	}
+	res.PacketsKeyNotFound = state.PacketsKeyNotFound
+	res.PacketsAORequired = state.PacketsAoRequired
+	res.PacketsDroppedICMP = state.PacketsDroppedIcmp
+	for _, k := range state.Keys {
+		if k == nil {
+			continue
+		}
+		res.Keys = append(res.Keys, types.PeerTCPAOKeyState{
+			SendID:      uint8(k.SendId),
+			ReceiveID:   uint8(k.ReceiveId),
+			Current:     k.Current,
+			ReceiveNext: k.ReceiveNext,
+			PacketsGood: k.PacketsGood,
+			PacketsBad:  k.PacketsBad,
+		})
+	}
+	return res
 }
 
 func toGoBGPEbgpMultihop(n *types.NeighborEbgpMultihop) *gobgp.EbgpMultihop {

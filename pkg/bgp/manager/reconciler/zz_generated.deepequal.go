@@ -34,6 +34,13 @@ func (in *PeerData) DeepEqual(other *PeerData) bool {
 	if in.Password != other.Password {
 		return false
 	}
+	if (in.TCPAO == nil) != (other.TCPAO == nil) {
+		return false
+	} else if in.TCPAO != nil {
+		if !in.TCPAO.DeepEqual(other.TCPAO) {
+			return false
+		}
+	}
 
 	return true
 }

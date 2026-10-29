@@ -1,0 +1,482 @@
+#! --probe-tcp-ao --test-peering-ips=10.99.9.101,10.99.9.102
+
+# Tests IPv4 peering authenticated with TCP-AO (RFC 5925): a full hitless key rotation
+# (key 1 -> key 2) coordinated between both peers, and a key change which requires a
+# session reset.
+#
+# The 'Opens' column of 'gobgp/peers --tcp-ao' is the number of OPEN messages GoBGP received
+# from Cilium, i.e. the number of TCP sessions established since the peer was configured.
+# It must stay at 1 across a hitless rotation.
+
+# Start the hive
+hive start
+
+# Configure gobgp server with a TCP-AO keychain holding key 1 only
+gobgp/add-server test gobgp-server-key1.toml
+
+# Configure BGP on Cilium with TCP-AO key 1 only
+k8s/add cilium-node.yaml bgp-node-config.yaml bgp-peer-config-key1.yaml bgp-advertisement.yaml tcp-ao-secret-key1.yaml
+
+# Wait for peering to be established
+gobgp/wait-state 10.99.9.102 ESTABLISHED
+
+# Validate peering state: one TCP session, key 1 is used in both directions.
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-peers-key1.expected peers.actual
+
+# Validate IPv4 routes
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+# Validate Cilium peer state
+bgp/peers -o peers.actual --no-uptime
+* cmp cilium-peers.expected peers.actual
+
+# Validate Cilium TCP-AO state: key 1 is the only key, and is both the current send key
+# and the key requested from the peer (rnext).
+bgp/peers --format=detailed -o peers-detailed.actual --no-uptime
+* grep --count=1 '^    TCP-AO Enabled: true$' peers-detailed.actual
+* grep --count=1 '^      Send Key ID: 1$' peers-detailed.actual
+* grep --count=1 '^        Send ID 1 / Receive ID 1 \(current, rnext\):$' peers-detailed.actual
+!* grep 'Send ID 2 / Receive ID 2' peers-detailed.actual
+* grep --count=1 '^      Packets Key Not Found: 0$' peers-detailed.actual
+
+##### Key rotation, step 1: add key 2 on both sides (key 1 stays the send key on both sides).
+
+gobgp/reload-server test gobgp-server-key1-key2.toml
+k8s/update tcp-ao-secret-key1-key2.yaml bgp-peer-config-key1-key2.yaml
+
+# Adding a key is hitless: still one TCP session, key 1 still used in both directions.
+gobgp/wait-state 10.99.9.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-peers-key1-key2.expected peers.actual
+
+bgp/peers --format=detailed -o peers-detailed.actual --no-uptime
+* grep --count=1 '^      Send Key ID: 1$' peers-detailed.actual
+* grep --count=1 '^        Send ID 1 / Receive ID 1 \(current, rnext\):$' peers-detailed.actual
+* grep --count=1 '^        Send ID 2 / Receive ID 2:$' peers-detailed.actual
+
+##### Key rotation, step 2: select key 2 as the send key on the Cilium side.
+
+k8s/update bgp-peer-config-key1-key2-send2.yaml
+
+# Still hitless: on the established session Cilium requests the peer to switch to key 2
+# (RNextKeyID), while it keeps signing with key 1 until the peer requests key 2 as well.
+# GoBGP honors the request and now signs with key 2, while still requesting key 1.
+gobgp/wait-state 10.99.9.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-peers-key1-key2-send2-cilium.expected peers.actual
+
+bgp/peers --format=detailed -o peers-detailed.actual --no-uptime
+* grep --count=1 '^      Send Key ID: 2$' peers-detailed.actual
+* grep --count=1 '^        Send ID 1 / Receive ID 1 \(current\):$' peers-detailed.actual
+* grep --count=1 '^        Send ID 2 / Receive ID 2 \(rnext\):$' peers-detailed.actual
+* grep --count=1 '^      Packets Key Not Found: 0$' peers-detailed.actual
+
+##### Key rotation, step 3: select key 2 as the send key on the GoBGP side as well.
+
+gobgp/reload-server test gobgp-server-key1-key2-send2.toml
+
+# Still hitless: both sides now use key 2 in both directions.
+gobgp/wait-state 10.99.9.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-peers-key1-key2-send2.expected peers.actual
+
+bgp/peers --format=detailed -o peers-detailed.actual --no-uptime
+* grep --count=1 '^      Send Key ID: 2$' peers-detailed.actual
+* grep --count=1 '^        Send ID 1 / Receive ID 1:$' peers-detailed.actual
+* grep --count=1 '^        Send ID 2 / Receive ID 2 \(current, rnext\):$' peers-detailed.actual
+
+##### Key rotation, step 4: remove the old key 1 from both sides.
+
+k8s/update tcp-ao-secret-key2.yaml bgp-peer-config-key2.yaml
+gobgp/reload-server test gobgp-server-key2.toml
+
+# Removing an unused key is hitless: still one TCP session, key 2 used in both directions.
+gobgp/wait-state 10.99.9.102 ESTABLISHED
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-peers-key2.expected peers.actual
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+bgp/peers --format=detailed -o peers-detailed.actual --no-uptime
+* grep --count=1 '^      Send Key ID: 2$' peers-detailed.actual
+!* grep 'Send ID 1 / Receive ID 1' peers-detailed.actual
+* grep --count=1 '^        Send ID 2 / Receive ID 2 \(current, rnext\):$' peers-detailed.actual
+* grep --count=1 '^      Packets Key Not Found: 0$' peers-detailed.actual
+
+##### Change of the active send key: requires a session reset.
+
+# Change the master key of the active send key to a wrong value: the session is reset
+# and can not be re-established, as the GoBGP side does not know the new key.
+k8s/update tcp-ao-secret-key2-wrong.yaml
+
+# Wait for peering to go down
+gobgp/wait-state 10.99.9.102 IDLE
+
+# Restore the correct master key: the session is reset again and re-established
+# (after the 5s IdleHoldTime applied on the GoBGP side).
+k8s/update tcp-ao-secret-key2.yaml
+
+gobgp/wait-state --timeout=30s 10.99.9.102 ESTABLISHED
+gobgp/routes -o routes.actual ipv4 unicast
+* cmp gobgp-routes-ipv4.expected routes.actual
+
+# GoBGP has received a second OPEN (one session reset), key 2 is used in both directions.
+gobgp/peers --tcp-ao -o peers.actual
+* cmp gobgp-peers-key2-reset.expected peers.actual
+
+bgp/peers --format=detailed -o peers-detailed.actual --no-uptime
+* grep --count=1 '^    TCP-AO Enabled: true$' peers-detailed.actual
+* grep --count=1 '^      Send Key ID: 2$' peers-detailed.actual
+* grep --count=1 '^        Send ID 2 / Receive ID 2 \(current, rnext\):$' peers-detailed.actual
+
+#####
+
+-- gobgp-server-key1.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.9.101"
+  local-address-list = ["10.99.9.101"]
+  port = 1790
+
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 1
+      receive-id = 1
+      crypto-algorithm = "hmac-sha-1-96"
+      secret-key = "Q2lsaXVtMTIz"
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.9.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 1
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- gobgp-server-key1-key2.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.9.101"
+  local-address-list = ["10.99.9.101"]
+  port = 1790
+
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 1
+      receive-id = 1
+      crypto-algorithm = "hmac-sha-1-96"
+      secret-key = "Q2lsaXVtMTIz"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 2
+      receive-id = 2
+      crypto-algorithm = "hmac-sha-256-128"
+      secret-key = "Q2lsaXVtNDU2"
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.9.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 1
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- gobgp-server-key1-key2-send2.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.9.101"
+  local-address-list = ["10.99.9.101"]
+  port = 1790
+
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 1
+      receive-id = 1
+      crypto-algorithm = "hmac-sha-1-96"
+      secret-key = "Q2lsaXVtMTIz"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 2
+      receive-id = 2
+      crypto-algorithm = "hmac-sha-256-128"
+      secret-key = "Q2lsaXVtNDU2"
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.9.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 2
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- gobgp-server-key2.toml --
+[global.config]
+  as = 65010
+  router-id = "10.99.9.101"
+  local-address-list = ["10.99.9.101"]
+  port = 1790
+
+[[keychains]]
+  [keychains.config]
+    name = "cilium"
+  [[keychains.keys]]
+    [keychains.keys.config]
+      key-id = 2
+      receive-id = 2
+      crypto-algorithm = "hmac-sha-256-128"
+      secret-key = "Q2lsaXVtNDU2"
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "10.99.9.102"
+    peer-as = 65001
+  [neighbors.transport.config]
+    passive-mode = true
+  [neighbors.tcp-ao.config]
+    keychain = "cilium"
+    send-id = 2
+  [[neighbors.afi-safis]]
+    [neighbors.afi-safis.config]
+      afi-safi-name = "ipv4-unicast"
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  addresses:
+  - ip: 10.99.9.102
+    type: InternalIP
+  ipam:
+    podCIDRs:
+    - 10.244.0.0/24
+
+-- bgp-node-config.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPNodeConfig
+metadata:
+  name: test-node
+spec:
+  bgpInstances:
+  - localASN: 65001
+    routerID: 10.99.9.102
+    name: tor
+    peers:
+    - name: gobgp-peer
+      peerASN: 65010
+      peerAddress: 10.99.9.101
+      localAddress: 10.99.9.102
+      peerConfigRef:
+        name: gobgp-peer-config
+
+-- bgp-peer-config-key1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: bgp-tcp-ao-secret
+    keys:
+    - sendID: 1
+      receiveID: 1
+      algorithm: hmac-sha-1-96
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-peer-config-key1-key2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: bgp-tcp-ao-secret
+    sendKeyID: 1
+    keys:
+    - sendID: 1
+      receiveID: 1
+      algorithm: hmac-sha-1-96
+    - sendID: 2
+      receiveID: 2
+      algorithm: hmac-sha-256-128
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-peer-config-key1-key2-send2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: bgp-tcp-ao-secret
+    sendKeyID: 2
+    keys:
+    - sendID: 1
+      receiveID: 1
+      algorithm: hmac-sha-1-96
+    - sendID: 2
+      receiveID: 2
+      algorithm: hmac-sha-256-128
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-peer-config-key2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPPeerConfig
+metadata:
+  name: gobgp-peer-config
+spec:
+  transport:
+    peerPort: 1790
+  tcpAO:
+    secretRef: bgp-tcp-ao-secret
+    keys:
+    - sendID: 2
+      receiveID: 2
+      algorithm: hmac-sha-256-128
+  timers:
+    connectRetryTimeSeconds: 1
+    holdTimeSeconds: 9
+    keepAliveTimeSeconds: 3
+  families:
+  - afi: ipv4
+    safi: unicast
+    advertisements:
+      matchLabels:
+        advertise: bgp
+
+-- bgp-advertisement.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumBGPAdvertisement
+metadata:
+  labels:
+    advertise: bgp
+  name: bgp-advertisements
+spec:
+  advertisements:
+  - advertisementType: PodCIDR
+
+-- tcp-ao-secret-key1.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: bgp-tcp-ao-secret
+  namespace: kube-system
+data:
+  key-1: Q2lsaXVtMTIz
+
+-- tcp-ao-secret-key1-key2.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: bgp-tcp-ao-secret
+  namespace: kube-system
+data:
+  key-1: Q2lsaXVtMTIz
+  key-2: Q2lsaXVtNDU2
+
+-- tcp-ao-secret-key2.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: bgp-tcp-ao-secret
+  namespace: kube-system
+data:
+  key-2: Q2lsaXVtNDU2
+
+-- tcp-ao-secret-key2-wrong.yaml --
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: bgp-tcp-ao-secret
+  namespace: kube-system
+data:
+  key-2: V3JvbmdLZXk=
+
+-- gobgp-peers-key1.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.9.102   10.99.9.102   65001     ESTABLISHED    3           9          0                     1       1/1(current,rnext)
+-- gobgp-peers-key1-key2.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.9.102   10.99.9.102   65001     ESTABLISHED    3           9          0                     1       1/1(current,rnext) 2/2
+-- gobgp-peers-key1-key2-send2-cilium.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.9.102   10.99.9.102   65001     ESTABLISHED    3           9          0                     1       1/1(rnext) 2/2(current)
+-- gobgp-peers-key1-key2-send2.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.9.102   10.99.9.102   65001     ESTABLISHED    3           9          0                     1       1/1 2/2(current,rnext)
+-- gobgp-peers-key2.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.9.102   10.99.9.102   65001     ESTABLISHED    3           9          0                     1       2/2(current,rnext)
+-- gobgp-peers-key2-reset.expected --
+PeerAddress   RouterID      PeerASN   SessionState   KeepAlive   HoldTime   GracefulRestartTime   Opens   TCPAOKeys
+10.99.9.102   10.99.9.102   65001     ESTABLISHED    3           9          0                     2       2/2(current,rnext)
+-- gobgp-routes-ipv4.expected --
+Prefix          NextHop       Attrs
+10.244.0.0/24   10.99.9.102   [{Origin: i} {AsPath: 65001} {Nexthop: 10.99.9.102}]
+-- cilium-peers.expected --
+Instance   Peer         Session State   Uptime   Family         Received   Accepted   Advertised
+tor        gobgp-peer   established     -        ipv4-unicast   0          0          1
