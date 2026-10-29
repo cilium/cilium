@@ -13,6 +13,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
@@ -88,7 +89,15 @@ func NewDynamicFlowProcessor(reg *prometheus.Registry, logger *slog.Logger, conf
 	}
 	watcher := NewMetricConfigWatcher(logger, configFilePath, dynamicFlowProcessor.onConfigReload)
 	dynamicFlowProcessor.watcher = watcher
+	initEndpointDeletionHandler(dynamicFlowProcessor.processCiliumEndpointDeletion)
 	return dynamicFlowProcessor
+}
+
+func (d *DynamicFlowProcessor) processCiliumEndpointDeletion(endpoint *types.CiliumEndpoint) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
+
+	api.ProcessCiliumEndpointDeletion(endpoint, d.Metrics)
 }
 
 func (d *DynamicFlowProcessor) onConfigReload(ctx context.Context, hash uint64, config api.Config) {
