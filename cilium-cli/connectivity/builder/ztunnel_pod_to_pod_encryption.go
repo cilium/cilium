@@ -19,6 +19,7 @@ func (t ztunnelPodToPodEncryption) build(ct *check.ConnectivityTest, _ map[strin
 	// unencrypted packets shall, or shall not, be observed based on the feature set.
 	newTest("ztunnel-pod-to-pod-encryption", ct).
 		WithMultiNodeOnly().
+		WithHostNetNSDaemonSet().
 		WithFeatureRequirements(
 			features.RequireEnabled(features.Ztunnel),
 			features.RequireMode(features.EncryptionPod, "ztunnel"),

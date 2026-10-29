@@ -16,5 +16,6 @@ func (t noPoliciesFromOutside) build(ct *check.ConnectivityTest, _ map[string]st
 		WithUnsafeTests().
 		WithFeatureRequirements(features.RequireEnabled(features.NodeWithoutCilium)).
 		WithIPRoutesFromOutsideToPodCIDRs().
+		WithStaticRoutesHostNetNSDaemonSet().
 		WithScenarios(tests.FromCIDRToPod())
 }
