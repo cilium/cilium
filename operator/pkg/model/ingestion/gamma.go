@@ -167,6 +167,7 @@ func toGammaHTTPRoutes(
 				res.Sources = append(res.Sources, hrSource)
 				res.Name = fmt.Sprintf("%s-%s-%d", parentSvc.GetNamespace(), parentSvc.GetName(), portVal)
 				res.Port = portVal
+				res.Protocol = model.ListenerProtocolHTTP
 				// GAMMA spec _explicitly_ says that we must not filter by hostname, only address and port
 				res.Hostname = "*"
 
@@ -311,6 +312,7 @@ func toGammaGRPCRoutes(
 				res.Sources = append(res.Sources, grpcrSource)
 				res.Name = fmt.Sprintf("%s-%s-%d", parentSvc.GetNamespace(), parentSvc.GetName(), portVal)
 				res.Port = portVal
+				res.Protocol = model.ListenerProtocolHTTP
 				// GAMMA spec _explicitly_ says that we must not filter by hostname, only address and port
 				res.Hostname = "*"
 
