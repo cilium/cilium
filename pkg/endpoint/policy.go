@@ -93,7 +93,7 @@ func (e *Endpoint) getNamedPortEgress(npMap types.NamedPortMultiMap, name string
 // For port ranges the proxy is identified by the first port in
 // the range, as overlapping proxy port ranges are not supported.
 // Must be called with e.mutex held.
-func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16, u8proto.U8proto) {
+func (e *Endpoint) proxyID(l4 *policy.L4Filter, parser policy.L7ParserType, listener string) (string, uint16, u8proto.U8proto) {
 	port := l4.Port
 	protocol := l4.U8Proto
 	// Calculate protocol if it is 0 (default) and
@@ -109,7 +109,7 @@ func (e *Endpoint) proxyID(l4 *policy.L4Filter, listener string) (string, uint16
 		}
 	}
 
-	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, listener), port, protocol
+	return policy.ProxyID(e.ID, l4.Ingress, string(l4.Protocol), port, parser, listener), port, protocol
 }
 
 // setNextPolicyRevision updates the desired policy revision field
