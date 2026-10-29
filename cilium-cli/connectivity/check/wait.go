@@ -237,7 +237,7 @@ func WaitForPodDNS(parentCtx context.Context, ct *ConnectivityTest, src, dst Pod
 	// we query it with a so-called "local request" (e.g. "localhost") to get a response.
 	// See https://coredns.io/plugins/local/ for more info.
 	target := "localhost"
-	err := pollExecProbe(parentCtx, ShortTimeout, func() error {
+	lookup := func() error {
 		stdout, err := src.K8sClient.ExecInPod(parentCtx, src.Namespace(), src.NameWithoutNamespace(),
 			src.Pod.Spec.Containers[0].Name, []string{"nslookup", target, dst.Address(features.IPFamilyAny)})
 		if err != nil {
@@ -245,11 +245,13 @@ func WaitForPodDNS(parentCtx context.Context, ct *ConnectivityTest, src, dst Pod
 				src.K8sClient.ClusterName(), target, src.Name(), dst.Name(), err, stdout.String())
 		}
 		return err
-	})
+	}
+	err := pollExecProbe(parentCtx, ShortTimeout, lookup)
 	if err != nil {
-		return withNodeReachability(parentCtx, ct,
-			fmt.Errorf("timeout reached waiting for lookup for %s from pod %s (node %s) to server on pod %s (node %s) to succeed (last error: %w)",
-				target, src.Name(), src.NodeName(), dst.Name(), dst.NodeName(), err))
+		err = withNodeReachability(parentCtx, ct,
+			fmt.Errorf("timeout reached waiting for lookup for %s from pod %s (node %s, %s) to server on pod %s (node %s, %s) to succeed (last error: %w)",
+				target, src.Name(), src.NodeName(), src.Address(features.IPFamilyAny), dst.Name(), dst.NodeName(), dst.Address(features.IPFamilyAny), err))
+		return withRecoveryTime(parentCtx, err, lookup)
 	}
 
 	return nil
@@ -261,7 +263,7 @@ func WaitForCoreDNS(parentCtx context.Context, ct *ConnectivityTest, client Pod)
 		client.K8sClient.ClusterName(), client.Name())
 
 	target := "kubernetes.default"
-	err := pollExecProbe(parentCtx, ShortTimeout, func() error {
+	lookup := func() error {
 		stdout, err := client.K8sClient.ExecInPod(parentCtx, client.Namespace(), client.NameWithoutNamespace(),
 			client.Pod.Spec.Containers[0].Name, []string{"nslookup", target})
 		if err != nil {
@@ -269,32 +271,46 @@ func WaitForCoreDNS(parentCtx context.Context, ct *ConnectivityTest, client Pod)
 				client.K8sClient.ClusterName(), target, client.Name(), err, stdout.String())
 		}
 		return err
-	})
+	}
+	err := pollExecProbe(parentCtx, ShortTimeout, lookup)
 	if err != nil {
-		return withNodeReachability(parentCtx, ct,
-			fmt.Errorf("timeout reached waiting for lookup for %s from pod %s (node %s) to succeed (last error: %w)",
-				target, client.Name(), client.NodeName(), err))
+		err = withNodeReachability(parentCtx, ct,
+			fmt.Errorf("timeout reached waiting for lookup for %s from pod %s (node %s, %s) to succeed (last error: %w)",
+				target, client.Name(), client.NodeName(), client.Address(features.IPFamilyAny), err))
+		return withRecoveryTime(parentCtx, err, lookup)
 	}
 
 	return nil
 }
 
-// withNodeReachability appends to err every path that cilium-health does not report reachable.
+// withRecoveryTime keeps running probe after a wait gave up, and appends to err how long it took to succeed.
+func withRecoveryTime(parentCtx context.Context, err error, probe func() error) error {
+	if parentCtx.Err() != nil {
+		return err
+	}
+	start := time.Now()
+	if pollExecProbe(parentCtx, LongTimeout, probe) != nil {
+		return fmt.Errorf("%w; the lookup still failed %s after the wait gave up", err, time.Since(start).Round(time.Second))
+	}
+	return fmt.Errorf("%w; the lookup succeeded %s after the wait gave up", err, time.Since(start).Round(time.Second))
+}
+
+// withNodeReachability appends to err every path that a fresh cilium-health probe does not report reachable.
 func withNodeReachability(parentCtx context.Context, ct *ConnectivityTest, err error) error {
 	agents := ct.CiliumPods()
 	if len(agents) == 0 || parentCtx.Err() != nil {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(parentCtx), ShortTimeout)
-	defer cancel()
-
 	var lines []string
 	for _, name := range slices.Sorted(maps.Keys(agents)) {
 		agent := agents[name]
 		var status healthmodels.HealthStatusResponse
+		// A synchronous probe waits up to 10 s, so each agent gets its own 20 s.
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(parentCtx), 20*time.Second)
 		stdout, execErr := agent.K8sClient.ExecInPod(ctx, agent.Pod.Namespace, agent.Pod.Name,
-			defaults.AgentContainerName, []string{"cilium-health", "status", "-o", "json"})
+			defaults.AgentContainerName, []string{"cilium-health", "status", "--probe", "-o", "json"})
+		cancel()
 		if execErr == nil {
 			execErr = json.Unmarshal(stdout.Bytes(), &status)
 		}
