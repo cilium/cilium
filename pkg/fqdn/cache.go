@@ -894,15 +894,12 @@ func (n *nameSet) Insert(names ...string) {
 
 func (n nameSet) Delete(names ...string) { sets.Set[string](n).Delete(names...) }
 
-// Sorted returns the names as a sorted slice. A set has no iteration order, so
-// sort wherever the order is observable, and identical state then produces
-// identical output.
-func (n nameSet) Sorted() []string { return sets.List(sets.Set[string](n)) }
-
-// MarshalJSON encodes the set as a sorted array. The receiver is a value, so
+// MarshalJSON encodes the set as an array. The receiver is a value, so
 // encoding/json finds it however the enclosing zombie is passed -- by pointer,
 // by value, or as a map element.
-func (n nameSet) MarshalJSON() ([]byte, error) { return json.Marshal(n.Sorted()) }
+func (n nameSet) MarshalJSON() ([]byte, error) {
+	return json.Marshal(sets.Set[string](n).UnsortedList())
+}
 
 // UnmarshalJSON decodes the array form back into a set. Restored names are not
 // trusted to be unique; loading them into a set de-duplicates them.
