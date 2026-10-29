@@ -233,6 +233,26 @@ func (m *QuicProtocolOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, er
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.EnableScone != nil {
+		size, err := (*wrapperspb.BoolValue)(m.EnableScone).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x6a
+	}
+	if m.MemoryReductionTimeout != nil {
+		size, err := (*durationpb.Duration)(m.MemoryReductionTimeout).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x62
+	}
 	if m.ConnectionMigration != nil {
 		size, err := m.ConnectionMigration.MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -1072,6 +1092,30 @@ func (m *Http2ProtocolOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, e
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.DisallowObsText != nil {
+		size, err := (*wrapperspb.BoolValue)(m.DisallowObsText).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0xa2
+	}
+	if m.MaxHeaderFieldSizeKb != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.MaxHeaderFieldSizeKb).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1
+		i--
+		dAtA[i] = 0x9a
+	}
 	if m.EnableHuffmanEncoding != nil {
 		size, err := (*wrapperspb.BoolValue)(m.EnableHuffmanEncoding).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -1336,6 +1380,16 @@ func (m *Http3ProtocolOptions) MarshalToSizedBufferVTStrict(dAtA []byte) (int, e
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.DisallowObsText != nil {
+		size, err := (*wrapperspb.BoolValue)(m.DisallowObsText).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x4a
+	}
 	if m.DisableConnectionFlowControlForStreams {
 		i--
 		if m.DisableConnectionFlowControlForStreams {
@@ -1571,6 +1625,14 @@ func (m *QuicProtocolOptions) SizeVT() (n int) {
 	}
 	if m.ConnectionMigration != nil {
 		l = m.ConnectionMigration.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.MemoryReductionTimeout != nil {
+		l = (*durationpb.Duration)(m.MemoryReductionTimeout).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.EnableScone != nil {
+		l = (*wrapperspb.BoolValue)(m.EnableScone).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
@@ -1920,6 +1982,14 @@ func (m *Http2ProtocolOptions) SizeVT() (n int) {
 		l = (*wrapperspb.BoolValue)(m.EnableHuffmanEncoding).SizeVT()
 		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
+	if m.MaxHeaderFieldSizeKb != nil {
+		l = (*wrapperspb.UInt32Value)(m.MaxHeaderFieldSizeKb).SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.DisallowObsText != nil {
+		l = (*wrapperspb.BoolValue)(m.DisallowObsText).SizeVT()
+		n += 2 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -1963,6 +2033,10 @@ func (m *Http3ProtocolOptions) SizeVT() (n int) {
 	}
 	if m.DisableConnectionFlowControlForStreams {
 		n += 2
+	}
+	if m.DisallowObsText != nil {
+		l = (*wrapperspb.BoolValue)(m.DisallowObsText).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)
 	return n

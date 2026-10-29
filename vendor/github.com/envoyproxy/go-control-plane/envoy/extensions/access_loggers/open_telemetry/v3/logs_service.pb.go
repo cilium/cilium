@@ -48,11 +48,9 @@ type OpenTelemetryAccessLogConfig struct {
 	//
 	// .. note::
 	//
-	//	The ``request_headers_to_add`` property in the OTLP HTTP exporter service
-	//	does not support the :ref:`format specifier <config_access_log_format>` as used for
-	//	:ref:`HTTP access logging <config_access_log>`.
-	//	The values configured are added as HTTP headers on the OTLP export request
-	//	without any formatting applied.
+	//	The ``request_headers_to_add`` property in the OTLP HTTP exporter service supports
+	//	substitution formatters. The formatters cannot access any HTTP or connection properties, but
+	//	can load content such as environment variables or files or secrets.
 	HttpService *v31.HttpService `protobuf:"bytes,8,opt,name=http_service,json=httpService,proto3" json:"http_service,omitempty"`
 	// The upstream gRPC cluster that will receive OTLP logs.
 	// Note: Only one of “common_config“, “grpc_service“, or “http_service“ may be used.

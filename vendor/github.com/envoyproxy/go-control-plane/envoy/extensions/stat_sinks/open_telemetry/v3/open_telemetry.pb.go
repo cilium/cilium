@@ -27,12 +27,13 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// [#next-free-field: 9]
+// [#next-free-field: 10]
 type SinkConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to ProtocolSpecifier:
 	//
 	//	*SinkConfig_GrpcService
+	//	*SinkConfig_HttpService
 	ProtocolSpecifier isSinkConfig_ProtocolSpecifier `protobuf_oneof:"protocol_specifier"`
 	// Attributes to be associated with the resource in the OTLP message.
 	// [#extension-category: envoy.tracers.opentelemetry.resource_detectors]
@@ -112,6 +113,15 @@ func (x *SinkConfig) GetGrpcService() *v3.GrpcService {
 	return nil
 }
 
+func (x *SinkConfig) GetHttpService() *v3.HttpService {
+	if x != nil {
+		if x, ok := x.ProtocolSpecifier.(*SinkConfig_HttpService); ok {
+			return x.HttpService
+		}
+	}
+	return nil
+}
+
 func (x *SinkConfig) GetResourceDetectors() []*v3.TypedExtensionConfig {
 	if x != nil {
 		return x.ResourceDetectors
@@ -170,7 +180,22 @@ type SinkConfig_GrpcService struct {
 	GrpcService *v3.GrpcService `protobuf:"bytes,1,opt,name=grpc_service,json=grpcService,proto3,oneof"`
 }
 
+type SinkConfig_HttpService struct {
+	// The upstream HTTP cluster that implements the OTLP/HTTP collector.
+	// See `OTLP/HTTP <https://opentelemetry.io/docs/specs/otlp/#otlphttp>`_.
+	//
+	// .. note::
+	//
+	//	The ``request_headers_to_add`` property in the OTLP HTTP exporter service
+	//	does not support the :ref:`format specifier <config_access_log_format>`.
+	//	The values configured are added as HTTP headers on the OTLP export request
+	//	without any formatting applied.
+	HttpService *v3.HttpService `protobuf:"bytes,9,opt,name=http_service,json=httpService,proto3,oneof"`
+}
+
 func (*SinkConfig_GrpcService) isSinkConfig_ProtocolSpecifier() {}
+
+func (*SinkConfig_HttpService) isSinkConfig_ProtocolSpecifier() {}
 
 // ConversionAction is used to convert a stat to a metric. If a stat matches,
 // the metric_name and static_metric_labels will be
@@ -271,10 +296,11 @@ var File_envoy_extensions_stat_sinks_open_telemetry_v3_open_telemetry_proto prot
 
 const file_envoy_extensions_stat_sinks_open_telemetry_v3_open_telemetry_proto_rawDesc = "" +
 	"\n" +
-	"Benvoy/extensions/stat_sinks/open_telemetry/v3/open_telemetry.proto\x12-envoy.extensions.stat_sinks.open_telemetry.v3\x1a$envoy/config/core/v3/extension.proto\x1a'envoy/config/core/v3/grpc_service.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a*opentelemetry/proto/common/v1/common.proto\x1a!xds/type/matcher/v3/matcher.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\x83\x06\n" +
+	"Benvoy/extensions/stat_sinks/open_telemetry/v3/open_telemetry.proto\x12-envoy.extensions.stat_sinks.open_telemetry.v3\x1a$envoy/config/core/v3/extension.proto\x1a'envoy/config/core/v3/grpc_service.proto\x1a'envoy/config/core/v3/http_service.proto\x1a\x1egoogle/protobuf/wrappers.proto\x1a*opentelemetry/proto/common/v1/common.proto\x1a!xds/type/matcher/v3/matcher.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\xcb\x06\n" +
 	"\n" +
 	"SinkConfig\x12P\n" +
-	"\fgrpc_service\x18\x01 \x01(\v2!.envoy.config.core.v3.GrpcServiceB\b\xfaB\x05\x8a\x01\x02\x10\x01H\x00R\vgrpcService\x12Y\n" +
+	"\fgrpc_service\x18\x01 \x01(\v2!.envoy.config.core.v3.GrpcServiceB\b\xfaB\x05\x8a\x01\x02\x10\x01H\x00R\vgrpcService\x12F\n" +
+	"\fhttp_service\x18\t \x01(\v2!.envoy.config.core.v3.HttpServiceH\x00R\vhttpService\x12Y\n" +
 	"\x12resource_detectors\x18\a \x03(\v2*.envoy.config.core.v3.TypedExtensionConfigR\x11resourceDetectors\x129\n" +
 	"\x19report_counters_as_deltas\x18\x02 \x01(\bR\x16reportCountersAsDeltas\x12=\n" +
 	"\x1breport_histograms_as_deltas\x18\x03 \x01(\bR\x18reportHistogramsAsDeltas\x12Q\n" +
@@ -309,23 +335,25 @@ var file_envoy_extensions_stat_sinks_open_telemetry_v3_open_telemetry_proto_goTy
 	(*SinkConfig_ConversionAction)(nil), // 1: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.ConversionAction
 	(*SinkConfig_DropAction)(nil),       // 2: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.DropAction
 	(*v3.GrpcService)(nil),              // 3: envoy.config.core.v3.GrpcService
-	(*v3.TypedExtensionConfig)(nil),     // 4: envoy.config.core.v3.TypedExtensionConfig
-	(*wrapperspb.BoolValue)(nil),        // 5: google.protobuf.BoolValue
-	(*v31.Matcher)(nil),                 // 6: xds.type.matcher.v3.Matcher
-	(*v1.KeyValue)(nil),                 // 7: opentelemetry.proto.common.v1.KeyValue
+	(*v3.HttpService)(nil),              // 4: envoy.config.core.v3.HttpService
+	(*v3.TypedExtensionConfig)(nil),     // 5: envoy.config.core.v3.TypedExtensionConfig
+	(*wrapperspb.BoolValue)(nil),        // 6: google.protobuf.BoolValue
+	(*v31.Matcher)(nil),                 // 7: xds.type.matcher.v3.Matcher
+	(*v1.KeyValue)(nil),                 // 8: opentelemetry.proto.common.v1.KeyValue
 }
 var file_envoy_extensions_stat_sinks_open_telemetry_v3_open_telemetry_proto_depIdxs = []int32{
 	3, // 0: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.grpc_service:type_name -> envoy.config.core.v3.GrpcService
-	4, // 1: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.resource_detectors:type_name -> envoy.config.core.v3.TypedExtensionConfig
-	5, // 2: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.emit_tags_as_attributes:type_name -> google.protobuf.BoolValue
-	5, // 3: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.use_tag_extracted_name:type_name -> google.protobuf.BoolValue
-	6, // 4: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.custom_metric_conversions:type_name -> xds.type.matcher.v3.Matcher
-	7, // 5: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.ConversionAction.static_metric_labels:type_name -> opentelemetry.proto.common.v1.KeyValue
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	4, // 1: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.http_service:type_name -> envoy.config.core.v3.HttpService
+	5, // 2: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.resource_detectors:type_name -> envoy.config.core.v3.TypedExtensionConfig
+	6, // 3: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.emit_tags_as_attributes:type_name -> google.protobuf.BoolValue
+	6, // 4: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.use_tag_extracted_name:type_name -> google.protobuf.BoolValue
+	7, // 5: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.custom_metric_conversions:type_name -> xds.type.matcher.v3.Matcher
+	8, // 6: envoy.extensions.stat_sinks.open_telemetry.v3.SinkConfig.ConversionAction.static_metric_labels:type_name -> opentelemetry.proto.common.v1.KeyValue
+	7, // [7:7] is the sub-list for method output_type
+	7, // [7:7] is the sub-list for method input_type
+	7, // [7:7] is the sub-list for extension type_name
+	7, // [7:7] is the sub-list for extension extendee
+	0, // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_envoy_extensions_stat_sinks_open_telemetry_v3_open_telemetry_proto_init() }
@@ -335,6 +363,7 @@ func file_envoy_extensions_stat_sinks_open_telemetry_v3_open_telemetry_proto_ini
 	}
 	file_envoy_extensions_stat_sinks_open_telemetry_v3_open_telemetry_proto_msgTypes[0].OneofWrappers = []any{
 		(*SinkConfig_GrpcService)(nil),
+		(*SinkConfig_HttpService)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

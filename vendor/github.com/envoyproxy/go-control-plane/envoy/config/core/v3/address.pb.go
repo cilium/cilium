@@ -609,6 +609,8 @@ func (x *BindConfig) GetLocalAddressSelector() *TypedExtensionConfig {
 // management servers.
 type Address struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// [#comment: Keep this list of address types in sync with UpstreamConnectionOptions.FirstAddressFamilyVersion in api/envoy/config/cluster/v3/cluster.proto.]
+	//
 	// Types that are valid to be assigned to Address:
 	//
 	//	*Address_SocketAddress

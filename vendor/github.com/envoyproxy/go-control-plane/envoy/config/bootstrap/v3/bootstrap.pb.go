@@ -782,6 +782,8 @@ type Admin struct {
 	// should apply to the admin interface or not.
 	IgnoreGlobalConnLimit bool `protobuf:"varint,6,opt,name=ignore_global_conn_limit,json=ignoreGlobalConnLimit,proto3" json:"ignore_global_conn_limit,omitempty"`
 	// List of admin paths that are accessible. If not specified, all admin endpoints are accessible.
+	// Matchers are evaluated against the request path. For endpoints commonly queried with
+	// parameters (for example “/stats?format=...“), prefer “prefix“ matchers.
 	//
 	// When specified, only paths in this list will be accessible, all others will return “HTTP 403 Forbidden“.
 	//
@@ -790,7 +792,8 @@ type Admin struct {
 	// .. code-block:: yaml
 	//
 	//	allow_paths:
-	//	- exact: /stats
+	//	- prefix: /stats
+	//	- prefix: /config_dump
 	//	- exact: /ready
 	//	- prefix: /healthcheck
 	AllowPaths    []*v35.StringMatcher `protobuf:"bytes,7,rep,name=allow_paths,json=allowPaths,proto3" json:"allow_paths,omitempty"`
@@ -1547,6 +1550,7 @@ func (x *CustomInlineHeader) GetInlineHeaderType() CustomInlineHeader_InlineHead
 	return CustomInlineHeader_REQUEST_HEADER
 }
 
+// [#next-free-field: 6]
 type MemoryAllocatorManager struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Configures tcmalloc to perform background release of free memory in amount of bytes per “memory_release_interval“ interval.
@@ -1556,6 +1560,28 @@ type MemoryAllocatorManager struct {
 	// interval Envoy will try to release “bytes_to_release“ of free memory back to operating system for reuse.
 	// Defaults to “1000“ milliseconds.
 	MemoryReleaseInterval *durationpb.Duration `protobuf:"bytes,2,opt,name=memory_release_interval,json=memoryReleaseInterval,proto3" json:"memory_release_interval,omitempty"`
+	// Sets the soft memory limit for tcmalloc. When the total memory used by tcmalloc exceeds this
+	// limit, background release will be performed more aggressively to bring memory usage below the
+	// limit. If not set, no soft memory limit is applied.
+	//
+	// .. note::
+	//
+	//	This is currently only supported with tcmalloc and not with ``gperftools``.
+	SoftMemoryLimitBytes *wrapperspb.UInt64Value `protobuf:"bytes,3,opt,name=soft_memory_limit_bytes,json=softMemoryLimitBytes,proto3" json:"soft_memory_limit_bytes,omitempty"`
+	// Sets the maximum per-CPU cache size in bytes for tcmalloc. Smaller values reduce per-CPU
+	// memory overhead at the cost of increased contention on the central free list. If not set,
+	// tcmalloc's default is used.
+	//
+	// .. note::
+	//
+	//	This is currently only supported with tcmalloc and not with ``gperftools``.
+	MaxPerCpuCacheSizeBytes *wrapperspb.UInt32Value `protobuf:"bytes,4,opt,name=max_per_cpu_cache_size_bytes,json=maxPerCpuCacheSizeBytes,proto3" json:"max_per_cpu_cache_size_bytes,omitempty"`
+	// The threshold of unfreed memory in bytes that triggers the heap shrinker to release memory
+	// back to the OS. When the difference between physical memory used and application-allocated
+	// memory exceeds this threshold, free memory is released.
+	//
+	// Defaults to “104857600“ (100 MB).
+	MaxUnfreedMemoryBytes uint64 `protobuf:"varint,5,opt,name=max_unfreed_memory_bytes,json=maxUnfreedMemoryBytes,proto3" json:"max_unfreed_memory_bytes,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -1602,6 +1628,27 @@ func (x *MemoryAllocatorManager) GetMemoryReleaseInterval() *durationpb.Duration
 		return x.MemoryReleaseInterval
 	}
 	return nil
+}
+
+func (x *MemoryAllocatorManager) GetSoftMemoryLimitBytes() *wrapperspb.UInt64Value {
+	if x != nil {
+		return x.SoftMemoryLimitBytes
+	}
+	return nil
+}
+
+func (x *MemoryAllocatorManager) GetMaxPerCpuCacheSizeBytes() *wrapperspb.UInt32Value {
+	if x != nil {
+		return x.MaxPerCpuCacheSizeBytes
+	}
+	return nil
+}
+
+func (x *MemoryAllocatorManager) GetMaxUnfreedMemoryBytes() uint64 {
+	if x != nil {
+		return x.MaxUnfreedMemoryBytes
+	}
+	return 0
 }
 
 type Bootstrap_StaticResources struct {
@@ -2448,10 +2495,13 @@ const file_envoy_config_bootstrap_v3_bootstrap_proto_rawDesc = "" +
 	"\x0eREQUEST_HEADER\x10\x00\x12\x13\n" +
 	"\x0fREQUEST_TRAILER\x10\x01\x12\x13\n" +
 	"\x0fRESPONSE_HEADER\x10\x02\x12\x14\n" +
-	"\x10RESPONSE_TRAILER\x10\x03\"\x95\x01\n" +
+	"\x10RESPONSE_TRAILER\x10\x03\"\x80\x03\n" +
 	"\x16MemoryAllocatorManager\x12(\n" +
 	"\x10bytes_to_release\x18\x01 \x01(\x04R\x0ebytesToRelease\x12Q\n" +
-	"\x17memory_release_interval\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x15memoryReleaseIntervalB\x91\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
+	"\x17memory_release_interval\x18\x02 \x01(\v2\x19.google.protobuf.DurationR\x15memoryReleaseInterval\x12S\n" +
+	"\x17soft_memory_limit_bytes\x18\x03 \x01(\v2\x1c.google.protobuf.UInt64ValueR\x14softMemoryLimitBytes\x12[\n" +
+	"\x1cmax_per_cpu_cache_size_bytes\x18\x04 \x01(\v2\x1c.google.protobuf.UInt32ValueR\x17maxPerCpuCacheSizeBytes\x127\n" +
+	"\x18max_unfreed_memory_bytes\x18\x05 \x01(\x04R\x15maxUnfreedMemoryBytesB\x91\x01\xba\x80\xc8\xd1\x06\x02\x10\x02\n" +
 	"'io.envoyproxy.envoy.config.bootstrap.v3B\x0eBootstrapProtoP\x01ZLgithub.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3;bootstrapv3b\x06proto3"
 
 var (
@@ -2512,10 +2562,11 @@ var file_envoy_config_bootstrap_v3_bootstrap_proto_goTypes = []any{
 	(*v3.BindConfig)(nil),                            // 40: envoy.config.core.v3.BindConfig
 	(*v36.Percent)(nil),                              // 41: envoy.type.v3.Percent
 	(*structpb.Struct)(nil),                          // 42: google.protobuf.Struct
-	(*v37.Listener)(nil),                             // 43: envoy.config.listener.v3.Listener
-	(*v38.Cluster)(nil),                              // 44: envoy.config.cluster.v3.Cluster
-	(*v39.Secret)(nil),                               // 45: envoy.extensions.transport_sockets.tls.v3.Secret
-	(*v3.EventServiceConfig)(nil),                    // 46: envoy.config.core.v3.EventServiceConfig
+	(*wrapperspb.UInt32Value)(nil),                   // 43: google.protobuf.UInt32Value
+	(*v37.Listener)(nil),                             // 44: envoy.config.listener.v3.Listener
+	(*v38.Cluster)(nil),                              // 45: envoy.config.cluster.v3.Cluster
+	(*v39.Secret)(nil),                               // 46: envoy.extensions.transport_sockets.tls.v3.Secret
+	(*v3.EventServiceConfig)(nil),                    // 47: envoy.config.core.v3.EventServiceConfig
 }
 var file_envoy_config_bootstrap_v3_bootstrap_proto_depIdxs = []int32{
 	25, // 0: envoy.config.bootstrap.v3.Bootstrap.node:type_name -> envoy.config.core.v3.Node
@@ -2575,25 +2626,27 @@ var file_envoy_config_bootstrap_v3_bootstrap_proto_depIdxs = []int32{
 	9,  // 54: envoy.config.bootstrap.v3.LayeredRuntime.layers:type_name -> envoy.config.bootstrap.v3.RuntimeLayer
 	1,  // 55: envoy.config.bootstrap.v3.CustomInlineHeader.inline_header_type:type_name -> envoy.config.bootstrap.v3.CustomInlineHeader.InlineHeaderType
 	29, // 56: envoy.config.bootstrap.v3.MemoryAllocatorManager.memory_release_interval:type_name -> google.protobuf.Duration
-	43, // 57: envoy.config.bootstrap.v3.Bootstrap.StaticResources.listeners:type_name -> envoy.config.listener.v3.Listener
-	44, // 58: envoy.config.bootstrap.v3.Bootstrap.StaticResources.clusters:type_name -> envoy.config.cluster.v3.Cluster
-	45, // 59: envoy.config.bootstrap.v3.Bootstrap.StaticResources.secrets:type_name -> envoy.extensions.transport_sockets.tls.v3.Secret
-	35, // 60: envoy.config.bootstrap.v3.Bootstrap.DynamicResources.lds_config:type_name -> envoy.config.core.v3.ConfigSource
-	35, // 61: envoy.config.bootstrap.v3.Bootstrap.DynamicResources.cds_config:type_name -> envoy.config.core.v3.ConfigSource
-	26, // 62: envoy.config.bootstrap.v3.Bootstrap.DynamicResources.ads_config:type_name -> envoy.config.core.v3.ApiConfigSource
-	19, // 63: envoy.config.bootstrap.v3.Bootstrap.ApplicationLogConfig.log_format:type_name -> envoy.config.bootstrap.v3.Bootstrap.ApplicationLogConfig.LogFormat
-	29, // 64: envoy.config.bootstrap.v3.Bootstrap.GrpcAsyncClientManagerConfig.max_cached_entry_idle_duration:type_name -> google.protobuf.Duration
-	34, // 65: envoy.config.bootstrap.v3.Bootstrap.CertificateProviderInstancesEntry.value:type_name -> envoy.config.core.v3.TypedExtensionConfig
-	42, // 66: envoy.config.bootstrap.v3.Bootstrap.ApplicationLogConfig.LogFormat.json_format:type_name -> google.protobuf.Struct
-	46, // 67: envoy.config.bootstrap.v3.ClusterManager.OutlierDetection.event_service:type_name -> envoy.config.core.v3.EventServiceConfig
-	34, // 68: envoy.config.bootstrap.v3.Watchdog.WatchdogAction.config:type_name -> envoy.config.core.v3.TypedExtensionConfig
-	0,  // 69: envoy.config.bootstrap.v3.Watchdog.WatchdogAction.event:type_name -> envoy.config.bootstrap.v3.Watchdog.WatchdogAction.WatchdogEvent
-	35, // 70: envoy.config.bootstrap.v3.RuntimeLayer.RtdsLayer.rtds_config:type_name -> envoy.config.core.v3.ConfigSource
-	71, // [71:71] is the sub-list for method output_type
-	71, // [71:71] is the sub-list for method input_type
-	71, // [71:71] is the sub-list for extension type_name
-	71, // [71:71] is the sub-list for extension extendee
-	0,  // [0:71] is the sub-list for field type_name
+	32, // 57: envoy.config.bootstrap.v3.MemoryAllocatorManager.soft_memory_limit_bytes:type_name -> google.protobuf.UInt64Value
+	43, // 58: envoy.config.bootstrap.v3.MemoryAllocatorManager.max_per_cpu_cache_size_bytes:type_name -> google.protobuf.UInt32Value
+	44, // 59: envoy.config.bootstrap.v3.Bootstrap.StaticResources.listeners:type_name -> envoy.config.listener.v3.Listener
+	45, // 60: envoy.config.bootstrap.v3.Bootstrap.StaticResources.clusters:type_name -> envoy.config.cluster.v3.Cluster
+	46, // 61: envoy.config.bootstrap.v3.Bootstrap.StaticResources.secrets:type_name -> envoy.extensions.transport_sockets.tls.v3.Secret
+	35, // 62: envoy.config.bootstrap.v3.Bootstrap.DynamicResources.lds_config:type_name -> envoy.config.core.v3.ConfigSource
+	35, // 63: envoy.config.bootstrap.v3.Bootstrap.DynamicResources.cds_config:type_name -> envoy.config.core.v3.ConfigSource
+	26, // 64: envoy.config.bootstrap.v3.Bootstrap.DynamicResources.ads_config:type_name -> envoy.config.core.v3.ApiConfigSource
+	19, // 65: envoy.config.bootstrap.v3.Bootstrap.ApplicationLogConfig.log_format:type_name -> envoy.config.bootstrap.v3.Bootstrap.ApplicationLogConfig.LogFormat
+	29, // 66: envoy.config.bootstrap.v3.Bootstrap.GrpcAsyncClientManagerConfig.max_cached_entry_idle_duration:type_name -> google.protobuf.Duration
+	34, // 67: envoy.config.bootstrap.v3.Bootstrap.CertificateProviderInstancesEntry.value:type_name -> envoy.config.core.v3.TypedExtensionConfig
+	42, // 68: envoy.config.bootstrap.v3.Bootstrap.ApplicationLogConfig.LogFormat.json_format:type_name -> google.protobuf.Struct
+	47, // 69: envoy.config.bootstrap.v3.ClusterManager.OutlierDetection.event_service:type_name -> envoy.config.core.v3.EventServiceConfig
+	34, // 70: envoy.config.bootstrap.v3.Watchdog.WatchdogAction.config:type_name -> envoy.config.core.v3.TypedExtensionConfig
+	0,  // 71: envoy.config.bootstrap.v3.Watchdog.WatchdogAction.event:type_name -> envoy.config.bootstrap.v3.Watchdog.WatchdogAction.WatchdogEvent
+	35, // 72: envoy.config.bootstrap.v3.RuntimeLayer.RtdsLayer.rtds_config:type_name -> envoy.config.core.v3.ConfigSource
+	73, // [73:73] is the sub-list for method output_type
+	73, // [73:73] is the sub-list for method input_type
+	73, // [73:73] is the sub-list for extension type_name
+	73, // [73:73] is the sub-list for extension extendee
+	0,  // [0:73] is the sub-list for field type_name
 }
 
 func init() { file_envoy_config_bootstrap_v3_bootstrap_proto_init() }

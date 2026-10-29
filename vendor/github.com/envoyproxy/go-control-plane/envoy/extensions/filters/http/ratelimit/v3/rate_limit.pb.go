@@ -210,7 +210,7 @@ type RateLimit struct {
 	// types.
 	RequestType string `protobuf:"bytes,3,opt,name=request_type,json=requestType,proto3" json:"request_type,omitempty"`
 	// The timeout in milliseconds for the rate limit service RPC. If not
-	// set, this defaults to 20ms.
+	// set, this defaults to 20ms. A value of 0 disables the timeout (infinite).
 	Timeout *durationpb.Duration `protobuf:"bytes,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	// The filter's behaviour in case the rate limiting service does
 	// not respond back. When it is set to true, Envoy will not allow traffic in case of

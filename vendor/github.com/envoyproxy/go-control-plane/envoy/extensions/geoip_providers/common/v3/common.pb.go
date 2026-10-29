@@ -86,7 +86,7 @@ func (x *CommonGeoipProviderConfig) GetGeoFieldKeys() *CommonGeoipProviderConfig
 
 // The set of geolocation headers to add to request. If any of the configured headers is present
 // in the incoming request, it will be overridden by the :ref:`HTTP GeoIP filter <config_http_filters_geoip>`.
-// [#next-free-field: 13]
+// [#next-free-field: 14]
 //
 // .. attention::
 //
@@ -102,7 +102,11 @@ type CommonGeoipProviderConfig_GeolocationHeadersToAdd struct {
 	// The least specific subdivision will be selected as the region value.
 	Region string `protobuf:"bytes,3,opt,name=region,proto3" json:"region,omitempty"`
 	// If set, the header will be used to populate the ASN associated with the IP address.
+	// Note: If both ISP and ASN databases are configured, only the ASN database is used for lookup.
 	Asn string `protobuf:"bytes,4,opt,name=asn,proto3" json:"asn,omitempty"`
+	// If set, the header will be used to populate the autonomous system organization associated with the IP address.
+	// Note: If both ISP and ASN databases are configured, only the ASN database is used for lookup.
+	AsnOrg string `protobuf:"bytes,13,opt,name=asn_org,json=asnOrg,proto3" json:"asn_org,omitempty"`
 	// This field is deprecated; use “anon“ instead.
 	//
 	// Deprecated: Marked as deprecated in envoy/extensions/geoip_providers/common/v3/common.proto.
@@ -189,6 +193,13 @@ func (x *CommonGeoipProviderConfig_GeolocationHeadersToAdd) GetAsn() string {
 	return ""
 }
 
+func (x *CommonGeoipProviderConfig_GeolocationHeadersToAdd) GetAsnOrg() string {
+	if x != nil {
+		return x.AsnOrg
+	}
+	return ""
+}
+
 // Deprecated: Marked as deprecated in envoy/extensions/geoip_providers/common/v3/common.proto.
 func (x *CommonGeoipProviderConfig_GeolocationHeadersToAdd) GetIsAnon() string {
 	if x != nil {
@@ -254,7 +265,7 @@ func (x *CommonGeoipProviderConfig_GeolocationHeadersToAdd) GetApplePrivateRelay
 //   - The :ref:`Network GeoIP filter <config_network_filters_geoip>` stores results in the
 //     connection's filter state under the well-known key “envoy.geoip“.
 //
-// [#next-free-field: 12]
+// [#next-free-field: 13]
 type CommonGeoipProviderConfig_GeolocationFieldKeys struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// If set, the key will be used to populate the country ISO code associated with the IP address.
@@ -266,6 +277,8 @@ type CommonGeoipProviderConfig_GeolocationFieldKeys struct {
 	Region string `protobuf:"bytes,3,opt,name=region,proto3" json:"region,omitempty"`
 	// If set, the key will be used to populate the ASN associated with the IP address.
 	Asn string `protobuf:"bytes,4,opt,name=asn,proto3" json:"asn,omitempty"`
+	// If set, the key will be used to populate the autonomous system organization associated with the IP address.
+	AsnOrg string `protobuf:"bytes,12,opt,name=asn_org,json=asnOrg,proto3" json:"asn_org,omitempty"`
 	// If set, the IP address will be checked if it belongs to any type of anonymization network
 	// (e.g., VPN, public proxy). The result will be stored with this key. Value will be set to
 	// either “true“ or “false“ depending on the check result.
@@ -353,6 +366,13 @@ func (x *CommonGeoipProviderConfig_GeolocationFieldKeys) GetAsn() string {
 	return ""
 }
 
+func (x *CommonGeoipProviderConfig_GeolocationFieldKeys) GetAsnOrg() string {
+	if x != nil {
+		return x.AsnOrg
+	}
+	return ""
+}
+
 func (x *CommonGeoipProviderConfig_GeolocationFieldKeys) GetAnon() string {
 	if x != nil {
 		return x.Anon
@@ -406,15 +426,16 @@ var File_envoy_extensions_geoip_providers_common_v3_common_proto protoreflect.Fi
 
 const file_envoy_extensions_geoip_providers_common_v3_common_proto_rawDesc = "" +
 	"\n" +
-	"7envoy/extensions/geoip_providers/common/v3/common.proto\x12*envoy.extensions.geoip_providers.common.v3\x1a#envoy/annotations/deprecation.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\xf9\b\n" +
+	"7envoy/extensions/geoip_providers/common/v3/common.proto\x12*envoy.extensions.geoip_providers.common.v3\x1a#envoy/annotations/deprecation.proto\x1a\x1dudpa/annotations/status.proto\x1a\x17validate/validate.proto\"\xb8\t\n" +
 	"\x19CommonGeoipProviderConfig\x12\x97\x01\n" +
 	"\x12geo_headers_to_add\x18\x01 \x01(\v2].envoy.extensions.geoip_providers.common.v3.CommonGeoipProviderConfig.GeolocationHeadersToAddB\v\x92ǆ\xd8\x04\x033.0\x18\x01R\x0fgeoHeadersToAdd\x12\x80\x01\n" +
-	"\x0egeo_field_keys\x18\x03 \x01(\v2Z.envoy.extensions.geoip_providers.common.v3.CommonGeoipProviderConfig.GeolocationFieldKeysR\fgeoFieldKeys\x1a\xff\x03\n" +
+	"\x0egeo_field_keys\x18\x03 \x01(\v2Z.envoy.extensions.geoip_providers.common.v3.CommonGeoipProviderConfig.GeolocationFieldKeysR\fgeoFieldKeys\x1a\xa5\x04\n" +
 	"\x17GeolocationHeadersToAdd\x12%\n" +
 	"\acountry\x18\x01 \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\acountry\x12\x1f\n" +
 	"\x04city\x18\x02 \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\x04city\x12#\n" +
 	"\x06region\x18\x03 \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\x06region\x12\x1d\n" +
-	"\x03asn\x18\x04 \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\x03asn\x12/\n" +
+	"\x03asn\x18\x04 \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\x03asn\x12$\n" +
+	"\aasn_org\x18\r \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\x06asnOrg\x12/\n" +
 	"\ais_anon\x18\x05 \x01(\tB\x16\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01\x92ǆ\xd8\x04\x033.0\x18\x01R\x06isAnon\x12\x1f\n" +
 	"\x04anon\x18\f \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\x04anon\x12&\n" +
 	"\banon_vpn\x18\x06 \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\aanonVpn\x12.\n" +
@@ -424,12 +445,13 @@ const file_envoy_extensions_geoip_providers_common_v3_common_proto_rawDesc = "" 
 	"anon_proxy\x18\t \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\tanonProxy\x12\x1d\n" +
 	"\x03isp\x18\n" +
 	" \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\x03isp\x12;\n" +
-	"\x13apple_private_relay\x18\v \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\x11applePrivateRelay\x1a\xbc\x02\n" +
+	"\x13apple_private_relay\x18\v \x01(\tB\v\xfaB\br\x06\xd0\x01\x01\xc0\x01\x01R\x11applePrivateRelay\x1a\xd5\x02\n" +
 	"\x14GeolocationFieldKeys\x12\x18\n" +
 	"\acountry\x18\x01 \x01(\tR\acountry\x12\x12\n" +
 	"\x04city\x18\x02 \x01(\tR\x04city\x12\x16\n" +
 	"\x06region\x18\x03 \x01(\tR\x06region\x12\x10\n" +
-	"\x03asn\x18\x04 \x01(\tR\x03asn\x12\x12\n" +
+	"\x03asn\x18\x04 \x01(\tR\x03asn\x12\x17\n" +
+	"\aasn_org\x18\f \x01(\tR\x06asnOrg\x12\x12\n" +
 	"\x04anon\x18\x05 \x01(\tR\x04anon\x12\x19\n" +
 	"\banon_vpn\x18\x06 \x01(\tR\aanonVpn\x12!\n" +
 	"\fanon_hosting\x18\a \x01(\tR\vanonHosting\x12\x19\n" +

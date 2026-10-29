@@ -2275,6 +2275,31 @@ func (m *MemoryAllocatorManager) MarshalToSizedBufferVTStrict(dAtA []byte) (int,
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.MaxUnfreedMemoryBytes != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.MaxUnfreedMemoryBytes))
+		i--
+		dAtA[i] = 0x28
+	}
+	if m.MaxPerCpuCacheSizeBytes != nil {
+		size, err := (*wrapperspb.UInt32Value)(m.MaxPerCpuCacheSizeBytes).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.SoftMemoryLimitBytes != nil {
+		size, err := (*wrapperspb.UInt64Value)(m.SoftMemoryLimitBytes).MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1a
+	}
 	if m.MemoryReleaseInterval != nil {
 		size, err := (*durationpb.Duration)(m.MemoryReleaseInterval).MarshalToSizedBufferVTStrict(dAtA[:i])
 		if err != nil {
@@ -3209,6 +3234,17 @@ func (m *MemoryAllocatorManager) SizeVT() (n int) {
 	if m.MemoryReleaseInterval != nil {
 		l = (*durationpb.Duration)(m.MemoryReleaseInterval).SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.SoftMemoryLimitBytes != nil {
+		l = (*wrapperspb.UInt64Value)(m.SoftMemoryLimitBytes).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.MaxPerCpuCacheSizeBytes != nil {
+		l = (*wrapperspb.UInt32Value)(m.MaxPerCpuCacheSizeBytes).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.MaxUnfreedMemoryBytes != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.MaxUnfreedMemoryBytes))
 	}
 	n += len(m.unknownFields)
 	return n

@@ -35,7 +35,7 @@ require (
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20210525090646-64b7a4574d14
 	github.com/envoyproxy/go-control-plane/contrib v1.36.0
-	github.com/envoyproxy/go-control-plane/envoy v1.37.0
+	github.com/envoyproxy/go-control-plane/envoy v1.38.0
 	github.com/evanphx/json-patch v5.9.11+incompatible
 	github.com/fatih/color v1.18.0
 	github.com/fsnotify/fsnotify v1.9.0

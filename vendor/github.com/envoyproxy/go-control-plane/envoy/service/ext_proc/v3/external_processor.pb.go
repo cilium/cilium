@@ -43,7 +43,7 @@ const (
 	// further messages for this request or response even if the processing
 	// mode is configured to do so.
 	//
-	// When used in response to a request_headers or response_headers message,
+	// When used in response to a “request_headers“ or “response_headers“ message,
 	// this status makes it possible to either completely replace the body
 	// while discarding the original body, or to add a body to a message that
 	// formerly did not have one.
@@ -96,20 +96,22 @@ func (CommonResponse_ResponseStatus) EnumDescriptor() ([]byte, []int) {
 
 // This message specifies the filter protocol configurations which will be sent to the ext_proc
 // server in a :ref:`ProcessingRequest <envoy_v3_api_msg_service.ext_proc.v3.ProcessingRequest>`.
-// If the server does not support these protocol configurations, it may choose to close the gRPC stream.
-// If the server supports these protocol configurations, it should respond based on the API specifications.
+// If the server does not support these protocol configurations, it may choose to close the gRPC
+// stream. If the server supports these protocol configurations, it should respond based on the
+// API specifications.
 type ProtocolConfiguration struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Specify the filter configuration :ref:`request_body_mode
-	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ProcessingMode.request_body_mode>`
+	// Specifies the filter configuration
+	// :ref:`request_body_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ProcessingMode.request_body_mode>`.
 	RequestBodyMode v3.ProcessingMode_BodySendMode `protobuf:"varint,1,opt,name=request_body_mode,json=requestBodyMode,proto3,enum=envoy.extensions.filters.http.ext_proc.v3.ProcessingMode_BodySendMode" json:"request_body_mode,omitempty"`
-	// Specify the filter configuration :ref:`response_body_mode
-	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ProcessingMode.response_body_mode>`
+	// Specifies the filter configuration
+	// :ref:`response_body_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ProcessingMode.response_body_mode>`.
 	ResponseBodyMode v3.ProcessingMode_BodySendMode `protobuf:"varint,2,opt,name=response_body_mode,json=responseBodyMode,proto3,enum=envoy.extensions.filters.http.ext_proc.v3.ProcessingMode_BodySendMode" json:"response_body_mode,omitempty"`
-	// Specify the filter configuration :ref:`send_body_without_waiting_for_header_response
-	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.send_body_without_waiting_for_header_response>`
-	// If the client is waiting for a header response from the server, setting “true“ means the client will send body to the server
-	// as they arrive. Setting “false“ means the client will buffer the arrived data and not send it to the server immediately.
+	// Specifies the filter configuration
+	// :ref:`send_body_without_waiting_for_header_response <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.send_body_without_waiting_for_header_response>`.
+	// If the client is waiting for a header response from the server, setting to “true“ means the
+	// client will send the body to the server as it arrives. Setting to “false“ means the client
+	// will buffer the arrived data and not send it to the server immediately.
 	SendBodyWithoutWaitingForHeaderResponse bool `protobuf:"varint,3,opt,name=send_body_without_waiting_for_header_response,json=sendBodyWithoutWaitingForHeaderResponse,proto3" json:"send_body_without_waiting_for_header_response,omitempty"`
 	unknownFields                           protoimpl.UnknownFields
 	sizeCache                               protoimpl.SizeCache
@@ -191,16 +193,16 @@ type ProcessingRequest struct {
 	// in the list is populated from the standard
 	// :ref:`attributes <arch_overview_attributes>` supported in the data plane.
 	Attributes map[string]*structpb.Struct `protobuf:"bytes,9,rep,name=attributes,proto3" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// Specify whether the filter that sent this request is running in :ref:`observability_mode
-	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.observability_mode>`
-	// and defaults to false.
+	// Specifies whether the filter that sent this request is running in
+	// :ref:`observability_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.observability_mode>`.
 	//
-	//   - A value of “false“ indicates that the server must respond
-	//     to this message by either sending back a matching ProcessingResponse message,
-	//     or by closing the stream.
+	//   - A value of “false“ indicates that the server must respond to this message by either
+	//     sending back a matching “ProcessingResponse“ message, or by closing the stream.
 	//   - A value of “true“ indicates that the server should not respond to this message, as any
-	//     responses will be ignored. However, it may still close the stream to indicate that no more messages
-	//     are needed.
+	//     responses will be ignored. However, it may still close the stream to indicate that no more
+	//     messages are needed.
+	//
+	// Defaults to “false“.
 	ObservabilityMode bool `protobuf:"varint,10,opt,name=observability_mode,json=observabilityMode,proto3" json:"observability_mode,omitempty"`
 	// Specify the filter protocol configurations to be sent to the server.
 	// “protocol_config“ is only encoded in the first “ProcessingRequest“ message from the client to the server.
@@ -335,32 +337,32 @@ type isProcessingRequest_Request interface {
 type ProcessingRequest_RequestHeaders struct {
 	// Information about the HTTP request headers, as well as peer info and additional
 	// properties. Unless “observability_mode“ is “true“, the server must send back a
-	// HeaderResponse message, an ImmediateResponse message, or close the stream.
+	// “HeaderResponse“ message, an “ImmediateResponse“ message, or close the stream.
 	RequestHeaders *HttpHeaders `protobuf:"bytes,2,opt,name=request_headers,json=requestHeaders,proto3,oneof"`
 }
 
 type ProcessingRequest_ResponseHeaders struct {
 	// Information about the HTTP response headers, as well as peer info and additional
 	// properties. Unless “observability_mode“ is “true“, the server must send back a
-	// HeaderResponse message or close the stream.
+	// “HeaderResponse“ message or close the stream.
 	ResponseHeaders *HttpHeaders `protobuf:"bytes,3,opt,name=response_headers,json=responseHeaders,proto3,oneof"`
 }
 
 type ProcessingRequest_RequestBody struct {
-	// A chunk of the HTTP request body. Unless “observability_mode“ is true, the server must send back
-	// a BodyResponse message, an ImmediateResponse message, or close the stream.
+	// A chunk of the HTTP request body. Unless “observability_mode“ is “true“, the server must
+	// send back a “BodyResponse“ message, an “ImmediateResponse“ message, or close the stream.
 	RequestBody *HttpBody `protobuf:"bytes,4,opt,name=request_body,json=requestBody,proto3,oneof"`
 }
 
 type ProcessingRequest_ResponseBody struct {
-	// A chunk of the HTTP response body. Unless “observability_mode“ is “true“, the server must send back
-	// a BodyResponse message or close the stream.
+	// A chunk of the HTTP response body. Unless “observability_mode“ is “true“, the server must
+	// send back a “BodyResponse“ message or close the stream.
 	ResponseBody *HttpBody `protobuf:"bytes,5,opt,name=response_body,json=responseBody,proto3,oneof"`
 }
 
 type ProcessingRequest_RequestTrailers struct {
 	// The HTTP trailers for the request path. Unless “observability_mode“ is “true“, the server
-	// must send back a TrailerResponse message or close the stream.
+	// must send back a “TrailerResponse“ message or close the stream.
 	//
 	// This message is only sent if the trailers processing mode is set to “SEND“ and
 	// the original downstream request has trailers.
@@ -369,7 +371,7 @@ type ProcessingRequest_RequestTrailers struct {
 
 type ProcessingRequest_ResponseTrailers struct {
 	// The HTTP trailers for the response path. Unless “observability_mode“ is “true“, the server
-	// must send back a TrailerResponse message or close the stream.
+	// must send back a “TrailerResponse“ message or close the stream.
 	//
 	// This message is only sent if the trailers processing mode is set to “SEND“ and
 	// the original upstream response has trailers.
@@ -389,14 +391,14 @@ func (*ProcessingRequest_RequestTrailers) isProcessingRequest_Request() {}
 func (*ProcessingRequest_ResponseTrailers) isProcessingRequest_Request() {}
 
 // This represents the different types of messages the server may send back to the data plane
-// when the “observability_mode“ field in the received ProcessingRequest is set to false.
+// when the “observability_mode“ field in the received “ProcessingRequest“ is set to “false“.
 //
 //   - If the corresponding “BodySendMode“ in the
 //     :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`
-//     is not set to “FULL_DUPLEX_STREAMED“, then for every received ProcessingRequest,
-//     the server must send back exactly one ProcessingResponse message.
+//     is not set to “FULL_DUPLEX_STREAMED“, then for every received “ProcessingRequest“,
+//     the server must send back exactly one “ProcessingResponse“ message.
 //   - If it is set to “FULL_DUPLEX_STREAMED“, the server must follow the API defined
-//     for this mode to send the ProcessingResponse messages.
+//     for this mode to send the “ProcessingResponse“ messages.
 //
 // [#next-free-field: 13]
 type ProcessingResponse struct {
@@ -418,19 +420,17 @@ type ProcessingResponse struct {
 	// following filters. This metadata will be placed in the namespace(s) specified by the top-level
 	// field name(s) of the struct.
 	DynamicMetadata *structpb.Struct `protobuf:"bytes,8,opt,name=dynamic_metadata,json=dynamicMetadata,proto3" json:"dynamic_metadata,omitempty"`
-	// Override how parts of the HTTP request and response are processed
-	// for the duration of this particular request/response only. Servers
-	// may use this to intelligently control how requests are processed
-	// based on the headers and other metadata that they see.
-	// This field is only applicable when servers responding to the header requests.
-	// If it is set in the response to the body or trailer requests, it will be ignored by the data plane.
+	// Override how parts of the HTTP request and response are processed for the duration of this
+	// particular request/response only. Servers may use this to intelligently control how requests
+	// are processed based on the headers and other metadata that they see.
+	//
+	// This field is only applicable when servers are responding to the header requests. If it is set
+	// in the response to the body or trailer requests, it will be ignored by the data plane.
 	// It is also ignored by the data plane when the ext_proc filter config
-	// :ref:`allow_mode_override
-	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allow_mode_override>`
-	// is set to false, or
-	// :ref:`send_body_without_waiting_for_header_response
-	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.send_body_without_waiting_for_header_response>`
-	// is set to true.
+	// :ref:`allow_mode_override <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.allow_mode_override>`
+	// is set to “false“, or
+	// :ref:`send_body_without_waiting_for_header_response <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.send_body_without_waiting_for_header_response>`
+	// is set to “true“.
 	ModeOverride *v3.ProcessingMode `protobuf:"bytes,9,opt,name=mode_override,json=modeOverride,proto3" json:"mode_override,omitempty"`
 	// [#not-implemented-hide:]
 	// Used only in “FULL_DUPLEX_STREAMED“ and “GRPC“ body send modes.
@@ -444,19 +444,18 @@ type ProcessingResponse struct {
 	// early, because it would wind up dropping any body contents that the
 	// client had already sent before it saw the ext_proc stream termination.
 	RequestDrain bool `protobuf:"varint,12,opt,name=request_drain,json=requestDrain,proto3" json:"request_drain,omitempty"`
-	// When ext_proc server receives a request message, in case it needs more
-	// time to process the message, it sends back a ProcessingResponse message
-	// with a new timeout value. When the data plane receives this response
-	// message, it ignores other fields in the response, just stop the original
-	// timer, which has the timeout value specified in
-	// :ref:`message_timeout
-	// <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.message_timeout>`
-	// and start a new timer with this “override_message_timeout“ value and keep the
-	// data plane ext_proc filter state machine intact.
-	// Has to be >= 1ms and <=
-	// :ref:`max_message_timeout <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.max_message_timeout>`
-	// Such message can be sent at most once in a particular data plane ext_proc filter processing state.
-	// To enable this API, one has to set “max_message_timeout“ to a number >= 1ms.
+	// When the ext_proc server receives a request message and needs more time to process it, it
+	// sends back a “ProcessingResponse“ message with a new timeout value. When the data plane
+	// receives this response message, it ignores other fields in the response, stops the original
+	// timer (which has the timeout value specified in
+	// :ref:`message_timeout <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.message_timeout>`),
+	// and starts a new timer with this “override_message_timeout“ value while keeping the data
+	// plane ext_proc filter state machine intact.
+	//
+	// The value must be >= 1ms and <=
+	// :ref:`max_message_timeout <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.max_message_timeout>`.
+	// Such a message can be sent at most once in a particular data plane ext_proc filter processing
+	// state. To enable this API, “max_message_timeout“ must be set to a value >= 1ms.
 	OverrideMessageTimeout *durationpb.Duration `protobuf:"bytes,10,opt,name=override_message_timeout,json=overrideMessageTimeout,proto3" json:"override_message_timeout,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
@@ -652,17 +651,19 @@ type ProcessingResponse_ImmediateResponse struct {
 
 type ProcessingResponse_StreamedImmediateResponse struct {
 	// The server sends back this message to initiate or continue local response streaming.
-	// The server must initiate local response streaming with the “headers_response“ in response to a ProcessingRequest
-	// with the “request_headers“ only.
-	// The server may follow up with multiple messages containing “body_response“. The server must indicate
-	// end of stream by setting “end_of_stream“ to “true“ in the “headers_response“
+	// The server must initiate local response streaming with the “headers_response“ in response
+	// to a “ProcessingRequest“ with the “request_headers“ only.
+	// The server may follow up with multiple messages containing “body_response“. The server must
+	// indicate end of stream by setting “end_of_stream“ to “true“ in the “headers_response“
 	// or “body_response“ message or by sending a “trailers_response“ message.
-	// The client may send a “request_body“ or “request_trailers“ to the server depending on configuration.
+	// The client may send a “request_body“ or “request_trailers“ to the server depending on
+	// configuration.
 	// The streaming local response can only be sent when the “request_header_mode“ in the filter
 	// :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`
-	// is set to “SEND“. The ext_proc server should not send StreamedImmediateResponse if it did not observe request headers,
-	// as it will result in the race with the upstream server response and reset of the client request.
-	// Presently only the FULL_DUPLEX_STREAMED or NONE body modes are supported.
+	// is set to “SEND“. The ext_proc server should not send “StreamedImmediateResponse“ if it
+	// did not observe request headers, as it will result in a race with the upstream server
+	// response and reset of the client request.
+	// Presently only the “FULL_DUPLEX_STREAMED“ or “NONE“ body modes are supported.
 	StreamedImmediateResponse *StreamedImmediateResponse `protobuf:"bytes,11,opt,name=streamed_immediate_response,json=streamedImmediateResponse,proto3,oneof"`
 }
 
@@ -682,24 +683,21 @@ func (*ProcessingResponse_ImmediateResponse) isProcessingResponse_Response() {}
 
 func (*ProcessingResponse_StreamedImmediateResponse) isProcessingResponse_Response() {}
 
-// This message is sent to the external server when the HTTP request and responses
+// This message is sent to the external server when the HTTP request and response headers
 // are first received.
 type HttpHeaders struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The HTTP request headers. All header keys will be
-	// lower-cased, because HTTP header keys are case-insensitive.
-	// The header value is encoded in the
+	// The HTTP request headers. All header keys will be lower-cased, because HTTP header keys are
+	// case-insensitive. The header value is encoded in the
 	// :ref:`raw_value <envoy_v3_api_field_config.core.v3.HeaderValue.raw_value>` field.
 	Headers *v31.HeaderMap `protobuf:"bytes,1,opt,name=headers,proto3" json:"headers,omitempty"`
 	// [#not-implemented-hide:]
-	// This field is deprecated and not implemented. Attributes will be sent in
-	// the  top-level :ref:`attributes <envoy_v3_api_field_service.ext_proc.v3.ProcessingRequest.attributes`
-	// field.
+	// This field is deprecated and not implemented. Attributes will be sent in the top-level
+	// :ref:`attributes <envoy_v3_api_field_service.ext_proc.v3.ProcessingRequest.attributes>` field.
 	//
 	// Deprecated: Marked as deprecated in envoy/service/ext_proc/v3/external_processor.proto.
 	Attributes map[string]*structpb.Struct `protobuf:"bytes,2,rep,name=attributes,proto3" json:"attributes,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	// If “true“, then there is no message body associated with this
-	// request or response.
+	// If “true“, then there is no message body associated with this request or response.
 	EndOfStream   bool `protobuf:"varint,3,opt,name=end_of_stream,json=endOfStream,proto3" json:"end_of_stream,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -757,29 +755,27 @@ func (x *HttpHeaders) GetEndOfStream() bool {
 	return false
 }
 
-// This message is sent to the external server when the HTTP request and
-// response bodies are received.
+// This message is sent to the external server when the HTTP request and response bodies are
+// received.
 type HttpBody struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// The contents of the body in the HTTP request/response. Note that in
-	// streaming mode multiple “HttpBody“ messages may be sent.
+	// The contents of the body in the HTTP request/response. Note that in streaming mode multiple
+	// “HttpBody“ messages may be sent.
 	//
-	// In “GRPC“ body send mode, a separate “HttpBody“ message will be
-	// sent for each message in the gRPC stream.
+	// In “GRPC“ body send mode, a separate “HttpBody“ message will be sent for each message in
+	// the gRPC stream.
 	Body []byte `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
-	// If “true“, this will be the last “HttpBody“ message that will be sent and no
-	// trailers will be sent for the current request/response.
+	// If “true“, this will be the last “HttpBody“ message that will be sent and no trailers
+	// will be sent for the current request/response.
 	EndOfStream bool `protobuf:"varint,2,opt,name=end_of_stream,json=endOfStream,proto3" json:"end_of_stream,omitempty"`
-	// This field is used in “GRPC“ body send mode when “end_of_stream“ is
-	// true and “body“ is empty. Those values would normally indicate an
-	// empty message on the stream with the end-of-stream bit set.
-	// However, if the half-close happens after the last message on the
-	// stream was already sent, then this field will be true to indicate an
-	// end-of-stream with *no* message (as opposed to an empty message).
+	// This field is used in “GRPC“ body send mode when “end_of_stream“ is “true“ and “body“
+	// is empty. Those values would normally indicate an empty message on the stream with the
+	// end-of-stream bit set. However, if the half-close happens after the last message on the stream
+	// was already sent, then this field will be “true“ to indicate an end-of-stream with *no*
+	// message (as opposed to an empty message).
 	EndOfStreamWithoutMessage bool `protobuf:"varint,3,opt,name=end_of_stream_without_message,json=endOfStreamWithoutMessage,proto3" json:"end_of_stream_without_message,omitempty"`
-	// This field is used in “GRPC“ body send mode to indicate whether
-	// the message is compressed. This will never be set to true by gRPC
-	// but may be set to true by a proxy like Envoy.
+	// This field is used in “GRPC“ body send mode to indicate whether the message is compressed.
+	// This will never be set to “true“ by gRPC but may be set to “true“ by a proxy like Envoy.
 	GrpcMessageCompressed bool `protobuf:"varint,4,opt,name=grpc_message_compressed,json=grpcMessageCompressed,proto3" json:"grpc_message_compressed,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
@@ -1035,10 +1031,11 @@ func (x *TrailersResponse) GetHeaderMutation() *HeaderMutation {
 	return nil
 }
 
-// This message is sent by the external server to the data plane after “HttpHeaders“
-// to initiate local response streaming. The server may follow up with multiple messages containing “body_response“.
-// The server must indicate end of stream by setting “end_of_stream“ to “true“ in the “headers_response“
-// or “body_response“ message or by sending a “trailers_response“ message.
+// This message is sent by the external server to the data plane after “HttpHeaders“ to initiate
+// local response streaming. The server may follow up with multiple messages containing
+// “body_response“. The server must indicate end of stream by setting “end_of_stream“ to
+// “true“ in the “headers_response“ or “body_response“ message or by sending a
+// “trailers_response“ message.
 type StreamedImmediateResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Response:
@@ -1120,7 +1117,7 @@ type isStreamedImmediateResponse_Response interface {
 }
 
 type StreamedImmediateResponse_HeadersResponse struct {
-	// Response headers to be sent downstream. The ":status" header must be set.
+	// Response headers to be sent downstream. The “:status“ header must be set.
 	HeadersResponse *HttpHeaders `protobuf:"bytes,1,opt,name=headers_response,json=headersResponse,proto3,oneof"`
 }
 
@@ -1148,21 +1145,20 @@ type CommonResponse struct {
 	// handle the rest of the HTTP filter chain.
 	Status CommonResponse_ResponseStatus `protobuf:"varint,1,opt,name=status,proto3,enum=envoy.service.ext_proc.v3.CommonResponse_ResponseStatus" json:"status,omitempty"`
 	// Instructions on how to manipulate the headers. When responding to an
-	// HttpBody request, header mutations will only take effect if
-	// the current processing mode for the body is BUFFERED.
+	// “HttpBody“ request, header mutations will only take effect if the current processing mode
+	// for the body is “BUFFERED“.
 	HeaderMutation *HeaderMutation `protobuf:"bytes,2,opt,name=header_mutation,json=headerMutation,proto3" json:"header_mutation,omitempty"`
-	// Replace the body of the last message sent to the remote server on this
-	// stream. If responding to an HttpBody request, simply replace or clear
-	// the body chunk that was sent with that request. Body mutations may take
-	// effect in response either to “header“ or “body“ messages. When it is
-	// in response to “header“ messages, it only take effect if the
+	// Replace the body of the last message sent to the remote server on this stream. If responding
+	// to an “HttpBody“ request, simply replace or clear the body chunk that was sent with that
+	// request. Body mutations may take effect in response either to “header“ or “body“ messages.
+	// When it is in response to “header“ messages, it only takes effect if the
 	// :ref:`status <envoy_v3_api_field_service.ext_proc.v3.CommonResponse.status>`
-	// is set to CONTINUE_AND_REPLACE.
+	// is set to “CONTINUE_AND_REPLACE“.
 	BodyMutation *BodyMutation `protobuf:"bytes,3,opt,name=body_mutation,json=bodyMutation,proto3" json:"body_mutation,omitempty"`
 	// [#not-implemented-hide:]
-	// Add new trailers to the message. This may be used when responding to either a
-	// HttpHeaders or HttpBody message, but only if this message is returned
-	// along with the CONTINUE_AND_REPLACE status.
+	// Add new trailers to the message. This may be used when responding to either an
+	// “HttpHeaders“ or “HttpBody“ message, but only if this message is returned
+	// along with the “CONTINUE_AND_REPLACE“ status.
 	// The header value is encoded in the
 	// :ref:`raw_value <envoy_v3_api_field_config.core.v3.HeaderValue.raw_value>` field.
 	Trailers *v31.HeaderMap `protobuf:"bytes,4,opt,name=trailers,proto3" json:"trailers,omitempty"`
@@ -1240,26 +1236,24 @@ func (x *CommonResponse) GetClearRouteCache() bool {
 	return false
 }
 
-// This message causes the filter to attempt to create a locally
-// generated response, send it  downstream, stop processing
-// additional filters, and ignore any additional messages received
-// from the remote server for this request or response. If a response
-// has already started, then  this will either ship the reply directly
-// to the downstream codec, or reset the stream.
+// This message causes the filter to attempt to create a locally generated response, send it
+// downstream, stop processing additional filters, and ignore any additional messages received
+// from the remote server for this request or response. If a response has already started, then
+// this will either ship the reply directly to the downstream codec, or reset the stream.
 // [#next-free-field: 6]
 type ImmediateResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The response code to return.
 	Status *v32.HttpStatus `protobuf:"bytes,1,opt,name=status,proto3" json:"status,omitempty"`
-	// Apply changes to the default headers, which will include content-type.
+	// Apply changes to the default headers, which will include “content-type“.
 	Headers *HeaderMutation `protobuf:"bytes,2,opt,name=headers,proto3" json:"headers,omitempty"`
 	// The message body to return with the response which is sent using the
-	// text/plain content type, or encoded in the grpc-message header.
+	// “text/plain“ content type, or encoded in the “grpc-message“ header.
 	Body []byte `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
 	// If set, then include a gRPC status trailer.
 	GrpcStatus *GrpcStatus `protobuf:"bytes,4,opt,name=grpc_status,json=grpcStatus,proto3" json:"grpc_status,omitempty"`
 	// A string detailing why this local reply was sent, which may be included
-	// in log and debug output (e.g. this populates the %RESPONSE_CODE_DETAILS%
+	// in log and debug output (e.g., this populates the “%RESPONSE_CODE_DETAILS%“
 	// command operator field for use in access logging).
 	Details       string `protobuf:"bytes,5,opt,name=details,proto3" json:"details,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1331,7 +1325,7 @@ func (x *ImmediateResponse) GetDetails() string {
 	return ""
 }
 
-// This message specifies a gRPC status for an ImmediateResponse message.
+// This message specifies a gRPC status for an “ImmediateResponse“ message.
 type GrpcStatus struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The actual gRPC status.
@@ -1445,24 +1439,22 @@ type StreamedBodyResponse struct {
 	// passed to the upstream/downstream by the data plane. In “GRPC“ body send mode, contains
 	// a serialized gRPC message to be passed to the upstream/downstream by the data plane.
 	Body []byte `protobuf:"bytes,1,opt,name=body,proto3" json:"body,omitempty"`
-	// The server sets this flag to true if it has received a body request with
-	// :ref:`end_of_stream <envoy_v3_api_field_service.ext_proc.v3.HttpBody.end_of_stream>` set to true,
-	// and this is the last chunk of body responses.
-	// Note that in “GRPC“ body send mode, this allows the ext_proc
-	// server to tell the data plane to send a half close after a client
-	// message, which will result in discarding any other messages sent by
-	// the client application.
+	// The server sets this flag to “true“ if it has received a body request with
+	// :ref:`end_of_stream <envoy_v3_api_field_service.ext_proc.v3.HttpBody.end_of_stream>` set to
+	// “true“, and this is the last chunk of body responses.
+	//
+	// Note that in “GRPC“ body send mode, this allows the ext_proc server to tell the data plane
+	// to send a half close after a client message, which will result in discarding any other
+	// messages sent by the client application.
 	EndOfStream bool `protobuf:"varint,2,opt,name=end_of_stream,json=endOfStream,proto3" json:"end_of_stream,omitempty"`
-	// This field is used in “GRPC“ body send mode when “end_of_stream“ is
-	// true and “body“ is empty. Those values would normally indicate an
-	// empty message on the stream with the end-of-stream bit set.
-	// However, if the half-close happens after the last message on the
-	// stream was already sent, then this field will be true to indicate an
-	// end-of-stream with *no* message (as opposed to an empty message).
+	// This field is used in “GRPC“ body send mode when “end_of_stream“ is “true“ and “body“
+	// is empty. Those values would normally indicate an empty message on the stream with the
+	// end-of-stream bit set. However, if the half-close happens after the last message on the stream
+	// was already sent, then this field will be “true“ to indicate an end-of-stream with *no*
+	// message (as opposed to an empty message).
 	EndOfStreamWithoutMessage bool `protobuf:"varint,3,opt,name=end_of_stream_without_message,json=endOfStreamWithoutMessage,proto3" json:"end_of_stream_without_message,omitempty"`
-	// This field is used in “GRPC“ body send mode to indicate whether
-	// the message is compressed. This will never be set to true by gRPC
-	// but may be set to true by a proxy like Envoy.
+	// This field is used in “GRPC“ body send mode to indicate whether the message is compressed.
+	// This will never be set to “true“ by gRPC but may be set to “true“ by a proxy like Envoy.
 	GrpcMessageCompressed bool `protobuf:"varint,4,opt,name=grpc_message_compressed,json=grpcMessageCompressed,proto3" json:"grpc_message_compressed,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
@@ -1618,11 +1610,10 @@ type BodyMutation_Body struct {
 }
 
 type BodyMutation_ClearBody struct {
-	// Clear the corresponding body chunk.
-	// Should only be used when the corresponding “BodySendMode“ in the
+	// Clear the corresponding body chunk. Should only be used when the corresponding
+	// “BodySendMode“ in the
 	// :ref:`processing_mode <envoy_v3_api_field_extensions.filters.http.ext_proc.v3.ExternalProcessor.processing_mode>`
 	// is not set to “FULL_DUPLEX_STREAMED“ or “GRPC“.
-	// Clear the corresponding body chunk.
 	ClearBody bool `protobuf:"varint,2,opt,name=clear_body,json=clearBody,proto3,oneof"`
 }
 

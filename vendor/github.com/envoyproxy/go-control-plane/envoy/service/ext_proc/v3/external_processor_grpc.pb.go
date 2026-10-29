@@ -28,7 +28,7 @@ const (
 type ExternalProcessorClient interface {
 	// This begins the bidirectional stream that the data plane will use to
 	// give the server control over what the filter does. The actual
-	// protocol is described by the ProcessingRequest and ProcessingResponse
+	// protocol is described by the “ProcessingRequest“ and “ProcessingResponse“
 	// messages below.
 	Process(ctx context.Context, opts ...grpc.CallOption) (ExternalProcessor_ProcessClient, error)
 }
@@ -78,7 +78,7 @@ func (x *externalProcessorProcessClient) Recv() (*ProcessingResponse, error) {
 type ExternalProcessorServer interface {
 	// This begins the bidirectional stream that the data plane will use to
 	// give the server control over what the filter does. The actual
-	// protocol is described by the ProcessingRequest and ProcessingResponse
+	// protocol is described by the “ProcessingRequest“ and “ProcessingResponse“
 	// messages below.
 	Process(ExternalProcessor_ProcessServer) error
 }
