@@ -43,6 +43,10 @@ type Writer interface {
 	// node-wide options into the specified writer.
 	WriteNodeConfig(io.Writer, *config.Config) error
 
+	// WriteNodeConfigForHash writes what WriteNodeConfig writes, minus the
+	// comment holding the node addresses.
+	WriteNodeConfigForHash(io.Writer, *config.Config) error
+
 	// WriteNetdevConfig writes the implementation-specific configuration
 	// of configurable options to the specified writer. Options specified
 	// here will apply to base programs and not to endpoints, though
@@ -98,6 +102,15 @@ func writeIncludes(w io.Writer) (int, error) {
 // https://docs.cilium.io/en/latest/contributing/development/datapath_config
 // will guide you through adding new configuration.
 func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) error {
+	return h.writeNodeConfig(w, cfg, true)
+}
+
+// WriteNodeConfigForHash writes node_config.h without the address comment, which no BPF program reads.
+func (h *HeaderfileWriter) WriteNodeConfigForHash(w io.Writer, cfg *config.Config) error {
+	return h.writeNodeConfig(w, cfg, false)
+}
+
+func (h *HeaderfileWriter) writeNodeConfig(w io.Writer, cfg *config.Config, withAddresses bool) error {
 	// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
 	extraMacrosMap := make(dpdef.Map)
@@ -107,34 +120,36 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 	writeIncludes(fw)
 
-	var ipv4NodePortAddrs, ipv6NodePortAddrs []netip.Addr
-	for _, addr := range cfg.NodeAddresses {
-		if !addr.NodePort {
-			continue
+	if withAddresses {
+		var ipv4NodePortAddrs, ipv6NodePortAddrs []netip.Addr
+		for _, addr := range cfg.NodeAddresses {
+			if !addr.NodePort {
+				continue
+			}
+			if addr.Addr.Is4() {
+				ipv4NodePortAddrs = append(ipv4NodePortAddrs, addr.Addr)
+			} else {
+				ipv6NodePortAddrs = append(ipv6NodePortAddrs, addr.Addr)
+			}
 		}
-		if addr.Addr.Is4() {
-			ipv4NodePortAddrs = append(ipv4NodePortAddrs, addr.Addr)
-		} else {
-			ipv6NodePortAddrs = append(ipv6NodePortAddrs, addr.Addr)
-		}
-	}
 
-	fmt.Fprintf(fw, "/*\n")
-	if option.Config.EnableIPv6 {
-		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", cfg.NodeIPv6.String())
-		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", cfg.CiliumInternalIPv6.String())
-		fmt.Fprintf(fw, " cilium.v6.nodeport.str %v\n", ipv6NodePortAddrs)
+		fmt.Fprintf(fw, "/*\n")
+		if option.Config.EnableIPv6 {
+			fmt.Fprintf(fw, " cilium.v6.external.str %s\n", cfg.NodeIPv6.String())
+			fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", cfg.CiliumInternalIPv6.String())
+			fmt.Fprintf(fw, " cilium.v6.nodeport.str %v\n", ipv6NodePortAddrs)
+			fmt.Fprintf(fw, "\n")
+		}
+		fmt.Fprintf(fw, " cilium.v4.external.str %s\n", cfg.NodeIPv4.String())
+		fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", cfg.CiliumInternalIPv4.String())
+		fmt.Fprintf(fw, " cilium.v4.nodeport.str %v\n", ipv4NodePortAddrs)
 		fmt.Fprintf(fw, "\n")
+		if option.Config.EnableIPv6 {
+			fmt.Fprintf(fw, " %s%s\n", defaults.RestoreV6Addr, common.GoArray2C(cfg.CiliumInternalIPv6.AsSlice()))
+		}
+		fmt.Fprintf(fw, " %s%s\n", defaults.RestoreV4Addr, common.GoArray2C(cfg.CiliumInternalIPv4.AsSlice()))
+		fmt.Fprintf(fw, " */\n\n")
 	}
-	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", cfg.NodeIPv4.String())
-	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", cfg.CiliumInternalIPv4.String())
-	fmt.Fprintf(fw, " cilium.v4.nodeport.str %v\n", ipv4NodePortAddrs)
-	fmt.Fprintf(fw, "\n")
-	if option.Config.EnableIPv6 {
-		fmt.Fprintf(fw, " %s%s\n", defaults.RestoreV6Addr, common.GoArray2C(cfg.CiliumInternalIPv6.AsSlice()))
-	}
-	fmt.Fprintf(fw, " %s%s\n", defaults.RestoreV4Addr, common.GoArray2C(cfg.CiliumInternalIPv4.AsSlice()))
-	fmt.Fprintf(fw, " */\n\n")
 
 	cDefinesMap["CILIUM_IPV6_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
 
