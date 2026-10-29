@@ -19,6 +19,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/config"
 	dpdef "github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
+	"github.com/cilium/cilium/pkg/datapath/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -186,25 +187,16 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *config.Config) erro
 
 		// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
-		const (
-			dsrEncapInv = iota
-			dsrEncapNone
-			dsrEncapIPIP
-			dsrEncapGeneve
-		)
-		cDefinesMap["DSR_ENCAP_IPIP"] = fmt.Sprintf("%d", dsrEncapIPIP)
-		cDefinesMap["DSR_ENCAP_GENEVE"] = fmt.Sprintf("%d", dsrEncapGeneve)
-		cDefinesMap["DSR_ENCAP_NONE"] = fmt.Sprintf("%d", dsrEncapNone)
 		if cfg.LBConfig.LoadBalancerUsesDSR() {
 			if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchOption {
-				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapNone)
+				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", types.DSREncapModeDSREncapModeNone)
 			} else if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchIPIP {
-				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapIPIP)
+				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", types.DSREncapModeDSREncapModeIPIP)
 			} else if cfg.LBConfig.DSRDispatch == loadbalancer.DSRDispatchGeneve {
-				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapGeneve)
+				cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", types.DSREncapModeDSREncapModeGeneve)
 			}
 		} else {
-			cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", dsrEncapInv)
+			cDefinesMap["DSR_ENCAP_MODE"] = fmt.Sprintf("%d", types.DSREncapModeDSREncapModeInvalid)
 		}
 	}
 

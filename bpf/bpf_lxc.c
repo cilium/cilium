@@ -1200,13 +1200,12 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		}
 	}
 
-#ifdef HAVE_ENCAP
 	/* L7 proxy result in VTEP redirection in bpf_host, but when L7 proxy disabled
 	 * We want VTEP redirection handled earlier here to avoid packets passing to
 	 * stack to bpf_host for VTEP redirection. When L7 proxy enabled, but no
 	 * L7 policy applied to pod, VTEP redirection also happen here.
 	 */
-	if (CONFIG(enable_vtep)) {
+	if (HAVE_ENCAP && CONFIG(enable_vtep)) {
 		struct vtep_key vkey = {
 			.vtep_ip = ip4->daddr & CONFIG(vtep_mask),
 		};
@@ -1224,7 +1223,6 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 								bpf_htons(ETH_P_IP));
 		}
 	}
-#endif /* HAVE_ENCAP */
 
 #if defined(TUNNEL_MODE)
 	/* If the connection was established over the tunnel, ignore the
@@ -1925,10 +1923,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	if (delivery_flags & CB_DELIVERY_FLAGS_USE_REDIRECT_PEER)
 		use_redirect_peer = true;
 
-#ifdef HAVE_ENCAP
-	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_TUNNEL)
+	if (HAVE_ENCAP && delivery_flags & CB_DELIVERY_FLAGS_FROM_TUNNEL)
 		from_tunnel = true;
-#endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
 		ret = DROP_INVALID;
@@ -2228,10 +2224,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 	ctx_store_meta(ctx, CB_CLUSTER_ID_INGRESS, 0);
 
-#ifdef HAVE_ENCAP
-	if (delivery_flags & CB_DELIVERY_FLAGS_FROM_TUNNEL)
+	if (HAVE_ENCAP && delivery_flags & CB_DELIVERY_FLAGS_FROM_TUNNEL)
 		from_tunnel = true;
-#endif
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
