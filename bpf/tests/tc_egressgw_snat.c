@@ -41,6 +41,8 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 		  int ifindex __maybe_unused, __u32 flags __maybe_unused)
