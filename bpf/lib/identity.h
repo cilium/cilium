@@ -58,7 +58,7 @@ static __always_inline __u32 world_ipv6_id(void)
  * It must be in sync with the constant identity.MaxLocalIdentity
  * defined in the numericidentity.go file.
  */
-#define CIDR_IDENTITY_RANGE_END ((1 << 24) + (1 << 16) - 1)
+#define CIDR_IDENTITY_RANGE_END ((1 << 24) + (1 << 24) - 1)
 
 /**
  * get_identity - returns source identity from the mark field
