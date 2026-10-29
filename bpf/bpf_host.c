@@ -1014,22 +1014,22 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_sec_
 
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
-	  enum trace_point obs_point,  const bool __maybe_unused from_host)
+	  enum trace_point obs_point, const bool from_host)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = TRACE_PAYLOAD_LEN,
 	};
-	fraginfo_t __maybe_unused fraginfo = 0;
-	__u32 __maybe_unused ipcache_srcid = 0;
+	fraginfo_t fraginfo = 0;
+	__u32 ipcache_srcid = 0;
 	enum metric_dir dir = METRIC_INGRESS;
-	void __maybe_unused *data, *data_end;
+	void *data, *data_end;
 	struct ipv6hdr __maybe_unused *ip6;
-	struct iphdr __maybe_unused *ip4;
-	struct arp_eth __maybe_unused *arp;
-	int __maybe_unused hdrlen = 0;
-	__u8 __maybe_unused next_proto = 0;
-	__s8 __maybe_unused ext_err = 0;
+	struct iphdr *ip4;
+	struct arp_eth *arp;
+	int hdrlen = 0;
+	__u8 next_proto = 0;
+	__s8 ext_err = 0;
 	int ret;
 
 	switch (proto) {
@@ -1252,9 +1252,9 @@ unknown_l3:
 
 	return ret;
 
-drop_err_egress: __maybe_unused
+drop_err_egress:
 	dir = METRIC_EGRESS;
-drop_err_ingress: __maybe_unused
+drop_err_ingress:
 	return send_drop_notify_error(ctx, identity, ret, dir);
 }
 
@@ -1675,8 +1675,8 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 
 static __always_inline
 int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
-			__u32 src_sec_identity, bool traced, bool use_tailcall __maybe_unused,
-			__s8 *ext_err __maybe_unused)
+			__u32 src_sec_identity, bool traced, bool use_tailcall,
+			__s8 *ext_err)
 {
 	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
@@ -1877,16 +1877,15 @@ out:
  * control back to bpf_lxc.
  */
 static __always_inline __maybe_unused int
-from_host_to_lxc(struct __ctx_buff *ctx __maybe_unused, __be16 proto,
-		 __s8 *ext_err __maybe_unused)
+from_host_to_lxc(struct __ctx_buff *ctx, __be16 proto, __s8 *ext_err)
 {
-	struct trace_ctx __maybe_unused trace = {
+	struct trace_ctx trace = {
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
 	int ret = CTX_ACT_OK;
-	void __maybe_unused *data, *data_end;
-	struct iphdr *ip4 __maybe_unused;
+	void *data, *data_end;
+	struct iphdr *ip4;
 	struct ipv6hdr *ip6 __maybe_unused;
 
 	switch (proto) {
