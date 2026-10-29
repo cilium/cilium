@@ -6,96 +6,66 @@ package bgp
 import (
 	"bufio"
 	"bytes"
-	"strings"
 	"testing"
-	"time"
-
-	"github.com/cilium/cilium/api/v1/models"
 
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	expectedColFormat = []string{
+func Test_printSummary(t *testing.T) {
+	expectedColFormat := []string{
 		"Node",
-		"Local AS",
-		"Peer AS",
-		"Peer Address",
+		"Instance",
+		"Peer",
 		"Session State",
 		"Uptime",
 		"Family",
 		"Received",
+		"Accepted",
 		"Advertised",
 	}
 
-	ipv4Unicast1 = &models.BgpPeerFamilies{
-		Accepted:   1,
-		Advertised: 1,
-		Afi:        "ipv4",
-		Received:   1,
-		Safi:       "unicast",
+	peer1 := []string{
+		"Instance\tPeer\tSession State\tUptime\tFamily\tReceived\tAccepted\tAdvertised",
+		"test_instance\tpeer1\testablished\t1s\tipv4-unicast\t1\t1\t1",
+		"test_instance\tpeer1\testablished\t1s\tipv6-unicast\t0\t0\t0",
 	}
-
-	ipv6Unicast1 = &models.BgpPeerFamilies{
-		Accepted:   0,
-		Advertised: 0,
-		Afi:        "ipv6",
-		Received:   0,
-		Safi:       "unicast",
+	peer2 := []string{
+		"Instance\tPeer\tSession State\tUptime\tFamily\tReceived\tAccepted\tAdvertised",
+		"test_instance\tpeer2\testablished\t1s\tipv4-unicast\t1\t1\t1",
+		"test_instance\tpeer2\testablished\t1s\tipv6-unicast\t0\t0\t0",
 	}
-
-	peer1 = &models.BgpPeer{
-		LocalAsn:          65001,
-		PeerAddress:       "192.168.0.2",
-		PeerAsn:           65002,
-		SessionState:      "established",
-		UptimeNanoseconds: int64(time.Second),
-		Families:          []*models.BgpPeerFamilies{ipv4Unicast1, ipv6Unicast1},
-	}
-
-	peer2 = &models.BgpPeer{
-		LocalAsn:          65101,
-		PeerAddress:       "192.168.0.2",
-		PeerAsn:           65102,
-		SessionState:      "established",
-		UptimeNanoseconds: int64(time.Second),
-		Families:          []*models.BgpPeerFamilies{ipv4Unicast1, ipv6Unicast1},
-	}
-)
-
-func Test_printSummary(t *testing.T) {
 	testCases := []struct {
 		Name         string
-		Config       map[string][]*models.BgpPeer
+		Config       map[string][]string
 		expectedRows int
 	}{
 		{
 			Name: "Single node output, with single peer",
-			Config: map[string][]*models.BgpPeer{
-				"node_1": {peer1},
+			Config: map[string][]string{
+				"node_1": peer1,
 			},
 			expectedRows: 3,
 		},
 		{
 			Name: "Single node output, with multiple peers",
-			Config: map[string][]*models.BgpPeer{
-				"node_1": {peer1, peer2},
+			Config: map[string][]string{
+				"node_1": append(peer1, peer2[1:]...),
 			},
 			expectedRows: 5,
 		},
 		{
 			Name: "Two node output, with single peer",
-			Config: map[string][]*models.BgpPeer{
-				"node_1": {peer1},
-				"node_2": {peer1},
+			Config: map[string][]string{
+				"node_1": peer1,
+				"node_2": peer1,
 			},
 			expectedRows: 5,
 		},
 		{
 			Name: "Two node output, with multiple peers",
-			Config: map[string][]*models.BgpPeer{
-				"node_1": {peer1, peer2},
-				"node_2": {peer1, peer2},
+			Config: map[string][]string{
+				"node_1": append(peer1, peer2[1:]...),
+				"node_2": append(peer1, peer2[1:]...),
 			},
 			expectedRows: 9,
 		},
@@ -120,23 +90,4 @@ func Test_printSummary(t *testing.T) {
 		}
 		require.Equal(t, tt.expectedRows, rows)
 	}
-}
-
-func validateColFormat(t *testing.T, expectedFormat []string, output string) {
-	outputSlice := strings.Split(output, strings.Repeat(string(paddingChar), padding))
-
-	// clean up white spaces, and empty [""] which can come in output
-	i := 0
-	for _, outputCol := range outputSlice {
-		outputCol = strings.TrimSpace(outputCol)
-
-		// we can get empty col, so delete that while maintaining order
-		if outputCol != "" {
-			outputSlice[i] = outputCol
-			i++
-		}
-	}
-	outputSlice = outputSlice[:i]
-
-	require.Equal(t, expectedFormat, outputSlice)
 }
