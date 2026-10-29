@@ -133,7 +133,7 @@ jobs:
         id: key
         timeout-minutes: 10
         continue-on-error: true
-        uses: cilium/little-vm-helper@f86d344aca812dda5aef167867a9a0a90ca6cca5 # v0.0.31
+        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
         with:
           derive-dependency-list-sha: 'true'
 
@@ -256,7 +256,7 @@ jobs:
           kind-image: ${{ env.KIND_K8S_IMAGE }}
 
       - name: Setup bootid file
-        uses: cilium/little-vm-helper@f86d344aca812dda5aef167867a9a0a90ca6cca5 # v0.0.31
+        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
         with:
           provision: 'false'
           cmd: |
