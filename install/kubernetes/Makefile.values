@@ -32,7 +32,7 @@ endif
 # renovate: datasource=docker
 export BUSYBOX_REPO?=docker.io/library/busybox
 export BUSYBOX_VERSION?=1.38.0
-export BUSYBOX_DIGEST?=sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e
+export BUSYBOX_DIGEST?=sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
 
 # renovate: datasource=docker
 export CERTGEN_REPO?=quay.io/cilium/certgen
@@ -46,8 +46,8 @@ export CILIUM_NODEINIT_DIGEST?=sha256:d7aca2a73c58463a50384b2c4aeb535722dfa969f5
 
 # renovate: datasource=docker
 export CILIUM_ENVOY_REPO?=quay.io/cilium/cilium-envoy
-export CILIUM_ENVOY_VERSION?=v1.40.1-1792728304-8839ed339cf4446d66a4f7083d8ea2fe7b21b182
-export CILIUM_ENVOY_DIGEST?=sha256:38d2fb65b6d93be7a4ebfd236652a498aa0f7e42c495dd1f884ae69c880b620b
+export CILIUM_ENVOY_VERSION?=v1.40.2-1793191753-2b268f098fb50df0c1201524291992f48a959074
+export CILIUM_ENVOY_DIGEST?=sha256:c37bb9e4c61e5f54b8a60445097aaf831ab149001166acb2405c4c529a51ee22
 
 # renovate: datasource=docker
 export HUBBLE_UI_BACKEND_REPO?=quay.io/cilium/hubble-ui-backend

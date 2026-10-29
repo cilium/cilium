@@ -17,7 +17,7 @@
         github.event.pull_request.merged == true &&
         contains(github.event.pull_request.body, 'upstream-prs') &&
         contains(join(github.event.pull_request.labels.*.name, ', '), 'backport/')
-      uses: cilium/cilium/.github/workflows/update-label-backport-pr.yaml@bf1aba7b34ab6d9c711315d78d8eefbea81962d1 # v1.20.3
+      uses: cilium/cilium/.github/workflows/update-label-backport-pr.yaml@beb276d2f38d4aadfda14710acf8d14a0f1ba723 # v1.20.4
       with:
         pr-body: ${{ github.event.pull_request.body }}
         branch: ${{ github.base_ref }}
