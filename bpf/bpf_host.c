@@ -87,7 +87,6 @@ static __always_inline bool allow_vlan(__u32 vlan_id)
 DEFINE_AUX(struct ct_buffer4, cilium_tail_call_buffer4);
 DEFINE_AUX(struct ct_buffer6, cilium_tail_call_buffer6);
 
-#if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 {
 	/* When attached to cilium_host, we rewrite the DMAC to the mac of
@@ -102,7 +101,6 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx)
 
 	return CTX_ACT_OK;
 }
-#endif
 
 #ifdef ENABLE_IPV6
 static __always_inline __u32
@@ -557,7 +555,6 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_sec_
 }
 #endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 static __always_inline __u32
 resolve_srcid_ipv4(const struct __ctx_buff *ctx, const struct iphdr *ip4,
 		   __u32 real_sec_identity, __u32 *ipcache_sec_identity)
@@ -1014,7 +1011,6 @@ handle_to_netdev_ipv4(struct __ctx_buff *ctx, bool is_from_proxy, __u32 src_sec_
 	return ipv4_host_policy_egress(ctx, is_from_proxy, src_id, ipcache_srcid, ip4,
 				       trace, ext_err);
 }
-#endif /* ENABLE_IPV4 */
 
 static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
@@ -1125,8 +1121,10 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
 #endif
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4))
+			goto unknown_l3;
+
 		/* This is the first time revalidate_data() is going to be called.
 		 * Make sure that we don't legitimately drop the packet if the skb
 		 * arrived with the header not being not in the linear data.
@@ -1220,6 +1218,9 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
 	case bpf_htons(ETH_P_ARP):
+		if (!is_defined(ENABLE_IPV4))
+			goto unknown_l3;
+
 		if (!revalidate_data_arp_pull(ctx, &data, &data_end, &arp)) {
 			ret = DROP_INVALID;
 			goto drop_err_ingress;
@@ -1237,8 +1238,8 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		}
 
 		break;
-#endif /* ENABLE_IPV4 */
 	default:
+unknown_l3:
 		send_trace_notify(ctx, obs_point, identity, UNKNOWN_ID, TRACE_EP_ID_UNKNOWN,
 				  ctx->ingress_ifindex, trace.reason, trace.monitor, proto);
 		if (CONFIG(enable_host_firewall)) {
@@ -1476,17 +1477,25 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 						    src_sec_identity, &trace, &ext_err);
 			break;
 # endif
-# ifdef ENABLE_IPV4
 		case bpf_htons(ETH_P_IP): {
+			if (!is_defined(ENABLE_IPV4)) {
+				ret = DROP_UNKNOWN_L3;
+				break;
+			}
+
 			ret = handle_to_netdev_ipv4(ctx,
 						    magic == MARK_MAGIC_PROXY_EGRESS,
 						    src_sec_identity, &trace, &ext_err);
 			break;
 		}
 		case bpf_htons(ETH_P_ARP):
+			if (!is_defined(ENABLE_IPV4)) {
+				ret = DROP_UNKNOWN_L3;
+				break;
+			}
+
 			ret = CTX_ACT_OK;
 			break;
-# endif
 		default:
 			ret = DROP_UNKNOWN_L3;
 			break;
@@ -1638,7 +1647,6 @@ int tail_ipv6_host_policy_ingress(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 __declare_tail(CILIUM_CALL_IPV4_TO_HOST_POLICY_ONLY)
 static __always_inline
 int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
@@ -1664,7 +1672,6 @@ int tail_ipv4_host_policy_ingress(struct __ctx_buff *ctx)
 
 	return ret;
 }
-#endif /* ENABLE_IPV4 */
 
 static __always_inline
 int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
@@ -1696,8 +1703,12 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 
 		break;
 # endif
-# ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		if (use_tailcall) {
 			ctx_store_meta(ctx, CB_SRC_LABEL, src_sec_identity);
 			ctx_store_meta(ctx, CB_TRACED, traced);
@@ -1710,9 +1721,13 @@ int host_ingress_policy(struct __ctx_buff *ctx, __be16 proto,
 
 		break;
 	case bpf_htons(ETH_P_ARP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		ret = CTX_ACT_OK;
 		break;
-# endif
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
@@ -1883,8 +1898,12 @@ from_host_to_lxc(struct __ctx_buff *ctx __maybe_unused, __be16 proto,
 		ret = ipv6_host_policy_egress(ctx, false, HOST_ID, 0, ip6, &trace, ext_err);
 		break;
 # endif
-# ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
@@ -1897,9 +1916,13 @@ from_host_to_lxc(struct __ctx_buff *ctx __maybe_unused, __be16 proto,
 		ret = ipv4_host_policy_egress(ctx, false, HOST_ID, 0, ip4, &trace, ext_err);
 		break;
 	case bpf_htons(ETH_P_ARP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		ret = CTX_ACT_OK;
 		break;
-# endif
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
