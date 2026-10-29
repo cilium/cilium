@@ -13,6 +13,7 @@ import (
 	endpointapi "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/datapath/linux/bandwidth"
+	loader "github.com/cilium/cilium/pkg/datapath/loader/types"
 	endpointcreator "github.com/cilium/cilium/pkg/endpoint/creator"
 	endpointmetadata "github.com/cilium/cilium/pkg/endpoint/metadata"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -90,6 +91,7 @@ type endpointAPIHandlerParams struct {
 
 	Logger        *slog.Logger
 	APILimiterSet *rate.APILimiterSet
+	Loader        loader.Loader
 
 	EndpointManager    endpointmanager.EndpointManager
 	EndpointCreator    endpointcreator.EndpointCreator
@@ -200,6 +202,7 @@ func newEndpointAPIHandler(params endpointAPIHandlerParams) endpointAPIHandlerOu
 			logger:             params.Logger,
 			apiLimiterSet:      params.APILimiterSet,
 			endpointAPIManager: params.EndpointAPIManager,
+			loader:             params.Loader,
 			waitReadyFn:        params.Fence.Wait,
 		},
 	}

@@ -116,3 +116,8 @@ func (l *loader) CallsMapPath(id uint16) string {
 func (l *loader) HostDatapathInitialized() <-chan struct{} {
 	return l.hostDpInitialized
 }
+
+// EndpointTemplateReady returns a channel that the loader closes once it has its first bpf_lxc template.
+func (l *loader) EndpointTemplateReady() <-chan struct{} {
+	return l.templateCache.lxcReady
+}

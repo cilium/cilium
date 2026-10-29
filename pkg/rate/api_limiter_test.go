@@ -666,6 +666,42 @@ func TestSkipInitial(t *testing.T) {
 	require.Equal(t, 0.0, a.meanWaitDuration, "All requests should have skipped waiting duration")
 }
 
+func TestUnaccounted(t *testing.T) {
+	a := NewAPILimiter(hivetest.Logger(t), "endpoint-create", APILimiterParameters{
+		AutoAdjust:                  true,
+		EstimatedProcessingDuration: 2 * time.Second,
+		RateLimit:                   0.5,
+		RateBurst:                   4,
+		ParallelRequests:            4,
+		MinParallelRequests:         2,
+		MaxWaitDuration:             60 * time.Second,
+	}, nil)
+
+	minuteLongRequest := func(unaccounted bool) {
+		req, err := a.wait(context.Background())
+		require.NoError(t, err)
+		// Backdate the request to avoid sleeping for a minute.
+		req.startTime = time.Now().Add(-time.Minute)
+		if unaccounted {
+			req.Unaccounted()
+		}
+		req.Done()
+	}
+
+	minuteLongRequest(true)
+	require.Equal(t, int64(1), a.requestsProcessed)
+	require.Zero(t, a.meanProcessingDuration)
+	require.Equal(t, rate.Limit(0.5), a.limiter.Limit())
+	require.Equal(t, 4, a.limiter.Burst())
+	require.Equal(t, 4, a.parallelRequests)
+
+	minuteLongRequest(false)
+	require.InDelta(t, 60.0, a.meanProcessingDuration, 1.0)
+	require.Less(t, a.limiter.Limit(), rate.Limit(0.05))
+	require.Equal(t, 2, a.limiter.Burst())
+	require.Equal(t, 2, a.parallelRequests)
+}
+
 func TestCalculateAdjustmentFactor(t *testing.T) {
 	estimatedProcessingDuration := time.Second
 	maxAdjustmentFactor := 20.0
