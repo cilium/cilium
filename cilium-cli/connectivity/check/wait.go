@@ -56,10 +56,9 @@ const (
 // count against readiness. Any other error means the probe actually ran and
 // reported not-ready, so it is bounded by readiness as usual.
 //
-// Probes must exec against the parent context, never against a context derived
-// from the readiness deadline: the exec dial has no timeout of its own, so a
-// blackholed connection to the apiserver burns the entire readiness budget on a
-// single attempt and leaves the loop with no retry at all.
+// Probes use the parent context with a per-attempt timeout, not a context
+// derived from the readiness deadline. This lets a stalled exec be retried
+// within the exec-proxy allowance rather than treated as a readiness failure.
 func pollExecProbe(parentCtx context.Context, readiness time.Duration, probe func() error) error {
 	readinessDeadline := time.Now().Add(readiness)
 	execProxyDeadline := time.Now().Add(execProxyTimeout)
@@ -70,7 +69,7 @@ func pollExecProbe(parentCtx context.Context, readiness time.Duration, probe fun
 		}
 
 		deadline := readinessDeadline
-		if k8s.IsTransientExecError(err) {
+		if errors.Is(err, context.DeadlineExceeded) || k8s.IsTransientExecError(err) {
 			deadline = execProxyDeadline
 		}
 		if time.Now().After(deadline) {
@@ -235,8 +234,9 @@ func WaitForPodDNS(parentCtx context.Context, log Logger, src, dst Pod) error {
 	// See https://coredns.io/plugins/local/ for more info.
 	target := "localhost"
 	err := pollExecProbe(parentCtx, ShortTimeout, func() error {
-		stdout, err := src.K8sClient.ExecInPod(parentCtx, src.Namespace(), src.NameWithoutNamespace(),
-			src.Pod.Spec.Containers[0].Name, []string{"nslookup", target, dst.Address(features.IPFamilyAny)})
+		stdout, err := src.K8sClient.ExecInPodRetry(parentCtx, src.Namespace(), src.NameWithoutNamespace(),
+			src.Pod.Spec.Containers[0].Name, []string{"nslookup", target, dst.Address(features.IPFamilyAny)},
+			k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout})
 		if err != nil {
 			log.Debugf("[%s] Error looking up %s from pod %s to server on pod %s: %s: %s",
 				src.K8sClient.ClusterName(), target, src.Name(), dst.Name(), err, stdout.String())
@@ -259,8 +259,9 @@ func WaitForCoreDNS(parentCtx context.Context, log Logger, client Pod) error {
 
 	target := "kubernetes.default"
 	err := pollExecProbe(parentCtx, ShortTimeout, func() error {
-		stdout, err := client.K8sClient.ExecInPod(parentCtx, client.Namespace(), client.NameWithoutNamespace(),
-			client.Pod.Spec.Containers[0].Name, []string{"nslookup", target})
+		stdout, err := client.K8sClient.ExecInPodRetry(parentCtx, client.Namespace(), client.NameWithoutNamespace(),
+			client.Pod.Spec.Containers[0].Name, []string{"nslookup", target},
+			k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout})
 		if err != nil {
 			log.Debugf("[%s] Error looking up %s from pod %s: %s: %s",
 				client.K8sClient.ClusterName(), target, client.Name(), err, stdout.String())
@@ -308,9 +309,10 @@ func WaitForService(parentCtx context.Context, log Logger, client Pod, service S
 	}
 
 	err := pollExecProbe(parentCtx, 2*ShortTimeout, func() error {
-		stdout, err := client.K8sClient.ExecInPod(parentCtx,
+		stdout, err := client.K8sClient.ExecInPodRetry(parentCtx,
 			client.Namespace(), client.NameWithoutNamespace(), client.Pod.Spec.Containers[0].Name,
-			[]string{"nslookup", service.Service.Name}) // BusyBox nslookup doesn't support any arguments.
+			[]string{"nslookup", service.Service.Name}, // BusyBox nslookup doesn't support any arguments.
+			k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout})
 
 		// Lookup successful.
 		if err == nil {
@@ -369,8 +371,9 @@ func WaitForServiceEndpoints(parentCtx context.Context, log Logger, agent Pod, s
 }
 
 func checkServiceEndpoints(ctx context.Context, agent Pod, service Service, backends uint, families []features.IPFamily) error {
-	buffer, err := agent.K8sClient.ExecInPod(ctx, agent.Namespace(), agent.NameWithoutNamespace(),
-		defaults.AgentContainerName, []string{"cilium", "service", "list", "--output=json"})
+	buffer, err := agent.K8sClient.ExecInPodRetry(ctx, agent.Namespace(), agent.NameWithoutNamespace(),
+		defaults.AgentContainerName, []string{"cilium", "service", "list", "--output=json"},
+		k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout})
 	if err != nil {
 		return fmt.Errorf("failed to query service list: %w", err)
 	}
@@ -427,9 +430,10 @@ func WaitForNodePorts(parentCtx context.Context, log Logger, client Pod, nodeIP 
 			client.K8sClient.ClusterName(), nodeIP, nodePort, service.Name())
 
 		err := pollExecProbe(parentCtx, ShortTimeout, func() error {
-			stdout, err := client.K8sClient.ExecInPod(parentCtx,
+			stdout, err := client.K8sClient.ExecInPodRetry(parentCtx,
 				client.Namespace(), client.NameWithoutNamespace(), client.Pod.Spec.Containers[0].Name,
-				[]string{"nc", "-w", "3", "-z", nodeIP, strconv.Itoa(int(nodePort))})
+				[]string{"nc", "-w", "3", "-z", nodeIP, strconv.Itoa(int(nodePort))},
+				k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout})
 			if err != nil {
 				log.Debugf("[%s] Error checking NodePort %s:%d (%s): %s: %s",
 					client.K8sClient.ClusterName(), nodeIP, nodePort, service.Name(), err, stdout.String())
