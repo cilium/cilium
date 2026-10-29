@@ -682,11 +682,8 @@ func BenchmarkEvaluateL4PolicyMapState(b *testing.B) {
 		for b.Loop() {
 			b.StopTimer()
 			epPolicy := newEmptyEndpointPolicy()
-			l4Policy := L4Policy{
-				users: map[*EndpointPolicy]struct{}{
-					epPolicy: {},
-				},
-			}
+			l4Policy := NewL4Policy(0)
+			l4Policy.users[epPolicy] = struct{}{}
 
 			// Compute initial policy with just the wildcard selectors.
 			for _, filter := range testL4Filters {
