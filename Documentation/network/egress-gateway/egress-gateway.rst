@@ -55,6 +55,14 @@ providers have similar networking requirements and constructs.
 Additionally, the enablement of the egress gateway feature requires that both
 BPF masquerading and the kube-proxy replacement are enabled.
 
+.. note::
+
+   When running with the CNI chaining (e.g., :ref:`chaining_aws_cni`), set the
+   Helm option ``cni.enableRouteMTUForCNIChaining`` to ``true`` to force Cilium
+   to set a correct MTU for Pods. Otherwise, traffic redirected to the gateway
+   nodes through a tunnel might get fragmented, which can lead to a network
+   performance degradation.
+
 Delay for enforcement of egress policies on new pods
 ----------------------------------------------------
 
