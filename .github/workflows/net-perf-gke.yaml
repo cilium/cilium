@@ -162,6 +162,11 @@ jobs:
             mode: "tunnel"
             encryption: "wireguard"
 
+          - index: 7
+            name: "native-kpr"
+            mode: "gke"
+            kpr: "true"
+
     steps:
       - name: Set commit status to pending
         # commit-status-start does not re-run, so this is only needed on a re-run. It's ok
@@ -220,6 +225,10 @@ jobs:
 
           if [ "${{ matrix.encryption }}" = "wireguard" ] ; then
             CILIUM_INSTALL_DEFAULTS+=" --helm-set=encryption.enabled=true --helm-set=encryption.type=wireguard"
+          fi
+
+          if [ "${{ matrix.kpr }}" = "true" ] ; then
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set=kubeProxyReplacement=true --helm-set=bpf.hostLegacyRouting=false"
           fi
 
           NODE_TAINTS="ignore-taint.cluster-autoscaler.kubernetes.io/cilium-agent-not-ready=true:NoExecute"
