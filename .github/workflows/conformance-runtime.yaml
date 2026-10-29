@@ -177,7 +177,7 @@ jobs:
           allow-unsafe-pr-checkout: true
 
       - name: Provision LVH VMs
-        uses: cilium/little-vm-helper@f86d344aca812dda5aef167867a9a0a90ca6cca5 # v0.0.31
+        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
         with:
           test-name: runtime-tests
           install-dependencies: true
@@ -186,7 +186,7 @@ jobs:
           images-folder-parent: "/var/tmp"
           cpu: 4
           # renovate: datasource=github-tags depName=cilium/little-vm-helper
-          lvh-version: "v0.0.31"
+          lvh-version: "v0.0.33"
           mem: 14G
 
       # Load Golang cache build from GitHub
@@ -232,7 +232,7 @@ jobs:
 
       - name: Setup runtime
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@f86d344aca812dda5aef167867a9a0a90ca6cca5 # v0.0.31
+        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
         with:
           provision: 'false'
           cmd: |
@@ -262,7 +262,7 @@ jobs:
         id: prepare-tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@f86d344aca812dda5aef167867a9a0a90ca6cca5 # v0.0.31
+        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
         with:
           provision: 'false'
           cmd: |
@@ -287,7 +287,7 @@ jobs:
         id: run-tests
         if: ${{ matrix.focus == 'privileged' }}
         timeout-minutes: 40
-        uses: cilium/little-vm-helper@f86d344aca812dda5aef167867a9a0a90ca6cca5 # v0.0.31
+        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
         with:
           provision: 'false'
           cmd: |
@@ -298,7 +298,7 @@ jobs:
         id: copy-go-cache
         if: ${{ steps.go-cache.outputs.cache-hit != 'true' && matrix.focus == 'privileged' }}
         timeout-minutes: 10
-        uses: cilium/little-vm-helper@f86d344aca812dda5aef167867a9a0a90ca6cca5 # v0.0.31
+        uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
         with:
           provision: 'false'
           cmd: |
