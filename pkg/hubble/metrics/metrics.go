@@ -32,6 +32,7 @@ import (
 type CiliumEndpointDeletionHandler struct {
 	gracefulPeriod time.Duration
 	queue          workqueue.TypedDelayingInterface[*types.CiliumEndpoint]
+	cleanup        func(*types.CiliumEndpoint)
 }
 
 var (
@@ -66,26 +67,27 @@ var (
 )
 
 func ProcessCiliumEndpointDeletion(pod *types.CiliumEndpoint) error {
-	if endpointDeletionHandler != nil && EnabledMetrics != nil {
+	if endpointDeletionHandler != nil {
 		endpointDeletionHandler.queue.AddAfter(pod, endpointDeletionHandler.gracefulPeriod)
 	}
 	return nil
 }
 
-func initEndpointDeletionHandler() {
+func initEndpointDeletionHandler(cleanup func(*types.CiliumEndpoint)) {
 	endpointDeletionHandler = &CiliumEndpointDeletionHandler{
 		gracefulPeriod: time.Minute,
 		queue:          workqueue.NewTypedDelayingQueue[*types.CiliumEndpoint](),
+		cleanup:        cleanup,
 	}
-
+	handler := endpointDeletionHandler
 	go func() {
 		for {
-			endpoint, quit := endpointDeletionHandler.queue.Get()
+			endpoint, quit := handler.queue.Get()
 			if quit {
 				return
 			}
-			api.ProcessCiliumEndpointDeletion(endpoint, EnabledMetrics)
-			endpointDeletionHandler.queue.Done(endpoint)
+			handler.cleanup(endpoint)
+			handler.queue.Done(endpoint)
 		}
 	}()
 }
@@ -103,7 +105,9 @@ func InitMetrics(logger *slog.Logger, reg *prometheus.Registry, enabled *api.Con
 	reg.MustRegister(RequestsTotal)
 	reg.MustRegister(RequestDuration)
 
-	initEndpointDeletionHandler()
+	initEndpointDeletionHandler(func(endpoint *types.CiliumEndpoint) {
+		api.ProcessCiliumEndpointDeletion(endpoint, EnabledMetrics)
+	})
 
 	return nil
 }
@@ -113,8 +117,6 @@ func InitHubbleInternalMetrics(reg *prometheus.Registry, grpcMetrics *grpc_prome
 	reg.MustRegister(LostEvents)
 	reg.MustRegister(RequestsTotal)
 	reg.MustRegister(RequestDuration)
-
-	initEndpointDeletionHandler()
 
 	return nil
 }
