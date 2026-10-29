@@ -4,8 +4,10 @@
 package loader
 
 import (
+	"bytes"
 	"errors"
 	"io"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,6 +47,33 @@ func TestHashDatapath(t *testing.T) {
 
 	// A different producer must not share the hash.
 	c, err := hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg, []byte("producer"))
+	require.NoError(t, err)
+	require.NotEqual(t, a, c)
+}
+
+// The node and cilium_host addresses only reach node_config.h through its address comment.
+func TestHashDatapathIgnoresAddresses(t *testing.T) {
+	cfg := configWriterForTest(t)
+	header := func(nodeCfg *config.Config) []byte {
+		var b bytes.Buffer
+		require.NoError(t, cfg.WriteNodeConfig(&b, nodeCfg))
+		return b.Bytes()
+	}
+
+	a, err := hashDatapath(cfg, &localNodeConfig, nil)
+	require.NoError(t, err)
+
+	moved := localNodeConfig
+	moved.NodeIPv4 = netip.MustParseAddr("192.0.2.10")
+	moved.CiliumInternalIPv4 = netip.MustParseAddr("192.0.2.11")
+	require.NotEqual(t, header(&localNodeConfig), header(&moved))
+	b, err := hashDatapath(cfg, &moved, nil)
+	require.NoError(t, err)
+	require.Equal(t, a, b)
+
+	resized := localNodeConfig
+	resized.LBConfig.LBServiceMapEntries = 1234
+	c, err := hashDatapath(cfg, &resized, nil)
 	require.NoError(t, err)
 	require.NotEqual(t, a, c)
 }
@@ -134,6 +163,10 @@ func (fc fakeConfigWriter) WriteNodeConfig(w io.Writer, lnc *config.Config) erro
 	}
 	_, err := w.Write(fc)
 	return err
+}
+
+func (fc fakeConfigWriter) WriteNodeConfigForHash(w io.Writer, lnc *config.Config) error {
+	return fc.WriteNodeConfig(w, lnc)
 }
 
 func (fc fakeConfigWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOptions) error {

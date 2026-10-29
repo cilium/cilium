@@ -103,9 +103,16 @@ func TestObjectCacheReuse(t *testing.T) {
 	_, _, stats = restart(&localNodeConfig)
 	require.NotZero(t, stats.BpfCompilation.Total())
 
+	// An address that only reaches the node_config.h comment keeps the templates.
+	movedCfg := localNodeConfig
+	movedCfg.NodeIPv4 = netip.MustParseAddr("192.0.2.1")
+	_, moved, stats := restart(&movedCfg)
+	require.Equal(t, hash, moved)
+	require.Zero(t, stats.BpfCompilation.Total())
+
 	// A different base hash wipes the old templates.
 	otherCfg := localNodeConfig
-	otherCfg.NodeIPv4 = netip.MustParseAddr("192.0.2.1")
+	otherCfg.LBConfig.LBServiceMapEntries = 1234
 	_, other, _ := restart(&otherCfg)
 	require.NotEqual(t, hash, other)
 	require.NoDirExists(t, filepath.Join(workDir, hash))

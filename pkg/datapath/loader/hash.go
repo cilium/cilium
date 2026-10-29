@@ -30,11 +30,10 @@ var compilerEnv = []string{"CPATH", "C_INCLUDE_PATH", "CCC_OVERRIDE_OPTIONS"}
 // datapathHash represents a unique enumeration of the datapath configuration.
 type datapathHash []byte
 
-// hashDatapath hashes the node configuration and the hashProducer digest.
+// hashDatapath hashes node_config.h without its address comment, and the hashProducer digest.
 func hashDatapath(c linuxConfig.Writer, nodeCfg *config.Config, producer []byte) (datapathHash, error) {
 	d := sha256.New()
-	err := c.WriteNodeConfig(d, nodeCfg)
-	if err != nil {
+	if err := c.WriteNodeConfigForHash(d, nodeCfg); err != nil {
 		return nil, err
 	}
 	_, _ = d.Write(producer)
