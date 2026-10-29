@@ -1,0 +1,129 @@
+name: Check Ariane Action Paths
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  pull_request: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.after }}
+  cancel-in-progress: true
+
+jobs:
+  check-action-paths:
+    name: Check Ariane Action Paths
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+
+      - name: Install YAML parser
+        run: python -m pip install PyYAML==6.0.2
+
+      - name: Check local action changes can trigger their workflows
+        shell: python
+        run: |
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          import yaml
+
+          config_path = Path('.github/ariane-config.yaml')
+          config = yaml.safe_load(config_path.read_text())
+          action_files = subprocess.check_output(
+              ['git', 'ls-files', '-z', '--', '.github/actions']
+          ).decode().split('\0')
+
+          def references(document):
+              for job in document.get('jobs', {}).values():
+                  yield job.get('uses', '')
+                  for step in job.get('steps', []):
+                      yield step.get('uses', '')
+              for step in document.get('runs', {}).get('steps', []):
+                  yield step.get('uses', '')
+
+          def action_dependencies(path, visited):
+              if path in visited:
+                  return set()
+              visited.add(path)
+              document = yaml.safe_load(path.read_text())
+              actions = set()
+              for reference in references(document):
+                  if reference.startswith('./.github/actions/'):
+                      directory = Path(reference)
+                      actions.add(directory.as_posix())
+                      manifests = [
+                          directory / name for name in ('action.yml', 'action.yaml')
+                          if (directory / name).is_file()
+                      ]
+                      if not manifests:
+                          raise ValueError(f'{path}: missing action metadata for {reference}')
+                      for manifest in manifests:
+                          actions.update(action_dependencies(manifest, visited))
+                  elif reference.startswith('./.github/workflows/'):
+                      actions.update(action_dependencies(Path(reference), visited))
+              return actions
+
+          failures = 0
+          checked = 0
+          actions_workflows = {}
+          for workflow in sorted(Path('.github/workflows').iterdir()):
+              if workflow.suffix not in {'.yaml', '.yml'} or not workflow.is_file():
+                  continue
+              # Workflows without path filters allow all local action changes.
+              settings = config.get('workflows', {}).get(workflow.name) or {}
+              include = settings.get('paths-regex')
+              exclude = settings.get('paths-ignore-regex')
+              if not include and not exclude:
+                  continue
+              # Ariane prepends ^ to each configured regex.
+              include = re.compile('^' + include) if include else None
+              exclude = re.compile('^' + exclude) if exclude else None
+
+              for action in sorted(action_dependencies(workflow, set())):
+                  actions_workflows.setdefault(action, [])
+                  checked += 1
+                  blocked = []
+                  for filename in action_files:
+                      if not filename.startswith(action + '/') or not filename.endswith(('.yml', '.yaml', '.sh')):
+                          continue
+                      # An ignore match blocks the change. An include-only
+                      # filter requires a match; without one, files are allowed.
+                      if exclude is not None:
+                          reason = 'matches paths-ignore-regex' if exclude.search(filename) else None
+                      elif include is not None and not include.search(filename):
+                          reason = 'does not match paths-regex'
+                      else:
+                          reason = None
+                      if reason:
+                          blocked.append((filename, reason))
+
+                  if blocked:
+                      print(
+                          f'::Workflow {workflow.name} uses '
+                          f'{action}, but Ariane filters out changes to '
+                          f'{len(blocked)} file(s): {", ".join(filename for filename, _ in blocked)}'
+                      )
+                      for filename, reason in blocked:
+                          print(f'  {filename}: {reason}')
+                  else:
+                      actions_workflows[action].append(workflow)
+
+          for action, workflows in actions_workflows.items():
+              if not workflows:
+                  print(f'::Action {action} is filtered out by all workflows that use it. Update these workflows\' path filters.')
+                  failures += 1
+
+          print(f'Checked {checked} workflow/action dependencies; {failures} failed.')
+          sys.exit(1 if failures else 0)
