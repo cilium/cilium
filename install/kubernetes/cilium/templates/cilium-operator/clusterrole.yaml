@@ -281,6 +281,18 @@ rules:
   - serviceimports.multicluster.x-k8s.io
   - serviceexports.multicluster.x-k8s.io
 {{- end }}
+{{- if and .Values.gatewayAPI.enabled .Values.gatewayAPI.installCRDs }}
+  - backendtlspolicies.gateway.networking.k8s.io
+  - gatewayclasses.gateway.networking.k8s.io
+  - gateways.gateway.networking.k8s.io
+  - grpcroutes.gateway.networking.k8s.io
+  - httproutes.gateway.networking.k8s.io
+  - listenersets.gateway.networking.k8s.io
+  - referencegrants.gateway.networking.k8s.io
+  - tcproutes.gateway.networking.k8s.io
+  - tlsroutes.gateway.networking.k8s.io
+  - udproutes.gateway.networking.k8s.io
+{{- end }}
   - ciliumdatapathplugins.cilium.io
 {{- if .Values.networkDriver.enabled }}
   - ciliumnetworkdrivernodeconfigs.cilium.io
@@ -384,6 +396,11 @@ rules:
   - gatewayclasses
   verbs:
   - patch
+{{- if and .Values.gatewayAPI.installCRDs (eq (.Values.gatewayAPI.gatewayClass.create | toString) "auto") }}
+  # To create the default GatewayClass when the Gateway API CRDs are installed
+  # by the operator.
+  - create
+{{- end }}
 - apiGroups:
   - gateway.networking.k8s.io
   resources:

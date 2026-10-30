@@ -333,6 +333,13 @@ data:
   gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
   gateway-api-inference-extension-enabled: {{ .Values.gatewayAPI.inferenceExtension.enabled | quote}}
+  gateway-api-install-crds: {{ .Values.gatewayAPI.installCRDs | quote }}
+{{- if and .Values.gatewayAPI.installCRDs (eq (.Values.gatewayAPI.gatewayClass.create | toString) "auto") }}
+  # The GatewayClass cannot be rendered before its CRD is installed by the
+  # operator. Let the operator create it, as owned by this release.
+  gateway-api-create-gateway-class: "true"
+  gateway-api-gateway-class-helm-release: {{ printf "%s/%s" .Release.Namespace .Release.Name | quote }}
+{{- end }}
 {{- end }}
 
 {{- if and $readSecretsOnlyFromSecretsNamespace $secretSyncEnabled }}
