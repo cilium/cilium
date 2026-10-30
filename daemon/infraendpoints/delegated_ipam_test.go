@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -21,6 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/daemon/cmd/cni/fake"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -527,6 +529,64 @@ func TestDeallocateDelegatedIPs(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.Equal(t, tt.wantCommands, tt.exec.commands)
+		})
+	}
+}
+
+func TestAllocateIngressIPsWithDelegatedIPAM(t *testing.T) {
+	alloc := newTestAllocator(t, validDelegatedIPAMNetConf(), "/opt/cni/bin", true, true)
+	alloc.cniExec = &mockCNIExec{execResult: makeCNIResult(t, "10.0.0.1/24", "fd00::1/128")}
+	require.NoError(t, alloc.allocateIngressIPsWithDelegatedIPAM(t.Context()))
+
+	localNode, err := alloc.localNodeStore.Get(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, "10.0.0.1", localNode.IPv4IngressIP.String())
+	require.Equal(t, "fd00::1", localNode.IPv6IngressIP.String())
+}
+
+func TestDeallocateIngressIPsWithDelegatedIPAM(t *testing.T) {
+	v4Ingress := netip.MustParseAddr("10.0.0.1")
+	v6Ingress := netip.MustParseAddr("fd00::1")
+
+	tests := []struct {
+		name string
+		exec *mockCNIExec
+		// keepIPs is true when the local node ingress IPs must survive the call.
+		keepIPs bool
+	}{
+		{
+			name: "successful deallocation clears the local node IPs",
+			exec: &mockCNIExec{},
+		},
+		{
+			name:    "failed deallocation keeps the local node IPs",
+			exec:    &mockCNIExec{execErr: errors.New("exec failed")},
+			keepIPs: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			alloc := newTestAllocator(t, validDelegatedIPAMNetConf(), "/opt/cni/bin", true, true)
+			alloc.localNodeStore.Update(func(n *node.LocalNode) {
+				n.IPv4IngressIP = iputil.AddrFrom(v4Ingress)
+				n.IPv6IngressIP = iputil.AddrFrom(v6Ingress)
+			})
+			alloc.cniExec = tt.exec
+
+			err := alloc.deallocateIngressIPsWithDelegatedIPAM(t.Context())
+
+			localNode, getErr := alloc.localNodeStore.Get(t.Context())
+			require.NoError(t, getErr)
+			if tt.keepIPs {
+				require.Error(t, err)
+				require.Equal(t, v4Ingress, localNode.IPv4IngressIP.Addr)
+				require.Equal(t, v6Ingress, localNode.IPv6IngressIP.Addr)
+			} else {
+				require.NoError(t, err)
+				require.False(t, localNode.IPv4IngressIP.IsValid())
+				require.False(t, localNode.IPv6IngressIP.IsValid())
+			}
 		})
 	}
 }

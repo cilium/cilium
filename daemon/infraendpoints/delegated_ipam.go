@@ -19,9 +19,13 @@ import (
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/node"
 )
 
 const (
+	// delegatedIPAMOwnerIngress identifies ingress IP allocations.
+	delegatedIPAMOwnerIngress = "ingress"
+
 	// delegatedIPAMIfName is the CNI_IFNAME used for delegated IPAM allocations, not a
 	// real interface, but part of the IPAM bookkeeping key so must match ADD/DEL.
 	delegatedIPAMIfName = "eth0"
@@ -247,4 +251,45 @@ func (r *infraIPAllocator) allocateDelegatedIPs(ctx context.Context, owner strin
 func (r *infraIPAllocator) deallocateDelegatedIPs(ctx context.Context, owner string) error {
 	_, err := r.execDelegatedIPAM(ctx, cniCommandDel, owner)
 	return err
+}
+
+// allocateIngressIPsWithDelegatedIPAM allocates ingress IPs using an external CNI IPAM plugin.
+func (r *infraIPAllocator) allocateIngressIPsWithDelegatedIPAM(ctx context.Context) error {
+	ipv4, ipv6, err := r.allocateDelegatedIPs(ctx, delegatedIPAMOwnerIngress)
+	if err != nil {
+		return err
+	}
+
+	r.localNodeStore.Update(func(n *node.LocalNode) {
+		if ipv4.IsValid() {
+			n.IPv4IngressIP = iputil.AddrFrom(ipv4)
+			r.logger.Info("Allocated IPv4 ingress address via delegated IPAM", logfields.IPAddr, ipv4)
+		}
+		if ipv6.IsValid() {
+			n.IPv6IngressIP = iputil.AddrFrom(ipv6)
+			r.logger.Info("Allocated IPv6 ingress address via delegated IPAM", logfields.IPAddr, ipv6)
+		}
+	})
+
+	return nil
+}
+
+// deallocateIngressIPsWithDelegatedIPAM releases ingress IPs via the external CNI IPAM plugin.
+func (r *infraIPAllocator) deallocateIngressIPsWithDelegatedIPAM(ctx context.Context) error {
+	if err := r.deallocateDelegatedIPs(ctx, delegatedIPAMOwnerIngress); err != nil {
+		return err
+	}
+
+	r.localNodeStore.Update(func(n *node.LocalNode) {
+		if n.IPv4IngressIP.IsValid() {
+			r.logger.Info("Deallocated IPv4 ingress address via delegated IPAM", logfields.IPAddr, n.IPv4IngressIP)
+			n.IPv4IngressIP = iputil.Addr{}
+		}
+		if n.IPv6IngressIP.IsValid() {
+			r.logger.Info("Deallocated IPv6 ingress address via delegated IPAM", logfields.IPAddr, n.IPv6IngressIP)
+			n.IPv6IngressIP = iputil.Addr{}
+		}
+	})
+
+	return nil
 }

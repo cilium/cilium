@@ -474,8 +474,26 @@ func (r *infraIPAllocator) allocateHealthIPs(ctx context.Context, oldV4HealthIP 
 }
 
 func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressIP netip.Addr, oldV6IngressIP netip.Addr) error {
+	// When envoy config is disabled but delegated IPAM is in use,
+	// clean up any stale ingress IPs from a previous run.
+	hadStaleIngressIPs := oldV4IngressIP.IsValid() || oldV6IngressIP.IsValid()
+	if r.daemonConfig.IPAM == ipamOption.IPAMDelegatedPlugin &&
+		!r.daemonConfig.EnableEnvoyConfig &&
+		hadStaleIngressIPs {
+		if err := r.deallocateIngressIPsWithDelegatedIPAM(ctx); err != nil {
+			// Best-effort cleanup: we cannot block agent startup on a misbehaving external plugin.
+			r.logger.Warn("Failed to deallocate stale ingress IPs with delegated IPAM", logfields.Error, err)
+		}
+	}
+
 	if !r.daemonConfig.EnableEnvoyConfig {
 		return nil
+	}
+
+	// When using delegated IPAM, ingress IPs are allocated via the external
+	// CNI IPAM plugin rather than the internal allocator.
+	if r.daemonConfig.IPAM == ipamOption.IPAMDelegatedPlugin {
+		return r.allocateIngressIPsWithDelegatedIPAM(ctx)
 	}
 
 	ingressIPv4 := oldV4IngressIP
