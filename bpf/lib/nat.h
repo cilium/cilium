@@ -283,9 +283,14 @@ static __always_inline int snat_v4_new_mapping(const struct __ctx_buff *ctx,
 	set_v4_rtuple(otuple, ostate, &rtuple);
 	/* .dport is selected below */
 
-	port = __snat_try_keep_port(target->min_port,
-				    target->max_port,
-				    bpf_ntohs(otuple->sport));
+	/* Host flows (source address == SNAT address) are only tracked to
+	 * reserve their port, so keep it if it lies in any NAT range. Other
+	 * flows keep their port only if it lies in [min_port, max_port].
+	 */
+	port = bpf_ntohs(otuple->sport);
+	if (otuple->saddr != target->addr || !is_port_in_nat_range(port))
+		port = __snat_try_keep_port(target->min_port,
+					    target->max_port, port);
 
 	ostate->common.needs_ct = needs_ct;
 	rstate.common.needs_ct = needs_ct;
@@ -1423,9 +1428,15 @@ static __always_inline int snat_v6_new_mapping(const struct __ctx_buff *ctx,
 	set_v6_rtuple(otuple, ostate, rtuple);
 	/* .dport is selected below */
 
-	port = __snat_try_keep_port(target->min_port,
-				    target->max_port,
-				    bpf_ntohs(otuple->sport));
+	/* Host flows (source address == SNAT address) are only tracked to
+	 * reserve their port, so keep it if it lies in any NAT range. Other
+	 * flows keep their port only if it lies in [min_port, max_port].
+	 */
+	port = bpf_ntohs(otuple->sport);
+	if (!ipv6_addr_equals(&otuple->saddr, &target->addr) ||
+	    !is_port_in_nat_range(port))
+		port = __snat_try_keep_port(target->min_port,
+					    target->max_port, port);
 
 	ostate->common.needs_ct = needs_ct;
 	rstate->common.needs_ct = needs_ct;
