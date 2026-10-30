@@ -11,7 +11,7 @@ myst-parser==5.1.0
 sphinx-tabs==3.5.0
 sphinx-version-warning==1.1.2
 sphinxcontrib-googleanalytics==0.6
-sphinxcontrib-openapi==0.9.0
+sphinxcontrib-openapi==0.10.0
 sphinxcontrib-spelling==8.0.2
 sphinxcontrib-websupport==2.0.0
 sphinxext-rediraffe==0.3.0
@@ -45,8 +45,8 @@ mistune==3.4.0
 packaging==26.3
 pathspec==1.1.1
 picobox==4.0.0
-pydantic==2.14.1
-pydantic_core==2.50.1
+pydantic==2.14.2
+pydantic_core==2.50.2
 pyenchant==3.3.0
 Pygments==2.21.0
 PyYAML==6.0.3
@@ -74,4 +74,4 @@ typing_extensions==4.16.0
 urllib3==2.8.0
 uvicorn==0.54.0
 watchfiles==1.3.0
-websockets==17.3
+websockets==17.4
