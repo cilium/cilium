@@ -30,7 +30,7 @@ var Cell = cell.Module(
 // newProvider is deliberately free of side effects: it runs in every agent,
 // whatever the configured IPAM mode, and the provider only does work once the
 // generic allocator calls Initialize. In particular, the IMDS is only queried
-// from Initialize, and no observer is registered before then.
+// from Initialize, and no job is registered before then.
 func newProvider(params providerParams) ipam.CloudProviderOut {
 	return ipam.CloudProviderOut{Provider: &provider{params: params}}
 }
