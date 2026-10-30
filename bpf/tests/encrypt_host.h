@@ -232,6 +232,48 @@ int encrypt_v4_4_no_src_mark_with_src_entry_check(const struct __ctx_buff *ctx)
 	return check(ctx, CTX_ACT_REDIRECT);
 }
 
+/* Validate that an already encrypted packet is neither encrypted again nor
+ * dropped by Strict-Mode.
+ */
+PKTGEN(PROG_TYPE, "encrypt_v4_5_encrypted")
+int encrypt_v4_5_encrypted_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct iphdr *l3;
+
+	pktgen__init(&builder, ctx);
+
+	l3 = pktgen__push_ipv4_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      SRC_NODE_V4, DST_NODE_V4);
+	if (!l3)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "encrypt_v4_5_encrypted")
+int encrypt_v4_5_encrypted_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v4_add_entry(SRC_NODE_V4, 0, SRC_POD_SEC_IDENTITY, 0, ENCRYPT_KEY);
+	ipcache_v4_add_entry(DST_NODE_V4, 0, REMOTE_NODE_ID, DST_NODE_V4, ENCRYPT_KEY);
+
+	if (CONFIG(enable_ipsec)) {
+		ipsec_set_encrypt_state(ENCRYPT_KEY);
+		node_v4_add_entry(DST_NODE_V4, DST_NODE_ID, ENCRYPT_KEY);
+	}
+
+	ctx->mark = MARK_MAGIC_ENCRYPT;
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "encrypt_v4_5_encrypted")
+int encrypt_v4_5_encrypted_check(const struct __ctx_buff *ctx)
+{
+	return check(ctx, CTX_ACT_OK);
+}
+
 /* IPv6 variants of the tests.*/
 
 static __always_inline
@@ -340,6 +382,46 @@ CHECK(PROG_TYPE, "encrypt_v6_4_no_src_mark_with_src_entry")
 int encrypt_v6_4_no_src_mark_with_src_entry_check(const struct __ctx_buff *ctx)
 {
 	return check(ctx, CTX_ACT_REDIRECT);
+}
+
+PKTGEN(PROG_TYPE, "encrypt_v6_5_encrypted")
+int encrypt_v6_5_encrypted_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct ipv6hdr *l3;
+
+	pktgen__init(&builder, ctx);
+
+	l3 = pktgen__push_ipv6_packet(&builder, (__u8 *)mac_one, (__u8 *)mac_two,
+				      (__u8 *)SRC_NODE_V6, (__u8 *)DST_NODE_V6);
+	if (!l3)
+		return TEST_ERROR;
+
+	pktgen__finish(&builder);
+	return 0;
+}
+
+SETUP(PROG_TYPE, "encrypt_v6_5_encrypted")
+int encrypt_v6_5_encrypted_setup(struct __ctx_buff *ctx)
+{
+	ipcache_v6_add_entry(SRC_NODE_V6, 0, SRC_POD_SEC_IDENTITY, 0, ENCRYPT_KEY);
+	ipcache_v6_add_entry_ipv6_underlay(DST_NODE_V6, 0, REMOTE_NODE_ID,
+					   DST_NODE_V6, ENCRYPT_KEY);
+
+	if (CONFIG(enable_ipsec)) {
+		ipsec_set_encrypt_state(ENCRYPT_KEY);
+		node_v6_add_entry(DST_NODE_V6, DST_NODE_ID, ENCRYPT_KEY);
+	}
+
+	ctx->mark = MARK_MAGIC_ENCRYPT;
+
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "encrypt_v6_5_encrypted")
+int encrypt_v6_5_encrypted_check(const struct __ctx_buff *ctx)
+{
+	return check(ctx, CTX_ACT_OK);
 }
 
 #ifdef TUNNEL_MODE
