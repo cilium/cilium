@@ -333,14 +333,10 @@ via a dedicated Makefile target.
 - The base requirements are defined in
   ``Documentation/requirements-min/requirements.txt``.
 - Running ``make -C Documentation update-requirements`` uses this file as a
-  base to generate ``Documentation/requirements.txt``.
+  base to generate ``images/docs-builder/requirements.txt``.
 
-Dependencies defined in ``Documentation/requirements-min/requirements.txt``
-should never be updated in ``Documentation/requirements.txt`` directly.
+Do not update ``images/docs-builder/requirements.txt`` directly.
 Instead, update the former and regenerate the latter.
-
-File ``Documentation/requirements.txt`` is used to build the ``docs-builder``
-Docker image.
 
 Dependencies defined in these requirements files include the documentation's
 custom theme.
@@ -350,8 +346,7 @@ Docker set-up
 
 The documentation build system relies on a Docker image, ``docs-builder``, to
 ensure the build environment is consistent across different systems. Resources
-related to this image include ``Documentation/Dockerfile`` and the requirement
-files.
+related to this image are stored in the directory ``images/docs-builder``.
 
 Versions of this image are automatically built and published to a registry when
 the Dockerfile or the list of dependencies is updated. This is handled in CI
@@ -385,8 +380,7 @@ This theme is defined in its `dedicated sphinx_rtd_theme fork repository`_.
    https://github.com/cilium/sphinx_rtd_theme/
 
 Do not use the ``master`` branch of this repository. The commit or branch to
-use is referenced in ``Documentation/requirements.txt``, generated from
-``Documentation/requirements-min/requirements.txt``, in the Cilium repository.
+use is referenced in the `docs_requirements`_.
 
 CI checks
 =========
@@ -420,7 +414,7 @@ There are several workflows relating to the documentation in CI:
 
   - Rebuilds the ``docs-builder`` image, pushes it to Quay.io, and updates the
     image reference with the new one in the documentation workflow
-  - Triggers when requirements or ``Documentation/Dockerfile`` are updated
+  - Triggers when ``images/docs-builder`` files are updated
   - Needs approval from one of the ``docs-structure`` team members
 
 Redirects
