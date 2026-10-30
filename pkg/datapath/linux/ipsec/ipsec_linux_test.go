@@ -108,10 +108,13 @@ func testInvalidLoadKeys(t *testing.T, family string) {
 		{"invalid keys", invalidKeysDat, "unable to decode authentication key string"},
 		{"empty line", []byte(" \n"), "missing IPSec key or invalid format"},
 		{"blank second line", []byte("4 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n   \n"), "missing IPSec key or invalid format"},
-		{"leading space", []byte(" rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "the first argument of the IPsec secret is not a number"},
+		{"leading space", []byte(" rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "must be an integer between 1 and 15 (got \"rfc4106(gcm(aes))\")"},
 		{"aead missing key", []byte("3+ rfc4106(gcm(aes))  128\n"), "invalid format: got 3 fields"},
 		{"aead missing icv", []byte("3+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1\n"), "invalid format: got 3 fields"},
-		{"spi plus only", []byte("+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "the first argument of the IPsec secret is not a number"},
+		{"spi plus only", []byte("+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "must be an integer between 1 and 15 (got \"\")"},
+		{"spi negative", []byte("-1 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "must be an integer between 1 and 15 (got \"-1\")"},
+		{"spi larger than 15", []byte("16 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "must be an integer between 1 and 15 (got \"16\")"},
+		{"spi overflow", []byte("256 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "must be an integer between 1 and 15 (got \"256\")"},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -180,28 +183,24 @@ func TestParseSPI(t *testing.T) {
 	testCases := []struct {
 		input    string
 		expSPI   uint8
-		expOff   int
 		expError bool
 	}{
-		{"254", 0, 0, true},
-		{"15", 15, 0, false},
-		{"3+", 3, 0, false},
-		{"abc", 0, 0, true},
-		{"0", 0, 0, true},
-		{"+", 0, 0, true},
+		{"254", 0, true},
+		{"15", 15, false},
+		{"3+", 3, false},
+		{"abc", 0, true},
+		{"0", 0, true},
+		{"-1", 0, true},
+		{"", 0, true},
+		{"+", 0, true},
 	}
 	for _, tc := range testCases {
-		spi, off, err := parseSPI(tc.input)
-		if spi != tc.expSPI {
-			t.Fatalf("For input %q, expected SPI %d, but got %d", tc.input, tc.expSPI, spi)
-		}
-		if off != tc.expOff {
-			t.Fatalf("For input %q, expected base offset %d, but got %d", tc.input, tc.expOff, off)
-		}
+		spi, err := parseSPI(tc.input)
+		require.Equal(t, tc.expSPI, spi, "input %q", tc.input)
 		if tc.expError {
-			require.Error(t, err)
+			require.Error(t, err, "input %q", tc.input)
 		} else {
-			require.NoError(t, err)
+			require.NoError(t, err, "input %q", tc.input)
 		}
 	}
 }
