@@ -433,6 +433,9 @@ func InitGlobalFlags(logger *slog.Logger, cmd *cobra.Command, vp *viper.Viper) {
 	flags.MarkHidden(option.LoadBalancerIPIPSockMark)
 	option.BindEnv(vp, option.LoadBalancerIPIPSockMark)
 
+	flags.Bool(option.LoadBalancerIPIPUseOuterDst, true, "BPF load balancing logic to use IPIP outer destination address as the service backend")
+	option.BindEnv(vp, option.LoadBalancerIPIPUseOuterDst)
+
 	flags.String(option.LoadBalancerAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
 		"BPF load balancing acceleration via XDP (\"%s\", \"%s\")",
 		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
