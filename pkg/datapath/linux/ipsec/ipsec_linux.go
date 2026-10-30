@@ -1101,10 +1101,9 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		var (
-			aeadKey    []byte
-			authKey    []byte
-			err        error
-			offsetBase int
+			aeadKey []byte
+			authKey []byte
+			err     error
 		)
 
 		newKey := &ipSecKey{
@@ -1121,26 +1120,26 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 			return 0, fmt.Errorf("missing IPSec key or invalid format")
 		}
 
-		newKey.Spi, offsetBase, err = parseSPI(s[offsetSPI])
+		newKey.Spi, err = parseSPI(s[offsetSPI])
 		if err != nil {
 			return 0, fmt.Errorf("failed to parse SPI: %w", err)
 		}
 
-		if len(s) > offsetBase+maxOffset+1 {
+		if len(s) > maxOffset+1 {
 			return 0, fmt.Errorf("invalid format: too many fields in the IPsec secret")
-		} else if len(s) == offsetBase+offsetICV+1 {
+		} else if len(s) == offsetICV+1 {
 			// We're in the first case, with "[spi] aead-algo aead-key icv-len".
-			aeadName := s[offsetBase+offsetAeadAlgo]
+			aeadName := s[offsetAeadAlgo]
 			if !strings.HasPrefix(aeadName, "rfc") {
 				return 0, fmt.Errorf("invalid AEAD algorithm %q", aeadName)
 			}
 
-			_, aeadKey, err = decodeIPSecKey(s[offsetBase+offsetAeadKey])
+			_, aeadKey, err = decodeIPSecKey(s[offsetAeadKey])
 			if err != nil {
-				return 0, fmt.Errorf("unable to decode AEAD key string %q", s[offsetBase+offsetAeadKey])
+				return 0, fmt.Errorf("unable to decode AEAD key string %q", s[offsetAeadKey])
 			}
 
-			icvLen, err := strconv.Atoi(s[offsetICV+offsetBase])
+			icvLen, err := strconv.Atoi(s[offsetICV])
 			if err != nil {
 				return 0, fmt.Errorf("ICV length is invalid or missing")
 			}
@@ -1157,19 +1156,19 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 			newKey.KeyLen = icvLen / 8
 		} else {
 			// We're in the second case, with "[spi] auth-algo auth-key enc-algo enc-key [IP]".
-			if len(s) != offsetBase+maxOffset+1 {
+			if len(s) != maxOffset+1 {
 				return 0, fmt.Errorf("invalid format: got %d fields, expected \"[spi] aead-algo aead-key icv-len\" or \"[spi] auth-algo auth-key enc-algo enc-key\"", len(s))
 			}
-			authAlgo := s[offsetBase+offsetAuthAlgo]
-			newKey.KeyLen, authKey, err = decodeIPSecKey(s[offsetBase+offsetAuthKey])
+			authAlgo := s[offsetAuthAlgo]
+			newKey.KeyLen, authKey, err = decodeIPSecKey(s[offsetAuthKey])
 			if err != nil {
-				return 0, fmt.Errorf("unable to decode authentication key string %q", s[offsetBase+offsetAuthKey])
+				return 0, fmt.Errorf("unable to decode authentication key string %q", s[offsetAuthKey])
 			}
 
-			encAlgo := s[offsetBase+offsetEncAlgo]
-			_, encKey, err := decodeIPSecKey(s[offsetBase+offsetEncKey])
+			encAlgo := s[offsetEncAlgo]
+			_, encKey, err := decodeIPSecKey(s[offsetEncKey])
 			if err != nil {
-				return 0, fmt.Errorf("unable to decode encryption key string %q", s[offsetBase+offsetEncKey])
+				return 0, fmt.Errorf("unable to decode encryption key string %q", s[offsetEncKey])
 			}
 
 			newKey.Auth = &netlink.XfrmStateAlgo{
@@ -1203,21 +1202,13 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 	return spi, nil
 }
 
-func parseSPI(spiStr string) (uint8, int, error) {
-	if spiStr[len(spiStr)-1] == '+' {
-		spiStr = spiStr[:len(spiStr)-1]
+func parseSPI(spiStr string) (uint8, error) {
+	spiStr = strings.TrimSuffix(spiStr, "+")
+	spi, err := strconv.ParseUint(spiStr, 10, 8)
+	if err != nil || spi < 1 || spi > linux_defaults.IPsecMaxKeyVersion {
+		return 0, fmt.Errorf("must be an integer between 1 and %d (got %q)", linux_defaults.IPsecMaxKeyVersion, spiStr)
 	}
-	spi, err := strconv.Atoi(spiStr)
-	if err != nil {
-		return 0, 0, fmt.Errorf("the first argument of the IPsec secret is not a number. Attempted %q", spiStr)
-	}
-	if spi > linux_defaults.IPsecMaxKeyVersion {
-		return 0, 0, fmt.Errorf("encryption key space exhausted. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
-	}
-	if spi == 0 {
-		return 0, 0, fmt.Errorf("zero is not a valid key ID. ID must be nonzero and less than %d. Attempted %q", linux_defaults.IPsecMaxKeyVersion+1, spiStr)
-	}
-	return uint8(spi), 0, nil
+	return uint8(spi), nil
 }
 
 // getCurrentSPI returns the SPI of the currently loaded key, or zero if there is no key.
