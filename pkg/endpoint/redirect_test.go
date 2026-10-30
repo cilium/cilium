@@ -81,7 +81,8 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 			"crd/cec1/listener1":           crd1Port,
 			"crd/cec2/listener2":           crd2Port,
 		},
-		redirects: make(map[string]uint16),
+		redirects:      make(map[string]uint16),
+		dnsRuleUpdates: make(map[string][][]identity.NumericIdentity),
 	}
 
 	s.stats = new(regenerationStatistics)
@@ -101,6 +102,7 @@ func setupRedirectSuite(tb testing.TB) *RedirectSuite {
 type RedirectSuiteProxy struct {
 	parserProxyPortMap map[string]uint16
 	redirects          map[string]uint16
+	dnsRuleUpdates     map[string][][]identity.NumericIdentity
 }
 
 // CreateOrUpdateRedirect returns the proxy port for the given L7Parser from the
@@ -108,6 +110,13 @@ type RedirectSuiteProxy struct {
 func (r *RedirectSuiteProxy) CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, revertFunc revert.RevertFunc) {
 	pp := r.parserProxyPortMap[l4.GetL7Parser().String()+l4.GetListener()]
 	r.redirects[id] = pp
+	if l4.GetL7Parser() == policy.ParserTypeDNS {
+		var ids []identity.NumericIdentity
+		for selector := range l4.GetPerSelectorPolicies() {
+			ids = append(ids, selector.GetSelections()...)
+		}
+		r.dnsRuleUpdates[id] = append(r.dnsRuleUpdates[id], ids)
+	}
 	return pp, nil, nil
 }
 
@@ -422,6 +431,100 @@ func TestRedirectWithDeny(t *testing.T) {
 		t.Fatal("desired policy map does not equal expected map:\n",
 			ep.desiredPolicy.Diff(expected))
 	}
+}
+
+// dnsIdentityUpdateRule returns a rule allowing DNS egress to kube-dns, used
+// to exercise DNS proxy rule refreshes on identity changes below.
+func dnsIdentityUpdateRule() api.Rules {
+	return api.Rules{api.NewRule().
+		WithLabels(labels.ParseLabelArray("dns-identity-update")).
+		WithEndpointSelector(selectBar_).
+		WithEgressRules([]api.EgressRule{{
+			EgressCommonRule: api.EgressCommonRule{
+				ToEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(labels.ParseSelectLabel("k8s:k8s-app=kube-dns")),
+				},
+			},
+			ToPorts: []api.PortRule{{
+				Ports: []api.PortProtocol{{Port: "53", Protocol: api.ProtoUDP}},
+				Rules: &api.L7Rules{DNS: []api.PortRuleDNS{{MatchPattern: "*"}}},
+			}},
+		}})}
+}
+
+// TestDNSIdentityUpdateRefreshesProxyRules checks that DNS proxy rules are refreshed with newly
+// selected identities, whether the identity update is consumed via a plain incremental
+// ApplyPolicyMapChanges or via applyPolicyMapChangesLocked during a full policy regeneration.
+func TestDNSIdentityUpdateRefreshesProxyRules(t *testing.T) {
+	oldCoreDNSIdentity := identity.NumericIdentity(300)
+	newCoreDNSIdentity := identity.NumericIdentity(301)
+	corednsLabels := labels.ParseLabels("k8s:k8s-app=kube-dns")
+
+	t.Run("Incremental", func(t *testing.T) {
+		s := setupRedirectSuite(t)
+		<-s.do.UpdateIdentities(identity.IdentityMap{oldCoreDNSIdentity: corednsLabels}, nil)
+
+		ep := s.NewTestEndpoint(t)
+		s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(dnsIdentityUpdateRule())
+
+		s.computePolicyForTest(t, ep, completion.NewWaitGroup(t.Context()))
+		require.Len(t, ep.desiredPolicy.Redirects, 1)
+		var redirectID string
+		for redirectID = range ep.desiredPolicy.Redirects {
+		}
+
+		initialUpdates := s.rsp.dnsRuleUpdates[redirectID]
+		require.Len(t, initialUpdates, 1)
+		require.ElementsMatch(t, []identity.NumericIdentity{oldCoreDNSIdentity}, initialUpdates[0])
+
+		<-s.do.UpdateIdentities(identity.IdentityMap{newCoreDNSIdentity: corednsLabels}, nil)
+		err, _ := ep.ApplyPolicyMapChanges(nil)
+		require.NoError(t, err)
+
+		updates := s.rsp.dnsRuleUpdates[redirectID]
+		require.Len(t, updates, 2)
+		require.ElementsMatch(t, []identity.NumericIdentity{oldCoreDNSIdentity}, updates[0])
+		require.ElementsMatch(t, []identity.NumericIdentity{oldCoreDNSIdentity, newCoreDNSIdentity}, updates[1])
+	})
+
+	t.Run("FullRegeneration", func(t *testing.T) {
+		s := setupRedirectSuite(t)
+		<-s.do.UpdateIdentities(identity.IdentityMap{oldCoreDNSIdentity: corednsLabels}, nil)
+
+		ep := s.NewTestEndpoint(t)
+		s.datapathRegenCtxt.policyRevisionToWaitFor = s.AddRules(dnsIdentityUpdateRule())
+
+		// regeneratePolicy() calls addNewRedirects(), which pushes the DNS proxy rules for
+		// the newly computed (not yet desired) selector policy using the selections at that
+		// point in time.
+		require.NoError(t, ep.regeneratePolicy(s.stats, s.datapathRegenCtxt))
+
+		var redirectID string
+		for redirectID = range s.datapathRegenCtxt.policyResult.endpointPolicy.Redirects {
+		}
+		require.NotEmpty(t, redirectID)
+		initialUpdates := s.rsp.dnsRuleUpdates[redirectID]
+		require.Len(t, initialUpdates, 1)
+		require.ElementsMatch(t, []identity.NumericIdentity{oldCoreDNSIdentity}, initialUpdates[0])
+
+		// Simulate an incremental identity update racing with the full regeneration: it
+		// lands on the new selector policy before the endpoint lock is next taken.
+		<-s.do.UpdateIdentities(identity.IdentityMap{newCoreDNSIdentity: corednsLabels}, nil)
+
+		require.NoError(t, ep.lockAlive())
+		require.NoError(t, ep.setDesiredPolicy(s.datapathRegenCtxt))
+		require.NotEqual(t, ep.desiredPolicy, ep.realizedPolicy, "desired policy must be new for this test to exercise the hasNewPolicy path")
+
+		// hasNewPolicy=true mirrors the call regenerateBPF makes during a full regeneration
+		err := ep.applyPolicyMapChangesLocked(&regenerationContext{datapathRegenerationContext: s.datapathRegenCtxt}, true)
+		ep.unlock()
+		require.NoError(t, err)
+
+		updates := s.rsp.dnsRuleUpdates[redirectID]
+		require.Len(t, updates, 2)
+		require.ElementsMatch(t, []identity.NumericIdentity{oldCoreDNSIdentity}, updates[0])
+		require.ElementsMatch(t, []identity.NumericIdentity{oldCoreDNSIdentity, newCoreDNSIdentity}, updates[1])
+	})
 }
 
 var (

@@ -310,6 +310,46 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 	return desiredRedirects, skipped, revertStack.Revert
 }
 
+// applyDNSRedirectUpdatesLocked refreshes DNS proxy rules for the endpoint after an incremental
+// identity update. The DNS proxy rules include the identities selected by each policy selector, so
+// they must be refreshed alongside the policy map when those selections change.
+//
+// Must be called with the endpoint lock held.
+func (e *Endpoint) applyDNSRedirectUpdatesLocked() {
+	if e.isPropertyLocked(endpointtypes.PropertyFakeEndpoint) || e.IsProxyDisabled() {
+		return
+	}
+
+	selectorPolicy := e.desiredPolicy.SelectorPolicy
+	selectors := selectorPolicy.GetSelectorSnapshot()
+	updated := make(map[string]struct{})
+	for l4, policySelectorTuple := range selectorPolicy.RedirectFilters() {
+		parser := policySelectorTuple.Policy.GetL7Parser()
+		if parser != policy.ParserTypeDNS {
+			continue
+		}
+
+		listener := policySelectorTuple.Policy.GetListener()
+		for proxyID, dstPort := range e.proxyIDs(selectorPolicy, l4, parser, listener, selectors) {
+			if e.desiredPolicy.Redirects[proxyID] == 0 {
+				continue
+			}
+			if _, ok := updated[proxyID]; ok {
+				continue
+			}
+			updated[proxyID] = struct{}{}
+
+			pp := newProxyPolicy(l4, parser, listener, dstPort, l4.U8Proto)
+			if _, err, _ := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, nil); err != nil {
+				e.getLogger().Warn("Failed to refresh DNS proxy rules after identity change",
+					logfields.Error, err,
+					logfields.Listener, listener,
+				)
+			}
+		}
+	}
+}
+
 // Must be called with endpoint.mutex locked for writing, as this calls back to
 // 'e.OnDNSPolicyUpdateLocked()'.
 func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[string]uint16) {
@@ -1174,6 +1214,19 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 			"Skipping bpf updates due to dry mode",
 		)
 		return nil
+	}
+
+	if len(changes.Adds) > 0 || len(changes.Deletes) > 0 {
+		// DNS proxy rules contain a snapshot of the identities selected by each policy
+		// selector. Refresh them before changing the BPF policy map, so the proxy is ready
+		// when the datapath starts allowing the new entries.
+		//
+		// This must happen regardless of hasNewPolicy: the selector policy may have
+		// received incremental identity updates between the DNS redirects being populated
+		// during full policy regeneration (addNewRedirects) and the consumption of those
+		// changes here. ConsumeMapChanges above already drained them from the pending
+		// queue.
+		e.applyDNSRedirectUpdatesLocked()
 	}
 
 	if hasNewPolicy {
