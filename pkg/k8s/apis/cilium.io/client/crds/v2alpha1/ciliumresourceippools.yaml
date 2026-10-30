@@ -96,6 +96,7 @@ spec:
                           description: CIDR references one of the CIDRs listed in
                             the parent pool spec.
                           format: cidr
+                          maxLength: 43
                           type: string
                         reservedRanges:
                           description: ReservedRanges is a list of IP ranges within
@@ -104,18 +105,34 @@ spec:
                             properties:
                               end:
                                 description: The last IP in the reserved range.
+                                maxLength: 39
                                 type: string
+                                x-kubernetes-validations:
+                                - message: end must be a valid IP address
+                                  rule: isIP(self)
                               start:
                                 description: The first IP in the reserved range.
+                                maxLength: 39
                                 type: string
+                                x-kubernetes-validations:
+                                - message: start must be a valid IP address
+                                  rule: isIP(self)
                             required:
                             - end
                             - start
                             type: object
+                            x-kubernetes-validations:
+                            - message: start and end must be of the same IP family
+                              rule: ip(self.start).family() == ip(self.end).family()
+                          maxItems: 16
                           type: array
                       required:
                       - cidr
                       type: object
+                      x-kubernetes-validations:
+                      - message: reserved ranges must be within cidr
+                        rule: '!has(self.reservedRanges) || self.reservedRanges.all(r,
+                          cidr(self.cidr).containsIP(r.start) && cidr(self.cidr).containsIP(r.end))'
                     maxItems: 32
                     type: array
                     x-kubernetes-list-map-keys:
@@ -159,6 +176,7 @@ spec:
                           description: CIDR references one of the CIDRs listed in
                             the parent pool spec.
                           format: cidr
+                          maxLength: 43
                           type: string
                         reservedRanges:
                           description: ReservedRanges is a list of IP ranges within
@@ -167,18 +185,34 @@ spec:
                             properties:
                               end:
                                 description: The last IP in the reserved range.
+                                maxLength: 39
                                 type: string
+                                x-kubernetes-validations:
+                                - message: end must be a valid IP address
+                                  rule: isIP(self)
                               start:
                                 description: The first IP in the reserved range.
+                                maxLength: 39
                                 type: string
+                                x-kubernetes-validations:
+                                - message: start must be a valid IP address
+                                  rule: isIP(self)
                             required:
                             - end
                             - start
                             type: object
+                            x-kubernetes-validations:
+                            - message: start and end must be of the same IP family
+                              rule: ip(self.start).family() == ip(self.end).family()
+                          maxItems: 16
                           type: array
                       required:
                       - cidr
                       type: object
+                      x-kubernetes-validations:
+                      - message: reserved ranges must be within cidr
+                        rule: '!has(self.reservedRanges) || self.reservedRanges.all(r,
+                          cidr(self.cidr).containsIP(r.start) && cidr(self.cidr).containsIP(r.end))'
                     maxItems: 32
                     type: array
                     x-kubernetes-list-map-keys:

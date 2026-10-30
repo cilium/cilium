@@ -10,10 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go4.org/netipx"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
-func TestParseReservedRanges(t *testing.T) {
+func addr(s string) iputil.Addr {
+	return iputil.AddrFrom(netip.MustParseAddr(s))
+}
+
+func TestBuildReservedRanges(t *testing.T) {
 	tests := []struct {
 		name     string
 		poolCIDR netip.Prefix
@@ -31,7 +36,7 @@ func TestParseReservedRanges(t *testing.T) {
 			name:     "valid IPv4 range",
 			poolCIDR: netip.MustParsePrefix("10.0.0.0/16"),
 			ranges: []v2.ReservedRange{
-				{Start: "10.0.0.10", End: "10.0.0.20"},
+				{Start: addr("10.0.0.10"), End: addr("10.0.0.20")},
 			},
 			expected: []netipx.IPRange{
 				netipx.IPRangeFrom(netip.MustParseAddr("10.0.0.10"), netip.MustParseAddr("10.0.0.20")),
@@ -41,7 +46,7 @@ func TestParseReservedRanges(t *testing.T) {
 			name:     "valid IPv6 range",
 			poolCIDR: netip.MustParsePrefix("fd00:100::/80"),
 			ranges: []v2.ReservedRange{
-				{Start: "fd00:100::10", End: "fd00:100::20"},
+				{Start: addr("fd00:100::10"), End: addr("fd00:100::20")},
 			},
 			expected: []netipx.IPRange{
 				netipx.IPRangeFrom(netip.MustParseAddr("fd00:100::10"), netip.MustParseAddr("fd00:100::20")),
@@ -51,7 +56,7 @@ func TestParseReservedRanges(t *testing.T) {
 			name:     "single-address range (start == end)",
 			poolCIDR: netip.MustParsePrefix("10.0.0.0/16"),
 			ranges: []v2.ReservedRange{
-				{Start: "10.0.0.5", End: "10.0.0.5"},
+				{Start: addr("10.0.0.5"), End: addr("10.0.0.5")},
 			},
 			expected: []netipx.IPRange{
 				netipx.IPRangeFrom(netip.MustParseAddr("10.0.0.5"), netip.MustParseAddr("10.0.0.5")),
@@ -61,8 +66,8 @@ func TestParseReservedRanges(t *testing.T) {
 			name:     "multiple ranges",
 			poolCIDR: netip.MustParsePrefix("10.0.0.0/16"),
 			ranges: []v2.ReservedRange{
-				{Start: "10.0.0.10", End: "10.0.0.20"},
-				{Start: "10.0.1.0", End: "10.0.1.5"},
+				{Start: addr("10.0.0.10"), End: addr("10.0.0.20")},
+				{Start: addr("10.0.1.0"), End: addr("10.0.1.5")},
 			},
 			expected: []netipx.IPRange{
 				netipx.IPRangeFrom(netip.MustParseAddr("10.0.0.10"), netip.MustParseAddr("10.0.0.20")),
@@ -70,26 +75,18 @@ func TestParseReservedRanges(t *testing.T) {
 			},
 		},
 		{
-			name:     "invalid start IP",
+			name:     "mixed address families",
 			poolCIDR: netip.MustParsePrefix("10.0.0.0/16"),
 			ranges: []v2.ReservedRange{
-				{Start: "not-an-ip", End: "10.0.0.20"},
+				{Start: addr("10.0.0.10"), End: addr("fd00::20")},
 			},
-			errMatch: `invalid reserved range start "not-an-ip"`,
-		},
-		{
-			name:     "invalid end IP",
-			poolCIDR: netip.MustParsePrefix("10.0.0.0/16"),
-			ranges: []v2.ReservedRange{
-				{Start: "10.0.0.10", End: "10.0.0.999"},
-			},
-			errMatch: `invalid reserved range end "10.0.0.999"`,
+			errMatch: "invalid reserved range 10.0.0.10-fd00::20",
 		},
 		{
 			name:     "start greater than end",
 			poolCIDR: netip.MustParsePrefix("10.0.0.0/16"),
 			ranges: []v2.ReservedRange{
-				{Start: "10.0.0.40", End: "10.0.0.10"},
+				{Start: addr("10.0.0.40"), End: addr("10.0.0.10")},
 			},
 			errMatch: "invalid reserved range 10.0.0.40-10.0.0.10",
 		},
@@ -97,7 +94,7 @@ func TestParseReservedRanges(t *testing.T) {
 			name:     "range outside pool CIDR",
 			poolCIDR: netip.MustParsePrefix("10.0.0.0/16"),
 			ranges: []v2.ReservedRange{
-				{Start: "10.1.0.10", End: "10.1.0.20"},
+				{Start: addr("10.1.0.10"), End: addr("10.1.0.20")},
 			},
 			errMatch: "is outside pool CIDR 10.0.0.0/16",
 		},
@@ -105,7 +102,7 @@ func TestParseReservedRanges(t *testing.T) {
 			name:     "range partially outside pool CIDR",
 			poolCIDR: netip.MustParsePrefix("10.0.0.0/24"),
 			ranges: []v2.ReservedRange{
-				{Start: "10.0.0.250", End: "10.0.1.10"},
+				{Start: addr("10.0.0.250"), End: addr("10.0.1.10")},
 			},
 			errMatch: "is outside pool CIDR 10.0.0.0/24",
 		},
@@ -113,7 +110,7 @@ func TestParseReservedRanges(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actual, err := parseReservedRanges(tt.poolCIDR, tt.ranges)
+			actual, err := buildReservedRanges(tt.poolCIDR, tt.ranges)
 			if tt.errMatch != "" {
 				assert.ErrorContains(t, err, tt.errMatch)
 				assert.Nil(t, actual)
