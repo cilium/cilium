@@ -2686,10 +2686,11 @@ func (in *ReservedRange) DeepEqual(other *ReservedRange) bool {
 		return false
 	}
 
-	if in.Start != other.Start {
+	if !in.Start.DeepEqual(&other.Start) {
 		return false
 	}
-	if in.End != other.End {
+
+	if !in.End.DeepEqual(&other.End) {
 		return false
 	}
 
