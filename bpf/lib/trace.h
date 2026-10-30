@@ -42,6 +42,10 @@ enum trace_reason {
 	TRACE_REASON_RESERVED_2,    /* Previous TRACE_REASON_ENCRYPT_OVERLAY. */
 	/* Note: TRACE_REASON_ENCRYPTED is used as a mask. Beware if you add
 	 * new values below it, they would match with that mask.
+	 *
+	 * On TRACE_FROM_* points it flags packets that were just decrypted
+	 * (IPsec at TRACE_FROM_NETWORK, WireGuard at TRACE_FROM_OVERLAY).
+	 * WireGuard in native routing is traced at TRACE_FROM_CRYPTO instead.
 	 */
 	TRACE_REASON_ENCRYPTED = 0x80,
 } __packed;
@@ -75,8 +79,6 @@ static __always_inline void
 _update_trace_metrics(const struct __ctx_buff *ctx, enum trace_point obs_point,
 		      enum trace_reason reason, __u16 line, __u8 file)
 {
-	__u8 encrypted;
-
 	switch (obs_point) {
 	case TRACE_TO_LXC:
 		_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
@@ -93,13 +95,9 @@ _update_trace_metrics(const struct __ctx_buff *ctx, enum trace_point obs_point,
 	case TRACE_FROM_STACK:
 	case TRACE_FROM_OVERLAY:
 	case TRACE_FROM_NETWORK:
-		encrypted = reason & TRACE_REASON_ENCRYPTED;
-		if (!encrypted)
-			_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-					REASON_PLAINTEXT, line, file);
-		else
-			_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-					REASON_DECRYPT, line, file);
+		_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				(reason & TRACE_REASON_ENCRYPTED) ?
+				REASON_DECRYPT : REASON_PLAINTEXT, line, file);
 		break;
 	/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery is handled
 	 * separately in ipv*_local_delivery() where we can bump an egress
@@ -119,13 +117,16 @@ _update_trace_metrics(const struct __ctx_buff *ctx, enum trace_point obs_point,
 	 * Using these obs points from different programs would result in a build bug.
 	 */
 #if defined(IS_BPF_WIREGUARD)
+	/* Packets are still plaintext at TRACE_TO_CRYPTO, the kernel encrypts
+	 * them afterwards. The ciphertext is accounted at TRACE_TO_NETWORK.
+	 */
 	case TRACE_TO_CRYPTO:
 		_update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
-				REASON_ENCRYPTING, line, file);
+				REASON_FORWARDED, line, file);
 		break;
 	case TRACE_FROM_CRYPTO:
 		_update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
-				REASON_DECRYPTING, line, file);
+				REASON_DECRYPT, line, file);
 		break;
 #else
 	case TRACE_TO_CRYPTO:

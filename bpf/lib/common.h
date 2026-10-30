@@ -163,8 +163,8 @@ __revalidate_data_pull(const struct __ctx_buff *ctx, void **data_, void **data_e
 #define REASON_LB_REVNAT_STALE		8
 #define REASON_FRAG_PACKET		9
 #define REASON_FRAG_PACKET_UPDATE	10
-#define REASON_DECRYPTING			12
-#define REASON_ENCRYPTING			13
+#define REASON_RESERVED_0		11
+#define REASON_RESERVED_1		12
 #define REASON_LB_REVNAT_DELETE		14
 #define REASON_MTU_ERROR_MSG			15
 
