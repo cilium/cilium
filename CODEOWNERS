@@ -632,8 +632,10 @@ Makefile* @cilium/build
 /pkg/ipcache/restore @cilium/sig-policy @cilium/ipcache
 /pkg/ipmasq @cilium/sig-agent
 /pkg/k8s/ @cilium/sig-k8s
+/pkg/k8s/apis/cilium.io/client/crds/v2alpha1/ciliumresourcenetworkconfigs.yaml @cilium/network-driver
 /pkg/k8s/apis/cilium.io/client/crds/v2/ @cilium/sig-k8s
 /pkg/k8s/apis/cilium.io/client/crds/v2/ciliumegressgatewaypolicies.yaml @cilium/egress-gateway
+/pkg/k8s/apis/cilium.io/v2alpha1/network_driver_types.go @cilium/network-driver
 /pkg/k8s/apis/cilium.io/v2/cegp_types.go @cilium/egress-gateway
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/sig-k8s
 /pkg/kpr/ @cilium/sig-lb
