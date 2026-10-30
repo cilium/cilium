@@ -37,6 +37,7 @@ type CIDRAllocator interface {
 	Release(prefix netip.Prefix) error
 	IsAllocated(prefix netip.Prefix) (bool, error)
 	IsFull() bool
+	Capacity() int
 	InRange(prefix netip.Prefix) bool
 	IsClusterCIDR(prefix netip.Prefix) bool
 	Prefix() netip.Prefix

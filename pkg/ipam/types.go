@@ -141,6 +141,9 @@ type IPAM struct {
 	// cloudProviders holds the registered cloud providers, keyed by the IPAM
 	// mode each one handles.
 	cloudProviders map[string]CloudProvider
+
+	// multiPoolMetrics is used only in multi-pool IPAM mode.
+	multiPoolMetrics MultiPoolMetrics
 }
 
 func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}

@@ -105,6 +105,10 @@ func (d *mockCIDRAllocator) IsFull() bool {
 	panic("d.IsFull should not have been called!")
 }
 
+func (d *mockCIDRAllocator) Capacity() int {
+	return 0
+}
+
 func (d *mockCIDRAllocator) InRange(prefix netip.Prefix) bool {
 	if d.OnInRange != nil {
 		return d.OnInRange(prefix)
