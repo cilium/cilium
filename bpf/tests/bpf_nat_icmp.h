@@ -71,6 +71,38 @@ const __u8 icmp4_err_nat_full_tcp_after[] = {
 	SCAPY_BUF_BYTES(icmp4_err_nat_full_tcp_after)
 };
 
+const __u8 icmp4_err_nat_portnat_tcp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_portnat_tcp)
+};
+
+const __u8 icmp4_err_nat_portnat_tcp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_portnat_tcp_after)
+};
+
+const __u8 icmp4_err_nat_portnat_min_tcp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_portnat_min_tcp)
+};
+
+const __u8 icmp4_err_nat_portnat_min_tcp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_nat_portnat_min_tcp_after)
+};
+
+const __u8 icmp4_err_revnat_portnat_tcp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_portnat_tcp)
+};
+
+const __u8 icmp4_err_revnat_portnat_tcp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_portnat_tcp_after)
+};
+
+const __u8 icmp4_err_revnat_portnat_min_tcp[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_portnat_min_tcp)
+};
+
+const __u8 icmp4_err_revnat_portnat_min_tcp_after[] = {
+	SCAPY_BUF_BYTES(icmp4_err_revnat_portnat_min_tcp_after)
+};
+
 const __u8 icmp4_err_revnat_egress_icmp[] = {
 	SCAPY_BUF_BYTES(icmp4_err_revnat_egress_icmp)
 };
@@ -319,6 +351,167 @@ int snat_v4_tcp_unreach_2_check(const struct __ctx_buff *ctx)
 	ASSERT_CTX_BUF_OFF("snat_v4_tcp_unreach_2", "Ether", ctx, sizeof(__u32),
 			   icmp4_err_nat_full_tcp_after,
 			   sizeof(icmp4_err_nat_full_tcp_after));
+	test_finish();
+
+	return 0;
+}
+
+/* Like snat_v4_tcp_unreach_2, but the SNAT mapping also changes the port. */
+PKTGEN(PROG_TYPE, "snat_v4_tcp_unreach_portnat")
+int snat_v4_tcp_unreach_portnat_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_nat_portnat_tcp,
+			sizeof(icmp4_err_nat_portnat_tcp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_tcp_unreach_portnat")
+int snat_v4_tcp_unreach_portnat_setup(struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple tuple = {
+		.saddr   = POD_IP,
+		.daddr   = EXT_IP,
+		.sport   = tcp_src_one,
+		.dport   = tcp_dst_one,
+		.nexthdr = IPPROTO_TCP,
+	};
+	struct ipv4_nat_entry entry = {
+		.to_saddr = NODE_IP,
+		.to_sport = tcp_src_three,
+	};
+
+	map_update_elem(&cilium_snat_v4_external, &tuple, &entry, BPF_ANY);
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_tcp_unreach_portnat")
+int snat_v4_tcp_unreach_portnat_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_tcp_unreach_portnat", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_nat_portnat_tcp_after,
+			   sizeof(icmp4_err_nat_portnat_tcp_after));
+	test_finish();
+
+	return 0;
+}
+
+/* Like snat_v4_tcp_unreach_portnat, but the inner TCP header is truncated
+ * before its checksum field, so the port change goes into the outer ICMP
+ * checksum. Reuses the NAT mapping set up by snat_v4_tcp_unreach_portnat.
+ */
+PKTGEN(PROG_TYPE, "snat_v4_tcp_unreach_portnat_min_hdr")
+int snat_v4_tcp_unreach_portnat_min_hdr_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_nat_portnat_min_tcp,
+			sizeof(icmp4_err_nat_portnat_min_tcp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_tcp_unreach_portnat_min_hdr")
+int snat_v4_tcp_unreach_portnat_min_hdr_setup(struct __ctx_buff *ctx)
+{
+	return netdev_send_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_tcp_unreach_portnat_min_hdr")
+int snat_v4_tcp_unreach_portnat_min_hdr_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_tcp_unreach_portnat_min_hdr", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_nat_portnat_min_tcp_after,
+			   sizeof(icmp4_err_nat_portnat_min_tcp_after));
+	test_finish();
+
+	return 0;
+}
+
+/* RevSNAT counterpart of snat_v4_tcp_unreach_portnat. */
+PKTGEN(PROG_TYPE, "snat_v4_tcp_pmtu_portnat")
+int snat_v4_tcp_pmtu_portnat_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_revnat_portnat_tcp,
+			sizeof(icmp4_err_revnat_portnat_tcp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_tcp_pmtu_portnat")
+int snat_v4_tcp_pmtu_portnat_setup(struct __ctx_buff *ctx)
+{
+	struct ipv4_ct_tuple tuple = {
+		.saddr   = EXT_IP,
+		.daddr   = NODE_IP,
+		.sport   = tcp_dst_one,
+		.dport   = tcp_src_three,
+		.nexthdr = IPPROTO_TCP,
+		.flags   = NAT_DIR_INGRESS,
+	};
+	struct ipv4_nat_entry entry = {
+		.to_daddr = POD_IP,
+		.to_dport = tcp_src_one,
+	};
+
+	map_update_elem(&cilium_snat_v4_external, &tuple, &entry, BPF_ANY);
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_tcp_pmtu_portnat")
+int snat_v4_tcp_pmtu_portnat_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_tcp_pmtu_portnat", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_revnat_portnat_tcp_after,
+			   sizeof(icmp4_err_revnat_portnat_tcp_after));
+	test_finish();
+
+	return 0;
+}
+
+/* Like snat_v4_tcp_pmtu_portnat, but the inner TCP header is truncated
+ * before its checksum field, so the port change goes into the outer ICMP
+ * checksum. Reuses the NAT mapping set up by snat_v4_tcp_pmtu_portnat.
+ */
+PKTGEN(PROG_TYPE, "snat_v4_tcp_pmtu_portnat_min_hdr")
+int snat_v4_tcp_pmtu_portnat_min_hdr_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+
+	pktgen__init(&builder, ctx);
+	scapy_push_data(&builder,
+			icmp4_err_revnat_portnat_min_tcp,
+			sizeof(icmp4_err_revnat_portnat_min_tcp));
+	pktgen__finish(&builder);
+	return TEST_PASS;
+}
+
+SETUP(PROG_TYPE, "snat_v4_tcp_pmtu_portnat_min_hdr")
+int snat_v4_tcp_pmtu_portnat_min_hdr_setup(struct __ctx_buff *ctx)
+{
+	return netdev_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "snat_v4_tcp_pmtu_portnat_min_hdr")
+int snat_v4_tcp_pmtu_portnat_min_hdr_check(const struct __ctx_buff *ctx)
+{
+	test_init();
+	ASSERT_CTX_BUF_OFF("snat_v4_tcp_pmtu_portnat_min_hdr", "Ether", ctx, sizeof(__u32),
+			   icmp4_err_revnat_portnat_min_tcp_after,
+			   sizeof(icmp4_err_revnat_portnat_min_tcp_after));
 	test_finish();
 
 	return 0;
