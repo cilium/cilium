@@ -20,6 +20,10 @@ var Cell = cell.Module(
 		ServiceLoopbackIPv6: "fe80::1",
 	}),
 	cell.Provide(newInfraIPAllocator),
+	cell.ProvidePrivate(
+		newDefaultCNIExec,
+		func() delegatedIPAMNetNSFactory { return newDelegatedIPAMNetNS },
+	),
 	cell.Invoke(registerIngressEndpoint),
 	cell.Invoke(registerHostEndpoint),
 )
