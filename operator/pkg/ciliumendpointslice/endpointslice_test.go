@@ -11,6 +11,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/priorityqueue"
 
 	"github.com/cilium/cilium/operator/k8s"
@@ -58,7 +59,7 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 	hive.Start(log, t.Context())
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
 	cepStore, _ := ciliumEndpoint.Store(t.Context())
-	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cepStore, cesStore, cesMetrics)
+	r = newDefaultReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cepStore, cesStore, cesMetrics)
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &DefaultController{
@@ -177,7 +178,7 @@ func TestDifferentSpeedQueuesDefault(t *testing.T) {
 
 	cepStore, _ := ciliumEndpoint.Store(t.Context())
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
-	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cepStore, cesStore, cesMetrics)
+	r = newDefaultReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cepStore, cesStore, cesMetrics)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -284,7 +285,7 @@ func TestCESManagementDefault(t *testing.T) {
 
 	cepStore, _ := ciliumEndpoint.Store(t.Context())
 	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
-	r = newDefaultReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cepStore, cesStore, cesMetrics)
+	r = newDefaultReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cepStore, cesStore, cesMetrics)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -376,7 +377,7 @@ func TestFCFSModeSyncCESsInLocalCache(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	podStore, _ := pods.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &SlimController{
@@ -502,7 +503,7 @@ func TestDifferentSpeedQueues(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	podStore, _ := pods.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -629,7 +630,7 @@ func TestCESManagement(t *testing.T) {
 	nodeStore, _ := ciliumNode.Store(t.Context())
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
@@ -751,7 +752,7 @@ func TestSyncCESsInLocalCacheOperatorDowntime(t *testing.T) {
 	cidStore, _ := ciliumIdentity.Store(t.Context())
 	podStore, _ := pods.Store(t.Context())
 	nsStore, _ := namespace.Store(t.Context())
-	r = newSlimReconciler(fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+	r = newSlimReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
 	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
 	assert.NoError(t, err)
 	cesController := &SlimController{
@@ -864,4 +865,563 @@ func TestSyncCESsInLocalCacheOperatorDowntime(t *testing.T) {
 
 	cesController.queue.ShutDown()
 	hive.Stop(tlog, t.Context())
+}
+
+func TestDefaultController_SyncCESsInLocalCache_ServiceAccount(t *testing.T) {
+	tests := []struct {
+		name           string
+		enableZTunnel  bool
+		cesSA          string
+		liveSA         string
+		expectEnqueued bool
+		expectedCESSA  string
+	}{
+		{
+			name:           "case a: EnableZTunnel=true, CES endpoint has empty SA, live CEP has SA -> CES enqueued",
+			enableZTunnel:  true,
+			cesSA:          "",
+			liveSA:         "test-sa",
+			expectEnqueued: true,
+			expectedCESSA:  "test-sa",
+		},
+		{
+			name:           "case b: EnableZTunnel=false, CES endpoint has SA -> NOW enqueued",
+			enableZTunnel:  false,
+			cesSA:          "test-sa",
+			liveSA:         "test-sa",
+			expectEnqueued: true,
+			expectedCESSA:  "",
+		},
+		{
+			name:           "case c: EnableZTunnel=true, CES endpoint already has matching SA -> NOT enqueued",
+			enableZTunnel:  true,
+			cesSA:          "test-sa",
+			liveSA:         "test-sa",
+			expectEnqueued: false,
+		},
+		{
+			name:           "case d: EnableZTunnel=false, CES endpoint without SA -> NOT enqueued",
+			enableZTunnel:  false,
+			cesSA:          "",
+			liveSA:         "test-sa",
+			expectEnqueued: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sharedCfg := SharedConfig{
+				EnableZTunnel: tt.enableZTunnel,
+			}
+			log := hivetest.Logger(t)
+			var fakeClient *k8sClient.FakeClientset
+			var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+			var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+			var cesMetrics *Metrics
+			m := newDefaultManager(2, log)
+			h := hive.New(
+				k8sClient.FakeClientCell(),
+				k8s.ResourcesCell,
+				metrics.Metric(NewMetrics),
+				cell.Invoke(func(
+					c *k8sClient.FakeClientset,
+					cep resource.Resource[*cilium_v2.CiliumEndpoint],
+					ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+					metrics *Metrics,
+				) error {
+					fakeClient = c
+					ciliumEndpoint = cep
+					ciliumEndpointSlice = ces
+					cesMetrics = metrics
+					return nil
+				}),
+			)
+			h.Start(log, t.Context())
+			defer h.Stop(log, t.Context())
+
+			cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+			cepStore, _ := ciliumEndpoint.Store(t.Context())
+			r := newDefaultReconciler(sharedCfg, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cepStore, cesStore, cesMetrics)
+			rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
+			assert.NoError(t, err)
+
+			cesController := &DefaultController{
+				Controller: &Controller{
+					logger:              log,
+					clientset:           fakeClient,
+					ciliumEndpointSlice: ciliumEndpointSlice,
+					rateLimit:           rateLimitConfig,
+					enqueuedAt:          make(map[CESKey]time.Time),
+					metrics:             cesMetrics,
+					priorityNamespaces:  make(map[string]struct{}),
+					syncDelay:           0,
+					doReconciler:        r,
+					sharedCfg:           sharedCfg,
+				},
+				manager:        m,
+				reconciler:     r,
+				ciliumEndpoint: ciliumEndpoint,
+			}
+			cesController.initializeQueue()
+			defer cesController.queue.ShutDown()
+
+			const ns = "ns"
+			liveCEP := tu.CreateStoreEndpoint("cep1", ns, 1)
+			liveCEP.Status.ServiceAccount = tt.liveSA
+			cepStore.CacheStore().Add(liveCEP)
+
+			desired := r.getCoreEndpointFromStore(NewCEPName("cep1", ns))
+			assert.NotNil(t, desired)
+			ccep := *desired
+			ccep.ServiceAccount = tt.cesSA
+			cesObj := tu.CreateStoreEndpointSlice("ces1", ns, []cilium_v2a1.CoreCiliumEndpoint{ccep})
+			cesStore.CacheStore().Add(cesObj)
+			_, err = fakeClient.CiliumFakeClientset.CiliumV2alpha1().CiliumEndpointSlices().Create(t.Context(), cesObj, meta_v1.CreateOptions{})
+			assert.NoError(t, err)
+
+			cepEvents := ciliumEndpoint.Events(t.Context())
+			cesEvents := ciliumEndpointSlice.Events(t.Context())
+			err = cesController.syncCESsInLocalCache(cepEvents, cesEvents)
+			assert.NoError(t, err)
+
+			if tt.expectEnqueued {
+				assert.Equal(t, 1, cesController.queue.Len())
+				processed := cesController.processNextWorkItem(t.Context())
+				assert.True(t, processed)
+
+				updatedCES, err := fakeClient.CiliumFakeClientset.CiliumV2alpha1().CiliumEndpointSlices().Get(t.Context(), "ces1", meta_v1.GetOptions{})
+				assert.NoError(t, err)
+				assert.Len(t, updatedCES.Endpoints, 1)
+				assert.Equal(t, tt.expectedCESSA, updatedCES.Endpoints[0].ServiceAccount)
+			} else {
+				assert.Equal(t, 0, cesController.queue.Len())
+			}
+		})
+	}
+}
+
+func TestSlimController_SyncCESsInLocalCache_ServiceAccount(t *testing.T) {
+	tests := []struct {
+		name           string
+		enableZTunnel  bool
+		cesSA          string
+		liveSA         string
+		expectEnqueued bool
+		expectedCESSA  string
+	}{
+		{
+			name:           "case a: EnableZTunnel=true, CES endpoint has empty SA, live Pod has SA -> CES enqueued",
+			enableZTunnel:  true,
+			cesSA:          "",
+			liveSA:         "test-sa",
+			expectEnqueued: true,
+			expectedCESSA:  "test-sa",
+		},
+		{
+			name:           "case b: EnableZTunnel=false, CES endpoint has SA -> NOW enqueued",
+			enableZTunnel:  false,
+			cesSA:          "test-sa",
+			liveSA:         "test-sa",
+			expectEnqueued: true,
+			expectedCESSA:  "",
+		},
+		{
+			name:           "case c: EnableZTunnel=true, CES endpoint already has matching SA -> NOT enqueued",
+			enableZTunnel:  true,
+			cesSA:          "test-sa",
+			liveSA:         "test-sa",
+			expectEnqueued: false,
+		},
+		{
+			name:           "case d: EnableZTunnel=false, CES endpoint without SA -> NOT enqueued",
+			enableZTunnel:  false,
+			cesSA:          "",
+			liveSA:         "test-sa",
+			expectEnqueued: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			sharedCfg := SharedConfig{
+				EnableZTunnel: tt.enableZTunnel,
+			}
+			log := hivetest.Logger(t)
+			var fakeClient *k8sClient.FakeClientset
+			var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+			var ciliumNode resource.Resource[*cilium_v2.CiliumNode]
+			var namespace resource.Resource[*slim_corev1.Namespace]
+			var ciliumIdentity resource.Resource[*cilium_v2.CiliumIdentity]
+			var pods resource.Resource[*slim_corev1.Pod]
+			var cesMetrics *Metrics
+			m := newSlimManager(2, log)
+			h := hive.New(
+				k8sClient.FakeClientCell(),
+				k8s.ResourcesCell,
+				metrics.Metric(NewMetrics),
+				ipsec.OperatorCell,
+				wgAgent.OperatorCell,
+				cell.Invoke(func(
+					c *k8sClient.FakeClientset,
+					p resource.Resource[*slim_corev1.Pod],
+					ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+					node resource.Resource[*cilium_v2.CiliumNode],
+					ns resource.Resource[*slim_corev1.Namespace],
+					identity resource.Resource[*cilium_v2.CiliumIdentity],
+					metrics *Metrics,
+				) error {
+					fakeClient = c
+					pods = p
+					ciliumEndpointSlice = ces
+					ciliumNode = node
+					namespace = ns
+					ciliumIdentity = identity
+					cesMetrics = metrics
+					return nil
+				}),
+			)
+			h.Start(log, t.Context())
+			defer h.Stop(log, t.Context())
+
+			labelsfilter.ParseLabelPrefixCfg(log, nil, nil, "")
+			cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+			nodeStore, _ := ciliumNode.Store(t.Context())
+			cidStore, _ := ciliumIdentity.Store(t.Context())
+			podStore, _ := pods.Store(t.Context())
+			nsStore, _ := namespace.Store(t.Context())
+			r := newSlimReconciler(sharedCfg, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+			rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
+			assert.NoError(t, err)
+
+			cesController := &SlimController{
+				Controller: &Controller{
+					logger:              log,
+					clientset:           fakeClient,
+					ciliumEndpointSlice: ciliumEndpointSlice,
+					ciliumNodes:         ciliumNode,
+					namespace:           namespace,
+					rateLimit:           rateLimitConfig,
+					enqueuedAt:          make(map[CESKey]time.Time),
+					metrics:             cesMetrics,
+					priorityNamespaces:  make(map[string]struct{}),
+					syncDelay:           0,
+					doReconciler:        r,
+					sharedCfg:           sharedCfg,
+				},
+				ipsecEnabled:   false,
+				wgEnabled:      false,
+				manager:        m,
+				reconciler:     r,
+				pods:           pods,
+				ciliumIdentity: ciliumIdentity,
+			}
+			cesController.initializeQueue()
+			defer cesController.queue.ShutDown()
+
+			node1 := tu.CreateStoreNode("node1")
+			nodeStore.CacheStore().Add(node1)
+
+			ns := cidtest.NewNamespace("ns", nil)
+			nsStore.CacheStore().Add(ns)
+
+			pod1 := cidtest.NewPod("pod1", "ns", tu.TestLbsA, "node1")
+			pod1.Spec.ServiceAccountName = tt.liveSA
+			podStore.CacheStore().Add(pod1)
+
+			cid1 := cidtest.NewCIDWithNamespace("1", pod1, ns)
+			cidStore.CacheStore().Add(cid1)
+
+			netw, err := GetPodEndpointNetworking(pod1)
+			assert.NoError(t, err)
+			ccep := cilium_v2a1.CoreCiliumEndpoint{
+				Name:           "pod1",
+				IdentityID:     1,
+				PodUID:         string(pod1.UID),
+				Networking:     netw,
+				Encryption:     cilium_v2.EncryptionSpec{Key: 0},
+				NamedPorts:     r.getNamedPorts(pod1),
+				ServiceAccount: tt.cesSA,
+			}
+			ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{ccep})
+			cesStore.CacheStore().Add(ces1)
+			_, err = fakeClient.CiliumFakeClientset.CiliumV2alpha1().CiliumEndpointSlices().Create(t.Context(), ces1, meta_v1.CreateOptions{})
+			assert.NoError(t, err)
+
+			err = cesController.syncCESsInLocalCache(ciliumNode.Events(t.Context()), ciliumIdentity.Events(t.Context()), ciliumEndpointSlice.Events(t.Context()), pods.Events(t.Context()))
+			assert.NoError(t, err)
+
+			if tt.expectEnqueued {
+				assert.Equal(t, 1, cesController.queue.Len())
+				processed := cesController.processNextWorkItem(t.Context())
+				assert.True(t, processed)
+
+				updatedCES, err := fakeClient.CiliumFakeClientset.CiliumV2alpha1().CiliumEndpointSlices().Get(t.Context(), "ces1", meta_v1.GetOptions{})
+				assert.NoError(t, err)
+				assert.Len(t, updatedCES.Endpoints, 1)
+				assert.Equal(t, tt.expectedCESSA, updatedCES.Endpoints[0].ServiceAccount)
+			} else {
+				assert.Equal(t, 0, cesController.queue.Len())
+			}
+		})
+	}
+}
+
+func TestDefaultController_SyncCESsInLocalCache_GenericDrift(t *testing.T) {
+	log := hivetest.Logger(t)
+	var fakeClient *k8sClient.FakeClientset
+	var ciliumEndpoint resource.Resource[*cilium_v2.CiliumEndpoint]
+	var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+	var cesMetrics *Metrics
+	m := newDefaultManager(2, log)
+	h := hive.New(
+		k8sClient.FakeClientCell(),
+		k8s.ResourcesCell,
+		metrics.Metric(NewMetrics),
+		cell.Invoke(func(
+			c *k8sClient.FakeClientset,
+			cep resource.Resource[*cilium_v2.CiliumEndpoint],
+			ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+			metrics *Metrics,
+		) error {
+			fakeClient = c
+			ciliumEndpoint = cep
+			ciliumEndpointSlice = ces
+			cesMetrics = metrics
+			return nil
+		}),
+	)
+	h.Start(log, t.Context())
+	defer h.Stop(log, t.Context())
+
+	cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+	cepStore, _ := ciliumEndpoint.Store(t.Context())
+	r := newDefaultReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cepStore, cesStore, cesMetrics)
+	rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
+	assert.NoError(t, err)
+
+	cesController := &DefaultController{
+		Controller: &Controller{
+			logger:              log,
+			clientset:           fakeClient,
+			ciliumEndpointSlice: ciliumEndpointSlice,
+			rateLimit:           rateLimitConfig,
+			enqueuedAt:          make(map[CESKey]time.Time),
+			metrics:             cesMetrics,
+			priorityNamespaces:  make(map[string]struct{}),
+			syncDelay:           0,
+			doReconciler:        r,
+		},
+		manager:        m,
+		reconciler:     r,
+		ciliumEndpoint: ciliumEndpoint,
+	}
+	cesController.initializeQueue()
+	defer cesController.queue.ShutDown()
+
+	const ns = "ns"
+	const liveID = int64(100)
+	const storedID = int64(200)
+
+	// Live CEP has identity ID 100 (simulating identity changed while operator was down)
+	liveCEP := tu.CreateStoreEndpoint("cep1", ns, liveID)
+	cepStore.CacheStore().Add(liveCEP)
+
+	// Stored CES has the old identity ID 200
+	desired := r.getCoreEndpointFromStore(NewCEPName("cep1", ns))
+	assert.NotNil(t, desired)
+	storedCEP := *desired
+	storedCEP.IdentityID = storedID
+
+	cesObj := tu.CreateStoreEndpointSlice("ces1", ns, []cilium_v2a1.CoreCiliumEndpoint{storedCEP})
+	cesStore.CacheStore().Add(cesObj)
+	_, err = fakeClient.CiliumFakeClientset.CiliumV2alpha1().CiliumEndpointSlices().Create(t.Context(), cesObj, meta_v1.CreateOptions{})
+	assert.NoError(t, err)
+
+	cepEvents := ciliumEndpoint.Events(t.Context())
+	cesEvents := ciliumEndpointSlice.Events(t.Context())
+	err = cesController.syncCESsInLocalCache(cepEvents, cesEvents)
+	assert.NoError(t, err)
+
+	// Drift detected: CES must be enqueued
+	assert.Equal(t, 1, cesController.queue.Len())
+	processed := cesController.processNextWorkItem(t.Context())
+	assert.True(t, processed)
+
+	// Updated CES written to fake clientset must carry the live identity ID (100)
+	updatedCES, err := fakeClient.CiliumFakeClientset.CiliumV2alpha1().CiliumEndpointSlices().Get(t.Context(), "ces1", meta_v1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Len(t, updatedCES.Endpoints, 1)
+	assert.Equal(t, liveID, updatedCES.Endpoints[0].IdentityID)
+}
+
+func TestSlimController_SyncCESsInLocalCache_GenericDrift(t *testing.T) {
+	// In slim mode, the pod's identity is resolved from the local cache, which is
+	// seeded during bootstrap from the CES itself (initializeMappingPodToNode).
+	// Therefore, identity ID drift between a live Pod and a CES is not directly
+	// observable at bootstrap.
+	// However, other fields such as NamedPorts and PodUID are read directly from
+	// the live Pod object and detect generic drift during bootstrap.
+
+	tests := []struct {
+		name          string
+		modifyLivePod func(pod *slim_corev1.Pod)
+		modifyStored  func(ccep *cilium_v2a1.CoreCiliumEndpoint)
+		verifyUpdate  func(t *testing.T, ep cilium_v2a1.CoreCiliumEndpoint)
+	}{
+		{
+			name: "named ports drift: live pod has updated container ports -> CES enqueued and updated",
+			modifyLivePod: func(pod *slim_corev1.Pod) {
+				pod.Spec.Containers = []slim_corev1.Container{
+					{
+						Name: "web",
+						Ports: []slim_corev1.ContainerPort{
+							{
+								Name:          "http",
+								ContainerPort: 8080,
+								Protocol:      slim_corev1.ProtocolTCP,
+							},
+						},
+					},
+				}
+			},
+			modifyStored: func(ccep *cilium_v2a1.CoreCiliumEndpoint) {
+				ccep.NamedPorts = nil
+			},
+			verifyUpdate: func(t *testing.T, ep cilium_v2a1.CoreCiliumEndpoint) {
+				assert.Len(t, ep.NamedPorts, 1)
+				assert.Equal(t, "http", ep.NamedPorts[0].Name)
+				assert.Equal(t, uint16(8080), ep.NamedPorts[0].Port)
+			},
+		},
+		{
+			name: "pod UID drift: live pod has new UID -> CES enqueued and updated",
+			modifyLivePod: func(pod *slim_corev1.Pod) {
+				pod.UID = "new-pod-uid"
+			},
+			modifyStored: func(ccep *cilium_v2a1.CoreCiliumEndpoint) {
+				ccep.PodUID = "old-pod-uid"
+			},
+			verifyUpdate: func(t *testing.T, ep cilium_v2a1.CoreCiliumEndpoint) {
+				assert.Equal(t, "new-pod-uid", ep.PodUID)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := hivetest.Logger(t)
+			var fakeClient *k8sClient.FakeClientset
+			var ciliumEndpointSlice resource.Resource[*cilium_v2a1.CiliumEndpointSlice]
+			var ciliumNode resource.Resource[*cilium_v2.CiliumNode]
+			var namespace resource.Resource[*slim_corev1.Namespace]
+			var ciliumIdentity resource.Resource[*cilium_v2.CiliumIdentity]
+			var pods resource.Resource[*slim_corev1.Pod]
+			var cesMetrics *Metrics
+			m := newSlimManager(2, log)
+			h := hive.New(
+				k8sClient.FakeClientCell(),
+				k8s.ResourcesCell,
+				metrics.Metric(NewMetrics),
+				ipsec.OperatorCell,
+				wgAgent.OperatorCell,
+				cell.Invoke(func(
+					c *k8sClient.FakeClientset,
+					p resource.Resource[*slim_corev1.Pod],
+					ces resource.Resource[*cilium_v2a1.CiliumEndpointSlice],
+					node resource.Resource[*cilium_v2.CiliumNode],
+					ns resource.Resource[*slim_corev1.Namespace],
+					identity resource.Resource[*cilium_v2.CiliumIdentity],
+					metrics *Metrics,
+				) error {
+					fakeClient = c
+					pods = p
+					ciliumEndpointSlice = ces
+					ciliumNode = node
+					namespace = ns
+					ciliumIdentity = identity
+					cesMetrics = metrics
+					return nil
+				}),
+			)
+			h.Start(log, t.Context())
+			defer h.Stop(log, t.Context())
+
+			labelsfilter.ParseLabelPrefixCfg(log, nil, nil, "")
+			cesStore, _ := ciliumEndpointSlice.Store(t.Context())
+			nodeStore, _ := ciliumNode.Store(t.Context())
+			cidStore, _ := ciliumIdentity.Store(t.Context())
+			podStore, _ := pods.Store(t.Context())
+			nsStore, _ := namespace.Store(t.Context())
+			r := newSlimReconciler(SharedConfig{}, fakeClient.CiliumFakeClientset.CiliumV2alpha1(), m, log, cmtypes.DefaultClusterInfo, cesStore, podStore, cidStore, nodeStore, nsStore, cesMetrics, false, false)
+			rateLimitConfig, err := getRateLimitConfig(params{Cfg: defaultConfig})
+			assert.NoError(t, err)
+
+			cesController := &SlimController{
+				Controller: &Controller{
+					logger:              log,
+					clientset:           fakeClient,
+					ciliumEndpointSlice: ciliumEndpointSlice,
+					ciliumNodes:         ciliumNode,
+					namespace:           namespace,
+					rateLimit:           rateLimitConfig,
+					enqueuedAt:          make(map[CESKey]time.Time),
+					metrics:             cesMetrics,
+					priorityNamespaces:  make(map[string]struct{}),
+					syncDelay:           0,
+					doReconciler:        r,
+				},
+				ipsecEnabled:   false,
+				wgEnabled:      false,
+				manager:        m,
+				reconciler:     r,
+				pods:           pods,
+				ciliumIdentity: ciliumIdentity,
+			}
+			cesController.initializeQueue()
+			defer cesController.queue.ShutDown()
+
+			node1 := tu.CreateStoreNode("node1")
+			nodeStore.CacheStore().Add(node1)
+
+			ns := cidtest.NewNamespace("ns", nil)
+			nsStore.CacheStore().Add(ns)
+
+			pod1 := cidtest.NewPod("pod1", "ns", tu.TestLbsA, "node1")
+			tt.modifyLivePod(pod1)
+			podStore.CacheStore().Add(pod1)
+
+			cid1 := cidtest.NewCIDWithNamespace("1", pod1, ns)
+			cidStore.CacheStore().Add(cid1)
+
+			netw, err := GetPodEndpointNetworking(pod1)
+			assert.NoError(t, err)
+			ccep := cilium_v2a1.CoreCiliumEndpoint{
+				Name:           "pod1",
+				IdentityID:     1,
+				PodUID:         string(pod1.UID),
+				Networking:     netw,
+				Encryption:     cilium_v2.EncryptionSpec{Key: 0},
+				NamedPorts:     r.getNamedPorts(pod1),
+				ServiceAccount: "",
+			}
+			tt.modifyStored(&ccep)
+
+			ces1 := tu.CreateStoreEndpointSlice("ces1", "ns", []cilium_v2a1.CoreCiliumEndpoint{ccep})
+			cesStore.CacheStore().Add(ces1)
+			_, err = fakeClient.CiliumFakeClientset.CiliumV2alpha1().CiliumEndpointSlices().Create(t.Context(), ces1, meta_v1.CreateOptions{})
+			assert.NoError(t, err)
+
+			err = cesController.syncCESsInLocalCache(ciliumNode.Events(t.Context()), ciliumIdentity.Events(t.Context()), ciliumEndpointSlice.Events(t.Context()), pods.Events(t.Context()))
+			assert.NoError(t, err)
+
+			assert.Equal(t, 1, cesController.queue.Len())
+			processed := cesController.processNextWorkItem(t.Context())
+			assert.True(t, processed)
+
+			updatedCES, err := fakeClient.CiliumFakeClientset.CiliumV2alpha1().CiliumEndpointSlices().Get(t.Context(), "ces1", meta_v1.GetOptions{})
+			assert.NoError(t, err)
+			assert.Len(t, updatedCES.Endpoints, 1)
+			tt.verifyUpdate(t, updatedCES.Endpoints[0])
+		})
+	}
 }
