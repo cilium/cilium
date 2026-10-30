@@ -200,6 +200,7 @@ var ciliumResourceToGroupMapping = map[string]watcherInfo{
 	synced.CRDResourceName(v2alpha1.L2AnnouncementName):                   {skip, ""}, // Handled by L2 announcement directly
 	synced.CRDResourceName(v2alpha1.CPIPName):                             {skip, ""}, // Handled by multi-pool IPAM allocator
 	synced.CRDResourceName(v2alpha1.CRIPName):                             {skip, ""}, // Handled by network driver IPAM allocator
+	synced.CRDResourceName(v2alpha1.CRNCName):                             {skip, ""}, // Handled by network driver IPAM allocator
 	synced.CRDResourceName(v2alpha1.CDPPName):                             {skip, ""}, // Handled by datapath plugins
 	synced.CRDResourceName(v2alpha1.CiliumNetworkDriverNodeConfigName):    {skip, ""}, // Handled by Network Driver package
 	synced.CRDResourceName(v2alpha1.CiliumNetworkDriverClusterConfigName): {skip, ""}, // Handled by Network Driver package
