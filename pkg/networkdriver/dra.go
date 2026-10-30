@@ -284,6 +284,12 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
+	for _, modify := range driver.configModifiers {
+		if err := modify(ctx, driver, claim, deviceCfgs); err != nil {
+			return kubeletplugin.PrepareResult{Err: err}
+		}
+	}
+
 	if err := validateDeviceConfigs(claim, deviceCfgs); err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
 	}

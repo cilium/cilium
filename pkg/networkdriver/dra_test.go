@@ -24,6 +24,8 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	operatoripam "github.com/cilium/cilium/operator/pkg/networkdriver/ipam"
+	"github.com/cilium/cilium/pkg/datapath/connector/fake"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/hive"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -38,6 +40,7 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/rxqueue"
 	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -628,6 +631,86 @@ func TestPrepareResourceClaim(t *testing.T) {
 		res := driver.prepareResourceClaim(t.Context(), claim)
 		require.NoError(t, res.Err)
 	})
+}
+
+func TestClaimConfigModifier(t *testing.T) {
+	const (
+		driverName  = "test.cilium.k8s.io"
+		deviceName  = "test-device"
+		requestName = "test-request"
+	)
+	claim := &resourceapi.ResourceClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-claim", Namespace: "default", UID: "test-claim-uid"},
+		Status: resourceapi.ResourceClaimStatus{
+			ReservedFor: []resourceapi.ResourceClaimConsumerReference{{Resource: "pods", UID: "test-pod-uid"}},
+			Allocation: &resourceapi.AllocationResult{
+				Devices: resourceapi.DeviceAllocationResult{
+					Results: []resourceapi.DeviceRequestAllocationResult{
+						{
+							Driver:  driverName,
+							Request: requestName,
+							Device:  deviceName,
+							Pool:    "test-pool",
+						},
+					},
+				},
+			},
+		},
+	}
+	var driver *Driver
+
+	h := hive.New(
+		k8sClient.FakeClientCell(),
+		cell.Config(config.Config{Enabled: true}),
+		cell.Provide(
+			registerNetworkDriver,
+			newDeviceTable,
+			newAllocationTable,
+			fake.NewVeth,
+			func() xdp.Config { return xdp.Config{} },
+			func() *option.DaemonConfig { return &option.DaemonConfig{} },
+			func() (
+				resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig],
+				resource.Resource[*resourceapi.ResourceClaim],
+				resource.Resource[*corev1.Pod],
+				*node.LocalNodeStore,
+				*ipam.MultiPoolManager,
+			) {
+				return nil, nil, nil, nil, nil
+			},
+			func() claimConfigModifierOut {
+				return claimConfigModifierOut{
+					Modifier: func(_ context.Context, d *Driver, c *resourceapi.ResourceClaim, configs map[string]types.DeviceConfig) error {
+						cfg := configs[requestName]
+						cfg.PodIfName = "modified"
+						configs[requestName] = cfg
+						return nil
+					},
+				}
+			},
+		),
+		cell.Invoke(func(d *Driver) {
+			driver = d
+		}),
+	)
+	require.NoError(t, h.Populate(hivetest.Logger(t)))
+	driver.config = &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: driverName}
+
+	wtxn := driver.db.WriteTxn(driver.deviceTable)
+	_, _, err := driver.deviceTable.Insert(wtxn, &DRADevice{
+		Name:    deviceName,
+		Manager: types.DeviceManagerTypeMock,
+		Dev:     &trackedDevice{name: deviceName},
+	})
+	require.NoError(t, err)
+	wtxn.Commit()
+	claim, err = driver.kubeClient.ResourceV1().ResourceClaims(claim.Namespace).Create(t.Context(), claim, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	res := driver.prepareResourceClaim(t.Context(), claim)
+	require.NoError(t, res.Err)
+	require.Len(t, res.Devices, 1)
+	require.Equal(t, "modified", res.Devices[0].Metadata.NetworkData.InterfaceName)
 }
 
 // newDummyManager returns a DummyManager with count=2 for use in tests.
