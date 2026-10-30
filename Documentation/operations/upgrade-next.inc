@@ -84,6 +84,14 @@ differently than in prior releases:
   masqueraded anymore.
 * ``bpf.hostLegacyRouting`` now defaults to true on new Cilium deployments.
 * ``bpf.masquerade`` is enabled by default on new Cilium deployments.
+* The SPIRE Helm values have moved from ``authentication.mutual.spire.*`` to
+  ``encryption.ztunnel.spire.*`` because mutual authentication has been removed
+  and SPIRE is now only used by ztunnel. The previous
+  ``authentication.mutual.spire.enabled`` switch has been removed. To use SPIRE
+  as the ztunnel CA backend, set ``encryption.enabled=true``,
+  ``encryption.type=ztunnel``, and ``encryption.ztunnel.ca.type=spire``. To use
+  an external SPIRE deployment instead of the chart-managed SPIRE resources, set
+  ``encryption.ztunnel.spire.install.enabled=false``.
 
 Deprecated Options
 ##################
