@@ -142,8 +142,9 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *flowpb.Flow) error {
 	l4, sourcePort, destinationPort := decodeLayer4(r.TransportProtocol, r.SourceEndpoint, r.DestinationEndpoint)
 	var sourceService, destinationService *flowpb.Service
 	if p.serviceGetter != nil {
-		sourceService = p.serviceGetter.GetServiceByAddr(sourceIP, sourcePort)
-		destinationService = p.serviceGetter.GetServiceByAddr(destinationIP, destinationPort)
+		proto := u8proto.U8proto(r.TransportProtocol)
+		sourceService = p.serviceGetter.GetServiceByAddr(sourceIP, sourcePort, proto)
+		destinationService = p.serviceGetter.GetServiceByAddr(destinationIP, destinationPort, proto)
 	}
 
 	decoded.Time = pbTimestamp

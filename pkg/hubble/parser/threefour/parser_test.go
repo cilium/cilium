@@ -44,6 +44,7 @@ import (
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // ipTuple is the addressing used for the source/destination of a flow.
@@ -353,7 +354,7 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service {
 			if ip == netip.MustParseAddr("192.168.60.11") && (port == 6443) {
 				return &flowpb.Service{
 					Name:      "service-1234",

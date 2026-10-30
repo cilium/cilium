@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func mustParseIP(s string) (res types.IPv6) {
@@ -167,7 +168,7 @@ func TestDecodeSockEvent(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service {
 			switch ip.String() {
 			case deathstarServiceV4, deathstarServiceV6:
 				if port == deathstarServicePort {
