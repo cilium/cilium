@@ -106,7 +106,7 @@ jobs:
   upgrade-and-downgrade:
     name: "Upgrade and Downgrade Test"
     needs: wait-for-images
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_4CPU_16GB || 'ubuntu-26.04' }}
     timeout-minutes: 60
     env:
       job_name: "Installation and Connectivity Test"
