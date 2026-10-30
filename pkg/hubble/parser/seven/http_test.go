@@ -17,8 +17,8 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -94,7 +94,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 		},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if ip == netip.MustParseAddr(fakeSourceEndpoint.IPv4) {
 				return &testutils.FakeEndpointInfo{
 					ID:     fakeSourceEndpoint.ID,
@@ -213,7 +213,7 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		},
 	}
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			if ip.String() == fakeSourceEndpoint.IPv4 {
 				return &testutils.FakeEndpointInfo{
 					ID:     fakeSourceEndpoint.ID,

@@ -9,10 +9,9 @@ import (
 	"net/netip"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/common"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -22,13 +21,12 @@ import (
 // Parser is a parser for SockTraceNotify payloads
 type Parser struct {
 	log            *slog.Logger
-	endpointGetter getters.EndpointGetter
-	identityGetter getters.IdentityGetter
-	dnsGetter      getters.DNSGetter
-	ipGetter       getters.IPGetter
-	serviceGetter  getters.ServiceGetter
-	cgroupGetter   getters.PodMetadataGetter
-	epResolver     *common.EndpointResolver
+	endpointGetter resolverTypes.EndpointGetter
+	identityGetter resolverTypes.IdentityGetter
+	dnsGetter      resolverTypes.DNSGetter
+	ipGetter       resolverTypes.IPGetter
+	serviceGetter  resolverTypes.ServiceGetter
+	cgroupGetter   resolverTypes.PodMetadataGetter
 
 	traceSockNotifyDecoder options.TraceSockNotifyDecoderFunc
 
@@ -37,12 +35,12 @@ type Parser struct {
 
 // New creates a new parser
 func New(log *slog.Logger,
-	endpointGetter getters.EndpointGetter,
-	identityGetter getters.IdentityGetter,
-	dnsGetter getters.DNSGetter,
-	ipGetter getters.IPGetter,
-	serviceGetter getters.ServiceGetter,
-	cgroupGetter getters.PodMetadataGetter,
+	endpointGetter resolverTypes.EndpointGetter,
+	identityGetter resolverTypes.IdentityGetter,
+	dnsGetter resolverTypes.DNSGetter,
+	ipGetter resolverTypes.IPGetter,
+	serviceGetter resolverTypes.ServiceGetter,
+	cgroupGetter resolverTypes.PodMetadataGetter,
 	opts ...options.Option,
 ) (*Parser, error) {
 	args := &options.Options{
@@ -65,7 +63,6 @@ func New(log *slog.Logger,
 		ipGetter:               ipGetter,
 		serviceGetter:          serviceGetter,
 		cgroupGetter:           cgroupGetter,
-		epResolver:             common.NewEndpointResolver(log, endpointGetter, identityGetter, ipGetter),
 		traceSockNotifyDecoder: args.TraceSockNotifyDecoder,
 		skipUnknownCGroupIDs:   args.SkipUnknownCGroupIDs,
 	}, nil
@@ -102,14 +99,14 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	dstIP := sock.IP()
 	dstPort := sock.DstPort
 
-	datapathContext := common.DatapathContext{
+	datapathContext := resolverTypes.DatapathContext{
 		SrcIP:      srcIP,
 		SrcLabelID: 0,
 		DstIP:      dstIP,
 		DstLabelID: 0,
 	}
-	srcEndpoint := p.epResolver.ResolveEndpoint(srcIP, 0, datapathContext)
-	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, 0, datapathContext)
+	srcEndpoint := p.endpointGetter.ResolveEndpoint(srcIP, 0, datapathContext)
+	dstEndpoint := p.endpointGetter.ResolveEndpoint(dstIP, 0, datapathContext)
 
 	// On the reverse path, source and destination IP of the packet are reversed
 	isRevNat := decodeRevNat(sock.XlatePoint)

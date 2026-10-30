@@ -19,8 +19,9 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	cgroupManager "github.com/cilium/cilium/pkg/cgroups/manager"
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	"github.com/cilium/cilium/pkg/hubble/resolver"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -77,7 +78,7 @@ func TestDecodeSockEvent(t *testing.T) {
 	)
 
 	endpointGetter := &testutils.FakeEndpointGetter{
-		OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+		OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 			switch ip.String() {
 			case xwingIPv4, xwingIPv6:
 				return &testutils.FakeEndpointInfo{
@@ -446,7 +447,7 @@ func TestDecodeSockEvent(t *testing.T) {
 
 	for _, tc := range tt {
 		t.Run(tc.name, func(t *testing.T) {
-			p, err := New(logger, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, tc.opts...)
+			p, err := New(logger, resolver.NewEndpointResolver(logger, endpointGetter, identityGetter, ipGetter), identityGetter, dnsGetter, ipGetter, serviceGetter, cgroupGetter, tc.opts...)
 			assert.NoError(t, err)
 			data := tc.rawMsg
 			if data == nil {

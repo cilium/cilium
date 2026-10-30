@@ -17,11 +17,11 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/agent"
 	"github.com/cilium/cilium/pkg/hubble/parser/debug"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/parser/seven"
 	"github.com/cilium/cilium/pkg/hubble/parser/sock"
 	"github.com/cilium/cilium/pkg/hubble/parser/threefour"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
@@ -44,13 +44,13 @@ type Parser struct {
 // New creates a new parser
 func New(
 	log *slog.Logger,
-	endpointGetter getters.EndpointGetter,
-	identityGetter getters.IdentityGetter,
-	dnsGetter getters.DNSGetter,
-	ipGetter getters.IPGetter,
-	serviceGetter getters.ServiceGetter,
-	linkGetter getters.LinkGetter,
-	cgroupGetter getters.PodMetadataGetter,
+	endpointGetter resolverTypes.EndpointGetter,
+	identityGetter resolverTypes.IdentityGetter,
+	dnsGetter resolverTypes.DNSGetter,
+	ipGetter resolverTypes.IPGetter,
+	serviceGetter resolverTypes.ServiceGetter,
+	linkGetter resolverTypes.LinkGetter,
+	cgroupGetter resolverTypes.PodMetadataGetter,
 	opts ...options.Option,
 ) (*Parser, error) {
 
