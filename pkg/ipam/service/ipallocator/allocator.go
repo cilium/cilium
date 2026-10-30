@@ -204,6 +204,34 @@ func (r *Range) Has(ip netip.Addr) bool {
 	return r.alloc.Has(offset)
 }
 
+// Contains returns true if ip is one of the allocatable addresses of the
+// range. This can be fewer than the addresses of the CIDR: the first and last
+// address may be excluded, and IPv6 ranges are capped to 2^16 addresses (see
+// RangeSize).
+func (r *Range) Contains(ip netip.Addr) bool {
+	ok, _ := r.contains(ip)
+	return ok
+}
+
+// Covers returns true if every allocatable address of other is also an
+// allocatable address of r.
+func (r *Range) Covers(other *Range) bool {
+	if other.max == 0 {
+		return true
+	}
+	// Allocatable addresses form a contiguous interval.
+	return r.Contains(other.base) && r.Contains(addOffset(other.base, other.max-1))
+}
+
+// Overlaps returns true if r and other have an allocatable address in common.
+func (r *Range) Overlaps(other *Range) bool {
+	if r.max == 0 || other.max == 0 || !r.prefix.Overlaps(other.prefix) {
+		return false
+	}
+	return r.base.Compare(addOffset(other.base, other.max-1)) <= 0 &&
+		other.base.Compare(addOffset(r.base, r.max-1)) <= 0
+}
+
 // Snapshot saves the current state of the pool.
 func (r *Range) Snapshot() (string, []byte, error) {
 	snapshottable, ok := r.alloc.(allocator.Snapshottable)

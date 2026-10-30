@@ -226,8 +226,19 @@ func (p pendingAllocationsPerOwner) pendingForFamily(family Family) int {
 // since each frontend targets a different field when reading and writing the pool
 // specs.
 type PoolSpecAccessors struct {
-	// FromResource returns the IPAM Pool specs from the CiliumNode
-	FromResource func(*ciliumv2.CiliumNode) types.IPAMPoolSpec
+	// FromResource returns the IPAM Pool specs from the CiliumNode.
+	//
+	// authoritative reports whether the returned Allocated CIDRs are owned
+	// by the operator alone, e.g. because they are derived from a status
+	// field that only the operator writes. If so, a CIDR that was removed
+	// while in use and that shows up again has been re-assigned by the
+	// operator, and the agent allocates from it again. It must be false
+	// whenever the Allocated CIDRs may contain the agent's own output, as in
+	// generic multi-pool mode: there, the agent keeps publishing removed but
+	// in-use CIDRs to Spec.IPAM.Pools.Allocated, so their reappearance may
+	// be its own echo rather than a re-assignment, and the operator may have
+	// given them to another node (cilium/cilium#47910).
+	FromResource func(*ciliumv2.CiliumNode) (spec types.IPAMPoolSpec, authoritative bool)
 
 	// ToResource writes the IPAM Pool specs to the CiliumNode.
 	// It returns true if the pools have been updated, false otherwise.
@@ -465,8 +476,9 @@ func (m *MultiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
-	for _, pool := range m.poolsAccessor.FromResource(newNode).Allocated {
-		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs, pool.AllowFirstIP, pool.AllowLastIP)
+	pools, authoritative := m.poolsAccessor.FromResource(newNode)
+	for _, pool := range pools.Allocated {
+		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs, pool.AllowFirstIP, pool.AllowLastIP, authoritative)
 	}
 
 	// Sync pre-allocate value from the CiliumNode spec. For cloud IPAM modes,
@@ -716,7 +728,7 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 	if nodeSynced {
 		newPoolsSpec.Allocated = allocated
 	} else {
-		pools := m.poolsAccessor.FromResource(curNode)
+		pools, _ := m.poolsAccessor.FromResource(curNode)
 		newPoolsSpec.Allocated = pools.Allocated
 	}
 
@@ -765,7 +777,10 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 	return nil
 }
 
-func (m *MultiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix, allowFirstIP, allowLastIP bool) {
+// upsertPoolLocked creates or updates the pool with the given CIDRs.
+// regainRemoved must only be set if the CIDRs are authoritative, see
+// PoolSpecAccessors.FromResource.
+func (m *MultiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix, allowFirstIP, allowLastIP, regainRemoved bool) {
 	pool, ok := m.pools[poolName]
 	if !ok {
 		pool = &poolPair{
@@ -823,10 +838,10 @@ func (m *MultiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix
 	}
 
 	if pool.v4 != nil {
-		pool.v4.updatePool(ipv4Prefixes)
+		pool.v4.updatePool(ipv4Prefixes, regainRemoved)
 	}
 	if pool.v6 != nil {
-		pool.v6.updatePool(ipv6Prefixes)
+		pool.v6.updatePool(ipv6Prefixes, regainRemoved)
 	}
 
 	m.pools[poolName] = pool

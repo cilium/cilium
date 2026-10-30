@@ -23,14 +23,18 @@ var poolAccessor = ipam.PoolSpecAccessors{
 	//
 	// Secondary IPs are represented as host-prefix CIDRs (/32 for IPv4, /128 for
 	// IPv6) and delegated prefixes as /28 CIDRs for IPv4 and /80 CIDRs for IPv6.
-	FromResource: func(node *ciliumv2.CiliumNode) ipamTypes.IPAMPoolSpec {
+	//
+	// The CIDRs are authoritative only if they come from Status.ENI. If it
+	// yields none, e.g. because all ENIs are excluded by the ENI spec, the
+	// fallback is the agent's own Spec.IPAM.Pools.Allocated.
+	FromResource: func(node *ciliumv2.CiliumNode) (ipamTypes.IPAMPoolSpec, bool) {
 		pools := ipamTypes.IPAMPoolSpec{
 			Requested: node.Spec.IPAM.Pools.Requested,
 			Allocated: node.Spec.IPAM.Pools.Allocated,
 		}
 
 		if len(node.Status.ENI.ENIs) == 0 {
-			return pools
+			return pools, false
 		}
 
 		var cidrs []iputil.Prefix
@@ -65,18 +69,19 @@ var poolAccessor = ipam.PoolSpecAccessors{
 			}
 		}
 
-		if len(cidrs) > 0 {
-			pools.Allocated = []ipamTypes.IPAMPoolAllocation{
-				{
-					Pool:         defaults.IPAMDefaultIPPool,
-					AllowFirstIP: true,
-					AllowLastIP:  true,
-					CIDRs:        cidrs,
-				},
-			}
+		if len(cidrs) == 0 {
+			return pools, false
 		}
 
-		return pools
+		pools.Allocated = []ipamTypes.IPAMPoolAllocation{
+			{
+				Pool:         defaults.IPAMDefaultIPPool,
+				AllowFirstIP: true,
+				AllowLastIP:  true,
+				CIDRs:        cidrs,
+			},
+		}
+		return pools, true
 	},
 	ToResource: func(node *ciliumv2.CiliumNode, spec ipamTypes.IPAMPoolSpec) bool {
 		if !node.Spec.IPAM.Pools.DeepEqual(&spec) {

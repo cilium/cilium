@@ -72,6 +72,7 @@ func newTestCloudMultiPoolAllocator(t *testing.T, resolver RoutingMetadataResolv
 		[]iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.20.30.0/29"))},
 		false,
 		false,
+		false,
 	)
 
 	return &cloudMultiPoolAllocator{

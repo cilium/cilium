@@ -16,14 +16,16 @@ import (
 )
 
 var poolAccessor = ipam.PoolSpecAccessors{
-	FromResource: func(node *ciliumv2.CiliumNode) ipamTypes.IPAMPoolSpec {
+	// The CIDRs are not reported as authoritative, even when derived from
+	// Status.Azure, so Azure mode does not regain removed CIDRs.
+	FromResource: func(node *ciliumv2.CiliumNode) (ipamTypes.IPAMPoolSpec, bool) {
 		pools := ipamTypes.IPAMPoolSpec{
 			Requested: node.Spec.IPAM.Pools.Requested,
 			Allocated: node.Spec.IPAM.Pools.Allocated,
 		}
 
 		if len(node.Status.Azure.Interfaces) == 0 {
-			return pools
+			return pools, false
 		}
 
 		var cidrs []iputil.Prefix
@@ -52,7 +54,7 @@ var poolAccessor = ipam.PoolSpecAccessors{
 			},
 		}
 
-		return pools
+		return pools, false
 	},
 	ToResource: func(node *ciliumv2.CiliumNode, spec ipamTypes.IPAMPoolSpec) bool {
 		if !node.Spec.IPAM.Pools.DeepEqual(&spec) {
