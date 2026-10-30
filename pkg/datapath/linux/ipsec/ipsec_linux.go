@@ -49,18 +49,8 @@ const (
 	IPSecDirOut
 	IPSecDirFwd
 
-	// Constants used to decode the IPsec secret in both formats:
-	// 1. [spi] aead-algo aead-key icv-len
-	// 2. [spi] auth-algo auth-key enc-algo enc-key [IP]
-	offsetSPI      = 0
-	offsetAeadAlgo = 1
-	offsetAeadKey  = 2
-	offsetICV      = 3
-	offsetAuthAlgo = 1
-	offsetAuthKey  = 2
-	offsetEncAlgo  = 3
-	offsetEncKey   = 4
-	maxOffset      = offsetEncKey
+	aeadKeyFields    = 4
+	authEncKeyFields = 5
 
 	defaultDropPriority = 100
 
@@ -1098,87 +1088,10 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 	defer a.Unlock()
 
 	scanner := bufio.NewScanner(r)
-	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
-		var (
-			aeadKey []byte
-			authKey []byte
-			err     error
-		)
-
-		newKey := &ipSecKey{
-			ReqID: DefaultReqID,
-		}
-
-		// Scanning IPsec keys with one of the following formats:
-		// 1. [spi] aead-algo aead-key icv-len
-		// 2. [spi] auth-algo auth-key enc-algo enc-key [IP]
-		s := strings.Fields(strings.TrimSpace(scanner.Text()))
-		if len(s) < 3 {
-			// Regardless of the format used, the IPsec secret should have at
-			// least 3 fields separated by white spaces.
-			return 0, fmt.Errorf("missing IPSec key or invalid format")
-		}
-
-		newKey.Spi, err = parseSPI(s[offsetSPI])
+		newKey, err := parseIPSecKey(scanner.Text())
 		if err != nil {
-			return 0, fmt.Errorf("failed to parse SPI: %w", err)
-		}
-
-		if len(s) > maxOffset+1 {
-			return 0, fmt.Errorf("invalid format: too many fields in the IPsec secret")
-		} else if len(s) == offsetICV+1 {
-			// We're in the first case, with "[spi] aead-algo aead-key icv-len".
-			aeadName := s[offsetAeadAlgo]
-			if !strings.HasPrefix(aeadName, "rfc") {
-				return 0, fmt.Errorf("invalid AEAD algorithm %q", aeadName)
-			}
-
-			_, aeadKey, err = decodeIPSecKey(s[offsetAeadKey])
-			if err != nil {
-				return 0, fmt.Errorf("unable to decode AEAD key string %q", s[offsetAeadKey])
-			}
-
-			icvLen, err := strconv.Atoi(s[offsetICV])
-			if err != nil {
-				return 0, fmt.Errorf("ICV length is invalid or missing")
-			}
-
-			if icvLen != 96 && icvLen != 128 && icvLen != 256 {
-				return 0, fmt.Errorf("only ICV lengths 96, 128, and 256 are accepted")
-			}
-
-			newKey.Aead = &netlink.XfrmStateAlgo{
-				Name:   aeadName,
-				Key:    aeadKey,
-				ICVLen: icvLen,
-			}
-			newKey.KeyLen = icvLen / 8
-		} else {
-			// We're in the second case, with "[spi] auth-algo auth-key enc-algo enc-key [IP]".
-			if len(s) != maxOffset+1 {
-				return 0, fmt.Errorf("invalid format: got %d fields, expected \"[spi] aead-algo aead-key icv-len\" or \"[spi] auth-algo auth-key enc-algo enc-key\"", len(s))
-			}
-			authAlgo := s[offsetAuthAlgo]
-			newKey.KeyLen, authKey, err = decodeIPSecKey(s[offsetAuthKey])
-			if err != nil {
-				return 0, fmt.Errorf("unable to decode authentication key string %q", s[offsetAuthKey])
-			}
-
-			encAlgo := s[offsetEncAlgo]
-			_, encKey, err := decodeIPSecKey(s[offsetEncKey])
-			if err != nil {
-				return 0, fmt.Errorf("unable to decode encryption key string %q", s[offsetEncKey])
-			}
-
-			newKey.Auth = &netlink.XfrmStateAlgo{
-				Name: authAlgo,
-				Key:  authKey,
-			}
-			newKey.Crypt = &netlink.XfrmStateAlgo{
-				Name: encAlgo,
-				Key:  encKey,
-			}
+			return 0, err
 		}
 
 		if a.key != nil {
@@ -1200,6 +1113,72 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 		return 0, fmt.Errorf("error scanning IPsec key: empty or malformed input")
 	}
 	return spi, nil
+}
+
+// parseIPSecKey parses a key in one of the following formats:
+//  1. spi aead-algo aead-key icv-len
+//  2. spi auth-algo auth-key enc-algo enc-key
+func parseIPSecKey(line string) (*ipSecKey, error) {
+	f := strings.Fields(line)
+
+	key := &ipSecKey{ReqID: DefaultReqID}
+	switch len(f) {
+	case aeadKeyFields:
+		if err := key.setAEAD(f[1], f[2], f[3]); err != nil {
+			return nil, fmt.Errorf("failed to parse AEAD key: %w", err)
+		}
+	case authEncKeyFields:
+		if err := key.setAuthEnc(f[1], f[2], f[3], f[4]); err != nil {
+			return nil, fmt.Errorf("failed to parse Auth+Enc key: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("invalid format: got %d fields, expected \"spi aead-algo aead-key icv-len\" or \"spi auth-algo auth-key enc-algo enc-key\"", len(f))
+	}
+
+	spi, err := parseSPI(f[0])
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse SPI: %w", err)
+	}
+	key.Spi = spi
+
+	return key, nil
+}
+
+func (k *ipSecKey) setAEAD(algo, keyStr, icvStr string) error {
+	if !strings.HasPrefix(algo, "rfc") {
+		return fmt.Errorf("invalid AEAD algorithm %q", algo)
+	}
+	_, key, err := decodeIPSecKey(keyStr)
+	if err != nil {
+		return fmt.Errorf("unable to decode AEAD key string: %w", err)
+	}
+	icvLen, err := strconv.Atoi(icvStr)
+	if err != nil {
+		return fmt.Errorf("ICV length is invalid or missing")
+	}
+	if icvLen != 96 && icvLen != 128 && icvLen != 256 {
+		return fmt.Errorf("only ICV lengths 96, 128, and 256 are accepted")
+	}
+
+	k.Aead = &netlink.XfrmStateAlgo{Name: algo, Key: key, ICVLen: icvLen}
+	k.KeyLen = icvLen / 8
+	return nil
+}
+
+func (k *ipSecKey) setAuthEnc(authAlgo, authKeyStr, encAlgo, encKeyStr string) error {
+	keyLen, authKey, err := decodeIPSecKey(authKeyStr)
+	if err != nil {
+		return fmt.Errorf("unable to decode authentication key string: %w", err)
+	}
+	_, encKey, err := decodeIPSecKey(encKeyStr)
+	if err != nil {
+		return fmt.Errorf("unable to decode encryption key string: %w", err)
+	}
+
+	k.Auth = &netlink.XfrmStateAlgo{Name: authAlgo, Key: authKey}
+	k.Crypt = &netlink.XfrmStateAlgo{Name: encAlgo, Key: encKey}
+	k.KeyLen = keyLen
+	return nil
 }
 
 func parseSPI(spiStr string) (uint8, error) {
