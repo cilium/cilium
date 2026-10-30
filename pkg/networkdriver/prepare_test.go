@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
@@ -40,6 +42,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
 
+	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
@@ -186,21 +189,25 @@ func (d *trackedDevice) UnmarshalBinary(data []byte) error {
 // ---------------------------------------------------------------------------
 
 const (
-	prepTestDriverName = "test.cilium.k8s.io"
-	prepTestRequest    = "req-0"
-	prepTestClaimNS    = "default"
-	prepTestClaimName  = "test-claim"
-	prepTestClaimUID   = kubetypes.UID("aaaaaaaa-0000-0000-0000-000000000001")
-	prepTestPodName    = "test-pod"
-	prepTestPodUID     = kubetypes.UID("bbbbbbbb-0000-0000-0000-000000000002")
-	prepTestDev0       = "dev-0"
-	prepTestDev1       = "dev-1"
-	prepTestClaimUID2  = kubetypes.UID("cccccccc-0000-0000-0000-000000000003")
-	prepTestClaimName2 = "test-claim-2"
-	prepTestPool       = "testpool"
-	prepTestShareID0   = kubetypes.UID("dddddddd-0000-0000-0000-000000000004")
-	prepTestShareID1   = kubetypes.UID("eeeeeeee-0000-0000-0000-000000000005")
-	prepTestCapacity   = resourceapi.QualifiedName("rxQueues")
+	prepTestDriverName            = "test.cilium.k8s.io"
+	prepTestRequest               = "req-0"
+	prepTestClaimNS               = "default"
+	prepTestClaimName             = "test-claim"
+	prepTestClaimTemplateName     = "test-claim-template"
+	prepTestClaimUID              = kubetypes.UID("aaaaaaaa-0000-0000-0000-000000000001")
+	prepTestPodName               = "test-pod"
+	prepTestPodUID                = kubetypes.UID("bbbbbbbb-0000-0000-0000-000000000002")
+	prepTestDev0                  = "dev-0"
+	prepTestDev1                  = "dev-1"
+	prepTestClaimUID2             = kubetypes.UID("cccccccc-0000-0000-0000-000000000003")
+	prepTestClaimName2            = "test-claim-2"
+	prepTestPool                  = "testpool"
+	prepTestShareID0              = kubetypes.UID("dddddddd-0000-0000-0000-000000000004")
+	prepTestShareID1              = kubetypes.UID("eeeeeeee-0000-0000-0000-000000000005")
+	prepTestCapacity              = resourceapi.QualifiedName("rxQueues")
+	prepTestClaimPodEntry         = "test-claim-entry"                                               // Pod entry referencing prepTestClaimName
+	prepTestClaimTemplatePodEntry = "test-claim-template-entry"                                      // Pod entry referencing a prepTestClaimTemplateName
+	prepTestGeneratedClaimName    = prepTestPodName + "-" + prepTestClaimTemplatePodEntry + "-4qttt" // Name of claim generated for prepTestClaimTemplatePodEntry
 )
 
 const prepTestLogicalPool = "logical-pool"
@@ -209,10 +216,17 @@ const prepTestLogicalPool = "logical-pool"
 // Fixture builders
 // ---------------------------------------------------------------------------
 
+const (
+	resClaimIPv4Addr = "10.1.0.1/32"
+	resClaimIPv6Addr = "fd00::1/128"
+)
+
 // buildPrepClaim returns a ResourceClaim whose Results request the given
 // device names.
 func buildPrepClaim(devices ...string) *resourceapi.ResourceClaim {
 	rawParam, _ := json.Marshal(map[string]string{
+		"ipv4Addr":  resClaimIPv4Addr,
+		"ipv6Addr":  resClaimIPv6Addr,
 		"podIfName": "mydevice",
 	})
 
@@ -278,15 +292,14 @@ func buildPrepClaim2(devices ...string) *resourceapi.ResourceClaim {
 	return c
 }
 
-// buildGeneratedPrepClaim returns a ResourceClaim like buildPrepClaim does,
-// but generates the claim name using the pod, the claim name and a random suffix,
-// to mimic a ResourceClaim generated from a ResourceClaimTemplate.
-// This is needed to test the logic that looks up the original claim name in the annotation when the claim is generated.
+// buildGeneratedPrepClaim returns a ResourceClaim like buildPrepClaim does, but sets the name to
+// prepTestGeneratedClaimName and the resourceapi.PodResourceClaimAnnotation annotation's value to
+// prepTestClaimTemplatePodEntry, to mimic a ResourceClaim generated from a ResourceClaimTemplate.
 func buildGeneratedPrepClaim(devices ...string) *resourceapi.ResourceClaim {
 	claim := buildPrepClaim(devices...)
-	claim.Name = strings.Join([]string{prepTestPodName, prepTestClaimName, "4qttt"}, "-")
+	claim.Name = prepTestGeneratedClaimName
 	claim.Annotations = map[string]string{
-		"resource.kubernetes.io/pod-claim-name": prepTestClaimName,
+		resourceapi.PodResourceClaimAnnotation: prepTestClaimTemplatePodEntry,
 	}
 	return claim
 }
@@ -348,6 +361,8 @@ func buildPrepDriver(t *testing.T, cs *k8sClient.FakeClientset, devs ...*tracked
 		db:              db,
 		deviceTable:     deviceTable,
 		allocationTable: allocationTable,
+		ipv4Enabled:     true,
+		ipv6Enabled:     true,
 	}
 }
 
@@ -370,11 +385,33 @@ func prepOne(t *testing.T, driver *Driver, claim *resourceapi.ResourceClaim) kub
 	return results[claim.UID]
 }
 
+// createPod creates a pod with two pod resource claim entries:
+// - {name: prepTestClaimPodEntry, resourceClaimName: prepTestClaimName}
+// - {name: prepTestClaimTemplatePodEntry, resourceClaimTemplateName: prepTestClaimTemplateName}
+func createPod(t *testing.T, cs *k8sClient.FakeClientset, annotations map[string]string) {
+	t.Helper()
+	claimName := strings.Clone(prepTestClaimName)
+	claimTemplateName := strings.Clone(prepTestClaimTemplateName)
+	_, err := cs.KubernetesFakeClientset.CoreV1().
+		Pods(prepTestClaimNS).Create(context.Background(), &corev1.Pod{
+		Name:        "test-pod",
+		Namespace:   prepTestClaimNS,
+		UID:         prepTestPodUID,
+		Annotations: annotations,
+		Spec: corev1.PodSpec{ResourceClaims: []corev1.PodResourceClaim{
+			{Name: prepTestClaimPodEntry, ResourceClaimName: &claimName},
+			{Name: prepTestClaimTemplatePodEntry, ResourceClaimTemplateName: &claimTemplateName},
+		}},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+}
+
 // namedObject is a small helper to build a kubeletplugin.NamespacedObject.
 func namedObject(ns, name string, uid kubetypes.UID) kubeletplugin.NamespacedObject {
 	return kubeletplugin.NamespacedObject{
-		NamespacedName: kubetypes.NamespacedName{Namespace: ns, Name: name},
-		UID:            uid,
+		Namespace: ns,
+		Name:      name,
+		UID:       uid,
 	}
 }
 
@@ -922,6 +959,229 @@ func TestPrepare(t *testing.T) {
 		require.EqualValues(t, 1, dev.setupCalls.Load())
 		require.NotEmpty(t, allocatedRowsForPod(t, driver, prepTestPodUID), "must have allocations for pod")
 	})
+}
+
+func TestPrepare_PodStaticIPsAnnotation(t *testing.T) {
+	testCases := []struct {
+		name           string
+		staticAddrsMap types.StaticAddrsMap
+		expectedIPs    []string
+	}{
+		{
+			name: "IPs from annotation override the ones in claim config",
+			staticAddrsMap: types.StaticAddrsMap{
+				prepTestRequest: {
+					IPv4: netip.MustParsePrefix("10.44.0.9/24"),
+					IPv6: netip.MustParsePrefix("fdaa::1/128"),
+				},
+			},
+			expectedIPs: []string{"10.44.0.9/24", "fdaa::1/128"},
+		},
+		{
+			name: "IPv4 from annotation override the one in claim config, IPv6 taken from claim config",
+			staticAddrsMap: types.StaticAddrsMap{
+				prepTestRequest: {
+					IPv4: netip.MustParsePrefix("10.44.0.9/24"),
+				},
+			},
+			expectedIPs: []string{"10.44.0.9/24", resClaimIPv6Addr},
+		},
+		{
+			name: "IPv6 from annotation override the one in claim config, IPv4 taken from claim config",
+			staticAddrsMap: types.StaticAddrsMap{
+				prepTestRequest: {
+					IPv6: netip.MustParsePrefix("fdaa::1/128"),
+				},
+			},
+			expectedIPs: []string{resClaimIPv4Addr, "fdaa::1/128"},
+		},
+	}
+
+	claimCases := []struct {
+		name                 string
+		generateClaim        func(devices ...string) *resourceapi.ResourceClaim
+		podResourceClaimName string
+	}{
+		{name: "From ResourceClaim", generateClaim: buildPrepClaim, podResourceClaimName: prepTestClaimPodEntry},
+		{name: "From ResourceClaimTemplate", generateClaim: buildGeneratedPrepClaim, podResourceClaimName: prepTestClaimTemplatePodEntry},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, cc := range claimCases {
+				t.Run(cc.name, func(t *testing.T) {
+					tlog := hivetest.Logger(t)
+					cs, _ := k8sClient.NewFakeClientset(tlog)
+
+					dev := &trackedDevice{name: prepTestDev0}
+					claim := cc.generateClaim(prepTestDev0)
+					createPrepClaim(t, cs, claim)
+
+					staticIPs, err := json.Marshal(map[string]types.StaticAddrsMap{
+						cc.podResourceClaimName: tc.staticAddrsMap,
+					})
+					require.NoError(t, err)
+
+					createPod(t, cs, map[string]string{
+						annotation.NetworkDriverStaticAddresses: string(staticIPs),
+					})
+
+					driver := buildPrepDriver(t, cs, dev)
+					result := prepOne(t, driver, claim)
+					require.NoError(t, result.Err)
+
+					setupAllocs := dev.setupAllocations
+					require.Len(t, setupAllocs, 1)
+					setupAllocDevCfg := setupAllocs[0].Config
+					assert.Equal(t, netip.MustParsePrefix(tc.expectedIPs[0]), setupAllocDevCfg.IPv4Addr)
+					assert.Equal(t, netip.MustParsePrefix(tc.expectedIPs[1]), setupAllocDevCfg.IPv6Addr)
+					updated, err := cs.KubernetesFakeClientset.ResourceV1().
+						ResourceClaims(prepTestClaimNS).Get(t.Context(), claim.Name, metav1.GetOptions{})
+					require.NoError(t, err)
+					require.Len(t, updated.Status.Devices, 1)
+					require.ElementsMatch(t, tc.expectedIPs, updated.Status.Devices[0].NetworkData.IPs)
+				})
+			}
+		})
+	}
+}
+
+func TestPrepare_PodStaticIPsAnnotation_Errors(t *testing.T) {
+	claimCases := []struct {
+		name                 string
+		generateClaim        func(devices ...string) *resourceapi.ResourceClaim
+		podResourceClaimName string
+	}{
+		{
+			name:                 "From ResourceClaim",
+			generateClaim:        buildPrepClaim,
+			podResourceClaimName: prepTestClaimPodEntry,
+		},
+		{
+			name:                 "From ResourceClaimTemplate",
+			generateClaim:        buildGeneratedPrepClaim,
+			podResourceClaimName: prepTestClaimTemplatePodEntry,
+		},
+	}
+
+	for _, cc := range claimCases {
+		t.Run(cc.name, func(t *testing.T) {
+			tlog := hivetest.Logger(t)
+			cs, _ := k8sClient.NewFakeClientset(tlog)
+
+			dev := &trackedDevice{name: prepTestDev0}
+			claim := cc.generateClaim(prepTestDev0)
+			createPrepClaim(t, cs, claim)
+
+			staticIPs, err := json.Marshal(map[string]types.StaticAddrsMap{
+				cc.podResourceClaimName: {
+					"other-request": {IPv4: netip.MustParsePrefix("10.44.0.9/24")},
+				},
+			})
+			require.NoError(t, err)
+
+			createPod(t, cs, map[string]string{
+				annotation.NetworkDriverStaticAddresses: string(staticIPs),
+			})
+
+			driver := buildPrepDriver(t, cs, dev)
+
+			result := driver.prepareResourceClaim(t.Context(), claim)
+			// Request name in annotation doesn't match any request in claim config.
+			require.Error(t, result.Err)
+		})
+	}
+}
+
+func TestValidateConfigs_Addresses(t *testing.T) {
+	var (
+		claim = claimInNS(prepTestClaimNS)
+		ipv4  = netip.MustParsePrefix("10.44.0.9/24")
+		ipv6  = netip.MustParsePrefix("fdaa::1/128")
+	)
+
+	testCases := []struct {
+		name        string
+		ipv4Enabled bool
+		ipv6Enabled bool
+		cfg         types.DeviceConfig
+		errExpected bool
+	}{
+		{
+			name:        "no addresses",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+		},
+		{
+			name:        "IP pool only",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPPool: "pool"},
+		},
+		{
+			name:        "IPv4 address only",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv4Addr: ipv4},
+		},
+		{
+			name:        "IPv4 and IPv6 addresses",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv4Addr: ipv4, IPv6Addr: ipv6},
+		},
+		{
+			name:        "IP pool and IPv4 address",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPPool: "pool", IPv4Addr: ipv4},
+			errExpected: true,
+		},
+		{
+			name:        "IP pool and IPv6 address",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPPool: "pool", IPv6Addr: ipv6},
+			errExpected: true,
+		},
+		{
+			name:        "IPv4 address with IPv4 disabled",
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv4Addr: ipv4},
+			errExpected: true,
+		},
+		{
+			name:        "IPv6 address with IPv6 disabled",
+			ipv4Enabled: true,
+			cfg:         types.DeviceConfig{IPv6Addr: ipv6},
+			errExpected: true,
+		},
+		{
+			name:        "IPv6 prefix as IPv4 address",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv4Addr: ipv6},
+			errExpected: true,
+		},
+		{
+			name:        "IPv4 prefix as IPv6 address",
+			ipv4Enabled: true,
+			ipv6Enabled: true,
+			cfg:         types.DeviceConfig{IPv6Addr: ipv4},
+			errExpected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			driver := &Driver{ipv4Enabled: tc.ipv4Enabled, ipv6Enabled: tc.ipv6Enabled}
+			err := driver.validateConfigs(claim, map[string]types.DeviceConfig{prepTestRequest: tc.cfg})
+			if tc.errExpected {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 func TestUnprepare(t *testing.T) {
