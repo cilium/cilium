@@ -25,6 +25,6 @@ status:
       type: Accepted
     - lastTransitionTime: "2025-07-01T06:15:08Z"
       message: Address is not ready
-      reason: ListenersNotReady
+      reason: Invalid
       status: "False"
       type: Programmed
