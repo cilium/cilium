@@ -779,31 +779,41 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 		t.Fatal(err)
 	}
 
-	// Traffic matching an egress gateway policy and an excluded CIDR should leave the cluster masqueraded with the
-	// node IP where the pod is running rather than with the egress IP(pod to external service)
+	// Excluded-CIDR traffic must NOT exit with the egress gateway's egress IP; that would mean
+	// the exclusion failed and the packet was masqueraded by the gateway. Any other source IP
+	// (pod's own IP, owning ENI primary IP, node host IP) is acceptable; which one appears
+	// depends on ipv4NativeRoutingCIDR width relative to the destination subnet.
 	i := 0
 	for _, client := range ct.ClientPods() {
 		for _, externalEcho := range ct.ExternalEchoPods() {
 			externalEcho := externalEcho.ToEchoIPPod()
 
 			t.ForEachIPFamily(func(ipFam features.IPFamily) {
-				hostIP, _ := netip.ParseAddr(client.Pod.Status.HostIP)
+				if ipFam == features.IPFamilyV6 && !ipv6Enabled {
+					return
+				}
+
+				egressIP := egressGatewayNodeInternalIP
 				if ipFam == features.IPFamilyV6 {
-					if !ipv6Enabled {
-						return
-					}
-					for _, addr := range client.Pod.Status.HostIPs {
-						ip, err := netip.ParseAddr(addr.IP)
-						if err == nil && ip.Unmap().Is6() {
-							hostIP = ip
-							break
-						}
-					}
+					egressIP = egressGatewayNodeInternalIPv6
 				}
 
 				t.NewAction(s, fmt.Sprintf("curl-%s-%d", ipFam, i), &client, externalEcho, ipFam).Run(func(a *check.Action) {
 					a.ExecInPod(ctx, a.CurlCommandWithOutput(externalEcho))
-					validateEgressGatewayClientIP(a, hostIP)
+					if a.Failed() {
+						return
+					}
+
+					clientIP, err := extractClientIPFromResponse(a.CmdOutput())
+					if err != nil {
+						a.Failf("Cannot extract client IP from response %q: %s", a.CmdOutput(), err)
+						return
+					}
+
+					if ip.CompareUnmap(clientIP, egressIP) == 0 {
+						a.Failf("Excluded-CIDR traffic was masqueraded with egress gateway IP %s for pod %s/%s (actual: %s); exclusion did not take effect",
+							egressIP, client.Pod.Namespace, client.Pod.Name, clientIP)
+					}
 				})
 			})
 			i++
