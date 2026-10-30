@@ -71,6 +71,14 @@ type networkDriverParams struct {
 	AllocationTable statedb.RWTable[*DRAAllocation]
 	LocalNodeStore  *node.LocalNodeStore
 	MultiPoolMgr    *ipam.MultiPoolManager
+
+	ConfigModifiers []claimConfigModifier `group:"network-driver-claim-config-modifiers"`
+}
+
+type claimConfigModifierOut struct {
+	cell.Out
+
+	Modifier claimConfigModifier `group:"network-driver-claim-config-modifiers"`
 }
 
 func ciliumNetworkDriverConfigResource(cs k8sClient.Clientset, lc cell.Lifecycle, mp workqueue.MetricsProvider, cfg config.Config) resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig] {
@@ -150,6 +158,7 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		multiPoolMgr:    params.MultiPoolMgr,
 		ipv4Enabled:     params.CellCfg.IPv4Enabled,
 		ipv6Enabled:     params.CellCfg.IPv6Enabled,
+		configModifiers: params.ConfigModifiers,
 	}
 
 	params.Lifecycle.Append(driver)
