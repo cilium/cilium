@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -174,6 +175,10 @@ type faultyLBMaps struct {
 	maps.LBMaps
 	fail                    bool
 	failDeleteService       bool
+	failDeleteSourceRange   bool
+	failDeleteAffinity      bool
+	failDumpAffinity        bool
+	failDumpService         bool
 	failUpdateBackend       bool
 	shouldFailUpdateService func(maps.ServiceKey) bool
 }
@@ -192,6 +197,34 @@ func (m *faultyLBMaps) DeleteService(key maps.ServiceKey) error {
 		return errors.New("delete service failed")
 	}
 	return m.LBMaps.DeleteService(key)
+}
+
+func (m *faultyLBMaps) DumpService(cb func(maps.ServiceKey, maps.ServiceValue)) error {
+	if m.failDumpService {
+		return errors.New("dump service failed")
+	}
+	return m.LBMaps.DumpService(cb)
+}
+
+func (m *faultyLBMaps) DeleteSourceRange(key maps.SourceRangeKey) error {
+	if m.failDeleteSourceRange {
+		return errors.New("delete source range failed")
+	}
+	return m.LBMaps.DeleteSourceRange(key)
+}
+
+func (m *faultyLBMaps) DeleteAffinityMatch(key *maps.AffinityMatchKey) error {
+	if m.failDeleteAffinity {
+		return errors.New("delete affinity match failed")
+	}
+	return m.LBMaps.DeleteAffinityMatch(key)
+}
+
+func (m *faultyLBMaps) DumpAffinityMatch(cb func(*maps.AffinityMatchKey, *maps.AffinityMatchValue)) error {
+	if m.failDumpAffinity {
+		return errors.New("dump affinity match failed")
+	}
+	return m.LBMaps.DumpAffinityMatch(cb)
 }
 
 func (m *faultyLBMaps) UpdateBackend(key maps.BackendKey, value maps.BackendValue) error {
@@ -1842,7 +1875,7 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 
 		restoredState := fixture.ops.frontendStates[frontendAddr]
 		require.NotNil(t, restoredState, "restored frontend state")
-		require.Contains(t, restoredState.restoredQuarantinedBackends, backend1,
+		require.True(t, restoredState.restoredQuarantinedBackends.Has(backend1),
 			"quarantined backend was not restored")
 
 		frontend := newLeakTestFrontend(frontendAddr, ClusterIP,
@@ -1852,7 +1885,7 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 
 		state := fixture.ops.frontendStates[frontendAddr]
 		require.NotNil(t, state, "updated frontend state")
-		require.Empty(t, state.restoredQuarantinedBackends,
+		require.True(t, state.restoredQuarantinedBackends.Empty(),
 			"restored quarantine state for an omitted backend remains")
 	})
 
@@ -1869,9 +1902,9 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 		fixture = newBPFOpsLeakTestFixture(t, lbmaps, nil, nil)
 		state := fixture.ops.frontendStates[frontend.Address]
 		require.NotNil(t, state, "restored frontend state")
-		require.Contains(t, state.restoredQuarantinedBackends, backend1,
+		require.True(t, state.restoredQuarantinedBackends.Has(backend1),
 			"first quarantined backend was not restored")
-		require.Contains(t, state.restoredQuarantinedBackends, backend2,
+		require.True(t, state.restoredQuarantinedBackends.Has(backend2),
 			"second quarantined backend was not restored")
 
 		frontend = newLeakTestFrontend(extraFrontend, ClusterIP,
@@ -1880,9 +1913,9 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 
 		state = fixture.ops.frontendStates[frontend.Address]
 		require.NotNil(t, state, "updated frontend state")
-		require.NotContains(t, state.restoredQuarantinedBackends, backend1,
+		require.False(t, state.restoredQuarantinedBackends.Has(backend1),
 			"restored quarantine state for an omitted backend remains")
-		require.Contains(t, state.restoredQuarantinedBackends, backend2,
+		require.True(t, state.restoredQuarantinedBackends.Has(backend2),
 			"restored quarantine state for a referenced backend was dropped")
 	})
 
@@ -1893,7 +1926,7 @@ func TestBPFOpsLeakRegressions(t *testing.T) {
 
 		restoredState := fixture.ops.frontendStates[frontendAddr]
 		require.NotNil(t, restoredState, "restored frontend state")
-		require.Contains(t, restoredState.restoredQuarantinedBackends, backend1,
+		require.True(t, restoredState.restoredQuarantinedBackends.Has(backend1),
 			"quarantined backend was not restored")
 
 		require.NoError(t, fixture.ops.Prune(context.TODO(), nil, nil), "Prune")
@@ -2006,15 +2039,15 @@ func TestBPFOps(t *testing.T) {
 		faultMaps.failDeleteService = false
 		require.Error(t, err)
 		require.NotZero(t, frontend.ID, "Frontend ID after failed withdrawal")
-		require.Equal(t, frontend.Address, ops.serviceIDAlloc.idToAddr[frontend.ID],
+		require.Equal(t, []loadbalancer.L3n4Addr{frontend.Address}, ops.serviceIDAlloc.idToAddrs[frontend.ID].AsSlice(),
 			"Frontend ID allocation after failed withdrawal")
 
 		require.NoError(t, ops.Update(context.TODO(), db.ReadTxn(), 0, &frontend))
 
 		require.Zero(t, frontend.ID, "withdrawn Frontend ID")
 		require.True(t, lbmaps.IsEmpty(), "BPF maps after Update")
-		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
-		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
+		require.Empty(t, ops.serviceIDAlloc.idToAddrs, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddrs, "Backend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remains")
 		require.Empty(t, ops.frontendStates, "Frontend state remains")
 	})
@@ -2129,8 +2162,8 @@ func TestBPFOps(t *testing.T) {
 		require.Empty(t, maps, "BPF maps not empty")
 
 		// Verify that all internal state has been cleaned up.
-		require.Empty(t, ops.backendIDAlloc.idToAddr, "Backend ID allocations remain")
-		require.Empty(t, ops.serviceIDAlloc.idToAddr, "Frontend ID allocations remain")
+		require.Empty(t, ops.backendIDAlloc.idToAddrs, "Backend ID allocations remain")
+		require.Empty(t, ops.serviceIDAlloc.idToAddrs, "Frontend ID allocations remain")
 		require.Empty(t, ops.backendStates, "Backend state remain")
 		require.Empty(t, ops.frontendStates, "Frontend state remains")
 		require.Empty(t, ops.nodePortAddrByPort, "NodePort addrs state remain")
@@ -2219,7 +2252,7 @@ func TestIDMappingsPendingRestoreMetric(t *testing.T) {
 	require.Equal(t, float64(1), metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeService).Get())
 	require.Equal(t, float64(2), metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeBackend).Get())
 
-	require.NoError(t, ops.pruneRestoredIDs())
+	ops.pruneRestoredIDs(set.Set[serviceIDUse]{})
 	require.Zero(t, metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeService).Get())
 	require.Zero(t, metrics.IDMappingsPendingRestore.WithLabelValues(idAllocTypeBackend).Get())
 }
