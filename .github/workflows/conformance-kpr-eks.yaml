@@ -108,7 +108,17 @@ jobs:
     name: Wait for images
     runs-on: ubuntu-26.04
     timeout-minutes: 30
+    outputs:
+      full: ${{ steps.full.outputs.full }}
     steps:
+      - name: Read the full extra-arg
+        id: full
+        env:
+          EXTRA_ARGS: ${{ inputs.extra-args }}
+        run: |
+          FULL=$(jq -Rsr '. as $raw | (try fromjson catch $raw) | if type == "object" then (.full == true or .full == "true") else false end | tostring' <<< "${EXTRA_ARGS}")
+          echo "full=${FULL}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout context ref (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -135,7 +145,7 @@ jobs:
       UID: 1
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true}'
+      extra-args: ${{ format('{{"kpr":true,"bpf-masq-v4":true,"advanced-features":true,"full":{0}}}', needs.wait-for-images.outputs.full) }}
       test-concurrency: 2
 
   conformance-eks-kpr-ipsec:
@@ -148,7 +158,7 @@ jobs:
       UID: 2
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "ipsec": true}'
+      extra-args: ${{ format('{{"kpr":true,"bpf-masq-v4":true,"advanced-features":true,"ipsec":true,"full":{0}}}', needs.wait-for-images.outputs.full) }}
       test-concurrency: 2
 
   conformance-eks-kpr-wireguard:
@@ -161,7 +171,7 @@ jobs:
       UID: 3
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"kpr": true, "bpf-masq-v4": true, "advanced-features": true, "wireguard": true}'
+      extra-args: ${{ format('{{"kpr":true,"bpf-masq-v4":true,"advanced-features":true,"wireguard":true,"full":{0}}}', needs.wait-for-images.outputs.full) }}
       test-concurrency: 2
 
   # The netkit / netkit-l2 jobs are quarantined: they currently fail (e.g. the

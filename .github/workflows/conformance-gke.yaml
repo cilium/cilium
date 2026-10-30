@@ -170,6 +170,7 @@ jobs:
           ARGS=$(jq -Rc '. as $raw | (try fromjson catch $raw) | if type == "object" then . elif type == "string" and contains("=") then (split("=") | {(.[0]): .[1]}) else {} end' <<< "${EXTRA_ARGS}")
           echo "GKE_EXTRA_ARGS=${ARGS}" >> "${GITHUB_ENV}"
           VERSIONS=$(jq -r '.versions // ""' <<< "${ARGS}")
+          FULL=$(jq -r '.full == true or .full == "true" | tostring' <<< "${ARGS}")
           IPSEC=$(jq -r '.ipsec // false' <<< "${ARGS}")
           WG=$(jq -r '.wireguard // false' <<< "${ARGS}")
           KPR=$(jq -r '.kpr // false' <<< "${ARGS}")
@@ -177,7 +178,7 @@ jobs:
           ADV_FEAT=$(jq -r '.["advanced-features"] // false' <<< "${ARGS}")
 
           # shellcheck disable=SC2193
-          if [[ "${{ github.event_name }}" == "schedule" || "${PR_NUMBER}" == v* || "$VERSIONS" == "all" ]];then
+          if [[ "${{ github.event_name }}" == "schedule" || "${PR_NUMBER}" == v* || "$VERSIONS" == "all" || "$FULL" == "true" ]];then
             cp gke.json /tmp/matrix.json
           else
             jq '{ "k8s": [ .k8s[] | select(.default) ], "config": .config}' gke.json > /tmp/matrix.json
