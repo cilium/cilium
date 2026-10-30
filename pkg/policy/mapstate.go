@@ -861,7 +861,7 @@ func (ms mapState) String() (res string) {
 
 // Equal returns true of two entries are equal.
 func (e mapStateEntry) Equal(o mapStateEntry) bool {
-	return e.equivalent(o) && e.derivedFromRules == o.derivedFromRules
+	return e.derivedFromRules == o.derivedFromRules && e.equivalent(o)
 }
 
 // equivalent returns true if two entries have the same policy effect,
@@ -870,7 +870,8 @@ func (e mapStateEntry) equivalent(o mapStateEntry) bool {
 	return e.MapStateEntry == o.MapStateEntry &&
 		(e.passes == o.passes || (e.passes != nil && o.passes != nil &&
 			slices.Equal(*e.passes, *o.passes))) &&
-		(e.derivedFromRules == o.derivedFromRules || e.derivedFromRules.LogString() == o.derivedFromRules.LogString())
+		// TODO: Evaluate if we need to preserve rule log fields during aggregation.
+		(e.derivedFromRules == o.derivedFromRules || e.derivedFromRules.LoggingID() == o.derivedFromRules.LoggingID())
 }
 
 // String returns a string representation of the MapStateEntry
