@@ -923,12 +923,13 @@ func testTunnelRulesTunnelingEnabled(t *testing.T, port uint16) {
 		ip6tables: mockIp6tables,
 	}
 
-	expected := "%s -A %s -p udp --dport %d -m comment --comment %s"
+	expectedFilter := "%s -A %s -p udp --dport %d -m comment --comment %s"
+	expectedRaw := "%s -A %s -p udp --dport %d -m addrtype --%s-type LOCAL -m comment --comment %s"
 
 	mockIp4tables.expectations = []expectation{
-		{args: fmt.Sprintf(expected, "-t filter", "CILIUM_OUTPUT", port, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_PRE_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
-		{args: fmt.Sprintf(expected, "-t raw", "CILIUM_OUTPUT_raw", port, "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expectedFilter, "-t filter", "CILIUM_OUTPUT", port, "cilium: ACCEPT for tunnel traffic -j ACCEPT")},
+		{args: fmt.Sprintf(expectedRaw, "-t raw", "CILIUM_PRE_raw", port, "dst", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
+		{args: fmt.Sprintf(expectedRaw, "-t raw", "CILIUM_OUTPUT_raw", port, "src", "cilium: NOTRACK for tunnel traffic -j CT --notrack")},
 	}
 	mockIp6tables.expectations = mockIp4tables.expectations
 

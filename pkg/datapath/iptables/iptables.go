@@ -799,6 +799,7 @@ func (m *manager) installTunnelNoTrackRules(tunelPort uint16) error {
 		"-A", ciliumPreRawChain,
 		"-p", "udp",
 		"--dport", strconv.Itoa(int(tunelPort)),
+		"-m", "addrtype", "--dst-type", "LOCAL",
 		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
 		"-j", "CT", "--notrack",
 	}
@@ -808,6 +809,7 @@ func (m *manager) installTunnelNoTrackRules(tunelPort uint16) error {
 		"-A", ciliumOutputRawChain,
 		"-p", "udp",
 		"--dport", strconv.Itoa(int(tunelPort)),
+		"-m", "addrtype", "--src-type", "LOCAL",
 		"-m", "comment", "--comment", "cilium: NOTRACK for tunnel traffic",
 		"-j", "CT", "--notrack",
 	}
