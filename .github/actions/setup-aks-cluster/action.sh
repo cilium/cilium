@@ -58,6 +58,9 @@ create_and_wait() {
     "${taint_args[@]}" \
     --generate-ssh-keys \
     --api-server-authorized-ip-ranges "${AUTHORIZED_IP_RANGES}" \
+    --disable-disk-driver \
+    --disable-file-driver \
+    --disable-snapshot-controller \
     --no-wait || return 2
 
   echo "waiting up to ${deadline}s for ${cluster} to provision"
