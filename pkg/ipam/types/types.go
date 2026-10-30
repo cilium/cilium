@@ -204,6 +204,15 @@ type IPAMSpec struct {
 	//
 	// +optional
 	StaticIPTags map[string]string `json:"static-ip-tags,omitempty"`
+
+	// CIDRReleaseHandshake is set by a multi-pool agent that takes part in
+	// the CIDR release handshake of Status.IPAM.ReleaseCIDRs. The operator
+	// only releases a CIDR of such a node once the agent has acknowledged
+	// the release. Without it, the operator releases CIDRs that the agent no
+	// longer lists in Spec.IPAM.Pools.Allocated without a handshake.
+	//
+	// +optional
+	CIDRReleaseHandshake bool `json:"cidr-release-handshake,omitempty"`
 }
 
 // IPReleaseStatus defines the valid states in IP release handshake
@@ -225,6 +234,24 @@ func (in IPReleaseStatusMap) DeepCopy() IPReleaseStatusMap {
 		return nil
 	}
 	out := new(IPReleaseStatusMap)
+	in.DeepCopyInto(out)
+	return *out
+}
+
+// CIDRReleaseStatusMap tracks the release handshake state per CIDR.
+//
+// +k8s:deepcopy-gen=false
+type CIDRReleaseStatusMap map[iputil.Prefix]IPReleaseStatus
+
+func (in CIDRReleaseStatusMap) DeepCopyInto(out *CIDRReleaseStatusMap) {
+	*out = maps.Clone(in)
+}
+
+func (in CIDRReleaseStatusMap) DeepCopy() CIDRReleaseStatusMap {
+	if in == nil {
+		return nil
+	}
+	out := new(CIDRReleaseStatusMap)
 	in.DeepCopyInto(out)
 	return *out
 }
@@ -274,6 +301,21 @@ type IPAMStatus struct {
 	//
 	// +optional
 	ReleaseIPv6s IPReleaseStatusMap `json:"release-ipv6s,omitempty"`
+
+	// ReleaseCIDRs tracks the state for every multi-pool CIDR considered
+	// for release. It is only used for nodes whose agent sets
+	// Spec.IPAM.CIDRReleaseHandshake. The value can be one of the following
+	// strings:
+	// * marked-for-release : Set by the operator for a CIDR it intends to release
+	// * ready-for-release  : Acknowledged as safe to release by agent. The
+	//                        agent no longer allocates from the CIDR.
+	// * do-not-release     : CIDR in use. Set by agent
+	// * released           : CIDR successfully released. Set by operator,
+	//                        removed by the agent once the CIDR is gone,
+	//                        or by the operator if it is attached again
+	//
+	// +optional
+	ReleaseCIDRs CIDRReleaseStatusMap `json:"release-cidrs,omitempty"`
 
 	// AssignedStaticIP is the static IP assigned to the node (ex: public Elastic IP address in AWS)
 	//

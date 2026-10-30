@@ -23,6 +23,7 @@ import (
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -226,12 +227,31 @@ func (p pendingAllocationsPerOwner) pendingForFamily(family Family) int {
 // since each frontend targets a different field when reading and writing the pool
 // specs.
 type PoolSpecAccessors struct {
-	// FromResource returns the IPAM Pool specs from the CiliumNode
-	FromResource func(*ciliumv2.CiliumNode) types.IPAMPoolSpec
+	// FromResource returns the IPAM Pool specs from the CiliumNode.
+	//
+	// authoritative reports whether the returned Allocated CIDRs are owned
+	// by the operator alone, e.g. because they are derived from a status
+	// field that only the operator writes. If so, a CIDR that was removed
+	// while in use and that shows up again has been re-assigned by the
+	// operator, and the agent allocates from it again. It must be false
+	// whenever the Allocated CIDRs may contain the agent's own output, as in
+	// generic multi-pool mode: there, the agent keeps publishing removed but
+	// in-use CIDRs to Spec.IPAM.Pools.Allocated, so their reappearance may
+	// be its own echo rather than a re-assignment, and the operator may have
+	// given them to another node (cilium/cilium#47910).
+	FromResource func(*ciliumv2.CiliumNode) (spec types.IPAMPoolSpec, authoritative bool)
 
 	// ToResource writes the IPAM Pool specs to the CiliumNode.
 	// It returns true if the pools have been updated, false otherwise.
 	ToResource func(*ciliumv2.CiliumNode, types.IPAMPoolSpec) bool
+
+	// CIDRReleaseHandshake makes the agent take part in the CIDR release
+	// handshake: it advertises Spec.IPAM.CIDRReleaseHandshake and answers
+	// the release marks in Status.IPAM.ReleaseCIDRs, which the operator then
+	// waits for before it releases a CIDR (cilium/cilium#47910). It must
+	// only be set if the Allocated CIDRs returned by FromResource are those
+	// that the operator releases, as in ENI mode.
+	CIDRReleaseHandshake bool
 }
 
 // OperatorStatusAccessors reads and writes the OperatorStatus in the CiliumNode.
@@ -304,6 +324,21 @@ type MultiPoolManager struct {
 	logger *slog.Logger
 
 	poolsAccessor PoolSpecAccessors
+
+	// releaseMarks holds the operator's release marks of the last CiliumNode
+	// seen, per family, see PoolSpecAccessors.CIDRReleaseHandshake. Protected
+	// by poolsMutex.
+	releaseMarks map[Family]map[netip.Prefix]string
+	// releaseAnswers holds the agent's last answers to the release marks.
+	// An answer of ready-for-release is handed to pools created later, so
+	// that they keep the CIDR blocked even if the CiliumNode seen last does
+	// not show the answer yet. Protected by poolsMutex.
+	releaseAnswers map[netip.Prefix]string
+	// handshakeAdvertised is set once Spec.IPAM.CIDRReleaseHandshake has been
+	// written. It is not written on its own again, so that an apiserver that
+	// prunes the field (CRD of an older operator) does not cause an update
+	// on every run.
+	handshakeAdvertised bool
 
 	skipMasqueradeForPool SkipMasqueradeForPoolFn
 
@@ -465,8 +500,17 @@ func (m *MultiPoolManager) ciliumNodeUpdated(newNode *ciliumv2.CiliumNode) {
 	m.poolsMutex.Lock()
 	defer m.poolsMutex.Unlock()
 
-	for _, pool := range m.poolsAccessor.FromResource(newNode).Allocated {
-		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs, pool.AllowFirstIP, pool.AllowLastIP)
+	pools, authoritative := m.poolsAccessor.FromResource(newNode)
+	if m.poolsAccessor.CIDRReleaseHandshake {
+		// The marks must be in place before the pools are updated, see
+		// cidrPool.setReleaseMarks.
+		m.setReleaseMarksLocked(newNode)
+		if releaseHandshakePending(newNode, pools) {
+			m.k8sUpdater.Trigger()
+		}
+	}
+	for _, pool := range pools.Allocated {
+		m.upsertPoolLocked(Pool(pool.Pool), pool.CIDRs, pool.AllowFirstIP, pool.AllowLastIP, authoritative)
 	}
 
 	// Sync pre-allocate value from the CiliumNode spec. For cloud IPAM modes,
@@ -655,6 +699,14 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 		})
 	}
 
+	// Answer the operator's release marks before the in-use CIDRs are
+	// collected, so that a CIDR acknowledged for release is no longer
+	// published.
+	var releaseAnswers map[netip.Prefix]string
+	if m.poolsAccessor.CIDRReleaseHandshake {
+		releaseAnswers = m.answerReleaseMarksLocked()
+	}
+
 	// Write in-use pools to cidr. This removes any released CIDRs
 	for poolName, pool := range m.pools {
 		neededIPs := neededIPsPerPool[poolName]
@@ -716,14 +768,19 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 	if nodeSynced {
 		newPoolsSpec.Allocated = allocated
 	} else {
-		pools := m.poolsAccessor.FromResource(curNode)
+		pools, _ := m.poolsAccessor.FromResource(curNode)
 		newPoolsSpec.Allocated = pools.Allocated
 	}
 
 	m.poolsMutex.Unlock()
 
 	changed := m.poolsAccessor.ToResource(newNode, newPoolsSpec)
+	if m.poolsAccessor.CIDRReleaseHandshake && !newNode.Spec.IPAM.CIDRReleaseHandshake {
+		newNode.Spec.IPAM.CIDRReleaseHandshake = true
+		changed = changed || !m.handshakeAdvertised
+	}
 	if changed {
+		advertised := newNode.Spec.IPAM.CIDRReleaseHandshake
 		updatedNode, err := m.cnClient.Update(ctx, newNode, metav1.UpdateOptions{})
 		switch {
 		case k8sErrors.IsConflict(err):
@@ -736,6 +793,14 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 			return fmt.Errorf("failed to update node spec: %w", err)
 		}
 		newNode = updatedNode
+		if advertised {
+			m.handshakeAdvertised = true
+		}
+	}
+
+	statusChanged := false
+	if m.poolsAccessor.CIDRReleaseHandshake {
+		statusChanged = m.writeReleaseAnswers(newNode, releaseAnswers)
 	}
 
 	// Clear stale Status.IPAM.Used left by the previous CRD allocator.
@@ -747,6 +812,9 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 	// TODO: Remove with 1.21.
 	if len(newNode.Status.IPAM.Used) > 0 {
 		newNode.Status.IPAM.Used = nil
+		statusChanged = true
+	}
+	if statusChanged {
 		_, err := m.cnClient.UpdateStatus(ctx, newNode, metav1.UpdateOptions{})
 		switch {
 		case k8sErrors.IsConflict(err):
@@ -756,7 +824,7 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 			)
 			return nil
 		case err != nil:
-			return fmt.Errorf("failed to clear stale Status.IPAM.Used: %w", err)
+			return fmt.Errorf("failed to update node status: %w", err)
 		}
 	}
 
@@ -765,7 +833,174 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 	return nil
 }
 
-func (m *MultiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix, allowFirstIP, allowLastIP bool) {
+// setReleaseMarksLocked records the release marks of node and hands them to
+// the pools. Caller must hold poolsMutex.
+func (m *MultiPoolManager) setReleaseMarksLocked(node *ciliumv2.CiliumNode) {
+	m.releaseMarks = map[Family]map[netip.Prefix]string{
+		IPv4: {},
+		IPv6: {},
+	}
+	for cidr, status := range node.Status.IPAM.ReleaseCIDRs {
+		if !cidr.IsValid() {
+			continue
+		}
+		prefix := cidr.Prefix.Masked()
+		m.releaseMarks[prefixFamily(prefix)][prefix] = string(status)
+	}
+	// Forget the answers to marks that the operator has cleared.
+	for cidr := range m.releaseAnswers {
+		switch m.releaseMarks[prefixFamily(cidr)][cidr] {
+		case ipamOption.IPAMMarkForRelease, ipamOption.IPAMReadyForRelease:
+		default:
+			delete(m.releaseAnswers, cidr)
+		}
+	}
+	for _, pool := range m.pools {
+		m.applyReleaseMarksLocked(pool)
+	}
+}
+
+// applyReleaseMarksLocked hands the recorded release marks to the pools of
+// pool. Caller must hold poolsMutex.
+func (m *MultiPoolManager) applyReleaseMarksLocked(pool *poolPair) {
+	if !m.poolsAccessor.CIDRReleaseHandshake {
+		return
+	}
+	marks := func(family Family) map[netip.Prefix]string {
+		out := maps.Clone(m.releaseMarks[family])
+		for cidr, status := range out {
+			if status == ipamOption.IPAMMarkForRelease && m.releaseAnswers[cidr] == ipamOption.IPAMReadyForRelease {
+				out[cidr] = ipamOption.IPAMReadyForRelease
+			}
+		}
+		return out
+	}
+	if pool.v4 != nil {
+		pool.v4.setReleaseMarks(marks(IPv4))
+	}
+	if pool.v6 != nil {
+		pool.v6.setReleaseMarks(marks(IPv6))
+	}
+}
+
+// answerReleaseMarksLocked answers the release marks of all pools, see
+// cidrPool.answerReleaseMarks. A mark is answered only once the restore of
+// its family has finished. If several pools answer for the same CIDR,
+// do-not-release wins. Caller must hold poolsMutex.
+func (m *MultiPoolManager) answerReleaseMarksLocked() map[netip.Prefix]string {
+	answers := map[netip.Prefix]string{}
+	merge := func(pool *cidrPool, family Family) {
+		if pool == nil {
+			return
+		}
+		for cidr, answer := range pool.answerReleaseMarks(m.isRestoreFinishedLocked(family)) {
+			if answers[cidr] != ipamOption.IPAMDoNotRelease {
+				answers[cidr] = answer
+			}
+		}
+	}
+	for _, pool := range m.pools {
+		merge(pool.v4, IPv4)
+		merge(pool.v6, IPv6)
+	}
+	// Every pool answers every mark of its family, so a mark is left
+	// unanswered only if there is no pool of its family (e.g. all its CIDRs
+	// were released). The CIDR is not in use then.
+	for family, marks := range m.releaseMarks {
+		if !m.isRestoreFinishedLocked(family) {
+			continue
+		}
+		for cidr, status := range marks {
+			if _, ok := answers[cidr]; !ok && status == ipamOption.IPAMMarkForRelease {
+				answers[cidr] = ipamOption.IPAMReadyForRelease
+			}
+		}
+	}
+	m.releaseAnswers = answers
+	return answers
+}
+
+// writeReleaseAnswers writes the agent's answers to the release marks into
+// node.Status.IPAM.ReleaseCIDRs and returns true if it changed anything. It
+// only answers marks that are present in node: a mark that the operator has
+// cleared in the meantime is not brought back. A released CIDR is removed
+// once it is no longer advertised to the agent, which ends its handshake.
+func (m *MultiPoolManager) writeReleaseAnswers(node *ciliumv2.CiliumNode, answers map[netip.Prefix]string) bool {
+	if len(node.Status.IPAM.ReleaseCIDRs) == 0 {
+		return false
+	}
+	pools, _ := m.poolsAccessor.FromResource(node)
+	advertised := sets.New[netip.Prefix]()
+	for _, pool := range pools.Allocated {
+		for _, cidr := range pool.CIDRs {
+			if cidr.IsValid() {
+				advertised.Insert(cidr.Prefix.Masked())
+			}
+		}
+	}
+
+	changed := false
+	next := make(types.CIDRReleaseStatusMap, len(node.Status.IPAM.ReleaseCIDRs))
+	for cidr, status := range node.Status.IPAM.ReleaseCIDRs {
+		switch status {
+		case ipamOption.IPAMMarkForRelease:
+			if answer, ok := answers[cidr.Prefix.Masked()]; ok {
+				status = types.IPReleaseStatus(answer)
+				changed = true
+				m.logger.Debug("Answering CIDR release mark",
+					logfields.CIDR, cidr,
+					logfields.Status, answer,
+				)
+			}
+		case ipamOption.IPAMReadyForRelease:
+			if answers[cidr.Prefix.Masked()] == ipamOption.IPAMDoNotRelease {
+				status = ipamOption.IPAMDoNotRelease
+				changed = true
+			}
+		case ipamOption.IPAMReleased:
+			if !advertised.Has(cidr.Prefix.Masked()) {
+				changed = true
+				continue
+			}
+		}
+		next[cidr] = status
+	}
+	if changed {
+		node.Status.IPAM.ReleaseCIDRs = next
+	}
+	return changed
+}
+
+// releaseHandshakePending returns true if the agent has to write
+// Status.IPAM.ReleaseCIDRs of node, because a mark is not answered yet or a
+// released CIDR is no longer advertised.
+func releaseHandshakePending(node *ciliumv2.CiliumNode, pools types.IPAMPoolSpec) bool {
+	for cidr, status := range node.Status.IPAM.ReleaseCIDRs {
+		switch status {
+		case ipamOption.IPAMMarkForRelease:
+			return true
+		case ipamOption.IPAMReleased:
+			advertised := false
+			for _, pool := range pools.Allocated {
+				if slices.ContainsFunc(pool.CIDRs, func(c iputil.Prefix) bool {
+					return c.Prefix.Masked() == cidr.Prefix.Masked()
+				}) {
+					advertised = true
+					break
+				}
+			}
+			if !advertised {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// upsertPoolLocked creates or updates the pool with the given CIDRs.
+// regainRemoved must only be set if the CIDRs are authoritative, see
+// PoolSpecAccessors.FromResource.
+func (m *MultiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix, allowFirstIP, allowLastIP, regainRemoved bool) {
 	pool, ok := m.pools[poolName]
 	if !ok {
 		pool = &poolPair{
@@ -822,11 +1057,12 @@ func (m *MultiPoolManager) upsertPoolLocked(poolName Pool, cidrs []iputil.Prefix
 		}
 	}
 
+	m.applyReleaseMarksLocked(pool)
 	if pool.v4 != nil {
-		pool.v4.updatePool(ipv4Prefixes)
+		pool.v4.updatePool(ipv4Prefixes, regainRemoved)
 	}
 	if pool.v6 != nil {
-		pool.v6.updatePool(ipv6Prefixes)
+		pool.v6.updatePool(ipv6Prefixes, regainRemoved)
 	}
 
 	m.pools[poolName] = pool

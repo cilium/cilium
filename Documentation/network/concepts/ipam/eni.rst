@@ -519,6 +519,8 @@ less than what is required to fulfill ``spec.ipam.pre-allocate``.
 IPs are allocated via ``AssignPrivateIpAddresses`` EC2 API calls. When no more ENIs
 are available meeting the above criteria, a new ENI is created.
 
+.. _ipam_eni_ip_release:
+
 IP Release
 ==========
 
@@ -536,6 +538,44 @@ corresponding resources from AWS:
 
 There is no limit on ENIs per subnet, so ENIs remain attached to the node even
 after their IPs are released, see `ENI Deletion Policy`_.
+
+Right before a release, the operator reads the ``CiliumNode`` from the
+apiserver and does not release a CIDR that the agent lists in
+``spec.ipam.pools.allocated`` again.
+
+Agents that support it additionally take part in a release handshake, which
+they advertise by setting ``spec.ipam.cidr-release-handshake``. For such nodes,
+the operator does not release a CIDR right after the delay. It tracks the
+handshake per CIDR in ``status.ipam.release-cidrs`` instead:
+
+#. The operator sets the CIDR to ``marked-for-release``. From then on, the
+   agent no longer allocates IPs from it.
+#. The agent answers ``ready-for-release`` once it has stopped using the CIDR,
+   or ``do-not-release`` if the CIDR is in use. ``do-not-release`` clears the
+   mark, and the delay starts over.
+#. The operator releases the CIDR only if the agent's ``ready-for-release`` is
+   also present in the ``CiliumNode`` read from the apiserver right before the
+   release, and then sets it to ``released``.
+#. The agent removes the CIDR from ``status.ipam.release-cidrs`` once it is no
+   longer listed on the ENI, which ends the handshake. If the CIDR is attached
+   to the node again, e.g. because EC2 assigns the just-released prefix again,
+   the operator ends the handshake three minutes after the release at the
+   earliest, and the agent uses the CIDR again.
+
+The operator clears a mark whenever it no longer intends to release the CIDR,
+e.g. because the node is no longer in excess, and the agent can then allocate
+from the CIDR again. There is no timeout: a CIDR is never released without the
+agent's answer, so a marked CIDR is not released while its agent is down. The
+handshake adds the latency of one agent update and one operator resync to each
+release.
+
+The handshake is only used if both the agent and the operator support it, and
+the ``CiliumNode`` CRD has the new fields. Otherwise, CIDRs are released after
+the delay as described above. When an agent is downgraded to a version without
+the handshake, the operator falls back once the agent has updated
+``spec.ipam.pools`` and dropped ``spec.ipam.cidr-release-handshake``. Until
+then, an acknowledgement given before the downgrade can still be honored,
+which is no worse than the behavior without the handshake.
 
 .. note::
 

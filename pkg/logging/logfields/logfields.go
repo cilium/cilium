@@ -286,6 +286,9 @@ const (
 	// NewCIDR is the new subnet/CIDR
 	NewCIDR = "newCIDR"
 
+	// ContainingCIDR is a subnet/CIDR that contains another one
+	ContainingCIDR = "containingCIDR"
+
 	// IPAddrs is a list of IP addrs
 	IPAddrs = "ipAddrs"
 

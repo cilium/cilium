@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -161,7 +162,32 @@ type Node struct {
 	// removed. The excessIPReleaseDelay must elapse before the operator
 	// calls the cloud API to detach them.
 	multiPoolCIDRsMarkedForRelease map[netip.Prefix]time.Time
+
+	// multiPoolCIDRReleaseStatus is the operator's side of the CIDR release
+	// handshake in Status.IPAM.ReleaseCIDRs, for nodes whose agent sets
+	// Spec.IPAM.CIDRReleaseHandshake: IPAMMarkForRelease for a CIDR that is
+	// waiting for the agent's answer, IPAMReleased for a released CIDR
+	// until the agent has removed it from Status.IPAM.ReleaseCIDRs or the
+	// CIDR has been assigned again. See handleMultiPoolCIDRRelease.
+	multiPoolCIDRReleaseStatus map[netip.Prefix]multiPoolCIDRRelease
 }
+
+// multiPoolCIDRRelease is the operator's handshake state of a CIDR, see
+// Node.multiPoolCIDRReleaseStatus.
+type multiPoolCIDRRelease struct {
+	status string
+	// releasedAt is when the CIDR became released, see
+	// clearReassignedMultiPoolCIDRsLocked.
+	releasedAt time.Time
+}
+
+// multiPoolReassignDelay is how long a released CIDR must have been released
+// before an instance resync that still lists it as attached counts as a
+// re-assignment, see clearReassignedMultiPoolCIDRsLocked. It covers the
+// eventual consistency of EC2 listings, as releasedPrefixTombstoneTTL does
+// in the AWS provider, also for released /32s and for CIDRs adopted after an
+// operator restart, which have no tombstones.
+const multiPoolReassignDelay = 3 * time.Minute
 
 // ipAllocAttrs represents IP-specific allocation attributes.
 type ipAllocAttrs struct {
@@ -452,6 +478,73 @@ func (n *Node) isIPv6OnlyNodeLocked() bool {
 	return requestedIPv4 == 0 && requestedIPv6 > 0
 }
 
+// cidrReleaseHandshakeLocked returns true if this node's agent takes part in
+// the multi-pool CIDR release handshake. Caller must hold n.mutex (at least
+// RLock).
+func (n *Node) cidrReleaseHandshakeLocked() bool {
+	return n.isMultiPoolNodeLocked() && n.resource.Spec.IPAM.CIDRReleaseHandshake
+}
+
+// setMultiPoolReleaseStatusLocked sets the operator's handshake state of
+// cidr. Caller must hold n.mutex.
+func (n *Node) setMultiPoolReleaseStatusLocked(cidr netip.Prefix, status string) {
+	if n.multiPoolCIDRReleaseStatus == nil {
+		n.multiPoolCIDRReleaseStatus = make(map[netip.Prefix]multiPoolCIDRRelease)
+	}
+	release := multiPoolCIDRRelease{status: status}
+	if status == ipamOption.IPAMReleased {
+		release.releasedAt = time.Now()
+	}
+	n.multiPoolCIDRReleaseStatus[cidr] = release
+}
+
+// clearMultiPoolReleaseMarkLocked clears the release mark of cidr, unless
+// it has been released already. Caller must hold n.mutex.
+func (n *Node) clearMultiPoolReleaseMarkLocked(cidr netip.Prefix) bool {
+	if n.multiPoolCIDRReleaseStatus[cidr].status != ipamOption.IPAMMarkForRelease {
+		return false
+	}
+	delete(n.multiPoolCIDRReleaseStatus, cidr)
+	return true
+}
+
+// clearMultiPoolReleaseMarksLocked clears the release marks of the CIDRs not
+// in keep and returns true if it cleared any. Caller must hold n.mutex.
+func (n *Node) clearMultiPoolReleaseMarksLocked(keep sets.Set[netip.Prefix]) (changed bool) {
+	for cidr, release := range n.multiPoolCIDRReleaseStatus {
+		if release.status == ipamOption.IPAMMarkForRelease && !keep.Has(cidr) {
+			delete(n.multiPoolCIDRReleaseStatus, cidr)
+			changed = true
+			n.logger.Load().Debug("Clearing release mark of CIDR no longer in excess", logfields.CIDR, cidr)
+		}
+	}
+	return changed
+}
+
+// clearReassignedMultiPoolCIDRsLocked ends the handshake of the released
+// CIDRs that are attached again, e.g. because EC2 handed a just-released
+// prefix back to the node. The agent only removes a released CIDR once it is
+// no longer advertised, and keeps it blocked until then, so without this a
+// re-assigned CIDR would never be allocated from again. attached is the
+// result of an instance resync that started at syncStart. A CIDR counts as
+// re-assigned only if it was released at least multiPoolReassignDelay before
+// syncStart: a resync that started earlier may not reflect the release yet,
+// and a later one may still return a stale EC2 listing. It returns true if
+// it ended any handshake. Caller must hold n.mutex.
+func (n *Node) clearReassignedMultiPoolCIDRsLocked(attached []netip.Prefix, syncStart time.Time) (changed bool) {
+	for cidr, release := range n.multiPoolCIDRReleaseStatus {
+		if release.status != ipamOption.IPAMReleased ||
+			syncStart.Sub(release.releasedAt) < multiPoolReassignDelay ||
+			!slices.Contains(attached, cidr) {
+			continue
+		}
+		delete(n.multiPoolCIDRReleaseStatus, cidr)
+		changed = true
+		n.logger.Load().Info("Released CIDR is attached again, ending its release handshake", logfields.CIDR, cidr)
+	}
+	return changed
+}
+
 // trackMultiPoolAllocatedLocked updates previousAllocatedCIDRs and detects
 // CIDRs the agent has removed from Spec.IPAM.Pools.Allocated. Removed CIDRs
 // are added to multiPoolCIDRsMarkedForRelease with the current timestamp.
@@ -461,15 +554,7 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 		return
 	}
 
-	currentCIDRs := sets.New[netip.Prefix]()
-	for _, alloc := range n.resource.Spec.IPAM.Pools.Allocated {
-		for _, c := range alloc.CIDRs {
-			if !c.IsValid() {
-				continue
-			}
-			currentCIDRs.Insert(c.Prefix)
-		}
-	}
+	currentCIDRs := multiPoolAllocatedCIDRs(n.resource)
 
 	attachedCIDRs := n.ops.GetAttachedCIDRs()
 
@@ -491,6 +576,7 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 				n.logger.Load().Debug("Marking CIDR for release at seed", logfields.CIDR, cidr)
 			}
 		}
+		n.adoptMultiPoolReleaseStatusLocked()
 		n.previousAllocatedCIDRs = currentCIDRs
 		return
 	}
@@ -508,20 +594,130 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 		if currentCIDRs.Has(cidr) {
 			// Agent re-added the CIDR before the operator released it.
 			delete(n.multiPoolCIDRsMarkedForRelease, cidr)
+			n.clearMultiPoolReleaseMarkLocked(cidr)
 		} else if !slices.Contains(attachedCIDRs, cidr) {
 			// CIDR is no longer attached at the ENI level, it was
 			// already detached (possibly by a previous release attempt
 			// that returned an error despite succeeding).
 			delete(n.multiPoolCIDRsMarkedForRelease, cidr)
+			n.clearMultiPoolReleaseMarkLocked(cidr)
 		}
 	}
 
 	n.previousAllocatedCIDRs = currentCIDRs
 }
 
+// adoptMultiPoolReleaseStatusLocked takes over the handshake state that a
+// previous operator left in Status.IPAM.ReleaseCIDRs, e.g. before a restart
+// or a leader election. A mark of a CIDR that is still a release candidate
+// is kept, and with it the agent's answer: an agent that answered
+// ready-for-release keeps the CIDR blocked until the mark is cleared. A
+// released CIDR stays released until the agent removes it. Everything else
+// is dropped by the next PopulateIPReleaseStatus. The candidates have just
+// been seeded with the current time, so nothing is released before
+// excessIPReleaseDelay has elapsed again. Caller must hold n.mutex.
+func (n *Node) adoptMultiPoolReleaseStatusLocked() {
+	if !n.cidrReleaseHandshakeLocked() {
+		return
+	}
+	for key, status := range n.resource.Status.IPAM.ReleaseCIDRs {
+		if !key.IsValid() {
+			continue
+		}
+		cidr := key.Prefix
+		switch status {
+		case ipamOption.IPAMMarkForRelease, ipamOption.IPAMReadyForRelease:
+			if _, ok := n.multiPoolCIDRsMarkedForRelease[cidr]; ok {
+				n.setMultiPoolReleaseStatusLocked(cidr, ipamOption.IPAMMarkForRelease)
+			}
+		case ipamOption.IPAMReleased:
+			n.setMultiPoolReleaseStatusLocked(cidr, ipamOption.IPAMReleased)
+		}
+	}
+}
+
+// multiPoolAllocatedCIDRs returns the valid CIDRs that the multi-pool agent
+// lists in Spec.IPAM.Pools.Allocated.
+func multiPoolAllocatedCIDRs(resource *v2.CiliumNode) sets.Set[netip.Prefix] {
+	cidrs := sets.New[netip.Prefix]()
+	for _, alloc := range resource.Spec.IPAM.Pools.Allocated {
+		for _, c := range alloc.CIDRs {
+			if c.IsValid() {
+				cidrs.Insert(c.Prefix)
+			}
+		}
+	}
+	return cidrs
+}
+
+// multiPoolRefreshTimeout bounds the apiserver GET of the CiliumNode before a
+// multi-pool CIDR release pass, so that a hung apiserver does not stall the
+// maintenance of the node.
+const multiPoolRefreshTimeout = 10 * time.Second
+
+// getCiliumNode reads the node's CiliumNode from the apiserver, bounded by
+// multiPoolRefreshTimeout if the k8s API supports it.
+func (n *Node) getCiliumNode(ctx context.Context) (*v2.CiliumNode, error) {
+	if getter, ok := n.manager.k8sAPI.(allocator.CiliumNodeContextGetter); ok {
+		ctx, cancel := context.WithTimeout(ctx, multiPoolRefreshTimeout)
+		defer cancel()
+		return getter.GetWithContext(ctx, n.name)
+	}
+	return n.manager.k8sAPI.Get(n.name)
+}
+
+// refreshMultiPoolAllocated reads the CiliumNode from the apiserver and
+// unmarks the CIDRs that the agent lists in Spec.IPAM.Pools.Allocated again.
+// The informer copy can lag behind the agent's latest write, and releasing a
+// CIDR that the agent has reclaimed unassigns in-use IPs (cilium/cilium#47910).
+//
+// On its own, this only narrows the race: the agent reclaims a released CIDR
+// and allocates from it before its write reaches the apiserver, so a GET can
+// still miss it. The release handshake closes it, see
+// handleMultiPoolCIDRRelease. The CiliumNode read is returned.
+func (n *Node) refreshMultiPoolAllocated(ctx context.Context) (*v2.CiliumNode, error) {
+	fresh, err := n.getCiliumNode(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if fresh == nil {
+		return nil, errors.New("apiserver returned no CiliumNode")
+	}
+	allocated := multiPoolAllocatedCIDRs(fresh)
+
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	for cidr := range n.multiPoolCIDRsMarkedForRelease {
+		if allocated.Has(cidr) {
+			delete(n.multiPoolCIDRsMarkedForRelease, cidr)
+			n.clearMultiPoolReleaseMarkLocked(cidr)
+			n.logger.Load().Info(
+				"Agent re-listed CIDR marked for release, not releasing it",
+				logfields.CIDR, cidr,
+			)
+		}
+	}
+	return fresh, nil
+}
+
 // handleMultiPoolCIDRRelease releases CIDRs that the multi-pool agent has
 // removed from Spec.IPAM.Pools.Allocated, after the excessIPReleaseDelay
 // has elapsed.
+//
+// If the agent takes part in the CIDR release handshake
+// (Spec.IPAM.CIDRReleaseHandshake), a CIDR is not released right away but
+// marked for release in Status.IPAM.ReleaseCIDRs. The agent answers with
+// ready-for-release once it has stopped allocating from the CIDR, which it
+// does under its pool lock, or with do-not-release if the CIDR is in use,
+// which clears the mark. A CIDR is released only if the agent's
+// ready-for-release is also present in a CiliumNode read from the apiserver
+// right before the release, and it then becomes released. There is no
+// timeout: a CIDR is never released without the agent's answer. This
+// closes the race of an agent that reclaims a CIDR and allocates from it
+// before it publishes it again (cilium/cilium#47910). Agents that do not
+// set the field, e.g. older versions, are handled as before: the CIDR is
+// released after the delay unless the CiliumNode read from the apiserver
+// lists it in Spec.IPAM.Pools.Allocated again.
 func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 	n.mutex.Lock()
 	if !n.isMultiPoolNodeLocked() || len(n.multiPoolCIDRsMarkedForRelease) == 0 || !n.resyncNeeded.IsZero() {
@@ -529,9 +725,14 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
+	handshake := n.cidrReleaseHandshakeLocked()
 	readyCIDRs := n.readyMultiPoolCIDRsLocked()
 	n.mutex.Unlock()
 
+	// A mark is cleared by advanceMultiPoolHandshakeLocked in the pass in
+	// which its CIDR drops out of the eligible release candidates, so an
+	// early return here only keeps the marks adopted after an operator
+	// restart, see adoptMultiPoolReleaseStatusLocked.
 	if len(readyCIDRs) == 0 {
 		return false, nil
 	}
@@ -550,10 +751,61 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 			n.multiPoolCIDRsMarkedForRelease[cidr] = now
 		}
 	}
+	var acked []netip.Prefix
+	marksChanged := false
+	if handshake {
+		eligibleReady := make([]netip.Prefix, 0, len(readyCIDRs))
+		for _, cidr := range readyCIDRs {
+			if eligible.Has(cidr) {
+				eligibleReady = append(eligibleReady, cidr)
+			}
+		}
+		acked, marksChanged = n.advanceMultiPoolHandshakeLocked(eligibleReady)
+	}
 	n.mutex.Unlock()
 
-	if len(actions) == 0 {
+	if marksChanged && n.k8sSync != nil {
+		// Publish the marks, see PopulateIPReleaseStatus.
+		n.k8sSync.Trigger()
+	}
+
+	if len(actions) == 0 || (handshake && len(acked) == 0) {
 		return false, nil
+	}
+
+	// The informer copy may not show the agent's latest write yet, so read
+	// the CiliumNode from the apiserver once for this pass. If that fails,
+	// release nothing in this pass; the CIDRs stay marked and are retried.
+	fresh, err := n.refreshMultiPoolAllocated(ctx)
+	if err != nil {
+		if n.logLimiter.Allow() {
+			scopedLog.Warn(
+				"Unable to get CiliumNode from apiserver, skipping CIDR release",
+				logfields.Error, err,
+			)
+		} else {
+			scopedLog.Debug(
+				"Unable to get CiliumNode from apiserver, skipping CIDR release",
+				logfields.Error, err,
+			)
+		}
+		return false, nil
+	}
+
+	// With the handshake, only release the CIDRs whose ready-for-release is
+	// in the CiliumNode just read: the agent blocked them before it wrote
+	// that answer and only unblocks them once it sees the mark cleared. The
+	// answer only counts while the agent still advertises the handshake: an
+	// agent downgraded after it answered no longer blocks the CIDR. Before
+	// the downgraded agent's first spec write, its stale answer cannot be
+	// told apart from a current one.
+	ackedFresh := sets.New[netip.Prefix]()
+	if fresh.Spec.IPAM.CIDRReleaseHandshake {
+		for _, cidr := range acked {
+			if fresh.Status.IPAM.ReleaseCIDRs[iputil.PrefixFrom(cidr)] == ipamOption.IPAMReadyForRelease {
+				ackedFresh.Insert(cidr)
+			}
+		}
 	}
 
 	mutated := false
@@ -569,9 +821,13 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 		releasable := capMultiPoolCIDRs(n.readyMultiPoolCIDRsLocked(), n.stats.IPv4.ExcessIPs-releasedAddrs)
 		filtered := action.CIDRsToRelease[:0]
 		for _, cidr := range action.CIDRsToRelease {
-			if slices.Contains(releasable, cidr) {
-				filtered = append(filtered, cidr)
+			if !slices.Contains(releasable, cidr) {
+				continue
 			}
+			if handshake && (!ackedFresh.Has(cidr) || n.multiPoolCIDRReleaseStatus[cidr].status != ipamOption.IPAMMarkForRelease) {
+				continue
+			}
+			filtered = append(filtered, cidr)
 		}
 		action.CIDRsToRelease = filtered
 		n.mutex.Unlock()
@@ -590,6 +846,9 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 		for _, cidr := range released {
 			delete(n.multiPoolCIDRsMarkedForRelease, cidr)
 			releasedAddrs += multiPoolCIDRSize(cidr)
+			if handshake {
+				n.setMultiPoolReleaseStatusLocked(cidr, ipamOption.IPAMReleased)
+			}
 		}
 		if len(released) > 0 || err != nil {
 			n.resyncNeeded = time.Now()
@@ -609,6 +868,83 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 	}
 
 	return mutated, nil
+}
+
+// advanceMultiPoolHandshakeLocked advances the release handshake for ready,
+// the release candidates that are past the delay and eligible for release,
+// oldest first. It marks those within the node's excess that are not marked
+// yet, clears the marks of the CIDRs that are no longer among them or that
+// the agent refused with do-not-release, and returns the marked CIDRs that
+// the agent has acknowledged with ready-for-release in the informer copy.
+// It also returns whether the marks changed. Caller must hold n.mutex.
+func (n *Node) advanceMultiPoolHandshakeLocked(ready []netip.Prefix) (acked []netip.Prefix, changed bool) {
+	scopedLog := n.logger.Load()
+	inBudget := sets.New(capMultiPoolCIDRs(slices.Clone(ready), n.stats.IPv4.ExcessIPs)...)
+	changed = n.clearMultiPoolReleaseMarksLocked(inBudget)
+
+	for _, cidr := range ready {
+		if !inBudget.Has(cidr) {
+			continue
+		}
+		switch n.multiPoolCIDRReleaseStatus[cidr].status {
+		case "":
+			n.setMultiPoolReleaseStatusLocked(cidr, ipamOption.IPAMMarkForRelease)
+			changed = true
+			scopedLog.Debug("Marking CIDR for release, waiting for the agent", logfields.CIDR, cidr)
+		case ipamOption.IPAMMarkForRelease:
+			switch n.resource.Status.IPAM.ReleaseCIDRs[iputil.PrefixFrom(cidr)] {
+			case ipamOption.IPAMReadyForRelease:
+				acked = append(acked, cidr)
+			case ipamOption.IPAMDoNotRelease:
+				// The agent uses the CIDR. Clear the mark and start
+				// over, in case it releases the CIDR again later.
+				delete(n.multiPoolCIDRReleaseStatus, cidr)
+				n.multiPoolCIDRsMarkedForRelease[cidr] = time.Now()
+				changed = true
+				scopedLog.Info("Agent refused the release of CIDR, not releasing it", logfields.CIDR, cidr)
+			}
+		}
+	}
+	return acked, changed
+}
+
+// multiPoolReleaseStatus returns the Status.IPAM.ReleaseCIDRs to write to
+// node, the CiliumNode about to be written: the operator's handshake state,
+// with the agent's answers in node kept for the CIDRs that are still marked.
+// A released CIDR that the agent has removed from node is forgotten. It
+// returns nil if the agent does not take part in the handshake.
+func (n *Node) multiPoolReleaseStatus(node *v2.CiliumNode) ipamTypes.CIDRReleaseStatusMap {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	if !n.cidrReleaseHandshakeLocked() || !node.Spec.IPAM.CIDRReleaseHandshake {
+		clear(n.multiPoolCIDRReleaseStatus)
+		return nil
+	}
+
+	var out ipamTypes.CIDRReleaseStatusMap
+	for cidr, release := range n.multiPoolCIDRReleaseStatus {
+		status := release.status
+		key := iputil.PrefixFrom(cidr)
+		existing, present := node.Status.IPAM.ReleaseCIDRs[key]
+		switch status {
+		case ipamOption.IPAMMarkForRelease:
+			if existing == ipamOption.IPAMReadyForRelease || existing == ipamOption.IPAMDoNotRelease {
+				status = string(existing)
+			}
+		case ipamOption.IPAMReleased:
+			if !present {
+				// The agent has seen the release, the handshake is over.
+				delete(n.multiPoolCIDRReleaseStatus, cidr)
+				continue
+			}
+		}
+		if out == nil {
+			out = make(ipamTypes.CIDRReleaseStatusMap, len(n.multiPoolCIDRReleaseStatus))
+		}
+		out[key] = ipamTypes.IPReleaseStatus(status)
+	}
+	return out
 }
 
 func (n *Node) readyMultiPoolCIDRsLocked() []netip.Prefix {
@@ -720,8 +1056,16 @@ func (n *Node) recalculate(ctx context.Context) {
 	}
 	scopedLog := n.logger.Load()
 
+	syncStart := time.Now()
 	a, stats, err := n.ops.ResyncInterfacesAndIPs(ctx, scopedLog)
 
+	releaseStatusChanged := false
+	defer func() {
+		if releaseStatusChanged && n.k8sSync != nil {
+			// Publish the release status, see PopulateIPReleaseStatus.
+			n.k8sSync.Trigger()
+		}
+	}()
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 
@@ -758,6 +1102,7 @@ func (n *Node) recalculate(ctx context.Context) {
 				n.stats.IPv4.AvailableIPs += 1 << (32 - c.Bits())
 			}
 		}
+		releaseStatusChanged = n.clearReassignedMultiPoolCIDRsLocked(attached, syncStart)
 	} else {
 		n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
 	}
@@ -1498,12 +1843,14 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 
 // PopulateIPReleaseStatus Updates cilium node IPAM status with excess IP release data
 func (n *Node) PopulateIPReleaseStatus(node *v2.CiliumNode) {
-	// Multi-pool nodes don't participate in the ReleaseIPs handshake.
+	// Multi-pool nodes don't participate in the ReleaseIPs handshake, but
+	// may in the ReleaseCIDRs one.
 	n.mutex.RLock()
 	isMultiPool := n.isMultiPoolNodeLocked()
 	n.mutex.RUnlock()
 	if isMultiPool {
 		node.Status.IPAM.ReleaseIPs = nil
+		node.Status.IPAM.ReleaseCIDRs = n.multiPoolReleaseStatus(node)
 		return
 	}
 

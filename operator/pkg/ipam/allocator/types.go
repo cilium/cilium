@@ -29,6 +29,13 @@ type CiliumNodeGetterUpdater interface {
 	Get(name string) (*v2.CiliumNode, error)
 }
 
+// CiliumNodeContextGetter is optionally implemented by a
+// CiliumNodeGetterUpdater whose Get can be bounded by a context, e.g. with a
+// timeout.
+type CiliumNodeContextGetter interface {
+	GetWithContext(ctx context.Context, name string) (*v2.CiliumNode, error)
+}
+
 // NodeEventHandlerFactory is a function type that returns a NodeEventHandler, used to decouple
 // the allocator logic from the specific implementation of the CiliumNode event handling.
 type NodeEventHandlerFactory func(ctx context.Context) (NodeEventHandler, error)

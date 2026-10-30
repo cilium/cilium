@@ -13,10 +13,12 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging"
@@ -659,10 +661,26 @@ func snapshotAction(a *ReleaseAction) *ReleaseAction {
 	return &c
 }
 
+// k8sGetterMock returns get's result from Get and GetWithContext. The other
+// methods behave like k8sMockNode.
+type k8sGetterMock struct {
+	k8sMockNode
+	get func(ctx context.Context, name string) (*v2.CiliumNode, error)
+}
+
+func (k *k8sGetterMock) Get(name string) (*v2.CiliumNode, error) {
+	return k.get(context.Background(), name)
+}
+
+func (k *k8sGetterMock) GetWithContext(ctx context.Context, name string) (*v2.CiliumNode, error) {
+	return k.get(ctx, name)
+}
+
 func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 	setupNode := func(t *testing.T, mock *multiPoolOpsMock, marked map[netip.Prefix]time.Time, multiPool bool) *Node {
 		n := &Node{
 			rootLogger:                     hivetest.Logger(t),
+			name:                           "test-node",
 			ops:                            mock,
 			excessIPReleaseDelay:           5 * time.Second,
 			multiPoolCIDRsMarkedForRelease: marked,
@@ -676,6 +694,12 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 			}
 		}
 		n.resource = cn
+		// By default the apiserver copy matches the informer copy.
+		n.manager = &NodeManager{k8sAPI: &k8sGetterMock{get: func(context.Context, string) (*v2.CiliumNode, error) {
+			n.mutex.RLock()
+			defer n.mutex.RUnlock()
+			return n.resource.DeepCopy(), nil
+		}}}
 		return n
 	}
 
@@ -824,6 +848,123 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 		require.Equal(t, []netip.Prefix{keep}, mock.releaseCalls[0].CIDRsToRelease)
 		require.NotContains(t, n.multiPoolCIDRsMarkedForRelease, keep)
 		require.NotContains(t, n.multiPoolCIDRsMarkedForRelease, readd)
+	})
+
+	t.Run("CIDR re-listed in the apiserver copy is not released", func(t *testing.T) {
+		// The informer copy still lacks `readd`, but the agent has already
+		// re-listed it in Spec.IPAM.Pools.Allocated (issue #47910). The GET
+		// right before the EC2 call must catch this.
+		keep := netip.MustParsePrefix("10.0.0.16/28")
+		readd := netip.MustParsePrefix("10.0.0.32/28")
+		mock := &multiPoolOpsMock{
+			prepare: func([]netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{
+					InterfaceID:    "eni-1",
+					CIDRsToRelease: []netip.Prefix{keep, readd},
+				}}
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{
+			keep:  past(),
+			readd: past(),
+		}, true)
+		var gets int
+		n.manager.k8sAPI = &k8sGetterMock{get: func(ctx context.Context, name string) (*v2.CiliumNode, error) {
+			gets++
+			require.Equal(t, "test-node", name)
+			// The GET is bounded, so a hung apiserver cannot stall the
+			// maintenance of the node.
+			deadline, ok := ctx.Deadline()
+			require.True(t, ok, "GET must have a deadline")
+			require.WithinDuration(t, time.Now().Add(multiPoolRefreshTimeout), deadline, multiPoolRefreshTimeout)
+			n.mutex.RLock()
+			fresh := n.resource.DeepCopy()
+			n.mutex.RUnlock()
+			fresh.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
+				{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(readd)}},
+			}
+			return fresh, nil
+		}}
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.True(t, mutated)
+		require.Len(t, mock.releaseCalls, 1)
+		require.Equal(t, []netip.Prefix{keep}, mock.releaseCalls[0].CIDRsToRelease)
+		require.Equal(t, 1, gets)
+		require.NotContains(t, n.multiPoolCIDRsMarkedForRelease, keep)
+		require.NotContains(t, n.multiPoolCIDRsMarkedForRelease, readd)
+	})
+
+	t.Run("CiliumNode GET error skips the release", func(t *testing.T) {
+		cidr := netip.MustParsePrefix("10.0.0.16/28")
+		mock := &multiPoolOpsMock{
+			prepare: func([]netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{
+					InterfaceID:    "eni-1",
+					CIDRsToRelease: []netip.Prefix{cidr},
+				}}
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{cidr: past()}, true)
+		n.manager.k8sAPI = &k8sGetterMock{get: func(context.Context, string) (*v2.CiliumNode, error) {
+			return nil, errors.New("apiserver unavailable")
+		}}
+
+		// Repeated failures are rate-limited in the log, and none releases.
+		for range 5 {
+			mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+			require.NoError(t, err)
+			require.False(t, mutated)
+		}
+		require.Empty(t, mock.releaseCalls)
+		// Still marked, so a later pass retries.
+		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, cidr)
+	})
+
+	t.Run("one CiliumNode GET per release pass", func(t *testing.T) {
+		cidr1 := netip.MustParsePrefix("10.0.0.16/28")
+		cidr2 := netip.MustParsePrefix("10.0.1.16/28")
+		mock := &multiPoolOpsMock{
+			prepare: func([]netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{
+					{InterfaceID: "eni-1", CIDRsToRelease: []netip.Prefix{cidr1}},
+					{InterfaceID: "eni-2", CIDRsToRelease: []netip.Prefix{cidr2}},
+				}
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{
+			cidr1: past(),
+			cidr2: past(),
+		}, true)
+		var gets int
+		n.manager.k8sAPI = &k8sGetterMock{get: func(context.Context, string) (*v2.CiliumNode, error) {
+			gets++
+			return &v2.CiliumNode{}, nil
+		}}
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.True(t, mutated)
+		require.Len(t, mock.releaseCalls, 2)
+		require.Equal(t, 1, gets)
+	})
+
+	t.Run("k8s API without context support is used as is", func(t *testing.T) {
+		cidr := netip.MustParsePrefix("10.0.0.16/28")
+		mock := &multiPoolOpsMock{
+			prepare: func([]netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{InterfaceID: "eni-1", CIDRsToRelease: []netip.Prefix{cidr}}}
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{cidr: past()}, true)
+		// k8sMockNode.Get returns NotFound: the pass is skipped.
+		n.manager.k8sAPI = &k8sMockNode{}
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
 	})
 
 	t.Run("ReleaseCIDRs error preserves unreleased CIDRs in marked map", func(t *testing.T) {
@@ -991,5 +1132,444 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 
 		n.updateLastResync(time.Now().Add(time.Second))
 		require.True(t, n.releaseNeeded())
+	})
+}
+
+// newHandshakeNode returns a multi-pool node whose agent takes part in the
+// CIDR release handshake, with x attached and released by the agent and
+// marked as a release candidate at ts. GETs from the apiserver return
+// fresh, if set, or a copy of the informer copy.
+func newHandshakeNode(t *testing.T, mock *multiPoolOpsMock, x netip.Prefix, ts time.Time, fresh func(*v2.CiliumNode)) *Node {
+	t.Helper()
+	mock.attachedCIDRs = []netip.Prefix{x}
+	if mock.prepare == nil {
+		mock.prepare = func(cidrs []netip.Prefix) []*ReleaseAction {
+			return []*ReleaseAction{{InterfaceID: "eni-1", CIDRsToRelease: slices.Clone(cidrs)}}
+		}
+	}
+	n := &Node{
+		rootLogger:                     hivetest.Logger(t),
+		name:                           "test-node",
+		ops:                            mock,
+		excessIPReleaseDelay:           5 * time.Second,
+		multiPoolCIDRsMarkedForRelease: map[netip.Prefix]time.Time{x: ts},
+		stats:                          Statistics{IPv4: IPStatistics{ExcessIPs: 1 << 16}},
+		logLimiter:                     logging.NewLimiter(10*time.Second, 3),
+	}
+	n.logger.Store(n.rootLogger)
+	cn := &v2.CiliumNode{}
+	cn.Name = "test-node"
+	cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
+		{Pool: defaults.IPAMDefaultIPPool, Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 16}},
+	}
+	cn.Spec.IPAM.CIDRReleaseHandshake = true
+	n.resource = cn
+	n.manager = &NodeManager{k8sAPI: &k8sGetterMock{get: func(context.Context, string) (*v2.CiliumNode, error) {
+		n.mutex.RLock()
+		node := n.resource.DeepCopy()
+		n.mutex.RUnlock()
+		if fresh != nil {
+			fresh(node)
+		}
+		return node, nil
+	}}}
+	return n
+}
+
+// agentAnswers sets the agent's answer for x in the informer copy.
+func agentAnswers(n *Node, x netip.Prefix, status string) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	if n.resource.Status.IPAM.ReleaseCIDRs == nil {
+		n.resource.Status.IPAM.ReleaseCIDRs = ipamTypes.CIDRReleaseStatusMap{}
+	}
+	n.resource.Status.IPAM.ReleaseCIDRs[iputil.PrefixFrom(x)] = ipamTypes.IPReleaseStatus(status)
+}
+
+// publishedReleaseStatus returns the Status.IPAM.ReleaseCIDRs that the
+// operator writes on top of the informer copy, and makes it the informer
+// copy, as after a successful syncToAPIServer.
+func publishedReleaseStatus(n *Node) ipamTypes.CIDRReleaseStatusMap {
+	node := n.ResourceCopy()
+	n.PopulateIPReleaseStatus(node)
+	n.mutex.Lock()
+	n.resource.Status.IPAM.ReleaseCIDRs = node.Status.IPAM.ReleaseCIDRs.DeepCopy()
+	n.mutex.Unlock()
+	return node.Status.IPAM.ReleaseCIDRs
+}
+
+func releaseStatus(x netip.Prefix, status string) ipamTypes.CIDRReleaseStatusMap {
+	return ipamTypes.CIDRReleaseStatusMap{iputil.PrefixFrom(x): ipamTypes.IPReleaseStatus(status)}
+}
+
+// TestHandleMultiPoolCIDRReleaseHandshake covers the operator side of the
+// multi-pool CIDR release handshake (cilium/cilium#47910).
+func TestHandleMultiPoolCIDRReleaseHandshake(t *testing.T) {
+	x := netip.MustParsePrefix("10.0.0.16/28")
+	past := time.Now().Add(-time.Hour)
+
+	t.Run("CIDR is marked, not released", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, nil)
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMMarkForRelease), publishedReleaseStatus(n))
+	})
+
+	t.Run("no release without the agent's answer, and no timeout", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, time.Now().Add(-24*time.Hour), nil)
+		for range 10 {
+			mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+			require.NoError(t, err)
+			require.False(t, mutated)
+			publishedReleaseStatus(n)
+		}
+		require.Empty(t, mock.releaseCalls)
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMMarkForRelease), publishedReleaseStatus(n))
+	})
+
+	t.Run("ready-for-release is released, then the handshake ends", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, nil)
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		publishedReleaseStatus(n)
+
+		agentAnswers(n, x, ipamOption.IPAMReadyForRelease)
+		// The operator keeps the agent's answer while the CIDR is marked.
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMReadyForRelease), publishedReleaseStatus(n))
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.True(t, mutated)
+		require.Len(t, mock.releaseCalls, 1)
+		require.Equal(t, []netip.Prefix{x}, mock.releaseCalls[0].CIDRsToRelease)
+		require.NotContains(t, n.multiPoolCIDRsMarkedForRelease, x)
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMReleased), publishedReleaseStatus(n))
+
+		// The agent removes the released CIDR once it is gone from
+		// Status.ENI, which ends the handshake.
+		n.mutex.Lock()
+		delete(n.resource.Status.IPAM.ReleaseCIDRs, iputil.PrefixFrom(x))
+		n.mutex.Unlock()
+		require.Empty(t, publishedReleaseStatus(n))
+		require.Empty(t, n.multiPoolCIDRReleaseStatus)
+	})
+
+	t.Run("answer missing from the apiserver copy is not released", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, func(fresh *v2.CiliumNode) {
+			fresh.Status.IPAM.ReleaseCIDRs = releaseStatus(x, ipamOption.IPAMMarkForRelease)
+		})
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		agentAnswers(n, x, ipamOption.IPAMReadyForRelease)
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
+		require.Equal(t, ipamOption.IPAMMarkForRelease, n.multiPoolCIDRReleaseStatus[x].status)
+	})
+
+	t.Run("CIDR re-listed in the apiserver copy is not released", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, func(fresh *v2.CiliumNode) {
+			fresh.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
+				{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(x)}},
+			}
+		})
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		agentAnswers(n, x, ipamOption.IPAMReadyForRelease)
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
+		require.Empty(t, publishedReleaseStatus(n))
+	})
+
+	t.Run("do-not-release clears the mark", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, nil)
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		agentAnswers(n, x, ipamOption.IPAMDoNotRelease)
+
+		before := time.Now()
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
+		require.Empty(t, publishedReleaseStatus(n))
+		// The delay starts over before the CIDR is marked again.
+		require.False(t, n.multiPoolCIDRsMarkedForRelease[x].Before(before))
+	})
+
+	t.Run("mark is cleared when the node is no longer in excess", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, nil)
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		agentAnswers(n, x, ipamOption.IPAMReadyForRelease)
+
+		n.mutex.Lock()
+		n.stats.IPv4.ExcessIPs = 0
+		n.mutex.Unlock()
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
+		require.Empty(t, publishedReleaseStatus(n))
+	})
+
+	t.Run("agent re-listing a marked CIDR clears the mark", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, nil)
+		n.mutex.Lock()
+		n.previousAllocatedCIDRs = sets.New[netip.Prefix]()
+		n.mutex.Unlock()
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+
+		n.mutex.Lock()
+		n.resource.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
+			{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(x)}},
+		}
+		n.trackMultiPoolAllocatedLocked()
+		n.mutex.Unlock()
+		require.Empty(t, publishedReleaseStatus(n))
+	})
+
+	t.Run("old agent without the handshake is released as before", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, nil)
+		n.resource.Spec.IPAM.CIDRReleaseHandshake = false
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.True(t, mutated)
+		require.Len(t, mock.releaseCalls, 1)
+		require.Nil(t, publishedReleaseStatus(n))
+	})
+
+	t.Run("agent downgrade drops the handshake state", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, nil)
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.NotEmpty(t, publishedReleaseStatus(n))
+
+		n.mutex.Lock()
+		n.resource.Spec.IPAM.CIDRReleaseHandshake = false
+		n.mutex.Unlock()
+		require.Nil(t, publishedReleaseStatus(n))
+		require.Empty(t, n.multiPoolCIDRReleaseStatus)
+	})
+
+	t.Run("stale ready-for-release of a downgraded agent is not released", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, func(fresh *v2.CiliumNode) {
+			// The downgraded agent's spec write has reached the apiserver,
+			// its answer has not been cleared yet.
+			fresh.Spec.IPAM.CIDRReleaseHandshake = false
+		})
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		agentAnswers(n, x, ipamOption.IPAMReadyForRelease)
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
+		require.Equal(t, ipamOption.IPAMMarkForRelease, n.multiPoolCIDRReleaseStatus[x].status)
+	})
+
+	t.Run("mark of a CIDR that is no longer eligible is cleared at once", func(t *testing.T) {
+		eligible := true
+		mock := &multiPoolOpsMock{prepare: func(cidrs []netip.Prefix) []*ReleaseAction {
+			if !eligible {
+				return nil
+			}
+			return []*ReleaseAction{{InterfaceID: "eni-1", CIDRsToRelease: slices.Clone(cidrs)}}
+		}}
+		n := newHandshakeNode(t, mock, x, past, nil)
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMMarkForRelease), publishedReleaseStatus(n))
+		agentAnswers(n, x, ipamOption.IPAMReadyForRelease)
+
+		// PrepareCIDRRelease no longer returns x: its delay starts over,
+		// and its mark is cleared in the same pass.
+		eligible = false
+		_, err = n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.Empty(t, publishedReleaseStatus(n))
+
+		// No candidate is past the delay in the next pass, and no mark is
+		// left behind.
+		_, err = n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.Empty(t, mock.releaseCalls)
+		require.Empty(t, n.multiPoolCIDRReleaseStatus)
+		require.Empty(t, publishedReleaseStatus(n))
+	})
+}
+
+// TestMultiPoolCIDRReleaseHandshakeReassigned checks that the handshake of a
+// released CIDR ends when the CIDR is attached again, e.g. because EC2 hands
+// the just-released prefix back to the ENI before the agent has seen it go
+// (cilium/cilium#47910). Otherwise the agent, which only removes a released
+// CIDR once it is no longer advertised, would keep it blocked for good.
+func TestMultiPoolCIDRReleaseHandshakeReassigned(t *testing.T) {
+	x := netip.MustParsePrefix("10.0.0.16/28")
+	past := time.Now().Add(-time.Hour)
+
+	// released returns a node on which x has just been released, with x
+	// still attached as returned by attached.
+	released := func(t *testing.T, attached ...netip.Prefix) (*Node, *multiPoolOpsMock) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, past, nil)
+		_, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		publishedReleaseStatus(n)
+		agentAnswers(n, x, ipamOption.IPAMReadyForRelease)
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.True(t, mutated)
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMReleased), publishedReleaseStatus(n))
+		mock.attachedCIDRs = attached
+		return n, mock
+	}
+	// age makes the release of x older than multiPoolReassignDelay.
+	age := func(n *Node) {
+		n.mutex.Lock()
+		release := n.multiPoolCIDRReleaseStatus[x]
+		release.releasedAt = time.Now().Add(-multiPoolReassignDelay - time.Second)
+		n.multiPoolCIDRReleaseStatus[x] = release
+		n.mutex.Unlock()
+	}
+
+	t.Run("re-assigned CIDR ends the handshake", func(t *testing.T) {
+		n, _ := released(t, x)
+
+		// A resync right after the release may not reflect it yet.
+		n.recalculate(t.Context())
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMReleased), publishedReleaseStatus(n))
+
+		age(n)
+		n.recalculate(t.Context())
+		require.Empty(t, n.multiPoolCIDRReleaseStatus)
+		require.Empty(t, publishedReleaseStatus(n))
+	})
+
+	t.Run("detached CIDR stays released until the agent removes it", func(t *testing.T) {
+		n, _ := released(t, netip.MustParsePrefix("10.0.0.32/28"))
+		age(n)
+		n.recalculate(t.Context())
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMReleased), publishedReleaseStatus(n))
+	})
+
+	t.Run("resync that started before the delay elapsed does not count", func(t *testing.T) {
+		n, _ := released(t, x)
+		n.mutex.Lock()
+		releasedAt := n.multiPoolCIDRReleaseStatus[x].releasedAt
+		require.False(t, n.clearReassignedMultiPoolCIDRsLocked([]netip.Prefix{x}, releasedAt.Add(multiPoolReassignDelay-time.Millisecond)))
+		require.True(t, n.clearReassignedMultiPoolCIDRsLocked([]netip.Prefix{x}, releasedAt.Add(multiPoolReassignDelay)))
+		n.mutex.Unlock()
+	})
+
+	t.Run("released CIDR adopted after a restart ends the handshake once attached", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := newHandshakeNode(t, mock, x, time.Time{}, nil)
+		n.multiPoolCIDRsMarkedForRelease = map[netip.Prefix]time.Time{}
+		n.resource.Status.IPAM.ReleaseCIDRs = releaseStatus(x, ipamOption.IPAMReleased)
+		n.mutex.Lock()
+		n.trackMultiPoolAllocatedLocked()
+		n.mutex.Unlock()
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMReleased), publishedReleaseStatus(n))
+
+		// Without tombstones, the first listings after the restart may be
+		// stale, so the delay also applies to an adopted release.
+		n.recalculate(t.Context())
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMReleased), publishedReleaseStatus(n))
+
+		age(n)
+		n.recalculate(t.Context())
+		require.Empty(t, publishedReleaseStatus(n))
+	})
+}
+
+// TestMultiPoolCIDRReleaseHandshakeOperatorRestart checks that an operator
+// that restarts, or a new leader, takes over the handshake state left in
+// Status.IPAM.ReleaseCIDRs (cilium/cilium#47910).
+func TestMultiPoolCIDRReleaseHandshakeOperatorRestart(t *testing.T) {
+	x := netip.MustParsePrefix("10.0.0.16/28")
+	y := netip.MustParsePrefix("10.0.0.32/28")
+
+	// restarted returns a fresh node whose CiliumNode carries release, with
+	// x and y attached and not listed by the agent, seeded as after a
+	// restart.
+	restarted := func(t *testing.T, mock *multiPoolOpsMock, release ipamTypes.CIDRReleaseStatusMap) *Node {
+		n := newHandshakeNode(t, mock, x, time.Time{}, nil)
+		mock.attachedCIDRs = []netip.Prefix{x, y}
+		n.multiPoolCIDRsMarkedForRelease = map[netip.Prefix]time.Time{}
+		n.resource.Status.IPAM.ReleaseCIDRs = release
+		n.mutex.Lock()
+		n.trackMultiPoolAllocatedLocked()
+		n.mutex.Unlock()
+		return n
+	}
+
+	t.Run("acknowledged mark is kept and released after the delay", func(t *testing.T) {
+		mock := &multiPoolOpsMock{}
+		n := restarted(t, mock, releaseStatus(x, ipamOption.IPAMReadyForRelease))
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMReadyForRelease), publishedReleaseStatus(n))
+
+		// The delay starts over after the restart.
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
+
+		n.mutex.Lock()
+		for cidr := range n.multiPoolCIDRsMarkedForRelease {
+			n.multiPoolCIDRsMarkedForRelease[cidr] = time.Now().Add(-time.Hour)
+		}
+		n.mutex.Unlock()
+		// The first pass marks y, which has no answer yet. x is released.
+		mutated, err = n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.True(t, mutated)
+		require.Len(t, mock.releaseCalls, 1)
+		require.Equal(t, []netip.Prefix{x}, mock.releaseCalls[0].CIDRsToRelease)
+		require.Equal(t, ipamTypes.CIDRReleaseStatusMap{
+			iputil.PrefixFrom(x): ipamOption.IPAMReleased,
+			iputil.PrefixFrom(y): ipamOption.IPAMMarkForRelease,
+		}, publishedReleaseStatus(n))
+	})
+
+	t.Run("unanswered mark is kept", func(t *testing.T) {
+		n := restarted(t, &multiPoolOpsMock{}, releaseStatus(x, ipamOption.IPAMMarkForRelease))
+		require.Equal(t, releaseStatus(x, ipamOption.IPAMMarkForRelease), publishedReleaseStatus(n))
+	})
+
+	t.Run("released CIDR stays released until the agent removes it", func(t *testing.T) {
+		n := restarted(t, &multiPoolOpsMock{}, releaseStatus(netip.MustParsePrefix("10.0.0.48/28"), ipamOption.IPAMReleased))
+		require.Equal(t, releaseStatus(netip.MustParsePrefix("10.0.0.48/28"), ipamOption.IPAMReleased), publishedReleaseStatus(n))
+	})
+
+	t.Run("refused or stale marks are dropped", func(t *testing.T) {
+		n := restarted(t, &multiPoolOpsMock{}, ipamTypes.CIDRReleaseStatusMap{
+			iputil.PrefixFrom(x): ipamOption.IPAMDoNotRelease,
+			// Not attached any more, so not a candidate.
+			iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.64/28")): ipamOption.IPAMReadyForRelease,
+		})
+		require.Empty(t, publishedReleaseStatus(n))
 	})
 }

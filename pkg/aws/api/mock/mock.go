@@ -334,7 +334,7 @@ func (e *API) CreateNetworkInterface(ctx context.Context, toAllocate int32, subn
 	eni.IP = iputil.AddrFrom(primaryIP)
 
 	if allocatePrefixes {
-		err := assignPrefixToENI(e, eni, int32(1))
+		_, err := assignPrefixToENI(e, eni, int32(1))
 		if err != nil {
 			return "", nil, err
 		}
@@ -543,33 +543,35 @@ func (e *API) UnassignPrivateIpAddresses(ctx context.Context, eniID string, addr
 	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
-func assignPrefixToENI(e *API, eni *types.ENI, prefixes int32) error {
+func assignPrefixToENI(e *API, eni *types.ENI, prefixes int32) ([]string, error) {
 	subnet, ok := e.subnets[eni.Subnet.ID]
 	if !ok {
-		return fmt.Errorf("subnet %s not found", eni.Subnet.ID)
+		return nil, fmt.Errorf("subnet %s not found", eni.Subnet.ID)
 	}
 
 	if int(prefixes)*option.ENIPDBlockSizeIPv4 > subnet.AvailableAddresses {
-		return &smithy.GenericAPIError{
+		return nil, &smithy.GenericAPIError{
 			Code:    api.InvalidParameterValueStr,
 			Message: api.SubnetFullErrMsgStr,
 		}
 	}
 
+	assigned := make([]string, 0, prefixes)
 	for range prefixes {
 		// Get a new /28 prefix
 		pfx, err := e.pdAllocator.AllocateNext()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		eni.Prefixes = append(eni.Prefixes, iputil.PrefixFrom(pfx))
+		assigned = append(assigned, pfx.String())
 	}
 	subnet.AvailableAddresses -= int(prefixes * option.ENIPDBlockSizeIPv4)
-	return nil
+	return assigned, nil
 }
 
-func (e *API) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error {
+func (e *API) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) ([]string, error) {
 	e.rateLimit()
 	e.delaySim.Delay(AssignPrivateIpAddresses)
 
@@ -577,7 +579,7 @@ func (e *API) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int3
 	defer e.mutex.Unlock()
 
 	if err, ok := e.errors[AssignPrivateIpAddresses]; ok {
-		return err
+		return nil, err
 	}
 
 	for _, enis := range e.enis {
@@ -585,7 +587,7 @@ func (e *API) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int3
 			return assignPrefixToENI(e, eni, prefixes)
 		}
 	}
-	return fmt.Errorf("Unable to find ENI with ID %s", eniID)
+	return nil, fmt.Errorf("Unable to find ENI with ID %s", eniID)
 }
 
 func (e *API) UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error {

@@ -10,8 +10,8 @@ import (
 )
 
 var ResourceMultiPoolAccessor = ipam.PoolSpecAccessors{
-	FromResource: func(node *ciliumv2.CiliumNode) ipamTypes.IPAMPoolSpec {
-		return node.Spec.IPAM.ResourcePools
+	FromResource: func(node *ciliumv2.CiliumNode) (ipamTypes.IPAMPoolSpec, bool) {
+		return node.Spec.IPAM.ResourcePools, false
 	},
 	ToResource: func(node *ciliumv2.CiliumNode, spec ipamTypes.IPAMPoolSpec) bool {
 		if node.Spec.IPAM.ResourcePools.DeepEqual(&spec) {
