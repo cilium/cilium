@@ -7,7 +7,6 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV6 1
-#define ENABLE_NODEPORT 1
 #define ENCAP_IFINDEX 1
 #define TUNNEL_MODE 1
 #define ENABLE_BPF_MASQUERADE 1
@@ -19,6 +18,7 @@ ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, { .addr = v6_node_one_addr })
 ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_remote_node_masquerade, ENABLE_REMOTE_NODE_MASQUERADE)
 ASSIGN_CONFIG(bool, hybrid_routing_enabled, ENABLE_HYBRID_ROUTING)
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 #include "lib/clear.h"
 #include "lib/endpoint.h"

@@ -8,7 +8,6 @@
 
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
-#define ENABLE_NODEPORT		1
 
 #ifdef NORTH_SOUTH_TEST
 # define CLIENT_IP		v4_ext_one
@@ -51,6 +50,7 @@ ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
 
 /* For checking statistics in conntrack map. */
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* Expected CT tuple to check for conntrack */
 #define EXPECTED_CT_TUPLE {\

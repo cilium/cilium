@@ -12,7 +12,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
-#define ENABLE_NODEPORT 1
 #define TUNNEL_MODE 1
 
 #define FRONTEND_IP_REMOTE	v4_svc_two
@@ -59,6 +58,7 @@ ASSIGN_CONFIG(bool, supports_fib_lookup_src, true)
 ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 ASSIGN_CONFIG(__u16, tunnel_port, 8472)
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"

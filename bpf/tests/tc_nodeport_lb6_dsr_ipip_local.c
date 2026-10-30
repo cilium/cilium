@@ -19,7 +19,6 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV6 1
-#define ENABLE_NODEPORT 1
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_PORT		__bpf_htons(111)
@@ -153,6 +152,7 @@ ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* Plain client -> svc TCP SYN, no IPIP wrapping. */
 static __always_inline int

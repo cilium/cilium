@@ -9,7 +9,6 @@
 
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
-#define ENABLE_NODEPORT			1
 
 #define NODE_ONE6 { .addr = v6_node_one_addr }
 #define EXT_IP6 { .addr = v6_ext_node_one_addr }

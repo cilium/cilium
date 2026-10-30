@@ -10,7 +10,6 @@
 #define ENABLE_IPV6 1
 #define TUNNEL_MODE	1
 #define ENCAP_IFINDEX	42
-#define ENABLE_NODEPORT	1
 
 #define TEST_IP_LOCAL		v4_pod_one
 #define TEST_IP_REMOTE		v4_pod_two
@@ -32,6 +31,8 @@
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
+
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 static volatile const __u8 *node_mac = mac_two;
 

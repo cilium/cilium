@@ -5,13 +5,12 @@
 
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
-#define ENABLE_NODEPORT			1
 #define DSR_ENCAP_MODE			DSR_ENCAP_NONE
 
 #include "bpf_nat_icmp.h"
 #include "bpf_nat_icmp6.h"
 
 ASSIGN_CONFIG(bool, enable_sctp, true)
-
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 ASSIGN_CONFIG(bool, debug, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
