@@ -53,6 +53,15 @@ func driverPluginPath(driverName string) string {
 	return path.Join(defaultDriverPluginPath, driverName)
 }
 
+// claimConfigModifier augments the opaque device configuration before validation.
+// Modifiers are provided through a Hive value group and run in unspecified order.
+type claimConfigModifier func(
+	context.Context,
+	*Driver,
+	*resourceapi.ResourceClaim,
+	map[string]types.DeviceConfig,
+) error
+
 type Driver struct {
 	kubeClient     kubernetes.Interface
 	draPlugin      *kubeletplugin.Helper
@@ -86,6 +95,8 @@ type Driver struct {
 	multiPoolMgr *ipam.MultiPoolManager
 	ipv4Enabled  bool
 	ipv6Enabled  bool
+
+	configModifiers []claimConfigModifier
 }
 
 type allocation struct {
