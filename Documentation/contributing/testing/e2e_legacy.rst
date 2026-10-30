@@ -66,14 +66,9 @@ usage information.
 
 #. Download dependencies locally (``helm``, ``ginkgo``).
 
-   For ``helm``, the instructions can be found `here <https://helm.sh/docs/intro/install/>`_
-
-   .. code-block:: shell-session
-
-      $ HELM_VERSION=v3.13.1
-      $ wget "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
-      $ tar -xf "helm-v${HELM_VERSION}-linux-amd64.tar.gz"
-      $ mv linux-amd64/helm ./helm
+   Use a Helm 4.x release. Installation instructions can be found
+   `here <https://helm.sh/docs/intro/install/>`_. The automation script
+   downloads the same pinned Helm 4 version used by CI.
 
    Store these dependencies under a specific directory that will be used to run
    Qemu in the next steps.

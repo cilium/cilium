@@ -132,17 +132,6 @@ jobs:
           # renovate: datasource=golang-version depName=go
           go-version: 1.27.3
 
-      - name: Install helm
-        shell: bash
-        run: |
-          # We don't want renovate to update this version, because we want to
-          # use a specific version of helm for the release tool to avoid
-          # breaking the release process.
-          HELM_VERSION=v3.18.5
-          wget "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
-          tar -xf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
-          sudo mv ./linux-amd64/helm /usr/local/bin
-
       - name: Get token
         id: get_token
         uses: cilium/actions-app-token@61a6271ce92ba02f49bf81c755685d59fb25a59a # v0.21.1
@@ -228,6 +217,12 @@ jobs:
           echo "::add-mask::${robot_token}"
 
           echo "token=${robot_token}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          # renovate: datasource=github-releases depName=helm/helm
+          version: v4.3.0
 
       - name: Login to Helm registries
         shell: bash

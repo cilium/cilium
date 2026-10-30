@@ -314,6 +314,12 @@ jobs:
             --kubeconfig=$HOME/.kube/config \
             2>&1 | tee cl2-setup.txt
 
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          # renovate: datasource=github-releases depName=helm/helm
+          version: v4.3.0
+
       - name: Deploy the Cluster Mesh API Server Mock
         run: |
           helm install cmapisrv-mock \
