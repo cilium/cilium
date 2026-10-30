@@ -1,7 +1,7 @@
 # check=error=true
 
 # Python version should match the one in use in Read The Docs
-FROM docker.io/library/python:3.11-alpine3.17 AS docs-base
+FROM docker.io/library/python:3.14-alpine3.24 AS docs-base
 
 LABEL maintainer="maintainer@cilium.io"
 
@@ -35,4 +35,4 @@ ENV MAKE_GIT_REPO_SAFE=1
 ## Workaround odd behaviour of sphinx versionwarning extension. It wants to
 ## write runtime data inside a system directory.
 ## We do rely on this extension, so we cannot just drop it.
-RUN install -m 0777 -d /usr/local/lib/python3.11/site-packages/versionwarning/_static/data
+RUN install -m 0777 -d /usr/local/lib/python3.14/site-packages/versionwarning/_static/data
