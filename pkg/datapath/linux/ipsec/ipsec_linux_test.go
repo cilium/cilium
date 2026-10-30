@@ -109,6 +109,8 @@ func testInvalidLoadKeys(t *testing.T, family string) {
 		{"empty line", []byte(" \n"), "missing IPSec key or invalid format"},
 		{"blank second line", []byte("4 rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n   \n"), "missing IPSec key or invalid format"},
 		{"leading space", []byte(" rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "the first argument of the IPsec secret is not a number"},
+		{"aead missing key", []byte("3+ rfc4106(gcm(aes))  128\n"), "invalid format: got 3 fields"},
+		{"aead missing icv", []byte("3+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1\n"), "invalid format: got 3 fields"},
 		{"spi plus only", []byte("+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n"), "the first argument of the IPsec secret is not a number"},
 	}
 	for _, tc := range testCases {

@@ -1157,6 +1157,9 @@ func (a *agent) loadIPSecKeys(r io.Reader) (uint8, error) {
 			newKey.KeyLen = icvLen / 8
 		} else {
 			// We're in the second case, with "[spi] auth-algo auth-key enc-algo enc-key [IP]".
+			if len(s) != offsetBase+maxOffset+1 {
+				return 0, fmt.Errorf("invalid format: got %d fields, expected \"[spi] aead-algo aead-key icv-len\" or \"[spi] auth-algo auth-key enc-algo enc-key\"", len(s))
+			}
 			authAlgo := s[offsetBase+offsetAuthAlgo]
 			newKey.KeyLen, authKey, err = decodeIPSecKey(s[offsetBase+offsetAuthKey])
 			if err != nil {
