@@ -114,7 +114,7 @@ func attachCiliumHost(ctx context.Context, logger *slog.Logger, reg *registry.Ma
 		Constants:      ciliumHostConfiguration(ep, lnc),
 		MapRenames:     ciliumHostMapRenames(ep, lnc),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(ep.InterfaceName()), hostEndpointConfig),
-	}, lnc, attachmentContextHost(ep, host), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), host))
+	}, lnc, attachmentContextHost(host.Attrs().Name), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), host))
 	if err != nil {
 		return err
 	}
@@ -195,7 +195,7 @@ func attachCiliumNet(ctx context.Context, logger *slog.Logger, reg *registry.Map
 		Constants:      ciliumNetConfiguration(ep, lnc, net),
 		MapRenames:     ciliumNetMapRenames(ep, lnc, net),
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(defaults.SecondHostDevice), hostEndpointConfig),
-	}, lnc, attachmentContextHost(ep, net), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), net))
+	}, lnc, attachmentContextHost(net.Attrs().Name), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), net))
 	if err != nil {
 		return err
 	}
@@ -280,7 +280,7 @@ func attachNetworkDevices(ctx context.Context, logger *slog.Logger, reg *registr
 			Constants:      netdevConfiguration(ep, lnc, iface, masq4, masq6),
 			MapRenames:     netdevMapRenames(ep, lnc, iface),
 			ConfigDumpPath: filepath.Join(bpfStateDeviceDir(iface.Attrs().Name), hostEndpointConfig),
-		}, lnc, attachmentContextHost(ep, iface), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), iface))
+		}, lnc, attachmentContextHost(iface.Attrs().Name), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), iface))
 		if err != nil {
 			return err
 		}
@@ -318,7 +318,7 @@ func attachNetworkDevices(ctx context.Context, logger *slog.Logger, reg *registr
 
 	// Call immediately after attaching programs to make it obvious that a
 	// program was wrongfully detached due to a bug or misconfiguration.
-	if err := removeObsoleteNetdevPrograms(logger, devices); err != nil {
+	if err := removeObsoleteNetdevPrograms(logger, devices, collLoader); err != nil {
 		logger.Error("Failed to remove obsolete netdev programs", logfields.Error, err)
 	}
 
