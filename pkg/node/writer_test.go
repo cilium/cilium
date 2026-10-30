@@ -326,3 +326,39 @@ func TestWriterRefreshAll(t *testing.T) {
 	txn.Commit()
 	require.NoError(t, <-done)
 }
+
+type countingUpdatePolicy struct{ upserts int }
+
+func (p *countingUpdatePolicy) Upsert(*types.Node, PrefixClusterMutatorFn) bool {
+	p.upserts++
+	return true
+}
+
+func (*countingUpdatePolicy) Delete(source.Source, types.Identity, PrefixClusterMutatorFn) bool {
+	return true
+}
+
+func TestUpsertLocalDefersPolicyUntilInitialized(t *testing.T) {
+	db := statedb.New()
+	nodes, err := NewNodeTable(db)
+	require.NoError(t, err)
+	w := NewWriter(hivetest.Logger(t), db, nodes)
+	policy := &countingUpdatePolicy{}
+	w.SetUpdatePolicy(policy)
+
+	txn := db.WriteTxn(nodes)
+	initDone := w.RegisterInitializer(txn, LocalNodeTableInitializerName)
+	txn.Commit()
+
+	local := &LocalNode{Node: types.Node{Name: "local", Source: source.Local}, Local: &LocalNodeInfo{}}
+	txn = db.WriteTxn(nodes)
+	require.NoError(t, w.UpsertLocal(txn, local))
+	txn.Commit()
+	require.Zero(t, policy.upserts)
+
+	txn = db.WriteTxn(nodes)
+	initDone(txn)
+	require.NoError(t, w.UpsertLocal(txn, local.DeepCopy()))
+	txn.Commit()
+	require.Equal(t, 1, policy.upserts)
+}
