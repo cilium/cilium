@@ -288,6 +288,10 @@ type DSRConfig struct {
 	// EnableICMPErrors enables sending ICMP fragmentation-needed replies to the client.
 	EnableICMPErrors bool
 
+	// EnablePMTURelay relays ICMP fragmentation-needed errors addressed to a service VIP to the
+	// DSR backend that must lower its path MTU.
+	EnablePMTURelay bool
+
 	// EnableByUser enables the common datapath for Hybrid-DSR+SNAT and Annotation-based+DSR+SNAT
 	// modes.
 	EnableByUser bool
@@ -422,6 +426,7 @@ func NewConfig(log *slog.Logger, userConfig UserConfig, dcfg *option.DaemonConfi
 	if lbUsesDSR {
 		cfg.DSRConfig.Enable = true
 		cfg.DSRConfig.EnableICMPErrors = dcfg.EnablePMTUDiscovery
+		cfg.DSRConfig.EnablePMTURelay = dcfg.EnablePMTUDiscovery
 		cfg.DSRConfig.EnableByUser = cfg.LBMode == LBModeHybrid || cfg.LBModeAnnotation
 	}
 

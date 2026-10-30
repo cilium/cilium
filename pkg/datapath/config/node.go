@@ -194,6 +194,7 @@ func NodeConfig(lnc *Config) Node {
 	node.DSRCfg = types.DSRConfig{
 		Enable:           lnc.LBConfig.DSRConfig.Enable,
 		EnableICMPErrors: lnc.LBConfig.DSRConfig.EnableICMPErrors,
+		EnablePMTURelay:  lnc.LBConfig.DSRConfig.EnablePMTURelay,
 		EnableByUser:     lnc.LBConfig.DSRConfig.EnableByUser,
 	}
 
