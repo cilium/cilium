@@ -336,16 +336,137 @@ type MacvlanDeviceConfig struct {
 	Mode string `json:"mode,omitempty"`
 }
 
-type IPv4StaticRouteSpec struct {
-	// Destination specifies the route destination parameter
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:categories={cilium},singular="ciliumresourcenetworkconfig",path="ciliumresourcenetworkconfigs",scope="Cluster",shortName={crnc}
+// +kubebuilder:object:root=true
+// +kubebuilder:storageversion
+
+// CiliumResourceNetworkConfig defines the network parameters to configure a network resource
+// claimed from a workload.
+type CiliumResourceNetworkConfig struct {
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// +kubebuilder:validation:Required
+	Spec CiliumResourceNetworkConfigSpec `json:"spec"`
+}
+
+type CiliumResourceNetworkConfigSpec struct {
+	// IPv4 specifies the list of IPv4 network configurations, with at most one entry per CIDR.
+	// For an allocated IPv4 address, the entry whose CIDR contains it is selected, using
+	// longest-prefix matching if several do. If no entry contains the address, the prefix length of
+	// the CiliumResourceIPPool CIDR containing it is applied and no routes are added.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	// +listType=map
+	// +listMapKey=cidr
+	IPv4 []IPv4NetworkConfigSpec `json:"ipv4,omitempty"`
+
+	// IPv6 specifies the list of IPv6 network configurations, with at most one entry per CIDR.
+	// For an allocated IPv6 address, the entry whose CIDR contains it is selected, using
+	// longest-prefix matching if several do. If no entry contains the address, the prefix length of
+	// the CiliumResourceIPPool CIDR containing it is applied and no routes are added.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	// +listType=map
+	// +listMapKey=cidr
+	IPv6 []IPv6NetworkConfigSpec `json:"ipv6,omitempty"`
+}
+
+type IPv4NetworkConfigSpec struct {
+	// CIDR is the IPv4 CIDR the network configuration applies to.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Format=cidr
-	Destination string `json:"destination"`
+	// +kubebuilder:validation:Pattern=`^[^:]+$`
+	CIDR string `json:"cidr"`
 
-	// Gateway specifies the route gateway address
+	// PrefixLength is the prefix length associated to the allocated IPv4 addresses. If it is
+	// omitted, the prefix length of the CIDR is applied instead.
 	//
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=32
+	PrefixLength *uint8 `json:"prefixLength,omitempty"`
+
+	// Routes lists the routes that are added when configuring the network resource.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	Routes []IPv4StaticRouteSpec `json:"routes,omitempty"`
+}
+
+type IPv6NetworkConfigSpec struct {
+	// CIDR is the IPv6 CIDR the network configuration applies to.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=cidr
+	// +kubebuilder:validation:Pattern=`:`
+	CIDR string `json:"cidr"`
+
+	// PrefixLength is the prefix length associated to the allocated IPv4 addresses. If it is
+	// omitted, the prefix length of the CIDR is applied instead.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=128
+	PrefixLength *uint8 `json:"prefixLength,omitempty"`
+
+	// Routes lists the routes that are added when configuring the network resource.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	Routes []IPv6StaticRouteSpec `json:"routes,omitempty"`
+}
+
+type IPv4StaticRouteSpec struct {
+	// Destination specifies the route destination, as an IPv4 CIDR.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=cidr
+	// +kubebuilder:validation:Pattern=`^[^:]+$`
+	Destination string `json:"destination"`
+
+	// Gateway specifies the route gateway address.
+	//
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Format=ipv4
+	// +kubebuilder:validation:Pattern=`^[^:]+$`
 	Gateway string `json:"gateway"`
+}
+
+type IPv6StaticRouteSpec struct {
+	// Destination specifies the route destination, as an IPv6 CIDR.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=cidr
+	// +kubebuilder:validation:Pattern=`:`
+	Destination string `json:"destination"`
+
+	// Gateway specifies the route gateway address.
+	//
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Format=ipv6
+	Gateway string `json:"gateway"`
+}
+
+// CiliumResourceNetworkConfigList is a list of CiliumResourceNetworkConfig objects.
+//
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
+type CiliumResourceNetworkConfigList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+
+	// Items is a list of CiliumResourceNetworkConfig.
+	//
+	// +kubebuilder:validation:Required
+	Items []CiliumResourceNetworkConfig `json:"items"`
 }

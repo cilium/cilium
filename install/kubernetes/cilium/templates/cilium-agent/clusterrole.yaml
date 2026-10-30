@@ -211,5 +211,13 @@ rules:
   - update
   - patch
   - delete
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumresourcenetworkconfigs
+  verbs:
+  - list
+  - watch
+  - get
 {{- end }}
 {{- end }}
