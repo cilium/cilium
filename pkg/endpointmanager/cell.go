@@ -202,7 +202,7 @@ type EndpointManager interface {
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
 // resources with Kubernetes.
 type EndpointResourceSynchronizer interface {
-	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, hr cell.Health)
+	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, isCurrentEndpoint func() bool, hr cell.Health)
 	DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint)
 }
 

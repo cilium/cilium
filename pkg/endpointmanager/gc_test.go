@@ -205,6 +205,54 @@ func TestMarkAndSweepEndpointIDRecover(t *testing.T) {
 	require.False(t, isMarkedEndpoint(mgr, unhealthyID), "recovered endpoint should be removed from markedEndpoints after round 2 GC")
 }
 
+// TestMarkAndSweepPreservesReplacementReferences verifies that when a new endpoint
+// replaces a stale endpoint for the same pod, GC removes the stale endpoint without
+// deleting the CEP name reference to its replacement.
+func TestMarkAndSweepPreservesReplacementReferences(t *testing.T) {
+	logger := hivetest.Logger(t)
+	s := setupEndpointManagerSuite(t)
+	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+	mgr.checkHealth = fakeCheck
+	mgr.deleteEndpoint = endpointDeleteFunc(mgr.waitEndpointRemoved)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	oldEndpointID := uint16(2)
+	replacementEndpointID := uint16(3)
+	var replacement *endpoint.Endpoint
+	for _, id := range []uint16{oldEndpointID, replacementEndpointID} {
+		model := newTestEndpointModel(int(id), endpoint.StateWaitingForIdentity)
+		model.K8sNamespace = "default"
+		model.K8sPodName = "workload"
+		ep, err := endpoint.NewEndpointFromChangeModel(makeTestEndpointParams(logger, s), nil, &endpoint.FakeEndpointProxy{}, model, nil)
+		require.NoError(t, err)
+		require.NoError(t, mgr.expose(ep))
+		t.Cleanup(ep.Stop)
+		replacement = ep
+	}
+	require.Len(t, mgr.GetEndpoints(), 2)
+	require.Same(t, replacement, mgr.LookupCEPName("default/workload"))
+
+	// Mark the old endpoint without removing it or the replacement's references.
+	require.NoError(t, mgr.markAndSweep(ctx))
+	require.True(t, mgr.EndpointExists(oldEndpointID))
+	require.Same(t, replacement, mgr.LookupCEPName("default/workload"))
+
+	// Sweep only the old endpoint, preserving the replacement's CEP name reference.
+	require.NoError(t, mgr.markAndSweep(ctx))
+	require.False(t, mgr.EndpointExists(oldEndpointID))
+	require.True(t, mgr.EndpointExists(replacementEndpointID))
+	require.Len(t, mgr.GetEndpoints(), 1)
+	require.Same(t, replacement, mgr.LookupCEPName("default/workload"))
+
+	// Removing the current owner must still remove its references.
+	mgr.WaitEndpointRemoved(replacement)
+
+	require.Empty(t, mgr.GetEndpoints())
+	require.Nil(t, mgr.LookupCEPName("default/workload"))
+}
+
 func newTestEndpointModel(id int, state endpoint.State) *models.EndpointChangeRequest {
 	return &models.EndpointChangeRequest{
 		ID:    int64(id),

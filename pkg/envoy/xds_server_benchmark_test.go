@@ -787,8 +787,9 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 
 type benchmarkEndpointSynchronizer struct{}
 
-func (*benchmarkEndpointSynchronizer) RunK8sCiliumEndpointSync(*endpoint.Endpoint, cell.Health) {}
-func (*benchmarkEndpointSynchronizer) DeleteK8sCiliumEndpointSync(*endpoint.Endpoint)           {}
+func (*benchmarkEndpointSynchronizer) RunK8sCiliumEndpointSync(*endpoint.Endpoint, func() bool, cell.Health) {
+}
+func (*benchmarkEndpointSynchronizer) DeleteK8sCiliumEndpointSync(*endpoint.Endpoint) {}
 
 // benchmarkEndpointProxy supplies the redirect-management half of
 // endpoint.EndpointProxy, which is not owned by the xDS server. Network policy
