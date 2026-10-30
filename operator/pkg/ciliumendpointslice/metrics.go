@@ -23,6 +23,9 @@ const (
 	// LabelQueue denotes which queue was used
 	LabelQueue = "queue"
 
+	// LabelReason denotes why a CES watch event was skipped
+	LabelReason = "reason"
+
 	// Label values
 
 	// LabelValueOutcomeSuccess is used as a successful outcome of an operation
@@ -48,6 +51,12 @@ const (
 
 	//LabelQueueStandard is used when the standard queue was used
 	LabelQueueStandard = "standard"
+
+	// LabelReasonUnchanged is used when the CES in an upsert event already matches its desired state
+	LabelReasonUnchanged = "unchanged"
+
+	// LabelReasonUnmapped is used when no CEP is mapped to the CES in a delete event
+	LabelReasonUnmapped = "unmapped"
 )
 
 func NewMetrics() *Metrics {
@@ -78,6 +87,12 @@ func NewMetrics() *Metrics {
 			Help:      "CiliumEndpointSlice queueing delay in seconds",
 			Buckets:   append(prometheus.DefBuckets, 60, 300, 900, 1800, 3600),
 		}, []string{LabelQueue}),
+
+		CiliumEndpointSliceEventsSkipped: metric.NewCounterVec(metric.CounterOpts{
+			Namespace: metrics.CiliumOperatorNamespace,
+			Name:      "ces_events_skipped_total",
+			Help:      "The number of CES watch events skipped because the CES already matched its desired state",
+		}, []string{LabelReason}),
 	}
 }
 
@@ -96,4 +111,8 @@ type Metrics struct {
 	// CiliumEndpointSliceQueueDelay measures the time spent by CES's in the workqueue. This measures time difference between
 	// CES insert in the workqueue and removal from workqueue.
 	CiliumEndpointSliceQueueDelay metric.Vec[metric.Observer] //metric.Histogram
+
+	// CiliumEndpointSliceEventsSkipped counts the CES watch events that did not schedule a reconciliation because the
+	// CES already matched its desired state, e.g. the informer echoing the reconciler's own writes.
+	CiliumEndpointSliceEventsSkipped metric.Vec[metric.Counter]
 }
