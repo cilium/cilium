@@ -101,6 +101,7 @@ func newMultiPoolAllocators(ctx context.Context, p MultiPoolAllocatorParams) (Al
 		JobGroup:              p.JobGroup,
 		SkipMasqueradeForPool: shouldSkipMasqForPool(p.DB, p.PodIPPools, p.OnlyMasqueradeDefaultPool),
 		PoolSpecAccessors:     MultiPoolAccessor,
+		CIDRRelease:           CIDRReleaseConfig{Enabled: true},
 	})
 
 	waitForAllPools(p.Logger, p.DB, p.PodIPPools, preallocMap)

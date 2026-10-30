@@ -195,6 +195,8 @@ cilium-agent hive [flags]
       --ignore-flags-drift-checker strings                        Ignores specified flags during drift checking
       --ingress-secrets-namespace string                          IngressSecretsNamespace is the namespace having tls secrets used by CEC, originating from Ingress controller
       --ip-masq-agent-config-path string                          ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
+      --ipam-cloud-release                                        When using a cloud multi-pool IPAM mode (eni, azure), release unused CIDRs which are not needed to satisfy the pre-allocation. If disabled, CIDRs assigned to the node are never released.
+      --ipam-cloud-release-delay duration                         When using a cloud multi-pool IPAM mode (eni, azure) with ipam-cloud-release, how long a CIDR has to stay unused before it is released. (default 3m0s)
       --ipam-max-allocate int                                     Maximum number of IPs that can be allocated at the node level
       --ipam-min-allocate int                                     Minimum number of IPs that must be allocated when the node is first bootstrapped at the node level
       --ipam-pre-allocate int                                     Number of IP addresses that must be available for allocation in the IPAMspec at the node level

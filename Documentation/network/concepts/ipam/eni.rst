@@ -101,9 +101,11 @@ Configuration
   ``--auto-create-cilium-node-resource`` or set
   ``auto-create-cilium-node-resource: "true"`` in the ConfigMap.
 
-* If IPv4s are limited, run the Operator with option
-  ``--aws-release-excess-ips=true``. When enabled, the operator checks the number
-  of IPv4s regularly and attempts to release excess free IPv4s from the ENI.
+* If IPv4s are limited, run the agent with ``--ipam-cloud-release=true`` and
+  the operator with ``--aws-release-excess-ips=true`` and
+  ``--excess-ip-release-delay=0``. When enabled, the agent releases IPv4s that
+  it no longer needs and the operator releases them from the ENI, see
+  `IP Release`_.
 
 * It is generally a good idea to enable metrics in the Operator as well with
   the option ``--enable-metrics``. See the section :ref:`install_metrics` for
@@ -523,12 +525,19 @@ IP Release
 ==========
 
 IP release (IPv4 only) is driven by the agent removing CIDRs from
-``spec.ipam.pools.allocated``. When the multi-pool agent has fully freed a CIDR
-(all of its IPs are unused and the node has excess capacity), it removes that
-CIDR from ``spec.ipam.pools.allocated``. The operator tracks CIDRs that
-disappear from this field and, after the delay configured by
-``--excess-ip-release-delay`` (default 180 seconds) has elapsed, releases the
-corresponding resources from AWS:
+``spec.ipam.pools.allocated``. When a CIDR is fully unused and not needed to
+satisfy the pre-allocation, the agent releases it by removing it from
+``spec.ipam.pools.allocated``. The following agent options control this:
+
+* ``--ipam-cloud-release`` (Helm value ``ipam.cloudRelease``, default
+  ``false``): if disabled, the agent never releases CIDRs.
+* ``--ipam-cloud-release-delay`` (Helm value ``ipam.cloudReleaseDelay``,
+  default ``3m``): how long a CIDR has to stay unused and in excess before the
+  agent releases it. A CIDR that is used or needed again has to wait the full
+  delay again. This avoids churn when pods are frequently created and deleted.
+
+The operator tracks CIDRs that disappear from ``spec.ipam.pools.allocated`` and
+releases the corresponding resources from AWS:
 
 * A host-prefix CIDR (a single secondary IP) is released with
   ``UnassignPrivateIpAddresses``.
@@ -537,10 +546,23 @@ corresponding resources from AWS:
 There is no limit on ENIs per subnet, so ENIs remain attached to the node even
 after their IPs are released, see `ENI Deletion Policy`_.
 
+Once released, the agent does not use a CIDR for allocation again, even if
+it is still attached to the ENI.
+
 .. note::
 
-   IP release only happens when the operator runs with
-   ``--aws-release-excess-ips=true``.
+   The operator only releases CIDRs from AWS when it runs with
+   ``--aws-release-excess-ips=true``. Without it, CIDRs released by the agent
+   remain attached to the ENI but are no longer used, so only enable
+   ``--ipam-cloud-release`` together with ``--aws-release-excess-ips``.
+
+.. note::
+
+   Configure the release delay on the agent with
+   ``--ipam-cloud-release-delay`` and run the operator with
+   ``--excess-ip-release-delay=0``. The operator delay (default 180 seconds) is
+   applied on top of the agent delay, during which released CIDRs can neither
+   be used by the agent nor be released from AWS.
 
 
 ENI Creation

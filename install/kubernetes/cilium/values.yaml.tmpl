@@ -2361,6 +2361,14 @@ ipam:
   ciliumNodeUpdateRate: "15s"
   # -- Pre-allocation settings for IPAM in Multi-Pool mode
   multiPoolPreAllocation: ""
+  # -- Release CIDRs which are no longer needed in cloud IPAM modes (`eni`,
+  # `azure`). If disabled, CIDRs assigned to a node are never released.
+  cloudRelease: false
+  # -- (string) How long a CIDR has to stay unused and in excess before it is
+  # released in cloud IPAM modes (`eni`, `azure`). Only effective if
+  # `ipam.cloudRelease` is enabled.
+  # @default -- `"3m"`
+  cloudReleaseDelay: ""
   # -- Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.
   installUplinkRoutesForDelegatedIPAM: false
   operator:

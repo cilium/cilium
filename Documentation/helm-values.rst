@@ -2992,6 +2992,14 @@
      - Maximum rate at which the CiliumNode custom resource is updated.
      - string
      - ``"15s"``
+   * - :spelling:ignore:`ipam.cloudRelease`
+     - Release CIDRs which are no longer needed in cloud IPAM modes (\ ``eni``\ , ``azure``\ ). If disabled, CIDRs assigned to a node are never released.
+     - bool
+     - ``false``
+   * - :spelling:ignore:`ipam.cloudReleaseDelay`
+     - How long a CIDR has to stay unused and in excess before it is released in cloud IPAM modes (\ ``eni``\ , ``azure``\ ). Only effective if ``ipam.cloudRelease`` is enabled.
+     - string
+     - ``"3m"``
    * - :spelling:ignore:`ipam.installUplinkRoutesForDelegatedIPAM`
      - Install ingress/egress routes through uplink on host for Pods when working with delegated IPAM plugin.
      - bool

@@ -298,6 +298,8 @@ cilium-agent [flags]
       --ip-tracing-option-type uint8                              Specifies what IPv4 option type should be used to extract trace information from a packet; a value of 0 (default) disables IP tracing.
       --ipam string                                               Backend to use for IPAM (default "cluster-pool")
       --ipam-cilium-node-update-rate duration                     Maximum rate at which the CiliumNode custom resource is updated (default 15s)
+      --ipam-cloud-release                                        When using a cloud multi-pool IPAM mode (eni, azure), release unused CIDRs which are not needed to satisfy the pre-allocation. If disabled, CIDRs assigned to the node are never released.
+      --ipam-cloud-release-delay duration                         When using a cloud multi-pool IPAM mode (eni, azure) with ipam-cloud-release, how long a CIDR has to stay unused before it is released. (default 3m0s)
       --ipam-default-ip-pool string                               Name of the default IP Pool when using multi-pool (default "default")
       --ipam-max-allocate int                                     Maximum number of IPs that can be allocated at the node level
       --ipam-min-allocate int                                     Minimum number of IPs that must be allocated when the node is first bootstrapped at the node level
