@@ -62,19 +62,42 @@ func listAllMaps(logger *slog.Logger) {
 		logging.Fatal(logger, err.Error())
 	}
 
-	if len(matchFiles) == 0 {
+	var endpointFiles []string
+	seen := make(map[string]struct{}, len(matchFiles))
+	for _, file := range matchFiles {
+		base := filepath.Base(file)
+		if base == policymap.SharedPolicyMapName || base == policymap.PolicyOverlayMapName {
+			continue
+		}
+		endpointFiles = append(endpointFiles, file)
+		seen[file] = struct{}{}
+	}
+	overlayPath := filepath.Join(mapRootPrefixPath, policymap.PolicyOverlayMapName)
+	if epIDs, err := policymap.OpenOverlayEndpointIDs(overlayPath); err == nil {
+		for _, epID := range epIDs {
+			epPath := bpf.LocalMapPath(logger, policymap.MapName, epID)
+			if _, ok := seen[epPath]; !ok {
+				endpointFiles = append(endpointFiles, epPath)
+				seen[epPath] = struct{}{}
+			}
+		}
+	}
+
+	if len(endpointFiles) == 0 {
 		fmt.Println("no maps found")
 		return
 	}
 
 	maps := []policyMap{}
-	for _, file := range matchFiles {
+	for _, file := range endpointFiles {
 		endpointSplit := strings.Split(file, "_")
 		endpoint := strings.TrimLeft(endpointSplit[len(endpointSplit)-1], "0")
+		content, path, ruleSetID := mapContent(logger, file)
 		maps = append(maps, policyMap{
 			EndpointID: endpoint,
-			Path:       file,
-			Content:    mapContent(logger, file),
+			Path:       path,
+			RuleSetID:  ruleSetID,
+			Content:    content,
 		})
 	}
 
@@ -86,6 +109,9 @@ func listAllMaps(logger *slog.Logger) {
 		for _, m := range maps {
 			fmt.Printf("Endpoint ID: %s\n", m.EndpointID)
 			fmt.Printf("Path: %s\n", m.Path)
+			if m.RuleSetID != 0 {
+				fmt.Printf("Rule set: %d\n", m.RuleSetID)
+			}
 			fmt.Println()
 			printTable(m.Content)
 			fmt.Println()
@@ -97,6 +123,7 @@ func listAllMaps(logger *slog.Logger) {
 type policyMap struct {
 	EndpointID string
 	Path       string
+	RuleSetID  uint32 `json:",omitempty"`
 	Content    policymap.PolicyEntriesDump
 }
 
@@ -108,7 +135,7 @@ func listMap(logger *slog.Logger, args []string) {
 		Fatalf("Failed to parse endpointID %q", lbl)
 	}
 
-	contentDump := mapContent(logger, mapPath)
+	contentDump, _, _ := mapContent(logger, mapPath)
 	if command.OutputOption() {
 		if err := command.PrintOutput(contentDump); err != nil {
 			os.Exit(1)
@@ -118,7 +145,10 @@ func listMap(logger *slog.Logger, args []string) {
 	}
 }
 
-func mapContent(logger *slog.Logger, file string) policymap.PolicyEntriesDump {
+// mapContent returns the policy entries of the endpoint whose per-endpoint policy map path is
+// 'file', along with the path of the map they were read from and, if that is the shared
+// policy map, the endpoint's rule set ID (0 otherwise).
+func mapContent(logger *slog.Logger, file string) (policymap.PolicyEntriesDump, string, uint32) {
 	m, err := policymap.OpenPolicyMap(logger, file)
 	if err != nil {
 		Fatalf("Failed to open map: %s\n", err)
@@ -131,7 +161,11 @@ func mapContent(logger *slog.Logger, file string) policymap.PolicyEntriesDump {
 	}
 	sort.Slice(statsMap, statsMap.Less)
 
-	return statsMap
+	ruleSetID, shared := m.SharedRuleSet()
+	if !shared {
+		return statsMap, file, 0
+	}
+	return statsMap, filepath.Join(filepath.Dir(file), policymap.SharedPolicyMapName), ruleSetID
 }
 
 func printTable(contentDump policymap.PolicyEntriesDump) {

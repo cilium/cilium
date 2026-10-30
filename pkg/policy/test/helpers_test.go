@@ -42,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	fakepolicymap "github.com/cilium/cilium/pkg/maps/policymap/fake"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/monitor/agent"
@@ -121,7 +120,7 @@ func newTestFixture(t testing.TB, log *slog.Logger, certMgr certificatemanager.C
 						CompilationLock:     loader.NewCompilationLock(),
 						IdentityManager:     f.idmgr,
 						MonitorAgent:        &testmonitor.TestMonitorAgent{},
-						PolicyMapFactory:    &fakePolicyMapFactory{},
+						PolicyMapFactory:    &fakepolicymap.Factory{},
 						PolicyRepo:          f.repo,
 						PolicyFetcher:       f.computer,
 						Allocator:           f.allocator,
@@ -251,16 +250,6 @@ type fakeDNSAPI struct{}
 
 func (*fakeDNSAPI) GetDNSRules(epID uint16) restore.DNSRules { return nil }
 func (*fakeDNSAPI) RemoveRestoredDNSRules(epID uint16)       {}
-
-type fakePolicyMapFactory struct{}
-
-func (*fakePolicyMapFactory) OpenEndpoint(id uint16) (policymap.PolicyMap, error) {
-	return fakepolicymap.NewFakePolicyMap(), nil
-}
-func (*fakePolicyMapFactory) RemoveEndpoint(id uint16) error      { return nil }
-func (*fakePolicyMapFactory) RemoveGlobalMapping(id uint32) error { return nil }
-func (*fakePolicyMapFactory) PolicyMaxEntries() int               { return 0 }
-func (*fakePolicyMapFactory) StatsMaxEntries() int                { return 0 }
 
 type fakeLXCMap struct{}
 
