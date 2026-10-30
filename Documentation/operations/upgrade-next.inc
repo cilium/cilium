@@ -47,6 +47,11 @@ Informational Notes
   affects EndpointSlice names longer than 40 characters after removing the
   Service name prefix. EndpointSlices generated from Pods by the
   kube-controller-manager are unaffected.
+* Setting ``operator.unmanagedPodWatcher.selector`` to ``""`` now restarts all
+  unmanaged Pods. Previously this only restarted kube-dns Pods.
+  ``operator.unmanagedPodWatcher.selector`` defaults to ``k8s-app=kube-dns``,
+  so this remains the default behavior if you have not explicitly configured
+  the option.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
@@ -84,6 +89,9 @@ differently than in prior releases:
   masqueraded anymore.
 * ``bpf.hostLegacyRouting`` now defaults to true on new Cilium deployments.
 * ``bpf.masquerade`` is enabled by default on new Cilium deployments.
+* ``operator.unmanagedPodWatcher.selector`` now defaults to
+  ``k8s-app=kube-dns`` in the Helm chart instead of ``null``, which already
+  resolved to the same selector.
 
 Deprecated Options
 ##################
