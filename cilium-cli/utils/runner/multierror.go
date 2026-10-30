@@ -17,6 +17,9 @@ type MultiError struct {
 	wg   sync.WaitGroup
 	lock lock.Mutex
 	err  error
+
+	// OnError, if set, receives each goroutine's error under the lock as soon as it returns.
+	OnError func(error)
 }
 
 // Go runs a function in a separate goroutine.
@@ -24,6 +27,9 @@ func (m *MultiError) Go(fn func() error) {
 	m.wg.Go(func() {
 		if err := fn(); err != nil {
 			m.lock.Lock()
+			if m.OnError != nil {
+				m.OnError(err)
+			}
 			m.err = errors.Join(m.err, err)
 			m.lock.Unlock()
 		}

@@ -148,6 +148,11 @@ runs:
             break
           fi
 
+          # Print GKE's view of the failed cluster before anything deletes it.
+          echo "State of cluster ${{ inputs.cluster-name }} in zone ${zone} after the failed create:"
+          timeout --kill-after=10s 2m gcloud container clusters describe "${{ inputs.cluster-name }}" \
+            --zone "${zone}" --format yaml || true
+
           # 124 and 137 are timeout(1) giving up on gcloud. Do not delete the
           # cluster here: GKE refuses a delete while the creation operation is
           # still running, and that operation cannot be cancelled.

@@ -9,3 +9,7 @@ func ethtoolCommands() []string {
 	// No op so the code compiles on non-Linux platforms.
 	return nil
 }
+
+func dumpNICStats(cmdDir string) error {
+	return nil
+}
