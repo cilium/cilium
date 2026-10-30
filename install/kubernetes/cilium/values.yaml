@@ -1363,6 +1363,18 @@ eni:
     # type: [null, boolean]
     # @schema
     deleteOnTermination: ~
+    # @schema
+    # oneOf:
+    # - type: [null]
+    # - enum: [disabled, enabled, inherit]
+    # @schema
+    # -- ENA Express configuration of ENIs attached by Cilium. `disabled`
+    # doesn't configure ENA Express, `enabled` enables it if the instance type
+    # supports it, and `inherit` uses the ENA Express configuration of the
+    # primary ENI.
+    enaExpress: ~
+    # -- Use ENA Express for UDP traffic when `enaExpress` is `enabled`
+    enaExpressUDP: false
 # fragmentTracking enables IPv4 fragment tracking support in the datapath.
 # fragmentTracking: true
 gke:

@@ -10,12 +10,14 @@ import (
 	"testing"
 	"time"
 
+	ec2_types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	metricsmock "github.com/cilium/cilium/operator/pkg/ipam/metrics/mock"
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
+	"github.com/cilium/cilium/pkg/aws/api"
 	apiMock "github.com/cilium/cilium/pkg/aws/api/mock"
 	metadataMock "github.com/cilium/cilium/pkg/aws/metadata/mock"
 	"github.com/cilium/cilium/pkg/aws/types"
@@ -151,7 +153,7 @@ func TestNodeManagerDefaultAllocation(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -198,7 +200,7 @@ func TestNodeManagerPrefixDelegation(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, true, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -270,7 +272,7 @@ func TestNodeManagerENIWithSGTags(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -333,7 +335,7 @@ func TestNodeManagerMinAllocate20(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -392,7 +394,7 @@ func TestNodeManagerMinAllocateAndPreallocate(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -464,7 +466,7 @@ func TestNodeManagerENIExcludeInterfaceTags(t *testing.T) {
 		"cilium.io/no_manage": "true",
 	})
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -532,7 +534,7 @@ func TestNodeManagerExceedENICapacity(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -594,7 +596,7 @@ func TestInterfaceCreatedInInitialSubnet(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, testSubnet.ID, "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -667,7 +669,7 @@ func TestNodeManagerManyNodes(t *testing.T) {
 	for i := range state {
 		eniID, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "mgmt-1", "desc", []string{"sg1", "sg2"}, false, false)
 		require.NoError(t, err)
-		_, err = ec2api.AttachNetworkInterface(t.Context(), 0, fmt.Sprintf("i-testNodeManagerManyNodes-%d", i), eniID)
+		_, err = ec2api.AttachNetworkInterface(t.Context(), 0, fmt.Sprintf("i-testNodeManagerManyNodes-%d", i), eniID, api.AttachNetworkInterfaceOptions{})
 		require.NoError(t, err)
 		_, err = instancesManager.Resync(t.Context())
 		require.NoError(t, err)
@@ -725,7 +727,7 @@ func TestNodeManagerInstanceNotRunning(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -773,11 +775,11 @@ func TestInstanceBeenDeleted(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	eniID2, _, err := ec2api.CreateNetworkInterface(t.Context(), 8, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, instanceID, eniID2)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, instanceID, eniID2, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -836,7 +838,7 @@ func TestNodeManagerStaticIP(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	_, err = instances.Resync(t.Context())
 	require.NoError(t, err)
@@ -883,7 +885,7 @@ func TestNodeManagerStaticIPAlreadyAssociated(t *testing.T) {
 
 	eniID1, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, eniID1, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 	staticIP, err := ec2api.AssociateEIP(t.Context(), eniID1, make(ipamTypes.Tags))
 	require.NoError(t, err)
@@ -926,13 +928,13 @@ func TestNodeManagerStaticIPPrimaryENI(t *testing.T) {
 	// Primary ENI (Number == 0).
 	primaryENI, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, primaryENI)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, primaryENI, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 
 	// Secondary ENI (Number == 1)
 	secondaryENI, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 	require.NoError(t, err)
-	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, instanceID, secondaryENI)
+	_, err = ec2api.AttachNetworkInterface(t.Context(), 1, instanceID, secondaryENI, api.AttachNetworkInterfaceOptions{})
 	require.NoError(t, err)
 
 	_, err = instances.Resync(t.Context())
@@ -966,6 +968,133 @@ func TestNodeManagerStaticIPPrimaryENI(t *testing.T) {
 	}
 }
 
+// TestNodeManagerENAExpress tests that ENIs attached by Cilium are configured
+// with ENA Express according to spec.eni.ena-express
+//
+// - m5.large (3x ENIs, 2x10-2 IPs)
+// - PreAllocate 8
+// - FirstInterfaceIndex 0
+func TestNodeManagerENAExpress(t *testing.T) {
+	for i, tt := range []struct {
+		name         string
+		mode         types.ENAExpressMode
+		udp          *bool
+		supported    *bool
+		primary      types.ENAExpress
+		wantAttached types.ENAExpress
+	}{
+		{
+			name:      "unset",
+			supported: new(true),
+			primary:   types.ENAExpress{Enabled: true, UDPEnabled: true},
+		},
+		{
+			name:      "disabled",
+			mode:      types.ENAExpressModeDisabled,
+			supported: new(true),
+			primary:   types.ENAExpress{Enabled: true, UDPEnabled: true},
+		},
+		{
+			name:         "enabled",
+			mode:         types.ENAExpressModeEnabled,
+			supported:    new(true),
+			wantAttached: types.ENAExpress{Enabled: true},
+		},
+		{
+			name:         "enabled with UDP",
+			mode:         types.ENAExpressModeEnabled,
+			udp:          new(true),
+			supported:    new(true),
+			wantAttached: types.ENAExpress{Enabled: true, UDPEnabled: true},
+		},
+		{
+			name:      "enabled on unsupported instance type",
+			mode:      types.ENAExpressModeEnabled,
+			udp:       new(true),
+			supported: new(false),
+		},
+		{
+			name: "enabled on instance type with unknown support",
+			mode: types.ENAExpressModeEnabled,
+			udp:  new(true),
+		},
+		{
+			name:         "inherit from enabled primary ENI",
+			mode:         types.ENAExpressModeInherit,
+			supported:    new(true),
+			primary:      types.ENAExpress{Enabled: true, UDPEnabled: true},
+			wantAttached: types.ENAExpress{Enabled: true, UDPEnabled: true},
+		},
+		{
+			name:         "inherit ignores ena-express-udp",
+			mode:         types.ENAExpressModeInherit,
+			udp:          new(true),
+			supported:    new(true),
+			primary:      types.ENAExpress{Enabled: true},
+			wantAttached: types.ENAExpress{Enabled: true},
+		},
+		{
+			name:      "inherit from disabled primary ENI",
+			mode:      types.ENAExpressModeInherit,
+			supported: new(true),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			setup(t)
+
+			instanceID := fmt.Sprintf("i-testNodeManagerENAExpress-%d", i)
+
+			ec2api := apiMock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups, testRouteTables)
+			ec2api.UpdateInstanceTypes([]ec2_types.InstanceTypeInfo{{
+				InstanceType: "m5.large",
+				NetworkInfo: &ec2_types.NetworkInfo{
+					MaximumNetworkInterfaces:  new(int32(3)),
+					Ipv4AddressesPerInterface: new(int32(10)),
+					Ipv6AddressesPerInterface: new(int32(10)),
+					EnaSrdSupported:           tt.supported,
+				},
+				Hypervisor: ec2_types.InstanceTypeHypervisorNitro,
+				BareMetal:  new(false),
+			}})
+			instances, err := NewInstancesManager(t.Context(), hivetest.Logger(t), ec2api, metadataMockapi)
+			require.NoError(t, err)
+			require.NotNil(t, instances)
+
+			// Primary ENI (Number == 0) with the ENA Express configuration
+			// set when the instance was launched.
+			primaryENI, _, err := ec2api.CreateNetworkInterface(t.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
+			require.NoError(t, err)
+			_, err = ec2api.AttachNetworkInterface(t.Context(), 0, instanceID, primaryENI, api.AttachNetworkInterfaceOptions{ENAExpress: tt.primary})
+			require.NoError(t, err)
+			_, err = instances.Resync(t.Context())
+			require.NoError(t, err)
+			mngr, err := nodemanager.NewNodeManager(hivetest.Logger(t), instances, k8sapi, metricsapi, 10, false, 0, false)
+			require.NoError(t, err)
+			require.NotNil(t, mngr)
+
+			// Use 7 out of 8 IPs, so that a second ENI is created and attached
+			cn := newCiliumNode("node1", withTestDefaults(), withInstanceID(instanceID), withInstanceType("m5.large"), withIPAMPreAllocate(8), withENAExpress(tt.mode, tt.udp))
+			mngr.Upsert(cn)
+			require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+			mngr.Upsert(updateCiliumNode(cn, 7))
+			require.NoError(t, testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second))
+
+			instance, err := ec2api.GetInstance(t.Context(), nil, nil, instanceID)
+			require.NoError(t, err)
+			require.Len(t, instance.Interfaces, 2)
+			for _, iface := range instance.Interfaces {
+				eni, ok := iface.(*types.ENI)
+				require.True(t, ok)
+				if eni.Number == 0 {
+					require.Equal(t, tt.primary, eni.ENAExpress, "primary ENI %s should keep its ENA Express configuration", eni.ID)
+				} else {
+					require.Equal(t, tt.wantAttached, eni.ENAExpress, "ENI %s (number %d) has an unexpected ENA Express configuration", eni.ID, eni.Number)
+				}
+			}
+		})
+	}
+}
+
 func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rateLimit float64, burst int) {
 	testSubnet1 := &ipamTypes.Subnet{ID: "s-1", AvailabilityZone: "us-west-1", VirtualNetworkID: "vpc-1", AvailableAddresses: 1000000}
 	testSubnet2 := &ipamTypes.Subnet{ID: "s-2", AvailabilityZone: "us-west-1", VirtualNetworkID: "vpc-1", AvailableAddresses: 1000000}
@@ -987,7 +1116,7 @@ func benchmarkAllocWorker(b *testing.B, workers int64, delay time.Duration, rate
 	for i := range state {
 		eniID, _, err := ec2api.CreateNetworkInterface(b.Context(), 0, "s-1", "desc", []string{"sg1", "sg2"}, false, false)
 		require.NoError(b, err)
-		_, err = ec2api.AttachNetworkInterface(b.Context(), 0, fmt.Sprintf("i-benchmarkAllocWorker-%d", i), eniID)
+		_, err = ec2api.AttachNetworkInterface(b.Context(), 0, fmt.Sprintf("i-benchmarkAllocWorker-%d", i), eniID, api.AttachNetworkInterfaceOptions{})
 		require.NoError(b, err)
 		_, err = instances.Resync(b.Context())
 		require.NoError(b, err)
@@ -1125,6 +1254,13 @@ func withIPAMMinAllocate(minAlloc int) func(*v2.CiliumNode) {
 func withIPAMStaticIPTags(tags map[string]string) func(*v2.CiliumNode) {
 	return func(cn *v2.CiliumNode) {
 		cn.Spec.IPAM.StaticIPTags = tags
+	}
+}
+
+func withENAExpress(mode types.ENAExpressMode, udp *bool) func(*v2.CiliumNode) {
+	return func(cn *v2.CiliumNode) {
+		cn.Spec.ENI.ENAExpress = mode
+		cn.Spec.ENI.ENAExpressUDP = udp
 	}
 }
 

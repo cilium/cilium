@@ -53,6 +53,7 @@ func applyENISpec(in nodediscovery.ENIMutateInputs, info awsMetadata.MetaDataInf
 	if c := in.CNIConfigManager.GetCustomNetConf(); c != nil {
 		overrideFromNetConf(in.Logger, &nodeResource.Spec, c, info)
 	}
+	validateENAExpress(in.Logger, &nodeResource.Spec)
 	applyInstanceFacts(&nodeResource.Spec, info)
 	nodediscovery.SeedPoolRequest(&nodeResource.Spec, in.IPv4Enabled, in.IPv6Enabled)
 }
@@ -66,6 +67,8 @@ func applyAgentConfiguration(in nodediscovery.ENIMutateInputs, spec *ciliumv2.No
 		UsePrimaryAddress:       aws.Bool(in.UsePrimaryAddress),
 		DisablePrefixDelegation: aws.Bool(in.DisablePrefixDelegation),
 		DeleteOnTermination:     aws.Bool(in.DeleteOnTermination),
+		ENAExpress:              awsTypes.ENAExpressMode(in.ENAExpress),
+		ENAExpressUDP:           aws.Bool(in.ENAExpressUDP),
 
 		SubnetIDs:            in.SubnetIDs,
 		SubnetTags:           in.SubnetTags,
@@ -117,6 +120,12 @@ func overrideFromNetConf(logger *slog.Logger, spec *ciliumv2.NodeSpec, c *cnityp
 	if c.ENI.DeleteOnTermination != nil {
 		spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
 	}
+	if c.ENI.ENAExpress != "" {
+		spec.ENI.ENAExpress = c.ENI.ENAExpress
+	}
+	if c.ENI.ENAExpressUDP != nil {
+		spec.ENI.ENAExpressUDP = c.ENI.ENAExpressUDP
+	}
 
 	warnIgnoredInstanceFact(logger, "vpc-id", c.ENI.VpcID, info.VPCID)
 	warnIgnoredInstanceFact(logger, "instance-type", c.ENI.InstanceType, info.InstanceType)
@@ -133,6 +142,22 @@ func applyInstanceFacts(spec *ciliumv2.NodeSpec, info awsMetadata.MetaDataInfo) 
 	spec.ENI.InstanceType = info.InstanceType
 	spec.ENI.AvailabilityZone = info.AvailabilityZone
 	spec.ENI.NodeSubnetID = info.SubnetID
+}
+
+// validateENAExpress disables ENA Express if the agent configuration or the
+// CNI configuration file set an unknown mode, since the CiliumNode CRD would
+// otherwise reject the resource.
+func validateENAExpress(logger *slog.Logger, spec *ciliumv2.NodeSpec) {
+	switch spec.ENI.ENAExpress {
+	case "", awsTypes.ENAExpressModeDisabled, awsTypes.ENAExpressModeEnabled, awsTypes.ENAExpressModeInherit:
+		return
+	}
+	logger.Warn(
+		"Ignoring unknown ENA Express mode, ENA Express is disabled",
+		logfields.ConfigKey, "eni-ena-express",
+		logfields.Value, spec.ENI.ENAExpress,
+	)
+	spec.ENI.ENAExpress = awsTypes.ENAExpressModeDisabled
 }
 
 // warnIgnoredInstanceFact reports an ENISpec field which the CNI
