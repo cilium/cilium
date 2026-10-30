@@ -1128,6 +1128,19 @@ func TestPodForClaim(t *testing.T) {
 		require.Nil(t, got, "missing pod must return nil, not an error")
 	})
 
+	t.Run("pod replaced under the same name returns an error", func(t *testing.T) {
+		pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+			Name:      prepTestPodName,
+			Namespace: prepTestClaimNS,
+			UID:       "new-pod-uid",
+		}}
+		driver, _ := buildPodForClaimDriver(t, pod)
+
+		got, err := driver.podForClaim(t.Context(), claimInNS(prepTestClaimNS), claimPodRef(prepTestPodName, prepTestPodUID))
+		require.ErrorContains(t, err, "has been replaced")
+		require.Nil(t, got)
+	})
+
 	t.Run("non-404 API error is propagated", func(t *testing.T) {
 		driver, cs := buildPodForClaimDriver(t)
 

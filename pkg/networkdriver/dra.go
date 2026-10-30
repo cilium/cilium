@@ -369,7 +369,7 @@ func (driver *Driver) podForClaim(ctx context.Context, claim *resourceapi.Resour
 		if err != nil {
 			return nil, fmt.Errorf("failed to get pod %s/%s from store: %w", claim.Namespace, podRef.Name, err)
 		}
-		if exists {
+		if exists && pod.UID == podRef.UID {
 			return pod, nil
 		}
 	}
@@ -392,6 +392,13 @@ func (driver *Driver) podForClaim(ctx context.Context, claim *resourceapi.Resour
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pod %s/%s for claim %s: %w", claim.Namespace, podRef.Name, path.Join(claim.Namespace, claim.Name), err)
+	}
+
+	if pod.UID != podRef.UID {
+		return nil, fmt.Errorf(
+			"pod %s/%s for claim %s has been replaced (expected UID %s, found UID %s)",
+			claim.Namespace, podRef.Name, path.Join(claim.Namespace, claim.Name), podRef.UID,
+			pod.UID)
 	}
 
 	return pod, nil
