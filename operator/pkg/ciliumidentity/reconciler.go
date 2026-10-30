@@ -172,7 +172,7 @@ func (r *reconciler) reconcileCID(cidResourceKey resource.Key) error {
 		}
 	}
 
-	storeCIDKey := key.GetCIDKeyFromLabels(storeCID.SecurityLabels, "")
+	storeCIDKey := key.NewGlobalIdentity(labels.Map2Labels(storeCID.SecurityLabels, ""))
 	if cidKey.Equals(storeCIDKey) {
 		return nil
 	}
@@ -412,7 +412,7 @@ func namedPortLabelsFromCID(cid *cilium_api_v2.CiliumIdentity) labels.LabelArray
 	}
 
 	var namedPortLabels labels.LabelArray
-	for _, lbl := range key.GetCIDKeyFromLabels(cid.SecurityLabels, "").Labels() {
+	for _, lbl := range labels.Map2Labels(cid.SecurityLabels, "") {
 		if lbl.Source == labels.LabelSourceGenerated && ciliumio.IsNamedPortsIdentityLabelName(lbl.Key) {
 			namedPortLabels = append(namedPortLabels, lbl)
 		}
@@ -431,18 +431,18 @@ func GetCIDKeyForPod(logger *slog.Logger, pod *slim_corev1.Pod, nsStore resource
 
 	namedPorts, labelsMap := k8s.GetPodMetadata(logger, clusterInfo, ns, pod)
 	lbs := labels.Map2Labels(labelsMap, labels.LabelSourceK8s)
+	idLabels, _ := labelsfilter.Filter(lbs)
 	if existingCID == nil {
 		// A new pod has no identity assignment recorded in its CEP/CES yet,
 		// so derive named-port labels from its metadata rather than an existing CID.
 		for _, lbl := range k8s.NamedPortsIdentityLabels(namedPorts) {
-			lbs[lbl.Key] = lbl
+			idLabels[lbl.Key] = lbl
 		}
 	} else {
 		for _, lbl := range namedPortLabelsFromCID(existingCID) {
-			lbs[lbl.Key] = lbl
+			idLabels[lbl.Key] = lbl
 		}
 	}
-	idLabels, _ := labelsfilter.Filter(lbs)
 	return key.NewGlobalIdentity(idLabels), nil
 }
 
@@ -461,7 +461,7 @@ func getNamespace(namespace string, nsStore resource.Store[*slim_corev1.Namespac
 func (r *reconciler) handleStoreCIDMatch(storeCIDs []*cilium_api_v2.CiliumIdentity) (string, error) {
 	// Deduplication: The first cid will be added to the desired cache
 	cid := storeCIDs[0]
-	cidKey := key.GetCIDKeyFromLabels(cid.SecurityLabels, "")
+	cidKey := key.NewGlobalIdentity(labels.Map2Labels(cid.SecurityLabels, ""))
 
 	if err := r.upsertDesiredState(cid.Name, cidKey); err != nil {
 		r.logger.WarnContext(r.ctx, "Failed to add CID to cache",
