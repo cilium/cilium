@@ -182,7 +182,14 @@ jobs:
           kernel: ${{ steps.kernel-version.outputs.full }}
           kind-params: "${{ steps.kind-params.outputs.params }}"
           kind-image: ${{ env.KIND_K8S_IMAGE }}
+          external-target-image: ${{ env.KIND_FAKE_EXTERNAL_TARGET_IMAGE }}
+          login-host: ${{ vars.DOCKER_READ_HOST }}
+          login-username: ${{ vars.DOCKER_READ_USERNAME }}
+          login-password: ${{ secrets.DOCKER_READ_PASSWORD }}
+          auth-required: ${{ vars.DOCKER_AUTH_REQUIRED }}
 
+      # This secret is for Cilium pods inside kind. External targets use the
+      # images prepared on the host and loaded into the VM's Docker daemon.
       - name: Create imagePullSecret
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' && steps.cilium-config.outputs.skip != 'true' }}
         run: |

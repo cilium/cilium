@@ -10,6 +10,11 @@ IP6TARGET="$5"
 IP6OTHERTARGET="$6"
 
 NGINX_IMAGE="${KIND_FAKE_EXTERNAL_TARGET_IMAGE:-docker.io/library/nginx}"
+PULL_ARGS=()
+if [[ "$LVH" == "true" ]]; then
+    # The runner host preloads this image without sharing registry credentials.
+    PULL_ARGS=(--pull=never)
+fi
 
 lvh_wrapper() {
 	if [ "$LVH" = "true" ]; then
@@ -127,7 +132,7 @@ http {
 EOF
 
 # Start our first external target
-retry lvh_wrapper docker run -d --name webserver --network $KINDNETWORK \
+retry lvh_wrapper docker run "${PULL_ARGS[@]}" -d --name webserver --network $KINDNETWORK \
     --ip $IP4TARGET --ip6 $IP6TARGET \
     -v ./nginx.conf:/etc/nginx/nginx.conf:ro \
     -v ./external-service.cilium.crt:/etc/ssl/external-service.cilium.crt:ro \
@@ -135,7 +140,7 @@ retry lvh_wrapper docker run -d --name webserver --network $KINDNETWORK \
     "$NGINX_IMAGE"
 
 # Start the second external target
-retry lvh_wrapper docker run -d --name other-webserver --network $KINDNETWORK \
+retry lvh_wrapper docker run "${PULL_ARGS[@]}" -d --name other-webserver --network $KINDNETWORK \
     --ip $IP4OTHERTARGET --ip6 $IP6OTHERTARGET \
     -v ./nginx.conf:/etc/nginx/nginx.conf:ro \
     -v ./external-service.cilium.crt:/etc/ssl/external-service.cilium.crt:ro \

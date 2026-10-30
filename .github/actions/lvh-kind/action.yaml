@@ -10,7 +10,26 @@ inputs:
     description: 'Kind parameters'
   kind-image:
     required: true
-    description: 'Kind image'
+    description: 'Kind image reference to pull on the runner host'
+  external-target-image:
+    required: true
+    description: 'External-target image reference to pull on the runner host'
+  auth-required:
+    required: false
+    description: 'Whether the runner host must authenticate before pulling images'
+    default: 'false'
+  login-host:
+    required: false
+    description: 'Registry host to authenticate to on the runner host'
+    default: ''
+  login-username:
+    required: false
+    description: 'Username for the host registry login'
+    default: ''
+  login-password:
+    required: false
+    description: 'Password or token for the host registry login'
+    default: ''
   kind-config:
     required: false
     description: 'Optional Kind configuration'
@@ -58,6 +77,17 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Prepare images on runner host
+      uses: ./.github/actions/prepare-lvh-images
+      with:
+        images: >-
+          ${{ inputs.kind-image }}
+          ${{ inputs.external-target-image }}
+        login-host: ${{ inputs.login-host }}
+        login-username: ${{ inputs.login-username }}
+        login-password: ${{ inputs.login-password }}
+        auth-required: ${{ inputs.auth-required }}
+
     - name: Provision LVH VMs
       uses: cilium/little-vm-helper@c8b0bfbae3bdda7bc69fb9cd370e4b74ce84986d # v0.0.33
       with:
@@ -76,6 +106,30 @@ runs:
         cmd: |
           git config --global --add safe.directory /host
 
+    - name: Load prepared images inside LVH VM
+      shell: bash
+      env:
+        IMAGES_DIR: ${{ runner.temp }}/lvh-images
+        KIND_IMAGE: ${{ inputs.kind-image }}
+        EXTERNAL_TARGET_IMAGE: ${{ inputs.external-target-image }}
+      run: |
+        set -euo pipefail
+
+        KIND_IMAGE=$(jq -er --arg image "$KIND_IMAGE" '.[$image]' "$IMAGES_DIR/image-map.json")
+        EXTERNAL_TARGET_IMAGE=$(jq -er --arg image "$EXTERNAL_TARGET_IMAGE" '.[$image]' "$IMAGES_DIR/image-map.json")
+
+        ssh_args=(-p 2222 -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes -o ForwardAgent=no)
+        # Only image data crosses into the untrusted VM, never registry credentials.
+        ssh "${ssh_args[@]}" root@localhost 'docker image load' < "$IMAGES_DIR/images.tar"
+        # Fail before cluster setup if either exported image was not loaded.
+        printf -v inspect_command 'docker image inspect %q %q > /dev/null' "$KIND_IMAGE" "$EXTERNAL_TARGET_IMAGE"
+        printf '%s\n' "$inspect_command" |
+          ssh "${ssh_args[@]}" root@localhost 'bash -se'
+
+        # Make the resolved tags available to the cluster and target steps.
+        printf 'LVH_KIND_IMAGE=%s\nLVH_EXTERNAL_TARGET_IMAGE=%s\n' \
+          "$KIND_IMAGE" "$EXTERNAL_TARGET_IMAGE" >> "$GITHUB_ENV"
+
     - name: Add external docker network
       uses: ./.github/actions/kind-external-network
       id: external_network
@@ -88,7 +142,7 @@ runs:
         provision: 'false'
         cmd: |
           cd /host
-          export IMAGE=${{ inputs.kind-image }}
+          export IMAGE=${{ env.LVH_KIND_IMAGE }}
 
           # These commands are passed to stdin of ssh as a here-document. Env
           # vars used here are substituted by bash from GitHub's env. However,
@@ -97,7 +151,7 @@ runs:
           export KIND_EXPERIMENTAL_DOCKER_NETWORK=${KIND_EXPERIMENTAL_DOCKER_NETWORK@Q}
 
           if [ "${{ inputs.kind-config }}" != "" ]; then
-            kind create cluster --config ${{ inputs.kind-config }} --image ${{ inputs.kind-image }}
+            kind create cluster --config ${{ inputs.kind-config }} --image ${{ env.LVH_KIND_IMAGE }}
           else
             ./contrib/scripts/kind.sh ${{ inputs.kind-params }} 0.0.0.0 6443
           fi
@@ -111,6 +165,8 @@ runs:
     - name: Add external targets to kind cluster
       uses: ./.github/actions/kind-external-targets
       id: external_targets
+      env:
+        KIND_FAKE_EXTERNAL_TARGET_IMAGE: ${{ env.LVH_EXTERNAL_TARGET_IMAGE }}
       with:
         lvh: 'true'
         kind_network: ${{ steps.external_network.outputs.kind_network }}

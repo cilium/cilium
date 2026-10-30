@@ -1,0 +1,123 @@
+name: Prepare images for LVH
+description: Export images and their reference map to $RUNNER_TEMP/lvh-images without exposing registry credentials to the VM.
+
+inputs:
+  images:
+    required: true
+    description: 'Space-separated list of Docker image references to pull and export on the runner host'
+  auth-required:
+    required: false
+    description: 'Whether the runner host must authenticate before pulling images'
+    default: 'false'
+  login-host:
+    required: false
+    description: 'Registry host to authenticate to on the runner host'
+    default: ''
+  login-username:
+    required: false
+    description: 'Username for the host registry login'
+    default: ''
+  login-password:
+    required: false
+    description: 'Password or token for the host registry login'
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Prepare temporary registry config
+      id: registry-config
+      if: ${{ inputs.auth-required == 'true' }}
+      shell: bash
+      env:
+        LOGIN_HOST: ${{ inputs.login-host }}
+        LOGIN_USERNAME: ${{ inputs.login-username }}
+        LOGIN_PASSWORD: ${{ inputs.login-password }}
+      run: |
+        set -euo pipefail
+
+        if [[ -z "$LOGIN_HOST" || -z "$LOGIN_USERNAME" || -z "$LOGIN_PASSWORD" ]]; then
+          echo "::error::Registry authentication requires login-host, login-username, and login-password"
+          exit 1
+        fi
+
+        # Keep credentials outside the workspace mounted into the VM.
+        registry_config=$(mktemp -d "${RUNNER_TEMP}/lvh-docker-config.XXXXXX")
+        echo "path=$registry_config" >> "$GITHUB_OUTPUT"
+
+    - name: Login to docker registry
+      if: ${{ inputs.auth-required == 'true' }}
+      uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+      env:
+        DOCKER_CONFIG: ${{ steps.registry-config.outputs.path }}
+      with:
+        registry: ${{ inputs.login-host }}
+        username: ${{ inputs.login-username }}
+        password: ${{ inputs.login-password }}
+        # Remove the temporary config below, before VM provisioning, instead
+        # of waiting for the action's post-job logout.
+        logout: false
+
+    - name: Pull and export images on the runner host
+      shell: bash
+      env:
+        IMAGES: ${{ inputs.images }}
+        REGISTRY_CONFIG: ${{ steps.registry-config.outputs.path }}
+      run: |
+        set -euo pipefail
+
+        read -r -a image_refs <<< "${IMAGES//$'\n'/ }"
+        if [[ ${#image_refs[@]} -eq 0 ]]; then
+          echo "::error::images must contain at least one image reference"
+          exit 1
+        fi
+        for image in "${image_refs[@]}"; do
+          if [[ "$image" == -* ]]; then
+            echo "::error::Image references must not start with a dash"
+            exit 1
+          fi
+        done
+
+        # LVH setup reads both files from this shared directory.
+        images_dir="${RUNNER_TEMP}/lvh-images"
+        mkdir "$images_dir"
+        exported=false
+        cleanup() {
+          if [[ "$exported" != true ]]; then
+            rm -rf -- "$images_dir"
+          fi
+        }
+        trap cleanup EXIT
+
+        if [[ -n "$REGISTRY_CONFIG" ]]; then
+          export DOCKER_CONFIG="$REGISTRY_CONFIG"
+        fi
+
+        # Pull the original references (including their pinned digests) first.
+        # Use local tags for the archive because save/load restores tags, not
+        # necessarily the original registry digest references.
+        image_map='{}'
+        for image in "${image_refs[@]}"; do
+          docker image pull "$image"
+          image_id=$(docker image inspect --format '{{.Id}}' "$image")
+          local_image="lvh-preloaded:${image_id#sha256:}"
+          docker image tag "$image_id" "$local_image"
+          image_map=$(jq -c --arg image "$image" --arg local_image "$local_image" \
+            '. + {($image): $local_image}' <<< "$image_map")
+        done
+
+        # Different references can resolve to the same image. Export it once.
+        local_refs=$(jq -r '[.[]] | unique[]' <<< "$image_map")
+        mapfile -t local_images <<< "$local_refs"
+        docker image save --output "$images_dir/images.tar" "${local_images[@]}"
+        printf '%s\n' "$image_map" > "$images_dir/image-map.json"
+
+        exported=true
+
+    - name: Remove temporary registry config
+      if: ${{ always() && steps.registry-config.outputs.path != '' }}
+      shell: bash
+      env:
+        REGISTRY_CONFIG: ${{ steps.registry-config.outputs.path }}
+      run: |
+        rm -rf -- "$REGISTRY_CONFIG"
