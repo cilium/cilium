@@ -6,6 +6,7 @@ package compute
 import (
 	"context"
 	"errors"
+	"runtime"
 	"testing"
 	"time"
 
@@ -173,6 +174,52 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 		}
 	})
 
+	t.Run("recomputation supersedes the replaced policy", func(t *testing.T) {
+		_, _, computer, idmgr := fixture(t)
+
+		id := computeFor(t, computer, idmgr, identity.NumericIdentity(30))
+		old, _, _, found := computer.GetIdentityPolicyByIdentity(id)
+		require.True(t, found)
+
+		done, err := computer.RecomputeIdentityPolicy(id, old.Revision+1)
+		require.NoError(t, err)
+		<-done
+		computeFor(t, computer, idmgr, identity.NumericIdentity(31))
+
+		require.False(t, old.NewPolicy.AddHold(), "replaced policy was not superseded")
+	})
+
+	// A superseded policy must not keep any live references once another
+	// policy has replaced it.
+	t.Run("superseded policy is not leaked", func(t *testing.T) {
+		_, _, computer, idmgr := fixture(t)
+		id := computeFor(t, computer, idmgr, identity.NumericIdentity(32))
+
+		collected := make(chan struct{})
+		var rev uint64
+		func() {
+			obj, _, _, found := computer.GetIdentityPolicyByIdentity(id)
+			require.True(t, found)
+			require.NotNil(t, obj.NewPolicy)
+			runtime.SetFinalizer(obj.NewPolicy, func(any) { close(collected) })
+			rev = obj.Revision
+		}()
+
+		done, err := computer.RecomputeIdentityPolicy(id, rev+1)
+		require.NoError(t, err)
+		<-done
+		// The batch holds the old policy until it has superseded it, so wait for
+		// the next batch.
+		computeFor(t, computer, idmgr, identity.NumericIdentity(33))
+
+		runtime.GC()
+		select {
+		case <-collected:
+		case <-time.After(5 * time.Second):
+			t.Fatal("superseded policy is still reachable after its replacement committed")
+		}
+	})
+
 	// A failed computation is requeued with enqueueLocked, so it merges with a
 	// request for the same identity that came in while its batch was computed.
 	t.Run("failed computation merges its retry with a pending request", func(t *testing.T) {
@@ -190,7 +237,7 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 		failed := newResult(r, id, Result{Err: errors.New("failed")})
 		failed.toRev = 7
 		wtxn := db.WriteTxn(tbl)
-		_, _, retry := r.commitResults(wtxn, []computeResult{failed})
+		_, _, _, retry := r.commitResults(wtxn, []computeResult{failed})
 		wtxn.Commit()
 
 		require.True(t, retry)
@@ -262,7 +309,7 @@ func TestIdentityManagerObserver(t *testing.T) {
 		idmgr.Add(readded)
 
 		wtxn := r.db.WriteTxn(r.tbl)
-		committed, dropped, retry := r.commitResults(wtxn, results)
+		committed, _, dropped, retry := r.commitResults(wtxn, results)
 		wtxn.Commit()
 
 		require.Len(t, committed, 1)
@@ -423,11 +470,11 @@ func TestAdvanceDoesNotSatisfyRecompute(t *testing.T) {
 		t.Fatal("recomputation request never completed")
 	}
 
-	// OldPolicy is only set when a computation ran and replaced a committed
-	// policy, so it is the oracle for "this was recomputed, not carried".
+	// Only a computation that ran replaces the committed policy, so a new
+	// NewPolicy tells us "this was recomputed and not carried over".
 	obj, _, _, found := computer.GetIdentityPolicyByIdentity(carried)
 	require.True(t, found)
-	require.NotNil(t, obj.OldPolicy,
+	require.NotSame(t, before.NewPolicy, obj.NewPolicy,
 		"requested recomputation was skipped because the policy had been carried forward")
 	require.GreaterOrEqual(t, obj.Revision, before.Revision)
 }

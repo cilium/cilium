@@ -6,10 +6,11 @@ package test
 import (
 	"context"
 	"fmt"
+	"log/slog"
+	"strings"
 	"sync/atomic"
 	"testing"
 
-	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -26,14 +27,17 @@ import (
 // BenchmarkUpdatePolicyThroughput measures end-to-end policy import latency
 // through the real policy importer, compute cell, and endpoint manager
 // dispatch, across varying endpoint and unique-identity counts. Each iteration
-// imports a single rule that selects every identity, so all endpoints
-// regenerate.
+// replaces a single rule that selects every identity, so all endpoints
+// regenerate and every identity's selector policy is replaced.
 //
 // Reported metrics:
-//   - ns/update: latency from importer.UpdatePolicy to all endpoints
+//   - ns/update: mean latency from importer.UpdatePolicy to all endpoints
 //     reaching the new revision.
 //   - peak_regen_queue: peak number of endpoints in StateWaitingToRegenerate
 //     or StateRegenerating during the iteration.
+//   - <reason>-regens/update: endpoint regenerations per update, by reason.
+//   - memory-growth-B: live heap after the last update, over the live heap
+//     after a first, untimed one.
 func BenchmarkUpdatePolicyThroughput(b *testing.B) {
 	version.Force(testk8s.DefaultVersion)
 
@@ -44,19 +48,60 @@ func BenchmarkUpdatePolicyThroughput(b *testing.B) {
 			}
 			name := fmt.Sprintf("eps=%d/ids=%d", numEPs, numIDs)
 			b.Run(name, func(b *testing.B) {
-				runUpdatePolicyBench(b, numEPs, numIDs)
+				runUpdatePolicyBench(b, numEPs, numIDs, 0)
 			})
 		}
 	}
+	// Bulky L7 rules, so that a replaced selector policy that stays reachable
+	// shows in memory-growth-B.
+	b.Run("eps=100/ids=20/http=40", func(b *testing.B) {
+		runUpdatePolicyBench(b, 100, 20, 40)
+	})
 }
 
-func runUpdatePolicyBench(b *testing.B, numEPs, numIDs int) {
+func runUpdatePolicyBench(b *testing.B, numEPs, numIDs, httpRules int) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	log := hivetest.Logger(b)
+	regenerations := newRegenerationCounter(b)
+	// The benchmark keeps its log output in memory, which would show in
+	// memory-growth-B.
+	log := slog.New(slog.DiscardHandler)
 	f := newTestFixture(b, log, nil)
 	eps := seedEndpoints(b, ctx, f, numEPs, numIDs)
+
+	// update replaces the benchmark's policy with its seed-th version and
+	// returns how long the endpoints took to reach it.
+	update := func(seed int) time.Duration {
+		rule := makeRuleSelectingAllIdentities(numIDs, seed, httpRules)
+		require.NoError(b, rule.ValidateAndSanitize())
+
+		done := make(chan uint64, 1)
+		start := time.Now()
+		f.importer.UpdatePolicy(&policytypes.PolicyUpdate{
+			Rules:    policyutils.RulesToPolicyEntries(api.Rules{rule}),
+			Source:   source.CustomResource,
+			Resource: ipcachetypes.NewResourceID(ipcachetypes.ResourceKindCNP, "default", "bench"),
+			DoneChan: done,
+		})
+
+		var rev uint64
+		select {
+		case rev = <-done:
+		case <-ctx.Done():
+			b.Fatalf("policy import timed out at update %d", seed)
+		}
+
+		waitForEndpoints(b, ctx, eps, rev)
+		return time.Since(start)
+	}
+
+	// Measure from after a first update, so that memory-growth-B is what the
+	// updates leave behind rather than the cost of having a policy at all.
+	update(0)
+	settleRegenerations(b, ctx, f.epm, regenerations)
+	regensBefore := regenerationsByReason(regenerations)
+	heapBefore := liveHeap()
 
 	var peakQueue atomic.Int64
 	stopSampler := make(chan struct{})
@@ -87,36 +132,23 @@ func runUpdatePolicyBench(b *testing.B, numEPs, numIDs int) {
 		}
 	}()
 
+	var total time.Duration
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		rule := makeRuleSelectingAllIdentities(numIDs, i)
-		require.NoError(b, rule.ValidateAndSanitize())
-
-		done := make(chan uint64, 1)
-		start := time.Now()
-		f.importer.UpdatePolicy(&policytypes.PolicyUpdate{
-			Rules:    policyutils.RulesToPolicyEntries(api.Rules{rule}),
-			Source:   source.CustomResource,
-			Resource: ipcachetypes.NewResourceID(ipcachetypes.ResourceKindCNP, "default", fmt.Sprintf("bench-%d", i)),
-			DoneChan: done,
-		})
-
-		var rev uint64
-		select {
-		case rev = <-done:
-		case <-ctx.Done():
-			b.Fatalf("policy import timed out at iter %d", i)
-		}
-
-		waitForEndpoints(b, ctx, eps, rev)
-
-		b.ReportMetric(float64(time.Since(start).Nanoseconds()), "ns/update")
+	for i := 1; i <= b.N; i++ {
+		total += update(i)
 	}
 	b.StopTimer()
+	b.ReportMetric(float64(total.Nanoseconds())/float64(b.N), "ns/update")
 
 	close(stopSampler)
 	<-samplerDone
 	b.ReportMetric(float64(peakQueue.Load()), "peak_regen_queue")
+
+	settleRegenerations(b, ctx, f.epm, regenerations)
+	for reason, n := range regenerationsByReason(regenerations) {
+		b.ReportMetric(float64(n-regensBefore[reason])/float64(b.N), strings.ReplaceAll(reason, " ", "_")+"-regens/update")
+	}
+	b.ReportMetric(float64(liveHeap())-float64(heapBefore), "memory-growth-B")
 }
 
 // waitForEndpoints blocks until every endpoint reaches rev.
