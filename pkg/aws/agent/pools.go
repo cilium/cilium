@@ -14,6 +14,11 @@ import (
 )
 
 var poolAccessor = ipam.PoolSpecAccessors{
+	// The operator releases the CIDRs of Status.ENI, from which
+	// FromResource derives the Allocated CIDRs, so the agent can take part
+	// in the CIDR release handshake.
+	CIDRReleaseHandshake: true,
+
 	// FromResource returns the pool specification.
 	// Unlike the standard multi-pool mode which reads Allocated CIDRs from
 	// Spec.IPAM.Pools.Allocated, ENI mode derives them from Status.ENI.ENIs

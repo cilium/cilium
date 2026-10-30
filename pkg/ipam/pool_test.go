@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 )
 
@@ -892,6 +893,274 @@ func TestCIDRPoolPublishesCIDRsCoveredByRemovedCIDR(t *testing.T) {
 		pool.updatePool([]netip.Prefix{p0}, false)
 		require.Empty(t, pool.removed, cidrPoolState(pool))
 		require.Empty(t, pool.released, cidrPoolState(pool))
+	})
+}
+
+// fillDelegatedRange allocates the addresses from to to-1 of the i-th /28.
+func fillDelegatedRange(t *testing.T, pool *cidrPool, i, from, to int) {
+	t.Helper()
+	for j := from; j < to; j++ {
+		require.NoError(t, pool.allocate(delegatedAddr(i, j)))
+	}
+}
+
+// releaseMarks builds the release marks of setReleaseMarks.
+func releaseMarks(kv ...any) map[netip.Prefix]string {
+	marks := map[netip.Prefix]string{}
+	for i := 0; i < len(kv); i += 2 {
+		marks[kv[i].(netip.Prefix)] = kv[i+1].(string)
+	}
+	return marks
+}
+
+// TestCIDRPoolReleaseHandshake covers the agent side of the multi-pool CIDR
+// release handshake (cilium/cilium#47910), one transition per subtest. p0
+// holds the pods; p1 is released by the agent, or idle.
+func TestCIDRPoolReleaseHandshake(t *testing.T) {
+	p0, p1 := delegatedPrefix(0), delegatedPrefix(1)
+
+	// setup returns a pool with 8 pods on p0 and p1 released but still
+	// advertised, as after releaseExcessCIDRsMultiPool.
+	setup := func(t *testing.T) *cidrPool {
+		pool := newCIDRPool(hivetest.Logger(t), true, true)
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		fillDelegatedPrefix(t, pool, 0, 8)
+		pool.releaseExcessCIDRsMultiPool(8)
+		require.Contains(t, pool.released, p1, "precondition: %s released; %s", p1, cidrPoolState(pool))
+		return pool
+	}
+
+	t.Run("marked released CIDR is acknowledged and never reclaimed", func(t *testing.T) {
+		pool := setup(t)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMMarkForRelease))
+		require.Equal(t, releaseMarks(p1, ipamOption.IPAMReadyForRelease), pool.answerReleaseMarks(true))
+
+		// Demand rises: without the mark, p1 would be reclaimed here.
+		fillDelegatedRange(t, pool, 0, 8, 16)
+		pool.releaseExcessCIDRsMultiPool(8)
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0)}, pool.inUseCIDRs(), cidrPoolState(pool))
+		_, err := pool.allocateNext()
+		require.ErrorIs(t, err, errAllCIDRsExhausted)
+		require.Error(t, pool.allocate(delegatedAddr(1, 0)))
+
+		// The answer is stable while the mark stays.
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMReadyForRelease))
+		require.Equal(t, releaseMarks(p1, ipamOption.IPAMReadyForRelease), pool.answerReleaseMarks(true))
+	})
+
+	t.Run("cleared mark makes the CIDR reclaimable again", func(t *testing.T) {
+		pool := setup(t)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMMarkForRelease))
+		pool.answerReleaseMarks(true)
+		fillDelegatedRange(t, pool, 0, 8, 16)
+
+		// The operator gives up on the release, e.g. because the node is no
+		// longer in excess.
+		pool.setReleaseMarks(nil)
+		require.Nil(t, pool.answerReleaseMarks(true))
+		pool.releaseExcessCIDRsMultiPool(8)
+		addr, err := pool.allocateNext()
+		require.NoError(t, err, cidrPoolState(pool))
+		require.True(t, p1.Contains(addr))
+	})
+
+	t.Run("in-use CIDR answers do-not-release and stays allocatable", func(t *testing.T) {
+		pool := setup(t)
+		pool.setReleaseMarks(releaseMarks(p0, ipamOption.IPAMMarkForRelease))
+		require.Equal(t, releaseMarks(p0, ipamOption.IPAMDoNotRelease), pool.answerReleaseMarks(true))
+		require.Contains(t, pool.inUseCIDRs(), iputil.PrefixFrom(p0))
+		addr, err := pool.allocateNext()
+		require.NoError(t, err)
+		require.True(t, p0.Contains(addr))
+
+		// The operator then clears the mark.
+		pool.setReleaseMarks(nil)
+		require.Nil(t, pool.answerReleaseMarks(true))
+	})
+
+	t.Run("unused allocator of a marked CIDR is dropped", func(t *testing.T) {
+		pool := newCIDRPool(hivetest.Logger(t), true, true)
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		fillDelegatedPrefix(t, pool, 0, 1)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMMarkForRelease))
+
+		// Not allocatable while the mark is not answered yet.
+		require.Equal(t, 15, pool.capacity(), cidrPoolState(pool))
+		fillDelegatedRange(t, pool, 0, 1, 16)
+		_, err := pool.allocateNext()
+		require.ErrorIs(t, err, errAllCIDRsExhausted)
+
+		require.Equal(t, releaseMarks(p1, ipamOption.IPAMReadyForRelease), pool.answerReleaseMarks(true))
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0)}, pool.inUseCIDRs(), "acknowledged CIDR must not be published")
+		require.Contains(t, pool.released, p1)
+	})
+
+	t.Run("no answer until restore has finished", func(t *testing.T) {
+		pool := newCIDRPool(hivetest.Logger(t), true, true)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMMarkForRelease))
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		require.Empty(t, pool.answerReleaseMarks(false))
+
+		// An endpoint restored on p1.
+		require.NoError(t, pool.allocate(delegatedAddr(1, 3)))
+		require.Equal(t, releaseMarks(p1, ipamOption.IPAMDoNotRelease), pool.answerReleaseMarks(true))
+	})
+
+	t.Run("acknowledged CIDR gets no allocator after an agent restart", func(t *testing.T) {
+		pool := newCIDRPool(hivetest.Logger(t), true, true)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMReadyForRelease))
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0)}, pool.inUseCIDRs())
+		require.Error(t, pool.allocate(delegatedAddr(1, 0)))
+		require.Equal(t, releaseMarks(p1, ipamOption.IPAMReadyForRelease), pool.answerReleaseMarks(true))
+	})
+
+	t.Run("pending answer survives a CiliumNode that does not show it yet", func(t *testing.T) {
+		pool := setup(t)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMMarkForRelease))
+		pool.answerReleaseMarks(true)
+		// A later event still carries the mark only.
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMMarkForRelease))
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		pool.releaseExcessCIDRsMultiPool(1 << 10)
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0)}, pool.inUseCIDRs(), cidrPoolState(pool))
+	})
+
+	t.Run("released CIDR stays blocked while advertised", func(t *testing.T) {
+		pool := setup(t)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMReleased))
+		// A stale EC2 listing re-advertises p1.
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		pool.releaseExcessCIDRsMultiPool(1 << 10)
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0)}, pool.inUseCIDRs(), cidrPoolState(pool))
+		require.Empty(t, pool.answerReleaseMarks(true))
+	})
+
+	t.Run("re-assigned CIDR is published again once its handshake ends", func(t *testing.T) {
+		pool := setup(t)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMMarkForRelease))
+		pool.answerReleaseMarks(true)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMReleased))
+		// EC2 hands p1 back to the ENI before the agent saw it go, so it
+		// never leaves the input.
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0)}, pool.inUseCIDRs(), cidrPoolState(pool))
+
+		// The operator finds p1 attached again and ends the handshake. p1
+		// gets an allocator and is published, without any demand.
+		pool.setReleaseMarks(nil)
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		require.NotContains(t, pool.released, p1, cidrPoolState(pool))
+		require.ElementsMatch(t, []iputil.Prefix{iputil.PrefixFrom(p0), iputil.PrefixFrom(p1)}, pool.inUseCIDRs(), cidrPoolState(pool))
+		require.NoError(t, pool.allocate(delegatedAddr(1, 0)))
+	})
+
+	t.Run("acknowledgement in use is revoked", func(t *testing.T) {
+		// Only possible if the CiliumNode was edited: p1 is in use but
+		// shows ready-for-release.
+		pool := newCIDRPool(hivetest.Logger(t), true, true)
+		pool.updatePool([]netip.Prefix{p0, p1}, true)
+		fillDelegatedPrefix(t, pool, 1, 1)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMReadyForRelease))
+		require.Equal(t, releaseMarks(p1, ipamOption.IPAMDoNotRelease), pool.answerReleaseMarks(true))
+	})
+
+	t.Run("CIDR inside a larger allocator is not released", func(t *testing.T) {
+		pool := newCIDRPool(hivetest.Logger(t), true, true)
+		outer := netip.MustParsePrefix("10.0.0.0/27")
+		pool.updatePool([]netip.Prefix{outer}, true)
+		pool.setReleaseMarks(releaseMarks(p1, ipamOption.IPAMMarkForRelease))
+		require.Equal(t, releaseMarks(p1, ipamOption.IPAMDoNotRelease), pool.answerReleaseMarks(true))
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(outer)}, pool.inUseCIDRs())
+	})
+}
+
+// TestCIDRPoolReleaseHandshakeOverlaps checks the release handshake against
+// the overlap rules of cidrPool: CIDRs covered by a removed allocator, and
+// CIDRs that absorb, or would hand out the IPs of, a marked CIDR.
+func TestCIDRPoolReleaseHandshakeOverlaps(t *testing.T) {
+	p0, x := delegatedPrefix(0), delegatedPrefix(1)
+	host := netip.PrefixFrom(delegatedAddr(1, 4), 32)
+
+	// coveredSetup leaves x removed and in use, with host listed and only
+	// published through x.
+	coveredSetup := func(t *testing.T) *cidrPool {
+		pool := newCIDRPool(hivetest.Logger(t), true, true)
+		pool.updatePool([]netip.Prefix{p0, x}, true)
+		fillDelegatedPrefix(t, pool, 0, 16)
+		fillDelegatedPrefix(t, pool, 1, 2)
+		pool.updatePool([]netip.Prefix{p0}, true)
+		pool.updatePool([]netip.Prefix{p0, host}, true)
+		require.Equal(t, x, pool.coveredByRemoved[host], "precondition: %s covered by %s; %s", host, x, cidrPoolState(pool))
+		return pool
+	}
+
+	t.Run("CIDR covered by an in-use removed allocator is not released", func(t *testing.T) {
+		pool := coveredSetup(t)
+		pool.setReleaseMarks(releaseMarks(host, ipamOption.IPAMMarkForRelease))
+		require.Equal(t, releaseMarks(host, ipamOption.IPAMDoNotRelease), pool.answerReleaseMarks(true))
+		require.Contains(t, pool.inUseCIDRs(), iputil.PrefixFrom(host), cidrPoolState(pool))
+
+		// A stale ready-for-release is revoked as well.
+		pool.setReleaseMarks(releaseMarks(host, ipamOption.IPAMReadyForRelease))
+		require.Equal(t, releaseMarks(host, ipamOption.IPAMDoNotRelease), pool.answerReleaseMarks(true))
+		require.Contains(t, pool.inUseCIDRs(), iputil.PrefixFrom(host), cidrPoolState(pool))
+
+		// Once x is no longer in use and released, host goes with it and can
+		// be acknowledged.
+		pool.release(delegatedAddr(1, 0))
+		pool.release(delegatedAddr(1, 1))
+		pool.releaseExcessCIDRsMultiPool(0)
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0)}, pool.inUseCIDRs(), cidrPoolState(pool))
+		pool.setReleaseMarks(releaseMarks(host, ipamOption.IPAMMarkForRelease))
+		require.Equal(t, releaseMarks(host, ipamOption.IPAMReadyForRelease), pool.answerReleaseMarks(true))
+	})
+
+	t.Run("acknowledging a removed allocator drops the CIDRs it covers", func(t *testing.T) {
+		pool := coveredSetup(t)
+		pool.release(delegatedAddr(1, 0))
+		pool.release(delegatedAddr(1, 1))
+		pool.setReleaseMarks(releaseMarks(x, ipamOption.IPAMMarkForRelease))
+		require.Equal(t, releaseMarks(x, ipamOption.IPAMReadyForRelease), pool.answerReleaseMarks(true))
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0)}, pool.inUseCIDRs(), cidrPoolState(pool))
+		require.Empty(t, pool.coveredByRemoved, cidrPoolState(pool))
+		require.Contains(t, pool.released, host, cidrPoolState(pool))
+		requireNoOverlap(t, pool)
+	})
+
+	t.Run("CIDR covering an acknowledged CIDR gets no allocator", func(t *testing.T) {
+		pool := newCIDRPool(hivetest.Logger(t), true, true)
+		pool.updatePool([]netip.Prefix{p0, host}, true)
+		fillDelegatedPrefix(t, pool, 0, 16)
+		pool.setReleaseMarks(releaseMarks(host, ipamOption.IPAMMarkForRelease))
+		require.Equal(t, releaseMarks(host, ipamOption.IPAMReadyForRelease), pool.answerReleaseMarks(true))
+
+		// x, which contains host, is assigned before host is released.
+		// Neither updatePool nor the reclaim may create an allocator for it.
+		pool.updatePool([]netip.Prefix{p0, host, x}, true)
+		pool.releaseExcessCIDRsMultiPool(8)
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0)}, pool.inUseCIDRs(), cidrPoolState(pool))
+		require.Error(t, pool.allocate(host.Addr()))
+		_, err := pool.allocateNext()
+		require.ErrorIs(t, err, errAllCIDRsExhausted, cidrPoolState(pool))
+
+		// Once the mark is cleared, x gets an allocator.
+		pool.setReleaseMarks(nil)
+		pool.updatePool([]netip.Prefix{p0, x}, true)
+		addr, err := pool.allocateNext()
+		require.NoError(t, err, cidrPoolState(pool))
+		require.True(t, x.Contains(addr))
+	})
+
+	t.Run("marked CIDR absorbed by a new allocator is not released", func(t *testing.T) {
+		pool := newCIDRPool(hivetest.Logger(t), true, true)
+		pool.updatePool([]netip.Prefix{p0, host}, true)
+		pool.setReleaseMarks(releaseMarks(host, ipamOption.IPAMMarkForRelease))
+		pool.updatePool([]netip.Prefix{p0, host, x}, true)
+		require.Equal(t, releaseMarks(host, ipamOption.IPAMDoNotRelease), pool.answerReleaseMarks(true))
+		require.Equal(t, []iputil.Prefix{iputil.PrefixFrom(p0), iputil.PrefixFrom(x)}, pool.inUseCIDRs(), cidrPoolState(pool))
+		requireNoOverlap(t, pool)
 	})
 }
 

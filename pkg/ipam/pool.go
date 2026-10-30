@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -72,6 +73,23 @@ var errAllCIDRsExhausted = errors.New("all CIDR ranges are exhausted")
 // when an IP of a detached but in-use /28 is re-assigned as a /32. Once the
 // removed allocator goes away, the covered CIDR is released and marked
 // removed, like the CIDR of that allocator.
+//
+// If the agent takes part in the CIDR release handshake (see
+// PoolSpecAccessors.CIDRReleaseHandshake), releaseMarks mirrors the
+// operator's Status.IPAM.ReleaseCIDRs for this pool. A CIDR that the operator
+// has marked for release is blocked: allocateNext skips its allocator and it
+// gets no new allocator, neither from updatePool nor from the reclaim in
+// releaseExcessCIDRsMultiPool, until the operator clears the mark.
+// answerReleaseMarks answers a mark with ready-for-release, after dropping
+// the CIDR's unused allocator, or with do-not-release if the CIDR is in use.
+// All of this happens under the pool lock, so the agent never hands out an IP
+// from a CIDR it has acknowledged for release (cilium/cilium#47910).
+//
+// The handshake respects the overlap rules above. A marked CIDR that is
+// covered by an allocator, including a removed allocator that it is only
+// published through, is in use and answered with do-not-release. A CIDR that
+// overlaps a CIDR acknowledged for release gets no allocator either, so that
+// it can neither absorb nor hand out the acknowledged IPs.
 type cidrPool struct {
 	logger       *slog.Logger
 	mutex        lock.Mutex
@@ -87,6 +105,10 @@ type cidrPool struct {
 	// by inUseCIDRs, but never get an allocator and do not count towards
 	// the used and free IPs.
 	coveredByRemoved map[netip.Prefix]netip.Prefix
+	// releaseMarks holds the release handshake state of the CIDRs that the
+	// operator has marked for release, see cidrPool. Empty unless the agent
+	// takes part in the handshake.
+	releaseMarks map[netip.Prefix]string
 	// allowFirstIP and allowLastIP make the pool include the first and last IPs
 	// of each CIDR (normally reserved as network/broadcast). This is used for
 	// delegated prefixes where the range is exclusively assigned.
@@ -317,7 +339,7 @@ func (p *cidrPool) allocateNext() (netip.Addr, error) {
 	// When allocating a random IP, we try the CIDRs in the order they are
 	// listed in the CRD. This avoids internal fragmentation.
 	for _, ipAllocator := range p.ipAllocators {
-		if _, removed := p.removed[ipAllocator.CIDR()]; removed {
+		if !p.allocatableLocked(ipAllocator.CIDR()) {
 			continue
 		}
 		if ipAllocator.Free() == 0 {
@@ -343,7 +365,7 @@ func (p *cidrPool) hasAvailableIPs() bool {
 	defer p.mutex.Unlock()
 
 	for _, ipAllocator := range p.ipAllocators {
-		if _, removed := p.removed[ipAllocator.CIDR()]; removed {
+		if !p.allocatableLocked(ipAllocator.CIDR()) {
 			continue
 		}
 		if ipAllocator.Free() > 0 {
@@ -389,7 +411,7 @@ func (p *cidrPool) dump() (allocated sets.Set[netip.Addr], usedIPs, freeIPs, num
 	allocated = sets.New[netip.Addr]()
 	for _, ipAllocator := range p.ipAllocators {
 		usedIPs += ipAllocator.Used()
-		if _, removed := p.removed[ipAllocator.CIDR()]; !removed {
+		if p.allocatableLocked(ipAllocator.CIDR()) {
 			freeIPs += ipAllocator.Free()
 		}
 		ipAllocator.ForEach(func(addr netip.Addr) {
@@ -407,7 +429,7 @@ func (p *cidrPool) capacity() (freeIPs int) {
 	defer p.mutex.Unlock()
 
 	for _, ipAllocator := range p.ipAllocators {
-		if _, removed := p.removed[ipAllocator.CIDR()]; !removed {
+		if p.allocatableLocked(ipAllocator.CIDR()) {
 			freeIPs += ipAllocator.Free()
 		}
 	}
@@ -420,11 +442,11 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	// Removed CIDRs are not allocatable, so their free IPs do not count
-	// towards the free-IP buffer.
+	// Removed and blocked CIDRs are not allocatable, so their free IPs do
+	// not count towards the free-IP buffer.
 	totalFree := 0
 	for _, ipAllocator := range p.ipAllocators {
-		if _, removed := p.removed[ipAllocator.CIDR()]; removed {
+		if !p.allocatableLocked(ipAllocator.CIDR()) {
 			continue
 		}
 		totalFree += ipAllocator.Free()
@@ -457,6 +479,13 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 			if _, removed := p.removed[prefix]; removed {
 				continue // not allocatable, see updatePool
 			}
+			if p.blockedLocked(prefix) || p.overlapsAcknowledgedLocked(prefix) {
+				// The operator has marked it, or a CIDR it overlaps, for
+				// release. This is checked under the pool lock, like the
+				// answer to the mark, so no IP of a CIDR acknowledged for
+				// release is ever reclaimed.
+				continue
+			}
 			if ipallocator.RangeSize(prefix) == 0 {
 				continue // too-small CIDR, keep it released
 			}
@@ -465,7 +494,7 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 				continue // covered by an allocator, keep it released
 			}
 			for _, other := range absorbed {
-				if _, removed := p.removed[other.CIDR()]; !removed {
+				if p.allocatableLocked(other.CIDR()) {
 					totalFree -= other.Free()
 				}
 			}
@@ -485,15 +514,17 @@ func (p *cidrPool) releaseExcessCIDRsMultiPool(neededIPs int) {
 
 		// If the CIDR is not used and releasing it would
 		// not take us below the release threshold, then release it immediately.
-		// Unused removed CIDRs are always released: they are not allocatable,
-		// and keeping their allocator would keep them published forever.
+		// Unused removed or blocked CIDRs are always released: they are not
+		// allocatable, and keeping their allocator would keep them published
+		// forever.
 		free := ipAllocator.Free()
-		_, removed := p.removed[cidr]
-		if ipAllocator.Used() == 0 && (removed || totalFree-free >= neededIPs) {
+		allocatable := p.allocatableLocked(cidr)
+		if ipAllocator.Used() == 0 && (!allocatable || totalFree-free >= neededIPs) {
 			p.released[cidr] = struct{}{}
-			if removed {
+			if _, removed := p.removed[cidr]; removed {
 				p.releaseCoveredLocked(cidr)
-			} else {
+			}
+			if allocatable {
 				totalFree -= free
 			}
 			p.logger.Debug("releasing CIDR", logfields.CIDR, cidr)
@@ -599,6 +630,11 @@ func (p *cidrPool) updatePool(prefixes []netip.Prefix, regainRemoved bool) {
 		if _, ok := p.released[prefix]; ok {
 			continue
 		}
+		if p.overlapsAcknowledgedLocked(prefix) {
+			// It, or a CIDR it overlaps, has been acknowledged for release
+			// or released, see cidrPool.
+			continue
+		}
 		if ipallocator.RangeSize(prefix) == 0 {
 			p.logger.Error(
 				"skipping too-small CIDR",
@@ -668,6 +704,190 @@ func (p *cidrPool) updatePool(prefixes []netip.Prefix, regainRemoved bool) {
 	}
 
 	p.ipAllocators = newIPAllocators
+}
+
+// allocatableLocked returns true if new IPs may be allocated from the
+// allocator of cidr: it is neither removed nor blocked by a release mark.
+func (p *cidrPool) allocatableLocked(cidr netip.Prefix) bool {
+	if _, removed := p.removed[cidr]; removed {
+		return false
+	}
+	return !p.blockedLocked(cidr)
+}
+
+// blockedLocked returns true if the operator has marked cidr for release and
+// the agent has not answered do-not-release. No IPs are allocated from a
+// blocked CIDR, and it gets no new allocator except from updatePool while
+// its mark is not answered yet, so that restored IPs can be allocated.
+func (p *cidrPool) blockedLocked(cidr netip.Prefix) bool {
+	switch p.releaseMarks[cidr] {
+	case ipamOption.IPAMMarkForRelease, ipamOption.IPAMReadyForRelease, ipamOption.IPAMReleased:
+		return true
+	}
+	return false
+}
+
+// acknowledgedLocked returns true if the agent has acknowledged cidr for
+// release, or the operator has released it. Such a CIDR never gets an
+// allocator.
+func (p *cidrPool) acknowledgedLocked(cidr netip.Prefix) bool {
+	switch p.releaseMarks[cidr] {
+	case ipamOption.IPAMReadyForRelease, ipamOption.IPAMReleased:
+		return true
+	}
+	return false
+}
+
+// overlapsAcknowledgedLocked returns true if prefix contains or is contained
+// in a CIDR that has been acknowledged for release or released. An allocator
+// for prefix would hand out IPs of that CIDR, or absorb what is left of it.
+func (p *cidrPool) overlapsAcknowledgedLocked(prefix netip.Prefix) bool {
+	for cidr := range p.releaseMarks {
+		if p.acknowledgedLocked(cidr) && prefix.Overlaps(cidr) {
+			return true
+		}
+	}
+	return false
+}
+
+// setReleaseMarks updates the release handshake state of the pool to marks,
+// the operator's Status.IPAM.ReleaseCIDRs restricted to the pool's family.
+// It must be called before updatePool for the same CiliumNode, so that a
+// CIDR the agent acknowledged for release before a restart does not get an
+// allocator. A CIDR whose mark the operator has cleared is no longer
+// blocked.
+//
+// The handshake of a released CIDR ends when the agent has removed it from
+// Status.IPAM.ReleaseCIDRs, or when the operator finds it attached again, as
+// when EC2 hands a just-released prefix back to the node. The CIDR, and the
+// CIDRs it contains, are then forgotten as released, so that a re-assigned
+// CIDR gets a new allocator and is published again. A CIDR no longer in the
+// input is forgotten by updatePool anyway.
+func (p *cidrPool) setReleaseMarks(marks map[netip.Prefix]string) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	next := make(map[netip.Prefix]string, len(marks))
+	for cidr, status := range marks {
+		switch status {
+		case ipamOption.IPAMMarkForRelease:
+			// Keep an answer of ours that is not published yet. It is
+			// still true: the CIDR has been blocked since.
+			if p.releaseMarks[cidr] == ipamOption.IPAMReadyForRelease {
+				next[cidr] = ipamOption.IPAMReadyForRelease
+			} else {
+				next[cidr] = ipamOption.IPAMMarkForRelease
+			}
+		case ipamOption.IPAMReadyForRelease, ipamOption.IPAMDoNotRelease, ipamOption.IPAMReleased:
+			next[cidr] = status
+		}
+	}
+	for cidr, status := range p.releaseMarks {
+		if _, ok := next[cidr]; ok {
+			continue
+		}
+		p.logger.Debug("Release mark of CIDR cleared", logfields.CIDR, cidr)
+		if status == ipamOption.IPAMReleased {
+			for released := range p.released {
+				if containsPrefix(cidr, released) {
+					delete(p.released, released)
+				}
+			}
+		}
+	}
+	p.releaseMarks = next
+}
+
+// answerReleaseMarks answers the release marks of the pool and returns the
+// agent's answer for every CIDR it has answered, see cidrPool:
+//   - do-not-release if an IP of the CIDR is in use, or if the CIDR is part
+//     of a larger allocator;
+//   - ready-for-release otherwise. The allocators of the CIDR are dropped
+//     and it is put into the released set, so that it is no longer
+//     published and becomes reclaimable once the operator clears the mark.
+//
+// Marks are only answered if answer is set, i.e. once the IPs of the
+// restored endpoints have been allocated. An answer of ready-for-release is
+// re-checked on every call and turned into do-not-release if the CIDR turns
+// out to be in use, which cannot happen unless the CiliumNode was edited.
+func (p *cidrPool) answerReleaseMarks(answer bool) map[netip.Prefix]string {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if len(p.releaseMarks) == 0 {
+		return nil
+	}
+
+	answers := make(map[netip.Prefix]string, len(p.releaseMarks))
+	for cidr, status := range p.releaseMarks {
+		switch status {
+		case ipamOption.IPAMMarkForRelease:
+			if !answer {
+				continue
+			}
+		case ipamOption.IPAMReadyForRelease:
+		case ipamOption.IPAMDoNotRelease:
+			answers[cidr] = status
+			continue
+		default:
+			continue
+		}
+
+		if p.cidrInUseLocked(cidr) {
+			if status == ipamOption.IPAMReadyForRelease {
+				p.logger.Error(
+					"CIDR acknowledged for release is in use, revoking the acknowledgement",
+					logfields.CIDR, cidr,
+				)
+			} else {
+				p.logger.Info(
+					"CIDR marked for release is in use, not releasing it",
+					logfields.CIDR, cidr,
+				)
+			}
+			p.releaseMarks[cidr] = ipamOption.IPAMDoNotRelease
+			answers[cidr] = ipamOption.IPAMDoNotRelease
+			continue
+		}
+
+		if status == ipamOption.IPAMMarkForRelease {
+			p.ipAllocators = slices.DeleteFunc(p.ipAllocators, func(a *ipallocator.Range) bool {
+				if !containsPrefix(cidr, a.CIDR()) {
+					return false
+				}
+				p.released[a.CIDR()] = struct{}{}
+				if _, removed := p.removed[a.CIDR()]; removed {
+					// The CIDRs published only through this removed
+					// allocator go away with it.
+					p.releaseCoveredLocked(a.CIDR())
+				}
+				delete(p.removed, a.CIDR())
+				return true
+			})
+			p.released[cidr] = struct{}{}
+			p.logger.Debug("Acknowledging CIDR for release", logfields.CIDR, cidr)
+		}
+		p.releaseMarks[cidr] = ipamOption.IPAMReadyForRelease
+		answers[cidr] = ipamOption.IPAMReadyForRelease
+	}
+	return answers
+}
+
+// cidrInUseLocked returns true if an IP of cidr is in use, or if cidr is
+// part of a larger allocator, from which it cannot be carved out.
+func (p *cidrPool) cidrInUseLocked(cidr netip.Prefix) bool {
+	for _, ipAllocator := range p.ipAllocators {
+		other := ipAllocator.CIDR()
+		switch {
+		case containsPrefix(cidr, other):
+			if ipAllocator.Used() > 0 {
+				return true
+			}
+		case containsPrefix(other, cidr):
+			return true
+		}
+	}
+	return false
 }
 
 func prefixFamily(prefix netip.Prefix) Family {

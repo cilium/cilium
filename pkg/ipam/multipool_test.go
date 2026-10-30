@@ -11,6 +11,7 @@ import (
 	"maps"
 	"net/netip"
 	"slices"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -40,10 +41,12 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
@@ -1682,6 +1685,17 @@ type eniHarness struct {
 	// returns. It lags behind published until land is called.
 	apiserver types.IPAMPoolSpec
 	owner     int
+
+	// The fields below are only used by the release handshake tests.
+	//
+	// server is Status.IPAM.ReleaseCIDRs in the apiserver.
+	server types.CIDRReleaseStatusMap
+	// version is the resource version of the CiliumNode in the apiserver.
+	version int
+	// enis is the Status.ENI last written by the operator.
+	enis map[string]awsTypes.ENI
+	// inflight is the agent's last status write, until land is called.
+	inflight *inflightStatus
 }
 
 const eniPreAllocate = 8 // ENI default pre-allocate
@@ -1753,9 +1767,15 @@ func (h *eniHarness) operatorWrites(prefixes ...string) {
 
 func (h *eniHarness) operatorWritesENIs(enis map[string]awsTypes.ENI) {
 	h.t.Helper()
-	node := &ciliumv2.CiliumNode{ObjectMeta: metav1.ObjectMeta{Name: "node-eni"}}
+	h.version++
+	h.enis = enis
+	node := &ciliumv2.CiliumNode{ObjectMeta: metav1.ObjectMeta{
+		Name:            "node-eni",
+		ResourceVersion: strconv.Itoa(h.version),
+	}}
 	node.Spec.IPAM.PreAllocate = eniPreAllocate
 	node.Status.ENI.ENIs = enis
+	node.Status.IPAM.ReleaseCIDRs = h.server.DeepCopy()
 	h.mgr.ciliumNodeUpdated(node)
 }
 
@@ -1796,9 +1816,19 @@ func (h *eniHarness) sync() {
 	require.NoError(h.t, h.mgr.updateLocalNode(h.t.Context()))
 }
 
-// land makes the agent's last write visible to GETs from the operator.
+// land makes the agent's last write visible to GETs from the operator. A
+// status write based on an outdated resource version is dropped, as the
+// apiserver rejects it with a conflict. A status write that lands is
+// delivered back to the agent.
 func (h *eniHarness) land() {
 	h.apiserver = *h.published.DeepCopy()
+	if inflight := h.inflight; inflight != nil {
+		h.inflight = nil
+		if inflight.version == strconv.Itoa(h.version) {
+			h.server = inflight.releaseCIDRs
+			h.operatorWritesENIs(h.enis)
+		}
+	}
 }
 
 func (h *eniHarness) allocateNext() (netip.Addr, error) {
@@ -2256,5 +2286,375 @@ func TestMultiPoolManagerENIReleaseRaceWithEC2(t *testing.T) {
 			require.True(t, fresh.Contains(newAddr), "allocated %s, want an IP from %s; %s", newAddr, fresh, h.state())
 		}
 		require.NotEqual(t, addr, newAddr)
+	})
+}
+
+// handshakeCNClient records the agent's CiliumNode writes for the release
+// handshake tests. The agent's status writes are in flight until
+// eniHarness.land.
+type handshakeCNClient struct {
+	cilium_v2.CiliumNodeInterface
+	h *eniHarness
+	// pruneHandshakeField drops Spec.IPAM.CIDRReleaseHandshake from spec
+	// writes, like an apiserver with the CRD of an older operator.
+	pruneHandshakeField bool
+	specWrites          int
+	statusWrites        int
+}
+
+func (c *handshakeCNClient) Update(_ context.Context, node *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+	c.specWrites++
+	out := node.DeepCopy()
+	if c.pruneHandshakeField {
+		out.Spec.IPAM.CIDRReleaseHandshake = false
+	}
+	return out, nil
+}
+
+func (c *handshakeCNClient) UpdateStatus(_ context.Context, node *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+	c.statusWrites++
+	c.h.inflight = &inflightStatus{
+		version:      node.ResourceVersion,
+		releaseCIDRs: node.Status.IPAM.ReleaseCIDRs.DeepCopy(),
+	}
+	return node.DeepCopy(), nil
+}
+
+// inflightStatus is a status write of the agent that has not reached the
+// apiserver yet.
+type inflightStatus struct {
+	version      string
+	releaseCIDRs types.CIDRReleaseStatusMap
+}
+
+// newENIHandshakeHarness returns an eniHarness whose agent takes part in the
+// CIDR release handshake, as the ENI agent does.
+func newENIHandshakeHarness(t *testing.T) (*eniHarness, *handshakeCNClient) {
+	h := newENIHarness(t)
+	h.mgr.poolsAccessor.CIDRReleaseHandshake = true
+	client := &handshakeCNClient{h: h}
+	h.mgr.cnClient = client
+	h.server = types.CIDRReleaseStatusMap{}
+	return h, client
+}
+
+// operatorWritesRelease simulates the operator writing status, where
+// Status.IPAM.ReleaseCIDRs is set to release, and delivers it to the agent.
+func (h *eniHarness) operatorWritesRelease(release types.CIDRReleaseStatusMap) {
+	h.t.Helper()
+	h.server = release
+	h.version++
+	h.operatorWritesENIs(h.enis)
+}
+
+// releaseState returns the release handshake state of x in the apiserver.
+func (h *eniHarness) releaseState(x netip.Prefix) types.IPReleaseStatus {
+	return h.server[iputil.PrefixFrom(x)]
+}
+
+// operatorMarks is the operator's marking pass of the handshake: the
+// release candidates that are not marked yet are marked.
+func (o *eniOperator) operatorMarks(h *eniHarness) {
+	release := h.server.DeepCopy()
+	if release == nil {
+		release = types.CIDRReleaseStatusMap{}
+	}
+	changed := false
+	for x := range o.marked {
+		if _, ok := release[iputil.PrefixFrom(x)]; !ok {
+			release[iputil.PrefixFrom(x)] = ipamOption.IPAMMarkForRelease
+			changed = true
+		}
+	}
+	if changed {
+		h.operatorWritesRelease(release)
+	}
+}
+
+// releaseAcknowledged is the operator's release pass with the handshake: it
+// GETs the CiliumNode, unmarks what the agent lists in Allocated or refused,
+// and unassigns in EC2 only what the agent acknowledged with
+// ready-for-release. It returns the unassigned prefixes.
+func (o *eniOperator) releaseAcknowledged(h *eniHarness) []netip.Prefix {
+	o.t.Helper()
+	listed := sets.New[netip.Prefix]()
+	for _, alloc := range h.apiserver.Allocated {
+		for _, c := range alloc.CIDRs {
+			listed.Insert(c.Prefix)
+		}
+	}
+	release := h.server.DeepCopy()
+	var released []netip.Prefix
+	for _, x := range slices.SortedFunc(maps.Keys(o.marked), netip.Prefix.Compare) {
+		key := iputil.PrefixFrom(x)
+		switch {
+		case listed.Has(x), release[key] == ipamOption.IPAMDoNotRelease:
+			o.marked.Delete(x)
+			delete(release, key)
+		case release[key] == ipamOption.IPAMReadyForRelease:
+			require.NoError(o.t, o.cloud.UnassignENIPrefixes(o.t.Context(), o.eniID, []string{x.String()}))
+			o.marked.Delete(x)
+			release[key] = ipamOption.IPAMReleased
+			released = append(released, x)
+		}
+	}
+	if !release.DeepEqual(&h.server) || len(released) > 0 {
+		o.writeStatusWithRelease(h, release)
+	}
+	return released
+}
+
+// writeStatusWithRelease writes Status.ENI from EC2 together with release.
+func (o *eniOperator) writeStatusWithRelease(h *eniHarness, release types.CIDRReleaseStatusMap) {
+	o.t.Helper()
+	instance, err := o.cloud.GetInstance(o.t.Context(), nil, nil, "i-1")
+	require.NoError(o.t, err)
+	eni := instance.Interfaces[o.eniID].(*awsTypes.ENI)
+	h.enis = map[string]awsTypes.ENI{o.eniID: *eni}
+	h.operatorWritesRelease(release)
+}
+
+// TestMultiPoolManagerENIReleaseHandshakeTransitions walks the agent through
+// the transitions of the CIDR release handshake with the ENI accessor
+// (cilium/cilium#47910).
+func TestMultiPoolManagerENIReleaseHandshakeTransitions(t *testing.T) {
+	setup := func(t *testing.T) (*eniHarness, *handshakeCNClient, *eniOperator, netip.Prefix) {
+		h, client := newENIHandshakeHarness(t)
+		op := newENIOperator(t, 2)
+		x := op.attached()[1]
+		op.writeStatus(h)
+		h.mustAllocate(8)
+		h.sync()
+		h.land()
+		op.observe(h)
+		require.True(t, op.marked.Has(x), "precondition: %s released and a release candidate; %s", x, h.state())
+		return h, client, op, x
+	}
+
+	t.Run("agent advertises the handshake once", func(t *testing.T) {
+		h, client, _, _ := setup(t)
+		require.Equal(t, 1, client.specWrites)
+		for range 3 {
+			h.sync()
+		}
+		require.Equal(t, 1, client.specWrites)
+	})
+
+	t.Run("advertisement pruned by an old CRD is not rewritten on every sync", func(t *testing.T) {
+		h, client := newENIHandshakeHarness(t)
+		client.pruneHandshakeField = true
+		h.operatorWrites("10.0.0.0/28")
+		for range 3 {
+			h.sync()
+		}
+		require.Equal(t, 1, client.specWrites)
+	})
+
+	t.Run("marked-for-release to ready-for-release to released", func(t *testing.T) {
+		h, client, op, x := setup(t)
+		op.operatorMarks(h)
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMMarkForRelease), h.releaseState(x))
+		h.sync()
+		h.land()
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMReadyForRelease), h.releaseState(x))
+		require.NotContains(t, h.publishedCIDRs(), x)
+
+		require.Equal(t, []netip.Prefix{x}, op.releaseAcknowledged(h))
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMReleased), h.releaseState(x))
+
+		// x is no longer advertised: the agent ends the handshake.
+		writes := client.statusWrites
+		h.sync()
+		h.land()
+		require.Equal(t, writes+1, client.statusWrites)
+		require.NotContains(t, h.server, iputil.PrefixFrom(x))
+	})
+
+	t.Run("in-use CIDR is answered with do-not-release", func(t *testing.T) {
+		h, _, op, x := setup(t)
+		// The agent reclaims x and allocates from it before the mark
+		// reaches it, and its write has not landed.
+		h.mustAllocate(8)
+		addr, err := h.allocateEventually(3)
+		require.NoError(t, err, h.state())
+		require.True(t, x.Contains(addr))
+
+		op.operatorMarks(h)
+		h.sync()
+		require.Empty(t, op.releaseAcknowledged(h), "nothing is unassigned before the answer landed")
+		h.land()
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMDoNotRelease), h.releaseState(x))
+		require.Empty(t, op.releaseAcknowledged(h))
+		require.NotContains(t, h.server, iputil.PrefixFrom(x), "do-not-release clears the mark")
+		require.Contains(t, op.attached(), x)
+		require.False(t, op.marked.Has(x))
+	})
+
+	t.Run("marked CIDR is not reclaimed when demand rises", func(t *testing.T) {
+		h, _, op, x := setup(t)
+		op.operatorMarks(h)
+		h.mustAllocate(8)
+		_, err := h.allocateEventually(3)
+		require.ErrorIs(t, err, errAllCIDRsExhausted, h.state())
+		h.land()
+		require.Equal(t, []netip.Prefix{x}, op.releaseAcknowledged(h))
+	})
+
+	t.Run("cleared mark lets the agent reclaim the CIDR", func(t *testing.T) {
+		h, _, op, x := setup(t)
+		op.operatorMarks(h)
+		h.sync()
+		h.land()
+		// The operator gives up, e.g. because the node needs the IPs.
+		op.marked.Delete(x)
+		h.operatorWritesRelease(types.CIDRReleaseStatusMap{})
+		h.mustAllocate(8)
+		addr, err := h.allocateEventually(3)
+		require.NoError(t, err, h.state())
+		require.True(t, x.Contains(addr))
+	})
+
+	t.Run("agent restart keeps an acknowledged CIDR blocked", func(t *testing.T) {
+		h, _, op, x := setup(t)
+		op.operatorMarks(h)
+		h.sync()
+		h.land()
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMReadyForRelease), h.releaseState(x))
+
+		restarted, _ := newENIHandshakeHarness(t)
+		restarted.server = h.server
+		restarted.enis = h.enis
+		restarted.mgr.finishedRestore = map[Family]bool{}
+		restarted.operatorWritesENIs(h.enis)
+		restarted.mgr.RestoreFinished(IPv4)
+		restarted.sync()
+		require.NotContains(t, restarted.publishedCIDRs(), x)
+		restarted.mustAllocate(16)
+		_, err := restarted.allocateNext()
+		require.ErrorIs(t, err, errAllCIDRsExhausted, restarted.state())
+	})
+
+	t.Run("old operator without marks behaves as before", func(t *testing.T) {
+		h, _, _, x := setup(t)
+		h.mustAllocate(8)
+		addr, err := h.allocateEventually(3)
+		require.NoError(t, err, h.state())
+		require.True(t, x.Contains(addr), "the agent reclaims %s as without the handshake", x)
+	})
+}
+
+// multisetPermutations calls fn with every distinct ordering of steps.
+func multisetPermutations(steps []string, fn func([]string)) {
+	slices.Sort(steps)
+	var rec func(prefix []string, rest []string)
+	rec = func(prefix []string, rest []string) {
+		if len(rest) == 0 {
+			fn(prefix)
+			return
+		}
+		for i := range rest {
+			if i > 0 && rest[i] == rest[i-1] {
+				continue
+			}
+			next := slices.Concat(rest[:i], rest[i+1:])
+			rec(append(slices.Clone(prefix), rest[i]), next)
+		}
+	}
+	rec(nil, steps)
+}
+
+// TestMultiPoolManagerENIReleaseHandshakeInterleavings runs every ordering of
+// the agent's and the operator's steps after the agent released prefix x
+// (cilium/cilium#47910), and checks that no pod IP is ever in a prefix that
+// was unassigned in EC2:
+//   - alloc: 9 pods are created, which needs x once the first /28 is full;
+//   - sync: the agent's sync round (answer marks, reclaim, publish);
+//   - land: the agent's writes reach the apiserver;
+//   - mark: the operator's marking pass;
+//   - release: the operator's GET and EC2 release pass.
+//
+// Without the handshake the same orderings do unassign in-use prefixes,
+// which shows that they cover the race.
+func TestMultiPoolManagerENIReleaseHandshakeInterleavings(t *testing.T) {
+	steps := []string{"alloc", "alloc", "sync", "sync", "land", "mark", "release"}
+	// Let the handshake run to completion after each ordering.
+	tail := []string{"sync", "land", "release", "sync", "land", "release"}
+
+	run := func(t *testing.T, handshake bool, order []string) (violation string, unassigned bool) {
+		var h *eniHarness
+		if handshake {
+			h, _ = newENIHandshakeHarness(t)
+		} else {
+			h = newENIHarness(t)
+		}
+		op := newENIOperator(t, 2)
+		x := op.attached()[1]
+		op.writeStatus(h)
+		pods := h.mustAllocate(8)
+		h.sync()
+		h.land()
+		op.observe(h)
+		require.True(t, op.marked.Has(x))
+
+		for i, step := range slices.Concat(order, tail) {
+			switch step {
+			case "alloc":
+				for range 9 {
+					addr, err := h.allocateNext()
+					if err != nil {
+						break
+					}
+					pods = append(pods, addr)
+				}
+			case "sync":
+				h.sync()
+			case "land":
+				h.land()
+			case "mark":
+				if handshake {
+					op.operatorMarks(h)
+				}
+			case "release":
+				var released []netip.Prefix
+				if handshake {
+					released = op.releaseAcknowledged(h)
+				} else {
+					released = op.release(h)
+				}
+				unassigned = unassigned || slices.Contains(released, x)
+			}
+			attached := op.attached()
+			for _, addr := range pods {
+				if !slices.ContainsFunc(attached, func(p netip.Prefix) bool { return p.Contains(addr) }) {
+					return fmt.Sprintf("after step %d (%s) of %v: pod IP %s unassigned", i, step, order, addr), unassigned
+				}
+			}
+		}
+		return "", unassigned
+	}
+
+	t.Run("with the handshake no in-use prefix is unassigned", func(t *testing.T) {
+		orders, unassigned := 0, 0
+		multisetPermutations(slices.Clone(steps), func(order []string) {
+			orders++
+			violation, released := run(t, true, order)
+			require.Empty(t, violation)
+			if released {
+				unassigned++
+			}
+		})
+		require.Equal(t, 1260, orders)
+		// Liveness: idle prefixes are still released.
+		require.NotZero(t, unassigned)
+	})
+
+	t.Run("without the handshake some orderings unassign an in-use prefix", func(t *testing.T) {
+		violations := 0
+		multisetPermutations(slices.Clone(steps), func(order []string) {
+			if violation, _ := run(t, false, order); violation != "" {
+				violations++
+			}
+		})
+		require.NotZero(t, violations)
 	})
 }
