@@ -218,7 +218,6 @@ sock4_skip_xlate(const struct lb4_service *svc, __be32 address)
 	return false;
 }
 
-#ifdef ENABLE_NODEPORT
 static __always_inline const struct lb4_service *
 sock4_wildcard_lookup(struct lb4_key *key)
 {
@@ -246,13 +245,13 @@ wildcard_lookup:
 	key->address = 0;
 	return lb4_lookup_service(key, true);
 }
-#endif /* ENABLE_NODEPORT */
 
 static __always_inline const struct lb4_service *
-sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
-			   const bool in_hostns __maybe_unused)
+sock4_wildcard_lookup_full(struct lb4_key *key, const bool in_hostns)
 {
-#ifdef ENABLE_NODEPORT
+	if (!is_defined(ENABLE_NODEPORT))
+		return NULL;
+
 	bool loopback = is_v4_loopback(key->address);
 	const struct remote_endpoint_info *info;
 	const struct lb4_service *svc;
@@ -299,9 +298,6 @@ lookup:
 	 */
 	return (lb4_svc_is_hostport(svc) &&
 		(!lb4_svc_is_loopback(svc) || loopback)) ? svc : NULL;
-#endif /* ENABLE_NODEPORT */
-
-	return NULL;
 }
 
 static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
@@ -485,7 +481,6 @@ int cil_sock4_connect(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
-#ifdef ENABLE_NODEPORT
 static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 					     struct bpf_sock *ctx_full)
 {
@@ -540,7 +535,6 @@ int cil_sock4_post_bind(struct bpf_sock *ctx)
 
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_NODEPORT */
 
 static __always_inline void sock4_auto_bind(struct bpf_sock_addr *ctx)
 {
@@ -738,7 +732,6 @@ static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
 	barrier();
 }
 
-#ifdef ENABLE_NODEPORT
 static __always_inline void ctx_get_v6_src_address(const struct bpf_sock *ctx,
 						   union v6addr *addr)
 {
@@ -751,7 +744,6 @@ static __always_inline void ctx_get_v6_src_address(const struct bpf_sock *ctx,
 	addr->p4 = ctx->src_ip6[3];
 	barrier();
 }
-#endif /* ENABLE_NODEPORT */
 
 static __always_inline void ctx_set_v6_address(struct bpf_sock_addr *ctx,
 					       const union v6addr *addr)
@@ -783,7 +775,6 @@ sock6_skip_xlate(const struct lb6_service *svc, const union v6addr *address)
 	return false;
 }
 
-#ifdef ENABLE_NODEPORT
 static __always_inline __maybe_unused const struct lb6_service *
 sock6_wildcard_lookup(struct lb6_key *key)
 {
@@ -811,13 +802,13 @@ wildcard_lookup:
 	memset(&key->address, 0, sizeof(key->address));
 	return lb6_lookup_service(key, true);
 }
-#endif /* ENABLE_NODEPORT */
 
 static __always_inline __maybe_unused const struct lb6_service *
-sock6_wildcard_lookup_full(struct lb6_key *key __maybe_unused,
-			   const bool in_hostns __maybe_unused)
+sock6_wildcard_lookup_full(struct lb6_key *key, const bool in_hostns)
 {
-#ifdef ENABLE_NODEPORT
+	if (!is_defined(ENABLE_NODEPORT))
+		return NULL;
+
 	bool loopback = is_v6_loopback(&key->address);
 	const struct remote_endpoint_info *info;
 	const struct lb6_service *svc;
@@ -858,8 +849,6 @@ lookup:
 
 	return (lb6_svc_is_hostport(svc) &&
 		(!lb6_svc_is_loopback(svc) || loopback)) ? svc : NULL;
-#endif /* ENABLE_NODEPORT */
-	return NULL;
 }
 
 static __always_inline
@@ -894,7 +883,6 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 	return -ENXIO;
 }
 
-#ifdef ENABLE_NODEPORT
 static __always_inline int
 sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 {
@@ -961,7 +949,6 @@ int cil_sock6_post_bind(struct bpf_sock *ctx)
 
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_NODEPORT */
 
 static __always_inline int
 sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)

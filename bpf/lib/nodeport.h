@@ -50,13 +50,11 @@ ASSIGN_CONFIG(__u8, ipv6_rss_prefix_bits, 128)
 #endif
 
 /* Define dummy values to make bpf_{lxc,overlay}.c to compile */
-#ifdef ENABLE_NODEPORT
 # ifndef DSR_ENCAP_MODE
 #  define DSR_ENCAP_MODE 0
 #  define DSR_ENCAP_IPIP 2
 #  define DSR_ENCAP_GENEVE 3
 # endif
-#endif
 
 /* Evaluate the input values for detecting compilation errors.
  * Just blindly substituting this macro with the CTX_ACT_OK
@@ -87,7 +85,6 @@ ASSIGN_CONFIG(__u8, ipv6_rss_prefix_bits, 128)
 	-1; \
 })
 
-#ifdef ENABLE_NODEPORT
 /* The IPv6 extension should be 8-bytes aligned */
 struct dsr_opt_v6 {
 	struct ipv6_opt_hdr hdr;
@@ -2983,5 +2980,3 @@ skip_service_lookup:
 
 	return CTX_ACT_OK;
 }
-
-#endif /* ENABLE_NODEPORT */

@@ -68,29 +68,25 @@ neigh_resolver_available(void)
 #define XFER_MARKER	6 /* xdp -> skb meta transfer */
 
 static __always_inline __maybe_unused void
-ctx_skip_nodeport_clear(struct xdp_md *ctx __maybe_unused)
+ctx_skip_nodeport_clear(struct xdp_md *ctx)
 {
-#ifdef ENABLE_NODEPORT
-	ctx_store_meta(ctx, RECIRC_MARKER, 0);
-#endif
+	if (is_defined(ENABLE_NODEPORT))
+		ctx_store_meta(ctx, RECIRC_MARKER, 0);
 }
 
 static __always_inline __maybe_unused void
-ctx_skip_nodeport_set(struct xdp_md *ctx __maybe_unused)
+ctx_skip_nodeport_set(struct xdp_md *ctx)
 {
-#ifdef ENABLE_NODEPORT
-	ctx_store_meta(ctx, RECIRC_MARKER, 1);
-#endif
+	if (is_defined(ENABLE_NODEPORT))
+		ctx_store_meta(ctx, RECIRC_MARKER, 1);
 }
 
 static __always_inline __maybe_unused bool
-ctx_skip_nodeport(struct xdp_md *ctx __maybe_unused)
+ctx_skip_nodeport(struct xdp_md *ctx)
 {
-#ifdef ENABLE_NODEPORT
+	if (!is_defined(ENABLE_NODEPORT))
+		return true;
 	return ctx_load_meta(ctx, RECIRC_MARKER);
-#else
-	return true;
-#endif
 }
 
 static __always_inline __maybe_unused __u32

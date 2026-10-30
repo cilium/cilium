@@ -7,7 +7,6 @@
 #include "drop.h"
 #include "nodeport.h"
 
-#ifdef ENABLE_NODEPORT
 
 #if defined(IS_BPF_OVERLAY)
 #define NODEPORT_OBS_POINT_EGRESS      TRACE_TO_OVERLAY
@@ -740,5 +739,3 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 	}
 	return ret;
 }
-
-#endif /* ENABLE_NODEPORT */
