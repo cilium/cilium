@@ -219,5 +219,5 @@ func (c ServiceModeV2Config) Validate() error {
 }
 
 var DefaultServiceModeV2Config = ServiceModeV2Config{
-	ServiceModeV2: ServiceV2PreferLegacy,
+	ServiceModeV2: ServiceV2PreferEndpointSlice,
 }

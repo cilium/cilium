@@ -58,6 +58,7 @@ import (
 	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	clustercfgcell "github.com/cilium/cilium/pkg/clustermesh/clustercfg/cell"
 	"github.com/cilium/cilium/pkg/clustermesh/endpointslicesync"
+	endpointslicesynclegacy "github.com/cilium/cilium/pkg/clustermesh/endpointslicesync/legacy"
 	"github.com/cilium/cilium/pkg/clustermesh/mcsapi"
 	cmoperator "github.com/cilium/cilium/pkg/clustermesh/operator"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -225,6 +226,7 @@ var (
 		nodeipam.Cell,
 		store.Cell,
 		cmoperator.Cell,
+		endpointslicesynclegacy.Cell,
 		endpointslicesync.Cell,
 		mcsapi.Cell,
 		locksweeper.Cell,
