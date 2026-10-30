@@ -18,7 +18,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV6			1
-#define ENABLE_NODEPORT			1
 
 #define NODE_IP_V6			v6_node_one_ll
 
@@ -32,6 +31,7 @@ static volatile const __u8 *server_mac = mac_two;
 
 ASSIGN_CONFIG(union v6addr, nat_ipv6_masquerade, { .addr = v6_node_one_ll_addr})
 ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 static __always_inline int check_not_masqueraded(const struct __ctx_buff *ctx)
 {

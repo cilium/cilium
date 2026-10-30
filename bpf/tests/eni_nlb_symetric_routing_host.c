@@ -12,7 +12,6 @@
 
 /* Enable code paths under test*/
 #define ENABLE_IPV4		1
-#define ENABLE_NODEPORT		1
 
 #define PRIMARY_IFACE 1
 #define SECONDARY_IFACE 2
@@ -56,6 +55,7 @@ mock_redirect_neigh(int ifindex,
 ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
 ASSIGN_CONFIG(bool, debug, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* Setup for this test:
  *

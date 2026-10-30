@@ -9,12 +9,13 @@
 #define ENCAP_IFINDEX 1
 #define ENABLE_IPV4 1
 #define TUNNEL_MODE 1
-#define ENABLE_NODEPORT 1
 #define ENABLE_CLUSTER_AWARE_ADDRESSING
 #define ENABLE_INTER_CLUSTER_SNAT
 
 #define NODEPORT_PORT_MAX_NAT 32768
 #include "nodeport_defaults.h"
+
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 #define NODEPORT_PORT_MIN_NAT_EXT 32767
 ASSIGN_CONFIG(__u16, nodeport_port_min_nat_ext, NODEPORT_PORT_MIN_NAT_EXT)
