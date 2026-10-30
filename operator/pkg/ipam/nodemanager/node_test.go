@@ -659,10 +659,26 @@ func snapshotAction(a *ReleaseAction) *ReleaseAction {
 	return &c
 }
 
+// k8sGetterMock returns get's result from Get and GetWithContext. The other
+// methods behave like k8sMockNode.
+type k8sGetterMock struct {
+	k8sMockNode
+	get func(ctx context.Context, name string) (*v2.CiliumNode, error)
+}
+
+func (k *k8sGetterMock) Get(name string) (*v2.CiliumNode, error) {
+	return k.get(context.Background(), name)
+}
+
+func (k *k8sGetterMock) GetWithContext(ctx context.Context, name string) (*v2.CiliumNode, error) {
+	return k.get(ctx, name)
+}
+
 func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 	setupNode := func(t *testing.T, mock *multiPoolOpsMock, marked map[netip.Prefix]time.Time, multiPool bool) *Node {
 		n := &Node{
 			rootLogger:                     hivetest.Logger(t),
+			name:                           "test-node",
 			ops:                            mock,
 			excessIPReleaseDelay:           5 * time.Second,
 			multiPoolCIDRsMarkedForRelease: marked,
@@ -676,6 +692,12 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 			}
 		}
 		n.resource = cn
+		// By default the apiserver copy matches the informer copy.
+		n.manager = &NodeManager{k8sAPI: &k8sGetterMock{get: func(context.Context, string) (*v2.CiliumNode, error) {
+			n.mutex.RLock()
+			defer n.mutex.RUnlock()
+			return n.resource.DeepCopy(), nil
+		}}}
 		return n
 	}
 
@@ -824,6 +846,123 @@ func TestHandleMultiPoolCIDRRelease(t *testing.T) {
 		require.Equal(t, []netip.Prefix{keep}, mock.releaseCalls[0].CIDRsToRelease)
 		require.NotContains(t, n.multiPoolCIDRsMarkedForRelease, keep)
 		require.NotContains(t, n.multiPoolCIDRsMarkedForRelease, readd)
+	})
+
+	t.Run("CIDR re-listed in the apiserver copy is not released", func(t *testing.T) {
+		// The informer copy still lacks `readd`, but the agent has already
+		// re-listed it in Spec.IPAM.Pools.Allocated (issue #47910). The GET
+		// right before the EC2 call must catch this.
+		keep := netip.MustParsePrefix("10.0.0.16/28")
+		readd := netip.MustParsePrefix("10.0.0.32/28")
+		mock := &multiPoolOpsMock{
+			prepare: func([]netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{
+					InterfaceID:    "eni-1",
+					CIDRsToRelease: []netip.Prefix{keep, readd},
+				}}
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{
+			keep:  past(),
+			readd: past(),
+		}, true)
+		var gets int
+		n.manager.k8sAPI = &k8sGetterMock{get: func(ctx context.Context, name string) (*v2.CiliumNode, error) {
+			gets++
+			require.Equal(t, "test-node", name)
+			// The GET is bounded, so a hung apiserver cannot stall the
+			// maintenance of the node.
+			deadline, ok := ctx.Deadline()
+			require.True(t, ok, "GET must have a deadline")
+			require.WithinDuration(t, time.Now().Add(multiPoolRefreshTimeout), deadline, multiPoolRefreshTimeout)
+			n.mutex.RLock()
+			fresh := n.resource.DeepCopy()
+			n.mutex.RUnlock()
+			fresh.Spec.IPAM.Pools.Allocated = []ipamTypes.IPAMPoolAllocation{
+				{Pool: defaults.IPAMDefaultIPPool, CIDRs: []iputil.Prefix{iputil.PrefixFrom(readd)}},
+			}
+			return fresh, nil
+		}}
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.True(t, mutated)
+		require.Len(t, mock.releaseCalls, 1)
+		require.Equal(t, []netip.Prefix{keep}, mock.releaseCalls[0].CIDRsToRelease)
+		require.Equal(t, 1, gets)
+		require.NotContains(t, n.multiPoolCIDRsMarkedForRelease, keep)
+		require.NotContains(t, n.multiPoolCIDRsMarkedForRelease, readd)
+	})
+
+	t.Run("CiliumNode GET error skips the release", func(t *testing.T) {
+		cidr := netip.MustParsePrefix("10.0.0.16/28")
+		mock := &multiPoolOpsMock{
+			prepare: func([]netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{
+					InterfaceID:    "eni-1",
+					CIDRsToRelease: []netip.Prefix{cidr},
+				}}
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{cidr: past()}, true)
+		n.manager.k8sAPI = &k8sGetterMock{get: func(context.Context, string) (*v2.CiliumNode, error) {
+			return nil, errors.New("apiserver unavailable")
+		}}
+
+		// Repeated failures are rate-limited in the log, and none releases.
+		for range 5 {
+			mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+			require.NoError(t, err)
+			require.False(t, mutated)
+		}
+		require.Empty(t, mock.releaseCalls)
+		// Still marked, so a later pass retries.
+		require.Contains(t, n.multiPoolCIDRsMarkedForRelease, cidr)
+	})
+
+	t.Run("one CiliumNode GET per release pass", func(t *testing.T) {
+		cidr1 := netip.MustParsePrefix("10.0.0.16/28")
+		cidr2 := netip.MustParsePrefix("10.0.1.16/28")
+		mock := &multiPoolOpsMock{
+			prepare: func([]netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{
+					{InterfaceID: "eni-1", CIDRsToRelease: []netip.Prefix{cidr1}},
+					{InterfaceID: "eni-2", CIDRsToRelease: []netip.Prefix{cidr2}},
+				}
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{
+			cidr1: past(),
+			cidr2: past(),
+		}, true)
+		var gets int
+		n.manager.k8sAPI = &k8sGetterMock{get: func(context.Context, string) (*v2.CiliumNode, error) {
+			gets++
+			return &v2.CiliumNode{}, nil
+		}}
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.True(t, mutated)
+		require.Len(t, mock.releaseCalls, 2)
+		require.Equal(t, 1, gets)
+	})
+
+	t.Run("k8s API without context support is used as is", func(t *testing.T) {
+		cidr := netip.MustParsePrefix("10.0.0.16/28")
+		mock := &multiPoolOpsMock{
+			prepare: func([]netip.Prefix) []*ReleaseAction {
+				return []*ReleaseAction{{InterfaceID: "eni-1", CIDRsToRelease: []netip.Prefix{cidr}}}
+			},
+		}
+		n := setupNode(t, mock, map[netip.Prefix]time.Time{cidr: past()}, true)
+		// k8sMockNode.Get returns NotFound: the pass is skipped.
+		n.manager.k8sAPI = &k8sMockNode{}
+
+		mutated, err := n.handleMultiPoolCIDRRelease(t.Context())
+		require.NoError(t, err)
+		require.False(t, mutated)
+		require.Empty(t, mock.releaseCalls)
 	})
 
 	t.Run("ReleaseCIDRs error preserves unreleased CIDRs in marked map", func(t *testing.T) {

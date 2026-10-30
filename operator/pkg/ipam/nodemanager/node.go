@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	operatorK8s "github.com/cilium/cilium/operator/k8s"
+	"github.com/cilium/cilium/operator/pkg/ipam/allocator"
 	"github.com/cilium/cilium/operator/pkg/ipam/metrics"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -461,15 +462,7 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 		return
 	}
 
-	currentCIDRs := sets.New[netip.Prefix]()
-	for _, alloc := range n.resource.Spec.IPAM.Pools.Allocated {
-		for _, c := range alloc.CIDRs {
-			if !c.IsValid() {
-				continue
-			}
-			currentCIDRs.Insert(c.Prefix)
-		}
-	}
+	currentCIDRs := multiPoolAllocatedCIDRs(n.resource)
 
 	attachedCIDRs := n.ops.GetAttachedCIDRs()
 
@@ -519,6 +512,68 @@ func (n *Node) trackMultiPoolAllocatedLocked() {
 	n.previousAllocatedCIDRs = currentCIDRs
 }
 
+// multiPoolAllocatedCIDRs returns the valid CIDRs that the multi-pool agent
+// lists in Spec.IPAM.Pools.Allocated.
+func multiPoolAllocatedCIDRs(resource *v2.CiliumNode) sets.Set[netip.Prefix] {
+	cidrs := sets.New[netip.Prefix]()
+	for _, alloc := range resource.Spec.IPAM.Pools.Allocated {
+		for _, c := range alloc.CIDRs {
+			if c.IsValid() {
+				cidrs.Insert(c.Prefix)
+			}
+		}
+	}
+	return cidrs
+}
+
+// multiPoolRefreshTimeout bounds the apiserver GET of the CiliumNode before a
+// multi-pool CIDR release pass, so that a hung apiserver does not stall the
+// maintenance of the node.
+const multiPoolRefreshTimeout = 10 * time.Second
+
+// getCiliumNode reads the node's CiliumNode from the apiserver, bounded by
+// multiPoolRefreshTimeout if the k8s API supports it.
+func (n *Node) getCiliumNode(ctx context.Context) (*v2.CiliumNode, error) {
+	if getter, ok := n.manager.k8sAPI.(allocator.CiliumNodeContextGetter); ok {
+		ctx, cancel := context.WithTimeout(ctx, multiPoolRefreshTimeout)
+		defer cancel()
+		return getter.GetWithContext(ctx, n.name)
+	}
+	return n.manager.k8sAPI.Get(n.name)
+}
+
+// refreshMultiPoolAllocated reads the CiliumNode from the apiserver and
+// unmarks the CIDRs that the agent lists in Spec.IPAM.Pools.Allocated again.
+// The informer copy can lag behind the agent's latest write, and releasing a
+// CIDR that the agent has reclaimed unassigns in-use IPs (cilium/cilium#47910).
+//
+// This only narrows the race: the agent reclaims a released CIDR and
+// allocates from it before its write reaches the apiserver, so a GET can
+// still miss it.
+func (n *Node) refreshMultiPoolAllocated(ctx context.Context) error {
+	fresh, err := n.getCiliumNode(ctx)
+	if err != nil {
+		return err
+	}
+	if fresh == nil {
+		return errors.New("apiserver returned no CiliumNode")
+	}
+	allocated := multiPoolAllocatedCIDRs(fresh)
+
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	for cidr := range n.multiPoolCIDRsMarkedForRelease {
+		if allocated.Has(cidr) {
+			delete(n.multiPoolCIDRsMarkedForRelease, cidr)
+			n.logger.Load().Info(
+				"Agent re-listed CIDR marked for release, not releasing it",
+				logfields.CIDR, cidr,
+			)
+		}
+	}
+	return nil
+}
+
 // handleMultiPoolCIDRRelease releases CIDRs that the multi-pool agent has
 // removed from Spec.IPAM.Pools.Allocated, after the excessIPReleaseDelay
 // has elapsed.
@@ -553,6 +608,24 @@ func (n *Node) handleMultiPoolCIDRRelease(ctx context.Context) (bool, error) {
 	n.mutex.Unlock()
 
 	if len(actions) == 0 {
+		return false, nil
+	}
+
+	// The informer copy may not show the agent's latest write yet, so read
+	// the CiliumNode from the apiserver once for this pass. If that fails,
+	// release nothing in this pass; the CIDRs stay marked and are retried.
+	if err := n.refreshMultiPoolAllocated(ctx); err != nil {
+		if n.logLimiter.Allow() {
+			scopedLog.Warn(
+				"Unable to get CiliumNode from apiserver, skipping CIDR release",
+				logfields.Error, err,
+			)
+		} else {
+			scopedLog.Debug(
+				"Unable to get CiliumNode from apiserver, skipping CIDR release",
+				logfields.Error, err,
+			)
+		}
 		return false, nil
 	}
 

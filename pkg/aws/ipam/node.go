@@ -299,6 +299,7 @@ func (n *Node) ReleaseCIDRs(ctx context.Context, r *nodemanager.ReleaseAction) (
 		if err := n.manager.ec2api.UnassignENIPrefixes(ctx, r.InterfaceID, strs); err != nil {
 			return released, err
 		}
+		n.manager.RemovePrefixesFromENI(n.node.InstanceID(), r.InterfaceID, prefixes)
 		released = append(released, prefixes...)
 	}
 
@@ -440,7 +441,10 @@ func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction)
 	if a.IPv4.AvailableForAllocation > 0 {
 		if isPrefixDelegated {
 			numPrefixes := iputil.PrefixCeil(a.IPv4.AvailableForAllocation, option.ENIPDBlockSizeIPv4)
-			err := n.manager.ec2api.AssignENIPrefixes(ctx, a.InterfaceID, int32(numPrefixes))
+			assigned, err := n.manager.ec2api.AssignENIPrefixes(ctx, a.InterfaceID, int32(numPrefixes))
+			if err == nil {
+				n.manager.ClearReleasedPrefixes(a.InterfaceID, assigned)
+			}
 			if !isSubnetAtPrefixCapacity(err) {
 				return err
 			}
