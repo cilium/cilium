@@ -38,7 +38,7 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 	err := c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
 		Clusters:  map[string]*envoy_config_cluster.Cluster{"unrelated-cluster": cluster},
 		Endpoints: map[string]*envoy_config_endpoint.ClusterLoadAssignment{"orphan": endpoint},
-	}}, nil, TypeURLCallbacks{})
+	}}, nil, typeurl.Set{})
 	require.NoError(t, err)
 
 	clusterResponses := make(chan cache.Response, 1)
@@ -66,7 +66,7 @@ func TestPublishedUnsentRollbackDropsAddedThenRemovedEndpoint(t *testing.T) {
 		Upserted: xds.Resources{Clusters: map[string]*envoy_config_cluster.Cluster{
 			"another-cluster": {Name: "another-cluster"},
 		}},
-	}, nil, TypeURLCallbacks{})
+	}, nil, typeurl.Set{})
 	require.NoError(t, err)
 	response = <-clusterResponses
 	cancel()
@@ -88,11 +88,11 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 
 	baselineListener := &envoy_config_listener.Listener{Name: "listener-0"}
 	baselinePolicy := &cilium.NetworkPolicy{EndpointId: 1}
-	err := c.ApplyResource(ctx, nodeID, typeurl.NetworkPolicy, "policy", baselinePolicy, nil, nil)
+	err := c.ApplyResource(ctx, nodeID, typeurl.NetworkPolicy, "policy", baselinePolicy, nil)
 	require.NoError(t, err)
 	err = c.ApplyResources(ctx, nodeID, ResourceMutations{Upserted: xds.Resources{
 		Listeners: map[string]*envoy_config_listener.Listener{"listener": baselineListener},
-	}}, nil, TypeURLCallbacks{})
+	}}, nil, typeurl.Set{})
 	require.NoError(t, err)
 
 	listenerResponses := make(chan cache.Response, 1)
@@ -124,12 +124,12 @@ func TestPublishedUnsentRollbackCoalescesUntilResponse(t *testing.T) {
 		if update%2 == 0 {
 			policy = &cilium.NetworkPolicy{EndpointId: update}
 		}
-		err = c.ApplyResource(ctx, nodeID, typeurl.NetworkPolicy, "policy", policy, nil, nil)
+		err = c.ApplyResource(ctx, nodeID, typeurl.NetworkPolicy, "policy", policy, nil)
 		require.NoError(t, err)
 		latestListener = &envoy_config_listener.Listener{Name: fmt.Sprintf("listener-%d", update)}
 		err = c.ApplyResources(ctx, nodeID, ResourceMutations{Upserted: xds.Resources{
 			Listeners: map[string]*envoy_config_listener.Listener{"listener": latestListener},
-		}}, nil, TypeURLCallbacks{})
+		}}, nil, typeurl.Set{})
 		require.NoError(t, err)
 		response := <-listenerResponses
 		listenerSubscription.SetReturnedResources(response.GetReturnedResources())
@@ -198,7 +198,7 @@ func TestUnobservedSotWRemovalsDoNotAccumulateRollbackState(t *testing.T) {
 		response := s.receive(t, name)
 		s.reply(t, response, "", name)
 		require.NoError(t, <-done)
-		require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, name, nil, nil, nil))
+		require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Endpoint, name, nil, nil))
 	}
 	// B has never been requested. Its live inverse must not keep the unrelated
 	// EDS removals above: omission does not convey their removal to Envoy.
@@ -240,10 +240,10 @@ func TestUnsentRollbackHistoryIsBounded(t *testing.T) {
 						value = 1
 					}
 					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", test.typeURL, test.names[0],
-						&cilium.NetworkPolicy{EndpointId: value}, nil, nil))
+						&cilium.NetworkPolicy{EndpointId: value}, nil))
 					if test.coalescedABA {
-						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", test.typeURL, test.names[0], &cilium.NetworkPolicy{EndpointId: 2}, nil, nil))
-						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", test.typeURL, test.names[0], &cilium.NetworkPolicy{EndpointId: value}, nil, nil))
+						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", test.typeURL, test.names[0], &cilium.NetworkPolicy{EndpointId: 2}, nil))
+						require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", test.typeURL, test.names[0], &cilium.NetworkPolicy{EndpointId: value}, nil))
 					}
 				} else {
 					endpoints := make(map[string]*envoy_config_endpoint.ClusterLoadAssignment)
@@ -256,13 +256,13 @@ func TestUnsentRollbackHistoryIsBounded(t *testing.T) {
 						}
 					}
 					require.NoError(t, c.ApplyResources(t.Context(), "coverage-node",
-						ResourceMutations{Upserted: xds.Resources{Endpoints: endpoints}}, nil, TypeURLCallbacks{}))
+						ResourceMutations{Upserted: xds.Resources{Endpoints: endpoints}}, nil, typeurl.Set{}))
 				}
 				if test.unrelated {
 					// An unrelated update publishes the snapshot without exposing
 					// the resources whose rollback history is being coalesced.
 					require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Listener, "unrelated",
-						&envoy_config_listener.Listener{Name: "unrelated", StatPrefix: fmt.Sprint(update)}, nil, nil))
+						&envoy_config_listener.Listener{Name: "unrelated", StatPrefix: fmt.Sprint(update)}, nil))
 					lds.reply(t, lds.receive(t), "")
 				}
 			}
