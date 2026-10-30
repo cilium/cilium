@@ -8,8 +8,26 @@ import (
 
 	"github.com/cilium/hive/hivetest"
 	envoyAPI "github.com/cilium/proxy/go/cilium/api"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/envoy/config"
 )
+
+func TestCiliumADSConfigSource(t *testing.T) {
+	for _, test := range []struct {
+		mode    config.XDSMode
+		apiType core.ApiConfigSource_ApiType
+	}{
+		{config.EnvoyXDSModeADS, core.ApiConfigSource_GRPC},
+		{config.EnvoyXDSModeDeltaADS, core.ApiConfigSource_DELTA_GRPC},
+	} {
+		t.Run(string(test.mode), func(t *testing.T) {
+			require.Equal(t, test.apiType, CiliumADSConfigSource(test.mode).GetApiType())
+			require.NotNil(t, CiliumConfigSource(test.mode).GetAds())
+		})
+	}
+}
 
 func TestHandleIPUpsert(t *testing.T) {
 	cache := newNPHDSCache(hivetest.Logger(t), nil)

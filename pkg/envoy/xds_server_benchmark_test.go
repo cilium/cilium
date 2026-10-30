@@ -303,53 +303,77 @@ func (e *benchmarkEnvoyState) resumeServerWork(ctx context.Context) (bool, error
 	}
 }
 
-// benchmarkADSEnvoy keeps a real go-control-plane SotW watch open for NPDS.
-// It observes responses through the production completion callbacks, waits as
-// Envoy would while applying them, then ACKs and opens the next watch.
+// benchmarkADSEnvoy keeps a real go-control-plane SotW or Delta watch open for
+// NPDS. It observes responses through the production completion callbacks,
+// waits as Envoy would while applying them, then ACKs and opens the next watch.
 type benchmarkADSEnvoy struct {
 	benchmarkEnvoyState
 
-	cache        xdsnew.Cache
-	subscription envoy_stream.Subscription
-	responses    chan cache.Response
-	streamID     int64
-	request      envoy_service_discovery.DiscoveryRequest
-	nonce        uint64
+	cache          xdsnew.Cache
+	delta          bool
+	subscription   envoy_stream.Subscription
+	responses      chan cache.Response
+	deltaResponses chan cache.DeltaResponse
+	streamID       int64
+	request        envoy_service_discovery.DiscoveryRequest
+	deltaRequest   envoy_service_discovery.DeltaDiscoveryRequest
+	nonce          uint64
 
 	watchMu     lock.Mutex
 	cancelWatch func()
 }
 
-func newBenchmarkADSEnvoy(b *testing.B, xdsCache xdsnew.Cache) *benchmarkADSEnvoy {
+func newBenchmarkADSEnvoy(b *testing.B, xdsCache xdsnew.Cache, delta bool) *benchmarkADSEnvoy {
 	b.Helper()
 
 	envoy := &benchmarkADSEnvoy{
 		benchmarkEnvoyState: newBenchmarkEnvoyState(b.Context()),
 		cache:               xdsCache,
-		subscription:        envoy_stream.NewSotwSubscription(nil, true),
-		responses:           make(chan cache.Response, 1),
 		streamID:            1,
-		request: envoy_service_discovery.DiscoveryRequest{
+		delta:               delta,
+	}
+	if delta {
+		envoy.subscription = envoy_stream.NewDeltaSubscription(nil, nil, nil, true)
+		envoy.deltaResponses = make(chan cache.DeltaResponse, 1)
+		envoy.deltaRequest = envoy_service_discovery.DeltaDiscoveryRequest{
 			Node:    &envoy_config_core.Node{Id: localNodeID},
 			TypeUrl: NetworkPolicyTypeURL,
-		},
+		}
+	} else {
+		envoy.subscription = envoy_stream.NewSotwSubscription(nil, true)
+		envoy.responses = make(chan cache.Response, 1)
+		envoy.request = envoy_service_discovery.DiscoveryRequest{
+			Node:    &envoy_config_core.Node{Id: localNodeID},
+			TypeUrl: NetworkPolicyTypeURL,
+		}
 	}
 
 	// Establish and ACK the initial NPDS state without charging fixture setup
 	// to the simulated response processing time. Leave the next watch open so
 	// the first timed resource update sees the same state as an idle Envoy.
-	envoy.request.VersionInfo = ""
 	require.NoError(b, envoy.openWatch())
-	var initial cache.Response
-	select {
-	case initial = <-envoy.responses:
-	case <-envoy.ctx.Done():
-		b.Fatal("timed out waiting for initial ADS benchmark response")
+	if delta {
+		var initial cache.DeltaResponse
+		select {
+		case initial = <-envoy.deltaResponses:
+		case <-envoy.ctx.Done():
+			b.Fatal("timed out waiting for initial Delta ADS benchmark response")
+		}
+		initialNonce, err := envoy.observeDeltaResponse(initial)
+		require.NoError(b, err)
+		envoy.deltaRequest.ResponseNonce = initialNonce
+	} else {
+		var initial cache.Response
+		select {
+		case initial = <-envoy.responses:
+		case <-envoy.ctx.Done():
+			b.Fatal("timed out waiting for initial ADS benchmark response")
+		}
+		initialVersion, initialNonce, err := envoy.observeResponse(initial)
+		require.NoError(b, err)
+		envoy.request.VersionInfo = initialVersion
+		envoy.request.ResponseNonce = initialNonce
 	}
-	initialVersion, initialNonce, err := envoy.observeResponse(initial)
-	require.NoError(b, err)
-	envoy.request.VersionInfo = initialVersion
-	envoy.request.ResponseNonce = initialNonce
 	require.NoError(b, envoy.openWatch())
 
 	go envoy.run()
@@ -375,6 +399,17 @@ func (e *benchmarkADSEnvoy) setCancelWatch(cancel func()) {
 }
 
 func (e *benchmarkADSEnvoy) openWatch() error {
+	if e.delta {
+		if err := e.cache.GetCompletionCallbacks().OnStreamDeltaRequest(e.streamID, &e.deltaRequest); err != nil {
+			return err
+		}
+		cancel, err := e.cache.GetSnapshotCache().CreateDeltaWatch(&e.deltaRequest, &e.subscription, e.deltaResponses)
+		if err != nil {
+			return err
+		}
+		e.setCancelWatch(cancel)
+		return nil
+	}
 	if err := e.cache.GetCompletionCallbacks().OnStreamRequest(e.streamID, &e.request); err != nil {
 		return err
 	}
@@ -407,6 +442,26 @@ func (e *benchmarkADSEnvoy) observeResponse(response cache.Response) (string, st
 	return discoveryResponse.VersionInfo, discoveryResponse.Nonce, nil
 }
 
+func (e *benchmarkADSEnvoy) observeDeltaResponse(response cache.DeltaResponse) (string, error) {
+	discoveryResponse, err := response.GetDeltaDiscoveryResponse()
+	if err != nil {
+		return "", err
+	}
+
+	e.nonce++
+	discoveryResponse.Nonce = strconv.FormatUint(e.nonce, 10)
+	e.subscription.SetReturnedResources(response.GetReturnedResources())
+	e.cache.GetCompletionCallbacks().OnStreamDeltaResponse(
+		e.streamID,
+		response.GetDeltaRequest(),
+		discoveryResponse,
+	)
+	if err := e.encodeResponse(discoveryResponse); err != nil {
+		return "", err
+	}
+	return discoveryResponse.Nonce, nil
+}
+
 func (e *benchmarkADSEnvoy) run() {
 	defer close(e.done)
 	var (
@@ -416,22 +471,42 @@ func (e *benchmarkADSEnvoy) run() {
 	)
 	for {
 		if !responsePending {
-			var response cache.Response
-			select {
-			case <-e.ctx.Done():
-				return
-			case response = <-e.responses:
-			}
-			if !e.beginServerWork() {
-				return
-			}
-			var err error
-			version, nonce, err = e.observeResponse(response)
-			if err != nil {
-				e.endServerWork(false)
-				e.fail(err)
-				e.cache.GetCompletionCallbacks().TakePendingWaiters(localNodeID, typeurl.NetworkPolicy).Complete(nil)
-				return
+			if e.delta {
+				var response cache.DeltaResponse
+				select {
+				case <-e.ctx.Done():
+					return
+				case response = <-e.deltaResponses:
+				}
+				if !e.beginServerWork() {
+					return
+				}
+				var err error
+				nonce, err = e.observeDeltaResponse(response)
+				if err != nil {
+					e.endServerWork(false)
+					e.fail(err)
+					e.cache.GetCompletionCallbacks().TakePendingWaiters(localNodeID, typeurl.NetworkPolicy).Complete(nil)
+					return
+				}
+			} else {
+				var response cache.Response
+				select {
+				case <-e.ctx.Done():
+					return
+				case response = <-e.responses:
+				}
+				if !e.beginServerWork() {
+					return
+				}
+				var err error
+				version, nonce, err = e.observeResponse(response)
+				if err != nil {
+					e.endServerWork(false)
+					e.fail(err)
+					e.cache.GetCompletionCallbacks().TakePendingWaiters(localNodeID, typeurl.NetworkPolicy).Complete(nil)
+					return
+				}
 			}
 			e.endServerWork(true)
 		}
@@ -442,8 +517,12 @@ func (e *benchmarkADSEnvoy) run() {
 
 		// Constructing and populating the request models work done by Envoy, so
 		// do it before handing control back to the timed server-side path.
-		e.request.VersionInfo = version
-		e.request.ResponseNonce = nonce
+		if e.delta {
+			e.deltaRequest.ResponseNonce = nonce
+		} else {
+			e.request.VersionInfo = version
+			e.request.ResponseNonce = nonce
+		}
 		if !e.beginServerWork() {
 			return
 		}
@@ -452,11 +531,20 @@ func (e *benchmarkADSEnvoy) run() {
 		if err == nil {
 			// SnapshotCache delivers an already-available response synchronously
 			// from CreateWatch. Observe it before reporting this server step done.
-			select {
-			case response := <-e.responses:
-				version, nonce, err = e.observeResponse(response)
-				responsePending = err == nil
-			default:
+			if e.delta {
+				select {
+				case response := <-e.deltaResponses:
+					nonce, err = e.observeDeltaResponse(response)
+					responsePending = err == nil
+				default:
+				}
+			} else {
+				select {
+				case response := <-e.responses:
+					version, nonce, err = e.observeResponse(response)
+					responsePending = err == nil
+				default:
+				}
 			}
 		}
 		e.endServerWork(responsePending)
@@ -723,7 +811,7 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 
 	var backend benchmarkXDSBackend
 	if mode.IsADS() {
-		xdsCache := newADSCache(logger)
+		xdsCache := newADSCache(logger, mode)
 		server := newTestADSServerWithCache(b, xdsCache, logger, nil, localEndpointStore, serverConfig, secretManager, nil)
 		server.l7RulesTranslator = translator
 		backend = benchmarkXDSBackend{
@@ -739,7 +827,7 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 				return policies
 			},
 			startEnvoy: func(b *testing.B) benchmarkEnvoy {
-				return newBenchmarkADSEnvoy(b, xdsCache)
+				return newBenchmarkADSEnvoy(b, xdsCache, mode.IsDelta())
 			},
 		}
 	} else {
@@ -1059,6 +1147,7 @@ func BenchmarkIdentityUpdateToXDSServer(b *testing.B) {
 		mode envoyconfig.XDSMode
 	}{
 		{name: "go-control-plane-ads", mode: envoyconfig.EnvoyXDSModeADS},
+		{name: "go-control-plane-delta-ads", mode: envoyconfig.EnvoyXDSModeDeltaADS},
 		{name: "legacy-sotw", mode: envoyconfig.EnvoyXDSModeSplit},
 		{name: "legacy-delta", mode: envoyconfig.EnvoyXDSModeDeltaSplit},
 	}

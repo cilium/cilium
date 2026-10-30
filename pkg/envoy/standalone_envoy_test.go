@@ -291,16 +291,28 @@ func (s *EnvoySuite) waitForProxyCompletion() error {
 	return err
 }
 
+func runStandaloneADSModes(t *testing.T, run func(*testing.T, config.XDSMode)) {
+	t.Helper()
+	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
+		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
+	}
+	for _, mode := range []config.XDSMode{config.EnvoyXDSModeADS, config.EnvoyXDSModeDeltaADS} {
+		t.Run(string(mode), func(t *testing.T) {
+			run(t, mode)
+		})
+	}
+}
+
 func TestEnvoyAds(t *testing.T) {
+	runStandaloneADSModes(t, testEnvoyAds)
+}
+
+func testEnvoyAds(t *testing.T, mode config.XDSMode) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
-
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
 
 	testRunDir, err := os.MkdirTemp("", "envoy_go_test")
 	require.NoError(t, err)
@@ -319,20 +331,18 @@ func TestEnvoyAds(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeADS,
+			envoyXDSMode:      mode,
 		},
 		certificatemanager.NewMockSecretManagerInline(), nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, xdsServer.run(t.Context()))
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	go func() {
-		err = accessLogServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, accessLogServer.run(t.Context()))
 	}()
 
 	// launch debug variant of the Envoy proxy
@@ -348,7 +358,7 @@ func TestEnvoyAds(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeADS,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -422,15 +432,16 @@ func TestEnvoyAds(t *testing.T) {
 }
 
 func TestEnvoyAdsResourcesHandling(t *testing.T) {
+	runStandaloneADSModes(t, testEnvoyAdsResourcesHandling)
+}
+
+func testEnvoyAdsResourcesHandling(t *testing.T, mode config.XDSMode) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
 
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
 	resources := validADSTestResources(t)
 
 	logging.SetLogLevel(slog.LevelDebug)
@@ -451,20 +462,18 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeADS,
+			envoyXDSMode:      mode,
 		},
 		certificatemanager.NewMockSecretManagerInline(), nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, xdsServer.run(t.Context()))
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	go func() {
-		err = accessLogServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, accessLogServer.run(t.Context()))
 	}()
 
 	// launch debug variant of the Envoy proxy
@@ -480,7 +489,7 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeADS,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -561,15 +570,15 @@ func TestEnvoyAdsResourcesHandling(t *testing.T) {
 }
 
 func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
+	runStandaloneADSModes(t, testEnvoyAdsNetworkPoliciesHandling)
+}
+
+func testEnvoyAdsNetworkPoliciesHandling(t *testing.T, mode config.XDSMode) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
-
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
 
 	logging.SetLogLevel(slog.LevelDebug)
 	flowdebug.Enable()
@@ -589,20 +598,18 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeADS,
+			envoyXDSMode:      mode,
 		},
 		certificatemanager.NewMockSecretManagerInline(), nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, xdsServer.run(t.Context()))
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	go func() {
-		err = accessLogServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, accessLogServer.run(t.Context()))
 	}()
 
 	// launch debug variant of the Envoy proxy
@@ -618,7 +625,7 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeADS,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -645,6 +652,7 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 		policy := cachedNetworkPolicy(t, xdsServer.cache, localNodeID, strconv.FormatUint(ep.id, 10))
 		require.Equal(t, ep.id, policy.GetEndpointId())
 		require.Equal(t, ep.GetPolicyNames(), policy.GetEndpointIps())
+		requireEnvoyConfigDumpContains(t, envoyProxy.GetAdminClient(), "NetworkPoliciesConfigDump", ep.ipv4)
 	}
 
 	// Step 3: An unknown policy name returns no resource.
@@ -661,6 +669,12 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 	policy := cachedNetworkPolicy(t, xdsServer.cache, localNodeID, "30")
 	require.Equal(t, uint64(30), policy.GetEndpointId())
 	require.Equal(t, endpoints[1].GetPolicyNames(), policy.GetEndpointIps())
+	require.Eventually(t, func() bool {
+		dump, err := envoyProxy.GetAdminClient().Get("config_dump")
+		return err == nil &&
+			!configDumpContains(dump, "NetworkPoliciesConfigDump", endpoints[0].ipv4) &&
+			configDumpContains(dump, "NetworkPoliciesConfigDump", endpoints[1].ipv4)
+	}, 5*time.Second, 100*time.Millisecond, "Envoy must remove only endpoint 40's policy")
 	t.Log("completed removing network policy for endpoint 40")
 
 	// Step 5: Remove the remaining endpoint's policy.
@@ -670,6 +684,18 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 	for _, ep := range endpoints {
 		requireNoCachedResource(t, xdsServer.cache, localNodeID, NetworkPolicyTypeURL, strconv.FormatUint(ep.id, 10))
 	}
+	require.Eventually(t, func() bool {
+		dump, err := envoyProxy.GetAdminClient().Get("config_dump")
+		if err != nil || !json.Valid([]byte(dump)) {
+			return false
+		}
+		for _, ep := range endpoints {
+			if configDumpContains(dump, "NetworkPoliciesConfigDump", ep.ipv4) {
+				return false
+			}
+		}
+		return true
+	}, 5*time.Second, 100*time.Millisecond, "Envoy must remove both endpoint policies")
 	t.Log("completed removing remaining network policy")
 
 	t.Log("stopping Envoy")
@@ -678,15 +704,15 @@ func TestEnvoyAdsNetworkPoliciesHandling(t *testing.T) {
 
 // Regression test for https://github.com/cilium/cilium/issues/47624.
 func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
+	runStandaloneADSModes(t, testEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener)
+}
+
+func testEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T, mode config.XDSMode) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
-
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
 
 	logging.SetLogLevel(slog.LevelDebug)
 	flowdebug.Enable()
@@ -706,7 +732,7 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeADS,
+			envoyXDSMode:      mode,
 		},
 		certificatemanager.NewMockSecretManagerInline(), nil)
 	require.NotNil(t, xdsServer)
@@ -735,7 +761,7 @@ func TestEnvoyAdsNetworkPolicyUnsubscribeAfterLastListener(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeADS,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -1342,16 +1368,16 @@ func TestEnvoyNACK(t *testing.T) {
 }
 
 func TestEnvoyAdsNACKRevert(t *testing.T) {
+	runStandaloneADSModes(t, testEnvoyAdsNACKRevert)
+}
+
+func testEnvoyAdsNACKRevert(t *testing.T, mode config.XDSMode) {
 	s := setupEnvoySuite(t)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
 	defer cancel()
 
 	s.waitGroup = completion.NewWaitGroup(ctx)
-
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
 
 	logging.SetLogLevel(slog.LevelDebug)
 	flowdebug.Enable()
@@ -1369,20 +1395,18 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeADS,
+			envoyXDSMode:      mode,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, xdsServer.run(t.Context()))
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	go func() {
-		err = accessLogServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, accessLogServer.run(t.Context()))
 	}()
 
 	starter := &onDemandXdsStarter{logger: logger}
@@ -1397,7 +1421,7 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeADS,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -1416,25 +1440,29 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 	listeners := cachedListeners(xdsServer.cache, localNodeID)
 	require.Contains(t, listeners, "good-listener")
 
-	// Step 2: Add a listener on port 22 which Envoy cannot bind (privileged port) — should NACK.
+	// Step 2: Reserve an unprivileged port so Envoy deterministically NACKs the listener.
 	// Wire the cb callback to verify it is invoked with the NACK error.
+	blocked, err := net.Listen("tcp4", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, blocked.Close()) })
+	blockedPort := uint16(blocked.Addr().(*net.TCPAddr).Port)
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	t.Log("adding listener on port 22 (expect NACK)")
+	t.Logf("adding listener on occupied port %d (expect NACK)", blockedPort)
 	var cbErr error
 	cbCalled := false
-	xdsServer.AddListener(ctx, "bad-listener", policy.ParserTypeHTTP, 22, true, false, s.waitGroup,
+	xdsServer.AddListener(ctx, "bad-listener", policy.ParserTypeHTTP, blockedPort, true, false, s.waitGroup,
 		func(err error) {
 			cbCalled = true
 			cbErr = err
 		})
 
 	err = s.waitForProxyCompletion()
-	require.Error(t, err)
+	require.ErrorContains(t, err, "NACK from "+localNodeID+" for "+ListenerTypeURL)
 	t.Logf("NACK received as expected: %s", err)
 
 	// Verify the cb callback was invoked with a non-nil error.
 	require.True(t, cbCalled, "cb callback should have been called on NACK")
-	require.Error(t, cbErr, "cb callback should have received the NACK error")
+	require.ErrorContains(t, cbErr, "NACK from "+localNodeID+" for "+ListenerTypeURL)
 	t.Logf("cb callback received error: %s", cbErr)
 
 	// Step 3: Wait briefly for revert to complete (revert runs asynchronously via the callback).
@@ -1467,13 +1495,13 @@ func TestEnvoyAdsNACKRevert(t *testing.T) {
 }
 
 func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
+	runStandaloneADSModes(t, testEnvoyAdsMultipleVersionsSentBeforeAckReceived)
+}
+
+func testEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T, mode config.XDSMode) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
 
 	logging.SetLogLevel(slog.LevelDebug)
 	flowdebug.Enable()
@@ -1491,20 +1519,18 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeADS,
+			envoyXDSMode:      mode,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, xdsServer.run(t.Context()))
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	go func() {
-		err = accessLogServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, accessLogServer.run(t.Context()))
 	}()
 
 	starter := &onDemandXdsStarter{logger: logger}
@@ -1519,7 +1545,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeADS,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -1569,12 +1595,12 @@ func TestEnvoyAdsMultipleVersionsSentBeforeAckReceived(t *testing.T) {
 // Envoy can consume either one. The ACK for the snapshot Envoy actually sees
 // must also release the older completion.
 func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
+	runStandaloneADSModes(t, testEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate)
+}
+
+func testEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T, mode config.XDSMode) {
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
 
 	logging.SetLogLevel(slog.LevelDebug)
 	flowdebug.Enable()
@@ -1592,7 +1618,7 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeADS,
+			envoyXDSMode:      mode,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
@@ -1632,7 +1658,7 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeADS,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -1647,13 +1673,13 @@ func TestEnvoyAdsUntrackedSnapshotCompletesEarlierTrackedUpdate(t *testing.T) {
 }
 
 func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
+	runStandaloneADSModes(t, testEnvoyAdsMultipleVersionsSentBeforeNackReceived)
+}
+
+func testEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T, mode config.XDSMode) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
 
 	logging.SetLogLevel(slog.LevelDebug)
 	flowdebug.Enable()
@@ -1671,20 +1697,18 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeADS,
+			envoyXDSMode:      mode,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, xdsServer.run(t.Context()))
 	}()
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	go func() {
-		err = accessLogServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, accessLogServer.run(t.Context()))
 	}()
 
 	starter := &onDemandXdsStarter{logger: logger}
@@ -1699,7 +1723,7 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 		maxRequests:                    100,
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
-		xdsMode:                        config.EnvoyXDSModeADS,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -1715,18 +1739,22 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 	t.Log("baseline listener added")
 
 	// Step 2: Rapidly add multiple listeners where the last one will cause a NACK.
-	// Port 22 is privileged and Envoy cannot bind it, triggering a NACK.
-	// All completions (including earlier valid ones) should complete with error
-	// via completeUpTo, which completes the NACKed version and all earlier versions.
+	// Keep the last port occupied to force a NACK without privileged-port assumptions.
+	// Updates coalesced into the rejected response must fail; earlier ACKed
+	// updates may succeed, but no completion may remain pending.
+	blocked, err := net.Listen("tcp4", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, blocked.Close()) })
+	blockedPort := uint16(blocked.Addr().(*net.TCPAddr).Port)
 	s.waitGroup = completion.NewWaitGroup(ctx)
-	t.Log("rapidly adding listeners: valid-1 (8090), valid-2 (8091), bad (22)")
+	t.Logf("rapidly adding listeners: valid-1 (8090), valid-2 (8091), bad (%d)", blockedPort)
 	xdsServer.AddListener(ctx, "valid-1", policy.ParserTypeHTTP, 8090, true, false, s.waitGroup, nil)
 	xdsServer.AddListener(ctx, "valid-2", policy.ParserTypeHTTP, 8091, true, false, s.waitGroup, nil)
-	xdsServer.AddListener(ctx, "bad", policy.ParserTypeHTTP, 22, true, false, s.waitGroup, nil)
+	xdsServer.AddListener(ctx, "bad", policy.ParserTypeHTTP, blockedPort, true, false, s.waitGroup, nil)
 
-	// All completions should resolve (with error) — none should be stuck.
+	// All completions must resolve, and the rejected listener must report a NACK.
 	err = s.waitForProxyCompletion()
-	require.Error(t, err, "expected NACK error from Envoy")
+	require.ErrorContains(t, err, "NACK from "+localNodeID+" for "+ListenerTypeURL)
 	t.Logf("NACK received as expected: %s", err)
 
 	// Step 3: Wait for revert to complete.
@@ -1750,13 +1778,13 @@ func TestEnvoyAdsMultipleVersionsSentBeforeNackReceived(t *testing.T) {
 }
 
 func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
+	runStandaloneADSModes(t, testEnvoyAdsLocalityClusterEndpointsACK)
+}
+
+func testEnvoyAdsLocalityClusterEndpointsACK(t *testing.T, mode config.XDSMode) {
 	s := setupEnvoySuite(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-
-	if os.Getenv("CILIUM_ENABLE_ENVOY_UNIT_TEST") == "" {
-		t.Skip("skipping envoy unit test; CILIUM_ENABLE_ENVOY_UNIT_TEST not set")
-	}
 
 	logging.SetLogLevel(slog.LevelDebug)
 	flowdebug.Enable()
@@ -1774,21 +1802,19 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 			proxyGID:          1337,
 			httpNormalizePath: true,
 			metrics:           xds.NewXDSMetric(),
-			envoyXDSMode:      config.EnvoyXDSModeADS,
+			envoyXDSMode:      mode,
 		},
 		nil, nil)
 	require.NotNil(t, xdsServer)
 
 	go func() {
-		err = xdsServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, xdsServer.run(t.Context()))
 	}()
 
 	accessLogServer := newAccessLogServer(logger, &proxyAccessLoggerMock{}, testRunDir, 1337, localEndpointStore, 4096)
 	require.NotNil(t, accessLogServer)
 	go func() {
-		err = accessLogServer.run(t.Context())
-		require.NoError(t, err)
+		require.NoError(t, accessLogServer.run(t.Context()))
 	}()
 
 	starter := &onDemandXdsStarter{
@@ -1813,7 +1839,7 @@ func TestEnvoyAdsLocalityClusterEndpointsACK(t *testing.T) {
 		maxConcurrentRetries:           10,
 		maxPendingRequests:             1024,
 		nodeLocalityEnabled:            true,
-		xdsMode:                        config.EnvoyXDSModeADS,
+		xdsMode:                        mode,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, envoyProxy)
@@ -1876,6 +1902,7 @@ func TestEnvoyParentReplacementWarming(t *testing.T) {
 
 	for _, mode := range []config.XDSMode{
 		config.EnvoyXDSModeADS,
+		config.EnvoyXDSModeDeltaADS,
 		config.EnvoyXDSModeStrictADS,
 		config.EnvoyXDSModeSplit,
 		config.EnvoyXDSModeDeltaSplit,

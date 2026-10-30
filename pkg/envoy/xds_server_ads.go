@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/envoy/config"
 	envoypolicy "github.com/cilium/cilium/pkg/envoy/policy"
 	_ "github.com/cilium/cilium/pkg/envoy/resource"
 	util "github.com/cilium/cilium/pkg/envoy/util"
@@ -138,15 +139,20 @@ func (o *adsListenerObserver) HasNPDSListeners(nodeID string) bool {
 	return nodeID != localNodeID || o.npdsListenerCount > 0
 }
 
-func newADSCache(logger *slog.Logger) xdsnew.Cache {
-	return xdsnew.NewCache(logger,
+func newADSCache(logger *slog.Logger, mode config.XDSMode) xdsnew.Cache {
+	options := []xdsnew.CacheOption{
 		xdsnew.WithNodeIDs(localNodeID),
-		xdsnew.WithListenerObserver(&adsListenerObserver{}))
+		xdsnew.WithListenerObserver(&adsListenerObserver{}),
+	}
+	if mode.IsDeltaADS() {
+		options = append(options, xdsnew.WithDeltaADS())
+	}
+	return xdsnew.NewCache(logger, options...)
 }
 
 // newADSServer creates a new ADS GRPC server.
 func newADSServer(logger *slog.Logger, ipCache IPCacheEventSource, localEndpointStore *LocalEndpointStore, config xdsServerConfig, secretManager certificatemanager.SecretManager, restorerPromise promise.Promise[endpointstate.Restorer]) (*adsServer, error) {
-	return newADSServerWithCache(newADSCache(logger), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
+	return newADSServerWithCache(newADSCache(logger, config.envoyXDSMode), logger, ipCache, localEndpointStore, config, secretManager, restorerPromise)
 }
 
 func (s *adsServer) run(ctx context.Context) error {

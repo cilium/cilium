@@ -40,6 +40,14 @@ func TestAppendEmbeddedLocalityBootstrap(t *testing.T) {
 			},
 		},
 		{
+			name:    "delta-ads",
+			xdsMode: config.EnvoyXDSModeDeltaADS,
+			assertEDS: func(t *testing.T, edsConfig *corev3.ConfigSource) {
+				require.NotNil(t, edsConfig.GetAds())
+				require.Nil(t, edsConfig.GetApiConfigSource())
+			},
+		},
+		{
 			name:    "strict-ads",
 			xdsMode: config.EnvoyXDSModeStrictADS,
 			assertEDS: func(t *testing.T, edsConfig *corev3.ConfigSource) {

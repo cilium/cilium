@@ -2883,6 +2883,7 @@
                 "split",
                 "delta-split",
                 "ads",
+                "delta-ads",
                 "strict-ads"
               ]
             }
