@@ -10,7 +10,9 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,15 +23,74 @@ import (
 	cidtest "github.com/cilium/cilium/operator/pkg/ciliumidentity/testutils"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/identity/key"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	cilium_v2a1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/metrics"
 )
+
+func TestSlimNamedPortIdentityMapping(t *testing.T) {
+	for _, filter := range []struct {
+		name     string
+		prefixes []string
+	}{
+		{name: "defaults"},
+		{name: "custom filter", prefixes: []string{"k8s:app"}},
+	} {
+		t.Run(filter.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, filter.prefixes, nil, ""))
+			t.Cleanup(func() {
+				require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, ""))
+			})
+			for _, order := range []string{"pod first", "identity first"} {
+				t.Run(order, func(t *testing.T) {
+					for _, kind := range []string{"unnamed control", "named port"} {
+						t.Run(kind, func(t *testing.T) {
+							pod := cidtest.NewPod("pod1", "ns", map[string]string{"app": "probe"}, "node1")
+							model := []string{"k8s:app=probe"}
+							if kind == "named port" {
+								pod.Spec.Containers = []slim_corev1.Container{{
+									Ports: []slim_corev1.ContainerPort{{
+										Name: "http-prom", ContainerPort: 8080, Protocol: slim_corev1.ProtocolTCP,
+									}},
+								}}
+								model = append(model, "gen:io.cilium.k8s.named-ports=http-prom.TCP.8080")
+							}
+							podKey := key.NewGlobalIdentity(labels.NewLabelsFromModel(model))
+							cid := &cilium_v2.CiliumIdentity{
+								ObjectMeta:     metav1.ObjectMeta{Name: "12345"},
+								SecurityLabels: podKey.GetAsMap(),
+							}
+							manager := newSlimManager(2, logger)
+							manager.UpdateNodeMapping(newNode("node1", 0), false, false)
+							if order == "identity first" {
+								manager.UpdateIdentityMapping(cid)
+							}
+							manager.AddPodMapping(pod, "node1", podKey)
+							if order == "pod first" {
+								manager.UpdateIdentityMapping(cid)
+							}
+							r := &slimReconciler{
+								reconciler: reconciler{logger: logger},
+								manager:    manager,
+							}
+							endpoint := r.convertPodToCoreCEP(pod)
+							require.NotNil(t, endpoint, "matching identity must allow CES endpoint publication")
+							assert.Equal(t, int64(12345), endpoint.IdentityID)
+						})
+					}
+				})
+			}
+		})
+	}
+}
 
 func TestReconcileCreateDefault(t *testing.T) {
 	var r *defaultReconciler
