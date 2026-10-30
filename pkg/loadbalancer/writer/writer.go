@@ -571,7 +571,8 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 	}
 
 	// Check whether the [Backend.ForZones] hints should be consulted when
-	// selecting a backend.
+	// selecting a backend. PreferSameNode falls back to the zone hints when
+	// no same-node backend was found above, as specified in KEP-3015.
 	checkZoneHints := false
 	var thisZone *string
 	if node, _, found := w.nodes.Get(txn, node.LocalNodeQuery); found {
@@ -583,7 +584,8 @@ func (w *Writer) DefaultSelectBackends(txn statedb.ReadTxn, bes iter.Seq2[*loadb
 		thisZone != nil &&
 		fe != nil && fe.RedirectTo == nil &&
 		(fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferClose ||
-			fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferSameZone) {
+			fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferSameZone ||
+			fe.Service.TrafficDistribution == loadbalancer.TrafficDistributionPreferSameNode) {
 		// Topology-aware routing enabled. See if we can find any backends fitting
 		// for our zone. If we don't find any we fall back to default behaviour.
 		// https://kubernetes.io/docs/concepts/services-networking/topology-aware-routing/#safeguards
