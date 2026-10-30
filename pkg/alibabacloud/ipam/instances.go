@@ -13,9 +13,9 @@ import (
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
+	"github.com/cilium/cilium/pkg/ipam/instances"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -39,15 +39,14 @@ type AlibabaCloudAPI interface {
 // InstancesManager maintains the list of instances. It must be kept up to date
 // by calling resync() regularly.
 type InstancesManager struct {
+	// InstanceCache caches the instances and owns the locks; the fields
+	// below marked as protected by the cache lock are read and written
+	// through its Read and resync publish functions.
+	*instances.InstanceCache
+
 	logger *slog.Logger
 
-	// resyncLock keeps incremental resync and cache updates out of a full API resync
-	resyncLock    lock.RWMutex
-	instanceLocks lock.KeyedMutex[string]
-
-	// mutex protects the fields below
-	mutex          lock.RWMutex
-	instances      *ipamTypes.InstanceMap
+	// The fields below are protected by the cache lock.
 	vSwitches      ipamTypes.SubnetMap
 	vpcs           ipamTypes.VirtualNetworkMap
 	securityGroups types.SecurityGroupMap
@@ -57,9 +56,9 @@ type InstancesManager struct {
 // NewInstancesManager returns a new instances manager
 func NewInstancesManager(logger *slog.Logger, api AlibabaCloudAPI) *InstancesManager {
 	return &InstancesManager{
-		logger:    logger.With(subsysLogAttr...),
-		instances: ipamTypes.NewInstanceMap(),
-		api:       api,
+		InstanceCache: instances.NewInstanceCache(),
+		logger:        logger.With(subsysLogAttr...),
+		api:           api,
 	}
 }
 
@@ -68,12 +67,8 @@ func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, _ *nodemanager.Node) n
 	return &Node{logger: m.logger, k8sObj: obj, manager: m, instanceID: obj.InstanceID()}
 }
 
-// HasInstance returns whether the instance is in instances
-func (m *InstancesManager) HasInstance(instanceID string) bool {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.instances.Exists(instanceID)
-}
+// HasInstance, DeleteInstance and ForeachInstance are provided by the
+// embedded InstanceCache.
 
 // GetPoolQuota returns the number of available IPs in all IP pools
 func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
@@ -91,77 +86,48 @@ func (m *InstancesManager) GetPoolQuota() ipamTypes.PoolQuotaMap {
 // cache in the instanceManager. It returns the time when the resync has
 // started or an error if it did not complete.
 func (m *InstancesManager) Resync(ctx context.Context) (time.Time, error) {
-	// Full API resync should block the instance incremental resync from all nodes.
-	m.resyncLock.Lock()
-	defer m.resyncLock.Unlock()
-	// An empty instanceID indicates the full resync.
-	return m.resync(ctx, "")
+	// ENIs from all instances will be refetched from the ECS API and updated
+	// to the local cache.
+	return m.FullResync(ctx, func(ctx context.Context) (*ipamTypes.InstanceMap, instances.PublishFunc, error) {
+		vpcs, vSwitches, securityGroups, err := m.fetchNetworkState(ctx)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		instanceMap, err := m.api.GetInstances(ctx, vpcs, vSwitches)
+		if err != nil {
+			return nil, nil, fmt.Errorf("synchronize ECS interface list: %w", err)
+		}
+
+		m.logger.Info(
+			"Synchronized ENI information",
+			logfields.NumInstances, instanceMap.NumInstances(),
+			logfields.NumVPCs, len(vpcs),
+			logfields.NumVSwitches, len(vSwitches),
+			logfields.NumSecurityGroups, len(securityGroups),
+		)
+
+		return instanceMap, func() {
+			m.vSwitches = vSwitches
+			m.vpcs = vpcs
+			m.securityGroups = securityGroups
+		}, nil
+	})
 }
 
 // InstanceSync fetches the ECS instance by the given ID and vSwitches and updates the local
 // cache in the instanceManager. It returns the time when the resync has
 // started or an error if it did not complete.
 func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
-	unlock := m.lockInstance(instanceID)
-	defer unlock()
-	return m.resync(ctx, instanceID)
-}
-
-func (m *InstancesManager) lockInstance(instanceID string) lock.UnlockFunc {
-	unlockInstance := m.instanceLocks.Lock(instanceID)
-	// The read lock allows incremental resyncs and cache updates for different
-	// instances to run in parallel, while excluding full API resyncs, which take
-	// the write lock.
-	m.resyncLock.RLock()
-
-	return func() {
-		m.resyncLock.RUnlock()
-		unlockInstance()
-	}
-}
-
-func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.Time, error) {
-	resyncStart := time.Now()
-
-	vpcs, err := m.api.GetVPCs(ctx)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("synchronize VPC list: %w", err)
-	}
-
-	vSwitches, err := m.api.GetVSwitches(ctx)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("retrieve VPC vSwitches list: %w", err)
-	}
-
-	securityGroups, err := m.api.GetSecurityGroups(ctx)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("retrieve ECS security group list: %w", err)
-	}
-
-	// An empty instanceID indicates that this is full resync, ENIs from all instances
-	// will be refetched from ECS API and updated to the local cache. Otherwise only
-	// the given instance will be updated.
-	if instanceID == "" {
-		instances, err := m.api.GetInstances(ctx, vpcs, vSwitches)
+	return m.InstanceCache.InstanceSync(ctx, instanceID, func(ctx context.Context) (*ipamTypes.Instance, instances.PublishFunc, error) {
+		vpcs, vSwitches, securityGroups, err := m.fetchNetworkState(ctx)
 		if err != nil {
-			return time.Time{}, fmt.Errorf("synchronize ECS interface list: %w", err)
+			return nil, nil, err
 		}
 
-		m.logger.Info(
-			"Synchronized ENI information",
-			logfields.NumInstances, instances.NumInstances(),
-			logfields.NumVPCs, len(vpcs),
-			logfields.NumVSwitches, len(vSwitches),
-			logfields.NumSecurityGroups, len(securityGroups),
-		)
-
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
-		m.instances = instances
-	} else {
 		instance, err := m.api.GetInstance(ctx, vpcs, vSwitches, instanceID)
 		if err != nil {
-			return time.Time{}, fmt.Errorf("synchronize ECS interface list for instance %s: %w", instanceID, err)
+			return nil, nil, fmt.Errorf("synchronize ECS interface list for instance %s: %w", instanceID, err)
 		}
 
 		m.logger.Info(
@@ -172,59 +138,61 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.
 			logfields.NumSecurityGroups, len(securityGroups),
 		)
 
-		m.mutex.Lock()
-		defer m.mutex.Unlock()
-		m.instances.UpdateInstance(instanceID, instance)
+		return instance, func() {
+			m.vSwitches = vSwitches
+			m.vpcs = vpcs
+			m.securityGroups = securityGroups
+		}, nil
+	})
+}
+
+// fetchNetworkState fetches the VPCs, vSwitches and security groups from the
+// ECS API.
+func (m *InstancesManager) fetchNetworkState(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, types.SecurityGroupMap, error) {
+	vpcs, err := m.api.GetVPCs(ctx)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("synchronize VPC list: %w", err)
 	}
 
-	m.vSwitches = vSwitches
-	m.vpcs = vpcs
-	m.securityGroups = securityGroups
+	vSwitches, err := m.api.GetVSwitches(ctx)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("retrieve VPC vSwitches list: %w", err)
+	}
 
-	return resyncStart, nil
+	securityGroups, err := m.api.GetSecurityGroups(ctx)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("retrieve ECS security group list: %w", err)
+	}
+
+	return vpcs, vSwitches, securityGroups, nil
 }
 
 // GetVSwitches returns all the tracked vSwitches
 // The returned subnetMap is immutable so it can be safely accessed
 func (m *InstancesManager) GetVSwitches() ipamTypes.SubnetMap {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
 	subnetsCopy := make(ipamTypes.SubnetMap)
-	maps.Copy(subnetsCopy, m.vSwitches)
-
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		maps.Copy(subnetsCopy, m.vSwitches)
+	})
 	return subnetsCopy
 }
 
 // GetVSwitch return vSwitch by id
-func (m *InstancesManager) GetVSwitch(id string) *ipamTypes.Subnet {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.vSwitches[id]
+func (m *InstancesManager) GetVSwitch(id string) (vSwitch *ipamTypes.Subnet) {
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		vSwitch = m.vSwitches[id]
+	})
+	return vSwitch
 }
 
-// ForeachInstance will iterate over each instance inside `instances`, and call
-// `fn`. This function is read-locked for the entire execution.
-func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.InterfaceIterator) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	m.instances.ForeachInterface(instanceID, fn)
-}
+// ForeachInstance, HasInstance and DeleteInstance are provided by the
+// embedded InstanceCache.
 
 // UpdateENI updates the ENI definition of an ENI for a particular instance. If
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
 func (m *InstancesManager) UpdateENI(instanceID string, eni *types.ENI) {
-	unlock := m.lockInstance(instanceID)
-	defer unlock()
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	// Don't recreate a partial instance that was deleted while this update waited.
-	if !m.instances.Exists(instanceID) {
-		return
-	}
-	m.instances.Update(instanceID, eni)
+	m.UpdateInterface(instanceID, eni)
 }
 
 // RemoveIPsFromENI updates the local cache after a successful release so
@@ -280,52 +248,38 @@ func (m *InstancesManager) FindOneVSwitch(spec types.Spec, toAllocate int) *ipam
 
 // FindVSwitchByIDs returns the vSwitch within a provided list of vSwitch IDs with the most available addresses,
 // matching vpc and az.
-func (m *InstancesManager) FindVSwitchByIDs(spec types.Spec, toAllocate int) *ipamTypes.Subnet {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
-	var bestSubnet *ipamTypes.Subnet
-	for _, vSwitch := range m.vSwitches {
-		if vSwitch.VirtualNetworkID != spec.VPCID || vSwitch.AvailabilityZone != spec.AvailabilityZone {
-			continue
-		}
-		if vSwitch.AvailableAddresses < toAllocate {
-			continue
-		}
-		for _, vSwitchID := range spec.VSwitches {
-			if vSwitch.ID != vSwitchID {
+func (m *InstancesManager) FindVSwitchByIDs(spec types.Spec, toAllocate int) (bestSubnet *ipamTypes.Subnet) {
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		for _, vSwitch := range m.vSwitches {
+			if vSwitch.VirtualNetworkID != spec.VPCID || vSwitch.AvailabilityZone != spec.AvailabilityZone {
 				continue
 			}
-			if bestSubnet == nil || bestSubnet.AvailableAddresses < vSwitch.AvailableAddresses {
-				bestSubnet = vSwitch
+			if vSwitch.AvailableAddresses < toAllocate {
+				continue
+			}
+			for _, vSwitchID := range spec.VSwitches {
+				if vSwitch.ID != vSwitchID {
+					continue
+				}
+				if bestSubnet == nil || bestSubnet.AvailableAddresses < vSwitch.AvailableAddresses {
+					bestSubnet = vSwitch
+				}
 			}
 		}
-	}
+	})
 	return bestSubnet
 }
 
 // FindSecurityGroupByTags returns the security groups matching VPC ID and all required tags
 // The returned security groups slice is immutable so it can be safely accessed
 func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTypes.Tags) []*types.SecurityGroup {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-
 	securityGroups := []*types.SecurityGroup{}
-	for _, securityGroup := range m.securityGroups {
-		if securityGroup.VPCID == vpcID && securityGroup.Tags.Match(required) {
-			securityGroups = append(securityGroups, securityGroup)
+	m.Read(func(_ *ipamTypes.InstanceMap) {
+		for _, securityGroup := range m.securityGroups {
+			if securityGroup.VPCID == vpcID && securityGroup.Tags.Match(required) {
+				securityGroups = append(securityGroups, securityGroup)
+			}
 		}
-	}
-
+	})
 	return securityGroups
-}
-
-// DeleteInstance delete instance from m.instances
-func (m *InstancesManager) DeleteInstance(instanceID string) {
-	unlock := m.lockInstance(instanceID)
-	defer unlock()
-
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-	m.instances.Delete(instanceID)
 }

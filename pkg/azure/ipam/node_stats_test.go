@@ -13,6 +13,7 @@ import (
 	apimock "github.com/cilium/cilium/pkg/azure/api/mock"
 	"github.com/cilium/cilium/pkg/azure/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/instances"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -24,9 +25,9 @@ func newCapacityTestNode(t *testing.T, ifaces []*types.AzureInterface, usePrimar
 		m.Update("vm1", iface.DeepCopy())
 	}
 	manager := &InstancesManager{
-		instances:  m,
-		api:        apimock.NewAPI(nil),
-		usePrimary: usePrimary,
+		InstanceCache: instances.NewInstanceCacheFrom(m),
+		api:           apimock.NewAPI(nil),
+		usePrimary:    usePrimary,
 	}
 	obj := &v2.CiliumNode{
 		Spec: v2.NodeSpec{

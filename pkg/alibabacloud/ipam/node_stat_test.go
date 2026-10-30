@@ -11,6 +11,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/alibabacloud/ipam/limits"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
+	"github.com/cilium/cilium/pkg/ipam/instances"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -38,7 +39,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		logger:     hivetest.Logger(t),
 		instanceID: "vm1",
 		manager: &InstancesManager{
-			instances: m,
+			InstanceCache: instances.NewInstanceCacheFrom(m),
 		},
 		k8sObj: &v2.CiliumNode{
 			Spec: v2.NodeSpec{

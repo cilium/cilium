@@ -136,12 +136,10 @@ func TestInstanceSyncPreservesConcurrentCacheChanges(t *testing.T) {
 			// The old snapshot must not undo the newer refresh or resurrect
 			// a deleted instance after both operations finish.
 			cached := map[string]*types.AzureInterface{}
-			manager.mutex.RLock()
-			manager.instances.ForeachInterface(instanceID, func(_, interfaceID string, iface ipamTypes.Interface) error {
+			manager.ForeachInstance(instanceID, func(_, interfaceID string, iface ipamTypes.Interface) error {
 				cached[interfaceID] = iface.(*types.AzureInterface)
 				return nil
 			})
-			manager.mutex.RUnlock()
 			require.Equal(t, test.want, cached)
 			require.Equal(t, len(test.want) > 0, manager.HasInstance(instanceID))
 		})

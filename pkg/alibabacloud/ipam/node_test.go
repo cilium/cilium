@@ -27,10 +27,10 @@ import (
 )
 
 var (
-	k8sapi     = &k8sMock{}
-	alibabaAPI *mock.API
-	instances  *InstancesManager
-	metricsapi = metricsmock.NewMockMetrics()
+	k8sapi        = &k8sMock{}
+	alibabaAPI    *mock.API
+	instancesMngr *InstancesManager
+	metricsapi    = metricsmock.NewMockMetrics()
 )
 
 func setup(tb testing.TB) {
@@ -46,13 +46,13 @@ func setup(tb testing.TB) {
 	require.NotNil(tb, alibabaAPI)
 	alibabaAPI.UpdateENIs(primaryENIs)
 	logger := hivetest.Logger(tb)
-	instances = NewInstancesManager(logger, alibabaAPI)
-	require.NotNil(tb, instances)
+	instancesMngr = NewInstancesManager(logger, alibabaAPI)
+	require.NotNil(tb, instancesMngr)
 
 	tb.Cleanup(func() {
 		metricsapi = nil
 		alibabaAPI = nil
-		instances = nil
+		instancesMngr = nil
 	})
 }
 
@@ -69,10 +69,10 @@ func TestCreateInterface(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	alibabaAPI.UpdateENIs(primaryENIs)
-	_, err := instances.Resync(t.Context())
+	_, err := instancesMngr.Resync(t.Context())
 	require.NoError(t, err)
 
-	mngr, err := nodemanager.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(logger, instancesMngr, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 
@@ -86,7 +86,7 @@ func TestCreateInterface(t *testing.T) {
 	}, 10*time.Second)
 	require.NoError(t, err)
 
-	instances.ForeachInstance("i-1", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
+	instancesMngr.ForeachInstance("i-1", func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
 		e, ok := iface.(*types.ENI)
 		if !ok {
 			return fmt.Errorf("resource is not ENI type")
@@ -124,10 +124,10 @@ func TestCandidateAndEmptyInterfaces(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	alibabaAPI.UpdateENIs(primaryENIs)
-	_, err := instances.Resync(t.Context())
+	_, err := instancesMngr.Resync(t.Context())
 	require.NoError(t, err)
 
-	mngr, err := nodemanager.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(logger, instancesMngr, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 	// Set PreAllocate as 1
@@ -157,10 +157,10 @@ func TestPrepareIPAllocation(t *testing.T) {
 	logger := hivetest.Logger(t)
 
 	alibabaAPI.UpdateENIs(primaryENIs)
-	_, err := instances.Resync(t.Context())
+	_, err := instancesMngr.Resync(t.Context())
 	require.NoError(t, err)
 
-	mngr, err := nodemanager.NewNodeManager(logger, instances, k8sapi, metricsapi, 10, false, 0, false)
+	mngr, err := nodemanager.NewNodeManager(logger, instancesMngr, k8sapi, metricsapi, 10, false, 0, false)
 	require.NoError(t, err)
 	require.NotNil(t, mngr)
 	mngr.SetInstancesAPIReadiness(false) // to avoid the manager background jobs starting and racing us.
