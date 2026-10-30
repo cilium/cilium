@@ -279,6 +279,20 @@ dsr_wire_len6(struct __ctx_buff *ctx, const struct ipv6hdr *ip6,
 	return dsr_wire_len(ctx, nexthdr, hdrlen, ETH_HLEN + hdrlen, total_len);
 }
 
+static __always_inline bool
+dsr_geneve_xdp_must_punt(struct __ctx_buff *ctx, __u8 nexthdr,
+			 __u32 l3_len, int l4_off, __u32 total_len,
+			 __u32 opt_len)
+{
+	const __u32 encap_len = ETH_HLEN + sizeof(struct iphdr) +
+				 sizeof(struct udphdr) + sizeof(struct genevehdr) +
+				 opt_len;
+
+	return ctx_is_xdp() && !CONFIG(dsr_cfg).enable_icmp_errors &&
+		dsr_wire_len(ctx, nexthdr, l3_len, l4_off, total_len) + encap_len >
+		CONFIG(device_mtu);
+}
+
 static __always_inline bool dsr_is_too_big(struct __ctx_buff *ctx __maybe_unused,
 					   __u32 expanded_len __maybe_unused)
 {
@@ -1431,6 +1445,15 @@ static __always_inline int nodeport_svc_lb6(struct __ctx_buff *ctx,
 		*punt_to_stack = true;
 		return CTX_ACT_OK;
 	}
+
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	if (!backend_local && nodeport_uses_dsr6(svc) && need_dsr_info &&
+	    dsr_geneve_xdp_must_punt(ctx, tuple->nexthdr,
+				     l4_off - ETH_HLEN, l4_off,
+				     bpf_ntohs(ip6->payload_len) + sizeof(*ip6),
+				     sizeof(struct geneve_dsr_opt6)))
+		return CTX_ACT_OK;
+#endif
 
 	if (!nodeport_skip_xlate6(svc, backend_local)) {
 		ret = lb6_dnat_request(ctx, backend, l3_off, fraginfo,
@@ -2777,6 +2800,14 @@ static __always_inline int nodeport_svc_lb4(struct __ctx_buff *ctx,
 			*punt_to_stack = true;
 			return CTX_ACT_OK;
 		}
+
+#if DSR_ENCAP_MODE == DSR_ENCAP_GENEVE
+	if (!backend_local && nodeport_uses_dsr4(svc) && need_dsr_info &&
+	    dsr_geneve_xdp_must_punt(ctx, ip4->protocol, ipv4_hdrlen(ip4),
+				     l4_off, bpf_ntohs(ip4->tot_len),
+				     sizeof(struct geneve_dsr_opt4)))
+		return CTX_ACT_OK;
+#endif
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 		cluster_id = backend->cluster_id;
