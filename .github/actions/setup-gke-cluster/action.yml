@@ -119,6 +119,9 @@ runs:
             --no-enable-insecure-kubelet-readonly-port \
             --enable-master-authorized-networks \
             --master-authorized-networks "${authorized_networks}" \
+            --logging=NONE \
+            --monitoring=NONE \
+            --no-enable-managed-prometheus \
             $VERSION \
             $LABELS \
             $TAINTS 2>&1)
