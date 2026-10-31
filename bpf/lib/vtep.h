@@ -29,8 +29,8 @@ struct {
 	__type(key, struct vtep_key);
 	__type(value, struct vtep_value);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, VTEP_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(max_entries, 8);
+	__uint(map_flags, BPF_F_RDONLY_PROG_COND);
 } cilium_vtep_map __section_maps_btf;
 
 DECLARE_CONFIG(bool, enable_vtep, "Enable VTEP integration")

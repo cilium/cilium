@@ -11,7 +11,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -20,14 +19,8 @@ import (
 	"github.com/cilium/cilium/pkg/types"
 )
 
-const (
-	// MaxEntries is the maximum number of keys that can be present in the
-	// VTEP map.
-	MaxEntries = defaults.MaxVTEPDevices
-
-	// MapName is the canonical name for the VTEP map on the filesystem.
-	MapName = "cilium_vtep_map"
-)
+// MapName is the canonical name for the VTEP map on the filesystem.
+const MapName = "cilium_vtep_map"
 
 // Map provides access to the eBPF map vtep.
 type Map interface {
@@ -138,7 +131,7 @@ func newMap(logger *slog.Logger, registry *metrics.Registry) *vtepMap {
 			ebpf.Hash,
 			&Key{},
 			&VtepEndpointInfo{},
-			MaxEntries,
+			8,
 			unix.BPF_F_RDONLY_PROG,
 		).WithCache().WithPressureMetric(registry).
 			WithEvents(option.Config.GetEventBufferConfig(MapName)),
