@@ -1830,6 +1830,41 @@ var ExpectedPerPortPoliciesTLSEgressNoSync = newEgressPortNetworkPolicyReturnVal
 
 var ExpectedPerPortPoliciesTLSEgressNoSyncUseFullContext = newEgressPortNetworkPolicyReturnVal(ciliumTLSContextAllDetails)
 
+func TestToEnvoyTLSContextTrustBundle(t *testing.T) {
+	secret := k8sTypes.NamespacedName{Namespace: "testnamespace", Name: "testsecret"}
+	bundle := k8sTypes.NamespacedName{Namespace: "testnamespace", Name: "testbundle"}
+
+	mutual := &cilium.TLSContext{
+		TlsSdsSecret:               syncnames.SyncedSDSSecretName("cilium-secrets", secret),
+		ValidationContextSdsSecret: syncnames.SyncedSDSSecretName("cilium-secrets", bundle),
+	}
+
+	for _, tc := range []struct {
+		name            string
+		tls             *policy.TLSContext
+		wantOriginating *cilium.TLSContext
+		wantTerminating *cilium.TLSContext
+	}{
+		{
+			name:            "without trust bundle",
+			tls:             &policy.TLSContext{Secret: secret},
+			wantOriginating: ciliumTLSContextOnlyValidatingSDSDetails,
+			wantTerminating: ciliumTLSContextOnlySDSDetails,
+		},
+		{
+			name:            "with Secret trust bundle",
+			tls:             &policy.TLSContext{Secret: secret, TrustBundle: bundle, TrustBundleKind: "Secret"},
+			wantOriginating: mutual,
+			wantTerminating: mutual,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.wantOriginating, toEnvoyOriginatingTLSContext(tc.tls, "cilium-secrets", true, false))
+			require.Equal(t, tc.wantTerminating, toEnvoyTerminatingTLSContext(tc.tls, "cilium-secrets", true, false))
+		})
+	}
+}
+
 func newL4PolicyTLSIngress(tls *policy.TLSContext) *policy.L4Policy {
 	return &policy.L4Policy{
 		Ingress: policy.L4DirectionPolicy{PortRules: policy.NewL4PolicyMapWithValues(map[string]*policy.L4Filter{

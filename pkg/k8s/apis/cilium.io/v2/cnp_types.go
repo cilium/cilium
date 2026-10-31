@@ -193,6 +193,9 @@ func (r *CiliumNetworkPolicy) Validate() error {
 		if r.Spec.NodeSelector.LabelSelector != nil {
 			return NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
 		}
+		if err := r.Spec.ValidateTrustBundleNamespace(namespace); err != nil {
+			return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy spec: %s", err))
+		}
 	}
 	if r.Specs != nil {
 		for _, rule := range r.Specs {
@@ -201,6 +204,9 @@ func (r *CiliumNetworkPolicy) Validate() error {
 			}
 			if rule.NodeSelector.LabelSelector != nil {
 				return NewErrParse("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+			}
+			if err := rule.ValidateTrustBundleNamespace(namespace); err != nil {
+				return NewErrParse(fmt.Sprintf("Invalid CiliumNetworkPolicy specs: %s", err))
 			}
 		}
 	}
