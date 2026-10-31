@@ -3,6 +3,7 @@
 /install/kubernetes/cilium/README.md linguist-generated
 go.sum linguist-generated
 examples/kubernetes/connectivity-check/connectivity-*.yaml linguist-generated
+images/docs-builder/requirements.txt linguist-generated
 pkg/k8s/apis/cilium.io/v2/client/crds/*.yaml linguist-generated
 test/controlplane/**/v1.[0-9][0-9]/*.yaml linguist-generated
 test/controlplane/services/graceful-termination/*.yaml linguist-generated

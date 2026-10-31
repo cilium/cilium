@@ -45,6 +45,7 @@ jobs:
               - 'cilium-health/cmd/**'
               - 'daemon/cmd/**'
               - 'hubble-relay/cmd/**'
+              - 'images/docs-builder/**'
               - 'install/kubernetes/**'
               - 'operator/cmd/**'
               - README.rst
@@ -68,7 +69,7 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Build HTML
-        uses: docker://quay.io/cilium/docs-builder:e6773ed21ab03066c0f24e68f342f18804a8ee0a@sha256:d3beff6d6408c09f6e1dbc637f7e98962b7d1fd2a81bf1d2a27ff8817dafb51f
+        uses: docker://quay.io/cilium/docs-builder:e1401fb7692767fe3f5801b23977f0e1316c7188@sha256:2a90b0223f48ffaca7f01303bcb3143993299ae3ab5ac1978c67201e34ee1108
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
