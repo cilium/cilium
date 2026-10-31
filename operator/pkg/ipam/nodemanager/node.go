@@ -747,19 +747,16 @@ func (n *Node) recalculate(ctx context.Context) {
 		n.stats.IPv4.AssignedStaticIP = n.resource.Status.IPAM.AssignedStaticIP.Addr
 	}
 
-	// Providers backing the multi-pool allocator report the attached CIDRs,
-	// which are the source of truth for the available IPv4 count since the
-	// AllocationMap does not list addresses of delegated prefixes. Providers
-	// backing the CRD allocator return nil and only rely on the AllocationMap.
-	if attached := n.ops.GetAttachedCIDRs(); attached != nil {
-		n.stats.IPv4.AvailableIPs = 0
-		for _, c := range attached {
-			if c.Addr().Is4() {
-				n.stats.IPv4.AvailableIPs += 1 << (32 - c.Bits())
-			}
+	// The AllocationMap lists the addresses available for assignment, but not
+	// the addresses of delegated prefixes, so the IPv4 prefixes reported by
+	// GetAttachedCIDRs are counted on top of it. Single attached addresses
+	// are left to the AllocationMap, since providers may report addresses
+	// that are attached but not available for assignment.
+	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
+	for _, c := range n.ops.GetAttachedCIDRs() {
+		if c.Addr().Is4() && c.Bits() < 32 {
+			n.stats.IPv4.AvailableIPs += 1 << (32 - c.Bits())
 		}
-	} else {
-		n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
 	}
 	n.stats.IPv4.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
 	n.stats.IPv4.Capacity = stats.NodeCapacity
