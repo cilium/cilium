@@ -15,6 +15,10 @@ var Cell = cell.Module(
 	// Provide [lbmaps], abstraction for the load-balancing BPF map access.
 	cell.Provide(newLBMaps),
 
+	// Configure the MapSpecs before the registry becomes read-only.
+	// Requires registry.Cell.
+	cell.Invoke(configure),
+
 	// Provide the 'lb/' script commands for debugging and testing.
 	cell.Provide(scriptCommands),
 
