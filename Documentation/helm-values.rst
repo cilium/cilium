@@ -2052,6 +2052,14 @@
      - Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally.
      - bool
      - ``true``
+   * - :spelling:ignore:`gatewayAPI.sessionTicketKeysSecret.name`
+     - Name of an existing Secret containing shared TLS session ticket keys. Both name and namespace must be set to enable session resumption across Envoy instances.
+     - string
+     - ``""``
+   * - :spelling:ignore:`gatewayAPI.sessionTicketKeysSecret.namespace`
+     - Namespace of the TLS session ticket keys Secret.
+     - string
+     - ``""``
    * - :spelling:ignore:`gatewayAPI.useRemoteAddress`
      - Configure whether to use the remote address of the client when determining the source IP. When enabled, the source IP is determined from the remote address instead of the proxy protocol header.
      - bool

@@ -44,9 +44,10 @@ type IPConfig struct {
 }
 
 type ListenerConfig struct {
-	UseAlpn                  bool `json:"use_alpn,omitempty"`
-	UseProxyProtocol         bool `json:"use_proxy_protocol,omitempty"`
-	StreamIdleTimeoutSeconds int  `json:"stream_idle_timeout_seconds,omitempty"`
+	UseAlpn                  bool             `json:"use_alpn,omitempty"`
+	UseProxyProtocol         bool             `json:"use_proxy_protocol,omitempty"`
+	StreamIdleTimeoutSeconds int              `json:"stream_idle_timeout_seconds,omitempty"`
+	SessionTicketKeysSecret  *model.TLSSecret `json:"session_ticket_keys_secret,omitempty"`
 }
 
 type ClusterConfig struct {
