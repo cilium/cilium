@@ -154,7 +154,7 @@ func (s *adsServer) updateNetworkPolicyHosts(ctx context.Context, name string, m
 	if next == current {
 		return nil
 	}
-	err = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicyHosts, name, next, nil, nil)
+	err = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicyHosts, name, next, nil)
 	return err
 }
 

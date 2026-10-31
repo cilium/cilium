@@ -36,7 +36,6 @@ import (
 
 	daemonk8s "github.com/cilium/cilium/daemon/k8s"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
@@ -330,6 +329,7 @@ type fakeEnvoySyncerAndPolicyTrigger struct {
 	lock.Mutex
 	store              resourceStore
 	policyTriggerCount int
+	beforeUpdate       func(context.Context, xds.Resources, xds.Resources) error
 }
 
 type section struct {
@@ -455,39 +455,25 @@ func indentLines(s string) string {
 }
 
 // DeleteResources implements envoySyncer.
-func (f *fakeEnvoySyncerAndPolicyTrigger) DeleteEnvoyResources(ctx context.Context, res xds.Resources, waitGroup *completion.WaitGroup) error {
+func (f *fakeEnvoySyncerAndPolicyTrigger) DeleteEnvoyResources(ctx context.Context, res xds.Resources) error {
 	f.Lock()
 	defer f.Unlock()
 	f.store.delete(&res)
 
-	for _, listener := range res.Listeners {
-		if cb := res.PortAllocationCallbacks[listener.Name]; cb != nil {
-			cb(ctx)
-		}
-	}
 	return nil
 }
 
 // UpdateResources implements envoySyncer.
-func (f *fakeEnvoySyncerAndPolicyTrigger) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, waitGroup *completion.WaitGroup) error {
+func (f *fakeEnvoySyncerAndPolicyTrigger) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error {
 	f.Lock()
 	defer f.Unlock()
+	if f.beforeUpdate != nil {
+		if err := f.beforeUpdate(ctx, old, new); err != nil {
+			return err
+		}
+	}
 	f.store.delete(&old)
 	f.store.update(&new)
-
-	for _, oldListener := range old.Listeners {
-		for _, newListener := range new.Listeners {
-			if newListener.Name == oldListener.Name {
-				delete(new.PortAllocationCallbacks, newListener.Name)
-			}
-		}
-	}
-
-	for _, listener := range new.Listeners {
-		if cb := new.PortAllocationCallbacks[listener.Name]; cb != nil {
-			cb(ctx)
-		}
-	}
 
 	return nil
 }

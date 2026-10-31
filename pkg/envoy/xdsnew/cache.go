@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/revert"
 )
 
 const (
@@ -40,23 +41,46 @@ type Cache interface {
 	// GetSnapshotCache returns SnapshotCache to be passed to go-control-plane.
 	GetSnapshotCache() cache.SnapshotCache
 
-	// ApplyResources commits semantic changes and retains cache-owned NACK
-	// rollback. Completions for unchanged resource types attach to their current
-	// version instead of creating a completion-only generation.
-	ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) error
-	// ApplyResourcesWithRollback also returns a caller-owned rollback lifecycle
-	// for a changed update. The caller must eventually Finalize or Revert it;
-	// either call is terminal even if Revert returns an error.
-	ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) (Rollback, error)
+	// ApplyResources commits non-revertible semantic changes. Envoy NACKs report
+	// rejection to caller waits without reverting these resources. Semantically
+	// equal upserts also become non-revertible, without changing their revisions.
+	// Completions for unchanged resource types attach to their current version
+	// instead of creating a completion-only generation.
+	// waitTypeURLs explicitly selects the resource types to wait for. An empty
+	// set selects no waits. Selected types with no names in mutations are ignored.
+	//
+	// A wait whose pending requirements for a TypeURL are all removals survives
+	// that type's NACKs until a qualifying ACK, cancellation, or timeout. Upserts
+	// of other types do not change this policy, but their failures can still fail
+	// a shared WaitGroup.
+	ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) error
+	// ApplyResourcesWithRollback enables response-owned NACK rollback for changed
+	// upserts and returns a non-nil caller rollback covering upserts and removals,
+	// with a stateless no-op for semantic no-ops. Errors return nil.
+	// Revert restores deleted values only if their names remain absent and no newer
+	// API deletion has superseded them, including deletion of an already absent name.
+	// Later API reuse of an unchanged value supersedes older caller recovery for
+	// that resource, even before ACK. Response-owned recovery remains independent.
+	// Each lifecycle must eventually be finalized or reverted; either call is terminal.
+	// ACK wait behavior is the same as ApplyResources.
+	ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) (Rollback, error)
 	// ApplyResource compares only the named resource and builds a sparse mutation
 	// only after detecting an actual semantic change. It accepts every supported
 	// typeURL. A nil resource removes the named resource; typeURL identifies its
-	// type even for removals.
-	ApplyResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup, callback func(error)) error
-	// ApplyResourceWithRollback also returns a caller-owned rollback lifecycle
-	// for a changed update. The caller must eventually Finalize or Revert it;
-	// either call is terminal even if Revert returns an error.
-	ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup, callback func(error)) (Rollback, error)
+	// type even for removals. Committed upserts are non-revertible, including
+	// semantically equal upserts. NACKs report rejection to caller waits without
+	// reverting these resources or removals.
+	// Pending removal waits survive this type's NACKs, with the same wait semantics
+	// as ApplyResources.
+	ApplyResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) error
+	// ApplyResourceWithRollback enables response-owned NACK rollback for a changed
+	// upsert and returns a non-nil caller rollback, including for removals.
+	// Reuse and removal recovery follow ApplyResourcesWithRollback's
+	// supersession rules. Semantic no-ops return a stateless no-op; errors return
+	// nil. Each lifecycle must eventually be finalized or reverted; either call is
+	// terminal even if Revert returns an error.
+	// ACK wait behavior is the same as ApplyResource.
+	ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) (Rollback, error)
 	// GetResource returns one cache-owned immutable resource without
 	// materializing the complete desired resource maps, or nil if absent.
 	GetResource(nodeID string, typeURL typeurl.Index, resourceName string) cache_types.Resource
@@ -67,17 +91,6 @@ type Cache interface {
 }
 
 type Rollback = callbacks.Rollback
-
-// TypeURLCallbacks stores optional completion callbacks for supported resource
-// types without allocating a string-keyed map.
-type TypeURLCallbacks = typeurl.Map[func(error)]
-
-// NewTypeURLCallbacks returns an explicitly initialized empty callback set.
-// This differs from the zero value, which asks ApplyResources to infer the
-// default Listener ACK wait when a listener is mutated.
-func NewTypeURLCallbacks() TypeURLCallbacks {
-	return typeurl.NewMap[func(error)]()
-}
 
 // ListenerChange describes one committed listener transition. Previous is nil
 // for an insertion and Current is nil for a removal. Resources are immutable
@@ -146,7 +159,7 @@ type cacheImpl struct {
 	// rollback state is claimed before it can be coalesced with a later update.
 	// A response channel can serve watches from several nodes, so relays are
 	// channel-owned rather than belonging to any one nodeState.
-	watchRelays   map[chan cache.Response]*watchRelay
+	watchRelays   set.Set[*watchRelay]
 	logger        *slog.Logger
 	completionCbs *callbacks.CompletionCallbacks
 	// resourceGeneration is the latest number reserved from the shared mutation
@@ -280,10 +293,9 @@ func snapshotCacheLogger(logger *slog.Logger) controlplanelog.Logger {
 	}
 	logger = logger.With(logFieldComponent, "go-control-plane-snapshot-cache")
 
-	// Empty logger for disabled debug level
-	debugLogger := func(string, ...any) {}
-	if logger.Enabled(context.Background(), slog.LevelDebug) {
-		debugLogger = func(format string, args ...any) {
+	debugLogger := func(format string, args ...any) {
+		// Check before formatting on each call so runtime log-level changes apply.
+		if logger.Enabled(context.Background(), slog.LevelDebug) {
 			logger.Debug(fmt.Sprintf(format, args...))
 		}
 	}
@@ -313,7 +325,6 @@ func newCache(logger *slog.Logger, options ...CacheOption) *cacheImpl {
 	c := &cacheImpl{
 		snapshotCache: snapshotCache,
 		mutex:         &lock.RWMutex{},
-		watchRelays:   make(map[chan cache.Response]*watchRelay),
 		logger:        logger,
 	}
 	c.completionCbs = callbacks.NewCompletionCallbacks(logger, c)
@@ -376,78 +387,53 @@ func (resources *resourceMaps) updateResourceEntries(typeURL typeurl.Index, chan
 	return cache.Resources{Items: items}, cloned
 }
 
-func (c *cacheImpl) generateSnapshotFromState(state *nodeState) (cache.ResourceSnapshot, error) {
+func (c *cacheImpl) generateSnapshotFromState(state *nodeState) *ciliumSnapshot {
 	var resourceGroups typeurl.Slots[snapshotResourceGroup]
 	for typeURL := range typeurl.Count {
 		var group cache.Resources
 		entries := state.resources[typeURL]
-		capacity := len(entries)
-		if typeURL == typeurl.Endpoint && len(state.resources[typeurl.Cluster]) > 0 {
-			// Size by unique assignment names, not Cluster count: many Clusters
-			// can share an EDS service, and non-EDS Clusters need no assignment.
-			names := make(map[string]struct{}, len(entries)+len(state.resources[typeurl.Cluster]))
-			for name := range entries {
-				names[name] = struct{}{}
-			}
+		var missingEndpoints map[string]struct{}
+		if typeURL == typeurl.Endpoint {
+			// Collect only missing assignments. Explicit CLAs and non-EDS
+			// Clusters need no extra names; shared EDS names stay deduplicated.
 			for clusterName, entry := range state.resources[typeurl.Cluster] {
-				if entry.resource == nil {
-					continue
-				}
-				if name := clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource)); name != "" {
-					names[name] = struct{}{}
+				if name := clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource)); name != "" && entries[name].resource == nil {
+					if missingEndpoints == nil {
+						// Missing assignments can be numerous at startup. Sizing
+						// this temporary set avoids repeated growth in that case.
+						missingEndpoints = make(map[string]struct{}, len(state.resources[typeurl.Cluster]))
+					}
+					missingEndpoints[name] = struct{}{}
 				}
 			}
-			capacity = len(names)
 		}
+		capacity := len(entries) + len(missingEndpoints)
 		if capacity != 0 {
 			group.Items = make(map[string]cache_types.ResourceWithTTL, capacity)
 		}
 		for name, entry := range entries {
-			if entry.resource == nil {
-				continue
-			}
 			group.Items[name] = cache_types.ResourceWithTTL{Resource: entry.resource}
 		}
-		if typeURL == typeurl.Endpoint {
-			// EDS also needs empty CLAs for Clusters without desired assignments.
-			// Project directly from Clusters, using the destination map to deduplicate
-			// shared EDS service names and preserve explicit CLAs. A per-name Cluster
-			// scan would make a full snapshot quadratic. Never change desired state.
-			for clusterName, entry := range state.resources[typeurl.Cluster] {
-				if entry.resource == nil {
-					continue
-				}
-				name := clusterEndpointName(clusterName, typedResource[*envoy_config_cluster.Cluster](entry.resource))
-				if name == "" {
-					continue
-				}
-				if _, exists := group.Items[name]; exists {
-					continue
-				}
-				resource := &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
-				group.Items[name] = cache_types.ResourceWithTTL{Resource: resource}
+		// Empty CLAs are a snapshot projection; desired state remains unchanged.
+		for name := range missingEndpoints {
+			group.Items[name] = cache_types.ResourceWithTTL{
+				Resource: &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name},
 			}
-		}
-		if len(group.Items) == 0 {
-			group.Items = nil
 		}
 		resourceGroups[typeURL] = snapshotResourceGroup{
 			resources:  group,
 			generation: state.typeStates[typeURL].generation,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups, state.epoch), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch)
 }
 
-func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previous cache.ResourceSnapshot, changedTypeURLs typeurl.Set) (cache.ResourceSnapshot, error) {
-	previousSnapshot, ok := previous.(*ciliumSnapshot)
-	if !ok || previousSnapshot == nil || !changedTypeURLs.Known() {
+func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, previousSnapshot *ciliumSnapshot, changedTypeURLs typeurl.Set) *ciliumSnapshot {
+	if previousSnapshot == nil {
+		// Build from desired state before the first publication.
 		return c.generateSnapshotFromState(state)
 	}
 	regenerate := snapshotTypesChangedBy(changedTypeURLs)
-	if regenerate.Empty() {
-		return previousSnapshot, nil
-	}
 
 	resourceGroups := previousSnapshot.resourceGroups
 	for typeURL := range regenerate.Members() {
@@ -473,7 +459,7 @@ func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, pre
 			generation: generation,
 		}
 	}
-	return newCiliumSnapshot(resourceGroups, state.epoch), nil
+	return newCiliumSnapshot(resourceGroups, state.epoch)
 }
 
 func (c *cacheImpl) GetCompletionCallbacks() *callbacks.CompletionCallbacks {
@@ -485,11 +471,9 @@ type immediateCompletion struct {
 	err  error
 }
 
-// generationWait describes one ACK/NACK wait. generation is the snapshot
-// boundary needed to cover the required resource revisions, or the current
-// pending/published boundary for a whole-TypeURL wait.
+// generationWait describes ACK/NACK requirements and their response boundary.
+// Its zero value means no wait; a nonempty scope may have generation zero.
 type generationWait struct {
-	callback   func(error)
 	generation callbacks.Generation
 	scope      callbacks.ResourceScope
 }
@@ -511,17 +495,14 @@ type resourceTransaction struct {
 	// Only API mutations also use it as the changed entries' TransactionID.
 	generation            callbacks.Generation
 	deliveries            []responseDelivery
-	finalized             []finalizedCompletion
 	registeredCompletions set.Set[*completion.Completion]
 	immediateCompletions  []immediateCompletion
 	listenerChanges       []ListenerChange
 	updateErr             error
-	acceptedCallback      func(error)   // single callback common case
-	acceptedCallbacks     []func(error) // additional callbacks
 }
 
 // beginResourceTransaction acquires the cache lock for a known node. Pair it
-// with complete, which releases the lock before delivering responses or callbacks.
+// with complete, which releases the lock before delivering responses or completing waits.
 func (c *cacheImpl) beginResourceTransaction(ctx context.Context, state *nodeState) resourceTransaction {
 	c.mutex.Lock()
 	return resourceTransaction{
@@ -539,20 +520,6 @@ func (c *cacheImpl) nextResourceGenerationLocked() callbacks.Generation {
 	return c.resourceGeneration
 }
 
-// addAcceptedCallback defers an already-satisfied callback until after the
-// cache mutex is released. No Completion needs to be added to wg because there
-// is no asynchronous work for it to wait on.
-func (tx *resourceTransaction) addAcceptedCallback(wg *completion.WaitGroup, callback func(error)) {
-	if wg == nil || callback == nil {
-		return
-	}
-	if tx.acceptedCallback == nil {
-		tx.acceptedCallback = callback
-		return
-	}
-	tx.acceptedCallbacks = append(tx.acceptedCallbacks, callback)
-}
-
 func (tx *resourceTransaction) complete() {
 	c := tx.cache
 	var noListenerWaiters callbacks.DetachedWaiters
@@ -567,7 +534,7 @@ func (tx *resourceTransaction) complete() {
 	c.deliverResponses(tx.deliveries)
 	if tx.updateErr != nil {
 		// Unchanged-resource waits may have been registered before publication.
-		// Detach every transaction-owned wait before invoking its callback.
+		// Detach every transaction-owned wait before waking its caller.
 		for comp := range tx.registeredCompletions.Members() {
 			c.completionCbs.RemoveTypeGenerationCompletion(comp)
 		}
@@ -579,25 +546,18 @@ func (tx *resourceTransaction) complete() {
 		}
 		return
 	}
-	c.completeFinalized(tx.state.nodeID, tx.finalized)
 	for _, immediate := range tx.immediateCompletions {
 		// Resource-level acceptance proves only this wait, not the other names
 		// in older generations of the same TypeURL.
 		immediate.comp.Complete(immediate.err)
 	}
 	noListenerWaiters.Complete(nil)
-	if tx.acceptedCallback != nil {
-		tx.acceptedCallback(nil)
-		for _, callback := range tx.acceptedCallbacks {
-			callback(nil)
-		}
-	}
 }
 
 // registerGenerationCompletions uses the same prepared owner for the WaitGroup
-// and callback bookkeeping. A nil snapshot denotes unpublished changes: scope
+// and ACK/NACK tracking. A nil snapshot denotes unpublished changes: scope
 // revisions are filled from committed desired entries, without another node lookup.
-func (tx *resourceTransaction) registerGenerationCompletions(snapshot cache.ResourceSnapshot, wg *completion.WaitGroup, waits typeURLWaits) {
+func (tx *resourceTransaction) registerGenerationCompletions(snapshot *ciliumSnapshot, wg *completion.WaitGroup, waits typeURLWaits) {
 	if wg == nil || waits.Empty() {
 		return
 	}
@@ -606,13 +566,18 @@ func (tx *resourceTransaction) registerGenerationCompletions(snapshot cache.Reso
 		version := ""
 		if snapshot == nil {
 			wait.scope = wait.scope.WithRevisions(func(name string) callbacks.Revision {
-				return tx.state.resourceWaitEntry(typeURL, name).revision
+				entry := tx.state.resourceWaitEntry(typeURL, name)
+				if entry.resource == nil {
+					entry.revision = c.completionCbs.RemovalWaitRevision(tx.state.nodeID, typeURL, name, entry.revision)
+				}
+				return entry.revision
 			})
 		} else {
 			version = snapshot.GetVersion(typeURL.URL())
 		}
-		owner := c.completionCbs.NewTypeGenerationCompletionOwner(tx.state.nodeID, typeURL, wait.generation, wait.scope)
-		comp := wg.AddCompletionWithCallback(owner, wait.callback)
+		removalOnly := wait.scope.OnlyRemovals(func(name string) bool { return tx.state.resources[typeURL][name].resource == nil })
+		owner := c.completionCbs.NewTypeGenerationCompletionOwner(tx.state.nodeID, typeURL, wait.generation, wait.scope, removalOnly)
+		comp := wg.AddCompletion(owner)
 		registered, err := c.completionCbs.AddPreparedTypeGenerationCompletion(comp, owner, version, snapshot == nil)
 		if registered {
 			tx.registeredCompletions.Insert(comp)
@@ -624,15 +589,8 @@ func (tx *resourceTransaction) registerGenerationCompletions(snapshot cache.Reso
 	}
 }
 
-type finalizedCompletion struct {
-	typeURL    typeurl.Index
-	generation callbacks.Generation
-	err        error
-}
-
 // snapshotTypesChangedBy includes EDS because CDS can change projected CLAs
 // or require an unchanged assignment to be replayed for Cluster warming.
-// Both zero and initialized-empty sets mean that no resource types changed.
 func snapshotTypesChangedBy(changedTypeURLs typeurl.Set) typeurl.Set {
 	regenerate := changedTypeURLs
 	if changedTypeURLs.Has(typeurl.Cluster) {
@@ -642,34 +600,30 @@ func snapshotTypesChangedBy(changedTypeURLs typeurl.Set) typeurl.Set {
 }
 
 // finalizePendingPublicationLocked constructs and installs a snapshot of the
-// latest desired state for nodeID. The caller must hold c.mutex. Completion
-// resolution is returned so callbacks can run after the cache lock is released.
-func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID string) ([]finalizedCompletion, error) {
+// latest desired state for nodeID. The caller must hold c.mutex.
+func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID string) error {
 	state := c.getNodeState(nodeID)
 	if state == nil || state.pendingPublication == nil {
-		return nil, nil
+		return nil
 	}
 	pending := state.pendingPublication
 
-	oldSnapshot, _ := c.snapshotCache.GetSnapshot(nodeID)
-	newSnapshot, err := c.generateSnapshotFromStateIncrementally(state, oldSnapshot, pending.changedTypeURLs)
-	if err != nil {
-		return nil, err
-	}
+	oldSnapshot, _ := c.getSnapshot(nodeID)
+	newSnapshot := c.generateSnapshotFromStateIncrementally(state, oldSnapshot, pending.changedTypeURLs)
 	// SetSnapshot may synchronously queue responses. Capture this snapshot and
 	// generation in their context so delayed delivery cannot associate them
 	// with a newer publication. Commit callback metadata only after installation.
-	err = c.snapshotCache.SetSnapshot(callbacks.WithSnapshotPublication(ctx, pending.generation, newSnapshot), nodeID, newSnapshot)
+	err := c.snapshotCache.SetSnapshot(callbacks.WithSnapshotPublication(ctx, pending.generation, newSnapshot), nodeID, newSnapshot)
 	if err != nil {
 		// SnapshotCache stores the snapshot before delivering watch responses. A
 		// canceled delivery may therefore return an error after publication has
 		// committed; keep generation state in that case.
-		currentSnapshot, getErr := c.snapshotCache.GetSnapshot(nodeID)
+		currentSnapshot, getErr := c.getSnapshot(nodeID)
 		// SetSnapshot stores the exact snapshot object. Version equality alone
 		// cannot prove installation; do not infer success from stale state.
 		committed := getErr == nil && currentSnapshot == newSnapshot
 		if !committed {
-			return nil, err
+			return err
 		}
 		c.logger.Debug("Snapshot was installed despite response delivery error",
 			logfields.NodeID, nodeID,
@@ -682,39 +636,11 @@ func (c *cacheImpl) finalizePendingPublicationLocked(ctx context.Context, nodeID
 	state.snapshotGeneration = pending.generation
 	state.pendingPublication = nil
 	for typeURL := range typeurl.Count {
-		state.typeStates[typeURL].generation = newSnapshot.(*ciliumSnapshot).resourceGroups[typeURL].generation
+		state.typeStates[typeURL].generation = newSnapshot.resourceGroups[typeURL].generation
 		state.typeStates[typeURL].changedResourceNames.Clear()
 	}
-	state.rollbacks.publishedLocked(c, state, pending, oldSnapshot, newSnapshot)
-	// Do not preallocate: most publications have no immediately satisfied waits,
-	// so reserving space here adds allocations to the common churn path.
-	var finalized []finalizedCompletion
-	for typeURL := range typeurl.Count {
-		// Before a baseline exists, waits can concern types outside the unpublished
-		// mutations. Bind all of them to the newly installed full snapshot.
-		if oldSnapshot != nil && !pending.rollbacks.Has(typeURL) {
-			continue
-		}
-		version := newSnapshot.GetVersion(typeURL.URL())
-		versionChanged := oldSnapshot == nil || oldSnapshot.GetVersion(typeURL.URL()) != version
-		complete, completeErr := c.completionCbs.FinalizeTypeGeneration(
-			nodeID, typeURL, pending.generation, version, versionChanged)
-		if complete {
-			finalized = append(finalized, finalizedCompletion{
-				typeURL:    typeURL,
-				generation: pending.generation,
-				err:        completeErr,
-			})
-		}
-	}
-	return finalized, nil
-}
-
-func (c *cacheImpl) completeFinalized(nodeID string, finalized []finalizedCompletion) {
-	for _, result := range finalized {
-		c.completionCbs.CompleteCompletionsThroughGeneration(
-			nodeID, result.typeURL, result.generation, result.err)
-	}
+	state.rollbacks.publishedLocked(c, state, pending)
+	return nil
 }
 
 func committedListenerChanges(changes resourceChanges) []ListenerChange {
@@ -738,19 +664,19 @@ func committedListenerChanges(changes resourceChanges) []ListenerChange {
 
 // ApplyResources applies sparse removals and upserts to the cache-private
 // desired state. It is the authority for semantic no-op detection, changed
-// resource names and transaction-fenced reverts. Changed transactions accumulate
+// resource names and rollback policy. Changed transactions accumulate
 // unpublished changes and construct a snapshot when an affected watch can
 // consume it; published maps remain immutable.
-func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) error {
-	_, err := c.applyResources(ctx, nodeID, mutations, wg, updatedTypeURLs, responseRollbackTracking)
+func (c *cacheImpl) ApplyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) error {
+	_, err := c.applyResources(ctx, nodeID, mutations, wg, waitTypeURLs, false)
 	return err
 }
 
-func (c *cacheImpl) ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks) (Rollback, error) {
-	return c.applyResources(ctx, nodeID, mutations, wg, updatedTypeURLs, callerAndResponseRollbackTracking)
+func (c *cacheImpl) ApplyResourcesWithRollback(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set) (Rollback, error) {
+	return c.applyResources(ctx, nodeID, mutations, wg, waitTypeURLs, true)
 }
 
-func (c *cacheImpl) applyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, tracking rollbackTracking) (Rollback, error) {
+func (c *cacheImpl) applyResources(ctx context.Context, nodeID string, mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set, withRollback bool) (Rollback, error) {
 	if err := validateResourceMutations(mutations); err != nil {
 		return nil, err
 	}
@@ -759,7 +685,7 @@ func (c *cacheImpl) applyResources(ctx context.Context, nodeID string, mutations
 		return nil, fmt.Errorf("unknown xDS node %q", nodeID)
 	}
 	tx := c.beginResourceTransaction(ctx, state)
-	rollback, err := tx.applyResourcesLocked(mutations, wg, updatedTypeURLs, tracking)
+	rollback, err := tx.applyResourcesLocked(mutations, wg, waitTypeURLs, withRollback)
 	if err != nil {
 		tx.updateErr = err
 	}
@@ -767,16 +693,16 @@ func (c *cacheImpl) applyResources(ctx context.Context, nodeID string, mutations
 	return rollback, err
 }
 
-func (c *cacheImpl) ApplyResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup, callback func(error)) error {
-	_, err := c.applyResource(ctx, nodeID, typeURL, name, resource, wg, callback, responseRollbackTracking)
+func (c *cacheImpl) ApplyResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) error {
+	_, err := c.applyResource(ctx, nodeID, typeURL, name, resource, wg, false)
 	return err
 }
 
-func (c *cacheImpl) ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup, callback func(error)) (Rollback, error) {
-	return c.applyResource(ctx, nodeID, typeURL, name, resource, wg, callback, callerAndResponseRollbackTracking)
+func (c *cacheImpl) ApplyResourceWithRollback(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup) (Rollback, error) {
+	return c.applyResource(ctx, nodeID, typeURL, name, resource, wg, true)
 }
 
-func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup, callback func(error), tracking rollbackTracking) (Rollback, error) {
+func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL typeurl.Index, name string, resource proto.Message, wg *completion.WaitGroup, withRollback bool) (Rollback, error) {
 	if name == "" {
 		return nil, errEmptyName
 	}
@@ -808,32 +734,43 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 
 	// Do not wait for network policy ACK if there are no NPDS listeners.
 	if typeURL == typeurl.NetworkPolicy && wg != nil && c.listenerObserver != nil && !c.listenerObserver.HasNPDSListeners(nodeID) {
-		tx.addAcceptedCallback(wg, callback)
 		wg = nil
 	}
 
 	previous := tx.state.resources[typeURL][name]
 	if previous.resource == resource ||
 		(previous.resource != nil && resource != nil && xds.ResourceEqual(previous.resource, resource)) {
+		tx.state.rollbacks.supersedeCallerRollbackLocked(typeURL, name, previous)
+		if !withRollback {
+			tx.state.rollbacks.adoptNonRevertibleLocked(c, tx.state, typeURL, name)
+		}
 		if wg == nil {
-			return nil, nil
+			return revert.Noop, nil
 		}
 		// Use the canonical cache pointer for semantic no-ops, so checking ACK
 		// evidence does not repeat the comparison against a fresh protobuf.
 		waitEntry := tx.state.resourceWaitEntry(typeURL, name)
+		if resource == nil {
+			waitEntry.revision = c.completionCbs.RemovalWaitRevision(nodeID, typeURL, name, waitEntry.revision)
+		}
 		if tx.state.resourceGeneration == 0 && resource == nil ||
 			c.completionCbs.ResourceAccepted(nodeID, typeURL, name, previous.resource, previous.resource != nil, waitEntry.revision) {
 			// A pristine known node has no resource update to acknowledge. After
-			// mutations, a removal can still need ACK evidence even if its tombstone
-			// has been pruned (notably for named EDS/RDS/SDS resources).
-			tx.addAcceptedCallback(wg, callback)
-			return nil, nil
+			// mutations, an absent name can still need ACK evidence (notably for
+			// named EDS/RDS/SDS resources).
+			return revert.Noop, nil
 		}
 		var waits typeURLWaits
 		revision := waitEntry.revision
-		waits.Set(typeURL, generationWait{callback: callback, generation: callbacks.Generation(0).MaxRevision(revision), scope: callbacks.SingleResourceScope(name, revision)})
+		generation := callbacks.Generation(0).MaxRevision(revision)
+		if resource == nil {
+			// A repeated removal may still be unpublished. Its wait must not
+			// attach to an older response which contains the removed value.
+			generation = tx.state.generationForType(typeURL).MaxRevision(revision)
+		}
+		waits.Set(typeURL, generationWait{generation: generation, scope: callbacks.SingleResourceScope(name, revision)})
 		tx.awaitCurrentVersionLocked(wg, waits)
-		return nil, nil
+		return revert.Noop, nil
 	}
 
 	// Record listener changes for the observer when the transaction completes.
@@ -843,92 +780,84 @@ func (c *cacheImpl) applyResource(ctx context.Context, nodeID string, typeURL ty
 			Current:  typedResource[*envoy_config_listener.Listener](resource),
 		}}
 	}
-	inverse := singleResource(typeURL, name, previous)
+	var inverse resources
+	if resource != nil {
+		inverse = singleResource(typeURL, name, previous)
+	}
 	tx.generation = c.nextResourceGenerationLocked()
 	var changes resourceChanges
-	changes.add(typeURL, name, previous, resourceEntry{resource: resource, revision: tx.generation.Revision(), transaction: tx.generation.TransactionID()})
+	changes.add(typeURL, name, previous, resourceEntry{
+		resource: resource, revision: tx.generation.Revision(), transaction: tx.generation.TransactionID(),
+		nonRevertible: !withRollback,
+	})
 
-	accepted := false
 	var changedWaits typeURLWaits
-	if wg != nil {
-		accepted = c.completionCbs.ChangedResourceAccepted(
-			nodeID, typeURL, name,
-			previous.resource, previous.resource != nil,
-			resource, resource != nil,
-			previous.revision,
-		)
-		if !accepted {
-			changedWaits.Set(typeURL, generationWait{callback: callback, generation: tx.generation, scope: callbacks.SingleResourceScope(name, tx.generation.Revision())})
-		}
+	if wg != nil && !c.completionCbs.ChangedResourceAccepted(
+		nodeID, typeURL, name,
+		previous.resource, previous.resource != nil,
+		resource, resource != nil,
+		previous.revision,
+	) {
+		changedWaits.Set(typeURL, generationWait{generation: tx.generation, scope: callbacks.SingleResourceScope(name, tx.generation.Revision())})
 	}
 	if err := tx.updateResourceChangesLocked(changes, resourceUpdateOptions{
-		inverse:  inverse,
-		waits:    changedWaits,
-		tracking: tracking,
+		inverse:       inverse,
+		waits:         changedWaits,
+		trackRollback: withRollback,
+		isAPIUpdate:   true,
 	}, wg); err != nil {
 		return nil, err
 	}
-	if accepted {
-		tx.addAcceptedCallback(wg, callback)
+	if resource == nil {
+		tx.state.rollbacks.supersedeCallerRollbackLocked(typeURL, name, resourceEntry{})
 	}
-	if tracking == callerAndResponseRollbackTracking {
-		return tx.state.rollbacks.newCallerLocked(&tx, inverse), nil
+	if withRollback {
+		return tx.state.rollbacks.newCallerLocked(&tx, inverse, &changes), nil
 	}
-	return nil, nil
+	return revert.Noop, nil
 }
 
 // applyResourcesLocked allocates generations and constructs transaction-fenced
 // reverts inside the cache. Caller must hold mutex.
-func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations, wg *completion.WaitGroup, updatedTypeURLs TypeURLCallbacks, tracking rollbackTracking) (Rollback, error) {
+func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations, wg *completion.WaitGroup, waitTypeURLs typeurl.Set, withRollback bool) (Rollback, error) {
 	c := tx.cache
-	if !updatedTypeURLs.Known() && (len(mutations.Removed.Listeners) > 0 || len(mutations.Upserted.Listeners) > 0) {
-		// Listener mutations are always ACK-tracked by the legacy server because
-		// callers may immediately depend on the listener being usable. Infer that
-		// contract from mutation intent, including semantic no-ops, so callers
-		// cannot accidentally omit the AwaitCurrentVersion path.
-		updatedTypeURLs.Set(typeurl.Listener, nil)
-	}
-
 	state := tx.state
 	changes, changedTypeURLs, inverse := state.prepareResourceMutation(mutations, c.resourceGeneration+1)
-	if state.resourceGeneration == 0 && changedTypeURLs.Empty() {
-		for _, callback := range updatedTypeURLs.All() {
-			tx.addAcceptedCallback(wg, callback)
-		}
-		return nil, nil
-	}
 	var unchangedWaits typeURLWaits
 	if changedTypeURLs.Empty() {
-		if wg == nil || updatedTypeURLs.Empty() {
-			return nil, nil
+		if !withRollback {
+			tx.adoptNonRevertibleUpsertsLocked(mutations.Upserted)
 		}
-		for typeURL, callback := range updatedTypeURLs.All() {
-			wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
-			if accepted {
-				tx.addAcceptedCallback(wg, callback)
-				continue
+		if state.resourceGeneration != 0 && wg != nil && !waitTypeURLs.Empty() {
+			for typeURL := range waitTypeURLs.Members() {
+				wait := tx.mutationWaitLocked(typeURL, mutations, &inverse)
+				if !wait.scope.HasNames() {
+					continue
+				}
+				unchangedWaits.Set(typeURL, wait)
 			}
-			wait.callback = callback
-			unchangedWaits.Set(typeURL, wait)
+			tx.awaitCurrentVersionLocked(wg, unchangedWaits)
 		}
-		tx.awaitCurrentVersionLocked(wg, unchangedWaits)
-		return nil, nil
+		state.rollbacks.supersedeCallerRollbacksLocked(state, mutations, &inverse)
+		return revert.Noop, nil
 	}
 
 	tx.generation = c.nextResourceGenerationLocked()
+	changes.first.next.nonRevertible = !withRollback
+	for i := range changes.more {
+		changes.more[i].next.nonRevertible = !withRollback
+	}
 
 	var changedWaits typeURLWaits
 	if wg != nil {
 		dirtyTypeURLs := snapshotTypesChangedBy(changedTypeURLs)
-		// Acceptance and named scopes serve caller waits only. Response-owned
+		// Acceptance checks and wait scopes serve callers only. Response-owned
 		// NACK rollback is prepared independently below, even without a WaitGroup.
-		for typeURL, callback := range updatedTypeURLs.All() {
-			wait, accepted := tx.mutationWaitLocked(typeURL, mutations, inverse)
-			if accepted {
-				tx.addAcceptedCallback(wg, callback)
+		for typeURL := range waitTypeURLs.Members() {
+			wait := tx.mutationWaitLocked(typeURL, mutations, &inverse)
+			if !wait.scope.HasNames() {
 				continue
 			}
-			wait.callback = callback
 			if dirtyTypeURLs.Has(typeURL) {
 				wait.generation = tx.generation
 				changedWaits.Set(typeURL, wait)
@@ -943,27 +872,35 @@ func (tx *resourceTransaction) applyResourcesLocked(mutations ResourceMutations,
 	}
 
 	err := tx.updateResourceChangesLocked(changes, resourceUpdateOptions{
-		inverse:  inverse,
-		waits:    changedWaits,
-		tracking: tracking,
+		inverse:       inverse,
+		waits:         changedWaits,
+		trackRollback: withRollback,
+		isAPIUpdate:   true,
 	}, wg)
 	if err != nil {
 		return nil, err
 	}
+	if !withRollback {
+		// Adopt unchanged members only after successful admission too. A failed
+		// mixed transaction must leave their earlier recovery untouched.
+		tx.adoptNonRevertibleUpsertsLocked(mutations.Upserted)
+	}
 
-	if inverse.len(typeurl.Listener) > 0 {
+	state.rollbacks.supersedeCallerRollbacksLocked(state, mutations, &inverse)
+
+	if changedTypeURLs.Has(typeurl.Listener) {
 		tx.listenerChanges = committedListenerChanges(changes)
 	}
 
-	if tracking == callerAndResponseRollbackTracking {
-		return tx.state.rollbacks.newCallerLocked(tx, inverse), nil
+	if withRollback {
+		return state.rollbacks.newCallerLocked(tx, inverse, &changes), nil
 	}
-	return nil, nil
+	return revert.Noop, nil
 }
 
 // HandleNACK uses the same transaction boundary as API mutations. Selection is
 // inside the cache lock, and the entire correction commits once, finalizing only
-// if a watch can consume it. complete delivers responses and invokes callbacks
+// if a watch can consume it. complete delivers responses and resolves waits
 // only after releasing that lock.
 func (c *cacheImpl) HandleNACK(nodeID string, process func(callbacks.RevertBatch) error) error {
 	state := c.getNodeState(nodeID)
@@ -975,16 +912,32 @@ func (c *cacheImpl) HandleNACK(nodeID string, process func(callbacks.RevertBatch
 	return process(tx.revertLocked)
 }
 
-// revertLocked composes cache-owned inverses into one prepared mutation. Caller
-// rollback uses the same path with a single lifecycle. rollbacks are newest
-// first; no lifecycle method is called which would take the cache lock again.
+// revertLocked composes response-owned inverses into one prepared mutation.
+// rollbacks are newest first; no lifecycle method is called which would take
+// the cache lock again. Failed recovery retains all selected response owners.
 func (tx *resourceTransaction) revertLocked(rollbacks []Rollback) error {
-	c, state := tx.cache, tx.state
-	changes, err := state.rollbacks.prepareRevertLocked(tx, rollbacks)
+	changes, err := tx.state.rollbacks.prepareRevertLocked(tx, rollbacks)
 	if err != nil {
 		return err
 	}
+	if err := tx.applyRevertLocked(changes); err != nil {
+		return err
+	}
+	for _, rollback := range rollbacks {
+		lifecycle := rollback.(*responseRollback)
+		if lifecycle.resources != nil {
+			lifecycle.finalizeLocked()
+		}
+	}
+	return nil
+}
 
+// applyRevertLocked commits caller or response recovery with fresh revisions.
+// Published snapshots remain immutable; corrective publication uses the resulting
+// desired state. Caller must hold the cache lock and resolve its owners afterward.
+func (tx *resourceTransaction) applyRevertLocked(changes resourceChanges) error {
+	c := tx.cache
+	var err error
 	if !changes.empty() {
 		c.logger.Debug("Reverting resource changes", logfields.NodeID, tx.state.nodeID)
 		tx.generation = c.nextResourceGenerationLocked()
@@ -997,8 +950,6 @@ func (tx *resourceTransaction) revertLocked(rollbacks []Rollback) error {
 		}
 		err = tx.updateResourceChangesLocked(changes, resourceUpdateOptions{}, nil)
 	}
-	state.rollbacks.finishRevertLocked(rollbacks, err)
-
 	if err == nil {
 		tx.listenerChanges = committedListenerChanges(changes)
 	} else {
@@ -1013,52 +964,57 @@ func (tx *resourceTransaction) revertLocked(rollbacks []Rollback) error {
 // generation in one traversal. ACK evidence for unchanged names remains valid
 // when another name in the same bulk TypeURL changes: waiting for those names
 // again could strand the caller if subsequent responses cover only the changes.
-// An absent mutation deliberately waits for the whole published resource type.
+// It returns the zero value when no names were supplied or every supplied name
+// already has sufficient ACK evidence.
 func resourceMutationWait[V interface {
 	proto.Message
 	comparable
-}](completionCbs *callbacks.CompletionCallbacks, nodeID string, typeURL typeurl.Index, current map[string]resourceEntry, removed, upserted map[string]V, inverse resources, publishedGeneration, revertGeneration callbacks.Generation) (generationWait, bool) {
+}](completionCbs *callbacks.CompletionCallbacks, state *nodeState, typeURL typeurl.Index, removed, upserted map[string]V, inverse *resources) generationWait {
 	var wait generationWait
 	if len(removed) == 0 && len(upserted) == 0 {
-		wait.generation = publishedGeneration
-		return wait, false
+		return wait
 	}
-	// Before any ACK, every name must wait. Avoid acquiring the callback lock
-	// for each resource merely to rediscover the same absence of ACK evidence.
+	nodeID := state.nodeID
+	removalOnly := true
+	// Without retained resource-level ACK evidence, every name must wait.
+	// Check once rather than acquiring the callback lock for each resource.
 	hasAcceptance := completionCbs.HasResourceAcceptance(nodeID, typeURL)
-	accepted := true
-	waitEntry := func(name string) resourceEntry {
-		entry := current[name]
-		if entry.resource == nil && entry.transaction.IsZero() {
-			entry.revision = revertGeneration.Revision()
+	waitEntry := func(name string, removal bool) resourceEntry {
+		entry := state.resources[typeURL][name]
+		if entry.resource == nil {
+			entry.revision = state.typeStates[typeURL].revertGeneration.Revision()
+			if removal {
+				entry = state.resourceWaitEntry(typeURL, name)
+				entry.revision = completionCbs.RemovalWaitRevision(nodeID, typeURL, name, entry.revision)
+			}
 		}
 		return entry
 	}
-	addPending := func(name string) {
-		revision := waitEntry(name).revision
+	addPending := func(name string, removal bool) {
+		revision := waitEntry(name, removal).revision
 		wait.scope.Insert(name, revision)
 		wait.generation = wait.generation.MaxRevision(revision)
-		accepted = false
+		removalOnly = removalOnly && removal
 	}
 	for name := range removed {
 		if _, replaced := upserted[name]; replaced {
 			continue
 		}
-		if !hasAcceptance || !completionCbs.ResourceAccepted(nodeID, typeURL, name, nil, false, waitEntry(name).revision) {
-			addPending(name)
+		if !hasAcceptance || !completionCbs.ResourceAccepted(nodeID, typeURL, name, nil, false, waitEntry(name, true).revision) {
+			addPending(name, true)
 		}
 	}
 	for name, resource := range upserted {
+		desired := resourceValue(resource)
 		if !hasAcceptance {
-			addPending(name)
+			addPending(name, desired == nil)
 			continue
 		}
 		// Typed nil upserts remove resources, just as in prepareResourceMap.
-		desired := resourceValue(resource)
-		entry := waitEntry(name)
+		entry := waitEntry(name, desired == nil)
 		previous := entry.resource
 		var resourceAccepted bool
-		if _, changed := inverse.get(typeURL, name); changed {
+		if _, changed := inverse.get(typeURL, name); changed || desired == nil && previous != nil {
 			resourceAccepted = completionCbs.ChangedResourceAccepted(nodeID, typeURL, name,
 				previous, previous != nil, desired, desired != nil, entry.revision)
 		} else {
@@ -1068,55 +1024,64 @@ func resourceMutationWait[V interface {
 			resourceAccepted = completionCbs.ResourceAccepted(nodeID, typeURL, name, previous, previous != nil, entry.revision)
 		}
 		if !resourceAccepted {
-			addPending(name)
+			addPending(name, desired == nil)
 		}
 	}
-	return wait, accepted
+	if !wait.scope.HasNames() {
+		return generationWait{}
+	}
+	if removalOnly {
+		wait.generation = max(wait.generation, state.generationForType(typeURL))
+	}
+	return wait
 }
 
-func (tx *resourceTransaction) mutationWaitLocked(typeURL typeurl.Index, mutations ResourceMutations, inverse resources) (generationWait, bool) {
+func (tx *resourceTransaction) mutationWaitLocked(typeURL typeurl.Index, mutations ResourceMutations, inverse *resources) generationWait {
 	c := tx.cache
 	state := tx.state
-	current := state.resourceEntries(typeURL)
-	publishedGeneration := state.generationForType(typeURL)
-	revertGeneration := state.typeStates[typeURL].revertGeneration
 	switch typeURL {
 	case typeurl.Listener:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Listeners, mutations.Upserted.Listeners, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Listeners, mutations.Upserted.Listeners, inverse)
 	case typeurl.Route:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Routes, mutations.Upserted.Routes, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Routes, mutations.Upserted.Routes, inverse)
 	case typeurl.Cluster:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Clusters, mutations.Upserted.Clusters, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Clusters, mutations.Upserted.Clusters, inverse)
 	case typeurl.Endpoint:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Endpoints, mutations.Upserted.Endpoints, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Endpoints, mutations.Upserted.Endpoints, inverse)
 	case typeurl.Secret:
-		return resourceMutationWait(c.completionCbs, tx.state.nodeID, typeURL, current, mutations.Removed.Secrets, mutations.Upserted.Secrets, inverse, publishedGeneration, revertGeneration)
+		return resourceMutationWait(c.completionCbs, state, typeURL, mutations.Removed.Secrets, mutations.Upserted.Secrets, inverse)
 	default:
-		return generationWait{generation: publishedGeneration}, false
+		return generationWait{}
 	}
 }
 
 // resourceUpdateOptions describes rollback ownership and ACK waits for a
 // prepared mutation. Its zero value is a compensating update with no new
-// rollback ownership or ACK waits; normal updates explicitly select tracking.
+// rollback ownership or ACK waits; API updates explicitly identify themselves
+// and select whether their upserts retain response-owned rollback.
 type resourceUpdateOptions struct {
-	inverse  resources
-	waits    typeURLWaits
-	tracking rollbackTracking
+	inverse resources
+	waits   typeURLWaits
+	// Only WithRollback API updates retain response-owned recovery.
+	trackRollback bool
+	// Permanent API updates discard superseded recovery; corrective reverts
+	// reconcile it with restored transaction identities instead.
+	isAPIUpdate bool
 }
 
 // updateResourceChangesLocked commits one prepared mutation and optionally
-// publishes it for an open watch. Caller rollback tracking retains the inverse
-// until the caller lifecycle is created after a successful commit or publication.
+// publishes it for an open watch. Prepared previous entries recover failed
+// admission; any requested caller lifecycle is created only after successful
+// commit or publication.
 // Caller must hold the cache mutex; post-lock work is accumulated on tx.
 func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChanges, options resourceUpdateOptions, wg *completion.WaitGroup) error {
 	c, state := tx.cache, tx.state
 	changedTypeURLs := changes.typeURLs()
 	oldResourceGeneration := state.resourceGeneration
 	var previousReverts typeurl.Slots[callbacks.Generation]
-	if options.tracking == noRollbackTracking {
-		// Reverts assign fresh revisions; retain the previous corrective generation
-		// in case immediate publication fails before installation.
+	if !options.isAPIUpdate {
+		// Caller- or response-driven reverts need a fresh corrective boundary
+		// for absent-name waits, independently of API rollback policy.
 		for typeURL := range changedTypeURLs.Members() {
 			previousReverts[typeURL] = state.typeStates[typeURL].revertGeneration
 			state.typeStates[typeURL].revertGeneration = tx.generation
@@ -1126,28 +1091,21 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 	for typeURL := range typeurl.Count {
 		oldTypeGenerations[typeURL] = state.typeStates[typeURL].generation
 	}
-	state.commitResourceMutation(changes, tx.generation)
-	if options.tracking == callerAndResponseRollbackTracking {
-		state.rollbacks.acquireInverse(state, options.inverse, tx.generation.TransactionID())
-	}
+	removedTypes := state.commitResourceMutation(changes, tx.generation)
 	tx.registerGenerationCompletions(nil, wg, options.waits)
-	oldPending, oldPendingValue, willFinalize := state.rollbacks.preparePublicationLocked(tx, changedTypeURLs, options)
-	var finalized []finalizedCompletion
+	oldPending, oldPendingValue, willFinalize := state.rollbacks.preparePublicationLocked(tx, changedTypeURLs, removedTypes, options)
 	var err error
 	if willFinalize {
-		finalized, err = c.finalizePendingPublicationLocked(tx.ctx, state.nodeID)
+		err = c.finalizePendingPublicationLocked(tx.ctx, state.nodeID)
 	}
-	deliveries := c.collectResponseDeliveriesLocked()
 	if err != nil {
-		if options.tracking == noRollbackTracking {
+		if !options.isAPIUpdate {
 			for typeURL := range changedTypeURLs.Members() {
 				state.typeStates[typeURL].revertGeneration = previousReverts[typeURL]
 			}
 		}
-		if options.tracking == callerAndResponseRollbackTracking {
-			state.rollbacks.releaseInverse(state, options.inverse, tx.generation.TransactionID())
-		}
-		// Prepared entries recover failed publication without materializing an inverse.
+		// Prepared previous entries also recover failed rollback publications,
+		// without allocating inverse maps or materializing a singleton.
 		if !changes.empty() {
 			change := changes.first
 			state.commitResourceEntry(change.typeURL, change.name, change.previous)
@@ -1156,7 +1114,7 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 			state.commitResourceEntry(change.typeURL, change.name, change.previous)
 		}
 		state.rollbacks.restorePublicationLocked(state, oldPending, oldPendingValue)
-		published, _ := c.snapshotCache.GetSnapshot(state.nodeID)
+		published, _ := c.getSnapshot(state.nodeID)
 		state.reconcileChangedResourceNames(changes, published)
 		state.resourceGeneration = oldResourceGeneration
 		for typeURL := range typeurl.Count {
@@ -1164,16 +1122,35 @@ func (tx *resourceTransaction) updateResourceChangesLocked(changes resourceChang
 		}
 	} else {
 		state.resourceGeneration = tx.generation
-		state.rollbacks.pruneUnownedRemovalsLocked(tx, changes, options)
+		pruneTypes := removedTypes
+		if options.isAPIUpdate && !options.trackRollback {
+			pruneTypes = changedTypeURLs
+		}
+		for typeURL := range pruneTypes.Members() {
+			if unsent := state.typeStates[typeURL].unsentRollback; unsent != nil {
+				// Admitted removals end unsent recovery immediately, even when
+				// publication is deferred or projects a named empty CLA.
+				unsent.resources.pruneRemovedResources(state, typeURL)
+				if options.isAPIUpdate && !options.trackRollback {
+					// A permanent upsert breaks the earlier unsent recovery chain.
+					// A subsequent revertible update must use it as its baseline.
+					for name := range options.inverse.resources(typeURL) {
+						delete(unsent.resources, name)
+					}
+				}
+				if len(unsent.resources) == 0 && c.completionCbs.DiscardUnsentTypeGeneration(state.nodeID, typeURL, unsent.generation) {
+					unsent.finalizeLocked()
+				}
+			}
+		}
 	}
-	tx.deliveries = deliveries
-	tx.finalized = finalized
+	tx.deliveries = c.collectResponseDeliveriesLocked()
 	tx.updateErr = err
 	return err
 }
 
 // awaitCurrentVersionLocked registers no-op waits against published or
-// unpublished desired revisions. Caller holds c.mutex; callbacks are completed
+// unpublished desired revisions. Caller holds c.mutex; waits are completed
 // after unlocking.
 func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGroup, waits typeURLWaits) {
 	if wg == nil || waits.Empty() {
@@ -1189,12 +1166,12 @@ func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGrou
 		}
 	}
 	if !publishedWaits.Empty() {
-		snapshot, err := c.snapshotCache.GetSnapshot(state.nodeID)
+		snapshot, err := c.getSnapshot(state.nodeID)
 		if err == nil {
 			tx.registerGenerationCompletions(snapshot, wg, publishedWaits)
 		} else {
-			// Desired state remains authoritative before a first publication or after
-			// ClearSnapshot. Register against that state without building a snapshot.
+			// Before the first publication, register against desired state without
+			// building a snapshot.
 			if state.pendingPublication == nil {
 				state.pendingPublication = &pendingPublication{
 					generation: state.resourceGeneration, changedTypeURLs: typeurl.All(), watchTypeURLs: typeurl.All(),
@@ -1202,38 +1179,37 @@ func (tx *resourceTransaction) awaitCurrentVersionLocked(wg *completion.WaitGrou
 			}
 			for typeURL, wait := range publishedWaits.All() {
 				unpublishedWaits.Set(typeURL, wait)
-				if !state.pendingPublication.rollbacks.Has(typeURL) {
-					state.pendingPublication.rollbacks.Set(typeURL, nil)
-				}
 			}
 		}
 	}
 	tx.registerGenerationCompletions(nil, wg, unpublishedWaits)
 }
 
-func (c *cacheImpl) relayForLocked(responseChannel chan cache.Response) *watchRelay {
-	if relay := c.watchRelays[responseChannel]; relay != nil {
-		return relay
-	}
-	// Allow a full ADS response batch (one watch per supported type) plus an
-	// immediate CreateWatch response to be queued before forwarding anything.
-	// Keep at least the stream channel's capacity to avoid reducing its buffering.
-	// This relies on go-control-plane's one current watch per type per ADS
-	// stream. Direct cache callers sharing a channel across more watches must
-	// size that channel for the maximum responses from one publication:
-	// overflowing inner would block publication before we can drain it, while
-	// both cache locks are still held.
-	capacity := max(cap(responseChannel), int(typeurl.Count)+1)
-	relay := &watchRelay{
-		inner: make(chan cache.Response, capacity),
-		outer: responseChannel,
-	}
-	c.watchRelays[responseChannel] = relay
-	return relay
-}
-
 func (c *cacheImpl) addTrackedWatchLocked(state *nodeState, request *cache.Request, typeURL typeurl.Index, responseChannel chan cache.Response) *trackedWatch {
-	relay := c.relayForLocked(responseChannel)
+	// One ADS stream shares a response channel across its resource types.
+	// Keep the usual zero/one relay inline; additional streams remain independent.
+	var relay *watchRelay
+	for existing := range c.watchRelays.Members() {
+		if existing.outer == responseChannel {
+			relay = existing
+			break
+		}
+	}
+	if relay == nil {
+		// Allow a full ADS response batch (one watch per supported type) plus an
+		// immediate CreateWatch response to be queued before forwarding anything.
+		// Keep at least the stream channel's capacity to avoid reducing its buffering.
+		// This relies on go-control-plane's one current watch per type per ADS
+		// stream. Direct cache callers sharing a channel across more watches must
+		// size that channel for the maximum responses from one publication:
+		// overflowing inner would block publication before we can drain it, while
+		// both cache locks are still held.
+		relay = &watchRelay{
+			inner: make(chan cache.Response, max(cap(responseChannel), int(typeurl.Count)+1)),
+			outer: responseChannel,
+		}
+		c.watchRelays.Insert(relay)
+	}
 	watch := &trackedWatch{
 		state:   state,
 		typeURL: typeURL,
@@ -1269,7 +1245,7 @@ func (c *cacheImpl) removeTrackedWatchLocked(watch *trackedWatch) {
 			// Drop our reference, but close neither channel: outer belongs to
 			// the stream, and a canceled go-control-plane watch may still send
 			// to inner before its underlying cancellation finishes.
-			delete(c.watchRelays, watch.relay.outer)
+			c.watchRelays.Remove(watch.relay)
 		}
 	}
 }
@@ -1297,7 +1273,7 @@ func (c *cacheImpl) cancelTrackedWatch(watch *trackedWatch) {
 // with respect to watch registration, cancellation, and snapshot publication.
 func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 	var deliveries []responseDelivery
-	for _, relay := range c.watchRelays {
+	for relay := range c.watchRelays.Members() {
 		var responses []cache.Response
 		for {
 			select {
@@ -1306,7 +1282,7 @@ func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 				// Capture their published generation now, while no cache update
 				// can interleave. The stream may not consume them until much later.
 				generation := c.getNodeState(response.GetRequest().GetNode().GetId()).snapshotGeneration
-				snapshot, _ := c.snapshotCache.GetSnapshot(response.GetRequest().GetNode().GetId())
+				snapshot, _ := c.getSnapshot(response.GetRequest().GetNode().GetId())
 				response = callbacks.WithResponseCoverage(response, generation, snapshot)
 				responses = append(responses, response)
 				var matched *trackedWatch
@@ -1422,9 +1398,9 @@ func singleVersion(version string) iter.Seq[string] {
 // prepareLiveSnapshotLocked finalizes an applicable pending publication or
 // rebinds already-published resources when a later type changes the node epoch.
 // Rebinding must not expose unrelated unpublished changes. Caller must hold c.mutex.
-func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.Index) ([]finalizedCompletion, error) {
+func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.Index) error {
 	nodeID := state.nodeID
-	current, getErr := c.snapshotCache.GetSnapshot(nodeID)
+	published, getErr := c.getSnapshot(nodeID)
 	if getErr != nil && state.pendingPublication == nil {
 		// Publish the known node's actual desired state, including an empty baseline.
 		state.pendingPublication = &pendingPublication{
@@ -1436,20 +1412,19 @@ func (c *cacheImpl) prepareLiveSnapshotLocked(state *nodeState, typeURL typeurl.
 	if state.pendingPublication != nil && (getErr != nil || state.pendingPublication.watchTypeURLs.Has(typeURL)) {
 		return c.finalizePendingPublicationLocked(context.Background(), nodeID)
 	}
-	published, ok := current.(*ciliumSnapshot)
-	if !ok || published.epoch == state.epoch {
-		return nil, nil
+	if published.epoch == state.epoch {
+		return nil
 	}
 	rebuilt := published.withEpoch(state.epoch)
 	ctx := callbacks.WithSnapshotPublication(context.Background(), state.snapshotGeneration, rebuilt)
 	if err := c.snapshotCache.SetSnapshot(ctx, nodeID, rebuilt); err != nil {
-		installed, getErr := c.snapshotCache.GetSnapshot(nodeID)
+		installed, getErr := c.getSnapshot(nodeID)
 		if getErr != nil || installed != rebuilt {
-			return nil, err
+			return err
 		}
 	}
 	c.completionCbs.SetPublishedSnapshot(nodeID, rebuilt)
-	return nil, nil
+	return nil
 }
 
 //
@@ -1502,6 +1477,7 @@ func (c *cacheImpl) CreateDeltaWatch(_ *cache.DeltaRequest, _ cache.Subscription
 	return nil, errUnimplemented
 }
 
+// CreateWatch requires the non-nil subscription supplied by go-control-plane.
 func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, respChan chan cache.Response) (cancel func(), err error) {
 	if request == nil {
 		return nil, errNilRequest
@@ -1510,9 +1486,6 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	state := c.getNodeState(nodeID)
 	if state == nil {
 		return nil, fmt.Errorf("unknown xDS node %q", nodeID)
-	}
-	if sub == nil {
-		return c.snapshotCache.CreateWatch(request, sub, respChan)
 	}
 	typeURL, supported := typeurl.FromURL(request.GetTypeUrl())
 	if !supported {
@@ -1552,12 +1525,10 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 		c.mutex.Unlock()
 		return nil, err
 	}
-	finalized, err := c.prepareLiveSnapshotLocked(state, typeURL)
-	if err != nil {
+	if err := c.prepareLiveSnapshotLocked(state, typeURL); err != nil {
 		deliveries := c.collectResponseDeliveriesLocked()
 		c.mutex.Unlock()
 		c.deliverResponses(deliveries)
-		c.completeFinalized(nodeID, finalized)
 		return nil, err
 	}
 	state.commitEpochNegotiation(typeURL)
@@ -1572,7 +1543,6 @@ func (c *cacheImpl) CreateWatch(request *cache.Request, sub cache.Subscription, 
 	deliveries := c.collectResponseDeliveriesLocked()
 	c.mutex.Unlock()
 	c.deliverResponses(deliveries)
-	c.completeFinalized(nodeID, finalized)
 	if err != nil {
 		return nil, err
 	}
@@ -1596,32 +1566,24 @@ func (c *cacheImpl) SetSnapshot(ctx context.Context, nodeID string, snapshot cac
 	return err
 }
 
+// getSnapshot converts at the go-control-plane boundary. Internal operations
+// expect the concrete snapshots published by this cache.
+func (c *cacheImpl) getSnapshot(node string) (*ciliumSnapshot, error) {
+	snapshot, err := c.snapshotCache.GetSnapshot(node)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.(*ciliumSnapshot), nil
+}
+
 func (c *cacheImpl) GetSnapshot(node string) (cache.ResourceSnapshot, error) {
 	return c.snapshotCache.GetSnapshot(node)
 }
 
-func (c *cacheImpl) ClearSnapshot(nodeID string) {
-	c.mutex.Lock()
-	c.snapshotCache.ClearSnapshot(nodeID)
-	c.completionCbs.SetPublishedSnapshot(nodeID, nil)
-	// Clearing delivery state does not forget a known consumer or its desired
-	// resources. A later watch republishes those resources through the normal
-	// publication path.
-	var cancels []func()
-	if state := c.getNodeState(nodeID); state != nil {
-		for _, watches := range state.openWatches.All() {
-			for watch := range watches.Members() {
-				if watch.cancel != nil {
-					cancels = append(cancels, watch.cancel)
-				}
-				c.removeTrackedWatchLocked(watch)
-			}
-		}
-	}
-	c.mutex.Unlock()
-	for _, cancel := range cancels {
-		cancel()
-	}
+// ClearSnapshot is unsupported because publication and ACK/NACK bookkeeping
+// must remain synchronized with desired state.
+func (*cacheImpl) ClearSnapshot(string) {
+	panic("ClearSnapshot is unsupported by the Cilium ADS cache")
 }
 
 func (c *cacheImpl) GetStatusInfo(node string) cache.StatusInfo {

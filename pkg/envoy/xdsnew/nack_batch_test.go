@@ -32,9 +32,9 @@ func TestNACKClaimsWaitRegisteredBeforeCacheLock(t *testing.T) {
 			t.Cleanup(cancel)
 			baseline, a := testSecret("secret", "accepted"), testSecret("secret", "A")
 			s := coverageStream{cache: c, id: 1, typeURL: typeurl.Secret.URL()}
-			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", baseline, nil, nil))
+			require.NoError(t, c.applyRevertibleResource(ctx, "coverage-node", typeurl.Secret, "secret", baseline, nil))
 			s.reply(t, s.receive(t, "secret"), "", "secret")
-			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", a, nil, nil))
+			require.NoError(t, c.applyRevertibleResource(ctx, "coverage-node", typeurl.Secret, "secret", a, nil))
 			response := s.receive(t, "secret")
 			gate := handler.gate(t, handler.beforeLock)
 			result := make(chan error, 1)
@@ -53,19 +53,13 @@ func TestNACKClaimsWaitRegisteredBeforeCacheLock(t *testing.T) {
 			// late no-op wait must be included in the same NACK's selection.
 			wg := completion.NewWaitGroup(ctx)
 			t.Cleanup(wg.Cancel)
-			done := make(chan error, 1)
-			callback := func(err error) {
-				c.GetResource("coverage-node", typeurl.Secret, "secret")
-				done <- err
-			}
 			if bulk {
-				var callbacks TypeURLCallbacks
-				callbacks.Set(typeurl.Secret, callback)
-				require.NoError(t, c.ApplyResources(ctx, "coverage-node", ResourceMutations{Upserted: xds.Resources{
+				waitTypeURLs := typeurl.NewSet(typeurl.Secret)
+				require.NoError(t, c.applyRevertibleResources(ctx, "coverage-node", ResourceMutations{Upserted: xds.Resources{
 					Secrets: map[string]*secret.Secret{"secret": a},
-				}}, wg, callbacks))
+				}}, wg, waitTypeURLs))
 			} else {
-				require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", a, wg, callback))
+				require.NoError(t, c.applyRevertibleResource(ctx, "coverage-node", typeurl.Secret, "secret", a, wg))
 			}
 			gate.unblock()
 			select {
@@ -76,7 +70,6 @@ func TestNACKClaimsWaitRegisteredBeforeCacheLock(t *testing.T) {
 			}
 			s.reply(t, s.receive(t, "secret"), "", "secret")
 			require.ErrorContains(t, wg.Wait(), "invalid secret")
-			require.ErrorContains(t, <-done, "invalid secret")
 		})
 	}
 
@@ -91,7 +84,7 @@ func TestNACKRevalidatesAfterAcquiringCacheLock(t *testing.T) {
 			t.Cleanup(cancel)
 			s := coverageStream{cache: c, id: 1, typeURL: typeurl.Secret.URL()}
 			a, b := testSecret("secret", "A"), testSecret("secret", "B")
-			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", a, nil, nil))
+			require.NoError(t, c.applyRevertibleResource(ctx, "coverage-node", typeurl.Secret, "secret", a, nil))
 			responseA := s.receive(t, "secret")
 			gate := handler.gate(t, handler.beforeLock)
 			result := make(chan error, 1)
@@ -106,7 +99,7 @@ func TestNACKRevalidatesAfterAcquiringCacheLock(t *testing.T) {
 			case <-ctx.Done():
 				t.Fatal("NACK did not enter its owner")
 			}
-			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", b, nil, nil))
+			require.NoError(t, c.applyRevertibleResource(ctx, "coverage-node", typeurl.Secret, "secret", b, nil))
 			if progress == "closed" {
 				c.completionCbs.OnStreamClosed(s.id, nil)
 			} else {
@@ -140,7 +133,7 @@ func TestNACKBatchPublishesOnlyFinalState(t *testing.T) {
 						"sibling": {Name: "sibling", AltStatName: value.GetGenericSecret().GetSecret().GetInlineString()},
 					}
 				}
-				require.NoError(t, c.ApplyResources(t.Context(), "coverage-node", mutations, nil, TypeURLCallbacks{}))
+				require.NoError(t, c.applyRevertibleResources(t.Context(), "coverage-node", mutations, nil, typeurl.EmptySet))
 			}
 			if shape == "absence" {
 				baseline = nil
@@ -189,18 +182,13 @@ func TestNACKBatchPublishesOnlyFinalState(t *testing.T) {
 
 				wg := completion.NewWaitGroup(t.Context())
 				t.Cleanup(wg.Cancel)
-				done := make(chan error, 1)
-				require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Secret, "secret", baseline, wg, func(err error) {
-					// Completion callbacks must run after the cache lock is released.
-					c.GetResource("coverage-node", typeurl.Secret, "secret")
-					done <- err
-				}))
+				require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Secret, "secret", baseline, wg))
+				done := waitForCoverageCompletion(wg)
 				requireCoveragePending(t, done)
 				first.reply(t, responseA, "", "secret")
 				second.reply(t, responseB, "", "secret")
 				requireCoveragePending(t, done)
 				second.reply(t, correction, "", "secret")
-				require.NoError(t, wg.Wait())
 				require.NoError(t, <-done)
 			}
 		})
@@ -217,11 +205,11 @@ func TestNACKBatchSerializesCacheCallers(t *testing.T) {
 			t.Cleanup(cancel)
 			baseline, a, b := testSecret("secret", "accepted"), testSecret("secret", "A"), testSecret("secret", "B")
 			s := coverageStream{cache: c, id: 1, typeURL: typeurl.Secret.URL()}
-			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", baseline, nil, nil))
+			require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", baseline, nil))
 			s.reply(t, s.receive(t, "secret"), "", "secret")
 			wg := completion.NewWaitGroup(ctx)
 			t.Cleanup(wg.Cancel)
-			caller, err := c.ApplyResourceWithRollback(ctx, "coverage-node", typeurl.Secret, "secret", a, wg, nil)
+			caller, err := c.ApplyResourceWithRollback(ctx, "coverage-node", typeurl.Secret, "secret", a, wg)
 			require.NoError(t, err)
 			t.Cleanup(func() {
 				if operation != "caller-revert" {
@@ -259,7 +247,7 @@ func TestNACKBatchSerializesCacheCallers(t *testing.T) {
 					if operation == "no-op" {
 						value = a
 					}
-					finished <- c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", value, nil, nil)
+					finished <- c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", value, nil)
 				}
 			}()
 			<-started
@@ -300,7 +288,7 @@ func TestFailedNACKBatchRetainsAllInverses(t *testing.T) {
 	first := coverageStream{cache: c, id: 1, typeURL: typeurl.Secret.URL()}
 	second := coverageStream{cache: c, id: 2, typeURL: typeurl.Secret.URL()}
 	for _, value := range []*secret.Secret{baseline, a, b} {
-		require.NoError(t, c.ApplyResource(t.Context(), "coverage-node", typeurl.Secret, "secret", value, nil, nil))
+		require.NoError(t, c.applyRevertibleResource(t.Context(), "coverage-node", typeurl.Secret, "secret", value, nil))
 		if value == baseline {
 			first.reply(t, first.receive(t, "secret"), "", "secret")
 		} else if value == a {

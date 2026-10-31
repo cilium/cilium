@@ -9,7 +9,6 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
-	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 
 	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/xds"
@@ -32,8 +31,7 @@ type nodeState struct {
 	// snapshotGeneration identifies the state most recently published to Envoy.
 	resourceGeneration callbacks.Generation
 	snapshotGeneration callbacks.Generation
-	// resources owns the current desired state, including revision-tagged
-	// removal tombstones.
+	// resources owns the current desired state, containing only live resources.
 	resources resourceMaps
 	rollbacks rollbackState
 	// pendingPublication is non-nil while desired state has unpublished changes
@@ -50,7 +48,7 @@ type nodeState struct {
 type resourceTypeState struct {
 	// revertGeneration identifies the latest committed revert that changed
 	// resources of this type, or zero if none. It provides a conservative wait
-	// revision for restored absence without retaining per-name tombstones.
+	// revision for restored absence without retaining per-name entries.
 	revertGeneration callbacks.Generation
 	// generation is the aggregate xDS generation. It also advances for
 	// compensation and EDS replay; resource entries retain their revisions for
@@ -64,22 +62,17 @@ type resourceTypeState struct {
 	// snapshot. Successful publication clears the set while preserving
 	// rollback ownership.
 	changedResourceNames set.Set[string]
-	rollbacks            resourceRollbackState
+	// A response claims the unsent lifecycle before it can coalesce further.
+	unsentRollback *responseRollback
 }
 
-func (state *nodeState) resourceEntries(typeURL typeurl.Index) map[string]resourceEntry {
-	if state == nil {
-		return nil
-	}
-	return state.resources[typeURL]
-}
-
-// resourceWaitEntry supplies the latest restoration revision for absent values
-// after commitEntry has removed their zero-transaction inverse entries.
+// resourceWaitEntry fences absent values without retaining removal entries.
+// Corrective updates and collected responses must not let an older absence ACK
+// complete a wait for a name which has since been present.
 func (state *nodeState) resourceWaitEntry(typeURL typeurl.Index, name string) resourceEntry {
 	entry := state.resources[typeURL][name]
-	if entry.resource == nil && entry.transaction.IsZero() {
-		entry.revision = state.typeStates[typeURL].revertGeneration.Revision()
+	if entry.resource == nil {
+		entry.revision = state.rollbacks.removalWaitRevision(state, typeURL, name)
 	}
 	return entry
 }
@@ -90,17 +83,21 @@ func (state *nodeState) prepareResourceMutation(mutations ResourceMutations, gen
 	removeSet := mutations.Removed
 	upsertSet := mutations.Upserted
 	var changes resourceChanges
-	prepareResourceMap(&changes, typeurl.Listener, generation, state.resourceEntries(typeurl.Listener), removeSet.Listeners, upsertSet.Listeners)
-	prepareResourceMap(&changes, typeurl.Route, generation, state.resourceEntries(typeurl.Route), removeSet.Routes, upsertSet.Routes)
-	prepareResourceMap(&changes, typeurl.Cluster, generation, state.resourceEntries(typeurl.Cluster), removeSet.Clusters, upsertSet.Clusters)
-	prepareResourceMap(&changes, typeurl.Endpoint, generation, state.resourceEntries(typeurl.Endpoint), removeSet.Endpoints, upsertSet.Endpoints)
-	prepareResourceMap(&changes, typeurl.Secret, generation, state.resourceEntries(typeurl.Secret), removeSet.Secrets, upsertSet.Secrets)
+	prepareResourceMap(&changes, typeurl.Listener, generation, state.resources[typeurl.Listener], removeSet.Listeners, upsertSet.Listeners)
+	prepareResourceMap(&changes, typeurl.Route, generation, state.resources[typeurl.Route], removeSet.Routes, upsertSet.Routes)
+	prepareResourceMap(&changes, typeurl.Cluster, generation, state.resources[typeurl.Cluster], removeSet.Clusters, upsertSet.Clusters)
+	prepareResourceMap(&changes, typeurl.Endpoint, generation, state.resources[typeurl.Endpoint], removeSet.Endpoints, upsertSet.Endpoints)
+	prepareResourceMap(&changes, typeurl.Secret, generation, state.resources[typeurl.Secret], removeSet.Secrets, upsertSet.Secrets)
 	return changes, changes.typeURLs(), changes.inverse()
 }
 
-func (state *nodeState) commitResourceMutation(changes resourceChanges, generation callbacks.Generation) {
+func (state *nodeState) commitResourceMutation(changes resourceChanges, generation callbacks.Generation) typeurl.Set {
+	var removedTypes typeurl.Set
 	commit := func(change resourceChange) {
 		state.commitResourceEntry(change.typeURL, change.name, change.next)
+		if change.next.resource == nil {
+			removedTypes.Insert(change.typeURL)
+		}
 		// A revert restores an older value and transaction ID, but both its
 		// revision and the aggregate xDS generation advance to this mutation.
 		state.typeStates[change.typeURL].generation = generation
@@ -111,14 +108,12 @@ func (state *nodeState) commitResourceMutation(changes resourceChanges, generati
 	for _, change := range changes.more {
 		commit(change)
 	}
+	return removedTypes
 }
 
 // generationForType returns the pending publication's generation, or the
 // published snapshot's generation, which currently represents typeURL.
 func (state *nodeState) generationForType(typeURL typeurl.Index) callbacks.Generation {
-	if state == nil {
-		return 0
-	}
 	if state.pendingPublication != nil {
 		if state.pendingPublication.changedTypeURLs.Has(typeURL) {
 			return state.pendingPublication.generation
@@ -134,7 +129,7 @@ func (state *nodeState) getResource(typeURL typeurl.Index, resourceName string) 
 	return state.resources[typeURL][resourceName].resource
 }
 
-func (state *nodeState) reconcileChangedResourceNames(changes resourceChanges, published cache.ResourceSnapshot) {
+func (state *nodeState) reconcileChangedResourceNames(changes resourceChanges, published *ciliumSnapshot) {
 	reconcile := func(change resourceChange) {
 		changed := &state.typeStates[change.typeURL].changedResourceNames
 		resource := state.resources[change.typeURL][change.name].resource
@@ -209,11 +204,8 @@ type pendingPublication struct {
 	// types which justify publication when Envoy has capacity for them.
 	changedTypeURLs typeurl.Set
 	watchTypeURLs   typeurl.Set
-	// Each present type binds pending waits and generations to the published
-	// version, including unchanged EDS whose version changes.
-	// Nonempty values also supply response-owned rollback state; empty values
-	// request version association only (including publications made by a revert).
-	// Absent types need neither.
+	// Rollback state to coalesce after publication. Present types with empty
+	// values reconcile earlier unsent rollback against current desired state.
 	rollbacks typeurl.Map[rollbackResources]
 }
 

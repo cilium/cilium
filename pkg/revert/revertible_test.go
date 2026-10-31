@@ -23,6 +23,36 @@ func (r testRevertible) Finalize() {
 	r.finalize()
 }
 
+func TestRevertiblesIgnoreEmptyOperations(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value Revertible
+	}{
+		{"nil", nil},
+		{"no-op", Noop},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.value != nil {
+				for range 2 {
+					require.NoError(t, tc.value.Revert())
+					tc.value.Finalize()
+				}
+			}
+			var revertibles Revertibles
+			revertibles.Add(tc.value)
+			require.True(t, revertibles.Empty())
+			require.NoError(t, revertibles.Revert())
+			revertibles.Finalize()
+			require.Zero(t, testing.AllocsPerRun(100, func() {
+				var revertibles Revertibles
+				revertibles.Add(tc.value)
+				revertibles.Finalize()
+				_ = revertibles.Revert()
+			}))
+		})
+	}
+}
+
 func TestRevertiblesFinalizeInForwardOrder(t *testing.T) {
 	var completed []string
 	var revertibles Revertibles

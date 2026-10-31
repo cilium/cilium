@@ -33,6 +33,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy"
 	envoyCfg "github.com/cilium/cilium/pkg/envoy/config"
 	util "github.com/cilium/cilium/pkg/envoy/util"
@@ -152,7 +153,8 @@ type PortAllocator interface {
 	ReleaseProxyPort(name string) error
 }
 
-// ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to the internal type `xds.Resources`.
+// ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD
+// and returns the listeners whose primary ports were allocated by the parser.
 //
 // - Qualify names by prepending the namespace and name of the origin CEC to the Envoy resource names.
 // - Remove trailing ":*" wildcard-port suffixes from Cluster and EDS names and supported Cluster references.
@@ -169,7 +171,7 @@ type PortAllocator interface {
 //   - `useOriginalSourceAddr` is passed to the Envoy Cilium BPF Metadata listener filter on all Listeners.
 //   - `newResources` is passed as `true` when parsing resources that are being added or are the new version of the resources being updated,
 //     and as `false` if the resources are being removed or are the old version of the resources being updated. Only 'new' resources are validated.
-func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, injectCiliumEnvoyFilters bool, useOriginalSourceAddr bool, newResources bool) (xds.Resources, error) {
+func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, xdsResources []cilium_v2.XDSResource, isL7LB bool, injectCiliumEnvoyFilters bool, useOriginalSourceAddr bool, newResources bool) (xds.Resources, set.Set[string], error) {
 	// only validate new resources - old ones are already applied
 	validate := newResources
 
@@ -178,6 +180,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 	injectCiliumUpstreamFilters := false
 
 	resources := xds.NewResources()
+	var allocatedListeners set.Set[string]
 	for _, res := range xdsResources {
 		// Skip empty TypeURLs, which are left behind when Unmarshalling resource JSON fails
 		if res.TypeUrl == "" {
@@ -185,18 +188,18 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 		}
 		message, err := res.UnmarshalNew()
 		if err != nil {
-			return xds.Resources{}, err
+			return xds.Resources{}, set.Set[string]{}, err
 		}
 		typeURL := res.GetTypeUrl()
 		switch typeURL {
 		case envoy.ListenerTypeURL:
 			listener, ok := message.(*envoy_config_listener.Listener)
 			if !ok {
-				return xds.Resources{}, fmt.Errorf("invalid type for Listener: %T", message)
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("invalid type for Listener: %T", message)
 			}
 			// Check that a listener name is provided
 			if listener.Name == "" {
-				return xds.Resources{}, fmt.Errorf("unspecified Listener name")
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("unspecified Listener name")
 			}
 
 			if r.enableBPFTProxy && listener.GetInternalListener() == nil {
@@ -265,7 +268,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 
 						httpFiltersUpdated, err := qualifyHttpFilters(cecNamespace, cecName, hcmConfig)
 						if err != nil {
-							return xds.Resources{}, fmt.Errorf("Listener %q: %w", listener.Name, err)
+							return xds.Resources{}, set.Set[string]{}, fmt.Errorf("Listener %q: %w", listener.Name, err)
 						}
 						updated = updated || httpFiltersUpdated
 
@@ -312,13 +315,13 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 			// Check for duplicate after the name has been qualified
 			for i := range resources.Listeners {
 				if listener.Name == resources.Listeners[i].Name {
-					return xds.Resources{}, fmt.Errorf("duplicate Listener name %q", listener.Name)
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("duplicate Listener name %q", listener.Name)
 				}
 			}
 
 			if validate {
 				if err := listener.Validate(); err != nil {
-					return xds.Resources{}, fmt.Errorf("failed to validate Listener (%w): %s", err, listener.String())
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("failed to validate Listener (%w): %s", err, listener.String())
 				}
 			}
 			resources.Listeners[listener.Name] = listener
@@ -330,11 +333,11 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 		case envoy.RouteTypeURL:
 			route, ok := message.(*envoy_config_route.RouteConfiguration)
 			if !ok {
-				return xds.Resources{}, fmt.Errorf("invalid type for Route: %T", message)
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("invalid type for Route: %T", message)
 			}
 			// Check that a Route name is provided
 			if route.Name == "" {
-				return xds.Resources{}, fmt.Errorf("unspecified RouteConfiguration name")
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("unspecified RouteConfiguration name")
 			}
 
 			qualifyRouteConfigurationResourceNames(cecNamespace, cecName, route)
@@ -345,13 +348,13 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 			// Check for duplicate after the name has been qualified
 			for i := range resources.Routes {
 				if route.Name == resources.Routes[i].Name {
-					return xds.Resources{}, fmt.Errorf("duplicate Route name %q", route.Name)
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("duplicate Route name %q", route.Name)
 				}
 			}
 
 			if validate {
 				if err := route.Validate(); err != nil {
-					return xds.Resources{}, fmt.Errorf("failed to validate RouteConfiguration (%w): %s", err, route.String())
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("failed to validate RouteConfiguration (%w): %s", err, route.String())
 				}
 			}
 			resources.Routes[route.Name] = route
@@ -363,14 +366,14 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 		case envoy.ClusterTypeURL:
 			cluster, ok := message.(*envoy_config_cluster.Cluster)
 			if !ok {
-				return xds.Resources{}, fmt.Errorf("invalid type for Route: %T", message)
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("invalid type for Route: %T", message)
 			}
 			name := cluster.Name
 			cluster.Name, _ = qualifyClusterName(cecNamespace, cecName, name)
 
 			// Check that a Cluster name is provided after normalization.
 			if cluster.Name == "" {
-				return xds.Resources{}, fmt.Errorf("unspecified Cluster name")
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("unspecified Cluster name")
 			}
 
 			fillInTransportSocketXDS(cecNamespace, cecName, cluster.TransportSocket, r.xdsMode)
@@ -399,13 +402,13 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 			// Check for duplicate after the name has been qualified
 			for i := range resources.Clusters {
 				if cluster.Name == resources.Clusters[i].Name {
-					return xds.Resources{}, fmt.Errorf("duplicate Cluster name %q", cluster.Name)
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("duplicate Cluster name %q", cluster.Name)
 				}
 			}
 
 			if validate {
 				if err := cluster.Validate(); err != nil {
-					return xds.Resources{}, fmt.Errorf("failed to validate Cluster %q (%w): %s", cluster.Name, err, cluster.String())
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("failed to validate Cluster %q (%w): %s", cluster.Name, err, cluster.String())
 				}
 			}
 			resources.Clusters[cluster.Name] = cluster
@@ -417,11 +420,11 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 		case envoy.EndpointTypeURL:
 			endpoints, ok := message.(*envoy_config_endpoint.ClusterLoadAssignment)
 			if !ok {
-				return xds.Resources{}, fmt.Errorf("invalid type for Route: %T", message)
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("invalid type for Route: %T", message)
 			}
 			// Check that normalization will not leave the EDS name empty.
 			if trimWildcardPort(endpoints.ClusterName) == "" {
-				return xds.Resources{}, fmt.Errorf("unspecified ClusterLoadAssignment cluster_name")
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("unspecified ClusterLoadAssignment cluster_name")
 			}
 
 			name := endpoints.ClusterName
@@ -430,13 +433,13 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 			// Check for duplicate after the name has been qualified
 			for i := range resources.Endpoints {
 				if endpoints.ClusterName == resources.Endpoints[i].ClusterName {
-					return xds.Resources{}, fmt.Errorf("duplicate cluster_name %q", endpoints.ClusterName)
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("duplicate cluster_name %q", endpoints.ClusterName)
 				}
 			}
 
 			if validate {
 				if err := endpoints.Validate(); err != nil {
-					return xds.Resources{}, fmt.Errorf("failed to validate ClusterLoadAssignment for cluster %q (%w): %s", endpoints.ClusterName, err, endpoints.String())
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("failed to validate ClusterLoadAssignment for cluster %q (%w): %s", endpoints.ClusterName, err, endpoints.String())
 				}
 			}
 			resources.Endpoints[endpoints.ClusterName] = endpoints
@@ -448,11 +451,11 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 		case envoy.SecretTypeURL:
 			secret, ok := message.(*envoy_config_tls.Secret)
 			if !ok {
-				return xds.Resources{}, fmt.Errorf("invalid type for Secret: %T", message)
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("invalid type for Secret: %T", message)
 			}
 			// Check that a Secret name is provided
 			if secret.Name == "" {
-				return xds.Resources{}, fmt.Errorf("unspecified Secret name")
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("unspecified Secret name")
 			}
 
 			name := secret.Name
@@ -461,13 +464,13 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 			// Check for duplicate after the name has been qualified
 			for i := range resources.Secrets {
 				if secret.Name == resources.Secrets[i].Name {
-					return xds.Resources{}, fmt.Errorf("duplicate Secret name %q", secret.Name)
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("duplicate Secret name %q", secret.Name)
 				}
 			}
 
 			if validate {
 				if err := secret.Validate(); err != nil {
-					return xds.Resources{}, fmt.Errorf("failed to validate Secret for cluster %q: %w", secret.Name, err)
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("failed to validate Secret for cluster %q: %w", secret.Name, err)
 				}
 			}
 			resources.Secrets[secret.Name] = secret
@@ -477,7 +480,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 				logfields.Secret, secret)
 
 		default:
-			return xds.Resources{}, fmt.Errorf("unsupported type: %s", typeURL)
+			return xds.Resources{}, set.Set[string]{}, fmt.Errorf("unsupported type: %s", typeURL)
 		}
 	}
 
@@ -492,16 +495,9 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 				listenerName := listener.Name
 				port, err := r.portAllocator.AllocateCRDProxyPort(listenerName)
 				if err != nil || port == 0 {
-					return xds.Resources{}, fmt.Errorf("listener port allocation for %q failed: %w", listenerName, err)
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("listener port allocation for %q failed: %w", listenerName, err)
 				}
-				if resources.PortAllocationCallbacks == nil {
-					resources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
-				}
-				if newResources {
-					resources.PortAllocationCallbacks[listenerName] = func(ctx context.Context) error { return r.portAllocator.AckProxyPortWithReference(ctx, listenerName) }
-				} else {
-					resources.PortAllocationCallbacks[listenerName] = func(_ context.Context) error { return r.portAllocator.ReleaseProxyPort(listenerName) }
-				}
+				allocatedListeners.Insert(listenerName)
 
 				listener.Address, listener.AdditionalAddresses = envoy.GetLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())
 			}
@@ -540,10 +536,10 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 
 		if validate {
 			if err := listener.Validate(); err != nil {
-				return xds.Resources{}, fmt.Errorf("failed to validate Listener %q (%w): %s", listener.Name, err, listener.String())
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("failed to validate Listener %q (%w): %s", listener.Name, err, listener.String())
 			}
 			if listenerHasDuplicateFilterChainMatch(listener) {
-				return xds.Resources{}, fmt.Errorf("Listener %q contains filter chains with duplicate matching rules", listener.Name)
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("Listener %q contains filter chains with duplicate matching rules", listener.Name)
 			}
 		}
 	}
@@ -552,13 +548,13 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 	for _, cluster := range resources.Clusters {
 		if cluster.LoadAssignment != nil {
 			if err := validateEDSEndpoints(cecNamespace, cecName, cluster.LoadAssignment, resources.Listeners); err != nil {
-				return xds.Resources{}, fmt.Errorf("ParseResources: Cluster refers to missing internal listener %q (%w): %s", cluster.Name, err, cluster.String())
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("ParseResources: Cluster refers to missing internal listener %q (%w): %s", cluster.Name, err, cluster.String())
 			}
 		}
 	}
 	for _, endpoints := range resources.Endpoints {
 		if err := validateEDSEndpoints(cecNamespace, cecName, endpoints, resources.Listeners); err != nil {
-			return xds.Resources{}, fmt.Errorf("ParseResources: Endpoint refers to missing internal listener %q (%w): %s", endpoints.ClusterName, err, endpoints.String())
+			return xds.Resources{}, set.Set[string]{}, fmt.Errorf("ParseResources: Endpoint refers to missing internal listener %q (%w): %s", endpoints.ClusterName, err, endpoints.String())
 		}
 	}
 
@@ -573,7 +569,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 			a := cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType]
 			if a != nil {
 				if err := a.UnmarshalTo(opts); err != nil {
-					return xds.Resources{}, fmt.Errorf("failed to unmarshal HttpProtocolOptions: %w", err)
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("failed to unmarshal HttpProtocolOptions: %w", err)
 				}
 			}
 
@@ -584,7 +580,7 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 			if ts != nil {
 				tc := ts.GetTypedConfig()
 				if tc == nil {
-					return xds.Resources{}, fmt.Errorf("Transport socket has no type: %s", ts.String())
+					return xds.Resources{}, set.Set[string]{}, fmt.Errorf("Transport socket has no type: %s", ts.String())
 				}
 				switch tc.GetTypeUrl() {
 				case upstreamTlsContextTypeURL, quicUpstreamTransportTypeURL:
@@ -593,20 +589,20 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 			}
 			injected, err := injectCiliumUpstreamL7Filter(r.accessLogPath, opts, supportsALPN)
 			if err != nil {
-				return xds.Resources{}, fmt.Errorf("failed to inject upstream filters for cluster %q: %w", cluster.Name, err)
+				return xds.Resources{}, set.Set[string]{}, fmt.Errorf("failed to inject upstream filters for cluster %q: %w", cluster.Name, err)
 			}
 			if injected {
 				cluster.TypedExtensionProtocolOptions[httpProtocolOptionsType] = toAny(opts)
 				if validate {
 					if err := cluster.Validate(); err != nil {
-						return xds.Resources{}, fmt.Errorf("failed to validate Cluster %q after injecting Cilium upstream filters (%s): %w", cluster.Name, cluster.String(), err)
+						return xds.Resources{}, set.Set[string]{}, fmt.Errorf("failed to validate Cluster %q after injecting Cilium upstream filters (%s): %w", cluster.Name, cluster.String(), err)
 					}
 				}
 			}
 		}
 	}
 
-	return resources, nil
+	return resources, allocatedListeners, nil
 }
 
 // listenerHasDuplicateFilterChainMatch reports whether the listener contains
