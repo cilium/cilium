@@ -10,4 +10,6 @@ spec:
   - name: tls
     port: 443
     protocol: TLS
+    tls:
+      mode: Passthrough
 status: {}
