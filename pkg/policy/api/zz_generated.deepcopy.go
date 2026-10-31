@@ -1136,6 +1136,11 @@ func (in *TLSContext) DeepCopyInto(out *TLSContext) {
 		*out = new(Secret)
 		**out = **in
 	}
+	if in.TrustBundle != nil {
+		in, out := &in.TrustBundle, &out.TrustBundle
+		*out = new(Secret)
+		**out = **in
+	}
 	return
 }
 

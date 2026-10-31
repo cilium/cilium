@@ -1443,6 +1443,13 @@ func (in *TLSContext) DeepEqual(other *TLSContext) bool {
 	if in.PrivateKey != other.PrivateKey {
 		return false
 	}
+	if (in.TrustBundle == nil) != (other.TrustBundle == nil) {
+		return false
+	} else if in.TrustBundle != nil {
+		if !in.TrustBundle.DeepEqual(other.TrustBundle) {
+			return false
+		}
+	}
 
 	return true
 }

@@ -135,6 +135,25 @@ type TLSContext struct {
 	//
 	// +kubebuilder:validation:Optional
 	PrivateKey string `json:"privateKey,omitempty"`
+
+	// TrustBundle references a Secret containing the trusted CA certificates
+	// in the 'ca.crt' item. Its namespace must be set. It must not refer to
+	// the same object as Secret.
+	//
+	// When set, Secret holds the proxy's own certificate and private key
+	// ('tls.crt' and 'tls.key'), and mutual TLS is used:
+	//  - For originatingTLS, the proxy presents the certificate as a client
+	//    certificate to the upstream server, and validates the server
+	//    certificate with the trust bundle.
+	//  - For terminatingTLS, the proxy presents the certificate to the client,
+	//    and requires a client certificate validated with the trust bundle.
+	//
+	// In a CiliumNetworkPolicy, the Secret must be in the namespace of the
+	// policy when TrustBundle is set. TrustBundle is not supported in
+	// CiliumClusterwideNetworkPolicy.
+	//
+	// +kubebuilder:validation:Optional
+	TrustBundle *Secret `json:"trustBundle,omitempty"`
 }
 
 // EnvoyConfig defines a reference to a CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
