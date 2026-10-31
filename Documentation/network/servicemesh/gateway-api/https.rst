@@ -108,3 +108,52 @@ Make HTTPS Requests
             $ curl https://bookinfo.cilium.rocks/details/1
             $ curl https://hipstershop.cilium.rocks/
 
+Share TLS Session Ticket Keys
+=============================
+
+By default, each Envoy instance generates its own TLS session ticket keys.
+To allow clients to resume TLS sessions when they connect to a different Envoy
+instance, configure Gateway API to use a shared Kubernetes Secret.
+
+Create an Opaque Secret containing a key named ``tls.sessionticket.key`` with
+exactly 80 bytes of cryptographically secure random data. Up to nine previous
+keys can be retained as ``tls.sessionticket.key.1`` through
+``tls.sessionticket.key.9``. Use binary files so Kubernetes stores the raw bytes,
+rather than a base64 string, in the Secret:
+
+.. code-block:: shell-session
+
+    $ ticket_dir=$(mktemp -d)
+    $ chmod 700 "$ticket_dir"
+    $ (umask 077; openssl rand 80 > "$ticket_dir/tls.sessionticket.key")
+    $ kubectl -n kube-system create secret generic cilium-gateway-session-tickets \
+        --from-file=tls.sessionticket.key="$ticket_dir/tls.sessionticket.key"
+    $ rm -rf "$ticket_dir"
+
+Set the following Helm values when installing or upgrading Cilium:
+
+.. code-block:: yaml
+
+    gatewayAPI:
+      enabled: true
+      sessionTicketKeysSecret:
+        name: cilium-gateway-session-tickets
+        namespace: kube-system
+
+Both values must be configured together. With secret synchronization enabled,
+Cilium copies the Secret to ``gatewayAPI.secretsNamespace.name`` and distributes
+it to Envoy through SDS. If synchronization is disabled, maintain the Secret copy
+in that namespace externally, using the same naming convention as other Gateway
+API secrets.
+
+To rotate keys, update the Secret with a new ``tls.sessionticket.key`` and retain
+previous keys in the numbered entries so existing tickets can still be decrypted.
+Secret updates are propagated through SDS without restarting Envoy.
+
+.. warning::
+
+    A configured session ticket Secret must exist and contain valid keys before
+    enabling this feature. Envoy does not fall back to generated keys when a
+    configured SDS Secret is unavailable. Leave both Helm values empty to retain
+    the default per-instance keys.
+

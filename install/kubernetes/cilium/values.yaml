@@ -1116,6 +1116,11 @@ gatewayAPI:
   # Note that this value will be ignored when `hostNetwork.enabled == true`.
   # ref: https://kubernetes.io/docs/reference/networking/virtual-ips/#external-traffic-policy
   externalTrafficPolicy: Cluster
+  sessionTicketKeysSecret:
+    # -- Name of an existing Secret containing shared TLS session ticket keys. Both name and namespace must be set to enable session resumption across Envoy instances.
+    name: ""
+    # -- Namespace of the TLS session ticket keys Secret.
+    namespace: ""
   gatewayClass:
     # @schema
     # type: [boolean, string]

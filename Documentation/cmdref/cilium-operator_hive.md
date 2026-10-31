@@ -85,6 +85,8 @@ cilium-operator hive [flags]
       --gateway-api-inference-extension-enabled                    Enables the use Gateway API Inference Extension
       --gateway-api-secrets-namespace string                       Namespace having tls secrets used by CEC for Gateway API (default "cilium-secrets")
       --gateway-api-service-externaltrafficpolicy string           Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances. (default "Cluster")
+      --gateway-api-session-ticket-keys-secret-name string         Name of the Secret containing shared TLS session ticket keys for Gateway API
+      --gateway-api-session-ticket-keys-secret-namespace string    Namespace of the Secret containing shared TLS session ticket keys for Gateway API
       --gateway-api-use-remote-address                             Use the immediate client's IP address as the origin client's IP address (default true)
       --gateway-api-xff-num-trusted-hops uint32                    The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.
       --gops-port uint16                                           Port for gops server to listen on (default 9891)
