@@ -4,13 +4,20 @@
 package labelsfilter
 
 import (
+	"bytes"
+	"log/slog"
+	"maps"
+	"os"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -250,4 +257,99 @@ func TestFilterLabelsByRegex(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+// TestParseLabelPrefixCfgReservedLabelWarning verifies that an error is
+// logged when the user's configuration excludes (or fails to include) the
+// reserved labels. The test validates that:
+//
+//   - No error is logged when all reserved labels will be included.
+//   - An error is logged when a reserved label will be excluded.
+func TestParseLabelPrefixCfgReservedLabelWarning(t *testing.T) {
+	allReservedIdentities := identity.ListReservedIdentities()
+	allReservedLabels := labels.NewFrom(slices.Collect(maps.Values(allReservedIdentities))...)
+
+	tests := []struct {
+		name            string
+		parseLabelsFile string // JSON content of the label-prefix-file
+		parseLabelsFlag []string
+		wantErrorLog    bool
+	}{
+		{
+			name:            "default_config_includes_all_reserved",
+			parseLabelsFile: "",
+			parseLabelsFlag: []string{},
+			wantErrorLog:    false,
+		},
+		{
+			name:            "file_exclude_for_other_source_does_not_exclude_reserved",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"k8s","prefix":"dummy","invert":true}]}`,
+			wantErrorLog:    false,
+		},
+		{
+			name:            "file_include_for_other_source_excludes_reserved",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"k8s","prefix":"dummy","invert":false}]}`,
+			wantErrorLog:    true,
+		},
+		{
+			name:            "file_prefix_is_literal_not_regex",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"reserved","prefix":".*","invert":false}]}`,
+			wantErrorLog:    true,
+		},
+		{
+			name:            "file_exclude_reserved_host",
+			parseLabelsFile: `{"version":1,"valid-prefixes":[{"source":"reserved","prefix":"host","invert":true}]}`,
+			wantErrorLog:    true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
+
+			handler := slog.NewTextHandler(&logs, &slog.HandlerOptions{
+				Level: slog.LevelError,
+			})
+			logger := slog.New(handler)
+			labelPrefixFile := createLabelPrefixFile(t, tt.parseLabelsFile)
+
+			// Run ParseLabelPrefixCfg() so we can check the log output.
+			gotErr := ParseLabelPrefixCfg(logger, tt.parseLabelsFlag, nil, labelPrefixFile)
+			if gotErr != nil {
+				t.Errorf("ParseLabelPrefixCfg() failed: %v", gotErr)
+
+				return
+			}
+
+			// Run Filter() to confirm whether all reserved labels are
+			// considered identity labels with the given config.
+			gotIdentityLabels, _ := Filter(allReservedLabels)
+
+			if tt.wantErrorLog {
+				require.NotEqual(t, len(allReservedLabels), len(gotIdentityLabels),
+					"false positive: test case is misconfigured, no reserved label was excluded")
+				assert.Contains(t, logs.String(), reservedLabelsMissing)
+			} else {
+				require.Len(t, gotIdentityLabels, len(allReservedLabels),
+					"false positive: test case is misconfigured, no reserved label was excluded")
+				assert.NotContains(t, logs.String(), reservedLabelsMissing)
+			}
+		})
+	}
+}
+
+// createLabelPrefixFile creates a temporary file containing the provided
+// JSON label prefix configuration and returns its path. If the content is
+// empty, it returns an empty string.
+func createLabelPrefixFile(t *testing.T, parseLabelFileContent string) string {
+	t.Helper()
+
+	if parseLabelFileContent == "" {
+		return ""
+	}
+
+	path := filepath.Join(t.TempDir(), "label-prefix.json")
+	err := os.WriteFile(path, []byte(parseLabelFileContent), 0o600)
+	require.NoError(t, err)
+
+	return path
 }
