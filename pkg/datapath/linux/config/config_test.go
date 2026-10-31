@@ -719,3 +719,33 @@ func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func TestNetdevStrictEgressEncryptionCIDRHostBits(t *testing.T) {
+	t.Helper()
+
+	oldEnabled := option.Config.EnableEncryptionStrictModeEgress
+	oldCIDR := option.Config.EncryptionStrictEgressCIDR
+	t.Cleanup(func() {
+		option.Config.EnableEncryptionStrictModeEgress = oldEnabled
+		option.Config.EncryptionStrictEgressCIDR = oldCIDR
+	})
+
+	option.Config.EnableEncryptionStrictModeEgress = true
+	option.Config.EncryptionStrictEgressCIDR = netip.MustParsePrefix("192.0.10.77/24")
+
+	cfg, err := NewHeaderfileWriter(WriterParams{
+		NodeAddressing:     fakenode.NewAddressing(),
+		NodeExtraDefines:   nil,
+		NodeExtraDefineFns: nil,
+		Sysctl:             sysctl.NewDirectSysctl(afero.NewOsFs(), "/proc"),
+		NodeMap:            fake.NewFakeNodeMapV2(),
+	})
+	require.NoError(t, err)
+
+	var buffer bytes.Buffer
+	require.NoError(t, cfg.WriteNodeConfig(&buffer, &dummyNodeCfg))
+
+	output := buffer.String()
+	expected := byteorder.NetIPAddrToHost32(option.Config.EncryptionStrictEgressCIDR.Masked().Addr())
+	require.Contains(t, output, fmt.Sprintf("define STRICT_IPV4_NET 0x%x\n", expected))
+}
