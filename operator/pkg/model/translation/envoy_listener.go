@@ -401,6 +401,9 @@ func newTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret) (*e
 	downStreamContext := envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
 		CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
 			TlsCertificateSdsSecretConfigs: tlsSdsConfig,
+			SessionTicketKeysSdsSecretConfig: &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+				Name: "session_ticket_keys",
+			},
 		},
 	}
 
