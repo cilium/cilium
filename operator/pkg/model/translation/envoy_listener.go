@@ -96,6 +96,34 @@ func withAlpn() ListenerMutator {
 	}
 }
 
+func withSessionTicketKeys(ciliumSecretNamespace string, secret model.TLSSecret) ListenerMutator {
+	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
+		for _, filterChain := range listener.FilterChains {
+			transportSocket := filterChain.GetTransportSocket()
+			if transportSocket == nil || transportSocket.Name != tlsTransportSocketType {
+				continue
+			}
+
+			downstreamContext := &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{}
+			if err := transportSocket.GetTypedConfig().UnmarshalTo(downstreamContext); err != nil {
+				continue
+			}
+			downstreamContext.SessionTicketKeysType = &envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext_SessionTicketKeysSdsSecretConfig{
+				SessionTicketKeysSdsSecretConfig: &envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig{
+					Name: syncnames.SyncedSDSSecretName(ciliumSecretNamespace, types.NamespacedName{
+						Namespace: secret.Namespace,
+						Name:      secret.Name,
+					}),
+				},
+			}
+			transportSocket.ConfigType = &envoy_config_core_v3.TransportSocket_TypedConfig{
+				TypedConfig: toAny(downstreamContext),
+			}
+		}
+		return listener
+	}
+}
+
 func withUseRemoteAddress(useRemoteAddress bool) ListenerMutator {
 	return func(listener *envoy_config_listener.Listener) *envoy_config_listener.Listener {
 		for _, filterChain := range listener.FilterChains {
@@ -594,6 +622,9 @@ func (i *cecTranslator) listenerMutatorsForPorts(m *model.Model, ports []uint32)
 
 	if i.Config.ListenerConfig.UseAlpn {
 		res = append(res, withAlpn())
+	}
+	if secret := i.Config.ListenerConfig.SessionTicketKeysSecret; secret != nil && !m.IsGamma() {
+		res = append(res, withSessionTicketKeys(i.Config.SecretsNamespace, *secret))
 	}
 
 	if i.Config.HostNetworkConfig.Enabled {

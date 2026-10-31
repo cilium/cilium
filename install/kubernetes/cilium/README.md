@@ -563,6 +563,8 @@ contributors across the globe, there is almost always someone available to help.
 | gatewayAPI.secretsNamespace.create | bool | `true` | Create secrets namespace for Gateway API. |
 | gatewayAPI.secretsNamespace.name | string | `"cilium-secrets"` | Name of Gateway API secret namespace. |
 | gatewayAPI.secretsNamespace.sync | bool | `true` | Enable secret sync, which will make sure all TLS secrets used by Ingress are synced to secretsNamespace.name. If disabled, TLS secrets must be maintained externally. |
+| gatewayAPI.sessionTicketKeysSecret.name | string | `""` | Name of an existing Secret containing shared TLS session ticket keys. Both name and namespace must be set to enable session resumption across Envoy instances. |
+| gatewayAPI.sessionTicketKeysSecret.namespace | string | `""` | Namespace of the TLS session ticket keys Secret. |
 | gatewayAPI.useRemoteAddress | bool | `true` | Configure whether to use the remote address of the client when determining the source IP. When enabled, the source IP is determined from the remote address instead of the proxy protocol header. |
 | gatewayAPI.xffNumTrustedHops | int | `0` | The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address. |
 | gke.enabled | bool | `false` | Enable Google Kubernetes Engine integration |
