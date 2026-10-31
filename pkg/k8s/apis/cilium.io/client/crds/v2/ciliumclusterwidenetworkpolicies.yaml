@@ -725,6 +725,38 @@ spec:
                                 required:
                                 - name
                                 type: object
+                              trustBundle:
+                                description: |-
+                                  TrustBundle references an object containing the trusted CA certificates
+                                  in the 'ca.crt' item. It must not refer to the same object as Secret.
+
+                                  When set, Secret holds the proxy's own certificate and private key
+                                  ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                   - For originatingTLS, the proxy presents the certificate as a client
+                                     certificate to the upstream server, and validates the server
+                                     certificate with the trust bundle.
+                                   - For terminatingTLS, the proxy presents the certificate to the client,
+                                     and requires a client certificate validated with the trust bundle.
+                                properties:
+                                  kind:
+                                    default: Secret
+                                    description: Kind is the kind of the referenced
+                                      object.
+                                    enum:
+                                    - Secret
+                                    type: string
+                                  name:
+                                    description: Name is the name of the referenced
+                                      object.
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace of the
+                                      referenced object.
+                                    type: string
+                                required:
+                                - name
+                                - namespace
+                                type: object
                               trustedCA:
                                 description: |-
                                   TrustedCA is the file name or k8s secret item name for the trusted CA.
@@ -1026,6 +1058,38 @@ spec:
                                     type: string
                                 required:
                                 - name
+                                type: object
+                              trustBundle:
+                                description: |-
+                                  TrustBundle references an object containing the trusted CA certificates
+                                  in the 'ca.crt' item. It must not refer to the same object as Secret.
+
+                                  When set, Secret holds the proxy's own certificate and private key
+                                  ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                   - For originatingTLS, the proxy presents the certificate as a client
+                                     certificate to the upstream server, and validates the server
+                                     certificate with the trust bundle.
+                                   - For terminatingTLS, the proxy presents the certificate to the client,
+                                     and requires a client certificate validated with the trust bundle.
+                                properties:
+                                  kind:
+                                    default: Secret
+                                    description: Kind is the kind of the referenced
+                                      object.
+                                    enum:
+                                    - Secret
+                                    type: string
+                                  name:
+                                    description: Name is the name of the referenced
+                                      object.
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace of the
+                                      referenced object.
+                                    type: string
+                                required:
+                                - name
+                                - namespace
                                 type: object
                               trustedCA:
                                 description: |-
@@ -2445,6 +2509,38 @@ spec:
                                 required:
                                 - name
                                 type: object
+                              trustBundle:
+                                description: |-
+                                  TrustBundle references an object containing the trusted CA certificates
+                                  in the 'ca.crt' item. It must not refer to the same object as Secret.
+
+                                  When set, Secret holds the proxy's own certificate and private key
+                                  ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                   - For originatingTLS, the proxy presents the certificate as a client
+                                     certificate to the upstream server, and validates the server
+                                     certificate with the trust bundle.
+                                   - For terminatingTLS, the proxy presents the certificate to the client,
+                                     and requires a client certificate validated with the trust bundle.
+                                properties:
+                                  kind:
+                                    default: Secret
+                                    description: Kind is the kind of the referenced
+                                      object.
+                                    enum:
+                                    - Secret
+                                    type: string
+                                  name:
+                                    description: Name is the name of the referenced
+                                      object.
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace of the
+                                      referenced object.
+                                    type: string
+                                required:
+                                - name
+                                - namespace
+                                type: object
                               trustedCA:
                                 description: |-
                                   TrustedCA is the file name or k8s secret item name for the trusted CA.
@@ -2746,6 +2842,38 @@ spec:
                                     type: string
                                 required:
                                 - name
+                                type: object
+                              trustBundle:
+                                description: |-
+                                  TrustBundle references an object containing the trusted CA certificates
+                                  in the 'ca.crt' item. It must not refer to the same object as Secret.
+
+                                  When set, Secret holds the proxy's own certificate and private key
+                                  ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                   - For originatingTLS, the proxy presents the certificate as a client
+                                     certificate to the upstream server, and validates the server
+                                     certificate with the trust bundle.
+                                   - For terminatingTLS, the proxy presents the certificate to the client,
+                                     and requires a client certificate validated with the trust bundle.
+                                properties:
+                                  kind:
+                                    default: Secret
+                                    description: Kind is the kind of the referenced
+                                      object.
+                                    enum:
+                                    - Secret
+                                    type: string
+                                  name:
+                                    description: Name is the name of the referenced
+                                      object.
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace of the
+                                      referenced object.
+                                    type: string
+                                required:
+                                - name
+                                - namespace
                                 type: object
                               trustedCA:
                                 description: |-
@@ -4086,6 +4214,38 @@ spec:
                                   required:
                                   - name
                                   type: object
+                                trustBundle:
+                                  description: |-
+                                    TrustBundle references an object containing the trusted CA certificates
+                                    in the 'ca.crt' item. It must not refer to the same object as Secret.
+
+                                    When set, Secret holds the proxy's own certificate and private key
+                                    ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                     - For originatingTLS, the proxy presents the certificate as a client
+                                       certificate to the upstream server, and validates the server
+                                       certificate with the trust bundle.
+                                     - For terminatingTLS, the proxy presents the certificate to the client,
+                                       and requires a client certificate validated with the trust bundle.
+                                  properties:
+                                    kind:
+                                      default: Secret
+                                      description: Kind is the kind of the referenced
+                                        object.
+                                      enum:
+                                      - Secret
+                                      type: string
+                                    name:
+                                      description: Name is the name of the referenced
+                                        object.
+                                      type: string
+                                    namespace:
+                                      description: Namespace is the namespace of the
+                                        referenced object.
+                                      type: string
+                                  required:
+                                  - name
+                                  - namespace
+                                  type: object
                                 trustedCA:
                                   description: |-
                                     TrustedCA is the file name or k8s secret item name for the trusted CA.
@@ -4387,6 +4547,38 @@ spec:
                                       type: string
                                   required:
                                   - name
+                                  type: object
+                                trustBundle:
+                                  description: |-
+                                    TrustBundle references an object containing the trusted CA certificates
+                                    in the 'ca.crt' item. It must not refer to the same object as Secret.
+
+                                    When set, Secret holds the proxy's own certificate and private key
+                                    ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                     - For originatingTLS, the proxy presents the certificate as a client
+                                       certificate to the upstream server, and validates the server
+                                       certificate with the trust bundle.
+                                     - For terminatingTLS, the proxy presents the certificate to the client,
+                                       and requires a client certificate validated with the trust bundle.
+                                  properties:
+                                    kind:
+                                      default: Secret
+                                      description: Kind is the kind of the referenced
+                                        object.
+                                      enum:
+                                      - Secret
+                                      type: string
+                                    name:
+                                      description: Name is the name of the referenced
+                                        object.
+                                      type: string
+                                    namespace:
+                                      description: Namespace is the namespace of the
+                                        referenced object.
+                                      type: string
+                                  required:
+                                  - name
+                                  - namespace
                                   type: object
                                 trustedCA:
                                   description: |-
@@ -5808,6 +6000,38 @@ spec:
                                   required:
                                   - name
                                   type: object
+                                trustBundle:
+                                  description: |-
+                                    TrustBundle references an object containing the trusted CA certificates
+                                    in the 'ca.crt' item. It must not refer to the same object as Secret.
+
+                                    When set, Secret holds the proxy's own certificate and private key
+                                    ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                     - For originatingTLS, the proxy presents the certificate as a client
+                                       certificate to the upstream server, and validates the server
+                                       certificate with the trust bundle.
+                                     - For terminatingTLS, the proxy presents the certificate to the client,
+                                       and requires a client certificate validated with the trust bundle.
+                                  properties:
+                                    kind:
+                                      default: Secret
+                                      description: Kind is the kind of the referenced
+                                        object.
+                                      enum:
+                                      - Secret
+                                      type: string
+                                    name:
+                                      description: Name is the name of the referenced
+                                        object.
+                                      type: string
+                                    namespace:
+                                      description: Namespace is the namespace of the
+                                        referenced object.
+                                      type: string
+                                  required:
+                                  - name
+                                  - namespace
+                                  type: object
                                 trustedCA:
                                   description: |-
                                     TrustedCA is the file name or k8s secret item name for the trusted CA.
@@ -6109,6 +6333,38 @@ spec:
                                       type: string
                                   required:
                                   - name
+                                  type: object
+                                trustBundle:
+                                  description: |-
+                                    TrustBundle references an object containing the trusted CA certificates
+                                    in the 'ca.crt' item. It must not refer to the same object as Secret.
+
+                                    When set, Secret holds the proxy's own certificate and private key
+                                    ('tls.crt' and 'tls.key'), and mutual TLS is used:
+                                     - For originatingTLS, the proxy presents the certificate as a client
+                                       certificate to the upstream server, and validates the server
+                                       certificate with the trust bundle.
+                                     - For terminatingTLS, the proxy presents the certificate to the client,
+                                       and requires a client certificate validated with the trust bundle.
+                                  properties:
+                                    kind:
+                                      default: Secret
+                                      description: Kind is the kind of the referenced
+                                        object.
+                                      enum:
+                                      - Secret
+                                      type: string
+                                    name:
+                                      description: Name is the name of the referenced
+                                        object.
+                                      type: string
+                                    namespace:
+                                      description: Namespace is the namespace of the
+                                        referenced object.
+                                      type: string
+                                  required:
+                                  - name
+                                  - namespace
                                   type: object
                                 trustedCA:
                                   description: |-

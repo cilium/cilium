@@ -169,6 +169,8 @@ There are three settings in Helm that affect TLS Interception:
   when this field is set to ``false``, so having an additional field for SDS config added no value.
 
 
+.. _tls_interception_modes:
+
 Configuring the three available modes for TLS Interception
 ----------------------------------------------------------
 
@@ -449,6 +451,39 @@ Looking back at the cilium-dbg monitor window, you will see each individual HTTP
     -> Response http to 2585 ([k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default k8s:class=mediabot k8s:org=empire]) from 0 ([reserved:world]), identity 24948->2, verdict Forwarded GET https://httpbin.org/anything => 200
 
 Refer to :ref:`l4_policy` and :ref:`l7_policy` to learn more about Cilium L4 and L7 network policies.
+
+Mutual TLS with a Trust Bundle
+==============================
+
+By default, ``originatingTLS`` uses only the trusted CA (``ca.crt``) from the referenced Secret to
+validate the upstream server, and ``terminatingTLS`` uses only the certificate and private key
+(``tls.crt`` and ``tls.key``) to serve the client.
+
+To use mutual TLS, reference the trusted CA certificates separately with ``trustBundle``. The
+``secret`` then holds the proxy's own certificate and private key in both directions:
+
+* For ``originatingTLS``, the proxy presents the certificate from ``secret`` as a client certificate
+  to the upstream server, and validates the server certificate with the trust bundle.
+* For ``terminatingTLS``, the proxy presents the certificate from ``secret`` to the client, and
+  requires a client certificate that is validated with the trust bundle.
+
+For example, the following originates TLS to an upstream server that requires a client certificate:
+
+.. code-block:: yaml
+
+    originatingTLS:
+      secret:
+        namespace: "app"
+        name: "client-identity"   # contains tls.crt and tls.key
+      trustBundle:
+        namespace: "app"
+        name: "upstream-ca"       # contains ca.crt
+
+.. note::
+
+    Trust bundles require that policy secrets are synchronized to the proxy via SDS
+    (see :ref:`tls_interception_modes` above). Only the default item names ``ca.crt``, ``tls.crt``
+    and ``tls.key`` are supported, and the trust bundle must be a separate object from ``secret``.
 
 Clean-up
 ========

@@ -135,7 +135,46 @@ type TLSContext struct {
 	//
 	// +kubebuilder:validation:Optional
 	PrivateKey string `json:"privateKey,omitempty"`
+
+	// TrustBundle references an object containing the trusted CA certificates
+	// in the 'ca.crt' item. It must not refer to the same object as Secret.
+	//
+	// When set, Secret holds the proxy's own certificate and private key
+	// ('tls.crt' and 'tls.key'), and mutual TLS is used:
+	//  - For originatingTLS, the proxy presents the certificate as a client
+	//    certificate to the upstream server, and validates the server
+	//    certificate with the trust bundle.
+	//  - For terminatingTLS, the proxy presents the certificate to the client,
+	//    and requires a client certificate validated with the trust bundle.
+	//
+	// +kubebuilder:validation:Optional
+	TrustBundle *TrustBundle `json:"trustBundle,omitempty"`
 }
+
+// TrustBundle is a reference to an object containing trusted CA certificates.
+type TrustBundle struct {
+	// Kind is the kind of the referenced object.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=Secret
+	// +kubebuilder:default=Secret
+	Kind string `json:"kind,omitempty"`
+
+	// Namespace is the namespace of the referenced object.
+	//
+	// +kubebuilder:validation:Required
+	Namespace string `json:"namespace"`
+
+	// Name is the name of the referenced object.
+	//
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+// TrustBundle kinds
+const (
+	TrustBundleKindSecret = "Secret"
+)
 
 // EnvoyConfig defines a reference to a CiliumEnvoyConfig or CiliumClusterwideEnvoyConfig
 type EnvoyConfig struct {
