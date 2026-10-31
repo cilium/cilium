@@ -131,10 +131,53 @@ being passed by reference instead of being passed by value.
 Because of these advantages over the older NPDS method, SDS is the default for new Cilium installations
 as at Cilium 1.17.
 
+Mutual TLS with a Trust Bundle
+------------------------------
+
+Only the ``secret`` field in ``originatingTLS`` and ``terminatingTLS`` is mandatory, and is
+sufficient for normal TLS where only the server is authenticated. In that case, ``originatingTLS``
+uses the trusted CA (``ca.crt``) from the Secret to validate the upstream server, and
+``terminatingTLS`` uses the certificate and private key (``tls.crt`` and ``tls.key``) to serve the
+client.
+
+To use mutual TLS, reference the trusted CA certificates separately with ``trustBundle``. The
+``secret`` then holds the proxy's own certificate and private key in both directions:
+
+* For ``originatingTLS``, the proxy presents the certificate from ``secret`` as a client certificate
+  to the upstream server, and validates the server certificate with the trust bundle.
+* For ``terminatingTLS``, the proxy presents the certificate from ``secret`` to the client, and
+  requires a client certificate that is validated with the trust bundle.
+
+For example, the following originates TLS to an upstream server that requires a client certificate:
+
+.. code-block:: yaml
+
+    originatingTLS:
+      secret:
+        namespace: "app"
+        name: "client-identity"   # contains tls.crt and tls.key
+      trustBundle:
+        namespace: "app"
+        name: "upstream-ca"       # contains ca.crt
+
+.. note::
+
+    Trust bundles require that policy secrets are synchronized to the proxy via SDS
+    (see :ref:`tls_interception_modes` below). Only the default item names ``ca.crt``, ``tls.crt``
+    and ``tls.key`` are supported, and the trust bundle must be a separate object from ``secret``.
+
+    A Secret referenced to provide trusted CA certificates (``trustBundle``, or ``secret`` in
+    ``originatingTLS`` without ``trustBundle``) must contain only ``ca.crt``. Secrets that also
+    contain ``tls.crt`` or ``tls.key`` are not supported as a source of trusted CA certificates.
+
+    In a CiliumNetworkPolicy, the ``secret`` must be in the namespace of the policy when
+    ``trustBundle`` is set, as its certificate and private key are used as the proxy's
+    identity. ``trustBundle`` is not supported in CiliumClusterwideNetworkPolicy.
+
 Configuring TLS Interception
 ============================
 
-There are three ways to use Cilium in 1.17 and later:
+There are three ways to use Secrets in Cilium 1.17 and later:
 
 * Using SDS, Secrets referenced in Network Policy can be located anywhere in the cluster, and are
   copied into a configured namespace (``cilium-secrets`` by default) by the Cilium Operator, synchronized
@@ -168,6 +211,8 @@ There are three settings in Helm that affect TLS Interception:
   SDS use for Network Policy secrets. SDS use requires this to be set to ``true``, and must be disabled
   when this field is set to ``false``, so having an additional field for SDS config added no value.
 
+
+.. _tls_interception_modes:
 
 Configuring the three available modes for TLS Interception
 ----------------------------------------------------------

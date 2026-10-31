@@ -4,6 +4,7 @@
 package secretsync
 
 import (
+	"iter"
 	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -13,25 +14,30 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 )
 
+// tlsSecretsFromPortRule returns an iterator over all Secrets referenced by the TLS
+// contexts of a port rule, including trust bundles.
+func tlsSecretsFromPortRule(port api.PortRule) iter.Seq[types.NamespacedName] {
+	return func(yield func(types.NamespacedName) bool) {
+		for _, tls := range []*api.TLSContext{port.TerminatingTLS, port.OriginatingTLS} {
+			if tls == nil {
+				continue
+			}
+			if tls.Secret != nil && !yield(types.NamespacedName(*tls.Secret)) {
+				return
+			}
+			if tls.TrustBundle != nil && !yield(types.NamespacedName(*tls.TrustBundle)) {
+				return
+			}
+		}
+	}
+}
+
 // GetReferencedTLSSecretsFromPortRules finds all TLS Secrets referenced by a set of port rules.
 func GetReferencedTLSSecretsFromPortRules(ports api.PortRules, logger *slog.Logger) []reconcile.Request {
 	var reqs []reconcile.Request
 
 	for _, port := range ports {
-		if port.TerminatingTLS != nil && port.TerminatingTLS.Secret != nil {
-			s := types.NamespacedName{
-				Namespace: port.TerminatingTLS.Secret.Namespace,
-				Name:      port.TerminatingTLS.Secret.Name,
-			}
-			reqs = append(reqs, reconcile.Request{NamespacedName: s})
-			logger.Debug("Enqueued secret reconciliation for network policy", logfields.Name, s)
-		}
-
-		if port.OriginatingTLS != nil && port.OriginatingTLS.Secret != nil {
-			s := types.NamespacedName{
-				Namespace: port.OriginatingTLS.Secret.Namespace,
-				Name:      port.OriginatingTLS.Secret.Name,
-			}
+		for s := range tlsSecretsFromPortRule(port) {
 			reqs = append(reqs, reconcile.Request{NamespacedName: s})
 			logger.Debug("Enqueued secret reconciliation for network policy", logfields.Name, s)
 		}
@@ -71,15 +77,8 @@ func IsSecretReferencedByPortRule(ports api.PortRules, logger *slog.Logger, secr
 	for _, port := range ports {
 
 		// First, check for TLS Secrets
-		if port.TerminatingTLS != nil && port.TerminatingTLS.Secret != nil {
-			if secretName.Namespace == port.TerminatingTLS.Secret.Namespace &&
-				secretName.Name == port.TerminatingTLS.Secret.Name {
-				return true
-			}
-		}
-		if port.OriginatingTLS != nil && port.OriginatingTLS.Secret != nil {
-			if secretName.Namespace == port.OriginatingTLS.Secret.Namespace &&
-				secretName.Name == port.OriginatingTLS.Secret.Name {
+		for s := range tlsSecretsFromPortRule(port) {
+			if s == secretName {
 				return true
 			}
 		}
