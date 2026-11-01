@@ -159,7 +159,7 @@
    * - :spelling:ignore:`authentication.mutual.spire.install.initImage`
      - init container image of SPIRE agent and server
      - object
-     - ``{"digest":"sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e","override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/library/busybox","tag":"1.38.0","useDigest":true}``
+     - ``{"digest":"sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4","override":null,"pullPolicy":"IfNotPresent","repository":"docker.io/library/busybox","tag":"1.38.0","useDigest":true}``
    * - :spelling:ignore:`authentication.mutual.spire.install.namespace`
      - SPIRE namespace to install into
      - string
@@ -1683,7 +1683,7 @@
    * - :spelling:ignore:`envoy.image`
      - Envoy container image.
      - object
-     - ``{"digest":"sha256:547ab45f6092f681d9f54f3be9fa8fb1e705c9c5dc2df388efe3a52aa6965629","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.39.5-1792733054-8c73b2816bc8239e27f1fd53b271884688137459","useDigest":true}``
+     - ``{"digest":"sha256:83e85bab887e02278b82e499552144171c990ed92c7201e131b188bbdb96f735","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.39.6-1793187639-5af7ae1ffe34de5940e89a32c9e3990cbc78c3c5","useDigest":true}``
    * - :spelling:ignore:`envoy.initContainers`
      - Init containers added to the cilium Envoy DaemonSet.
      - list
@@ -3671,7 +3671,7 @@
    * - :spelling:ignore:`preflight.envoy.image`
      - Envoy pre-flight image.
      - object
-     - ``{"digest":"sha256:547ab45f6092f681d9f54f3be9fa8fb1e705c9c5dc2df388efe3a52aa6965629","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.39.5-1792733054-8c73b2816bc8239e27f1fd53b271884688137459","useDigest":true}``
+     - ``{"digest":"sha256:83e85bab887e02278b82e499552144171c990ed92c7201e131b188bbdb96f735","override":null,"pullPolicy":"IfNotPresent","repository":"quay.io/cilium/cilium-envoy","tag":"v1.39.6-1793187639-5af7ae1ffe34de5940e89a32c9e3990cbc78c3c5","useDigest":true}``
    * - :spelling:ignore:`preflight.extraEnv`
      - Additional preflight environment variables.
      - list
