@@ -145,9 +145,11 @@ func PodResource(lc cell.Lifecycle, cs client.Clientset, mp workqueue.MetricsPro
 //   - CiliumEndpointSlice (operator/pkg/ciliumendpointslice): name, namespace,
 //     uid, labels, spec.{nodeName,hostNetwork,serviceAccountName},
 //     spec.containers[].ports, status.{podIPs,hostIP}
+//   - unmanaged pods restart (operator/unmanagedpods): name, namespace, labels,
+//     spec.hostNetwork, status.{phase,startTime}
 //
-// Note that the two standalone pod informers in operator/watchers have their own
-// transforms and their own field sets.
+// Note that the node taint sync's agent pod informer in operator/watchers has
+// its own transform and its own field set.
 func TransformToOperatorPod(pod *slim_corev1.Pod) (*slim_corev1.Pod, error) {
 	// Only the named ports of the containers are read, by GetPodMetadata and by
 	// the CiliumEndpointSlice reconciler, so containers without ports carry no
@@ -176,9 +178,10 @@ func TransformToOperatorPod(pod *slim_corev1.Pod) (*slim_corev1.Pod, error) {
 			HostNetwork:        pod.Spec.HostNetwork,
 		},
 		Status: slim_corev1.PodStatus{
-			Phase:  pod.Status.Phase,
-			HostIP: pod.Status.HostIP,
-			PodIPs: pod.Status.PodIPs,
+			Phase:     pod.Status.Phase,
+			HostIP:    pod.Status.HostIP,
+			PodIPs:    pod.Status.PodIPs,
+			StartTime: pod.Status.StartTime,
 		},
 	}
 
@@ -186,8 +189,8 @@ func TransformToOperatorPod(pod *slim_corev1.Pod) (*slim_corev1.Pod, error) {
 	// object, referenced by nothing but the delta being processed (see
 	// resource.WithTransform), so zeroing it drops the last reference to
 	// everything not retained above without waiting for the delta itself to
-	// become garbage. The retained labels and ports are unaffected: stripped
-	// holds copies of their map and slice headers.
+	// become garbage. The retained labels, ports and start time are unaffected:
+	// stripped holds copies of their map, slice and pointer headers.
 	*pod = slim_corev1.Pod{}
 
 	return stripped, nil
