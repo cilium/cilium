@@ -17,6 +17,7 @@ package types
 import (
 	"math"
 	"reflect"
+	"sync"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -24,6 +25,8 @@ import (
 
 	"cel.dev/cel-go/common/types/ref"
 	"cel.dev/cel-go/common/types/traits"
+
+	structpb "google.golang.org/protobuf/types/known/structpb"
 )
 
 const (
@@ -101,22 +104,23 @@ func (s *SizeCalculator) Version() int {
 	return s.version
 }
 
+var sizeContextPool = sync.Pool{
+	New: func() any {
+		return &sizeContext{}
+	},
+}
+
 type sizeContext struct {
 	calc           *SizeCalculator
 	depth          int
-	traversalCount *int
-	limitExceeded  *bool
+	traversalCount int
+	limitExceeded  bool
 }
 
-func (c sizeContext) childContext() sizeContext {
-	c.depth++
-	return c
-}
-
-func (c sizeContext) visitNode() bool {
-	*c.traversalCount++
-	if *c.traversalCount > c.calc.maxTraversal || c.depth > c.calc.maxDepth {
-		*c.limitExceeded = true
+func (c *sizeContext) visitNode() bool {
+	c.traversalCount++
+	if c.traversalCount > c.calc.maxTraversal || c.depth > c.calc.maxDepth {
+		c.limitExceeded = true
 		return false
 	}
 	return true
@@ -129,8 +133,8 @@ type aggregateSizeStatus interface {
 }
 
 // aggregateSizeLimitExceeded implements the aggregateSizeStatus interface method.
-func (c sizeContext) aggregateSizeLimitExceeded() bool {
-	return *c.limitExceeded
+func (c *sizeContext) aggregateSizeLimitExceeded() bool {
+	return c.limitExceeded
 }
 
 // cacheableAggregateSize reports whether a size computed with the given sizer is safe to
@@ -143,44 +147,36 @@ func cacheableAggregateSize(sizer AggregateSizer) bool {
 	return ok && !status.aggregateSizeLimitExceeded()
 }
 
-// AggregateSizeEstimate captures the outcome of an aggregate size computation.
+// ApproximateAggregateSize captures the outcome of an aggregate size computation.
 //
 // The Size saturates at math.MaxUint32 when the accumulated element count overflows uint32.
 // LimitExceeded reports the computation was aborted because the value was too expensive to
 // traverse (too deep, or too many nodes visited); in that case Size is also math.MaxUint32,
 // but the value's true size may be smaller — the two conditions are distinguishable by the flag.
-type AggregateSizeEstimate struct {
+type ApproximateAggregateSize struct {
 	Size          uint32
 	LimitExceeded bool
 }
 
-// AggregateSize returns the size of the input value, if known.
-// Otherwise, a unit size of 1 is returned.
-//
-// When the calculator's depth or traversal limits are exceeded, the size saturates to
-// math.MaxUint32. Use EstimateAggregateSize to distinguish limit-exceeded results from
-// genuine uint32 saturation.
-func (s *SizeCalculator) AggregateSize(val any) uint32 {
-	return s.EstimateAggregateSize(val).Size
-}
-
-// EstimateAggregateSize returns the aggregate size of the input value along with an indication
+// ApproximateAggregateSize returns the aggregate size of the input value along with an indication
 // of whether the computation was aborted due to the calculator's depth or traversal limits.
-func (s *SizeCalculator) EstimateAggregateSize(val any) AggregateSizeEstimate {
-	traversals := 0
-	exceeded := false
-	ctx := sizeContext{
-		calc:           s,
-		depth:          1,
-		traversalCount: &traversals,
-		limitExceeded:  &exceeded,
-	}
-	size := ctx.AggregateSize(val)
-	return AggregateSizeEstimate{Size: size, LimitExceeded: exceeded}
+func (s *SizeCalculator) ApproximateAggregateSize(val any) ApproximateAggregateSize {
+	ctx := sizeContextPool.Get().(*sizeContext)
+	ctx.calc = s
+	est := ctx.estimateAggregateSize(val)
+	ctx.calc = nil
+
+	sizeContextPool.Put(ctx)
+	return est
 }
 
-// stringSize converts a byte length to an element count where stringUnitLength bytes count
-// as a single element, rounding up with a minimum size of 1.
+// AggregateSize implements the AggregateSizer interface by returning the computed size.
+func (s *SizeCalculator) AggregateSize(val any) uint32 {
+	return s.ApproximateAggregateSize(val).Size
+}
+
+// stringSize converts a character or byte length to an element count where stringUnitLength
+// characters count as a single element, rounding up with a minimum size of 1.
 func (s *SizeCalculator) stringSize(length int) uint32 {
 	if length <= 0 {
 		return 1
@@ -190,7 +186,14 @@ func (s *SizeCalculator) stringSize(length int) uint32 {
 
 // AggregateSize implements the ref.Val interface and allows for the generation of nested
 // child context values which are necessary for correct traversal count tracking.
-func (c sizeContext) AggregateSize(val any) uint32 {
+func (c *sizeContext) AggregateSize(val any) uint32 {
+	c.depth++
+	res := c.aggregateSize(val)
+	c.depth--
+	return res
+}
+
+func (c *sizeContext) aggregateSize(val any) uint32 {
 	if !c.visitNode() {
 		return math.MaxUint32
 	}
@@ -200,40 +203,38 @@ func (c sizeContext) AggregateSize(val any) uint32 {
 	case Bytes:
 		return c.calc.stringSize(len(v))
 	case AggregateSizeVisitor:
-		return v.AggregateSize(c.childContext())
+		return v.AggregateSize(c)
 	case traits.Foldable:
-		f := foldableAggregateSizer{sizer: c.childContext(), total: 1}
+		f := foldableAggregateSizer{sizer: c, total: 1}
 		v.Fold(&f)
 		return f.total
 	case traits.Mapper:
 		total := uint32(1)
 		it := v.Iterator()
-		childCtx := c.childContext()
 		for it.HasNext() == True {
 			key := it.Next()
 			val, _ := v.Find(key)
-			total = safeAddUint32(total, childCtx.AggregateSize(key))
-			total = safeAddUint32(total, childCtx.AggregateSize(val))
+			total = safeAddUint32(total, c.AggregateSize(key))
+			total = safeAddUint32(total, c.AggregateSize(val))
 		}
 		return total
 	case traits.Lister:
 		total := uint32(1)
 		it := v.Iterator()
-		childCtx := c.childContext()
 		for it.HasNext() == True {
-			total = safeAddUint32(total, childCtx.AggregateSize(it.Next()))
+			total = safeAddUint32(total, c.AggregateSize(it.Next()))
 		}
 		return total
 	case traits.Sizer:
-		return safeUint32FromBoxedInt(v.Size().(Int))
+		return max(1, safeUint32FromBoxedInt(v.Size().(Int)))
 	case Bool, Int, Uint, Double, Duration, Timestamp, Null, *Type, *Err, *Unknown:
 		return 1
 	case ref.Val:
-		return c.AggregateSize(v.Value())
+		return c.aggregateSize(v.Value())
 	case protoreflect.Value:
-		return c.AggregateSize(v.Interface())
+		return getProtoValueAggregateSize(c, v)
 	case protoreflect.MapKey:
-		return c.AggregateSize(v.Value().Interface())
+		return getProtoValueAggregateSize(c, v.Value())
 	case protoreflect.Message:
 		return getProtoMessageAggregateSize(c, v)
 	case protoreflect.List:
@@ -242,11 +243,9 @@ func (c sizeContext) AggregateSize(val any) uint32 {
 		return getProtoMapAggregateSize(c, v)
 	case proto.Message:
 		if v == nil {
-			return 0
+			return 1
 		}
 		return getProtoMessageAggregateSize(c, v.ProtoReflect())
-	case reflect.Value:
-		return getReflectValueAggregateSize(c, v)
 	case string:
 		return c.calc.stringSize(len(v))
 	case []byte:
@@ -255,116 +254,287 @@ func (c sizeContext) AggregateSize(val any) uint32 {
 		uint, uint8, uint16, uint32, uint64,
 		float32, float64, bool, time.Time, time.Duration, nil:
 		return 1
+	case reflect.Value:
+		return getReflectValueAggregateSize(c, v)
 	default:
 		return getReflectValueAggregateSize(c, reflect.ValueOf(val))
 	}
 }
 
-func getProtoFieldAggregateSize(c sizeContext, fd protoreflect.FieldDescriptor, v protoreflect.Value) uint32 {
+// estimateAggregateSize evaluates the aggregate size using this context and resets state.
+func (c *sizeContext) estimateAggregateSize(val any) ApproximateAggregateSize {
+	c.depth = 0
+	c.traversalCount = 0
+	c.limitExceeded = false
+
+	size := c.AggregateSize(val)
+	return ApproximateAggregateSize{Size: size, LimitExceeded: c.limitExceeded}
+}
+
+func getProtoValueAggregateSize(c *sizeContext, v protoreflect.Value) uint32 {
+	if !v.IsValid() {
+		return 1
+	}
+	switch val := v.Interface().(type) {
+	case protoreflect.Message:
+		return getProtoMessageAggregateSize(c, val)
+	case protoreflect.List:
+		return getProtoListAggregateSize(c, val)
+	case protoreflect.Map:
+		return getProtoMapAggregateSize(c, val)
+	case string:
+		return c.calc.stringSize(len(val))
+	case []byte:
+		return c.calc.stringSize(len(val))
+	default:
+		return 1
+	}
+}
+
+func getProtoFieldAggregateSize(c *sizeContext, fd protoreflect.FieldDescriptor, v protoreflect.Value) uint32 {
 	if !c.visitNode() {
 		return math.MaxUint32
 	}
-	childCtx := c.childContext()
 	if fd.IsMap() {
-		return getProtoMapAggregateSize(childCtx, v.Map())
+		c.depth++
+		sz := getProtoMapAggregateSize(c, v.Map())
+		c.depth--
+		return sz
 	}
 	if fd.IsList() {
-		return getProtoListAggregateSize(childCtx, v.List())
+		c.depth++
+		sz := getProtoListAggregateSize(c, v.List())
+		c.depth--
+		return sz
 	}
-	return childCtx.AggregateSize(v.Interface())
+	if fd.Message() != nil {
+		return c.AggregateSize(v.Message())
+	}
+	switch fd.Kind() {
+	case protoreflect.StringKind:
+		return c.calc.stringSize(len(v.String()))
+	case protoreflect.BytesKind:
+		return c.calc.stringSize(len(v.Bytes()))
+	default:
+		return 1
+	}
 }
 
-func getProtoMessageAggregateSize(c sizeContext, m protoreflect.Message) uint32 {
+func getProtoMessageAggregateSize(c *sizeContext, m protoreflect.Message) uint32 {
 	if !m.IsValid() {
-		return 0
+		return 1
 	}
 	if !c.visitNode() {
 		return math.MaxUint32
 	}
-	childCtx := c.childContext()
 	total := uint32(1)
 	m.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
-		total = safeAddUint32(total, getProtoFieldAggregateSize(childCtx, fd, v))
+		total = safeAddUint32(total, getProtoFieldAggregateSize(c, fd, v))
 		return true
 	})
 	return total
 }
 
-func getProtoListAggregateSize(c sizeContext, l protoreflect.List) uint32 {
+func getProtoListAggregateSize(c *sizeContext, l protoreflect.List) uint32 {
 	if !l.IsValid() {
-		return 0
+		return 1
 	}
 	if !c.visitNode() {
 		return math.MaxUint32
 	}
-	childCtx := c.childContext()
 	total := uint32(1)
 	for i := range l.Len() {
-		total = safeAddUint32(total, childCtx.AggregateSize(l.Get(i).Interface()))
+		total = safeAddUint32(total, c.AggregateSize(l.Get(i)))
 	}
 	return total
 }
 
-func getProtoMapAggregateSize(c sizeContext, m protoreflect.Map) uint32 {
+func getProtoMapAggregateSize(c *sizeContext, m protoreflect.Map) uint32 {
 	if !m.IsValid() {
-		return 0
+		return 1
 	}
 	if !c.visitNode() {
 		return math.MaxUint32
 	}
-	childCtx := c.childContext()
 	total := uint32(1)
 	m.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
-		total = safeAddUint32(total, childCtx.AggregateSize(k.Value().Interface()))
-		total = safeAddUint32(total, childCtx.AggregateSize(v.Interface()))
+		total = safeAddUint32(total, c.AggregateSize(k))
+		total = safeAddUint32(total, c.AggregateSize(v))
 		return true
 	})
 	return total
 }
 
-func getReflectValueAggregateSize(c sizeContext, fieldVal reflect.Value) uint32 {
+// getSliceElementsAggregateSize computes the aggregate size of known slice payloads without reflection.
+func getSliceElementsAggregateSize(sizer AggregateSizer, val any) (uint32, bool) {
+	switch v := val.(type) {
+	case []byte:
+		if sc, ok := sizer.(*sizeContext); ok {
+			return sc.calc.stringSize(len(v)), true
+		}
+		return 1, true
+	case []int:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []int8:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []int16:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []int32:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []int64:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []uint:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []uint16:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []uint32:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []uint64:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []float32:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []float64:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []bool:
+		return safeAddUint32(1, safeUint32FromInt(len(v))), true
+	case []string:
+		total := uint32(1)
+		for _, s := range v {
+			total = safeAddUint32(total, sizer.AggregateSize(s))
+		}
+		return total, true
+	case []ref.Val:
+		total := uint32(1)
+		for _, elem := range v {
+			total = safeAddUint32(total, sizer.AggregateSize(elem))
+		}
+		return total, true
+	case protoreflect.List:
+		total := uint32(1)
+		for i := range v.Len() {
+			total = safeAddUint32(total, sizer.AggregateSize(v.Get(i)))
+		}
+		return total, true
+	case *structpb.ListValue:
+		if v == nil {
+			return 1, true
+		}
+		total := uint32(1)
+		for _, elem := range v.GetValues() {
+			total = safeAddUint32(total, sizer.AggregateSize(elem))
+		}
+		return total, true
+	case []any:
+		total := uint32(1)
+		for _, elem := range v {
+			total = safeAddUint32(total, sizer.AggregateSize(elem))
+		}
+		return total, true
+	default:
+		return 0, false
+	}
+}
+
+// getMapElementsAggregateSize computes the aggregate size of a map payload.
+func getMapElementsAggregateSize(sizer AggregateSizer, val any) (uint32, bool) {
+	switch v := val.(type) {
+	case map[string]string:
+		total := uint32(1)
+		for k, val := range v {
+			total = safeAddUint32(total, sizer.AggregateSize(k))
+			total = safeAddUint32(total, sizer.AggregateSize(val))
+		}
+		return total, true
+	case map[string]any:
+		total := uint32(1)
+		for k, val := range v {
+			total = safeAddUint32(total, sizer.AggregateSize(k))
+			total = safeAddUint32(total, sizer.AggregateSize(val))
+		}
+		return total, true
+	case map[ref.Val]ref.Val:
+		total := uint32(1)
+		for k, val := range v {
+			total = safeAddUint32(total, sizer.AggregateSize(k))
+			total = safeAddUint32(total, sizer.AggregateSize(val))
+		}
+		return total, true
+	case *structpb.Struct:
+		if v == nil {
+			return 1, true
+		}
+		total := uint32(1)
+		for k, val := range v.GetFields() {
+			total = safeAddUint32(total, sizer.AggregateSize(k))
+			total = safeAddUint32(total, sizer.AggregateSize(val))
+		}
+		return total, true
+	default:
+		return 0, false
+	}
+}
+
+func getReflectValueAggregateSize(c *sizeContext, fieldVal reflect.Value) uint32 {
 	if !fieldVal.IsValid() {
-		return 0
+		return 1
 	}
 	if !c.visitNode() {
 		return math.MaxUint32
 	}
-	childCtx := c.childContext()
 	switch fieldVal.Kind() {
 	case reflect.String:
 		return c.calc.stringSize(fieldVal.Len())
-	case reflect.Slice, reflect.Array:
+	case reflect.Slice:
+		elemType := fieldVal.Type().Elem()
+		if elemType.Kind() == reflect.Uint8 {
+			return c.calc.stringSize(fieldVal.Len())
+		}
+		if fieldVal.CanInterface() {
+			if total, ok := getSliceElementsAggregateSize(c, fieldVal.Interface()); ok {
+				return total
+			}
+		}
+		total := safeAddUint32(1, safeUint32FromInt(fieldVal.Len()))
+		switch elemType.Kind() {
+		case reflect.String, reflect.Struct, reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map, reflect.Interface:
+			total = 1
+			for i := 0; i < fieldVal.Len(); i++ {
+				total = safeAddUint32(total, c.AggregateSize(fieldVal.Index(i)))
+			}
+		}
+		return total
+	case reflect.Array:
 		elemType := fieldVal.Type().Elem()
 		if elemType.Kind() == reflect.Uint8 {
 			return c.calc.stringSize(fieldVal.Len())
 		}
 		total := safeAddUint32(1, safeUint32FromInt(fieldVal.Len()))
 		switch elemType.Kind() {
-		case reflect.String:
+		case reflect.String, reflect.Struct, reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map, reflect.Interface:
 			total = 1
 			for i := 0; i < fieldVal.Len(); i++ {
-				total = safeAddUint32(total, childCtx.AggregateSize(fieldVal.Index(i).String()))
-			}
-		case reflect.Struct, reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map, reflect.Interface:
-			total = 1
-			for i := 0; i < fieldVal.Len(); i++ {
-				total = safeAddUint32(total, getReflectValueAggregateSize(childCtx, fieldVal.Index(i)))
+				total = safeAddUint32(total, c.AggregateSize(fieldVal.Index(i)))
 			}
 		}
 		return total
 	case reflect.Map:
+		if fieldVal.CanInterface() {
+			if total, ok := getMapElementsAggregateSize(c, fieldVal.Interface()); ok {
+				return total
+			}
+		}
 		total := uint32(1)
 		iter := fieldVal.MapRange()
 		for iter.Next() {
-			total = safeAddUint32(total, getReflectValueAggregateSize(childCtx, iter.Key()))
-			total = safeAddUint32(total, getReflectValueAggregateSize(childCtx, iter.Value()))
+			total = safeAddUint32(total, c.AggregateSize(iter.Key()))
+			total = safeAddUint32(total, c.AggregateSize(iter.Value()))
 		}
 		return total
 	case reflect.Pointer, reflect.Interface:
 		if fieldVal.IsNil() {
-			return 0
+			return 1
 		}
-		if sz, ok := checkCustomSizer(childCtx, fieldVal); ok {
+		if sz, ok := checkCustomSizer(c, fieldVal); ok {
 			return sz
 		}
 		return getReflectValueAggregateSize(c, fieldVal.Elem())
@@ -372,7 +542,7 @@ func getReflectValueAggregateSize(c sizeContext, fieldVal reflect.Value) uint32 
 		if fieldVal.Type() == timestampType || fieldVal.Type() == durationType {
 			return 1
 		}
-		if sz, ok := checkCustomSizer(childCtx, fieldVal); ok {
+		if sz, ok := checkCustomSizer(c, fieldVal); ok {
 			return sz
 		}
 		total := uint32(1)
@@ -386,7 +556,7 @@ func getReflectValueAggregateSize(c sizeContext, fieldVal reflect.Value) uint32 
 			if !fVal.IsValid() || fVal.IsZero() {
 				continue
 			}
-			total = safeAddUint32(total, getReflectValueAggregateSize(childCtx, fVal))
+			total = safeAddUint32(total, c.AggregateSize(fVal))
 		}
 		return total
 	default:
@@ -394,17 +564,37 @@ func getReflectValueAggregateSize(c sizeContext, fieldVal reflect.Value) uint32 
 	}
 }
 
-func checkCustomSizer(c sizeContext, fieldVal reflect.Value) (uint32, bool) {
-	if !fieldVal.CanInterface() {
-		return 0, false
-	}
+var (
+	aggregateSizeVisitorType = reflect.TypeFor[AggregateSizeVisitor]()
+	sizerType                = reflect.TypeFor[traits.Sizer]()
+	protoMessageType         = reflect.TypeFor[proto.Message]()
+)
 
-	switch sizer := fieldVal.Interface().(type) {
-	case AggregateSizeVisitor:
-		return sizer.AggregateSize(c), true
-	case traits.Sizer:
-		return safeUint32FromBoxedInt(sizer.Size().(Int)), true
-	default:
+func checkCustomSizer(c *sizeContext, fieldVal reflect.Value) (uint32, bool) {
+	if !fieldVal.IsValid() || !fieldVal.CanInterface() {
 		return 0, false
 	}
+	t := fieldVal.Type()
+	if t.Implements(aggregateSizeVisitorType) {
+		if sizer, ok := fieldVal.Interface().(AggregateSizeVisitor); ok {
+			return sizer.AggregateSize(c), true
+		}
+	}
+	if t.Implements(sizerType) {
+		if sizer, ok := fieldVal.Interface().(traits.Sizer); ok {
+			return max(1, safeUint32FromBoxedInt(sizer.Size().(Int))), true
+		}
+	}
+	if t.Implements(protoMessageType) {
+		if fieldVal.Kind() == reflect.Pointer && fieldVal.IsNil() {
+			return 1, true
+		}
+		if sizer, ok := fieldVal.Interface().(proto.Message); ok {
+			if sizer == nil {
+				return 1, true
+			}
+			return getProtoMessageAggregateSize(c, sizer.ProtoReflect()), true
+		}
+	}
+	return 0, false
 }

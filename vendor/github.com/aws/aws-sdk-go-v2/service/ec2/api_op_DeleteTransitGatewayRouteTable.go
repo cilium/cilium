@@ -8,10 +8,12 @@ import (
 	"github.com/aws/smithy-go/middleware"
 )
 
-// Deletes the specified transit gateway route table. If there are any route
-// tables associated with the transit gateway route table, you must first run DisassociateRouteTable
-// before you can delete the transit gateway route table. This removes any route
-// tables associated with the transit gateway route table.
+// Deletes the specified transit gateway route table. Before you can delete a
+// transit gateway route table, you must disassociate all attachments from it by
+// using DisassociateTransitGatewayRouteTableand wait for the disassociations to complete. You can't delete a transit
+// gateway route table that is the default association route table or default
+// propagation route table for the transit gateway. To change the default route
+// tables, use ModifyTransitGateway.
 func (c *Client) DeleteTransitGatewayRouteTable(ctx context.Context, params *DeleteTransitGatewayRouteTableInput, optFns ...func(*Options)) (*DeleteTransitGatewayRouteTableOutput, error) {
 	if params == nil {
 		params = &DeleteTransitGatewayRouteTableInput{}

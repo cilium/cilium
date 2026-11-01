@@ -22,6 +22,8 @@ import (
 
 	"cel.dev/cel-go/cel/async"
 	"cel.dev/cel-go/common/ast"
+	"cel.dev/cel-go/common/cost"
+	"cel.dev/cel-go/common/functions"
 	"cel.dev/cel-go/common/operators"
 	"cel.dev/cel-go/common/overloads"
 	"cel.dev/cel-go/common/types"
@@ -114,6 +116,52 @@ func PartialVars(vars any,
 	return interpreter.NewPartialActivation(vars, unknowns...)
 }
 
+// FunctionActivation extends the Activation interface with implementations for the functions
+// declared with a late binding.
+type FunctionActivation = interpreter.FunctionActivation
+
+// LateBoundFunction is the signature required of all late-bound function implementations.
+//
+// The overload id indicates which of the declared overloads matched the call arguments, which
+// permits a single implementation to serve all overloads of the function.
+//
+// An implementation which depends on the state of the evaluation should capture that state in a
+// closure, as the activation is not an input to the call.
+type LateBoundFunction = functions.LateBoundOp
+
+// FunctionVars returns a FunctionActivation combining the variable bindings from `vars` with
+// the late-bound function implementations from `funcs`. FunctionVars support late-bound function
+// definitions where the function behavior depends on the context of the evaluation. This can only
+// be accomplished by closing over state that is not otherwise exposed to the CEL author or CEL
+// runtime.
+//
+// - Function bindings occupy a namespace separate from variables, allowing a function and a
+// variable to share the same qualified name.
+// - The `vars` argument may be an Activation or any valid input to NewActivation (e.g. map[string]any).
+// - FunctionVars may not be nested, and only one instance of FunctionVars may be supplied to an
+// evaluation. FunctionVars returns an error if `vars` already contains function bindings.
+//
+// Function implementations can capture evaluation-scoped state via closures without exposing that
+// state directly as expression variables:
+//
+//	roles := map[string]string{"tristan": "admin"}
+//	act, err := cel.FunctionVars(map[string]any{"user": "tristan"}, map[string]cel.LateBoundFunction{
+//	    "role": func(overloadID string, args ...ref.Val) ref.Val {
+//	        role, found := roles[string(args[0].(types.String))]
+//	        if !found {
+//	            return types.NewErr("no role for user: %s", args[0])
+//	        }
+//	        return types.String(role)
+//	    },
+//	})
+//
+// CEL expects that late-bound functions, like regular functions, yield the same output given the same
+// input. For example, a function comparing a validity window `valid_until(t)` could be implemented as
+// a late-bound function closed over a fixed timestamp value.
+func FunctionVars(vars any, funcs map[string]LateBoundFunction) (FunctionActivation, error) {
+	return interpreter.NewFunctionActivation(vars, funcs)
+}
+
 // AttributePattern returns an AttributePattern that matches a top-level variable. The pattern is
 // mutable, and its methods support the specification of one or more qualifier patterns.
 //
@@ -140,7 +188,8 @@ type AttributePatternType = interpreter.AttributePattern
 // EvalDetails holds additional information observed during the Eval() call.
 type EvalDetails struct {
 	state       interpreter.EvalState
-	costTracker *interpreter.CostTracker
+	costTracker *cost.Tracker
+	memTracker  *types.MemoryTracker
 }
 
 // State of the evaluation, non-nil if the OptTrackState or OptExhaustiveEval is specified
@@ -162,11 +211,38 @@ func (ed *EvalDetails) ActualCost() *uint64 {
 	return &cost
 }
 
+// PeakMemory returns the peak memory watermark observed through the course of execution when
+// `MemoryTracking` is enabled. Otherwise, returns nil if memory tracking was not enabled.
+func (ed *EvalDetails) PeakMemory() *uint32 {
+	if ed == nil || ed.memTracker == nil {
+		return nil
+	}
+	peak := ed.memTracker.Peak()
+	return &peak
+}
+
 // EvalResult encapsulates the response from a ConcurrentEval call.
 type EvalResult struct {
 	Val         ref.Val
 	EvalDetails *EvalDetails
 	Err         error
+}
+
+// captureCostTracker records the frame's cost tracker within the evaluation details, allocating
+// the details when cost tracking is enabled and no details have been created yet.
+//
+// The details must be fully populated before they are handed off to the caller, as any mutation
+// after the hand-off would race with the caller's reads.
+func captureCostTracker(det *EvalDetails, frame *interpreter.ExecutionFrame) *EvalDetails {
+	tracker := frame.CostTracker()
+	if tracker == nil {
+		return det
+	}
+	if det == nil {
+		det = &EvalDetails{}
+	}
+	det.costTracker = tracker
+	return det
 }
 
 // prog is the internal implementation of the Program interface.
@@ -186,9 +262,11 @@ type prog struct {
 	// Interpretable configured from an Ast and aggregate decorator set based on program options.
 	interpretable     interpreter.InterpretableV2
 	observable        *interpreter.ObservableInterpretable
-	callCostEstimator interpreter.ActualCostEstimator
-	costOptions       []interpreter.CostTrackerOption
+	callCostEstimator cost.ActualCostEstimator
+	costOptions       []cost.TrackerOption
 	costLimit         *uint64
+	memoryOptions     []types.MemoryTrackerOption
+	memoryLimit       *uint32
 
 	// hasAsync indicates the planned expression contains an asynchronous function call, which can
 	// only be resolved by ConcurrentEval.
@@ -247,7 +325,7 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 		Env:            e,
 		plannerOptions: []interpreter.PlannerOption{},
 		dispatcher:     disp,
-		costOptions:    []interpreter.CostTrackerOption{},
+		costOptions:    []cost.TrackerOption{},
 		drainStrategy:  async.DrainReady(100 * time.Microsecond),
 		hasAsync:       hasAsync,
 	}
@@ -313,35 +391,59 @@ func newProgram(e *Env, a *ast.AST, opts []ProgramOption) (Program, error) {
 		plannerOptions = append(plannerOptions, interpreter.RegexProgramSizeLimit(limit))
 	}
 
-	// Enable exhaustive eval, state tracking and cost tracking last since they require a factory.
-	if p.evalOpts&(OptExhaustiveEval|OptTrackState|OptTrackCost) != 0 {
-		costOptCount := len(p.costOptions)
-		if p.costLimit != nil {
-			costOptCount++
-		}
-		costOpts := make([]interpreter.CostTrackerOption, 0, costOptCount)
-		costOpts = append(costOpts, p.costOptions...)
-		if p.costLimit != nil {
-			costOpts = append(costOpts, interpreter.CostTrackerLimit(*p.costLimit))
-		}
-		// Creating a new cost tracker for each evaluation causes significant work that
-		// needs to be repeated for each evaluation even though the cost tracker is
-		// mostly read-only once constructed. Therefore it gets constructed
-		// once now and later a cheap clone is used for each evaluation.
-		tracker, err := interpreter.NewCostTracker(p.callCostEstimator, costOpts...)
-		if err != nil {
-			return nil, fmt.Errorf("construct cost tracker: %w", err)
-		}
-		trackerFactory := func() (*interpreter.CostTracker, error) {
-			return tracker.Clone()
-		}
+	// Enable exhaustive eval, state tracking, cost tracking, and memory tracking last since they
+	// require a factory.
+	if p.evalOpts&(OptExhaustiveEval|OptTrackState|OptTrackCost|OptTrackMemory) != 0 {
 		var observers []interpreter.PlannerOption
 		if p.evalOpts&(OptExhaustiveEval|OptTrackState) != 0 {
 			// EvalStateObserver is required for OptExhaustiveEval.
 			observers = append(observers, interpreter.EvalStateObserver())
 		}
 		if p.evalOpts&OptTrackCost == OptTrackCost {
-			observers = append(observers, interpreter.CostObserver(interpreter.CostTrackerFactory(trackerFactory)))
+			trackerOpts := p.costModel.tracker
+			costOptCount := len(trackerOpts) + len(p.costOptions) + 1
+			if p.costLimit != nil {
+				costOptCount++
+			}
+			costOpts := make([]cost.TrackerOption, 0, costOptCount)
+			costOpts = append(costOpts, cost.TrackerLimitExceededHandler(func() {
+				panic(interpreter.EvalCancelledError{
+					Cause:   interpreter.CostLimitExceeded,
+					Message: "operation cancelled: actual cost limit exceeded",
+				})
+			}))
+			costOpts = append(costOpts, trackerOpts...)
+			costOpts = append(costOpts, p.costOptions...)
+			if p.costLimit != nil {
+				costOpts = append(costOpts, cost.TrackerLimit(*p.costLimit))
+			}
+			// Creating a new cost tracker for each evaluation causes significant work that
+			// needs to be repeated for each evaluation even though the cost tracker is
+			// mostly read-only once constructed. Therefore it gets constructed
+			// once now and later a cheap clone is used for each evaluation.
+			tracker, err := cost.NewTracker(p.callCostEstimator, costOpts...)
+			if err != nil {
+				return nil, fmt.Errorf("construct cost tracker: %w", err)
+			}
+			trackerFactory := func() (*cost.Tracker, error) {
+				return tracker.Clone()
+			}
+			plannerOptions = append(plannerOptions, interpreter.CostObserver(interpreter.CostTrackerFactory(trackerFactory)))
+		}
+		if p.evalOpts&OptTrackMemory == OptTrackMemory {
+			memOptCount := len(p.memoryOptions)
+			if p.memoryLimit != nil {
+				memOptCount++
+			}
+			memOpts := make([]types.MemoryTrackerOption, 0, memOptCount)
+			memOpts = append(memOpts, p.memoryOptions...)
+			if p.memoryLimit != nil {
+				memOpts = append(memOpts, types.MemoryTrackerLimit(*p.memoryLimit))
+			}
+			memTrackerFactory := func() (*types.MemoryTracker, error) {
+				return types.NewMemoryTracker(memOpts...), nil
+			}
+			observers = append(observers, interpreter.MemoryObserver(interpreter.MemoryTrackerFactory(memTrackerFactory)))
 		}
 		// Enable exhaustive eval over a basic observer since it offers a superset of features.
 		if p.evalOpts&OptExhaustiveEval == OptExhaustiveEval {
@@ -369,19 +471,9 @@ func (p *prog) initInterpretable(a *ast.AST, plannerOptions []interpreter.Planne
 
 // Eval implements the Program interface method.
 func (p *prog) Eval(input any) (out ref.Val, det *EvalDetails, err error) {
-	// Configure error recovery for unexpected panics during evaluation. Note, the use of named
-	// return values makes it possible to modify the error response during the recovery
-	// function.
-	defer func() {
-		if r := recover(); r != nil {
-			switch t := r.(type) {
-			case interpreter.EvalCancelledError:
-				err = t
-			default:
-				err = fmt.Errorf("internal error: %v", r)
-			}
-		}
-	}()
+	if p == nil {
+		return nil, nil, errors.New("program is nil")
+	}
 	// Asynchronous calls cannot be resolved by a single-pass evaluation. Reject before doing any
 	// work (this also covers ContextEval, which delegates here); ConcurrentEval does not call Eval.
 	if p.hasAsync {
@@ -389,6 +481,7 @@ func (p *prog) Eval(input any) (out ref.Val, det *EvalDetails, err error) {
 	}
 	// Build a hierarchical activation if there are default vars set.
 	var frame *interpreter.ExecutionFrame
+	var mustClose bool
 	if f, ok := input.(*interpreter.ExecutionFrame); ok {
 		frame = f
 	} else {
@@ -396,21 +489,43 @@ func (p *prog) Eval(input any) (out ref.Val, det *EvalDetails, err error) {
 		if err != nil {
 			return nil, nil, err
 		}
-		defer frame.Close()
+		mustClose = true
 	}
+	// Configure error recovery and details capture for evaluation.
+	defer func() {
+		det = captureCostTracker(det, frame)
+		if r := recover(); r != nil {
+			switch t := r.(type) {
+			case interpreter.EvalCancelledError:
+				err = t
+			case cost.LimitExceededError:
+				err = interpreter.EvalCancelledError{
+					Cause:   interpreter.CostLimitExceeded,
+					Message: t.Message,
+				}
+			default:
+				err = fmt.Errorf("internal error: %v", r)
+			}
+		}
+		if mustClose {
+			frame.Close()
+		}
+	}()
+
 	if p.observable != nil {
 		det = &EvalDetails{}
 		out = p.observable.ObserveExec(frame, func(observed any) {
 			switch o := observed.(type) {
 			case interpreter.EvalState:
 				det.state = o
-			case *interpreter.CostTracker:
-				det.costTracker = o
+			case *types.MemoryTracker:
+				det.memTracker = o
 			}
 		})
 	} else {
 		out = p.interpretable.Exec(frame)
 	}
+
 	// The output of an internal Eval may have a value (`v`) that is a types.Err. This step
 	// translates the CEL value to a Go error response. This interface does not quite match the
 	// RPC signature which allows for multiple errors to be returned, but should be sufficient.
@@ -422,8 +537,11 @@ func (p *prog) Eval(input any) (out ref.Val, det *EvalDetails, err error) {
 
 // ContextEval implements the Program interface.
 func (p *prog) ContextEval(ctx context.Context, input any) (ref.Val, *EvalDetails, error) {
+	if p == nil {
+		return nil, nil, errors.New("program is nil")
+	}
 	if ctx == nil {
-		return nil, nil, fmt.Errorf("context can not be nil")
+		return nil, nil, errors.New("context can not be nil")
 	}
 	frame, err := p.newExecutionFrame(input)
 	if err != nil {
@@ -445,10 +563,11 @@ func (p *prog) newExecutionFrame(input any) (*interpreter.ExecutionFrame, error)
 		return nil, err
 	}
 	if p.defaultVars != nil {
-		// Update the frame's activation in place.
-		frame.Activation = interpreter.NewHierarchicalActivation(p.defaultVars, frame.Activation)
+		if err := frame.SetDefaultVars(p.defaultVars); err != nil {
+			frame.Close()
+			return nil, err
+		}
 	}
-
 	return frame, nil
 }
 
@@ -503,6 +622,11 @@ func (p *prog) resolveCompletionBufferSize() int {
 // ConcurrentEval implements the Program interface.
 func (p *prog) ConcurrentEval(ctx context.Context, input any) <-chan EvalResult {
 	resCh := make(chan EvalResult, 1)
+	if p == nil {
+		resCh <- EvalResult{Err: errors.New("program is nil")}
+		close(resCh)
+		return resCh
+	}
 	if ctx == nil {
 		resCh <- EvalResult{Err: errors.New("context can not be nil")}
 		close(resCh)
@@ -511,24 +635,41 @@ func (p *prog) ConcurrentEval(ctx context.Context, input any) <-chan EvalResult 
 
 	go func() {
 		defer close(resCh)
-		// Ensure concurrent eval handles panic / recovery properly
-		defer func() {
-			if r := recover(); r != nil {
-				switch t := r.(type) {
-				case interpreter.EvalCancelledError:
-					resCh <- EvalResult{Err: t}
-				default:
-					resCh <- EvalResult{Err: fmt.Errorf("internal error: %v", r)}
-				}
-			}
-		}()
-
 		frame, err := p.newAsyncFrame(ctx, input)
 		if err != nil {
 			resCh <- EvalResult{Err: err}
 			return
 		}
 		defer frame.Close()
+
+		var det *EvalDetails
+		// Ensure concurrent eval handles panic / recovery properly.
+		//
+		// The details are only captured and published here for the panic case. Every normal
+		// return path populates the details and sends them on the result channel itself, and
+		// the receiver may read them as soon as the send completes. Mutating det from this
+		// defer, which runs after the send, would race with those reads.
+		defer func() {
+			r := recover()
+			if r == nil {
+				return
+			}
+			det = captureCostTracker(det, frame)
+			switch t := r.(type) {
+			case interpreter.EvalCancelledError:
+				resCh <- EvalResult{EvalDetails: det, Err: t}
+			case cost.LimitExceededError:
+				resCh <- EvalResult{
+					EvalDetails: det,
+					Err: interpreter.EvalCancelledError{
+						Cause:   interpreter.CostLimitExceeded,
+						Message: t.Message,
+					},
+				}
+			default:
+				resCh <- EvalResult{EvalDetails: det, Err: fmt.Errorf("internal error: %v", r)}
+			}
+		}()
 
 		// Completions are signaled to this channel as async calls finish. The asyncCallState
 		// fan-in also selects on ctx.Done(), so the sender will not leak if this loop returns early.
@@ -537,7 +678,6 @@ func (p *prog) ConcurrentEval(ctx context.Context, input any) <-chan EvalResult 
 
 		for {
 			var out ref.Val
-			var det *EvalDetails
 
 			if p.observable != nil {
 				det = &EvalDetails{}
@@ -545,13 +685,16 @@ func (p *prog) ConcurrentEval(ctx context.Context, input any) <-chan EvalResult 
 					switch o := observed.(type) {
 					case interpreter.EvalState:
 						det.state = o
-					case *interpreter.CostTracker:
-						det.costTracker = o
+					case *types.MemoryTracker:
+						det.memTracker = o
 					}
 				})
 			} else {
 				out = p.interpretable.Exec(frame)
 			}
+			// Capture the cost tracker before the result is published on the channel: once the
+			// send completes the receiver owns the details and they must not be mutated.
+			det = captureCostTracker(det, frame)
 
 			// Communicate errors quickly.
 			if types.IsError(out) {

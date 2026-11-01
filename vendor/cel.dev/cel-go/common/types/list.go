@@ -15,10 +15,13 @@
 package types
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
+	"unsafe"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -34,6 +37,68 @@ import (
 // value should be an array of "native" types, i.e. any type that
 // NativeToValue() can convert to a ref.Val.
 func NewDynamicList(adapter Adapter, value any) traits.Lister {
+	if value == nil {
+		return NewList[any](adapter, nil)
+	}
+	switch v := value.(type) {
+	case []string:
+		return NewList(adapter, v)
+	case []ref.Val:
+		return NewList(adapter, v)
+	case []int:
+		return NewList(adapter, v)
+	case []int64:
+		return NewList(adapter, v)
+	case []int32:
+		return NewList(adapter, v)
+	case []uint:
+		return NewList(adapter, v)
+	case []uint64:
+		return NewList(adapter, v)
+	case []uint32:
+		return NewList(adapter, v)
+	case []float64:
+		return NewList(adapter, v)
+	case []float32:
+		return NewList(adapter, v)
+	case []bool:
+		return NewList(adapter, v)
+	case []any:
+		return NewList(adapter, v)
+	case [][]byte:
+		return NewList(adapter, v)
+	}
+	rt := reflect.TypeOf(value)
+	if meta := getDynamicSliceMeta(rt); meta.supported {
+		sh := (*unsafeSlice)(anyDataPtr(value))
+		isNil := sh == nil || sh.Data == nil
+		if meta.isPtrElem {
+			var elems []unsafe.Pointer
+			if sh != nil && sh.Len > 0 {
+				elems = unsafe.Slice((*unsafe.Pointer)(sh.Data), sh.Len)
+			}
+			return &sliceList[unsafe.Pointer]{
+				Adapter:       adapter,
+				elems:         elems,
+				elemTypePtr:   meta.elemTypePtr,
+				meta:          meta,
+				qualifyRawVal: meta.qualifyRawVal,
+				isNilSlice:    isNil,
+			}
+		}
+		var elems []byte
+		if sh != nil && sh.Len > 0 {
+			elems = unsafe.Slice((*byte)(sh.Data), sh.Len*int(meta.elemStride))
+		}
+		return &sliceList[byte]{
+			Adapter:       adapter,
+			elems:         elems,
+			elemTypePtr:   meta.elemTypePtr,
+			meta:          meta,
+			qualifyRawVal: meta.qualifyRawVal,
+			isNilSlice:    isNil,
+		}
+	}
 	refValue := reflect.ValueOf(value)
 	return &baseList{
 		Adapter: adapter,
@@ -45,26 +110,26 @@ func NewDynamicList(adapter Adapter, value any) traits.Lister {
 	}
 }
 
+// NewList returns a traits.Lister backed by a typed Go slice []T.
+func NewList[T any](adapter Adapter, elems []T) traits.Lister {
+	return &sliceList[T]{
+		Adapter:       adapter,
+		elems:         elems,
+		elemTypePtr:   elemTypePtrFor[T](),
+		qualifyRawVal: isQualifyRawStruct[T](),
+	}
+}
+
 // NewStringList returns a traits.Lister containing only strings.
 func NewStringList(adapter Adapter, elems []string) traits.Lister {
-	return &baseList{
-		Adapter: adapter,
-		value:   elems,
-		size:    len(elems),
-		get:     func(i int) any { return elems[i] },
-	}
+	return NewList(adapter, elems)
 }
 
 // NewRefValList returns a traits.Lister with ref.Val elements.
 //
 // This type specialization is used with list literals within CEL expressions.
 func NewRefValList(adapter Adapter, elems []ref.Val) traits.Lister {
-	return &baseList{
-		Adapter: adapter,
-		value:   elems,
-		size:    len(elems),
-		get:     func(i int) any { return elems[i] },
-	}
+	return NewList(adapter, elems)
 }
 
 // NewProtoList returns a traits.Lister based on a pb.List instance.
@@ -90,19 +155,64 @@ func NewJSONList(adapter Adapter, l *structpb.ListValue) traits.Lister {
 
 // NewMutableList creates a new mutable list whose internal state can be modified.
 func NewMutableList(adapter Adapter) traits.MutableLister {
-	var mutableValues []ref.Val
-	l := &mutableList{
-		baseList: &baseList{
+	return &mutableList{
+		sliceList: &sliceList[ref.Val]{
 			Adapter: adapter,
-			value:   mutableValues,
-			size:    0,
 		},
-		mutableValues: mutableValues,
 	}
-	l.get = func(i int) any {
-		return l.mutableValues[i]
+}
+
+// MaybeSliceList attempts to sub-slice a traits.Lister using its underlying native slice representation
+// via reflection, preserving the original element type. If the underlying representation is not a slice
+// or the indices are invalid, it returns (nil, false).
+func MaybeSliceList(adapter Adapter, list traits.Lister, start, end int) (traits.Lister, bool) {
+	if list == nil {
+		return nil, false
 	}
-	return l
+	if _, isConcat := list.(*concatList); isConcat {
+		return nil, false
+	}
+	val := list.Value()
+	if val == nil {
+		return nil, false
+	}
+	rv := reflect.ValueOf(val)
+	if rv.Kind() != reflect.Slice {
+		return nil, false
+	}
+	if start < 0 || end < 0 || start > end || end > rv.Len() {
+		return nil, false
+	}
+	sub := rv.Slice(start, end).Interface()
+	return NewDynamicList(adapter, sub), true
+}
+
+// MaybeReverseList attempts to reverse a traits.Lister using its underlying native slice representation,
+// preserving the original element type. If the underlying representation is not a slice, it returns (nil, false).
+func MaybeReverseList(adapter Adapter, list traits.Lister) (traits.Lister, bool) {
+	if list == nil {
+		return nil, false
+	}
+	if _, isConcat := list.(*concatList); isConcat {
+		return nil, false
+	}
+	val := list.Value()
+	if val == nil {
+		return nil, false
+	}
+	rv := reflect.ValueOf(val)
+	if rv.Kind() != reflect.Slice {
+		return nil, false
+	}
+	n := rv.Len()
+	if n <= 1 {
+		return list, true
+	}
+	out := reflect.MakeSlice(rv.Type(), n, n)
+	for i := range n {
+		out.Index(n - 1 - i).Set(rv.Index(i))
+	}
+	return NewDynamicList(adapter, out.Interface()), true
 }
 
 // baseList points to a list containing elements of any type.
@@ -144,12 +254,16 @@ func (l *baseList) Contains(elem ref.Val) ref.Val {
 
 // ConvertToNative implements the ref.Val interface method.
 func (l *baseList) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	return convertListToNative(l, l.value, typeDesc)
+}
+
+func convertListToNative(l traits.Lister, val any, typeDesc reflect.Type) (any, error) {
 	if typeDesc == reflect.TypeFor[any]() {
 		typeDesc = reflect.TypeFor[[]any]()
 	}
 	// If the underlying list value is assignable to the reflected type return it.
-	if reflect.TypeOf(l.value).AssignableTo(typeDesc) {
-		return l.value, nil
+	if val != nil && reflect.TypeOf(val).AssignableTo(typeDesc) {
+		return val, nil
 	}
 	// If the list wrapper is assignable to the desired type return it.
 	if reflect.TypeOf(l).AssignableTo(typeDesc) {
@@ -165,7 +279,7 @@ func (l *baseList) ConvertToNative(typeDesc reflect.Type) (any, error) {
 		return anypb.New(json.(proto.Message))
 	case JSONValueType, JSONListType:
 		jsonValues, err :=
-			l.ConvertToNative(reflect.TypeOf([]*structpb.Value{}))
+			l.ConvertToNative(reflect.TypeFor[[]*structpb.Value]())
 		if err != nil {
 			return nil, err
 		}
@@ -183,16 +297,15 @@ func (l *baseList) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	// List conversion.
 	// Allow the element ConvertToNative() function to determine whether conversion is possible.
 	otherElemType := typeDesc.Elem()
-	elemCount := l.size
+	elemCount := int(l.Size().(Int))
 	var nativeList reflect.Value
 	if typeDesc.Kind() == reflect.Array {
 		nativeList = reflect.New(reflect.ArrayOf(elemCount, typeDesc)).Elem().Index(0)
 	} else {
 		nativeList = reflect.MakeSlice(typeDesc, elemCount, elemCount)
-
 	}
-	for i := 0; i < elemCount; i++ {
-		elem := l.NativeToValue(l.get(i))
+	for i := range elemCount {
+		elem := l.Get(Int(i))
 		nativeElemVal, err := elem.ConvertToNative(otherElemType)
 		if err != nil {
 			return nil, err
@@ -235,7 +348,7 @@ func (l *baseList) Equal(other ref.Val) ref.Val {
 
 // Get implements the traits.Indexer interface method.
 func (l *baseList) Get(index ref.Val) ref.Val {
-	ind, err := IndexOrError(index)
+	ind, err := GetOrError(index)
 	if err != nil {
 		return ValOrErr(index, "%v", err)
 	}
@@ -274,9 +387,17 @@ func (l *baseList) AggregateSize(sizer AggregateSizer) uint32 {
 	if sz := atomic.LoadUint32(&l.aggSize); sz != 0 {
 		return sz
 	}
-	total := uint32(1)
-	for i := range l.size {
-		total = safeAddUint32(total, sizer.AggregateSize(l.get(i)))
+	var total uint32
+	if l.value != nil {
+		if t, ok := getSliceElementsAggregateSize(sizer, l.value); ok {
+			total = t
+		}
+	}
+	if total == 0 {
+		total = uint32(1)
+		for i := range l.size {
+			total = safeAddUint32(total, sizer.AggregateSize(l.get(i)))
+		}
 	}
 	if cacheableAggregateSize(sizer) {
 		atomic.StoreUint32(&l.aggSize, total)
@@ -326,8 +447,7 @@ func (l *baseList) format(sb *strings.Builder) {
 
 // mutableList aggregates values into its internal storage. For use with internal CEL variables only.
 type mutableList struct {
-	*baseList
-	mutableValues []ref.Val
+	*sliceList[ref.Val]
 }
 
 // Add copies elements from the other list into the internal storage of the mutable list.
@@ -335,13 +455,11 @@ type mutableList struct {
 func (l *mutableList) Add(other ref.Val) ref.Val {
 	switch otherList := other.(type) {
 	case *mutableList:
-		l.mutableValues = append(l.mutableValues, otherList.mutableValues...)
-		l.size += len(otherList.mutableValues)
+		l.elems = append(l.elems, otherList.elems...)
 		atomic.StoreUint32(&l.aggSize, 0)
 	case traits.Lister:
 		for i := IntZero; i < otherList.Size().(Int); i++ {
-			l.size++
-			l.mutableValues = append(l.mutableValues, otherList.Get(i))
+			l.elems = append(l.elems, otherList.Get(i))
 		}
 		atomic.StoreUint32(&l.aggSize, 0)
 	default:
@@ -351,10 +469,13 @@ func (l *mutableList) Add(other ref.Val) ref.Val {
 }
 
 // ToImmutableList returns an immutable list based on the internal storage of the mutable list.
+// It transfers ownership of the underlying buffer to the returned immutable list and clears
+// internal elements to prevent subsequent modifications from aliasing.
 func (l *mutableList) ToImmutableList() traits.Lister {
-	// The reference to internal state is guaranteed to be safe as this call is only performed
-	// when mutations have been completed.
-	return NewRefValList(l.Adapter, l.mutableValues)
+	elems := l.elems
+	l.elems = nil
+	atomic.StoreUint32(&l.aggSize, 0)
+	return NewRefValList(l.Adapter, elems)
 }
 
 // concatList combines two list implementations together into a view.
@@ -362,9 +483,11 @@ func (l *mutableList) ToImmutableList() traits.Lister {
 type concatList struct {
 	Adapter
 	value      any
+	valueOnce  sync.Once
 	prevList   traits.Lister
 	nextList   traits.Lister
 	cachedSize ref.Val
+	aggSize    uint32
 }
 
 func newConcatList(adapter Adapter, prevList, nextList traits.Lister) ref.Val {
@@ -417,7 +540,7 @@ func (l *concatList) Contains(elem ref.Val) ref.Val {
 
 // ConvertToNative implements the ref.Val interface method.
 func (l *concatList) ConvertToNative(typeDesc reflect.Type) (any, error) {
-	combined := NewDynamicList(l.Adapter, l.Value().([]any))
+	combined := NewDynamicList(l.Adapter, l.Value())
 	return combined.ConvertToNative(typeDesc)
 }
 
@@ -461,7 +584,7 @@ func (l *concatList) Equal(other ref.Val) ref.Val {
 
 // Get implements the traits.Indexer interface method.
 func (l *concatList) Get(index ref.Val) ref.Val {
-	ind, err := IndexOrError(index)
+	ind, err := GetOrError(index)
 	if err != nil {
 		return ValOrErr(index, "%v", err)
 	}
@@ -499,7 +622,14 @@ func (l *concatList) Size() ref.Val {
 
 // AggregateSize implements the AggregateSizeVisitor interface method.
 func (l *concatList) AggregateSize(sizer AggregateSizer) uint32 {
-	return safeAddUint32(sizer.AggregateSize(l.prevList), sizer.AggregateSize(l.nextList))
+	if sz := atomic.LoadUint32(&l.aggSize); sz != 0 {
+		return sz
+	}
+	total := safeAddUint32(sizer.AggregateSize(l.prevList), sizer.AggregateSize(l.nextList))
+	if cacheableAggregateSize(sizer) {
+		atomic.StoreUint32(&l.aggSize, total)
+	}
+	return total
 }
 
 // String converts the concatenated list to a human-readable string.
@@ -523,18 +653,18 @@ func (l *concatList) Type() ref.Type {
 
 // Value implements the ref.Val interface method.
 func (l *concatList) Value() any {
-	if l.value == nil {
-		merged := make([]any, l.Size().(Int))
+	l.valueOnce.Do(func() {
+		merged := make([]ref.Val, l.Size().(Int))
 		prevLen := l.prevList.Size().(Int)
 		for i := Int(0); i < prevLen; i++ {
-			merged[i] = l.prevList.Get(i).Value()
+			merged[i] = l.prevList.Get(i)
 		}
 		nextLen := l.nextList.Size().(Int)
 		for j := Int(0); j < nextLen; j++ {
-			merged[prevLen+j] = l.nextList.Get(j).Value()
+			merged[prevLen+j] = l.nextList.Get(j)
 		}
 		l.value = merged
-	}
+	})
 	return l.value
 }
 
@@ -567,8 +697,8 @@ func (it *listIterator) Next() ref.Val {
 	return nil
 }
 
-// IndexOrError converts an input index value into either a lossless integer index or an error.
-func IndexOrError(index ref.Val) (int, error) {
+// GetOrError converts an input index value into either a lossless integer index or an error.
+func GetOrError(index ref.Val) (int, error) {
 	switch iv := index.(type) {
 	case Int:
 		return int(iv), nil
@@ -613,3 +743,602 @@ func (l interopFoldableList) Fold(f traits.Folder) {
 		}
 	}
 }
+
+type sliceList[T any] struct {
+	Adapter
+	elems         []T
+	elemTypePtr   unsafe.Pointer
+	meta          *dynamicSliceMeta
+	aggSize       uint32
+	qualifyRawVal bool
+	isNilSlice    bool
+}
+
+func (l *sliceList[T]) len() int {
+	if l.meta != nil && l.meta.elemStride > 0 {
+		return len(l.elems) / int(l.meta.elemStride)
+	}
+	return len(l.elems)
+}
+
+func (l *sliceList[T]) nativeSliceValue() any {
+	if l.meta != nil {
+		n := l.len()
+		var data unsafe.Pointer
+		if n > 0 {
+			data = unsafe.Pointer(unsafe.SliceData(l.elems))
+		} else if !l.isNilSlice {
+			data = unsafe.Pointer(&emptySliceData)
+		}
+		hdr := &unsafeSlice{
+			Data: data,
+			Len:  n,
+			Cap:  n,
+		}
+		return packAny(l.meta.sliceTypePtr, unsafe.Pointer(hdr))
+	}
+	return l.elems
+}
+
+func (l *sliceList[T]) rawElemAt(ind int) (any, bool) {
+	switch s := any(l).(type) {
+	case *sliceList[unsafe.Pointer]:
+		if s.elemTypePtr != nil {
+			ptr := s.elems[ind]
+			if ptr == nil {
+				return NullValue, true
+			}
+			return packAny(s.elemTypePtr, ptr), true
+		}
+	case *sliceList[uint8]:
+		if s.meta != nil && s.meta.elemStride > 0 && s.elemTypePtr != nil {
+			return packAny(s.elemTypePtr, unsafe.Pointer(&s.elems[uintptr(ind)*s.meta.elemStride])), true
+		}
+	}
+	if l.elemTypePtr != nil {
+		return packAny(l.elemTypePtr, unsafe.Pointer(&l.elems[ind])), true
+	}
+	return nil, false
+}
+
+func (l *sliceList[T]) getElem(ind int) ref.Val {
+	switch s := any(l).(type) {
+	case *sliceList[string]:
+		return String(s.elems[ind])
+	case *sliceList[ref.Val]:
+		return s.elems[ind]
+	case *sliceList[int]:
+		return Int(s.elems[ind])
+	case *sliceList[int64]:
+		return Int(s.elems[ind])
+	case *sliceList[int32]:
+		return Int(s.elems[ind])
+	case *sliceList[uint]:
+		return Uint(s.elems[ind])
+	case *sliceList[uint64]:
+		return Uint(s.elems[ind])
+	case *sliceList[uint32]:
+		return Uint(s.elems[ind])
+	case *sliceList[uint8]:
+		if s.meta == nil {
+			return Uint(s.elems[ind])
+		}
+	case *sliceList[float64]:
+		return Double(s.elems[ind])
+	case *sliceList[float32]:
+		return Double(s.elems[ind])
+	case *sliceList[bool]:
+		if s.elems[ind] {
+			return True
+		}
+		return False
+	case *sliceList[[]byte]:
+		return Bytes(s.elems[ind])
+	}
+	if raw, ok := l.rawElemAt(ind); ok {
+		return l.Adapter.NativeToValue(raw)
+	}
+	return l.Adapter.NativeToValue(l.elems[ind])
+}
+
+// GetInt64Index returns the element at ind for fast index qualification in the interpreter.
+// For non-proto Go struct elements, it returns the unboxed struct pointer or zero-copy struct
+// emptyInterface so subsequent field accesses can read offsets without allocating a nativeObj.
+func (l *sliceList[T]) GetInt64Index(ind int64) (any, bool) {
+	n := l.len()
+	if ind < 0 || ind >= int64(n) {
+		return nil, false
+	}
+	i := int(ind)
+	if !l.qualifyRawVal {
+		return l.getElem(i), true
+	}
+	if raw, ok := l.rawElemAt(i); ok {
+		return raw, true
+	}
+	return l.elems[i], true
+}
+
+func (l *sliceList[T]) Add(other ref.Val) ref.Val {
+	otherList, ok := other.(traits.Lister)
+	if !ok {
+		return MaybeNoSuchOverloadErr(other)
+	}
+	return newConcatList(l.Adapter, l, otherList)
+}
+
+func (l *sliceList[T]) Contains(elem ref.Val) ref.Val {
+	switch s := any(l).(type) {
+	case *sliceList[string]:
+		if strVal, ok := elem.(String); ok {
+			str := string(strVal)
+			for _, e := range s.elems {
+				if e == str {
+					return True
+				}
+			}
+			return False
+		}
+	case *sliceList[int64]:
+		if intVal, ok := elem.(Int); ok {
+			iv := int64(intVal)
+			for _, e := range s.elems {
+				if e == iv {
+					return True
+				}
+			}
+			return False
+		}
+	case *sliceList[int]:
+		if intVal, ok := elem.(Int); ok {
+			iv := int(intVal)
+			for _, e := range s.elems {
+				if e == iv {
+					return True
+				}
+			}
+			return False
+		}
+	case *sliceList[int32]:
+		if intVal, ok := elem.(Int); ok {
+			iv := int32(intVal)
+			if int64(iv) == int64(intVal) {
+				for _, e := range s.elems {
+					if e == iv {
+						return True
+					}
+				}
+			}
+			return False
+		}
+	case *sliceList[uint64]:
+		if uintVal, ok := elem.(Uint); ok {
+			uv := uint64(uintVal)
+			for _, e := range s.elems {
+				if e == uv {
+					return True
+				}
+			}
+			return False
+		}
+	case *sliceList[uint]:
+		if uintVal, ok := elem.(Uint); ok {
+			uv := uint(uintVal)
+			for _, e := range s.elems {
+				if e == uv {
+					return True
+				}
+			}
+			return False
+		}
+	case *sliceList[uint32]:
+		if uintVal, ok := elem.(Uint); ok {
+			uv := uint32(uintVal)
+			if uint64(uv) == uint64(uintVal) {
+				for _, e := range s.elems {
+					if e == uv {
+						return True
+					}
+				}
+			}
+			return False
+		}
+	case *sliceList[float64]:
+		if dblVal, ok := elem.(Double); ok {
+			dv := float64(dblVal)
+			for _, e := range s.elems {
+				if e == dv {
+					return True
+				}
+			}
+			return False
+		}
+	case *sliceList[bool]:
+		if boolVal, ok := elem.(Bool); ok {
+			bv := bool(boolVal)
+			for _, e := range s.elems {
+				if e == bv {
+					return True
+				}
+			}
+			return False
+		}
+	}
+	n := l.len()
+	for i := 0; i < n; i++ {
+		cmp := elem.Equal(l.getElem(i))
+		if b, ok := cmp.(Bool); ok && b == True {
+			return True
+		}
+	}
+	return False
+}
+
+func (l *sliceList[T]) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	if l.meta == nil && typeDesc == reflect.TypeFor[[]T]() {
+		return l.elems, nil
+	}
+	val := l.nativeSliceValue()
+	if l.meta != nil && l.meta.sliceType == typeDesc {
+		return val, nil
+	}
+	return convertListToNative(l, val, typeDesc)
+}
+
+func (l *sliceList[T]) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case ListType:
+		return l
+	case TypeType:
+		return ListType
+	}
+	return NewErr("type conversion error from '%s' to '%s'", ListType, typeVal)
+}
+
+func (l *sliceList[T]) Equal(other ref.Val) ref.Val {
+	otherList, ok := other.(traits.Lister)
+	if !ok {
+		return False
+	}
+	if l.Size() != otherList.Size() {
+		return False
+	}
+	n := l.len()
+	if otherSlice, ok := other.(*sliceList[T]); ok && l.meta == otherSlice.meta {
+		switch s := any(l).(type) {
+		case *sliceList[string]:
+			o := any(otherSlice).(*sliceList[string])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[int64]:
+			o := any(otherSlice).(*sliceList[int64])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[int]:
+			o := any(otherSlice).(*sliceList[int])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[int32]:
+			o := any(otherSlice).(*sliceList[int32])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[uint64]:
+			o := any(otherSlice).(*sliceList[uint64])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[uint]:
+			o := any(otherSlice).(*sliceList[uint])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[uint32]:
+			o := any(otherSlice).(*sliceList[uint32])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[float64]:
+			o := any(otherSlice).(*sliceList[float64])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[float32]:
+			o := any(otherSlice).(*sliceList[float32])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[bool]:
+			o := any(otherSlice).(*sliceList[bool])
+			for i := range n {
+				if s.elems[i] != o.elems[i] {
+					return False
+				}
+			}
+			return True
+		case *sliceList[[]byte]:
+			o := any(otherSlice).(*sliceList[[]byte])
+			for i := range n {
+				if !bytes.Equal(s.elems[i], o.elems[i]) {
+					return False
+				}
+			}
+			return True
+		}
+		for i := range n {
+			if Equal(l.getElem(i), otherSlice.getElem(i)) == False {
+				return False
+			}
+		}
+		return True
+	}
+	for i := range n {
+		thisElem := l.getElem(i)
+		otherElem := otherList.Get(Int(i))
+		if Equal(thisElem, otherElem) == False {
+			return False
+		}
+	}
+	return True
+}
+
+func (l *sliceList[T]) Get(index ref.Val) ref.Val {
+	ind, err := GetOrError(index)
+	if err != nil {
+		return ValOrErr(index, "%v", err)
+	}
+	n := l.len()
+	if ind < 0 || ind >= n {
+		return NewErr("index '%d' out of range in list size '%d'", ind, n)
+	}
+	return l.getElem(ind)
+}
+
+func (l *sliceList[T]) IsZeroValue() bool {
+	return l.len() == 0
+}
+
+func (l *sliceList[T]) Fold(f traits.Folder) {
+	switch s := any(l).(type) {
+	case *sliceList[string]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, String(e)) {
+				break
+			}
+		}
+	case *sliceList[ref.Val]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, e) {
+				break
+			}
+		}
+	case *sliceList[int]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Int(e)) {
+				break
+			}
+		}
+	case *sliceList[int64]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Int(e)) {
+				break
+			}
+		}
+	case *sliceList[int32]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Int(e)) {
+				break
+			}
+		}
+	case *sliceList[uint]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Uint(e)) {
+				break
+			}
+		}
+	case *sliceList[uint64]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Uint(e)) {
+				break
+			}
+		}
+	case *sliceList[uint32]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Uint(e)) {
+				break
+			}
+		}
+	case *sliceList[uint8]:
+		if s.meta != nil && s.meta.elemStride > 0 && s.elemTypePtr != nil {
+			stride := s.meta.elemStride
+			n := len(s.elems) / int(stride)
+			for i := 0; i < n; i++ {
+				if !f.FoldEntry(i, packAny(s.elemTypePtr, unsafe.Pointer(&s.elems[uintptr(i)*stride]))) {
+					break
+				}
+			}
+			return
+		}
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Uint(e)) {
+				break
+			}
+		}
+	case *sliceList[float64]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Double(e)) {
+				break
+			}
+		}
+	case *sliceList[float32]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Double(e)) {
+				break
+			}
+		}
+	case *sliceList[bool]:
+		for i, e := range s.elems {
+			val := False
+			if e {
+				val = True
+			}
+			if !f.FoldEntry(i, val) {
+				break
+			}
+		}
+	case *sliceList[[]byte]:
+		for i, e := range s.elems {
+			if !f.FoldEntry(i, Bytes(e)) {
+				break
+			}
+		}
+	case *sliceList[unsafe.Pointer]:
+		if s.elemTypePtr != nil {
+			for i, ptr := range s.elems {
+				if ptr == nil {
+					if !f.FoldEntry(i, NullValue) {
+						break
+					}
+					continue
+				}
+				if !f.FoldEntry(i, packAny(s.elemTypePtr, ptr)) {
+					break
+				}
+			}
+			return
+		}
+	default:
+		if l.elemTypePtr != nil {
+			for i := range l.elems {
+				if !f.FoldEntry(i, packAny(l.elemTypePtr, unsafe.Pointer(&l.elems[i]))) {
+					break
+				}
+			}
+			return
+		}
+		for i, e := range l.elems {
+			if !f.FoldEntry(i, e) {
+				break
+			}
+		}
+	}
+}
+
+func (l *sliceList[T]) Iterator() traits.Iterator {
+	return &sliceListIterator[T]{
+		list: l,
+		len:  l.len(),
+	}
+}
+
+func (l *sliceList[T]) Size() ref.Val {
+	return Int(l.len())
+}
+
+func (l *sliceList[T]) AggregateSize(sizer AggregateSizer) uint32 {
+	if sz := atomic.LoadUint32(&l.aggSize); sz != 0 {
+		return sz
+	}
+	var total uint32
+	if l.meta == nil && l.elemTypePtr == nil {
+		if t, ok := getSliceElementsAggregateSize(sizer, l.elems); ok {
+			total = t
+		}
+	}
+	if total == 0 {
+		total = uint32(1)
+		n := l.len()
+		for i := 0; i < n; i++ {
+			total = safeAddUint32(total, sizer.AggregateSize(l.getElem(i)))
+		}
+	}
+	if cacheableAggregateSize(sizer) {
+		atomic.StoreUint32(&l.aggSize, total)
+	}
+	return total
+}
+
+func (l *sliceList[T]) Type() ref.Type {
+	return ListType
+}
+
+func (l *sliceList[T]) Value() any {
+	return l.nativeSliceValue()
+}
+
+func (l *sliceList[T]) String() string {
+	var sb strings.Builder
+	sb.WriteString("[")
+	n := l.len()
+	for i := 0; i < n; i++ {
+		if l.meta != nil {
+			sb.WriteString(fmt.Sprintf("%v", l.getElem(i).Value()))
+		} else {
+			sb.WriteString(fmt.Sprintf("%v", l.elems[i]))
+		}
+		if i != n-1 {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteString("]")
+	return sb.String()
+}
+
+func (l *sliceList[T]) format(sb *strings.Builder) {
+	formatList(l, sb)
+}
+
+type sliceListIterator[T any] struct {
+	*baseIterator
+	list   *sliceList[T]
+	cursor int
+	len    int
+}
+
+func (it *sliceListIterator[T]) HasNext() ref.Val {
+	if it.cursor < it.len {
+		return True
+	}
+	return False
+}
+
+func (it *sliceListIterator[T]) Next() ref.Val {
+	if it.cursor < it.len {
+		ind := it.cursor
+		it.cursor++
+		return it.list.getElem(ind)
+	}
+	return nil
+}
+
+var emptySliceData byte

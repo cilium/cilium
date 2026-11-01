@@ -70,7 +70,8 @@ type ModifyClientVpnEndpointInput struct {
 
 	// The device posture options for the Client VPN endpoint. Specifying this
 	// parameter replaces the entire device posture configuration for the endpoint. To
-	// remove all device trust providers, specify an empty list.
+	// disable device posture and remove all device trust providers, specify false for
+	// Enabled .
 	DevicePostureOptions *types.DevicePostureOptions
 
 	// Indicates whether the client VPN session is disconnected after the maximum

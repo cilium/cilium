@@ -10,6 +10,7 @@ go_library(
     srcs = [
         "ast.go",
         "conversion.go",
+        "equiv.go",
         "expr.go",
         "factory.go",
         "navigable.go",
@@ -31,6 +32,7 @@ go_test(
     srcs = [
         "ast_test.go",
         "conversion_test.go",
+        "equiv_test.go",
         "expr_test.go",
         "navigable_test.go",
     ],

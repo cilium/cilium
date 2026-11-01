@@ -122,9 +122,12 @@ func (o *Optional) Value() any {
 }
 
 // AggregateSize implements the AggregateSizeVisitor interface method.
+//
+// An empty optional has size 1, as every value does, so that the aggregate size of a container
+// is at least 1 plus the number of entries it holds.
 func (o *Optional) AggregateSize(sizer AggregateSizer) uint32 {
 	if !o.HasValue() {
-		return 0
+		return 1
 	}
 	return safeAddUint32(1, sizer.AggregateSize(o.value))
 }

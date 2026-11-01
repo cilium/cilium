@@ -49,6 +49,9 @@ type evalContext struct {
 	// costs provides the context for tracking the evaluation costs.
 	costs *CostTracker
 
+	// memory provides the context for tracking peak memory during evaluation.
+	memory *types.MemoryTracker
+
 	// ctx is the context for async call implementations to use.
 	ctx context.Context
 
@@ -70,25 +73,82 @@ type evalContext struct {
 // The execution frame must not be stored in any fashion as its lifecycle is completely
 // controlled by the CEL evaluation process.
 type ExecutionFrame struct {
-	// Activation provides the context for resolving variables by name.
-	Activation
-
-	// parent provides the context for parent scopes (used for comprehension iterators).
+	// parent provides the context for parent scopes (used for comprehension iterators and nested blocks).
 	parent *ExecutionFrame
+
+	// scope provides the local activation for this frame (e.g. comprehension folder, block slots, or input Activation).
+	scope Activation
+
+	// functions supplies the late-bound function implementations for the evaluation, resolved
+	// once from the input activation. Scopes introduced during evaluation never supply function
+	// bindings, so a child frame inherits this value from its parent rather than resolving again.
+	functions FunctionActivation
+
+	// vars holds map-based input variables directly on the frame to eliminate pool allocations.
+	vars map[string]any
+
+	// lazyVars caches evaluations of lazy variables (func() any / func() ref.Val) in vars.
+	lazyVars map[string]any
 
 	// ctx provides the shared evaluation state across frames.
 	ctx *evalContext
+
+	// costTracker provides direct access to the active CostTracker for this evaluation pass.
+	costTracker *CostTracker
+}
+
+// Scope returns the local activation scope for this frame, if present.
+func (f *ExecutionFrame) Scope() Activation {
+	return f.scope
+}
+
+// SetScope sets the local activation scope for this frame.
+func (f *ExecutionFrame) SetScope(scope Activation) {
+	f.scope = scope
+}
+
+// SetDefaultVars sets the default variables activation for the frame, composing it
+// with any existing scope activation.
+func (f *ExecutionFrame) SetDefaultVars(defaultVars Activation) error {
+	if defaultVars == nil {
+		return nil
+	}
+	fns, err := FindFunctionActivation(defaultVars)
+	if err != nil {
+		return err
+	}
+	if fns != nil {
+		if f.functions != nil {
+			return errNestedFunctionActivation
+		}
+		f.functions = fns
+	}
+	if f.scope != nil {
+		f.scope = NewHierarchicalActivation(defaultVars, f.scope)
+	} else {
+		f.scope = defaultVars
+	}
+	return nil
 }
 
 // NewExecutionFrame creates a new execution frame from the pool.
 func NewExecutionFrame(input any) (*ExecutionFrame, error) {
 	f := frameStack.Get().(*ExecutionFrame)
 	switch v := input.(type) {
+	case emptyActivation:
+		// empty frame, no backing scope needed
 	case Activation:
-		f.Activation = v
+		f.scope = v
+		fns, err := FindFunctionActivation(f.scope)
+		if err != nil {
+			frameStack.Put(f)
+			return nil, err
+		}
+		f.functions = fns
 	case map[string]any:
-		f.Activation = activationInput.create(v)
+		f.vars = v
 	default:
+		frameStack.Put(f)
 		return nil, fmt.Errorf("invalid input, wanted Activation or map[string]any, got: (%T)%v", input, input)
 	}
 	return f, nil
@@ -128,6 +188,7 @@ func (f *ExecutionFrame) Close() {
 		f.ctx.interrupt = nil
 		f.ctx.state = nil
 		f.ctx.costs = nil
+		f.ctx.memory = nil
 		f.ctx.interrupted.Store(false)
 		f.ctx.interruptCheckCount.Store(0)
 		f.ctx.interruptCheckFrequency = 0
@@ -135,30 +196,29 @@ func (f *ExecutionFrame) Close() {
 	}
 	f.ctx = nil
 	f.parent = nil
-	if f.Activation != nil {
-		switch a := f.Activation.(type) {
-		case *hierarchicalActivation:
-			if child, ok := a.child.(*inputActivation); ok {
-				activationInput.release(child)
-			}
-			activationStack.release(a)
-		case *inputActivation:
-			activationInput.release(a)
-		}
-		f.Activation = nil
-		frameStack.Put(f)
+	f.costTracker = nil
+	f.functions = nil
+	if f.vars != nil {
+		f.vars = nil
+		clear(f.lazyVars)
 	}
+	f.scope = nil
+	frameStack.Put(f)
 }
 
 // Push pushes the given activation onto the activation stack and returns the new frame.
 //
 // This operation is internal to the interpreter and is used to handle comprehension
-// scoping. The child frame inherits the shared evalContext from the parent.
+// and block scoping. The child frame inherits the shared evalContext from the parent.
 func (f *ExecutionFrame) Push(activation Activation) *ExecutionFrame {
 	child := frameStack.Get().(*ExecutionFrame)
 	child.parent = f
 	child.ctx = f.ctx
-	child.Activation = activationStack.create(f.Activation, activation)
+	child.costTracker = f.costTracker
+	child.scope = activation
+	// Scopes pushed during evaluation never supply late-bound functions, so the child inherits
+	// the bindings resolved for the evaluation rather than searching its own hierarchy.
+	child.functions = f.functions
 	return child
 }
 
@@ -168,37 +228,115 @@ func (f *ExecutionFrame) Pop() *ExecutionFrame {
 		return f
 	}
 	parent := f.parent
-	activationStack.release(f.Activation)
-	f.Activation = nil
+	f.scope = nil
 	f.parent = nil
+	f.functions = nil
 	f.ctx = nil
+	f.costTracker = nil
+	if f.vars != nil {
+		f.vars = nil
+		clear(f.lazyVars)
+	}
 	frameStack.Put(f)
 	return parent
 }
 
 // ResolveName implements the Activation interface by proxying to the internal activation.
 func (f *ExecutionFrame) ResolveName(name string) (any, bool) {
-	return f.Activation.ResolveName(name)
+	if f.vars != nil {
+		v, found := f.vars[name]
+		if found {
+			if f.lazyVars != nil {
+				if resolved, found := f.lazyVars[name]; found {
+					return resolved, true
+				}
+			}
+			var lazy any
+			switch obj := v.(type) {
+			case func() ref.Val:
+				lazy = obj()
+			case func() any:
+				lazy = obj()
+			default:
+				return obj, true
+			}
+			if f.lazyVars == nil {
+				f.lazyVars = make(map[string]any, 4)
+			}
+			f.lazyVars[name] = lazy
+			return lazy, true
+		}
+	}
+	if f.scope != nil {
+		if val, found := f.scope.ResolveName(name); found {
+			return val, true
+		}
+	}
+	if f.parent != nil {
+		return f.parent.ResolveName(name)
+	}
+	return nil, false
 }
 
-// Parent implements the Activation interface by proxying to the internal activation.
+// Parent implements the Activation interface by proxying to the parent frame or scope.
 func (f *ExecutionFrame) Parent() Activation {
-	return f.Activation.Parent()
+	if f.parent != nil {
+		if f.parent.scope != nil {
+			return f.parent.scope
+		}
+		return f.parent
+	}
+	if f.scope != nil {
+		return f.scope.Parent()
+	}
+	return nil
 }
 
-// AsPartialActivation implements the PartialActivation interface by proxying to the internal activation.
+// ResolveFunction implements the FunctionActivation interface using the bindings resolved when
+// the evaluation began, so the cost of a lookup does not depend on the number of enclosing scopes.
+func (f *ExecutionFrame) ResolveFunction(name string) (functions.LateBoundOp, bool) {
+	if f.functions == nil {
+		return nil, false
+	}
+	return f.functions.ResolveFunction(name)
+}
+
+// AsPartialActivation implements the PartialActivation interface by proxying to the internal scope or parent.
 func (f *ExecutionFrame) AsPartialActivation() (PartialActivation, bool) {
-	return AsPartialActivation(f.Activation)
+	if f.scope != nil {
+		if pa, ok := AsPartialActivation(f.scope); ok {
+			return pa, true
+		}
+	}
+	if f.parent != nil {
+		return f.parent.AsPartialActivation()
+	}
+	return nil, false
 }
 
-// Unwrap returns the internal activation.
+// UnknownAttributePatterns implements the PartialActivation interface returning the unknown patterns
+// if they were provided to the input activation, or an empty set if the frame is not partial.
+func (f *ExecutionFrame) UnknownAttributePatterns() []*AttributePattern {
+	if pa, ok := f.AsPartialActivation(); ok {
+		return pa.UnknownAttributePatterns()
+	}
+	return []*AttributePattern{}
+}
+
+// Unwrap returns the local activation scope if present, or the parent frame.
 func (f *ExecutionFrame) Unwrap() Activation {
-	return f.Activation
+	if f.scope != nil {
+		return f.scope
+	}
+	if f.parent != nil {
+		return f.parent
+	}
+	return nil
 }
 
 // IsLocalVariable reports whether the variable name is locally bound in the frame.
 func (f *ExecutionFrame) IsLocalVariable(name string) bool {
-	if holder, ok := f.Activation.(localVariableHolder); ok {
+	if holder, ok := f.scope.(localVariableHolder); ok {
 		if holder.IsLocalVariable(name) {
 			return true
 		}
@@ -229,6 +367,23 @@ func (f *ExecutionFrame) CheckInterrupt() bool {
 		}
 	}
 	return false
+}
+
+// CostTracker returns the active CostTracker for this evaluation pass, or nil.
+func (f *ExecutionFrame) CostTracker() *CostTracker {
+	if f == nil {
+		return nil
+	}
+	return f.costTracker
+}
+
+// SetCostTracker sets the active CostTracker for this evaluation pass.
+func (f *ExecutionFrame) SetCostTracker(tracker *CostTracker) {
+	if f.ctx == nil {
+		f.ctx = evalContextPool.Get().(*evalContext)
+	}
+	f.ctx.costs = tracker
+	f.costTracker = tracker
 }
 
 // ComputeResult tracks and computes the result of the given asynchronous function.
@@ -329,117 +484,3 @@ var evalContextPool = &sync.Pool{
 		return &evalContext{}
 	},
 }
-
-type activationStackPool struct {
-	sync.Pool
-}
-
-func (pool *activationStackPool) create(parent, child Activation) Activation {
-	h := pool.Get().(*hierarchicalActivation)
-	h.child = child
-	h.parent = parent
-	h.poolAllocated = true
-	return h
-}
-
-func (pool *activationStackPool) release(activation Activation) {
-	h, ok := activation.(*hierarchicalActivation)
-	if !ok || !h.poolAllocated {
-		return
-	}
-	h.parent = nil
-	h.child = nil
-	pool.Pool.Put(h)
-}
-
-func newActivationStackPool() *activationStackPool {
-	return &activationStackPool{
-		Pool: sync.Pool{
-			New: func() any {
-				return &hierarchicalActivation{}
-			},
-		},
-	}
-}
-
-type inputActivation struct {
-	vars     map[string]any
-	lazyVars map[string]any
-}
-
-// ResolveName looks up the value of the input variable name, if found.
-//
-// Lazy bindings may be supplied within the map-based input in either of the following forms:
-// - func() any
-// - func() ref.Val
-//
-// The lazy binding will only be invoked once per evaluation.
-//
-// Values which are not represented as ref.Val types on input may be adapted to a ref.Val using
-// the types.Adapter configured in the environment.
-func (a *inputActivation) ResolveName(name string) (any, bool) {
-	v, found := a.vars[name]
-	if !found {
-		return nil, false
-	}
-	switch obj := v.(type) {
-	case func() ref.Val:
-		if resolved, found := a.lazyVars[name]; found {
-			return resolved, true
-		}
-		lazy := obj()
-		a.lazyVars[name] = lazy
-		return lazy, true
-	case func() any:
-		if resolved, found := a.lazyVars[name]; found {
-			return resolved, true
-		}
-		lazy := obj()
-		a.lazyVars[name] = lazy
-		return lazy, true
-	default:
-		return obj, true
-	}
-}
-
-// Parent implements the Activation interface
-func (a *inputActivation) Parent() Activation {
-	return nil
-}
-
-func newActivationInputPool() *activationInputPool {
-	return &activationInputPool{
-		Pool: sync.Pool{
-			New: func() any {
-				return &inputActivation{
-					lazyVars: make(map[string]any),
-				}
-			},
-		},
-	}
-}
-
-type activationInputPool struct {
-	sync.Pool
-}
-
-// create initializes a pooled Activation object with the map input.
-func (p *activationInputPool) create(vars map[string]any) *inputActivation {
-	a := p.Pool.Get().(*inputActivation)
-	a.vars = vars
-	return a
-}
-
-func (p *activationInputPool) release(value any) {
-	a := value.(*inputActivation)
-	for k := range a.lazyVars {
-		delete(a.lazyVars, k)
-	}
-	a.vars = nil
-	p.Pool.Put(a)
-}
-
-var (
-	activationStack = newActivationStackPool()
-	activationInput = newActivationInputPool()
-)
