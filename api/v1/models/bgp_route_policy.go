@@ -149,7 +149,7 @@ func (m *BgpRoutePolicy) contextValidateStatements(ctx context.Context, formats 
 		if m.Statements[i] != nil {
 
 			if typeutils.IsZero(m.Statements[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Statements[i].ContextValidate(ctx, formats); err != nil {

@@ -277,7 +277,7 @@ func (m *NodeElement) contextValidateSecondaryAddresses(ctx context.Context, for
 		if m.SecondaryAddresses[i] != nil {
 
 			if typeutils.IsZero(m.SecondaryAddresses[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.SecondaryAddresses[i].ContextValidate(ctx, formats); err != nil {

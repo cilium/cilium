@@ -93,7 +93,7 @@ func (m *NameManager) contextValidateFQDNPolicySelectors(ctx context.Context, fo
 		if m.FQDNPolicySelectors[i] != nil {
 
 			if typeutils.IsZero(m.FQDNPolicySelectors[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.FQDNPolicySelectors[i].ContextValidate(ctx, formats); err != nil {

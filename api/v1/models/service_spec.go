@@ -170,7 +170,7 @@ func (m *ServiceSpec) contextValidateBackendAddresses(ctx context.Context, forma
 		if m.BackendAddresses[i] != nil {
 
 			if typeutils.IsZero(m.BackendAddresses[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.BackendAddresses[i].ContextValidate(ctx, formats); err != nil {

@@ -93,7 +93,7 @@ func (m *BPFMap) contextValidateCache(ctx context.Context, formats strfmt.Regist
 		if m.Cache[i] != nil {
 
 			if typeutils.IsZero(m.Cache[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Cache[i].ContextValidate(ctx, formats); err != nil {

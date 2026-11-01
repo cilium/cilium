@@ -131,7 +131,7 @@ func (m *L4Policy) contextValidateEgress(ctx context.Context, formats strfmt.Reg
 		if m.Egress[i] != nil {
 
 			if typeutils.IsZero(m.Egress[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Egress[i].ContextValidate(ctx, formats); err != nil {
@@ -160,7 +160,7 @@ func (m *L4Policy) contextValidateIngress(ctx context.Context, formats strfmt.Re
 		if m.Ingress[i] != nil {
 
 			if typeutils.IsZero(m.Ingress[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Ingress[i].ContextValidate(ctx, formats); err != nil {

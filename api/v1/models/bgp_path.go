@@ -217,7 +217,7 @@ func (m *BgpPath) contextValidatePathAttributes(ctx context.Context, formats str
 		if m.PathAttributes[i] != nil {
 
 			if typeutils.IsZero(m.PathAttributes[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.PathAttributes[i].ContextValidate(ctx, formats); err != nil {

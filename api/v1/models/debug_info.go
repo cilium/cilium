@@ -301,7 +301,7 @@ func (m *DebugInfo) contextValidateEndpointList(ctx context.Context, formats str
 		if m.EndpointList[i] != nil {
 
 			if typeutils.IsZero(m.EndpointList[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.EndpointList[i].ContextValidate(ctx, formats); err != nil {
@@ -355,7 +355,7 @@ func (m *DebugInfo) contextValidateServiceList(ctx context.Context, formats strf
 		if m.ServiceList[i] != nil {
 
 			if typeutils.IsZero(m.ServiceList[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.ServiceList[i].ContextValidate(ctx, formats); err != nil {

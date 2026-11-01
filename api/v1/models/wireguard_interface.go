@@ -104,7 +104,7 @@ func (m *WireguardInterface) contextValidatePeers(ctx context.Context, formats s
 		if m.Peers[i] != nil {
 
 			if typeutils.IsZero(m.Peers[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Peers[i].ContextValidate(ctx, formats); err != nil {

@@ -90,7 +90,7 @@ func (m *BPFMapList) contextValidateMaps(ctx context.Context, formats strfmt.Reg
 		if m.Maps[i] != nil {
 
 			if typeutils.IsZero(m.Maps[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Maps[i].ContextValidate(ctx, formats); err != nil {

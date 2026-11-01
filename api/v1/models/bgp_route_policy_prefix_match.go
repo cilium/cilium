@@ -122,7 +122,7 @@ func (m *BgpRoutePolicyPrefixMatch) contextValidatePrefixes(ctx context.Context,
 		if m.Prefixes[i] != nil {
 
 			if typeutils.IsZero(m.Prefixes[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Prefixes[i].ContextValidate(ctx, formats); err != nil {
