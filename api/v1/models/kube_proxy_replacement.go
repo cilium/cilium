@@ -188,7 +188,7 @@ func (m *KubeProxyReplacement) contextValidateDeviceList(ctx context.Context, fo
 		if m.DeviceList[i] != nil {
 
 			if typeutils.IsZero(m.DeviceList[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.DeviceList[i].ContextValidate(ctx, formats); err != nil {

@@ -100,7 +100,7 @@ func (m *BgpRoute) contextValidatePaths(ctx context.Context, formats strfmt.Regi
 		if m.Paths[i] != nil {
 
 			if typeutils.IsZero(m.Paths[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Paths[i].ContextValidate(ctx, formats); err != nil {

@@ -65,7 +65,7 @@ func (m NamedPorts) ContextValidate(ctx context.Context, formats strfmt.Registry
 		if m[i] != nil {
 
 			if typeutils.IsZero(m[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m[i].ContextValidate(ctx, formats); err != nil {

@@ -141,7 +141,7 @@ func (m *EndpointNetworking) contextValidateAddressing(ctx context.Context, form
 		if m.Addressing[i] != nil {
 
 			if typeutils.IsZero(m.Addressing[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Addressing[i].ContextValidate(ctx, formats); err != nil {

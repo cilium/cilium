@@ -61,7 +61,7 @@ func (m EndpointStatusLog) ContextValidate(ctx context.Context, formats strfmt.R
 		if m[i] != nil {
 
 			if typeutils.IsZero(m[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m[i].ContextValidate(ctx, formats); err != nil {

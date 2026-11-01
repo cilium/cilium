@@ -286,7 +286,7 @@ func (m *BgpPeer) contextValidateFamilies(ctx context.Context, formats strfmt.Re
 		if m.Families[i] != nil {
 
 			if typeutils.IsZero(m.Families[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Families[i].ContextValidate(ctx, formats); err != nil {
@@ -340,7 +340,7 @@ func (m *BgpPeer) contextValidateLocalCapabilities(ctx context.Context, formats 
 		if m.LocalCapabilities[i] != nil {
 
 			if typeutils.IsZero(m.LocalCapabilities[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.LocalCapabilities[i].ContextValidate(ctx, formats); err != nil {
@@ -369,7 +369,7 @@ func (m *BgpPeer) contextValidateRemoteCapabilities(ctx context.Context, formats
 		if m.RemoteCapabilities[i] != nil {
 
 			if typeutils.IsZero(m.RemoteCapabilities[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.RemoteCapabilities[i].ContextValidate(ctx, formats); err != nil {

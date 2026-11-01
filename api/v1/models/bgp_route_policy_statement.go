@@ -256,7 +256,7 @@ func (m *BgpRoutePolicyStatement) contextValidateMatchFamilies(ctx context.Conte
 		if m.MatchFamilies[i] != nil {
 
 			if typeutils.IsZero(m.MatchFamilies[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.MatchFamilies[i].ContextValidate(ctx, formats); err != nil {

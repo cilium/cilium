@@ -124,7 +124,7 @@ func (m *FrontendMapping) contextValidateBackends(ctx context.Context, formats s
 		if m.Backends[i] != nil {
 
 			if typeutils.IsZero(m.Backends[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Backends[i].ContextValidate(ctx, formats); err != nil {

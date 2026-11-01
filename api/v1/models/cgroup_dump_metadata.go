@@ -90,7 +90,7 @@ func (m *CgroupDumpMetadata) contextValidatePodMetadatas(ctx context.Context, fo
 		if m.PodMetadatas[i] != nil {
 
 			if typeutils.IsZero(m.PodMetadatas[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.PodMetadatas[i].ContextValidate(ctx, formats); err != nil {

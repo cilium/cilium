@@ -113,7 +113,7 @@ func (m *CgroupPodMetadata) contextValidateContainers(ctx context.Context, forma
 		if m.Containers[i] != nil {
 
 			if typeutils.IsZero(m.Containers[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Containers[i].ContextValidate(ctx, formats); err != nil {

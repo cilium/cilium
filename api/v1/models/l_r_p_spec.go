@@ -108,7 +108,7 @@ func (m *LRPSpec) contextValidateFrontendMappings(ctx context.Context, formats s
 		if m.FrontendMappings[i] != nil {
 
 			if typeutils.IsZero(m.FrontendMappings[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.FrontendMappings[i].ContextValidate(ctx, formats); err != nil {

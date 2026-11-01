@@ -156,7 +156,7 @@ func (m *ProxyStatus) contextValidateRedirects(ctx context.Context, formats strf
 		if m.Redirects[i] != nil {
 
 			if typeutils.IsZero(m.Redirects[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Redirects[i].ContextValidate(ctx, formats); err != nil {
