@@ -29,10 +29,10 @@ import (
 //
 //   - Messages must share the same instance of the type descriptor
 //   - Known set fields are compared using semantics equality
-//     - Bytes are compared using bytes.Equal
-//     - Scalar values are compared with operator ==
-//     - List and map types are equal if they have the same length and all elements are equal
-//     - Messages are equal if they share the same descriptor and all set fields are equal
+//   - Bytes are compared using bytes.Equal
+//   - Scalar values are compared with operator ==
+//   - List and map types are equal if they have the same length and all elements are equal
+//   - Messages are equal if they share the same descriptor and all set fields are equal
 //   - Unknown fields are compared using byte equality
 //   - NaN values are not equal to each other
 //   - google.protobuf.Any values are unpacked before comparison

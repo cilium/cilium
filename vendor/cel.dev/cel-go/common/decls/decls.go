@@ -322,12 +322,29 @@ func (f *FunctionDecl) HasSingletonBinding() bool {
 	return f.singleton != nil
 }
 
+// IsAsync returns true if the function has an async binding.
+func (f *FunctionDecl) IsAsync() bool {
+	if f == nil {
+		return false
+	}
+	if f.singleton != nil && f.singleton.Async != nil {
+		return true
+	}
+	for _, oID := range f.overloadOrdinals {
+		o := f.overloads[oID]
+		if o.IsAsync() {
+			return true
+		}
+	}
+	return false
+}
+
 // HasLateBinding returns true if the function has late bindings. A function cannot mix late bindings with other bindings.
 func (f *FunctionDecl) HasLateBinding() bool {
 	if f == nil {
 		return false
 	}
-	if f.singleton != nil && f.singleton.Async != nil {
+	if f.singleton != nil && f.singleton.LateBound {
 		return true
 	}
 	for _, oID := range f.overloadOrdinals {
@@ -350,27 +367,25 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 	hasLateBinding := false
 	for _, oID := range f.overloadOrdinals {
 		o := f.overloads[oID]
-		hasLateBinding = hasLateBinding || o.HasLateBinding()
-		if o.HasBinding() {
-			overload := &functions.Overload{
-				Operator:     o.ID(),
-				Unary:        o.guardedUnaryOp(f.Name(), f.disableTypeGuards),
-				Binary:       o.guardedBinaryOp(f.Name(), f.disableTypeGuards),
-				Function:     o.guardedFunctionOp(f.Name(), f.disableTypeGuards),
-				Async:        o.guardedAsyncOp(f.Name(), f.disableTypeGuards),
-				OperandTrait: o.OperandTrait(),
-				NonStrict:    o.IsNonStrict(),
-			}
-			overloads = append(overloads, overload)
-			nonStrict = nonStrict || o.IsNonStrict()
+		// An overload is either bound at declaration time or late-bound from the activation.
+		// The two are mutually exclusive, so each is configured independently.
+		switch {
+		case o.HasLateBinding():
+			hasLateBinding = true
+			overloads = append(overloads, o.lateBoundBinding(f.disableTypeGuards))
+		case o.HasBinding():
+			overloads = append(overloads, o.binding(f.Name(), f.disableTypeGuards))
+		default:
+			continue
 		}
+		nonStrict = nonStrict || o.IsNonStrict()
 	}
 	if f.singleton != nil {
-		if len(overloads) != 0 {
-			return nil, fmt.Errorf("singleton function incompatible with specialized overloads: %s", f.Name())
-		}
 		if hasLateBinding {
 			return nil, fmt.Errorf("singleton function incompatible with late bindings: %s", f.Name())
+		}
+		if len(overloads) != 0 {
+			return nil, fmt.Errorf("singleton function incompatible with specialized overloads: %s", f.Name())
 		}
 		overloads = []*functions.Overload{
 			{
@@ -379,6 +394,7 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 				Binary:       f.singleton.Binary,
 				Function:     f.singleton.Function,
 				Async:        f.singleton.Async,
+				LateBound:    f.singleton.LateBound,
 				OperandTrait: f.singleton.OperandTrait,
 			},
 		}
@@ -392,14 +408,19 @@ func (f *FunctionDecl) Bindings() ([]*functions.Overload, error) {
 		if overloads[0].Operator == f.Name() {
 			return overloads, nil
 		}
+		named := *overloads[0]
+		named.Operator = f.Name()
+		return append(overloads, &named), nil
+	}
+	if hasLateBinding {
+		// Late-bound implementations are resolved from the activation by function name, so the
+		// top-level entry dispatches over the declared overloads to determine which signature
+		// the runtime arguments satisfy.
 		return append(overloads, &functions.Overload{
-			Operator:     f.Name(),
-			Unary:        overloads[0].Unary,
-			Binary:       overloads[0].Binary,
-			Function:     overloads[0].Function,
-			Async:        overloads[0].Async,
-			NonStrict:    overloads[0].NonStrict,
-			OperandTrait: overloads[0].OperandTrait,
+			Operator:          f.Name(),
+			LateBound:         true,
+			LateBoundDispatch: f.lateBoundDispatcher(),
+			NonStrict:         nonStrict,
 		}), nil
 	}
 	// All of the defined overloads are wrapped into a top-level function which
@@ -716,12 +737,20 @@ func (o *OverloadDecl) IsNonStrict() bool {
 	return o.nonStrict
 }
 
-// HasLateBinding returns whether the overload has a binding which is not known at compile time.
+// IsAsync returns whether the overload has an asynchronous binding.
+func (o *OverloadDecl) IsAsync() bool {
+	if o == nil {
+		return false
+	}
+	return o.asyncOp != nil
+}
+
+// HasLateBinding returns whether the overload has a late binding which is resolved at runtime.
 func (o *OverloadDecl) HasLateBinding() bool {
 	if o == nil {
 		return false
 	}
-	return o.hasLateBinding || o.asyncOp != nil
+	return o.hasLateBinding
 }
 
 // OperandTrait returns the trait mask of the first operand to the overload call, e.g.
@@ -852,6 +881,67 @@ func (o *OverloadDecl) guardedAsyncOp(funcName string, disableTypeGuards bool) f
 	}
 }
 
+// binding returns the runtime binding for an overload whose implementation is provided at
+// declaration time.
+//
+// Each implementation is wrapped in an invocation guard which ensures runtime type agreement
+// between the overload signature and the argument values.
+func (o *OverloadDecl) binding(funcName string, disableTypeGuards bool) *functions.Overload {
+	return &functions.Overload{
+		Operator:     o.ID(),
+		Unary:        o.guardedUnaryOp(funcName, disableTypeGuards),
+		Binary:       o.guardedBinaryOp(funcName, disableTypeGuards),
+		Function:     o.guardedFunctionOp(funcName, disableTypeGuards),
+		Async:        o.guardedAsyncOp(funcName, disableTypeGuards),
+		OperandTrait: o.OperandTrait(),
+		NonStrict:    o.IsNonStrict(),
+	}
+}
+
+// lateBoundBinding returns the runtime binding for an overload whose implementation is supplied
+// by the activation at evaluation time.
+//
+// There is no implementation to wrap in an invocation guard, so the signature check is instead
+// exposed to the interpreter which applies it to the implementation it resolves.
+func (o *OverloadDecl) lateBoundBinding(disableTypeGuards bool) *functions.Overload {
+	return &functions.Overload{
+		Operator:          o.ID(),
+		LateBound:         true,
+		LateBoundDispatch: o.lateBoundDispatcher(disableTypeGuards),
+		OperandTrait:      o.OperandTrait(),
+		NonStrict:         o.IsNonStrict(),
+	}
+}
+
+// lateBoundDispatcher creates the runtime signature check for a late-bound overload.
+func (o *OverloadDecl) lateBoundDispatcher(disableTypeGuards bool) functions.LateBoundDispatcher {
+	return func(memberStyle bool, args ...ref.Val) (string, bool) {
+		if memberStyle != o.IsMemberFunction() || !o.matchesRuntimeSignature(disableTypeGuards, args...) {
+			return "", false
+		}
+		return o.ID(), true
+	}
+}
+
+// lateBoundDispatcher creates a runtime dispatcher over the late-bound overloads of the function.
+//
+// This mirrors the dynamic dispatch performed for functions with multiple eager overloads: the
+// first overload whose receiver style and signature agree with the runtime arguments wins.
+func (f *FunctionDecl) lateBoundDispatcher() functions.LateBoundDispatcher {
+	return func(memberStyle bool, args ...ref.Val) (string, bool) {
+		for _, oID := range f.overloadOrdinals {
+			o := f.overloads[oID]
+			if !o.HasLateBinding() || memberStyle != o.IsMemberFunction() {
+				continue
+			}
+			if o.matchesRuntimeSignature(f.disableTypeGuards, args...) {
+				return o.ID(), true
+			}
+		}
+		return "", false
+	}
+}
+
 // matchesRuntimeUnarySignature indicates whether the argument type is runtime assiganble to the overload's expected argument.
 func (o *OverloadDecl) matchesRuntimeUnarySignature(disableTypeGuards bool, arg ref.Val) bool {
 	return matchRuntimeArgType(o.IsNonStrict(), disableTypeGuards, o.ArgTypes()[0], arg) &&
@@ -882,15 +972,10 @@ func (o *OverloadDecl) matchesRuntimeSignature(disableTypeGuards bool, args ...r
 }
 
 func matchRuntimeArgType(nonStrict, disableTypeGuards bool, argType *types.Type, arg ref.Val) bool {
-	if nonStrict && (disableTypeGuards || types.IsUnknownOrError(arg)) {
+	if disableTypeGuards || argType.IsAssignableRuntimeType(arg) {
 		return true
 	}
-	// Note, early returns and unknown aggregation happen in the interpretable.go file; however, this check is here
-	// for defense in depth or for scenarios where someone manipulates bindings to offer their own dispatch logic.
-	if types.IsUnknownOrError(arg) {
-		return false
-	}
-	return disableTypeGuards || argType.IsAssignableRuntimeType(arg)
+	return nonStrict && types.IsUnknownOrError(arg)
 }
 
 func matchOperandTrait(trait int, arg ref.Val) bool {
@@ -995,6 +1080,9 @@ func wrapAsyncOp(fn functions.BlockingAsyncOp) functions.AsyncOp {
 
 // LateFunctionBinding indicates that the function has a binding which is not known at compile time.
 // This is useful for functions which have side-effects or are not deterministically computable.
+//
+// The implementation is supplied at evaluation time as a functions.LateBoundOp within the function
+// namespace of the activation, and is subject to the same runtime type-guard as an eager binding.
 func LateFunctionBinding() OverloadOpt {
 	return func(o *OverloadDecl) (*OverloadDecl, error) {
 		if o.HasBinding() {

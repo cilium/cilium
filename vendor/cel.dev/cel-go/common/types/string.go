@@ -41,7 +41,7 @@ var (
 		overloads.StartsWith: StringStartsWith,
 	}
 
-	stringWrapperType = reflect.TypeOf(&wrapperspb.StringValue{})
+	stringWrapperType = reflect.TypeFor[*wrapperspb.StringValue]()
 )
 
 // Add implements traits.Adder.Add.
@@ -59,7 +59,7 @@ func (s String) Compare(other ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(other)
 	}
-	return Int(strings.Compare(s.Value().(string), otherString.Value().(string)))
+	return Int(strings.Compare(string(s), string(otherString)))
 }
 
 // ConvertToNative implements ref.Val.ConvertToNative.
@@ -80,7 +80,7 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (any, error) {
 			return wrapperspb.String(string(s)), nil
 		}
 		if typeDesc.Elem().Kind() == reflect.String {
-			p := s.Value().(string)
+			p := string(s)
 			return &p, nil
 		}
 	case reflect.Interface:
@@ -100,29 +100,29 @@ func (s String) ConvertToNative(typeDesc reflect.Type) (any, error) {
 func (s String) ConvertToType(typeVal ref.Type) ref.Val {
 	switch typeVal {
 	case IntType:
-		if n, err := strconv.ParseInt(s.Value().(string), 10, 64); err == nil {
+		if n, err := strconv.ParseInt(string(s), 10, 64); err == nil {
 			return Int(n)
 		}
 	case UintType:
-		if n, err := strconv.ParseUint(s.Value().(string), 10, 64); err == nil {
+		if n, err := strconv.ParseUint(string(s), 10, 64); err == nil {
 			return Uint(n)
 		}
 	case DoubleType:
-		if n, err := strconv.ParseFloat(s.Value().(string), 64); err == nil {
+		if n, err := strconv.ParseFloat(string(s), 64); err == nil {
 			return Double(n)
 		}
 	case BoolType:
-		if b, err := strconv.ParseBool(s.Value().(string)); err == nil {
+		if b, err := strconv.ParseBool(string(s)); err == nil {
 			return Bool(b)
 		}
 	case BytesType:
 		return Bytes(s)
 	case DurationType:
-		if d, err := time.ParseDuration(s.Value().(string)); err == nil {
+		if d, err := time.ParseDuration(string(s)); err == nil {
 			return durationOf(d)
 		}
 	case TimestampType:
-		str := s.Value().(string)
+		str := string(s)
 		if !isStrictRFC3339(str) {
 			return NewErr("invalid RFC 3339 timestamp %q", str)
 		}
@@ -157,7 +157,7 @@ func (s String) Match(pattern ref.Val) ref.Val {
 	if !ok {
 		return MaybeNoSuchOverloadErr(pattern)
 	}
-	matched, err := regexp.MatchString(pat.Value().(string), s.Value().(string))
+	matched, err := regexp.MatchString(string(pat), string(s))
 	if err != nil {
 		return &Err{error: err}
 	}
@@ -177,7 +177,7 @@ func (s String) Receive(function string, overload string, args []ref.Val) ref.Va
 
 // Size implements traits.Sizer.Size.
 func (s String) Size() ref.Val {
-	return Int(len([]rune(s.Value().(string))))
+	return Int(len([]rune(s)))
 }
 
 // Type implements ref.Val.Type.

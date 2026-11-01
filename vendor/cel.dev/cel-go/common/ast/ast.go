@@ -452,7 +452,9 @@ func (s *SourceInfo) Extensions() []Extension {
 // at least as great as the lowest minor version specified.
 func (s *SourceInfo) HasExtension(id string, minVersion ExtensionVersion) bool {
 	for _, ext := range s.Extensions() {
-		return ext.ID == id && ext.Version.Major == minVersion.Major && ext.Version.Minor >= minVersion.Minor
+		if ext.ID == id && ext.Version.Major == minVersion.Major && ext.Version.Minor >= minVersion.Minor {
+			return true
+		}
 	}
 	return false
 }
@@ -461,6 +463,11 @@ func (s *SourceInfo) HasExtension(id string, minVersion ExtensionVersion) bool {
 func (s *SourceInfo) AddExtension(ext Extension) {
 	if s == nil {
 		return
+	}
+	for _, e := range s.extensions {
+		if e.ID == ext.ID && e.Version == ext.Version && slices.Equal(e.Components, ext.Components) {
+			return
+		}
 	}
 	s.extensions = append(s.extensions, ext)
 }

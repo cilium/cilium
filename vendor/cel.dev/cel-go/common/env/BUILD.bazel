@@ -22,6 +22,7 @@ package(
 go_library(
     name = "go_default_library",
     srcs = [
+        "catalog.go",
         "env.go",
         "io.go",
     ],
@@ -38,6 +39,7 @@ go_test(
     name = "go_default_test",
     size = "small",
     srcs = [
+        "catalog_test.go",
         "env_test.go",
         "io_test.go",
     ],

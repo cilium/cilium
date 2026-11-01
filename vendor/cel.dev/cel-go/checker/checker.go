@@ -56,7 +56,7 @@ func Check(parsed *ast.AST, source common.Source, env *Env) (*ast.AST, *common.E
 		AST:                ast.NewCheckedAST(parsed, typeMap, refMap),
 		ExprFactory:        ast.NewExprFactory(),
 		env:                env,
-		errors:             &typeErrors{errs: errs},
+		errors:             &typeErrors{errs: errs, env: env},
 		mappings:           newMapping(),
 		freeTypeVarCounter: 0,
 	}
@@ -150,6 +150,10 @@ func (c *checker) checkSelect(e ast.Expr) {
 			c.setType(e, ident.Type())
 			c.setReference(e, ast.NewIdentReference(name, ident.Value()))
 			e.SetKindCase(c.NewIdent(e.ID(), name))
+			return
+		}
+		if c.errors.checkUndeclaredIdent(c.env, e.ID(), c.location(e), qualifiers...) {
+			c.setType(e, types.ErrorType)
 			return
 		}
 	}
@@ -305,6 +309,10 @@ func (c *checker) checkCall(e ast.Expr) {
 			// Overwrite with fully-qualified resolved function name sans receiver target.
 			e.SetKindCase(c.NewCall(e.ID(), fn.Name(), args...))
 			c.resolveOverloadOrError(e, fn, nil, args)
+			return
+		}
+		if c.errors.checkUndeclaredFunction(c.env, e.ID(), c.location(e), qualifiedPrefix, fnName) {
+			c.setType(e, types.ErrorType)
 			return
 		}
 	}
@@ -638,23 +646,11 @@ func (c *checker) newTypeVar() *types.Type {
 }
 
 func (c *checker) isAssignable(t1, t2 *types.Type) bool {
-	subs := isAssignable(c.mappings, t1, t2)
-	if subs != nil {
-		c.mappings = subs
-		return true
-	}
-
-	return false
+	return isAssignable(c.mappings, t1, t2)
 }
 
 func (c *checker) isAssignableList(l1, l2 []*types.Type) bool {
-	subs := isAssignableList(c.mappings, l1, l2)
-	if subs != nil {
-		c.mappings = subs
-		return true
-	}
-
-	return false
+	return isAssignableList(c.mappings, l1, l2)
 }
 
 func maybeUnwrapString(e ast.Expr) (string, bool) {

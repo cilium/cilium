@@ -50,7 +50,7 @@ type StatefulObserver interface {
 	GetState(*ExecutionFrame) any
 
 	// Observe passes the activation and relevant evaluation metadata to the observer.
-	// The observe method is expected to do the equivalent of GetState(AsFrame(activation))
+	// The observe method is expected to do the equivalent of GetState(frame)
 	// to find the metadata that needs to be updated upon invocation.
 	Observe(Activation, int64, any, ref.Val)
 }
@@ -76,6 +76,10 @@ const (
 	// CostLimitExceeded indicates that the operation was cancelled in response to the actual cost limit being
 	// exceeded.
 	CostLimitExceeded
+
+	// MemoryLimitExceeded indicates that the operation was cancelled in response to the peak memory limit
+	// being exceeded.
+	MemoryLimitExceeded
 )
 
 // evalStateOption configures the evalStateFactory behavior.
@@ -147,7 +151,10 @@ func (et *evalStateFactory) GetState(frame *ExecutionFrame) any {
 
 // Observe records the evaluation state for a given expression node and program step.
 func (et *evalStateFactory) Observe(vars Activation, id int64, programStep any, val ref.Val) {
-	frame := AsFrame(vars)
+	frame, ok := vars.(*ExecutionFrame)
+	if !ok {
+		return
+	}
 	if frame.ctx == nil || frame.ctx.state == nil {
 		return
 	}

@@ -16,9 +16,7 @@ package interpreter
 
 import (
 	"context"
-	"encoding/binary"
 	"fmt"
-	"hash/fnv"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -93,7 +91,7 @@ func (fn *evalAsyncFunc) Args() []InterpretableV2 {
 
 // Eval implements the Interpretable interface method.
 func (fn *evalAsyncFunc) Eval(vars Activation) ref.Val {
-	return fn.Exec(AsFrame(vars))
+	return EvalActivation(vars, fn.Exec)
 }
 
 // Exec implements the InterpretableV2 interface method.
@@ -108,10 +106,17 @@ func (fn *evalAsyncFunc) Exec(frame *ExecutionFrame) ref.Val {
 		unk, _ = types.MaybeMergeUnknowns(argVals[i], unk)
 	}
 	if unk != nil {
+		if costs := frame.CostTracker(); costs != nil {
+			costs.EvalVarArgs(frame, fn.id, fn, argVals, unk)
+		}
 		return unk
 	}
 	result := frame.ComputeResult(fn.ID(), fn.Function(), fn.OverloadID(), fn.impl, argVals)
-	return types.LabelErrNode(fn.id, result)
+	val := types.LabelErrNode(fn.id, result)
+	if costs := frame.CostTracker(); costs != nil {
+		costs.EvalVarArgs(frame, fn.id, fn, argVals, val)
+	}
+	return val
 }
 
 // asyncCallStateTracker manages async call states across re-evaluations of a single program.
@@ -134,14 +139,59 @@ func newAsyncCallStateTracker() *asyncCallStateTracker {
 	}
 }
 
-var (
-	hashZeroMarker      = []byte{0}
-	hashStringMarker    = []byte{'s'}
-	hashBoolTrueMarker  = []byte{'b', 1}
-	hashBoolFalseMarker = []byte{'b', 0}
-	hashNumberMarker    = []byte{'n'}
-	hashDefaultMarker   = []byte{'x'}
+const (
+	hashMarkerString  = 's'
+	hashMarkerBool    = 'b'
+	hashMarkerNumber  = 'n'
+	hashMarkerDefault = 'x'
 )
+
+func hashString(s string) uint64 {
+	var h uint64
+	for i := 0; i < len(s); i++ {
+		h = 31*h + uint64(s[i])
+	}
+	return h
+}
+
+// numericKey returns the canonical hash contribution for a CEL numeric value.
+//
+// Int, Uint, and Double all funnel through float64 because CEL numeric equality is
+// heterogeneous and exact: any Int/Uint/Double values that compare equal convert to
+// identical float64 bits. Values above 2^53 lose precision and may share a bucket,
+// which is benign — findInBucket resolves it.
+func numericKey(d float64) uint64 {
+	if math.IsNaN(d) {
+		// matches treats NaN as equal to NaN for dispatch purposes, so collapse all
+		// payloads onto one quiet-NaN pattern.
+		return 0x7ff8000000000000
+	}
+	if d == 0 {
+		// Normalizes -0.0, which CEL equality treats as 0.0.
+		return 0
+	}
+	return math.Float64bits(d)
+}
+
+func hashArg(arg ref.Val) uint64 {
+	switch v := arg.(type) {
+	case types.String:
+		return hashMarkerString*31 + hashString(string(v))
+	case types.Bool:
+		if bool(v) {
+			return hashMarkerBool*31 + 1
+		}
+		return hashMarkerBool * 31
+	case types.Int:
+		return hashMarkerNumber*31 + numericKey(float64(v))
+	case types.Uint:
+		return hashMarkerNumber*31 + numericKey(float64(v))
+	case types.Double:
+		return hashMarkerNumber*31 + numericKey(float64(v))
+	default:
+		return hashMarkerDefault
+	}
+}
 
 // hashCall computes the composite bucket key for an async call.
 //
@@ -150,56 +200,11 @@ var (
 // that a byte-level hash cannot capture safely, so they are intentionally excluded from the key
 // and are instead disambiguated within the bucket by asyncCallState.matches.
 func hashCall(id int64, overload string, args []ref.Val) uint64 {
-	h := fnv.New64a()
-	var idBuf [8]byte
-	binary.LittleEndian.PutUint64(idBuf[:], uint64(id))
-	h.Write(idBuf[:])
-	h.Write([]byte(overload))
-	h.Write(hashZeroMarker)
+	result := 31*uint64(id) + hashString(overload)
 	for _, arg := range args {
-		switch v := arg.(type) {
-		case types.String:
-			h.Write(hashStringMarker)
-			h.Write([]byte(string(v)))
-		case types.Bool:
-			if bool(v) {
-				h.Write(hashBoolTrueMarker)
-			} else {
-				h.Write(hashBoolFalseMarker)
-			}
-		case types.Int:
-			h.Write(hashNumberMarker)
-			var buf [8]byte
-			binary.LittleEndian.PutUint64(buf[:], math.Float64bits(float64(v)))
-			h.Write(buf[:])
-		case types.Uint:
-			h.Write(hashNumberMarker)
-			var buf [8]byte
-			binary.LittleEndian.PutUint64(buf[:], math.Float64bits(float64(v)))
-			h.Write(buf[:])
-		case types.Double:
-			h.Write(hashNumberMarker)
-			if math.IsNaN(float64(v)) {
-				h.Write([]byte("NaN"))
-				h.Write(hashZeroMarker)
-				continue
-			}
-			// Normalize -0.0 to 0.0. Go will treat -0.0 as 0.0 at compile time,
-			// but the function math.Copysign(0.0, -1.0) can be used to test the -0.0 case.
-			if v == types.Double(0.0) && math.Signbit(float64(v)) {
-				v = types.Double(0.0)
-			}
-			var buf [8]byte
-			binary.LittleEndian.PutUint64(buf[:], math.Float64bits(float64(v)))
-			h.Write(buf[:])
-		default:
-			// Value intentionally omitted; bucket membership falls back to matches.
-			h.Write(hashDefaultMarker)
-		}
-		// Separator to avoid cross-argument collisions, e.g. ("a", "bc") vs ("ab", "c").
-		h.Write(hashZeroMarker)
+		result = 31*result + hashArg(arg)
 	}
-	return h.Sum64()
+	return result
 }
 
 // findInBucket returns the call state in the bucket matching the same node id and call identity,

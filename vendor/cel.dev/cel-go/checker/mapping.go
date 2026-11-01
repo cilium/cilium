@@ -20,6 +20,16 @@ import (
 
 type mapping struct {
 	mapping map[string]*types.Type
+	// undo records what each add replaced while an attempt is in progress,
+	// so that a failed attempt can be rolled back.
+	undo      []undoEntry
+	recording bool
+}
+
+type undoEntry struct {
+	key  string
+	prev *types.Type
+	had  bool
 }
 
 func newMapping() *mapping {
@@ -29,7 +39,32 @@ func newMapping() *mapping {
 }
 
 func (m *mapping) add(from, to *types.Type) {
-	m.mapping[FormatCELType(from)] = to
+	key := FormatCELType(from)
+	if m.recording {
+		prev, had := m.mapping[key]
+		m.undo = append(m.undo, undoEntry{key, prev, had})
+	}
+	m.mapping[key] = to
+}
+
+// attempt runs f against m in place, rolling back what f added if it reports
+// false. Attempts do not nest.
+func (m *mapping) attempt(f func() bool) bool {
+	m.recording = true
+	ok := f()
+	m.recording = false
+	if !ok {
+		for i := len(m.undo) - 1; i >= 0; i-- {
+			e := m.undo[i]
+			if e.had {
+				m.mapping[e.key] = e.prev
+			} else {
+				delete(m.mapping, e.key)
+			}
+		}
+	}
+	m.undo = m.undo[:0]
+	return ok
 }
 
 func (m *mapping) find(from *types.Type) (*types.Type, bool) {
@@ -37,13 +72,4 @@ func (m *mapping) find(from *types.Type) (*types.Type, bool) {
 		return r, found
 	}
 	return nil, false
-}
-
-func (m *mapping) copy() *mapping {
-	c := newMapping()
-
-	for k, v := range m.mapping {
-		c.mapping[k] = v
-	}
-	return c
 }

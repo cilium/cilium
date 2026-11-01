@@ -251,7 +251,9 @@ func maybeOptimizeConstUnary(i InterpretableV2, call InterpretableCall) (Interpr
 	if !isConst {
 		return i, nil
 	}
-	val := call.Eval(EmptyActivation())
+	frame, _ := NewExecutionFrame(EmptyActivation())
+	val := call.Exec(frame)
+	frame.Close()
 	if types.IsError(val) {
 		return nil, val.(*types.Err)
 	}
@@ -265,7 +267,10 @@ func maybeBuildListLiteral(i InterpretableV2, l *evalList) (InterpretableV2, err
 			return i, nil
 		}
 	}
-	return NewConstValue(l.ID(), l.Eval(EmptyActivation())), nil
+	frame, _ := NewExecutionFrame(EmptyActivation())
+	constVal := l.Exec(frame)
+	frame.Close()
+	return NewConstValue(l.ID(), constVal), nil
 }
 
 func maybeBuildMapLiteral(i InterpretableV2, mp *evalMap) (InterpretableV2, error) {
@@ -279,7 +284,10 @@ func maybeBuildMapLiteral(i InterpretableV2, mp *evalMap) (InterpretableV2, erro
 			return i, nil
 		}
 	}
-	return NewConstValue(mp.ID(), mp.Eval(EmptyActivation())), nil
+	frame, _ := NewExecutionFrame(EmptyActivation())
+	constVal := mp.Exec(frame)
+	frame.Close()
+	return NewConstValue(mp.ID(), constVal), nil
 }
 
 // maybeOptimizeSetMembership may convert an 'in' operation against a list to map key membership

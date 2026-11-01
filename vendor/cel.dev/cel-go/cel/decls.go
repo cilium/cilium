@@ -346,6 +346,9 @@ func FunctionBinding(binding functions.FunctionOp) OverloadOpt {
 
 // LateFunctionBinding indicates that the function has a binding which is not known at compile time.
 // This is useful for functions which have side-effects or are not deterministically computable.
+//
+// The implementation is supplied at evaluation time as a LateBoundFunction within an activation
+// created by FunctionVars, and is subject to the same runtime type-guard as an eager binding.
 func LateFunctionBinding() OverloadOpt {
 	return decls.LateFunctionBinding()
 }

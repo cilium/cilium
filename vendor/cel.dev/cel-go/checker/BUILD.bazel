@@ -28,6 +28,7 @@ go_library(
         "//common/cost:go_default_library",
         "//common/debug:go_default_library",
         "//common/decls:go_default_library",
+        "//common/env:go_default_library",
         "//common/operators:go_default_library",
         "//common/overloads:go_default_library",
         "//common/stdlib:go_default_library",
@@ -50,6 +51,7 @@ go_test(
         "cost_test.go",
         "env_test.go",
         "format_test.go",
+        "types_test.go",
     ],
     embed = [
         ":go_default_library",

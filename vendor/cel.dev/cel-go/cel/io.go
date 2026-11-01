@@ -118,18 +118,42 @@ func AstToParsedExpr(a *Ast) (*exprpb.ParsedExpr, error) {
 	}, nil
 }
 
+// ASTFormatOption is a functional option for configuring the output formatting of AstToString and ExprToString.
+type ASTFormatOption func() parser.UnparserOption
+
+// FormatEscapeIdentifiers configures whether non-standard or reserved identifiers are quoted with backticks.
+func FormatEscapeIdentifiers(escape bool) ASTFormatOption {
+	return func() parser.UnparserOption {
+		return parser.EscapeIdentifiers(escape)
+	}
+}
+
+// FormatWrapOnColumn configures expression word-wrapping when the string length exceeds the specified column limit.
+func FormatWrapOnColumn(col int) ASTFormatOption {
+	return func() parser.UnparserOption {
+		return parser.WrapOnColumn(col)
+	}
+}
+
 // AstToString converts an Ast back to a string if possible.
 //
 // Note, the conversion may not be an exact replica of the original expression, but will produce
 // a string that is semantically equivalent and whose textual representation is stable.
-func AstToString(a *Ast) (string, error) {
-	return ExprToString(a.NativeRep().Expr(), a.NativeRep().SourceInfo())
+func AstToString(a *Ast, opts ...ASTFormatOption) (string, error) {
+	if a == nil {
+		return "", errors.New("unsupported expr")
+	}
+	return ExprToString(a.NativeRep().Expr(), a.NativeRep().SourceInfo(), opts...)
 }
 
 // ExprToString converts an AST Expr node back to a string using macro call tracking metadata from
 // source info if any macros are encountered within the expression.
-func ExprToString(e ast.Expr, info *ast.SourceInfo) (string, error) {
-	return parser.Unparse(e, info)
+func ExprToString(e ast.Expr, info *ast.SourceInfo, opts ...ASTFormatOption) (string, error) {
+	unparserOpts := make([]parser.UnparserOption, len(opts))
+	for i, opt := range opts {
+		unparserOpts[i] = opt()
+	}
+	return parser.Unparse(e, info, unparserOpts...)
 }
 
 // RefValueToValue converts between ref.Val and google.api.expr.v1alpha1.Value.

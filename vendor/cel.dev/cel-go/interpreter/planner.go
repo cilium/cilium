@@ -26,6 +26,10 @@ import (
 	"cel.dev/cel-go/common/types/ref"
 )
 
+// mapInsertFunction is the name of the internal function used by comprehension macros to insert
+// key-value pairs into a map accumulator.
+const mapInsertFunction = "cel.@mapInsert"
+
 // newPlanner creates an interpretablePlanner which references a Dispatcher, TypeProvider,
 // TypeAdapter, Container, and CheckedExpr value. These pieces of data are used to resolve
 // functions, types, and namespaced identifiers at plan time rather than at runtime since
@@ -51,15 +55,16 @@ func newPlanner(disp Dispatcher,
 
 // planner is an implementation of the interpretablePlanner interface.
 type planner struct {
-	disp        Dispatcher
-	provider    types.Provider
-	adapter     types.Adapter
-	attrFactory AttributeFactory
-	container   *containers.Container
-	refMap      map[int64]*ast.ReferenceInfo
-	typeMap     map[int64]*types.Type
-	decorators  []InterpretableDecoratorV2
-	observers   []StatefulObserver
+	disp               Dispatcher
+	provider           types.Provider
+	adapter            types.Adapter
+	attrFactory        AttributeFactory
+	container          *containers.Container
+	refMap             map[int64]*ast.ReferenceInfo
+	typeMap            map[int64]*types.Type
+	decorators         []InterpretableDecoratorV2
+	observers          []StatefulObserver
+	costTrackerFactory func() (*CostTracker, error)
 }
 
 type planBuilder struct {
@@ -84,6 +89,9 @@ func (p *planner) Plan(expr ast.Expr) (InterpretableV2, error) {
 	i, err := pb.plan(expr)
 	if err != nil {
 		return nil, err
+	}
+	if p.costTrackerFactory != nil {
+		i = &costTrackingInterpretable{InterpretableV2: i, factory: p.costTrackerFactory}
 	}
 	if len(p.observers) == 0 {
 		return i, nil
@@ -304,6 +312,10 @@ func (p *planBuilder) planCall(expr ast.Expr) (InterpretableV2, error) {
 	if fnDef != nil && fnDef.Async != nil {
 		return p.planCallAsync(expr, fnName, oName, fnDef, args)
 	}
+	// Late-bound overloads are planned into an evalLateBoundFunc regardless of arity.
+	if fnDef != nil && fnDef.LateBound {
+		return p.planCallLateBound(expr, fnName, oName, fnDef, target != nil, args)
+	}
 	switch argCount {
 	case 0:
 		return p.planCallZero(expr, fnName, oName, fnDef)
@@ -324,6 +336,28 @@ func (p *planBuilder) planCall(expr ast.Expr) (InterpretableV2, error) {
 	default:
 		return p.planCallVarArgs(expr, fnName, oName, fnDef, args)
 	}
+}
+
+// planCallLateBound generates a late-bound callable Interpretable.
+func (p *planBuilder) planCallLateBound(expr ast.Expr,
+	function string,
+	overload string,
+	impl *functions.Overload,
+	memberStyle bool,
+	args []InterpretableV2) (InterpretableV2, error) {
+	if impl == nil || !impl.LateBound {
+		return nil, fmt.Errorf("no such overload: %s()", function)
+	}
+	return &evalLateBoundFunc{
+		id:        expr.ID(),
+		function:  function,
+		overload:  overload,
+		args:      args,
+		trait:     impl.OperandTrait,
+		nonStrict: impl.NonStrict,
+		member:    memberStyle,
+		dispatch:  impl.LateBoundDispatch,
+	}, nil
 }
 
 // planCallAsync generates an asynchronous callable Interpretable.
@@ -666,17 +700,115 @@ func (p *planBuilder) planComprehension(expr ast.Expr) (InterpretableV2, error) 
 	}
 	p.popLocalVars(fold.AccuVar())
 	return &evalFold{
-		id:        expr.ID(),
-		accuVar:   fold.AccuVar(),
-		accu:      accu,
-		iterVar:   fold.IterVar(),
-		iterVar2:  fold.IterVar2(),
-		iterRange: iterRange,
-		cond:      cond,
-		step:      step,
-		result:    result,
-		adapter:   p.adapter,
+		id:          expr.ID(),
+		accuVar:     fold.AccuVar(),
+		accu:        accu,
+		iterVar:     fold.IterVar(),
+		iterVar2:    fold.IterVar2(),
+		iterRange:   iterRange,
+		cond:        cond,
+		step:        step,
+		result:      result,
+		adapter:     p.adapter,
+		mutableAccu: isMutableAccuSafe(fold),
 	}, nil
+}
+
+// isMutableAccuSafe reports whether the comprehension accumulator may be backed by a mutable
+// list or map during evaluation.
+//
+// The checks mirror cel-cpp's IsOptimizableListAppend and IsOptimizableMapInsert in
+// eval/compiler/flat_expr_builder.cc: the comprehension must have the shape of a standard
+// list-building (map/filter/transformList) or map-building (transformMap/transformMapEntry)
+// macro expansion.
+//
+// In addition to the cel-cpp checks, the accumulator variable must be non-empty, must not be
+// shadowed by either of the iteration variables, and must begin with '@'. Since '@' cannot
+// appear in an identifier written in CEL source, for ASTs produced by the parser and macros this
+// ensures that the accumulator is only referenced where the macro expansion placed it and cannot
+// be observed or modified by user expressions within the comprehension, e.g. via a legacy
+// accumulator name like `__result__` or a custom macro which uses a user-visible accumulator
+// name. Hand-crafted ASTs are assumed to be trusted input.
+func isMutableAccuSafe(fold ast.ComprehensionExpr) bool {
+	accuVar := fold.AccuVar()
+	if !strings.HasPrefix(accuVar, "@") || accuVar == fold.IterVar() || accuVar == fold.IterVar2() {
+		return false
+	}
+	return isOptimizableListAppend(fold) || isOptimizableMapInsert(fold)
+}
+
+// isOptimizableListAppend mirrors cel-cpp's IsOptimizableListAppend.
+//
+// Returns whether this comprehension appears to be a standard map/filter macro implementation.
+func isOptimizableListAppend(fold ast.ComprehensionExpr) bool {
+	accuVar := fold.AccuVar()
+	if accuVar == "" || !isIdentNamed(fold.Result(), accuVar) {
+		return false
+	}
+	accuInit := fold.AccuInit()
+	if accuInit.Kind() != ast.ListKind || accuInit.AsList().Size() != 0 {
+		return false
+	}
+	step := fold.LoopStep()
+	if step.Kind() != ast.CallKind {
+		return false
+	}
+	// Macro loop_step for a filter() will contain a ternary:
+	//   filter ? accu_var + [elem] : accu_var
+	// Macro loop_step for a map() will contain a list concat operation:
+	//   accu_var + [elem]
+	call := step.AsCall()
+	if call.FunctionName() == operators.Conditional && len(call.Args()) == 3 {
+		branch := call.Args()[1]
+		if branch.Kind() != ast.CallKind {
+			return false
+		}
+		call = branch.AsCall()
+	}
+	args := call.Args()
+	return call.FunctionName() == operators.Add &&
+		len(args) == 2 &&
+		isIdentNamed(args[0], accuVar) &&
+		args[1].Kind() == ast.ListKind &&
+		args[1].AsList().Size() == 1
+}
+
+// isOptimizableMapInsert mirrors cel-cpp's IsOptimizableMapInsert.
+//
+// Returns whether this comprehension appears to be a macro implementation for map
+// transformations.
+func isOptimizableMapInsert(fold ast.ComprehensionExpr) bool {
+	if fold.IterVar() == "" || fold.IterVar2() == "" {
+		return false
+	}
+	accuVar := fold.AccuVar()
+	if accuVar == "" || !isIdentNamed(fold.Result(), accuVar) {
+		return false
+	}
+	if fold.AccuInit().Kind() != ast.MapKind || fold.AccuInit().AsMap().Size() != 0 {
+		return false
+	}
+	step := fold.LoopStep()
+	if step.Kind() != ast.CallKind {
+		return false
+	}
+	call := step.AsCall()
+	if call.FunctionName() == operators.Conditional && len(call.Args()) == 3 {
+		branch := call.Args()[1]
+		if branch.Kind() != ast.CallKind {
+			return false
+		}
+		call = branch.AsCall()
+	}
+	args := call.Args()
+	return call.FunctionName() == mapInsertFunction &&
+		(len(args) == 2 || len(args) == 3) &&
+		isIdentNamed(args[0], accuVar)
+}
+
+// isIdentNamed reports whether the expression is an identifier with the given name.
+func isIdentNamed(e ast.Expr, name string) bool {
+	return e != nil && e.Kind() == ast.IdentKind && e.AsIdent() == name
 }
 
 // planConst generates a constant valued Interpretable.

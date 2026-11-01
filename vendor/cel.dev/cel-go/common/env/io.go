@@ -15,37 +15,125 @@
 package env
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"reflect"
+	"strings"
 
 	"go.yaml.in/yaml/v3"
 )
 
-type internalTypeDesc struct {
-	TypeName    string      `yaml:"type_name"`
-	Params      []*TypeDesc `yaml:"params,omitempty"`
-	IsTypeParam bool        `yaml:"is_type_param,omitempty"`
+// YAML and JSON Serialization Methodology:
+//
+// Several Config sub-types support both structured object representations and shorthand/alias
+// forms when decoding (e.g., TypeDesc specifier strings like "map<string, int>", scalar Overload
+// IDs, "type" aliases on ContextVariable, and inline vs nested TypeDesc fields on Variable), while
+// normalizing to canonical shorthand representations when encoding.
+//
+// To keep YAML and JSON handling symmetric while satisfying each library's canonical interfaces:
+//
+//  1. Unmarshaling: Each customized type implements an internal `unmarshal(func(any) error) error`
+//     method that decodes into a parallel internal struct (avoiding recursive Unmarshaler loops).
+//     - `UnmarshalYAML(unmarshal func(any) error) error` passes the active `yaml.v3` decoder
+//       closure directly to `unmarshal(...)`. Using the `func(any) error` signature (rather than
+//       `UnmarshalYAML(*yaml.Node)`) preserves the outer `yaml.Decoder`'s `KnownFields` setting
+//       when `StrictDecoding(true)` is enabled, whereas `(*yaml.Node).Decode` constructs a fresh
+//       decoder with `KnownFields` disabled.
+//     - `UnmarshalJSON(data []byte) error` satisfies `encoding/json.Unmarshaler` and adapts
+//       `json.Unmarshal` to the same `func(any) error` signature via `jsonUnmarshaler(data)`.
+//
+//  2. Marshaling: Types that require custom output formatting (`Variable` and `TypeDesc`) implement
+//     an internal `marshal() any` method returning the canonical value to serialize:
+//     - `MarshalYAML() (any, error)` returns `marshal(), nil` for `yaml.v3` to encode.
+//     - `MarshalJSON() ([]byte, error)` encodes `marshal()` via `marshalJSONNoEscape` so type
+//       specifier brackets (`<`, `>`) are not HTML-escaped.
+//     - `Variable` requires an explicit marshaler because it embeds `*TypeDesc` (`yaml:",inline"`),
+//       and `yaml.v3` omits inlined structs that implement `Unmarshaler` during `yaml.Marshal`
+//       (while `encoding/json` would otherwise promote `TypeDesc.MarshalJSON` to `Variable`).
+//       Delegating `Variable.marshal()` to `&internalVariable{..., Type: v.GetType()}` allows both
+//       `yaml.v3` and `encoding/json` to invoke `TypeDesc`'s respective marshaler on `Type`.
+
+type internalContextVariable struct {
+	Type     string `yaml:"type,omitempty" json:"type,omitempty"`
+	TypeName string `yaml:"type_name,omitempty" json:"typeName,omitempty"`
 }
+
+type internalOverload Overload
+
+type internalTypeDesc TypeDesc
 
 // Embedding TypeDesc in variable causes issues with customizing
 // unmarshalling / marshalling. Work around with a parallel type.
 type internalVariable struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description,omitempty"`
-
-	// Type represents the type declaration for the variable.
-	Type *TypeDesc `yaml:"type,omitempty"`
-
-	TypeName    string      `yaml:"type_name"`
-	Params      []*TypeDesc `yaml:"params,omitempty"`
-	IsTypeParam bool        `yaml:"is_type_param,omitempty"`
+	Name        string      `yaml:"name" json:"name"`
+	Description string      `yaml:"description,omitempty" json:"description,omitempty"`
+	Type        *TypeDesc   `yaml:"type,omitempty" json:"type,omitempty"`
+	TypeName    string      `yaml:"type_name,omitempty" json:"typeName,omitempty"`
+	Params      []*TypeDesc `yaml:"params,omitempty" json:"params,omitempty"`
+	IsTypeParam bool        `yaml:"is_type_param,omitempty" json:"isTypeParam,omitempty"`
 }
 
-// UnmarshalYAML implements yaml.Unmarshal
-func (v *Variable) UnmarshalYAML(n *yaml.Node) error {
-	buf := internalVariable{}
-	err := n.Decode(&buf)
-	if err != nil {
+type internalValidator Validator
+
+func jsonUnmarshaler(data []byte) func(any) error {
+	return func(v any) error {
+		return json.Unmarshal(data, v)
+	}
+}
+
+func (ctx *ContextVariable) unmarshal(unmarshal func(any) error) error {
+	var buf internalContextVariable
+	if err := unmarshal(&buf); err != nil {
+		return err
+	}
+	if buf.TypeName != "" {
+		ctx.TypeName = buf.TypeName
+	} else if buf.Type != "" {
+		ctx.TypeName = buf.Type
+	}
+	return nil
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler.
+func (ctx *ContextVariable) UnmarshalYAML(unmarshal func(any) error) error {
+	return ctx.unmarshal(unmarshal)
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (ctx *ContextVariable) UnmarshalJSON(data []byte) error {
+	return ctx.unmarshal(jsonUnmarshaler(data))
+}
+
+func (od *Overload) unmarshal(unmarshal func(any) error) error {
+	var id string
+	if err := unmarshal(&id); err == nil {
+		od.ID = id
+		return nil
+	}
+	var buf internalOverload
+	if err := unmarshal(&buf); err != nil {
+		return fmt.Errorf("unsupported overload encoding: %w", err)
+	}
+	*od = Overload(buf)
+	return nil
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler.
+func (od *Overload) UnmarshalYAML(unmarshal func(any) error) error {
+	return od.unmarshal(unmarshal)
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (od *Overload) UnmarshalJSON(data []byte) error {
+	return od.unmarshal(jsonUnmarshaler(data))
+}
+
+func (v *Variable) unmarshal(unmarshal func(any) error) error {
+	var buf internalVariable
+	if err := unmarshal(&buf); err != nil {
 		return err
 	}
 	v.Name = buf.Name
@@ -62,49 +150,101 @@ func (v *Variable) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-// MarshalYAML implements yaml.Marshaler
-func (v *Variable) MarshalYAML() (any, error) {
-	// The presence of an unmarshaller alters the default marshaller behavior so
-	// provide a simple marshal implementation.
-	buf := internalVariable{
-		Name:        v.Name,
-		Description: v.Description,
-	}
-	if t := v.GetType(); t != nil {
-		buf.TypeName = t.TypeName
-		buf.Params = t.Params
-		buf.IsTypeParam = t.IsTypeParam
-	}
-	return &buf, nil
+// UnmarshalYAML implements yaml.Unmarshaler.
+func (v *Variable) UnmarshalYAML(unmarshal func(any) error) error {
+	return v.unmarshal(unmarshal)
 }
 
-// UnmarshalYAML implements yaml.Unmarshaler
-func (td *TypeDesc) UnmarshalYAML(n *yaml.Node) error {
-	if td == nil {
-		return fmt.Errorf("unexpected Unmarshal for TypeDesc at: %d", n.Line)
+// UnmarshalJSON implements json.Unmarshaler.
+func (v *Variable) UnmarshalJSON(data []byte) error {
+	return v.unmarshal(jsonUnmarshaler(data))
+}
+
+func (v *Variable) marshal() any {
+	return &internalVariable{
+		Name:        v.Name,
+		Description: v.Description,
+		Type:        v.GetType(),
 	}
-	if n.Kind == yaml.ScalarNode {
-		o, err := ParseTypeDesc(n.Value)
+}
+
+// MarshalYAML implements yaml.Marshaler.
+func (v *Variable) MarshalYAML() (any, error) {
+	return v.marshal(), nil
+}
+
+// MarshalJSON implements json.Marshaler.
+func (v *Variable) MarshalJSON() ([]byte, error) {
+	return marshalJSONNoEscape(v.marshal(), "")
+}
+
+func (td *TypeDesc) unmarshal(unmarshal func(any) error) error {
+	var str string
+	if err := unmarshal(&str); err == nil {
+		o, err := ParseTypeDesc(str)
 		if err != nil {
 			return err
 		}
 		*td = *o
 		return nil
 	}
-
-	if n.Kind != yaml.MappingNode {
-		return errors.New("unsupported yaml for TypeDesc")
+	var buf internalTypeDesc
+	if err := unmarshal(&buf); err != nil {
+		return fmt.Errorf("unsupported type description encoding: %w", err)
 	}
+	*td = TypeDesc(buf)
+	return nil
+}
 
-	buf := internalTypeDesc{}
-	err := n.Decode(&buf)
-	if err != nil {
+// UnmarshalYAML implements yaml.Unmarshaler.
+func (td *TypeDesc) UnmarshalYAML(unmarshal func(any) error) error {
+	return td.unmarshal(unmarshal)
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (td *TypeDesc) UnmarshalJSON(data []byte) error {
+	return td.unmarshal(jsonUnmarshaler(data))
+}
+
+func (td *TypeDesc) marshal() any {
+	if td == nil {
+		return nil
+	}
+	return td.SpecifierFormat()
+}
+
+// MarshalYAML implements yaml.Marshaler.
+func (td *TypeDesc) MarshalYAML() (any, error) {
+	return td.marshal(), nil
+}
+
+// MarshalJSON implements json.Marshaler.
+func (td *TypeDesc) MarshalJSON() ([]byte, error) {
+	return marshalJSONNoEscape(td.marshal(), "")
+}
+
+func (v *Validator) unmarshal(unmarshal func(any) error) error {
+	var buf internalValidator
+	if err := unmarshal(&buf); err != nil {
 		return err
 	}
-	td.TypeName = buf.TypeName
-	td.Params = buf.Params
-	td.IsTypeParam = buf.IsTypeParam
+	for k, val := range buf.Config {
+		if num, ok := val.(float64); ok && num == float64(int(num)) {
+			buf.Config[k] = int(num)
+		}
+	}
+	*v = Validator(buf)
 	return nil
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler.
+func (v *Validator) UnmarshalYAML(unmarshal func(any) error) error {
+	return v.unmarshal(unmarshal)
+}
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (v *Validator) UnmarshalJSON(data []byte) error {
+	return v.unmarshal(jsonUnmarshaler(data))
 }
 
 type typeDescParser struct {
@@ -251,6 +391,68 @@ func isAlphaNumeric(c byte) bool {
 	return isAlpha(c) || (c >= '0' && c <= '9')
 }
 
+// DecodeOption configures how an environment Config is decoded from YAML or JSON.
+type DecodeOption func(*decodeOptions)
+
+type decodeOptions struct {
+	strict bool
+}
+
+// StrictDecoding configures whether unknown fields in the YAML or JSON input cause a decoding error.
+// By default, unknown fields are ignored.
+func StrictDecoding(strict bool) DecodeOption {
+	return func(opts *decodeOptions) {
+		opts.strict = strict
+	}
+}
+
+func validateStrictJSON(v any, t reflect.Type) error {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	switch val := v.(type) {
+	case []any:
+		if t.Kind() == reflect.Slice {
+			for _, elem := range val {
+				if err := validateStrictJSON(elem, t.Elem()); err != nil {
+					return err
+				}
+			}
+		}
+	case map[string]any:
+		switch t {
+		case reflect.TypeFor[ContextVariable]():
+			t = reflect.TypeFor[internalContextVariable]()
+		case reflect.TypeFor[Variable]():
+			t = reflect.TypeFor[internalVariable]()
+		}
+		if t.Kind() != reflect.Struct {
+			return nil
+		}
+		for k, child := range val {
+			ft, ok := jsonFieldType(t, k)
+			if !ok {
+				return fmt.Errorf("json: unknown field %q", k)
+			}
+			if err := validateStrictJSON(child, ft); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func jsonFieldType(t reflect.Type, name string) (reflect.Type, bool) {
+	for i := range t.NumField() {
+		f := t.Field(i)
+		tag, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		if tag == name {
+			return f.Type, true
+		}
+	}
+	return nil, false
+}
+
 // ConfigFromYAML returns a config from YAML source.
 //
 // Adds custom parsing logic for normalizing shorthand for specifiying some fields
@@ -258,11 +460,16 @@ func isAlphaNumeric(c byte) bool {
 //
 // Using yaml.Unmarshal with any implementation should be sufficient for most
 // cases.
-func ConfigFromYAML(data []byte) (*Config, error) {
+func ConfigFromYAML(data []byte, opts ...DecodeOption) (*Config, error) {
+	dOpts := &decodeOptions{}
+	for _, opt := range opts {
+		opt(dOpts)
+	}
 	c := &Config{}
-	e := yaml.Unmarshal(data, c)
-	if e != nil {
-		return nil, e
+	dec := yaml.NewDecoder(bytes.NewReader(data))
+	dec.KnownFields(dOpts.strict)
+	if err := dec.Decode(c); err != nil && !errors.Is(err, io.EOF) {
+		return nil, err
 	}
 	return c, nil
 }
@@ -272,4 +479,50 @@ func ConfigFromYAML(data []byte) (*Config, error) {
 // Provided as a convenience wrapper around a tested YAML Marshaler.
 func ConfigToYAML(c *Config) ([]byte, error) {
 	return yaml.Marshal(c)
+}
+
+// ConfigFromJSON returns a config from JSON source.
+//
+// Adds custom parsing logic for normalizing shorthand for specifying some fields
+// in a JSON document (mainly the type-specifier shorthand).
+//
+// Using json.Unmarshal with any implementation should be sufficient for most
+// cases.
+func ConfigFromJSON(data []byte, opts ...DecodeOption) (*Config, error) {
+	dOpts := &decodeOptions{}
+	for _, opt := range opts {
+		opt(dOpts)
+	}
+	c := &Config{}
+	if err := json.Unmarshal(data, c); err != nil {
+		return nil, err
+	}
+	if dOpts.strict {
+		var raw any
+		_ = json.Unmarshal(data, &raw)
+		if err := validateStrictJSON(raw, reflect.TypeFor[Config]()); err != nil {
+			return nil, err
+		}
+	}
+	return c, nil
+}
+
+// ConfigToJSON returns the config serialized to JSON
+//
+// Provided as a convenience wrapper around a tested JSON Marshaler.
+func ConfigToJSON(c *Config) ([]byte, error) {
+	return marshalJSONNoEscape(c, "  ")
+}
+
+func marshalJSONNoEscape(v any, indent string) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if indent != "" {
+		enc.SetIndent("", indent)
+	}
+	if err := enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(buf.Bytes(), []byte("\n")), nil
 }

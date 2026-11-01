@@ -16,25 +16,39 @@ package common
 
 const (
 	// SelectAndIdentCost is the cost of an operation that accesses an identifier or performs a select.
+	//
+	// Deprecated: use cost.SelectAndIdentCost
 	SelectAndIdentCost = 1
 
 	// ConstCost is the cost of an operation that accesses a constant.
+	//
+	// Deprecated: use cost.ConstCost
 	ConstCost = 0
 
 	// ListCreateBaseCost is the base cost of any operation that creates a new list.
+	//
+	// Deprecated: use cost.ListCreateBaseCost
 	ListCreateBaseCost = 10
 
 	// MapCreateBaseCost is the base cost of any operation that creates a new map.
+	//
+	// Deprecated: use cost.MapCreateBaseCost
 	MapCreateBaseCost = 30
 
 	// StructCreateBaseCost is the base cost of any operation that creates a new struct.
+	//
+	// Deprecated: use cost.StructCreateBaseCost
 	StructCreateBaseCost = 40
 
 	// StringTraversalCostFactor is multiplied to a length of a string when computing the cost of traversing the entire
 	// string once.
+	//
+	// Deprecated: use cost.StringTraversalCostFactor
 	StringTraversalCostFactor = 0.1
 
-	// RegexStringLengthCostFactor is multiplied ot the length of a regex string pattern when computing the cost of
+	// RegexStringLengthCostFactor is multiplied to the length of a regex string pattern when computing the cost of
 	// applying the regex to a string of unit cost.
+	//
+	// Deprecated: use cost.RegexStringLengthCostFactor
 	RegexStringLengthCostFactor = 0.25
 )

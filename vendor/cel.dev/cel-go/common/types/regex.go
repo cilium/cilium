@@ -26,7 +26,7 @@ func RegexProgramSize(pattern string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	prog, err := syntax.Compile(re)
+	prog, err := syntax.Compile(re.Simplify())
 	if err != nil {
 		return 0, err
 	}

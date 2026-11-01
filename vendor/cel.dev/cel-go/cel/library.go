@@ -20,6 +20,7 @@ import (
 
 	"cel.dev/cel-go/common"
 	"cel.dev/cel-go/common/ast"
+	"cel.dev/cel-go/common/cost"
 	"cel.dev/cel-go/common/decls"
 	"cel.dev/cel-go/common/env"
 	"cel.dev/cel-go/common/operators"
@@ -42,8 +43,11 @@ const (
 	optionalOfNonZeroValueFunc = "optional.ofNonZeroValue"
 	optionalUnwrapFunc         = "optional.unwrap"
 	valueFunc                  = "value"
-	unusedIterVar              = "#unused"
-	targetVar                  = "@target"
+
+	optionalHasValueValueOverload = "optional_hasValue_value"
+
+	unusedIterVar = "#unused"
+	targetVar     = "@target"
 )
 
 // Library provides a collection of EnvOption and ProgramOption values used to configure a CEL
@@ -87,6 +91,11 @@ type LibrarySubsetter interface {
 // If not implemented, the library version will be flagged as 'latest' during environment serialization.
 type LibraryVersioner interface {
 	LibraryVersion() uint32
+}
+
+// LibraryCataloguer provides catalog symbols exported by the library when it is not enabled.
+type LibraryCataloguer interface {
+	CatalogSymbols() []*env.CatalogSymbol
 }
 
 // Lib creates an EnvOption out of a Library, allowing libraries to be provided as functional args,
@@ -315,24 +324,38 @@ func (*stdLibrary) ProgramOptions() []ProgramOption {
 //
 // # OptMap
 //
-// Apply a transformation to the optional's underlying value if it is not empty
-// and return an optional typed result based on the transformation. The
-// transformation expression type must return a type T which is wrapped into
-// an optional.
+// Applies a transformation to the optional's value if it holds one, and wraps the
+// result in an optional. An optional which holds no value is returned unchanged.
+// Starting in **OptionalTypes library version 4**, `optMap` avoids evaluating
+// complex target expressions more than once. The change for more efficient
+// evaluation alters the cost model in a backward incompatible manner, hence
+// the versioned rollout.
 //
-//	msg.?elements.optMap(e, e.size()).orValue(0)
+//	<optional(T)>.optMap(<varName>, <expr>) -> <optional(U)>
+//
+// Examples:
+//
+//	optional.of(2).optMap(i, i * 2).value() == 4
+//	optional.none().optMap(i, i * 2) == optional.none()
 //
 // # OptFlatMap
 //
 // Introduced in version: 1
 //
-// Apply a transformation to the optional's underlying value if it is not empty
-// and return the result. The transform expression must return an optional(T)
-// rather than type T. This can be useful when dealing with zero values and
-// conditionally generating an empty or non-empty result in ways which cannot
-// be expressed with `optMap`.
+// Applies a transformation to the optional's value if it holds one, and returns
+// the result. Unlike `optMap`, the transformation must itself produce an
+// optional, which makes it possible to express results that may be empty in ways
+// `optMap` cannot. Starting in **OptionalTypes library version 4**, `optFlatMap`
+// avoids evaluating complex target expressions more than once. The change for more
+// efficient evaluation alters the cost model in a backward incompatible manner,
+// hence the versioned rollout.
 //
-//	msg.?elements.optFlatMap(e, e[?0]) // return the first element if present.
+//	<optional(T)>.optFlatMap(<varName>, <expr>) -> <optional(U)>
+//
+// Examples:
+//
+//	{'key': {'sub': 'value'}}.?key.optFlatMap(k, k.?sub).value() == 'value'
+//	{'key': {}}.?key.optFlatMap(k, k.?sub) == optional.none()
 //
 // # First
 //
@@ -341,7 +364,7 @@ func (*stdLibrary) ProgramOptions() []ProgramOption {
 // Returns an optional with the first value from the right hand list, or
 // optional.None.
 //
-// [1, 2, 3].first().value() == 1
+//	[1, 2, 3].first().value() == 1
 //
 // # Last
 //
@@ -350,7 +373,7 @@ func (*stdLibrary) ProgramOptions() []ProgramOption {
 // Returns an optional with the last value from the right hand list, or
 // optional.None.
 //
-// [1, 2, 3].last().value() == 3
+//	[1, 2, 3].last().value() == 3
 //
 // This is syntactic sugar for msg.elements[msg.elements.size()-1].
 //
@@ -363,6 +386,27 @@ func (*stdLibrary) ProgramOptions() []ProgramOption {
 //
 // optional.unwrap([optional.of(42), optional.none()]) == [42]
 // [optional.of(42), optional.none()].unwrapOpt() == [42]
+//
+// # HasValue with a value argument
+//
+// Introduced in version: 3
+//
+// Determine whether the optional contains a value equal to the argument, which
+// is equivalent to the expression `opt.hasValue() ? opt.value() == v : false`.
+//
+//	optional.of(42).hasValue(42) // true
+//	optional.of(42).hasValue(21) // false
+//	optional.none().hasValue(42) // false
+//
+// The argument is compared against the value held by the optional and is never
+// unwrapped, so an optional_type(T) argument is only equal to the value of an
+// optional_type(optional_type(T)). The type-checker enforces this agreement,
+// but when the argument is dyn-typed the comparison is deferred to runtime
+// where a type mismatch evaluates to false, just as it would for `==`.
+//
+//	optional.of(optional.of(42)).hasValue(optional.of(42)) // true
+//	optional.of(42).hasValue(dyn(optional.of(42)))         // false
+//	optional.of(42).hasValue(dyn(42))                      // true
 func OptionalTypes(opts ...OptionalTypesOption) EnvOption {
 	lib := &optionalLib{version: math.MaxUint32}
 	for _, opt := range opts {
@@ -409,6 +453,60 @@ func (lib *optionalLib) LibraryVersion() uint32 {
 	return lib.version
 }
 
+// CatalogSymbols implements the LibraryCataloguer interface method.
+func (*optionalLib) CatalogSymbols() []*env.CatalogSymbol {
+	return []*env.CatalogSymbol{
+		{
+			Name:    "optional",
+			Kind:    env.NamespaceKind,
+			Library: "cel.lib.optional",
+			Option:  "cel.OptionalTypes()",
+		},
+		{
+			Name:    "optional_type",
+			Kind:    env.TypeKind,
+			Library: "cel.lib.optional",
+			Option:  "cel.OptionalTypes()",
+		},
+		{
+			Name:    optionalNoneFunc,
+			Kind:    env.FunctionKind,
+			Library: "cel.lib.optional",
+			Option:  "cel.OptionalTypes()",
+		},
+		{
+			Name:    optionalOfFunc,
+			Kind:    env.FunctionKind,
+			Library: "cel.lib.optional",
+			Option:  "cel.OptionalTypes()",
+		},
+		{
+			Name:    optionalOfNonZeroValueFunc,
+			Kind:    env.FunctionKind,
+			Library: "cel.lib.optional",
+			Option:  "cel.OptionalTypes()",
+		},
+		{
+			Name:    optMapMacro,
+			Kind:    env.MacroKind,
+			Library: "cel.lib.optional",
+			Option:  "cel.OptionalTypes()",
+		},
+		{
+			Name:    optFlatMapMacro,
+			Kind:    env.MacroKind,
+			Library: "cel.lib.optional",
+			Option:  "cel.OptionalTypes()",
+		},
+		{
+			Name:    "optSelect",
+			Kind:    env.MacroKind,
+			Library: "cel.lib.optional",
+			Option:  "cel.OptionalTypes()",
+		},
+	}
+}
+
 // CompileOptions implements the Library interface method.
 func (lib *optionalLib) CompileOptions() []EnvOption {
 	paramTypeK := TypeParamType("K")
@@ -418,6 +516,11 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 	mapTypeKV := MapType(paramTypeK, paramTypeV)
 	listOptionalTypeV := ListType(optionalTypeV)
 
+	optMapMacroExpander := optMap
+	if lib.version >= 4 {
+		optMapMacroExpander = optMapV2
+	}
+
 	opts := []EnvOption{
 		// Enable the optional syntax in the parser.
 		enableOptionalSyntax(),
@@ -426,7 +529,7 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 		Types(types.OptionalType),
 
 		// Configure the optMap and optFlatMap macros.
-		Macros(ReceiverMacro(optMapMacro, 2, optMap,
+		Macros(ReceiverMacro(optMapMacro, 2, optMapMacroExpander,
 			MacroDocs(`perform computation on the value if present and return the result as an optional`),
 			MacroExamples(
 				common.MultilineDescription(
@@ -458,7 +561,7 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 				}))),
 		Function(optionalNoneFunc,
 			FunctionDocs(`singleton value representing an optional without a value`),
-			Overload("optional_none", []*Type{}, optionalTypeV,
+			Overload(overloads.OptionalNone, []*Type{}, optionalTypeV,
 				OverloadExamples(`optional.none()`),
 				FunctionBinding(func(values ...ref.Val) ref.Val {
 					return types.OptionalNone
@@ -530,7 +633,11 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 			Overload("optional_map_index_value", []*Type{OptionalType(mapTypeKV), paramTypeK}, optionalTypeV)),
 	}
 	if lib.version >= 1 {
-		opts = append(opts, Macros(ReceiverMacro(optFlatMapMacro, 2, optFlatMap,
+		optFlatMapMacroExpander := optFlatMap
+		if lib.version >= 4 {
+			optFlatMapMacroExpander = optFlatMapV2
+		}
+		opts = append(opts, Macros(ReceiverMacro(optFlatMapMacro, 2, optFlatMapMacroExpander,
 			MacroDocs(`perform computation on the value if present and produce an optional value within the computation`),
 			MacroExamples(
 				common.MultilineDescription(
@@ -589,14 +696,108 @@ func (lib *optionalLib) CompileOptions() []EnvOption {
 				UnaryBinding(optUnwrap))))
 	}
 
+	if lib.version >= 3 {
+		opts = append(opts, Function(hasValueFunc,
+			MemberOverload(optionalHasValueValueOverload, []*Type{optionalTypeV, paramTypeV}, BoolType,
+				OverloadExamples(
+					`optional.of(1).hasValue(1) // true`,
+					`optional.of(1).hasValue(2) // false`,
+					`optional.none().hasValue(1) // false`,
+					common.MultilineDescription(
+						`// the argument is compared against the optional's value, and is not unwrapped`,
+						`optional.of(1).hasValue(dyn(optional.of(1))) // false`,
+						`optional.of(optional.of(1)).hasValue(optional.of(1)) // true`)),
+				BinaryBinding(func(value, other ref.Val) ref.Val {
+					opt := value.(*types.Optional)
+					if !opt.HasValue() {
+						return types.False
+					}
+					return types.Equal(opt.GetValue(), other)
+				}))))
+		opts = append(opts, CostEstimatorOptions(
+			cost.OverloadCostEstimate(optionalHasValueValueOverload, estimateOptionalHasValue)))
+	}
+
 	return opts
 }
 
 // ProgramOptions implements the Library interface method.
 func (lib *optionalLib) ProgramOptions() []ProgramOption {
-	return []ProgramOption{
+	opts := []ProgramOption{
 		CustomDecoratorV2(decorateOptionalOr),
 	}
+	if lib.version >= 3 {
+		opts = append(opts, CostTrackerOptions(
+			cost.OverloadTracker(optionalHasValueValueOverload, trackOptionalHasValue)))
+	}
+	return opts
+}
+
+// estimateOptionalHasValue estimates the cost of comparing an optional's value against the input
+// argument.
+//
+// The overload is sugar for 'opt.hasValue() ? opt.value() == v : false' where the equality check
+// dominates the cost, so the estimate mirrors the O(min(m, n)) cost of an equality comparison.
+func estimateOptionalHasValue(estimator cost.Estimator, target *cost.AstNode, args []cost.AstNode) *cost.CallEstimate {
+	if target == nil || len(args) != 1 {
+		return nil
+	}
+	optSize := sizeOrUnknown(*target)
+	argSize := sizeOrUnknown(args[0])
+	smallestMax := optSize.Max
+	if argSize.Max < smallestMax {
+		smallestMax = argSize.Max
+	}
+	minCost := uint64(0)
+	if smallestMax > 0 {
+		// equality of 2 scalar values results in a cost of 1
+		minCost = 1
+	}
+	return &cost.CallEstimate{
+		CostEstimate: cost.CostEstimate{Min: minCost, Max: smallestMax}.
+			MultiplyByCostFactor(cost.StringTraversalCostFactor),
+	}
+}
+
+// sizeOrUnknown returns the size estimate computed for the node, or an unknown size if the node
+// size could not be determined at check time.
+func sizeOrUnknown(node cost.AstNode) cost.SizeEstimate {
+	if sz := node.ComputedSize(); sz != nil {
+		return *sz
+	}
+	return cost.UnknownSizeEstimate()
+}
+
+// trackOptionalHasValue computes the runtime cost of comparing an optional's value against the
+// input argument, which is bounded by the size of the smaller of the two values.
+func trackOptionalHasValue(args []ref.Val, result ref.Val) *uint64 {
+	if len(args) != 2 {
+		return nil
+	}
+	callCost := cost.SafeMultiplyByFactor(
+		min(optionalValueSize(args[0]), optionalValueSize(args[1])), cost.StringTraversalCostFactor)
+	return &callCost
+}
+
+// optionalValueSize returns the size of the value being compared, unwrapping nested optional
+// values to the value they contain, and reporting a size of 1 for values which are not sizable.
+func optionalValueSize(value ref.Val) uint64 {
+	for {
+		opt, isOpt := value.(*types.Optional)
+		if !isOpt {
+			break
+		}
+		if !opt.HasValue() {
+			return 1
+		}
+		value = opt.GetValue()
+	}
+	if sizer, isSizer := value.(traits.Sizer); isSizer {
+		if sz, isInt := sizer.Size().(types.Int); isInt {
+			return uint64(sz)
+		}
+	}
+	return 1
 }
 
 // Version returns the current version of the library.
@@ -605,6 +806,34 @@ func (lib *optionalLib) Version() uint32 {
 }
 
 func optMap(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *Error) {
+	varIdent := args[0]
+	varName := ""
+	switch varIdent.Kind() {
+	case ast.IdentKind:
+		varName = varIdent.AsIdent()
+	default:
+		return nil, meh.NewError(varIdent.ID(), "optMap() variable name must be a simple identifier")
+	}
+	mapExpr := args[1]
+	return meh.NewCall(
+		operators.Conditional,
+		meh.NewMemberCall(hasValueFunc, target),
+		meh.NewCall(optionalOfFunc,
+			meh.NewComprehension(
+				meh.NewList(),
+				unusedIterVar,
+				varName,
+				meh.NewMemberCall(valueFunc, meh.Copy(target)),
+				meh.NewLiteral(types.False),
+				meh.NewIdent(varName),
+				mapExpr,
+			),
+		),
+		meh.NewCall(optionalNoneFunc),
+	), nil
+}
+
+func optMapV2(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *Error) {
 	varIdent := args[0]
 	varName := ""
 	switch varIdent.Kind() {
@@ -649,6 +878,32 @@ func optMap(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *
 }
 
 func optFlatMap(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *Error) {
+	varIdent := args[0]
+	varName := ""
+	switch varIdent.Kind() {
+	case ast.IdentKind:
+		varName = varIdent.AsIdent()
+	default:
+		return nil, meh.NewError(varIdent.ID(), "optFlatMap() variable name must be a simple identifier")
+	}
+	mapExpr := args[1]
+	return meh.NewCall(
+		operators.Conditional,
+		meh.NewMemberCall(hasValueFunc, target),
+		meh.NewComprehension(
+			meh.NewList(),
+			unusedIterVar,
+			varName,
+			meh.NewMemberCall(valueFunc, meh.Copy(target)),
+			meh.NewLiteral(types.False),
+			meh.NewIdent(varName),
+			mapExpr,
+		),
+		meh.NewCall(optionalNoneFunc),
+	), nil
+}
+
+func optFlatMapV2(meh MacroExprFactory, target ast.Expr, args []ast.Expr) (ast.Expr, *Error) {
 	varIdent := args[0]
 	varName := ""
 	switch varIdent.Kind() {
@@ -785,7 +1040,7 @@ func (opt *evalOptionalOr) Exec(frame *interpreter.ExecutionFrame) ref.Val {
 // Eval evaluates the left-hand side optional to determine whether it contains a value, else
 // proceeds with the right-hand side evaluation.
 func (opt *evalOptionalOr) Eval(ctx interpreter.Activation) ref.Val {
-	return opt.Exec(interpreter.AsFrame(ctx))
+	return interpreter.EvalActivation(ctx, opt.Exec)
 }
 
 // evalOptionalOrValue selects between an optional or a concrete value. If the optional has a value,
@@ -821,7 +1076,7 @@ func (opt *evalOptionalOrValue) Exec(frame *interpreter.ExecutionFrame) ref.Val 
 // Eval evaluates the left-hand side optional to determine whether it contains a value, else
 // proceeds with the right-hand side evaluation.
 func (opt *evalOptionalOrValue) Eval(ctx interpreter.Activation) ref.Val {
-	return opt.Exec(interpreter.AsFrame(ctx))
+	return interpreter.EvalActivation(ctx, opt.Exec)
 }
 
 type timeLegacyLibrary struct{}

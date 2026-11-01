@@ -28,6 +28,7 @@ import (
 	"cel.dev/cel-go/common"
 	celast "cel.dev/cel-go/common/ast"
 	"cel.dev/cel-go/common/containers"
+	"cel.dev/cel-go/common/cost"
 	"cel.dev/cel-go/common/decls"
 	"cel.dev/cel-go/common/env"
 	"cel.dev/cel-go/common/functions"
@@ -149,7 +150,9 @@ type Env struct {
 	limits          map[limitID]int
 	libraries       map[string]SingletonLibrary
 	validators      []ASTValidator
-	costOptions     []checker.CostOption
+	costOptions     []cost.Option
+	costConfig      *costConfig
+	costModel       costModelOptions
 
 	// Flags for copy-on-write behavior with env.Extend.
 	funcsShared           bool
@@ -183,6 +186,60 @@ type Env struct {
 
 	// Program options tied to the environment
 	progOpts []ProgramOption
+}
+
+// costConfig accumulates the cost options while the environment is configured. Env.configure
+// builds the environment's costModelOptions from it once the options have run; it is kept only so
+// that Env.Extend can configure a copy.
+type costConfig struct {
+	strategy cost.SizingStrategy
+	models   []cost.OverloadModel
+
+	// version pins the cost model revision used for estimation and tracking.
+	//
+	// A pointer rather than a value because version 0 is a meaningful pin, so the
+	// nil case is the only way to express "caller did not ask for a revision".
+	version *uint32
+}
+
+func (c *costConfig) copy() *costConfig {
+	return &costConfig{
+		strategy: c.strategy,
+		models:   slices.Clone(c.models),
+		version:  c.version,
+	}
+}
+
+// build derives the estimation and tracking options. A cost.ModelOption serves both, so the two
+// lists hold the same options.
+func (c *costConfig) build() costModelOptions {
+	var opts []cost.ModelOption
+	if len(c.models) > 0 {
+		opts = append(opts, cost.Model(c.models...))
+	}
+	if c.strategy != nil {
+		opts = append(opts, cost.WithSizingStrategy(c.strategy))
+	}
+	if c.version != nil {
+		opts = append(opts, cost.ModelVersion(*c.version))
+	}
+	built := costModelOptions{
+		estimate: make([]cost.Option, len(opts)),
+		tracker:  make([]cost.TrackerOption, len(opts)),
+	}
+	for i, opt := range opts {
+		built.estimate[i] = opt
+		built.tracker[i] = opt
+	}
+	return built
+}
+
+// costModelOptions are the options which apply the environment's cost models, sizing strategy, and
+// revision to estimation and tracking. They precede the caller's options so the caller may
+// override them.
+type costModelOptions struct {
+	estimate []cost.Option
+	tracker  []cost.TrackerOption
 }
 
 // ToConfig produces a YAML-serializable env.Config object from the given environment.
@@ -220,8 +277,14 @@ func (e *Env) ToConfig(name string) (*env.Config, error) {
 		// Track the options which have been configured by a library and
 		// then diff the library version against the configured function
 		// to detect incremental overloads or rewrites.
-		libEnv, _ := NewCustomEnv()
-		libEnv, _ = Lib(lib)(libEnv)
+		libEnv, err := NewCustomEnv()
+		if err != nil {
+			return nil, err
+		}
+		libEnv, err = Lib(lib)(libEnv)
+		if err != nil {
+			return nil, err
+		}
 		for fnName, fnDecl := range libEnv.Functions() {
 			if len(fnDecl.OverloadDecls()) == 0 {
 				continue
@@ -399,7 +462,8 @@ func NewCustomEnv(opts ...EnvOption) (*Env, error) {
 		libraries:       map[string]SingletonLibrary{},
 		validators:      []ASTValidator{},
 		progOpts:        []ProgramOption{},
-		costOptions:     []checker.CostOption{},
+		costOptions:     []cost.Option{},
+		costConfig:      &costConfig{},
 	}).configure(opts)
 }
 
@@ -589,6 +653,7 @@ func (e *Env) Extend(opts ...EnvOption) (*Env, error) {
 		chkOpts:         chkOptsCopy,
 		prsrOpts:        prsrOptsCopy,
 		costOptions:     costOptsCopy,
+		costConfig:      e.costConfig.copy(),
 		// Copy-on-write flags.
 		funcsShared:           true,
 		featuresShared:        true,
@@ -855,6 +920,12 @@ func (e *Env) PartialVars(vars any) (PartialActivation, error) {
 //
 // See the PartialVars helper for how to construct a PartialActivation.
 //
+// Note: if the original Ast contains a comprehension macro (e.g. all, exists, exists_one,
+// filter, map) whose range or predicate cannot be fully resolved by partial evaluation, the
+// Env must have been created with the EnableMacroCallTracking() option. Without it, this method
+// returns an error when it cannot re-serialize the unresolved comprehension's expanded internal
+// representation back into CEL source syntax.
+//
 // TODO: Consider adding an option to generate a Program.Residual to avoid round-tripping to an
 // Ast format and then Program again.
 func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
@@ -881,11 +952,13 @@ func (e *Env) ResidualAst(a *Ast, details *EvalDetails) (*Ast, error) {
 
 // EstimateCost estimates the cost of a type checked CEL expression using the length estimates of input data and
 // extension functions provided by estimator.
-func (e *Env) EstimateCost(ast *Ast, estimator checker.CostEstimator, opts ...checker.CostOption) (checker.CostEstimate, error) {
-	extendedOpts := make([]checker.CostOption, 0, len(e.costOptions))
-	extendedOpts = append(extendedOpts, opts...)
+func (e *Env) EstimateCost(ast *Ast, estimator cost.Estimator, opts ...cost.CostOption) (cost.CostEstimate, error) {
+	modelOpts := e.costModel.estimate
+	extendedOpts := make([]cost.Option, 0, len(modelOpts)+len(e.costOptions)+len(opts))
+	extendedOpts = append(extendedOpts, modelOpts...)
 	extendedOpts = append(extendedOpts, e.costOptions...)
-	return checker.Cost(ast.NativeRep(), estimator, extendedOpts...)
+	extendedOpts = append(extendedOpts, opts...)
+	return cost.Cost(ast.NativeRep(), estimator, extendedOpts...)
 }
 
 // configure applies a series of EnvOptions to the current environment.
@@ -911,6 +984,8 @@ func (e *Env) configure(opts []EnvOption) (*Env, error) {
 			}
 		}
 	}
+
+	e.costModel = e.costConfig.build()
 
 	// Configure the parser.
 	prsrOpts := []parser.Option{}
@@ -975,6 +1050,39 @@ func (e *Env) initChecker() (*checker.Env, error) {
 				e.HasFeature(featureCrossTypeNumericComparisons)))
 		chkOpts = append(chkOpts,
 			checker.JSONFieldNames(e.HasFeature(featureJSONFieldNames)))
+
+		chkOpts = append(chkOpts, checker.Catalog(func() *env.Catalog {
+			conf, err := e.ToConfig("")
+			if err != nil {
+				return env.NewCatalog()
+			}
+			cat := conf.ToCatalog()
+			for _, f := range e.functions {
+				cat.Add(&env.CatalogSymbol{
+					Name: f.Name(),
+					Kind: env.FunctionKind,
+				})
+			}
+			for _, t := range stdlib.Types() {
+				cat.Add(&env.CatalogSymbol{
+					Name: t.Name(),
+					Kind: env.TypeKind,
+				})
+			}
+			for _, m := range e.macros {
+				cat.Add(&env.CatalogSymbol{
+					Name: m.Function(),
+					Kind: env.MacroKind,
+				})
+			}
+			// TODO: Come up with a better mechanism to dynamically populate catalog symbols
+			// for un-enabled libraries (e.g. leaning on the introspection and serialization
+			// properties used by ToConfig).
+			if !e.HasLibrary("cel.lib.optional") {
+				cat.Add((&optionalLib{}).CatalogSymbols()...)
+			}
+			return cat
+		}))
 
 		if e.parent != nil && e.funcsShared {
 			parentChk, err := e.parent.initChecker()

@@ -15,14 +15,26 @@
 package checker
 
 import (
+	"fmt"
+	"strings"
+
 	"cel.dev/cel-go/common"
 	"cel.dev/cel-go/common/ast"
+	"cel.dev/cel-go/common/env"
 	"cel.dev/cel-go/common/types"
 )
 
 // typeErrors is a specialization of Errors.
 type typeErrors struct {
 	errs *common.Errors
+	env  *Env
+}
+
+func (e *typeErrors) getCatalog() *env.Catalog {
+	if e == nil || e.env == nil {
+		return nil
+	}
+	return e.env.Catalog()
 }
 
 func (e *typeErrors) fieldTypeMismatch(id int64, l common.Location, name string, field, value *types.Type) {
@@ -54,7 +66,11 @@ func (e *typeErrors) notAnOptionalFieldSelection(id int64, l common.Location, fi
 }
 
 func (e *typeErrors) notAType(id int64, l common.Location, typeName string) {
-	e.errs.ReportErrorAtID(id, l, "'%s' is not a type", typeName)
+	suggestion := ""
+	if cat := e.getCatalog(); cat != nil {
+		suggestion = formatSuggestionSuffix(typeName, cat.Find(typeName))
+	}
+	e.errs.ReportErrorAtID(id, l, "'%s' is not a type%s", typeName, suggestion)
 }
 
 func (e *typeErrors) notAMessageType(id int64, l common.Location, typeName string) {
@@ -80,7 +96,86 @@ func (e *typeErrors) undefinedField(id int64, l common.Location, field string) {
 }
 
 func (e *typeErrors) undeclaredReference(id int64, l common.Location, container string, name string) {
-	e.errs.ReportErrorAtID(id, l, "undeclared reference to '%s' (in container '%s')", name, container)
+	var syms []*env.CatalogSymbol
+	if cat := e.getCatalog(); cat != nil {
+		syms = cat.Find(name)
+	}
+	e.undeclaredReferenceWithSymbols(id, l, container, name, syms)
+}
+
+func (e *typeErrors) undeclaredReferenceWithSymbols(id int64, l common.Location, container string, name string, syms []*env.CatalogSymbol) {
+	containerSuffix := ""
+	if container != "" {
+		containerSuffix = fmt.Sprintf(" (in container '%s')", container)
+	}
+	suggestion := formatSuggestionSuffix(name, syms)
+	e.errs.ReportErrorAtID(id, l, "undeclared reference to '%s'%s%s", name, containerSuffix, suggestion)
+}
+
+func (e *typeErrors) checkUndeclaredIdent(env *Env, id int64, l common.Location, qualifiers ...string) bool {
+	if len(qualifiers) <= 1 || e.hasDeclaredPrefix(env, qualifiers[:len(qualifiers)-1]...) {
+		return false
+	}
+	return e.checkUndeclaredReference(env, id, l, strings.Join(qualifiers, "."))
+}
+
+func (e *typeErrors) checkUndeclaredFunction(env *Env, id int64, l common.Location, qualifiedPrefix, fnName string) bool {
+	prefixParts := strings.Split(qualifiedPrefix, ".")
+	if e.hasDeclaredPrefix(env, prefixParts...) {
+		return false
+	}
+	return e.checkUndeclaredReference(env, id, l, qualifiedPrefix+"."+fnName)
+}
+
+func (e *typeErrors) checkUndeclaredReference(env *Env, id int64, l common.Location, qualifiedName string) bool {
+	if env == nil {
+		return false
+	}
+	cat := env.Catalog()
+	if cat == nil {
+		return false
+	}
+	syms := cat.Find(qualifiedName)
+	if len(syms) == 0 {
+		return false
+	}
+	container := ""
+	if env.container != nil {
+		container = env.container.Name()
+	}
+	e.undeclaredReferenceWithSymbols(id, l, container, qualifiedName, syms)
+	return true
+}
+
+func (e *typeErrors) hasDeclaredPrefix(env *Env, qualifierPrefixes ...string) bool {
+	if env == nil {
+		return false
+	}
+	for i := 1; i <= len(qualifierPrefixes); i++ {
+		if env.resolveQualifiedIdent(qualifierPrefixes[:i]...) != nil {
+			return true
+		}
+	}
+	return false
+}
+
+func formatSuggestionSuffix(name string, syms []*env.CatalogSymbol) string {
+	if len(syms) == 0 {
+		return ""
+	}
+	if len(syms) == 1 && syms[0].Name == name {
+		if syms[0].Option != "" {
+			return fmt.Sprintf(" (enable with `%s`)", syms[0].Option)
+		}
+		return ""
+	}
+	if len(syms) == 1 {
+		if syms[0].Option != "" {
+			return fmt.Sprintf(" (did you mean '%s'?, enable with `%s`)", syms[0].Name, syms[0].Option)
+		}
+		return fmt.Sprintf(" (did you mean '%s'?)", syms[0].Name)
+	}
+	return fmt.Sprintf(" (did you mean '%s' or '%s'?)", syms[0].Name, syms[1].Name)
 }
 
 func (e *typeErrors) unexpectedFailedResolution(id int64, l common.Location, typeName string) {

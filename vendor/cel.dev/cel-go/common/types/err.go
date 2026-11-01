@@ -36,7 +36,7 @@ type Err struct {
 
 var (
 	// ErrType singleton.
-	ErrType = NewOpaqueType("error")
+	ErrType = ErrorType
 
 	// errDivideByZero is an error indicating a division by zero of an integer value.
 	errDivideByZero = errors.New("division by zero")
