@@ -5,6 +5,7 @@ package k8s
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,6 +13,8 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
+
+var podStartTime = slim_metav1.NewTime(time.Date(2026, time.November, 1, 12, 0, 0, 0, time.UTC))
 
 func fullPod() *slim_corev1.Pod {
 	return &slim_corev1.Pod{
@@ -48,7 +51,7 @@ func fullPod() *slim_corev1.Pod {
 			HostIP:            "10.0.0.1",
 			PodIP:             "10.1.0.1",
 			PodIPs:            []slim_corev1.PodIP{{IP: "10.1.0.1"}},
-			StartTime:         &slim_metav1.Time{},
+			StartTime:         new(podStartTime),
 			ContainerStatuses: []slim_corev1.ContainerStatus{{ContainerID: "containerd://abc"}},
 			QOSClass:          slim_corev1.PodQOSBurstable,
 		},
@@ -77,9 +80,10 @@ func expectedPod() *slim_corev1.Pod {
 			HostNetwork:        true,
 		},
 		Status: slim_corev1.PodStatus{
-			Phase:  slim_corev1.PodPending,
-			HostIP: "10.0.0.1",
-			PodIPs: []slim_corev1.PodIP{{IP: "10.1.0.1"}},
+			Phase:     slim_corev1.PodPending,
+			HostIP:    "10.0.0.1",
+			PodIPs:    []slim_corev1.PodIP{{IP: "10.1.0.1"}},
+			StartTime: new(podStartTime),
 		},
 	}
 }
@@ -91,9 +95,10 @@ func TestTransformToOperatorPod(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, expectedPod(), stripped)
 
-	// The source object is zeroed as a GC hint. The retained labels and ports
-	// are unaffected, as the projection holds copies of their headers: the
-	// assertion above would fail if it pointed into the source instead.
+	// The source object is zeroed as a GC hint. The retained labels, ports and
+	// start time are unaffected, as the projection holds copies of their
+	// headers: the assertion above would fail if it pointed into the source
+	// instead.
 	assert.Equal(t, &slim_corev1.Pod{}, pod)
 	assert.Equal(t, expectedPod(), stripped)
 }

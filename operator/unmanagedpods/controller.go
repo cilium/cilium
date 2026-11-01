@@ -13,8 +13,8 @@ import (
 	"github.com/cilium/hive/cell"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -38,6 +38,7 @@ type params struct {
 	SharedCfg       SharedConfig
 	Clientset       k8sClient.Clientset
 	CiliumEndpoints resource.Resource[*cilium_api_v2.CiliumEndpoint]
+	Pods            resource.Resource[*slim_corev1.Pod]
 	Metrics         *Metrics
 	Logger          *slog.Logger
 }
@@ -59,13 +60,25 @@ func registerController(p params) {
 		return
 	}
 
+	// An empty selector parses to one that matches every pod.
+	podRestartSelector, err := labels.Parse(p.Config.PodRestartSelector)
+	if err != nil {
+		// Not fatal: a malformed selector never matched any pod anyway.
+		p.Logger.Error("Unmanaged pods controller disabled due to invalid pod restart selector",
+			logfields.Error, err,
+			logfields.Selector, p.Config.PodRestartSelector,
+		)
+		return
+	}
+
 	c := &unmanagedPodsController{
 		clientset:          p.Clientset,
 		ciliumEndpoints:    p.CiliumEndpoints,
+		pods:               p.Pods,
 		metrics:            p.Metrics,
 		logger:             p.Logger,
 		interval:           p.Config.UnmanagedPodWatcherInterval,
-		podRestartSelector: p.Config.PodRestartSelector,
+		podRestartSelector: podRestartSelector,
 		lastPodRestart:     map[string]time.Time{},
 	}
 
@@ -78,11 +91,13 @@ func registerController(p params) {
 type unmanagedPodsController struct {
 	clientset          k8sClient.Clientset
 	ciliumEndpoints    resource.Resource[*cilium_api_v2.CiliumEndpoint]
+	pods               resource.Resource[*slim_corev1.Pod]
 	metrics            *Metrics
 	logger             *slog.Logger
 	interval           time.Duration
-	podRestartSelector string
+	podRestartSelector labels.Selector
 	cepStore           resource.Store[*cilium_api_v2.CiliumEndpoint]
+	podStore           resource.Store[*slim_corev1.Pod]
 	// lastPodRestart records when each pod, keyed by namespace/name was last restarted.
 	lastPodRestart map[string]time.Time
 
@@ -117,8 +132,11 @@ func (c *unmanagedPodsController) enableUnmanagedController() {
 	}
 	c.cepStore = cepStore
 
-	// This function will block until the store is synced with k8s.
-	watchers.UnmanagedPodsInit(c.ctx, &c.wg, c.clientset, c.podRestartSelector)
+	podStore, err := c.pods.Store(c.ctx)
+	if err != nil {
+		return
+	}
+	c.podStore = podStore
 
 	mgr := controller.NewManager()
 
@@ -157,14 +175,14 @@ func (c *unmanagedPodsController) reconcile(ctx context.Context) error {
 	countUnmanagedPods := 0
 	var candidates []*podRestartCandidate
 
-	for _, podItem := range watchers.UnmanagedPodStore.List() {
-		pod, ok := podItem.(*slim_corev1.Pod)
-		if !ok {
-			c.logger.ErrorContext(ctx, fmt.Sprintf("unexpected type mapping: found %T, expected %T", podItem, &slim_corev1.Pod{}))
+	// The pod store is shared and holds every pod in the cluster, so select
+	// the restart candidates here.
+	for _, pod := range c.podStore.List() {
+		if pod.Status.Phase != slim_corev1.PodRunning || pod.Spec.HostNetwork {
 			continue
 		}
 
-		if pod.Spec.HostNetwork {
+		if !c.podRestartSelector.Matches(labels.Set(pod.Labels)) {
 			continue
 		}
 
