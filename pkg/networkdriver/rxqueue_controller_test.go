@@ -220,3 +220,19 @@ func TestRXQueueFlowControllerBindingUpdates(t *testing.T) {
 	require.Nil(t, row.Flows)
 	require.Contains(t, row.Unresolved, "not bound")
 }
+
+func TestRXQueueFlowConflicts(t *testing.T) {
+	flow := types.RXQueueFlow{DestinationIP: netip.MustParseAddr("192.0.2.100"), DestinationPort: 9000, Protocol: corev1.ProtocolTCP}
+	desired := map[string]*RXQueueFlows{}
+	for _, name := range []string{"a", "b", "c", "another-nic"} {
+		desired[name] = &RXQueueFlows{Allocation: name, PhysicalIfName: "ens1", Flows: []types.RXQueueFlow{flow}}
+	}
+	desired["another-nic"].PhysicalIfName = "ens2"
+	invalidateRXQueueFlowConflicts(desired)
+	for _, name := range []string{"a", "b", "c"} {
+		require.Empty(t, desired[name].Flows)
+		require.Contains(t, desired[name].Unresolved, "another allocation")
+	}
+	require.Equal(t, []types.RXQueueFlow{flow}, desired["another-nic"].Flows)
+	require.Empty(t, desired["another-nic"].Unresolved)
+}

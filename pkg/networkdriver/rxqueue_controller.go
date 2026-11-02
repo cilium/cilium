@@ -5,6 +5,7 @@ package networkdriver
 
 import (
 	"context"
+	"fmt"
 	"slices"
 
 	"github.com/cilium/hive/cell"
@@ -15,6 +16,7 @@ import (
 	k8sTables "github.com/cilium/cilium/pkg/k8s/tables"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/networkdriver/rxqueue"
+	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -97,6 +99,7 @@ func (driver *Driver) updateRXQueueFlows(ctx context.Context, wtxn statedb.Write
 		}
 		desired[flows.Allocation] = flows
 	}
+	invalidateRXQueueFlowConflicts(desired)
 
 	var stale []*RXQueueFlows
 	for existing := range driver.rxQueueFlows.All(wtxn) {
@@ -124,5 +127,32 @@ func (driver *Driver) updateRXQueueFlows(ctx context.Context, wtxn statedb.Write
 		}
 		flows.Status = reconciler.StatusPending()
 		driver.rxQueueFlows.Insert(wtxn, flows)
+	}
+}
+
+// A hardware tuple can select only one queue on a NIC. Withdraw every
+// allocation selecting the same tuple rather than depending on rule priority.
+func invalidateRXQueueFlowConflicts(desired map[string]*RXQueueFlows) {
+	type flowKey struct {
+		ifName string
+		flow   types.RXQueueFlow
+	}
+	owners := make(map[flowKey]*RXQueueFlows)
+	conflicts := make(map[string]struct{})
+	for _, row := range desired {
+		for _, flow := range row.Flows {
+			key := flowKey{row.PhysicalIfName, flow}
+			if owner, found := owners[key]; found && owner.Allocation != row.Allocation {
+				conflicts[owner.Allocation] = struct{}{}
+				conflicts[row.Allocation] = struct{}{}
+			} else {
+				owners[key] = row
+			}
+		}
+	}
+	for allocation := range conflicts {
+		row := desired[allocation]
+		row.Flows = nil
+		row.Unresolved = fmt.Sprintf("RX queue traffic is also selected by another allocation on %s", row.PhysicalIfName)
 	}
 }
