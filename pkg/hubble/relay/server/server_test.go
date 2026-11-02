@@ -31,11 +31,11 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	relayObserver "github.com/cilium/cilium/pkg/hubble/relay/observer"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
@@ -50,11 +50,11 @@ func noopParser(t testing.TB) *parser.Parser {
 	pp, err := parser.New(
 		log,
 		&testutils.FakeEndpointGetter{
-			OnGetEndpointInfo: func(ip netip.Addr) (endpoint getters.EndpointInfo, ok bool) {
+			OnGetEndpointInfo: func(ip netip.Addr) (endpoint resolverTypes.EndpointInfo, ok bool) {
 				endpoint, ok = endpoints[ip.String()]
 				return
 			},
-			OnGetEndpointInfoByID: func(id uint16) (endpoint getters.EndpointInfo, ok bool) {
+			OnGetEndpointInfoByID: func(id uint16) (endpoint resolverTypes.EndpointInfo, ok bool) {
 				return nil, false
 			},
 		},

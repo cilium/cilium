@@ -15,7 +15,7 @@ import (
 	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -231,7 +231,7 @@ func TestUpdateEndpointFromLocalPodMetadata(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			parser := &Parser{
 				endpointGetter: &testutils.FakeEndpointGetter{
-					OnGetEndpointInfo: func(netip.Addr) (getters.EndpointInfo, bool) {
+					OnGetEndpointInfo: func(netip.Addr) (resolverTypes.EndpointInfo, bool) {
 						return &testutils.FakeEndpointInfo{
 							ID:           tt.localEndpointID,
 							PodNamespace: tt.localNamespace,

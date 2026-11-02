@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"net/netip"
 
-	"github.com/cilium/cilium/pkg/hubble/parser/getters"
+	resolverTypes "github.com/cilium/cilium/pkg/hubble/resolver/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
@@ -335,7 +335,7 @@ func (n *TraceNotify) DataOffset() uint {
 }
 
 // DumpInfo prints a summary of the trace messages.
-func (n *TraceNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
+func (n *TraceNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.DisplayFormat, linkMonitor resolverTypes.LinkGetter) {
 	hdrLen := n.DataOffset()
 	if enc := n.encryptReasonString(); enc != "" {
 		fmt.Fprintf(buf, "%s %s flow %#x ",
@@ -355,7 +355,7 @@ func (n *TraceNotify) DumpInfo(buf *bufio.Writer, data []byte, numeric api.Displ
 }
 
 // DumpVerbose prints the trace notification in human readable form
-func (n *TraceNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string, numeric api.DisplayFormat, linkMonitor getters.LinkGetter) {
+func (n *TraceNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, prefix string, numeric api.DisplayFormat, linkMonitor resolverTypes.LinkGetter) {
 	fmt.Fprintf(buf, "%s MARK %#x", prefix, n.Hash)
 	if id := n.IPTraceID; id > 0 {
 		fmt.Fprintf(buf, " [ IP-TRACE-ID = %d ]", id)
@@ -391,7 +391,7 @@ func (n *TraceNotify) DumpVerbose(buf *bufio.Writer, dissect bool, data []byte, 
 	}
 }
 
-func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) (string, error) {
+func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor resolverTypes.LinkGetter) (string, error) {
 	v := TraceNotifyToVerbose(n, linkMonitor)
 	v.CPUPrefix = cpuPrefix
 	hdrLen := n.DataOffset()
@@ -404,7 +404,7 @@ func (n *TraceNotify) getJSON(data []byte, cpuPrefix string, linkMonitor getters
 }
 
 // DumpJSON prints notification in json format
-func (n *TraceNotify) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string, linkMonitor getters.LinkGetter) {
+func (n *TraceNotify) DumpJSON(buf *bufio.Writer, data []byte, cpuPrefix string, linkMonitor resolverTypes.LinkGetter) {
 	resp, err := n.getJSON(data, cpuPrefix, linkMonitor)
 	if err == nil {
 		fmt.Fprintln(buf, resp)
@@ -432,7 +432,7 @@ type TraceNotifyVerbose struct {
 }
 
 // TraceNotifyToVerbose creates verbose notification from base TraceNotify
-func TraceNotifyToVerbose(n *TraceNotify, linkMonitor getters.LinkGetter) TraceNotifyVerbose {
+func TraceNotifyToVerbose(n *TraceNotify, linkMonitor resolverTypes.LinkGetter) TraceNotifyVerbose {
 	ifname := linkMonitor.Name(n.Ifindex)
 	return TraceNotifyVerbose{
 		Type:             "trace",
