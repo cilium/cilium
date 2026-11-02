@@ -34,6 +34,7 @@ type deltaWatchRelay struct {
 type trackedDeltaWatch struct {
 	state        *nodeState
 	typeURL      typeurl.Index
+	streamID     int64
 	request      *cache.DeltaRequest
 	subscription cache.Subscription
 	relay        *deltaWatchRelay
@@ -120,6 +121,7 @@ func (c *cacheImpl) addTrackedDeltaWatchLocked(state *nodeState, request *cache.
 	watch := &trackedDeltaWatch{
 		state:        state,
 		typeURL:      typeURL,
+		streamID:     c.completionCbs.StreamIDForDeltaRequest(request),
 		request:      request,
 		subscription: subscription,
 		relay:        relay,
@@ -193,6 +195,7 @@ func (c *cacheImpl) collectDeltaResponseDeliveriesLocked() []deltaResponseDelive
 				}
 				responses = append(responses, response)
 				if matched != nil {
+					c.completionCbs.RegisterDeltaResponse(matched.streamID, response)
 					matched.state.rollbacks.claimResponseLocked(c, matched.state, matched.typeURL, response)
 					c.removeTrackedDeltaWatchLocked(matched)
 				}
@@ -213,7 +216,6 @@ func (c *cacheImpl) collectDeltaResponseDeliveriesLocked() []deltaResponseDelive
 func (c *cacheImpl) deliverDeltaResponses(deliveries []deltaResponseDelivery) {
 	for _, delivery := range deliveries {
 		for _, response := range delivery.responses {
-			c.completionCbs.RegisterDeltaResponse(response)
 			delivery.channel <- response
 		}
 	}

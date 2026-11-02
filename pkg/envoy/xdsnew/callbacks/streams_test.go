@@ -11,6 +11,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
@@ -112,14 +113,47 @@ func TestDeltaStreamCloseDiscardsUndeliveredResponseMetadata(t *testing.T) {
 	}
 	require.NoError(t, cb.OnStreamDeltaRequest(7, request))
 
+	require.Equal(t, int64(7), cb.StreamIDForDeltaRequest(request))
+	cb.RegisterDeltaResponse(7, &cache.RawDeltaResponse{
+		DeltaRequest: request, Ctx: WithSnapshotGeneration(t.Context(), 1),
+	})
 	cb.mutex.Lock()
-	cb.preparedDeltaResponses[request] = pendingResponse{pendingGeneration: 1}
+	require.Len(t, cb.streams[streamKey{streamID: 7, mode: StreamModeDelta}].preparedDeltaResponses, 1)
 	cb.mutex.Unlock()
 
+	// A newer subscription request must not hide the older response's
+	// metadata from stream cleanup.
+	require.NoError(t, cb.OnStreamDeltaRequest(7, &discovery.DeltaDiscoveryRequest{TypeUrl: request.TypeUrl}))
 	cb.OnDeltaStreamClosed(7, nil)
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	require.Empty(t, cb.preparedDeltaResponses)
+	require.Empty(t, cb.streams)
+}
+
+func TestDeltaStreamCloseBeforeResponseDeliveryDiscardsMetadata(t *testing.T) {
+	cb := NewCompletionCallbacks(slog.New(slog.DiscardHandler), &testStreamLifecycleHandler{})
+	request := &discovery.DeltaDiscoveryRequest{
+		Node: &core.Node{Id: "node-1"}, TypeUrl: typeurl.Listener.URL(),
+	}
+	require.NoError(t, cb.OnStreamDeltaRequest(7, request))
+
+	streamID := cb.StreamIDForDeltaRequest(request)
+	require.Equal(t, int64(7), streamID)
+	cb.mutex.Lock()
+	closedStream := cb.streams[streamKey{streamID: streamID, mode: StreamModeDelta}]
+	cb.mutex.Unlock()
+
+	// Closing can race with collection of a response for the original watch.
+	// Late registration must neither retain metadata nor recreate the stream.
+	cb.OnDeltaStreamClosed(streamID, nil)
+	cb.RegisterDeltaResponse(streamID, &cache.RawDeltaResponse{
+		DeltaRequest: request, SystemVersionInfo: "e1:g1",
+		Ctx: WithSnapshotGeneration(t.Context(), 1),
+	})
+
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	require.Empty(t, closedStream.preparedDeltaResponses)
 	require.Empty(t, cb.streams)
 }
 
@@ -182,7 +216,7 @@ func TestDeltaNACKRevalidatesAfterRequestInitialization(t *testing.T) {
 				require.Equal(t, "node-1", nodeID)
 				require.Len(t, handler.started, 1, "register the lifecycle before acquiring the cache lock")
 				cb.mutex.Lock()
-				require.Same(t, req, cb.streams[key].deltaRequests[typeurl.Listener])
+				require.Same(t, req, cb.streams[key].deltaRequest)
 				if transition == "newer-response" {
 					cb.streams[key].responses[typeurl.Listener].pendingNonce = "new"
 				}
@@ -221,7 +255,7 @@ func TestUnsupportedDeltaRequestInitializesStream(t *testing.T) {
 			require.Equal(t, []streamLifecycleEvent{{streamID: 7, nodeID: "node-1", mode: StreamModeDelta}}, handler.started)
 			cb.mutex.Lock()
 			defer cb.mutex.Unlock()
-			require.Empty(t, cb.streams[streamKey{streamID: 7, mode: StreamModeDelta}].deltaRequests)
+			require.Empty(t, cb.streams[streamKey{streamID: 7, mode: StreamModeDelta}].deltaRequest)
 		})
 	}
 }

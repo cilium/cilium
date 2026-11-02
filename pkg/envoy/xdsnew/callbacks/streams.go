@@ -39,10 +39,12 @@ type streamKey struct {
 type callbackStreamState struct {
 	nodeID    string
 	responses typeurl.Slots[pendingResponse]
-	// deltaRequests identifies prepared response metadata to discard if the
-	// stream closes before OnStreamDeltaResponse consumes it. ADS can have an
-	// outstanding request for each resource type on the same stream.
-	deltaRequests typeurl.Slots[*discovery.DeltaDiscoveryRequest]
+	// deltaRequest associates the next cache watch with this stream. Request
+	// handling and watch creation run consecutively on the stream goroutine.
+	deltaRequest *discovery.DeltaDiscoveryRequest
+	// Prepared responses belong to their stream so closure releases even
+	// responses to requests superseded before delivery.
+	preparedDeltaResponses map[*discovery.DeltaDiscoveryRequest]pendingResponse
 }
 
 // ensureStreamState returns stream state, creating it when needed.
@@ -102,11 +104,6 @@ func (cb *CompletionCallbacks) closeStream(streamID int64, node *core.Node, mode
 	if nodeID == "" && node != nil {
 		nodeID = node.GetId()
 	}
-	if mode == StreamModeDelta && stream != nil {
-		for _, request := range stream.deltaRequests {
-			delete(cb.preparedDeltaResponses, request)
-		}
-	}
 	delete(cb.streams, key)
 	if nodeState := cb.nodes[nodeID]; nodeState != nil {
 		for typeURL := range typeurl.Count {
@@ -148,4 +145,19 @@ func (cb *CompletionCallbacks) OnDeltaStreamOpen(ctx context.Context, streamID i
 // OnDeltaStreamClosed invokes DeltaStreamClosedFunc.
 func (cb *CompletionCallbacks) OnDeltaStreamClosed(streamID int64, node *core.Node) {
 	cb.closeStream(streamID, node, StreamModeDelta)
+}
+
+// StreamIDForDeltaRequest associates a cache watch with its originating stream.
+// The watch retains the ID because another request can arrive before delivery.
+// go-control-plane handles each request and creates its watch consecutively.
+func (cb *CompletionCallbacks) StreamIDForDeltaRequest(req *discovery.DeltaDiscoveryRequest) int64 {
+	cb.mutex.Lock()
+	defer cb.mutex.Unlock()
+	for key, stream := range cb.streams {
+		if key.mode == StreamModeDelta && stream.deltaRequest == req {
+			stream.deltaRequest = nil
+			return key.streamID
+		}
+	}
+	return 0
 }

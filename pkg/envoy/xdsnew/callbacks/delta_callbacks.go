@@ -18,9 +18,10 @@ import (
 )
 
 // RegisterDeltaResponse retains generation and coverage metadata until
-// go-control-plane invokes OnStreamDeltaResponse. Delta callbacks receive no
-// context, but preserve the cache request pointer used to build the response.
-func (cb *CompletionCallbacks) RegisterDeltaResponse(response cache.DeltaResponse) {
+// go-control-plane invokes OnStreamDeltaResponse, whose API has no context.
+// A response collected before closure may be delivered afterward; register it
+// only while its originating stream remains open.
+func (cb *CompletionCallbacks) RegisterDeltaResponse(streamID int64, response cache.DeltaResponse) {
 	if response == nil || response.GetDeltaRequest() == nil {
 		return
 	}
@@ -31,8 +32,15 @@ func (cb *CompletionCallbacks) RegisterDeltaResponse(response cache.DeltaRespons
 		coverage:          responseCoverageFromContext(ctx),
 	}
 	cb.mutex.Lock()
-	cb.preparedDeltaResponses[response.GetDeltaRequest()] = prepared
-	cb.mutex.Unlock()
+	defer cb.mutex.Unlock()
+	stream := cb.streams[streamKey{streamID: streamID, mode: StreamModeDelta}]
+	if stream == nil {
+		return
+	}
+	if stream.preparedDeltaResponses == nil {
+		stream.preparedDeltaResponses = make(map[*discovery.DeltaDiscoveryRequest]pendingResponse)
+	}
+	stream.preparedDeltaResponses[response.GetDeltaRequest()] = prepared
 }
 
 // OnStreamDeltaRequest handles subscription requests and ACKs/NACKs for Delta
@@ -46,7 +54,7 @@ func (cb *CompletionCallbacks) OnStreamDeltaRequest(streamID int64, req *discove
 	typeURL := req.GetTypeUrl()
 	typeIndex, supported := typeurl.FromURL(typeURL)
 	if supported {
-		stream.deltaRequests[typeIndex] = req
+		stream.deltaRequest = req
 	} else {
 		cb.Log.Debug("Ignoring unsupported Delta xDS request type",
 			logfields.XDSStreamID, streamID,
@@ -223,15 +231,12 @@ func (cb *CompletionCallbacks) OnStreamDeltaResponse(streamID int64, req *discov
 	cb.mutex.Lock()
 	stream, started := cb.streamForDeltaRequest(streamID, req)
 	nodeID := stream.nodeID
-	if stream.deltaRequests[typeIndex] == req {
-		stream.deltaRequests[typeIndex] = nil
-	}
 	if started && cb.streamLifecycle != nil {
 		defer cb.streamLifecycle.StreamStarted(streamID, nodeID, StreamModeDelta)
 	}
-	prepared, found := cb.preparedDeltaResponses[req]
+	prepared, found := stream.preparedDeltaResponses[req]
 	if found {
-		delete(cb.preparedDeltaResponses, req)
+		delete(stream.preparedDeltaResponses, req)
 	} else {
 		prepared.pendingVersion = version
 	}

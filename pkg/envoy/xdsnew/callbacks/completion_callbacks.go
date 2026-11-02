@@ -89,9 +89,6 @@ type CompletionCallbacks struct {
 	// Envoy may omit Node on subsequent ACK/NACK requests. Named EDS
 	// subscriptions can use several streams for the same node/resource type.
 	streams map[streamKey]*callbackStreamState
-	// preparedDeltaResponses bridges cache response metadata to the Delta server
-	// callback, whose API does not carry the response context.
-	preparedDeltaResponses map[*discovery.DeltaDiscoveryRequest]pendingResponse
 	// streamLifecycle is immutable and called without the callbacks mutex held.
 	streamLifecycle StreamLifecycleHandler
 }
@@ -101,13 +98,12 @@ func NewCompletionCallbacks(logger *slog.Logger, nackHandler NACKHandler) *Compl
 	// processing can omit stream lifecycle bookkeeping.
 	streamLifecycle, _ := nackHandler.(StreamLifecycleHandler)
 	return &CompletionCallbacks{
-		Log:                    logger,
-		nackHandler:            nackHandler,
-		pendingWaits:           make(map[*completion.Completion]*resourceWait),
-		nodes:                  make(map[string]*callbackNodeState),
-		streams:                make(map[streamKey]*callbackStreamState),
-		preparedDeltaResponses: make(map[*discovery.DeltaDiscoveryRequest]pendingResponse),
-		streamLifecycle:        streamLifecycle,
+		Log:             logger,
+		nackHandler:     nackHandler,
+		pendingWaits:    make(map[*completion.Completion]*resourceWait),
+		nodes:           make(map[string]*callbackNodeState),
+		streams:         make(map[streamKey]*callbackStreamState),
+		streamLifecycle: streamLifecycle,
 	}
 }
 

@@ -307,8 +307,9 @@ generation and named-resource coverage. Envoy supplies the corresponding ACK or
 NACK in a later request, matched by stream and nonce. A matching ACK or NACK can
 then complete the associated waits. For Delta, `RegisterDeltaResponse` bridges
 cache-side metadata to `OnStreamDeltaResponse` through the request pointer,
-because the Delta callback has no context argument. Stream-local request slots
-allow abandoned metadata to be removed if the stream closes before that callback.
+because the Delta callback has no context argument. Prepared metadata belongs
+to the originating stream. Closing the stream releases it, and responses
+collected concurrently with closure cannot register metadata afterward.
 Stream keys include the transport mode because go-control-plane numbers SotW and
 Delta streams independently, although they share Cilium's completion callbacks.
 
