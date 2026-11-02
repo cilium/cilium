@@ -2217,6 +2217,7 @@ func TestNewClusterSharingEndpointReplaysWatches(t *testing.T) {
 func TestDeliverResponsesOrdersADSParentBeforeChild(t *testing.T) {
 	c := &cacheImpl{}
 	var sotwResponses []watchResponse
+	var deltaResponses []cache.DeltaResponse
 	for _, typeURL := range []string{
 		envoy_resource.EndpointType,
 		envoy_resource.RouteType,
@@ -2228,10 +2229,13 @@ func TestDeliverResponsesOrdersADSParentBeforeChild(t *testing.T) {
 			Response: &cache.RawResponse{Request: &discovery.DiscoveryRequest{TypeUrl: typeURL}},
 			watch:    &trackedWatch{deliverySync: deliverySync[cache.Response]{deliveryCanceled: make(chan struct{})}},
 		})
+		deltaResponses = append(deltaResponses, &cache.RawDeltaResponse{DeltaRequest: &discovery.DeltaDiscoveryRequest{TypeUrl: typeURL}})
 	}
 	// Coalesced responses for a stream share one relay/channel.
 	orderedSotW := make(chan cache.Response, 4)
 	c.deliverResponses([]responseDelivery{{channel: orderedSotW, responses: sotwResponses}})
+	orderedDelta := make(chan cache.DeltaResponse, 4)
+	c.deliverDeltaResponses([]deltaResponseDelivery{{channel: orderedDelta, responses: deltaResponses}})
 	for _, want := range []string{
 		envoy_resource.ClusterType,
 		envoy_resource.EndpointType,
@@ -2239,6 +2243,7 @@ func TestDeliverResponsesOrdersADSParentBeforeChild(t *testing.T) {
 		envoy_resource.RouteType,
 	} {
 		require.Equal(t, want, (<-orderedSotW).GetRequest().GetTypeUrl())
+		require.Equal(t, want, (<-orderedDelta).GetDeltaRequest().GetTypeUrl())
 	}
 }
 
@@ -2344,6 +2349,72 @@ func TestCiliumSnapshotIndexedResourcesWithoutDeltaVersions(t *testing.T) {
 	require.Nil(t, snapshot.GetVersionMap(envoy_resource.EndpointType))
 	require.Nil(t, snapshot.GetVersionMap(typeurl.NetworkPolicyURL))
 	require.Nil(t, snapshot.GetVersionMap("type.googleapis.com/unknown.Resource"))
+}
+
+func TestDeltaEnabledCacheServesIndependentSotWSubscriptions(t *testing.T) {
+	for _, tt := range []struct {
+		typeURL  typeurl.Index
+		resource func(string) proto.Message
+	}{
+		{typeurl.Endpoint, func(name string) proto.Message {
+			return &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
+		}},
+		{typeurl.Route, func(name string) proto.Message {
+			return &envoy_config_route.RouteConfiguration{Name: name}
+		}},
+		{typeurl.Secret, func(name string) proto.Message {
+			return testSecret(name, "secret")
+		}},
+	} {
+		for _, deferred := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/deferred=%t", tt.typeURL.URL(), deferred), func(t *testing.T) {
+				const nodeID = "node1"
+				c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "wanted", tt.resource("wanted"), nil, nil))
+				if !deferred {
+					require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "other", tt.resource("other"), nil, nil))
+				}
+
+				request := &cache.Request{
+					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: tt.typeURL.URL(),
+					ResourceNames: []string{"wanted"},
+				}
+				subscription := stream.NewSotwSubscription(request.ResourceNames, false)
+				responses := make(chan cache.Response, 1)
+				receive := func() cache.Response {
+					t.Helper()
+					select {
+					case response := <-responses:
+						require.Equal(t, map[string]string{"wanted": response.GetResponseVersion()}, response.GetReturnedResources())
+						return response
+					default:
+						t.Fatal("unrelated resources must not block a named SotW response")
+						return nil
+					}
+				}
+				cancel, err := c.CreateWatch(request, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				if deferred {
+					initial := receive()
+					request.VersionInfo = initial.GetResponseVersion()
+					subscription.SetReturnedResources(initial.GetReturnedResources())
+					cancel, err = c.CreateWatch(request, subscription, responses)
+					require.NoError(t, err)
+					t.Cleanup(cancel)
+					require.Empty(t, responses)
+
+					// Publishing another resource of this type must keep this
+					// independent subscription serviceable.
+					require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "other", tt.resource("other"), nil, nil))
+				}
+				response := receive()
+				if deferred {
+					require.NotEqual(t, request.VersionInfo, response.GetResponseVersion())
+				}
+			})
+		}
+	}
 }
 
 func TestDeltaACKOnlyAcceptsCommunicatedResources(t *testing.T) {

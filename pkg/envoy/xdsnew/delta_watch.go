@@ -4,9 +4,11 @@
 package xdsnew
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"sync"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -24,7 +26,7 @@ type nodeDeltaWatchState = typeurl.Map[set.Set[*trackedDeltaWatch]]
 // deltaWatchRelay buffers go-control-plane responses while cache locks are held
 // so Cilium can capture coverage and claim rollback ownership before delivery.
 // Forwarding to the stream happens after unlocking; one relay per response
-// channel preserves ordering across resource types without forwarding goroutines.
+// channel lets delivery order each batch without forwarding goroutines.
 type deltaWatchRelay struct {
 	inner   chan cache.DeltaResponse
 	outer   chan cache.DeltaResponse
@@ -215,6 +217,13 @@ func (c *cacheImpl) collectDeltaResponseDeliveriesLocked() []deltaResponseDelive
 
 func (c *cacheImpl) deliverDeltaResponses(deliveries []deltaResponseDelivery) {
 	for _, delivery := range deliveries {
+		// Preserve ADS dependency order within a publication, matching SotW
+		// delivery from the same non-ADS snapshot cache.
+		if len(delivery.responses) > 1 {
+			slices.SortStableFunc(delivery.responses, func(a, b cache.DeltaResponse) int {
+				return cmp.Compare(cache.GetResponseType(a.GetDeltaRequest().GetTypeUrl()), cache.GetResponseType(b.GetDeltaRequest().GetTypeUrl()))
+			})
+		}
 		for _, response := range delivery.responses {
 			delivery.channel <- response
 		}

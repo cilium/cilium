@@ -127,8 +127,8 @@ func WithListenerObserver(observer ListenerObserver) CacheOption {
 	}
 }
 
-// WithDeltaADS enables per-resource version maps and dependency-ordered Delta
-// responses in the underlying go-control-plane snapshot cache.
+// WithDeltaADS enables per-resource version maps and tracked Delta responses
+// alongside SotW subscriptions.
 func WithDeltaADS() CacheOption {
 	return func(c *cacheImpl) {
 		c.deltaADS = true
@@ -390,10 +390,10 @@ func newCache(logger *slog.Logger, options ...CacheOption) *cacheImpl {
 	for _, option := range options {
 		option(c)
 	}
-	// SotW ADS keeps named subscriptions independent and orders relayed response
-	// batches itself. Delta ADS uses go-control-plane's ADS ordering so dependent
-	// resource removals and additions are emitted deterministically.
-	c.snapshotCache = cache.NewSnapshotCache(c.deltaADS, cache.IDHash{}, snapshotCacheLogger(logger))
+	// The snapshot cache's ADS flag would withhold named SotW responses unless
+	// each subscription covers the entire resource group. Keep subscriptions
+	// independent and order both SotW and Delta batches in their relays.
+	c.snapshotCache = cache.NewSnapshotCache(false, cache.IDHash{}, snapshotCacheLogger(logger))
 	c.completionCbs = callbacks.NewCompletionCallbacks(logger, c)
 	return c
 }

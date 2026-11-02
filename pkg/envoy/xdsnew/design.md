@@ -253,10 +253,10 @@ publication generation, the resource names they communicate, and rollback owners
 Immediate watch responses are captured under the lock too; their
 generations are never inferred from later publications or newly registered waits.
 Collected response batches are delivered outside the lock, with parents before
-children within each SotW batch. The SotW gRPC server uses `WithOrderedADS` to
-preserve channel order, while the embedded snapshot cache's ADS flag stays off to
-allow independent named subscriptions. Delta enables the snapshot cache's ADS
-ordering and relays its shared response channel without reordering it.
+children within each SotW or Delta batch. The SotW gRPC server uses
+`WithOrderedADS` to preserve channel order; Delta consumes its shared response
+channel in order. The embedded snapshot cache's ADS flag stays off for both
+transports to allow independent named SotW subscriptions.
 
 SotW watch cancellation remains effective after response collection. It
 interrupts blocked response sends and waits for active sends to stop before
