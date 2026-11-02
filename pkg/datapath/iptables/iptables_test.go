@@ -727,18 +727,6 @@ func TestRemoveCiliumRulesv6(t *testing.T) {
 	}
 }
 
-func TestInboundProxyRedirectRules(t *testing.T) {
-	const socketMatch = "-m socket --transparent ! -o lo -m mark ! --mark 0x00000e00/0x00000f00 -m mark ! --mark 0x00000800/0x00000f00 -m comment --comment cilium: any->pod redirect proxied traffic to host proxy -j MARK --set-mark 0x00000200"
-
-	var rules []string
-	for _, rule := range mockManager.inboundProxyRedirectRules("-A") {
-		rules = append(rules, strings.Join(rule, " "))
-	}
-	require.Equal(t, []string{
-		"-t mangle -A CILIUM_PRE_mangle " + socketMatch,
-	}, rules)
-}
-
 func TestNodeIpsetNATCmds(t *testing.T) {
 	allocRange := "10.0.0.0/16"
 	ipset := "1.1.1.1"

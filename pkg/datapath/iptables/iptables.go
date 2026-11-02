@@ -704,18 +704,31 @@ func (m *manager) inboundProxyRedirectRules(cmd string) [][]string {
 	// Explicitly support chaining Envoy listeners via the loopback device by
 	// excluding traffic for the loopback device.
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	matchToProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkHostMask)
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
-	return [][]string{{
-		"-t", "mangle",
-		cmd, ciliumPreMangleChain,
-		"-m", "socket", "--transparent",
-		"!", "-o", "lo",
-		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
-		"-m", "mark", "!", "--mark", matchSkipTProxy,
-		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
-		"-j", "MARK",
-		"--set-mark", toProxyMark}}
+	rule := func(selector ...string) []string {
+		return append(append([]string{"-t", "mangle", cmd, ciliumPreMangleChain}, selector...),
+			"-m", "socket", "--transparent",
+			"!", "-o", "lo",
+			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
+			"-m", "mark", "!", "--mark", matchSkipTProxy,
+			"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
+			"-j", "MARK",
+			"--set-mark", toProxyMark)
+	}
+	// Together these rules apply the socket match to everything except SYNs
+	// that carry the to-proxy mark. If such a SYN matched a TIME_WAIT socket
+	// that an earlier proxied connection left on its tuple, it would lose its
+	// proxy port and miss the TPROXY rule, and only the TIME_WAIT socket
+	// would answer it. Skipping the match lets TPROXY hand it to the proxy
+	// listener. SYNs without the mark keep the match for reason 2 above: with
+	// legacy host routing, an ingress SYN arrives here before bpf_lxc marks it.
+	return [][]string{
+		rule("!", "-p", "tcp"),
+		rule("-p", "tcp", "!", "--syn"),
+		rule("-p", "tcp", "--syn", "-m", "mark", "!", "--mark", matchToProxy),
+	}
 }
 
 func (m *manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, proxyPort uint16, name string) error {
