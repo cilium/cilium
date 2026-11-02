@@ -35,4 +35,5 @@ ENV MAKE_GIT_REPO_SAFE=1
 ## Workaround odd behaviour of sphinx versionwarning extension. It wants to
 ## write runtime data inside a system directory.
 ## We do rely on this extension, so we cannot just drop it.
-RUN install -m 0777 -d /usr/local/lib/python3.14/site-packages/versionwarning/_static/data
+RUN dir="$(python3 -c 'import versionwarning; print(versionwarning.__path__[0])')" \
+    && install -m 0777 -d "${dir}/_static/data"
