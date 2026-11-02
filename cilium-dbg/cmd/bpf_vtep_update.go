@@ -4,9 +4,7 @@
 package cmd
 
 import (
-	"fmt"
 	"net/netip"
-	"os"
 
 	"github.com/spf13/cobra"
 
@@ -43,9 +41,13 @@ var bpfVtepUpdateCmd = &cobra.Command{
 			Fatalf("Unable to parse vtep mac '%s'", args[2])
 		}
 
-		if err := vtep.LoadVTEPMap(log).Update(vcidr, vip, vmac); err != nil {
-			fmt.Fprintf(os.Stderr, "error updating contents of map: %s\n", err)
-			os.Exit(1)
+		vtepMap, err := vtep.OpenMap(log)
+		if err != nil {
+			Fatalf("error opening VTEP map: %s", err)
+		}
+
+		if err := vtepMap.Update(vcidr, vip, vmac); err != nil {
+			Fatalf("error updating contents of map: %s", err)
 		}
 	},
 }

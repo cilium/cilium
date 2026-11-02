@@ -29,16 +29,19 @@ var bpfVtepListCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		common.RequireRootPrivilege("cilium bpf vtep list")
 
+		vtepMap, err := vtep.OpenMap(log)
+		if err != nil {
+			Fatalf("error opening VTEP map: %s", err)
+		}
+
 		bpfVtepList := make(map[string][]string)
-		if err := vtep.LoadVTEPMap(log).Dump(bpfVtepList); err != nil {
-			fmt.Fprintf(os.Stderr, "error dumping contents of map: %s\n", err)
-			os.Exit(1)
+		if err := vtepMap.Dump(bpfVtepList); err != nil {
+			Fatalf("error dumping contents of map: %s", err)
 		}
 
 		if command.OutputOption() {
 			if err := command.PrintOutput(bpfVtepList); err != nil {
-				fmt.Fprintf(os.Stderr, "error getting output of map in %s: %s\n", command.OutputOptionString(), err)
-				os.Exit(1)
+				Fatalf("error getting output of map in %s: %s", command.OutputOptionString(), err)
 			}
 			return
 		}
