@@ -110,7 +110,7 @@ have multiple rules using that certificate, or you include a valid root certific
 This memory use can really add up in a large installation.
 
 It also means that we don't benefit from work that has been done to protect secrets when they are sent
-using Secret Discovery Service (.
+using Secret Discovery Service (SDS).
 
 Secret Discovery Service (SDS)
 ------------------------------
