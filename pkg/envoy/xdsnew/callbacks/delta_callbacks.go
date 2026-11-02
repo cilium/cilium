@@ -83,12 +83,10 @@ func (cb *CompletionCallbacks) OnStreamDeltaRequest(streamID int64, req *discove
 	state := &typeState.response
 	response := &stream.responses[typeIndex]
 	if req.GetResponseNonce() == "" {
-		// Initial requests and later subscription-only requests omit the nonce;
-		// they do not acknowledge a response. Preserve any in-flight identity
-		// while conservatively resetting acceptance for the subscription.
-		state.acceptedVersion = ""
-		state.acceptedGeneration = 0
-		typeState.acceptedResources = acceptedResourceGroup{}
+		// Initial and subscription-only requests do not acknowledge a response.
+		// Preserve in-flight identity until its ACK/NACK arrives. Delta need not
+		// resend unchanged resources when subscriptions change, so retain their
+		// existing acceptance evidence.
 		cb.mutex.Unlock()
 		return nil
 	}

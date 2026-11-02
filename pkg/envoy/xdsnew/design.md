@@ -326,7 +326,8 @@ Delta ACKs and NACKs cover only updates and explicit removals carried by that
 response, including for wildcard subscriptions. The server's
 returned-version map includes unacknowledged deliveries. Acceptance is retained
 per resource; a later ACK provides no new evidence for unchanged names omitted
-from its response.
+from its response. Subscription changes retain existing acceptance evidence for
+unchanged resources, which Delta need not deliver again.
 Initial Delta requests and later subscription-only requests omit the response
 nonce; they are not ACKs. Matching nonempty nonces identify Delta responses
 without relying on an echoed aggregate version.

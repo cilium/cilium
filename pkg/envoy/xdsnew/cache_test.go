@@ -2417,6 +2417,58 @@ func TestDeltaEnabledCacheServesIndependentSotWSubscriptions(t *testing.T) {
 	}
 }
 
+func TestDeltaSubscriptionPreservesResourceAcceptance(t *testing.T) {
+	const nodeID = "node1"
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
+	t.Cleanup(func() { c.completionCbs.OnDeltaStreamClosed(1, nil) })
+	secret := testSecret("a", "secret")
+	require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Secret, secret.Name, secret, nil, nil))
+
+	request := &cache.DeltaRequest{
+		Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: typeurl.Secret.URL(),
+		ResourceNamesSubscribe: []string{secret.Name},
+	}
+	require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, request))
+	subscription := stream.NewDeltaSubscription(request.ResourceNamesSubscribe, nil, nil, false)
+	responses := make(chan cache.DeltaResponse, 1)
+	cancel, err := c.CreateDeltaWatch(request, &subscription, responses)
+	require.NoError(t, err)
+	if cancel != nil {
+		t.Cleanup(cancel)
+	}
+	var response cache.DeltaResponse
+	select {
+	case response = <-responses:
+	default:
+		t.Fatal("expected an immediate Delta response")
+	}
+	wire, err := response.GetDeltaDiscoveryResponse()
+	require.NoError(t, err)
+	wire.Nonce = "a"
+	c.completionCbs.OnStreamDeltaResponse(1, request, wire)
+	require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, &cache.DeltaRequest{
+		TypeUrl: typeurl.Secret.URL(), ResponseNonce: wire.Nonce,
+	}))
+	require.True(t, c.completionCbs.ResourceAccepted(nodeID, typeurl.Secret, secret.Name, secret, true, callbacks.Revision{}))
+
+	// Adding another subscription does not invalidate Envoy's acceptance of A.
+	require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, &cache.DeltaRequest{
+		TypeUrl: typeurl.Secret.URL(), ResourceNamesSubscribe: []string{"b"},
+	}))
+	done := make(chan error, 1)
+	wg := completion.NewWaitGroup(t.Context())
+	t.Cleanup(wg.Cancel)
+	require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Secret, secret.Name, secret, wg,
+		func(err error) { done <- err }))
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+	default:
+		t.Fatal("an unchanged, already accepted resource must not wait for another Delta response")
+	}
+	require.NoError(t, wg.Wait())
+}
+
 func TestDeltaACKOnlyAcceptsCommunicatedResources(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
