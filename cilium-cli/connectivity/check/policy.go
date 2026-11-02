@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	policyv1alpha2 "sigs.k8s.io/network-policy-api/apis/v1alpha2"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -395,6 +398,28 @@ func (t *Test) applyResources(ctx context.Context) error {
 	return nil
 }
 
+// deleteBackoff spaces four delete attempts 1s, 2s and 4s apart.
+var deleteBackoff = wait.Backoff{Duration: time.Second, Factor: 2, Steps: 4}
+
+// retryDelete calls del again while it fails with an API server error.
+func retryDelete(backoff wait.Backoff, del func() error) error {
+	retried := false
+	return retry.OnError(backoff, isServerError, func() error {
+		err := del()
+		if retried && k8serrors.IsNotFound(err) {
+			// A failed attempt can still have deleted the object.
+			return nil
+		}
+		retried = true
+		return err
+	})
+}
+
+func isServerError(err error) bool {
+	var status k8serrors.APIStatus
+	return errors.As(err, &status) && status.Status().Code >= http.StatusInternalServerError
+}
+
 // deleteResources deletes the previously-created set of resources that
 // belong to this test.
 func (t *Test) deleteResources(ctx context.Context) error {
@@ -419,7 +444,7 @@ func (t *Test) deleteResources(ctx context.Context) error {
 		kind := obj.GetObjectKind().GroupVersionKind().Kind
 		for _, client := range t.Context().clients.clients() {
 			t.Infof("📜 Deleting %s '%s' in namespace '%s' on cluster %s..", kind, obj.GetName(), obj.GetNamespace(), client.ClusterName())
-			err := client.DeleteGeneric(ctx, obj)
+			err := retryDelete(deleteBackoff, func() error { return client.DeleteGeneric(ctx, obj) })
 			if err != nil {
 				return fmt.Errorf("failed to delete %s '%s' in namespace '%s' on cluster %s: %w", kind, obj.GetName(), obj.GetNamespace(), client.ClusterName(), err)
 			}
