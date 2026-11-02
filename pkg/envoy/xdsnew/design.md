@@ -225,8 +225,10 @@ resource types across agent restarts.
 Negotiated types retain continuity across reconnects. Changing the epoch updates
 the published protocol view without publishing unrelated pending changes.
 
-A Delta resource's version changes when its published value changes or must be
-replayed; ordinary updates preserve versions for unchanged names. Removals delete
+A Delta resource's version advances when its value changes, when rollback gives
+the restored value a fresh revision, or when it must be replayed. A coalesced
+rollback can require delivery even when the restored protobuf matches the last
+published value. Ordinary updates preserve versions for unchanged names. Removals delete
 names from the snapshot's version map. go-control-plane compares this map with the
 subscription's returned-resource versions to select updates and explicit removals.
 The response adapter preserves Cilium's opaque versions without content hashing.

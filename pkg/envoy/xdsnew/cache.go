@@ -554,21 +554,30 @@ func (c *cacheImpl) generateSnapshotFromStateIncrementally(state *nodeState, pre
 			generation = max(generation, state.typeStates[typeurl.Cluster].generation)
 		}
 		versionMap := previousGroup.versionMap
-		if c.deltaADS && (resourcesChanged || replay) {
-			versionMap = maps.Clone(versionMap)
-			if versionMap == nil && len(group.Items) != 0 {
-				versionMap = make(map[string]string, len(group.Items))
-			}
+		if c.deltaADS && !changed.Empty() {
+			// Reverts advance revisions even when they restore the exact
+			// published protobuf. Such names still need a fresh Delta version.
 			version := formatXDSVersion(state.epoch, generation)
+			cloned := false
 			for name := range changed.Members() {
-				current, exists := group.Items[name]
-				if !exists {
-					delete(versionMap, name)
+				nextVersion := ""
+				if _, exists := group.Items[name]; exists {
+					nextVersion = version
+				}
+				if versionMap[name] == nextVersion {
 					continue
 				}
-				previous, existed := previousGroup.resources.Items[name]
-				if replay || !existed || previous.Resource != current.Resource {
-					versionMap[name] = version
+				if !cloned {
+					versionMap = maps.Clone(versionMap)
+					cloned = true
+				}
+				if nextVersion == "" {
+					delete(versionMap, name)
+				} else {
+					if versionMap == nil {
+						versionMap = make(map[string]string)
+					}
+					versionMap[name] = nextVersion
 				}
 			}
 			if len(versionMap) == 0 {

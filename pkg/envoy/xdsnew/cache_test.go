@@ -2461,6 +2461,139 @@ func TestDeltaACKOnlyAcceptsCommunicatedResources(t *testing.T) {
 	}
 }
 
+func TestDeltaCoalescedRollbackPublishesRestoredRevision(t *testing.T) {
+	for _, tt := range []struct {
+		name            string
+		typeURL         typeurl.Index
+		projected       bool
+		failPublication bool
+	}{
+		{name: "secret", typeURL: typeurl.Secret},
+		{name: "endpoint", typeURL: typeurl.Endpoint},
+		{name: "projected endpoint", typeURL: typeurl.Endpoint, projected: true},
+		{name: "after failed publication", typeURL: typeurl.Secret, failPublication: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			const nodeID, name = "node1", "a"
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
+			t.Cleanup(func() { c.completionCbs.OnDeltaStreamClosed(1, nil) })
+			var original proto.Message = &envoy_config_tls.Secret{Name: name}
+			var updated proto.Message = &envoy_config_tls.Secret{
+				Name: name, Type: &envoy_config_tls.Secret_GenericSecret{GenericSecret: &envoy_config_tls.GenericSecret{}},
+			}
+			if tt.typeURL == typeurl.Endpoint {
+				original = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name}
+				updated = &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: name, Policy: &envoy_config_endpoint.ClusterLoadAssignment_Policy{}}
+			}
+			if tt.projected {
+				original = nil
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster",
+					&envoy_config_cluster.Cluster{
+						Name: "cluster", ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_EDS},
+						EdsClusterConfig: &envoy_config_cluster.Cluster_EdsClusterConfig{ServiceName: name},
+					}, nil, nil))
+			} else {
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, name, original, nil, nil))
+			}
+			if tt.failPublication {
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "marker",
+					&envoy_config_cluster.Cluster{Name: "marker"}, nil, nil))
+			}
+
+			var nonces typeurl.Slots[string]
+			nonce := 0
+			watch := func(index typeurl.Index, subscription *stream.Subscription) chan cache.DeltaResponse {
+				t.Helper()
+				request := &cache.DeltaRequest{
+					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: index.URL(),
+					ResourceNamesSubscribe: slices.Collect(maps.Keys(subscription.SubscribedResources())),
+					ResponseNonce:          nonces[index],
+				}
+				require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, request))
+				responses := make(chan cache.DeltaResponse, 1)
+				cancel, err := c.CreateDeltaWatch(request, subscription, responses)
+				require.NoError(t, err)
+				if cancel != nil {
+					t.Cleanup(cancel)
+				}
+				return responses
+			}
+			receive := func(index typeurl.Index, subscription *stream.Subscription) *discovery.DeltaDiscoveryResponse {
+				t.Helper()
+				select {
+				case response := <-watch(index, subscription):
+					wire, err := response.GetDeltaDiscoveryResponse()
+					require.NoError(t, err)
+					nonce++
+					wire.Nonce = fmt.Sprint(nonce)
+					nonces[index] = wire.Nonce
+					c.completionCbs.OnStreamDeltaResponse(1, response.GetDeltaRequest(), wire)
+					subscription.SetReturnedResources(response.GetReturnedResources())
+					return wire
+				default:
+					t.Fatal("restored revision did not produce a Delta response")
+					return nil
+				}
+			}
+			ack := func(response *discovery.DeltaDiscoveryResponse) {
+				t.Helper()
+				require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, &cache.DeltaRequest{
+					TypeUrl: response.TypeUrl, ResponseNonce: response.Nonce,
+				}))
+			}
+			subscription := stream.NewDeltaSubscription([]string{name}, nil, nil, false)
+			initial := receive(tt.typeURL, &subscription)
+			ack(initial)
+			markerSubscription := stream.NewDeltaSubscription([]string{"marker"}, nil, nil, false)
+			if tt.failPublication {
+				ack(receive(typeurl.Cluster, &markerSubscription))
+			}
+
+			rollback, err := c.ApplyResourceWithRollback(t.Context(), nodeID, tt.typeURL, name, updated, nil, nil)
+			require.NoError(t, err)
+			require.NoError(t, rollback.Revert()) // B was never published; A now has a fresh revision.
+
+			if tt.failPublication {
+				// A different type's watch lets a bulk update try to publish the
+				// pending restored revision. On failure, that revision must stay dirty.
+				require.Empty(t, watch(typeurl.Cluster, &markerSubscription))
+				failed := newMockSnapshotCache()
+				failed.snapshots[nodeID] = mustSnapshot(t, c, nodeID)
+				failed.setSnapshotErr = errors.New("publication failed")
+				restore := c.replaceSnapshotCache(t, failed)
+				require.ErrorIs(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: xds.Resources{
+					Secrets:  map[string]*envoy_config_tls.Secret{name: {Name: name, Type: &envoy_config_tls.Secret_TlsCertificate{TlsCertificate: &envoy_config_tls.TlsCertificate{}}}},
+					Clusters: map[string]*envoy_config_cluster.Cluster{"marker": {Name: "marker", AltStatName: "changed"}},
+				}}, nil, TypeURLCallbacks{}), failed.setSnapshotErr)
+				restore()
+			}
+			done := make(chan error, 1)
+			wg := completion.NewWaitGroup(t.Context())
+			t.Cleanup(wg.Cancel)
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, name, original, wg,
+				func(err error) { done <- err }))
+			requireCoveragePending(t, done)
+			restored := receive(tt.typeURL, &subscription)
+			require.Len(t, restored.Resources, 1)
+			require.Equal(t, name, restored.Resources[0].Name)
+			require.True(t, proto.Equal(initial.Resources[0].Resource, restored.Resources[0].Resource))
+			require.NotEqual(t, initial.Resources[0].Version, restored.Resources[0].Version)
+			require.True(t, proto.Equal(original, c.GetResource(nodeID, tt.typeURL, name)))
+
+			ack(initial)
+			requireCoveragePending(t, done)
+			ack(restored)
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			default:
+				t.Fatal("ACK for the restored revision did not complete the wait")
+			}
+			require.NoError(t, wg.Wait())
+		})
+	}
+}
+
 func TestCiliumSnapshotDeltaVersionsTrackResourceChanges(t *testing.T) {
 	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS()).(*cacheImpl)
 	state := &nodeState{epoch: 1, resourceGeneration: 1}
