@@ -865,6 +865,20 @@
       ]
     },
     {
+      // We bump Python by hand with Documentation/.readthedocs.yaml and runtime.txt.
+      "enabled": false,
+      "matchFileNames": [
+        "images/docs-builder/Dockerfile"
+      ],
+      "matchPackageNames": [
+        "docker.io/library/python"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ]
+    },
+    {
       // k8s major/minor updates are disabled on all branches.
       // On main, they will be updated manually along with tests.
       // On stable branches, patch updates are allowed via the "k8s.io patch updates stable" rule.
