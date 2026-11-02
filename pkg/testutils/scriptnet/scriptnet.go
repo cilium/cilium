@@ -343,6 +343,7 @@ func linkAddCmd(nsm *NetNSManager) script.Cmd {
 			Args:    "<name> <type>",
 			Flags: func(fs *pflag.FlagSet) {
 				fs.String("netns", "", "Execute in the specified network namespace")
+				fs.String("hwaddr", "", "Hardware address to assign when creating the link")
 				fs.String("peername", "", "Name of the veth peer interface (veth only)")
 				fs.String("peerns", "", "Network namespace of the veth peer (veth only)")
 			},
@@ -364,6 +365,18 @@ func linkAddCmd(nsm *NetNSManager) script.Cmd {
 			}
 
 			linkAttrs := netlink.LinkAttrs{Name: name}
+			hwAddr, err := s.Flags.GetString("hwaddr")
+			if err != nil {
+				return nil, fmt.Errorf("failed to get hwaddr flag: %w", err)
+			}
+			// Assign the MAC at creation so udev sees NET_ADDR_SET before handling
+			// the device and does not replace it with a persistent MAC.
+			if hwAddr != "" {
+				linkAttrs.HardwareAddr, err = net.ParseMAC(hwAddr)
+				if err != nil {
+					return nil, fmt.Errorf("invalid hwaddr value %q: %w", hwAddr, err)
+				}
+			}
 
 			err = nsm.exec(nsName, func() error {
 				var link netlink.Link
