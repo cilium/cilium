@@ -256,11 +256,22 @@ func TestUnsupportedDeltaRequestInitializesStream(t *testing.T) {
 }
 
 func TestStreamCallbacksLogAtDebug(t *testing.T) {
-	for _, level := range []slog.Level{slog.LevelInfo, slog.LevelDebug} {
-		t.Run(level.String(), func(t *testing.T) {
-			var logs bytes.Buffer
-			logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: level}))
-			cb := ChainedCallbacks{LoggingCallbacks{Log: logger}, NewCompletionCallbacks(logger, testNACKHandler{})}
+	var logs bytes.Buffer
+	var level slog.LevelVar
+	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: &level}))
+	cb := ChainedCallbacks{LoggingCallbacks{Log: logger}, NewCompletionCallbacks(logger, testNACKHandler{})}
+	for _, tt := range []struct {
+		name  string
+		level slog.Level
+	}{
+		{name: "initially disabled", level: slog.LevelInfo},
+		{name: "enabled", level: slog.LevelDebug},
+		{name: "disabled again", level: slog.LevelInfo},
+		{name: "re-enabled", level: slog.LevelDebug},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			level.Set(tt.level)
+			logs.Reset()
 			typeURL := typeurl.Listener.URL()
 			sotwReq := &discovery.DiscoveryRequest{Node: &core.Node{Id: "node-1"}, TypeUrl: typeURL}
 			deltaReq := &discovery.DeltaDiscoveryRequest{Node: sotwReq.Node, TypeUrl: typeURL}
@@ -272,7 +283,7 @@ func TestStreamCallbacksLogAtDebug(t *testing.T) {
 			require.NoError(t, cb.OnStreamDeltaRequest(7, deltaReq))
 			cb.OnStreamDeltaResponse(7, deltaReq, &discovery.DeltaDiscoveryResponse{TypeUrl: typeURL, SystemVersionInfo: "v1"})
 			cb.OnDeltaStreamClosed(7, nil)
-			if level == slog.LevelInfo {
+			if tt.level == slog.LevelInfo {
 				require.Empty(t, logs.String())
 			} else {
 				require.Equal(t, 8, bytes.Count(logs.Bytes(), []byte("\n")), "log each transport event once")

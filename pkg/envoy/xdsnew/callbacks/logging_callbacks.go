@@ -14,6 +14,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
+// LoggingCallbacks checks the level before boxing request/response fields into
+// slog arguments on high-frequency stream paths.
 type LoggingCallbacks struct {
 	Log *slog.Logger
 }
@@ -29,6 +31,9 @@ func (cb LoggingCallbacks) OnFetchResponse(*discovery.DiscoveryRequest, *discove
 
 // OnStreamDeltaRequest implements server.Callbacks.
 func (cb LoggingCallbacks) OnStreamDeltaRequest(streamID int64, req *discovery.DeltaDiscoveryRequest) error {
+	if !cb.Log.Enabled(context.Background(), slog.LevelDebug) {
+		return nil
+	}
 	cb.Log.Debug("OnStreamDeltaRequest",
 		logfields.XDSStreamID, streamID,
 		logfields.XDSTypeURL, req.GetTypeUrl(),
@@ -40,6 +45,9 @@ func (cb LoggingCallbacks) OnStreamDeltaRequest(streamID int64, req *discovery.D
 
 // OnStreamDeltaResponse implements server.Callbacks.
 func (cb LoggingCallbacks) OnStreamDeltaResponse(streamID int64, _ *discovery.DeltaDiscoveryRequest, resp *discovery.DeltaDiscoveryResponse) {
+	if !cb.Log.Enabled(context.Background(), slog.LevelDebug) {
+		return
+	}
 	cb.Log.Debug("OnStreamDeltaResponse",
 		logfields.XDSStreamID, streamID,
 		logfields.XDSVersion, resp.GetSystemVersionInfo(),
@@ -68,6 +76,9 @@ func (cb LoggingCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 // OnStreamRequest is called once a request is received on a stream.
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
 func (cb LoggingCallbacks) OnStreamRequest(streamID int64, req *discovery.DiscoveryRequest) error {
+	if !cb.Log.Enabled(context.Background(), slog.LevelDebug) {
+		return nil
+	}
 	cb.Log.Debug("OnStreamRequest",
 		logfields.XDSStreamID, streamID,
 		logfields.XDSVersion, req.GetVersionInfo(),
@@ -79,6 +90,9 @@ func (cb LoggingCallbacks) OnStreamRequest(streamID int64, req *discovery.Discov
 
 // OnStreamResponse is called immediately prior to sending a response on a stream.
 func (cb LoggingCallbacks) OnStreamResponse(ctx context.Context, streamID int64, req *discovery.DiscoveryRequest, resp *discovery.DiscoveryResponse) {
+	if !cb.Log.Enabled(context.Background(), slog.LevelDebug) {
+		return
+	}
 	cb.Log.Debug("OnStreamResponse",
 		logfields.XDSStreamID, streamID,
 		logfields.XDSVersion, resp.GetVersionInfo(),
