@@ -735,7 +735,9 @@ func TestInboundProxyRedirectRules(t *testing.T) {
 		rules = append(rules, strings.Join(rule, " "))
 	}
 	require.Equal(t, []string{
-		"-t mangle -A CILIUM_PRE_mangle " + socketMatch,
+		"-t mangle -A CILIUM_PRE_mangle ! -p tcp " + socketMatch,
+		"-t mangle -A CILIUM_PRE_mangle -p tcp ! --syn " + socketMatch,
+		"-t mangle -A CILIUM_PRE_mangle -p tcp --syn -m mark ! --mark 0x00000200/0x00000f00 " + socketMatch,
 	}, rules)
 }
 
