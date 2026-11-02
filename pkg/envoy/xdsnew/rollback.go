@@ -737,10 +737,7 @@ func (entry rollbackEntry) previousEquals(resource cache_types.Resource) bool {
 // resourceStateIsObservable uses the snapshot when published, or desired state
 // before publication. Referenced EDS removals remain observable because their
 // projection supplies a named empty CLA.
-func (r *rollbackState) resourceStateIsObservable(state *nodeState, snapshot cache.ResourceSnapshot, index typeurl.Index, name string, delta bool) bool {
-	if delta {
-		return true
-	}
+func (r *rollbackState) resourceStateIsObservable(state *nodeState, snapshot cache.ResourceSnapshot, index typeurl.Index, name string) bool {
 	if snapshot != nil {
 		return callbacks.SnapshotResourceStateIsObservable(snapshot, index, name)
 	}
@@ -767,14 +764,16 @@ func (r *rollbackState) resourceStateIsObservable(state *nodeState, snapshot cac
 // caller rollback retains separate ownership. Synthesized empty CLAs remain
 // observable and therefore retain response recovery.
 func (rollback *rollbackResources) pruneUnobservableResources(state *nodeState, index typeurl.Index, snapshot cache.ResourceSnapshot, delta bool) {
-	typeState := &state.typeStates[index]
-	for name, entry := range *rollback {
-		if state.rollbacks.resourceStateIsObservable(state, snapshot, index, name, delta) {
-			continue
+	if !delta {
+		typeState := &state.typeStates[index]
+		for name, entry := range *rollback {
+			if state.rollbacks.resourceStateIsObservable(state, snapshot, index, name) {
+				continue
+			}
+			typeState.rollbacks.removeOwner(rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
+			delete(*rollback, name)
+			typeState.rollbacks.pruneTombstone(state.resources[index], rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
 		}
-		typeState.rollbacks.removeOwner(rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
-		delete(*rollback, name)
-		typeState.rollbacks.pruneTombstone(state.resources[index], rollbackOwnerKey{name: name, transaction: entry.expectedTransaction})
 	}
 	if len(state.resources[index]) == 0 {
 		state.resources[index] = nil

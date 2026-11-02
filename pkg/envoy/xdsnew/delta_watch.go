@@ -72,11 +72,8 @@ func (response *versionedDeltaResponse) GetDeltaDiscoveryResponse() (*discovery.
 // withDeltaSnapshotVersions serializes only the changes captured at publication.
 // Native go-control-plane serialization would hash every resource, discarding
 // Cilium's opaque versions and requiring another pass to rewrite the response.
-func (c *cacheImpl) withDeltaSnapshotVersions(response cache.DeltaResponse, streamID int64) cache.DeltaResponse {
+func (c *cacheImpl) withDeltaSnapshotVersions(response cache.DeltaResponse, streamID int64) *versionedDeltaResponse {
 	resources, changes := callbacks.DeltaResponseChanges(response)
-	if changes == nil {
-		return response
-	}
 	return &versionedDeltaResponse{
 		DeltaResponse: response,
 		callbacks:     c.completionCbs,
@@ -124,6 +121,9 @@ func (c *cacheImpl) deltaRelayForLocked(responseChannel chan cache.DeltaResponse
 		inner: make(chan cache.DeltaResponse, capacity),
 		outer: responseChannel,
 	}
+	if c.deltaWatchRelays == nil {
+		c.deltaWatchRelays = make(map[chan cache.DeltaResponse]*deltaWatchRelay)
+	}
 	c.deltaWatchRelays[responseChannel] = relay
 	return relay
 }
@@ -146,9 +146,6 @@ func (c *cacheImpl) addTrackedDeltaWatchLocked(state *nodeState, request *cache.
 }
 
 func (c *cacheImpl) removeTrackedDeltaWatchLocked(watch *trackedDeltaWatch) {
-	if watch == nil {
-		return
-	}
 	watches, exists := watch.state.openDeltaWatches.Get(watch.typeURL)
 	if exists {
 		watches.Remove(watch)

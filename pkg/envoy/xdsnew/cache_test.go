@@ -2474,13 +2474,18 @@ func TestDeltaSubscriptionPreservesResourceAcceptance(t *testing.T) {
 
 func TestDeltaACKOnlyAcceptsCommunicatedResources(t *testing.T) {
 	for _, tt := range []struct {
-		name     string
-		typeURL  typeurl.Index
-		a, b     proto.Message
-		wildcard bool
+		name      string
+		typeURL   typeurl.Index
+		a, b      proto.Message
+		wildcard  bool
+		sotwFirst bool
 	}{
 		{
 			name: "named CDS streams", typeURL: typeurl.Cluster,
+			a: &envoy_config_cluster.Cluster{Name: "a"}, b: &envoy_config_cluster.Cluster{Name: "b"},
+		},
+		{
+			name: "SotW and Delta stream ID and nonce collision", typeURL: typeurl.Cluster, sotwFirst: true,
 			a: &envoy_config_cluster.Cluster{Name: "a"}, b: &envoy_config_cluster.Cluster{Name: "b"},
 		},
 		{
@@ -2497,6 +2502,7 @@ func TestDeltaACKOnlyAcceptsCommunicatedResources(t *testing.T) {
 			const nodeID = "node1"
 			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
 			t.Cleanup(func() {
+				c.completionCbs.OnStreamClosed(2, nil)
 				for streamID := range int64(3) {
 					c.completionCbs.OnDeltaStreamClosed(streamID+1, nil)
 				}
@@ -2541,7 +2547,28 @@ func TestDeltaACKOnlyAcceptsCommunicatedResources(t *testing.T) {
 			if tt.wildcard {
 				first = stream.NewDeltaSubscription(nil, nil, nil, true)
 			}
-			receive(1, &first, "a") // A has been delivered, but has not been ACKed.
+			if tt.sotwFirst {
+				request := &cache.Request{
+					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: tt.typeURL.URL(), ResourceNames: []string{"a"},
+				}
+				require.NoError(t, c.completionCbs.OnStreamRequest(2, request))
+				responses := make(chan cache.Response, 1)
+				cancel, err := c.CreateWatch(request, stream.NewSotwSubscription(request.ResourceNames, false), responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				var response cache.Response
+				select {
+				case response = <-responses:
+				default:
+					t.Fatal("expected an immediate SotW response")
+				}
+				c.completionCbs.OnStreamResponse(response.GetContext(), 2, request, &discovery.DiscoveryResponse{
+					TypeUrl: tt.typeURL.URL(), VersionInfo: response.GetResponseVersion(), Nonce: "b",
+				})
+			} else {
+				receive(1, &first, "a")
+			}
+			// A has been delivered, but has not been ACKed.
 
 			require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "b", tt.b, bWG,
 				func(err error) { bDone <- err }))
@@ -2874,24 +2901,6 @@ func TestDeltaResponsesPreserveSnapshotVersions(t *testing.T) {
 			require.Empty(t, wire.Resources)
 			require.Equal(t, []string{"changed"}, wire.RemovedResources)
 		})
-	}
-}
-
-func TestNativeDeltaResponseRetainsHashFallback(t *testing.T) {
-	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS())
-	resource := &envoy_config_listener.Listener{Name: "listener"}
-	encoded, err := cache.MarshalResource(resource)
-	require.NoError(t, err)
-	for _, versions := range []map[string]string{nil, {"listener": ""}} {
-		response := cache.NewTestRawDeltaResponse(
-			&discovery.DeltaDiscoveryRequest{TypeUrl: typeurl.Listener.URL()}, "system-version",
-			[]cache_types.ResourceWithTTL{{Resource: resource}}, nil, versions,
-		)
-		require.Same(t, response, c.withDeltaSnapshotVersions(response, 0), "responses without coverage must use native serialization")
-		wire, err := response.GetDeltaDiscoveryResponse()
-		require.NoError(t, err)
-		require.Len(t, wire.Resources, 1)
-		require.Equal(t, cache.HashResource(encoded), wire.Resources[0].Version)
 	}
 }
 

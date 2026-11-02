@@ -281,7 +281,7 @@ type snapshotResourceGroup struct {
 // both Envoy core resources and Cilium-specific xDS resources. Resource groups
 // are the published copy-on-write state in the same representation used by
 // go-control-plane's native Snapshot. Versions use generations and the node
-// epoch, leaving resource marshaling to go-control-plane's response path.
+// epoch. Resources are marshaled when encoding a response.
 type ciliumSnapshot struct {
 	resourceGroups typeurl.Slots[snapshotResourceGroup]
 	epoch          uint64
@@ -382,10 +382,9 @@ func NewCache(logger *slog.Logger, options ...CacheOption) Cache {
 
 func newCache(logger *slog.Logger, options ...CacheOption) *cacheImpl {
 	c := &cacheImpl{
-		mutex:            &lock.RWMutex{},
-		watchRelays:      make(map[chan cache.Response]*watchRelay),
-		deltaWatchRelays: make(map[chan cache.DeltaResponse]*deltaWatchRelay),
-		logger:           logger,
+		mutex:       &lock.RWMutex{},
+		watchRelays: make(map[chan cache.Response]*watchRelay),
+		logger:      logger,
 	}
 	for _, option := range options {
 		option(c)

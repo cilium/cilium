@@ -8,6 +8,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/genproto/googleapis/rpc/status"
 
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
@@ -36,6 +37,16 @@ type streamKey struct {
 	mode     StreamMode
 }
 
+// streamRequest normalizes transport fields for shared ACK/NACK processing.
+// Delta has no echoed version; a matching nonce identifies its response instead.
+// Resource names come from the recorded response, never from ACK/NACK requests.
+type streamRequest struct {
+	nodeID, typeURL, version, nonce string
+	errorDetail                     *status.Status
+	// Retain the original Delta request to associate its subsequent cache watch.
+	deltaRequest *discovery.DeltaDiscoveryRequest
+}
+
 type callbackStreamState struct {
 	nodeID    string
 	responses typeurl.Slots[pendingResponse]
@@ -47,36 +58,17 @@ type callbackStreamState struct {
 	preparedDeltaResponse deltaResponseMetadata
 }
 
-// ensureStreamState returns stream state, creating it when needed.
-// cb.mutex must be held.
-func (cb *CompletionCallbacks) ensureStreamState(key streamKey) *callbackStreamState {
+// streamForRequest remembers the request's node ID. Subsequent requests may
+// omit Node. started reports the first association of this stream with a node.
+// Caller must hold cb.mutex.
+func (cb *CompletionCallbacks) streamForRequest(key streamKey, nodeID string) (*callbackStreamState, bool) {
 	stream := cb.streams[key]
 	if stream == nil {
 		stream = &callbackStreamState{}
 		cb.streams[key] = stream
 	}
-	return stream
-}
-
-// streamForRequest remembers the request's node ID. Subsequent requests may
-// omit Node. started reports the first association of this stream with a node.
-// Caller must hold cb.mutex.
-func (cb *CompletionCallbacks) streamForRequest(streamID int64, req *discovery.DiscoveryRequest) (*callbackStreamState, bool) {
-	stream := cb.ensureStreamState(streamKey{streamID: streamID, mode: StreamModeSotW})
-	started := stream.nodeID == "" && req.GetNode().GetId() != ""
-	if nodeID := req.GetNode().GetId(); nodeID != "" {
-		stream.nodeID = nodeID
-	}
-	return stream, started
-}
-
-// streamForDeltaRequest remembers the node before go-control-plane restores it
-// on subsequent Delta requests. The validation callback normally fills Node,
-// while this fallback keeps direct callback users correct.
-func (cb *CompletionCallbacks) streamForDeltaRequest(streamID int64, req *discovery.DeltaDiscoveryRequest) (*callbackStreamState, bool) {
-	stream := cb.ensureStreamState(streamKey{streamID: streamID, mode: StreamModeDelta})
-	started := stream.nodeID == "" && req.GetNode().GetId() != ""
-	if nodeID := req.GetNode().GetId(); nodeID != "" {
+	started := stream.nodeID == "" && nodeID != ""
+	if nodeID != "" {
 		stream.nodeID = nodeID
 	}
 	return stream, started

@@ -205,7 +205,8 @@ func TestDeltaNACKRevalidatesAfterRequestInitialization(t *testing.T) {
 				ResponseNonce: "old", ErrorDetail: &status.Status{Message: "rejected listener"},
 			}
 			cb.mutex.Lock()
-			cb.ensureStreamState(key).responses[typeurl.Listener] = pendingResponse{pendingNonce: "old", pendingGeneration: 1}
+			stream, _ := cb.streamForRequest(key, "")
+			stream.responses[typeurl.Listener] = pendingResponse{pendingNonce: "old", pendingGeneration: 1}
 			cb.mutex.Unlock()
 			cb.nackHandler = testNACKHandlerFunc(func(nodeID string, process func(RevertBatch) error) error {
 				require.Equal(t, "node-1", nodeID)

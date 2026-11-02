@@ -6,8 +6,6 @@ package xdsnew
 import (
 	"fmt"
 
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
@@ -46,32 +44,19 @@ type nackRecovery struct {
 // handleNACK enters the cache transaction before claiming any inverses. A cache
 // caller therefore cannot attach a new wait between selection and compensation.
 // The callbacks lock is never held while acquiring the cache lock.
-func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.DiscoveryRequest) error {
-	cb.mutex.Lock()
-	stream, started := cb.streamForRequest(streamID, req)
-	nodeID := stream.nodeID
-	cb.mutex.Unlock()
-	if started && cb.streamLifecycle != nil {
-		cb.streamLifecycle.StreamStarted(streamID, nodeID, StreamModeSotW)
-	}
-	typeURL, supported := typeurl.FromURL(req.GetTypeUrl())
-	if !supported {
-		return nil
-	}
-
+func (cb *CompletionCallbacks) handleNACK(key streamKey, nodeID string, typeURL typeurl.Index, req streamRequest) error {
 	var recovery *nackRecovery
 	err := cb.nackHandler.HandleNACK(nodeID, func(revert RevertBatch) error {
 		cb.mutex.Lock()
 		// The stream may have closed or progressed while acquiring the cache
 		// lock. Revalidate instead of acting on an earlier response identity.
-		stream := cb.streams[streamKey{streamID: streamID, mode: StreamModeSotW}]
-		if stream == nil || stream.nodeID != nodeID || (req.GetResponseNonce() != "" &&
-			(stream.responses[typeURL].pendingNonce == "" || stream.responses[typeURL].pendingNonce != req.GetResponseNonce())) {
+		stream := cb.streams[key]
+		if stream == nil || stream.nodeID != nodeID || ((key.mode == StreamModeDelta || req.nonce != "") &&
+			(stream.responses[typeURL].pendingNonce == "" || stream.responses[typeURL].pendingNonce != req.nonce)) {
 			cb.mutex.Unlock()
 			return nil
 		}
-		recovery = cb.handleNACKLocked(streamKey{streamID: streamID, mode: StreamModeSotW},
-			req, stream, typeURL, cb.ensureTypeURLState(nodeID, typeURL))
+		recovery = cb.handleNACKLocked(key, req, stream, typeURL, cb.ensureTypeURLState(nodeID, typeURL))
 		cb.mutex.Unlock()
 
 		rollbacks := make([]Rollback, len(recovery.reverts))
@@ -82,7 +67,7 @@ func (cb *CompletionCallbacks) handleNACK(streamID int64, req *discovery.Discove
 			cb.mutex.Lock()
 			cb.finishNACKLocked(recovery)
 			cb.mutex.Unlock()
-			return fmt.Errorf("failed to revert NACKed %s for node %s: %w", req.GetTypeUrl(), nodeID, err)
+			return fmt.Errorf("failed to revert NACKed %s for node %s: %w", req.typeURL, nodeID, err)
 		}
 		return nil
 	})

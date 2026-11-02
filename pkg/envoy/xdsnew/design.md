@@ -312,7 +312,10 @@ the immediately following response callback. Unsent responses create no retained
 metadata. Delta watch cancellation releases blocked response sends and waits for
 active sends to stop before go-control-plane can close the stream's response channel.
 Stream keys include the transport mode because go-control-plane numbers SotW and
-Delta streams independently, although they share Cilium's completion callbacks.
+Delta streams independently. Both transports share ACK/NACK processing after
+their request and response metadata is normalized. Delta subscription changes
+retain acceptance for unchanged resources because those resources need not be
+delivered again.
 
 An ACK acknowledges only the names communicated by the response identified by
 the nonce. In SotW, for types supporting deletion by omission (LDS, CDS, NPDS,
