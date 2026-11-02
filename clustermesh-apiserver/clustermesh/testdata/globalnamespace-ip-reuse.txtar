@@ -1,0 +1,145 @@
+#! --cluster-id=3 --cluster-name=cluster3 --clustermesh-default-global-namespace=false
+#
+# Asserts that an IP address reused by a different CiliumEndpoint is correctly
+# propagated to the kvstore when namespace updates are interleaved with
+# CiliumEndpoint churn. Namespace updates trigger the resynchronization of
+# all the CiliumEndpoints in that namespace, which must not prevent the
+# deletion of the previous owner of the IP from being propagated.
+
+hive/start
+
+# Add two global namespaces
+k8s/add namespace-1.yaml namespace-2.yaml
+
+# Add the first CiliumEndpoint
+k8s/add endpoint-1.yaml
+
+# Assert that the synced key gets created. We compare on the key only as the
+# value is the timestamp at which synchronization completed
+kvstore/list -o plain cilium/synced synced.actual
+* grep -q '^# cilium/synced/cluster3/cilium/state/ip/v1$' synced.actual
+
+# Wait for synchronization
+kvstore/list -o json cilium/state/ip ips-1.actual
+* cmp ips-1.actual ips-1.expected
+
+# Update the namespace of the first CiliumEndpoint, triggering its resynchronization
+k8s/update namespace-1-labeled.yaml
+
+# Delete the first CiliumEndpoint, and add a second one with the same IP
+# in a different namespace
+k8s/delete endpoint-1.yaml
+k8s/add endpoint-2.yaml
+
+# Wait for synchronization. The IP should be associated with the second CiliumEndpoint
+kvstore/list -o json cilium/state/ip ips-2.actual
+* cmp ips-2.actual ips-2.expected
+
+# Update the namespace of the second CiliumEndpoint, and delete it
+k8s/update namespace-2-labeled.yaml
+k8s/delete endpoint-2.yaml
+
+# Wait for synchronization. No entries should remain
+kvstore/list -o json cilium/state/ip ips-empty.actual
+* empty ips-empty.actual
+
+# ---
+
+-- namespace-1.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: don
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- namespace-1-labeled.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: don
+  labels:
+    foo: bar
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- namespace-2.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quixote
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- namespace-2-labeled.yaml --
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: quixote
+  labels:
+    foo: bar
+  annotations:
+    clustermesh.cilium.io/global: "true"
+
+-- endpoint-1.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  name: cep-001
+  namespace: don
+status:
+  id: 1481
+  identity:
+    id: 199472
+    labels:
+    - k8s:app=don
+  networking:
+    addressing:
+    - ipv4: 10.244.1.79
+    node: 172.18.0.3
+  service-account: default
+  state: ready
+
+-- endpoint-2.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumEndpoint
+metadata:
+  name: cep-002
+  namespace: quixote
+status:
+  id: 1482
+  identity:
+    id: 199475
+    labels:
+    - k8s:app=quixote
+  networking:
+    addressing:
+    - ipv4: 10.244.1.79
+    node: 172.18.0.3
+  service-account: default
+  state: ready
+
+-- ips-1.expected --
+# cilium/state/ip/v1/default/10.244.1.79
+{
+  "IP": "10.244.1.79",
+  "HostIP": "172.18.0.3",
+  "ID": 199472,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "don",
+  "K8sPodName": "cep-001",
+  "K8sServiceAccount": "default"
+}
+-- ips-2.expected --
+# cilium/state/ip/v1/default/10.244.1.79
+{
+  "IP": "10.244.1.79",
+  "HostIP": "172.18.0.3",
+  "ID": 199475,
+  "Key": 0,
+  "Metadata": "",
+  "K8sNamespace": "quixote",
+  "K8sPodName": "cep-002",
+  "K8sServiceAccount": "default"
+}

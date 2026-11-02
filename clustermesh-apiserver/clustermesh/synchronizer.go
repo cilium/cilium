@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
@@ -106,6 +107,7 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 					store:            store,
 					resourceStore:    resourceStore,
 					synced:           synced,
+					seen:             sets.New[resource.Key](),
 				}
 
 				// Get event channels
@@ -160,6 +162,16 @@ type syncLoop[T runtime.Object] struct {
 	store            store.SyncStore
 	resourceStore    resource.Store[T]
 	synced           func(context.Context)
+
+	// seen tracks the keys of the resources that have been emitted as upsert
+	// events by the resource subscriber, and not yet emitted as delete events.
+	// The subscriber guarantees that a delete event is eventually emitted only
+	// for these resources, hence namespace events must not propagate any other
+	// resource to the converter, as its deletion might otherwise never be
+	// observed, permanently leaking the corresponding kvstore entries.
+	// Only populated for namespaced resources, as namespace events are not
+	// watched otherwise.
+	seen sets.Set[resource.Key]
 }
 
 // handleResource processes a single event for the synchronized resource.
@@ -169,6 +181,19 @@ func (l *syncLoop[T]) handleResource(ctx context.Context, event resource.Event[T
 		l.logger.Info("Initial entries successfully received from Kubernetes")
 		l.store.Synced(ctx, l.synced)
 		return
+	}
+
+	// Track the resources emitted by the subscriber, before the event kind is
+	// possibly mutated by the namespace filter below. Upsert events converted
+	// into delete events refer to resources which still exist, and that need to
+	// be resynchronized in case their namespace later becomes global.
+	if l.namespaced {
+		switch event.Kind {
+		case resource.Upsert:
+			l.seen.Insert(event.Key)
+		case resource.Delete:
+			l.seen.Delete(event.Key)
+		}
 	}
 
 	// Filter the event based on namespace global status.
@@ -270,8 +295,16 @@ func (l *syncLoop[T]) namespaceHandler(event resource.Event[*slim_corev1.Namespa
 			return
 		}
 		for _, obj := range objects {
+			key := resource.NewKey(obj)
+			if !l.seen.Has(key) {
+				// The resource has not been emitted by the subscriber yet. It will
+				// be processed when the corresponding upsert event is received,
+				// if it still exists at that point.
+				continue
+			}
+
 			resEvent := resource.Event[T]{
-				Key:    resource.NewKey(obj),
+				Key:    key,
 				Object: obj,
 			}
 			// Determine the event kind. If namespace is being deleted,
