@@ -11,7 +11,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/genproto/googleapis/rpc/status"
 
@@ -114,16 +113,13 @@ func TestDeltaStreamCloseDiscardsUndeliveredResponseMetadata(t *testing.T) {
 	require.NoError(t, cb.OnStreamDeltaRequest(7, request))
 
 	require.Equal(t, int64(7), cb.StreamIDForDeltaRequest(request))
-	cb.RegisterDeltaResponse(7, &cache.RawDeltaResponse{
-		DeltaRequest: request, Ctx: WithSnapshotGeneration(t.Context(), 1),
-	})
+	cb.RegisterDeltaResponse(7, &discovery.DeltaDiscoveryResponse{
+		TypeUrl: request.TypeUrl, SystemVersionInfo: "e1:g1",
+	}, WithSnapshotGeneration(t.Context(), 1))
 	cb.mutex.Lock()
-	require.Len(t, cb.streams[streamKey{streamID: 7, mode: StreamModeDelta}].preparedDeltaResponses, 1)
+	require.NotNil(t, cb.streams[streamKey{streamID: 7, mode: StreamModeDelta}].preparedDeltaResponse.response)
 	cb.mutex.Unlock()
 
-	// A newer subscription request must not hide the older response's
-	// metadata from stream cleanup.
-	require.NoError(t, cb.OnStreamDeltaRequest(7, &discovery.DeltaDiscoveryRequest{TypeUrl: request.TypeUrl}))
 	cb.OnDeltaStreamClosed(7, nil)
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
@@ -143,17 +139,16 @@ func TestDeltaStreamCloseBeforeResponseDeliveryDiscardsMetadata(t *testing.T) {
 	closedStream := cb.streams[streamKey{streamID: streamID, mode: StreamModeDelta}]
 	cb.mutex.Unlock()
 
-	// Closing can race with collection of a response for the original watch.
+	// Closing can race with encoding a response for the original watch.
 	// Late registration must neither retain metadata nor recreate the stream.
 	cb.OnDeltaStreamClosed(streamID, nil)
-	cb.RegisterDeltaResponse(streamID, &cache.RawDeltaResponse{
-		DeltaRequest: request, SystemVersionInfo: "e1:g1",
-		Ctx: WithSnapshotGeneration(t.Context(), 1),
-	})
+	cb.RegisterDeltaResponse(streamID, &discovery.DeltaDiscoveryResponse{
+		TypeUrl: request.TypeUrl, SystemVersionInfo: "e1:g1",
+	}, WithSnapshotGeneration(t.Context(), 1))
 
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	require.Empty(t, closedStream.preparedDeltaResponses)
+	require.Empty(t, closedStream.preparedDeltaResponse)
 	require.Empty(t, cb.streams)
 }
 

@@ -480,6 +480,167 @@ func TestSotWWatchCancellationSynchronizesResponseDelivery(t *testing.T) {
 	}
 }
 
+func TestDeltaWatchCancellationSynchronizesResponseDelivery(t *testing.T) {
+	tests := []struct {
+		name                   string
+		blockSotW              bool
+		buffered               bool
+		sibling                bool
+		cancelBeforeCollection bool
+	}{
+		{name: "collected before channel send", blockSotW: true},
+		{name: "blocked unbuffered channel send"},
+		{name: "full buffered response channel", buffered: true},
+		{name: "sibling watches share a blocked channel", sibling: true},
+		{name: "go-control-plane cancellation races publication", sibling: true, cancelBeforeCollection: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const nodeID = "node1"
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
+			node := &envoy_config_core.Node{Id: nodeID}
+			var gate *watchCancellationGate
+			releaseContext, release := context.WithCancel(t.Context())
+			t.Cleanup(release)
+			if tt.cancelBeforeCollection {
+				gate = &watchCancellationGate{
+					SnapshotCache: c.snapshotCache, typeURL: typeurl.Secret.URL(),
+					started: make(chan struct{}), release: releaseContext.Done(),
+				}
+				c.replaceSnapshotCache(t, gate)
+			}
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Secret, "a", testSecret("a", "old"), nil, nil))
+			if tt.sibling {
+				require.NoError(t, c.ApplyResource(t.Context(), nodeID, typeurl.Cluster, "cluster",
+					&envoy_config_cluster.Cluster{Name: "cluster"}, nil, nil))
+			}
+			var capacity int
+			if tt.buffered {
+				capacity = 1
+			}
+			deltaResponses := make(chan cache.DeltaResponse, capacity)
+			watch := func(typeURL typeurl.Index, name string) func() {
+				t.Helper()
+				request := &cache.DeltaRequest{
+					Node: node, TypeUrl: typeURL.URL(), ResourceNamesSubscribe: []string{name},
+				}
+				require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, request))
+				subscription := stream.NewDeltaSubscription(request.ResourceNamesSubscribe, nil, nil, false)
+				initialResponses := make(chan cache.DeltaResponse, 1)
+				cancel, err := c.CreateDeltaWatch(request, &subscription, initialResponses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				initial := <-initialResponses
+				if tt.buffered {
+					// Keep a prior response queued so the next send must wait
+					// for go-control-plane to read from its buffered channel.
+					deltaResponses <- initial
+				}
+				subscription.SetReturnedResources(initial.GetReturnedResources())
+				wire, err := initial.GetDeltaDiscoveryResponse()
+				require.NoError(t, err)
+				wire.Nonce = name
+				c.completionCbs.OnStreamDeltaResponse(1, request, wire)
+				request = &cache.DeltaRequest{Node: node, TypeUrl: request.TypeUrl, ResponseNonce: wire.Nonce}
+				require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, request))
+				cancel, err = c.CreateDeltaWatch(request, &subscription, deltaResponses)
+				require.NoError(t, err)
+				t.Cleanup(func() {
+					release()
+					cancel()
+				})
+				return cancel
+			}
+			cancels := []func(){watch(typeurl.Secret, "a")}
+			if tt.sibling {
+				// CDS is delivered first, but cancel SDS first. Its cancellation
+				// must not wait for its sibling's blocked send.
+				cancels = append(cancels, watch(typeurl.Cluster, "cluster"))
+			}
+
+			var sotwResponses chan cache.Response
+			if tt.blockSotW {
+				// SotW responses are sent first. Block that send so cancellation
+				// happens after collection but before the Delta send starts.
+				request := &cache.Request{Node: node, TypeUrl: typeurl.Secret.URL(), ResourceNames: []string{"a"}}
+				subscription := stream.NewSotwSubscription(request.ResourceNames, false)
+				responses := make(chan cache.Response, 1)
+				cancel, err := c.CreateWatch(request, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+				response := <-responses
+				request.VersionInfo = response.GetResponseVersion()
+				subscription.SetReturnedResources(response.GetReturnedResources())
+				sotwResponses = make(chan cache.Response)
+				cancel, err = c.CreateWatch(request, subscription, sotwResponses)
+				require.NoError(t, err)
+				t.Cleanup(cancel)
+			}
+
+			var canceledFirst chan struct{}
+			if gate != nil {
+				canceledFirst = make(chan struct{})
+				go func() {
+					cancels[0]()
+					close(canceledFirst)
+				}()
+				<-gate.started
+			}
+			publication := &publicationSignalingCache{SnapshotCache: c.snapshotCache, started: make(chan struct{}, 1)}
+			c.replaceSnapshotCache(t, publication)
+			mutations := ResourceMutations{Upserted: xds.Resources{Secrets: map[string]*envoy_config_tls.Secret{
+				"a": testSecret("a", "new"),
+			}}}
+			if tt.sibling {
+				mutations.Upserted.Clusters = map[string]*envoy_config_cluster.Cluster{
+					"cluster": {Name: "cluster", AltStatName: "new"},
+				}
+			}
+			published := make(chan any, 1)
+			go func() {
+				defer func() {
+					if cause := recover(); cause != nil {
+						published <- cause
+					}
+				}()
+				published <- c.ApplyResources(t.Context(), nodeID, mutations, nil, TypeURLCallbacks{})
+			}()
+			<-publication.started
+			// Publication owns this lock until it has collected the responses.
+			// Neither response channel is consumed yet.
+			c.mutex.Lock()
+			c.mutex.Unlock()
+
+			canceled := make(chan struct{})
+			go func() {
+				remaining := cancels
+				if gate != nil {
+					release()
+					<-canceledFirst
+					remaining = remaining[1:]
+				}
+				for _, cancel := range remaining {
+					cancel()
+				}
+				close(canceled)
+			}()
+			select {
+			case <-canceled:
+			case <-time.After(5 * time.Second):
+				t.Fatal("cancellation must unblock a pending Delta channel send")
+			}
+			// go-control-plane closes this channel after canceling its watches.
+			close(deltaResponses)
+			c.completionCbs.OnDeltaStreamClosed(1, node)
+			if tt.blockSotW {
+				<-sotwResponses
+			}
+			require.Nil(t, <-published, "publication must finish without an error or panic")
+			require.Empty(t, c.deltaWatchRelays, "draining canceled responses must release empty relays")
+		})
+	}
+}
+
 func TestCreateWatchImmediateResponseRetiresTracking(t *testing.T) {
 	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	request := &cache.Request{

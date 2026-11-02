@@ -42,9 +42,9 @@ type callbackStreamState struct {
 	// deltaRequest associates the next cache watch with this stream. Request
 	// handling and watch creation run consecutively on the stream goroutine.
 	deltaRequest *discovery.DeltaDiscoveryRequest
-	// Prepared responses belong to their stream so closure releases even
-	// responses to requests superseded before delivery.
-	preparedDeltaResponses map[*discovery.DeltaDiscoveryRequest]pendingResponse
+	// Encoding transfers metadata only for the response this stream will
+	// immediately report through OnStreamDeltaResponse.
+	preparedDeltaResponse deltaResponseMetadata
 }
 
 // ensureStreamState returns stream state, creating it when needed.

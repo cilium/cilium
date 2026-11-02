@@ -305,11 +305,12 @@ including deletions where omission signals removal. Each stream keeps its own
 response identity per resource type. `OnStreamResponse` records the response's
 generation and named-resource coverage. Envoy supplies the corresponding ACK or
 NACK in a later request, matched by stream and nonce. A matching ACK or NACK can
-then complete the associated waits. For Delta, `RegisterDeltaResponse` bridges
-cache-side metadata to `OnStreamDeltaResponse` through the request pointer,
-because the Delta callback has no context argument. Prepared metadata belongs
-to the originating stream. Closing the stream releases it, and responses
-collected concurrently with closure cannot register metadata afterward.
+then complete the associated waits. For Delta, encoding transfers the exact
+response's metadata to `OnStreamDeltaResponse`, whose API has no context
+argument. That metadata belongs to the originating stream and is consumed by
+the immediately following response callback. Unsent responses create no retained
+metadata. Delta watch cancellation releases blocked response sends and waits for
+active sends to stop before go-control-plane can close the stream's response channel.
 Stream keys include the transport mode because go-control-plane numbers SotW and
 Delta streams independently, although they share Cilium's completion callbacks.
 
@@ -341,7 +342,7 @@ flowchart TD
     override["acceptedResource<br/>Resource and accepting response boundary"]
     latest["responseState<br/>Latest response summary and accepted/rejected versions"]
     generation["pendingGeneration<br/>Response association and required names<br/>Response-owned rollback, independent of caller waits"]
-    stream["callbackStreamState<br/>Node identity and per-TypeURL response slots<br/>Outstanding Delta request identities"]
+    stream["callbackStreamState<br/>Node identity and per-TypeURL response slots<br/>Metadata for the encoded Delta response"]
     response["pendingResponse<br/>Exact nonce, version, and generation boundary"]
     coverage["responseCoverage<br/>Immutable group reference<br/>Requested and returned names"]
     wait["pendingCompletion<br/>One caller's ACK wait"]

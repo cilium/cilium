@@ -10,37 +10,35 @@ import (
 	"math"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
-// RegisterDeltaResponse retains generation and coverage metadata until
-// go-control-plane invokes OnStreamDeltaResponse, whose API has no context.
-// A response collected before closure may be delivered afterward; register it
-// only while its originating stream remains open.
-func (cb *CompletionCallbacks) RegisterDeltaResponse(streamID int64, response cache.DeltaResponse) {
-	if response == nil || response.GetDeltaRequest() == nil {
-		return
-	}
-	ctx := response.GetContext()
-	prepared := pendingResponse{
-		pendingVersion:    response.GetResponseVersion(),
-		pendingGeneration: snapshotGenerationFromContext(ctx),
-		coverage:          responseCoverageFromContext(ctx),
+// Encoding and the Delta response callback run consecutively on one stream.
+// A single slot transfers the exact encoded response's metadata without history.
+type deltaResponseMetadata struct {
+	response   *discovery.DeltaDiscoveryResponse
+	generation Generation
+	coverage   *responseCoverage
+}
+
+// RegisterDeltaResponse bridges the encoded response's metadata to
+// OnStreamDeltaResponse, whose API has no context. Record it only while its
+// originating stream is open; canceled responses which are never encoded
+// need no registration.
+func (cb *CompletionCallbacks) RegisterDeltaResponse(streamID int64, response *discovery.DeltaDiscoveryResponse, ctx context.Context) {
+	prepared := deltaResponseMetadata{
+		response:   response,
+		generation: snapshotGenerationFromContext(ctx),
+		coverage:   responseCoverageFromContext(ctx),
 	}
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	stream := cb.streams[streamKey{streamID: streamID, mode: StreamModeDelta}]
-	if stream == nil {
-		return
+	if stream := cb.streams[streamKey{streamID: streamID, mode: StreamModeDelta}]; stream != nil {
+		stream.preparedDeltaResponse = prepared
 	}
-	if stream.preparedDeltaResponses == nil {
-		stream.preparedDeltaResponses = make(map[*discovery.DeltaDiscoveryRequest]pendingResponse)
-	}
-	stream.preparedDeltaResponses[response.GetDeltaRequest()] = prepared
 }
 
 // OnStreamDeltaRequest handles subscription requests and ACKs/NACKs for Delta
@@ -232,13 +230,12 @@ func (cb *CompletionCallbacks) OnStreamDeltaResponse(streamID int64, req *discov
 	if started && cb.streamLifecycle != nil {
 		defer cb.streamLifecycle.StreamStarted(streamID, nodeID, StreamModeDelta)
 	}
-	prepared, found := stream.preparedDeltaResponses[req]
-	if found {
-		delete(stream.preparedDeltaResponses, req)
-	} else {
-		prepared.pendingVersion = version
+	prepared := pendingResponse{pendingVersion: version, pendingNonce: resp.GetNonce()}
+	if metadata := stream.preparedDeltaResponse; metadata.response == resp {
+		stream.preparedDeltaResponse = deltaResponseMetadata{}
+		prepared.pendingGeneration = metadata.generation
+		prepared.coverage = metadata.coverage
 	}
-	prepared.pendingNonce = resp.GetNonce()
 	stream.responses[typeIndex] = prepared
 
 	typeState := cb.ensureTypeURLState(nodeID, typeIndex)

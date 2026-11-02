@@ -2217,7 +2217,7 @@ func TestNewClusterSharingEndpointReplaysWatches(t *testing.T) {
 func TestDeliverResponsesOrdersADSParentBeforeChild(t *testing.T) {
 	c := &cacheImpl{}
 	var sotwResponses []watchResponse
-	var deltaResponses []cache.DeltaResponse
+	var deltaResponses []deltaWatchResponse
 	for _, typeURL := range []string{
 		envoy_resource.EndpointType,
 		envoy_resource.RouteType,
@@ -2229,7 +2229,10 @@ func TestDeliverResponsesOrdersADSParentBeforeChild(t *testing.T) {
 			Response: &cache.RawResponse{Request: &discovery.DiscoveryRequest{TypeUrl: typeURL}},
 			watch:    &trackedWatch{deliverySync: deliverySync[cache.Response]{deliveryCanceled: make(chan struct{})}},
 		})
-		deltaResponses = append(deltaResponses, &cache.RawDeltaResponse{DeltaRequest: &discovery.DeltaDiscoveryRequest{TypeUrl: typeURL}})
+		deltaResponses = append(deltaResponses, deltaWatchResponse{
+			DeltaResponse: &cache.RawDeltaResponse{DeltaRequest: &discovery.DeltaDiscoveryRequest{TypeUrl: typeURL}},
+			watch:         &trackedDeltaWatch{deliverySync: deliverySync[cache.DeltaResponse]{deliveryCanceled: make(chan struct{})}},
+		})
 	}
 	// Coalesced responses for a stream share one relay/channel.
 	orderedSotW := make(chan cache.Response, 4)
@@ -2803,8 +2806,8 @@ func TestDeltaResponsesPreserveSnapshotVersions(t *testing.T) {
 				t.Fatal("timed out waiting for initial native Delta response")
 			}
 			require.IsType(t, &cache.RawDeltaResponse{}, response)
-			response = withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
-				&deltaResponseWithoutSerialization{response}, 1, initial, &subscription))
+			response = c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+				&deltaResponseWithoutSerialization{response}, 1, initial, &subscription), 0)
 			wire, err := response.GetDeltaDiscoveryResponse()
 			require.NoError(t, err)
 			if len(tc.subscribed) == 0 {
@@ -2837,8 +2840,8 @@ func TestDeltaResponsesPreserveSnapshotVersions(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("timed out waiting for updated native Delta response")
 			}
-			response = withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
-				&deltaResponseWithoutSerialization{response}, 2, updated, &subscription))
+			response = c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+				&deltaResponseWithoutSerialization{response}, 2, updated, &subscription), 0)
 			wire, err = response.GetDeltaDiscoveryResponse()
 			require.NoError(t, err)
 			require.Len(t, wire.Resources, 1, "unchanged resources must not be resent")
@@ -2864,8 +2867,8 @@ func TestDeltaResponsesPreserveSnapshotVersions(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("timed out waiting for native Delta removal")
 			}
-			response = withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
-				&deltaResponseWithoutSerialization{response}, 3, removed, &subscription))
+			response = c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+				&deltaResponseWithoutSerialization{response}, 3, removed, &subscription), 0)
 			wire, err = response.GetDeltaDiscoveryResponse()
 			require.NoError(t, err)
 			require.Empty(t, wire.Resources)
@@ -2875,6 +2878,7 @@ func TestDeltaResponsesPreserveSnapshotVersions(t *testing.T) {
 }
 
 func TestNativeDeltaResponseRetainsHashFallback(t *testing.T) {
+	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS())
 	resource := &envoy_config_listener.Listener{Name: "listener"}
 	encoded, err := cache.MarshalResource(resource)
 	require.NoError(t, err)
@@ -2883,7 +2887,7 @@ func TestNativeDeltaResponseRetainsHashFallback(t *testing.T) {
 			&discovery.DeltaDiscoveryRequest{TypeUrl: typeurl.Listener.URL()}, "system-version",
 			[]cache_types.ResourceWithTTL{{Resource: resource}}, nil, versions,
 		)
-		require.Same(t, response, withDeltaSnapshotVersions(response), "responses without coverage must use native serialization")
+		require.Same(t, response, c.withDeltaSnapshotVersions(response, 0), "responses without coverage must use native serialization")
 		wire, err := response.GetDeltaDiscoveryResponse()
 		require.NoError(t, err)
 		require.Len(t, wire.Resources, 1)
@@ -2909,8 +2913,8 @@ func TestDeltaResponseSerializesPublishedSnapshot(t *testing.T) {
 	latest, err := c.generateSnapshotFromStateIncrementally(state, published, changes)
 	require.NoError(t, err)
 
-	adapted := withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
-		&deltaResponseWithoutSerialization{response}, 2, latest, &subscription))
+	adapted := c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(
+		&deltaResponseWithoutSerialization{response}, 2, latest, &subscription), 0)
 	wire, err := adapted.GetDeltaDiscoveryResponse()
 	require.NoError(t, err)
 	require.Equal(t, published.GetVersion(typeurl.NetworkPolicyURL), wire.SystemVersionInfo)
@@ -2932,7 +2936,7 @@ func TestDeltaResponseRejectsMissingPublishedResource(t *testing.T) {
 		&discovery.DeltaDiscoveryRequest{TypeUrl: typeurl.NetworkPolicyURL}, "e1:g1",
 		nil, nil, map[string]string{"missing": "e1:g1"},
 	)
-	adapted := withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(response, 1, snapshot, &subscription))
+	adapted := c.withDeltaSnapshotVersions(callbacks.WithDeltaResponseCoverage(response, 1, snapshot, &subscription), 0)
 	wire, err := adapted.GetDeltaDiscoveryResponse()
 	require.Nil(t, wire)
 	require.ErrorContains(t, err, `missing Delta resource "missing" at version "e1:g1"`)

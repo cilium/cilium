@@ -41,36 +41,46 @@ type trackedDeltaWatch struct {
 	subscription cache.Subscription
 	relay        *deltaWatchRelay
 	cancel       func()
+	deliverySync[cache.DeltaResponse]
 }
 
-func (watch *trackedDeltaWatch) isOpen() bool {
-	return watch != nil && watch.relay != nil && watch.relay.watches.Has(watch)
+type deltaWatchResponse struct {
+	cache.DeltaResponse
+	watch *trackedDeltaWatch
 }
 
 type deltaResponseDelivery struct {
 	channel   chan cache.DeltaResponse
-	responses []cache.DeltaResponse
+	responses []deltaWatchResponse
 }
 
 type versionedDeltaResponse struct {
 	cache.DeltaResponse
-	marshal func() (*discovery.DeltaDiscoveryResponse, error)
+	marshal   func() (*discovery.DeltaDiscoveryResponse, error)
+	callbacks *callbacks.CompletionCallbacks
+	streamID  int64
 }
 
 func (response *versionedDeltaResponse) GetDeltaDiscoveryResponse() (*discovery.DeltaDiscoveryResponse, error) {
-	return response.marshal()
+	wire, err := response.marshal()
+	if err == nil {
+		response.callbacks.RegisterDeltaResponse(response.streamID, wire, response.GetContext())
+	}
+	return wire, err
 }
 
 // withDeltaSnapshotVersions serializes only the changes captured at publication.
 // Native go-control-plane serialization would hash every resource, discarding
 // Cilium's opaque versions and requiring another pass to rewrite the response.
-func withDeltaSnapshotVersions(response cache.DeltaResponse) cache.DeltaResponse {
+func (c *cacheImpl) withDeltaSnapshotVersions(response cache.DeltaResponse, streamID int64) cache.DeltaResponse {
 	resources, changes := callbacks.DeltaResponseChanges(response)
 	if changes == nil {
 		return response
 	}
 	return &versionedDeltaResponse{
 		DeltaResponse: response,
+		callbacks:     c.completionCbs,
+		streamID:      streamID,
 		marshal: sync.OnceValues(func() (*discovery.DeltaDiscoveryResponse, error) {
 			typeURL := response.GetDeltaRequest().GetTypeUrl()
 			wire := &discovery.DeltaDiscoveryResponse{
@@ -158,13 +168,21 @@ func (c *cacheImpl) removeTrackedDeltaWatchLocked(watch *trackedDeltaWatch) {
 
 func (c *cacheImpl) cancelTrackedDeltaWatch(watch *trackedDeltaWatch) {
 	c.mutex.Lock()
-	if !watch.isOpen() {
-		c.mutex.Unlock()
-		return
+	var cancel func()
+	if watch.relay.watches.Has(watch) {
+		cancel = watch.cancel
+		c.removeTrackedDeltaWatchLocked(watch)
 	}
-	cancel := watch.cancel
-	c.removeTrackedDeltaWatchLocked(watch)
+	hasDelivery := watch.cancelDeliveryLocked()
 	c.mutex.Unlock()
+
+	if hasDelivery {
+		// go-control-plane's Delta implementation cancels all watches before
+		// closing its shared response channel. Wait so a collected or blocked
+		// send cannot race with that close. SotW leaves response channels open.
+		watch.waitForDelivery()
+	}
+	// go-control-plane cancellation also runs outside the cache lock.
 	if cancel != nil {
 		cancel()
 	}
@@ -173,7 +191,7 @@ func (c *cacheImpl) cancelTrackedDeltaWatch(watch *trackedDeltaWatch) {
 func (c *cacheImpl) collectDeltaResponseDeliveriesLocked() []deltaResponseDelivery {
 	var deliveries []deltaResponseDelivery
 	for _, relay := range c.deltaWatchRelays {
-		var responses []cache.DeltaResponse
+		var responses []deltaWatchResponse
 		for {
 			select {
 			case response := <-relay.inner:
@@ -184,23 +202,19 @@ func (c *cacheImpl) collectDeltaResponseDeliveriesLocked() []deltaResponseDelive
 						break
 					}
 				}
-				nodeID := response.GetDeltaRequest().GetNode().GetId()
-				state := c.getNodeState(nodeID)
-				if state != nil {
-					snapshot, _ := c.snapshotCache.GetSnapshot(nodeID)
-					var subscription cache.Subscription
-					if matched != nil {
-						subscription = matched.subscription
-					}
-					response = callbacks.WithDeltaResponseCoverage(response, state.snapshotGeneration, snapshot, subscription)
-					response = withDeltaSnapshotVersions(response)
+				if matched == nil {
+					// go-control-plane may queue a response after Cilium has
+					// removed its canceled watch. It has no live consumer.
+					continue
 				}
-				responses = append(responses, response)
-				if matched != nil {
-					c.completionCbs.RegisterDeltaResponse(matched.streamID, response)
-					matched.state.rollbacks.claimResponseLocked(c, matched.state, matched.typeURL, response)
-					c.removeTrackedDeltaWatchLocked(matched)
-				}
+				state := matched.state
+				snapshot, _ := c.snapshotCache.GetSnapshot(state.nodeID)
+				response = callbacks.WithDeltaResponseCoverage(response, state.snapshotGeneration, snapshot, matched.subscription)
+				response = c.withDeltaSnapshotVersions(response, matched.streamID)
+				matched.deliveryCanceled = make(chan struct{})
+				responses = append(responses, deltaWatchResponse{DeltaResponse: response, watch: matched})
+				state.rollbacks.claimResponseLocked(c, state, matched.typeURL, response)
+				c.removeTrackedDeltaWatchLocked(matched)
 			default:
 				// A canceled watch may have left the last queued response.
 				if relay.watches.Empty() {
@@ -224,12 +238,12 @@ func (c *cacheImpl) deliverDeltaResponses(deliveries []deltaResponseDelivery) {
 		// Preserve ADS dependency order within a publication, matching SotW
 		// delivery from the same non-ADS snapshot cache.
 		if len(delivery.responses) > 1 {
-			slices.SortStableFunc(delivery.responses, func(a, b cache.DeltaResponse) int {
+			slices.SortStableFunc(delivery.responses, func(a, b deltaWatchResponse) int {
 				return cmp.Compare(cache.GetResponseType(a.GetDeltaRequest().GetTypeUrl()), cache.GetResponseType(b.GetDeltaRequest().GetTypeUrl()))
 			})
 		}
 		for _, response := range delivery.responses {
-			delivery.channel <- response
+			response.watch.deliverResponse(delivery.channel, response.DeltaResponse)
 		}
 	}
 }
