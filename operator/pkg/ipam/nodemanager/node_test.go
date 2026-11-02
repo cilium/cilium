@@ -119,6 +119,70 @@ func TestSyncToAPIServerForNonExistingNode(t *testing.T) {
 	require.NoError(t, node.syncToAPIServer())
 }
 
+// k8sRecordingNode accepts every update and records the last spec written.
+type k8sRecordingNode struct {
+	k8sMockNode
+	spec *v2.NodeSpec
+}
+
+func (k *k8sRecordingNode) Update(origNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+	k.spec = newNode.Spec.DeepCopy()
+	return newNode.DeepCopy(), nil
+}
+
+func (k *k8sRecordingNode) UpdateStatus(origNode, newNode *v2.CiliumNode) (*v2.CiliumNode, error) {
+	return newNode.DeepCopy(), nil
+}
+
+// TestSyncToAPIServerPool checks that Spec.IPAM.Pool is only written for
+// agents using the CRD allocator, and is cleared for multi-pool agents.
+func TestSyncToAPIServerPool(t *testing.T) {
+	addr := iputil.AddrFrom(netip.MustParseAddr("10.0.0.1"))
+	available := ipamTypes.AllocationMap{addr: {Resource: "eni-1"}}
+
+	for _, tt := range []struct {
+		name      string
+		multiPool bool
+		want      ipamTypes.AllocationMap
+	}{
+		{name: "crd allocator", want: available},
+		{name: "multi-pool", multiPool: true, want: nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			cn := newCiliumNode("test-node", 0, 0, 0)
+			// Stale entry from a previous sync, must be overwritten.
+			cn.Spec.IPAM.Pool = ipamTypes.AllocationMap{
+				iputil.AddrFrom(netip.MustParseAddr("10.0.0.2")): {Resource: "eni-1"},
+			}
+			if tt.multiPool {
+				cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{
+					{Pool: defaults.IPAMDefaultIPPool, Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 16}},
+				}
+			}
+
+			k8s := &k8sRecordingNode{}
+			node := &Node{
+				rootLogger: hivetest.Logger(t),
+				name:       "test-node",
+				manager:    &NodeManager{k8sAPI: k8s},
+				logLimiter: logging.NewLimiter(10*time.Second, 3),
+				ipv4Alloc: ipAllocAttrs{
+					available:           available,
+					ipsMarkedForRelease: make(map[netip.Addr]time.Time),
+					ipReleaseStatus:     make(map[netip.Addr]string),
+				},
+				resource: cn,
+				ops:      &nodeOperationsMock{},
+			}
+			node.updateLogger()
+
+			require.NoError(t, node.syncToAPIServer())
+			require.NotNil(t, k8s.spec)
+			require.Equal(t, tt.want, k8s.spec.IPAM.Pool)
+		})
+	}
+}
+
 func waitingForPoolMaintenance(n *Node) bool {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
