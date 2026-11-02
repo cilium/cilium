@@ -133,7 +133,7 @@ func TestTakePendingResponsePreservesStreamOwnership(t *testing.T) {
 		t.Run(fmt.Sprintf("mode-%d/stream-%d", owner.mode, owner.streamID), func(t *testing.T) {
 			pending := pendingResponse{
 				pendingVersion: "e1:g2", pendingGeneration: 2, pendingNonce: "nonce-2",
-				coverage: &responseCoverage{typeURL: typeurl.Listener, delta: true, full: true},
+				coverage: &responseCoverage{typeURL: typeurl.Listener, delta: true},
 			}
 			coverage := pending.coverage
 			state := responseState{

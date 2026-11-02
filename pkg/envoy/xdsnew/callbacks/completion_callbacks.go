@@ -138,8 +138,6 @@ type acceptedResourceGroup struct {
 	// generation is the ACKed response boundary, not any resource's revision.
 	// Zero means acceptance is unknown. An ACKed empty group may
 	// have a nil resource map, so the map alone cannot represent this distinction.
-	// delta makes absence meaningful for every resource type.
-	delta      bool
 	generation Generation
 	resources  map[string]cache_types.ResourceWithTTL
 	// partial overrides individual names accepted by subset responses. The

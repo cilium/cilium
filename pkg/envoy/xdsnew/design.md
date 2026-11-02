@@ -311,19 +311,19 @@ Stream keys include the transport mode because go-control-plane numbers SotW and
 Delta streams independently, although they share Cilium's completion callbacks.
 
 An ACK acknowledges only the names communicated by the response identified by
-the nonce. For types supporting deletion by omission (LDS, CDS, NPDS, NPHDS), this
-can include names within its subscription which are absent from the response. A
-multi-name wait succeeds only after every required name has been acknowledged.
+the nonce. In SotW, for types supporting deletion by omission (LDS, CDS, NPDS,
+NPHDS), this can include names within its subscription which are absent from
+the response. A multi-name wait succeeds only after every required name has been
+acknowledged.
 An ACK releases response-owned rollback once all of its required names have been
 acknowledged. Names from one API generation can have separate response-owned
 lifetimes.
 
-Delta coverage distinguishes reconciliation from explicit changes. A wildcard
-ACK reconciles the complete snapshot, including unchanged resources already in
-the client's version map. A NACK can reject only updates and removals explicitly
-carried by that response. `contains` supplies the ACK coverage;
-`containsChange` limits rollback to those explicit changes. Named Delta responses
-cover only their delivered changes and cannot establish a whole-type baseline.
+Delta ACKs and NACKs cover only updates and explicit removals carried by that
+response, including for wildcard subscriptions. The server's
+returned-version map includes unacknowledged deliveries. Acceptance is retained
+per resource; a later ACK provides no new evidence for unchanged names omitted
+from its response.
 Initial Delta requests and later subscription-only requests omit the response
 nonce; they are not ACKs. Matching nonempty nonces identify Delta responses
 without relying on an echoed aggregate version.

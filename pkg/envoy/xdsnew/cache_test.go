@@ -2346,6 +2346,121 @@ func TestCiliumSnapshotIndexedResourcesWithoutDeltaVersions(t *testing.T) {
 	require.Nil(t, snapshot.GetVersionMap("type.googleapis.com/unknown.Resource"))
 }
 
+func TestDeltaACKOnlyAcceptsCommunicatedResources(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		typeURL  typeurl.Index
+		a, b     proto.Message
+		wildcard bool
+	}{
+		{
+			name: "named CDS streams", typeURL: typeurl.Cluster,
+			a: &envoy_config_cluster.Cluster{Name: "a"}, b: &envoy_config_cluster.Cluster{Name: "b"},
+		},
+		{
+			name: "wildcard CDS subscription", typeURL: typeurl.Cluster, wildcard: true,
+			a: &envoy_config_cluster.Cluster{Name: "a"}, b: &envoy_config_cluster.Cluster{Name: "b"},
+		},
+		{
+			name: "wildcard EDS subscription", typeURL: typeurl.Endpoint, wildcard: true,
+			a: &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "a"},
+			b: &envoy_config_endpoint.ClusterLoadAssignment{ClusterName: "b"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			const nodeID = "node1"
+			c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs(nodeID), WithDeltaADS())
+			t.Cleanup(func() {
+				for streamID := range int64(3) {
+					c.completionCbs.OnDeltaStreamClosed(streamID+1, nil)
+				}
+			})
+			receive := func(streamID int64, subscription *stream.Subscription, nonce string) *discovery.DeltaDiscoveryResponse {
+				t.Helper()
+				request := &cache.DeltaRequest{
+					Node: &envoy_config_core.Node{Id: nodeID}, TypeUrl: tt.typeURL.URL(),
+					ResourceNamesSubscribe: slices.Collect(maps.Keys(subscription.SubscribedResources())),
+				}
+				if subscription.IsWildcard() {
+					request.ResourceNamesSubscribe = []string{"*"}
+				}
+				require.NoError(t, c.completionCbs.OnStreamDeltaRequest(streamID, request))
+				responses := make(chan cache.DeltaResponse, 1)
+				cancel, err := c.CreateDeltaWatch(request, subscription, responses)
+				require.NoError(t, err)
+				if cancel != nil {
+					t.Cleanup(cancel)
+				}
+				select {
+				case response := <-responses:
+					wire, err := response.GetDeltaDiscoveryResponse()
+					require.NoError(t, err)
+					wire.Nonce = nonce
+					c.completionCbs.OnStreamDeltaResponse(streamID, request, wire)
+					subscription.SetReturnedResources(response.GetReturnedResources())
+					return wire
+				default:
+					t.Fatal("expected an immediate Delta response")
+					return nil
+				}
+			}
+
+			aDone, bDone := make(chan error, 1), make(chan error, 1)
+			aWG, bWG := completion.NewWaitGroup(t.Context()), completion.NewWaitGroup(t.Context())
+			t.Cleanup(aWG.Cancel)
+			t.Cleanup(bWG.Cancel)
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "a", tt.a, aWG,
+				func(err error) { aDone <- err }))
+			first := stream.NewDeltaSubscription([]string{"a"}, nil, nil, false)
+			if tt.wildcard {
+				first = stream.NewDeltaSubscription(nil, nil, nil, true)
+			}
+			receive(1, &first, "a") // A has been delivered, but has not been ACKed.
+
+			require.NoError(t, c.ApplyResource(t.Context(), nodeID, tt.typeURL, "b", tt.b, bWG,
+				func(err error) { bDone <- err }))
+			second := stream.NewDeltaSubscription([]string{"b"}, nil, nil, false)
+			secondID, subscription := int64(2), &second
+			if tt.wildcard {
+				// A subscription-only request can precede the ACK for A.
+				secondID, subscription = 1, &first
+			}
+			response := receive(secondID, subscription, "b")
+			require.Len(t, response.Resources, 1)
+			require.Equal(t, "b", response.Resources[0].Name)
+			require.NoError(t, c.completionCbs.OnStreamDeltaRequest(secondID, &cache.DeltaRequest{
+				TypeUrl: tt.typeURL.URL(), ResponseNonce: response.Nonce,
+			}))
+			select {
+			case err := <-bDone:
+				require.NoError(t, err)
+			default:
+				t.Fatal("ACK did not complete B's wait")
+			}
+			requireCoveragePending(t, aDone)
+			require.False(t, c.completionCbs.ResourceAccepted(nodeID, tt.typeURL, "a", tt.a, true, callbacks.Revision{}))
+			require.True(t, c.completionCbs.ResourceAccepted(nodeID, tt.typeURL, "b", tt.b, true, callbacks.Revision{}))
+
+			// An omitted name must also retain its response-owned recovery.
+			// A fresh stream explicitly requests A so its rejection has its own nonce.
+			retry := stream.NewDeltaSubscription([]string{"a"}, nil, nil, false)
+			rejected := receive(3, &retry, "retry-a")
+			require.NoError(t, c.completionCbs.OnStreamDeltaRequest(3, &cache.DeltaRequest{
+				TypeUrl: tt.typeURL.URL(), ResponseNonce: rejected.Nonce,
+				ErrorDetail: &status.Status{Message: "rejected A"},
+			}))
+			select {
+			case err := <-aDone:
+				require.ErrorContains(t, err, "rejected A")
+			default:
+				t.Fatal("NACK did not complete A's wait")
+			}
+			require.Nil(t, c.GetResource(nodeID, tt.typeURL, "a"))
+			require.Same(t, tt.b, c.GetResource(nodeID, tt.typeURL, "b"))
+		})
+	}
+}
+
 func TestCiliumSnapshotDeltaVersionsTrackResourceChanges(t *testing.T) {
 	c := NewCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"), WithDeltaADS()).(*cacheImpl)
 	state := &nodeState{epoch: 1, resourceGeneration: 1}
