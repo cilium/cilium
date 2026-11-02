@@ -1651,7 +1651,7 @@ const (
 
 	Output = "output"
 
-	RssBytes = "rssBytes"
+	RssKiB = "rssKiB"
 
 	BPFFSPath = "bpffsPath"
 
