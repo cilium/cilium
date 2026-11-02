@@ -1,0 +1,3 @@
+Temporary example for checking the concurrent non-draft pull-request limit.
+Prepared by an AI assistant at lexfrei's explicit request.
+Not intended for review, merge, or inclusion in the project.
