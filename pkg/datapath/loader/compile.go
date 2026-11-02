@@ -237,7 +237,7 @@ func compile(ctx context.Context, logger *slog.Logger, prog *progInfo, dir *dire
 			"Compilation had peak RSS",
 			logfields.CompilerPID, compileCmd.Process.Pid,
 			logfields.Output, output.Name(),
-			logfields.RssBytes, usage.Maxrss,
+			logfields.RssKiB, usage.Maxrss,
 		)
 	}
 
