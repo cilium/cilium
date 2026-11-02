@@ -21,6 +21,7 @@
 
 #define FRONTEND_IP_LOCAL	v4_svc_one
 #define FRONTEND_IP_REMOTE	v4_svc_two
+#define FRONTEND_IP_OVERSIZED	v4_svc_three
 #define FRONTEND_PORT		tcp_svc_one
 
 #define LB_IP			v4_node_one
@@ -82,6 +83,7 @@ ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_GENEVE)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
+ASSIGN_CONFIG(__u16, device_mtu, 150)
 
 /* Test that a SVC request to a local backend
  * - gets DNATed (but not SNATed)
@@ -195,6 +197,101 @@ int nodeport_geneve_dsr_lb_xdp1_local_backend_check(const struct __ctx_buff *ctx
 
 	if (l4->check != bpf_htons(0x3771))
 		test_fatal("L4 checksum is invalid: %x != %x", l4->check, bpf_htons(0x3771));
+
+	test_finish();
+}
+
+/* Test that an oversized non-SYN request which needs a Geneve DSR option
+ * is passed to TC before XDP changes the packet.
+ */
+#define OVERSIZED_PAYLOAD_LEN 60
+
+PKTGEN(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp3_oversized")
+int nodeport_geneve_dsr_lb_xdp3_oversized_pktgen(struct __ctx_buff *ctx)
+{
+	struct pktgen builder;
+	struct tcphdr *l4;
+	void *data;
+
+	pktgen__init(&builder, ctx);
+
+	l4 = pktgen__push_ipv4_tcp_packet(&builder,
+					  (__u8 *)client_mac, (__u8 *)lb_mac,
+					  CLIENT_IP, FRONTEND_IP_OVERSIZED,
+					  CLIENT_PORT, FRONTEND_PORT);
+	if (!l4)
+		return TEST_ERROR;
+
+	l4->syn = 0;
+	l4->ack = 1;
+
+	data = pktgen__push_data_room(&builder, OVERSIZED_PAYLOAD_LEN);
+	if (!data || data + OVERSIZED_PAYLOAD_LEN > ctx_data_end(ctx))
+		return TEST_ERROR;
+	memset(data, 0, OVERSIZED_PAYLOAD_LEN);
+
+	pktgen__finish(&builder);
+
+	return 0;
+}
+
+SETUP(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp3_oversized")
+int nodeport_geneve_dsr_lb_xdp3_oversized_setup(struct __ctx_buff *ctx)
+{
+	__u32 backend_id = 126;
+	__u16 revnat_id = 3;
+
+	lb_v4_add_service(FRONTEND_IP_OVERSIZED, FRONTEND_PORT, IPPROTO_TCP, 1, revnat_id);
+	lb_v4_add_backend(FRONTEND_IP_OVERSIZED, FRONTEND_PORT, 1, backend_id,
+			  BACKEND_IP_REMOTE, BACKEND_PORT, IPPROTO_TCP, 0);
+
+	ipcache_v4_add_entry(BACKEND_IP_REMOTE, 0, 112233, BACKEND_NODE_IP, 0);
+
+	return xdp_receive_packet(ctx);
+}
+
+CHECK(PROG_TYPE, "nodeport_geneve_dsr_lb_xdp3_oversized")
+int nodeport_geneve_dsr_lb_xdp3_oversized_check(const struct __ctx_buff *ctx)
+{
+	void *data = (void *)(long)ctx_data(ctx);
+	void *data_end = (void *)(long)ctx_data_end(ctx);
+	struct tcphdr *l4;
+	struct ethhdr *l2;
+	struct iphdr *l3;
+	__u32 *status_code;
+
+	test_init();
+
+	status_code = data;
+	if (data + sizeof(*status_code) > data_end)
+		test_fatal("status code out of bounds");
+
+	assert(*status_code == CTX_ACT_OK);
+
+	l2 = (void *)status_code + sizeof(*status_code);
+	if ((void *)l2 + sizeof(*l2) > data_end)
+		test_fatal("l2 out of bounds");
+	l3 = (void *)l2 + sizeof(*l2);
+	if ((void *)l3 + sizeof(*l3) > data_end)
+		test_fatal("l3 out of bounds");
+	l4 = (void *)l3 + sizeof(*l3);
+	if ((void *)l4 + sizeof(*l4) > data_end)
+		test_fatal("l4 out of bounds");
+
+	if ((void *)l4 + sizeof(*l4) + OVERSIZED_PAYLOAD_LEN != data_end)
+		test_fatal("packet length changed");
+	if (memcmp(l2->h_source, (__u8 *)client_mac, ETH_ALEN) != 0)
+		test_fatal("src MAC changed");
+	if (memcmp(l2->h_dest, (__u8 *)lb_mac, ETH_ALEN) != 0)
+		test_fatal("dst MAC changed");
+	if (l3->saddr != CLIENT_IP)
+		test_fatal("src IP changed");
+	if (l3->daddr != FRONTEND_IP_OVERSIZED)
+		test_fatal("dst IP changed");
+	if (l4->source != CLIENT_PORT)
+		test_fatal("src port changed");
+	if (l4->dest != FRONTEND_PORT)
+		test_fatal("dst port changed");
 
 	test_finish();
 }
