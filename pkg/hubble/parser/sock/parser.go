@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // Parser is a parser for SockTraceNotify payloads
@@ -123,9 +124,9 @@ func (p *Parser) Decode(data []byte, decoded *flowpb.Flow) error {
 	decoded.L4 = decodeL4(sock.L4Proto, srcPort, dstPort)
 	decoded.Source = srcEndpoint
 	decoded.SourceNames = p.resolveNames(dstEndpoint.GetID(), srcIP)
-	decoded.SourceService = p.decodeService(srcIP, srcPort)
+	decoded.SourceService = p.decodeService(srcIP, srcPort, sock.L4Proto)
 	decoded.Destination = dstEndpoint
-	decoded.DestinationService = p.decodeService(dstIP, dstPort)
+	decoded.DestinationService = p.decodeService(dstIP, dstPort, sock.L4Proto)
 	decoded.DestinationNames = p.resolveNames(srcEndpoint.GetID(), dstIP)
 	decoded.Type = flowpb.FlowType_SOCK
 	decoded.EventType = decodeCiliumEventType(sock.Type, sock.XlatePoint)
@@ -212,9 +213,9 @@ func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	return nil
 }
 
-func (p *Parser) decodeService(ip netip.Addr, port uint16) *flowpb.Service {
+func (p *Parser) decodeService(ip netip.Addr, port uint16, l4Proto uint8) *flowpb.Service {
 	if p.serviceGetter != nil {
-		return p.serviceGetter.GetServiceByAddr(ip, port)
+		return p.serviceGetter.GetServiceByAddr(ip, port, decodeU8Proto(l4Proto))
 	}
 
 	return nil
@@ -247,6 +248,17 @@ func decodeCiliumEventType(eventType, subtype uint8) *flowpb.CiliumEventType {
 	return &flowpb.CiliumEventType{
 		Type:    int32(eventType),
 		SubType: int32(subtype),
+	}
+}
+
+func decodeU8Proto(l4Proto uint8) u8proto.U8proto {
+	switch l4Proto {
+	case monitor.L4ProtocolTCP:
+		return u8proto.TCP
+	case monitor.L4ProtocolUDP:
+		return u8proto.UDP
+	default:
+		return u8proto.ANY
 	}
 }
 

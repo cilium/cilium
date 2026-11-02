@@ -25,6 +25,7 @@ import (
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 var Cell = cell.Module(
@@ -160,18 +161,24 @@ func (h *payloadGetters) GetNamesOf(sourceEpID uint32, ip netip.Addr) []string {
 	return names
 }
 
-// GetServiceByAddr implements ServiceGetter. It looks up service by IP/port.
-// Hubble uses this function to annotate flows with service information.
-func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
+// GetServiceByAddr implements ServiceGetter. It looks up service by IP, port
+// and protocol. Hubble uses this function to annotate flows with service information.
+func (h *payloadGetters) GetServiceByAddr(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service {
+	var l4 loadbalancer.L4Type
+	switch proto {
+	case u8proto.TCP:
+		l4 = loadbalancer.TCP
+	case u8proto.UDP:
+		l4 = loadbalancer.UDP
+	case u8proto.SCTP:
+		l4 = loadbalancer.SCTP
+	default:
+		return nil
+	}
 	if !ip.IsValid() {
 		return nil
 	}
-	addrCluster := cmtypes.AddrClusterFrom(ip, 0)
-	txn := h.db.ReadTxn()
-	fe, found := loadbalancer.LookupFrontendByTuple(txn, h.frontends, addrCluster, loadbalancer.TCP, port, loadbalancer.ScopeExternal)
-	if !found {
-		fe, found = loadbalancer.LookupFrontendByTuple(txn, h.frontends, addrCluster, loadbalancer.UDP, port, loadbalancer.ScopeExternal)
-	}
+	fe, found := loadbalancer.LookupFrontendByTuple(h.db.ReadTxn(), h.frontends, cmtypes.AddrClusterFrom(ip, 0), l4, port, loadbalancer.ScopeExternal)
 	if !found {
 		return nil
 	}
