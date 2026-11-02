@@ -691,7 +691,7 @@ func (m *manager) renameChains(prefix string) error {
 	return nil
 }
 
-func (m *manager) inboundProxyRedirectRule(cmd string) []string {
+func (m *manager) inboundProxyRedirectRules(cmd string) [][]string {
 	// Mark host proxy transparent connections to be routed to the local stack.
 	// This comes before the TPROXY rules in the chain, and setting the mark
 	// without the proxy port number will make the TPROXY rule to not match,
@@ -706,7 +706,7 @@ func (m *manager) inboundProxyRedirectRule(cmd string) []string {
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
-	return []string{
+	return [][]string{{
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
 		"-m", "socket", "--transparent",
@@ -715,7 +715,7 @@ func (m *manager) inboundProxyRedirectRule(cmd string) []string {
 		"-m", "mark", "!", "--mark", matchSkipTProxy,
 		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 		"-j", "MARK",
-		"--set-mark", toProxyMark}
+		"--set-mark", toProxyMark}}
 }
 
 func (m *manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, proxyPort uint16, name string) error {
@@ -950,8 +950,10 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 
 		if m.haveSocketMatch {
 			// Direct inbound TPROXYed traffic towards the socket
-			if err := m.ip4tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
-				return err
+			for _, rule := range m.inboundProxyRedirectRules("-A") {
+				if err := m.ip4tables.runProg(rule); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -1050,8 +1052,10 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 
 		if m.haveSocketMatch {
 			// Direct inbound TPROXYed traffic towards the socket
-			if err := m.ip6tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
-				return err
+			for _, rule := range m.inboundProxyRedirectRules("-A") {
+				if err := m.ip6tables.runProg(rule); err != nil {
+					return err
+				}
 			}
 		}
 	}
