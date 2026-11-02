@@ -704,18 +704,25 @@ func (m *manager) inboundProxyRedirectRules(cmd string) [][]string {
 	// Explicitly support chaining Envoy listeners via the loopback device by
 	// excluding traffic for the loopback device.
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	matchToProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIsToProxy, linux_defaults.MagicMarkHostMask)
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
-	return [][]string{{
-		"-t", "mangle",
-		cmd, ciliumPreMangleChain,
-		"-m", "socket", "--transparent",
-		"!", "-o", "lo",
-		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
-		"-m", "mark", "!", "--mark", matchSkipTProxy,
-		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
-		"-j", "MARK",
-		"--set-mark", toProxyMark}}
+	rule := func(selector ...string) []string {
+		return append(append([]string{"-t", "mangle", cmd, ciliumPreMangleChain}, selector...),
+			"-m", "socket", "--transparent",
+			"!", "-o", "lo",
+			"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
+			"-m", "mark", "!", "--mark", matchSkipTProxy,
+			"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
+			"-j", "MARK",
+			"--set-mark", toProxyMark)
+	}
+	return [][]string{
+		rule("!", "-p", "tcp"),
+		rule("-p", "tcp", "!", "--syn"),
+		// TPROXY hands a SYN marked for a proxy to the listener even when a TIME_WAIT socket holds its tuple.
+		rule("-p", "tcp", "--syn", "-m", "mark", "!", "--mark", matchToProxy),
+	}
 }
 
 func (m *manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, proxyPort uint16, name string) error {
