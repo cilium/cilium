@@ -510,6 +510,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 	__s8 ext_err = 0;
 	__be16 proto;
 	int ret;
+	enum trace_reason reason = TRACE_REASON_UNKNOWN;
 
 	bpf_clear_meta(ctx);
 	ctx_skip_nodeport_clear(ctx);
@@ -533,6 +534,8 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 			ret = DROP_UNENCRYPTED_TRAFFIC;
 			goto out;
 		}
+		if (ctx_is_decrypt(ctx))
+			reason = TRACE_REASON_ENCRYPTED;
 		/* We only needed the mark to decide if we need to drop the packet here.
 		 * To not cause any further collision with the `decrypted` variable,
 		 * clear the decrypted bit.
@@ -562,7 +565,7 @@ int cil_from_overlay(struct __ctx_buff *ctx)
 
 	send_trace_notify(ctx, TRACE_FROM_OVERLAY, src_sec_identity, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, ctx->ingress_ifindex,
-			  TRACE_REASON_UNKNOWN, TRACE_PAYLOAD_LEN, proto);
+			  reason, TRACE_PAYLOAD_LEN, proto);
 
 	switch (proto) {
 	case bpf_htons(ETH_P_IPV6):
