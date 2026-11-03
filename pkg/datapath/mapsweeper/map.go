@@ -57,16 +57,18 @@ type MapSweeper struct {
 	lbConfig          loadbalancer.Config
 	kprCfg            kpr.KPRConfig
 	disabledMapsHooks []DisabledMapsHook
+	policyMapFactory  policymap.Factory
 }
 
 // newMapSweeper creates an object that walks map paths and garbage-collects
 // them.
-func newMapSweeper(logger *slog.Logger, g endpointManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig) *MapSweeper {
+func newMapSweeper(logger *slog.Logger, g endpointManager, lbConfig loadbalancer.Config, kprCfg kpr.KPRConfig, policyMapFactory policymap.Factory) *MapSweeper {
 	return &MapSweeper{
-		logger:          logger,
-		endpointManager: g,
-		lbConfig:        lbConfig,
-		kprCfg:          kprCfg,
+		logger:           logger,
+		endpointManager:  g,
+		lbConfig:         lbConfig,
+		kprCfg:           kprCfg,
+		policyMapFactory: policyMapFactory,
 	}
 }
 
@@ -96,6 +98,10 @@ func (ms *MapSweeper) deleteMapIfStale(path string, filename string, endpointID 
 func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 	filename := filepath.Base(path)
 
+	if filename == policymap.SharedPolicyMapName || filename == policymap.PolicyOverlayMapName {
+		return nil
+	}
+
 	mapPrefix := []string{
 		policymap.MapName,
 		callsmap.MapName,
@@ -116,6 +122,11 @@ func (ms *MapSweeper) CollectStaleMapGarbage() {
 	if err := filepath.Walk(bpf.TCGlobalsPath(), ms.walk); err != nil {
 		ms.logger.Warn("Error while scanning for stale maps", logfields.Error, err)
 	}
+	if ms.policyMapFactory != nil {
+		if err := ms.policyMapFactory.RemoveStaleEndpointOverlays(ms.EndpointExists); err != nil {
+			ms.logger.Warn("Error while removing stale shared policy overlay entries", logfields.Error, err)
+		}
+	}
 }
 
 // RemoveDisabledMaps removes BPF maps in the filesystem for features that have
@@ -134,9 +145,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_ktime_cache",
 			"cilium_auth_map",
 		}
-		prefixedMaps = []PrefixedMap{
-			{"cilium_policy_", []string{policymap.MapName}},
-		}
+		prefixedMaps = []PrefixedMap{{
+			Prefix:   "cilium_policy_",
+			Excludes: []string{policymap.MapName, policymap.SharedPolicyMapName, policymap.PolicyOverlayMapName},
+		}}
 	)
 
 	for _, hook := range ms.disabledMapsHooks {
@@ -234,6 +246,17 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			cidrmap.MapName + "v6_dyn",
 			cidrmap.MapName + "v6_fix",
 		}...)
+	}
+
+	// Remove the shared policy maps when the shared policy map is disabled, so that their
+	// contents can't take effect again if it is re-enabled later. Endpoints then start
+	// from their per-endpoint policy maps again, see bpf/lib/policy.h.
+	if ms.policyMapFactory.SharedPolicyEnabled() {
+		// remove all per-endpoint maps in shared mode
+		prefixedMaps = append(prefixedMaps, PrefixedMap{Prefix: policymap.MapName})
+	} else {
+		// remove shared/overlay maps in dedicated policy map mode
+		maps = append(maps, policymap.SharedPolicyMapName, policymap.PolicyOverlayMapName)
 	}
 
 	// helper func to check if a map name match any excludes

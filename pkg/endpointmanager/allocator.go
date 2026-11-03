@@ -6,12 +6,13 @@ package endpointmanager
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/idpool"
 )
 
 const (
 	minID = idpool.ID(1)
-	maxID = idpool.ID(4095)
+	maxID = idpool.ID(defaults.MaxEndpointID)
 )
 
 type epIDAllocator struct {

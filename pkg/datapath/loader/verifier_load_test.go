@@ -88,6 +88,7 @@ func baseLXCPermutations() *loadPermutationBuilder {
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.PolicyDenyResponseEnabled = v }),
 		Increment(func(t *config.BPFLXC, v bool) { t.HybridRoutingEnabled = v }),
 		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableEndpointRoutes = v }),
+		Increment(func(t *config.BPFLXC, v bool) { t.Node.EnableSharedPolicy = v }),
 		IncrementOrPermute(func(t *config.BPFLXC, v bool) { t.EnableLRP = v }),
 		Increment(func(t *config.BPFLXC, v bool) { setDebugOptions(&t.Node, v) }),
 	)
@@ -132,6 +133,7 @@ func baseHostPermutations() *loadPermutationBuilder {
 				t.StrictEgressEncryption.AllowRemoteNodes = true
 			}
 		}),
+		Increment(func(t *config.BPFHost, v bool) { t.Node.EnableSharedPolicy = v }),
 		IncrementOrPermute(func(t *config.BPFHost, v bool) { t.Node.Debug, t.Node.DebugLB = v, v }),
 	)
 	return b

@@ -71,6 +71,8 @@ type Node struct {
 	EnableNodeportSourceLookup bool `config:"enable_nodeport_source_lookup"`
 	// Enable SCTP support.
 	EnableSCTP bool `config:"enable_sctp"`
+	// Enable shared policy map.
+	EnableSharedPolicy bool `config:"enable_shared_policy"`
 	// Enable BPF-based proxy redirection.
 	EnableTproxy bool `config:"enable_tproxy"`
 	// Enable trace notifications.
