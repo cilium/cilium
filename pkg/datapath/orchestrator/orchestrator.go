@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egressgateway/egwconfig"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
@@ -134,6 +135,7 @@ type orchestratorParams struct {
 	IPsecConfig         ipsec.Config
 	BIGTCPConfig        bigtcp.Config
 	ConnectorConfig     connector.Config
+	EgressGatewayConfig *egwconfig.Config
 	PluginRegistry      plugin.Registry
 }
 
@@ -268,6 +270,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 				o.params.WgAgent,
 				o.params.IPsecConfig,
 				o.params.ConnectorConfig,
+				o.params.EgressGatewayConfig,
 				o.params.PluginRegistry.Plugins(),
 			)
 			if err != nil {

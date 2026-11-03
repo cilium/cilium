@@ -7,6 +7,7 @@ import (
 	"github.com/cilium/hive/cell"
 
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/egressgateway/egwconfig"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -15,7 +16,7 @@ var Cell = cell.Module(
 	"egressgateway",
 	"Egress Gateway allows originating traffic from specific addresses",
 	cell.Config(defaultConfig),
-	cell.Provide(NewEgressGatewayManager),
+	cell.Invoke(NewEgressGatewayManager),
 	cell.Provide(newPolicyResource),
 	cell.Provide(func(dcfg *option.DaemonConfig) tunnel.EnablerOut {
 		if !dcfg.EnableEgressGateway {
@@ -23,4 +24,5 @@ var Cell = cell.Module(
 		}
 		return tunnel.NewEnabler(true)
 	}),
+	egwconfig.Cell,
 )

@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egressgateway/egwconfig"
 	"github.com/cilium/cilium/pkg/kpr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maglev"
@@ -198,6 +199,7 @@ func TestNewLocalNodeConfigNoGoroutineLeak(t *testing.T) {
 			wgAgent,
 			fakeipsec.Config{},
 			fakeconnector.NewVeth(),
+			&egwconfig.Config{},
 			nil,
 		)
 		return watches, err

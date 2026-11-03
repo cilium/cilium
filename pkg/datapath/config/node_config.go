@@ -36,6 +36,8 @@ type Node struct {
 	DebugTagged bool `config:"debug_tagged"`
 	// Index of the interface used to connect nodes in the cluster.
 	DirectRoutingDevIfIndex uint32 `config:"direct_routing_dev_ifindex"`
+	// Egress gateway configuration.
+	EgressGatewayCfg types.EgressGatewayConfig `config:"egress_gateway_cfg"`
 	// Enable BPF Host Routing.
 	EnableBPFHostRouting bool `config:"enable_bpf_host_routing"`
 	// Enable per flow (conntrack) statistics.
@@ -157,10 +159,10 @@ func NewNode() *Node {
 		0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x8, cast[types.DSRConfig]([]byte{0x0, 0x0, 0x0}), false,
-		false, false, 0x0, false, false, false, false, false, false,
+		false, false, 0x0, cast[types.EgressGatewayConfig]([]byte{0x0, 0x0}),
 		false, false, false, false, false, false, false, false, false,
-		false, false, false, false, false, false, 0x0, 0x0, false,
-		0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, false, false, false, false, false, false, false,
+		false, false, false, 0x0, 0x0, false, 0x0, 0x0, 0x0, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.IPv4SNATExclusionPrefix]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),

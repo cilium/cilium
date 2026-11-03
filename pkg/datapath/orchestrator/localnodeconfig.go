@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/egressgateway/egwconfig"
 	"github.com/cilium/cilium/pkg/ip"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/kpr"
@@ -72,6 +73,7 @@ func newLocalNodeConfig(
 	wgAgent wgTypes.Agent,
 	ipsecCfg ipsec.Config,
 	connectorConfig connector.Config,
+	egressGatewayConfig *egwconfig.Config,
 	plugins plugin.Plugins,
 ) (config.Config, []<-chan struct{}, error) {
 	auxPrefixes := []ip.Prefix{}
@@ -251,6 +253,7 @@ func newLocalNodeConfig(
 		DatapathIsLayer2:             connectorConfig.GetOperationalMode().IsLayer2(),
 		DatapathIsNetkit:             connectorConfig.GetOperationalMode().IsNetkit(),
 		VLANFilter:                   vlanFilter,
+		EgressGatewayConfig:          egressGatewayConfig,
 		Plugins:                      plugins,
 	}, watchChans, nil
 }
