@@ -157,6 +157,29 @@ func (c *watchCancellationGate) CreateWatch(request *cache.Request, subscription
 	}, err
 }
 
+func (c *watchCancellationGate) CreateDeltaWatch(request *cache.DeltaRequest, subscription cache.Subscription, responses chan cache.DeltaResponse) (func(), error) {
+	if request.GetTypeUrl() != c.typeURL || request.GetResponseNonce() == "" {
+		return c.SnapshotCache.CreateDeltaWatch(request, subscription, responses)
+	}
+	pending := make(chan cache.DeltaResponse, 1)
+	c.forwardResponse = func() {
+		select {
+		case response := <-pending:
+			responses <- response
+		default:
+		}
+	}
+	cancel, err := c.SnapshotCache.CreateDeltaWatch(request, subscription, pending)
+	if cancel == nil {
+		return nil, err
+	}
+	return func() {
+		close(c.started)
+		<-c.release
+		cancel()
+	}, err
+}
+
 func (c *watchCancellationGate) SetSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot) error {
 	if err := c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot); err != nil {
 		return err
@@ -169,14 +192,19 @@ func (c *watchCancellationGate) SetSnapshot(ctx context.Context, nodeID string, 
 
 func TestCanceledWatchResponseReleasesRelay(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
+		delta bool
 	}{
 		{name: "sotw"},
+		{name: "delta", delta: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			const nodeID = "node1"
 			options := []CacheOption{WithNodeIDs(nodeID)}
+			if tt.delta {
+				options = append(options, WithDeltaADS())
+			}
 			c := newCache(slog.New(slog.DiscardHandler), options...)
 			node := &envoy_config_core.Node{Id: nodeID}
 			releaseContext, release := context.WithCancel(t.Context())
@@ -191,27 +219,53 @@ func TestCanceledWatchResponseReleasesRelay(t *testing.T) {
 				Clusters:  map[string]*envoy_config_cluster.Cluster{"cluster": {Name: "cluster"}},
 			}
 			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{}))
-			responses := make(chan cache.Response, 2)
+			var responses chan cache.Response
+			var deltaResponses chan cache.DeltaResponse
+			if tt.delta {
+				deltaResponses = make(chan cache.DeltaResponse, 2)
+			} else {
+				responses = make(chan cache.Response, 2)
+			}
 			var cancels []func()
 			for _, typeURL := range []typeurl.Index{typeurl.Listener, typeurl.Cluster} {
 				var cancel func()
-				request := &cache.Request{Node: node, TypeUrl: typeURL.URL()}
-				require.NoError(t, c.completionCbs.OnStreamRequest(1, request))
-				subscription := stream.NewSotwSubscription(nil, true)
-				initialResponses := make(chan cache.Response, 1)
-				initialCancel, err := c.CreateWatch(request, subscription, initialResponses)
-				require.NoError(t, err)
-				t.Cleanup(initialCancel)
-				initial := <-initialResponses
-				subscription.SetReturnedResources(initial.GetReturnedResources())
-				wire, err := initial.GetDiscoveryResponse()
-				require.NoError(t, err)
-				wire.Nonce = request.TypeUrl
-				c.completionCbs.OnStreamResponse(initial.GetContext(), 1, request, wire)
-				request = &cache.Request{Node: node, TypeUrl: request.TypeUrl, ResponseNonce: wire.Nonce, VersionInfo: wire.VersionInfo}
-				require.NoError(t, c.completionCbs.OnStreamRequest(1, request))
-				cancel, err = c.CreateWatch(request, subscription, responses)
-				require.NoError(t, err)
+				if tt.delta {
+					request := &cache.DeltaRequest{Node: node, TypeUrl: typeURL.URL()}
+					require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, request))
+					subscription := stream.NewDeltaSubscription(nil, nil, nil, true)
+					initialResponses := make(chan cache.DeltaResponse, 1)
+					initialCancel, err := c.CreateDeltaWatch(request, &subscription, initialResponses)
+					require.NoError(t, err)
+					t.Cleanup(initialCancel)
+					initial := <-initialResponses
+					subscription.SetReturnedResources(initial.GetReturnedResources())
+					wire, err := initial.GetDeltaDiscoveryResponse()
+					require.NoError(t, err)
+					wire.Nonce = request.TypeUrl
+					c.completionCbs.OnStreamDeltaResponse(1, request, wire)
+					request = &cache.DeltaRequest{Node: node, TypeUrl: request.TypeUrl, ResponseNonce: wire.Nonce}
+					require.NoError(t, c.completionCbs.OnStreamDeltaRequest(1, request))
+					cancel, err = c.CreateDeltaWatch(request, &subscription, deltaResponses)
+					require.NoError(t, err)
+				} else {
+					request := &cache.Request{Node: node, TypeUrl: typeURL.URL()}
+					require.NoError(t, c.completionCbs.OnStreamRequest(1, request))
+					subscription := stream.NewSotwSubscription(nil, true)
+					initialResponses := make(chan cache.Response, 1)
+					initialCancel, err := c.CreateWatch(request, subscription, initialResponses)
+					require.NoError(t, err)
+					t.Cleanup(initialCancel)
+					initial := <-initialResponses
+					subscription.SetReturnedResources(initial.GetReturnedResources())
+					wire, err := initial.GetDiscoveryResponse()
+					require.NoError(t, err)
+					wire.Nonce = request.TypeUrl
+					c.completionCbs.OnStreamResponse(initial.GetContext(), 1, request, wire)
+					request = &cache.Request{Node: node, TypeUrl: request.TypeUrl, ResponseNonce: wire.Nonce, VersionInfo: wire.VersionInfo}
+					require.NoError(t, c.completionCbs.OnStreamRequest(1, request))
+					cancel, err = c.CreateWatch(request, subscription, responses)
+					require.NoError(t, err)
+				}
 				t.Cleanup(func() {
 					release()
 					cancel()
@@ -233,9 +287,15 @@ func TestCanceledWatchResponseReleasesRelay(t *testing.T) {
 			release()
 			<-canceled
 			cancels[1]()
-			c.completionCbs.OnStreamClosed(1, node)
-			require.Zero(t, c.GetStatusInfo(nodeID).GetNumWatches())
-			require.Empty(t, c.watchRelays, "draining the canceled response must release the empty relay")
+			if tt.delta {
+				c.completionCbs.OnDeltaStreamClosed(1, node)
+				require.Zero(t, c.GetStatusInfo(nodeID).GetNumDeltaWatches())
+				require.Empty(t, c.deltaWatchRelays, "draining the canceled response must release the empty relay")
+			} else {
+				c.completionCbs.OnStreamClosed(1, node)
+				require.Zero(t, c.GetStatusInfo(nodeID).GetNumWatches())
+				require.Empty(t, c.watchRelays, "draining the canceled response must release the empty relay")
+			}
 		})
 	}
 }

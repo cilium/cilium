@@ -202,6 +202,10 @@ func (c *cacheImpl) collectDeltaResponseDeliveriesLocked() []deltaResponseDelive
 					c.removeTrackedDeltaWatchLocked(matched)
 				}
 			default:
+				// A canceled watch may have left the last queued response.
+				if relay.watches.Empty() {
+					delete(c.deltaWatchRelays, relay.outer)
+				}
 				if len(responses) != 0 {
 					deliveries = append(deliveries, deltaResponseDelivery{
 						channel: relay.outer, responses: responses,
