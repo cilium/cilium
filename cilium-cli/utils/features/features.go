@@ -41,7 +41,6 @@ const (
 	HealthChecking Feature = "health-checking"
 
 	EncryptionPod              Feature = "encryption-pod"
-	EncryptionNode             Feature = "encryption-node"
 	EncryptionStrictMode       Feature = "enable-encryption-strict-mode"
 	EncryptionStrictModeEgress Feature = "enable-encryption-strict-mode-egress"
 

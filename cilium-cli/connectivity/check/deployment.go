@@ -700,30 +700,6 @@ func (ct *ConnectivityTest) ingresses() map[string]string {
 	return ingresses
 }
 
-// maybeNodeToNodeEncryptionAffinity returns a node affinity term to prefer nodes
-// not being part of the control plane when node to node encryption is enabled,
-// because they are excluded by default from node to node encryption. This logic
-// is currently suboptimal as it only accounts for the default selector, for the
-// sake of simplicity, but it should cover all common use cases.
-func (ct *ConnectivityTest) maybeNodeToNodeEncryptionAffinity() *corev1.NodeAffinity {
-	encryptNode, _ := ct.Feature(features.EncryptionNode)
-	if !encryptNode.Enabled || encryptNode.Mode == "" {
-		return nil
-	}
-
-	return &corev1.NodeAffinity{
-		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.PreferredSchedulingTerm{{
-			Weight: 100,
-			Preference: corev1.NodeSelectorTerm{
-				MatchExpressions: []corev1.NodeSelectorRequirement{{
-					Key:      "node-role.kubernetes.io/control-plane",
-					Operator: corev1.NodeSelectorOpDoesNotExist,
-				}},
-			},
-		}},
-	}
-}
-
 // forceDeploy cleans up connectivity test artifacts before deployment.
 // Note: deploy() and deployPerf() currently ignore its returned error.
 func (ct *ConnectivityTest) forceDeploy(ctx context.Context) error {
@@ -838,13 +814,9 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 		if err != nil {
 			ct.Logf("✨ [%s] Deploying %s in namespace %s...", client.ClusterName(), clientDeploymentName, nsConfig.name)
 			var clientAffinity *corev1.Affinity
-			if nsConfig.name == "cilium-test-ztunnel-enrolled-0" {
-				// First namespace - just use node affinity
-				clientAffinity = &corev1.Affinity{
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
-				}
-			} else {
-				// Subsequent namespaces - add pod affinity to first namespace's client
+			if nsConfig.name != "cilium-test-ztunnel-enrolled-0" {
+				// Just use node affinity for the first namespace. For subsequent namespaces,
+				// add pod affinity to first namespace's client.
 				clientAffinity = &corev1.Affinity{
 					PodAffinity: &corev1.PodAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
@@ -863,7 +835,6 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 							},
 						},
 					},
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 				}
 			}
 
@@ -913,7 +884,6 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 							},
 						},
 					},
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 				},
 				NodeSelector:   ct.params.NodeSelector,
 				Tolerations:    ct.params.GetTolerations(),
@@ -955,7 +925,6 @@ func DeployZtunnelTestEnv(ctx context.Context, t *Test, ct *ConnectivityTest) er
 							},
 						},
 					},
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 				},
 				NodeSelector:   ct.params.NodeSelector,
 				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
@@ -1109,7 +1078,6 @@ func (ct *ConnectivityTest) deployCCNPTestEnv(ctx context.Context) error {
 				Image:        ct.params.CurlImage,
 				Command:      []string{"/usr/bin/pause"},
 				Annotations:  ct.params.DeploymentAnnotations.Match(ccnpDeploymentName),
-				Affinity:     &corev1.Affinity{NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity()},
 				NodeSelector: ct.params.NodeSelector,
 				Tolerations:  ct.params.GetTolerations(),
 			})
@@ -1400,7 +1368,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
-				NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 			},
 			NodeSelector:   ct.params.NodeSelector,
 			Tolerations:    ct.params.GetTolerations(),
@@ -1425,7 +1392,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 			Image:        ct.params.CurlImage,
 			Command:      []string{"/usr/bin/pause"},
 			Annotations:  ct.params.DeploymentAnnotations.Match(clientDeploymentName),
-			Affinity:     &corev1.Affinity{NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity()},
 			NodeSelector: ct.params.NodeSelector,
 			Tolerations:  ct.params.GetTolerations(),
 		})
@@ -1463,7 +1429,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
-				NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 			},
 			NodeSelector: ct.params.NodeSelector,
 			Tolerations:  ct.params.GetTolerations(),
@@ -1503,7 +1468,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 							},
 						},
 					},
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 				},
 				NodeSelector: ct.params.NodeSelector,
 				Tolerations:  ct.params.GetTolerations(),
@@ -1609,7 +1573,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 							},
 						},
 					},
-					NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 				},
 				NodeSelector:   ct.params.NodeSelector,
 				ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
@@ -1892,7 +1855,6 @@ func (ct *ConnectivityTest) deploy(ctx context.Context) error {
 						},
 					},
 				},
-				NodeAffinity: ct.maybeNodeToNodeEncryptionAffinity(),
 			},
 			NodeSelector:   ct.params.NodeSelector,
 			ReadinessProbe: newLocalReadinessProbe(containerPort, "/"),
