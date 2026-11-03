@@ -290,21 +290,23 @@ func (rs resourceStore) equal(other resourceStore) bool {
 	return maps.EqualFunc(rs, other, proto.Equal)
 }
 
+// Retain independent snapshots: the reconciler may reuse and modify its
+// protobufs after this call returns, outside the fake server's lock.
 func (rs resourceStore) update(res *xds.Resources) {
 	for _, l := range res.Listeners {
-		rs[resourceKey{kind: listenerKey, name: l.Name}.String()] = l
+		rs[resourceKey{kind: listenerKey, name: l.Name}.String()] = proto.Clone(l)
 	}
 	for _, s := range res.Secrets {
-		rs[resourceKey{kind: secretKey, name: s.Name}.String()] = s
+		rs[resourceKey{kind: secretKey, name: s.Name}.String()] = proto.Clone(s)
 	}
 	for _, r := range res.Routes {
-		rs[resourceKey{kind: routeKey, name: r.Name}.String()] = r
+		rs[resourceKey{kind: routeKey, name: r.Name}.String()] = proto.Clone(r)
 	}
 	for _, c := range res.Clusters {
-		rs[resourceKey{kind: clustersKey, name: c.Name}.String()] = c
+		rs[resourceKey{kind: clustersKey, name: c.Name}.String()] = proto.Clone(c)
 	}
 	for _, e := range res.Endpoints {
-		rs[resourceKey{kind: endpointsKey, name: e.ClusterName}.String()] = e
+		rs[resourceKey{kind: endpointsKey, name: e.ClusterName}.String()] = proto.Clone(e)
 	}
 }
 
