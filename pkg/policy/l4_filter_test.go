@@ -676,6 +676,27 @@ func TestL3Wildcarding(t *testing.T) {
 		},
 	}
 	td.policyMapEquals(t, nil, L4PolicyMaps{makeL4PolicyMap()}, &ruleD1)
+
+	// CaseD2: Same for EgressDeny: an unresolved ToServices must not become an
+	// L3 wildcard deny on the given ports.
+	ruleD2 := api.Rule{
+		EndpointSelector: endpointSelectorA,
+		EgressDeny: []api.EgressDenyRule{
+			{
+				EgressCommonRule: api.EgressCommonRule{
+					ToServices: []api.Service{{
+						K8sService: &api.K8sServiceNamespace{ServiceName: "absent-svc", Namespace: "default"},
+					}},
+				},
+				ToPorts: []api.PortDenyRule{{
+					Ports: []api.PortProtocol{
+						{Port: "80", Protocol: api.ProtoTCP},
+					},
+				}},
+			},
+		},
+	}
+	td.policyMapEquals(t, nil, L4PolicyMaps{makeL4PolicyMap()}, &ruleD2)
 }
 
 // Tests in this file:
