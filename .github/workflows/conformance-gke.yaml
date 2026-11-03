@@ -235,6 +235,21 @@ jobs:
         with:
           version: ${{ env.gcloud_version }}
 
+      - name: Fetch a gcloud access token
+        # gcloud caches the token for the commands below, so a failed token exchange is retried here.
+        run: |
+          for i in 1 2 3; do
+            if timeout 30 gcloud auth print-access-token > /dev/null; then
+              exit 0
+            fi
+            if [ "${i}" -lt 3 ]; then
+              echo "::warning::gcloud could not fetch an access token (attempt ${i}/3), retrying in 5s"
+              sleep 5
+            fi
+          done
+          echo "::error::gcloud could not fetch an access token after 3 attempts"
+          exit 1
+
       - name: Filter Matrix
         id: set-matrix
         run: |
@@ -399,6 +414,21 @@ jobs:
         uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
           version: ${{ env.gcloud_version }}
+
+      - name: Fetch a gcloud access token
+        # gcloud caches the token for the commands below, so a failed token exchange is retried here.
+        run: |
+          for i in 1 2 3; do
+            if timeout 30 gcloud auth print-access-token > /dev/null; then
+              exit 0
+            fi
+            if [ "${i}" -lt 3 ]; then
+              echo "::warning::gcloud could not fetch an access token (attempt ${i}/3), retrying in 5s"
+              sleep 5
+            fi
+          done
+          echo "::error::gcloud could not fetch an access token after 3 attempts"
+          exit 1
 
       - name: Install gke-gcloud-auth-plugin
         run: |
