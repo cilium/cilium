@@ -1321,6 +1321,10 @@ func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 					c.removeTrackedWatchLocked(matched)
 				}
 			default:
+				// A canceled watch may have left the last queued response.
+				if relay.watches.Empty() {
+					delete(c.watchRelays, relay.outer)
+				}
 				if len(responses) > 0 {
 					deliveries = append(deliveries, responseDelivery{
 						channel:   relay.outer,

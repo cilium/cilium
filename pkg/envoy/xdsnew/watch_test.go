@@ -122,6 +122,123 @@ func TestSnapshotResponseDeliveryDoesNotHoldCacheLocks(t *testing.T) {
 	}
 }
 
+// watchCancellationGate pauses go-control-plane watch cancellation after Cilium
+// removes the watch from its indexes. It forwards that watch's response last
+// during publication, making the late-response ordering deterministic.
+type watchCancellationGate struct {
+	cache.SnapshotCache
+	typeURL         string
+	started         chan struct{}
+	release         <-chan struct{}
+	forwardResponse func()
+}
+
+func (c *watchCancellationGate) CreateWatch(request *cache.Request, subscription cache.Subscription, responses chan cache.Response) (func(), error) {
+	if request.GetTypeUrl() != c.typeURL || request.GetResponseNonce() == "" {
+		return c.SnapshotCache.CreateWatch(request, subscription, responses)
+	}
+	pending := make(chan cache.Response, 1)
+	c.forwardResponse = func() {
+		select {
+		case response := <-pending:
+			responses <- response
+		default:
+		}
+	}
+	cancel, err := c.SnapshotCache.CreateWatch(request, subscription, pending)
+	if cancel == nil {
+		return nil, err
+	}
+	return func() {
+		close(c.started)
+		<-c.release
+		cancel()
+	}, err
+}
+
+func (c *watchCancellationGate) SetSnapshot(ctx context.Context, nodeID string, snapshot cache.ResourceSnapshot) error {
+	if err := c.SnapshotCache.SetSnapshot(ctx, nodeID, snapshot); err != nil {
+		return err
+	}
+	if c.forwardResponse != nil {
+		c.forwardResponse()
+	}
+	return nil
+}
+
+func TestCanceledWatchResponseReleasesRelay(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		{name: "sotw"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			const nodeID = "node1"
+			options := []CacheOption{WithNodeIDs(nodeID)}
+			c := newCache(slog.New(slog.DiscardHandler), options...)
+			node := &envoy_config_core.Node{Id: nodeID}
+			releaseContext, release := context.WithCancel(t.Context())
+			t.Cleanup(release)
+			gate := &watchCancellationGate{
+				SnapshotCache: c.snapshotCache, typeURL: typeurl.Listener.URL(),
+				started: make(chan struct{}), release: releaseContext.Done(),
+			}
+			c.replaceSnapshotCache(t, gate)
+			resources := xds.Resources{
+				Listeners: map[string]*envoy_config_listener.Listener{"listener": {Name: "listener"}},
+				Clusters:  map[string]*envoy_config_cluster.Cluster{"cluster": {Name: "cluster"}},
+			}
+			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{}))
+			responses := make(chan cache.Response, 2)
+			var cancels []func()
+			for _, typeURL := range []typeurl.Index{typeurl.Listener, typeurl.Cluster} {
+				var cancel func()
+				request := &cache.Request{Node: node, TypeUrl: typeURL.URL()}
+				require.NoError(t, c.completionCbs.OnStreamRequest(1, request))
+				subscription := stream.NewSotwSubscription(nil, true)
+				initialResponses := make(chan cache.Response, 1)
+				initialCancel, err := c.CreateWatch(request, subscription, initialResponses)
+				require.NoError(t, err)
+				t.Cleanup(initialCancel)
+				initial := <-initialResponses
+				subscription.SetReturnedResources(initial.GetReturnedResources())
+				wire, err := initial.GetDiscoveryResponse()
+				require.NoError(t, err)
+				wire.Nonce = request.TypeUrl
+				c.completionCbs.OnStreamResponse(initial.GetContext(), 1, request, wire)
+				request = &cache.Request{Node: node, TypeUrl: request.TypeUrl, ResponseNonce: wire.Nonce, VersionInfo: wire.VersionInfo}
+				require.NoError(t, c.completionCbs.OnStreamRequest(1, request))
+				cancel, err = c.CreateWatch(request, subscription, responses)
+				require.NoError(t, err)
+				t.Cleanup(func() {
+					release()
+					cancel()
+				})
+				cancels = append(cancels, cancel)
+			}
+			canceled := make(chan struct{})
+			go func() {
+				cancels[0]()
+				close(canceled)
+			}()
+			<-gate.started
+
+			// go-control-plane can still queue LDS after Cilium stops tracking its
+			// watch. Queue it after CDS, which retires the last tracked watch.
+			resources.Listeners["listener"] = &envoy_config_listener.Listener{Name: "listener", TrafficDirection: envoy_config_core.TrafficDirection_OUTBOUND}
+			resources.Clusters["cluster"] = &envoy_config_cluster.Cluster{Name: "cluster", AltStatName: "new"}
+			require.NoError(t, c.ApplyResources(t.Context(), nodeID, ResourceMutations{Upserted: resources}, nil, TypeURLCallbacks{}))
+			release()
+			<-canceled
+			cancels[1]()
+			c.completionCbs.OnStreamClosed(1, node)
+			require.Zero(t, c.GetStatusInfo(nodeID).GetNumWatches())
+			require.Empty(t, c.watchRelays, "draining the canceled response must release the empty relay")
+		})
+	}
+}
+
 func TestCreateWatchImmediateResponseRetiresTracking(t *testing.T) {
 	c := newCache(slog.New(slog.DiscardHandler), WithNodeIDs("node1"))
 	request := &cache.Request{
