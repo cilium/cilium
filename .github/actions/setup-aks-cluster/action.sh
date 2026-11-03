@@ -27,7 +27,7 @@ az group create \
 # Both attempts and the teardown between them share this step's
 # timeout-minutes.
 budget=$(( TIMEOUT_MINUTES * 60 ))
-required=$(( ATTEMPT_DEADLINE + RETRY_DEADLINE + 820 ))
+required=$(( ATTEMPT_DEADLINE + RETRY_DEADLINE + 900 ))
 if [ "${budget}" -lt "${required}" ]; then
   echo "::error::timeout_minutes gives ${budget}s and the create needs ${required}s"
   exit 1
