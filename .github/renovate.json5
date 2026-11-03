@@ -986,6 +986,15 @@
       "versioning": "regex:^v(?<major>\\d+)-v(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$"
     },
     {
+      // iptables-wrappers has no GitHub releases, only tags, in two
+      // independent series: "iptables-wrapper-vN" for the binary we build,
+      // and semver "vX.Y.Z" for the Go library. Only track the former.
+      "matchDepNames": [
+        "kubernetes-sigs/iptables-wrappers"
+      ],
+      "versioning": "regex:^iptables-wrapper-v(?<major>\\d+)$"
+    },
+    {
       // cilium-envoy is referenced in both images/cilium/Dockerfile and
       // install/kubernetes/Makefile.values. Without explicit grouping,
       // Renovate creates separate PRs for each manager. The groupSlug ensures
@@ -1194,7 +1203,8 @@
         "/images/builder/install-protoc.sh/",
         "/images/builder/install-protoplugins.sh/",
         "/images/runtime/build-cni.sh/",
-        "/images/runtime/build-gops.sh/"
+        "/images/runtime/build-gops.sh/",
+        "/images/runtime/build-iptables-wrapper.sh/"
       ],
       // These regexes manage version and digest strings in shell scripts,
       // similar to the examples shown here:
