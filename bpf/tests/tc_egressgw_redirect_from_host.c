@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
-#define ENABLE_EGRESS_GATEWAY		1
 #define ENCAP_IFINDEX 0
 
 #define PRIMARY_IFACE			21
@@ -36,6 +35,10 @@ ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_host_firewall, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(struct egress_gateway_config, egress_gateway_cfg, {
+	.enable = true,
+})
+
 
 struct fib_lookup_settings {
 	__u32 tbid;

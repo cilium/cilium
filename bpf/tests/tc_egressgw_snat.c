@@ -8,7 +8,6 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
-#define ENABLE_EGRESS_GATEWAY		1
 #define ENCAP_IFINDEX		42
 #define SECONDARY_IFACE_IFINDEX	44
 
@@ -35,6 +34,9 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 ASSIGN_CONFIG(bool, enable_host_firewall, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(struct egress_gateway_config, egress_gateway_cfg, {
+	.enable = true,
+})
 
 #include "lib/egressgw.h"
 #include "lib/ipcache.h"

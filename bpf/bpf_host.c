@@ -1432,7 +1432,7 @@ int cil_to_netdev(struct __ctx_buff *ctx)
 		src_sec_identity = get_identity(ctx);
 	else if (CONFIG(enable_identity_mark) && magic == MARK_MAGIC_IDENTITY)
 		src_sec_identity = get_identity(ctx);
-	else if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && magic == MARK_MAGIC_EGW_DONE)
+	else if (ENABLE_EGRESS_GATEWAY_COMMON && magic == MARK_MAGIC_EGW_DONE)
 		src_sec_identity = get_identity(ctx);
 
 	/* Filter allowed vlan id's and pass them back to kernel.
@@ -1532,7 +1532,7 @@ cil_to_netdev_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		goto drop_err;
 
 	/* If request arrived via from-overlay, don't redirect it again: */
-	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON) && !ctx_egw_done(ctx)) {
+	if (ENABLE_EGRESS_GATEWAY_COMMON && !ctx_egw_done(ctx)) {
 		ret = egress_gw_handle_request(ctx, proto,
 					       src_sec_identity, dst_sec_identity,
 					       &trace);

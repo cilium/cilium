@@ -38,6 +38,7 @@ import (
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
+	fakeegressmap "github.com/cilium/cilium/pkg/maps/egressmap/fake"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	fakeencrypt "github.com/cilium/cilium/pkg/maps/encrypt/fake"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
@@ -68,8 +69,8 @@ var Cell = cell.Module(
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() encrypt.EncryptMap { return fakeencrypt.NewFakeEncryptMap() },
-		func() *egressmap.PolicyMap4V2 { return nil },
-		func() *egressmap.PolicyMap6 { return nil },
+		func() egressmap.PolicyMap4V2 { return fakeegressmap.NewFakePolicyMap4V2() },
+		func() egressmap.PolicyMap6 { return fakeegressmap.NewFakePolicyMap6() },
 		func() lxcmap.Map { return nil },
 		func() bigtcp.Config { return &fakebigtcp.Config{} },
 		func() iptables.Manager { return fakeiptables.NewManager() },

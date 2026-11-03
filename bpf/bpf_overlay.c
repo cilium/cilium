@@ -108,7 +108,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			*identity = info->sec_identity;
 	}
 
-	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON)) {
+	if (ENABLE_EGRESS_GATEWAY_COMMON) {
 		__u32 egress_ifindex = 0;
 		union v6addr snat_addr, daddr;
 
@@ -347,7 +347,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			*identity = info->sec_identity;
 	}
 
-	if (is_defined(ENABLE_EGRESS_GATEWAY_COMMON)) {
+	if (ENABLE_EGRESS_GATEWAY_COMMON) {
 		__u32 egress_ifindex = 0;
 		__be32 snat_addr, daddr;
 

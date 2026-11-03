@@ -62,6 +62,9 @@ func setBasePermutations(t *config.Node) {
 	t.EnableNodeport = true
 	t.EnableNodeportAcceleration = true
 	t.EnableL7LB = true
+	t.EgressGatewayCfg = types.EgressGatewayConfig{
+		Enable: true,
+	}
 }
 
 func baseLXCPermutations() *loadPermutationBuilder {

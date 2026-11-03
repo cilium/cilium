@@ -238,3 +238,9 @@ NODE_CONFIG(bool, enable_masquerade_ipv4, "Enable BPF masquerading for IPv4 traf
 NODE_CONFIG(bool, enable_wireguard, "Enable Wireguard support")
 
 NODE_CONFIG(bool, enable_l7_lb, "Enable L7 load-balancing support")
+
+struct egress_gateway_config {
+	bool enable;
+};
+
+NODE_CONFIG(struct egress_gateway_config, egress_gateway_cfg, "Egress gateway configuration")
