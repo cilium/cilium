@@ -2216,15 +2216,18 @@ func TestNewClusterSharingEndpointReplaysWatches(t *testing.T) {
 
 func TestDeliverResponsesOrdersADSParentBeforeChild(t *testing.T) {
 	c := &cacheImpl{}
-	var sotwResponses []cache.Response
+	var sotwResponses []watchResponse
 	for _, typeURL := range []string{
 		envoy_resource.EndpointType,
 		envoy_resource.RouteType,
 		envoy_resource.ClusterType,
 		envoy_resource.ListenerType,
 	} {
-		// The backend may produce these responses in randomized watch-map order.
-		sotwResponses = append(sotwResponses, &cache.RawResponse{Request: &discovery.DiscoveryRequest{TypeUrl: typeURL}})
+		// go-control-plane may produce responses in randomized watch-map order.
+		sotwResponses = append(sotwResponses, watchResponse{
+			Response: &cache.RawResponse{Request: &discovery.DiscoveryRequest{TypeUrl: typeURL}},
+			watch:    &trackedWatch{deliverySync: deliverySync[cache.Response]{deliveryCanceled: make(chan struct{})}},
+		})
 	}
 	// Coalesced responses for a stream share one relay/channel.
 	orderedSotW := make(chan cache.Response, 4)
