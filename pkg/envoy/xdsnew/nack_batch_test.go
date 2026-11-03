@@ -67,7 +67,7 @@ func TestNACKClaimsWaitRegisteredBeforeCacheLock(t *testing.T) {
 			} else {
 				require.NoError(t, c.ApplyResource(ctx, "coverage-node", typeurl.Secret, "secret", a, wg, callback))
 			}
-			gate.unblock()
+			closeChannelIfOpen(gate.release)
 			select {
 			case err := <-result:
 				require.NoError(t, err)
@@ -112,7 +112,7 @@ func TestNACKRevalidatesAfterAcquiringCacheLock(t *testing.T) {
 			} else {
 				s.receive(t, "secret")
 			}
-			gate.unblock()
+			closeChannelIfOpen(gate.release)
 			select {
 			case err := <-result:
 				require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestNACKBatchSerializesCacheCallers(t *testing.T) {
 				t.Fatalf("cache operation interleaved with recovery: %v", err)
 			case <-time.After(10 * time.Millisecond):
 			}
-			gate.unblock()
+			closeChannelIfOpen(gate.release)
 			select {
 			case err := <-result:
 				require.NoError(t, err)
