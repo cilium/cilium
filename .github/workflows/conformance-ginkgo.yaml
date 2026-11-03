@@ -408,14 +408,15 @@ jobs:
         run: |
           cp /usr/local/bin/cilium "untrusted/cilium-cli-bin"
 
-      - name: Install helm
-        shell: bash
-        run: |
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
           # renovate: datasource=github-releases depName=helm/helm
-          HELM_VERSION=v3.13.1
-          wget "https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
-          tar -xf "helm-${HELM_VERSION}-linux-amd64.tar.gz"
-          mv ./linux-amd64/helm untrusted/helm
+          version: v4.3.0
+
+      - name: Stage Helm for the test VMs
+        shell: bash
+        run: cp "$(command -v helm)" untrusted/helm
 
       - name: Provision LVH VMs
         id: provision-vh-vms

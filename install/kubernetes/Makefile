@@ -28,7 +28,7 @@ DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 	--volume $(CURDIR):$(CURDIR) \
 	--user "$(shell id -u):$(shell id -g)"
 HELM_DOCS := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm-docs
-HELM := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm
+HELM := $(DOCKER_RUN) $(HELM_IMAGE)
 YQ := $(DOCKER_RUN) $(YQ_IMAGE)
 HELM_SCHEMA_GEN := $(DOCKER_RUN) $(HELM_TOOLBOX_IMAGE) helm-schema
 

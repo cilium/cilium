@@ -261,6 +261,11 @@ HELM_TOOLBOX_VERSION ?= "v1.1.0"
 HELM_TOOLBOX_SHA ?= "961693f182b9b456ed90e5274ac5df81e4af4343104e252666959cdf9570ce9e"
 HELM_TOOLBOX_IMAGE ?= "quay.io/cilium/helm-toolbox:$(HELM_TOOLBOX_VERSION)@sha256:$(HELM_TOOLBOX_SHA)"
 
+# renovate: datasource=docker depName=alpine/helm
+HELM_VERSION = 4.3.0
+HELM_SHA = sha256:a6cf54599ccb99d90cf0712b30f03fdb3cab062e6b94e0418cc4db7e8a1464b2
+HELM_IMAGE ?= docker.io/alpine/helm:$(HELM_VERSION)@$(HELM_SHA)
+
 # renovate: datasource=docker
 YQ_IMAGE ?= "docker.io/mikefarah/yq@sha256:32be61dc94d0acc44f513ba69d0fc05f1f92c2e760491f2a27e11fc13cde6327" # 4.40.5
 
