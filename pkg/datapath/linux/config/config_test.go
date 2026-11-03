@@ -363,9 +363,10 @@ func TestPrivilegedWriteNodeConfigIPv4Only(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestPrivilegedWriteNodeConfigBPFMasquerade verifies that when BPF masquerade
-// is enabled, both ENABLE_NODEPORT and ENABLE_MASQUERADE_IPV4 defines are no longer generated (it
-// was replaced by the enable_nodeport and enable_masquerade_ipv4 runtime config).
+// TestPrivilegedWriteNodeConfigBPFMasquerade verifies that BPF masquerade keeps the NodePort
+// programs compiled (no SKIP_NODEPORT_PROGS) and that both ENABLE_NODEPORT and
+// ENABLE_MASQUERADE_IPV4 defines are no longer generated (they were replaced by the enable_nodeport
+// and enable_masquerade_ipv4 runtime config).
 // This covers the BPF masquerading scenarios previously
 // tested by K8sDatapathConfig.
 func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
@@ -390,8 +391,8 @@ func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
 			option.Config.EnableIPv6Masquerade = false
 
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.NotContains(t, output, "ENABLE_NODEPORT",
-				"Expected no ENABLE_NODEPORT defines with BPF masquerade")
+			require.NotContains(t, output, "SKIP_NODEPORT_PROGS",
+				"Expected NodePort programs to be compiled with BPF masquerade")
 		})
 
 		t.Run("BPF masquerade disabled", func(t *testing.T) {
@@ -401,6 +402,8 @@ func TestPrivilegedWriteNodeConfigBPFMasquerade(t *testing.T) {
 			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
 			require.NotContains(t, output, "ENABLE_MASQUERADE_IPV4",
 				"Expected no ENABLE_MASQUERADE_IPV4 define without BPF masquerade")
+			require.Contains(t, output, "define SKIP_NODEPORT_PROGS 1\n",
+				"Expected NodePort programs to be skipped without BPF masquerade nor kube-proxy replacement")
 		})
 
 		return nil

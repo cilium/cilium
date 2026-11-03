@@ -93,7 +93,7 @@ bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
  * the ipcache here to reclassify a world-sourced orphan fragment drop. See
  * frag_not_found_world() in l4.h for the rationale.
  */
-static __always_inline int
+static __always_inline __maybe_unused int
 xdp_frag_not_found_world_v4(int ret, const struct iphdr *ip4)
 {
 	const struct remote_endpoint_info *info;
@@ -106,7 +106,7 @@ xdp_frag_not_found_world_v4(int ret, const struct iphdr *ip4)
 }
 
 #if defined(ENABLE_IPV6)
-static __always_inline int
+static __always_inline __maybe_unused int
 xdp_frag_not_found_world_v6(int ret, const struct ipv6hdr *ip6)
 {
 	const struct remote_endpoint_info *info;
@@ -119,6 +119,7 @@ xdp_frag_not_found_world_v6(int ret, const struct ipv6hdr *ip6)
 }
 #endif /* ENABLE_IPV6 */
 
+#ifndef SKIP_NODEPORT_PROGS
 __declare_tail(CILIUM_CALL_IPV4_FROM_NETDEV)
 int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
@@ -149,6 +150,7 @@ out:
 
 	return bpf_xdp_exit(ctx, ret);
 }
+#endif /* !SKIP_NODEPORT_PROGS */
 
 static __always_inline int check_v4_lb(struct __ctx_buff *ctx)
 {
@@ -189,6 +191,7 @@ static __always_inline int prefilter_v4(struct __ctx_buff *ctx)
 }
 
 #ifdef ENABLE_IPV6
+#ifndef SKIP_NODEPORT_PROGS
 __declare_tail(CILIUM_CALL_IPV6_FROM_NETDEV)
 int tail_lb_ipv6(struct __ctx_buff *ctx)
 {
@@ -218,6 +221,7 @@ int tail_lb_ipv6(struct __ctx_buff *ctx)
 drop_err:
 	return send_drop_notify_error_ext(ctx, UNKNOWN_ID, ret, ext_err, METRIC_INGRESS);
 }
+#endif /* !SKIP_NODEPORT_PROGS */
 
 static __always_inline int check_v6_lb(struct __ctx_buff *ctx)
 {
