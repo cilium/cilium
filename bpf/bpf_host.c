@@ -141,7 +141,7 @@ static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx,
 	    __u32 ipcache_srcid,
 	    const bool from_host,
-	    bool *punt_to_stack __maybe_unused,
+	    bool *punt_to_stack,
 	    __s8 *ext_err)
 {
 	struct ct_buffer6 *ct_buffer;
@@ -590,7 +590,7 @@ static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 	    __u32 ipcache_srcid,
 	    const bool from_host,
-	    bool *punt_to_stack __maybe_unused,
+	    bool *punt_to_stack,
 	    __s8 *ext_err __maybe_unused)
 {
 	struct ct_buffer4 *ct_buffer;
