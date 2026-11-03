@@ -12,6 +12,19 @@ on:
     paths:
       - images/runtime/**
       - images/builder/**
+  # This workflow can be reused so that renovate can execute this workflow_dispatch:
+  # run from a different environment than 'release-base-images'. See
+  # build-images-base-renovate.yaml
+  workflow_call:
+    secrets:
+      AUTO_COMMITTER_PEM_202411:
+        required: true
+      AUTO_COMMITTER_APP_ID_202411:
+        required: true
+    inputs:
+      environment:
+        required: true
+        type: string
 
 permissions:
   # To be able to access the repository with `actions/checkout`
@@ -31,12 +44,8 @@ jobs:
       contents: read
       # Required to generate OIDC tokens for `sigstore/cosign-installer` authentication
       id-token: write
-    # No 'inputs.environment' here: this workflow has no 'workflow_call' trigger
-    # (it only runs on pull_request_target). The reusable workflow_call variant
-    # that wires 'inputs.environment' only exists on the stable branches, so the
-    # environment is hardcoded to 'release-base-images'.
     environment:
-      name: 'release-base-images'
+      name: ${{ inputs.environment || 'release-base-images' }}
       deployment: false
     runs-on: ubuntu-26.04
     steps:
@@ -116,9 +125,10 @@ jobs:
       # password directly. Trade it for a short lived robot token first.
       #
       # Because the job references an environment, the subject of the token is
-      # repo:cilium@21054566/cilium@48109239:environment:release-base-images,
-      # the immutable form that carries the owner and repository ids. That is
-      # the identity federated with the robot account on the Quay side, so
+      # repo:cilium@21054566/cilium@48109239:environment:release-base-images
+      # (or :release-base-images-renovate when the renovate workflow calls this
+      # one), the immutable form that carries the owner and repository ids. That
+      # is the identity federated with the robot account on the Quay side, so
       # renaming the environment breaks the login.
       - name: Get a quay.io robot token via OIDC for cilium-runtime
         id: registry-token-runtime
@@ -386,7 +396,18 @@ jobs:
             fi
           fi
           git diff HEAD^
-          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git HEAD:$ref
+          url="https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git"
+          for attempt in 1 2 3; do
+            if git push "${url}" HEAD:"$ref"; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              exit 1
+            fi
+            # The docs-builder workflow can push to the same Renovate branch.
+            git fetch "${url}" "$ref"
+            git rebase FETCH_HEAD
+          done
 
       - name: Prepare for Image Digests
         shell: bash
