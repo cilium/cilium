@@ -44,6 +44,14 @@ NODE_CONFIG(bool, supports_fib_lookup_src,
 	    "Whether or not BPF_FIB_LOOKUP_SRC is supported.")
 
 NODE_CONFIG(bool, enable_nodeport, "Enable Nodeport support")
+/* todo(ekoops): get rid of the following by replacing it with CONFIG(enable_nodeport) once all BPF
+ *   BPF objects are pre-compiled.
+ */
+#ifdef SKIP_NODEPORT_PROGS
+# define NODEPORT_ENABLED 0
+#else
+# define NODEPORT_ENABLED CONFIG(enable_nodeport)
+#endif
 
 NODE_CONFIG(bool, enable_nodeport_source_lookup,
 	    "Enable dynamic source IP resolution for SNAT via linux's routing table.")

@@ -191,7 +191,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx,
 			return DROP_UNENCRYPTED_TRAFFIC;
 	}
 
-	if (CONFIG(enable_nodeport) && !from_host) {
+	if (NODEPORT_ENABLED && !from_host) {
 		if (!ctx_skip_nodeport(ctx)) {
 			bool is_dsr = false;
 
@@ -627,7 +627,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			return DROP_UNENCRYPTED_TRAFFIC;
 	}
 
-	if (CONFIG(enable_nodeport) && !from_host) {
+	if (NODEPORT_ENABLED && !from_host) {
 		if (!ctx_skip_nodeport(ctx)) {
 			bool is_dsr = false;
 
@@ -1604,7 +1604,7 @@ cil_to_netdev_cont(struct __ctx_buff *ctx, __u32 src_sec_identity,
 		}
 	}
 
-	if (CONFIG(enable_nodeport)) {
+	if (NODEPORT_ENABLED) {
 		if (CONFIG(enable_health_check)) {
 			ret = lb_handle_health(ctx, proto);
 			if (ret != CTX_ACT_OK)
@@ -1867,7 +1867,7 @@ int cil_to_host(struct __ctx_buff *ctx)
 			ctx->mark = MARK_MAGIC_SKIP_TPROXY;
 #endif /* !TUNNEL_MODE */
 
-		if (CONFIG(enable_nodeport) && ctx_is_encrypt(ctx) &&
+		if (NODEPORT_ENABLED && ctx_is_encrypt(ctx) &&
 		    validate_ethertype(ctx, &proto)) {
 			/* handle_nat_fwd() tail calls in the majority of cases, so control
 			 * might never return to this program. Since IPsec is not compatible

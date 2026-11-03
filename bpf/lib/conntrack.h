@@ -325,7 +325,7 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 	    entry->rev_nat_index == state->rev_nat_index)
 		return true;
 
-	if (!CONFIG(enable_nodeport))
+	if (!NODEPORT_ENABLED)
 		return false;
 
 	if ((ct_entry_types & CT_ENTRY_NODEPORT) &&
