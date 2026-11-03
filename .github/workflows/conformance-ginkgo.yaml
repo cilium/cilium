@@ -183,6 +183,11 @@ jobs:
           path: /tmp/.ginkgo-build/
           key: ${{ steps.cache-key.outputs.key }}
 
+      - name: Set GOPROXY
+        run: |
+          # The trailing slash makes the second entry a retry of proxy.golang.org with its own error cache.
+          echo "GOPROXY=https://proxy.golang.org|https://proxy.golang.org/|direct" >> "$GITHUB_ENV"
+
       - name: Install Go
         if: ${{ steps.cache.outputs.cache-hit != 'true' }}
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
