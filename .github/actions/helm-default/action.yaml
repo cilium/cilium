@@ -46,6 +46,7 @@ runs:
 
         CILIUM_INSTALL_DEFAULTS="--chart-directory=${{ inputs.chart-dir }} \
           --helm-set=hubble.relay.retryTimeout=5s \
+          --helm-set=hubble.eventBufferCapacity=16383 \
           --helm-set=debug.metricsSamplingInterval=30s \
           --helm-set=image.repository=${{ inputs.registry_host}}/${{ inputs.registry_organization }}/cilium-ci \
           --helm-set=image.useDigest=false \
