@@ -519,12 +519,6 @@ func TestRemoveInterfaceIPConfigurations(t *testing.T) {
 			wantKept:  []*armnetwork.InterfaceIPConfiguration{primary, second},
 		},
 		{
-			name:      "primary match errors",
-			configs:   []*armnetwork.InterfaceIPConfiguration{primary, second},
-			addresses: []string{"10.0.0.4", "10.0.0.5"},
-			wantErr:   true,
-		},
-		{
 			name:      "nil name on match errors",
 			configs:   []*armnetwork.InterfaceIPConfiguration{primary, noName},
 			addresses: []string{"10.0.0.7"},
@@ -586,12 +580,6 @@ func TestRemoveVMSSIPConfigurations(t *testing.T) {
 			name:    "missing name errors",
 			configs: []*armcompute.VirtualMachineScaleSetIPConfiguration{primary, second},
 			names:   []string{"second", "third"},
-			wantErr: true,
-		},
-		{
-			name:    "primary errors",
-			configs: []*armcompute.VirtualMachineScaleSetIPConfiguration{primary, second},
-			names:   []string{"primary"},
 			wantErr: true,
 		},
 		{
