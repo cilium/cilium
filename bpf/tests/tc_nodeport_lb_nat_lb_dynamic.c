@@ -17,6 +17,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
+#define ENABLE_NODEPORT 1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		{ .addr = v6_ext_node_one_addr }
@@ -95,7 +96,6 @@ ASSIGN_CONFIG(bool, supports_fib_lookup_src, true)
 ASSIGN_CONFIG(bool, enable_nodeport_source_lookup, true)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IPV6)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"

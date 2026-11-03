@@ -7,6 +7,7 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
+#define ENABLE_NODEPORT 1
 #define TEST_LB_MAGLEV_MAP_MAX_ENTRIES 65536
 #define TEST_CONDITIONAL_PREALLOC      0
 #define TEST_REVNAT		       1
@@ -126,7 +127,6 @@ ASSIGN_CONFIG(__u32, hash_init4_seed, 0xcafe)
 ASSIGN_CONFIG(__u32, hash_init6_seed, 0xeb9f)
 
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 static __always_inline int
 generate_packet(struct __ctx_buff *ctx, int client_id, __be16 src_port)

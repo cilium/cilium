@@ -7,6 +7,7 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
+#define ENABLE_NODEPORT 1
 #define SECLABEL 1
 #define SECLABEL_IPV4 SECLABEL
 #define SECLABEL_IPV6 SECLABEL
@@ -18,7 +19,6 @@ ASSIGN_CONFIG(__u16, nodeport_port_min_nat_ext, 1024)
 ASSIGN_CONFIG(__u16, nodeport_port_max_nat_ext, 29999)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 #include <lib/nat.h>
 #include <lib/nodeport.h>

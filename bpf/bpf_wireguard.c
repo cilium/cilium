@@ -63,7 +63,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 			return DROP_FRAG_NOSUPPORT;
 	}
 
-	if (CONFIG(enable_nodeport) && !ctx_skip_nodeport(ctx)) {
+	if (is_defined(ENABLE_NODEPORT) && !ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 		bool is_dsr = false;
 
@@ -141,7 +141,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 			return DROP_FRAG_NOSUPPORT;
 	}
 
-	if (CONFIG(enable_nodeport) && !ctx_skip_nodeport(ctx)) {
+	if (is_defined(ENABLE_NODEPORT) && !ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 		bool is_dsr = false;
 
@@ -280,7 +280,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	 * Since neither of these conditions are met, we can return CTX_ACT_OK.
 	 */
 	if (is_defined(TUNNEL_MODE) &&
-	    !(CONFIG(enable_nodeport) && is_defined(ENABLE_NODE_ENCRYPTION)))
+	    !(is_defined(ENABLE_NODEPORT) && is_defined(ENABLE_NODE_ENCRYPTION)))
 		return CTX_ACT_OK;
 
 	switch (proto) {
@@ -360,7 +360,7 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
-	if (CONFIG(enable_nodeport)) {
+	if (is_defined(ENABLE_NODEPORT)) {
 		if (magic == MARK_MAGIC_OVERLAY)
 			goto out;
 

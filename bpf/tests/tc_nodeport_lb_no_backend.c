@@ -9,6 +9,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
+#define ENABLE_NODEPORT			1
 
 #define FRONTEND_IP		v4_svc_one
 #define FRONTEND_IPV6		v6_svc_one
@@ -23,7 +24,6 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 ASSIGN_CONFIG(bool, enable_service_no_backend_response, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 #include "lib/icmp.h"
 #include "lib/ipcache.h"
