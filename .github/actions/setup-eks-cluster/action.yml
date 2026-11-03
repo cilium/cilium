@@ -25,6 +25,9 @@ inputs:
     description: 'Space-separated list of add-ons to include'
     required: false
     default: 'coredns kube-proxy vpc-cni'
+  ip_family:
+    description: 'Cluster IP family (IPv4 or IPv6)'
+    required: false
 outputs:
   cluster_name:
     description: 'Actual cluster name (from pool or newly created)'
@@ -57,6 +60,11 @@ runs:
         ADDONS_HASH=$(echo -n "${{ inputs.addons }} ${{ inputs.zones }}" | sha256sum | cut -c1-8)
 
         KUBECONFIG_PATH="${{ inputs.region }}-${{ inputs.version }}-${ADDONS_HASH}"
+
+        if [[ "${{ inputs.ip_family }}" == "IPv6" ]]; then
+          KUBECONFIG_PATH="ipv6-${KUBECONFIG_PATH}"
+        fi
+
         # Sanitize KUBECONFIG_PATH name for S3 key
         KUBECONFIG_PATH_SAFE="${KUBECONFIG_PATH//[.\/]/-}"
         S3_PREFIX="kubeconfig-pool/${KUBECONFIG_PATH_SAFE}/"
@@ -153,6 +161,9 @@ runs:
           tags:
            usage: "${{ github.repository_owner }}-${{ github.event.repository.name }}"
            owner: "${{ inputs.owner }}"
+
+        kubernetesNetworkConfig:
+          ipFamily: "${{ inputs.ip_family || 'IPv4' }}"
 
         vpc:
           clusterEndpoints:
