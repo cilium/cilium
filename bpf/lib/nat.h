@@ -66,7 +66,7 @@ struct nat_entry {
 static __always_inline __u16
 nat_min_egress()
 {
-	if (CONFIG(enable_nodeport))
+	if (is_defined(ENABLE_NODEPORT))
 		return NODEPORT_PORT_MIN_NAT;
 	return CONFIG(ephemeral_min);
 }
@@ -2312,7 +2312,7 @@ snat_v6_has_v4_match_rfc6052(const struct ipv4_ct_tuple *tuple4)
 static __always_inline bool
 snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4)
 {
-	if (!CONFIG(enable_nodeport))
+	if (!is_defined(ENABLE_NODEPORT))
 		return false;
 
 	struct ipv6_ct_tuple tuple6;

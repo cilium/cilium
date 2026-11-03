@@ -7,6 +7,7 @@
 
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
+#define ENABLE_NODEPORT		1
 
 #define CLIENT_IP		v4_ext_one
 #define CLIENT_IPV6		v6_ext_node_one
@@ -38,8 +39,6 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 
 /* To enable drop notifications */
 ASSIGN_CONFIG(bool, enable_drop_notify, true)
-
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* packet defined in ./scapy/lb_pkt_defs.py */
 const __u8 lb4_clusterip[] = {

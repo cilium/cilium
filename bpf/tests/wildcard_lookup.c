@@ -8,6 +8,8 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
+#define ENABLE_NODEPORT 1
+
 #define HOST_NETNS_COOKIE 42
 
 static __always_inline
@@ -29,7 +31,6 @@ __net_cookie test_get_netns_cookie(__maybe_unused void *ctx)
 /* Hardcode the host netns cookie to 42 */
 ASSIGN_CONFIG(__u64, host_netns_cookie, HOST_NETNS_COOKIE)
 ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 enum {
 	NODEPORT_LOOKUP = 0,

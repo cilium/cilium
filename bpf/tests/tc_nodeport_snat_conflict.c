@@ -13,6 +13,7 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
+#define ENABLE_NODEPORT 1
 
 /* IPv4 test addresses */
 #define POD_IP				v4_pod_one
@@ -46,7 +47,6 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 static __always_inline int
 tc_nodeport_snat_conflict_assert_status(struct __ctx_buff *ctx)

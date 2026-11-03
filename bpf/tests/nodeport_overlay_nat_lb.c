@@ -7,6 +7,7 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
+#define ENABLE_NODEPORT 1
 
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE		1
@@ -103,7 +104,6 @@ ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 
 ASSIGN_CONFIG(union v4addr, router_ipv4, { .be32 = 0xfffff50a })
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* Test that a SVC request to an intermediate LB node gets DNATed and SNATed,
  * and flows back out on the overlay interface to a remote backend

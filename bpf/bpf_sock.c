@@ -249,7 +249,7 @@ wildcard_lookup:
 static __always_inline const struct lb4_service *
 sock4_wildcard_lookup_full(struct lb4_key *key, const bool in_hostns)
 {
-	if (!CONFIG(enable_nodeport))
+	if (!is_defined(ENABLE_NODEPORT))
 		return NULL;
 
 	bool loopback = is_v4_loopback(key->address);
@@ -806,7 +806,7 @@ wildcard_lookup:
 static __always_inline __maybe_unused const struct lb6_service *
 sock6_wildcard_lookup_full(struct lb6_key *key, const bool in_hostns)
 {
-	if (!CONFIG(enable_nodeport))
+	if (!is_defined(ENABLE_NODEPORT))
 		return NULL;
 
 	bool loopback = is_v6_loopback(&key->address);

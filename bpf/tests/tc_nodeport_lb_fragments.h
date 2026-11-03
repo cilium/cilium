@@ -8,6 +8,7 @@
 
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
+#define ENABLE_NODEPORT		1
 
 #ifdef NORTH_SOUTH_TEST
 # define CLIENT_IP	v4_ext_one
@@ -30,7 +31,6 @@ ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_ipv4_fragments, true)
 ASSIGN_CONFIG(bool, enable_ipv6_fragments, true)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 #include "lib/endpoint.h"
 #include "lib/policy.h"

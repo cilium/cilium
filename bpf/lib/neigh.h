@@ -45,7 +45,7 @@ static __always_inline int neigh_record_ip6(const struct __ctx_buff *ctx)
 static __always_inline const union macaddr *
 neigh_lookup_ip6(const union v6addr *addr)
 {
-	if (!CONFIG(enable_nodeport))
+	if (!is_defined(ENABLE_NODEPORT))
 		return NULL;
 
 	return map_lookup_elem(&cilium_nodeport_neigh6, addr);
@@ -92,7 +92,7 @@ static __always_inline int neigh_record_ip4(const struct __ctx_buff *ctx)
 static __always_inline const union macaddr *
 neigh_lookup_ip4(const __be32 *addr)
 {
-	if (!is_defined(ENABLE_IPV4) || !CONFIG(enable_nodeport))
+	if (!is_defined(ENABLE_IPV4) || !is_defined(ENABLE_NODEPORT))
 		return NULL;
 
 	return map_lookup_elem(&cilium_nodeport_neigh4, addr);

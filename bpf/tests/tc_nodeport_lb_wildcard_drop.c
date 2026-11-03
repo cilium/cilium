@@ -8,6 +8,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
+#define ENABLE_NODEPORT			1
 
 #define CLIENT_IP	v4_ext_one
 #define CLIENT_PORT	tcp_src_one
@@ -30,7 +31,6 @@ static const union v6addr backend_ip6 = { .addr = v6_pod_one_addr };
 
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 ASSIGN_CONFIG(bool, enable_service_no_backend_response, true)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 #include "lib/ipcache.h"
 #include "lib/lb.h"
