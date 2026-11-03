@@ -793,9 +793,6 @@ func removeInterfaceIPConfigurations(configs []*armnetwork.InterfaceIPConfigurat
 			kept = append(kept, config)
 			continue
 		}
-		if config.Properties.Primary != nil && *config.Properties.Primary {
-			return nil, nil, fmt.Errorf("refusing to release primary IP configuration with address %s", addr)
-		}
 		if config.Name == nil {
 			return nil, nil, fmt.Errorf("IP configuration with address %s has no name", addr)
 		}
@@ -811,9 +808,6 @@ func removeVMSSIPConfigurations(configs []*armcompute.VirtualMachineScaleSetIPCo
 		if config == nil || config.Name == nil || !slices.Contains(names, *config.Name) {
 			kept = append(kept, config)
 			continue
-		}
-		if config.Properties != nil && config.Properties.Primary != nil && *config.Properties.Primary {
-			return nil, fmt.Errorf("refusing to release primary IP configuration %s", *config.Name)
 		}
 		found[*config.Name] = struct{}{}
 	}
