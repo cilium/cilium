@@ -49,11 +49,10 @@ jobs:
       deployment: false
     runs-on: ubuntu-26.04
     steps:
-      - name: Checkout base or default branch (trusted)
+      - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # This workflow is supposed to run only on pull_request_target context, but in case workflow call is made from a push context we still keep the default to default_branch
-          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          ref: ${{ github.base_ref || github.sha }}
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
