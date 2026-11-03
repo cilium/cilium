@@ -127,6 +127,7 @@ out:
 
 DEFINE_AUX(union v6addr, snat_fwd_saddr);
 
+#ifndef SKIP_NODEPORT_PROGS
 __declare_tail(CILIUM_CALL_IPV6_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 {
@@ -157,6 +158,7 @@ int tail_handle_snat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	return ret;
 }
+#endif /* !SKIP_NODEPORT_PROGS */
 
 static __always_inline int
 nodeport_rev_dnat_fwd_ipv6(struct __ctx_buff *ctx, bool *snat_done,
@@ -265,6 +267,7 @@ handle_nat_fwd_ipv6(struct __ctx_buff *ctx, __u32 cb_nat_flags,
 	return __handle_nat_fwd_ipv6(ctx, src_id, revdnat_only, trace, ext_err);
 }
 
+#ifndef SKIP_NODEPORT_PROGS
 __declare_tail(CILIUM_CALL_IPV6_NODEPORT_NAT_FWD)
 static __always_inline
 int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
@@ -289,6 +292,7 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 
 	return ret;
 }
+#endif /* !SKIP_NODEPORT_PROGS */
 #endif /* ENABLE_IPV6 */
 
 static __always_inline bool
@@ -448,6 +452,7 @@ out:
 	return ret;
 }
 
+#ifndef SKIP_NODEPORT_PROGS
 __declare_tail(CILIUM_CALL_IPV4_NODEPORT_SNAT_FWD)
 int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 {
@@ -477,6 +482,7 @@ int tail_handle_snat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	return ret;
 }
+#endif /* !SKIP_NODEPORT_PROGS */
 
 static __always_inline int
 nodeport_rev_dnat_fwd_ipv4(struct __ctx_buff *ctx, bool *snat_done,
@@ -589,6 +595,7 @@ handle_nat_fwd_ipv4(struct __ctx_buff *ctx, __u32 cb_nat_flags, __u32 cluster_id
 	return __handle_nat_fwd_ipv4(ctx, cluster_id, src_id, revdnat_only, trace, ext_err);
 }
 
+#ifndef SKIP_NODEPORT_PROGS
 __declare_tail(CILIUM_CALL_IPV4_NODEPORT_NAT_FWD)
 static __always_inline
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
@@ -614,6 +621,7 @@ int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 
 	return ret;
 }
+#endif /* !SKIP_NODEPORT_PROGS */
 
 static __always_inline int
 lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)

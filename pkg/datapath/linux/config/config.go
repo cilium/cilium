@@ -196,6 +196,11 @@ func (h *HeaderfileWriter) writeNodeConfig(w io.Writer, cfg *config.Config, with
 	cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 	cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 
+	// todo(ekoops): get rid of this once we are able to ship pre-compiled objects.
+	if !h.kprCfg.KubeProxyReplacement && !option.Config.EnableBPFMasquerade {
+		cDefinesMap["SKIP_NODEPORT_PROGS"] = "1"
+	}
+
 	if h.kprCfg.KubeProxyReplacement {
 		// --- WARNING: THIS CONFIGURATION METHOD IS DEPRECATED, SEE FUNCTION DOC ---
 
