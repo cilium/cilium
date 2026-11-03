@@ -19,6 +19,10 @@ spec:
     matchLabels:
       k8s-app: cilium-pre-flight-check
       kubernetes.io/cluster-service: "true"
+  {{- with .Values.preflight.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | trim | nindent 4 }}
+  {{- end }}
   template:
     metadata:
       annotations:
