@@ -201,5 +201,5 @@ jobs:
         CHART_VERSION: ${{ needs.setup-charts.outputs.chart-version }}
       run: |
         echo "Example commands:"
-        echo helm template -n kube-system oci://${{ env.REGISTRY_DEV }}/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
-        echo helm install cilium -n kube-system  oci://${{ env.REGISTRY_DEV }}/${{ env.QUAY_CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
+        echo helm template -n kube-system oci://${{ env.REGISTRY_DEV }}/${{ env.CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
+        echo helm install cilium -n kube-system  oci://${{ env.REGISTRY_DEV }}/${{ env.CHARTS_ORGANIZATION_DEV }}/cilium --version "$CHART_VERSION"
