@@ -296,6 +296,9 @@ func TestADSRejectsUnknownNodes(t *testing.T) {
 					require.NoError(t, stream.Send(&discovery.DiscoveryRequest{Node: test.node, TypeUrl: NetworkPolicyHostsTypeURL}))
 					_, err = stream.Recv()
 					require.Equal(t, test.code, status.Code(err))
+					require.Nil(t, server.cache.GetSnapshotCache().GetStatusInfo(test.node.GetId()))
+					_, err = server.cache.GetSnapshotCache().GetSnapshot(test.node.GetId())
+					require.Error(t, err, "rejected requests must not initialize cache state")
 				})
 			}
 			require.Zero(t, ipCache.listenerCount, "rejected NPHDS requests must not start the IPCache listener")
@@ -388,10 +391,10 @@ func TestDeltaADSIncrementalACKAndNACKRollback(t *testing.T) {
 		Name: baseline.Name, TrafficDirection: core.TrafficDirection_OUTBOUND,
 	}
 	wg := completion.NewWaitGroup(ctx)
-	done := waitForADSCompletion(t, wg)
 	callbackResult := make(chan error, 1)
 	require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, updated.Name, updated, wg,
 		func(err error) { callbackResult <- err }))
+	done := waitForADSCompletion(t, wg)
 
 	updateResponse, err := stream.Recv()
 	require.NoError(t, err)
@@ -473,10 +476,10 @@ func TestDeltaADSRemovalNACKRestoresResource(t *testing.T) {
 			require.Equal(t, []string{marker.Name}, deltaResponseResourceNames(markerResponse))
 
 			wg := completion.NewWaitGroup(ctx)
-			done := waitForADSCompletion(t, wg)
 			callbackResult := make(chan error, 1)
 			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, resourceName, nil, wg,
 				func(err error) { callbackResult <- err }))
+			done := waitForADSCompletion(t, wg)
 			removed, err := stream.Recv()
 			require.NoError(t, err)
 			require.Empty(t, removed.GetResources())
@@ -525,6 +528,9 @@ func TestDeltaADSRejectsUnknownNodes(t *testing.T) {
 			}))
 			_, err = stream.Recv()
 			require.Equal(t, test.code, status.Code(err))
+			require.Nil(t, server.cache.GetSnapshotCache().GetStatusInfo(test.node.GetId()))
+			_, err = server.cache.GetSnapshotCache().GetSnapshot(test.node.GetId())
+			require.Error(t, err, "rejected requests must not initialize cache state")
 		})
 	}
 }
