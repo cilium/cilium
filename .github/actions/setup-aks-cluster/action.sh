@@ -28,9 +28,12 @@ az group create \
   "${group_args[@]}"
 
 # Both attempts, the teardown between them and the node waits in the
-# steps below all share this step's timeout-minutes.
+# steps below all share this step's timeout-minutes. Past the deadlines,
+# the first attempt's last query, sleep and abort take 150s, the second
+# attempt's last query 60s and the node waits 660s, and 30s more cover
+# the calls without a time limit.
 budget=$(( TIMEOUT_MINUTES * 60 ))
-required=$(( ATTEMPT_DEADLINE + RETRY_DEADLINE + 820 ))
+required=$(( ATTEMPT_DEADLINE + RETRY_DEADLINE + 900 ))
 if [ "${budget}" -lt "${required}" ]; then
   echo "::error::timeout_minutes gives ${budget}s and the create needs ${required}s"
   exit 1
