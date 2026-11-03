@@ -54,7 +54,7 @@ jobs:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          ref: ${{ github.base_ref || github.sha }}
           persist-credentials: false
 
       - name: Cleanup Disk space in runner
@@ -158,7 +158,7 @@ jobs:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          ref: ${{ github.base_ref || github.sha }}
           persist-credentials: false
 
       - name: Set environment variables
@@ -267,7 +267,7 @@ jobs:
       - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          ref: ${{ github.base_ref || github.sha }}
           persist-credentials: false
 
       - name: Set environment variables
