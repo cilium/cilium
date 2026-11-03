@@ -325,9 +325,7 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 	    entry->rev_nat_index == state->rev_nat_index)
 		return true;
 
-	if (!is_defined(ENABLE_NODEPORT))
-		return false;
-
+#ifdef ENABLE_NODEPORT
 	if ((ct_entry_types & CT_ENTRY_NODEPORT) &&
 	    entry->node_port && entry->rev_nat_index) {
 		if (!state || !state->rev_nat_index)
@@ -341,6 +339,7 @@ ct_entry_matches_types(const struct ct_entry *entry __maybe_unused,
 	if (CONFIG(dsr_cfg).enable && (ct_entry_types & CT_ENTRY_DSR) &&
 	    entry->dsr_internal)
 		return true;
+#endif
 
 	return false;
 }

@@ -66,8 +66,9 @@ struct nat_entry {
 static __always_inline __u16
 nat_min_egress()
 {
-	if (is_defined(ENABLE_NODEPORT))
-		return NODEPORT_PORT_MIN_NAT;
+#ifdef ENABLE_NODEPORT
+	return NODEPORT_PORT_MIN_NAT;
+#endif
 	return CONFIG(ephemeral_min);
 }
 
@@ -225,6 +226,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipmasq_v4 __section_maps_btf;
 
+#if defined(ENABLE_NODEPORT)
 static __always_inline void *
 get_cluster_snat_map_v4(__u32 cluster_id __maybe_unused)
 {
@@ -1284,6 +1286,7 @@ rewrite: __maybe_unused
 				       tuple.dport, to_dport, port_off,
 				       outer_csum_diff);
 }
+#endif /* defined(ENABLE_NODEPORT) */
 
 struct ipv6_nat_entry {
 	struct nat_entry common;
@@ -1363,7 +1366,7 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipmasq_v6 __section_maps_btf;
 
-#if defined(ENABLE_IPV6)
+#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 static __always_inline void *
 get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 {
@@ -2273,9 +2276,9 @@ rewrite: __maybe_unused
 				       &tuple.daddr, &state->to_daddr, IPV6_DADDR_OFF,
 				       tuple.dport, to_dport, port_off, outer_csum_diff);
 }
-#endif /* defined(ENABLE_IPV6) */
+#endif /* defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT) */
 
-#if defined(ENABLE_IPV6)
+#if defined(ENABLE_IPV6) && defined(ENABLE_NODEPORT)
 static __always_inline int
 snat_remap_rfc6052(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
 {
@@ -2312,9 +2315,6 @@ snat_v6_has_v4_match_rfc6052(const struct ipv4_ct_tuple *tuple4)
 static __always_inline bool
 snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4)
 {
-	if (!is_defined(ENABLE_NODEPORT))
-		return false;
-
 	struct ipv6_ct_tuple tuple6;
 
 	memset(&tuple6, 0, sizeof(tuple6));
@@ -2327,4 +2327,4 @@ snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
 {
 	return false;
 }
-#endif /* ENABLE_IPV6 */
+#endif /* ENABLE_IPV6 && ENABLE_NODEPORT */
