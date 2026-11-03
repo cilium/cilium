@@ -70,21 +70,21 @@ neigh_resolver_available(void)
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_clear(struct xdp_md *ctx)
 {
-	if (CONFIG(enable_nodeport))
+	if (NODEPORT_ENABLED)
 		ctx_store_meta(ctx, RECIRC_MARKER, 0);
 }
 
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_set(struct xdp_md *ctx)
 {
-	if (CONFIG(enable_nodeport))
+	if (NODEPORT_ENABLED)
 		ctx_store_meta(ctx, RECIRC_MARKER, 1);
 }
 
 static __always_inline __maybe_unused bool
 ctx_skip_nodeport(struct xdp_md *ctx)
 {
-	if (!CONFIG(enable_nodeport))
+	if (!NODEPORT_ENABLED)
 		return true;
 	return ctx_load_meta(ctx, RECIRC_MARKER);
 }

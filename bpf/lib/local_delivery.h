@@ -189,7 +189,7 @@ local_delivery(struct __ctx_buff *ctx, __u32 seclabel, __u32 magic,
 		 * Ethernet addresses, we need to mark them as PACKET_HOST or the kernel
 		 * will drop them.
 		 */
-		if (!CONFIG(enable_nodeport) && from_tunnel) {
+		if (!NODEPORT_ENABLED && from_tunnel) {
 			ctx_change_type(ctx, PACKET_HOST);
 			return CTX_ACT_OK;
 		}
