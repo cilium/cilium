@@ -63,7 +63,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 			return DROP_FRAG_NOSUPPORT;
 	}
 
-	if (is_defined(ENABLE_NODEPORT) && !ctx_skip_nodeport(ctx)) {
+#ifdef ENABLE_NODEPORT
+	if (!ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 		bool is_dsr = false;
 
@@ -75,6 +76,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 	}
+#endif
 
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep && !(ep->flags & ENDPOINT_MASK_HOST_DELIVERY)) {
@@ -141,7 +143,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 			return DROP_FRAG_NOSUPPORT;
 	}
 
-	if (is_defined(ENABLE_NODEPORT) && !ctx_skip_nodeport(ctx)) {
+#ifdef ENABLE_NODEPORT
+	if (!ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 		bool is_dsr = false;
 
@@ -160,6 +163,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 	}
+#endif
 
 	/* Lookup IPv4 address in the list of local endpoints and host IPs.
 	 *
@@ -264,6 +268,7 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	if (CONFIG(enable_identity_mark))
 		set_decrypt_mark(ctx, 0);
 
+#if defined(TUNNEL_MODE) && !(defined(ENABLE_NODEPORT) && defined(ENABLE_NODE_ENCRYPTION))
 	/* In native routing mode we want to deliver packets to local endpoints
 	 * straight from BPF, without passing through the stack.
 	 * This matches overlay mode (where bpf_overlay would handle the delivery)
@@ -279,9 +284,8 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 	 *
 	 * Since neither of these conditions are met, we can return CTX_ACT_OK.
 	 */
-	if (is_defined(TUNNEL_MODE) &&
-	    !(is_defined(ENABLE_NODEPORT) && is_defined(ENABLE_NODE_ENCRYPTION)))
-		return CTX_ACT_OK;
+	return CTX_ACT_OK;
+#endif
 
 	switch (proto) {
 #ifdef ENABLE_IPV6
@@ -360,17 +364,17 @@ int cil_to_wireguard(struct __ctx_buff *ctx)
 	bpf_clear_meta(ctx);
 	check_and_store_ip_trace_id(ctx);
 
-	if (is_defined(ENABLE_NODEPORT)) {
-		if (magic == MARK_MAGIC_OVERLAY)
-			goto out;
+#ifdef ENABLE_NODEPORT
+	if (magic == MARK_MAGIC_OVERLAY)
+		goto out;
 
-		ret = handle_nat_fwd(ctx, 0, src_sec_identity, proto, true, &trace, &ext_err);
-		if (IS_ERR(ret))
-			return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
-							  METRIC_EGRESS);
-	}
+	ret = handle_nat_fwd(ctx, 0, src_sec_identity, proto, true, &trace, &ext_err);
+	if (IS_ERR(ret))
+		return send_drop_notify_error_ext(ctx, src_sec_identity, ret, ext_err,
+						  METRIC_EGRESS);
 
 out:
+#endif /* ENABLE_NODEPORT */
 
 	send_trace_notify(ctx, TRACE_TO_CRYPTO, src_sec_identity, UNKNOWN_ID,
 			  TRACE_EP_ID_UNKNOWN, CONFIG(interface_ifindex),

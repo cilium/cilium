@@ -168,7 +168,8 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 	svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 
-	if (is_defined(ENABLE_NODEPORT)) {
+#if defined(ENABLE_NODEPORT)
+	{
 		struct nodeport_nat_info *nat_info = AUX(nodeport_nat_info);
 
 		if (!svc) {
@@ -191,6 +192,7 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 			}
 		}
 	}
+#endif /* ENABLE_NODEPORT */
 
 	if (svc) {
 		const struct lb4_backend *backend;
@@ -343,7 +345,8 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	 */
 	svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 
-	if (is_defined(ENABLE_NODEPORT)) {
+#if defined(ENABLE_NODEPORT)
+	{
 		struct nodeport_nat_info *nat_info = AUX(nodeport_nat_info);
 
 		if (!svc) {
@@ -366,6 +369,7 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 			}
 		}
 	}
+#endif /* ENABLE_NODEPORT */
 
 	if (svc) {
 		const struct lb6_backend *backend;
@@ -729,11 +733,13 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* The packet goes to a peer not managed by this agent instance */
 #ifdef TUNNEL_MODE
 	if (ct_state->from_tunnel || !skip_tunnel) {
+#if !defined(ENABLE_NODEPORT)
 		/* See comment in handle_ipv4_from_lxc(). */
-		if (!is_defined(ENABLE_NODEPORT) && CONFIG(enable_host_firewall) &&
+		if (CONFIG(enable_host_firewall) &&
 		    (ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(dst_sec_identity))
 			goto pass_to_stack;
+#endif /* !ENABLE_NODEPORT */
 
 		if (info && info->flag_has_tunnel_ep)
 			return encap_and_redirect_lxc(ctx, info, SECLABEL_IPV6,
@@ -844,12 +850,14 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
 		hairpin_flow = ct_state_new.loopback;
 
-		if (is_defined(ENABLE_NODEPORT)) {
+#if defined(ENABLE_NODEPORT)
+		{
 			struct nodeport_nat_info *nat_info = AUX_REUSE(nodeport_nat_info);
 
 			ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
 			ct_state_new.nat_port = nat_info->nat_port;
 		}
+#endif /* ENABLE_NODEPORT */
 	}
 
 	ct_buffer = AUX_REUSE(cilium_tail_call_buffer6);
@@ -973,12 +981,12 @@ ct_recreate6:
 
 	case CT_RELATED:
 	case CT_REPLY:
+#ifdef ENABLE_NODEPORT
 		/* See comment in handle_ipv4_from_lxc().
 		 *
 		 * Needed for compatibility with pre-v1.19 CT entries.
 		 */
-		if (is_defined(ENABLE_NODEPORT) && ct_state->node_port &&
-		    lb_is_svc_proto(tuple->nexthdr)) {
+		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN,
@@ -987,6 +995,7 @@ ct_recreate6:
 			return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_REVNAT_EGRESS,
 						  ext_err);
 		}
+#endif /* ENABLE_NODEPORT */
 		break;
 	default:
 		return DROP_UNKNOWN_CT;
@@ -1224,6 +1233,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		if (cluster_id > UINT16_MAX)
 			return DROP_INVALID_CLUSTER_ID;
 
+#if !defined(ENABLE_NODEPORT)
 		/*
 		 * For the host firewall, traffic from a pod to a remote node is sent
 		 * through the tunnel. In the case of node to remote pod traffic via
@@ -1233,10 +1243,11 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		 * to apply the correct reverse DNAT, and then be routed accordingly.
 		 * See #14674 for details.
 		 */
-		if (!is_defined(ENABLE_NODEPORT) && CONFIG(enable_host_firewall) &&
+		if (CONFIG(enable_host_firewall) &&
 		    (ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(dst_sec_identity))
 			goto pass_to_stack;
+#endif /* !ENABLE_NODEPORT */
 
 #ifdef ENABLE_CLUSTER_AWARE_ADDRESSING
 		/*
@@ -1357,12 +1368,14 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id, true);
 		hairpin_flow = ct_state_new.loopback;
 
-		if (is_defined(ENABLE_NODEPORT)) {
+#if defined(ENABLE_NODEPORT)
+		{
 			struct nodeport_nat_info *nat_info = AUX_REUSE(nodeport_nat_info);
 
 			ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
 			ct_state_new.nat_port = nat_info->nat_port;
 		}
+#endif /* ENABLE_NODEPORT */
 	}
 
 	bool same_subnet_id = false;
@@ -1523,6 +1536,7 @@ ct_recreate4:
 
 	case CT_RELATED:
 	case CT_REPLY:
+#ifdef ENABLE_NODEPORT
 		/* This handles reply traffic for the case where the nodeport EP
 		 * is local to the node. We'll do the tail call to perform
 		 * the reverse DNAT.
@@ -1530,8 +1544,7 @@ ct_recreate4:
 		 * This codepath currently doesn't support revDNAT for ICMP,
 		 * so make sure that we only send TCP/UDP/SCTP down this way.
 		 */
-		if (is_defined(ENABLE_NODEPORT) && ct_state->node_port &&
-		    lb_is_svc_proto(tuple->nexthdr)) {
+		if (ct_state->node_port && lb_is_svc_proto(tuple->nexthdr)) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
 					  TRACE_IFINDEX_UNKNOWN,
@@ -1540,6 +1553,7 @@ ct_recreate4:
 			return tail_call_internal(ctx, CILIUM_CALL_IPV4_NODEPORT_REVNAT,
 						  ext_err);
 		}
+#endif /* ENABLE_NODEPORT */
 
 		break;
 	default:
@@ -2149,10 +2163,12 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	}
 
 	if (ret == CT_NEW) {
-		if (is_defined(ENABLE_NODEPORT) && CONFIG(srv6_cfg).enable)
+#if defined(ENABLE_NODEPORT)
+		if (CONFIG(srv6_cfg).enable)
 			ct_state_new.node_port =
 				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
 							      tuple, NULL, false);
+#endif /* ENABLE_NODEPORT */
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.from_tunnel = from_tunnel;
 		ct_state_new.proxy_redirect = *proxy_port > 0;
