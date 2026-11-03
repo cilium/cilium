@@ -53,9 +53,7 @@ jobs:
       actions: read
       # Required by the Quay OIDC token exchange and keyless cosign signing below.
       id-token: write
-    # Pins the OIDC token subject to
-    # repo:cilium/cilium:environment:publish-ci-images, which is the identity
-    # federated with the Quay robot account.
+    # Also decides the subject of the OIDC token, see the login step below.
     environment:
       name: publish-ci-images
       deployment: false
