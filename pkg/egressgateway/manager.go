@@ -21,7 +21,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
@@ -178,50 +177,41 @@ type Params struct {
 	Lifecycle cell.Lifecycle
 }
 
-func NewEgressGatewayManager(p Params) (out struct {
-	cell.Out
-
-	*Manager
-	defines.NodeOut
-}, err error) {
+func NewEgressGatewayManager(p Params) (err error) {
 	dcfg := p.DaemonConfig
 
 	if !dcfg.EnableEgressGateway {
-		return out, nil
+		return nil
 	}
 
 	if dcfg.IdentityAllocationMode != option.IdentityAllocationModeCRD {
-		return out, fmt.Errorf("egress gateway is not supported in %s identity allocation mode", dcfg.IdentityAllocationMode)
+		return fmt.Errorf("egress gateway is not supported in %s identity allocation mode", dcfg.IdentityAllocationMode)
 	}
 
 	if dcfg.EnableCiliumEndpointSlice {
-		return out, errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
+		return errors.New("egress gateway is not supported in combination with the CiliumEndpointSlice feature")
 	}
 
 	// TODO: refactor config checks for both ipv4 and ipv6, and derive whether the environment supports egress gateway policies for either protocol
 	// We need to make sure that ipv4/v6 only environments only create the necessary resources and don't fail if unneeded features are missing.
 	if !dcfg.EnableIPv4Masquerade || !dcfg.EnableBPFMasquerade {
-		return out, fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
+		return fmt.Errorf("egress gateway requires --%s=\"true\" and --%s=\"true\"", option.EnableIPv4Masquerade, option.EnableBPFMasquerade)
 	}
 
 	if p.TunnelConfig.UnderlayProtocol() != tunnel.IPv4 {
-		return out, errors.New("egress gateway requires an IPv4 underlay")
+		return errors.New("egress gateway requires an IPv4 underlay")
 	}
 
 	if !dcfg.EnableIPv6Masquerade {
 		p.Logger.Info(fmt.Sprintf("egress gateway ipv6 policies require --%s=\"true\"", option.EnableIPv6Masquerade))
 	}
 
-	out.Manager, err = newEgressGatewayManager(p)
+	_, err = newEgressGatewayManager(p)
 	if err != nil {
-		return out, err
+		return err
 	}
 
-	out.NodeDefines = map[string]string{
-		"ENABLE_EGRESS_GATEWAY": "1",
-	}
-
-	return out, nil
+	return nil
 }
 
 func newEgressGatewayManager(p Params) (*Manager, error) {
