@@ -5,6 +5,7 @@ package ciliumendpointslice
 
 import (
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -105,6 +106,9 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 
 	mapping := m.mapping
 
+	// ces2 holds the stale cep7 and must be enqueued to prune it.
+	requireEnqueued(t, cesController.Controller, NewCESKey("ces2", "ns"))
+
 	for _, ces := range []*cilium_v2a1.CiliumEndpointSlice{ces1, ces2} {
 		for _, cep := range ces.Endpoints {
 			cesN, _ := mapping.getCESName(NewCEPName(cep.Name, "ns"))
@@ -120,6 +124,39 @@ func TestFCFSModeSyncCESsInLocalCacheDefault(t *testing.T) {
 
 	cesController.queue.ShutDown()
 	hive.Stop(log, t.Context())
+}
+
+// requireEnqueued waits until all the given keys are queued, leaving the
+// queue contents untouched.
+func requireEnqueued(t *testing.T, c *Controller, want ...CESKey) {
+	t.Helper()
+
+	var got []CESKey
+	err := testutils.WaitUntil(func() bool {
+		got = got[:0]
+		var priorities []int
+		for c.queue.Len() > 0 {
+			key, priority, _ := c.queue.GetWithPriority()
+			c.queue.Done(key)
+			got = append(got, key)
+			priorities = append(priorities, priority)
+		}
+		for i, key := range got {
+			c.queue.AddWithOpts(priorityqueue.AddOpts{Priority: &priorities[i]}, key)
+		}
+		return containsAll(got, want)
+	}, time.Second)
+	assert.NoError(t, err)
+	assert.Subset(t, got, want)
+}
+
+func containsAll(got, want []CESKey) bool {
+	for _, w := range want {
+		if !slices.Contains(got, w) {
+			return false
+		}
+	}
+	return true
 }
 
 func queueLengths(t *testing.T, c *Controller) (standardQueueLen, fastQueueLen int) {
@@ -847,11 +884,7 @@ func TestSyncCESsInLocalCacheOperatorDowntime(t *testing.T) {
 	// Some CES(es) should have been enqueued for reconciliation:
 	// - ces2 because pod7 was skipped as stale.
 	// - the CES that received pod8 (via onPodUpdate's enqueue).
-	if err := testutils.WaitUntil(func() bool {
-		return cesController.queue.Len() >= 1
-	}, time.Second); err != nil {
-		t.Fatalf("expected CES(es) to be enqueued after bootstrap; queues empty")
-	}
+	requireEnqueued(t, cesController.Controller, NewCESKey("ces2", "ns"))
 
 	// Calling onPodUpdate again is idempotent for already-placed pods.
 	cesController.onPodUpdate(pod1)
