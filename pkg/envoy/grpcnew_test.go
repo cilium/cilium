@@ -65,14 +65,16 @@ func newTestADSClient(t *testing.T, server *adsServer) discovery.AggregatedDisco
 // before increasing buffer sizes; a larger fixed buffer would only move the limit.
 func TestADSNamedSubscriptionsShareWatch(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
+		delta bool
 	}{
 		{name: "sotw"},
+		{name: "delta", delta: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := hivetest.Logger(t)
-			cache := xdsnew.NewCache(logger, xdsnew.WithNodeIDs(localNodeID))
+			cache := xdsnew.NewCache(logger, xdsnew.WithNodeIDs(localNodeID), xdsnew.WithDeltaADS())
 			server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
 			client := newTestADSClient(t, server)
 			// Bound blocked RPCs and publication on regression; successful runs
@@ -97,33 +99,64 @@ func TestADSNamedSubscriptionsShareWatch(t *testing.T) {
 			var send func([]string) error
 			var receive func() []*anypb.Any
 			var watchCount func() int
-
-			stream, err := client.StreamAggregatedResources(ctx)
-			require.NoError(t, err)
-			send = func(names []string) error {
-				return stream.Send(&discovery.DiscoveryRequest{
-					Node: &core.Node{Id: localNodeID}, TypeUrl: EndpointTypeURL,
-					ResourceNames: names, VersionInfo: version, ResponseNonce: nonce,
-				})
-			}
-			receive = func() []*anypb.Any {
-				t.Helper()
-				response, err := stream.Recv()
+			if tt.delta {
+				stream, err := client.DeltaAggregatedResources(ctx)
 				require.NoError(t, err)
-				require.Equal(t, EndpointTypeURL, response.GetTypeUrl())
-				nonce, version = response.GetNonce(), response.GetVersionInfo()
-				return response.GetResources()
+				send = func(names []string) error {
+					return stream.Send(&discovery.DeltaDiscoveryRequest{
+						Node: &core.Node{Id: localNodeID}, TypeUrl: EndpointTypeURL,
+						ResourceNamesSubscribe: names, ResponseNonce: nonce,
+					})
+				}
+				receive = func() []*anypb.Any {
+					t.Helper()
+					response, err := stream.Recv()
+					require.NoError(t, err)
+					require.Equal(t, EndpointTypeURL, response.GetTypeUrl())
+					require.Empty(t, response.GetRemovedResources())
+					nonce = response.GetNonce()
+					resources := make([]*anypb.Any, 0, len(response.GetResources()))
+					for _, resource := range response.GetResources() {
+						resources = append(resources, resource.GetResource())
+					}
+					return resources
+				}
+				watchCount = func() int { return cache.GetSnapshotCache().GetStatusInfo(localNodeID).GetNumDeltaWatches() }
+			} else {
+				stream, err := client.StreamAggregatedResources(ctx)
+				require.NoError(t, err)
+				send = func(names []string) error {
+					return stream.Send(&discovery.DiscoveryRequest{
+						Node: &core.Node{Id: localNodeID}, TypeUrl: EndpointTypeURL,
+						ResourceNames: names, VersionInfo: version, ResponseNonce: nonce,
+					})
+				}
+				receive = func() []*anypb.Any {
+					t.Helper()
+					response, err := stream.Recv()
+					require.NoError(t, err)
+					require.Equal(t, EndpointTypeURL, response.GetTypeUrl())
+					nonce, version = response.GetNonce(), response.GetVersionInfo()
+					return response.GetResources()
+				}
+				watchCount = func() int { return cache.GetSnapshotCache().GetStatusInfo(localNodeID).GetNumWatches() }
 			}
-			watchCount = func() int { return cache.GetSnapshotCache().GetStatusInfo(localNodeID).GetNumWatches() }
 
 			var names []string
 			for i := range resourceCount {
 				names = append(names, fmt.Sprintf("endpoint-%d", i))
 				subscribed := names
 				expected := len(names)
-
+				if tt.delta {
+					// Delta adds a name; SotW replaces the complete subscription.
+					subscribed = names[len(names)-1:]
+					expected = 1
+				}
 				require.NoError(t, send(subscribed))
 				require.Len(t, receive(), expected)
+			}
+			if tt.delta {
+				names = nil // An ACK retains the existing Delta subscription.
 			}
 			require.NoError(t, send(names))
 			// Send returning does not prove the server has processed the ACK.
