@@ -51,10 +51,10 @@ func (handler *gatedNACKHandler) StreamClosed(streamID int64, nodeID string, mod
 	handler.cache.StreamClosed(streamID, nodeID, mode)
 }
 
-func newGatedNACKCache(t *testing.T) (*cacheImpl, *gatedNACKHandler) {
+func newGatedNACKCache(t *testing.T, options ...CacheOption) (*cacheImpl, *gatedNACKHandler) {
 	t.Helper()
 	logger := slog.New(slog.DiscardHandler)
-	c := newCache(logger, WithNodeIDs("coverage-node"))
+	c := newCache(logger, append([]CacheOption{WithNodeIDs("coverage-node")}, options...)...)
 	handler := &gatedNACKHandler{cache: c, beforeLock: make(chan *nackGate, 2), beforeRevert: make(chan *nackGate, 2)}
 	c.completionCbs = callbacks.NewCompletionCallbacks(logger, handler)
 	return c, handler
