@@ -546,15 +546,18 @@ cesLoop:
 			stale := false
 			for _, cep := range ces.Endpoints {
 				cepKey := NewCEPName(cep.Name, ces.Namespace).key()
-				if _, exists := livecep[cepKey]; exists {
+				// A recreated pod (e.g. StatefulSet) keeps its name but gets
+				// a new UID, so compare the UID too.
+				liveCEP, exists := livecep[cepKey]
+				if exists && (cep.PodUID == "" || cep.PodUID == k8s.ConvertCEPToCoreCEP(liveCEP).PodUID) {
 					c.manager.initializeMappingCEPtoCES(&cep, ces.Namespace, cesName)
 					delete(livecep, cepKey)
-				} else {
-					c.logger.Debug("Skipping stale CEP in CES during bootstrap",
-						logfields.CESName, ces.Name,
-						logfields.CEPName, cep.Name)
-					stale = true
+					continue
 				}
+				c.logger.Debug("Skipping stale CEP in CES during bootstrap",
+					logfields.CESName, ces.Name,
+					logfields.CEPName, cep.Name)
+				stale = true
 			}
 			if stale {
 				dirtyCESes = append(dirtyCESes, NewCESKey(ces.Name, ces.Namespace))
@@ -679,8 +682,17 @@ cesLoop:
 				// If the Pod is not found (e.g., deleted during operator
 				// restart), skip restoring the CEP so it doesn't inflate
 				// the CES capacity count in the local cache.
-				if _, ok := livepods[cepName]; !ok {
+				pod, ok := livepods[cepName]
+				if !ok {
 					c.logger.Debug("Pod not found for CEP during bootstrap; skipping",
+						logfields.CEPName, cep.Name)
+					stale = true
+					continue
+				}
+				// A recreated pod (e.g. StatefulSet) keeps its name but gets
+				// a new UID, so compare the UID too.
+				if cep.PodUID != "" && cep.PodUID != string(pod.UID) {
+					c.logger.Debug("Live Pod UID differs from stale CES entry during bootstrap",
 						logfields.CEPName, cep.Name)
 					stale = true
 					continue

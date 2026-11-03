@@ -6,6 +6,7 @@ import (
 	"maps"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sTypes "k8s.io/apimachinery/pkg/types"
 
 	cestest "github.com/cilium/cilium/operator/pkg/ciliumendpointslice/testutils"
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
@@ -41,6 +42,7 @@ func NewPod(name, namespace string, lbs map[string]string, node string) *slim_co
 		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   namespace,
+			UID:         k8sTypes.UID(name + "-uid"),
 			Labels:      lbs,
 			Annotations: nil,
 		},
