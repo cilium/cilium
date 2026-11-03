@@ -7,7 +7,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV6 1
-#define ENABLE_NODEPORT 1
 
 #define CLIENT_IP		{ .addr = v6_ext_node_one_addr }
 #define CLIENT_PORT		__bpf_htons(111)
@@ -162,6 +161,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
 ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IP)
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"

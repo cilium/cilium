@@ -465,7 +465,7 @@ bool lb6_svc_is_loadbalancer(const struct lb6_service *svc __maybe_unused)
 static __always_inline
 bool lb4_svc_is_nodeport(const struct lb4_service *svc)
 {
-	if (!is_defined(ENABLE_NODEPORT))
+	if (!CONFIG(enable_nodeport))
 		return false;
 	return svc->flags & SVC_FLAG_NODEPORT;
 }
@@ -473,7 +473,7 @@ bool lb4_svc_is_nodeport(const struct lb4_service *svc)
 static __always_inline
 bool lb6_svc_is_nodeport(const struct lb6_service *svc)
 {
-	if (!is_defined(ENABLE_NODEPORT))
+	if (!CONFIG(enable_nodeport))
 		return false;
 	return svc->flags & SVC_FLAG_NODEPORT;
 }
@@ -1065,7 +1065,7 @@ lb6_lookup_service(struct lb6_key *key, const bool east_west)
 static __always_inline const struct lb6_service *
 lb6_lookup_wildcard_service(struct lb6_key *key)
 {
-	if (!is_defined(ENABLE_NODEPORT))
+	if (!CONFIG(enable_nodeport))
 		return NULL;
 
 	const struct remote_endpoint_info *info;
@@ -1897,7 +1897,7 @@ lb4_lookup_service(struct lb4_key *key, const bool east_west)
 static __always_inline const struct lb4_service *
 lb4_lookup_wildcard_service(struct lb4_key *key)
 {
-	if (!is_defined(ENABLE_NODEPORT))
+	if (!CONFIG(enable_nodeport))
 		return NULL;
 
 	const struct remote_endpoint_info *info;

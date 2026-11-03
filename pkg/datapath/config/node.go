@@ -89,6 +89,7 @@ func NodeConfig(lnc *Config) Node {
 		EnableSRHEncap: option.Config.EnableSRv6 && option.Config.SRv6EncapMode != "reduced",
 	}
 
+	node.EnableNodeport = lnc.KPRConfig.KubeProxyReplacement || option.Config.EnableBPFMasquerade
 	node.EnableNodeportSourceLookup = lnc.LBConfig.NodePortEnableDynamicSourceLookup
 
 	node.EnableNodeportAcceleration = lnc.KPRConfig.KubeProxyReplacement &&
