@@ -38,7 +38,7 @@ func TestPoolAccessorFromResource(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
 		node.Spec.IPAM.Pools = existing
 
-		result := poolAccessor.FromResource(node)
+		result, _ := poolAccessor.FromResource(node)
 		require.True(t, existing.DeepEqual(&result))
 	})
 
@@ -54,7 +54,7 @@ func TestPoolAccessorFromResource(t *testing.T) {
 			},
 		}
 
-		result := poolAccessor.FromResource(node)
+		result, _ := poolAccessor.FromResource(node)
 		require.Equal(t, existing.Requested, result.Requested)
 		require.Len(t, result.Allocated, 1)
 		require.Equal(t, defaults.IPAMDefaultIPPool, result.Allocated[0].Pool)
@@ -77,7 +77,7 @@ func TestPoolAccessorFromResource(t *testing.T) {
 			},
 		}
 
-		result := poolAccessor.FromResource(node)
+		result, _ := poolAccessor.FromResource(node)
 		require.Equal(t, existing.Requested, result.Requested)
 		require.Len(t, result.Allocated, 1)
 		require.Equal(t, defaults.IPAMDefaultIPPool, result.Allocated[0].Pool)

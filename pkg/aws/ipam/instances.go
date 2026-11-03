@@ -27,6 +27,19 @@ import (
 	"github.com/cilium/cilium/pkg/time"
 )
 
+// releasedPrefixTombstoneTTL is how long a prefix that the operator has
+// unassigned is kept out of EC2 listings. EC2 is eventually consistent: the
+// subnet-wide DescribeNetworkInterfaces was seen still listing a prefix 60s
+// after a successful UnassignPrivateIpAddresses, and a full resync would then
+// re-advertise it (cilium/cilium#47910). The TTL is max(2x the one-minute
+// background resync interval of the node manager, 3m).
+//
+// Tombstones are kept in memory only. After an operator restart or a leader
+// failover, the first EC2 listings of the new leader are not filtered, so a
+// stale listing can still re-advertise a prefix released by the previous
+// leader within the TTL.
+const releasedPrefixTombstoneTTL = 3 * time.Minute
+
 // EC2API is the API surface used of the EC2 API
 type EC2API interface {
 	GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap, instanceID string) (*ipamTypes.Instance, error)
@@ -43,7 +56,7 @@ type EC2API interface {
 	ModifyNetworkInterface(ctx context.Context, eniID, attachmentID string, deleteOnTermination bool) error
 	AssignPrivateIpAddresses(ctx context.Context, eniID string, addresses int32) ([]string, error)
 	UnassignPrivateIpAddresses(ctx context.Context, eniID string, addresses []string) error
-	AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error
+	AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) ([]string, error)
 	AssignENIIPv6Prefix(ctx context.Context, eniID string) error
 	UnassignENIPrefixes(ctx context.Context, eniID string, prefixes []string) error
 	GetInstanceTypes(context.Context) ([]ec2_types.InstanceTypeInfo, error)
@@ -73,6 +86,19 @@ type InstancesManager struct {
 	ec2api         EC2API
 	metadataapi    MetadataAPI
 	limitsGetter   *limits.LimitsGetter
+	// releasedPrefixes holds tombstones for the IPv4 prefixes that were
+	// unassigned by this operator, indexed by ENI ID. They are filtered
+	// out of EC2 listings for releasedPrefixTombstoneTTL, and are only
+	// dropped when they expire, when the prefix is assigned again, or when
+	// the instance is deleted. They are lost on restart or leader failover,
+	// see releasedPrefixTombstoneTTL.
+	releasedPrefixes map[string]*releasedENIPrefixes
+}
+
+// releasedENIPrefixes records when prefixes were unassigned from an ENI.
+type releasedENIPrefixes struct {
+	instanceID string
+	prefixes   map[netip.Prefix]time.Time
 }
 
 // NewInstancesManager returns a new instances manager
@@ -255,6 +281,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.
 		)
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
+		m.filterReleasedPrefixesLocked(instances)
 		m.instances = instances
 	} else {
 		m.mutex.RLock()
@@ -273,6 +300,7 @@ func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.
 
 		m.mutex.Lock()
 		defer m.mutex.Unlock()
+		m.filterReleasedInstancePrefixesLocked(instanceID, instance)
 		m.instances.UpdateInstance(instanceID, instance)
 	}
 
@@ -371,6 +399,129 @@ func (m *InstancesManager) modifyIPsToENI(instanceID string, eniID string, ips [
 	m.instances.Update(instanceID, eni)
 }
 
+// RemovePrefixesFromENI removes prefixes that were just unassigned from the
+// cached ENI and tombstones them, so that an eventually consistent EC2
+// listing cannot re-advertise them for releasedPrefixTombstoneTTL.
+func (m *InstancesManager) RemovePrefixesFromENI(instanceID, eniID string, prefixes []netip.Prefix) {
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if m.releasedPrefixes == nil {
+		m.releasedPrefixes = map[string]*releasedENIPrefixes{}
+	}
+	released, ok := m.releasedPrefixes[eniID]
+	if !ok {
+		released = &releasedENIPrefixes{prefixes: map[netip.Prefix]time.Time{}}
+		m.releasedPrefixes[eniID] = released
+	}
+	released.instanceID = instanceID
+	now := time.Now()
+	for _, prefix := range prefixes {
+		released.prefixes[prefix] = now
+	}
+
+	iface, ok := m.instances.GetInterface(instanceID, eniID)
+	if !ok {
+		return
+	}
+	eni, ok := iface.DeepCopyInterface().(*types.ENI)
+	if !ok {
+		return
+	}
+	eni.Prefixes = slices.DeleteFunc(eni.Prefixes, func(p iputil.Prefix) bool {
+		return slices.Contains(prefixes, p.Prefix)
+	})
+	m.instances.Update(instanceID, eni)
+}
+
+// ClearReleasedPrefixes drops the tombstones of prefixes that this operator
+// has assigned to the ENI again. EC2 may hand out a just-released prefix.
+func (m *InstancesManager) ClearReleasedPrefixes(eniID string, prefixes []string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	released, ok := m.releasedPrefixes[eniID]
+	if !ok {
+		return
+	}
+	for _, s := range prefixes {
+		if prefix, err := netip.ParsePrefix(s); err == nil {
+			delete(released.prefixes, prefix)
+		}
+	}
+	if len(released.prefixes) == 0 {
+		delete(m.releasedPrefixes, eniID)
+	}
+}
+
+// filterReleasedPrefixesLocked removes tombstoned prefixes from a full EC2
+// listing. m.mutex must be held for writing.
+func (m *InstancesManager) filterReleasedPrefixesLocked(instances *ipamTypes.InstanceMap) {
+	m.expireReleasedPrefixesLocked()
+	if len(m.releasedPrefixes) == 0 {
+		return
+	}
+	// The listing has not been published yet, so its ENIs can be modified
+	// in place.
+	instances.ForeachInterface("", func(_, eniID string, iface ipamTypes.Interface) error {
+		if eni, ok := iface.(*types.ENI); ok {
+			m.filterENIPrefixesLocked(eniID, eni)
+		}
+		return nil
+	})
+}
+
+// filterReleasedInstancePrefixesLocked is the per-instance variant of
+// filterReleasedPrefixesLocked. m.mutex must be held for writing.
+func (m *InstancesManager) filterReleasedInstancePrefixesLocked(instanceID string, instance *ipamTypes.Instance) {
+	m.expireReleasedPrefixesLocked()
+	if instance == nil {
+		return
+	}
+	for eniID, released := range m.releasedPrefixes {
+		if released.instanceID != instanceID {
+			continue
+		}
+		// An ENI missing from the listing keeps its tombstones: the
+		// absence may be transient, and the ENI may come back with the
+		// released prefix still listed.
+		if eni, ok := instance.Interfaces[eniID].(*types.ENI); ok {
+			m.filterENIPrefixesLocked(eniID, eni)
+		}
+	}
+}
+
+// expireReleasedPrefixesLocked drops the tombstones older than
+// releasedPrefixTombstoneTTL. m.mutex must be held for writing.
+func (m *InstancesManager) expireReleasedPrefixesLocked() {
+	for eniID, released := range m.releasedPrefixes {
+		for prefix, ts := range released.prefixes {
+			if time.Since(ts) >= releasedPrefixTombstoneTTL {
+				delete(released.prefixes, prefix)
+			}
+		}
+		if len(released.prefixes) == 0 {
+			delete(m.releasedPrefixes, eniID)
+		}
+	}
+}
+
+// filterENIPrefixesLocked removes tombstoned prefixes from eni, which must
+// not be shared. m.mutex must be held for writing.
+func (m *InstancesManager) filterENIPrefixesLocked(eniID string, eni *types.ENI) {
+	released, ok := m.releasedPrefixes[eniID]
+	if !ok {
+		return
+	}
+	eni.Prefixes = slices.DeleteFunc(eni.Prefixes, func(p iputil.Prefix) bool {
+		_, ok := released.prefixes[p.Prefix]
+		return ok
+	})
+}
+
 // ForeachInstance will iterate over each interface for a particular instance inside `instances`
 // and call `fn`.
 // This function is read-locked for the entire execution.
@@ -397,6 +548,11 @@ func (m *InstancesManager) DeleteInstance(instanceID string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.instances.Delete(instanceID)
+	for eniID, released := range m.releasedPrefixes {
+		if released.instanceID == instanceID {
+			delete(m.releasedPrefixes, eniID)
+		}
+	}
 }
 
 func (m *InstancesManager) syncInfrastructure(ctx context.Context) error {

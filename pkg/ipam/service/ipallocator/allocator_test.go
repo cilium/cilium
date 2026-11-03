@@ -201,6 +201,43 @@ func TestIPv6WideRangeRejectsAddressOutsideCappedWindow(t *testing.T) {
 	require.False(t, r.Has(sameLowBitsOutsideWindow))
 }
 
+func TestRangeContainsCoversOverlaps(t *testing.T) {
+	r := func(s string, opts ...CIDRRangeOption) *Range {
+		return NewCIDRRange(netip.MustParsePrefix(s), opts...)
+	}
+	delegated := WithAllowFirstLastIPs()
+
+	testCases := []struct {
+		name             string
+		a, b             *Range
+		covers, overlaps bool // a.Covers(b), a.Overlaps(b)
+	}{
+		{name: "/28 and contained /32", a: r("10.0.0.0/28", delegated), b: r("10.0.0.5/32", delegated), covers: true, overlaps: true},
+		{name: "/32 and containing /28", a: r("10.0.0.5/32", delegated), b: r("10.0.0.0/28", delegated), overlaps: true},
+		{name: "disjoint /28s", a: r("10.0.0.0/28", delegated), b: r("10.0.0.16/28", delegated)},
+		{name: "same /28", a: r("10.0.0.0/28", delegated), b: r("10.0.0.0/28", delegated), covers: true, overlaps: true},
+		{name: "/24 and its excluded network address", a: r("10.0.0.0/24"), b: r("10.0.0.0/32")},
+		{name: "/24 and /31 straddling its network address", a: r("10.0.0.0/24"), b: r("10.0.0.0/31"), overlaps: true},
+		{name: "IPv6 /80 and /128 in its window", a: r("2001:db8::/80", delegated), b: r("2001:db8::ff/128", delegated), covers: true, overlaps: true},
+		{name: "IPv6 /80 and /128 outside its window", a: r("2001:db8::/80", delegated), b: r("2001:db8::1:0:0/128", delegated)},
+		{name: "IPv6 /80 and /112 sharing its window", a: r("2001:db8::/80", delegated), b: r("2001:db8::/112", delegated), covers: true, overlaps: true},
+		{name: "IPv6 /80 and /112 outside its window", a: r("2001:db8::/80", delegated), b: r("2001:db8::1:0/112", delegated)},
+		{name: "IPv4 and IPv6", a: r("10.0.0.0/8"), b: r("::a00:0/120")},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.covers, tc.a.Covers(tc.b), "Covers")
+			require.Equal(t, tc.overlaps, tc.a.Overlaps(tc.b), "Overlaps")
+			require.Equal(t, tc.overlaps, tc.b.Overlaps(tc.a), "Overlaps is symmetric")
+		})
+	}
+
+	wide := r("2001:db8::/80", delegated)
+	require.True(t, wide.Contains(netip.MustParseAddr("2001:db8::ffff")))
+	require.False(t, wide.Contains(netip.MustParseAddr("2001:db8::1:0")), "outside the 2^16 window")
+	require.False(t, r("10.0.0.0/24").Contains(netip.MustParseAddr("10.0.0.0")), "network address")
+}
+
 func TestRangeSize(t *testing.T) {
 	testCases := []struct {
 		name   string

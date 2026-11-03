@@ -1011,7 +1011,9 @@ func (c *Client) UnassignPrivateIpAddresses(ctx context.Context, eniID string, a
 	return err
 }
 
-func (c *Client) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) error {
+// AssignENIPrefixes assigns the given number of IPv4 prefixes to the ENI and
+// returns the assigned prefixes.
+func (c *Client) AssignENIPrefixes(ctx context.Context, eniID string, prefixes int32) ([]string, error) {
 	input := &ec2.AssignPrivateIpAddressesInput{
 		NetworkInterfaceId: aws.String(eniID),
 		Ipv4PrefixCount:    aws.Int32(prefixes),
@@ -1019,9 +1021,16 @@ func (c *Client) AssignENIPrefixes(ctx context.Context, eniID string, prefixes i
 
 	c.limiter.Limit(ctx, AssignPrivateIpAddresses)
 	sinceStart := spanstat.Start()
-	_, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
+	output, err := c.ec2Client.AssignPrivateIpAddresses(ctx, input)
 	c.metricsAPI.ObserveAPICall(AssignPrivateIpAddresses, deriveStatus(err), sinceStart.Seconds())
-	return err
+	if err != nil {
+		return nil, err
+	}
+	assigned := make([]string, 0, len(output.AssignedIpv4Prefixes))
+	for _, p := range output.AssignedIpv4Prefixes {
+		assigned = append(assigned, aws.ToString(p.Ipv4Prefix))
+	}
+	return assigned, nil
 }
 
 // AssignENIIPv6Prefix assigns one IPv6 prefix to the ENI.

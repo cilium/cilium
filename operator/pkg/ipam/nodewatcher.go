@@ -99,12 +99,21 @@ type ciliumNodeUpdateImplementation struct {
 	clientset k8sClient.Clientset
 }
 
+var (
+	_ allocator.CiliumNodeGetterUpdater = (*ciliumNodeUpdateImplementation)(nil)
+	_ allocator.CiliumNodeContextGetter = (*ciliumNodeUpdateImplementation)(nil)
+)
+
 func (c *ciliumNodeUpdateImplementation) Create(node *cilium_api_v2.CiliumNode) (*cilium_api_v2.CiliumNode, error) {
 	return c.clientset.CiliumV2().CiliumNodes().Create(context.TODO(), node, meta_v1.CreateOptions{})
 }
 
 func (c *ciliumNodeUpdateImplementation) Get(node string) (*cilium_api_v2.CiliumNode, error) {
-	return c.clientset.CiliumV2().CiliumNodes().Get(context.TODO(), node, meta_v1.GetOptions{})
+	return c.GetWithContext(context.TODO(), node)
+}
+
+func (c *ciliumNodeUpdateImplementation) GetWithContext(ctx context.Context, node string) (*cilium_api_v2.CiliumNode, error) {
+	return c.clientset.CiliumV2().CiliumNodes().Get(ctx, node, meta_v1.GetOptions{})
 }
 
 func (c *ciliumNodeUpdateImplementation) UpdateStatus(origNode, node *cilium_api_v2.CiliumNode) (*cilium_api_v2.CiliumNode, error) {

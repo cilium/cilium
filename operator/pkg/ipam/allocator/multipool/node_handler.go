@@ -110,7 +110,7 @@ func (n *NodeHandler) Stop() {
 func (n *NodeHandler) upsertLocked(resource *v2.CiliumNode) {
 	if !n.restoreFinished {
 		n.nodesPendingAllocation[resource.Name] = resource
-		pools := n.poolsAccessor.FromResource(resource)
+		pools, _ := n.poolsAccessor.FromResource(resource)
 		_ = n.poolManager.AllocateToNode(resource.Name, pools)
 		return
 	}
@@ -142,7 +142,7 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 				refetchNode = false
 			}
 
-			pools := n.poolsAccessor.FromResource(resource)
+			pools, _ := n.poolsAccessor.FromResource(resource)
 			err := n.poolManager.AllocateToNode(resource.Name, pools)
 			if err != nil {
 				n.logger.Warn(
@@ -158,7 +158,7 @@ func (n *NodeHandler) createUpsertController(resource *v2.CiliumNode) {
 			// Update the error message in the OperatorStatus
 			statusChanged := n.statusAccessor.ToResource(newResource, errorMessage)
 
-			newPools := n.poolsAccessor.FromResource(newResource)
+			newPools, _ := n.poolsAccessor.FromResource(newResource)
 			newPools.Allocated = n.poolManager.AllocatedPools(newResource.Name)
 			changed := n.poolsAccessor.ToResource(newResource, newPools)
 

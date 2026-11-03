@@ -33,8 +33,10 @@ const waitForPoolInStateDBTimeout = time.Minute
 
 var (
 	MultiPoolAccessor = PoolSpecAccessors{
-		FromResource: func(cn *ciliumv2.CiliumNode) types.IPAMPoolSpec {
-			return cn.Spec.IPAM.Pools
+		// Spec.IPAM.Pools.Allocated is also written by the agent, so it is
+		// not authoritative.
+		FromResource: func(cn *ciliumv2.CiliumNode) (types.IPAMPoolSpec, bool) {
+			return cn.Spec.IPAM.Pools, false
 		},
 		ToResource: func(cn *ciliumv2.CiliumNode, spec types.IPAMPoolSpec) bool {
 			if !cn.Spec.IPAM.Pools.DeepEqual(&spec) {

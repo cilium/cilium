@@ -8,10 +8,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"k8s.io/utils/ptr"
 
 	awsTypes "github.com/cilium/cilium/pkg/aws/types"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -46,7 +48,7 @@ func TestAddressCoveredByPrefix(t *testing.T) {
 func TestPoolsAccessorFromResource(t *testing.T) {
 	t.Run("no ENIs returns spec pools", func(t *testing.T) {
 		node := &ciliumv2.CiliumNode{}
-		result := poolAccessor.FromResource(node)
+		result, _ := poolAccessor.FromResource(node)
 		require.Empty(t, result.Allocated)
 	})
 
@@ -58,7 +60,7 @@ func TestPoolsAccessorFromResource(t *testing.T) {
 			},
 		}
 
-		result := poolAccessor.FromResource(node)
+		result, _ := poolAccessor.FromResource(node)
 		require.Len(t, result.Allocated, 1)
 		require.Equal(t, defaults.IPAMDefaultIPPool, result.Allocated[0].Pool)
 		require.True(t, result.Allocated[0].AllowFirstIP)
@@ -85,7 +87,7 @@ func TestPoolsAccessorFromResource(t *testing.T) {
 			},
 		}
 
-		result := poolAccessor.FromResource(node)
+		result, _ := poolAccessor.FromResource(node)
 		require.Len(t, result.Allocated, 1)
 		require.Equal(t, defaults.IPAMDefaultIPPool, result.Allocated[0].Pool)
 		require.True(t, result.Allocated[0].AllowFirstIP)
@@ -107,7 +109,7 @@ func TestPoolsAccessorFromResource(t *testing.T) {
 			},
 		}
 
-		result := poolAccessor.FromResource(node)
+		result, _ := poolAccessor.FromResource(node)
 		require.Len(t, result.Allocated, 1)
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.16/28")))
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/32")))
@@ -127,11 +129,54 @@ func TestPoolsAccessorFromResource(t *testing.T) {
 			},
 		}
 
-		result := poolAccessor.FromResource(node)
+		result, _ := poolAccessor.FromResource(node)
 		require.Len(t, result.Allocated, 1)
 		require.True(t, result.Allocated[0].AllowFirstIP)
 		require.True(t, result.Allocated[0].AllowLastIP)
 		require.Len(t, result.Allocated[0].CIDRs, 1)
 		require.Contains(t, result.Allocated[0].CIDRs, iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.2/32")))
+	})
+}
+
+// TestPoolsAccessorAuthoritative checks when FromResource reports its CIDRs
+// as authoritative, which lets the agent regain removed CIDRs
+// (cilium/cilium#47910): only if they come from the operator-owned
+// Status.ENI, never if they fall back to the agent's own output.
+func TestPoolsAccessorAuthoritative(t *testing.T) {
+	// The agent's own published CIDRs, including a removed but in-use one.
+	published := []ipamTypes.IPAMPoolAllocation{{
+		Pool:  defaults.IPAMDefaultIPPool,
+		CIDRs: prefixes("10.0.0.0/28", "10.0.0.16/28"),
+	}}
+
+	t.Run("no ENIs falls back to the agent's own output", func(t *testing.T) {
+		node := &ciliumv2.CiliumNode{}
+		node.Spec.IPAM.Pools.Allocated = published
+		result, authoritative := poolAccessor.FromResource(node)
+		require.Equal(t, published, result.Allocated)
+		require.False(t, authoritative)
+	})
+
+	t.Run("only excluded ENIs falls back to the agent's own output", func(t *testing.T) {
+		node := &ciliumv2.CiliumNode{}
+		node.Spec.IPAM.Pools.Allocated = published
+		node.Spec.ENI.FirstInterfaceIndex = ptr.To(1)
+		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
+			"eni-0": {Number: 0, Addresses: addrs("10.0.1.1")},
+		}
+		result, authoritative := poolAccessor.FromResource(node)
+		require.Equal(t, published, result.Allocated)
+		require.False(t, authoritative)
+	})
+
+	t.Run("CIDRs from Status.ENI are authoritative", func(t *testing.T) {
+		node := &ciliumv2.CiliumNode{}
+		node.Spec.IPAM.Pools.Allocated = published
+		node.Status.ENI.ENIs = map[string]awsTypes.ENI{
+			"eni-1": {Number: 1, Prefixes: prefixes("10.0.0.0/28")},
+		}
+		result, authoritative := poolAccessor.FromResource(node)
+		require.Equal(t, prefixes("10.0.0.0/28"), result.Allocated[0].CIDRs)
+		require.True(t, authoritative)
 	})
 }

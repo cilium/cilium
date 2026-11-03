@@ -8,7 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"net/netip"
+	"slices"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -33,12 +36,17 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/pkg/annotation"
+	apiMock "github.com/cilium/cilium/pkg/aws/api/mock"
+	awsTypes "github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/hive"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipam/podippool"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	"github.com/cilium/cilium/pkg/ipam/types"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/lock"
@@ -1455,11 +1463,11 @@ func TestMultiPoolManagerUpdatesFirstLastIPSettingsBeforeAllocation(t *testing.T
 	prefix := iputil.PrefixFrom(netip.MustParsePrefix("10.20.0.0/30"))
 	lastIP := netip.MustParseAddr("10.20.0.3")
 
-	mgr.upsertPoolLocked("default", []iputil.Prefix{prefix}, false, false)
+	mgr.upsertPoolLocked("default", []iputil.Prefix{prefix}, false, false, false)
 	_, err := mgr.AllocateIP(lastIP, "pod-a", "default", IPv4, false)
 	require.Error(t, err)
 
-	mgr.upsertPoolLocked("default", []iputil.Prefix{prefix}, false, true)
+	mgr.upsertPoolLocked("default", []iputil.Prefix{prefix}, false, true, false)
 	result, err := mgr.AllocateIP(lastIP, "pod-a", "default", IPv4, false)
 	require.NoError(t, err)
 	require.Equal(t, lastIP, result.IP)
@@ -1489,7 +1497,7 @@ func TestMultiPoolManagerWaitForAllPools(t *testing.T) {
 		mgr.poolsMutex.Lock()
 		mgr.upsertPoolLocked(poolA, []iputil.Prefix{
 			iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/30")),
-		}, false, false)
+		}, false, false, false)
 		mgr.poolsMutex.Unlock()
 
 		// wait for waitForAllPools to unblock
@@ -1661,4 +1669,992 @@ func createSkipMasqTestManager(t *testing.T, db *statedb.DB, pools statedb.Table
 	require.NoError(t, err)
 
 	return v4Alloc
+}
+
+// eniHarness drives a MultiPoolManager the way the ENI agent does, for the
+// tests of cilium/cilium#47910 (https://github.com/cilium/cilium/issues/47910):
+// the pool CIDRs are read from the operator-owned Status.ENI prefixes, and the
+// agent publishes its in-use CIDRs to Spec.IPAM.Pools. CiliumNode events and
+// sync rounds are invoked synchronously, so the tests are deterministic.
+type eniHarness struct {
+	t   *testing.T
+	mgr *MultiPoolManager
+	// published is what the agent last wrote to Spec.IPAM.Pools.
+	published types.IPAMPoolSpec
+	// apiserver is the Spec.IPAM.Pools that a GET from the operator
+	// returns. It lags behind published until land is called.
+	apiserver types.IPAMPoolSpec
+	owner     int
+
+	// The fields below are only used by the release handshake tests.
+	//
+	// server is Status.IPAM.ReleaseCIDRs in the apiserver.
+	server types.CIDRReleaseStatusMap
+	// version is the resource version of the CiliumNode in the apiserver.
+	version int
+	// enis is the Status.ENI last written by the operator.
+	enis map[string]awsTypes.ENI
+	// inflight is the agent's last status write, until land is called.
+	inflight *inflightStatus
+}
+
+const eniPreAllocate = 8 // ENI default pre-allocate
+
+func newENIHarness(t *testing.T) *eniHarness {
+	h := &eniHarness{t: t}
+	logger := hivetest.Logger(t)
+
+	// Mirrors poolAccessor in pkg/aws/agent/pools.go for delegated /28
+	// prefixes. pkg/aws/agent imports pkg/ipam, so it cannot be used here.
+	accessor := PoolSpecAccessors{
+		FromResource: func(node *ciliumv2.CiliumNode) (types.IPAMPoolSpec, bool) {
+			pools := types.IPAMPoolSpec{
+				Requested: node.Spec.IPAM.Pools.Requested,
+				Allocated: node.Spec.IPAM.Pools.Allocated,
+			}
+			var cidrs []iputil.Prefix
+			for _, eni := range node.Status.ENI.ENIs {
+				cidrs = append(cidrs, eni.Prefixes...)
+			}
+			if len(cidrs) == 0 {
+				return pools, false
+			}
+			pools.Allocated = []types.IPAMPoolAllocation{{
+				Pool:         defaults.IPAMDefaultIPPool,
+				AllowFirstIP: true,
+				AllowLastIP:  true,
+				CIDRs:        cidrs,
+			}}
+			return pools, true
+		},
+		// Record what the agent publishes instead of writing it through a
+		// client: in ENI mode it is not read back as pool input.
+		ToResource: func(_ *ciliumv2.CiliumNode, spec types.IPAMPoolSpec) bool {
+			h.published = spec
+			return false
+		},
+	}
+
+	h.mgr = &MultiPoolManager{
+		logger:                 logger,
+		ipv4Enabled:            true,
+		preallocatedIPsPerPool: preAllocatePerPool{},
+		pendingIPsPerPool:      newPendingAllocationsPerPool(logger),
+		pools:                  map[Pool]*poolPair{},
+		poolsUpdated:           make(chan struct{}, 1),
+		staticIPUpdated:        make(chan struct{}, 1),
+		finishedRestore:        map[Family]bool{IPv4: true},
+		k8sUpdater:             job.NewTrigger(),
+		localNodeUpdateFn:      func() {},
+		nodeSynced:             true,
+		poolsAccessor:          accessor,
+		linearPreAlloc:         true, // as in cloud_multipool.go
+		skipMasqueradeForPool:  func(Pool) (bool, error) { return false, nil },
+	}
+	return h
+}
+
+// operatorWrites simulates the operator writing Status.ENI with the given
+// prefixes on a single ENI, delivered to the agent as a CiliumNode event.
+func (h *eniHarness) operatorWrites(prefixes ...string) {
+	h.t.Helper()
+	pfx := make([]iputil.Prefix, 0, len(prefixes))
+	for _, p := range prefixes {
+		pfx = append(pfx, iputil.PrefixFrom(netip.MustParsePrefix(p)))
+	}
+	h.operatorWritesENIs(map[string]awsTypes.ENI{"eni-1": {ID: "eni-1", Prefixes: pfx}})
+}
+
+func (h *eniHarness) operatorWritesENIs(enis map[string]awsTypes.ENI) {
+	h.t.Helper()
+	h.version++
+	h.enis = enis
+	node := &ciliumv2.CiliumNode{ObjectMeta: metav1.ObjectMeta{
+		Name:            "node-eni",
+		ResourceVersion: strconv.Itoa(h.version),
+	}}
+	node.Spec.IPAM.PreAllocate = eniPreAllocate
+	node.Status.ENI.ENIs = enis
+	node.Status.IPAM.ReleaseCIDRs = h.server.DeepCopy()
+	h.mgr.ciliumNodeUpdated(node)
+}
+
+// agentEchoWrites simulates a CiliumNode event with an empty Status.ENI. The
+// accessor then falls back to Spec.IPAM.Pools, i.e. what the agent published.
+func (h *eniHarness) agentEchoWrites() {
+	h.t.Helper()
+	node := &ciliumv2.CiliumNode{ObjectMeta: metav1.ObjectMeta{Name: "node-eni"}}
+	node.Spec.IPAM.PreAllocate = eniPreAllocate
+	node.Spec.IPAM.Pools = *h.published.DeepCopy()
+	h.mgr.ciliumNodeUpdated(node)
+}
+
+func (h *eniHarness) pool() *cidrPool {
+	return h.mgr.pools[Pool(defaults.IPAMDefaultIPPool)].v4
+}
+
+func (h *eniHarness) removed(prefix string) bool {
+	h.mgr.poolsMutex.Lock()
+	defer h.mgr.poolsMutex.Unlock()
+	_, ok := h.pool().removed[netip.MustParsePrefix(prefix)]
+	return ok
+}
+
+func (h *eniHarness) publishedCIDRs() []netip.Prefix {
+	var out []netip.Prefix
+	for _, alloc := range h.published.Allocated {
+		for _, c := range alloc.CIDRs {
+			out = append(out, c.Prefix)
+		}
+	}
+	return out
+}
+
+// sync runs one agent CiliumNode sync round (multi-pool-cilium-node-updater).
+func (h *eniHarness) sync() {
+	h.t.Helper()
+	require.NoError(h.t, h.mgr.updateLocalNode(h.t.Context()))
+}
+
+// land makes the agent's last write visible to GETs from the operator. A
+// status write based on an outdated resource version is dropped, as the
+// apiserver rejects it with a conflict. A status write that lands is
+// delivered back to the agent.
+func (h *eniHarness) land() {
+	h.apiserver = *h.published.DeepCopy()
+	if inflight := h.inflight; inflight != nil {
+		h.inflight = nil
+		if inflight.version == strconv.Itoa(h.version) {
+			h.server = inflight.releaseCIDRs
+			h.operatorWritesENIs(h.enis)
+		}
+	}
+}
+
+func (h *eniHarness) allocateNext() (netip.Addr, error) {
+	h.owner++
+	res, err := h.mgr.AllocateNext(fmt.Sprintf("pod-%d", h.owner), Pool(defaults.IPAMDefaultIPPool), IPv4, false)
+	if err != nil {
+		return netip.Addr{}, err
+	}
+	return res.IP, nil
+}
+
+func (h *eniHarness) mustAllocate(n int) []netip.Addr {
+	h.t.Helper()
+	addrs := make([]netip.Addr, 0, n)
+	for range n {
+		addr, err := h.allocateNext()
+		require.NoError(h.t, err, h.state())
+		addrs = append(addrs, addr)
+	}
+	return addrs
+}
+
+func (h *eniHarness) release(addrs ...netip.Addr) {
+	h.t.Helper()
+	for _, addr := range addrs {
+		require.NoError(h.t, h.mgr.ReleaseIP(addr, Pool(defaults.IPAMDefaultIPPool), IPv4, false))
+	}
+}
+
+// allocateEventually retries a single pod allocation like the CNI does,
+// with an agent sync round between attempts, and returns the last error.
+func (h *eniHarness) allocateEventually(rounds int) (netip.Addr, error) {
+	h.t.Helper()
+	var err error
+	h.owner++
+	owner := fmt.Sprintf("pending-pod-%d", h.owner)
+	for range rounds {
+		var res *AllocationResult
+		res, err = h.mgr.AllocateNext(owner, Pool(defaults.IPAMDefaultIPPool), IPv4, false)
+		if err == nil {
+			return res.IP, nil
+		}
+		h.sync()
+	}
+	return netip.Addr{}, err
+}
+
+func (h *eniHarness) state() string {
+	h.mgr.poolsMutex.Lock()
+	defer h.mgr.poolsMutex.Unlock()
+	pool, ok := h.mgr.pools[Pool(defaults.IPAMDefaultIPPool)]
+	if !ok || pool.v4 == nil {
+		return "no pool"
+	}
+	return fmt.Sprintf("%s published.Allocated=%v published.Requested=%v",
+		cidrPoolState(pool.v4), h.published.Allocated, h.published.Requested)
+}
+
+// TestMultiPoolManagerENIRegainsPrefixDroppedAndReadded reproduces the ENI
+// mode sequence of cilium/cilium#47910: pods allocate from P2, one operator
+// write drops P2 from Status.ENI, a later write re-adds it. P2 is published
+// as allocated and has free IPs, so pod allocation must succeed again.
+//   - "only re-added prefix": no spare prefix, the removed mark was the
+//     only problem.
+//   - "spare released prefix": P3 is released but still attached, and the
+//     free IPs of the removed P2 also prevented reclaiming it.
+func TestMultiPoolManagerENIRegainsPrefixDroppedAndReadded(t *testing.T) {
+	const (
+		p1 = "10.0.0.0/28"
+		p2 = "10.0.0.16/28"
+		p3 = "10.0.0.32/28"
+	)
+
+	tests := []struct {
+		name      string
+		withP2    []string // Status.ENI prefixes, in ENI order
+		withoutP2 []string // Status.ENI prefixes of the write that drops P2
+	}{
+		{name: "only re-added prefix", withP2: []string{p1, p2}, withoutP2: []string{p1}},
+		{name: "spare released prefix", withP2: []string{p1, p2, p3}, withoutP2: []string{p1, p3}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newENIHarness(t)
+
+			// P1 is filled and 4 pods land on P2.
+			h.operatorWrites(tt.withP2...)
+			addrs := h.mustAllocate(20)
+			require.True(t, netip.MustParsePrefix(p2).Contains(addrs[19]), "precondition: pods allocated from %s", p2)
+			// Sync round: demand 20+8=28, so an unused P3 is released (still attached).
+			h.sync()
+
+			// One operator write drops P2 from Status.ENI ...
+			h.operatorWrites(tt.withoutP2...)
+			h.sync()
+			// ... and a later write re-adds the same /28.
+			h.operatorWrites(tt.withP2...)
+			h.sync()
+
+			_, err := h.allocateEventually(5)
+			require.NoError(t, err,
+				"%s is re-advertised with 12 free IPs: allocation must eventually succeed; %s", p2, h.state())
+		})
+	}
+}
+
+// TestMultiPoolManagerENIReclaimsAfterGhostPrefix reproduces the "ghost /28"
+// sequence of cilium/cilium#47910: a 198.18.0.0/28 prefix shows up in
+// Status.ENI for one write, a pod is allocated from it, then it disappears
+// while a real prefix is attached. The free IPs of the removed ghost must
+// not count as capacity, or the real prefix is released and never
+// reclaimed.
+func TestMultiPoolManagerENIReclaimsAfterGhostPrefix(t *testing.T) {
+	h := newENIHarness(t)
+
+	const (
+		p1    = "10.0.0.0/28"
+		p2    = "10.0.0.16/28"
+		ghost = "198.18.0.0/28"
+	)
+
+	// P1 is full.
+	h.operatorWrites(p1)
+	h.mustAllocate(16)
+	h.sync()
+
+	// The ghost /28 appears for one write and a pod lands on it.
+	h.operatorWrites(p1, ghost)
+	addrs := h.mustAllocate(1)
+	require.True(t, netip.MustParsePrefix(ghost).Contains(addrs[0]), "precondition: pod allocated from ghost %s", ghost)
+	h.sync()
+
+	// The next write removes the ghost and attaches the real P2.
+	h.operatorWrites(p1, p2)
+	h.sync()
+
+	_, err := h.allocateEventually(5)
+	require.NoError(t, err,
+		"%s (16 free IPs) is attached, only the removed ghost %s holds free IPs: allocation must eventually succeed; %s",
+		p2, ghost, h.state())
+}
+
+// TestMultiPoolManagerENIRegainsRemovedPrefix checks that in ENI mode a
+// prefix X that was removed while in use becomes allocatable again as soon as
+// the operator re-advertises it in Status.ENI, without an agent sync round.
+func TestMultiPoolManagerENIRegainsRemovedPrefix(t *testing.T) {
+	h := newENIHarness(t)
+
+	const (
+		p1 = "10.0.0.0/28"
+		x  = "10.0.0.16/28"
+	)
+
+	// P1 is filled and 4 pods land on X.
+	h.operatorWrites(p1, x)
+	h.mustAllocate(20)
+	h.sync()
+
+	// The operator drops X from Status.ENI: X is removed but kept as in use.
+	h.operatorWrites(p1)
+	h.sync()
+	require.True(t, h.removed(x), "precondition: %s removed; %s", x, h.state())
+
+	h.operatorWrites(p1, x)
+	require.False(t, h.removed(x), "re-advertised %s must be regained; %s", x, h.state())
+	addr, err := h.allocateNext()
+	require.NoError(t, err, "%s has 12 free IPs; %s", x, h.state())
+	require.True(t, netip.MustParsePrefix(x).Contains(addr), "allocated %s, want an IP from %s", addr, x)
+}
+
+// TestMultiPoolManagerENIFallbackDoesNotRegain checks that a CiliumNode
+// event with an empty Status.ENI does not regain a removed prefix X: the
+// accessor then falls back to Spec.IPAM.Pools.Allocated, which is the agent's
+// own output and still lists X because it is in use.
+func TestMultiPoolManagerENIFallbackDoesNotRegain(t *testing.T) {
+	h := newENIHarness(t)
+
+	const (
+		p1 = "10.0.0.0/28"
+		x  = "10.0.0.16/28"
+	)
+
+	// P1 is filled and 1 pod lands on X.
+	h.operatorWrites(p1, x)
+	h.mustAllocate(17)
+	h.sync()
+
+	// The operator drops X from Status.ENI: X is removed but still published.
+	h.operatorWrites(p1)
+	h.sync()
+	require.True(t, h.removed(x), "precondition: %s removed; %s", x, h.state())
+	require.Contains(t, h.publishedCIDRs(), netip.MustParsePrefix(x), "precondition: %s published; %s", x, h.state())
+
+	// An event with an empty Status.ENI carries only the agent's own echo.
+	h.agentEchoWrites()
+	require.True(t, h.removed(x), "%s must stay removed on the agent's own echo; %s", x, h.state())
+	addr, err := h.allocateNext()
+	require.ErrorIs(t, err, errAllCIDRsExhausted, "allocated %s; %s", addr, h.state())
+}
+
+// TestMultiPoolManagerENIKeepsRemovedPrefixReassignedToAnotherNode checks the
+// case where the operator unassigned an in-use prefix X and EC2 re-assigned X
+// to another node: X never comes back in this node's Status.ENI. The agent
+// must not allocate from X again, keep the IPs that are in use (and keep
+// publishing X so that the operator sees them), and drop X once they are
+// released.
+func TestMultiPoolManagerENIKeepsRemovedPrefixReassignedToAnotherNode(t *testing.T) {
+	h := newENIHarness(t)
+
+	const (
+		p1 = "10.0.0.0/28"
+		x  = "10.0.0.16/28"
+		p2 = "10.0.0.32/28"
+	)
+
+	h.operatorWrites(p1, x)
+	addrs := h.mustAllocate(20)
+	onX := addrs[16:]
+	h.sync()
+
+	// X is gone (now on another node), and the operator attaches P2.
+	h.operatorWrites(p1, p2)
+	h.sync()
+	require.True(t, h.removed(x), "precondition: %s removed; %s", x, h.state())
+	require.Contains(t, h.publishedCIDRs(), netip.MustParsePrefix(x), "in-use %s must stay published; %s", x, h.state())
+
+	for _, addr := range h.mustAllocate(16) {
+		require.True(t, netip.MustParsePrefix(p2).Contains(addr), "allocated %s, want an IP from %s; %s", addr, p2, h.state())
+	}
+	h.mgr.poolsMutex.Lock()
+	require.Equal(t, 36, h.pool().inUseIPCount(), "the IPs in use on %s are kept", x)
+	h.mgr.poolsMutex.Unlock()
+
+	// The pods on X go away: X is no longer published, and its mark is gone.
+	h.release(onX...)
+	h.operatorWrites(p1, p2)
+	h.sync()
+	require.NotContains(t, h.publishedCIDRs(), netip.MustParsePrefix(x), h.state())
+	h.operatorWrites(p1, p2)
+	require.False(t, h.removed(x), h.state())
+}
+
+// TestMultiPoolManagerENIStaleListingWithoutTombstone documents the residual
+// risk of regaining removed prefixes in ENI mode (cilium/cilium#47910): the
+// agent trusts Status.ENI. An operator without the released-prefix
+// tombstone (older than this change, or a new leader within the tombstone
+// TTL) can re-advertise a prefix X that it has just unassigned, because the
+// subnet-wide EC2 listing is eventually consistent. The agent cannot tell, so
+// it allocates from X until the listing is consistent again. It then stops
+// allocating from X and drops X once its pods are gone.
+func TestMultiPoolManagerENIStaleListingWithoutTombstone(t *testing.T) {
+	const (
+		p1 = "10.0.0.0/28"
+		x  = "10.0.0.16/28"
+		p2 = "10.0.0.32/28"
+	)
+
+	t.Run("in-use prefix is regained", func(t *testing.T) {
+		h := newENIHarness(t)
+		h.operatorWrites(p1, x)
+		addrs := h.mustAllocate(17)
+		h.sync()
+
+		// The release race: the operator unassigned X although a pod uses
+		// it, then a stale listing re-advertises X.
+		h.operatorWrites(p1, p2)
+		require.True(t, h.removed(x), "precondition: %s removed; %s", x, h.state())
+		h.operatorWrites(p1, x, p2)
+		require.False(t, h.removed(x), "stale listing: %s is regained; %s", x, h.state())
+		addr, err := h.allocateNext()
+		require.NoError(t, err)
+		require.True(t, netip.MustParsePrefix(x).Contains(addr),
+			"documented: the agent allocates %s from the unattached %s", addr, x)
+
+		// The listing is consistent again.
+		h.operatorWrites(p1, p2)
+		require.True(t, h.removed(x), h.state())
+		for _, addr := range h.mustAllocate(16) {
+			require.False(t, netip.MustParsePrefix(x).Contains(addr), "allocated %s from %s; %s", addr, x, h.state())
+		}
+		h.release(addr, addrs[16])
+		h.sync()
+		require.NotContains(t, h.publishedCIDRs(), netip.MustParsePrefix(x), h.state())
+	})
+
+	t.Run("released prefix is reclaimed", func(t *testing.T) {
+		// This is not new: a released prefix that is still listed has been
+		// reclaimable since cilium/cilium#46674.
+		h := newENIHarness(t)
+		h.operatorWrites(p1, x)
+		h.mustAllocate(8)
+		h.sync()
+		require.NotContains(t, h.publishedCIDRs(), netip.MustParsePrefix(x), "precondition: %s released; %s", x, h.state())
+
+		// The operator unassigned X, but a stale listing still has it.
+		h.operatorWrites(p1, x)
+		h.mustAllocate(8)
+		addr, err := h.allocateEventually(3)
+		require.NoError(t, err)
+		require.True(t, netip.MustParsePrefix(x).Contains(addr),
+			"documented: the agent reclaims the unattached %s; %s", x, h.state())
+	})
+}
+
+// eniOperator models the multi-pool release path of the ENI operator
+// (operator/pkg/ipam/nodemanager handleMultiPoolCIDRRelease) on top of the
+// EC2 mock, so that agent and operator steps can be interleaved in a fixed
+// order. The excess-ip-release-delay is assumed to have elapsed whenever
+// release is called. The real operator runs these steps from asynchronous
+// triggers, which is why it is not used here.
+type eniOperator struct {
+	t      *testing.T
+	cloud  *apiMock.API
+	eniID  string
+	marked sets.Set[netip.Prefix]
+	prev   sets.Set[netip.Prefix]
+}
+
+func newENIOperator(t *testing.T, prefixes int32) *eniOperator {
+	t.Helper()
+	subnet := &types.Subnet{ID: "subnet-1", VirtualNetworkID: "vpc-1", AvailableAddresses: 1024}
+	cloud := apiMock.NewAPI([]*types.Subnet{subnet}, nil, nil, nil)
+	eniID, _, err := cloud.CreateNetworkInterface(t.Context(), 0, subnet.ID, "pods", nil, true, false)
+	require.NoError(t, err)
+	_, err = cloud.AttachNetworkInterface(t.Context(), 1, "i-1", eniID)
+	require.NoError(t, err)
+	if prefixes > 1 {
+		_, err = cloud.AssignENIPrefixes(t.Context(), eniID, prefixes-1)
+		require.NoError(t, err)
+	}
+	return &eniOperator{t: t, cloud: cloud, eniID: eniID, marked: sets.New[netip.Prefix]()}
+}
+
+// attached returns the prefixes attached to the ENI in EC2.
+func (o *eniOperator) attached() []netip.Prefix {
+	o.t.Helper()
+	instance, err := o.cloud.GetInstance(o.t.Context(), nil, nil, "i-1")
+	require.NoError(o.t, err)
+	var out []netip.Prefix
+	for _, p := range instance.Interfaces[o.eniID].(*awsTypes.ENI).Prefixes {
+		out = append(out, p.Prefix)
+	}
+	return out
+}
+
+// writeStatus writes Status.ENI from EC2 to the agent.
+func (o *eniOperator) writeStatus(h *eniHarness) {
+	o.t.Helper()
+	instance, err := o.cloud.GetInstance(o.t.Context(), nil, nil, "i-1")
+	require.NoError(o.t, err)
+	eni := instance.Interfaces[o.eniID].(*awsTypes.ENI)
+	h.operatorWritesENIs(map[string]awsTypes.ENI{o.eniID: *eni})
+}
+
+// observe is trackMultiPoolAllocatedLocked: the CIDRs that the agent stopped
+// listing in Allocated are marked for release, and re-listed ones unmarked.
+// The first call marks the attached prefixes the agent does not list.
+func (o *eniOperator) observe(h *eniHarness) {
+	current := sets.New(h.publishedCIDRs()...)
+	if o.prev == nil {
+		o.prev = sets.New(o.attached()...)
+	}
+	o.marked.Insert(o.prev.Difference(current).UnsortedList()...)
+	o.marked = o.marked.Difference(current)
+	o.prev = current
+}
+
+// release GETs the CiliumNode, unmarks what the agent lists there, and
+// unassigns the remaining marked prefixes in EC2.
+func (o *eniOperator) release(h *eniHarness) []netip.Prefix {
+	o.t.Helper()
+	for _, alloc := range h.apiserver.Allocated {
+		for _, c := range alloc.CIDRs {
+			o.marked.Delete(c.Prefix)
+		}
+	}
+	released := slices.SortedFunc(maps.Keys(o.marked), netip.Prefix.Compare)
+	if len(released) == 0 {
+		return nil
+	}
+	strs := make([]string, 0, len(released))
+	for _, p := range released {
+		strs = append(strs, p.String())
+	}
+	require.NoError(o.t, o.cloud.UnassignENIPrefixes(o.t.Context(), o.eniID, strs))
+	o.marked = sets.New[netip.Prefix]()
+	return released
+}
+
+// TestMultiPoolManagerENIReleaseRaceWithEC2 interleaves the agent with the
+// operator's release path against the EC2 mock (cilium/cilium#47910). The
+// agent releases an idle prefix X, then demand rises and it reclaims X and
+// allocates from it before its write reaches the apiserver. The operator's
+// GET before UnassignPrivateIpAddresses only protects X once the write has
+// landed.
+func TestMultiPoolManagerENIReleaseRaceWithEC2(t *testing.T) {
+	// setup returns X, released by the agent and marked by the operator,
+	// and a pod IP on X allocated after the agent reclaimed X.
+	setup := func(t *testing.T) (*eniHarness, *eniOperator, netip.Prefix, netip.Addr) {
+		h := newENIHarness(t)
+		op := newENIOperator(t, 2)
+		attached := op.attached()
+		require.Len(t, attached, 2)
+		x := attached[1]
+
+		op.writeStatus(h)
+		h.mustAllocate(8)
+		h.sync()
+		h.land()
+		op.observe(h)
+		require.True(t, op.marked.Has(x), "precondition: %s released by the agent and marked; %s", x, h.state())
+
+		// Demand rises: the agent reclaims X in memory and publishes it,
+		// but the write has not reached the apiserver yet.
+		h.mustAllocate(8)
+		addr, err := h.allocateEventually(3)
+		require.NoError(t, err, h.state())
+		require.True(t, x.Contains(addr), "precondition: pod got %s from reclaimed %s", addr, x)
+		require.Contains(t, h.publishedCIDRs(), x)
+		return h, op, x, addr
+	}
+
+	t.Run("GET after the agent's write landed keeps the prefix", func(t *testing.T) {
+		h, op, x, _ := setup(t)
+		h.land()
+		require.Empty(t, op.release(h))
+		require.Contains(t, op.attached(), x)
+	})
+
+	t.Run("GET before the agent's write landed releases an in-use prefix", func(t *testing.T) {
+		h, op, x, addr := setup(t)
+
+		// Remaining window: the GET still sees the old Allocated.
+		require.Equal(t, []netip.Prefix{x}, op.release(h))
+		require.NotContains(t, op.attached(), x, "residual race: %s with pod IP %s is unassigned in EC2", x, addr)
+
+		// The agent does not wedge: X is kept as removed (its pod IP stays
+		// allocated), and new pods get IPs from a newly attached prefix.
+		op.writeStatus(h)
+		h.sync()
+		require.True(t, h.removed(x.String()), h.state())
+		require.Contains(t, h.publishedCIDRs(), x, "in-use %s must stay published; %s", x, h.state())
+
+		assigned, err := op.cloud.AssignENIPrefixes(t.Context(), op.eniID, 1)
+		require.NoError(t, err)
+		require.Len(t, assigned, 1)
+		op.writeStatus(h)
+		newAddr, err := h.allocateEventually(3)
+		require.NoError(t, err, h.state())
+		if fresh := netip.MustParsePrefix(assigned[0]); fresh == x {
+			// EC2 handed X back to the same ENI: it is regained.
+			require.False(t, h.removed(x.String()), h.state())
+		} else {
+			require.True(t, fresh.Contains(newAddr), "allocated %s, want an IP from %s; %s", newAddr, fresh, h.state())
+		}
+		require.NotEqual(t, addr, newAddr)
+	})
+}
+
+// handshakeCNClient records the agent's CiliumNode writes for the release
+// handshake tests. The agent's status writes are in flight until
+// eniHarness.land.
+type handshakeCNClient struct {
+	cilium_v2.CiliumNodeInterface
+	h *eniHarness
+	// pruneHandshakeField drops Spec.IPAM.CIDRReleaseHandshake from spec
+	// writes, like an apiserver with the CRD of an older operator.
+	pruneHandshakeField bool
+	specWrites          int
+	statusWrites        int
+}
+
+func (c *handshakeCNClient) Update(_ context.Context, node *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+	c.specWrites++
+	out := node.DeepCopy()
+	if c.pruneHandshakeField {
+		out.Spec.IPAM.CIDRReleaseHandshake = false
+	}
+	return out, nil
+}
+
+func (c *handshakeCNClient) UpdateStatus(_ context.Context, node *ciliumv2.CiliumNode, _ metav1.UpdateOptions) (*ciliumv2.CiliumNode, error) {
+	c.statusWrites++
+	c.h.inflight = &inflightStatus{
+		version:      node.ResourceVersion,
+		releaseCIDRs: node.Status.IPAM.ReleaseCIDRs.DeepCopy(),
+	}
+	return node.DeepCopy(), nil
+}
+
+// inflightStatus is a status write of the agent that has not reached the
+// apiserver yet.
+type inflightStatus struct {
+	version      string
+	releaseCIDRs types.CIDRReleaseStatusMap
+}
+
+// newENIHandshakeHarness returns an eniHarness whose agent takes part in the
+// CIDR release handshake, as the ENI agent does.
+func newENIHandshakeHarness(t *testing.T) (*eniHarness, *handshakeCNClient) {
+	h := newENIHarness(t)
+	h.mgr.poolsAccessor.CIDRReleaseHandshake = true
+	client := &handshakeCNClient{h: h}
+	h.mgr.cnClient = client
+	h.server = types.CIDRReleaseStatusMap{}
+	return h, client
+}
+
+// operatorWritesRelease simulates the operator writing status, where
+// Status.IPAM.ReleaseCIDRs is set to release, and delivers it to the agent.
+func (h *eniHarness) operatorWritesRelease(release types.CIDRReleaseStatusMap) {
+	h.t.Helper()
+	h.server = release
+	h.version++
+	h.operatorWritesENIs(h.enis)
+}
+
+// releaseState returns the release handshake state of x in the apiserver.
+func (h *eniHarness) releaseState(x netip.Prefix) types.IPReleaseStatus {
+	return h.server[iputil.PrefixFrom(x)]
+}
+
+// operatorMarks is the operator's marking pass of the handshake: the
+// release candidates that are not marked yet are marked.
+func (o *eniOperator) operatorMarks(h *eniHarness) {
+	release := h.server.DeepCopy()
+	if release == nil {
+		release = types.CIDRReleaseStatusMap{}
+	}
+	changed := false
+	for x := range o.marked {
+		if _, ok := release[iputil.PrefixFrom(x)]; !ok {
+			release[iputil.PrefixFrom(x)] = ipamOption.IPAMMarkForRelease
+			changed = true
+		}
+	}
+	if changed {
+		h.operatorWritesRelease(release)
+	}
+}
+
+// releaseAcknowledged is the operator's release pass with the handshake: it
+// GETs the CiliumNode, unmarks what the agent lists in Allocated or refused,
+// and unassigns in EC2 only what the agent acknowledged with
+// ready-for-release. It returns the unassigned prefixes.
+func (o *eniOperator) releaseAcknowledged(h *eniHarness) []netip.Prefix {
+	o.t.Helper()
+	listed := sets.New[netip.Prefix]()
+	for _, alloc := range h.apiserver.Allocated {
+		for _, c := range alloc.CIDRs {
+			listed.Insert(c.Prefix)
+		}
+	}
+	release := h.server.DeepCopy()
+	var released []netip.Prefix
+	for _, x := range slices.SortedFunc(maps.Keys(o.marked), netip.Prefix.Compare) {
+		key := iputil.PrefixFrom(x)
+		switch {
+		case listed.Has(x), release[key] == ipamOption.IPAMDoNotRelease:
+			o.marked.Delete(x)
+			delete(release, key)
+		case release[key] == ipamOption.IPAMReadyForRelease:
+			require.NoError(o.t, o.cloud.UnassignENIPrefixes(o.t.Context(), o.eniID, []string{x.String()}))
+			o.marked.Delete(x)
+			release[key] = ipamOption.IPAMReleased
+			released = append(released, x)
+		}
+	}
+	if !release.DeepEqual(&h.server) || len(released) > 0 {
+		o.writeStatusWithRelease(h, release)
+	}
+	return released
+}
+
+// writeStatusWithRelease writes Status.ENI from EC2 together with release.
+func (o *eniOperator) writeStatusWithRelease(h *eniHarness, release types.CIDRReleaseStatusMap) {
+	o.t.Helper()
+	instance, err := o.cloud.GetInstance(o.t.Context(), nil, nil, "i-1")
+	require.NoError(o.t, err)
+	eni := instance.Interfaces[o.eniID].(*awsTypes.ENI)
+	h.enis = map[string]awsTypes.ENI{o.eniID: *eni}
+	h.operatorWritesRelease(release)
+}
+
+// TestMultiPoolManagerENIReleaseHandshakeTransitions walks the agent through
+// the transitions of the CIDR release handshake with the ENI accessor
+// (cilium/cilium#47910).
+func TestMultiPoolManagerENIReleaseHandshakeTransitions(t *testing.T) {
+	setup := func(t *testing.T) (*eniHarness, *handshakeCNClient, *eniOperator, netip.Prefix) {
+		h, client := newENIHandshakeHarness(t)
+		op := newENIOperator(t, 2)
+		x := op.attached()[1]
+		op.writeStatus(h)
+		h.mustAllocate(8)
+		h.sync()
+		h.land()
+		op.observe(h)
+		require.True(t, op.marked.Has(x), "precondition: %s released and a release candidate; %s", x, h.state())
+		return h, client, op, x
+	}
+
+	t.Run("agent advertises the handshake once", func(t *testing.T) {
+		h, client, _, _ := setup(t)
+		require.Equal(t, 1, client.specWrites)
+		for range 3 {
+			h.sync()
+		}
+		require.Equal(t, 1, client.specWrites)
+	})
+
+	t.Run("advertisement pruned by an old CRD is not rewritten on every sync", func(t *testing.T) {
+		h, client := newENIHandshakeHarness(t)
+		client.pruneHandshakeField = true
+		h.operatorWrites("10.0.0.0/28")
+		for range 3 {
+			h.sync()
+		}
+		require.Equal(t, 1, client.specWrites)
+	})
+
+	t.Run("marked-for-release to ready-for-release to released", func(t *testing.T) {
+		h, client, op, x := setup(t)
+		op.operatorMarks(h)
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMMarkForRelease), h.releaseState(x))
+		h.sync()
+		h.land()
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMReadyForRelease), h.releaseState(x))
+		require.NotContains(t, h.publishedCIDRs(), x)
+
+		require.Equal(t, []netip.Prefix{x}, op.releaseAcknowledged(h))
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMReleased), h.releaseState(x))
+
+		// x is no longer advertised: the agent ends the handshake.
+		writes := client.statusWrites
+		h.sync()
+		h.land()
+		require.Equal(t, writes+1, client.statusWrites)
+		require.NotContains(t, h.server, iputil.PrefixFrom(x))
+	})
+
+	t.Run("in-use CIDR is answered with do-not-release", func(t *testing.T) {
+		h, _, op, x := setup(t)
+		// The agent reclaims x and allocates from it before the mark
+		// reaches it, and its write has not landed.
+		h.mustAllocate(8)
+		addr, err := h.allocateEventually(3)
+		require.NoError(t, err, h.state())
+		require.True(t, x.Contains(addr))
+
+		op.operatorMarks(h)
+		h.sync()
+		require.Empty(t, op.releaseAcknowledged(h), "nothing is unassigned before the answer landed")
+		h.land()
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMDoNotRelease), h.releaseState(x))
+		require.Empty(t, op.releaseAcknowledged(h))
+		require.NotContains(t, h.server, iputil.PrefixFrom(x), "do-not-release clears the mark")
+		require.Contains(t, op.attached(), x)
+		require.False(t, op.marked.Has(x))
+	})
+
+	t.Run("marked CIDR is not reclaimed when demand rises", func(t *testing.T) {
+		h, _, op, x := setup(t)
+		op.operatorMarks(h)
+		h.mustAllocate(8)
+		_, err := h.allocateEventually(3)
+		require.ErrorIs(t, err, errAllCIDRsExhausted, h.state())
+		h.land()
+		require.Equal(t, []netip.Prefix{x}, op.releaseAcknowledged(h))
+	})
+
+	t.Run("cleared mark lets the agent reclaim the CIDR", func(t *testing.T) {
+		h, _, op, x := setup(t)
+		op.operatorMarks(h)
+		h.sync()
+		h.land()
+		// The operator gives up, e.g. because the node needs the IPs.
+		op.marked.Delete(x)
+		h.operatorWritesRelease(types.CIDRReleaseStatusMap{})
+		h.mustAllocate(8)
+		addr, err := h.allocateEventually(3)
+		require.NoError(t, err, h.state())
+		require.True(t, x.Contains(addr))
+	})
+
+	t.Run("agent restart keeps an acknowledged CIDR blocked", func(t *testing.T) {
+		h, _, op, x := setup(t)
+		op.operatorMarks(h)
+		h.sync()
+		h.land()
+		require.Equal(t, types.IPReleaseStatus(ipamOption.IPAMReadyForRelease), h.releaseState(x))
+
+		restarted, _ := newENIHandshakeHarness(t)
+		restarted.server = h.server
+		restarted.enis = h.enis
+		restarted.mgr.finishedRestore = map[Family]bool{}
+		restarted.operatorWritesENIs(h.enis)
+		restarted.mgr.RestoreFinished(IPv4)
+		restarted.sync()
+		require.NotContains(t, restarted.publishedCIDRs(), x)
+		restarted.mustAllocate(16)
+		_, err := restarted.allocateNext()
+		require.ErrorIs(t, err, errAllCIDRsExhausted, restarted.state())
+	})
+
+	t.Run("old operator without marks behaves as before", func(t *testing.T) {
+		h, _, _, x := setup(t)
+		h.mustAllocate(8)
+		addr, err := h.allocateEventually(3)
+		require.NoError(t, err, h.state())
+		require.True(t, x.Contains(addr), "the agent reclaims %s as without the handshake", x)
+	})
+}
+
+// multisetPermutations calls fn with every distinct ordering of steps.
+func multisetPermutations(steps []string, fn func([]string)) {
+	slices.Sort(steps)
+	var rec func(prefix []string, rest []string)
+	rec = func(prefix []string, rest []string) {
+		if len(rest) == 0 {
+			fn(prefix)
+			return
+		}
+		for i := range rest {
+			if i > 0 && rest[i] == rest[i-1] {
+				continue
+			}
+			next := slices.Concat(rest[:i], rest[i+1:])
+			rec(append(slices.Clone(prefix), rest[i]), next)
+		}
+	}
+	rec(nil, steps)
+}
+
+// TestMultiPoolManagerENIReleaseHandshakeInterleavings runs every ordering of
+// the agent's and the operator's steps after the agent released prefix x
+// (cilium/cilium#47910), and checks that no pod IP is ever in a prefix that
+// was unassigned in EC2:
+//   - alloc: 9 pods are created, which needs x once the first /28 is full;
+//   - sync: the agent's sync round (answer marks, reclaim, publish);
+//   - land: the agent's writes reach the apiserver;
+//   - mark: the operator's marking pass;
+//   - release: the operator's GET and EC2 release pass.
+//
+// Without the handshake the same orderings do unassign in-use prefixes,
+// which shows that they cover the race.
+func TestMultiPoolManagerENIReleaseHandshakeInterleavings(t *testing.T) {
+	steps := []string{"alloc", "alloc", "sync", "sync", "land", "mark", "release"}
+	// Let the handshake run to completion after each ordering.
+	tail := []string{"sync", "land", "release", "sync", "land", "release"}
+
+	run := func(t *testing.T, handshake bool, order []string) (violation string, unassigned bool) {
+		var h *eniHarness
+		if handshake {
+			h, _ = newENIHandshakeHarness(t)
+		} else {
+			h = newENIHarness(t)
+		}
+		op := newENIOperator(t, 2)
+		x := op.attached()[1]
+		op.writeStatus(h)
+		pods := h.mustAllocate(8)
+		h.sync()
+		h.land()
+		op.observe(h)
+		require.True(t, op.marked.Has(x))
+
+		for i, step := range slices.Concat(order, tail) {
+			switch step {
+			case "alloc":
+				for range 9 {
+					addr, err := h.allocateNext()
+					if err != nil {
+						break
+					}
+					pods = append(pods, addr)
+				}
+			case "sync":
+				h.sync()
+			case "land":
+				h.land()
+			case "mark":
+				if handshake {
+					op.operatorMarks(h)
+				}
+			case "release":
+				var released []netip.Prefix
+				if handshake {
+					released = op.releaseAcknowledged(h)
+				} else {
+					released = op.release(h)
+				}
+				unassigned = unassigned || slices.Contains(released, x)
+			}
+			attached := op.attached()
+			for _, addr := range pods {
+				if !slices.ContainsFunc(attached, func(p netip.Prefix) bool { return p.Contains(addr) }) {
+					return fmt.Sprintf("after step %d (%s) of %v: pod IP %s unassigned", i, step, order, addr), unassigned
+				}
+			}
+		}
+		return "", unassigned
+	}
+
+	t.Run("with the handshake no in-use prefix is unassigned", func(t *testing.T) {
+		orders, unassigned := 0, 0
+		multisetPermutations(slices.Clone(steps), func(order []string) {
+			orders++
+			violation, released := run(t, true, order)
+			require.Empty(t, violation)
+			if released {
+				unassigned++
+			}
+		})
+		require.Equal(t, 1260, orders)
+		// Liveness: idle prefixes are still released.
+		require.NotZero(t, unassigned)
+	})
+
+	t.Run("without the handshake some orderings unassign an in-use prefix", func(t *testing.T) {
+		violations := 0
+		multisetPermutations(slices.Clone(steps), func(order []string) {
+			if violation, _ := run(t, false, order); violation != "" {
+				violations++
+			}
+		})
+		require.NotZero(t, violations)
+	})
 }

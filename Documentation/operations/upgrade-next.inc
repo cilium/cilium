@@ -47,6 +47,14 @@ Informational Notes
   affects EndpointSlice names longer than 40 characters after removing the
   Service name prefix. EndpointSlices generated from Pods by the
   kube-controller-manager are unaffected.
+* In ENI mode, the operator and the agent now release IPv4 CIDRs through a
+  handshake in the new ``CiliumNode`` fields ``spec.ipam.cidr-release-handshake``
+  and ``status.ipam.release-cidrs``, so that a CIDR the agent allocates from
+  again is not unassigned from its ENI. The operator only uses the handshake
+  for agents that set ``spec.ipam.cidr-release-handshake``, so a mix of
+  upgraded and not yet upgraded agents is supported. Each release takes one
+  agent update and one operator resync longer than before, and a CIDR is not
+  released while its agent is down. See :ref:`ipam_eni_ip_release`.
 
 Changes to Features
 ~~~~~~~~~~~~~~~~~~~
