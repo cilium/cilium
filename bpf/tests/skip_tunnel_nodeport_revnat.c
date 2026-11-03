@@ -13,7 +13,6 @@
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 #define TUNNEL_MODE 1
-#define ENABLE_NODEPORT 1
 
 /*
  * Simulate sending traffic from pod_one on node_one to pod_two
@@ -86,6 +85,8 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
+
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 static __always_inline int
 pktgen(struct __ctx_buff *ctx, bool v4)

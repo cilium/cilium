@@ -286,7 +286,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 				return ret;
 		}
 
-		if (is_defined(ENABLE_NODEPORT))
+		if (CONFIG(enable_nodeport))
 			ret = check_v4_lb(ctx);
 		break;
 #ifdef ENABLE_IPV6
@@ -297,7 +297,7 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 				return ret;
 		}
 
-		if (is_defined(ENABLE_NODEPORT))
+		if (CONFIG(enable_nodeport))
 			ret = check_v6_lb(ctx);
 		break;
 #endif /* ENABLE_IPV6 */

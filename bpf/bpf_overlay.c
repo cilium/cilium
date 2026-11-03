@@ -72,7 +72,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			return DROP_FRAG_NOSUPPORT;
 	}
 
-	if (is_defined(ENABLE_NODEPORT) && !ctx_skip_nodeport(ctx)) {
+	if (CONFIG(enable_nodeport) && !ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 
 		ret = nodeport_lb6(ctx, ip6, *identity, &punt_to_stack,
@@ -282,7 +282,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	}
 #endif /* ENABLE_MULTICAST */
 
-	if (is_defined(ENABLE_NODEPORT) && !ctx_skip_nodeport(ctx)) {
+	if (CONFIG(enable_nodeport) && !ctx_skip_nodeport(ctx)) {
 		bool punt_to_stack = false;
 
 		ret = nodeport_lb4(ctx, ip4, *identity, &punt_to_stack,
@@ -649,7 +649,7 @@ int cil_to_overlay(struct __ctx_buff *ctx)
 
 	set_identity_mark(ctx, src_sec_identity, MARK_MAGIC_OVERLAY);
 
-	if (is_defined(ENABLE_NODEPORT)) {
+	if (CONFIG(enable_nodeport)) {
 		if (snat_done) {
 			ret = CTX_ACT_OK;
 			goto out;

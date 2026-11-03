@@ -7,7 +7,6 @@
 
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
-#define ENABLE_NODEPORT		1
 
 /* GH#47396: a stale NodePort CT entry shares its tuple with a live flow. */
 
@@ -42,6 +41,7 @@ mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 #include "lib/lb.h"
 
 ASSIGN_CONFIG(__u32, interface_ifindex, DEFAULT_IFACE)
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 enum ingress_entry {
 	INGRESS_LIVE,

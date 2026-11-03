@@ -58,6 +58,7 @@ func setBasePermutations(t *config.Node) {
 	}
 	t.EnableIPSec = true
 	t.EnableWireguard = true
+	t.EnableNodeport = true
 	t.EnableNodeportAcceleration = true
 	t.EnableL7LB = true
 }

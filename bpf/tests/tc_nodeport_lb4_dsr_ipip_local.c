@@ -28,7 +28,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
-#define ENABLE_NODEPORT 1
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_IP		v4_ext_one
@@ -166,6 +165,7 @@ ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_netkit, true)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_NODE_IP })
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
+ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused,
