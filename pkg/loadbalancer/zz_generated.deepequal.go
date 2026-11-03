@@ -420,6 +420,9 @@ func (in *UserConfig) DeepEqual(other *UserConfig) bool {
 	if in.EnableWildcardEntries != other.EnableWildcardEntries {
 		return false
 	}
+	if in.EnableIPMasqAvoidHostPort != other.EnableIPMasqAvoidHostPort {
+		return false
+	}
 
 	return true
 }

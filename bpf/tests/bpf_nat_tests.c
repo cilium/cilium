@@ -7,6 +7,7 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
+#define ENABLE_IPV6 1
 #define ENABLE_NODEPORT 1
 #include <bpf/config/global.h>
 
@@ -34,9 +35,11 @@ static char pkt[100];
 
 ASSIGN_CONFIG(bool, debug, true)
 ASSIGN_CONFIG(__u16, device_mtu, 1500);
+ASSIGN_CONFIG(bool, enable_ip_masq_avoid_hostport, true);
 
 ASSIGN_CONFIG(bool, enable_sctp, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
+ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 
 __always_inline int mk_icmp4_error_pkt(void *dst, __u8 error_hdr, bool egress, bool rfc4884)
 {
@@ -1581,6 +1584,125 @@ int test_nat4_port_allocation_udp_check(struct __ctx_buff *ctx)
 		assert(retries_100percent[i] <= retries_100percent[i - 1]);
 	for (__u32 i = 6; i < CONFIG(snat_collision_retries); i++)
 		assert(retries_100percent[i] <= retries_100percent[5]);
+
+	test_finish();
+}
+
+CHECK(PROG_TYPE, "nat4_skip_hostport")
+int test_nat4_skip_hostport(__maybe_unused struct __ctx_buff *ctx)
+{
+	const __u16 host_port = NODEPORT_PORT_MIN_NAT + 10;
+	struct ipv4_ct_tuple tuple = {
+		.nexthdr = IPPROTO_TCP,
+		.saddr = bpf_htonl(IP_ENDPOINT),
+		.daddr = bpf_htonl(IP_WORLD),
+		.sport = bpf_htons(host_port),
+		.dport = bpf_htons(80),
+		.flags = NAT_DIR_EGRESS,
+	};
+	struct ipv4_nat_target target = {
+		.addr = bpf_htonl(IP_HOST),
+		.min_port = host_port,
+		.max_port = host_port + 1,
+	};
+	struct hostport_bitmap *bm;
+	__u32 key = 0;
+	struct ipv4_ct_tuple rtuple = {};
+	struct ipv4_nat_entry state;
+	void *map;
+	int ret;
+
+	test_init();
+
+	/* This test checks that ports allocated as hostports are not used for SNAT port selection.
+	 */
+
+	map = get_cluster_snat_map_v4(target.cluster_id);
+	assert(map);
+
+	bm = map_lookup_elem(&cilium_hostport_v4_tcp, &key);
+	assert(bm);
+
+	// Simulate a hostport in bitmap
+	bm->bits[host_port >> 3] |= (__u8)(1U << (host_port & 7));
+
+	ret = snat_v4_new_mapping(ctx, map, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(host_port + 1));
+
+	set_v4_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(map, &tuple);
+	map_delete_elem(map, &rtuple);
+
+	// Clear host port
+	bm->bits[host_port >> 3] &= ~(__u8)(1U << (host_port & 7));
+
+	// No host port preserves original port
+	ret = snat_v4_new_mapping(ctx, map, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(host_port));
+
+	set_v4_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(map, &tuple);
+	map_delete_elem(map, &rtuple);
+
+	test_finish();
+}
+
+CHECK(PROG_TYPE, "nat6_skip_hostport")
+int test_nat6_skip_hostport(__maybe_unused struct __ctx_buff *ctx)
+{
+	const __u16 host_port = NODEPORT_PORT_MIN_NAT + 10;
+	struct ipv6_ct_tuple tuple __align_stack_8 = {
+		.nexthdr = IPPROTO_TCP,
+		.saddr = { .addr = v6_pod_one_addr },
+		.daddr = { .addr = v6_ext_node_one_addr },
+		.sport = bpf_htons(host_port),
+		.dport = bpf_htons(80),
+		.flags = NAT_DIR_EGRESS,
+	};
+	struct ipv6_nat_target target __align_stack_8 = {
+		.addr = { .addr = v6_node_one_addr },
+		.min_port = host_port,
+		.max_port = host_port + 1,
+	};
+	struct hostport_bitmap *bm;
+	__u32 key = 0;
+	struct ipv6_ct_tuple rtuple __align_stack_8 = {};
+	struct ipv6_nat_entry state __align_stack_8;
+	int ret;
+
+	test_init();
+
+	/* This test checks that ports allocated as hostports are not used for SNAT port selection.
+	 */
+
+	bm = map_lookup_elem(&cilium_hostport_v6_tcp, &key);
+	assert(bm);
+
+	// Simulate a hostport in bitmap
+	bm->bits[host_port >> 3] |= (__u8)(1U << (host_port & 7));
+
+	// Test
+	ret = snat_v6_new_mapping(ctx, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(host_port + 1));
+
+	set_v6_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(&cilium_snat_v6_external, &tuple);
+	map_delete_elem(&cilium_snat_v6_external, &rtuple);
+
+	// Clear host port
+	bm->bits[host_port >> 3] &= ~(__u8)(1U << (host_port & 7));
+
+	// No host port preserves original port
+	ret = snat_v6_new_mapping(ctx, &tuple, &state, &target, false, NULL);
+	assert(ret == 0);
+	assert(state.to_sport == bpf_htons(host_port));
+
+	set_v6_rtuple(&tuple, &state, &rtuple);
+	map_delete_elem(&cilium_snat_v6_external, &tuple);
+	map_delete_elem(&cilium_snat_v6_external, &rtuple);
 
 	test_finish();
 }
