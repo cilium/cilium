@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func TestShorten(t *testing.T) {
@@ -42,4 +43,12 @@ func TestShorten(t *testing.T) {
 	assert.Equal(t, shorterResult0, shorterResult1, "Shorter name wasn't matched with previous result")
 	assert.Equal(t, equalResult0, equalResult1, "Equal name wasn't matched with previous result")
 	assert.Equal(t, longerResult0, longerResult1, "Longer name wasn't matched with previous result")
+}
+
+func TestShortenDNSSubdomainK8sDNSLabelEdgeCase(t *testing.T) {
+	// The dot would fall exactly at the truncation boundary before the hash suffix.
+	name := strings.Repeat("a", k8sMaxResourceNameDNSSubdomainLength-12) + ".bbb" + strings.Repeat("c", 20)
+	shortened := ShortenDNSSubdomainK8sName(name)
+	assert.Equal(t, strings.Repeat("a", 241)+"-4cdbbcg65m", shortened)
+	assert.Empty(t, validation.IsDNS1123Subdomain(shortened))
 }
