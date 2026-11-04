@@ -31,7 +31,11 @@ type RXQueueFlows struct {
 	ShareID        kube_types.UID
 	PhysicalIfName string
 	QueueID        uint32
-	Flows          []types.RXQueueFlow
+	// BindingGeneration identifies the CNI attachment that owns the addresses.
+	// Zero does not authorize hardware updates. Binding transitions clear rules
+	// synchronously before publishing the new allocation state.
+	BindingGeneration uint64
+	Flows             []types.RXQueueFlow
 	// Unresolved explains why the allocation's selector yields no flows.
 	Unresolved string
 	Status     reconciler.Status
@@ -91,7 +95,7 @@ func (ops rxQueueFlowOps) Update(_ context.Context, txn statedb.ReadTxn, _ state
 	device, _, found := ops.devices.Get(txn, deviceByName.Query(f.PhysicalIfName))
 	if found {
 		if nic, ok := device.Dev.(*rxqueue.RXQueueDevice); ok {
-			return rxQueueSyncFlows(nic, f.ShareID, f.QueueID, f.Flows)
+			return rxQueueSyncFlows(nic, f.ShareID, f.QueueID, f.BindingGeneration, f.Flows)
 		}
 	}
 	return fmt.Errorf("RX queue device %s is not available", f.PhysicalIfName)

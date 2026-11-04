@@ -22,8 +22,10 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
+	"github.com/cilium/cilium/pkg/networkdriver/rxqueue"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -110,7 +112,7 @@ func (driver *Driver) Synchronize(ctx context.Context, pods []*api.PodSandbox, _
 
 			podAllocations := driver.allocationsForPod(kube_types.UID(pod.Uid))
 			nsPath := path.Join(podNetNSPath, path.Base(networkNamespace))
-			if err := leaseRXQueues(nsPath, podAllocations); err != nil {
+			if err := driver.bindRXQueues(nsPath, pod, podAllocations); err != nil {
 				driver.logger.WarnContext(ctx, "NRI Synchronize: failed to lease RX queue",
 					logfields.K8sNamespace, pod.GetNamespace(),
 					logfields.K8sPodName, pod.GetName(),
@@ -137,7 +139,7 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		log.DebugContext(ctx, "RunPodSandbox request received")
 
-		// Task is alive here, so the netns is populated. Cache it keyed by UID so a
+		// Task is alive here, so the netns is populated. Cache it keyed by sandbox ID so a
 		// later StopPodSandbox can recover it on containerd < 2.1.
 		networkNamespace := driver.rememberNetworkNamespace(podSandbox)
 		// host network pods cannot allocate network devices
@@ -160,7 +162,7 @@ func (driver *Driver) RunPodSandbox(ctx context.Context, podSandbox *api.PodSand
 
 		// Lease RX queues before any container starts, so a workload can
 		// register the leased queue as soon as it runs.
-		if err := leaseRXQueues(nsPath, podAllocations); err != nil {
+		if err := driver.bindRXQueues(nsPath, podSandbox, podAllocations); err != nil {
 			return err
 		}
 		if !hasNRIManagedInterface(podAllocations) {
@@ -285,7 +287,7 @@ func (driver *Driver) StopPodSandbox(ctx context.Context, podSandbox *api.PodSan
 		// On containerd < 2.1 the stop event carries no namespaces; fall back to the
 		// path cached at RunPodSandbox / Synchronize. Evict the cache entry on the way
 		// out: this is the pod's terminal event, so the entry is no longer needed.
-		defer delete(driver.podNetns, kube_types.UID(podSandbox.Uid))
+		defer delete(driver.podNetns, podSandbox.Id)
 
 		networkNamespace := driver.getNetworkNamespace(podSandbox)
 		// host network pods cannot allocate network devices because it impacts the host
@@ -403,20 +405,22 @@ func (driver *Driver) getNetworkNamespace(pod *api.PodSandbox) string {
 	}
 
 	// containerd < 2.1 fallback: reuse the path captured while the task was alive.
-	if ns, ok := driver.podNetns[kube_types.UID(pod.Uid)]; ok {
+	if ns, ok := driver.podNetns[pod.Id]; ok {
 		return ns
 	}
 
 	return ""
 }
 
-// rememberNetworkNamespace records a pod's netns path keyed by UID, if the PodSandbox
+// rememberNetworkNamespace records a pod's netns path keyed by sandbox ID, if the PodSandbox
 // carries one. Called from RunPodSandbox and Synchronize, where the sandbox task is
 // alive and the namespaces are populated. The caller already holds driver.lock.
 func (driver *Driver) rememberNetworkNamespace(pod *api.PodSandbox) string {
 	for _, namespace := range pod.Linux.GetNamespaces() {
 		if namespace.Type == "network" {
-			driver.podNetns[kube_types.UID(pod.Uid)] = namespace.Path
+			if pod.Id != "" {
+				driver.podNetns[pod.Id] = namespace.Path
+			}
 			return namespace.Path
 		}
 	}
@@ -456,24 +460,50 @@ func (driver *Driver) configureSysctl(l netlink.Link, cfg types.DeviceConfig) er
 	return sysctl.NewDirectSysctl(afero.NewOsFs(), driver.hostProcPath).ApplySettings(settings)
 }
 
-// rxQueueLeaser is implemented by prepared RX queue devices.
-type rxQueueLeaser interface {
-	LeaseRXQueue(*netns.NetNS) error
+type rxQueueEndpointLookup interface {
+	LookupCNIAttachmentID(string) *endpoint.Endpoint
 }
 
-var openPodNetNS = netns.OpenPinned
+var (
+	openPodNetNS           = netns.OpenPinned
+	rxQueueBind            = (*rxqueue.RXQueueDevice).BindRXQueue
+	rxQueueNamespaceCookie = func(ns *netns.NetNS) (cookie uint64, err error) {
+		err = ns.Do(func() error {
+			cookie, err = netns.GetNetNSCookie()
+			return err
+		})
+		return
+	}
+)
 
-// leaseRXQueues leases each RX queue allocated to a Pod to its existing
+// bindRXQueues leases each RX queue allocated to a Pod to its verified CNI
 // interface in the Pod network namespace at nsPath.
-func leaseRXQueues(nsPath string, allocations []allocation) error {
+func (driver *Driver) bindRXQueues(nsPath string, sandbox *api.PodSandbox, allocations []allocation) error {
+	// Don't let IPAM release the Pod's IPs between finding its CNI attachment
+	// and recording the queue binding. Otherwise, release could miss the
+	// new binding and make the IPs available for reuse.
+	driver.rxQueueBindLock.Lock()
+	defer driver.rxQueueBindLock.Unlock()
+
 	var podNs *netns.NetNS
 	for _, a := range allocations {
 		if a.Manager != types.DeviceManagerTypeRXQueue {
 			continue
 		}
-		leaser, ok := a.Device.(rxQueueLeaser)
+		device, ok := a.Device.(*rxqueue.RXQueueDevice)
 		if !ok {
 			return fmt.Errorf("RX queue device %s does not support leasing", a.DeviceName)
+		}
+		if sandbox.Id == "" || driver.endpoints == nil {
+			return errors.New("RX queue binding requires a runtime sandbox ID and CNI endpoint")
+		}
+		attachmentID := sandbox.Id + ":" + device.PodIfName
+		ep := driver.endpoints.LookupCNIAttachmentID(attachmentID)
+		if ep == nil || ep.GetK8sPodUID() != sandbox.Uid || !ep.IsAlive() {
+			return fmt.Errorf("RX queue CNI attachment %s does not belong to this Pod sandbox", attachmentID)
+		}
+		if ep.DatapathConfiguration.ExternalIpam {
+			return errors.New("RX queue binding requires Cilium-managed IPAM")
 		}
 		if podNs == nil {
 			ns, err := openPodNetNS(nsPath)
@@ -483,7 +513,28 @@ func leaseRXQueues(nsPath string, allocations []allocation) error {
 			defer ns.Close()
 			podNs = ns
 		}
-		if err := leaser.LeaseRXQueue(podNs); err != nil {
+		cookie, err := rxQueueNamespaceCookie(podNs)
+		if err != nil {
+			return fmt.Errorf("failed to verify RX queue network namespace: %w", err)
+		}
+		if cookie == 0 || cookie != ep.GetEndpointNetNsCookie() {
+			return fmt.Errorf("RX queue CNI attachment %s has a different network namespace", attachmentID)
+		}
+		var addresses []netip.Addr
+		for _, ip := range []netip.Addr{ep.IPv4Address(), ep.IPv6Address()} {
+			if ip.IsValid() {
+				addresses = append(addresses, ip.Unmap())
+			}
+		}
+		if len(addresses) == 0 {
+			return fmt.Errorf("RX queue CNI attachment %s has no allocated addresses", attachmentID)
+		}
+		bound, err := rxQueueBind(device, podNs, attachmentID, addresses)
+		if bound != nil {
+			a.Device = bound
+			driver.updateAllocationDevice(a)
+		}
+		if err != nil {
 			return fmt.Errorf("failed to lease RX queue from device %s: %w", a.DeviceName, err)
 		}
 	}

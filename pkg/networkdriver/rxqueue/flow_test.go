@@ -110,10 +110,17 @@ func TestSyncRXFlowsRequiresQueueOwner(t *testing.T) {
 	device, err := advertised.Setup(testAllocation(first))
 	require.NoError(t, err)
 	prepared := device.(*RXQueueDevice)
+	advertised.reservations.queues[7].binding = &queueBinding{
+		RXQueueBinding: RXQueueBinding{Generation: 1, Addresses: []netip.Addr{firstFlow.DestinationIP}}, retired: make(map[string]struct{}),
+	}
 	require.Equal(t, uint32(7), prepared.PhysicalQueueID)
 	require.Empty(t, fake.steeredFlows(7))
 
-	require.NoError(t, advertised.SyncRXFlows(first, 7, []types.RXQueueFlow{firstFlow}))
+	require.NoError(t, advertised.SyncRXFlows(first, 7, 1, []types.RXQueueFlow{firstFlow}))
+	require.Equal(t, []types.RXQueueFlow{firstFlow}, fake.steeredFlows(7))
+
+	// Refusing another attachment's address must leave the current rules intact.
+	require.ErrorIs(t, advertised.SyncRXFlows(first, 7, 1, []types.RXQueueFlow{secondFlow}), errInvalidAllocation)
 	require.Equal(t, []types.RXQueueFlow{firstFlow}, fake.steeredFlows(7))
 
 	// Freeing the allocation removes its rules before releasing the queue.
@@ -122,10 +129,13 @@ func TestSyncRXFlowsRequiresQueueOwner(t *testing.T) {
 	device, err = advertised.Setup(testAllocation(second))
 	require.NoError(t, err)
 	require.Equal(t, uint32(7), device.(*RXQueueDevice).PhysicalQueueID)
+	advertised.reservations.queues[7].binding = &queueBinding{
+		RXQueueBinding: RXQueueBinding{Generation: 1, Addresses: []netip.Addr{secondFlow.DestinationIP}}, retired: make(map[string]struct{}),
+	}
 
-	require.NoError(t, advertised.SyncRXFlows(first, 7, []types.RXQueueFlow{firstFlow}))
+	require.NoError(t, advertised.SyncRXFlows(first, 7, 1, []types.RXQueueFlow{firstFlow}))
 	require.Empty(t, fake.steeredFlows(7), "a freed allocation must not program the queue")
-	require.NoError(t, advertised.SyncRXFlows(second, 7, []types.RXQueueFlow{secondFlow}))
+	require.NoError(t, advertised.SyncRXFlows(second, 7, 1, []types.RXQueueFlow{secondFlow}))
 	require.Equal(t, []types.RXQueueFlow{secondFlow}, fake.steeredFlows(7))
 }
 
@@ -144,8 +154,8 @@ func TestSyncRXFlowsRejectsEmptyShareID(t *testing.T) {
 			rule := netlink.NetDevRxFlow{Match: netlink.EtherFlow{}, Action: netlink.NetDevRxFlowAction{Queue: tt.queueID}, Location: 1}
 			fake.flows[1] = rule
 
-			require.NotContains(t, device.reservations.owners, tt.queueID)
-			require.NoError(t, device.SyncRXFlows("", tt.queueID, []types.RXQueueFlow{
+			require.NotContains(t, device.reservations.queues, tt.queueID)
+			require.NoError(t, device.SyncRXFlows("", tt.queueID, 1, []types.RXQueueFlow{
 				testFlow("192.0.2.10", 9000, corev1.ProtocolTCP),
 			}))
 			require.Zero(t, fake.flowInserts)

@@ -13,11 +13,12 @@ import (
 	resourceapi "k8s.io/api/resource/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -77,6 +78,10 @@ type networkDriverParams struct {
 	MultiPoolMgr    *ipam.MultiPoolManager
 
 	ConfigModifiers []claimConfigModifier `group:"claim-config-modifiers"`
+
+	Endpoints        endpointmanager.EndpointsLookup
+	EndpointRestorer promise.Promise[endpointstate.Restorer]
+	PrimaryIPAM      *ipam.IPAM
 }
 
 type claimConfigModifierOut struct {
@@ -139,6 +144,8 @@ func podResource(
 }
 
 func registerNetworkDriver(params networkDriverParams) *Driver {
+	guard := &rxQueueAddressGuard{}
+	params.PrimaryIPAM.SetAddressReleaseHook(guard)
 	if !params.CellCfg.Enabled {
 		return nil
 	}
@@ -153,7 +160,7 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		kubeClient:      params.ClientSet,
 		deviceManagers:  make(map[types.DeviceManagerType]types.DeviceManager),
 		configCRD:       params.Configs,
-		podNetns:        make(map[kube_types.UID]string),
+		podNetns:        make(map[string]string),
 		db:              params.DB,
 		deviceTable:     params.DeviceTable,
 		allocationTable: params.AllocationTable,
@@ -162,8 +169,13 @@ func registerNetworkDriver(params networkDriverParams) *Driver {
 		multiPoolMgr:    params.MultiPoolMgr,
 		ipv4Enabled:     params.CellCfg.IPv4Enabled,
 		ipv6Enabled:     params.CellCfg.IPv6Enabled,
+		ipamMode:        params.DaemonCfg.IPAM,
 		configModifiers: params.ConfigModifiers,
+
+		endpoints:        params.Endpoints,
+		endpointRestorer: params.EndpointRestorer,
 	}
+	guard.driver = driver
 
 	params.Lifecycle.Append(driver)
 

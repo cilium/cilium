@@ -26,6 +26,8 @@ import (
 	operatoripam "github.com/cilium/cilium/operator/pkg/networkdriver/ipam"
 	"github.com/cilium/cilium/pkg/datapath/connector/fake"
 	"github.com/cilium/cilium/pkg/datapath/xdp"
+	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/hive"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -43,6 +45,7 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/promise"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -689,6 +692,9 @@ func TestClaimConfigModifier(t *testing.T) {
 			registerNetworkDriver,
 			newDeviceTable,
 			newAllocationTable,
+			promise.New[endpointstate.Restorer],
+			func() endpointmanager.EndpointsLookup { return nil },
+			func() *ipam.IPAM { return &ipam.IPAM{} },
 			fake.NewVeth,
 			func() xdp.Config { return xdp.Config{} },
 			func() *option.DaemonConfig { return &option.DaemonConfig{} },

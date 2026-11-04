@@ -39,11 +39,11 @@ func stubRXQueueFlowOps(t *testing.T) *recordedRXQueueFlows {
 	recorded := &recordedRXQueueFlows{}
 	originalSync := rxQueueSyncFlows
 	t.Cleanup(func() { rxQueueSyncFlows = originalSync })
-	rxQueueSyncFlows = func(nic *rxqueue.RXQueueDevice, shareID kube_types.UID, queueID uint32, flows []types.RXQueueFlow) error {
+	rxQueueSyncFlows = func(nic *rxqueue.RXQueueDevice, shareID kube_types.UID, queueID uint32, generation uint64, flows []types.RXQueueFlow) error {
 		recorded.mu.Lock()
 		defer recorded.mu.Unlock()
 		recorded.synced = append(recorded.synced, RXQueueFlows{
-			ShareID: shareID, PhysicalIfName: nic.PhysicalIfName, QueueID: queueID, Flows: flows,
+			ShareID: shareID, PhysicalIfName: nic.PhysicalIfName, QueueID: queueID, BindingGeneration: generation, Flows: flows,
 		})
 		return nil
 	}
@@ -65,7 +65,7 @@ func TestRXQueueFlowOpsUpdate(t *testing.T) {
 	devices, err := newDeviceTable(db)
 	require.NoError(t, err)
 	ops := rxQueueFlowOps{devices: devices}
-	row := &RXQueueFlows{ShareID: "share", PhysicalIfName: "ens1", QueueID: 7, Flows: []types.RXQueueFlow{testRXQueueFlow}}
+	row := &RXQueueFlows{ShareID: "share", PhysicalIfName: "ens1", QueueID: 7, BindingGeneration: 42, Flows: []types.RXQueueFlow{testRXQueueFlow}}
 
 	require.ErrorContains(t, ops.Update(t.Context(), db.ReadTxn(), 1, row), "not available")
 

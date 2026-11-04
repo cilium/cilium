@@ -323,7 +323,7 @@ func testDeviceWithCount(total, count int) *RXQueueDevice {
 		MTU:              9000,
 		TotalRXQueues:    total,
 		ReservedQueueIDs: reservedRXQueueIDs(total, count),
-		reservations:     &queueReservations{owners: make(map[uint32]kube_types.UID)},
+		reservations:     &queueReservations{queues: make(map[uint32]*queueReservation)},
 	}
 }
 
@@ -733,6 +733,8 @@ func TestRXQueueReservations(t *testing.T) {
 	require.EqualValues(t, 7, firstDev.PhysicalQueueID)
 	require.Equal(t, types.DefaultRXQueuePodIfName, firstDev.PodIfName)
 	require.EqualValues(t, firstLeasedRXQueueID, firstDev.VirtualQueueID)
+	require.Equal(t, first.ShareID, advertised.reservations.queues[7].shareID)
+	require.Nil(t, advertised.reservations.queues[7].binding, "a reservation does not require a CNI binding")
 
 	repeated, err := advertised.Setup(first)
 	require.NoError(t, err)
@@ -772,7 +774,7 @@ func TestRXQueueFreeRejectsActiveLease(t *testing.T) {
 	fake.leases[dev.PhysicalQueueID] = &netlink.NetDevQueueLease{IfIndex: 99}
 
 	require.ErrorIs(t, dev.Free(allocation), errActiveLease)
-	require.Equal(t, testShareID, dev.reservations.owners[dev.PhysicalQueueID])
+	require.Equal(t, testShareID, dev.reservations.queues[dev.PhysicalQueueID].shareID)
 }
 
 func TestRecoverRXQueueReservation(t *testing.T) {
