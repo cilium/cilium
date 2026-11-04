@@ -770,7 +770,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 		}
 	}
 
-pass_to_stack: __maybe_unused
+pass_to_stack:
 	/* See IPv4 path for comments. */
 	if (!CONFIG(enable_bpf_routing) && from_l7lb &&
 	    ctx_get_ifindex(ctx) != CONFIG(cilium_host_ifindex))
@@ -804,7 +804,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	bool __maybe_unused skip_tunnel = false;
+	bool skip_tunnel = false;
 	bool hairpin_flow = false;
 	enum ct_status ct_status;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1089,7 +1089,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 			    struct trace_ctx *trace,
 			    __s8 *ext_err)
 {
-	struct remote_endpoint_info __maybe_unused fake_info = {0};
+	struct remote_endpoint_info fake_info = {0};
 	int ret;
 
 	if (CONFIG(srv6_cfg).enable) {
@@ -1298,7 +1298,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		}
 	}
 
-pass_to_stack: __maybe_unused
+pass_to_stack:
 	/* With per-endpoint routes, the `cil_lxc_policy_egress` will be
 	 * tail called from cil_to_container for packets sent by a L7 LB.
 	 * In case of a local backend, we execute this code already from the
@@ -1337,7 +1337,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		.reason = TRACE_REASON_UNKNOWN,
 		.monitor = 0,
 	};
-	bool __maybe_unused skip_tunnel = false;
+	bool skip_tunnel = false;
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	struct ct_buffer4 *ct_buffer;
@@ -1574,7 +1574,7 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_EGRESS, tail_ipv4_ct_egress, CT_EGRESS,
 		CILIUM_CALL_IPV4_FROM_LXC_CONT, tail_handle_ipv4_cont)
 
 static __always_inline int __tail_handle_ipv4(struct __ctx_buff *ctx,
-					      __s8 *ext_err __maybe_unused)
+					      __s8 *ext_err)
 {
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -1762,7 +1762,7 @@ ipv6_policy(struct __ctx_buff *ctx, struct ipv6hdr *ip6, __u32 src_label,
 	union v6addr orig_sip __align_stack_8;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
-	__maybe_unused union v6addr loopback_addr;
+	union v6addr loopback_addr;
 	__u32 cookie = 0;
 
 	ipv6_addr_copy(&orig_sip, (union v6addr *)&ip6->saddr);
@@ -2408,7 +2408,7 @@ out:
  * a L7 LB.
  */
 __section_entry
-int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
+int cil_lxc_policy_egress(struct __ctx_buff *ctx)
 {
 	if (!CONFIG(enable_l7_lb))
 		return CTX_ACT_OK;
