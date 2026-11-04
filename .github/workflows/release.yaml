@@ -358,7 +358,7 @@ jobs:
             if ! wait_for_chart_checks "$HEAD_SHA"; then
               echo "❌ PR #$PR_NUMBER has failed the Cilium chart checks on attempt $MERGE_ATTEMPTS"
               if [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; then
-                echo "⚠️ Retrying..."
+                repush_chart
                 continue
               else
                 exit 1
