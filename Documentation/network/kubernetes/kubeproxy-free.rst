@@ -1025,6 +1025,13 @@ packet, translating the destination port as usual. The reply leaves the backend
 node directly towards the client with the load balancer's VIP as source, which
 is the DSR behaviour the external load balancer expects.
 
+With frontend classification, Cilium also checks that the outer destination is
+a LoadBalancer or ``externalIP`` frontend for the inner destination port before
+decapsulating a packet to a non-endpoint address. This leaves unrelated transit
+IPIP traffic on its existing path. The classification requires inner L4
+information, so inner non-first fragments and packets with IPv6 extension
+headers are not classified.
+
 To set this up, expose the same backends through two services:
 
 - one carrying the external load balancer's VIP as an ``externalIPs`` entry, so
