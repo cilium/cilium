@@ -680,6 +680,100 @@ func (m *manager) removeRules(prefix string) error {
 	return nil
 }
 
+// awsVPCCNIChainMarkers identify the chains installed by the AWS VPC CNI plugin.
+var awsVPCCNIChainMarkers = []string{"AWS-SNAT-CHAIN", "AWS-CONNMARK-CHAIN"}
+
+func referencesAWSVPCCNIChain(s string) bool {
+	for _, marker := range awsVPCCNIChainMarkers {
+		if strings.Contains(s, marker) {
+			return true
+		}
+	}
+	return false
+}
+
+// removeAWSVPCCNIRules removes the IPv4 iptables rules and chains installed
+// by the AWS VPC CNI plugin.
+func (m *manager) removeAWSVPCCNIRules() error {
+	var errs []error
+	for _, table := range []string{"nat", "mangle", "raw", "filter"} {
+		errs = append(errs, m.removeAWSVPCCNIRulesFromTable(table))
+	}
+	return errors.Join(errs...)
+}
+
+func (m *manager) removeAWSVPCCNIRulesFromTable(table string) error {
+	rules, err := m.ip4tables.runProgOutput([]string{"-t", table, "-S"})
+	if err != nil {
+		return fmt.Errorf("unable to list rules of table %s: %w", table, err)
+	}
+
+	var (
+		chains  []string
+		removed int
+		errs    []error
+	)
+	scanner := bufio.NewScanner(strings.NewReader(rules))
+	for scanner.Scan() {
+		rule := scanner.Text()
+		if !referencesAWSVPCCNIChain(rule) {
+			continue
+		}
+
+		fields := strings.Fields(rule)
+		if len(fields) < 2 {
+			continue
+		}
+
+		switch fields[0] {
+		case "-N":
+			chains = append(chains, fields[1])
+		case "-A":
+			// Rules inside an AWS chain go away when the chain is flushed.
+			if referencesAWSVPCCNIChain(fields[1]) {
+				continue
+			}
+
+			reversedRule, err := reverseRule(rule)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to parse rule %q: %w", rule, err))
+				continue
+			}
+			if err := m.ip4tables.runProg(append([]string{"-t", table}, reversedRule...)); err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			removed++
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		errs = append(errs, err)
+	}
+
+	// AWS chains may jump to each other: flush all of them before deleting
+	// any, as a chain can't be deleted while it is still referenced.
+	for _, chain := range chains {
+		if err := m.ip4tables.runProg([]string{"-t", table, "-F", chain}); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	for _, chain := range chains {
+		if err := m.ip4tables.runProg([]string{"-t", table, "-X", chain}); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if removed > 0 || len(chains) > 0 {
+		m.logger.Info("Removed iptables rules installed by the AWS VPC CNI plugin",
+			logfields.Table, table,
+			logfields.Chain, chains,
+			logfields.Count, removed,
+		)
+	}
+
+	return errors.Join(errs...)
+}
+
 // renameChains renames iptables chains installed by Cilium.
 func (m *manager) renameChains(prefix string) error {
 	for _, c := range ciliumChains {
@@ -1779,6 +1873,15 @@ func (m *manager) installHostTrafficMarkRule(prog runnable) error {
 func (m *manager) doInstallRules(state desiredState, firstInit bool) error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
+
+	// Runs before Cilium installs its own rules, and regardless of whether it does.
+	if firstInit && m.cfg.IPTablesRemoveAWSRules {
+		if err := m.removeAWSVPCCNIRules(); err != nil {
+			m.logger.Warn("Failed to remove iptables rules installed by the AWS VPC CNI plugin",
+				logfields.Error, err,
+			)
+		}
+	}
 
 	// Make sure we have no old "backups"
 	if err := m.removeRules(oldCiliumPrefix); err != nil {

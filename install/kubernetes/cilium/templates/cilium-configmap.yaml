@@ -813,6 +813,10 @@ data:
   iptables-random-fully: {{ .Values.iptablesRandomFully | quote }}
 {{- end }}
 
+{{- if and .Values.cni.install .Values.cni.iptablesRemoveAWSRules (ne .Values.cni.chainingMode "aws-cni") }}
+  iptables-remove-aws-rules: "true"
+{{- end }}
+
 {{- if hasKey .Values "iptablesLockTimeout" }}
   iptables-lock-timeout: {{ .Values.iptablesLockTimeout | quote }}
 {{- end }}
