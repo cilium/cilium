@@ -70,7 +70,6 @@ is_internal_node_ip(__be32 ip4)
 	return node_value->internalip;
 }
 
-# ifdef ENABLE_IPV6
 static __always_inline const struct node_value *
 lookup_ip6_node(const union v6addr *ip6)
 {
@@ -105,14 +104,11 @@ is_internal_node_ip6(const union v6addr *ip6)
 		return false;
 	return node_value->internalip;
 }
-# endif /* ENABLE_IPV6 */
 
 static __always_inline const struct node_value *
 lookup_node(const struct remote_endpoint_info *info)
 {
-# ifdef ENABLE_IPV6
-	if (info->flag_ipv6_tunnel_ep)
+	if (is_defined(ENABLE_IPV6) && info->flag_ipv6_tunnel_ep)
 		return lookup_ip6_node(&info->tunnel_endpoint.ip6);
-# endif /* ENABLE_IPV6 */
 	return lookup_ip4_node(info->tunnel_endpoint.ip4.be32);
 }
