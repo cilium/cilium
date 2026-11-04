@@ -291,6 +291,13 @@ jobs:
             exit 1
           fi
 
+          wait_for_chart_checks() {
+            # Wait for checks to complete
+            echo "⏳ Waiting for PR checks to complete..."
+            sleep 30  # Initial wait to allow checks to start
+            gh pr checks $PR_NUMBER --repo cilium/charts --fail-fast --required --watch
+          }
+
           repush_chart() {
             echo "🔄 Re-running release tool to update PR..."
 
@@ -325,10 +332,7 @@ jobs:
             MERGE_ATTEMPTS=$((MERGE_ATTEMPTS + 1))
             echo "🔄 Attempt $MERGE_ATTEMPTS of $MAX_MERGE_ATTEMPTS"
 
-            # Wait for checks to complete
-            echo "⏳ Waiting for PR checks to complete..."
-            sleep 30  # Initial wait to allow checks to start
-            if ! gh pr checks $PR_NUMBER --repo cilium/charts --fail-fast --required --watch; then
+            if ! wait_for_chart_checks; then
               echo "❌ PR #$PR_NUMBER has failed checks on attempt $MERGE_ATTEMPTS"
               echo "📋 Failed workflow details:"
               gh pr checks $PR_NUMBER --repo cilium/charts --json name,state,link | jq -r '.[] | select(.state == "FAILURE") | "  - \(.name): \(.state) (\(.link // "No URL"))"'
