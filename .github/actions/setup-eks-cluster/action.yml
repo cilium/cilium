@@ -31,6 +31,13 @@ runs:
         source: https://checkip.amazonaws.com
         parsing: text
 
+    - name: Look up the runner's GitHub Actions range
+      id: authorized-networks
+      uses: ./.github/actions/runner-actions-range
+      with:
+        ip: ${{ steps.get-runner-ip.outputs.ip }}
+        cidr: ${{ steps.get-runner-ip.outputs.cidr }}
+
     - name: Create EKS cluster with ${{ inputs.addons }}
       shell: bash
       run: |
@@ -50,7 +57,7 @@ runs:
           clusterEndpoints:
             publicAccess: true
             privateAccess: true
-          publicAccessCIDRs: [ "${{ steps.get-runner-ip.outputs.cidr }}" ]
+          publicAccessCIDRs: [ ${{ steps.authorized-networks.outputs.cidrs }} ]
 
         addonsConfig:
           disableDefaultAddons: true
