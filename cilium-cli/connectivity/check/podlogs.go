@@ -19,6 +19,7 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 
+	"github.com/cilium/cilium/cilium-cli/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -47,7 +48,8 @@ type logFollower struct {
 }
 
 // FollowCiliumLogs keeps the Cilium pod log lines for which keep returns true
-// until ctx ends. It does nothing when the user filtered out the scenario.
+// until ctx ends. It does nothing when the user filtered out the scenario, and
+// skips the clusters whose agents do not log at debug level.
 func (ct *ConnectivityTest) FollowCiliumLogs(ctx context.Context, scenario string, keep func(line string) bool) {
 	if !ct.params.testEnabled(scenario) {
 		return
@@ -55,6 +57,12 @@ func (ct *ConnectivityTest) FollowCiliumLogs(ctx context.Context, scenario strin
 
 	f := &logFollower{keep: keep, logs: make(map[string]*followedLog)}
 	for _, client := range ct.Clients() {
+		// Without debug logging, an agent takes hours to fill a kubelet log file.
+		cm, err := client.GetConfigMap(ctx, ct.params.CiliumNamespace, defaults.ConfigMapName, metav1.GetOptions{})
+		if err != nil || cm.Data["debug"] != "true" {
+			continue
+		}
+
 		// A clientset of its own keeps the log streams off the rate limiter of the tests.
 		clientset, err := kubernetes.NewForConfig(rest.CopyConfig(client.Config))
 		if err != nil {
