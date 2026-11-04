@@ -8,9 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
-
-	"github.com/cilium/cilium/pkg/logging"
 )
 
 // setTestLogger assigns a working logger to the package logger, which is
@@ -18,7 +17,7 @@ import (
 func setTestLogger(t *testing.T) {
 	t.Helper()
 	old := log
-	log = logging.DefaultSlogLogger
+	log = hivetest.Logger(t)
 	t.Cleanup(func() { log = old })
 }
 

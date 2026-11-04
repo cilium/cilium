@@ -100,7 +100,8 @@ func runInstallCNIBinaries(cmd *cobra.Command) error {
 	if overwriteLoopback || !fileExists(filepath.Join(cniDir, "loopback")) {
 		if err := installPlugin(loopbackBinaryPath, filepath.Join(cniDir, "loopback")); err != nil {
 			log.Warn("Failed to install loopback CNI plugin, continuing without it",
-				logfields.Path, loopbackBinaryPath, logfields.Error, err)
+				logfields.Path, loopbackBinaryPath,
+				logfields.Error, err)
 		}
 	}
 

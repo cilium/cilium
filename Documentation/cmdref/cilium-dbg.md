@@ -33,6 +33,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium-dbg envoy](cilium-dbg_envoy.md)	 - Manage Envoy Proxy
 * [cilium-dbg fqdn](cilium-dbg_fqdn.md)	 - Manage fqdn proxy
 * [cilium-dbg identity](cilium-dbg_identity.md)	 - Manage security identities
+* [cilium-dbg install-cni-binaries](cilium-dbg_install-cni-binaries.md)	 - Install the CNI plugin binaries into the CNI bin directory on the host
 * [cilium-dbg ip](cilium-dbg_ip.md)	 - Manage IP addresses and associated information
 * [cilium-dbg kvstore](cilium-dbg_kvstore.md)	 - Direct access to the kvstore
 * [cilium-dbg loadinfo](cilium-dbg_loadinfo.md)	 - Show load information
