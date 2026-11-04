@@ -68,6 +68,26 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			assert: assert.NoError,
 		},
 		{
+			name: "invalid service name syntax",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "bar", Name: "not.valid",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP, SessionAffinity: corev1.ServiceAffinityNone,
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			},
+			assert: assert.Error,
+		},
+		{
+			name: "invalid namespace syntax",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "not.valid", Name: "qux",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP, SessionAffinity: corev1.ServiceAffinityNone,
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+			},
+			assert: assert.Error,
+		},
+		{
 			name: "empty IP families",
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar", Name: "qux",
