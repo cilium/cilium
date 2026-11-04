@@ -291,11 +291,33 @@ jobs:
             exit 1
           fi
 
+          # Only the Cilium chart workflow validates the chart that this job releases.
           wait_for_chart_checks() {
-            # Wait for checks to complete
-            echo "⏳ Waiting for PR checks to complete..."
-            sleep 30  # Initial wait to allow checks to start
-            gh pr checks $PR_NUMBER --repo cilium/charts --fail-fast --required --watch
+            local head_sha=$1 run_id="" wait_time=0
+            echo "⏳ Waiting for the Cilium chart checks of $head_sha..."
+            while [ $wait_time -lt $MAX_WAIT ]; do
+              run_id=$(gh api -X GET repos/cilium/charts/actions/workflows/validate-cilium-chart.yaml/runs \
+                -f head_sha="$head_sha" -f event=pull_request -f branch="$BRANCH" \
+                --jq '[.workflow_runs[] | select(.head_repository.full_name == "cilium/charts")][0].id // empty')
+              if [ -n "$run_id" ]; then
+                break
+              fi
+              sleep 10
+              wait_time=$((wait_time + 10))
+            done
+            if [ -z "$run_id" ]; then
+              echo "❌ No Cilium chart checks found for $head_sha after waiting $MAX_WAIT seconds"
+              return 1
+            fi
+            until gh run watch "$run_id" --repo cilium/charts --exit-status --compact --interval 10; do
+              case "$(gh run view "$run_id" --repo cilium/charts --json status,conclusion --jq '.status + "/" + .conclusion')" in
+                completed/success) return 0 ;;
+                completed/*)
+                  echo "❌ Cilium chart checks failed: https://github.com/cilium/charts/actions/runs/$run_id"
+                  return 1 ;;
+              esac
+              sleep 10
+            done
           }
 
           repush_chart() {
@@ -332,10 +354,9 @@ jobs:
             MERGE_ATTEMPTS=$((MERGE_ATTEMPTS + 1))
             echo "🔄 Attempt $MERGE_ATTEMPTS of $MAX_MERGE_ATTEMPTS"
 
-            if ! wait_for_chart_checks; then
-              echo "❌ PR #$PR_NUMBER has failed checks on attempt $MERGE_ATTEMPTS"
-              echo "📋 Failed workflow details:"
-              gh pr checks $PR_NUMBER --repo cilium/charts --json name,state,link | jq -r '.[] | select(.state == "FAILURE") | "  - \(.name): \(.state) (\(.link // "No URL"))"'
+            HEAD_SHA=$(git -C ../charts rev-parse HEAD)
+            if ! wait_for_chart_checks "$HEAD_SHA"; then
+              echo "❌ PR #$PR_NUMBER has failed the Cilium chart checks on attempt $MERGE_ATTEMPTS"
               if [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; then
                 echo "⚠️ Retrying..."
                 continue
@@ -344,11 +365,11 @@ jobs:
               fi
             fi
 
-            echo "✅ All required checks passed for PR #$PR_NUMBER"
+            echo "✅ Cilium chart checks passed for PR #$PR_NUMBER"
 
             # Attempt to merge
             echo "Merging PR #$PR_NUMBER..."
-            if gh pr merge $PR_NUMBER --repo cilium/charts --rebase --delete-branch; then
+            if gh pr merge $PR_NUMBER --repo cilium/charts --rebase --delete-branch --match-head-commit "$HEAD_SHA"; then
               echo "✅ Successfully merged PR #$PR_NUMBER"
               MERGE_SUCCESS=true
               break
