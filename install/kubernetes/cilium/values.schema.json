@@ -1288,6 +1288,12 @@
             "string"
           ]
         },
+        "checkHostPortConflict": {
+          "type": [
+            "null",
+            "boolean"
+          ]
+        },
         "confFileMountPath": {
           "type": "string"
         },
