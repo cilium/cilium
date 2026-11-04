@@ -343,6 +343,11 @@ func (ipam *IPAM) releaseIPLocked(ip netip.Addr, pool Pool) error {
 	if !ip.IsValid() {
 		return fmt.Errorf("invalid IP address: %v", ip)
 	}
+	if ipam.addressReleaseHook != nil {
+		if err := ipam.addressReleaseHook.BeforeRelease(ip, pool); err != nil {
+			return fmt.Errorf("unable to release IP %s: %w", ip, err)
+		}
+	}
 
 	family := IPv4
 	if ip.Is4() {

@@ -126,6 +126,11 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 // As a precondition, the NodeAddressing must be fully initialized - therefore the method
 // must be called after Daemon.WaitForNodeInformation.
 func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
+	if ipam.addressReleaseHook != nil {
+		if err := ipam.addressReleaseHook.Initialize(ctx); err != nil {
+			return fmt.Errorf("unable to initialize address release hook: %w", err)
+		}
+	}
 	// Cloud-provider backed modes are dispatched by the provider registered for
 	// the configured mode, ahead of the switch below: which modes those are is a
 	// property of the registered providers, not of this package.
