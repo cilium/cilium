@@ -54,6 +54,7 @@ func setBasePermutations(t *config.Node) {
 	t.DSRCfg = types.DSRConfig{
 		Enable:           true,
 		EnableICMPErrors: true,
+		EnablePMTURelay:  true,
 		EnableByUser:     true,
 	}
 	t.EnableIPSec = true
