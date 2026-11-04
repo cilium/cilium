@@ -2,7 +2,7 @@
 /* Copyright Authors of Cilium */
 
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6
+#define ENABLE_IPV6 1
 #define TUNNEL_MODE 1
 #define ENCAP_IFINDEX   1
 
