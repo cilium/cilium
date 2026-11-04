@@ -1058,17 +1058,22 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		}
 
 		/* IPv6-in-IPv6 IPIP termination, mirror of the v4 path
-		 * below; see that comment for the full rationale. Fires for
-		 * any local endpoint (pod or hostNetwork) outer dst, when the
-		 * outer's next header is IPV6 directly with no extension
-		 * headers (the DSR-IPIP encap path never inserts them).
+		 * below; see that comment for the full rationale. The outer's
+		 * next header must be IPV6 directly with no extension headers
+		 * (the DSR-IPIP encap path never inserts them).
 		 */
 		if (CONFIG(enable_ipip_termination) && !from_host &&
 		    ip6->nexthdr == NEXTHDR_IPV6) {
 			const struct endpoint_info *ep_outer;
+			bool to_frontend = false;
 
 			ep_outer = lookup_ip6_endpoint(ip6);
-			if (ep_outer) {
+			/* See the IPv4 sibling block below. */
+			if (!ep_outer && CONFIG(ipip_use_outer_dst))
+				to_frontend = lb6_ipip_dst_is_frontend(ctx, ip6,
+								       data_end);
+			if ((ep_outer && CONFIG(ipip_use_outer_dst)) || to_frontend ||
+			    !CONFIG(ipip_use_outer_dst)) {
 				union v6addr outer_dst;
 
 				ipv6_addr_copy(&outer_dst,
@@ -1084,8 +1089,10 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 					ret = DROP_INVALID;
 					goto drop_err_ingress;
 				}
-				ctx_store_meta_ipv6(ctx, CB_FORCED_BACKEND_V6_1,
-						    &outer_dst);
+				if (ep_outer && CONFIG(ipip_use_outer_dst))
+					ctx_store_meta_ipv6(ctx,
+							    CB_FORCED_BACKEND_V6_1,
+							    &outer_dst);
 				/* See the IPv4 sibling block below for why we
 				 * have to clear the skip-nodeport flag here.
 				 */
@@ -1132,20 +1139,15 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 			goto drop_err_ingress;
 		}
 
-		/* Terminate inbound IPIP in BPF on netdev ingress for any
-		 * outer dst that resolves to a local endpoint:
+		/* Terminate inbound IPIP in BPF on netdev ingress when the
+		 * outer dst is a local endpoint or a matching service frontend.
+		 * With ipip_use_outer_dst disabled, terminate all such packets
+		 * and select a backend from the inner tuple instead. This supports
+		 * external LBs delivering to node IPs, which cannot be distinguished
+		 * automatically from hostNetwork backends selected by Cilium DSR.
 		 *
-		 *  - Pod outer dst: the kernel would otherwise route the still-
-		 *    encapped packet via the lxc into the Pod netns where it
-		 *    gets dropped (no IPIP handler in the container).
-		 *  - Host outer dst (hostNetwork backend, or --enable-ipip-
-		 *    termination Envoy target): the kernel would otherwise
-		 *    decap on cilium_ipip4 via the collect_md fallback. Doing
-		 *    it here keeps the input ifindex on the physical netdev
-		 *    and lets us drop the bpf_host attach to cilium_ipip{4,6}.
-		 *
-		 * Stash the LB-picked backend (the just-stripped outer dst)
-		 * so nodeport_lb4() honors it instead of re-running selection.
+		 * By default, stash a local outer dst as the LB-picked backend so
+		 * nodeport_lb4() honors it instead of re-running selection.
 		 * For L7-punt-proxy svcs the lb4_svc_is_l7_punt_proxy &&
 		 * backend_local gate downstream punts to host stack before
 		 * any DNAT, so Envoy interception still works.
@@ -1154,9 +1156,23 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 		    ip4->protocol == IPPROTO_IPIP &&
 		    ipv4_hdrlen(ip4) == sizeof(*ip4)) {
 			const struct endpoint_info *ep_outer;
+			bool to_frontend = false;
 
 			ep_outer = lookup_ip4_endpoint(ip4);
-			if (ep_outer) {
+			/* Not a local endpoint, but possibly a service frontend
+			 * that an external L4LB (Katran, IPVS, ...) delivered
+			 * to. Its outer dst says where to deliver, not which
+			 * backend serves, so strip without forcing a backend
+			 * and let nodeport select on the inner tuple. See
+			 * lb4_ipip_dst_is_frontend(). Disabling outer-dst
+			 * handling also selects on the inner tuple for local
+			 * endpoints, which cannot be classified automatically.
+			 */
+			if (!ep_outer && CONFIG(ipip_use_outer_dst))
+				to_frontend = lb4_ipip_dst_is_frontend(ctx, ip4,
+								       data_end);
+			if ((ep_outer && CONFIG(ipip_use_outer_dst)) || to_frontend ||
+			    !CONFIG(ipip_use_outer_dst)) {
 				__be32 outer_dst = ip4->daddr;
 
 				if (ctx_adjust_hroom(ctx, -(int)sizeof(*ip4),
@@ -1169,7 +1185,9 @@ do_netdev(struct __ctx_buff *ctx, __be16 proto, __u32 identity,
 					ret = DROP_INVALID;
 					goto drop_err_ingress;
 				}
-				ctx_store_meta(ctx, CB_FORCED_BACKEND_V4, outer_dst);
+				if (ep_outer && CONFIG(ipip_use_outer_dst))
+					ctx_store_meta(ctx, CB_FORCED_BACKEND_V4,
+						       outer_dst);
 				/* If NodePort XDP acceleration ran upstream, it
 				 * couldn't classify the IPIP packet (no L4 to
 				 * extract a service tuple from) and signalled

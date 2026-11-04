@@ -207,6 +207,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	cfg.EnableIPv6Fragments = option.Config.EnableIPv6FragmentsTracking
 
 	cfg.HybridRoutingEnabled = option.Config.RoutingMode == option.RoutingModeHybrid
+	cfg.IPIPUseOuterDst = option.Config.LoadBalancerIPIPUseOuterDst
 
 	switch link.(type) {
 	case *netlink.Bridge:
