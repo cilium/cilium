@@ -49,6 +49,10 @@ func Run(ctx context.Context, connTests []*check.ConnectivityTest, extra Hooks) 
 		return err
 	}
 
+	followCtx, stopFollowing := context.WithCancel(ctx)
+	defer stopFollowing()
+	builder.FollowLogs(followCtx, connTests[0])
+
 	connTests[0].Infof("Cilium version: %v", connTests[0].CiliumVersion)
 
 	suiteBuilders, err := builder.GetTestSuites(connTests[0].Params())
