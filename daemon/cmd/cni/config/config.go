@@ -19,24 +19,26 @@ var (
 	)
 
 	defaultConfig = config{
-		WriteCNIConfWhenReady: "",
-		ReadCNIConf:           "",
-		CNIChainingMode:       "none",
-		CNILogFile:            "/var/run/cilium/cilium-cni.log",
-		CNIExclusive:          false,
-		CNIChainingTarget:     "",
-		CNIExternalRouting:    false,
+		WriteCNIConfWhenReady:    "",
+		ReadCNIConf:              "",
+		CNIChainingMode:          "none",
+		CNILogFile:               "/var/run/cilium/cilium-cni.log",
+		CNIExclusive:             false,
+		CNIChainingTarget:        "",
+		CNIExternalRouting:       false,
+		CNICheckHostPortConflict: true,
 	}
 )
 
 type Config struct {
-	WriteCNIConfWhenReady string
-	ReadCNIConf           string
-	CNIChainingMode       string
-	CNILogFile            string
-	CNIExclusive          bool
-	CNIChainingTarget     string
-	CNIExternalRouting    bool
+	WriteCNIConfWhenReady    string
+	ReadCNIConf              string
+	CNIChainingMode          string
+	CNILogFile               string
+	CNIExclusive             bool
+	CNIChainingTarget        string
+	CNIExternalRouting       bool
+	CNICheckHostPortConflict bool
 }
 
 type config Config
@@ -49,6 +51,7 @@ func (def config) Flags(flags *pflag.FlagSet) {
 	flags.String(option.CNIChainingTarget, def.CNIChainingTarget, "CNI network name into which to insert the Cilium chained configuration. Use '*' to select any network.")
 	flags.Bool(option.CNIExclusive, def.CNIExclusive, "Whether to remove other CNI configurations")
 	flags.Bool(option.CNIExternalRouting, def.CNIExternalRouting, "Whether the chained CNI plugin handles routing on the node")
+	flags.Bool(option.CNICheckHostPortConflict, def.CNICheckHostPortConflict, "Whether CNI ADD checks if requested host ports are already in use")
 }
 
 func (cfg config) Out() Config {

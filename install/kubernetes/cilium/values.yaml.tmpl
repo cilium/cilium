@@ -776,6 +776,12 @@ cleanState: false
 # https://github.com/cilium/cilium/pull/20123
 waitForKubeProxy: false
 cni:
+  # @schema
+  # type: [null, boolean]
+  # @schema
+  # -- Check whether host ports requested by Pods are already in use by a host process.
+  # @default -- `true`
+  checkHostPortConflict: true
   # -- Install the CNI configuration and binary files into the filesystem.
   install: true
   # -- Remove the CNI configuration and binary files on agent shutdown. Enable this

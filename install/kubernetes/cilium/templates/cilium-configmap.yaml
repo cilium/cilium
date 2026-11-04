@@ -1017,6 +1017,7 @@ data:
   write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
   cni-exclusive: {{ .Values.cni.exclusive | quote }}
   cni-log-file: {{ .Values.cni.logFile | quote }}
+  cni-check-host-port-conflict: {{ .Values.cni.checkHostPortConflict | quote }}
 {{- end }}
 {{- if .Values.cni.uninstall }}
   cni-uninstall: {{ .Values.cni.uninstall | quote }}

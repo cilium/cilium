@@ -912,6 +912,10 @@
      - A CNI network name in to which the Cilium plugin should be added as a chained plugin. This will cause the agent to watch for a CNI network with this network name. When it is found, this will be used as the basis for Cilium's CNI configuration file. If this is set, it assumes a chaining mode of generic-veth. As a special case, a chaining mode of aws-cni implies a chainingTarget of aws-cni.
      - string
      - ``nil``
+   * - :spelling:ignore:`cni.checkHostPortConflict`
+     - Check whether host ports requested by Pods are already in use by a host process.
+     - bool
+     - ``true``
    * - :spelling:ignore:`cni.confFileMountPath`
      - Configure the path to where to mount the ConfigMap inside the agent pod.
      - string

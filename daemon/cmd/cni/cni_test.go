@@ -93,6 +93,42 @@ func TestRenderCNIConfUnchained(t *testing.T) {
 	}
 }
 
+func TestRenderCNIConfHostPortConflictCheck(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		enabled  bool
+		kpr      bool
+		expected bool
+	}{
+		{"enabled with KPR", true, true, true},
+		{"disabled with KPR", false, true, false},
+		{"enabled without KPR", true, false, false},
+		{"disabled without KPR", false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := config.Config{
+				CNIChainingMode:          "none",
+				CNICheckHostPortConflict: tc.enabled,
+			}
+			c := newConfigManager(hivetest.Logger(t), cfg, false)
+			c.kubeProxyReplacement = tc.kpr
+			for mode := range cniConfigs {
+				c.config.CNIChainingMode = mode
+				conf, err := c.renderCNIConf()
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expected,
+					gjson.GetBytes(conf, `plugins.#(type=="cilium-cni").capabilities.portMappings`).Bool(), mode)
+				if mode == "portmap" || mode == "flannel" {
+					assert.True(t, gjson.GetBytes(conf,
+						`plugins.#(type=="portmap").capabilities.portMappings`).Bool(), mode)
+				}
+			}
+			assert.Equal(t, tc.expected,
+				gjson.GetBytes(c.renderCNITemplate(chainedCNIEntry), "capabilities.portMappings").Bool())
+		})
+	}
+}
+
 func TestRenderCNIConfChained(t *testing.T) {
 	cfg := config.Config{
 		CNILogFile:        `/opt"/cni.log`,
