@@ -115,9 +115,8 @@ can_observe_overlay_hdr(enum trace_point obs_point)
 static __always_inline bool
 ctx_is_overlay_hdr(const struct __ctx_buff *ctx, __be16 proto)
 {
-	void __maybe_unused *data;
-	void __maybe_unused *data_end;
-	struct ipv6hdr __maybe_unused *ip6;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	struct iphdr __maybe_unused *ip4;
 	__be16 dport;
 	__u8 l4_proto;
@@ -127,15 +126,16 @@ ctx_is_overlay_hdr(const struct __ctx_buff *ctx, __be16 proto)
 		return false;
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6))
+			return false;
+
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return false;
 
 		l4_proto = ip6->nexthdr;
 		l3_hdrlen = sizeof(struct ipv6hdr);
 		break;
-#endif
 	case bpf_htons(ETH_P_IP):
 		if (!is_defined(ENABLE_IPV4))
 			return false;
