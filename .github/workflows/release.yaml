@@ -123,7 +123,7 @@ jobs:
     environment:
       name: release-helm
       deployment: false
-    timeout-minutes: 40
+    timeout-minutes: 55
     runs-on: ubuntu-26.04
     steps:
       - name: Install Go
