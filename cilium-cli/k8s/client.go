@@ -1418,3 +1418,7 @@ func (c *Client) GetOpenshiftClusterVersion(ctx context.Context) (*OpenshiftClus
 
 	return &cv, nil
 }
+
+func (c *Client) GetServerPreferredResources() ([]*metav1.APIResourceList, error) {
+	return c.Clientset.Discovery().ServerPreferredResources()
+}

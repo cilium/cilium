@@ -43,7 +43,8 @@ import (
 
 type nopHooks struct{}
 
-func (h *nopHooks) AddSysdumpFlags(*pflag.FlagSet)   {}
+func (h *nopHooks) AddSysdumpFlags(*pflag.FlagSet) {}
+
 func (h *nopHooks) AddSysdumpTasks(*Collector) error { return nil }
 
 func TestSysdumpCollector(t *testing.T) {
@@ -157,6 +158,7 @@ func TestNodeList(t *testing.T) {
 type extendingHooks struct{}
 
 func (h *extendingHooks) AddSysdumpFlags(*pflag.FlagSet) {}
+
 func (h *extendingHooks) AddSysdumpTasks(c *Collector) error {
 	c.AddTasks([]Task{
 		{
@@ -195,7 +197,6 @@ func TestAddTasks(t *testing.T) {
 	collector.AddTasks([]Task{{}, {}, {}})
 	assert.Len(t, collector.additionalTasks, 6)
 	assert.Equal(t, "extended", collector.additionalTasks[0].Description)
-
 }
 
 func TestExtractGopsPID(t *testing.T) {
@@ -235,7 +236,6 @@ func TestExtractGopsPID(t *testing.T) {
 	noOutput := ``
 	_, err = extractGopsPID(noOutput)
 	assert.Error(t, err)
-
 }
 
 func TestExtractGopsProfileData(t *testing.T) {
@@ -248,7 +248,6 @@ func TestExtractGopsProfileData(t *testing.T) {
 	gotFilepath, err := extractGopsProfileData(gopsOutput)
 	assert.NoError(t, err)
 	assert.Equal(t, wantFilepath, gotFilepath)
-
 }
 
 func TestKVStoreTask(t *testing.T) {
@@ -384,8 +383,10 @@ func TestFilterPods(t *testing.T) {
 	}
 
 	podList := &corev1.PodList{
-		Items: []corev1.Pod{crashingPod, crashingInitContainerPod, restartedInitContainerPod,
-			runningReadyPod, notRunningPod, notReadyPod},
+		Items: []corev1.Pod{
+			crashingPod, crashingInitContainerPod, restartedInitContainerPod,
+			runningReadyPod, notRunningPod, notReadyPod,
+		},
 	}
 	result := filterCrashedPods(podList, 0)
 	assert.Len(t, result, 2)
@@ -619,31 +620,34 @@ func (c *fakeClient) ListCiliumEndpointSlices(_ context.Context, _ metav1.ListOp
 			APIVersion: "v1",
 		},
 		ListMeta: metav1.ListMeta{},
-		Items: []ciliumv2alpha1.CiliumEndpointSlice{{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "CiliumEndpointSlice",
-				APIVersion: "v2alpha1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "testEndpointSlice1",
-			},
-			Endpoints: []ciliumv2alpha1.CoreCiliumEndpoint{{
-				Name:       "EndpointSlice1",
-				IdentityID: 1,
-				Networking: &ciliumv2.EndpointNetworking{
-					Addressing: ciliumv2.AddressPairList{{
-						IPV4: "10.0.0.1",
-					},
-						{
-							IPV4: "10.0.0.2",
+		Items: []ciliumv2alpha1.CiliumEndpointSlice{
+			{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "CiliumEndpointSlice",
+					APIVersion: "v2alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "testEndpointSlice1",
+				},
+				Endpoints: []ciliumv2alpha1.CoreCiliumEndpoint{
+					{
+						Name:       "EndpointSlice1",
+						IdentityID: 1,
+						Networking: &ciliumv2.EndpointNetworking{
+							Addressing: ciliumv2.AddressPairList{
+								{
+									IPV4: "10.0.0.1",
+								},
+								{
+									IPV4: "10.0.0.2",
+								},
+							},
 						},
+						Encryption: ciliumv2.EncryptionSpec{},
+						NamedPorts: models.NamedPorts{},
 					},
 				},
-				Encryption: ciliumv2.EncryptionSpec{},
-				NamedPorts: models.NamedPorts{},
 			},
-			},
-		},
 		},
 	}
 	return &ciliumEndpointSliceList, nil
@@ -762,7 +766,7 @@ func makeTarGz(t *testing.T, archivePath string, members map[string]string) {
 		if err := tw.WriteHeader(&tar.Header{
 			Typeflag: tar.TypeReg,
 			Name:     name,
-			Mode:     0600,
+			Mode:     0o600,
 			Size:     int64(len(body)),
 		}); err != nil {
 			t.Fatal(err)
@@ -864,4 +868,8 @@ func TestFormatNodeDiskUsageRow(t *testing.T) {
 	assert.Contains(t, row, "node-broken")
 	assert.Contains(t, row, "unparseable")
 	assert.Contains(t, row, "Unknown")
+}
+
+func (c *fakeClient) GetServerPreferredResources() ([]*metav1.APIResourceList, error) {
+	return nil, nil
 }
