@@ -31,13 +31,13 @@
 DECLARE_CONFIG(bool, disable_external_ip_mitigation,
 	       "Disable externalIP mitigation (CVE-2020-8554)")
 
-static __always_inline __maybe_unused bool is_v4_loopback(__be32 daddr)
+static __always_inline bool is_v4_loopback(__be32 daddr)
 {
 	/* Check for 127.0.0.0/8 range, RFC3330. */
 	return (daddr & bpf_htonl(0xff000000)) == bpf_htonl(0x7f000000);
 }
 
-static __always_inline __maybe_unused bool is_v6_loopback(const union v6addr *daddr)
+static __always_inline bool is_v6_loopback(const union v6addr *daddr)
 {
 	/* Check for ::1/128, RFC4291. */
 	union v6addr loopback = { .addr[15] = 1, };
@@ -49,7 +49,7 @@ static __always_inline __maybe_unused bool is_v6_loopback(const union v6addr *da
 #define ctx_protocol(__ctx) ((__u8)(volatile __u32)(__ctx)->protocol)
 
 /* Hack due to missing narrow ctx access. */
-static __always_inline __maybe_unused __be16
+static __always_inline __be16
 ctx_dst_port(const struct bpf_sock_addr *ctx)
 {
 	volatile __u32 dport = ctx->user_port;
@@ -65,13 +65,13 @@ ctx_src_port(const struct bpf_sock *ctx)
 	return (__be16)bpf_htons(sport);
 }
 
-static __always_inline __maybe_unused
+static __always_inline
 void ctx_set_port(struct bpf_sock_addr *ctx, __be16 dport)
 {
 	ctx->user_port = (__u32)dport;
 }
 
-static __always_inline __maybe_unused bool task_in_extended_hostns(void)
+static __always_inline bool task_in_extended_hostns(void)
 {
 	__u32 classid = CONFIG(mke_host);
 
@@ -81,8 +81,8 @@ static __always_inline __maybe_unused bool task_in_extended_hostns(void)
 	return get_cgroup_classid() == classid;
 }
 
-static __always_inline __maybe_unused bool
-ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
+static __always_inline bool
+ctx_in_hostns(void *ctx, __net_cookie *cookie)
 {
 	__net_cookie own_cookie = get_netns_cookie(ctx);
 	__net_cookie host_cookie = CONFIG(host_netns_cookie);
@@ -97,8 +97,8 @@ ctx_in_hostns(void *ctx __maybe_unused, __net_cookie *cookie)
 	       task_in_extended_hostns();
 }
 
-static __always_inline __maybe_unused
-bool sock_is_health_check(struct bpf_sock_addr *ctx __maybe_unused)
+static __always_inline
+bool sock_is_health_check(struct bpf_sock_addr *ctx)
 {
 	if (!CONFIG(enable_health_check))
 		return false;
@@ -111,8 +111,8 @@ bool sock_is_health_check(struct bpf_sock_addr *ctx __maybe_unused)
 	return false;
 }
 
-static __always_inline __maybe_unused
-void sock_reset_health_check_marker(struct bpf_sock_addr *ctx __maybe_unused)
+static __always_inline
+void sock_reset_health_check_marker(struct bpf_sock_addr *ctx)
 {
 	if (!CONFIG(enable_health_check))
 		return;
@@ -128,14 +128,14 @@ void sock_reset_health_check_marker(struct bpf_sock_addr *ctx __maybe_unused)
 	set_socket_opt(ctx, SOL_SOCKET, SO_MARK, &val, sizeof(val));
 }
 
-static __always_inline __maybe_unused
+static __always_inline
 __u64 sock_select_slot(struct bpf_sock_addr *ctx)
 {
 	return ctx_protocol(ctx) == IPPROTO_TCP ?
 	       get_prandom_u32() : sock_local_cookie(ctx);
 }
 
-static __always_inline __maybe_unused
+static __always_inline
 bool sock_proto_enabled(__u8 proto)
 {
 	switch (proto) {
@@ -787,7 +787,7 @@ sock6_skip_xlate(const struct lb6_service *svc, const union v6addr *address)
 	return false;
 }
 
-static __always_inline __maybe_unused const struct lb6_service *
+static __always_inline const struct lb6_service *
 sock6_wildcard_lookup(struct lb6_key *key)
 {
 	const struct remote_endpoint_info *info;
@@ -864,9 +864,9 @@ lookup:
 }
 
 static __always_inline
-int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
-			 const bool udp_only __maybe_unused,
-			 const bool is_connect __maybe_unused)
+int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx,
+			 const bool udp_only,
+			 const bool is_connect)
 {
 	struct bpf_sock_addr fake_ctx;
 	union v6addr addr6;
@@ -896,7 +896,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 }
 
 static __always_inline int
-sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
+sock6_post_bind_v4_in_v6(struct bpf_sock *ctx)
 {
 	struct bpf_sock fake_ctx;
 	union v6addr addr6;
@@ -963,7 +963,7 @@ int cil_sock6_post_bind(struct bpf_sock *ctx)
 }
 
 static __always_inline int
-sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
+sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx)
 {
 	struct bpf_sock_addr fake_ctx;
 	union v6addr addr6;
@@ -1185,7 +1185,7 @@ int cil_sock6_connect(struct bpf_sock_addr *ctx)
 }
 
 static __always_inline int
-sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
+sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx)
 {
 	struct bpf_sock_addr fake_ctx;
 	union v6addr addr6;
@@ -1290,7 +1290,7 @@ int cil_sock6_getpeername(struct bpf_sock_addr *ctx)
 }
 
 __section("cgroup/sock_release")
-int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
+int cil_sock_release(struct bpf_sock *ctx)
 {
 	if (is_defined(ENABLE_IPV4) && ctx->family == AF_INET) {
 		if (!sock4_delete_revnat(ctx, ctx))
