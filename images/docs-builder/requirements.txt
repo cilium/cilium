@@ -11,7 +11,7 @@ myst-parser==5.1.0
 sphinx-tabs==3.5.0
 sphinx-version-warning==1.1.2
 sphinxcontrib-googleanalytics==0.6
-sphinxcontrib-openapi==0.9.0
+sphinxcontrib-openapi==0.10.0
 sphinxcontrib-spelling==8.0.2
 sphinxcontrib-websupport==2.0.0
 sphinxext-rediraffe==0.3.0
@@ -22,7 +22,7 @@ yamllint==1.38.0
 alabaster==1.0.0
 annotated-doc==0.0.5
 annotated-types==0.8.0
-anyio==4.15.1
+anyio==4.16.0
 attrs==26.1.0
 babel==2.18.0
 certifi==2026.10.23
