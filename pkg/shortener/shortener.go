@@ -39,9 +39,13 @@ func ShortenHiveJobName(s string) string {
 // Shorten shortens the string to the arbitrary number of characters.
 func shorten(s string, length int) string {
 	if len(s) > length {
-		return s[:length-10-1] + "-" + encodeHash(hash(s))
+		return s[:length-10-1] + "-" + Hash(s)
 	}
 	return s
+}
+
+func Hash(s string) string {
+	return encodeHash(hash(s))
 }
 
 // encodeHash encodes the first 10 characters of the hex string.
