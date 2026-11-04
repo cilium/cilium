@@ -144,6 +144,8 @@ type IPAM struct {
 
 	// multiPoolMetrics is used only in multi-pool IPAM mode.
 	multiPoolMetrics MultiPoolMetrics
+
+	addressReleaseHook AddressReleaseHook
 }
 
 func (ipam *IPAM) EndpointCreated(ep *endpoint.Endpoint) {}
