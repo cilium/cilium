@@ -99,7 +99,6 @@ struct nodeport_nat_info {
 
 DEFINE_AUX(struct nodeport_nat_info, nodeport_nat_info);
 
-#ifdef ENABLE_IPV4
 /* lb4_ctx_restore_state() restores per packet load balancing state from the
  * previous tail call.
  * tuple->flags does not need to be restored, as it will be reinitialized from
@@ -269,7 +268,6 @@ skip_service_lookup:
 	lb4_ctx_store_state(ctx, &ct_state_new, proxy_port, cluster_id);
 	return tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_EGRESS, ext_err);
 }
-#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 /* lb6_ctx_restore_state() restores per packet load balancing state from the
@@ -428,7 +426,6 @@ skip_service_lookup:
 }
 #endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 static __always_inline void *
 select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
 	       struct ipv4_ct_tuple *tuple)
@@ -442,9 +439,7 @@ select_ct_map4(struct __ctx_buff *ctx __maybe_unused, int dir __maybe_unused,
 #endif
 	return get_cluster_ct_map4(tuple, cluster_id);
 }
-#endif
 
-#if defined ENABLE_IPV4 || defined ENABLE_IPV6
 static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 					      enum ct_dir dir, int reason,
 					      __s8 ext_err)
@@ -455,14 +450,16 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 	__u32 src_label = 0;
 	__u32 sec_label = SECLABEL;
 
-#if defined ENABLE_IPV4 && defined ENABLE_IPV6
-	switch (ctx_get_protocol(ctx)) {
-	case bpf_htons(ETH_P_IP):
-		sec_label = SECLABEL_IPV4;
-		break;
-	case bpf_htons(ETH_P_IPV6):
-		sec_label = SECLABEL_IPV6;
-		break;
+#ifdef ENABLE_IPV6
+	if (is_defined(ENABLE_IPV4)) {
+		switch (ctx_get_protocol(ctx)) {
+		case bpf_htons(ETH_P_IP):
+			sec_label = SECLABEL_IPV4;
+			break;
+		case bpf_htons(ETH_P_IPV6):
+			sec_label = SECLABEL_IPV6;
+			break;
+		}
 	}
 #endif
 
@@ -487,7 +484,6 @@ static __always_inline int drop_for_direction(struct __ctx_buff *ctx,
 	return send_drop_notify_ext(ctx, src_label, dst, dst_id, reason,
 				    ext_err, m_dir);
 }
-#endif /* ENABLE_IPV4 || ENABLE_IPV6 */
 
 #define TAIL_CT_LOOKUP4(ID, NAME, DIR, CONDITION, TARGET_ID, TARGET_NAME)	\
 __declare_tail(ID)								\
@@ -1073,7 +1069,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 
 DEFINE_AUX(struct ct_buffer4, cilium_tail_call_buffer4);
 
-#ifdef ENABLE_IPV4
 static __always_inline int
 ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 			    struct ipv4_ct_tuple *tuple,
@@ -1673,7 +1668,6 @@ int tail_handle_arp(struct __ctx_buff *ctx)
 
 	return ret;
 }
-#endif /* ENABLE_IPV4 */
 
 /* Attachment/entry point is ingress for veth.
  * It corresponds to packets leaving the container.
@@ -1722,18 +1716,26 @@ int cil_from_container(struct __ctx_buff *ctx)
 		sec_label = SECLABEL_IPV6;
 		break;
 #endif /* ENABLE_IPV6 */
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV4;
 		break;
 	case bpf_htons(ETH_P_ARP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		if (CONFIG(enable_arp_responder))
 			ret = tail_call_internal(ctx, CILIUM_CALL_ARP, &ext_err);
 		else
 			ret = CTX_ACT_OK;
 		break;
-#endif /* ENABLE_IPV4 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 	}
@@ -2031,7 +2033,6 @@ TAIL_CT_LOOKUP6(CILIUM_CALL_IPV6_CT_INGRESS, tail_ipv6_ct_ingress, CT_INGRESS,
 		1, CILIUM_CALL_IPV6_TO_ENDPOINT, tail_ipv6_to_endpoint)
 #endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 static __always_inline int
 ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	    struct ipv4_ct_tuple *tuple_out, __s8 *ext_err, __u16 *proxy_port,
@@ -2335,7 +2336,6 @@ TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
 
 TAIL_CT_LOOKUP4(CILIUM_CALL_IPV4_CT_INGRESS, tail_ipv4_ct_ingress, CT_INGRESS,
 		1, CILIUM_CALL_IPV4_TO_ENDPOINT, tail_ipv4_to_endpoint)
-#endif /* ENABLE_IPV4 */
 
 /* Handle policy decisions as the packet makes its way towards the endpoint.
  * Previously, the packet may have come from another local endpoint, another
@@ -2377,8 +2377,12 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 		sec_label = SECLABEL_IPV6;
 		break;
 #endif /* ENABLE_IPV6 */
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		if (is_defined(ENABLE_IPV4) && is_defined(ENABLE_IPV6))
 			ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS_POLICY_ONLY,
 						 &ext_err);
@@ -2386,7 +2390,6 @@ int cil_lxc_policy(struct __ctx_buff *ctx)
 			ret = tail_ipv4_ct_ingress_policy_only(ctx);
 		sec_label = SECLABEL_IPV4;
 		break;
-#endif /* ENABLE_IPV4 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
@@ -2441,12 +2444,15 @@ int cil_lxc_policy_egress(struct __ctx_buff *ctx __maybe_unused)
 		sec_label = SECLABEL_IPV6;
 		break;
 #endif /* ENABLE_IPV6 */
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_LXC, &ext_err);
 		sec_label = SECLABEL_IPV4;
 		break;
-#endif /* ENABLE_IPV4 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
@@ -2530,16 +2536,24 @@ int cil_to_container(struct __ctx_buff *ctx)
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_CT_INGRESS, &ext_err);
 		break;
 #endif /* ENABLE_IPV6 */
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		sec_label = SECLABEL_IPV4;
 		ctx_store_meta(ctx, CB_SRC_LABEL, identity);
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_CT_INGRESS, &ext_err);
 		break;
 	case bpf_htons(ETH_P_ARP):
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
+
 		ret = CTX_ACT_OK;
 		break;
-#endif /* ENABLE_IPV4 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
@@ -2553,7 +2567,6 @@ out:
 	return ret;
 }
 
-#ifdef ENABLE_IPV4
 __declare_tail(CILIUM_CALL_IPV4_POLICY_DENIED)
 int tail_policy_denied_ipv4(struct __ctx_buff *ctx)
 {
@@ -2577,7 +2590,6 @@ int tail_policy_denied_ipv4(struct __ctx_buff *ctx)
 
 	return send_drop_notify_error(ctx, SECLABEL_IPV4, verdict, METRIC_EGRESS);
 }
-#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 __declare_tail(CILIUM_CALL_IPV6_POLICY_DENIED)
