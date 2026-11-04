@@ -512,11 +512,12 @@ type RXQueueDevice struct {
 	TotalRXQueues    int      `json:"totalRXQueues"`
 	ReservedQueueIDs []uint32 `json:"reservedQueueIDs"`
 
-	Prepared        bool           `json:"prepared,omitempty"`
-	ShareID         kube_types.UID `json:"shareID,omitempty"`
-	PodIfName       string         `json:"podIfName,omitempty"`
-	PhysicalQueueID uint32         `json:"physicalQueueID,omitempty"`
-	VirtualQueueID  uint32         `json:"virtualQueueID,omitempty"`
+	Prepared        bool            `json:"prepared,omitempty"`
+	ShareID         kube_types.UID  `json:"shareID,omitempty"`
+	PodIfName       string          `json:"podIfName,omitempty"`
+	PhysicalQueueID uint32          `json:"physicalQueueID,omitempty"`
+	VirtualQueueID  uint32          `json:"virtualQueueID,omitempty"`
+	Binding         *RXQueueBinding `json:"binding,omitempty"`
 	reservations    *queueReservations
 
 	mu lock.Mutex
@@ -731,5 +732,6 @@ func (d *RXQueueDevice) UnmarshalBinary(data []byte) error {
 	d.PodIfName = state.PodIfName
 	d.PhysicalQueueID = state.PhysicalQueueID
 	d.VirtualQueueID = state.VirtualQueueID
+	d.Binding = nil
 	return nil
 }

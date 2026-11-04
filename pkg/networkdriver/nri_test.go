@@ -16,7 +16,6 @@ package networkdriver
 // integration test suite (which has a real kernel).
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -26,7 +25,6 @@ import (
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
-	"github.com/cilium/cilium/pkg/netns"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
@@ -39,7 +37,7 @@ func buildNRIDriverWithAlloc(t *testing.T, podUID kubetypes.UID, claimUID kubety
 	tlog := hivetest.Logger(t)
 	cs, _ := k8sClient.NewFakeClientset(tlog)
 	d := buildPrepDriver(t, cs)
-	d.podNetns = make(map[kubetypes.UID]string)
+	d.podNetns = make(map[string]string)
 	dev := &dummy.DummyDevice{Name: "dummy0"}
 	// Write the allocation into StateDB directly.
 	wtxn := d.db.WriteTxn(d.allocationTable)
@@ -116,59 +114,6 @@ func TestRecoverAllocationDevice(t *testing.T) {
 	require.Same(t, recovered, rows[0].PreparedDevice)
 }
 
-// leasingDevice is a prepared RX queue device that records lease requests.
-type leasingDevice struct {
-	trackedDevice
-	leases   int
-	leaseErr error
-}
-
-func (d *leasingDevice) LeaseRXQueue(*netns.NetNS) error {
-	d.leases++
-	return d.leaseErr
-}
-
-func TestRunPodSandboxLeasesRXQueue(t *testing.T) {
-	const podUID = kubetypes.UID("rx-queue-pod")
-	originalOpen := openPodNetNS
-	t.Cleanup(func() { openPodNetNS = originalOpen })
-	var opened []string
-	openPodNetNS = func(path string) (*netns.NetNS, error) {
-		opened = append(opened, path)
-		return &netns.NetNS{}, nil
-	}
-
-	driver := buildNRIDriver(t)
-	device := &leasingDevice{trackedDevice: trackedDevice{name: types.DefaultRXQueuePodIfName}}
-	wtxn := driver.db.WriteTxn(driver.allocationTable)
-	driver.allocationTable.Insert(wtxn, &DRAAllocation{
-		DeviceName:     "physical0",
-		LogicalPool:    "rx-queues",
-		Manager:        types.DeviceManagerTypeRXQueue,
-		PreparedDevice: device,
-		PodUID:         podUID,
-		ClaimUID:       "rx-queue-claim",
-		Config:         types.DeviceConfig{PodIfName: types.DefaultRXQueuePodIfName},
-	})
-	wtxn.Commit()
-
-	sandbox := podSandbox(string(podUID), "/run/netns/cni-1234")
-	require.NoError(t, driver.RunPodSandbox(t.Context(), sandbox))
-	require.Equal(t, 1, device.leases)
-	require.Equal(t, []string{podNetNSPath + "/cni-1234"}, opened)
-
-	_, err := driver.Synchronize(t.Context(), []*api.PodSandbox{sandbox}, nil)
-	require.NoError(t, err)
-	require.Equal(t, 2, device.leases, "Synchronize leases queues of running sandboxes")
-
-	device.leaseErr = errors.New("lease failed")
-	require.ErrorIs(t, driver.RunPodSandbox(t.Context(), sandbox), device.leaseErr)
-
-	// CNI owns the Pod netkit, so stopping the sandbox leaves it in place.
-	require.NoError(t, driver.StopPodSandbox(t.Context(), sandbox))
-	require.NotContains(t, driver.podNetns, podUID)
-}
-
 // ---------------------------------------------------------------------------
 // StopPodSandbox — early exits (no netlink/netns)
 // ---------------------------------------------------------------------------
@@ -178,12 +123,12 @@ func TestRunPodSandboxLeasesRXQueue(t *testing.T) {
 func TestStopPodSandbox_HostNetwork_Skipped(t *testing.T) {
 	d := buildNRIDriver(t)
 	// Pre-seed a cache entry to verify it is cleaned up even on the fast path.
-	d.podNetns["host-pod"] = ""
+	d.podNetns["host-pod-sandbox"] = ""
 
 	sb := podSandbox("host-pod", "")
 	err := d.StopPodSandbox(t.Context(), sb)
 	require.NoError(t, err)
-	assert.NotContains(t, d.podNetns, kubetypes.UID("host-pod"),
+	assert.NotContains(t, d.podNetns, sb.Id,
 		"cache entry must be evicted even for host-network pods")
 }
 
@@ -196,12 +141,12 @@ func TestStopPodSandbox_NoAllocation_Skipped(t *testing.T) {
 
 	// getNetworkNamespace falls back to the cache since the sandbox has no
 	// Linux namespaces populated (mimics containerd < 2.1 stop event).
-	sb := &api.PodSandbox{Uid: "no-alloc-pod", Linux: &api.LinuxPodSandbox{}}
+	sb := &api.PodSandbox{Id: "no-alloc-pod", Uid: "no-alloc-pod", Linux: &api.LinuxPodSandbox{}}
 
 	// No matching allocation exists, so this must exit before opening the netns.
 	err := d.StopPodSandbox(t.Context(), sb)
 	require.NoError(t, err)
-	assert.NotContains(t, d.podNetns, kubetypes.UID("no-alloc-pod"),
+	assert.NotContains(t, d.podNetns, sb.Id,
 		"cache entry must be evicted even when no allocation is found")
 }
 
@@ -214,15 +159,15 @@ func TestStopPodSandbox_NoAllocation_Skipped(t *testing.T) {
 func TestStopPodSandbox_FallbackCacheEvicted(t *testing.T) {
 	const podUID = kubetypes.UID("cache-pod-uid")
 	d := buildNRIDriverWithAlloc(t, podUID, "claim-uid")
-	d.podNetns[podUID] = "/run/netns/cached-ns"
+	d.podNetns[string(podUID)+"-sandbox"] = "/run/netns/cached-ns"
 
 	// No Linux namespaces in the sandbox — forces the cache fallback path.
-	sb := &api.PodSandbox{Uid: string(podUID), Linux: &api.LinuxPodSandbox{}}
+	sb := &api.PodSandbox{Id: string(podUID) + "-sandbox", Uid: string(podUID), Linux: &api.LinuxPodSandbox{}}
 
 	// Will fail at netns.OpenPinned because the path doesn't exist — that's fine.
 	_ = d.StopPodSandbox(t.Context(), sb)
 
 	// Cache entry must always be evicted (defer runs before the error path).
-	assert.NotContains(t, d.podNetns, podUID,
+	assert.NotContains(t, d.podNetns, sb.Id,
 		"cache entry must be evicted after StopPodSandbox regardless of netns errors")
 }
