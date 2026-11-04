@@ -13,6 +13,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/cidrset"
 	"github.com/cilium/cilium/pkg/ipam/service/ipallocator"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
@@ -29,10 +30,16 @@ type API struct {
 	vpcs           map[string]*ipamTypes.VirtualNetwork
 	securityGroups map[string]*types.SecurityGroup
 	allocator      *ipallocator.Range
+	ipv6Allocator  *cidrset.CidrSet
 }
 
 // NewAPI returns a new mocked ECS API
 func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, securityGroups []*types.SecurityGroup) *API {
+	ipv6Allocator, err := cidrset.NewCIDRSet(netip.MustParsePrefix("fd00:0:0:1::/64"), 80)
+	if err != nil {
+		panic(err)
+	}
+
 	api := &API{
 		unattached:     map[string]*types.ENI{},
 		enis:           map[string]ENIMap{},
@@ -40,6 +47,7 @@ func NewAPI(subnets []*ipamTypes.Subnet, vpcs []*ipamTypes.VirtualNetwork, secur
 		vpcs:           map[string]*ipamTypes.VirtualNetwork{},
 		securityGroups: map[string]*types.SecurityGroup{},
 		allocator:      ipallocator.NewCIDRRange(netip.MustParsePrefix("10.0.0.0/8")),
+		ipv6Allocator:  ipv6Allocator,
 	}
 
 	api.UpdateSubnets(subnets)
@@ -201,7 +209,7 @@ func (a *API) GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, er
 	return securityGroups, nil
 }
 
-func (a *API) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *types.ENI, error) {
+func (a *API) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string, allocateIPv6 bool) (string, *types.ENI, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -238,6 +246,14 @@ func (a *API) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCoun
 			PrivateIpAddress: iputil.AddrFrom(ip),
 			Primary:          primary,
 		})
+	}
+
+	if allocateIPv6 {
+		prefix, err := a.ipv6Allocator.AllocateNext()
+		if err != nil {
+			panic("Unable to allocate IPv6 prefix from allocator")
+		}
+		eni.IPv6Prefixes = append(eni.IPv6Prefixes, iputil.PrefixFrom(prefix))
 	}
 
 	vsw.AvailableAddresses -= secondaryPrivateIPCount + 1
@@ -318,6 +334,23 @@ func (a *API) AssignPrivateIPAddresses(ctx context.Context, eniID string, toAllo
 		}
 	}
 	return nil, fmt.Errorf("unable to find ENI with ID %s", eniID)
+}
+
+func (a *API) AssignENIIPv6Prefix(ctx context.Context, eniID string) error {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	for _, enis := range a.enis {
+		if eni, ok := enis[eniID]; ok {
+			prefix, err := a.ipv6Allocator.AllocateNext()
+			if err != nil {
+				return fmt.Errorf("unable to allocate IPv6 prefix: %w", err)
+			}
+			eni.IPv6Prefixes = append(eni.IPv6Prefixes, iputil.PrefixFrom(prefix))
+			return nil
+		}
+	}
+	return fmt.Errorf("unable to find ENI with ID %s", eniID)
 }
 
 func (a *API) UnassignPrivateIPAddresses(ctx context.Context, eniID string, addresses []string) error {

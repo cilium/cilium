@@ -147,7 +147,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 		return 0, "", err
 	}
 	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, toAllocate-1, bestSubnet.ID, securityGroupIDs,
-		types.FillTagWithENIIndex(map[string]string{}, index))
+		types.FillTagWithENIIndex(map[string]string{}, index), false)
 	if err != nil {
 		return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
 	}

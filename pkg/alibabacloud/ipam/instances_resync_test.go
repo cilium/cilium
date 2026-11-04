@@ -54,7 +54,7 @@ func TestFullResync(t *testing.T) {
 	t.Run("IPRelease", func(t *testing.T) {
 		t.Parallel()
 		api, hooked, mngr := newHookedInstancesManager(t)
-		eniID, eni, err := api.CreateNetworkInterface(t.Context(), 2, "vsw-1", []string{"sg-1"}, nil)
+		eniID, eni, err := api.CreateNetworkInterface(t.Context(), 2, "vsw-1", []string{"sg-1"}, nil, false)
 		require.NoError(t, err)
 		require.NoError(t, api.AttachNetworkInterface(t.Context(), instanceID, eniID))
 		_, err = mngr.Resync(t.Context())
@@ -84,7 +84,7 @@ func TestFullResync(t *testing.T) {
 		t.Parallel()
 		api, hooked, mngr := newHookedInstancesManager(t)
 		resynctest.ENIUpdate(t, mngr, hooked.setHook, instanceID, func() (string, *types.ENI, error) {
-			eniID, eni, err := api.CreateNetworkInterface(context.Background(), 1, "vsw-1", []string{"sg-1"}, nil)
+			eniID, eni, err := api.CreateNetworkInterface(context.Background(), 1, "vsw-1", []string{"sg-1"}, nil, false)
 			if err != nil {
 				return "", nil, err
 			}

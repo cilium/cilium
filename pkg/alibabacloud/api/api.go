@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	AssignIPv6Addresses       = "AssignIpv6Addresses"
 	AttachNetworkInterface    = "AttachNetworkInterface"
 	CreateNetworkInterface    = "CreateNetworkInterface"
 	DescribeInstances         = "DescribeInstances"
@@ -308,11 +309,15 @@ func (c *Client) DescribeNetworkInterface(ctx context.Context, eniID string) (*e
 }
 
 // CreateNetworkInterface creates an ENI with the given parameters
-func (c *Client) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string) (string, *types.ENI, error) {
+func (c *Client) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPCount int, vSwitchID string, groups []string, tags map[string]string, allocateIPv6 bool) (string, *types.ENI, error) {
 	req := ecs.CreateCreateNetworkInterfaceRequest()
 	// SecondaryPrivateIpAddressCount is optional but must not be zero
 	if secondaryPrivateIPCount > 0 {
 		req.SecondaryPrivateIpAddressCount = requests.NewInteger(secondaryPrivateIPCount)
+	}
+	if allocateIPv6 {
+		// One /80 prefix provides 2^48 IPv6 addresses.
+		req.Ipv6PrefixCount = requests.NewInteger(1)
 	}
 	req.VSwitchId = vSwitchID
 	req.SecurityGroupIds = &groups
@@ -363,6 +368,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, secondaryPrivateIPC
 			VSwitchID: resp.VSwitchId,
 		},
 		PrivateIPSets: privateIPSets,
+		IPv6Prefixes:  parseIPv6Prefixes(c.logger, resp.NetworkInterfaceId, resp.Ipv6PrefixSets.Ipv6PrefixSet),
 		Tags:          parseECSTags(resp.Tags.Tag),
 	}
 	if addr, err := netip.ParseAddr(resp.PrivateIpAddress); err != nil {
@@ -445,6 +451,19 @@ func (c *Client) AssignPrivateIPAddresses(ctx context.Context, eniID string, toA
 		return nil, err
 	}
 	return resp.AssignedPrivateIpAddressesSet.PrivateIpSet.PrivateIpAddress, nil
+}
+
+// AssignENIIPv6Prefix assigns one /80 IPv6 prefix to the ENI.
+func (c *Client) AssignENIIPv6Prefix(ctx context.Context, eniID string) error {
+	req := ecs.CreateAssignIpv6AddressesRequest()
+	req.NetworkInterfaceId = eniID
+	req.Ipv6PrefixCount = requests.NewInteger(1)
+
+	c.limiter.Limit(ctx, AssignIPv6Addresses)
+	sinceStart := spanstat.Start()
+	_, err := c.ecsClient.AssignIpv6Addresses(req)
+	c.metricsAPI.ObserveAPICall(AssignIPv6Addresses, deriveStatus(err), sinceStart.Seconds())
+	return err
 }
 
 // PrUnassignivateIPAddresses unassign specified IP addresses from ENI
@@ -703,6 +722,7 @@ func parseENI(logger *slog.Logger, iface *ecs.NetworkInterfaceSet, vpcs ipamType
 			VSwitchID: iface.VSwitchId,
 		},
 		PrivateIPSets: privateIPSets,
+		IPv6Prefixes:  parseIPv6Prefixes(logger, iface.NetworkInterfaceId, iface.Ipv6PrefixSets.Ipv6PrefixSet),
 		Tags:          parseECSTags(iface.Tags.Tag),
 	}
 	if addr, err := netip.ParseAddr(iface.PrivateIpAddress); err != nil {
@@ -740,6 +760,24 @@ func parseENI(logger *slog.Logger, iface *ecs.NetworkInterfaceSet, vpcs ipamType
 		eni.VSwitch.CIDRBlock = iputil.PrefixFrom(subnet.CIDR)
 	}
 	return iface.InstanceId, eni
+}
+
+func parseIPv6Prefixes(logger *slog.Logger, eniID string, prefixes []ecs.Ipv6PrefixSet) []iputil.Prefix {
+	var result []iputil.Prefix
+	for _, prefix := range prefixes {
+		p, err := netip.ParsePrefix(prefix.Ipv6Prefix)
+		if err != nil {
+			logger.Warn(
+				"Ignoring invalid ENI IPv6 prefix",
+				logfields.V6Prefix, prefix.Ipv6Prefix,
+				logfields.Interface, eniID,
+				logfields.Error, err,
+			)
+			continue
+		}
+		result = append(result, iputil.PrefixFrom(p))
+	}
+	return result
 }
 
 // parseECSTags convert ECS Tags to ipam Tags
