@@ -43,10 +43,13 @@ To inspect a test's maps and programs with ``bpftool``, enable pinning:
 
     $ make run_bpf_tests BPF_TEST="builtins" BPF_TEST_FLAGS="-pin-bpf -test.v"
 
-After the tests finish, the runner prints a temporary bpffs directory containing
-each test file's ``maps`` and ``programs``. Dots in ELF section names become hyphens.
-The runner waits for the printed ``kill -INT <pid>`` command before removing the
-pins and exiting. Run that command from another terminal after inspecting the objects.
+The runner exits normally and leaves maps and programs pinned for inspection.
+It prints the bpffs directory containing each test file's ``maps`` and
+``programs``, along with an ``rm -rf`` command to remove the pins when finished.
+Dots in ELF section names become hyphens. Pinning is disabled by default.
+
+``-test.v`` makes ``go test`` display the pin directory and cleanup instructions
+even when the tests pass; it is not required by ``-pin-bpf`` itself.
 
 Writing tests
 =============

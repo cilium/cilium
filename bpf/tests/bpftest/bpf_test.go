@@ -18,7 +18,6 @@ import (
 	"maps"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path"
 	"regexp"
 	"slices"
@@ -43,7 +42,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/format"
-	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/testutils/netns"
 )
 
@@ -57,7 +55,7 @@ var (
 	testFilePrefix = flag.String("test", "", "Single test file to run (without file extension)")
 
 	dumpCtx = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
-	pinBPF  = flag.Bool("pin-bpf", false, "Pin test maps and programs for debugging; requires -test.v and waits for SIGINT before cleanup.")
+	pinBPF  = flag.Bool("pin-bpf", false, "Pin test maps and programs for debugging; remove pinned objects manually after inspection.")
 )
 
 type syncWriter struct {
@@ -99,11 +97,11 @@ func TestBPF(t *testing.T) {
 
 	var pinPath string
 	if *pinBPF {
-		if !testing.Verbose() {
-			t.Fatal("-pin-bpf requires -test.v to display the pin path and cleanup instructions")
-		}
 		bpf.CheckOrMountFS(hivetest.Logger(t), "")
-		pinPath = testutils.TempBPFFS(t)
+		pinPath, err = os.MkdirTemp(bpf.BPFFSRoot(), "cilium-test")
+		if err != nil {
+			t.Fatal("create pin directory:", err)
+		}
 		t.Cleanup(func() {
 			pins, err := os.ReadDir(pinPath)
 			if err != nil {
@@ -111,13 +109,12 @@ func TestBPF(t *testing.T) {
 				return
 			}
 			if len(pins) == 0 {
+				if err := os.Remove(pinPath); err != nil {
+					t.Error("remove empty pin directory:", err)
+				}
 				return
 			}
-			signals := make(chan os.Signal, 1)
-			signal.Notify(signals, os.Interrupt)
-			defer signal.Stop(signals)
-			t.Logf("BPF maps and programs are pinned in %s; run 'kill -INT %d' to clean up and finish.", pinPath, os.Getpid())
-			<-signals
+			fmt.Fprintf(os.Stderr, "BPF maps and programs are pinned in %s; remove them with 'rm -rf -- %s' after inspection.\n", pinPath, pinPath)
 		})
 	}
 
