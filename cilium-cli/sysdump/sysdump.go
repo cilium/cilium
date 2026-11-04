@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/discovery"
 	"k8s.io/kubectl/pkg/util/podutils"
 	metricsapi "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 
@@ -2108,173 +2109,82 @@ func (c *Collector) getSPIRETasks() []Task {
 }
 
 func (c *Collector) getGatewayAPITasks() []Task {
-	return []Task{
-		{
-			Description: "Collecting GatewayClass entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, gatewayClass, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect GatewayClass entries: %w", err)
-				}
-				if err := c.WriteYAML(gatewayClassesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect GatewayClass entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting Gateway entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, gateway, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect Gateway entries: %w", err)
-				}
-				if err := c.WriteYAML(gatewaysFileName, v); err != nil {
-					return fmt.Errorf("failed to collect Gateway entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting ListenerSet entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, listenerSet, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect ListenerSet entries: %w", err)
-				}
-				if err := c.WriteYAML(listenerSetsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect ListenerSet entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting ReferenceGrant entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, referenceGrant, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect ReferenceGrant entries: %w", err)
-				}
-				if err := c.WriteYAML(referenceGrantsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect ReferenceGrant entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting HTTPRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, httpRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect HTTPRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(httpRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect HTTPRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting TLSRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, tlsRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect TLSRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(tlsRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect TLSRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting BackendTLSPolicy entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, backendTLSPolicy, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect BackendTLSPolicy entries: %w", err)
-				}
-				if err := c.WriteYAML(backendTLSPoliciesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect BackendTLSPolicy entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting GRPCRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, grpcRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect GRPCRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(grpcRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect GRPCRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting TCPRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, tcpRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect TCPRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(tcpRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect TCPRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting UDPRoute entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, udpRoute, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect UDPRoute entries: %w", err)
-				}
-				if err := c.WriteYAML(udpRoutesFileName, v); err != nil {
-					return fmt.Errorf("failed to collect UDPRoute entries: %w", err)
-				}
-				return nil
-			},
-		},
-		{
-			Description: "Collecting CiliumGatewayClassConfig entries",
-			Quick:       true,
-			Task: func(ctx context.Context) error {
-				n := corev1.NamespaceAll
-				v, err := c.Client.ListUnstructured(ctx, ciliumGatewayClassConfig, &n, metav1.ListOptions{})
-				if err != nil {
-					return fmt.Errorf("failed to collect CiliumGatewayClassConfig entries: %w", err)
-				}
-				if err := c.WriteYAML(ciliumGatewayClassConfigsFileName, v); err != nil {
-					return fmt.Errorf("failed to collect CiliumGatewayClassConfig entries: %w", err)
-				}
-				return nil
-			},
-		},
+	// Discover each resource's preferred API version because supported versions
+	// vary across installed Gateway API CRD releases.
+	discover := sync.OnceValues(c.Client.GetServerPreferredResources)
+	resources := []struct {
+		name          string
+		groupResource schema.GroupResource
+		filename      string
+	}{
+		{"CiliumGatewayClassConfig", ciliumGatewayClassConfig, ciliumGatewayClassConfigsFileName},
+		{"Gateway", gateway, gatewaysFileName},
+		{"GatewayClass", gatewayClass, gatewayClassesFileName},
+		{"ListenerSet", listenerSet, listenerSetsFileName},
+		{"ReferenceGrant", referenceGrant, referenceGrantsFileName},
+		{"BackendTLSPolicy", backendTLSPolicy, backendTLSPoliciesFileName},
+		{"TCPRoute", tcpRoute, tcpRoutesFileName},
+		{"UDPRoute", udpRoute, udpRoutesFileName},
+		{"TLSRoute", tlsRoute, tlsRoutesFileName},
+		{"HTTPRoute", httpRoute, httpRoutesFileName},
+		{"GRPCRoute", grpcRoute, grpcRoutesFileName},
 	}
+	tasks := make([]Task, 0, len(resources))
+	for _, resource := range resources {
+		tasks = append(tasks, Task{
+			Description: "Collecting " + resource.name + " entries",
+			Quick:       true,
+			Task: func(ctx context.Context) error {
+				lists, discoveryErr := discover()
+				gvr, found, err := preferredResource(resource.groupResource, lists, discoveryErr)
+				if err != nil {
+					return fmt.Errorf("failed to discover %s: %w", resource.name, err)
+				}
+				if !found {
+					c.logDebug("%s API is not installed, skipping collection", resource.name)
+					return nil
+				}
+				n := corev1.NamespaceAll
+				objects, err := c.Client.ListUnstructured(ctx, gvr, &n, metav1.ListOptions{})
+				if err != nil {
+					return fmt.Errorf("failed to collect %s entries: %w", resource.name, err)
+				}
+				if err := c.WriteYAML(resource.filename, objects); err != nil {
+					return fmt.Errorf("failed to collect %s entries: %w", resource.name, err)
+				}
+				return nil
+			},
+		})
+	}
+	return tasks
+}
+
+func preferredResource(resource schema.GroupResource, lists []*metav1.APIResourceList, discoveryErr error) (schema.GroupVersionResource, bool, error) {
+	for _, list := range lists {
+		gv, err := schema.ParseGroupVersion(list.GroupVersion)
+		if err != nil {
+			return schema.GroupVersionResource{}, false, err
+		}
+		if gv.Group != resource.Group {
+			continue
+		}
+		for _, apiResource := range list.APIResources {
+			if apiResource.Name == resource.Resource && slices.Contains(apiResource.Verbs, "list") {
+				return gv.WithResource(resource.Resource), true, nil
+			}
+		}
+	}
+	// An unavailable unrelated API group must not prevent resource collection.
+	if failed, ok := discovery.GroupDiscoveryFailedErrorGroups(discoveryErr); ok {
+		for gv, err := range failed {
+			if gv.Group == resource.Group {
+				return schema.GroupVersionResource{}, false, fmt.Errorf("cannot determine whether %s is installed because discovery of %s failed: %w", resource, gv, err)
+			}
+		}
+	} else if discoveryErr != nil {
+		return schema.GroupVersionResource{}, false, discoveryErr
+	}
+	return schema.GroupVersionResource{}, false, nil
 }
 
 func (c *Collector) getEnvoyConfigTasks() []Task {
@@ -2391,7 +2301,8 @@ func (c *Collector) shouldSkipTask(t Task) bool {
 }
 
 func (c *Collector) SubmitTetragonBugtoolTasks(pods []*corev1.Pod, tetragonAgentContainerName,
-	tetragonBugtoolPrefix, tetragonCLICommand string) error {
+	tetragonBugtoolPrefix, tetragonCLICommand string,
+) error {
 	for _, p := range pods {
 		workerID := fmt.Sprintf("%s-%s", tetragonBugtoolPrefix, p.Name)
 		if err := c.Pool.Submit(workerID, func(ctx context.Context) error {
@@ -2515,7 +2426,7 @@ func untar(src string, dst string) error {
 			return fmt.Errorf("tar entry %q: path escapes extraction directory", header.Name)
 		}
 		directory := filepath.Dir(filename)
-		if err := os.MkdirAll(directory, 0755); err != nil {
+		if err := os.MkdirAll(directory, 0o755); err != nil {
 			return err
 		}
 		f, err := os.OpenFile(filename, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(header.Mode))
@@ -2660,7 +2571,6 @@ func (c *Collector) submitHubbleFlowsTasks(_ context.Context, pods []*corev1.Pod
 					return c.Client.ExecInPodWithWriters(cctx, nil, p.Namespace, p.Name, containerName, []string{
 						"hubble", "observe", "--last", strconv.FormatInt(c.Options.HubbleFlowsCount, 10), "--debug", "-o", "jsonpb",
 					}, stdout, stderr)
-
 				})
 			}); err != nil {
 				return fmt.Errorf("failed to collect hubble flows for %q in namespace %q: %w", p.Name, p.Namespace, err)
@@ -2731,7 +2641,6 @@ func extractGopsProfileData(output string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("Unable to find output file: %s", output)
-
 }
 
 func (c *Collector) SubmitCniConflistSubtask(pods []*corev1.Pod, containerName string) error {
@@ -2889,7 +2798,7 @@ func (c *Collector) SubmitStreamProfilingGopsSubtasks(pods []*corev1.Pod, contai
 					}
 
 					file := c.AbsoluteTempPath(fmt.Sprintf("%s-%s-%s-<ts>.pprof", p.Name, containerName, g))
-					outFile, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+					outFile, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 					if err != nil {
 						return fmt.Errorf("creating target file: %w", err)
 					}
@@ -2902,7 +2811,6 @@ func (c *Collector) SubmitStreamProfilingGopsSubtasks(pods []*corev1.Pod, contai
 
 					return nil
 				})
-
 				if err != nil {
 					return fmt.Errorf("failed to collect gops profiling data: %w", err)
 				}
@@ -3171,7 +3079,7 @@ func (c *Collector) submitCiliumOperatorDbgTasks(pods []*corev1.Pod) error {
 		for _, task := range tasks {
 			// The name of the Cilium operator binary depends on the specific
 			// flavor. Let's infer it based on the specified command.
-			var cmd = "cilium-operator-generic"
+			cmd := "cilium-operator-generic"
 			for _, container := range pod.Spec.Containers {
 				if container.Name == defaults.OperatorContainerName {
 					if len(container.Command) > 0 {
@@ -3204,7 +3112,8 @@ func (c *Collector) submitClusterMeshAPIServerDbgTasks(pods []*corev1.Pod) error
 			name:      "version",
 			ext:       "txt",
 			cmd:       []string{defaults.ClusterMeshBinaryName, "version"},
-			container: defaults.ClusterMeshContainerName},
+			container: defaults.ClusterMeshContainerName,
+		},
 		{
 			name:      "troubleshoot",
 			ext:       "txt",
