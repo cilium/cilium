@@ -12,6 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/utils/ptr"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
 
@@ -163,6 +164,12 @@ func (s *MCSAPIServiceSpec) validate() error {
 		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferSameZone &&
 		*s.TrafficDistribution != corev1.ServiceTrafficDistributionPreferSameNode:
 		return fmt.Errorf("traffic distribution is unknown: %s", *s.TrafficDistribution)
+	}
+	if errs := validation.IsDNS1123Label(s.Namespace); len(errs) != 0 {
+		return fmt.Errorf("invalid namespace %q: %v", s.Namespace, errs)
+	}
+	if errs := validation.IsDNS1123Label(s.Name); len(errs) != 0 {
+		return fmt.Errorf("invalid service name %q: %v", s.Name, errs)
 	}
 	var ipv4Count, ipv6Count int
 	for _, ipFamily := range s.IPFamilies {

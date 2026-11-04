@@ -11,7 +11,9 @@ import (
 	"sync"
 
 	"github.com/klauspost/compress/zstd"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types/endpointslice/internal"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
@@ -158,6 +160,17 @@ func (eps *ClusterEndpointSlice) validate() error {
 		return errors.New("name is unset")
 	case eps.AddressType != slim_discovery_v1.AddressTypeIPv4 && eps.AddressType != slim_discovery_v1.AddressTypeIPv6:
 		return errors.New("address type is invalid")
+	}
+	if errs := validation.IsDNS1123Label(eps.Namespace); len(errs) != 0 {
+		return fmt.Errorf("invalid namespace %q: %v", eps.Namespace, errs)
+	}
+	if errs := validation.IsDNS1123Subdomain(eps.Name); len(errs) != 0 {
+		return fmt.Errorf("invalid endpoint slice name %q: %v", eps.Name, errs)
+	}
+	if serviceName := eps.Labels[discoveryv1.LabelServiceName]; serviceName != "" {
+		if errs := validation.IsDNS1123Label(serviceName); len(errs) != 0 {
+			return fmt.Errorf("invalid service name %q: %v", serviceName, errs)
+		}
 	}
 
 	for _, endpoint := range eps.Endpoints {

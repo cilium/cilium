@@ -4,9 +4,11 @@
 package endpointslice
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	discoveryv1 "k8s.io/api/discovery/v1"
 
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 )
@@ -46,9 +48,10 @@ func TestClusterEndpointSlice(t *testing.T) {
 
 func TestClusterEndpointSliceValidate(t *testing.T) {
 	tests := []struct {
-		name   string
-		eps    ClusterEndpointSlice
-		errstr string
+		name        string
+		eps         ClusterEndpointSlice
+		errstr      string
+		errcontains string
 	}{
 		{
 			name:   "empty",
@@ -76,6 +79,41 @@ func TestClusterEndpointSliceValidate(t *testing.T) {
 					Addresses: []string{"10.1.2.3"},
 				}},
 			},
+		},
+		{
+			name: "valid dotted EndpointSlice name",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: "slice.example", AddressType: slim_discovery_v1.AddressTypeIPv4,
+			},
+		},
+		{
+			name: "invalid EndpointSlice name",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: "Slice", AddressType: slim_discovery_v1.AddressTypeIPv4,
+			},
+			errcontains: "invalid endpoint slice name",
+		},
+		{
+			name: "EndpointSlice name too long",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: strings.Repeat("a", 254), AddressType: slim_discovery_v1.AddressTypeIPv4,
+			},
+			errcontains: "invalid endpoint slice name",
+		},
+		{
+			name: "invalid namespace",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "not.valid", Name: "slice", AddressType: slim_discovery_v1.AddressTypeIPv4,
+			},
+			errcontains: "invalid namespace",
+		},
+		{
+			name: "invalid service label",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: "slice", AddressType: slim_discovery_v1.AddressTypeIPv4,
+				Labels: map[string]string{discoveryv1.LabelServiceName: "not.valid"},
+			},
+			errcontains: "invalid service name",
 		},
 		{
 			name: "valid IPv6",
@@ -136,6 +174,10 @@ func TestClusterEndpointSliceValidate(t *testing.T) {
 			err := tt.eps.validate()
 			if tt.errstr != "" {
 				require.EqualError(t, err, tt.errstr)
+				return
+			}
+			if tt.errcontains != "" {
+				require.ErrorContains(t, err, tt.errcontains)
 				return
 			}
 
