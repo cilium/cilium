@@ -32,6 +32,7 @@
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 static volatile const __u8 *node_mac = mac_two;

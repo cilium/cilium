@@ -33,6 +33,8 @@ func NodeConfig(lnc *Config) Node {
 		CloseTimeout:             uint32(option.Config.CTMapEntriesTimeoutFIN.Seconds()),
 	}
 
+	node.EnableIPv4 = lnc.EnableIPv4
+
 	if lnc.ServiceLoopbackIPv4.IsValid() {
 		node.ServiceLoopbackIPv4.Addr = lnc.ServiceLoopbackIPv4.As4()
 	}

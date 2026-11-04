@@ -39,6 +39,7 @@
 #include "lib/policy.h"
 #include "lib/subnet.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, hybrid_routing_enabled, true)
 
 static __always_inline int

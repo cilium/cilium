@@ -62,6 +62,7 @@ long mock_fib_lookup(void *ctx __maybe_unused,
 #include <bpf/config/node.h>
 #include "lib/fib.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, supports_fib_lookup_skip_neigh, true)
 
 CHECK(PROG_TYPE, "fib_do_redirect_happy_path")

@@ -14,6 +14,7 @@
 #include "nodeport_defaults.h"
 #include "lib/bpf_host.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = v4_node_one })
 ASSIGN_CONFIG(bool, enable_remote_node_masquerade, ENABLE_REMOTE_NODE_MASQUERADE)
 ASSIGN_CONFIG(bool, hybrid_routing_enabled, ENABLE_HYBRID_ROUTING)

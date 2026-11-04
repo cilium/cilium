@@ -63,6 +63,7 @@ int mock_send_drop_notify(__u8 file __maybe_unused, __u16 line __maybe_unused,
 
 #include "lib/bpf_overlay.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(union v4addr, ipv4_inter_cluster_snat, { .be32 = CLIENT_NODE_IP })
 ASSIGN_CONFIG(__u32, cluster_id, 1)
 
