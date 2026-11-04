@@ -19,18 +19,19 @@ DECLARE_CONFIG(bool, enable_sip_verification,
 	       "Enable source IP verification for endpoint egress")
 
 static __always_inline
-int is_valid_lxc_src_ip(struct ipv6hdr *ip6 __maybe_unused)
+int is_valid_lxc_src_ip(struct ipv6hdr *ip6)
 {
 	if (!CONFIG(enable_sip_verification))
 		return 1;
 
-#ifdef ENABLE_IPV6
-	union v6addr valid = CONFIG(endpoint_ipv6);
+	if (is_defined(ENABLE_IPV6)) {
+		union v6addr valid = CONFIG(endpoint_ipv6);
 
-	return ipv6_addr_equals((union v6addr *)&ip6->saddr, &valid);
-#else
+		return ipv6_addr_equals((union v6addr *)&ip6->saddr, &valid);
+	}
+
+	/* Can't send IPv6 if no IPv6 address is configured */
 	return 0;
-#endif
 }
 
 static __always_inline
