@@ -273,7 +273,8 @@ jobs:
           PR_NUMBER=""
 
           while [ $WAIT_TIME -lt $MAX_WAIT ]; do
-            PR_NUMBER=$(gh pr list --repo cilium/charts --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+            PR_NUMBER=$(gh pr list --repo cilium/charts --head "$BRANCH" --state open --json number,headRepositoryOwner \
+              --jq '[.[] | select(.headRepositoryOwner.login == "cilium")][0].number // empty')
             if [ -n "$PR_NUMBER" ]; then
               echo "Found PR #$PR_NUMBER"
               break
