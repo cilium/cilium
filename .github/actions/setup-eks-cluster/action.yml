@@ -46,6 +46,13 @@ runs:
         source: https://checkip.amazonaws.com
         parsing: text
 
+    - name: Look up the runner's GitHub Actions range
+      id: authorized-networks
+      uses: ./.github/actions/runner-actions-range
+      with:
+        ip: ${{ steps.get-runner-ip.outputs.ip }}
+        cidr: ${{ steps.get-runner-ip.outputs.cidr }}
+
     - name: Try to get cluster from pool
       id: get-from-pool
       if: ${{ inputs.create-cluster != 'true' }}
@@ -101,7 +108,7 @@ runs:
 
                 # add runner ip to allowed CIDRs if not already present (handles case where pool manager creates with different CIDR)
                 eksctl utils update-cluster-vpc-config --cluster "${CLUSTER_NAME}" \
-                  --public-access-cidrs="${{ steps.get-runner-ip.outputs.cidr }}" \
+                  --public-access-cidrs="${{ steps.authorized-networks.outputs.cidrs }}" \
                   --public-access=true --private-access=true --approve || \
                   echo "Failed to update cluster endpoints (may not have permissions)."
 
@@ -158,7 +165,7 @@ runs:
           clusterEndpoints:
             publicAccess: true
             privateAccess: true
-          publicAccessCIDRs: [ "${{ steps.get-runner-ip.outputs.cidr }}" ]
+          publicAccessCIDRs: [ ${{ steps.authorized-networks.outputs.cidrs }} ]
 
         addonsConfig:
           disableDefaultAddons: true
