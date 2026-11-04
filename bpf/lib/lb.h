@@ -774,42 +774,11 @@ static __always_inline int
 ipv6_l4_csum_update(struct __ctx_buff *ctx, int l4_off, union v6addr *old_addr,
 		    const union v6addr *new_addr, struct csum_offset *csum_off)
 {
-	int ret;
 	__be32 sum;
 
 	sum = csum_diff(old_addr->addr, 16, new_addr->addr, 16, 0);
 
-	/* Newer kernels support the BPF_F_IPV6 flag which addresses the below
-	 * bug. So let's try this first. -EINVAL indicates the flag probably isn't
-	 * supported.
-	 */
-	ret = csum_l4_replace(ctx, l4_off, csum_off, 0, sum,
-			      BPF_F_PSEUDO_HDR | BPF_F_IPV6);
-	if (ret != -EINVAL)
-		return ret;
-
-	/* We need this to workaround a bug in bpf_l4_csum_replace's usage of
-	 * inet_proto_csum_replace_by_diff on kernels < 6.12. In short, for IPv6
-	 * we don't want to update skb->csum when CHECKSUM_COMPLETE (for the
-	 * reason explained above inet_proto_csum_replace16). Unfortunately,
-	 * inet_proto_csum_replace_by_diff subtracts sum from skb->csum in that
-	 * case when BPF_F_PSEUDO_HDR is set, while omitting BPF_F_PSEUDO_HDR
-	 * skips updating the L4 header checksum when CHECKSUM_PARTIAL.
-	 *
-	 * Pass BPF_F_PSEUDO_HDR so the L4 header checksum is always updated,
-	 * and call csum_update(ctx, sum) to add sum back to skb->csum.
-	 * bpf_csum_update() only modifies skb->csum when skb->ip_summed ==
-	 * CHECKSUM_COMPLETE; when skb->ip_summed == CHECKSUM_PARTIAL (where
-	 * the sk_buff union holds csum_start/csum_offset instead of skb->csum,
-	 * and the pseudo-header seed in the L4 header was already updated by
-	 * csum_l4_replace) or CHECKSUM_NONE/CHECKSUM_UNNECESSARY,
-	 * bpf_csum_update() is a no-op and returns -ENOTSUPP.
-	 */
-	ret = csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR);
-	if (!ret)
-		csum_update(ctx, sum);
-
-	return ret;
+	return csum_l4_replace_ipv6_addr(ctx, l4_off, csum_off, sum);
 }
 
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
@@ -829,6 +798,7 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 #ifdef USE_LOOPBACK_LB
 	if (loopback) {
 		union v6addr old_daddr __align_stack_8;
+		struct csum_offset csum_off = {};
 
 		ipv6_addr_copy(&old_daddr, &tuple->daddr);
 		cilium_dbg_lb(ctx, DBG_LB6_LOOPBACK_SNAT_REV, old_daddr.p4, old_saddr.p4);
@@ -840,16 +810,12 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 		/* Update the tuple address which is representing the destination address */
 		ipv6_addr_copy(&tuple->daddr, &old_saddr);
 
-		if (has_l4_header) {
-			struct csum_offset csum_off = {};
-
+		if (has_l4_header)
 			csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
-			if (csum_off.offset &&
-			    ipv6_l4_csum_update(ctx, l4_off, &old_daddr, &old_saddr,
-						&csum_off) < 0)
-				return DROP_CSUM_L4;
-		}
+		if (ipv6_l4_csum_update(ctx, l4_off, &old_daddr, &old_saddr,
+					&csum_off) < 0)
+			return DROP_CSUM_L4;
 	}
 #endif
 
@@ -857,9 +823,9 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	if (has_l4_header) {
-		struct csum_offset csum_off = {};
+	struct csum_offset csum_off = {};
 
+	if (has_l4_header) {
 		csum_l4_offset_and_flags(tuple->nexthdr, &csum_off);
 
 		if (nat->port) {
@@ -868,12 +834,11 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 			if (IS_ERR(ret))
 				return ret;
 		}
-
-		if (csum_off.offset &&
-		    ipv6_l4_csum_update(ctx, l4_off, &old_saddr, &nat->address,
-					&csum_off) < 0)
-			return DROP_CSUM_L4;
 	}
+
+	if (ipv6_l4_csum_update(ctx, l4_off, &old_saddr, &nat->address,
+				&csum_off) < 0)
+		return DROP_CSUM_L4;
 
 	return 0;
 }
@@ -1287,11 +1252,8 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 		sum = csum_diff(old_saddr->addr, 16, new_saddr->addr, 16, sum);
 	}
 #endif /* USE_LOOPBACK_LB */
-	if (csum_off.offset) {
-		if (csum_l4_replace(ctx, l4_off, &csum_off, 0, sum,
-				    BPF_F_PSEUDO_HDR) < 0)
-			return DROP_CSUM_L4;
-	}
+	if (csum_l4_replace_ipv6_addr(ctx, l4_off, &csum_off, sum) < 0)
+		return DROP_CSUM_L4;
 
 	if (!has_l4_header)
 		return CTX_ACT_OK;

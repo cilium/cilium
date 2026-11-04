@@ -5,6 +5,8 @@
 #define ENABLE_HYBRID_ROUTING 1
 #include "hybrid_snat_skip_v6.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 PKTGEN("tc", "hybrid_snat_v6_same_subnet_remote_masq")
 int hybrid_snat_v6_same_subnet_remote_masq_pktgen(struct __ctx_buff *ctx)
 {

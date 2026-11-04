@@ -5,6 +5,8 @@
 #define ENABLE_HYBRID_ROUTING 0
 #include "hybrid_snat_skip_v6.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 PKTGEN("tc", "hybrid_snat_v6_same_subnet_hybrid_disabled")
 int hybrid_snat_v6_same_subnet_hybrid_disabled_pktgen(struct __ctx_buff *ctx)
 {

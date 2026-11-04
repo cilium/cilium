@@ -88,6 +88,8 @@ long mock_fib_lookup(const __maybe_unused void *ctx, const struct bpf_fib_lookup
 #include "lib/nat.h"
 #include "lib/nodeport.h"
 
+TEST_CHECKSUM_COMPLETE();
+
 ASSIGN_CONFIG(union v4addr, router_ipv4, { .be32 = 0xfffff50a })
 
 static __always_inline int

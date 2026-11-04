@@ -28,10 +28,12 @@ import (
 
 	"github.com/cilium/coverbee"
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/perf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/hivetest"
 	"github.com/davecgh/go-spew/spew"
+	"golang.org/x/sys/unix"
 	"golang.org/x/tools/cover"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
@@ -262,6 +264,18 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNet
 		testNameToPrograms[match[1]] = progs
 	}
 
+	if _, ok := spec.Variables[csumCompleteVar]; ok {
+		if err := csumCompleteSupported(); err == nil {
+			t.Log("Running tc setup programs with BPF_F_TEST_SKB_CHECKSUM_COMPLETE")
+			for testName, progSet := range testNameToPrograms {
+				progSet.csumComplete = true
+				testNameToPrograms[testName] = progSet
+			}
+		} else {
+			t.Logf("BPF_F_TEST_SKB_CHECKSUM_COMPLETE not usable (%s), running setup programs without it", err)
+		}
+	}
+
 	for testName, progSet := range testNameToPrograms {
 		if progSet.checkProg == nil {
 			t.Fatalf(
@@ -369,7 +383,36 @@ type programSet struct {
 	pktgenProg *ebpf.Program
 	setupProg  *ebpf.Program
 	checkProg  *ebpf.Program
+
+	// csumComplete runs a tc setupProg with BPF_F_TEST_SKB_CHECKSUM_COMPLETE.
+	csumComplete bool
 }
+
+// csumCompleteVar is defined by test files that use TEST_CHECKSUM_COMPLETE.
+const csumCompleteVar = "test_checksum_complete"
+
+// csumCompleteSupported returns nil if the kernel accepts
+// BPF_F_TEST_SKB_CHECKSUM_COMPLETE.
+var csumCompleteSupported = sync.OnceValue(func() error {
+	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Type: ebpf.SchedCLS,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R0, 0),
+			asm.Return(),
+		},
+		License: "GPL",
+	})
+	if err != nil {
+		return fmt.Errorf("load probe: %w", err)
+	}
+	defer prog.Close()
+
+	_, err = prog.Run(&ebpf.RunOptions{
+		Data:  make([]byte, 64),
+		Flags: unix.BPF_F_TEST_SKB_CHECKSUM_COMPLETE,
+	})
+	return err
+})
 
 var checkProgRegex = regexp.MustCompile(`[^/]+/test/([^/]+)/((?:check)|(?:setup)|(?:pktgen))`)
 
@@ -482,7 +525,7 @@ func subTest(progSet programSet, resultMap *ebpf.Map, scapyAssertMap *ebpf.Map, 
 		)
 		testNetNS.Do(func() error {
 			if progSet.pktgenProg != nil {
-				if statusCode, data, ctx, err = runBpfProgram(progSet.pktgenProg, data, ctx); err != nil {
+				if statusCode, data, ctx, err = runBpfProgram(progSet.pktgenProg, data, ctx, 0); err != nil {
 					t.Fatalf("error while running pktgen prog: %s", err)
 				}
 
@@ -501,7 +544,14 @@ func subTest(progSet programSet, resultMap *ebpf.Map, scapyAssertMap *ebpf.Map, 
 			}
 
 			if progSet.setupProg != nil {
-				if statusCode, data, ctx, err = runBpfProgram(progSet.setupProg, data, ctx); err != nil {
+				var flags uint32
+				if progSet.csumComplete && progSet.setupProg.Type() == ebpf.SchedCLS {
+					flags = unix.BPF_F_TEST_SKB_CHECKSUM_COMPLETE
+				}
+				if statusCode, data, ctx, err = runBpfProgram(progSet.setupProg, data, ctx, flags); err != nil {
+					if flags != 0 && errors.Is(err, unix.EBADMSG) {
+						t.Fatalf("error while running setup prog: skb->csum does not match the packet (CHECKSUM_COMPLETE mode): %s", err)
+					}
 					t.Fatalf("error while running setup prog: %s", err)
 				}
 
@@ -524,7 +574,7 @@ func subTest(progSet programSet, resultMap *ebpf.Map, scapyAssertMap *ebpf.Map, 
 			}
 
 			// Run test, input a
-			if statusCode, data, ctx, err = runBpfProgram(progSet.checkProg, data, ctx); err != nil {
+			if statusCode, data, ctx, err = runBpfProgram(progSet.checkProg, data, ctx, 0); err != nil {
 				t.Fatal("error while running check program:", err)
 			}
 
@@ -716,7 +766,7 @@ func (l *Log) FmtString() string {
 	return sb.String()
 }
 
-func runBpfProgram(prog *ebpf.Program, data, ctx []byte) (statusCode uint32, dataOut, ctxOut []byte, err error) {
+func runBpfProgram(prog *ebpf.Program, data, ctx []byte, flags uint32) (statusCode uint32, dataOut, ctxOut []byte, err error) {
 	dataOut = make([]byte, len(data))
 	if len(dataOut) > 0 {
 		// See comments at https://github.com/cilium/ebpf/blob/20c4d8896bdde990ce6b80d59a4262aa3ccb891d/prog.go#L563-L567
@@ -729,6 +779,7 @@ func runBpfProgram(prog *ebpf.Program, data, ctx []byte) (statusCode uint32, dat
 		Context:    ctx,
 		ContextOut: ctxOut,
 		Repeat:     1,
+		Flags:      flags,
 	}
 	ret, err := prog.Run(opts)
 	return ret, opts.DataOut, ctxOut, err

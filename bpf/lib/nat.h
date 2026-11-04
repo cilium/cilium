@@ -533,7 +533,7 @@ snat_v4_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 
 	if (has_l4_header)
 		return l4_rewrite_port_and_csum(ctx, nexthdr, l4_off, port_off,
-						old_port, new_port, sum,
+						old_port, new_port, sum, false,
 						l4_csum_diff_from_inner);
 
 	return 0;
@@ -1651,9 +1651,16 @@ snat_v6_rewrite_headers(struct __ctx_buff *ctx, __u8 nexthdr, int l3_off,
 	if (err < 0)
 		return err;
 
-	if (has_l4_header) {
+	/* A non-first fragment has no L4 checksum to absorb the address change,
+	 * see csum_l4_replace_ipv6_addr(). This is never the embedded packet of
+	 * an ICMPv6 error: that one always has an L4 header, and for SCTP the
+	 * outer ICMPv6 checksum absorbs its address change.
+	 */
+	if (!has_l4_header) {
+		csum_update(ctx, sum);
+	} else {
 		err = l4_rewrite_port_and_csum(ctx, nexthdr, l4_off, port_off,
-					       old_port, new_port, sum, 0);
+					       old_port, new_port, sum, true, 0);
 		if (err < 0)
 			return err;
 
