@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
-	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -103,6 +102,7 @@ func NewNodeHandler(
 	nodeConfigNotifier *manager.NodeConfigNotifier,
 	kprCfg kpr.KPRConfig,
 	ipsecAgent ipsecTypes.Agent,
+	ipsecCfg ipsecTypes.Config,
 	localNodeStore *node.LocalNodeStore,
 	pruneExclusion *routeReconciler.PruneExclusion,
 	routeManager *routeReconciler.DesiredRouteManager,
@@ -112,7 +112,7 @@ func NewNodeHandler(
 		TunnelDevice: tunnelConfig.DeviceName(),
 	}
 
-	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, fakeipsec.Config{}, localNodeStore, pruneExclusion, routeManager)
+	handler := newNodeHandler(log, datapathConfig, nodeMap, kprCfg, ipsecAgent, ipsecCfg, localNodeStore, pruneExclusion, routeManager)
 
 	nodeManager.Subscribe(handler)
 	nodeConfigNotifier.Subscribe(handler)
