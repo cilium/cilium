@@ -29,6 +29,7 @@ import (
 	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/endpointstate"
+	"github.com/cilium/cilium/pkg/fqdn/bootstrap"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipcache"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
@@ -89,6 +90,7 @@ type endpointRestorerParams struct {
 	EndpointRegenerator *endpoint.Regenerator
 	EndpointMetadata    endpointmetadata.EndpointMetadataFetcher
 	EndpointAPIFence    endpointapi.Fence
+	DNSProxyPromise     promise.Promise[bootstrap.DNSProxyInitialized]
 	IPSecAgent          ipsec.Agent
 	IPAMManager         *ipam.IPAM
 	CacheStatus         k8sSynced.CacheStatus
@@ -113,9 +115,10 @@ type endpointRestorer struct {
 	lxcMap              lxcmap.Map
 	connectorConfig     connector.Config
 
-	cacheStatus   k8sSynced.CacheStatus
-	dirReadStatus policyDirectory.DirectoryWatcherReadStatus
-	ipCache       *ipcache.IPCache
+	cacheStatus     k8sSynced.CacheStatus
+	dirReadStatus   policyDirectory.DirectoryWatcherReadStatus
+	ipCache         *ipcache.IPCache
+	dnsProxyPromise promise.Promise[bootstrap.DNSProxyInitialized]
 
 	restoreState                  *endpointRestoreState
 	metrics                       *endpointRestoreMetrics
@@ -140,9 +143,10 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 		lxcMap:              params.LXCMap,
 		connectorConfig:     params.ConnectorConfig,
 
-		cacheStatus:   params.CacheStatus,
-		dirReadStatus: params.DirReadStatus,
-		ipCache:       params.IPCache,
+		cacheStatus:     params.CacheStatus,
+		dirReadStatus:   params.DirReadStatus,
+		ipCache:         params.IPCache,
+		dnsProxyPromise: params.DNSProxyPromise,
 
 		metrics:                       params.Metrics,
 		endpointRestoreComplete:       make(chan struct{}),
@@ -186,10 +190,7 @@ func newEndpointRestorer(params endpointRestorerParams) *endpointRestorer {
 }
 
 func (r *endpointRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context.Context) error {
-	if !option.Config.RestoreState {
-		return nil
-	}
-
+	// Wait even when endpoint restoration is disabled to preserve bootstrap ordering.
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -199,10 +200,7 @@ func (r *endpointRestorer) WaitForEndpointRestoreWithoutRegeneration(ctx context
 }
 
 func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
-	if !option.Config.RestoreState {
-		return nil
-	}
-
+	// Wait even when endpoint restoration is disabled to preserve bootstrap ordering.
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -212,10 +210,7 @@ func (r *endpointRestorer) WaitForEndpointRestore(ctx context.Context) error {
 }
 
 func (r *endpointRestorer) WaitForInitialPolicy(ctx context.Context) error {
-	if !option.Config.RestoreState {
-		return nil
-	}
-
+	// Wait even when endpoint restoration is disabled to preserve bootstrap ordering.
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -715,10 +710,10 @@ func (r *endpointRestorer) allocateIPsLocked(ep *endpoint.Endpoint) (err error) 
 }
 
 func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) error {
+	// Proceed even when endpoint restoration is disabled to initialize dependencies
+	// and complete the startup barriers.
 	if !option.Config.RestoreState {
-		health.OK("Skipped - state restore is disabled")
 		r.logger.Info("State restore is disabled. Existing endpoints on node are ignored")
-		return nil
 	}
 
 	startTime := time.Now()
@@ -750,10 +745,23 @@ func (r *endpointRestorer) InitRestore(ctx context.Context, health cell.Health) 
 		return fmt.Errorf("failed to wait for initial IPCache revision: %w", err)
 	}
 
+	// Wait for DNS proxy readiness before exposing restored endpoints or unblocking
+	// endpoint initialization, which can trigger regeneration with DNS redirects.
+	health.OK("Waiting for DNS proxy initialization")
+	if _, err := r.dnsProxyPromise.Await(ctx); err != nil {
+		return fmt.Errorf("failed to wait for DNS proxy initialization: %w", err)
+	}
+
 	// When we regenerate restored endpoints, it is guaranteed that we have
 	// received the full list of policies present at the time the daemon
 	// is bootstrapped.
-	health.OK("Regenerating restored endpoints")
+	if option.Config.RestoreState {
+		health.OK("Regenerating restored endpoints")
+	} else {
+		health.OK("Skipped - state restore is disabled")
+	}
+	// Run even with an empty restore state to close the initial policy and
+	// regeneration completion channels.
 	r.regenerateRestoredEndpoints(r.restoreState)
 
 	close(r.endpointRestoreComplete)

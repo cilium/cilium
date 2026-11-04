@@ -1,0 +1,39 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: backendtlspolicy
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - matches:
+        - method:
+            service: grpc.backend.Backend
+            method: Valid
+      backendRefs:
+        - name: tls-backend
+          port: 443
+    - matches:
+        - method:
+            service: grpc.backend.Backend
+            method: Invalid
+      backendRefs:
+        - name: tls-backend-2
+          port: 443
+status:
+  parents:
+    - conditions:
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Accepted GRPCRoute
+          reason: Accepted
+          status: "True"
+          type: Accepted
+        - lastTransitionTime: "2025-07-01T14:19:43Z"
+          message: Service reference is valid
+          reason: ResolvedRefs
+          status: "True"
+          type: ResolvedRefs
+      controllerName: io.cilium/gateway-controller
+      parentRef:
+        name: same-namespace

@@ -468,6 +468,21 @@ func (m *RateLimitResponse_RateLimit) validate(all bool) error {
 
 	// no validation rules for Unit
 
+	if wrapper := m.GetUnitMultiplier(); wrapper != nil {
+
+		if wrapper.GetValue() <= 0 {
+			err := RateLimitResponse_RateLimitValidationError{
+				field:  "UnitMultiplier",
+				reason: "value must be greater than 0",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return RateLimitResponse_RateLimitMultiError(errors)
 	}

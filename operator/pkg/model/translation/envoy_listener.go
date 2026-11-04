@@ -6,6 +6,8 @@ package translation
 import (
 	"cmp"
 	"fmt"
+	"iter"
+	"maps"
 	goslices "slices"
 	"strings"
 	"syscall"
@@ -357,6 +359,34 @@ func (i *cecTranslator) filterChains(name string, m *model.Model) ([]*envoy_conf
 	return filterChains, nil
 }
 
+type tlsFilterChainKey struct {
+	Secret  model.TLSSecret
+	Options model.TLSOptions
+}
+
+func newTLSFilterChainKey(secret model.TLSSecret, options *model.TLSOptions) tlsFilterChainKey {
+	key := tlsFilterChainKey{Secret: secret}
+	if options != nil {
+		key.Options = *options
+	}
+	return key
+}
+
+func sortedTLSFilterChainKeys(keys iter.Seq[tlsFilterChainKey]) []tlsFilterChainKey {
+	return goslices.SortedStableFunc(keys, func(a, b tlsFilterChainKey) int {
+		if c := cmp.Compare(a.Secret.Namespace, b.Secret.Namespace); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.Secret.Name, b.Secret.Name); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(a.Options.MinVersion, b.Options.MinVersion); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Options.MaxVersion, b.Options.MaxVersion)
+	})
+}
+
 // httpsFilterChains returns the HTTPS filter chains for the given model.
 func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy_config_listener.FilterChain, error) {
 	tlsData := m.TLSSecretsToHostnamesWithValidation()
@@ -364,26 +394,38 @@ func (i *cecTranslator) httpsFilterChains(name string, m *model.Model) ([]*envoy
 		return nil, nil
 	}
 
+	tlsListeners := m.TLSSecretsToListeners()
 	var filterChains []*envoy_config_listener.FilterChain
-
 	for _, data := range tlsData {
-		secureHCMName := fmt.Sprintf("%s-%s", name, secureHost)
-		secureHCM, err := i.desiredHTTPConnectionManager(secureHCMName, secureHCMName, m)
-		if err != nil {
-			return nil, err
+		hostsByKey := map[tlsFilterChainKey][]string{}
+		for _, ref := range tlsListeners[data.TLSSecret] {
+			if !goslices.Contains(data.Hostnames, ref.Hostname) {
+				continue
+			}
+
+			key := newTLSFilterChainKey(data.TLSSecret, ref.TLSOptions)
+			hostsByKey[key] = append(hostsByKey[key], ref.Hostname)
 		}
-		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: toFilterChainMatch(data.Hostnames),
-			Filters: []*envoy_config_listener.Filter{
-				{
-					Name: httpConnectionManagerType,
-					ConfigType: &envoy_config_listener.Filter_TypedConfig{
-						TypedConfig: secureHCM.Any,
+
+		for _, key := range sortedTLSFilterChainKeys(maps.Keys(hostsByKey)) {
+			secureHCMName := fmt.Sprintf("%s-%s", name, secureHost)
+			secureHCM, err := i.desiredHTTPConnectionManager(secureHCMName, secureHCMName, m)
+			if err != nil {
+				return nil, err
+			}
+			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+				FilterChainMatch: toFilterChainMatch(slices.SortedUnique(hostsByKey[key])),
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: httpConnectionManagerType,
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: secureHCM.Any,
+						},
 					},
 				},
-			},
-			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation),
-		})
+				TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation, key.Options),
+			})
+		}
 	}
 
 	return filterChains, nil
@@ -603,24 +645,37 @@ func (i *cecTranslator) httpsFilterChainsForPort(name string, port uint32, m *mo
 		return nil, nil
 	}
 
+	tlsListeners := m.TLSSecretsToListeners()
 	var filterChains []*envoy_config_listener.FilterChain
 	for _, data := range tlsData {
-		hcm, err := i.desiredHTTPConnectionManager(name, name, m)
-		if err != nil {
-			return nil, err
+		hostsByKey := map[tlsFilterChainKey][]string{}
+		for _, ref := range tlsListeners[data.TLSSecret] {
+			if ref.Port != port || !goslices.Contains(data.Hostnames, ref.Hostname) {
+				continue
+			}
+
+			key := newTLSFilterChainKey(data.TLSSecret, ref.TLSOptions)
+			hostsByKey[key] = append(hostsByKey[key], ref.Hostname)
 		}
-		filterChains = append(filterChains, &envoy_config_listener.FilterChain{
-			FilterChainMatch: toFilterChainMatch(data.Hostnames),
-			Filters: []*envoy_config_listener.Filter{
-				{
-					Name: httpConnectionManagerType,
-					ConfigType: &envoy_config_listener.Filter_TypedConfig{
-						TypedConfig: hcm.Any,
+
+		for _, key := range sortedTLSFilterChainKeys(maps.Keys(hostsByKey)) {
+			hcm, err := i.desiredHTTPConnectionManager(name, name, m)
+			if err != nil {
+				return nil, err
+			}
+			filterChains = append(filterChains, &envoy_config_listener.FilterChain{
+				FilterChainMatch: toFilterChainMatch(slices.SortedUnique(hostsByKey[key])),
+				Filters: []*envoy_config_listener.Filter{
+					{
+						Name: httpConnectionManagerType,
+						ConfigType: &envoy_config_listener.Filter_TypedConfig{
+							TypedConfig: hcm.Any,
+						},
 					},
 				},
-			},
-			TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{data.TLSSecret}, data.FrontendTLSValidation),
-		})
+				TransportSocket: toTransportSocket(i.Config.SecretsNamespace, []model.TLSSecret{key.Secret}, data.FrontendTLSValidation, key.Options),
+			})
+		}
 	}
 
 	return filterChains, nil
@@ -863,7 +918,7 @@ func tlsPassthroughBackendWeight(backend model.Backend) uint32 {
 	return uint32(*backend.Weight)
 }
 
-func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, frontendValidation *model.FrontendTLSValidation) *envoy_config_core_v3.TransportSocket {
+func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, frontendValidation *model.FrontendTLSValidation, tlsOptions model.TLSOptions) *envoy_config_core_v3.TransportSocket {
 	var tlsSdsConfig []*envoy_extensions_transport_sockets_tls_v3.SdsSecretConfig
 	tlsMap := map[string]struct{}{}
 	for _, t := range tls {
@@ -876,10 +931,21 @@ func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, fron
 		})
 	}
 
+	commonTLSContext := &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
+		TlsCertificateSdsSecretConfigs: tlsSdsConfig,
+	}
+	if tlsOptions.MinVersion != "" || tlsOptions.MaxVersion != "" {
+		commonTLSContext.TlsParams = &envoy_extensions_transport_sockets_tls_v3.TlsParameters{}
+		if tlsOptions.MinVersion != "" {
+			commonTLSContext.TlsParams.TlsMinimumProtocolVersion = toEnvoyTLSVersion(tlsOptions.MinVersion)
+		}
+		if tlsOptions.MaxVersion != "" {
+			commonTLSContext.TlsParams.TlsMaximumProtocolVersion = toEnvoyTLSVersion(tlsOptions.MaxVersion)
+		}
+	}
+
 	downStreamContext := envoy_extensions_transport_sockets_tls_v3.DownstreamTlsContext{
-		CommonTlsContext: &envoy_extensions_transport_sockets_tls_v3.CommonTlsContext{
-			TlsCertificateSdsSecretConfigs: tlsSdsConfig,
-		},
+		CommonTlsContext: commonTLSContext,
 	}
 
 	// Configure client validation (mTLS) if frontend validation is specified
@@ -925,6 +991,17 @@ func toTransportSocket(ciliumSecretNamespace string, tls []model.TLSSecret, fron
 				Value:   downstreamBytes,
 			},
 		},
+	}
+}
+
+func toEnvoyTLSVersion(version string) envoy_extensions_transport_sockets_tls_v3.TlsParameters_TlsProtocol {
+	switch version {
+	case "1.2":
+		return envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_2
+	case "1.3":
+		return envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLSv1_3
+	default:
+		return envoy_extensions_transport_sockets_tls_v3.TlsParameters_TLS_AUTO
 	}
 }
 

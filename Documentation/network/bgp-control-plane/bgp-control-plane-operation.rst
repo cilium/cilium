@@ -373,12 +373,16 @@ different endpoint than before, potentially causing the connection to be reset.
 
 If your upstream routers support ECMP with `Resilient Hashing`_, enabling
 it may help to keep the ongoing connections forwarded to the same node.
-Enabling the :ref:`maglev` feature in Cilium may also help since it increases
+Enabling the :ref:`maglev` feature in Cilium together with DSR with
+:ref:`IPIP <DSR mode with IPIP>` or :ref:`Geneve <DSR mode with Geneve>`
+dispatch may also help since it increases
 the probability that all nodes select the same endpoint for the same flow.
 However, it only works for the ``externalTrafficPolicy: Cluster``. If the
 Service's ``externalTrafficPolicy`` is set to ``Local``, it is inevitable that
 all ongoing connections with the endpoints on the failed node, and connections
-forwarded to a different node than before, will be reset.
+forwarded to a different node than before, will be reset. See
+:ref:`maglev_ecmp` for how ECMP rehashing on the upstream routers and Maglev
+backend selection interact, and for the share of connections that get reset.
 
 .. _Resilient Hashing: https://www.juniper.net/documentation/us/en/software/junos/interfaces-ethernet-switches/topics/topic-map/resillient-hashing-lag-ecmp.html
 

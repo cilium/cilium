@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/operator/pkg/ipam/stats"
@@ -43,14 +44,11 @@ const (
 	maxENIPerNode = 50
 )
 
-type ipamNodeActions interface {
-	InstanceID() string
-}
-
 type Node struct {
 	logger *slog.Logger
-	// node contains the general purpose fields of a node
-	node ipamNodeActions
+
+	// instanceID is immutable after construction.
+	instanceID string
 
 	// mutex protects members below this field
 	mutex lock.RWMutex
@@ -64,9 +62,6 @@ type Node struct {
 
 	// manager is the ecs node manager responsible for this node
 	manager *InstancesManager
-
-	// instanceID of the node
-	instanceID string
 }
 
 // UpdatedNode is called when an update to the CiliumNode is received.
@@ -81,7 +76,7 @@ func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 func (n *Node) PopulateStatusFields(resource *v2.CiliumNode) {
 	resource.Status.AlibabaCloud.ENIs = map[string]types.ENI{}
 
-	n.manager.ForeachInstance(n.node.InstanceID(),
+	n.manager.ForeachInstance(n.instanceID,
 		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
 			e, ok := iface.(*types.ENI)
 			if ok {
@@ -143,7 +138,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 		"No more IPs available, creating new ENI",
 	)
 
-	instanceID := n.node.InstanceID()
+	instanceID := n.instanceID
 	n.mutex.Lock()
 	defer n.mutex.Unlock()
 	index, err := n.allocENIIndex()
@@ -208,7 +203,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	// for allocation, so we don't need to consider it for capacity calculation.
 	stats.NodeCapacity = limits.IPv4 * (limits.Adapters - 1)
 
-	instanceID := n.node.InstanceID()
+	instanceID := n.instanceID
 	available = ipamTypes.AllocationMap{}
 
 	n.mutex.Lock()
@@ -424,22 +419,77 @@ func (n *Node) IsPrefixDelegated() bool {
 	return false
 }
 
-// GetAttachedCIDRs is a no-op since AlibabaCloud does not use multi-pool
-// but uses the CRD allocator.
+// GetAttachedCIDRs returns the IPv4 host prefixes available to the agent.
+// Primary addresses on secondary ENIs are allocatable, but cannot be released.
 func (n *Node) GetAttachedCIDRs() []netip.Prefix {
-	return nil
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	var attached []netip.Prefix
+	for _, eni := range n.enis {
+		if eni.Type == types.ENITypePrimary {
+			continue
+		}
+		for _, address := range eni.PrivateIPSets {
+			if address.PrivateIpAddress.Is4() {
+				attached = append(attached, netip.PrefixFrom(address.PrivateIpAddress.Addr, 32))
+			}
+		}
+	}
+	return attached
 }
 
-// PrepareCIDRRelease is a no-op since AlibabaCloud does not use multi-pool
-// but uses the CRD allocator, that's backed by PrepareIPRelease
-func (n *Node) PrepareCIDRRelease(_ []netip.Prefix) []*nodemanager.ReleaseAction {
-	return nil
+// PrepareCIDRRelease maps unused host prefixes to their secondary ENIs.
+// The agent's multi-pool allocation state, rather than Status.IPAM.Used,
+// determines which CIDRs are unused. Never unassign an ENI's primary IP.
+func (n *Node) PrepareCIDRRelease(releasedCIDRs []netip.Prefix) []*nodemanager.ReleaseAction {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
+	var actions []*nodemanager.ReleaseAction
+	for eniID, eni := range n.enis {
+		if eni.Type != types.ENITypeSecondary {
+			continue
+		}
+		var cidrs []netip.Prefix
+		for _, address := range eni.PrivateIPSets {
+			addr := address.PrivateIpAddress.Addr
+			if !addr.Is4() || address.Primary || addr == eni.PrimaryIPAddress.Addr {
+				continue
+			}
+			prefix := netip.PrefixFrom(addr, 32)
+			if slices.Contains(releasedCIDRs, prefix) {
+				cidrs = append(cidrs, prefix)
+			}
+		}
+		if len(cidrs) > 0 {
+			actions = append(actions, &nodemanager.ReleaseAction{
+				InterfaceID:    eniID,
+				PoolID:         ipamTypes.PoolID(eni.VSwitch.VSwitchID),
+				CIDRsToRelease: cidrs,
+			})
+		}
+	}
+	return actions
 }
 
-// ReleaseCIDRs is a no-op since AlibabaCloud does not use multi-pool but
-// uses the CRD allocator, that's backed by ReleaseIPs/ReleaseIPPrefixes
-func (n *Node) ReleaseCIDRs(_ context.Context, _ *nodemanager.ReleaseAction) ([]netip.Prefix, error) {
-	return nil, nil
+// ReleaseCIDRs unassigns IPv4 host prefixes, reporting only successful releases.
+func (n *Node) ReleaseCIDRs(ctx context.Context, r *nodemanager.ReleaseAction) ([]netip.Prefix, error) {
+	addresses := make([]string, 0, len(r.CIDRsToRelease))
+	for _, cidr := range r.CIDRsToRelease {
+		if !cidr.IsSingleIP() || !cidr.Addr().Is4() {
+			return nil, fmt.Errorf("AlibabaCloud can only release IPv4 host prefixes, got %s", cidr)
+		}
+		addresses = append(addresses, cidr.Addr().String())
+	}
+	if len(addresses) == 0 {
+		return nil, nil
+	}
+	if err := n.manager.api.UnassignPrivateIPAddresses(ctx, r.InterfaceID, addresses); err != nil {
+		return nil, err
+	}
+	n.manager.RemoveIPsFromENI(n.instanceID, r.InterfaceID, r.CIDRsToRelease)
+	return r.CIDRsToRelease, nil
 }
 
 // getLimits returns the interface and IP limits of this node
@@ -484,7 +534,7 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context, eniSpec types.Spec) ([]s
 
 	var securityGroups []string
 
-	n.manager.ForeachInstance(n.node.InstanceID(),
+	n.manager.ForeachInstance(n.instanceID,
 		func(instanceID, interfaceID string, iface ipamTypes.Interface) error {
 			e, ok := iface.(*types.ENI)
 			if ok && e.Type == types.ENITypePrimary {

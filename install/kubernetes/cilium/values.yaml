@@ -1035,6 +1035,11 @@ ingressController:
     annotations: {}
     # -- Service type for the shared LB service
     type: LoadBalancer
+    # -- Configure whether the insecure HTTP port (80) is exposed on the shared LB service.
+    # Set it to false to keep cloud load balancers from creating a plain HTTP listener.
+    insecurePortEnabled: true
+    # -- Configure whether the secure HTTPS port (443) is exposed on the shared LB service.
+    securePortEnabled: true
     # @schema
     # type: [null, integer]
     # @schema
@@ -1209,9 +1214,9 @@ encryption:
       # @schema
       override: ~
       repository: "quay.io/cilium/ztunnel"
-      tag: "v1.0.0"
+      tag: "v1.1.0"
       pullPolicy: "Always"
-      digest: "sha256:884de5adde400e39f58e36c7a729f7690466ca4a8eb4c2a8daa9c1c025115b24"
+      digest: "sha256:f712b1b809b9888b410629bd6b4c36f5e91978771de8991d82d8792840f477d5"
       useDigest: true
     # -- CA server address for certificate requests.
     caAddress: "https://localhost:15012"
@@ -1407,8 +1412,8 @@ certgen:
     # @schema
     override: ~
     repository: "quay.io/cilium/certgen"
-    tag: "v0.4.11"
-    digest: "sha256:14d29a176fc96d15b154559ce1a5baf01367c10baabfa7bb8028b72f087a56f0"
+    tag: "v0.4.13"
+    digest: "sha256:f0c16ea8abe251d448a7fd04bdd93fe0f85fb1c3a456a455e05f7bb107dc2ff1"
     useDigest: true
     pullPolicy: "Always"
   # @schema
@@ -1546,6 +1551,9 @@ hubble:
       labels: {}
       # -- Annotations to add to ServiceMonitor hubble
       annotations: {}
+      # -- Attach node metadata to the targets discovered by ServiceMonitor hubble.
+      # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+      attachMetadata: {}
       # -- jobLabel to add for ServiceMonitor hubble
       jobLabel: ""
       # -- Interval for scrape metrics.
@@ -1963,6 +1971,9 @@ hubble:
         labels: {}
         # -- Annotations to add to ServiceMonitor hubble-relay
         annotations: {}
+        # -- Attach node metadata to the targets discovered by ServiceMonitor hubble-relay.
+        # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+        attachMetadata: {}
         # -- Interval for scrape metrics.
         interval: "10s"
         # @schema
@@ -2704,6 +2715,9 @@ prometheus:
     labels: {}
     # -- Annotations to add to ServiceMonitor cilium-agent
     annotations: {}
+    # -- Attach node metadata to the targets discovered by ServiceMonitor cilium-agent.
+    # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+    attachMetadata: {}
     # -- jobLabel to add for ServiceMonitor cilium-agent
     jobLabel: ""
     # -- Interval for scrape metrics.
@@ -2882,9 +2896,9 @@ envoy:
     # @schema
     override: ~
     repository: "quay.io/cilium/cilium-envoy"
-    tag: "v1.39.3-1791537820-50f71b8ebadf82126e9acb87ebe7db5daefdc768"
+    tag: "v1.40.2-1793191753-2b268f098fb50df0c1201524291992f48a959074"
     pullPolicy: "Always"
-    digest: "sha256:0df031a8308f05f29e972b77237ccfac333258ccad92732e82eddb7e2759ca66"
+    digest: "sha256:c37bb9e4c61e5f54b8a60445097aaf831ab149001166acb2405c4c529a51ee22"
     useDigest: true
   # -- Init containers added to the cilium Envoy DaemonSet.
   initContainers: []
@@ -3094,6 +3108,9 @@ envoy:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-envoy
       annotations: {}
+      # -- Attach node metadata to the targets discovered by ServiceMonitor cilium-envoy.
+      # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+      attachMetadata: {}
       # -- Interval for scrape metrics.
       interval: "10s"
       # @schema
@@ -3351,6 +3368,8 @@ operator:
       operator: Exists
     - key: "node-role.kubernetes.io/master" #deprecated
       operator: Exists
+    - key: "node-role.kubernetes.io/etcd"
+      operator: Exists
     - key: "node.kubernetes.io/not-ready"
       operator: Exists
     - key: "node.cloudprovider.kubernetes.io/uninitialized"
@@ -3462,6 +3481,9 @@ operator:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-operator
       annotations: {}
+      # -- Attach node metadata to the targets discovered by ServiceMonitor cilium-operator.
+      # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+      attachMetadata: {}
       # -- jobLabel to add for ServiceMonitor cilium-operator
       jobLabel: ""
       # -- Interval for scrape metrics.
@@ -3541,8 +3563,8 @@ nodeinit:
     # @schema
     override: ~
     repository: "quay.io/cilium/startup-script"
-    tag: "1790907923-29f9511"
-    digest: "sha256:e6d4d88b5958069f4528b02f0168740cfd074850b383ad1b617c1347e6a889ea"
+    tag: "1792666708-8c1b3e5"
+    digest: "sha256:d7aca2a73c58463a50384b2c4aeb535722dfa969f55bc01205b5f2aaf8b20da6"
     useDigest: true
     pullPolicy: "Always"
   # -- The priority class to use for the nodeinit pod.
@@ -3648,9 +3670,9 @@ preflight:
       # @schema
       override: ~
       repository: "quay.io/cilium/cilium-envoy"
-      tag: "v1.39.3-1791537820-50f71b8ebadf82126e9acb87ebe7db5daefdc768"
+      tag: "v1.40.2-1793191753-2b268f098fb50df0c1201524291992f48a959074"
       pullPolicy: "Always"
-      digest: "sha256:0df031a8308f05f29e972b77237ccfac333258ccad92732e82eddb7e2759ca66"
+      digest: "sha256:c37bb9e4c61e5f54b8a60445097aaf831ab149001166acb2405c4c529a51ee22"
       useDigest: true
   # -- The priority class to use for the preflight pod.
   priorityClassName: ""
@@ -4297,6 +4319,9 @@ clustermesh:
         labels: {}
         # -- Annotations to add to ServiceMonitor clustermesh-apiserver
         annotations: {}
+        # -- Attach node metadata to the targets discovered by ServiceMonitor clustermesh-apiserver.
+        # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+        attachMetadata: {}
         # -- Specify the Kubernetes namespace where Prometheus expects to find
         # service monitors configured.
         # namespace: ""
@@ -4442,7 +4467,7 @@ authentication:
           override: ~
           repository: "docker.io/library/busybox"
           tag: "1.38.0"
-          digest: "sha256:fd7dc98638c8e305f4dc34e979f1c0fdfdcaeb0fbf8fcff77ae834b6da3d7e6e"
+          digest: "sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4"
           useDigest: true
           pullPolicy: "Always"
         # SPIRE agent configuration
@@ -4456,8 +4481,8 @@ authentication:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-agent"
-            tag: "1.15.3"
-            digest: "sha256:41b0dcd8b258a69db9e2768292a060766fb76fd866e4bc925849981ea1b825ff"
+            tag: "1.15.5"
+            digest: "sha256:3652c732b0f0d36f4dd78394230a1b1cd0ddcc29548a46c67a996b1a78c14481"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE agent service account
@@ -4483,6 +4508,8 @@ authentication:
               effect: NoSchedule
             - key: node-role.kubernetes.io/control-plane
               effect: NoSchedule
+            - key: node-role.kubernetes.io/etcd
+              operator: Exists
             - key: node.cloudprovider.kubernetes.io/uninitialized
               effect: NoSchedule
               value: "true"
@@ -4511,8 +4538,8 @@ authentication:
             # @schema
             override: ~
             repository: "ghcr.io/spiffe/spire-server"
-            tag: "1.15.3"
-            digest: "sha256:4082f30d3e0ddc4000a171392c4ea174345ee44d161ee917c70b97b2ecfba141"
+            tag: "1.15.5"
+            digest: "sha256:584a9c5cc95b9457f5033e7e4488d603fffe5ec48a80c4dba14b05c5e1c2c384"
             useDigest: true
             pullPolicy: "Always"
           # -- SPIRE server service account

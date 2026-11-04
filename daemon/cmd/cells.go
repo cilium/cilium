@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/daemon/infraendpoints"
 	agentK8s "github.com/cilium/cilium/daemon/k8s"
 	"github.com/cilium/cilium/daemon/restapi"
+	alibabaCloudAgent "github.com/cilium/cilium/pkg/alibabacloud/agent"
 	"github.com/cilium/cilium/pkg/api"
 	awsAgent "github.com/cilium/cilium/pkg/aws/agent"
 	azureAgent "github.com/cilium/cilium/pkg/azure/agent"
@@ -35,6 +36,8 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/devicestats"
+	routingreconciler "github.com/cilium/cilium/pkg/datapath/linux/routing/reconciler"
 	loadertypes "github.com/cilium/cilium/pkg/datapath/loader/types"
 	debugapi "github.com/cilium/cilium/pkg/debug/api"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -79,8 +82,8 @@ import (
 	"github.com/cilium/cilium/pkg/metrics/features"
 	"github.com/cilium/cilium/pkg/networkdriver"
 	"github.com/cilium/cilium/pkg/node"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/neighbordiscovery"
+	nodePolicy "github.com/cilium/cilium/pkg/node/policy"
 	noderestapi "github.com/cilium/cilium/pkg/node/restapi"
 	nodesync "github.com/cilium/cilium/pkg/node/sync"
 	"github.com/cilium/cilium/pkg/nodediscovery"
@@ -156,6 +159,9 @@ var (
 
 		// Provides cilium_datapath_drop/forward Prometheus metrics.
 		metricsmap.Cell,
+
+		// Provides cilium_device_stat Prometheus metric.
+		devicestats.Cell,
 
 		// Provides the IP trace map.
 		iptrace.Cell,
@@ -233,13 +239,13 @@ var (
 		// Endpoint cell provides the Endpoint modules.
 		endpoint.Cell,
 
-		// NodeManager maintains a collection of other nodes in the cluster.
-		nodeManager.Cell,
+		// Install the node update policy and configuration notifier.
+		nodePolicy.Cell,
 
 		// Node REST API serves snapshots and changes from the node table.
 		noderestapi.Cell,
 
-		// NodeNeighborDiscovery is a node handler that subscribes to the NodeManager
+		// NodeNeighborDiscovery watches the node table for neighbor updates
 		// and ensures node IPs are "forwardable" by adding them to the forwardable IP table.
 		// The neighbor subsystem will create neighbor entries for these forwardable IPs.
 		neighbordiscovery.Cell,
@@ -320,6 +326,12 @@ var (
 
 		// Provides the Azure customization of the multi-pool IPAM allocator.
 		azureAgent.Cell,
+
+		// Provides the AlibabaCloud customization of the multi-pool IPAM allocator.
+		alibabaCloudAgent.Cell,
+
+		// Reconciles desired cloud endpoint routing rules and removes orphan rules.
+		routingreconciler.Cell,
 
 		// Egress Gateway allows originating traffic from specific IPv4 addresses.
 		egressgateway.Cell,

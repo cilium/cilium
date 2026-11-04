@@ -21,6 +21,12 @@ notes carefully below to understand what to do during upgrade.
 * Cilium mutual authentication support has been removed after deprecation. If
   you use mutual authentication, remove that configuration before upgrading.
   Consider using :ref:`encryption_ztunnel` instead.
+* Egress policy rules that combine ``toServices`` with ``toPorts`` no longer
+  allow traffic to any destination on those ports when the referenced Service
+  doesn't exist or is selector-less with no backends. Such rules now deny that
+  traffic until the Service exists and, if selector-less, has backends. If you
+  have rules like this, ensure the referenced Services exist and have backends
+  before upgrading.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
@@ -71,9 +77,13 @@ Changed Options
 The following options have been modified in this version of Cilium to behave
 differently than in prior releases:
 
+* ``enable-remote-node-masquerade`` is now enabled by default with BPF
+  masquerading.
 * ``enable-remote-node-masquerade`` will now only masquerade traffic to
   ExternalIP node addresses. Traffic to InternalIP node addresses will not be
   masqueraded anymore.
+* ``bpf.hostLegacyRouting`` now defaults to true on new Cilium deployments.
+* ``bpf.masquerade`` is enabled by default on new Cilium deployments.
 
 Deprecated Options
 ##################
@@ -92,6 +102,9 @@ you may need to take action to migrate to an alternative.
   ``cilium.io/v2alpha1`` to use ``cilium.io/v2`` instead.
 
 * The agent option ``--fixed-identity-mapping`` is deprecated and will be removed
+  in a future release.
+
+* The agent option ``--enable-xdp-prefilter`` is deprecated and will be removed
   in a future release.
 
 Removed Options
@@ -123,6 +136,8 @@ from Cilium.
   removed. It was a temporary workaround for an ENI IPAM upgrade issue
   introduced in v1.10, and has had no effect in ENI mode since the agent moved
   to the multi-pool allocator in v1.20, nor in Azure mode with this release.
+* The deprecated ``cilium.io/v2alpha1`` API version of the BGP CRDs has been
+  removed. Use ``cilium.io/v2`` instead, which has been available since Cilium 1.18.
 
 Changes to Metrics
 ~~~~~~~~~~~~~~~~~~

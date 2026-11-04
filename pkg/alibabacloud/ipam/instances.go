@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net/netip"
+	"slices"
 
 	"github.com/cilium/cilium/operator/pkg/ipam/nodemanager"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
@@ -39,8 +41,9 @@ type AlibabaCloudAPI interface {
 type InstancesManager struct {
 	logger *slog.Logger
 
-	// resyncLock ensures instance incremental resync do not run at the same time as a full API resync
-	resyncLock lock.RWMutex
+	// resyncLock keeps incremental resync and cache updates out of a full API resync
+	resyncLock    lock.RWMutex
+	instanceLocks lock.KeyedMutex[string]
 
 	// mutex protects the fields below
 	mutex          lock.RWMutex
@@ -61,8 +64,8 @@ func NewInstancesManager(logger *slog.Logger, api AlibabaCloudAPI) *InstancesMan
 }
 
 // CreateNode
-func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, node *nodemanager.Node) nodemanager.NodeOperations {
-	return &Node{logger: m.logger, k8sObj: obj, manager: m, node: node, instanceID: node.InstanceID()}
+func (m *InstancesManager) CreateNode(obj *v2.CiliumNode, _ *nodemanager.Node) nodemanager.NodeOperations {
+	return &Node{logger: m.logger, k8sObj: obj, manager: m, instanceID: obj.InstanceID()}
 }
 
 // HasInstance returns whether the instance is in instances
@@ -99,11 +102,22 @@ func (m *InstancesManager) Resync(ctx context.Context) (time.Time, error) {
 // cache in the instanceManager. It returns the time when the resync has
 // started or an error if it did not complete.
 func (m *InstancesManager) InstanceSync(ctx context.Context, instanceID string) (time.Time, error) {
-	// Instance incremental resync from different nodes should be executed in parallel,
-	// but must block the full API resync.
-	m.resyncLock.RLock()
-	defer m.resyncLock.RUnlock()
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
 	return m.resync(ctx, instanceID)
+}
+
+func (m *InstancesManager) lockInstance(instanceID string) lock.UnlockFunc {
+	unlockInstance := m.instanceLocks.Lock(instanceID)
+	// The read lock allows incremental resyncs and cache updates for different
+	// instances to run in parallel, while excluding full API resyncs, which take
+	// the write lock.
+	m.resyncLock.RLock()
+
+	return func() {
+		m.resyncLock.RUnlock()
+		unlockInstance()
+	}
 }
 
 func (m *InstancesManager) resync(ctx context.Context, instanceID string) (time.Time, error) {
@@ -201,8 +215,38 @@ func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.Inter
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
 func (m *InstancesManager) UpdateENI(instanceID string, eni *types.ENI) {
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
+	// Don't recreate a partial instance that was deleted while this update waited.
+	if !m.instances.Exists(instanceID) {
+		return
+	}
+	m.instances.Update(instanceID, eni)
+}
+
+// RemoveIPsFromENI updates the local cache after a successful release so
+// PopulateStatusFields cannot advertise those addresses before the next resync.
+func (m *InstancesManager) RemoveIPsFromENI(instanceID, eniID string, released []netip.Prefix) {
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	iface, ok := m.instances.GetInterface(instanceID, eniID)
+	if !ok {
+		return
+	}
+	eni, ok := iface.DeepCopyInterface().(*types.ENI)
+	if !ok {
+		return
+	}
+	eni.PrivateIPSets = slices.DeleteFunc(eni.PrivateIPSets, func(address types.PrivateIPSet) bool {
+		return slices.Contains(released, netip.PrefixFrom(address.PrivateIpAddress.Addr, 32))
+	})
 	m.instances.Update(instanceID, eni)
 }
 
@@ -278,6 +322,9 @@ func (m *InstancesManager) FindSecurityGroupByTags(vpcID string, required ipamTy
 
 // DeleteInstance delete instance from m.instances
 func (m *InstancesManager) DeleteInstance(instanceID string) {
+	unlock := m.lockInstance(instanceID)
+	defer unlock()
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 	m.instances.Delete(instanceID)

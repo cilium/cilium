@@ -292,6 +292,44 @@ func BenchmarkLabelArray_String(b *testing.B) {
 	}
 }
 
+func TestLabelArray_formatLen(t *testing.T) {
+	tests := []struct {
+		name     string
+		in       LabelArray
+		expected string
+	}{
+		{
+			name:     "nil",
+			in:       nil,
+			expected: "[]",
+		},
+		{
+			name:     "empty",
+			in:       LabelArray{},
+			expected: "[]",
+		},
+		{
+			name:     "label without value",
+			in:       LabelArray{NewLabel("kube-apiserver", "", LabelSourceReserved)},
+			expected: "[reserved:kube-apiserver]",
+		},
+		{
+			name: "multiple labels",
+			in: LabelArray{
+				NewLabel("foo", "bar", LabelSourceK8s),
+				NewLabel("kube-apiserver", "", LabelSourceReserved),
+			},
+			expected: "[k8s:foo=bar reserved:kube-apiserver]",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.expected, tt.in.String())
+			require.Equal(t, len(tt.expected), tt.in.formatLen())
+		})
+	}
+}
+
 // LabelArray.Has() is a specific interface
 // that is required for kubernetes selectors to work
 func TestLabelArray_Has(t *testing.T) {

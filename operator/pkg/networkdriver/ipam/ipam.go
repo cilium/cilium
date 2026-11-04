@@ -64,7 +64,7 @@ func registerAllocator(p allocatorParams) {
 		return
 	}
 
-	allocator := multipool.NewPoolAllocator(p.Logger, p.NetworkDriverConfig.IPv4Enabled, p.NetworkDriverConfig.IPv6Enabled)
+	allocator := multipool.NewPoolAllocator(p.Logger, p.NetworkDriverConfig.IPv4Enabled, p.NetworkDriverConfig.IPv6Enabled, nil)
 	nodeHandler := multipool.NewNodeHandler(
 		"network-driver-ipam-sync",
 		p.Logger,

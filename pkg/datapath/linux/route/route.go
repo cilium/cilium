@@ -4,7 +4,6 @@
 package route
 
 import (
-	"fmt"
 	"log/slog"
 	"net"
 
@@ -57,24 +56,4 @@ func (a ByMask) Less(i, j int) bool {
 
 func (a ByMask) Swap(i, j int) {
 	a[i], a[j] = a[j], a[i]
-}
-
-// ToIPCommand converts the route into a full "ip route ..." command
-func (r *Route) ToIPCommand(dev string) []string {
-	res := []string{"ip"}
-	if r.Prefix.IP.To4() == nil {
-		res = append(res, "-6")
-	}
-	res = append(res, "route", "add", r.Prefix.String())
-	if r.Priority != 0 {
-		res = append(res, "metric", fmt.Sprintf("%d", r.Priority))
-	}
-	if r.Nexthop != nil {
-		res = append(res, "via", r.Nexthop.String())
-	}
-	if r.MTU != 0 {
-		res = append(res, "mtu", fmt.Sprintf("%d", r.MTU))
-	}
-	res = append(res, "dev", dev)
-	return res
 }

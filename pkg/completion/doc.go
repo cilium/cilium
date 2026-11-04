@@ -39,14 +39,28 @@
 //
 //	err := wg.Wait()
 //
-// Wait blocks until either all Completions are completed, or the context is
-// canceled, times out, or any of the concurrent operations associated with
-// the WaitGroup fails, whichever happens first. The returned error is
-// nil if all the concurrent operations are successfully completed, a non-nil
-// error otherwise.
+// Wait blocks until all Completions are completed, or the context is canceled or
+// times out. A failed operation also cancels the context. Before returning, Wait
+// settles any remaining Completions and drains the group.
+//
+// With Completions, Wait returns nil if they all completed successfully, even if
+// the context was canceled or timed out. Otherwise, it returns a completion
+// error, overridden by the context error if Wait observes a timeout.
+//
+// For an empty WaitGroup, Wait returns the context error, which is nil if the
+// context has not been canceled or timed out. Wait cancels the context before
+// returning, so subsequent calls return context.DeadlineExceeded if the context
+// timed out, or context.Canceled otherwise.
+//
+// If the caller abandons the operation before Wait, it must call Cancel instead.
+// Cancel cancels the group's context and synchronously drains pending callbacks
+// and owner cleanup through Wait, discarding its error. Canceling the context
+// alone does not perform this cleanup. Registration must finish before either
+// method is called. Neither may be called from a completion callback or owner
+// cleanup hook, or while holding locks those hooks need.
 //
 // A Completion can also be created with a callback, which is called at most
-// once when the Completion is completed before the context is canceled:
+// once when the Completion is completed, including by Wait or Cancel:
 //
 //	comp := wg.AddCompletionWithCallback(nil, func(err error) {
 //	    if err == nil {
@@ -54,7 +68,8 @@
 //	    }
 //	})
 //
-// The callback is called in the goroutine which calls Complete the first time.
+// The callback is called in the goroutine which first completes it, either
+// through Complete, Wait, or Cancel.
 // The callback is called with an non-nil error if the associated concurrent
 // operation fails. Error values 'context.DeadlineExceeded' and
 // 'context.Canceled' are passed if the WaitGroup's context times out or is

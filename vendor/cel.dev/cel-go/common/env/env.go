@@ -26,7 +26,7 @@ import (
 	"cel.dev/cel-go/common/types"
 )
 
-// NewConfig creates an instance of a YAML serializable CEL environment configuration.
+// NewConfig creates an instance of a YAML/JSON serializable CEL environment configuration.
 func NewConfig(name string) *Config {
 	return &Config{
 		Name: name,
@@ -39,18 +39,18 @@ func NewConfig(name string) *Config {
 // considered part of the core CEL environment configuration and should be managed separately
 // until a common convention for such settings is developed.
 type Config struct {
-	Name            string           `yaml:"name,omitempty"`
-	Description     string           `yaml:"description,omitempty"`
-	Container       string           `yaml:"container,omitempty"`
-	Imports         []*Import        `yaml:"imports,omitempty"`
-	StdLib          *LibrarySubset   `yaml:"stdlib,omitempty"`
-	Extensions      []*Extension     `yaml:"extensions,omitempty"`
-	ContextVariable *ContextVariable `yaml:"context_variable,omitempty"`
-	Variables       []*Variable      `yaml:"variables,omitempty"`
-	Functions       []*Function      `yaml:"functions,omitempty"`
-	Validators      []*Validator     `yaml:"validators,omitempty"`
-	Features        []*Feature       `yaml:"features,omitempty"`
-	Limits          []*Limit         `yaml:"limits,omitempty"`
+	Name            string           `yaml:"name,omitempty" json:"name,omitempty"`
+	Description     string           `yaml:"description,omitempty" json:"description,omitempty"`
+	Container       string           `yaml:"container,omitempty" json:"container,omitempty" jsonschema_description:"Protobuf container namespace for type resolution"`
+	Imports         []*Import        `yaml:"imports,omitempty" json:"imports,omitempty" jsonschema_description:"Fully qualified type names imported by simple name"`
+	StdLib          *LibrarySubset   `yaml:"stdlib,omitempty" json:"stdlib,omitempty" jsonschema_description:"Standard library macro and function subset configuration"`
+	Extensions      []*Extension     `yaml:"extensions,omitempty" json:"extensions,omitempty"`
+	ContextVariable *ContextVariable `yaml:"context_variable,omitempty" json:"contextVariable,omitempty" jsonschema_description:"Protobuf message type whose fields are exposed as top-level variables"`
+	Variables       []*Variable      `yaml:"variables,omitempty" json:"variables,omitempty"`
+	Functions       []*Function      `yaml:"functions,omitempty" json:"functions,omitempty"`
+	Validators      []*Validator     `yaml:"validators,omitempty" json:"validators,omitempty"`
+	Features        []*Feature       `yaml:"features,omitempty" json:"features,omitempty"`
+	Limits          []*Limit         `yaml:"limits,omitempty" json:"limits,omitempty"`
 }
 
 // Validate validates the whole configuration is well-formed.
@@ -226,7 +226,7 @@ func NewImport(name string) *Import {
 // Import represents a type name that will be appreviated by its simple name using
 // the cel.Abbrevs() option.
 type Import struct {
-	Name string `yaml:"name"`
+	Name string `yaml:"name" json:"name" jsonschema_description:"Fully qualified protobuf message or enum name"`
 }
 
 // Validate validates the import configuration is well-formed.
@@ -253,15 +253,15 @@ func NewVariableWithDoc(name string, t *TypeDesc, doc string) *Variable {
 // Variable represents a typed variable declaration which will be published via the
 // cel.VariableDecls() option.
 type Variable struct {
-	Name        string `yaml:"name"`
-	Description string `yaml:"description,omitempty"`
+	Name        string `yaml:"name" json:"name"`
+	Description string `yaml:"description,omitempty" json:"description,omitempty"`
 
 	// Type represents the type declaration for the variable.
 	//
 	// When serialized, 'type' is used for shorthand specifier string.
 	//
 	// Use GetType() for getting the effective type.
-	Type *TypeDesc `yaml:"type,omitempty"`
+	Type *TypeDesc `yaml:"type,omitempty" json:"type,omitempty" jsonschema_description:"Type specifier formatted as TypeName or namespace.TypeName with optional type parameters in angle brackets <>"`
 
 	// TypeDesc is an embedded set of fields allowing for the specification of the Variable type.
 	*TypeDesc `yaml:",inline"`
@@ -323,7 +323,7 @@ func NewContextVariable(typeName string) *ContextVariable {
 type ContextVariable struct {
 	// TypeName represents the fully qualified typename of the context variable.
 	// Currently, only protobuf types are supported.
-	TypeName string `yaml:"type_name"`
+	TypeName string `yaml:"type_name" json:"typeName" jsonschema_description:"Fully qualified protobuf message type name"`
 }
 
 // Validate validates the context-variable configuration is well-formed.
@@ -349,9 +349,9 @@ func NewFunctionWithDoc(name, doc string, overloads ...*Overload) *Function {
 
 // Function represents the serializable format of a function and its overloads.
 type Function struct {
-	Name        string      `yaml:"name"`
-	Description string      `yaml:"description,omitempty"`
-	Overloads   []*Overload `yaml:"overloads,omitempty"`
+	Name        string      `yaml:"name" json:"name" jsonschema_description:"camelCase function name, either standalone or namespace.functionName"`
+	Description string      `yaml:"description,omitempty" json:"description,omitempty"`
+	Overloads   []*Overload `yaml:"overloads,omitempty" json:"overloads,omitempty"`
 }
 
 // Validate validates the function configuration is well-formed.
@@ -405,11 +405,11 @@ func NewMemberOverload(id string, target *TypeDesc, args []*TypeDesc, ret *TypeD
 
 // Overload represents the serializable format of a function overload.
 type Overload struct {
-	ID       string      `yaml:"id"`
-	Examples []string    `yaml:"examples,omitempty"`
-	Target   *TypeDesc   `yaml:"target,omitempty"`
-	Args     []*TypeDesc `yaml:"args,omitempty"`
-	Return   *TypeDesc   `yaml:"return,omitempty"`
+	ID       string      `yaml:"id" json:"id" jsonschema_description:"Overload ID formatted as function_name_type1_..._typeN or target_type_function_name_type1_..._typeN"`
+	Examples []string    `yaml:"examples,omitempty" json:"examples,omitempty"`
+	Target   *TypeDesc   `yaml:"target,omitempty" json:"target,omitempty" jsonschema_description:"Receiver type specifier for member functions"`
+	Args     []*TypeDesc `yaml:"args,omitempty" json:"args,omitempty"`
+	Return   *TypeDesc   `yaml:"return,omitempty" json:"return,omitempty"`
 }
 
 // Validate validates the overload configuration is well-formed.
@@ -458,13 +458,15 @@ func (od *Overload) AsFunctionOption(tp types.Provider) (decls.FunctionOpt, erro
 	if od.Target != nil {
 		t, err := od.Target.AsCELType(tp)
 		if err != nil {
-			return nil, errors.Join(append(errs, err)...)
+			errs = append(errs, err)
 		}
 		args = append([]*types.Type{t}, args...)
-		return decls.MemberOverload(od.ID, args, result), nil
 	}
 	if len(errs) != 0 {
 		return nil, errors.Join(errs...)
+	}
+	if od.Target != nil {
+		return decls.MemberOverload(od.ID, args, result, decls.OverloadExamples(od.Examples...)), nil
 	}
 	return decls.Overload(od.ID, args, result, decls.OverloadExamples(od.Examples...)), nil
 }
@@ -484,10 +486,10 @@ func NewExtension(name string, version uint32) *Extension {
 // Extension represents a named and optionally versioned extension library configured in the environment.
 type Extension struct {
 	// Name is either the LibraryName() or some short-hand simple identifier which is understood by the config-handler.
-	Name string `yaml:"name"`
+	Name string `yaml:"name" json:"name"`
 
 	// Version may either be an unsigned long value or the string 'latest'. If empty, the value is treated as '0'.
-	Version string `yaml:"version,omitempty"`
+	Version string `yaml:"version,omitempty" json:"version,omitempty" jsonschema_description:"Extension version number or 'latest'"`
 }
 
 // Validate validates the extension configuration is well-formed.
@@ -526,28 +528,28 @@ func NewLibrarySubset() *LibrarySubset {
 type LibrarySubset struct {
 	// Disabled indicates whether the library has been disabled, typically only used for
 	// default-enabled libraries like stdlib.
-	Disabled bool `yaml:"disabled,omitempty"`
+	Disabled bool `yaml:"disabled,omitempty" json:"disabled,omitempty"`
 
 	// DisableMacros disables macros for the given library.
-	DisableMacros bool `yaml:"disable_macros,omitempty"`
+	DisableMacros bool `yaml:"disable_macros,omitempty" json:"disableMacros,omitempty"`
 
 	// IncludeMacros specifies a set of macro function names to include in the subset.
-	IncludeMacros []string `yaml:"include_macros,omitempty"`
+	IncludeMacros []string `yaml:"include_macros,omitempty" json:"includeMacros,omitempty"`
 
 	// ExcludeMacros specifies a set of macro function names to exclude from the subset.
 	// Note: if IncludeMacros is non-empty, then ExcludeFunctions is ignored.
-	ExcludeMacros []string `yaml:"exclude_macros,omitempty"`
+	ExcludeMacros []string `yaml:"exclude_macros,omitempty" json:"excludeMacros,omitempty"`
 
 	// IncludeFunctions specifies a set of functions to include in the subset.
 	//
 	// Note: the overloads specified in the subset need only specify their ID.
 	// Note: if IncludeFunctions is non-empty, then ExcludeFunctions is ignored.
-	IncludeFunctions []*Function `yaml:"include_functions,omitempty"`
+	IncludeFunctions []*Function `yaml:"include_functions,omitempty" json:"includeFunctions,omitempty" jsonschema_description:"Functions and optional overload IDs to include"`
 
 	// ExcludeFunctions specifies the set of functions to exclude from the subset.
 	//
 	// Note: the overloads specified in the subset need only specify their ID.
-	ExcludeFunctions []*Function `yaml:"exclude_functions,omitempty"`
+	ExcludeFunctions []*Function `yaml:"exclude_functions,omitempty" json:"excludeFunctions,omitempty" jsonschema_description:"Functions and optional overload IDs to exclude"`
 }
 
 // Validate validates the library configuration is well-formed.
@@ -699,8 +701,8 @@ func NewValidator(name string) *Validator {
 // Note: the map-keys must directly correspond to the internal representation of the original
 // validator, and should only use primitive scalar types as values at this time.
 type Validator struct {
-	Name   string         `yaml:"name"`
-	Config map[string]any `yaml:"config,omitempty"`
+	Name   string         `yaml:"name" json:"name"`
+	Config map[string]any `yaml:"config,omitempty" json:"config,omitempty"`
 }
 
 // Validate validates the configuration of the validator object.
@@ -736,8 +738,8 @@ func NewFeature(name string, enabled bool) *Feature {
 
 // Feature represents a named boolean feature flag supported by CEL.
 type Feature struct {
-	Name    string `yaml:"name"`
-	Enabled bool   `yaml:"enabled"`
+	Name    string `yaml:"name" json:"name"`
+	Enabled bool   `yaml:"enabled" json:"enabled"`
 }
 
 // Validate validates whether the feature is well-configured.
@@ -754,8 +756,8 @@ func (feat *Feature) Validate() error {
 // Limit represents a named limit in the CEL environment. This is used to control
 // the complexity tolerated before failing parsing, type checking, or planning.
 type Limit struct {
-	Name  string `yaml:"name"`
-	Value int    `yaml:"value"`
+	Name  string `yaml:"name" json:"name"`
+	Value int    `yaml:"value" json:"value"`
 }
 
 // NewLimit creates a new limit.
@@ -786,9 +788,9 @@ func NewTypeParam(paramName string) *TypeDesc {
 
 // TypeDesc represents the serializable format of a CEL *types.Type value.
 type TypeDesc struct {
-	TypeName    string      `yaml:"type_name"`
-	Params      []*TypeDesc `yaml:"params,omitempty"`
-	IsTypeParam bool        `yaml:"is_type_param,omitempty"`
+	TypeName    string      `yaml:"type_name" json:"typeName"`
+	Params      []*TypeDesc `yaml:"params,omitempty" json:"params,omitempty"`
+	IsTypeParam bool        `yaml:"is_type_param,omitempty" json:"isTypeParam,omitempty"`
 }
 
 // String implements the strings.Stringer interface method.
@@ -950,9 +952,8 @@ func (td *TypeDesc) AsCELType(tp types.Provider) (*types.Type, error) {
 		if !found {
 			return nil, fmt.Errorf("undefined type name: %q", td.TypeName)
 		}
-		_, ok := t.(*types.Type)
-		if ok && len(td.Params) == 0 {
-			return t.(*types.Type), nil
+		if celType, ok := t.(*types.Type); ok && len(td.Params) == 0 {
+			return celType, nil
 		}
 		params := make([]*types.Type, len(td.Params))
 		for i, p := range td.Params {

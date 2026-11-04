@@ -5830,6 +5830,15 @@ const (
 	InstanceTypeR9gd48xlarge       InstanceType = "r9gd.48xlarge"
 	InstanceTypeR9gdMetal48xl      InstanceType = "r9gd.metal-48xl"
 	InstanceTypeM9gMedium          InstanceType = "m9g.medium"
+	InstanceTypeT8iNano            InstanceType = "t8i.nano"
+	InstanceTypeT8iMicro           InstanceType = "t8i.micro"
+	InstanceTypeT8iSmall           InstanceType = "t8i.small"
+	InstanceTypeT8iMedium          InstanceType = "t8i.medium"
+	InstanceTypeI8gMetal48xl       InstanceType = "i8g.metal-48xl"
+	InstanceTypeR8gb48xlarge       InstanceType = "r8gb.48xlarge"
+	InstanceTypeR8gbMetal48xl      InstanceType = "r8gb.metal-48xl"
+	InstanceTypeM9gdMedium         InstanceType = "m9gd.medium"
+	InstanceTypeTrn2u48xlarge      InstanceType = "trn2u.48xlarge"
 )
 
 // Values returns all known values for InstanceType. Note that this can be
@@ -7266,6 +7275,15 @@ func (InstanceType) Values() []InstanceType {
 		"r9gd.48xlarge",
 		"r9gd.metal-48xl",
 		"m9g.medium",
+		"t8i.nano",
+		"t8i.micro",
+		"t8i.small",
+		"t8i.medium",
+		"i8g.metal-48xl",
+		"r8gb.48xlarge",
+		"r8gb.metal-48xl",
+		"m9gd.medium",
+		"trn2u.48xlarge",
 	}
 }
 
@@ -12659,6 +12677,70 @@ func (TransitGatewayAssociationState) Values() []TransitGatewayAssociationState 
 	}
 }
 
+type TransitGatewayAttachmentNatGatewaySupportState string
+
+// Enum values for TransitGatewayAttachmentNatGatewaySupportState
+const (
+	TransitGatewayAttachmentNatGatewaySupportStateEnabled   TransitGatewayAttachmentNatGatewaySupportState = "enabled"
+	TransitGatewayAttachmentNatGatewaySupportStateDisabled  TransitGatewayAttachmentNatGatewaySupportState = "disabled"
+	TransitGatewayAttachmentNatGatewaySupportStateEnabling  TransitGatewayAttachmentNatGatewaySupportState = "enabling"
+	TransitGatewayAttachmentNatGatewaySupportStateDisabling TransitGatewayAttachmentNatGatewaySupportState = "disabling"
+)
+
+// Values returns all known values for
+// TransitGatewayAttachmentNatGatewaySupportState. Note that this can be expanded
+// in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TransitGatewayAttachmentNatGatewaySupportState) Values() []TransitGatewayAttachmentNatGatewaySupportState {
+	return []TransitGatewayAttachmentNatGatewaySupportState{
+		"enabled",
+		"disabled",
+		"enabling",
+		"disabling",
+	}
+}
+
+type TransitGatewayAttachmentNatGatewaySupportValue string
+
+// Enum values for TransitGatewayAttachmentNatGatewaySupportValue
+const (
+	TransitGatewayAttachmentNatGatewaySupportValueEnable  TransitGatewayAttachmentNatGatewaySupportValue = "enable"
+	TransitGatewayAttachmentNatGatewaySupportValueDisable TransitGatewayAttachmentNatGatewaySupportValue = "disable"
+)
+
+// Values returns all known values for
+// TransitGatewayAttachmentNatGatewaySupportValue. Note that this can be expanded
+// in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TransitGatewayAttachmentNatGatewaySupportValue) Values() []TransitGatewayAttachmentNatGatewaySupportValue {
+	return []TransitGatewayAttachmentNatGatewaySupportValue{
+		"enable",
+		"disable",
+	}
+}
+
+type TransitGatewayAttachmentNatSystemRouteSupportValue string
+
+// Enum values for TransitGatewayAttachmentNatSystemRouteSupportValue
+const (
+	TransitGatewayAttachmentNatSystemRouteSupportValueEnable  TransitGatewayAttachmentNatSystemRouteSupportValue = "enable"
+	TransitGatewayAttachmentNatSystemRouteSupportValueDisable TransitGatewayAttachmentNatSystemRouteSupportValue = "disable"
+)
+
+// Values returns all known values for
+// TransitGatewayAttachmentNatSystemRouteSupportValue. Note that this can be
+// expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TransitGatewayAttachmentNatSystemRouteSupportValue) Values() []TransitGatewayAttachmentNatSystemRouteSupportValue {
+	return []TransitGatewayAttachmentNatSystemRouteSupportValue{
+		"enable",
+		"disable",
+	}
+}
+
 type TransitGatewayAttachmentResourceType string
 
 // Enum values for TransitGatewayAttachmentResourceType
@@ -12909,6 +12991,29 @@ func (TransitGatewayMulticastDomainState) Values() []TransitGatewayMulticastDoma
 	}
 }
 
+type TransitGatewayNatRuleState string
+
+// Enum values for TransitGatewayNatRuleState
+const (
+	TransitGatewayNatRuleStatePending     TransitGatewayNatRuleState = "pending"
+	TransitGatewayNatRuleStateActivated   TransitGatewayNatRuleState = "activated"
+	TransitGatewayNatRuleStateDeactivated TransitGatewayNatRuleState = "deactivated"
+	TransitGatewayNatRuleStateDeleting    TransitGatewayNatRuleState = "deleting"
+)
+
+// Values returns all known values for TransitGatewayNatRuleState. Note that this
+// can be expanded in the future, and so it is only as up to date as the client.
+//
+// The ordering of this slice is not guaranteed to be stable across updates.
+func (TransitGatewayNatRuleState) Values() []TransitGatewayNatRuleState {
+	return []TransitGatewayNatRuleState{
+		"pending",
+		"activated",
+		"deactivated",
+		"deleting",
+	}
+}
+
 type TransitGatewayPolicyTableEntryState string
 
 // Enum values for TransitGatewayPolicyTableEntryState
@@ -13104,6 +13209,7 @@ type TransitGatewayRouteType string
 const (
 	TransitGatewayRouteTypeStatic     TransitGatewayRouteType = "static"
 	TransitGatewayRouteTypePropagated TransitGatewayRouteType = "propagated"
+	TransitGatewayRouteTypeSystem     TransitGatewayRouteType = "system"
 )
 
 // Values returns all known values for TransitGatewayRouteType. Note that this can
@@ -13114,6 +13220,7 @@ func (TransitGatewayRouteType) Values() []TransitGatewayRouteType {
 	return []TransitGatewayRouteType{
 		"static",
 		"propagated",
+		"system",
 	}
 }
 

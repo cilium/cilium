@@ -828,12 +828,19 @@ func (c *fakeClient) update(obj client.Object, isStatus bool, opts ...client.Upd
 	c.trackerWriteLock.Lock()
 	defer c.trackerWriteLock.Unlock()
 
-	// Retain managed fields
+	// Retain the current managed fields when the incoming object leaves them
+	// unset (nil), mirroring apimachinery fieldmanager: a non-nil empty
+	// slice is treated as an explicit clear. Always retain on status
+	// updates, as managed fields can only be modified through the main
+	// resource: this is for example used by the csaupgrade package in
+	// client-go to migrate objects from client-side to server-side apply.
 	// We can ignore all errors here since update will fail if we encounter an error.
-	obj.SetManagedFields(nil)
-	current, _ := c.tracker.Get(gvr, accessor.GetNamespace(), accessor.GetName())
-	if currentMetaObj, ok := current.(metav1.Object); ok {
-		obj.SetManagedFields(currentMetaObj.GetManagedFields())
+	if isStatus || obj.GetManagedFields() == nil {
+		obj.SetManagedFields(nil)
+		current, _ := c.tracker.Get(gvr, accessor.GetNamespace(), accessor.GetName())
+		if currentMetaObj, ok := current.(metav1.Object); ok {
+			obj.SetManagedFields(currentMetaObj.GetManagedFields())
+		}
 	}
 
 	if err := c.tracker.update(gvr, obj, accessor.GetNamespace(), isStatus, false, *updateOptions.AsUpdateOptions()); err != nil {

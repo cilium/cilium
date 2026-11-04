@@ -38,6 +38,7 @@ type StaticOptimizer struct {
 	sourceOverride *Source
 }
 
+// OptimizerOption configures a StaticOptimizer instance.
 type OptimizerOption func(*StaticOptimizer) (*StaticOptimizer, error)
 
 // NewStaticOptimizer creates a StaticOptimizer with a sequence of ASTOptimizer's to be applied
@@ -315,6 +316,11 @@ func (opt *optimizerExprFactory) SetMacroCall(id int64, expr ast.Expr) {
 // MacroCalls returns the map of macro calls currently in the context.
 func (opt *optimizerExprFactory) MacroCalls() map[int64]ast.Expr {
 	return opt.sourceInfo.MacroCalls()
+}
+
+// AddExtension adds an extension record into the tracked source info metadata.
+func (opt *optimizerExprFactory) AddExtension(ext ast.Extension) {
+	opt.sourceInfo.AddExtension(ext)
 }
 
 // NewBindMacro creates an AST expression representing the expanded bind() macro, and a macro expression

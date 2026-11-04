@@ -43,6 +43,7 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	cfg.EnableExtendedIPProtocols = option.Config.EnableExtendedIPProtocols
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 	cfg.EnableNAT46X64 = option.Config.NodePortNat46X64 && lnc.KPRConfig.KubeProxyReplacement
+	cfg.EnableNAT46X64Gateway = option.Config.EnableNat46X64Gateway && lnc.KPRConfig.KubeProxyReplacement
 
 	cfg.EnableVTEP = option.Config.EnableVTEP
 	if option.Config.EnableVTEP {
@@ -55,10 +56,12 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 	cfg.EnableLRP = lnc.EnableLocalRedirectPolicy
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = lnc.SNATCollisionRetries
 
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableTraceNotify = ep.GetOptions().IsEnabled(option.TraceNotify)
 	cfg.Debug = ep.GetOptions().IsEnabled(option.Debug)
+	cfg.DebugTagged = ep.GetOptions().IsEnabled(option.DebugTagged)
 	cfg.DebugLB = ep.GetOptions().IsEnabled(option.DebugLB)
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 
@@ -85,6 +88,8 @@ func Endpoint(ep endpoint.Config, lnc *Config) any {
 		cfg.SocketLB.HostNSOnly = option.Config.UnsafeDaemonConfigOption.BPFSocketLBHostnsOnly
 		cfg.SocketLB.EnableTracing = option.Config.UnsafeDaemonConfigOption.EnableSocketLBTracing
 	}
+
+	cfg.EnableBPFRouting = ep.RequireBPFRouting()
 
 	return cfg
 }

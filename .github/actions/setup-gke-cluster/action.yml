@@ -49,8 +49,18 @@ runs:
         source: https://api.ipify.org
         parsing: text
 
+    - name: Look up the runner's GitHub Actions range
+      id: authorized-networks
+      uses: ./.github/actions/runner-actions-range
+      with:
+        ip: ${{ steps.get-runner-ip.outputs.ip }}
+        cidr: ${{ steps.get-runner-ip.outputs.cidr }}
+
     - id: create-cluster
       shell: bash
+      env:
+        RUNNER_CIDR: ${{ steps.get-runner-ip.outputs.cidr }}
+        AUTHORIZED_CIDRS: ${{ steps.authorized-networks.outputs.cidrs }}
       run: |
         LABELS=""
         VERSION=""
@@ -92,17 +102,11 @@ runs:
         # its whole budget on getting a cluster.
         budget_deadline=$(( SECONDS + 30 * 60 ))
 
-        created_zone=""
-        for zone in "${{ inputs.zone }}" ${fallback_zones}; do
-          if (( SECONDS >= budget_deadline )); then
-            echo "::warning::Ran out of time to create cluster ${{ inputs.cluster-name }}"
-            break
-          fi
-
-          echo "Attempting to create cluster in zone ${zone}"
+        authorized_networks="${AUTHORIZED_CIDRS}"
+        create_in() {
           set +e
           create_out=$(timeout --kill-after=1m "${attempt_minutes}m" gcloud container clusters create "${{ inputs.cluster-name }}" \
-            --zone "${zone}" \
+            --zone "$1" \
             --enable-ip-alias \
             --create-subnetwork="range=/26" \
             --cluster-ipv4-cidr="/21" \
@@ -114,13 +118,33 @@ runs:
             --disk-size 20GB \
             --no-enable-insecure-kubelet-readonly-port \
             --enable-master-authorized-networks \
-            --master-authorized-networks "${{ steps.get-runner-ip.outputs.cidr }}" \
+            --master-authorized-networks "${authorized_networks}" \
+            --logging=NONE \
+            --monitoring=NONE \
+            --no-enable-managed-prometheus \
             $VERSION \
             $LABELS \
             $TAINTS 2>&1)
           create_rc=$?
           set -e
           echo "${create_out}"
+        }
+
+        created_zone=""
+        for zone in "${{ inputs.zone }}" ${fallback_zones}; do
+          if (( SECONDS >= budget_deadline )); then
+            echo "::warning::Ran out of time to create cluster ${{ inputs.cluster-name }}"
+            break
+          fi
+
+          echo "Attempting to create cluster in zone ${zone}"
+          create_in "${zone}"
+          if [[ ${create_rc} -ne 0 && "${authorized_networks}" != "${RUNNER_CIDR}" ]] \
+              && grep -qi 'denied by org policy' <<< "${create_out}"; then
+            echo "::warning::An org policy denied the authorized networks ${authorized_networks}; retrying zone ${zone} with ${RUNNER_CIDR} alone"
+            authorized_networks="${RUNNER_CIDR}"
+            create_in "${zone}"
+          fi
 
           if [[ ${create_rc} -eq 0 ]]; then
             created_zone="${zone}"
@@ -158,7 +182,7 @@ runs:
           exit 1
         fi
 
-        echo "Cluster created in zone ${created_zone}"
+        echo "Cluster created in zone ${created_zone} with authorized networks ${authorized_networks}"
         echo "zone=${created_zone}" >> $GITHUB_OUTPUT
 
         native_cidr=$(gcloud container clusters describe "${{ inputs.cluster-name }}" --zone "${created_zone}" --format 'value(clusterIpv4Cidr)')

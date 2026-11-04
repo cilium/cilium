@@ -45,7 +45,7 @@ ipcache_v4_add_world_entry()
 {
 	union v6addr tunnel_ep = {0};
 
-	__ipcache_v4_add_entry(v4_all, 0, WORLD_IPV4_ID, &tunnel_ep, 0, false, false, 0);
+	__ipcache_v4_add_entry(v4_all, 0, world_ipv4_id(), &tunnel_ep, 0, false, false, 0);
 }
 
 static __always_inline void
@@ -102,7 +102,7 @@ ipcache_v6_add_world_entry()
 {
 	union v6addr tunnel_ep = {0};
 
-	__ipcache_v6_add_entry((union v6addr *)v6_all, 0, WORLD_IPV6_ID,
+	__ipcache_v6_add_entry((union v6addr *)v6_all, 0, world_ipv6_id(),
 			       &tunnel_ep, 0, false, false, 0);
 }
 

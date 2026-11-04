@@ -78,6 +78,13 @@ func (h *Handle) DisableVFInfoCollection() *Handle {
 	return h
 }
 
+// RetryInterrupted configures the handle to automatically retry dump operations
+// if they fail with EINTR before returning [ErrDumpInterrupted].
+func (h *Handle) RetryInterrupted() *Handle {
+	h.options.RetryInterrupted = true
+	return h
+}
+
 // SetSocketTimeout configures timeout for default netlink sockets
 func SetSocketTimeout(to time.Duration) error {
 	if to < time.Microsecond {

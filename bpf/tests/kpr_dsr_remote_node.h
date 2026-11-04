@@ -93,7 +93,6 @@ const __u8 kpr_v6_dsr_remote_node_syn_non_dsr[] = {
 	SCAPY_BUF_BYTES(kpr_v6_dsr_remote_node_syn_non_dsr)
 };
 
-#ifdef ENABLE_IPV4
 /* Backend node receives SYN with DSR-info. Reply can be RevDNATed.
  * Then we receive a second packet without DSR-info. Replies can still be
  * RevDNATed.
@@ -539,7 +538,6 @@ int kpr_v4_dsr_remote_node_7syn_non_dsr_check(__maybe_unused const struct __ctx_
 
 	test_finish();
 }
-#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 PKTGEN(PROG_TYPE, "kpr_v6_dsr_remote_node_1syn")

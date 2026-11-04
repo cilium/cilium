@@ -1,0 +1,29 @@
+name: Docs-builder Image Build - Renovate
+
+# Any change in triggers needs to be reflected in the concurrency group.
+on:
+  push:
+    branches:
+      - "renovate/main-**"
+    paths:
+      - images/docs-builder/**
+
+permissions:
+  # To be able to access the repository with `actions/checkout`
+  contents: read
+
+jobs:
+  build-docs-builder-from-renovate:
+    name: "Build Docs-builder Image From Renovate"
+    permissions:
+      contents: read
+      # Required by the Quay OIDC token exchange.
+      id-token: write
+    uses: ./.github/workflows/build-images-docs-builder.yaml
+    secrets:
+      AUTO_COMMITTER_PEM_202411: ${{ secrets.AUTO_COMMITTER_PEM_202411 }}
+      AUTO_COMMITTER_APP_ID_202411: ${{ secrets.AUTO_COMMITTER_APP_ID_202411 }}
+    with:
+      # Build the docs-builder image from this environment which is set up
+      # specifically for renovate.
+      environment: docs-builder-renovate

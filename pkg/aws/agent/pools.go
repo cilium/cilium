@@ -49,11 +49,11 @@ var poolAccessor = ipam.PoolSpecAccessors{
 
 			cidrs = append(cidrs, eni.IPv6Prefixes...)
 
-			// In parseENI (pkg/aws/api), we currently use PrefixToIps to flatten each prefixes
-			// into 16 individual IPs and append those IPs to the ENI Addresses field.
-			// Here we need to apply a reverse logic to only advertise as /32 CIDRs in the pool
-			// regular secondary addresses (or the ENI primary IP when using UsePrimaryAddress)
-			// and not addresses that are already being advertised through a /28 CIDR.
+			// Operators up to v1.20 flatten each delegated prefix into individual
+			// IPs and append those IPs to the ENI Addresses field. Skip addresses
+			// already advertised through a prefix so that the pool never contains
+			// overlapping CIDRs while running against such an operator.
+			// TODO: Remove in v1.22 development cycle.
 			for _, addr := range eni.Addresses {
 				if !addr.IsValid() {
 					continue

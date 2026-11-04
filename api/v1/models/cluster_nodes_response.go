@@ -93,7 +93,7 @@ func (m *ClusterNodesResponse) contextValidateNodes(ctx context.Context, formats
 		if m.Nodes[i] != nil {
 
 			if typeutils.IsZero(m.Nodes[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Nodes[i].ContextValidate(ctx, formats); err != nil {

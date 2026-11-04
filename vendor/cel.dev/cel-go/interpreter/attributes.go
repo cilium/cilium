@@ -173,6 +173,18 @@ func (r *attrFactory) AbsoluteAttribute(id int64, names ...string) NamespacedAtt
 			names[idx] = strings.TrimPrefix(name, ".")
 		}
 	}
+	if len(names) == 1 && !disambiguateNames {
+		return &identAttribute{
+			id:                     id,
+			name:                   names[0],
+			candidateNames:         names,
+			qualifiers:             []Qualifier{},
+			adapter:                r.adapter,
+			provider:               r.provider,
+			fac:                    r,
+			errorOnBadPresenceTest: r.errorOnBadPresenceTest,
+		}
+	}
 	return &absoluteAttribute{
 		id:                     id,
 		namespaceNames:         names,
@@ -238,17 +250,29 @@ func (r *attrFactory) NewQualifier(objType *types.Type, qualID int64, val any, o
 	// Before creating a new qualifier check to see if this is a protobuf message field access.
 	// If so, use the precomputed GetFrom qualification method rather than the standard
 	// stringQualifier.
-	str, isStr := val.(string)
-	if isStr && objType != nil && objType.Kind() == types.StructKind {
-		ft, found := r.provider.FindStructFieldType(objType.TypeName(), str)
-		if found && ft.IsSet != nil && ft.GetFrom != nil {
-			return &fieldQualifier{
-				id:        qualID,
-				Name:      str,
-				FieldType: ft,
-				adapter:   r.adapter,
-				optional:  opt,
-			}, nil
+	var str string
+	var isStr bool
+	switch v := val.(type) {
+	case string:
+		str, isStr = v, true
+	case types.String:
+		str, isStr = string(v), true
+	}
+	if isStr && objType != nil {
+		if objType.Kind() == types.OpaqueKind && objType.TypeName() == "optional_type" && len(objType.Parameters()) == 1 {
+			objType = objType.Parameters()[0]
+		}
+		if objType.Kind() == types.StructKind {
+			ft, found := r.provider.FindStructFieldType(objType.TypeName(), str)
+			if found && ft.IsSet != nil && ft.GetFrom != nil {
+				return &fieldQualifier{
+					id:        qualID,
+					Name:      str,
+					FieldType: ft,
+					adapter:   r.adapter,
+					optional:  opt,
+				}, nil
+			}
 		}
 	}
 	return newQualifier(r.adapter, qualID, val, opt, r.errorOnBadPresenceTest)
@@ -335,7 +359,11 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 		inputVars = vars
 		wrapped, ok := inputVars.(activationWrapper)
 		for ok {
-			inputVars = wrapped.Unwrap()
+			next := wrapped.Unwrap()
+			if next == nil {
+				break
+			}
+			inputVars = next
 			wrapped, ok = inputVars.(activationWrapper)
 		}
 	}
@@ -350,6 +378,13 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 		if found {
 			if celErr, ok := obj.(*types.Err); ok {
 				return nil, celErr
+			}
+			_, isUnknown := obj.(*types.Unknown)
+			if isUnknown {
+				return obj, nil
+			}
+			if len(a.qualifiers) == 0 {
+				return obj, nil
 			}
 			obj, isOpt, err := applyQualifiers(v, obj, a.qualifiers)
 			if err != nil {
@@ -380,6 +415,102 @@ func (a *absoluteAttribute) Resolve(vars Activation) (any, error) {
 		attrNames.WriteString(nm)
 	}
 	return nil, missingAttribute(attrNames.String())
+}
+
+// identAttribute is a specialized, lightweight attribute for simple, single-name identifiers
+// without namespace disambiguation.
+type identAttribute struct {
+	id                     int64
+	name                   string
+	candidateNames         []string
+	qualifiers             []Qualifier
+	adapter                types.Adapter
+	provider               types.Provider
+	fac                    AttributeFactory
+	errorOnBadPresenceTest bool
+}
+
+// ID implements the Attribute interface method.
+func (a *identAttribute) ID() int64 {
+	qualCount := len(a.qualifiers)
+	if qualCount == 0 {
+		return a.id
+	}
+	return a.qualifiers[qualCount-1].ID()
+}
+
+// IsOptional returns trivially false for an attribute as the attribute represents a fully
+// qualified variable name. If the attribute is used in an optional manner, then an attrQualifier
+// is created and marks the attribute as optional.
+func (a *identAttribute) IsOptional() bool {
+	return false
+}
+
+// AddQualifier implements the Attribute interface method.
+func (a *identAttribute) AddQualifier(qual Qualifier) (Attribute, error) {
+	a.qualifiers = append(a.qualifiers, qual)
+	return a, nil
+}
+
+// CandidateVariableNames implements the NamespacedAttribute interface method.
+func (a *identAttribute) CandidateVariableNames() []string {
+	return a.candidateNames
+}
+
+// Qualifiers returns the list of Qualifier instances associated with the namespaced attribute.
+func (a *identAttribute) Qualifiers() []Qualifier {
+	return a.qualifiers
+}
+
+// Qualify is an implementation of the Qualifier interface method.
+func (a *identAttribute) Qualify(vars Activation, obj any) (any, error) {
+	return attrQualify(a.fac, vars, obj, a)
+}
+
+// QualifyIfPresent is an implementation of the Qualifier interface method.
+func (a *identAttribute) QualifyIfPresent(vars Activation, obj any, presenceOnly bool) (any, bool, error) {
+	return attrQualifyIfPresent(a.fac, vars, obj, a, presenceOnly)
+}
+
+// String implements the fmt.Stringer interface method.
+func (a *identAttribute) String() string {
+	return fmt.Sprintf("id: %v, names: %v", a.id, a.candidateNames)
+}
+
+// Resolve returns the resolved Attribute value given the Activation, or error if the Attribute
+// variable is not found, or if its Qualifiers cannot be applied successfully.
+func (a *identAttribute) Resolve(vars Activation) (any, error) {
+	obj, found := vars.ResolveName(a.name)
+	if found {
+		if celErr, ok := obj.(*types.Err); ok {
+			return nil, celErr
+		}
+		if _, isUnknown := obj.(*types.Unknown); isUnknown {
+			return obj, nil
+		}
+		if len(a.qualifiers) == 0 {
+			return obj, nil
+		}
+		obj, isOpt, err := applyQualifiers(vars, obj, a.qualifiers)
+		if err != nil {
+			return nil, err
+		}
+		if isOpt {
+			val := a.adapter.NativeToValue(obj)
+			if types.IsUnknown(val) {
+				return val, nil
+			}
+			return types.OptionalOf(val), nil
+		}
+		return obj, nil
+	}
+	typ, found := a.provider.FindIdent(a.name)
+	if found {
+		if len(a.qualifiers) == 0 {
+			return typ, nil
+		}
+	}
+	return nil, missingAttribute(a.name)
 }
 
 type conditionalAttribute struct {
@@ -613,12 +744,25 @@ func (a *relativeAttribute) QualifyIfPresent(vars Activation, obj any, presenceO
 
 // Resolve expression value and qualifier relative to the expression result.
 func (a *relativeAttribute) Resolve(vars Activation) (any, error) {
+	frame, ok := vars.(*ExecutionFrame)
+	if !ok {
+		var err error
+		frame, err = NewExecutionFrame(vars)
+		if err != nil {
+			return nil, err
+		}
+		defer frame.Close()
+		vars = frame
+	}
 	// First, evaluate the operand.
-	v := a.operand.Eval(vars)
-	if types.IsError(v) {
+	v := a.operand.Exec(frame)
+	if isError(v) {
 		return nil, v.(*types.Err)
 	}
-	if types.IsUnknown(v) {
+	if isUnknown(v) {
+		return v, nil
+	}
+	if len(a.qualifiers) == 0 {
 		return v, nil
 	}
 	obj, isOpt, err := applyQualifiers(vars, v, a.qualifiers)
@@ -627,7 +771,7 @@ func (a *relativeAttribute) Resolve(vars Activation) (any, error) {
 	}
 	if isOpt {
 		val := a.adapter.NativeToValue(obj)
-		if types.IsUnknown(val) {
+		if isUnknown(val) {
 			return val, nil
 		}
 		return types.OptionalOf(val), nil
@@ -905,6 +1049,14 @@ func (q *stringQualifier) qualifyInternal(vars Activation, obj any, presenceTest
 			return obj, true, nil
 		}
 	default:
+		if nm, ok := obj.(interface{ FindStringKey(string) (any, bool) }); ok {
+			if v, found := nm.FindStringKey(s); found {
+				if presenceOnly {
+					return nil, true, nil
+				}
+				return v, true, nil
+			}
+		}
 		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
 	}
 	if presenceTest {
@@ -981,6 +1133,11 @@ func (q *intQualifier) qualifyInternal(vars Activation, obj any, presenceTest, p
 		if isIndex {
 			return o[i], true, nil
 		}
+	case []ref.Val:
+		isIndex := i >= 0 && i < int64(len(o))
+		if isIndex {
+			return o[i], true, nil
+		}
 	case []string:
 		isIndex := i >= 0 && i < int64(len(o))
 		if isIndex {
@@ -1032,6 +1189,26 @@ func (q *intQualifier) qualifyInternal(vars Activation, obj any, presenceTest, p
 			return o[i], true, nil
 		}
 	default:
+		if nl, ok := obj.(interface{ GetInt64Index(int64) (any, bool) }); ok {
+			if v, found := nl.GetInt64Index(i); found {
+				if presenceOnly {
+					return nil, true, nil
+				}
+				return v, true, nil
+			}
+			if presenceTest {
+				return nil, false, nil
+			}
+			return nil, false, missingIndex(q.celValue)
+		}
+		if nm, ok := obj.(interface{ FindInt64Key(int64) (any, bool) }); ok {
+			if v, found := nm.FindInt64Key(i); found {
+				if presenceOnly {
+					return nil, true, nil
+				}
+				return v, true, nil
+			}
+		}
 		return refQualify(q.adapter, obj, q.celValue, presenceTest, presenceOnly, q.errorOnBadPresenceTest)
 	}
 	if presenceTest {
@@ -1300,6 +1477,12 @@ func (q *unknownQualifier) Value() ref.Val {
 }
 
 func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, bool, error) {
+	// Early return if there's nothing to apply
+	if len(qualifiers) == 0 {
+		return obj, false, nil
+	}
+
+	// Test for an optional select that's on an empty value.
 	optObj, isOpt := obj.(*types.Optional)
 	if isOpt {
 		if !optObj.HasValue() {
@@ -1308,6 +1491,7 @@ func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, boo
 		obj = optObj.GetValue()
 	}
 
+	frame, hasFrame := vars.(*ExecutionFrame)
 	var err error
 	for _, qual := range qualifiers {
 		var qualObj any
@@ -1315,6 +1499,12 @@ func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, boo
 		if isOpt {
 			var present bool
 			qualObj, present, err = qual.QualifyIfPresent(vars, obj, false)
+			if hasFrame {
+				if costs := frame.CostTracker(); costs != nil &&
+					(present || err != nil || costs.ModelVersion() >= 1) {
+					costs.Qualify(qual.ID())
+				}
+			}
 			if err != nil {
 				return nil, false, err
 			}
@@ -1326,6 +1516,11 @@ func applyQualifiers(vars Activation, obj any, qualifiers []Qualifier) (any, boo
 			}
 		} else {
 			qualObj, err = qual.Qualify(vars, obj)
+			if hasFrame {
+				if costs := frame.CostTracker(); costs != nil {
+					costs.Qualify(qual.ID())
+				}
+			}
 			if err != nil {
 				return nil, false, err
 			}
@@ -1376,7 +1571,7 @@ func refQualify(adapter types.Adapter, obj any, idx ref.Val, presenceTest, prese
 		val, found := v.Find(idx)
 		// If the index is of the wrong type for the map, then it is possible
 		// for the Find call to produce an error.
-		if types.IsError(val) {
+		if isError(val) {
 			return nil, false, val.(*types.Err)
 		}
 		if found {
@@ -1389,7 +1584,7 @@ func refQualify(adapter types.Adapter, obj any, idx ref.Val, presenceTest, prese
 	case traits.Lister:
 		// If the index argument is not a valid numeric type, then it is possible
 		// for the index operation to produce an error.
-		i, err := types.IndexOrError(idx)
+		i, err := types.GetOrError(idx)
 		if err != nil {
 			return nil, false, err
 		}
@@ -1406,7 +1601,7 @@ func refQualify(adapter types.Adapter, obj any, idx ref.Val, presenceTest, prese
 			ft, ok := v.(traits.FieldTester)
 			if ok {
 				presence := ft.IsSet(idx)
-				if types.IsError(presence) {
+				if isError(presence) {
 					return nil, false, presence.(*types.Err)
 				}
 				// If not found or presence only test, then return.
@@ -1417,7 +1612,7 @@ func refQualify(adapter types.Adapter, obj any, idx ref.Val, presenceTest, prese
 			}
 		}
 		val := v.Get(idx)
-		if types.IsError(val) {
+		if isError(val) {
 			return nil, false, val.(*types.Err)
 		}
 		return val, true, nil

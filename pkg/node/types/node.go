@@ -299,35 +299,16 @@ func (n *Node) removeAddresses(typ addressing.AddressType) {
 }
 
 func (n *Node) getPrimaryAddress() *models.NodeAddressing {
-	v4 := n.GetNodeIP(false)
-	v6 := n.GetNodeIP(true)
-
-	var ipv4AllocStr, ipv6AllocStr string
-	if n.IPv4AllocCIDR.IsValid() {
-		ipv4AllocStr = n.IPv4AllocCIDR.String()
-	}
-	if n.IPv6AllocCIDR.IsValid() {
-		ipv6AllocStr = n.IPv6AllocCIDR.String()
-	}
-
-	var v4Str, v6Str string
-	if v4.IsValid() {
-		v4Str = v4.String()
-	}
-	if v6.IsValid() {
-		v6Str = v6.String()
-	}
-
 	return &models.NodeAddressing{
 		IPv4: &models.NodeAddressingElement{
 			Enabled:    option.Config.EnableIPv4,
-			IP:         v4Str,
-			AllocRange: ipv4AllocStr,
+			IP:         iputil.AddrFrom(n.GetNodeIP(false)),
+			AllocRange: n.IPv4AllocCIDR.Prefix,
 		},
 		IPv6: &models.NodeAddressingElement{
 			Enabled:    option.Config.EnableIPv6,
-			IP:         v6Str,
-			AllocRange: ipv6AllocStr,
+			IP:         iputil.AddrFrom(n.GetNodeIP(true)),
+			AllocRange: n.IPv6AllocCIDR.Prefix,
 		},
 	}
 }
@@ -343,7 +324,7 @@ func (n *Node) getSecondaryAddresses() []*models.NodeAddressingElement {
 		ipv4 := addr.IP.Is4()
 		if !n.isPrimaryAddress(addr, ipv4) {
 			result = append(result, &models.NodeAddressingElement{
-				IP: addr.IP.String(),
+				IP: addr.IP,
 			})
 		}
 	}
@@ -356,22 +337,14 @@ func (n *Node) getHealthAddresses() *models.NodeAddressing {
 		return nil
 	}
 
-	var v4Str, v6Str string
-	if n.IPv4HealthIP.IsValid() {
-		v4Str = n.IPv4HealthIP.String()
-	}
-	if n.IPv6HealthIP.IsValid() {
-		v6Str = n.IPv6HealthIP.String()
-	}
-
 	return &models.NodeAddressing{
 		IPv4: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv4,
-			IP:      v4Str,
+			IP:      n.IPv4HealthIP,
 		},
 		IPv6: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv6,
-			IP:      v6Str,
+			IP:      n.IPv6HealthIP,
 		},
 	}
 }
@@ -381,22 +354,14 @@ func (n *Node) getIngressAddresses() *models.NodeAddressing {
 		return nil
 	}
 
-	var v4Str, v6Str string
-	if n.IPv4IngressIP.IsValid() {
-		v4Str = n.IPv4IngressIP.String()
-	}
-	if n.IPv6IngressIP.IsValid() {
-		v6Str = n.IPv6IngressIP.String()
-	}
-
 	return &models.NodeAddressing{
 		IPv4: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv4,
-			IP:      v4Str,
+			IP:      n.IPv4IngressIP,
 		},
 		IPv6: &models.NodeAddressingElement{
 			Enabled: option.Config.EnableIPv6,
-			IP:      v6Str,
+			IP:      n.IPv6IngressIP,
 		},
 	}
 }

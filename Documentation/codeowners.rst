@@ -84,6 +84,10 @@ repository in the Cilium project:
   Review vendor updates for software dependencies to check for any potential
   upstream breakages / incompatibilities. Discourage the use of unofficial
   forks of upstream libraries if they are actively maintained.
+- `@cilium/ai-guidance <https://github.com/orgs/cilium/teams/ai-guidance>`__:
+  Help shape the usage of generative AI in the Cilium projects by providing
+  review of guides and artifacts that are interpreted by either humans or
+  machines regarding how to use these tools.
 
 Repository Owners
 +++++++++++++++++

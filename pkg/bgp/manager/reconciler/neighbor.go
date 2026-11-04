@@ -154,9 +154,9 @@ func (r *NeighborReconciler) Reconcile(ctx context.Context, p ReconcileParams) e
 
 	for i, n := range newNeigh {
 		l := l.With(types.PeerLogField, n.Name)
-		// validate that peer has ASN and address. In current implementation these fields are
-		// mandatory for a peer. Eventually we will relax this restriction with implementation
-		// of BGP unnumbered.
+		// validate that peer has ASN and address. Both are mandatory: an
+		// unnumbered peer gets neither from the user, but the
+		// DefaultGatewayReconciler runs first and discovers them.
 		if n.PeerASN == nil {
 			return fmt.Errorf("peer %s does not have a PeerASN", n.Name)
 		}

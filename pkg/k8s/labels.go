@@ -43,8 +43,7 @@ func GetPodMetadata(logger *slog.Logger, clusterInfo cmtypes.ClusterInfo, k8sNs 
 		logfields.K8sPodName, pod.Name,
 	)
 
-	objMetaCpy := pod.ObjectMeta.DeepCopy()
-	labels := k8sUtils.SanitizePodLabels(objMetaCpy.Labels, k8sNs, pod.Spec.ServiceAccountName, clusterInfo.Name)
+	labels := k8sUtils.SanitizePodLabels(pod.ObjectMeta.Labels, k8sNs, pod.Spec.ServiceAccountName, clusterInfo.Name)
 
 	namedPorts = make(ciliumTypes.NamedPortMap)
 	for _, containers := range pod.Spec.Containers {

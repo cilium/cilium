@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/cache/cacheapi"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	logf "sigs.k8s.io/controller-runtime/pkg/internal/log"
 	"sigs.k8s.io/controller-runtime/pkg/internal/syncs"
@@ -136,10 +137,7 @@ type tracker struct {
 
 // GetOptions provides configuration to customize the behavior when
 // getting an informer.
-type GetOptions struct {
-	// BlockUntilSynced controls if the informer retrieval will block until the informer is synced. Defaults to `true`.
-	BlockUntilSynced *bool
-}
+type GetOptions = cacheapi.InformerGetOptions
 
 // Informers create and caches Informers for (runtime.Object, schema.GroupVersionKind) pairs.
 // It uses a standard parameter codec constructed based on the given generated Scheme.

@@ -43,14 +43,20 @@ type PrefixedMap struct {
 	Excludes []string
 }
 
+// DisabledMapsHook returns additional BPF map names to remove when disabled
+// maps are cleaned up. Provide hooks through the "disabled-maps-hooks" Hive
+// group to extend cleanup from another module.
+type DisabledMapsHook func() []string
+
 // MapSweeper is responsible for checking stale map paths on the filesystem
 // and garbage collecting the endpoint if the corresponding endpoint no longer
 // exists.
 type MapSweeper struct {
 	logger *slog.Logger
 	endpointManager
-	lbConfig loadbalancer.Config
-	kprCfg   kpr.KPRConfig
+	lbConfig          loadbalancer.Config
+	kprCfg            kpr.KPRConfig
+	disabledMapsHooks []DisabledMapsHook
 }
 
 // newMapSweeper creates an object that walks map paths and garbage-collects
@@ -133,6 +139,12 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		}
 	)
 
+	for _, hook := range ms.disabledMapsHooks {
+		if hook != nil {
+			maps = append(maps, hook()...)
+		}
+	}
+
 	if !option.Config.EnableIPv6 {
 		maps = append(maps, []string{
 			"cilium_ct6_global",
@@ -213,16 +225,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 
 	if !(option.Config.EnableIPMasqAgent && option.Config.EnableIPv6Masquerade) {
 		maps = append(maps, ipmasq.MapNameIPv6)
-	}
-
-	if !option.Config.EnableSRv6 {
-		maps = append(maps,
-			"cilium_srv6_sid",
-			"cilium_srv6_policy_v4",
-			"cilium_srv6_policy_v6",
-			"cilium_srv6_vrf_v4",
-			"cilium_srv6_vrf_v6",
-		)
 	}
 
 	if !option.Config.EnableXDPPrefilter {

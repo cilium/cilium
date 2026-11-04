@@ -19,7 +19,7 @@ import (
 // VipSwapClient contains the methods for the VipSwap group.
 // Don't use this type directly, use NewVipSwapClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type VipSwapClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -66,7 +66,7 @@ func (client *VipSwapClient) BeginCreate(ctx context.Context, groupName string, 
 	}
 }
 
-// Create - Performs vip swap operation on swappable cloud services.
+// create - Performs vip swap operation on swappable cloud services.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *VipSwapClient) create(ctx context.Context, groupName string, resourceName string, parameters SwapResource, options *VipSwapClientBeginCreateOptions) (*http.Response, error) {
 	var err error
@@ -88,7 +88,7 @@ func (client *VipSwapClient) create(ctx context.Context, groupName string, resou
 	return httpResp, nil
 }
 
-// createCreateRequest creates the Create request.
+// createCreateRequest creates the create request.
 func (client *VipSwapClient) createCreateRequest(ctx context.Context, groupName string, resourceName string, parameters SwapResource, _ *VipSwapClientBeginCreateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{groupName}/providers/microsoft.Compute/cloudServices/{resourceName}/providers/Microsoft.Network/cloudServiceSlots/{singletonResource}"
 	if client.subscriptionID == "" {
@@ -109,7 +109,7 @@ func (client *VipSwapClient) createCreateRequest(ctx context.Context, groupName 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
@@ -161,7 +161,7 @@ func (client *VipSwapClient) getCreateRequest(ctx context.Context, groupName str
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -221,7 +221,7 @@ func (client *VipSwapClient) listCreateRequest(ctx context.Context, groupName st
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

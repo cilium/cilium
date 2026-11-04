@@ -107,6 +107,8 @@ NODE_CONFIG(bool, enable_identity_mark, "Enable setting identity mark for local 
 
 NODE_CONFIG(bool, enable_bpf_host_routing, "Enable BPF Host Routing")
 
+NODE_CONFIG(bool, enable_host_firewall, "Enable host firewall")
+
 NODE_CONFIG(bool, encryption_strict_ingress, "Enable strict encryption for ingress traffic")
 
 NODE_CONFIG(__u8, monitor_aggregation, "Level of aggregation for monitor events")
@@ -195,6 +197,8 @@ NODE_CONFIG(bool, enable_masquerade_ipv6, "Masquerade IPv6 traffic")
 
 NODE_CONFIG(bool, debug, "Enable debugging trace statements")
 
+NODE_CONFIG(bool, debug_tagged, "Enable debugging trace statements for tagged packets")
+
 struct dsr_config {
 	/* Enable DSR load balancing. */
 	bool enable;
@@ -207,6 +211,8 @@ struct dsr_config {
 NODE_CONFIG(struct dsr_config, dsr_cfg, "DSR-specific configuration")
 
 struct srv6_config {
+	/* Enable SRv6. */
+	bool enable;
 	/* Enable SRv6 Segment Routing Header encapsulation. */
 	bool enable_srh_encap;
 };

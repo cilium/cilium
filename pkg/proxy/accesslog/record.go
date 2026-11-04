@@ -86,7 +86,7 @@ type EndpointInfo struct {
 
 	// Labels is the list of security relevant labels of the endpoint.
 	// Shared, do not mutate!
-	Labels labels.LabelArray
+	Labels labels.Labels
 }
 
 // ServiceInfo contains information about the Kubernetes service

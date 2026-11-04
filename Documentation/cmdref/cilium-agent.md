@@ -122,7 +122,7 @@ cilium-agent [flags]
       --enable-bgp-control-plane-status-report                    Enable the BGP control plane status reporting (default true)
       --enable-bgp-legacy-origin-attribute                        Enable LoadBalancerIP routes to be advertised with BGP Origin Attribute set to INCOMPLETE
       --enable-bpf-clock-probe                                    Enable BPF clock source probing for more efficient tick retrieval
-      --enable-bpf-masquerade                                     Masquerade packets from endpoints leaving the host with BPF instead of iptables
+      --enable-bpf-masquerade                                     Masquerade packets from endpoints leaving the host with BPF instead of iptables (default true)
       --enable-bpf-stats                                          Enable BPF statistics collection
       --enable-bpf-tproxy                                         Enable BPF-based proxy redirection (beta), if support available
       --enable-cilium-api-server-access strings                   List of cilium API APIs which are administratively enabled. Supports '*'. (default [*])
@@ -146,7 +146,7 @@ cilium-agent [flags]
       --enable-health-check-nodeport                              Enables a healthcheck nodePort server for NodePort services with 'healthCheckNodePort' being set (default true)
       --enable-health-checking                                    Enable connectivity health checking (default true)
       --enable-host-firewall                                      Enable host network policies
-      --enable-host-legacy-routing                                Enable the legacy host forwarding model which does not bypass upper stack in host namespace
+      --enable-host-legacy-routing                                Enable the legacy host forwarding model which does not bypass upper stack in host namespace (default true)
       --enable-hubble                                             Enable hubble server
       --enable-hubble-open-metrics                                Enable exporting hubble metrics in OpenMetrics format.
       --enable-identity-mark                                      Enable setting identity mark for local traffic (default true)
@@ -185,7 +185,7 @@ cilium-agent [flags]
       --enable-pmtu-discovery                                     Enable path MTU discovery to send ICMP fragmentation-needed replies to the client
       --enable-policy string                                      Enable policy enforcement (default "default")
       --enable-policy-secrets-sync                                Enables Envoy secret sync for Secrets used in CiliumNetworkPolicy and CiliumClusterwideNetworkPolicy
-      --enable-remote-node-masquerade                             Masquerade packets from endpoints leaving the host destined to a remote node in BPF masquerading mode. This option requires to set enable-bpf-masquerade to true.
+      --enable-remote-node-masquerade                             Masquerade packets from endpoints leaving the host destined to a remote node's ExternalIP when using BPF masquerading mode (default true)
       --enable-route-mtu-for-cni-chaining                         Enable route MTU for pod netns when CNI chaining is used
       --enable-sctp                                               Enable SCTP support (beta)
       --enable-service-topology                                   Enable support for service topology aware hints
@@ -196,7 +196,6 @@ cilium-agent [flags]
       --enable-vtep                                               Enable  VXLAN Tunnel Endpoint (VTEP) Integration (beta)
       --enable-well-known-identities                              Enable well-known identities for known Kubernetes components (default true)
       --enable-wireguard                                          Enable WireGuard
-      --enable-xdp-prefilter                                      Enable XDP prefiltering
       --enable-xt-socket-fallback                                 Enable fallback for missing xt_socket module (default true)
       --enable-ztunnel                                            Use zTunnel as Cilium's encryption infrastructure
       --encryption-strict-egress-allow-remote-node-identities     Allows unencrypted traffic from pods to remote node identities within the strict mode CIDR. This is required when tunneling is used or direct routing is used and the node CIDR and pod CIDR overlap.

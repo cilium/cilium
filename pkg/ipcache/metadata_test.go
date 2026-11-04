@@ -105,7 +105,7 @@ func TestInjectLabels(t *testing.T) {
 	// Enable policy-cidr-selects-nodes, ensure that node now has a separate identity (in the node id scope)
 	option.Config.PolicyCIDRMatchMode = []string{"nodes"}
 
-	// Insert CIDR labels for the remote nodes (this is done by the node manager, but we need to test that it goes through)
+	// Insert CIDR labels for the remote nodes (the node update policy does this in production).
 	s.IPIdentityCache.metadata.upsertLocked(inClusterPrefix, source.CustomResource, "node-uid-cidr", labels.GetCIDRLabels(inClusterPrefix.AsPrefix()))
 	s.IPIdentityCache.metadata.upsertLocked(inClusterPrefix2, source.CustomResource, "node-uid-cidr", labels.GetCIDRLabels(inClusterPrefix2.AsPrefix()))
 
@@ -443,7 +443,6 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 		identity.IdentityScopeLocal, // we assume first local ID
 	)
 	assert.NotNil(t, id)
-	assert.Equal(t, 1, id.ReferenceCount)
 
 	// Simulate adding CIDR policy by simulating UpsertMetadataBatch
 	s.IPIdentityCache.metadata.upsertLocked(worldPrefix, source.CustomResource, "policy-uid", labels.GetCIDRLabels(worldPrefix.AsPrefix()))
@@ -457,7 +456,7 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 		t.Context(),
 		nid.ID,
 	)
-	assert.Equal(t, 1, id.ReferenceCount) // InjectLabels calls allocate and release on ID
+	assert.NotNil(t, id)
 
 	// Remove kube-apiserver label
 	s.IPIdentityCache.RemoveLabelsExcluded(
@@ -473,7 +472,6 @@ func TestRemoveLabelsFromIPs(t *testing.T) {
 		t.Context(),
 		nid.ID,
 	)
-	assert.Equal(t, 1, id.ReferenceCount) // CIDR policy is left
 
 	// Simulate removing CIDR policy.
 	s.IPIdentityCache.RemoveMetadata(worldPrefix, "policy-uid", labels.Labels{})
@@ -518,13 +516,11 @@ func TestOverrideIdentity(t *testing.T) {
 	// pre-allocate override identities
 	fooLabels := labels.NewLabelsFromSortedList("cidrgroup:name=foo")
 	fooID, isNew, err := allocator.AllocateIdentity(t.Context(), fooLabels, false, identity.InvalidIdentity)
-	assert.Equal(t, 1, fooID.ReferenceCount)
 	assert.NoError(t, err)
 	assert.True(t, isNew)
 
 	barLabels := labels.NewLabelsFromSortedList("cidrgroup:name=bar")
 	barID, isNew, err := allocator.AllocateIdentity(t.Context(), barLabels, false, identity.InvalidIdentity)
-	assert.Equal(t, 1, fooID.ReferenceCount)
 	assert.NoError(t, err)
 	assert.True(t, isNew)
 
@@ -554,7 +550,6 @@ func TestOverrideIdentity(t *testing.T) {
 
 	id, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
-	assert.Equal(t, 2, fooID.ReferenceCount)
 	assert.Equal(t, id.ID, fooID.ID)
 
 	// Remove identity override from prefix, should assign a CIDR identity again
@@ -567,7 +562,6 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.True(t, ok)
 	assert.True(t, id.ID.HasLocalScope())
 	assert.False(t, id.ID.IsReservedIdentity())
-	assert.Equal(t, 1, fooID.ReferenceCount)
 
 	// Remove remaining labels from prefix, this should remove the entry
 	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
@@ -593,7 +587,6 @@ func TestOverrideIdentity(t *testing.T) {
 	id, ok = ipc.LookupByPrefix(worldPrefix.String())
 	assert.True(t, ok)
 	assert.Equal(t, id.ID, barID.ID)
-	assert.Equal(t, 2, barID.ReferenceCount)
 
 	// Remove all metadata at once, this should remove the whole entry
 	ipc.metadata.remove(worldPrefix, "kube-uid", labels.LabelKubeAPIServer)
@@ -603,7 +596,6 @@ func TestOverrideIdentity(t *testing.T) {
 	assert.Empty(t, remaining)
 
 	_, ok = ipc.LookupByPrefix(worldPrefix.String())
-	assert.Equal(t, 1, barID.ReferenceCount)
 	assert.False(t, ok)
 }
 
@@ -1233,7 +1225,7 @@ func TestResolveIdentity(t *testing.T) {
 		{
 			prefixes: sm{
 				"10.0.0.0/24": "cidr:10.0.0.0/24;reserved:world-ipv4",
-				// the CIDR label is injected directly by the NodeManager
+				// The node update policy injects the CIDR label directly.
 				"10.0.0.1/32": "cidr:10.0.0.1/32;reserved:remote-node",
 				"10.0.1.1/32": "cidr:10.0.1.1/32;reserved:remote-node;fqdn:example.com",
 			},
@@ -1556,7 +1548,7 @@ func TestIPCachePodCIDREntries(t *testing.T) {
 
 	ctx := t.Context()
 
-	// This emulates the upsert of fallback pod CIDR entry emitted by node manager
+	// This emulates the upsert of a fallback pod CIDR entry emitted by the node update policy.
 	podCIDR1 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.10.0.0/24"))
 	podCIDR2 := cmtypes.NewLocalPrefixCluster(netip.MustParsePrefix("10.20.30.40/32"))
 	s.IPIdentityCache.metadata.upsertLocked(podCIDR1, source.CustomResource, "node-1",

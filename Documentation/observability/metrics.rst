@@ -615,6 +615,8 @@ Name                                          Labels                            
 ``datapath_conntrack_gc_key_fallbacks_total`` ``family``, ``protocol``                           Enabled    Number of times a key fallback was needed when iterating over the BPF map
 ``datapath_conntrack_gc_entries``             ``family``, ``protocol``, ``status``               Enabled    The number of alive and deleted conntrack entries at the end of a garbage collector run
 ``datapath_conntrack_gc_duration_seconds``    ``family``, ``protocol``, ``status``               Enabled    Duration in seconds of the garbage collector process
+``device_bytes_total``                        ``device``, ``direction``                          Enabled    Total number of bytes seen on a Cilium-managed device, tagged by ingress/egress direction
+``device_packets_total``                      ``device``, ``direction``                          Enabled    Total number of packets seen on a Cilium-managed device, tagged by ingress/egress direction
 ============================================= ================================================== ========== ========================================================
 
 IPsec
@@ -642,12 +644,29 @@ Name                                       Labels                               
 ``bpf_maps_virtual_memory_max_bytes``                                                                            Enabled    Max memory used by eBPF maps installed in the system
 ``bpf_progs_virtual_memory_max_bytes``                                                                           Enabled    Max memory used by eBPF programs installed in the system
 ``bpf_ratelimit_dropped_total``            ``usage``                                                             Enabled    Total drops resulting from BPF ratelimiter, tagged by source of drop
+``agent_memory_bytes``                     ``component``                                                         Enabled    Estimated memory usage of the Cilium agent in bytes, broken down by component
 ========================================== ===================================================================== ========== ========================================================
 
-Both ``bpf_maps_virtual_memory_max_bytes`` and ``bpf_progs_virtual_memory_max_bytes``
-are currently reporting the system-wide memory usage of eBPF that is directly
-and not directly managed by Cilium. This might change in the future and only
-report the eBPF memory usage directly managed by Cilium.
+``bpf_maps_virtual_memory_max_bytes``, ``bpf_progs_virtual_memory_max_bytes`` and
+the ``bpf_maps`` and ``bpf_progs`` components of ``agent_memory_bytes`` all report
+the same kernel memlock: that of the eBPF programs loaded by Cilium and of the maps
+those programs use. Maps that Cilium pins but that no loaded program uses are not
+counted, and a map shared with an eBPF program outside of Cilium is counted in full.
+
+``agent_memory_bytes`` composes that eBPF memlock with the agent's Go runtime usage
+into a single estimate, which is useful for capacity planning. Its ``component``
+label takes the following values:
+
+- ``go``: memory in use by the Go runtime, covering the heap, goroutine stacks and
+  the runtime allocators.
+- ``bpf_maps``: kernel memlock of the eBPF maps described above.
+- ``bpf_progs``: kernel memlock of the eBPF programs described above.
+- ``total``: the sum of ``go``, ``bpf_maps`` and ``bpf_progs``.
+
+The eBPF memlock is not part of the agent's resident set size, and it is not
+re-attributed to the cgroup of a restarted agent, which is why it is worth
+accounting for separately from the process RSS reported by
+``process_resident_memory_bytes``.
 
 Drops/Forwards (L3/L4)
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -793,6 +812,10 @@ Name                                     Labels                                 
 ``ipam_capacity``                        ``family``, ``cidr``                         Enabled    Total number of IPs in the IPAM pool labeled by family
 ``ipam_events_total``                    ``action``, ``family``                       Enabled    Number of IPAM events received labeled by action and datapath family type
 ``ip_addresses``                         ``family``                                   Enabled    Number of allocated IP addresses
+``ipam_multipool_available_ips``         ``pool``, ``family``                         Enabled    Total IPs (in-use and free) per pool and family. Emitted by the agent in multi-pool IPAM mode
+``ipam_multipool_used_ips``              ``pool``, ``family``                         Enabled    In-use (allocated) IPs per pool and family. Emitted by the agent in multi-pool IPAM mode
+``ipam_multipool_needed_ips``            ``pool``, ``family``                         Enabled    IPs needed to satisfy allocation demand per pool and family. Emitted by the agent in multi-pool IPAM mode
+``ipam_multipool_allocated_blocks``      ``pool``, ``family``                         Enabled    CIDR blocks (pod CIDRs) allocated to this node per pool and family. Emitted by the agent in multi-pool IPAM mode
 ======================================== ============================================ ========== ========================================================
 
 KVstore
@@ -976,6 +999,7 @@ Name                                     Labels                                 
 ``ipam_available_ips``                   ``target_node``                                                   Enabled    Number of available IPs on a node (taking into account plugin specific NIC/Address limits).
 ``ipam_used_ips``                        ``target_node``                                                   Enabled    Number of currently used IPs on a node.
 ``ipam_needed_ips``                      ``target_node``                                                   Enabled    Number of IPs needed to satisfy allocation on a node.
+``ipam_multipool_total_blocks``          ``pool``, ``family``                                              Enabled    Total number of CIDR blocks per pool and family.
 ======================================== ================================================================= ========== ========================================================
 
 LB-IPAM

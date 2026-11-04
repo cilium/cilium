@@ -20,7 +20,7 @@ import (
 // ManagementClient contains the methods for the Management group.
 // Don't use this type directly, use NewManagementClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type ManagementClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -43,64 +43,6 @@ func NewManagementClient(subscriptionID string, credential azcore.TokenCredentia
 		internal:       cl,
 	}
 	return client, nil
-}
-
-// CheckDNSNameAvailability - Checks whether a domain name in the cloudapp.azure.com zone is available for use.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - location - The location name.
-//   - domainNameLabel - The domain name to be verified. It must conform to the following regular expression: ^[a-z][a-z0-9-]{1,61}[a-z0-9]$.
-//   - options - ManagementClientCheckDNSNameAvailabilityOptions contains the optional parameters for the ManagementClient.CheckDNSNameAvailability
-//     method.
-func (client *ManagementClient) CheckDNSNameAvailability(ctx context.Context, location string, domainNameLabel string, options *ManagementClientCheckDNSNameAvailabilityOptions) (ManagementClientCheckDNSNameAvailabilityResponse, error) {
-	var err error
-	const operationName = "ManagementClient.CheckDNSNameAvailability"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.checkDNSNameAvailabilityCreateRequest(ctx, location, domainNameLabel, options)
-	if err != nil {
-		return ManagementClientCheckDNSNameAvailabilityResponse{}, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return ManagementClientCheckDNSNameAvailabilityResponse{}, err
-	}
-	return client.checkDNSNameAvailabilityHandleResponse(httpResp, http.StatusOK)
-}
-
-// checkDNSNameAvailabilityCreateRequest creates the CheckDNSNameAvailability request.
-func (client *ManagementClient) checkDNSNameAvailabilityCreateRequest(ctx context.Context, location string, domainNameLabel string, _ *ManagementClientCheckDNSNameAvailabilityOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/locations/{location}/checkDnsNameAvailability"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if location == "" {
-		return nil, errors.New("parameter location cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{location}", url.PathEscape(location))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	reqQP.Set("domainNameLabel", domainNameLabel)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// checkDNSNameAvailabilityHandleResponse handles the CheckDNSNameAvailability response.
-func (client *ManagementClient) checkDNSNameAvailabilityHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientCheckDNSNameAvailabilityResponse, error) {
-	result := ManagementClientCheckDNSNameAvailabilityResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	if err := runtime.UnmarshalAsJSON(resp, &result.DNSNameAvailabilityResult); err != nil {
-		return ManagementClientCheckDNSNameAvailabilityResponse{}, err
-	}
-	return result, nil
 }
 
 // BeginDeleteBastionShareableLink - Deletes the Bastion Shareable Links for all the VMs specified in the request.
@@ -127,7 +69,7 @@ func (client *ManagementClient) BeginDeleteBastionShareableLink(ctx context.Cont
 	}
 }
 
-// DeleteBastionShareableLink - Deletes the Bastion Shareable Links for all the VMs specified in the request.
+// deleteBastionShareableLink - Deletes the Bastion Shareable Links for all the VMs specified in the request.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *ManagementClient) deleteBastionShareableLink(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, options *ManagementClientBeginDeleteBastionShareableLinkOptions) (*http.Response, error) {
 	var err error
@@ -149,7 +91,7 @@ func (client *ManagementClient) deleteBastionShareableLink(ctx context.Context, 
 	return httpResp, nil
 }
 
-// deleteBastionShareableLinkCreateRequest creates the DeleteBastionShareableLink request.
+// deleteBastionShareableLinkCreateRequest creates the deleteBastionShareableLink request.
 func (client *ManagementClient) deleteBastionShareableLinkCreateRequest(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, _ *ManagementClientBeginDeleteBastionShareableLinkOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/bastionHosts/{bastionHostName}/deleteShareableLinks"
 	if client.subscriptionID == "" {
@@ -169,7 +111,7 @@ func (client *ManagementClient) deleteBastionShareableLinkCreateRequest(ctx cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, bslRequest); err != nil {
@@ -202,7 +144,7 @@ func (client *ManagementClient) BeginDeleteBastionShareableLinkByToken(ctx conte
 	}
 }
 
-// DeleteBastionShareableLinkByToken - Deletes the Bastion Shareable Links for all the tokens specified in the request.
+// deleteBastionShareableLinkByToken - Deletes the Bastion Shareable Links for all the tokens specified in the request.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *ManagementClient) deleteBastionShareableLinkByToken(ctx context.Context, resourceGroupName string, bastionHostName string, bslTokenRequest BastionShareableLinkTokenListRequest, options *ManagementClientBeginDeleteBastionShareableLinkByTokenOptions) (*http.Response, error) {
 	var err error
@@ -224,7 +166,7 @@ func (client *ManagementClient) deleteBastionShareableLinkByToken(ctx context.Co
 	return httpResp, nil
 }
 
-// deleteBastionShareableLinkByTokenCreateRequest creates the DeleteBastionShareableLinkByToken request.
+// deleteBastionShareableLinkByTokenCreateRequest creates the deleteBastionShareableLinkByToken request.
 func (client *ManagementClient) deleteBastionShareableLinkByTokenCreateRequest(ctx context.Context, resourceGroupName string, bastionHostName string, bslTokenRequest BastionShareableLinkTokenListRequest, _ *ManagementClientBeginDeleteBastionShareableLinkByTokenOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/bastionHosts/{bastionHostName}/deleteShareableLinksByToken"
 	if client.subscriptionID == "" {
@@ -244,151 +186,13 @@ func (client *ManagementClient) deleteBastionShareableLinkByTokenCreateRequest(c
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
 	if err := runtime.MarshalAsJSON(req, bslTokenRequest); err != nil {
 		return nil, err
 	}
 	return req, nil
-}
-
-// NewDisconnectActiveSessionsPager - Returns the list of currently active sessions on the Bastion.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - bastionHostName - The name of the Bastion Host.
-//   - sessionIDs - The list of sessionids to disconnect.
-//   - options - ManagementClientDisconnectActiveSessionsOptions contains the optional parameters for the ManagementClient.NewDisconnectActiveSessionsPager
-//     method.
-func (client *ManagementClient) NewDisconnectActiveSessionsPager(resourceGroupName string, bastionHostName string, sessionIDs SessionIDs, options *ManagementClientDisconnectActiveSessionsOptions) *runtime.Pager[ManagementClientDisconnectActiveSessionsResponse] {
-	return runtime.NewPager(runtime.PagingHandler[ManagementClientDisconnectActiveSessionsResponse]{
-		More: func(page ManagementClientDisconnectActiveSessionsResponse) bool {
-			return page.NextLink != nil && len(*page.NextLink) > 0
-		},
-		Fetcher: func(ctx context.Context, page *ManagementClientDisconnectActiveSessionsResponse) (ManagementClientDisconnectActiveSessionsResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ManagementClient.NewDisconnectActiveSessionsPager")
-			nextLink := ""
-			if page != nil {
-				nextLink = *page.NextLink
-			}
-			req, err := client.disconnectActiveSessionsCreateRequest(ctx, resourceGroupName, bastionHostName, sessionIDs, nextLink, options)
-			if err != nil {
-				return ManagementClientDisconnectActiveSessionsResponse{}, err
-			}
-			resp, err := client.internal.Pipeline().Do(req)
-			if err != nil {
-				return ManagementClientDisconnectActiveSessionsResponse{}, err
-			}
-			return client.disconnectActiveSessionsHandleResponse(resp, http.StatusOK)
-		},
-		Tracer: client.internal.Tracer(),
-	})
-}
-
-// disconnectActiveSessionsCreateRequest creates the DisconnectActiveSessions request.
-func (client *ManagementClient) disconnectActiveSessionsCreateRequest(ctx context.Context, resourceGroupName string, bastionHostName string, sessionIDs SessionIDs, nextLink string, _ *ManagementClientDisconnectActiveSessionsOptions) (*policy.Request, error) {
-	firstPage := nextLink == ""
-	var req *policy.Request
-	var err error
-	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/bastionHosts/{bastionHostName}/disconnectActiveSessions"
-		if client.subscriptionID == "" {
-			return nil, errors.New("parameter subscriptionID cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-		if resourceGroupName == "" {
-			return nil, errors.New("parameter resourceGroupName cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-		if bastionHostName == "" {
-			return nil, errors.New("parameter bastionHostName cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{bastionHostName}", url.PathEscape(bastionHostName))
-		req, err = runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	} else {
-		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if firstPage {
-		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
-		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-		req.Raw().Header["Accept"] = []string{"application/json"}
-		req.Raw().Header["Content-Type"] = []string{"application/json"}
-		if err := runtime.MarshalAsJSON(req, sessionIDs); err != nil {
-			return nil, err
-		}
-	}
-	return req, nil
-}
-
-// disconnectActiveSessionsHandleResponse handles the DisconnectActiveSessions response.
-func (client *ManagementClient) disconnectActiveSessionsHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientDisconnectActiveSessionsResponse, error) {
-	result := ManagementClientDisconnectActiveSessionsResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	if err := runtime.UnmarshalAsJSON(resp, &result.BastionSessionDeleteResult); err != nil {
-		return ManagementClientDisconnectActiveSessionsResponse{}, err
-	}
-	return result, nil
-}
-
-// ExpressRouteProviderPort - Retrieves detail of a provider port.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - providerport - The name of the provider port.
-//   - options - ManagementClientExpressRouteProviderPortOptions contains the optional parameters for the ManagementClient.ExpressRouteProviderPort
-//     method.
-func (client *ManagementClient) ExpressRouteProviderPort(ctx context.Context, providerport string, options *ManagementClientExpressRouteProviderPortOptions) (ManagementClientExpressRouteProviderPortResponse, error) {
-	var err error
-	const operationName = "ManagementClient.ExpressRouteProviderPort"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.expressRouteProviderPortCreateRequest(ctx, providerport, options)
-	if err != nil {
-		return ManagementClientExpressRouteProviderPortResponse{}, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return ManagementClientExpressRouteProviderPortResponse{}, err
-	}
-	return client.expressRouteProviderPortHandleResponse(httpResp, http.StatusOK)
-}
-
-// expressRouteProviderPortCreateRequest creates the ExpressRouteProviderPort request.
-func (client *ManagementClient) expressRouteProviderPortCreateRequest(ctx context.Context, providerport string, _ *ManagementClientExpressRouteProviderPortOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/expressRouteProviderPorts/{providerport}"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if providerport == "" {
-		return nil, errors.New("parameter providerport cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{providerport}", url.PathEscape(providerport))
-	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// expressRouteProviderPortHandleResponse handles the ExpressRouteProviderPort response.
-func (client *ManagementClient) expressRouteProviderPortHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientExpressRouteProviderPortResponse, error) {
-	result := ManagementClientExpressRouteProviderPortResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	if err := runtime.UnmarshalAsJSON(resp, &result.ExpressRouteProviderPort); err != nil {
-		return ManagementClientExpressRouteProviderPortResponse{}, err
-	}
-	return result, nil
 }
 
 // BeginGeneratevirtualwanvpnserverconfigurationvpnprofile - Generates a unique VPN profile for P2S clients for VirtualWan
@@ -416,7 +220,7 @@ func (client *ManagementClient) BeginGeneratevirtualwanvpnserverconfigurationvpn
 	}
 }
 
-// Generatevirtualwanvpnserverconfigurationvpnprofile - Generates a unique VPN profile for P2S clients for VirtualWan and
+// generatevirtualwanvpnserverconfigurationvpnprofile - Generates a unique VPN profile for P2S clients for VirtualWan and
 // associated VpnServerConfiguration combination in the specified resource group.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *ManagementClient) generatevirtualwanvpnserverconfigurationvpnprofile(ctx context.Context, resourceGroupName string, virtualWANName string, vpnClientParams VirtualWanVPNProfileParameters, options *ManagementClientBeginGeneratevirtualwanvpnserverconfigurationvpnprofileOptions) (*http.Response, error) {
@@ -439,7 +243,7 @@ func (client *ManagementClient) generatevirtualwanvpnserverconfigurationvpnprofi
 	return httpResp, nil
 }
 
-// generatevirtualwanvpnserverconfigurationvpnprofileCreateRequest creates the Generatevirtualwanvpnserverconfigurationvpnprofile request.
+// generatevirtualwanvpnserverconfigurationvpnprofileCreateRequest creates the generatevirtualwanvpnserverconfigurationvpnprofile request.
 func (client *ManagementClient) generatevirtualwanvpnserverconfigurationvpnprofileCreateRequest(ctx context.Context, resourceGroupName string, virtualWANName string, vpnClientParams VirtualWanVPNProfileParameters, _ *ManagementClientBeginGeneratevirtualwanvpnserverconfigurationvpnprofileOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualWans/{virtualWANName}/generateVpnProfile"
 	if client.subscriptionID == "" {
@@ -459,7 +263,7 @@ func (client *ManagementClient) generatevirtualwanvpnserverconfigurationvpnprofi
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -511,7 +315,7 @@ func (client *ManagementClient) BeginGetActiveSessions(ctx context.Context, reso
 	}
 }
 
-// GetActiveSessions - Returns the list of currently active sessions on the Bastion.
+// getActiveSessions - Returns the list of currently active sessions on the Bastion.
 func (client *ManagementClient) getActiveSessions(ctx context.Context, resourceGroupName string, bastionHostName string, options *ManagementClientBeginGetActiveSessionsOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ManagementClient.BeginGetActiveSessions"
@@ -532,7 +336,7 @@ func (client *ManagementClient) getActiveSessions(ctx context.Context, resourceG
 	return httpResp, nil
 }
 
-// getActiveSessionsCreateRequest creates the GetActiveSessions request.
+// getActiveSessionsCreateRequest creates the getActiveSessions request.
 func (client *ManagementClient) getActiveSessionsCreateRequest(ctx context.Context, resourceGroupName string, bastionHostName string, nextLink string, _ *ManagementClientBeginGetActiveSessionsOptions) (*policy.Request, error) {
 	firstPage := nextLink == ""
 	var req *policy.Request
@@ -560,14 +364,14 @@ func (client *ManagementClient) getActiveSessionsCreateRequest(ctx context.Conte
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
 	return req, nil
 }
 
-// getActiveSessionsHandleResponse handles the GetActiveSessions response.
+// getActiveSessionsHandleResponse handles the getActiveSessions response.
 func (client *ManagementClient) getActiveSessionsHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientGetActiveSessionsResponse, error) {
 	result := ManagementClientGetActiveSessionsResponse{}
 	if !runtime.HasStatusCode(resp, successCodes...) {
@@ -579,44 +383,77 @@ func (client *ManagementClient) getActiveSessionsHandleResponse(resp *http.Respo
 	return result, nil
 }
 
-// NewGetBastionShareableLinkPager - Return the Bastion Shareable Links for all the VMs specified in the request.
+// BeginPutBastionShareableLink - Creates a Bastion Shareable Links for all the VMs specified in the request.
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - bastionHostName - The name of the Bastion Host.
 //   - bslRequest - Post request for Create/Delete/Get Bastion Shareable Link endpoints.
-//   - options - ManagementClientGetBastionShareableLinkOptions contains the optional parameters for the ManagementClient.NewGetBastionShareableLinkPager
+//   - options - ManagementClientBeginPutBastionShareableLinkOptions contains the optional parameters for the ManagementClient.BeginPutBastionShareableLink
 //     method.
-func (client *ManagementClient) NewGetBastionShareableLinkPager(resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, options *ManagementClientGetBastionShareableLinkOptions) *runtime.Pager[ManagementClientGetBastionShareableLinkResponse] {
-	return runtime.NewPager(runtime.PagingHandler[ManagementClientGetBastionShareableLinkResponse]{
-		More: func(page ManagementClientGetBastionShareableLinkResponse) bool {
+func (client *ManagementClient) BeginPutBastionShareableLink(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, options *ManagementClientBeginPutBastionShareableLinkOptions) (*runtime.Poller[*runtime.Pager[ManagementClientPutBastionShareableLinkResponse]], error) {
+	pager := runtime.NewPager(runtime.PagingHandler[ManagementClientPutBastionShareableLinkResponse]{
+		More: func(page ManagementClientPutBastionShareableLinkResponse) bool {
 			return page.NextLink != nil && len(*page.NextLink) > 0
 		},
-		Fetcher: func(ctx context.Context, page *ManagementClientGetBastionShareableLinkResponse) (ManagementClientGetBastionShareableLinkResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ManagementClient.NewGetBastionShareableLinkPager")
-			nextLink := ""
-			if page != nil {
-				nextLink = *page.NextLink
-			}
-			req, err := client.getBastionShareableLinkCreateRequest(ctx, resourceGroupName, bastionHostName, bslRequest, nextLink, options)
+		Fetcher: func(ctx context.Context, page *ManagementClientPutBastionShareableLinkResponse) (ManagementClientPutBastionShareableLinkResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ManagementClient.BeginPutBastionShareableLink")
+			req, err := client.putBastionShareableLinkCreateRequest(ctx, resourceGroupName, bastionHostName, bslRequest, *page.NextLink, options)
 			if err != nil {
-				return ManagementClientGetBastionShareableLinkResponse{}, err
+				return ManagementClientPutBastionShareableLinkResponse{}, err
 			}
 			resp, err := client.internal.Pipeline().Do(req)
 			if err != nil {
-				return ManagementClientGetBastionShareableLinkResponse{}, err
+				return ManagementClientPutBastionShareableLinkResponse{}, err
 			}
-			return client.getBastionShareableLinkHandleResponse(resp, http.StatusOK)
+			return client.putBastionShareableLinkHandleResponse(resp, http.StatusOK, http.StatusAccepted)
 		},
 		Tracer: client.internal.Tracer(),
 	})
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.putBastionShareableLink(ctx, resourceGroupName, bastionHostName, bslRequest, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[*runtime.Pager[ManagementClientPutBastionShareableLinkResponse]]{
+			Response: &pager,
+			Tracer:   client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[*runtime.Pager[ManagementClientPutBastionShareableLinkResponse]]{
+			Response: &pager,
+			Tracer:   client.internal.Tracer(),
+		})
+	}
 }
 
-// getBastionShareableLinkCreateRequest creates the GetBastionShareableLink request.
-func (client *ManagementClient) getBastionShareableLinkCreateRequest(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, nextLink string, _ *ManagementClientGetBastionShareableLinkOptions) (*policy.Request, error) {
+// putBastionShareableLink - Creates a Bastion Shareable Links for all the VMs specified in the request.
+func (client *ManagementClient) putBastionShareableLink(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, options *ManagementClientBeginPutBastionShareableLinkOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ManagementClient.BeginPutBastionShareableLink"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.putBastionShareableLinkCreateRequest(ctx, resourceGroupName, bastionHostName, bslRequest, "", options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// putBastionShareableLinkCreateRequest creates the putBastionShareableLink request.
+func (client *ManagementClient) putBastionShareableLinkCreateRequest(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, nextLink string, _ *ManagementClientBeginPutBastionShareableLinkOptions) (*policy.Request, error) {
 	firstPage := nextLink == ""
 	var req *policy.Request
 	var err error
 	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/bastionHosts/{bastionHostName}/getShareableLinks"
+		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/bastionHosts/{bastionHostName}/createShareableLinks"
 		if client.subscriptionID == "" {
 			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
@@ -638,7 +475,7 @@ func (client *ManagementClient) getBastionShareableLinkCreateRequest(ctx context
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -649,14 +486,128 @@ func (client *ManagementClient) getBastionShareableLinkCreateRequest(ctx context
 	return req, nil
 }
 
-// getBastionShareableLinkHandleResponse handles the GetBastionShareableLink response.
-func (client *ManagementClient) getBastionShareableLinkHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientGetBastionShareableLinkResponse, error) {
-	result := ManagementClientGetBastionShareableLinkResponse{}
+// putBastionShareableLinkHandleResponse handles the putBastionShareableLink response.
+func (client *ManagementClient) putBastionShareableLinkHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientPutBastionShareableLinkResponse, error) {
+	result := ManagementClientPutBastionShareableLinkResponse{}
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.BastionShareableLinkListResult); err != nil {
-		return ManagementClientGetBastionShareableLinkResponse{}, err
+		return ManagementClientPutBastionShareableLinkResponse{}, err
+	}
+	return result, nil
+}
+
+// CheckDNSNameAvailability - Checks whether a domain name in the cloudapp.azure.com zone is available for use.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - location - The location name.
+//   - domainNameLabel - The domain name to be verified. It must conform to the following regular expression: ^[a-z][a-z0-9-]{1,61}[a-z0-9]$.
+//   - options - ManagementClientCheckDNSNameAvailabilityOptions contains the optional parameters for the ManagementClient.CheckDNSNameAvailability
+//     method.
+func (client *ManagementClient) CheckDNSNameAvailability(ctx context.Context, location string, domainNameLabel string, options *ManagementClientCheckDNSNameAvailabilityOptions) (ManagementClientCheckDNSNameAvailabilityResponse, error) {
+	var err error
+	const operationName = "ManagementClient.CheckDNSNameAvailability"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.checkDNSNameAvailabilityCreateRequest(ctx, location, domainNameLabel, options)
+	if err != nil {
+		return ManagementClientCheckDNSNameAvailabilityResponse{}, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return ManagementClientCheckDNSNameAvailabilityResponse{}, err
+	}
+	return client.checkDNSNameAvailabilityHandleResponse(httpResp, http.StatusOK)
+}
+
+// checkDNSNameAvailabilityCreateRequest creates the CheckDNSNameAvailability request.
+func (client *ManagementClient) checkDNSNameAvailabilityCreateRequest(ctx context.Context, location string, domainNameLabel string, _ *ManagementClientCheckDNSNameAvailabilityOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/locations/{location}/checkDnsNameAvailability"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if location == "" {
+		return nil, errors.New("parameter location cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{location}", url.PathEscape(location))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	reqQP.Set("domainNameLabel", domainNameLabel)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// checkDNSNameAvailabilityHandleResponse handles the CheckDNSNameAvailability response.
+func (client *ManagementClient) checkDNSNameAvailabilityHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientCheckDNSNameAvailabilityResponse, error) {
+	result := ManagementClientCheckDNSNameAvailabilityResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
+	if err := runtime.UnmarshalAsJSON(resp, &result.DNSNameAvailabilityResult); err != nil {
+		return ManagementClientCheckDNSNameAvailabilityResponse{}, err
+	}
+	return result, nil
+}
+
+// ExpressRouteProviderPort - Retrieves detail of a provider port.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - providerport - The name of the provider port.
+//   - options - ManagementClientExpressRouteProviderPortOptions contains the optional parameters for the ManagementClient.ExpressRouteProviderPort
+//     method.
+func (client *ManagementClient) ExpressRouteProviderPort(ctx context.Context, providerport string, options *ManagementClientExpressRouteProviderPortOptions) (ManagementClientExpressRouteProviderPortResponse, error) {
+	var err error
+	const operationName = "ManagementClient.ExpressRouteProviderPort"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.expressRouteProviderPortCreateRequest(ctx, providerport, options)
+	if err != nil {
+		return ManagementClientExpressRouteProviderPortResponse{}, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return ManagementClientExpressRouteProviderPortResponse{}, err
+	}
+	return client.expressRouteProviderPortHandleResponse(httpResp, http.StatusOK)
+}
+
+// expressRouteProviderPortCreateRequest creates the ExpressRouteProviderPort request.
+func (client *ManagementClient) expressRouteProviderPortCreateRequest(ctx context.Context, providerport string, _ *ManagementClientExpressRouteProviderPortOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/expressRouteProviderPorts/{providerport}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if providerport == "" {
+		return nil, errors.New("parameter providerport cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{providerport}", url.PathEscape(providerport))
+	req, err := runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// expressRouteProviderPortHandleResponse handles the ExpressRouteProviderPort response.
+func (client *ManagementClient) expressRouteProviderPortHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientExpressRouteProviderPortResponse, error) {
+	result := ManagementClientExpressRouteProviderPortResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
+	if err := runtime.UnmarshalAsJSON(resp, &result.ExpressRouteProviderPort); err != nil {
+		return ManagementClientExpressRouteProviderPortResponse{}, err
 	}
 	return result, nil
 }
@@ -708,7 +659,7 @@ func (client *ManagementClient) listActiveConnectivityConfigurationsCreateReques
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -777,7 +728,7 @@ func (client *ManagementClient) listActiveSecurityAdminRulesCreateRequest(ctx co
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -847,7 +798,7 @@ func (client *ManagementClient) listNetworkManagerEffectiveConnectivityConfigura
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -916,7 +867,7 @@ func (client *ManagementClient) listNetworkManagerEffectiveSecurityAdminRulesCre
 	if options != nil && options.Top != nil {
 		reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 	}
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -938,77 +889,44 @@ func (client *ManagementClient) listNetworkManagerEffectiveSecurityAdminRulesHan
 	return result, nil
 }
 
-// BeginPutBastionShareableLink - Creates a Bastion Shareable Links for all the VMs specified in the request.
+// NewDisconnectActiveSessionsPager - Returns the list of currently active sessions on the Bastion.
 //   - resourceGroupName - The name of the resource group. The name is case insensitive.
 //   - bastionHostName - The name of the Bastion Host.
-//   - bslRequest - Post request for Create/Delete/Get Bastion Shareable Link endpoints.
-//   - options - ManagementClientBeginPutBastionShareableLinkOptions contains the optional parameters for the ManagementClient.BeginPutBastionShareableLink
+//   - sessionIDs - The list of sessionids to disconnect.
+//   - options - ManagementClientDisconnectActiveSessionsOptions contains the optional parameters for the ManagementClient.NewDisconnectActiveSessionsPager
 //     method.
-func (client *ManagementClient) BeginPutBastionShareableLink(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, options *ManagementClientBeginPutBastionShareableLinkOptions) (*runtime.Poller[*runtime.Pager[ManagementClientPutBastionShareableLinkResponse]], error) {
-	pager := runtime.NewPager(runtime.PagingHandler[ManagementClientPutBastionShareableLinkResponse]{
-		More: func(page ManagementClientPutBastionShareableLinkResponse) bool {
+func (client *ManagementClient) NewDisconnectActiveSessionsPager(resourceGroupName string, bastionHostName string, sessionIDs SessionIDs, options *ManagementClientDisconnectActiveSessionsOptions) *runtime.Pager[ManagementClientDisconnectActiveSessionsResponse] {
+	return runtime.NewPager(runtime.PagingHandler[ManagementClientDisconnectActiveSessionsResponse]{
+		More: func(page ManagementClientDisconnectActiveSessionsResponse) bool {
 			return page.NextLink != nil && len(*page.NextLink) > 0
 		},
-		Fetcher: func(ctx context.Context, page *ManagementClientPutBastionShareableLinkResponse) (ManagementClientPutBastionShareableLinkResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ManagementClient.BeginPutBastionShareableLink")
-			req, err := client.putBastionShareableLinkCreateRequest(ctx, resourceGroupName, bastionHostName, bslRequest, *page.NextLink, options)
+		Fetcher: func(ctx context.Context, page *ManagementClientDisconnectActiveSessionsResponse) (ManagementClientDisconnectActiveSessionsResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ManagementClient.NewDisconnectActiveSessionsPager")
+			nextLink := ""
+			if page != nil {
+				nextLink = *page.NextLink
+			}
+			req, err := client.disconnectActiveSessionsCreateRequest(ctx, resourceGroupName, bastionHostName, sessionIDs, nextLink, options)
 			if err != nil {
-				return ManagementClientPutBastionShareableLinkResponse{}, err
+				return ManagementClientDisconnectActiveSessionsResponse{}, err
 			}
 			resp, err := client.internal.Pipeline().Do(req)
 			if err != nil {
-				return ManagementClientPutBastionShareableLinkResponse{}, err
+				return ManagementClientDisconnectActiveSessionsResponse{}, err
 			}
-			return client.putBastionShareableLinkHandleResponse(resp, http.StatusOK, http.StatusAccepted)
+			return client.disconnectActiveSessionsHandleResponse(resp, http.StatusOK)
 		},
 		Tracer: client.internal.Tracer(),
 	})
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.putBastionShareableLink(ctx, resourceGroupName, bastionHostName, bslRequest, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[*runtime.Pager[ManagementClientPutBastionShareableLinkResponse]]{
-			Response: &pager,
-			Tracer:   client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[*runtime.Pager[ManagementClientPutBastionShareableLinkResponse]]{
-			Response: &pager,
-			Tracer:   client.internal.Tracer(),
-		})
-	}
 }
 
-// PutBastionShareableLink - Creates a Bastion Shareable Links for all the VMs specified in the request.
-func (client *ManagementClient) putBastionShareableLink(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, options *ManagementClientBeginPutBastionShareableLinkOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ManagementClient.BeginPutBastionShareableLink"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.putBastionShareableLinkCreateRequest(ctx, resourceGroupName, bastionHostName, bslRequest, "", options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// putBastionShareableLinkCreateRequest creates the PutBastionShareableLink request.
-func (client *ManagementClient) putBastionShareableLinkCreateRequest(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, nextLink string, _ *ManagementClientBeginPutBastionShareableLinkOptions) (*policy.Request, error) {
+// disconnectActiveSessionsCreateRequest creates the DisconnectActiveSessions request.
+func (client *ManagementClient) disconnectActiveSessionsCreateRequest(ctx context.Context, resourceGroupName string, bastionHostName string, sessionIDs SessionIDs, nextLink string, _ *ManagementClientDisconnectActiveSessionsOptions) (*policy.Request, error) {
 	firstPage := nextLink == ""
 	var req *policy.Request
 	var err error
 	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/bastionHosts/{bastionHostName}/createShareableLinks"
+		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/bastionHosts/{bastionHostName}/disconnectActiveSessions"
 		if client.subscriptionID == "" {
 			return nil, errors.New("parameter subscriptionID cannot be empty")
 		}
@@ -1030,7 +948,89 @@ func (client *ManagementClient) putBastionShareableLinkCreateRequest(ctx context
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
+		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+		req.Raw().Header["Accept"] = []string{"application/json"}
+		req.Raw().Header["Content-Type"] = []string{"application/json"}
+		if err := runtime.MarshalAsJSON(req, sessionIDs); err != nil {
+			return nil, err
+		}
+	}
+	return req, nil
+}
+
+// disconnectActiveSessionsHandleResponse handles the DisconnectActiveSessions response.
+func (client *ManagementClient) disconnectActiveSessionsHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientDisconnectActiveSessionsResponse, error) {
+	result := ManagementClientDisconnectActiveSessionsResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
+	if err := runtime.UnmarshalAsJSON(resp, &result.BastionSessionDeleteResult); err != nil {
+		return ManagementClientDisconnectActiveSessionsResponse{}, err
+	}
+	return result, nil
+}
+
+// NewGetBastionShareableLinkPager - Return the Bastion Shareable Links for all the VMs specified in the request.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - bastionHostName - The name of the Bastion Host.
+//   - bslRequest - Post request for Create/Delete/Get Bastion Shareable Link endpoints.
+//   - options - ManagementClientGetBastionShareableLinkOptions contains the optional parameters for the ManagementClient.NewGetBastionShareableLinkPager
+//     method.
+func (client *ManagementClient) NewGetBastionShareableLinkPager(resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, options *ManagementClientGetBastionShareableLinkOptions) *runtime.Pager[ManagementClientGetBastionShareableLinkResponse] {
+	return runtime.NewPager(runtime.PagingHandler[ManagementClientGetBastionShareableLinkResponse]{
+		More: func(page ManagementClientGetBastionShareableLinkResponse) bool {
+			return page.NextLink != nil && len(*page.NextLink) > 0
+		},
+		Fetcher: func(ctx context.Context, page *ManagementClientGetBastionShareableLinkResponse) (ManagementClientGetBastionShareableLinkResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ManagementClient.NewGetBastionShareableLinkPager")
+			nextLink := ""
+			if page != nil {
+				nextLink = *page.NextLink
+			}
+			req, err := client.getBastionShareableLinkCreateRequest(ctx, resourceGroupName, bastionHostName, bslRequest, nextLink, options)
+			if err != nil {
+				return ManagementClientGetBastionShareableLinkResponse{}, err
+			}
+			resp, err := client.internal.Pipeline().Do(req)
+			if err != nil {
+				return ManagementClientGetBastionShareableLinkResponse{}, err
+			}
+			return client.getBastionShareableLinkHandleResponse(resp, http.StatusOK)
+		},
+		Tracer: client.internal.Tracer(),
+	})
+}
+
+// getBastionShareableLinkCreateRequest creates the GetBastionShareableLink request.
+func (client *ManagementClient) getBastionShareableLinkCreateRequest(ctx context.Context, resourceGroupName string, bastionHostName string, bslRequest BastionShareableLinkListRequest, nextLink string, _ *ManagementClientGetBastionShareableLinkOptions) (*policy.Request, error) {
+	firstPage := nextLink == ""
+	var req *policy.Request
+	var err error
+	if firstPage {
+		urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/bastionHosts/{bastionHostName}/getShareableLinks"
+		if client.subscriptionID == "" {
+			return nil, errors.New("parameter subscriptionID cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+		if resourceGroupName == "" {
+			return nil, errors.New("parameter resourceGroupName cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+		if bastionHostName == "" {
+			return nil, errors.New("parameter bastionHostName cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{bastionHostName}", url.PathEscape(bastionHostName))
+		req, err = runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	} else {
+		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if firstPage {
+		reqQP := req.Raw().URL.Query()
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 		req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -1041,14 +1041,14 @@ func (client *ManagementClient) putBastionShareableLinkCreateRequest(ctx context
 	return req, nil
 }
 
-// putBastionShareableLinkHandleResponse handles the PutBastionShareableLink response.
-func (client *ManagementClient) putBastionShareableLinkHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientPutBastionShareableLinkResponse, error) {
-	result := ManagementClientPutBastionShareableLinkResponse{}
+// getBastionShareableLinkHandleResponse handles the GetBastionShareableLink response.
+func (client *ManagementClient) getBastionShareableLinkHandleResponse(resp *http.Response, successCodes ...int) (ManagementClientGetBastionShareableLinkResponse, error) {
+	result := ManagementClientGetBastionShareableLinkResponse{}
 	if !runtime.HasStatusCode(resp, successCodes...) {
 		return result, runtime.NewResponseError(resp)
 	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.BastionShareableLinkListResult); err != nil {
-		return ManagementClientPutBastionShareableLinkResponse{}, err
+		return ManagementClientGetBastionShareableLinkResponse{}, err
 	}
 	return result, nil
 }
@@ -1096,7 +1096,7 @@ func (client *ManagementClient) supportedSecurityProvidersCreateRequest(ctx cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil

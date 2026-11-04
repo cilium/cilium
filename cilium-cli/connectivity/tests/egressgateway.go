@@ -61,6 +61,11 @@ func validateEgressGatewayClientIP(a *check.Action, expectedIP netip.Addr) {
 // Test pod to host connectivity by using pings. The packet should not get masqueraded with egress
 // IP.
 func testPingHost(ctx context.Context, t *check.Test, ct *check.ConnectivityTest, s check.Scenario) {
+	if ct.Params().SkipHostNetNSDaemonSet {
+		t.Infof("Not pinging hosts running Cilium as host-netns DaemonSet is skipped")
+		return
+	}
+
 	i := 0
 	for _, client := range ct.ClientPods() {
 		for _, dst := range ct.HostNetNSPodsByNode() {
@@ -201,7 +206,7 @@ func (s *egressGateway) Run(ctx context.Context, t *check.Test) {
 	testPods := append(
 		slices.Collect(maps.Values(ct.ClientPods())),
 		slices.Collect(maps.Values(ct.EchoPods()))...)
-	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, t.LogExecRetry, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		egressIP := "0.0.0.0"
@@ -476,7 +481,7 @@ func (s *egressGatewayMultigateway) Run(ctx context.Context, t *check.Test) {
 	testPods := append(
 		slices.Collect(maps.Values(ct.ClientPods())),
 		slices.Collect(maps.Values(ct.EchoPods()))...)
-	err = check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+	err = check.WaitForEgressGatewayBpfPolicyEntries(ctx, t.LogExecRetry, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		for _, client := range ct.ClientPods() {
@@ -696,7 +701,7 @@ func (s *egressGatewayExcludedCIDRs) Run(ctx context.Context, t *check.Test) {
 	testPods := append(
 		slices.Collect(maps.Values(ct.ClientPods())),
 		slices.Collect(maps.Values(ct.EchoPods()))...)
-	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
+	err := check.WaitForEgressGatewayBpfPolicyEntries(ctx, t.LogExecRetry, ct.CiliumPods(), testPods, func(ciliumPod check.Pod) ([]check.BPFEgressGatewayPolicyEntry, error) {
 		var targetEntries []check.BPFEgressGatewayPolicyEntry
 
 		egressIP := "0.0.0.0"

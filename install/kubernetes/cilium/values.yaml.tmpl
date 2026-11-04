@@ -1044,6 +1044,11 @@ ingressController:
     annotations: {}
     # -- Service type for the shared LB service
     type: LoadBalancer
+    # -- Configure whether the insecure HTTP port (80) is exposed on the shared LB service.
+    # Set it to false to keep cloud load balancers from creating a plain HTTP listener.
+    insecurePortEnabled: true
+    # -- Configure whether the secure HTTPS port (443) is exposed on the shared LB service.
+    securePortEnabled: true
     # @schema
     # type: [null, integer]
     # @schema
@@ -1563,6 +1568,9 @@ hubble:
       labels: {}
       # -- Annotations to add to ServiceMonitor hubble
       annotations: {}
+      # -- Attach node metadata to the targets discovered by ServiceMonitor hubble.
+      # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+      attachMetadata: {}
       # -- jobLabel to add for ServiceMonitor hubble
       jobLabel: ""
       # -- Interval for scrape metrics.
@@ -1980,6 +1988,9 @@ hubble:
         labels: {}
         # -- Annotations to add to ServiceMonitor hubble-relay
         annotations: {}
+        # -- Attach node metadata to the targets discovered by ServiceMonitor hubble-relay.
+        # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+        attachMetadata: {}
         # -- Interval for scrape metrics.
         interval: "10s"
         # @schema
@@ -2735,6 +2746,9 @@ prometheus:
     labels: {}
     # -- Annotations to add to ServiceMonitor cilium-agent
     annotations: {}
+    # -- Attach node metadata to the targets discovered by ServiceMonitor cilium-agent.
+    # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+    attachMetadata: {}
     # -- jobLabel to add for ServiceMonitor cilium-agent
     jobLabel: ""
     # -- Interval for scrape metrics.
@@ -3125,6 +3139,9 @@ envoy:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-envoy
       annotations: {}
+      # -- Attach node metadata to the targets discovered by ServiceMonitor cilium-envoy.
+      # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+      attachMetadata: {}
       # -- Interval for scrape metrics.
       interval: "10s"
       # @schema
@@ -3385,6 +3402,8 @@ operator:
       operator: Exists
     - key: "node-role.kubernetes.io/master" #deprecated
       operator: Exists
+    - key: "node-role.kubernetes.io/etcd"
+      operator: Exists
     - key: "node.kubernetes.io/not-ready"
       operator: Exists
     - key: "node.cloudprovider.kubernetes.io/uninitialized"
@@ -3496,6 +3515,9 @@ operator:
       labels: {}
       # -- Annotations to add to ServiceMonitor cilium-operator
       annotations: {}
+      # -- Attach node metadata to the targets discovered by ServiceMonitor cilium-operator.
+      # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+      attachMetadata: {}
       # -- jobLabel to add for ServiceMonitor cilium-operator
       jobLabel: ""
       # -- Interval for scrape metrics.
@@ -4342,6 +4364,9 @@ clustermesh:
         labels: {}
         # -- Annotations to add to ServiceMonitor clustermesh-apiserver
         annotations: {}
+        # -- Attach node metadata to the targets discovered by ServiceMonitor clustermesh-apiserver.
+        # ref: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.AttachMetadata
+        attachMetadata: {}
         # -- Specify the Kubernetes namespace where Prometheus expects to find
         # service monitors configured.
         # namespace: ""
@@ -4528,6 +4553,8 @@ authentication:
               effect: NoSchedule
             - key: node-role.kubernetes.io/control-plane
               effect: NoSchedule
+            - key: node-role.kubernetes.io/etcd
+              operator: Exists
             - key: node.cloudprovider.kubernetes.io/uninitialized
               effect: NoSchedule
               value: "true"

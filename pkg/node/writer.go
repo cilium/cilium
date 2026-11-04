@@ -25,14 +25,28 @@ import (
 
 // Writer provides source-aware write access to the node table.
 type Writer struct {
-	log   *slog.Logger
-	db    *statedb.DB
-	nodes statedb.RWTable[*Node]
+	log     *slog.Logger
+	db      *statedb.DB
+	nodes   statedb.RWTable[*Node]
+	metrics *nodeMetrics
 
 	isStaticLocalRouterIP  func(netip.Addr) bool
 	prefixClusterMutatorFn PrefixClusterMutatorFn
 
+	updatePolicy UpdatePolicy
+
 	requiredReconcilers []NodeReconciler
+}
+
+// UpdatePolicy preserves the legacy node update ordering. It retains ownership
+// of conflict resolution and any state it needs.
+type UpdatePolicy interface {
+	// The publish result only controls remote nodes; UpsertLocal always writes
+	// the local row. The mutator is the writer's prefix qualification hook.
+	Upsert(node *nodeTypes.Node, mutator PrefixClusterMutatorFn) (publish bool)
+	// Delete reports whether the source owns the cached node and its published
+	// row may be removed, even if that row still has an older source.
+	Delete(src source.Source, identity nodeTypes.Identity, mutator PrefixClusterMutatorFn) (remove bool)
 }
 
 // PrefixClusterMutatorFn derives cluster-aware addressing options from a
@@ -53,7 +67,7 @@ const (
 
 // NewWriter constructs a node table writer.
 func NewWriter(log *slog.Logger, db *statedb.DB, nodes statedb.RWTable[*Node]) *Writer {
-	return &Writer{log: log, db: db, nodes: nodes}
+	return &Writer{log: log, db: db, nodes: nodes, metrics: NewNodeMetrics()}
 }
 
 type writerParams struct {
@@ -62,11 +76,13 @@ type writerParams struct {
 	Log          *slog.Logger
 	DB           *statedb.DB
 	Nodes        statedb.RWTable[*Node]
+	Metrics      *nodeMetrics
 	DaemonConfig *option.DaemonConfig `optional:"true"`
 }
 
 func provideWriter(p writerParams) *Writer {
 	w := NewWriter(p.Log, p.DB, p.Nodes)
+	w.metrics = p.Metrics
 	if p.DaemonConfig != nil {
 		w.isStaticLocalRouterIP = p.DaemonConfig.IsLocalRouterIP
 	}
@@ -80,6 +96,10 @@ func (w *Writer) Table() statedb.Table[*Node] { return w.nodes }
 // This hook must be set during Hive invoke time.
 func (w *Writer) SetPrefixClusterMutatorFn(mutator PrefixClusterMutatorFn) {
 	w.prefixClusterMutatorFn = mutator
+}
+
+func (w *Writer) SetUpdatePolicy(p UpdatePolicy) {
+	w.updatePolicy = p
 }
 
 func deriveAddressClusterID(mutator PrefixClusterMutatorFn, n *nodeTypes.Node) uint32 {
@@ -302,79 +322,65 @@ func (w *Writer) Refresh(ctx context.Context, reconcilers ...NodeReconciler) err
 	return w.waitUntilReconciled(ctx, rtxn, false, reconcilers)
 }
 
-// Upsert takes ownership of n and inserts or updates it if its source is
-// allowed to overwrite the current owner. The caller must not modify n after
-// calling Upsert. It reports whether the table changed. Conflicting weaker
-// objects are not retained, so their producer must upsert them again if the
-// winning object is later deleted.
+// UpsertLocal writes the local node, including its local-only information, and
+// runs the update policy for its side effects once the local node is initialized.
+// The local node is always written independently of whether the policy would
+// publish a remote node.
+func (w *Writer) UpsertLocal(txn statedb.WriteTxn, n *LocalNode) error {
+	if n.Local == nil {
+		panic("UpsertLocal: local node information is missing")
+	}
+
+	old, _, _ := w.nodes.Get(txn, LocalNodeQuery)
+	event := "add"
+	if old != nil {
+		event = "update"
+	}
+	w.metrics.EventsReceived.WithLabelValues(event, string(n.Source)).Inc()
+	if err := w.writeNode(txn, n, old); err != nil {
+		return fmt.Errorf("write local node: %w", err)
+	}
+	w.metrics.NumNodes.Set(float64(w.nodes.NumObjects(txn)))
+	if w.updatePolicy != nil &&
+		!slices.Contains(w.nodes.PendingInitializers(txn), LocalNodeTableInitializerName) {
+		w.updatePolicy.Upsert(&n.Node, w.prefixClusterMutatorFn)
+	}
+	return nil
+}
+
+// Upsert a remote node into the node table.
 func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
-	reconcilers := reconcilerNames(w.getRequiredReconcilers(txn))
+	old, _, found := w.nodes.Get(txn, NodeByName(n.Fullname()))
+	if n.IsLocal() || (found && old.Local != nil) {
+		w.log.Warn("Rejecting update to local node",
+			logfields.Node, n.Fullname(),
+			logfields.Source, n.Source,
+		)
+		return false
+	}
+	event := "add"
+	if found {
+		event = "update"
+	}
+	w.metrics.EventsReceived.WithLabelValues(event, string(n.Source)).Inc()
+	if w.updatePolicy != nil && !w.updatePolicy.Upsert(n, w.prefixClusterMutatorFn) {
+		// Policy rejected the update due to conflict.
+		return false
+	}
+
 	obj := &Node{
 		Node:             *n,
 		addressClusterID: deriveAddressClusterID(w.prefixClusterMutatorFn, n),
-		Statuses:         reconciler.NewStatusSet().Pending(reconcilers...),
 	}
 
-	old, _, found := w.nodes.Get(txn, NodeByName(obj.Fullname()))
 	if found {
-		if old.Local != nil || !source.AllowOverwrite(old.Source, obj.Source) {
-			w.log.Warn("Ignoring node update from lower priority source",
-				logfields.Node, obj.Fullname(),
-				logfields.Source, old.Source,
-				logfields.NodeOwner, obj.Source,
-			)
-			return false
-		}
 		if old.Node.DeepEqual(&obj.Node) &&
 			old.addressClusterID == obj.addressClusterID {
 			return false
 		}
 	}
 
-	// Resolve all address conflicts before changing the table. This keeps the
-	// operation atomic when an incoming node overlaps multiple existing nodes:
-	// a single stronger owner rejects the update without deleting weaker ones.
-	conflicts := map[string]*Node{}
-	for addrCluster := range obj.addressClusters(w.isStaticLocalRouterIP) {
-		for candidate := range w.nodes.List(txn, NodeByAddress(addrCluster)) {
-			if candidate.Fullname() == obj.Fullname() {
-				continue
-			}
-			if _, found := conflicts[candidate.Fullname()]; found {
-				continue
-			}
-			w.log.Warn("Node address conflicts with another node",
-				logfields.IPAddr, addrCluster,
-				logfields.Node, obj.Fullname(),
-				logfields.Source, obj.Source,
-				logfields.ConflictingResource, candidate.Fullname(),
-				logfields.NodeOwner, candidate.Source,
-			)
-			conflicts[candidate.Fullname()] = candidate
-		}
-	}
-	for _, candidate := range conflicts {
-		if candidate.Local != nil || !source.AllowOverwrite(candidate.Source, obj.Source) {
-			return false
-		}
-	}
-
-	for _, candidate := range conflicts {
-		if _, _, err := w.nodes.Delete(txn, candidate); err != nil {
-			w.log.Error("Failed to delete node with conflicting address",
-				logfields.Error, err,
-				logfields.Node, candidate.Name,
-				logfields.Source, candidate.Source,
-			)
-			return false
-		}
-	}
-
-	if found {
-		obj.Statuses = old.Statuses.Pending(reconcilers...)
-	}
-
-	if _, _, err := w.nodes.Insert(txn, obj); err != nil {
+	if err := w.writeNode(txn, obj, old); err != nil {
 		w.log.Error("Failed to write node to table",
 			logfields.Error, err,
 			logfields.Node, obj.Name,
@@ -382,17 +388,39 @@ func (w *Writer) Upsert(txn statedb.WriteTxn, n *nodeTypes.Node) bool {
 		)
 		return false
 	}
+	w.metrics.NumNodes.Set(float64(w.nodes.NumObjects(txn)))
 	return true
 }
 
-// Delete removes a remote node if this writer's source still owns it. It
-// reports whether the table changed.
+func (w *Writer) writeNode(txn statedb.WriteTxn, n, old *Node) error {
+	if old != nil {
+		n.Statuses = old.Statuses
+		if old.Fullname() != n.Fullname() {
+			if _, _, err := w.nodes.Delete(txn, old); err != nil {
+				return fmt.Errorf("delete previous node: %w", err)
+			}
+		}
+	}
+	n.Statuses = n.Statuses.Pending(reconcilerNames(w.getRequiredReconcilers(txn))...)
+	_, _, err := w.nodes.Insert(txn, n)
+	return err
+}
+
+// Delete removes a remote node if the policy accepts the deletion, or, without
+// a policy, if src still owns the table row. It reports whether the table changed.
 func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTypes.Identity) bool {
-	old, _, found := w.nodes.Get(txn, NodeByName(identity.String()))
+	w.metrics.EventsReceived.WithLabelValues("delete", string(src)).Inc()
+	if w.updatePolicy != nil {
+		if !w.updatePolicy.Delete(src, identity, w.prefixClusterMutatorFn) {
+			return false
+		}
+	}
+	n := &nodeTypes.Node{Name: identity.Name, Cluster: identity.Cluster}
+	old, _, found := w.nodes.Get(txn, NodeByName(n.Fullname()))
 	if !found {
 		return false
 	}
-	if old.Local != nil || old.Source != src {
+	if old.Local != nil || (w.updatePolicy == nil && old.Source != src) {
 		w.log.Warn("Ignoring node deletion from source that does not own node",
 			logfields.Node, identity.Name,
 			logfields.Source, src,
@@ -408,5 +436,6 @@ func (w *Writer) Delete(txn statedb.WriteTxn, src source.Source, identity nodeTy
 		)
 		return false
 	}
+	w.metrics.NumNodes.Set(float64(w.nodes.NumObjects(txn)))
 	return true
 }

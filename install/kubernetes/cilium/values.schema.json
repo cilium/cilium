@@ -219,6 +219,16 @@
                               },
                               {
                                 "properties": {
+                                  "key": {
+                                    "type": "string"
+                                  },
+                                  "operator": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              {
+                                "properties": {
                                   "effect": {
                                     "type": "string"
                                   },
@@ -1160,6 +1170,9 @@
                 "serviceMonitor": {
                   "properties": {
                     "annotations": {
+                      "type": "object"
+                    },
+                    "attachMetadata": {
                       "type": "object"
                     },
                     "enabled": {
@@ -2682,6 +2695,9 @@
                 "annotations": {
                   "type": "object"
                 },
+                "attachMetadata": {
+                  "type": "object"
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -3291,6 +3307,9 @@
                 "annotations": {
                   "type": "object"
                 },
+                "attachMetadata": {
+                  "type": "object"
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -3674,6 +3693,9 @@
                 "serviceMonitor": {
                   "properties": {
                     "annotations": {
+                      "type": "object"
+                    },
+                    "attachMetadata": {
                       "type": "object"
                     },
                     "enabled": {
@@ -4511,6 +4533,9 @@
                 "integer"
               ]
             },
+            "insecurePortEnabled": {
+              "type": "boolean"
+            },
             "labels": {
               "type": "object"
             },
@@ -4534,6 +4559,9 @@
                 "null",
                 "integer"
               ]
+            },
+            "securePortEnabled": {
+              "type": "boolean"
             },
             "type": {
               "type": "string"
@@ -5468,6 +5496,9 @@
                 "annotations": {
                   "type": "object"
                 },
+                "attachMetadata": {
+                  "type": "object"
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -5578,6 +5609,16 @@
         "tolerations": {
           "items": {
             "anyOf": [
+              {
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                }
+              },
               {
                 "properties": {
                   "key": {
@@ -6005,6 +6046,9 @@
         "serviceMonitor": {
           "properties": {
             "annotations": {
+              "type": "object"
+            },
+            "attachMetadata": {
               "type": "object"
             },
             "enabled": {

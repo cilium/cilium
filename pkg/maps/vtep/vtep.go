@@ -8,26 +8,15 @@ import (
 	"log/slog"
 	"net/netip"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/types"
 )
 
-const (
-	// MaxEntries is the maximum number of keys that can be present in the
-	// VTEP map.
-	MaxEntries = defaults.MaxVTEPDevices
-
-	// MapName is the canonical name for the VTEP map on the filesystem.
-	MapName = "cilium_vtep_map"
-)
+// MapName is the canonical name for the VTEP map on the filesystem.
+const MapName = "cilium_vtep_map"
 
 // Map provides access to the eBPF map vtep.
 type Map interface {
@@ -131,24 +120,13 @@ func (m *vtepMap) Dump(hash map[string][]string) error {
 	return m.bpfMap.Dump(hash)
 }
 
-func newMap(logger *slog.Logger, registry *metrics.Registry) *vtepMap {
-	return &vtepMap{
-		bpfMap: bpf.NewMap(
-			MapName,
-			ebpf.Hash,
-			&Key{},
-			&VtepEndpointInfo{},
-			MaxEntries,
-			unix.BPF_F_RDONLY_PROG,
-		).WithCache().WithPressureMetric(registry).
-			WithEvents(option.Config.GetEventBufferConfig(MapName)),
-		logger: logger,
+// OpenMap opens an already initialized cilium_vtep_map. Direct use of this
+// outside of this package is solely for cilium-dbg.
+func OpenMap(logger *slog.Logger) (Map, error) {
+	m, err := bpf.OpenMap(bpf.MapPath(logger, MapName), &Key{}, &VtepEndpointInfo{})
+	if err != nil {
+		return nil, err
 	}
-}
 
-// LoadVTEPMap loads the pre-initialized vtep map for access.
-// This should only be used from components which aren't capable of using hive - mainly the Cilium CLI.
-// It needs to initialized beforehand via the Cilium Agent.
-func LoadVTEPMap(logger *slog.Logger) Map {
-	return newMap(logger, nil)
+	return &vtepMap{logger: logger, bpfMap: m}, nil
 }

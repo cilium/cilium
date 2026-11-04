@@ -65,6 +65,8 @@ type Controller struct {
 
 	maxCEPsInCES int
 
+	emptyBeforeDeleteThreshold int
+
 	// queue is used to sync CESs with the api-server. this will rate-limit the
 	// CES requests going to api-server, ensures a single CES will not be proccessed
 	// multiple times concurrently, and if CES is added multiple times before it
@@ -151,20 +153,21 @@ func registerController(p params) error {
 	}
 
 	cesController := &Controller{
-		logger:                   p.Logger,
-		clusterInfo:              p.ClusterInfo,
-		clientset:                clientset,
-		ciliumEndpointSlice:      p.CiliumEndpointSlice,
-		ciliumNodes:              p.CiliumNodes,
-		namespace:                p.Namespace,
-		maxCEPsInCES:             p.Cfg.CESMaxCEPsInCES,
-		rateLimit:                rateLimitConfig,
-		enqueuedAt:               make(map[CESKey]time.Time),
-		metrics:                  p.Metrics,
-		workqueueMetricsProvider: p.WorkqueueMetricsProvider,
-		syncDelay:                DefaultCESSyncTime,
-		priorityNamespaces:       make(map[string]struct{}),
-		Job:                      p.Job,
+		logger:                     p.Logger,
+		clusterInfo:                p.ClusterInfo,
+		clientset:                  clientset,
+		ciliumEndpointSlice:        p.CiliumEndpointSlice,
+		ciliumNodes:                p.CiliumNodes,
+		namespace:                  p.Namespace,
+		maxCEPsInCES:               p.Cfg.CESMaxCEPsInCES,
+		emptyBeforeDeleteThreshold: p.Cfg.CESEmptyBeforeDeleteThreshold,
+		rateLimit:                  rateLimitConfig,
+		enqueuedAt:                 make(map[CESKey]time.Time),
+		metrics:                    p.Metrics,
+		workqueueMetricsProvider:   p.WorkqueueMetricsProvider,
+		syncDelay:                  DefaultCESSyncTime,
+		priorityNamespaces:         make(map[string]struct{}),
+		Job:                        p.Job,
 	}
 
 	if p.Cfg.CESControllerMode == defaultMode {

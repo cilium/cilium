@@ -21,25 +21,32 @@ package networkdriver
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/blang/semver/v4"
 	"github.com/cilium/hive/hivetest"
 	"github.com/cilium/statedb"
 	"github.com/containerd/nri/pkg/api"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubetypes "k8s.io/apimachinery/pkg/types"
+	"k8s.io/dynamic-resource-allocation/resourceslice"
 	"k8s.io/utils/ptr"
 
+	"github.com/cilium/cilium/pkg/datapath/connector"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	nodetypes "github.com/cilium/cilium/pkg/node/types"
 )
 
 // ---------------------------------------------------------------------------
@@ -61,7 +68,7 @@ func (m *mockDeviceManager) Run(ctx context.Context, publish func([]types.Device
 func (m *mockDeviceManager) Type() types.DeviceManagerType { return types.DeviceManagerTypeMock }
 
 func (m *mockDeviceManager) RestoreDevice(data []byte) (types.Device, error) {
-	d := &trackedDevice{}
+	d := &ifNameMatchingDevice{}
 	if err := d.UnmarshalBinary(data); err != nil {
 		return nil, err
 	}
@@ -79,17 +86,66 @@ func buildDriverForPool(t *testing.T, pools []v2alpha1.CiliumNetworkDriverDevice
 	allocationTable, err := newAllocationTable(db)
 	require.NoError(t, err)
 	d := &Driver{
-		logger: hivetest.Logger(t),
-		config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
-			DriverName: prepTestDriverName,
-			Pools:      pools,
-		},
+		logger:          hivetest.Logger(t),
 		db:              db,
 		deviceTable:     deviceTable,
 		allocationTable: allocationTable,
 		podNetns:        make(map[kubetypes.UID]string),
 	}
+	d.setConfig(&v2alpha1.CiliumNetworkDriverNodeConfigSpec{
+		DriverName: prepTestDriverName,
+		Pools:      pools,
+	})
 	return d
+}
+
+// nodePoolDevices returns all devices published under this node's single
+// ResourceSlice pool, flattened across every slice (a pool may be split into
+// more than one ResourceSlice once device count exceeds
+// maxDevicesPerResourceSlice — see deviceSlices).
+func nodePoolDevices(pools map[string]resourceslice.Pool) []resourceapi.Device {
+	var devices []resourceapi.Device
+	for _, s := range pools[nodetypes.GetName()].Slices {
+		devices = append(devices, s.Devices...)
+	}
+	return devices
+}
+
+// deviceLogicalPoolAttr returns the "pool" device attribute value (the
+// user-configured logical pool, as opposed to the ResourceSlice pool name)
+// for the device with the given name amongst the given devices.
+func deviceLogicalPoolAttr(t *testing.T, devices []resourceapi.Device, name string) string {
+	t.Helper()
+	for _, d := range devices {
+		if d.Name != name {
+			continue
+		}
+		attr, ok := d.Attributes[resourceapi.QualifiedName(types.PoolNameLabel)]
+		require.True(t, ok, "device %s missing pool attribute", name)
+		require.NotNil(t, attr.StringValue)
+		return *attr.StringValue
+	}
+	t.Fatalf("device %s not found", name)
+	return ""
+}
+
+func TestValidateRXQueueDatapath(t *testing.T) {
+	disabled := &v2alpha1.CiliumNetworkDriverDeviceManagerConfig{
+		RXQueue: &v2alpha1.RXQueueDeviceManagerConfig{},
+	}
+	enabled := &v2alpha1.CiliumNetworkDriverDeviceManagerConfig{
+		RXQueue: &v2alpha1.RXQueueDeviceManagerConfig{Enabled: true},
+	}
+
+	require.NoError(t, validateRXQueueDatapath(nil, connector.ModeVeth, xdp.AccelerationModeNative))
+	require.NoError(t, validateRXQueueDatapath(disabled, connector.ModeVeth, xdp.AccelerationModeNative))
+	for _, mode := range []connector.Mode{connector.ModeNetkit, connector.ModeNetkitL2} {
+		require.NoError(t, validateRXQueueDatapath(enabled, mode, xdp.AccelerationModeDisabled))
+	}
+	require.ErrorContains(t, validateRXQueueDatapath(enabled, connector.ModeVeth, xdp.AccelerationModeDisabled),
+		"requires the netkit or netkit-l2 datapath")
+	require.ErrorContains(t, validateRXQueueDatapath(enabled, connector.ModeNetkit, xdp.AccelerationModeBestEffort),
+		"incompatible with XDP acceleration")
 }
 
 // matchingDevice is a trackedDevice whose Match() returns the supplied bool.
@@ -190,8 +246,8 @@ func TestPublishLoopRepublishesOnTableChanges(t *testing.T) {
 
 	wtxn = driver.db.WriteTxn(driver.allocationTable)
 	driver.allocationTable.Insert(wtxn, &DRAAllocation{
-		Pool:       "pool-a",
-		DeviceName: "eth0",
+		LogicalPool: "pool-a",
+		DeviceName:  "eth0",
 	})
 	wtxn.Commit()
 	waitForPublish()
@@ -233,7 +289,7 @@ func TestOnDevices(t *testing.T) {
 		require.True(t, found, "device must be discovered even though it matches no pool")
 
 		pools := driver.buildPoolsFromTable()
-		require.Empty(t, pools["pool-a"].Slices[0].Devices, "device must not be advertised in a pool it does not match")
+		require.Empty(t, nodePoolDevices(pools), "device must not be advertised when it matches no logical pool")
 	})
 
 	t.Run("device no longer reported is deleted from table", func(t *testing.T) {
@@ -269,7 +325,7 @@ func TestOnDevices(t *testing.T) {
 		txn := driver.db.ReadTxn()
 		_, _, found := driver.deviceTable.Get(txn, deviceByName.Query("eth0"))
 		require.True(t, found)
-		require.Empty(t, driver.buildPoolsFromTable()["pool-a"].Slices[0].Devices)
+		require.Empty(t, nodePoolDevices(driver.buildPoolsFromTable()))
 	})
 
 	t.Run("deletion is scoped to the calling manager", func(t *testing.T) {
@@ -308,8 +364,7 @@ func TestOnDevices(t *testing.T) {
 		require.Equal(t, 1, count, "device is still discovered and present in the table")
 
 		pools := driver.buildPoolsFromTable()
-		_, hasPool := pools["no-filter"]
-		require.False(t, hasPool, "a pool with a nil filter is never pre-populated or matched")
+		require.Empty(t, nodePoolDevices(pools), "a pool with a nil filter is never matched, so the device is not advertised")
 	})
 
 	t.Run("device matches multiple pools — assigned to first alphabetically", func(t *testing.T) {
@@ -321,8 +376,9 @@ func TestOnDevices(t *testing.T) {
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
 
 		pools := driver.buildPoolsFromTable()
-		require.Len(t, pools["alpha"].Slices[0].Devices, 1, "eth0 must be in alpha (first alphabetically)")
-		require.Empty(t, pools["beta"].Slices[0].Devices, "eth0 must not be in beta")
+		devices := nodePoolDevices(pools)
+		require.Len(t, devices, 1)
+		require.Equal(t, "alpha", deviceLogicalPoolAttr(t, devices, "eth0"), "eth0 must be tagged with alpha (first alphabetically)")
 	})
 
 	t.Run("Merge carries KernelIfName forward when a rescan cannot determine one", func(t *testing.T) {
@@ -398,7 +454,7 @@ func TestOnDevicesMerge(t *testing.T) {
 			"KernelIfName must be copied forward from the old device by Merge")
 	})
 
-	t.Run("Merge restores state from an allocation on first discovery", func(t *testing.T) {
+	t.Run("merges dedicated allocation into currently shareable device", func(t *testing.T) {
 		driver := buildDriverForPool(t, pools)
 		restored := &mergeTrackingDevice{
 			trackedDevice: trackedDevice{name: "eth0"},
@@ -406,16 +462,18 @@ func TestOnDevicesMerge(t *testing.T) {
 		}
 		driver.storeAllocations(
 			[]allocation{{
-				Device:     restored,
-				DeviceName: "eth0",
-				Pool:       "pool-a",
-				Manager:    types.DeviceManagerTypeMock,
+				Device:      restored,
+				DeviceName:  "eth0",
+				LogicalPool: "pool-a",
+				Manager:     types.DeviceManagerTypeMock,
 			}},
 			prepTestPodUID,
 			prepTestClaimUID,
 		)
 
-		fresh := &mergeTrackingDevice{trackedDevice: trackedDevice{name: "eth0"}}
+		fresh := &mergeTrackingDevice{
+			trackedDevice: trackedDevice{name: "eth0", allowMultiple: true},
+		}
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{fresh}, func(statedb.WriteTxn) {})
 
 		require.Equal(t, 1, fresh.mergeCalls)
@@ -427,6 +485,84 @@ func TestOnDevicesMerge(t *testing.T) {
 		require.Same(t, fresh, row.Dev)
 		require.Len(t, allocatedRowsForClaim(t, driver, prepTestClaimUID), 1)
 	})
+	t.Run("does not merge shared allocations into currently dedicated device", func(t *testing.T) {
+		driver := buildDriverForPool(t, pools)
+		parent := &mergeTrackingDevice{
+			trackedDevice: trackedDevice{name: "eth0"},
+		}
+		driver.storeAllocations(
+			[]allocation{
+				{
+					Device:      &mergeTrackingDevice{trackedDevice: trackedDevice{name: "prepared-0"}},
+					DeviceName:  "eth0",
+					LogicalPool: "pool-a",
+					Manager:     types.DeviceManagerTypeMock,
+					ShareID:     prepTestShareID0,
+				},
+				{
+					Device:      &mergeTrackingDevice{trackedDevice: trackedDevice{name: "prepared-1"}},
+					DeviceName:  "eth0",
+					LogicalPool: "pool-a",
+					Manager:     types.DeviceManagerTypeMock,
+					ShareID:     prepTestShareID1,
+				},
+			},
+			prepTestPodUID,
+			prepTestClaimUID,
+		)
+
+		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{parent}, func(statedb.WriteTxn) {})
+
+		require.Zero(t, parent.mergeCalls)
+		require.Len(t, allocatedRowsForClaim(t, driver, prepTestClaimUID), 2)
+	})
+}
+
+func TestValidateConsumableCapacityVersion(t *testing.T) {
+	tests := []struct {
+		name          string
+		k8sVersion    semver.Version
+		allowMultiple bool
+		wantErr       bool
+	}{
+		{
+			name:       "dedicated device on Kubernetes 1.33",
+			k8sVersion: semver.Version{Major: 1, Minor: 33},
+		},
+		{
+			name:          "consumable device on Kubernetes 1.33",
+			k8sVersion:    semver.Version{Major: 1, Minor: 33},
+			allowMultiple: true,
+			wantErr:       true,
+		},
+		{
+			name:          "consumable device on Kubernetes 1.34",
+			k8sVersion:    semver.Version{Major: 1, Minor: 34},
+			allowMultiple: true,
+		},
+		{
+			name:          "consumable device on Kubernetes 1.35",
+			k8sVersion:    semver.Version{Major: 1, Minor: 35},
+			allowMultiple: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			driver := buildDriverForPool(t, nil)
+			driver.onDevices(types.DeviceManagerTypeMock, []types.Device{&trackedDevice{
+				name:          "eth0",
+				allowMultiple: tt.allowMultiple,
+			}}, func(statedb.WriteTxn) {})
+
+			err := driver.validateConsumableCapacityVersion(tt.k8sVersion)
+			if tt.wantErr {
+				require.ErrorContains(t, err, "needs Kubernetes v1.34.0 or later")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 // TestOnDevicesAttrsNotPersisted verifies that device attributes are never
@@ -442,7 +578,7 @@ func TestOnDevicesAttrsNotPersisted(t *testing.T) {
 	dev := &attrDevice{trackedDevice: trackedDevice{name: "eth0"}, attrValue: "v1"}
 	driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
 
-	first := driver.buildPoolsFromTable()["pool-a"].Slices[0].Devices
+	first := nodePoolDevices(driver.buildPoolsFromTable())
 	require.Len(t, first, 1)
 	attr, ok := first[0].Attributes["custom"]
 	require.True(t, ok)
@@ -453,7 +589,7 @@ func TestOnDevicesAttrsNotPersisted(t *testing.T) {
 	// reads Dev.GetAttrs() live rather than a cached copy.
 	dev.attrValue = "v2"
 
-	second := driver.buildPoolsFromTable()["pool-a"].Slices[0].Devices
+	second := nodePoolDevices(driver.buildPoolsFromTable())
 	require.Len(t, second, 1)
 	attr, ok = second[0].Attributes["custom"]
 	require.True(t, ok)
@@ -520,17 +656,17 @@ func TestResolvePool(t *testing.T) {
 }
 
 func TestBuildPoolsFromTable(t *testing.T) {
-	t.Run("empty table pre-populates configured pools with empty slices", func(t *testing.T) {
+	t.Run("empty table still publishes the node's ResourceSlice pool, empty", func(t *testing.T) {
 		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 		})
 
 		pools := driver.buildPoolsFromTable()
-		require.Contains(t, pools, "pool-a")
-		require.Empty(t, pools["pool-a"].Slices[0].Devices)
+		require.Contains(t, pools, nodetypes.GetName())
+		require.Empty(t, nodePoolDevices(pools))
 	})
 
-	t.Run("devices in table appear in their pool", func(t *testing.T) {
+	t.Run("devices in table appear, tagged with their logical pool", func(t *testing.T) {
 		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 		})
@@ -538,17 +674,97 @@ func TestBuildPoolsFromTable(t *testing.T) {
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
 
 		pools := driver.buildPoolsFromTable()
-		require.Contains(t, pools, "pool-a")
-		require.Len(t, pools["pool-a"].Slices[0].Devices, 1)
-		require.Equal(t, "eth0", pools["pool-a"].Slices[0].Devices[0].Name)
+		devices := nodePoolDevices(pools)
+		require.Contains(t, pools, nodetypes.GetName())
+		require.Len(t, devices, 1)
+		published := devices[0]
+		require.Equal(t, "eth0", published.Name)
+		require.Equal(t, "pool-a", deviceLogicalPoolAttr(t, devices, "eth0"))
+		require.Nil(t, published.Capacity)
+		require.Nil(t, published.AllowMultipleAllocations)
 	})
 
-	t.Run("nil-filter pool is excluded", func(t *testing.T) {
+	t.Run("consumable capacity is published", func(t *testing.T) {
+		one := apiresource.MustParse("1")
+		capacity := map[resourceapi.QualifiedName]resourceapi.DeviceCapacity{
+			"rxQueues": {
+				Value: apiresource.MustParse("4"),
+				RequestPolicy: &resourceapi.CapacityRequestPolicy{
+					Default:     ptr.To(one),
+					ValidValues: []apiresource.Quantity{one},
+				},
+			},
+		}
+		dev := &matchingDevice{
+			trackedDevice: trackedDevice{
+				name:          "eth0",
+				capacity:      capacity,
+				allowMultiple: true,
+			},
+			matches: true,
+		}
+		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+		})
+		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
+
+		pools := driver.buildPoolsFromTable()
+		devices := nodePoolDevices(pools)
+		require.Len(t, devices, 1)
+		published := devices[0]
+
+		require.Equal(t, capacity, published.Capacity)
+		require.Equal(t, ptr.To(true), published.AllowMultipleAllocations)
+	})
+
+	t.Run("allocations do not appear as additional published devices", func(t *testing.T) {
+		const logicalPool = "pool-a"
+		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
+			{PoolName: logicalPool, Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
+		})
+		dev := &matchingDevice{
+			trackedDevice: trackedDevice{name: "eth0", allowMultiple: true},
+			matches:       true,
+		}
+		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
+
+		prepared := &trackedDevice{name: "prepared-0"}
+		driver.storeAllocations([]allocation{{
+			Device:      prepared,
+			DeviceName:  "eth0",
+			LogicalPool: logicalPool,
+			Manager:     types.DeviceManagerTypeMock,
+			ShareID:     prepTestShareID0,
+			ConsumedCapacity: map[resourceapi.QualifiedName]apiresource.Quantity{
+				prepTestCapacity: apiresource.MustParse("1"),
+			},
+		}}, prepTestPodUID, prepTestClaimUID)
+
+		txn := driver.db.ReadTxn()
+		_, _, found := driver.deviceTable.Get(txn, deviceByName.Query("eth0"))
+		require.True(t, found)
+		stored, _, found := driver.allocationTable.Get(txn, allocationByKey.Query(
+			AllocationKey(logicalPool, "eth0", prepTestShareID0),
+		))
+		require.True(t, found)
+		require.Same(t, prepared, stored.PreparedDevice)
+
+		published := nodePoolDevices(driver.buildPoolsFromTable())
+		require.Len(t, published, 1)
+		require.Equal(t, "eth0", published[0].Name)
+		require.Equal(t, logicalPool, deviceLogicalPoolAttr(t, published, "eth0"))
+	})
+
+	t.Run("nil-filter pool never matches, device is not advertised", func(t *testing.T) {
 		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 			{PoolName: "no-filter", Filter: nil},
 		})
+		dev := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
+		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
+
 		pools := driver.buildPoolsFromTable()
-		require.NotContains(t, pools, "no-filter")
+		require.Contains(t, pools, nodetypes.GetName(), "the node's ResourceSlice pool is always published")
+		require.Empty(t, nodePoolDevices(pools))
 	})
 
 	t.Run("dummy devices assigned to pool via onDevices", func(t *testing.T) {
@@ -568,12 +784,12 @@ func TestBuildPoolsFromTable(t *testing.T) {
 		cancel()
 
 		pools := driver.buildPoolsFromTable()
-		require.Contains(t, pools, "dummy-pool")
-		require.Len(t, pools["dummy-pool"].Slices[0].Devices, 2,
-			"both dummy devices must appear in the pool")
+		require.Contains(t, pools, nodetypes.GetName())
+		require.Len(t, nodePoolDevices(pools), 2,
+			"both dummy devices must appear in the node's ResourceSlice pool")
 	})
 
-	t.Run("allocated device keeps its original pool when live matching changes", func(t *testing.T) {
+	t.Run("allocated device keeps its original logical pool when live matching changes", func(t *testing.T) {
 		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
@@ -581,23 +797,26 @@ func TestBuildPoolsFromTable(t *testing.T) {
 		dev := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
 		allocs := []allocation{{
-			Device:     dev,
-			DeviceName: "eth0",
-			Manager:    types.DeviceManagerTypeMock,
-			Pool:       "pool-b",
+			Device:      dev,
+			DeviceName:  "eth0",
+			Manager:     types.DeviceManagerTypeMock,
+			LogicalPool: "pool-b",
 		}}
 		driver.storeAllocations(allocs, prepTestPodUID, prepTestClaimUID)
 
 		pools := driver.buildPoolsFromTable()
-		require.Empty(t, pools["pool-a"].Slices[0].Devices)
-		require.Len(t, pools["pool-b"].Slices[0].Devices, 1)
-		require.Equal(t, "eth0", pools["pool-b"].Slices[0].Devices[0].Name)
+		devices := nodePoolDevices(pools)
+		require.Len(t, devices, 1)
+		require.Equal(t, "eth0", devices[0].Name)
+		require.Equal(t, "pool-b", deviceLogicalPoolAttr(t, devices, "eth0"))
 
 		driver.deleteAllocations(allocs)
 		pools = driver.buildPoolsFromTable()
-		require.Len(t, pools["pool-a"].Slices[0].Devices, 1,
+		devices = nodePoolDevices(pools)
+		require.Len(t, devices, 1,
 			"after the final allocation is released the device must follow live pool matching")
-		require.Empty(t, pools["pool-b"].Slices[0].Devices)
+		require.Equal(t, "pool-a", deviceLogicalPoolAttr(t, devices, "eth0"),
+			"falls back to the alphabetically-first matching pool once unallocated")
 	})
 
 	t.Run("allocation with an empty pool is not advertised", func(t *testing.T) {
@@ -618,52 +837,7 @@ func TestBuildPoolsFromTable(t *testing.T) {
 		wtxn.Commit()
 
 		pools := driver.buildPoolsFromTable()
-		require.Empty(t, pools["pool-a"].Slices[0].Devices)
-	})
-
-	t.Run("unallocated device can change pools between publications", func(t *testing.T) {
-		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-		})
-		dev := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
-		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
-
-		first := driver.buildPoolsFromTable()
-		require.Len(t, first["pool-a"].Slices[0].Devices, 1)
-		require.Empty(t, first["pool-b"].Slices[0].Devices)
-
-		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-		}
-		second := driver.buildPoolsFromTable()
-		require.NotContains(t, second, "pool-a")
-		require.Len(t, second["pool-b"].Slices[0].Devices, 1)
-	})
-
-	t.Run("allocated pool removed from config does not fall back to another pool", func(t *testing.T) {
-		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-		})
-		dev := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
-		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
-		driver.storeAllocations(
-			[]allocation{{
-				Device:     dev,
-				DeviceName: "eth0",
-				Manager:    types.DeviceManagerTypeMock,
-				Pool:       "pool-a",
-			}},
-			prepTestPodUID,
-			prepTestClaimUID,
-		)
-
-		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-c", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
-		}
-		pools := driver.buildPoolsFromTable()
-		require.NotContains(t, pools, "pool-a")
-		require.Empty(t, pools["pool-c"].Slices[0].Devices)
+		require.Empty(t, nodePoolDevices(pools))
 	})
 
 	t.Run("allocations from different pools make device unavailable", func(t *testing.T) {
@@ -672,25 +846,24 @@ func TestBuildPoolsFromTable(t *testing.T) {
 			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 		})
 		dev := &matchingDevice{
-			trackedDevice: trackedDevice{name: "eth0"},
+			trackedDevice: trackedDevice{name: "eth0", allowMultiple: true},
 			matches:       true,
 		}
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
 		driver.storeAllocations(
 			[]allocation{
-				{Device: dev, DeviceName: "eth0", Manager: types.DeviceManagerTypeMock, Pool: "pool-a"},
-				{Device: dev, DeviceName: "eth0", Manager: types.DeviceManagerTypeMock, Pool: "pool-b"},
+				{Device: dev, DeviceName: "eth0", Manager: types.DeviceManagerTypeMock, LogicalPool: "pool-a", ShareID: prepTestShareID0},
+				{Device: dev, DeviceName: "eth0", Manager: types.DeviceManagerTypeMock, LogicalPool: "pool-b", ShareID: prepTestShareID1},
 			},
 			prepTestPodUID,
 			prepTestClaimUID,
 		)
 
 		pools := driver.buildPoolsFromTable()
-		require.Empty(t, pools["pool-a"].Slices[0].Devices)
-		require.Empty(t, pools["pool-b"].Slices[0].Devices)
+		require.Empty(t, nodePoolDevices(pools))
 	})
 
-	t.Run("allocated and free devices are published in their respective pools", func(t *testing.T) {
+	t.Run("allocated and free devices are all published under the node's pool", func(t *testing.T) {
 		driver := buildDriverForPool(t, []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
 			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
 			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{}},
@@ -700,24 +873,29 @@ func TestBuildPoolsFromTable(t *testing.T) {
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{devAllocated, devFree}, func(statedb.WriteTxn) {})
 		driver.storeAllocations(
 			[]allocation{{
-				Device:     devAllocated,
-				DeviceName: "eth0",
-				Manager:    types.DeviceManagerTypeMock,
-				Pool:       "pool-b",
+				Device:      devAllocated,
+				DeviceName:  "eth0",
+				Manager:     types.DeviceManagerTypeMock,
+				LogicalPool: "pool-b",
 			}},
 			prepTestPodUID,
 			prepTestClaimUID,
 		)
 
 		pools := driver.buildPoolsFromTable()
-		require.Len(t, pools["pool-a"].Slices[0].Devices, 1)
-		require.Equal(t, "eth1", pools["pool-a"].Slices[0].Devices[0].Name)
-		require.Len(t, pools["pool-b"].Slices[0].Devices, 1)
-		require.Equal(t, "eth0", pools["pool-b"].Slices[0].Devices[0].Name)
+		devices := nodePoolDevices(pools)
+		require.Len(t, devices, 2)
+		require.Equal(t, "pool-b", deviceLogicalPoolAttr(t, devices, "eth0"))
+		require.Equal(t, "pool-a", deviceLogicalPoolAttr(t, devices, "eth1"))
 	})
 }
 
 func buildClaimWithDeviceStatus(t *testing.T, driverName string, podUID, claimUID kubetypes.UID, devName string) *resourceapi.ResourceClaim {
+	t.Helper()
+	return buildClaimWithDeviceStatusAndPool(t, driverName, podUID, claimUID, devName, "")
+}
+
+func buildClaimWithDeviceStatusAndPool(t *testing.T, driverName string, podUID, claimUID kubetypes.UID, devName, logicalPool string) *resourceapi.ResourceClaim {
 	t.Helper()
 
 	dev := &trackedDevice{name: devName}
@@ -725,9 +903,10 @@ func buildClaimWithDeviceStatus(t *testing.T, driverName string, podUID, claimUI
 	require.NoError(t, err)
 
 	serialized, err := json.Marshal(types.SerializedDevice{
-		Manager: types.DeviceManagerTypeMock,
-		Dev:     devData,
-		Config:  types.DeviceConfig{PodIfName: "eth-pod"},
+		Manager:     types.DeviceManagerTypeMock,
+		Dev:         devData,
+		Config:      types.DeviceConfig{PodIfName: "eth-pod"},
+		LogicalPool: logicalPool,
 	})
 	require.NoError(t, err)
 
@@ -852,28 +1031,79 @@ func TestRestoreDevicesFromClaim(t *testing.T) {
 		require.Equal(t, prepTestDev0, rows[0].DeviceName)
 		require.Equal(t, "eth-pod", rows[0].Config.PodIfName)
 		require.Equal(t, prepTestPodUID, rows[0].PodUID)
-		require.Equal(t, "test-pool", rows[0].Pool, "Pool from AllocatedDeviceStatus.Pool must be restored into the row")
+		require.Empty(t, rows[0].LogicalPool,
+			"no pools are configured in this test, so the logical pool must not be devStatus.Pool (a DRA pool name, unrelated to the logical pool)")
 	})
 
-	t.Run("restored allocation keeps its pool when published", func(t *testing.T) {
+	t.Run("restored allocation resolves its logical pool from the device, not devStatus.Pool", func(t *testing.T) {
 		driver := buildDriver(t)
-		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{
-			{PoolName: "pool-a", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{IfNames: []string{"other"}}},
-			{PoolName: "pool-b", Filter: &v2alpha1.CiliumNetworkDriverDeviceFilter{IfNames: []string{prepTestDev0}}},
-		}
 		claim := buildClaimWithDeviceStatus(t, prepTestDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0)
-		claim.Status.Devices[0].Pool = "pool-a"
+		// devStatus.Pool is a DRA ResourceSlice pool name (unrelated to the
+		// logical pool); it deliberately does not name either configured
+		// logical pool, to prove restore never copies it in as LogicalPool.
+		// the logical pool for this claim is empty so the restore should
+		// return an empty logical pool.
+		claim.Status.Devices[0].Pool = "kind-worker"
+
+		wtxn := driver.db.WriteTxn(driver.allocationTable)
+		err := driver.restoreDevicesFromClaim(claim, wtxn)
+		wtxn.Commit()
+		require.NoError(t, err)
+
+		txn := driver.db.ReadTxn()
+		var rows []*DRAAllocation
+		for row := range AllocationsByClaimUID(driver.allocationTable, txn, prepTestClaimUID) {
+			rows = append(rows, row)
+		}
+		require.Len(t, rows, 1)
+		require.Empty(t, rows[0].LogicalPool)
+	})
+
+	t.Run("restore logical pool in the claim", func(t *testing.T) {
+		driver := buildDriver(t)
+		const logicalPoolName = "pool-example"
+		claim := buildClaimWithDeviceStatusAndPool(t, prepTestDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0, logicalPoolName)
 
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		require.NoError(t, driver.restoreDevicesFromClaim(claim, wtxn))
 		wtxn.Commit()
-		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{
-			&ifNameMatchingDevice{trackedDevice: trackedDevice{name: prepTestDev0}},
-		}, func(statedb.WriteTxn) {})
 
-		pools := driver.buildPoolsFromTable()
-		require.Len(t, pools["pool-a"].Slices[0].Devices, 1)
-		require.Empty(t, pools["pool-b"].Slices[0].Devices)
+		txn := driver.db.ReadTxn()
+		var rows []*DRAAllocation
+		for row := range AllocationsByClaimUID(driver.allocationTable, txn, prepTestClaimUID) {
+			rows = append(rows, row)
+		}
+		require.Len(t, rows, 1)
+		require.Equal(t, logicalPoolName, rows[0].LogicalPool)
+	})
+
+	t.Run("shared allocation restores its identity and capacity", func(t *testing.T) {
+		driver := buildDriver(t)
+		claim := buildClaimWithDeviceStatus(t, prepTestDriverName, prepTestPodUID, prepTestClaimUID, prepTestDev0)
+		claim.Status.Devices[0].ShareID = ptr.To(string(prepTestShareID0))
+
+		var serialized types.SerializedDevice
+		require.NoError(t, json.Unmarshal(claim.Status.Devices[0].Data.Raw, &serialized))
+		serialized.ConsumedCapacity = map[resourceapi.QualifiedName]apiresource.Quantity{
+			prepTestCapacity: apiresource.MustParse("1"),
+		}
+		raw, err := json.Marshal(serialized)
+		require.NoError(t, err)
+		claim.Status.Devices[0].Data.Raw = raw
+
+		wtxn := driver.db.WriteTxn(driver.allocationTable)
+		err = driver.restoreDevicesFromClaim(claim, wtxn)
+		wtxn.Commit()
+		require.NoError(t, err)
+
+		rows := allocatedRowsForClaim(t, driver, prepTestClaimUID)
+		require.Len(t, rows, 1)
+		require.Equal(t, prepTestDev0, rows[0].DeviceName)
+		require.Empty(t, rows[0].LogicalPool,
+			"the DRA ResourceSlice pool in status must not be restored as the Cilium logical pool")
+		require.Equal(t, prepTestShareID0, rows[0].ShareID)
+		require.Equal(t, apiresource.MustParse("1"), rows[0].ConsumedCapacity[prepTestCapacity])
+		require.NotNil(t, rows[0].PreparedDevice)
 	})
 
 	t.Run("wrong driver is skipped without error", func(t *testing.T) {
@@ -1079,10 +1309,10 @@ func buildDriverWithDummyManager(t *testing.T, pools []v2alpha1.CiliumNetworkDri
 	require.NoError(t, err)
 
 	d := buildPrepDriver(t, cs)
-	d.config = &v2alpha1.CiliumNetworkDriverNodeConfigSpec{
+	d.setConfig(&v2alpha1.CiliumNetworkDriverNodeConfigSpec{
 		DriverName: prepTestDriverName,
 		Pools:      pools,
-	}
+	})
 	d.deviceManagers = map[types.DeviceManagerType]types.DeviceManager{
 		types.DeviceManagerTypeDummy: mgr,
 	}
@@ -1118,7 +1348,7 @@ func TestAllocationTable(t *testing.T) {
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{advertised}, func(statedb.WriteTxn) {})
 
 		allocs := []allocation{{
-			Device: prepared, DeviceName: "eth0", Pool: pool,
+			Device: prepared, DeviceName: "eth0", LogicalPool: pool,
 			Config:  types.DeviceConfig{PodIfName: "dmy0"},
 			Manager: types.DeviceManagerTypeMock,
 		}}
@@ -1137,7 +1367,7 @@ func TestAllocationTable(t *testing.T) {
 		dev := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
 
-		allocs := []allocation{{Device: dev, DeviceName: "eth0", Pool: pool}}
+		allocs := []allocation{{Device: dev, DeviceName: "eth0", LogicalPool: pool}}
 		driver.storeAllocations(allocs, prepTestPodUID, prepTestClaimUID)
 		driver.deleteAllocations(allocs)
 
@@ -1151,10 +1381,10 @@ func TestAllocationTable(t *testing.T) {
 		driver := buildDriverForPool(t, pools)
 		prepared := &matchingDevice{trackedDevice: trackedDevice{name: "prepared0"}}
 		driver.storeAllocations([]allocation{{
-			Device:     prepared,
-			DeviceName: "eth0",
-			Pool:       pool,
-			Manager:    types.DeviceManagerTypeMock,
+			Device:      prepared,
+			DeviceName:  "eth0",
+			LogicalPool: pool,
+			Manager:     types.DeviceManagerTypeMock,
 		}}, prepTestPodUID, prepTestClaimUID)
 
 		rows := allocatedRowsForClaim(t, driver, prepTestClaimUID)
@@ -1177,7 +1407,7 @@ func TestAllocationTable(t *testing.T) {
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev0, dev1}, func(statedb.WriteTxn) {})
 
 		driver.storeAllocations(
-			[]allocation{{Device: dev0, DeviceName: "eth0", Pool: pool}},
+			[]allocation{{Device: dev0, DeviceName: "eth0", LogicalPool: pool}},
 			prepTestPodUID,
 			prepTestClaimUID,
 		)
@@ -1203,7 +1433,7 @@ func TestOnDevicesDoesNotModifyAllocations(t *testing.T) {
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		driver.allocationTable.Insert(wtxn, &DRAAllocation{
 			DeviceName:     "eth0",
-			Pool:           pool,
+			LogicalPool:    pool,
 			Manager:        types.DeviceManagerTypeMock,
 			PreparedDevice: prepared,
 			PodUID:         prepTestPodUID,
@@ -1232,7 +1462,7 @@ func TestOnDevicesDoesNotModifyAllocations(t *testing.T) {
 		prepared := &trackedDevice{name: "prepared0"}
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{advertised}, func(statedb.WriteTxn) {})
 		driver.storeAllocations(
-			[]allocation{{Device: prepared, DeviceName: "eth0", Pool: pool}},
+			[]allocation{{Device: prepared, DeviceName: "eth0", LogicalPool: pool}},
 			prepTestPodUID,
 			prepTestClaimUID,
 		)
@@ -1249,7 +1479,7 @@ func TestOnDevicesDoesNotModifyAllocations(t *testing.T) {
 		advertised := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{advertised}, func(statedb.WriteTxn) {})
 		driver.storeAllocations(
-			[]allocation{{Device: advertised, DeviceName: "eth0", Pool: pool}},
+			[]allocation{{Device: advertised, DeviceName: "eth0", LogicalPool: pool}},
 			prepTestPodUID,
 			prepTestClaimUID,
 		)
@@ -1276,7 +1506,7 @@ func TestBuildPoolsFromTablePoolAttr(t *testing.T) {
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
 
 		pools := driver.buildPoolsFromTable()
-		devices := pools["pool-a"].Slices[0].Devices
+		devices := pools[nodetypes.GetName()].Slices[0].Devices
 		require.Len(t, devices, 1)
 
 		attr, ok := devices[0].Attributes[types.PoolNameLabel]
@@ -1302,12 +1532,59 @@ func TestBuildPoolsFromTablePoolAttr(t *testing.T) {
 		dev := &matchingDevice{trackedDevice: trackedDevice{name: "eth0"}, matches: true}
 		driver.onDevices(types.DeviceManagerTypeMock, []types.Device{dev}, func(statedb.WriteTxn) {})
 
-		first := driver.buildPoolsFromTable()
-		second := driver.buildPoolsFromTable()
+		first := nodePoolDevices(driver.buildPoolsFromTable())
+		second := nodePoolDevices(driver.buildPoolsFromTable())
 
-		require.Len(t, first["pool-a"].Slices[0].Devices, 1)
-		require.Len(t, second["pool-a"].Slices[0].Devices, 1)
-		require.Equal(t, first["pool-a"].Slices[0].Devices, second["pool-a"].Slices[0].Devices,
+		require.Len(t, first, 1)
+		require.Len(t, second, 1)
+		require.Equal(t, first, second,
 			"published attributes must be identical across independent publishes")
 	})
+}
+
+// TestDeviceSlices verifies that a node's devices are published as a single
+// slice while under the per-slice device cap, and get split into multiple
+// slices (all still under the one node-named pool) once the cap is exceeded.
+func TestDeviceSlices(t *testing.T) {
+	makeDevices := func(n int) []resourceapi.Device {
+		devices := make([]resourceapi.Device, n)
+		for i := range devices {
+			devices[i] = resourceapi.Device{Name: fmt.Sprintf("dummy%03d", i)}
+		}
+		return devices
+	}
+
+	testCases := []struct {
+		name       string
+		numDevices int
+		numSlices  int
+	}{
+		{
+			name:       "under the cap",
+			numDevices: maxDevicesPerResourceSlice,
+			numSlices:  1,
+		},
+		{
+			name:       "one over the cap",
+			numDevices: maxDevicesPerResourceSlice + 1,
+			numSlices:  2,
+		},
+		{
+			name:       "exactly N caps' worth",
+			numDevices: maxDevicesPerResourceSlice * 3,
+			numSlices:  3,
+		},
+		{
+			name:       "zero devices",
+			numDevices: 0,
+			numSlices:  1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			slices := deviceSlices(makeDevices(tc.numDevices))
+			require.Len(t, slices, tc.numSlices)
+		})
+	}
 }

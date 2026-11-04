@@ -589,13 +589,16 @@ func (e *Endpoint) closeBPFProgramChannel() {
 }
 
 // waitForProxyCompletions blocks until all proxy changes have been completed.
-// Called with buildMutex held.
-func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
+// Called with buildMutex held. The caller must Cancel the group on error.
+func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitGroup *completion.WaitGroup) error {
 	if proxyWaitGroup == nil {
 		return nil
 	}
 
-	err := proxyWaitGroup.Context().Err()
+	// Propagate an already-canceled parent context so regeneration suppresses
+	// spurious error logs when the endpoint is being removed. A NACK cancels only
+	// the group's internal context and must still be reported.
+	err := parentCtx.Err()
 	if err != nil {
 		return fmt.Errorf("context cancelled before waiting for proxy updates: %w", err)
 	}
@@ -1020,7 +1023,6 @@ func ParseEndpoint(p EndpointParams,
 	if ep.SecurityIdentity == nil {
 		ep.SecurityIdentity = identity.LookupReservedIdentity(identity.ReservedIdentityInit)
 	}
-	ep.SecurityIdentity.Sanitize()
 
 	ep.UpdateLogger(nil)
 
@@ -1046,7 +1048,7 @@ func NewDatapathConfiguration() models.EndpointDatapathConfiguration {
 		// Delegate routing to the Linux stack rather than tail-calling
 		// between BPF programs.
 		disabled := false
-		config.RequireRouting = &disabled
+		config.RequireBPFRouting = &disabled
 	}
 	return config
 }
@@ -1287,12 +1289,10 @@ type DeleteConfig struct {
 	NoIdentityRelease bool
 
 	// EndpointOwnsIP reports whether the given IP is still owned by the
-	// endpoint being deleted. It guards the per-endpoint routing rule
-	// teardown against a stale delete: in ENI/Azure IPAM mode the rules are
-	// keyed solely by IP address, so a late teardown for an IP that has since
-	// been reused by another endpoint would otherwise strip the live owner's
-	// rules, silently breaking its egress. When nil, the check is skipped and
-	// rules are always deleted.
+	// endpoint being deleted. It guards synchronous endpoint routing cleanup
+	// against a stale delete after IP reuse. Cloud IPAM uses it before replacing
+	// the endpoint route with an unreachable route, while delegated IPAM also
+	// uses it before deleting endpoint rules. When nil, the check is skipped.
 	EndpointOwnsIP func(ip netip.Addr) bool
 }
 
@@ -2773,39 +2773,46 @@ func (e *Endpoint) Delete(conf DeleteConfig) []error {
 	}
 	e.setState(StateDisconnecting, "Deleting endpoint")
 
-	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure || option.Config.IPAM == ipamOption.IPAMAlibabaCloud ||
-		(option.Config.IPAM == ipamOption.IPAMDelegatedPlugin && option.Config.InstallUplinkRoutesForDelegatedIPAM) {
+	cloudIPAM := option.Config.IPAM == ipamOption.IPAMENI || option.Config.IPAM == ipamOption.IPAMAzure || option.Config.IPAM == ipamOption.IPAMAlibabaCloud
+	delegatedRouting := option.Config.IPAM == ipamOption.IPAMDelegatedPlugin && option.Config.InstallUplinkRoutesForDelegatedIPAM
+	if (cloudIPAM && option.Config.EnableUnreachableRoutes) || delegatedRouting {
 		e.getLogger().Debug(
-			"Deleting endpoint routing rules",
+			"Cleaning up endpoint routing",
 		)
 
-		// This is a best-effort attempt to cleanup. We expect there to be one
-		// ingress rule and multiple egress rules. If we find more rules than
-		// expected, we delete all rules referring to a per-ENI routing table ID.
-		//
-		// The routing rules are keyed solely by IP address, so a stale teardown
-		// for an IP that has since been reused by another endpoint would strip
-		// the live owner's rules. Guard against that by only deleting the rules
-		// if this endpoint still owns the IP.
-		deleteRoutingRules := func(ip netip.Addr) {
+		// Endpoint routing is keyed solely by IP address. Guard synchronous
+		// cleanup so that a stale teardown cannot alter routing for a new endpoint
+		// which has reused the address.
+		cleanupEndpointRouting := func(ip netip.Addr) {
 			if conf.EndpointOwnsIP != nil && !conf.EndpointOwnsIP(ip) {
 				e.getLogger().Info(
-					"Skipping deletion of endpoint routing rules: IP is no longer owned by this endpoint",
+					"Skipping endpoint routing cleanup: IP is no longer owned by this endpoint",
 					logfields.IPAddr, ip,
 				)
 				return
 			}
-			if err := linuxrouting.Delete(e.getLogger(), ip); err != nil {
-				errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %w", err))
+
+			var err error
+			if cloudIPAM {
+				// The reconciler owns cloud routing rules. Keep the unreachable
+				// route synchronous so the endpoint IP is blocked before release.
+				err = linuxrouting.InstallUnreachableRoute(ip)
+			} else {
+				// Delegated routing metadata is unavailable to the reconciler, so
+				// its rules and unreachable route remain synchronously managed.
+				err = linuxrouting.Delete(e.getLogger(), ip)
+			}
+			if err != nil {
+				errs = append(errs, fmt.Errorf("unable to clean up endpoint routing: %w", err))
 			}
 		}
 
 		if e.IPv4.IsValid() {
-			deleteRoutingRules(e.IPv4)
+			cleanupEndpointRouting(e.IPv4)
 		}
 
 		if e.IPv6.IsValid() {
-			deleteRoutingRules(e.IPv6)
+			cleanupEndpointRouting(e.IPv6)
 		}
 	}
 
@@ -3031,17 +3038,13 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 		K8sNamespace: e.K8sNamespace,
 		K8sPodName:   e.K8sPodName,
 
-		aliveCancel:        e.aliveCancel,
-		aliveCtx:           e.aliveCtx,
 		allocator:          e.allocator,
 		compilationLock:    e.compilationLock,
-		controllers:        e.controllers,
 		createdAt:          e.createdAt,
 		ctMapGC:            e.ctMapGC,
 		dnsRulesAPI:        e.dnsRulesAPI,
 		epBuildQueue:       e.epBuildQueue,
 		forcePolicyCompute: e.forcePolicyCompute,
-		hasBPFProgram:      e.hasBPFProgram,
 		identityManager:    e.identityManager,
 		ifIndex:            e.ifIndex,
 		ifName:             e.ifName,
@@ -3064,9 +3067,12 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 	clone.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
 	clone.labels = labels.NewOpLabels()
 	clone.status = NewEndpointStatus()
-	if e.controllers == nil {
-		clone.controllers = controller.NewManager()
-	}
+	// Per-endpoint state, created as in createEndpoint rather than shared with
+	// the template.
+	clone.aliveCtx, clone.aliveCancel = context.WithCancel(context.Background())
+	clone.controllers = controller.NewManager()
+	clone.regenFailedChan = make(chan struct{}, 1)
+	clone.hasBPFProgram = make(chan struct{})
 	clone.desiredPolicy = policy.NewEndpointPolicy(e.logger.Load(), e.policyRepo)
 	clone.realizedPolicy = clone.desiredPolicy
 	clone.initialEnvoyPolicyComputed = make(chan struct{})

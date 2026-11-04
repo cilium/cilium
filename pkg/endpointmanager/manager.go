@@ -183,14 +183,9 @@ func (mgr *endpointManager) WithPeriodicEndpointRegeneration(ctx context.Context
 
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 func (mgr *endpointManager) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
-	err := proxyWaitGroup.Context().Err()
-	if err != nil {
-		return fmt.Errorf("context cancelled before waiting for proxy updates: %w", err)
-	}
-
 	start := time.Now()
 	mgr.logger.Debug("Waiting for proxy updates to complete...")
-	err = proxyWaitGroup.Wait()
+	err := proxyWaitGroup.Wait()
 	if err != nil {
 		return fmt.Errorf("proxy updates failed: %w", err)
 	}
@@ -241,13 +236,17 @@ func (mgr *endpointManager) UpdatePolicyMaps(ctx context.Context) error {
 
 	// no endpoint locks needed here, as ApplyPolicyMapChanges currently collects
 	// revertibles only from UpdateNetworkPolicy
-	if err != nil {
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
 		if revertErr := revertibles.Revert(); revertErr != nil {
 			mgr.logger.Warn("Failed to revert L7 proxy policy changes", logfields.Error, revertErr)
 		}
-		mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
 	} else {
+		// A timeout leaves Envoy acceptance unknown. Keep the proxy updates alongside
+		// the applied BPF changes, and release caller-owned rollback state.
 		revertibles.Finalize()
+	}
+	if err != nil {
+		mgr.logger.Warn("Failed to apply L7 proxy policy changes. These will be re-applied in future updates.", logfields.Error, err)
 	}
 
 	// Perform policy update call if required.
@@ -496,11 +495,11 @@ func (mgr *endpointManager) removeEndpoint(ep *endpoint.Endpoint, conf endpoint.
 
 	mgr.unexpose(ep)
 
-	// Guard the per-endpoint routing rule teardown against a stale delete. By
+	// Guard synchronous endpoint routing cleanup against a stale delete. By
 	// this point unexpose has removed ep from the IP index, so LookupIP returns
-	// nil when no one owns the IP (safe to delete our rules) and the new owner
-	// when the IP has already been reused (skip, deleting would strip its
-	// rules). It can never return ep itself.
+	// nil when no one owns the IP (safe to clean up) and the new owner when the
+	// IP has already been reused (skip, cleanup would disrupt its routing). It
+	// can never return ep itself.
 	conf.EndpointOwnsIP = func(ip netip.Addr) bool {
 		owner := mgr.LookupIP(ip)
 		return owner == nil || owner == ep

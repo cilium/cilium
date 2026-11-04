@@ -8,6 +8,8 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	daemonrestapi "github.com/cilium/cilium/api/v1/server/restapi/daemon"
+	iputil "github.com/cilium/cilium/pkg/ip"
+	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 type getCgroupDumpMetadataRestApiHandler struct {
@@ -37,7 +39,7 @@ func (h *getCgroupDumpMetadataRestApiHandler) Handle(params daemonrestapi.GetCgr
 			Name:       pm.Name,
 			Namespace:  pm.Namespace,
 			Containers: respCms,
-			Ips:        pm.IPs,
+			Ips:        cslices.Map(pm.IPs, iputil.AddrFrom),
 		}
 		resp.PodMetadatas = append(resp.PodMetadatas, respPm)
 	}

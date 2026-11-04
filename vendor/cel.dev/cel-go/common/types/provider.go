@@ -19,8 +19,10 @@ import (
 	"fmt"
 	"maps"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -243,6 +245,20 @@ func (p *Registry) ensureMutable() {
 		p.revTypeMap = maps.Clone(p.revTypeMap)
 		p.structTypes = maps.Clone(p.structTypes)
 		p.reflectTypes = maps.Clone(p.reflectTypes)
+		for k, st := range p.structTypes {
+			if nt, isNative := st.(*NativeType); isNative {
+				cloned, _ := nt.Clone(NativeTypeAdapter(p))
+				p.structTypes[k] = cloned
+				if rt := cloned.ReflectType(); rt != nil {
+					p.reflectTypes[rt] = cloned
+					if rt.Kind() == reflect.Ptr {
+						p.reflectTypes[rt.Elem()] = cloned
+					} else {
+						p.reflectTypes[reflect.PointerTo(rt)] = cloned
+					}
+				}
+			}
+		}
 		p.pbdb = p.pbdb.Copy()
 		p.shared.Store(false)
 	}
@@ -387,6 +403,9 @@ func (p *Registry) FindIdent(identName string) (ref.Val, bool) {
 	if t, found := p.revTypeMap[identName]; found {
 		return t, true
 	}
+	if t, found := p.revTypeMap[sanitizeStructTypeName(identName)]; found {
+		return t, true
+	}
 	if enumVal, found := p.pbdb.DescribeEnum(identName); found {
 		return Int(enumVal.Value()), true
 	}
@@ -496,7 +515,8 @@ func (p *Registry) RegisterMessage(message proto.Message) error {
 // to CEL, even when they're not based on protobuf types.
 func (p *Registry) RegisterType(types ...ref.Type) error {
 	for _, t := range types {
-		existing, found := p.revTypeMap[t.TypeName()]
+		typeName := sanitizeStructTypeName(t.TypeName())
+		existing, found := p.revTypeMap[typeName]
 		celType := maybeForeignType(t)
 		if found {
 			if !existing.IsEquivalentType(celType) {
@@ -511,10 +531,17 @@ func (p *Registry) RegisterType(types ...ref.Type) error {
 		}
 
 		p.ensureMutable()
-		typeName := t.TypeName()
 		p.revTypeMap[typeName] = celType
 		if st, ok := t.(StructTypeDescriptor); ok {
 			// Conflicts are gated above so if we see a struct here, it's safe to register.
+			if nt, isNative := t.(*NativeType); isNative {
+				cloned, err := nt.Clone(NativeTypeAdapter(p))
+				if err != nil {
+					return err
+				}
+				t = cloned
+				st = cloned
+			}
 			p.structTypes[typeName] = st
 			if rt := st.ReflectType(); rt != nil {
 				p.reflectTypes[rt] = st
@@ -530,8 +557,16 @@ func (p *Registry) RegisterType(types ...ref.Type) error {
 }
 
 // RegisterNativeType creates nativeType instances for the given reflect.Type and registers them.
-func (p *Registry) RegisterNativeType(refType reflect.Type) error {
-	result, err := newNativeTypes(refType, p.nativeOptions.fieldNameHandler)
+func (p *Registry) RegisterNativeType(refType reflect.Type, opts ...NativeTypeOption) error {
+	nativeOpts := p.nativeOptions
+	// Note: consider cloning NativeType instances so that the registry may be reset if the type is copied to another registry.
+	nativeOpts.adapter = p
+	for _, opt := range opts {
+		if err := opt(&nativeOpts); err != nil {
+			return err
+		}
+	}
+	result, err := newNativeTypes(refType, nativeOpts)
 	if err != nil {
 		return err
 	}
@@ -541,6 +576,14 @@ func (p *Registry) RegisterNativeType(refType reflect.Type) error {
 		}
 	}
 	return nil
+}
+
+// RegisterNativeTypeDesc creates nativeType instances for a NativeTypeDesc and registers them.
+func (p *Registry) RegisterNativeTypeDesc(desc *NativeTypeDesc) error {
+	if desc == nil {
+		return nil
+	}
+	return p.RegisterNativeType(desc.ReflectType(), desc.Options()...)
 }
 
 func (p *Registry) findStructDescriptorByReflectType(rt reflect.Type) (StructTypeDescriptor, bool) {
@@ -680,16 +723,50 @@ func (p *Registry) NativeToValue(value any) ref.Val {
 		return Bytes(v)
 	// specializations for common lists types.
 	case []string:
-		return NewStringList(p, v)
+		return NewList(p, v)
 	case []ref.Val:
-		return NewRefValList(p, v)
+		return NewList(p, v)
+	case []int:
+		return NewList(p, v)
+	case []int64:
+		return NewList(p, v)
+	case []int32:
+		return NewList(p, v)
+	case []uint:
+		return NewList(p, v)
+	case []uint64:
+		return NewList(p, v)
+	case []uint32:
+		return NewList(p, v)
+	case []float64:
+		return NewList(p, v)
+	case []float32:
+		return NewList(p, v)
+	case []bool:
+		return NewList(p, v)
+	case []any:
+		return NewList(p, v)
 	// specializations for common map types.
 	case map[string]string:
-		return NewStringStringMap(p, v)
+		return NewMap(p, v)
 	case map[string]any:
-		return NewStringInterfaceMap(p, v)
+		return NewMap(p, v)
 	case map[ref.Val]ref.Val:
-		return NewRefValMap(p, v)
+		return NewMap(p, v)
+	case map[int64]bool:
+		return NewMap(p, v)
+	case map[string]int64:
+		return NewMap(p, v)
+	case map[string]int:
+		return NewMap(p, v)
+	case map[string]bool:
+		return NewMap(p, v)
+	case map[string]float64:
+		return NewMap(p, v)
+	case map[int64]string:
+		return NewMap(p, v)
+	case map[int]string:
+		return NewMap(p, v)
 	// additional specializations may be added upon request / need.
 	case *anypb.Any:
 		if v == nil {
@@ -741,6 +818,9 @@ func (p *Registry) NativeToValue(value any) ref.Val {
 	case protoreflect.List:
 		return NewProtoList(p, v)
 	case protoreflect.Message:
+		if v == nil {
+			return UnsupportedRefValConversionErr(v)
+		}
 		return p.NativeToValue(v.Interface())
 	case protoreflect.Value:
 		return p.NativeToValue(v.Interface())
@@ -855,13 +935,15 @@ func registerTypeItem(r *Registry, t any) error {
 		return r.RegisterNativeType(v)
 	case reflect.Value:
 		return r.RegisterNativeType(v.Type())
+	case *NativeTypeDesc:
+		return r.RegisterNativeTypeDesc(v)
 	case NativeTypeOption:
 		return v(&r.nativeOptions)
 	case RegistryOption:
 		_, err := v(r)
 		return err
 	default:
-		return fmt.Errorf("unsupported type: %v (%T) must be reflect.Type or reflect.Value", t, t)
+		return fmt.Errorf("unsupported type: %v (%T) must be reflect.Type, reflect.Value, or NativeTypeDesc", t, t)
 	}
 }
 
@@ -1019,6 +1101,164 @@ func unsupportedTypeConversionError(field *pb.FieldDescription, val ref.Val) err
 func fieldTypeConversionError(field *pb.FieldDescription, err error) error {
 	msgName := field.Descriptor().ContainingMessage().FullName()
 	return fmt.Errorf("field type conversion error for %v.%v value type: %v", msgName, field.Name(), err)
+}
+
+// emptyInterface mirrors Go runtime's internal eface representation:
+//
+//	type eface struct {
+//	    _type *_type
+//	    data  unsafe.Pointer
+//	}
+//
+// It is used exclusively for zero-copy qualification and direct type extraction.
+type emptyInterface struct {
+	typ unsafe.Pointer
+	ptr unsafe.Pointer
+}
+
+// packAny constructs an empty interface value from a raw runtime *_type pointer and data pointer.
+func packAny(typ, ptr unsafe.Pointer) any {
+	var a any
+	e := (*emptyInterface)(unsafe.Pointer(&a))
+	e.typ = typ
+	e.ptr = ptr
+	return a
+}
+
+// unpackAny extracts the raw runtime *_type and data pointers from an empty interface value.
+func unpackAny(v any) emptyInterface {
+	return *(*emptyInterface)(unsafe.Pointer(&v))
+}
+
+// anyDataPtr returns the data pointer word from an empty interface value.
+func anyDataPtr(v any) unsafe.Pointer {
+	return (*emptyInterface)(unsafe.Pointer(&v)).ptr
+}
+
+// runtimeTypePtr returns the Go runtime *_type pointer for the given reflect.Type.
+func runtimeTypePtr(rt reflect.Type) unsafe.Pointer {
+	return unpackAny(reflect.Zero(rt).Interface()).typ
+}
+
+// elemTypePtrFor returns the runtime *_type pointer for T if and only if T is a non-empty
+// raw struct type suitable for zero-copy boxing via packAny(typ, unsafe.Pointer(&elem)).
+//
+// For indirect-interface structs, data points to the struct value and typ is T's *_type.
+// For single-pointer direct-interface structs, data holds the pointer directly at offset 0,
+// so &elem has the exact representation of a *T in an emptyInterface and typ is *T's *_type.
+func elemTypePtrFor[T any]() unsafe.Pointer {
+	t := reflect.TypeFor[T]()
+	if t.Kind() != reflect.Struct || t.Size() == 0 || !isQualifyRawStructType(t) {
+		return nil
+	}
+	var z T
+	if e := unpackAny(z); e.ptr != nil {
+		return e.typ
+	}
+	var zp *T
+	return unpackAny(zp).typ
+}
+
+// elemTypePtrForType is the reflect.Type equivalent of elemTypePtrFor.
+func elemTypePtrForType(elemType reflect.Type) unsafe.Pointer {
+	if elemType == nil || elemType.Kind() != reflect.Struct || elemType.Size() == 0 || !isQualifyRawStructType(elemType) {
+		return nil
+	}
+	if isDirectIface(elemType) {
+		return runtimeTypePtr(reflect.PointerTo(elemType))
+	}
+	return runtimeTypePtr(elemType)
+}
+
+// isDirectIface determines whether a type's values fit directly into an interface's data word
+// according to Go runtime conventions (pointers, single-pointer structs/arrays, maps, funcs, chans).
+func isDirectIface(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Pointer, reflect.UnsafePointer, reflect.Chan, reflect.Map, reflect.Func:
+		return true
+	case reflect.Struct:
+		return t.NumField() == 1 && isDirectIface(t.Field(0).Type)
+	case reflect.Array:
+		return t.Len() == 1 && isDirectIface(t.Elem())
+	default:
+		return false
+	}
+}
+
+type unsafeSlice struct {
+	Data unsafe.Pointer
+	Len  int
+	Cap  int
+}
+
+type dynamicSliceMeta struct {
+	sliceType     reflect.Type
+	sliceTypePtr  unsafe.Pointer
+	elemTypePtr   unsafe.Pointer
+	elemStride    uintptr
+	qualifyRawVal bool
+	isPtrElem     bool
+	supported     bool
+}
+
+var dynamicSliceMetaCache sync.Map
+
+func isQualifyRawStruct[T any]() bool {
+	return isQualifyRawStructType(reflect.TypeFor[T]())
+}
+
+func isQualifyRawStructType(rt reflect.Type) bool {
+	if rt == nil || rt.Implements(reflect.TypeFor[ref.Val]()) || rt.Implements(reflect.TypeFor[protoreflect.ProtoMessage]()) {
+		return false
+	}
+	if rt.Kind() == reflect.Struct {
+		return rt != reflect.TypeFor[time.Time]()
+	}
+	if rt.Kind() == reflect.Ptr && rt.Elem().Kind() == reflect.Struct {
+		return rt.Elem() != reflect.TypeFor[time.Time]()
+	}
+	return false
+}
+
+var unsupportedDynamicSliceMeta = &dynamicSliceMeta{supported: false}
+
+func getDynamicSliceMeta(rt reflect.Type) *dynamicSliceMeta {
+	if rt == nil || rt.Kind() != reflect.Slice {
+		return unsupportedDynamicSliceMeta
+	}
+	if v, ok := dynamicSliceMetaCache.Load(rt); ok {
+		return v.(*dynamicSliceMeta)
+	}
+	sliceTypPtr := runtimeTypePtr(rt)
+	elemType := rt.Elem()
+	var meta *dynamicSliceMeta
+	switch elemType.Kind() {
+	case reflect.Pointer:
+		meta = &dynamicSliceMeta{
+			sliceType:     rt,
+			sliceTypePtr:  sliceTypPtr,
+			elemTypePtr:   runtimeTypePtr(elemType),
+			qualifyRawVal: isQualifyRawStructType(elemType),
+			isPtrElem:     true,
+			supported:     true,
+		}
+	case reflect.Struct:
+		if elemTyp := elemTypePtrForType(elemType); elemTyp != nil {
+			meta = &dynamicSliceMeta{
+				sliceType:     rt,
+				sliceTypePtr:  sliceTypPtr,
+				elemTypePtr:   elemTyp,
+				elemStride:    elemType.Size(),
+				qualifyRawVal: true,
+				supported:     true,
+			}
+		}
+	}
+	if meta != nil && meta.supported {
+		dynamicSliceMetaCache.Store(rt, meta)
+		return meta
+	}
+	return unsupportedDynamicSliceMeta
 }
 
 var (

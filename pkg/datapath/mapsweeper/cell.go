@@ -25,6 +25,14 @@ var Cell = cell.Module(
 	cell.Invoke(registerMapSweeper),
 )
 
+// DisabledMapsHookOut allows other modules to contribute hooks that return
+// additional BPF map names to remove during disabled map cleanup.
+type DisabledMapsHookOut struct {
+	cell.Out
+
+	DisabledMapsHook DisabledMapsHook `group:"disabled-maps-hooks"`
+}
+
 type mapSweeperParams struct {
 	cell.In
 
@@ -36,6 +44,7 @@ type mapSweeperParams struct {
 	BandwidthManager        bandwidth.Manager
 	LBConfig                loadbalancer.Config
 	KPRConfig               kpr.KPRConfig
+	DisabledMapsHooks       []DisabledMapsHook `group:"disabled-maps-hooks"`
 }
 
 func registerMapSweeper(params mapSweeperParams) {
@@ -47,6 +56,7 @@ func registerMapSweeper(params mapSweeperParams) {
 		},
 		params.LBConfig,
 		params.KPRConfig)
+	ms.disabledMapsHooks = params.DisabledMapsHooks
 
 	params.JobGroup.Add(job.OneShot("cleanup", func(ctx context.Context, health cell.Health) error {
 		restorer, err := params.EndpointRestorerPromise.Await(ctx)

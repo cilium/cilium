@@ -12,6 +12,7 @@ import (
 	"go4.org/netipx"
 	"golang.org/x/sys/unix"
 
+	"github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	fakeconnector "github.com/cilium/cilium/pkg/datapath/connector/fake"
 	"github.com/cilium/cilium/pkg/datapath/gneigh"
@@ -33,6 +34,7 @@ import (
 	dpnode "github.com/cilium/cilium/pkg/datapath/node"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/tunnel"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/maps/egressmap"
@@ -46,7 +48,6 @@ import (
 	fakemtu "github.com/cilium/cilium/pkg/mtu/fake"
 	"github.com/cilium/cilium/pkg/node"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
-	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/time"
 	fakewireguard "github.com/cilium/cilium/pkg/wireguard/fake"
 	wireguard "github.com/cilium/cilium/pkg/wireguard/types"
@@ -59,11 +60,11 @@ var Cell = cell.Module(
 	"fake-datapath",
 	"Fake Datapath",
 
+	config.NodeConfigNotifierCell,
+
 	cell.Provide(
-		func(lifecycle cell.Lifecycle, na node.Addressing, nodeManager manager.NodeManager) (node.IDHandler, node.Handler, *fakenode.Handler) {
-			fakeNodeHandler := fakenode.NewHandler()
-			nodeManager.Subscribe(fakeNodeHandler)
-			return fakeNodeHandler, fakeNodeHandler, fakeNodeHandler
+		func() node.IDHandler {
+			return fakenode.NewIDHandler()
 		},
 		func() signalmap.Map { return fakesignalmap.NewFakeSignalMap([][]byte{}, time.Second) },
 		func() encrypt.EncryptMap { return fakeencrypt.NewFakeEncryptMap() },
@@ -89,6 +90,7 @@ var Cell = cell.Module(
 		tables.NewDeviceTable,
 		tables.NewL2AnnounceTable, statedb.RWTable[*tables.L2AnnounceEntry].ToTable,
 		tables.NewRouteTable, statedb.RWTable[*tables.Route].ToTable,
+		tables.NewNeighborTable, statedb.RWTable[*tables.Neighbor].ToTable,
 
 		func() bigtcp.Features { return &fakebigtcp.UserConfig{} },
 
@@ -101,6 +103,7 @@ var Cell = cell.Module(
 	tables.DirectRoutingDeviceCell,
 
 	tunnel.Cell,
+	xdp.Cell,
 	cell.Provide(fakeDevices),
 	link.Cell,
 )

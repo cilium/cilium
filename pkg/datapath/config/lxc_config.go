@@ -19,6 +19,8 @@ type BPFLXC struct {
 	// Respond to ARP requests from local containers to resolve the default
 	// gateway.
 	EnableARPResponder bool `config:"enable_arp_responder"`
+	// Enable BPF routing.
+	EnableBPFRouting bool `config:"enable_bpf_routing"`
 	// Pass traffic with extended IP protocols.
 	EnableExtendedIPProtocols bool `config:"enable_extended_ip_protocols"`
 	// Apply Network Policy for ICMP packets.
@@ -31,6 +33,8 @@ type BPFLXC struct {
 	EnableLRP bool `config:"enable_lrp"`
 	// Enable NAT46/NAT64 translation for NodePort services.
 	EnableNAT46X64 bool `config:"enable_nat_46x64"`
+	// Enable NAT46/NAT64 gateway for NodePort services.
+	EnableNAT46X64Gateway bool `config:"enable_nat_46x64_gateway"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
@@ -73,6 +77,8 @@ type BPFLXC struct {
 	ProxyRedirectViaCiliumNet bool `config:"proxy_redirect_via_cilium_net"`
 	// FIB routing table ID for egress lookups.
 	RtInfo uint32 `config:"rt_info"`
+	// Number of times to retry SNAT.
+	SNATCollisionRetries uint16 `config:"snat_collision_retries"`
 	// The endpoint's security label.
 	SecurityLabel uint32 `config:"security_label"`
 	// Socket-based LB for E/W traffic.
@@ -89,12 +95,13 @@ type BPFLXC struct {
 
 func NewBPFLXC(node Node) *BPFLXC {
 	return &BPFLXC{false, 0x0, false, false, false, false, false, false, false, false,
-		false, false, false, false, false, false, 0x0, cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
+		false, false, false, false, false, false, false, false, 0x0,
+		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		0x0, 0x0, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		0x0, false, 0x0, 0x0, cast[types.SocketLBConfig]([]byte{0x0, 0x0, 0x0}),
+		0x0, false, 0x0, 0x20, 0x0, cast[types.SocketLBConfig]([]byte{0x0, 0x0, 0x0}),
 		0x0, 0x0, 0x0, node}
 }

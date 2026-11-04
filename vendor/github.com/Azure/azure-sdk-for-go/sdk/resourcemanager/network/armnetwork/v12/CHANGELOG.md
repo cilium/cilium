@@ -1,5 +1,57 @@
 # Release History
 
+## 12.1.0 (2026-10-13)
+### Features Added
+
+- New enum type `DdosContinent` with values `DdosContinentAfrica`, `DdosContinentAntarctica`, `DdosContinentAsia`, `DdosContinentEurope`, `DdosContinentNorthAmerica`, `DdosContinentOceania`, `DdosContinentSouthAmerica`
+- New enum type `DdosMitigationTrafficScope` with values `DdosMitigationTrafficScopeTCP`, `DdosMitigationTrafficScopeUDP`
+- New enum type `DdosSourcePolicyActionType` with values `DdosSourcePolicyActionTypeDeny`, `DdosSourcePolicyActionTypePermit`
+- New enum type `ExpressRouteLagAuthorizationUseStatus` with values `ExpressRouteLagAuthorizationUseStatusAvailable`, `ExpressRouteLagAuthorizationUseStatusInUse`
+- New enum type `VirtualNetworkApplianceCapabilityIPVersion` with values `VirtualNetworkApplianceCapabilityIPVersionDualStack`, `VirtualNetworkApplianceCapabilityIPVersionIPv6`
+- New enum type `VirtualNetworkApplianceCapabilityKind` with values `VirtualNetworkApplianceCapabilityKindNAT64`, `VirtualNetworkApplianceCapabilityKindPLGateway`, `VirtualNetworkApplianceCapabilityKindPLGatewayFastpath`, `VirtualNetworkApplianceCapabilityKindPLIPForwarders`
+- New function `*NAT64Capability.GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability`
+- New function `*ClientFactory.NewExpressRouteLagAuthorizationsClient() *ExpressRouteLagAuthorizationsClient`
+- New function `*ClientFactory.NewVirtualNetworkApplianceCapabilitiesClient() *VirtualNetworkApplianceCapabilitiesClient`
+- New function `NewExpressRouteLagAuthorizationsClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*ExpressRouteLagAuthorizationsClient, error)`
+- New function `*ExpressRouteLagAuthorizationsClient.BeginCreateOrUpdate(ctx context.Context, resourceGroupName string, expressRouteLagName string, authorizationName string, authorizationParameters ExpressRouteLagAuthorization, options *ExpressRouteLagAuthorizationsClientBeginCreateOrUpdateOptions) (*runtime.Poller[ExpressRouteLagAuthorizationsClientCreateOrUpdateResponse], error)`
+- New function `*ExpressRouteLagAuthorizationsClient.BeginDelete(ctx context.Context, resourceGroupName string, expressRouteLagName string, authorizationName string, options *ExpressRouteLagAuthorizationsClientBeginDeleteOptions) (*runtime.Poller[ExpressRouteLagAuthorizationsClientDeleteResponse], error)`
+- New function `*ExpressRouteLagAuthorizationsClient.Get(ctx context.Context, resourceGroupName string, expressRouteLagName string, authorizationName string, options *ExpressRouteLagAuthorizationsClientGetOptions) (ExpressRouteLagAuthorizationsClientGetResponse, error)`
+- New function `*ExpressRouteLagAuthorizationsClient.ListKeys(ctx context.Context, resourceGroupName string, expressRouteLagName string, authorizationName string, options *ExpressRouteLagAuthorizationsClientListKeysOptions) (ExpressRouteLagAuthorizationsClientListKeysResponse, error)`
+- New function `*ExpressRouteLagAuthorizationsClient.NewListPager(resourceGroupName string, expressRouteLagName string, options *ExpressRouteLagAuthorizationsClientListOptions) *runtime.Pager[ExpressRouteLagAuthorizationsClientListResponse]`
+- New function `*PLGatewayCapability.GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability`
+- New function `*PLGatewayFastpathCapability.GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability`
+- New function `*PLIPForwardersCapability.GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability`
+- New function `NewVirtualNetworkApplianceCapabilitiesClient(subscriptionID string, credential azcore.TokenCredential, options *arm.ClientOptions) (*VirtualNetworkApplianceCapabilitiesClient, error)`
+- New function `*VirtualNetworkApplianceCapabilitiesClient.BeginCreateOrUpdate(ctx context.Context, resourceGroupName string, virtualNetworkApplianceName string, capabilityName string, parameters VirtualNetworkApplianceCapabilityClassification, options *VirtualNetworkApplianceCapabilitiesClientBeginCreateOrUpdateOptions) (*runtime.Poller[VirtualNetworkApplianceCapabilitiesClientCreateOrUpdateResponse], error)`
+- New function `*VirtualNetworkApplianceCapabilitiesClient.BeginDelete(ctx context.Context, resourceGroupName string, virtualNetworkApplianceName string, capabilityName string, options *VirtualNetworkApplianceCapabilitiesClientBeginDeleteOptions) (*runtime.Poller[VirtualNetworkApplianceCapabilitiesClientDeleteResponse], error)`
+- New function `*VirtualNetworkApplianceCapabilitiesClient.Get(ctx context.Context, resourceGroupName string, virtualNetworkApplianceName string, capabilityName string, options *VirtualNetworkApplianceCapabilitiesClientGetOptions) (VirtualNetworkApplianceCapabilitiesClientGetResponse, error)`
+- New function `*VirtualNetworkApplianceCapabilitiesClient.NewListPager(resourceGroupName string, virtualNetworkApplianceName string, options *VirtualNetworkApplianceCapabilitiesClientListOptions) *runtime.Pager[VirtualNetworkApplianceCapabilitiesClientListResponse]`
+- New function `*VirtualNetworkApplianceCapability.GetVirtualNetworkApplianceCapability() *VirtualNetworkApplianceCapability`
+- New struct `DdosGeoMatch`
+- New struct `DdosMitigationRule`
+- New struct `DdosMitigationRulePropertiesFormat`
+- New struct `DdosSourceMatchConditions`
+- New struct `DdosSourcePolicyAction`
+- New struct `DdosSourcePolicyOverride`
+- New struct `DdosTCPDefaultMitigations`
+- New struct `DdosTCPPerSourceConnectionRateLimitPolicy`
+- New struct `DdosTCPPerSourceRateLimitPolicy`
+- New struct `DdosUDPDefaultMitigations`
+- New struct `DdosUDPPerSourceRateLimitPolicy`
+- New struct `ExpressRouteLagAuthorization`
+- New struct `ExpressRouteLagAuthorizationListResult`
+- New struct `ExpressRouteLagAuthorizationPropertiesFormat`
+- New struct `NAT64Capability`
+- New struct `PLGatewayCapability`
+- New struct `PLGatewayFastpathCapability`
+- New struct `PLIPForwardersCapability`
+- New struct `VirtualNetworkApplianceCapabilityListResult`
+- New struct `VirtualNetworkApplianceCapabilityProperties`
+- New field `MitigationRules` in struct `DdosCustomPolicyPropertiesFormat`
+- New field `Authorizations` in struct `ExpressRouteLagPropertiesFormat`
+- New field `CapacityProvider` in struct `VirtualNetworkAppliancePropertiesFormat`
+
+
 ## 12.0.0 (2026-09-15)
 ### Breaking Changes
 

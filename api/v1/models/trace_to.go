@@ -124,7 +124,7 @@ func (m *TraceTo) contextValidateDports(ctx context.Context, formats strfmt.Regi
 		if m.Dports[i] != nil {
 
 			if typeutils.IsZero(m.Dports[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Dports[i].ContextValidate(ctx, formats); err != nil {

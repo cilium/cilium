@@ -17,6 +17,7 @@
 #include "../section.h"
 #include "../loader.h"
 #include "../csum.h"
+#include "lib/auxvars.h"
 
 #define CTX_ACT_OK			XDP_PASS
 #define CTX_ACT_DROP			XDP_DROP
@@ -440,48 +441,40 @@ ctx_gso_size(const struct xdp_md *ctx __maybe_unused)
 	return 0;
 }
 
-struct {
-	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__uint(key_size, sizeof(int));
-	__uint(value_size, META_PIVOT);
-	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, 1);
-} cilium_xdp_scratch __section_maps_btf;
+struct cilium_xdp_scratch {
+	__u32 data[META_PIVOT / sizeof(__u32)];
+};
+
+DEFINE_AUX(struct cilium_xdp_scratch, cilium_xdp_scratch);
 
 static __always_inline __maybe_unused void
 ctx_store_meta(struct xdp_md *ctx __maybe_unused, const __u64 off, __u32 datum)
 {
-	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+	struct cilium_xdp_scratch *scratch = AUX_REUSE(cilium_xdp_scratch);
 
-	if (always_succeeds(data_meta))
-		data_meta[off] = datum;
+	scratch->data[off] = datum;
 	build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
 }
 
 static __always_inline __maybe_unused __u32
 ctx_load_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 {
-	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+	struct cilium_xdp_scratch *scratch = AUX_REUSE(cilium_xdp_scratch);
 
-	if (always_succeeds(data_meta))
-		return data_meta[off];
 	build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
-	return 0;
+	return scratch->data[off];
 }
 
 static __always_inline __maybe_unused __u32
 ctx_load_and_clear_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 {
-	__u32 val, zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
-
-	if (always_succeeds(data_meta)) {
-		val = data_meta[off];
-		data_meta[off] = 0;
-		return val;
-	}
+	struct cilium_xdp_scratch *scratch = AUX_REUSE(cilium_xdp_scratch);
+	__u32 val;
 
 	build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
-	return 0;
+	val = scratch->data[off];
+	scratch->data[off] = 0;
+	return val;
 }
 
 static __always_inline __maybe_unused __be16

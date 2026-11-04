@@ -10,6 +10,8 @@ import (
 	stderrors "errors"
 	"strconv"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
@@ -25,7 +27,7 @@ type CgroupPodMetadata struct {
 	Containers []*CgroupContainerMetadata `json:"containers"`
 
 	// ips
-	Ips []string `json:"ips"`
+	Ips []iputil.Addr `json:"ips"`
 
 	// name
 	Name string `json:"name,omitempty"`
@@ -39,6 +41,10 @@ func (m *CgroupPodMetadata) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateContainers(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateIps(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -78,6 +84,14 @@ func (m *CgroupPodMetadata) validateContainers(formats strfmt.Registry) error {
 	return nil
 }
 
+func (m *CgroupPodMetadata) validateIps(formats strfmt.Registry) error {
+	if typeutils.IsZero(m.Ips) { // not required
+		return nil
+	}
+
+	return nil
+}
+
 // ContextValidate validate this cgroup pod metadata based on the context it is used
 func (m *CgroupPodMetadata) ContextValidate(ctx context.Context, formats strfmt.Registry) error {
 	var res []error
@@ -99,7 +113,7 @@ func (m *CgroupPodMetadata) contextValidateContainers(ctx context.Context, forma
 		if m.Containers[i] != nil {
 
 			if typeutils.IsZero(m.Containers[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Containers[i].ContextValidate(ctx, formats); err != nil {

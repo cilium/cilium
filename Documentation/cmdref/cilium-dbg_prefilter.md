@@ -2,7 +2,7 @@
 
 ## cilium-dbg prefilter
 
-Manage XDP CIDR filters
+Manage XDP CIDR filters (deprecated)
 
 ### Options
 
@@ -23,7 +23,7 @@ Manage XDP CIDR filters
 ### SEE ALSO
 
 * [cilium-dbg](cilium-dbg.md)	 - CLI
-* [cilium-dbg prefilter delete](cilium-dbg_prefilter_delete.md)	 - Delete CIDR filters
-* [cilium-dbg prefilter list](cilium-dbg_prefilter_list.md)	 - List CIDR filters
-* [cilium-dbg prefilter update](cilium-dbg_prefilter_update.md)	 - Update CIDR filters
+* [cilium-dbg prefilter delete](cilium-dbg_prefilter_delete.md)	 - Delete CIDR filters (deprecated)
+* [cilium-dbg prefilter list](cilium-dbg_prefilter_list.md)	 - List CIDR filters (deprecated)
+* [cilium-dbg prefilter update](cilium-dbg_prefilter_update.md)	 - Update CIDR filters (deprecated)
 

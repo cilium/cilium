@@ -747,7 +747,20 @@ func (n *Node) recalculate(ctx context.Context) {
 		n.stats.IPv4.AssignedStaticIP = n.resource.Status.IPAM.AssignedStaticIP.Addr
 	}
 
-	n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
+	// Providers backing the multi-pool allocator report the attached CIDRs,
+	// which are the source of truth for the available IPv4 count since the
+	// AllocationMap does not list addresses of delegated prefixes. Providers
+	// backing the CRD allocator return nil and only rely on the AllocationMap.
+	if attached := n.ops.GetAttachedCIDRs(); attached != nil {
+		n.stats.IPv4.AvailableIPs = 0
+		for _, c := range attached {
+			if c.Addr().Is4() {
+				n.stats.IPv4.AvailableIPs += 1 << (32 - c.Bits())
+			}
+		}
+	} else {
+		n.stats.IPv4.AvailableIPs = len(n.ipv4Alloc.available)
+	}
 	n.stats.IPv4.RemainingInterfaces = stats.RemainingAvailableInterfaceCount
 	n.stats.IPv4.Capacity = stats.NodeCapacity
 	n.stats.IPv6.AvailablePrefixes = stats.NodeIPv6Prefixes
@@ -1461,7 +1474,11 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 	}
 
 	instanceMutated, err := n.maintainIPPool(ctx)
-	if err == nil {
+	// The resync only guards the cache updates of a mutation against a resync
+	// that started before it. A pass that mutated nothing has nothing to
+	// guard, and requiring one anyway would hold allocationNeeded() and
+	// releaseNeeded() false until the next resync.
+	if instanceMutated {
 		n.logger.Load().Debug("Setting resync needed")
 		n.requireResync()
 	}

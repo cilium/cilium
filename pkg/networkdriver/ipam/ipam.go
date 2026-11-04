@@ -33,6 +33,11 @@ func newMultiPoolManager(
 		return nil, nil
 	}
 
+	if !driverConf.IPv4Enabled && !driverConf.IPv6Enabled {
+		return nil,
+			fmt.Errorf("both IPv4 and IPv6 are disabled, at least one must be enabled to get IP addresses from pools")
+	}
+
 	// TODO: we need to implement the pre-allocation logic
 	preallocMap, err := ipam.ParseMultiPoolPreAllocMap(nil)
 	if err != nil {

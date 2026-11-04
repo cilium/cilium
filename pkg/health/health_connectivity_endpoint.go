@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	healthDefaults "github.com/cilium/cilium/pkg/health/defaults"
 	"github.com/cilium/cilium/pkg/health/probe"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
@@ -98,16 +99,16 @@ func (h *ciliumHealthManager) getNodeRouterAddressing(ctx context.Context) (*mod
 	if h.daemonConfig.EnableIPv6 {
 		nodeRouterAddressing.IPv6 = &models.NodeAddressingElement{
 			Enabled:    h.daemonConfig.EnableIPv6,
-			IP:         ln.GetCiliumInternalIPv6().String(),
-			AllocRange: ln.IPv6AllocCIDR.String(),
+			IP:         iputil.AddrFrom(ln.GetCiliumInternalIPv6()),
+			AllocRange: ln.IPv6AllocCIDR.Prefix,
 		}
 	}
 
 	if h.daemonConfig.EnableIPv4 {
 		nodeRouterAddressing.IPv4 = &models.NodeAddressingElement{
 			Enabled:    h.daemonConfig.EnableIPv4,
-			IP:         ln.GetCiliumInternalIPv4().String(),
-			AllocRange: ln.IPv4AllocCIDR.String(),
+			IP:         iputil.AddrFrom(ln.GetCiliumInternalIPv4()),
+			AllocRange: ln.IPv4AllocCIDR.Prefix,
 		}
 	}
 
@@ -117,21 +118,15 @@ func (h *ciliumHealthManager) getNodeRouterAddressing(ctx context.Context) (*mod
 // configureHealthRouting is meant to be run inside the health service netns
 func (h *ciliumHealthManager) configureHealthRouting(routes []route.Route, dev string) error {
 	for _, rt := range routes {
-		cmd := rt.ToIPCommand(dev)
-		if len(cmd) < 2 {
-			return fmt.Errorf("ip command %s not expected len!", cmd)
+		rt.Device = dev
+		if rt.Nexthop == nil {
+			// Like "ip route add <prefix> dev <dev>", a route without a
+			// gateway is link-scoped.
+			rt.Scope = netlink.SCOPE_LINK
 		}
-		prog := cmd[0]
-		args := cmd[1:]
-		h.logger.Debug(fmt.Sprintf("Running \"%s %+v\"", prog, args))
-		out, err := exec.Command(prog, args...).CombinedOutput()
-		if err == nil && len(out) > 0 {
-			h.logger.Warn(string(out),
-				logfields.Prog, prog,
-				logfields.Args, args,
-			)
-		} else if err != nil {
-			return fmt.Errorf("error running %q with args %q: %w", prog, args, err)
+		h.logger.Debug("Installing health route", rt.LogAttrs()...)
+		if err := route.Upsert(h.logger, rt); err != nil {
+			return fmt.Errorf("error installing route %s dev %s: %w", rt.Prefix.String(), dev, err)
 		}
 	}
 	return nil
@@ -278,7 +273,7 @@ func (h *ciliumHealthManager) launchAsEndpoint(baseCtx context.Context, endpoint
 		dpConfig := &models.EndpointDatapathConfiguration{
 			InstallEndpointRoute: true,
 			RequireEgressProg:    true,
-			RequireRouting:       &disabled,
+			RequireBPFRouting:    &disabled,
 		}
 		info.DatapathConfiguration = dpConfig
 	}

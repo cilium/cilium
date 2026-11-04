@@ -36,7 +36,7 @@ var (
 )
 
 func (Result) TableHeader() []string {
-	return []string{"Identity", "NewPolicy", "OldPolicy", "Revision", "CurrentAtRevision", "Err"}
+	return []string{"Identity", "NewPolicy", "Revision", "CurrentAtRevision", "Err"}
 }
 
 func (r Result) TableRow() []string {
@@ -48,14 +48,9 @@ func (r Result) TableRow() []string {
 	if r.NewPolicy != nil {
 		newRev = r.NewPolicy.GetRevision()
 	}
-	var oldRev uint64
-	if r.OldPolicy != nil {
-		oldRev = r.OldPolicy.GetRevision()
-	}
 	return []string{
 		r.Identity.String(),
 		strconv.FormatUint(newRev, 10),
-		strconv.FormatUint(oldRev, 10),
 		strconv.FormatUint(r.Revision, 10),
 		strconv.FormatUint(r.CurrentAtRevision, 10),
 		serr,

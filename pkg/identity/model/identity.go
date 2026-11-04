@@ -22,7 +22,6 @@ func NewIdentityFromModel(base *models.Identity) *identity.Identity {
 		lbl := labels.ParseLabel(v)
 		id.Labels[lbl.Key] = lbl
 	}
-	id.Sanitize()
 
 	return id
 }
@@ -37,8 +36,10 @@ func CreateModel(id *identity.Identity) *models.Identity {
 		Labels: make([]string, 0, len(id.Labels)),
 	}
 
-	for _, v := range id.LabelArray {
-		ret.Labels = append(ret.Labels, v.String())
+	for _, k := range id.Labels.KeysSorted() {
+		l := id.Labels[k]
+		ret.Labels = append(ret.Labels, l.String())
 	}
+
 	return ret
 }

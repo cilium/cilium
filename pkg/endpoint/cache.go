@@ -36,7 +36,7 @@ type epInfoCache struct {
 	ipv6                   netip.Addr
 	requireARPPassthrough  bool
 	requireEgressProg      bool
-	requireRouting         bool
+	requireBPFRouting      bool
 	requireEndpointRoute   bool
 	atHostNS               bool
 	policyVerdictLogFilter uint32
@@ -91,7 +91,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		ipv6:                   e.IPv6Address(),
 		requireARPPassthrough:  e.RequireARPPassthrough(),
 		requireEgressProg:      e.RequireEgressProg(),
-		requireRouting:         e.RequireRouting(),
+		requireBPFRouting:      e.RequireBPFRouting(),
 		requireEndpointRoute:   e.RequireEndpointRoute(),
 		policyVerdictLogFilter: e.GetPolicyVerdictLogFilter(),
 		options:                e.Options.DeepCopy(),
@@ -186,10 +186,10 @@ func (ep *epInfoCache) RequireEgressProg() bool {
 	return ep.requireEgressProg
 }
 
-// RequireRouting returns true if the endpoint requires BPF routing to be
+// RequireBPFRouting returns true if the endpoint requires BPF routing to be
 // enabled, when disabled, routing is delegated to Linux routing
-func (ep *epInfoCache) RequireRouting() bool {
-	return ep.requireRouting
+func (ep *epInfoCache) RequireBPFRouting() bool {
+	return ep.requireBPFRouting
 }
 
 // RequireEndpointRoute returns if the endpoint wants a per endpoint route

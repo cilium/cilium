@@ -236,18 +236,26 @@ func TestMatch(t *testing.T) {
 	}), "driver filter must not match")
 }
 
+func requireSetup(t *testing.T, d DummyDevice) {
+	t.Helper()
+	prepared, err := d.Setup(types.DeviceAllocation{})
+	require.NoError(t, err)
+	require.NotNil(t, prepared)
+	require.Equal(t, d.IfName(), prepared.IfName())
+}
+
 func TestSetup(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		patchNetlink(t, func(_ netlink.Link) error { return nil }, nil, nil)
 		d := DummyDevice{Name: "dummy0"}
-		require.NoError(t, d.Setup(types.DeviceConfig{}))
+		requireSetup(t, d)
 	})
 
 	t.Run("generic error is propagated", func(t *testing.T) {
 		boom := errors.New("permission denied")
 		patchNetlink(t, func(_ netlink.Link) error { return boom }, nil, nil)
 		d := DummyDevice{Name: "dummy0"}
-		err := d.Setup(types.DeviceConfig{})
+		_, err := d.Setup(types.DeviceAllocation{})
 		require.Error(t, err)
 		require.ErrorIs(t, err, boom)
 	})
@@ -259,7 +267,7 @@ func TestSetup(t *testing.T) {
 			nil,
 		)
 		d := DummyDevice{Name: "dummy0"}
-		require.NoError(t, d.Setup(types.DeviceConfig{}))
+		requireSetup(t, d)
 	})
 
 	t.Run("EEXIST with non-dummy link deletes and recreates", func(t *testing.T) {
@@ -277,7 +285,7 @@ func TestSetup(t *testing.T) {
 			func(_ netlink.Link) error { deleted = true; return nil },
 		)
 		d := DummyDevice{Name: "dummy0"}
-		require.NoError(t, d.Setup(types.DeviceConfig{}))
+		requireSetup(t, d)
 		require.True(t, deleted, "stale non-dummy link must be deleted")
 		require.Equal(t, 2, addCount, "LinkAdd must be called twice (initial + recreate)")
 	})
@@ -290,7 +298,7 @@ func TestSetup(t *testing.T) {
 			nil,
 		)
 		d := DummyDevice{Name: "dummy0"}
-		err := d.Setup(types.DeviceConfig{})
+		_, err := d.Setup(types.DeviceAllocation{})
 		require.Error(t, err)
 		require.ErrorIs(t, err, lookupErr)
 	})
@@ -303,7 +311,7 @@ func TestSetup(t *testing.T) {
 			func(_ netlink.Link) error { return delErr },
 		)
 		d := DummyDevice{Name: "dummy0"}
-		err := d.Setup(types.DeviceConfig{})
+		_, err := d.Setup(types.DeviceAllocation{})
 		require.Error(t, err)
 		require.ErrorIs(t, err, delErr)
 	})
@@ -323,7 +331,7 @@ func TestSetup(t *testing.T) {
 			func(_ netlink.Link) error { return nil },
 		)
 		d := DummyDevice{Name: "dummy0"}
-		err := d.Setup(types.DeviceConfig{})
+		_, err := d.Setup(types.DeviceAllocation{})
 		require.Error(t, err)
 		require.ErrorIs(t, err, recreateErr)
 	})
@@ -337,7 +345,7 @@ func TestFree(t *testing.T) {
 			nil,
 		)
 		d := DummyDevice{Name: "dummy0"}
-		require.NoError(t, d.Free(types.DeviceConfig{}))
+		require.NoError(t, d.Free(types.DeviceAllocation{}))
 	})
 
 	t.Run("found dummy link is deleted", func(t *testing.T) {
@@ -348,7 +356,7 @@ func TestFree(t *testing.T) {
 			func(_ netlink.Link) error { deleted = true; return nil },
 		)
 		d := DummyDevice{Name: "dummy0"}
-		require.NoError(t, d.Free(types.DeviceConfig{}))
+		require.NoError(t, d.Free(types.DeviceAllocation{}))
 		require.True(t, deleted)
 	})
 
@@ -359,7 +367,7 @@ func TestFree(t *testing.T) {
 			nil,
 		)
 		d := DummyDevice{Name: "dummy0"}
-		err := d.Free(types.DeviceConfig{})
+		err := d.Free(types.DeviceAllocation{})
 		require.Error(t, err)
 		require.ErrorIs(t, err, errNotADummy)
 	})
@@ -372,7 +380,7 @@ func TestFree(t *testing.T) {
 			nil,
 		)
 		d := DummyDevice{Name: "dummy0"}
-		err := d.Free(types.DeviceConfig{})
+		err := d.Free(types.DeviceAllocation{})
 		require.Error(t, err)
 		require.ErrorIs(t, err, boom)
 	})
@@ -385,7 +393,7 @@ func TestFree(t *testing.T) {
 			func(_ netlink.Link) error { return delErr },
 		)
 		d := DummyDevice{Name: "dummy0"}
-		err := d.Free(types.DeviceConfig{})
+		err := d.Free(types.DeviceAllocation{})
 		require.Error(t, err)
 		require.ErrorIs(t, err, delErr)
 	})

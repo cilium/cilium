@@ -17,6 +17,7 @@ package cel
 import (
 	"errors"
 	"fmt"
+	"reflect"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protodesc"
@@ -25,8 +26,8 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 
 	"cel.dev/cel-go/cel/async"
-	"cel.dev/cel-go/checker"
 	"cel.dev/cel-go/common/containers"
+	"cel.dev/cel-go/common/cost"
 	"cel.dev/cel-go/common/decls"
 	"cel.dev/cel-go/common/env"
 	"cel.dev/cel-go/common/functions"
@@ -328,6 +329,22 @@ func Abbrevs(qualifiedNames ...string) EnvOption {
 	}
 }
 
+// NativeTypeDesc describes a native Go struct type for registration with CEL.
+type NativeTypeDesc = types.NativeTypeDesc
+
+// NativeTypeOption is a functional option for configuring handling of native types.
+type NativeTypeOption = types.NativeTypeOption
+
+var (
+	// NativeTypeAlias configures a custom CEL type name (alias) for a native type descriptor.
+	NativeTypeAlias = types.NativeTypeAlias
+)
+
+// NativeTypeFor constructs a NativeTypeDesc for a Go struct type T with the given options.
+func NativeTypeFor[T any](opts ...NativeTypeOption) *NativeTypeDesc {
+	return types.NativeTypeFor[T](opts...)
+}
+
 // protoTypeRegistry is an internal-only interface containing the minimum methods required to support
 // custom types. It is a subset of methods from ref.TypeRegistry.
 type protoTypeRegistry interface {
@@ -335,11 +352,16 @@ type protoTypeRegistry interface {
 	RegisterType(...ref.Type) error
 }
 
+type nativeTypeRegistry interface {
+	RegisterNativeType(reflect.Type, ...types.NativeTypeOption) error
+	RegisterNativeTypeDesc(*types.NativeTypeDesc) error
+}
+
 // Types adds one or more type declarations to the environment, allowing for construction of
 // type-literals whose definitions are included in the common expression built-in set.
 //
-// The input types may either be instances of `proto.Message` or `ref.Type`. Any other type
-// provided to this option will result in an error.
+// The input types may either be instances of `proto.Message`, `ref.Type`, `reflect.Type`, or `*NativeTypeDesc`.
+// Any other type provided to this option will result in an error.
 //
 // Well-known protobuf types within the `google.protobuf.*` package are included in the standard
 // environment by default.
@@ -363,6 +385,24 @@ func Types(addTypes ...any) EnvOption {
 				}
 			case ref.Type:
 				err := reg.RegisterType(v)
+				if err != nil {
+					return nil, err
+				}
+			case reflect.Type:
+				nreg, isNReg := e.provider.(nativeTypeRegistry)
+				if !isNReg {
+					return nil, fmt.Errorf("native types not supported by provider: %T", e.provider)
+				}
+				err := nreg.RegisterNativeType(v)
+				if err != nil {
+					return nil, err
+				}
+			case *types.NativeTypeDesc:
+				nreg, isNReg := e.provider.(nativeTypeRegistry)
+				if !isNReg {
+					return nil, fmt.Errorf("native types not supported by provider: %T", e.provider)
+				}
+				err := nreg.RegisterNativeTypeDesc(v)
 				if err != nil {
 					return nil, err
 				}
@@ -497,6 +537,11 @@ func Functions(funcs ...*functions.Overload) ProgramOption {
 // a Lib EnvOption, vars may shadow variables provided by previously added libraries.
 //
 // The vars value may either be an `cel.Activation` instance or a `map[string]any`.
+//
+// The vars value may supply late-bound function implementations, e.g. via FunctionVars, in which
+// case they apply to every evaluation of the program. Only one source of function bindings is
+// permitted, so an error is returned when Globals is applied more than once and more than one of
+// the activations supplies them.
 func Globals(vars any) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		defaultVars, err := NewActivation(vars)
@@ -505,6 +550,9 @@ func Globals(vars any) ProgramOption {
 		}
 		if p.defaultVars != nil {
 			defaultVars = interpreter.NewHierarchicalActivation(p.defaultVars, defaultVars)
+		}
+		if _, err := interpreter.FindFunctionActivation(defaultVars); err != nil {
+			return nil, err
 		}
 		p.defaultVars = defaultVars
 		return p, nil
@@ -653,7 +701,7 @@ func configToEnvOptions(config *env.Config, provider types.Provider, optFactorie
 
 	// Configure validators
 	for _, val := range config.Validators {
-		if fac, found := astValidatorFactories[val.Name]; found {
+		if fac, found := astValidatorFactories()[val.Name]; found {
 			envOpts = append(envOpts, func(e *Env) (*Env, error) {
 				validator, err := fac(val)
 				if err != nil {
@@ -729,6 +777,10 @@ const (
 	//
 	// Deprecated: use ext.StringsValidateFormatCalls() as this option is now a no-op.
 	OptCheckStringFormat EvalOption = 1 << iota
+
+	// OptTrackMemory enables the runtime peak memory tracking and returns the peak watermark within
+	// evalDetails via func PeakMemory()
+	OptTrackMemory EvalOption = 1 << iota
 )
 
 // EvalOptions sets one or more evaluation options which may affect the evaluation or Result.
@@ -791,10 +843,65 @@ func ConcurrentDrainStrategy(strategy async.DrainStrategy) ProgramOption {
 	}
 }
 
+// BypassAsyncProtection allows for the bypass of hasAsync protection in Eval and ContextEval if present.
+//
+// By default, expressions in an environment with asynchronous functions will reject calls to
+// Eval and ContextEval, requiring ConcurrentEval instead. This option bypasses that check, allowing
+// synchronous evaluation of expressions that do not actually call asynchronous functions (such as
+// constant validations).
+func BypassAsyncProtection() ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.hasAsync = false
+		return p, nil
+	}
+}
+
 // CostEstimatorOptions configure type-check time options for estimating expression cost.
-func CostEstimatorOptions(costOpts ...checker.CostOption) EnvOption {
+func CostEstimatorOptions(costOpts ...cost.CostOption) EnvOption {
 	return func(e *Env) (*Env, error) {
 		e.costOptions = append(e.costOptions, costOpts...)
+		return e, nil
+	}
+}
+
+// CostModel configures overload cost estimators and cost trackers from a set of cost.OverloadModel definitions.
+//
+// Models are validated here because neither the estimator nor the tracker compiled from a model
+// can report a problem once evaluation has begun. See cost.OverloadModel.Validate.
+func CostModel(models ...cost.OverloadModel) EnvOption {
+	return func(e *Env) (*Env, error) {
+		if err := cost.ValidateOverloadModels(models...); err != nil {
+			return nil, err
+		}
+		e.costConfig.models = append(e.costConfig.models, models...)
+		return e, nil
+	}
+}
+
+// CostSizingStrategy configures a SizingStrategy for both cost estimation and runtime cost tracking.
+func CostSizingStrategy(strategy cost.SizingStrategy) EnvOption {
+	return func(e *Env) (*Env, error) {
+		e.costConfig.strategy = strategy
+		return e, nil
+	}
+}
+
+// CostModelVersion pins cost estimation and runtime cost tracking to a revision of the cost
+// model's rules.
+//
+// The pin applies to the standard models and to any model supplied via CostModel, for both
+// estimation and tracking, so an environment's estimates and charges come from one consistent set
+// of rules.
+//
+// If this option is not set, the latest cost model version is used. Use this only as a temporary
+// migration aid to hold estimates stable against a baseline recorded under an earlier release.
+// Because version 0 preserves legacy behaviors with known soundness gaps where static estimates can
+// underestimate runtime cost, callers are strongly encouraged to switch to CostModelVersion(1) or
+// higher (or omit this option to use the latest revision) for improved soundness; see
+// cost.ModelVersion for the per-revision details.
+func CostModelVersion(version uint32) EnvOption {
+	return func(e *Env) (*Env, error) {
+		e.costConfig.version = &version
 		return e, nil
 	}
 }
@@ -802,7 +909,7 @@ func CostEstimatorOptions(costOpts ...checker.CostOption) EnvOption {
 // CostTrackerOptions configures a set of options for cost-tracking.
 //
 // Note, CostTrackerOptions is a no-op unless CostTracking is also enabled.
-func CostTrackerOptions(costOpts ...interpreter.CostTrackerOption) ProgramOption {
+func CostTrackerOptions(costOpts ...cost.TrackerOption) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		p.costOptions = append(p.costOptions, costOpts...)
 		return p, nil
@@ -810,10 +917,40 @@ func CostTrackerOptions(costOpts ...interpreter.CostTrackerOption) ProgramOption
 }
 
 // CostTracking enables cost tracking and registers a ActualCostEstimator that can optionally provide a runtime cost estimate for any function calls.
-func CostTracking(costEstimator interpreter.ActualCostEstimator) ProgramOption {
+func CostTracking(costEstimator cost.ActualCostEstimator) ProgramOption {
 	return func(p *prog) (*prog, error) {
 		p.callCostEstimator = costEstimator
 		p.evalOpts |= OptTrackCost
+		return p, nil
+	}
+}
+
+// MemoryTracking enables peak memory tracking during evaluation with an optional set of
+// types.MemoryTrackerOption values to configure the tracker's size calculator, sample
+// interval, and limit behaviors.
+//
+// Peak memory is measured in aggregate element counts as computed by a types.SizeCalculator
+// and is observed at the points where values materialize during evaluation: resolved
+// attributes, call results, constructed aggregates, and comprehension results. The peak
+// watermark is available via the EvalDetails.PeakMemory() method.
+func MemoryTracking(memOpts ...types.MemoryTrackerOption) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.memoryOptions = append(p.memoryOptions, memOpts...)
+		p.evalOpts |= OptTrackMemory
+		return p, nil
+	}
+}
+
+// MemoryLimit enables memory tracking and configures program evaluation to exit early with a
+// "memory limit exceeded" error if the peak tracked memory exceeds the limit.
+//
+// The MemoryLimit is a metric that corresponds to the aggregate element counts of the values
+// observed during evaluation. It is indicative of memory usage, not CPU usage; see CostLimit
+// for bounding compute.
+func MemoryLimit(memLimit uint32) ProgramOption {
+	return func(p *prog) (*prog, error) {
+		p.memoryLimit = &memLimit
+		p.evalOpts |= OptTrackMemory
 		return p, nil
 	}
 }
@@ -953,6 +1090,11 @@ func ContextProtoVars(ctx proto.Message, opts ...types.RegistryOption) (Activati
 
 // EnableMacroCallTracking ensures that call expressions which are replaced by macros
 // are tracked in the `SourceInfo` of parsed and checked expressions.
+//
+// This is required for Env.ResidualAst to succeed when the residual Ast contains an
+// unresolved comprehension macro (all, exists, exists_one, filter, map): without it,
+// ResidualAst cannot re-serialize the macro's expanded internal representation back
+// into CEL source syntax and returns an error instead of the residual expression.
 func EnableMacroCallTracking() EnvOption {
 	return features(featureEnableMacroCallTracking, true)
 }
@@ -1059,11 +1201,19 @@ func EnableHiddenAccumulatorName(enabled bool) EnvOption {
 	}
 }
 
+type legacyTypeProvider interface {
+	EnumValue(enumName string) ref.Val
+	FindIdent(identName string) (ref.Val, bool)
+	FindType(typeName string) (*exprpb.Type, bool)
+	FindFieldType(messageType, fieldName string) (*ref.FieldType, bool)
+	NewValue(typeName string, fields map[string]ref.Val) ref.Val
+}
+
 func maybeInteropProvider(provider any) (types.Provider, error) {
 	switch p := provider.(type) {
 	case types.Provider:
 		return p, nil
-	case ref.TypeProvider:
+	case legacyTypeProvider:
 		return &interopCELTypeProvider{TypeProvider: p}, nil
 	default:
 		return nil, fmt.Errorf("unsupported type provider: %T", provider)

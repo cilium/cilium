@@ -5,6 +5,7 @@ package compute
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/cilium/statedb"
@@ -27,8 +28,8 @@ type PolicyRecomputer interface {
 }
 
 type Result struct {
-	Identity             identity.NumericIdentity
-	NewPolicy, OldPolicy policy.SelectorPolicy
+	Identity  identity.NumericIdentity
+	NewPolicy policy.SelectorPolicy
 	// Revision is the repository revision this policy was computed at. It is
 	// how processRequests tells whether a requested computation has already
 	// run, so it must only ever be set by an actual computation. Use
@@ -46,6 +47,8 @@ type computeRequest struct {
 	identity *identity.Identity
 	toRev    uint64
 	done     chan struct{}
+	// generation is the identity's generation when the request was queued.
+	generation uint64
 }
 
 // advanceRequest carries a policy update's revision range. idsToRegen holds the
@@ -56,9 +59,10 @@ type advanceRequest struct {
 }
 
 func (r *IdentityPolicyComputer) UpdatePolicy(idsToRegen set.Set[identity.NumericIdentity], fromRev, toRev uint64) {
-	// The lock order is IdentityManager.mutex before reqsMu, since the
-	// IdentityManager observer takes reqsMu. Resolve identities, which takes
-	// IdentityManager.mutex, before locking reqsMu.
+	// The lock order is IdentityManager.mutex, then the table's write txn,
+	// then reqsMu, since the IdentityManager observer takes the other two and
+	// commitResults takes reqsMu while writing the table. Resolve identities,
+	// which takes IdentityManager.mutex, before locking reqsMu.
 	ids := make([]*identity.Identity, 0, idsToRegen.Len())
 	for id := range idsToRegen.Members() {
 		if idd := r.idmanager.Get(&id); idd != nil {
@@ -140,6 +144,14 @@ func revisionAfterAdvances(advances []advanceRequest, id identity.NumericIdentit
 // Must be called with r.reqsMu held. The caller must notifyTrigger after
 // unlocking.
 func (r *IdentityPolicyComputer) enqueueLocked(identity *identity.Identity, toRev uint64) <-chan struct{} {
+	generation, local := r.localIdentities[identity.ID]
+	if !local {
+		// Removed after the caller looked it up, so there is nothing to
+		// compute.
+		done := make(chan struct{})
+		close(done)
+		return done
+	}
 	for i, existing := range r.reqs {
 		if existing.identity.ID != identity.ID {
 			continue
@@ -150,9 +162,10 @@ func (r *IdentityPolicyComputer) enqueueLocked(identity *identity.Identity, toRe
 		return r.reqs[i].done
 	}
 	req := computeRequest{
-		identity: identity,
-		toRev:    toRev,
-		done:     make(chan struct{}),
+		identity:   identity,
+		toRev:      toRev,
+		done:       make(chan struct{}),
+		generation: generation,
 	}
 	r.reqs = append(r.reqs, req)
 	return req.done
@@ -165,17 +178,27 @@ func (r *IdentityPolicyComputer) notifyTrigger() {
 	}
 }
 
+var ErrIdentityNotRegistered = errors.New("identity is not registered with the identity manager")
+
 // RecomputeIdentityPolicy schedules a policy recomputation for identity at
 // toRev. The returned channel closes once the result is committed to the
 // table. A pending request for the same identity is reused, bumping its toRev
 // to max(existing, toRev), so there is at most one in-flight request per
-// identity.
+// identity. Returns ErrIdentityNotRegistered if the identity manager does not
+// have the identity.
 func (r *IdentityPolicyComputer) RecomputeIdentityPolicy(identity *identity.Identity, toRev uint64) (<-chan struct{}, error) {
+	if r.idmanager.Get(&identity.ID) == nil {
+		return nil, ErrIdentityNotRegistered
+	}
+	return r.recompute(identity, toRev), nil
+}
+
+func (r *IdentityPolicyComputer) recompute(identity *identity.Identity, toRev uint64) <-chan struct{} {
 	r.reqsMu.Lock()
 	done := r.enqueueLocked(identity, toRev)
 	r.reqsMu.Unlock()
 	r.notifyTrigger()
-	return done, nil
+	return done
 }
 
 // RecomputeIdentityPolicyForAllIdentities recomputes policy for all local identities.
@@ -207,15 +230,22 @@ func (r *IdentityPolicyComputer) GetIdentityPolicyByIdentity(identity *identity.
 	return r.GetIdentityPolicyByNumericIdentity(identity.ID)
 }
 
-// processRequests drains computation requests and processes them in batches.
-// Single requests are processed immediately. Bursts are naturally batched.
-func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
-	type pending struct {
-		computeRequest
-		rev       statedb.Revision      // statedb revision for CompareAndSwap
-		oldPolicy policy.SelectorPolicy // the committed policy, superseded after the new one commits
-	}
+// pending is a request that needs a computation.
+type pending struct {
+	computeRequest
+	rev statedb.Revision // statedb revision for CompareAndSwap
+}
 
+// computeResult is the outcome of computing a pending request.
+type computeResult struct {
+	pending
+	res Result
+}
+
+// processRequests drains computation requests from the queue and processes
+// them in batches. Single requests are processed immediately. Bursts are
+// naturally batched.
+func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -246,18 +276,19 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 
 		// Check which requests actually need computation.
 		rtxn := r.db.ReadTxn()
-		var work []pending
+		work := make([]pending, 0, len(batch))
 		for _, req := range batch {
 			obj, rev, found := r.tbl.Get(rtxn, PolicyComputationByIdentity(req.identity.ID))
-			// Revision, not CurrentAtRevision: only a computation that actually
-			// ran can satisfy a request. See applyAdvances.
+			// Use Revision, not CurrentAtRevision. Revision is only set when the
+			// policy is actually computed. applyAdvances also moves
+			// CurrentAtRevision forward without computing anything, so checking it
+			// could skip a recomputation that was asked for, like the one after
+			// BumpRevision.
 			if found && obj.Revision >= req.toRev {
 				close(req.done)
 				continue
 			}
-			// The currently committed policy becomes the old one once this
-			// recomputation commits its replacement.
-			work = append(work, pending{computeRequest: req, rev: rev, oldPolicy: obj.NewPolicy})
+			work = append(work, pending{computeRequest: req, rev: rev})
 		}
 		if len(work) == 0 {
 			if len(advances) > 0 {
@@ -268,22 +299,18 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 			continue
 		}
 
-		type result struct {
-			pending
-			res Result
-		}
-		results := make([]result, len(work))
+		results := make([]computeResult, len(work))
 		var wg sync.WaitGroup
 		for i, w := range work {
 			wg.Go(func() {
 				start := time.Now()
 				results[i].pending = w
 				results[i].res.Identity = w.identity.ID
-				results[i].res.OldPolicy = w.oldPolicy
 				results[i].res.NewPolicy, results[i].res.Revision, results[i].res.Err = r.repo.ComputeSelectorPolicy(w.identity)
 				// A freshly computed policy is current as of the revision it
 				// was computed at.
 				results[i].res.CurrentAtRevision = results[i].res.Revision
+
 				outcome := metrics.LabelValueOutcomeSuccess
 				if results[i].res.Err != nil {
 					outcome = metrics.LabelValueOutcomeFailure
@@ -297,71 +324,101 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 
 		// Commit in a single WriteTxn.
 		wtxn := r.db.WriteTxn(r.tbl)
-		var retry []computeRequest
-		for i := range results {
-			if results[i].res.Err != nil {
-				// This error will result in the relevant endpoints failing
-				// to regenerate.
-				r.logger.Error("Policy computation failed for identity",
-					logfields.Identity, results[i].res.Identity,
-					logfields.Error, results[i].res.Err,
-				)
-				// Re-enqueue so a transient failure (e.g. cert fetch)
-				// doesn't leave statedb without an entry forever.
-				//
-				// Retry is unbounded with no backoff. This matches the
-				// pre-cell behavior where endpoint regeneration retried
-				// the policy computation inline. Dropping a computation
-				// would leave endpoints on a stale policy, so we always
-				// retry.
-				retry = append(retry, computeRequest{
-					identity: results[i].identity,
-					toRev:    results[i].toRev,
-					done:     make(chan struct{}),
-				})
-				results[i].res = Result{}
-				continue
-			}
-			// CAS failure means a delete for this identity raced us. The
-			// new policy was Attach()ed by resolvePolicyLocked, so supersede
-			// it here to release its SelectorCache references. The old policy
-			// is released by the delete path in LocalEndpointIdentityRemoved.
-			if _, _, err := r.tbl.CompareAndSwap(wtxn, results[i].rev, results[i].res); err != nil {
-				if results[i].res.NewPolicy != nil {
-					results[i].res.NewPolicy.Supersede()
-				}
-				results[i].res = Result{}
-			}
-		}
-		// After the CompareAndSwaps above, so that advancing a revision cannot
-		// invalidate a recomputation's expected statedb revision.
+		committed, superseded, dropped, retry := r.commitResults(wtxn, results)
+		// Advance after the CompareAndSwaps. applyAdvances rewrites rows, which
+		// changes their statedb revision, so a CompareAndSwap against the
+		// revision read before computing would then fail and drop the result.
 		r.applyAdvances(wtxn, advances)
 		wtxn.Commit()
 
-		if len(retry) > 0 {
-			r.reqsMu.Lock()
-			r.reqs = append(r.reqs, retry...)
-			r.reqsMu.Unlock()
-			select {
-			case r.trigger <- struct{}{}:
-			default:
-			}
+		// Dropped results are never stored, so release their policies. They
+		// were Attach()ed by the policy repository. The old policy of a
+		// removed identity is released only after the identity is deleted, by
+		// the delete path in LocalEndpointIdentityRemoved.
+		for _, sp := range dropped {
+			sp.Detach()
+		}
+		if retry {
+			r.notifyTrigger()
 		}
 
 		for _, cr := range results {
 			close(cr.done)
-			if cr.res.Identity == 0 {
-				continue // CAS failed
-			}
+		}
+		for _, cr := range committed {
 			r.logger.Debug("Policy recomputation completed",
 				logfields.Identity, cr.res.Identity,
 				logfields.PolicyRevision, cr.toRev,
 			)
-			if cr.res.OldPolicy != nil {
-				cr.res.OldPolicy.Supersede()
+		}
+		for _, sp := range superseded {
+			sp.Supersede()
+		}
+	}
+}
+
+// commitResults stores the computed results in the table. It returns the
+// results it committed, the policies they replaced, the policies of the results
+// it dropped, and whether it requeued any failed computation.
+func (r *IdentityPolicyComputer) commitResults(wtxn statedb.WriteTxn, results []computeResult) (committed []computeResult, superseded, dropped []policy.SelectorPolicy, retry bool) {
+	// Check for stale results and requeue retries under one lock, so a
+	// removal can't happen in between. The CompareAndSwaps below don't need
+	// the lock, since a removal deletes the row only after wtxn commits.
+	stale := make([]bool, len(results))
+	r.reqsMu.Lock()
+	for i, cr := range results {
+		// The identity was removed, or removed and added again, since the
+		// request was queued. Drop the result and don't retry it.
+		stale[i] = r.localIdentities[cr.identity.ID] != cr.generation
+		if !stale[i] && cr.res.Err != nil {
+			// Re-enqueue so a transient failure (e.g. cert fetch) doesn't
+			// leave statedb without an entry forever.
+			//
+			// Retry is unbounded with no backoff. This matches the pre-cell
+			// behavior where endpoint regeneration retried the policy
+			// computation inline. Dropping a computation would leave
+			// endpoints on a stale policy, so we always retry.
+			r.enqueueLocked(cr.identity, cr.toRev)
+			retry = true
+		}
+	}
+	r.reqsMu.Unlock()
+
+	drop := func(cr computeResult) {
+		if cr.res.NewPolicy != nil {
+			dropped = append(dropped, cr.res.NewPolicy)
+		}
+	}
+	for i, cr := range results {
+		switch {
+		case stale[i]:
+			drop(cr)
+		case cr.res.Err != nil:
+			// This error will result in the relevant endpoints failing to
+			// regenerate.
+			r.logger.Error("Policy computation failed for identity",
+				logfields.Identity, cr.res.Identity,
+				logfields.Error, cr.res.Err,
+			)
+		default:
+			old, _, err := r.tbl.CompareAndSwap(wtxn, cr.rev, cr.res)
+			if err != nil {
+				// Not expected. Results of removed identities are dropped
+				// above, since CompareAndSwap would insert them anyway.
+				r.logger.Error("Failed to commit policy computation result",
+					logfields.Identity, cr.res.Identity,
+					logfields.Error, err,
+				)
+				drop(cr)
+				continue
+			}
+			committed = append(committed, cr)
+			if old.NewPolicy != nil {
+				superseded = append(superseded, old.NewPolicy)
 			}
 		}
 	}
+	return committed, superseded, dropped, retry
 }
 
 // LocalEndpointIdentityAdded is part of the identitymanager.Observer
@@ -371,7 +428,18 @@ func (r *IdentityPolicyComputer) processRequests(ctx context.Context) error {
 // recomputation, otherwise policy will not be computed properly.
 func (r *IdentityPolicyComputer) LocalEndpointIdentityAdded(id *identity.Identity) {
 	r.repo.UpdateIdentities(identity.IdentityMap{id.ID: id.Labels}, nil)
-	_, _ = r.RecomputeIdentityPolicy(id, 0)
+	r.reqsMu.Lock()
+	r.addLocalLocked(id)
+	r.enqueueLocked(id, 0)
+	r.reqsMu.Unlock()
+	r.notifyTrigger()
+}
+
+// addLocalLocked makes id local, with a new generation. Must be called with
+// r.reqsMu held.
+func (r *IdentityPolicyComputer) addLocalLocked(id *identity.Identity) {
+	r.nextGeneration++
+	r.localIdentities[id.ID] = r.nextGeneration
 }
 
 // LocalEndpointIdentityRemoved is part of the identitymanager.Observer interface.
@@ -393,6 +461,7 @@ func (r *IdentityPolicyComputer) LocalEndpointIdentityRemoved(id *identity.Ident
 		kept = append(kept, req)
 	}
 	r.reqs = kept
+	delete(r.localIdentities, id.ID)
 	r.reqsMu.Unlock()
 
 	wtxn := r.db.WriteTxn(r.tbl)

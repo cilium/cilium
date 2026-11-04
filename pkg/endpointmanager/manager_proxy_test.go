@@ -225,7 +225,7 @@ func newUpdatePolicyMapsTestRepo(t *testing.T, withL7Rules bool) (*policy.Reposi
 		idmgr,
 		testpolicy.NewPolicyMetricsNoop(),
 	)
-	fetcher := testcompute.InstantiateCellForTesting(t, logger, "endpointmanager", t.Name(), repo, idmgr)
+	fetcher := testcompute.InstantiateCellForTesting(t, logger, "endpointmanager", "endpoint policy updates", repo, idmgr)
 
 	oldPolicyMode := policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
@@ -297,64 +297,61 @@ func newUpdatePolicyMapsTestEndpoint(t *testing.T, mgr *endpointManager, repo po
 	return ep
 }
 
-func TestUpdatePolicyMapsFinalizesDeferredNetworkPolicyCallbacksAfterSuccessfulWait(t *testing.T) {
-	logger := hivetest.Logger(t)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-	repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t, true)
-	proxy := newRecordingEndpointProxy()
+func TestUpdatePolicyMapsResolvesDeferredNetworkPolicyCallbacks(t *testing.T) {
+	for _, tt := range []struct {
+		name          string
+		waitErr       error
+		wantReverts   int
+		wantFinalizes int
+	}{
+		{name: "successful wait", wantFinalizes: 1},
+		{name: "proxy rejection", waitErr: errors.New("proxy wait failed"), wantReverts: 1},
+		{name: "timeout", waitErr: context.DeadlineExceeded, wantFinalizes: 1},
+		{name: "cancellation", waitErr: context.Canceled, wantReverts: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
+			repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t, true)
+			proxy := newRecordingEndpointProxy()
 
-	ep1 := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 101, netip.MustParseAddr("10.0.0.1"))
-	ep2 := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 102, netip.MustParseAddr("10.0.0.2"))
+			ep1 := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 101, netip.MustParseAddr("10.0.0.1"))
+			ep2 := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 102, netip.MustParseAddr("10.0.0.2"))
 
-	proxy.expectUpdates(2)
+			proxy.expectUpdates(2)
+			if errors.Is(tt.waitErr, context.DeadlineExceeded) {
+				mgr.config.EndpointPolicyUpdateTimeout = 100 * time.Millisecond
+			}
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			errCh := make(chan error, 1)
+			go func() {
+				errCh <- mgr.UpdatePolicyMaps(ctx)
+			}()
 
-	errCh := make(chan error, 1)
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		errCh <- mgr.UpdatePolicyMaps(ctx)
-	}()
+			proxy.waitForUpdates(t)
+			switch {
+			case tt.waitErr == nil:
+				require.Zero(t, proxy.totalCallbackCount())
+				proxy.completeUpdate(t, ep1.GetID(), nil)
+				proxy.completeUpdate(t, ep2.GetID(), nil)
+			case errors.Is(tt.waitErr, context.DeadlineExceeded):
+				// Leave both updates pending until the configured timeout expires.
+			case errors.Is(tt.waitErr, context.Canceled):
+				require.Zero(t, proxy.totalCallbackCount())
+				cancel()
+			default:
+				require.Zero(t, proxy.totalCallbackCount())
+				proxy.completeUpdate(t, ep1.GetID(), tt.waitErr)
+			}
 
-	proxy.waitForUpdates(t)
-	require.Zero(t, proxy.totalCallbackCount())
-
-	proxy.completeUpdate(t, ep1.GetID(), nil)
-	proxy.completeUpdate(t, ep2.GetID(), nil)
-
-	require.NoError(t, <-errCh)
-	require.Equal(t, 0, proxy.revertCount(ep1.GetID()))
-	require.Equal(t, 0, proxy.revertCount(ep2.GetID()))
-	require.Equal(t, 1, proxy.finalizeCount(ep1.GetID()))
-	require.Equal(t, 1, proxy.finalizeCount(ep2.GetID()))
-}
-
-func TestUpdatePolicyMapsRevertsDeferredNetworkPolicyCallbacksAfterProxyWaitFailure(t *testing.T) {
-	logger := hivetest.Logger(t)
-	mgr := New(logger, nil, &dummyEpSyncher{}, nil, nil, nil, defaultEndpointManagerConfig)
-	repo, idmgr, fetcher := newUpdatePolicyMapsTestRepo(t, true)
-	proxy := newRecordingEndpointProxy()
-
-	ep1 := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 201, netip.MustParseAddr("10.0.1.1"))
-	ep2 := newUpdatePolicyMapsTestEndpoint(t, mgr, repo, idmgr, fetcher, proxy, 202, netip.MustParseAddr("10.0.1.2"))
-
-	proxy.expectUpdates(2)
-
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- mgr.UpdatePolicyMaps(t.Context())
-	}()
-
-	proxy.waitForUpdates(t)
-	require.Zero(t, proxy.totalCallbackCount())
-
-	proxy.completeUpdate(t, ep1.GetID(), errors.New("proxy wait failed"))
-
-	err := <-errCh
-	require.Error(t, err)
-	require.Equal(t, 1, proxy.revertCount(ep1.GetID()))
-	require.Equal(t, 1, proxy.revertCount(ep2.GetID()))
-	require.Equal(t, 0, proxy.finalizeCount(ep1.GetID()))
-	require.Equal(t, 0, proxy.finalizeCount(ep2.GetID()))
+			require.ErrorIs(t, <-errCh, tt.waitErr)
+			for _, ep := range []*endpoint.Endpoint{ep1, ep2} {
+				require.Equal(t, tt.wantReverts, proxy.revertCount(ep.GetID()))
+				require.Equal(t, tt.wantFinalizes, proxy.finalizeCount(ep.GetID()))
+			}
+		})
+	}
 }
 
 func TestUpdatePolicyMapsDoesNotDeferCallbacksForSynchronousApplyFailure(t *testing.T) {

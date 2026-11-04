@@ -587,17 +587,6 @@ func parseENI(iface *ec2_types.NetworkInterface, vpcs ipamTypes.VirtualNetworkMa
 		if err != nil {
 			return "", nil, fmt.Errorf("unable to parse ENI Ipv4 prefix %q: %w", prefixStr, err)
 		}
-		ips, e := iputil.PrefixToIps(prefixStr, 0)
-		if e != nil {
-			return "", nil, fmt.Errorf("unable to expand ENI Ipv4 prefix %s: %w", prefixStr, e)
-		}
-		for _, ipStr := range ips {
-			a, err := netip.ParseAddr(ipStr)
-			if err != nil {
-				return "", nil, fmt.Errorf("unable to parse ENI prefix IP %q: %w", ipStr, err)
-			}
-			eni.Addresses = append(eni.Addresses, iputil.AddrFrom(a))
-		}
 		eni.Prefixes = append(eni.Prefixes, iputil.PrefixFrom(p))
 	}
 

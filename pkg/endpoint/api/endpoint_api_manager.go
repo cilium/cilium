@@ -52,10 +52,11 @@ type EndpointAPIManager interface {
 type endpointAPIManager struct {
 	logger *slog.Logger
 
-	endpointManager   endpointmanager.EndpointManager
-	endpointCreator   endpointcreator.EndpointCreator
-	endpointCreations EndpointCreationManager
-	endpointMetadata  endpointmetadata.EndpointMetadataFetcher
+	endpointManager       endpointmanager.EndpointManager
+	endpointCreator       endpointcreator.EndpointCreator
+	endpointCreations     EndpointCreationManager
+	endpointMetadata      endpointmetadata.EndpointMetadataFetcher
+	endpointRoutingWaiter endpointmanager.EndpointRoutingWaiter
 
 	bandwidthManager bandwidth.Manager
 	clientset        k8sClient.Clientset
@@ -115,7 +116,7 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 		// Delegate routing to the Linux stack rather than tail-calling
 		// between BPF programs.
 		disabled := false
-		epTemplate.DatapathConfiguration.RequireRouting = &disabled
+		epTemplate.DatapathConfiguration.RequireBPFRouting = &disabled
 	}
 
 	m.logger.Info("Create endpoint request",
@@ -336,6 +337,10 @@ func (m *endpointAPIManager) CreateEndpoint(ctx context.Context, epTemplate *mod
 		if err := ep.WaitForFirstRegeneration(ctx); err != nil {
 			return m.errorDuringCreation(ep, err)
 		}
+	}
+
+	if err := m.endpointRoutingWaiter.WaitForEndpointRouting(ctx, ep); err != nil {
+		return m.errorDuringCreation(ep, fmt.Errorf("unable to reconcile endpoint routing: %w", err))
 	}
 
 	// The endpoint has been successfully created, stop the expiration

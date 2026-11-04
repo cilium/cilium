@@ -245,16 +245,17 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 	for l4, policySelectorTuple := range selectorPolicy.RedirectFilters() {
 		// Possible listener name for both the proxy ID and the proxyPolicy below.
 		listener := policySelectorTuple.Policy.GetListener()
+		parser := policySelectorTuple.Policy.GetL7Parser()
 
 		n := 0
-		for proxyID, dstPort := range e.proxyIDs(selectorPolicy, l4, listener, selectors) {
+		for proxyID, dstPort := range e.proxyIDs(selectorPolicy, l4, parser, listener, selectors) {
 			n++
 			// desiredRedirects starts out empty, so we can use it to check if this
 			// redirect has already been updated on this round.
 			if desiredRedirects[proxyID] != 0 {
 				continue
 			}
-			pp := newProxyPolicy(l4, policySelectorTuple.Policy.L7Parser, listener, dstPort, l4.U8Proto)
+			pp := newProxyPolicy(l4, parser, listener, dstPort, l4.U8Proto)
 			proxyPort, err, revertFunc := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, proxyWaitGroup)
 			if err != nil {
 				// Skip redirects that can not be created or updated.  This
@@ -285,7 +286,7 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 			// Update the endpoint API model to report that Cilium manages a
 			// redirect for that port.
 			statsKey := policy.ProxyStatsKey(l4.Ingress, string(l4.Protocol), dstPort, proxyPort)
-			proxyStats := e.getProxyStatistics(statsKey, string(policySelectorTuple.Policy.L7Parser), dstPort, l4.Ingress, proxyPort)
+			proxyStats := e.getProxyStatistics(statsKey, string(parser), dstPort, l4.Ingress, proxyPort)
 			updatedStats = append(updatedStats, proxyStats)
 		}
 		// count missing proxy port mapping as skipped
@@ -309,6 +310,46 @@ func (e *Endpoint) addNewRedirects(selectorPolicy policy.SelectorPolicy, proxyWa
 	return desiredRedirects, skipped, revertStack.Revert
 }
 
+// applyDNSRedirectUpdatesLocked refreshes DNS proxy rules for the endpoint after an incremental
+// identity update. The DNS proxy rules include the identities selected by each policy selector, so
+// they must be refreshed alongside the policy map when those selections change.
+//
+// Must be called with the endpoint lock held.
+func (e *Endpoint) applyDNSRedirectUpdatesLocked() {
+	if e.isPropertyLocked(endpointtypes.PropertyFakeEndpoint) || e.IsProxyDisabled() {
+		return
+	}
+
+	selectorPolicy := e.desiredPolicy.SelectorPolicy
+	selectors := selectorPolicy.GetSelectorSnapshot()
+	updated := make(map[string]struct{})
+	for l4, policySelectorTuple := range selectorPolicy.RedirectFilters() {
+		parser := policySelectorTuple.Policy.GetL7Parser()
+		if parser != policy.ParserTypeDNS {
+			continue
+		}
+
+		listener := policySelectorTuple.Policy.GetListener()
+		for proxyID, dstPort := range e.proxyIDs(selectorPolicy, l4, parser, listener, selectors) {
+			if e.desiredPolicy.Redirects[proxyID] == 0 {
+				continue
+			}
+			if _, ok := updated[proxyID]; ok {
+				continue
+			}
+			updated[proxyID] = struct{}{}
+
+			pp := newProxyPolicy(l4, parser, listener, dstPort, l4.U8Proto)
+			if _, err, _ := e.proxy.CreateOrUpdateRedirect(e.aliveCtx, &pp, proxyID, e.ID, nil); err != nil {
+				e.getLogger().Warn("Failed to refresh DNS proxy rules after identity change",
+					logfields.Error, err,
+					logfields.Listener, listener,
+				)
+			}
+		}
+	}
+}
+
 // Must be called with endpoint.mutex locked for writing, as this calls back to
 // 'e.OnDNSPolicyUpdateLocked()'.
 func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[string]uint16) {
@@ -330,7 +371,7 @@ func (e *Endpoint) removeOldRedirects(desiredRedirects, realizedRedirects map[st
 		// active or known for that port anymore. We never delete stats
 		// until an endpoint is deleted, so we only set the redirect port
 		// to 0.
-		_, ingress, protocol, port, _, _ := policy.ParseProxyID(id)
+		_, ingress, protocol, port, _, _, _ := policy.ParseProxyID(id)
 		key := policy.ProxyStatsKey(ingress, protocol, port, redirectPort)
 		e.proxyStatisticsMutex.Lock()
 		if proxyStats, ok := e.proxyStatistics[key]; ok {
@@ -380,19 +421,20 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	datapathRegenCtxt.prepareForProxyUpdates(regenContext.parentContext)
-	defer datapathRegenCtxt.completionCancel()
+	defer func() {
+		datapathRegenCtxt.completionCancel()
+		// Canceling the parent context alone does not finish callbacks or owner
+		// cleanup. Cancel the WaitGroup for early error returns and on a fake Endpoints
+		// for which we do not Wait.
+		datapathRegenCtxt.proxyWaitGroup.Cancel()
+
+		// Ignore finalizing of proxy state in dry mode.
+		if !e.IsProperty(endpointtypes.PropertyFakeEndpoint) {
+			e.finalizeEndpointRegeneration(regenContext, reterr)
+		}
+	}()
 
 	err = e.runPreCompilationSteps(regenContext)
-
-	// Ignore finalizing of proxy state in dry mode.
-	if !e.IsProperty(endpointtypes.PropertyFakeEndpoint) {
-		// Keep track of the side-effects of the regeneration that need to be
-		// reverted in case of failure.
-		// Also keep track of the regeneration finalization code that can't be
-		// reverted, and execute it in case of regeneration success.
-		defer e.finalizeEndpointRegeneration(regenContext, reterr)
-	}
-
 	if err != nil {
 		return 0, err
 	}
@@ -456,7 +498,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		}
 
 		stats.proxyWaitForAck.Start()
-		err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
+		err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup)
 		stats.proxyWaitForAck.End(err == nil)
 		if err != nil {
 			return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
@@ -503,7 +545,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	}
 
 	stats.proxyWaitForAck.Start()
-	err = e.waitForProxyCompletions(datapathRegenCtxt.proxyWaitGroup)
+	err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup)
 	stats.proxyWaitForAck.End(err == nil)
 	if err != nil {
 		return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
@@ -624,6 +666,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	if err != nil {
 		return err
 	}
+	secID := e.getIdentity()
 	identityRevision := e.identityRevision
 	e.unlock()
 	policyRevision := e.policyRepo.GetRevision()
@@ -631,12 +674,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (pr
 	// regenerate policy without holding the lock.
 	// This is because policy generation needs the ipcache to make progress, and the ipcache
 	// needs to call endpoint.ApplyPolicyMapChanges()
-	// Computed only if not already done earlier, or if policy has updated since the policy was
-	// computed.
-	if datapathRegenCtxt.policyResult == nil ||
-		datapathRegenCtxt.policyResult.endpointPolicy == nil ||
-		datapathRegenCtxt.policyResult.identityRevision < identityRevision ||
-		datapathRegenCtxt.policyResult.policyRevision < policyRevision {
+	if !datapathRegenCtxt.isPolicyResultCurrent(secID, identityRevision, policyRevision) {
 		stats.policyCalculation.Start()
 		err := e.regeneratePolicy(stats, datapathRegenCtxt)
 		stats.policyCalculation.End(err == nil)
@@ -1178,6 +1216,19 @@ func (e *Endpoint) applyPolicyMapChangesLocked(regenContext *regenerationContext
 		return nil
 	}
 
+	if len(changes.Adds) > 0 || len(changes.Deletes) > 0 {
+		// DNS proxy rules contain a snapshot of the identities selected by each policy
+		// selector. Refresh them before changing the BPF policy map, so the proxy is ready
+		// when the datapath starts allowing the new entries.
+		//
+		// This must happen regardless of hasNewPolicy: the selector policy may have
+		// received incremental identity updates between the DNS redirects being populated
+		// during full policy regeneration (addNewRedirects) and the consumption of those
+		// changes here. ConsumeMapChanges above already drained them from the pending
+		// queue.
+		e.applyDNSRedirectUpdatesLocked()
+	}
+
 	if hasNewPolicy {
 		// A full bpf map sync will be done for a new policy after proxy has ACKed the
 		// redirects and network policy.
@@ -1586,12 +1637,12 @@ func (e *Endpoint) RequireEgressProg() bool {
 	return e.DatapathConfiguration.RequireEgressProg
 }
 
-// RequireRouting returns true if the endpoint requires BPF routing to be
+// RequireBPFRouting returns true if the endpoint requires BPF routing to be
 // enabled, when disabled, routing is delegated to Linux routing
-func (e *Endpoint) RequireRouting() (required bool) {
+func (e *Endpoint) RequireBPFRouting() (required bool) {
 	required = true
-	if e.DatapathConfiguration.RequireRouting != nil {
-		required = *e.DatapathConfiguration.RequireRouting
+	if e.DatapathConfiguration.RequireBPFRouting != nil {
+		required = *e.DatapathConfiguration.RequireBPFRouting
 	}
 	return
 }

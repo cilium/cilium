@@ -19,6 +19,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 	newTest("pod-to-pod-encryption-v2", ct).
 		WithMultiNodeOnly().
 		WithCiliumVersion(">=1.18.0").
+		WithHostNetNSDaemonSet().
 		WithFeatureRequirements(features.RequireDisabled(features.Ztunnel)).
 		WithScenarios(
 			tests.PodToPodEncryptionV2(),
@@ -27,6 +28,7 @@ func (t podToPodEncryptionV2) build(ct *check.ConnectivityTest, _ map[string]str
 	newTest("pod-to-pod-with-l7-policy-encryption-v2", ct).
 		WithMultiNodeOnly().
 		WithCiliumVersion(">=1.18.0").
+		WithHostNetNSDaemonSet().
 		WithFeatureRequirements(
 			features.RequireEnabled(features.L7Proxy),
 			features.RequireEnabled(features.EncryptionPod),

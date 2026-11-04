@@ -6,7 +6,7 @@ package armnetwork
 
 const (
 	version20181001 string = "2018-10-01"
-	version20260101 string = "2026-01-01"
+	version20260301 string = "2026-03-01"
 )
 
 // Access - Access to be allowed or denied.
@@ -1762,6 +1762,39 @@ func PossibleCustomIPPrefixTypeValues() []CustomIPPrefixType {
 	}
 }
 
+// DdosContinent - A continent used for DDoS geographic source matching.
+type DdosContinent string
+
+const (
+	// DdosContinentAfrica - Matches traffic originating from countries and territories in Africa.
+	DdosContinentAfrica DdosContinent = "Africa"
+	// DdosContinentAntarctica - Matches traffic originating from Antarctica.
+	DdosContinentAntarctica DdosContinent = "Antarctica"
+	// DdosContinentAsia - Matches traffic originating from countries and territories in Asia.
+	DdosContinentAsia DdosContinent = "Asia"
+	// DdosContinentEurope - Matches traffic originating from countries and territories in Europe.
+	DdosContinentEurope DdosContinent = "Europe"
+	// DdosContinentNorthAmerica - Matches traffic originating from countries and territories in North America.
+	DdosContinentNorthAmerica DdosContinent = "NorthAmerica"
+	// DdosContinentOceania - Matches traffic originating from countries and territories in Oceania.
+	DdosContinentOceania DdosContinent = "Oceania"
+	// DdosContinentSouthAmerica - Matches traffic originating from countries and territories in South America.
+	DdosContinentSouthAmerica DdosContinent = "SouthAmerica"
+)
+
+// PossibleDdosContinentValues returns the possible values for the DdosContinent const type.
+func PossibleDdosContinentValues() []DdosContinent {
+	return []DdosContinent{
+		DdosContinentAfrica,
+		DdosContinentAntarctica,
+		DdosContinentAsia,
+		DdosContinentEurope,
+		DdosContinentNorthAmerica,
+		DdosContinentOceania,
+		DdosContinentSouthAmerica,
+	}
+}
+
 // DdosDetectionMode - The detection mode for the DDoS detection rule.
 type DdosDetectionMode string
 
@@ -1774,6 +1807,24 @@ const (
 func PossibleDdosDetectionModeValues() []DdosDetectionMode {
 	return []DdosDetectionMode{
 		DdosDetectionModeTrafficThreshold,
+	}
+}
+
+// DdosMitigationTrafficScope - The traffic protocol to which a DDoS mitigation rule applies.
+type DdosMitigationTrafficScope string
+
+const (
+	// DdosMitigationTrafficScopeTCP - TCP traffic.
+	DdosMitigationTrafficScopeTCP DdosMitigationTrafficScope = "Tcp"
+	// DdosMitigationTrafficScopeUDP - UDP traffic.
+	DdosMitigationTrafficScopeUDP DdosMitigationTrafficScope = "Udp"
+)
+
+// PossibleDdosMitigationTrafficScopeValues returns the possible values for the DdosMitigationTrafficScope const type.
+func PossibleDdosMitigationTrafficScopeValues() []DdosMitigationTrafficScope {
+	return []DdosMitigationTrafficScope{
+		DdosMitigationTrafficScopeTCP,
+		DdosMitigationTrafficScopeUDP,
 	}
 }
 
@@ -1795,6 +1846,24 @@ func PossibleDdosSettingsProtectionModeValues() []DdosSettingsProtectionMode {
 		DdosSettingsProtectionModeDisabled,
 		DdosSettingsProtectionModeEnabled,
 		DdosSettingsProtectionModeVirtualNetworkInherited,
+	}
+}
+
+// DdosSourcePolicyActionType - The action applied to traffic matching a source policy override.
+type DdosSourcePolicyActionType string
+
+const (
+	// DdosSourcePolicyActionTypeDeny - Deny traffic from matching sources.
+	DdosSourcePolicyActionTypeDeny DdosSourcePolicyActionType = "Deny"
+	// DdosSourcePolicyActionTypePermit - Permit traffic from matching sources.
+	DdosSourcePolicyActionTypePermit DdosSourcePolicyActionType = "Permit"
+)
+
+// PossibleDdosSourcePolicyActionTypeValues returns the possible values for the DdosSourcePolicyActionType const type.
+func PossibleDdosSourcePolicyActionTypeValues() []DdosSourcePolicyActionType {
+	return []DdosSourcePolicyActionType{
+		DdosSourcePolicyActionTypeDeny,
+		DdosSourcePolicyActionTypePermit,
 	}
 }
 
@@ -2327,6 +2396,25 @@ func PossibleExpressRouteFailoverLinkTypeValues() []ExpressRouteFailoverLinkType
 	return []ExpressRouteFailoverLinkType{
 		ExpressRouteFailoverLinkTypePrimary,
 		ExpressRouteFailoverLinkTypeSecondary,
+	}
+}
+
+// ExpressRouteLagAuthorizationUseStatus - The authorization use status.
+type ExpressRouteLagAuthorizationUseStatus string
+
+const (
+	// ExpressRouteLagAuthorizationUseStatusAvailable - The authorization is available and not currently associated with an ExpressRoute
+	// circuit.
+	ExpressRouteLagAuthorizationUseStatusAvailable ExpressRouteLagAuthorizationUseStatus = "Available"
+	// ExpressRouteLagAuthorizationUseStatusInUse - The authorization is currently in use by an ExpressRoute circuit.
+	ExpressRouteLagAuthorizationUseStatusInUse ExpressRouteLagAuthorizationUseStatus = "InUse"
+)
+
+// PossibleExpressRouteLagAuthorizationUseStatusValues returns the possible values for the ExpressRouteLagAuthorizationUseStatus const type.
+func PossibleExpressRouteLagAuthorizationUseStatusValues() []ExpressRouteLagAuthorizationUseStatus {
+	return []ExpressRouteLagAuthorizationUseStatus{
+		ExpressRouteLagAuthorizationUseStatusAvailable,
+		ExpressRouteLagAuthorizationUseStatusInUse,
 	}
 }
 
@@ -6019,6 +6107,51 @@ func PossibleVerbosityLevelValues() []VerbosityLevel {
 		VerbosityLevelFull,
 		VerbosityLevelMinimum,
 		VerbosityLevelNormal,
+	}
+}
+
+// VirtualNetworkApplianceCapabilityIPVersion - The IP versions a virtual network appliance capability can apply to. See `ipVersion`
+// on
+// VirtualNetworkApplianceCapabilityProperties for the per-`kind` constraint.
+type VirtualNetworkApplianceCapabilityIPVersion string
+
+const (
+	// VirtualNetworkApplianceCapabilityIPVersionDualStack - Dual stack (both IPv4 and IPv6).
+	VirtualNetworkApplianceCapabilityIPVersionDualStack VirtualNetworkApplianceCapabilityIPVersion = "DualStack"
+	// VirtualNetworkApplianceCapabilityIPVersionIPv6 - Single stack IPv6 only.
+	VirtualNetworkApplianceCapabilityIPVersionIPv6 VirtualNetworkApplianceCapabilityIPVersion = "IPv6"
+)
+
+// PossibleVirtualNetworkApplianceCapabilityIPVersionValues returns the possible values for the VirtualNetworkApplianceCapabilityIPVersion const type.
+func PossibleVirtualNetworkApplianceCapabilityIPVersionValues() []VirtualNetworkApplianceCapabilityIPVersion {
+	return []VirtualNetworkApplianceCapabilityIPVersion{
+		VirtualNetworkApplianceCapabilityIPVersionDualStack,
+		VirtualNetworkApplianceCapabilityIPVersionIPv6,
+	}
+}
+
+// VirtualNetworkApplianceCapabilityKind - The kinds of virtual network appliance capability. The value is the top-level `kind`
+// discriminator.
+type VirtualNetworkApplianceCapabilityKind string
+
+const (
+	// VirtualNetworkApplianceCapabilityKindNAT64 - NAT64 (stateful IPv6-to-IPv4 translation).
+	VirtualNetworkApplianceCapabilityKindNAT64 VirtualNetworkApplianceCapabilityKind = "NAT64"
+	// VirtualNetworkApplianceCapabilityKindPLGateway - Private Link Gateway (slow-path).
+	VirtualNetworkApplianceCapabilityKindPLGateway VirtualNetworkApplianceCapabilityKind = "PLGateway"
+	// VirtualNetworkApplianceCapabilityKindPLGatewayFastpath - Private Link Gateway FastPath.
+	VirtualNetworkApplianceCapabilityKindPLGatewayFastpath VirtualNetworkApplianceCapabilityKind = "PLGatewayFastpath"
+	// VirtualNetworkApplianceCapabilityKindPLIPForwarders - Private Link IP-forwarders (NVA).
+	VirtualNetworkApplianceCapabilityKindPLIPForwarders VirtualNetworkApplianceCapabilityKind = "PLIPForwarders"
+)
+
+// PossibleVirtualNetworkApplianceCapabilityKindValues returns the possible values for the VirtualNetworkApplianceCapabilityKind const type.
+func PossibleVirtualNetworkApplianceCapabilityKindValues() []VirtualNetworkApplianceCapabilityKind {
+	return []VirtualNetworkApplianceCapabilityKind{
+		VirtualNetworkApplianceCapabilityKindNAT64,
+		VirtualNetworkApplianceCapabilityKindPLGateway,
+		VirtualNetworkApplianceCapabilityKindPLGatewayFastpath,
+		VirtualNetworkApplianceCapabilityKindPLIPForwarders,
 	}
 }
 

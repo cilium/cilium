@@ -35,6 +35,22 @@ const (
 	SizeofCnMsgOp        = 0x18
 )
 
+const (
+	NHA_RES_GROUP  = 12 // Nest containing attributes specific to resilient groups
+	NHA_RES_BUCKET = 13 // Nest containing attributes specific to buckets
+)
+
+const (
+	NHA_RES_GROUP_UNSPEC           = iota
+	NHA_RES_GROUP_BUCKETS          // u16: Number of buckets in the hash table
+	NHA_RES_GROUP_IDLE_TIMER       // u32: Idle timer in units of clock_t
+	NHA_RES_GROUP_UNBALANCED_TIMER // u32: Unbalanced timer in units of clock_t
+	NHA_RES_GROUP_UNBALANCED_TIME  // u64: Time out of balance (read-only for dumps)
+)
+
+// NHA_RES_GROUP_PAD is padding attribute
+const NHA_RES_GROUP_PAD = NHA_RES_GROUP_UNSPEC
+
 // SupportedNlFamilies contains the list of netlink families this netlink package supports
 var SupportedNlFamilies = []int{unix.NETLINK_ROUTE, unix.NETLINK_XFRM, unix.NETLINK_NETFILTER}
 

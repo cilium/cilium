@@ -192,9 +192,9 @@ framework:
 
   - :ref:`Instructions for building the documentation locally
     <testing-documentation>`
-  - ``Documentation/Makefile``, ``Documentation/Dockerfile``,
+  - ``Documentation/Makefile``, ``images/docs-builder/Dockerfile``,
     ``Documentation/check-build.sh``
-  - Dependencies are in ``Documentation/requirements.txt``, which is generated
+  - Dependencies are in ``images/docs-builder/requirements.txt``, which is generated
     from ``Documentation/requirements_min/requirements.txt``
   - The Sphinx theme we use is `our own fork <cilium_rtd_theme_>`_ of Read the
     Docs's theme
@@ -226,20 +226,6 @@ The Checkpatch workflow is part of the BPF tests and is not directly relevant
 to documentation, but may raise some patch formatting issues, for example when
 the commit title is too long. So it should run on doc-only PRs, like for any
 other PR.
-
-Integration tests
-~~~~~~~~~~~~~~~~~
-
-Integration tests, be it on Travis or on GitHub Actions, are the only workflows
-that rebuild the ``docs-builder`` image. Building this image is necessary to
-validate changes to the ``Documentation/Dockerfile`` or to the list of Python
-dependencies located in ``Documentation/requirements.txt``. The GitHub workflow
-uses a pre-built image instead, and won't incorporate changes to these files.
-
-Integration tests also run a full build in the Cilium repository, including the
-post-build checks, in particular ``Documentation/Makefile``'s ``check`` target.
-Therefore, integration tests are able to raise inconsistencies in
-auto-generated files in the documentation.
 
 Ready to merge
 --------------

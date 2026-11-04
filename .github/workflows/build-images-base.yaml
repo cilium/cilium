@@ -18,6 +18,11 @@ on:
   # run from a different environment than 'release-base-images'. See
   # build-images-base-renovate.yaml
   workflow_call:
+    secrets:
+      AUTO_COMMITTER_PEM_202411:
+        required: true
+      AUTO_COMMITTER_APP_ID_202411:
+        required: true
     inputs:
       environment:
         required: true
@@ -151,7 +156,7 @@ jobs:
 
       - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-runtime-tag-in-repositories.outputs.exists == 'false' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ${{ env.REGISTRY_DEV }}
           username: ${{ vars.QUAY_ROBOT_BASE }}
@@ -263,7 +268,7 @@ jobs:
 
       - name: Login to ${{ env.REGISTRY_DEV }}
         if: ${{ steps.cilium-builder-tag-in-repositories.outputs.exists == 'false' && steps.cilium-runtime-tag-in-repositories.outputs.exists != 'false' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ${{ env.REGISTRY_DEV }}
           username: ${{ vars.QUAY_ROBOT_BASE }}
@@ -393,7 +398,18 @@ jobs:
             fi
           fi
           git diff HEAD^
-          git push https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git HEAD:$ref
+          url="https://x-access-token:${{ steps.get_token.outputs.app_token }}@github.com/${{ env.repository }}.git"
+          for attempt in 1 2 3; do
+            if git push "${url}" HEAD:"$ref"; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              exit 1
+            fi
+            # The docs-builder workflow can push to the same Renovate branch.
+            git fetch "${url}" "$ref"
+            git rebase FETCH_HEAD
+          done
 
       - name: Prepare for Image Digests
         shell: bash

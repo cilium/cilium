@@ -4,12 +4,10 @@
 package config
 
 import (
-	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -54,13 +52,9 @@ func TestNodeConfigIPMasqAgentIPv4(t *testing.T) {
 
 func TestNodeConfigNAT46X64Prefix(t *testing.T) {
 	oldEnabled := option.Config.EnableNat46X64Gateway
-	oldBase := option.Config.IPv6NAT46x64CIDRBase
 	t.Cleanup(func() {
 		option.Config.EnableNat46X64Gateway = oldEnabled
-		option.Config.IPv6NAT46x64CIDRBase = oldBase
 	})
-
-	option.Config.IPv6NAT46x64CIDRBase = netip.MustParsePrefix(defaults.IPv6NAT46x64CIDR).Masked().Addr()
 
 	option.Config.EnableNat46X64Gateway = false
 	assert.Equal(t, [4]byte{}, NodeConfig(&Config{}).NAT46X64Prefix.Addr)

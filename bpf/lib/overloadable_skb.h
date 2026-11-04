@@ -145,7 +145,7 @@ static __always_inline bool ctx_snat_done(const struct __sk_buff *ctx)
 
 static __always_inline bool ctx_is_overlay(const struct __sk_buff *ctx)
 {
-	if (!is_defined(HAVE_ENCAP))
+	if (!HAVE_ENCAP)
 		return false;
 
 	return (ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_OVERLAY;

@@ -330,6 +330,30 @@ func TestWaitSkipsSupersededPolicy(t *testing.T) {
 	live.ReleaseHold()
 }
 
+func TestIsPolicyResultCurrent(t *testing.T) {
+	res := &policyGenerateResult{identity: 100, identityRevision: 1, policyRevision: 10}
+	for _, tc := range []struct {
+		name             string
+		result           *policyGenerateResult
+		identity         identity.NumericIdentity
+		identityRevision int
+		policyRevision   uint64
+		current          bool
+	}{
+		{"no policy computed", nil, 100, 1, 10, false},
+		{"unchanged", res, 100, 1, 10, true},
+		{"older policy revision", res, 100, 1, 9, true},
+		{"identity revision changed", res, 100, 2, 10, false},
+		{"identity changed", res, 101, 1, 10, false},
+		{"policy changed", res, 100, 1, 11, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := &datapathRegenerationContext{policyResult: tc.result}
+			require.Equal(t, tc.current, ctx.isPolicyResultCurrent(tc.identity, tc.identityRevision, tc.policyRevision))
+		})
+	}
+}
+
 // A duplicate regeneration trigger is skipped, but the queued regeneration must
 // still wait for the highest revision that was skipped.
 func TestSkippedPolicyRevision(t *testing.T) {

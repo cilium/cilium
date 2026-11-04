@@ -5,9 +5,11 @@ package orchestrator
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"reflect"
 	"sync/atomic"
 
 	"github.com/cilium/hive/cell"
@@ -57,6 +59,9 @@ const (
 
 	// reinitRetryDuration is the time to wait before retrying failed reinitialization.
 	reinitRetryDuration = 10 * time.Second
+
+	// datapathInitDeadline matches the default startupProbe budget, failureThreshold 300 at periodSeconds 2.
+	datapathInitDeadline = 10 * time.Minute
 )
 
 var DefaultConfig = Config{
@@ -219,13 +224,15 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 	}
 
 	var (
-		request   = reinitializeRequest{ctx: ctx}
-		retryChan <-chan time.Time
+		request          = reinitializeRequest{ctx: ctx}
+		retryChan        <-chan time.Time
+		firstInitFailure time.Time
+		giveUp           error
 	)
 	for {
 		var (
-			localNodeConfig      config.Config
-			localNodeConfigWatch <-chan struct{}
+			localNodeConfig        config.Config
+			localNodeConfigWatches []<-chan struct{}
 		)
 
 		// Re-run this on every reconciliation to update the tunnel MTU or
@@ -239,7 +246,7 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 			health.Degraded("Failed to ensure IPIP devices", err)
 			retryChan = time.After(reinitRetryDuration)
 		} else {
-			localNodeConfig, localNodeConfigWatch, err = newLocalNodeConfig(
+			localNodeConfig, localNodeConfigWatches, err = newLocalNodeConfig(
 				ctx,
 				option.Config,
 				localNode,
@@ -272,6 +279,14 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 				if prevConfig == nil || !prevConfig.DeepEqual(&localNodeConfig) {
 					err = o.reinitialize(request.ctx, &localNodeConfig)
 					if err != nil {
+						// Only the first initialization gets a deadline; a later failure keeps the last good config.
+						if !o.initDone && !errors.Is(err, context.Canceled) {
+							if firstInitFailure.IsZero() {
+								firstInitFailure = time.Now()
+							} else if waited := time.Since(firstInitFailure); waited > datapathInitDeadline {
+								giveUp = fmt.Errorf("datapath not initialized after %s: %w", waited.Round(time.Second), err)
+							}
+						}
 						o.params.Log.Warn("Failed to initialize datapath, retrying later",
 							logfields.Error, err,
 							logfields.RetryDelay, reinitRetryDuration,
@@ -293,14 +308,41 @@ func (o *orchestrator) reconciler(ctx context.Context, health cell.Health) error
 		}
 		request = reinitializeRequest{ctx: ctx}
 
-		select {
-		case <-ctx.Done():
+		if giveUp != nil {
+			return giveUp
+		}
+
+		// Wait on all event sources with a single select. The statedb watch
+		// channels are variable in number, so the select is built with reflect;
+		// the index of each case is derived from the statement that adds it.
+		cases := make([]reflect.SelectCase, 0, 5+len(localNodeConfigWatches))
+		add := func(ch any) int {
+			cases = append(cases, reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ch)})
+			return len(cases) - 1
+		}
+		ctxCase := add(ctx.Done())
+		retryCase := add(retryChan)
+		localNodesCase := add(localNodes)
+		triggerCase := add(o.trigger)
+		add(ipipWatch)
+		for _, watch := range localNodeConfigWatches {
+			add(watch)
+		}
+
+		chosen, value, ok := reflect.Select(cases)
+		switch chosen {
+		case ctxCase:
 			return ctx.Err()
-		case <-ipipWatch:
-		case <-localNodeConfigWatch:
-		case <-retryChan:
-		case localNode = <-localNodes:
-		case request = <-o.trigger:
+		case retryCase:
+			// Retry immediately after the rate limiter below.
+		case localNodesCase:
+			if !ok {
+				// localNodes is closed when ctx is cancelled.
+				return ctx.Err()
+			}
+			localNode = value.Interface().(node.LocalNode)
+		case triggerCase:
+			request = value.Interface().(reinitializeRequest)
 		}
 
 		// Limit the rate at which we reinitialize and to give the devs&addrs

@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/cilium/statedb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -23,8 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/node"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -36,25 +37,12 @@ const (
 	localClusterName = "local"
 )
 
-type testObserver struct {
-	nodes      map[string]*nodeTypes.Node
-	nodesMutex lock.RWMutex
-}
-
-func newNodesObserver() *testObserver {
-	return &testObserver{nodes: make(map[string]*nodeTypes.Node)}
-}
-
-func (o *testObserver) NodeUpdated(no nodeTypes.Node) {
-	o.nodesMutex.Lock()
-	o.nodes[no.Fullname()] = &no
-	o.nodesMutex.Unlock()
-}
-
-func (o *testObserver) NodeDeleted(no nodeTypes.Node) {
-	o.nodesMutex.Lock()
-	delete(o.nodes, no.Fullname())
-	o.nodesMutex.Unlock()
+func newNodeWriter(t *testing.T) (*statedb.DB, *node.Writer) {
+	t.Helper()
+	db := statedb.New()
+	nodes, err := node.NewNodeTable(db)
+	require.NoError(t, err)
+	return db, node.NewWriter(hivetest.Logger(t), db, nodes)
 }
 
 func TestMain(m *testing.M) {
@@ -117,12 +105,13 @@ func TestClusterMesh(t *testing.T) {
 	t.Cleanup(func() { ipc.Shutdown() })
 
 	storeFactory := store.NewFactory(hivetest.Logger(t), store.MetricsProvider())
-	nodesObserver := newNodesObserver()
+	nodeDB, nodeWriter := newNodeWriter(t)
 	cm := NewClusterMesh(hivetest.Lifecycle(t), Configuration{
 		Config:                common.Config{ClusterMeshConfig: dir},
 		ClusterInfo:           types.ClusterInfo{ID: localClusterID, Name: localClusterName, MaxConnectedClusters: 255},
 		RemoteClientFactory:   common.DefaultRemoteClientFactory(kvstore.Config{}),
-		NodeObserver:          nodesObserver,
+		DB:                    nodeDB,
+		NodeWriter:            nodeWriter,
 		RemoteIdentityWatcher: mgr,
 		ServiceMerger:         &fakeObserver{},
 		IPCache:               ipc,
@@ -171,9 +160,11 @@ func TestClusterMesh(t *testing.T) {
 
 	// wait for all cm nodes in both clusters to appear in the node list
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		nodesObserver.nodesMutex.RLock()
-		defer nodesObserver.nodesMutex.RUnlock()
-		assert.Len(c, nodesObserver.nodes, 2*len(nodeNames))
+		count := 0
+		for range nodeWriter.Table().All(nodeDB.ReadTxn()) {
+			count++
+		}
+		assert.Equal(c, 2*len(nodeNames), count)
 	}, timeout, tick, "Nodes not watched correctly")
 
 	require.NoError(t, os.Remove(config2), "Failed to remove config file for cluster2")
@@ -185,9 +176,11 @@ func TestClusterMesh(t *testing.T) {
 
 	// wait for the nodes of the removed cluster to disappear
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		nodesObserver.nodesMutex.RLock()
-		defer nodesObserver.nodesMutex.RUnlock()
-		assert.Len(c, nodesObserver.nodes, 1*len(nodeNames))
+		count := 0
+		for range nodeWriter.Table().All(nodeDB.ReadTxn()) {
+			count++
+		}
+		assert.Equal(c, len(nodeNames), count)
 	}, timeout, tick, "Nodes were not drained correctly")
 
 	require.NoError(t, os.Remove(config1), "Failed to remove config file for cluster1")
@@ -200,8 +193,10 @@ func TestClusterMesh(t *testing.T) {
 
 	// wait for the nodes of the removed cluster to disappear
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		nodesObserver.nodesMutex.RLock()
-		defer nodesObserver.nodesMutex.RUnlock()
-		assert.Empty(c, nodesObserver.nodes)
+		count := 0
+		for range nodeWriter.Table().All(nodeDB.ReadTxn()) {
+			count++
+		}
+		assert.Zero(c, count)
 	}, timeout, tick, "Nodes were not drained correctly")
 }

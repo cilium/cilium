@@ -31,7 +31,9 @@ func NewPatchPrefilter(ctx *middleware.Context, handler PatchPrefilterHandler) *
 
 // PatchPrefilter swagger:route PATCH /prefilter prefilter patchPrefilter
 //
-// Update list of CIDRs
+// # Update list of CIDRs
+//
+// Deprecated: This will be removed in the future.
 type PatchPrefilter struct {
 	Context *middleware.Context
 	Handler PatchPrefilterHandler

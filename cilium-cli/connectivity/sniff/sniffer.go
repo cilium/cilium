@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 )
 
 // Mode configures the Sniffer validation mode.
@@ -50,7 +51,7 @@ const (
 	sniffScriptStartTmpl = `
 {
 	# Cleanup any leftover files from previous runs.
-	rm -f {{ .PidPath }} {{ .DumpPath }} {{ .LogPath }}
+	rm -f {{ .PidPath }} {{ .PidPath }}.stopped {{ .DumpPath }} {{ .LogPath }}
 
 	# Start tcpdump directly in background and capture its PID.
 	timeout {{ .KillSeconds }} tcpdump -i {{ .Iface }} -c {{ .PktCount }} --immediate-mode -U -w {{ .DumpPath }} "{{ .Filter }}" > {{ .LogPath }} 2>&1 &
@@ -97,10 +98,12 @@ const (
 	pid=$(cat {{ .PidPath }} )
 
 	# Kill the process if it is still running.
-	# Return an error if tcpdump timed out before capturing any packets.
+	# Return an error if tcpdump timed out before capturing any packets,
+	# unless an earlier run of this script stopped it.
 	if kill -0 $pid 2>/dev/null; then
+		touch {{ .PidPath }}.stopped
 		kill -2 $pid 2>/dev/null
-	elif [ "$(tcpdump -r {{ .DumpPath }} --count 2>/dev/null)" = "0 packets" ]; then
+	elif [ ! -f {{ .PidPath }}.stopped ] && [ "$(tcpdump -r {{ .DumpPath }} --count 2>/dev/null)" = "0 packets" ]; then
 		exit 198
 	else
 		report
@@ -133,6 +136,7 @@ type Sniffer struct {
 	cmd      []string
 	stopCmd  []string
 	once     sync.Once
+	onRetry  func(int, error)
 }
 
 type sniffScriptParams struct {
@@ -148,6 +152,7 @@ type sniffScriptParams struct {
 
 type debugLogger interface {
 	Debugf(string, ...any)
+	LogExecRetry(attempt int, err error)
 }
 
 // Start starts a tcpdump capture on the given pod, listening to the specified
@@ -165,6 +170,7 @@ func Sniff(ctx context.Context, name string, target *check.Pod,
 		logPath:  fmt.Sprintf("/tmp/%s.log", name),
 		pidPath:  fmt.Sprintf("/tmp/%s.pid", name),
 		mode:     mode,
+		onRetry:  dbg.LogExecRetry,
 	}
 
 	// Limit packet capture to avoid large files: 1 in sanity mode, 1000 in assert mode.
@@ -276,13 +282,10 @@ func (sniffer *Sniffer) stop() (err error) {
 		// Finally wrap the resulting command.
 		sniffer.stopCmd = append([]string{"sh", "-c"}, buf.String())
 
-		// Context with timeout for stopping tcpdump.
+		// Stop tcpdump and store output. A re-run of the script prints the same report.
 		// NOTE: Context is not passed anymore to this function to avoid premature cancellation.
-		ctx, cancel := context.WithTimeout(context.Background(), sniffConnectionTimeout)
-		defer cancel()
-
-		// Stop tcpdump and store output.
-		sniffer.out, err = sniffer.target.K8sClient.ExecInPod(ctx, sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, sniffer.target.Pod.Spec.Containers[0].Name, sniffer.stopCmd)
+		sniffer.out, err = sniffer.target.K8sClient.ExecInPodRetry(context.Background(), sniffer.target.Pod.Namespace, sniffer.target.Pod.Name, sniffer.target.Pod.Spec.Containers[0].Name, sniffer.stopCmd,
+			k8s.ExecRetryOptions{AttemptTimeout: sniffConnectionTimeout, RequireOutput: true, OnRetry: sniffer.onRetry})
 		if err != nil {
 			err = fmt.Errorf("Failed to stop tcpdump on %s (%s): %w", sniffer.target.String(), sniffer.target.NodeName(), err)
 		}

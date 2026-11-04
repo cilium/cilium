@@ -31,8 +31,8 @@
  */
 #define ENCAP_IFINDEX 1  /* Set dummy ifindex for tunnel device */
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6
-#define TUNNEL_MODE
+#define ENABLE_IPV6 1
+#define TUNNEL_MODE 1
 
 /*
  * Test Configuration Settings

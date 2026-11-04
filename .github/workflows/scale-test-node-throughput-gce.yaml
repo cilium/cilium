@@ -41,7 +41,7 @@ env:
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
   GCP_PERF_RESULTS_BUCKET: gs://cilium-scale-results
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 588.0.0
+  gcloud_version: 591.0.0
 
 jobs:
   install-and-scaletest:
@@ -89,7 +89,7 @@ jobs:
 
       - name: Login to docker registry for image wait
         if: ${{ vars.DOCKER_AUTH_REQUIRED == 'true' }}
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ${{ vars.DOCKER_READ_HOST}}
           username: ${{ vars.DOCKER_READ_USERNAME}}
@@ -107,7 +107,7 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.27.2
+          go-version: 1.27.3
 
       - name: Install Kops
         uses: cilium/scale-tests-action/install-kops@529d919e01deb35642ba5c6ecdcbf2e2311cd3de # main

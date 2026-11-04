@@ -39,6 +39,7 @@ type ListenerWithContext struct {
 	// Source is where this listener appears: Gateway or ListenerSet
 	Source           model.FullyQualifiedResource
 	SourceGeneration int64
+	TLSOptions       *model.TLSOptions
 
 	// AllowedNamespaces is the set of namespaces allowed for Route attachment
 	AllowedNamespaces map[string]struct{}
@@ -215,7 +216,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 			var httpRoutes []model.HTTPRoute
 
 			httpRoutes = append(httpRoutes, toHTTPRoutes(log, l.Listener, listenerHostnamesByProtocol, filteredHTTPRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap, infPoolsByKey)...)
-			httpRoutes = append(httpRoutes, toGRPCRoutes(l.Listener, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants)...)
+			httpRoutes = append(httpRoutes, toGRPCRoutes(log, l.Listener, listenerHostnamesByProtocol, filteredGRPCRoutes, input.Services, input.ServiceImports, input.ReferenceGrants, input.BackendTLSPolicyMap)...)
 			m.HTTP = append(m.HTTP, model.HTTPListener{
 				Name:                       string(l.Name),
 				Sources:                    []model.FullyQualifiedResource{l.Source},
@@ -223,6 +224,7 @@ func GatewayAPI(log *slog.Logger, input Input) *model.Model {
 				Hostname:                   toHostname(l.Hostname),
 				TLS:                        toTLS(l.TLS, input.ReferenceGrants, l.Source.Namespace, schema.GroupVersionKind{Group: l.Source.Group, Version: l.Source.Version, Kind: l.Source.Kind}),
 				FrontendTLSValidation:      frontendTLSValidation,
+				TLSOptions:                 l.TLSOptions,
 				Routes:                     httpRoutes,
 				Infrastructure:             infra,
 				Service:                    toServiceModel(input.GatewayClassConfig),
@@ -325,9 +327,9 @@ func toHTTPRoutes(log *slog.Logger,
 	btlspMap helpers.BackendTLSPolicyServiceMap,
 	infPoolsByKey map[types.NamespacedName]*gateway_inf_ext.InferencePool,
 ) []model.HTTPRoute {
-	// Sort by age and name so matches with equal priority keep this order when Envoy sorts them later.
 	input = slices.Clone(input)
-	sortRoutesByAge(input, func(r gatewayv1.HTTPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+	// Sort by age, namespace and name so matches with equal priority keep this order when Envoy sorts them later.
+	sortRoutesByCreationTimeThenNamespacedName(input, func(r gatewayv1.HTTPRoute) metav1.ObjectMeta { return r.ObjectMeta })
 
 	var httpRoutes []model.HTTPRoute
 	for _, r := range input {
@@ -727,13 +729,18 @@ func toHTTPRetry(retry *gatewayv1.HTTPRouteRetry) *model.HTTPRetry {
 	return res
 }
 
-func toGRPCRoutes(listener gatewayv1beta1.Listener,
+func toGRPCRoutes(log *slog.Logger,
+	listener gatewayv1beta1.Listener,
 	listenerHostnamesByProtocol map[gatewayv1.ProtocolType][]string,
 	input []gatewayv1.GRPCRoute,
 	services []corev1.Service,
 	serviceImports []mcsapiv1beta1.ServiceImport,
 	grants []gatewayv1.ReferenceGrant,
+	btlspMap helpers.BackendTLSPolicyServiceMap,
 ) []model.HTTPRoute {
+	input = slices.Clone(input)
+	sortRoutesByCreationTimeThenNamespacedName(input, func(r gatewayv1.GRPCRoute) metav1.ObjectMeta { return r.ObjectMeta })
+
 	var grpcRoutes []model.HTTPRoute
 	for _, r := range input {
 		if !parentRefsMatchListener(r.Spec.ParentRefs, listener) {
@@ -751,19 +758,25 @@ func toGRPCRoutes(listener gatewayv1beta1.Listener,
 		if len(computedHost) == 1 && computedHost[0] == allHosts {
 			computedHost = nil
 		}
-		grpcRoutes = append(grpcRoutes, extractGRPCRoutes(computedHost, r, services, serviceImports, grants)...)
+		grpcRoutes = append(grpcRoutes, extractGRPCRoutes(log, computedHost, r, services, serviceImports, grants, btlspMap)...)
 	}
 	return grpcRoutes
 }
 
-func extractGRPCRoutes(hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant) []model.HTTPRoute {
+func extractGRPCRoutes(log *slog.Logger, hostnames []string, grpcr gatewayv1.GRPCRoute, services []corev1.Service, serviceImports []mcsapiv1beta1.ServiceImport, grants []gatewayv1.ReferenceGrant, btlspMap helpers.BackendTLSPolicyServiceMap) []model.HTTPRoute {
 	var grpcRoutes []model.HTTPRoute
 	for ruleIndex, rule := range grpcr.Spec.Rules {
 		bes := make([]model.Backend, 0, len(rule.BackendRefs))
 		for _, be := range rule.BackendRefs {
-			if backend, _, ok := resolveBackendRef(grpcr.GetNamespace(), be.BackendRef, gatewayv1.SchemeGroupVersion.WithKind("GRPCRoute"), services, serviceImports, grants); ok {
-				bes = append(bes, backend)
+			backend, svc, ok := resolveBackendRef(grpcr.GetNamespace(), be.BackendRef, gatewayv1.SchemeGroupVersion.WithKind("GRPCRoute"), services, serviceImports, grants)
+			if !ok {
+				continue
 			}
+			backend, include := addBackendTLSDetails(log, backend, svc, btlspMap)
+			if !include {
+				continue
+			}
+			bes = append(bes, backend)
 		}
 
 		var dr *model.DirectResponse
@@ -906,18 +919,12 @@ func parentRefsMatchListener(parentRefs []gatewayv1.ParentReference, listener ga
 	return false
 }
 
-// sortRoutesByAge orders routes oldest-first by creation timestamp, tie-broken
-// by namespace then name, so providing deterministic ordering for HTTP and L4 routes.
-func sortRoutesByAge[T any](routes []T, meta func(T) metav1.ObjectMeta) {
+// sortRoutesByCreationTimeThenNamespacedName orders routes oldest-first by creation timestamp,
+// tie-broken by the alphabetically ordered namespace and then name, providing deterministic
+// ordering for Gateway API Routes.
+func sortRoutesByCreationTimeThenNamespacedName[T any](routes []T, meta func(T) metav1.ObjectMeta) {
 	slices.SortStableFunc(routes, func(a, b T) int {
-		ma, mb := meta(a), meta(b)
-		if c := ma.CreationTimestamp.Time.Compare(mb.CreationTimestamp.Time); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(ma.Namespace, mb.Namespace); c != 0 {
-			return c
-		}
-		return cmp.Compare(ma.Name, mb.Name)
+		return helpers.CompareCreationTimeThenNamespacedName(meta(a), meta(b))
 	})
 }
 
@@ -942,7 +949,7 @@ func toTCPRoutes(listener gatewayv1beta1.Listener,
 	if len(attached) == 0 {
 		return nil
 	}
-	sortRoutesByAge(attached, func(r gatewayv1.TCPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+	sortRoutesByCreationTimeThenNamespacedName(attached, func(r gatewayv1.TCPRoute) metav1.ObjectMeta { return r.ObjectMeta })
 
 	var l4Routes []model.L4Route
 	{
@@ -979,7 +986,7 @@ func toUDPRoutes(listener gatewayv1beta1.Listener,
 	if len(attached) == 0 {
 		return nil
 	}
-	sortRoutesByAge(attached, func(r gatewayv1.UDPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+	sortRoutesByCreationTimeThenNamespacedName(attached, func(r gatewayv1.UDPRoute) metav1.ObjectMeta { return r.ObjectMeta })
 
 	var l4Routes []model.L4Route
 	{

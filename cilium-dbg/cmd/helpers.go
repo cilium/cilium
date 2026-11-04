@@ -28,6 +28,7 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -436,4 +437,22 @@ func parseL4PortsSlice(slice []string) ([]*models.Port, error) {
 		rules = append(rules, l4)
 	}
 	return rules, nil
+}
+
+// formatAddr formats an optional API address. An unset address formats as
+// "invalid IP", print nothing instead.
+func formatAddr(a iputil.Addr) string {
+	if !a.IsValid() {
+		return ""
+	}
+	return a.String()
+}
+
+// formatPrefix formats an optional API prefix. An unset prefix formats as
+// "invalid Prefix", print nothing instead.
+func formatPrefix(p iputil.Prefix) string {
+	if !p.IsValid() {
+		return ""
+	}
+	return p.String()
 }

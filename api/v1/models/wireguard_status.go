@@ -98,7 +98,7 @@ func (m *WireguardStatus) contextValidateInterfaces(ctx context.Context, formats
 		if m.Interfaces[i] != nil {
 
 			if typeutils.IsZero(m.Interfaces[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.Interfaces[i].ContextValidate(ctx, formats); err != nil {

@@ -137,7 +137,7 @@ func (m *ClusterNodeStatus) contextValidateNodesAdded(ctx context.Context, forma
 		if m.NodesAdded[i] != nil {
 
 			if typeutils.IsZero(m.NodesAdded[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.NodesAdded[i].ContextValidate(ctx, formats); err != nil {
@@ -166,7 +166,7 @@ func (m *ClusterNodeStatus) contextValidateNodesRemoved(ctx context.Context, for
 		if m.NodesRemoved[i] != nil {
 
 			if typeutils.IsZero(m.NodesRemoved[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.NodesRemoved[i].ContextValidate(ctx, formats); err != nil {

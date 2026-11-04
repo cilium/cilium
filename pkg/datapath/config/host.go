@@ -36,6 +36,7 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg.EnableServiceNoBackendResponse = option.Config.ServiceNoBackendResponseEnabled()
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 	cfg.EnableNAT46X64 = option.Config.NodePortNat46X64 && lnc.KPRConfig.KubeProxyReplacement
+	cfg.EnableNAT46X64Gateway = option.Config.EnableNat46X64Gateway && lnc.KPRConfig.KubeProxyReplacement
 
 	if lnc.EnableWireguard {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
@@ -56,11 +57,13 @@ func CiliumHost(ep endpoint.Config, lnc *Config) any {
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = lnc.SNATCollisionRetries
 
 	cfg.EnableTraceNotify = ep.GetOptions().IsEnabled(option.TraceNotify)
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 	cfg.Debug = ep.GetOptions().IsEnabled(option.Debug)
+	cfg.DebugTagged = ep.GetOptions().IsEnabled(option.DebugTagged)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
@@ -90,6 +93,7 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 	cfg.EnableNAT46X64 = option.Config.NodePortNat46X64 && lnc.KPRConfig.KubeProxyReplacement
+	cfg.EnableNAT46X64Gateway = option.Config.EnableNat46X64Gateway && lnc.KPRConfig.KubeProxyReplacement
 
 	ifindex := link.Attrs().Index
 	cfg.InterfaceIfIndex = uint32(ifindex)
@@ -111,11 +115,13 @@ func CiliumNet(ep endpoint.Config, lnc *Config, link netlink.Link) any {
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = lnc.SNATCollisionRetries
 
 	cfg.EnableTraceNotify = ep.GetOptions().IsEnabled(option.TraceNotify)
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 	cfg.Debug = ep.GetOptions().IsEnabled(option.Debug)
+	cfg.DebugTagged = ep.GetOptions().IsEnabled(option.DebugTagged)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
@@ -165,6 +171,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	cfg.EnableNoServiceEndpointsRoutable = lnc.SvcRouteConfig.EnableNoServiceEndpointsRoutable
 	cfg.EnableNetkit = lnc.DatapathIsNetkit
 	cfg.EnableNAT46X64 = option.Config.NodePortNat46X64 && lnc.KPRConfig.KubeProxyReplacement
+	cfg.EnableNAT46X64Gateway = option.Config.EnableNat46X64Gateway && lnc.KPRConfig.KubeProxyReplacement
 
 	if lnc.EnableWireguard {
 		cfg.WGIfIndex = lnc.WireguardIfIndex
@@ -185,11 +192,13 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	cfg.EnableICMPRule = option.Config.EnableICMPRules
 
 	cfg.EphemeralMin = lnc.EphemeralMin
+	cfg.SNATCollisionRetries = lnc.SNATCollisionRetries
 
 	cfg.EnableTraceNotify = ep.GetOptions().IsEnabled(option.TraceNotify)
 	cfg.EnablePolicyAccounting = lnc.EnablePolicyAccounting
 	cfg.EnableDropNotify = ep.GetOptions().IsEnabled(option.DropNotify)
 	cfg.Debug = ep.GetOptions().IsEnabled(option.Debug)
+	cfg.DebugTagged = ep.GetOptions().IsEnabled(option.DebugTagged)
 
 	cfg.TunnelProtocol = lnc.TunnelProtocol
 	cfg.TunnelPort = lnc.TunnelPort
@@ -211,7 +220,7 @@ func Netdev(ep endpoint.Config, lnc *Config, link netlink.Link, masq4, masq6 net
 	if option.Config.EnableEncryptionStrictModeEgress {
 		cfg.StrictEgressEncryption = types.StrictEncryptionCfg{
 			Enabled:          option.Config.EnableEncryptionStrictModeEgress,
-			IPv4Net:          types.V4Addr{Addr: option.Config.EncryptionStrictEgressCIDR.Addr().As4()},
+			IPv4Net:          types.V4Addr{Addr: option.Config.EncryptionStrictEgressCIDR.Masked().Addr().As4()},
 			IPv4EncryptIface: types.V4Addr{Addr: lnc.NodeIPv4.As4()},
 			IPv4NetSize:      uint8(option.Config.EncryptionStrictEgressCIDR.Bits()),
 			AllowRemoteNodes: option.Config.EncryptionStrictEgressAllowRemoteNodeIdentities,

@@ -1,0 +1,68 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: backendtlspolicy
+  namespace: gateway-conformance-infra
+spec:
+  parentRefs:
+    - name: same-namespace
+  rules:
+    - matches:
+        - method:
+            service: grpc.backend.Backend
+            method: Valid
+      backendRefs:
+        - name: tls-backend
+          port: 443
+    - matches:
+        - method:
+            service: grpc.backend.Backend
+            method: Invalid
+      backendRefs:
+        - name: tls-backend-2
+          port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: grpc-backend-tls
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: tls-backend
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: tls-checks-ca-certificate
+    hostname: grpc.example.com
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: grpc-backend-tls-invalid-ca
+  namespace: gateway-conformance-infra
+spec:
+  targetRefs:
+    - group: ""
+      kind: Service
+      name: tls-backend-2
+  validation:
+    caCertificateRefs:
+      - group: ""
+        kind: ConfigMap
+        name: nonexistent-ca-certificate
+    hostname: invalid.grpc.example.com
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tls-checks-ca-certificate
+  namespace: gateway-conformance-infra
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    Q0Ey
+    -----END CERTIFICATE-----

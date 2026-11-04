@@ -1209,6 +1209,38 @@ type ExpressRouteGatewaysClientListBySubscriptionOptions struct {
 	// placeholder for future optional parameters
 }
 
+// ExpressRouteLagAuthorizationsClientBeginCreateOrUpdateOptions contains the optional parameters for the ExpressRouteLagAuthorizationsClient.BeginCreateOrUpdate
+// method.
+type ExpressRouteLagAuthorizationsClientBeginCreateOrUpdateOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// ExpressRouteLagAuthorizationsClientBeginDeleteOptions contains the optional parameters for the ExpressRouteLagAuthorizationsClient.BeginDelete
+// method.
+type ExpressRouteLagAuthorizationsClientBeginDeleteOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// ExpressRouteLagAuthorizationsClientGetOptions contains the optional parameters for the ExpressRouteLagAuthorizationsClient.Get
+// method.
+type ExpressRouteLagAuthorizationsClientGetOptions struct {
+	// placeholder for future optional parameters
+}
+
+// ExpressRouteLagAuthorizationsClientListKeysOptions contains the optional parameters for the ExpressRouteLagAuthorizationsClient.ListKeys
+// method.
+type ExpressRouteLagAuthorizationsClientListKeysOptions struct {
+	// placeholder for future optional parameters
+}
+
+// ExpressRouteLagAuthorizationsClientListOptions contains the optional parameters for the ExpressRouteLagAuthorizationsClient.NewListPager
+// method.
+type ExpressRouteLagAuthorizationsClientListOptions struct {
+	// placeholder for future optional parameters
+}
+
 // ExpressRouteLagsClientBeginCreateOrUpdateOptions contains the optional parameters for the ExpressRouteLagsClient.BeginCreateOrUpdate
 // method.
 type ExpressRouteLagsClientBeginCreateOrUpdateOptions struct {
@@ -4625,6 +4657,32 @@ type VirtualHubsClientListOptions struct {
 
 // VirtualHubsClientUpdateTagsOptions contains the optional parameters for the VirtualHubsClient.UpdateTags method.
 type VirtualHubsClientUpdateTagsOptions struct {
+	// placeholder for future optional parameters
+}
+
+// VirtualNetworkApplianceCapabilitiesClientBeginCreateOrUpdateOptions contains the optional parameters for the VirtualNetworkApplianceCapabilitiesClient.BeginCreateOrUpdate
+// method.
+type VirtualNetworkApplianceCapabilitiesClientBeginCreateOrUpdateOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// VirtualNetworkApplianceCapabilitiesClientBeginDeleteOptions contains the optional parameters for the VirtualNetworkApplianceCapabilitiesClient.BeginDelete
+// method.
+type VirtualNetworkApplianceCapabilitiesClientBeginDeleteOptions struct {
+	// Resumes the long-running operation from the provided token.
+	ResumeToken string
+}
+
+// VirtualNetworkApplianceCapabilitiesClientGetOptions contains the optional parameters for the VirtualNetworkApplianceCapabilitiesClient.Get
+// method.
+type VirtualNetworkApplianceCapabilitiesClientGetOptions struct {
+	// placeholder for future optional parameters
+}
+
+// VirtualNetworkApplianceCapabilitiesClientListOptions contains the optional parameters for the VirtualNetworkApplianceCapabilitiesClient.NewListPager
+// method.
+type VirtualNetworkApplianceCapabilitiesClientListOptions struct {
 	// placeholder for future optional parameters
 }
 

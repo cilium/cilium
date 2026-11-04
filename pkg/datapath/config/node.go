@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/datapath/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -84,6 +85,7 @@ func NodeConfig(lnc *Config) Node {
 	// cilium_ipip{4,6} will no longer match decapped traffic.
 	node.EnableIPIPTermination = option.Config.EnableIPIPTermination
 	node.SRv6Cfg = types.SRv6Config{
+		Enable:         option.Config.EnableSRv6,
 		EnableSRHEncap: option.Config.EnableSRv6 && option.Config.SRv6EncapMode != "reduced",
 	}
 
@@ -114,7 +116,7 @@ func NodeConfig(lnc *Config) Node {
 	if option.Config.EnableNat46X64Gateway {
 		// The datapath only stores the leading 32 bits of the RFC6052
 		// prefix, see nat46x64_prefix_copy_v6().
-		prefix := option.Config.IPv6NAT46x64CIDRBase.As16()
+		prefix := defaults.IPv6NAT46x64CIDRBase.As16()
 		node.NAT46X64Prefix.Addr = [4]byte(prefix[:4])
 	}
 
@@ -164,7 +166,9 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableTraceNotify = option.Config.Opts.IsEnabled(option.TraceNotify)
 	node.Debug = option.Config.Opts.IsEnabled(option.Debug)
+	node.DebugTagged = option.Config.Opts.IsEnabled(option.DebugTagged)
 	node.DebugLB = option.Config.Opts.IsEnabled(option.DebugLB)
+	node.EnableHostFirewall = option.Config.EnableHostFirewall
 	node.EnableDropNotify = option.Config.Opts.IsEnabled(option.DropNotify)
 
 	node.HashInit4Seed = lnc.MaglevConfig.SeedJhash0

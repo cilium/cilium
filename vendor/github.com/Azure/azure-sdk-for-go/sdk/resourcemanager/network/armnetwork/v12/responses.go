@@ -1063,6 +1063,41 @@ type ExpressRouteGatewaysClientUpdateTagsResponse struct {
 	ExpressRouteGateway
 }
 
+// ExpressRouteLagAuthorizationsClientCreateOrUpdateResponse contains the response from method ExpressRouteLagAuthorizationsClient.BeginCreateOrUpdate.
+type ExpressRouteLagAuthorizationsClientCreateOrUpdateResponse struct {
+	// ExpressRoute Lag Authorization
+	//
+	// ExpressRouteLag Authorization resource definition.
+	ExpressRouteLagAuthorization
+}
+
+// ExpressRouteLagAuthorizationsClientDeleteResponse contains the response from method ExpressRouteLagAuthorizationsClient.BeginDelete.
+type ExpressRouteLagAuthorizationsClientDeleteResponse struct {
+	// placeholder for future response values
+}
+
+// ExpressRouteLagAuthorizationsClientGetResponse contains the response from method ExpressRouteLagAuthorizationsClient.Get.
+type ExpressRouteLagAuthorizationsClientGetResponse struct {
+	// ExpressRoute Lag Authorization
+	//
+	// ExpressRouteLag Authorization resource definition.
+	ExpressRouteLagAuthorization
+}
+
+// ExpressRouteLagAuthorizationsClientListKeysResponse contains the response from method ExpressRouteLagAuthorizationsClient.ListKeys.
+type ExpressRouteLagAuthorizationsClientListKeysResponse struct {
+	// The authorization key.
+	ExpressRouteAuthorizationKey
+}
+
+// ExpressRouteLagAuthorizationsClientListResponse contains the response from method ExpressRouteLagAuthorizationsClient.NewListPager.
+type ExpressRouteLagAuthorizationsClientListResponse struct {
+	// ExpressRoute Lag Authorization List Result
+	//
+	// Paged collection of ExpressRouteLagAuthorization items
+	ExpressRouteLagAuthorizationListResult
+}
+
 // ExpressRouteLagsClientCreateOrUpdateResponse contains the response from method ExpressRouteLagsClient.BeginCreateOrUpdate.
 type ExpressRouteLagsClientCreateOrUpdateResponse struct {
 	// ExpressRoute LAG
@@ -4162,6 +4197,33 @@ type VirtualHubsClientListResponse struct {
 type VirtualHubsClientUpdateTagsResponse struct {
 	// VirtualHub Resource.
 	VirtualHub
+}
+
+// VirtualNetworkApplianceCapabilitiesClientCreateOrUpdateResponse contains the response from method VirtualNetworkApplianceCapabilitiesClient.BeginCreateOrUpdate.
+type VirtualNetworkApplianceCapabilitiesClientCreateOrUpdateResponse struct {
+	// A capability enabled on a virtual network appliance. The top-level `kind` discriminator selects the
+	// capability family; every kind shares the same `properties` schema (see
+	// VirtualNetworkApplianceCapabilityProperties). One capability of a given kind may exist per appliance.
+	VirtualNetworkApplianceCapabilityClassification
+}
+
+// VirtualNetworkApplianceCapabilitiesClientDeleteResponse contains the response from method VirtualNetworkApplianceCapabilitiesClient.BeginDelete.
+type VirtualNetworkApplianceCapabilitiesClientDeleteResponse struct {
+	// placeholder for future response values
+}
+
+// VirtualNetworkApplianceCapabilitiesClientGetResponse contains the response from method VirtualNetworkApplianceCapabilitiesClient.Get.
+type VirtualNetworkApplianceCapabilitiesClientGetResponse struct {
+	// A capability enabled on a virtual network appliance. The top-level `kind` discriminator selects the
+	// capability family; every kind shares the same `properties` schema (see
+	// VirtualNetworkApplianceCapabilityProperties). One capability of a given kind may exist per appliance.
+	VirtualNetworkApplianceCapabilityClassification
+}
+
+// VirtualNetworkApplianceCapabilitiesClientListResponse contains the response from method VirtualNetworkApplianceCapabilitiesClient.NewListPager.
+type VirtualNetworkApplianceCapabilitiesClientListResponse struct {
+	// The response of a VirtualNetworkApplianceCapability list operation.
+	VirtualNetworkApplianceCapabilityListResult
 }
 
 // VirtualNetworkAppliancesClientCreateOrUpdateResponse contains the response from method VirtualNetworkAppliancesClient.BeginCreateOrUpdate.

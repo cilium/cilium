@@ -7,7 +7,7 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
-#define ENABLE_NODEPORT
+#define ENABLE_NODEPORT 1
 #include <bpf/config/global.h>
 
 /* Set port ranges to have deterministic source port selection */

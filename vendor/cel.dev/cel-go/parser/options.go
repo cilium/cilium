@@ -28,7 +28,9 @@ type options struct {
 	enableOptionalSyntax             bool
 	enableVariadicOperatorASTs       bool
 	enableIdentEscapeSyntax          bool
+	enableCallEscapeSyntax           bool
 	enableHiddenAccumulatorName      bool
+	enablePrattParser                bool
 }
 
 // Option configures the behavior of the parser.
@@ -171,6 +173,23 @@ func EnableHiddenAccumulatorName(enabled bool) Option {
 func EnableVariadicOperatorASTs(varArgASTs bool) Option {
 	return func(opts *options) error {
 		opts.enableVariadicOperatorASTs = varArgASTs
+		return nil
+	}
+}
+
+// EnablePrattParser enables the Pratt parser implementation instead of the ANTLR parser.
+func EnablePrattParser(enablePrattParser bool) Option {
+	return func(opts *options) error {
+		opts.enablePrattParser = enablePrattParser
+		return nil
+	}
+}
+
+// EnableCallEscapeSyntax enables backtick (`) escaped function and method call identifiers,
+// as well as internal identifiers with '@' characters.
+func EnableCallEscapeSyntax(enableCallEscapeSyntax bool) Option {
+	return func(opts *options) error {
+		opts.enableCallEscapeSyntax = enableCallEscapeSyntax
 		return nil
 	}
 }

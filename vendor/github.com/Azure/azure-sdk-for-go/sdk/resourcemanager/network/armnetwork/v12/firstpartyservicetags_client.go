@@ -19,7 +19,7 @@ import (
 // FirstPartyServiceTagsClient contains the methods for the FirstPartyServiceTags group.
 // Don't use this type directly, use NewFirstPartyServiceTagsClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type FirstPartyServiceTagsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -68,7 +68,7 @@ func (client *FirstPartyServiceTagsClient) BeginCreateOrUpdate(ctx context.Conte
 	}
 }
 
-// CreateOrUpdate - Creates or updates a first party service tag.
+// createOrUpdate - Creates or updates a first party service tag.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *FirstPartyServiceTagsClient) createOrUpdate(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, parameters FirstPartyServiceTag, options *FirstPartyServiceTagsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
@@ -90,7 +90,7 @@ func (client *FirstPartyServiceTagsClient) createOrUpdate(ctx context.Context, r
 	return httpResp, nil
 }
 
-// createOrUpdateCreateRequest creates the CreateOrUpdate request.
+// createOrUpdateCreateRequest creates the createOrUpdate request.
 func (client *FirstPartyServiceTagsClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, parameters FirstPartyServiceTag, _ *FirstPartyServiceTagsClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/firstPartyServiceTags/{firstPartyServiceTagName}"
 	if client.subscriptionID == "" {
@@ -110,7 +110,7 @@ func (client *FirstPartyServiceTagsClient) createOrUpdateCreateRequest(ctx conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -128,7 +128,7 @@ func (client *FirstPartyServiceTagsClient) createOrUpdateCreateRequest(ctx conte
 //     method.
 func (client *FirstPartyServiceTagsClient) BeginDelete(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, options *FirstPartyServiceTagsClientBeginDeleteOptions) (*runtime.Poller[FirstPartyServiceTagsClientDeleteResponse], error) {
 	if options == nil || options.ResumeToken == "" {
-		resp, err := client.deleteOperation(ctx, resourceGroupName, firstPartyServiceTagName, options)
+		resp, err := client.delete(ctx, resourceGroupName, firstPartyServiceTagName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -143,9 +143,9 @@ func (client *FirstPartyServiceTagsClient) BeginDelete(ctx context.Context, reso
 	}
 }
 
-// Delete - Deletes the specified first party service tag.
+// delete - Deletes the specified first party service tag.
 // If the operation fails it returns an *azcore.ResponseError type.
-func (client *FirstPartyServiceTagsClient) deleteOperation(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, options *FirstPartyServiceTagsClientBeginDeleteOptions) (*http.Response, error) {
+func (client *FirstPartyServiceTagsClient) delete(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, options *FirstPartyServiceTagsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "FirstPartyServiceTagsClient.BeginDelete"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
@@ -165,7 +165,7 @@ func (client *FirstPartyServiceTagsClient) deleteOperation(ctx context.Context, 
 	return httpResp, nil
 }
 
-// deleteCreateRequest creates the Delete request.
+// deleteCreateRequest creates the delete request.
 func (client *FirstPartyServiceTagsClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, _ *FirstPartyServiceTagsClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/firstPartyServiceTags/{firstPartyServiceTagName}"
 	if client.subscriptionID == "" {
@@ -185,8 +185,84 @@ func (client *FirstPartyServiceTagsClient) deleteCreateRequest(ctx context.Conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	return req, nil
+}
+
+// BeginUpdateTags - Updates a first party service tag tags.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - firstPartyServiceTagName - The name of the first party service tag.
+//   - parameters - Parameters supplied to update first party service tag tags.
+//   - options - FirstPartyServiceTagsClientBeginUpdateTagsOptions contains the optional parameters for the FirstPartyServiceTagsClient.BeginUpdateTags
+//     method.
+func (client *FirstPartyServiceTagsClient) BeginUpdateTags(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, parameters TagsObject, options *FirstPartyServiceTagsClientBeginUpdateTagsOptions) (*runtime.Poller[FirstPartyServiceTagsClientUpdateTagsResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.updateTags(ctx, resourceGroupName, firstPartyServiceTagName, parameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[FirstPartyServiceTagsClientUpdateTagsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[FirstPartyServiceTagsClientUpdateTagsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// updateTags - Updates a first party service tag tags.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *FirstPartyServiceTagsClient) updateTags(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, parameters TagsObject, options *FirstPartyServiceTagsClientBeginUpdateTagsOptions) (*http.Response, error) {
+	var err error
+	const operationName = "FirstPartyServiceTagsClient.BeginUpdateTags"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.updateTagsCreateRequest(ctx, resourceGroupName, firstPartyServiceTagName, parameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// updateTagsCreateRequest creates the updateTags request.
+func (client *FirstPartyServiceTagsClient) updateTagsCreateRequest(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, parameters TagsObject, _ *FirstPartyServiceTagsClientBeginUpdateTagsOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/firstPartyServiceTags/{firstPartyServiceTagName}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if firstPartyServiceTagName == "" {
+		return nil, errors.New("parameter firstPartyServiceTagName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{firstPartyServiceTagName}", url.PathEscape(firstPartyServiceTagName))
+	req, err := runtime.NewRequest(ctx, http.MethodPatch, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
+		return nil, err
+	}
 	return req, nil
 }
 
@@ -233,7 +309,7 @@ func (client *FirstPartyServiceTagsClient) getCreateRequest(ctx context.Context,
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -247,6 +323,73 @@ func (client *FirstPartyServiceTagsClient) getHandleResponse(resp *http.Response
 	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.FirstPartyServiceTag); err != nil {
 		return FirstPartyServiceTagsClientGetResponse{}, err
+	}
+	return result, nil
+}
+
+// NewListAllPager - Gets all the first party service tags in a subscription.
+//   - options - FirstPartyServiceTagsClientListAllOptions contains the optional parameters for the FirstPartyServiceTagsClient.NewListAllPager
+//     method.
+func (client *FirstPartyServiceTagsClient) NewListAllPager(options *FirstPartyServiceTagsClientListAllOptions) *runtime.Pager[FirstPartyServiceTagsClientListAllResponse] {
+	return runtime.NewPager(runtime.PagingHandler[FirstPartyServiceTagsClientListAllResponse]{
+		More: func(page FirstPartyServiceTagsClientListAllResponse) bool {
+			return page.NextLink != nil && len(*page.NextLink) > 0
+		},
+		Fetcher: func(ctx context.Context, page *FirstPartyServiceTagsClientListAllResponse) (FirstPartyServiceTagsClientListAllResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "FirstPartyServiceTagsClient.NewListAllPager")
+			nextLink := ""
+			if page != nil {
+				nextLink = *page.NextLink
+			}
+			req, err := client.listAllCreateRequest(ctx, nextLink, options)
+			if err != nil {
+				return FirstPartyServiceTagsClientListAllResponse{}, err
+			}
+			resp, err := client.internal.Pipeline().Do(req)
+			if err != nil {
+				return FirstPartyServiceTagsClientListAllResponse{}, err
+			}
+			return client.listAllHandleResponse(resp, http.StatusOK)
+		},
+		Tracer: client.internal.Tracer(),
+	})
+}
+
+// listAllCreateRequest creates the ListAll request.
+func (client *FirstPartyServiceTagsClient) listAllCreateRequest(ctx context.Context, nextLink string, _ *FirstPartyServiceTagsClientListAllOptions) (*policy.Request, error) {
+	firstPage := nextLink == ""
+	var req *policy.Request
+	var err error
+	if firstPage {
+		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/firstPartyServiceTags"
+		if client.subscriptionID == "" {
+			return nil, errors.New("parameter subscriptionID cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	} else {
+		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if firstPage {
+		reqQP := req.Raw().URL.Query()
+		reqQP.Set("api-version", version20260301)
+		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+		req.Raw().Header["Accept"] = []string{"application/json"}
+	}
+	return req, nil
+}
+
+// listAllHandleResponse handles the ListAll response.
+func (client *FirstPartyServiceTagsClient) listAllHandleResponse(resp *http.Response, successCodes ...int) (FirstPartyServiceTagsClientListAllResponse, error) {
+	result := FirstPartyServiceTagsClientListAllResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
+	if err := runtime.UnmarshalAsJSON(resp, &result.FirstPartyServiceTagListResult); err != nil {
+		return FirstPartyServiceTagsClientListAllResponse{}, err
 	}
 	return result, nil
 }
@@ -304,7 +447,7 @@ func (client *FirstPartyServiceTagsClient) listCreateRequest(ctx context.Context
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -321,147 +464,4 @@ func (client *FirstPartyServiceTagsClient) listHandleResponse(resp *http.Respons
 		return FirstPartyServiceTagsClientListResponse{}, err
 	}
 	return result, nil
-}
-
-// NewListAllPager - Gets all the first party service tags in a subscription.
-//   - options - FirstPartyServiceTagsClientListAllOptions contains the optional parameters for the FirstPartyServiceTagsClient.NewListAllPager
-//     method.
-func (client *FirstPartyServiceTagsClient) NewListAllPager(options *FirstPartyServiceTagsClientListAllOptions) *runtime.Pager[FirstPartyServiceTagsClientListAllResponse] {
-	return runtime.NewPager(runtime.PagingHandler[FirstPartyServiceTagsClientListAllResponse]{
-		More: func(page FirstPartyServiceTagsClientListAllResponse) bool {
-			return page.NextLink != nil && len(*page.NextLink) > 0
-		},
-		Fetcher: func(ctx context.Context, page *FirstPartyServiceTagsClientListAllResponse) (FirstPartyServiceTagsClientListAllResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "FirstPartyServiceTagsClient.NewListAllPager")
-			nextLink := ""
-			if page != nil {
-				nextLink = *page.NextLink
-			}
-			req, err := client.listAllCreateRequest(ctx, nextLink, options)
-			if err != nil {
-				return FirstPartyServiceTagsClientListAllResponse{}, err
-			}
-			resp, err := client.internal.Pipeline().Do(req)
-			if err != nil {
-				return FirstPartyServiceTagsClientListAllResponse{}, err
-			}
-			return client.listAllHandleResponse(resp, http.StatusOK)
-		},
-		Tracer: client.internal.Tracer(),
-	})
-}
-
-// listAllCreateRequest creates the ListAll request.
-func (client *FirstPartyServiceTagsClient) listAllCreateRequest(ctx context.Context, nextLink string, _ *FirstPartyServiceTagsClientListAllOptions) (*policy.Request, error) {
-	firstPage := nextLink == ""
-	var req *policy.Request
-	var err error
-	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/firstPartyServiceTags"
-		if client.subscriptionID == "" {
-			return nil, errors.New("parameter subscriptionID cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	} else {
-		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if firstPage {
-		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
-		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-		req.Raw().Header["Accept"] = []string{"application/json"}
-	}
-	return req, nil
-}
-
-// listAllHandleResponse handles the ListAll response.
-func (client *FirstPartyServiceTagsClient) listAllHandleResponse(resp *http.Response, successCodes ...int) (FirstPartyServiceTagsClientListAllResponse, error) {
-	result := FirstPartyServiceTagsClientListAllResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	if err := runtime.UnmarshalAsJSON(resp, &result.FirstPartyServiceTagListResult); err != nil {
-		return FirstPartyServiceTagsClientListAllResponse{}, err
-	}
-	return result, nil
-}
-
-// BeginUpdateTags - Updates a first party service tag tags.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - firstPartyServiceTagName - The name of the first party service tag.
-//   - parameters - Parameters supplied to update first party service tag tags.
-//   - options - FirstPartyServiceTagsClientBeginUpdateTagsOptions contains the optional parameters for the FirstPartyServiceTagsClient.BeginUpdateTags
-//     method.
-func (client *FirstPartyServiceTagsClient) BeginUpdateTags(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, parameters TagsObject, options *FirstPartyServiceTagsClientBeginUpdateTagsOptions) (*runtime.Poller[FirstPartyServiceTagsClientUpdateTagsResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.updateTags(ctx, resourceGroupName, firstPartyServiceTagName, parameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[FirstPartyServiceTagsClientUpdateTagsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[FirstPartyServiceTagsClientUpdateTagsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// UpdateTags - Updates a first party service tag tags.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *FirstPartyServiceTagsClient) updateTags(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, parameters TagsObject, options *FirstPartyServiceTagsClientBeginUpdateTagsOptions) (*http.Response, error) {
-	var err error
-	const operationName = "FirstPartyServiceTagsClient.BeginUpdateTags"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.updateTagsCreateRequest(ctx, resourceGroupName, firstPartyServiceTagName, parameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// updateTagsCreateRequest creates the UpdateTags request.
-func (client *FirstPartyServiceTagsClient) updateTagsCreateRequest(ctx context.Context, resourceGroupName string, firstPartyServiceTagName string, parameters TagsObject, _ *FirstPartyServiceTagsClientBeginUpdateTagsOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/firstPartyServiceTags/{firstPartyServiceTagName}"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if firstPartyServiceTagName == "" {
-		return nil, errors.New("parameter firstPartyServiceTagName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{firstPartyServiceTagName}", url.PathEscape(firstPartyServiceTagName))
-	req, err := runtime.NewRequest(ctx, http.MethodPatch, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, parameters); err != nil {
-		return nil, err
-	}
-	return req, nil
 }

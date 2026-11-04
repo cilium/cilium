@@ -16,11 +16,14 @@ package types
 
 import (
 	"fmt"
+	"maps"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
 	"sync/atomic"
 	"unicode"
+	"unsafe"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -44,6 +47,16 @@ func NewDynamicMap(adapter Adapter, value any) traits.Mapper {
 	}
 }
 
+// NewMap returns a traits.Mapper backed by a typed Go map[K]V.
+func NewMap[K comparable, V any](adapter Adapter, value map[K]V) traits.Mapper {
+	return &nativeMap[K, V]{
+		Adapter:       adapter,
+		mapVal:        value,
+		valTypePtr:    elemTypePtrFor[V](),
+		qualifyRawVal: isQualifyRawStruct[V](),
+	}
+}
+
 // NewJSONStruct creates a traits.Mapper implementation backed by a JSON struct that has been
 // encoded in protocol buffer form.
 //
@@ -60,32 +73,17 @@ func NewJSONStruct(adapter Adapter, value *structpb.Struct) traits.Mapper {
 
 // NewRefValMap returns a specialized traits.Mapper with CEL valued keys and values.
 func NewRefValMap(adapter Adapter, value map[ref.Val]ref.Val) traits.Mapper {
-	return &baseMap{
-		Adapter:     adapter,
-		mapAccessor: newRefValMapAccessor(value),
-		value:       value,
-		size:        len(value),
-	}
+	return NewMap(adapter, value)
 }
 
 // NewStringInterfaceMap returns a specialized traits.Mapper with string keys and interface values.
 func NewStringInterfaceMap(adapter Adapter, value map[string]any) traits.Mapper {
-	return &baseMap{
-		Adapter:     adapter,
-		mapAccessor: newStringIfaceMapAccessor(adapter, value),
-		value:       value,
-		size:        len(value),
-	}
+	return NewMap(adapter, value)
 }
 
 // NewStringStringMap returns a specialized traits.Mapper with string keys and values.
 func NewStringStringMap(adapter Adapter, value map[string]string) traits.Mapper {
-	return &baseMap{
-		Adapter:     adapter,
-		mapAccessor: newStringMapAccessor(value),
-		value:       value,
-		size:        len(value),
-	}
+	return NewMap(adapter, value)
 }
 
 // NewProtoMap returns a specialized traits.Mapper for handling protobuf map values.
@@ -102,16 +100,12 @@ func NewMutableMap(adapter Adapter, mutableValues map[ref.Val]ref.Val) traits.Mu
 	for k, v := range mutableValues {
 		mutableCopy[k] = v
 	}
-	m := &mutableMap{
-		baseMap: &baseMap{
-			Adapter:     adapter,
-			mapAccessor: newRefValMapAccessor(mutableCopy),
-			value:       mutableCopy,
-			size:        len(mutableCopy),
+	return &mutableMap{
+		nativeMap: &nativeMap[ref.Val, ref.Val]{
+			Adapter: adapter,
+			mapVal:  mutableCopy,
 		},
-		mutableValues: mutableCopy,
 	}
-	return m
 }
 
 // mapAccessor is a private interface for finding values within a map and iterating over the keys.
@@ -160,13 +154,17 @@ func (m *baseMap) Contains(index ref.Val) ref.Val {
 
 // ConvertToNative implements the ref.Val interface method.
 func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	return convertMapToNative(m, m.value, typeDesc)
+}
+
+func convertMapToNative(m traits.Mapper, val any, typeDesc reflect.Type) (any, error) {
 	// If the map is already assignable to the desired type return it, e.g. interfaces and
 	// maps with the same key value types.
 	if typeDesc == reflect.TypeFor[any]() {
 		typeDesc = reflect.TypeFor[map[any]any]()
 	}
-	if reflect.TypeOf(m.value).AssignableTo(typeDesc) {
-		return m.value, nil
+	if val != nil && reflect.TypeOf(val).AssignableTo(typeDesc) {
+		return val, nil
 	}
 	if reflect.TypeOf(m).AssignableTo(typeDesc) {
 		return m, nil
@@ -206,7 +204,7 @@ func (m *baseMap) ConvertToNative(typeDesc reflect.Type) (any, error) {
 	case reflect.Map:
 		otherKey := typeDesc.Key()
 		otherElem := typeDesc.Elem()
-		nativeMap := reflect.MakeMapWithSize(typeDesc, m.size)
+		nativeMap := reflect.MakeMapWithSize(typeDesc, int(m.Size().(Int)))
 		it := m.Iterator()
 		for it.HasNext() == True {
 			key := it.Next()
@@ -314,12 +312,21 @@ func (m *baseMap) AggregateSize(sizer AggregateSizer) uint32 {
 	if sz := atomic.LoadUint32(&m.aggSize); sz != 0 {
 		return sz
 	}
-	f := foldableAggregateSizer{sizer: sizer, total: 1}
-	m.Fold(&f)
-	if cacheableAggregateSize(sizer) {
-		atomic.StoreUint32(&m.aggSize, f.total)
+	var total uint32
+	if m.value != nil {
+		if t, ok := getMapElementsAggregateSize(sizer, m.value); ok {
+			total = t
+		}
 	}
-	return f.total
+	if total == 0 {
+		f := foldableAggregateSizer{sizer: sizer, total: 1}
+		m.Fold(&f)
+		total = f.total
+	}
+	if cacheableAggregateSize(sizer) {
+		atomic.StoreUint32(&m.aggSize, total)
+	}
+	return total
 }
 
 // String converts the map into a human-readable string.
@@ -331,7 +338,7 @@ func (m *baseMap) String() string {
 	for it.HasNext() == True {
 		k := it.Next()
 		v, _ := m.Find(k)
-		sb.WriteString(fmt.Sprintf("%v: %v", k, v))
+		fmt.Fprintf(&sb, "%v: %v", k, v)
 		if i != m.size-1 {
 			sb.WriteString(", ")
 		}
@@ -388,8 +395,7 @@ func (m *baseMap) Value() any {
 
 // mutableMap holds onto a set of mutable values which are used for intermediate computations.
 type mutableMap struct {
-	*baseMap
-	mutableValues map[ref.Val]ref.Val
+	*nativeMap[ref.Val, ref.Val]
 }
 
 // Insert implements the traits.MutableMapper interface method, returning true if the key insertion
@@ -398,8 +404,7 @@ func (m *mutableMap) Insert(k, v ref.Val) ref.Val {
 	if _, found := m.Find(k); found {
 		return NewErr("insert failed: key %v already exists", k)
 	}
-	m.mutableValues[k] = v
-	m.size++
+	m.mapVal[k] = v
 	atomic.StoreUint32(&m.aggSize, 0)
 	return m
 }
@@ -407,7 +412,9 @@ func (m *mutableMap) Insert(k, v ref.Val) ref.Val {
 // ToImmutableMap implements the traits.MutableMapper interface method, converting a mutable map
 // an immutable map implementation.
 func (m *mutableMap) ToImmutableMap() traits.Mapper {
-	return NewRefValMap(m.Adapter, m.mutableValues)
+	copyMap := make(map[ref.Val]ref.Val, len(m.mapVal))
+	maps.Copy(copyMap, m.mapVal)
+	return NewRefValMap(m.Adapter, copyMap)
 }
 
 func newJSONStructAccessor(adapter Adapter, st map[string]*structpb.Value) mapAccessor {
@@ -546,171 +553,565 @@ func (m *reflectMapAccessor) Fold(f traits.Folder) {
 	}
 }
 
-func newRefValMapAccessor(mapVal map[ref.Val]ref.Val) mapAccessor {
-	return &refValMapAccessor{mapVal: mapVal}
+func toInt64Key(key ref.Val) (int64, bool) {
+	switch k := key.(type) {
+	case Int:
+		return int64(k), true
+	case Uint:
+		return uint64ToInt64Lossless(uint64(k))
+	case Double:
+		return doubleToInt64Lossless(float64(k))
+	default:
+		return 0, false
+	}
 }
 
-type refValMapAccessor struct {
-	mapVal map[ref.Val]ref.Val
+func toUint64Key(key ref.Val) (uint64, bool) {
+	switch k := key.(type) {
+	case Uint:
+		return uint64(k), true
+	case Int:
+		return int64ToUint64Lossless(int64(k))
+	case Double:
+		return doubleToUint64Lossless(float64(k))
+	default:
+		return 0, false
+	}
 }
 
-// Find uses native map accesses to find the key, returning (value, true) if present.
-//
-// If the key is not found the function returns (nil, false).
-func (a *refValMapAccessor) Find(key ref.Val) (ref.Val, bool) {
-	if len(a.mapVal) == 0 {
+type nativeMap[K comparable, V any] struct {
+	Adapter
+	mapVal        map[K]V
+	valTypePtr    unsafe.Pointer
+	qualifyRawVal bool
+	aggSize       uint32
+}
+
+func (m *nativeMap[K, V]) keyToRefVal(k K) ref.Val {
+	switch any((*K)(nil)).(type) {
+	case *string:
+		return String(*(*string)(unsafe.Pointer(&k)))
+	case *ref.Val:
+		return *(*ref.Val)(unsafe.Pointer(&k))
+	case *int64:
+		return Int(*(*int64)(unsafe.Pointer(&k)))
+	case *int:
+		return Int(*(*int)(unsafe.Pointer(&k)))
+	case *int32:
+		return Int(*(*int32)(unsafe.Pointer(&k)))
+	case *uint64:
+		return Uint(*(*uint64)(unsafe.Pointer(&k)))
+	case *uint:
+		return Uint(*(*uint)(unsafe.Pointer(&k)))
+	case *uint32:
+		return Uint(*(*uint32)(unsafe.Pointer(&k)))
+	case *bool:
+		if *(*bool)(unsafe.Pointer(&k)) {
+			return True
+		}
+		return False
+	default:
+		return m.Adapter.NativeToValue(k)
+	}
+}
+
+func (m *nativeMap[K, V]) valToRefVal(v V) ref.Val {
+	switch any((*V)(nil)).(type) {
+	case *string:
+		return String(*(*string)(unsafe.Pointer(&v)))
+	case *ref.Val:
+		return *(*ref.Val)(unsafe.Pointer(&v))
+	case *int64:
+		return Int(*(*int64)(unsafe.Pointer(&v)))
+	case *int:
+		return Int(*(*int)(unsafe.Pointer(&v)))
+	case *int32:
+		return Int(*(*int32)(unsafe.Pointer(&v)))
+	case *uint64:
+		return Uint(*(*uint64)(unsafe.Pointer(&v)))
+	case *uint:
+		return Uint(*(*uint)(unsafe.Pointer(&v)))
+	case *uint32:
+		return Uint(*(*uint32)(unsafe.Pointer(&v)))
+	case *float64:
+		return Double(*(*float64)(unsafe.Pointer(&v)))
+	case *float32:
+		return Double(*(*float32)(unsafe.Pointer(&v)))
+	case *bool:
+		if *(*bool)(unsafe.Pointer(&v)) {
+			return True
+		}
+		return False
+	case *[]byte:
+		return Bytes(*(*[]byte)(unsafe.Pointer(&v)))
+	default:
+		if m.valTypePtr != nil {
+			return m.Adapter.NativeToValue(packAny(m.valTypePtr, unsafe.Pointer(heapCopy(v))))
+		}
+		return m.Adapter.NativeToValue(v)
+	}
+}
+
+func (m *nativeMap[K, V]) rawValToAny(v V) any {
+	if m.valTypePtr != nil {
+		return packAny(m.valTypePtr, unsafe.Pointer(heapCopy(v)))
+	}
+	if m.qualifyRawVal && anyDataPtr(v) == nil {
+		return NullValue
+	}
+	return v
+}
+
+func (m *nativeMap[K, V]) keyToFoldAny(k K) any {
+	switch any((*K)(nil)).(type) {
+	case *string:
+		return String(*(*string)(unsafe.Pointer(&k)))
+	case *ref.Val:
+		return *(*ref.Val)(unsafe.Pointer(&k))
+	case *int64:
+		return Int(*(*int64)(unsafe.Pointer(&k)))
+	case *int:
+		return Int(*(*int)(unsafe.Pointer(&k)))
+	case *int32:
+		return Int(*(*int32)(unsafe.Pointer(&k)))
+	case *uint64:
+		return Uint(*(*uint64)(unsafe.Pointer(&k)))
+	case *uint:
+		return Uint(*(*uint)(unsafe.Pointer(&k)))
+	case *uint32:
+		return Uint(*(*uint32)(unsafe.Pointer(&k)))
+	case *bool:
+		if *(*bool)(unsafe.Pointer(&k)) {
+			return True
+		}
+		return False
+	default:
+		return k
+	}
+}
+
+func (m *nativeMap[K, V]) valToFoldAny(v V) any {
+	switch any((*V)(nil)).(type) {
+	case *string:
+		return String(*(*string)(unsafe.Pointer(&v)))
+	case *ref.Val:
+		return *(*ref.Val)(unsafe.Pointer(&v))
+	case *int64:
+		return Int(*(*int64)(unsafe.Pointer(&v)))
+	case *int:
+		return Int(*(*int)(unsafe.Pointer(&v)))
+	case *int32:
+		return Int(*(*int32)(unsafe.Pointer(&v)))
+	case *uint64:
+		return Uint(*(*uint64)(unsafe.Pointer(&v)))
+	case *uint:
+		return Uint(*(*uint)(unsafe.Pointer(&v)))
+	case *uint32:
+		return Uint(*(*uint32)(unsafe.Pointer(&v)))
+	case *float64:
+		return Double(*(*float64)(unsafe.Pointer(&v)))
+	case *float32:
+		return Double(*(*float32)(unsafe.Pointer(&v)))
+	case *bool:
+		if *(*bool)(unsafe.Pointer(&v)) {
+			return True
+		}
+		return False
+	case *[]byte:
+		return Bytes(*(*[]byte)(unsafe.Pointer(&v)))
+	default:
+		return m.rawValToAny(v)
+	}
+}
+
+func (m *nativeMap[K, V]) Find(key ref.Val) (ref.Val, bool) {
+	v, found := m.findVal(key)
+	if !found {
 		return nil, false
 	}
-	if keyVal, found := a.mapVal[key]; found {
-		return keyVal, true
+	return m.valToRefVal(v), true
+}
+
+// findVal resolves key to the stored native value without converting it to a ref.Val, so that
+// presence tests (`in`, has(), optional selection) do not pay for value conversion.
+func (m *nativeMap[K, V]) findVal(key ref.Val) (v V, found bool) {
+	if len(m.mapVal) == 0 {
+		return v, false
 	}
-	switch k := key.(type) {
+	var k K
+	switch any((*K)(nil)).(type) {
+	case *string:
+		sk, ok := key.(String)
+		if !ok {
+			return v, false
+		}
+		k = *(*K)(unsafe.Pointer(&sk))
+	case *int64:
+		ik, ok := toInt64Key(key)
+		if !ok {
+			return v, false
+		}
+		k = *(*K)(unsafe.Pointer(&ik))
+	case *int:
+		ik, ok := toInt64Key(key)
+		if !ok || ik < math.MinInt || ik > math.MaxInt {
+			return v, false
+		}
+		iv := int(ik)
+		k = *(*K)(unsafe.Pointer(&iv))
+	case *int32:
+		ik, ok := toInt64Key(key)
+		if !ok || ik < math.MinInt32 || ik > math.MaxInt32 {
+			return v, false
+		}
+		iv := int32(ik)
+		k = *(*K)(unsafe.Pointer(&iv))
+	case *uint64:
+		uk, ok := toUint64Key(key)
+		if !ok {
+			return v, false
+		}
+		k = *(*K)(unsafe.Pointer(&uk))
+	case *uint:
+		uk, ok := toUint64Key(key)
+		if !ok || uk > math.MaxUint {
+			return v, false
+		}
+		uv := uint(uk)
+		k = *(*K)(unsafe.Pointer(&uv))
+	case *uint32:
+		uk, ok := toUint64Key(key)
+		if !ok || uk > math.MaxUint32 {
+			return v, false
+		}
+		uv := uint32(uk)
+		k = *(*K)(unsafe.Pointer(&uv))
+	case *bool:
+		bk, ok := key.(Bool)
+		if !ok {
+			return v, false
+		}
+		bv := bool(bk)
+		k = *(*K)(unsafe.Pointer(&bv))
+	case *ref.Val:
+		return m.findRefValKey(key)
+	default:
+		rawK, err := key.ConvertToNative(reflect.TypeFor[K]())
+		if err != nil {
+			return v, false
+		}
+		typedK, ok := rawK.(K)
+		if !ok {
+			return v, false
+		}
+		k = typedK
+	}
+	v, found = m.mapVal[k]
+	return v, found
+}
+
+// findRefValKey looks up a key in a map whose key type is ref.Val, falling back to numerically
+// equivalent keys of other numeric types (e.g. 1.0 -> 1 -> 1u) when there is no exact match.
+func (m *nativeMap[K, V]) findRefValKey(key ref.Val) (v V, found bool) {
+	if v, found = m.lookupRefVal(key); found {
+		return v, true
+	}
+	switch kv := key.(type) {
 	case Double:
-		if ik, ok := doubleToInt64Lossless(float64(k)); ok {
-			if keyVal, found := a.mapVal[Int(ik)]; found {
-				return keyVal, found
+		if ik, ok := doubleToInt64Lossless(float64(kv)); ok {
+			if v, found = m.lookupRefVal(Int(ik)); found {
+				return v, true
 			}
 		}
-		if uk, ok := doubleToUint64Lossless(float64(k)); ok {
-			keyVal, found := a.mapVal[Uint(uk)]
-			return keyVal, found
+		if uk, ok := doubleToUint64Lossless(float64(kv)); ok {
+			return m.lookupRefVal(Uint(uk))
 		}
-	// map keys of type double are not supported.
 	case Int:
-		if uk, ok := int64ToUint64Lossless(int64(k)); ok {
-			keyVal, found := a.mapVal[Uint(uk)]
-			return keyVal, found
+		if uk, ok := int64ToUint64Lossless(int64(kv)); ok {
+			return m.lookupRefVal(Uint(uk))
 		}
 	case Uint:
-		if ik, ok := uint64ToInt64Lossless(uint64(k)); ok {
-			keyVal, found := a.mapVal[Int(ik)]
-			return keyVal, found
+		if ik, ok := uint64ToInt64Lossless(uint64(kv)); ok {
+			return m.lookupRefVal(Int(ik))
 		}
+	}
+	return v, false
+}
+
+// lookupRefVal performs a direct map lookup for maps whose key type K is ref.Val.
+func (m *nativeMap[K, V]) lookupRefVal(rk ref.Val) (V, bool) {
+	v, found := m.mapVal[*(*K)(unsafe.Pointer(&rk))]
+	return v, found
+}
+
+func (m *nativeMap[K, V]) valToQualifyAny(v V) any {
+	if m.qualifyRawVal {
+		return m.rawValToAny(v)
+	}
+	return m.valToRefVal(v)
+}
+
+func (m *nativeMap[K, V]) FindStringKey(s string) (any, bool) {
+	switch any((*K)(nil)).(type) {
+	case *string:
+		v, found := m.mapVal[*(*K)(unsafe.Pointer(&s))]
+		if !found {
+			return nil, false
+		}
+		return m.valToQualifyAny(v), true
+	case *ref.Val:
+		var rk ref.Val = String(s)
+		v, found := m.mapVal[*(*K)(unsafe.Pointer(&rk))]
+		if !found {
+			return nil, false
+		}
+		return m.valToQualifyAny(v), true
+	default:
+		return nil, false
+	}
+}
+
+func (m *nativeMap[K, V]) FindInt64Key(ik int64) (any, bool) {
+	switch any((*K)(nil)).(type) {
+	case *int64:
+		v, found := m.mapVal[*(*K)(unsafe.Pointer(&ik))]
+		if !found {
+			return nil, false
+		}
+		return m.valToQualifyAny(v), true
+	case *int:
+		if ik < math.MinInt || ik > math.MaxInt {
+			return nil, false
+		}
+		iv := int(ik)
+		v, found := m.mapVal[*(*K)(unsafe.Pointer(&iv))]
+		if !found {
+			return nil, false
+		}
+		return m.valToQualifyAny(v), true
+	case *int32:
+		if ik < math.MinInt32 || ik > math.MaxInt32 {
+			return nil, false
+		}
+		iv := int32(ik)
+		v, found := m.mapVal[*(*K)(unsafe.Pointer(&iv))]
+		if !found {
+			return nil, false
+		}
+		return m.valToQualifyAny(v), true
+	case *ref.Val:
+		var rk ref.Val = Int(ik)
+		v, found := m.mapVal[*(*K)(unsafe.Pointer(&rk))]
+		if found {
+			return m.valToQualifyAny(v), true
+		}
+		if ik >= 0 {
+			rk = Uint(ik)
+			v, found = m.mapVal[*(*K)(unsafe.Pointer(&rk))]
+			if found {
+				return m.valToQualifyAny(v), true
+			}
+		}
+		return nil, false
+	default:
+		return nil, false
+	}
+}
+
+func (m *nativeMap[K, V]) FindNative(key any) (any, bool) {
+	switch k := key.(type) {
+	case String:
+		return m.FindStringKey(string(k))
+	case string:
+		return m.FindStringKey(k)
+	case Int:
+		return m.FindInt64Key(int64(k))
+	case int64:
+		return m.FindInt64Key(k)
+	case int:
+		return m.FindInt64Key(int64(k))
+	}
+	if rv, ok := key.(ref.Val); ok {
+		return m.Find(rv)
 	}
 	return nil, false
 }
 
-// Iterator produces a new traits.Iterator which iterates over the map keys via Golang reflection.
-func (a *refValMapAccessor) Iterator() traits.Iterator {
-	return &mapIterator{
-		Adapter: DefaultTypeAdapter,
-		mapKeys: reflect.ValueOf(a.mapVal).MapRange(),
-		len:     len(a.mapVal),
-	}
+func (m *nativeMap[K, V]) Contains(index ref.Val) ref.Val {
+	_, found := m.findVal(index)
+	return Bool(found)
 }
 
-// Fold calls the FoldEntry method for each (key, value) pair in the map.
-func (a *refValMapAccessor) Fold(f traits.Folder) {
-	for k, v := range a.mapVal {
-		if !f.FoldEntry(k, v) {
+func (m *nativeMap[K, V]) ConvertToNative(typeDesc reflect.Type) (any, error) {
+	if typeDesc == reflect.TypeFor[map[K]V]() {
+		return m.mapVal, nil
+	}
+	return convertMapToNative(m, m.mapVal, typeDesc)
+}
+
+func (m *nativeMap[K, V]) ConvertToType(typeVal ref.Type) ref.Val {
+	switch typeVal {
+	case MapType:
+		return m
+	case TypeType:
+		return MapType
+	}
+	return NewErr("type conversion error from '%s' to '%s'", MapType, typeVal)
+}
+
+func (m *nativeMap[K, V]) Equal(other ref.Val) ref.Val {
+	otherMap, ok := other.(traits.Mapper)
+	if !ok {
+		return False
+	}
+	if m.Size() != otherMap.Size() {
+		return False
+	}
+	if otherNative, ok := other.(*nativeMap[K, V]); ok {
+		for k, v := range m.mapVal {
+			if otherV, found := otherNative.mapVal[k]; found {
+				if Equal(m.valToRefVal(v), otherNative.valToRefVal(otherV)) == False {
+					return False
+				}
+				continue
+			}
+			otherVal, found := otherNative.Find(m.keyToRefVal(k))
+			if !found || Equal(m.valToRefVal(v), otherVal) == False {
+				return False
+			}
+		}
+		return True
+	}
+	for k, v := range m.mapVal {
+		otherVal, found := otherMap.Find(m.keyToRefVal(k))
+		if !found {
+			return False
+		}
+		if Equal(m.valToRefVal(v), otherVal) == False {
+			return False
+		}
+	}
+	return True
+}
+
+func (m *nativeMap[K, V]) Get(key ref.Val) ref.Val {
+	v, found := m.Find(key)
+	if !found {
+		return ValOrErr(v, "no such key: %v", key)
+	}
+	return v
+}
+
+func (m *nativeMap[K, V]) IsZeroValue() bool {
+	return len(m.mapVal) == 0
+}
+
+func (m *nativeMap[K, V]) Fold(f traits.Folder) {
+	if kf, ok := f.(interface{ FoldKeyOnly() bool }); ok && kf.FoldKeyOnly() {
+		for k := range m.mapVal {
+			if !f.FoldEntry(m.keyToFoldAny(k), nil) {
+				break
+			}
+		}
+		return
+	}
+	for k, v := range m.mapVal {
+		if !f.FoldEntry(m.keyToFoldAny(k), m.valToFoldAny(v)) {
 			break
 		}
 	}
 }
 
-func newStringMapAccessor(strMap map[string]string) mapAccessor {
-	return &stringMapAccessor{mapVal: strMap}
+type nativeMapKeyIterator[K comparable, V any] struct {
+	*baseIterator
+	m      *nativeMap[K, V]
+	keys   []K
+	cursor int
 }
 
-type stringMapAccessor struct {
-	mapVal map[string]string
-}
-
-// Find uses native map accesses to find the key, returning (value, true) if present.
-//
-// If the key is not found the function returns (nil, false).
-func (a *stringMapAccessor) Find(key ref.Val) (ref.Val, bool) {
-	strKey, ok := key.(String)
-	if !ok {
-		return nil, false
+func (it *nativeMapKeyIterator[K, V]) HasNext() ref.Val {
+	if it.cursor < len(it.keys) {
+		return True
 	}
-	keyVal, found := a.mapVal[string(strKey)]
-	if !found {
-		return nil, false
-	}
-	return String(keyVal), true
+	return False
 }
 
-// Iterator creates a new traits.Iterator from the string key set of the map.
-func (a *stringMapAccessor) Iterator() traits.Iterator {
-	// Copy the keys to make their order stable.
-	mapKeys := make([]string, len(a.mapVal))
+func (it *nativeMapKeyIterator[K, V]) Next() ref.Val {
+	if it.cursor < len(it.keys) {
+		k := it.keys[it.cursor]
+		it.cursor++
+		return it.m.keyToRefVal(k)
+	}
+	return nil
+}
+
+func (m *nativeMap[K, V]) Iterator() traits.Iterator {
+	keys := make([]K, 0, len(m.mapVal))
+	for k := range m.mapVal {
+		keys = append(keys, k)
+	}
+	return &nativeMapKeyIterator[K, V]{
+		m:    m,
+		keys: keys,
+	}
+}
+
+func (m *nativeMap[K, V]) Size() ref.Val {
+	return Int(len(m.mapVal))
+}
+
+func (m *nativeMap[K, V]) AggregateSize(sizer AggregateSizer) uint32 {
+	if sz := atomic.LoadUint32(&m.aggSize); sz != 0 {
+		return sz
+	}
+	var total uint32
+	if t, ok := getMapElementsAggregateSize(sizer, m.mapVal); ok {
+		total = t
+	}
+	if total == 0 {
+		f := foldableAggregateSizer{sizer: sizer, total: 1}
+		m.Fold(&f)
+		total = f.total
+	}
+	if cacheableAggregateSize(sizer) {
+		atomic.StoreUint32(&m.aggSize, total)
+	}
+	return total
+}
+
+func (m *nativeMap[K, V]) String() string {
+	var sb strings.Builder
+	sb.WriteString("{")
 	i := 0
-	for k := range a.mapVal {
-		mapKeys[i] = k
+	for k, v := range m.mapVal {
+		fmt.Fprintf(&sb, "%v: %v", m.keyToRefVal(k), m.valToRefVal(v))
+		if i != len(m.mapVal)-1 {
+			sb.WriteString(", ")
+		}
 		i++
 	}
-	return &stringKeyIterator{
-		mapKeys: mapKeys,
-		len:     len(mapKeys),
-	}
+	sb.WriteString("}")
+	return sb.String()
 }
 
-// Fold calls the FoldEntry method for each (key, value) pair in the map.
-func (a *stringMapAccessor) Fold(f traits.Folder) {
-	for k, v := range a.mapVal {
-		if !f.FoldEntry(k, v) {
-			break
-		}
-	}
+func (m *nativeMap[K, V]) format(sb *strings.Builder) {
+	formatMap(m, sb)
 }
 
-func newStringIfaceMapAccessor(adapter Adapter, mapVal map[string]any) mapAccessor {
-	return &stringIfaceMapAccessor{
-		Adapter: adapter,
-		mapVal:  mapVal,
-	}
+func (m *nativeMap[K, V]) Type() ref.Type {
+	return MapType
 }
 
-type stringIfaceMapAccessor struct {
-	Adapter
-	mapVal map[string]any
-}
-
-// Find uses native map accesses to find the key, returning (value, true) if present.
-//
-// If the key is not found the function returns (nil, false).
-func (a *stringIfaceMapAccessor) Find(key ref.Val) (ref.Val, bool) {
-	strKey, ok := key.(String)
-	if !ok {
-		return nil, false
-	}
-	keyVal, found := a.mapVal[string(strKey)]
-	if !found {
-		return nil, false
-	}
-	return a.NativeToValue(keyVal), true
-}
-
-// Iterator creates a new traits.Iterator from the string key set of the map.
-func (a *stringIfaceMapAccessor) Iterator() traits.Iterator {
-	// Copy the keys to make their order stable.
-	mapKeys := make([]string, len(a.mapVal))
-	i := 0
-	for k := range a.mapVal {
-		mapKeys[i] = k
-		i++
-	}
-	return &stringKeyIterator{
-		mapKeys: mapKeys,
-		len:     len(mapKeys),
-	}
-}
-
-// Fold calls the FoldEntry method for each (key, value) pair in the map.
-func (a *stringIfaceMapAccessor) Fold(f traits.Folder) {
-	for k, v := range a.mapVal {
-		if !f.FoldEntry(k, v) {
-			break
-		}
-	}
+func (m *nativeMap[K, V]) Value() any {
+	return m.mapVal
 }
 
 // protoMap is a specialized, separate implementation of the traits.Mapper interfaces tailored to
 // accessing protoreflect.Map values.
 type protoMap struct {
 	Adapter
-	value *pb.Map
+	value   *pb.Map
+	aggSize uint32
 }
 
 // Contains returns whether the map contains the given key.
@@ -933,7 +1334,10 @@ func (m *protoMap) Size() ref.Val {
 // AggregateSize implements the AggregateSizeVisitor interface method.
 func (m *protoMap) AggregateSize(sizer AggregateSizer) uint32 {
 	if m.value == nil {
-		return 0
+		return 1
+	}
+	if sz := atomic.LoadUint32(&m.aggSize); sz != 0 {
+		return sz
 	}
 	total := uint32(1)
 	m.value.Range(func(k protoreflect.MapKey, v protoreflect.Value) bool {
@@ -941,6 +1345,9 @@ func (m *protoMap) AggregateSize(sizer AggregateSizer) uint32 {
 		total = safeAddUint32(total, sizer.AggregateSize(v))
 		return true
 	})
+	if cacheableAggregateSize(sizer) {
+		atomic.StoreUint32(&m.aggSize, total)
+	}
 	return total
 }
 
@@ -1041,6 +1448,14 @@ type interopFoldableMap struct {
 
 func (m interopFoldableMap) Fold(f traits.Folder) {
 	it := m.Iterator()
+	if kf, ok := f.(interface{ FoldKeyOnly() bool }); ok && kf.FoldKeyOnly() {
+		for it.HasNext() == True {
+			if !f.FoldEntry(it.Next(), nil) {
+				break
+			}
+		}
+		return
+	}
 	for it.HasNext() == True {
 		k := it.Next()
 		if !f.FoldEntry(k, m.Get(k)) {
@@ -1102,4 +1517,12 @@ func isDelim(r rune) bool {
 
 func isLower(r rune) bool {
 	return r >= 'a' && r <= 'z'
+}
+
+// heapCopy returns a pointer to a fresh heap copy of v. Taking &v directly would move the parameter
+// to the heap on every call of the enclosing generic function, including calls that never box v.
+func heapCopy[V any](v V) *V {
+	p := new(V)
+	*p = v
+	return p
 }

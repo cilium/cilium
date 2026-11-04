@@ -445,6 +445,8 @@ Port Range / Protocol    Description
 6060/tcp                 cilium-agent pprof server (listening on 127.0.0.1)
 6061/tcp                 cilium-operator pprof server (listening on 127.0.0.1)
 6062/tcp                 Hubble Relay pprof server (listening on 127.0.0.1)
+6081/tcp                 Geneve tunnel (default port)
+8472/udp                 VXLAN tunnel (default port)
 9878/tcp                 cilium-envoy health listener (listening on 127.0.0.1)
 9879/tcp                 cilium-agent health status API (listening on 127.0.0.1 and/or ::1)
 9890/tcp                 cilium-agent gops server (listening on 127.0.0.1)
@@ -456,6 +458,57 @@ Port Range / Protocol    Description
 9964/tcp                 cilium-envoy Prometheus metrics
 51871/udp                WireGuard encryption tunnel endpoint
 ======================== ==================================================================
+
+.. note:: The VXLAN/Geneve tunnel ports (6081, 8742) above are the default values.
+          If you set a port different than that, then the rule should match the port
+          you have passed in the configuration.
+
+.. _host_firewall_requirements:
+
+Node Firewall Rules
+~~~~~~~~~~~~~~~~~~~
+
+Some environments apply stricter policies directly on the nodes in combination with
+network firewalling. In such scenarios, the flows listed in the section :ref:`firewall_requirements`
+should also be allowed directly on the nodes.
+Tunneling (VXLAN and Geneve) and Encryption are exempt from connection tracking, so
+when the policy for the FILTER table is set to drop, those flows must be explicitly allowed.
+The following iptables rules can be used as a reference:
+
+VXLAN Tunnel (default port):
+
+   .. code-block:: text
+
+        iptables -A OUTPUT -p udp -m udp --dport 8472 -m comment --comment "cilium: ACCEPT for tunnel traffic" -j ACCEPT
+        iptables -A INPUT -p udp -m udp --dport 8472 -m comment --comment "cilium: ACCEPT for tunnel traffic" -j ACCEPT
+
+Geneve port (default port):
+
+   .. code-block:: text
+
+        iptables -A OUTPUT -p udp -m udp --dport 6081 -m comment --comment "cilium: ACCEPT for tunnel traffic" -j ACCEPT
+        iptables -A INPUT -p udp -m udp --dport 6081 -m comment --comment "cilium: ACCEPT for tunnel traffic" -j ACCEPT
+
+WireGuard:
+
+   .. code-block:: text
+
+        iptables -A OUTPUT -p udp -m udp --dport 51871 -m comment --comment "cilium: ACCEPT for WireGuard traffic" -j ACCEPT
+        iptables -A INPUT -p udp -m udp --dport 51871 -m comment --comment "cilium: ACCEPT for WireGuard traffic" -j ACCEPT
+
+IPsec:
+
+   .. code-block:: text
+
+        iptables -A OUTPUT -p esp -m comment --comment "cilium: ACCEPT for IPsec traffic" -j ACCEPT
+        iptables -A INPUT -p esp comment --comment "cilium: ACCEPT for IPsec traffic" -j ACCEPT
+
+.. note:: Tunnel flows are not tracked in conntrack, so the ``ACCEPT`` rules should 
+          either omit matching on ``ctstate`` or explicitly target the ``UNTRACKED`` state.
+
+.. note:: If WireGuard is enabled and you want these rules to target a specific
+          interface, use ``cilium_wg0``.
+
 
 .. _admin_mount_bpffs:
 

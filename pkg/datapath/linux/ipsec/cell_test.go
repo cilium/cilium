@@ -47,7 +47,7 @@ import (
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
-	nodeManager "github.com/cilium/cilium/pkg/node/manager"
+	nodePolicy "github.com/cilium/cilium/pkg/node/policy"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/nodediscovery"
 	"github.com/cilium/cilium/pkg/option"
@@ -162,7 +162,7 @@ func TestPrivileged_TestIPSecCell(t *testing.T) {
 		return hive.New(
 			mtu.Cell,
 			encrypt.Cell,
-			nodeManager.Cell,
+			nodePolicy.Cell,
 			nodediscovery.Cell,
 			source.Cell,
 			watchers.Cell,

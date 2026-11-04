@@ -92,6 +92,8 @@ type NewIPAMParams struct {
 	// CloudProviders holds the registered cloud providers, keyed by the IPAM
 	// mode each one handles.
 	CloudProviders map[string]CloudProvider
+
+	MultiPoolMetrics MultiPoolMetrics
 }
 
 // NewIPAM returns a new IP address manager
@@ -116,6 +118,7 @@ func NewIPAM(params NewIPAMParams) *IPAM {
 		podIPPools:                params.PodIPPools,
 		onlyMasqueradeDefaultPool: params.OnlyMasqueradeDefaultPool,
 		cloudProviders:            params.CloudProviders,
+		multiPoolMetrics:          params.MultiPoolMetrics,
 	}
 }
 
@@ -197,6 +200,7 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 			DB:                        ipam.db,
 			PodIPPools:                ipam.podIPPools,
 			OnlyMasqueradeDefaultPool: ipam.onlyMasqueradeDefaultPool,
+			Metrics:                   ipam.multiPoolMetrics,
 		})
 		if err != nil {
 			return fmt.Errorf("unable to initialize MultiPool IPAM: %w", err)
@@ -208,14 +212,14 @@ func (ipam *IPAM) ConfigureAllocator(ctx context.Context) error {
 		if ipam.config.IPv4Enabled() {
 			ipam.ipv4Allocator = v4Allocator
 		}
-	case ipamOption.IPAMCRD, ipamOption.IPAMAlibabaCloud:
+	case ipamOption.IPAMCRD:
 		ipam.logger.Info("Initializing CRD-based IPAM")
 		if ipam.config.IPv6Enabled() {
-			ipam.ipv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
+			ipam.ipv6Allocator = newCRDAllocator(ipam.logger, IPv6, ipam.config, ipam.nodeDiscovery, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
 		}
 
 		if ipam.config.IPv4Enabled() {
-			ipam.ipv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.localNodeStore, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
+			ipam.ipv4Allocator = newCRDAllocator(ipam.logger, IPv4, ipam.config, ipam.nodeDiscovery, ipam.clientset, ipam.k8sEventReg, ipam.mtuConfig, ipam.sysctl)
 		}
 	case ipamOption.IPAMDelegatedPlugin:
 		ipam.logger.Info("Initializing no-op IPAM since we're using a CNI delegated plugin")

@@ -101,6 +101,31 @@ func (v *VirtualHubBgpConnectionsClientListLearnedRoutesResponse) UnmarshalJSON(
 	return json.Unmarshal(data, &v.Value)
 }
 
+// MarshalJSON implements the json.Marshaller interface for type VirtualNetworkApplianceCapabilitiesClientCreateOrUpdateResponse.
+func (v VirtualNetworkApplianceCapabilitiesClientCreateOrUpdateResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v.VirtualNetworkApplianceCapabilityClassification)
+}
+
+// UnmarshalJSON implements the json.Unmarshaller interface for type VirtualNetworkApplianceCapabilitiesClientCreateOrUpdateResponse.
+func (v *VirtualNetworkApplianceCapabilitiesClientCreateOrUpdateResponse) UnmarshalJSON(data []byte) error {
+	res, err := unmarshalVirtualNetworkApplianceCapabilityClassification(data)
+	if err != nil {
+		return err
+	}
+	v.VirtualNetworkApplianceCapabilityClassification = res
+	return nil
+}
+
+// UnmarshalJSON implements the json.Unmarshaller interface for type VirtualNetworkApplianceCapabilitiesClientGetResponse.
+func (v *VirtualNetworkApplianceCapabilitiesClientGetResponse) UnmarshalJSON(data []byte) error {
+	res, err := unmarshalVirtualNetworkApplianceCapabilityClassification(data)
+	if err != nil {
+		return err
+	}
+	v.VirtualNetworkApplianceCapabilityClassification = res
+	return nil
+}
+
 // UnmarshalJSON implements the json.Unmarshaller interface for type VirtualNetworkGatewayConnectionsClientGetIkeSasResponse.
 func (v *VirtualNetworkGatewayConnectionsClientGetIkeSasResponse) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(data, &v.Value)

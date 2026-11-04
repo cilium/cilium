@@ -78,7 +78,17 @@ jobs:
           # Enable GitHub auto-merge here instead of having Renovate do it when
           # the PR is created as a draft (not possible to have draft and automerge
           # enabled at the same time).
-          gh -R ${GITHUB_REPOSITORY} pr merge ${PULL_REQUEST_NUMBER} --auto --rebase
+          for attempt in 1 2 3; do
+            if gh -R ${GITHUB_REPOSITORY} pr merge ${PULL_REQUEST_NUMBER} --auto --rebase; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              exit 1
+            fi
+            echo "Enabling auto-merge failed, retrying in 30 seconds"
+            sleep 30
+          done
+          gh -R ${GITHUB_REPOSITORY} pr review ${PULL_REQUEST_NUMBER} --approve
+        else
+          echo "ciliumbot was not requested by cilium-renovate[bot], not approving"
         fi
-
-        gh -R ${GITHUB_REPOSITORY} pr review ${PULL_REQUEST_NUMBER} --approve

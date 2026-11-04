@@ -698,6 +698,21 @@ func (m *RateLimitDescriptor_RateLimitOverride) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	if wrapper := m.GetUnitMultiplier(); wrapper != nil {
+
+		if wrapper.GetValue() <= 0 {
+			err := RateLimitDescriptor_RateLimitOverrideValidationError{
+				field:  "UnitMultiplier",
+				reason: "value must be greater than 0",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return RateLimitDescriptor_RateLimitOverrideMultiError(errors)
 	}

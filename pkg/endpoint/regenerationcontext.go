@@ -10,6 +10,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	identityPkg "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
@@ -167,4 +168,15 @@ func (ctx *datapathRegenerationContext) prepareForProxyUpdates(parentCtx context
 	ctx.proxyWaitGroup = completion.NewWaitGroup(completionCtx)
 	ctx.completionCtx = completionCtx
 	ctx.completionCancel = completionCancel
+}
+
+// isPolicyResultCurrent returns whether the policy that ComputeInitialPolicy
+// computed for this regeneration can be reused. The identity is compared as
+// well as its revision, as a label change bumps the revision before the new
+// identity is set.
+func (ctx *datapathRegenerationContext) isPolicyResultCurrent(secID identityPkg.NumericIdentity, identityRevision int, policyRevision uint64) bool {
+	return ctx.policyResult != nil &&
+		ctx.policyResult.identity == secID &&
+		ctx.policyResult.identityRevision >= identityRevision &&
+		ctx.policyResult.policyRevision >= policyRevision
 }

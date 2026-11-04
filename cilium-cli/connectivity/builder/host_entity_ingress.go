@@ -18,6 +18,7 @@ type hostEntityIngress struct{}
 func (t hostEntityIngress) build(ct *check.ConnectivityTest, _ map[string]string) {
 	// This policy allows ingress traffic from the host entity
 	newTest("host-entity-ingress", ct).
+		WithHostNetNSDaemonSet().
 		WithCiliumPolicy(allowHostEntityIngressPolicyYAML).
 		WithScenarios(tests.HostToPod())
 }

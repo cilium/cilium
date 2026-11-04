@@ -31,6 +31,7 @@ import (
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
@@ -458,16 +459,16 @@ func (h *getConfigHandler) getNodeRouterAddressing(ctx context.Context) (*models
 	if h.daemonConfig.EnableIPv6 {
 		nodeRouterAddressing.IPv6 = &models.NodeAddressingElement{
 			Enabled:    h.daemonConfig.EnableIPv6,
-			IP:         ln.GetCiliumInternalIPv6().String(),
-			AllocRange: ln.IPv6AllocCIDR.String(),
+			IP:         iputil.AddrFrom(ln.GetCiliumInternalIPv6()),
+			AllocRange: ln.IPv6AllocCIDR.Prefix,
 		}
 	}
 
 	if h.daemonConfig.EnableIPv4 {
 		nodeRouterAddressing.IPv4 = &models.NodeAddressingElement{
 			Enabled:    h.daemonConfig.EnableIPv4,
-			IP:         ln.GetCiliumInternalIPv4().String(),
-			AllocRange: ln.IPv4AllocCIDR.String(),
+			IP:         iputil.AddrFrom(ln.GetCiliumInternalIPv4()),
+			AllocRange: ln.IPv4AllocCIDR.Prefix,
 		}
 	}
 

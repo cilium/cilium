@@ -19,7 +19,7 @@ import (
 // SecurityPerimeterAssociableResourceTypesClient contains the methods for the SecurityPerimeterAssociableResourceTypes group.
 // Don't use this type directly, use NewSecurityPerimeterAssociableResourceTypesClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type SecurityPerimeterAssociableResourceTypesClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -98,7 +98,7 @@ func (client *SecurityPerimeterAssociableResourceTypesClient) listCreateRequest(
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}

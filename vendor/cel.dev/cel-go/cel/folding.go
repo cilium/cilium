@@ -98,8 +98,8 @@ func (opt *constantFoldingOptimizer) Optimize(ctx *OptimizerContext, a *ast.AST)
 			if fold.Kind() == ast.CallKind && maybePruneBranches(ctx, a, fold) {
 				continue
 			}
-			// Late-bound function calls cannot be folded.
-			if fold.Kind() == ast.CallKind && isLateBoundFunctionCall(ctx, fold) {
+			// Async and late-bound function calls cannot be folded.
+			if fold.Kind() == ast.CallKind && (isLateBoundFunctionCall(ctx, fold) || isAsyncFunctionCall(ctx, fold)) {
 				continue
 			}
 			// Otherwise, assume all context is needed to evaluate the expression.
@@ -162,6 +162,7 @@ func (opt *constantFoldingOptimizer) tryFold(ctx *OptimizerContext, a *ast.AST, 
 	}
 	// Update the fold expression to be a literal.
 	ctx.UpdateExpr(expr, ctx.NewLiteral(out))
+	delete(a.ReferenceMap(), expr.ID())
 	return nil
 }
 
@@ -177,7 +178,7 @@ func evaluateExpr(ctx *OptimizerContext, a *ast.AST, navigableExpr ast.Navigable
 	if err != nil {
 		return nil, errCannotFold
 	}
-	// Folding will not attempt to call async functions which are all marked as late-bound,
+	// Folding will not attempt to call async functions,
 	// but the presence of such functions requires the use of `ConcurrentEval` in order to
 	// avoid an early return error which blocks async functions from running in `Eval` and
 	// `ContextEval` call paths.
@@ -196,6 +197,15 @@ func isLateBoundFunctionCall(ctx *OptimizerContext, expr ast.Expr) bool {
 		return false
 	}
 	return function.HasLateBinding()
+}
+
+func isAsyncFunctionCall(ctx *OptimizerContext, expr ast.Expr) bool {
+	call := expr.AsCall()
+	function := ctx.Functions()[call.FunctionName()]
+	if function == nil {
+		return false
+	}
+	return function.IsAsync()
 }
 
 // maybePruneBranches inspects the non-strict call expression to determine whether
@@ -217,32 +227,23 @@ func maybePruneBranches(ctx *OptimizerContext, a *ast.AST, expr ast.NavigableExp
 		}
 		if cond.AsLiteral() == types.True {
 			ctx.UpdateExpr(expr, truthy)
+			updateMetadata(a, expr.ID(), truthy.ID())
 		} else {
 			ctx.UpdateExpr(expr, falsy)
+			updateMetadata(a, expr.ID(), falsy.ID())
 		}
 		return true
 	case operators.In:
 		haystack := args[1]
-		if haystack.Kind() == ast.ListKind && haystack.AsList().Size() == 0 {
+		if isCollectionEmpty(haystack) {
 			ctx.UpdateExpr(expr, ctx.NewLiteral(types.False))
+			delete(a.ReferenceMap(), expr.ID())
 			return true
 		}
-		needle := args[0]
-		if (needle.Kind() == ast.LiteralKind || isSelfEqualIdent(needle)) && haystack.Kind() == ast.ListKind {
-			needleIsLit := needle.Kind() == ast.LiteralKind
-			needleLitVal := needle.AsLiteral()
-			needleIdentVal := needle.AsIdent()
-			list := haystack.AsList()
-			for _, elem := range list.Elements() {
-				if needleIsLit && elem.Kind() == ast.LiteralKind && elem.AsLiteral().Equal(needleLitVal) == types.True {
-					ctx.UpdateExpr(expr, ctx.NewLiteral(types.True))
-					return true
-				}
-				if !needleIsLit && elem.Kind() == ast.IdentKind && elem.AsIdent() == needleIdentVal {
-					ctx.UpdateExpr(expr, ctx.NewLiteral(types.True))
-					return true
-				}
-			}
+		if collectionContainsNeedle(args[0], haystack) {
+			ctx.UpdateExpr(expr, ctx.NewLiteral(types.True))
+			delete(a.ReferenceMap(), expr.ID())
+			return true
 		}
 	case operators.Add:
 		if len(args) == 2 && args[0].Kind() == ast.ListKind && args[1].Kind() == ast.ListKind {
@@ -262,6 +263,7 @@ func maybePruneBranches(ctx *OptimizerContext, a *ast.AST, expr ast.NavigableExp
 
 			combinedList := ctx.NewList(elems, optIndices)
 			ctx.UpdateExpr(expr, combinedList)
+			delete(a.ReferenceMap(), expr.ID())
 			return true
 		}
 	}
@@ -286,6 +288,7 @@ func maybeShortcircuitLogic(ctx *OptimizerContext, a *ast.AST, function string, 
 		}
 		if arg.AsLiteral() == shortcircuit {
 			ctx.UpdateExpr(expr, arg)
+			updateMetadata(a, expr.ID(), arg.ID())
 			return true
 		}
 	}
@@ -300,10 +303,25 @@ func maybeShortcircuitLogic(ctx *OptimizerContext, a *ast.AST, function string, 
 			return false
 		}
 		ctx.UpdateExpr(expr, newArgs[0])
+		updateMetadata(a, expr.ID(), newArgs[0].ID())
 		return true
 	}
 	ctx.UpdateExpr(expr, ctx.NewCall(function, newArgs...))
 	return true
+}
+
+func updateMetadata(a *ast.AST, targetID, updatedID int64) {
+	if a == nil {
+		return
+	}
+	if ref, found := a.ReferenceMap()[updatedID]; found {
+		a.ReferenceMap()[targetID] = ref
+	} else {
+		delete(a.ReferenceMap(), targetID)
+	}
+	if t, found := a.TypeMap()[updatedID]; found {
+		a.TypeMap()[targetID] = t
+	}
 }
 
 func isBoolType(a *ast.AST, e ast.Expr) bool {
@@ -581,8 +599,8 @@ func (opt *constantFoldingOptimizer) constantExprMatcher(ctx *OptimizerContext, 
 			if e.Kind() == ast.IdentKind && !vars[e.AsIdent()] {
 				constantExprs = false
 			}
-			// Late-bound function calls cannot be folded.
-			if e.Kind() == ast.CallKind && isLateBoundFunctionCall(ctx, e) {
+			// Async and late-bound function calls cannot be folded.
+			if e.Kind() == ast.CallKind && (isLateBoundFunctionCall(ctx, e) || isAsyncFunctionCall(ctx, e)) {
 				constantExprs = false
 			}
 		})
@@ -631,23 +649,8 @@ func constantCallMatcher(e ast.NavigableExpr) bool {
 			return false
 		}
 		haystack := children[1]
-		if haystack.Kind() == ast.ListKind && haystack.AsList().Size() == 0 {
+		if isCollectionEmpty(haystack) || collectionContainsNeedle(children[0], haystack) {
 			return true
-		}
-		needle := children[0]
-		if (needle.Kind() == ast.LiteralKind || isSelfEqualIdent(needle)) && haystack.Kind() == ast.ListKind {
-			needleIsLit := needle.Kind() == ast.LiteralKind
-			needleLitVal := needle.AsLiteral()
-			needleIdentVal := needle.AsIdent()
-			list := haystack.AsList()
-			for _, elem := range list.Elements() {
-				if needleIsLit && elem.Kind() == ast.LiteralKind && elem.AsLiteral().Equal(needleLitVal) == types.True {
-					return true
-				}
-				if !needleIsLit && elem.Kind() == ast.IdentKind && elem.AsIdent() == needleIdentVal {
-					return true
-				}
-			}
 		}
 	}
 	if fnName == operators.Add {
@@ -662,6 +665,70 @@ func constantCallMatcher(e ast.NavigableExpr) bool {
 		}
 	}
 	return true
+}
+
+func isCollectionEmpty(e ast.Expr) bool {
+	switch e.Kind() {
+	case ast.ListKind:
+		return e.AsList().Size() == 0
+	case ast.MapKind:
+		return e.AsMap().Size() == 0
+	default:
+		return false
+	}
+}
+
+func exprEqualsNeedle(needle, target ast.Expr) bool {
+	if needle.Kind() == ast.LiteralKind && target.Kind() == ast.LiteralKind {
+		return target.AsLiteral().Equal(needle.AsLiteral()) == types.True
+	}
+	if needle.Kind() == ast.IdentKind && target.Kind() == ast.IdentKind {
+		return target.AsIdent() == needle.AsIdent()
+	}
+	return false
+}
+
+func collectionContainsNeedle(needle, haystack ast.Expr) bool {
+	if needle.Kind() != ast.LiteralKind && !isSelfEqualIdent(needle) {
+		return false
+	}
+	switch haystack.Kind() {
+	case ast.ListKind:
+		list := haystack.AsList()
+		for i, elem := range list.Elements() {
+			if list.IsOptional(int32(i)) {
+				if needle.Kind() == ast.LiteralKind && elem.Kind() == ast.LiteralKind {
+					if opt, ok := elem.AsLiteral().(*types.Optional); ok && opt.HasValue() {
+						if opt.GetValue().Equal(needle.AsLiteral()) == types.True {
+							return true
+						}
+					}
+				}
+				continue
+			}
+			if exprEqualsNeedle(needle, elem) {
+				return true
+			}
+		}
+	case ast.MapKind:
+		for _, entryExpr := range haystack.AsMap().Entries() {
+			entry := entryExpr.AsMapEntry()
+			if entry.IsOptional() {
+				if val := entry.Value(); val.Kind() == ast.LiteralKind {
+					if opt, ok := val.AsLiteral().(*types.Optional); ok && opt.HasValue() {
+						if exprEqualsNeedle(needle, entry.Key()) {
+							return true
+						}
+					}
+				}
+				continue
+			}
+			if exprEqualsNeedle(needle, entry.Key()) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // isSelfEqualIdent indicates whether the expression is an identifier whose static type

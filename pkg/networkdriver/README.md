@@ -9,11 +9,18 @@ can claim devices via the standard DRA framework.
 
 ## Requirements
 
-- Kubernetes v1.34+
-- Container Runtime NRI support (and have it enabled). The agent 
+- Kubernetes v1.34+. Device managers that publish consumable capacity also
+  require the `DRAConsumableCapacity` feature gate. Enable it explicitly on
+  Kubernetes v1.34 and v1.35; it is enabled by default starting in v1.36.
+- Container runtime with NRI support enabled. The agent
   depends on `/var/run/nri/nri.sock` for plugin registration.
+- Container runtime CDI support. The agent writes CDI specifications to
+  `/var/run/cdi` so DRA device metadata can be mounted into containers.
 - Cilium agent with `--enable-network-driver` (set automatically
-  when the Helm flag is enabled)
+  when the Helm flag is enabled).
+- The RX queue manager additionally requires a Linux kernel with netdev RX
+  queue leasing and netkit support (upstream Linux v7.1 or an equivalent
+  backport), and a NIC driver that implements RX queue leasing.
 
 ## Use cases
 
@@ -23,6 +30,8 @@ hand-off from the host, such as:
 
 - DPDK-based applications (VNFs, packet-processing pipelines)
 - High-frequency trading or other low-latency workloads
+- Applications that consume a dedicated NIC receive queue, including
+  `io_uring` zero-copy receive applications
 
 ## Device Managers
 
@@ -33,10 +42,108 @@ whenever the device set changes, then blocks until context cancellation.
 
 Available device managers:
 
-| Manager         | Key in CRD     | `DeviceManagerType` string | Devices managed                                          |
-|-----------------|----------------|----------------------------|-----------------------------------------------------------|
-| `sriov`         | `sriov`        | `sr-iov`                   | SR-IOV Virtual Functions (legacy mode)                    |
-| `dummy`         | `dummy`        | `dummy`                    | Linux dummy interfaces                                    |
+| Manager   | Key in CRD | `DeviceManagerType` string | Devices managed                                                  |
+|-----------|------------|----------------------------|------------------------------------------------------------------|
+| `sriov`   | `sriov`    | `sr-iov`                   | SR-IOV Virtual Functions (legacy mode)                           |
+| `dummy`   | `dummy`    | `dummy`                    | Linux dummy interfaces                                           |
+| `rxqueue` | `rxQueue`  | `rxQueue`                  | Physical NIC RX queue capacity                                   |
+
+The dummy and SR-IOV managers publish dedicated devices. Each published dummy
+device or SR-IOV Virtual Function can be allocated to one claim at a time. The
+RX queue manager publishes each physical interface as a shareable device whose
+capacity can be consumed by several claims.
+
+### Device allocation model
+
+A device manager controls how Kubernetes Dynamic Resource Allocation (DRA)
+treats each device it publishes:
+
+- `GetCapacity` returns the named capacity available on the device.
+- `AllowMultipleAllocations` determines whether several independent claims
+  may consume that capacity.
+- `Setup` receives the allocation selected by the scheduler and returns the
+  device prepared for that allocation.
+- `Recover` re-creates missing kernel state for an allocation restored from
+  `ResourceClaim` status. It must return the same logical allocation because
+  recovery does not rewrite that status.
+- `Free` receives the same allocation context during cleanup.
+
+A dedicated device returns no consumable capacity and does not allow multiple
+allocations. `Setup` may return the advertised device itself. This is the
+existing model used by the dummy and SR-IOV managers.
+
+A shareable device publishes capacity and sets `allowMultipleAllocations` in
+its `ResourceSlice`. The Kubernetes scheduler may then allocate the same
+published device to more than one `ResourceClaim`. Each allocation result has
+a `ShareID` and the amount of capacity consumed by that share. The network
+driver passes both values to the device manager; it does not choose the share
+or perform the scheduler's capacity accounting.
+
+`ShareID` describes the scheduler's allocation-time decision. A device's
+sharing mode may change before preparation or recovery, so device managers
+must interpret the allocation from `ShareID`, not from the device's current
+`AllowMultipleAllocations` value.
+
+```text
+ResourceSlice device
+  ├─ attributes
+  ├─ capacity
+  └─ allowMultipleAllocations
+               │
+               │ Kubernetes scheduler
+               ▼
+ResourceClaim allocation result
+  ├─ pool + device
+  ├─ shareID
+  └─ consumedCapacity
+               │
+               │ PrepareResourceClaims
+               ▼
+DRAAllocation
+  ├─ advertised device identity
+  ├─ scheduler allocation identity and capacity
+  └─ allocation-specific prepared device
+```
+
+`ShareID` distinguishes allocations of the same advertised device. It is not
+a physical subdevice identifier. The device manager decides how the consumed
+capacity maps onto hardware and may return a different prepared device for
+each share.
+
+The driver rejects shareable devices on Kubernetes versions older than v1.34.
+It cannot inspect the API server's feature-gate configuration. On v1.34 or
+later with `DRAConsumableCapacity` disabled, `ResourceSlice` publication
+reports an error when the API server omits the feature-gated fields.
+
+### RX queue device manager
+
+The RX queue manager (`pkg/networkdriver/rxqueue`) publishes one shareable DRA
+device for each configured physical interface. Its `rxQueues` capacity is the
+number of queues configured for reservation. Each claim consumes exactly one
+unit of that capacity. Kubernetes schedules capacity from the parent device;
+physical queue IDs remain an implementation detail of the manager.
+
+At startup, the manager resolves each configured interface and enumerates its
+active RX queues through the netdev generic netlink API. The interface must be
+up and must have more active queues than the configured reservation. The
+manager selects the highest-numbered queues and always leaves at least one
+queue outside the reserved set. `count` defaults to one. Discovery runs once,
+so interface or queue-count changes require an agent restart.
+
+At `PrepareResourceClaims` time, the manager:
+
+1. Validates that the scheduler assigned one unit of `rxQueues` capacity and
+   supplied a `ShareID`.
+2. Selects an unleased physical queue from the reserved set.
+3. Records the queue reservation against that share and returns the
+   allocation-specific state.
+
+Repeated preparation of the same share returns the same queue. Different
+shares cannot reserve the same queue. Cleanup releases the in-memory
+reservation only after the kernel reports that no active lease remains.
+
+After an agent restart, recovery restores the reservation for the physical
+queue recorded in `PreparedDevice`.
 
 ### SR-IOV device manager
 
@@ -99,10 +206,12 @@ device manager, and `Dev` is that manager's current device object.
 
 Each device manager calls `onDevices` with its complete inventory. The driver
 updates that manager's rows and removes devices it no longer reports. This
-does not remove prepared allocation state. If the manager rediscovers a
-prepared device, `Merge` preserves state that discovery can no longer see,
-such as an SR-IOV Virtual Function interface name after the interface moved
-into a pod network namespace.
+does not remove prepared allocation state. For a dedicated device, `Merge`
+preserves state that discovery can no longer see, such as an SR-IOV Virtual
+Function interface name after the interface moved into a pod network
+namespace. RX queue inventory represents the shared physical interface, so
+the selected physical queue and target Pod interface remain solely in the
+allocation table.
 
 `ResourceSlice` attributes are computed from `Dev.GetAttrs()` on each
 publication. The driver also adds the `pool` and `deviceManager` attributes.
@@ -114,20 +223,36 @@ a Kubernetes Dynamic Resource Allocation (DRA) `ResourceClaim`:
 
 ```go
 type DRAAllocation struct {
-    DeviceName     string
-    Manager        types.DeviceManagerType
-    PreparedDevice types.Device
-    Pool           string
-    PodUID         kube_types.UID
-    ClaimUID       kube_types.UID
-    Config         types.DeviceConfig
+    DeviceName       string
+    Manager          types.DeviceManagerType
+    PreparedDevice   types.Device
+    LogicalPool      string
+    PodUID           kube_types.UID
+    ClaimUID         kube_types.UID
+    Config           types.DeviceConfig
+    ShareID          kube_types.UID
+    ConsumedCapacity map[resourceapi.QualifiedName]apiresource.Quantity
 }
 ```
 
-The primary key is `AllocationKey(Pool, DeviceName)`. Secondary indexes
-support lookups by claim UID, device name, and pod UID. `PreparedDevice`
-holds the device state after setup, while `Config` records claim-specific
-settings such as the pod interface name or VLAN.
+`LogicalPool` is the user-configured Cilium pool (`spec.pools` in the CRD)
+that the device matched at prepare time. It is published as the `pool` device
+attribute so `DeviceClass` CEL selectors can match it. It is not the DRA
+`ResourceSlice` pool name; each node publishes one DRA pool named after the
+node.
+
+The primary key is `AllocationKey(LogicalPool, DeviceName, ShareID)`. This
+permits several prepared shares of one advertised device to coexist. Dedicated
+allocations use an empty `ShareID` and still have one allocation row per
+device. Secondary indexes support lookups by claim UID, device name, and pod
+UID.
+
+`ClaimUID` identifies the Kubernetes `ResourceClaim`. A non-empty `ShareID`
+identifies one shared scheduler allocation; an empty value identifies a
+dedicated allocation. `ConsumedCapacity` records the capacity assigned to the
+share. `PreparedDevice` holds the current allocation-specific device returned
+by `Setup` or `Recover`, while `Config` records driver settings such as the pod
+interface name or VLAN.
 
 The allocation table has a different lifetime from device inventory. An
 inventory row answers, “What does the device manager see now?” An allocation
@@ -142,7 +267,10 @@ Device manager goroutine
   └─ Run(ctx, publish)
        └─ publish([]types.Device)
             └─ driver.onDevices()
-                 ├─ merges prepared state found by device name
+                 ├─ for a dedicated allocation, merges prepared state found
+                 │  by device name
+                 ├─ leaves allocation-specific shares out of their parent
+                 │  device's inventory state
                  ├─ upserts Name/Manager/Dev in networkdriver-dra-devices
                  └─ removes missing inventory rows
                     (networkdriver-dra-allocations is unchanged)
@@ -150,34 +278,53 @@ Device manager goroutine
 PrepareResourceClaims (kubelet → DRA plugin)
   └─ for each scheduler-selected device
        ├─ reads the DRADevice from networkdriver-dra-devices
-       ├─ calls Device.Setup(Config)
-       ├─ serializes the prepared device to ResourceClaim.Status.Devices
-       └─ after the status update, inserts a DRAAllocation in
-          networkdriver-dra-allocations
+       ├─ calls Device.Setup with Config, ShareID, and ConsumedCapacity
+       ├─ receives the allocation-specific prepared device
+       ├─ records ShareID in ResourceClaim.Status.Devices
+       ├─ serializes the prepared device, Config, LogicalPool, and
+       │  ConsumedCapacity into the status entry
+       ├─ after the status update, inserts a DRAAllocation keyed by
+       │  LogicalPool/DeviceName/ShareID in networkdriver-dra-allocations
+       └─ returns the prepared device metadata to kubelet
+            └─ the DRA helper writes a metadata file and CDI specification
 
 RunPodSandbox (container runtime → NRI plugin)
   └─ finds allocations by PodUID
+       ├─ if a prepared link is missing, calls Device.Recover with
+       │  Config, ShareID, and ConsumedCapacity
+       │    └─ replaces PreparedDevice in StateDB; ResourceClaim
+       │       status remains unchanged
        └─ configures their devices in the pod network namespace
 
 UnprepareResourceClaims (kubelet → DRA plugin)
   └─ finds allocations by ClaimUID
-       └─ calls Device.Free(Config)
+       └─ calls Device.Free with Config, ShareID, and ConsumedCapacity
             ├─ success → deletes the DRAAllocation
             └─ failure → retains the row for a later retry
 
 ResourceSlice publication (a change to either table wakes this loop)
   ├─ networkdriver-dra-devices
-  │    └─ supplies the current device and its attributes
+  │    └─ supplies the current device, attributes, capacity, and whether it
+  │       allows multiple allocations
   ├─ networkdriver-dra-allocations
-  │    └─ pins a prepared device to its recorded pool
+  │    └─ pins every prepared allocation of a device to its recorded
+  │       LogicalPool attribute
   └─ buildPoolsFromTable()
+       ├─ groups all of the node's devices into one ResourceSlice pool,
+       │  named after the node (stable regardless of device count)
+       ├─ deviceSlices() splits that pool into multiple resourceslice.Slice
+       │  batches once device count exceeds maxDevicesPerResourceSlice — the
+       │  pool name itself never changes, only how many Slices make it up
        └─ draPlugin.PublishResources()
 
 Agent restart
   ├─ local pods
   │    └─ resolve direct or template-generated ResourceClaims
   │         └─ ResourceClaim.Status.Devices
-  │              └─ DeviceManager.RestoreDevice()
+  │              ├─ restores ShareID from AllocatedDeviceStatus
+  │              ├─ DeviceManager.RestoreDevice deserializes PreparedDevice
+  │              └─ restores Config, LogicalPool, and ConsumedCapacity from
+  │                 serialized data
   │                   └─ rebuilds networkdriver-dra-allocations
   ├─ device managers rebuild networkdriver-dra-devices independently
   └─ DRA and NRI registration starts after both tables are initialized
@@ -190,9 +337,48 @@ restore. The driver logs a warning on restart because that device may require
 manual cleanup. If the status update succeeds but the agent stops before the
 StateDB write, restart recovery can rebuild the allocation from the status.
 
-Changes to either table trigger a new `ResourceSlice` publication. If one
-device has allocation rows that name different pools, the state is ambiguous.
-The driver logs the conflict and does not advertise that device.
+`DeviceManager.RestoreDevice` reconstructs the device object from the durable
+status; it does not re-create missing kernel state. If a node reboot removes an
+on-demand link, `RunPodSandbox` calls `Device.Recover` when the replacement
+sandbox starts. Recovery updates `PreparedDevice` in StateDB but not the
+`ResourceClaim` status, so the device manager must return the same logical
+allocation.
+
+Changes to either table trigger a new `ResourceSlice` publication. Every node
+publishes exactly one `ResourceSlice` pool, named after the node. The DRA pool
+name is independent from the user-configured logical pool and does not change
+when the device count crosses the per-slice cap (see
+`deviceSlices`/`maxDevicesPerResourceSlice`). If one shareable device has
+several allocation rows in the same logical pool, publication keeps the parent
+device in that pool. If its rows name different logical pools, the state is
+ambiguous. The driver logs the conflict and does not advertise that device.
+
+### Workload device metadata
+
+The DRA plugin returns metadata for every prepared device. The Kubernetes DRA
+helper writes that metadata to a versioned JSON stream and generates a CDI
+specification that mounts the file read-only into each container that uses the
+claim. Metadata contains the prepared device attributes, its pool and device
+manager, and `networkData.interfaceName` with the final name inside the pod.
+For an RX queue allocation, `rxQueueID` identifies the leased queue on that
+interface. This is the virtual queue ID visible through the netkit device, not
+the physical NIC queue ID.
+
+A directly referenced `ResourceClaim` appears at:
+
+```text
+/var/run/kubernetes.io/dra-device-attributes/resourceclaims/<claimName>/<requestName>/networkdriver.cilium.io-metadata.json
+```
+
+A claim generated from a `ResourceClaimTemplate` appears at:
+
+```text
+/var/run/kubernetes.io/dra-device-attributes/resourceclaimtemplates/<podClaimName>/<requestName>/networkdriver.cilium.io-metadata.json
+```
+
+`podClaimName` is the name used under `pod.spec.resourceClaims`, not the
+generated `ResourceClaim` name. The file contains the newest supported
+metadata API version first, followed by older supported versions.
 
 ### Inspecting state at runtime
 
@@ -202,7 +388,8 @@ kubectl -n kube-system exec <cilium-pod> -c cilium-agent -- \
   jq '{
     inventory: .["networkdriver-dra-devices"] | map({Name, Manager}),
     allocations: .["networkdriver-dra-allocations"] |
-      map({DeviceName, Manager, Pool, PodUID, ClaimUID, Config})
+      map({DeviceName, Manager, LogicalPool, ShareID, ConsumedCapacity,
+           PodUID, ClaimUID, Config})
   }'
 ```
 
@@ -220,7 +407,9 @@ Example output for one prepared SR-IOV Virtual Function:
     {
       "DeviceName": "0000-03-00-1",
       "Manager": "sr-iov",
-      "Pool": "sriov-pool",
+      "LogicalPool": "sriov-pool",
+      "ShareID": "",
+      "ConsumedCapacity": null,
       "PodUID": "a1b2c3d4-...",
       "ClaimUID": "e5f6a7b8-...",
       "Config": {
@@ -236,6 +425,12 @@ An empty allocation list means StateDB currently tracks no prepared devices.
 A retained allocation row can also indicate that cleanup failed; check the
 agent log before treating it as an active pod allocation.
 
+A shareable device may have several rows with the same `DeviceName` and
+`LogicalPool`. Distinct `ShareID` values key those rows; each row records its
+consumed capacity, claim UID, and prepared device.
+For an RX queue allocation, `PreparedDevice` records the physical and virtual
+queue IDs, the share ID, and the target Pod interface name.
+
 ## How to use the Network Driver
 
 ### 1. Enable the feature
@@ -249,7 +444,7 @@ helm upgrade cilium cilium/cilium \
   --set networkDriver.enabled=true
 ```
 
-This sets `--enable-cilium-network-driver` on the agent.
+This sets `--enable-network-driver` on the agent.
 
 ### 2. Provide a node configuration
 
@@ -322,22 +517,52 @@ spec:
           - ens1f0
 ```
 
+**RX queue example — reserve 4 queues on ens1f0:**
+
+```yaml
+apiVersion: cilium.io/v2alpha1
+kind: CiliumNetworkDriverNodeConfig
+metadata:
+  name: worker-node-1
+spec:
+  deviceManagerConfigs:
+    rxQueue:
+      enabled: true
+      ifaces:
+        - ifName: ens1f0
+          count: 4
+  pools:
+    - name: rx-queue-pool
+      filter:
+        deviceManagers:
+          - rxQueue
+        ifNames:
+          - ens1f0
+```
+
+`ens1f0` must be up and have at least five active RX queues. This configuration
+publishes one DRA device named `ens1f0` with four units of `rxQueues` capacity.
+
 #### Pool filters
 
 Pools group devices that share a common purpose. Only devices matched by
-the pool's filter are advertised in the corresponding `ResourceSlice`.
+the pool's filter get the pool name set on their `pool` device attribute —
+used for `DeviceClass` CEL selector matching. This logical pool is
+independent from the DRA `ResourceSlice` pool (`spec.pool.name`), which is
+always the node name — see
+[Allocation lifecycle](#allocation-lifecycle) above.
 All specified filter fields are ANDed together.
 
-| Filter field     | SR-IOV                                                                                  | Dummy                                   |
-|------------------|-------------------------------------------------------------------------------------------|------------------------------------------|
-| `deviceManagers` | Match when set to `sr-iov`                                                                | Match when set to `dummy`               |
-| `ifNames`        | Kernel interface name of the VF (empty for DPDK/vfio-bound VFs, which have no kernel netdev; for a VF currently inside a pod netns, the last-known kernel ifname is preserved via `Merge` rather than cleared — use `pciAddrs` if you need a filter unaffected by this) | Kernel interface name of the dummy link |
-| `pfNames`        | Physical Function kernel interface name                                                   | Ignored — dummy devices always match    |
-| `parentIfNames`  | Ignored — devices always match regardless of this filter                                  | Not applicable (non-empty → no match)   |
-| `pciAddrs`       | PCI address of the VF (e.g. `0000:03:00.1`)                                               | Not applicable (non-empty → no match)   |
-| `vendorIDs`      | PCI vendor ID                                                                              | Not applicable (non-empty → no match)   |
-| `deviceIDs`      | PCI device ID                                                                              | Not applicable (non-empty → no match)   |
-| `drivers`        | Kernel driver bound to the VF (e.g. `mlx5_core`, `vfio-pci`)                              | Not applicable (non-empty → no match)   |
+| Filter field     | SR-IOV                                                                                  | Dummy                                   | RX queue                                |
+|------------------|-------------------------------------------------------------------------------------------|------------------------------------------|-----------------------------------------|
+| `deviceManagers` | Match when set to `sr-iov`                                                                | Match when set to `dummy`               | Match when set to `rxQueue`             |
+| `ifNames`        | Kernel interface name of the VF (empty for DPDK/vfio-bound VFs, which have no kernel netdev; for a VF currently inside a pod netns, the last-known kernel ifname is preserved via `Merge` rather than cleared — use `pciAddrs` if you need a filter unaffected by this) | Kernel interface name of the dummy link | Physical interface name                 |
+| `pfNames`        | Physical Function kernel interface name                                                   | Ignored — dummy devices always match    | Not applicable (non-empty → no match)   |
+| `parentIfNames`  | Ignored — devices always match regardless of this filter                                  | Not applicable (non-empty → no match)   | Not applicable (non-empty → no match)   |
+| `pciAddrs`       | PCI address of the VF (e.g. `0000:03:00.1`)                                               | Not applicable (non-empty → no match)   | Not applicable (non-empty → no match)   |
+| `vendorIDs`      | PCI vendor ID                                                                              | Not applicable (non-empty → no match)   | Not applicable (non-empty → no match)   |
+| `deviceIDs`      | PCI device ID                                                                              | Not applicable (non-empty → no match)   | Not applicable (non-empty → no match)   |
+| `drivers`        | Kernel driver bound to the VF (e.g. `mlx5_core`, `vfio-pci`)                              | Not applicable (non-empty → no match)   | Not applicable (non-empty → no match)   |
 
 #### Filter conflict rules
 
@@ -353,11 +578,11 @@ one pool despite passing config-time validation (e.g. when pools overlap via
 device to one pool using the following priority:
 
 1. **Prepared allocation** — if the allocation table contains a row for the
-   device, the recorded `Pool` is kept for as long as that allocation exists,
-   regardless of how filters re-evaluate in the meantime. If multiple rows
-   name different pools, the driver logs the conflict and does not advertise
-   the device. Pool pinning does **not** apply after the final allocation row
-   is removed.
+   device, the recorded `LogicalPool` is kept for as long as that allocation
+   exists, regardless of how filters re-evaluate in the meantime. If multiple
+   rows name different logical pools, the driver logs the conflict and does
+   not advertise the device. Pool pinning does **not** apply after the final
+   allocation row is removed.
 2. **Alphabetically first matching pool** — deterministic tie-break, applied
    fresh on every publish for a device with no prepared allocation.
 
@@ -371,10 +596,9 @@ Device-specific configuration is passed as opaque parameters in the
 | Field       | Type     | Description                                                                 |
 |-------------|----------|------------------------------------------------------------------------------|
 | `vlan`      | `int32`  | 802.1q VLAN ID to configure on the device (SR-IOV only)                      |
-| `podIfName` | `string` | Rename the interface inside the pod namespace                               |
+| `podIfName` | `string` | Interface name inside the pod namespace (SR-IOV, dummy, and RX queue)        |
 | `interfaceSysctlIPv4` | `map[string]string` | Leaf sysctl parameters (e.g. `arp_filter`) applied under `net.ipv4.conf.<interface>.` for the allocated interface, once it is up in the pod netns |
 | `interfaceSysctlIPv6` | `map[string]string` | Same as above, under `net.ipv6.conf.<interface>.`                    |
-
 
 ### Cluster-wide configuration (operator-driven)
 
@@ -502,9 +726,56 @@ spec:
               arp_filter: "1"
 ```
 
+This example requests a dedicated SR-IOV Virtual Function. A device manager
+that publishes consumable capacity also defines the qualified capacity names
+that applications request under `exactly.capacity.requests`. Kubernetes
+selects the device, assigns a share ID, and records the capacity consumed by
+the claim. The network driver receives those values during preparation and
+passes them to the selected device manager.
+
+For example, the RX queue manager publishes `rxQueues` capacity. The following
+class selects RX queue devices from `rx-queue-pool`:
+
+```yaml
+apiVersion: resource.k8s.io/v1
+kind: DeviceClass
+metadata:
+  name: cilium-rx-queue
+spec:
+  selectors:
+    - cel:
+        expression: >-
+          device.driver == "networkdriver.cilium.io" &&
+          device.attributes["networkdriver.cilium.io"].deviceManager == "rxQueue" &&
+          device.attributes["networkdriver.cilium.io"].pool == "rx-queue-pool"
+```
+
+This template requests one queue for the Pod's primary `eth0` interface. The
+primary interface is the default, so the opaque parameters may be omitted:
+
+```yaml
+apiVersion: resource.k8s.io/v1
+kind: ResourceClaimTemplate
+metadata:
+  name: rx-queue-claim
+spec:
+  spec:
+    devices:
+      requests:
+        - name: rx-queue
+          exactly:
+            deviceClassName: cilium-rx-queue
+            allocationMode: ExactCount
+            count: 1
+            capacity:
+              requests:
+                rxQueues: "1"
+```
+
 ### 4. Request a device from a pod
 
-Reference the `ResourceClaimTemplate` in the pod spec:
+Reference the `ResourceClaimTemplate` in the pod spec. This Pod requests the
+SR-IOV claim from the first example:
 
 ```yaml
 apiVersion: v1
@@ -513,12 +784,38 @@ metadata:
   name: dpdk-app
 spec:
   resourceClaims:
-  - name: net
-    resourceClaimTemplateName: sriov-claim-direct
+    - name: net
+      resourceClaimTemplateName: sriov-claim
   containers:
-  - name: app
-    image: my-dpdk-app:latest
+    - name: app
+      image: my-dpdk-app:latest
+      resources:
+        claims:
+          - name: net
 ```
+
+The RX queue template can be requested independently:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: rx-queue-app
+spec:
+  resourceClaims:
+    - name: rx-queue
+      resourceClaimTemplateName: rx-queue-claim
+  containers:
+    - name: app
+      image: my-rx-queue-app:latest
+      resources:
+        claims:
+          - name: rx-queue
+```
+
+A container must list the claim under `resources.claims` to use it. This tells
+the container runtime to apply the CDI specification generated for the
+allocation, including the read-only device metadata mount.
 
 ## Verifying the setup
 
@@ -544,9 +841,15 @@ kubectl get resourceslice <name> -o yaml
 
 Example output:
 ```
-NAME                                              NODE           DRIVER                    POOL         AGE
-worker-node-1-networkdriver.cilium.io-abc12   worker-node-1  networkdriver.cilium.io   sriov-pool   30s
+NAME                                              NODE           DRIVER                    POOL          AGE
+worker-node-1-networkdriver.cilium.io-abc12   worker-node-1  networkdriver.cilium.io   worker-node-1   30s
 ```
+
+The `POOL` column is always the node name — it is the DRA ResourceSlice
+pool identity, independent of any logical pool configured under
+`spec.pools`. If a node publishes more devices than fit in a single
+`ResourceSlice`, `kubectl get resourceslice` shows multiple objects sharing
+that same `POOL` value (see `maxDevicesPerResourceSlice`).
 
 ### Verify ResourceClaims and allocations
 
@@ -556,6 +859,11 @@ kubectl get resourceclaims -A
 
 # Check claim status (allocated, reserved, device status)
 kubectl get resourceclaim <name> -n <namespace> -o yaml
+
+# Show the device, share ID, and consumed capacity selected for each request
+kubectl get resourceclaim <name> -n <namespace> -o json | \
+  jq '.status.allocation.devices.results[] |
+      {device, shareID, consumedCapacity}'
 
 # List claim templates
 kubectl get resourceclaimtemplates -A
@@ -579,6 +887,27 @@ kubectl -n kube-system exec <cilium-pod> -c cilium-agent -- cilium-dbg statedb
 `networkdriver-dra-allocations` shows prepared devices and any rows retained
 for a failed cleanup attempt. See “State management — StateDB” above for the
 field definitions and lifecycle.
+
+### Verify an RX queue allocation
+
+```bash
+# Show the reserved physical queue and the virtual queue ID intended for the Pod
+kubectl -n kube-system exec <cilium-pod> -c cilium-agent -- \
+  cilium-dbg statedb |
+  jq '.["networkdriver-dra-allocations"][] |
+      select(.Manager == "rxQueue") |
+      {DeviceName, ShareID, ConsumedCapacity, PreparedDevice}'
+
+
+# Inspect the allocation metadata mounted through CDI
+kubectl exec rx-queue-app -- \
+  cat /var/run/kubernetes.io/dra-device-attributes/resourceclaimtemplates/\
+rx-queue/rx-queue/networkdriver.cilium.io-metadata.json
+```
+
+The metadata file is a concatenated JSON stream with one object per supported
+metadata API version. Look for `networkData.interfaceName` set to `eth0` and
+the `rxQueueID` device attribute.
 
 ## Feature status
 

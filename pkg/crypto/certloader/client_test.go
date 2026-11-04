@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/cilium/hive/hivetest"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/cilium/cilium/pkg/testutils"
@@ -139,7 +140,9 @@ func TestNewWatchedClientConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, keypair)
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.RootCAs.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, tlsConfig.RootCAs); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
 }
@@ -168,6 +171,9 @@ func TestNewWatchedClientConfigWithoutClientCert(t *testing.T) {
 		MinVersion: tls.VersionTLS13,
 	})
 	assert.NotNil(t, tlsConfig)
+	if diff := cmp.Diff(expectedCaCertPool, tlsConfig.RootCAs); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 	// GetClientCertificate should be nil when a client keypair isn't configured
 	assert.Nil(t, tlsConfig.GetClientCertificate)
 }
@@ -219,7 +225,9 @@ func TestWatchedClientConfigRotation(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, keypair)
 	assert.Equal(t, &expectedKeypair, keypair)
-	assert.Equal(t, expectedCaCertPool.Subjects(), tlsConfig.RootCAs.Subjects())
+	if diff := cmp.Diff(expectedCaCertPool, tlsConfig.RootCAs); diff != "" {
+		t.Errorf("CA certificate pools differ (-want +got):\n%s", diff)
+	}
 	// Check that our base option is honored.
 	assert.Equal(t, uint16(tls.VersionTLS13), tlsConfig.MinVersion)
 }

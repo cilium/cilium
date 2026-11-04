@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 
+	"cel.dev/cel-go/common/functions"
 	"cel.dev/cel-go/common/types/ref"
 )
 
@@ -43,7 +44,8 @@ func EmptyActivation() Activation {
 type emptyActivation struct{}
 
 func (emptyActivation) ResolveName(string) (any, bool) { return nil, false }
-func (emptyActivation) Parent() Activation             { return nil }
+
+func (emptyActivation) Parent() Activation { return nil }
 
 // NewActivation returns an activation based on a map-based binding where the map keys are
 // expected to be qualified names used with ResolveName calls.
@@ -75,23 +77,35 @@ func NewActivation(bindings any) (Activation, error) {
 	return &mapActivation{bindings: m}, nil
 }
 
-// mapActivation which implements Activation and maps of named values.
+// mapActivation is the default Activation implementation, which supplies variables by name and,
+// where the caller provided them, the implementations of late-bound functions.
+//
+// Variables and functions occupy separate namespaces, so the same qualified name may refer to
+// both. An mapActivation may also delegate to the mapActivation whose bindings it extends, which is
+// exposed as its parent so that the hierarchy is visible to all mapActivation traversals.
 //
 // Named bindings may lazily supply values by providing a function which accepts no arguments and
 // produces an interface value.
 type mapActivation struct {
 	bindings map[string]any
+	// TODO: validate that the late-bound functions should be applied here if at all.
+	// Seems like it would be better if populated via setter?
+	functions map[string]functions.LateBoundOp
+	parent    Activation
 }
 
 // Parent implements the Activation interface method.
 func (a *mapActivation) Parent() Activation {
-	return nil
+	return a.parent
 }
 
 // ResolveName implements the Activation interface method.
 func (a *mapActivation) ResolveName(name string) (any, bool) {
 	obj, found := a.bindings[name]
 	if !found {
+		if a.parent != nil {
+			return a.parent.ResolveName(name)
+		}
 		return nil, false
 	}
 	fn, isLazy := obj.(func() ref.Val)
@@ -105,6 +119,20 @@ func (a *mapActivation) ResolveName(name string) (any, bool) {
 		a.bindings[name] = obj
 	}
 	return obj, found
+}
+
+// ResolveFunction implements the FunctionActivation interface method.
+//
+// Only the bindings supplied to this activation are considered. A hierarchy may contain at most
+// one activation which supplies late-bound functions, so there is no parent to delegate to.
+func (a *mapActivation) ResolveFunction(name string) (functions.LateBoundOp, bool) {
+	fn, found := a.functions[name]
+	return fn, found
+}
+
+// AsPartialActivation supports partial evaluation over the activation being extended.
+func (a *mapActivation) AsPartialActivation() (PartialActivation, bool) {
+	return AsPartialActivation(a.parent)
 }
 
 // hierarchicalActivation which implements Activation and contains a parent and
@@ -122,10 +150,15 @@ func (a *hierarchicalActivation) Parent() Activation {
 
 // ResolveName implements the Activation interface method.
 func (a *hierarchicalActivation) ResolveName(name string) (any, bool) {
-	if object, found := a.child.ResolveName(name); found {
-		return object, found
+	if a.child != nil {
+		if object, found := a.child.ResolveName(name); found {
+			return object, found
+		}
 	}
-	return a.parent.ResolveName(name)
+	if a.parent != nil {
+		return a.parent.ResolveName(name)
+	}
+	return nil, false
 }
 
 // Unwrap returns the parent activation, stripping the local child scope.
@@ -212,6 +245,9 @@ func (a *partActivation) AsPartialActivation() (PartialActivation, bool) {
 
 // AsPartialActivation walks the activation hierarchy and returns the first PartialActivation, if found.
 func AsPartialActivation(vars Activation) (PartialActivation, bool) {
+	if vars == nil {
+		return nil, false
+	}
 	// Only internal activation instances may implement this interface
 	if pv, ok := vars.(partialActivationConverter); ok {
 		return pv.AsPartialActivation()
@@ -221,4 +257,129 @@ func AsPartialActivation(vars Activation) (PartialActivation, bool) {
 		return AsPartialActivation(vars.Parent())
 	}
 	return nil, false
+}
+
+// FunctionActivation extends the Activation interface with late-bound function implementations.
+//
+// Function bindings occupy a namespace which is separate from variable bindings, so a function
+// and a variable may share the same qualified name without ambiguity.
+//
+// The implementation which applies to an evaluation is located once, before evaluation begins, so
+// at most one activation in a hierarchy may implement this interface. An implementation supplied
+// by a caller is treated as the sole source of bindings and its parents are not searched.
+type FunctionActivation interface {
+	Activation
+
+	// ResolveFunction returns the implementation of the late-bound function by qualified name,
+	// or false if the function could not be found.
+	ResolveFunction(name string) (functions.LateBoundOp, bool)
+}
+
+// NewFunctionActivation returns an Activation which supplies implementations for late-bound
+// functions in addition to the variables provided by the `vars` input.
+//
+// The `vars` value may either be an Activation or any valid input to the NewActivation call, and
+// the result is the same kind of activation that NewActivation produces, extended with the
+// function bindings.
+//
+// Each function implementation is invoked with the id of the declared overload which matched the
+// call arguments, which permits a single implementation to serve all overloads of the function.
+//
+// Late-bound functions are bound for the whole of an evaluation rather than for a lexical scope,
+// so an error is returned when `vars` already supplies function bindings. Supply the complete set
+// of bindings in a single call instead of layering them.
+func NewFunctionActivation(vars any, funcs map[string]functions.LateBoundOp) (FunctionActivation, error) {
+	// Copy the input to ensure the bindings observed during an evaluation cannot be mutated by
+	// the caller once the activation has been created.
+	bindings := make(map[string]functions.LateBoundOp, len(funcs))
+	for name, fn := range funcs {
+		if fn == nil {
+			return nil, fmt.Errorf("function binding must be non-nil: %s", name)
+		}
+		bindings[name] = fn
+	}
+	if m, isMap := vars.(map[string]any); isMap {
+		return &mapActivation{bindings: m, functions: bindings}, nil
+	}
+	a, err := NewActivation(vars)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkNoFunctionActivation(a); err != nil {
+		return nil, err
+	}
+	return &mapActivation{functions: bindings, parent: a}, nil
+}
+
+// errNestedFunctionActivation reports a hierarchy which supplies late-bound functions from more
+// than one activation, where the bindings which apply would depend on the order in which the
+// activations were composed.
+var errNestedFunctionActivation = errors.New(
+	"activation hierarchy may supply late-bound functions from only one activation")
+
+// checkNoFunctionActivation returns an error if the hierarchy already supplies late-bound
+// function implementations.
+func checkNoFunctionActivation(vars Activation) error {
+	found, err := FindFunctionActivation(vars)
+	if err != nil {
+		return err
+	}
+	if found != nil {
+		return errNestedFunctionActivation
+	}
+	return nil
+}
+
+// FindFunctionActivation returns the activation which supplies the late-bound function
+// implementations for a hierarchy, or nil when the hierarchy supplies none.
+//
+// Late-bound functions are bound for the duration of an evaluation rather than for a lexical
+// scope, so a hierarchy may contain at most one activation which supplies them and an error is
+// returned when it contains more. Resolving the binding once, before evaluation begins, keeps the
+// lookup at a call site independent of how many scopes enclose it.
+//
+// This must be called before evaluation begins, while the hierarchy is still composed only of
+// caller-supplied activations. Scopes introduced during evaluation, such as those of a
+// comprehension, report the enclosing frame as their parent rather than the enclosing activation.
+func FindFunctionActivation(vars Activation) (FunctionActivation, error) {
+	return findFunctionActivation(vars, nil)
+}
+
+// findFunctionActivation searches a hierarchy for the activation which supplies late-bound
+// functions, carrying the match found so far so that a second match can be reported as an error.
+func findFunctionActivation(vars Activation, found FunctionActivation) (FunctionActivation, error) {
+	if vars == nil {
+		return found, nil
+	}
+	switch a := vars.(type) {
+	case *mapActivation:
+		// A default activation only supplies functions when it was created for that purpose.
+		if a.functions != nil {
+			if found != nil {
+				return nil, errNestedFunctionActivation
+			}
+			found = a
+		}
+		return findFunctionActivation(a.parent, found)
+	case *hierarchicalActivation:
+		// Both scopes are caller-supplied, so both must be searched.
+		found, err := findFunctionActivation(a.parent, found)
+		if err != nil {
+			return nil, err
+		}
+		return findFunctionActivation(a.child, found)
+	case *partActivation:
+		// The wrapped activation is not reachable via Parent.
+		return findFunctionActivation(a.Activation, found)
+	default:
+		// An implementation supplied by the caller is responsible for the scopes it contains,
+		// so its parents are not searched.
+		if fa, isFunc := vars.(FunctionActivation); isFunc {
+			if found != nil {
+				return nil, errNestedFunctionActivation
+			}
+			return fa, nil
+		}
+		return findFunctionActivation(vars.Parent(), found)
+	}
 }

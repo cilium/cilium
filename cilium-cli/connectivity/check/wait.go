@@ -463,14 +463,15 @@ func (e *BPFEgressGatewayPolicyEntry) matches(t BPFEgressGatewayPolicyEntry) boo
 
 // WaitForEgressGatewayBpfPolicyEntries waits for the egress gateway policy maps on each node to WaitForEgressGatewayBpfPolicyEntries
 // with the entries returned by the targetEntriesCallback
-func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context,
+func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context, logExecRetry func(int, error),
 	ciliumPods map[string]Pod,
 	testPods []Pod,
 	targetEntriesCallback func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error),
 	excludeEntries func(ciliumPod Pod) ([]BPFEgressGatewayPolicyEntry, error),
 ) error {
-	w := wait.NewObserver(ctx, wait.Parameters{Timeout: 10 * time.Second})
-	defer w.Cancel()
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	w := wait.NewObserver(ctx, wait.Parameters{})
 
 	localPodIPs := sets.New[string]()
 	for _, pod := range testPods {
@@ -490,7 +491,9 @@ func WaitForEgressGatewayBpfPolicyEntries(ctx context.Context,
 			}
 
 			cmd := strings.Split("cilium bpf egress list -o json", " ")
-			stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd)
+			// A stalled attempt, the backoff and a second attempt take at most 10s of the 15s wait.
+			stdout, err := ciliumPod.K8sClient.ExecInPodRetry(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name, defaults.AgentContainerName, cmd,
+				k8s.ExecRetryOptions{AttemptTimeout: 4 * time.Second, RequireOutput: true, Validate: k8s.ValidJSON, OnRetry: logExecRetry})
 			if err != nil {
 				return fmt.Errorf("failed to run cilium bpf egress list command: %w", err)
 			}

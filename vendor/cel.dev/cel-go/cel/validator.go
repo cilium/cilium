@@ -15,10 +15,10 @@
 package cel
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"regexp"
+	"sync"
 
 	"cel.dev/cel-go/common/ast"
 	"cel.dev/cel-go/common/env"
@@ -46,7 +46,17 @@ const (
 )
 
 var (
-	astValidatorFactories = map[string]ASTValidatorFactory{
+	astValidatorFactoriesOnce sync.Once
+	astValidatorFactoriesMap  map[string]ASTValidatorFactory
+)
+
+func astValidatorFactories() map[string]ASTValidatorFactory {
+	astValidatorFactoriesOnce.Do(initASTValidatorFactories)
+	return astValidatorFactoriesMap
+}
+
+func initASTValidatorFactories() {
+	astValidatorFactoriesMap = map[string]ASTValidatorFactory{
 		nestingLimitValidatorName: func(val *env.Validator) (ASTValidator, error) {
 			limit, err := validatorIntConfig(val, "limit")
 			if err != nil {
@@ -81,7 +91,7 @@ var (
 			return ValidateHomogeneousAggregateLiterals(), nil
 		},
 	}
-)
+}
 
 // ASTValidatorFactory creates an ASTValidator as configured by the input map
 type ASTValidatorFactory func(*env.Validator) (ASTValidator, error)
@@ -308,13 +318,12 @@ func (v formatValidator) Validate(e *Env, _ ValidatorConfig, a *ast.AST, iss *Is
 
 func evalCall(env *Env, call, arg ast.Expr) error {
 	ast := &Ast{impl: ast.NewAST(call, ast.NewSourceInfo(nil))}
-	prg, err := env.Program(ast)
+	prg, err := env.Program(ast, BypassAsyncProtection())
 	if err != nil {
 		return err
 	}
-	resCh := prg.ConcurrentEval(context.Background(), NoVars())
-	res := <-resCh
-	return res.Err
+	_, _, err = prg.Eval(NoVars())
+	return err
 }
 
 func compileRegex(_ *Env, _, arg ast.Expr) error {

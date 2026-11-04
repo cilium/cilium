@@ -8,12 +8,13 @@ import (
 	"encoding"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/netip"
 	"regexp"
 	"strings"
 
 	resourceapi "k8s.io/api/resource/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/dynamic-resource-allocation/deviceattribute"
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
@@ -31,6 +32,8 @@ const (
 	// as assigned by the device managers.
 	// must be unique across all devices on the node.
 	IfNameLabel = "ifName"
+	// HWAddrLabel contains the MAC address of the device.
+	HWAddrLabel = "macAddress"
 	// DeviceManagerLabel identifies which Device Manager
 	// published the device.
 	DeviceManagerLabel = "deviceManager"
@@ -51,6 +54,12 @@ const (
 	DeviceIDLabel = "deviceID"
 	// DriverLabel identifies a device's driver.
 	DriverLabel = "driver"
+	// RXQueuesCapacity is the number of RX queues available for allocation.
+	RXQueuesCapacity = "rxQueues"
+	// RXQueueIDLabel is the leased queue ID on the interface given to the pod.
+	RXQueueIDLabel = "rxQueueID"
+	// DefaultRXQueuePodIfName is the default existing Pod interface to receive a leased queue.
+	DefaultRXQueuePodIfName = "eth0"
 )
 
 var (
@@ -68,39 +77,6 @@ var (
 	validIfNameRegex = regexp.MustCompile(`^[a-zA-Z0-9._-]+$`)
 )
 
-// ValidateInterfaceName validates an interface name according to Linux rules
-func ValidateInterfaceName(name string) error {
-	// Empty name is valid (means no custom rename)
-	if name == "" {
-		return nil
-	}
-
-	// Check length limit (Linux IFNAMSIZ - 1)
-	if len(name) > MaxInterfaceNameLength {
-		return fmt.Errorf(
-			"interface name too long: %q (%d chars, max %d)",
-			name, len(name), MaxInterfaceNameLength)
-	}
-
-	// Check for valid characters
-	if !validIfNameRegex.MatchString(name) {
-		return fmt.Errorf(
-			"interface name contains invalid characters: %q (allowed: a-z A-Z 0-9 . _ -)",
-			name)
-	}
-
-	// Check for reserved names
-	if name == "lo" {
-		return fmt.Errorf("interface name %q is reserved (loopback)", name)
-	}
-
-	if len(name) >= 7 && name[:7] == "cilium_" {
-		return fmt.Errorf("interface name %q is reserved (cilium_ prefix)", name)
-	}
-
-	return nil
-}
-
 type DeviceManagerType int
 
 const (
@@ -111,6 +87,7 @@ const (
 	DeviceManagerTypeMock DeviceManagerType = iota
 	DeviceManagerTypeDummy
 	DeviceManagerTypeSRIOV
+	DeviceManagerTypeRXQueue
 	DeviceManagerTypeUnknown
 )
 
@@ -118,6 +95,7 @@ const (
 	deviceManagerTypeMockStr = "mock"
 	dummyDeviceManagerStr    = "dummy"
 	sriovDeviceManagerStr    = "sr-iov"
+	rxQueueDeviceManagerStr  = "rxQueue"
 )
 
 func (d DeviceManagerType) String() string {
@@ -130,6 +108,9 @@ func (d DeviceManagerType) String() string {
 
 	case DeviceManagerTypeSRIOV:
 		return sriovDeviceManagerStr
+
+	case DeviceManagerTypeRXQueue:
+		return rxQueueDeviceManagerStr
 	}
 
 	return ""
@@ -145,6 +126,9 @@ func (d DeviceManagerType) MarshalText() (text []byte, err error) {
 
 	case DeviceManagerTypeSRIOV:
 		return []byte(sriovDeviceManagerStr), nil
+
+	case DeviceManagerTypeRXQueue:
+		return []byte(rxQueueDeviceManagerStr), nil
 	}
 
 	return nil, errUnknownDeviceManagerType
@@ -158,6 +142,8 @@ func (d *DeviceManagerType) UnmarshalText(text []byte) error {
 		*d = DeviceManagerTypeDummy
 	case sriovDeviceManagerStr:
 		*d = DeviceManagerTypeSRIOV
+	case strings.ToLower(rxQueueDeviceManagerStr):
+		*d = DeviceManagerTypeRXQueue
 	default:
 		return errUnknownDeviceManagerType
 	}
@@ -170,8 +156,18 @@ type Device interface {
 	encoding.BinaryUnmarshaler
 
 	GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
-	Setup(cfg DeviceConfig) error
-	Free(cfg DeviceConfig) error
+	GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
+	AllowMultipleAllocations() bool
+	// Setup prepares one allocation and returns the device representing it.
+	// For a shared allocation, this may be an allocation-specific child, such as a
+	// netdev that leases one RX queue, rather than the device published in the
+	// ResourceSlice.
+	Setup(allocation DeviceAllocation) (Device, error)
+	// Recover re-creates missing kernel state for an allocation restored from
+	// ResourceClaim status. The returned device must represent the same logical
+	// allocation because recovery does not rewrite that status.
+	Recover(allocation DeviceAllocation) (Device, error)
+	Free(allocation DeviceAllocation) error
 	Match(filter v2alpha1.CiliumNetworkDriverDeviceFilter) bool
 	IfName() string
 	KernelIfName() string
@@ -222,8 +218,24 @@ func (d *DeviceConfig) HasPool() bool {
 	return d.IPPool != ""
 }
 
+// DeviceAllocation contains scheduler and driver parameters for one allocation.
+type DeviceAllocation struct {
+	Config DeviceConfig
+	// ShareID identifies a shared allocation and is empty for a dedicated one.
+	// It reflects the scheduler's allocation-time decision, which may differ
+	// from the device's current sharing mode.
+	ShareID kube_types.UID
+	// ConsumedCapacity contains the capacity assigned by the scheduler.
+	ConsumedCapacity map[resourceapi.QualifiedName]resource.Quantity
+}
+
 type SerializedDevice struct {
 	Manager DeviceManagerType
 	Dev     json.RawMessage
 	Config  DeviceConfig
+	// LogicalPool is the Cilium pool the device was matched against when
+	// this allocation was prepared. Persisted so restore can keep the pool
+	// pinned even if pool config changes while the driver is down.
+	LogicalPool      string                                          `json:"logicalPool,omitempty"`
+	ConsumedCapacity map[resourceapi.QualifiedName]resource.Quantity `json:",omitempty"`
 }

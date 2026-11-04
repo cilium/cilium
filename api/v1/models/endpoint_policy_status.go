@@ -161,7 +161,7 @@ func (m *EndpointPolicyStatus) contextValidateProxyStatistics(ctx context.Contex
 		if m.ProxyStatistics[i] != nil {
 
 			if typeutils.IsZero(m.ProxyStatistics[i]) { // not required
-				return nil
+				continue
 			}
 
 			if err := m.ProxyStatistics[i].ContextValidate(ctx, formats); err != nil {

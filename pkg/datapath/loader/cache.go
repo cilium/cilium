@@ -11,8 +11,10 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/cilium/ebpf"
+	"github.com/google/renameio/v2"
 
 	"github.com/cilium/cilium/pkg/bpf/analyze"
 	"github.com/cilium/cilium/pkg/common"
@@ -23,6 +25,7 @@ import (
 	endpoint "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 // objectCache amortises the cost of BPF compilation for endpoints.
@@ -32,13 +35,20 @@ type objectCache struct {
 	lock.Mutex
 	linuxConfig.Writer
 
-	// The directory used for caching. Must not be accessed by another process.
+	// The directory used for caching. Must not be accessed concurrently by another process.
 	workingDirectory string
 
 	baseHash datapathHash
 
+	// producer is the hashProducer digest, or nil if hashProducer failed.
+	producer []byte
+
 	// The cached objects.
 	objects map[string]*cachedSpec
+
+	// fetchOrCompile closes lxcReady when it first returns a bpf_lxc template.
+	lxcReady     chan struct{}
+	lxcReadyOnce sync.Once
 }
 
 type cachedSpec struct {
@@ -58,24 +68,45 @@ func newObjectCache(logger *slog.Logger, c linuxConfig.Writer, workingDir string
 		Writer:           c,
 		workingDirectory: workingDir,
 		objects:          make(map[string]*cachedSpec),
+		lxcReady:         make(chan struct{}),
 	}
 }
 
-// UpdateDatapathHash invalidates the object cache if the configuration of the
-// datapath has changed.
-func (o *objectCache) UpdateDatapathHash(nodeCfg *config.Config) error {
-	newHash, err := hashDatapath(o.Writer, nodeCfg)
-	if err != nil {
-		return fmt.Errorf("hash datapath config: %w", err)
-	}
-
+// UpdateDatapathHash keeps the templates a previous process built under the same hash and wipes them otherwise.
+func (o *objectCache) UpdateDatapathHash(ctx context.Context, nodeCfg *config.Config) error {
 	// Prevent new compilation from starting.
 	o.Lock()
 	defer o.Unlock()
 
+	if o.baseHash == nil {
+		var err error
+		o.producer, err = hashProducer(ctx, o.logger, option.Config.BpfDir)
+		if err != nil {
+			// Leave the templates to the next process when the agent is stopping.
+			if ctx.Err() != nil {
+				return err
+			}
+			o.logger.Warn("Cannot hash the BPF sources, compiler and agent binary, BPF templates will be recompiled", logfields.Error, err)
+		}
+	}
+
+	newHash, err := hashDatapath(o.Writer, nodeCfg, o.producer)
+	if err != nil {
+		return fmt.Errorf("hash datapath config: %w", err)
+	}
+
 	// Don't invalidate if the hash is the same.
 	if bytes.Equal(newHash, o.baseHash) {
 		return nil
+	}
+
+	// Keep the templates an earlier agent process compiled under the same hash.
+	if o.baseHash == nil && o.producer != nil {
+		if prev, err := os.ReadFile(o.hashPath()); err == nil && string(prev) == newHash.String() {
+			o.logger.Info("Reusing BPF templates from a previous agent process", logfields.Path, o.workingDirectory)
+			o.baseHash = newHash
+			return nil
+		}
 	}
 
 	// Wait until all concurrent compilation has finished.
@@ -83,22 +114,36 @@ func (o *objectCache) UpdateDatapathHash(nodeCfg *config.Config) error {
 		obj.Lock()
 	}
 
-	if err := os.RemoveAll(o.workingDirectory); err != nil {
-		for _, obj := range o.objects {
-			obj.Unlock()
-		}
-
-		return err
+	if _, err := os.Stat(o.workingDirectory); err == nil {
+		o.logger.Info("Removing BPF templates compiled for a different datapath", logfields.Path, o.workingDirectory)
+	}
+	err = os.Remove(o.hashPath())
+	if err == nil || errors.Is(err, os.ErrNotExist) {
+		err = os.RemoveAll(o.workingDirectory)
 	}
 	// Unlock all objects so that race detector doesn't complain about potential
 	// deadlocks.
 	for _, obj := range o.objects {
 		obj.Unlock()
 	}
+	if err != nil {
+		return err
+	}
 
 	o.baseHash = newHash
 	o.objects = make(map[string]*cachedSpec)
+
+	if o.producer != nil {
+		if err := renameio.WriteFile(o.hashPath(), []byte(newHash.String()), 0o600); err != nil {
+			o.logger.Warn("Failed to record the BPF template hash", logfields.Error, err)
+		}
+	}
 	return nil
+}
+
+// hashPath returns the file recording the base hash of the working directory.
+func (o *objectCache) hashPath() string {
+	return o.workingDirectory + ".hash"
 }
 
 // serialize access to an abitrary key.
@@ -118,6 +163,36 @@ func (o *objectCache) serialize(key string) *cachedSpec {
 	return obj
 }
 
+// objectPath returns the path of the template object for hash.
+func (o *objectCache) objectPath(cfg endpoint.Config, hash string) string {
+	prog := epProg
+	if cfg.IsHost() {
+		prog = hostEpProg
+	}
+	return prog.AbsoluteOutput(&directoryInfo{Output: filepath.Join(o.workingDirectory, hash)})
+}
+
+// loadSpec parses the object at path and precomputes its Blocks.
+func (o *objectCache) loadSpec(path string) (*ebpf.CollectionSpec, error) {
+	spec, err := ebpf.LoadCollectionSpec(path)
+	if err != nil {
+		return nil, fmt.Errorf("load eBPF ELF %s: %w", path, err)
+	}
+
+	// Precompute the Blocks for each ProgramSpec in the CollectionSpec so
+	// downstream callers don't need to compute them again. This is expensive to
+	// run, so do it only once per compilation. Control flow isn't expected to
+	// be changed after compilation.
+	for name, prog := range spec.Programs {
+		if _, err := analyze.MakeBlocks(prog.Instructions); err != nil {
+			return nil, fmt.Errorf("making Blocks for ProgramSpec %s: %w", name, err)
+		}
+		o.logger.Debug("Precomputed Blocks", logfields.Object, name)
+	}
+
+	return spec, nil
+}
+
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
 func (o *objectCache) build(ctx context.Context, cfg endpoint.Config, stats *metrics.SpanStat, dir *directoryInfo, hash string) (string, error) {
@@ -129,12 +204,7 @@ func (o *objectCache) build(ctx context.Context, cfg endpoint.Config, stats *met
 		Output:  templatePath,
 		State:   templatePath,
 	}
-	prog := epProg
-	if isHost {
-		prog = hostEpProg
-	}
-
-	objectPath := prog.AbsoluteOutput(dir)
+	objectPath := o.objectPath(cfg, hash)
 
 	if err := os.MkdirAll(dir.Output, defaults.StateDirRights); err != nil {
 		return "", fmt.Errorf("failed to create template directory: %w", err)
@@ -175,6 +245,13 @@ func (o *objectCache) build(ctx context.Context, cfg endpoint.Config, stats *met
 // Returns a copy of the compiled and parsed ELF and a hash identifying a cached entry.
 func (o *objectCache) fetchOrCompile(ctx context.Context, cfg endpoint.Config, dir *directoryInfo, stats *metrics.SpanStat) (spec *ebpf.CollectionSpec, hash string, err error) {
 	cfg = wrap(cfg)
+	if !cfg.IsHost() {
+		defer func() {
+			if err == nil {
+				o.lxcReadyOnce.Do(func() { close(o.lxcReady) })
+			}
+		}()
+	}
 
 	hash, err = o.baseHash.hashTemplate(o, cfg)
 	if err != nil {
@@ -209,6 +286,21 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg endpoint.Config, d
 		return obj.spec.Copy(), hash, nil
 	}
 
+	// UpdateDatapathHash has validated or emptied the working directory.
+	if o.baseHash != nil {
+		path := o.objectPath(cfg, hash)
+		spec, err := o.loadSpec(path)
+		if err == nil {
+			o.logger.Info("Reusing BPF template from a previous agent process", logfields.Object, path)
+			obj.path = path
+			obj.spec = spec
+			return obj.spec.Copy(), hash, nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			o.logger.Warn("Recompiling BPF template that failed to load", logfields.Error, err)
+		}
+	}
+
 	if stats == nil {
 		stats = &metrics.SpanStat{}
 	}
@@ -227,20 +319,9 @@ func (o *objectCache) fetchOrCompile(ctx context.Context, cfg endpoint.Config, d
 
 	obj.path = path
 
-	obj.spec, err = ebpf.LoadCollectionSpec(path)
+	obj.spec, err = o.loadSpec(path)
 	if err != nil {
-		return nil, "", fmt.Errorf("load eBPF ELF %s: %w", path, err)
-	}
-
-	// Precompute the Blocks for each ProgramSpec in the CollectionSpec so
-	// downstream callers don't need to compute them again. This is expensive to
-	// run, so do it only once per compilation. Control flow isn't expected to
-	// be changed after compilation.
-	for name, prog := range obj.spec.Programs {
-		if _, err := analyze.MakeBlocks(prog.Instructions); err != nil {
-			return nil, "", fmt.Errorf("making Blocks for ProgramSpec %s: %w", name, err)
-		}
-		o.logger.Debug("Precomputed Blocks", logfields.Object, name)
+		return nil, "", err
 	}
 
 	return obj.spec.Copy(), hash, nil

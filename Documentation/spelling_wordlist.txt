@@ -593,6 +593,7 @@ mediabot
 memcache
 memcached
 memcd
+memlock
 microservice
 microservices
 minikube
@@ -605,6 +606,7 @@ modularity
 modularizing
 mountPath
 mov
+ms
 mtk
 mtls
 mtu
@@ -725,6 +727,7 @@ rc
 reStructuredText
 reachability
 readSecretsOnlyFromSecretsNamespace
+rebalance
 rebase
 rebased
 rebasing
@@ -866,6 +869,7 @@ transpiling
 triager
 triagers
 truthy
+ts
 tsne
 tunables
 tunings
@@ -948,5 +952,6 @@ xoring
 xt
 xwing
 yaml
+zeroes
 zsh
 ztunnel

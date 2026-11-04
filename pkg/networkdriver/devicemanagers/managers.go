@@ -8,6 +8,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
+	"github.com/cilium/cilium/pkg/networkdriver/rxqueue"
 	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
 )
@@ -27,7 +28,6 @@ func InitManagers(logger *slog.Logger, managerConfigs *v2alpha1.CiliumNetworkDri
 
 		result[types.DeviceManagerTypeDummy] = dummyMgr
 	}
-
 	if managerConfigs.SRIOV != nil && managerConfigs.SRIOV.Enabled {
 		sriovMgr, err := sriov.NewManager(logger, managerConfigs.SRIOV)
 		if err != nil {
@@ -35,6 +35,15 @@ func InitManagers(logger *slog.Logger, managerConfigs *v2alpha1.CiliumNetworkDri
 		}
 
 		result[types.DeviceManagerTypeSRIOV] = sriovMgr
+	}
+
+	if managerConfigs.RXQueue != nil && managerConfigs.RXQueue.Enabled {
+		rxQueueMgr, err := rxqueue.NewManager(logger, managerConfigs.RXQueue)
+		if err != nil {
+			return nil, err
+		}
+
+		result[types.DeviceManagerTypeRXQueue] = rxQueueMgr
 	}
 
 	return result, nil

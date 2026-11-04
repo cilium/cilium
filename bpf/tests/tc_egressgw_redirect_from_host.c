@@ -10,7 +10,6 @@
 #define ENABLE_IPV6			1
 #define ENABLE_NODEPORT			1
 #define ENABLE_EGRESS_GATEWAY		1
-#define ENABLE_HOST_FIREWALL		1
 #define ENCAP_IFINDEX 0
 
 #define PRIMARY_IFACE			21
@@ -34,6 +33,7 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 #include "lib/metrics.h"
 
+ASSIGN_CONFIG(bool, enable_host_firewall, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
 
 struct fib_lookup_settings {

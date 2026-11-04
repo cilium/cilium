@@ -7,7 +7,6 @@ triggers:
     workflows:
     - tests-smoke-conformance.yaml
     - tests-smoke-ipv6.yaml
-    - tests-cifuzz.yaml
     - lint-ariane-config.yaml
     - lint-images-base.yaml
   # This trigger needs to be kept in sync with ariane-scheduled.yaml workflow
@@ -15,6 +14,7 @@ triggers:
     workflows:
     - lint-ariane-config.yaml
     - lint-images-base.yaml
+    - conformance-aks.yaml
     - conformance-aws-cni.yaml
     - conformance-clustermesh.yaml
     - conformance-delegated-ipam.yaml
@@ -22,6 +22,7 @@ triggers:
     - conformance-ztunnel-e2e.yaml
     - conformance-eks.yaml
     - conformance-gateway-api.yaml
+    - conformance-gke.yaml
     - conformance-mcs-api.yaml
     - conformance-ginkgo.yaml
     - conformance-ingress.yaml
@@ -36,9 +37,9 @@ triggers:
     - conformance-race.yaml
     - conformance-runtime.yaml
     - integration-test.yaml
-    - tests-cifuzz.yaml
     - tests-clustermesh-upgrade.yaml
     - tests-datapath-verifier.yaml
+    - tests-e2e-upgrade.yaml
     - tests-smoke-conformance.yaml
     - tests-smoke-ipv6.yaml
     - hubble-cli-integration-test.yaml
@@ -238,7 +239,7 @@ workflows:
   conformance-kpr-gke.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-kubespray.yaml:
-    paths-regex: (\.github/workflows/conformance-kubespray\.yaml/)
+    paths-regex: (\.github/workflows/conformance-kubespray\.yaml)$
   conformance-l3-l4.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
   conformance-l7.yaml:
@@ -265,8 +266,6 @@ workflows:
     paths-ignore-regex: (Documentation/|test/)
   conformance-kind-proxy-embedded.yaml:
     paths-ignore-regex: ((bpf/complexity-tests|bpf/tests|test|Documentation|hubble|.github/actions/cl2-modules|.github/actions/e2e|.github/actions/ginkgo)/|(.github/renovate\.json5|README.rst|CODEOWNERS|stable.txt|.*\.md|.*_test\.go)$)
-  tests-cifuzz.yaml:
-    paths-regex: (\.github/workflows/tests-cifuzz\.yaml|fuzz_test.go|test/fuzzing/)
   k8s-kind-network-policies-e2e.yaml:
     paths-ignore-regex: (Documentation/|test/)
   tests-smoke-conformance.yaml:

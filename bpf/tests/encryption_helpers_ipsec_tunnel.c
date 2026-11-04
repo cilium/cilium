@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
 
-#define TUNNEL_MODE
+#define TUNNEL_MODE 1
 
 #include "encryption_helpers_ipsec.h"
 
 #include "node_config.h"
 
-/* must define `HAVE_ENCAP 1` before including 'lib/ipsec.h'.
- * lib/ipsec.h eventually imports overloadable_skb.h which exposes
- * ctx_is_overlay, utilized within 'ipsec_maybe_redirect_to_encrypt'
- */
-#define HAVE_ENCAP 1
 #include "../lib/ipsec.h"
 
 #include "tests/lib/node.h"

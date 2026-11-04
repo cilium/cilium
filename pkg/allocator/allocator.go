@@ -689,7 +689,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	}
 
 	if a.operatorIDManagement {
-		id, err := a.GetWithRetry(ctx, key)
+		id, err := a.WaitFor(ctx, key)
 		// The second and third return values are always false when
 		// operatorIDManagement is enabled because cilium-operator manages security
 		// IDs, and they are never newly allocated or require holding a reference to
@@ -760,59 +760,37 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	return 0, false, false, err
 }
 
-func (a *Allocator) GetWithRetry(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
-	getID := func() (idpool.ID, error) {
-		id, err := a.Get(ctx, key)
-		if err != nil {
-			return idpool.NoID, err
-		}
-
-		if id == idpool.NoID {
-			return idpool.NoID, fmt.Errorf("security identity not found for key %s", key.String())
-		}
-
+// WaitFor returns the ID allocated to the given key as soon as it becomes
+// known to the local cache, blocking until the key is observed through the
+// backend watcher (or inserted locally), the context is done, or the
+// allocator is stopped. It never queries the backend directly.
+//
+// Callers must pass a context with a deadline: a key that is never allocated
+// would otherwise block until the allocator is deleted. The returned error
+// distinguishes a deadline expiry from an explicit cancellation; the generic
+// "not found" error is only returned when the allocator has been stopped.
+func (a *Allocator) WaitFor(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
+	if id := a.mainCache.waitFor(ctx, key.GetKey()); id != idpool.NoID {
 		return id, nil
 	}
 
-	// Make a copy of the template and customize it.
-	boff := a.backoffTemplate
-	boff.Name = key.String()
-
-	var id idpool.ID
-	var err error
-
-	for attempt := range a.maxAllocAttempts {
-		id, err = getID()
-		if err == nil {
-			return id, nil
-		}
-
-		select {
-		case <-ctx.Done():
-			a.logger.Warn("Ongoing key allocation has been cancelled",
-				logfields.Error, ctx.Err(),
-				logfields.Key, key,
-				logfields.Attempt, attempt,
-			)
-			return idpool.NoID, fmt.Errorf("key allocation cancelled: %w", ctx.Err())
-		default:
-			a.logger.Debug("CiliumIdentity not yet created by cilium-operator, retrying...",
-				logfields.Error, err,
-				logfields.Key, key,
-				logfields.Attempt, attempt,
-			)
-		}
-
-		if waitErr := boff.Wait(ctx); waitErr != nil {
-			a.logger.Warn("timed out waiting for cilium-operator to allocate CiliumIdentity",
-				logfields.Key, key,
-				logfields.Attempt, attempt,
-			)
-			return idpool.NoID, fmt.Errorf("timed out waiting for cilium-operator to allocate CiliumIdentity for key %v, error: %w", key.GetKey(), waitErr)
-		}
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		a.logger.Warn("timed out waiting for cilium-operator to allocate CiliumIdentity",
+			logfields.Error, ctx.Err(),
+			logfields.Key, key,
+		)
+		return idpool.NoID, fmt.Errorf("timed out waiting for cilium-operator to allocate CiliumIdentity for key %v, error: %w", key.GetKey(), ctx.Err())
 	}
 
-	return idpool.NoID, err
+	if ctx.Err() != nil {
+		a.logger.Warn("Ongoing key allocation has been cancelled",
+			logfields.Error, ctx.Err(),
+			logfields.Key, key,
+		)
+		return idpool.NoID, fmt.Errorf("key allocation cancelled: %w", ctx.Err())
+	}
+
+	return idpool.NoID, fmt.Errorf("security identity not found for key %s", key.String())
 }
 
 // GetIfLocked returns the ID which is allocated to a key. Returns an ID of NoID if no ID

@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "config.h"
 #include "conntrack.h"
 
 #if !(__ctx_is == __ctx_skb)
@@ -158,10 +159,8 @@ out:										\
 	return result;								\
 }
 
-#ifdef ENABLE_IPV4
 CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress4, struct ipv4_ct_tuple, ipv4,
 		DBG_SK_LOOKUP4, daddr, saddr)
-#endif
 #ifdef ENABLE_IPV6
 CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress6, struct ipv6_ct_tuple, ipv6,
 		DBG_SK_LOOKUP6, daddr[3], saddr[3])
@@ -198,9 +197,9 @@ CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress6, struct ipv6_ct_tuple, ipv6,
  *   before passing the traffic up to the stack towards the proxy.
  */
 static __always_inline int
-__ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
+__ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple,
 			__be16 proxy_port, bool from_host __maybe_unused,
-			bool ipv4 __maybe_unused)
+			bool ipv4)
 {
 	int result __maybe_unused = CTX_ACT_OK;
 
@@ -212,14 +211,12 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 	cilium_dbg_capture(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port);
 
 	if (CONFIG(enable_tproxy) && proxy_port && !from_host) {
-#ifdef ENABLE_IPV4
-		if (ipv4) {
+		if (is_defined(ENABLE_IPV4) && ipv4) {
 			__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
 
 			result =
 			ctx_redirect_to_proxy_ingress4(ctx, tuple, proxy_port, &ipv4_localhost);
 		}
-#endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 		if (!ipv4) {
 			union v6addr ipv6_localhost = { .addr[15] = 1,};
@@ -232,14 +229,12 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 	return result;
 }
 
-#ifdef ENABLE_IPV4
 static __always_inline int
 ctx_redirect_to_proxy4(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 		       __be16 proxy_port, bool from_host __maybe_unused)
 {
 	return __ctx_redirect_to_proxy(ctx, tuple, proxy_port, from_host, true);
 }
-#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 static __always_inline int
@@ -273,9 +268,7 @@ NAME(struct __ctx_buff *ctx, struct PREFIX ## _ct_tuple *tuple)		\
 	return 0;							\
 }
 
-#ifdef ENABLE_IPV4
 IP_TUPLE_EXTRACT_FN(extract_tuple4, ipv4)
-#endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 IP_TUPLE_EXTRACT_FN(extract_tuple6, ipv6)
 #endif /* ENABLE_IPV6 */
@@ -313,10 +306,12 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 		break;
 	}
 #endif /* ENABLE_IPV6 */
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
 		__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
 		struct ipv4_ct_tuple tuple;
+
+		if (!is_defined(ENABLE_IPV4))
+			return DROP_UNKNOWN_L3;
 
 		ret = extract_tuple4(ctx, &tuple);
 		if (ret < 0)
@@ -325,7 +320,6 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 		ret = ctx_redirect_to_proxy_ingress4(ctx, &tuple, proxy_port, &ipv4_localhost);
 		break;
 	}
-#endif /* ENABLE_IPV4 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;

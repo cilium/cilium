@@ -6,7 +6,6 @@ package labels
 import (
 	"bytes"
 	"slices"
-	"sort"
 	"strings"
 )
 
@@ -17,8 +16,8 @@ type LabelArray []Label
 // order, when the source material may be unsorted.  'ls' is sorted
 // in-place, but also returns the sorted array for convenience.
 func (ls LabelArray) Sort() LabelArray {
-	sort.Slice(ls, func(i, j int) bool {
-		return ls[i].Key < ls[j].Key
+	slices.SortFunc(ls, func(l, r Label) int {
+		return strings.Compare(l.Key, r.Key)
 	})
 	return ls
 }
@@ -53,9 +52,8 @@ func ParseLabelArrayFromArray(base []string) LabelArray {
 // NewLabelArrayFromSortedList returns labels based on the output of SortedList()
 // Trailing ';' will result in an empty key that must be filtered out.
 func NewLabelArrayFromSortedList(list string) LabelArray {
-	base := strings.Split(list, ";")
-	array := make(LabelArray, 0, len(base))
-	for _, v := range base {
+	array := make(LabelArray, 0, strings.Count(list, ";")+1)
+	for v := range strings.SplitSeq(list, ";") {
 		if lbl := ParseLabel(v); lbl.Key != "" {
 			array = append(array, lbl)
 		}
@@ -74,7 +72,7 @@ func ParseSelectLabelArrayFromArray(base []string) LabelArray {
 
 // Labels returns the LabelArray as Labels
 func (ls LabelArray) Labels() Labels {
-	lbls := Labels{}
+	lbls := make(Labels, len(ls))
 	for i := range ls {
 		lbls[ls[i].Key] = ls[i]
 	}
@@ -187,13 +185,7 @@ func (ls LabelArray) LookupLabel(keyLabel *Label) (value string, exists bool) {
 
 // DeepCopy returns a deep copy of the labels.
 func (ls LabelArray) DeepCopy() LabelArray {
-	if ls == nil {
-		return nil
-	}
-
-	o := make(LabelArray, len(ls))
-	copy(o, ls)
-	return o
+	return slices.Clone(ls)
 }
 
 // GetModel returns the LabelArray as a string array with fully-qualified labels.
@@ -210,10 +202,9 @@ func LabelArrayFromString(str string) LabelArray {
 	// each LabelArray starts with '[' and ends with ']'
 	if len(str) > 2 && str[0] == '[' && str[len(str)-1] == ']' {
 		str = str[1 : len(str)-1] // remove brackets
-		labels := strings.Split(str, " ")
-		la := make(LabelArray, 0, len(labels))
-		for j := range labels {
-			la = append(la, ParseLabel(labels[j]))
+		la := make(LabelArray, 0, strings.Count(str, " ")+1)
+		for j := range strings.SplitSeq(str, " ") {
+			la = append(la, ParseLabel(j))
 		}
 		if len(la) > 0 {
 			return la
@@ -222,32 +213,42 @@ func LabelArrayFromString(str string) LabelArray {
 	return nil
 }
 
+func (ls LabelArray) formatLen() int {
+	n := 2 + max(len(ls)-1, 0)
+	for l := range ls {
+		n += ls[l].formatLen()
+	}
+	return n
+}
+
 func (ls LabelArray) BuildString(sb *strings.Builder) {
-	sb.WriteString("[")
+	sb.WriteByte('[')
 	for l := range ls {
 		if l > 0 {
-			sb.WriteString(" ")
+			sb.WriteByte(' ')
 		}
 		ls[l].BuildString(sb)
 	}
-	sb.WriteString("]")
+	sb.WriteByte(']')
 }
 
 func (ls LabelArray) String() string {
 	var sb strings.Builder
+	sb.Grow(ls.formatLen())
 	ls.BuildString(&sb)
 	return sb.String()
 }
 
 func (ls LabelArray) BuildBytes(buf *bytes.Buffer) {
-	buf.WriteString("[")
+	buf.Grow(ls.formatLen())
+	buf.WriteByte('[')
 	for l := range ls {
 		if l > 0 {
-			buf.WriteString(" ")
+			buf.WriteByte(' ')
 		}
 		ls[l].BuildBytes(buf)
 	}
-	buf.WriteString("]")
+	buf.WriteByte(']')
 }
 
 // Map2LabelArray transforms in the form: map[key(string)]value(string) into LabelArray. The

@@ -573,13 +573,11 @@ func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
 		conf = oldPeer.Conf
 	}
 
-	// Encode neighbor name (inherited from the CRD) into the description
-	// field as JSON (for future extensibility). This is useful for the
-	// discovered peers where we cannot obtain IP address from the CRD.
+	// Encode the neighbor name (inherited from the CRD) into the description
+	// field as JSON, since GoBGP has no peer-name field. The peering interface
+	// is already carried by the zone in NeighborAddress.
 	if n.Name != "" {
-		pd := peerDescription{
-			Name: n.Name,
-		}
+		pd := peerDescription{Name: n.Name}
 		desc, err := json.Marshal(pd)
 		if err == nil {
 			// We ignore error here because this field is not
@@ -589,6 +587,14 @@ func toGoBGPPeerConf(n *types.Neighbor, oldPeer *gobgp.Peer) *gobgp.PeerConf {
 		}
 	}
 
+	// An unnumbered peer is configured with its discovered IPv6 link-local
+	// address, zoned with the peering interface (e.g. "fe80::1%eth0"), and no
+	// NeighborInterface. gobgp's own NeighborInterface support would resolve the
+	// address itself, but only once, with a one-shot netlink call at the time the
+	// peer is added; the agent tracks the neighbor entries in StateDB instead and
+	// re-resolves as they change. The zone selects the peering interface and
+	// makes the link-local address dialable, so it must survive into the
+	// configuration.
 	if n.Address.IsValid() {
 		conf.NeighborAddress = n.Address.String()
 	} else {

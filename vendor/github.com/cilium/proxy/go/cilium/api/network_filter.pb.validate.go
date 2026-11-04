@@ -57,10 +57,6 @@ func (m *NetworkFilter) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Proxylib
-
-	// no validation rules for ProxylibParams
-
 	// no validation rules for AccessLogPath
 
 	if len(errors) > 0 {

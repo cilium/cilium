@@ -20,7 +20,7 @@ import (
 // CommitsClient contains the methods for the Commits group.
 // Don't use this type directly, use NewCommitsClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type CommitsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -70,7 +70,7 @@ func (client *CommitsClient) BeginCreateOrUpdate(ctx context.Context, resourceGr
 	}
 }
 
-// CreateOrUpdate - Creates or updates a commit.
+// createOrUpdate - Creates or updates a commit.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *CommitsClient) createOrUpdate(ctx context.Context, resourceGroupName string, networkManagerName string, commitName string, resource Commit, options *CommitsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
@@ -92,7 +92,7 @@ func (client *CommitsClient) createOrUpdate(ctx context.Context, resourceGroupNa
 	return httpResp, nil
 }
 
-// createOrUpdateCreateRequest creates the CreateOrUpdate request.
+// createOrUpdateCreateRequest creates the createOrUpdate request.
 func (client *CommitsClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, networkManagerName string, commitName string, resource Commit, _ *CommitsClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkManagers/{networkManagerName}/commits/{commitName}"
 	if client.subscriptionID == "" {
@@ -116,7 +116,7 @@ func (client *CommitsClient) createOrUpdateCreateRequest(ctx context.Context, re
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -134,7 +134,7 @@ func (client *CommitsClient) createOrUpdateCreateRequest(ctx context.Context, re
 //   - options - CommitsClientBeginDeleteOptions contains the optional parameters for the CommitsClient.BeginDelete method.
 func (client *CommitsClient) BeginDelete(ctx context.Context, resourceGroupName string, networkManagerName string, commitName string, options *CommitsClientBeginDeleteOptions) (*runtime.Poller[CommitsClientDeleteResponse], error) {
 	if options == nil || options.ResumeToken == "" {
-		resp, err := client.deleteOperation(ctx, resourceGroupName, networkManagerName, commitName, options)
+		resp, err := client.delete(ctx, resourceGroupName, networkManagerName, commitName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -149,9 +149,9 @@ func (client *CommitsClient) BeginDelete(ctx context.Context, resourceGroupName 
 	}
 }
 
-// Delete - Deletes a commit.
+// delete - Deletes a commit.
 // If the operation fails it returns an *azcore.ResponseError type.
-func (client *CommitsClient) deleteOperation(ctx context.Context, resourceGroupName string, networkManagerName string, commitName string, options *CommitsClientBeginDeleteOptions) (*http.Response, error) {
+func (client *CommitsClient) delete(ctx context.Context, resourceGroupName string, networkManagerName string, commitName string, options *CommitsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "CommitsClient.BeginDelete"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
@@ -171,7 +171,7 @@ func (client *CommitsClient) deleteOperation(ctx context.Context, resourceGroupN
 	return httpResp, nil
 }
 
-// deleteCreateRequest creates the Delete request.
+// deleteCreateRequest creates the delete request.
 func (client *CommitsClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, networkManagerName string, commitName string, _ *CommitsClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/networkManagers/{networkManagerName}/commits/{commitName}"
 	if client.subscriptionID == "" {
@@ -195,7 +195,7 @@ func (client *CommitsClient) deleteCreateRequest(ctx context.Context, resourceGr
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
@@ -247,7 +247,7 @@ func (client *CommitsClient) getCreateRequest(ctx context.Context, resourceGroup
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -328,7 +328,7 @@ func (client *CommitsClient) listCreateRequest(ctx context.Context, resourceGrou
 		if options != nil && options.Top != nil {
 			reqQP.Set("$top", strconv.FormatInt(int64(*options.Top), 10))
 		}
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}

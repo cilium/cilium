@@ -73,7 +73,7 @@ configuration will be applied.
 
 ```yaml
 ---
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumBGPNodeConfigOverride
 metadata:
   name: bgp-cplane-dev-multi-homing-control-plane
@@ -83,7 +83,7 @@ spec:
       routerID: "1.2.3.4"
 
 ---
-apiVersion: cilium.io/v2alpha1
+apiVersion: cilium.io/v2
 kind: CiliumBGPNodeConfigOverride
 metadata:
   name: bgp-cplane-dev-multi-homing-worker

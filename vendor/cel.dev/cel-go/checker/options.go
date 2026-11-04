@@ -14,15 +14,31 @@
 
 package checker
 
+import (
+	"cel.dev/cel-go/common/env"
+)
+
+// CatalogSupplier returns a Catalog of symbols.
+type CatalogSupplier func() *env.Catalog
+
 type options struct {
 	crossTypeNumericComparisons  bool
 	homogeneousAggregateLiterals bool
 	validatedDeclarations        *Scopes
 	jsonFieldNames               bool
+	catalogSupplier              CatalogSupplier
 }
 
 // Option is a functional option for configuring the type-checker
 type Option func(*options) error
+
+// Catalog configures the checker with a symbol catalog supplier used for error suggestions and refinement.
+func Catalog(cat CatalogSupplier) Option {
+	return func(opts *options) error {
+		opts.catalogSupplier = cat
+		return nil
+	}
+}
 
 // CrossTypeNumericComparisons toggles type-checker support for numeric comparisons across type
 // See https://github.com/google/cel-spec/wiki/proposal-210 for more details.
@@ -49,4 +65,3 @@ func JSONFieldNames(enabled bool) Option {
 		return nil
 	}
 }
-

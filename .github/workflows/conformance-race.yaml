@@ -85,14 +85,12 @@ jobs:
     steps:
       - name: Merge extra-args with "detect-race"
         id: merge
+        env:
+          EXTRA_ARGS: ${{ inputs.extra-args }}
         run: |
-          ARGS='${{ inputs.extra-args }}'
-          # Empty on schedule events, where jq would emit nothing and thus
-          # silently drop "detect-race".
-          if [ -z "${ARGS}" ]; then
-            ARGS='{}'
-          fi
-          echo "extra-args=$(echo "${ARGS}" | jq -c '. + {"detect-race": true}')" >> "$GITHUB_OUTPUT"
+          # Ariane sends a trigger's capture as a JSON string such as " all-tests=true", callers an object, schedule nothing.
+          ARGS=$(jq -Rsc '. as $raw | (try fromjson catch $raw) | if type == "object" then . elif type == "string" and contains("=") then (gsub("^\\s+|\\s+$"; "") | split("=") | {(.[0]): .[1]}) else {} end | . + {"detect-race": true}' <<< "${EXTRA_ARGS}")
+          echo "extra-args=${ARGS}" >> "$GITHUB_OUTPUT"
 
   conformance-ginkgo-race:
     name: Conformance Ginkgo with Race Detection

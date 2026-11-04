@@ -176,6 +176,57 @@ func (m *LocalResponsePolicy) validate(all bool) error {
 
 	}
 
+	switch v := m.ResponseCodeDetailsAction.(type) {
+	case *LocalResponsePolicy_PreserveResponseCodeDetails:
+		if v == nil {
+			err := LocalResponsePolicyValidationError{
+				field:  "ResponseCodeDetailsAction",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if m.GetPreserveResponseCodeDetails() != true {
+			err := LocalResponsePolicyValidationError{
+				field:  "PreserveResponseCodeDetails",
+				reason: "value must equal true",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	case *LocalResponsePolicy_ResponseCodeDetails:
+		if v == nil {
+			err := LocalResponsePolicyValidationError{
+				field:  "ResponseCodeDetailsAction",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if utf8.RuneCountInString(m.GetResponseCodeDetails()) < 1 {
+			err := LocalResponsePolicyValidationError{
+				field:  "ResponseCodeDetails",
+				reason: "value length must be at least 1 runes",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+
 	if len(errors) > 0 {
 		return LocalResponsePolicyMultiError(errors)
 	}

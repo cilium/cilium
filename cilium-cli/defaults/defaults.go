@@ -77,6 +77,9 @@ const (
 
 	PolicyWaitTimeout = 30 * time.Second
 
+	// ExecAttemptTimeout bounds one attempt of a short command that the CLI retries.
+	ExecAttemptTimeout = 10 * time.Second
+
 	ConnectRetry      = 3
 	ConnectRetryDelay = 3 * time.Second
 
@@ -170,13 +173,13 @@ var (
 		// renovate: datasource=docker
 		"ConnectivityCheckJSONMockImage": "quay.io/cilium/json-mock:v1.4.1@sha256:6a66df90808a39c02e7a9d58af7bf0e54d8f8b7d4bc528f48c891969a7049195",
 		// renovate: datasource=docker
-		"ConnectivityDNSTestServerImage": "registry.k8s.io/coredns/coredns:v1.14.7@sha256:7efd3c635b03efd68c4e8398fc45f0d993d0e9ab016f72c1cefb0fd6d01aa286",
+		"ConnectivityDNSTestServerImage": "registry.k8s.io/coredns/coredns:v1.15.0@sha256:0a9d8c8ddf34347eb59aad9a8784f0710de88d6d112726d11d271f9bc6daca26",
 		// renovate: datasource=docker
 		"ConnectivityTestConnDisruptImage": "quay.io/cilium/test-connection-disruption:v0.0.18@sha256:1666bbed3eb6f0e3074b366fbf701a5ea7206a946fa2a9fd4efff738bae2d1f9",
 		// renovate: datasource=docker
 		"ConnectivityTestFRRImage": "quay.io/frrouting/frr:10.7.1@sha256:e995beaa50fdc9edb35eadcfefa29b7f062cc06f2b812613789b68fa541554d2",
 		// renovate: datasource=docker
-		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.1.3@sha256:fb3862c949af7c79996d0e514ee96128644d840835ed5368eeecb14a869de361",
+		"ConnectivityTestSocatImage": "docker.io/alpine/socat:1.8.1.3@sha256:466c8a0383e16463fabdb7df01008292fb78d07da60224a46cb5d3142ce122ed",
 	}
 
 	ConnectivityCheckOptionalImagesTest = map[string]string{
@@ -186,7 +189,7 @@ var (
 
 	ConnectivityCheckImagesPerf = map[string]string{
 		// renovate: datasource=docker
-		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:3.22-1790906493-6b633d8@sha256:1617b6875c7564a7af635e02c0de7efc2a02042ff47a5a8d9772adeaeabefe8b",
+		"ConnectivityPerformanceImage": "quay.io/cilium/network-perf:3.22-1793546159-db4fb5f@sha256:064597d7836703ae0b5c948ad4c311e12022a7be8398e5eedd724568440aff4c",
 	}
 
 	// The following variables are set at compile time via LDFLAGS.

@@ -19,7 +19,7 @@ import (
 // VirtualNetworkGatewayNatRulesClient contains the methods for the VirtualNetworkGatewayNatRules group.
 // Don't use this type directly, use NewVirtualNetworkGatewayNatRulesClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type VirtualNetworkGatewayNatRulesClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -70,7 +70,7 @@ func (client *VirtualNetworkGatewayNatRulesClient) BeginCreateOrUpdate(ctx conte
 	}
 }
 
-// CreateOrUpdate - Creates a nat rule to a scalable virtual network gateway if it doesn't exist else updates the existing
+// createOrUpdate - Creates a nat rule to a scalable virtual network gateway if it doesn't exist else updates the existing
 // nat rules.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *VirtualNetworkGatewayNatRulesClient) createOrUpdate(ctx context.Context, resourceGroupName string, virtualNetworkGatewayName string, natRuleName string, natRuleParameters VirtualNetworkGatewayNatRule, options *VirtualNetworkGatewayNatRulesClientBeginCreateOrUpdateOptions) (*http.Response, error) {
@@ -93,7 +93,7 @@ func (client *VirtualNetworkGatewayNatRulesClient) createOrUpdate(ctx context.Co
 	return httpResp, nil
 }
 
-// createOrUpdateCreateRequest creates the CreateOrUpdate request.
+// createOrUpdateCreateRequest creates the createOrUpdate request.
 func (client *VirtualNetworkGatewayNatRulesClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, virtualNetworkGatewayName string, natRuleName string, natRuleParameters VirtualNetworkGatewayNatRule, _ *VirtualNetworkGatewayNatRulesClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworkGateways/{virtualNetworkGatewayName}/natRules/{natRuleName}"
 	if client.subscriptionID == "" {
@@ -117,7 +117,7 @@ func (client *VirtualNetworkGatewayNatRulesClient) createOrUpdateCreateRequest(c
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -136,7 +136,7 @@ func (client *VirtualNetworkGatewayNatRulesClient) createOrUpdateCreateRequest(c
 //     method.
 func (client *VirtualNetworkGatewayNatRulesClient) BeginDelete(ctx context.Context, resourceGroupName string, virtualNetworkGatewayName string, natRuleName string, options *VirtualNetworkGatewayNatRulesClientBeginDeleteOptions) (*runtime.Poller[VirtualNetworkGatewayNatRulesClientDeleteResponse], error) {
 	if options == nil || options.ResumeToken == "" {
-		resp, err := client.deleteOperation(ctx, resourceGroupName, virtualNetworkGatewayName, natRuleName, options)
+		resp, err := client.delete(ctx, resourceGroupName, virtualNetworkGatewayName, natRuleName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -151,9 +151,9 @@ func (client *VirtualNetworkGatewayNatRulesClient) BeginDelete(ctx context.Conte
 	}
 }
 
-// Delete - Deletes a nat rule.
+// delete - Deletes a nat rule.
 // If the operation fails it returns an *azcore.ResponseError type.
-func (client *VirtualNetworkGatewayNatRulesClient) deleteOperation(ctx context.Context, resourceGroupName string, virtualNetworkGatewayName string, natRuleName string, options *VirtualNetworkGatewayNatRulesClientBeginDeleteOptions) (*http.Response, error) {
+func (client *VirtualNetworkGatewayNatRulesClient) delete(ctx context.Context, resourceGroupName string, virtualNetworkGatewayName string, natRuleName string, options *VirtualNetworkGatewayNatRulesClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "VirtualNetworkGatewayNatRulesClient.BeginDelete"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
@@ -173,7 +173,7 @@ func (client *VirtualNetworkGatewayNatRulesClient) deleteOperation(ctx context.C
 	return httpResp, nil
 }
 
-// deleteCreateRequest creates the Delete request.
+// deleteCreateRequest creates the delete request.
 func (client *VirtualNetworkGatewayNatRulesClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, virtualNetworkGatewayName string, natRuleName string, _ *VirtualNetworkGatewayNatRulesClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/virtualNetworkGateways/{virtualNetworkGatewayName}/natRules/{natRuleName}"
 	if client.subscriptionID == "" {
@@ -197,7 +197,7 @@ func (client *VirtualNetworkGatewayNatRulesClient) deleteCreateRequest(ctx conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	return req, nil
 }
@@ -250,7 +250,7 @@ func (client *VirtualNetworkGatewayNatRulesClient) getCreateRequest(ctx context.
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -326,7 +326,7 @@ func (client *VirtualNetworkGatewayNatRulesClient) listByVirtualNetworkGatewayCr
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}

@@ -15,8 +15,8 @@
  * written into node_config.h at runtime.
  */
 #define SECLABEL WORLD_ID
-#define SECLABEL_IPV4 WORLD_IPV4_ID
-#define SECLABEL_IPV6 WORLD_IPV6_ID
+#define SECLABEL_IPV4 world_ipv4_id()
+#define SECLABEL_IPV6 world_ipv6_id()
 
 /* Controls the inclusion of the CILIUM_CALL_HANDLE_ICMP6_NS section in the
  * object file.
@@ -122,7 +122,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 }
 #endif /* ENABLE_IPV6 */
 
-#ifdef ENABLE_IPV4
 static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 identity __maybe_unused, __s8 *ext_err __maybe_unused)
 {
@@ -246,7 +245,6 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 						METRIC_INGRESS);
 	return ret;
 }
-#endif /* ENABLE_IPV4 */
 
 /* from-wireguard is attached as a tc ingress filter to the cilium_wg0 device. */
 __section_entry
@@ -310,8 +308,10 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 								CTX_ACT_OK, METRIC_INGRESS);
 #endif
 
-#ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		if (!is_defined(ENABLE_IPV4))
+			break;
+
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 			return send_drop_notify_error(ctx, identity, DROP_INVALID, METRIC_INGRESS);
 
@@ -333,7 +333,6 @@ int cil_from_wireguard(struct __ctx_buff *ctx)
 		 */
 		return send_drop_notify_error_with_exitcode_ext(ctx, identity, ret, ext_err,
 								CTX_ACT_OK, METRIC_INGRESS);
-#endif
 	}
 
 	send_trace_notify(ctx, TRACE_FROM_CRYPTO, UNKNOWN_ID, UNKNOWN_ID,

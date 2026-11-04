@@ -123,6 +123,7 @@ func NewFRRDaemonSet(params Parameters) *appsv1.DaemonSet {
 		Kind:         frrDaemonSetNameName,
 		Image:        params.FRRImage,
 		Labels:       map[string]string{"external": "frr"},
+		Annotations:  params.DeploymentAnnotations.Match(frrDaemonSetNameName),
 		NodeSelector: map[string]string{"cilium.io/no-schedule": "true"},
 		HostNetwork:  true,
 		Tolerations: []corev1.Toleration{

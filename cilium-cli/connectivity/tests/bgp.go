@@ -19,9 +19,7 @@ import (
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
-	"github.com/cilium/cilium/pkg/versioncheck"
 )
 
 const (
@@ -141,23 +139,14 @@ func (s *bgpAdvertisements) cleanup(ctx context.Context, t *check.Test) {
 }
 
 func (s *bgpAdvertisements) deleteK8sResources(ctx context.Context, t *check.Test) {
-	clientV2Alpha1 := t.Context().K8sClient().CiliumClientset.CiliumV2alpha1()
 	clientV2 := t.Context().K8sClient().CiliumClientset.CiliumV2()
 
 	if s.bgpAPIVersion == 1 {
 		check.DeleteK8sObjectWithWait(ctx, t, s.getBGPv1PeeringPolicy(t, features.IPFamilyV4)) // family is not important for delete
 	} else {
-		if versioncheck.MustCompile(">=1.18.0")(t.Context().CiliumVersion) {
-			// cleanup v2 resources
-			check.DeleteK8sResourceWithWait(ctx, t, clientV2.CiliumBGPClusterConfigs(), bgpClusterConfigName)
-			check.DeleteK8sResourceWithWait(ctx, t, clientV2.CiliumBGPPeerConfigs(), bgpPeerConfigName)
-			check.DeleteK8sResourceWithWait(ctx, t, clientV2.CiliumBGPAdvertisements(), bgpAdvertisementName)
-		} else {
-			// cleanup v2alpha1 resources
-			check.DeleteK8sResourceWithWait(ctx, t, clientV2Alpha1.CiliumBGPClusterConfigs(), bgpClusterConfigName)
-			check.DeleteK8sResourceWithWait(ctx, t, clientV2Alpha1.CiliumBGPPeerConfigs(), bgpPeerConfigName)
-			check.DeleteK8sResourceWithWait(ctx, t, clientV2Alpha1.CiliumBGPAdvertisements(), bgpAdvertisementName)
-		}
+		check.DeleteK8sResourceWithWait(ctx, t, clientV2.CiliumBGPClusterConfigs(), bgpClusterConfigName)
+		check.DeleteK8sResourceWithWait(ctx, t, clientV2.CiliumBGPPeerConfigs(), bgpPeerConfigName)
+		check.DeleteK8sResourceWithWait(ctx, t, clientV2.CiliumBGPAdvertisements(), bgpAdvertisementName)
 	}
 }
 
@@ -211,16 +200,6 @@ func (s *bgpAdvertisements) getBGPv1PeeringPolicy(t *check.Test, ipFamily featur
 func (s *bgpAdvertisements) configureBGPv2Peering(ctx context.Context, t *check.Test, ipFamily features.IPFamily) {
 	s.deleteK8sResources(ctx, t)
 
-	if versioncheck.MustCompile(">=1.18.0")(t.Context().CiliumVersion) {
-		// use v2 API version
-		s.configureBGPv2PeeringV2(ctx, t, ipFamily)
-	} else {
-		// use v2alpha1 API version
-		s.configureBGPv2PeeringV2Alpha1(ctx, t, ipFamily)
-	}
-}
-
-func (s *bgpAdvertisements) configureBGPv2PeeringV2(ctx context.Context, t *check.Test, ipFamily features.IPFamily) {
 	ct := t.Context()
 	client := ct.K8sClient().CiliumClientset.CiliumV2()
 
@@ -312,108 +291,6 @@ func (s *bgpAdvertisements) configureBGPv2PeeringV2(ctx context.Context, t *chec
 				PeerAddress: ptr.To[string](frr.Address(ipFamily)),
 				PeerASN:     ptr.To[int64](bgpFRRASN),
 				PeerConfigRef: &v2.PeerConfigReference{
-					Name: peerConfig.Name,
-				},
-			})
-	}
-	_, err = client.CiliumBGPClusterConfigs().Create(ctx, clusterConfig, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create CiliumBGPClusterConfig: %v", err)
-	}
-}
-
-func (s *bgpAdvertisements) configureBGPv2PeeringV2Alpha1(ctx context.Context, t *check.Test, ipFamily features.IPFamily) {
-	ct := t.Context()
-	client := ct.K8sClient().CiliumClientset.CiliumV2alpha1()
-
-	// configure advertisement
-	advertisement := &v2alpha1.CiliumBGPAdvertisement{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   bgpAdvertisementName,
-			Labels: map[string]string{"test": s.Name()},
-		},
-		Spec: v2alpha1.CiliumBGPAdvertisementSpec{
-			Advertisements: []v2alpha1.BGPAdvertisement{
-				{
-					AdvertisementType: v2alpha1.BGPPodCIDRAdvert,
-					Attributes: &v2alpha1.BGPAttributes{
-						Communities: &v2alpha1.BGPCommunities{
-							Standard: []v2alpha1.BGPStandardCommunity{bgpCommunityPodCIDR},
-						},
-					},
-				},
-				{
-					AdvertisementType: v2alpha1.BGPServiceAdvert,
-					Service: &v2alpha1.BGPServiceOptions{
-						Addresses: []v2alpha1.BGPServiceAddressType{v2alpha1.BGPClusterIPAddr},
-					},
-					Selector: &slimv1.LabelSelector{
-						MatchLabels: map[string]string{"kind": "echo"},
-					},
-					Attributes: &v2alpha1.BGPAttributes{
-						Communities: &v2alpha1.BGPCommunities{
-							Standard: []v2alpha1.BGPStandardCommunity{bgpCommunityService},
-						},
-					},
-				},
-			},
-		},
-	}
-	_, err := client.CiliumBGPAdvertisements().Create(ctx, advertisement, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create CiliumBGPAdvertisement: %v", err)
-	}
-
-	// configure peer config
-	peerConfig := &v2alpha1.CiliumBGPPeerConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: bgpPeerConfigName,
-		},
-		Spec: v2alpha1.CiliumBGPPeerConfigSpec{
-			Timers: &v2alpha1.CiliumBGPTimers{
-				ConnectRetryTimeSeconds: ptr.To[int32](bgpConnectRetryTimeSeconds),
-				KeepAliveTimeSeconds:    ptr.To[int32](bgpKeepAliveTimeSeconds),
-				HoldTimeSeconds:         ptr.To[int32](bgpHoldTimeSeconds),
-			},
-			Families: []v2alpha1.CiliumBGPFamilyWithAdverts{
-				{
-					CiliumBGPFamily: v2alpha1.CiliumBGPFamily{
-						Afi:  ipFamily.String(),
-						Safi: "unicast",
-					},
-					Advertisements: &slimv1.LabelSelector{
-						MatchLabels: advertisement.Labels,
-					},
-				},
-			},
-		},
-	}
-	_, err = client.CiliumBGPPeerConfigs().Create(ctx, peerConfig, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatalf("failed to create CiliumBGPPeerConfig: %v", err)
-	}
-
-	// configure cluster config
-	clusterConfig := &v2alpha1.CiliumBGPClusterConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: bgpClusterConfigName,
-		},
-		Spec: v2alpha1.CiliumBGPClusterConfigSpec{
-			BGPInstances: []v2alpha1.CiliumBGPInstance{
-				{
-					Name:     "test-instance",
-					LocalASN: ptr.To[int64](bgpCiliumASN),
-				},
-			},
-		},
-	}
-	for _, frr := range ct.FRRPods() {
-		clusterConfig.Spec.BGPInstances[0].Peers = append(clusterConfig.Spec.BGPInstances[0].Peers,
-			v2alpha1.CiliumBGPPeer{
-				Name:        "peer-" + frr.Address(ipFamily),
-				PeerAddress: ptr.To[string](frr.Address(ipFamily)),
-				PeerASN:     ptr.To[int64](bgpFRRASN),
-				PeerConfigRef: &v2alpha1.PeerConfigReference{
 					Name: peerConfig.Name,
 				},
 			})

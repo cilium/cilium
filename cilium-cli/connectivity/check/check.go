@@ -56,6 +56,7 @@ type Parameters struct {
 	TestNamespaceIndex        int
 	TestConcurrency           int
 	SingleNode                bool
+	SkipHostNetNSDaemonSet    bool
 	PrintFlows                bool
 	ForceDeploy               bool
 	CleanupOnly               bool

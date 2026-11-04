@@ -412,10 +412,29 @@ func (t *Type) String() string {
 	return fmt.Sprintf("%s(%s)", t.DeclaredTypeName(), strings.Join(params, ", "))
 }
 
+// IsDyn indicates whether the type is dynamic in any way.
+func (t *Type) IsDyn() bool {
+	return t.isDyn()
+}
+
 // isDyn indicates whether the type is dynamic in any way.
 func (t *Type) isDyn() bool {
 	k := t.Kind()
 	return k == DynKind || k == AnyKind || k == TypeParamKind
+}
+
+// IsErrOrUnknown indicates whether the type is an error or unknown type.
+func (t *Type) IsErrOrUnknown() bool {
+	return t.isErrOrUnknown()
+}
+
+// isErrOrUnknown indicates whether the type is an error or unknown type.
+func (t *Type) isErrOrUnknown() bool {
+	if t == nil {
+		return false
+	}
+	k := t.Kind()
+	return k == ErrorKind || k == UnknownKind
 }
 
 // defaultIsAssignableType provides the standard definition of what it means for one type to be assignable to another
@@ -426,7 +445,11 @@ func (t *Type) isDyn() bool {
 //
 //	are IsAssignableType() from the parameters of the fromType.
 func (t *Type) defaultIsAssignableType(fromType *Type) bool {
-	if t == fromType || t.isDyn() {
+	if t == fromType {
+		return true
+	}
+	// if t is dynamic, it is assignable to any type except error or unknown
+	if t.isDyn() && !fromType.isErrOrUnknown() {
 		return true
 	}
 	if t.Kind() != fromType.Kind() ||
@@ -446,9 +469,12 @@ func (t *Type) defaultIsAssignableType(fromType *Type) bool {
 // defaultIsAssignableRuntimeType inspects the type and in the case of list and map elements, the key and element types
 // to determine whether a ref.Val is assignable to the declared type for a function signature.
 func (t *Type) defaultIsAssignableRuntimeType(val ref.Val) bool {
-	valType := val.Type()
+	rawType := val.Type()
+	if valType, ok := rawType.(*Type); ok && valType.isErrOrUnknown() {
+		return false
+	}
 	// If the current type and value type don't agree, then return
-	if !(t.isDyn() || t.TypeName() == valType.TypeName()) {
+	if !(t.isDyn() || t.TypeName() == rawType.TypeName()) {
 		return false
 	}
 	switch t.Kind() {

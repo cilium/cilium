@@ -6,6 +6,7 @@ package server
 import (
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/client/daemon"
@@ -36,12 +37,9 @@ type Config struct {
 	HealthAPISpec *healthApi.Spec
 }
 
-// ipString is an IP address used as a more descriptive type name in maps.
-type ipString string
-
 // nodeMap maps IP addresses to healthNode objects for convenient access to
 // node information.
-type nodeMap map[ipString]healthNode
+type nodeMap map[netip.Addr]healthNode
 
 // Server is the cilium-health daemon that is in charge of performing health
 // and connectivity checks periodically, and serving the cilium-health API.
@@ -124,21 +122,21 @@ func nodeElementSliceToNodeMap(nodeElements []*models.NodeElement, preferIpv6 bo
 	for _, n := range nodeElements {
 		if n.PrimaryAddress != nil {
 			if n.PrimaryAddress.IPv4 != nil {
-				nodes[ipString(n.PrimaryAddress.IPv4.IP)] = NewHealthNode(n, preferIpv6)
+				nodes[n.PrimaryAddress.IPv4.IP.Addr] = NewHealthNode(n, preferIpv6)
 			}
 			if n.PrimaryAddress.IPv6 != nil {
-				nodes[ipString(n.PrimaryAddress.IPv6.IP)] = NewHealthNode(n, preferIpv6)
+				nodes[n.PrimaryAddress.IPv6.IP.Addr] = NewHealthNode(n, preferIpv6)
 			}
 		}
 		for _, addr := range n.SecondaryAddresses {
-			nodes[ipString(addr.IP)] = NewHealthNode(n, preferIpv6)
+			nodes[addr.IP.Addr] = NewHealthNode(n, preferIpv6)
 		}
 		if n.HealthEndpointAddress != nil {
 			if n.HealthEndpointAddress.IPv4 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPv4.IP)] = NewHealthNode(n, preferIpv6)
+				nodes[n.HealthEndpointAddress.IPv4.IP.Addr] = NewHealthNode(n, preferIpv6)
 			}
 			if n.HealthEndpointAddress.IPv6 != nil {
-				nodes[ipString(n.HealthEndpointAddress.IPv6.IP)] = NewHealthNode(n, preferIpv6)
+				nodes[n.HealthEndpointAddress.IPv6.IP.Addr] = NewHealthNode(n, preferIpv6)
 			}
 		}
 	}

@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	cslices "github.com/cilium/cilium/pkg/slices"
 )
 
 type Client struct {
@@ -760,7 +761,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			}
 			if gw := sr.KubeProxyReplacement.Features.Nat46X64.Gateway; gw.Enabled {
 				nat46X64GW = "Enabled"
-				prefixes = strings.Join(gw.Prefixes, ", ")
+				prefixes = strings.Join(cslices.Map(gw.Prefixes, iputil.Prefix.String), ", ")
 			}
 		}
 

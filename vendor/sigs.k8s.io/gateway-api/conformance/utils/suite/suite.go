@@ -450,8 +450,6 @@ func (suite *ConformanceTestSuite) Setup(t *testing.T, tests []ConformanceTest) 
 		namespaces := []string{
 			MeshNamespace,
 			MeshConsumerNamespace,
-			AppBackendNamespace,
-			WebBackendNamespace,
 		}
 		kubernetes.MeshNamespacesMustBeReady(t, suite.Client, suite.TimeoutConfig, namespaces)
 	}

@@ -76,6 +76,7 @@ func (ic *informerCache) Get(ctx context.Context, key client.ObjectKey, out clie
 	if !started {
 		return &ErrCacheNotStarted{}
 	}
+
 	return cache.Reader.Get(ctx, key, out, opts...)
 }
 
@@ -137,7 +138,7 @@ func applyGetOptions(opts ...InformerGetOption) *internal.GetOptions {
 	for _, opt := range opts {
 		opt(cfg)
 	}
-	return (*internal.GetOptions)(cfg)
+	return cfg
 }
 
 // GetInformerForKind returns the informer for the GroupVersionKind. If no informer exists, one will be started.

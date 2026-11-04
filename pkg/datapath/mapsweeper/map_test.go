@@ -188,4 +188,21 @@ func TestRemoveDisabledMaps(t *testing.T) {
 		sweeper.RemoveDisabledMaps()
 		require.Equal(t, depricatedMaps, testEPManager.removedPaths)
 	})
+
+	t.Run("SRv6 maps kept with SRv6 disabled", func(t *testing.T) {
+		testEPManager := newTestEPManager(
+			[]string{
+				"cilium_srv6_sid",
+				"cilium_srv6_policy_v4",
+				"cilium_srv6_policy_v6",
+				"cilium_srv6_vrf_v4",
+				"cilium_srv6_vrf_v6",
+			},
+		)
+
+		sweeper := newMapSweeper(hivetest.Logger(t), testEPManager, loadbalancer.DefaultConfig, kpr.KPRConfig{})
+
+		sweeper.RemoveDisabledMaps()
+		require.Empty(t, testEPManager.removedPaths)
+	})
 }

@@ -23,6 +23,8 @@ func (t bgpControlPlane) build(ct *check.ConnectivityTest, _ map[string]string) 
 		WithScenarios(tests.BGPAdvertisements(1, bgpPeeringPolicyYAML))
 
 	newTest("bgp-control-plane-v2", ct).
+		// NOTE: BGP v2 API version was introduced in v1.18, the v2alpha1 API version was removed in v1.21
+		WithCiliumVersion(">=1.18.0").
 		WithUnsafeTests().
 		WithFeatureRequirements(
 			features.RequireEnabled(features.BGPControlPlane),

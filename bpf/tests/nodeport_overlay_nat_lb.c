@@ -7,7 +7,7 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
-#define ENABLE_NODEPORT
+#define ENABLE_NODEPORT 1
 
 #define ENCAP_IFINDEX		42
 #define TUNNEL_MODE		1

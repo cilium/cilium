@@ -129,6 +129,16 @@ type DSRConfig struct {
 	EnableByUser     bool
 }
 
+// DSREncapMode is generated from the BPF C type dsr_encap_mode.
+type DSREncapMode uint32
+
+const (
+	DSREncapModeDSREncapModeInvalid DSREncapMode = 0
+	DSREncapModeDSREncapModeNone    DSREncapMode = 1
+	DSREncapModeDSREncapModeIPIP    DSREncapMode = 2
+	DSREncapModeDSREncapModeGeneve  DSREncapMode = 3
+)
+
 // EDTID is generated from the BPF C type edt_id.
 type EDTID struct {
 	_         structs.HostLayout
@@ -936,6 +946,7 @@ type SocketLBConfig struct {
 // SRv6Config is generated from the BPF C type srv6_config.
 type SRv6Config struct {
 	_              structs.HostLayout
+	Enable         bool
 	EnableSRHEncap bool
 }
 

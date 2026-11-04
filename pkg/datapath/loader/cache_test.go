@@ -5,6 +5,9 @@ package loader
 
 import (
 	"context"
+	"net/netip"
+	"os"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"testing"
@@ -13,9 +16,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	datapathConfig "github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	fakeNodeMap "github.com/cilium/cilium/pkg/maps/nodemap/fake"
 	fakenode "github.com/cilium/cilium/pkg/node/fake"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -31,11 +37,13 @@ func TestObjectCache(t *testing.T) {
 	realEP := testutils.NewTestEndpoint(t)
 
 	dir := getDirs(t)
+	require.False(t, isClosed(cache.lxcReady))
 
 	// First run should compile and generate the object.
 	first, hash, err := cache.fetchOrCompile(ctx, &realEP, dir, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, hash)
+	require.True(t, isClosed(cache.lxcReady))
 
 	// Same EP should not be compiled twice.
 	second, hash2, err := cache.fetchOrCompile(ctx, &realEP, dir, nil)
@@ -56,6 +64,116 @@ func TestObjectCache(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, hash, hash4)
 	require.NotSame(t, fourth, first)
+}
+
+func TestObjectCacheReuse(t *testing.T) {
+	workDir := filepath.Join(t.TempDir(), "templates")
+
+	setupCompilationDirectories(t)
+	ctx := t.Context()
+
+	ep := testutils.NewTestEndpoint(t)
+	writer := configWriterForTest(t)
+	dir := getDirs(t)
+
+	restart := func(nodeCfg *datapathConfig.Config) (*objectCache, string, *metrics.SpanStat) {
+		cache := newObjectCache(hivetest.Logger(t), writer, workDir)
+		require.NoError(t, cache.UpdateDatapathHash(ctx, nodeCfg))
+		stats := &metrics.SpanStat{}
+		_, hash, err := cache.fetchOrCompile(ctx, &ep, dir, stats)
+		require.NoError(t, err)
+		return cache, hash, stats
+	}
+
+	_, hash, stats := restart(&localNodeConfig)
+	require.NotZero(t, stats.BpfCompilation.Total())
+
+	// A restarted agent loads the object its predecessor compiled.
+	cache, reused, stats := restart(&localNodeConfig)
+	require.Equal(t, hash, reused)
+	require.Zero(t, stats.BpfCompilation.Total())
+	require.True(t, isClosed(cache.lxcReady), "a template loaded from disk closes the channel")
+
+	// An agent stopping during its first hash leaves the templates to the next one.
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	require.Error(t, newObjectCache(hivetest.Logger(t), writer, workDir).UpdateDatapathHash(canceled, &localNodeConfig))
+	require.FileExists(t, cache.objectPath(&ep, hash))
+	require.FileExists(t, workDir+".hash")
+
+	// The cache recompiles an object that does not parse.
+	require.NoError(t, os.Truncate(cache.objectPath(&ep, hash), 0))
+	_, _, stats = restart(&localNodeConfig)
+	require.NotZero(t, stats.BpfCompilation.Total())
+
+	// An address that only reaches the node_config.h comment keeps the templates.
+	movedCfg := localNodeConfig
+	movedCfg.NodeIPv4 = netip.MustParseAddr("192.0.2.1")
+	_, moved, stats := restart(&movedCfg)
+	require.Equal(t, hash, moved)
+	require.Zero(t, stats.BpfCompilation.Total())
+
+	// A different base hash wipes the old templates.
+	otherCfg := localNodeConfig
+	otherCfg.LBConfig.LBServiceMapEntries = 1234
+	_, other, _ := restart(&otherCfg)
+	require.NotEqual(t, hash, other)
+	require.NoDirExists(t, filepath.Join(workDir, hash))
+
+	// Without the recorded base hash the cache reuses nothing.
+	require.NoError(t, os.Remove(workDir+".hash"))
+	_, _, stats = restart(&otherCfg)
+	require.NotZero(t, stats.BpfCompilation.Total())
+
+	// A compiler environment change recompiles the templates.
+	t.Setenv("CCC_OVERRIDE_OPTIONS", "# +-DCACHE_TEST_ENV")
+	_, envHash, stats := restart(&otherCfg)
+	require.NotEqual(t, other, envHash)
+	require.NotZero(t, stats.BpfCompilation.Total())
+
+	// Without a producer digest the cache records and reuses nothing.
+	bpfDir := option.Config.BpfDir
+	option.Config.BpfDir = filepath.Join(t.TempDir(), "absent")
+	t.Cleanup(func() { option.Config.BpfDir = bpfDir })
+	for range 2 {
+		_, _, stats = restart(&otherCfg)
+		require.NotZero(t, stats.BpfCompilation.Total())
+		require.NoFileExists(t, workDir+".hash")
+	}
+}
+
+func TestObjectCacheEndpointTemplateReady(t *testing.T) {
+	setupCompilationDirectories(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
+	cache := newObjectCache(hivetest.Logger(t), configWriterForTest(t), t.TempDir())
+	ep := testutils.NewTestEndpoint(t)
+	hostEP := testutils.NewTestHostEndpoint(t)
+
+	canceled, cancelNow := context.WithCancel(ctx)
+	cancelNow()
+	_, _, err := cache.fetchOrCompile(canceled, &ep, getDirs(t), nil)
+	require.ErrorIs(t, err, context.Canceled)
+	require.False(t, isClosed(cache.lxcReady), "a failed fetch leaves the channel open")
+
+	_, _, err = cache.fetchOrCompile(ctx, &hostEP, getDirs(t), nil)
+	require.NoError(t, err)
+	require.False(t, isClosed(cache.lxcReady), "bpf_host leaves the channel open")
+
+	_, _, err = cache.fetchOrCompile(ctx, &ep, getDirs(t), nil)
+	require.NoError(t, err)
+	require.True(t, isClosed(cache.lxcReady))
+}
+
+func isClosed(ch <-chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
+	}
 }
 
 func TestObjectCacheParallel(t *testing.T) {

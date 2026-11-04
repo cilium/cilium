@@ -135,6 +135,7 @@
     "^make manifests$",
     "^make GO='contrib/scripts/builder.sh go' generate-apis$",
     "^make GO='contrib/scripts/builder.sh go' generate-k8s-api$",
+    "^go mod edit -require=github\\.com/envoyproxy/go-control-plane/envoy@v[0-9]+\\.[0-9]+\\.0$",
     "^go mod tidy$",
     "^go mod vendor$"
   ],
@@ -613,6 +614,19 @@
       ]
     },
     {
+      // golangci-lint builds kube-api-linter into its custom binary, and newer
+      // kube-api-linter versions require a golangci-lint above the cap below.
+      "enabled": false,
+      "matchPackageNames": [
+        "sigs.k8s.io/kube-api-linter"
+      ],
+      "matchBaseBranches": [
+        "v1.20",
+        "v1.19",
+        "v1.18",
+      ]
+    },
+    {
       "matchPackageNames": [
         "golangci/golangci-lint"
       ],
@@ -835,7 +849,7 @@
           "make -C Documentation update-requirements"
         ],
         "fileFilters": [
-          "Documentation/requirements.txt"
+          "images/docs-builder/requirements.txt"
         ],
         "executionMode": "update"
       }
@@ -848,6 +862,20 @@
       ],
       "matchUpdateTypes": [
         "major"
+      ]
+    },
+    {
+      // We bump Python by hand with Documentation/.readthedocs.yaml and runtime.txt.
+      "enabled": false,
+      "matchFileNames": [
+        "images/docs-builder/Dockerfile"
+      ],
+      "matchPackageNames": [
+        "docker.io/library/python"
+      ],
+      "matchUpdateTypes": [
+        "major",
+        "minor"
       ]
     },
     {
@@ -958,15 +986,13 @@
       "versioning": "regex:^v(?<major>\\d+)-v(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)$"
     },
     {
-      // Avoid updating minor or major version for github.com/envoyproxy/go-control-plane/envoy
-      // as we need to update cilium-envoy accordingly.
-      "matchPackageNames": [
-        "github.com/envoyproxy/go-control-plane/envoy",
-        "github.com/envoyproxy/go-control-plane",
+      // iptables-wrappers has no GitHub releases, only tags, in two
+      // independent series: "iptables-wrapper-vN" for the binary we build,
+      // and semver "vX.Y.Z" for the Go library. Only track the former.
+      "matchDepNames": [
+        "kubernetes-sigs/iptables-wrappers"
       ],
-      "matchUpdateTypes": [
-        "patch",
-      ]
+      "versioning": "regex:^iptables-wrapper-v(?<major>\\d+)$"
     },
     {
       // cilium-envoy is referenced in both images/cilium/Dockerfile and
@@ -980,7 +1006,7 @@
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
-      "allowedVersions": "/^v1\\.39\\.([0-9]+)-([0-9]+)-.*$/",
+      "allowedVersions": "/^v1\\.40\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "main",
       ]
@@ -997,12 +1023,68 @@
         "quay.io/cilium/cilium-envoy"
       ],
       "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
-      "allowedVersions": "/^v1\\.38\\.([0-9]+)-([0-9]+)-.*$/",
+      "allowedVersions": "/^v1\\.39\\.([0-9]+)-([0-9]+)-.*$/",
       "matchBaseBranches": [
         "v1.20",
         "v1.19",
         "v1.18"
       ]
+    },
+    {
+      // cilium-envoy is referenced in both images/cilium/Dockerfile and
+      // install/kubernetes/Makefile.values. Without explicit grouping,
+      // Renovate creates separate PRs for each manager. The groupSlug ensures
+      // both updates use the same branch name and get combined into a single
+      // PR.
+      "groupName": "cilium-envoy",
+      "groupSlug": "cilium-envoy",
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "versioning": "regex:v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-(?<build>\\d+).*$",
+      "allowedVersions": "/^v1\\.38\\.([0-9]+)-([0-9]+)-.*$/",
+      "matchBaseBranches": [
+        "v1.19",
+        "v1.18"
+      ]
+    },
+    {
+      // Only the cilium-envoy postUpgradeTasks below update go-control-plane/envoy.
+      "enabled": false,
+      "matchDepNames": [
+        "github.com/envoyproxy/go-control-plane/envoy"
+      ]
+    },
+    {
+      // Move go-control-plane/envoy to the Envoy minor release of cilium-envoy.
+      "matchDepNames": [
+        "quay.io/cilium/cilium-envoy"
+      ],
+      "matchFileNames": [
+        "images/cilium/Dockerfile"
+      ],
+      // Digest updates carry no newMajor and newMinor.
+      "matchUpdateTypes": [
+        "major",
+        "minor",
+        "patch"
+      ],
+      "postUpgradeTasks": {
+        "commands": [
+          "go mod edit -require=github.com/envoyproxy/go-control-plane/envoy@v{{{newMajor}}}.{{{newMinor}}}.0",
+          "go mod tidy",
+          "go mod vendor"
+        ],
+        "installTools": {
+          "golang": {}
+        },
+        "fileFilters": [
+          "go.mod",
+          "go.sum",
+          "vendor/**"
+        ],
+        "executionMode": "update"
+      }
     },
     {
       "matchDepNames": [
@@ -1104,7 +1186,9 @@
       "groupSlug": "auto-merge-trusted-deps",
       "group": {
         "branchTopic": "{{{replace '^patch-' '' groupSlug}}}"
-      }
+      },
+      // A cilium-envoy minor bump vendors more files than the GitHub tree API accepts.
+      "platformCommit": "disabled"
     },
   ],
   "kubernetes": {
@@ -1119,7 +1203,8 @@
         "/images/builder/install-protoc.sh/",
         "/images/builder/install-protoplugins.sh/",
         "/images/runtime/build-cni.sh/",
-        "/images/runtime/build-gops.sh/"
+        "/images/runtime/build-gops.sh/",
+        "/images/runtime/build-iptables-wrapper.sh/"
       ],
       // These regexes manage version and digest strings in shell scripts,
       // similar to the examples shown here:

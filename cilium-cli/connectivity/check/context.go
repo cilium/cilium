@@ -384,7 +384,11 @@ func (ct *ConnectivityTest) setupAndValidate(ctx context.Context, extra SetupHoo
 		}
 	}
 	if match, _ := ct.Features.MatchRequirements(features.RequireEnabled(features.NodeWithoutCilium)); match {
-		ct.detectPodCIDRs()
+		// PodCIDRs are built from host-netns pod IPs, so there is nothing
+		// to derive without the DaemonSet.
+		if !ct.params.SkipHostNetNSDaemonSet {
+			ct.detectPodCIDRs()
+		}
 
 		if err := ct.detectNodesWithoutCiliumIPs(); err != nil {
 			return fmt.Errorf("unable to detect nodes w/o Cilium IPs: %w", err)
@@ -501,12 +505,13 @@ func (ct *ConnectivityTest) PrintReport(ctx context.Context) error {
 
 		wg.Add(len(ct.CiliumPods()))
 		for _, ciliumPod := range ct.CiliumPods() {
-			cmd := strings.Split("cilium bpf ct flush", " ")
+			// Only the echo reaches stdout, so RequireOutput catches a stream cut before the flush finished.
+			cmd := []string{"sh", "-c", "cilium bpf ct flush >/dev/null && echo done"}
 			go func(ctx context.Context, pod Pod) {
 				defer wg.Done()
 
 				ct.Debugf("Flushing CT entries in %s/%s", pod.Pod.Namespace, pod.Pod.Name)
-				_, err := ct.execInPodWithTransportRetry(ctx, pod.K8sClient, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd)
+				_, err := ct.execInPodRetry(ctx, pod.K8sClient, pod.Pod.Namespace, pod.Pod.Name, defaults.AgentContainerName, cmd, k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true})
 				if err != nil {
 					ct.Fatalf("failed to flush ct entries: %v", err)
 				}
@@ -823,7 +828,8 @@ func (ct *ConnectivityTest) detectNodesWithoutCiliumIPs() error {
 type ipRouteVerb string
 
 const (
-	verbAdd ipRouteVerb = "add"
+	// replace adds the route and also succeeds when a retried exec finds it present.
+	verbAdd ipRouteVerb = "replace"
 	verbDel ipRouteVerb = "del"
 )
 
@@ -831,12 +837,14 @@ func (ct *ConnectivityTest) modifyStaticRoutesForNodesWithoutCilium(ctx context.
 	for _, e := range ct.params.PodCIDRs {
 		for withoutCilium := range ct.nodesWithoutCilium {
 			pod := ct.hostNetNSPodsByNode[withoutCilium]
-			_, err := ct.execInPodWithTransportRetry(ctx, ct.client, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentNameNonCilium,
-				[]string{"ip", "route", string(verb), e.CIDR, "via", e.HostIP},
+			ipCmd := []string{"ip", "route", string(verb), e.CIDR, "via", e.HostIP}
+			// The echo lets RequireOutput catch a stream cut before the command finished.
+			_, err := ct.execInPodRetry(ctx, ct.client, pod.Pod.Namespace, pod.Pod.Name, hostNetNSDeploymentNameNonCilium,
+				append([]string{"sh", "-c", `"$@" && echo done`, "sh"}, ipCmd...),
+				k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true},
 			)
 			ct.Debugf("Modifying (%s) static route on nodes without Cilium (%v): %v",
-				verb, withoutCilium,
-				[]string{"ip", "route", string(verb), e.CIDR, "via", e.HostIP},
+				verb, withoutCilium, ipCmd,
 			)
 			if err != nil {
 				if verb == verbDel {

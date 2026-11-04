@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -23,6 +24,8 @@ import (
 
 	"github.com/cilium/cilium/daemon/k8s"
 	operatoripam "github.com/cilium/cilium/operator/pkg/networkdriver/ipam"
+	"github.com/cilium/cilium/pkg/datapath/connector/fake"
+	"github.com/cilium/cilium/pkg/datapath/xdp"
 	"github.com/cilium/cilium/pkg/hive"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -34,7 +37,10 @@ import (
 	"github.com/cilium/cilium/pkg/networkdriver/config"
 	"github.com/cilium/cilium/pkg/networkdriver/dummy"
 	networkdriverIPAM "github.com/cilium/cilium/pkg/networkdriver/ipam"
+	"github.com/cilium/cilium/pkg/networkdriver/rxqueue"
+	"github.com/cilium/cilium/pkg/networkdriver/sriov"
 	"github.com/cilium/cilium/pkg/networkdriver/types"
+	"github.com/cilium/cilium/pkg/node"
 	nodetypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/time"
@@ -46,39 +52,109 @@ func TestSerializeDevice(t *testing.T) {
 	t.Run("mock device round-trip", func(t *testing.T) {
 		dev := &trackedDevice{name: "eth0"}
 		cfg := types.DeviceConfig{PodIfName: "eth0-pod"}
-		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeMock}
+		capacity := map[resourceapi.QualifiedName]apiresource.Quantity{
+			"rxQueues": apiresource.MustParse("1"),
+		}
+		a := allocation{
+			Device:           dev,
+			Config:           cfg,
+			Manager:          types.DeviceManagerTypeMock,
+			LogicalPool:      "pool-a",
+			ConsumedCapacity: capacity,
+		}
 
 		raw, err := serializeDevice(a)
 		require.NoError(t, err)
 
-		mgr, devRaw, gotCfg, err := deserializeDevice(raw)
+		serialized, err := deserializeDevice(raw)
 		require.NoError(t, err)
-		require.Equal(t, types.DeviceManagerTypeMock, mgr)
-		require.Equal(t, cfg.PodIfName, gotCfg.PodIfName)
-		require.NotEmpty(t, devRaw)
+		require.Equal(t, types.DeviceManagerTypeMock, serialized.Manager)
+		require.Equal(t, cfg.PodIfName, serialized.Config.PodIfName)
+		require.Equal(t, "pool-a", serialized.LogicalPool)
+		require.Equal(t, capacity, serialized.ConsumedCapacity)
+		require.NotEmpty(t, serialized.Dev)
 	})
 
 	t.Run("dummy device round-trip", func(t *testing.T) {
 		dev := &dummy.DummyDevice{Name: "dummy0", HWAddr: "aa:bb:cc:dd:ee:ff", MTU: 1500}
 		cfg := types.DeviceConfig{PodIfName: "eth-pod"}
-		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeDummy}
+		a := allocation{Device: dev, Config: cfg, Manager: types.DeviceManagerTypeDummy, LogicalPool: "pool-b"}
 
 		raw, err := serializeDevice(a)
 		require.NoError(t, err)
 
-		mgr, devRaw, gotCfg, err := deserializeDevice(raw)
+		serialized, err := deserializeDevice(raw)
 		require.NoError(t, err)
-		require.Equal(t, types.DeviceManagerTypeDummy, mgr)
-		require.Equal(t, cfg.PodIfName, gotCfg.PodIfName)
-		require.NotEmpty(t, devRaw)
+		require.Equal(t, types.DeviceManagerTypeDummy, serialized.Manager)
+		require.Equal(t, cfg.PodIfName, serialized.Config.PodIfName)
+		require.Equal(t, "pool-b", serialized.LogicalPool)
+		require.NotEmpty(t, serialized.Dev)
 
 		// Restore from the raw bytes using DummyManager.
 		dummyMgr, err := newDummyManager(t)
 		require.NoError(t, err)
-		restored, err := dummyMgr.RestoreDevice(devRaw)
+		restored, err := dummyMgr.RestoreDevice(serialized.Dev)
 		require.NoError(t, err)
 		require.Equal(t, dev.IfName(), restored.IfName())
 	})
+
+	t.Run("RX queue device round-trip", func(t *testing.T) {
+		dev := &rxqueue.RXQueueDevice{
+			PhysicalIfName:   "eth0",
+			TotalRXQueues:    8,
+			ReservedQueueIDs: []uint32{7, 6},
+		}
+		capacity := map[resourceapi.QualifiedName]apiresource.Quantity{
+			types.RXQueuesCapacity: apiresource.MustParse("1"),
+		}
+		a := allocation{Device: dev, Manager: types.DeviceManagerTypeRXQueue, ConsumedCapacity: capacity}
+
+		raw, err := serializeDevice(a)
+		require.NoError(t, err)
+
+		serialized, err := deserializeDevice(raw)
+		require.NoError(t, err)
+		require.Equal(t, types.DeviceManagerTypeRXQueue, serialized.Manager)
+		require.Equal(t, capacity, serialized.ConsumedCapacity)
+
+		mgr := &rxqueue.RXQueueManager{}
+		restored, err := mgr.RestoreDevice(serialized.Dev)
+		require.NoError(t, err)
+		require.Equal(t, dev.IfName(), restored.IfName())
+	})
+}
+
+func TestAllocationInterfaceName(t *testing.T) {
+	tests := []struct {
+		name         string
+		kernelIfName string
+		podIfName    string
+		want         string
+	}{
+		{"kernel interface", "ens1f1v0", "", "ens1f1v0"},
+		{"explicit Pod interface", "ens1f1v0", "net1", "net1"},
+		{"unknown kernel interface", "", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dev := &sriov.PciDevice{Addr: "0000:17:02.4", KernelIfaceName: tt.kernelIfName}
+			a := allocation{
+				Device:  dev,
+				Manager: types.DeviceManagerTypeSRIOV,
+				Config:  types.DeviceConfig{PodIfName: tt.podIfName},
+			}
+			result := resourceapi.DeviceRequestAllocationResult{Device: dev.IfName()}
+			driver := &Driver{config: &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: prepTestDriverName}}
+			status, err := driver.buildDeviceStatus(&resourceapi.ResourceClaim{}, result, a)
+			require.NoError(t, err)
+			devices := prepareResultDevices([]resourceapi.DeviceRequestAllocationResult{result}, []allocation{a})
+
+			assert.Equal(t, tt.want, status.NetworkData.InterfaceName)
+			assert.Equal(t, tt.want, devices[0].Metadata.NetworkData.InterfaceName)
+			assert.Equal(t, "0000-17-02-4", status.Device)
+			assert.Equal(t, "0000-17-02-4", devices[0].DeviceName)
+		})
+	}
 }
 
 func TestBuildDeviceStatus(t *testing.T) {
@@ -186,77 +262,223 @@ func TestBuildDeviceStatus(t *testing.T) {
 	}
 }
 
-func TestDeviceClaimConfigs(t *testing.T) {
-	tlog := hivetest.Logger(t)
-	driver := &Driver{
-		logger: tlog,
+func TestDeviceConfigsFromAllocation(t *testing.T) {
+	const testDriverName = "testdriver"
+	result := func(driver, request string) resourceapi.DeviceRequestAllocationResult {
+		return resourceapi.DeviceRequestAllocationResult{Driver: driver, Request: request}
+	}
+	opaqueConfig := func(raw string, requests ...string) resourceapi.DeviceAllocationConfiguration {
+		return resourceapi.DeviceAllocationConfiguration{
+			DeviceConfiguration: resourceapi.DeviceConfiguration{
+				Opaque: &resourceapi.OpaqueDeviceConfiguration{
+					Parameters: runtime.RawExtension{Raw: []byte(raw)},
+				},
+			},
+			Requests: requests,
+		}
 	}
 
-	t.Run("invalid JSON", func(t *testing.T) {
-		claim := &resourceapi.ResourceClaim{
-			Status: resourceapi.ResourceClaimStatus{
-				Allocation: &resourceapi.AllocationResult{
-					Devices: resourceapi.DeviceAllocationResult{
-						Config: []resourceapi.DeviceAllocationConfiguration{
-							{
-								Requests: []string{"req"},
-								DeviceConfiguration: resourceapi.DeviceConfiguration{
-									Opaque: &resourceapi.OpaqueDeviceConfiguration{
-										Parameters: runtime.RawExtension{Raw: []byte("not-json")},
-									},
-								},
-							},
-						},
-					},
+	for _, tc := range []struct {
+		name             string
+		allocatedDevices resourceapi.DeviceAllocationResult
+		expectedDevConfs map[string]types.DeviceConfig
+	}{
+		{
+			name:             "empty allocation",
+			allocatedDevices: resourceapi.DeviceAllocationResult{},
+			expectedDevConfs: map[string]types.DeviceConfig{},
+		},
+		{
+			name: "no results for our driver",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					{Driver: "otherdriver"},
+					{Driver: "anotherdriver"},
 				},
 			},
-		}
-		_, err := driver.deviceClaimConfigs(t.Context(), claim)
-		require.Error(t, err)
-	})
-
-	t.Run("empty config", func(t *testing.T) {
-		claim := &resourceapi.ResourceClaim{
-			Status: resourceapi.ResourceClaimStatus{
-				Allocation: &resourceapi.AllocationResult{
-					Devices: resourceapi.DeviceAllocationResult{
-						Results: []resourceapi.DeviceRequestAllocationResult{
-							{
-								Request: "req",
-								Driver:  "testdriver",
-								Pool:    "testpool",
-								Device:  "mydevice",
-							},
+			expectedDevConfs: map[string]types.DeviceConfig{},
+		},
+		{
+			name: "no opaque config",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Config: []resourceapi.DeviceAllocationConfiguration{
+					{
+						DeviceConfiguration: resourceapi.DeviceConfiguration{
+							Opaque: nil,
 						},
+						// No request array means apply to all requests
 					},
 				},
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req"),
+				},
 			},
-		}
-		_, err := driver.deviceClaimConfigs(t.Context(), claim)
-		require.NoError(t, err)
-	})
+			expectedDevConfs: nil,
+		},
+		{
+			name: "invalid json",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Config: []resourceapi.DeviceAllocationConfiguration{
+					opaqueConfig("not-json"),
+				},
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req"),
+				},
+			},
+			expectedDevConfs: nil,
+		},
+		{
+			name: "results but not configs",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req"),
+				},
+				// we have no configs
+			},
+			expectedDevConfs: map[string]types.DeviceConfig{
+				"req": {},
+			},
+		},
+		{
+			name: "config applies to specific request",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Config: []resourceapi.DeviceAllocationConfiguration{
+					opaqueConfig(`{"ipPool":"example-pool"}`, "req"),
+				},
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req"),
+				},
+			},
+			expectedDevConfs: map[string]types.DeviceConfig{
+				"req": {IPPool: "example-pool"},
+			},
+		},
+		{
+			name: "config applies to all requests",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Config: []resourceapi.DeviceAllocationConfiguration{
+					opaqueConfig(`{"ipPool":"example-pool"}`),
+				},
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req"),
+				},
+			},
+			expectedDevConfs: map[string]types.DeviceConfig{
+				"req": {IPPool: "example-pool"},
+			},
+		},
+		{
+			name: "config for different request is ignored",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Config: []resourceapi.DeviceAllocationConfiguration{
+					opaqueConfig(`{"ipPool":"example-pool"}`, "other-req"),
+				},
+				// we don't consider configs for other requests.
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req"),
+					result("otherdriver", "other-req"),
+				},
+			},
+			expectedDevConfs: map[string]types.DeviceConfig{
+				"req": {},
+			},
+		},
+		{
+			name: "multiple requests with specific configs",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Config: []resourceapi.DeviceAllocationConfiguration{
+					opaqueConfig(`{"ipPool":"pool-a"}`, "req-a"),
+					opaqueConfig(`{"ipPool":"pool-b"}`, "req-b"),
+				},
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req-a"),
+					result(testDriverName, "req-b"),
+				},
+			},
+			expectedDevConfs: map[string]types.DeviceConfig{
+				"req-a": {IPPool: "pool-a"},
+				"req-b": {IPPool: "pool-b"},
+			},
+		},
+		{
+			name: "global config applies to multiple requests",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Config: []resourceapi.DeviceAllocationConfiguration{
+					opaqueConfig(`{"ipPool":"shared-pool"}`),
+				},
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req-a"),
+					result(testDriverName, "req-b"),
+				},
+			},
+			expectedDevConfs: map[string]types.DeviceConfig{
+				"req-a": {IPPool: "shared-pool"},
+				"req-b": {IPPool: "shared-pool"},
+			},
+		},
+		{
+			name: "global and specific config overlap",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Config: []resourceapi.DeviceAllocationConfiguration{
+					opaqueConfig(`{"ipPool":"global-pool"}`),
+					opaqueConfig(`{"podIfName":"eth1"}`, "req"),
+				},
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req"),
+				},
+			},
+			expectedDevConfs: nil,
+		},
+		{
+			name: "duplicate specific configs for same request",
+			allocatedDevices: resourceapi.DeviceAllocationResult{
+				Config: []resourceapi.DeviceAllocationConfiguration{
+					opaqueConfig(`{"ipPool":"pool-a"}`, "req"),
+					opaqueConfig(`{"podIfName":"eth1"}`, "req"),
+				},
+				Results: []resourceapi.DeviceRequestAllocationResult{
+					result(testDriverName, "req"),
+				},
+			},
+			expectedDevConfs: nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			devConf, err := deviceConfigsFromAllocation(&tc.allocatedDevices, testDriverName)
+			if tc.expectedDevConfs == nil {
+				require.Error(t, err)
+				require.Nil(t, devConf)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.expectedDevConfs, devConf)
+		})
+	}
+}
 
-	t.Run("wrong reservedFor length", func(t *testing.T) {
-		for _, tc := range []struct {
-			name        string
-			reservedFor []resourceapi.ResourceClaimConsumerReference
-		}{
-			{"zero entries", nil},
-			{"two entries", []resourceapi.ResourceClaimConsumerReference{{Resource: "pods"}, {Resource: "pods"}}},
-		} {
-			t.Run(tc.name, func(t *testing.T) {
-				claim := &resourceapi.ResourceClaim{
-					Status: resourceapi.ResourceClaimStatus{
-						ReservedFor: tc.reservedFor,
-						Allocation:  &resourceapi.AllocationResult{},
-					},
-				}
-				res := driver.prepareResourceClaim(t.Context(), claim)
-				require.Error(t, res.Err)
-				require.ErrorIs(t, res.Err, errUnexpectedInput)
-			})
-		}
-	})
+func TestClaimWrongReservation(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		reservedFor []resourceapi.ResourceClaimConsumerReference
+	}{
+		{"zero entries", nil},
+		{"two entries", []resourceapi.ResourceClaimConsumerReference{{Resource: "pods"}, {Resource: "pods"}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			claim := &resourceapi.ResourceClaim{
+				Status: resourceapi.ResourceClaimStatus{
+					ReservedFor: tc.reservedFor,
+					Allocation:  &resourceapi.AllocationResult{},
+				},
+			}
+			driver := &Driver{
+				logger: hivetest.Logger(t),
+			}
+			res := driver.prepareResourceClaim(t.Context(), claim)
+			require.Error(t, res.Err)
+			require.ErrorIs(t, res.Err, errUnexpectedInput)
+		})
+	}
 }
 
 // TestPrepareResourceClaim covers end-to-end paths through prepareResourceClaim.
@@ -360,14 +582,15 @@ func TestPrepareResourceClaim(t *testing.T) {
 		podUID := kubetypes.UID("existing-pod-uid")
 		claimUID := kubetypes.UID("existing-claim-uid")
 
+		const deviceName = "existing-device"
 		driver := buildPrepDriver(t, cs)
 		// Pre-populate statedb to simulate an already-prepared claim.
 		wtxn := driver.db.WriteTxn(driver.allocationTable)
 		driver.allocationTable.Insert(wtxn, &DRAAllocation{
-			DeviceName:     "existing-device",
-			Pool:           prepTestPool,
+			DeviceName:     deviceName,
+			LogicalPool:    prepTestPool,
 			Manager:        types.DeviceManagerTypeMock,
-			PreparedDevice: &trackedDevice{name: "existing-device"},
+			PreparedDevice: &trackedDevice{name: deviceName},
 			PodUID:         podUID,
 			ClaimUID:       claimUID,
 		})
@@ -379,12 +602,115 @@ func TestPrepareResourceClaim(t *testing.T) {
 				ReservedFor: []resourceapi.ResourceClaimConsumerReference{
 					{Resource: "pods", UID: podUID},
 				},
-				Allocation: &resourceapi.AllocationResult{},
+				// we set a status for the already allocated device
+				// to simulate an existing allocation. Otherwise we
+				// will end up calling a k8s update.
+				Devices: []resourceapi.AllocatedDeviceStatus{
+					{
+						Driver: driver.config.DriverName,
+						Pool:   prepTestPool,
+						Device: deviceName,
+					},
+				},
+				Allocation: &resourceapi.AllocationResult{
+					Devices: resourceapi.DeviceAllocationResult{
+						// We should have at least one request for our driver in the claim
+						// if we want to test idempotency correctly.
+						Results: []resourceapi.DeviceRequestAllocationResult{
+							{
+								Request: prepTestRequest,
+								Driver:  driver.config.DriverName,
+								Pool:    prepTestPool,
+								Device:  deviceName,
+							},
+						},
+					},
+				},
 			},
 		}
 		res := driver.prepareResourceClaim(t.Context(), claim)
 		require.NoError(t, res.Err)
 	})
+}
+
+func TestClaimConfigModifier(t *testing.T) {
+	const (
+		driverName  = "test.cilium.k8s.io"
+		deviceName  = "test-device"
+		requestName = "test-request"
+	)
+	claim := &resourceapi.ResourceClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-claim", Namespace: "default", UID: "test-claim-uid"},
+		Status: resourceapi.ResourceClaimStatus{
+			ReservedFor: []resourceapi.ResourceClaimConsumerReference{{Resource: "pods", UID: "test-pod-uid"}},
+			Allocation: &resourceapi.AllocationResult{
+				Devices: resourceapi.DeviceAllocationResult{
+					Results: []resourceapi.DeviceRequestAllocationResult{
+						{
+							Driver:  driverName,
+							Request: requestName,
+							Device:  deviceName,
+							Pool:    "test-pool",
+						},
+					},
+				},
+			},
+		},
+	}
+	var driver *Driver
+
+	h := hive.New(
+		k8sClient.FakeClientCell(),
+		cell.Config(config.Config{Enabled: true}),
+		cell.Provide(
+			registerNetworkDriver,
+			newDeviceTable,
+			newAllocationTable,
+			fake.NewVeth,
+			func() xdp.Config { return xdp.Config{} },
+			func() *option.DaemonConfig { return &option.DaemonConfig{} },
+			func() (
+				resource.Resource[*v2alpha1.CiliumNetworkDriverNodeConfig],
+				resource.Resource[*resourceapi.ResourceClaim],
+				resource.Resource[*corev1.Pod],
+				*node.LocalNodeStore,
+				*ipam.MultiPoolManager,
+			) {
+				return nil, nil, nil, nil, nil
+			},
+			func() claimConfigModifierOut {
+				return claimConfigModifierOut{
+					Modifier: func(_ context.Context, d *Driver, c *resourceapi.ResourceClaim, configs map[string]types.DeviceConfig) error {
+						cfg := configs[requestName]
+						cfg.PodIfName = "modified"
+						configs[requestName] = cfg
+						return nil
+					},
+				}
+			},
+		),
+		cell.Invoke(func(d *Driver) {
+			driver = d
+		}),
+	)
+	require.NoError(t, h.Populate(hivetest.Logger(t)))
+	driver.config = &v2alpha1.CiliumNetworkDriverNodeConfigSpec{DriverName: driverName}
+
+	wtxn := driver.db.WriteTxn(driver.deviceTable)
+	_, _, err := driver.deviceTable.Insert(wtxn, &DRADevice{
+		Name:    deviceName,
+		Manager: types.DeviceManagerTypeMock,
+		Dev:     &trackedDevice{name: deviceName},
+	})
+	require.NoError(t, err)
+	wtxn.Commit()
+	claim, err = driver.kubeClient.ResourceV1().ResourceClaims(claim.Namespace).Create(t.Context(), claim, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	res := driver.prepareResourceClaim(t.Context(), claim)
+	require.NoError(t, res.Err)
+	require.Len(t, res.Devices, 1)
+	require.Equal(t, "modified", res.Devices[0].Metadata.NetworkData.InterfaceName)
 }
 
 // newDummyManager returns a DummyManager with count=2 for use in tests.
@@ -494,8 +820,9 @@ func TestNetworkDriverIPAM(t *testing.T) {
 	require.Equal(t, device, status.NetworkData.InterfaceName)
 	require.ElementsMatch(t, []string{ipv4.String(), ipv6.String()}, status.NetworkData.IPs)
 
-	_, _, cfg, err := deserializeDevice(status.Data.Raw)
+	serialized, err := deserializeDevice(status.Data.Raw)
 	require.NoError(t, err)
+	cfg := serialized.Config
 	require.Empty(t, cfg.IPPool)
 	require.Equal(t, ipv4, cfg.IPv4Addr)
 	require.Equal(t, ipv6, cfg.IPv6Addr)
@@ -677,8 +1004,9 @@ func TestNetworkDriverIPAMPool(t *testing.T) {
 		}
 	}
 
-	_, _, cfg, err := deserializeDevice(status.Data.Raw)
+	serialized, err := deserializeDevice(status.Data.Raw)
 	require.NoError(t, err)
+	cfg := serialized.Config
 	require.Equal(t, ipPoolName, cfg.IPPool)
 	require.Equal(t, 32, cfg.IPv4Addr.Bits())
 	require.True(t, v4PoolCIDR.Contains(cfg.IPv4Addr.Addr()))

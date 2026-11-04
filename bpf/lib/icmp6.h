@@ -479,7 +479,9 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 	if (type == ICMP6_NS_MSG_TYPE && handle_ns)
 		return icmp6_handle_ns(ctx, ETH_HLEN, METRIC_INGRESS, ext_err);
 
-#ifdef ENABLE_HOST_FIREWALL
+	if (!CONFIG(enable_host_firewall))
+		return CTX_ACT_OK;
+
 	/* When the host firewall is enabled, we drop and allow ICMPv6 messages
 	 * according to RFC4890, except for echo request and reply messages which
 	 * are handled by host policies and can be dropped.
@@ -538,9 +540,6 @@ icmp6_host_handle(struct __ctx_buff *ctx, int l4_off, __s8 *ext_err, bool handle
 	    (type >= ICMPV6_MRDISC_ADV && type <= ICMP6_MULT_RT_MSG_TYPE))
 		return SKIP_HOST_FIREWALL;
 	return DROP_FORBIDDEN_ICMP6;
-#else
-	return CTX_ACT_OK;
-#endif /* ENABLE_HOST_FIREWALL */
 }
 
 static __always_inline

@@ -1327,10 +1327,12 @@ func init() {
     },
     "/prefilter": {
       "get": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Retrieve list of CIDRs",
+        "deprecated": true,
         "responses": {
           "200": {
             "description": "Success",
@@ -1348,10 +1350,12 @@ func init() {
         }
       },
       "delete": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Delete list of CIDRs",
+        "deprecated": true,
         "parameters": [
           {
             "$ref": "#/parameters/prefilter-spec"
@@ -1384,10 +1388,12 @@ func init() {
         }
       },
       "patch": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Update list of CIDRs",
+        "deprecated": true,
         "parameters": [
           {
             "$ref": "#/parameters/prefilter-spec"
@@ -2138,7 +2144,7 @@ func init() {
         "ips": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/Address"
           }
         },
         "name": {
@@ -2799,7 +2805,8 @@ func init() {
         "require-routing": {
           "description": "Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.\n",
           "type": "boolean",
-          "default": true
+          "default": true,
+          "x-go-name": "RequireBPFRouting"
         }
       }
     },
@@ -3314,13 +3321,12 @@ func init() {
       "description": "IP entry with metadata",
       "type": "object",
       "required": [
-        "cidr",
         "identity"
       ],
       "properties": {
         "cidr": {
           "description": "Key of the entry in the form of a CIDR range",
-          "type": "string"
+          "$ref": "#/definitions/CIDR"
         },
         "encryptKey": {
           "description": "The context ID for the encryption session",
@@ -3328,7 +3334,7 @@ func init() {
         },
         "hostIP": {
           "description": "IP address of the host",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         },
         "identity": {
           "description": "Numerical identity assigned to the IP",
@@ -3616,7 +3622,7 @@ func init() {
                     "prefixes": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/CIDR"
                       }
                     }
                   }
@@ -4076,7 +4082,7 @@ func init() {
       }
     },
     "NodeAddressingElement": {
-      "description": "Addressing information",
+      "description": "Addressing information\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "address-type": {
@@ -4085,7 +4091,7 @@ func init() {
         },
         "alloc-range": {
           "description": "Address pool to be used for local endpoints",
-          "type": "string"
+          "$ref": "#/definitions/CIDR"
         },
         "enabled": {
           "description": "True if address family is enabled",
@@ -4093,7 +4099,7 @@ func init() {
         },
         "ip": {
           "description": "IP address of node",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         }
       }
     },
@@ -6689,10 +6695,12 @@ func init() {
     },
     "/prefilter": {
       "get": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Retrieve list of CIDRs",
+        "deprecated": true,
         "responses": {
           "200": {
             "description": "Success",
@@ -6710,10 +6718,12 @@ func init() {
         }
       },
       "delete": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Delete list of CIDRs",
+        "deprecated": true,
         "parameters": [
           {
             "description": "List of CIDR ranges for filter table",
@@ -6752,10 +6762,12 @@ func init() {
         }
       },
       "patch": {
+        "description": "Deprecated: This will be removed in the future.\n",
         "tags": [
           "prefilter"
         ],
         "summary": "Update list of CIDRs",
+        "deprecated": true,
         "parameters": [
           {
             "description": "List of CIDR ranges for filter table",
@@ -7512,7 +7524,7 @@ func init() {
         "ips": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/Address"
           }
         },
         "name": {
@@ -8248,7 +8260,8 @@ func init() {
         "require-routing": {
           "description": "Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.\n",
           "type": "boolean",
-          "default": true
+          "default": true,
+          "x-go-name": "RequireBPFRouting"
         }
       }
     },
@@ -8786,13 +8799,12 @@ func init() {
       "description": "IP entry with metadata",
       "type": "object",
       "required": [
-        "cidr",
         "identity"
       ],
       "properties": {
         "cidr": {
           "description": "Key of the entry in the form of a CIDR range",
-          "type": "string"
+          "$ref": "#/definitions/CIDR"
         },
         "encryptKey": {
           "description": "The context ID for the encryption session",
@@ -8800,7 +8812,7 @@ func init() {
         },
         "hostIP": {
           "description": "IP address of the host",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         },
         "identity": {
           "description": "Numerical identity assigned to the IP",
@@ -9075,7 +9087,7 @@ func init() {
                     "prefixes": {
                       "type": "array",
                       "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/CIDR"
                       }
                     }
                   }
@@ -9261,7 +9273,7 @@ func init() {
                 "prefixes": {
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "$ref": "#/definitions/CIDR"
                   }
                 }
               }
@@ -9408,7 +9420,7 @@ func init() {
             "prefixes": {
               "type": "array",
               "items": {
-                "type": "string"
+                "$ref": "#/definitions/CIDR"
               }
             }
           }
@@ -9433,7 +9445,7 @@ func init() {
         "prefixes": {
           "type": "array",
           "items": {
-            "type": "string"
+            "$ref": "#/definitions/CIDR"
           }
         }
       }
@@ -9894,7 +9906,7 @@ func init() {
       }
     },
     "NodeAddressingElement": {
-      "description": "Addressing information",
+      "description": "Addressing information\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "address-type": {
@@ -9903,7 +9915,7 @@ func init() {
         },
         "alloc-range": {
           "description": "Address pool to be used for local endpoints",
-          "type": "string"
+          "$ref": "#/definitions/CIDR"
         },
         "enabled": {
           "description": "True if address family is enabled",
@@ -9911,7 +9923,7 @@ func init() {
         },
         "ip": {
           "description": "IP address of node",
-          "type": "string"
+          "$ref": "#/definitions/Address"
         }
       }
     },

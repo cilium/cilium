@@ -9,6 +9,8 @@ import (
 	"context"
 	stderrors "errors"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag/jsonutils"
@@ -22,14 +24,13 @@ import (
 type IPListEntry struct {
 
 	// Key of the entry in the form of a CIDR range
-	// Required: true
-	Cidr *string `json:"cidr"`
+	Cidr iputil.Prefix `json:"cidr,omitzero"`
 
 	// The context ID for the encryption session
 	EncryptKey int64 `json:"encryptKey,omitempty"`
 
 	// IP address of the host
-	HostIP string `json:"hostIP,omitempty"`
+	HostIP iputil.Addr `json:"hostIP,omitzero"`
 
 	// Numerical identity assigned to the IP
 	// Required: true
@@ -43,10 +44,6 @@ type IPListEntry struct {
 func (m *IPListEntry) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateCidr(formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.validateIdentity(formats); err != nil {
 		res = append(res, err)
 	}
@@ -58,15 +55,6 @@ func (m *IPListEntry) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *IPListEntry) validateCidr(formats strfmt.Registry) error {
-
-	if err := validate.Required("cidr", "body", m.Cidr); err != nil {
-		return err
-	}
-
 	return nil
 }
 

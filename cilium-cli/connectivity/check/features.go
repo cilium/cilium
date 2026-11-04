@@ -59,8 +59,9 @@ type DaemonConfigForFeatDetection struct {
 func (ct *ConnectivityTest) extractFeaturesFromRuntimeConfig(ctx context.Context, ciliumPod Pod, result features.Set) error {
 	namespace := ciliumPod.Pod.Namespace
 
-	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, namespace, ciliumPod.Pod.Name,
-		defaults.AgentContainerName, []string{"cat", "/var/run/cilium/state/agent-runtime-config.json"})
+	stdout, err := ct.execInPodRetry(ctx, ciliumPod.K8sClient, namespace, ciliumPod.Pod.Name,
+		defaults.AgentContainerName, []string{"cat", "/var/run/cilium/state/agent-runtime-config.json"},
+		k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true, Validate: k8s.ValidJSON})
 	if err != nil {
 		return fmt.Errorf("failed to fetch cilium runtime config: %w", err)
 	}
@@ -127,8 +128,9 @@ func canAccessK8sResourceSecret(cr *rbacv1.ClusterRole) bool {
 }
 
 func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context, ciliumPod Pod, result features.Set) error {
-	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
-		defaults.AgentContainerName, []string{"cilium", "status", "-o", "json"})
+	stdout, err := ct.execInPodRetry(ctx, ciliumPod.K8sClient, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
+		defaults.AgentContainerName, []string{"cilium", "status", "-o", "json"},
+		k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true, Validate: k8s.ValidJSON})
 	if err != nil {
 		return fmt.Errorf("failed to fetch cilium status: %w", err)
 	}
@@ -214,8 +216,9 @@ func (ct *ConnectivityTest) extractFeaturesFromCiliumStatus(ctx context.Context,
 }
 
 func (ct *ConnectivityTest) extractFeaturesFromUname(ctx context.Context, ciliumPod Pod, result features.Set) error {
-	stdout, err := ciliumPod.K8sClient.ExecInPod(ctx, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
-		defaults.AgentContainerName, []string{"uname", "-r"})
+	stdout, err := ct.execInPodRetry(ctx, ciliumPod.K8sClient, ciliumPod.Pod.Namespace, ciliumPod.Pod.Name,
+		defaults.AgentContainerName, []string{"uname", "-r"},
+		k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true})
 	if err != nil {
 		return fmt.Errorf("failed to fetch uname -r: %w", err)
 	}
@@ -226,7 +229,7 @@ func (ct *ConnectivityTest) extractFeaturesFromUname(ctx context.Context, cilium
 	}
 
 	result[features.RHEL] = features.Status{
-		Enabled: versioncheck.MustCompile("<=4.18.0")(kernelVersion),
+		Enabled: versioncheck.MustCompile("<=4.18.0 || 5.14.0")(kernelVersion),
 	}
 
 	return nil

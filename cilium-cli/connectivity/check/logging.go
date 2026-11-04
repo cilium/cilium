@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/tools/testowners/codeowners"
 )
 
@@ -25,6 +26,8 @@ const (
 	fatal = "🟥"
 
 	testPrefix = "  "
+
+	execRetryFormat = "Retrying exec after attempt %d/%d: %s"
 )
 
 // Logger abstracts the logging functionalities implemented by the
@@ -178,6 +181,11 @@ func (ct *ConnectivityTest) Warnf(format string, a ...any) {
 	fmt.Fprintf(ct.params.Writer, format+"\n", a...)
 }
 
+// logExecRetry prints the retries of execs outside of a Test.
+func (ct *ConnectivityTest) logExecRetry(attempt int, err error) {
+	ct.Warnf(execRetryFormat, attempt, k8s.ExecRetryAttempts, err)
+}
+
 // Fail logs a failure message.
 func (ct *ConnectivityTest) Fail(a ...any) {
 	ct.Timestamp()
@@ -314,6 +322,11 @@ func (t *Test) Info(a ...any) {
 // Infof logs a formatted informational message.
 func (t *Test) Infof(format string, a ...any) {
 	t.logf(info+" "+format, a...)
+}
+
+// LogExecRetry prints an exec retry in a line that shows even when the Test passes.
+func (t *Test) LogExecRetry(attempt int, err error) {
+	t.ctx.logger.Printf(t, "\n"+testPrefix+warn+" "+execRetryFormat+"\n", attempt, k8s.ExecRetryAttempts, err)
 }
 
 func (t *Test) failCommon() {

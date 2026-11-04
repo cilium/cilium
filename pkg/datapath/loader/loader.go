@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/statedb"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	datapathconfig "github.com/cilium/cilium/pkg/datapath/config"
 	"github.com/cilium/cilium/pkg/datapath/linux/bigtcp"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
@@ -24,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpointstate"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/registry"
-	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/promise"
 )
@@ -52,7 +52,7 @@ type loader struct {
 	prefilter           prefilter.PreFilter
 	compilationLock     types.CompilationLock
 	configWriter        config.Writer
-	nodeConfigNotifier  *manager.NodeConfigNotifier
+	nodeConfigNotifier  *datapathconfig.NodeConfigNotifier
 	bpfCollectionLoader *bpfCollectionLoader
 
 	db           *statedb.DB
@@ -70,7 +70,7 @@ type Params struct {
 	Prefilter          prefilter.PreFilter
 	CompilationLock    types.CompilationLock
 	ConfigWriter       config.Writer
-	NodeConfigNotifier *manager.NodeConfigNotifier
+	NodeConfigNotifier *datapathconfig.NodeConfigNotifier
 	RouteManager       *routeReconciler.DesiredRouteManager
 	DB                 *statedb.DB
 	Devices            statedb.Table[*tables.Device]
@@ -115,4 +115,9 @@ func (l *loader) CallsMapPath(id uint16) string {
 // host datapath has been loaded for the first time.
 func (l *loader) HostDatapathInitialized() <-chan struct{} {
 	return l.hostDpInitialized
+}
+
+// EndpointTemplateReady returns a channel that the loader closes once it has its first bpf_lxc template.
+func (l *loader) EndpointTemplateReady() <-chan struct{} {
+	return l.templateCache.lxcReady
 }

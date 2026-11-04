@@ -780,6 +780,8 @@ func (m *PrivateKeyJwtConfig) validate(all bool) error {
 		}
 	}
 
+	// no validation rules for AssertionAudience
+
 	if len(errors) > 0 {
 		return PrivateKeyJwtConfigMultiError(errors)
 	}
@@ -1151,6 +1153,138 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = PostLogoutRedirectUriValidationError{}
+
+// Validate checks the field values on TokenCookieChunking with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *TokenCookieChunking) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TokenCookieChunking with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// TokenCookieChunkingMultiError, or nil if none found.
+func (m *TokenCookieChunking) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TokenCookieChunking) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if wrapper := m.GetMaxCookieSize(); wrapper != nil {
+
+		if val := wrapper.GetValue(); val < 512 || val > 4096 {
+			err := TokenCookieChunkingValidationError{
+				field:  "MaxCookieSize",
+				reason: "value must be inside range [512, 4096]",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if wrapper := m.GetMaxChunks(); wrapper != nil {
+
+		if val := wrapper.GetValue(); val < 2 || val > 16 {
+			err := TokenCookieChunkingValidationError{
+				field:  "MaxChunks",
+				reason: "value must be inside range [2, 16]",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return TokenCookieChunkingMultiError(errors)
+	}
+
+	return nil
+}
+
+// TokenCookieChunkingMultiError is an error wrapping multiple validation
+// errors returned by TokenCookieChunking.ValidateAll() if the designated
+// constraints aren't met.
+type TokenCookieChunkingMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TokenCookieChunkingMultiError) Error() string {
+	msgs := make([]string, 0, len(m))
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TokenCookieChunkingMultiError) AllErrors() []error { return m }
+
+// TokenCookieChunkingValidationError is the validation error returned by
+// TokenCookieChunking.Validate if the designated constraints aren't met.
+type TokenCookieChunkingValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TokenCookieChunkingValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TokenCookieChunkingValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TokenCookieChunkingValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TokenCookieChunkingValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TokenCookieChunkingValidationError) ErrorName() string {
+	return "TokenCookieChunkingValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e TokenCookieChunkingValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTokenCookieChunking.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TokenCookieChunkingValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TokenCookieChunkingValidationError{}
 
 // Validate checks the field values on OAuth2Config with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
@@ -1762,6 +1896,35 @@ func (m *OAuth2Config) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return OAuth2ConfigValidationError{
 				field:  "PrivateKeyJwtConfig",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetTokenCookieChunking()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, OAuth2ConfigValidationError{
+					field:  "TokenCookieChunking",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, OAuth2ConfigValidationError{
+					field:  "TokenCookieChunking",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetTokenCookieChunking()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return OAuth2ConfigValidationError{
+				field:  "TokenCookieChunking",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}

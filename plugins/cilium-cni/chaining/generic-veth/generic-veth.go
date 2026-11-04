@@ -235,7 +235,7 @@ func (f *GenericVethChainer) Add(ctx context.Context, pluginCtx chainingapi.Plug
 			ExternalIpam: true,
 
 			// All routing is performed by the Linux stack
-			RequireRouting: &disabled,
+			RequireBPFRouting: &disabled,
 		},
 	}
 

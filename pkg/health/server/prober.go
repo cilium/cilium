@@ -6,14 +6,13 @@ package server
 import (
 	"context"
 	"log/slog"
-	"net"
 	"net/netip"
-	"strconv"
 	"sync"
 	"time"
 
 	probing "github.com/prometheus-community/pro-bing"
 	"golang.org/x/time/rate"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/cilium/cilium/api/v1/health/models"
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
@@ -32,7 +31,7 @@ type healthReport struct {
 }
 
 type connectivityResult struct {
-	ip     string
+	ip     netip.Addr
 	status *models.ConnectivityStatus
 }
 
@@ -52,7 +51,7 @@ type prober struct {
 
 	// start is the start time for the current probe cycle.
 	start   time.Time
-	results map[ipString]*models.PathStatus
+	results map[netip.Addr]*models.PathStatus
 	nodes   nodeMap
 
 	probeRateLimiter *rate.Limiter
@@ -61,14 +60,14 @@ type prober struct {
 }
 
 // copyResultRLocked makes a copy of the path status for the specified IP.
-func (p *prober) copyResultRLocked(ip string) *models.PathStatus {
-	status := p.results[ipString(ip)]
+func (p *prober) copyResultRLocked(ip netip.Addr) *models.PathStatus {
+	status := p.results[ip]
 	if status == nil {
 		return nil
 	}
 
 	result := &models.PathStatus{
-		IP: ip,
+		IP: ip.String(),
 	}
 	paths := map[**models.ConnectivityStatus]*models.ConnectivityStatus{
 		&result.Icmp: status.Icmp,
@@ -119,7 +118,7 @@ func (p *prober) getResults() *healthReport {
 			}
 		}
 
-		if primaryHealthIP != "" {
+		if primaryHealthIP.IsValid() {
 			primaryEndpointAddress := p.copyResultRLocked(primaryHealthIP)
 			status.Endpoint = primaryEndpointAddress
 			status.HealthEndpoint = &models.EndpointStatus{
@@ -138,24 +137,14 @@ func (p *prober) getResults() *healthReport {
 	return result
 }
 
-func isIPv4(ip string) bool {
-	netIP, err := netip.ParseAddr(ip)
-	return err == nil && netIP.Is4()
-}
-
 func skipAddress(elem *ciliumModels.NodeAddressingElement) bool {
-	return elem == nil || !elem.Enabled || elem.IP == "<nil>"
+	return elem == nil || !elem.Enabled || !elem.IP.IsValid()
 }
 
-// resolveIP attempts to sanitize 'node' and 'ip', and if successful, returns
-// the name of the node and the IP address specified in the addressing element.
-// If validation fails or this IP should not be pinged, 'ip' is returned as nil.
-func resolveIP(logger *slog.Logger, n *healthNode, addr *ciliumModels.NodeAddressingElement, primary bool) (string, *net.IPAddr) {
+// probeAddr returns the IP address specified in the addressing element, or
+// the zero netip.Addr if this IP should not be pinged.
+func probeAddr(logger *slog.Logger, n *healthNode, addr *ciliumModels.NodeAddressingElement, primary bool) netip.Addr {
 	node := n.NodeElement
-	network := "ip6:icmp"
-	if isIPv4(addr.IP) {
-		network = "ip4:icmp"
-	}
 
 	// Only add fields to the scoped logger if debug is enabled, to save on resources.
 	// This can be done since all logs in this function are debug-level only.
@@ -170,26 +159,19 @@ func resolveIP(logger *slog.Logger, n *healthNode, addr *ciliumModels.NodeAddres
 
 	if skipAddress(addr) {
 		scopedLog.Debug("Skipping probe for address")
-		return "", nil
-	}
-
-	ra, err := net.ResolveIPAddr(network, addr.IP)
-	if err != nil || ra.String() == "" {
-		scopedLog.Debug("Unable to resolve address")
-		return "", nil
+		return netip.Addr{}
 	}
 
 	scopedLog.Debug("Probing for connectivity to node")
-	return node.Name, ra
+	return addr.IP.Addr
 }
 
 // RemoveIP removes all traces of the specified IP from the prober, including
 // clearing all cached results, mapping from this IP to a node, and entries in
 // the ICMP and TCP pingers.
-func (p *prober) RemoveIP(ip string) {
-	nodeIP := ipString(ip)
-	delete(p.results, nodeIP)
-	delete(p.nodes, nodeIP)
+func (p *prober) RemoveIP(ip netip.Addr) {
+	delete(p.results, ip)
+	delete(p.nodes, ip)
 }
 
 // setNodes sets the list of nodes for the prober, and updates the pinger to
@@ -207,38 +189,38 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 
 	// Check what IPs will be readded
 	// so we don't remove results that we already have for them.
-	readdedIPs := map[string]struct{}{}
+	readdedIPs := sets.New[netip.Addr]()
 	for _, n := range added {
 		for elem, primary := range n.Addresses() {
-			_, addr := resolveIP(p.server.logger, &n, elem, primary)
-			if addr == nil {
+			ip := probeAddr(p.server.logger, &n, elem, primary)
+			if !ip.IsValid() {
 				continue
 			}
-			readdedIPs[elem.IP] = struct{}{}
+			readdedIPs.Insert(ip)
 		}
 	}
 
 	for _, n := range removed {
 		for elem := range n.Addresses() {
-			if _, ok := readdedIPs[elem.IP]; !ok {
-				p.RemoveIP(elem.IP)
+			ip := elem.IP.Addr
+			if !readdedIPs.Has(ip) {
+				p.RemoveIP(ip)
 			}
 		}
 	}
 
 	for _, n := range added {
 		for elem, primary := range n.Addresses() {
-			_, addr := resolveIP(p.server.logger, &n, elem, primary)
-			if addr == nil {
+			ip := probeAddr(p.server.logger, &n, elem, primary)
+			if !ip.IsValid() {
 				continue
 			}
 
-			ip := ipString(elem.IP)
 			p.nodes[ip] = n
 
 			if p.results[ip] == nil {
 				p.results[ip] = &models.PathStatus{
-					IP: elem.IP,
+					IP: ip.String(),
 				}
 			}
 		}
@@ -247,23 +229,23 @@ func (p *prober) setNodes(added nodeMap, removed nodeMap) {
 
 const httpPathDescription = "Via L3"
 
-func (p *prober) getIPsByNode() map[string][]*net.IPAddr {
+func (p *prober) getIPsByNode() map[string][]netip.Addr {
 	p.RLock()
 	defer p.RUnlock()
 
 	// p.nodes is mapped from all known IPs -> nodes in N:M configuration,
 	// so multiple IPs could refer to the same node. To ensure we only
 	// ping each node once, deduplicate nodes into map of nodeName -> []IP.
-	nodes := make(map[string][]*net.IPAddr)
+	nodes := make(map[string][]netip.Addr)
 	for _, node := range p.nodes {
 		if nodes[node.Name] != nil {
 			// Already handled this node.
 			continue
 		}
-		nodes[node.Name] = []*net.IPAddr{}
+		nodes[node.Name] = []netip.Addr{}
 		for elem, primary := range node.Addresses() {
-			if _, addr := resolveIP(p.server.logger, &node, elem, primary); addr != nil {
-				nodes[node.Name] = append(nodes[node.Name], addr)
+			if ip := probeAddr(p.server.logger, &node, elem, primary); ip.IsValid() {
+				nodes[node.Name] = append(nodes[node.Name], ip)
 			}
 		}
 	}
@@ -271,7 +253,7 @@ func (p *prober) getIPsByNode() map[string][]*net.IPAddr {
 	return nodes
 }
 
-func icmpPing(logger *slog.Logger, node string, ip string, ctx context.Context, resChan chan<- connectivityResult, wg *sync.WaitGroup, probeDeadline time.Duration, nReqs int) {
+func icmpPing(logger *slog.Logger, node string, ip netip.Addr, ctx context.Context, resChan chan<- connectivityResult, wg *sync.WaitGroup, probeDeadline time.Duration, nReqs int) {
 	defer wg.Done()
 
 	result := &models.ConnectivityStatus{}
@@ -288,7 +270,7 @@ func icmpPing(logger *slog.Logger, node string, ip string, ctx context.Context, 
 		scopedLog.Debug("Pinging host")
 	}
 
-	pinger, err := probing.NewPinger(ip)
+	pinger, err := probing.NewPinger(ip.String())
 	if err != nil {
 		scopedLog.Debug("Failed to create pinger", logfields.Error, err)
 		result.Status = err.Error()
@@ -335,11 +317,11 @@ func per(nodes int, duration time.Duration) rate.Limit {
 	return rate.Every(duration / time.Duration(nodes))
 }
 
-func httpProbe(logger *slog.Logger, node string, ip string, ctx context.Context, resChan chan<- connectivityResult, wg *sync.WaitGroup, httpPort int) {
+func httpProbe(logger *slog.Logger, node string, ip netip.Addr, ctx context.Context, resChan chan<- connectivityResult, wg *sync.WaitGroup, httpPort int) {
 	defer wg.Done()
 
 	result := &models.ConnectivityStatus{}
-	host := "http://" + net.JoinHostPort(ip, strconv.Itoa(httpPort))
+	host := "http://" + netip.AddrPortFrom(ip, uint16(httpPort)).String()
 	// Only add fields to the scoped logger if debug is enabled, to save on resources.
 	// This can be done since all logs in this function are debug-level only.
 	debugLogsEnabled := logger.Enabled(context.Background(), slog.LevelDebug)
@@ -373,7 +355,7 @@ func httpProbe(logger *slog.Logger, node string, ip string, ctx context.Context,
 	resChan <- connectivityResult{ip: ip, status: result}
 }
 
-func (p *prober) runProbe(nodeIps map[string][]*net.IPAddr) {
+func (p *prober) runProbe(nodeIps map[string][]netip.Addr) {
 	httpResChan := make(chan connectivityResult)
 	icmpResChan := make(chan connectivityResult)
 	wg := sync.WaitGroup{}
@@ -391,10 +373,9 @@ func (p *prober) runProbe(nodeIps map[string][]*net.IPAddr) {
 	go func() {
 		defer resultsWg.Done()
 		for resp := range httpResChan {
-			peer := ipString(resp.ip)
 			p.Lock()
-			if _, ok := p.results[peer]; ok {
-				p.results[peer].HTTP = resp.status
+			if _, ok := p.results[resp.ip]; ok {
+				p.results[resp.ip].HTTP = resp.status
 			} else {
 				p.server.logger.Debug("Node disappeared before result written")
 			}
@@ -405,10 +386,9 @@ func (p *prober) runProbe(nodeIps map[string][]*net.IPAddr) {
 	go func() {
 		defer resultsWg.Done()
 		for resp := range icmpResChan {
-			peer := ipString(resp.ip)
 			p.Lock()
-			if _, ok := p.results[peer]; ok {
-				p.results[peer].Icmp = resp.status
+			if _, ok := p.results[resp.ip]; ok {
+				p.results[resp.ip].Icmp = resp.status
 			} else {
 				p.server.logger.Debug("Node disappeared before result written")
 			}
@@ -422,12 +402,12 @@ func (p *prober) runProbe(nodeIps map[string][]*net.IPAddr) {
 			if err := p.probeRateLimiter.Wait(ctx); err != nil {
 				result := &models.ConnectivityStatus{}
 				result.Status = err.Error()
-				httpResChan <- connectivityResult{ip: ip.String(), status: result}
-				icmpResChan <- connectivityResult{ip: ip.String(), status: result}
+				httpResChan <- connectivityResult{ip: ip, status: result}
+				icmpResChan <- connectivityResult{ip: ip, status: result}
 			} else {
 				wg.Add(2)
-				go httpProbe(p.server.logger, name, ip.String(), ctx, httpResChan, &wg, p.server.Config.HTTPPathPort)
-				go icmpPing(p.server.logger, name, ip.String(), ctx, icmpResChan, &wg, p.server.Config.ProbeDeadline, p.server.Config.ICMPReqsCount)
+				go httpProbe(p.server.logger, name, ip, ctx, httpResChan, &wg, p.server.Config.HTTPPathPort)
+				go icmpPing(p.server.logger, name, ip, ctx, icmpResChan, &wg, p.server.Config.ProbeDeadline, p.server.Config.ICMPReqsCount)
 			}
 		}
 	}
@@ -507,7 +487,7 @@ func newProber(s *Server, nodes nodeMap) *prober {
 		server:       s,
 		proberExited: make(chan bool),
 		stop:         make(chan bool),
-		results:      make(map[ipString]*models.PathStatus),
+		results:      make(map[netip.Addr]*models.PathStatus),
 		nodes:        make(nodeMap),
 	}
 	prober.setNodes(nodes, nil)
@@ -517,7 +497,7 @@ func newProber(s *Server, nodes nodeMap) *prober {
 // Given user-provided ConnectivityProbeFrequencyRatio, uses base interval
 // in [10, 110] to set the probe interval, where base interval is 10 + ratio * 100.
 // Returns true if the interval has changed.
-func (p *prober) setProbeInterval(nodeIps map[string][]*net.IPAddr) bool {
+func (p *prober) setProbeInterval(nodeIps map[string][]netip.Addr) bool {
 	baseInterval := (10 + option.Config.ConnectivityProbeFrequencyRatio*100) * 1e9
 	ipCount := 0
 	for _, ips := range nodeIps {

@@ -147,8 +147,9 @@ func (c *desiredNeighborCalculator) Run(ctx context.Context, health cell.Health)
 		for fipDev := range permutations {
 			nextHop, err := c.getNextHopIP(fipDev.fip.IP, fipDev.dev.Index)
 			if err != nil {
-				if errors.Is(err, errNodeIPNotRoutable) {
-					// If the node IP is not routable, we don't need to do anything
+				if errors.Is(err, errNodeIPNotRoutable) || errors.Is(err, errIPIsLocal) {
+					// If the node IP is not routable or is a local address of
+					// this node, we don't need to do anything
 					continue
 				}
 
@@ -248,7 +249,10 @@ func (c *desiredNeighborCalculator) commitDesiredNeighbors(
 	return errs
 }
 
-var errNodeIPNotRoutable = errors.New("remote node IP is non-routable")
+var (
+	errNodeIPNotRoutable = errors.New("remote node IP is non-routable")
+	errIPIsLocal         = errors.New("IP is a local address")
+)
 
 func (c *desiredNeighborCalculator) getNextHopIP(fip netip.Addr, ifindex int) (nextHopIP netip.Addr, err error) {
 	c.Metrics.NexthopLookupCount.Inc()
@@ -267,6 +271,11 @@ func (c *desiredNeighborCalculator) getNextHopIP(fip netip.Addr, ifindex int) (n
 
 	nextHopIP = fip
 	for _, route := range routes {
+		// Traffic to a local IP never leaves the node, so no neighbor entry is needed.
+		if route.Type == unix.RTN_LOCAL {
+			return netip.Addr{}, errIPIsLocal
+		}
+
 		if route.Gw != nil {
 			// nodeIP is in a different L2 subnet, so it must be reachable through
 			// a gateway. Perform neighbor discovery to the gw IP addr instead of

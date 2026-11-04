@@ -17,9 +17,11 @@ package checker
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"cel.dev/cel-go/common/containers"
 	"cel.dev/cel-go/common/decls"
+	"cel.dev/cel-go/common/env"
 	"cel.dev/cel-go/common/overloads"
 	"cel.dev/cel-go/common/types"
 	"cel.dev/cel-go/parser"
@@ -75,6 +77,9 @@ type Env struct {
 	aggLitElemType      aggregateLiteralElementType
 	filteredOverloadIDs map[string]struct{}
 	jsonFieldNames      bool
+	catalogSupplier     CatalogSupplier
+	catalogOnce         sync.Once
+	catalog             *env.Catalog
 }
 
 // NewEnv returns a new *Env with the given parameters.
@@ -106,7 +111,21 @@ func NewEnv(container *containers.Container, provider types.Provider, opts ...Op
 		aggLitElemType:      aggLitElemType,
 		filteredOverloadIDs: filteredOverloadIDs,
 		jsonFieldNames:      envOptions.jsonFieldNames,
+		catalogSupplier:     envOptions.catalogSupplier,
 	}, nil
+}
+
+// Catalog returns the symbol catalog configured on the environment, or nil if none is configured.
+func (e *Env) Catalog() *env.Catalog {
+	if e == nil {
+		return nil
+	}
+	e.catalogOnce.Do(func() {
+		if e.catalog == nil && e.catalogSupplier != nil {
+			e.catalog = e.catalogSupplier()
+		}
+	})
+	return e.catalog
 }
 
 // AddIdents configures the checker with a list of variable declarations.
@@ -320,26 +339,28 @@ func (e *Env) validatedDeclarations() *Scopes {
 	return e.declarations
 }
 
+// cloneWithDecls creates a copy of the Env with a new declaration scope stack.
+func (e *Env) cloneWithDecls(decls *Scopes) *Env {
+	return &Env{
+		container:           e.container,
+		provider:            e.provider,
+		declarations:        decls,
+		aggLitElemType:      e.aggLitElemType,
+		filteredOverloadIDs: e.filteredOverloadIDs,
+		jsonFieldNames:      e.jsonFieldNames,
+		catalogSupplier:     e.catalogSupplier,
+		catalog:             e.catalog,
+	}
+}
+
 // enterScope creates a new Env instance with a new innermost declaration scope.
 func (e *Env) enterScope() *Env {
-	childDecls := e.declarations.Push()
-	return &Env{
-		declarations:   childDecls,
-		container:      e.container,
-		provider:       e.provider,
-		aggLitElemType: e.aggLitElemType,
-	}
+	return e.cloneWithDecls(e.declarations.Push())
 }
 
 // exitScope creates a new Env instance with the nearest outer declaration scope.
 func (e *Env) exitScope() *Env {
-	parentDecls := e.declarations.Pop()
-	return &Env{
-		declarations:   parentDecls,
-		container:      e.container,
-		provider:       e.provider,
-		aggLitElemType: e.aggLitElemType,
-	}
+	return e.cloneWithDecls(e.declarations.Pop())
 }
 
 // errorMsg is a type alias meant to represent error-based return values which

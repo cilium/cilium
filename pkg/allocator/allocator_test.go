@@ -839,3 +839,193 @@ func TestSyncLocalKeysWithIdentityAllocations(t *testing.T) {
 	// Ensure all slave keys are deleted, and non are leaked
 	assert.Empty(t, backend.slaveKeys)
 }
+
+func TestCacheWaitFor(t *testing.T) {
+	backend := &dummyBackend{disableListDone: true}
+	alloc, err := NewAllocator(hivetest.Logger(t), TestAllocatorKey(""), backend, WithoutGC())
+	require.NoError(t, err)
+
+	// 1. Key already present in nextCache (before OnListDone)
+	alloc.mainCache.OnUpsert(idpool.ID(10), TestAllocatorKey("key-next"))
+	require.Equal(t, idpool.ID(10), alloc.mainCache.waitFor(context.Background(), "key-next"))
+
+	// 2. Key already present in cache (after OnListDone)
+	alloc.mainCache.OnListDone()
+	alloc.mainCache.OnUpsert(idpool.ID(20), TestAllocatorKey("key-cache"))
+	id, err := alloc.WaitFor(context.Background(), TestAllocatorKey("key-cache"))
+	require.NoError(t, err)
+	require.Equal(t, idpool.ID(20), id)
+
+	// 3. Context cancellation and deadline exceeded return distinct errors and clean up waiters
+	cancelCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	id, err = alloc.WaitFor(cancelCtx, TestAllocatorKey("key-cancelled"))
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorContains(t, err, "key allocation cancelled")
+	require.Equal(t, idpool.ID(idpool.NoID), id)
+
+	timeoutCtx, timeoutCancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer timeoutCancel()
+	id, err = alloc.WaitFor(timeoutCtx, TestAllocatorKey("key-timeout"))
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "timed out waiting for cilium-operator")
+	require.Equal(t, idpool.ID(idpool.NoID), id)
+
+	// Subsequent OnUpsert for timed-out key must not block
+	alloc.mainCache.OnUpsert(idpool.ID(30), TestAllocatorKey("key-timeout"))
+	require.Equal(t, idpool.ID(30), alloc.mainCache.waitFor(context.Background(), "key-timeout"))
+
+	// 4. Concurrent waiters woken by OnUpsert and insert
+	const numWaiters = 20
+	var wg sync.WaitGroup
+	for i := range numWaiters {
+		wg.Go(func() {
+			key := fmt.Sprintf("concurrent-key-%d", i%2)
+			expected := idpool.ID(100 + i%2)
+			got := alloc.mainCache.waitFor(context.Background(), key)
+			assert.Equal(t, expected, got)
+		})
+	}
+
+	require.Eventually(t, func() bool {
+		alloc.mainCache.waitingLock.Lock()
+		defer alloc.mainCache.waitingLock.Unlock()
+		w0 := alloc.mainCache.waiting["concurrent-key-0"]
+		w1 := alloc.mainCache.waiting["concurrent-key-1"]
+		return w0 != nil && w0.refs == 10 && w1 != nil && w1.refs == 10
+	}, 500*time.Millisecond, 10*time.Millisecond, "Expected 10 waiting entries")
+
+	alloc.mainCache.OnUpsert(idpool.ID(100), TestAllocatorKey("concurrent-key-0"))
+	alloc.mainCache.insert(TestAllocatorKey("concurrent-key-1"), idpool.ID(101))
+	wg.Wait()
+
+	// 5. Stopping allocator unblocks in-flight waiters
+	stoppedCh := make(chan idpool.ID, 1)
+	go func() {
+		stoppedCh <- alloc.mainCache.waitFor(context.Background(), "key-never-arrives")
+	}()
+
+	require.Eventually(t, func() bool {
+		alloc.mainCache.waitingLock.Lock()
+		defer alloc.mainCache.waitingLock.Unlock()
+		_, ok := alloc.mainCache.waiting["key-never-arrives"]
+		return ok
+	}, 500*time.Millisecond, 10*time.Millisecond, "Expected waiting entry for key-never-arrives")
+
+	alloc.Delete()
+	require.Equal(t, idpool.ID(idpool.NoID), <-stoppedCh)
+}
+
+// TestCacheWaitForStress exercises waitFor under adversarial interleavings:
+// many waiters per key, concurrent context cancellations racing with
+// notifications, repeated upserts of the same key, and a final stop() while
+// waiters are still pending. It only asserts invariants: no panic (double
+// close), no deadlock, no wrong ID, and no leaked waiter entries.
+func TestCacheWaitForStress(t *testing.T) {
+	backend := &dummyBackend{disableListDone: true}
+	alloc, err := NewAllocator(hivetest.Logger(t), TestAllocatorKey(""), backend, WithoutGC())
+	require.NoError(t, err)
+
+	const (
+		numKeys           = 8
+		waitersPerKey     = 32
+		notifiedKeysLimit = numKeys / 2 // keys >= limit are never notified
+	)
+
+	expectedID := func(k int) idpool.ID { return idpool.ID(1000 + k) }
+	keyName := func(k int) string { return fmt.Sprintf("stress-key-%d", k) }
+
+	var wg sync.WaitGroup
+	results := make(chan struct {
+		key int
+		id  idpool.ID
+	}, numKeys*waitersPerKey)
+
+	for k := range numKeys {
+		for w := range waitersPerKey {
+			wg.Go(func() {
+				// Mix of: cancelled-before-call, short deadlines racing with
+				// notifications, and no deadline (must be released by stop()).
+				var ctx context.Context
+				var cancel context.CancelFunc
+				switch w % 3 {
+				case 0:
+					ctx, cancel = context.WithCancel(context.Background())
+					cancel()
+				case 1:
+					ctx, cancel = context.WithTimeout(context.Background(), time.Duration(w%5)*time.Millisecond)
+				default:
+					ctx, cancel = context.WithCancel(context.Background())
+				}
+				defer cancel()
+
+				id := alloc.mainCache.waitFor(ctx, keyName(k))
+				results <- struct {
+					key int
+					id  idpool.ID
+				}{k, id}
+			})
+		}
+	}
+
+	// Concurrently notify half of the keys, multiple times each, via both
+	// OnUpsert and insert, racing with the waiters above.
+	var notifyWg sync.WaitGroup
+	for k := range notifiedKeysLimit {
+		notifyWg.Go(func() {
+			for range 4 {
+				if k%2 == 0 {
+					alloc.mainCache.OnUpsert(expectedID(k), TestAllocatorKey(keyName(k)))
+				} else {
+					alloc.mainCache.insert(TestAllocatorKey(keyName(k)), expectedID(k))
+				}
+			}
+		})
+	}
+	notifyWg.Wait()
+
+	// OnListDone racing with pending waiters must be safe as well.
+	alloc.mainCache.OnListDone()
+
+	// Wait until all never-notified keys have registered in-flight waiters
+	// before stopping the allocator.
+	require.Eventually(t, func() bool {
+		alloc.mainCache.waitingLock.Lock()
+		defer alloc.mainCache.waitingLock.Unlock()
+		for k := notifiedKeysLimit; k < numKeys; k++ {
+			if alloc.mainCache.waiting[keyName(k)] == nil {
+				return false
+			}
+		}
+		return true
+	}, 500*time.Millisecond, time.Millisecond, "Expected waiting entries for never-notified keys")
+
+	// Stop the allocator: all remaining waiters (never-notified keys with no
+	// deadline) must be released promptly instead of hanging forever.
+	alloc.Delete()
+
+	doneCh := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(doneCh)
+	}()
+	select {
+	case <-doneCh:
+	case <-time.After(10 * time.Second):
+		t.Fatal("waiters did not terminate after allocator stop: possible deadlock or lost wakeup")
+	}
+	close(results)
+
+	for r := range results {
+		if r.key >= notifiedKeysLimit {
+			require.Equal(t, idpool.ID(idpool.NoID), r.id, "waiter on never-notified key %d must return NoID", r.key)
+			continue
+		}
+		require.Contains(t, []idpool.ID{idpool.NoID, expectedID(r.key)}, r.id, "waiter on key %d returned unexpected ID", r.key)
+	}
+
+	// All waiters have returned: no pending entries may be leaked.
+	alloc.mainCache.waitingLock.Lock()
+	require.Empty(t, alloc.mainCache.waiting, "waiting map must be empty after all waiters returned")
+	alloc.mainCache.waitingLock.Unlock()
+}

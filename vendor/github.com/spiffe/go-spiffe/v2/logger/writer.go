@@ -14,18 +14,18 @@ type writer struct {
 	io.Writer
 }
 
-func (w writer) Debugf(format string, args ...interface{}) {
+func (w writer) Debugf(format string, args ...any) {
 	fmt.Fprintf(w.Writer, "[DEBUG] "+format+"\n", args...)
 }
 
-func (w writer) Infof(format string, args ...interface{}) {
+func (w writer) Infof(format string, args ...any) {
 	fmt.Fprintf(w.Writer, "[INFO] "+format+"\n", args...)
 }
 
-func (w writer) Warnf(format string, args ...interface{}) {
+func (w writer) Warnf(format string, args ...any) {
 	fmt.Fprintf(w.Writer, "[WARN] "+format+"\n", args...)
 }
 
-func (w writer) Errorf(format string, args ...interface{}) {
+func (w writer) Errorf(format string, args ...any) {
 	fmt.Fprintf(w.Writer, "[ERROR] "+format+"\n", args...)
 }

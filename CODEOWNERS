@@ -81,6 +81,10 @@
 #   Review vendor updates for software dependencies to check for any potential
 #   upstream breakages / incompatibilities. Discourage the use of unofficial
 #   forks of upstream libraries if they are actively maintained.
+# - @cilium/ai-guidance:
+#   Help shape the usage of generative AI in the Cilium projects by providing
+#   review of guides and artifacts that are interpreted by either humans or
+#   machines regarding how to use these tools.
 #
 # Repository Owners
 # +++++++++++++++++
@@ -247,6 +251,7 @@
 /CODEOWNERS @cilium/contributing
 /CONTRIBUTING.md @cilium/contributing
 /CHANGELOG.md @cilium/release-managers
+/AGENTS.md @cilium/ai-guidance
 /.authors.aux @cilium/contributing
 /.clomonitor.yml @cilium/contributing
 /.custom-gcl.yaml @cilium/ci-structure
@@ -256,6 +261,7 @@
 /.github/*.md @cilium/contributing
 /.github/assets/ @cilium/contributing
 /.github/ISSUE_TEMPLATE/ @cilium/contributing
+/.github/VULNERABILITY_REPORT.yml @cilium/security-cilium @cilium/contributing
 /.github/ariane-config.yaml @cilium/github-sec @cilium/ci-structure
 /.github/renovate.json5 @cilium/github-sec @cilium/ci-structure
 /.github/actions/ @cilium/github-sec @cilium/ci-structure
@@ -437,7 +443,6 @@ Makefile* @cilium/build
 /Documentation/contributing/development/reviewers_committers/review_vendor.rst @cilium/vendor
 /Documentation/contributing/testing/scalability.rst @cilium/sig-scalability
 /Documentation/crdlist.rst
-/Documentation/Dockerfile @cilium/docs-structure
 /Documentation/gettingstarted/demo.rst @cilium/docs-structure
 /Documentation/gettingstarted/gettinghelp.rst @cilium/contributing @cilium/docs-structure
 /Documentation/glossary.rst @cilium/docs-structure
@@ -483,7 +488,6 @@ Makefile* @cilium/build
 /Documentation/operations/troubleshooting_clustermesh.rst @cilium/sig-clustermesh @cilium/docs-structure
 /Documentation/overview/component-overview.rst @cilium/docs-structure
 /Documentation/overview/intro.rst @cilium/docs-structure
-/Documentation/requirements.txt @cilium/docs-structure
 /Documentation/security/http.rst @cilium/sig-policy @cilium/docs-structure
 /Documentation/security/images/cilium_threat_model* @cilium/security-cilium @cilium/docs-structure
 /Documentation/security/network/encryption-ipsec.rst @cilium/ipsec @cilium/docs-structure
@@ -516,6 +520,7 @@ Makefile* @cilium/build
 /images/builder/install-protoc.sh @cilium/sig-hubble-api
 /images/builder/install-protoplugins.sh @cilium/sig-hubble-api
 /images/builder/update-cilium-builder-image.sh @cilium/github-sec
+/images/docs-builder @cilium/docs-structure
 /images/hubble-relay @cilium/sig-hubble
 /images/runtime/update-cilium-runtime-image.sh @cilium/github-sec
 /install/kubernetes/ @cilium/helm
@@ -671,6 +676,7 @@ Makefile* @cilium/build
 /pkg/networkdriver @cilium/network-driver
 /pkg/node @cilium/sig-agent
 /pkg/node/neighbordiscovery @cilium/sig-agent @cilium/sig-datapath
+/pkg/node/policy/ @cilium/sig-agent
 /pkg/nodediscovery/ @cilium/sig-agent
 /pkg/nodeipamconfig @cilium/sig-ipam
 /pkg/option @cilium/sig-agent @cilium/cli
@@ -748,8 +754,9 @@ Makefile* @cilium/build
 /USERS.md @cilium/community
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
-/vendor/ @cilium/vendor
 /VERSION @cilium/release-managers
 /.clang-format @cilium/contributing
+# Metrics are deliberately late in the ownership to override earlier owners
 /**/*metrics*.go @cilium/metrics
 /pkg/hubble/metrics @cilium/hubble-metrics
+/vendor/ @cilium/vendor

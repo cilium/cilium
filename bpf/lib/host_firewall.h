@@ -3,15 +3,11 @@
 
 #pragma once
 
+/* Only compile in if file is included from bpf_host.
+ */
 #if defined(IS_BPF_HOST)
 
 #include "policy_log.h"
-
-/* Only compile in if host firewall is enabled and file is included from
- * bpf_host.
- */
-#if defined(ENABLE_HOST_FIREWALL)
-
 #include "eps.h"
 #include "policy.h"
 #include "proxy.h"
@@ -186,7 +182,7 @@ static __always_inline bool
 ipv6_host_policy_ingress_lookup(const struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 				struct ct_buffer6 *ct_buffer)
 {
-	__u32 dst_sec_identity = WORLD_IPV6_ID;
+	__u32 dst_sec_identity = world_ipv6_id();
 	const struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple *tuple = &ct_buffer->tuple;
 	int hdrlen;
@@ -315,7 +311,6 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 }
 # endif /* ENABLE_IPV6 */
 
-# ifdef ENABLE_IPV4
 static __always_inline bool
 ipv4_host_policy_egress_lookup(const struct __ctx_buff *ctx, __u32 src_sec_identity,
 			       __u32 ipcache_srcid, const struct iphdr *ip4,
@@ -448,7 +443,7 @@ static __always_inline bool
 ipv4_host_policy_ingress_lookup(const struct __ctx_buff *ctx, const struct iphdr *ip4,
 				struct ct_buffer4 *ct_buffer)
 {
-	__u32 dst_sec_identity = WORLD_IPV4_ID;
+	__u32 dst_sec_identity = world_ipv4_id();
 	const struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple *tuple = &ct_buffer->tuple;
 	int l3_off = ETH_HLEN;
@@ -570,6 +565,4 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	return __ipv4_host_policy_ingress(ctx, ip4, &ct_buffer, src_sec_identity, trace, ext_err);
 }
-#  endif /* ENABLE_IPV4 */
-# endif /* ENABLE_HOST_FIREWALL */
 #endif /* IS_BPF_HOST */

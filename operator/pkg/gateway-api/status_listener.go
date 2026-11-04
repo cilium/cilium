@@ -57,6 +57,7 @@ type listenerValidationResult struct {
 	invalidReason   gatewayv1.ListenerConditionReason
 	invalidMessages []string
 	conds           []metav1.Condition
+	tlsOptions      *model.TLSOptions
 }
 
 type ListenerStatusInputs struct {
@@ -648,11 +649,20 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 				break
 			}
 		}
+
 		if l.Protocol == gatewayv1.TLSProtocolType && l.TLS.Mode != nil && *l.TLS.Mode == gatewayv1.TLSModeTerminate {
 			res.isValid = false
 			res.invalidMessages = append(res.invalidMessages, "Using TLSRoute with TLS.mode Terminate is unsupported.")
 			res.invalidReason = gatewayv1.ListenerReasonUnsupportedValue
 			res.supportedKinds = []gatewayv1.RouteGroupKind{}
+		}
+
+		tlsOptions, err := parseTLSOptions(l)
+		res.tlsOptions = tlsOptions
+		if err != nil {
+			res.invalidMessages = append(res.invalidMessages, err.Error())
+			res.invalidReason = gatewayv1.ListenerReasonUnsupportedValue
+			res.isValid = false
 		}
 	}
 
@@ -810,6 +820,7 @@ func (m *ListenerStatusManager) filterOutInvalidListeners(ctx context.Context, g
 			gateway: gw,
 		})
 		if res.isValid {
+			listener.TLSOptions = res.tlsOptions
 			valid = append(valid, listener)
 			continue
 		}

@@ -8,18 +8,24 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/netip"
 	"os"
 	"path"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	kube_types "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	metadatav1alpha1 "k8s.io/dynamic-resource-allocation/api/metadata/v1alpha1"
+	metadatav1beta1 "k8s.io/dynamic-resource-allocation/api/metadata/v1beta1"
 	"k8s.io/dynamic-resource-allocation/kubeletplugin"
+	"k8s.io/utils/ptr"
 
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s/resource"
@@ -45,6 +51,10 @@ func (driver *Driver) startDRA(ctx context.Context) error {
 		kubeletplugin.DriverName(driver.config.DriverName),
 		kubeletplugin.NodeName(node_types.GetName()),
 		kubeletplugin.KubeClient(driver.kubeClient),
+		kubeletplugin.EnableDeviceMetadata(true, []schema.GroupVersion{
+			metadatav1beta1.SchemeGroupVersion,
+			metadatav1alpha1.SchemeGroupVersion,
+		}),
 	}
 
 	retryInterval := time.Duration(driver.config.DraRegistrationRetryIntervalSeconds) * time.Second
@@ -247,12 +257,40 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 		}
 	}
 
-	deviceClaimConfigs, err := driver.deviceClaimConfigs(ctx, claim)
+	deviceCfgs, err := deviceConfigsFromAllocation(&claim.Status.Allocation.Devices,
+		driver.config.DriverName)
 	if err != nil {
+		driver.logger.ErrorContext(
+			ctx, "failed to retrieve device configs",
+			logfields.UID, claim.UID,
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+			logfields.Error, err,
+		)
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
-	if err := validateDeviceConfigs(claim, deviceClaimConfigs); err != nil {
+	if len(deviceCfgs) == 0 {
+		// if our plugin receives a claim without any device request for this driver,
+		// it indicates an unexpected input scenario.
+		driver.logger.ErrorContext(
+			ctx, "no device request for this driver in the ResourceClaim",
+			logfields.UID, claim.UID,
+			logfields.K8sNamespace, claim.Namespace,
+			logfields.Name, claim.Name,
+		)
+		return kubeletplugin.PrepareResult{
+			Err: fmt.Errorf("no device request for this driver in %s ResourceClaim", path.Join(claim.Namespace, claim.Name)),
+		}
+	}
+
+	for _, modify := range driver.configModifiers {
+		if err := modify(ctx, driver, claim, deviceCfgs); err != nil {
+			return kubeletplugin.PrepareResult{Err: err}
+		}
+	}
+
+	if err := validateDeviceConfigs(claim, deviceCfgs); err != nil {
 		return kubeletplugin.PrepareResult{Err: err}
 	}
 
@@ -275,7 +313,7 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 			return
 		}
 		for _, a := range alloc {
-			if _, reused := state.existingByDevice[a.DeviceName]; reused {
+			if _, reused := state.existingByDevice[a.id()]; reused {
 				continue
 			}
 			if err := driver.cleanupAllocation(a); err != nil {
@@ -288,7 +326,11 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 	}()
 
 	for _, result := range claim.Status.Allocation.Devices.Results {
-		cfg := deviceClaimConfigs[result.Request] // zero-value DeviceConfig if no opaque config present
+		cfg, ok := deviceCfgs[result.Request]
+		if !ok {
+			// if not in the map it means the request doesn't belong to this driver. so we should skip it.
+			continue
+		}
 
 		deviceAlloc, status, devErr := driver.prepareClaimDevice(ctx, claim, result, cfg, state)
 		if devErr != nil {
@@ -321,29 +363,56 @@ func (driver *Driver) prepareResourceClaim(ctx context.Context, claim *resourcea
 
 	driver.storeAllocations(alloc, pod.UID, claim.UID)
 
-	// we dont need to return anything here.
-	return kubeletplugin.PrepareResult{}
+	return kubeletplugin.PrepareResult{
+		Devices: prepareResultDevices(claim.Status.Allocation.Devices.Results, alloc),
+	}
 }
 
-func (driver *Driver) deviceClaimConfigs(ctx context.Context, claim *resourceapi.ResourceClaim) (map[string]types.DeviceConfig, error) {
+func deviceConfigsFromAllocation(deviceAllocation *resourceapi.DeviceAllocationResult, driverName string) (map[string]types.DeviceConfig, error) {
 	devicesCfg := map[string]types.DeviceConfig{}
-	for _, cfg := range claim.Status.Allocation.Devices.Config {
-		if cfg.Opaque == nil || cfg.Opaque.Parameters.Raw == nil {
+
+	// We go through each device allocation result and extract the configuration
+	// for the corresponding request.
+	//
+	// Some important details on why we use the following approach:
+	// - When a config applies to all requests, its `request` array is empty.
+	//   This is a semantic used by k8s https://github.com/kubernetes/kubernetes/blob/400031d69530e018d5c001a922d3c5d2afaba954/staging/src/k8s.io/dynamic-resource-allocation/structured/internal/stable/allocator_stable.go#L386
+	// - A plugin can receive a ResourceClaim with requests that do not concern
+	//   that driver if mixed DeviceClass are used in the claim's spec.
+	//   Every plugin must be careful to filter for the correct requests.
+	for _, res := range deviceAllocation.Results {
+		if res.Driver != driverName {
+			// Skip results that do not belong to this driver.
 			continue
 		}
-		c := types.DeviceConfig{}
-		if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &c); err != nil {
-			driver.logger.ErrorContext(
-				ctx, "failed to parse config",
-				logfields.Request, cfg.Requests,
-				logfields.Params, cfg.Opaque.Parameters,
-				logfields.Error, err,
-			)
-			return nil, fmt.Errorf("failed to unmarshal config for %s: %w", path.Join(claim.Namespace, claim.Name), err)
+		requestName := res.Request
+		// if we don't find a matching configuration for this request, requestCfg will remain empty.
+		requestCfg := types.DeviceConfig{}
+
+		// for each result request we look for matching configurations.
+		for _, cfg := range deviceAllocation.Config {
+			if len(cfg.Requests) != 0 && !slices.Contains(cfg.Requests, requestName) {
+				// this is a config not related to our driver.
+				continue
+			}
+
+			if cfg.Opaque == nil || cfg.Opaque.Parameters.Raw == nil {
+				// if we have a config for the request it must contain actual parameters.
+				return nil, fmt.Errorf("empty configuration is not allowed for request: %s", requestName)
+			}
+
+			if !requestCfg.Empty() {
+				// for now we don't allow overlapping configurations for the same request.
+				// if we hit this case we return an error and the user must resolve the conflict.
+				return nil, fmt.Errorf("overlapping configurations are not allowed for request: %s", requestName)
+			}
+
+			if err := json.Unmarshal(cfg.Opaque.Parameters.Raw, &requestCfg); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal config parameters %s: %w",
+					string(cfg.Opaque.Parameters.Raw), err)
+			}
 		}
-		for _, request := range cfg.Requests {
-			devicesCfg[request] = c
-		}
+		devicesCfg[requestName] = requestCfg
 	}
 	return devicesCfg, nil
 }
@@ -387,32 +456,82 @@ func (driver *Driver) podForClaim(ctx context.Context, claim *resourceapi.Resour
 	return pod, nil
 }
 
+// allocationID is node-local. The driver publishes one DRA ResourceSlice pool
+// per node, so the device name and scheduler-assigned share identify an
+// allocation without storing that pool name again.
+type allocationID struct {
+	Device  string
+	ShareID kube_types.UID
+}
+
+func allocationIDFromResult(result resourceapi.DeviceRequestAllocationResult) allocationID {
+	return allocationID{
+		Device:  result.Device,
+		ShareID: shareIDFromResult(result),
+	}
+}
+
+func allocationIDFromStatus(status resourceapi.AllocatedDeviceStatus) allocationID {
+	var shareID kube_types.UID
+	if status.ShareID != nil {
+		shareID = kube_types.UID(*status.ShareID)
+	}
+
+	return allocationID{
+		Device:  status.Device,
+		ShareID: shareID,
+	}
+}
+
+func shareIDFromResult(result resourceapi.DeviceRequestAllocationResult) kube_types.UID {
+	if result.ShareID == nil {
+		return ""
+	}
+	return *result.ShareID
+}
+
+func (a allocation) id() allocationID {
+	return allocationID{
+		Device:  a.DeviceName,
+		ShareID: a.ShareID,
+	}
+}
+
+func (a allocation) deviceAllocation() types.DeviceAllocation {
+	return types.DeviceAllocation{
+		Config:           a.Config,
+		ShareID:          a.ShareID,
+		ConsumedCapacity: maps.Clone(a.ConsumedCapacity),
+	}
+}
+
 // claimPrepState holds the precomputed lookups used to make prepareResourceClaim
 // idempotent across retries.
 type claimPrepState struct {
-	// devices already set up for this exact (pod, claim), keyed by device name.
-	existingByDevice map[string]allocation
+	// devices already set up for this exact (pod, claim), keyed by allocation identity.
+	existingByDevice map[allocationID]allocation
 	// devices that already have a status entry in the claim for this driver.
-	existingStatusDevice map[string]struct{}
+	existingStatusDevice map[allocationID]struct{}
 }
 
 // newClaimPrepState builds the idempotency lookups for a (pod, claim) pair:
-// which devices were already set up locally, and which already have a
+// which devices were already set up in memory, and which already have a
 // Kubernetes status entry. Both let a retry skip work that already completed.
 func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerReference, claim *resourceapi.ResourceClaim) claimPrepState {
-	existingByDevice := make(map[string]allocation)
+	existingByDevice := make(map[allocationID]allocation)
 	txn := driver.db.ReadTxn()
 	for row := range AllocationsByClaimUID(driver.allocationTable, txn, claim.UID) {
 		if row.PodUID != pod.UID || row.PreparedDevice == nil {
 			continue
 		}
-		existingByDevice[row.DeviceName] = allocationFromRow(row)
+		a := allocationFromRow(row)
+		existingByDevice[a.id()] = a
 	}
 
-	existingStatusDevice := make(map[string]struct{})
+	existingStatusDevice := make(map[allocationID]struct{})
 	for _, ds := range claim.Status.Devices {
 		if ds.Driver == driver.config.DriverName {
-			existingStatusDevice[ds.Device] = struct{}{}
+			existingStatusDevice[allocationIDFromStatus(ds)] = struct{}{}
 		}
 	}
 
@@ -424,14 +543,10 @@ func (driver *Driver) newClaimPrepState(pod resourceapi.ResourceClaimConsumerRef
 
 // validateDeviceConfigs checks that every device config in the claim is
 // valid (podIfName, sysctl settings) before any destructive work begins.
-func validateDeviceConfigs(claim *resourceapi.ResourceClaim, deviceClaimConfigs map[string]types.DeviceConfig) error {
-	for request, cfg := range deviceClaimConfigs {
-		if err := types.ValidateInterfaceName(cfg.PodIfName); err != nil {
-			return fmt.Errorf("invalid podIfName in request %s for claim %s: %w",
-				request, path.Join(claim.Namespace, claim.Name), err)
-		}
-		if err := validateInterfaceSysctl(cfg); err != nil {
-			return fmt.Errorf("invalid sysctl config in request %s for claim %s: %w",
+func validateDeviceConfigs(claim *resourceapi.ResourceClaim, deviceCfgs map[string]types.DeviceConfig) error {
+	for request, cfg := range deviceCfgs {
+		if err := cfg.Validate(); err != nil {
+			return fmt.Errorf("invalid device config in request %s for claim %s: %w",
 				request, path.Join(claim.Namespace, claim.Name), err)
 		}
 	}
@@ -447,7 +562,7 @@ func (driver *Driver) cleanupAllocation(a allocation) error {
 		errs = append(errs, fmt.Errorf("failed to release addresses: %w", err))
 	}
 	if a.Device != nil {
-		if err := a.Device.Free(a.Config); err != nil {
+		if err := a.Device.Free(a.deviceAllocation()); err != nil {
 			errs = append(errs, fmt.Errorf("failed to free device: %w", err))
 		} else {
 			a.Device = nil
@@ -485,6 +600,8 @@ func (driver *Driver) prepareClaimDevice(
 	return driver.getNewAllocation(ctx, claim, result, cfg)
 }
 
+// getNewAllocation sets up the kernel device for a newly allocated claim
+// device result.
 func (driver *Driver) getNewAllocation(
 	ctx context.Context,
 	claim *resourceapi.ResourceClaim,
@@ -499,9 +616,10 @@ func (driver *Driver) getNewAllocation(
 
 	claimNamespacedName := path.Join(claim.Namespace, claim.Name)
 	alloc := allocation{
-		DeviceName: result.Device,
-		Pool:       result.Pool,
-		Config:     cfg,
+		DeviceName:       result.Device,
+		Config:           cfg,
+		ShareID:          shareIDFromResult(result),
+		ConsumedCapacity: maps.Clone(result.ConsumedCapacity),
 	}
 
 	// Setup the rollback function to clean up the device if any subsequent step fails.
@@ -531,13 +649,21 @@ func (driver *Driver) getNewAllocation(
 		return allocation{}, nil, fmt.Errorf("%s for device %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
 	}
 
-	// Setup the device
-	if err = draDevice.Dev.Setup(alloc.Config); err != nil {
+	// Setup the device. The prepared device may differ from the advertised
+	// device when setup creates allocation-specific state.
+	alloc.Manager = draDevice.Manager
+	var prepared types.Device
+	if prepared, err = draDevice.Dev.Setup(alloc.deviceAllocation()); err != nil {
 		errMsg = "failed to set up device"
 		return allocation{}, nil, fmt.Errorf("%s for ifname %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
 	}
-	alloc.Device = draDevice.Dev
-	alloc.Manager = draDevice.Manager
+	if prepared == nil {
+		errMsg = "failed to set up device"
+		err = fmt.Errorf("device %s returned no prepared device", result.Device)
+		return allocation{}, nil, fmt.Errorf("%s for ifname %s in claim %s: %w", errMsg, alloc.DeviceName, claimNamespacedName, err)
+	}
+	alloc.Device = prepared
+	alloc.LogicalPool = driver.resolvePool(draDevice.Dev, driver.config.Pools)
 
 	// Build the device status
 	var built resourceapi.AllocatedDeviceStatus
@@ -570,12 +696,13 @@ func (driver *Driver) reuseAllocatedDevice(
 	result resourceapi.DeviceRequestAllocationResult,
 	state claimPrepState,
 ) (*allocation, *resourceapi.AllocatedDeviceStatus, error) {
-	existing, alreadyDone := state.existingByDevice[result.Device]
+	id := allocationIDFromResult(result)
+	existing, alreadyDone := state.existingByDevice[id]
 	if !alreadyDone {
 		return nil, nil, nil
 	}
 
-	if _, statusPresent := state.existingStatusDevice[result.Device]; statusPresent {
+	if _, statusPresent := state.existingStatusDevice[id]; statusPresent {
 		return &existing, nil, nil
 	}
 
@@ -586,6 +713,14 @@ func (driver *Driver) reuseAllocatedDevice(
 	}
 
 	return &existing, &status, nil
+}
+
+// podInterfaceName returns the interface name after any configured rename.
+func podInterfaceName(a allocation) string {
+	if a.Config.PodIfName != "" {
+		return a.Config.PodIfName
+	}
+	return a.Device.KernelIfName()
 }
 
 // buildDeviceStatus serializes a fully set-up device allocation into the
@@ -600,10 +735,6 @@ func (driver *Driver) buildDeviceStatus(
 		return resourceapi.AllocatedDeviceStatus{}, err
 	}
 
-	ifName := a.Device.IfName()
-	if a.Config.PodIfName != "" {
-		ifName = a.Config.PodIfName
-	}
 	ips := make([]string, 0, 2)
 	if driver.ipv4Enabled && a.Config.IPv4Addr.IsValid() {
 		ips = append(ips, a.Config.IPv4Addr.String())
@@ -612,35 +743,80 @@ func (driver *Driver) buildDeviceStatus(
 		ips = append(ips, a.Config.IPv6Addr.String())
 	}
 
+	var shareID *string
+	if a.ShareID != "" {
+		shareID = ptr.To(string(a.ShareID))
+	}
+
 	return resourceapi.AllocatedDeviceStatus{
 		Driver:     driver.config.DriverName,
 		Pool:       result.Pool,
 		Device:     result.Device,
+		ShareID:    shareID,
 		Conditions: []metav1.Condition{conditionReady(claim)},
 		Data:       &runtime.RawExtension{Raw: rawDev},
 		NetworkData: &resourceapi.NetworkDeviceData{
-			InterfaceName: ifName,
+			InterfaceName: podInterfaceName(a),
 			IPs:           ips,
 		},
 	}, nil
 }
 
-// conflictingDeviceForPod returns the name of the first device that is
-// already allocated to podUID by a claim other than skipClaimUID, or "" if
-// there is no conflict. The check skips skipClaimUID so re-preparing an
-// existing claim remains idempotent.
+func prepareResultDevices(
+	results []resourceapi.DeviceRequestAllocationResult,
+	allocations []allocation,
+) []kubeletplugin.Device {
+	devices := make([]kubeletplugin.Device, 0, len(allocations))
+	for i, a := range allocations {
+		result := results[i]
+		deviceAttrs := a.Device.GetAttrs()
+		attrs := make(map[string]resourceapi.DeviceAttribute, len(deviceAttrs)+2)
+		for name, value := range deviceAttrs {
+			attrs[string(name)] = value
+		}
+		attrs[types.DeviceManagerLabel] = resourceapi.DeviceAttribute{
+			StringValue: ptr.To(a.Manager.String()),
+		}
+		attrs[types.PoolNameLabel] = resourceapi.DeviceAttribute{
+			StringValue: ptr.To(a.LogicalPool),
+		}
+
+		devices = append(devices, kubeletplugin.Device{
+			Requests:   []string{result.Request},
+			PoolName:   result.Pool,
+			DeviceName: result.Device,
+			ShareID:    result.ShareID,
+			Metadata: &kubeletplugin.DeviceMetadata{
+				Attributes: attrs,
+				NetworkData: &resourceapi.NetworkDeviceData{
+					InterfaceName: podInterfaceName(a),
+				},
+			},
+		})
+	}
+	return devices
+}
+
+// conflictingDeviceForPod returns the name of the first DRA allocation that
+// conflicts with a result requested for podUID by a different claim. Different
+// non-empty shares of the same device can coexist. The check skips
+// skipClaimUID so an idempotent retry is not rejected.
 func (driver *Driver) conflictingDeviceForPod(podUID kube_types.UID, skipClaimUID kube_types.UID, results []resourceapi.DeviceRequestAllocationResult) string {
 	txn := driver.db.ReadTxn()
-	requested := make(map[string]struct{}, len(results))
-	for _, result := range results {
-		requested[result.Device] = struct{}{}
-	}
 	for row := range AllocationsByPodUID(driver.allocationTable, txn, podUID) {
 		if row.ClaimUID == skipClaimUID {
 			continue
 		}
-		if _, conflict := requested[row.DeviceName]; conflict {
-			return row.DeviceName
+
+		allocated := allocationID{Device: row.DeviceName, ShareID: row.ShareID}
+		for _, result := range results {
+			requested := allocationIDFromResult(result)
+			if allocated.Device != requested.Device {
+				continue
+			}
+			if allocated.ShareID == "" || requested.ShareID == "" || allocated.ShareID == requested.ShareID {
+				return result.Device
+			}
 		}
 	}
 	return ""
@@ -664,20 +840,22 @@ func serializeDevice(a allocation) ([]byte, error) {
 	}
 
 	return json.Marshal(types.SerializedDevice{
-		Manager: a.Manager,
-		Dev:     data,
-		Config:  a.Config,
+		Manager:          a.Manager,
+		Dev:              data,
+		Config:           a.Config,
+		LogicalPool:      a.LogicalPool,
+		ConsumedCapacity: maps.Clone(a.ConsumedCapacity),
 	})
 }
 
-func deserializeDevice(data []byte) (types.DeviceManagerType, json.RawMessage, types.DeviceConfig, error) {
+func deserializeDevice(data []byte) (types.SerializedDevice, error) {
 	var dev types.SerializedDevice
 
 	if err := json.Unmarshal(data, &dev); err != nil {
-		return types.DeviceManagerTypeUnknown, nil, types.DeviceConfig{}, err
+		return types.SerializedDevice{}, err
 	}
 
-	return dev.Manager, dev.Dev, dev.Config, nil
+	return dev, nil
 }
 
 func (driver *Driver) releaseAddrs(cfg types.DeviceConfig) error {
@@ -758,7 +936,7 @@ func (driver *Driver) allocateAddrs(ctx context.Context, deviceName string, cfg 
 				ctx, "failed to get IP addresses for device, will retry",
 				logfields.Device, deviceName,
 				logfields.PoolName, cfg.IPPool,
-				logfields.Error, errs,
+				logfields.Error, errors.Join(errs...),
 			)
 			return false, nil
 		}

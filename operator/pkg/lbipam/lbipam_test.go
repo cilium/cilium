@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_api_v2alpha1 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client"
 	k8sFakeClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
 	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
@@ -3217,7 +3216,7 @@ func TestRequiredLBClass(t *testing.T) {
 
 	// Enable the requirement for a specific LBClass and set a class to look for
 	fixture.lbipam.defaultIPAM = false
-	fixture.lbipam.lbClasses = []string{cilium_api_v2alpha1.BGPLoadBalancerClass}
+	fixture.lbipam.lbClasses = []string{cilium_api_v2.BGPLoadBalancerClass}
 
 	fixture.UpsertPool(t, poolA)
 
@@ -3238,7 +3237,7 @@ func TestRequiredLBClass(t *testing.T) {
 		t.Error("Expected service to receive no ingress IPs")
 	}
 
-	lbClass := cilium_api_v2alpha1.BGPLoadBalancerClass
+	lbClass := cilium_api_v2.BGPLoadBalancerClass
 	svcA.Spec.LoadBalancerClass = &lbClass
 
 	fixture.UpsertSvc(t, svcA)

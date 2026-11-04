@@ -1,4 +1,4 @@
 [build]
   base = "Documentation/"
   publish = "_build/html"
-  command = "make html-netlify"
+  command = "pip install -r ../images/docs-builder/requirements.txt && make html-netlify"

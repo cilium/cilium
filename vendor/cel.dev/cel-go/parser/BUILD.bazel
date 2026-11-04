@@ -7,12 +7,15 @@ package(
 go_library(
     name = "go_default_library",
     srcs = [
+        "antlr_parser.go",
         "errors.go",
         "helper.go",
         "input.go",
+        "lexer.go",
         "macro.go",
         "options.go",
         "parser.go",
+        "pratt_parser.go",
         "unescape.go",
         "unparser.go",
     ],
@@ -38,6 +41,7 @@ go_test(
     size = "small",
     srcs = [
         "helper_test.go",
+        "lexer_test.go",
         "parser_test.go",
         "unescape_test.go",
         "unparser_test.go",
@@ -46,9 +50,11 @@ go_test(
         ":go_default_library",
     ],
     deps = [
+        "//common:go_default_library",
         "//common/ast:go_default_library",
         "//common/debug:go_default_library",
         "//common/operators:go_default_library",
+        "//common/runes:go_default_library",
         "//common/types:go_default_library",
         "//parser/gen:go_default_library",
         "//test:go_default_library",

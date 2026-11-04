@@ -5,6 +5,8 @@ package compute
 
 import (
 	"context"
+	"errors"
+	"runtime"
 	"testing"
 	"time"
 
@@ -16,20 +18,24 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/container/set"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/hive"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils"
 	testpolicy "github.com/cilium/cilium/pkg/testutils/policy"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 func TestRecomputeIdentityPolicy(t *testing.T) {
 	testutils.GoleakVerifyNone(t, testutils.GoleakIgnoreCurrent())
 
 	t.Run("creates entry and fires waiting watch", func(t *testing.T) {
-		_, _, computer, _ := fixture(t)
+		_, _, computer, idmgr := fixture(t)
 
 		targetID := identity.NumericIdentity(7)
 		id := identity.NewIdentity(targetID, labels.Labels{})
@@ -38,6 +44,7 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 		require.False(t, found)
 		require.NotNil(t, watch)
 
+		idmgr.Add(id)
 		done, err := computer.RecomputeIdentityPolicy(id, 1)
 		require.NoError(t, err)
 		<-done
@@ -51,6 +58,36 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 		obj, _, _, found := computer.GetIdentityPolicyByIdentity(id)
 		require.True(t, found)
 		assert.Equal(t, targetID, obj.Identity)
+	})
+
+	t.Run("registration computes full policy after unregistered request", func(t *testing.T) {
+		prev := policy.GetPolicyEnabled()
+		policy.SetPolicyEnabled(option.DefaultEnforcement)
+		t.Cleanup(func() { policy.SetPolicyEnabled(prev) })
+
+		_, _, computer, idmgr, repo := fixtureWithRepo(t)
+		_, rev := repo.MustAddList(api.Rules{{
+			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("k8s:app=target")),
+			Ingress: []api.IngressRule{{
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+				},
+			}},
+		}})
+
+		id := identity.NewIdentity(identity.NumericIdentity(9), labels.NewLabelsFromModel([]string{"k8s:app=target"}))
+
+		_, err := computer.RecomputeIdentityPolicy(id, rev)
+		require.ErrorIs(t, err, ErrIdentityNotRegistered)
+
+		idmgr.Add(id)
+		obj := waitForEntry(t, computer, id, true)
+		require.Equal(t, rev, obj.Revision)
+
+		logger := hivetest.Logger(t)
+		ep := obj.NewPolicy.DistillPolicy(logger, fakeOwner{}, nil)
+		t.Cleanup(func() { ep.Detach(logger) })
+		require.True(t, ep.SelectorPolicy.IngressPolicyEnabled)
 	})
 
 	t.Run("update fires watch", func(t *testing.T) {
@@ -136,6 +173,78 @@ func TestRecomputeIdentityPolicy(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("recomputation supersedes the replaced policy", func(t *testing.T) {
+		_, _, computer, idmgr := fixture(t)
+
+		id := computeFor(t, computer, idmgr, identity.NumericIdentity(30))
+		old, _, _, found := computer.GetIdentityPolicyByIdentity(id)
+		require.True(t, found)
+
+		done, err := computer.RecomputeIdentityPolicy(id, old.Revision+1)
+		require.NoError(t, err)
+		<-done
+		computeFor(t, computer, idmgr, identity.NumericIdentity(31))
+
+		require.False(t, old.NewPolicy.AddHold(), "replaced policy was not superseded")
+	})
+
+	// A superseded policy must not keep any live references once another
+	// policy has replaced it.
+	t.Run("superseded policy is not leaked", func(t *testing.T) {
+		_, _, computer, idmgr := fixture(t)
+		id := computeFor(t, computer, idmgr, identity.NumericIdentity(32))
+
+		collected := make(chan struct{})
+		var rev uint64
+		func() {
+			obj, _, _, found := computer.GetIdentityPolicyByIdentity(id)
+			require.True(t, found)
+			require.NotNil(t, obj.NewPolicy)
+			runtime.SetFinalizer(obj.NewPolicy, func(any) { close(collected) })
+			rev = obj.Revision
+		}()
+
+		done, err := computer.RecomputeIdentityPolicy(id, rev+1)
+		require.NoError(t, err)
+		<-done
+		// The batch holds the old policy until it has superseded it, so wait for
+		// the next batch.
+		computeFor(t, computer, idmgr, identity.NumericIdentity(33))
+
+		runtime.GC()
+		select {
+		case <-collected:
+		case <-time.After(5 * time.Second):
+			t.Fatal("superseded policy is still reachable after its replacement committed")
+		}
+	})
+
+	// A failed computation is requeued with enqueueLocked, so it merges with a
+	// request for the same identity that came in while its batch was computed.
+	t.Run("failed computation merges its retry with a pending request", func(t *testing.T) {
+		db := statedb.New()
+		tbl, _, err := NewPolicyComputationTable(db)
+		require.NoError(t, err)
+		r := &IdentityPolicyComputer{db: db, tbl: tbl, logger: hivetest.Logger(t), localIdentities: map[identity.NumericIdentity]uint64{}}
+
+		id := identity.NewIdentity(11, labels.Labels{})
+		markLocal(r, id)
+		r.reqsMu.Lock()
+		r.enqueueLocked(id, 5)
+		r.reqsMu.Unlock()
+
+		failed := newResult(r, id, Result{Err: errors.New("failed")})
+		failed.toRev = 7
+		wtxn := db.WriteTxn(tbl)
+		_, _, _, retry := r.commitResults(wtxn, []computeResult{failed})
+		wtxn.Commit()
+
+		require.True(t, retry)
+		require.Len(t, r.reqs, 1)
+		require.Equal(t, id.ID, r.reqs[0].identity.ID)
+		require.Equal(t, uint64(7), r.reqs[0].toRev)
+	})
 }
 
 func TestIdentityManagerObserver(t *testing.T) {
@@ -164,7 +273,73 @@ func TestIdentityManagerObserver(t *testing.T) {
 
 		idmgr.Remove(id)
 		waitForEntry(t, computer, id, false)
+
+		// UpdatePolicy and RecomputeIdentityPolicyForAllIdentities look
+		// identities up before they lock reqsMu, so a request can come after
+		// the removal. It must not be queued.
+		done := computer.(*IdentityPolicyComputer).recompute(id, 0)
+		select {
+		case <-done:
+		default:
+			t.Fatal("request for a removed identity was queued")
+		}
+		_, _, _, found := computer.GetIdentityPolicyByIdentity(id)
+		require.False(t, found)
 	})
+
+	t.Run("remove during computation drops result", func(t *testing.T) {
+		_, _, computer, idmgr := fixture(t)
+		r := computer.(*IdentityPolicyComputer)
+
+		removed := computeFor(t, computer, idmgr, 9)
+		readded := computeFor(t, computer, idmgr, 10)
+		kept := computeFor(t, computer, idmgr, 11)
+		sp := waitForEntry(t, computer, removed, true).NewPolicy
+		// Computations queued now, and still running when the identities are
+		// removed, or removed and added again.
+		results := []computeResult{
+			newResult(r, removed, Result{NewPolicy: sp}),
+			newResult(r, removed, Result{Err: errors.New("failed")}),
+			newResult(r, readded, Result{}),
+			newResult(r, kept, Result{}),
+		}
+		idmgr.Remove(removed)
+		waitForEntry(t, computer, removed, false)
+		idmgr.Remove(readded)
+		idmgr.Add(readded)
+
+		wtxn := r.db.WriteTxn(r.tbl)
+		committed, _, dropped, retry := r.commitResults(wtxn, results)
+		wtxn.Commit()
+
+		require.Len(t, committed, 1)
+		require.Equal(t, kept.ID, committed[0].res.Identity)
+		require.Equal(t, []policy.SelectorPolicy{sp}, dropped)
+		require.False(t, retry, "failed computation of a removed identity was requeued")
+		_, _, _, found := computer.GetIdentityPolicyByNumericIdentity(removed.ID)
+		require.False(t, found, "removed identity has a committed policy")
+	})
+
+}
+
+// markLocal makes id local to r without computing its policy.
+func markLocal(r *IdentityPolicyComputer, id *identity.Identity) {
+	r.reqsMu.Lock()
+	r.addLocalLocked(id)
+	r.reqsMu.Unlock()
+}
+
+// newResult returns the result of computing res for id, as if the request for
+// it was queued now.
+func newResult(r *IdentityPolicyComputer, id *identity.Identity, res Result) computeResult {
+	r.reqsMu.Lock()
+	generation := r.localIdentities[id.ID]
+	r.reqsMu.Unlock()
+	res.Identity = id.ID
+	return computeResult{
+		pending: pending{computeRequest: computeRequest{identity: id, generation: generation}},
+		res:     res,
+	}
 }
 
 func waitForEntry(t *testing.T, computer PolicyRecomputer, id *identity.Identity, want bool) Result {
@@ -295,11 +470,11 @@ func TestAdvanceDoesNotSatisfyRecompute(t *testing.T) {
 		t.Fatal("recomputation request never completed")
 	}
 
-	// OldPolicy is only set when a computation ran and replaced a committed
-	// policy, so it is the oracle for "this was recomputed, not carried".
+	// Only a computation that ran replaces the committed policy, so a new
+	// NewPolicy tells us "this was recomputed and not carried over".
 	obj, _, _, found := computer.GetIdentityPolicyByIdentity(carried)
 	require.True(t, found)
-	require.NotNil(t, obj.OldPolicy,
+	require.NotSame(t, before.NewPolicy, obj.NewPolicy,
 		"requested recomputation was skipped because the policy had been carried forward")
 	require.GreaterOrEqual(t, obj.Revision, before.Revision)
 }
@@ -336,6 +511,13 @@ func TestUpdatePolicyAdvanceDoesNotRegress(t *testing.T) {
 }
 
 func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager) {
+	t.Helper()
+
+	db, table, computer, idmgr, _ := fixtureWithRepo(t)
+	return db, table, computer, idmgr
+}
+
+func fixtureWithRepo(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomputer, identitymanager.IDManager, *policy.Repository) {
 	t.Helper()
 
 	logger := hivetest.Logger(t)
@@ -384,5 +566,18 @@ func fixture(t *testing.T) (*statedb.DB, statedb.RWTable[Result], PolicyRecomput
 	assert.NotNil(t, table)
 	assert.NotNil(t, computer)
 
-	return db, table, computer, idmgr
+	return db, table, computer, idmgr, repo
+}
+
+type fakeOwner struct{}
+
+func (fakeOwner) GetID() uint64                                      { return 1 }
+func (fakeOwner) GetIngressNamedPort(string, u8proto.U8proto) uint16 { return 0 }
+func (fakeOwner) PolicyDebug(string, ...any)                         {}
+func (fakeOwner) IsHost() bool                                       { return false }
+func (fakeOwner) PreviousMapStateSizes() policy.MapStateSizes        { return policy.MapStateSizes{} }
+func (fakeOwner) RegenerateIfAlive(*regeneration.ExternalRegenerationMetadata) <-chan bool {
+	ch := make(chan bool)
+	close(ch)
+	return ch
 }

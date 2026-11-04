@@ -17,6 +17,10 @@ import (
 // swagger:model EndpointDatapathConfiguration
 type EndpointDatapathConfiguration struct {
 
+	// Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.
+	//
+	RequireBPFRouting *bool `json:"require-routing,omitempty"`
+
 	// Disable source IP verification for the endpoint.
 	//
 	DisableSipVerification bool `json:"disable-sip-verification,omitempty"`
@@ -35,10 +39,6 @@ type EndpointDatapathConfiguration struct {
 	// Endpoint requires a host-facing egress program to be attached to implement ingress policy and reverse NAT.
 	//
 	RequireEgressProg bool `json:"require-egress-prog,omitempty"`
-
-	// Endpoint requires BPF routing to be enabled, when disabled, routing is delegated to Linux routing.
-	//
-	RequireRouting *bool `json:"require-routing,omitempty"`
 }
 
 // Validate validates this endpoint datapath configuration

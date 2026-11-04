@@ -20,7 +20,7 @@ import (
 // ExpressRouteCircuitsClient contains the methods for the ExpressRouteCircuits group.
 // Don't use this type directly, use NewExpressRouteCircuitsClient() instead.
 //
-// Generated from API version 2026-01-01
+// Generated from API version 2026-03-01
 type ExpressRouteCircuitsClient struct {
 	internal       *arm.Client
 	subscriptionID string
@@ -69,7 +69,7 @@ func (client *ExpressRouteCircuitsClient) BeginCreateOrUpdate(ctx context.Contex
 	}
 }
 
-// CreateOrUpdate - Creates or updates an express route circuit.
+// createOrUpdate - Creates or updates an express route circuit.
 // If the operation fails it returns an *azcore.ResponseError type.
 func (client *ExpressRouteCircuitsClient) createOrUpdate(ctx context.Context, resourceGroupName string, circuitName string, parameters ExpressRouteCircuit, options *ExpressRouteCircuitsClientBeginCreateOrUpdateOptions) (*http.Response, error) {
 	var err error
@@ -91,7 +91,7 @@ func (client *ExpressRouteCircuitsClient) createOrUpdate(ctx context.Context, re
 	return httpResp, nil
 }
 
-// createOrUpdateCreateRequest creates the CreateOrUpdate request.
+// createOrUpdateCreateRequest creates the createOrUpdate request.
 func (client *ExpressRouteCircuitsClient) createOrUpdateCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, parameters ExpressRouteCircuit, _ *ExpressRouteCircuitsClientBeginCreateOrUpdateOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}"
 	if client.subscriptionID == "" {
@@ -111,7 +111,7 @@ func (client *ExpressRouteCircuitsClient) createOrUpdateCreateRequest(ctx contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}
@@ -129,7 +129,7 @@ func (client *ExpressRouteCircuitsClient) createOrUpdateCreateRequest(ctx contex
 //     method.
 func (client *ExpressRouteCircuitsClient) BeginDelete(ctx context.Context, resourceGroupName string, circuitName string, options *ExpressRouteCircuitsClientBeginDeleteOptions) (*runtime.Poller[ExpressRouteCircuitsClientDeleteResponse], error) {
 	if options == nil || options.ResumeToken == "" {
-		resp, err := client.deleteOperation(ctx, resourceGroupName, circuitName, options)
+		resp, err := client.delete(ctx, resourceGroupName, circuitName, options)
 		if err != nil {
 			return nil, err
 		}
@@ -144,9 +144,9 @@ func (client *ExpressRouteCircuitsClient) BeginDelete(ctx context.Context, resou
 	}
 }
 
-// Delete - Deletes the specified express route circuit.
+// delete - Deletes the specified express route circuit.
 // If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCircuitsClient) deleteOperation(ctx context.Context, resourceGroupName string, circuitName string, options *ExpressRouteCircuitsClientBeginDeleteOptions) (*http.Response, error) {
+func (client *ExpressRouteCircuitsClient) delete(ctx context.Context, resourceGroupName string, circuitName string, options *ExpressRouteCircuitsClientBeginDeleteOptions) (*http.Response, error) {
 	var err error
 	const operationName = "ExpressRouteCircuitsClient.BeginDelete"
 	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
@@ -166,7 +166,7 @@ func (client *ExpressRouteCircuitsClient) deleteOperation(ctx context.Context, r
 	return httpResp, nil
 }
 
-// deleteCreateRequest creates the Delete request.
+// deleteCreateRequest creates the delete request.
 func (client *ExpressRouteCircuitsClient) deleteCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, _ *ExpressRouteCircuitsClientBeginDeleteOptions) (*policy.Request, error) {
 	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}"
 	if client.subscriptionID == "" {
@@ -186,8 +186,565 @@ func (client *ExpressRouteCircuitsClient) deleteCreateRequest(ctx context.Contex
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	return req, nil
+}
+
+// BeginGetCircuitLinkFailoverAllTestsDetails - Retrieves the details of all the link failover tests performed on the express
+// route circuit.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - circuitName - The name of express route circuit.
+//   - options - ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverAllTestsDetailsOptions contains the optional parameters
+//     for the ExpressRouteCircuitsClient.BeginGetCircuitLinkFailoverAllTestsDetails method.
+func (client *ExpressRouteCircuitsClient) BeginGetCircuitLinkFailoverAllTestsDetails(ctx context.Context, resourceGroupName string, circuitName string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverAllTestsDetailsOptions) (*runtime.Poller[ExpressRouteCircuitsClientGetCircuitLinkFailoverAllTestsDetailsResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.getCircuitLinkFailoverAllTestsDetails(ctx, resourceGroupName, circuitName, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientGetCircuitLinkFailoverAllTestsDetailsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientGetCircuitLinkFailoverAllTestsDetailsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// getCircuitLinkFailoverAllTestsDetails - Retrieves the details of all the link failover tests performed on the express route
+// circuit.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCircuitsClient) getCircuitLinkFailoverAllTestsDetails(ctx context.Context, resourceGroupName string, circuitName string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverAllTestsDetailsOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCircuitsClient.BeginGetCircuitLinkFailoverAllTestsDetails"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.getCircuitLinkFailoverAllTestsDetailsCreateRequest(ctx, resourceGroupName, circuitName, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// getCircuitLinkFailoverAllTestsDetailsCreateRequest creates the getCircuitLinkFailoverAllTestsDetails request.
+func (client *ExpressRouteCircuitsClient) getCircuitLinkFailoverAllTestsDetailsCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverAllTestsDetailsOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/getCircuitLinkFailoverAllTestsDetails"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if circuitName == "" {
+		return nil, errors.New("parameter circuitName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	if options != nil && options.FailoverTestType != nil {
+		reqQP.Set("failoverTestType", *options.FailoverTestType)
+	}
+	if options != nil && options.FetchLatest != nil {
+		reqQP.Set("fetchLatest", strconv.FormatBool(*options.FetchLatest))
+	}
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginGetCircuitLinkFailoverSingleTestDetails - Retrieves the details of a particular link failover test performed on the
+// express route circuit.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - circuitName - The name of express route circuit.
+//   - linkType - The link type.
+//   - circuitTestCategory - The circuit test category.
+//   - failoverTestID - The unique Guid value which identifies the test.
+//   - options - ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverSingleTestDetailsOptions contains the optional parameters
+//     for the ExpressRouteCircuitsClient.BeginGetCircuitLinkFailoverSingleTestDetails method.
+func (client *ExpressRouteCircuitsClient) BeginGetCircuitLinkFailoverSingleTestDetails(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, failoverTestID string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverSingleTestDetailsOptions) (*runtime.Poller[ExpressRouteCircuitsClientGetCircuitLinkFailoverSingleTestDetailsResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.getCircuitLinkFailoverSingleTestDetails(ctx, resourceGroupName, circuitName, linkType, circuitTestCategory, failoverTestID, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientGetCircuitLinkFailoverSingleTestDetailsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientGetCircuitLinkFailoverSingleTestDetailsResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// getCircuitLinkFailoverSingleTestDetails - Retrieves the details of a particular link failover test performed on the express
+// route circuit.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCircuitsClient) getCircuitLinkFailoverSingleTestDetails(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, failoverTestID string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverSingleTestDetailsOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCircuitsClient.BeginGetCircuitLinkFailoverSingleTestDetails"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.getCircuitLinkFailoverSingleTestDetailsCreateRequest(ctx, resourceGroupName, circuitName, linkType, circuitTestCategory, failoverTestID, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// getCircuitLinkFailoverSingleTestDetailsCreateRequest creates the getCircuitLinkFailoverSingleTestDetails request.
+func (client *ExpressRouteCircuitsClient) getCircuitLinkFailoverSingleTestDetailsCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, failoverTestID string, _ *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverSingleTestDetailsOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/getCircuitLinkFailoverSingleTestDetails"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if circuitName == "" {
+		return nil, errors.New("parameter circuitName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	reqQP.Set("circuitTestCategory", circuitTestCategory)
+	reqQP.Set("failoverTestId", failoverTestID)
+	reqQP.Set("linkType", linkType)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginListArpTable - Gets the currently advertised ARP table associated with the express route circuit in a resource group.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - circuitName - The name of the express route port.
+//   - peeringName - The name of the peering.
+//   - devicePath - The name of the arpTables.
+//   - options - ExpressRouteCircuitsClientBeginListArpTableOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginListArpTable
+//     method.
+func (client *ExpressRouteCircuitsClient) BeginListArpTable(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListArpTableOptions) (*runtime.Poller[ExpressRouteCircuitsClientListArpTableResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.listArpTable(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientListArpTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientListArpTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// listArpTable - Gets the currently advertised ARP table associated with the express route circuit in a resource group.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCircuitsClient) listArpTable(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListArpTableOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCircuitsClient.BeginListArpTable"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.listArpTableCreateRequest(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// listArpTableCreateRequest creates the listArpTable request.
+func (client *ExpressRouteCircuitsClient) listArpTableCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, _ *ExpressRouteCircuitsClientBeginListArpTableOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/peerings/{peeringName}/arpTables/{devicePath}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if circuitName == "" {
+		return nil, errors.New("parameter circuitName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
+	if peeringName == "" {
+		return nil, errors.New("parameter peeringName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
+	if devicePath == "" {
+		return nil, errors.New("parameter devicePath cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginListRoutesTable - Gets the currently advertised routes table associated with the express route circuit in a resource
+// group.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - circuitName - The name of the express route port.
+//   - peeringName - The name of the peering.
+//   - devicePath - The name of the routeTables.
+//   - options - ExpressRouteCircuitsClientBeginListRoutesTableOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginListRoutesTable
+//     method.
+func (client *ExpressRouteCircuitsClient) BeginListRoutesTable(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListRoutesTableOptions) (*runtime.Poller[ExpressRouteCircuitsClientListRoutesTableResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.listRoutesTable(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientListRoutesTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientListRoutesTableResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// listRoutesTable - Gets the currently advertised routes table associated with the express route circuit in a resource group.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCircuitsClient) listRoutesTable(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListRoutesTableOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCircuitsClient.BeginListRoutesTable"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.listRoutesTableCreateRequest(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// listRoutesTableCreateRequest creates the listRoutesTable request.
+func (client *ExpressRouteCircuitsClient) listRoutesTableCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, _ *ExpressRouteCircuitsClientBeginListRoutesTableOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/peerings/{peeringName}/routeTables/{devicePath}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if circuitName == "" {
+		return nil, errors.New("parameter circuitName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
+	if peeringName == "" {
+		return nil, errors.New("parameter peeringName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
+	if devicePath == "" {
+		return nil, errors.New("parameter devicePath cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginListRoutesTableSummary - Gets the currently advertised routes table summary associated with the express route circuit
+// in a resource group.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - circuitName - The name of the express route port.
+//   - peeringName - The name of the peering.
+//   - devicePath - The name of the routeTablesSummary.
+//   - options - ExpressRouteCircuitsClientBeginListRoutesTableSummaryOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginListRoutesTableSummary
+//     method.
+func (client *ExpressRouteCircuitsClient) BeginListRoutesTableSummary(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListRoutesTableSummaryOptions) (*runtime.Poller[ExpressRouteCircuitsClientListRoutesTableSummaryResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.listRoutesTableSummary(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientListRoutesTableSummaryResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientListRoutesTableSummaryResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// listRoutesTableSummary - Gets the currently advertised routes table summary associated with the express route circuit in
+// a resource group.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCircuitsClient) listRoutesTableSummary(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListRoutesTableSummaryOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCircuitsClient.BeginListRoutesTableSummary"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.listRoutesTableSummaryCreateRequest(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// listRoutesTableSummaryCreateRequest creates the listRoutesTableSummary request.
+func (client *ExpressRouteCircuitsClient) listRoutesTableSummaryCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, _ *ExpressRouteCircuitsClientBeginListRoutesTableSummaryOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/peerings/{peeringName}/routeTablesSummary/{devicePath}"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if circuitName == "" {
+		return nil, errors.New("parameter circuitName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
+	if peeringName == "" {
+		return nil, errors.New("parameter peeringName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
+	if devicePath == "" {
+		return nil, errors.New("parameter devicePath cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginStartCircuitLinkFailoverTest - Starts link failover simulation on the express route circuit for the specified link
+// type and test category.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - circuitName - The name of express route circuit.
+//   - linkType - The link type.
+//   - circuitTestCategory - The circuit test category.
+//   - options - ExpressRouteCircuitsClientBeginStartCircuitLinkFailoverTestOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginStartCircuitLinkFailoverTest
+//     method.
+func (client *ExpressRouteCircuitsClient) BeginStartCircuitLinkFailoverTest(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, options *ExpressRouteCircuitsClientBeginStartCircuitLinkFailoverTestOptions) (*runtime.Poller[ExpressRouteCircuitsClientStartCircuitLinkFailoverTestResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.startCircuitLinkFailoverTest(ctx, resourceGroupName, circuitName, linkType, circuitTestCategory, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientStartCircuitLinkFailoverTestResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientStartCircuitLinkFailoverTestResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// startCircuitLinkFailoverTest - Starts link failover simulation on the express route circuit for the specified link type
+// and test category.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCircuitsClient) startCircuitLinkFailoverTest(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, options *ExpressRouteCircuitsClientBeginStartCircuitLinkFailoverTestOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCircuitsClient.BeginStartCircuitLinkFailoverTest"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.startCircuitLinkFailoverTestCreateRequest(ctx, resourceGroupName, circuitName, linkType, circuitTestCategory, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// startCircuitLinkFailoverTestCreateRequest creates the startCircuitLinkFailoverTest request.
+func (client *ExpressRouteCircuitsClient) startCircuitLinkFailoverTestCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, _ *ExpressRouteCircuitsClientBeginStartCircuitLinkFailoverTestOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/startCircuitLinkFailoverTest"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if circuitName == "" {
+		return nil, errors.New("parameter circuitName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	reqQP.Set("circuitTestCategory", circuitTestCategory)
+	reqQP.Set("linkType", linkType)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	return req, nil
+}
+
+// BeginStopCircuitLinkFailoverTest - Stops link failover simulation on the express route circuit.
+// If the operation fails it returns an *azcore.ResponseError type.
+//   - resourceGroupName - The name of the resource group. The name is case insensitive.
+//   - circuitName - The name of express route circuit.
+//   - stopParameters - The content of the action request
+//   - options - ExpressRouteCircuitsClientBeginStopCircuitLinkFailoverTestOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginStopCircuitLinkFailoverTest
+//     method.
+func (client *ExpressRouteCircuitsClient) BeginStopCircuitLinkFailoverTest(ctx context.Context, resourceGroupName string, circuitName string, stopParameters ExpressRouteLinkFailoverStopAPIParameters, options *ExpressRouteCircuitsClientBeginStopCircuitLinkFailoverTestOptions) (*runtime.Poller[ExpressRouteCircuitsClientStopCircuitLinkFailoverTestResponse], error) {
+	if options == nil || options.ResumeToken == "" {
+		resp, err := client.stopCircuitLinkFailoverTest(ctx, resourceGroupName, circuitName, stopParameters, options)
+		if err != nil {
+			return nil, err
+		}
+		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientStopCircuitLinkFailoverTestResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+		return poller, err
+	} else {
+		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientStopCircuitLinkFailoverTestResponse]{
+			Tracer: client.internal.Tracer(),
+		})
+	}
+}
+
+// stopCircuitLinkFailoverTest - Stops link failover simulation on the express route circuit.
+// If the operation fails it returns an *azcore.ResponseError type.
+func (client *ExpressRouteCircuitsClient) stopCircuitLinkFailoverTest(ctx context.Context, resourceGroupName string, circuitName string, stopParameters ExpressRouteLinkFailoverStopAPIParameters, options *ExpressRouteCircuitsClientBeginStopCircuitLinkFailoverTestOptions) (*http.Response, error) {
+	var err error
+	const operationName = "ExpressRouteCircuitsClient.BeginStopCircuitLinkFailoverTest"
+	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
+	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
+	defer func() { endSpan(err) }()
+	req, err := client.stopCircuitLinkFailoverTestCreateRequest(ctx, resourceGroupName, circuitName, stopParameters, options)
+	if err != nil {
+		return nil, err
+	}
+	httpResp, err := client.internal.Pipeline().Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
+		return nil, runtime.NewResponseError(httpResp)
+	}
+	return httpResp, nil
+}
+
+// stopCircuitLinkFailoverTestCreateRequest creates the stopCircuitLinkFailoverTest request.
+func (client *ExpressRouteCircuitsClient) stopCircuitLinkFailoverTestCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, stopParameters ExpressRouteLinkFailoverStopAPIParameters, _ *ExpressRouteCircuitsClientBeginStopCircuitLinkFailoverTestOptions) (*policy.Request, error) {
+	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/stopCircuitLinkFailoverTest"
+	if client.subscriptionID == "" {
+		return nil, errors.New("parameter subscriptionID cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+	if resourceGroupName == "" {
+		return nil, errors.New("parameter resourceGroupName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
+	if circuitName == "" {
+		return nil, errors.New("parameter circuitName cannot be empty")
+	}
+	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
+	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	if err != nil {
+		return nil, err
+	}
+	reqQP := req.Raw().URL.Query()
+	reqQP.Set("api-version", version20260301)
+	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+	req.Raw().Header["Accept"] = []string{"application/json"}
+	req.Raw().Header["Content-Type"] = []string{"application/json"}
+	if err := runtime.MarshalAsJSON(req, stopParameters); err != nil {
+		return nil, err
+	}
 	return req, nil
 }
 
@@ -234,7 +791,7 @@ func (client *ExpressRouteCircuitsClient) getCreateRequest(ctx context.Context, 
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -250,164 +807,6 @@ func (client *ExpressRouteCircuitsClient) getHandleResponse(resp *http.Response,
 		return ExpressRouteCircuitsClientGetResponse{}, err
 	}
 	return result, nil
-}
-
-// BeginGetCircuitLinkFailoverAllTestsDetails - Retrieves the details of all the link failover tests performed on the express
-// route circuit.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - circuitName - The name of express route circuit.
-//   - options - ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverAllTestsDetailsOptions contains the optional parameters
-//     for the ExpressRouteCircuitsClient.BeginGetCircuitLinkFailoverAllTestsDetails method.
-func (client *ExpressRouteCircuitsClient) BeginGetCircuitLinkFailoverAllTestsDetails(ctx context.Context, resourceGroupName string, circuitName string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverAllTestsDetailsOptions) (*runtime.Poller[ExpressRouteCircuitsClientGetCircuitLinkFailoverAllTestsDetailsResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.getCircuitLinkFailoverAllTestsDetails(ctx, resourceGroupName, circuitName, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientGetCircuitLinkFailoverAllTestsDetailsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientGetCircuitLinkFailoverAllTestsDetailsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// GetCircuitLinkFailoverAllTestsDetails - Retrieves the details of all the link failover tests performed on the express route
-// circuit.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCircuitsClient) getCircuitLinkFailoverAllTestsDetails(ctx context.Context, resourceGroupName string, circuitName string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverAllTestsDetailsOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCircuitsClient.BeginGetCircuitLinkFailoverAllTestsDetails"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.getCircuitLinkFailoverAllTestsDetailsCreateRequest(ctx, resourceGroupName, circuitName, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// getCircuitLinkFailoverAllTestsDetailsCreateRequest creates the GetCircuitLinkFailoverAllTestsDetails request.
-func (client *ExpressRouteCircuitsClient) getCircuitLinkFailoverAllTestsDetailsCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverAllTestsDetailsOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/getCircuitLinkFailoverAllTestsDetails"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if circuitName == "" {
-		return nil, errors.New("parameter circuitName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	if options != nil && options.FailoverTestType != nil {
-		reqQP.Set("failoverTestType", *options.FailoverTestType)
-	}
-	if options != nil && options.FetchLatest != nil {
-		reqQP.Set("fetchLatest", strconv.FormatBool(*options.FetchLatest))
-	}
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginGetCircuitLinkFailoverSingleTestDetails - Retrieves the details of a particular link failover test performed on the
-// express route circuit.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - circuitName - The name of express route circuit.
-//   - linkType - The link type.
-//   - circuitTestCategory - The circuit test category.
-//   - failoverTestID - The unique Guid value which identifies the test.
-//   - options - ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverSingleTestDetailsOptions contains the optional parameters
-//     for the ExpressRouteCircuitsClient.BeginGetCircuitLinkFailoverSingleTestDetails method.
-func (client *ExpressRouteCircuitsClient) BeginGetCircuitLinkFailoverSingleTestDetails(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, failoverTestID string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverSingleTestDetailsOptions) (*runtime.Poller[ExpressRouteCircuitsClientGetCircuitLinkFailoverSingleTestDetailsResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.getCircuitLinkFailoverSingleTestDetails(ctx, resourceGroupName, circuitName, linkType, circuitTestCategory, failoverTestID, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientGetCircuitLinkFailoverSingleTestDetailsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientGetCircuitLinkFailoverSingleTestDetailsResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// GetCircuitLinkFailoverSingleTestDetails - Retrieves the details of a particular link failover test performed on the express
-// route circuit.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCircuitsClient) getCircuitLinkFailoverSingleTestDetails(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, failoverTestID string, options *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverSingleTestDetailsOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCircuitsClient.BeginGetCircuitLinkFailoverSingleTestDetails"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.getCircuitLinkFailoverSingleTestDetailsCreateRequest(ctx, resourceGroupName, circuitName, linkType, circuitTestCategory, failoverTestID, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// getCircuitLinkFailoverSingleTestDetailsCreateRequest creates the GetCircuitLinkFailoverSingleTestDetails request.
-func (client *ExpressRouteCircuitsClient) getCircuitLinkFailoverSingleTestDetailsCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, failoverTestID string, _ *ExpressRouteCircuitsClientBeginGetCircuitLinkFailoverSingleTestDetailsOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/getCircuitLinkFailoverSingleTestDetails"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if circuitName == "" {
-		return nil, errors.New("parameter circuitName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	reqQP.Set("circuitTestCategory", circuitTestCategory)
-	reqQP.Set("failoverTestId", failoverTestID)
-	reqQP.Set("linkType", linkType)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
 }
 
 // GetPeeringStats - Gets all stats from an express route circuit in a resource group.
@@ -458,7 +857,7 @@ func (client *ExpressRouteCircuitsClient) getPeeringStatsCreateRequest(ctx conte
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -519,7 +918,7 @@ func (client *ExpressRouteCircuitsClient) getStatsCreateRequest(ctx context.Cont
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	return req, nil
@@ -533,6 +932,73 @@ func (client *ExpressRouteCircuitsClient) getStatsHandleResponse(resp *http.Resp
 	}
 	if err := runtime.UnmarshalAsJSON(resp, &result.ExpressRouteCircuitStats); err != nil {
 		return ExpressRouteCircuitsClientGetStatsResponse{}, err
+	}
+	return result, nil
+}
+
+// NewListAllPager - Gets all the express route circuits in a subscription.
+//   - options - ExpressRouteCircuitsClientListAllOptions contains the optional parameters for the ExpressRouteCircuitsClient.NewListAllPager
+//     method.
+func (client *ExpressRouteCircuitsClient) NewListAllPager(options *ExpressRouteCircuitsClientListAllOptions) *runtime.Pager[ExpressRouteCircuitsClientListAllResponse] {
+	return runtime.NewPager(runtime.PagingHandler[ExpressRouteCircuitsClientListAllResponse]{
+		More: func(page ExpressRouteCircuitsClientListAllResponse) bool {
+			return page.NextLink != nil && len(*page.NextLink) > 0
+		},
+		Fetcher: func(ctx context.Context, page *ExpressRouteCircuitsClientListAllResponse) (ExpressRouteCircuitsClientListAllResponse, error) {
+			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ExpressRouteCircuitsClient.NewListAllPager")
+			nextLink := ""
+			if page != nil {
+				nextLink = *page.NextLink
+			}
+			req, err := client.listAllCreateRequest(ctx, nextLink, options)
+			if err != nil {
+				return ExpressRouteCircuitsClientListAllResponse{}, err
+			}
+			resp, err := client.internal.Pipeline().Do(req)
+			if err != nil {
+				return ExpressRouteCircuitsClientListAllResponse{}, err
+			}
+			return client.listAllHandleResponse(resp, http.StatusOK)
+		},
+		Tracer: client.internal.Tracer(),
+	})
+}
+
+// listAllCreateRequest creates the ListAll request.
+func (client *ExpressRouteCircuitsClient) listAllCreateRequest(ctx context.Context, nextLink string, _ *ExpressRouteCircuitsClientListAllOptions) (*policy.Request, error) {
+	firstPage := nextLink == ""
+	var req *policy.Request
+	var err error
+	if firstPage {
+		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/expressRouteCircuits"
+		if client.subscriptionID == "" {
+			return nil, errors.New("parameter subscriptionID cannot be empty")
+		}
+		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
+		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
+	} else {
+		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if firstPage {
+		reqQP := req.Raw().URL.Query()
+		reqQP.Set("api-version", version20260301)
+		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
+		req.Raw().Header["Accept"] = []string{"application/json"}
+	}
+	return req, nil
+}
+
+// listAllHandleResponse handles the ListAll response.
+func (client *ExpressRouteCircuitsClient) listAllHandleResponse(resp *http.Response, successCodes ...int) (ExpressRouteCircuitsClientListAllResponse, error) {
+	result := ExpressRouteCircuitsClientListAllResponse{}
+	if !runtime.HasStatusCode(resp, successCodes...) {
+		return result, runtime.NewResponseError(resp)
+	}
+	if err := runtime.UnmarshalAsJSON(resp, &result.ExpressRouteCircuitListResult); err != nil {
+		return ExpressRouteCircuitsClientListAllResponse{}, err
 	}
 	return result, nil
 }
@@ -590,7 +1056,7 @@ func (client *ExpressRouteCircuitsClient) listCreateRequest(ctx context.Context,
 	}
 	if firstPage {
 		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
+		reqQP.Set("api-version", version20260301)
 		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 		req.Raw().Header["Accept"] = []string{"application/json"}
 	}
@@ -607,472 +1073,6 @@ func (client *ExpressRouteCircuitsClient) listHandleResponse(resp *http.Response
 		return ExpressRouteCircuitsClientListResponse{}, err
 	}
 	return result, nil
-}
-
-// NewListAllPager - Gets all the express route circuits in a subscription.
-//   - options - ExpressRouteCircuitsClientListAllOptions contains the optional parameters for the ExpressRouteCircuitsClient.NewListAllPager
-//     method.
-func (client *ExpressRouteCircuitsClient) NewListAllPager(options *ExpressRouteCircuitsClientListAllOptions) *runtime.Pager[ExpressRouteCircuitsClientListAllResponse] {
-	return runtime.NewPager(runtime.PagingHandler[ExpressRouteCircuitsClientListAllResponse]{
-		More: func(page ExpressRouteCircuitsClientListAllResponse) bool {
-			return page.NextLink != nil && len(*page.NextLink) > 0
-		},
-		Fetcher: func(ctx context.Context, page *ExpressRouteCircuitsClientListAllResponse) (ExpressRouteCircuitsClientListAllResponse, error) {
-			ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, "ExpressRouteCircuitsClient.NewListAllPager")
-			nextLink := ""
-			if page != nil {
-				nextLink = *page.NextLink
-			}
-			req, err := client.listAllCreateRequest(ctx, nextLink, options)
-			if err != nil {
-				return ExpressRouteCircuitsClientListAllResponse{}, err
-			}
-			resp, err := client.internal.Pipeline().Do(req)
-			if err != nil {
-				return ExpressRouteCircuitsClientListAllResponse{}, err
-			}
-			return client.listAllHandleResponse(resp, http.StatusOK)
-		},
-		Tracer: client.internal.Tracer(),
-	})
-}
-
-// listAllCreateRequest creates the ListAll request.
-func (client *ExpressRouteCircuitsClient) listAllCreateRequest(ctx context.Context, nextLink string, _ *ExpressRouteCircuitsClientListAllOptions) (*policy.Request, error) {
-	firstPage := nextLink == ""
-	var req *policy.Request
-	var err error
-	if firstPage {
-		urlPath := "/subscriptions/{subscriptionId}/providers/Microsoft.Network/expressRouteCircuits"
-		if client.subscriptionID == "" {
-			return nil, errors.New("parameter subscriptionID cannot be empty")
-		}
-		urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-		req, err = runtime.NewRequest(ctx, http.MethodGet, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	} else {
-		req, err = runtime.NewRequestForNextLink(ctx, http.MethodGet, client.internal.Endpoint(), nextLink)
-	}
-	if err != nil {
-		return nil, err
-	}
-	if firstPage {
-		reqQP := req.Raw().URL.Query()
-		reqQP.Set("api-version", version20260101)
-		req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-		req.Raw().Header["Accept"] = []string{"application/json"}
-	}
-	return req, nil
-}
-
-// listAllHandleResponse handles the ListAll response.
-func (client *ExpressRouteCircuitsClient) listAllHandleResponse(resp *http.Response, successCodes ...int) (ExpressRouteCircuitsClientListAllResponse, error) {
-	result := ExpressRouteCircuitsClientListAllResponse{}
-	if !runtime.HasStatusCode(resp, successCodes...) {
-		return result, runtime.NewResponseError(resp)
-	}
-	if err := runtime.UnmarshalAsJSON(resp, &result.ExpressRouteCircuitListResult); err != nil {
-		return ExpressRouteCircuitsClientListAllResponse{}, err
-	}
-	return result, nil
-}
-
-// BeginListArpTable - Gets the currently advertised ARP table associated with the express route circuit in a resource group.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - circuitName - The name of the express route port.
-//   - peeringName - The name of the peering.
-//   - devicePath - The name of the arpTables.
-//   - options - ExpressRouteCircuitsClientBeginListArpTableOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginListArpTable
-//     method.
-func (client *ExpressRouteCircuitsClient) BeginListArpTable(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListArpTableOptions) (*runtime.Poller[ExpressRouteCircuitsClientListArpTableResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.listArpTable(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientListArpTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientListArpTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// ListArpTable - Gets the currently advertised ARP table associated with the express route circuit in a resource group.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCircuitsClient) listArpTable(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListArpTableOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCircuitsClient.BeginListArpTable"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.listArpTableCreateRequest(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// listArpTableCreateRequest creates the ListArpTable request.
-func (client *ExpressRouteCircuitsClient) listArpTableCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, _ *ExpressRouteCircuitsClientBeginListArpTableOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/peerings/{peeringName}/arpTables/{devicePath}"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if circuitName == "" {
-		return nil, errors.New("parameter circuitName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
-	if peeringName == "" {
-		return nil, errors.New("parameter peeringName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
-	if devicePath == "" {
-		return nil, errors.New("parameter devicePath cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginListRoutesTable - Gets the currently advertised routes table associated with the express route circuit in a resource
-// group.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - circuitName - The name of the express route port.
-//   - peeringName - The name of the peering.
-//   - devicePath - The name of the routeTables.
-//   - options - ExpressRouteCircuitsClientBeginListRoutesTableOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginListRoutesTable
-//     method.
-func (client *ExpressRouteCircuitsClient) BeginListRoutesTable(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListRoutesTableOptions) (*runtime.Poller[ExpressRouteCircuitsClientListRoutesTableResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.listRoutesTable(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientListRoutesTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientListRoutesTableResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// ListRoutesTable - Gets the currently advertised routes table associated with the express route circuit in a resource group.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCircuitsClient) listRoutesTable(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListRoutesTableOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCircuitsClient.BeginListRoutesTable"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.listRoutesTableCreateRequest(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// listRoutesTableCreateRequest creates the ListRoutesTable request.
-func (client *ExpressRouteCircuitsClient) listRoutesTableCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, _ *ExpressRouteCircuitsClientBeginListRoutesTableOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/peerings/{peeringName}/routeTables/{devicePath}"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if circuitName == "" {
-		return nil, errors.New("parameter circuitName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
-	if peeringName == "" {
-		return nil, errors.New("parameter peeringName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
-	if devicePath == "" {
-		return nil, errors.New("parameter devicePath cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginListRoutesTableSummary - Gets the currently advertised routes table summary associated with the express route circuit
-// in a resource group.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - circuitName - The name of the express route port.
-//   - peeringName - The name of the peering.
-//   - devicePath - The name of the routeTablesSummary.
-//   - options - ExpressRouteCircuitsClientBeginListRoutesTableSummaryOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginListRoutesTableSummary
-//     method.
-func (client *ExpressRouteCircuitsClient) BeginListRoutesTableSummary(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListRoutesTableSummaryOptions) (*runtime.Poller[ExpressRouteCircuitsClientListRoutesTableSummaryResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.listRoutesTableSummary(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientListRoutesTableSummaryResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientListRoutesTableSummaryResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// ListRoutesTableSummary - Gets the currently advertised routes table summary associated with the express route circuit in
-// a resource group.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCircuitsClient) listRoutesTableSummary(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, options *ExpressRouteCircuitsClientBeginListRoutesTableSummaryOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCircuitsClient.BeginListRoutesTableSummary"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.listRoutesTableSummaryCreateRequest(ctx, resourceGroupName, circuitName, peeringName, devicePath, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// listRoutesTableSummaryCreateRequest creates the ListRoutesTableSummary request.
-func (client *ExpressRouteCircuitsClient) listRoutesTableSummaryCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, peeringName string, devicePath string, _ *ExpressRouteCircuitsClientBeginListRoutesTableSummaryOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/peerings/{peeringName}/routeTablesSummary/{devicePath}"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if circuitName == "" {
-		return nil, errors.New("parameter circuitName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
-	if peeringName == "" {
-		return nil, errors.New("parameter peeringName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{peeringName}", url.PathEscape(peeringName))
-	if devicePath == "" {
-		return nil, errors.New("parameter devicePath cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{devicePath}", url.PathEscape(devicePath))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginStartCircuitLinkFailoverTest - Starts link failover simulation on the express route circuit for the specified link
-// type and test category.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - circuitName - The name of express route circuit.
-//   - linkType - The link type.
-//   - circuitTestCategory - The circuit test category.
-//   - options - ExpressRouteCircuitsClientBeginStartCircuitLinkFailoverTestOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginStartCircuitLinkFailoverTest
-//     method.
-func (client *ExpressRouteCircuitsClient) BeginStartCircuitLinkFailoverTest(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, options *ExpressRouteCircuitsClientBeginStartCircuitLinkFailoverTestOptions) (*runtime.Poller[ExpressRouteCircuitsClientStartCircuitLinkFailoverTestResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.startCircuitLinkFailoverTest(ctx, resourceGroupName, circuitName, linkType, circuitTestCategory, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientStartCircuitLinkFailoverTestResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientStartCircuitLinkFailoverTestResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// StartCircuitLinkFailoverTest - Starts link failover simulation on the express route circuit for the specified link type
-// and test category.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCircuitsClient) startCircuitLinkFailoverTest(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, options *ExpressRouteCircuitsClientBeginStartCircuitLinkFailoverTestOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCircuitsClient.BeginStartCircuitLinkFailoverTest"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.startCircuitLinkFailoverTestCreateRequest(ctx, resourceGroupName, circuitName, linkType, circuitTestCategory, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// startCircuitLinkFailoverTestCreateRequest creates the StartCircuitLinkFailoverTest request.
-func (client *ExpressRouteCircuitsClient) startCircuitLinkFailoverTestCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, linkType string, circuitTestCategory string, _ *ExpressRouteCircuitsClientBeginStartCircuitLinkFailoverTestOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/startCircuitLinkFailoverTest"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if circuitName == "" {
-		return nil, errors.New("parameter circuitName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	reqQP.Set("circuitTestCategory", circuitTestCategory)
-	reqQP.Set("linkType", linkType)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	return req, nil
-}
-
-// BeginStopCircuitLinkFailoverTest - Stops link failover simulation on the express route circuit.
-// If the operation fails it returns an *azcore.ResponseError type.
-//   - resourceGroupName - The name of the resource group. The name is case insensitive.
-//   - circuitName - The name of express route circuit.
-//   - stopParameters - The content of the action request
-//   - options - ExpressRouteCircuitsClientBeginStopCircuitLinkFailoverTestOptions contains the optional parameters for the ExpressRouteCircuitsClient.BeginStopCircuitLinkFailoverTest
-//     method.
-func (client *ExpressRouteCircuitsClient) BeginStopCircuitLinkFailoverTest(ctx context.Context, resourceGroupName string, circuitName string, stopParameters ExpressRouteLinkFailoverStopAPIParameters, options *ExpressRouteCircuitsClientBeginStopCircuitLinkFailoverTestOptions) (*runtime.Poller[ExpressRouteCircuitsClientStopCircuitLinkFailoverTestResponse], error) {
-	if options == nil || options.ResumeToken == "" {
-		resp, err := client.stopCircuitLinkFailoverTest(ctx, resourceGroupName, circuitName, stopParameters, options)
-		if err != nil {
-			return nil, err
-		}
-		poller, err := runtime.NewPoller(resp, client.internal.Pipeline(), &runtime.NewPollerOptions[ExpressRouteCircuitsClientStopCircuitLinkFailoverTestResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-		return poller, err
-	} else {
-		return runtime.NewPollerFromResumeToken(options.ResumeToken, client.internal.Pipeline(), &runtime.NewPollerFromResumeTokenOptions[ExpressRouteCircuitsClientStopCircuitLinkFailoverTestResponse]{
-			Tracer: client.internal.Tracer(),
-		})
-	}
-}
-
-// StopCircuitLinkFailoverTest - Stops link failover simulation on the express route circuit.
-// If the operation fails it returns an *azcore.ResponseError type.
-func (client *ExpressRouteCircuitsClient) stopCircuitLinkFailoverTest(ctx context.Context, resourceGroupName string, circuitName string, stopParameters ExpressRouteLinkFailoverStopAPIParameters, options *ExpressRouteCircuitsClientBeginStopCircuitLinkFailoverTestOptions) (*http.Response, error) {
-	var err error
-	const operationName = "ExpressRouteCircuitsClient.BeginStopCircuitLinkFailoverTest"
-	ctx = context.WithValue(ctx, runtime.CtxAPINameKey{}, operationName)
-	ctx, endSpan := runtime.StartSpan(ctx, operationName, client.internal.Tracer(), nil)
-	defer func() { endSpan(err) }()
-	req, err := client.stopCircuitLinkFailoverTestCreateRequest(ctx, resourceGroupName, circuitName, stopParameters, options)
-	if err != nil {
-		return nil, err
-	}
-	httpResp, err := client.internal.Pipeline().Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if !runtime.HasStatusCode(httpResp, http.StatusOK, http.StatusAccepted) {
-		return nil, runtime.NewResponseError(httpResp)
-	}
-	return httpResp, nil
-}
-
-// stopCircuitLinkFailoverTestCreateRequest creates the StopCircuitLinkFailoverTest request.
-func (client *ExpressRouteCircuitsClient) stopCircuitLinkFailoverTestCreateRequest(ctx context.Context, resourceGroupName string, circuitName string, stopParameters ExpressRouteLinkFailoverStopAPIParameters, _ *ExpressRouteCircuitsClientBeginStopCircuitLinkFailoverTestOptions) (*policy.Request, error) {
-	urlPath := "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.Network/expressRouteCircuits/{circuitName}/stopCircuitLinkFailoverTest"
-	if client.subscriptionID == "" {
-		return nil, errors.New("parameter subscriptionID cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{subscriptionId}", url.PathEscape(client.subscriptionID))
-	if resourceGroupName == "" {
-		return nil, errors.New("parameter resourceGroupName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{resourceGroupName}", url.PathEscape(resourceGroupName))
-	if circuitName == "" {
-		return nil, errors.New("parameter circuitName cannot be empty")
-	}
-	urlPath = strings.ReplaceAll(urlPath, "{circuitName}", url.PathEscape(circuitName))
-	req, err := runtime.NewRequest(ctx, http.MethodPost, runtime.JoinPaths(client.internal.Endpoint(), urlPath))
-	if err != nil {
-		return nil, err
-	}
-	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
-	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
-	req.Raw().Header["Accept"] = []string{"application/json"}
-	req.Raw().Header["Content-Type"] = []string{"application/json"}
-	if err := runtime.MarshalAsJSON(req, stopParameters); err != nil {
-		return nil, err
-	}
-	return req, nil
 }
 
 // UpdateTags - Updates an express route circuit tags.
@@ -1119,7 +1119,7 @@ func (client *ExpressRouteCircuitsClient) updateTagsCreateRequest(ctx context.Co
 		return nil, err
 	}
 	reqQP := req.Raw().URL.Query()
-	reqQP.Set("api-version", version20260101)
+	reqQP.Set("api-version", version20260301)
 	req.Raw().URL.RawQuery = strings.ReplaceAll(reqQP.Encode(), "+", "%20")
 	req.Raw().Header["Accept"] = []string{"application/json"}
 	req.Raw().Header["Content-Type"] = []string{"application/json"}

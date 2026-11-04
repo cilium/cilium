@@ -321,42 +321,6 @@ func writeNodeConfigToBuffer(t *testing.T, nodeCfg *config.Config) string {
 	return buffer.String()
 }
 
-// TestPrivilegedWriteNodeConfigHostFirewall verifies that with host firewall
-// enabled, the ENABLE_HOST_FIREWALL BPF define is present, and without it,
-// it is absent.
-// This covers the Host firewall scenarios previously tested by
-// K8sDatapathConfig.
-func TestPrivilegedWriteNodeConfigHostFirewall(t *testing.T) {
-	testutils.PrivilegedTest(t)
-	ns := netns.NewNetNS(t)
-	setupCiliumDummyDevices(t, ns)
-	err := ns.Do(func() error {
-		setupConfigSuite(t)
-
-		origHostFirewall := option.Config.EnableHostFirewall
-		t.Cleanup(func() {
-			option.Config.EnableHostFirewall = origHostFirewall
-		})
-
-		t.Run("host firewall enabled", func(t *testing.T) {
-			option.Config.EnableHostFirewall = true
-			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.Contains(t, output, "define ENABLE_HOST_FIREWALL 1\n",
-				"Expected ENABLE_HOST_FIREWALL define when host firewall is enabled")
-		})
-
-		t.Run("host firewall disabled", func(t *testing.T) {
-			option.Config.EnableHostFirewall = false
-			output := writeNodeConfigToBuffer(t, &dummyNodeCfg)
-			require.NotContains(t, output, "ENABLE_HOST_FIREWALL",
-				"Expected no ENABLE_HOST_FIREWALL define when host firewall is disabled")
-		})
-
-		return nil
-	})
-	require.NoError(t, err)
-}
-
 // TestPrivilegedWriteNodeConfigIPv4Only verifies that when IPv4 is enabled
 // and IPv6 is disabled, only ENABLE_IPV4 is present (not ENABLE_IPV6).
 // This covers the IPv4Only scenario previously tested by K8sDatapathConfig.

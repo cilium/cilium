@@ -4,10 +4,15 @@
 package loader
 
 import (
+	"bytes"
 	"errors"
 	"io"
+	"net/netip"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/datapath/config"
@@ -24,21 +29,78 @@ var (
 // configuration objects.
 func TestHashDatapath(t *testing.T) {
 	// Error from ConfigWriter is forwarded.
-	_, err := hashDatapath(fakeConfigWriter{}, nil)
+	_, err := hashDatapath(fakeConfigWriter{}, nil, nil)
 	require.Error(t, err)
 
 	// Ensure we get different hashes when config is changed
-	a, err := hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg)
+	a, err := hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg, nil)
 	require.NoError(t, err)
 
-	b, err := hashDatapath(fakeConfigWriter("b"), &dummyNodeCfg)
+	b, err := hashDatapath(fakeConfigWriter("b"), &dummyNodeCfg, nil)
 	require.NoError(t, err)
 	require.NotEqual(t, a, b)
 
 	// Ensure we get the same base hash when config is the same.
-	b, err = hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg)
+	b, err = hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg, nil)
 	require.NoError(t, err)
 	require.Equal(t, a, b)
+
+	// A different producer must not share the hash.
+	c, err := hashDatapath(fakeConfigWriter("a"), &dummyNodeCfg, []byte("producer"))
+	require.NoError(t, err)
+	require.NotEqual(t, a, c)
+}
+
+// The node and cilium_host addresses only reach node_config.h through its address comment.
+func TestHashDatapathIgnoresAddresses(t *testing.T) {
+	cfg := configWriterForTest(t)
+	header := func(nodeCfg *config.Config) []byte {
+		var b bytes.Buffer
+		require.NoError(t, cfg.WriteNodeConfig(&b, nodeCfg))
+		return b.Bytes()
+	}
+
+	a, err := hashDatapath(cfg, &localNodeConfig, nil)
+	require.NoError(t, err)
+
+	moved := localNodeConfig
+	moved.NodeIPv4 = netip.MustParseAddr("192.0.2.10")
+	moved.CiliumInternalIPv4 = netip.MustParseAddr("192.0.2.11")
+	require.NotEqual(t, header(&localNodeConfig), header(&moved))
+	b, err := hashDatapath(cfg, &moved, nil)
+	require.NoError(t, err)
+	require.Equal(t, a, b)
+
+	resized := localNodeConfig
+	resized.LBConfig.LBServiceMapEntries = 1234
+	c, err := hashDatapath(cfg, &resized, nil)
+	require.NoError(t, err)
+	require.NotEqual(t, a, c)
+}
+
+func TestHashProducer(t *testing.T) {
+	setupCompilationDirectories(t)
+	logger := hivetest.Logger(t)
+	ctx := t.Context()
+
+	dir := t.TempDir()
+	source := filepath.Join(dir, "include", endpointProg)
+	require.NoError(t, os.MkdirAll(filepath.Dir(source), 0755))
+	require.NoError(t, os.WriteFile(source, []byte("one"), 0644))
+
+	a, err := hashProducer(ctx, logger, dir)
+	require.NoError(t, err)
+	b, err := hashProducer(ctx, logger, dir)
+	require.NoError(t, err)
+	require.Equal(t, a, b)
+
+	require.NoError(t, os.WriteFile(source, []byte("two"), 0644))
+	c, err := hashProducer(ctx, logger, dir)
+	require.NoError(t, err)
+	require.NotEqual(t, a, c)
+
+	_, err = hashProducer(ctx, logger, filepath.Join(dir, "absent"))
+	require.Error(t, err)
 }
 
 func TestHashEndpoint(t *testing.T) {
@@ -101,6 +163,10 @@ func (fc fakeConfigWriter) WriteNodeConfig(w io.Writer, lnc *config.Config) erro
 	}
 	_, err := w.Write(fc)
 	return err
+}
+
+func (fc fakeConfigWriter) WriteNodeConfigForHash(w io.Writer, lnc *config.Config) error {
+	return fc.WriteNodeConfig(w, lnc)
 }
 
 func (fc fakeConfigWriter) WriteNetdevConfig(w io.Writer, opts *option.IntOptions) error {

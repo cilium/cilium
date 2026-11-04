@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sort"
 	"testing"
 	"time"
@@ -34,12 +36,20 @@ import (
 
 func TestInitializedMetrics(t *testing.T) {
 	t.Run("Should send pod removal to delayed delivery queue", func(t *testing.T) {
+		previousEnabledMetrics := EnabledMetrics
+		previousEndpointDeletionHandler := endpointDeletionHandler
+		t.Cleanup(func() {
+			endpointDeletionHandler.queue.ShutDown()
+			EnabledMetrics = previousEnabledMetrics
+			endpointDeletionHandler = previousEndpointDeletionHandler
+		})
+
 		deletedEndpoint := &types.CiliumEndpoint{
 			ObjectMeta: slim_metav1.ObjectMeta{
 				Name: "name",
 			},
 		}
-		EnabledMetrics = []api.NamedHandler{}
+		EnabledMetrics = nil
 		endpointDeletionHandler = &CiliumEndpointDeletionHandler{
 			gracefulPeriod: 10 * time.Millisecond,
 			queue:          workqueue.NewTypedDelayingQueue[*types.CiliumEndpoint](),
@@ -47,12 +57,202 @@ func TestInitializedMetrics(t *testing.T) {
 
 		ProcessCiliumEndpointDeletion(deletedEndpoint)
 
+		require.Eventually(t, func() bool {
+			return endpointDeletionHandler.queue.Len() == 1
+		}, time.Second, 10*time.Millisecond)
 		received, _ := endpointDeletionHandler.queue.Get()
 		assert.Equal(t, deletedEndpoint, received)
-
-		endpointDeletionHandler.queue.ShutDown()
 	})
 
+}
+
+func TestDynamicMetricsCleanupOnEndpointDeletion(t *testing.T) {
+	dfp, reg := newTestDynamicFlowProcessor(t)
+
+	processDropFlow(t, dfp, "deleted-source", "live-destination")
+	processDropFlow(t, dfp, "live-source", "deleted-destination")
+	processDropFlow(t, dfp, "live-source", "live-destination")
+	processDropFlow(t, dfp, "live-source", "live-destination")
+
+	require.Equal(t, map[string]float64{
+		"test/deleted-source->test/live-destination": 1,
+		"test/live-source->test/deleted-destination": 1,
+		"test/live-source->test/live-destination":    2,
+	}, gatheredDropMetrics(t, reg))
+
+	require.NoError(t, ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
+		ObjectMeta: slim_metav1.ObjectMeta{Name: "deleted-source", Namespace: "test"},
+	}))
+	require.NoError(t, ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
+		ObjectMeta: slim_metav1.ObjectMeta{Name: "deleted-destination", Namespace: "test"},
+	}))
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, map[string]float64{
+			"test/live-source->test/live-destination": 2,
+		}, gatheredDropMetrics(c, reg))
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestStaticMetricsCleanupOnEndpointDeletion(t *testing.T) {
+	previousEnabledMetrics := EnabledMetrics
+	previousEndpointDeletionHandler := endpointDeletionHandler
+	t.Cleanup(func() {
+		endpointDeletionHandler.queue.ShutDown()
+		EnabledMetrics = previousEnabledMetrics
+		endpointDeletionHandler = previousEndpointDeletionHandler
+	})
+
+	reg := prometheus.NewPedanticRegistry()
+	require.NoError(t, InitMetrics(
+		hivetest.Logger(t),
+		reg,
+		api.ParseStaticMetricsConfig([]string{"drop:sourceContext=pod;destinationContext=pod"}),
+		grpc_prometheus.NewServerMetrics(),
+	))
+	endpointDeletionHandler.gracefulPeriod = 0
+
+	processor := NewStaticFlowProcessor(hivetest.Logger(t), EnabledMetrics)
+	processDropFlow(t, processor, "deleted-source", "live-destination")
+	processDropFlow(t, processor, "live-source", "live-destination")
+	require.Equal(t, map[string]float64{
+		"test/deleted-source->test/live-destination": 1,
+		"test/live-source->test/live-destination":    1,
+	}, gatheredDropMetrics(t, reg))
+
+	require.NoError(t, ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
+		ObjectMeta: slim_metav1.ObjectMeta{Name: "deleted-source", Namespace: "test"},
+	}))
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, map[string]float64{
+			"test/live-source->test/live-destination": 1,
+		}, gatheredDropMetrics(c, reg))
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestDynamicMetricsCleanupUsesReplacementHandlers(t *testing.T) {
+	dfp, reg := newTestDynamicFlowProcessor(t)
+
+	cleanup := endpointDeletionHandler.cleanup
+	dequeued := make(chan struct{})
+	release := make(chan struct{})
+	released := false
+	releaseCleanup := func() {
+		if !released {
+			close(release)
+			released = true
+		}
+	}
+	t.Cleanup(releaseCleanup)
+	endpointDeletionHandler.cleanup = func(endpoint *types.CiliumEndpoint) {
+		close(dequeued)
+		<-release
+		cleanup(endpoint)
+	}
+
+	require.NoError(t, ProcessCiliumEndpointDeletion(&types.CiliumEndpoint{
+		ObjectMeta: slim_metav1.ObjectMeta{Name: "deleted-source", Namespace: "test"},
+	}))
+	select {
+	case <-dequeued:
+	case <-time.After(time.Second):
+		releaseCleanup()
+		t.Fatal("endpoint deletion was not dequeued")
+	}
+
+	config := api.Config{Metrics: []*api.MetricConfig{{
+		Name: "drop",
+		ContextOptionConfigs: []*api.ContextOptionConfig{
+			{Name: "sourceContext", Values: []string{"pod"}},
+			{Name: "destinationContext", Values: []string{"pod"}},
+		},
+	}}}
+	dfp.onConfigReload(t.Context(), 0, api.Config{})
+	dfp.onConfigReload(t.Context(), 0, config)
+
+	processDropFlow(t, dfp, "deleted-source", "live-destination")
+	processDropFlow(t, dfp, "live-source", "live-destination")
+	require.Equal(t, map[string]float64{
+		"test/deleted-source->test/live-destination": 1,
+		"test/live-source->test/live-destination":    1,
+	}, gatheredDropMetrics(t, reg))
+	releaseCleanup()
+
+	require.EventuallyWithT(t, func(c *assert.CollectT) {
+		assert.Equal(c, map[string]float64{
+			"test/live-source->test/live-destination": 1,
+		}, gatheredDropMetrics(c, reg))
+	}, time.Second, 10*time.Millisecond)
+}
+
+func newTestDynamicFlowProcessor(t *testing.T) (*DynamicFlowProcessor, *prometheus.Registry) {
+	t.Helper()
+
+	previousEnabledMetrics := EnabledMetrics
+	previousEndpointDeletionHandler := endpointDeletionHandler
+	t.Cleanup(func() {
+		if endpointDeletionHandler != nil {
+			endpointDeletionHandler.queue.ShutDown()
+		}
+		EnabledMetrics = previousEnabledMetrics
+		endpointDeletionHandler = previousEndpointDeletionHandler
+	})
+	EnabledMetrics = nil
+
+	configPath := filepath.Join(t.TempDir(), "metrics.yaml")
+	err := os.WriteFile(configPath, []byte(`metrics:
+- name: drop
+  contextOptions:
+  - name: sourceContext
+    values: [pod]
+  - name: destinationContext
+    values: [pod]
+`), 0o600)
+	require.NoError(t, err)
+
+	reg := prometheus.NewPedanticRegistry()
+	dfp := NewDynamicFlowProcessor(reg, hivetest.Logger(t), configPath)
+	t.Cleanup(func() {
+		require.NoError(t, dfp.Stop())
+	})
+	endpointDeletionHandler.gracefulPeriod = 0
+	return dfp, reg
+}
+
+func processDropFlow(t *testing.T, processor FlowProcessor, sourcePod, destinationPod string) {
+	t.Helper()
+	err := processor.ProcessFlow(t.Context(), &pb.Flow{
+		EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},
+		L4: &pb.Layer4{
+			Protocol: &pb.Layer4_TCP{TCP: &pb.TCP{}},
+		},
+		Source:         &pb.Endpoint{Namespace: "test", PodName: sourcePod},
+		Destination:    &pb.Endpoint{Namespace: "test", PodName: destinationPod},
+		Verdict:        pb.Verdict_DROPPED,
+		DropReason:     uint32(pb.DropReason_POLICY_DENIED),
+		DropReasonDesc: pb.DropReason_POLICY_DENIED,
+	})
+	require.NoError(t, err)
+}
+
+func gatheredDropMetrics(t require.TestingT, reg *prometheus.Registry) map[string]float64 {
+	metricFamilies, err := reg.Gather()
+	require.NoError(t, err)
+
+	metrics := make(map[string]float64)
+	for _, family := range metricFamilies {
+		if family.GetName() != "hubble_drop_total" {
+			continue
+		}
+		for _, metric := range family.Metric {
+			labels := make(map[string]string)
+			for _, label := range metric.Label {
+				labels[label.GetName()] = label.GetValue()
+			}
+			metrics[labels["source"]+"->"+labels["destination"]] = metric.GetCounter().GetValue()
+		}
+	}
+	return metrics
 }
 
 func SetUpTestMetricsServer(reg *prometheus.Registry) *httptest.Server {
@@ -72,6 +272,7 @@ func ConfigureAndFetchMetrics(t *testing.T, testName string, metricCfg []string,
 			reg,
 			api.ParseStaticMetricsConfig(metricCfg),
 			grpcMetrics)
+		t.Cleanup(endpointDeletionHandler.queue.ShutDown)
 
 		flow := &pb.Flow{
 			EventType: &pb.CiliumEventType{Type: monitorAPI.MessageTypePolicyVerdict},

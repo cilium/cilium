@@ -11,6 +11,8 @@ import (
 
 	"github.com/cilium/cilium/cilium-cli/connectivity/check"
 	"github.com/cilium/cilium/cilium-cli/connectivity/sniff"
+	"github.com/cilium/cilium/cilium-cli/defaults"
+	"github.com/cilium/cilium/cilium-cli/k8s"
 	"github.com/cilium/cilium/cilium-cli/utils/features"
 )
 
@@ -115,7 +117,7 @@ func (s *podToPodEncryptionV2) Name() string {
 
 // resolveEgressDevice resolves the egress device used in the provided host
 // network namespace used to send traffic to dst.
-func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostNS *check.Pod, src, dst *check.Pod) (string, error) {
+func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, t *check.Test, srcHostNS *check.Pod, src, dst *check.Pod) (string, error) {
 	// if tunnel encap is used, the packet will be encapsulated before
 	// leaving the host, thus, use the tunnel endpoint IP rather then the
 	// pod IP for route lookup.
@@ -139,11 +141,12 @@ func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostN
 	//
 	// example json output:
 	// [{"dst":"192.168.109.96","gateway":"192.168.128.1","dev":"ens5","prefsrc":"192.168.159.49","flags":[],"uid":0,"cache":[]}]
-	out, err := srcHostNS.K8sClient.ExecInPod(ctx,
+	out, err := srcHostNS.K8sClient.ExecInPodRetry(ctx,
 		srcHostNS.Pod.Namespace,
 		srcHostNS.Pod.Name,
 		"",
-		[]string{"ip", "-j", "route", "get", dstIP, "from", srcIP, "iif", "cilium_host"})
+		[]string{"ip", "-j", "route", "get", dstIP, "from", srcIP, "iif", "cilium_host"},
+		k8s.ExecRetryOptions{AttemptTimeout: defaults.ExecAttemptTimeout, RequireOutput: true, Validate: k8s.ValidJSON, OnRetry: t.LogExecRetry})
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to resolve egress device for: %w", err)
@@ -174,23 +177,23 @@ func (s *podToPodEncryptionV2) resolveEgressDevice(ctx context.Context, srcHostN
 // in native routing mode this will be an "ip route get {dst_pod_ip}" while in
 // tunnel mode this will be "ip route get {dst_node_ip}" as the packet will be
 // tunnel encap'd before departure.
-func (s *podToPodEncryptionV2) resolveClientEgressDevice(ctx context.Context) (string, error) {
+func (s *podToPodEncryptionV2) resolveClientEgressDevice(ctx context.Context, t *check.Test) (string, error) {
 	// we have a context, may as well check it
 	if ctx.Err() != nil {
 		return "", fmt.Errorf("Context already cancelled")
 	}
 
-	return s.resolveEgressDevice(ctx, s.clientHostNS, s.client, s.server)
+	return s.resolveEgressDevice(ctx, t, s.clientHostNS, s.client, s.server)
 }
 
 // resolveServerEgressDevice is the similar to resolveClientEgressDevice but
 // finds the egress device for client return traffic from the server.
-func (s *podToPodEncryptionV2) resolveServerEgressDevice(ctx context.Context) (string, error) {
+func (s *podToPodEncryptionV2) resolveServerEgressDevice(ctx context.Context, t *check.Test) (string, error) {
 	// we have a context, may as well check it
 	if ctx.Err() != nil {
 		return "", fmt.Errorf("Context already cancelled")
 	}
-	return s.resolveEgressDevice(ctx, s.serverHostNS, s.server, s.client)
+	return s.resolveEgressDevice(ctx, t, s.serverHostNS, s.server, s.client)
 }
 
 // tunnelTCPDumpFilters4 will generate the required TCPDump filters for leak
@@ -640,12 +643,12 @@ func (s *podToPodEncryptionV2) Run(ctx context.Context, t *check.Test) {
 	// will leave the host, and the egress device on the server where the return
 	// traffic will leave the host.
 	var err error
-	s.clientEgressDev, err = s.resolveClientEgressDevice(ctx)
+	s.clientEgressDev, err = s.resolveClientEgressDevice(ctx, t)
 	if err != nil {
 		t.Fatalf("Failed to resolve egress device for client: %v", err)
 	}
 
-	s.serverEgressDev, err = s.resolveServerEgressDevice(ctx)
+	s.serverEgressDev, err = s.resolveServerEgressDevice(ctx, t)
 	if err != nil {
 		t.Fatalf("Failed to resolve egress device for server: %v", err)
 	}

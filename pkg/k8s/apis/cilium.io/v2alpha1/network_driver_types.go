@@ -148,8 +148,11 @@ type CiliumNetworkDriverNodeConfigSpec struct {
 // Name for a pool.
 type CiliumNetworkDriverPoolName string
 
-// Pool configuration. Devices matched by the filter are advertised
-// with the pool name as a ResourceSlice.
+// Pool configuration. Devices matched by the filter are tagged with the
+// pool name as the "pool" device attribute, used for DeviceClass CEL
+// selector matching. This is a logical grouping only: it does not affect
+// the ResourceSlice a device is advertised in — that pool is always named
+// after the node.
 //
 // +deepequal-gen=true
 type CiliumNetworkDriverDevicePoolConfig struct {
@@ -207,6 +210,44 @@ type CiliumNetworkDriverDeviceManagerConfig struct {
 	//
 	// +kubebuilder:validation:Optional
 	Macvlan *MacvlanDeviceManagerConfig `json:"macvlan,omitempty"`
+
+	// Configuration for the RX queue device manager
+	//
+	// +kubebuilder:validation:Optional
+	RXQueue *RXQueueDeviceManagerConfig `json:"rxQueue,omitempty"`
+}
+
+// Configuration for the RX queue device manager.
+//
+// +deepequal-gen=true
+type RXQueueDeviceManagerConfig struct {
+	// +kubebuilder:default=false
+	// +kubebuilder:validation:Optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Physical interfaces whose RX queues may be leased. Each interface must
+	// be up and retain at least one active RX queue outside the reserved set.
+	//
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:MinItems=1
+	// +listType=map
+	// +listMapKey=ifName
+	Ifaces []RXQueueDeviceConfig `json:"ifaces,omitempty"`
+}
+
+// Configuration for a physical interface providing RX queues.
+type RXQueueDeviceConfig struct {
+	// Kernel interface name.
+	//
+	// +kubebuilder:validation:Required
+	IfName string `json:"ifName"`
+
+	// Number of highest-numbered RX queues to reserve for leasing.
+	//
+	// +kubebuilder:default=1
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Minimum=1
+	Count int `json:"count,omitempty"`
 }
 
 // Configuration for the SR-IOV device manager.

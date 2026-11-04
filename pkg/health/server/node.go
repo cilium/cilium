@@ -4,6 +4,8 @@
 package server
 
 import (
+	"net/netip"
+
 	"github.com/cilium/cilium/api/v1/models"
 )
 
@@ -22,40 +24,40 @@ func NewHealthNode(elem *models.NodeElement, preferPrimaryIPv6 bool) healthNode 
 
 // preferAddr returns the IP from the preferred address family, falling back
 // to the other if the preferred one is not enabled.
-func preferAddr(preferIPv6 bool, ipv4, ipv6 *models.NodeAddressingElement) string {
+func preferAddr(preferIPv6 bool, ipv4, ipv6 *models.NodeAddressingElement) netip.Addr {
 	primary, secondary := ipv4, ipv6
 	if preferIPv6 {
 		primary, secondary = ipv6, ipv4
 	}
 	if primary.Enabled {
-		return primary.IP
+		return primary.IP.Addr
 	}
-	return secondary.IP
+	return secondary.IP.Addr
 }
 
 // PrimaryIP returns the primary IP address of the node. When
 // preferPrimaryIPv6 is set, IPv6 is preferred over IPv4.
-func (n *healthNode) PrimaryIP() string {
+func (n *healthNode) PrimaryIP() netip.Addr {
 	return preferAddr(n.preferPrimaryIPv6, n.PrimaryAddress.IPv4, n.PrimaryAddress.IPv6)
 }
 
 // SecondaryIPs return a list of IP addresses corresponding to secondary addresses
 // of the node. If both IPv4 and IPv6 are enabled then the non-primary address
 // family is also returned in the list.
-func (n *healthNode) SecondaryIPs() []string {
-	var addresses []string
+func (n *healthNode) SecondaryIPs() []netip.Addr {
+	var addresses []netip.Addr
 
 	if n.PrimaryAddress.IPv4.Enabled && n.PrimaryAddress.IPv6.Enabled {
 		if n.preferPrimaryIPv6 {
-			addresses = append(addresses, n.PrimaryAddress.IPv4.IP)
+			addresses = append(addresses, n.PrimaryAddress.IPv4.IP.Addr)
 		} else {
-			addresses = append(addresses, n.PrimaryAddress.IPv6.IP)
+			addresses = append(addresses, n.PrimaryAddress.IPv6.IP.Addr)
 		}
 	}
 
 	for _, addr := range n.SecondaryAddresses {
 		if addr.Enabled {
-			addresses = append(addresses, addr.IP)
+			addresses = append(addresses, addr.IP.Addr)
 		}
 	}
 
@@ -64,9 +66,9 @@ func (n *healthNode) SecondaryIPs() []string {
 
 // HealthIP returns the IP address of the health endpoint for the node.
 // When preferPrimaryIPv6 is set, IPv6 is preferred over IPv4.
-func (n *healthNode) HealthIP() string {
+func (n *healthNode) HealthIP() netip.Addr {
 	if n.HealthEndpointAddress == nil {
-		return ""
+		return netip.Addr{}
 	}
 	return preferAddr(n.preferPrimaryIPv6, n.HealthEndpointAddress.IPv4, n.HealthEndpointAddress.IPv6)
 }
@@ -74,16 +76,16 @@ func (n *healthNode) HealthIP() string {
 // SecondaryHealthIPs return a list of IP addresses corresponding to secondary
 // addresses of the health endpoint. In the current implementation, this
 // is the non-primary address family IP if both IPv4 and IPv6 are enabled.
-func (n *healthNode) SecondaryHealthIPs() []string {
+func (n *healthNode) SecondaryHealthIPs() []netip.Addr {
 	if n.HealthEndpointAddress == nil {
 		return nil
 	}
 
 	if n.HealthEndpointAddress.IPv4.Enabled && n.HealthEndpointAddress.IPv6.Enabled {
 		if n.preferPrimaryIPv6 {
-			return []string{n.HealthEndpointAddress.IPv4.IP}
+			return []netip.Addr{n.HealthEndpointAddress.IPv4.IP.Addr}
 		}
-		return []string{n.HealthEndpointAddress.IPv6.IP}
+		return []netip.Addr{n.HealthEndpointAddress.IPv6.IP.Addr}
 	}
 
 	return nil

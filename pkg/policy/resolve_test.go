@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 
@@ -36,14 +35,13 @@ var (
 		"foo": fooLabel,
 	}
 	fooIdentity = &identity.Identity{
-		ID:         303,
-		Labels:     lbls,
-		LabelArray: lbls.LabelArray(),
+		ID:     303,
+		Labels: lbls,
 	}
 )
 
 var testRedirects = map[string]uint16{
-	"1234:ingress:TCP:80:": 1,
+	"1234:ingress:TCP:80:http:": 1,
 }
 
 func generateNumIdentities(numIdentities int) identity.IdentityMap {
@@ -266,7 +264,6 @@ func BenchmarkRegenerateCIDRPolicyRules(b *testing.B) {
 		epPolicy.Ready()
 	}
 	ip.Detach()
-	assert.Equal(b, 44596, owner.previousMap.Len())
 }
 
 func BenchmarkResolveL3IngressPolicyRules(b *testing.B) {

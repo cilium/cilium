@@ -172,8 +172,6 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, false)
 #include "lib/lb.h"
 #include "lib/policy.h"
 
-#ifdef ENABLE_IPV4
-
 /* packet defined in ./scapy/tc_redirect_pkt_defs.py */
 const __u8 tc_redirect_host_ipv4_pre[] = {
 	SCAPY_BUF_BYTES(tc_redirect_host_ipv4_pre)
@@ -281,8 +279,6 @@ int tc_redirect_host_ipv4_check(__maybe_unused const struct __ctx_buff *ctx)
 
 	test_finish();
 }
-
-#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 

@@ -29,31 +29,6 @@ const (
 	// CESName is the full name of Cilium Endpoint Slice
 	CESName = CESPluralName + "." + CustomResourceDefinitionGroup
 
-	// BGPClusterConfig (BGPCC)
-	BGPCCPluralName     = "ciliumbgpclusterconfigs"
-	BGPCCKindDefinition = "CiliumBGPClusterConfig"
-	BGPCCName           = BGPCCPluralName + "." + CustomResourceDefinitionGroup
-
-	// BGPPeerConfig (BGPPC)
-	BGPPCPluralName     = "ciliumbgppeerconfigs"
-	BGPPCKindDefinition = "CiliumBGPPeerConfig"
-	BGPPCName           = BGPPCPluralName + "." + CustomResourceDefinitionGroup
-
-	// BGPAdvertisement (BGPA)
-	BGPAPluralName     = "ciliumbgpadvertisements"
-	BGPAKindDefinition = "CiliumBGPAdvertisement"
-	BGPAName           = BGPAPluralName + "." + CustomResourceDefinitionGroup
-
-	// BGPNodeConfig (BGPNC)
-	BGPNCPluralName     = "ciliumbgpnodeconfigs"
-	BGPNCKindDefinition = "CiliumBGPNodeConfig"
-	BGPNCName           = BGPNCPluralName + "." + CustomResourceDefinitionGroup
-
-	// BGPNodeConfigOverride (BGPNCO)
-	BGPNCOPluralName     = "ciliumbgpnodeconfigoverrides"
-	BGPNCOKindDefinition = "CiliumBGPNodeConfigOverride"
-	BGPNCOName           = BGPNCOPluralName + "." + CustomResourceDefinitionGroup
-
 	// Cilium Load Balancer IP Pool (IPPool)
 
 	// PoolPluralName is the plural name of Cilium Load Balancer IP Pool
@@ -165,18 +140,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumPodIPPoolList{},
 		&CiliumNodeConfig{},
 		&CiliumNodeConfigList{},
-
-		// new BGP types
-		&CiliumBGPClusterConfig{},
-		&CiliumBGPClusterConfigList{},
-		&CiliumBGPPeerConfig{},
-		&CiliumBGPPeerConfigList{},
-		&CiliumBGPAdvertisement{},
-		&CiliumBGPAdvertisementList{},
-		&CiliumBGPNodeConfig{},
-		&CiliumBGPNodeConfigList{},
-		&CiliumBGPNodeConfigOverride{},
-		&CiliumBGPNodeConfigOverrideList{},
 
 		// new Gateway API types
 		&CiliumGatewayClassConfig{},

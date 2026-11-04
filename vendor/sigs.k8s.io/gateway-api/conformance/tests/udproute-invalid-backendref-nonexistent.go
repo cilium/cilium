@@ -40,7 +40,6 @@ var UDPRouteInvalidBackendRefNonexistent = confsuite.ConformanceTest{
 		features.SupportGateway,
 		features.SupportUDPRoute,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "udp-route-invalid-backend-ref-nonexistent", Namespace: ns}

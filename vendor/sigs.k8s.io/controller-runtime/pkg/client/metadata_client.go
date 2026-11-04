@@ -49,24 +49,6 @@ func (mc *metadataClient) getResourceInterface(gvk schema.GroupVersionKind, ns s
 	return mc.client.Resource(mapping.Resource).Namespace(ns), nil
 }
 
-// Delete implements client.Client.
-func (mc *metadataClient) Delete(ctx context.Context, obj Object, opts ...DeleteOption) error {
-	metadata, ok := obj.(*metav1.PartialObjectMetadata)
-	if !ok {
-		return fmt.Errorf("metadata client did not understand object: %T", obj)
-	}
-
-	resInt, err := mc.getResourceInterface(metadata.GroupVersionKind(), metadata.Namespace)
-	if err != nil {
-		return err
-	}
-
-	deleteOpts := DeleteOptions{}
-	deleteOpts.ApplyOptions(opts)
-
-	return resInt.Delete(ctx, metadata.Name, *deleteOpts.AsDeleteOptions())
-}
-
 // DeleteAllOf implements client.Client.
 func (mc *metadataClient) DeleteAllOf(ctx context.Context, obj Object, opts ...DeleteAllOfOption) error {
 	metadata, ok := obj.(*metav1.PartialObjectMetadata)

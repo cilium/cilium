@@ -17,6 +17,7 @@ import (
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/identity"
 	identitycell "github.com/cilium/cilium/pkg/identity/cache/cell"
+	iputil "github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -96,17 +97,12 @@ func (ipc *ipCacheDumpListener) OnIPIdentityCacheChange(modType ipcache.CacheMod
 		}
 	}
 
-	cidrStr := cidr.String()
 	identity := int64(newID.ID.Uint32())
-	hostIP := ""
-	if newHostIP != nil {
-		hostIP = newHostIP.String()
-	}
 
 	entry := &models.IPListEntry{
-		Cidr:       &cidrStr,
+		Cidr:       iputil.PrefixFrom(cidr),
 		Identity:   &identity,
-		HostIP:     hostIP,
+		HostIP:     iputil.AddrFrom(iputil.AddrFromIP(newHostIP)),
 		EncryptKey: int64(encryptKey),
 	}
 

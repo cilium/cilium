@@ -13,6 +13,8 @@ import (
 	"github.com/cilium/statedb"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/source"
@@ -42,6 +44,7 @@ var LocalNodeStoreCell = cell.Module(
 
 	cell.ProvidePrivate(NewNodeTable),
 	cell.Provide(provideWriter),
+	metrics.Metric(NewNodeMetrics),
 	cell.Provide(NewNodeTableAndLocalNodeStore),
 	cell.Provide(NewClusterSizeDependantInterval),
 )
@@ -108,16 +111,15 @@ func NewNodeTableAndLocalNodeStore(params LocalNodeStoreParams) (
 		OnStart: func(ctx cell.HookContext) error {
 			wtxn := params.DB.WriteTxn(nodeTable)
 			n, _, _ := nodeTable.Get(wtxn, LocalNodeQuery)
-			// Delete the initial one as name might change.
-			nodeTable.Delete(wtxn, n)
-
 			n = n.DeepCopy()
 			err := params.Sync.InitLocalNode(ctx, n)
-			n.Statuses = n.Statuses.Pending(
-				reconcilerNames(s.writer.getRequiredReconcilers(wtxn))...,
-			)
-			nodeTable.Insert(wtxn, n)
+			// Make this the first local update with policy side effects. Updates
+			// during construction only modify the skeleton node in the table.
 			initDone(wtxn)
+			if writeErr := s.writer.UpsertLocal(wtxn, n); writeErr != nil {
+				wtxn.Abort()
+				return writeErr
+			}
 			wtxn.Commit()
 
 			if err != nil {
@@ -239,16 +241,10 @@ func (s *LocalNodeStore) Update(update func(*LocalNode)) {
 		// No changes.
 		return
 	}
-	ln.Statuses = orig.Statuses.Pending(
-		reconcilerNames(s.writer.getRequiredReconcilers(txn))...,
-	)
-
-	if orig.Fullname() != ln.Fullname() {
-		// Name or cluster has changed, delete first to remove it from the name index.
-		s.nodes.Delete(txn, orig)
+	if err := s.writer.UpsertLocal(txn, ln); err != nil {
+		s.writer.log.Error("Failed to update local node", logfields.Error, err)
+		return
 	}
-
-	s.nodes.Insert(txn, ln)
 	txn.Commit()
 }
 
@@ -268,7 +264,7 @@ func NewTestLocalNodeStore(mockNode LocalNode) *LocalNodeStore {
 	txn := db.WriteTxn(tbl)
 	tbl.Insert(txn, &mockNode)
 	txn.Commit()
-	return &LocalNodeStore{db, tbl, nil, nil}
+	return &LocalNodeStore{db, tbl, nil, NewWriter(slog.Default(), db, tbl)}
 }
 
 // LocalNodeStoreTestCell is a convenience for tests that provides a no-op

@@ -4,14 +4,12 @@
 #pragma once
 
 #include "lib/common.h"
+#include "lib/config.h"
 #include "lib/drop.h"
 #include "lib/identity.h"
 #include "lib/ipv6_core.h"
 #include "lib/tailcall.h"
 #include "lib/srv6_maps.h"
-
-#ifdef ENABLE_SRV6
-# ifdef ENABLE_IPV4
 
 /* SRV6_VRF_STATIC_PREFIX4 gets sizeof non-IP, non-prefix part of
  * srv6_vrf_key4.
@@ -50,7 +48,6 @@ srv6_lookup_policy4(__u32 vrf_id, __be32 dip)
 	};
 	return map_lookup_elem(&cilium_srv6_policy_v4, &key);
 }
-# endif /* ENABLE_IPV4 */
 
 /* SRV6_VRF_STATIC_PREFIX6 gets sizeof non-IP, non-prefix part of
  * srv6_vrf_key6.
@@ -297,11 +294,11 @@ srv6_handling6(struct __ctx_buff *ctx, union v6addr *src_sid,
 }
 
 static __always_inline int
-srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
+srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid __maybe_unused)
 {
-	void *data, *data_end;
+	void *data __maybe_unused, *data_end __maybe_unused;
 	__u16 inner_proto;
-	union v6addr router_ip = CONFIG(router_ipv6);
+	union v6addr router_ip __maybe_unused = CONFIG(router_ipv6);
 
 	if (!validate_ethertype(ctx, &inner_proto))
 		return DROP_UNSUPPORTED_L2;
@@ -317,16 +314,17 @@ srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid)
 		return srv6_handling6(ctx, &router_ip, dst_sid);
 	}
 #  endif /* ENABLE_IPV6 */
-#  ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
 		struct iphdr *ip4;
+
+		if (!is_defined(ENABLE_IPV4))
+			return DROP_INVALID;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 
 		return srv6_handling4(ctx, &router_ip, dst_sid);
 	}
-#  endif /* ENABLE_IPV4 */
 	default:
 		return DROP_INVALID;
 	}
@@ -367,7 +365,7 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 {
 	int ret = 0;
 	__u8 nexthdr = 0;
-	__s8 ext_err = 0;
+	__s8 ext_err __maybe_unused = 0;
 
 	ret = srv6_decapsulation(ctx, &nexthdr);
 	if (ret < 0)
@@ -381,15 +379,17 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, 4, 0);
 
 	switch (nexthdr) {
-#ifdef ENABLE_IPV4
 	case IPPROTO_IPIP:
+		if (!is_defined(ENABLE_IPV4)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, SECLABEL_IPV4, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 				  TRACE_REASON_SRV6_DECAP, 0, bpf_htons(ETH_P_IP));
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
 						  METRIC_INGRESS);
-#endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	case IPPROTO_IPV6:
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, SECLABEL_IPV6, UNKNOWN_ID,
@@ -406,4 +406,3 @@ error_drop:
 	return send_drop_notify_error(ctx, SECLABEL_IPV6, ret, METRIC_EGRESS);
 }
 # endif /* SKIP_SRV6_HANDLING */
-#endif /* ENABLE_SRV6 */

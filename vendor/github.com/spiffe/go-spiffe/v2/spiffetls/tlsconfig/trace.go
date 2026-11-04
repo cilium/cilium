@@ -17,6 +17,6 @@ type GotCertificateInfo struct {
 // Trace is the interface to define what functions are triggered when functions
 // in tlsconfig are called
 type Trace struct {
-	GetCertificate func(GetCertificateInfo) interface{}
-	GotCertificate func(GotCertificateInfo, interface{})
+	GetCertificate func(GetCertificateInfo) any
+	GotCertificate func(GotCertificateInfo, any)
 }

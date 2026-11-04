@@ -133,7 +133,7 @@ func (filter *Flower) encode(parent *nl.RtAttr) error {
 			nl.TCA_FLOWER_KEY_ENC_IPV4_SRC_MASK, nl.TCA_FLOWER_KEY_ENC_IPV6_SRC_MASK)
 	}
 	if filter.EncDestIP != nil {
-		filter.encodeIP(parent, filter.EncDestIP, filter.EncSrcIPMask,
+		filter.encodeIP(parent, filter.EncDestIP, filter.EncDestIPMask,
 			nl.TCA_FLOWER_KEY_ENC_IPV4_DST, nl.TCA_FLOWER_KEY_ENC_IPV6_DST,
 			nl.TCA_FLOWER_KEY_ENC_IPV4_DST_MASK, nl.TCA_FLOWER_KEY_ENC_IPV6_DST_MASK)
 	}

@@ -7,7 +7,6 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4			1
-#define ENABLE_HOST_FIREWALL		1
 
 #define POD_SEC_IDENTITY		112233
 
@@ -24,6 +23,7 @@ static volatile const __u8 *server_mac = mac_two;
 #include "lib/bpf_host.h"
 
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
+ASSIGN_CONFIG(bool, enable_host_firewall, true)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

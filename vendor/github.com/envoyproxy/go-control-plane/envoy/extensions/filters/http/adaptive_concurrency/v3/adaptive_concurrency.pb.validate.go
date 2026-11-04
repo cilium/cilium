@@ -557,6 +557,21 @@ func (m *GradientControllerConfig_ConcurrencyLimitCalculationParams) validate(al
 		}
 	}
 
+	if wrapper := m.GetMinConcurrencyLimit(); wrapper != nil {
+
+		if wrapper.GetValue() <= 0 {
+			err := GradientControllerConfig_ConcurrencyLimitCalculationParamsValidationError{
+				field:  "MinConcurrencyLimit",
+				reason: "value must be greater than 0",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+	}
+
 	if len(errors) > 0 {
 		return GradientControllerConfig_ConcurrencyLimitCalculationParamsMultiError(errors)
 	}

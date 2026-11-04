@@ -60,12 +60,12 @@ func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {
 		ipv4, ipv4Range, ipv6, ipv6Range := "", "", "", ""
 		if node.PrimaryAddress != nil {
 			if node.PrimaryAddress.IPv4 != nil {
-				ipv4 = node.PrimaryAddress.IPv4.IP
-				ipv4Range = node.PrimaryAddress.IPv4.AllocRange
+				ipv4 = formatAddr(node.PrimaryAddress.IPv4.IP)
+				ipv4Range = formatPrefix(node.PrimaryAddress.IPv4.AllocRange)
 			}
 			if node.PrimaryAddress.IPv6 != nil {
-				ipv6 = node.PrimaryAddress.IPv6.IP
-				ipv6Range = node.PrimaryAddress.IPv6.AllocRange
+				ipv6 = formatAddr(node.PrimaryAddress.IPv6.IP)
+				ipv6Range = formatPrefix(node.PrimaryAddress.IPv6.AllocRange)
 			}
 		}
 

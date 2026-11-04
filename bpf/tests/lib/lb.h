@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Cilium */
 
-#ifdef ENABLE_IPV4
 static __always_inline void
 lb_v4_delete_service(__be32 addr, __be16 port, __u8 proto)
 {
@@ -188,7 +187,6 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot, __u32 ba
 	__lb_v4_add_backend(svc_addr, svc_port, backend_slot, backend_id, backend_addr,
 			    backend_port, backend_proto, cluster_id, false);
 }
-#endif
 
 #ifdef ENABLE_IPV6
 static __always_inline void

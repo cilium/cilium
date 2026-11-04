@@ -10,7 +10,7 @@ import (
 // PreFilterCmd represents the prefilter command
 var PreFilterCmd = &cobra.Command{
 	Use:   "prefilter",
-	Short: "Manage XDP CIDR filters",
+	Short: "Manage XDP CIDR filters (deprecated)",
 }
 
 func init() {

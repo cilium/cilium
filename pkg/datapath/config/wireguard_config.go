@@ -22,6 +22,8 @@ type BPFWireguard struct {
 	EnableIPv6Fragments bool `config:"enable_ipv6_fragments"`
 	// Enable NAT46/NAT64 translation for NodePort services.
 	EnableNAT46X64 bool `config:"enable_nat_46x64"`
+	// Enable NAT46/NAT64 gateway for NodePort services.
+	EnableNAT46X64Gateway bool `config:"enable_nat_46x64_gateway"`
 	// Use netkit devices for pods.
 	EnableNetkit bool `config:"enable_netkit"`
 	// Enable routes when service has 0 endpoints.
@@ -46,6 +48,8 @@ type BPFWireguard struct {
 	NATIPv6Masquerade types.V6Addr `config:"nat_ipv6_masquerade"`
 	// Whether to redirect to the proxy via cilium_net (hairpin) or via stack.
 	ProxyRedirectViaCiliumNet bool `config:"proxy_redirect_via_cilium_net"`
+	// Number of times to retry SNAT.
+	SNATCollisionRetries uint16 `config:"snat_collision_retries"`
 	// Port number used for the overlay network.
 	TunnelPort uint16 `config:"tunnel_port"`
 	// The identifier of the tunnel protocol used for the overlay network.
@@ -58,9 +62,9 @@ type BPFWireguard struct {
 
 func NewBPFWireguard(node Node) *BPFWireguard {
 	return &BPFWireguard{0x0, false, false, false, false, false, false, false, false, false,
-		0x0, false, 0x0,
+		false, 0x0, false, 0x0,
 		cast[types.MACAddr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
 		cast[types.V4Addr]([]byte{0x0, 0x0, 0x0, 0x0}),
 		cast[types.V6Addr]([]byte{0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0}),
-		false, 0x0, 0x0, 0x0, node}
+		false, 0x20, 0x0, 0x0, 0x0, node}
 }

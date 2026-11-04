@@ -4,7 +4,7 @@
 package loader
 
 import (
-	"bytes"
+	"bufio"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -13,6 +13,7 @@ import (
 	"iter"
 	"log/slog"
 	"maps"
+	"math"
 	"os"
 	"path"
 	"slices"
@@ -227,6 +228,44 @@ func compileAndLoad(perm buildPermutation, collection, source, output string, kv
 
 }
 
+// formatState used by writeVerifierLog to write verifier logs (with layout %+v) to file through the
+// fmt.Formatter interface.
+type formatState struct{ *bufio.Writer }
+
+func (formatState) Width() (int, bool)     { return 0, false }
+func (formatState) Precision() (int, bool) { return 0, false }
+func (formatState) Flag(c int) bool        { return c == '+' }
+
+// writeVerifierLog writes the verifier log of verifierErr to logFile, with the same layout as %+v.
+func writeVerifierLog(logFile string, verifierErr *ebpf.VerifierError) error {
+	f, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0444)
+	if err != nil {
+		return fmt.Errorf("failed to open verifier log file: %w", err)
+	}
+	defer f.Close()
+
+	// Use a buffered writer because Format() writes a line at the time.
+	const oneMiB = 1024 * 1024
+	w := bufio.NewWriterSize(f, oneMiB)
+	verifierErr.Format(formatState{w}, 'v')
+	if err := w.Flush(); err != nil {
+		return fmt.Errorf("failed to flush verifier log file: %w", err)
+	}
+
+	return nil
+}
+
+// extractProgNamePrefix returns the prefix of loadErr containing the name of the program that
+// triggered the verifier error (notice that ebpf.VerifierError only contains the return code and
+// verifier log buffer, but no program name).
+func extractProgNamePrefix(loadErr error, verifierErr *ebpf.VerifierError) string {
+	return strings.TrimSuffix(loadErr.Error(), verifierErr.Error())
+}
+
+// fullLogSem limits how many loads are retried with the full verifier log at the same time, as each
+// of them can use several GiB of memory.
+var fullLogSem = make(chan struct{}, 2)
+
 func loadAndRecordComplexity(
 	objectFile string,
 	spec *ebpf.CollectionSpec,
@@ -247,24 +286,41 @@ func loadAndRecordComplexity(
 		}
 
 		var (
-			coll *ebpf.Collection
-			err  error
+			coll               *ebpf.Collection
+			loadErr            error
+			logBufferStartSize uint32
 		)
+		// Taken from cilium/ebpf.
+		const maxVerifierLogSize = math.MaxUint32 >> 2
 		for {
-			coll, _, err = bpf.LoadCollection(log, spec, &bpf.CollectionOptions{
+			coll, _, loadErr = bpf.LoadCollection(log, spec, &bpf.CollectionOptions{
 				Constants: constants,
 				CollectionOptions: ebpf.CollectionOptions{
 					Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 					Programs: ebpf.ProgramOptions{
-						LogLevel: logLevel,
+						LogLevel:     logLevel,
+						LogSizeStart: logBufferStartSize,
 					},
 				},
 			})
-			if err != nil {
+			if loadErr != nil {
 				// When we have a load error, and we initially did not request the full log,
 				// we retry with the full log enabled.
 				if logLevel != ebpf.LogLevelInstruction|ebpf.LogLevelStats {
+					var errMsg string
+					if verifierErr, ok := errors.AsType[*ebpf.VerifierError](loadErr); ok {
+						progNamePrefix := extractProgNamePrefix(loadErr, verifierErr)
+						errMsg = fmt.Sprintf("%s%+v", progNamePrefix, verifierErr)
+					} else {
+						errMsg = loadErr.Error()
+					}
+					t.Logf("Failed to load collection with the stats-level verifier log, retrying with the full log: %s", errMsg)
+					fullLogSem <- struct{}{}
+					defer func() { <-fullLogSem }()
 					logLevel = ebpf.LogLevelInstruction | ebpf.LogLevelStats
+					// Set log buffer start size to the maximum to avoid the library doubling the
+					// buffer and trying to load again each time the log doesn't fit.
+					logBufferStartSize = maxVerifierLogSize
 					continue
 				}
 			}
@@ -272,13 +328,14 @@ func loadAndRecordComplexity(
 			break
 		}
 
-		if ve, ok := errors.AsType[*ebpf.VerifierError](err); ok {
+		if verifierErr, ok := errors.AsType[*ebpf.VerifierError](loadErr); ok {
 			// Write full verifier log to a path on disk for offline analysis.
-			var buf bytes.Buffer
-			fmt.Fprintf(&buf, "%+v", ve)
 			fullLogFile := path.Join(*flagResultDir, fmt.Sprintf("%s_%d_%d_verifier.log", collection, build, load))
-			_ = os.WriteFile(fullLogFile, buf.Bytes(), 0444)
-			t.Log("Full verifier log at", fullLogFile)
+			if err := writeVerifierLog(fullLogFile, verifierErr); err != nil {
+				t.Errorf("Failed to write the full verifier log to %s: %v", fullLogFile, err)
+			} else {
+				t.Log("Full verifier log at", fullLogFile)
+			}
 
 			// Copy the object file to the result directory, so it can be inspected together with the
 			// verifier log.
@@ -308,16 +365,13 @@ func loadAndRecordComplexity(
 				t.Logf("\t%s: %d insns", n, len(p.Instructions))
 			}
 
-			// Include the original err in the output since it contains the name
-			// of the program that triggered the verifier error.
-			// ebpf.VerifierError only contains the return code and verifier log
-			// buffer.
-			t.Logf("Error: %v\nVerifier error tail: %-10v", err, ve)
+			progNameLine := extractProgNamePrefix(loadErr, verifierErr)
+			t.Logf("Failed to load collection: %s%-10v", progNameLine, verifierErr)
 			t.Fail()
 			return
 		}
-		if err != nil {
-			t.Log(err)
+		if loadErr != nil {
+			t.Logf("Failed to load collection: %v", loadErr)
 			t.Fail()
 			return
 		}
@@ -361,19 +415,13 @@ func loadAndRecordComplexity(
 			}
 
 			stackDepthIndex := strings.LastIndex(p.VerifierLog[:lastLineIndex], "\n")
-			// On older kernels, the max field is missing in verifier logs so
-			// we can't easily retrieve the max stack size. We'll just return
-			// it for bpf-next, where it's likely already the highest value
-			// anyway.
-			if kv == kernelVersionNetNext {
-				var stackDepth int
-				stackDepth, stackDepthIndex, err = parseStackDepth(t, s, p.VerifierLog, lastLineIndex, lastOff)
-				if err != nil {
-					dumpVerifierLogs(t, fullLogFile, p.VerifierLog)
-					t.Fatalf("Failed to parse stack depth for program %s: %v", n, err)
-				}
+
+			var stackDepth, parsedStackDepthIndex int
+			stackDepth, parsedStackDepthIndex, err = parseStackDepth(t, s, p.VerifierLog, lastLineIndex, lastOff)
+			if err == nil {
 				r.StackDepth = stackDepth
 				r.HasStackDepth = true
+				stackDepthIndex = parsedStackDepthIndex
 			}
 
 			// Extract the third to last line, which looks like:

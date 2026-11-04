@@ -85,7 +85,6 @@ linters:
     modernize:
       disable:
         - omitzero
-        - fmtappendf
     revive:
       rules:
         # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration

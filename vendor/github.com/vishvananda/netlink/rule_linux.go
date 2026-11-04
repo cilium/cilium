@@ -336,16 +336,6 @@ func (pr *RuleUIDRange) toRtAttrData() []byte {
 	return bytes.Join(b, []byte{})
 }
 
-func ptrEqual(a, b *uint32) bool {
-	if a == b {
-		return true
-	}
-	if (a == nil) || (b == nil) {
-		return false
-	}
-	return *a == *b
-}
-
 func (r Rule) typeString() string {
 	switch r.Type {
 	case unix.RTN_UNSPEC: // zero

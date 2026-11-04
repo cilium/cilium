@@ -2,7 +2,7 @@
 
 ## cilium-dbg prefilter update
 
-Update CIDR filters
+Update CIDR filters (deprecated)
 
 ```
 cilium-dbg prefilter update [flags]
@@ -28,5 +28,5 @@ cilium-dbg prefilter update [flags]
 
 ### SEE ALSO
 
-* [cilium-dbg prefilter](cilium-dbg_prefilter.md)	 - Manage XDP CIDR filters
+* [cilium-dbg prefilter](cilium-dbg_prefilter.md)	 - Manage XDP CIDR filters (deprecated)
 

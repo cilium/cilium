@@ -24,7 +24,7 @@ DeleteFqdnCache           Deletes matching DNS lookups from the cache, optionall
                           restricted by DNS name. The removed IP data will no longer
                           be used in generated policies.
 DeleteIPAMIP              -
-DeletePrefilter           -
+DeletePrefilter           Deprecated: This will be removed in the future.
 GetBGPPeers               Retrieves current operational state of BGP peers created by
                           Cilium BGP virtual router. This includes session state,
                           uptime, information per address family, etc. Deprecated:
@@ -76,7 +76,7 @@ GetPolicy                 Returns the entire policy tree with all children.
                           Deprecated: will be removed in v1.19
 GetPolicySelectors        -
 GetPolicySubjectSelectors -
-GetPrefilter              -
+GetPrefilter              Deprecated: This will be removed in the future.
 GetService                -
 PatchConfig               Updates the daemon configuration by applying the provided
                           ConfigurationMap and regenerates & recompiles all required
@@ -87,7 +87,7 @@ PatchEndpointIDConfig     Update the configuration of an existing endpoint and
                           automatically.
 PatchEndpointIDLabels     Sets labels associated with an endpoint. These can be user
                           provided or derived from the orchestration system.
-PatchPrefilter            -
+PatchPrefilter            Deprecated: This will be removed in the future.
 PostIPAM                  -
 PostIPAMIP                -
 PutEndpointID             Creates a new endpoint

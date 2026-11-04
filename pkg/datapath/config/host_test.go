@@ -121,3 +121,23 @@ func TestNetdevStrictEgressEncryptionConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestNetdevStrictEgressEncryptionCIDRHostBits(t *testing.T) {
+	oldEnabled := option.Config.EnableEncryptionStrictModeEgress
+	oldCIDR := option.Config.EncryptionStrictEgressCIDR
+	t.Cleanup(func() {
+		option.Config.EnableEncryptionStrictModeEgress = oldEnabled
+		option.Config.EncryptionStrictEgressCIDR = oldCIDR
+	})
+
+	option.Config.EnableEncryptionStrictModeEgress = true
+	option.Config.EncryptionStrictEgressCIDR = netip.MustParsePrefix("192.0.2.77/24")
+
+	ep := testutils.NewTestEndpoint(t)
+	link := &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Index: 1}}
+	lnc := &Config{NodeIPv4: netip.MustParseAddr("198.51.100.1")}
+
+	cfg, ok := Netdev(&ep, lnc, link, netip.Addr{}, netip.Addr{}).(*BPFHost)
+	require.True(t, ok)
+	assert.Equal(t, [4]byte{192, 0, 2, 0}, cfg.StrictEgressEncryption.IPv4Net.Addr)
+}

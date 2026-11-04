@@ -33,6 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	resourceapi "k8s.io/api/resource/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	apiresource "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	kubetypes "k8s.io/apimachinery/pkg/types"
@@ -86,21 +87,23 @@ func requireNoAllocations(t *testing.T, d *Driver, msgAndArgs ...any) {
 // ---------------------------------------------------------------------------
 
 // trackedDevice is a minimal types.Device implementation that records calls
-// to Setup and Free and can be configured to return errors on either.
+// to Setup, Recover, and Free and can be configured to return errors.
 type trackedDevice struct {
-	name       string
-	setupErr   error
-	freeErr    error
-	setupCalls atomic.Int32
-	freeCalls  atomic.Int32
-	setupCfgs  []types.DeviceConfig
-
-	// kernelIfName backs KernelIfName(). When empty, KernelIfName() falls back
-	// to name so existing tests that never set it keep their prior behavior.
-	// Merge copies this field forward from an old device when a fresh scan
-	// left it empty, mirroring how a real device manager can lose the kernel
-	// interface name once a device has moved into a pod's network namespace.
-	kernelIfName string
+	name             string
+	setupErr         error
+	freeErr          error
+	setupFunc        func(types.DeviceAllocation) (types.Device, error)
+	recoverFunc      func(types.DeviceAllocation) (types.Device, error)
+	prepared         types.Device
+	capacity         map[resourceapi.QualifiedName]resourceapi.DeviceCapacity
+	attrs            map[resourceapi.QualifiedName]resourceapi.DeviceAttribute
+	allowMultiple    bool
+	setupCalls       atomic.Int32
+	recoverCalls     atomic.Int32
+	freeCalls        atomic.Int32
+	setupAllocations []types.DeviceAllocation
+	freeAllocations  []types.DeviceAllocation
+	kernelIfName     string
 }
 
 func (d *trackedDevice) IfName() string { return d.name }
@@ -123,17 +126,43 @@ func (d *trackedDevice) Merge(old types.Device) {
 // GetAttrs intentionally returns nil — these tests do not exercise device
 // attributes, and buildPoolsFromTable handles a nil map safely.
 func (d *trackedDevice) GetAttrs() map[resourceapi.QualifiedName]resourceapi.DeviceAttribute {
-	return nil
+	return d.attrs
 }
 
-func (d *trackedDevice) Setup(cfg types.DeviceConfig) error {
+func (d *trackedDevice) GetCapacity() map[resourceapi.QualifiedName]resourceapi.DeviceCapacity {
+	return d.capacity
+}
+
+func (d *trackedDevice) AllowMultipleAllocations() bool {
+	return d.allowMultiple
+}
+
+func (d *trackedDevice) Setup(allocation types.DeviceAllocation) (types.Device, error) {
 	d.setupCalls.Add(1)
-	d.setupCfgs = append(d.setupCfgs, cfg)
-	return d.setupErr
+	d.setupAllocations = append(d.setupAllocations, allocation)
+	if d.setupErr != nil {
+		return nil, d.setupErr
+	}
+	if d.setupFunc != nil {
+		return d.setupFunc(allocation)
+	}
+	if d.prepared != nil {
+		return d.prepared, nil
+	}
+	return d, nil
 }
 
-func (d *trackedDevice) Free(_ types.DeviceConfig) error {
+func (d *trackedDevice) Recover(allocation types.DeviceAllocation) (types.Device, error) {
+	d.recoverCalls.Add(1)
+	if d.recoverFunc != nil {
+		return d.recoverFunc(allocation)
+	}
+	return d, nil
+}
+
+func (d *trackedDevice) Free(allocation types.DeviceAllocation) error {
 	d.freeCalls.Add(1)
+	d.freeAllocations = append(d.freeAllocations, allocation)
 	return d.freeErr
 }
 
@@ -169,7 +198,12 @@ const (
 	prepTestClaimUID2  = kubetypes.UID("cccccccc-0000-0000-0000-000000000003")
 	prepTestClaimName2 = "test-claim-2"
 	prepTestPool       = "testpool"
+	prepTestShareID0   = kubetypes.UID("dddddddd-0000-0000-0000-000000000004")
+	prepTestShareID1   = kubetypes.UID("eeeeeeee-0000-0000-0000-000000000005")
+	prepTestCapacity   = resourceapi.QualifiedName("rxQueues")
 )
+
+const prepTestLogicalPool = "logical-pool"
 
 // ---------------------------------------------------------------------------
 // Fixture builders
@@ -221,6 +255,17 @@ func buildPrepClaim(devices ...string) *resourceapi.ResourceClaim {
 				{Resource: "pods", Name: prepTestPodName, UID: prepTestPodUID},
 			},
 		},
+	}
+}
+
+func setPrepClaimShares(claim *resourceapi.ResourceClaim, shareIDs ...kubetypes.UID) {
+	for i, id := range shareIDs {
+		result := &claim.Status.Allocation.Devices.Results[i]
+		result.Pool = prepTestPool
+		result.ShareID = &id
+		result.ConsumedCapacity = map[resourceapi.QualifiedName]apiresource.Quantity{
+			prepTestCapacity: apiresource.MustParse("1"),
+		}
 	}
 }
 
@@ -338,13 +383,37 @@ func TestPrepare(t *testing.T) {
 
 	t.Run("test prepare one device one claim success", func(t *testing.T) {
 		cs, _ := k8sClient.NewFakeClientset(tlog)
-		dev := &trackedDevice{name: prepTestDev0}
+		queueID := int64(1)
+		dev := &trackedDevice{
+			name: prepTestDev0,
+			attrs: map[resourceapi.QualifiedName]resourceapi.DeviceAttribute{
+				types.RXQueueIDLabel: {IntValue: &queueID},
+			},
+		}
 		claim := buildPrepClaim(prepTestDev0)
+		claim.Status.Allocation.Devices.Results[0].Pool = prepTestPool
 		createPrepClaim(t, cs, claim)
 
 		driver := buildPrepDriver(t, cs, dev)
+		driver.config.Pools = []v2alpha1.CiliumNetworkDriverDevicePoolConfig{{
+			PoolName: prepTestLogicalPool,
+			Filter:   &v2alpha1.CiliumNetworkDriverDeviceFilter{},
+		}}
 		result := prepOne(t, driver, claim)
 		require.NoError(t, result.Err)
+		require.Len(t, result.Devices, 1)
+		resultDevice := result.Devices[0]
+		require.Equal(t, []string{prepTestRequest}, resultDevice.Requests)
+		require.Equal(t, prepTestDev0, resultDevice.DeviceName)
+		require.Equal(t, prepTestPool, resultDevice.PoolName)
+		require.NotNil(t, resultDevice.Metadata)
+		require.NotNil(t, resultDevice.Metadata.NetworkData)
+		require.Equal(t, "mydevice", resultDevice.Metadata.NetworkData.InterfaceName)
+		require.EqualValues(t, 1, *resultDevice.Metadata.Attributes[types.RXQueueIDLabel].IntValue)
+		require.Equal(t, types.DeviceManagerTypeMock.String(),
+			*resultDevice.Metadata.Attributes[types.DeviceManagerLabel].StringValue)
+		require.Equal(t, prepTestLogicalPool,
+			*resultDevice.Metadata.Attributes[types.PoolNameLabel].StringValue)
 
 		require.EqualValues(t, 1, dev.setupCalls.Load(), "Setup must be called once")
 		require.EqualValues(t, 0, dev.freeCalls.Load(), "Free must not be called on success")
@@ -354,6 +423,7 @@ func TestPrepare(t *testing.T) {
 		require.Len(t, rows, 1)
 		require.Equal(t, prepTestPodUID, rows[0].PodUID)
 		require.Equal(t, prepTestClaimUID, rows[0].ClaimUID)
+		require.Equal(t, prepTestLogicalPool, rows[0].LogicalPool)
 
 		txn := driver.db.ReadTxn()
 		_, _, found := driver.deviceTable.Get(txn, deviceByName.Query(prepTestDev0))
@@ -407,6 +477,27 @@ func TestPrepare(t *testing.T) {
 		// no partial entry must be left in the map.
 		requireNoAllocations(t, driver,
 			"allocations map must be empty when UpdateStatus fails")
+	})
+
+	t.Run("shared prepared device is rolled back with its allocation context", func(t *testing.T) {
+		cs, _ := k8sClient.NewFakeClientset(tlog)
+		prepared := &trackedDevice{name: "prepared-0"}
+		dev := &trackedDevice{
+			name:          prepTestDev0,
+			prepared:      prepared,
+			allowMultiple: true,
+		}
+		claim := buildPrepClaim(prepTestDev0)
+		setPrepClaimShares(claim, prepTestShareID0)
+
+		driver := buildPrepDriver(t, cs, dev)
+		require.Error(t, prepOne(t, driver, claim).Err)
+
+		require.EqualValues(t, 1, dev.setupCalls.Load())
+		require.EqualValues(t, 0, dev.freeCalls.Load())
+		require.EqualValues(t, 1, prepared.freeCalls.Load())
+		require.Equal(t, prepTestShareID0, prepared.freeAllocations[0].ShareID)
+		require.Equal(t, apiresource.MustParse("1"), prepared.freeAllocations[0].ConsumedCapacity[prepTestCapacity])
 	})
 
 	t.Run("test prepare fails and calls rollback", func(t *testing.T) {
@@ -566,6 +657,105 @@ func TestPrepare(t *testing.T) {
 		require.Len(t, allocatedRowsForPod(t, driver, prepTestPodUID), 2, "allocations map must have 2 claim entries")
 	})
 
+	t.Run("consumable device supports independent shares", func(t *testing.T) {
+		cs, _ := k8sClient.NewFakeClientset(tlog)
+		prepared0 := &trackedDevice{name: "prepared-0"}
+		prepared1 := &trackedDevice{name: "prepared-1"}
+		dev := &trackedDevice{name: prepTestDev0, allowMultiple: true}
+		dev.setupFunc = func(allocation types.DeviceAllocation) (types.Device, error) {
+			switch allocation.ShareID {
+			case prepTestShareID0:
+				return prepared0, nil
+			case prepTestShareID1:
+				return prepared1, nil
+			default:
+				return nil, errors.New("unexpected share ID")
+			}
+		}
+
+		claim0 := buildPrepClaim(prepTestDev0)
+		claim0.Status.Allocation.Devices.Config = nil
+		setPrepClaimShares(claim0, prepTestShareID0)
+		claim1 := buildPrepClaim2(prepTestDev0)
+		claim1.Status.Allocation.Devices.Config = nil
+		setPrepClaimShares(claim1, prepTestShareID1)
+		createPrepClaim(t, cs, claim0)
+		createPrepClaim(t, cs, claim1)
+
+		driver := buildPrepDriver(t, cs, dev)
+		require.NoError(t, prepOne(t, driver, claim0).Err)
+		require.NoError(t, prepOne(t, driver, claim1).Err)
+
+		require.EqualValues(t, 2, dev.setupCalls.Load())
+		require.Equal(t, prepTestShareID0, dev.setupAllocations[0].ShareID)
+		require.Equal(t, prepTestShareID1, dev.setupAllocations[1].ShareID)
+		require.Equal(t, apiresource.MustParse("1"), dev.setupAllocations[0].ConsumedCapacity[prepTestCapacity])
+
+		rows0 := allocatedRowsForClaim(t, driver, prepTestClaimUID)
+		rows1 := allocatedRowsForClaim(t, driver, prepTestClaimUID2)
+		require.Len(t, rows0, 1)
+		require.Len(t, rows1, 1)
+		require.Same(t, prepared0, rows0[0].PreparedDevice)
+		require.Same(t, prepared1, rows1[0].PreparedDevice)
+		require.Equal(t, prepTestDev0, rows0[0].DeviceName)
+		require.Equal(t, prepTestDev0, rows1[0].DeviceName)
+
+		updated0, err := cs.KubernetesFakeClientset.ResourceV1().
+			ResourceClaims(prepTestClaimNS).Get(t.Context(), prepTestClaimName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, updated0.Status.Devices, 1)
+		require.NotNil(t, updated0.Status.Devices[0].ShareID)
+		require.Equal(t, string(prepTestShareID0), *updated0.Status.Devices[0].ShareID)
+		require.Equal(t, prepTestDev0, updated0.Status.Devices[0].Device)
+		require.NotNil(t, updated0.Status.Devices[0].NetworkData)
+		require.Equal(t, prepared0.IfName(), updated0.Status.Devices[0].NetworkData.InterfaceName)
+
+		_, err = driver.UnprepareResourceClaims(t.Context(), []kubeletplugin.NamespacedObject{
+			namedObject(prepTestClaimNS, prepTestClaimName, prepTestClaimUID),
+		})
+		require.NoError(t, err)
+		require.EqualValues(t, 1, prepared0.freeCalls.Load())
+		require.EqualValues(t, 0, prepared1.freeCalls.Load())
+		require.Equal(t, prepTestShareID0, prepared0.freeAllocations[0].ShareID)
+		require.Equal(t, apiresource.MustParse("1"), prepared0.freeAllocations[0].ConsumedCapacity[prepTestCapacity])
+		require.Empty(t, allocatedRowsForClaim(t, driver, prepTestClaimUID))
+		require.Len(t, allocatedRowsForClaim(t, driver, prepTestClaimUID2), 1)
+	})
+
+	t.Run("idempotent retry distinguishes shares of one device", func(t *testing.T) {
+		cs, _ := k8sClient.NewFakeClientset(tlog)
+		prepared := map[kubetypes.UID]*trackedDevice{
+			prepTestShareID0: {name: "prepared-0"},
+			prepTestShareID1: {name: "prepared-1"},
+		}
+		dev := &trackedDevice{name: prepTestDev0, allowMultiple: true}
+		dev.setupFunc = func(allocation types.DeviceAllocation) (types.Device, error) {
+			device := prepared[allocation.ShareID]
+			if device == nil {
+				return nil, errors.New("unexpected share ID")
+			}
+			return device, nil
+		}
+
+		claim := buildPrepClaim(prepTestDev0, prepTestDev0)
+		setPrepClaimShares(claim, prepTestShareID0, prepTestShareID1)
+		createPrepClaim(t, cs, claim)
+
+		driver := buildPrepDriver(t, cs, dev)
+		require.NoError(t, prepOne(t, driver, claim).Err)
+		require.EqualValues(t, 2, dev.setupCalls.Load())
+
+		updated, err := cs.KubernetesFakeClientset.ResourceV1().
+			ResourceClaims(prepTestClaimNS).Get(t.Context(), prepTestClaimName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, updated.Status.Devices, 2)
+		claim.ResourceVersion = updated.ResourceVersion
+		claim.Status.Devices = updated.Status.Devices
+
+		require.NoError(t, prepOne(t, driver, claim).Err)
+		require.EqualValues(t, 2, dev.setupCalls.Load(), "Setup must not run again for either share")
+	})
+
 	t.Run("test prepare cross claim device conflict is not allowed", func(t *testing.T) {
 		cs, _ := k8sClient.NewFakeClientset(tlog)
 		dev := &trackedDevice{name: prepTestDev0}
@@ -591,6 +781,74 @@ func TestPrepare(t *testing.T) {
 		// The pod entry must only contain the first claim.
 		require.NotEmpty(t, allocatedRowsForPod(t, driver, prepTestPodUID), "must have allocations for pod")
 		require.Len(t, allocatedRowsForClaim(t, driver, prepTestClaimUID), 1, "only the first claim must be allocated")
+	})
+
+	t.Run("same share cannot be allocated by two claims", func(t *testing.T) {
+		cs, _ := k8sClient.NewFakeClientset(tlog)
+		dev := &trackedDevice{name: prepTestDev0, allowMultiple: true}
+		claim0 := buildPrepClaim(prepTestDev0)
+		setPrepClaimShares(claim0, prepTestShareID0)
+		claim1 := buildPrepClaim2(prepTestDev0)
+		setPrepClaimShares(claim1, prepTestShareID0)
+		createPrepClaim(t, cs, claim0)
+		createPrepClaim(t, cs, claim1)
+
+		driver := buildPrepDriver(t, cs, dev)
+		require.NoError(t, prepOne(t, driver, claim0).Err)
+
+		result := prepOne(t, driver, claim1)
+		require.Error(t, result.Err)
+		require.EqualValues(t, 1, dev.setupCalls.Load())
+	})
+
+	t.Run("scheduler share is honored for a currently dedicated device", func(t *testing.T) {
+		cs, _ := k8sClient.NewFakeClientset(tlog)
+		dev := &trackedDevice{name: prepTestDev0}
+		claim := buildPrepClaim(prepTestDev0)
+		setPrepClaimShares(claim, prepTestShareID0)
+		createPrepClaim(t, cs, claim)
+
+		driver := buildPrepDriver(t, cs, dev)
+		result := prepOne(t, driver, claim)
+
+		require.NoError(t, result.Err)
+		require.EqualValues(t, 1, dev.setupCalls.Load())
+		require.Equal(t, prepTestShareID0, dev.setupAllocations[0].ShareID)
+		require.Equal(t, apiresource.MustParse("1"), dev.setupAllocations[0].ConsumedCapacity[prepTestCapacity])
+
+		updated, err := cs.KubernetesFakeClientset.ResourceV1().
+			ResourceClaims(prepTestClaimNS).Get(t.Context(), prepTestClaimName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, updated.Status.Devices, 1)
+		require.NotNil(t, updated.Status.Devices[0].ShareID)
+		require.Equal(t, string(prepTestShareID0), *updated.Status.Devices[0].ShareID)
+		rows := allocatedRowsForClaim(t, driver, prepTestClaimUID)
+		require.Len(t, rows, 1)
+		require.Equal(t, prepTestShareID0, rows[0].ShareID)
+	})
+
+	t.Run("scheduler dedicated allocation is honored for a currently shareable device", func(t *testing.T) {
+		cs, _ := k8sClient.NewFakeClientset(tlog)
+		dev := &trackedDevice{name: prepTestDev0, allowMultiple: true}
+		claim := buildPrepClaim(prepTestDev0)
+		require.Nil(t, claim.Status.Allocation.Devices.Results[0].ShareID)
+		createPrepClaim(t, cs, claim)
+
+		driver := buildPrepDriver(t, cs, dev)
+		result := prepOne(t, driver, claim)
+
+		require.NoError(t, result.Err)
+		require.EqualValues(t, 1, dev.setupCalls.Load())
+		require.Empty(t, dev.setupAllocations[0].ShareID)
+
+		updated, err := cs.KubernetesFakeClientset.ResourceV1().
+			ResourceClaims(prepTestClaimNS).Get(t.Context(), prepTestClaimName, metav1.GetOptions{})
+		require.NoError(t, err)
+		require.Len(t, updated.Status.Devices, 1)
+		require.Nil(t, updated.Status.Devices[0].ShareID)
+		rows := allocatedRowsForClaim(t, driver, prepTestClaimUID)
+		require.Len(t, rows, 1)
+		require.Empty(t, rows[0].ShareID)
 	})
 
 	t.Run("test invalid pod ifname is not set up", func(t *testing.T) {

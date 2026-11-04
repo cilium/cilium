@@ -41,7 +41,6 @@ var TCPRouteInvalidCrossNamespaceBackendRef = confsuite.ConformanceTest{
 		features.SupportTCPRoute,
 		features.SupportReferenceGrant,
 	},
-	Provisional: true,
 	Test: func(t *testing.T, suite *confsuite.ConformanceTestSuite) {
 		ns := confsuite.InfrastructureNamespace
 		routeNN := types.NamespacedName{Name: "tcp-invalid-cross-namespace-backend-ref", Namespace: ns}

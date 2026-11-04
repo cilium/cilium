@@ -613,8 +613,11 @@ paths:
   "/prefilter":
     get:
       summary: Retrieve list of CIDRs
+      description: |
+        Deprecated: This will be removed in the future.
+      deprecated: true
       tags:
-      - prefilter
+        - prefilter
       responses:
         '200':
           description: Success
@@ -627,10 +630,13 @@ paths:
             "$ref": "#/definitions/Error"
     patch:
       summary: Update list of CIDRs
+      description: |
+        Deprecated: This will be removed in the future.
+      deprecated: true
       tags:
-      - prefilter
+        - prefilter
       parameters:
-      - "$ref": "#/parameters/prefilter-spec"
+        - "$ref": "#/parameters/prefilter-spec"
       responses:
         '200':
           description: Updated
@@ -650,10 +656,13 @@ paths:
             "$ref": "#/definitions/Error"
     delete:
       summary: Delete list of CIDRs
+      description: |
+        Deprecated: This will be removed in the future.
+      deprecated: true
       tags:
-      - prefilter
+        - prefilter
       parameters:
-      - "$ref": "#/parameters/prefilter-spec"
+        - "$ref": "#/parameters/prefilter-spec"
       responses:
         '200':
           description: Deleted
@@ -1279,6 +1288,7 @@ definitions:
         description: >
           Endpoint requires BPF routing to be enabled, when disabled, routing
           is delegated to Linux routing.
+        x-go-name: RequireBPFRouting
         type: boolean
         default: true
       install-endpoint-route:
@@ -1625,7 +1635,7 @@ definitions:
       ips:
         type: array
         items:
-          type: string
+          "$ref": "#/definitions/Address"
   CgroupContainerMetadata:
     description: cgroup container metadata
     type: object
@@ -2224,7 +2234,7 @@ definitions:
                   prefixes:
                     type: array
                     items:
-                      type: string
+                      "$ref": "#/definitions/CIDR"
           socketLBTracing:
             type: object
             properties:
@@ -2652,7 +2662,10 @@ definitions:
       ipv4:
         "$ref": "#/definitions/NodeAddressingElement"
   NodeAddressingElement:
-    description: Addressing information
+    description: |-
+      Addressing information
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       enabled:
@@ -2660,10 +2673,10 @@ definitions:
         type: boolean
       ip:
         description: IP address of node
-        type: string
+        "$ref": "#/definitions/Address"
       alloc-range:
         description: Address pool to be used for local endpoints
-        type: string
+        "$ref": "#/definitions/CIDR"
       address-type:
         description: Node address type, one of HostName, ExternalIP or InternalIP
         type: string
@@ -3478,18 +3491,17 @@ definitions:
     description: IP entry with metadata
     type: object
     required:
-      - cidr
       - identity
     properties:
       cidr:
         description: Key of the entry in the form of a CIDR range
-        type: string
+        "$ref": "#/definitions/CIDR"
       identity:
         description: Numerical identity assigned to the IP
         type: integer
       hostIP:
         description: IP address of the host
-        type: string
+        "$ref": "#/definitions/Address"
       encryptKey:
         description: The context ID for the encryption session
         type: integer

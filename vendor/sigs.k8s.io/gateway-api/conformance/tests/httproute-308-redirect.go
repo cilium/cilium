@@ -36,7 +36,6 @@ var HTTPRoute308Redirect = confsuite.ConformanceTest{
 	ShortName:   "HTTPRoute308Redirect",
 	Description: "An HTTPRoute with a 308 path redirect filter",
 	Manifests:   []string{"tests/httproute-308-redirect.yaml"},
-	Provisional: true,
 	Features: []features.FeatureName{
 		features.SupportGateway,
 		features.SupportHTTPRoute,

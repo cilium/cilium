@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"sort"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -17,7 +16,6 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
-	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -53,8 +51,7 @@ var ipGetCmd = &cobra.Command{
 			if err != nil {
 				Fatalf("Cannot get ipcache entries. err: %s", pkg.Hint(err))
 			}
-			im := ipcachetypes.IPListEntrySlice(ipcache.Payload)
-			sort.Slice(im, im.Less)
+			sortIPListEntries(ipcache.Payload)
 			printIPcacheEntries(ipcache.Payload)
 		}
 	},
@@ -81,8 +78,7 @@ func displayByLabels(lbls models.Labels) {
 	if err != nil {
 		Fatalf("Cannot get ipcache entries. err: %s", pkg.Hint(err))
 	}
-	im := ipcachetypes.IPListEntrySlice(result.Payload)
-	sort.Slice(im, im.Less)
+	sortIPListEntries(result.Payload)
 	if verbose {
 		printIPcacheEntries(result.Payload)
 	} else {
@@ -101,15 +97,11 @@ func printIPcacheEntriesBrief(entries []*models.IPListEntry) {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 	fmt.Fprintf(w, "IP\tHOST\tIDENTITY\tPOD\tNAMESPACE\n")
 	for _, entry := range entries {
-		cidr := InfoNA
-		if entry.Cidr != nil {
-			cidr = *entry.Cidr
-		}
 		identity := InfoNA
 		if entry.Identity != nil {
 			identity = fmt.Sprintf("%d", *entry.Identity)
 		}
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", cidr, entry.HostIP, identity, entry.Metadata.Name, entry.Metadata.Namespace)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", formatPrefix(entry.Cidr), formatAddr(entry.HostIP), identity, entry.Metadata.Name, entry.Metadata.Namespace)
 	}
 	w.Flush()
 }

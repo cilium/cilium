@@ -6,7 +6,7 @@
 #include "common.h"
 
 #define ENABLE_IPV4 1
-#define ENABLE_NODEPORT
+#define ENABLE_NODEPORT 1
 #include <bpf/config/node.h>
 
 ASSIGN_CONFIG(bool, debug, true)

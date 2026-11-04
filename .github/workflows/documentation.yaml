@@ -45,6 +45,7 @@ jobs:
               - 'cilium-health/cmd/**'
               - 'daemon/cmd/**'
               - 'hubble-relay/cmd/**'
+              - 'images/docs-builder/**'
               - 'install/kubernetes/**'
               - 'operator/cmd/**'
               - 'pkg/metrics/features/**'
@@ -69,7 +70,7 @@ jobs:
         uses: ./.github/actions/disk-cleanup
 
       - name: Build HTML
-        uses: docker://quay.io/cilium/docs-builder:e6773ed21ab03066c0f24e68f342f18804a8ee0a@sha256:d3beff6d6408c09f6e1dbc637f7e98962b7d1fd2a81bf1d2a27ff8817dafb51f
+        uses: docker://quay.io/cilium/docs-builder:f921661477db929b745592dbd904377f725ac331@sha256:892c1372cdefe855a4e9488975e050a633e5a36d4d0465c121ec1faba151cdef
         with:
           entrypoint: ./Documentation/check-build.sh
           args: html
@@ -93,7 +94,7 @@ jobs:
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # renovate: datasource=golang-version depName=go
-          go-version: 1.27.2
+          go-version: 1.27.3
 
       # Building Cilium as precondition to generate documentation artifacts.
       - name: Build Cilium
