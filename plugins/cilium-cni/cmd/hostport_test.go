@@ -4,9 +4,11 @@
 package cmd
 
 import (
+	"encoding/binary"
 	"fmt"
 	"net"
 	"net/netip"
+	"strings"
 	"testing"
 
 	"golang.org/x/sys/unix"
@@ -157,5 +159,68 @@ func TestPrivilegedSocketDiagIPv6Only(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPrivilegedProcNetHostPortCheckInSeparateNetNS(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	ns, err := netns.New()
+	if err != nil {
+		t.Fatalf("create network namespace: %v", err)
+	}
+	defer ns.Close()
+
+	var tcpListener net.Listener
+	var udpConn net.PacketConn
+	err = ns.Do(func() error {
+		var err error
+		tcpListener, err = net.Listen("tcp4", "127.0.0.1:0")
+		if err != nil {
+			return fmt.Errorf("listen on TCP port: %w", err)
+		}
+		udpConn, err = net.ListenPacket("udp4", "127.0.0.1:0")
+		if err != nil {
+			tcpListener.Close()
+			return fmt.Errorf("listen on UDP port: %w", err)
+		}
+
+		mappings := []hostPortKey{
+			{protocol: "tcp", port: uint16(tcpListener.Addr().(*net.TCPAddr).Port),
+				address: netip.MustParseAddr("127.0.0.1")},
+			{protocol: "udp", port: uint16(udpConn.LocalAddr().(*net.UDPAddr).Port),
+				address: netip.MustParseAddr("127.0.0.1")},
+		}
+		for _, mapping := range mappings {
+			err := validateHostPortsProc([]hostPortKey{mapping})
+			if err == nil {
+				return fmt.Errorf("proc checker did not find %s port %d",
+					mapping.protocol, mapping.port)
+			}
+			if !strings.Contains(err.Error(), "already in use") {
+				return fmt.Errorf("unexpected proc checker error: %w", err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tcpListener.Close()
+	defer udpConn.Close()
+}
+
+func TestParseProcSocketAddressNativeEndian(t *testing.T) {
+	for _, ip := range []string{"127.0.0.1", "2001:db8::1234"} {
+		address := netip.MustParseAddr(ip)
+		bytes := address.AsSlice()
+		var words []string
+		for i := 0; i < len(bytes); i += 4 {
+			words = append(words, fmt.Sprintf("%08X", binary.NativeEndian.Uint32(bytes[i:i+4])))
+		}
+		got, port, err := parseProcSocketAddress(strings.Join(words, "") + ":1F90")
+		if err != nil || got != address || port != 8080 {
+			t.Fatalf("parse %s: got %s:%d, err=%v", ip, got, port, err)
+		}
 	}
 }

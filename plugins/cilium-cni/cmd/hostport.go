@@ -4,9 +4,13 @@
 package cmd
 
 import (
+	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net/netip"
+	"os"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -53,8 +57,9 @@ func validateHostPorts(mappings []types.PortMapping) error {
 	}
 	diag, err := newSocketDiag()
 	if err != nil {
-		return fmt.Errorf("opening host SOCK_DIAG socket: %w", err)
+		return validateHostPortsProc(wanted)
 	}
+
 	defer diag.Close()
 
 	queried := make(map[string]struct{})
@@ -70,8 +75,7 @@ func validateHostPorts(mappings []types.PortMapping) error {
 			conflict, err := diag.findPort(mapping.protocol, family,
 				mapping.port, mapping.address)
 			if err != nil {
-				return fmt.Errorf("querying host %s port %d with SOCK_DIAG: %w",
-					mapping.protocol, mapping.port, err)
+				return validateHostPortsProc(wanted)
 			}
 			if conflict {
 				return fmt.Errorf("hostPort %s/%d is already in use",
@@ -80,6 +84,93 @@ func validateHostPorts(mappings []types.PortMapping) error {
 		}
 	}
 	return nil
+}
+
+// Proc does not report IPV6_V6ONLY, so IPv6 wildcard listeners are
+// conservatively treated as dual-stack listeners.
+func validateHostPortsProc(wanted []hostPortKey) error {
+	for _, protocol := range []string{"tcp", "udp"} {
+		for _, family := range []string{"", "6"} {
+			// thread-self follows the thread switched by netns.Do; /proc/net
+			// follows the process leader and would inspect the wrong namespace.
+			path := "/proc/thread-self/net/" + protocol + family
+			f, err := os.Open(path)
+			if err != nil {
+				if family == "6" && errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				return fmt.Errorf("reading host sockets from %s: %w", path, err)
+			}
+
+			scanner := bufio.NewScanner(f)
+			if scanner.Scan() {
+				for scanner.Scan() {
+					fields := strings.Fields(scanner.Text())
+					if len(fields) < 4 {
+						continue
+					}
+
+					localIP, localPort, err := parseProcSocketAddress(fields[1])
+					if err != nil {
+						continue
+					}
+					if protocol == "tcp" && fields[3] != "0A" {
+						continue
+					}
+					localIP = localIP.Unmap()
+					for _, mapping := range wanted {
+						if mapping.protocol == protocol &&
+							mapping.port == uint16(localPort) &&
+							socketAddressesConflict(localIP, mapping.address, false) {
+							f.Close()
+							return fmt.Errorf("hostPort %s/%d is already in use",
+								mapping.protocol, mapping.port)
+						}
+					}
+				}
+			}
+			scanErr := scanner.Err()
+			f.Close()
+			if scanErr != nil {
+				return fmt.Errorf("reading host sockets from %s: %w", path, scanErr)
+			}
+		}
+	}
+	return nil
+}
+
+func parseProcSocketAddress(value string) (netip.Addr, int, error) {
+	parts := strings.Split(value, ":")
+	if len(parts) != 2 {
+		return netip.Addr{}, 0, fmt.Errorf("invalid socket address %q", value)
+	}
+	// Proc prints each address word in native byte order.
+	if len(parts[0]) != 8 && len(parts[0]) != 32 {
+		return netip.Addr{}, 0, fmt.Errorf("invalid socket address %q", value)
+	}
+	address := make([]byte, len(parts[0])/2)
+	for offset := 0; offset < len(address); offset += 4 {
+		word, err := strconv.ParseUint(parts[0][offset*2:offset*2+8], 16, 32)
+		if err != nil {
+			return netip.Addr{}, 0, err
+		}
+		binary.NativeEndian.PutUint32(address[offset:offset+4], uint32(word))
+	}
+	port, err := strconv.ParseUint(parts[1], 16, 16)
+	if err != nil {
+		return netip.Addr{}, 0, err
+	}
+	var ip netip.Addr
+	if len(address) == 4 {
+		var bytes [4]byte
+		copy(bytes[:], address)
+		ip = netip.AddrFrom4(bytes)
+	} else {
+		var bytes [16]byte
+		copy(bytes[:], address)
+		ip = netip.AddrFrom16(bytes)
+	}
+	return ip, int(port), nil
 }
 
 type socketDiag struct {
