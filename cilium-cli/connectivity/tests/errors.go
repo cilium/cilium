@@ -93,7 +93,7 @@ func (tes thresholdExceptions) recordFailure(justMsg, line string) bool {
 }
 
 // NoErrorsInLogs checks whether there are no error messages in cilium-agent
-// logs. The error messages are defined in badLogMsgsWithExceptions, which key
+// logs. The error messages are defined in badLogMsgs, which key
 // is an error message, while values is a list of ignored messages.
 func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExceptions []string, externalTarget string, externalOtherTarget string, startTime time.Time) check.Scenario {
 	// Exceptions for level=error should only be added as a last resort, if the
@@ -150,6 +150,18 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 		warningLogExceptions = append(warningLogExceptions, stringMatcher(exception))
 	}
 
+	return &noErrorsInLogs{
+		errorMsgsWithExceptions: badLogMsgs(ciliumVersion, checkLevels, errorLogExceptions, warningLogExceptions),
+		thresholdExceptions:     warningThresholdExceptions,
+		ScenarioBase:            check.NewScenarioBase(),
+		ciliumVersion:           ciliumVersion,
+		startTime:               startTime,
+	}
+}
+
+// badLogMsgs maps each message that fails the check to the exceptions that
+// still let a line with it pass.
+func badLogMsgs(ciliumVersion semver.Version, checkLevels []string, errorLogExceptions, warningLogExceptions []logMatcher) map[string][]logMatcher {
 	// The list is adopted from cilium/cilium/test/helper/utils.go
 	var errorMsgsWithExceptions = map[string][]logMatcher{
 		panicMessage:         nil,
@@ -175,13 +187,7 @@ func NoErrorsInLogs(ciliumVersion semver.Version, checkLevels []string, extraExc
 	if slices.Contains(checkLevels, defaults.LogLevelWarning) && ciliumVersion.GE(semver.MustParse("1.17.0")) {
 		errorMsgsWithExceptions["level=warn"] = warningLogExceptions
 	}
-	return &noErrorsInLogs{
-		errorMsgsWithExceptions: errorMsgsWithExceptions,
-		thresholdExceptions:     warningThresholdExceptions,
-		ScenarioBase:            check.NewScenarioBase(),
-		ciliumVersion:           ciliumVersion,
-		startTime:               startTime,
-	}
+	return errorMsgsWithExceptions
 }
 
 type noErrorsInLogs struct {
