@@ -149,8 +149,6 @@ bool sock_proto_enabled(__u8 proto)
 	}
 }
 
-#ifdef ENABLE_IPV4
-
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
 					       __be32 dst_ip, __be16 dst_port,
@@ -467,6 +465,9 @@ int cil_sock4_connect(struct bpf_sock_addr *ctx)
 {
 	int err;
 
+	if (!is_defined(ENABLE_IPV4))
+		return SYS_PROCEED;
+
 	if (sock_is_health_check(ctx)) {
 		sock_reset_health_check_marker(ctx);
 		return SYS_PROCEED;
@@ -527,6 +528,9 @@ int cil_sock4_post_bind(struct bpf_sock *ctx)
 {
 	int err;
 
+	if (!is_defined(ENABLE_IPV4))
+		return SYS_PROCEED;
+
 	err = __sock4_post_bind(ctx, ctx);
 	if (err < 0) {
 		try_set_retval(err);
@@ -569,6 +573,8 @@ int cil_sock4_pre_bind(struct bpf_sock_addr *ctx)
 {
 	int ret = SYS_PROCEED;
 
+	if (!is_defined(ENABLE_IPV4))
+		return ret;
 	if (!sock_proto_enabled(ctx_protocol(ctx)) ||
 	    !ctx_in_hostns(ctx, NULL))
 		return ret;
@@ -631,6 +637,9 @@ int cil_sock4_sendmsg(struct bpf_sock_addr *ctx)
 {
 	int err;
 
+	if (!is_defined(ENABLE_IPV4))
+		return SYS_PROCEED;
+
 	err = __sock4_xlate_fwd(ctx, ctx, true, false);
 	if (err == -EHOSTUNREACH || err == -ENOMEM) {
 		try_set_retval(err);
@@ -643,6 +652,9 @@ int cil_sock4_sendmsg(struct bpf_sock_addr *ctx)
 __section("cgroup/recvmsg4")
 int cil_sock4_recvmsg(struct bpf_sock_addr *ctx)
 {
+	if (!is_defined(ENABLE_IPV4))
+		return SYS_PROCEED;
+
 	__sock4_xlate_rev(ctx, ctx);
 	return SYS_PROCEED;
 }
@@ -650,13 +662,13 @@ int cil_sock4_recvmsg(struct bpf_sock_addr *ctx)
 __section("cgroup/getpeername4")
 int cil_sock4_getpeername(struct bpf_sock_addr *ctx)
 {
+	if (!is_defined(ENABLE_IPV4))
+		return SYS_PROCEED;
+
 	__sock4_xlate_rev(ctx, ctx);
 	return SYS_PROCEED;
 }
 
-#endif /* ENABLE_IPV4 */
-
-#if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
 #ifdef ENABLE_IPV6
 
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
@@ -856,10 +868,12 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 			 const bool udp_only __maybe_unused,
 			 const bool is_connect __maybe_unused)
 {
-#ifdef ENABLE_IPV4
 	struct bpf_sock_addr fake_ctx;
 	union v6addr addr6;
 	int ret;
+
+	if (!is_defined(ENABLE_IPV4))
+		return -ENXIO;
 
 	ctx_get_v6_address(ctx, &addr6);
 	if (!is_v4_in_v6(&addr6))
@@ -879,16 +893,16 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 	ctx_set_port(ctx, (__u16)fake_ctx.user_port);
 
 	return 0;
-#endif /* ENABLE_IPV4 */
-	return -ENXIO;
 }
 
 static __always_inline int
 sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 {
-#ifdef ENABLE_IPV4
 	struct bpf_sock fake_ctx;
 	union v6addr addr6;
+
+	if (!is_defined(ENABLE_IPV4))
+		return 0;
 
 	ctx_get_v6_src_address(ctx, &addr6);
 	if (!is_v4_in_v6(&addr6))
@@ -900,8 +914,6 @@ sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 	fake_ctx.src_port = ctx->src_port;
 
 	return __sock4_post_bind(&fake_ctx, ctx);
-#endif /* ENABLE_IPV4 */
-	return 0;
 }
 
 static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
@@ -953,10 +965,12 @@ int cil_sock6_post_bind(struct bpf_sock *ctx)
 static __always_inline int
 sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
-#ifdef ENABLE_IPV4
 	struct bpf_sock_addr fake_ctx;
 	union v6addr addr6;
 	int ret;
+
+	if (!is_defined(ENABLE_IPV4))
+		return 0;
 
 	ctx_get_v6_address(ctx, &addr6);
 
@@ -972,7 +986,6 @@ sock6_pre_bind_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 	build_v4_in_v6(&addr6, fake_ctx.user_ip4);
 	ctx_set_v6_address(ctx, &addr6);
 	ctx_set_port(ctx, (__u16)fake_ctx.user_port);
-#endif /* ENABLE_IPV4 */
 	return 0;
 }
 
@@ -1174,10 +1187,12 @@ int cil_sock6_connect(struct bpf_sock_addr *ctx)
 static __always_inline int
 sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
-#ifdef ENABLE_IPV4
 	struct bpf_sock_addr fake_ctx;
 	union v6addr addr6;
 	int ret;
+
+	if (!is_defined(ENABLE_IPV4))
+		return -ENXIO;
 
 	ctx_get_v6_address(ctx, &addr6);
 	if (!is_v4_in_v6(&addr6))
@@ -1197,8 +1212,6 @@ sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 	ctx_set_port(ctx, (__u16)fake_ctx.user_port);
 
 	return 0;
-#endif /* ENABLE_IPV4 */
-	return -ENXIO;
 }
 
 static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
@@ -1279,20 +1292,17 @@ int cil_sock6_getpeername(struct bpf_sock_addr *ctx)
 __section("cgroup/sock_release")
 int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
 {
-#ifdef ENABLE_IPV4
-	if (ctx->family == AF_INET) {
+	if (is_defined(ENABLE_IPV4) && ctx->family == AF_INET) {
 		if (!sock4_delete_revnat(ctx, ctx))
 			update_metrics(0, METRIC_EGRESS,
 				       REASON_LB_REVNAT_DELETE);
 	}
-#endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
 	if (ctx->family == AF_INET6) {
-# ifdef ENABLE_IPV4
 		union v6addr addr6;
 
 		ctx_get_v6_dst_address(ctx, &addr6);
-		if (is_v4_in_v6(&addr6)) {
+		if (is_defined(ENABLE_IPV4) && is_v4_in_v6(&addr6)) {
 			struct bpf_sock fake_ctx;
 
 			memset(&fake_ctx, 0, sizeof(fake_ctx));
@@ -1302,9 +1312,7 @@ int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
 			if (!sock4_delete_revnat(&fake_ctx, ctx))
 				update_metrics(0, METRIC_EGRESS,
 					       REASON_LB_REVNAT_DELETE);
-		} else
-# endif /* ENABLE_IPV4 */
-		{
+		} else {
 			if (!sock6_delete_revnat(ctx))
 				update_metrics(0, METRIC_EGRESS,
 					       REASON_LB_REVNAT_DELETE);
@@ -1313,6 +1321,5 @@ int cil_sock_release(struct bpf_sock *ctx __maybe_unused)
 #endif /* ENABLE_IPV6 */
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
 BPF_LICENSE("Dual BSD/GPL");
