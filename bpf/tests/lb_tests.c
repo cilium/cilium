@@ -19,6 +19,8 @@
 
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
+
 /* TCP Service, single-scope */
 CHECK(PROG_TYPE, "lb4_tcp_single_scope")
 int test_lb4_tcp_single_scope(__maybe_unused struct __ctx_buff *ctx)

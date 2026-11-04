@@ -39,6 +39,7 @@ ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 /* To enable drop notifications */
 ASSIGN_CONFIG(bool, enable_drop_notify, true)
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* packet defined in ./scapy/lb_pkt_defs.py */

@@ -34,6 +34,7 @@ static char pkt[100];
 ASSIGN_CONFIG(bool, debug, true)
 ASSIGN_CONFIG(__u16, device_mtu, 1500);
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_sctp, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)

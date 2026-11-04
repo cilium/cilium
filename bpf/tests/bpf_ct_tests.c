@@ -8,6 +8,7 @@
 #define ENABLE_IPV4 1
 #include <bpf/config/node.h>
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, debug, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

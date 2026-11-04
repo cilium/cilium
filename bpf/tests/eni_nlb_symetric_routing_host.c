@@ -52,6 +52,7 @@ mock_redirect_neigh(int ifindex,
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
 ASSIGN_CONFIG(bool, debug, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)

@@ -102,6 +102,7 @@ ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(union v4addr, router_ipv4, { .be32 = 0xfffff50a })
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

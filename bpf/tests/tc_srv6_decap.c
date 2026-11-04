@@ -17,6 +17,7 @@
 #include "lib/endpoint.h"
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 /* Test SRH encap. Reduced encap code path is a subset of SRH encap */
 ASSIGN_CONFIG(struct srv6_config, srv6_cfg, {.enable = true, .enable_srh_encap = true})

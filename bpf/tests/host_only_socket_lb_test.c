@@ -33,6 +33,7 @@ int my_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 #include "bpf_sock.c"
 #include "lib/common.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(__u64, host_netns_cookie, HOST_NETNS_COOKIE)
 ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
 

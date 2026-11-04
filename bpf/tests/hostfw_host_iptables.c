@@ -22,6 +22,7 @@ static volatile const __u8 *server_mac = mac_two;
 
 #include "lib/bpf_host.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_host_firewall, true)
 
