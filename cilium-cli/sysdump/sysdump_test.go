@@ -870,6 +870,6 @@ func TestFormatNodeDiskUsageRow(t *testing.T) {
 	assert.Contains(t, row, "Unknown")
 }
 
-func (c *fakeClient) GetServerPreferredResources() ([]*metav1.APIResourceList, error) {
+func (c *fakeClient) GetServerPreferredResources(_ context.Context) ([]*metav1.APIResourceList, error) {
 	return nil, nil
 }

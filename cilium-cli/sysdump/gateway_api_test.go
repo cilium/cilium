@@ -22,12 +22,17 @@ type discoveryClient struct {
 	resources      []*metav1.APIResourceList
 	discoveryErr   error
 	discoveryCalls int
+	discoveryCtx   context.Context
 	listed         []schema.GroupVersionResource
 	listErr        error
 }
 
-func (c *discoveryClient) GetServerPreferredResources() ([]*metav1.APIResourceList, error) {
+func (c *discoveryClient) GetServerPreferredResources(ctx context.Context) ([]*metav1.APIResourceList, error) {
 	c.discoveryCalls++
+	c.discoveryCtx = ctx
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return c.resources, c.discoveryErr
 }
 
@@ -79,6 +84,19 @@ func TestGatewayAPIVersions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGatewayAPIDiscoveryCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	client := &discoveryClient{}
+	c := &Collector{Client: client}
+	for _, task := range c.getGatewayAPITasks() {
+		require.ErrorIs(t, task.Task(ctx), context.Canceled)
+	}
+	require.Same(t, ctx, client.discoveryCtx)
+	require.Equal(t, 1, client.discoveryCalls)
+	require.Empty(t, client.listed)
 }
 
 func TestGatewayAPIDiscoveryErrors(t *testing.T) {
