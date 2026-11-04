@@ -32,6 +32,13 @@ func (in *ENI) DeepCopyInto(out *ENI) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.IPv6Prefixes != nil {
+		in, out := &in.IPv6Prefixes, &out.IPv6Prefixes
+		*out = make([]ip.Prefix, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Tags != nil {
 		in, out := &in.Tags, &out.Tags
 		*out = make(map[string]string, len(*in))

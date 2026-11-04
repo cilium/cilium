@@ -525,6 +525,13 @@ spec:
                         instance-id:
                           description: InstanceID is the InstanceID using this ENI
                           type: string
+                        ipv6-prefixes:
+                          description: IPv6Prefixes is the list of IPv6 /80 prefixes
+                            delegated to this ENI.
+                          items:
+                            format: cidr
+                            type: string
+                          type: array
                         mac-address:
                           description: MACAddress is the mac address of the ENI
                           format: mac
