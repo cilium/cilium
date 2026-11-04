@@ -34,6 +34,9 @@ func (s *ciliumHealth) Name() string {
 }
 
 func (s *ciliumHealth) Run(ctx context.Context, t *check.Test) {
+	ctx, cancel := context.WithTimeout(ctx, check.LongTimeout)
+	defer cancel()
+
 	for name, pod := range t.Context().CiliumPods() {
 		t.NewGenericAction(s, name).Run(func(_ *check.Action) {
 			runHealthProbe(ctx, t, &pod)
