@@ -309,12 +309,15 @@ jobs:
           # When test-l7-only is false (default):
           #   - On schedule (direct trigger, not workflow_call): run full test suite (L3/L4 AND L7 tests together)
           #   - Otherwise: exclude L7 tests (L3/L4 traffic only)
+          L7_TESTS="false"
           if [ "${{ inputs.test-l7-only }}" = "true" ]; then
             # L7-only mode: run only L7 tests
             CONCURRENT_CONNECTIVITY_TESTS="${CONCURRENT_CONNECTIVITY_TESTS}${L7_FILTER},no-unexpected-packet-drops,check-log-errors"
+            L7_TESTS="true"
             echo "::notice::Running L7-only tests ${L7_FILTER}"
           elif [ "${{ github.event_name }}" = "schedule" ] && [ "${{ inputs.is-workflow-call }}" != "true" ]; then
             # Scheduled run (direct trigger): full test suite (L3/L4 AND L7)
+            L7_TESTS="true"
             echo "::notice::Running full test suite (L3/L4 AND L7 tests)"
           else
             # Default mode: L3/L4 tests only, exclude L7
@@ -327,7 +330,7 @@ jobs:
           # Determine if proxy traffic check should be enabled
           # Disable if: L7 tests are excluded OR ipv4 is explicitly false
           ENABLE_PROXY_CHECK="true"
-          if [[ "${{ inputs.test-l7-only }}" != "true" || "${{ matrix.ipv4 }}" == "false" ]]; then
+          if [[ "${L7_TESTS}" != "true" || "${{ matrix.ipv4 }}" == "false" ]]; then
             ENABLE_PROXY_CHECK="false"
           fi
           echo enable_proxy_check=${ENABLE_PROXY_CHECK} >> $GITHUB_OUTPUT
