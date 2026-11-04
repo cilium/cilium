@@ -2111,7 +2111,11 @@ func (c *Collector) getSPIRETasks() []Task {
 func (c *Collector) getGatewayAPITasks() []Task {
 	// Discover each resource's preferred API version because supported versions
 	// vary across installed Gateway API CRD releases.
-	discover := sync.OnceValues(c.Client.GetServerPreferredResources)
+	var (
+		discoverOnce sync.Once
+		lists        []*metav1.APIResourceList
+		discoveryErr error
+	)
 	resources := []struct {
 		name          string
 		groupResource schema.GroupResource
@@ -2135,7 +2139,9 @@ func (c *Collector) getGatewayAPITasks() []Task {
 			Description: "Collecting " + resource.name + " entries",
 			Quick:       true,
 			Task: func(ctx context.Context) error {
-				lists, discoveryErr := discover()
+				discoverOnce.Do(func() {
+					lists, discoveryErr = c.Client.GetServerPreferredResources(ctx)
+				})
 				gvr, found, err := preferredResource(resource.groupResource, lists, discoveryErr)
 				if err != nil {
 					return fmt.Errorf("failed to discover %s: %w", resource.name, err)

@@ -24,7 +24,7 @@ import (
 )
 
 type KubernetesClient interface {
-	GetServerPreferredResources() ([]*metav1.APIResourceList, error)
+	GetServerPreferredResources(ctx context.Context) ([]*metav1.APIResourceList, error)
 	AutodetectFlavor(ctx context.Context) k8s.Flavor
 	CopyFromPod(ctx context.Context, namespace, pod, container, fromFile, destFile string, retryLimit int) error
 	CreateEphemeralContainer(ctx context.Context, pod *corev1.Pod, ec *corev1.EphemeralContainer) (*corev1.Pod, error)

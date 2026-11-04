@@ -120,7 +120,7 @@ const (
 	httpRoutesFileName                       = "gatewayapi-httproutes-<ts>.yaml"
 	tlsRoutesFileName                        = "gatewayapi-tlsroutes-<ts>.yaml"
 	grpcRoutesFileName                       = "gatewayapi-grpcroutes-<ts>.yaml"
-	tcpRoutesFileName                        = "gatewayapi-tcroutes-<ts>.yaml"
+	tcpRoutesFileName                        = "gatewayapi-tcproutes-<ts>.yaml"
 	udpRoutesFileName                        = "gatewayapi-udproutes-<ts>.yaml"
 	backendTLSPoliciesFileName               = "gatewayapi-backendtlspolicies-<ts>.yaml"
 	referenceGrantsFileName                  = "gatewayapi-referencegrants-<ts>.yaml"
