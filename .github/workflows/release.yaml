@@ -290,6 +290,31 @@ jobs:
             exit 1
           fi
 
+          repush_chart() {
+            echo "🔄 Re-running release tool to update PR..."
+
+            # Reset the charts directory by removing any files
+            # This is a workaround due to left overs made by the generate_helm_release.sh script
+            echo "🧹 Resetting ../charts directory..."
+            cd ../charts
+            git reset --hard "$(git symbolic-ref refs/remotes/origin/HEAD)"
+            git clean -fdx
+            cd -
+
+            # Re-run the release tool
+            cd ../release
+            ./release start \
+              --force \
+              --release-tool-dir "$(pwd)" \
+              --charts-repo-dir "$(pwd)/../charts" \
+              --repo-dir "$(pwd)/../cilium" \
+              --repo ${{ github.repository }} \
+              --target-version $VERSION \
+              --steps ${{ inputs.step }} \
+              --exclude-labels "cilium-cli-exclusive"
+            cd -
+          }
+
           echo "Merging PR #$PR_NUMBER..."
           MERGE_ATTEMPTS=0
           MAX_MERGE_ATTEMPTS=3
@@ -325,28 +350,7 @@ jobs:
             else
               echo "⚠️ Merge attempt $MERGE_ATTEMPTS failed"
               if [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; then
-                echo "🔄 Re-running release tool to update PR..."
-
-                # Reset the charts directory by removing any files
-                # This is a workaround due to left overs made by the generate_helm_release.sh script
-                echo "🧹 Resetting ../charts directory..."
-                cd ../charts
-                git reset --hard "$(git symbolic-ref refs/remotes/origin/HEAD)"
-                git clean -fdx
-                cd -
-
-                # Re-run the release tool (step from line 127)
-                cd ../release
-                ./release start \
-                  --force \
-                  --release-tool-dir "$(pwd)" \
-                  --charts-repo-dir "$(pwd)/../charts" \
-                  --repo-dir "$(pwd)/../cilium" \
-                  --repo ${{ github.repository }} \
-                  --target-version $VERSION \
-                  --steps ${{ inputs.step }} \
-                  --exclude-labels "cilium-cli-exclusive"
-                cd -
+                repush_chart
               else
                 echo "❌ Failed to merge PR #$PR_NUMBER after $MAX_MERGE_ATTEMPTS attempts"
                 exit 1
