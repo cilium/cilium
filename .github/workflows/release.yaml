@@ -346,23 +346,21 @@ jobs:
           }
 
           echo "Merging PR #$PR_NUMBER..."
-          MERGE_ATTEMPTS=0
-          MAX_MERGE_ATTEMPTS=3
+          CHECK_FAILURES=0
+          MERGE_FAILURES=0
+          MAX_FAILURES=3
           MERGE_SUCCESS=false
 
-          while [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; do
-            MERGE_ATTEMPTS=$((MERGE_ATTEMPTS + 1))
-            echo "🔄 Attempt $MERGE_ATTEMPTS of $MAX_MERGE_ATTEMPTS"
+          while [ $CHECK_FAILURES -lt $MAX_FAILURES ] && [ $MERGE_FAILURES -lt $MAX_FAILURES ]; do
+            if [ $((CHECK_FAILURES + MERGE_FAILURES)) -gt 0 ]; then
+              repush_chart
+            fi
 
             HEAD_SHA=$(git -C ../charts rev-parse HEAD)
             if ! wait_for_chart_checks "$HEAD_SHA"; then
-              echo "❌ PR #$PR_NUMBER has failed the Cilium chart checks on attempt $MERGE_ATTEMPTS"
-              if [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; then
-                repush_chart
-                continue
-              else
-                exit 1
-              fi
+              CHECK_FAILURES=$((CHECK_FAILURES + 1))
+              echo "❌ PR #$PR_NUMBER failed the Cilium chart checks ($CHECK_FAILURES of $MAX_FAILURES)"
+              continue
             fi
 
             echo "✅ Cilium chart checks passed for PR #$PR_NUMBER"
@@ -373,19 +371,13 @@ jobs:
               echo "✅ Successfully merged PR #$PR_NUMBER"
               MERGE_SUCCESS=true
               break
-            else
-              echo "⚠️ Merge attempt $MERGE_ATTEMPTS failed"
-              if [ $MERGE_ATTEMPTS -lt $MAX_MERGE_ATTEMPTS ]; then
-                repush_chart
-              else
-                echo "❌ Failed to merge PR #$PR_NUMBER after $MAX_MERGE_ATTEMPTS attempts"
-                exit 1
-              fi
             fi
+            MERGE_FAILURES=$((MERGE_FAILURES + 1))
+            echo "⚠️ Merge of PR #$PR_NUMBER failed ($MERGE_FAILURES of $MAX_FAILURES)"
           done
 
           if [ "$MERGE_SUCCESS" = false ]; then
-            echo "❌ Failed to merge PR #$PR_NUMBER after $MAX_MERGE_ATTEMPTS attempts"
+            echo "❌ Failed to merge PR #$PR_NUMBER after $CHECK_FAILURES failed chart runs and $MERGE_FAILURES failed merges"
             exit 1
           fi
 
