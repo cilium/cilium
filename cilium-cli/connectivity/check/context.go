@@ -101,6 +101,8 @@ type ConnectivityTest struct {
 
 	lastFlowTimestamps map[string]time.Time
 
+	logFollower *logFollower
+
 	nodes              map[string]*slimcorev1.Node
 	controlPlaneNodes  map[string]*slimcorev1.Node
 	nodesWithoutCilium map[string]struct{}
