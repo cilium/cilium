@@ -7,6 +7,7 @@
 
 #include "kpr_dsr_lb.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
 ASSIGN_CONFIG(bool, enable_nodeport, true)

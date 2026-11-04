@@ -24,6 +24,7 @@ static volatile const __u8 *server_mac = mac_two;
 
 #include "bpf_lxc.c"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(__u16, endpoint_id, 233)
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one})
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, true);

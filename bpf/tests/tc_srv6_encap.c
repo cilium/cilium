@@ -16,6 +16,7 @@
 #include "lib/ipcache.h"
 #include "lib/policy.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 /* Test SRH encap. Reduced encap code path is a subset of SRH encap */
 ASSIGN_CONFIG(struct srv6_config, srv6_cfg, {.enable = true, .enable_srh_encap = true})
 

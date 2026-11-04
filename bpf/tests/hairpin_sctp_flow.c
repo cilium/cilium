@@ -21,6 +21,7 @@ mock_ctx_redirect_peer(const struct __sk_buff *ctx __maybe_unused, int ifindex _
 
 #include "lib/bpf_lxc.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 /* Set the LXC source address to be the address of pod one */
 ASSIGN_CONFIG(union v4addr, endpoint_ipv4, { .be32 = v4_pod_one })
 ASSIGN_CONFIG(bool, enable_endpoint_routes, true)

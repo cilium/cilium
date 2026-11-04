@@ -23,6 +23,7 @@ ASSIGN_CONFIG(union v6addr, endpoint_ipv6, { .addr = v6_pod_one_addr })
 
 #define POD_IPV6 v6_pod_one
 #define SERVICE_IPV6 v6_node_three
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 
 #include "lib/endpoint.h"

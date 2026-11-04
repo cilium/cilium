@@ -58,6 +58,7 @@ ASSIGN_CONFIG(bool, enable_identity_mark, true)
 const union macaddr cilium_net_mac = { .addr = {0xce, 0x72, 0xa7, 0x03, 0x88, 0x57} };
 ASSIGN_CONFIG(union macaddr, cilium_net_mac, cilium_net_mac)
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(__u32, wg_ifindex, 42)
 
 static __always_inline

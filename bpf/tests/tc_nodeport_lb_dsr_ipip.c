@@ -70,6 +70,7 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = LB_IP })
 ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IPV6)
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })

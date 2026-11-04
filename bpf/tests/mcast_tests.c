@@ -17,6 +17,8 @@
 #include <linux/in.h>
 #include "../lib/mcast.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
+
 static __always_inline int default_packet(struct __ctx_buff *ctx)
 {
 	struct pktgen builder;

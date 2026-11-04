@@ -26,6 +26,7 @@ __net_cookie test_get_netns_cookie(__maybe_unused void *ctx)
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 /* Hardcode the host netns cookie to 42 */
 ASSIGN_CONFIG(__u64, host_netns_cookie, HOST_NETNS_COOKIE)
 ASSIGN_CONFIG(struct socket_lb_config, socket_lb, { .hostns_only = true })
