@@ -282,11 +282,9 @@ rules:
   - serviceexports.multicluster.x-k8s.io
 {{- end }}
   - ciliumdatapathplugins.cilium.io
-{{- if .Values.networkDriver.enabled }}
   - ciliumnetworkdrivernodeconfigs.cilium.io
   - ciliumnetworkdriverclusterconfigs.cilium.io
   - ciliumresourceippools.cilium.io
-{{- end }}
 # The operator will migrate any custom resources that have "upgraded" storage versions.
 # To do this, it must be allowed to list and patch the resource. (This triggers a storage migration
 # on the apiserver.)
