@@ -6,6 +6,7 @@ package shortener
 import (
 	"crypto/sha256"
 	"fmt"
+	"strings"
 )
 
 const (
@@ -29,7 +30,15 @@ func ShortenDNSLabelK8sName(s string) string {
 // ShortenDNSSubdomainK8sName shortens names longer than 253 characters with a hash
 // suffix. This is useful for most Kubernetes resources.
 func ShortenDNSSubdomainK8sName(s string) string {
-	return shorten(s, k8sMaxResourceNameDNSSubdomainLength)
+	name := shorten(s, k8sMaxResourceNameDNSSubdomainLength)
+	if name != s {
+		// If we actually shortened [s], we may get to a result containing ".-"
+		// which is actually invalid since a DNS label must start with a
+		// alphanumeric character. For instance, some-name.-test would be
+		// invalid.
+		return strings.Replace(name, ".-", "-", 1)
+	}
+	return name
 }
 
 func ShortenHiveJobName(s string) string {
