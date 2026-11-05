@@ -100,13 +100,18 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 	resource := *n.k8sObj
 	n.mutex.RUnlock()
 
+	allocateIPv6 := allocation.IPv6.MaxPrefixesToAllocate > 0
+
 	// Must allocate secondary ENI IPs as needed, up to ENI instance limit
 	toAllocate := min(allocation.IPv4.MaxIPsToAllocate, l.IPv4)
 	toAllocate = min(maxENIIPCreate, toAllocate) // in first alloc no more than 10
 	// Validate whether request has already been fulfilled in the meantime
-	if toAllocate == 0 {
+	if toAllocate == 0 && !allocateIPv6 {
 		return 0, "", nil
 	}
+	// Even when only an IPv6 prefix is needed, ECS creates a primary IPv4
+	// address on the new ENI, which consumes one vSwitch address.
+	toAllocate = max(toAllocate, 1)
 
 	bestSubnet := n.manager.FindOneVSwitch(resource.Spec.AlibabaCloud, toAllocate)
 	if bestSubnet == nil {
@@ -147,7 +152,7 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 		return 0, "", err
 	}
 	eniID, eni, err := n.manager.api.CreateNetworkInterface(ctx, toAllocate-1, bestSubnet.ID, securityGroupIDs,
-		types.FillTagWithENIIndex(map[string]string{}, index), false)
+		types.FillTagWithENIIndex(map[string]string{}, index), allocateIPv6)
 	if err != nil {
 		return 0, unableToCreateENI, fmt.Errorf("%s: %w", errUnableToCreateENI, err)
 	}
@@ -221,6 +226,7 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 			if e.Type == types.ENITypePrimary {
 				return nil
 			}
+			stats.NodeIPv6Prefixes += len(e.IPv6Prefixes)
 
 			// We exclude all "primary" IPs from the capacity.
 			primaryAllocated := 0
@@ -264,9 +270,13 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (*nodemanager.Allocat
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
+	var ipv6Candidate string
 	for key, e := range n.enis {
 		if e.Type != types.ENITypeSecondary {
 			continue
+		}
+		if ipv6Candidate == "" && len(e.IPv6Prefixes) < l.IPv6 {
+			ipv6Candidate = key
 		}
 		scopedLog.Debug(
 			"Considering ENI for allocation",
@@ -303,14 +313,30 @@ func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (*nodemanager.Allocat
 			}
 		}
 	}
+	if a.InterfaceID == "" && ipv6Candidate != "" {
+		// Reuse an ENI even if its IPv4 slots or vSwitch addresses are exhausted.
+		a.InterfaceID = ipv6Candidate
+		a.PoolID = ipamTypes.PoolID(n.enis[ipv6Candidate].VSwitch.VSwitchID)
+	}
 	a.EmptyInterfaceSlots = l.Adapters - len(n.enis)
 	return a, nil
 }
 
 // AllocateIPs performs the ENI allocation operation
 func (n *Node) AllocateIPs(ctx context.Context, a *nodemanager.AllocationAction) error {
-	_, err := n.manager.api.AssignPrivateIPAddresses(ctx, a.InterfaceID, a.IPv4.AvailableForAllocation)
-	return err
+	if a.IPv6.MaxPrefixesToAllocate > 0 {
+		if a.InterfaceID == "" {
+			return errors.New("no ENI with IPv6 capacity available")
+		}
+		if err := n.manager.api.AssignENIIPv6Prefix(ctx, a.InterfaceID); err != nil {
+			return err
+		}
+	}
+	if a.IPv4.AvailableForAllocation > 0 {
+		_, err := n.manager.api.AssignPrivateIPAddresses(ctx, a.InterfaceID, a.IPv4.AvailableForAllocation)
+		return err
+	}
+	return nil
 }
 
 func (n *Node) AllocateStaticIP(ctx context.Context, staticIPTags ipamTypes.Tags) (netip.Addr, error) {
@@ -372,8 +398,8 @@ func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *slog.Logger) *nodemana
 	return r
 }
 
-// ReleaseIPPrefixes is a no-op on AlibabaCloud since Alibaba ENIs don't
-// support prefix delegation.
+// ReleaseIPPrefixes is unused since ENI agents use the multi-pool
+// allocator, whose IP release mechanism uses ReleaseCIDRs instead.
 func (n *Node) ReleaseIPPrefixes(ctx context.Context, r *nodemanager.ReleaseAction) error {
 	// nothing to do
 	return nil
@@ -419,7 +445,7 @@ func (n *Node) IsPrefixDelegated() bool {
 	return false
 }
 
-// GetAttachedCIDRs returns the IPv4 host prefixes available to the agent.
+// GetAttachedCIDRs returns IPv4 host prefixes and IPv6 prefixes available to the agent.
 // Primary addresses on secondary ENIs are allocatable, but cannot be released.
 func (n *Node) GetAttachedCIDRs() []netip.Prefix {
 	n.mutex.RLock()
@@ -433,6 +459,11 @@ func (n *Node) GetAttachedCIDRs() []netip.Prefix {
 		for _, address := range eni.PrivateIPSets {
 			if address.PrivateIpAddress.Is4() {
 				attached = append(attached, netip.PrefixFrom(address.PrivateIpAddress.Addr, 32))
+			}
+		}
+		for _, prefix := range eni.IPv6Prefixes {
+			if prefix.IsValid() && prefix.Addr().Is6() {
+				attached = append(attached, prefix.Prefix)
 			}
 		}
 	}

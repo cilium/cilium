@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/alibabacloud/api/mock"
 	"github.com/cilium/cilium/pkg/alibabacloud/ipam/limits"
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
+	"github.com/cilium/cilium/pkg/defaults"
 	iputil "github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -186,6 +187,223 @@ func TestPrepareIPAllocation(t *testing.T) {
 	require.Equal(t, 1, a.EmptyInterfaceSlots, "empty: %v, candidates: %v", a.EmptyInterfaceSlots, a.IPv4.InterfaceCandidates)
 }
 
+func TestCreateInterfaceIPv6(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		ipv4        int
+		emptySubnet bool
+	}{
+		{name: "dual stack", ipv4: 4},
+		{name: "IPv6 deficit only"},
+		{name: "new ENI requires a primary IPv4 address", emptySubnet: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			setup(t)
+			limits.Update(map[string]ipamTypes.Limits{"ecs.g7ne.large": {Adapters: 3, IPv4: 10, IPv6: 4}})
+			if tt.emptySubnet {
+				subnet := subnets[0].DeepCopy()
+				subnet.AvailableAddresses = 0
+				alibabaAPI.UpdateSubnets([]*ipamTypes.Subnet{subnet})
+			}
+			_, err := instances.Resync(t.Context())
+			require.NoError(t, err)
+			cn := newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1")
+			n := instances.CreateNode(cn, nil).(*Node)
+			_, _, err = n.ResyncInterfacesAndIPs(t.Context(), n.logger)
+			require.NoError(t, err)
+
+			allocated, condition, err := n.CreateInterface(t.Context(), &nodemanager.AllocationAction{
+				IPv4: nodemanager.IPAllocationAction{MaxIPsToAllocate: tt.ipv4},
+				IPv6: nodemanager.IPAllocationAction{MaxPrefixesToAllocate: 1},
+			}, n.logger)
+			if tt.emptySubnet {
+				require.Error(t, err)
+				require.Equal(t, unableToFindSubnet, condition)
+				n.PopulateStatusFields(cn)
+				require.Len(t, cn.Status.AlibabaCloud.ENIs, 1)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, max(tt.ipv4, 1), allocated)
+			_, stats, err := n.ResyncInterfacesAndIPs(t.Context(), n.logger)
+			require.NoError(t, err)
+			require.Equal(t, 1, stats.NodeIPv6Prefixes)
+			n.PopulateStatusFields(cn)
+			require.Len(t, cn.Status.AlibabaCloud.ENIs, 2)
+			for _, eni := range cn.Status.AlibabaCloud.ENIs {
+				if eni.Type == types.ENITypeSecondary {
+					require.Len(t, eni.PrivateIPSets, allocated)
+					require.Len(t, eni.IPv6Prefixes, 1)
+					require.Equal(t, 80, eni.IPv6Prefixes[0].Bits())
+				}
+			}
+		})
+	}
+}
+
+func TestPrepareIPAllocationIPv6(t *testing.T) {
+	for _, tt := range []struct {
+		name             string
+		ipv4Count        int
+		ipv6Limit        int
+		prefixCount      int
+		subnetAvailable  int
+		wantInterface    string
+		wantIPv4Capacity int
+	}{
+		{name: "IPv4 slots full", ipv4Count: 3, ipv6Limit: 1, subnetAvailable: 30, wantInterface: "eni-2"},
+		{name: "vSwitch IPv4 exhausted", ipv4Count: 1, ipv6Limit: 1, wantInterface: "eni-2"},
+		{name: "both families available", ipv4Count: 1, ipv6Limit: 1, subnetAvailable: 30, wantInterface: "eni-2", wantIPv4Capacity: 2},
+		{name: "prefix slots full", ipv4Count: 3, ipv6Limit: 1, prefixCount: 1, subnetAvailable: 30},
+		{name: "IPv6 unsupported", ipv4Count: 3, subnetAvailable: 30},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			limits.Update(map[string]ipamTypes.Limits{"ecs.test.ipv6": {Adapters: 2, IPv4: 3, IPv6: tt.ipv6Limit}})
+			var prefixes []iputil.Prefix
+			if tt.prefixCount > 0 {
+				prefixes = []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1:2:3::/80"))}
+			}
+			n := &Node{
+				k8sObj: newCiliumNode("node1", "i-1", "ecs.test.ipv6", "cn-hangzhou-i", "vpc-1"),
+				manager: &InstancesManager{vSwitches: ipamTypes.SubnetMap{
+					"vsw-1": {ID: "vsw-1", AvailableAddresses: tt.subnetAvailable},
+				}},
+				enis: map[string]types.ENI{
+					"eni-1": {Type: types.ENITypePrimary},
+					"eni-2": {
+						NetworkInterfaceID: "eni-2",
+						Type:               types.ENITypeSecondary,
+						VSwitch:            types.VSwitch{VSwitchID: "vsw-1"},
+						PrivateIPSets:      make([]types.PrivateIPSet, tt.ipv4Count),
+						IPv6Prefixes:       prefixes,
+					},
+				},
+			}
+			a, err := n.PrepareIPAllocation(hivetest.Logger(t))
+			require.NoError(t, err)
+			require.Equal(t, tt.wantInterface, a.InterfaceID)
+			require.Equal(t, tt.wantIPv4Capacity, a.IPv4.AvailableForAllocation)
+			require.Zero(t, a.EmptyInterfaceSlots)
+		})
+	}
+}
+
+type allocationAPIMock struct {
+	AlibabaCloudAPI
+	calls   []string
+	ipv6Err error
+	ipv4Err error
+}
+
+func (a *allocationAPIMock) AssignENIIPv6Prefix(ctx context.Context, eniID string) error {
+	a.calls = append(a.calls, "IPv6:"+eniID)
+	return a.ipv6Err
+}
+
+func (a *allocationAPIMock) AssignPrivateIPAddresses(ctx context.Context, eniID string, toAllocate int) ([]string, error) {
+	a.calls = append(a.calls, fmt.Sprintf("IPv4:%s:%d", eniID, toAllocate))
+	return nil, a.ipv4Err
+}
+
+func TestAllocateIPsIPv6(t *testing.T) {
+	wantErr := errors.New("ECS allocation failed")
+	for _, tt := range []struct {
+		name      string
+		ipv4      int
+		ipv6      int
+		ipv6Err   error
+		ipv4Err   error
+		wantCalls []string
+	}{
+		{name: "IPv4 only", ipv4: 2, wantCalls: []string{"IPv4:eni-2:2"}},
+		{name: "IPv6 deficit only", ipv6: 1, wantCalls: []string{"IPv6:eni-2"}},
+		{name: "dual stack", ipv4: 2, ipv6: 1, wantCalls: []string{"IPv6:eni-2", "IPv4:eni-2:2"}},
+		{name: "nothing needed"},
+		{name: "IPv6 failure", ipv4: 2, ipv6: 1, ipv6Err: wantErr, wantCalls: []string{"IPv6:eni-2"}},
+		{name: "IPv4 failure", ipv4: 2, ipv6: 1, ipv4Err: wantErr, wantCalls: []string{"IPv6:eni-2", "IPv4:eni-2:2"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			api := &allocationAPIMock{ipv6Err: tt.ipv6Err, ipv4Err: tt.ipv4Err}
+			n := &Node{manager: &InstancesManager{api: api}}
+			err := n.AllocateIPs(t.Context(), &nodemanager.AllocationAction{
+				InterfaceID: "eni-2",
+				IPv4:        nodemanager.IPAllocationAction{AvailableForAllocation: tt.ipv4},
+				IPv6:        nodemanager.IPAllocationAction{MaxPrefixesToAllocate: tt.ipv6},
+			})
+			if tt.ipv6Err != nil || tt.ipv4Err != nil {
+				require.ErrorIs(t, err, wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.wantCalls, api.calls)
+		})
+	}
+	api := &allocationAPIMock{}
+	n := &Node{manager: &InstancesManager{api: api}}
+	err := n.AllocateIPs(t.Context(), &nodemanager.AllocationAction{IPv6: nodemanager.IPAllocationAction{MaxPrefixesToAllocate: 1}})
+	require.ErrorContains(t, err, "no ENI")
+	require.Empty(t, api.calls)
+}
+
+func TestDualStackPrefixDemand(t *testing.T) {
+	for _, existingENI := range []bool{false, true} {
+		t.Run(fmt.Sprintf("existing ENI=%t", existingENI), func(t *testing.T) {
+			limits.Update(map[string]ipamTypes.Limits{"ecs.test.ipv6": {Adapters: 3, IPv4: 4, IPv6: 4}})
+			api := mock.NewAPI(subnets, vpcs, securityGroups)
+			api.UpdateENIs(primaryENIs)
+			if existingENI {
+				id, _, err := api.CreateNetworkInterface(t.Context(), 3, "vsw-1", []string{"sg-1"}, nil, false)
+				require.NoError(t, err)
+				require.NoError(t, api.AttachNetworkInterface(t.Context(), "i-1", id))
+			}
+			manager := NewInstancesManager(hivetest.Logger(t), api)
+			_, err := manager.Resync(t.Context())
+			require.NoError(t, err)
+			nodeManager, err := nodemanager.NewNodeManager(hivetest.Logger(t), manager, &k8sMock{}, metricsmock.NewMockMetrics(), 1, false, 0, false)
+			require.NoError(t, err)
+			nodeManager.SetInstancesAPIReadiness(false)
+			cn := newCiliumNode("node1", "i-1", "ecs.test.ipv6", "cn-hangzhou-i", "vpc-1")
+			cn.Spec.IPAM.PreAllocate = 4
+			cn.Spec.IPAM.Pools.Requested = []ipamTypes.IPAMPoolRequest{{
+				Pool:   defaults.IPAMDefaultIPPool,
+				Needed: ipamTypes.IPAMPoolDemand{IPv4Addrs: 4, IPv6Addrs: 4},
+			}}
+			t.Cleanup(func() { nodeManager.Delete(cn); nodeManager.Stop() })
+			nodeManager.Upsert(cn)
+			coreNode := nodeManager.Get(cn.Name)
+			require.Equal(t, 1, coreNode.Stats().IPv6.NeededPrefixes)
+			n := coreNode.Ops().(*Node)
+			a, err := n.PrepareIPAllocation(n.logger)
+			require.NoError(t, err)
+			a.IPv6.MaxPrefixesToAllocate = coreNode.Stats().IPv6.NeededPrefixes
+			if existingENI {
+				require.Zero(t, coreNode.Stats().IPv4.NeededIPs)
+				require.NotEmpty(t, a.InterfaceID)
+				require.Zero(t, a.IPv4.AvailableForAllocation)
+				require.NoError(t, n.AllocateIPs(t.Context(), a))
+			} else {
+				require.Empty(t, a.InterfaceID)
+				a.IPv4.MaxIPsToAllocate = 4
+				_, _, err := n.CreateInterface(t.Context(), a, n.logger)
+				require.NoError(t, err)
+			}
+			_, err = manager.InstanceSync(t.Context(), "i-1")
+			require.NoError(t, err)
+			coreNode.UpdatedResource(cn)
+			require.Equal(t, 1, coreNode.Stats().IPv6.AvailablePrefixes)
+			require.Zero(t, coreNode.Stats().IPv6.NeededPrefixes)
+			n.PopulateStatusFields(cn)
+			require.Len(t, cn.Status.AlibabaCloud.ENIs, 2)
+			for _, eni := range cn.Status.AlibabaCloud.ENIs {
+				if eni.Type == types.ENITypeSecondary {
+					require.Len(t, eni.IPv6Prefixes, 1)
+					require.Contains(t, n.GetAttachedCIDRs(), eni.IPv6Prefixes[0].Prefix)
+				}
+			}
+		})
+	}
+}
+
 func TestNode_allocENIIndex(t *testing.T) {
 	n := Node{enis: map[string]types.ENI{
 		"eni-1": {
@@ -213,13 +431,14 @@ func TestAttachedCIDRsAndPrepareRelease(t *testing.T) {
 		return types.PrivateIPSet{PrivateIpAddress: iputil.AddrFrom(netip.MustParseAddr(s)), Primary: primary}
 	}
 	n := &Node{enis: map[string]types.ENI{
-		"host": {Type: types.ENITypePrimary, PrivateIPSets: []types.PrivateIPSet{address("10.0.0.1", true), address("10.0.0.2", false)}},
+		"host": {Type: types.ENITypePrimary, PrivateIPSets: []types.PrivateIPSet{address("10.0.0.1", true), address("10.0.0.2", false)}, IPv6Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1:2:1::/80"))}},
 		"eni-1": {
 			Type:             types.ENITypeSecondary,
 			PrimaryIPAddress: iputil.AddrFrom(netip.MustParseAddr("10.0.0.3")),
 			VSwitch:          types.VSwitch{VSwitchID: "vsw-1"},
 			// Also protect the primary address if its per-address flag is absent.
 			PrivateIPSets: []types.PrivateIPSet{address("10.0.0.3", false), address("10.0.0.4", false), address("10.0.0.5", true), {}, address("2001:db8::1", false)},
+			IPv6Prefixes:  []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1:2:3::/80"))},
 		},
 		"eni-2": {Type: types.ENITypeSecondary, VSwitch: types.VSwitch{VSwitchID: "vsw-2"}, PrivateIPSets: []types.PrivateIPSet{address("10.0.0.6", false), address("10.0.0.7", false)}},
 	}}
@@ -230,9 +449,9 @@ func TestAttachedCIDRsAndPrepareRelease(t *testing.T) {
 		}
 		return result
 	}
-	require.ElementsMatch(t, prefixes("10.0.0.3/32", "10.0.0.4/32", "10.0.0.5/32", "10.0.0.6/32", "10.0.0.7/32"), n.GetAttachedCIDRs())
+	require.ElementsMatch(t, prefixes("10.0.0.3/32", "10.0.0.4/32", "10.0.0.5/32", "10.0.0.6/32", "10.0.0.7/32", "2001:db8:1:2:3::/80"), n.GetAttachedCIDRs())
 	require.Empty(t, n.PrepareCIDRRelease(nil))
-	actions := n.PrepareCIDRRelease(prefixes("10.0.0.1/32", "10.0.0.2/32", "10.0.0.3/32", "10.0.0.4/32", "10.0.0.4/32", "10.0.0.5/32", "10.0.0.6/32", "10.0.0.99/32", "10.0.0.0/24", "2001:db8::1/128"))
+	actions := n.PrepareCIDRRelease(prefixes("10.0.0.1/32", "10.0.0.2/32", "10.0.0.3/32", "10.0.0.4/32", "10.0.0.4/32", "10.0.0.5/32", "10.0.0.6/32", "10.0.0.99/32", "10.0.0.0/24", "2001:db8::1/128", "2001:db8:1:2:3::/80"))
 	require.ElementsMatch(t, []*nodemanager.ReleaseAction{
 		{InterfaceID: "eni-1", PoolID: ipamTypes.PoolID("vsw-1"), CIDRsToRelease: prefixes("10.0.0.4/32")},
 		{InterfaceID: "eni-2", PoolID: ipamTypes.PoolID("vsw-2"), CIDRsToRelease: prefixes("10.0.0.6/32")},
