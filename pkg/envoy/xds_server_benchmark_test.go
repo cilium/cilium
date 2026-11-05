@@ -775,7 +775,7 @@ func newBenchmarkXDSBackend(b *testing.B, logger *slog.Logger, mode envoyconfig.
 
 	require.NoError(b, backend.server.AddListener(
 		b.Context(), "benchmark-l7-listener", policy.ParserTypeHTTP, benchmarkProxyPort,
-		false, false, nil, nil,
+		false, false, nil,
 	))
 	backend.serverStats = &benchmarkObservedXDSServer{
 		XDSServer:              backend.server,
@@ -804,6 +804,8 @@ func (*benchmarkEndpointProxy) CreateOrUpdateRedirect(context.Context, policy.Pr
 }
 
 func (*benchmarkEndpointProxy) RemoveRedirect(string) {}
+
+func (*benchmarkEndpointProxy) AckRedirects(context.Context, map[string]uint16) error { return nil }
 
 func (*benchmarkEndpointProxy) UpdateSDP(map[identity.NumericIdentity]policy.SelectorPolicy) {}
 

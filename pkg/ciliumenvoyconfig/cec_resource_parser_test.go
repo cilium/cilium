@@ -326,8 +326,9 @@ func TestCiliumEnvoyConfig(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 	assert.Equal(t, "type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.Secret", cec.Spec.Resources[1].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+	resources, allocatedListeners, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
+	require.True(t, allocatedListeners.Empty(), "explicit listener ports need no allocation")
 	assert.Len(t, resources.Listeners, 1)
 	listener := resources.Listeners["namespace/name/envoy-prometheus-metrics-listener"]
 	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", listener.Name)
@@ -432,7 +433,7 @@ func TestCiliumEnvoyConfigValidation(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, false)
+	resources, _, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, false)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	listener := resources.Listeners["namespace/name/envoy-prometheus-metrics-listener"]
@@ -466,7 +467,7 @@ func TestCiliumEnvoyConfigValidation(t *testing.T) {
 	//
 	// Same with validation fails
 	//
-	resources, err = parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+	resources, _, err = parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	assert.Error(t, err)
 }
 
@@ -517,8 +518,10 @@ func TestCiliumEnvoyConfigNoAddress(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+	resources, allocatedListeners, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
+	require.Equal(t, 1, allocatedListeners.Len())
+	require.True(t, allocatedListeners.Has("namespace/name/envoy-prometheus-metrics-listener"))
 	assert.Len(t, resources.Listeners, 1)
 	listener := resources.Listeners["namespace/name/envoy-prometheus-metrics-listener"]
 	assert.Equal(t, "namespace/name/envoy-prometheus-metrics-listener", listener.Name)
@@ -644,7 +647,7 @@ func TestCiliumEnvoyConfigMulti(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 5)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+	resources, _, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	listener := resources.Listeners["namespace/name/multi-resource-listener"]
@@ -843,7 +846,7 @@ func TestCiliumEnvoyConfigInternalListener(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[0].TypeUrl)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[1].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+	resources, _, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 
 	//
@@ -899,7 +902,7 @@ func TestCiliumEnvoyConfigMissingInternalListener(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.endpoint.v3.ClusterLoadAssignment", cec.Spec.Resources[0].TypeUrl)
 
-	_, err = parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+	_, _, err = parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	assert.ErrorContains(t, err, "missing internal listener: internal-listener")
 }
 
@@ -953,7 +956,7 @@ func TestCiliumEnvoyConfigReusePortWithInternalListener(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, cec.Spec.Resources, 2)
 
-		resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+		resources, _, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 		require.NoError(t, err)
 		require.Len(t, resources.Listeners, 2)
 
@@ -1011,7 +1014,7 @@ func TestCiliumEnvoyConfigTCPProxy(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 2)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, true, true)
+	resources, _, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, true, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	listener := resources.Listeners["namespace/name/tcp_proxy_test-2"]
@@ -1156,7 +1159,7 @@ func TestCiliumEnvoyConfigTCPProxyTermination(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 2)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, true, true, false, true)
+	resources, _, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, true, true, false, true)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	listener := resources.Listeners["namespace/name/envoy-ingress-listener"]
@@ -1304,7 +1307,7 @@ func TestCiliumEnvoyConfigtHTTPHealthCheckFilter(t *testing.T) {
 	err = json.Unmarshal(jsonBytes, cec)
 	require.NoError(t, err)
 
-	resources, err := parser.ParseResources(cec.Namespace, cec.Name, cec.Spec.Resources, false, false, false, false)
+	resources, _, err := parser.ParseResources(cec.Namespace, cec.Name, cec.Spec.Resources, false, false, false, false)
 	require.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	listener := resources.Listeners["test-namespace/test-name/listener"]
@@ -1438,7 +1441,7 @@ func TestCiliumEnvoyConfigCombinedValidationContext(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+	resources, _, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 
 	require.Len(t, resources.Listeners, 1)
@@ -1526,7 +1529,7 @@ func TestCiliumEnvoyConfigTlsSessionTicketKeys(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
+	resources, _, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, false, false, false, true)
 	require.NoError(t, err)
 
 	require.Len(t, resources.Listeners, 1)
@@ -1602,7 +1605,7 @@ func TestCiliumEnvoyConfigInjectCiliumFilters(t *testing.T) {
 	assert.Len(t, cec.Spec.Resources, 1)
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 
-	resources, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
+	resources, _, err := parser.ParseResources("namespace", "name", cec.Spec.Resources, true, false, false, true)
 	require.NoError(t, err)
 
 	require.Len(t, resources.Listeners, 1)
@@ -1681,7 +1684,7 @@ func TestParseEnvoySpec(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 	assert.True(t, UseOriginalSourceAddress(&cec.ObjectMeta))
 
-	resources, err := parser.ParseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, InjectCiliumEnvoyFilters(&cec.ObjectMeta, &cec.Spec), UseOriginalSourceAddress(&cec.ObjectMeta), true)
+	resources, _, err := parser.ParseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, InjectCiliumEnvoyFilters(&cec.ObjectMeta, &cec.Spec), UseOriginalSourceAddress(&cec.ObjectMeta), true)
 	assert.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	listener := resources.Listeners["/name/envoy-prometheus-metrics-listener"]
@@ -1761,7 +1764,7 @@ func TestParseEnvoySpecWithService(t *testing.T) {
 	assert.Equal(t, "type.googleapis.com/envoy.config.listener.v3.Listener", cec.Spec.Resources[0].TypeUrl)
 	assert.True(t, UseOriginalSourceAddress(&cec.ObjectMeta))
 
-	resources, err := parser.ParseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, InjectCiliumEnvoyFilters(&cec.ObjectMeta, &cec.Spec), UseOriginalSourceAddress(&cec.ObjectMeta), true)
+	resources, _, err := parser.ParseResources("", "name", cec.Spec.Resources, len(cec.Spec.Services) > 0, InjectCiliumEnvoyFilters(&cec.ObjectMeta, &cec.Spec), UseOriginalSourceAddress(&cec.ObjectMeta), true)
 	assert.NoError(t, err)
 	assert.Len(t, resources.Listeners, 1)
 	listener := resources.Listeners["/name/l7-lb"]
@@ -2060,7 +2063,7 @@ func TestParseResourcesNormalizesExistingEDSConfigSourceInADSMode(t *testing.T) 
 			},
 		}
 
-		resources, err := parser.ParseResources(
+		resources, _, err := parser.ParseResources(
 			"namespace",
 			"name",
 			[]cilium_v2.XDSResource{{Any: toAny(cluster)}},

@@ -8,15 +8,16 @@ import (
 	"maps"
 	"slices"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	cache "github.com/envoyproxy/go-control-plane/pkg/cache/v3"
 
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
 )
 
-// ResourceScope identifies the resource revisions required by a wait. The
-// common single-resource scope is inline. A zero scope is an explicit wait for
-// the whole type, not evidence that a partial response covers that type.
+// ResourceScope records requirements for caller waits and response-owned
+// rollback. Caller waits specify resource names and revisions; rollback can also
+// cover a whole resource type with a zero scope.
 type ResourceScope struct {
 	name     string
 	revision Revision
@@ -27,14 +28,43 @@ func SingleResourceScope(name string, revision Revision) ResourceScope {
 	return ResourceScope{name: name, revision: revision}
 }
 
-// WithRevisions fills revisions after the cache commits its prepared changes.
+// HasNames reports whether the scope contains explicit resource requirements,
+// including revisions of zero. Whole-type rollback scopes have no explicit names.
+func (scope *ResourceScope) HasNames() bool {
+	return scope.name != "" || len(scope.more) != 0
+}
+
+// OnlyRemovals classifies a caller's requirements against desired state while
+// the cache lock is held, before registration. The resulting policy stays fixed
+// for the wait.
+func (scope *ResourceScope) OnlyRemovals(isRemoved func(string) bool) bool {
+	if scope.name != "" {
+		return isRemoved(scope.name)
+	}
+	for name := range scope.more {
+		if !isRemoved(name) {
+			return false
+		}
+	}
+	return len(scope.more) != 0
+}
+
+// WithRevisions advances requirements after the cache commits prepared changes.
+// A removal has no desired entry, so its prepared revision must not be lowered
+// to zero or to an older acceptance fence when no rollback state is retained.
 // The scope is owned by one wait and is not published until this returns.
 func (scope ResourceScope) WithRevisions(revisionFor func(string) Revision) ResourceScope {
 	if scope.name != "" {
-		scope.revision = revisionFor(scope.name)
+		revision := revisionFor(scope.name)
+		if revision.revision > scope.revision.revision {
+			scope.revision = revision
+		}
 	}
-	for name := range scope.more {
-		scope.more[name] = revisionFor(name)
+	for name, required := range scope.more {
+		revision := revisionFor(name)
+		if revision.revision > required.revision {
+			scope.more[name] = revision
+		}
 	}
 	return scope
 }
@@ -59,30 +89,12 @@ func (scope *ResourceScope) wholeType() bool {
 	return scope != nil && scope.name == "" && scope.more == nil
 }
 
-func (scope *ResourceScope) coveredBy(coverage *responseCoverage, generation Generation) bool {
-	if scope == nil {
-		return false
-	}
-	if scope.wholeType() {
-		return coverage == nil || coverage.complete()
-	}
-	if scope.name != "" {
-		return scope.revision.revision <= generation && coverage.contains(scope.name)
-	}
-	for name, required := range scope.more {
-		if required.revision > generation || !coverage.contains(name) {
-			return false
-		}
-	}
-	return true
-}
-
 func (scope *ResourceScope) intersects(coverage *responseCoverage, generation Generation) bool {
 	if scope == nil {
 		return false
 	}
 	if scope.wholeType() {
-		return coverage == nil || coverage.complete()
+		return coverage.complete()
 	}
 	if scope.name != "" {
 		return scope.revision.revision <= generation && coverage.contains(scope.name)
@@ -98,12 +110,45 @@ func (scope *ResourceScope) intersects(coverage *responseCoverage, generation Ge
 // acknowledge consumes just the requirements represented by this response.
 // Return true only when every requirement has been met. The caller removes
 // the completed wait immediately, so the zero value need not encode completion.
+// Only response-owned rollback uses a zero scope to require a complete response.
 func (scope *ResourceScope) acknowledge(coverage *responseCoverage, generation Generation) bool {
-	if scope.wholeType() || scope.name != "" {
-		return scope.coveredBy(coverage, generation)
+	if scope.wholeType() {
+		return coverage.complete()
+	}
+	if scope.name != "" {
+		return scope.revision.revision <= generation && coverage.contains(scope.name)
 	}
 	for name, required := range scope.more {
 		if required.revision <= generation && coverage.contains(name) {
+			delete(scope.more, name)
+		}
+	}
+	return len(scope.more) == 0
+}
+
+// acknowledgeRemovals accepts absence proofs, including synthesized empty CLAs.
+// A positive resource can resolve a superseded removal only from the wait's
+// publication onward. This prevents a delayed response containing an older
+// live value from completing a repeated removal after its desired entry is removed.
+func (scope *ResourceScope) acknowledgeRemovals(coverage *responseCoverage, generation, minimumPresentGeneration Generation) bool {
+	covered := func(name string, revision Revision) bool {
+		if revision.revision > generation || !coverage.contains(name) {
+			return false
+		}
+		if generation >= minimumPresentGeneration || coverage.resources[name].Resource == nil {
+			return true
+		}
+		if coverage.typeURL == typeurl.Endpoint {
+			assignment, ok := coverage.resources[name].Resource.(*endpoint.ClusterLoadAssignment)
+			return ok && len(assignment.GetEndpoints()) == 0
+		}
+		return false
+	}
+	if scope.name != "" {
+		return covered(scope.name, scope.revision)
+	}
+	for name, required := range scope.more {
+		if covered(name, required) {
 			delete(scope.more, name)
 		}
 	}
@@ -148,24 +193,26 @@ func WithSnapshotPublication(ctx context.Context, generation Generation, snapsho
 	return context.WithValue(ctx, snapshotGenerationContextKey{}, &snapshotPublication{generation: generation, snapshot: snapshot})
 }
 
-// responseCoverage is immutable. A nil returned map means every resource in
-// resources was delivered. Partial responses own a name map: go-control-plane
-// may subsequently mutate its returned-resource map when a subscription changes.
+// responseCoverage is immutable. Nil coverage proves no resource state.
+// A nil returned map means every resource in resources was delivered.
+// Partial responses own a name map: go-control-plane may subsequently mutate
+// its returned-resource map when a subscription changes.
 type responseCoverage struct {
 	resources map[string]cache_types.ResourceWithTTL
+	// Only keys determine coverage; the upstream map layout permits bulk
+	// cloning without rehashing larger subsets.
 	returned  map[string]string
 	requested []string
 	typeURL   typeurl.Index
 }
 
 func (coverage *responseCoverage) complete() bool {
-	return coverage == nil || (coverage.returned == nil && len(coverage.requested) == 0)
+	return coverage != nil && coverage.returned == nil && len(coverage.requested) == 0
 }
 
 func (coverage *responseCoverage) contains(name string) bool {
 	if coverage == nil {
-		// Transport-only callback tests have no cache response metadata.
-		return true
+		return false
 	}
 	if coverage.returned != nil {
 		if _, found := coverage.returned[name]; found {
@@ -190,19 +237,27 @@ func typeHasDeletionSemantics(index typeurl.Index) bool {
 // WithResponseCoverage captures the actual SotW response, not the resource
 // names in the eventual ACK request. RawResponse.GetReturnedResources names
 // the resources in this response; Delta's cumulative version map must not be
-// used this way. No protobuf is decoded, copied, or marshaled here.
+// used this way. The cache calls this while collection is serialized with
+// publication. No protobuf is decoded, copied, or marshaled here.
 func WithResponseCoverage(response cache.Response, generation Generation, snapshot cache.ResourceSnapshot) cache.Response {
-	response = WithResponseGeneration(response, generation)
 	ctx := response.GetContext()
-	if published, ok := ctx.Value(snapshotGenerationContextKey{}).(*snapshotPublication); ok {
+	publication := ctx.Value(snapshotGenerationContextKey{})
+	if published, ok := publication.(*snapshotPublication); ok {
 		snapshot = published.snapshot
 	}
 	if snapshot == nil {
+		// Without the source snapshot, response processing cannot establish
+		// acceptance or select rollback state. Keep its coverage unknown.
 		return response
 	}
 	index, supported := typeurl.FromURL(response.GetRequest().GetTypeUrl())
 	if !supported {
 		return response
+	}
+	// Immediate responses need their generation captured here. Preserve an
+	// existing publication boundary, including zero for an initial empty state.
+	if publication == nil {
+		ctx = context.WithValue(ctx, snapshotGenerationContextKey{}, generation)
 	}
 	coverage := &responseCoverage{
 		resources: snapshot.GetResourcesAndTTL(index.URL()),
@@ -211,9 +266,14 @@ func WithResponseCoverage(response cache.Response, generation Generation, snapsh
 	}
 	returned := response.GetReturnedResources()
 	if len(returned) != len(coverage.resources) {
-		coverage.returned = maps.Clone(returned)
-		if coverage.returned == nil {
-			coverage.returned = map[string]string{}
+		if len(returned) <= 1 {
+			// A named subscription often returns zero or one resource, but its
+			// map can be sized for the full snapshot. Copy into a small map;
+			// keep bulk cloning for larger responses to avoid rehashing names.
+			coverage.returned = make(map[string]string, len(returned))
+			maps.Copy(coverage.returned, returned)
+		} else {
+			coverage.returned = maps.Clone(returned)
 		}
 	}
 	return &generationResponse{Response: response, ctx: context.WithValue(ctx, responseCoverageContextKey{}, coverage)}
@@ -225,7 +285,8 @@ func responseCoverageFromContext(ctx context.Context) *responseCoverage {
 }
 
 // ResponseCoversResource is used under the cache lock to freeze only inverse
-// entries which this exact response can test, including observable removals.
+// entries communicated by this exact response. Caller removal waits are
+// tracked separately from response-owned recovery.
 // The transaction must be within the response boundary and its name must be
 // represented; numerical ordering alone does not prove resource coverage.
 func ResponseCoversResource(response cache.Response, name string, transaction TransactionID) bool {
@@ -236,34 +297,6 @@ func ResponseCoversResource(response cache.Response, name string, transaction Tr
 func ResponseCoversType(response cache.Response, generation Generation) bool {
 	ctx := response.GetContext()
 	return generation <= snapshotGenerationFromContext(ctx) && responseCoverageFromContext(ctx).complete()
-}
-
-// SnapshotResourceStateIsObservable reports whether SotW can communicate this
-// name's presence or removal in the snapshot. EDS/RDS/SDS omission is not a
-// removal, so an absent name must not acquire response-owned recovery state.
-func SnapshotResourceStateIsObservable(snapshot cache.ResourceSnapshot, index typeurl.Index, name string) bool {
-	if typeHasDeletionSemantics(index) {
-		return true
-	}
-	_, exists := snapshot.GetResourcesAndTTL(index.URL())[name]
-	return exists
-}
-
-// ResourceStateIsObservable reports whether SotW responses from the source
-// snapshot can communicate this resource's presence or removal. An absent name
-// is observable only for types where omission means removal, not EDS/RDS/SDS.
-//
-// It ignores which names this response delivered: unrequested resources
-// can still require a later partial response. ResponseCoversResource
-// checks actual coverage and generation. Missing metadata is conservatively
-// treated as observable.
-func ResourceStateIsObservable(response cache.Response, name string) bool {
-	coverage := responseCoverageFromContext(response.GetContext())
-	if coverage == nil || typeHasDeletionSemantics(coverage.typeURL) {
-		return true
-	}
-	_, exists := coverage.resources[name]
-	return exists
 }
 
 type acceptedResource struct {
@@ -289,6 +322,8 @@ func (group *acceptedResourceGroup) acknowledge(coverage *responseCoverage, gene
 		group.generation = generation
 		group.resources = coverage.resources
 		group.requested = coverage.requested
+		// Another stream may already have ACKed newer values for some names.
+		// Retain those overrides when replacing the full-group baseline.
 		for name, accepted := range group.partial {
 			if accepted.generation <= generation {
 				delete(group.partial, name)
@@ -312,6 +347,8 @@ func (group *acceptedResourceGroup) acknowledge(coverage *responseCoverage, gene
 }
 
 func (group *acceptedResourceGroup) acceptResource(name string, resource cache_types.ResourceWithTTL, generation Generation) {
+	// Subset ACKs can arrive out of order across streams. Neither newer
+	// per-name evidence nor a newer full-group ACK may be overwritten.
 	if previous, exists := group.partial[name]; exists && previous.generation > generation {
 		return
 	}

@@ -125,6 +125,10 @@ func (r *RedirectSuiteProxy) RemoveRedirect(id string) {
 	delete(r.redirects, id)
 }
 
+func (r *RedirectSuiteProxy) AckRedirects(context.Context, map[string]uint16) error {
+	return nil
+}
+
 // UpdateNetworkPolicy does nothing.
 func (r *RedirectSuiteProxy) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.Revertible) {
 	return nil, nil

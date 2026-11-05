@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/duration"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -41,6 +42,10 @@ type CEC struct {
 
 	// Resources is the parsed xds.Resources with the endpoints filled in.
 	Resources xds.Resources
+
+	// AllocatedListeners identifies listeners whose primary ports are managed by
+	// the port allocator. The reconciler confirms ownership after an xDS update.
+	AllocatedListeners set.Set[string] `json:"-" yaml:"-"`
 }
 
 func (cec *CEC) Clone() *CEC {
@@ -178,6 +183,9 @@ type EnvoyResource struct {
 
 	// Resources to reconcile with Envoy
 	Resources xds.Resources
+
+	// AllocatedListeners is copied from the parsed CEC and remains immutable.
+	AllocatedListeners set.Set[string] `json:"-" yaml:"-"`
 
 	// ReconciledResources are the last resources that were successfully reconciled.
 	// Used when updating or deleting to compute the delta.

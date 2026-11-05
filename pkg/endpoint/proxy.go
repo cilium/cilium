@@ -17,6 +17,9 @@ import (
 // EndpointProxy defines any L7 proxy with which an Endpoint must interact.
 type EndpointProxy interface {
 	CreateOrUpdateRedirect(ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup) (proxyPort uint16, err error, revertFunc revert.RevertFunc)
+	// AckRedirects settles ports after a successful proxy wait, before the new
+	// datapath policy becomes visible. The caller must keep the redirects alive.
+	AckRedirects(ctx context.Context, redirects map[string]uint16) error
 	RemoveRedirect(id string)
 	UpdateSDP(rules map[identity.NumericIdentity]policy.SelectorPolicy)
 	UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, policy *policy.EndpointPolicy, wg *completion.WaitGroup) (error, revert.Revertible)
@@ -46,6 +49,10 @@ func (f *FakeEndpointProxy) CreateOrUpdateRedirect(ctx context.Context, l4 polic
 
 // RemoveRedirect does nothing.
 func (f *FakeEndpointProxy) RemoveRedirect(id string) {
+}
+
+func (f *FakeEndpointProxy) AckRedirects(context.Context, map[string]uint16) error {
+	return nil
 }
 
 // UpdateNetworkPolicy does nothing.

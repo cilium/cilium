@@ -8,6 +8,8 @@ import (
 	"errors"
 	"testing"
 
+	envoy_config_tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -408,7 +410,7 @@ func (r *fakeXdsServer) Reset() {
 	r.nrOfDeletions = 0
 }
 
-func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources, wg *completion.WaitGroup) error {
+func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resources, new xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to update envoy resources")
 	}
@@ -417,7 +419,7 @@ func (r *fakeXdsServer) UpdateEnvoyResources(ctx context.Context, old xds.Resour
 	return nil
 }
 
-func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
+func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Resources) error {
 	if r.returnError {
 		return errors.New("failed to delete envoy resources")
 	}
@@ -426,16 +428,16 @@ func (r *fakeXdsServer) DeleteEnvoyResources(ctx context.Context, resources xds.
 	return nil
 }
 
-func (r *fakeXdsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
+func (r *fakeXdsServer) UpsertSecret(ctx context.Context, secret *envoy_config_tls.Secret) error {
 	if r.returnError {
-		return errors.New("failed to upsert envoy resources")
+		return errors.New("failed to upsert secret")
 	}
 
 	r.nrOfUpserts++
 	return nil
 }
 
-func (*fakeXdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
+func (*fakeXdsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) error {
 	panic("unimplemented")
 }
 
