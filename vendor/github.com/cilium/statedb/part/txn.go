@@ -425,6 +425,11 @@ func (txn *Txn[T]) delete(root *header[T], key []byte) (oldValue T, hadOld bool,
 		txn.deleteParentsCache = make([]deleteParent[T], 0, 32)
 	}
 	parents := txn.deleteParentsCache[:1] // Placeholder for root
+	defer func() {
+		// Reuse a grown buffer, but release pointers into removed subtrees.
+		clear(parents)
+		txn.deleteParentsCache = parents[:0]
+	}()
 	parents[0].node = root
 
 	newRoot = root
