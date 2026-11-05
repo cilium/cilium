@@ -14,6 +14,8 @@ import (
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/vishvananda/netlink"
 
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -94,6 +96,47 @@ var mockManager = &manager{
 		EnableIPv4: true,
 		EnableIPv6: true,
 	},
+}
+
+func TestInboundProxyRedirectRule(t *testing.T) {
+	mgr := &manager{}
+
+	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
+	matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
+
+	expected := []string{
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-m", "socket", "--transparent",
+		"!", "-o", "lo",
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
+		"-m", "mark", "!", "--mark", matchSkipTProxy,
+		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
+		"-j", "MARK",
+		"--set-mark", toProxyMark,
+	}
+
+	assert.Equal(t, expected, mgr.inboundProxyRedirectRule("-A"))
+}
+
+func TestInboundProxyNotrackRule(t *testing.T) {
+	mgr := &manager{}
+
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
+	matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
+
+	expected := []string{
+		"-t", "raw",
+		"-A", ciliumPreRawChain,
+		"-m", "socket", "--transparent",
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
+		"-m", "mark", "!", "--mark", matchSkipTProxy,
+		"-m", "comment", "--comment", "cilium: NOTRACK for transparent proxy traffic",
+		"-j", "CT", "--notrack",
+	}
+
+	assert.Equal(t, expected, mgr.inboundProxyNotrackRule("-A"))
 }
 
 func TestRenameCustomChain(t *testing.T) {
@@ -1639,4 +1682,70 @@ func mustParseCIDR(s string) *net.IPNet {
 		panic(err)
 	}
 	return n
+}
+
+func TestInstallInboundProxyRules(t *testing.T) {
+	t.Run("socket match enabled", func(t *testing.T) {
+		mock := &mockIptables{t: t, prog: "iptables"}
+		mgr := &manager{
+			haveSocketMatch: true,
+		}
+
+		mock.expectations = []expectation{
+			{args: strings.Join(mgr.inboundProxyNotrackRule("-A"), " ")},
+			{args: strings.Join(mgr.inboundProxyRedirectRule("-A"), " ")},
+		}
+
+		require.NoError(t, mgr.installInboundProxyRules(mock))
+		require.NoError(t, mock.checkExpectations())
+	})
+
+	t.Run("socket match disabled", func(t *testing.T) {
+		mock := &mockIptables{t: t, prog: "iptables"}
+		mgr := &manager{
+			haveSocketMatch: false,
+		}
+
+		require.NoError(t, mgr.installInboundProxyRules(mock))
+		require.NoError(t, mock.checkExpectations())
+	})
+
+	t.Run("notrack installation failure", func(t *testing.T) {
+		mock := &mockIptables{t: t, prog: "iptables"}
+		mgr := &manager{
+			haveSocketMatch: true,
+		}
+
+		expectedErr := errors.New("notrack installation failed")
+		mock.expectations = []expectation{
+			{
+				args: strings.Join(mgr.inboundProxyNotrackRule("-A"), " "),
+				err:  expectedErr,
+			},
+		}
+
+		require.ErrorIs(t, mgr.installInboundProxyRules(mock), expectedErr)
+		require.NoError(t, mock.checkExpectations())
+	})
+
+	t.Run("redirect installation failure", func(t *testing.T) {
+		mock := &mockIptables{t: t, prog: "iptables"}
+		mgr := &manager{
+			haveSocketMatch: true,
+		}
+
+		expectedErr := errors.New("redirect installation failed")
+		mock.expectations = []expectation{
+			{
+				args: strings.Join(mgr.inboundProxyNotrackRule("-A"), " "),
+			},
+			{
+				args: strings.Join(mgr.inboundProxyRedirectRule("-A"), " "),
+				err:  expectedErr,
+			},
+		}
+
+		require.ErrorIs(t, mgr.installInboundProxyRules(mock), expectedErr)
+		require.NoError(t, mock.checkExpectations())
+	})
 }
