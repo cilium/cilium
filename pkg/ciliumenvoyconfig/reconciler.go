@@ -130,7 +130,7 @@ func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Re
 		err = ops.xds.DeleteEnvoyResources(ctx, *prev, nil)
 
 		for _, listener := range prev.Listeners {
-			ops.portAllocator.ReleaseProxyPort(listener.Name)
+			ops.portAllocator.ReleaseCRDProxyPort(listener.Name)
 			releasedListeners.Insert(listener.Name)
 		}
 	}
@@ -138,7 +138,7 @@ func (ops *envoyOps) Delete(ctx context.Context, _ statedb.ReadTxn, _ statedb.Re
 	// Release the proxy ports of any unreconciled resources
 	for _, listener := range res.Resources.Listeners {
 		if !releasedListeners.Has(listener.Name) {
-			ops.portAllocator.ReleaseProxyPort(listener.Name)
+			ops.portAllocator.ReleaseCRDProxyPort(listener.Name)
 			releasedListeners.Insert(listener.Name)
 		}
 	}
@@ -232,7 +232,7 @@ func (ops *envoyOps) retryWithNewPorts(ctx context.Context, prevResources, resou
 				resources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
 			}
 			resources.PortAllocationCallbacks[listenerName] = func(ctx context.Context) error {
-				return ops.portAllocator.AckProxyPortWithReference(ctx, listenerName)
+				return ops.portAllocator.AckCRDProxyPort(ctx, listenerName)
 			}
 
 			newListeners[clonedListener.Name] = clonedListener

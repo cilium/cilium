@@ -148,8 +148,8 @@ type PortAllocator interface {
 	RestoreComplete() <-chan struct{}
 	AllocateCRDProxyPort(name string) (uint16, error)
 	ReallocateCRDProxyPort(name string) (uint16, error)
-	AckProxyPortWithReference(ctx context.Context, name string) error
-	ReleaseProxyPort(name string) error
+	AckCRDProxyPort(ctx context.Context, name string) error
+	ReleaseCRDProxyPort(name string) error
 }
 
 // ParseResources parses all supported Envoy resource types from CiliumEnvoyConfig CRD to the internal type `xds.Resources`.
@@ -498,9 +498,9 @@ func (r *CECResourceParser) ParseResources(cecNamespace string, cecName string, 
 					resources.PortAllocationCallbacks = make(map[string]func(context.Context) error)
 				}
 				if newResources {
-					resources.PortAllocationCallbacks[listenerName] = func(ctx context.Context) error { return r.portAllocator.AckProxyPortWithReference(ctx, listenerName) }
+					resources.PortAllocationCallbacks[listenerName] = func(ctx context.Context) error { return r.portAllocator.AckCRDProxyPort(ctx, listenerName) }
 				} else {
-					resources.PortAllocationCallbacks[listenerName] = func(_ context.Context) error { return r.portAllocator.ReleaseProxyPort(listenerName) }
+					resources.PortAllocationCallbacks[listenerName] = func(_ context.Context) error { return r.portAllocator.ReleaseCRDProxyPort(listenerName) }
 				}
 
 				listener.Address, listener.AdditionalAddresses = envoy.GetLocalListenerAddresses(port, option.Config.IPv4Enabled(), option.Config.IPv6Enabled())

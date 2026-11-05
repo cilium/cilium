@@ -516,9 +516,9 @@ func (s staticPortAllocator) RestoreComplete() <-chan struct{} {
 	return ch
 }
 
-// AckProxyPort implements PortAllocator.
-func (s staticPortAllocator) AckProxyPortWithReference(ctx context.Context, name string) error {
-	s.log.Info("AckProxyPort", logfields.Listener, name)
+// AckCRDProxyPort implements PortAllocator.
+func (s staticPortAllocator) AckCRDProxyPort(ctx context.Context, name string) error {
+	s.log.Info("AckCRDProxyPort", logfields.Listener, name)
 	return nil
 }
 
@@ -532,9 +532,9 @@ func (s staticPortAllocator) ReallocateCRDProxyPort(name string) (uint16, error)
 	return 1001, nil
 }
 
-// ReleaseProxyPort implements PortAllocator.
-func (s staticPortAllocator) ReleaseProxyPort(name string) error {
-	s.log.Info("ReleaseProxyPort", logfields.Listener, name)
+// ReleaseCRDProxyPort implements PortAllocator.
+func (s staticPortAllocator) ReleaseCRDProxyPort(name string) error {
+	s.log.Info("ReleaseCRDProxyPort", logfields.Listener, name)
 	return nil
 }
 

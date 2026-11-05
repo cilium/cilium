@@ -58,11 +58,12 @@ type ProxyPort struct {
 	// first started. Set 'true' by SetProxyPort(), which is only called for
 	// static listeners (currently only DNS proxy).
 	isStatic bool
-	// nRedirects is the number of redirects using this proxy port
+	// nRedirects is the number of redirects using this proxy port, plus the
+	// permanent reference held by the DNS proxy.
 	nRedirects int
-	// Configured is true when the proxy is (being) configured, but not necessarily
-	// acknowledged yet. This is reset to false when the underlying proxy listener
-	// is removed.
+	// configured is true while the proxy or CEC owns the allocation, including
+	// while awaiting acknowledgment. CEC withdrawal clears it before existing
+	// redirects release the port.
 	configured bool
 	// acknowledged is true when the proxy port has been successfully acknowledged
 	// An acknowledged port is not reset even if a NACK is received later.
@@ -240,6 +241,10 @@ func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (uint16, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	if pp.ProxyType == types.ProxyTypeCRD {
+		return 0, errors.New("CRD proxy ports must be allocated by CEC reconciliation")
+	}
+
 	// Reallocate port only if not yet configured and the first try failed, or the port
 	// has not been (pre)allocated yet.
 
@@ -273,8 +278,8 @@ func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (uint16, error) {
 
 // AllocateCRDProxyPort() allocates a new port for listener 'name', or returns the current one if
 // already allocated.
-// Each call has to be paired with AckProxyPort(name) to update the datapath rules accordingly.
-// Each allocated port must be eventually freed with ReleaseProxyPort().
+// Each call has to be paired with AckCRDProxyPort(name) to update the datapath rules accordingly.
+// Each allocated port must be eventually freed with ReleaseCRDProxyPort().
 func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -357,6 +362,48 @@ func (pp *ProxyPort) addReference() {
 	}
 }
 
+// AckCRDProxyPort() marks the CRD proxy acknowledged
+// and creates or updates the datapath rules accordingly.
+// Does not take a reference on the proxy port.
+func (p *ProxyPorts) AckCRDProxyPort(ctx context.Context, name string) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	pp := p.proxyPorts[name]
+	if pp == nil {
+		return proxyNotFoundError(name)
+	}
+	if pp.ProxyType != types.ProxyTypeCRD {
+		return fmt.Errorf("non CRD proxy port %s", name)
+	}
+	if !pp.configured {
+		return fmt.Errorf("%w: %s", ErrProxyNotConfigured, name)
+	}
+	return p.ackProxyPort(name, pp)
+}
+
+// ReleaseCRDProxyPort withdraws the proxy port from new redirects.
+// Its allocation remains reserved until the last existing redirect releases it.
+func (p *ProxyPorts) ReleaseCRDProxyPort(name string) error {
+	// Accessing p.proxyPorts requires the lock
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	pp := p.proxyPorts[name]
+	if pp == nil {
+		return fmt.Errorf("failed to find proxy port %s", name)
+	}
+
+	if pp.ProxyType != types.ProxyTypeCRD {
+		return fmt.Errorf("non CRD proxy port %s", name)
+	}
+	pp.acknowledged = false
+	pp.configured = false
+	if pp.nRedirects == 0 {
+		p.reset(pp)
+	}
+	return nil
+}
+
 // AckProxyPortWithReference() marks the proxy of the given type as successfully
 // created and creates or updates the datapath rules accordingly.
 // Takes a reference on the proxy port.
@@ -366,6 +413,9 @@ func (p *ProxyPorts) AckProxyPortWithReference(ctx context.Context, name string)
 	pp := p.proxyPorts[name]
 	if pp == nil {
 		return proxyNotFoundError(name)
+	}
+	if pp.ProxyType == types.ProxyTypeCRD {
+		return fmt.Errorf("CRD proxy port not supported: %s", name)
 	}
 	err := p.ackProxyPort(name, pp) // creates datapath rules
 	if err == nil {
@@ -383,6 +433,9 @@ func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string) error {
 	pp := p.proxyPorts[name]
 	if pp == nil {
 		return proxyNotFoundError(name)
+	}
+	if pp.ProxyType == types.ProxyTypeCRD {
+		return fmt.Errorf("CRD proxy port not supported: %s", name)
 	}
 	if pp.acknowledged && pp.rulesPort == pp.proxyPort {
 		return nil
@@ -442,11 +495,18 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 
 	pp.nRedirects--
 
+	// A configured CRD allocation is still owned by CEC reconciliation,
+	// including while it awaits acknowledgment.
+	if pp.ProxyType == types.ProxyTypeCRD {
+		if pp.nRedirects == 0 && !pp.configured && pp.proxyPort != 0 {
+			p.reset(pp)
+		}
+		return nil
+	}
+
 	// Check the last reference and reset under the same lock. A failed endpoint
 	// must not reset an allocation still used by another endpoint awaiting ACK.
-	// CEC-owned ports can still be awaiting their owner's ACK when the last
-	// endpoint reference disappears, so they retain the delayed-release path.
-	if pp.nRedirects == 0 && !pp.isStatic && !pp.acknowledged && pp.ProxyType != types.ProxyTypeCRD {
+	if pp.nRedirects == 0 && !pp.isStatic && !pp.acknowledged {
 		if pp.proxyPort != 0 {
 			p.reset(pp)
 		}
@@ -485,16 +545,8 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 	return nil
 }
 
-// HasProxyType returns whether the named proxy is configured and has the given type.
-func (p *ProxyPorts) HasProxyType(name string, proxyType types.ProxyType) bool {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	pp := p.proxyPorts[name]
-	return pp != nil && pp.configured && pp.ProxyType == proxyType
-}
-
-// reset() frees the port
-// Must be called with mutex held!
+// Restore makes the previous datapath port available as an allocation candidate.
+// It does not configure or acknowledge the listener.
 func (p *ProxyPorts) Restore(pp *ProxyPort) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -543,7 +595,7 @@ func (p *ProxyPorts) FindByTypeWithReference(l7Type types.ProxyType, listener st
 	case types.ProxyTypeCRD:
 		// CRD proxy ports are dynamically created, look up by name
 		// 'ingress' is always false for CRD type
-		if pp, ok := p.proxyPorts[listener]; ok && pp.ProxyType == types.ProxyTypeCRD && !pp.Ingress {
+		if pp, ok := p.proxyPorts[listener]; ok && pp.ProxyType == types.ProxyTypeCRD && !pp.Ingress && pp.acknowledged {
 			pp.addReference()
 			return listener, pp
 		}
@@ -712,8 +764,8 @@ func (p *ProxyPorts) RestoreComplete() <-chan struct{} {
 }
 
 // GetProxyPort returns an allocated port, or an error if it is unavailable.
-// Restored ports can be read before configuration so that DNS bootstrap can
-// reuse its previous port.
+// CRD ports require acknowledgment. Restored proxy-managed ports can be read
+// before configuration so that DNS bootstrap can reuse its previous port.
 func (p *ProxyPorts) GetProxyPort(name string) (port uint16, isStatic bool, err error) {
 	// Accessing pp.proxyPort requires the lock
 	p.mutex.RLock()
@@ -723,16 +775,16 @@ func (p *ProxyPorts) GetProxyPort(name string) (port uint16, isStatic bool, err 
 	if pp == nil {
 		return 0, false, proxyNotFoundError(name)
 	}
-	if pp.proxyPort == 0 {
+	if pp.proxyPort == 0 || pp.ProxyType == types.ProxyTypeCRD && (pp.Ingress || !pp.acknowledged) {
 		return 0, false, fmt.Errorf("%w: %s", ErrProxyNotConfigured, name)
 	}
 
 	return pp.proxyPort, pp.isStatic, nil
 }
 
-// ReleaseProxyPort releases one reference. The last reference resets an
-// unacknowledged proxy-managed allocation immediately. Acknowledged and CEC-owned
-// allocations retain delayed reuse; static allocations are never reset here.
+// ReleaseProxyPort releases one redirect reference. Proxy-managed allocations
+// reset immediately if unacknowledged, or after a delay if acknowledged, when
+// their last reference is released. CRD and static allocations remain configured.
 func (p *ProxyPorts) ReleaseProxyPort(name string) error {
 	// Accessing p.proxyPorts requires the lock
 	p.mutex.Lock()
@@ -749,6 +801,9 @@ func (p *ProxyPorts) SetProxyPort(name string, proxyType types.ProxyType, port u
 	defer p.mutex.Unlock()
 
 	pp := p.proxyPorts[name]
+	if proxyType == types.ProxyTypeCRD || pp != nil && pp.ProxyType == types.ProxyTypeCRD {
+		return fmt.Errorf("CRD proxy port not supported: %s", name)
+	}
 	if pp == nil {
 		pp = &ProxyPort{ProxyType: proxyType, Ingress: ingress}
 		p.proxyPorts[name] = pp
