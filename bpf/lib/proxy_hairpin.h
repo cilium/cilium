@@ -36,10 +36,9 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, struct iphdr *ip4,
 	bpf_barrier(); /* verifier workaround */
 
 	if (!ip4) {
-#ifdef ENABLE_IPV6
-		ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac, (__u8 *)&host_mac,
-			      METRIC_EGRESS);
-#endif
+		if (is_defined(ENABLE_IPV6))
+			ret = ipv6_l3(ctx, ETH_HLEN, (__u8 *)&router_mac, (__u8 *)&host_mac,
+				      METRIC_EGRESS);
 	} else if (is_defined(ENABLE_IPV4)) {
 		ret = ipv4_l3(ctx, ETH_HLEN, (__u8 *)&router_mac, (__u8 *)&host_mac,
 			      ip4);
@@ -64,10 +63,8 @@ ctx_redirect_to_proxy_hairpin_ipv4(struct __ctx_buff *ctx, struct iphdr *ip4,
 	return ctx_redirect_to_proxy_hairpin(ctx, ip4, proxy_port);
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline int
 ctx_redirect_to_proxy_hairpin_ipv6(struct __ctx_buff *ctx, __be16 proxy_port)
 {
 	return ctx_redirect_to_proxy_hairpin(ctx, NULL, proxy_port);
 }
-#endif
