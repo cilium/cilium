@@ -46,12 +46,13 @@ type DatapathUpdater interface {
 
 type ProxyPort struct {
 	// proxy type this port applies to (immutable)
-	ProxyType types.ProxyType `json:"type"`
+	ProxyType types.ProxyType
 	// 'true' for Ingress, 'false' for egress (immutable)
 	// 'false' for CRD redirects, which are accessed by name only.
-	Ingress bool `json:"ingress"`
-	// ProxyPort is the desired proxy listening port number.
-	ProxyPort uint16 `json:"port"`
+	Ingress bool
+	// proxyPort and all following fields are protected by ProxyPorts.mutex.
+	// proxyPort is the desired proxy listening port number.
+	proxyPort uint16
 	// isStatic is true when the listener on the proxy port is incapable
 	// of stopping and/or being reconfigured with a new proxy port once it has been
 	// first started. Set 'true' by SetProxyPort(), which is only called for
@@ -75,6 +76,13 @@ type ProxyPort struct {
 }
 
 type proxyPortsMap map[string]*ProxyPort
+
+// proxyPortState is the persisted port snapshot, without mutable allocator state.
+type proxyPortState struct {
+	Type    types.ProxyType `json:"type"`
+	Ingress bool            `json:"ingress"`
+	Port    uint16          `json:"port"`
+}
 
 type ProxyPorts struct {
 	logger *slog.Logger
@@ -228,7 +236,7 @@ func (p *ProxyPorts) allocatePort(port, min, max uint16) (uint16, error) {
 	return 0, fmt.Errorf("no available proxy ports")
 }
 
-func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (err error) {
+func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (uint16, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -241,25 +249,26 @@ func (p *ProxyPorts) AllocatePort(pp *ProxyPort, retry bool) (err error) {
 	// preallocated port, as in typical case the listener we are about to configure
 	// already exists (daemonset proxy), or can be created on a new proxy with the same
 	// port (embedded Envoy).
-	if !pp.configured && (retry || pp.ProxyPort == 0) {
-		if pp.ProxyPort != 0 {
+	var err error
+	if !pp.configured && (retry || pp.proxyPort == 0) {
+		if pp.proxyPort != 0 {
 			p.reset(pp)
 		}
 
 		// Check if pp.proxyPort is available and find another available proxy port
 		// if not.
-		pp.ProxyPort, err = p.allocatePort(pp.ProxyPort, p.rangeMin, p.rangeMax)
+		pp.proxyPort, err = p.allocatePort(pp.proxyPort, p.rangeMin, p.rangeMax)
 	}
 
 	// Mark proxy port as reserved and configured, regardless if it was restored or
 	// allocated above.
-	if err == nil && pp.ProxyPort != 0 {
+	if err == nil && pp.proxyPort != 0 {
 		// marks port as reserved
-		p.allocatedPorts[pp.ProxyPort] = true
+		p.allocatedPorts[pp.proxyPort] = true
 		// mark proxy port as configured
 		pp.configured = true
 	}
-	return err
+	return pp.proxyPort, err
 }
 
 // AllocateCRDProxyPort() allocates a new port for listener 'name', or returns the current one if
@@ -278,13 +287,13 @@ func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 	// Allocate a new port only if a port was never allocated before.
 	// This is required since Envoy may already be listening on the
 	// previously allocated port for this proxy listener.
-	if pp.ProxyPort == 0 {
+	if pp.proxyPort == 0 {
 		var err error
 		// Try to allocate the same port that was previously used on the datapath
 		if pp.rulesPort != 0 && !p.allocatedPorts[pp.rulesPort] {
-			pp.ProxyPort = pp.rulesPort
+			pp.proxyPort = pp.rulesPort
 		} else {
-			pp.ProxyPort, err = p.allocatePort(pp.rulesPort, p.rangeMin, p.rangeMax)
+			pp.proxyPort, err = p.allocatePort(pp.rulesPort, p.rangeMin, p.rangeMax)
 			if err != nil {
 				return 0, err
 			}
@@ -292,16 +301,16 @@ func (p *ProxyPorts) AllocateCRDProxyPort(name string) (uint16, error) {
 	}
 	p.proxyPorts[name] = pp
 	// marks port as reserved
-	p.allocatedPorts[pp.ProxyPort] = true
+	p.allocatedPorts[pp.proxyPort] = true
 	// mark proxy port as configured
 	pp.configured = true
 
 	p.logger.Debug("AllocateProxyPort: allocated proxy port",
 		fieldProxyRedirectID, name,
-		logfields.ProxyPort, pp.ProxyPort,
+		logfields.ProxyPort, pp.proxyPort,
 	)
 
-	return pp.ProxyPort, nil
+	return pp.proxyPort, nil
 }
 
 // ReallocateCRDProxyPort() reallocates a new port for listener 'name'.
@@ -315,29 +324,29 @@ func (p *ProxyPorts) ReallocateCRDProxyPort(name string) (uint16, error) {
 		pp = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false}
 	}
 
-	if pp.ProxyPort != 0 {
+	if pp.proxyPort != 0 {
 		p.reset(pp)
 		pp.rulesPort = 0
 	}
 
 	// Allocate a new port
 	var err error
-	pp.ProxyPort, err = p.allocatePort(0, p.rangeMin, p.rangeMax)
+	pp.proxyPort, err = p.allocatePort(0, p.rangeMin, p.rangeMax)
 	if err != nil {
 		return 0, err
 	}
 	p.proxyPorts[name] = pp
 	// marks port as reserved
-	p.allocatedPorts[pp.ProxyPort] = true
+	p.allocatedPorts[pp.proxyPort] = true
 	// mark proxy port as configured
 	pp.configured = true
 
 	p.logger.Debug("ReallocateProxyPort: reallocated proxy port",
 		fieldProxyRedirectID, name,
-		logfields.ProxyPort, pp.ProxyPort,
+		logfields.ProxyPort, pp.proxyPort,
 	)
 
-	return pp.ProxyPort, nil
+	return pp.proxyPort, nil
 }
 
 func (pp *ProxyPort) addReference() {
@@ -368,10 +377,14 @@ func (p *ProxyPorts) AckProxyPortWithReference(ctx context.Context, name string)
 // AckProxyPort() marks the proxy of the given type as successfully
 // created and creates or updates the datapath rules accordingly.
 // Does NOT take a reference on the proxy port.
-func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string, pp *ProxyPort) error {
+func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if pp.acknowledged && pp.rulesPort == pp.ProxyPort {
+	pp := p.proxyPorts[name]
+	if pp == nil {
+		return proxyNotFoundError(name)
+	}
+	if pp.acknowledged && pp.rulesPort == pp.proxyPort {
 		return nil
 	}
 	return p.ackProxyPort(name, pp)
@@ -383,7 +396,7 @@ func (p *ProxyPorts) AckProxyPort(ctx context.Context, name string, pp *ProxyPor
 func (p *ProxyPorts) ackProxyPort(name string, pp *ProxyPort) error {
 	scopedLog := p.logger.With(fieldProxyRedirectID, name)
 
-	if pp.ProxyPort == 0 {
+	if pp.proxyPort == 0 {
 		return fmt.Errorf("ackProxyPort: zero port on %s not allowed", name)
 	}
 
@@ -395,21 +408,21 @@ func (p *ProxyPorts) ackProxyPort(name string, pp *ProxyPort) error {
 	// if the proxy is not currently configured.
 
 	// Add new rules, if needed
-	if pp.rulesPort != pp.ProxyPort {
+	if pp.rulesPort != pp.proxyPort {
 		// Add rules for the new port
 		// This should always succeed if we have managed to start-up properly
 		scopedLog.Info("Adding new proxy port rules",
 			logfields.Name, name,
-			logfields.ProxyPort, pp.ProxyPort,
+			logfields.ProxyPort, pp.proxyPort,
 		)
-		p.datapathUpdater.InstallProxyRules(pp.ProxyPort, name)
-		pp.rulesPort = pp.ProxyPort
+		p.datapathUpdater.InstallProxyRules(pp.proxyPort, name)
+		pp.rulesPort = pp.proxyPort
 
 		// trigger writing proxy ports to file
 		p.Trigger.Trigger()
 	}
 	pp.acknowledged = true
-	scopedLog.Debug("AckProxyPort: acked proxy port", logfields.ProxyPort, pp.ProxyPort)
+	scopedLog.Debug("AckProxyPort: acked proxy port", logfields.ProxyPort, pp.proxyPort)
 	return nil
 }
 
@@ -434,7 +447,7 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 	// CEC-owned ports can still be awaiting their owner's ACK when the last
 	// endpoint reference disappears, so they retain the delayed-release path.
 	if pp.nRedirects == 0 && !pp.isStatic && !pp.acknowledged && pp.ProxyType != types.ProxyTypeCRD {
-		if pp.ProxyPort != 0 {
+		if pp.proxyPort != 0 {
 			p.reset(pp)
 		}
 		return nil
@@ -456,7 +469,7 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 					pp.releaseCancel = nil
 					p.logger.Debug("Delayed release of proxy port",
 						fieldProxyRedirectID, name,
-						logfields.ProxyPort, pp.ProxyPort,
+						logfields.ProxyPort, pp.proxyPort,
 					)
 					p.reset(pp)
 
@@ -472,11 +485,12 @@ func (p *ProxyPorts) releaseProxyPort(name string, portReuseWait time.Duration) 
 	return nil
 }
 
-// HasProxyType returns 'true' if 'pp' is configured and has the given proxy type.
-func (p *ProxyPorts) HasProxyType(pp *ProxyPort, proxyType types.ProxyType) bool {
+// HasProxyType returns whether the named proxy is configured and has the given type.
+func (p *ProxyPorts) HasProxyType(name string, proxyType types.ProxyType) bool {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	return pp.configured && pp.ProxyType == proxyType
+	pp := p.proxyPorts[name]
+	return pp != nil && pp.configured && pp.ProxyType == proxyType
 }
 
 // reset() frees the port
@@ -484,16 +498,20 @@ func (p *ProxyPorts) HasProxyType(pp *ProxyPort, proxyType types.ProxyType) bool
 func (p *ProxyPorts) Restore(pp *ProxyPort) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	if pp.ProxyPort == 0 && pp.rulesPort != 0 {
+	if pp.proxyPort == 0 && pp.rulesPort != 0 {
 		// try first with the previous port
-		pp.ProxyPort = pp.rulesPort
+		pp.proxyPort = pp.rulesPort
 	}
 }
 
-func (p *ProxyPorts) GetRulesPort(pp *ProxyPort) uint16 {
+func (p *ProxyPorts) GetRulesPort(name string) (uint16, error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	return pp.rulesPort
+	pp := p.proxyPorts[name]
+	if pp == nil {
+		return 0, proxyNotFoundError(name)
+	}
+	return pp.rulesPort, nil
 }
 
 // reset() frees the port
@@ -503,10 +521,10 @@ func (p *ProxyPorts) reset(pp *ProxyPort) {
 	// available Discourage the reuse of the same port in future
 	// as revert may have been due to port not being available
 	// for bind().
-	p.allocatedPorts[pp.ProxyPort] = false
+	p.allocatedPorts[pp.proxyPort] = false
 	// clear proxy port on failure so that a new one will be
 	// tried next time
-	pp.ProxyPort = 0
+	pp.proxyPort = 0
 	pp.configured = false
 	pp.acknowledged = false
 }
@@ -568,12 +586,12 @@ func (p *ProxyPorts) StoreProxyPorts(ctx context.Context) error {
 
 	jw := jsoniter.ConfigFastest.NewEncoder(out)
 
-	portsMap := make(proxyPortsMap)
+	portsMap := make(map[string]proxyPortState)
 	p.mutex.Lock()
-	// only retain acknowledged, non-zero ports
+	// Snapshot while holding the lock; encoding must not read mutable allocator fields.
 	for name, pp := range p.proxyPorts {
-		if pp.acknowledged {
-			portsMap[name] = pp
+		if pp.acknowledged && pp.proxyPort != 0 {
+			portsMap[name] = proxyPortState{Type: pp.ProxyType, Ingress: pp.Ingress, Port: pp.proxyPort}
 		}
 	}
 	p.mutex.Unlock()
@@ -614,22 +632,25 @@ func (p *ProxyPorts) restoreProxyPortsFromFile(restoredProxyPortsStaleLimit uint
 	defer fp.Close()
 
 	jr := jsoniter.ConfigFastest.NewDecoder(fp)
-	var portsMap proxyPortsMap
+	var portsMap map[string]proxyPortState
 	if err := jr.Decode(&portsMap); err != nil {
 		return err
 	}
 
 	for name, pp := range portsMap {
+		if pp.Port == 0 {
+			return fmt.Errorf("restored proxy port %q is zero", name)
+		}
 		if existing := p.proxyPorts[name]; existing != nil {
-			if existing.ProxyPort != 0 {
+			if existing.proxyPort != 0 {
 				continue // do not overwrite explicitly set port
 			}
 		}
-		p.proxyPorts[name] = pp
-		p.allocatedPorts[pp.ProxyPort] = false
+		p.proxyPorts[name] = &ProxyPort{ProxyType: pp.Type, Ingress: pp.Ingress, proxyPort: pp.Port}
+		p.allocatedPorts[pp.Port] = false
 		scopedLogger.Debug("RestoreProxyPorts: preallocated proxy port",
 			fieldProxyRedirectID, name,
-			logfields.ProxyPort, pp.ProxyPort)
+			logfields.ProxyPort, pp.Port)
 	}
 	return nil
 }
@@ -643,16 +664,16 @@ func (p *ProxyPorts) restoreProxyPortsFromIptables() {
 	for name, port := range portsMap {
 		pp := p.proxyPorts[name]
 		if pp != nil {
-			if pp.ProxyPort != 0 {
+			if pp.proxyPort != 0 {
 				continue // do not overwrite explicitly set port
 			}
-			pp.ProxyPort = port
+			pp.proxyPort = port
 		} else {
 			// Only CRD type proxy ports can be dynamically allocated. Assume a port
 			// from datapath with an unknown name was for a dynamically allocated CRD
 			// proxy and pre-allocate a proxy port for it.
 			// CRD proxy ports always have 'ingress' as 'false'.
-			p.proxyPorts[name] = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false, ProxyPort: port}
+			p.proxyPorts[name] = &ProxyPort{ProxyType: types.ProxyTypeCRD, Ingress: false, proxyPort: port}
 		}
 		p.allocatedPorts[port] = false
 		p.logger.Debug("RestoreProxyPorts: preallocated proxy port from iptables",
@@ -696,7 +717,7 @@ func (p *ProxyPorts) GetProxyPort(name string) (port uint16, isStatic bool, err 
 
 	pp := p.proxyPorts[name]
 	if pp != nil {
-		return pp.ProxyPort, pp.isStatic, nil
+		return pp.proxyPort, pp.isStatic, nil
 	}
 	return 0, false, proxyNotFoundError(name)
 }
@@ -725,12 +746,12 @@ func (p *ProxyPorts) SetProxyPort(name string, proxyType types.ProxyType, port u
 		p.proxyPorts[name] = pp
 	}
 	if pp.nRedirects > 0 {
-		return fmt.Errorf("failed to set proxy port to %d: proxy %s is already configured on %d", port, name, pp.ProxyPort)
+		return fmt.Errorf("failed to set proxy port to %d: proxy %s is already configured on %d", port, name, pp.proxyPort)
 	}
-	pp.ProxyPort = port
+	pp.proxyPort = port
 	pp.isStatic = true // prevents release of the proxy port
 	// marks port as reserved
-	p.allocatedPorts[pp.ProxyPort] = true
+	p.allocatedPorts[pp.proxyPort] = true
 	// mark proxy port as configured
 	pp.configured = true
 	return nil

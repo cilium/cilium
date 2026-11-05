@@ -236,12 +236,17 @@ func (p *testProxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, epI
 	if pp == nil {
 		return 0, fmt.Errorf("no proxy port for %s listener %q", parser, l4.GetListener()), nil
 	}
-	if err := p.ports.AckProxyPort(context.Background(), name, pp); err != nil {
+	if err := p.ports.AckProxyPort(context.Background(), name); err != nil {
 		return 0, err, nil
 	}
 	// FindByTypeWithReference took a reference. The real proxy releases it from
 	// the revert func, so do the same or the refcount grows every regeneration.
-	return pp.ProxyPort, nil, func() error {
+	proxyPort, _, err := p.ports.GetProxyPort(name)
+	if err != nil {
+		p.ports.ReleaseProxyPort(name)
+		return 0, err, nil
+	}
+	return proxyPort, nil, func() error {
 		p.ports.ReleaseProxyPort(name)
 		return nil
 	}
