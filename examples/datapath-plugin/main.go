@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -35,6 +36,11 @@ const (
 	preHookName  = "before"
 	postHookName = "after"
 )
+
+type cookie struct {
+	TraceID           string                     `json:"trace_id"`
+	TargetAttachTypes map[string]ebpf.AttachType `json:"target_attach_types"`
+}
 
 func main() {
 	unixSocketPath := flag.String("unix-socket-path", "", "UNIX socket to listen on")
@@ -107,15 +113,27 @@ func (s *datapathPluginServer) PrepareCollection(ctx context.Context, req *datap
 		return nil, nil
 	}
 
-	id := uuid.New().String()
+	targetAttachTypes := make(map[string]ebpf.AttachType)
+	for name, prog := range req.GetCollection().GetPrograms() {
+		targetAttachTypes[name] = ebpf.AttachType(prog.GetAttachType())
+	}
+	c := cookie{
+		TraceID:           uuid.New().String(),
+		TargetAttachTypes: targetAttachTypes,
+	}
+	cookieBytes, err := json.Marshal(c)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling cookie: %w", err)
+	}
+
 	resp := &datapathplugins.PrepareCollectionResponse{
 		Hooks:  hooks,
-		Cookie: id,
+		Cookie: string(cookieBytes),
 	}
 
 	s.logger.Info("PrepareCollection()",
 		logKeyCiliumVersion, ciliumVersion(ctx),
-		logKeyTraceId, id,
+		logKeyTraceId, c.TraceID,
 		logKeyRequest, req,
 		logKeyResponse, resp,
 	)
@@ -124,9 +142,15 @@ func (s *datapathPluginServer) PrepareCollection(ctx context.Context, req *datap
 }
 
 func (s *datapathPluginServer) InstrumentCollection(ctx context.Context, req *datapathplugins.InstrumentCollectionRequest) (*datapathplugins.InstrumentCollectionResponse, error) {
-	logger := s.logger.With(logKeyTraceId, req.GetCookie())
+	var c cookie
+	if cookieStr := req.GetCookie(); cookieStr != "" {
+		if err := json.Unmarshal([]byte(cookieStr), &c); err != nil {
+			return nil, fmt.Errorf("unmarshaling cookie: %w", err)
+		}
+	}
+	logger := s.logger.With(logKeyTraceId, c.TraceID)
 
-	if err := loadAndPin(req.GetAttachmentContext(), req.GetHooks(), req.GetPins()); err != nil {
+	if err := loadAndPin(req.GetAttachmentContext(), req.GetHooks(), req.GetPins(), c.TargetAttachTypes); err != nil {
 		logger.Error("InstrumentCollection()",
 			logKeyCiliumVersion, ciliumVersion(ctx),
 			logKeyRequest, req,
@@ -170,6 +194,13 @@ func prepareSKBAndXDPHooks(programs map[string]*datapathplugins.PrepareCollectio
 	var hooks []*datapathplugins.PrepareCollectionResponse_HookSpec
 
 	for name, prog := range programs {
+		hooks = append(hooks,
+			&datapathplugins.PrepareCollectionResponse_HookSpec{
+				Type:   datapathplugins.HookType_PRE,
+				Target: name,
+			},
+		)
+
 		if !strings.HasSuffix(prog.SectionName, "/entry") {
 			continue
 		}
@@ -180,10 +211,6 @@ func prepareSKBAndXDPHooks(programs map[string]*datapathplugins.PrepareCollectio
 		}
 
 		hooks = append(hooks,
-			&datapathplugins.PrepareCollectionResponse_HookSpec{
-				Type:   datapathplugins.HookType_PRE,
-				Target: name,
-			},
 			&datapathplugins.PrepareCollectionResponse_HookSpec{
 				Type:   datapathplugins.HookType_POST,
 				Target: name,
@@ -213,7 +240,16 @@ func prepareSockHooks(programs map[string]*datapathplugins.PrepareCollectionRequ
 	return hooks
 }
 
-func loadAndPin(ac *datapathplugins.AttachmentContext, hooks []*datapathplugins.InstrumentCollectionRequest_Hook, pinPath string) error {
+func hookProgName(hook *datapathplugins.InstrumentCollectionRequest_Hook) string {
+	switch hook.Type {
+	case datapathplugins.HookType_PRE:
+		return preHookName
+	default:
+		return postHookName
+	}
+}
+
+func loadAndPin(ac *datapathplugins.AttachmentContext, hooks []*datapathplugins.InstrumentCollectionRequest_Hook, pinPath string, targetAttachTypes map[string]ebpf.AttachType) error {
 	acStr, err := attachmentContextStr(ac)
 	if err != nil {
 		return err
@@ -222,7 +258,7 @@ func loadAndPin(ac *datapathplugins.AttachmentContext, hooks []*datapathplugins.
 	specByTarget := map[string]*ebpf.CollectionSpec{}
 	for _, hook := range hooks {
 		if specByTarget[hook.Target] == nil {
-			spec, err := collectionSpec(ac, hook.Target)
+			spec, err := collectionSpec(ac, hook.Target, hook)
 			if err != nil {
 				return fmt.Errorf("loading specs: %w", err)
 			}
@@ -231,18 +267,24 @@ func loadAndPin(ac *datapathplugins.AttachmentContext, hooks []*datapathplugins.
 
 		spec := specByTarget[hook.Target]
 
+		progName := hookProgName(hook)
+		progSpec := spec.Programs[progName]
+
+		if hook.GetAttachTarget().GetSubprogName() == "" {
+			if progSpec != nil && targetAttachTypes != nil {
+				if attachType, ok := targetAttachTypes[hook.Target]; ok {
+					progSpec.AttachType = attachType
+				}
+			}
+			continue
+		}
+
 		targetProg, err := ebpf.NewProgramFromID(ebpf.ProgramID(hook.AttachTarget.ProgramId))
 		if err != nil {
 			return fmt.Errorf("loading target program %d: %w", hook.AttachTarget.ProgramId, err)
 		}
 		defer targetProg.Close()
 
-		var progSpec *ebpf.ProgramSpec
-		if hook.Type == datapathplugins.HookType_PRE {
-			progSpec = spec.Programs[preHookName]
-		} else {
-			progSpec = spec.Programs[postHookName]
-		}
 		progSpec.AttachTarget = targetProg
 		progSpec.AttachTo = hook.AttachTarget.SubprogName
 	}
@@ -311,7 +353,7 @@ func attachmentContextStr(ac *datapathplugins.AttachmentContext) (string, error)
 	return acStr, nil
 }
 
-func collectionSpec(attachmentContext *datapathplugins.AttachmentContext, target string) (*ebpf.CollectionSpec, error) {
+func collectionSpec(attachmentContext *datapathplugins.AttachmentContext, target string, hook *datapathplugins.InstrumentCollectionRequest_Hook) (*ebpf.CollectionSpec, error) {
 	if attachmentContext.GetSocket() != nil {
 		switch target {
 		case "cil_sock4_connect", "cil_sock4_pre_bind",
@@ -327,8 +369,14 @@ func collectionSpec(attachmentContext *datapathplugins.AttachmentContext, target
 
 		return nil, fmt.Errorf("unrecognized socket program: %s", target)
 	} else if attachmentContext.GetXdp() != nil {
+		if hook.GetAttachTarget().GetSubprogName() == "" {
+			return loadXdp_tail()
+		}
 		return loadXdp()
 	}
 
+	if hook.GetAttachTarget().GetSubprogName() == "" {
+		return loadSkb_tail()
+	}
 	return loadSkb()
 }
