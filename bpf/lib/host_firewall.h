@@ -41,7 +41,6 @@ need_apply_host_policy_egress(bool is_host_id, bool is_from_proxy)
 	return true;
 }
 
-# ifdef ENABLE_IPV6
 static __always_inline bool
 ipv6_host_policy_egress_lookup(const struct __ctx_buff *ctx, __u32 src_sec_identity,
 			       __u32 ipcache_srcid, const struct ipv6hdr *ip6,
@@ -309,7 +308,6 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_sec_identity,
 
 	return __ipv6_host_policy_ingress(ctx, ip6, &ct_buffer, src_sec_identity, trace, ext_err);
 }
-# endif /* ENABLE_IPV6 */
 
 static __always_inline bool
 ipv4_host_policy_egress_lookup(const struct __ctx_buff *ctx, __u32 src_sec_identity,
