@@ -106,15 +106,11 @@ func TestPortAllocator(t *testing.T) {
 	require.Eventually(t, func() bool { return p.released(pp) }, time.Second, time.Millisecond)
 	require.Zero(t, pp.nRedirects)
 	require.Zero(t, pp.proxyPort)
-	port1a, _, err = p.GetProxyPort("listener1")
-	require.NoError(t, err)
-	require.Zero(t, port1a)
-
 	require.Nil(t, pp.releaseCancel)
 
-	// ProxyPort lingers and can still be found, but it's port is zeroed
+	// ProxyPort can no longer be found, as it's port is zeroed
 	port1b, _, err := p.GetProxyPort("listener1")
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrProxyNotConfigured)
 	require.Zero(t, port1b)
 	require.Zero(t, pp.proxyPort)
 	require.False(t, pp.configured)
