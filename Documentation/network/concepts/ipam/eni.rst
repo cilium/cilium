@@ -527,7 +527,7 @@ IP release (IPv4 only) is driven by the agent removing CIDRs from
 (all of its IPs are unused and the node has excess capacity), it removes that
 CIDR from ``spec.ipam.pools.allocated``. The operator tracks CIDRs that
 disappear from this field and, after the delay configured by
-``--excess-ip-release-delay`` (default 180 seconds) has elapsed, releases the
+``--excess-ip-release-delay`` (default 1800 seconds) has elapsed, releases the
 corresponding resources from AWS:
 
 * A host-prefix CIDR (a single secondary IP) is released with

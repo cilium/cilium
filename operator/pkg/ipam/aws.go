@@ -49,7 +49,7 @@ type AWSConfig struct {
 
 var awsDefaultConfig = AWSConfig{
 	AWSReleaseExcessIPs:          false,
-	ExcessIPReleaseDelay:         180,
+	ExcessIPReleaseDelay:         1800,
 	AWSEnablePrefixDelegation:    false,
 	ENITags:                      nil,
 	ENIGarbageCollectionTags:     nil,
