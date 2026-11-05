@@ -4,8 +4,10 @@
 package gateway_api
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 
@@ -16,9 +18,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/testing/protocmp"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -193,6 +197,176 @@ func Test_gammaReconciler_Reconcile(t *testing.T) {
 					}
 				})
 			}
+		})
+	}
+}
+
+func Test_gammaReconciler_Reconcile_RouteOrdering(t *testing.T) {
+	for _, tt := range []struct {
+		kind string
+		port gatewayv1.PortNumber
+	}{
+		{kind: "HTTPRoute", port: 80},
+		{kind: "GRPCRoute", port: 7070},
+	} {
+		t.Run(tt.kind, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			scheme := testhelpers.TestScheme(nil, helpers.RegisterGatewayAPITypesToScheme)
+			objects := k8stestutils.ReadObjectsDir(t, "testdata/gamma/base", scheme)
+			var routes []client.Object
+			for i, name := range []string{"older", "newer"} {
+				objectMeta := metav1.ObjectMeta{
+					Name:              name,
+					Namespace:         serviceKeyEcho.Namespace,
+					UID:               types.UID(name + "-uid"),
+					CreationTimestamp: metav1.Unix(1700000000+int64(i), 0),
+				}
+				parents := gatewayv1.CommonRouteSpec{
+					ParentRefs: []gatewayv1.ParentReference{{
+						Group: ptr.To[gatewayv1.Group](""),
+						Kind:  ptr.To[gatewayv1.Kind]("Service"),
+						Name:  gatewayv1.ObjectName(serviceKeyEcho.Name),
+						Port:  ptr.To(tt.port),
+					}},
+				}
+				backend := gatewayv1.BackendRef{
+					BackendObjectReference: gatewayv1.BackendObjectReference{
+						Name: "echo-v1",
+						Port: ptr.To(tt.port),
+					},
+				}
+				switch tt.kind {
+				case "HTTPRoute":
+					routes = append(routes, &gatewayv1.HTTPRoute{
+						ObjectMeta: objectMeta,
+						Spec: gatewayv1.HTTPRouteSpec{
+							CommonRouteSpec: parents,
+							Rules: []gatewayv1.HTTPRouteRule{{
+								Matches: []gatewayv1.HTTPRouteMatch{{
+									Path: &gatewayv1.HTTPPathMatch{
+										Type:  ptr.To(gatewayv1.PathMatchExact),
+										Value: ptr.To(fmt.Sprintf("/method-%d", i)),
+									},
+								}},
+								BackendRefs: []gatewayv1.HTTPBackendRef{{BackendRef: backend}},
+							}},
+						},
+					})
+				case "GRPCRoute":
+					routes = append(routes, &gatewayv1.GRPCRoute{
+						ObjectMeta: objectMeta,
+						Spec: gatewayv1.GRPCRouteSpec{
+							CommonRouteSpec: parents,
+							Rules: []gatewayv1.GRPCRouteRule{{
+								Matches: []gatewayv1.GRPCRouteMatch{{
+									Method: &gatewayv1.GRPCMethodMatch{
+										Type:    ptr.To(gatewayv1.GRPCMethodMatchExact),
+										Service: ptr.To("example.Echo"),
+										Method:  ptr.To(fmt.Sprintf("Method%d", i)),
+									},
+								}},
+								BackendRefs: []gatewayv1.GRPCBackendRef{{BackendRef: backend}},
+							}},
+						},
+					})
+				}
+			}
+			objects = append(objects, routes...)
+
+			funcs := typeMetaInterceptor(scheme)
+			list := funcs.List
+			reverseRouteOrder := false
+			var routeOrders [][]string
+			cecPatches := 0
+			funcs.List = func(ctx context.Context, c client.WithWatch, obj client.ObjectList, opts ...client.ListOption) error {
+				if err := list(ctx, c, obj, opts...); err != nil {
+					return err
+				}
+				switch routeList := obj.(type) {
+				case *gatewayv1.HTTPRouteList:
+					if tt.kind != "HTTPRoute" {
+						return nil
+					}
+					require.Len(t, routeList.Items, 2)
+					slices.SortFunc(routeList.Items, func(a, b gatewayv1.HTTPRoute) int {
+						return a.CreationTimestamp.Time.Compare(b.CreationTimestamp.Time)
+					})
+					if reverseRouteOrder {
+						slices.Reverse(routeList.Items)
+					}
+					routeOrders = append(routeOrders, []string{routeList.Items[0].Name, routeList.Items[1].Name})
+				case *gatewayv1.GRPCRouteList:
+					if tt.kind != "GRPCRoute" {
+						return nil
+					}
+					require.Len(t, routeList.Items, 2)
+					slices.SortFunc(routeList.Items, func(a, b gatewayv1.GRPCRoute) int {
+						return a.CreationTimestamp.Time.Compare(b.CreationTimestamp.Time)
+					})
+					if reverseRouteOrder {
+						slices.Reverse(routeList.Items)
+					}
+					routeOrders = append(routeOrders, []string{routeList.Items[0].Name, routeList.Items[1].Name})
+				}
+				return nil
+			}
+			funcs.Patch = func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+				if _, ok := obj.(*ciliumv2.CiliumEnvoyConfig); ok {
+					cecPatches++
+				}
+				return c.Patch(ctx, obj, patch, opts...)
+			}
+			c := fake.NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(objects...).
+				WithStatusSubresource(&corev1.Service{}, &gatewayv1.HTTPRoute{}, &gatewayv1.GRPCRoute{}).
+				WithIndex(&gatewayv1.HTTPRoute{}, indexers.GammaHTTPRouteParentRefsIndex, indexers.IndexHTTPRouteByGammaService).
+				WithIndex(&gatewayv1.GRPCRoute{}, indexers.GammaGRPCRouteParentRefsIndex, indexers.IndexGRPCRouteByGammaService).
+				WithInterceptorFuncs(funcs).
+				Build()
+			config := translation.Config{}
+			r := &gammaReconciler{
+				client:         c,
+				translator:     gatewayApiTranslation.NewTranslator(translation.NewCECTranslator(config), config),
+				logger:         logger,
+				controllerName: defaultControllerName,
+			}
+			req := ctrl.Request{NamespacedName: serviceKeyEcho}
+			result, err := r.Reconcile(t.Context(), req)
+			require.NoError(t, err)
+			require.Equal(t, ctrl.Result{}, result)
+
+			for _, route := range routes {
+				require.NoError(t, c.Get(t.Context(), client.ObjectKeyFromObject(route), route))
+				var parents []gatewayv1.RouteParentStatus
+				switch route := route.(type) {
+				case *gatewayv1.HTTPRoute:
+					parents = route.Status.Parents
+				case *gatewayv1.GRPCRoute:
+					parents = route.Status.Parents
+				}
+				require.Len(t, parents, 1)
+				require.True(t, meta.IsStatusConditionTrue(parents[0].Conditions, string(gatewayv1.RouteConditionAccepted)))
+				require.True(t, meta.IsStatusConditionTrue(parents[0].Conditions, string(gatewayv1.RouteConditionResolvedRefs)))
+			}
+			before := &ciliumv2.CiliumEnvoyConfig{}
+			require.NoError(t, c.Get(t.Context(), serviceKeyEcho, before))
+			require.NotEmpty(t, before.Spec.Resources)
+			require.Len(t, before.OwnerReferences, 1)
+			cecPatches = 0
+			reverseRouteOrder = true
+
+			result, err = r.Reconcile(t.Context(), req)
+			require.NoError(t, err)
+			require.Equal(t, ctrl.Result{}, result)
+			after := &ciliumv2.CiliumEnvoyConfig{}
+			require.NoError(t, c.Get(t.Context(), serviceKeyEcho, after))
+
+			assert.Equal(t, [][]string{{"older", "newer"}, {"newer", "older"}}, routeOrders)
+			assert.Empty(t, cmp.Diff(before.Spec, after.Spec, protocmp.Transform()))
+			assert.Equal(t, before.OwnerReferences, after.OwnerReferences)
+			assert.Zero(t, cecPatches, "Reordering routes must not patch CiliumEnvoyConfig")
+			assert.Equal(t, before.ResourceVersion, after.ResourceVersion)
 		})
 	}
 }

@@ -6,8 +6,10 @@ package ingestion
 import (
 	"fmt"
 	"log/slog"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	mcsapiv1beta1 "sigs.k8s.io/mcs-api/pkg/apis/v1beta1"
@@ -60,6 +62,9 @@ func toGammaHTTPRoutes(
 	services []corev1.Service,
 	grants []gatewayv1.ReferenceGrant,
 ) []model.HTTPListener {
+	input = slices.Clone(input)
+	sortRoutesByAge(input, func(r gatewayv1.HTTPRoute) metav1.ObjectMeta { return r.ObjectMeta })
+
 	var resHTTP []model.HTTPListener
 
 	for _, hr := range input {
@@ -204,6 +209,9 @@ func toGammaGRPCRoutes(
 	services []corev1.Service,
 	grants []gatewayv1.ReferenceGrant,
 ) []model.HTTPListener {
+	input = slices.Clone(input)
+	sortRoutesByAge(input, func(r gatewayv1.GRPCRoute) metav1.ObjectMeta { return r.ObjectMeta })
+
 	var resGRPC []model.HTTPListener
 
 	for _, grpcr := range input {
