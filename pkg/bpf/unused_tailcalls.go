@@ -16,7 +16,7 @@ import (
 
 // removeUnusedTailcalls removes tail calls that are not reachable from
 // entrypoint programs.
-func removeUnusedTailcalls(spec *ebpf.CollectionSpec, reach reachables, logger *slog.Logger) error {
+func removeUnusedTailcalls(spec *ebpf.CollectionSpec, reach reachables, keep *set.Set[string], logger *slog.Logger) error {
 	if reach == nil {
 		return fmt.Errorf("reachability information is required")
 	}
@@ -26,12 +26,12 @@ func removeUnusedTailcalls(spec *ebpf.CollectionSpec, reach reachables, logger *
 		return fmt.Errorf("getting tail call slots: %w", err)
 	}
 
-	live, err := livePrograms(reach, tails, logger)
+	live, err := livePrograms(reach, tails, keep, logger)
 	if err != nil {
 		return fmt.Errorf("getting live programs: %w", err)
 	}
 
-	deleteUnused(spec, live, logger)
+	deleteUnused(spec, live, keep, logger)
 
 	return nil
 }
@@ -47,7 +47,7 @@ func tailCallSlots(reach reachables) (map[uint32]*reachableSpec, error) {
 			continue
 		}
 
-		slot, err := tailCallSlot(r.prog)
+		slot, err := TailCallSlot(r.prog)
 		if err != nil {
 			return nil, err
 		}
@@ -59,14 +59,14 @@ func tailCallSlots(reach reachables) (map[uint32]*reachableSpec, error) {
 }
 
 // livePrograms returns all programs reachable from entrypoints via tail calls.
-func livePrograms(reach reachables, tails map[uint32]*reachableSpec, logger *slog.Logger) (*set.Set[*ebpf.ProgramSpec], error) {
+func livePrograms(reach reachables, tails map[uint32]*reachableSpec, keep *set.Set[string], logger *slog.Logger) (*set.Set[*ebpf.ProgramSpec], error) {
 	visited := &set.Set[*ebpf.ProgramSpec]{}
 	for _, r := range reach {
-		if !isEntrypoint(r.prog) {
+		if !IsEntrypoint(r.prog) {
 			continue
 		}
 
-		if err := visitProgram(r, tails, visited, logger); err != nil {
+		if err := visitProgram(r, tails, keep, visited, logger); err != nil {
 			return nil, err
 		}
 	}
@@ -74,7 +74,7 @@ func livePrograms(reach reachables, tails map[uint32]*reachableSpec, logger *slo
 	return visited, nil
 }
 
-func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) error {
+func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, keep *set.Set[string], visited *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) error {
 	if visited.Has(r.prog) {
 		return nil
 	}
@@ -137,9 +137,15 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 		}
 
 		if tail := tails[slot]; tail != nil {
-			if err := visitProgram(tail, tails, visited, logger); err != nil {
+			if err := visitProgram(tail, tails, keep, visited, logger); err != nil {
 				return err
 			}
+		} else if keep != nil && keep.Has(r.prog.Name) {
+			logger.Debug("Ignoring missing tail call in kept program",
+				logfields.Prog, r.prog.Name,
+				logfields.Slot, slot,
+			)
+			continue
 		} else {
 			return fmt.Errorf("missed tail call in program %s to slot %d at insn %d", r.prog.Name, slot, iter.InstructionIndex())
 		}
@@ -149,14 +155,14 @@ func visitProgram(r *reachableSpec, tails map[uint32]*reachableSpec, visited *se
 }
 
 // deleteUnused removes unreferenced tail calls from the CollectionSpec.
-func deleteUnused(spec *ebpf.CollectionSpec, live *set.Set[*ebpf.ProgramSpec], logger *slog.Logger) {
+func deleteUnused(spec *ebpf.CollectionSpec, live *set.Set[*ebpf.ProgramSpec], keep *set.Set[string], logger *slog.Logger) {
 	var deleted []string
 	for name, prog := range spec.Programs {
 		if !IsTailCall(prog) {
 			continue
 		}
 
-		if live.Has(prog) {
+		if live.Has(prog) || (keep != nil && keep.Has(name)) {
 			continue
 		}
 

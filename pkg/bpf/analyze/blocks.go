@@ -783,13 +783,26 @@ func loadBlocks(insns asm.Instructions) Blocks {
 // markBranches identifies all jump targets in the instruction stream and marks
 // branch and fallthrough edges accordingly.
 //
-// It performs two passes over the instruction stream: the first pass identifies
-// all branch instructions and their raw jump targets, while the second pass
-// resolves these raw targets to actual instruction pointers.
+// It performs three passes over the instruction stream: the first pass indexes
+// all symbols by raw instruction offset, the second pass identifies all branch
+// instructions and their raw jump targets, and the third pass resolves these
+// raw targets to actual instruction pointers.
 func markBranches(insns asm.Instructions) error {
 	var targets rawTargets
 
+	// Index symbols by their raw instruction offset. Jumps emitted by the Go
+	// assembler refer to their target by symbol name and only get their
+	// Offset/Constant encoded when the program is marshaled, long after this
+	// analysis runs. Without this, such a jump would appear to target itself.
+	symbols := make(map[string]asm.RawInstructionOffset)
 	i := insns.Iterate()
+	for i.Next() {
+		if sym := i.Ins.Symbol(); sym != "" {
+			symbols[sym] = i.Offset
+		}
+	}
+
+	i = insns.Iterate()
 	for i.Next() {
 		// Set a leader on symbols, as they mark the start of functions.
 		if sym := i.Ins.Symbol(); sym != "" {
@@ -809,9 +822,15 @@ func markBranches(insns asm.Instructions) error {
 
 		// Regular branching instructions.
 		default:
-			raw, err := jumpTarget(i.Offset, i.Ins)
+			raw, resolved, err := symbolicJumpTarget(i.Ins, symbols)
 			if err != nil {
-				return fmt.Errorf("determine jump target instruction offset: %w", err)
+				return fmt.Errorf("resolve symbolic jump target: %w", err)
+			}
+			if !resolved {
+				raw, err = jumpTarget(i.Offset, i.Ins)
+				if err != nil {
+					return fmt.Errorf("determine jump target instruction offset: %w", err)
+				}
 			}
 
 			setBranchFallthrough(i.Ins, next(i, insns))
