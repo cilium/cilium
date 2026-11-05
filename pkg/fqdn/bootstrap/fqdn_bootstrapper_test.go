@@ -117,7 +117,8 @@ func TestDNSProxyStartupReadiness(t *testing.T) {
 			if tt.portConflict {
 				_, pp := ports.FindByTypeWithReference(proxytypes.ProxyTypeDNS, "", false)
 				require.NotNil(t, pp)
-				require.NoError(t, ports.AllocatePort(pp, false))
+				_, err := ports.AllocatePort(pp, false)
+				require.NoError(t, err)
 			}
 			preferredPort := bindPort
 			if tt.randomPort {
@@ -216,10 +217,13 @@ func TestDNSProxyStartupReadiness(t *testing.T) {
 			require.Equal(t, p.port, port)
 			require.True(t, isStatic)
 
-			_, redirect := ports.FindByTypeWithReference(proxytypes.ProxyTypeDNS, "", false)
-			require.NoError(t, ports.AllocatePort(redirect, false))
-			require.Equal(t, p.port, redirect.ProxyPort, "DNS redirects must use the bound socket port")
-			require.Equal(t, p.port, ports.GetRulesPort(redirect))
+			name, redirect := ports.FindByTypeWithReference(proxytypes.ProxyTypeDNS, "", false)
+			proxyPort, err := ports.AllocatePort(redirect, false)
+			require.NoError(t, err)
+			require.Equal(t, p.port, proxyPort, "DNS redirects must use the bound socket port")
+			rulesPort, err := ports.GetRulesPort(name)
+			require.NoError(t, err)
+			require.Equal(t, p.port, rulesPort)
 		})
 	}
 }

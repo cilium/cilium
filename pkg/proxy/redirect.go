@@ -9,6 +9,7 @@ import (
 	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/proxyports"
+	"github.com/cilium/cilium/pkg/proxy/types"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -34,16 +35,20 @@ type RedirectImplementation interface {
 type Redirect struct {
 	logger       *slog.Logger
 	name         string
-	proxyPort    *proxyports.ProxyPort
+	ingress      bool
+	proxyType    types.ProxyType
+	proxyPort    uint16
 	dstPortProto restore.PortProto
 	endpointID   uint16
 }
 
-func initRedirect(logger *slog.Logger, epID uint16, name string, listener *proxyports.ProxyPort, port uint16, proto u8proto.U8proto) Redirect {
+func (p *Proxy) initRedirect(logger *slog.Logger, epID uint16, ppName string, pp *proxyports.ProxyPort, port uint16, proto u8proto.U8proto) Redirect {
 	return Redirect{
 		logger:       logger,
-		name:         name,
-		proxyPort:    listener,
+		name:         ppName,
+		ingress:      pp.Ingress,
+		proxyType:    pp.ProxyType,
+		proxyPort:    0, // filled in later after port allocation
 		dstPortProto: restore.MakeV2PortProto(port, proto),
 		endpointID:   epID,
 	}
