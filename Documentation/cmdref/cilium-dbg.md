@@ -42,6 +42,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium-dbg monitor](cilium-dbg_monitor.md)	 - Display BPF program events
 * [cilium-dbg node](cilium-dbg_node.md)	 - Manage cluster nodes
 * [cilium-dbg nodeid](cilium-dbg_nodeid.md)	 - List node IDs and associated information
+* [cilium-dbg plugins](cilium-dbg_plugins.md)	 - Query plugins status
 * [cilium-dbg policy](cilium-dbg_policy.md)	 - Manage security policies
 * [cilium-dbg post-uninstall-cleanup](cilium-dbg_post-uninstall-cleanup.md)	 - Remove system state installed by Cilium at runtime
 * [cilium-dbg prefilter](cilium-dbg_prefilter.md)	 - Manage XDP CIDR filters (deprecated)

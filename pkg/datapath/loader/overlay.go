@@ -80,7 +80,7 @@ func replaceOverlayDatapath(ctx context.Context, logger *slog.Logger, reg *regis
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(link.Attrs().Name), overlayConfig),
-	}, lnc, attachmentContextOverlay(link), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), link))
+	}, lnc, attachmentContextOverlay(link.Attrs().Name), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), link))
 	if err != nil {
 		return err
 	}

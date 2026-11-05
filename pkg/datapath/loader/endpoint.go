@@ -167,6 +167,8 @@ func (l *loader) Unload(ep endpoint.Endpoint) {
 			logfields.BPFFSEndpointDir, bpffsEndpointDir(bpf.CiliumPath(), ep),
 		)
 	}
+
+	l.bpfCollectionLoader.Unload(attachmentContextLXC(ep))
 }
 
 // EndpointHash hashes the specified endpoint configuration with the current

@@ -80,7 +80,7 @@ func replaceWireguardDatapath(ctx context.Context, logger *slog.Logger, reg *reg
 			Maps: ebpf.MapOptions{PinPath: bpf.TCGlobalsPath()},
 		},
 		ConfigDumpPath: filepath.Join(bpfStateDeviceDir(device.Attrs().Name), wireguardConfig),
-	}, lnc, attachmentContextWireguard(device), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), device))
+	}, lnc, attachmentContextWireguard(device.Attrs().Name), bpffsDevicePluginPinsTcDir(bpf.CiliumPath(), device))
 	if err != nil {
 		return err
 	}
