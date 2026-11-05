@@ -188,7 +188,6 @@ lb_v4_add_backend(__be32 svc_addr, __be16 svc_port, __u16 backend_slot, __u32 ba
 			    backend_port, backend_proto, cluster_id, false);
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline void
 __lb_v6_add_service(const union v6addr *addr, __be16 port, __u8 proto,
 		    __u16 backend_count, __u16 rev_nat_index,
@@ -312,4 +311,3 @@ lb_v6_add_l7_service(const union v6addr *addr, __be16 port, __u8 proto,
 	memcpy(&revnat_value.address, addr, sizeof(*addr));
 	map_update_elem(&cilium_lb6_reverse_nat, &rev_nat_index, &revnat_value, BPF_ANY);
 }
-#endif

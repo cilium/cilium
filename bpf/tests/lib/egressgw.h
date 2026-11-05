@@ -276,7 +276,6 @@ static __always_inline int create_ct_entry(struct __ctx_buff *ctx, __be16 client
 			 CT_EGRESS, &ct_state, NULL);
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline int egressgw_pktgen_v6(struct __ctx_buff *ctx,
 					      struct egressgw_test_ctx test_ctx)
 {
@@ -488,4 +487,3 @@ static __always_inline int create_ct_entry_v6(struct __ctx_buff *ctx, __be16 cli
 	return ct_create6(get_ct_map6(&tuple), &cilium_ct_any6_global, &tuple, ctx,
 			  CT_EGRESS, &ct_state, NULL);
 }
-#endif
