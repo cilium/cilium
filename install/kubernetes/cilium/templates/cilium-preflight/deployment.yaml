@@ -18,7 +18,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      k8s-app: cilium-pre-flight-check-deployment
+      k8s-app: cilium-pre-flight-check
       kubernetes.io/cluster-service: "true"
   template:
     metadata:
@@ -28,7 +28,7 @@ spec:
       {{- end }}
       labels:
         app.kubernetes.io/part-of: cilium
-        k8s-app: cilium-pre-flight-check-deployment
+        k8s-app: cilium-pre-flight-check
         kubernetes.io/cluster-service: "true"
         app.kubernetes.io/name: cilium-pre-flight-check
         helm.sh/chart: {{ include "cilium.chart" . }}
