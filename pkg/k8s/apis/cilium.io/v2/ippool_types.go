@@ -89,13 +89,17 @@ type IPPoolSpec struct {
 	NamespaceSelector *slimv1.LabelSelector `json:"namespaceSelector,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.all(p, p.cidr in self.cidrs)", message="If pool is set, each pool entry must reference a CIDR from cidrs"
+// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.size() == 0 || self.pool.size() == self.cidrs.size()", message="If pool is set, it must have one entry per CIDR in cidrs"
+// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.size() == 0 || [self.pool.transformMapEntry(i, p, {p.cidr: true})].all(m, self.cidrs.all(c, c in m))", message="If pool is set, each CIDR in cidrs must have a pool entry"
+// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.all(p, string(cidr(p.cidr).masked()) == p.cidr)", message="pool CIDRs must not have host bits set"
+// +kubebuilder:validation:XValidation:rule="self.cidrs.all(c, string(cidr(c).masked()) == c)", message="cidrs entries must not have host bits set"
 type IPv4PoolSpec struct {
 	// CIDRs is a list of IPv4 CIDRs that are part of the pool.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:MaxItems=16384
+	// +listType=set
 	CIDRs []iputil.Prefix `json:"cidrs"`
 
 	// MaskSize is the mask size of the pool.
@@ -112,17 +116,21 @@ type IPv4PoolSpec struct {
 	// +kubebuilder:validation:Optional
 	// +listType=map
 	// +listMapKey=cidr
-	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:MaxItems=16384
 	Pool []PoolCIDRConfig `json:"pool,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.all(p, p.cidr in self.cidrs)", message="If pool is set, each pool entry must reference a CIDR from cidrs"
+// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.size() == 0 || self.pool.size() == self.cidrs.size()", message="If pool is set, it must have one entry per CIDR in cidrs"
+// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.size() == 0 || [self.pool.transformMapEntry(i, p, {p.cidr: true})].all(m, self.cidrs.all(c, c in m))", message="If pool is set, each CIDR in cidrs must have a pool entry"
+// +kubebuilder:validation:XValidation:rule="!has(self.pool) || self.pool.all(p, string(cidr(p.cidr).masked()) == p.cidr)", message="pool CIDRs must not have host bits set"
+// +kubebuilder:validation:XValidation:rule="self.cidrs.all(c, string(cidr(c).masked()) == c)", message="cidrs entries must not have host bits set"
 type IPv6PoolSpec struct {
 	// CIDRs is a list of IPv6 CIDRs that are part of the pool.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:MaxItems=16384
+	// +listType=set
 	CIDRs []iputil.Prefix `json:"cidrs"`
 
 	// MaskSize is the mask size of the pool.
@@ -139,7 +147,7 @@ type IPv6PoolSpec struct {
 	// +kubebuilder:validation:Optional
 	// +listType=map
 	// +listMapKey=cidr
-	// +kubebuilder:validation:MaxItems=32
+	// +kubebuilder:validation:MaxItems=16384
 	Pool []PoolCIDRConfig `json:"pool,omitempty"`
 }
 
