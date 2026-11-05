@@ -298,6 +298,7 @@ PodCIDRs from it.
            reservedRanges:
            - start: 10.10.0.0
              end: 10.10.255.255
+         - cidr: 10.20.0.0/16
 
    Cilium will now only allocate new PodCIDRs from ``10.20.0.0/16``.
 
