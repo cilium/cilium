@@ -101,6 +101,7 @@ func BenchmarkPrivileged_MapUpdate(b *testing.B) {
 
 	a1 := make([]CtKey, 1)
 	a2 := make([]*CtEntry, 1)
+	dumped := 0
 
 	// Also account the cost of casting from MapKey to TupleKey
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
@@ -108,6 +109,7 @@ func BenchmarkPrivileged_MapUpdate(b *testing.B) {
 		value := v.(*CtEntry)
 		a1[0] = key
 		a2[0] = value
+		dumped++
 	}
 
 	b.ResetTimer()
@@ -122,7 +124,10 @@ func BenchmarkPrivileged_MapUpdate(b *testing.B) {
 	complete4(nil)
 	complete6(nil)
 
-	require.Equal(b, b.N, t)
+	// The map is an LRU, so once b.N exceeds its capacity older entries are
+	// evicted and fewer than b.N remain. Compare against what is actually in it.
+	require.NotZero(b, dumped)
+	require.Equal(b, dumped, t)
 }
 
 // TestPrivilegedCtGcIcmp tests whether ICMP NAT entries are removed upon a removal of
