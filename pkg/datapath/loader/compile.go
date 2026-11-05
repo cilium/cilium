@@ -116,7 +116,8 @@ var (
 		"-Wimplicit-fallthrough"}
 
 	// testIncludes allows the unit tests to inject additional include
-	// paths into the compile command at test time. It is usually nil.
+	// paths and defines into the compile command at test time. It is
+	// usually nil.
 	testIncludes []string
 
 	epProg = &progInfo{

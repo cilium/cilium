@@ -55,6 +55,9 @@ func setupCompilationDirectories(tb testing.TB) {
 		// errors due to redefined macros and such. *sigh*
 		fmt.Sprintf("-I%s", bpfDir),
 		fmt.Sprintf("-I%s", filepath.Join(bpfDir, "include")),
+		// The agent defines it without kube-proxy replacement and BPF
+		// masquerading, which is the config of these tests.
+		"-DSKIP_NODEPORT_PROGS=1",
 	}
 
 	tb.Cleanup(func() {

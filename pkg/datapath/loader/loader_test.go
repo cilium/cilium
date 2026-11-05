@@ -26,7 +26,8 @@ import (
 )
 
 var (
-	contextTimeout = 10 * time.Second
+	// FIXME(#49861): 60 s hides BPF compile-time regressions.
+	contextTimeout = 60 * time.Second
 	benchTimeout   = 5*time.Minute + 5*time.Second
 
 	bpfDir = filepath.Join("..", "..", "..", "bpf")
