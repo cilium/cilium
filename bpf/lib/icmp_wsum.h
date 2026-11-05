@@ -32,10 +32,13 @@ __wsum icmp_wsum_accumulate(void *data_start, void *data_end, int sample_len)
 		body4(i + 16) \
 		body4(i + 24)
 
-	#define body128(i) body16(i)\
+	#define body64(i) body16(i)\
 		body16(i + 32) \
 		body16(i + 64) \
 		body16(i + 96)
+
+	#define body128(i) body64(i)\
+		body64(i + 128)
 
 	body128(0)
 	body128(256)
