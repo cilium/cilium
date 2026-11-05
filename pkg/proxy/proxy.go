@@ -127,7 +127,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 		existingRedirect := existingImpl.GetRedirect()
 		// A CEC may have withdrawn or reallocated this listener since the redirect was created.
 		proxyPort, _, err := p.proxyPorts.GetProxyPort(existingRedirect.name)
-		if err == nil && proxyPort == existingRedirect.proxyPort && p.proxyPorts.HasProxyType(existingRedirect.name, types.ProxyType(l4.GetL7Parser())) {
+		if err == nil && proxyPort == existingRedirect.proxyPort && existingRedirect.proxyType == types.ProxyType(l4.GetL7Parser()) {
 			// (DNS) proxy policy is updated in finalize function
 			revert, err := existingImpl.UpdateRules(l4.GetPerSelectorPolicies())
 			if err != nil {
@@ -204,7 +204,11 @@ func (p *Proxy) createNewRedirect(
 				logfields.Error, err)
 		}
 
-		proxyPort, err = p.proxyPorts.AllocatePort(pp, nRetry > 0)
+		if pp.ProxyType == types.ProxyTypeCRD {
+			proxyPort, _, err = p.proxyPorts.GetProxyPort(ppName)
+		} else {
+			proxyPort, err = p.proxyPorts.AllocatePort(pp, nRetry > 0)
+		}
 		if err != nil {
 			err = fmt.Errorf("failed to allocate port: %w", err)
 			break

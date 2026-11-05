@@ -200,6 +200,8 @@ func TestProxyPortSettlement(t *testing.T) {
 				portName = l4.GetListener()
 				_, err := p.proxyPorts.AllocateCRDProxyPort(portName)
 				require.NoError(t, err)
+				err = p.proxyPorts.AckCRDProxyPort(context.Background(), portName)
+				require.NoError(t, err)
 			}
 			if tt.syncError {
 				server.addListenerErr = nack
@@ -234,7 +236,11 @@ func TestProxyPortSettlement(t *testing.T) {
 				require.NotZero(t, ports[i])
 			}
 			require.Equal(t, ports[0], ports[1], "both endpoints must share one listener allocation")
-			require.Empty(t, datapath.rules)
+			if tt.cecOwned {
+				require.NotEmpty(t, datapath.rules)
+			} else {
+				require.Empty(t, datapath.rules)
+			}
 			accepted := false
 			for i, cause := range []error{tt.firstError, tt.lastError} {
 				if errors.Is(cause, context.Canceled) {
@@ -252,7 +258,7 @@ func TestProxyPortSettlement(t *testing.T) {
 					}
 					require.ErrorIs(t, waits[i].Wait(), cause)
 				}
-				if !accepted {
+				if !accepted && !tt.cecOwned {
 					require.Empty(t, datapath.rules, "an ACK must not install rules before post-Wait settlement")
 				}
 				if cause != nil {
@@ -273,7 +279,7 @@ func TestProxyPortSettlement(t *testing.T) {
 				}
 				if accepted {
 					require.Equal(t, map[string]uint16{portName: ports[i]}, datapath.rules)
-				} else {
+				} else if !tt.cecOwned {
 					require.Empty(t, datapath.rules)
 				}
 			}
@@ -352,10 +358,14 @@ var _ envoy.XDSServer = &fakeXdsServer{}
 
 func TestCreateOrUpdateCRDRedirect(t *testing.T) {
 	for _, tt := range []struct {
-		name string
+		name    string
+		wantErr bool
 	}{
 		{name: "unchanged"},
+		{name: "released", wantErr: true},
 		{name: "reallocated"},
+		{name: "awaiting-ack", wantErr: true},
+		{name: "recreated-awaiting-ack", wantErr: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			server := &fakeXdsServer{}
@@ -364,7 +374,7 @@ func TestCreateOrUpdateCRDRedirect(t *testing.T) {
 			name := l4.GetListener()
 			original, err := p.proxyPorts.AllocateCRDProxyPort(name)
 			require.NoError(t, err)
-			require.NoError(t, p.proxyPorts.AckProxyPortWithReference(t.Context(), name))
+			require.NoError(t, p.proxyPorts.AckCRDProxyPort(t.Context(), name))
 			wg := completion.NewWaitGroup(t.Context())
 			defer wg.Cancel()
 			port, err, _ := p.CreateOrUpdateRedirect(l4, "redirect", 100, wg)
@@ -372,18 +382,34 @@ func TestCreateOrUpdateCRDRedirect(t *testing.T) {
 			require.Equal(t, original, port)
 
 			wantPort := original
-			if tt.name == "reallocated" {
+			switch tt.name {
+			case "released":
+				require.NoError(t, p.proxyPorts.ReleaseCRDProxyPort(name))
+			case "recreated-awaiting-ack":
+				require.NoError(t, p.proxyPorts.ReleaseCRDProxyPort(name))
+				wantPort, err = p.proxyPorts.AllocateCRDProxyPort(name)
+				require.NoError(t, err)
+				require.Equal(t, wantPort, original)
+			case "reallocated", "awaiting-ack":
 				wantPort, err = p.proxyPorts.ReallocateCRDProxyPort(name)
 				require.NoError(t, err)
 				require.NotEqual(t, wantPort, original)
-				require.NoError(t, p.proxyPorts.AckProxyPort(t.Context(), name))
+				if tt.name == "reallocated" {
+					require.NoError(t, p.proxyPorts.AckCRDProxyPort(t.Context(), name))
+				}
 			}
-			port, err, _ = p.CreateOrUpdateRedirect(l4, "redirect", 100, wg)
-			require.NoError(t, err)
-			require.Equal(t, wantPort, port)
-			p.RemoveRedirect("redirect")
+			port, err, rollback := p.CreateOrUpdateRedirect(l4, "redirect", 100, wg)
+			if tt.wantErr {
+				require.Error(t, err)
+				require.Zero(t, port, "unavailable listeners must not reuse a cached redirect port")
+				require.Nil(t, rollback)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, wantPort, port)
+				p.RemoveRedirect("redirect")
+			}
 			_, _, inUse := p.proxyPorts.GetStatusInfo()
-			require.Equal(t, uint16(1), inUse, "the existing CEC reference remains after removing the redirect")
+			require.Zero(t, inUse, "updating a redirect must not leak or retain stale references")
 		})
 	}
 }
