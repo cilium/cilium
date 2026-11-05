@@ -6,20 +6,16 @@ package srv6map
 import (
 	"fmt"
 	"log/slog"
-	"strconv"
 
-	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
-	sidMapName    = "cilium_srv6_sid"
-	maxSIDEntries = 16384
+	sidMapName = "cilium_srv6_sid"
 )
 
 // SIDKey is a key for the SIDMap. Implements bpf.MapKey.
@@ -68,24 +64,16 @@ func (m *SIDMap) IterateWithCallback(cb SRv6SIDIterateCallback) error {
 	})
 }
 
-func newSIDMap(lc cell.Lifecycle) (bpf.MapOut[*SIDMap], defines.NodeOut) {
-	nodeOut := defines.NodeOut{
-		NodeDefines: defines.Map{
-			"SRV6_SID_MAP_SIZE": strconv.FormatUint(maxSIDEntries, 10),
-		},
-	}
-
-	m := bpf.NewMap(
-		sidMapName,
-		ebpf.Hash,
-		&SIDKey{},
-		&SIDValue{},
-		maxSIDEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
-	)
+func newSIDMap(lc cell.Lifecycle, reg *mapregistry.MapRegistry) bpf.MapOut[*SIDMap] {
+	m := &SIDMap{}
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			var err error
+			m.Map, err = bpf.NewMapFromRegistry(reg, sidMapName, &SIDKey{}, &SIDValue{})
+			if err != nil {
+				return fmt.Errorf("create SRv6 SID map from registry: %w", err)
+			}
 			return m.OpenOrCreate()
 		},
 		OnStop: func(ctx cell.HookContext) error {
@@ -93,7 +81,7 @@ func newSIDMap(lc cell.Lifecycle) (bpf.MapOut[*SIDMap], defines.NodeOut) {
 		},
 	})
 
-	return bpf.NewMapOut(&SIDMap{m}), nodeOut
+	return bpf.NewMapOut(m)
 }
 
 // OpenSIDMap opens the SIDMap on bpffs

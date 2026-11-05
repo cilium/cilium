@@ -8,13 +8,13 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/cilium/hive"
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	"github.com/cilium/cilium/pkg/hive"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/testutils"
 )
 
@@ -24,12 +24,12 @@ func TestPrivilegedPolicyMapsHive(t *testing.T) {
 	type in struct {
 		cell.In
 
-		Map4             *PolicyMap4
-		Map6             *PolicyMap6
-		NodeExtraDefines []defines.Map `group:"header-node-defines"`
+		Map4 *PolicyMap4
+		Map6 *PolicyMap6
 	}
 
 	hive := hive.New(
+		registry.Cell,
 		cell.Provide(
 			newPolicyMaps,
 		),
@@ -37,13 +37,6 @@ func TestPrivilegedPolicyMapsHive(t *testing.T) {
 			// Test DI works
 			require.NotNil(t, in.Map4)
 			require.NotNil(t, in.Map6)
-
-			merged := defines.Map{}
-			for _, def := range in.NodeExtraDefines {
-				require.NoError(t, merged.Merge(def))
-			}
-
-			require.Contains(t, merged, "SRV6_POLICY_MAP_SIZE")
 
 			// Setup cleanup
 			t.Cleanup(func() {
