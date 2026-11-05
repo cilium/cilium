@@ -53,7 +53,8 @@ func BenchmarkMapBatchLookup(b *testing.B) {
 	for b.Loop() {
 		count, err := m.Count(context.TODO())
 		assert.NoError(b, err)
-		assert.Greater(b, count, option.CTMapEntriesGlobalAnyDefault)
+		assert.LessOrEqual(b, count, option.CTMapEntriesGlobalAnyDefault)
+		assert.NotZero(b, count)
 	}
 }
 
