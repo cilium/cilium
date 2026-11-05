@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go4.org/netipx"
 
+	iputil "github.com/cilium/cilium/pkg/ip"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
 
@@ -121,6 +122,76 @@ func TestParseReservedRanges(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, actual)
+		})
+	}
+}
+
+func TestBuildPoolCIDRConfigs(t *testing.T) {
+	manyCIDRs := make([]iputil.Prefix, 0, 300)
+	for i := range 300 {
+		addr := netip.AddrFrom4([4]byte{10, 20, byte(i / 256), byte(i % 256)})
+		manyCIDRs = append(manyCIDRs, iputil.PrefixFrom(netip.PrefixFrom(addr, 32)))
+	}
+
+	tests := []struct {
+		name     string
+		cidrs    []iputil.Prefix
+		pool     []v2.PoolCIDRConfig
+		errMatch string
+	}{
+		{
+			name:  "pool entry references a listed IPv4 CIDR",
+			cidrs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("203.0.113.0/24"))},
+			pool: []v2.PoolCIDRConfig{
+				{CIDR: iputil.PrefixFrom(netip.MustParsePrefix("203.0.113.0/24"))},
+			},
+		},
+		{
+			name:  "pool entry references a listed IPv6 CIDR",
+			cidrs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1::/64"))},
+			pool: []v2.PoolCIDRConfig{
+				{CIDR: iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1::/64"))},
+			},
+		},
+		{
+			name:  "pool entry is not in cidrs",
+			cidrs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("203.0.113.0/24"))},
+			pool: []v2.PoolCIDRConfig{
+				{CIDR: iputil.PrefixFrom(netip.MustParsePrefix("198.51.100.0/24"))},
+			},
+			errMatch: "pool entry 198.51.100.0/24 does not reference a CIDR from cidrs",
+		},
+		{
+			name:  "pool entry has a different mask than the listed CIDR",
+			cidrs: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/16"))},
+			pool: []v2.PoolCIDRConfig{
+				{CIDR: iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.0/24"))},
+			},
+			errMatch: "pool entry 10.0.0.0/24 does not reference a CIDR from cidrs",
+		},
+		{
+			name:  "300 separate /32 CIDRs without pool entries",
+			cidrs: manyCIDRs,
+		},
+		{
+			name:  "one pool entry among 300 separate /32 CIDRs",
+			cidrs: manyCIDRs,
+			pool: []v2.PoolCIDRConfig{
+				{CIDR: manyCIDRs[299]},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := buildPoolCIDRConfigs(tt.cidrs, tt.pool)
+			if tt.errMatch != "" {
+				assert.ErrorContains(t, err, tt.errMatch)
+				assert.Nil(t, actual)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Len(t, actual, len(tt.cidrs))
 		})
 	}
 }

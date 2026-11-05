@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"go4.org/netipx"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	iputil "github.com/cilium/cilium/pkg/ip"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -160,8 +161,17 @@ func DeletePool(allocator *PoolAllocator, name string) error {
 }
 
 func buildPoolCIDRConfigs(cidrs []iputil.Prefix, pool []v2.PoolCIDRConfig) ([]poolCIDRConfig, error) {
+	inCIDRs := sets.New(cidrs...)
+
 	configByCIDR := make(map[iputil.Prefix]v2.PoolCIDRConfig, len(pool))
 	for _, cfg := range pool {
+		// cidrs defines the networks for this pool. It stays for now because
+		// existing CiliumPodIPPool objects have it, and we want to be able to
+		// upgrade the CRD in place. A pool entry for a CIDR not in cidrs would be
+		// dropped without an error, so its reserved IPs could be handed out.
+		if !inCIDRs.Has(cfg.CIDR) {
+			return nil, fmt.Errorf("pool entry %s does not reference a CIDR from cidrs", cfg.CIDR)
+		}
 		configByCIDR[cfg.CIDR] = cfg
 	}
 
