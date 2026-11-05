@@ -3,10 +3,10 @@
 
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
+#define ENABLE_NODEPORT		1
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #include "kpr_dsr_lb.h"
 
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
-ASSIGN_CONFIG(bool, enable_nodeport, true)

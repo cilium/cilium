@@ -27,6 +27,7 @@
 
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
+#define ENABLE_NODEPORT 1
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_IP		v4_ext_one
@@ -203,7 +204,6 @@ ASSIGN_CONFIG(bool, enable_netkit, false)
 ASSIGN_CONFIG(bool, enable_ipip_termination, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true) /* exercise the XFER_PKT_NO_SVC handoff */
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /*
  * Build an IPIP-encapped TCP SYN with:

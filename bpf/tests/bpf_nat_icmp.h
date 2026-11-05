@@ -9,6 +9,7 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4			1
+#define ENABLE_NODEPORT			1
 
 #define EXT_IP  v4_ext_one
 #define NODE_IP v4_node_one

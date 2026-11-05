@@ -9,6 +9,9 @@
 #define ENABLE_IPV4			1
 #define ENABLE_IPV6			1
 
+
+#define ENABLE_NODEPORT			1
+
 #define NODE_IP				v4_node_one
 #define NODE_IP_V6			v6_node_one
 #define NODE_PORT			bpf_htons(50000)
@@ -31,7 +34,6 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 #include "lib/endpoint.h"
 #include "lib/ipcache.h"

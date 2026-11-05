@@ -6,6 +6,7 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
+#define ENABLE_NODEPORT 1
 #define DSR_ENCAP_MODE DSR_ENCAP_IPIP
 
 #include "lib/bpf_host.h"
@@ -15,8 +16,6 @@ ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true, .enable_by_user = tr
 
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
-
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 CHECK(PROG_TYPE, "test_nodeport_uses_dsr_ipv4_with_flag")
 int test_nodeport_uses_dsr_ipv4_with_flag(__maybe_unused struct __ctx_buff *ctx)

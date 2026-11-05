@@ -9,6 +9,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4		1
 #define ENABLE_IPV6		1
+#define ENABLE_NODEPORT		1
 #define DSR_ENCAP_MODE		DSR_ENCAP_IPIP
 
 #define CLIENT_IP		v4_ext_one
@@ -73,7 +74,6 @@ ASSIGN_CONFIG(union v6addr, ipv6_direct_routing, LB_IPV6)
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __ctx_buff *ctx __maybe_unused, int ifindex __maybe_unused,

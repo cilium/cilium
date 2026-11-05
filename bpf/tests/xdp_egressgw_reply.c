@@ -8,6 +8,7 @@
 /* Enable code paths under test */
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
+#define ENABLE_NODEPORT 1
 
 #define ENABLE_EGRESS_GATEWAY	1
 
@@ -39,7 +40,6 @@ ASSIGN_CONFIG(__u8, tunnel_protocol, TUNNEL_PROTOCOL_VXLAN)
 ASSIGN_CONFIG(union v4addr, ipv4_direct_routing, { .be32 = v4_node_one }) /* gateway node */
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
-ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 /* Set port ranges to have deterministic source port selection */
 #include "nodeport_defaults.h"
