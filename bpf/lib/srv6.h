@@ -304,16 +304,17 @@ srv6_handling(struct __ctx_buff *ctx, struct in6_addr *dst_sid __maybe_unused)
 		return DROP_UNSUPPORTED_L2;
 
 	switch (inner_proto) {
-#  ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6): {
 		struct ipv6hdr *ip6;
+
+		if (!is_defined(ENABLE_IPV6))
+			return DROP_INVALID;
 
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
 		return srv6_handling6(ctx, &router_ip, dst_sid);
 	}
-#  endif /* ENABLE_IPV6 */
 	case bpf_htons(ETH_P_IP): {
 		struct iphdr *ip4;
 
@@ -390,15 +391,17 @@ int tail_srv6_decap(struct __ctx_buff *ctx)
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV4_FROM_NETDEV, &ext_err);
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
 						  METRIC_INGRESS);
-#ifdef ENABLE_IPV6
 	case IPPROTO_IPV6:
+		if (!is_defined(ENABLE_IPV6)) {
+			ret = DROP_UNKNOWN_L3;
+			break;
+		}
 		send_trace_notify(ctx, TRACE_FROM_NETWORK, SECLABEL_IPV6, UNKNOWN_ID,
 				  TRACE_EP_ID_UNKNOWN, TRACE_IFINDEX_UNKNOWN,
 				  TRACE_REASON_SRV6_DECAP, 0, bpf_htons(ETH_P_IPV6));
 		ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_FROM_NETDEV, &ext_err);
 		return send_drop_notify_error_ext(ctx, SECLABEL_IPV6, ret, ext_err,
 						  METRIC_INGRESS);
-#endif /* ENABLE_IPV6 */
 	default:
 		ret = DROP_UNKNOWN_L3;
 	}
