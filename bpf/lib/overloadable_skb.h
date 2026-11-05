@@ -79,27 +79,30 @@ neigh_resolver_available(void)
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_clear(struct __sk_buff *ctx __maybe_unused)
 {
-	if (is_defined(ENABLE_NODEPORT))
-		ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
+#ifdef ENABLE_NODEPORT
+	ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
+#endif
 }
 
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_set(struct __sk_buff *ctx __maybe_unused)
 {
-	if (is_defined(ENABLE_NODEPORT))
-		ctx->tc_index |= TC_INDEX_F_SKIP_NODEPORT;
+#ifdef ENABLE_NODEPORT
+	ctx->tc_index |= TC_INDEX_F_SKIP_NODEPORT;
+#endif
 }
 
 static __always_inline __maybe_unused bool
 ctx_skip_nodeport(struct __sk_buff *ctx __maybe_unused)
 {
-	if (!is_defined(ENABLE_NODEPORT))
-		return true;
-
+#ifdef ENABLE_NODEPORT
 	volatile __u32 tc_index = ctx->tc_index;
 
 	ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
 	return tc_index & TC_INDEX_F_SKIP_NODEPORT;
+#else
+	return true;
+#endif
 }
 
 static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx,
