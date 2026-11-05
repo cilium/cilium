@@ -18,7 +18,7 @@ const (
 	mapName = "cilium_lxc"
 
 	// MaxEntries represents the maximum number of endpoints in the map
-	MaxEntries = 65535
+	MaxEntries = 65536
 )
 
 // Map provides access to the endpoints (lxc) eBPF map.

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/time"
 )
@@ -17,7 +16,7 @@ import (
 const (
 	MapName = "cilium_throttle"
 	// Flow aggregate is per Pod, so same size as Endpoint map.
-	MapSize = lxcmap.MaxEntries
+	MapSize = 65535
 
 	// DefaultDropHorizon represents maximum allowed departure
 	// time delta in future. Given applications can set SO_TXTIME
