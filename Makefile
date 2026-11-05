@@ -263,6 +263,7 @@ include Makefile.kind
 
 manifests: ## Generate K8s manifests e.g. CRD, RBAC etc.
 	contrib/scripts/k8s-manifests-gen.sh
+	contrib/scripts/gateway-api-crds-sync.sh
 
 .PHONY: generate-apis
 generate-apis: generate-api generate-health-api generate-hubble-api generate-operator-api generate-kvstoremesh-api generate-sdp-api generate-datapathplugins-api generate-clustermesh-api
