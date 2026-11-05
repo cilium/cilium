@@ -7,22 +7,18 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
-	"strconv"
 	"unsafe"
 
-	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
-	vrfMapName4   = "cilium_srv6_vrf_v4"
-	vrfMapName6   = "cilium_srv6_vrf_v6"
-	maxVRFEntries = 16384
+	vrfMapName4 = "cilium_srv6_vrf_v4"
+	vrfMapName6 = "cilium_srv6_vrf_v6"
 
 	// vrf4StaticPrefixBits represents the size in bits of the static
 	// prefix part of an vrf key (i.e. the VRF ID).
@@ -140,37 +136,25 @@ type srv6VRFMap struct {
 	*bpf.Map
 }
 
-func newVRFMaps(lc cell.Lifecycle) (bpf.MapOut[*VRFMap4], bpf.MapOut[*VRFMap6], defines.NodeOut) {
-	nodeOut := defines.NodeOut{
-		NodeDefines: defines.Map{
-			"SRV6_VRF_MAP_SIZE": strconv.FormatUint(maxVRFEntries, 10),
-		},
-	}
-
-	m4 := bpf.NewMap(
-		vrfMapName4,
-		ebpf.LPMTrie,
-		&VRFKey4{},
-		&VRFValue{},
-		maxVRFEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
-	)
-
-	m6 := bpf.NewMap(
-		vrfMapName6,
-		ebpf.LPMTrie,
-		&VRFKey6{},
-		&VRFValue{},
-		maxVRFEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
-	)
+func newVRFMaps(lc cell.Lifecycle, reg *mapregistry.MapRegistry) (bpf.MapOut[*VRFMap4], bpf.MapOut[*VRFMap6]) {
+	m4 := &VRFMap4{}
+	m6 := &VRFMap6{}
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			if err := m4.OpenOrCreate(); err != nil {
+			var err error
+			m4.Map, err = bpf.NewMapFromRegistry(reg, vrfMapName4, &VRFKey4{}, &VRFValue{})
+			if err != nil {
+				return fmt.Errorf("create SRv6 IPv4 VRF map from registry: %w", err)
+			}
+			m6.Map, err = bpf.NewMapFromRegistry(reg, vrfMapName6, &VRFKey6{}, &VRFValue{})
+			if err != nil {
+				return fmt.Errorf("create SRv6 IPv6 VRF map from registry: %w", err)
+			}
+			if err = m4.OpenOrCreate(); err != nil {
 				return err
 			}
-			if err := m6.OpenOrCreate(); err != nil {
+			if err = m6.OpenOrCreate(); err != nil {
 				return err
 			}
 			return nil
@@ -182,7 +166,7 @@ func newVRFMaps(lc cell.Lifecycle) (bpf.MapOut[*VRFMap4], bpf.MapOut[*VRFMap6], 
 		},
 	})
 
-	return bpf.NewMapOut(&VRFMap4{m4}), bpf.NewMapOut(&VRFMap6{m6}), nodeOut
+	return bpf.NewMapOut(m4), bpf.NewMapOut(m6)
 }
 
 // OpenVRFMaps opens the SRv6 VRF maps on bpffs

@@ -7,22 +7,18 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
-	"strconv"
 	"unsafe"
 
-	"github.com/cilium/ebpf"
 	"github.com/cilium/hive/cell"
-	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/datapath/linux/config/defines"
+	mapregistry "github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/types"
 )
 
 const (
-	policyMapName4   = "cilium_srv6_policy_v4"
-	policyMapName6   = "cilium_srv6_policy_v6"
-	maxPolicyEntries = 16384
+	policyMapName4 = "cilium_srv6_policy_v4"
+	policyMapName6 = "cilium_srv6_policy_v6"
 
 	// policyStaticPrefixBits represents the size in bits of the static
 	// prefix part of an policy key (i.e. the VRF ID).
@@ -136,37 +132,25 @@ type srv6PolicyMap struct {
 	*bpf.Map
 }
 
-func newPolicyMaps(lc cell.Lifecycle) (bpf.MapOut[*PolicyMap4], bpf.MapOut[*PolicyMap6], defines.NodeOut) {
-	nodeOut := defines.NodeOut{
-		NodeDefines: defines.Map{
-			"SRV6_POLICY_MAP_SIZE": strconv.FormatUint(maxPolicyEntries, 10),
-		},
-	}
-
-	m4 := bpf.NewMap(
-		policyMapName4,
-		ebpf.LPMTrie,
-		&PolicyKey4{},
-		&PolicyValue{},
-		maxPolicyEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
-	)
-
-	m6 := bpf.NewMap(
-		policyMapName6,
-		ebpf.LPMTrie,
-		&PolicyKey6{},
-		&PolicyValue{},
-		maxPolicyEntries,
-		unix.BPF_F_NO_PREALLOC|unix.BPF_F_RDONLY_PROG,
-	)
+func newPolicyMaps(lc cell.Lifecycle, reg *mapregistry.MapRegistry) (bpf.MapOut[*PolicyMap4], bpf.MapOut[*PolicyMap6]) {
+	m4 := &PolicyMap4{}
+	m6 := &PolicyMap6{}
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
-			if err := m4.OpenOrCreate(); err != nil {
+			var err error
+			m4.Map, err = bpf.NewMapFromRegistry(reg, policyMapName4, &PolicyKey4{}, &PolicyValue{})
+			if err != nil {
+				return fmt.Errorf("create SRv6 IPv4 policy map from registry: %w", err)
+			}
+			m6.Map, err = bpf.NewMapFromRegistry(reg, policyMapName6, &PolicyKey6{}, &PolicyValue{})
+			if err != nil {
+				return fmt.Errorf("create SRv6 IPv6 policy map from registry: %w", err)
+			}
+			if err = m4.OpenOrCreate(); err != nil {
 				return err
 			}
-			if err := m6.OpenOrCreate(); err != nil {
+			if err = m6.OpenOrCreate(); err != nil {
 				return err
 			}
 			return nil
@@ -178,7 +162,7 @@ func newPolicyMaps(lc cell.Lifecycle) (bpf.MapOut[*PolicyMap4], bpf.MapOut[*Poli
 		},
 	})
 
-	return bpf.NewMapOut(&PolicyMap4{m4}), bpf.NewMapOut(&PolicyMap6{m6}), nodeOut
+	return bpf.NewMapOut(m4), bpf.NewMapOut(m6)
 }
 
 // OpenPolicyMaps opens the SRv6 policy maps on bpffs
