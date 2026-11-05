@@ -9,6 +9,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	lrpTypes "github.com/cilium/cilium/pkg/loadbalancer/redirectpolicy/types"
 )
 
 // BenchmarkShouldRedirectFrontend measures the worst-case named-port lookup,
@@ -51,7 +52,7 @@ func benchmarkFrontendRedirect(podCount int) (*LocalRedirectPolicy, *loadbalance
 	dnsUDPPort := bePortInfo{l4Addr: loadbalancer.NewL4Addr(loadbalancer.UDP, 53), name: dnsUDPPortName}
 	dnsTCPPort := bePortInfo{l4Addr: loadbalancer.NewL4Addr(loadbalancer.TCP, 53), name: dnsTCPPortName}
 	lrp := &LocalRedirectPolicy{
-		FrontendType: svcFrontendAll,
+		FrontendType: lrpTypes.FrontendTypeServiceAll,
 		BackendPorts: []bePortInfo{dnsUDPPort, dnsTCPPort},
 		BackendPortsByPortName: map[loadbalancer.FEPortName]bePortInfo{
 			dnsUDPPortName: dnsUDPPort,
