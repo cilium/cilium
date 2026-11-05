@@ -13,6 +13,7 @@ import (
 	"encoding/pem"
 	"log/slog"
 	"math/big"
+	"net"
 	"net/url"
 	"testing"
 	"time"
@@ -195,5 +196,146 @@ func TestCreateCertificate(t *testing.T) {
 	// we created above as the root
 	if rootCert.SerialNumber.Cmp(caSerialNumber) != 0 {
 		t.Fatalf("expected root certificate serial number to be %s, got %s", caSerialNumber, rootCert.SerialNumber)
+	}
+}
+
+// newTestServer returns a Server backed by a freshly generated RSA CA whose
+// endpoint manager reports an endpoint for every namespace and service
+// account.
+func newTestServer(t *testing.T) *Server {
+	t.Helper()
+
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("failed to generate RSA key: %v", err)
+	}
+	caTemplate := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{Organization: []string{"cluster.local"}},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign,
+		IsCA:                  true,
+		BasicConstraintsValid: true,
+	}
+	caCertDER, err := x509.CreateCertificate(rand.Reader, caTemplate, caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("failed to create CA certificate: %v", err)
+	}
+	caCert, err := x509.ParseCertificate(caCertDER)
+	if err != nil {
+		t.Fatalf("failed to parse CA certificate: %v", err)
+	}
+
+	return &Server{
+		caCert:    caCert,
+		caKey:     caKey,
+		caCertPEM: string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caCertDER})),
+		epManager: &fakeEndpointManager{
+			MockEndpointManager: testendpointmanager.NewMockEndpointManager(),
+			getEndpointsByServiceAccount: func(namespace, serviceAccount string) []*endpoint.Endpoint {
+				return []*endpoint.Endpoint{{}}
+			},
+		},
+		log: slog.Default(),
+	}
+}
+
+// csrPEM signs the given request template with a fresh ECDSA key and returns
+// it PEM encoded.
+func csrPEM(t *testing.T, template *x509.CertificateRequest) string {
+	t.Helper()
+
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate private key: %v", err)
+	}
+	der, err := x509.CreateCertificateRequest(rand.Reader, template, key)
+	if err != nil {
+		t.Fatalf("failed to create CSR: %v", err)
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: der}))
+}
+
+// TestCreateCertificateOnlyIssuesURISAN checks that the subject and the
+// DNS, IP and email SANs requested in the CSR are not copied into the issued
+// certificate. Only the URI SAN is checked against the endpoints on the node,
+// so a client must not be able to obtain a certificate that is also valid for
+// an arbitrary hostname.
+func TestCreateCertificateOnlyIssuesURISAN(t *testing.T) {
+	s := newTestServer(t)
+
+	uriSAN, err := url.Parse("spiffe://cluster.local/ns/default/sa/default")
+	if err != nil {
+		t.Fatalf("failed to parse URI: %v", err)
+	}
+	csr := csrPEM(t, &x509.CertificateRequest{
+		Subject:        pkix.Name{CommonName: "kubernetes.default.svc"},
+		URIs:           []*url.URL{uriSAN},
+		DNSNames:       []string{"kubernetes.default.svc"},
+		IPAddresses:    []net.IP{net.ParseIP("10.96.0.1")},
+		EmailAddresses: []string{"admin@example.com"},
+	})
+
+	resp, err := s.CreateCertificate(t.Context(), &pb.IstioCertificateRequest{Csr: csr})
+	if err != nil {
+		t.Fatalf("failed to create certificate: %v", err)
+	}
+	block, _ := pem.Decode([]byte(resp.CertChain[0]))
+	if block == nil {
+		t.Fatalf("failed to decode client certificate PEM")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse client certificate: %v", err)
+	}
+
+	if len(cert.URIs) != 1 || cert.URIs[0].String() != uriSAN.String() {
+		t.Fatalf("expected client certificate to have URI SAN %s, got %v", uriSAN, cert.URIs)
+	}
+	if cert.Subject.CommonName != "" {
+		t.Fatalf("expected empty subject, got %q", cert.Subject)
+	}
+	if len(cert.DNSNames) != 0 || len(cert.IPAddresses) != 0 || len(cert.EmailAddresses) != 0 {
+		t.Fatalf("expected no DNS, IP or email SANs, got %v %v %v", cert.DNSNames, cert.IPAddresses, cert.EmailAddresses)
+	}
+
+	roots := x509.NewCertPool()
+	roots.AddCert(s.caCert)
+	if _, err := cert.Verify(x509.VerifyOptions{Roots: roots, DNSName: "kubernetes.default.svc"}); err == nil {
+		t.Fatalf("client certificate must not verify for a hostname")
+	}
+}
+
+// TestCreateCertificateRejectsInvalidCSR checks that malformed CSRs and
+// SPIFFE paths that do not follow /ns/<namespace>/sa/<service-account> are
+// rejected before any endpoint lookup.
+func TestCreateCertificateRejectsInvalidCSR(t *testing.T) {
+	s := newTestServer(t)
+	s.epManager.(*fakeEndpointManager).getEndpointsByServiceAccount = func(namespace, serviceAccount string) []*endpoint.Endpoint {
+		t.Fatalf("unexpected endpoint lookup for namespace %q service account %q", namespace, serviceAccount)
+		return nil
+	}
+
+	csrForPath := func(path string) string {
+		uriSAN, err := url.Parse("spiffe://cluster.local" + path)
+		if err != nil {
+			t.Fatalf("failed to parse URI: %v", err)
+		}
+		return csrPEM(t, &x509.CertificateRequest{URIs: []*url.URL{uriSAN}})
+	}
+
+	for name, csr := range map[string]string{
+		"not PEM":               "not a certificate request",
+		"wrong segment names":   csrForPath("/foo/default/bar/default"),
+		"empty namespace":       csrForPath("/ns//sa/default"),
+		"empty service account": csrForPath("/ns/default/sa/"),
+		"too many segments":     csrForPath("/ns/default/sa/default/extra"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := s.CreateCertificate(t.Context(), &pb.IstioCertificateRequest{Csr: csr}); err == nil {
+				t.Fatalf("expected CSR to be rejected")
+			}
+		})
 	}
 }

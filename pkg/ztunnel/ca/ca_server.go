@@ -179,15 +179,14 @@ func (s *Server) createCertificate(req *x509.CertificateRequest) (string, error)
 		return "", fmt.Errorf("failed to generate serial number: %w", err)
 	}
 
+	// Only the URI SAN is validated against the endpoints on this node, so
+	// it is the only identity copied from the CSR. Subject, DNS, IP and
+	// email SANs requested by the client are not issued.
 	certTemplate := &x509.Certificate{
-		SerialNumber:   serial,
-		Subject:        req.Subject,
-		URIs:           req.URIs,
-		DNSNames:       req.DNSNames,
-		IPAddresses:    req.IPAddresses,
-		EmailAddresses: req.EmailAddresses,
-		NotBefore:      time.Now(),
-		NotAfter:       time.Now().Add(30 * (24 * time.Hour)),
+		SerialNumber: serial,
+		URIs:         req.URIs,
+		NotBefore:    time.Now(),
+		NotAfter:     time.Now().Add(30 * (24 * time.Hour)),
 	}
 
 	der, err := x509.CreateCertificate(rand.Reader, certTemplate, s.caCert, req.PublicKey, s.caKey)
@@ -210,7 +209,7 @@ func (s *Server) CreateCertificate(ctx context.Context, csr *pb.IstioCertificate
 	buf := bytes.NewBufferString(csr.Csr)
 
 	block, _ := pem.Decode(buf.Bytes())
-	if block.Type != "CERTIFICATE REQUEST" {
+	if block == nil || block.Type != "CERTIFICATE REQUEST" {
 		return nil, fmt.Errorf("not a certificate signing request")
 	}
 
@@ -236,7 +235,7 @@ func (s *Server) CreateCertificate(ctx context.Context, csr *pb.IstioCertificate
 	fields := strings.Split(uri.Path, "/")
 	// 5 fields since uri has leading '/', strings.Split will never omit empty
 	// fields.
-	if len(fields) != 5 {
+	if len(fields) != 5 || fields[1] != "ns" || fields[2] == "" || fields[3] != "sa" || fields[4] == "" {
 		return nil, fmt.Errorf("CSR URI path must be in the format /ns/<namespace>/sa/<service-account>, got %q %q", uri.Path, fields)
 	}
 	k8sNamespace := fields[2]
