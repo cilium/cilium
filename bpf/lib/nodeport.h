@@ -132,13 +132,11 @@ nodeport_dsr_lookup_v4_nat_entry(const struct ipv4_ct_tuple *nat_tuple)
 	return snat_v4_lookup(nat_tuple);
 }
 
-#if defined(ENABLE_IPV6)
 static __always_inline struct ipv6_nat_entry *
 nodeport_dsr_lookup_v6_nat_entry(const struct ipv6_ct_tuple *nat_tuple)
 {
 	return snat_v6_lookup(nat_tuple);
 }
-#endif
 
 static __always_inline int
 nodeport_add_tunnel_encap_opt(struct __ctx_buff *ctx, __u32 src_ip, __be16 src_port,
@@ -307,7 +305,6 @@ nodeport_fib_lookup_and_redirect(struct __ctx_buff *ctx,
 	}
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline __maybe_unused
 void select_nat_port_range_ipv6(struct ipv6_nat_target *target)
 {
@@ -1602,7 +1599,6 @@ skip_service_lookup:
 
 	return CTX_ACT_OK;
 }
-#endif /* ENABLE_IPV6 */
 
 #ifndef SKIP_NODEPORT_PROGS
 __declare_tail(CILIUM_CALL_IPV46_RFC6052)
@@ -2980,8 +2976,8 @@ skip_service_lookup:
 		ctx_store_meta(ctx, CB_NAT_46X64, 0);
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS,
 					  ext_err);
-#if defined(ENABLE_IPV6)
-	} else if (CONFIG(enable_nat_46x64_gateway) && is_svc_proto &&
+	} else if (is_defined(ENABLE_IPV6) &&
+		   CONFIG(enable_nat_46x64_gateway) && is_svc_proto &&
 		   snat_v6_has_v4_match_rfc6052(&tuple)) {
 		ret = snat_remap_rfc6052(ctx, ip4, l3_off);
 		if (ret)
@@ -2989,7 +2985,6 @@ skip_service_lookup:
 		ctx_store_meta(ctx, CB_NAT_46X64, NAT46x64_MODE_ROUTE);
 		return tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_INGRESS,
 					  ext_err);
-#endif
 	}
 
 	/* Check for RevSNAT. When BPF-Masquerading is off, we only need to
