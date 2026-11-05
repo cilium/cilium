@@ -18,7 +18,6 @@
 #error "nodeport_egress.h only supports inclusion from bpf_host, bpf_overlay, or bpf_wireguard"
 #endif
 
-#ifdef ENABLE_IPV6
 static __always_inline bool
 nodeport_has_nat_conflict_ipv6(const struct __ctx_buff *ctx __maybe_unused,
 			       const struct ipv6hdr *ip6 __maybe_unused,
@@ -293,7 +292,6 @@ int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
 	return ret;
 }
 #endif /* !SKIP_NODEPORT_PROGS */
-#endif /* ENABLE_IPV6 */
 
 static __always_inline bool
 nodeport_has_nat_conflict_ipv4(const struct __ctx_buff *ctx __maybe_unused,
@@ -662,11 +660,12 @@ lb_handle_health(struct __ctx_buff *ctx __maybe_unused, __be16 proto)
 
 		return ctx_redirect(ctx, CONFIG(encap4_ifindex), flags);
 	}
-#endif
-#if defined(ENABLE_IPV6) && DSR_ENCAP_MODE == DSR_ENCAP_IPIP
 	case bpf_htons(ETH_P_IPV6): {
 		struct lb6_health *val;
 		int flags = 0;
+
+		if (!is_defined(ENABLE_IPV6))
+			return CTX_ACT_OK;
 
 		key = get_socket_cookie(ctx);
 		val = map_lookup_elem(&cilium_lb6_health, &key);
@@ -732,16 +731,16 @@ handle_nat_fwd(struct __ctx_buff *ctx, __u32 cluster_id, __u32 src_id,
 							  trace, ext_err);
 		}
 		break;
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		if (use_tailcall)
-			ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
-						 ext_err);
-		else
-			ret = handle_nat_fwd_ipv6(ctx, cb_nat_flags, src_id,
-						  trace, ext_err);
+		if (is_defined(ENABLE_IPV6)) {
+			if (use_tailcall)
+				ret = tail_call_internal(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT_FWD,
+							 ext_err);
+			else
+				ret = handle_nat_fwd_ipv6(ctx, cb_nat_flags, src_id,
+							  trace, ext_err);
+		}
 		break;
-#endif /* ENABLE_IPV6 */
 	default:
 		break;
 	}
