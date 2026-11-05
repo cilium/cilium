@@ -50,17 +50,17 @@ func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	interfaces := []types.AzureInterface{}
 
-	n.manager.mutex.RLock()
-	defer n.manager.mutex.RUnlock()
-	n.manager.instances.ForeachInterface(n.instanceID, func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
-		iface, ok := interfaceObj.(*types.AzureInterface)
-		if !ok {
+	n.manager.Read(func(instances *ipamTypes.InstanceMap) {
+		instances.ForeachInterface(n.instanceID, func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
+			iface, ok := interfaceObj.(*types.AzureInterface)
+			if !ok {
+				return nil
+			}
+			// Copied because the sorts below mutate in place and the instance
+			// cache is only read locked.
+			interfaces = append(interfaces, *iface.DeepCopy())
 			return nil
-		}
-		// Copied because the sorts below mutate in place and the instance
-		// cache is only read locked.
-		interfaces = append(interfaces, *iface.DeepCopy())
-		return nil
+		})
 	})
 
 	// ID alone is a total order: it is the instance's interface map key.
@@ -96,49 +96,49 @@ func (n *Node) ReleaseIPs(ctx context.Context, r *nodemanager.ReleaseAction) err
 func (n *Node) PrepareIPAllocation(scopedLog *slog.Logger) (a *nodemanager.AllocationAction, err error) {
 	a = &nodemanager.AllocationAction{}
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
-	n.manager.mutex.RLock()
-	defer n.manager.mutex.RUnlock()
 	usePrimary := n.manager.usePrimary
-	err = n.manager.instances.ForeachInterface(n.instanceID, func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
-		iface, ok := interfaceObj.(*types.AzureInterface)
-		if !ok {
-			return fmt.Errorf("invalid interface object")
-		}
-
-		availableOnInterface, available := isAvailableInterface(requiredIfaceName, iface, usePrimary, scopedLog)
-		if !available {
-			return nil
-		}
-
-		a.IPv4.InterfaceCandidates++
-
-		if a.InterfaceID == "" {
-			scopedLog.Debug(
-				"Interface has IPs available",
-				logfields.ID, iface.ID,
-				logfields.AvailableAddresses, availableOnInterface,
-			)
-
-			var preferredPoolIDs []ipamTypes.PoolID
-			if iface.Subnet.ID != "" {
-				preferredPoolIDs = []ipamTypes.PoolID{ipamTypes.PoolID(iface.Subnet.ID)}
+	n.manager.Read(func(instances *ipamTypes.InstanceMap) {
+		err = instances.ForeachInterface(n.instanceID, func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
+			iface, ok := interfaceObj.(*types.AzureInterface)
+			if !ok {
+				return fmt.Errorf("invalid interface object")
 			}
 
-			poolID, available := n.manager.subnets.FirstSubnetWithAvailableAddresses(preferredPoolIDs)
-			if poolID != ipamTypes.PoolNotExists {
+			availableOnInterface, available := isAvailableInterface(requiredIfaceName, iface, usePrimary, scopedLog)
+			if !available {
+				return nil
+			}
+
+			a.IPv4.InterfaceCandidates++
+
+			if a.InterfaceID == "" {
 				scopedLog.Debug(
-					"Subnet has IPs available",
-					logfields.SubnetID, poolID,
-					logfields.AvailableAddresses, available,
+					"Interface has IPs available",
+					logfields.ID, iface.ID,
+					logfields.AvailableAddresses, availableOnInterface,
 				)
 
-				a.InterfaceID = iface.ID
-				a.Interface = interfaceObj
-				a.PoolID = poolID
-				a.IPv4.AvailableForAllocation = min(available, availableOnInterface)
+				var preferredPoolIDs []ipamTypes.PoolID
+				if iface.Subnet.ID != "" {
+					preferredPoolIDs = []ipamTypes.PoolID{ipamTypes.PoolID(iface.Subnet.ID)}
+				}
+
+				poolID, available := n.manager.subnets.FirstSubnetWithAvailableAddresses(preferredPoolIDs)
+				if poolID != ipamTypes.PoolNotExists {
+					scopedLog.Debug(
+						"Subnet has IPs available",
+						logfields.SubnetID, poolID,
+						logfields.AvailableAddresses, available,
+					)
+
+					a.InterfaceID = iface.ID
+					a.Interface = interfaceObj
+					a.PoolID = poolID
+					a.IPv4.AvailableForAllocation = min(available, availableOnInterface)
+				}
 			}
-		}
-		return nil
+			return nil
+		})
 	})
 
 	return
@@ -191,47 +191,47 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *slog.Logge
 	}
 
 	available = ipamTypes.AllocationMap{}
-	n.manager.mutex.RLock()
-	defer n.manager.mutex.RUnlock()
 	usePrimary := n.manager.usePrimary
 
 	// Azure caps both NICs and VMs at 256 addresses; start from that ceiling
 	// and decrement per NIC below for any primary slot we can't allocate.
 	nodeCapacity := types.InterfaceAddressLimit
 	requiredIfaceName := n.k8sObj.Spec.Azure.InterfaceName
-	err = n.manager.instances.ForeachInterface(n.instanceID, func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
-		iface, ok := interfaceObj.(*types.AzureInterface)
-		if !ok {
-			return fmt.Errorf("invalid interface object")
-		}
-
-		for _, address := range iface.Addresses {
-			if address.State == types.StateSucceeded {
-				available[address.IP] = ipamTypes.AllocationIP{Resource: interfaceID}
-			} else {
-				scopedLog.Warn(
-					"Ignoring potentially available IP due to non-successful state",
-					logfields.IPAddr, address.IP,
-					logfields.State, address.State,
-				)
+	n.manager.Read(func(instances *ipamTypes.InstanceMap) {
+		err = instances.ForeachInterface(n.instanceID, func(instanceID, interfaceID string, interfaceObj ipamTypes.Interface) error {
+			iface, ok := interfaceObj.(*types.AzureInterface)
+			if !ok {
+				return fmt.Errorf("invalid interface object")
 			}
-		}
 
-		// Cache the VMSS name from the first interface we see
-		if n.vmss == "" {
-			n.vmss = iface.GetVMScaleSetName()
-		}
+			for _, address := range iface.Addresses {
+				if address.State == types.StateSucceeded {
+					available[address.IP] = ipamTypes.AllocationIP{Resource: interfaceID}
+				} else {
+					scopedLog.Warn(
+						"Ignoring potentially available IP due to non-successful state",
+						logfields.IPAddr, address.IP,
+						logfields.State, address.State,
+					)
+				}
+			}
 
-		// The primary IP still consumes a NIC slot even when it is not
-		// allocatable; reserve it from the VM-wide budget.
-		if !usePrimary && iface.IP.IsValid() {
-			nodeCapacity--
-		}
+			// Cache the VMSS name from the first interface we see
+			if n.vmss == "" {
+				n.vmss = iface.GetVMScaleSetName()
+			}
 
-		if _, isAvailable := isAvailableInterface(requiredIfaceName, iface, usePrimary, scopedLog); isAvailable {
-			stats.RemainingAvailableInterfaceCount++
-		}
-		return nil
+			// The primary IP still consumes a NIC slot even when it is not
+			// allocatable; reserve it from the VM-wide budget.
+			if !usePrimary && iface.IP.IsValid() {
+				nodeCapacity--
+			}
+
+			if _, isAvailable := isAvailableInterface(requiredIfaceName, iface, usePrimary, scopedLog); isAvailable {
+				stats.RemainingAvailableInterfaceCount++
+			}
+			return nil
+		})
 	})
 	if err != nil {
 		return nil, stats, err

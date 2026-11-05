@@ -16,6 +16,7 @@ import (
 	"github.com/cilium/cilium/pkg/aws/ipam/limits"
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/instances"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -42,9 +43,9 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		node:   ipamNode,
 		k8sObj: cn,
 		manager: &InstancesManager{
-			instances:    im,
-			ec2api:       mockEC2API,
-			limitsGetter: limitsGetter,
+			InstanceCache: instances.NewInstanceCacheFrom(im),
+			ec2api:        mockEC2API,
+			limitsGetter:  limitsGetter,
 		},
 		enis: map[string]types.ENI{"eni-a": {}},
 	}
@@ -93,7 +94,7 @@ func TestENIIPAMCapacityAccounting(t *testing.T) {
 		ID:       "eni-a",
 		Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/28"))},
 	}
-	n.manager.instances.Update("i-000", &types.ENI{
+	n.manager.UpdateENI("i-000", &types.ENI{
 		ID:       "eni-a",
 		Prefixes: []iputil.Prefix{iputil.PrefixFrom(netip.MustParsePrefix("10.0.0.1/28"))},
 	})

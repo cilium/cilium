@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/cilium/pkg/aws/api/mock"
 	"github.com/cilium/cilium/pkg/aws/ipam/limits"
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/ipam/instances"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 )
@@ -38,8 +39,10 @@ func TestResyncInterfacesAndIPsLockOrder(t *testing.T) {
 			cn.Spec.InstanceID = instanceID
 		},
 	)
-	im := ipamTypes.NewInstanceMap()
-	im.Update(instanceID, &types.ENI{ID: "eni-a"})
+	cache := instances.NewInstanceCache()
+	cache.UpdateInstance(instanceID, func(instances *ipamTypes.InstanceMap) {
+		instances.Update(instanceID, &types.ENI{ID: "eni-a"})
+	})
 
 	ipamNode := &mockIPAMNode{instanceID: instanceID}
 	n := &Node{
@@ -47,10 +50,10 @@ func TestResyncInterfacesAndIPsLockOrder(t *testing.T) {
 		node:       ipamNode,
 		k8sObj:     cn,
 		manager: &InstancesManager{
-			logger:       hivetest.Logger(t),
-			instances:    im,
-			ec2api:       mockEC2API,
-			limitsGetter: limitsGetter,
+			InstanceCache: cache,
+			logger:        hivetest.Logger(t),
+			ec2api:        mockEC2API,
+			limitsGetter:  limitsGetter,
 		},
 		enis: map[string]types.ENI{},
 	}

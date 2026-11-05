@@ -12,6 +12,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/instances"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
@@ -38,7 +39,7 @@ func TestForeachENIPrimaryAddressFiltering(t *testing.T) {
 	n := &Node{
 		node:    &mockIPAMNode{instanceID: instanceID},
 		k8sObj:  newCiliumNode("node1"),
-		manager: &InstancesManager{instances: im},
+		manager: &InstancesManager{InstanceCache: instances.NewInstanceCacheFrom(im)},
 	}
 
 	collect := func(usePrimary bool) []netip.Addr {

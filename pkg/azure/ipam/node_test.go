@@ -56,7 +56,7 @@ func TestPopulateStatusFieldsDeterministicOrder(t *testing.T) {
 	// The sorts run in place, so they must operate on copies: the instance
 	// cache is shared between nodes and only read locked.
 	cached := map[string]*types.AzureInterface{}
-	node.manager.instances.ForeachInterface("vm1", func(_, id string, obj ipamTypes.Interface) error {
+	node.manager.ForeachInstance("vm1", func(_, id string, obj ipamTypes.Interface) error {
 		cached[id] = obj.(*types.AzureInterface).DeepCopy()
 		return nil
 	})
@@ -91,7 +91,7 @@ func TestPopulateStatusFieldsDeterministicOrder(t *testing.T) {
 			"iteration %d: no-op sync differs from the apiserver copy, forcing a /status write", i)
 	}
 
-	node.manager.instances.ForeachInterface("vm1", func(_, id string, obj ipamTypes.Interface) error {
+	node.manager.ForeachInstance("vm1", func(_, id string, obj ipamTypes.Interface) error {
 		require.True(t, cached[id].DeepEqual(obj.(*types.AzureInterface)),
 			"cached interface %s mutated by PopulateStatusFields", id)
 		return nil
