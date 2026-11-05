@@ -161,10 +161,8 @@ out:										\
 
 CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress4, struct ipv4_ct_tuple, ipv4,
 		DBG_SK_LOOKUP4, daddr, saddr)
-#ifdef ENABLE_IPV6
 CTX_REDIRECT_FN(ctx_redirect_to_proxy_ingress6, struct ipv6_ct_tuple, ipv6,
 		DBG_SK_LOOKUP6, daddr[3], saddr[3])
-#endif
 #undef CTX_REDIRECT_FN
 
 /**
@@ -217,14 +215,12 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple,
 			result =
 			ctx_redirect_to_proxy_ingress4(ctx, tuple, proxy_port, &ipv4_localhost);
 		}
-#ifdef ENABLE_IPV6
-		if (!ipv4) {
+		if (is_defined(ENABLE_IPV6) && !ipv4) {
 			union v6addr ipv6_localhost = { .addr[15] = 1,};
 
 			result =
 			ctx_redirect_to_proxy_ingress6(ctx, tuple, proxy_port, &ipv6_localhost);
 		}
-#endif /* ENABLE_IPV6 */
 	}
 	return result;
 }
@@ -236,14 +232,12 @@ ctx_redirect_to_proxy4(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 	return __ctx_redirect_to_proxy(ctx, tuple, proxy_port, from_host, true);
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline int
 ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 		       __be16 proxy_port, bool from_host __maybe_unused)
 {
 	return __ctx_redirect_to_proxy(ctx, tuple, proxy_port, from_host, false);
 }
-#endif /* ENABLE_IPV6 */
 
 #define IP_TUPLE_EXTRACT_FN(NAME, PREFIX)				\
 /**									\
@@ -269,9 +263,7 @@ NAME(struct __ctx_buff *ctx, struct PREFIX ## _ct_tuple *tuple)		\
 }
 
 IP_TUPLE_EXTRACT_FN(extract_tuple4, ipv4)
-#ifdef ENABLE_IPV6
 IP_TUPLE_EXTRACT_FN(extract_tuple6, ipv6)
-#endif /* ENABLE_IPV6 */
 
 static __always_inline int
 ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
@@ -294,18 +286,20 @@ ctx_redirect_to_proxy_first_tproxy(struct __ctx_buff *ctx, __be16 proxy_port)
 		return DROP_UNSUPPORTED_L2;
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6): {
 		union v6addr ipv6_localhost = { .addr[15] = 1,};
 		struct ipv6_ct_tuple tuple;
 
+		if (!is_defined(ENABLE_IPV6))
+			return DROP_UNKNOWN_L3;
+
 		ret = extract_tuple6(ctx, &tuple);
 		if (ret < 0)
 			return ret;
+
 		ret = ctx_redirect_to_proxy_ingress6(ctx, &tuple, proxy_port, &ipv6_localhost);
 		break;
 	}
-#endif /* ENABLE_IPV6 */
 	case bpf_htons(ETH_P_IP): {
 		__be32 ipv4_localhost = bpf_htonl(INADDR_LOOPBACK);
 		struct ipv4_ct_tuple tuple;
