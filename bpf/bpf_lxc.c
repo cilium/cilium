@@ -165,9 +165,9 @@ static __always_inline int __per_packet_lb_svc_xlate_4(void *ctx, struct iphdr *
 
 	lb4_fill_key(&key, &tuple);
 
-	svc = lb4_lookup_service(&key, NODEPORT_ENABLED);
+	svc = lb4_lookup_service(&key, CONFIG(enable_nodeport));
 
-	if (NODEPORT_ENABLED) {
+	if (CONFIG(enable_nodeport)) {
 		struct nodeport_nat_info *nat_info = AUX(nodeport_nat_info);
 
 		if (!svc) {
@@ -339,9 +339,9 @@ static __always_inline int __per_packet_lb_svc_xlate_6(void *ctx, struct ipv6hdr
 	 * the CT entry for destination endpoints where we can't encode the
 	 * state in the address.
 	 */
-	svc = lb6_lookup_service(&key, NODEPORT_ENABLED);
+	svc = lb6_lookup_service(&key, CONFIG(enable_nodeport));
 
-	if (NODEPORT_ENABLED) {
+	if (CONFIG(enable_nodeport)) {
 		struct nodeport_nat_info *nat_info = AUX(nodeport_nat_info);
 
 		if (!svc) {
@@ -726,7 +726,7 @@ ipv6_forward_to_destination(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 #ifdef TUNNEL_MODE
 	if (ct_state->from_tunnel || !skip_tunnel) {
 		/* See comment in handle_ipv4_from_lxc(). */
-		if (!NODEPORT_ENABLED && CONFIG(enable_host_firewall) &&
+		if (!CONFIG(enable_nodeport) && CONFIG(enable_host_firewall) &&
 		    (ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(dst_sec_identity))
 			goto pass_to_stack;
@@ -840,7 +840,7 @@ static __always_inline int handle_ipv6_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		lb6_ctx_restore_state(ctx, &ct_state_new, &proxy_port, true);
 		hairpin_flow = ct_state_new.loopback;
 
-		if (NODEPORT_ENABLED) {
+		if (CONFIG(enable_nodeport)) {
 			struct nodeport_nat_info *nat_info = AUX_REUSE(nodeport_nat_info);
 
 			ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
@@ -973,7 +973,7 @@ ct_recreate6:
 		 *
 		 * Needed for compatibility with pre-v1.19 CT entries.
 		 */
-		if (NODEPORT_ENABLED && ct_state->node_port &&
+		if (CONFIG(enable_nodeport) && ct_state->node_port &&
 		    lb_is_svc_proto(tuple->nexthdr)) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV6,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
@@ -1228,7 +1228,7 @@ ipv4_forward_to_destination(struct __ctx_buff *ctx, struct iphdr *ip4,
 		 * to apply the correct reverse DNAT, and then be routed accordingly.
 		 * See #14674 for details.
 		 */
-		if (!NODEPORT_ENABLED && CONFIG(enable_host_firewall) &&
+		if (!CONFIG(enable_nodeport) && CONFIG(enable_host_firewall) &&
 		    (ct_status == CT_REPLY || ct_status == CT_RELATED) &&
 		    identity_is_remote_node(dst_sec_identity))
 			goto pass_to_stack;
@@ -1352,7 +1352,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx, __u32 *d
 		lb4_ctx_restore_state(ctx, &ct_state_new, &proxy_port, &cluster_id, true);
 		hairpin_flow = ct_state_new.loopback;
 
-		if (NODEPORT_ENABLED) {
+		if (CONFIG(enable_nodeport)) {
 			struct nodeport_nat_info *nat_info = AUX_REUSE(nodeport_nat_info);
 
 			ipv6_addr_copy(&ct_state_new.nat_addr, &nat_info->nat_addr);
@@ -1525,7 +1525,7 @@ ct_recreate4:
 		 * This codepath currently doesn't support revDNAT for ICMP,
 		 * so make sure that we only send TCP/UDP/SCTP down this way.
 		 */
-		if (NODEPORT_ENABLED && ct_state->node_port &&
+		if (CONFIG(enable_nodeport) && ct_state->node_port &&
 		    lb_is_svc_proto(tuple->nexthdr)) {
 			send_trace_notify(ctx, TRACE_TO_NETWORK, SECLABEL_IPV4,
 					  *dst_sec_identity, TRACE_EP_ID_UNKNOWN,
@@ -1934,7 +1934,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 		break;
 	case CTX_ACT_OK:
 		/* See comment in IPv4 path. */
-		if (!CONFIG(enable_bpf_routing) && !NODEPORT_ENABLED && from_tunnel) {
+		if (!CONFIG(enable_bpf_routing) && !CONFIG(enable_nodeport) && from_tunnel) {
 			ctx_change_type(ctx, PACKET_HOST);
 			break;
 		}
@@ -2150,7 +2150,7 @@ ipv4_policy(struct __ctx_buff *ctx, struct iphdr *ip4, __u32 src_label,
 	}
 
 	if (ret == CT_NEW) {
-		if (NODEPORT_ENABLED && CONFIG(srv6_cfg).enable)
+		if (CONFIG(enable_nodeport) && CONFIG(srv6_cfg).enable)
 			ct_state_new.node_port =
 				ct_has_nodeport_egress_entry4(get_ct_map4(tuple),
 							      tuple, NULL, false);
@@ -2239,7 +2239,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		 * will drop them.
 		 * See #14646 for details.
 		 */
-		if (!CONFIG(enable_bpf_routing) && !NODEPORT_ENABLED && from_tunnel) {
+		if (!CONFIG(enable_bpf_routing) && !CONFIG(enable_nodeport) && from_tunnel) {
 			ctx_change_type(ctx, PACKET_HOST);
 			break;
 		}

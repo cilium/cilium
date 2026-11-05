@@ -79,21 +79,21 @@ neigh_resolver_available(void)
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_clear(struct __sk_buff *ctx)
 {
-	if (NODEPORT_ENABLED)
+	if (CONFIG(enable_nodeport))
 		ctx->tc_index &= ~TC_INDEX_F_SKIP_NODEPORT;
 }
 
 static __always_inline __maybe_unused void
 ctx_skip_nodeport_set(struct __sk_buff *ctx)
 {
-	if (NODEPORT_ENABLED)
+	if (CONFIG(enable_nodeport))
 		ctx->tc_index |= TC_INDEX_F_SKIP_NODEPORT;
 }
 
 static __always_inline __maybe_unused bool
 ctx_skip_nodeport(struct __sk_buff *ctx)
 {
-	if (!NODEPORT_ENABLED)
+	if (!CONFIG(enable_nodeport))
 		return true;
 
 	volatile __u32 tc_index = ctx->tc_index;
