@@ -31,6 +31,7 @@ import (
 	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -91,6 +92,8 @@ type linuxNodeHandler struct {
 
 	nodePolicy *NodePolicy
 
+	pruneExclusions *routeReconciler.PruneExclusion
+
 	db          *statedb.DB
 	subnetTable statedb.RWTable[subnetmap.SubnetTableEntry]
 
@@ -139,7 +142,11 @@ func NewNodeHandler(
 	daemonConfig *option.DaemonConfig,
 	db *statedb.DB,
 	subnetTable statedb.RWTable[subnetmap.SubnetTableEntry],
+	pruneExclusions *routeReconciler.PruneExclusion,
+	routeManager *routeReconciler.DesiredRouteManager,
 ) node.IDHandler {
+	routeInitializer := routeManager.RegisterInitializer("node-handler")
+
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
@@ -156,6 +163,7 @@ func NewNodeHandler(
 		nodePolicy,
 		db,
 		subnetTable,
+		pruneExclusions,
 	)
 	checkpoint := newLinuxNodeCheckpoint(
 		log,
@@ -224,7 +232,7 @@ func NewNodeHandler(
 				return nil
 			}
 
-			_, err := reconciler.Register(
+			nodeReconciler, err := reconciler.Register(
 				params,
 				nodeTable,
 				(*node.Node).DeepCopy,
@@ -243,6 +251,22 @@ func NewNodeHandler(
 			if err != nil {
 				return fmt.Errorf("registering Linux node reconciler: %w", err)
 			}
+
+			// Wait for every initial node to be reconciled so its routes are added to
+			// the prune exclusion set before the route reconciler prunes the WAL.
+			_, initialized := nodeTable.Initialized(params.DB.ReadTxn())
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-initialized:
+			}
+
+			target := nodeTable.Revision(params.DB.ReadTxn())
+			if _, _, err := nodeReconciler.WaitUntilReconciled(ctx, target); err != nil {
+				return fmt.Errorf("waiting for Linux node reconciliation: %w", err)
+			}
+
+			routeManager.FinalizeInitializer(routeInitializer)
 			return nil
 		},
 	))
@@ -364,6 +388,7 @@ func newNodeHandler(
 	nodePolicy *NodePolicy,
 	db *statedb.DB,
 	subnetTable statedb.RWTable[subnetmap.SubnetTableEntry],
+	pruneExclusions *routeReconciler.PruneExclusion,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
@@ -385,6 +410,7 @@ func newNodeHandler(
 		configReady:          make(chan struct{}),
 		db:                   db,
 		subnetTable:          subnetTable,
+		pruneExclusions:      pruneExclusions,
 	}
 }
 
@@ -619,6 +645,19 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix netip.Prefix, addressFamilyEna
 	if err != nil {
 		return err
 	}
+
+	// Before upserting the route, add it to the prune exclusions because even if we fail
+	// there is intention to add a route for this prefix so we should avoid pruning it.
+	if ok := n.pruneExclusions.Add(routeReconciler.DesiredRouteKey{
+		Table:    routeReconciler.TableMain,
+		Prefix:   prefix,
+		Priority: 0,
+	}); ok {
+		n.log.Info("Add route to prune exclusions",
+			logfields.Prefix, prefix,
+		)
+	}
+
 	if err := route.Upsert(n.log, nodeRoute); err != nil {
 		n.log.Warn("Unable to update route",
 			append(nodeRoute.LogAttrs(), logfields.Error, err)...)
