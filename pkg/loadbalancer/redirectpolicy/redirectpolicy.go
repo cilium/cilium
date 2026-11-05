@@ -6,11 +6,13 @@ package redirectpolicy
 import (
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
+	"github.com/cilium/cilium/pkg/iana"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
@@ -209,6 +211,50 @@ func parseLRP(cfg Config, log *slog.Logger, clrp *v2.CiliumLocalRedirectPolicy) 
 	return getSanitizedLocalRedirectPolicy(cfg, log, name, namespace, clrp.UID, clrp.Spec)
 }
 
+// sanitizePortInfo sanitizes all the fields in the PortInfo.
+// It returns port number, name, and protocol derived from the given input  and error (failure cases).
+func sanitizePortInfo(pInfo *v2.PortInfo, checkNamedPort bool) (uint16, string, lb.L4Type, error) {
+	var (
+		pInt     uint16
+		pName    string
+		protocol lb.L4Type
+	)
+	// Sanitize port
+	if pInfo.Port == "" {
+		return pInt, pName, protocol, fmt.Errorf("port must be specified")
+	} else {
+		p, err := strconv.ParseUint(pInfo.Port, 0, 16)
+		if err != nil {
+			return pInt, pName, protocol, fmt.Errorf("unable to parse port: %w", err)
+		}
+		if p == 0 {
+			return pInt, pName, protocol, fmt.Errorf("port cannot be 0")
+		}
+		pInt = uint16(p)
+	}
+	// Sanitize name
+	if checkNamedPort {
+		if pInfo.Name == "" {
+			return pInt, pName, protocol, fmt.Errorf("port %s in the local "+
+				"redirect policy spec must have a valid IANA_SVC_NAME, as there are multiple ports", pInfo.Port)
+
+		}
+		if !iana.IsSvcName(pInfo.Name) {
+			return pInt, pName, protocol, fmt.Errorf("port name %s isn't a "+
+				"valid IANA_SVC_NAME", pInfo.Name)
+		}
+	}
+	pName = strings.ToLower(pInfo.Name) // Normalize for case insensitive comparison
+
+	// Sanitize protocol
+	var err error
+	protocol, err = lb.NewL4Type(string(pInfo.Protocol))
+	if err != nil {
+		return pInt, pName, protocol, err
+	}
+	return pInt, pName, protocol, nil
+}
+
 func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespace string, uid types.UID, spec v2.CiliumLocalRedirectPolicySpec) (*LocalRedirectPolicy, error) {
 
 	var (
@@ -253,7 +299,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		}
 		feMappings = make([]feMapping, len(addrMatcher.ToPorts))
 		for i, portInfo := range addrMatcher.ToPorts {
-			p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
+			p, pName, proto, err := sanitizePortInfo(&portInfo, checkNamedPort)
 			if err != nil {
 				return nil, fmt.Errorf("invalid address matcher port: %w", err)
 			}
@@ -287,7 +333,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 		}
 		feMappings = make([]feMapping, len(svcMatcher.ToPorts))
 		for i, portInfo := range svcMatcher.ToPorts {
-			p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
+			p, pName, proto, err := sanitizePortInfo(&portInfo, checkNamedPort)
 			if err != nil {
 				return nil, fmt.Errorf("invalid service matcher port: %w", err)
 			}
@@ -321,7 +367,7 @@ func getSanitizedLocalRedirectPolicy(cfg Config, log *slog.Logger, name, namespa
 
 	bePorts = make([]bePortInfo, len(redirectTo.ToPorts))
 	for i, portInfo := range redirectTo.ToPorts {
-		p, pName, proto, err := portInfo.SanitizePortInfo(checkNamedPort)
+		p, pName, proto, err := sanitizePortInfo(&portInfo, checkNamedPort)
 		if err != nil {
 			return nil, fmt.Errorf("invalid backend port: %w", err)
 		}
