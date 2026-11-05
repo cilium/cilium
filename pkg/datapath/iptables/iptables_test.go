@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	wgTypes "github.com/cilium/cilium/pkg/wireguard/types"
 )
@@ -429,6 +430,22 @@ func TestAddProxyRulesv4(t *testing.T) {
 	err = mockIp4tables.checkExpectations()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// A reply to a host-originated IP_TRANSPARENT connection (the L7 proxy's upstream
+// sockets) arrives with Cilium's identity magic already in the mark. Re-marking
+// it hands the packet a mark whose reverse lookup is not unicast, and the reply
+// is dropped as a martian source. Assert the rule skips already-marked packets.
+func TestInboundProxyRedirectRuleSkipsIdentityMarked(t *testing.T) {
+	m := &manager{}
+	args := strings.Join(m.inboundProxyRedirectRule("-A"), " ")
+	if !strings.Contains(args, "-m socket --transparent") {
+		t.Fatalf("rule no longer matches transparent sockets: %s", args)
+	}
+	want := fmt.Sprintf("! --mark %#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask)
+	if !strings.Contains(args, want) {
+		t.Fatalf("rule must skip identity-marked packets (%q), got: %s", want, args)
 	}
 }
 

@@ -706,6 +706,14 @@ func (m *manager) inboundProxyRedirectRule(cmd string) []string {
 	toProxyMark := fmt.Sprintf("%#08x", linux_defaults.MagicMarkIsToProxy)
 	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
 	matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
+	// A packet that already carries a security identity has been classified by
+	// the datapath, and on the way in from a pod it may also carry CONNMARK bits
+	// that the restore rule re-adds after this one. Re-marking it overwrites the
+	// identity and leaves a combination this chain never intends (to-proxy magic
+	// plus restored identity bits), which then fails source validation: the
+	// reverse lookup for that mark resolves to a non-unicast route, so the reply
+	// is discarded as a martian source between PREROUTING and INPUT.
+	matchIdentity := fmt.Sprintf("%#08x/%#08x", linux_defaults.MagicMarkIdentity, linux_defaults.MagicMarkHostMask)
 	return []string{
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
@@ -713,6 +721,7 @@ func (m *manager) inboundProxyRedirectRule(cmd string) []string {
 		"!", "-o", "lo",
 		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
 		"-m", "mark", "!", "--mark", matchSkipTProxy,
+		"-m", "mark", "!", "--mark", matchIdentity,
 		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 		"-j", "MARK",
 		"--set-mark", toProxyMark}
