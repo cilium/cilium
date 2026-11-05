@@ -39,8 +39,8 @@ import (
 )
 
 type MockPort struct {
-	port uint16
-	cnt  int
+	port  uint16
+	acked bool
 }
 
 type MockPortAllocator struct {
@@ -66,29 +66,35 @@ func (m *MockPortAllocator) AllocateCRDProxyPort(name string) (uint16, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if mp, exists := m.ports[name]; exists {
-		return mp.port, nil
+	mp := m.ports[name]
+	if mp == nil {
+		mp = &MockPort{}
+		m.ports[name] = mp
 	}
-	m.port++
-	m.ports[name] = &MockPort{port: m.port}
-
-	return m.port, nil
+	if mp.port == 0 {
+		m.port++
+		mp.port = m.port
+	}
+	return mp.port, nil
 }
 
 func (m *MockPortAllocator) ReallocateCRDProxyPort(name string) (uint16, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// Delete existing port allocation if any
-	delete(m.ports, name)
-
+	mp := m.ports[name]
+	if mp == nil {
+		mp = &MockPort{}
+		m.ports[name] = mp
+	}
 	m.port++
-	m.ports[name] = &MockPort{port: m.port}
+	mp.port = m.port
+	mp.acked = false
 
 	return m.port, nil
 }
 
-func (m *MockPortAllocator) AckProxyPortWithReference(ctx context.Context, name string) error {
+func (m *MockPortAllocator) AckCRDProxyPort(ctx context.Context, name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -96,11 +102,11 @@ func (m *MockPortAllocator) AckProxyPortWithReference(ctx context.Context, name 
 	if !exists {
 		return fmt.Errorf("Non-allocated port %s", name)
 	}
-	mp.cnt++
+	mp.acked = true
 	return nil
 }
 
-func (m *MockPortAllocator) ReleaseProxyPort(name string) error {
+func (m *MockPortAllocator) ReleaseCRDProxyPort(name string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -108,10 +114,8 @@ func (m *MockPortAllocator) ReleaseProxyPort(name string) error {
 	if !exists {
 		return fmt.Errorf("Non-allocated port %s", name)
 	}
-	mp.cnt--
-	if mp.cnt <= 0 {
-		delete(m.ports, name)
-	}
+	mp.acked = false
+	mp.port = 0
 	return nil
 }
 
