@@ -210,7 +210,7 @@ func TestProxyPortSettlement(t *testing.T) {
 				require.Zero(t, port)
 				require.Nil(t, rollback)
 				allocated, _, err := p.proxyPorts.GetProxyPort(portName)
-				require.NoError(t, err)
+				require.ErrorIs(t, err, proxyports.ErrProxyNotConfigured)
 				require.Zero(t, allocated)
 				require.Empty(t, server.listeners)
 				require.Empty(t, datapath.rules)
@@ -263,11 +263,12 @@ func TestProxyPortSettlement(t *testing.T) {
 					accepted = !tt.cecOwned
 				}
 				allocated, _, err := p.proxyPorts.GetProxyPort(portName)
-				require.NoError(t, err)
 				if i == 1 && !accepted && !tt.cecOwned {
+					require.ErrorIs(t, err, proxyports.ErrProxyNotConfigured)
 					require.Zero(t, allocated, "the final failed reference must reset the allocation")
 					require.Empty(t, server.listeners)
 				} else {
+					require.NoError(t, err)
 					require.Equal(t, ports[i], allocated, "another endpoint still owns this allocation")
 				}
 				if accepted {

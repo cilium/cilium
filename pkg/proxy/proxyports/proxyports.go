@@ -565,6 +565,8 @@ func (p *ProxyPorts) FindByTypeWithReference(l7Type types.ProxyType, listener st
 	return "", nil
 }
 
+var ErrProxyNotConfigured = errors.New("proxy not configured")
+
 func proxyNotFoundError(name string) error {
 	return fmt.Errorf("unrecognized proxy: %s", name)
 }
@@ -709,17 +711,23 @@ func (p *ProxyPorts) RestoreComplete() <-chan struct{} {
 	return p.restoreComplete
 }
 
-// GetProxyPort() returns the fixed listen port for a proxy, if any.
+// GetProxyPort returns an allocated port, or an error if it is unavailable.
+// Restored ports can be read before configuration so that DNS bootstrap can
+// reuse its previous port.
 func (p *ProxyPorts) GetProxyPort(name string) (port uint16, isStatic bool, err error) {
 	// Accessing pp.proxyPort requires the lock
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 
 	pp := p.proxyPorts[name]
-	if pp != nil {
-		return pp.proxyPort, pp.isStatic, nil
+	if pp == nil {
+		return 0, false, proxyNotFoundError(name)
 	}
-	return 0, false, proxyNotFoundError(name)
+	if pp.proxyPort == 0 {
+		return 0, false, fmt.Errorf("%w: %s", ErrProxyNotConfigured, name)
+	}
+
+	return pp.proxyPort, pp.isStatic, nil
 }
 
 // ReleaseProxyPort releases one reference. The last reference resets an
