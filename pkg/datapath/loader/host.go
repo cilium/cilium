@@ -46,9 +46,9 @@ const (
 // cilium_net and external (native) devices.
 func reloadHostEndpoint(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	collLoader *bpfCollectionLoader, ep endpoint.Endpoint,
-	lnc *config.Config, spec *ebpf.CollectionSpec) error {
+	lnc *config.Config, spec *ebpf.CollectionSpec, beforeExpose func() error) error {
 	// Replace programs on cilium_host.
-	if err := attachCiliumHost(ctx, logger, reg, collLoader, ep, lnc, spec); err != nil {
+	if err := attachCiliumHost(ctx, logger, reg, collLoader, ep, lnc, spec, beforeExpose); err != nil {
 		return fmt.Errorf("attaching cilium_host: %w", err)
 	}
 
@@ -99,7 +99,7 @@ func defaultCiliumHostMapRenames(ep endpoint.Config, lnc *config.Config) map[str
 // cilium_call_policy map and attaches programs from bpf_host.c to cilium_host.
 func attachCiliumHost(ctx context.Context, logger *slog.Logger, reg *registry.MapRegistry,
 	collLoader *bpfCollectionLoader, ep endpoint.Endpoint,
-	lnc *config.Config, spec *ebpf.CollectionSpec) error {
+	lnc *config.Config, spec *ebpf.CollectionSpec, beforeExpose func() error) error {
 	host, err := safenetlink.LinkByName(ep.InterfaceName())
 	if err != nil {
 		return fmt.Errorf("retrieving device %s: %w", ep.InterfaceName(), err)
@@ -120,6 +120,12 @@ func attachCiliumHost(ctx context.Context, logger *slog.Logger, reg *registry.Ma
 	}
 	defer cleanup()
 	defer hostObj.Close()
+
+	if beforeExpose != nil {
+		if err := beforeExpose(); err != nil {
+			return err
+		}
+	}
 
 	// Insert host endpoint policy program.
 	if err := hostObj.PolicyMap.Update(uint32(ep.GetID()), hostObj.PolicyProg, ebpf.UpdateAny); err != nil {

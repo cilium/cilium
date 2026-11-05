@@ -114,6 +114,10 @@ type regenerationContext struct {
 	// the regeneration is done
 	DoneFunc func()
 
+	// beforeExpose is used to wait for proxy updates before publishing the new programs.
+	// It clears itself before waiting and is also used when no reload is needed.
+	beforeExpose func() error
+
 	datapathRegenerationContext *datapathRegenerationContext
 
 	parentContext context.Context
