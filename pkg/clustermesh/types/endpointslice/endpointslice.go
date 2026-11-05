@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/cilium/cilium/pkg/clustermesh/types/endpointslice/internal"
+	slim_core_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -186,6 +187,20 @@ func (eps *ClusterEndpointSlice) validate() error {
 				if err != nil || !addr.Is6() || addr.Zone() != "" {
 					return fmt.Errorf("invalid IPv6 endpoint address: %s", address)
 				}
+			}
+		}
+	}
+	for _, port := range eps.Ports {
+		if port.Name != nil && len(*port.Name) > 0 {
+			if errs := validation.IsDNS1123Label(*port.Name); len(errs) != 0 {
+				return fmt.Errorf("invalid port name %q: %v", *port.Name, errs)
+			}
+		}
+		if port.Protocol != nil {
+			switch *port.Protocol {
+			case slim_core_v1.ProtocolTCP, slim_core_v1.ProtocolUDP, slim_core_v1.ProtocolSCTP:
+			default:
+				return fmt.Errorf("invalid port protocol %q", *port.Protocol)
 			}
 		}
 	}

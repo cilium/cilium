@@ -68,6 +68,61 @@ func TestMCSAPIServiceSpecValidate(t *testing.T) {
 			assert: assert.NoError,
 		},
 		{
+			name: "valid default TCP port",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP, SessionAffinity: corev1.ServiceAffinityNone,
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				Ports:      []mcsapiv1beta1.ServicePort{{Port: 80, AppProtocol: new("kubernetes.io/h2c")}},
+			},
+			assert: assert.NoError,
+		},
+		{
+			name: "valid named UDP port",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP, SessionAffinity: corev1.ServiceAffinityNone,
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				Ports:      []mcsapiv1beta1.ServicePort{{Name: "http-udp", Protocol: corev1.ProtocolUDP, Port: 80}},
+			},
+			assert: assert.NoError,
+		},
+		{
+			name: "invalid port name",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP, SessionAffinity: corev1.ServiceAffinityNone,
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				Ports:      []mcsapiv1beta1.ServicePort{{Name: "not.valid", Protocol: corev1.ProtocolTCP, Port: 80}},
+			},
+			assert: assert.Error,
+		},
+		{
+			name: "invalid port protocol",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP, SessionAffinity: corev1.ServiceAffinityNone,
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				Ports:      []mcsapiv1beta1.ServicePort{{Name: "http", Protocol: corev1.Protocol("ICMP"), Port: 80}},
+			},
+			assert: assert.Error,
+		},
+		{
+			name: "invalid app protocol",
+			mcsAPISvcSpec: MCSAPIServiceSpec{
+				Cluster: "foo", Namespace: "bar", Name: "qux",
+				ExportCreationTimestamp: exportTime,
+				Type:                    mcsapiv1beta1.ClusterSetIP, SessionAffinity: corev1.ServiceAffinityNone,
+				IPFamilies: []corev1.IPFamily{corev1.IPv4Protocol},
+				Ports:      []mcsapiv1beta1.ServicePort{{Port: 80, AppProtocol: new("bad protocol")}},
+			},
+			assert: assert.Error,
+		},
+		{
 			name: "invalid service name syntax",
 			mcsAPISvcSpec: MCSAPIServiceSpec{
 				Cluster: "foo", Namespace: "bar", Name: "not.valid",

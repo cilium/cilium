@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	discoveryv1 "k8s.io/api/discovery/v1"
 
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discovery_v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1"
 )
 
@@ -78,6 +79,7 @@ func TestClusterEndpointSliceValidate(t *testing.T) {
 				Endpoints: []slim_discovery_v1.Endpoint{{
 					Addresses: []string{"10.1.2.3"},
 				}},
+				Ports: []slim_discovery_v1.EndpointPort{{Port: new(int32(80))}},
 			},
 		},
 		{
@@ -85,6 +87,37 @@ func TestClusterEndpointSliceValidate(t *testing.T) {
 			eps: ClusterEndpointSlice{
 				Cluster: "foo", Namespace: "bar", Name: "slice.example", AddressType: slim_discovery_v1.AddressTypeIPv4,
 			},
+		},
+		{
+			name: "valid named UDP port",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: "slice", AddressType: slim_discovery_v1.AddressTypeIPv4,
+				Ports: []slim_discovery_v1.EndpointPort{{Name: new("http-udp"), Protocol: new(slim_corev1.ProtocolUDP)}},
+			},
+		},
+		{
+			name: "invalid port name",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: "slice", AddressType: slim_discovery_v1.AddressTypeIPv4,
+				Ports: []slim_discovery_v1.EndpointPort{{Name: new("not.valid")}},
+			},
+			errcontains: "invalid port name",
+		},
+		{
+			name: "port name too long",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: "slice", AddressType: slim_discovery_v1.AddressTypeIPv4,
+				Ports: []slim_discovery_v1.EndpointPort{{Name: new(strings.Repeat("a", 64))}},
+			},
+			errcontains: "invalid port name",
+		},
+		{
+			name: "invalid port protocol",
+			eps: ClusterEndpointSlice{
+				Cluster: "foo", Namespace: "bar", Name: "slice", AddressType: slim_discovery_v1.AddressTypeIPv4,
+				Ports: []slim_discovery_v1.EndpointPort{{Protocol: new(slim_corev1.Protocol("ICMP"))}},
+			},
+			errstr: "invalid port protocol \"ICMP\"",
 		},
 		{
 			name: "invalid EndpointSlice name",
