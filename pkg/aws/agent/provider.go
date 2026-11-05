@@ -19,11 +19,9 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mtu"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/time"
 )
 
 var (
@@ -46,16 +44,13 @@ type providerParams struct {
 	Conf   *option.DaemonConfig
 	MTU    mtu.MTU
 	Sysctl sysctl.Sysctl
+
+	Metadata *instanceMetadata
 }
 
 // provider is the AWS customization of the agent's multi-pool allocator.
 type provider struct {
 	params providerParams
-
-	// nativeRoutingCIDRReady is closed by the observer registered in Initialize
-	// once the native routing CIDR has been determined. It is written once, by
-	// Initialize, and only read afterwards by WaitReady.
-	nativeRoutingCIDRReady <-chan struct{}
 }
 
 func (p *provider) Mode() string {
@@ -66,48 +61,34 @@ func (p *provider) PoolSpecAccessors() ipam.PoolSpecAccessors {
 	return poolAccessor
 }
 
-// Initialize registers the jobs that configure the ENI network devices and
-// that derive the native routing CIDR from the VPC CIDRs the operator reports
-// in the CiliumNode status. Neither blocks.
-func (p *provider) Initialize() (ipam.RoutingMetadataResolver, error) {
+// Initialize reads the VPC CIDRs of the node from the IMDS, derives the native routing
+// CIDR from them, and registers the job that configures the ENI network devices.
+func (p *provider) Initialize(ctx context.Context) (ipam.RoutingMetadataResolver, error) {
+	var vpcCIDRs []netip.Prefix
+	if p.params.Conf.EnableIPv4 {
+		var err error
+		if vpcCIDRs, err = p.params.Metadata.vpcIPv4CIDRs(ctx); err != nil {
+			return nil, fmt.Errorf("unable to determine the VPC IPv4 CIDRs of the node: %w", err)
+		}
+		if len(vpcCIDRs) == 0 {
+			return nil, errors.New("no IPv4 VPC CIDRs found for the node")
+		}
+	}
+
+	if err := autoDetectNativeRoutingCIDR(p.params.Logger, vpcCIDRs, p.params.LocalNodeStore, p.params.Conf); err != nil {
+		return nil, err
+	}
+
 	startDeviceConfigurator(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.MTU, p.params.Sysctl)
-	p.nativeRoutingCIDRReady = startNativeRoutingCIDRSync(p.params.Logger, p.params.JobGroup, p.params.Node, p.params.LocalNodeStore, p.params.Conf)
 
 	return &resolver{}, nil
 }
 
-// WaitReady blocks until the native routing CIDR observer registered in
-// Initialize has determined that CIDR, which requires the operator to have
-// reported the VPC CIDRs of the node in the CiliumNode status.
-func (p *provider) WaitReady(ctx context.Context) error {
-	if p.nativeRoutingCIDRReady == nil {
-		return errors.New("WaitReady called before Initialize")
-	}
-
-	deadline := time.After(waitForNativeRoutingCIDRTimeout)
-	for {
-		select {
-		case <-p.nativeRoutingCIDRReady:
-			return nil
-		case <-deadline:
-			return fmt.Errorf("timed out after %s waiting for the operator to report the VPC CIDRs of the node in Status.ENI.ENIs[].VPC. %s",
-				waitForNativeRoutingCIDRTimeout, operatorHelpMessage)
-		case <-ctx.Done():
-			return fmt.Errorf("waiting for the operator to report the VPC CIDRs of the node in Status.ENI.ENIs[].VPC: %w", ctx.Err())
-		case <-time.After(5 * time.Second):
-			p.params.Logger.Info(
-				"Waiting for the operator to report the VPC CIDRs of the node, needed to determine the native routing CIDR",
-				logfields.HelpMessage, operatorHelpMessage,
-			)
-		}
-	}
+// WaitReady has nothing to converge on: everything the AWS provider needs
+// before the first allocation is resolved synchronously by Initialize.
+func (p *provider) WaitReady(_ context.Context) error {
+	return nil
 }
-
-const waitForNativeRoutingCIDRTimeout = 5 * time.Minute
-
-// operatorHelpMessage points at the operator, which is what WaitReady is
-// waiting on.
-const operatorHelpMessage = "Check if the cilium-operator pod is running and does not have any warnings or error messages."
 
 // resolver reports the ENI routing metadata of the addresses the multi-pool
 // allocator hands out. It is stateless: everything it reports is derived from

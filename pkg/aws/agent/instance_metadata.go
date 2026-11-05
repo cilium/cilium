@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 
 	awsMetadata "github.com/cilium/cilium/pkg/aws/metadata"
 	"github.com/cilium/cilium/pkg/lock"
@@ -14,6 +15,7 @@ import (
 
 type metadataClient interface {
 	GetInstanceMetadata(ctx context.Context) (awsMetadata.MetaDataInfo, error)
+	GetVPCIPv4CIDRs(ctx context.Context) ([]netip.Prefix, error)
 }
 
 // instanceMetadata owns the EC2 IMDS client of the agent, and fetches the
@@ -45,15 +47,12 @@ func (m *instanceMetadata) get(ctx context.Context) (awsMetadata.MetaDataInfo, e
 		return *m.info, nil
 	}
 
-	if m.client == nil {
-		client, err := m.newFn(ctx)
-		if err != nil {
-			return awsMetadata.MetaDataInfo{}, fmt.Errorf("unable to create EC2 metadata client: %w", err)
-		}
-		m.client = client
+	client, err := m.clientLocked(ctx)
+	if err != nil {
+		return awsMetadata.MetaDataInfo{}, err
 	}
 
-	info, err := m.client.GetInstanceMetadata(ctx)
+	info, err := client.GetInstanceMetadata(ctx)
 	if err != nil {
 		return awsMetadata.MetaDataInfo{}, fmt.Errorf("unable to retrieve InstanceID of own EC2 instance: %w", err)
 	}
@@ -63,4 +62,31 @@ func (m *instanceMetadata) get(ctx context.Context) (awsMetadata.MetaDataInfo, e
 
 	m.info = &info
 	return info, nil
+}
+
+// vpcIPv4CIDRs returns the IPv4 CIDRs of the VPC of the EC2 instance the agent
+// runs on, primary CIDR first. Unlike get, it does not remember them: its only
+// caller reads them once.
+func (m *instanceMetadata) vpcIPv4CIDRs(ctx context.Context) ([]netip.Prefix, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	client, err := m.clientLocked(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return client.GetVPCIPv4CIDRs(ctx)
+}
+
+// clientLocked returns the IMDS client, creating it on first use. m.mu must be held.
+func (m *instanceMetadata) clientLocked(ctx context.Context) (metadataClient, error) {
+	if m.client == nil {
+		client, err := m.newFn(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("unable to create EC2 metadata client: %w", err)
+		}
+		m.client = client
+	}
+	return m.client, nil
 }
