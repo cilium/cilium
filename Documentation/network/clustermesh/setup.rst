@@ -145,9 +145,24 @@ more details and use cases.
 .. important::
 
    If you change the cluster ID and/or cluster name in a cluster with running
-   workloads, you will need to restart all workloads. The cluster ID is used to
-   generate the security identity and it will need to be re-created in order to
-   establish access across clusters.
+   workloads, restart the Cilium agents afterwards; the Helm chart does not
+   roll them on a configuration change unless ``rollOutCiliumPods`` is set. On
+   restart each agent re-reads the labels of its pods and allocates their
+   security identities again with the new cluster name, so the pods themselves
+   do not need to be restarted.
+
+   Network policies select endpoints of the local cluster by default
+   (``policyDefaultLocalCluster``), and the cluster name is part of that match.
+   While the agents roll, pods with the old identity and pods with the new one
+   cannot reach policy-protected pods on nodes in the other state. To avoid
+   this, set ``policyDefaultLocalCluster`` to ``false`` and roll the agents
+   before the change, then change the ID and name and roll again, then restore
+   the option and roll a third time.
+
+   The Hubble server certificate embeds the cluster name. With
+   ``hubble.tls.auto.method=helm`` the existing ``hubble-server-certs`` secret
+   is kept across upgrades, so delete it before applying the new cluster name,
+   or Hubble Relay will fail to connect to the agents.
 
 .. _clustermesh_setup_tls:
 
