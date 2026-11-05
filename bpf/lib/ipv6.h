@@ -41,6 +41,8 @@
 
 #define IPV6_ALEN               16
 
+#define IPV6_FLOWINFO_MASK		bpf_htonl(0x0FFFFFFFU)
+
 /* Follows the structure of ipv6hdr, see ipv6_handle_fragmentation. */
 struct ipv6_frag_id {
 	__be32 id;		/* L4 datagram identifier */
@@ -74,6 +76,11 @@ static __always_inline int ipv6_optlen(const struct ipv6_opt_hdr *opthdr)
 static __always_inline int ipv6_authlen(const struct ipv6_opt_hdr *opthdr)
 {
 	return (opthdr->hdrlen + 2) << 2;
+}
+
+static __always_inline __be32 ipv6_flowinfo(const struct ipv6hdr *ip6)
+{
+	return *(__be32 *)ip6 & IPV6_FLOWINFO_MASK;
 }
 
 static __always_inline int ipv6_skip_exthdr(const struct __ctx_buff *ctx, __u8 *nexthdr, int off)
