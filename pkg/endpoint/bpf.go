@@ -482,8 +482,28 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return e.desiredPolicyRevision, nil
 	}
 
+	regenContext.beforeExpose = func() error {
+		// clear so we execute once
+		regenContext.beforeExpose = nil
+		// Release the build permit before waiting, retaining this endpoint's
+		// build mutex to protect its redirects.
+		if regenContext.DoneFunc != nil {
+			regenContext.DoneFunc()
+		}
+		stats.proxyWaitForAck.Start()
+		err := e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects)
+		stats.proxyWaitForAck.End(err == nil)
+		if err != nil {
+			return newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
+		}
+		return nil
+	}
+
 	// Skip BPF if the endpoint has no policy map
 	if e.IsProperty(endpointtypes.PropertySkipBPFPolicy) {
+		if err := regenContext.beforeExpose(); err != nil {
+			return 0, err
+		}
 		// Ingress endpoint needs entries in the endpoints map so that the return traffic,
 		// ARP, and IPv6 ND are delivered to the host stack in all datapath configurations.
 		if e.IsProperty(endpointtypes.PropertyAtHostNS) {
@@ -493,18 +513,6 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 			if err != nil {
 				return 0, newRegenerationErrorf(regenerationFailureReasonBPFError, "exposing endpoint in endpoints BPF map failed: %w", err)
 			}
-		}
-
-		// Allow another builder to start while we wait for the proxy
-		if regenContext.DoneFunc != nil {
-			regenContext.DoneFunc()
-		}
-
-		stats.proxyWaitForAck.Start()
-		err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects)
-		stats.proxyWaitForAck.End(err == nil)
-		if err != nil {
-			return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
 		}
 
 		return e.desiredPolicyRevision, nil
@@ -518,6 +526,9 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapath {
 		err = e.realizeBPFState(regenContext)
 		if err != nil {
+			if regenErr, ok := errors.AsType[*regenerationError](err); ok {
+				return datapathRegenCtxt.epInfoCache.revision, regenErr
+			}
 			return datapathRegenCtxt.epInfoCache.revision, newRegenerationError(regenerationFailureReasonDatapathOrchestrationError, err)
 		}
 	} else {
@@ -526,6 +537,14 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 			fieldRegenLevel, datapathRegenCtxt.regenerationLevel,
 			logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash,
 		)
+	}
+
+	// Without a reload, no loader invokes the hook. Wait before publishing
+	// endpoint metadata or synchronizing the existing policy map.
+	if regenContext.beforeExpose != nil {
+		if err := regenContext.beforeExpose(); err != nil {
+			return 0, err
+		}
 	}
 
 	if !datapathRegenCtxt.epInfoCache.IsHost() || option.Config.EnableHostFirewall {
@@ -541,18 +560,6 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	// Signal that BPF program has been generated.
 	// The endpoint has at least L3/L4 connectivity at this point.
 	e.closeBPFProgramChannel()
-
-	// Allow another builder to start while we wait for the proxy
-	if regenContext.DoneFunc != nil {
-		regenContext.DoneFunc()
-	}
-
-	stats.proxyWaitForAck.Start()
-	err = e.waitForProxyCompletions(datapathRegenCtxt.completionCtx, datapathRegenCtxt.proxyWaitGroup, proxyRedirects)
-	stats.proxyWaitForAck.End(err == nil)
-	if err != nil {
-		return 0, newRegenerationErrorf(regenerationFailureReasonProxyPolicyError, "error waiting for proxy network policy update: %w", err)
-	}
 
 	stats.waitingForLock.Start()
 	err = e.lockAlive()
@@ -625,8 +632,11 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (err error
 	}
 
 	// Compile and install BPF programs for this endpoint
-	templateHash, err := e.orchestrator.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
+	templateHash, err := e.orchestrator.ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization, regenContext.beforeExpose)
 	if err != nil {
+		if _, ok := errors.AsType[*regenerationError](err); ok {
+			return err
+		}
 		if !errors.Is(err, context.Canceled) {
 			e.getLogger().Error(
 				"Error while reloading endpoint BPF program",

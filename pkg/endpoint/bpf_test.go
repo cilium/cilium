@@ -16,13 +16,22 @@ import (
 
 	"github.com/cilium/cilium/pkg/completion"
 	linuxConfig "github.com/cilium/cilium/pkg/datapath/linux/config"
+	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	fakeendpoint "github.com/cilium/cilium/pkg/endpoint/fake"
+	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	endpointtypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
+	fakepolicymap "github.com/cilium/cilium/pkg/maps/policymap/fake"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/policy/types"
 	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // newRegenTestEndpoint returns an endpoint that regenerateBPF can run on up to
@@ -135,10 +144,14 @@ type recordingAckRedirectProxy struct {
 	FakeEndpointProxy
 	redirects map[string]uint16
 	err       error
+	onAck     func()
 }
 
 func (p *recordingAckRedirectProxy) AckRedirects(_ context.Context, redirects map[string]uint16) error {
 	p.redirects = redirects
+	if p.onAck != nil {
+		p.onAck()
+	}
 	return p.err
 }
 
@@ -282,6 +295,162 @@ func BenchmarkWriteHeaderfile(b *testing.B) {
 					b.Fatal(err)
 				}
 			}
+		})
+	}
+}
+
+type publicationOrchestrator struct {
+	fakeendpoint.FakeOrchestrator
+	events *[]string
+}
+
+func (o *publicationOrchestrator) ReloadDatapath(_ context.Context, _ endpointtypes.Endpoint, _ *metrics.SpanStat, beforeExpose func() error) (string, error) {
+	*o.events = append(*o.events, "load")
+	if err := beforeExpose(); err != nil {
+		return "", err
+	}
+	*o.events = append(*o.events, "programs")
+	return "", nil
+}
+
+type publicationEndpointMap struct {
+	lxcmap.Map
+	events *[]string
+}
+
+func (m *publicationEndpointMap) WriteEndpoint(lxcmap.EndpointFrontend) error {
+	*m.events = append(*m.events, "metadata")
+	return nil
+}
+
+type noopPolicyMapPressureUpdater struct{}
+
+func (*noopPolicyMapPressureUpdater) Update(PolicyMapPressureEvent) {}
+func (*noopPolicyMapPressureUpdater) Remove(uint16)                 {}
+
+func TestRegenerateBPFWaitsBeforePublication(t *testing.T) {
+	f := newPolicyTestFixture(t)
+	nackErr := errors.New("proxy rejected update")
+	rulesErr := errors.New("installing proxy rules failed")
+	for _, tc := range []struct {
+		name        string
+		populated   bool
+		noReload    bool
+		noPolicyMap bool
+		cancel      bool
+		proxyErr    error
+		rulesErr    error
+		wantErr     error
+		events      []string
+	}{
+		{name: "empty map", events: []string{"load", "done", "rules", "programs", "metadata"}},
+		{name: "populated map", populated: true, events: []string{"load", "done", "rules", "programs", "metadata"}},
+		{name: "no reload", populated: true, noReload: true, events: []string{"done", "rules", "metadata"}},
+		{name: "no policy map", noReload: true, noPolicyMap: true, events: []string{"done", "rules", "metadata"}},
+		{name: "NACK", proxyErr: nackErr, wantErr: nackErr, events: []string{"load", "done"}},
+		{name: "canceled", cancel: true, wantErr: context.Canceled, events: []string{"load", "done"}},
+		{name: "rules error", rulesErr: rulesErr, wantErr: rulesErr, events: []string{"load", "done", "rules"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			desired := policy.NewEndpointPolicy(logger, f.repo)
+			key := types.KeyForDirection(trafficdirection.Egress).WithIdentity(identity.ReservedIdentityWorld).WithPortProto(u8proto.TCP, 80)
+			entry := types.MapStateEntry{ProxyPort: 15000}
+			desired.CopyMapStateFrom(policy.MapStateMap{key: entry})
+			desired.Redirects = map[string]uint16{"redirect": 15000}
+
+			ep := newRegenTestEndpoint(t, f.repo, desired)
+			ep.realizedPolicy = policy.NewEndpointPolicy(logger, f.repo)
+			ep.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
+			ep.status = NewEndpointStatus()
+			ep.hasBPFProgram = make(chan struct{})
+			ep.PolicyMapPressureUpdater = &noopPolicyMapPressureUpdater{}
+			aliveCtx, closeEndpoint := context.WithCancel(t.Context())
+			ep.aliveCtx = aliveCtx
+			t.Cleanup(func() {
+				ep.dnsRulesAPI = noopDNSRulesAPI{}
+				closeEndpoint()
+				if trigger := ep.dnsHistoryTrigger.Load(); trigger != nil {
+					trigger.Shutdown()
+				}
+			})
+
+			pm := fakepolicymap.NewFakePolicyMap()
+			ep.policyMap = pm
+			if tc.populated {
+				k := policymap.NewKeyFromPolicyKey(key)
+				v := policymap.NewEntryFromPolicyEntry(k, types.MapStateEntry{})
+				require.NoError(t, pm.Update(&k, &v))
+			}
+			if tc.noPolicyMap {
+				ep.policyMap = nil
+				ep.properties = map[string]any{
+					endpointtypes.PropertySkipBPFPolicy: true,
+					endpointtypes.PropertyAtHostNS:      true,
+				}
+			}
+			var events []string
+			ep.orchestrator = &publicationOrchestrator{events: &events}
+			ep.lxcMap = &publicationEndpointMap{events: &events}
+			ep.proxy = &recordingAckRedirectProxy{err: tc.rulesErr, onAck: func() {
+				events = append(events, "rules")
+			}}
+			datapath := &datapathRegenerationContext{
+				currentDir:        t.TempDir(),
+				nextDir:           t.TempDir(),
+				ctCleaned:         make(chan struct{}),
+				regenerationLevel: regeneration.RegenerateWithDatapath,
+				policyResult: &policyGenerateResult{
+					endpointPolicy: desired,
+					identity:       ep.getIdentity(),
+					policyRevision: f.repo.GetRevision(),
+				},
+			}
+			if tc.noReload {
+				datapath.regenerationLevel = regeneration.RegenerateWithoutDatapath
+			}
+			var pending *completion.Completion
+			ep.dnsRulesAPI = noopDNSRulesAPI{onRead: func() {
+				pending = datapath.proxyWaitGroup.AddCompletionWithCallback(nil, nil)
+			}}
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			regenCtx := &regenerationContext{
+				parentContext:               ctx,
+				datapathRegenerationContext: datapath,
+				DoneFunc: func() {
+					events = append(events, "done")
+					// Empty maps must be filled before loading to avoid blackholes;
+					// populated maps must retain their old policy until the wait.
+					if !tc.noPolicyMap {
+						dump, err := pm.DumpToMapStateMap()
+						require.NoError(t, err)
+						require.Equal(t, !tc.populated, dump[key].ProxyPort == entry.ProxyPort)
+					}
+					if tc.cancel {
+						cancel()
+					}
+					pending.Complete(tc.proxyErr)
+				},
+			}
+
+			ep.buildMutex.Lock()
+			_, err := ep.regenerateBPF(regenCtx)
+			ep.buildMutex.Unlock()
+			if tc.wantErr != nil {
+				require.ErrorIs(t, err, tc.wantErr)
+				regenErr, ok := errors.AsType[*regenerationError](err)
+				require.True(t, ok)
+				require.Equal(t, regenerationFailureReasonProxyPolicyError, regenErr.GetReason())
+			} else {
+				require.NoError(t, err)
+				if !tc.noPolicyMap {
+					dump, err := pm.DumpToMapStateMap()
+					require.NoError(t, err)
+					require.Equal(t, entry.ProxyPort, dump[key].ProxyPort)
+				}
+			}
+			require.Equal(t, tc.events, events)
 		})
 	}
 }
