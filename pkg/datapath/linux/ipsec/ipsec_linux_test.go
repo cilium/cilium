@@ -5,15 +5,19 @@ package ipsec
 
 import (
 	"bytes"
+	"errors"
 	"log/slog"
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
+	"golang.org/x/sys/unix"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -717,4 +721,192 @@ func TestGetDirFromXfrmMark(t *testing.T) {
 			require.Equal(t, tt.want, getDirFromXfrmMark(tt.mark))
 		})
 	}
+}
+
+// outPolicy builds an OUT policy shaped like ipSecReplacePolicyOut's.
+func outPolicy(t *testing.T) *netlink.XfrmPolicy {
+	return &netlink.XfrmPolicy{
+		Dir:  netlink.XFRM_DIR_OUT,
+		Src:  mustParseCIDR(t, "0.0.0.0/0"),
+		Dst:  mustParseCIDR(t, "10.0.0.0/16"),
+		Mark: generateEncryptMark(5, 0x2a),
+		Tmpls: []netlink.XfrmPolicyTmpl{{
+			Proto: netlink.XFRM_PROTO_ESP,
+			Mode:  netlink.XFRM_MODE_TUNNEL,
+			Src:   net.ParseIP("10.0.1.1"),
+			Dst:   net.ParseIP("10.0.2.1"),
+			Spi:   5,
+			Reqid: DefaultReqID,
+		}},
+	}
+}
+
+// optionalPolicy builds an IN/FWD policy shaped like ipSecReplacePolicyIn's and
+// ipsecReplacePolicyFwd's: wildcard selector, optional template without addresses.
+func optionalPolicy(t *testing.T, dir netlink.Dir, cidr string, priority int) *netlink.XfrmPolicy {
+	return &netlink.XfrmPolicy{
+		Dir:      dir,
+		Priority: priority,
+		Src:      mustParseCIDR(t, cidr),
+		Dst:      mustParseCIDR(t, cidr),
+		Tmpls: []netlink.XfrmPolicyTmpl{{
+			Proto:    netlink.XFRM_PROTO_ESP,
+			Mode:     netlink.XFRM_MODE_TUNNEL,
+			Optional: 1,
+		}},
+	}
+}
+
+func TestXfrmPolicyEqual(t *testing.T) {
+	t.Run("identical OUT policy", func(t *testing.T) {
+		require.True(t, xfrmPolicyEqual(outPolicy(t), outPolicy(t)))
+	})
+
+	t.Run("IPv6 wildcard read back as IPv4 wildcard", func(t *testing.T) {
+		desired := optionalPolicy(t, netlink.XFRM_DIR_FWD, "::/0", linux_defaults.IPsecFwdPriority)
+		installed := optionalPolicy(t, netlink.XFRM_DIR_FWD, "0.0.0.0/0", linux_defaults.IPsecFwdPriority)
+		require.True(t, xfrmPolicyEqual(installed, desired))
+	})
+
+	t.Run("optional template read back with unspecified addresses", func(t *testing.T) {
+		desired := optionalPolicy(t, netlink.XFRM_DIR_IN, "0.0.0.0/0", 0)
+		installed := optionalPolicy(t, netlink.XFRM_DIR_IN, "0.0.0.0/0", 0)
+		installed.Tmpls[0].Src = net.IPv4zero
+		installed.Tmpls[0].Dst = net.IPv6zero
+		require.True(t, xfrmPolicyEqual(installed, desired))
+	})
+
+	t.Run("default drop policies match themselves", func(t *testing.T) {
+		require.True(t, xfrmPolicyEqual(defaultDropPolicyIPv4, defaultDropPolicyIPv4))
+		require.True(t, xfrmPolicyEqual(defaultDropPolicyIPv6, defaultDropPolicyIPv6))
+	})
+
+	differs := map[string]func(p *netlink.XfrmPolicy){
+		"template SPI (key rotation)": func(p *netlink.XfrmPolicy) { p.Tmpls[0].Spi = 6 },
+		"template reqid":              func(p *netlink.XfrmPolicy) { p.Tmpls[0].Reqid = 2 },
+		"template destination":        func(p *netlink.XfrmPolicy) { p.Tmpls[0].Dst = net.ParseIP("10.0.2.2") },
+		"template source":             func(p *netlink.XfrmPolicy) { p.Tmpls[0].Src = net.ParseIP("10.0.1.2") },
+		"template optional flag":      func(p *netlink.XfrmPolicy) { p.Tmpls[0].Optional = 1 },
+		"template count":              func(p *netlink.XfrmPolicy) { p.Tmpls = append(p.Tmpls, p.Tmpls[0]) },
+		"mark value (node ID)":        func(p *netlink.XfrmPolicy) { p.Mark = generateEncryptMark(5, 0x2b) },
+		"mark missing":                func(p *netlink.XfrmPolicy) { p.Mark = nil },
+		"destination prefix":          func(p *netlink.XfrmPolicy) { p.Dst = mustParseCIDR(t, "10.0.0.0/24") },
+		"destination address":         func(p *netlink.XfrmPolicy) { p.Dst = mustParseCIDR(t, "10.1.0.0/16") },
+		"source prefix":               func(p *netlink.XfrmPolicy) { p.Src = mustParseCIDR(t, "10.0.0.0/8") },
+		"priority":                    func(p *netlink.XfrmPolicy) { p.Priority = 1 },
+		"action":                      func(p *netlink.XfrmPolicy) { p.Action = netlink.XFRM_POLICY_BLOCK },
+		"direction":                   func(p *netlink.XfrmPolicy) { p.Dir = netlink.XFRM_DIR_IN },
+		"protocol":                    func(p *netlink.XfrmPolicy) { p.Proto = netlink.Proto(6) },
+		"destination port":            func(p *netlink.XfrmPolicy) { p.DstPort = 4500 },
+		"interface ID":                func(p *netlink.XfrmPolicy) { p.Ifid = 7 },
+	}
+	for name, mutate := range differs {
+		t.Run("differs in "+name, func(t *testing.T) {
+			installed := outPolicy(t)
+			mutate(installed)
+			require.False(t, xfrmPolicyEqual(installed, outPolicy(t)))
+		})
+	}
+}
+
+// xfrmnlgrpPolicy is the XFRMNLGRP_POLICY netlink multicast group.
+const xfrmnlgrpPolicy = 4
+
+// countPolicyEvents returns how many XFRM policy add/update notifications the
+// kernel emits in ns while fn runs there.
+func countPolicyEvents(t *testing.T, ns *netns.NetNS, fn func() error) int {
+	t.Helper()
+
+	// The socket is bound to the namespace it is created in.
+	var sock *nl.NetlinkSocket
+	require.NoError(t, ns.Do(func() error {
+		var err error
+		sock, err = nl.Subscribe(unix.NETLINK_XFRM, xfrmnlgrpPolicy)
+		return err
+	}))
+	defer sock.Close()
+	require.NoError(t, sock.SetReceiveTimeout(&unix.Timeval{Usec: 50_000}))
+
+	require.NoError(t, ns.Do(fn))
+
+	events := 0
+	deadline := time.Now().Add(300 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		msgs, _, err := sock.Receive()
+		if errors.Is(err, unix.EAGAIN) || errors.Is(err, unix.EWOULDBLOCK) {
+			continue
+		}
+		require.NoError(t, err)
+		for _, m := range msgs {
+			if m.Header.Type == nl.XFRM_MSG_NEWPOLICY || m.Header.Type == nl.XFRM_MSG_UPDPOLICY {
+				events++
+			}
+		}
+	}
+	return events
+}
+
+func TestPrivilegedXfrmPolicyUpdateIfChanged(t *testing.T) {
+	testutils.PrivilegedTest(t)
+
+	shapes := map[string]*netlink.XfrmPolicy{
+		"out with node mark":    outPolicy(t),
+		"in optional, IPv4 /0":  optionalPolicy(t, netlink.XFRM_DIR_IN, "0.0.0.0/0", 0),
+		"fwd optional, IPv6 /0": optionalPolicy(t, netlink.XFRM_DIR_FWD, "::/0", linux_defaults.IPsecFwdPriority),
+		"default drop IPv4":     defaultDropPolicyIPv4,
+		"default drop IPv6":     defaultDropPolicyIPv6,
+	}
+	for name, policy := range shapes {
+		t.Run(name, func(t *testing.T) {
+			ns := netns.NewNetNS(t)
+
+			// First install writes the policy.
+			require.Equal(t, 1, countPolicyEvents(t, ns, func() error {
+				return xfrmPolicyUpdateIfChanged(policy)
+			}))
+
+			// What the kernel returns compares equal to what we asked for.
+			installed := tnl.MustXfrmPolicyGet(t, ns, policy)
+			require.True(t, xfrmPolicyEqual(installed, policy), "installed %+v", installed)
+
+			// Re-applying the same policy doesn't touch the kernel.
+			require.Equal(t, 0, countPolicyEvents(t, ns, func() error {
+				for range 5 {
+					if err := xfrmPolicyUpdateIfChanged(policy); err != nil {
+						return err
+					}
+				}
+				return nil
+			}))
+		})
+	}
+
+	t.Run("changed template SPI is written", func(t *testing.T) {
+		ns := netns.NewNetNS(t)
+		policy := outPolicy(t)
+		require.NoError(t, ns.Do(func() error { return xfrmPolicyUpdateIfChanged(policy) }))
+
+		rotated := outPolicy(t)
+		rotated.Tmpls[0].Spi = 6
+		require.Equal(t, 1, countPolicyEvents(t, ns, func() error {
+			return xfrmPolicyUpdateIfChanged(rotated)
+		}))
+		installed := tnl.MustXfrmPolicyGet(t, ns, rotated)
+		require.Equal(t, 6, installed.Tmpls[0].Spi)
+	})
+
+	t.Run("deleted policy is restored", func(t *testing.T) {
+		ns := netns.NewNetNS(t)
+		policy := outPolicy(t)
+		require.NoError(t, ns.Do(func() error {
+			if err := xfrmPolicyUpdateIfChanged(policy); err != nil {
+				return err
+			}
+			if err := netlink.XfrmPolicyDel(policy); err != nil {
+				return err
+			}
+			return xfrmPolicyUpdateIfChanged(policy)
+		}))
+		tnl.MustXfrmPolicyGet(t, ns, policy)
+	})
 }
