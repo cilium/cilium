@@ -52,6 +52,7 @@ spec:
                   If a destination IP matches any one CIDR, it will be selected.
                 items:
                   format: cidr
+                  maxLength: 43
                   type: string
                 type: array
               egressGateway:
@@ -282,6 +283,7 @@ spec:
                   effect.
                 items:
                   format: cidr
+                  maxLength: 43
                   type: string
                 type: array
               selectors:

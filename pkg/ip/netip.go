@@ -62,6 +62,7 @@ func (in *Addr) DeepEqual(other *Addr) bool {
 // +deepequal-gen=false
 // +kubebuilder:validation:Type=string
 // +kubebuilder:validation:Format=cidr
+// +kubebuilder:validation:MaxLength=43
 type Prefix struct {
 	netip.Prefix
 }

@@ -39,6 +39,14 @@ notes carefully below to understand what to do during upgrade.
   :ref:`kernel requirements <admin_kernel_version>`. Previously, the agent could
   start on such kernels but failed to load some BPF programs. Ensure all nodes
   run a kernel with BTF before upgrading.
+* ``CiliumPodIPPool`` objects that set ``spec.ipv4.pool`` or ``spec.ipv6.pool``
+  must now have one ``pool`` entry for each CIDR in ``cidrs``. For example, if
+  ``cidrs`` lists ``10.0.0.0/24`` and ``10.0.1.0/24``, ``pool`` must list both.
+  Leave ``pool`` empty if you do not need per-CIDR settings. The API server also
+  rejects CIDRs with host bits set, such as ``10.0.0.1/24`` (use
+  ``10.0.0.0/24`` instead), duplicate ``cidrs`` entries, and IPv6 CIDRs with
+  uppercase letters. Existing objects that break these rules are rejected the
+  next time you edit them, so fix them before you change them.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
