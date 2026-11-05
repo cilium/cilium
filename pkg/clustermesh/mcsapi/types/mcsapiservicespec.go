@@ -185,6 +185,23 @@ func (s *MCSAPIServiceSpec) validate() error {
 	if ipv4Count > 1 || ipv6Count > 1 {
 		return errors.New("ipFamilies contain duplicate families")
 	}
+	for _, port := range s.Ports {
+		if len(port.Name) > 0 {
+			if errs := validation.IsDNS1123Label(port.Name); len(errs) != 0 {
+				return fmt.Errorf("invalid port name %q: %v", port.Name, errs)
+			}
+		}
+		switch port.Protocol {
+		case "", corev1.ProtocolTCP, corev1.ProtocolUDP, corev1.ProtocolSCTP:
+		default:
+			return fmt.Errorf("invalid port protocol %q", port.Protocol)
+		}
+		if port.AppProtocol != nil {
+			if errs := validation.IsQualifiedName(*port.AppProtocol); len(errs) != 0 {
+				return fmt.Errorf("invalid app protocol %q: %v", *port.AppProtocol, errs)
+			}
+		}
+	}
 
 	return nil
 }
