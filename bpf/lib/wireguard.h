@@ -68,7 +68,7 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	const struct remote_endpoint_info *dst = NULL;
 	const struct remote_endpoint_info *src = NULL;
 	void *data, *data_end;
-	struct ipv6hdr __maybe_unused *ip6;
+	struct ipv6hdr *ip6;
 	struct iphdr *ip4;
 	__u32 magic __maybe_unused = 0;
 
@@ -84,8 +84,10 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		return DROP_UNSUPPORTED_L2;
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6))
+			goto out;
+
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 #ifdef ENABLE_NODE_ENCRYPTION
@@ -117,7 +119,6 @@ wg_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			src_sec_identity = src->sec_identity;
 		}
 		break;
-#endif
 	case bpf_htons(ETH_P_IP):
 		if (!is_defined(ENABLE_IPV4))
 			goto out;
