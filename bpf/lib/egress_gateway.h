@@ -286,7 +286,6 @@ int egress_gw_handle_packet(struct ipv4_ct_tuple *tuple,
 	return egress_gw_request_needs_redirect_hook(tuple, gateway_ip);
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline const struct egress_gw_policy_entry6 *
 lookup_ip6_egress_gw_policy(const union v6addr *saddr, const union v6addr *daddr)
 {
@@ -473,7 +472,6 @@ int egress_gw_handle_packet_v6(struct ipv6_ct_tuple *tuple,
 
 	return egress_gw_request_needs_redirect_hook_v6(tuple, gateway_ip);
 }
-#endif /* ENABLE_IPV6 */
 
 static __always_inline
 int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
@@ -485,9 +483,9 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 	__be32 gateway_ip = 0;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct ipv6hdr __maybe_unused *ip6;
+	struct ipv6hdr *ip6;
 	struct ipv4_ct_tuple tuple4 = {};
-	struct ipv6_ct_tuple __maybe_unused tuple6 = {};
+	struct ipv6_ct_tuple tuple6 = {};
 	int l4_off;
 	const struct remote_endpoint_info *info;
 	const struct endpoint_info *src_ep;
@@ -535,8 +533,10 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		ret = egress_gw_handle_packet(&tuple4, dst_sec_identity,
 					      &gateway_ip);
 		break;
-#if defined(ENABLE_IPV6)
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6))
+			return CTX_ACT_OK;
+
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 
@@ -574,7 +574,6 @@ int egress_gw_handle_request(struct __ctx_buff *ctx, __be16 proto,
 		ret = egress_gw_handle_packet_v6(&tuple6, dst_sec_identity,
 						 &gateway_ip);
 		break;
-#endif
 	default:
 		return CTX_ACT_OK;
 	}
