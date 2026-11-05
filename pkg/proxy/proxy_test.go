@@ -348,3 +348,41 @@ func (*fakeXdsServer) SetPolicySecretSyncNamespace(string) {
 }
 
 var _ envoy.XDSServer = &fakeXdsServer{}
+
+func TestCreateOrUpdateCRDRedirect(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+	}{
+		{name: "unchanged"},
+		{name: "reallocated"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := &fakeXdsServer{}
+			p, _ := proxyForTest(t, &envoyProxyIntegration{xdsServer: server, iptablesManager: iptables.NewManager()})
+			l4 := &fakeProxyPolicy{parserType: policy.ParserTypeCRD}
+			name := l4.GetListener()
+			original, err := p.proxyPorts.AllocateCRDProxyPort(name)
+			require.NoError(t, err)
+			require.NoError(t, p.proxyPorts.AckProxyPortWithReference(t.Context(), name))
+			wg := completion.NewWaitGroup(t.Context())
+			defer wg.Cancel()
+			port, err, _ := p.CreateOrUpdateRedirect(l4, "redirect", 100, wg)
+			require.NoError(t, err)
+			require.Equal(t, original, port)
+
+			wantPort := original
+			if tt.name == "reallocated" {
+				wantPort, err = p.proxyPorts.ReallocateCRDProxyPort(name)
+				require.NoError(t, err)
+				require.NotEqual(t, wantPort, original)
+				require.NoError(t, p.proxyPorts.AckProxyPort(t.Context(), name))
+			}
+			port, err, _ = p.CreateOrUpdateRedirect(l4, "redirect", 100, wg)
+			require.NoError(t, err)
+			require.Equal(t, wantPort, port)
+			p.RemoveRedirect("redirect")
+			_, _, inUse := p.proxyPorts.GetStatusInfo()
+			require.Equal(t, uint16(1), inUse, "the existing CEC reference remains after removing the redirect")
+		})
+	}
+}
