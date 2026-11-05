@@ -111,7 +111,7 @@ set_ipsec_encrypt(struct __ctx_buff *ctx,
 static __always_inline int
 do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 {
-	struct ipv6hdr __maybe_unused *ip6;
+	struct ipv6hdr *ip6;
 	struct iphdr *ip4;
 	void *data, *data_end;
 	__u8 protocol = 0;
@@ -119,8 +119,10 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 	bool decrypted = ctx_is_decrypt(ctx);
 
 	switch (proto) {
-#ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6))
+			return CTX_ACT_OK;
+
 		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6)) {
 			ctx->mark = 0;
 			return CTX_ACT_OK;
@@ -129,7 +131,6 @@ do_decrypt(struct __ctx_buff *ctx, __be16 proto)
 		if (!decrypted)
 			node_id = lookup_ip6_node_id((union v6addr *)&ip6->saddr);
 		break;
-#endif
 	case bpf_htons(ETH_P_IP):
 		if (!is_defined(ENABLE_IPV4))
 			return CTX_ACT_OK;
@@ -183,7 +184,7 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 	const struct remote_endpoint_info *src = NULL;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct ipv6hdr __maybe_unused *ip6;
+	struct ipv6hdr *ip6;
 	int ret = 0;
 	union macaddr dst_mac_addr = CONFIG(cilium_net_mac);
 
@@ -235,8 +236,10 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 		}
 		break;
 
-# ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		if (!is_defined(ENABLE_IPV6))
+			return CTX_ACT_OK;
+
 		/* handle native routing ipv6 */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
@@ -271,7 +274,6 @@ ipsec_maybe_redirect_to_encrypt(struct __ctx_buff *ctx, __be16 proto,
 			src_sec_identity = src->sec_identity;
 		}
 		break;
-# endif /* ENABLE_IPv6 */
 	default:
 		return CTX_ACT_OK;
 	}
