@@ -52,8 +52,8 @@ struct {
 	__type(key, struct endpoint_key);
 	__type(value, struct endpoint_info);
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, ENDPOINTS_MAP_SIZE);
-	__uint(map_flags, CONDITIONAL_PREALLOC | BPF_F_RDONLY_PROG_COND);
+	__uint(max_entries, 65536);
+	__uint(map_flags, BPF_F_RDONLY_PROG_COND);
 } cilium_lxc __section_maps_btf;
 
 static __always_inline __maybe_unused const struct endpoint_info *
