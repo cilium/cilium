@@ -375,19 +375,27 @@ public IP address is stored in the ``CiliumNode`` resource's
 IP Release
 ==========
 
-When the operator runs with ``--ipam-release-excess-ips`` (Helm value
-``ipam.operator.releaseExcessIPs``), it releases addresses that the agent
-removes from ``spec.ipam.pools.allocated`` after the delay configured by
-``--excess-ip-release-delay`` (Helm value ``ipam.operator.excessIPReleaseDelay``,
-default 180 seconds). Addresses the agent adds back within the delay are kept.
-An address is released by removing its IP configuration from the network
-interface of a standalone VM, or from the VM model of a VMSS instance. The
-primary IP configuration is never released, including with
-``--azure-use-primary-address``.
+The agent decides when to release an address, controlled by the
+``--ipam-cloud-release`` (Helm value ``ipam.cloudRelease``, default ``false``)
+and ``--ipam-cloud-release-delay`` (Helm value ``ipam.cloudReleaseDelay``,
+default ``3m``) agent options. After an address has been unused and in excess
+for the configured delay, the agent releases it by removing it from
+``spec.ipam.pools.allocated``, and never allocates it again, even while it
+remains attached to the network interface.
 
-When release is disabled, addresses that the agent removes from
-``spec.ipam.pools.allocated`` stay on the network interface, and the agent
-can allocate them to pods again if demand grows.
+The operator releases addresses that the agent removes from
+``spec.ipam.pools.allocated`` when it runs with ``--ipam-release-excess-ips``
+(Helm value ``ipam.operator.releaseExcessIPs``). Run it with
+``--excess-ip-release-delay=0`` so that it detaches them right away, as the
+delay already elapsed on the agent. An address is released by removing its IP
+configuration from the network interface of a standalone VM, or from the VM
+model of a VMSS instance. The primary IP configuration is never released,
+including with ``--azure-use-primary-address``.
+
+When ``--ipam-cloud-release`` is disabled, which is the default, the agent
+never relinquishes addresses and no addresses are released. When it is enabled
+without ``--ipam-release-excess-ips`` on the operator, addresses the agent
+relinquishes stay on the network interface but are no longer allocated to pods.
 
 Node Termination
 ================
