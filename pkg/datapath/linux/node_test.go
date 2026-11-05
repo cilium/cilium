@@ -56,20 +56,14 @@ var (
 )
 
 func TestCreateNodeRoute(t *testing.T) {
-	dpConfig := DatapathConfiguration{
-		HostDevice: "host_device",
-	}
-	log := hivetest.Logger(t)
-
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	nodeHandler := newNodeHandler(log, dpConfig, nil, kpr.KPRConfig{}, &fakeipsec.Agent{}, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	nodeHandler := newTestNodeHandler(t)
 	nodeHandler.NodeConfigurationChanged(nodeConfig)
 
 	c1 := netip.MustParsePrefix("10.10.0.0/16")
 	generatedRoute, err := nodeHandler.createNodeRouteSpec(c1, false)
 	require.NoError(t, err)
 	require.Equal(t, *netipx.PrefixIPNet(c1), generatedRoute.Prefix)
-	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
+	require.Equal(t, hostDevice, generatedRoute.Device)
 	require.Equal(t, net.IP(fakeNodeAddressing.IPv4().Router().AsSlice()), generatedRoute.Nexthop.To4())
 	require.Equal(t, net.IP(fakeNodeAddressing.IPv4().Router().AsSlice()), generatedRoute.Local.To4())
 
@@ -77,7 +71,7 @@ func TestCreateNodeRoute(t *testing.T) {
 	generatedRoute, err = nodeHandler.createNodeRouteSpec(c1, false)
 	require.NoError(t, err)
 	require.Equal(t, *netipx.PrefixIPNet(c1), generatedRoute.Prefix)
-	require.Equal(t, dpConfig.HostDevice, generatedRoute.Device)
+	require.Equal(t, hostDevice, generatedRoute.Device)
 	require.Nil(t, generatedRoute.Nexthop)
 	require.Equal(t, net.IP(fakeNodeAddressing.IPv6().Router().AsSlice()), generatedRoute.Local.To16())
 }
@@ -398,7 +392,7 @@ func TestClassifyRemoteCIDRs(t *testing.T) {
 			}
 			lns := node.NewTestLocalNodeStore(localNode)
 
-			handler := newNodeHandler(log, DatapathConfiguration{}, nil, kpr.KPRConfig{}, &fakeipsec.Agent{}, fakeipsec.Config{}, lns, newNodePolicy(), db, table)
+			handler := newNodeHandler(log, DatapathConfiguration{}, nil, kpr.KPRConfig{}, &fakeipsec.Agent{}, fakeipsec.Config{}, lns, newNodePolicy(), db, table, nil)
 			handler.nodeConfig.EnableAutoDirectRouting = tt.autoDirect
 
 			localGroups := handler.localSubnetGroups()

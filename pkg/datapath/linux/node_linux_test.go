@@ -25,6 +25,7 @@ import (
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ip"
@@ -54,6 +55,29 @@ type nodeSuite struct {
 	// nodeConfigTemplate is the partially filled template for local node configuration.
 	// copy it, don't mutate it.
 	nodeConfigTemplate config.Config
+}
+
+func newTestNodeHandler(t testing.TB) *linuxNodeHandler {
+	t.Helper()
+
+	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
+
+	nodeHandler := newNodeHandler(
+		hivetest.Logger(t),
+		DatapathConfiguration{HostDevice: hostDevice},
+		nodemapfake.NewFakeNodeMapV2(),
+		kpr.KPRConfig{},
+		ipsecAgent,
+		fakeipsec.Config{},
+		node.NewTestLocalNodeStore(node.LocalNode{}),
+		newNodePolicy(),
+		nil,
+		nil,
+		routeReconciler.NewPruneExclusion(),
+	)
+	require.NotNil(t, nodeHandler)
+	return nodeHandler
 }
 
 func setup(tb testing.TB, family string) *nodeSuite {
@@ -245,14 +269,7 @@ func testUpdateNodeRoute(t *testing.T, family string) {
 	ip4CIDR := netip.MustParsePrefix("254.254.254.0/24")
 	ip6CIDR := netip.MustParsePrefix("cafe:cafe:cafe:cafe::/96")
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-
-	a, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
 	if s.enableIPv4 {
@@ -292,13 +309,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 	net1 := netip.MustParsePrefix("30.30.0.0/24")
 	net2 := netip.MustParsePrefix("cafe:f00d::/112")
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.AuxiliaryPrefixes = []ip.Prefix{ip.PrefixFrom(net1), ip.PrefixFrom(net2)}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
@@ -372,14 +383,10 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 
 	externalNodeIP1 := net.ParseIP("4.4.4.4")
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
 	policy := newNodePolicy()
 	policy.SetEnableEncapsulation(override)
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, policy, nil, nil)
+	lnh := newTestNodeHandler(t)
+	lnh.nodePolicy = policy
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = encap
@@ -536,13 +543,8 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 
 	nodeMap := nodemapfake.NewFakeNodeMapV2()
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
+	lnh.nodeMap = nodeMap
 
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
@@ -690,13 +692,11 @@ func testNodeChurnXFRMLeaksSubnetMode(t *testing.T, family string) {
 }
 
 func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.Config) {
-	log := hivetest.Logger(t)
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
+	lnh.ipsecAgent = a
 
 	mustConfigureNode(t, s.ns, lnh, config)
 
@@ -792,11 +792,11 @@ func TestPrivilegedNodeUpdateHybridRouting(t *testing.T) {
 	externalNodeDevice := "dummy_node1"
 	dev := mustSetupDevice(t, s.ns, externalNodeDevice, externalNodeIP)
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
 	log := hivetest.Logger(t)
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), db, subnetTable)
+	lnh := newTestNodeHandler(t)
+	lnh.localNodeStore = lns
+	lnh.db = db
+	lnh.subnetTable = subnetTable
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableIPv6 = false
@@ -930,12 +930,10 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	remoteNode2Device := "remote_node_2"
 	dev2 := mustSetupDevice(t, s.ns, remoteNode2Device, remoteNode2IPv4, remoteNode2IPv6)
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
+	lnh.ipsecAgent = a
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
