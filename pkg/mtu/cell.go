@@ -125,7 +125,8 @@ func parsePLPMTUDMode(cc Config) (string, error) {
 // warnRouteMTUForCNIChaining warns when CNI chaining is combined with a feature
 // adding encapsulation or encryption overhead, but the route MTU is not managed.
 func warnRouteMTUForCNIChaining(p mtuParams, cc Config) {
-	if p.CNI.GetChainingMode() == "none" || cc.EnableRouteMTUForCNIChaining {
+	// With portmap, cilium-cni stays the main plugin and sets the Pod route MTU.
+	if mode := p.CNI.GetChainingMode(); mode == "none" || mode == "portmap" || cc.EnableRouteMTUForCNIChaining {
 		return
 	}
 	if netConf := p.CNI.GetCustomNetConf(); netConf != nil && netConf.EnableRouteMTU {
