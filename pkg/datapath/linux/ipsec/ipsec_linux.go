@@ -566,6 +566,76 @@ func xfrmMarkEqual(mark1, mark2 *netlink.XfrmMark) bool {
 	return mark1 == nil || (mark1.Value == mark2.Value && mark1.Mask == mark2.Mask)
 }
 
+// xfrmPolicyUpdateIfChanged installs the XFRM policy unless an identical one is
+// already in place.
+func xfrmPolicyUpdateIfChanged(policy *netlink.XfrmPolicy) error {
+	if current, err := netlink.XfrmPolicyGet(policy); err == nil && xfrmPolicyEqual(current, policy) {
+		return nil
+	}
+	return netlink.XfrmPolicyUpdate(policy)
+}
+
+// xfrmPolicyEqual returns true if the installed policy matches the desired one
+// in every field Cilium sets.
+func xfrmPolicyEqual(installed, desired *netlink.XfrmPolicy) bool {
+	if installed.Dir != desired.Dir ||
+		installed.Priority != desired.Priority ||
+		installed.Action != desired.Action ||
+		installed.Proto != desired.Proto ||
+		installed.SrcPort != desired.SrcPort ||
+		installed.DstPort != desired.DstPort ||
+		installed.Ifindex != desired.Ifindex ||
+		installed.Ifid != desired.Ifid ||
+		!xfrmMarkEqual(installed.Mark, desired.Mark) ||
+		!xfrmSelectorNetEqual(installed.Src, desired.Src) ||
+		!xfrmSelectorNetEqual(installed.Dst, desired.Dst) ||
+		len(installed.Tmpls) != len(desired.Tmpls) {
+		return false
+	}
+	for i := range desired.Tmpls {
+		a, b := installed.Tmpls[i], desired.Tmpls[i]
+		if a.Proto != b.Proto || a.Mode != b.Mode || a.Spi != b.Spi ||
+			a.Reqid != b.Reqid || a.Optional != b.Optional ||
+			!xfrmOptionalIPEqual(a.Src, b.Src) || !xfrmOptionalIPEqual(a.Dst, b.Dst) {
+			return false
+		}
+	}
+	return true
+}
+
+// xfrmSelectorNetEqual compares policy selector prefixes. vishvananda/netlink
+// parses XfrmPolicyGet replies with FAMILY_ALL, so it returns an all-zero /0
+// selector as 0.0.0.0/0 even for IPv6 policies. Compare prefix lengths and
+// treat unspecified addresses as equal.
+func xfrmSelectorNetEqual(a, b *net.IPNet) bool {
+	return xfrmMaskOnes(a) == xfrmMaskOnes(b) && xfrmOptionalIPEqual(xfrmNetIP(a), xfrmNetIP(b))
+}
+
+// xfrmOptionalIPEqual is xfrmIPEqual that also treats a nil IP as unspecified,
+// since optional templates are installed without addresses.
+func xfrmOptionalIPEqual(a, b net.IP) bool {
+	unspecified := func(ip net.IP) bool { return len(ip) == 0 || ip.IsUnspecified() }
+	if unspecified(a) || unspecified(b) {
+		return unspecified(a) && unspecified(b)
+	}
+	return a.Equal(b)
+}
+
+func xfrmNetIP(n *net.IPNet) net.IP {
+	if n == nil {
+		return nil
+	}
+	return n.IP
+}
+
+func xfrmMaskOnes(n *net.IPNet) int {
+	if n == nil {
+		return 0
+	}
+	ones, _ := n.Mask.Size()
+	return ones
+}
+
 func (a *agent) ipSecReplaceStateIn(params *types.Parameters) (uint8, error) {
 	key, err := a.getNodeIPsecKey(*params.SourceTunnelIP, *params.DestTunnelIP, params.RemoteBootID, params.LocalBootID)
 	if err != nil {
@@ -623,7 +693,7 @@ func (a *agent) ipSecReplacePolicyIn(params *types.Parameters) error {
 	policy.Dst = params.DestSubnet
 	policy.Dir = netlink.XFRM_DIR_IN
 	ipSecAttachPolicyTempl(policy, params.ReqID, a.key.Spi, *params.SourceTunnelIP, *params.DestTunnelIP, true)
-	return netlink.XfrmPolicyUpdate(policy)
+	return xfrmPolicyUpdateIfChanged(policy)
 }
 
 func (a *agent) ipsecReplacePolicyFwd(params *types.Parameters) error {
@@ -643,7 +713,7 @@ func (a *agent) ipsecReplacePolicyFwd(params *types.Parameters) error {
 	policy.Dst = params.DestSubnet
 
 	ipSecAttachPolicyTempl(policy, params.ReqID, a.key.Spi, *params.SourceTunnelIP, *params.DestTunnelIP, true)
-	return netlink.XfrmPolicyUpdate(policy)
+	return xfrmPolicyUpdateIfChanged(policy)
 }
 
 // Installs a catch-all policy for outgoing traffic that has the encryption
@@ -661,7 +731,7 @@ func IPsecDefaultDropPolicy(ipv6 bool) error {
 		defaultDropPolicy = defaultDropPolicyIPv6
 	}
 
-	err := netlink.XfrmPolicyUpdate(defaultDropPolicy)
+	err := xfrmPolicyUpdateIfChanged(defaultDropPolicy)
 
 	return err
 }
@@ -722,7 +792,7 @@ func (a *agent) ipSecReplacePolicyOut(params *types.Parameters) error {
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = generateEncryptMark(a.key.Spi, params.RemoteNodeID)
 	ipSecAttachPolicyTempl(policy, params.ReqID, a.key.Spi, *params.SourceTunnelIP, *params.DestTunnelIP, false)
-	return netlink.XfrmPolicyUpdate(policy)
+	return xfrmPolicyUpdateIfChanged(policy)
 }
 
 // Returns true if the given mark matches on the node ID. This works because
