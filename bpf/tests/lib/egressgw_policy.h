@@ -32,7 +32,6 @@ static __always_inline void del_egressgw_policy_entry(__be32 saddr, __be32 daddr
 	map_delete_elem(&cilium_egress_gw_policy_v4_v2, &in_key);
 }
 
-#ifdef ENABLE_IPV6
 static __always_inline void add_egressgw_policy_entry_v6(const union v6addr *saddr,
 							 const union v6addr *daddr,
 							 __u8 cidr,
@@ -67,5 +66,4 @@ static __always_inline void del_egressgw_policy_entry_v6(const union v6addr *sad
 
 	map_delete_elem(&cilium_egress_gw_policy_v6, &in_key);
 }
-#endif /* ENABLE_IPV6 */
 #endif /* ENABLE_EGRESS_GATEWAY */
