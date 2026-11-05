@@ -1363,7 +1363,6 @@ struct {
 	__uint(map_flags, BPF_F_NO_PREALLOC | BPF_F_RDONLY_PROG_COND);
 } cilium_ipmasq_v6 __section_maps_btf;
 
-#if defined(ENABLE_IPV6)
 static __always_inline void *
 get_cluster_snat_map_v6(__u32 cluster_id __maybe_unused)
 {
@@ -2273,9 +2272,7 @@ rewrite: __maybe_unused
 				       &tuple.daddr, &state->to_daddr, IPV6_DADDR_OFF,
 				       tuple.dport, to_dport, port_off, outer_csum_diff);
 }
-#endif /* defined(ENABLE_IPV6) */
 
-#if defined(ENABLE_IPV6)
 static __always_inline int
 snat_remap_rfc6052(struct __ctx_buff *ctx, const struct iphdr *ip4, int l3_off)
 {
@@ -2312,7 +2309,7 @@ snat_v6_has_v4_match_rfc6052(const struct ipv4_ct_tuple *tuple4)
 static __always_inline bool
 snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4)
 {
-	if (!NODEPORT_ENABLED)
+	if (!is_defined(ENABLE_IPV6) || !NODEPORT_ENABLED)
 		return false;
 
 	struct ipv6_ct_tuple tuple6;
@@ -2321,10 +2318,3 @@ snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4)
 	build_v4_in_v6(&tuple6.saddr, tuple4->saddr);
 	return __snat_v6_has_v4_complete(&tuple6, tuple4);
 }
-#else
-static __always_inline bool
-snat_v6_has_v4_match(const struct ipv4_ct_tuple *tuple4 __maybe_unused)
-{
-	return false;
-}
-#endif /* ENABLE_IPV6 */
