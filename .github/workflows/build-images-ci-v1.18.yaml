@@ -98,11 +98,10 @@ jobs:
             platforms: linux/amd64,linux/arm64
 
     steps:
-      - name: Checkout base or default branch (trusted)
+      - name: Checkout base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # We first check if base_ref exist, meaning we're in pull_request_target context, and if not we just use default_branch
-          ref: ${{ github.base_ref || github.event.repository.default_branch }}
+          ref: ${{ github.base_ref || github.sha }}
           persist-credentials: false
 
       - name: Set Environment Variables

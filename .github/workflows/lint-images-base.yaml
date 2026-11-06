@@ -52,10 +52,10 @@ jobs:
       # To be able to access the repository with actions/checkout
       contents: read
     steps:
-      - name: Checkout base or default branch (trusted)
+      - name: Checkout context ref (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.context-ref || github.event.repository.default_branch }}
+          ref: ${{ inputs.context-ref || github.sha }}
           persist-credentials: false
           path: trusted
 
