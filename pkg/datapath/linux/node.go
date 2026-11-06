@@ -1,3 +1,4 @@
+// This file was not reviewed by a human before submission
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
@@ -1171,37 +1172,35 @@ func (n *linuxNodeHandler) updateHybridRoutes(oldNode, newNode *nodeTypes.Node, 
 	localGroups := n.localSubnetGroups()
 	newTun4, newDir4 := n.classifyRemoteCIDRs(newNode.GetIPv4AllocCIDRs(), localGroups)
 	newTun6, newDir6 := n.classifyRemoteCIDRs(newNode.GetIPv6AllocCIDRs(), localGroups)
-	var oldTun4, oldDir4, oldTun6, oldDir6 []netip.Prefix
+	var old4, old6 []netip.Prefix
 	if oldNode != nil {
-		oldTun4, oldDir4 = n.classifyRemoteCIDRs(oldNode.GetIPv4AllocCIDRs(), localGroups)
-		oldTun6, oldDir6 = n.classifyRemoteCIDRs(oldNode.GetIPv6AllocCIDRs(), localGroups)
+		old4 = oldNode.GetIPv4AllocCIDRs()
+		old6 = oldNode.GetIPv6AllocCIDRs()
 	}
 
-	addedTun4, removedTun4 := diffPrefixes(oldTun4, newTun4)
-	addedTun6, removedTun6 := diffPrefixes(oldTun6, newTun6)
+	_, removed4 := diffPrefixes(old4, newNode.GetIPv4AllocCIDRs())
+	_, removed6 := diffPrefixes(old6, newNode.GetIPv6AllocCIDRs())
+	removedDir4, removedDir6 := removed4, removed6
+	if !oldIP4.Equal(newIP4) {
+		removedDir4 = old4
+	}
+	if !oldIP6.Equal(newIP6) {
+		removedDir6 = old6
+	}
 
-	var addedDir4, removedDir4, addedDir6, removedDir6 []netip.Prefix
-	if oldIP4.Equal(newIP4) {
-		addedDir4, removedDir4 = diffPrefixes(oldDir4, newDir4)
-	} else {
-		addedDir4, removedDir4 = newDir4, oldDir4
-	}
-	if oldIP6.Equal(newIP6) {
-		addedDir6, removedDir6 = diffPrefixes(oldDir6, newDir6)
-	} else {
-		addedDir6, removedDir6 = newDir6, oldDir6
-	}
+	// Reapply desired routes: topology changes do not change the node, and
+	// classifying oldNode with the new topology cannot recover the old routes.
 
 	var errs error
-	if err := n.addNodeRoutes(addedTun4, isLocalNode); err != nil {
+	if err := n.addNodeRoutes(newTun4, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv4: %w", err))
 	}
-	if err := n.addNodeRoutes(addedTun6, isLocalNode); err != nil {
+	if err := n.addNodeRoutes(newTun6, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv6: %w", err))
 	}
 	if n.nodeConfig.EnableAutoDirectRouting {
 		if n.nodeConfig.EnableIPv4 {
-			if err := n.addDirectRoutes(addedDir4, newIP4, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
+			if err := n.addDirectRoutes(newDir4, newIP4, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("hybrid direct routes ipv4: %w", err))
 			}
 		} else if firstAddition {
@@ -1210,7 +1209,7 @@ func (n *linuxNodeHandler) updateHybridRoutes(oldNode, newNode *nodeTypes.Node, 
 			}
 		}
 		if n.nodeConfig.EnableIPv6 {
-			if err := n.addDirectRoutes(addedDir6, newIP6, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
+			if err := n.addDirectRoutes(newDir6, newIP6, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("hybrid direct routes ipv6: %w", err))
 			}
 		} else if firstAddition {
@@ -1220,10 +1219,10 @@ func (n *linuxNodeHandler) updateHybridRoutes(oldNode, newNode *nodeTypes.Node, 
 		}
 	}
 
-	if err := n.removeNodeRoutes(removedTun4, isLocalNode); err != nil {
+	if err := n.removeNodeRoutes(removed4, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv4: %w", err))
 	}
-	if err := n.removeNodeRoutes(removedTun6, isLocalNode); err != nil {
+	if err := n.removeNodeRoutes(removed6, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv6: %w", err))
 	}
 	if n.nodeConfig.EnableAutoDirectRouting {
