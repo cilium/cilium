@@ -1,4 +1,4 @@
-#! --cluster-id=1 --cluster-name=cluster1
+#! --cluster-id=1 --cluster-name=cluster1 --clustermesh-service-v2=prefer-legacy
 
 hive/start
 
