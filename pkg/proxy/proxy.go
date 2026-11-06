@@ -100,6 +100,7 @@ func createProxy(
 }
 
 func (p *Proxy) GetListenerProxyPort(listener string) uint16 {
+	// returns zero on any error
 	proxyPort, _, _ := p.proxyPorts.GetProxyPort(listener)
 	return proxyPort
 }
@@ -110,13 +111,11 @@ func (p *Proxy) GetListenerProxyPort(listener string) uint16 {
 // updated.
 // The proxy listening port is returned, but proxy configuration on that port
 // may still be ongoing asynchronously. Caller should wait for successful completion
-// on 'wg' before assuming the returned proxy port is listening.
-// Caller must call exactly one of the returned functions:
-// - finalizeFunc to make the changes stick, or
-// - revertFunc to cancel the changes.
+// on 'wg', then call AckRedirects before redirecting traffic to these ports.
+// On failure the caller must invoke the returned revert function, if non-nil.
 // Called with 'localEndpoint' locked for reading!
 func (p *Proxy) CreateOrUpdateRedirect(
-	ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup,
+	l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup,
 ) (
 	uint16, error, revert.RevertFunc,
 ) {
@@ -126,8 +125,9 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	// Check for existing redirect and try to update it if possible. Otherwise, it gets removed before re-creation.
 	if existingImpl, ok := p.redirects[id]; ok {
 		existingRedirect := existingImpl.GetRedirect()
-		// Only consider configured (but not necessarily acked) proxy ports for update
-		if p.proxyPorts.HasProxyType(existingRedirect.proxyPort, types.ProxyType(l4.GetL7Parser())) {
+		// A CEC may have withdrawn or reallocated this listener since the redirect was created.
+		proxyPort, _, err := p.proxyPorts.GetProxyPort(existingRedirect.name)
+		if err == nil && proxyPort == existingRedirect.proxyPort && existingRedirect.proxyType == types.ProxyType(l4.GetL7Parser()) {
 			// (DNS) proxy policy is updated in finalize function
 			revert, err := existingImpl.UpdateRules(l4.GetPerSelectorPolicies())
 			if err != nil {
@@ -139,10 +139,10 @@ func (p *Proxy) CreateOrUpdateRedirect(
 				logfields.Listener, l4.GetListener(),
 				logfields.L7Parser, l4.GetL7Parser(),
 				logfields.Object, existingRedirect,
-				logfields.ProxyType, existingRedirect.proxyPort.ProxyType)
+				logfields.ProxyType, existingRedirect.proxyType)
 
 			// Must return the proxy port when successful
-			return existingRedirect.proxyPort.ProxyPort, nil, revert
+			return existingRedirect.proxyPort, nil, revert
 		}
 
 		// Stale or incompatible redirects get removed before a new one is created below
@@ -150,7 +150,7 @@ func (p *Proxy) CreateOrUpdateRedirect(
 	}
 
 	// Create a new redirect
-	return p.createNewRedirect(ctx, l4, id, epID, wg)
+	return p.createNewRedirect(l4, id, epID, wg)
 }
 
 func proxyTypeNotFoundError(proxyType types.ProxyType, listener string, ingress bool) error {
@@ -172,7 +172,7 @@ func (p *Proxy) IsSDPEnabled() bool {
 }
 
 func (p *Proxy) createNewRedirect(
-	ctx context.Context, l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup,
+	l4 policy.ProxyPolicy, id string, epID uint16, wg *completion.WaitGroup,
 ) (
 	uint16, error, revert.RevertFunc,
 ) {
@@ -182,7 +182,7 @@ func (p *Proxy) createNewRedirect(
 		return 0, proxyTypeNotFoundError(types.ProxyType(l4.GetL7Parser()), l4.GetListener(), l4.GetIngress()), nil
 	}
 
-	redirect := initRedirect(p.logger, epID, ppName, pp, l4.GetPort(), l4.GetProtocol())
+	redirect := p.initRedirect(p.logger, epID, ppName, pp, l4.GetPort(), l4.GetProtocol())
 
 	scopedLog := p.logger.With(
 		fieldProxyRedirectID, id,
@@ -190,50 +190,32 @@ func (p *Proxy) createNewRedirect(
 		logfields.L7Parser, l4.GetL7Parser(),
 		logfields.PortName, ppName)
 
-	// try first with the previous port, if any
+	// Try the previous datapath port as an allocation candidate.
 	p.proxyPorts.Restore(pp)
 
-	// Callback for Envoy ACK/NACK handling for the redirect.
-	// If we get a non-nil 'err' Envoy has NACKed the listener update, and the whole (endpoint)
-	// regeneration will also be reverted. Revert can happen for other reasons as well (such as
-	// bpf datapath compilation failure), and we do not want to churn proxy ports in that case.
-	// Not called for DNS redirects.
-	// This callback is called before the finalize or revert function is called.
-	proxyCallback := func(err error) {
-		if err == nil {
-			// Enable datapath redirection for the proxy port if proxy creation
-			// was successful, even if the overall (endpoint) regeneration
-			// fails. This way there is less churn on the proxy port allocation
-			// and datapath. Endpoint policy will no redirect to the new proxy
-			// implementation if regeneration fails.
-			err = p.proxyPorts.AckProxyPort(ctx, ppName, pp)
-			if err != nil {
-				scopedLog.Error("Datapath proxy redirection cannot be enabled, L7 proxy may be bypassed", logfields.Error, err)
-			}
-		} else {
-			// Release proxy port if NACK was received. Do not release a port that has
-			// already been successfully acknowledged or that it statically configured.
-			p.proxyPorts.ResetUnacknowledged(pp)
-		}
-	}
-
 	var impl RedirectImplementation
+	var proxyPort uint16
 	var err error
 	for nRetry := range redirectCreationAttempts {
 		if err != nil {
 			// an error occurred and we are retrying
 			scopedLog.Warn("Unable to create proxy, retrying",
-				logfields.ProxyPort, pp.ProxyPort,
+				logfields.ProxyPort, proxyPort,
 				logfields.Error, err)
 		}
 
-		err = p.proxyPorts.AllocatePort(pp, nRetry > 0)
+		if pp.ProxyType == types.ProxyTypeCRD {
+			proxyPort, _, err = p.proxyPorts.GetProxyPort(ppName)
+		} else {
+			proxyPort, err = p.proxyPorts.AllocatePort(pp, nRetry > 0)
+		}
 		if err != nil {
 			err = fmt.Errorf("failed to allocate port: %w", err)
 			break
 		}
 
-		impl, err = p.createRedirectImpl(redirect, l4, wg, proxyCallback)
+		redirect.proxyPort = proxyPort
+		impl, err = p.createRedirectImpl(redirect, l4, wg)
 		if err == nil {
 			break
 		}
@@ -242,7 +224,7 @@ func (p *Proxy) createNewRedirect(
 	if err != nil {
 		// an error occurred, and we have no more retries
 		scopedLog.Error("Unable to create proxy",
-			logfields.ProxyPort, pp.ProxyPort,
+			logfields.ProxyPort, proxyPort,
 			logfields.Error, err)
 
 		p.proxyPorts.ReleaseProxyPort(ppName)
@@ -253,12 +235,14 @@ func (p *Proxy) createNewRedirect(
 	// is explicitly handled by the revertFunc below by calling redirect.implementation.Close()
 	_, err = impl.UpdateRules(l4.GetPerSelectorPolicies())
 	if err != nil {
+		impl.Close()
+		p.proxyPorts.ReleaseProxyPort(ppName)
 		return 0, fmt.Errorf("unable to set rules on redirect: %w", err), nil
 	}
 
 	scopedLog.Debug("Created new proxy instance",
 		logfields.Object, redirect,
-		logfields.ProxyPort, pp.ProxyPort)
+		logfields.ProxyPort, proxyPort)
 
 	p.addRedirect(id, impl)
 	p.updateRedirectMetrics()
@@ -268,28 +252,51 @@ func (p *Proxy) createNewRedirect(
 		p.mutex.Lock()
 		p.deleteRedirect(id, impl)
 		p.updateRedirectMetrics()
+		impl.Close()
 		p.proxyPorts.ReleaseProxyPort(ppName)
 		p.mutex.Unlock()
-		impl.Close()
 		return nil
 	}
 
 	// Must return the proxy port when successful
-	return pp.ProxyPort, nil, revertFunc
+	return proxyPort, nil, revertFunc
 }
 
-func (p *Proxy) createRedirectImpl(redir Redirect, l4 policy.ProxyPolicy, wg *completion.WaitGroup, cb func(err error)) (impl RedirectImplementation, err error) {
+func (p *Proxy) createRedirectImpl(redir Redirect, l4 policy.ProxyPolicy, wg *completion.WaitGroup) (impl RedirectImplementation, err error) {
 	switch l4.GetL7Parser() {
 	case policy.ParserTypeDNS:
-		// 'cb' not called for DNS redirects, which have a static proxy port
 		r, err := p.dnsIntegration.createRedirect(redir)
 		p.logger.Debug("Creating DNS Proxy redirect", logfields.DNSRedirect, r)
 		return r, err
 	default:
-		r, err := p.envoyIntegration.createRedirect(redir, wg, cb)
+		r, err := p.envoyIntegration.createRedirect(redir, wg)
 		p.logger.Debug("Creating Envoy Proxy redirect", logfields.EnvoyRedirect, r)
 		return r, err
 	}
+}
+
+// AckRedirects installs datapath rules for redirects whose proxy wait succeeded.
+// The caller must retain these redirects until this call completes, as endpoint
+// regeneration does with its build mutex. DNS and CEC-owned ports are settled by
+// their respective owners. This does not acquire additional port references.
+func (p *Proxy) AckRedirects(ctx context.Context, redirects map[string]uint16) error {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
+	for id := range redirects {
+		impl := p.redirects[id]
+		if impl == nil {
+			return fmt.Errorf("proxy redirect %s no longer exists", id)
+		}
+		r := impl.GetRedirect()
+		if r.proxyType == types.ProxyTypeDNS || r.proxyType == types.ProxyTypeCRD {
+			continue
+		}
+		if err := p.proxyPorts.AckProxyPort(ctx, r.name); err != nil {
+			return fmt.Errorf("acknowledging proxy redirect %s: %w", id, err)
+		}
+	}
+	return nil
 }
 
 // RemoveRedirect removes an existing redirect that has been successfully created earlier.
@@ -318,14 +325,11 @@ func (p *Proxy) removeRedirect(id string) {
 
 	// Delay the release and reuse of the port number so it is guaranteed to be
 	// safe to listen on the port again.
-	proxyPort := r.proxyPort.ProxyPort
-	listenerName := r.name
-
-	err := p.proxyPorts.ReleaseProxyPort(listenerName)
+	err := p.proxyPorts.ReleaseProxyPort(r.name)
 	if err != nil {
 		r.logger.Warn("Releasing proxy port failed",
 			fieldProxyRedirectID, id,
-			logfields.ProxyPort, proxyPort,
+			logfields.ProxyPort, r.proxyPort,
 			logfields.Error, err)
 	}
 }
@@ -368,10 +372,11 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 
 	for name, impl := range p.redirects {
 		redirect := impl.GetRedirect()
+		port, _ := p.proxyPorts.GetRulesPort(redirect.name)
 		result.Redirects = append(result.Redirects, &models.ProxyRedirect{
 			Name:      name,
 			Proxy:     redirect.name,
-			ProxyPort: int64(p.proxyPorts.GetRulesPort(redirect.proxyPort)),
+			ProxyPort: int64(port),
 		})
 	}
 	result.EnvoyDeploymentMode = "embedded"
@@ -404,13 +409,13 @@ func (p *Proxy) updateRedirectMetrics() {
 }
 
 func (p *Proxy) addRedirect(id string, impl RedirectImplementation) {
-	proxyType := impl.GetRedirect().proxyPort.ProxyType
+	proxyType := impl.GetRedirect().proxyType
 	p.redirects[id] = impl
 	p.redirectsCount[proxyType]++
 }
 
 func (p *Proxy) deleteRedirect(id string, impl RedirectImplementation) {
-	proxyType := impl.GetRedirect().proxyPort.ProxyType
+	proxyType := impl.GetRedirect().proxyType
 	delete(p.redirects, id)
 	p.redirectsCount[proxyType]--
 }

@@ -138,12 +138,15 @@ func (b *fqdnProxyBootstrapper) startProxy(ctx context.Context, health cell.Heal
 	wantPort := configuredPort
 	if wantPort == 0 {
 		var isStatic bool
+		var err error
 		// Try reuse previous DNS proxy port number
-		wantPort, isStatic, _ = b.proxyPorts.GetProxyPort(proxytypes.DNSProxyName)
+		wantPort, isStatic, err = b.proxyPorts.GetProxyPort(proxytypes.DNSProxyName)
 
-		if _, alreadyOpen := b.proxyPorts.GetOpenLocalPorts()[wantPort]; !isStatic && alreadyOpen {
-			wantPort = 0
-			b.logger.Info("Unable re-use old DNS proxy port as it is already in use", logfields.Port, wantPort)
+		if err == nil && !isStatic && wantPort != 0 {
+			if _, alreadyOpen := b.proxyPorts.GetOpenLocalPorts()[wantPort]; alreadyOpen {
+				b.logger.Info("Unable re-use old DNS proxy port as it is already in use", logfields.Port, wantPort)
+				wantPort = 0
+			}
 		}
 	}
 

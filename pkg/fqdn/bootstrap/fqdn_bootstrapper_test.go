@@ -6,6 +6,10 @@ package bootstrap
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -59,6 +63,7 @@ func TestDNSProxyStartupReadiness(t *testing.T) {
 		cancel       bool
 		portConflict bool
 		restoredPort bool
+		occupiedPort bool
 		randomPort   bool
 		listenErr    error
 		fallbackErr  error
@@ -67,6 +72,7 @@ func TestDNSProxyStartupReadiness(t *testing.T) {
 		{name: "ready after port registration and acknowledgment"},
 		{name: "configured port unavailable", listenErr: listenErr, wantErr: listenErr},
 		{name: "restored port reused", restoredPort: true},
+		{name: "occupied restored port skipped", restoredPort: true, occupiedPort: true},
 		{name: "restored port unavailable", restoredPort: true, listenErr: listenErr},
 		{name: "fallback bind failed", restoredPort: true, listenErr: listenErr, fallbackErr: fallbackErr, wantErr: fallbackErr},
 		{name: "random bind failed", randomPort: true, listenErr: listenErr, wantErr: listenErr},
@@ -80,6 +86,13 @@ func TestDNSProxyStartupReadiness(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 			log := hivetest.Logger(t)
+			previousPort := bindPort
+			if tt.occupiedPort {
+				listener, err := net.Listen("tcp", "127.0.0.1:0")
+				require.NoError(t, err)
+				t.Cleanup(func() { listener.Close() })
+				previousPort = uint16(listener.Addr().(*net.TCPAddr).Port)
+			}
 
 			original := option.Config
 			option.Config = &option.DaemonConfig{
@@ -102,25 +115,27 @@ func TestDNSProxyStartupReadiness(t *testing.T) {
 			releaseRules := sync.OnceFunc(func() { close(resumeRules) })
 			iptables := &startupIPTables{fakeiptables.NewManager(), make(chan struct{}), resumeRules}
 			ports := proxyports.NewProxyPorts(log, proxyports.ProxyPortsConfig{
-				ProxyPortrangeMin: 10000, ProxyPortrangeMax: 20000,
+				ProxyPortrangeMin: 10000, ProxyPortrangeMax: 20000, RestoredProxyPortsAgeLimit: 15,
 			}, iptables)
 			ports.Trigger = job.NewTrigger()
 			health, _ := cell.NewSimpleHealth()
 
-			if !tt.cancel {
+			if tt.restoredPort {
+				data := fmt.Sprintf("{%q:{\"type\":%q,\"ingress\":false,\"port\":%d}}", proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, previousPort)
+				require.NoError(t, os.WriteFile(filepath.Join(option.Config.StateDir, "proxy_ports_state.json"), []byte(data), 0o600))
+				require.NoError(t, ports.RestoreProxyPorts(ctx, health))
+			} else if !tt.cancel {
 				// A missing state file uses the fake iptables fallback and completes restoration.
 				require.Error(t, ports.RestoreProxyPorts(ctx, health))
-			}
-			if tt.restoredPort {
-				require.NoError(t, ports.SetProxyPort(proxytypes.DNSProxyName, proxytypes.ProxyTypeDNS, bindPort, false))
 			}
 			if tt.portConflict {
 				_, pp := ports.FindByTypeWithReference(proxytypes.ProxyTypeDNS, "", false)
 				require.NotNil(t, pp)
-				require.NoError(t, ports.AllocatePort(pp, false))
+				_, err := ports.AllocatePort(pp, false)
+				require.NoError(t, err)
 			}
 			preferredPort := bindPort
-			if tt.randomPort {
+			if tt.randomPort || tt.occupiedPort {
 				preferredPort = 0
 			}
 			p := &startupDNSProxy{}
@@ -216,10 +231,13 @@ func TestDNSProxyStartupReadiness(t *testing.T) {
 			require.Equal(t, p.port, port)
 			require.True(t, isStatic)
 
-			_, redirect := ports.FindByTypeWithReference(proxytypes.ProxyTypeDNS, "", false)
-			require.NoError(t, ports.AllocatePort(redirect, false))
-			require.Equal(t, p.port, redirect.ProxyPort, "DNS redirects must use the bound socket port")
-			require.Equal(t, p.port, ports.GetRulesPort(redirect))
+			name, redirect := ports.FindByTypeWithReference(proxytypes.ProxyTypeDNS, "", false)
+			proxyPort, err := ports.AllocatePort(redirect, false)
+			require.NoError(t, err)
+			require.Equal(t, p.port, proxyPort, "DNS redirects must use the bound socket port")
+			rulesPort, err := ports.GetRulesPort(name)
+			require.NoError(t, err)
+			require.Equal(t, p.port, rulesPort)
 		})
 	}
 }

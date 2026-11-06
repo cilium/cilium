@@ -62,13 +62,11 @@ type adsServer struct {
 	// mutex protects accesses to the configuration resources below.
 	mutex lock.RWMutex
 
-	// proxyListeners is the count of redirection proxy listeners in 'listeners'.
-	// This value is different from len(listeners) due to non-proxy listeners
-	// (e.g., prometheus listener)
+	// proxyListeners is the number of distinct redirect listeners.
 	proxyListeners int
 
 	// listenerCount is the set of names of listeners that have been added by
-	// calling addListener.
+	// calling AddListener. Admin and metrics listeners do not own references.
 	// mutex must be held when accessing this.
 	// Value holds the number of redirects using the listener named by the key.
 	listenerCount map[string]uint
@@ -196,24 +194,14 @@ func (s *adsServer) AddAdminListener(ctx context.Context, port uint16, wg *compl
 		logfields.Port, port,
 	)
 
-	s.addListener(ctx, adminListenerName, func() *envoy_config_listener.Listener {
-		return s.getAdminListenerConfig(port)
-	}, wg, func(err error) {
-		if err != nil {
-			s.logger.Debug(
-				"Envoy: Adding admin listener failed",
-				logfields.Port, port,
-				logfields.Error, err,
-			)
-			// Remove the added listener in case of a failure
-			s.removeListener(ctx, adminListenerName, nil, false)
-		} else {
-			s.logger.Info(
-				"Envoy: Listening for Admin API",
-				logfields.Port, port,
-			)
-		}
-	}, false)
+	if err := s.addListener(ctx, s.getAdminListenerConfig(port), wg, false); err != nil {
+		s.logger.Warn("Envoy: Adding admin listener failed",
+			logfields.Port, port,
+			logfields.Error, err,
+		)
+		return
+	}
+	s.logger.Info("Envoy: Configured Admin API listener", logfields.Port, port)
 }
 
 func (s *adsServer) AddMetricsListener(ctx context.Context, port uint16, wg *completion.WaitGroup) {
@@ -224,24 +212,14 @@ func (s *adsServer) AddMetricsListener(ctx context.Context, port uint16, wg *com
 		"Envoy: AddMetricsListener",
 		logfields.Port, port,
 	)
-	s.addListener(ctx, metricsListenerName, func() *envoy_config_listener.Listener {
-		return s.getMetricsListenerConfig(port)
-	}, wg, func(err error) {
-		if err != nil {
-			s.logger.Debug(
-				"Envoy: Adding metrics listener failed",
-				logfields.Port, port,
-				logfields.Error, err,
-			)
-			// Remove the added listener in case of a failure
-			s.removeListener(ctx, metricsListenerName, nil, false)
-		} else {
-			s.logger.Info(
-				"Envoy: Listening for prometheus metrics",
-				logfields.Port, port,
-			)
-		}
-	}, false)
+	if err := s.addListener(ctx, s.getMetricsListenerConfig(port), wg, false); err != nil {
+		s.logger.Warn("Envoy: Adding metrics listener failed",
+			logfields.Port, port,
+			logfields.Error, err,
+		)
+		return
+	}
+	s.logger.Info("Envoy: Configured prometheus metrics listener", logfields.Port, port)
 }
 
 func (s *adsServer) getMetricsListenerConfig(port uint16) *envoy_config_listener.Listener {
@@ -301,11 +279,9 @@ func (s *adsServer) getMetricsListenerConfig(port uint16) *envoy_config_listener
 	return listenerConf
 }
 
-// addListener either reuses an existing listener with 'name', or creates a new one.
-// 'listenerConf()' is only called if a new listener is being created.
-// If isProxyListener is true, the listener is counted in proxyListeners.
-func (s *adsServer) addListener(ctx context.Context, name string, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error), isProxyListener bool) error {
-	listenerConfig := listenerConf()
+// addListener installs listener configuration. Redirect listeners retain
+// references; admin and metrics listeners use response-owned NACK recovery.
+func (s *adsServer) addListener(ctx context.Context, listenerConfig *envoy_config_listener.Listener, wg *completion.WaitGroup, isProxyListener bool) error {
 	if option.Config.EnableBPFTProxy {
 		// Envoy since 1.20.0 uses SO_REUSEPORT on listeners by default.
 		// BPF TPROXY is currently not compatible with SO_REUSEPORT, so disable it.
@@ -319,11 +295,24 @@ func (s *adsServer) addListener(ctx context.Context, name string, listenerConf f
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	name := listenerConfig.GetName()
+	if !isProxyListener {
+		// Non-proxy listeners are applied with rollback so that an Envoy NACK will
+		// automatically revert them.
+		rollback, err := s.cache.ApplyResourceWithRollback(ctx, localNodeID, typeurl.Listener, name, listenerConfig, wg)
+		if err != nil {
+			return err
+		}
+		// There is no caller rollback decision for these listeners. Response-owned
+		// recovery survives finalization, including when no WaitGroup was supplied.
+		finalizeRollback(rollback)
+		return nil
+	}
+
+	// Redirect listeners own one reference per redirect using them.
 	count := s.listenerCount[name]
 	if count == 0 {
-		if isProxyListener {
-			s.proxyListeners++
-		}
+		s.proxyListeners++
 		s.logger.Info(
 			"Envoy: Upserting new listener",
 			logfields.Listener, name,
@@ -332,14 +321,7 @@ func (s *adsServer) addListener(ctx context.Context, name string, listenerConf f
 	count++
 	s.listenerCount[name] = count
 
-	err := s.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, name, listenerConfig, wg, cb)
-	if err != nil {
-		return err
-	}
-	if wg == nil && cb != nil {
-		cb(nil)
-	}
-	return nil
+	return s.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, name, listenerConfig, wg)
 }
 
 func (s *adsServer) getAdminListenerConfig(port uint16) *envoy_config_listener.Listener {
@@ -450,7 +432,7 @@ func (s *adsServer) getListenerConf(name string, kind policy.L7ParserType, port 
 	return listenerConf
 }
 
-func (s *adsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup, cb func(err error)) error {
+func (s *adsServer) AddListener(ctx context.Context, name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) error {
 	s.logger.Debug(
 		"Envoy: AddListener",
 		logfields.L7ParserType, kind,
@@ -458,18 +440,11 @@ func (s *adsServer) AddListener(ctx context.Context, name string, kind policy.L7
 		logfields.MayUseOriginalSourceAddr, mayUseOriginalSourceAddr,
 	)
 
-	return s.addListener(ctx, name, func() *envoy_config_listener.Listener {
-		return s.getListenerConf(name, kind, port, isIngress, mayUseOriginalSourceAddr)
-	}, wg, cb, true)
+	return s.addListener(ctx, s.getListenerConf(name, kind, port, isIngress, mayUseOriginalSourceAddr), wg, true)
 }
 
+// RemoveListener deletes the listener when its last redirect reference is released.
 func (s *adsServer) RemoveListener(ctx context.Context, name string, wg *completion.WaitGroup) {
-	s.removeListener(ctx, name, wg, true)
-}
-
-// removeListener removes an existing Envoy Listener.
-// The listener is only actually deleted when the reference count reaches zero.
-func (s *adsServer) removeListener(ctx context.Context, name string, wg *completion.WaitGroup, isProxyListener bool) {
 	s.logger.Debug(
 		"Envoy: RemoveListener",
 		logfields.Listener, name,
@@ -496,9 +471,7 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 	}
 
 	// count == 0: actually delete the listener.
-	if isProxyListener {
-		s.proxyListeners--
-	}
+	s.proxyListeners--
 	delete(s.listenerCount, name)
 
 	s.logger.Info(
@@ -508,7 +481,7 @@ func (s *adsServer) removeListener(ctx context.Context, name string, wg *complet
 
 	// The cache owns the transaction-fenced revert used if Envoy NACKs the
 	// listener removal. RemoveListener does not expose caller-driven rollback.
-	_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, name, nil, wg, nil)
+	_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, name, nil, wg)
 }
 
 func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.EndpointUpdater, epp *policy.EndpointPolicy,
@@ -555,7 +528,7 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		// Remove network policies for conflicting endpoints from the cache.
 		for _, dup := range conflicts {
 			dupName := strconv.FormatUint(dup.ep.GetID(), 10)
-			_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicy, dupName, nil, nil, nil)
+			_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicy, dupName, nil, nil)
 		}
 	}
 
@@ -570,22 +543,10 @@ func (s *adsServer) UpdateNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 	epID := ep.GetID()
 	resourceName := strconv.FormatUint(epID, 10)
 
-	// When successful, notify the endpoint that its proxy policy was accepted.
-	policyRevision := l4policy.Revision
-	callback := func(err error) {
-		if err == nil {
-			go ep.OnProxyPolicyUpdate(policyRevision)
-		}
-	}
-
-	rollback, err := s.cache.ApplyResourceWithRollback(ctx, LocalNodeID, typeurl.NetworkPolicy, resourceName, networkPolicy, wg, callback)
+	rollback, err := s.cache.ApplyResourceWithRollback(ctx, LocalNodeID, typeurl.NetworkPolicy, resourceName, networkPolicy, wg)
 	if err != nil {
 		return err, nil
 	}
-	if wg == nil {
-		callback(nil)
-	}
-
 	// The cache lifecycle directly implements revert.Revertible. Passing it
 	// through avoids allocating separate endpoint revert and finalize closures.
 	return nil, rollback
@@ -612,31 +573,7 @@ func (s *adsServer) RemoveNetworkPolicy(ctx context.Context, ep endpoint.Endpoin
 		s.localEndpointStore.removeLocalEndpoint(ep)
 	}
 
-	_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicy, resourceName, nil, nil, nil)
-}
-
-// portAllocationCallback returns a callback that fires all PortAllocationCallbacks on success.
-// This is used to confirm port allocations after Envoy ACKs the listener update.
-func (s *adsServer) portAllocationCallback(ctx context.Context, callbacks map[string]func(context.Context) error) func(err error) {
-	if len(callbacks) == 0 {
-		return nil
-	}
-	return func(err error) {
-		if err != nil {
-			return
-		}
-		for name, cb := range callbacks {
-			if cb != nil {
-				if callbackErr := cb(ctx); callbackErr != nil {
-					s.logger.Warn(
-						"Failure in port allocation callback",
-						logfields.ListenerName, name,
-						logfields.Error, callbackErr,
-					)
-				}
-			}
-		}
-	}
+	_ = s.cache.ApplyResource(ctx, localNodeID, typeurl.NetworkPolicy, resourceName, nil, nil)
 }
 
 func revertRollback(rollback xdsnew.Rollback) {
@@ -685,58 +622,38 @@ func (s *adsServer) listenerDeletionMutations(oldResources, newResources xds.Res
 }
 
 func (s *adsServer) UpsertEnvoyResources(ctx context.Context, resources xds.Resources, wg *completion.WaitGroup) error {
+	var waits typeurl.Set
+	if wg != nil && len(resources.Listeners) > 0 {
+		waits.Insert(typeurl.Listener)
+		if len(resources.Clusters) > 0 {
+			waits.Insert(typeurl.Cluster)
+		}
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	callback := s.portAllocationCallback(ctx, resources.PortAllocationCallbacks)
-	var callbackTypeURLs xdsnew.TypeURLCallbacks
-	if callback != nil {
-		callbackTypeURLs.Set(typeurl.Listener, callback)
-		if len(resources.Clusters) > 0 {
-			callbackTypeURLs.Set(typeurl.Cluster, nil)
-		}
-	}
-	err := s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, wg, callbackTypeURLs)
-	return err
+	return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: resources}, wg, waits)
 }
 
 func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newResources xds.Resources, waitGroup *completion.WaitGroup) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	hadPortAllocationCallbacks := len(newResources.PortAllocationCallbacks) > 0
 	listenersToRecreate := adsListenersRequiringRecreate(oldResources.Listeners, newResources.Listeners)
-	// Port allocation applies only to the primary listener address. If its port
-	// is unchanged, remove the callback to avoid acknowledging it again.
-	for name, oldListener := range oldResources.Listeners {
-		newListener, found := newResources.Listeners[name]
-		if !found {
-			continue
-		}
-
-		if listenerPrimaryPortsEqual(oldListener, newListener) {
-			delete(newResources.PortAllocationCallbacks, name)
-		}
+	var waitTypeURLs typeurl.Set
+	if len(oldResources.Listeners) > 0 || len(newResources.Listeners) > 0 {
+		waitTypeURLs.Insert(typeurl.Listener)
 	}
-
-	callback := s.portAllocationCallback(ctx, newResources.PortAllocationCallbacks)
-	var callbackTypeURLs xdsnew.TypeURLCallbacks
-	if hadPortAllocationCallbacks {
-		// CEC updates pass a wait group only to observe dynamic listener port
-		// allocation. If the callbacks were removed because the listener port did
-		// not change, do not fall back to waiting for every changed ADS type:
-		// CDS/RDS ACKs can be delayed by dependent EDS/SDS resources and block
-		// later CEC updates behind an already-confirmed port.
-		callbackTypeURLs = xdsnew.NewTypeURLCallbacks()
-	}
-	if callback != nil {
-		callbackTypeURLs.Set(typeurl.Listener, callback)
+	if waitGroup != nil && len(newResources.Listeners) > 0 {
+		// CEC waits for newly allocated listener ports and their supplied
+		// clusters. Other named types may have no subscriber to ACK them.
 		if len(oldResources.Clusters) > 0 || len(newResources.Clusters) > 0 {
-			callbackTypeURLs.Set(typeurl.Cluster, nil)
+			waitTypeURLs.Insert(typeurl.Cluster)
 		}
 	}
 	if len(listenersToRecreate) == 0 || s.restorerPromise != nil {
-		return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}, waitGroup, callbackTypeURLs)
+		return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}, waitGroup, waitTypeURLs)
 	}
 
 	// Envoy cannot replace a listener's address set in place when SO_REUSEPORT
@@ -750,8 +667,7 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	s.logger.Debug("UpdateEnvoyResources: deleting listeners before address change",
 		logfields.ResourcesDeleted, len(listenersToRecreate))
 	deleteWG := completion.NewWaitGroup(ctx)
-	var listenerWait xdsnew.TypeURLCallbacks
-	listenerWait.Set(typeurl.Listener, nil)
+	listenerWait := typeurl.NewSet(typeurl.Listener)
 	deleteRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, stagedMutations, deleteWG, listenerWait)
 	if err != nil {
 		// Failed admission does not reach the ACK wait. Release the owned
@@ -767,11 +683,11 @@ func (s *adsServer) UpdateEnvoyResources(ctx context.Context, oldResources, newR
 	// Always wait for the replacement LDS ACK, even when the caller did not
 	// supply a wait group. This keeps the two snapshots transactional and lets us
 	// restore the last working listener if Envoy rejects the replacement.
-	callbackTypeURLs.Set(typeurl.Listener, callback)
+	waitTypeURLs.Insert(typeurl.Listener)
 	replaceMutations := xdsnew.ResourceMutations{Removed: oldResources, Upserted: newResources}
 	for attempt := 1; ; attempt++ {
 		replaceWG := completion.NewWaitGroup(ctx)
-		replaceRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, replaceMutations, replaceWG, callbackTypeURLs)
+		replaceRollback, err := s.cache.ApplyResourcesWithRollback(mutationCtx, localNodeID, replaceMutations, replaceWG, waitTypeURLs)
 		if err == nil {
 			err = replaceWG.Wait()
 		} else {
@@ -822,13 +738,11 @@ func (s *adsServer) DeleteEnvoyResources(ctx context.Context, resources xds.Reso
 		logfields.ResourceSecrets, len(resources.Secrets),
 	)
 
-	var callbackTypeURLs xdsnew.TypeURLCallbacks
-	callback := s.portAllocationCallback(ctx, resources.PortAllocationCallbacks)
-	if callback != nil {
-		callbackTypeURLs.Set(typeurl.Listener, callback)
+	var waitTypeURLs typeurl.Set
+	if len(resources.Listeners) > 0 {
+		waitTypeURLs.Insert(typeurl.Listener)
 	}
-	err := s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, callbackTypeURLs)
-	return err
+	return s.cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Removed: resources}, waitGroup, waitTypeURLs)
 }
 
 func (s *adsServer) getNetworkPolicy(ep endpoint.EndpointUpdater, getEgressNamedPorts GetEgressNamedPorts, selectors policy.SelectorSnapshot, names []string, l4Policy *policy.L4Policy,
