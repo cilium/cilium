@@ -75,7 +75,7 @@ spec:
                     items:
                       format: cidr
                       type: string
-                    maxItems: 32
+                    maxItems: 65536
                     minItems: 1
                     type: array
                   maskSize:
@@ -116,7 +116,7 @@ spec:
                       required:
                       - cidr
                       type: object
-                    maxItems: 32
+                    maxItems: 65536
                     type: array
                     x-kubernetes-list-map-keys:
                     - cidr
@@ -125,10 +125,6 @@ spec:
                 - cidrs
                 - maskSize
                 type: object
-                x-kubernetes-validations:
-                - message: If pool is set, each pool entry must reference a CIDR from
-                    cidrs
-                  rule: '!has(self.pool) || self.pool.all(p, p.cidr in self.cidrs)'
               ipv6:
                 description: IPv6 specifies the IPv6 CIDRs and mask sizes of the pool
                 properties:
@@ -138,7 +134,7 @@ spec:
                     items:
                       format: cidr
                       type: string
-                    maxItems: 32
+                    maxItems: 65536
                     minItems: 1
                     type: array
                   maskSize:
@@ -179,7 +175,7 @@ spec:
                       required:
                       - cidr
                       type: object
-                    maxItems: 32
+                    maxItems: 65536
                     type: array
                     x-kubernetes-list-map-keys:
                     - cidr
@@ -188,10 +184,6 @@ spec:
                 - cidrs
                 - maskSize
                 type: object
-                x-kubernetes-validations:
-                - message: If pool is set, each pool entry must reference a CIDR from
-                    cidrs
-                  rule: '!has(self.pool) || self.pool.all(p, p.cidr in self.cidrs)'
             type: object
         required:
         - spec
