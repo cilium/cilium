@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -52,6 +53,21 @@ type IPIdentityPair struct {
 }
 
 type IdentityMap map[NumericIdentity]labels.Labels
+
+var localLabelSources lock.Map[string, struct{}]
+
+func init() {
+	RegisterLocalLabelSource(labels.LabelSourceCIDR)
+	RegisterLocalLabelSource(labels.LabelSourceFQDN)
+	RegisterLocalLabelSource(labels.LabelSourceReserved)
+	RegisterLocalLabelSource(labels.LabelSourceCIDRGroup)
+}
+
+// RegisterLocalLabelSource adds an identity label source that uses local identities.
+// Registration is idempotent and remains in effect for the life of the process.
+func RegisterLocalLabelSource(source string) {
+	localLabelSources.Store(source, struct{}{})
+}
 
 // GetKeyName returns the kvstore key to be used for the IPIdentityPair
 func (pair *IPIdentityPair) GetKeyName() string { return pair.IP.String() }
@@ -126,7 +142,7 @@ func NewIdentity(id NumericIdentity, lbls labels.Labels) *Identity {
 }
 
 // ScopeForLabels returns the identity scope to be used for the label set.
-// If all labels are either CIDR or reserved, then returns the CIDR scope.
+// If all labels have local sources, then returns the local scope.
 // Note: This assumes the caller has already called LookupReservedIdentityByLabels;
 // it does not handle that case.
 func ScopeForLabels(lbls labels.Labels) NumericIdentity {
@@ -148,10 +164,9 @@ func ScopeForLabels(lbls labels.Labels) NumericIdentity {
 	}
 
 	for _, label := range lbls {
-		switch label.Source {
-		case labels.LabelSourceCIDR, labels.LabelSourceFQDN, labels.LabelSourceReserved, labels.LabelSourceCIDRGroup:
+		if _, ok := localLabelSources.Load(label.Source); ok {
 			scope = IdentityScopeLocal
-		default:
+		} else {
 			return IdentityScopeGlobal
 		}
 	}

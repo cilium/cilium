@@ -95,6 +95,9 @@ func TestIsReservedIdentity(t *testing.T) {
 }
 
 func TestScopeForLabels(t *testing.T) {
+	const localSource = "local-source"
+	RegisterLocalLabelSource(localSource)
+
 	tests := []struct {
 		lbls  labels.Labels
 		scope NumericIdentity
@@ -141,6 +144,24 @@ func TestScopeForLabels(t *testing.T) {
 		},
 		{
 			lbls:  labels.NewLabelsFromModel([]string{"k8s:ingress=allowed"}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls: labels.NewLabelsFromModel([]string{
+				localSource + ":app=foo",
+				localSource + ":role=frontend",
+			}),
+			scope: IdentityScopeLocal,
+		},
+		{
+			lbls: labels.NewLabelsFromModel([]string{
+				localSource + ":app=foo",
+				"k8s:role=frontend",
+			}),
+			scope: IdentityScopeGlobal,
+		},
+		{
+			lbls:  labels.NewLabelsFromModel([]string{"unknown:app=foo"}),
 			scope: IdentityScopeGlobal,
 		},
 	}
