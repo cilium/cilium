@@ -6112,6 +6112,14 @@
     },
     "rbac": {
       "properties": {
+        "aggregate": {
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "type": "object"
+        },
         "create": {
           "type": "boolean"
         }
