@@ -74,6 +74,11 @@ func (d *RXQueueDevice) reserve(allocation types.DeviceAllocation, candidates []
 		if queue.Lease != nil {
 			continue
 		}
+		// Clear any steering rules targeting this queue before allocating it.
+		// Old rules may remain if cilium-agent stopped before completing cleanup.
+		if err := syncRXFlows(d.PhysicalIfName, queueID, nil); err != nil {
+			return nil, fmt.Errorf("failed to clear RX flow rules for %s/%d: %w", d.PhysicalIfName, queueID, err)
+		}
 
 		d.reservations.owners[queueID] = allocation.ShareID
 		return d.preparedForAllocation(allocation.ShareID, podIfName, queueID), nil
@@ -105,15 +110,23 @@ func (d *RXQueueDevice) restoreReservation() error {
 	return nil
 }
 
-func (d *RXQueueDevice) releaseReservation() {
+// releaseReservation removes the rules that target the queue and returns it to
+// the reserved pool. Both happen under the reservation lock, so no flow update
+// can program the queue in between.
+func (d *RXQueueDevice) releaseReservation() error {
 	if d.reservations == nil {
-		return
+		return nil
 	}
 	d.reservations.mu.Lock()
 	defer d.reservations.mu.Unlock()
-	if d.reservations.owners[d.PhysicalQueueID] == d.ShareID {
-		delete(d.reservations.owners, d.PhysicalQueueID)
+	if d.reservations.owners[d.PhysicalQueueID] != d.ShareID {
+		return nil
 	}
+	if err := syncRXFlows(d.PhysicalIfName, d.PhysicalQueueID, nil); err != nil {
+		return fmt.Errorf("failed to remove RX flow rules for %s/%d: %w", d.PhysicalIfName, d.PhysicalQueueID, err)
+	}
+	delete(d.reservations.owners, d.PhysicalQueueID)
+	return nil
 }
 
 func (d *RXQueueDevice) preparedForAllocation(shareID kube_types.UID, podIfName string, physicalQueueID uint32) *RXQueueDevice {
