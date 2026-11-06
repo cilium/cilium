@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"maps"
+	"net"
 	"net/netip"
 	"slices"
 	"strings"
@@ -31,6 +32,7 @@ import (
 type UnnumberedReconciler struct {
 	logger        *slog.Logger
 	DB            *statedb.DB
+	routeTable    statedb.Table[*tables.Route]
 	deviceTable   statedb.Table[*tables.Device]
 	neighborTable statedb.Table[*tables.Neighbor]
 
@@ -62,6 +64,7 @@ type UnnumberedReconcilerIn struct {
 	DB            *statedb.DB
 	JobGroup      job.Group
 	Signaler      *signaler.BGPCPSignaler
+	RouteTable    statedb.Table[*tables.Route]
 	DeviceTable   statedb.Table[*tables.Device]
 	NeighborTable statedb.Table[*tables.Neighbor]
 }
@@ -81,6 +84,7 @@ func NewUnnumberedReconciler(p UnnumberedReconcilerIn) UnnumberedReconcilerOut {
 	r := &UnnumberedReconciler{
 		logger:          logger,
 		DB:              p.DB,
+		routeTable:      p.RouteTable,
 		deviceTable:     p.DeviceTable,
 		neighborTable:   p.NeighborTable,
 		discoveryFailed: make(map[string]struct{}),
@@ -148,16 +152,35 @@ func (r *UnnumberedReconciler) Reconcile(ctx context.Context, p ReconcileParams)
 		if peer.AutoDiscovery.Mode != v2.BGPUnnumberedMode {
 			continue
 		}
-		if peer.AutoDiscovery.Unnumbered == nil {
-			l.Debug("Unnumbered mode set without unnumbered configuration, skipping",
+		var iface string
+		switch {
+		case peer.AutoDiscovery.Unnumbered != nil:
+			iface = peer.AutoDiscovery.Unnumbered.Interface
+		case peer.AutoDiscovery.DefaultGateway != nil:
+			// Interface names are not portable across a heterogeneous fleet
+			// (they encode hardware location and vary with the driver), so
+			// discover the link facing the peer by following the default route
+			// of the requested address family. Only its egress interface is
+			// used; the peer address comes from ND on that interface.
+			discovered, err := r.getDefaultGatewayInterface(peer.AutoDiscovery.DefaultGateway)
+			if err != nil {
+				r.reportDiscoveryFailure(l, p.DesiredConfig.Name, peer.Name, err)
+				continue
+			}
+			iface = discovered
+
+			// Pass the resolved interface to RA reconciliation before ND finds
+			// the peer. This is internal desired state, never written to the API:
+			// retain defaultGateway and copy before adding the resolved interface.
+			resolved := peer.AutoDiscovery.DeepCopy()
+			resolved.Unnumbered = &v2.BGPUnnumbered{Interface: iface}
+			p.DesiredConfig.Peers[i].AutoDiscovery = resolved
+		default:
+			// Rejected by the CRD validation rules, be defensive.
+			l.Debug("Unnumbered mode set without unnumbered or defaultGateway configuration, skipping",
 				types.PeerLogField, peer.Name)
 			continue
 		}
-
-		// BGP unnumbered: the peer is not configured with an address at all,
-		// it is reached over an interface at whatever IPv6 link-local address
-		// Neighbor Discovery learned for it.
-		iface := peer.AutoDiscovery.Unnumbered.Interface
 
 		peerAddress, linkIndex, err := r.getUnnumberedPeerAddress(iface)
 		if linkIndex != 0 {
@@ -181,6 +204,30 @@ func (r *UnnumberedReconciler) Reconcile(ctx context.Context, p ReconcileParams)
 	}
 
 	return nil
+}
+
+// getDefaultGatewayInterface returns the name of the interface which the most preferred default
+// route of the given address family egresses, for use as the interface of an unnumbered peer.
+//
+// Unlike getDefaultGateway, the gateway address itself is irrelevant here: only the route's
+// egress link is taken, and the peer is subsequently reached over it at the IPv6 link-local
+// address ND discovered (see getUnnumberedPeerAddress). Routes with a link-local gateway - the
+// common case towards an unnumbered ToR, e.g. via fe80::1 or via 169.254.100.0 - and on-link
+// default routes with no gateway at all are therefore both usable.
+func (r *UnnumberedReconciler) getDefaultGatewayInterface(defaultGateway *v2.DefaultGateway) (string, error) {
+	routes, err := activeDefaultRoutes(r.DB.ReadTxn(), r.routeTable, r.deviceTable, defaultGateway.AddressFamily)
+	if err != nil {
+		return "", err
+	}
+
+	for _, dr := range routes {
+		if !deviceUsable(dr.dev) || dr.dev.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		return dr.dev.Name, nil
+	}
+
+	return "", fmt.Errorf("no active default route found for address family %s", defaultGateway.AddressFamily)
 }
 
 // getUnnumberedPeerAddress returns the address of the unnumbered peer reached over ifname:
