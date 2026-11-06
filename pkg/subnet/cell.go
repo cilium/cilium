@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
+// This file was not reviewed by a human before submission
+
 package subnet
 
 import (
@@ -52,16 +54,24 @@ func registerSubnetWatcher(cfg *option.DaemonConfig, fence regeneration.Fence, s
 
 	sw.jobGroup.Add(job.OneShot("subnet-watcher", func(ctx context.Context, health cell.Health) error {
 		sw.logger.Info("Starting subnet topology dynamic config watcher")
+		// An absent key only means deletion once all config sources are synced.
+		_, initialized := sw.dynamicConfigTable.Initialized(sw.db.ReadTxn())
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-initialized:
+		}
+
 		for {
-			entry, found, w := dynamicconfig.WatchKey(sw.db.ReadTxn(), sw.dynamicConfigTable, SubnetTopologyConfigKey)
-			if found {
-				sw.logger.Info("Detected change in subnet-topology dynamic config")
-				if err := sw.processSubnetConfigEntry(ctx, entry); err != nil {
-					sw.logger.Error("Failed to process subnet-topology dynamic config", logfields.Error, err)
-					health.Degraded("Failed to process subnet-topology dynamic config", err)
-				} else {
-					health.OK("subnet-topology dynamic config processed successfully")
-				}
+			// WatchKey returns an empty value when the key is absent. Process it
+			// just like an explicit empty topology to clear stale entries and routes.
+			entry, _, w := dynamicconfig.WatchKey(sw.db.ReadTxn(), sw.dynamicConfigTable, SubnetTopologyConfigKey)
+			sw.logger.Info("Detected change in subnet-topology dynamic config")
+			if err := sw.processSubnetConfigEntry(ctx, entry); err != nil {
+				sw.logger.Error("Failed to process subnet-topology dynamic config", logfields.Error, err)
+				health.Degraded("Failed to process subnet-topology dynamic config", err)
+			} else {
+				health.OK("subnet-topology dynamic config processed successfully")
 			}
 
 			// Signal initial sync is complete.

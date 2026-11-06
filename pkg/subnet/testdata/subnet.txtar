@@ -1,3 +1,4 @@
+# This file was not reviewed by a human before submission
 # Test subnet config sync to map
 
 hive/start
@@ -28,6 +29,48 @@ subnet/map-dump subnetmap.actual
 metrics --out=metrics.actual cilium_bpf_map_pressure
 * cmp metrics.expected metrics.actual
 
+# Removing the key must clear both the desired table and the BPF map.
+k8s/add cilium-config-no-subnet.yaml
+* db/empty subnet-identities
+
+# Wait for the BPF reconciler to remove the old topology.
+subnet/map-dump subnetmap.empty
+* empty subnetmap.empty
+
+# Re-adding the key must restore the topology.
+k8s/add cilium-config-1.yaml
+db/cmp subnet-identities subnet.table
+
+# Wait for the BPF map to converge.
+subnet/map-dump subnetmap.actual
+* cmp subnetmap.actual subnetmap.expected
+
+# Deleting the whole ConfigMap must also clear the topology.
+k8s/delete cilium-config-1.yaml
+
+# Wait for the ConfigMap deletion to propagate.
+* db/empty subnet-identities
+
+# Wait for map deletion.
+subnet/map-dump subnetmap.empty
+* empty subnetmap.empty
+
+# An explicit empty value must have the same clearing behavior.
+k8s/add cilium-config-1.yaml
+db/cmp subnet-identities subnet.table
+
+# Wait for restoration before clearing it.
+subnet/map-dump subnetmap.actual
+* cmp subnetmap.actual subnetmap.expected
+
+# Clear the value without deleting the key.
+k8s/add cilium-config-empty.yaml
+* db/empty subnet-identities
+
+# Wait for map deletion.
+subnet/map-dump subnetmap.empty
+* empty subnetmap.empty
+
 ####
 
 -- cilium-config-1.yaml --
@@ -47,6 +90,14 @@ kind: ConfigMap
 metadata:
   labels:
     app.kubernetes.io/managed-by: Helm
+  name: cilium-config
+  namespace: kube-system
+data: {}
+
+-- cilium-config-empty.yaml --
+apiVersion: v1
+kind: ConfigMap
+metadata:
   name: cilium-config
   namespace: kube-system
 data:
