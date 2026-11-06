@@ -1231,3 +1231,134 @@ func TestWriter_SelectBackends_PreferSameNodeIgnoresNonActiveBackends(t *testing
 	assert.Contains(t, addresses, activeLocalAddr.String())
 	assert.Contains(t, addresses, terminatingLocalAddr.String())
 }
+
+// TestWriter_SelectBackends_PreferSameNodeFallsBackToSameZone verifies the
+// KEP-3015 fallback chain for PreferSameNode: same-node backends are preferred,
+// then backends whose ForZones hints include the local zone, and finally all
+// backends.
+func TestWriter_SelectBackends_PreferSameNodeFallsBackToSameZone(t *testing.T) {
+	oldName := nodeTypes.GetName()
+	nodeTypes.SetName("node-a")
+	t.Cleanup(func() {
+		nodeTypes.SetName(oldName)
+	})
+
+	p := fixture(t)
+	p.Writer.config.EnableServiceTopology = true
+	p.LocalNodeStore.Update(func(n *node.LocalNode) {
+		if n.Labels == nil {
+			n.Labels = map[string]string{}
+		}
+		n.Labels[corev1.LabelTopologyZone] = "zone-a"
+	})
+
+	svcName := loadbalancer.NewServiceName("test", "svc")
+	feAddr := loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(1), 80, loadbalancer.ScopeExternal)
+	beAddr := func(i int) loadbalancer.L3n4Addr {
+		return loadbalancer.NewL3n4Addr(loadbalancer.TCP, intToAddr(i), 8080, loadbalancer.ScopeExternal)
+	}
+	sameNode := &loadbalancer.Backend{
+		Address:  beAddr(2),
+		State:    loadbalancer.BackendStateActive,
+		NodeName: "node-a",
+		Zone:     &loadbalancer.BackendZone{Zone: "zone-a", ForZones: []string{"zone-a"}},
+	}
+	sameNodeQuarantined := &loadbalancer.Backend{
+		Address:  beAddr(2),
+		State:    loadbalancer.BackendStateQuarantined,
+		NodeName: "node-a",
+		Zone:     &loadbalancer.BackendZone{Zone: "zone-a", ForZones: []string{"zone-a"}},
+	}
+	sameZone := &loadbalancer.Backend{
+		Address:  beAddr(3),
+		State:    loadbalancer.BackendStateActive,
+		NodeName: "node-b",
+		Zone:     &loadbalancer.BackendZone{Zone: "zone-a", ForZones: []string{"zone-a"}},
+	}
+	otherZone := &loadbalancer.Backend{
+		Address:  beAddr(4),
+		State:    loadbalancer.BackendStateActive,
+		NodeName: "node-c",
+		Zone:     &loadbalancer.BackendZone{Zone: "zone-b", ForZones: []string{"zone-b"}},
+	}
+	otherZoneNoHints := &loadbalancer.Backend{
+		Address:  beAddr(4),
+		State:    loadbalancer.BackendStateActive,
+		NodeName: "node-c",
+		Zone:     &loadbalancer.BackendZone{Zone: "zone-b"},
+	}
+	otherZoneTerminating := &loadbalancer.Backend{
+		Address:  beAddr(5),
+		State:    loadbalancer.BackendStateTerminating,
+		NodeName: "node-c",
+		Zone:     &loadbalancer.BackendZone{Zone: "zone-b"},
+	}
+
+	tests := []struct {
+		name     string
+		backends []*loadbalancer.Backend
+		expected []*loadbalancer.Backend
+	}{
+		{
+			name:     "same-node backend preferred",
+			backends: []*loadbalancer.Backend{sameNode, sameZone, otherZone},
+			expected: []*loadbalancer.Backend{sameNode},
+		},
+		{
+			name:     "no same-node backend, fall back to same zone",
+			backends: []*loadbalancer.Backend{sameZone, otherZone},
+			expected: []*loadbalancer.Backend{sameZone},
+		},
+		{
+			// The quarantined backend is in the local zone and is thus kept in
+			// the selection, but it is not used for new connections.
+			name:     "same-node backend not active, fall back to same zone",
+			backends: []*loadbalancer.Backend{sameNodeQuarantined, sameZone, otherZone},
+			expected: []*loadbalancer.Backend{sameNodeQuarantined, sameZone},
+		},
+		{
+			name:     "terminating backends kept for draining in zone fallback",
+			backends: []*loadbalancer.Backend{sameZone, otherZone, otherZoneTerminating},
+			expected: []*loadbalancer.Backend{sameZone, otherZoneTerminating},
+		},
+		{
+			name:     "no backend in the local zone, fall back to all",
+			backends: []*loadbalancer.Backend{otherZone},
+			expected: []*loadbalancer.Backend{otherZone},
+		},
+		{
+			name:     "missing zone hints, fall back to all",
+			backends: []*loadbalancer.Backend{sameZone, otherZoneNoHints},
+			expected: []*loadbalancer.Backend{sameZone, otherZoneNoHints},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &loadbalancer.Service{
+				Name:                svcName,
+				Source:              source.Kubernetes,
+				TrafficDistribution: loadbalancer.TrafficDistributionPreferSameNode,
+			}
+			fe := &loadbalancer.Frontend{
+				FrontendParams: loadbalancer.FrontendParams{
+					ServiceName: svcName,
+					Address:     feAddr,
+					Type:        loadbalancer.SVCTypeClusterIP,
+					ServicePort: feAddr.Port(),
+				},
+				Service: svc,
+			}
+			backends := iter.Seq2[*loadbalancer.Backend, statedb.Revision](func(yield func(*loadbalancer.Backend, statedb.Revision) bool) {
+				for i, be := range tt.backends {
+					if !yield(be, statedb.Revision(i+1)) {
+						return
+					}
+				}
+			})
+
+			selected := slices.Collect(statedb.ToSeq(p.Writer.SelectBackends(p.DB.ReadTxn(), backends, svc, fe)))
+			require.ElementsMatch(t, tt.expected, selected)
+		})
+	}
+}

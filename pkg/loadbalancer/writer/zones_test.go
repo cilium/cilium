@@ -119,12 +119,13 @@ func TestZoneWatcher(t *testing.T) {
 		})
 		synctest.Wait()
 
-		// Expected: Zonal services are refreshed, default and same-node are not.
+		// Expected: Zonal services are refreshed (including same-node, which falls
+		// back to same-zone backends), default is not.
 		expectedInitChanges := map[string]bool{
 			"svc-default":      false,
 			"svc-same-zone":    true,
 			"svc-prefer-close": true,
-			"svc-same-node":    false,
+			"svc-same-node":    true,
 		}
 		revsAfterInit := verifyRevisions(initialRevs, expectedInitChanges, "Initial Zone Discovery")
 
@@ -150,7 +151,7 @@ func TestZoneWatcher(t *testing.T) {
 			"svc-default":      false,
 			"svc-same-zone":    true,
 			"svc-prefer-close": true,
-			"svc-same-node":    false,
+			"svc-same-node":    true,
 		}
 		revsAfterScenario3 := verifyRevisions(revsAfterInit, expectedZoneChanges, "Zone Change")
 
@@ -161,11 +162,18 @@ func TestZoneWatcher(t *testing.T) {
 		// - Scenario 3 LocalNodeStore zone label update.
 		// - zoneWatcher background job path refresh and commit.
 		//
-		// An implementation that correctly filters unrelated updates results in a total revision delta
-		// of exactly 2 for the zonal services. Any extra frontend writes (e.g., due to unexpected path churn)
-		// would cause a higher revision delta.
+		// The revision is table-wide, so a single refresh bumps each zonal frontend's revision by the
+		// number of refreshed frontends. An implementation that correctly filters unrelated updates
+		// thus results in a revision delta equal to the number of zonal services. Any extra frontend
+		// writes (e.g., due to unexpected path churn) would cause a higher revision delta.
+		zonalServices := 0
+		for _, changed := range expectedZoneChanges {
+			if changed {
+				zonalServices++
+			}
+		}
 		delta := revsAfterScenario3["svc-same-zone"] - revsAfterInit["svc-same-zone"]
-		require.Equal(t, statedb.Revision(2), delta,
+		require.Equal(t, statedb.Revision(zonalServices), delta,
 			"Service was wrongly refreshed on unrelated node update (extra revision jump detected)")
 	})
 }

@@ -121,10 +121,12 @@ const (
 )
 
 // RequiresZoneUpdate returns true if the traffic distribution policy
-// depends on node topology zone changes.
+// depends on node topology zone changes. PreferSameNode is included as it
+// falls back to same-zone backends when no same-node backend is available.
 func (td TrafficDistribution) RequiresZoneUpdate() bool {
 	return td == TrafficDistributionPreferSameZone ||
-		td == TrafficDistributionPreferClose
+		td == TrafficDistributionPreferClose ||
+		td == TrafficDistributionPreferSameNode
 }
 
 func (svc *Service) DeepEqual(other *Service) bool {
