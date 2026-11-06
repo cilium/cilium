@@ -135,7 +135,7 @@ func NewWithFlags(ctx context.Context, vp *viper.Viper) (*grpc.ClientConn, error
 
 		pf, err := newPortForwarder(kubeContext, kubeconfig)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create k8s port forwader: %w", err)
+			return nil, fmt.Errorf("failed to create k8s port forwarder: %w", err)
 		}
 
 		// default to first port configured on the service when svcPort is set to 0
