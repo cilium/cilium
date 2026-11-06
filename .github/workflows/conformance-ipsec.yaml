@@ -83,7 +83,17 @@ jobs:
     name: Wait for images
     runs-on: ubuntu-26.04
     timeout-minutes: 30
+    outputs:
+      full: ${{ steps.full.outputs.full }}
     steps:
+      - name: Read the full extra-arg
+        id: full
+        env:
+          EXTRA_ARGS: ${{ inputs.extra-args }}
+        run: |
+          FULL=$(jq -Rsr '. as $raw | (try fromjson catch $raw) | if type == "object" then (.full == true or .full == "true") else false end | tostring' <<< "${EXTRA_ARGS}")
+          echo "full=${FULL}" >> "$GITHUB_OUTPUT"
+
       - name: Checkout context ref (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -109,7 +119,7 @@ jobs:
       PR-number: ${{ inputs.PR-number || github.ref_name }}
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"ipsec": true}'
+      extra-args: ${{ format('{{"ipsec":true,"full":{0}}}', needs.wait-for-images.outputs.full) }}
 
   conformance-eks-ipsec:
     name: Conformance EKS with IPsec
@@ -120,7 +130,7 @@ jobs:
       PR-number: ${{ inputs.PR-number || github.ref_name }}
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"ipsec": true}'
+      extra-args: ${{ format('{{"ipsec":true,"full":{0}}}', needs.wait-for-images.outputs.full) }}
 
   conformance-gke-ipsec:
     name: Conformance GKE with IPsec
@@ -131,7 +141,7 @@ jobs:
       PR-number: ${{ inputs.PR-number || github.ref_name }}
       context-ref: ${{ inputs.context-ref || github.sha }}
       SHA: ${{ inputs.SHA || github.sha }}
-      extra-args: '{"ipsec": true}'
+      extra-args: ${{ format('{{"ipsec":true,"full":{0}}}', needs.wait-for-images.outputs.full) }}
 
   merge-upload-and-status:
     name: Merge Upload and Status
