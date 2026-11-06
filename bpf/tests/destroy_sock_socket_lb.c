@@ -23,10 +23,8 @@ static __always_inline int
 mock_bpf_sock_destroy(struct sock_common *sk __maybe_unused)
 {
 	destroys++;
-
 	return 0;
 }
-
 static char write_data[sizeof(__sock_cookie)];
 static __u32 write_len;
 
@@ -53,7 +51,28 @@ static __always_inline __sock_cookie mock_get_socket_cookie(void *ctx __maybe_un
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
 
+#include <node_config.h>
 #include "lib/socket.h"
+#include "lib/sock.h"
+
+static struct ipv4_sk_storage_entry mock_st4;
+static struct ipv6_sk_storage_entry mock_st6;
+static bool mock_st4_valid;
+static bool mock_st6_valid;
+
+static __always_inline void *
+mock_bpf_sk_storage_get(const void *map, void *sk __maybe_unused,
+			void *value __maybe_unused, __u64 flags __maybe_unused)
+{
+	if (map == &cilium_lb4_reverse_sk_v2 && mock_st4_valid)
+		return &mock_st4;
+	if (map == &cilium_lb6_reverse_sk_v2 && mock_st6_valid)
+		return &mock_st6;
+	return NULL;
+}
+
+#undef bpf_sk_storage_get
+#define bpf_sk_storage_get mock_bpf_sk_storage_get
 
 #include "bpf_sock_term.c"
 
@@ -168,25 +187,45 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	/* IPv4 tests */
 	set_filter(&filter4);
 
-	/* UDP */
+	/* Connected Case 1: Matching destination + valid sk_storage -> destroy */
+	connect4(&sk, match_addr4, match_port);
+	mock_st4_valid = true;
+	mock_st4.backend_address = match_addr4;
+	mock_st4.backend_port = bpf_htons(match_port);
+	reset(match_cookie4);
+	sock_tcp_destroy_v4(&iter_ctx_tcp);
+	assert(destroys == 1);
+	assert(write_len == sizeof(__sock_cookie));
 
-	/* Don't destroy the socket if its cookie isn't in
-	 * cilium_lb4_reverse_sk.
-	 */
+	/* Connected Case 2: Mismatched destination (reconnected socket) + valid sk_storage -> spared by gate */
+	connect4(&sk, 0x11223344, 5555);
+	reset(match_cookie4);
+	sock_tcp_destroy_v4(&iter_ctx_tcp);
+	assert(destroys == 0);
+	assert(write_len == 0);
+
+	/* Reset sk destination for unconnected tests */
+	connect4(&sk, 0, 0);
+
+	/* UDP Case 1: No sk_storage, no LRU match -> no destroy */
+	mock_st4_valid = false;
 	reset(no_match_cookie4);
 	connect4(&sk, match_addr4, match_port);
 	sock_udp_destroy_v4(&iter_ctx_udp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if it was connected to the backend via a service VIP
-	 * and is still connected to that backend.
-	 */
+
+	/* UDP Case 2: sk_storage valid -> destroy */
+	mock_st4_valid = true;
+	mock_st4.backend_address = match_addr4;
+	mock_st4.backend_port = bpf_htons(match_port);
 	reset(match_cookie4);
 	connect4(&sk, match_addr4, match_port);
 	sock_udp_destroy_v4(&iter_ctx_udp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie4);
+
 	/* Don't destroy the socket if it has no destination: its cookie came
 	 * from an unconnected sendto(), or it has since run connect(AF_UNSPEC).
 	 */
@@ -195,6 +234,7 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	sock_udp_destroy_v4(&iter_ctx_udp);
 	assert(destroys == 0);
 	assert(write_len == 0);
+
 	/* Don't destroy the socket if it has since connected elsewhere. */
 	reset(match_cookie4);
 	connect4(&sk, match_addr4 + 1, match_port);
@@ -207,26 +247,35 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	assert(destroys == 0);
 	assert(write_len == 0);
 
-	/* TCP */
+	/* UDP Case 3: No sk_storage, but LRU map match (fallback) -> destroy */
+	mock_st4_valid = false;
+	reset(match_cookie4);
+	connect4(&sk, match_addr4, match_port);
+	sock_udp_destroy_v4(&iter_ctx_udp);
+	assert(destroys == 1);
+	assert(write_len == sizeof(__sock_cookie));
 
-	/* Don't destroy the socket if its cookie isn't in
-	 * cilium_lb4_reverse_sk.
-	 */
+	/* TCP */
+	/* Don't destroy the socket if address doesn't match filter */
+	mock_st4_valid = false;
 	reset(no_match_cookie4);
 	connect4(&sk, match_addr4, match_port);
 	sock_tcp_destroy_v4(&iter_ctx_tcp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if it was connected to the backend via a service VIP
-	 * and is still connected to that backend.
-	 */
+
+	/* Destroy the socket if address matches filter via sk_storage */
+	mock_st4_valid = true;
+	mock_st4.backend_address = match_addr4;
+	mock_st4.backend_port = bpf_htons(match_port);
 	reset(match_cookie4);
 	connect4(&sk, match_addr4, match_port);
 	sock_tcp_destroy_v4(&iter_ctx_tcp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie4);
-	/* See the IPv4 UDP case. */
+
+	/* TCP: Don't destroy if disconnected or reconnected elsewhere */
 	reset(match_cookie4);
 	connect4(&sk, 0, 0);
 	sock_tcp_destroy_v4(&iter_ctx_tcp);
@@ -238,28 +287,56 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	assert(destroys == 0);
 	assert(write_len == 0);
 
+	/* TCP Case 3: No sk_storage, but LRU map match (fallback) -> destroy */
+	mock_st4_valid = false;
+	reset(match_cookie4);
+	connect4(&sk, match_addr4, match_port);
+	sock_tcp_destroy_v4(&iter_ctx_tcp);
+	assert(destroys == 1);
+	assert(write_len == sizeof(__sock_cookie));
+
 	/* IPv6 tests */
 	set_filter(&filter6);
 
-	/* UDP */
+	/* Connected Case 1 (v6): Matching destination + valid sk_storage -> destroy */
+	connect6(&sk, &match_addr6, match_port);
+	mock_st6_valid = true;
+	memcpy(&mock_st6.backend_address, &match_addr6, sizeof(union v6addr));
+	mock_st6.backend_port = bpf_htons(match_port);
+	reset(match_cookie6);
+	sock_tcp_destroy_v6(&iter_ctx_tcp);
+	assert(destroys == 1);
 
-	/* Don't destroy the socket if its cookie isn't in
-	 * cilium_lb6_reverse_sk.
-	 */
+	/* Connected Case 2 (v6): Mismatched destination -> spared */
+	const union v6addr diff_addr6 = { .d1 = 0x999, .d2 = 0x888 };
+
+	connect6(&sk, &diff_addr6, match_port);
+	reset(match_cookie6);
+	sock_tcp_destroy_v6(&iter_ctx_tcp);
+	assert(destroys == 0);
+
+	/* Reset sk destination for unconnected v6 tests */
+	connect6(&sk, &(union v6addr){}, 0);
+
+	/* UDP Case 1: No match -> no destroy */
+	mock_st6_valid = false;
 	reset(no_match_cookie6);
 	connect6(&sk, &match_addr6, match_port);
 	sock_udp_destroy_v6(&iter_ctx_udp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if it was connected to the backend via a service VIP
-	 * and is still connected to that backend.
-	 */
+
+	/* UDP Case 2: sk_storage match -> destroy */
+	mock_st6_valid = true;
+	memcpy(&mock_st6.backend_address, &match_addr6, sizeof(union v6addr));
+	mock_st6.backend_port = bpf_htons(match_port);
 	reset(match_cookie6);
 	connect6(&sk, &match_addr6, match_port);
 	sock_udp_destroy_v6(&iter_ctx_udp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie6);
+
 	/* See the IPv4 UDP case. */
 	reset(match_cookie6);
 	connect6(&sk, &(union v6addr){}, 0);
@@ -271,26 +348,35 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	sock_udp_destroy_v6(&iter_ctx_udp);
 	assert(destroys == 0);
 	assert(write_len == 0);
+
+	/* UDP Case 3: No sk_storage, LRU match -> destroy */
+	mock_st6_valid = false;
+	reset(match_cookie6);
+	connect6(&sk, &match_addr6, match_port);
+	sock_udp_destroy_v6(&iter_ctx_udp);
+	assert(destroys == 1);
+	assert(write_len == sizeof(__sock_cookie));
 
 	/* TCP */
-
-	/* Don't destroy the socket if its cookie isn't in
-	 * cilium_lb6_reverse_sk.
-	 */
+	/* Don't destroy the socket if address doesn't match filter */
+	mock_st6_valid = false;
 	reset(no_match_cookie6);
 	connect6(&sk, &match_addr6, match_port);
 	sock_tcp_destroy_v6(&iter_ctx_tcp);
 	assert(destroys == 0);
 	assert(write_len == 0);
-	/* Destroy the socket if it was connected to the backend via a service VIP
-	 * and is still connected to that backend.
-	 */
+
+	/* Destroy the socket if address matches filter via sk_storage */
+	mock_st6_valid = true;
+	memcpy(&mock_st6.backend_address, &match_addr6, sizeof(union v6addr));
+	mock_st6.backend_port = bpf_htons(match_port);
 	reset(match_cookie6);
 	connect6(&sk, &match_addr6, match_port);
 	sock_tcp_destroy_v6(&iter_ctx_tcp);
 	assert(destroys == 1);
 	assert(write_len == sizeof(__sock_cookie));
 	assert(*((__sock_cookie *)write_data) == match_cookie6);
+
 	/* See the IPv4 UDP case. */
 	reset(match_cookie6);
 	connect6(&sk, &(union v6addr){}, 0);
@@ -302,6 +388,14 @@ int test_sock_terminate(__maybe_unused struct xdp_md *ctx)
 	sock_tcp_destroy_v6(&iter_ctx_tcp);
 	assert(destroys == 0);
 	assert(write_len == 0);
+
+	/* TCP Case 3: No sk_storage, LRU match -> destroy */
+	mock_st6_valid = false;
+	reset(match_cookie6);
+	connect6(&sk, &match_addr6, match_port);
+	sock_tcp_destroy_v6(&iter_ctx_tcp);
+	assert(destroys == 1);
+	assert(write_len == sizeof(__sock_cookie));
 
 	test_finish();
 }
