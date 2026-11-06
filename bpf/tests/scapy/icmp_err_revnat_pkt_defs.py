@@ -106,6 +106,79 @@ icmp4_err_nat_full_tcp_after = (
     IPerror(bytes(icmp4_tcp_ingress[IP]))
 )
 
+# Same as above, but the SNAT mapping also changed the port
+# (pod tcp_src_one -> node tcp_src_three).
+icmp4_err_nat_portnat_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(IP(src=v4_ext_one, dst=v4_pod_one) /
+                  TCP(sport=tcp_dst_one, dport=tcp_src_one) /
+                  Raw(default_data)))
+)
+
+icmp4_err_nat_portnat_tcp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    IPerror(bytes(IP(src=v4_ext_one, dst=v4_node_one) /
+                  TCP(sport=tcp_dst_one, dport=tcp_src_three) /
+                  Raw(default_data)))
+)
+
+# Same as above, but the inner TCP is truncated to its first 8 bytes, so
+# there is no inner TCP checksum to absorb the port change.
+icmp4_err_nat_portnat_min_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_pod_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    Raw(bytes(icmp4_err_nat_portnat_tcp[IPerror])[:28])
+)
+
+icmp4_err_nat_portnat_min_tcp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_node_one, dst=v4_ext_one) /
+    ICMP(type="dest-unreach", code="communication-prohibited") /
+    Raw(bytes(icmp4_err_nat_portnat_tcp_after[IPerror])[:28])
+)
+
+# RevSNAT counterpart: a router returns Fragmentation Needed for the
+# node -> ext packet of the same port-NATed flow.
+icmp4_err_revnat_portnat_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(bytes(IP(src=v4_node_one, dst=v4_ext_one, flags="DF") /
+                  TCP(sport=tcp_src_three, dport=tcp_dst_one) /
+                  Raw(default_data)))
+)
+
+# After revSNAT: outer daddr -> pod, inner saddr/sport -> pod.
+icmp4_err_revnat_portnat_tcp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    IPerror(bytes(IP(src=v4_pod_one, dst=v4_ext_one, flags="DF") /
+                  TCP(sport=tcp_src_one, dport=tcp_dst_one) /
+                  Raw(default_data)))
+)
+
+# Same as above, but the router quotes only the first 8 bytes of the TCP
+# header.
+icmp4_err_revnat_portnat_min_tcp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_node_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    Raw(bytes(icmp4_err_revnat_portnat_tcp[IPerror])[:28])
+)
+
+icmp4_err_revnat_portnat_min_tcp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IP(src=v4_ext_one, dst=v4_pod_one) /
+    ICMP(type="dest-unreach", code="fragmentation-needed", nexthopmtu=1500) /
+    Raw(bytes(icmp4_err_revnat_portnat_tcp_after[IPerror])[:28])
+)
+
 # IPv4 ICMP error packets embedding ICMP Echo.
 # Ingress/revNAT: router -> host, quoting the NATed endpoint -> external packet.
 icmp4_err_revnat_full_icmp = (
@@ -311,6 +384,29 @@ icmp6_err_revnat_full_sctp = _icmp6_revnat_pkt(
 
 icmp6_err_revnat_full_sctp_after = _icmp6_revnat_after_pkt(
     _sctp_hdr_egress / Raw(default_data)
+)
+
+# ICMPv6 error on the SNAT egress path: the pod rejects a revSNATed
+# ext -> pod SCTP packet.
+_sctp_hdr_ingress = SCTP(sport=tcp_dst_one, dport=tcp_src_two, tag=0)
+
+icmp6_err_nat_full_sctp = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_pod_one, dst=v6_ext_node_one) /
+    ICMPv6DestUnreach(code=1) /
+    IPv6(src=v6_ext_node_one, dst=v6_pod_one) /
+    _sctp_hdr_ingress /
+    Raw(default_data)
+)
+
+# After SNAT: outer saddr -> node, inner daddr -> node.
+icmp6_err_nat_full_sctp_after = (
+    Ether(src=mac_one, dst=mac_two) /
+    IPv6(src=v6_node_one, dst=v6_ext_node_one) /
+    ICMPv6DestUnreach(code=1) /
+    IPv6(src=v6_ext_node_one, dst=v6_node_one) /
+    _sctp_hdr_ingress /
+    Raw(default_data)
 )
 
 # outer IPv4 (pod_two -> pod_one), ICMP Destination Unreachable / Fragmentation Needed,
