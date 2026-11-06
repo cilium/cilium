@@ -7,7 +7,7 @@
 #include "pktgen.h"
 
 #define ENABLE_IPV4 1
-#define ENABLE_IPV6
+#define ENABLE_IPV6 1
 
 /*
  * Test constants. Make sure to have a valid src/dst identity by

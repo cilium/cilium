@@ -59,20 +59,18 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
  * per-protocol handlers that expect the header to be in linear memory.
  * Returns DROP_INVALID if the pull fails, 0 otherwise.
  */
-static __always_inline int pull_l3_hdr(struct __ctx_buff *ctx __maybe_unused,
-				       __be16 proto)
+static __always_inline int pull_l3_hdr(struct __ctx_buff *ctx, __be16 proto)
 {
 	switch (bpf_ntohs(proto)) {
-#ifdef ENABLE_IPV6
-	case ETH_P_IPV6: {
-		void *data, *data_end;
-		struct ipv6hdr *ip6;
+	case ETH_P_IPV6:
+		if (is_defined(ENABLE_IPV6)) {
+			void *data, *data_end;
+			struct ipv6hdr *ip6;
 
-		if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
+			if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
+				return DROP_INVALID;
+		}
 		break;
-	}
-#endif /* ENABLE_IPV6 */
 	case ETH_P_IP:
 		if (is_defined(ENABLE_IPV4)) {
 			void *data, *data_end;
