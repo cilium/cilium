@@ -1,6 +1,7 @@
 - hostname: '*'
   name: ing-dummy-ingress-dummy-namespace-*
   port: 80
+  protocol: HTTP
   routes:
   - backends:
     - name: dummy-backend

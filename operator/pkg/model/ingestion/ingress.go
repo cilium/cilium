@@ -86,8 +86,9 @@ func Ingress(log *slog.Logger, ing networkingv1.Ingress, defaultSecretNamespace,
 					Timeout: timeout,
 				},
 			},
-			Port:    insecureListenerPort,
-			Service: getService(log, ing),
+			Port:     insecureListenerPort,
+			Protocol: model.ListenerProtocolHTTP,
+			Service:  getService(log, ing),
 		}
 
 		l.Sources = model.AddSource(l.Sources, sourceResource)
@@ -106,6 +107,7 @@ func Ingress(log *slog.Logger, ing networkingv1.Ingress, defaultSecretNamespace,
 
 		l, ok := insecureListenerMap[host]
 		l.Port = insecureListenerPort
+		l.Protocol = model.ListenerProtocolHTTP
 		l.Sources = model.AddSource(l.Sources, sourceResource)
 		if !ok {
 			l.Name = "ing-" + ing.Name + "-" + ing.Namespace + "-" + host
@@ -198,6 +200,7 @@ func Ingress(log *slog.Logger, ing networkingv1.Ingress, defaultSecretNamespace,
 			}
 
 			l.Port = secureListenerPort
+			l.Protocol = model.ListenerProtocolHTTPS
 			l.Hostname = host
 			l.Service = getService(log, ing)
 			l.ForceHTTPtoHTTPSRedirect = forceHTTPs
@@ -225,6 +228,7 @@ func Ingress(log *slog.Logger, ing networkingv1.Ingress, defaultSecretNamespace,
 				}
 				defaultListener.Hostname = host
 				defaultListener.Port = secureListenerPort
+				defaultListener.Protocol = model.ListenerProtocolHTTPS
 				secureListenerMap[host] = defaultListener
 
 			}

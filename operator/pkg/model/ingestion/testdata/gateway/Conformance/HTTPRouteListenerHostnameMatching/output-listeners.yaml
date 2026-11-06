@@ -1,6 +1,7 @@
 - hostname: bar.com
   name: listener-1
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - name: infra-backend-v1
@@ -20,6 +21,7 @@
 - hostname: foo.bar.com
   name: listener-2
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - name: infra-backend-v2
@@ -39,6 +41,7 @@
 - hostname: "*.bar.com"
   name: listener-3
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - name: infra-backend-v3
@@ -58,6 +61,7 @@
 - hostname: "*.foo.com"
   name: listener-4
   port: 80
+  protocol: HTTP
   routes:
     - backends:
         - name: infra-backend-v3

@@ -1,6 +1,7 @@
 - hostname: "*"
   name: http
   port: 80
+  protocol: HTTP
   routes:
     - backend_http_filters:
         - name: gateway-conformance-infra:infra-backend-v1:8080
