@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/ebpf"
 	"github.com/cilium/cilium/pkg/mac"
@@ -36,7 +38,7 @@ func newNetDevMap() *netDevMap {
 			&index,
 			&DeviceState{},
 			512,
-			0,
+			unix.BPF_F_NO_PREALLOC,
 		),
 	}
 }
