@@ -306,11 +306,12 @@ func (noopEndpointManager) UpdateReferences(*endpoint.Endpoint) error {
 func (noopEndpointManager) RemoveEndpoint(*endpoint.Endpoint, endpoint.DeleteConfig) []error {
 	return nil
 }
-func (noopEndpointManager) RunK8sCiliumEndpointSync(*endpoint.Endpoint, cell.Health) {}
-func (noopEndpointManager) DeleteK8sCiliumEndpointSync(*endpoint.Endpoint)           {}
-func (noopEndpointManager) Subscribe(endpointmanager.Subscriber)                     {}
-func (noopEndpointManager) Unsubscribe(endpointmanager.Subscriber)                   {}
-func (noopEndpointManager) UpdatePolicyMaps(context.Context) error                   { return nil }
+func (noopEndpointManager) RunK8sCiliumEndpointSync(*endpoint.Endpoint, endpointmanager.EndpointsLookup, cell.Health) {
+}
+func (noopEndpointManager) DeleteK8sCiliumEndpointSync(*endpoint.Endpoint) {}
+func (noopEndpointManager) Subscribe(endpointmanager.Subscriber)           {}
+func (noopEndpointManager) Unsubscribe(endpointmanager.Subscriber)         {}
+func (noopEndpointManager) UpdatePolicyMaps(context.Context) error         { return nil }
 func (noopEndpointManager) RegenerateAllEndpoints(*regeneration.ExternalRegenerationMetadata) *sync.WaitGroup {
 	return &sync.WaitGroup{}
 }
