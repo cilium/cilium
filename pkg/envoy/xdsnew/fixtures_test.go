@@ -359,9 +359,9 @@ func (s *coverageStream) reply(t *testing.T, response *discovery.DiscoveryRespon
 	s.sub.SetResourceSubscription(names)
 }
 
-func newCoverageCache(t *testing.T) *cacheImpl {
+func newCoverageCache(t *testing.T, options ...CacheOption) *cacheImpl {
 	t.Helper()
-	c := newTestCache(t, "coverage-node")
+	c := newCache(slog.New(slog.DiscardHandler), append([]CacheOption{WithNodeIDs("coverage-node")}, options...)...)
 	t.Cleanup(func() { c.completionCbs.OnStreamClosed(1, nil); c.completionCbs.OnStreamClosed(2, nil) })
 	return c
 }

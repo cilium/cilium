@@ -26,8 +26,9 @@ type nodeState struct {
 	// epoch is the wire-version namespace shared by this node's resource types.
 	epoch uint64
 	// streams use separate slots for the independently numbered protocol modes.
-	streams     [callbacks.StreamModeCount]set.Set[int64]
-	openWatches nodeWatchState
+	streams          [callbacks.StreamModeCount]set.Set[int64]
+	openWatches      nodeWatchState
+	openDeltaWatches nodeDeltaWatchState
 	// resourceGeneration identifies the latest desired state, while
 	// snapshotGeneration identifies the state most recently published to Envoy.
 	resourceGeneration callbacks.Generation
@@ -135,9 +136,11 @@ func (state *nodeState) getResource(typeURL typeurl.Index, resourceName string) 
 }
 
 func (state *nodeState) reconcileChangedResourceNames(changes resourceChanges, published cache.ResourceSnapshot) {
+	snapshot, _ := published.(*ciliumSnapshot)
 	reconcile := func(change resourceChange) {
 		changed := &state.typeStates[change.typeURL].changedResourceNames
-		resource := state.resources[change.typeURL][change.name].resource
+		entry := state.resources[change.typeURL][change.name]
+		resource := entry.resource
 		var publishedResources map[string]cache_types.ResourceWithTTL
 		if published != nil {
 			publishedResources = published.GetResourcesAndTTL(change.typeURL.URL())
@@ -148,6 +151,14 @@ func (state *nodeState) reconcileChangedResourceNames(changes resourceChanges, p
 				changed.Remove(change.name)
 			}
 			return
+		}
+		if snapshot != nil && snapshot.delta {
+			// Failure can restore an older protobuf with a still-unpublished
+			// revision. Keep that name dirty until Delta publishes the revision.
+			generation := snapshot.resourceGroups[change.typeURL].generation
+			if generation.MaxRevision(entry.revision) > generation {
+				return
+			}
 		}
 		if publishedExists &&
 			(publishedResource.Resource == resource || xds.ResourceEqual(publishedResource.Resource, resource)) {
@@ -168,6 +179,10 @@ func (state *nodeState) hasOpenWatchLocked(typeURLs typeurl.Set) bool {
 	for typeURL := range typeURLs.Members() {
 		watches, _ := state.openWatches.Get(typeURL)
 		if !watches.Empty() {
+			return true
+		}
+		deltaWatches, _ := state.openDeltaWatches.Get(typeURL)
+		if !deltaWatches.Empty() {
 			return true
 		}
 	}

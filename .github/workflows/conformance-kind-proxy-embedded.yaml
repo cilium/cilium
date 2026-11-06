@@ -83,6 +83,8 @@ jobs:
         include:
         - name: ads
           extra-helm-set: "--helm-set=envoy.xdsMode=ads"
+        - name: delta-ads
+          extra-helm-set: "--helm-set=envoy.xdsMode=delta-ads"
         - name: split
           extra-helm-set: "--helm-set=envoy.xdsMode=split"
         - name: delta-split

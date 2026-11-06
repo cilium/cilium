@@ -5,28 +5,34 @@ package envoy
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
+	envoy_config_cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	cache_types "github.com/envoyproxy/go-control-plane/pkg/cache/types"
 	"github.com/envoyproxy/go-control-plane/pkg/server/sotw/v3"
 	envoy_server "github.com/envoyproxy/go-control-plane/pkg/server/v3"
 	"github.com/stretchr/testify/require"
+	statuspb "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"github.com/cilium/cilium/pkg/completion"
+	"github.com/cilium/cilium/pkg/container/set"
 	"github.com/cilium/cilium/pkg/envoy/config"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/envoy/xdsnew"
@@ -50,6 +56,132 @@ func newTestADSClient(t *testing.T, server *adsServer) discovery.AggregatedDisco
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 	return discovery.NewAggregatedDiscoveryServiceClient(conn)
+}
+
+// Cache relays buffer SetSnapshot's synchronous responses until the cache locks
+// can be released. The buffer assumes one watch per TypeURL per stream, however
+// many resource names are subscribed. One response per name could fill the relay
+// and block SetSnapshot before collection, even with a receiving gRPC client.
+// Exercise the real go-control-plane ADS loop so an upstream change to watch
+// replacement or response-channel ownership fails here. Investigate that contract
+// before increasing buffer sizes; a larger fixed buffer would only move the limit.
+func TestADSNamedSubscriptionsShareWatch(t *testing.T) {
+	tests := []struct {
+		name  string
+		delta bool
+	}{
+		{name: "sotw"},
+		{name: "delta", delta: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			cache := xdsnew.NewCache(logger, xdsnew.WithNodeIDs(localNodeID), xdsnew.WithDeltaADS())
+			server := newTestADSServerWithCache(t, cache, logger, nil, nil, xdsServerConfig{}, nil, nil)
+			client := newTestADSClient(t, server)
+			// Bound blocked RPCs and publication on regression; successful runs
+			// finish as soon as their responses arrive.
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+
+			// Exceed both the upstream stream buffers and Cilium's relay minimum.
+			const resourceCount = 4 * max(int(cache_types.UnknownType), int(typeurl.Count))
+			initial := xds.Resources{Endpoints: make(map[string]*endpoint.ClusterLoadAssignment, resourceCount)}
+			updated := xds.Resources{Endpoints: make(map[string]*endpoint.ClusterLoadAssignment, resourceCount)}
+			for i := range resourceCount {
+				name := fmt.Sprintf("endpoint-%d", i)
+				initial.Endpoints[name] = &endpoint.ClusterLoadAssignment{ClusterName: name}
+				updated.Endpoints[name] = &endpoint.ClusterLoadAssignment{
+					ClusterName: name, Endpoints: []*endpoint.LocalityLbEndpoints{{Priority: 1}},
+				}
+			}
+			require.NoError(t, cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: initial}, nil, xdsnew.TypeURLCallbacks{}))
+
+			var nonce, version string
+			var send func([]string) error
+			var receive func() []*anypb.Any
+			var watchCount func() int
+			if tt.delta {
+				stream, err := client.DeltaAggregatedResources(ctx)
+				require.NoError(t, err)
+				send = func(names []string) error {
+					return stream.Send(&discovery.DeltaDiscoveryRequest{
+						Node: &core.Node{Id: localNodeID}, TypeUrl: EndpointTypeURL,
+						ResourceNamesSubscribe: names, ResponseNonce: nonce,
+					})
+				}
+				receive = func() []*anypb.Any {
+					t.Helper()
+					response, err := stream.Recv()
+					require.NoError(t, err)
+					require.Equal(t, EndpointTypeURL, response.GetTypeUrl())
+					require.Empty(t, response.GetRemovedResources())
+					nonce = response.GetNonce()
+					resources := make([]*anypb.Any, 0, len(response.GetResources()))
+					for _, resource := range response.GetResources() {
+						resources = append(resources, resource.GetResource())
+					}
+					return resources
+				}
+				watchCount = func() int { return cache.GetSnapshotCache().GetStatusInfo(localNodeID).GetNumDeltaWatches() }
+			} else {
+				stream, err := client.StreamAggregatedResources(ctx)
+				require.NoError(t, err)
+				send = func(names []string) error {
+					return stream.Send(&discovery.DiscoveryRequest{
+						Node: &core.Node{Id: localNodeID}, TypeUrl: EndpointTypeURL,
+						ResourceNames: names, VersionInfo: version, ResponseNonce: nonce,
+					})
+				}
+				receive = func() []*anypb.Any {
+					t.Helper()
+					response, err := stream.Recv()
+					require.NoError(t, err)
+					require.Equal(t, EndpointTypeURL, response.GetTypeUrl())
+					nonce, version = response.GetNonce(), response.GetVersionInfo()
+					return response.GetResources()
+				}
+				watchCount = func() int { return cache.GetSnapshotCache().GetStatusInfo(localNodeID).GetNumWatches() }
+			}
+
+			var names []string
+			for i := range resourceCount {
+				names = append(names, fmt.Sprintf("endpoint-%d", i))
+				subscribed := names
+				expected := len(names)
+				if tt.delta {
+					// Delta adds a name; SotW replaces the complete subscription.
+					subscribed = names[len(names)-1:]
+					expected = 1
+				}
+				require.NoError(t, send(subscribed))
+				require.Len(t, receive(), expected)
+			}
+			if tt.delta {
+				names = nil // An ACK retains the existing Delta subscription.
+			}
+			require.NoError(t, send(names))
+			// Send returning does not prove the server has processed the ACK.
+			// Wait for its deferred watch before publishing; otherwise an immediate
+			// CreateWatch response could bypass the publication path under scrutiny.
+			require.Eventually(t, func() bool { return watchCount() == 1 }, 5*time.Second, time.Millisecond,
+				"go-control-plane must replace the EDS watch when subscriptions change, rather than retain a watch per resource name")
+
+			require.NoError(t, cache.ApplyResources(ctx, localNodeID, xdsnew.ResourceMutations{Upserted: updated}, nil, xdsnew.TypeURLCallbacks{}),
+				"publication must fit in the relay before responses can be collected; check watch replacement and response-channel ownership")
+			resources := receive()
+			require.Len(t, resources, resourceCount)
+			var seen set.Set[string]
+			for _, resource := range resources {
+				var assignment endpoint.ClusterLoadAssignment
+				require.NoError(t, resource.UnmarshalTo(&assignment))
+				require.False(t, seen.Has(assignment.GetClusterName()), "each subscribed name must be delivered once")
+				seen.Insert(assignment.GetClusterName())
+				require.True(t, proto.Equal(updated.Endpoints[assignment.GetClusterName()], &assignment),
+					"the response must contain the updated assignment for %q", assignment.GetClusterName())
+			}
+		})
+	}
 }
 
 func TestADSEmptyNamedSubscriptionStillProcessesACK(t *testing.T) {
@@ -164,6 +296,9 @@ func TestADSRejectsUnknownNodes(t *testing.T) {
 					require.NoError(t, stream.Send(&discovery.DiscoveryRequest{Node: test.node, TypeUrl: NetworkPolicyHostsTypeURL}))
 					_, err = stream.Recv()
 					require.Equal(t, test.code, status.Code(err))
+					require.Nil(t, server.cache.GetSnapshotCache().GetStatusInfo(test.node.GetId()))
+					_, err = server.cache.GetSnapshotCache().GetSnapshot(test.node.GetId())
+					require.Error(t, err, "rejected requests must not initialize cache state")
 				})
 			}
 			require.Zero(t, ipCache.listenerCount, "rejected NPHDS requests must not start the IPCache listener")
@@ -213,6 +348,207 @@ func TestADSKnownNodeEmptyStateAndReconnect(t *testing.T) {
 	reconnected, err := stream.Recv()
 	require.NoError(t, err)
 	require.Empty(t, reconnected.GetResources(), "the empty local node remains known across disconnects")
+}
+
+func TestDeltaADSIncrementalACKAndNACKRollback(t *testing.T) {
+	server := newTestADSServer(t, hivetest.Logger(t), nil, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeDeltaADS,
+	}, nil, nil)
+	client := newTestADSClient(t, server)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+
+	baseline := &listener.Listener{Name: "listener-a"}
+	unchanged := &listener.Listener{Name: "listener-b"}
+	marker := &envoy_config_cluster.Cluster{Name: "ack-marker"}
+	require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, baseline.Name, baseline, nil, nil))
+	require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, unchanged.Name, unchanged, nil, nil))
+	require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Cluster, marker.Name, marker, nil, nil))
+
+	stream, err := client.DeltaAggregatedResources(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+		Node: &core.Node{Id: localNodeID}, TypeUrl: ListenerTypeURL,
+	}))
+	initial, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, ListenerTypeURL, initial.GetTypeUrl())
+	require.ElementsMatch(t, []string{baseline.Name, unchanged.Name}, deltaResponseResourceNames(initial))
+	require.Empty(t, initial.GetRemovedResources())
+
+	// ACK the initial LDS state. The following CDS request is an ordered marker
+	// proving that the ACK has been processed before the update is applied.
+	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+		TypeUrl: ListenerTypeURL, ResponseNonce: initial.GetNonce(),
+	}))
+	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{TypeUrl: ClusterTypeURL}))
+	markerResponse, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, ClusterTypeURL, markerResponse.GetTypeUrl())
+	require.Equal(t, []string{marker.Name}, deltaResponseResourceNames(markerResponse))
+
+	updated := &listener.Listener{
+		Name: baseline.Name, TrafficDirection: core.TrafficDirection_OUTBOUND,
+	}
+	wg := completion.NewWaitGroup(ctx)
+	callbackResult := make(chan error, 1)
+	require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Listener, updated.Name, updated, wg,
+		func(err error) { callbackResult <- err }))
+	done := waitForADSCompletion(t, wg)
+
+	updateResponse, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, ListenerTypeURL, updateResponse.GetTypeUrl())
+	require.Equal(t, []string{updated.Name}, deltaResponseResourceNames(updateResponse),
+		"Delta ADS must not resend an unchanged listener")
+	require.True(t, proto.Equal(updated, deltaResponseListener(t, updateResponse)))
+	requireADSCompletionPending(t, done)
+
+	require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+		TypeUrl:       ListenerTypeURL,
+		ResponseNonce: updateResponse.GetNonce(),
+		ErrorDetail:   &statuspb.Status{Message: "rejected listener"},
+	}))
+	reverted, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, []string{baseline.Name}, deltaResponseResourceNames(reverted))
+	require.True(t, proto.Equal(baseline, deltaResponseListener(t, reverted)))
+	require.ErrorContains(t, <-done, "rejected listener")
+	require.ErrorContains(t, <-callbackResult, "rejected listener")
+
+	cached, ok := server.cache.GetResource(localNodeID, typeurl.Listener, baseline.Name).(*listener.Listener)
+	require.True(t, ok)
+	require.True(t, proto.Equal(baseline, cached), "a Delta NACK must restore the accepted resource")
+}
+
+func TestDeltaADSRemovalNACKRestoresResource(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		typeURL  typeurl.Index
+		resource proto.Message
+	}{
+		{
+			name:     "endpoint",
+			typeURL:  typeurl.Endpoint,
+			resource: &endpoint.ClusterLoadAssignment{ClusterName: "resource"},
+		},
+		{
+			name:     "route",
+			typeURL:  typeurl.Route,
+			resource: &route.RouteConfiguration{Name: "resource"},
+		},
+		{
+			name:     "secret",
+			typeURL:  typeurl.Secret,
+			resource: &tls.Secret{Name: "resource"},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := newTestADSServer(t, hivetest.Logger(t), nil, nil, xdsServerConfig{
+				envoyXDSMode: config.EnvoyXDSModeDeltaADS,
+			}, nil, nil)
+			client := newTestADSClient(t, server)
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+
+			const resourceName = "resource"
+			marker := &envoy_config_cluster.Cluster{Name: "ack-marker"}
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, resourceName, test.resource, nil, nil))
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, typeurl.Cluster, marker.Name, marker, nil, nil))
+
+			stream, err := client.DeltaAggregatedResources(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+				Node:                   &core.Node{Id: localNodeID},
+				TypeUrl:                test.typeURL.URL(),
+				ResourceNamesSubscribe: []string{resourceName},
+			}))
+			initial, err := stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, []string{resourceName}, deltaResponseResourceNames(initial))
+
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+				TypeUrl: test.typeURL.URL(), ResponseNonce: initial.GetNonce(),
+			}))
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{TypeUrl: ClusterTypeURL}))
+			markerResponse, err := stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, []string{marker.Name}, deltaResponseResourceNames(markerResponse))
+
+			wg := completion.NewWaitGroup(ctx)
+			callbackResult := make(chan error, 1)
+			require.NoError(t, server.cache.ApplyResource(ctx, localNodeID, test.typeURL, resourceName, nil, wg,
+				func(err error) { callbackResult <- err }))
+			done := waitForADSCompletion(t, wg)
+			removed, err := stream.Recv()
+			require.NoError(t, err)
+			require.Empty(t, removed.GetResources())
+			require.Equal(t, []string{resourceName}, removed.GetRemovedResources())
+
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+				TypeUrl:       test.typeURL.URL(),
+				ResponseNonce: removed.GetNonce(),
+				ErrorDetail:   &statuspb.Status{Message: "rejected removal"},
+			}))
+			restored, err := stream.Recv()
+			require.NoError(t, err)
+			require.Equal(t, []string{resourceName}, deltaResponseResourceNames(restored))
+			require.Empty(t, restored.GetRemovedResources())
+			restoredResource, err := restored.GetResources()[0].GetResource().UnmarshalNew()
+			require.NoError(t, err)
+			require.True(t, proto.Equal(test.resource, restoredResource))
+			require.ErrorContains(t, <-done, "rejected removal")
+			require.ErrorContains(t, <-callbackResult, "rejected removal")
+			require.True(t, proto.Equal(test.resource, server.cache.GetResource(localNodeID, test.typeURL, resourceName)))
+		})
+	}
+}
+
+func TestDeltaADSRejectsUnknownNodes(t *testing.T) {
+	server := newTestADSServer(t, hivetest.Logger(t), nil, nil, xdsServerConfig{
+		envoyXDSMode: config.EnvoyXDSModeDeltaADS,
+	}, nil, nil)
+	client := newTestADSClient(t, server)
+	for _, test := range []struct {
+		name string
+		node *core.Node
+		code codes.Code
+	}{
+		{"unknown", &core.Node{Id: "unknown-node"}, codes.NotFound},
+		{"empty", &core.Node{}, codes.InvalidArgument},
+		{"missing", nil, codes.InvalidArgument},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+			defer cancel()
+			stream, err := client.DeltaAggregatedResources(ctx)
+			require.NoError(t, err)
+			require.NoError(t, stream.Send(&discovery.DeltaDiscoveryRequest{
+				Node: test.node, TypeUrl: ListenerTypeURL,
+			}))
+			_, err = stream.Recv()
+			require.Equal(t, test.code, status.Code(err))
+			require.Nil(t, server.cache.GetSnapshotCache().GetStatusInfo(test.node.GetId()))
+			_, err = server.cache.GetSnapshotCache().GetSnapshot(test.node.GetId())
+			require.Error(t, err, "rejected requests must not initialize cache state")
+		})
+	}
+}
+
+func deltaResponseResourceNames(response *discovery.DeltaDiscoveryResponse) []string {
+	names := make([]string, 0, len(response.GetResources()))
+	for _, resource := range response.GetResources() {
+		names = append(names, resource.GetName())
+	}
+	return names
+}
+
+func deltaResponseListener(t *testing.T, response *discovery.DeltaDiscoveryResponse) *listener.Listener {
+	t.Helper()
+	require.Len(t, response.GetResources(), 1)
+	resource := &listener.Listener{}
+	require.NoError(t, response.GetResources()[0].GetResource().UnmarshalTo(resource))
+	return resource
 }
 
 func TestADSRecognizesInitializedNodes(t *testing.T) {
