@@ -410,7 +410,6 @@ func TestRegenerateBPFWaitsBeforePublication(t *testing.T) {
 			ep.realizedPolicy = policy.NewEndpointPolicy(logger, f.repo)
 			ep.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
 			ep.status = NewEndpointStatus()
-			ep.hasBPFProgram = make(chan struct{})
 			ep.PolicyMapPressureUpdater = &noopPolicyMapPressureUpdater{}
 			aliveCtx, closeEndpoint := context.WithCancel(t.Context())
 			ep.aliveCtx = aliveCtx
