@@ -6,9 +6,21 @@ runs:
     - name: Add no-schedule labels to nodes without Cilium
       shell: bash
       run: |
-        mapfile -t nodes_without_cilium < <(kubectl get nodes -o name | head -n 2)
+        # A just-created GKE endpoint drops some new connections for up to a minute, so each API call retries on a new one.
+        kubectl_retry() {
+          for i in 1 2 3; do
+            timeout 20 kubectl --request-timeout=10s "$@" && return 0
+            echo "::warning::kubectl $1 failed (attempt ${i}/4), retrying in 2s" >&2
+            sleep 2
+          done
+          timeout 20 kubectl --request-timeout=10s "$@" && return 0
+          echo "::error::kubectl $1 failed 4 times" >&2
+          return 1
+        }
+        nodes=$(kubectl_retry get nodes -o name)
+        mapfile -t nodes_without_cilium < <(printf '%s' "${nodes}" | head -n 2)
         # Fail loudly at the labeling site if fewer than two nodes are present:
         # generic-external-targets needs two labeled nodes and this step never
         # re-labels, so a late error here beats a jsonpath out-of-bounds later.
         [ "${#nodes_without_cilium[@]}" -ge 2 ] || { echo "::error::expected >=2 nodes to label, found ${#nodes_without_cilium[@]}"; kubectl get nodes -o wide; exit 1; }
-        kubectl patch "${nodes_without_cilium[@]}" --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
+        kubectl_retry patch "${nodes_without_cilium[@]}" --type=json -p='[{"op":"add","path":"/metadata/labels/cilium.io~1no-schedule","value":"true"}]'
