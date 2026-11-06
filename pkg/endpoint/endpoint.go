@@ -400,8 +400,6 @@ type Endpoint struct {
 	// cleaned when this endpoint was first created
 	ctCleaned bool
 
-	hasBPFProgram chan struct{}
-
 	// desiredPolicy is the policy calculated during regeneration. After
 	// successful regeneration, it is copied to realizedPolicy
 	// To write, both ep.mutex and ep.buildMutex must be held.
@@ -577,17 +575,6 @@ func (ep *Endpoint) SetIsHost(isHost bool) {
 	ep.isHost = isHost
 }
 
-// closeBPFProgramChannel closes the channel that signals whether the endpoint
-// has had its BPF program compiled. If the channel is already closed, this is
-// a no-op.
-func (e *Endpoint) closeBPFProgramChannel() {
-	select {
-	case <-e.hasBPFProgram:
-	default:
-		close(e.hasBPFProgram)
-	}
-}
-
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held. The caller must Cancel the group on error.
 func (e *Endpoint) waitForProxyCompletions(parentCtx context.Context, proxyWaitGroup *completion.WaitGroup, redirects map[string]uint16, policyRevision uint64) error {
@@ -663,7 +650,6 @@ func createEndpoint(
 		DNSZombies:         fqdn.NewDNSZombieMappings(p.Logger, option.Config.ToFQDNsMaxDeferredConnectionDeletes, option.Config.ToFQDNsMaxIPsPerHost),
 		state:              "",
 		status:             NewEndpointStatus(),
-		hasBPFProgram:      make(chan struct{}),
 		desiredPolicy:      policy.NewEndpointPolicy(p.Logger, p.PolicyRepo),
 		controllers:        controller.NewManager(),
 		regenFailedChan:    make(chan struct{}, 1),
@@ -1005,7 +991,6 @@ func ParseEndpoint(p EndpointParams,
 	ep.SetDefaultOpts(nil)
 
 	// Initialize fields to values which are non-nil that are not serialized.
-	ep.hasBPFProgram = make(chan struct{})
 	ep.desiredPolicy = policy.NewEndpointPolicy(p.Logger, p.PolicyRepo)
 	ep.realizedPolicy = ep.desiredPolicy
 	ep.forcePolicyCompute = true
@@ -3083,7 +3068,6 @@ func (e *Endpoint) CopyFromTemplate() *Endpoint {
 	clone.aliveCtx, clone.aliveCancel = context.WithCancel(context.Background())
 	clone.controllers = controller.NewManager()
 	clone.regenFailedChan = make(chan struct{}, 1)
-	clone.hasBPFProgram = make(chan struct{})
 	clone.desiredPolicy = policy.NewEndpointPolicy(e.logger.Load(), e.policyRepo)
 	clone.realizedPolicy = clone.desiredPolicy
 	clone.initialEnvoyPolicyComputed = make(chan struct{})

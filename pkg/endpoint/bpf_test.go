@@ -251,7 +251,6 @@ func TestRegenerateBPFWaitsForProxy(t *testing.T) {
 						ep.lxcMap = dp
 						ep.PolicyMapPressureUpdater = dp
 						ep.Options = option.NewIntOptions(&EndpointMutableOptionLibrary)
-						ep.hasBPFProgram = make(chan struct{})
 						if mode.skipBPF {
 							ep.properties = map[string]any{endpointtypes.PropertySkipBPFPolicy: true, endpointtypes.PropertyAtHostNS: true}
 						}
