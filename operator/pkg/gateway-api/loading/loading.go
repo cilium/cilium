@@ -45,6 +45,7 @@ type TranslationInputs struct {
 	Services               []corev1.Service
 	ServiceImports         []mcsapiv1beta1.ServiceImport
 	InferencePools         []gateway_inf_ext.InferencePool
+	ExtProcFilters         []ciliumv2alpha1.CiliumEnvoyExtProcFilter
 }
 
 // The Gateway-level filters only select Routes with an accepted parent belonging
@@ -55,7 +56,7 @@ type TranslationInputs struct {
 func (r *TranslationInputs) AttachedHTTPRoutes(gw *gatewayv1.Gateway) []gatewayv1.HTTPRoute {
 	var filtered []gatewayv1.HTTPRoute
 	for _, route := range r.HTTPRoutes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+		if helpers.IsParentAttachableIncludingExtProcFailures(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -65,7 +66,7 @@ func (r *TranslationInputs) AttachedHTTPRoutes(gw *gatewayv1.Gateway) []gatewayv
 func (r *TranslationInputs) AttachedGRPCRoutes(gw *gatewayv1.Gateway) []gatewayv1.GRPCRoute {
 	var filtered []gatewayv1.GRPCRoute
 	for _, route := range r.GRPCRoutes {
-		if helpers.IsParentAttachable(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
+		if helpers.IsParentAttachableIncludingExtProcFailures(gw, &route, route.Status.Parents, r.AttachedListenerSets) {
 			filtered = append(filtered, route)
 		}
 	}
@@ -108,6 +109,7 @@ type TranslationInputLoaderConfig struct {
 	IncludeServiceImports bool
 	IncludeListenerSets   bool
 	IncludeInferencePools bool
+	IncludeExtProcFilters bool
 }
 
 type TranslationInputLoader struct {
@@ -331,6 +333,15 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		namespaces = namespaceList.Items
 	}
 
+	var extProcFilters []ciliumv2alpha1.CiliumEnvoyExtProcFilter
+	if l.config.IncludeExtProcFilters {
+		extProcFilterList := &ciliumv2alpha1.CiliumEnvoyExtProcFilterList{}
+		if err := l.client.List(ctx, extProcFilterList); err != nil {
+			return TranslationInputs{}, fmt.Errorf("failed to list CiliumEnvoyExtProcFilters: %w", err)
+		}
+		extProcFilters = extProcFilterList.Items
+	}
+
 	services, serviceImports, err := l.loadReferencedBackendResources(
 		ctx,
 		routeCollections.httpRoutes,
@@ -338,6 +349,7 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		routeCollections.tlsRoutes,
 		routeCollections.tcpRoutes,
 		routeCollections.udpRoutes,
+		extProcFilters,
 	)
 	if err != nil {
 		return TranslationInputs{}, fmt.Errorf("failed to load backend resources: %w", err)
@@ -372,6 +384,7 @@ func (l *TranslationInputLoader) Load(ctx context.Context, scopedLog *slog.Logge
 		Services:               services,
 		ServiceImports:         serviceImports,
 		InferencePools:         inferencePoolList.Items,
+		ExtProcFilters:         extProcFilters,
 	}, nil
 }
 
@@ -420,7 +433,6 @@ func appendBackendRef(refs backendReferenceSet, routeNamespace string, backendRe
 			Name:      helpers.ShadowServiceName(string(backendRef.Name)),
 		}] = struct{}{}
 	}
-
 }
 
 func (l *TranslationInputLoader) collectBackendReferencesFromHTTPRoutes(refs backendReferenceSet, routes []gatewayv1.HTTPRoute) {
@@ -493,6 +505,23 @@ func (l *TranslationInputLoader) collectBackendReferencesFromUDPRoutes(refs back
 	}
 }
 
+// collectBackendReferencesFromExtProcFilters adds the Services backing ext_proc
+// filters to the reference set. A Route only names the filter; the Service it
+// proxies to is declared on the CiliumEnvoyExtProcFilter, so it is reachable
+// from no Route backend reference and would otherwise never be loaded.
+//
+// The namespace defaults to the filter's own, not the Route's, matching how
+// ingestion resolves the reference. ExtProcBackendRef accepts only core
+// Services, so these never resolve to ServiceImports.
+func (l *TranslationInputLoader) collectBackendReferencesFromExtProcFilters(refs backendReferenceSet, filters []ciliumv2alpha1.CiliumEnvoyExtProcFilter) {
+	for _, filter := range filters {
+		refs.serviceKeys[types.NamespacedName{
+			Namespace: helpers.NamespaceDerefOr(helpers.ExtProcBackendRefNamespace(filter.Spec.BackendRef), filter.Namespace),
+			Name:      filter.Spec.BackendRef.Name,
+		}] = struct{}{}
+	}
+}
+
 func sortedBackendRefKeys(keys map[types.NamespacedName]struct{}) []types.NamespacedName {
 	names := make([]types.NamespacedName, 0, len(keys))
 	for key := range keys {
@@ -511,6 +540,7 @@ func (l *TranslationInputLoader) loadReferencedBackendResources(
 	tlsRoutes []gatewayv1.TLSRoute,
 	tcpRoutes []gatewayv1.TCPRoute,
 	udpRoutes []gatewayv1.UDPRoute,
+	extProcFilters []ciliumv2alpha1.CiliumEnvoyExtProcFilter,
 ) ([]corev1.Service, []mcsapiv1beta1.ServiceImport, error) {
 	refs := newBackendReferenceSet()
 	l.collectBackendReferencesFromHTTPRoutes(refs, httpRoutes)
@@ -518,6 +548,7 @@ func (l *TranslationInputLoader) loadReferencedBackendResources(
 	l.collectBackendReferencesFromTLSRoutes(refs, tlsRoutes)
 	l.collectBackendReferencesFromTCPRoutes(refs, tcpRoutes)
 	l.collectBackendReferencesFromUDPRoutes(refs, udpRoutes)
+	l.collectBackendReferencesFromExtProcFilters(refs, extProcFilters)
 
 	var serviceImports []mcsapiv1beta1.ServiceImport
 	if l.config.IncludeServiceImports {

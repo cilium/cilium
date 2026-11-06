@@ -24,6 +24,7 @@ import (
 	watchhandlers "github.com/cilium/cilium/operator/pkg/gateway-api/watch-handlers"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2alpha1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -56,9 +57,10 @@ type gatewayReconciler struct {
 	hostNetworkEnabled                  bool
 	hostNetworkLabel                    metav1.LabelSelector
 	gatewayAPIInferenceExtensionEnabled bool
+	enableExtensionRefFilters           bool
 }
 
-func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector, gatewayAPIInferenceExtensionEnabled bool) *gatewayReconciler {
+func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, logger *slog.Logger, controllerName string, hostNetworkEnabled bool, hostNetworkLabel metav1.LabelSelector, gatewayAPIInferenceExtensionEnabled bool, enableExtensionRefFilters bool) *gatewayReconciler {
 	scopedLog := logger.With(logfields.Controller, gateway)
 	includeTCPRoutes := helpers.HasTCPRouteSupport(mgr.GetScheme())
 	includeUDPRoutes := helpers.HasUDPRouteSupport(mgr.GetScheme())
@@ -74,6 +76,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 			IncludeServiceImports: helpers.HasServiceImportSupport(mgr.GetScheme()),
 			IncludeListenerSets:   helpers.HasListenerSetSupport(mgr.GetScheme()),
 			IncludeInferencePools: helpers.HasInferencePoolSupport(mgr.GetScheme()),
+			IncludeExtProcFilters: enableExtensionRefFilters,
 		}),
 		gatewayStatusManager: NewGatewayStatusManager(mgr.GetClient(), scopedLog, hostNetworkLabel),
 		listenerStatusManager: NewListenerStatusManager(
@@ -89,10 +92,11 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 			scopedLog,
 			controllerName,
 			RouteStatusManagerConfig{
-				IncludeTCPRoutes:        includeTCPRoutes,
-				IncludeUDPRoutes:        includeUDPRoutes,
-				TCPUDPRouteSupport:      tcpUDPRouteSupport,
-				TCPUDPUnsupportedReason: hostNetworkTCPUDPRouteUnsupportedReason,
+				IncludeTCPRoutes:           includeTCPRoutes,
+				IncludeUDPRoutes:           includeUDPRoutes,
+				TCPUDPRouteSupport:         tcpUDPRouteSupport,
+				TCPUDPUnsupportedReason:    hostNetworkTCPUDPRouteUnsupportedReason,
+				ExtensionRefFiltersEnabled: enableExtensionRefFilters,
 			},
 		),
 		backendTLSPolicyStatusManager:       NewBackendTLSPolicyStatusManager(mgr.GetClient(), controllerName),
@@ -104,6 +108,7 @@ func newGatewayReconciler(mgr ctrl.Manager, translator translation.Translator, l
 		hostNetworkEnabled:                  hostNetworkEnabled,
 		hostNetworkLabel:                    hostNetworkLabel,
 		gatewayAPIInferenceExtensionEnabled: gatewayAPIInferenceExtensionEnabled,
+		enableExtensionRefFilters:           enableExtensionRefFilters,
 	}
 }
 
@@ -187,7 +192,17 @@ func (r *gatewayReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			Watches(&discoveryv1.EndpointSlice{}, watchhandlers.EnqueueRequestForOwningEndpointSlice(r.client, r.logger, r.controllerName)).
 			// watch shadow service owned by an InferencePool
 			Watches(&corev1.Service{}, watchhandlers.EnqueueRequestForOwningShadowService(r.client, r.logger, r.controllerName))
-
 	}
+
+	if r.enableExtensionRefFilters {
+		gatewayBuilder = gatewayBuilder.Watches(
+			&v2alpha1.CiliumEnvoyExtProcFilter{},
+			watchhandlers.EnqueueRequestForExtProcFilter(r.client, r.logger, r.controllerName),
+		).Watches(
+			&corev1.Service{},
+			watchhandlers.EnqueueRequestForExtProcFilterBackendService(r.client, r.logger, r.controllerName),
+		)
+	}
+
 	return gatewayBuilder.Complete(r)
 }

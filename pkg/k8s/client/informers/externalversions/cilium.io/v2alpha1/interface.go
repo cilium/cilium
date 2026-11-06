@@ -17,6 +17,8 @@ type Interface interface {
 	CiliumDatapathPlugins() TypedCiliumDatapathPluginInformer
 	// CiliumEndpointSlices returns a CiliumEndpointSliceInformer.
 	CiliumEndpointSlices() TypedCiliumEndpointSliceInformer
+	// CiliumEnvoyExtProcFilters returns a CiliumEnvoyExtProcFilterInformer.
+	CiliumEnvoyExtProcFilters() TypedCiliumEnvoyExtProcFilterInformer
 	// CiliumGatewayClassConfigs returns a CiliumGatewayClassConfigInformer.
 	CiliumGatewayClassConfigs() TypedCiliumGatewayClassConfigInformer
 	// CiliumL2AnnouncementPolicies returns a CiliumL2AnnouncementPolicyInformer.
@@ -57,6 +59,11 @@ func (v *version) CiliumDatapathPlugins() TypedCiliumDatapathPluginInformer {
 // CiliumEndpointSlices returns a TypedCiliumEndpointSliceInformer.
 func (v *version) CiliumEndpointSlices() TypedCiliumEndpointSliceInformer {
 	return &ciliumEndpointSliceInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumEnvoyExtProcFilters returns a TypedCiliumEnvoyExtProcFilterInformer.
+func (v *version) CiliumEnvoyExtProcFilters() TypedCiliumEnvoyExtProcFilterInformer {
+	return &ciliumEnvoyExtProcFilterInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumGatewayClassConfigs returns a TypedCiliumGatewayClassConfigInformer.
