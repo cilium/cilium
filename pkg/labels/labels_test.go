@@ -524,11 +524,130 @@ func BenchmarkNewFrom(b *testing.B) {
 	}
 }
 
-func BenchmarkLabels_SortedList(b *testing.B) {
-	b.ReportAllocs()
+var k8sPodMinimalBenchLabels = Map2Labels(map[string]string{
+	"app":                                 "nginx",
+	"io.kubernetes.pod.namespace":         "default",
+	"io.cilium.k8s.policy.cluster":        "default",
+	"io.cilium.k8s.policy.serviceaccount": "default",
+	"io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name": "default",
+}, LabelSourceK8s)
 
-	for b.Loop() {
-		_ = lbls.SortedList()
+var k8sPodBenchLabels = Map2Labels(map[string]string{
+	"app.kubernetes.io/component":                                               "backend",
+	"app.kubernetes.io/instance":                                                "payment-service",
+	"app.kubernetes.io/managed-by":                                              "Helm",
+	"app.kubernetes.io/name":                                                    "payment-service",
+	"app.kubernetes.io/part-of":                                                 "storefront",
+	"app.kubernetes.io/version":                                                 "1.4.2",
+	"io.kubernetes.pod.namespace":                                               "production",
+	"io.cilium.k8s.policy.cluster":                                              "default",
+	"io.cilium.k8s.policy.serviceaccount":                                       "payment-service",
+	"io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name":                "production",
+	"io.cilium.k8s.namespace.labels.app.kubernetes.io/managed-by":               "Helm",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/enforce":         "restricted",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/enforce-version": "latest",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/audit":           "restricted",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/audit-version":   "latest",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/warn":            "restricted",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/warn-version":    "latest",
+}, LabelSourceK8s)
+
+var k8sPodLargeBenchLabels = Map2Labels(map[string]string{
+	"app":                                 "checkout-api",
+	"version":                             "v2",
+	"team":                                "payments",
+	"tier":                                "backend",
+	"environment":                         "production",
+	"cost-center":                         "cc-4512",
+	"helm.sh/chart":                       "checkout-api-2.14.0",
+	"app.kubernetes.io/component":         "api",
+	"app.kubernetes.io/instance":          "checkout-api",
+	"app.kubernetes.io/managed-by":        "Helm",
+	"app.kubernetes.io/name":              "checkout-api",
+	"app.kubernetes.io/part-of":           "storefront",
+	"app.kubernetes.io/version":           "2.14.0",
+	"io.kubernetes.pod.namespace":         "payments-prod",
+	"io.cilium.k8s.policy.cluster":        "default",
+	"io.cilium.k8s.policy.serviceaccount": "checkout-api",
+	"io.cilium.k8s.namespace.labels.kubernetes.io/metadata.name":                "payments-prod",
+	"io.cilium.k8s.namespace.labels.team":                                       "payments",
+	"io.cilium.k8s.namespace.labels.environment":                                "production",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/enforce":         "restricted",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/enforce-version": "latest",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/audit":           "restricted",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/audit-version":   "latest",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/warn":            "restricted",
+	"io.cilium.k8s.namespace.labels.pod-security.kubernetes.io/warn-version":    "latest",
+}, LabelSourceK8s)
+
+type sortedListBenchCase struct {
+	name       string
+	lbls       Labels
+	wantLabels int
+	wantBytes  int
+}
+
+func sortedListBenchCases() []sortedListBenchCase {
+	return []sortedListBenchCase{
+		{name: "k8s-pod-minimal", lbls: k8sPodMinimalBenchLabels, wantLabels: 5, wantBytes: 214},
+		{name: "k8s-pod", lbls: k8sPodBenchLabels, wantLabels: 17, wantBytes: 1016},
+		{name: "k8s-pod-large", lbls: k8sPodLargeBenchLabels, wantLabels: 25, wantBytes: 1208},
+		{name: "cidr-ipv4", lbls: FromSlice(
+			getCIDRLabel(netip.MustParsePrefix("198.51.100.255/32")),
+			WorldLabelV4,
+		), wantLabels: 2, wantBytes: 45},
+		{name: "cidr-ipv6", lbls: FromSlice(
+			getCIDRLabel(netip.MustParsePrefix("2001:db8:85a3:1234:5678:8a2e:370:7334/128")),
+			WorldLabelV6,
+		), wantLabels: 2, wantBytes: 69},
+		{name: "fqdn", lbls: FromSlice(
+			NewLabel("*.example.com", "", LabelSourceFQDN),
+			NewLabel("api.example.com", "", LabelSourceFQDN),
+			WorldLabelV4,
+		), wantLabels: 3, wantBytes: 63},
+	}
+}
+
+func TestSortedListRoundTrip(t *testing.T) {
+	for _, tc := range sortedListBenchCases() {
+		t.Run(tc.name, func(t *testing.T) {
+			list := tc.lbls.SortedList()
+			require.Len(t, tc.lbls, tc.wantLabels)
+			require.Len(t, list, tc.wantBytes)
+			require.Equal(t, tc.lbls, NewLabelsFromSortedList(string(list)))
+		})
+	}
+}
+
+func BenchmarkLabels_SortedList(b *testing.B) {
+	b.Run("short", func(b *testing.B) {
+		b.ReportAllocs()
+
+		for b.Loop() {
+			_ = lbls.SortedList()
+		}
+	})
+	for _, tc := range sortedListBenchCases() {
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+
+			for b.Loop() {
+				_ = tc.lbls.SortedList()
+			}
+		})
+	}
+}
+
+func BenchmarkNewLabelsFromSortedList(b *testing.B) {
+	for _, tc := range sortedListBenchCases() {
+		list := string(tc.lbls.SortedList())
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+
+			for b.Loop() {
+				_ = NewLabelsFromSortedList(list)
+			}
+		})
 	}
 }
 
