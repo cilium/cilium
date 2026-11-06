@@ -13,6 +13,7 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/clustermesh-apiserver/syncstate"
@@ -87,23 +88,6 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 
 	synced := in.SyncState.WaitForResource()
 
-	// process is a helper function to log and execute store operations.
-	process := func(invoker, op, key string, do func() error) {
-		logger.Info("Updating resource in etcd",
-			logfields.Reason, invoker,
-			logfields.Operation, op,
-			logfields.Key, key,
-		)
-		if err := do(); err != nil {
-			logger.Warn("Failed updating resource in etcd",
-				logfields.Error, err,
-				logfields.Reason, invoker,
-				logfields.Operation, op,
-				logfields.Key, key,
-			)
-		}
-	}
-
 	in.JobGroup.Add(
 		job.OneShot(
 			fmt.Sprintf("%s-sync", strings.ToLower(in.Options.Resource)),
@@ -113,6 +97,18 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 					return err
 				}
 				logger.Info("Starting synchronization")
+
+				loop := &syncLoop[T]{
+					logger:           logger,
+					namespaced:       in.Options.Namespaced,
+					converter:        in.Converter,
+					namespaceManager: in.NamespaceManager,
+					namespacer:       in.Namespacer,
+					store:            store,
+					resourceStore:    resourceStore,
+					synced:           synced,
+					seen:             sets.New[resource.Key](),
+				}
 
 				// Get event channels
 				resourceEvents := in.Resource.Events(ctx)
@@ -131,75 +127,13 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 							resourceEvents = nil
 							continue
 						}
-
-						if event.Kind == resource.Sync {
-							event.Done(nil)
-							logger.Info("Initial entries successfully received from Kubernetes")
-							store.Synced(ctx, synced)
-							continue
-						}
-						// Filter the event based on namespace global status.
-						// Only required for certain resource types.
-						// Ignore delete events as they should always be processed.
-						if event.Kind != resource.Delete && in.Options.Namespaced {
-							ns := in.Namespacer.ExtractNamespace(event)
-							if ns == "" {
-								logger.Error("Failed to determine namespace for resource event, skipping",
-									logfields.Name, event.Key.Name,
-								)
-								// No way to process this event, just mark done and continue.
-								event.Done(nil)
-								continue
-							}
-							isGlobal, err := in.NamespaceManager.IsGlobalNamespaceByName(ns)
-							if err != nil {
-								logger.Warn("Failed to determine if namespace is global",
-									logfields.Error, err,
-									logfields.K8sNamespace, ns,
-								)
-								// Retry this as it might succeed later.
-								event.Done(err)
-								continue
-							}
-							if !isGlobal {
-								logger.Debug("Deleting resource event as it is not in a global namespace",
-									logfields.Name, event.Key.Name,
-									logfields.K8sNamespace, ns,
-								)
-								// Handle resources transitioning out of global namespaces.
-								// If a resource was previously in a global namespace and is now
-								// in a non-global namespace (e.g.,mutable fields like in CiliumEndpointSlice),
-								// we need to delete it from kvstore. Convert the event to a delete to ensure cleanup.
-								// event.Done will be called later during normal processing.
-								event.Kind = resource.Delete
-							}
-						}
-
-						// No possible errors past this point.
-						event.Done(nil)
-
-						upserts, deletes := in.Converter.Convert(event)
-						for upsert := range upserts {
-							process("resource-event", "upsert", upsert.GetKeyName(), func() error { return store.UpsertKey(ctx, upsert) })
-						}
-						for delete := range deletes {
-							process("resource-event", "delete", delete.GetKeyName(), func() error { return store.DeleteKey(ctx, delete) })
-						}
+						loop.handleResource(ctx, event)
 					case event, ok := <-namespaceEvents:
 						if !ok {
 							namespaceEvents = nil
 							continue
 						}
-						event.Done(nil)
-						for resEvent := range namespaceHandler(in, resourceStore, event) {
-							upserts, deletes := in.Converter.Convert(resEvent)
-							for upsert := range upserts {
-								process("namespace-event", "upsert", upsert.GetKeyName(), func() error { return store.UpsertKey(ctx, upsert) })
-							}
-							for delete := range deletes {
-								process("namespace-event", "delete", delete.GetKeyName(), func() error { return store.DeleteKey(ctx, delete) })
-							}
-						}
+						loop.handleNamespace(ctx, event)
 					}
 				}
 				logger.Info("Stopping synchronization")
@@ -216,29 +150,161 @@ func RegisterSynchronizer[T runtime.Object](in syncParams[T]) {
 	)
 }
 
+// syncLoop holds the state of the synchronization loop of a given resource,
+// and processes the resource and namespace events. Its methods must only be
+// invoked from a single goroutine.
+type syncLoop[T runtime.Object] struct {
+	logger           *slog.Logger
+	namespaced       bool
+	converter        Converter[T]
+	namespaceManager cmnamespace.Manager
+	namespacer       Namespacer[T]
+	store            store.SyncStore
+	resourceStore    resource.Store[T]
+	synced           func(context.Context)
+
+	// seen tracks the keys of the resources that have been emitted as upsert
+	// events by the resource subscriber, and not yet emitted as delete events.
+	// The subscriber guarantees that a delete event is eventually emitted only
+	// for these resources, hence namespace events must not propagate any other
+	// resource to the converter, as its deletion might otherwise never be
+	// observed, permanently leaking the corresponding kvstore entries.
+	// Only populated for namespaced resources, as namespace events are not
+	// watched otherwise.
+	seen sets.Set[resource.Key]
+}
+
+// handleResource processes a single event for the synchronized resource.
+func (l *syncLoop[T]) handleResource(ctx context.Context, event resource.Event[T]) {
+	if event.Kind == resource.Sync {
+		event.Done(nil)
+		l.logger.Info("Initial entries successfully received from Kubernetes")
+		l.store.Synced(ctx, l.synced)
+		return
+	}
+
+	// Track the resources emitted by the subscriber, before the event kind is
+	// possibly mutated by the namespace filter below. Upsert events converted
+	// into delete events refer to resources which still exist, and that need to
+	// be resynchronized in case their namespace later becomes global.
+	if l.namespaced {
+		switch event.Kind {
+		case resource.Upsert:
+			l.seen.Insert(event.Key)
+		case resource.Delete:
+			l.seen.Delete(event.Key)
+		}
+	}
+
+	// Filter the event based on namespace global status.
+	// Only required for certain resource types.
+	// Ignore delete events as they should always be processed.
+	if event.Kind != resource.Delete && l.namespaced {
+		ns := l.namespacer.ExtractNamespace(event)
+		if ns == "" {
+			l.logger.Error("Failed to determine namespace for resource event, skipping",
+				logfields.Name, event.Key.Name,
+			)
+			// No way to process this event, just mark done and continue.
+			event.Done(nil)
+			return
+		}
+		isGlobal, err := l.namespaceManager.IsGlobalNamespaceByName(ns)
+		if err != nil {
+			l.logger.Warn("Failed to determine if namespace is global",
+				logfields.Error, err,
+				logfields.K8sNamespace, ns,
+			)
+			// Retry this as it might succeed later.
+			event.Done(err)
+			return
+		}
+		if !isGlobal {
+			l.logger.Debug("Deleting resource event as it is not in a global namespace",
+				logfields.Name, event.Key.Name,
+				logfields.K8sNamespace, ns,
+			)
+			// Handle resources transitioning out of global namespaces.
+			// If a resource was previously in a global namespace and is now
+			// in a non-global namespace (e.g.,mutable fields like in CiliumEndpointSlice),
+			// we need to delete it from kvstore. Convert the event to a delete to ensure cleanup.
+			// event.Done will be called later during normal processing.
+			event.Kind = resource.Delete
+		}
+	}
+
+	// No possible errors past this point.
+	event.Done(nil)
+	l.convert(ctx, "resource-event", event)
+}
+
+// handleNamespace processes a single namespace event, resynchronizing all
+// the resources associated with the given namespace.
+func (l *syncLoop[T]) handleNamespace(ctx context.Context, event resource.Event[*slim_corev1.Namespace]) {
+	event.Done(nil)
+	for resEvent := range l.namespaceHandler(event) {
+		l.convert(ctx, "namespace-event", resEvent)
+	}
+}
+
+// convert converts the given event and propagates the corresponding
+// operations to the kvstore.
+func (l *syncLoop[T]) convert(ctx context.Context, invoker string, event resource.Event[T]) {
+	upserts, deletes := l.converter.Convert(event)
+	for upsert := range upserts {
+		l.process(invoker, "upsert", upsert.GetKeyName(), func() error { return l.store.UpsertKey(ctx, upsert) })
+	}
+	for delete := range deletes {
+		l.process(invoker, "delete", delete.GetKeyName(), func() error { return l.store.DeleteKey(ctx, delete) })
+	}
+}
+
+// process is a helper function to log and execute store operations.
+func (l *syncLoop[T]) process(invoker, op, key string, do func() error) {
+	l.logger.Info("Updating resource in etcd",
+		logfields.Reason, invoker,
+		logfields.Operation, op,
+		logfields.Key, key,
+	)
+	if err := do(); err != nil {
+		l.logger.Warn("Failed updating resource in etcd",
+			logfields.Error, err,
+			logfields.Reason, invoker,
+			logfields.Operation, op,
+			logfields.Key, key,
+		)
+	}
+}
+
 // namespaceHandler handles namespace events to resynchronize resources
 // associated with the namespace based on whether it is global or not.
 // Return an iterator of events to be processed.
-func namespaceHandler[T runtime.Object](
-	in syncParams[T], rs resource.Store[T],
-	event resource.Event[*slim_corev1.Namespace]) iter.Seq[resource.Event[T]] {
+func (l *syncLoop[T]) namespaceHandler(event resource.Event[*slim_corev1.Namespace]) iter.Seq[resource.Event[T]] {
 	return func(yield func(resource.Event[T]) bool) {
 		if event.Kind == resource.Sync {
 			return
 		}
-		isGlobal := in.NamespaceManager.IsGlobalNamespaceByObject(event.Object)
+		isGlobal := l.namespaceManager.IsGlobalNamespaceByObject(event.Object)
 
 		// Sync all entries in the Resource store to reflect the namespace change.
-		objects, err := rs.ByIndex(cache.NamespaceIndex, event.Key.Name)
+		objects, err := l.resourceStore.ByIndex(cache.NamespaceIndex, event.Key.Name)
 		if err != nil {
-			in.Logger.Warn("Failed to list resources for namespace update",
+			l.logger.Warn("Failed to list resources for namespace update",
 				logfields.Error, err,
 			)
 			return
 		}
 		for _, obj := range objects {
+			key := resource.NewKey(obj)
+			if !l.seen.Has(key) {
+				// The resource has not been emitted by the subscriber yet. It will
+				// be processed when the corresponding upsert event is received,
+				// if it still exists at that point.
+				continue
+			}
+
 			resEvent := resource.Event[T]{
-				Key:    resource.NewKey(obj),
+				Key:    key,
 				Object: obj,
 			}
 			// Determine the event kind. If namespace is being deleted,
