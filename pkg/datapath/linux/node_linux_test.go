@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright Authors of Cilium
 
+// This file was not reviewed by a human before submission
+
 package linux
 
 import (
@@ -1059,6 +1061,28 @@ func TestPrivilegedNodeUpdateHybridRouting(t *testing.T) {
 	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, otherGroupAlloc), "stale tunnel route for old CIDR should be gone")
 	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc), "no tunnel route expected for same-group CIDR")
 	require.Len(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP), 1, "expected direct route for same-group CIDR")
+
+	// Keep the node unchanged and move its CIDR to the other subnet group.
+	wtx := db.WriteTxn(subnetTable)
+	_, _, err = subnetTable.Insert(wtx, subnetmap.NewSubnetEntry(sameGroupAlloc, 2))
+	require.NoError(t, err)
+	wtx.Commit()
+	mustUpdateNode(t, s.ns, lnh, nodev2, nodev2)
+	require.NotNil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc), "topology change must install the tunnel route")
+	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP), "topology change must remove the direct route")
+
+	// Restore its original group without changing the node or its addresses.
+	wtx = db.WriteTxn(subnetTable)
+	_, _, err = subnetTable.Insert(wtx, subnetmap.NewSubnetEntry(sameGroupAlloc, 1))
+	require.NoError(t, err)
+	wtx.Commit()
+	mustUpdateNode(t, s.ns, lnh, nodev2, nodev2)
+	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc), "topology change must remove the tunnel route")
+	require.Len(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP), 1, "topology change must install the direct route")
+
+	// Repeating reconciliation must preserve the desired route.
+	mustUpdateNode(t, s.ns, lnh, nodev2, nodev2)
+	require.Len(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP), 1)
 
 	// delete the node: both route types should be attempted and removed.
 	mustDeleteNode(t, s.ns, lnh, nodev2)
