@@ -12,20 +12,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8sTesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
-	"github.com/cilium/cilium/operator/watchers"
 	cilium_api_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sClient "github.com/cilium/cilium/pkg/k8s/client/testutils"
+	"github.com/cilium/cilium/pkg/k8s/resource"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-// newTestController wires an unmanagedPodsController against a fresh set of
-// watcher stores and a fake clientset. It resets all package-level global
-// state so tests do not leak into each other.
+// newTestController wires an unmanagedPodsController against empty fake stores
+// and a fake clientset. Its pod restart selector is the one an empty
+// --pod-restart-selector parses to, which matches every pod.
 func newTestController(t *testing.T) (*unmanagedPodsController, *k8sClient.FakeClientset) {
 	t.Helper()
 
@@ -39,29 +39,53 @@ func newTestController(t *testing.T) (*unmanagedPodsController, *k8sClient.FakeC
 			return true, nil, nil
 		})
 
-	// Reset global state shared across reconcile cycles and tests.
-	lastPodRestart = map[string]time.Time{}
-	watchers.UnmanagedPodStore = cache.NewStore(cache.MetaNamespaceKeyFunc)
-	watchers.CiliumEndpointStore = cache.NewIndexer(
-		cache.DeletionHandlingMetaNamespaceKeyFunc,
-		cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-	)
+	podRestartSelector, err := labels.Parse("")
+	require.NoError(t, err)
 
 	c := &unmanagedPodsController{
 		clientset:          clientset,
 		metrics:            NewMetrics(),
 		logger:             logger,
 		interval:           15 * time.Second,
-		podRestartSelector: "",
+		podRestartSelector: podRestartSelector,
+		cepStore:           &fakeCEPStore{ceps: map[resource.Key]*cilium_api_v2.CiliumEndpoint{}},
+		podStore:           &fakePodStore{},
+		lastPodRestart:     map[string]time.Time{},
 	}
 	return c, fakeClient
 }
 
-// addUnmanagedPod seeds the unmanaged pod store with a Running pod that has no
+type fakeCEPStore struct {
+	resource.Store[*cilium_api_v2.CiliumEndpoint]
+
+	ceps map[resource.Key]*cilium_api_v2.CiliumEndpoint
+}
+
+func (s *fakeCEPStore) GetByKey(key resource.Key) (*cilium_api_v2.CiliumEndpoint, bool, error) {
+	cep, ok := s.ceps[key]
+	return cep, ok, nil
+}
+
+type fakePodStore struct {
+	resource.Store[*slim_corev1.Pod]
+
+	pods []*slim_corev1.Pod
+}
+
+func (s *fakePodStore) List() []*slim_corev1.Pod {
+	return s.pods
+}
+
+// addPod seeds the controller's pod store.
+func addPod(c *unmanagedPodsController, pod *slim_corev1.Pod) {
+	store := c.podStore.(*fakePodStore)
+	store.pods = append(store.pods, pod)
+}
+
+// addUnmanagedPod seeds the pod store with a Running pod that has no
 // corresponding CiliumEndpoint. startedAgo controls the pod age; pass a value
 // greater than unmanagedPodMinimalAge to make it restart-eligible.
-func addUnmanagedPod(t *testing.T, name, namespace string, startedAgo time.Duration, hostNetwork bool) *slim_corev1.Pod {
-	t.Helper()
+func addUnmanagedPod(c *unmanagedPodsController, name, namespace string, startedAgo time.Duration, hostNetwork bool) *slim_corev1.Pod {
 	started := slim_metav1.Time{Time: time.Now().Add(-startedAgo)}
 	pod := &slim_corev1.Pod{
 		ObjectMeta: slim_metav1.ObjectMeta{
@@ -72,25 +96,25 @@ func addUnmanagedPod(t *testing.T, name, namespace string, startedAgo time.Durat
 			HostNetwork: hostNetwork,
 		},
 		Status: slim_corev1.PodStatus{
+			Phase:     slim_corev1.PodRunning,
 			StartTime: &started,
 		},
 	}
-	require.NoError(t, watchers.UnmanagedPodStore.Add(pod))
+	addPod(c, pod)
 	return pod
 }
 
 // addManagedPod seeds a Running pod together with a matching CiliumEndpoint so
 // the controller treats it as managed.
-func addManagedPod(t *testing.T, name, namespace string, startedAgo time.Duration) {
-	t.Helper()
-	addUnmanagedPod(t, name, namespace, startedAgo, false)
+func addManagedPod(c *unmanagedPodsController, name, namespace string, startedAgo time.Duration) {
+	addUnmanagedPod(c, name, namespace, startedAgo, false)
 	cep := &cilium_api_v2.CiliumEndpoint{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 	}
-	require.NoError(t, watchers.CiliumEndpointStore.Add(cep))
+	c.cepStore.(*fakeCEPStore).ceps[resource.NewKey(cep)] = cep
 }
 
 // countDeletes returns the number of pod delete actions recorded against the
@@ -113,9 +137,9 @@ func TestReconcileMetricReflectsCountWhenRestarting(t *testing.T) {
 	c, fakeClient := newTestController(t)
 
 	// Three unmanaged, restart-eligible pods (older than the minimal age).
-	addUnmanagedPod(t, "pod-a", "ns", time.Minute, false)
-	addUnmanagedPod(t, "pod-b", "ns", time.Minute, false)
-	addUnmanagedPod(t, "pod-c", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-a", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-b", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-c", "ns", time.Minute, false)
 
 	require.NoError(t, c.reconcile(t.Context()))
 
@@ -133,8 +157,8 @@ func TestReconcileMetricReflectsCountWhenRestarting(t *testing.T) {
 func TestReconcileMetricWithoutRestart(t *testing.T) {
 	c, fakeClient := newTestController(t)
 
-	addUnmanagedPod(t, "pod-young-1", "ns", time.Second, false)
-	addUnmanagedPod(t, "pod-young-2", "ns", time.Second, false)
+	addUnmanagedPod(c, "pod-young-1", "ns", time.Second, false)
+	addUnmanagedPod(c, "pod-young-2", "ns", time.Second, false)
 
 	require.NoError(t, c.reconcile(t.Context()))
 
@@ -154,8 +178,11 @@ func TestReconcileNilStartTimeCountedNotRestarted(t *testing.T) {
 			Name:      "no-start-time",
 			Namespace: "ns",
 		},
+		Status: slim_corev1.PodStatus{
+			Phase: slim_corev1.PodRunning,
+		},
 	}
-	require.NoError(t, watchers.UnmanagedPodStore.Add(pod))
+	addPod(c, pod)
 
 	require.NoError(t, c.reconcile(t.Context()))
 
@@ -170,9 +197,9 @@ func TestReconcileNilStartTimeCountedNotRestarted(t *testing.T) {
 func TestReconcileManagedPodsNotCounted(t *testing.T) {
 	c, fakeClient := newTestController(t)
 
-	addManagedPod(t, "managed", "ns", time.Minute)
-	addUnmanagedPod(t, "host-net", "ns", time.Minute, true)
-	addUnmanagedPod(t, "unmanaged", "ns", time.Minute, false)
+	addManagedPod(c, "managed", "ns", time.Minute)
+	addUnmanagedPod(c, "host-net", "ns", time.Minute, true)
+	addUnmanagedPod(c, "unmanaged", "ns", time.Minute, false)
 
 	require.NoError(t, c.reconcile(t.Context()))
 
@@ -186,7 +213,7 @@ func TestReconcileManagedPodsNotCounted(t *testing.T) {
 func TestReconcileZeroUnmanaged(t *testing.T) {
 	c, fakeClient := newTestController(t)
 
-	addManagedPod(t, "managed", "ns", time.Minute)
+	addManagedPod(c, "managed", "ns", time.Minute)
 
 	require.NoError(t, c.reconcile(t.Context()))
 
@@ -200,9 +227,9 @@ func TestReconcileZeroUnmanaged(t *testing.T) {
 func TestReconcileRateLimit(t *testing.T) {
 	c, fakeClient := newTestController(t)
 
-	addUnmanagedPod(t, "pod-a", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-a", "ns", time.Minute, false)
 	// Pretend pod-a was just restarted, so it is on cooldown.
-	lastPodRestart["ns/pod-a"] = time.Now()
+	c.lastPodRestart["ns/pod-a"] = time.Now()
 
 	require.NoError(t, c.reconcile(t.Context()))
 
@@ -223,12 +250,12 @@ func TestReconcileSurfacesDeleteError(t *testing.T) {
 			return true, nil, fmt.Errorf("synthetic delete failure")
 		})
 
-	addUnmanagedPod(t, "pod-a", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-a", "ns", time.Minute, false)
 
 	require.NoError(t, c.reconcile(t.Context()))
 
 	assert.Equal(t, float64(1), c.metrics.UnmanagedPods.Get())
-	_, recorded := lastPodRestart["ns/pod-a"]
+	_, recorded := c.lastPodRestart["ns/pod-a"]
 	assert.False(t, recorded, "a failed delete must not record a restart time")
 }
 
@@ -244,16 +271,16 @@ func TestReconcileAllDeletesFailAttemptsEachRecordsNone(t *testing.T) {
 			return true, nil, fmt.Errorf("synthetic delete failure")
 		})
 
-	addUnmanagedPod(t, "pod-a", "ns", time.Minute, false)
-	addUnmanagedPod(t, "pod-b", "ns", time.Minute, false)
-	addUnmanagedPod(t, "pod-c", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-a", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-b", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-c", "ns", time.Minute, false)
 
 	require.NoError(t, c.reconcile(t.Context()))
 
 	assert.Equal(t, float64(3), c.metrics.UnmanagedPods.Get())
 	assert.Equal(t, 3, countDeletes(fakeClient),
 		"every eligible candidate must be attempted when deletes keep failing")
-	assert.Empty(t, lastPodRestart,
+	assert.Empty(t, c.lastPodRestart,
 		"no restart time must be recorded when all deletes fail")
 }
 
@@ -274,8 +301,8 @@ func TestReconcileRetriesNextPodAfterDeleteFailure(t *testing.T) {
 			return false, nil, nil
 		})
 
-	addUnmanagedPod(t, "pod-a", "ns", time.Minute, false)
-	addUnmanagedPod(t, "pod-b", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-a", "ns", time.Minute, false)
+	addUnmanagedPod(c, "pod-b", "ns", time.Minute, false)
 
 	require.NoError(t, c.reconcile(t.Context()))
 
@@ -283,6 +310,27 @@ func TestReconcileRetriesNextPodAfterDeleteFailure(t *testing.T) {
 	// Two delete attempts: the first fails, the controller retries the next.
 	assert.Equal(t, 2, countDeletes(fakeClient),
 		"controller must try the next pod after a failed delete")
-	assert.Len(t, lastPodRestart, 1,
+	assert.Len(t, c.lastPodRestart, 1,
 		"exactly one successful restart must be recorded per cycle")
+}
+
+// TestReconcileSkipsPodsNotMatchingSelector verifies that only pods matching
+// the pod restart selector are counted and restarted, since the pod store holds
+// every pod in the cluster.
+func TestReconcileSkipsPodsNotMatchingSelector(t *testing.T) {
+	c, fakeClient := newTestController(t)
+
+	selector, err := labels.Parse("k8s-app=kube-dns")
+	require.NoError(t, err)
+	c.podRestartSelector = selector
+
+	addUnmanagedPod(c, "coredns", "kube-system", time.Minute, false).Labels = map[string]string{"k8s-app": "kube-dns"}
+	addUnmanagedPod(c, "other", "kube-system", time.Minute, false).Labels = map[string]string{"k8s-app": "other"}
+	addUnmanagedPod(c, "unlabeled", "ns", time.Minute, false)
+
+	require.NoError(t, c.reconcile(t.Context()))
+
+	assert.Equal(t, float64(1), c.metrics.UnmanagedPods.Get(),
+		"only the pod matching the selector must be counted")
+	assert.Equal(t, 1, countDeletes(fakeClient))
 }
