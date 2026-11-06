@@ -33,14 +33,10 @@ func PolicyMapCmd(epl endpointmanager.EndpointsLookup) script.Cmd {
 			if len(args) != 1 {
 				return nil, fmt.Errorf("expected one arg (ep-id) but got %d", len(args))
 			}
-			eps, err := lookupEPs(epl, args)
+			ep, err := LookupEP(epl, args[0])
 			if err != nil {
 				return nil, err
 			}
-			if len(eps) != 1 {
-				return nil, fmt.Errorf("expected one endpoint but got %d", len(eps))
-			}
-			ep := eps[0]
 			return func(*script.State) (stdout, stderr string, err error) {
 				entries, err := ep.DumpPolicyMap()
 				if err != nil {

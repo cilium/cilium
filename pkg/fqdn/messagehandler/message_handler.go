@@ -86,6 +86,13 @@ type dnsMessageHandler struct {
 
 var _ DNSMessageHandler = &dnsMessageHandler{}
 
+// DNSRecorder records a DNS answer outside the proxy request path.
+type DNSRecorder interface {
+	RecordAndGenerate(ctx context.Context, lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, timeout time.Duration) bool
+}
+
+var _ DNSRecorder = &dnsMessageHandler{}
+
 // flowInfo contains the flow context information used for proxy statistics
 // and access log records.
 type flowInfo struct {
@@ -325,6 +332,37 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		)
 	}
 
+	updateStart := time.Now()
+
+	h.recordAndGenerate(context.Background(), lookupTime, ep, qname, responseIPs, TTL, option.Config.FQDNProxyResponseMaxDelay, stat)
+
+	// Policy updates for this name have been pushed out; we can release the lock.
+	h.nameManager.UnlockName(qname)
+
+	h.logger.Debug("Waited for endpoints to regenerate due to a DNS response",
+		logfields.Duration, time.Since(updateStart),
+		logfields.EndpointID, ep.GetID(),
+		logfields.DNSName, qname,
+	)
+}
+
+// RecordAndGenerate records a DNS answer in the endpoint's history and pushes
+// it through the name manager, updating policy for any toFQDNs selector that
+// matches the name. It takes the name lock and bounds the datapath update wait
+// by timeout. It is the record-and-generate core without the proxy request
+// stats, for callers outside the proxy path.
+func (h *dnsMessageHandler) RecordAndGenerate(ctx context.Context, lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, timeout time.Duration) bool {
+	h.nameManager.LockName(qname)
+	defer h.nameManager.UnlockName(qname)
+	stat := &dnsproxy.ProxyRequestContext{}
+	stat.PolicyGenerationTime.Start()
+	return h.recordAndGenerate(ctx, lookupTime, ep, qname, responseIPs, TTL, timeout, stat)
+}
+
+// The name lock must be held. It records the answer, pushes it through the name
+// manager under a timeout derived from ctx, and blocks on the datapath updates,
+// returning whether they completed in time.
+func (h *dnsMessageHandler) recordAndGenerate(ctx context.Context, lookupTime time.Time, ep *endpoint.Endpoint, qname string, responseIPs []netip.Addr, TTL int, timeout time.Duration, stat *dnsproxy.ProxyRequestContext) bool {
 	h.logger.Debug("Recording DNS lookup in endpoint specific cache", logfields.EndpointID, ep.ID)
 
 	// This must happen before the NameManager update below, to ensure that
@@ -348,9 +386,8 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 		logfields.IPAddrs, responseIPs,
 	)
 
-	updateCtx, updateCancel := context.WithTimeout(context.Background(), option.Config.FQDNProxyResponseMaxDelay)
-	defer updateCancel()
-	updateStart := time.Now()
+	updateCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
 	stat.UpdateNmCacheTime.Start()
 	dpUpdates := h.nameManager.UpdateGenerateDNS(updateCtx, lookupTime, qname, &fqdn.DNSIPRecords{
@@ -366,14 +403,7 @@ func (h *dnsMessageHandler) UpdateOnDNSMsg(lookupTime time.Time, ep *endpoint.En
 	if err := <-dpUpdates; err != nil {
 		h.logger.Warn("Timed out waiting for datapath updates of FQDN IP information; returning response. Consider increasing --tofqdns-proxy-response-max-delay if this keeps happening.")
 		metrics.ProxyDatapathUpdateTimeout.Inc()
+		return false
 	}
-
-	// Policy updates for this name have been pushed out; we can release the lock.
-	h.nameManager.UnlockName(qname)
-
-	h.logger.Debug("Waited for endpoints to regenerate due to a DNS response",
-		logfields.Duration, time.Since(updateStart),
-		logfields.EndpointID, ep.GetID(),
-		logfields.DNSName, qname,
-	)
+	return true
 }
