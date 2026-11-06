@@ -38,7 +38,9 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 	for _, l := range m.HTTP {
 		for _, r := range l.Routes {
 			port := insecureHost
-			if len(l.TLS) > 0 {
+			if m.NeedsPerPortGAMMAListeners() {
+				port = fmt.Sprintf("%d", l.Port)
+			} else if len(l.TLS) > 0 {
 				if m.NeedsPerPortListeners() {
 					port = fmt.Sprintf("%d", l.Port)
 				} else {
@@ -80,7 +82,7 @@ func (i *cecTranslator) desiredEnvoyHTTPRouteConfiguration(m *model.Model) ([]ci
 	goslices.Sort(allPorts)
 
 	// Also emit an empty RouteConfiguration for configured ports with no routes.
-	if !goslices.Contains(allPorts, insecureHost) && m.IsHTTPListenerConfigured() {
+	if !goslices.Contains(allPorts, insecureHost) && m.IsHTTPListenerConfigured() && !m.NeedsPerPortGAMMAListeners() {
 		allPorts = append([]string{insecureHost}, allPorts...)
 	}
 	for _, httpsPort := range httpsPortKeys(m) {
