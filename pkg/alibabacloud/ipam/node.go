@@ -162,6 +162,9 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *nodemanager.Allo
 	if bestSubnet.CIDR.IsValid() {
 		eni.VSwitch.CIDRBlock = iputil.PrefixFrom(bestSubnet.CIDR)
 	}
+	if bestSubnet.IPv6CIDR.IsValid() {
+		eni.VSwitch.IPv6CIDRBlock = iputil.PrefixFrom(bestSubnet.IPv6CIDR)
+	}
 
 	err = n.manager.api.AttachNetworkInterface(ctx, instanceID, eniID)
 	if err != nil {

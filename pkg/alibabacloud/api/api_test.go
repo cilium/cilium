@@ -12,12 +12,14 @@ import (
 	"testing"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	"github.com/cilium/hive/hivetest"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/alibabacloud/types"
 	metricsmock "github.com/cilium/cilium/pkg/api/metrics/mock"
 	iputil "github.com/cilium/cilium/pkg/ip"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -30,15 +32,51 @@ func newTestClient(t *testing.T, handler func(*http.Request) (int, string)) *Cli
 	t.Helper()
 	client, err := ecs.NewClientWithAccessKey("cn-hangzhou", "test-access-key", "test-secret")
 	require.NoError(t, err)
-	client.SetTransport(roundTripFunc(func(req *http.Request) (*http.Response, error) {
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		status, body := handler(req)
 		return &http.Response{
 			StatusCode: status,
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
 			Body:       io.NopCloser(strings.NewReader(body)),
 		}, nil
-	}))
-	return NewClient(hivetest.Logger(t), nil, client, metricsmock.NewMockMetrics(), 100, 10, nil)
+	})
+	client.SetTransport(transport)
+	vpcClient, err := vpc.NewClientWithAccessKey("cn-hangzhou", "test-access-key", "test-secret")
+	require.NoError(t, err)
+	vpcClient.SetTransport(transport)
+	return NewClient(hivetest.Logger(t), vpcClient, client, metricsmock.NewMockMetrics(), 100, 10, nil)
+}
+
+func TestGetVSwitchesIPv6(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		cidr      string
+		wantError bool
+	}{
+		{name: "IPv4 only"},
+		{name: "dual stack", cidr: "2001:db8:1:2::/64"},
+		{name: "malformed IPv6 CIDR", cidr: "invalid", wantError: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			client := newTestClient(t, func(req *http.Request) (int, string) {
+				require.NoError(t, req.ParseForm())
+				require.Equal(t, DescribeVSwitches, req.Form.Get("Action"))
+				return http.StatusOK, fmt.Sprintf(`{"PageNumber":1,"PageSize":50,"TotalCount":1,"VSwitches":{"VSwitch":[{"VSwitchId":"vsw-1","CidrBlock":"10.0.0.0/24","Ipv6CidrBlock":%q}]}}`, tt.cidr)
+			})
+			subnets, err := client.GetVSwitches(t.Context())
+			if tt.wantError {
+				require.ErrorContains(t, err, "unable to parse IPv6 CIDR for vSwitch vsw-1")
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, netip.MustParsePrefix("10.0.0.0/24"), subnets["vsw-1"].CIDR)
+			if tt.cidr == "" {
+				require.False(t, subnets["vsw-1"].IPv6CIDR.IsValid())
+			} else {
+				require.Equal(t, netip.MustParsePrefix(tt.cidr), subnets["vsw-1"].IPv6CIDR)
+			}
+		})
+	}
 }
 
 func TestCreateNetworkInterfaceIPv6(t *testing.T) {
@@ -121,7 +159,7 @@ func TestGetInstanceIPv6Prefixes(t *testing.T) {
 		require.Equal(t, DescribeNetworkInterfaces, req.Form.Get("Action"))
 		require.Equal(t, "i-1", req.Form.Get("InstanceId"))
 		return http.StatusOK, `{"PageNumber":1,"PageSize":1000,"TotalCount":1,"NetworkInterfaceSets":{"NetworkInterfaceSet":[{
-			"NetworkInterfaceId":"eni-1","InstanceId":"i-1","PrivateIpAddress":"10.0.0.1",
+			"NetworkInterfaceId":"eni-1","InstanceId":"i-1","PrivateIpAddress":"10.0.0.1","VSwitchId":"vsw-1",
 			"Ipv6PrefixSets":{"Ipv6PrefixSet":[
 				{"Ipv6Prefix":"2001:db8:1:2:3::/80"},
 				{"Ipv6Prefix":"invalid"},
@@ -130,10 +168,15 @@ func TestGetInstanceIPv6Prefixes(t *testing.T) {
 		}]}}`
 	})
 
-	instance, err := client.GetInstance(t.Context(), nil, nil, "i-1")
+	subnets := ipamTypes.SubnetMap{"vsw-1": {
+		CIDR: netip.MustParsePrefix("10.0.0.0/24"), IPv6CIDR: netip.MustParsePrefix("2001:db8:1:2::/64"),
+	}}
+	instance, err := client.GetInstance(t.Context(), nil, subnets, "i-1")
 	require.NoError(t, err)
 	eni := instance.Interfaces["eni-1"].(*types.ENI)
 	require.Equal(t, "10.0.0.1", eni.PrimaryIPAddress.String())
+	require.Equal(t, iputil.PrefixFrom(subnets["vsw-1"].CIDR), eni.VSwitch.CIDRBlock)
+	require.Equal(t, iputil.PrefixFrom(subnets["vsw-1"].IPv6CIDR), eni.VSwitch.IPv6CIDRBlock)
 	require.Equal(t, []iputil.Prefix{
 		iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1:2:3::/80")),
 		iputil.PrefixFrom(netip.MustParsePrefix("2001:db8:1:2:4::/80")),

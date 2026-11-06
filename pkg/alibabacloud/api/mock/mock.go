@@ -108,6 +108,7 @@ func (a *API) GetInstance(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap,
 			if subnets != nil {
 				if subnet, ok := subnets[eni.VSwitch.VSwitchID]; ok && subnet.CIDR.IsValid() {
 					eni.VSwitch.CIDRBlock = iputil.PrefixFrom(subnet.CIDR)
+					eni.VSwitch.IPv6CIDRBlock = iputil.PrefixFrom(subnet.IPv6CIDR)
 					eni.ZoneID = subnet.AvailabilityZone
 				}
 			}
@@ -141,6 +142,7 @@ func (a *API) GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap
 			if subnets != nil {
 				if subnet, ok := subnets[eni.VSwitch.VSwitchID]; ok && subnet.CIDR.IsValid() {
 					eni.VSwitch.CIDRBlock = iputil.PrefixFrom(subnet.CIDR)
+					eni.VSwitch.IPv6CIDRBlock = iputil.PrefixFrom(subnet.IPv6CIDR)
 					eni.ZoneID = subnet.AvailabilityZone
 				}
 			}

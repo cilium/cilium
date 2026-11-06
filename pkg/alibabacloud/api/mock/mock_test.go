@@ -14,7 +14,11 @@ import (
 )
 
 func TestIPv6Prefixes(t *testing.T) {
-	api := NewAPI([]*ipamTypes.Subnet{{ID: "vsw-1", CIDR: netip.MustParsePrefix("10.0.0.0/24"), AvailableAddresses: 100}}, nil, nil)
+	subnet := &ipamTypes.Subnet{
+		ID: "vsw-1", CIDR: netip.MustParsePrefix("10.0.0.0/24"),
+		IPv6CIDR: netip.MustParsePrefix("fd00:0:0:1::/64"), AvailableAddresses: 100,
+	}
+	api := NewAPI([]*ipamTypes.Subnet{subnet}, nil, nil)
 
 	id, eni, err := api.CreateNetworkInterface(t.Context(), 2, "vsw-1", nil, nil, true)
 	require.NoError(t, err)
@@ -26,13 +30,14 @@ func TestIPv6Prefixes(t *testing.T) {
 	require.NoError(t, api.AttachNetworkInterface(t.Context(), "i-1", id))
 	require.NoError(t, api.AssignENIIPv6Prefix(t.Context(), id))
 
-	instance, err := api.GetInstance(t.Context(), nil, nil, "i-1")
+	instance, err := api.GetInstance(t.Context(), nil, ipamTypes.SubnetMap{"vsw-1": subnet}, "i-1")
 	require.NoError(t, err)
 	updated := instance.Interfaces[id].(*types.ENI)
 	require.Len(t, updated.IPv6Prefixes, 2)
 	require.Equal(t, firstPrefix, updated.IPv6Prefixes[0])
 	require.NotEqual(t, firstPrefix, updated.IPv6Prefixes[1])
 	require.Equal(t, eni.PrivateIPSets, updated.PrivateIPSets)
+	require.Equal(t, subnet.IPv6CIDR, updated.VSwitch.IPv6CIDRBlock.Prefix)
 
 	_, ipv4ENI, err := api.CreateNetworkInterface(t.Context(), 0, "vsw-1", nil, nil, false)
 	require.NoError(t, err)

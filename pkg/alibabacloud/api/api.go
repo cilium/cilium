@@ -153,6 +153,13 @@ func (c *Client) GetVSwitches(ctx context.Context) (ipamTypes.SubnetMap, error) 
 				AvailableAddresses: int(v.AvailableIpAddressCount),
 				Tags:               map[string]string{},
 			}
+			if v.Ipv6CidrBlock != "" {
+				ipv6CIDR, err := netip.ParsePrefix(v.Ipv6CidrBlock)
+				if err != nil {
+					return nil, fmt.Errorf("unable to parse IPv6 CIDR for vSwitch %s: %w", v.VSwitchId, err)
+				}
+				result[v.VSwitchId].IPv6CIDR = ipv6CIDR
+			}
 			for _, tag := range v.Tags.Tag {
 				result[v.VSwitchId].Tags[tag.Key] = tag.Value
 			}
@@ -756,8 +763,13 @@ func parseENI(logger *slog.Logger, iface *ecs.NetworkInterfaceSet, vpcs ipamType
 	}
 
 	subnet, ok := subnets[iface.VSwitchId]
-	if ok && subnet.CIDR.IsValid() {
-		eni.VSwitch.CIDRBlock = iputil.PrefixFrom(subnet.CIDR)
+	if ok {
+		if subnet.CIDR.IsValid() {
+			eni.VSwitch.CIDRBlock = iputil.PrefixFrom(subnet.CIDR)
+		}
+		if subnet.IPv6CIDR.IsValid() {
+			eni.VSwitch.IPv6CIDRBlock = iputil.PrefixFrom(subnet.IPv6CIDR)
+		}
 	}
 	return iface.InstanceId, eni
 }

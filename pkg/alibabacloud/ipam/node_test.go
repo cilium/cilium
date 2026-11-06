@@ -200,11 +200,12 @@ func TestCreateInterfaceIPv6(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup(t)
 			limits.Update(map[string]ipamTypes.Limits{"ecs.g7ne.large": {Adapters: 3, IPv4: 10, IPv6: 4}})
+			subnet := subnets[0].DeepCopy()
+			subnet.IPv6CIDR = netip.MustParsePrefix("fd00:0:0:1::/64")
 			if tt.emptySubnet {
-				subnet := subnets[0].DeepCopy()
 				subnet.AvailableAddresses = 0
-				alibabaAPI.UpdateSubnets([]*ipamTypes.Subnet{subnet})
 			}
+			alibabaAPI.UpdateSubnets([]*ipamTypes.Subnet{subnet})
 			_, err := instances.Resync(t.Context())
 			require.NoError(t, err)
 			cn := newCiliumNode("node1", "i-1", "ecs.g7ne.large", "cn-hangzhou-i", "vpc-1")
@@ -225,6 +226,12 @@ func TestCreateInterfaceIPv6(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.Equal(t, max(tt.ipv4, 1), allocated)
+			n.PopulateStatusFields(cn)
+			for _, eni := range cn.Status.AlibabaCloud.ENIs {
+				if eni.Type == types.ENITypeSecondary {
+					require.Equal(t, iputil.PrefixFrom(subnet.IPv6CIDR), eni.VSwitch.IPv6CIDRBlock)
+				}
+			}
 			_, stats, err := n.ResyncInterfacesAndIPs(t.Context(), n.logger)
 			require.NoError(t, err)
 			require.Equal(t, 1, stats.NodeIPv6Prefixes)
@@ -235,6 +242,7 @@ func TestCreateInterfaceIPv6(t *testing.T) {
 					require.Len(t, eni.PrivateIPSets, allocated)
 					require.Len(t, eni.IPv6Prefixes, 1)
 					require.Equal(t, 80, eni.IPv6Prefixes[0].Bits())
+					require.Equal(t, iputil.PrefixFrom(subnet.IPv6CIDR), eni.VSwitch.IPv6CIDRBlock)
 				}
 			}
 		})
