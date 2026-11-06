@@ -248,10 +248,13 @@ spec:
               - |
                 {{- tpl (.Files.Get "files/agent/poststart-eni.bash") . | nindent 20 }}
           {{- end }}
+          {{- if .Values.cni.uninstall }}
           preStop:
             exec:
               command:
-              - /cni-uninstall.sh
+              - "cilium-dbg"
+              - "cni-uninstall"
+          {{- end }}
         {{- end }}
         {{- with .Values.resources }}
         resources:
