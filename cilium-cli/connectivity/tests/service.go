@@ -220,6 +220,81 @@ func (s *podToLocalNodePort) Run(ctx context.Context, t *check.Test) {
 	}
 }
 
+// PodToLocalNodePortETPLocal sends an HTTP request from the client pod to a
+// NodePort Service with externalTrafficPolicy=Local on the node hosting the
+// Service's local echo backend.
+func PodToLocalNodePortETPLocal() check.Scenario {
+	return &podToLocalNodePortETPLocal{
+		ScenarioBase: check.NewScenarioBase(),
+	}
+}
+
+type podToLocalNodePortETPLocal struct {
+	check.ScenarioBase
+}
+
+func (s *podToLocalNodePortETPLocal) Name() string {
+	return "pod-to-local-nodeport-etp-local"
+}
+
+func (s *podToLocalNodePortETPLocal) Run(ctx context.Context, t *check.Test) {
+	ct := t.Context()
+	svc := ct.EchoLocalNodePortService()
+
+	backend := podWithName(ct.EchoPods(), "echo-same-node")
+	backendNode := backend.NodeName()
+	node := ct.Nodes()[backendNode]
+
+	i := 0
+	for _, pod := range ct.ClientPods() {
+		if pod.NodeName() != backendNode {
+			continue
+		}
+
+		curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node, true, false)
+		i++
+	}
+}
+
+// PodToRemoteNodePortETPLocal sends an HTTP request from client pods to a
+// remote node's NodePort. Since the target node has no local endpoint for the
+// Service, the request is expected to be dropped.
+func PodToRemoteNodePortETPLocal() check.Scenario {
+	return &podToRemoteNodePortETPLocal{
+		ScenarioBase: check.NewScenarioBase(),
+	}
+}
+
+type podToRemoteNodePortETPLocal struct {
+	check.ScenarioBase
+}
+
+func (s *podToRemoteNodePortETPLocal) Name() string {
+	return "pod-to-remote-nodeport-etp-local"
+}
+
+func (s *podToRemoteNodePortETPLocal) Run(ctx context.Context, t *check.Test) {
+	ct := t.Context()
+	svc := ct.EchoLocalNodePortService()
+
+	backend := podWithName(ct.EchoPods(), "echo-same-node")
+	backendNode := backend.NodeName()
+
+	i := 0
+	for _, pod := range ct.ClientPods() {
+		for _, node := range ct.Nodes() {
+			if node.Name == backendNode || node.Name == pod.NodeName() {
+				continue
+			}
+
+			// externalTrafficPolicy=Local has no endpoint on this node, so
+			// the request to its NodePort should fail.
+			curlNodePort(ctx, s, t, fmt.Sprintf("curl-%d", i), &pod, svc, node, false, false)
+			i++
+		}
+	}
+}
+
 func curlNodePort(ctx context.Context, s check.Scenario, t *check.Test,
 	name string, pod *check.Pod, svc check.Service, node *slimcorev1.Node,
 	validateFlows bool, secondaryNetwork bool) {
