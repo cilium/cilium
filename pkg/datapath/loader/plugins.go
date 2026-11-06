@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -356,15 +358,20 @@ func (l *bpfCollectionLoader) prepareCollection(ctx context.Context, logger *slo
 
 			for _, c := range h.Constraints {
 				otherPlugin := lnc.Plugins[c.Plugin]
-				if otherPlugin == nil {
-					continue
-				}
 
 				switch c.Order {
 				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_BEFORE:
-					hooksSpec.hook(ps.Name, h.Type).before(r.plugin.Name(), otherPlugin.Name())
+					if otherPlugin != nil {
+						hooksSpec.hook(ps.Name, h.Type).before(r.plugin.Name(), otherPlugin.Name())
+					}
 				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_AFTER:
-					hooksSpec.hook(ps.Name, h.Type).after(r.plugin.Name(), otherPlugin.Name())
+					if otherPlugin != nil {
+						hooksSpec.hook(ps.Name, h.Type).after(r.plugin.Name(), otherPlugin.Name())
+					}
+				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_FIRST:
+					hooksSpec.hook(ps.Name, h.Type).first(r.plugin.Name())
+				case datapathplugins.PrepareCollectionResponse_HookSpec_OrderingConstraint_LAST:
+					hooksSpec.hook(ps.Name, h.Type).last(r.plugin.Name())
 				default:
 					err = errors.Join(err, fmt.Errorf("%s: PrepareCollection(): invalid ordering constraint: %v", r.plugin.Name(), c.Order))
 					continue process_hooks
@@ -1002,9 +1009,13 @@ func clampAndReturn(ps *ebpf.ProgramSpec, label string) asm.Instructions {
 }
 
 type node struct {
-	exists        bool
-	outgoing      map[string]struct{}
-	incomingCount int
+	exists bool
+	first  bool
+	last   bool
+	// before is the set of plugins that must run before this plugin.
+	before map[string]struct{}
+	// after is the set of plugins that must run after this plugin.
+	after map[string]struct{}
 }
 
 // a pluginDependencyGraph is a DAG that tracks dependencies between plugins for
@@ -1014,11 +1025,15 @@ type pluginDependencyGraph map[string]*node
 // sort performs a topological sort that respects all ordering constraints. It
 // consumes g in the process.
 func (g pluginDependencyGraph) sort() ([]string, error) {
+	if err := g.normalizeFirstAndLast(); err != nil {
+		return nil, err
+	}
+
 	var empty []string
 	sorted := make([]string, 0, len(g))
 
 	for p, n := range g {
-		if n.incomingCount == 0 {
+		if len(n.before) == 0 {
 			empty = append(empty, p)
 		}
 	}
@@ -1027,10 +1042,10 @@ func (g pluginDependencyGraph) sort() ([]string, error) {
 		if g[empty[0]].exists {
 			sorted = append(sorted, empty[0])
 
-			for after := range g[empty[0]].outgoing {
-				g[after].incomingCount--
+			for after := range g[empty[0]].after {
+				delete(g[after].before, empty[0])
 
-				if g[after].incomingCount == 0 {
+				if len(g[after].before) == 0 {
 					empty = append(empty, after)
 				}
 			}
@@ -1048,10 +1063,54 @@ func (g pluginDependencyGraph) sort() ([]string, error) {
 	return sorted, nil
 }
 
+// normalizeFirstAndLast validates FIRST and LAST constraints and then turns
+// them into explicit edges against every other plugin at this hook point.
+func (g pluginDependencyGraph) normalizeFirstAndLast() error {
+	var first, last string
+	for p, n := range g {
+		if !n.exists {
+			continue
+		}
+		switch {
+		case n.first && n.last:
+			return fmt.Errorf("plugin %q cannot be both FIRST and LAST", p)
+		case n.first:
+			if first != "" {
+				return fmt.Errorf("conflicting FIRST hooks requested by plugins %q and %q", min(first, p), max(first, p))
+			}
+			if len(n.before) > 0 {
+				return fmt.Errorf("plugin %q requested FIRST but is constrained to run after plugin(s) %q", p, slices.Sorted(maps.Keys(n.before)))
+			}
+
+			first = p
+		case n.last:
+			if last != "" {
+				return fmt.Errorf("conflicting LAST hooks requested by plugins %q and %q", min(last, p), max(last, p))
+			}
+			if len(n.after) > 0 {
+				return fmt.Errorf("plugin %q requested LAST but is constrained to run before plugin(s) %q", p, slices.Sorted(maps.Keys(n.after)))
+			}
+
+			last = p
+		}
+	}
+
+	for other := range g {
+		if first != "" && other != first {
+			g.before(first, other)
+		}
+		if last != "" && other != last {
+			g.after(last, other)
+		}
+	}
+	return nil
+}
+
 func (g pluginDependencyGraph) ensureNode(name string) {
 	if g[name] == nil {
 		g[name] = &node{
-			outgoing: map[string]struct{}{},
+			before: map[string]struct{}{},
+			after:  map[string]struct{}{},
 		}
 	}
 }
@@ -1072,10 +1131,20 @@ func (g pluginDependencyGraph) before(a, b string) {
 func (g pluginDependencyGraph) after(a, b string) {
 	g.ensureNode(a)
 	g.ensureNode(b)
-	if _, exists := g[b].outgoing[a]; !exists {
-		g[b].outgoing[a] = struct{}{}
-		g[a].incomingCount++
-	}
+	g[b].after[a] = struct{}{}
+	g[a].before[b] = struct{}{}
+}
+
+// first marks that a should come before all plugins that are not marked first.
+func (g pluginDependencyGraph) first(a string) {
+	g.ensureNode(a)
+	g[a].first = true
+}
+
+// last marks that a should come after all plugins that are not marked last.
+func (g pluginDependencyGraph) last(a string) {
+	g.ensureNode(a)
+	g[a].last = true
 }
 
 // sortedNodes sorts plugins by name in ascending order.
@@ -1090,16 +1159,16 @@ func (g pluginDependencyGraph) sortedNodes() []string {
 	return nodes
 }
 
-// sortedNodes sorts after dependencies for plugin n in ascending order.
-func (g pluginDependencyGraph) sortedOutgoing(n string) []string {
-	var outgoing []string
+// sortedAfter sorts after dependencies for plugin n in ascending order.
+func (g pluginDependencyGraph) sortedAfter(n string) []string {
+	var after []string
 
-	for o := range g[n].outgoing {
-		outgoing = append(outgoing, o)
+	for a := range g[n].after {
+		after = append(after, a)
 	}
 
-	sort.Strings(outgoing)
-	return outgoing
+	sort.Strings(after)
+	return after
 }
 
 // findDependencyCycle finds a cycle in the DAG and reports it back as a
@@ -1112,7 +1181,7 @@ func (g pluginDependencyGraph) findDependencyCycle() error {
 		}
 
 		visited[node] = true
-		for _, after := range g.sortedOutgoing(node) {
+		for _, after := range g.sortedAfter(node) {
 			path = append(path, after)
 			if cycle := findCycle(after, path, visited); cycle != nil {
 				return cycle
