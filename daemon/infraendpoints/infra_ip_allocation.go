@@ -20,10 +20,12 @@ import (
 	"github.com/cilium/hive/cell"
 	"github.com/cilium/hive/job"
 	"github.com/cilium/statedb"
+	cniinvoke "github.com/containernetworking/cni/pkg/invoke"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"github.com/cilium/cilium/daemon/cmd/cni"
 	"github.com/cilium/cilium/pkg/common"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
@@ -45,17 +47,18 @@ import (
 type infraIPAllocatorParams struct {
 	cell.In
 
-	Logger         *slog.Logger
-	JobGroup       job.Group
-	DaemonConfig   *option.DaemonConfig
-	Config         config
-	DB             *statedb.DB
-	Routes         statedb.Table[*datapathTables.Route]
-	NodeAddrs      statedb.Table[datapathTables.NodeAddress]
-	NodeAddressing node.Addressing
-	LocalNodeStore *node.LocalNodeStore
-	MTU            mtu.MTU
-	IPAM           *ipam.IPAM
+	Logger           *slog.Logger
+	JobGroup         job.Group
+	DaemonConfig     *option.DaemonConfig
+	Config           config
+	DB               *statedb.DB
+	Routes           statedb.Table[*datapathTables.Route]
+	NodeAddrs        statedb.Table[datapathTables.NodeAddress]
+	NodeAddressing   node.Addressing
+	LocalNodeStore   *node.LocalNodeStore
+	MTU              mtu.MTU
+	IPAM             *ipam.IPAM
+	CNIConfigManager cni.CNIConfigManager
 }
 
 type InfraIPAllocator interface {
@@ -67,16 +70,22 @@ var _ InfraIPAllocator = &infraIPAllocator{}
 
 // infraIPAllocator is responsible to create infra related IPs (router, ingress & health)
 type infraIPAllocator struct {
-	logger         *slog.Logger
-	jobGroup       job.Group
-	daemonConfig   *option.DaemonConfig
-	config         config
-	db             *statedb.DB
-	routes         statedb.Table[*datapathTables.Route]
-	nodeAddressing node.Addressing
-	localNodeStore *node.LocalNodeStore
-	mtuManager     mtu.MTU
-	ipAllocator    ipamAllocator
+	logger           *slog.Logger
+	jobGroup         job.Group
+	daemonConfig     *option.DaemonConfig
+	config           config
+	db               *statedb.DB
+	routes           statedb.Table[*datapathTables.Route]
+	nodeAddressing   node.Addressing
+	localNodeStore   *node.LocalNodeStore
+	mtuManager       mtu.MTU
+	ipAllocator      ipamAllocator
+	cniConfigManager cni.CNIConfigManager
+
+	// cniExec and newNetNS are used to invoke the delegated IPAM plugin, and are
+	// replaced in tests to avoid running real plugins and creating network namespaces.
+	cniExec  cniinvoke.Exec
+	newNetNS func() (delegatedIPAMNetNS, error)
 
 	// healthEndpointRouting is the information required to set up the health
 	// endpoint's IPv4 routing in ENI or AlibabaCloud IPAM mode
@@ -97,16 +106,19 @@ type ipamAllocator interface {
 
 func newInfraIPAllocator(params infraIPAllocatorParams) InfraIPAllocator {
 	return &infraIPAllocator{
-		logger:         params.Logger,
-		jobGroup:       params.JobGroup,
-		daemonConfig:   params.DaemonConfig,
-		config:         params.Config,
-		db:             params.DB,
-		routes:         params.Routes,
-		nodeAddressing: params.NodeAddressing,
-		localNodeStore: params.LocalNodeStore,
-		mtuManager:     params.MTU,
-		ipAllocator:    params.IPAM,
+		logger:           params.Logger,
+		jobGroup:         params.JobGroup,
+		daemonConfig:     params.DaemonConfig,
+		config:           params.Config,
+		db:               params.DB,
+		routes:           params.Routes,
+		nodeAddressing:   params.NodeAddressing,
+		localNodeStore:   params.LocalNodeStore,
+		mtuManager:       params.MTU,
+		ipAllocator:      params.IPAM,
+		cniConfigManager: params.CNIConfigManager,
+		cniExec:          newDefaultCNIExec(params.Logger),
+		newNetNS:         newDelegatedIPAMNetNS,
 	}
 }
 
@@ -462,8 +474,26 @@ func (r *infraIPAllocator) allocateHealthIPs(ctx context.Context, oldV4HealthIP 
 }
 
 func (r *infraIPAllocator) allocateIngressIPs(ctx context.Context, oldV4IngressIP netip.Addr, oldV6IngressIP netip.Addr) error {
+	// When envoy config is disabled but delegated IPAM is in use,
+	// clean up any stale ingress IPs from a previous run.
+	hadStaleIngressIPs := oldV4IngressIP.IsValid() || oldV6IngressIP.IsValid()
+	if r.daemonConfig.IPAM == ipamOption.IPAMDelegatedPlugin &&
+		!r.daemonConfig.EnableEnvoyConfig &&
+		hadStaleIngressIPs {
+		if err := r.deallocateIngressIPsWithDelegatedIPAM(ctx); err != nil {
+			// Best-effort cleanup: we cannot block agent startup on a misbehaving external plugin.
+			r.logger.Warn("Failed to deallocate stale ingress IPs with delegated IPAM", logfields.Error, err)
+		}
+	}
+
 	if !r.daemonConfig.EnableEnvoyConfig {
 		return nil
+	}
+
+	// When using delegated IPAM, ingress IPs are allocated via the external
+	// CNI IPAM plugin rather than the internal allocator.
+	if r.daemonConfig.IPAM == ipamOption.IPAMDelegatedPlugin {
+		return r.allocateIngressIPsWithDelegatedIPAM(ctx)
 	}
 
 	ingressIPv4 := oldV4IngressIP
@@ -679,8 +709,30 @@ func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouter
 	var v4 net.IP
 	var v6 net.IP
 
+	// With delegated IPAM the agent can't allocate the router addresses from
+	// its own pool: unless a static one is configured, lease them from the
+	// delegated IPAM plugin, so that each node gets its own.
+	delegated := r.daemonConfig.IPAM == ipamOption.IPAMDelegatedPlugin
+	leaseV4 := delegated && r.daemonConfig.EnableIPv4 && r.daemonConfig.LocalRouterIPv4 == ""
+	leaseV6 := delegated && r.daemonConfig.EnableIPv6 && r.daemonConfig.LocalRouterIPv6 == ""
+	var leasedV4, leasedV6 netip.Addr
+	if leaseV4 || leaseV6 {
+		var err error
+		leasedV4, leasedV6, err = r.allocateDelegatedIPs(ctx, delegatedIPAMOwnerRouter)
+		if err != nil {
+			return fmt.Errorf("failed to allocate router IPs via delegated IPAM: %w", err)
+		}
+		r.logger.Info("Allocated router addresses via delegated IPAM",
+			logfields.IPv4, leasedV4,
+			logfields.IPv6, leasedV6,
+		)
+	}
+
 	if r.daemonConfig.EnableIPv4 {
-		routerIP, err := r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPv4FromK8s, restoredRouterIPv4FromFS)
+		routerIP, err := net.IP(leasedV4.AsSlice()), error(nil)
+		if !leaseV4 {
+			routerIP, err = r.allocateRouterIPv4(ctx, r.nodeAddressing.IPv4(), restoredRouterIPv4FromK8s, restoredRouterIPv4FromFS)
+		}
 		if err != nil {
 			return err
 		}
@@ -692,7 +744,10 @@ func (r *infraIPAllocator) allocateRouterIPs(ctx context.Context, restoredRouter
 	}
 
 	if r.daemonConfig.EnableIPv6 {
-		routerIP, err := r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPv6FromK8s, restoredRouterIPv6FromFS)
+		routerIP, err := net.IP(leasedV6.AsSlice()), error(nil)
+		if !leaseV6 {
+			routerIP, err = r.allocateRouterIPv6(ctx, r.nodeAddressing.IPv6(), restoredRouterIPv6FromK8s, restoredRouterIPv6FromFS)
+		}
 		if err != nil {
 			return err
 		}
