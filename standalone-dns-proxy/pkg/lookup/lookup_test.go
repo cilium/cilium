@@ -69,7 +69,7 @@ func insertPrefixes(db *statedb.DB, table statedb.RWTable[client.PrefixToIdentit
 func insertIP(db *statedb.DB, table statedb.RWTable[client.IPtoEndpointInfo], ip netip.Addr, id uint64, ident identity.NumericIdentity) {
 	w := db.WriteTxn(table)
 	table.Insert(w, client.IPtoEndpointInfo{
-		IP:       []netip.Addr{ip},
+		IPs:      []netip.Addr{ip},
 		ID:       id,
 		Identity: ident,
 	})
