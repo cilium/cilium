@@ -396,7 +396,7 @@ jobs:
           # Pass any bpf-datapath values verbatim. Note this is validated as our matrix
           # is being computed, so we assume this contains a valid datapath mode.
           if [ "${BPF_DATAPATH}" != "" ]; then
-            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.datapathMode=${BPF_DATAPATH}"
+            CILIUM_INSTALL_DEFAULTS+=" --helm-set bpf.datapathMode=${BPF_DATAPATH} --helm-set bpf.hostLegacyRouting=false"
           fi
 
           echo cluster_name=${CLUSTER_NAME} >> $GITHUB_OUTPUT
