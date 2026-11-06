@@ -202,7 +202,7 @@ func setupEgressGatewayTestSuite(t *testing.T) *EgressGatewayTestSuite {
 		Sysctl:            k.sysctl,
 		DB:                db,
 		DeviceTable:       deviceTable,
-	})
+	}, true, true)
 	require.NoError(t, err)
 	require.NotNil(t, k.manager)
 
