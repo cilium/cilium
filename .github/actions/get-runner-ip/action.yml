@@ -47,32 +47,50 @@ runs:
             if (!path) return undefined;
             return path.split('.').reduce((acc, key) => (acc && typeof acc === 'object' ? acc[key] : undefined), obj);
           };
-          let response;
-          const timeoutMs = 15000;
-          const controller = new AbortController();
-          const timeout = setTimeout(() => {
-            controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
-          }, timeoutMs);
-          try {
-            response = await fetch(source, {
-              signal: controller.signal,
-              headers: {
-                'User-Agent': 'actions/github-script get-runner-ip',
-                'Accept': parsing === 'json' ? 'application/json,*/*' : '*/*',
-              },
-            });
-          } catch (e) {
-            core.setFailed(`Failed to fetch '${source}': ${e?.message || e}`);
-            return;
-          } finally {
-            clearTimeout(timeout);
+          // Three attempts of 10s with 2s and 4s pauses take at most 36s.
+          const attempts = 3;
+          const timeoutMs = 10000;
+          let rawText;
+          for (let attempt = 1; ; attempt++) {
+            let error;
+            const controller = new AbortController();
+            const timeout = setTimeout(() => {
+              controller.abort(new Error(`Request timed out after ${timeoutMs}ms`));
+            }, timeoutMs);
+            try {
+              const response = await fetch(source, {
+                signal: controller.signal,
+                headers: {
+                  'User-Agent': 'actions/github-script get-runner-ip',
+                  'Accept': parsing === 'json' ? 'application/json,*/*' : '*/*',
+                },
+              });
+              if (response.ok) {
+                rawText = await response.text();
+              } else {
+                const body = await response.text().catch(() => '');
+                error = `HTTP ${response.status} ${response.statusText}${body ? `; body: ${body.slice(0, 200)}` : ''}`;
+                if (response.status < 500 && response.status !== 429) {
+                  core.setFailed(`Fetch '${source}' failed: ${error}`);
+                  return;
+                }
+              }
+            } catch (e) {
+              error = `${e?.message || e}${e?.cause?.message ? ` (${e.cause.message})` : ''}`;
+            } finally {
+              clearTimeout(timeout);
+            }
+            if (!error) {
+              break;
+            }
+            if (attempt === attempts) {
+              core.setFailed(`Fetch '${source}' failed after ${attempts} attempts: ${error}`);
+              return;
+            }
+            const delayMs = 1000 * 2 ** attempt;
+            core.warning(`Fetch '${source}' failed (attempt ${attempt}/${attempts}): ${error}; retrying in ${delayMs / 1000}s`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
-          if (!response.ok) {
-            const body = await response.text().catch(() => '');
-            core.setFailed(`Fetch '${source}' failed: HTTP ${response.status} ${response.statusText}${body ? `; body: ${body.slice(0, 200)}` : ''}`);
-            return;
-          }
-          const rawText = await response.text();
           const trimmed = (rawText || '').trim();
           let ip;
           if (parsing === 'text') {
