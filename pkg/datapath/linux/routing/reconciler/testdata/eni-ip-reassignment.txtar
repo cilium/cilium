@@ -1,0 +1,139 @@
+#! --family=ipv4
+
+# An endpoint IP comes back on a different ENI of the same node, for example
+# after the operator released it as an excess IP and later assigned it again,
+# while the egress rule of its previous owner on the first ENI was never deleted
+# (missed CNI DEL, interrupted teardown). The new endpoint must get a single
+# egress rule for its current ENI, and endpoints on the first ENI must keep
+# their rules.
+
+# Configure two ENIs as the operator would report them to the agent. Only the
+# first one holds a free address for now.
+k8s/add cilium-node.yaml
+link/add cilium-rr-a dummy
+link/set cilium-rr-a hwaddr=02:ca:fe:00:00:01 mtu=1400
+link/add cilium-rr-b dummy
+link/set cilium-rr-b hwaddr=02:ca:fe:00:00:02 mtu=1400
+
+hive start
+ipam/start
+
+# Wait for the production ENI device configurator before reconciling routing.
+link/list
+* stdout 'addr: 192[.]0[.]2[.]5/24'
+* stdout 'addr: 192[.]0[.]2[.]6/24'
+
+# A neighbor endpoint on the first ENI.
+endpoint/add pod-a 192.0.2.10
+stdout '^192.0.2.10$'
+
+rule/list --family=ipv4 --priority=111 --protocol=kernel
+* stdout --count=1 '^priority 111 from 192[.]0[.]2[.]10/32 to all table 11 protocol kernel$'
+
+# The egress rule left behind by the previous owner of 192.0.2.20, which
+# routed it through the first ENI.
+rule/add --family=ipv4 --from=192.0.2.20/32 --priority=111 --table=11 --protocol=kernel
+
+# The operator assigns 192.0.2.20 to the second ENI, and a new endpoint gets it.
+k8s/update cilium-node-reassigned.yaml
+* endpoint/add pod-b 192.0.2.20
+stdout '^192.0.2.20$'
+
+# Wait until the stale rule is gone: one egress rule per endpoint.
+rule/list --family=ipv4 --priority=111 --protocol=kernel
+* stdout --count=2 '^priority 111 from '
+
+# The new endpoint routes through its current ENI only.
+stdout --count=1 '^priority 111 from 192[.]0[.]2[.]20/32 to all table 12 protocol kernel$'
+! stdout '^priority 111 from 192[.]0[.]2[.]20/32 to all table 11 protocol kernel$'
+
+# The neighbor on the first ENI keeps its rule.
+stdout --count=1 '^priority 111 from 192[.]0[.]2[.]10/32 to all table 11 protocol kernel$'
+
+route/list --table=12
+stdout '192.0.2.1/32.*dev cilium-rr-b.*scope link.*table 12'
+stdout '0.0.0.0/0.*via 192.0.2.1.*table 12'
+
+endpoint/del pod-b
+endpoint/del pod-a
+
+# Wait for asynchronous rule deletion without replaying endpoint/del.
+rule/list --family=ipv4 --priority=111 --protocol=kernel
+* empty stdout
+
+hive stop
+
+link/del cilium-rr-a
+link/del cilium-rr-b
+
+-- cilium-node.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  eni: {}
+status:
+  eni:
+    enis:
+      eni-1:
+        id: eni-1
+        ip: 192.0.2.5
+        mac: 02:ca:fe:00:00:01
+        number: 1
+        addresses:
+        - 192.0.2.10
+        subnet:
+          id: subnet-1
+          cidr: 192.0.2.0/24
+        vpc:
+          id: vpc-1
+          primary-cidr: 192.0.2.0/24
+      eni-2:
+        id: eni-2
+        ip: 192.0.2.6
+        mac: 02:ca:fe:00:00:02
+        number: 2
+        addresses: []
+        subnet:
+          id: subnet-1
+          cidr: 192.0.2.0/24
+        vpc:
+          id: vpc-1
+          primary-cidr: 192.0.2.0/24
+-- cilium-node-reassigned.yaml --
+apiVersion: cilium.io/v2
+kind: CiliumNode
+metadata:
+  name: test-node
+spec:
+  eni: {}
+status:
+  eni:
+    enis:
+      eni-1:
+        id: eni-1
+        ip: 192.0.2.5
+        mac: 02:ca:fe:00:00:01
+        number: 1
+        addresses:
+        - 192.0.2.10
+        subnet:
+          id: subnet-1
+          cidr: 192.0.2.0/24
+        vpc:
+          id: vpc-1
+          primary-cidr: 192.0.2.0/24
+      eni-2:
+        id: eni-2
+        ip: 192.0.2.6
+        mac: 02:ca:fe:00:00:02
+        number: 2
+        addresses:
+        - 192.0.2.20
+        subnet:
+          id: subnet-1
+          cidr: 192.0.2.0/24
+        vpc:
+          id: vpc-1
+          primary-cidr: 192.0.2.0/24
