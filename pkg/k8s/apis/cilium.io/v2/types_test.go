@@ -5,9 +5,12 @@ package v2
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"iter"
 	"net/netip"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/cilium/hive/hivetest"
@@ -572,6 +575,213 @@ func TestParseWithNodeSelector(t *testing.T) {
 	}
 	_, err = cnplWithSpecs.Parse(logger, cmtypes.PolicyAnyCluster)
 	require.ErrorContains(t, err, "Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+
+	ccnplWithSpecs := CiliumClusterwideNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{Name: "rule", UID: uuidRule},
+		Specs:      api.Rules{&rule},
+	}
+	_, err = ccnplWithSpecs.Parse(logger, cmtypes.PolicyAnyCluster)
+	require.NoError(t, err)
+
+	cnplWithSpecs.Namespace = ""
+	_, err = cnplWithSpecs.Parse(logger, cmtypes.PolicyAnyCluster)
+	require.NoError(t, err)
+}
+
+func TestValidateCNPNodeSelector(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		rule    *api.Rule
+		wantErr bool
+	}{
+		{name: "nil rule"},
+		{name: "no selector", rule: &api.Rule{}},
+		{
+			name: "endpoint selector",
+			rule: &api.Rule{EndpointSelector: api.NewESFromLabels()},
+		},
+		{
+			name:    "empty node selector",
+			rule:    &api.Rule{NodeSelector: api.NewESFromLabels()},
+			wantErr: true,
+		},
+		{
+			name: "node selector with labels",
+			rule: &api.Rule{
+				NodeSelector: api.NewESFromLabels(labels.ParseSelectLabel("role=worker")),
+			},
+			wantErr: true,
+		},
+		{
+			name: "both selectors",
+			rule: &api.Rule{
+				EndpointSelector: api.NewESFromLabels(),
+				NodeSelector:     api.NewESFromLabels(),
+			},
+			wantErr: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateCNPNodeSelector(tc.rule)
+			if tc.wantErr {
+				require.EqualError(t, err, "rule cannot have NodeSelector")
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestCNPValidationReturnsFirstError(t *testing.T) {
+	for _, field := range []string{"spec", "specs"} {
+		t.Run(field, func(t *testing.T) {
+			rule := &api.Rule{NodeSelector: api.NewESFromLabels()}
+			cnp := &CiliumNetworkPolicy{
+				ObjectMeta: metav1.ObjectMeta{Name: "rule", Namespace: "default"},
+			}
+			if field == "spec" {
+				cnp.Spec = rule
+			} else {
+				cnp.Specs = api.Rules{rule}
+			}
+			cnp.Specs = append(cnp.Specs, &api.Rule{
+				NodeSelector: api.NewESFromLabels(),
+				Ingress:      []api.IngressRule{{}},
+			}, nil)
+			original := cnp.DeepCopy()
+			wantErr := fmt.Sprintf("Invalid CiliumNetworkPolicy %s: rule must have at least one of Ingress, IngressDeny, Egress, EgressDeny", field)
+
+			require.EqualError(t, cnp.Validate(), wantErr)
+			require.Equal(t, original, cnp)
+
+			rules, err := cnp.Parse(hivetest.Logger(t), cmtypes.PolicyAnyCluster)
+			require.EqualError(t, err, wantErr)
+			require.Nil(t, rules)
+			require.Equal(t, original, cnp)
+		})
+	}
+}
+
+func TestPolicyValidationErrors(t *testing.T) {
+	for _, kind := range []string{"CNP", "CCNP", "CCNP as CNP"} {
+		for _, field := range []string{"spec", "specs"} {
+			t.Run(kind+"/"+field, func(t *testing.T) {
+				rule := &api.Rule{NodeSelector: api.NewESFromLabels()}
+				cnp := &CiliumNetworkPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "rule", Namespace: "default"},
+				}
+				if field == "spec" {
+					cnp.Spec = rule
+				} else {
+					cnp.Specs = api.Rules{rule}
+				}
+				cnp.Specs = append(cnp.Specs, &api.Rule{Ingress: []api.IngressRule{{}}})
+				ccnp := &CiliumClusterwideNetworkPolicy{
+					ObjectMeta: metav1.ObjectMeta{Name: "rule"},
+					Spec:       cnp.Spec,
+					Specs:      cnp.Specs,
+				}
+
+				policyKind := "CiliumNetworkPolicy"
+				validationErrors := cnp.ValidationErrors()
+				validate := cnp.Validate
+				switch kind {
+				case "CCNP":
+					policyKind = "CiliumClusterwideNetworkPolicy"
+					validationErrors = ccnp.ValidationErrors()
+					validate = ccnp.Validate
+				case "CCNP as CNP":
+					policyKind = "CiliumClusterwideNetworkPolicy"
+					cnp.Namespace = ""
+				}
+				originalCNP, originalCCNP := cnp.DeepCopy(), ccnp.DeepCopy()
+				want := []string{fmt.Sprintf("Invalid %s %s: rule must have at least one of Ingress, IngressDeny, Egress, EgressDeny", policyKind, field)}
+				if kind == "CNP" {
+					want = append(want, "Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+				}
+				want = append(want, fmt.Sprintf("Invalid %s specs: rule must have one of EndpointSelector or NodeSelector", policyKind))
+
+				errs := slices.Collect(validationErrors)
+				require.Len(t, errs, len(want))
+				for i, err := range errs {
+					require.EqualError(t, err, want[i])
+					require.Error(t, errors.Unwrap(err))
+				}
+				if kind == "CNP" {
+					require.ErrorIs(t, errs[1], ErrCNPNodeSelector)
+				}
+				require.EqualError(t, validate(), want[0])
+				require.Equal(t, originalCNP, cnp)
+				require.Equal(t, originalCCNP, ccnp)
+			})
+		}
+	}
+}
+
+func TestPolicyRuleValidationErrorsNodeSelector(t *testing.T) {
+	for _, kind := range []string{"CiliumNetworkPolicy", "CiliumClusterwideNetworkPolicy"} {
+		for _, rejectNodeSelector := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/rejectNodeSelector=%t", kind, rejectNodeSelector), func(t *testing.T) {
+				rule := &api.Rule{
+					NodeSelector: api.NewESFromLabels(),
+					Ingress:      []api.IngressRule{{}},
+				}
+
+				errs := slices.Collect(policyRuleValidationErrors(kind, rule, nil, rejectNodeSelector))
+				if rejectNodeSelector {
+					require.Len(t, errs, 1)
+					require.ErrorIs(t, errs[0], ErrCNPNodeSelector)
+				} else {
+					require.Empty(t, errs)
+				}
+			})
+		}
+	}
+}
+
+func TestPolicyValidationErrorsMetadata(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		validationErrors iter.Seq[error]
+		want             string
+	}{
+		{
+			name:             "CNP without name",
+			validationErrors: (&CiliumNetworkPolicy{ObjectMeta: metav1.ObjectMeta{Namespace: "default"}}).ValidationErrors(),
+			want:             "CiliumNetworkPolicy must have name",
+		},
+		{
+			name:             "CCNP without name",
+			validationErrors: (&CiliumClusterwideNetworkPolicy{}).ValidationErrors(),
+			want:             "CiliumClusterwideNetworkPolicy must have name",
+		},
+		{
+			name:             "CCNP as CNP without name",
+			validationErrors: (&CiliumNetworkPolicy{}).ValidationErrors(),
+			want:             "CiliumNetworkPolicy must have name",
+		},
+		{
+			name:             "empty CNP",
+			validationErrors: (&CiliumNetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "rule", Namespace: "default"}}).ValidationErrors(),
+			want:             ErrEmptyCNP.Error(),
+		},
+		{
+			name:             "empty CCNP",
+			validationErrors: (&CiliumClusterwideNetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "rule"}}).ValidationErrors(),
+			want:             ErrEmptyCCNP.Error(),
+		},
+		{
+			name:             "empty CCNP as CNP",
+			validationErrors: (&CiliumNetworkPolicy{ObjectMeta: metav1.ObjectMeta{Name: "rule"}}).ValidationErrors(),
+			want:             ErrEmptyCCNP.Error(),
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := slices.Collect(tc.validationErrors)
+			require.Len(t, errs, 1)
+			require.EqualError(t, errs[0], tc.want)
+		})
+	}
 }
 
 func TestCiliumNodeInstanceID(t *testing.T) {

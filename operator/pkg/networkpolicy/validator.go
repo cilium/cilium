@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"iter"
 	"log/slog"
 	"slices"
 
@@ -100,16 +101,12 @@ func (pv *policyValidator) handleCNPEvent(ctx context.Context, event resource.Ev
 
 	newPol := pol.DeepCopy()
 
-	var errs error
+	errs := collectValidationErrors(newPol.ValidationErrors())
 	if newPol.Spec != nil {
-		errs = errors.Join(errs, newPol.Spec.Validate())
 		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, newPol.Spec))
-		errs = errors.Join(errs, validateCNPNodeSelector(newPol.Spec))
 	}
 	for _, r := range newPol.Specs {
-		errs = errors.Join(errs, r.Validate())
 		errs = errors.Join(errs, validateCNPEndpointSelectorNamespace(pol.Namespace, r))
-		errs = errors.Join(errs, validateCNPNodeSelector(r))
 	}
 
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
@@ -155,13 +152,7 @@ func (pv *policyValidator) handleCCNPEvent(ctx context.Context, event resource.E
 
 	newPol := pol.DeepCopy()
 
-	var errs error
-	if newPol.Spec != nil {
-		errs = errors.Join(errs, newPol.Spec.Validate())
-	}
-	for _, r := range newPol.Specs {
-		errs = errors.Join(errs, r.Validate())
-	}
+	errs := collectValidationErrors(newPol.ValidationErrors())
 
 	newPol.Status.Conditions = updateCondition(event.Object.Status.Conditions, errs)
 	if newPol.Status.DeepEqual(&pol.Status) {
@@ -214,16 +205,19 @@ func validateCNPEndpointSelectorNamespace(namespace string, spec *api.Rule) erro
 	return nil
 }
 
-// validateCNPNodeSelector rejects rules of a CiliumNetworkPolicy that use a
-// nodeSelector. Node selectors are only supported by
-// CiliumClusterwideNetworkPolicy, and the agent rejects such rules when parsing
-// a CiliumNetworkPolicy, which would otherwise leave the policy silently
-// ineffective while being reported as valid.
-func validateCNPNodeSelector(spec *api.Rule) error {
-	if spec == nil || spec.NodeSelector.LabelSelector == nil {
-		return nil
+func collectValidationErrors(validationErrors iter.Seq[error]) error {
+	var errs error
+	for err := range validationErrors {
+		// Status reports raw rule errors rather than the Agent's parse context.
+		if cause := errors.Unwrap(err); cause != nil {
+			err = cause
+		}
+		if errors.Is(err, cilium_api_v2.ErrCNPNodeSelector) {
+			err = fmt.Errorf("CiliumNetworkPolicy %w, use CiliumClusterwideNetworkPolicy instead", err)
+		}
+		errs = errors.Join(errs, err)
 	}
-	return errors.New("CiliumNetworkPolicy rule cannot have NodeSelector, use CiliumClusterwideNetworkPolicy instead")
+	return errs
 }
 
 // updateCondition creates or updates the policy validation condition in Conditions, setting
