@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/datapath/maps"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/testutils"
 )
@@ -41,6 +42,31 @@ func TestNewDeviceState(t *testing.T) {
 		require.Equal(t, deviceStateL3Mask, state.L3&deviceStateL3Mask)
 		require.Equal(t, mac.MAC{}, state.MAC)
 	})
+}
+
+// The agent and the datapath share the pinned map: with different flags,
+// each side replaces the other's map on load.
+func TestPrivilegedNetDevMapFlags(t *testing.T) {
+	setup(t)
+
+	specs, err := maps.LoadMapSpecs()
+	require.NoError(t, err)
+	datapath, ok := specs["cilium_devices"]
+	require.True(t, ok)
+
+	t.Cleanup(bpf.DisableMapPreAllocation)
+	for _, prealloc := range []bool{false, true} {
+		if prealloc {
+			bpf.EnableMapPreAllocation()
+		} else {
+			bpf.DisableMapPreAllocation()
+		}
+
+		dm := newNetDevMap()
+		require.NoError(t, dm.Map.CreateUnpinned())
+		require.Equal(t, datapath.Flags, dm.Flags(), "preallocate-bpf-maps=%t", prealloc)
+		require.NoError(t, dm.close())
+	}
 }
 
 func TestPrivilegedNetDevMap(t *testing.T) {
