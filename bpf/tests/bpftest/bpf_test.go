@@ -55,6 +55,7 @@ var (
 	testFilePrefix = flag.String("test", "", "Single test file to run (without file extension)")
 
 	dumpCtx = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
+	pinBPF  = flag.Bool("pin-bpf", false, "Pin test maps and programs for debugging; remove pinned objects manually after inspection.")
 )
 
 type syncWriter struct {
@@ -94,6 +95,29 @@ func TestBPF(t *testing.T) {
 		t.Fatal("os readdir: ", err)
 	}
 
+	var pinPath string
+	if *pinBPF {
+		bpf.CheckOrMountFS(hivetest.Logger(t), "")
+		pinPath, err = os.MkdirTemp(bpf.BPFFSRoot(), "cilium-test")
+		if err != nil {
+			t.Fatal("create pin directory:", err)
+		}
+		t.Cleanup(func() {
+			pins, err := os.ReadDir(pinPath)
+			if err != nil {
+				t.Error("read pinned collections:", err)
+				return
+			}
+			if len(pins) == 0 {
+				if err := os.Remove(pinPath); err != nil {
+					t.Error("remove empty pin directory:", err)
+				}
+				return
+			}
+			fmt.Fprintf(os.Stderr, "BPF maps and programs are pinned in %s; remove them with 'rm -rf -- %s' after inspection.\n", pinPath, pinPath)
+		})
+	}
+
 	var (
 		instrLogMu lock.Mutex
 		instrLog   io.Writer
@@ -129,7 +153,7 @@ func TestBPF(t *testing.T) {
 		t.Run(entry.Name(), func(t *testing.T) {
 			t.Parallel()
 			testNetNS := netns.NewNetNS(t)
-			profiles := loadAndRunSpec(t, entry, instrLog, testNetNS)
+			profiles := loadAndRunSpec(t, entry, instrLog, testNetNS, pinPath)
 			if len(profiles) > 0 {
 				profileMu.Lock()
 				for _, profile := range profiles {
@@ -173,7 +197,7 @@ func TestBPF(t *testing.T) {
 	}
 }
 
-func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNetNS *netns.NetNS) []*cover.Profile {
+func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNetNS *netns.NetNS, pinPath string) []*cover.Profile {
 	logger := hivetest.Logger(t)
 	elfPath := path.Join(*testPath, entry.Name())
 
@@ -226,6 +250,11 @@ func loadAndRunSpec(t *testing.T, entry fs.DirEntry, instrLog io.Writer, testNet
 		t.Fatal("loading collection:", err)
 	}
 	defer coll.Close()
+	if pinPath != "" {
+		if err := pinCollection(coll, path.Join(pinPath, strings.TrimSuffix(entry.Name(), ".o"))); err != nil {
+			t.Fatal("pin collection:", err)
+		}
+	}
 
 	testNameToPrograms := make(map[string]programSet)
 
