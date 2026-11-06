@@ -200,6 +200,7 @@ func NodeConfig(lnc *Config) Node {
 
 	node.EnableIPSec = lnc.EnableIPSec
 	node.EnableWireguard = lnc.EnableWireguard
+	node.EnableBandwidthManager = lnc.EnableBandwidthManager
 
 	node.EnableL7LB = option.Config.EnableEnvoyConfig
 

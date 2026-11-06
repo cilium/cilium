@@ -15,6 +15,7 @@ import (
 
 	cmtypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	fakeconnector "github.com/cilium/cilium/pkg/datapath/connector/fake"
+	fakebandwidth "github.com/cilium/cilium/pkg/datapath/linux/bandwidth/fake"
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
@@ -197,6 +198,7 @@ func TestNewLocalNodeConfigNoGoroutineLeak(t *testing.T) {
 			mtuTable,
 			wgAgent,
 			fakeipsec.Config{},
+			&fakebandwidth.Manager{},
 			fakeconnector.NewVeth(),
 			nil,
 		)
