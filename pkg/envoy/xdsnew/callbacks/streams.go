@@ -10,7 +10,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"github.com/cilium/cilium/pkg/envoy/xdsnew/typeurl"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 // StreamMode distinguishes go-control-plane's independently numbered SotW and
@@ -30,6 +29,8 @@ type StreamLifecycleHandler interface {
 	StreamClosed(streamID int64, nodeID string, mode StreamMode)
 }
 
+// streamKey includes the mode because go-control-plane allocates SotW and Delta
+// stream IDs independently, while both servers share CompletionCallbacks.
 type streamKey struct {
 	streamID int64
 	mode     StreamMode
@@ -38,6 +39,10 @@ type streamKey struct {
 type callbackStreamState struct {
 	nodeID    string
 	responses typeurl.Slots[pendingResponse]
+	// deltaRequests identifies prepared response metadata to discard if the
+	// stream closes before OnStreamDeltaResponse consumes it. ADS can have an
+	// outstanding request for each resource type on the same stream.
+	deltaRequests typeurl.Slots[*discovery.DeltaDiscoveryRequest]
 }
 
 // ensureStreamState returns stream state, creating it when needed.
@@ -63,6 +68,18 @@ func (cb *CompletionCallbacks) streamForRequest(streamID int64, req *discovery.D
 	return stream, started
 }
 
+// streamForDeltaRequest remembers the node before go-control-plane restores it
+// on subsequent Delta requests. The validation callback normally fills Node,
+// while this fallback keeps direct callback users correct.
+func (cb *CompletionCallbacks) streamForDeltaRequest(streamID int64, req *discovery.DeltaDiscoveryRequest) (*callbackStreamState, bool) {
+	stream := cb.ensureStreamState(streamKey{streamID: streamID, mode: StreamModeDelta})
+	started := stream.nodeID == "" && req.GetNode().GetId() != ""
+	if nodeID := req.GetNode().GetId(); nodeID != "" {
+		stream.nodeID = nodeID
+	}
+	return stream, started
+}
+
 // OnStreamOpen is called once an xDS stream is open with a stream ID and the type URL (or "" for ADS).
 // Returning an error will end processing and close the stream. OnStreamClosed will still be called.
 func (cb *CompletionCallbacks) OnStreamOpen(ctx context.Context, streamID int64, typ string) error {
@@ -71,19 +88,30 @@ func (cb *CompletionCallbacks) OnStreamOpen(ctx context.Context, streamID int64,
 
 // OnStreamClosed is called immediately prior to closing an xDS stream with a stream ID.
 func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
+	cb.closeStream(streamID, node, StreamModeSotW)
+}
+
+func (cb *CompletionCallbacks) closeStream(streamID int64, node *core.Node, mode StreamMode) {
+	key := streamKey{streamID: streamID, mode: mode}
 	cb.mutex.Lock()
 	var nodeID string
-	if stream := cb.streams[streamKey{streamID: streamID, mode: StreamModeSotW}]; stream != nil {
+	stream := cb.streams[key]
+	if stream != nil {
 		nodeID = stream.nodeID
 	}
 	if nodeID == "" && node != nil {
 		nodeID = node.GetId()
 	}
-	delete(cb.streams, streamKey{streamID: streamID, mode: StreamModeSotW})
+	if mode == StreamModeDelta && stream != nil {
+		for _, request := range stream.deltaRequests {
+			delete(cb.preparedDeltaResponses, request)
+		}
+	}
+	delete(cb.streams, key)
 	if nodeState := cb.nodes[nodeID]; nodeState != nil {
 		for typeURL := range typeurl.Count {
 			state := &nodeState.typeURLs[typeURL].response
-			if state.pendingStreamID == streamID {
+			if state.pendingStreamKey == key {
 				state.clearPending()
 			}
 		}
@@ -109,17 +137,15 @@ func (cb *CompletionCallbacks) OnStreamClosed(streamID int64, node *core.Node) {
 	}
 	cb.mutex.Unlock()
 	if cb.streamLifecycle != nil && nodeID != "" {
-		cb.streamLifecycle.StreamClosed(streamID, nodeID, StreamModeSotW)
+		cb.streamLifecycle.StreamClosed(streamID, nodeID, mode)
 	}
-
-	cb.Log.Info("OnStreamClosed", logfields.XDSStreamID, streamID)
 }
 
 func (cb *CompletionCallbacks) OnDeltaStreamOpen(ctx context.Context, streamID int64, typeURL string) error {
-	panic("unimplemented")
+	return nil
 }
 
 // OnDeltaStreamClosed invokes DeltaStreamClosedFunc.
 func (cb *CompletionCallbacks) OnDeltaStreamClosed(streamID int64, node *core.Node) {
-	panic("unimplemented")
+	cb.closeStream(streamID, node, StreamModeDelta)
 }

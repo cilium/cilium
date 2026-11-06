@@ -93,7 +93,7 @@ flowchart TD
     entry["resourceEntry<br/>Immutable resource or removal tombstone<br/>Revision and originating TransactionID"]
     types["resourceTypeState<br/>Changed names, aggregate and corrective generations<br/>Epoch negotiation and rollback ownership"]
     snapshot["ciliumSnapshot<br/>Latest installed immutable protocol view"]
-    group["snapshotResourceGroup<br/>Immutable resources and aggregate generation<br/>Epoch-bound wire version for one TypeURL"]
+    group["snapshotResourceGroup<br/>Immutable resources and aggregate generation<br/>Aggregate wire version and Delta per-resource versions"]
     protobuf["Immutable protobufs<br/>Shared between desired and published views"]
     pending["pendingPublication<br/>Latest unpublished boundary and affected types<br/>Sparse rollback state awaiting publication"]
 
@@ -192,17 +192,18 @@ New snapshots shallow-copy the previous snapshot and replace affected resource
 groups. Immutable resource maps are cloned only where entries change. Missing
 CLAs are synthesized in the snapshot. Generation-based versions make snapshot
 construction independent of serialization and content hashing. Marshaling is
-deferred to go-control-plane's response construction. Only SotW snapshots are
-supported.
+deferred to response construction. The same snapshot representation supports
+SotW ADS and Delta ADS. Delta snapshots additionally retain per-resource version
+maps; SotW snapshots do not allocate them.
 
 Publication metadata becomes visible only after successful installation. The
 published generation advances, and pending publication bookkeeping and changed
 names are cleared; independent rollback ownership remains intact.
 
-If publication triggered by `CreateWatch` fails, desired state and pending
-publication remain available for another attempt or caller rollback. Response
-construction can still fail to encode a resource after a successful cache mutation
-or publication.
+If publication triggered by `CreateWatch` or `CreateDeltaWatch` fails, desired
+state and pending publication remain available for another attempt or caller
+rollback. Response construction can still fail to encode a resource after a
+successful cache mutation or publication.
 
 ### Wire versions and EDS replay
 
@@ -224,6 +225,17 @@ resource types across agent restarts.
 Negotiated types retain continuity across reconnects. Changing the epoch updates
 the published protocol view without publishing unrelated pending changes.
 
+A Delta resource's version changes when its published value changes or must be
+replayed; ordinary updates preserve versions for unchanged names. Removals delete
+names from the snapshot's version map. go-control-plane compares this map with the
+subscription's returned-resource versions to select updates and explicit removals.
+The response adapter preserves Cilium's opaque versions without content hashing.
+The aggregate type version and the cache-wide publication generation need not
+match an unchanged resource's version.
+
+For Delta reconnects, epoch negotiation examines `initial_resource_versions`
+rather than a SotW request's aggregate `version_info`.
+
 A Cluster change can require fresh EDS delivery even when desired CLAs are
 unchanged: Envoy may need it to finish warming with an already-subscribed EDS name,
 or the snapshot may gain or lose synthesized empty assignments. In these cases,
@@ -234,12 +246,15 @@ LDS changes do not artificially advance RDS, CDS, or SDS versions.
 ## Delivery and ACK processing
 
 Cache relays buffer responses produced synchronously by `SetSnapshot` or
-`CreateWatch`. Before delivery, the cache captures their exact publication
-generation, the resource names they communicate, and rollback ownership.
-Immediate `CreateWatch` responses are captured under the lock too; their
+`CreateWatch` or `CreateDeltaWatch`. Before delivery, the cache captures their exact
+publication generation, the resource names they communicate, and rollback ownership.
+Immediate watch responses are captured under the lock too; their
 generations are never inferred from later publications or newly registered waits.
 Collected response batches are delivered outside the lock, with parents before
-children within each batch.
+children within each SotW batch. The SotW gRPC server uses `WithOrderedADS` to
+preserve channel order, while the embedded snapshot cache's ADS flag stays off to
+allow independent named subscriptions. Delta enables the snapshot cache's ADS
+ordering and relays its shared response channel without reordering it.
 
 ```mermaid
 flowchart TD
@@ -267,6 +282,12 @@ Both tracking structures refer to the same watch objects. One ADS stream maintai
 a current watch per resource type with its requested names; different streams may
 have independent named subscriptions. Relay state lives only while its watches do.
 
+Delta uses `trackedDeltaWatch` and `deltaWatchRelay` for the same ownership and
+lock boundaries. The relay also retains the subscription long enough to capture
+the response's explicit changes before the server advances its returned-resource
+map. It is an adapter around go-control-plane's watches, not a replacement for
+its Delta subscription matching or response selection.
+
 Requests for unsupported resource types from known nodes call the embedded
 go-control-plane cache directly. Published resources are limited to supported
 types. Requests for unsupported types with an empty version remain unanswered
@@ -277,7 +298,12 @@ including deletions where omission signals removal. Each stream keeps its own
 response identity per resource type. `OnStreamResponse` records the response's
 generation and named-resource coverage. Envoy supplies the corresponding ACK or
 NACK in a later request, matched by stream and nonce. A matching ACK or NACK can
-then complete the associated waits.
+then complete the associated waits. For Delta, `RegisterDeltaResponse` bridges
+cache-side metadata to `OnStreamDeltaResponse` through the request pointer,
+because the Delta callback has no context argument. Stream-local request slots
+allow abandoned metadata to be removed if the stream closes before that callback.
+Stream keys include the transport mode because go-control-plane numbers SotW and
+Delta streams independently, although they share Cilium's completion callbacks.
 
 An ACK acknowledges only the names communicated by the response identified by
 the nonce. For types supporting deletion by omission (LDS, CDS, NPDS, NPHDS), this
@@ -286,6 +312,16 @@ multi-name wait succeeds only after every required name has been acknowledged.
 An ACK releases response-owned rollback once all of its required names have been
 acknowledged. Names from one API generation can have separate response-owned
 lifetimes.
+
+Delta coverage distinguishes reconciliation from explicit changes. A wildcard
+ACK reconciles the complete snapshot, including unchanged resources already in
+the client's version map. A NACK can reject only updates and removals explicitly
+carried by that response. `contains` supplies the ACK coverage;
+`containsChange` limits rollback to those explicit changes. Named Delta responses
+cover only their delivered changes and cannot establish a whole-type baseline.
+Initial Delta requests and later subscription-only requests omit the response
+nonce; they are not ACKs. Matching nonempty nonces identify Delta responses
+without relying on an echoed aggregate version.
 
 ```mermaid
 flowchart TD
@@ -296,7 +332,7 @@ flowchart TD
     override["acceptedResource<br/>Resource and accepting response boundary"]
     latest["responseState<br/>Latest response summary and accepted/rejected versions"]
     generation["pendingGeneration<br/>Response association and required names<br/>Response-owned rollback, independent of caller waits"]
-    stream["callbackStreamState<br/>Node identity and per-TypeURL response slots"]
+    stream["callbackStreamState<br/>Node identity and per-TypeURL response slots<br/>Outstanding Delta request identities"]
     response["pendingResponse<br/>Exact nonce, version, and generation boundary"]
     coverage["responseCoverage<br/>Immutable group reference<br/>Requested and returned names"]
     wait["pendingCompletion<br/>One caller's ACK wait"]
@@ -432,6 +468,10 @@ Envoy may retain its previous configuration while a parent still references it.
 A removal which leaves the resource absent from the snapshot therefore needs no
 response-owned rollback state. Caller rollback can still restore that removal.
 
+Delta instead communicates deletions through `removed_resources` for every
+resource type. An explicit removal therefore participates in ACK waits and
+response-owned rollback even for EDS/RDS/SDS.
+
 Removing a CLA still referenced by a cached Cluster is different: the snapshot
 supplies a named, empty CLA, explicitly replacing its old endpoint list. That
 change can be ACKed or NACKed and retains response-owned rollback state even
@@ -470,6 +510,8 @@ lifecycles. A later response can resolve the generations it communicates togethe
   negotiation.
 - `rollback.go`: caller and response lifecycles, coalescing, rebasing, and
   tombstone ownership.
+- `delta_watch.go`: Delta watch tracking, response relays, and version-preserving
+  response encoding.
 - `callbacks/`: response identities, named-resource coverage, accepted state,
   ACK waits, NACK coordination, and stream lifecycle tracking.
 
