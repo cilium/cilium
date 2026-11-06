@@ -241,6 +241,11 @@ generations are never inferred from later publications or newly registered waits
 Collected response batches are delivered outside the lock, with parents before
 children within each batch.
 
+SotW watch cancellation remains effective after response collection. It
+interrupts blocked response sends and waits for active sends to stop before
+returning. go-control-plane leaves abandoned SotW response channels open, so
+cancellation must release publishers without requiring another receiver.
+
 ```mermaid
 flowchart TD
     cache["cacheImpl<br/>Channel-owned relay index"]

@@ -35,14 +35,6 @@ func (gate *nackGate) pause() {
 	<-gate.release
 }
 
-func (gate *nackGate) unblock() {
-	select {
-	case <-gate.release:
-	default:
-		close(gate.release)
-	}
-}
-
 // Gates wrap the real transaction boundary, never individual inverses. They
 // either delay entry before selection or pause recovery with the cache locked.
 type gatedNACKHandler struct {
@@ -71,7 +63,7 @@ func newGatedNACKCache(t *testing.T) (*cacheImpl, *gatedNACKHandler) {
 func (handler *gatedNACKHandler) gate(t *testing.T, queue chan *nackGate) *nackGate {
 	t.Helper()
 	gate := &nackGate{entered: make(chan struct{}), release: make(chan struct{})}
-	t.Cleanup(gate.unblock)
+	t.Cleanup(func() { closeChannelIfOpen(gate.release) })
 	queue <- gate
 	return gate
 }
@@ -150,7 +142,7 @@ func TestNACKRecoveryCannotRestoreRejectedPredecessor(t *testing.T) {
 				}
 				finish := func(gate *nackGate, result <-chan error) {
 					t.Helper()
-					gate.unblock()
+					closeChannelIfOpen(gate.release)
 					select {
 					case err := <-result:
 						require.NoError(t, err)

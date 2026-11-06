@@ -188,17 +188,72 @@ type trackedWatch struct {
 	request *cache.Request
 	relay   *watchRelay
 	cancel  func()
+	deliverySync[cache.Response]
 }
 
-// isOpen reports whether the watch is still owned by its relay. Caller must
-// hold cacheImpl.mutex.
-func (watch *trackedWatch) isOpen() bool {
-	return watch != nil && watch.relay != nil && watch.relay.watches.Has(watch)
+// deliverySync synchronizes watch cancellation with response sends.
+type deliverySync[T any] struct {
+	// deliveryCanceled is initialized during collection under cacheImpl.mutex.
+	deliveryCanceled chan struct{}
+	deliveryMutex    lock.Mutex
+}
+
+// cancelDeliveryLocked signals cancellation and reports whether a response was
+// collected. The caller holds the cache lock and, if true is returned, must call
+// waitForDelivery after unlocking.
+func (delivery *deliverySync[T]) cancelDeliveryLocked() bool {
+	if delivery.deliveryCanceled == nil {
+		return false
+	}
+	// Keep the channel non-nil so repeated calls still wait for active sends.
+	// The caller's cache lock serializes close attempts.
+	closeChannelIfOpen(delivery.deliveryCanceled)
+	return true
+}
+
+// waitForDelivery waits for an active send to finish after cancelDeliveryLocked.
+// The cache lock must not be held. The sender holds deliveryMutex across its
+// cancellation check and channel send, so this lock/unlock waits for that send;
+// a sender starting later sees the closed cancellation channel and skips sending.
+func (delivery *deliverySync[T]) waitForDelivery() {
+	delivery.deliveryMutex.Lock()
+	delivery.deliveryMutex.Unlock()
+}
+
+// deliverResponse sends unless canceled, without holding the cache lock.
+// Cancellation interrupts a blocked send and waits for deliveryMutex before
+// returning, establishing that this watch can no longer enqueue responses.
+func (delivery *deliverySync[T]) deliverResponse(channel chan<- T, response T) {
+	delivery.deliveryMutex.Lock()
+	select {
+	case <-delivery.deliveryCanceled:
+	default:
+		select {
+		case channel <- response:
+		case <-delivery.deliveryCanceled:
+		}
+	}
+	delivery.deliveryMutex.Unlock()
+}
+
+// closeChannelIfOpen closes a non-nil signal channel unless already closed.
+// The channel must never carry values, and callers must serialize concurrent calls.
+func closeChannelIfOpen[T any](ch chan T) {
+	select {
+	case <-ch:
+	default:
+		close(ch)
+	}
+}
+
+type watchResponse struct {
+	cache.Response
+	watch *trackedWatch
 }
 
 type responseDelivery struct {
 	channel   chan cache.Response
-	responses []cache.Response
+	responses []watchResponse
 }
 
 var _ Cache = &cacheImpl{}
@@ -1276,15 +1331,25 @@ func (c *cacheImpl) removeTrackedWatchLocked(watch *trackedWatch) {
 
 func (c *cacheImpl) cancelTrackedWatch(watch *trackedWatch) {
 	c.mutex.Lock()
-	if !watch.isOpen() {
-		c.mutex.Unlock()
-		return
+	var cancel func()
+	if watch.relay.watches.Has(watch) {
+		cancel = watch.cancel
+		c.removeTrackedWatchLocked(watch)
 	}
-	cancel := watch.cancel
-	// Retire tracking while serialized with publication. The underlying
-	// cancellation takes go-control-plane's locks and runs after unlocking.
-	c.removeTrackedWatchLocked(watch)
+	hasDelivery := watch.cancelDeliveryLocked()
 	c.mutex.Unlock()
+
+	if hasDelivery {
+		// go-control-plane's ordered SotW ADS implementation cancels the old
+		// watch, drains its shared response channel, then reuses it for the
+		// replacement watch. Wait so an old response cannot arrive after that
+		// drain. Its non-ordered SotW path replaces per-watch channels, and
+		// SotW shutdown abandons channels. Those channels remain open, so
+		// cancellation must also interrupt blocked sends.
+		watch.waitForDelivery()
+	}
+	// Native cancellation takes go-control-plane's locks, so it must also
+	// run outside the cache lock.
 	if cancel != nil {
 		cancel()
 	}
@@ -1298,17 +1363,10 @@ func (c *cacheImpl) cancelTrackedWatch(watch *trackedWatch) {
 func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 	var deliveries []responseDelivery
 	for _, relay := range c.watchRelays {
-		var responses []cache.Response
+		var responses []watchResponse
 		for {
 			select {
 			case response := <-relay.inner:
-				// Immediate CreateWatch responses have a background context.
-				// Capture their published generation now, while no cache update
-				// can interleave. The stream may not consume them until much later.
-				generation := c.getNodeState(response.GetRequest().GetNode().GetId()).snapshotGeneration
-				snapshot, _ := c.snapshotCache.GetSnapshot(response.GetRequest().GetNode().GetId())
-				response = callbacks.WithResponseCoverage(response, generation, snapshot)
-				responses = append(responses, response)
 				var matched *trackedWatch
 				for watch := range relay.watches.Members() {
 					if watch.request == response.GetRequest() {
@@ -1316,11 +1374,25 @@ func (c *cacheImpl) collectResponseDeliveriesLocked() []responseDelivery {
 						break
 					}
 				}
-				if matched != nil {
-					matched.state.rollbacks.claimResponseLocked(c, matched.state, matched.typeURL, response)
-					c.removeTrackedWatchLocked(matched)
+				if matched == nil {
+					// go-control-plane may queue a response after Cilium has
+					// removed its canceled watch. It has no live consumer.
+					continue
 				}
+				// Immediate CreateWatch responses have a background context.
+				// Capture their published generation before newer cache updates.
+				state := matched.state
+				snapshot, _ := c.snapshotCache.GetSnapshot(state.nodeID)
+				response = callbacks.WithResponseCoverage(response, state.snapshotGeneration, snapshot)
+				matched.deliveryCanceled = make(chan struct{})
+				responses = append(responses, watchResponse{Response: response, watch: matched})
+				state.rollbacks.claimResponseLocked(c, state, matched.typeURL, response)
+				c.removeTrackedWatchLocked(matched)
 			default:
+				// A canceled watch may have left the last queued response.
+				if relay.watches.Empty() {
+					delete(c.watchRelays, relay.outer)
+				}
 				if len(responses) > 0 {
 					deliveries = append(deliveries, responseDelivery{
 						channel:   relay.outer,
@@ -1344,12 +1416,12 @@ func (c *cacheImpl) deliverResponses(deliveries []responseDelivery) {
 		// go-control-plane's non-ADS snapshot cache has no delivery order. Sort a
 		// coalesced batch by response type before handing it to the ADS stream.
 		if len(delivery.responses) > 1 {
-			slices.SortStableFunc(delivery.responses, func(a, b cache.Response) int {
+			slices.SortStableFunc(delivery.responses, func(a, b watchResponse) int {
 				return cmp.Compare(cache.GetResponseType(a.GetRequest().GetTypeUrl()), cache.GetResponseType(b.GetRequest().GetTypeUrl()))
 			})
 		}
 		for _, response := range delivery.responses {
-			delivery.channel <- response
+			response.watch.deliverResponse(delivery.channel, response.Response)
 		}
 	}
 }
