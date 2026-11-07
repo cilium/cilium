@@ -401,6 +401,21 @@ jobs:
           GATEWAY_TEST_FLAGS="$GATEWAY_TEST_FLAGS" \
           make gateway-api-conformance
 
+      - name: Run Gateway API session ticket E2E test
+        timeout-minutes: 30
+        run: |
+          set -o pipefail
+          bash test/gateway-api/session-ticket-keys.sh 2>&1 | tee session-ticket-e2e.log
+
+      - name: Upload session ticket E2E log
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: session-ticket-e2e-${{ matrix.conformance-profile }}-${{ matrix.encryption || 'none' }}-${{ matrix.split || 'none' }}
+          path: session-ticket-e2e.log
+          retention-days: 5
+          if-no-files-found: ignore
+
       - name: Run basic CLI tests (${{ join(matrix.*, ', ') }})
         shell: bash
         id: run-tests
