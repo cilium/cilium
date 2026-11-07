@@ -1,4 +1,5 @@
 - hostname: "*"
+  mode: Passthrough
   name: tls-443
   port: 443
   sources:
@@ -8,6 +9,7 @@
     namespace: gateway-ns
     version: v1
 - hostname: "*"
+  mode: Passthrough
   name: tls-8443
   port: 8443
   routes:

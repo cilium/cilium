@@ -171,7 +171,7 @@ func (i *cecTranslator) desiredServicesWithPortsCombined(namespace string, name 
 	for _, hl := range m.HTTP {
 		allPorts[uint16(hl.Port)] = struct{}{}
 	}
-	for _, tlsl := range m.TLSPassthrough {
+	for _, tlsl := range m.TLS {
 		if len(tlsl.Routes) > 0 {
 			allPorts[uint16(tlsl.Port)] = struct{}{}
 		}
@@ -192,23 +192,22 @@ func (i *cecTranslator) desiredServicesWithPortsCombined(namespace string, name 
 	}, nil
 }
 
-// desiredServicesWithPortsSplit returns per-port ServiceListeners for HTTPS and
-// TLS passthrough, plus one shared entry for plaintext HTTP ports.
+// desiredServicesWithPortsSplit returns one ServiceListener per secure port,
+// plus one shared entry for plaintext HTTP ports.
 func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name string, m *model.Model) ([]*ciliumv2.ServiceListener, error) {
 	shortenedName := shortener.ShortenDNSLabelK8sName(name)
 	var result []*ciliumv2.ServiceListener
 
-	// All TLS passthrough ports are excluded from the plaintext HTTP port list,
-	// since they are handled by the TLS passthrough section below.
-	tlsPassthroughPorts := map[uint32]bool{}
-	for _, p := range m.TLSPassthroughPorts() {
-		tlsPassthroughPorts[p] = true
+	// TLS ports are handled by the per-port secure listeners.
+	tlsPorts := map[uint32]bool{}
+	for _, p := range m.TLSPorts() {
+		tlsPorts[p] = true
 	}
 
 	// Plaintext HTTP ports.
 	var httpPorts []uint16
 	for _, hl := range m.HTTP {
-		if len(hl.TLS) == 0 && !tlsPassthroughPorts[hl.Port] {
+		if len(hl.TLS) == 0 && !tlsPorts[hl.Port] {
 			httpPorts = append(httpPorts, uint16(hl.Port))
 		}
 	}
@@ -223,8 +222,11 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 		})
 	}
 
-	// One entry per HTTPS port.
-	for _, port := range m.HTTPSPortsSorted() {
+	securePorts := append(m.HTTPSPortsSorted(), m.TLSPorts()...)
+	goslices.Sort(securePorts)
+	securePorts = goslices.Compact(securePorts)
+	// One mapping per secure port, even when HTTPS and TLS share that port.
+	for _, port := range securePorts {
 		envoyListenerName := listenerNameForPort(port)
 		result = append(result, &ciliumv2.ServiceListener{
 			Namespace: namespace,
@@ -232,37 +234,6 @@ func (i *cecTranslator) desiredServicesWithPortsSplit(namespace string, name str
 			Ports:     []uint16{uint16(port)},
 			Listener:  envoyListenerName,
 		})
-	}
-
-	// TLS passthrough ports.
-	if m.NeedsPerPortTLSPassthroughListeners() {
-		// One entry per TLS passthrough port.
-		for _, port := range m.TLSPassthroughPorts() {
-			envoyListenerName := listenerNameForPort(port)
-			result = append(result, &ciliumv2.ServiceListener{
-				Namespace: namespace,
-				Name:      shortenedName,
-				Ports:     []uint16{uint16(port)},
-				Listener:  envoyListenerName,
-			})
-		}
-	} else {
-		var ptPorts []uint16
-		for _, tlsl := range m.TLSPassthrough {
-			if len(tlsl.Routes) > 0 {
-				ptPorts = append(ptPorts, uint16(tlsl.Port))
-			}
-		}
-		goslices.Sort(ptPorts)
-		ptPorts = goslices.Compact(ptPorts)
-		if len(ptPorts) > 0 {
-			result = append(result, &ciliumv2.ServiceListener{
-				Namespace: namespace,
-				Name:      shortenedName,
-				Ports:     ptPorts,
-				Listener:  listenerName,
-			})
-		}
 	}
 
 	return result, nil
@@ -405,7 +376,7 @@ func getNamespaceNamePortsMap(m *model.Model) map[string]map[string][]string {
 		}
 	}
 
-	for _, l := range m.TLSPassthrough {
+	for _, l := range m.TLS {
 		for _, r := range l.Routes {
 			mergeBackendsInNamespaceNamePortMap(r.Backends, namespaceNamePortMap)
 		}

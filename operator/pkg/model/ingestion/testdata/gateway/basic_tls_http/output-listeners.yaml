@@ -1,4 +1,5 @@
 - hostname: '*'
+  mode: Passthrough
   name: prod-web-gw
   port: 443
   routes:

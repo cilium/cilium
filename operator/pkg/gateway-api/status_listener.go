@@ -244,9 +244,9 @@ func (m *ListenerStatusManager) listenerPairConflict(first, second *gatewayv1.Li
 		return gatewayv1.ListenerReasonProtocolConflict, true
 	}
 
-	// HTTPS termination and TLS passthrough both consume the SNI of the same
-	// port, so they conflict whenever their hostnames can match the same value.
-	if m.isHTTPSAndTLSPassthroughPair(first, second) {
+	// HTTPS and TLS both consume the SNI of the same port, regardless of TLS
+	// mode, so they conflict whenever their hostnames can match the same value.
+	if m.isHTTPSAndTLSPair(first, second) {
 		if helpers.SNIHostnamesIntersect(
 			helpers.ListenerHostname(first), helpers.ListenerHostname(second),
 		) {
@@ -269,9 +269,9 @@ func (m *ListenerStatusManager) isL4Protocol(p gatewayv1.ProtocolType) bool {
 	return p == gatewayv1.TCPProtocolType || p == gatewayv1.UDPProtocolType
 }
 
-func (m *ListenerStatusManager) isHTTPSAndTLSPassthroughPair(first, second *gatewayv1.Listener) bool {
-	return (helpers.IsHTTPSTerminatedListener(first) && helpers.IsTLSPassthroughListener(second)) ||
-		(helpers.IsHTTPSTerminatedListener(second) && helpers.IsTLSPassthroughListener(first))
+func (m *ListenerStatusManager) isHTTPSAndTLSPair(first, second *gatewayv1.Listener) bool {
+	return (first.Protocol == gatewayv1.HTTPSProtocolType && second.Protocol == gatewayv1.TLSProtocolType) ||
+		(second.Protocol == gatewayv1.HTTPSProtocolType && first.Protocol == gatewayv1.TLSProtocolType)
 }
 
 func (m *ListenerStatusManager) normalizedListenerHostname(l *gatewayv1.Listener) string {
@@ -291,10 +291,14 @@ func (m *ListenerStatusManager) listenerConflictMessage(
 			"Listener conflicts with listener %q: same port %d has overlapping hostnames.",
 			other.Name, self.Port,
 		)
-	case m.isHTTPSAndTLSPassthroughPair(self, other):
+	case m.isHTTPSAndTLSPair(self, other):
+		mode := "terminate"
+		if helpers.IsTLSPassthroughListener(self) || helpers.IsTLSPassthroughListener(other) {
+			mode = "passthrough"
+		}
 		return fmt.Sprintf(
-			"Listener conflicts with listener %q: same port %d has overlapping HTTPS and TLS passthrough hostnames.",
-			other.Name, self.Port,
+			"Listener conflicts with listener %q: same port %d has overlapping HTTPS and TLS %s hostnames.",
+			other.Name, self.Port, mode,
 		)
 	default:
 		return fmt.Sprintf(
@@ -648,13 +652,6 @@ func (m *ListenerStatusManager) validateListener(ctx context.Context, l gatewayv
 				res.isValid = false
 				break
 			}
-		}
-
-		if l.Protocol == gatewayv1.TLSProtocolType && l.TLS.Mode != nil && *l.TLS.Mode == gatewayv1.TLSModeTerminate {
-			res.isValid = false
-			res.invalidMessages = append(res.invalidMessages, "Using TLSRoute with TLS.mode Terminate is unsupported.")
-			res.invalidReason = gatewayv1.ListenerReasonUnsupportedValue
-			res.supportedKinds = []gatewayv1.RouteGroupKind{}
 		}
 
 		tlsOptions, err := parseTLSOptions(l)

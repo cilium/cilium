@@ -223,7 +223,7 @@ func (r *ingressReconciler) buildSharedResources(ctx context.Context) (*ciliumv2
 			continue
 		}
 		if annotations.GetAnnotationTLSPassthroughEnabled(&item) {
-			m.TLSPassthrough = append(m.TLSPassthrough, ingestion.IngressPassthrough(r.logger, item, passthroughPort)...)
+			m.TLS = append(m.TLS, ingestion.IngressPassthrough(r.logger, item, passthroughPort)...)
 		} else {
 			m.HTTP = append(m.HTTP, ingestion.Ingress(r.logger, item, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
 		}
@@ -259,7 +259,7 @@ func (r *ingressReconciler) buildDedicatedResources(ctx context.Context, ingress
 	m := &model.Model{}
 
 	if annotations.GetAnnotationTLSPassthroughEnabled(ingress) {
-		m.TLSPassthrough = append(m.TLSPassthrough, ingestion.IngressPassthrough(scopedLog, *ingress, passthroughPort)...)
+		m.TLS = append(m.TLS, ingestion.IngressPassthrough(scopedLog, *ingress, passthroughPort)...)
 	} else {
 		m.HTTP = append(m.HTTP, ingestion.Ingress(scopedLog, *ingress, r.defaultSecretNamespace, r.defaultSecretName, r.enforcedHTTPS, insecureHTTPPort, secureHTTPPort, r.defaultRequestTimeout)...)
 	}
