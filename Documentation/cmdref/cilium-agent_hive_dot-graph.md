@@ -208,6 +208,7 @@ cilium-agent hive dot-graph [flags]
       --ipsec-key-rotation-duration duration                      Maximum duration of the IPsec key rotation. The previous key will be removed after that delay. (default 5m0s)
       --iptables-lock-timeout duration                            Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --iptables-random-fully                                     Set iptables flag random-fully on masquerading rules
+      --iptables-remove-aws-rules                                 Remove the IPv4 iptables rules installed by the AWS VPC CNI plugin on startup
       --ipv4-service-loopback-address string                      IPv4 source address to use for SNAT when a Pod talks to itself over a Service. (default "169.254.42.1")
       --ipv6-service-loopback-address string                      IPv6 source address to use for SNAT when a Pod talks to itself over a Service. (default "fe80::1")
       --k8s-api-server-urls strings                               Kubernetes API server URLs

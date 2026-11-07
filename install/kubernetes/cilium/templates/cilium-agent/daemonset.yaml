@@ -239,15 +239,6 @@ spec:
         {{- end }}
         {{- if .Values.cni.install }}
         lifecycle:
-          {{- if and .Values.cni.iptablesRemoveAWSRules (ne .Values.cni.chainingMode "aws-cni") }}
-          postStart:
-            exec:
-              command:
-              - "bash"
-              - "-c"
-              - |
-                {{- tpl (.Files.Get "files/agent/poststart-eni.bash") . | nindent 20 }}
-          {{- end }}
           preStop:
             exec:
               command:
