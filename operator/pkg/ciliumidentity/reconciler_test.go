@@ -6,6 +6,7 @@ package ciliumidentity
 import (
 	"context"
 	"fmt"
+	"maps"
 	"testing"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 )
 
 var (
@@ -534,6 +536,203 @@ func TestGetCIDKeyForPodNamedPorts(t *testing.T) {
 		require.Contains(t, existingCIDKey.GetAsMap(), namedPortsKey)
 		require.Equal(t, newCIDKey.GetAsMap()[namedPortsKey], existingCIDKey.GetAsMap()[namedPortsKey])
 	})
+}
+
+func TestGetCIDKeyForPodNamedPortsWithLabelFilter(t *testing.T) {
+	namedPortsKey := labels.LabelSourceGenerated + ":" + ciliumio.NamedPortsIdentityLabelName
+	namedPorts := []slim_corev1.ContainerPort{{
+		Name:          "http-prom",
+		ContainerPort: 8080,
+		Protocol:      slim_corev1.ProtocolTCP,
+	}}
+	tests := []struct {
+		name               string
+		ports              []slim_corev1.ContainerPort
+		existingNamedPorts map[string]string
+		wantNamedPorts     map[string]string
+	}{
+		{
+			name:           "new pod",
+			ports:          namedPorts,
+			wantNamedPorts: map[string]string{namedPortsKey: "http-prom.TCP.8080"},
+		},
+		{
+			name:               "existing pod without named-port labels",
+			ports:              namedPorts,
+			existingNamedPorts: map[string]string{},
+			wantNamedPorts:     map[string]string{},
+		},
+		{
+			name:               "existing pod preserves prior named ports",
+			ports:              namedPorts,
+			existingNamedPorts: map[string]string{namedPortsKey: "http-prom.TCP.80"},
+			wantNamedPorts:     map[string]string{namedPortsKey: "http-prom.TCP.80"},
+		},
+		{
+			name:  "existing pod preserves continuation labels",
+			ports: namedPorts,
+			existingNamedPorts: map[string]string{
+				namedPortsKey:        "http-prom.TCP.80",
+				namedPortsKey + "-1": "metrics.TCP.9090",
+			},
+			wantNamedPorts: map[string]string{
+				namedPortsKey:        "http-prom.TCP.80",
+				namedPortsKey + "-1": "metrics.TCP.9090",
+			},
+		},
+		{
+			name:  "existing pod only reuses generated named-port labels",
+			ports: namedPorts,
+			existingNamedPorts: map[string]string{
+				namedPortsKey: "http-prom.TCP.80",
+				"k8s:" + ciliumio.NamedPortsIdentityLabelName + "-1":    "wrong-source.TCP.8081",
+				"cilium:" + ciliumio.NamedPortsIdentityLabelName + "-2": "wrong-source.TCP.8082",
+				namedPortsKey + "-invalid":                              "not-a-continuation.TCP.8083",
+				"gen:unrelated":                                         "do-not-preserve",
+				"k8s:app":                                               "stale-cid-app",
+				"k8s:ignored":                                           "stale-cid-value",
+				"k8s:stale-only":                                        "do-not-preserve",
+			},
+			wantNamedPorts: map[string]string{namedPortsKey: "http-prom.TCP.80"},
+		},
+		{
+			name: "new pod with continuation labels",
+			ports: []slim_corev1.ContainerPort{
+				{Name: "http-service-a", ContainerPort: 8080, Protocol: slim_corev1.ProtocolTCP},
+				{Name: "http-service-b", ContainerPort: 8081, Protocol: slim_corev1.ProtocolTCP},
+				{Name: "http-service-c", ContainerPort: 8082, Protocol: slim_corev1.ProtocolTCP},
+			},
+			wantNamedPorts: map[string]string{
+				namedPortsKey:        "http-service-a.TCP.8080_http-service-b.TCP.8081",
+				namedPortsKey + "-1": "http-service-c.TCP.8082",
+			},
+		},
+		{
+			name: "new pod with an unnamed port",
+			ports: []slim_corev1.ContainerPort{{
+				ContainerPort: 8080,
+				Protocol:      slim_corev1.ProtocolTCP,
+			}},
+			wantNamedPorts: map[string]string{},
+		},
+	}
+
+	for _, filter := range []struct {
+		name     string
+		prefixes []string
+	}{
+		{name: "defaults"},
+		{
+			name:     "inclusive filter",
+			prefixes: []string{`io\.kubernetes\.pod\.namespace`, "k8s-app", "app", "name", "kind$", "other$"},
+		},
+		{
+			name:     "exclusion filter",
+			prefixes: []string{"k8s:!ignored"},
+		},
+	} {
+		t.Run(filter.name, func(t *testing.T) {
+			logger := hivetest.Logger(t)
+			require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, filter.prefixes, nil, ""))
+			t.Cleanup(func() {
+				require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, ""))
+			})
+
+			reconciler, _, _, cleanupFunc := testNewReconciler(t, t.Context(), false)
+			defer cleanupFunc()
+			ns := cidtest.NewNamespace("ns1", nil)
+			require.NoError(t, reconciler.nsStore.CacheStore().Add(ns))
+
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					pod := cidtest.NewPod("pod1", ns.Name, map[string]string{
+						"app":     "named-port",
+						"ignored": "value",
+					}, "node1")
+					pod.Spec.Containers = []slim_corev1.Container{{Ports: tt.ports}}
+					var existingCID *capi_v2.CiliumIdentity
+					if tt.existingNamedPorts != nil {
+						existingCID = &capi_v2.CiliumIdentity{SecurityLabels: tt.existingNamedPorts}
+					}
+					originalCIDLabels := maps.Clone(tt.existingNamedPorts)
+
+					cidKey, err := GetCIDKeyForPod(logger, pod, reconciler.nsStore, reconciler.clusterInfo, existingCID)
+					require.NoError(t, err)
+					identityLabels := cidKey.GetAsMap()
+					require.Equal(t, "named-port", identityLabels["k8s:app"])
+					require.Equal(t, filter.prefixes == nil, cidKey.Labels().Has("k8s:ignored"))
+					if filter.prefixes == nil {
+						require.Equal(t, "value", identityLabels["k8s:ignored"])
+					}
+					require.NotContains(t, identityLabels, "k8s:stale-only")
+					require.NotContains(t, identityLabels, "k8s:"+ciliumio.NamedPortsIdentityLabelName+"-1")
+					require.NotContains(t, identityLabels, "cilium:"+ciliumio.NamedPortsIdentityLabelName+"-2")
+
+					gotNamedPorts := map[string]string{}
+					for _, lbl := range cidKey.Labels() {
+						if lbl.Source == labels.LabelSourceGenerated {
+							gotNamedPorts[labels.LabelSourceGenerated+":"+lbl.Key] = lbl.Value
+						}
+					}
+					require.Equal(t, tt.wantNamedPorts, gotNamedPorts)
+					for range 10 {
+						repeatedKey, err := GetCIDKeyForPod(logger, pod, reconciler.nsStore, reconciler.clusterInfo, existingCID)
+						require.NoError(t, err)
+						require.Equal(t, cidKey.GetKey(), repeatedKey.GetKey())
+					}
+					require.Equal(t, originalCIDLabels, tt.existingNamedPorts)
+				})
+			}
+		})
+	}
+}
+
+func TestNamedPortCIDReconciliationWithLabelFilter(t *testing.T) {
+	logger := hivetest.Logger(t)
+	require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, []string{"k8s:app"}, nil, ""))
+	t.Cleanup(func() {
+		require.NoError(t, labelsfilter.ParseLabelPrefixCfg(logger, nil, nil, ""))
+	})
+
+	for _, scenario := range []string{"reconcile stored identity", "reuse stored identity"} {
+		t.Run(scenario, func(t *testing.T) {
+			r, _, client, cleanup := testNewReconciler(t, t.Context(), false)
+			defer cleanup()
+			ns := cidtest.NewNamespace("ns1", nil)
+			require.NoError(t, r.nsStore.CacheStore().Add(ns))
+			pod := cidtest.NewPod("pod1", ns.Name, map[string]string{"app": "named-port"}, "node1")
+			pod.Spec.Containers = []slim_corev1.Container{{
+				Ports: []slim_corev1.ContainerPort{{
+					Name: "http", ContainerPort: 8080, Protocol: slim_corev1.ProtocolTCP,
+				}},
+			}}
+			cidKey, err := GetCIDKeyForPod(logger, pod, r.nsStore, r.clusterInfo, nil)
+			require.NoError(t, err)
+			cid := &capi_v2.CiliumIdentity{
+				ObjectMeta:     metav1.ObjectMeta{Name: "1000"},
+				SecurityLabels: cidKey.GetAsMap(),
+			}
+
+			switch scenario {
+			case "reconcile stored identity":
+				require.NoError(t, client.CiliumFakeClientset.Tracker().Add(cid))
+				require.NoError(t, r.cidStore.CacheStore().Add(cid))
+				require.NoError(t, r.upsertDesiredState(cid.Name, cidKey))
+				r.cidUsageInPods.AssignCIDToPod("ns1/pod1", cid.Name)
+				client.CiliumFakeClientset.ClearActions()
+				require.NoError(t, r.reconcileCID(cidResourceKey(cid.Name)))
+				require.Empty(t, client.CiliumFakeClientset.Actions(), "identical CID labels must not trigger an update")
+			case "reuse stored identity":
+				require.NoError(t, r.cidStore.CacheStore().Add(cid))
+				cidName, _, err := r.allocateCID(cidKey)
+				require.NoError(t, err)
+				require.Equal(t, cid.Name, cidName)
+				cached, exists := r.desiredCIDState.LookupByID(cid.Name)
+				require.True(t, exists)
+				require.Equal(t, cidKey.GetKey(), cached.GetKey())
+			}
+		})
+	}
 }
 
 func TestAssignedCIDForPod(t *testing.T) {

@@ -387,6 +387,6 @@ func (c *slimManager) getCIDForCEP(cep CEPName) (CID, bool) {
 
 func cidToGidLabels(id *cilium_v2.CiliumIdentity) (CID, Labels) {
 	cidName := id.GetName()
-	cidKey := key.GetCIDKeyFromLabels(id.SecurityLabels, labels.LabelSourceK8s)
+	cidKey := key.NewGlobalIdentity(labels.Map2Labels(id.SecurityLabels, ""))
 	return CID(cidName), Labels(cidKey.GetKey())
 }
