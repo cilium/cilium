@@ -25,6 +25,7 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/correlation"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // Parser is a parser for L3/L4 payloads
@@ -276,8 +277,9 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	dstEndpoint := p.epResolver.ResolveEndpoint(dstIP, dstLabelID, datapathContext)
 	var sourceService, destinationService *pb.Service
 	if p.serviceGetter != nil {
-		sourceService = p.serviceGetter.GetServiceByAddr(srcIP, srcPort)
-		destinationService = p.serviceGetter.GetServiceByAddr(dstIP, dstPort)
+		proto := l4U8Proto(decoded.L4)
+		sourceService = p.serviceGetter.GetServiceByAddr(srcIP, srcPort, proto)
+		destinationService = p.serviceGetter.GetServiceByAddr(dstIP, dstPort, proto)
 	}
 
 	decoded.Verdict = decodeVerdict(dn, tn, pvn)
@@ -318,6 +320,20 @@ func (p *Parser) resolveNames(epID uint32, ip netip.Addr) (names []string) {
 	}
 
 	return nil
+}
+
+// l4U8Proto returns the protocol of l4, or u8proto.ANY if it has no ports.
+func l4U8Proto(l4 *pb.Layer4) u8proto.U8proto {
+	switch l4.GetProtocol().(type) {
+	case *pb.Layer4_TCP:
+		return u8proto.TCP
+	case *pb.Layer4_UDP:
+		return u8proto.UDP
+	case *pb.Layer4_SCTP:
+		return u8proto.SCTP
+	default:
+		return u8proto.ANY
+	}
 }
 
 func (d *packetDecoder) DecodePacket(payload []byte, decoded *pb.Flow, isL3Device, isIPv6, isVXLAN, isGeneve bool) (

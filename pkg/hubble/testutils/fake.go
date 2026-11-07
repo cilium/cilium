@@ -27,6 +27,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	policyTypes "github.com/cilium/cilium/pkg/policy/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // FakeGetFlowsServer is used for unit tests and implements the
@@ -374,20 +375,20 @@ var NoopIPGetter = FakeIPGetter{
 
 // FakeServiceGetter is used for unit tests that need ServiceGetter.
 type FakeServiceGetter struct {
-	OnGetServiceByAddr func(ip netip.Addr, port uint16) *flowpb.Service
+	OnGetServiceByAddr func(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service
 }
 
 // GetServiceByAddr implements FakeServiceGetter.GetServiceByAddr.
-func (f *FakeServiceGetter) GetServiceByAddr(ip netip.Addr, port uint16) *flowpb.Service {
+func (f *FakeServiceGetter) GetServiceByAddr(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service {
 	if f.OnGetServiceByAddr != nil {
-		return f.OnGetServiceByAddr(ip, port)
+		return f.OnGetServiceByAddr(ip, port, proto)
 	}
 	panic("OnGetServiceByAddr not set")
 }
 
 // NoopServiceGetter always returns an empty response.
 var NoopServiceGetter = FakeServiceGetter{
-	OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+	OnGetServiceByAddr: func(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service {
 		return nil
 	},
 }

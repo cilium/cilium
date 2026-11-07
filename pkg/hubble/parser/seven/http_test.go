@@ -83,7 +83,7 @@ func TestDecodeL7HTTPRequest(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service {
 			if ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4) && (port == fakeDestinationEndpoint.Port) {
 				return &flowpb.Service{
 					Name:      "service-1234",
@@ -202,7 +202,7 @@ func TestDecodeL7HTTPRecordResponse(t *testing.T) {
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
-		OnGetServiceByAddr: func(ip netip.Addr, port uint16) *flowpb.Service {
+		OnGetServiceByAddr: func(ip netip.Addr, port uint16, proto u8proto.U8proto) *flowpb.Service {
 			if ip == netip.MustParseAddr(fakeDestinationEndpoint.IPv4) && (port == fakeDestinationEndpoint.Port) {
 				return &flowpb.Service{
 					Name:      "service-1234",
