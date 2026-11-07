@@ -27,6 +27,24 @@ notes carefully below to understand what to do during upgrade.
   traffic until the Service exists and, if selector-less, has backends. If you
   have rules like this, ensure the referenced Services exist and have backends
   before upgrading.
+* In Cloud IPAM modes (ENI, Azure, AlibabaCloud), the agent now decides when to
+  release an address that is no longer needed, controlled by the new
+  ``ipam.cloudRelease`` (default ``false``) and ``ipam.cloudReleaseDelay``
+  (default ``3m``) options. By default, the agent no longer relinquishes
+  addresses, which matches the operator defaults. If you use a Cloud IPAM mode
+  with ``ipam.operator.releaseExcessIPs=true``, move the release delay from the
+  operator to the agent:
+
+  #. Upgrade with ``ipam.cloudRelease=true``. If you changed the operator's
+     ``excess-ip-release-delay`` from its default of 180 seconds, set
+     ``ipam.cloudReleaseDelay`` to the same value. Keep
+     ``ipam.operator.releaseExcessIPs`` and ``excess-ip-release-delay``
+     unchanged during the upgrade, as agents that are not upgraded yet still
+     rely on the operator delay.
+  #. Once all agents run |NEXT_RELEASE|, set ``excess-ip-release-delay`` to
+     ``0``, for example with ``extraConfig``, so that the operator detaches
+     released addresses right away. Otherwise, each release waits out both
+     delays.
 
 Informational Notes
 ~~~~~~~~~~~~~~~~~~~
@@ -76,6 +94,12 @@ The following options have been introduced in this version of Cilium:
   value ``ipam.operator.excessIPReleaseDelay``) now also applies to Alibaba
   Cloud when release is enabled with ``--ipam-release-excess-ips``;
   ``--alibaba-cloud-release-excess-ips`` keeps releasing without a delay.
+* The ``ipam.cloudRelease`` and ``ipam.cloudReleaseDelay`` Helm values
+  (``--ipam-cloud-release`` and ``--ipam-cloud-release-delay`` agent flags)
+  control whether and after which delay the agent releases CIDRs that it no
+  longer needs in Cloud IPAM modes (ENI, Azure, AlibabaCloud). They default to
+  not releasing CIDRs and to a delay of ``3m``, following the operator
+  defaults.
 
 Changed Options
 ###############

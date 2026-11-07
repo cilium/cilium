@@ -89,6 +89,8 @@ type cloudMultiPoolParams struct {
 	CNClient       cilium_v2.CiliumNodeInterface
 	JobGroup       job.Group
 
+	CIDRRelease CIDRReleaseConfig
+
 	Provider CloudProvider
 }
 
@@ -128,6 +130,7 @@ func newCloudMultiPoolAllocators(ctx context.Context, p cloudMultiPoolParams) (i
 		JobGroup:             p.JobGroup,
 		PoolSpecAccessors:    p.Provider.PoolSpecAccessors(),
 		LinearPreAlloc:       true,
+		CIDRRelease:          p.CIDRRelease,
 	})
 
 	allocCIDRsReady := startLocalNodeAllocCIDRsSync(p.IPv4Enabled, p.IPv6Enabled, p.JobGroup, p.Node, p.LocalNodeStore)

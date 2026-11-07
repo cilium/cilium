@@ -258,6 +258,18 @@ type OperatorStatusAccessors struct {
 // In case the pool is not found a non-nil error is returned.
 type SkipMasqueradeForPoolFn func(Pool) (bool, error)
 
+// CIDRReleaseConfig controls how the multi-pool manager hands unused CIDRs
+// back to the operator.
+type CIDRReleaseConfig struct {
+	// Enabled allows unused CIDRs to be released. If false, every CIDR
+	// assigned to the node is kept, even when it is no longer needed.
+	Enabled bool
+
+	// Delay is how long a CIDR has to stay unused and in excess of what the
+	// node needs before it is released. A zero delay releases it right away.
+	Delay time.Duration
+}
+
 type MultiPoolManagerParams struct {
 	Logger *slog.Logger
 
@@ -281,6 +293,8 @@ type MultiPoolManagerParams struct {
 	LinearPreAlloc bool
 
 	Metrics MultiPoolMetrics
+	// CIDRRelease controls if and when unused CIDRs are released.
+	CIDRRelease CIDRReleaseConfig
 }
 
 type MultiPoolManager struct {
@@ -316,6 +330,8 @@ type MultiPoolManager struct {
 	linearPreAlloc bool
 
 	metrics MultiPoolMetrics
+
+	cidrRelease CIDRReleaseConfig
 }
 
 func NewMultiPoolManager(p MultiPoolManagerParams) *MultiPoolManager {
@@ -340,6 +356,7 @@ func NewMultiPoolManager(p MultiPoolManagerParams) *MultiPoolManager {
 		poolsAccessor:  p.PoolSpecAccessors,
 		linearPreAlloc: p.LinearPreAlloc,
 		metrics:        p.Metrics,
+		cidrRelease:    p.CIDRRelease,
 		skipMasqueradeForPool: func(Pool) (bool, error) {
 			return false, nil
 		},
@@ -653,6 +670,7 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 
 	expiredPools := m.pendingIPsPerPool.removeExpiredEntries()
 	neededIPsPerPool := m.computeNeededIPsPerPoolLocked()
+	now := time.Now()
 	for poolName, needed := range neededIPsPerPool {
 		if needed.IPv4Addrs == 0 && needed.IPv6Addrs == 0 {
 			continue // no need to request "0" IPs
@@ -670,12 +688,12 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 
 		cidrs := []iputil.Prefix{}
 		if v4Pool := pool.v4; v4Pool != nil {
-			if m.isRestoreFinishedLocked(IPv4) {
+			if m.cidrRelease.Enabled && m.isRestoreFinishedLocked(IPv4) {
 				// releaseExcessCIDRsMultiPool interprets neededIPs as how many
 				// free addresses must remain after a CIDR is dropped.
 				// Therefore we subtract the number of in-use addresses from neededIPs.
 				freeNeeded4 := max(neededIPs.IPv4Addrs-v4Pool.inUseIPCount(), 0)
-				v4Pool.releaseExcessCIDRsMultiPool(freeNeeded4)
+				v4Pool.releaseExcessCIDRsMultiPool(freeNeeded4, now, m.cidrRelease.Delay)
 			}
 			v4CIDRs := v4Pool.inUseCIDRs()
 
@@ -683,9 +701,9 @@ func (m *MultiPoolManager) updateLocalNode(ctx context.Context) error {
 			cidrs = append(cidrs, v4CIDRs...)
 		}
 		if v6Pool := pool.v6; v6Pool != nil {
-			if m.isRestoreFinishedLocked(IPv6) {
+			if m.cidrRelease.Enabled && m.isRestoreFinishedLocked(IPv6) {
 				freeNeeded6 := max(neededIPs.IPv6Addrs-v6Pool.inUseIPCount(), 0)
-				v6Pool.releaseExcessCIDRsMultiPool(freeNeeded6)
+				v6Pool.releaseExcessCIDRsMultiPool(freeNeeded6, now, m.cidrRelease.Delay)
 			}
 			v6CIDRs := v6Pool.inUseCIDRs()
 
