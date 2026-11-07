@@ -106,8 +106,8 @@ func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
 	r.logger.Info("Setting up Secret synchronization", logfields.Registrations, r.registrations)
 
 	builder := ctrl.NewControllerManagedBy(mgr).
-		// Source Secrets outside of the secrets namespace
-		For(&corev1.Secret{}, r.notInSecretsNamespace()).
+		// Explicitly configured source Secrets may also be in a secrets namespace.
+		For(&corev1.Secret{}, r.sourceSecretPredicate()).
 		// Synced Secrets in the secrets namespace
 		Watches(&corev1.Secret{}, enqueueOwningSecretFromLabels(), r.deletedOrChangedInSecretsNamespace())
 
@@ -123,9 +123,17 @@ func (r *secretSyncer) SetupWithManager(mgr ctrl.Manager) error {
 	return builder.Complete(r)
 }
 
-func (r *secretSyncer) notInSecretsNamespace() builder.Predicates {
+func (r *secretSyncer) sourceSecretPredicate() builder.Predicates {
 	return builder.WithPredicates(predicate.NewPredicateFuncs(func(object client.Object) bool {
-		return !slices.Contains(r.secretNamespaces, object.GetNamespace())
+		if !slices.Contains(r.secretNamespaces, object.GetNamespace()) {
+			return true
+		}
+		for _, registration := range r.registrations {
+			if registration.IsDefaultSecret(object.(*corev1.Secret)) {
+				return true
+			}
+		}
+		return false
 	}))
 }
 

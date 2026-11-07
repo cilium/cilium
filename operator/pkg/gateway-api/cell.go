@@ -27,6 +27,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/pkg/ciliumenvoyconfig"
 	"github.com/cilium/cilium/operator/pkg/gateway-api/helpers"
+	"github.com/cilium/cilium/operator/pkg/model"
 	"github.com/cilium/cilium/operator/pkg/model/translation"
 	gatewayApiTranslation "github.com/cilium/cilium/operator/pkg/model/translation/gateway-api"
 	"github.com/cilium/cilium/operator/pkg/secretsync"
@@ -190,13 +191,15 @@ func discoverCRDsWithRetry(ctx context.Context, client k8sClient.Clientset, logg
 }
 
 type gatewayApiConfig struct {
-	EnableGatewayAPISecretsSync            bool
-	EnableGatewayAPIProxyProtocol          bool
-	EnableGatewayAPIAppProtocol            bool
-	EnableGatewayAPIAlpn                   bool
-	GatewayAPIServiceExternalTrafficPolicy string
-	GatewayAPISecretsNamespace             string
-	GatewayAPIXffNumTrustedHops            uint32
+	EnableGatewayAPISecretsSync                bool
+	EnableGatewayAPIProxyProtocol              bool
+	EnableGatewayAPIAppProtocol                bool
+	EnableGatewayAPIAlpn                       bool
+	GatewayAPIServiceExternalTrafficPolicy     string
+	GatewayAPISecretsNamespace                 string
+	GatewayAPIXffNumTrustedHops                uint32
+	GatewayAPISessionTicketKeysSecretName      string
+	GatewayAPISessionTicketKeysSecretNamespace string
 
 	GatewayAPIHostnetworkEnabled           bool
 	GatewayAPIHostnetworkNodelabelselector string
@@ -212,6 +215,8 @@ func (r gatewayApiConfig) Flags(flags *pflag.FlagSet) {
 	flags.Uint32("gateway-api-xff-num-trusted-hops", r.GatewayAPIXffNumTrustedHops, "The number of additional GatewayAPI proxy hops from the right side of the HTTP header to trust when determining the origin client's IP address.")
 	flags.String("gateway-api-service-externaltrafficpolicy", r.GatewayAPIServiceExternalTrafficPolicy, "Kubernetes LoadBalancer Service externalTrafficPolicy for all Gateway instances.")
 	flags.String("gateway-api-secrets-namespace", r.GatewayAPISecretsNamespace, "Namespace having tls secrets used by CEC for Gateway API")
+	flags.String("gateway-api-session-ticket-keys-secret-name", r.GatewayAPISessionTicketKeysSecretName, "Name of the Secret containing shared TLS session ticket keys for Gateway API")
+	flags.String("gateway-api-session-ticket-keys-secret-namespace", r.GatewayAPISessionTicketKeysSecretNamespace, "Namespace of the Secret containing shared TLS session ticket keys for Gateway API")
 	flags.Bool("gateway-api-hostnetwork-enabled", r.GatewayAPIHostnetworkEnabled, "Exposes Gateway listeners on the host network.")
 	flags.Bool("gateway-api-use-remote-address", r.GatewayAPIUseRemoteAddress, "Use the immediate client's IP address as the origin client's IP address")
 	flags.String("gateway-api-hostnetwork-nodelabelselector", r.GatewayAPIHostnetworkNodelabelselector, "Label selector that matches the nodes where the gateway listeners should be exposed. It's a list of comma-separated key-value label pairs. e.g. 'kubernetes.io/os=linux,kubernetes.io/hostname=kind-worker'")
@@ -238,6 +243,9 @@ type gatewayAPIParams struct {
 func initGatewayAPIController(params gatewayAPIParams) error {
 	if !params.Preconditions.Enabled {
 		return nil
+	}
+	if (params.GatewayApiConfig.GatewayAPISessionTicketKeysSecretName == "") != (params.GatewayApiConfig.GatewayAPISessionTicketKeysSecretNamespace == "") {
+		return errors.New("gateway-api-session-ticket-keys-secret-name and gateway-api-session-ticket-keys-secret-namespace must be configured together")
 	}
 
 	installedOptionalKinds := params.Preconditions.InstalledOptionalKinds
@@ -286,6 +294,12 @@ func initGatewayAPIController(params gatewayAPIParams) error {
 			XFFNumTrustedHops: params.GatewayApiConfig.GatewayAPIXffNumTrustedHops,
 			UseRemoteAddress:  params.GatewayApiConfig.GatewayAPIUseRemoteAddress,
 		},
+	}
+	if params.GatewayApiConfig.GatewayAPISessionTicketKeysSecretName != "" {
+		cfg.ListenerConfig.SessionTicketKeysSecret = &model.TLSSecret{
+			Name:      params.GatewayApiConfig.GatewayAPISessionTicketKeysSecretName,
+			Namespace: params.GatewayApiConfig.GatewayAPISessionTicketKeysSecretNamespace,
+		}
 	}
 	cecTranslator := translation.NewCECTranslator(cfg)
 
@@ -340,6 +354,12 @@ func registerSecretSync(params secretSyncParams) secretsync.SecretSyncRegistrati
 		RefObjectEnqueueFunc: handler.EnqueueTLSSecrets(),
 		RefObjectCheckFunc:   handler.IsReferencedByGateway,
 		SecretsNamespace:     params.GatewayApiConfig.GatewayAPISecretsNamespace,
+	}
+	if params.GatewayApiConfig.GatewayAPISessionTicketKeysSecretName != "" && params.GatewayApiConfig.GatewayAPISessionTicketKeysSecretNamespace != "" {
+		secretSyncRegistration.DefaultSecret = &secretsync.DefaultSecret{
+			Name:      params.GatewayApiConfig.GatewayAPISessionTicketKeysSecretName,
+			Namespace: params.GatewayApiConfig.GatewayAPISessionTicketKeysSecretNamespace,
+		}
 	}
 
 	if helpers.HasListenerSetSupport(params.CtrlRuntimeManager.GetScheme()) {

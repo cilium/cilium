@@ -3037,6 +3037,17 @@
           },
           "type": "object"
         },
+        "sessionTicketKeysSecret": {
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "namespace": {
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
         "useRemoteAddress": {
           "type": [
             "null",

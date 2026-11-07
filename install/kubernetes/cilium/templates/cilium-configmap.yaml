@@ -330,6 +330,13 @@ data:
   gateway-api-use-remote-address: {{ .Values.gatewayAPI.useRemoteAddress | quote }}
   gateway-api-service-externaltrafficpolicy: {{ .Values.gatewayAPI.externalTrafficPolicy | quote }}
   gateway-api-secrets-namespace: {{ .Values.gatewayAPI.secretsNamespace.name | quote }}
+  {{- if ne (empty .Values.gatewayAPI.sessionTicketKeysSecret.name) (empty .Values.gatewayAPI.sessionTicketKeysSecret.namespace) }}
+  {{- fail "gatewayAPI.sessionTicketKeysSecret.name and gatewayAPI.sessionTicketKeysSecret.namespace must be configured together" }}
+  {{- end }}
+  {{- if .Values.gatewayAPI.sessionTicketKeysSecret.name }}
+  gateway-api-session-ticket-keys-secret-name: {{ .Values.gatewayAPI.sessionTicketKeysSecret.name | quote }}
+  gateway-api-session-ticket-keys-secret-namespace: {{ .Values.gatewayAPI.sessionTicketKeysSecret.namespace | quote }}
+  {{- end }}
   gateway-api-hostnetwork-enabled: {{ .Values.gatewayAPI.hostNetwork.enabled | quote }}
   gateway-api-hostnetwork-nodelabelselector: {{ include "mapToString" .Values.gatewayAPI.hostNetwork.nodes.matchLabels | quote }}
   gateway-api-inference-extension-enabled: {{ .Values.gatewayAPI.inferenceExtension.enabled | quote}}
