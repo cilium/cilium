@@ -148,6 +148,8 @@ func TestPrivilegedAttachSKBUpgrade(t *testing.T) {
 		prog := mustTCProgramWithName(t, "cil_test")
 		linkDir := testutils.TempBPFFS(t)
 
+		require.NoError(t, upsertTCProgram(logger, lo, prog, "no_prefix_test", directionToParent(dirEgress), 2))
+
 		// Use the cil_ prefix so the attachment algorithm knows which tc filter to
 		// clean up after attaching tcx.
 		require.NoError(t, upsertTCProgram(logger, lo, prog, "cil_test", directionToParent(dirEgress), 1))
@@ -157,6 +159,11 @@ func TestPrivilegedAttachSKBUpgrade(t *testing.T) {
 		hasFilters, err := hasCiliumTCFilters(lo, directionToParent(dirEgress))
 		require.NoError(t, err)
 		require.False(t, hasFilters)
+
+		filters, err := safenetlink.FilterList(lo, directionToParent(dirEgress))
+		require.NoError(t, err)
+		require.Len(t, filters, 1)
+		require.EqualValues(t, 2, filters[0].Attrs().Priority)
 
 		require.NoError(t, testutils.WaitUntil(func() bool {
 			hasLinks, err := hasCiliumTCXLinks(lo, ebpf.AttachTCXEgress)
