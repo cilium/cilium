@@ -365,7 +365,7 @@ func TestNodeAddress(t *testing.T) {
 	<-watch
 	iter := nodeAddrs.All(db.ReadTxn())
 	addrs := statedb.Collect(statedb.Map(iter, func(n NodeAddress) string { return n.String() }))
-	assert.Equal(t, []string{"::1 (*)", "9.9.9.8 (cilium_host)", "9.9.9.9 (cilium_host)", "127.0.0.1 (*)"}, addrs,
+	assert.Equal(t, []string{"9.9.9.8 (cilium_host)", "9.9.9.9 (cilium_host)"}, addrs,
 		"unexpected initial node addresses")
 
 	for _, tt := range nodeAddressTests {
@@ -513,6 +513,71 @@ func TestNodeAddressLoopback(t *testing.T) {
 		assert.True(t, addrs[3].NodePort)
 
 	}
+
+	txn = db.WriteTxn(devices)
+	_, watch = nodeAddrs.AllWatch(txn)
+	devices.Insert(txn, &Device{
+		Index: 1,
+		Name:  "lo",
+		Flags: net.FlagUp | net.FlagLoopback,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("127.0.0.1"), Scope: RT_SCOPE_HOST},
+			{Addr: netip.MustParseAddr("::1"), Scope: RT_SCOPE_HOST},
+		},
+	})
+	devices.Insert(txn, &Device{
+		Index:    2,
+		Name:     "eth0",
+		Flags:    net.FlagUp,
+		Selected: true,
+		Addrs: []DeviceAddress{
+			{Addr: netip.MustParseAddr("fe80::1"), Scope: RT_SCOPE_LINK},
+		},
+	})
+	txn.Commit()
+	<-watch
+
+	assert.Empty(t, statedb.Collect(nodeAddrs.All(db.ReadTxn())))
+}
+
+func TestNodeAddressFallbackIPv6(t *testing.T) {
+	t.Parallel()
+
+	db, devices, nodeAddrs, _ := fixture(t, defaults.AddressScopeMax, nil)
+	global := netip.MustParseAddr("2001:db8::1")
+	egressLinkLocal := netip.MustParseAddr("fe80::2")
+
+	txn := db.WriteTxn(devices)
+	_, watch := nodeAddrs.AllWatch(txn)
+	devices.Insert(txn, &Device{
+		Index:    1,
+		Name:     "eth0",
+		Flags:    net.FlagUp,
+		Selected: true,
+		Addrs: []DeviceAddress{
+			{Addr: global, Scope: RT_SCOPE_UNIVERSE, Deprecated: true},
+			{Addr: netip.MustParseAddr("fe80::1"), Scope: RT_SCOPE_LINK},
+		},
+	})
+	devices.Insert(txn, &Device{
+		Index:    2,
+		Name:     "eth1",
+		Flags:    net.FlagUp,
+		Selected: true,
+		Addrs: []DeviceAddress{
+			{Addr: egressLinkLocal, Scope: RT_SCOPE_LINK},
+		},
+	})
+	txn.Commit()
+	<-watch
+
+	rtxn := db.ReadTxn()
+	assert.Equal(t, []NodeAddress{
+		{Addr: global, Primary: true, DeviceName: WildcardDeviceName},
+	}, statedb.Collect(nodeAddrs.List(rtxn, NodeAddressesByDeviceName(WildcardDeviceName))))
+	assert.Equal(t, []NodeAddress{
+		{Addr: egressLinkLocal, DeviceName: "eth1"},
+	}, statedb.Collect(nodeAddrs.List(rtxn, NodeAddressesByDeviceName("eth1"))))
 }
 
 var nodeAddressWhitelistTests = []struct {
@@ -1097,6 +1162,68 @@ func TestPreferredIPv4Address(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.want, PreferredIPv4Address(tt.addrs))
+		})
+	}
+}
+
+func TestFallbackAddressesIPv6Scope(t *testing.T) {
+	deprecatedGlobal := DeviceAddress{
+		Addr:       netip.MustParseAddr("2001:db8::1"),
+		Scope:      RT_SCOPE_UNIVERSE,
+		Deprecated: true,
+	}
+	preferredGlobal := DeviceAddress{
+		Addr:  netip.MustParseAddr("2001:db8::2"),
+		Scope: RT_SCOPE_UNIVERSE,
+	}
+	linkLocal := DeviceAddress{
+		Addr:  netip.MustParseAddr("fe80::1"),
+		Scope: RT_SCOPE_LINK,
+	}
+	for _, tt := range []struct {
+		name  string
+		addrs []DeviceAddress
+		want  netip.Addr
+	}{
+		{
+			name:  "deprecated global before link-local",
+			addrs: []DeviceAddress{deprecatedGlobal, linkLocal},
+			want:  deprecatedGlobal.Addr,
+		},
+		{
+			name:  "link-local before deprecated global",
+			addrs: []DeviceAddress{linkLocal, deprecatedGlobal},
+			want:  deprecatedGlobal.Addr,
+		},
+		{
+			name:  "preferred global replaces deprecated global",
+			addrs: []DeviceAddress{deprecatedGlobal, linkLocal, preferredGlobal},
+			want:  preferredGlobal.Addr,
+		},
+		{
+			name:  "only link-local",
+			addrs: []DeviceAddress{linkLocal},
+		},
+		{
+			name: "deprecated ULA with loopback and link-local",
+			addrs: []DeviceAddress{
+				{Addr: netip.MustParseAddr("::1"), Scope: RT_SCOPE_HOST},
+				linkLocal,
+				{Addr: netip.MustParseAddr("fd00::1"), Scope: RT_SCOPE_UNIVERSE, Deprecated: true},
+			},
+			want: netip.MustParseAddr("fd00::1"),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var f fallbackAddresses
+			for i, addr := range tt.addrs {
+				f.update(&Device{
+					Index:    i + 1,
+					Selected: true,
+					Addrs:    []DeviceAddress{addr},
+				})
+			}
+			assert.Equal(t, tt.want, f.ipv6.addr.Addr)
 		})
 	}
 }
