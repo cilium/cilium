@@ -1,4 +1,4 @@
-{{- if and .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "cronJob") .Values.hubble.tls.auto.schedule }}
+{{- if and (or .Values.agent .Values.hubble.relay.enabled .Values.hubble.ui.enabled) .Values.hubble.enabled .Values.hubble.tls.enabled .Values.hubble.tls.auto.enabled (eq .Values.hubble.tls.auto.method "cronJob") .Values.hubble.tls.auto.schedule }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
