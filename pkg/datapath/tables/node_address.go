@@ -699,7 +699,7 @@ func (f *fallbackAddresses) update(dev *Device) (updated bool) {
 	// Iterate over all addresses to see if any of them make for a better
 	// fallback address.
 	for _, addr := range dev.Addrs {
-		if addr.Secondary {
+		if addr.Secondary || !addr.Addr.IsGlobalUnicast() {
 			continue
 		}
 		fa := &f.ipv4
