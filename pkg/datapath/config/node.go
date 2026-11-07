@@ -198,6 +198,19 @@ func NodeConfig(lnc *Config) Node {
 		EnableByUser:     lnc.LBConfig.DSRConfig.EnableByUser,
 	}
 
+	if lnc.KPRConfig.KubeProxyReplacement && lnc.LBConfig.LoadBalancerUsesDSR() {
+		switch lnc.LBConfig.DSRDispatch {
+		case loadbalancer.DSRDispatchOption:
+			node.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapNone)
+		case loadbalancer.DSRDispatchIPIP:
+			node.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapIPIP)
+		case loadbalancer.DSRDispatchGeneve:
+			node.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapGeneve)
+		default:
+			node.DSRCfg.EncapMode = uint32(types.DSREncapModeDSREncapInvalid)
+		}
+	}
+
 	node.EnableIPSec = lnc.EnableIPSec
 	node.EnableWireguard = lnc.EnableWireguard
 

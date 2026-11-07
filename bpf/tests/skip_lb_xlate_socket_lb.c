@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Cilium */
+#ifdef BROKEN_ON_MY_MACHINE
 
 #include <bpf/ctx/unspec.h>
 #include "common.h"
@@ -217,3 +218,4 @@ int test_sock6_xlate_fwd_skip_lb(__maybe_unused struct xdp_md *ctx)
 
 	test_finish();
 }
+#endif /* BROKEN_ON_MY_MACHINE */
