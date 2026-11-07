@@ -140,6 +140,7 @@ func newIPSetManager(
 	ipset *ipset,
 	reconciler reconciler.Reconciler[*tables.IPSetEntry],
 	ops *ops,
+	ready Ready,
 ) *manager {
 	mgr := &manager{
 		logger:     logger,
@@ -154,12 +155,14 @@ func newIPSetManager(
 
 	lc.Append(cell.Hook{
 		OnStart: func(ctx cell.HookContext) error {
+			defer close(ready)
+
 			if !cfg.NodeIPSetNeeded {
 				return nil
 			}
 
 			// When NodeIPSetNeeded is set, node ipsets must be created even if empty,
-			// to avoid failures when referencing them in iptables masquerading rules.
+			// to avoid failures when referencing them in iptables rules.
 			if err := ipset.create(ctx, CiliumNodeIPSetV4, string(INetFamily)); err != nil {
 				return fmt.Errorf("error while creating ipset %s", CiliumNodeIPSetV4)
 			}
