@@ -4,6 +4,9 @@
 package api
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -159,6 +162,63 @@ func (r *Rule) DeepEqual(o *Rule) bool {
 		return true
 	}
 	return r.deepEqual(o)
+}
+
+// ForEachTLSContext calls fn for each non-nil terminating and originating TLS context
+// in the allow rules of r, stopping at the first error.
+func (r *Rule) ForEachTLSContext(fn func(tls *TLSContext) error) error {
+	visit := func(portRules PortRules) error {
+		for i := range portRules {
+			for _, tls := range []*TLSContext{portRules[i].TerminatingTLS, portRules[i].OriginatingTLS} {
+				if tls == nil {
+					continue
+				}
+				if err := fn(tls); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	for i := range r.Ingress {
+		if err := visit(r.Ingress[i].ToPorts); err != nil {
+			return err
+		}
+	}
+	for i := range r.Egress {
+		if err := visit(r.Egress[i].ToPorts); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidateTrustBundleNamespace ensures that a TLS context with a trust bundle only
+// references a Secret from the given policy namespace. With a trust bundle, the Secret
+// holds the certificate and private key used as the proxy's identity, which must not be
+// borrowed from namespaces the policy author may have no access to.
+func (r *Rule) ValidateTrustBundleNamespace(namespace string) error {
+	return r.ForEachTLSContext(func(tls *TLSContext) error {
+		if tls.TrustBundle == nil || tls.Secret == nil {
+			return nil
+		}
+		if tls.Secret.Namespace != "" && tls.Secret.Namespace != namespace {
+			return fmt.Errorf("TLS secret %s/%s must be in the policy namespace %s when trustBundle is set",
+				tls.Secret.Namespace, tls.Secret.Name, namespace)
+		}
+		return nil
+	})
+}
+
+// ValidateNoTrustBundle rejects trust bundles in cluster-scoped policies, as there is no
+// policy namespace to restrict the referenced Secrets to.
+func (r *Rule) ValidateNoTrustBundle() error {
+	return r.ForEachTLSContext(func(tls *TLSContext) error {
+		if tls.TrustBundle != nil {
+			return errors.New("trustBundle is not supported in cluster-scoped policies")
+		}
+		return nil
+	})
 }
 
 // NewRule builds a new rule with no selector and no policy.

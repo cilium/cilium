@@ -423,6 +423,8 @@ func (p *testPolicyContextType) GetTLSContext(tls *api.TLSContext) (ca, public, 
 		return "", "fake public cert", "fake private key", p.fromFile, nil
 	case "tls-ca-certs":
 		return "fake CA certs", "", "", p.fromFile, nil
+	case "tls-identity":
+		return "", "fake public cert", "fake private key", p.fromFile, nil
 	}
 	return "", "", "", p.fromFile, fmt.Errorf("Unknown test secret '%s'", tls.Secret.Name)
 }
@@ -2770,5 +2772,80 @@ func TestDefaultAllowL7Rules(t *testing.T) {
 			}
 			require.True(t, anyPerSelectorPolicy, "Should have at least one PerSelectorPolicy")
 		})
+	}
+}
+
+func TestGetCertsTrustBundle(t *testing.T) {
+	secret := &api.Secret{Namespace: "ns", Name: "tls-identity"}
+	bundle := k8sTypes.NamespacedName{Namespace: "ns", Name: "bundle"}
+
+	for _, tc := range []struct {
+		name        string
+		secret      *api.Secret
+		trustBundle *api.TrustBundle
+		fromFile    bool
+		wantKind    string
+		wantErr     string
+	}{
+		{
+			name:        "SDS with default kind",
+			secret:      secret,
+			trustBundle: &api.TrustBundle{Namespace: "ns", Name: "bundle"},
+			wantKind:    api.TrustBundleKindSecret,
+		},
+		{
+			name:        "SDS with Secret kind",
+			secret:      secret,
+			trustBundle: &api.TrustBundle{Kind: api.TrustBundleKindSecret, Namespace: "ns", Name: "bundle"},
+			wantKind:    api.TrustBundleKindSecret,
+		},
+		{
+			name:        "inline secrets are not supported",
+			secret:      secret,
+			trustBundle: &api.TrustBundle{Namespace: "ns", Name: "bundle"},
+			fromFile:    true,
+			wantErr:     "requires policy secrets to be synchronized via SDS",
+		},
+		{
+			name:        "missing namespace",
+			secret:      secret,
+			trustBundle: &api.TrustBundle{Name: "bundle"},
+			wantErr:     "must have both namespace and name",
+		},
+		{
+			name:        "unsupported kind",
+			secret:      secret,
+			trustBundle: &api.TrustBundle{Kind: "Foo", Namespace: "ns", Name: "bundle"},
+			wantErr:     `unsupported trust bundle kind "Foo"`,
+		},
+		{
+			name:        "same Secret as the TLS secret",
+			secret:      secret,
+			trustBundle: &api.TrustBundle{Namespace: "ns", Name: "tls-identity"},
+			wantErr:     "must not be the same Secret",
+		},
+		{
+			name:        "same Secret as the TLS secret in the policy namespace",
+			secret:      &api.Secret{Name: "tls-identity"},
+			trustBundle: &api.TrustBundle{Namespace: "policy-ns", Name: "tls-identity"},
+			wantErr:     "must not be the same Secret",
+		},
+	} {
+		for _, direction := range []TLSDirection{OriginatingTLS, TerminatingTLS} {
+			t.Run(tc.name+"/"+string(direction), func(t *testing.T) {
+				ctx := &testPolicyContextType{logger: hivetest.Logger(t), ns: "policy-ns", fromFile: tc.fromFile}
+				tls := &api.TLSContext{Secret: tc.secret, TrustBundle: tc.trustBundle}
+
+				got, err := (&L4Filter{}).getCerts(ctx, tls, direction)
+				if tc.wantErr != "" {
+					require.ErrorContains(t, err, tc.wantErr)
+					return
+				}
+				require.NoError(t, err)
+				require.Equal(t, bundle, got.TrustBundle)
+				require.Equal(t, tc.wantKind, got.TrustBundleKind)
+				require.False(t, got.FromFile)
+			})
+		}
 	}
 }
