@@ -676,6 +676,49 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, config loadbalancer.Conf
 		}
 	}
 
+	// The pod's services from a previous revision: same pod, but a HostPort
+	// that has changed or been unset, or a different pod UID after the pod was
+	// recreated under the same name. Their frontends are the pod's to reclaim.
+	orphanedServices := sets.New[loadbalancer.ServiceName]()
+	for svc := range writer.Services().Prefix(wtxn, loadbalancer.ServiceByName(serviceNamePrefix)) {
+		if !updatedServices.Has(svc.Name) {
+			orphanedServices.Insert(svc.Name)
+		}
+	}
+
+	// Check the wanted frontends against the ones already in the table before
+	// changing anything, and note the orphans that are holding one. A frontend
+	// held by a service that is not one of the orphans belongs to some other
+	// pod, and taking it would be wrong. The transaction is committed whether
+	// or not this function succeeds, so bailing out after a prune or an upsert
+	// would leave the pod's services half applied.
+	reclaimedServices := sets.New[loadbalancer.ServiceName]()
+	for _, svc := range servicesForThisPod {
+		for fe := range svc.fes {
+			existing, _, found := writer.Frontends().Get(wtxn, loadbalancer.FrontendByAddress(fe.Address))
+			if !found || existing.ServiceName.Equal(fe.ServiceName) {
+				continue
+			}
+			if orphanedServices.Has(existing.ServiceName) {
+				reclaimedServices.Insert(existing.ServiceName)
+				continue
+			}
+			return fmt.Errorf("%w: %s wanted by %s is owned by %s",
+				loadbalancer.ErrFrontendConflict,
+				fe.Address.StringWithProtocol(), fe.ServiceName, existing.ServiceName)
+		}
+	}
+
+	// Release just the orphans whose frontends are being taken over, so the
+	// upsert below can claim them. The rest are left until afterwards: deleting
+	// a service drops its backends, and recreating them for the new service
+	// would churn their IDs in the datapath maps for no reason.
+	for name := range reclaimedServices {
+		if err := deleteHostPortService(wtxn, writer, name); err != nil {
+			return err
+		}
+	}
+
 	for serviceName, svc := range servicesForThisPod {
 		err := writer.UpsertServiceAndFrontends(wtxn, &svc.service, svc.fes.UnsortedList()...)
 		if err != nil {
@@ -687,22 +730,29 @@ func upsertHostPort(netnsCookie HaveNetNSCookieSupport, config loadbalancer.Conf
 		}
 	}
 
-	// Find and remove orphaned HostPort services, frontends and backends
-	// if 'HostPort' has changed or has been unset.
-	for svc := range writer.Services().Prefix(wtxn, loadbalancer.ServiceByName(serviceNamePrefix)) {
-		if updatedServices.Has(svc.Name) {
+	// Remove the orphans left over: a HostPort that changed or was unset, or a
+	// previous incarnation of the pod whose frontends nothing reclaimed.
+	for name := range orphanedServices {
+		if reclaimedServices.Has(name) {
 			continue
 		}
-
-		err := writer.DeleteBackendsOfService(wtxn, svc.Name, source.Kubernetes)
-		if err != nil {
-			return fmt.Errorf("DeleteBackendsOfService: %w", err)
+		if err := deleteHostPortService(wtxn, writer, name); err != nil {
+			return err
 		}
+	}
 
-		_, err = writer.DeleteServiceAndFrontends(wtxn, svc.Name)
-		if err != nil {
-			return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
-		}
+	return nil
+}
+
+// deleteHostPortService removes a synthesized HostPort service along with its
+// frontends and backends.
+func deleteHostPortService(wtxn writer.WriteTxn, writer *writer.Writer, name loadbalancer.ServiceName) error {
+	if err := writer.DeleteBackendsOfService(wtxn, name, source.Kubernetes); err != nil {
+		return fmt.Errorf("DeleteBackendsOfService: %w", err)
+	}
+
+	if _, err := writer.DeleteServiceAndFrontends(wtxn, name); err != nil {
+		return fmt.Errorf("DeleteServiceAndFrontends: %w", err)
 	}
 
 	return nil
