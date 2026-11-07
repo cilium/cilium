@@ -144,7 +144,7 @@ static __always_inline int
 egress_gw_request_needs_redirect(struct ipv4_ct_tuple *tuple __maybe_unused,
 				 __be32 *gateway_ip __maybe_unused)
 {
-	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+	if (!CONFIG(egress_gateway_cfg).enable_common)
 		return CTX_ACT_OK;
 
 	const struct egress_gw_policy_entry_v2 *egress_gw_policy;
@@ -173,7 +173,7 @@ bool egress_gw_snat_needed(const struct __ctx_buff *ctx __maybe_unused,
 			   __u32 *egress_ifindex __maybe_unused,
 			   bool from_host __maybe_unused)
 {
-	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+	if (!CONFIG(egress_gateway_cfg).enable_common)
 		return false;
 
 	const struct egress_gw_policy_entry_v2 *egress_gw_policy;
@@ -198,7 +198,7 @@ bool egress_gw_snat_needed(const struct __ctx_buff *ctx __maybe_unused,
 static __always_inline
 bool egress_gw_reply_matches_policy(struct iphdr *ip4 __maybe_unused)
 {
-	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+	if (!CONFIG(egress_gateway_cfg).enable_common)
 		return false;
 
 	const struct egress_gw_policy_entry_v2 *egress_policy;
@@ -302,7 +302,7 @@ static __always_inline int
 egress_gw_request_needs_redirect_v6(struct ipv6_ct_tuple *tuple __maybe_unused,
 				    __be32 *gateway_ip __maybe_unused)
 {
-	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+	if (!CONFIG(egress_gateway_cfg).enable_common)
 		return CTX_ACT_OK;
 
 	const struct egress_gw_policy_entry6 *egress_gw_policy;
@@ -329,7 +329,7 @@ bool egress_gw_snat_needed_v6(union v6addr *saddr __maybe_unused,
 			      union v6addr *snat_addr __maybe_unused,
 			      __u32 *egress_ifindex __maybe_unused)
 {
-	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+	if (!CONFIG(egress_gateway_cfg).enable_common)
 		return false;
 
 	const struct egress_gw_policy_entry6 *egress_gw_policy;
@@ -351,7 +351,7 @@ bool egress_gw_snat_needed_v6(union v6addr *saddr __maybe_unused,
 static __always_inline
 bool egress_gw_reply_matches_policy_v6(struct ipv6hdr *ip6 __maybe_unused)
 {
-	if (!is_defined(ENABLE_EGRESS_GATEWAY))
+	if (!CONFIG(egress_gateway_cfg).enable_common)
 		return false;
 
 	const struct egress_gw_policy_entry6 *egress_policy;

@@ -158,6 +158,13 @@ type EDTInfo struct {
 	Pad          [3]uint64
 }
 
+// EgressGatewayConfig is generated from the BPF C type egress_gateway_config.
+type EgressGatewayConfig struct {
+	_            structs.HostLayout
+	Enable       bool
+	EnableCommon bool
+}
+
 // EgressGWPolicyEntry6 is generated from the BPF C type egress_gw_policy_entry6.
 type EgressGWPolicyEntry6 struct {
 	_        structs.HostLayout

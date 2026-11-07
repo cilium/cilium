@@ -7,7 +7,6 @@
 
 #define ENABLE_IPV4 1
 #define ENABLE_IPV6 1
-#define ENABLE_EGRESS_GATEWAY		1
 #define ENCAP_IFINDEX	42
 #define IFACE_IFINDEX	44
 
@@ -38,6 +37,10 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 #include "lib/ipcache.h"
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
+ASSIGN_CONFIG(struct egress_gateway_config, egress_gateway_cfg, {
+	.enable = true,
+	.enable_common = true,
+})
 
 static __always_inline __maybe_unused int
 mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
