@@ -39,6 +39,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -78,6 +79,7 @@ func TestScript(t *testing.T) {
 				lbipamconfig.Cell,
 				nodeipamconfig.Cell,
 				lbcell.Cell,
+				registry.Cell,
 
 				node.LocalNodeStoreTestCell,
 				maglev.Cell,
@@ -132,16 +134,6 @@ func TestScript(t *testing.T) {
 
 type fakeSkipLBMap struct {
 	entries lock.Map[any, any]
-}
-
-// OpenOrCreate implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) OpenOrCreate() error {
-	return nil
-}
-
-// Close implements lbmap.SkipLBMap.
-func (f *fakeSkipLBMap) Close() error {
-	return nil
 }
 
 // AddLB4 implements lbmap.SkipLBMap.

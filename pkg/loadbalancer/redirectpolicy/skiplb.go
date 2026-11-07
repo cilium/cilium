@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lbmaps "github.com/cilium/cilium/pkg/loadbalancer/maps"
 	"github.com/cilium/cilium/pkg/loadbalancer/reflectors"
+	"github.com/cilium/cilium/pkg/maps/registry"
 	"github.com/cilium/cilium/pkg/time"
 )
 
@@ -365,34 +366,21 @@ type skiplbmapParams struct {
 	TestSkipLBMap      TestSkipLBMap `optional:"true"`
 	Lifecycle          cell.Lifecycle
 	NetNSCookieSupport reflectors.HaveNetNSCookieSupport
+	Registry           *registry.MapRegistry
 }
 
-func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap], err error) {
+func newSkipLBMap(p skiplbmapParams) (out bpf.MapOut[lbmaps.SkipLBMap]) {
 	if p.TestSkipLBMap != nil {
 		m := lbmaps.SkipLBMap(p.TestSkipLBMap)
 		out = bpf.NewMapOut(m)
 		return
 	}
 
-	var m lbmaps.SkipLBMap
-	m, err = lbmaps.NewSkipLBMap(p.Logger)
-	if err != nil {
-		return
+	m := lbmaps.NewSkipLBMap(p.Logger, p.Registry)
+	if os.Getuid() == 0 {
+		p.Lifecycle.Append(m)
 	}
-
-	if os.Getuid() != 0 {
-		return
-	}
-
-	p.Lifecycle.Append(cell.Hook{
-		OnStart: func(cell.HookContext) error {
-			return m.OpenOrCreate()
-		},
-		OnStop: func(cell.HookContext) error {
-			return m.Close()
-		},
-	})
-	out = bpf.NewMapOut(m)
+	out = bpf.NewMapOut[lbmaps.SkipLBMap](m)
 	return
 }
 

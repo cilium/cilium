@@ -1087,8 +1087,6 @@ const (
 	// inner maps into them.
 	MaglevOuter4MapName = "cilium_lb4_maglev"
 	MaglevOuter6MapName = "cilium_lb6_maglev"
-
-	MaglevInnerMapName = "cilium_maglev_inner"
 )
 
 // MaglevBackendLen represents the length of a single backend ID
