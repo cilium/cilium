@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
-	"slices"
 
 	"github.com/cilium/hive/job"
 	"github.com/vishvananda/netlink"
@@ -22,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/defaults"
-	iputil "github.com/cilium/cilium/pkg/ip"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/resource"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -84,36 +82,6 @@ func validateENIConfig(node *ciliumv2.CiliumNode) error {
 			}
 		}
 	}
-
-	// Check if all pool resource IPs are present in the status
-	eniIPMap := map[string][]iputil.Addr{}
-	for addr, v := range node.Spec.IPAM.Pool {
-		eniIPMap[v.Resource] = append(eniIPMap[v.Resource], addr)
-	}
-
-	for eni, addresses := range eniIPMap {
-		eniFound := false
-		for _, sENI := range node.Status.ENI.ENIs {
-			if eni == sENI.ID {
-				for _, addr := range addresses {
-					// The only invalid key that survives decoding is an empty
-					// one: any other malformed address fails to unmarshal.
-					if !addr.IsValid() {
-						return fmt.Errorf("empty address in pool for ENI %s", eni)
-					}
-					if !slices.Contains(sENI.Addresses, addr) {
-						return fmt.Errorf("ENI %s does not have address %s", eni, addr)
-					}
-				}
-				eniFound = true
-			}
-		}
-
-		if !eniFound {
-			return fmt.Errorf("ENI %s not found in status", eni)
-		}
-	}
-
 	return nil
 }
 
