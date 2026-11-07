@@ -96,7 +96,6 @@ spec:
                     ignoreCase: true
               redirect:
                 hostRedirect: example.org
-                portRedirect: 443
                 schemeRedirect: https
             - match:
                 pathSeparatedPrefix: /scheme-https-and-port-443
@@ -108,7 +107,6 @@ spec:
                     ignoreCase: true
               redirect:
                 hostRedirect: example.org
-                portRedirect: 443
                 schemeRedirect: https
             - match:
                 pathSeparatedPrefix: /scheme-nil-and-port-8080

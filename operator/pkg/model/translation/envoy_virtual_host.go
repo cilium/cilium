@@ -674,18 +674,25 @@ func getRouteRedirect(redirect *model.HTTPRequestRedirectFilter, listenerPort ui
 		redirectAction.HostRedirect = *redirect.Hostname
 	}
 
-	if redirect.Port != nil {
-		redirectAction.PortRedirect = uint32(*redirect.Port)
-	} else {
-		if redirect.Scheme != nil {
-			if *redirect.Scheme == "https" {
-				redirectAction.PortRedirect = 443
-			} else if *redirect.Scheme == "http" {
-				redirectAction.PortRedirect = 80
-			}
-		} else {
-			redirectAction.PortRedirect = listenerPort
-		}
+	// The redirect port follows the Gateway API rules for HTTPRequestRedirectFilter.Port: the
+	// configured port, else the well-known port of the redirect scheme, else the listener port.
+	var port uint32
+	switch {
+	case redirect.Port != nil:
+		port = uint32(*redirect.Port)
+	case redirect.Scheme != nil && wellKnownPort(*redirect.Scheme) != 0:
+		port = wellKnownPort(*redirect.Scheme)
+	default:
+		port = listenerPort
+	}
+	// Envoy writes any port_redirect into the Location header, but the Gateway API says the port
+	// should be left out when it is the well-known port of the redirect scheme (e.g.
+	// https://example.com/, not https://example.com:443/). Without port_redirect, Envoy keeps the
+	// request's Host header port and drops it when the scheme changes and it is the well-known
+	// port of the request's scheme. So port_redirect stays unset only when the request arrives on
+	// a well-known port: otherwise a client-visible port such as :8080 would end up in Location.
+	if redirect.Scheme == nil || port != wellKnownPort(*redirect.Scheme) || (listenerPort != 80 && listenerPort != 443) {
+		redirectAction.PortRedirect = port
 	}
 
 	if redirect.StatusCode != nil {
@@ -708,6 +715,17 @@ func getRouteRedirect(redirect *model.HTTPRequestRedirectFilter, listenerPort ui
 	return &envoy_config_route_v3.Route_Redirect{
 		Redirect: redirectAction,
 	}
+}
+
+// wellKnownPort returns the default port of an HTTP URL scheme, or 0.
+func wellKnownPort(scheme string) uint32 {
+	switch scheme {
+	case "http":
+		return 80
+	case "https":
+		return 443
+	}
+	return 0
 }
 
 func getRouteRedirectMatch(match string) *envoy_config_route_v3.HeaderMatcher {

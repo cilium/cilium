@@ -886,7 +886,8 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.Equal(t, "https", res[0].Match.GetHeaders()[0].GetStringMatch().GetExact())
 		require.NotNil(t, res[0].GetRedirect())
 		require.Equal(t, "https", res[0].GetRedirect().GetSchemeRedirect())
-		require.Equal(t, uint32(443), res[0].GetRedirect().PortRedirect)
+		// https on its well-known port from a well-known listener port: no port in Location.
+		require.Zero(t, res[0].GetRedirect().PortRedirect)
 		require.Equal(t, envoy_config_route_v3.RedirectAction_FOUND, res[0].GetRedirect().ResponseCode)
 		// Backend Route
 		require.NotNil(t, res[1])
@@ -936,7 +937,8 @@ func Test_envoyHTTPRoutes(t *testing.T) {
 		require.Equal(t, "https", res[1].Match.GetHeaders()[0].GetStringMatch().GetExact())
 		require.NotNil(t, res[1].GetRedirect())
 		require.Equal(t, "https", res[1].GetRedirect().GetSchemeRedirect())
-		require.Equal(t, uint32(443), res[1].GetRedirect().PortRedirect)
+		// https on its well-known port from a well-known listener port: no port in Location.
+		require.Zero(t, res[1].GetRedirect().PortRedirect)
 		require.Equal(t, envoy_config_route_v3.RedirectAction_FOUND, res[1].GetRedirect().ResponseCode)
 	})
 	t.Run("user x-forwarded-proto header contributes to route precedence", func(t *testing.T) {
@@ -1575,4 +1577,31 @@ func Test_getRouteAction_inferencePool(t *testing.T) {
 		action := getRouteAction(route, route.Backends, nil, nil, nil)
 		require.Equal(t, getClusterName("default", "svc", "8080"), action.Route.GetCluster())
 	})
+}
+
+func Test_getRouteRedirectPort(t *testing.T) {
+	tests := []struct {
+		name         string
+		scheme       *string
+		port         *int32
+		listenerPort uint32
+		want         uint32
+	}{
+		{name: "https from port 80 omits 443", scheme: ptr.To("https"), listenerPort: 80, want: 0},
+		{name: "explicit 443 with https from port 80 is omitted", scheme: ptr.To("https"), port: ptr.To(int32(443)), listenerPort: 80, want: 0},
+		{name: "http from port 443 omits 80", scheme: ptr.To("http"), listenerPort: 443, want: 0},
+		{name: "https from a non-default listener port keeps 443", scheme: ptr.To("https"), listenerPort: 8080, want: 443},
+		{name: "https to a non-default port", scheme: ptr.To("https"), port: ptr.To(int32(8443)), listenerPort: 80, want: 8443},
+		{name: "explicit port without scheme", port: ptr.To(int32(8080)), listenerPort: 80, want: 8080},
+		{name: "no scheme, no port: listener port", listenerPort: 8080, want: 8080},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := getRouteRedirect(&model.HTTPRequestRedirectFilter{Scheme: tt.scheme, Port: tt.port}, tt.listenerPort)
+			require.Equal(t, tt.want, res.Redirect.GetPortRedirect())
+			if tt.scheme != nil {
+				require.Equal(t, *tt.scheme, res.Redirect.GetSchemeRedirect())
+			}
+		})
+	}
 }
