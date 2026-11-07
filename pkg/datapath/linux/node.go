@@ -31,6 +31,7 @@ import (
 	ipsecTypes "github.com/cilium/cilium/pkg/datapath/linux/ipsec/types"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/safenetlink"
 	dpTunnel "github.com/cilium/cilium/pkg/datapath/tunnel"
 	"github.com/cilium/cilium/pkg/defaults"
@@ -91,6 +92,8 @@ type linuxNodeHandler struct {
 
 	nodePolicy *NodePolicy
 
+	pruneExclusions *routeReconciler.PruneExclusion
+
 	db          *statedb.DB
 	subnetTable statedb.RWTable[subnetmap.SubnetTableEntry]
 
@@ -139,7 +142,11 @@ func NewNodeHandler(
 	daemonConfig *option.DaemonConfig,
 	db *statedb.DB,
 	subnetTable statedb.RWTable[subnetmap.SubnetTableEntry],
+	pruneExclusions *routeReconciler.PruneExclusion,
+	routeManager *routeReconciler.DesiredRouteManager,
 ) node.IDHandler {
+	routeInitializer := routeManager.RegisterInitializer("node-handler")
+
 	datapathConfig := DatapathConfiguration{
 		HostDevice:   defaults.HostDevice,
 		TunnelDevice: tunnelConfig.DeviceName(),
@@ -156,6 +163,7 @@ func NewNodeHandler(
 		nodePolicy,
 		db,
 		subnetTable,
+		pruneExclusions,
 	)
 	checkpoint := newLinuxNodeCheckpoint(
 		log,
@@ -224,7 +232,7 @@ func NewNodeHandler(
 				return nil
 			}
 
-			_, err := reconciler.Register(
+			nodeReconciler, err := reconciler.Register(
 				params,
 				nodeTable,
 				(*node.Node).DeepCopy,
@@ -243,6 +251,22 @@ func NewNodeHandler(
 			if err != nil {
 				return fmt.Errorf("registering Linux node reconciler: %w", err)
 			}
+
+			// Wait for every initial node to be reconciled so its routes are added to
+			// the prune exclusion set before the route reconciler prunes the WAL.
+			_, initialized := nodeTable.Initialized(params.DB.ReadTxn())
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-initialized:
+			}
+
+			target := nodeTable.Revision(params.DB.ReadTxn())
+			if _, _, err := nodeReconciler.WaitUntilReconciled(ctx, target); err != nil {
+				return fmt.Errorf("waiting for Linux node reconciliation: %w", err)
+			}
+
+			routeManager.FinalizeInitializer(routeInitializer)
 			return nil
 		},
 	))
@@ -364,6 +388,7 @@ func newNodeHandler(
 	nodePolicy *NodePolicy,
 	db *statedb.DB,
 	subnetTable statedb.RWTable[subnetmap.SubnetTableEntry],
+	pruneExclusions *routeReconciler.PruneExclusion,
 ) *linuxNodeHandler {
 	return &linuxNodeHandler{
 		log:                  log,
@@ -385,6 +410,7 @@ func newNodeHandler(
 		configReady:          make(chan struct{}),
 		db:                   db,
 		subnetTable:          subnetTable,
+		pruneExclusions:      pruneExclusions,
 	}
 }
 
@@ -538,134 +564,11 @@ func createDirectRouteSpec(log *slog.Logger, prefix netip.Prefix, nodeIP net.IP,
 	return
 }
 
-func installDirectRoute(log *slog.Logger, prefix netip.Prefix, nodeIP net.IP, skipUnreachable bool) (routeSpec *netlink.Route, err error) {
-	routeSpec, addRoute, err := createDirectRouteSpec(log, prefix, nodeIP, skipUnreachable)
-	if err != nil {
-		return
-	}
-
-	if addRoute {
-		err = netlink.RouteReplace(routeSpec)
-	}
-	return
-}
-
-func (n *linuxNodeHandler) updateDirectRoutes(oldCIDRs, newCIDRs []netip.Prefix, oldIP, newIP net.IP, firstAddition, directRouteEnabled bool, directRouteSkipUnreachable bool) error {
-	if !directRouteEnabled {
-		// When the protocol family is disabled, the initial node addition will
-		// trigger a deletion to clean up leftover entries. The deletion happens
-		// in quiet mode as we don't know whether it exists or not
-		if firstAddition {
-			return n.deleteAllDirectRoutes(newCIDRs, newIP)
-		}
-		return nil
-	}
-
-	var addedCIDRs, removedCIDRs []netip.Prefix
-	if oldIP.Equal(newIP) {
-		addedCIDRs, removedCIDRs = diffPrefixes(oldCIDRs, newCIDRs)
-	} else {
-		// if the node IP changed, then we need to update all routes with the
-		// new IP, but we also want to remove any of the old routes with the
-		// old IP, in case the output device changed
-		addedCIDRs, removedCIDRs = newCIDRs, oldCIDRs
-	}
-
-	n.log.Debug("Updating direct route",
-		logfields.NewIP, newIP,
-		logfields.OldIP, oldIP,
-		logfields.AddedCIDRs, addedCIDRs,
-		logfields.RemovedCIDRs, removedCIDRs,
-	)
-
-	if err := n.addDirectRoutes(addedCIDRs, newIP, directRouteSkipUnreachable); err != nil {
-		return err
-	}
-	if err := n.deleteAllDirectRoutes(removedCIDRs, oldIP); err != nil {
-		return fmt.Errorf("failed to delete all direct routes: %w", err)
-	}
-
-	return nil
-}
-
-func (n *linuxNodeHandler) addDirectRoutes(prefixes []netip.Prefix, nodeIP net.IP, directRouteSkipUnreachable bool) error {
-	for _, prefix := range prefixes {
-		if routeSpec, err := installDirectRoute(n.log, prefix, nodeIP, directRouteSkipUnreachable); err != nil {
-			n.log.Warn("Unable to install direct node route",
-				logfields.Route, routeSpec,
-				logfields.Error, err,
-			)
-			// In the current implementation, this often fails because updates are tried for both ip families
-			// regardless if the Node has either ip types.
-			// At the time of this change we are only interested in bubbling up errors without affecting execution flow.
-			// Thus we are ignoring the error here for now.
-			//
-			// TODO(Tom): In the future we will want to avoid attempting to do the update if we know it will fail.
-			if nodeIP == nil && errors.Is(err, unix.ERANGE) {
-				return nil
-			}
-			return err
-		}
-	}
-	return nil
-}
-
 // diffPrefixes returns the prefixes present in new but not old (added) and in
 // old but not new (removed).
 func diffPrefixes(old, new []netip.Prefix) (added, removed []netip.Prefix) {
 	oldSet, newSet := sets.New(old...), sets.New(new...)
 	return newSet.Difference(oldSet).UnsortedList(), oldSet.Difference(newSet).UnsortedList()
-}
-
-func (n *linuxNodeHandler) deleteAllDirectRoutes(prefixes []netip.Prefix, nodeIP net.IP) error {
-	var errs error
-	for _, prefix := range prefixes {
-		if err := n.deleteDirectRoute(prefix, nodeIP); err != nil {
-			errs = errors.Join(errs, err)
-		}
-	}
-	return errs
-}
-
-func (n *linuxNodeHandler) deleteDirectRoute(prefix netip.Prefix, nodeIP net.IP) error {
-	if !prefix.IsValid() || nodeIP == nil {
-		// A direct route is always routed via nodeIP. Without one, there is
-		// no valid direct route to search for, and filtering by a nil Gw
-		// would incorrectly match gateway-less routes (e.g. IPv6 tunnel
-		// routes, which never carry a nexthop).
-		return nil
-	}
-
-	family := netlink.FAMILY_V4
-	familyStr := "ip4"
-	if !prefix.Addr().Is4() {
-		family = netlink.FAMILY_V6
-		familyStr = "ip6"
-	}
-
-	filter := &netlink.Route{
-		Dst:      netipx.PrefixIPNet(prefix),
-		Gw:       nodeIP,
-		Protocol: linux_defaults.RTProto,
-	}
-
-	routes, err := safenetlink.RouteListFiltered(family, filter, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW)
-	if err != nil {
-		n.log.Error("Unable to list direct routes", logfields.Error, err)
-		return fmt.Errorf("failed to list direct routes %s: %w", familyStr, err)
-	}
-
-	var errs error
-	for _, rt := range routes {
-		if err := netlink.RouteDel(&rt); err != nil {
-			n.log.Warn("Unable to delete direct node route",
-				logfields.CIDR, rt,
-				logfields.Error, err,
-			)
-			errs = errors.Join(errs, fmt.Errorf("failed to delete direct route %q: %w", rt.String(), err))
-		}
-	}
-	return errs
 }
 
 // createNodeRouteSpec creates a route spec that points the specified prefix to the host
@@ -742,6 +645,19 @@ func (n *linuxNodeHandler) updateNodeRoute(prefix netip.Prefix, addressFamilyEna
 	if err != nil {
 		return err
 	}
+
+	// Before upserting the route, add it to the prune exclusions because even if we fail
+	// there is intention to add a route for this prefix so we should avoid pruning it.
+	if ok := n.pruneExclusions.Add(routeReconciler.DesiredRouteKey{
+		Table:    routeReconciler.TableMain,
+		Prefix:   prefix,
+		Priority: 0,
+	}); ok {
+		n.log.Info("Add route to prune exclusions",
+			logfields.Prefix, prefix,
+		)
+	}
+
 	if err := route.Upsert(n.log, nodeRoute); err != nil {
 		n.log.Warn("Unable to update route",
 			append(nodeRoute.LogAttrs(), logfields.Error, err)...)
@@ -816,9 +732,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldAllIP4AllocCidrs, oldAllIP6AllocCidrs []netip.Prefix
 		newAllIP4AllocCidrs                      = newNode.GetIPv4AllocCIDRs()
 		newAllIP6AllocCidrs                      = newNode.GetIPv6AllocCIDRs()
-		oldIP4, oldIP6                           net.IP
-		newIP4                                   = net.IP(newNode.GetNodeIP(false).AsSlice())
-		newIP6                                   = net.IP(newNode.GetNodeIP(true).AsSlice())
 		isLocalNode                              = false
 	)
 	nodeID, err := n.allocateIDForNode(oldNode, newNode)
@@ -829,8 +742,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	if oldNode != nil {
 		oldAllIP4AllocCidrs = oldNode.GetIPv4AllocCIDRs()
 		oldAllIP6AllocCidrs = oldNode.GetIPv6AllocCIDRs()
-		oldIP4 = net.IP(oldNode.GetNodeIP(false).AsSlice())
-		oldIP6 = net.IP(oldNode.GetNodeIP(true).AsSlice())
 
 		n.diffAndUnmapNodeIPs(oldNode.IPAddresses, newNode.IPAddresses)
 	}
@@ -863,32 +774,17 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	}
 
 	if n.hybridMode() {
-		errs = errors.Join(errs, n.updateHybridRoutes(oldNode, newNode, oldIP4, newIP4, oldIP6, newIP6, firstAddition, isLocalNode))
-		return errs
+		return errors.Join(errs, n.updateHybridRoutes(oldNode, newNode, isLocalNode))
 	}
 
-	installTunnelRoutes := n.enableEncapsulation(newNode)
-	installDirectRoutes := n.nodeConfig.EnableAutoDirectRouting && !installTunnelRoutes
-
-	if installTunnelRoutes {
+	if n.enableEncapsulation(newNode) {
 		if err := n.updateOrRemoveNodeRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, isLocalNode); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv4: %w", err))
 		}
 		if err := n.updateOrRemoveNodeRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, isLocalNode); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("failed to enable encapsulation: single cluster routes: ipv6: %w", err))
 		}
-	}
-
-	if installDirectRoutes {
-		if err := n.updateDirectRoutes(oldAllIP4AllocCidrs, newAllIP4AllocCidrs, oldIP4, newIP4, firstAddition, n.nodeConfig.EnableIPv4, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv4: %w", err))
-		}
-		if err := n.updateDirectRoutes(oldAllIP6AllocCidrs, newAllIP6AllocCidrs, oldIP6, newIP6, firstAddition, n.nodeConfig.EnableIPv6, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to enable direct routes for ipv6: %w", err))
-		}
-	}
-
-	if !installTunnelRoutes && firstAddition {
+	} else if firstAddition {
 		for _, ipv4AllocCIDR := range newAllIP4AllocCidrs {
 			if rt, _ := n.lookupNodeRoute(ipv4AllocCIDR, isLocalNode); rt != nil {
 				if err := n.deleteNodeRoute(ipv4AllocCIDR, isLocalNode); err != nil {
@@ -904,15 +800,6 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 			}
 		}
 	}
-	if !installDirectRoutes && firstAddition {
-		if err := n.deleteAllDirectRoutes(newAllIP4AllocCidrs, newIP4); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to clean up stale direct route for ipv4: %w", err))
-		}
-		if err := n.deleteAllDirectRoutes(newAllIP6AllocCidrs, newIP6); err != nil {
-			errs = errors.Join(errs, fmt.Errorf("failed to clean up stale direct route for ipv6: %w", err))
-		}
-	}
-
 	return errs
 }
 
@@ -921,9 +808,6 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	if oldNode.IsLocal() {
 		return nil
 	}
-
-	oldIP4 := net.IP(oldNode.GetNodeIP(false).AsSlice())
-	oldIP6 := net.IP(oldNode.GetNodeIP(true).AsSlice())
 
 	oldAllIP4AllocCidrs := oldNode.GetIPv4AllocCIDRs()
 	oldAllIP6AllocCidrs := oldNode.GetIPv6AllocCIDRs()
@@ -934,9 +818,6 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	// so we always attempt both cleanups regardless of the last-installed mode.
 	if n.nodeConfig.EnableIPv4 {
 		for _, prefix := range oldAllIP4AllocCidrs {
-			if err := n.deleteDirectRoute(prefix, oldIP4); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("failed to remove old direct route ipv4: %w", err))
-			}
 			if err := n.deleteNodeRoute(prefix, false); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to remove old node route ipv4: %w", err))
 			}
@@ -944,9 +825,6 @@ func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	}
 	if n.nodeConfig.EnableIPv6 {
 		for _, prefix := range oldAllIP6AllocCidrs {
-			if err := n.deleteDirectRoute(prefix, oldIP6); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("failed to remove old direct route ipv6: %w", err))
-			}
 			if err := n.deleteNodeRoute(prefix, false); err != nil {
 				errs = errors.Join(errs, fmt.Errorf("failed to remove old node route ipv6: %w", err))
 			}
@@ -1167,30 +1045,18 @@ func (n *linuxNodeHandler) classifyRemoteCIDRs(prefixes []netip.Prefix, localGro
 // tunnel or directly based on its subnet-group membership relative to the
 // local node. Also removes any stale route on the opposite side of the
 // classification (in case a CIDR's group changed since the previous update).
-func (n *linuxNodeHandler) updateHybridRoutes(oldNode, newNode *nodeTypes.Node, oldIP4, newIP4, oldIP6, newIP6 net.IP, firstAddition, isLocalNode bool) error {
+func (n *linuxNodeHandler) updateHybridRoutes(oldNode, newNode *nodeTypes.Node, isLocalNode bool) error {
 	localGroups := n.localSubnetGroups()
 	newTun4, newDir4 := n.classifyRemoteCIDRs(newNode.GetIPv4AllocCIDRs(), localGroups)
 	newTun6, newDir6 := n.classifyRemoteCIDRs(newNode.GetIPv6AllocCIDRs(), localGroups)
-	var oldTun4, oldDir4, oldTun6, oldDir6 []netip.Prefix
+	var oldTun4, oldTun6 []netip.Prefix
 	if oldNode != nil {
-		oldTun4, oldDir4 = n.classifyRemoteCIDRs(oldNode.GetIPv4AllocCIDRs(), localGroups)
-		oldTun6, oldDir6 = n.classifyRemoteCIDRs(oldNode.GetIPv6AllocCIDRs(), localGroups)
+		oldTun4, _ = n.classifyRemoteCIDRs(oldNode.GetIPv4AllocCIDRs(), localGroups)
+		oldTun6, _ = n.classifyRemoteCIDRs(oldNode.GetIPv6AllocCIDRs(), localGroups)
 	}
 
 	addedTun4, removedTun4 := diffPrefixes(oldTun4, newTun4)
 	addedTun6, removedTun6 := diffPrefixes(oldTun6, newTun6)
-
-	var addedDir4, removedDir4, addedDir6, removedDir6 []netip.Prefix
-	if oldIP4.Equal(newIP4) {
-		addedDir4, removedDir4 = diffPrefixes(oldDir4, newDir4)
-	} else {
-		addedDir4, removedDir4 = newDir4, oldDir4
-	}
-	if oldIP6.Equal(newIP6) {
-		addedDir6, removedDir6 = diffPrefixes(oldDir6, newDir6)
-	} else {
-		addedDir6, removedDir6 = newDir6, oldDir6
-	}
 
 	var errs error
 	if err := n.addNodeRoutes(addedTun4, isLocalNode); err != nil {
@@ -1199,46 +1065,12 @@ func (n *linuxNodeHandler) updateHybridRoutes(oldNode, newNode *nodeTypes.Node, 
 	if err := n.addNodeRoutes(addedTun6, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv6: %w", err))
 	}
-	if n.nodeConfig.EnableAutoDirectRouting {
-		if n.nodeConfig.EnableIPv4 {
-			if err := n.addDirectRoutes(addedDir4, newIP4, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("hybrid direct routes ipv4: %w", err))
-			}
-		} else if firstAddition {
-			if err := n.deleteAllDirectRoutes(newDir4, newIP4); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("hybrid direct routes ipv4: %w", err))
-			}
-		}
-		if n.nodeConfig.EnableIPv6 {
-			if err := n.addDirectRoutes(addedDir6, newIP6, n.nodeConfig.DirectRoutingSkipUnreachable); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("hybrid direct routes ipv6: %w", err))
-			}
-		} else if firstAddition {
-			if err := n.deleteAllDirectRoutes(newDir6, newIP6); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("hybrid direct routes ipv6: %w", err))
-			}
-		}
-	}
-
 	if err := n.removeNodeRoutes(removedTun4, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv4: %w", err))
 	}
 	if err := n.removeNodeRoutes(removedTun6, isLocalNode); err != nil {
 		errs = errors.Join(errs, fmt.Errorf("hybrid tunnel routes ipv6: %w", err))
 	}
-	if n.nodeConfig.EnableAutoDirectRouting {
-		if n.nodeConfig.EnableIPv4 {
-			if err := n.deleteAllDirectRoutes(removedDir4, oldIP4); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("hybrid direct routes ipv4: %w", err))
-			}
-		}
-		if n.nodeConfig.EnableIPv6 {
-			if err := n.deleteAllDirectRoutes(removedDir6, oldIP6); err != nil {
-				errs = errors.Join(errs, fmt.Errorf("hybrid direct routes ipv6: %w", err))
-			}
-		}
-	}
-
 	// Defensive cleanup: a CIDR's classification may have changed since a prior
 	// reconciliation (config edit or agent restart with stale kernel state).
 	for _, p := range newDir4 {
@@ -1250,12 +1082,6 @@ func (n *linuxNodeHandler) updateHybridRoutes(oldNode, newNode *nodeTypes.Node, 
 		if err := n.deleteNodeRoute(p, isLocalNode); err != nil {
 			errs = errors.Join(errs, fmt.Errorf("hybrid stale tunnel route ipv6: %w", err))
 		}
-	}
-	if err := n.deleteAllDirectRoutes(newTun4, newIP4); err != nil {
-		errs = errors.Join(errs, fmt.Errorf("hybrid stale direct route ipv4: %w", err))
-	}
-	if err := n.deleteAllDirectRoutes(newTun6, newIP6); err != nil {
-		errs = errors.Join(errs, fmt.Errorf("hybrid stale direct route ipv6: %w", err))
 	}
 	return errs
 }

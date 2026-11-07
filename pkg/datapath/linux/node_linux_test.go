@@ -25,6 +25,7 @@ import (
 	fakeipsec "github.com/cilium/cilium/pkg/datapath/linux/ipsec/fake"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	routeReconciler "github.com/cilium/cilium/pkg/datapath/linux/route/reconciler"
 	"github.com/cilium/cilium/pkg/datapath/linux/sysctl"
 	"github.com/cilium/cilium/pkg/datapath/tables"
 	"github.com/cilium/cilium/pkg/ip"
@@ -54,6 +55,29 @@ type nodeSuite struct {
 	// nodeConfigTemplate is the partially filled template for local node configuration.
 	// copy it, don't mutate it.
 	nodeConfigTemplate config.Config
+}
+
+func newTestNodeHandler(t testing.TB) *linuxNodeHandler {
+	t.Helper()
+
+	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
+	require.NoError(t, err)
+
+	nodeHandler := newNodeHandler(
+		hivetest.Logger(t),
+		DatapathConfiguration{HostDevice: hostDevice},
+		nodemapfake.NewFakeNodeMapV2(),
+		kpr.KPRConfig{},
+		ipsecAgent,
+		fakeipsec.Config{},
+		node.NewTestLocalNodeStore(node.LocalNode{}),
+		newNodePolicy(),
+		nil,
+		nil,
+		routeReconciler.NewPruneExclusion(),
+	)
+	require.NotNil(t, nodeHandler)
+	return nodeHandler
 }
 
 func setup(tb testing.TB, family string) *nodeSuite {
@@ -196,15 +220,6 @@ func mustConfigureNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, no
 	}))
 }
 
-func mustRefreshNode(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, node nodeTypes.Node) {
-	tb.Helper()
-	require.NoError(tb, ns.Do(func() error {
-		lnh.mutex.Lock()
-		defer lnh.mutex.Unlock()
-		return lnh.nodeUpdate(nil, &node, false)
-	}))
-}
-
 func mustUpdateNodeRoute(tb testing.TB, ns *netns.NetNS, lnh *linuxNodeHandler, prefix netip.Prefix) {
 	tb.Helper()
 	require.NoError(tb, ns.Do(func() error {
@@ -254,14 +269,7 @@ func testUpdateNodeRoute(t *testing.T, family string) {
 	ip4CIDR := netip.MustParsePrefix("254.254.254.0/24")
 	ip6CIDR := netip.MustParsePrefix("cafe:cafe:cafe:cafe::/96")
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-
-	a, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
 	if s.enableIPv4 {
@@ -301,13 +309,7 @@ func testAuxiliaryPrefixes(t *testing.T, family string) {
 	net1 := netip.MustParsePrefix("30.30.0.0/24")
 	net2 := netip.MustParsePrefix("cafe:f00d::/112")
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.AuxiliaryPrefixes = []ip.Prefix{ip.PrefixFrom(net1), ip.PrefixFrom(net2)}
 	mustConfigureNode(t, s.ns, lnh, nodeConfig)
@@ -381,14 +383,10 @@ func commonNodeUpdateEncapsulation(t *testing.T, family string, encap bool, over
 
 	externalNodeIP1 := net.ParseIP("4.4.4.4")
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
 	policy := newNodePolicy()
 	policy.SetEnableEncapsulation(override)
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, policy, nil, nil)
+	lnh := newTestNodeHandler(t)
+	lnh.nodePolicy = policy
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableEncapsulation = encap
@@ -545,13 +543,8 @@ func testNodeUpdateIDs(t *testing.T, family string) {
 
 	nodeMap := nodemapfake.NewFakeNodeMapV2()
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodeMap, kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
+	lnh.nodeMap = nodeMap
 
 	mustConfigureNode(t, s.ns, lnh, s.nodeConfigTemplate)
 
@@ -699,13 +692,11 @@ func testNodeChurnXFRMLeaksSubnetMode(t *testing.T, family string) {
 }
 
 func testNodeChurnXFRMLeaksWithConfig(t *testing.T, s *nodeSuite, config config.Config) {
-	log := hivetest.Logger(t)
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
+	lnh.ipsecAgent = a
 
 	mustConfigureNode(t, s.ns, lnh, config)
 
@@ -768,224 +759,6 @@ func mustLookupDirectRoute(tb testing.TB, ns *netns.NetNS, log *slog.Logger, pre
 	return tnl.MustRouteListFiltered(tb, ns, family, routeSpec, netlink.RT_FILTER_DST|netlink.RT_FILTER_GW|netlink.RT_FILTER_OIF)
 }
 
-func TestPrivilegedNodeUpdateDirectRouting(t *testing.T) {
-	testWithFamilies(t, func(t *testing.T, family string) {
-		testNodeUpdateDirectRouting(t, family)
-	})
-}
-
-func testNodeUpdateDirectRouting(t *testing.T, family string) {
-	s := setup(t, family)
-
-	ip4Alloc1 := netip.MustParsePrefix("5.5.5.0/24")
-	ip4Alloc2 := netip.MustParsePrefix("5.5.5.0/26")
-
-	ipv4SecondaryAlloc1 := netip.MustParsePrefix("5.5.6.0/24")
-	ipv4SecondaryAlloc2 := netip.MustParsePrefix("5.5.7.0/24")
-	ipv4SecondaryAlloc3 := netip.MustParsePrefix("5.5.8.0/24")
-
-	externalNode1IP4v1 := net.ParseIP("4.4.4.4")
-	externalNode1IP4v2 := net.ParseIP("4.4.4.5")
-
-	externalNode1Device := "dummy_node1"
-	dev1 := mustSetupDevice(t, s.ns, externalNode1Device, externalNode1IP4v1, net.ParseIP("face::1"))
-
-	externalNode2Device := "dummy_node2"
-	dev2 := mustSetupDevice(t, s.ns, externalNode2Device, externalNode1IP4v2, net.ParseIP("face::2"))
-
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
-
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)
-	nodeConfig.EnableAutoDirectRouting = true
-
-	expectedIPv4Routes := 0
-	if s.enableIPv4 {
-		expectedIPv4Routes = 1
-	}
-
-	mustConfigureNode(t, s.ns, lnh, nodeConfig)
-
-	// nodev1: ip4Alloc1 => externalNodeIP1
-	nodev1 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v1)), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR: nodeTypes.PrefixFrom(ip4Alloc1),
-	}
-	mustAddNode(t, s.ns, lnh, nodev1)
-
-	foundRoutes := mustLookupDirectRoute(t, s.ns, log, ip4Alloc1, externalNode1IP4v1)
-	require.Len(t, foundRoutes, expectedIPv4Routes)
-
-	// nodev2: ip4Alloc1 => externalNodeIP2
-	nodev2 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR: nodeTypes.PrefixFrom(ip4Alloc1),
-	}
-
-	mustUpdateNode(t, s.ns, lnh, nodev1, nodev2)
-
-	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc1, externalNode1IP4v2), expectedIPv4Routes)
-
-	// nodev3: ip4Alloc2 => externalNodeIP2
-	nodev3 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR: nodeTypes.PrefixFrom(ip4Alloc2),
-	}
-	mustUpdateNode(t, s.ns, lnh, nodev2, nodev3)
-
-	// node routes for alloc1 ranges should be gone
-	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc1, externalNode1IP4v2)) // route should not exist regardless whether ipv4 is enabled or not
-
-	// node routes for alloc2 ranges should have been installed
-	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2), expectedIPv4Routes)
-
-	// nodev4: no longer announce CIDR
-	nodev4 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
-		},
-	}
-	mustUpdateNode(t, s.ns, lnh, nodev3, nodev4)
-
-	// node routes for alloc2 ranges should have been removed
-	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2))
-
-	// nodev5: Re-announce CIDR
-	nodev5 := nodeTypes.Node{
-		Name: "node1",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR: nodeTypes.PrefixFrom(ip4Alloc2),
-	}
-	mustUpdateNode(t, s.ns, lnh, nodev4, nodev5)
-
-	// node routes for alloc2 ranges should have been removed
-	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2), expectedIPv4Routes)
-
-	// delete nodev5
-	mustDeleteNode(t, s.ns, lnh, nodev5)
-
-	// node routes for alloc2 ranges should be gone
-	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2)) // route should not exist regardless whether ipv4 is enabled or not
-
-	// nodev6: Re-introduce node with secondary CIDRs
-	nodev6 := nodeTypes.Node{
-		Name: "node2",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v1)), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc1),
-		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{ipv4SecondaryAlloc1, ipv4SecondaryAlloc2}, nodeTypes.PrefixFrom),
-	}
-	mustAddNode(t, s.ns, lnh, nodev6)
-
-	// expecting both primary and secondary routes to exist
-	for _, ip4Alloc := range []netip.Prefix{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
-		require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc, externalNode1IP4v1), expectedIPv4Routes)
-	}
-
-	// nodev7: Replace a secondary route
-	nodev7 := nodeTypes.Node{
-		Name: "node2",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v1)), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc1),
-		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{ipv4SecondaryAlloc1, ipv4SecondaryAlloc3}, nodeTypes.PrefixFrom),
-	}
-	mustUpdateNode(t, s.ns, lnh, nodev6, nodev7)
-
-	// Checks all three required routes exist
-	for _, ip4Alloc := range []netip.Prefix{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
-		require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc, externalNode1IP4v1), expectedIPv4Routes)
-	}
-	// Checks route for removed CIDR has been deleted
-	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ipv4SecondaryAlloc2, externalNode1IP4v1))
-
-	// nodev8: Change node IP to externalNode1IP4v2
-	nodev8 := nodeTypes.Node{
-		Name: "node2",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc1),
-		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{ipv4SecondaryAlloc1, ipv4SecondaryAlloc3}, nodeTypes.PrefixFrom),
-	}
-	mustUpdateNode(t, s.ns, lnh, nodev7, nodev8)
-
-	// Checks all routes with the new node IP exist
-	for _, ip4Alloc := range []netip.Prefix{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
-		require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc, externalNode1IP4v2), expectedIPv4Routes)
-	}
-	// Checks all routes with the old node IP have been deleted
-	for _, ip4Alloc := range []netip.Prefix{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
-		require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc, externalNode1IP4v1))
-	}
-
-	// nodev9: replacement of primary route, removal of secondary CIDRs
-	nodev9 := nodeTypes.Node{
-		Name: "node2",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v2)), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc2),
-		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{}, nodeTypes.PrefixFrom),
-	}
-	mustUpdateNode(t, s.ns, lnh, nodev8, nodev9)
-
-	// Checks primary route has been created
-	require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2), expectedIPv4Routes)
-
-	// Checks all old routes have been deleted
-	for _, ip4Alloc := range []netip.Prefix{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc3} {
-		require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc, externalNode1IP4v2))
-	}
-
-	// nodev10: Re-introduce node with secondary CIDRs
-	nodev10 := nodeTypes.Node{
-		Name: "node2",
-		IPAddresses: []nodeTypes.Address{
-			{IP: iputil.AddrFrom(iputil.AddrFromIP(externalNode1IP4v1)), Type: nodeaddressing.NodeInternalIP},
-		},
-		IPv4AllocCIDR:           nodeTypes.PrefixFrom(ip4Alloc1),
-		IPv4SecondaryAllocCIDRs: cslices.Map([]netip.Prefix{ipv4SecondaryAlloc1, ipv4SecondaryAlloc2}, nodeTypes.PrefixFrom),
-	}
-	mustUpdateNode(t, s.ns, lnh, nodev9, nodev10)
-
-	// expecting both primary and secondary routes to exist
-	for _, ip4Alloc := range []netip.Prefix{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
-		require.Len(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc, externalNode1IP4v1), expectedIPv4Routes)
-	}
-
-	// node routes for alloc2 ranges should have been removed
-	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc2, externalNode1IP4v2))
-
-	// delete nodev10
-	mustDeleteNode(t, s.ns, lnh, nodev10)
-
-	// all node routes must have been deleted
-	for _, ip4Alloc := range []netip.Prefix{ip4Alloc1, ipv4SecondaryAlloc1, ipv4SecondaryAlloc2} {
-		require.Empty(t, mustLookupDirectRoute(t, s.ns, log, ip4Alloc, externalNode1IP4v1))
-	}
-}
-
 // TestPrivilegedNodeUpdateHybridRouting exercises the full NodeAdd/NodeUpdate/
 // NodeDelete -> nodeUpdate/nodeDelete -> updateHybridRoutes path, verifying
 // that each remote pod CIDR gets the route type dictated by the subnet
@@ -1019,11 +792,11 @@ func TestPrivilegedNodeUpdateHybridRouting(t *testing.T) {
 	externalNodeDevice := "dummy_node1"
 	dev := mustSetupDevice(t, s.ns, externalNodeDevice, externalNodeIP)
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
 	log := hivetest.Logger(t)
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), db, subnetTable)
+	lnh := newTestNodeHandler(t)
+	lnh.localNodeStore = lns
+	lnh.db = db
+	lnh.subnetTable = subnetTable
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.EnableIPv6 = false
@@ -1058,111 +831,12 @@ func TestPrivilegedNodeUpdateHybridRouting(t *testing.T) {
 
 	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, otherGroupAlloc), "stale tunnel route for old CIDR should be gone")
 	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc), "no tunnel route expected for same-group CIDR")
-	require.Len(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP), 1, "expected direct route for same-group CIDR")
-
+	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP), "no direct route expected for same-group CIDR since we don't create them in the linux handler")
 	// delete the node: both route types should be attempted and removed.
 	mustDeleteNode(t, s.ns, lnh, nodev2)
 
 	require.Nil(t, mustGetNodeRoute(t, s.ns, lnh, sameGroupAlloc))
 	require.Empty(t, mustLookupDirectRoute(t, s.ns, log, sameGroupAlloc, externalNodeIP))
-}
-
-func mustInsertRoute(tb testing.TB, ns *netns.NetNS, n *linuxNodeHandler, prefix netip.Prefix) {
-	tb.Helper()
-
-	nodeRoute, err := n.createNodeRouteSpec(prefix, false)
-	require.NoError(tb, err)
-
-	nodeRoute.Device = externalDevice
-
-	require.NoError(tb, ns.Do(func() error {
-		return route.Upsert(hivetest.Logger(tb), nodeRoute)
-	}))
-}
-
-func mustLookupRoute(tb testing.TB, ns *netns.NetNS, n *linuxNodeHandler, prefix netip.Prefix) bool {
-	tb.Helper()
-
-	routeSpec, err := n.createNodeRouteSpec(prefix, false)
-	require.NoError(tb, err)
-
-	routeSpec.Device = externalDevice
-
-	var rt *route.Route
-	require.NoError(tb, ns.Do(func() error {
-		var err error
-		rt, err = route.Lookup(routeSpec)
-		return err
-	}))
-
-	return rt != nil
-}
-
-func TestPrivilegedNodeValidationDirectRouting(t *testing.T) {
-	testWithFamilies(t, func(t *testing.T, family string) {
-		testNodeValidationDirectRouting(t, family)
-	})
-}
-
-func testNodeValidationDirectRouting(t *testing.T, family string) {
-	s := setup(t, family)
-
-	ip4Alloc1 := netip.MustParsePrefix("5.5.5.0/24")
-	ip6Alloc1 := netip.MustParsePrefix("2001:aaaa::/96")
-
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	ipsecAgent, err := ipsec.NewTestIPsecAgent(t, nil)
-	require.NoError(t, err)
-
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, ipsecAgent, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
-
-	nodeConfig := s.nodeConfigTemplate
-	nodeConfig.EnableEncapsulation = false
-	lnh.nodeConfig = nodeConfig
-
-	if s.enableIPv4 {
-		mustInsertRoute(t, s.ns, lnh, ip4Alloc1)
-	}
-
-	if s.enableIPv6 {
-		mustInsertRoute(t, s.ns, lnh, ip6Alloc1)
-	}
-
-	mustConfigureNode(t, s.ns, lnh, nodeConfig)
-
-	nodev1 := nodeTypes.Node{
-		Name:        "node1",
-		IPAddresses: []nodeTypes.Address{},
-	}
-
-	if s.enableIPv4 {
-		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   iputil.AddrFrom(nodeConfig.NodeIPv4),
-			Type: nodeaddressing.NodeInternalIP,
-		})
-		nodev1.IPv4AllocCIDR = nodeTypes.PrefixFrom(ip4Alloc1)
-	}
-
-	if s.enableIPv6 {
-		nodev1.IPAddresses = append(nodev1.IPAddresses, nodeTypes.Address{
-			IP:   iputil.AddrFrom(nodeConfig.NodeIPv6),
-			Type: nodeaddressing.NodeInternalIP,
-		})
-		nodev1.IPv6AllocCIDR = nodeTypes.PrefixFrom(ip6Alloc1)
-	}
-
-	mustAddNode(t, s.ns, lnh, nodev1)
-	mustRefreshNode(t, s.ns, lnh, nodev1)
-
-	if s.enableIPv4 {
-		require.True(t, mustLookupRoute(t, s.ns, lnh, ip4Alloc1))
-	}
-
-	if s.enableIPv6 {
-		require.True(t, mustLookupRoute(t, s.ns, lnh, ip6Alloc1))
-	}
 }
 
 // prefixFromIPNet converts a *net.IPNet observed from netlink into a canonical
@@ -1256,12 +930,10 @@ func testNodePodCIDRsChurnIPSec(t *testing.T, family string) {
 	remoteNode2Device := "remote_node_2"
 	dev2 := mustSetupDevice(t, s.ns, remoteNode2Device, remoteNode2IPv4, remoteNode2IPv6)
 
-	dpConfig := DatapathConfiguration{HostDevice: hostDevice}
-	log := hivetest.Logger(t)
 	a, err := ipsec.NewTestIPsecAgent(t, bytes.NewReader([]byte("6+ rfc4106(gcm(aes)) 44434241343332312423222114131211f4f3f2f1 128\n")))
 	require.NoError(t, err)
-	lns := node.NewTestLocalNodeStore(node.LocalNode{})
-	lnh := newNodeHandler(log, dpConfig, nodemapfake.NewFakeNodeMapV2(), kpr.KPRConfig{}, a, fakeipsec.Config{}, lns, newNodePolicy(), nil, nil)
+	lnh := newTestNodeHandler(t)
+	lnh.ipsecAgent = a
 
 	nodeConfig := s.nodeConfigTemplate
 	nodeConfig.Devices = append(slices.Clone(nodeConfig.Devices), dev1, dev2)

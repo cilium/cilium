@@ -64,6 +64,7 @@ func newTestLinuxNodeOps(t *testing.T) (*linuxNodeHandler, *linuxNodeOps) {
 		newNodePolicy(),
 		nil,
 		nil,
+		nil,
 	)
 	return handler, &linuxNodeOps{handler: handler}
 }
