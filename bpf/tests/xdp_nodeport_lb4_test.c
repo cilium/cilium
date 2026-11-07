@@ -24,6 +24,7 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 ASSIGN_CONFIG(bool, enable_no_service_endpoints_routable, true)
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

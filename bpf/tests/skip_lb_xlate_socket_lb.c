@@ -51,6 +51,7 @@ int test_get_netns_cookie(__maybe_unused const struct bpf_sock_addr *addr)
 
 ASSIGN_CONFIG(bool, enable_lrp, true)
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(__u64, host_netns_cookie, HOST_NETNS_COOKIE)
 
 #include "lib/common.h"

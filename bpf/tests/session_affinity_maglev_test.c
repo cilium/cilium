@@ -125,6 +125,7 @@ ASSIGN_CONFIG(bool, enable_endpoint_routes, true)
 ASSIGN_CONFIG(__u32, hash_init4_seed, 0xcafe)
 ASSIGN_CONFIG(__u32, hash_init6_seed, 0xeb9f)
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport_acceleration, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

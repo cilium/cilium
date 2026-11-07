@@ -32,6 +32,7 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 /* Include necessary headers to get configuration declarations */
 #include <lib/nat.h>
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 /* Configure the test with proper values for disabled remote node masquerade */
 ASSIGN_CONFIG(union v4addr, nat_ipv4_masquerade, { .be32 = IPV4_MASQUERADE })
 ASSIGN_CONFIG(bool, enable_remote_node_masquerade, false)

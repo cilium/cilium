@@ -46,6 +46,7 @@ mock_ctx_redirect(const struct __sk_buff *ctx __maybe_unused,
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

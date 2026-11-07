@@ -50,9 +50,6 @@ static __always_inline __sock_cookie mock_get_socket_cookie(void *ctx __maybe_un
 	return current_cookie;
 }
 
-#define ENABLE_IPV4 1
-#define ENABLE_IPV6 1
-
 #include "lib/socket.h"
 
 #include "bpf_sock_term.c"

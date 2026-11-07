@@ -28,6 +28,7 @@ static volatile const __u8 *dst_mac2 = mac_four;
 #ifdef TEST_EXTENDED_PROTOCOLS
 ASSIGN_CONFIG(bool, enable_extended_ip_protocols, true);
 #endif
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_conntrack_accounting, true)
 ASSIGN_CONFIG(bool, enable_host_firewall, true)
 

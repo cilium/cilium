@@ -63,6 +63,7 @@ static volatile const __u8 *DEST_NODE_MAC = mac_four;
 
 #include "lib/bpf_overlay.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_identity_mark, true)
 ASSIGN_CONFIG(bool, encryption_strict_ingress, true)
 ASSIGN_CONFIG(bool, enable_wireguard, true)

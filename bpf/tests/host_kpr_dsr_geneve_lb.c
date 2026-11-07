@@ -8,4 +8,5 @@
 
 #include "kpr_dsr_lb.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)

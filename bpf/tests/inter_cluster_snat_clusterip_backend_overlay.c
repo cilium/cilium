@@ -89,6 +89,7 @@ ASSIGN_CONFIG(union v4addr, ipv4_inter_cluster_snat, { .be32 = BACKEND_NODE_IP }
 /* Overwrite (local) cluster_id defined in clustermesh.h */
 ASSIGN_CONFIG(__u32, cluster_id, 1)
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 
 #include "lib/endpoint.h"

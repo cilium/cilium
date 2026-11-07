@@ -56,6 +56,7 @@ mock_tail_call_dynamic(struct __ctx_buff *ctx __maybe_unused,
 #include "lib/ipcache.h"
 #include "lib/lb.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_bpf_host_routing, true)
 ASSIGN_CONFIG(bool, enable_nodeport, true)
 

@@ -60,6 +60,7 @@ int mock_skb_set_tunnel_key(__maybe_unused struct __sk_buff *skb,
 ASSIGN_CONFIG(__u32, encap4_ifindex, 42)
 ASSIGN_CONFIG(__u32, encap6_ifindex, 42)
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_health_check, true)
 ASSIGN_CONFIG(struct dsr_config, dsr_cfg, { .enable = true })
 ASSIGN_CONFIG(bool, enable_nodeport, true)

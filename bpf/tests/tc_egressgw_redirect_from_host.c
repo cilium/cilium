@@ -32,6 +32,7 @@ ASSIGN_CONFIG(bool, enable_masquerade_ipv6, true)
 ASSIGN_CONFIG(bool, enable_masquerade_ipv4, true)
 #include "lib/metrics.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(bool, enable_host_firewall, true)
 ASSIGN_CONFIG(__u32, interface_ifindex, PRIMARY_IFACE)
 ASSIGN_CONFIG(bool, enable_nodeport, true)

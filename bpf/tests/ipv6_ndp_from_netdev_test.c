@@ -15,6 +15,7 @@
 
 #include "scapy.h"
 
+ASSIGN_CONFIG(bool, enable_ipv4, true)
 ASSIGN_CONFIG(union macaddr, interface_mac, {.addr = mac_two_addr})
 
 /* packet defined in ./scapy/ipv6_ndp_pkt_defs.py */
