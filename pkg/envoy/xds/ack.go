@@ -59,7 +59,7 @@ type AckingResourceMutatorRevertFunc func()
 type AckingResourceMutatorRevertFuncList []AckingResourceMutatorRevertFunc
 
 func (rl AckingResourceMutatorRevertFuncList) Revert() {
-	// Revert the listed funcions in reverse order
+	// Revert the listed functions in reverse order
 	for _, f := range slices.Backward(rl) {
 		f()
 	}
@@ -481,7 +481,7 @@ func (m *AckingResourceMutatorWrapper) HandleResourceVersionAck(nodeIP string, a
 	if previouslyAckedVersion, exists := m.ackedVersions[nodeIP]; !exists || previouslyAckedVersion < ackVersion {
 		m.ackedVersions[nodeIP] = ackVersion
 
-		// Signal reception of an ACK (exluding the version 0, or any NACKs).
+		// Signal reception of an ACK (excluding the version 0, or any NACKs).
 		if previouslyAckedVersion < ackVersion {
 			ch, exists := m.ackedNodes[nodeIP]
 			if !exists || ch != nil {

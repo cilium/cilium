@@ -1190,7 +1190,7 @@ func TestPrivilegedRestoredEndpoint(t *testing.T) {
 	_, exists := s.proxy.restored[epID1]
 	require.True(t, exists)
 
-	// 3nd request, answered due to restored Endpoint and rules being found
+	// 3rd request, answered due to restored Endpoint and rules being found
 	for _, query := range queries {
 		request := new(dns.Msg)
 		request.SetQuestion(query, dns.TypeA)

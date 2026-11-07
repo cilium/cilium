@@ -16,7 +16,7 @@ const (
 	// allowedDNSCharsREGroup is the regex group to match allowed characters in a DNS name.
 	allowedDNSCharsREGroup = "[-a-zA-Z0-9_]"
 
-	// dnsWildcardREGroup is the regex pattern for DNS wildcard specifier which matches one ore more
+	// dnsWildcardREGroup is the regex pattern for DNS wildcard specifier which matches one or more
 	// entire DNS labels. This regex group matches following cases:
 	// * <dns-label>
 	// * <dns-label-1>.<dns-label-2>.<dns-label-3>
@@ -132,7 +132,7 @@ func escapeRegexpCharacters(pattern string) string {
 	// Convert '.' in the match pattern as literal '.' for regex pattern.
 	pattern = strings.ReplaceAll(pattern, ".", "[.]")
 
-	// '**.' in match pattern prefix is a subdomain wildcard specifier which matches one ore more
+	// '**.' in match pattern prefix is a subdomain wildcard specifier which matches one or more
 	// entire labels.
 	pattern = subdomainWildcardSpecifierPrefix.ReplaceAllString(pattern, dnsWildcardREGroup)
 

@@ -88,7 +88,7 @@ type CESCache struct {
 	cidToGidLabels map[CID]Labels
 }
 
-// Creates and intializes the new CESCache
+// Creates and initializes the new CESCache
 func newCESCache() *CESCache {
 	return &CESCache{
 		cepData:                make(map[CEPName]*CEPData),

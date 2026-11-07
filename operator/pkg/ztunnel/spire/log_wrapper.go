@@ -38,7 +38,7 @@ func (l *spiffeLogWrapper) Warnf(format string, args ...any) {
 }
 
 // Errorf logs an error message downgraded to a warning as in our case
-// a connection error on startups is expected on initial start of the oprator
+// a connection error on startups is expected on initial start of the operator
 // while the SPIRE server is still starting up. Any errors given by spire will
 // result in an error passed back to the function caller which then is logged
 // as an error.
