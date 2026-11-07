@@ -159,6 +159,23 @@ spec:
                       DisablePrefixDelegation determines whether ENI prefix delegation should be
                       disabled on this node.
                     type: boolean
+                  ena-express:
+                    description: |-
+                      ENAExpress determines whether ENIs attached to the instance use ENA
+                      Express. "disabled" doesn't configure ENA Express, "enabled" enables it
+                      if the instance type supports it, and "inherit" uses the ENA Express
+                      configuration of the primary ENI. If the parameter is not set ENA
+                      Express is disabled.
+                    enum:
+                    - disabled
+                    - enabled
+                    - inherit
+                    type: string
+                  ena-express-udp:
+                    description: |-
+                      ENAExpressUDP determines whether UDP traffic uses ENA Express on ENIs
+                      attached to the instance when ENAExpress is "enabled".
+                    type: boolean
                   exclude-interface-tags:
                     additionalProperties:
                       type: string
@@ -698,6 +715,20 @@ spec:
                           description: Description is the description field of the
                             ENI
                           type: string
+                        ena-express:
+                          description: ENAExpress is the ENA Express configuration
+                            of the ENI attachment
+                          properties:
+                            enabled:
+                              description: Enabled is true if ENA Express is enabled
+                                on the ENI attachment
+                              type: boolean
+                            udp-enabled:
+                              description: |-
+                                UDPEnabled is true if UDP traffic uses ENA Express on the ENI
+                                attachment
+                              type: boolean
+                          type: object
                         id:
                           description: ID is the ENI ID
                           type: string

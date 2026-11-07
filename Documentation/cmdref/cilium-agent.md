@@ -206,6 +206,8 @@ cilium-agent [flags]
       --endpoint-regen-interval duration                          Periodically recalculate and re-apply endpoint configuration. Set to 0 to disable (default 2m0s)
       --eni-delete-on-termination                                 Whether the ENI should be deleted when the associated instance is terminated at the node level (default true)
       --eni-disable-prefix-delegation                             Whether ENI prefix delegation should be disabled on this node at the node level
+      --eni-ena-express string                                    Whether ENIs attached to the instance use ENA Express (disabled, enabled if the instance type supports it, or inherit from the primary ENI) at the node level (default "disabled")
+      --eni-ena-express-udp                                       Whether UDP traffic uses ENA Express on ENIs attached to the instance when eni-ena-express is enabled at the node level
       --eni-exclude-interface-tags stringToString                 List of tags to use when excluding ENIs for Cilium IP allocation at the node level (default [])
       --eni-first-interface-index int                             Index of the first ENI to use for IP allocation at the node level
       --eni-security-group-tags stringToString                    List of tags to use when evaluating what AWS security groups to use for the ENI at the node level (default [])

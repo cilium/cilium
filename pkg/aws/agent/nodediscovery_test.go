@@ -75,6 +75,74 @@ func TestApplyInstanceFactsNotOverridable(t *testing.T) {
 	}
 }
 
+// TestApplyENAExpress asserts that the ENA Express settings of the agent
+// configuration are written to the ENISpec, and that the CNI configuration
+// file overrides them.
+func TestApplyENAExpress(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		in       nodediscovery.ENIMutateInputs
+		netConf  *cnitypes.NetConf
+		wantMode awsTypes.ENAExpressMode
+		wantUDP  bool
+	}{
+		{
+			name:     "agent defaults",
+			in:       nodediscovery.ENIMutateInputs{ENAExpress: defaults.ENIENAExpress, ENAExpressUDP: defaults.ENIENAExpressUDP},
+			wantMode: awsTypes.ENAExpressModeDisabled,
+			wantUDP:  false,
+		},
+		{
+			name:     "agent configuration",
+			in:       nodediscovery.ENIMutateInputs{ENAExpress: "enabled", ENAExpressUDP: true},
+			wantMode: awsTypes.ENAExpressModeEnabled,
+			wantUDP:  true,
+		},
+		{
+			name: "CNI configuration overrides agent configuration",
+			in:   nodediscovery.ENIMutateInputs{ENAExpress: "enabled", ENAExpressUDP: true},
+			netConf: &cnitypes.NetConf{ENI: awsTypes.ENISpec{
+				ENAExpress:    awsTypes.ENAExpressModeInherit,
+				ENAExpressUDP: new(false),
+			}},
+			wantMode: awsTypes.ENAExpressModeInherit,
+			wantUDP:  false,
+		},
+		{
+			name:     "unknown agent configuration mode disables ENA Express",
+			in:       nodediscovery.ENIMutateInputs{ENAExpress: "true", ENAExpressUDP: true},
+			wantMode: awsTypes.ENAExpressModeDisabled,
+			wantUDP:  true,
+		},
+		{
+			name:     "unknown CNI configuration mode disables ENA Express",
+			in:       nodediscovery.ENIMutateInputs{ENAExpress: "enabled"},
+			netConf:  &cnitypes.NetConf{ENI: awsTypes.ENISpec{ENAExpress: "Enabled"}},
+			wantMode: awsTypes.ENAExpressModeDisabled,
+			wantUDP:  false,
+		},
+		{
+			name:     "unset CNI configuration keeps agent configuration",
+			in:       nodediscovery.ENIMutateInputs{ENAExpress: "enabled", ENAExpressUDP: true},
+			netConf:  &cnitypes.NetConf{},
+			wantMode: awsTypes.ENAExpressModeEnabled,
+			wantUDP:  true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.in.Logger = slog.New(slog.DiscardHandler)
+			tt.in.CNIConfigManager = &netConfManager{conf: tt.netConf}
+
+			node := &ciliumv2.CiliumNode{}
+			applyENISpec(tt.in, awsMetadata.MetaDataInfo{}, node)
+
+			require.Equal(t, tt.wantMode, node.Spec.ENI.ENAExpress)
+			require.NotNil(t, node.Spec.ENI.ENAExpressUDP)
+			require.Equal(t, tt.wantUDP, *node.Spec.ENI.ENAExpressUDP)
+		})
+	}
+}
+
 // TestSeedPoolRequest asserts that applyENISpec seeds the default pool demand
 // after the pre-allocate value has been resolved from the agent configuration
 // and the CNI configuration file. The seeding logic itself is tested in

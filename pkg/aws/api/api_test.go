@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/cilium/cilium/pkg/aws/types"
 	iputil "github.com/cilium/cilium/pkg/ip"
 )
 
@@ -310,6 +311,102 @@ func TestParseENIIPv6(t *testing.T) {
 				return
 			}
 			assert.Equal(t, tt.want, eni.IPv6.String())
+		})
+	}
+}
+
+func TestParseENIENAExpress(t *testing.T) {
+	newIface := func(spec *ec2_types.AttachmentEnaSrdSpecification) *ec2_types.NetworkInterface {
+		return &ec2_types.NetworkInterface{
+			PrivateIpAddress: aws.String("10.0.0.1"),
+			Attachment: &ec2_types.NetworkInterfaceAttachment{
+				DeviceIndex:         aws.Int32(0),
+				InstanceId:          aws.String("i-1"),
+				EnaSrdSpecification: spec,
+			},
+		}
+	}
+
+	tests := []struct {
+		name string
+		spec *ec2_types.AttachmentEnaSrdSpecification
+		want types.ENAExpress
+	}{
+		{
+			name: "no ENA Express specification",
+			spec: nil,
+			want: types.ENAExpress{},
+		},
+		{
+			name: "ENA Express disabled",
+			spec: &ec2_types.AttachmentEnaSrdSpecification{EnaSrdEnabled: aws.Bool(false)},
+			want: types.ENAExpress{},
+		},
+		{
+			name: "ENA Express enabled without UDP specification",
+			spec: &ec2_types.AttachmentEnaSrdSpecification{EnaSrdEnabled: aws.Bool(true)},
+			want: types.ENAExpress{Enabled: true},
+		},
+		{
+			name: "ENA Express enabled with UDP disabled",
+			spec: &ec2_types.AttachmentEnaSrdSpecification{
+				EnaSrdEnabled:          aws.Bool(true),
+				EnaSrdUdpSpecification: &ec2_types.AttachmentEnaSrdUdpSpecification{EnaSrdUdpEnabled: aws.Bool(false)},
+			},
+			want: types.ENAExpress{Enabled: true},
+		},
+		{
+			name: "ENA Express enabled with UDP enabled",
+			spec: &ec2_types.AttachmentEnaSrdSpecification{
+				EnaSrdEnabled:          aws.Bool(true),
+				EnaSrdUdpSpecification: &ec2_types.AttachmentEnaSrdUdpSpecification{EnaSrdUdpEnabled: aws.Bool(true)},
+			},
+			want: types.ENAExpress{Enabled: true, UDPEnabled: true},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, eni, err := parseENI(newIface(tt.spec), nil, nil)
+			require.NoError(t, err)
+			require.NotNil(t, eni)
+			assert.Equal(t, tt.want, eni.ENAExpress)
+		})
+	}
+}
+
+func TestENASrdSpecification(t *testing.T) {
+	tests := []struct {
+		name       string
+		enaExpress types.ENAExpress
+		want       *ec2_types.EnaSrdSpecification
+	}{
+		{
+			name:       "ENA Express disabled",
+			enaExpress: types.ENAExpress{},
+			want:       nil,
+		},
+		{
+			name:       "ENA Express enabled",
+			enaExpress: types.ENAExpress{Enabled: true},
+			want: &ec2_types.EnaSrdSpecification{
+				EnaSrdEnabled:          aws.Bool(true),
+				EnaSrdUdpSpecification: &ec2_types.EnaSrdUdpSpecification{EnaSrdUdpEnabled: aws.Bool(false)},
+			},
+		},
+		{
+			name:       "ENA Express enabled with UDP enabled",
+			enaExpress: types.ENAExpress{Enabled: true, UDPEnabled: true},
+			want: &ec2_types.EnaSrdSpecification{
+				EnaSrdEnabled:          aws.Bool(true),
+				EnaSrdUdpSpecification: &ec2_types.EnaSrdUdpSpecification{EnaSrdUdpEnabled: aws.Bool(true)},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, enaSrdSpecification(tt.enaExpress))
 		})
 	}
 }

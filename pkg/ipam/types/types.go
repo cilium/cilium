@@ -30,6 +30,9 @@ type Limits struct {
 
 	// IsBareMetal tracks whether an instance is a bare metal instance or not
 	IsBareMetal bool
+
+	// ENAExpressSupported tracks whether an instance supports AWS ENA Express
+	ENAExpressSupported bool
 }
 
 // AllocationIP is an IP which is available for allocation, or already
