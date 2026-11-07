@@ -727,7 +727,7 @@ func newCiliumLXCSpec(btf *btf.Spec) *ebpf.MapSpec {
 		ValueSize:  48,
 		Value:      anyTypeByName(btf, "endpoint_info"),
 		MaxEntries: 65536,
-		Flags:      unix.BPF_F_NO_PREALLOC | unix.BPF_F_RDONLY_PROG,
+		Flags:      unix.BPF_F_RDONLY_PROG,
 		Pinning:    ebpf.PinByName,
 	}
 }

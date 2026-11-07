@@ -8,15 +8,10 @@ import (
 	"log/slog"
 	"net/netip"
 
-	"github.com/cilium/ebpf"
-	"golang.org/x/sys/unix"
-
 	"github.com/cilium/cilium/pkg/bpf"
 	eptypes "github.com/cilium/cilium/pkg/endpoint/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
-	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -53,20 +48,6 @@ type Map interface {
 
 type lxcMap struct {
 	bpfMap *bpf.Map
-}
-
-func newMap(registry *metrics.Registry) *lxcMap {
-	return &lxcMap{
-		bpfMap: bpf.NewMap(mapName,
-			ebpf.Hash,
-			&EndpointKey{},
-			&EndpointInfo{},
-			MaxEntries,
-			unix.BPF_F_RDONLY_PROG,
-		).
-			WithCache().WithPressureMetric(registry).
-			WithEvents(option.Config.GetEventBufferConfig(mapName)),
-	}
 }
 
 // OpenMap opens the pre-initialized LXC map for access.
