@@ -13,6 +13,9 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
 
+        # Disable gzip for HTML responses so sub_filter can modify the content
+        gzip off;
+
         location {{ .Values.hubble.ui.baseUrl }}api {
             {{- if not (eq .Values.hubble.ui.baseUrl "/") }}
             rewrite ^{{ (trimSuffix "/" .Values.hubble.ui.baseUrl) }}(/.*)$ $1 break;
@@ -28,7 +31,15 @@ server {
 
         {{- if not (eq .Values.hubble.ui.baseUrl "/") }}
         sub_filter_once on;
+        sub_filter_types text/html;
+        # Match various forms of base tag that might exist in the frontend build
         sub_filter '<base href="/"/>' '<base href="{{ .Values.hubble.ui.baseUrl }}"/>';
+        sub_filter '<base href="/" />' '<base href="{{ .Values.hubble.ui.baseUrl }}"/>';
+        sub_filter "<base href='/' />" "<base href='{{ .Values.hubble.ui.baseUrl }}'/>";
+        sub_filter "<base href='/'/>" "<base href='{{ .Values.hubble.ui.baseUrl }}'/>";
+        # If no base tag exists, inject one after <head>
+        sub_filter '<head>' '<head><base href="{{ .Values.hubble.ui.baseUrl }}"/>';
+        sub_filter '<head >' '<head><base href="{{ .Values.hubble.ui.baseUrl }}"/>';
         {{- end }}
         location {{ .Values.hubble.ui.baseUrl }} {
             if ($http_user_agent ~* "kube-probe") { access_log off; }
