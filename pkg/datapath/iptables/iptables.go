@@ -718,6 +718,37 @@ func (m *manager) inboundProxyRedirectRule(cmd string) []string {
 		"--set-mark", toProxyMark}
 }
 
+// Disable conntrack for transparent proxy traffic before it reaches the
+// conntrack hook in PREROUTING.
+func (m *manager) inboundProxyNotrackRule(cmd string) []string {
+	matchFromIPSecEncrypt := fmt.Sprintf("%#08x/%#08x", linux_defaults.RouteMarkEncrypt, linux_defaults.RouteMarkMask)
+	matchSkipTProxy := fmt.Sprintf("%#08x/%#08x", linux_defaults.MarkSkipTProxy, linux_defaults.RouteMarkMask)
+
+	return []string{
+		"-t", "raw",
+		cmd, ciliumPreRawChain,
+		"-m", "socket", "--transparent",
+		"-m", "mark", "!", "--mark", matchFromIPSecEncrypt,
+		"-m", "mark", "!", "--mark", matchSkipTProxy,
+		"-m", "comment", "--comment", "cilium: NOTRACK for transparent proxy traffic",
+		"-j", "CT", "--notrack",
+	}
+}
+
+// installInboundProxyRules installs the raw NOTRACK rule before the existing
+// transparent-proxy redirect rule.
+func (m *manager) installInboundProxyRules(prog iptablesInterface) error {
+	if !m.haveSocketMatch {
+		return nil
+	}
+
+	if err := prog.runProg(m.inboundProxyNotrackRule("-A")); err != nil {
+		return err
+	}
+
+	return prog.runProg(m.inboundProxyRedirectRule("-A"))
+}
+
 func (m *manager) iptProxyRule(rules string, prog runnable, l4proto, ip string, proxyPort uint16, name string) error {
 	// Match
 	port := uint32(byteorder.HostToNetwork16(proxyPort)) << 16
@@ -948,11 +979,8 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 			return err
 		}
 
-		if m.haveSocketMatch {
-			// Direct inbound TPROXYed traffic towards the socket
-			if err := m.ip4tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
-				return err
-			}
+		if err := m.installInboundProxyRules(m.ip4tables); err != nil {
+			return err
 		}
 	}
 
@@ -1048,11 +1076,8 @@ func (m *manager) installStaticProxyRules(ifName, localDeliveryInterface string)
 			return err
 		}
 
-		if m.haveSocketMatch {
-			// Direct inbound TPROXYed traffic towards the socket
-			if err := m.ip6tables.runProg(m.inboundProxyRedirectRule("-A")); err != nil {
-				return err
-			}
+		if err := m.installInboundProxyRules(m.ip6tables); err != nil {
+			return err
 		}
 	}
 
