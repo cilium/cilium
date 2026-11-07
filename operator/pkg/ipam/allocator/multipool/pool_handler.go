@@ -169,7 +169,7 @@ func buildPoolCIDRConfigs(cidrs []iputil.Prefix, pool []v2.PoolCIDRConfig) ([]po
 	for _, cidr := range cidrs {
 		prefix := cidr.Prefix.Masked()
 
-		reservedRanges, err := parseReservedRanges(prefix, configByCIDR[cidr].ReservedRanges)
+		reservedRanges, err := buildReservedRanges(prefix, configByCIDR[cidr].ReservedRanges)
 		if err != nil {
 			return nil, err
 		}
@@ -183,19 +183,13 @@ func buildPoolCIDRConfigs(cidrs []iputil.Prefix, pool []v2.PoolCIDRConfig) ([]po
 	return configs, nil
 }
 
-func parseReservedRanges(poolCIDR netip.Prefix, ranges []v2.ReservedRange) ([]netipx.IPRange, error) {
+func buildReservedRanges(poolCIDR netip.Prefix, ranges []v2.ReservedRange) ([]netipx.IPRange, error) {
 	reserved := make([]netipx.IPRange, 0, len(ranges))
 	for _, rr := range ranges {
-		start, err := netip.ParseAddr(rr.Start)
-		if err != nil {
-			return nil, fmt.Errorf("invalid reserved range start %q in pool CIDR %s: %w", rr.Start, poolCIDR, err)
-		}
-
-		end, err := netip.ParseAddr(rr.End)
-		if err != nil {
-			return nil, fmt.Errorf("invalid reserved range end %q in pool CIDR %s: %w", rr.End, poolCIDR, err)
-		}
-
+		start, end := rr.Start.Addr, rr.End.Addr
+		// The CRD schema already rejects invalid addresses, mixed address
+		// families and ranges outside the pool CIDR. Only start > end can't
+		// be expressed in CEL and is first caught here.
 		r := netipx.IPRangeFrom(start, end)
 		if !r.IsValid() {
 			return nil, fmt.Errorf("invalid reserved range %s-%s in pool CIDR %s", start, end, poolCIDR)
