@@ -108,7 +108,7 @@ jobs:
     env:
       job_name: "MCS API Conformance Test"
     needs: [wait-for-images]
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_4CPU_16GB || 'ubuntu-26.04' }}
     timeout-minutes: 120
     strategy:
       fail-fast: false

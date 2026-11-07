@@ -56,12 +56,16 @@ jobs:
 
   golangci:
     name: Lint Source Code
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_4CPU_16GB || 'ubuntu-26.04' }}
     steps:
       - name: Collect Workflow Telemetry
         uses: cilium/workflow-telemetry-action@b1a318f80a08acede58027afe1455d037379966f # v2.2.0
         with:
           comment_on_pr: false
+
+      - name: Configure Go temporary directory
+        # Go package loading can exceed Ubuntu 26's tmpfs-backed /tmp.
+        run: echo "GOTMPDIR=${RUNNER_TEMP}" >> "${GITHUB_ENV}"
 
       - name: Install Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

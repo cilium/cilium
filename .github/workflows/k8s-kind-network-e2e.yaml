@@ -62,7 +62,7 @@ jobs:
 
   kubernetes-e2e:
     name: K8s Network E2E tests
-    runs-on: ${{ vars.UBUNTU_2604_4CPU_16GB || 'ubuntu-26.04' }}
+    runs-on: ${{ vars.UBUNTU_2604_AMD64_4CPU_16GB || 'ubuntu-26.04' }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
