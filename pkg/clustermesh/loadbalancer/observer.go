@@ -93,9 +93,19 @@ func (o *endpointSliceObserver) OnUpdate(k store.Key) {
 	if !ok {
 		return
 	}
+
+	slimEps := k8s.ParseEndpointSliceV1(o.log, eps.ClusterEndpointSlice.ToShallowSlimEndpointSlice())
+	for _, backend := range slimEps.Backends {
+		if backend.NodeName != "" {
+			// Make sure that node name is different on each cluster, note that
+			// "@" is not allowed in node names in Kubernetes so this is a safe separator.
+			backend.NodeName += "@" + eps.Cluster
+		}
+	}
+
 	o.emit(endpointSliceEvent{
 		kind:      resource.Upsert,
-		obj:       k8s.ParseEndpointSliceV1(o.log, eps.ClusterEndpointSlice.ToShallowSlimEndpointSlice()),
+		obj:       slimEps,
 		clusterID: eps.ClusterID,
 	})
 }
