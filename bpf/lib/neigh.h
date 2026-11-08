@@ -15,7 +15,7 @@ struct {
 	__type(key, union v6addr);	/* ipv6 addr */
 	__type(value, union macaddr);	/* hw addr */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, NODEPORT_NEIGH6_SIZE);
+	__uint(max_entries, 524288);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_nodeport_neigh6 __section_maps_btf;
 
@@ -55,7 +55,7 @@ struct {
 	__type(key, __be32);		/* ipv4 addr */
 	__type(value, union macaddr);	/* hw addr */
 	__uint(pinning, LIBBPF_PIN_BY_NAME);
-	__uint(max_entries, NODEPORT_NEIGH4_SIZE);
+	__uint(max_entries, 524288);
 	__uint(map_flags, LRU_MEM_FLAVOR);
 } cilium_nodeport_neigh4 __section_maps_btf;
 
