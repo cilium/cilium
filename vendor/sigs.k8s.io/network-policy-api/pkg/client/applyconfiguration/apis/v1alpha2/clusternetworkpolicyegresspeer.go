@@ -61,6 +61,11 @@ type ClusterNetworkPolicyEgressPeerApplyConfiguration struct {
 	// or deny all IPv4 pod-to-pod traffic as well. If you don't want that,
 	// add a rule that Passes all pod traffic before the Networks rule.
 	//
+	// Networks matches both regular IP traffic and ICMP traffic to/from
+	// the specified CIDRs. For example, a Networks entry of "0.0.0.0/0"
+	// will match both IPv4 and ICMP traffic, while "::/0" will match
+	// both IPv6 and ICMPv6 traffic.
+	//
 	// Each item in Networks should be provided in the CIDR format and should be
 	// IPv4 or IPv6, for example "10.0.0.0/8" or "fd00::/8".
 	//

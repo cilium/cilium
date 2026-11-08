@@ -1,6 +1,6 @@
 module github.com/cilium/cilium
 
-go 1.26.0
+go 1.26.6
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
@@ -120,15 +120,15 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260803160001-6ac0973c030d
 	google.golang.org/grpc v1.83.2
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
-	k8s.io/api v0.36.5
-	k8s.io/apiextensions-apiserver v0.36.5
-	k8s.io/apimachinery v0.36.5
-	k8s.io/cli-runtime v0.36.5
-	k8s.io/client-go v0.36.5
-	k8s.io/component-base v0.36.5
-	k8s.io/endpointslice v0.36.5
+	k8s.io/api v0.36.6
+	k8s.io/apiextensions-apiserver v0.36.6
+	k8s.io/apimachinery v0.36.6
+	k8s.io/cli-runtime v0.36.6
+	k8s.io/client-go v0.36.6
+	k8s.io/component-base v0.36.6
+	k8s.io/endpointslice v0.36.6
 	k8s.io/klog/v2 v2.140.0
-	k8s.io/kubectl v0.36.5
+	k8s.io/kubectl v0.36.6
 	k8s.io/utils v0.0.0-20261023123148-ca04ba58ecab
 	sigs.k8s.io/controller-runtime v0.24.1
 	sigs.k8s.io/gateway-api v1.6.3
@@ -136,7 +136,7 @@ require (
 	sigs.k8s.io/mcs-api v0.5.2
 	sigs.k8s.io/mcs-api/conformance v0.5.2
 	sigs.k8s.io/mcs-api/controllers v0.5.2
-	sigs.k8s.io/network-policy-api v0.2.0
+	sigs.k8s.io/network-policy-api v0.2.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -266,12 +266,12 @@ require (
 	gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.36.5 // indirect
-	k8s.io/code-generator v0.36.5 // indirect
+	k8s.io/apiserver v0.36.6 // indirect
+	k8s.io/code-generator v0.36.6 // indirect
 	k8s.io/gengo/v2 v2.0.0-20250922181213-ec3ebc5fd46b // indirect
 	k8s.io/kube-openapi v0.0.0-20260501160325-927ab1f70cd6 // indirect
-	k8s.io/streaming v0.36.5 // indirect
-	sigs.k8s.io/controller-tools v0.20.1 // indirect
+	k8s.io/streaming v0.36.6 // indirect
+	sigs.k8s.io/controller-tools v0.21.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/kustomize/api v0.21.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
