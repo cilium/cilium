@@ -75,12 +75,12 @@ env:
   # renovate: datasource=github-releases depName=kubernetes/kubernetes
   kubectl_version: v1.37.2
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 591.0.0
+  gcloud_version: 592.0.0
 
   # Hosted under quay.io/cilium/egw-scale-utils and built by
   # a workflow in cilium/scaffolding.
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  egw_utils_ref: 028956f9e4c4f1a0d8541a2ce410912e9cb50d38
+  egw_utils_ref: 961a49150326b7a74e1302d3505a86f7c1b248cc
   test_name: egw
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}
 

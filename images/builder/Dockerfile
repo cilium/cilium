@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:26.04@sha256:6a06111c3b0a8600feadb270aec771dc239bf407b25625f93f44ab00e11f4d3c
-ARG TESTER_IMAGE=quay.io/cilium/image-tester:1793531520-5234aa4@sha256:d41a0a403062749794fd58d2781033536bb32d8afa8454d444edee2e9a9a209a
-ARG GOLANG_IMAGE=docker.io/library/golang:1.27.3@sha256:2920bb124f1a2e12a1d39f0cab756ae0068441ee1da7655dec7f5e374944095b
+ARG TESTER_IMAGE=quay.io/cilium/image-tester:1793630414-e47a187@sha256:1eae36eba2b5837d7dca3916766247682abf6a9e992e7d4bf4dded03721ce833
+ARG GOLANG_IMAGE=docker.io/library/golang:1.27.3@sha256:e519d3b0a5b285e5aa53ab9eef02bc6bbb9cb04608389b743a136a9ce75f0d1e
 ARG CILIUM_LLVM_IMAGE=quay.io/cilium/cilium-llvm:21.1.8-1788778131-5dd7297@sha256:a310143ff6f8b953f09112e923fa8f7ae407de545339630652a9048032cf3225
 
 FROM ${GOLANG_IMAGE} AS golang-dist

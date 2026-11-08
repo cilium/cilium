@@ -52,7 +52,7 @@ jobs:
   echo-inputs:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     name: Echo Workflow Dispatch Inputs
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Echo Workflow Dispatch Inputs
         run: |
@@ -60,7 +60,7 @@ jobs:
 
   commit-status-start:
     name: Commit Status Start
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Set initial commit status
         uses: cilium/actions/set-commit-status@687b48a0547e534dd7270d5069a5ab7967c0e907 # main
@@ -69,7 +69,7 @@ jobs:
 
   vars:
     name: Set up the churn test inputs
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       test-tag: ${{ steps.vars.outputs.test_tag }}
       test-images: ${{ steps.vars.outputs.test_images }}
@@ -170,7 +170,7 @@ jobs:
   wait-for-images:
     name: Wait for images
     needs: vars
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - name: Checkout context ref (trusted)

@@ -61,9 +61,9 @@ concurrency:
 
 env:
   # renovate: datasource=docker depName=google/cloud-sdk
-  gcloud_version: 591.0.0
+  gcloud_version: 592.0.0
   # renovate: datasource=git-refs depName=https://github.com/cilium/scaffolding branch=main
-  cmapisrv_mock_ref: 028956f9e4c4f1a0d8541a2ce410912e9cb50d38
+  cmapisrv_mock_ref: 961a49150326b7a74e1302d3505a86f7c1b248cc
 
   test_name: scale-clustermesh
   cluster_name: ${{ github.run_id }}-${{ github.run_attempt }}

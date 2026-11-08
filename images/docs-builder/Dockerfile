@@ -1,7 +1,7 @@
 # check=error=true
 
 # Python version should match the one in use in Read The Docs
-FROM docker.io/library/python:3.15-alpine3.24@sha256:20a82dbc2783112ddb91d1534603f802d222a3e63e593cd002eb2ac534e70211 AS docs-base
+FROM docker.io/library/python:3.15-alpine3.24@sha256:a0f2e268f2ce8f3709611a90054ec6a8ae31f6251f5896b8648b9bb99835e30a AS docs-base
 
 LABEL maintainer="maintainer@cilium.io"
 
